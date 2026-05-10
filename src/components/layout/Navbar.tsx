@@ -16,8 +16,16 @@ const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
     { to: '/historial',    label: 'Historial' },
     { to: '/perfil',       label: 'Mi perfil' },
   ],
-  admin: [
-    { to: '/admin', label: 'Panel Admin' },
+  super_admin: [
+    { to: '/admin',    label: 'Pedidos' },
+    { to: '/usuarios', label: 'Usuarios' },
+  ],
+  logistica: [
+    { to: '/admin', label: 'Pedidos' },
+  ],
+  comercial: [
+    { to: '/comercial', label: 'Panel' },
+    { to: '/usuarios',  label: 'Usuarios' },
   ],
   chofer: [
     { to: '/chofer',     label: 'Mis entregas' },
@@ -25,11 +33,19 @@ const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
   ],
 }
 
+const ROLE_LABELS: Record<UserRole, string> = {
+  super_admin: 'Super Admin',
+  comercial:   'Comercial',
+  logistica:   'Logística',
+  chofer:      'Chofer',
+  cliente:     'Cliente',
+}
+
 export default function Navbar() {
   const { user }        = useAuth()
   const navigate        = useNavigate()
   const [open, setOpen] = useState(false)
-  const links           = user?.role ? NAV_LINKS[user.role] : []
+  const links           = user?.rol ? NAV_LINKS[user.rol] : []
 
   const handleLogout = async () => {
     await logoutUser()
@@ -43,7 +59,6 @@ export default function Navbar() {
           🧊 Rolito
         </Link>
 
-        {/* Desktop links */}
         <div className="hidden md:flex items-center gap-1">
           {links.map((l) => (
             <NavLink
@@ -60,8 +75,13 @@ export default function Navbar() {
               {l.label}
             </NavLink>
           ))}
-          <div className="ml-3 pl-3 border-l border-border">
-            <span className="text-xs text-muted mr-3">{user?.name?.split(' ')[0]}</span>
+          <div className="ml-3 pl-3 border-l border-border flex items-center gap-3">
+            <div className="text-right">
+              <span className="text-xs text-white block">{user?.nombre?.split(' ')[0]}</span>
+              {user?.rol && (
+                <span className="text-xs text-muted">{ROLE_LABELS[user.rol]}</span>
+              )}
+            </div>
             <button
               onClick={handleLogout}
               className="text-sm text-muted hover:text-red-400 transition-colors"
@@ -71,7 +91,6 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Mobile hamburger */}
         <button
           onClick={() => setOpen((o) => !o)}
           className="md:hidden text-muted hover:text-white p-1"
@@ -80,7 +99,6 @@ export default function Navbar() {
         </button>
       </div>
 
-      {/* Mobile menu */}
       {open && (
         <div className="md:hidden border-t border-border px-4 py-3 space-y-1">
           {links.map((l) => (

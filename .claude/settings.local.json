@@ -6,7 +6,10 @@
       "Bash(Sort-Object FullName)",
       "Bash(npm --version)",
       "Bash(npm install *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(npx tsc *)",
+      "PowerShell(Get-Content \"C:\\\\Users\\\\Ariel\\\\rolito-app\\\\.env.local\" | ForEach-Object { $_.Split\\('='\\)[0] })",
+      "Bash(git add *)"
     ]
   }
 }

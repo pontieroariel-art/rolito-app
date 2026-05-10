@@ -1,60 +1,96 @@
-import { createContext, useContext, useEffect, useState, ReactNode, Dispatch, SetStateAction } from 'react'
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useReducer,
+  useRef,
+  useMemo,
+  useCallback,
+  ReactNode,
+} from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth } from '../services/firebase'
-import { getUserDocument } from '../services/userService'
-import { getChoferes } from '../services/configService'
-import { UserProfile, UserRole } from '../types'
+import { getUserDocument, createUserDocument } from '../services/userService'
+import { UserProfile } from '../types'
+
+// ── Reducer ───────────────────────────────────────────────────────────────────
+
+type State = {
+  loading: boolean        // true  = Firebase todavía no respondió
+  user: UserProfile | null
+}
+
+type Action = { type: 'RESOLVED'; user: UserProfile | null }
+
+function authReducer(_: State, action: Action): State {
+  if (action.type === 'RESOLVED') return { loading: false, user: action.user }
+  return { loading: true, user: null }
+}
+
+// ── Contexto ──────────────────────────────────────────────────────────────────
 
 interface AuthContextValue {
-  user: UserProfile | null
   loading: boolean
-  setUser: Dispatch<SetStateAction<UserProfile | null>>
+  user: UserProfile | null
+  setUser: (user: UserProfile | null) => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-const ADMIN_EMAILS = ['lucasvazquez@redonhielo.com.ar']
+// ── Provider ──────────────────────────────────────────────────────────────────
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser]       = useState<UserProfile | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [state, dispatch] = useReducer(authReducer, { loading: true, user: null })
+
+  // Evita reprocesar el mismo uid si Firebase llama dos veces (StrictMode)
+  const lastUidRef = useRef<string | null | undefined>(undefined)
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (!firebaseUser) {
-        setUser(null)
-        setLoading(false)
+      const uid = firebaseUser?.uid ?? null
+
+      if (uid === lastUidRef.current) return   // mismo usuario, no re-procesar
+      lastUidRef.current = uid
+
+      if (!firebaseUser || !firebaseUser.email) {
+        dispatch({ type: 'RESOLVED', user: null })
         return
       }
+
       try {
-        const [profile, choferEmails] = await Promise.all([
-          getUserDocument(firebaseUser.uid),
-          getChoferes(),
-        ])
-
-        let role: UserRole = profile?.role ?? 'cliente'
-        if (ADMIN_EMAILS.includes(firebaseUser.email ?? '')) role = 'admin'
-        else if (choferEmails.includes(firebaseUser.email ?? '')) role = 'chofer'
-
-        setUser(profile ? { ...profile, role } : null)
+        let profile = await getUserDocument(firebaseUser.uid)
+        if (!profile) {
+          await createUserDocument(firebaseUser.uid, {
+            email:  firebaseUser.email,
+            nombre: firebaseUser.displayName ?? '',
+            phone:  '',
+          })
+          profile = await getUserDocument(firebaseUser.uid)
+        }
+        dispatch({ type: 'RESOLVED', user: profile })
       } catch {
-        setUser(null)
-      } finally {
-        setLoading(false)
+        dispatch({ type: 'RESOLVED', user: null })
       }
     })
     return unsub
+  }, [])  // sin dependencias: se suscribe una sola vez
+
+  const setUser = useCallback((user: UserProfile | null) => {
+    dispatch({ type: 'RESOLVED', user })
   }, [])
 
-  return (
-    <AuthContext.Provider value={{ user, loading, setUser }}>
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo<AuthContextValue>(
+    () => ({ loading: state.loading, user: state.user, setUser }),
+    [state.loading, state.user, setUser],
   )
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
+
+// ── Hook ──────────────────────────────────────────────────────────────────────
 
 export const useAuth = (): AuthContextValue => {
   const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error('useAuth must be inside AuthProvider')
+  if (!ctx) throw new Error('useAuth debe usarse dentro de AuthProvider')
   return ctx
 }

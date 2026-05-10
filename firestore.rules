@@ -2,34 +2,53 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Perfil de usuario: solo el dueño puede leer/escribir; admin puede leer todos
+    // Lee el rol del usuario autenticado desde su propio documento
+    function myRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol;
+    }
+
+    // Usuarios con acceso de gestión
+    function isManager() {
+      return myRole() in ['super_admin', 'comercial'];
+    }
+
+    // Usuarios con acceso operativo (pedidos y logística)
+    function isOperator() {
+      return myRole() in ['super_admin', 'logistica'];
+    }
+
+    // ── Colección de usuarios ──────────────────────────────────────────────
     match /users/{userId} {
+      // Cada usuario puede leer y escribir su propio documento
       allow read, write: if request.auth != null && request.auth.uid == userId;
-      allow read: if request.auth != null &&
-        request.auth.token.email in ['lucasvazquez@redonhielo.com.ar'];
+
+      // super_admin y comercial pueden leer y modificar todos los usuarios
+      allow read, write: if request.auth != null && isManager();
     }
 
-    // Pedidos
+    // ── Pedidos ────────────────────────────────────────────────────────────
     match /orders/{orderId} {
-      // Clientes pueden crear pedidos y leer los suyos
+      // Cualquier usuario autenticado puede crear pedidos
       allow create: if request.auth != null;
-      allow read: if request.auth != null &&
-        request.auth.uid == resource.data.clientId;
 
-      // Admin puede leer y escribir todos
-      allow read, write: if request.auth != null &&
-        request.auth.token.email in ['lucasvazquez@redonhielo.com.ar'];
+      // Lectura: el cliente dueño, el chofer asignado, o un operador
+      allow read: if request.auth != null && (
+        request.auth.uid == resource.data.clientId ||
+        request.auth.token.email == resource.data.driverId ||
+        isOperator()
+      );
 
-      // Chofer puede leer y actualizar los pedidos asignados a su email
-      allow read, update: if request.auth != null &&
-        request.auth.token.email == resource.data.driverId;
+      // Escritura: el chofer asignado (para marcar entregado) o un operador
+      allow update, delete: if request.auth != null && (
+        request.auth.token.email == resource.data.driverId ||
+        isOperator()
+      );
     }
 
-    // Configuración (lista de choferes): lectura autenticada, escritura solo admin
+    // ── Configuración (lista de choferes, etc.) ───────────────────────────
     match /config/{docId} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null &&
-        request.auth.token.email in ['lucasvazquez@redonhielo.com.ar'];
+      allow write: if request.auth != null && isOperator();
     }
   }
 }

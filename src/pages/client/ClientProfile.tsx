@@ -7,6 +7,14 @@ import { useProfile } from '../../hooks/useProfile'
 import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
 import { StandaloneSearchBox } from '@react-google-maps/api'
 
+const ROLE_LABELS: Record<string, string> = {
+  super_admin: 'Super Admin',
+  comercial:   'Comercial',
+  logistica:   'Logística',
+  chofer:      'Chofer',
+  cliente:     'Cliente',
+}
+
 export default function ClientProfile() {
   const { user, saving, error, saveProfile } = useProfile()
   const { isLoaded }  = useGoogleMapsLoader()
@@ -14,7 +22,7 @@ export default function ClientProfile() {
   const [saved, setSaved] = useState(false)
 
   const [form, setForm] = useState({
-    name:    user?.name    ?? '',
+    nombre:  user?.nombre  ?? '',
     phone:   user?.phone   ?? '',
     address: user?.address ?? '',
   })
@@ -50,8 +58,8 @@ export default function ClientProfile() {
         <form onSubmit={handleSubmit} className="bg-surface border border-border rounded-2xl p-5 space-y-4">
           <Input
             label="Nombre completo"
-            name="name"
-            value={form.name}
+            name="nombre"
+            value={form.nombre}
             onChange={handleChange}
             placeholder="Juan García"
           />
@@ -112,10 +120,18 @@ export default function ClientProfile() {
           </Button>
         </form>
 
-        <div className="bg-surface border border-border rounded-xl p-4 text-sm">
-          <p className="text-muted">Rol: <span className="text-white capitalize">{user.role}</span></p>
-          <p className="text-muted mt-1">
-            Cuenta creada: {user.createdAt?.toDate?.().toLocaleDateString('es-AR') ?? '—'}
+        <div className="bg-surface border border-border rounded-xl p-4 text-sm space-y-1">
+          <p className="text-muted">
+            Rol: <span className="text-white">{ROLE_LABELS[user.rol] ?? user.rol}</span>
+          </p>
+          <p className="text-muted">
+            Estado: <span className="text-white capitalize">{user.estado}</span>
+          </p>
+          <p className="text-muted">
+            Cuenta creada:{' '}
+            <span className="text-white">
+              {user.fechaCreacion?.toDate?.().toLocaleDateString('es-AR') ?? '—'}
+            </span>
           </p>
         </div>
       </main>

@@ -7,7 +7,7 @@ import Button from '../../components/ui/Button'
 import { registerUser } from '../../services/authService'
 
 interface RegisterForm {
-  name: string
+  nombre: string
   email: string
   phone: string
   password: string
@@ -17,7 +17,7 @@ interface RegisterForm {
 export default function Register() {
   const navigate = useNavigate()
   const [form, setForm] = useState<RegisterForm>({
-    name: '', email: '', phone: '', password: '', confirm: '',
+    nombre: '', email: '', phone: '', password: '', confirm: '',
   })
   const [error, setError]     = useState('')
   const [loading, setLoading] = useState(false)
@@ -41,7 +41,7 @@ export default function Register() {
       await registerUser({
         email:    form.email,
         password: form.password,
-        name:     form.name,
+        nombre:   form.nombre,
         phone:    form.phone,
       })
       navigate('/')
@@ -61,8 +61,8 @@ export default function Register() {
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <Input
           label="Nombre completo"
-          name="name"
-          value={form.name}
+          name="nombre"
+          value={form.nombre}
           onChange={handleChange}
           required
           placeholder="Juan García"

@@ -25,7 +25,7 @@ interface CreateOrderParams {
 export const createOrder = ({ user, products, date, notes }: CreateOrderParams) =>
   addDoc(collection(db, ORDERS), {
     clientId:      user.uid,
-    clientName:    user.name,
+    clientName:    user.nombre,
     clientAddress: user.address,
     clientPhone:   user.phone ?? '',
     products,

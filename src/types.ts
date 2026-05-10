@@ -1,6 +1,7 @@
 import { Timestamp } from 'firebase/firestore'
 
-export type UserRole = 'admin' | 'chofer' | 'cliente'
+export type UserRole = 'super_admin' | 'comercial' | 'logistica' | 'chofer' | 'cliente'
+export type UserStatus = 'activo' | 'inactivo' | 'pendiente'
 
 export type OrderStatus =
   | 'pendiente'
@@ -23,11 +24,14 @@ export interface OrderProduct {
 export interface UserProfile {
   uid: string
   email: string
-  name: string
+  nombre: string
   phone: string
-  role: UserRole
+  rol: UserRole
+  estado: UserStatus
   address: string
-  createdAt: Timestamp | null
+  fechaCreacion: Timestamp | null
+  fechaAprobacion: Timestamp | null
+  aprobadoPor: string | null
 }
 
 export interface Order {

@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { updateUserDocument } from '../services/userService'
 import { UserProfile } from '../types'
 
-type ProfileUpdate = Pick<UserProfile, 'name' | 'phone' | 'address'>
+type ProfileUpdate = Pick<UserProfile, 'nombre' | 'phone' | 'address'>
 
 export function useProfile() {
   const { user, setUser } = useAuth()
@@ -16,7 +16,8 @@ export function useProfile() {
     setError('')
     try {
       await updateUserDocument(user.uid, data)
-      setUser((prev) => (prev ? { ...prev, ...data } : prev))
+      // setUser recibe valor directo (no updater funcional)
+      setUser({ ...user, ...data })
     } catch {
       setError('Error al guardar. Intentá de nuevo.')
     } finally {
