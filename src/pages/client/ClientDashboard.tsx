@@ -23,7 +23,7 @@ export default function ClientDashboard() {
       <main className="max-w-2xl mx-auto p-4 space-y-6 pb-10">
         <div>
           <h1 className="text-2xl font-bold">
-            Hola, {user?.name?.split(' ')[0] ?? 'amigo'} 👋
+            Hola, {user?.nombre?.split(' ')[0] ?? 'amigo'} 👋
           </h1>
           <p className="text-muted text-sm mt-1">Gestión de pedidos de hielo</p>
         </div>

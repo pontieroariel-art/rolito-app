@@ -11,18 +11,18 @@ import { createUserDocument } from './userService'
 interface RegisterParams {
   email: string
   password: string
-  name: string
+  nombre: string
   phone: string
 }
 
 export const registerUser = async ({
   email,
   password,
-  name,
+  nombre,
   phone,
 }: RegisterParams): Promise<User> => {
   const credential = await createUserWithEmailAndPassword(auth, email, password)
-  await createUserDocument(credential.user.uid, { email, name, phone })
+  await createUserDocument(credential.user.uid, { email, nombre, phone })
   return credential.user
 }
 
