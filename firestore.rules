@@ -1,0 +1,35 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Perfil de usuario: solo el dueño puede leer/escribir; admin puede leer todos
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null &&
+        request.auth.token.email in ['lucasvazquez@redonhielo.com.ar'];
+    }
+
+    // Pedidos
+    match /orders/{orderId} {
+      // Clientes pueden crear pedidos y leer los suyos
+      allow create: if request.auth != null;
+      allow read: if request.auth != null &&
+        request.auth.uid == resource.data.clientId;
+
+      // Admin puede leer y escribir todos
+      allow read, write: if request.auth != null &&
+        request.auth.token.email in ['lucasvazquez@redonhielo.com.ar'];
+
+      // Chofer puede leer y actualizar los pedidos asignados a su email
+      allow read, update: if request.auth != null &&
+        request.auth.token.email == resource.data.driverId;
+    }
+
+    // Configuración (lista de choferes): lectura autenticada, escritura solo admin
+    match /config/{docId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null &&
+        request.auth.token.email in ['lucasvazquez@redonhielo.com.ar'];
+    }
+  }
+}
