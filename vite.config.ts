@@ -10,6 +10,7 @@ export default defineConfig({
           firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore'],
           maps:     ['@react-google-maps/api'],
           router:   ['react-router-dom'],
+          charts:   ['recharts'],
         },
       },
     },

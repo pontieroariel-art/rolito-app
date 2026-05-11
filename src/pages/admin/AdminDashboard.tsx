@@ -15,8 +15,9 @@ import { auth } from '../../services/firebase'
 import { updateOrderStatus, assignDriver, updateOrderAddress } from '../../services/orderService'
 import { cleanupTestData, CleanupResult } from '../../services/cleanupService'
 import { notifyEnCamino } from '../../services/notificationService'
+import MetricsDashboard from './MetricsDashboard'
 import { ALL_STATUSES, STATUS_FLOW, STATUS_LABELS } from '../../utils/constants'
-import { formatShortDate, summarizeProducts, todayString } from '../../utils/helpers'
+import { formatShortDate, summarizeProducts } from '../../utils/helpers'
 import { Order, OrderStatus } from '../../types'
 
 // ── Map constants ─────────────────────────────────────────────────────────────
@@ -243,11 +244,6 @@ export default function AdminDashboard() {
     }
   }
 
-  const today = todayString()
-  const todayOrders = orders.filter(
-    (o) => o.date?.toDate?.().toISOString().split('T')[0] === today,
-  )
-
   const filtered = orders.filter((o) => {
     const matchStatus = filter === 'all' || o.status === filter
     const matchDate   = !dateFilter ||
@@ -336,21 +332,7 @@ export default function AdminDashboard() {
           </>
         )}
 
-        <div>
-          <p className="text-sm text-muted mb-3">
-            Hoy — {new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}
-          </p>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {ALL_STATUSES.map((s) => (
-              <div key={s} className="bg-surface border border-border rounded-xl p-3 text-center">
-                <p className="text-muted text-xs truncate">{STATUS_LABELS[s]}</p>
-                <p className="text-2xl font-bold text-accent mt-1">
-                  {todayOrders.filter((o) => o.status === s).length}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
+        <MetricsDashboard orders={orders} />
 
         <LiveMapSection orders={orders} />
 
