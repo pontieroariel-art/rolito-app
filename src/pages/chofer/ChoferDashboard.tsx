@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import Navbar from '../../components/layout/Navbar'
 import Badge from '../../components/ui/Badge'
@@ -7,7 +7,7 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useDriverOrders } from '../../hooks/useOrders'
 import { useAuth } from '../../context/AuthContext'
 import { updateOrderStatus } from '../../services/orderService'
-import { updateDriverLocation } from '../../services/locationService'
+import { updateDriverLocation, deactivateDriverLocation } from '../../services/locationService'
 import { summarizeProducts } from '../../utils/helpers'
 import { Order } from '../../types'
 
@@ -19,22 +19,40 @@ export default function ChoferDashboard() {
   const delivered   = orders.filter((o) => o.status === 'entregado')
   const hasEnCamino = orders.some((o) => o.status === 'en_camino')
 
-  // Comparte ubicación GPS cada 30 s mientras haya entregas en_camino
+  // Refs para evitar re-disparar el effect cuando cambia el nombre/teléfono
+  const nombreRef   = useRef(user?.nombreContacto || user?.nombre || '')
+  const telefonoRef = useRef(user?.telefono       || user?.phone  || '')
+  useEffect(() => {
+    nombreRef.current   = user?.nombreContacto || user?.nombre || ''
+    telefonoRef.current = user?.telefono       || user?.phone  || ''
+  })
+
+  // Comparte ubicación GPS cada 10 s mientras haya entregas en_camino.
+  // Al desmontar (logout) o cuando no quedan en_camino, marca activo: false.
   useEffect(() => {
     if (!hasEnCamino || !user?.email || !navigator.geolocation) return
 
-    const send = () =>
+    const email = user.email
+    const send  = () =>
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          updateDriverLocation(user.email!, pos.coords.latitude, pos.coords.longitude)
-        },
+        (pos) => updateDriverLocation(
+          email,
+          pos.coords.latitude,
+          pos.coords.longitude,
+          nombreRef.current,
+          telefonoRef.current,
+        ),
         () => {},
         { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 },
       )
 
     send()
-    const id = setInterval(send, 30_000)
-    return () => clearInterval(id)
+    const id = setInterval(send, 10_000)
+
+    return () => {
+      clearInterval(id)
+      deactivateDriverLocation(email).catch(console.error)
+    }
   }, [hasEnCamino, user?.email])
 
   if (loading) return <><Navbar /><LoadingSpinner fullScreen /></>

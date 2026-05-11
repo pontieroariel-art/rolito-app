@@ -1,29 +1,30 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { GoogleMap, Marker } from '@react-google-maps/api'
+import { GoogleMap, Marker, DirectionsRenderer } from '@react-google-maps/api'
 import Navbar from '../../components/layout/Navbar'
 import Badge from '../../components/ui/Badge'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useClientOrders } from '../../hooks/useOrders'
 import { useAuth } from '../../context/AuthContext'
 import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
-import { subscribeDriverLocation } from '../../services/locationService'
+import { subscribeDriverLocation, DriverLocation } from '../../services/locationService'
+import { notifyCerca } from '../../services/notificationService'
 import { formatShortDate, summarizeProducts } from '../../utils/helpers'
 import { Order, getPrimaryAddress } from '../../types'
 
-// ── Estilos del mapa ──────────────────────────────────────────────────────────
+// ── Constantes ────────────────────────────────────────────────────────────────
 
 const MAP_CONTAINER: React.CSSProperties = { width: '100%', height: '100%' }
 
 const DARK_MAP_STYLES: google.maps.MapTypeStyle[] = [
-  { elementType: 'geometry',           stylers: [{ color: '#0A1628' }] },
+  { elementType: 'geometry',     stylers: [{ color: '#0A1628' }] },
   { elementType: 'labels.text.stroke', stylers: [{ color: '#0A1628' }] },
   { elementType: 'labels.text.fill',   stylers: [{ color: '#74a0c8' }] },
-  { featureType: 'road',               elementType: 'geometry',         stylers: [{ color: '#1E3A5F' }] },
-  { featureType: 'road.highway',       elementType: 'geometry',         stylers: [{ color: '#163868' }] },
-  { featureType: 'water',              elementType: 'geometry',         stylers: [{ color: '#05101e' }] },
-  { featureType: 'poi',                elementType: 'geometry',         stylers: [{ color: '#0e1f38' }] },
-  { featureType: 'transit',            elementType: 'geometry',         stylers: [{ color: '#1E3A5F' }] },
+  { featureType: 'road',         elementType: 'geometry', stylers: [{ color: '#1E3A5F' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#163868' }] },
+  { featureType: 'water',        elementType: 'geometry', stylers: [{ color: '#05101e' }] },
+  { featureType: 'poi',          elementType: 'geometry', stylers: [{ color: '#0e1f38' }] },
+  { featureType: 'transit',      elementType: 'geometry', stylers: [{ color: '#1E3A5F' }] },
 ]
 
 const BA_DEFAULT = { lat: -34.6037, lng: -58.3816 }
@@ -34,6 +35,21 @@ const TRUCK_ICON_SVG = encodeURIComponent(
   '<text x="22" y="30" font-size="22" text-anchor="middle">🚛</text>' +
   '</svg>',
 )
+
+// ── Haversine ─────────────────────────────────────────────────────────────────
+
+type Coords = { lat: number; lng: number }
+
+function haversineMeters(a: Coords, b: Coords): number {
+  const R      = 6_371_000
+  const toRad  = (x: number) => (x * Math.PI) / 180
+  const dLat   = toRad(b.lat - a.lat)
+  const dLng   = toRad(b.lng - a.lng)
+  const h      =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(h))
+}
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
@@ -66,7 +82,13 @@ export default function ClientDashboard() {
           <StatCard label="Pedidos entregados" value={delivered.length} color="text-success" />
         </div>
 
-        {enCaminoOrder && <TruckTracker order={enCaminoOrder} />}
+        {enCaminoOrder && (
+          <TruckTracker
+            order={enCaminoOrder}
+            clientEmail={user?.email ?? ''}
+            clientNombre={(user?.nombreContacto || user?.nombre || '').split(' ')[0] || 'Cliente'}
+          />
+        )}
 
         {!hasAddress && (
           <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 text-sm">
@@ -119,23 +141,39 @@ export default function ClientDashboard() {
 
 // ── TruckTracker ──────────────────────────────────────────────────────────────
 
-type Coords = { lat: number; lng: number }
+function TruckTracker({
+  order,
+  clientEmail,
+  clientNombre,
+}: {
+  order:        Order
+  clientEmail:  string
+  clientNombre: string
+}) {
+  const { isLoaded }  = useGoogleMapsLoader()
+  const mapRef        = useRef<google.maps.Map | null>(null)
+  const hasFitted     = useRef(false)
+  const hasSentNotif  = useRef(false)
 
-function TruckTracker({ order }: { order: Order }) {
-  const { isLoaded }                    = useGoogleMapsLoader()
-  const mapRef                          = useRef<google.maps.Map | null>(null)
-  const hasFitted                       = useRef(false)
-  const [truckPos,    setTruckPos]      = useState<Coords | null>(null)
-  const [deliveryPos, setDeliveryPos]   = useState<Coords | null>(null)
+  const [driverData,   setDriverData]   = useState<DriverLocation | null>(null)
+  const [deliveryPos,  setDeliveryPos]  = useState<Coords | null>(null)
+  const [directions,   setDirections]   = useState<google.maps.DirectionsResult | null>(null)
+  const [eta,          setEta]          = useState<string | null>(null)
 
-  // Suscripción en tiempo real a la ubicación del chofer
+  const truckPos: Coords | null = driverData ? { lat: driverData.lat, lng: driverData.lng } : null
+
+  // Distancia en metros entre camión y destino
+  const distance =
+    truckPos && deliveryPos ? haversineMeters(truckPos, deliveryPos) : null
+
+  // ── Suscripción al chofer ──────────────────────────────────────────────────
   useEffect(() => {
     if (!order.driverId) return
     hasFitted.current = false
-    return subscribeDriverLocation(order.driverId, setTruckPos)
+    return subscribeDriverLocation(order.driverId, setDriverData)
   }, [order.driverId])
 
-  // Geocodifica la dirección de entrega una sola vez
+  // ── Geocodificar dirección de entrega (una sola vez) ──────────────────────
   useEffect(() => {
     if (!isLoaded || !order.clientAddress) return
     const geocoder = new google.maps.Geocoder()
@@ -147,7 +185,26 @@ function TruckTracker({ order }: { order: Order }) {
     })
   }, [isLoaded, order.clientAddress])
 
-  // Ajusta el encuadre del mapa la primera vez que se conocen ambas posiciones
+  // ── Calcular ruta y ETA cuando el camión se mueve ────────────────────────
+  useEffect(() => {
+    if (!isLoaded || !truckPos || !deliveryPos) return
+    const svc = new google.maps.DirectionsService()
+    svc.route(
+      {
+        origin:      truckPos,
+        destination: deliveryPos,
+        travelMode:  google.maps.TravelMode.DRIVING,
+      },
+      (result, status) => {
+        if (status === 'OK' && result) {
+          setDirections(result)
+          setEta(result.routes[0]?.legs[0]?.duration?.text ?? null)
+        }
+      },
+    )
+  }, [isLoaded, truckPos, deliveryPos])
+
+  // ── Auto-fit al mapa (una sola vez) ──────────────────────────────────────
   useEffect(() => {
     if (!mapRef.current || hasFitted.current) return
     if (truckPos && deliveryPos) {
@@ -163,8 +220,24 @@ function TruckTracker({ order }: { order: Order }) {
     }
   }, [truckPos, deliveryPos])
 
+  // ── Notificación de proximidad (1 km, una sola vez) ──────────────────────
+  useEffect(() => {
+    if (!distance || hasSentNotif.current || !clientEmail) return
+    if (distance < 1000) {
+      hasSentNotif.current = true
+      notifyCerca({
+        email:    clientEmail,
+        nombre:   clientNombre,
+        products: order.products,
+      }).catch(console.error)
+    }
+  }, [distance, clientEmail, clientNombre, order.products])
+
+  const isNearby = distance !== null && distance < 500
+
   return (
     <section className="space-y-3">
+      {/* Header */}
       <div className="flex items-center gap-2">
         <span className="relative flex h-2.5 w-2.5">
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" />
@@ -172,11 +245,43 @@ function TruckTracker({ order }: { order: Order }) {
         </span>
         <h2 className="text-lg font-semibold">Tu pedido está en camino</h2>
       </div>
-      <p className="text-muted text-sm -mt-1">Ubicación del camión en tiempo real</p>
 
+      {/* Alerta de proximidad 500m */}
+      {isNearby && (
+        <div className="bg-accent/10 border border-accent/30 rounded-xl px-4 py-3 flex items-center gap-3">
+          <span className="text-2xl">⏱️</span>
+          <p className="text-accent font-semibold text-sm">Tu pedido llega en minutos</p>
+        </div>
+      )}
+
+      {/* Info chofer + ETA */}
+      {(driverData?.nombreChofer || eta) && (
+        <div className="bg-surface border border-border rounded-xl px-4 py-3 flex justify-between items-center gap-3">
+          <div>
+            {driverData?.nombreChofer && (
+              <p className="text-sm font-medium">{driverData.nombreChofer}</p>
+            )}
+            {eta && (
+              <p className="text-muted text-xs mt-0.5">
+                Tiempo estimado: <span className="text-white font-medium">{eta}</span>
+              </p>
+            )}
+          </div>
+          {driverData?.telefonoChofer && (
+            <a
+              href={`tel:${driverData.telefonoChofer}`}
+              className="flex items-center gap-1.5 text-accent text-sm hover:underline shrink-0"
+            >
+              📞 Llamar
+            </a>
+          )}
+        </div>
+      )}
+
+      {/* Mapa */}
       <div
         className="rounded-xl overflow-hidden border border-accent/30"
-        style={{ height: '220px' }}
+        style={{ height: '240px' }}
       >
         {isLoaded ? (
           <GoogleMap
@@ -184,13 +289,29 @@ function TruckTracker({ order }: { order: Order }) {
             center={deliveryPos ?? truckPos ?? BA_DEFAULT}
             zoom={13}
             options={{
-              disableDefaultUI:  true,
-              zoomControl:       true,
-              gestureHandling:   'cooperative',
-              styles:            DARK_MAP_STYLES,
+              disableDefaultUI: true,
+              zoomControl:      true,
+              gestureHandling:  'cooperative',
+              styles:           DARK_MAP_STYLES,
             }}
             onLoad={(m) => { mapRef.current = m }}
           >
+            {/* Ruta */}
+            {directions && (
+              <DirectionsRenderer
+                directions={directions}
+                options={{
+                  suppressMarkers:  true,
+                  polylineOptions: {
+                    strokeColor:   '#00C2FF',
+                    strokeWeight:  4,
+                    strokeOpacity: 0.85,
+                  },
+                }}
+              />
+            )}
+
+            {/* Pin camión */}
             {truckPos && (
               <Marker
                 position={truckPos}
@@ -201,8 +322,17 @@ function TruckTracker({ order }: { order: Order }) {
                 }}
               />
             )}
+
+            {/* Pin destino */}
             {deliveryPos && (
-              <Marker position={deliveryPos} />
+              <Marker
+                position={deliveryPos}
+                label={{ text: '📍', fontSize: '20px' }}
+                icon={{
+                  url:        'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>'),
+                  scaledSize: new google.maps.Size(1, 1),
+                }}
+              />
             )}
           </GoogleMap>
         ) : (
