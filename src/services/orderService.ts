@@ -11,7 +11,7 @@ import {
   Timestamp,
 } from 'firebase/firestore'
 import { db } from './firebase'
-import { Order, OrderProduct, UserProfile } from '../types'
+import { Order, OrderProduct, UserProfile, getPrimaryAddress } from '../types'
 
 const ORDERS = 'orders'
 
@@ -22,20 +22,25 @@ interface CreateOrderParams {
   notes: string
 }
 
-export const createOrder = ({ user, products, date, notes }: CreateOrderParams) =>
-  addDoc(collection(db, ORDERS), {
-    clientId:      user.uid,
-    clientName:    user.nombre,
-    clientAddress: user.address,
-    clientPhone:   user.phone ?? '',
+export const createOrder = ({ user, products, date, notes }: CreateOrderParams) => {
+  const primaryAddr    = getPrimaryAddress(user)
+  const clientAddress  = primaryAddr?.address  || user.address  || ''
+  const clientName     = user.razonSocial      || user.nombre   || ''
+  const clientPhone    = user.telefono         || user.phone    || ''
+  return addDoc(collection(db, ORDERS), {
+    clientId: user.uid,
+    clientName,
+    clientAddress,
+    clientPhone,
     products,
-    status:        'pendiente',
-    date:          Timestamp.fromDate(new Date(date)),
-    driverId:      null,
-    notes:         notes || '',
-    createdAt:     serverTimestamp(),
-    updatedAt:     serverTimestamp(),
+    status:    'pendiente',
+    date:      Timestamp.fromDate(new Date(date)),
+    driverId:  null,
+    notes:     notes || '',
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
   })
+}
 
 export const updateOrderStatus = (orderId: string, status: string): Promise<void> =>
   updateDoc(doc(db, ORDERS, orderId), { status, updatedAt: serverTimestamp() })

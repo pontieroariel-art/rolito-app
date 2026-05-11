@@ -7,7 +7,7 @@ import { PRODUCTS } from '../../utils/constants'
 import { summarizeProducts } from '../../utils/helpers'
 import { useAuth } from '../../context/AuthContext'
 import { createOrder } from '../../services/orderService'
-import { Product } from '../../types'
+import { Product, getPrimaryAddress } from '../../types'
 
 export default function NewOrder() {
   const { user }  = useAuth()
@@ -25,7 +25,9 @@ export default function NewOrder() {
     .filter((p) => (quantities[p.id] ?? 0) > 0)
     .map((p) => ({ name: p.name, quantity: quantities[p.id] }))
 
-  const canSubmit = selected.length > 0 && !!user?.address
+  const primaryAddr    = user ? getPrimaryAddress(user) : null
+  const deliveryAddress = primaryAddr?.address ?? user?.address ?? ''
+  const canSubmit = selected.length > 0 && !!deliveryAddress
 
   const handleSubmit = async () => {
     if (!user) return
@@ -52,11 +54,11 @@ export default function NewOrder() {
           <p className="text-muted text-sm mt-1">Seleccioná los productos que necesitás</p>
         </div>
 
-        {!user?.address && (
+        {!deliveryAddress && (
           <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 text-sm">
             <p className="text-yellow-400 font-medium">⚠ Sin dirección de entrega</p>
             <p className="text-yellow-400/70 mt-1">
-              Agregá tu dirección en{' '}
+              Agregá una dirección en{' '}
               <Link to="/perfil" className="underline hover:text-yellow-300">
                 Mi perfil
               </Link>{' '}
@@ -137,7 +139,7 @@ export default function NewOrder() {
             <div className="border-t border-border pt-3 space-y-2">
               <div className="flex justify-between">
                 <span className="text-muted">Dirección</span>
-                <span className="text-right max-w-[60%]">{user?.address}</span>
+                <span className="text-right max-w-[60%]">{deliveryAddress}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted">Fecha</span>

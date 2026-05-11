@@ -21,19 +21,42 @@ export interface OrderProduct {
   quantity: number
 }
 
-export interface UserProfile {
-  uid: string
-  email: string
+export interface DeliveryAddress {
+  id: string
   nombre: string
-  phone: string
-  rol: UserRole
-  estado: UserStatus
   address: string
   lat: number | null
   lng: number | null
+  horarioApertura: string
+  horarioCierre: string
+  contactoNombre: string
+  contactoTelefono: string
+  esPrincipal: boolean
+}
+
+export interface UserProfile {
+  uid: string
+  email: string
+  nombre: string           // backward compat (used by existing chofer/admin code)
+  razonSocial: string
+  nombreContacto: string
+  telefono: string         // WhatsApp
+  phone: string            // backward compat
+  cuit: string
+  addresses: DeliveryAddress[]
+  address: string          // backward compat (old single address field)
+  lat: number | null       // backward compat
+  lng: number | null       // backward compat
+  rol: UserRole
+  estado: UserStatus
   fechaCreacion: Timestamp | null
   fechaAprobacion: Timestamp | null
   aprobadoPor: string | null
+}
+
+export function getPrimaryAddress(user: UserProfile): DeliveryAddress | null {
+  if (!user.addresses || user.addresses.length === 0) return null
+  return user.addresses.find((a) => a.esPrincipal) ?? user.addresses[0]
 }
 
 export interface Order {
