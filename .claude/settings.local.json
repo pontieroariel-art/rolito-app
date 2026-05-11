@@ -14,7 +14,8 @@
       "Bash(git push *)",
       "Bash(git pull *)",
       "Bash(git stash *)",
-      "Bash(dir C:\\\\Users\\\\Ariel\\\\rolito-app *)"
+      "Bash(dir C:\\\\Users\\\\Ariel\\\\rolito-app *)",
+      "Bash(node *)"
     ]
   }
 }
