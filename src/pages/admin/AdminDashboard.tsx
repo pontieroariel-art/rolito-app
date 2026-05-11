@@ -216,8 +216,6 @@ function LiveMapSection({ orders }: { orders: Order[] }) {
 
 type UseChoferesReturn = ReturnType<typeof useChoferes>
 
-const SUPERADMIN_EMAIL = 'pontieroariel@gmail.com'
-
 export default function AdminDashboard() {
   const { orders, loading } = useAllOrders()
   const { user }            = useAuth()
@@ -230,12 +228,14 @@ export default function AdminDashboard() {
   const [cleanupLoading, setCleanupLoading] = useState(false)
   const [cleanupResult,  setCleanupResult]  = useState<CleanupResult | null>(null)
 
-  const isSuperAdmin = user?.email === SUPERADMIN_EMAIL
+  // rol='super_admin' solo se asigna a pontieroariel@gmail.com (ver BOOTSTRAP_ROLES en userService)
+  const isSuperAdmin = user?.rol === 'super_admin'
 
   const handleCleanup = async () => {
+    if (!user?.uid) return
     setCleanupLoading(true)
     try {
-      const result = await cleanupTestData()
+      const result = await cleanupTestData(user.uid)
       setCleanupResult(result)
     } finally {
       setCleanupLoading(false)

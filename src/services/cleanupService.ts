@@ -1,16 +1,14 @@
 import { collection, getDocs, writeBatch } from 'firebase/firestore'
 import { db } from './firebase'
 
-const SUPERADMIN_EMAIL = 'pontieroariel@gmail.com'
-
-// Deletes all documents in a collection, optionally skipping some by predicate.
+// Deletes all docs in a collection, optionally keeping docs by predicate.
 // Works in batches of 499 (Firestore commit limit is 500 ops).
 async function batchDeleteCollection(
   name: string,
-  keep?: (data: Record<string, unknown>) => boolean,
+  keepId?: (id: string) => boolean,
 ): Promise<number> {
-  const snap = await getDocs(collection(db, name))
-  const toDelete = keep ? snap.docs.filter((d) => !keep(d.data() as Record<string, unknown>)) : snap.docs
+  const snap     = await getDocs(collection(db, name))
+  const toDelete = keepId ? snap.docs.filter((d) => !keepId(d.id)) : snap.docs
 
   for (let i = 0; i < toDelete.length; i += 499) {
     const batch = writeBatch(db)
@@ -21,15 +19,16 @@ async function batchDeleteCollection(
 }
 
 export interface CleanupResult {
-  users:      number
-  orders:     number
+  users:       number
+  orders:      number
   ubicaciones: number
-  clientes:   number
+  clientes:    number
 }
 
-export async function cleanupTestData(): Promise<CleanupResult> {
+// myUid: the UID of the currently-logged-in admin — their doc is never deleted.
+export async function cleanupTestData(myUid: string): Promise<CleanupResult> {
   const [users, orders, ubicaciones] = await Promise.all([
-    batchDeleteCollection('users', (d) => d['email'] === SUPERADMIN_EMAIL),
+    batchDeleteCollection('users', (id) => id === myUid),
     batchDeleteCollection('orders'),
     batchDeleteCollection('ubicaciones'),
   ])
