@@ -62,7 +62,9 @@ service cloud.firestore {
     // ── Ubicaciones en tiempo real (GPS del chofer) ────────────────────────
     // El documento ID es el email del chofer
     match /ubicaciones/{driverEmail} {
-      allow write: if request.auth != null && request.auth.token.email == driverEmail;
+      allow write: if request.auth != null && (
+        request.auth.token.email == driverEmail || isManager()
+      );
       allow read:  if request.auth != null;
     }
   }

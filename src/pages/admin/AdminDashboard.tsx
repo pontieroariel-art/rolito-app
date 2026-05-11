@@ -9,7 +9,10 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useAllOrders } from '../../hooks/useOrders'
 import { useChoferes } from '../../hooks/useChoferes'
 import { useNotificationEmails } from '../../hooks/useNotificationEmails'
+import { useAuth } from '../../context/AuthContext'
+import Modal from '../../components/ui/Modal'
 import { updateOrderStatus, assignDriver, updateOrderAddress } from '../../services/orderService'
+import { cleanupTestData, CleanupResult } from '../../services/cleanupService'
 import { notifyEnCamino } from '../../services/notificationService'
 import { ALL_STATUSES, STATUS_FLOW, STATUS_LABELS } from '../../utils/constants'
 import { formatShortDate, summarizeProducts, todayString } from '../../utils/helpers'
@@ -213,13 +216,31 @@ function LiveMapSection({ orders }: { orders: Order[] }) {
 
 type UseChoferesReturn = ReturnType<typeof useChoferes>
 
+const SUPERADMIN_EMAIL = 'pontieroariel@gmail.com'
+
 export default function AdminDashboard() {
   const { orders, loading } = useAllOrders()
+  const { user }            = useAuth()
   const choferes            = useChoferes()
   const notifEmails         = useNotificationEmails()
   const [search, setSearch]         = useState('')
   const [filter, setFilter]         = useState<OrderStatus | 'all'>('all')
   const [dateFilter, setDateFilter] = useState('')
+  const [cleanupModal,  setCleanupModal]  = useState(false)
+  const [cleanupLoading, setCleanupLoading] = useState(false)
+  const [cleanupResult,  setCleanupResult]  = useState<CleanupResult | null>(null)
+
+  const isSuperAdmin = user?.email === SUPERADMIN_EMAIL
+
+  const handleCleanup = async () => {
+    setCleanupLoading(true)
+    try {
+      const result = await cleanupTestData()
+      setCleanupResult(result)
+    } finally {
+      setCleanupLoading(false)
+    }
+  }
 
   const today = todayString()
   const todayOrders = orders.filter(
@@ -249,11 +270,70 @@ export default function AdminDashboard() {
             <h1 className="text-2xl font-bold">Panel Admin</h1>
             <p className="text-muted text-sm">Gestión de pedidos y logística</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <NotificationEmailManager notifEmails={notifEmails} />
             <ChoferManager choferes={choferes} />
+            {isSuperAdmin && (
+              <Button
+                variant="danger"
+                onClick={() => { setCleanupResult(null); setCleanupModal(true) }}
+                className="text-sm"
+              >
+                Limpiar datos de prueba
+              </Button>
+            )}
           </div>
         </div>
+
+        {isSuperAdmin && (
+          <Modal
+            open={cleanupModal}
+            onClose={() => { if (!cleanupLoading) setCleanupModal(false) }}
+            title="Limpiar datos de prueba"
+          >
+            {cleanupResult ? (
+              <div className="space-y-4">
+                <div className="bg-success/10 border border-success/30 rounded-xl p-4 space-y-1 text-sm">
+                  <p className="font-semibold text-success mb-2">Limpieza completada</p>
+                  <p className="text-muted">Usuarios eliminados: <span className="text-white font-medium">{cleanupResult.users}</span></p>
+                  <p className="text-muted">Pedidos eliminados: <span className="text-white font-medium">{cleanupResult.orders}</span></p>
+                  <p className="text-muted">Ubicaciones eliminadas: <span className="text-white font-medium">{cleanupResult.ubicaciones}</span></p>
+                  {cleanupResult.clientes > 0 && (
+                    <p className="text-muted">Clientes eliminados: <span className="text-white font-medium">{cleanupResult.clientes}</span></p>
+                  )}
+                </div>
+                <Button className="w-full" onClick={() => setCleanupModal(false)}>
+                  Cerrar
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-sm space-y-2">
+                  <p className="text-red-400 font-semibold">Esta acción no se puede deshacer.</p>
+                  <p className="text-muted">Se borrarán todos los usuarios de prueba (excepto tu cuenta), todos los pedidos, y todas las ubicaciones.</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setCleanupModal(false)}
+                    className="flex-1"
+                    disabled={cleanupLoading}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    variant="danger"
+                    onClick={handleCleanup}
+                    loading={cleanupLoading}
+                    className="flex-1"
+                  >
+                    Sí, limpiar todo
+                  </Button>
+                </div>
+              </div>
+            )}
+          </Modal>
+        )}
 
         <div>
           <p className="text-sm text-muted mb-3">
