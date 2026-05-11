@@ -1,5 +1,5 @@
 import { useState, useRef, FormEvent } from 'react'
-import { GoogleMap, Marker, StandaloneSearchBox } from '@react-google-maps/api'
+import { GoogleMap, Marker, Autocomplete } from '@react-google-maps/api'
 import Navbar from '../../components/layout/Navbar'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
@@ -300,7 +300,7 @@ function AddressForm({
   onSave: (addr: DeliveryAddress) => void
   onCancel: () => void
 }) {
-  const searchBoxRef = useRef<google.maps.places.SearchBox | null>(null)
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null)
   const [form, setForm] = useState<AddrFormState>({
     nombre:          '',
     address:         '',
@@ -313,13 +313,12 @@ function AddressForm({
     esPrincipal:     !hasPrincipal,
   })
 
-  const handlePlacesChanged = () => {
-    const places = searchBoxRef.current?.getPlaces()
-    if (!places?.[0]) return
-    const place   = places[0]
+  const handlePlaceChanged = () => {
+    const place = autocompleteRef.current?.getPlace()
+    if (!place?.geometry?.location) return
     const address = place.formatted_address ?? ''
-    const lat     = place.geometry?.location?.lat() ?? null
-    const lng     = place.geometry?.location?.lng() ?? null
+    const lat     = place.geometry.location.lat()
+    const lng     = place.geometry.location.lng()
     setForm((f) => ({ ...f, address, lat, lng }))
   }
 
@@ -346,9 +345,13 @@ function AddressForm({
       <div className="flex flex-col gap-1">
         <label className="text-sm font-medium text-gray-300">Dirección</label>
         {isLoaded ? (
-          <StandaloneSearchBox
-            onLoad={(ref) => { searchBoxRef.current = ref }}
-            onPlacesChanged={handlePlacesChanged}
+          <Autocomplete
+            onLoad={(ac) => { autocompleteRef.current = ac }}
+            onPlaceChanged={handlePlaceChanged}
+            options={{
+              componentRestrictions: { country: 'ar' },
+              fields: ['formatted_address', 'geometry'],
+            }}
           >
             <input
               type="text"
@@ -360,7 +363,7 @@ function AddressForm({
               required
               className="bg-bg border border-border rounded-lg px-3 py-2 text-white placeholder-muted w-full focus:outline-none focus:ring-2 focus:ring-accent transition-colors"
             />
-          </StandaloneSearchBox>
+          </Autocomplete>
         ) : (
           <input
             type="text"
