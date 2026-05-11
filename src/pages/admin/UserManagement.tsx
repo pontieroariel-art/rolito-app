@@ -9,6 +9,7 @@ import {
   updateUserStatus,
   approveUser,
 } from '../../services/userService'
+import { notifyAprobado } from '../../services/notificationService'
 import { UserProfile, UserRole, UserStatus } from '../../types'
 
 const ROLE_LABELS: Record<UserRole, string> = {
@@ -76,6 +77,9 @@ export default function UserManagement() {
     if (!currentUser) return
     await approveUser(u.uid, currentUser.uid)
     setUsers((prev) => prev.map((p) => p.uid === u.uid ? { ...p, estado: 'activo' as UserStatus } : p))
+    if (u.email) {
+      notifyAprobado(u.email, u.nombreContacto || u.nombre || '').catch(console.error)
+    }
   }
 
   const pendingCount = users.filter((u) => u.estado === 'pendiente').length

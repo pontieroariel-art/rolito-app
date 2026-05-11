@@ -28,7 +28,8 @@ export const createOrder = ({ user, products, date, notes }: CreateOrderParams) 
   const clientName     = user.razonSocial      || user.nombre   || ''
   const clientPhone    = user.telefono         || user.phone    || ''
   return addDoc(collection(db, ORDERS), {
-    clientId: user.uid,
+    clientId:    user.uid,
+    clientEmail: user.email,
     clientName,
     clientAddress,
     clientPhone,

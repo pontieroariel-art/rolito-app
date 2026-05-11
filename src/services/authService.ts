@@ -7,6 +7,7 @@ import {
 } from 'firebase/auth'
 import { auth } from './firebase'
 import { createUserDocument } from './userService'
+import { notifyRegistro } from './notificationService'
 
 interface RegisterParams {
   email: string
@@ -23,6 +24,7 @@ export const registerUser = async ({
 }: RegisterParams): Promise<User> => {
   const credential = await createUserWithEmailAndPassword(auth, email, password)
   await createUserDocument(credential.user.uid, { email, nombre, phone })
+  notifyRegistro(email, nombre).catch(console.error)
   return credential.user
 }
 

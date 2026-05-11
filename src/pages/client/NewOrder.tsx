@@ -7,6 +7,8 @@ import { PRODUCTS } from '../../utils/constants'
 import { summarizeProducts } from '../../utils/helpers'
 import { useAuth } from '../../context/AuthContext'
 import { createOrder } from '../../services/orderService'
+import { getNotificationEmails } from '../../services/configService'
+import { notifyPedidoRecibido, notifyAdminNuevoPedido } from '../../services/notificationService'
 import { Product, getPrimaryAddress } from '../../types'
 
 export default function NewOrder() {
@@ -35,6 +37,34 @@ export default function NewOrder() {
     setError('')
     try {
       await createOrder({ user, products: selected, date, notes })
+
+      // Fire-and-forget — no bloquean la navegación
+      const nombre       = (user.nombreContacto || user.nombre || '').split(' ')[0] || 'Cliente'
+      const clientName   = user.razonSocial   || user.nombre   || ''
+      const clientPhone  = user.telefono      || user.phone    || ''
+
+      notifyPedidoRecibido({
+        email:    user.email,
+        nombre,
+        products: selected,
+        date,
+        notes:    notes || undefined,
+      }).catch(console.error)
+
+      getNotificationEmails().then((adminEmails) => {
+        if (adminEmails.length > 0) {
+          notifyAdminNuevoPedido({
+            adminEmails,
+            clientName,
+            clientAddress: deliveryAddress,
+            clientPhone,
+            products:      selected,
+            date,
+            notes:         notes || undefined,
+          }).catch(console.error)
+        }
+      }).catch(console.error)
+
       navigate('/dashboard')
     } catch {
       setError('Error al crear el pedido. Intentá de nuevo.')

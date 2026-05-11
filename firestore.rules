@@ -51,6 +51,14 @@ service cloud.firestore {
       allow write: if request.auth != null && isOperator();
     }
 
+    // ── Emails de notificación admin ──────────────────────────────────────────
+    // Lectura: cualquier usuario autenticado (el cliente necesita los emails al crear un pedido)
+    // Escritura: solo operadores
+    match /configuracion/{docId} {
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null && isOperator();
+    }
+
     // ── Ubicaciones en tiempo real (GPS del chofer) ────────────────────────
     // El documento ID es el email del chofer
     match /ubicaciones/{driverEmail} {

@@ -18,6 +18,8 @@
     "zustand": "^5.0.13"
   },
   "devDependencies": {
+    "@netlify/functions": "^2.8.2",
+    "resend":             "^4.0.0",
     "@types/google.maps": "^3.64.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

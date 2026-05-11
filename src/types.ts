@@ -62,6 +62,7 @@ export function getPrimaryAddress(user: UserProfile): DeliveryAddress | null {
 export interface Order {
   id: string
   clientId: string
+  clientEmail: string
   clientName: string
   clientAddress: string
   clientPhone: string
