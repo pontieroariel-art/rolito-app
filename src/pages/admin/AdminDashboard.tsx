@@ -11,6 +11,7 @@ import { useChoferes } from '../../hooks/useChoferes'
 import { useNotificationEmails } from '../../hooks/useNotificationEmails'
 import { useAuth } from '../../context/AuthContext'
 import Modal from '../../components/ui/Modal'
+import { auth } from '../../services/firebase'
 import { updateOrderStatus, assignDriver, updateOrderAddress } from '../../services/orderService'
 import { cleanupTestData, CleanupResult } from '../../services/cleanupService'
 import { notifyEnCamino } from '../../services/notificationService'
@@ -228,8 +229,8 @@ export default function AdminDashboard() {
   const [cleanupLoading, setCleanupLoading] = useState(false)
   const [cleanupResult,  setCleanupResult]  = useState<CleanupResult | null>(null)
 
-  // rol='super_admin' solo se asigna a pontieroariel@gmail.com (ver BOOTSTRAP_ROLES en userService)
-  const isSuperAdmin = user?.rol === 'super_admin'
+  // Usa el email del token de Firebase Auth — no depende del doc de Firestore
+  const isSuperAdmin = auth.currentUser?.email === 'pontieroariel@gmail.com'
 
   const handleCleanup = async () => {
     if (!user?.uid) return
@@ -273,20 +274,19 @@ export default function AdminDashboard() {
           <div className="flex gap-2 flex-wrap">
             <NotificationEmailManager notifEmails={notifEmails} />
             <ChoferManager choferes={choferes} />
-            {isSuperAdmin && (
-              <Button
-                variant="danger"
-                onClick={() => { setCleanupResult(null); setCleanupModal(true) }}
-                className="text-sm"
-              >
-                Limpiar datos de prueba
-              </Button>
-            )}
           </div>
         </div>
 
         {isSuperAdmin && (
-          <Modal
+          <>
+            <button
+              onClick={() => { setCleanupResult(null); setCleanupModal(true) }}
+              className="w-full text-left bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-sm text-red-400 hover:bg-red-500/20 transition-colors"
+            >
+              Limpiar datos de prueba →
+            </button>
+
+            <Modal
             open={cleanupModal}
             onClose={() => { if (!cleanupLoading) setCleanupModal(false) }}
             title="Limpiar datos de prueba"
@@ -333,6 +333,7 @@ export default function AdminDashboard() {
               </div>
             )}
           </Modal>
+          </>
         )}
 
         <div>
