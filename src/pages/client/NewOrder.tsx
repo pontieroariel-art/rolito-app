@@ -177,10 +177,15 @@ function ProductRow({
   qty: number
   onChange: (qty: number) => void
 }) {
+  const handleInput = (e: ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/\D/g, '')
+    onChange(raw === '' ? 0 : Math.max(0, parseInt(raw, 10)))
+  }
+
   return (
     <div className="bg-surface border border-border rounded-xl p-4 flex justify-between items-center">
       <span className="font-medium text-sm">{product.name}</span>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         <button
           onClick={() => onChange(qty - 1)}
           disabled={qty === 0}
@@ -188,7 +193,15 @@ function ProductRow({
         >
           −
         </button>
-        <span className="w-6 text-center font-bold text-lg">{qty}</span>
+        <input
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          value={qty > 0 ? String(qty) : ''}
+          placeholder="0"
+          onChange={handleInput}
+          className="w-12 text-center font-bold text-lg bg-transparent border-b border-border focus:outline-none focus:border-accent text-white placeholder-muted"
+        />
         <button
           onClick={() => onChange(qty + 1)}
           className="w-9 h-9 rounded-full bg-bg border border-border text-lg hover:border-accent transition-colors flex items-center justify-center"

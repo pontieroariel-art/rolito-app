@@ -1,11 +1,11 @@
 import { useState, useRef, ChangeEvent, FormEvent } from 'react'
+import { GoogleMap, Marker, StandaloneSearchBox } from '@react-google-maps/api'
 import Navbar from '../../components/layout/Navbar'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useProfile } from '../../hooks/useProfile'
 import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
-import { StandaloneSearchBox } from '@react-google-maps/api'
 
 const ROLE_LABELS: Record<string, string> = {
   super_admin: 'Super Admin',
@@ -14,6 +14,25 @@ const ROLE_LABELS: Record<string, string> = {
   chofer:      'Chofer',
   cliente:     'Cliente',
 }
+
+const MAP_OPTIONS: google.maps.MapOptions = {
+  disableDefaultUI:  true,
+  zoomControl:       true,
+  gestureHandling:   'none',
+  styles: [
+    { elementType: 'geometry',           stylers: [{ color: '#0A1628' }] },
+    { elementType: 'labels.text.stroke', stylers: [{ color: '#0A1628' }] },
+    { elementType: 'labels.text.fill',   stylers: [{ color: '#74a0c8' }] },
+    { featureType: 'road',               elementType: 'geometry', stylers: [{ color: '#1E3A5F' }] },
+    { featureType: 'road.highway',       elementType: 'geometry', stylers: [{ color: '#163868' }] },
+    { featureType: 'water',              elementType: 'geometry', stylers: [{ color: '#05101e' }] },
+    { featureType: 'poi',                elementType: 'geometry', stylers: [{ color: '#0e1f38' }] },
+  ],
+}
+
+const MAP_CONTAINER: React.CSSProperties = { width: '100%', height: '100%' }
+
+type Coords = { lat: number; lng: number }
 
 export default function ClientProfile() {
   const { user, saving, error, saveProfile } = useProfile()
@@ -27,19 +46,30 @@ export default function ClientProfile() {
     address: user?.address ?? '',
   })
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) =>
+  const [coords, setCoords] = useState<Coords | null>(
+    user?.lat && user?.lng ? { lat: user.lat, lng: user.lng } : null,
+  )
+
+  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }))
+    // Al editar manualmente el campo de dirección, limpiar el mapa
+    if (e.target.name === 'address') setCoords(null)
+  }
 
   const handlePlacesChanged = () => {
     const places = searchBoxRef.current?.getPlaces()
-    if (places?.[0]?.formatted_address) {
-      setForm((f) => ({ ...f, address: places[0].formatted_address! }))
-    }
+    if (!places?.[0]) return
+    const place = places[0]
+    const address = place.formatted_address ?? ''
+    const lat = place.geometry?.location?.lat() ?? null
+    const lng = place.geometry?.location?.lng() ?? null
+    setForm((f) => ({ ...f, address }))
+    setCoords(lat !== null && lng !== null ? { lat, lng } : null)
   }
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    await saveProfile(form)
+    await saveProfile({ ...form, lat: coords?.lat ?? null, lng: coords?.lng ?? null })
     setSaved(true)
     setTimeout(() => setSaved(false), 3000)
   }
@@ -98,8 +128,18 @@ export default function ClientProfile() {
                 placeholder="Ingresá tu dirección..."
               />
             )}
-            {form.address && (
-              <p className="text-xs text-muted mt-1">📍 {form.address}</p>
+
+            {coords && isLoaded && (
+              <div className="mt-2 rounded-xl overflow-hidden border border-border" style={{ height: '160px' }}>
+                <GoogleMap
+                  mapContainerStyle={MAP_CONTAINER}
+                  center={coords}
+                  zoom={15}
+                  options={MAP_OPTIONS}
+                >
+                  <Marker position={coords} />
+                </GoogleMap>
+              </div>
             )}
           </div>
 

@@ -26,8 +26,10 @@ export const registerUser = async ({
   return credential.user
 }
 
-export const loginUser = (email: string, password: string) =>
-  signInWithEmailAndPassword(auth, email, password)
+export const loginUser = async (email: string, password: string) => {
+  await auth.authStateReady()
+  return signInWithEmailAndPassword(auth, email, password)
+}
 
 export const logoutUser = () => signOut(auth)
 

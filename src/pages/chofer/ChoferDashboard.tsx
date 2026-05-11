@@ -1,19 +1,41 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import Navbar from '../../components/layout/Navbar'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useDriverOrders } from '../../hooks/useOrders'
+import { useAuth } from '../../context/AuthContext'
 import { updateOrderStatus } from '../../services/orderService'
+import { updateDriverLocation } from '../../services/locationService'
 import { summarizeProducts } from '../../utils/helpers'
 import { Order } from '../../types'
 
 export default function ChoferDashboard() {
   const { orders, loading } = useDriverOrders()
+  const { user }            = useAuth()
 
-  const pending   = orders.filter((o) => o.status !== 'entregado')
-  const delivered = orders.filter((o) => o.status === 'entregado')
+  const pending     = orders.filter((o) => o.status !== 'entregado')
+  const delivered   = orders.filter((o) => o.status === 'entregado')
+  const hasEnCamino = orders.some((o) => o.status === 'en_camino')
+
+  // Comparte ubicación GPS cada 30 s mientras haya entregas en_camino
+  useEffect(() => {
+    if (!hasEnCamino || !user?.email || !navigator.geolocation) return
+
+    const send = () =>
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          updateDriverLocation(user.email!, pos.coords.latitude, pos.coords.longitude)
+        },
+        () => {},
+        { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 },
+      )
+
+    send()
+    const id = setInterval(send, 30_000)
+    return () => clearInterval(id)
+  }, [hasEnCamino, user?.email])
 
   if (loading) return <><Navbar /><LoadingSpinner fullScreen /></>
 

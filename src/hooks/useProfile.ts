@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { updateUserDocument } from '../services/userService'
 import { UserProfile } from '../types'
 
-type ProfileUpdate = Pick<UserProfile, 'nombre' | 'phone' | 'address'>
+type ProfileUpdate = Pick<UserProfile, 'nombre' | 'phone' | 'address' | 'lat' | 'lng'>
 
 export function useProfile() {
   const { user, setUser } = useAuth()
