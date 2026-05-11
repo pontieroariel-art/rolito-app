@@ -5,7 +5,9 @@ import Button from '../../components/ui/Button'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useAllOrders } from '../../hooks/useOrders'
 import { useChoferes } from '../../hooks/useChoferes'
+import { useNotificationEmails } from '../../hooks/useNotificationEmails'
 import { updateOrderStatus, assignDriver, updateOrderAddress } from '../../services/orderService'
+import { notifyEnCamino } from '../../services/notificationService'
 import { ALL_STATUSES, STATUS_FLOW, STATUS_LABELS } from '../../utils/constants'
 import { formatShortDate, summarizeProducts, todayString } from '../../utils/helpers'
 import { Order, OrderStatus } from '../../types'
@@ -15,6 +17,7 @@ type UseChoferesReturn = ReturnType<typeof useChoferes>
 export default function AdminDashboard() {
   const { orders, loading } = useAllOrders()
   const choferes            = useChoferes()
+  const notifEmails         = useNotificationEmails()
   const [search, setSearch]         = useState('')
   const [filter, setFilter]         = useState<OrderStatus | 'all'>('all')
   const [dateFilter, setDateFilter] = useState('')
@@ -47,7 +50,10 @@ export default function AdminDashboard() {
             <h1 className="text-2xl font-bold">Panel Admin</h1>
             <p className="text-muted text-sm">Gestión de pedidos y logística</p>
           </div>
-          <ChoferManager choferes={choferes} />
+          <div className="flex gap-2">
+            <NotificationEmailManager notifEmails={notifEmails} />
+            <ChoferManager choferes={choferes} />
+          </div>
         </div>
 
         <div>
@@ -138,6 +144,13 @@ function AdminOrderCard({ order, choferes }: { order: Order; choferes: string[] 
   const handleStatus = async (newStatus: string) => {
     setStatusLoading(true)
     await updateOrderStatus(order.id, newStatus)
+    if (newStatus === 'en_camino' && order.clientEmail) {
+      notifyEnCamino({
+        email:    order.clientEmail,
+        nombre:   (order.clientName || '').split(' ')[0] || 'Cliente',
+        products: order.products,
+      }).catch(console.error)
+    }
     setStatusLoading(false)
   }
 
@@ -229,6 +242,68 @@ function AdminOrderCard({ order, choferes }: { order: Order; choferes: string[] 
           </Button>
         )}
       </div>
+    </div>
+  )
+}
+
+type UseNotificationEmailsReturn = ReturnType<typeof useNotificationEmails>
+
+function NotificationEmailManager({ notifEmails }: { notifEmails: UseNotificationEmailsReturn }) {
+  const { emails, addEmail, removeEmail } = notifEmails
+  const [open,  setOpen]  = useState(false)
+  const [email, setEmail] = useState('')
+
+  const handleAdd = async () => {
+    if (!email.trim()) return
+    await addEmail(email)
+    setEmail('')
+  }
+
+  return (
+    <div className="relative">
+      <Button variant="outline" onClick={() => setOpen((o) => !o)} className="text-sm">
+        Notificaciones ({emails.length}) ▾
+      </Button>
+
+      {open && (
+        <div className="absolute right-0 top-10 bg-surface border border-border rounded-xl p-4 z-50 w-80 shadow-2xl">
+          <h3 className="font-semibold mb-1 text-sm">Emails de notificación</h3>
+          <p className="text-muted text-xs mb-3">
+            Reciben un email cuando llega un pedido nuevo.
+          </p>
+
+          {emails.length === 0 ? (
+            <p className="text-muted text-xs mb-3">Sin emails configurados</p>
+          ) : (
+            <div className="space-y-1 mb-3 max-h-40 overflow-y-auto">
+              {emails.map((e) => (
+                <div key={e} className="flex justify-between items-center py-1.5 border-b border-border/50 last:border-0">
+                  <span className="text-sm text-muted truncate flex-1">{e}</span>
+                  <button
+                    onClick={() => removeEmail(e)}
+                    className="text-red-400 text-xs hover:underline ml-2 shrink-0"
+                  >
+                    Quitar
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <input
+              value={email}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+              onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') handleAdd() }}
+              placeholder="admin@empresa.com"
+              className="bg-bg border border-border rounded-lg px-2 py-1.5 text-sm text-white flex-1 focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+            <Button onClick={handleAdd} className="text-xs py-1.5 px-3">
+              + Agregar
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
