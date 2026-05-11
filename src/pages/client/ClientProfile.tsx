@@ -1,5 +1,5 @@
 import { useState, useRef, FormEvent } from 'react'
-import { GoogleMap, Marker, Autocomplete } from '@react-google-maps/api'
+import { GoogleMap, Marker } from '@react-google-maps/api'
 import Navbar from '../../components/layout/Navbar'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
@@ -300,7 +300,8 @@ function AddressForm({
   onSave: (addr: DeliveryAddress) => void
   onCancel: () => void
 }) {
-  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null)
+  const containerRef  = useRef<HTMLDivElement>(null)
+  const [addrError, setAddrError] = useState('')
   const [form, setForm] = useState<AddrFormState>({
     nombre:          '',
     address:         '',
@@ -313,17 +314,41 @@ function AddressForm({
     esPrincipal:     !hasPrincipal,
   })
 
-  const handlePlaceChanged = () => {
-    const place = autocompleteRef.current?.getPlace()
-    if (!place?.geometry?.location) return
-    const address = place.formatted_address ?? ''
-    const lat     = place.geometry.location.lat()
-    const lng     = place.geometry.location.lng()
-    setForm((f) => ({ ...f, address, lat, lng }))
-  }
+  // Mount PlaceAutocompleteElement (Places API New) once Maps is loaded
+  useEffect(() => {
+    if (!isLoaded || !containerRef.current) return
+
+    const el = new google.maps.places.PlaceAutocompleteElement({
+      includedRegionCodes: ['ar'],
+    })
+
+    const onSelect = async (e: google.maps.places.PlacePredictionSelectEvent) => {
+      setAddrError('')
+      const place = e.placePrediction.toPlace()
+      await place.fetchFields({ fields: ['formattedAddress', 'location'] })
+      setForm((f) => ({
+        ...f,
+        address: place.formattedAddress ?? '',
+        lat:     place.location?.lat()   ?? null,
+        lng:     place.location?.lng()   ?? null,
+      }))
+    }
+
+    el.addEventListener('gmp-select', onSelect)
+    containerRef.current.replaceChildren(el)
+
+    return () => {
+      el.removeEventListener('gmp-select', onSelect)
+      containerRef.current?.replaceChildren()
+    }
+  }, [isLoaded])
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (!form.lat || !form.lng) {
+      setAddrError('Seleccioná una dirección del listado de sugerencias.')
+      return
+    }
     onSave({ id: crypto.randomUUID(), ...form })
   }
 
@@ -344,35 +369,18 @@ function AddressForm({
 
       <div className="flex flex-col gap-1">
         <label className="text-sm font-medium text-gray-300">Dirección</label>
-        {isLoaded ? (
-          <Autocomplete
-            onLoad={(ac) => { autocompleteRef.current = ac }}
-            onPlaceChanged={handlePlaceChanged}
-            options={{
-              componentRestrictions: { country: 'ar' },
-              fields: ['formatted_address', 'geometry'],
-            }}
-          >
-            <input
-              type="text"
-              value={form.address}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, address: e.target.value, lat: null, lng: null }))
-              }
-              placeholder="Ingresá la dirección..."
-              required
-              className="bg-bg border border-border rounded-lg px-3 py-2 text-white placeholder-muted w-full focus:outline-none focus:ring-2 focus:ring-accent transition-colors"
-            />
-          </Autocomplete>
-        ) : (
+        {/* PlaceAutocompleteElement mounts here — renders its own <input> */}
+        <div ref={containerRef} className="w-full" />
+        {!isLoaded && (
           <input
             type="text"
-            value={form.address}
-            onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
-            placeholder="Ingresá la dirección..."
-            required
-            className="bg-bg border border-border rounded-lg px-3 py-2 text-white placeholder-muted w-full focus:outline-none focus:ring-2 focus:ring-accent transition-colors"
+            disabled
+            placeholder="Cargando mapa..."
+            className="bg-bg border border-border rounded-lg px-3 py-2 text-muted w-full opacity-50"
           />
+        )}
+        {addrError && (
+          <p className="text-red-400 text-xs mt-1">{addrError}</p>
         )}
 
         {form.lat && form.lng && isLoaded && (

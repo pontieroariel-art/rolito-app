@@ -11,5 +11,6 @@ export function useGoogleMapsLoader() {
     libraries:        LIBRARIES,
     language:         'es',
     region:           'AR',
+    version:          'weekly',
   })
 }
