@@ -3,7 +3,7 @@ import { useJsApiLoader } from '@react-google-maps/api'
 import type { Libraries } from '@react-google-maps/api'
 
 // Debe estar fuera del componente para que la referencia sea estable
-const LIBRARIES: Libraries = ['places']
+const LIBRARIES: Libraries = ['places', 'geometry']
 
 export function useGoogleMapsLoader() {
   return useJsApiLoader({

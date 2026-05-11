@@ -145,6 +145,21 @@ export function tplPedidoEnCamino(
   `)
 }
 
+export function tplCerca(nombre: string, appUrl: string): string {
+  return layout(`
+    ${greeting(nombre)}
+    <p style="margin:0 0 20px">
+      Tu pedido está <strong style="color:#00C2FF">a menos de 1 km</strong> —
+      el chofer llega en breve.
+    </p>
+    <div style="background:#f0fafe;border:1px solid #bae6fd;border-radius:8px;padding:16px;text-align:center;margin:0 0 24px">
+      <p style="margin:0;font-size:32px">⏱️</p>
+      <p style="margin:8px 0 0;font-size:15px;font-weight:600;color:#0a1628">¡Ya llega!</p>
+    </div>
+    ${ctaButton('Ver en la app →', appUrl)}
+  `)
+}
+
 export function tplAdminNuevoPedido(order: {
   clientName:    string
   clientAddress: string

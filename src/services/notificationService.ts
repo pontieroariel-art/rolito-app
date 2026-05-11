@@ -44,3 +44,9 @@ export const notifyAdminNuevoPedido = (data: {
   date:          string
   notes?:        string
 }): Promise<void> => post('notify-admin-nuevo-pedido', data)
+
+export const notifyCerca = (data: {
+  email:    string
+  nombre:   string
+  products: Product[]
+}): Promise<void> => post('notify-cerca', data)
