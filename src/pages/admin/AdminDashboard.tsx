@@ -51,7 +51,6 @@ export default function AdminDashboard() {
             <p className="text-muted text-sm">Gestión de pedidos y logística</p>
           </div>
           <div className="flex gap-2">
-            <TestNotifyButton />
             <NotificationEmailManager notifEmails={notifEmails} />
             <ChoferManager choferes={choferes} />
           </div>
@@ -243,62 +242,6 @@ function AdminOrderCard({ order, choferes }: { order: Order; choferes: string[] 
           </Button>
         )}
       </div>
-    </div>
-  )
-}
-
-// ── TEST — botón temporal para debuggear las Netlify Functions ───────────────
-// Eliminar este componente una vez confirmado que los emails llegan.
-function TestNotifyButton() {
-  const [status, setStatus] = useState<string | null>(null)
-  const [busy,   setBusy]   = useState(false)
-
-  const handleTest = async () => {
-    setBusy(true)
-    setStatus(null)
-    const url  = '/.netlify/functions/notify-pedido-recibido'
-    const body = {
-      email:    'pontieroariel@gmail.com',
-      nombre:   'Test Admin',
-      products: [{ name: 'Hielo en cubos 5kg', quantity: 3 }],
-      date:     new Date().toISOString().split('T')[0],
-      notes:    'Email de prueba desde el panel admin',
-    }
-    console.log('[TEST] POST', url, body)
-    try {
-      const res  = await fetch(url, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(body),
-      })
-      const json = await res.json().catch(() => null)
-      const msg  = `${res.status} ${res.ok ? 'OK' : 'ERROR'} — ${JSON.stringify(json)}`
-      console.log('[TEST] Respuesta:', msg)
-      setStatus(res.ok ? `✓ ${msg}` : `✗ ${msg}`)
-    } catch (err) {
-      const msg = String(err)
-      console.error('[TEST] Fetch falló:', err)
-      setStatus(`✗ Fetch falló: ${msg}`)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <div className="flex flex-col items-end gap-1">
-      <Button
-        variant="outline"
-        onClick={handleTest}
-        loading={busy}
-        className="text-xs border-yellow-500/50 text-yellow-400 hover:border-yellow-400"
-      >
-        Test email
-      </Button>
-      {status && (
-        <span className={`text-xs max-w-xs text-right ${status.startsWith('✓') ? 'text-success' : 'text-red-400'}`}>
-          {status}
-        </span>
-      )}
     </div>
   )
 }
