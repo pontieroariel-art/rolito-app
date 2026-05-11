@@ -7,7 +7,7 @@ const LIBRARIES: Libraries = ['places', 'geometry']
 
 export function useGoogleMapsLoader() {
   return useJsApiLoader({
-    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_KEY,
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
     libraries:        LIBRARIES,
     language:         'es',
     region:           'AR',
