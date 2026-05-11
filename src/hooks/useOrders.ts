@@ -14,10 +14,11 @@ export function useClientOrders(): { orders: Order[]; loading: boolean } {
 
   useEffect(() => {
     if (!user?.uid) return
-    const unsub = subscribeClientOrders(user.uid, (data) => {
-      setOrders(data)
-      setLoading(false)
-    })
+    const unsub = subscribeClientOrders(
+      user.uid,
+      (data) => { setOrders(data); setLoading(false) },
+      ()     => setLoading(false),
+    )
     return unsub
   }, [user?.uid])
 
@@ -29,10 +30,10 @@ export function useAllOrders(): { orders: Order[]; loading: boolean } {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const unsub = subscribeAllOrders((data) => {
-      setOrders(data)
-      setLoading(false)
-    })
+    const unsub = subscribeAllOrders(
+      (data) => { setOrders(data); setLoading(false) },
+      ()     => setLoading(false),
+    )
     return unsub
   }, [])
 
@@ -46,10 +47,11 @@ export function useDriverOrders(): { orders: Order[]; loading: boolean } {
 
   useEffect(() => {
     if (!user?.email) return
-    const unsub = subscribeDriverOrders(user.email, (data) => {
-      setOrders(data)
-      setLoading(false)
-    })
+    const unsub = subscribeDriverOrders(
+      user.email,
+      (data) => { setOrders(data); setLoading(false) },
+      ()     => setLoading(false),
+    )
     return unsub
   }, [user?.email])
 

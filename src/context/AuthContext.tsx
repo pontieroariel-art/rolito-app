@@ -16,21 +16,21 @@ import { UserProfile } from '../types'
 // ── Reducer ───────────────────────────────────────────────────────────────────
 
 type State = {
-  loading: boolean        // true  = Firebase todavía no respondió
+  isInitializing: boolean   // true = todavía no corrió onAuthStateChanged + Firestore
   user: UserProfile | null
 }
 
 type Action = { type: 'RESOLVED'; user: UserProfile | null }
 
 function authReducer(_: State, action: Action): State {
-  if (action.type === 'RESOLVED') return { loading: false, user: action.user }
-  return { loading: true, user: null }
+  if (action.type === 'RESOLVED') return { isInitializing: false, user: action.user }
+  return { isInitializing: true, user: null }
 }
 
 // ── Contexto ──────────────────────────────────────────────────────────────────
 
 interface AuthContextValue {
-  loading: boolean
+  isInitializing: boolean
   user: UserProfile | null
   setUser: (user: UserProfile | null) => void
 }
@@ -40,16 +40,16 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 // ── Provider ──────────────────────────────────────────────────────────────────
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(authReducer, { loading: true, user: null })
+  const [state, dispatch] = useReducer(authReducer, { isInitializing: true, user: null })
 
-  // Evita reprocesar el mismo uid si Firebase llama dos veces (StrictMode)
+  // Evita reprocesar el mismo uid si Firebase llama dos veces
   const lastUidRef = useRef<string | null | undefined>(undefined)
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       const uid = firebaseUser?.uid ?? null
 
-      if (uid === lastUidRef.current) return   // mismo usuario, no re-procesar
+      if (uid === lastUidRef.current) return
       lastUidRef.current = uid
 
       if (!firebaseUser || !firebaseUser.email) {
@@ -73,15 +73,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     })
     return unsub
-  }, [])  // sin dependencias: se suscribe una sola vez
+  }, [])
 
   const setUser = useCallback((user: UserProfile | null) => {
     dispatch({ type: 'RESOLVED', user })
   }, [])
 
   const value = useMemo<AuthContextValue>(
-    () => ({ loading: state.loading, user: state.user, setUser }),
-    [state.loading, state.user, setUser],
+    () => ({ isInitializing: state.isInitializing, user: state.user, setUser }),
+    [state.isInitializing, state.user, setUser],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

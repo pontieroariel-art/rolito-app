@@ -19,7 +19,9 @@ export default function Register() {
   const [form, setForm] = useState<RegisterForm>({
     nombre: '', email: '', phone: '', password: '', confirm: '',
   })
-  const [error, setError]     = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirm,  setShowConfirm]  = useState(false)
+  const [error,   setError]   = useState('')
   const [loading, setLoading] = useState(false)
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) =>
@@ -87,20 +89,40 @@ export default function Register() {
         <Input
           label="Contraseña"
           name="password"
-          type="password"
+          type={showPassword ? 'text' : 'password'}
           value={form.password}
           onChange={handleChange}
           required
           placeholder="Mínimo 6 caracteres"
+          rightElement={
+            <button
+              type="button"
+              tabIndex={-1}
+              onClick={() => setShowPassword((v) => !v)}
+              className="text-lg leading-none text-muted hover:text-white transition-colors"
+            >
+              {showPassword ? '🙈' : '👁️'}
+            </button>
+          }
         />
         <Input
           label="Confirmar contraseña"
           name="confirm"
-          type="password"
+          type={showConfirm ? 'text' : 'password'}
           value={form.confirm}
           onChange={handleChange}
           required
           placeholder="Repetí la contraseña"
+          rightElement={
+            <button
+              type="button"
+              tabIndex={-1}
+              onClick={() => setShowConfirm((v) => !v)}
+              className="text-lg leading-none text-muted hover:text-white transition-colors"
+            >
+              {showConfirm ? '🙈' : '👁️'}
+            </button>
+          }
         />
 
         {error && (

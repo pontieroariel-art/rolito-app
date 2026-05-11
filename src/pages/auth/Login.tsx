@@ -1,55 +1,70 @@
-import { useState, ChangeEvent, FormEvent } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import AuthLayout from '../../components/layout/AuthLayout'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
+import { useAuth } from '../../context/AuthContext'
 import { loginUser } from '../../services/authService'
 
 export default function Login() {
-  const navigate          = useNavigate()
-  const [form, setForm]   = useState({ email: '', password: '' })
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const navigate     = useNavigate()
+  const { user }     = useAuth()
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) =>
-    setForm((f) => ({ ...f, [e.target.name]: e.target.value }))
+  const [email,        setEmail]        = useState('')
+  const [password,     setPassword]     = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [error,        setError]        = useState('')
+  const [loading,      setLoading]      = useState(false)
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
+  // Navega cuando AuthContext confirma que el usuario está cargado.
+  // Esto evita que navigate('/') se llame antes de que Firestore resuelva
+  // el perfil, lo que causaba el remontado del formulario con campos vacíos.
+  useEffect(() => {
+    if (user) navigate('/')
+  }, [user, navigate])
+
+  const handleLogin = async () => {
     setLoading(true)
     setError('')
     try {
-      await loginUser(form.email, form.password)
-      navigate('/')
+      await loginUser(email, password)
+      // No llamar navigate aquí — el useEffect de arriba lo hace
+      // cuando AuthContext setea el user. El spinner queda activo
+      // mientras Firestore carga el perfil.
     } catch {
       setError('Email o contraseña incorrectos')
-    } finally {
       setLoading(false)
     }
   }
 
   return (
     <AuthLayout title="Iniciar sesión">
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4">
         <Input
           label="Email"
-          name="email"
           type="email"
-          value={form.email}
-          onChange={handleChange}
-          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
           autoComplete="email"
           placeholder="tu@email.com"
         />
         <Input
           label="Contraseña"
-          name="password"
-          type="password"
-          value={form.password}
-          onChange={handleChange}
-          required
+          type={showPassword ? 'text' : 'password'}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
           autoComplete="current-password"
           placeholder="••••••••"
+          rightElement={
+            <button
+              type="button"
+              tabIndex={-1}
+              onClick={() => setShowPassword((v) => !v)}
+              className="text-lg leading-none text-muted hover:text-white transition-colors"
+            >
+              {showPassword ? '🙈' : '👁️'}
+            </button>
+          }
         />
 
         {error && (
@@ -58,7 +73,12 @@ export default function Login() {
           </div>
         )}
 
-        <Button type="submit" loading={loading} className="w-full mt-2">
+        <Button
+          type="button"
+          onClick={handleLogin}
+          loading={loading}
+          className="w-full mt-2"
+        >
           Entrar
         </Button>
 
@@ -73,7 +93,7 @@ export default function Login() {
             </Link>
           </p>
         </div>
-      </form>
+      </div>
     </AuthLayout>
   )
 }

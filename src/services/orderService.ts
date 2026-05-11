@@ -49,27 +49,36 @@ export const updateOrderAddress = (orderId: string, clientAddress: string): Prom
 export const subscribeClientOrders = (
   clientId: string,
   callback: (orders: Order[]) => void,
+  onError?: (error: Error) => void,
 ) => {
   const q = query(
     collection(db, ORDERS),
     where('clientId', '==', clientId),
     orderBy('createdAt', 'desc'),
   )
-  return onSnapshot(q, (snap) =>
-    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Order))),
+  return onSnapshot(
+    q,
+    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Order))),
+    onError,
   )
 }
 
-export const subscribeAllOrders = (callback: (orders: Order[]) => void) => {
+export const subscribeAllOrders = (
+  callback: (orders: Order[]) => void,
+  onError?: (error: Error) => void,
+) => {
   const q = query(collection(db, ORDERS), orderBy('createdAt', 'desc'))
-  return onSnapshot(q, (snap) =>
-    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Order))),
+  return onSnapshot(
+    q,
+    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Order))),
+    onError,
   )
 }
 
 export const subscribeDriverOrders = (
   driverEmail: string,
   callback: (orders: Order[]) => void,
+  onError?: (error: Error) => void,
 ) => {
   const start = new Date()
   start.setHours(0, 0, 0, 0)
@@ -82,7 +91,9 @@ export const subscribeDriverOrders = (
     where('date', '>=', Timestamp.fromDate(start)),
     where('date', '<=', Timestamp.fromDate(end)),
   )
-  return onSnapshot(q, (snap) =>
-    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Order))),
+  return onSnapshot(
+    q,
+    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Order))),
+    onError,
   )
 }

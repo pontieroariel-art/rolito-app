@@ -54,6 +54,8 @@ export const getUserDocument = async (uid: string): Promise<UserProfile | null> 
     rol:             d.rol             ?? d.role   ?? 'cliente',
     estado:          d.estado          ?? 'activo',   // usuarios previos = activos
     address:         d.address         ?? '',
+    lat:             d.lat             ?? null,
+    lng:             d.lng             ?? null,
     fechaCreacion:   d.fechaCreacion   ?? d.createdAt ?? null,
     fechaAprobacion: d.fechaAprobacion ?? null,
     aprobadoPor:     d.aprobadoPor     ?? null,

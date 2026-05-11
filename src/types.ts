@@ -29,6 +29,8 @@ export interface UserProfile {
   rol: UserRole
   estado: UserStatus
   address: string
+  lat: number | null
+  lng: number | null
   fechaCreacion: Timestamp | null
   fechaAprobacion: Timestamp | null
   aprobadoPor: string | null

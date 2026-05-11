@@ -30,14 +30,11 @@ const ROLE_HOME: Record<string, string> = {
 }
 
 // ── RoleRouter ────────────────────────────────────────────────────────────────
-// Maneja todos los estados: loading → spinner, sin user → login,
-// pendiente → /pendiente, activo → home según rol.
-// Solo <Navigate> declarativo, sin useEffect ni dependencias problemáticas.
 
 function RoleRouter() {
-  const { loading, user } = useAuth()
+  const { isInitializing, user } = useAuth()
 
-  if (loading)                     return <LoadingSpinner fullScreen />
+  if (isInitializing)              return <LoadingSpinner fullScreen />
   if (!user)                       return <Navigate to="/login"     replace />
   if (user.estado === 'pendiente') return <Navigate to="/pendiente" replace />
   if (user.estado === 'inactivo')  return <Navigate to="/login"     replace />
@@ -45,13 +42,13 @@ function RoleRouter() {
 }
 
 // ── AppContent ────────────────────────────────────────────────────────────────
-// Mientras loading = true → solo spinner (evita que ProtectedRoute redirija
-// con user = null antes de que Firebase responda).
-// RoleRouter también verifica loading como capa adicional de seguridad.
+// Mientras isInitializing = true → solo spinner.
+// Una vez que onAuthStateChanged corrió y Firestore cargó, las rutas se
+// renderizan y nunca se desmontan por transiciones de auth posteriores.
 
 function AppContent() {
-  const { loading } = useAuth()
-  if (loading) return <LoadingSpinner fullScreen />
+  const { isInitializing } = useAuth()
+  if (isInitializing) return <LoadingSpinner fullScreen />
   return (
     <Routes>
       {/* Rutas públicas */}
