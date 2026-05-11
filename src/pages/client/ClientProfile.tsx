@@ -444,17 +444,17 @@ function AddressAutocomplete({
   const [suggestions, setSuggestions] = useState<ACSuggestion[]>([])
   const [fetching,    setFetching]    = useState(false)
   const [open,        setOpen]        = useState(false)
-  const debounceRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const API_KEY       = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const BASE        = import.meta.env.VITE_NETLIFY_FUNCTIONS_URL ?? '/.netlify/functions'
 
   const fetchSuggestions = async (text: string) => {
     if (text.length < 3) { setSuggestions([]); setOpen(false); return }
     setFetching(true)
     try {
-      const res  = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
+      const res  = await fetch(`${BASE}/places-autocomplete`, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': API_KEY },
-        body:    JSON.stringify({ input: text, includedRegionCodes: ['ar'] }),
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ input: text }),
       })
       const data = await res.json()
       const list: ACSuggestion[] = (data.suggestions ?? [])
@@ -488,9 +488,11 @@ function AddressAutocomplete({
     setSuggestions([])
     setOpen(false)
     try {
-      const res   = await fetch(
-        `https://places.googleapis.com/v1/places/${s.placeId}?fields=formattedAddress,location&key=${API_KEY}`,
-      )
+      const res   = await fetch(`${BASE}/places-details`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ placeId: s.placeId }),
+      })
       const place = await res.json()
       onSelect(
         place.formattedAddress ?? s.fullText,
@@ -498,7 +500,7 @@ function AddressAutocomplete({
         place.location.longitude,
       )
     } catch {
-      // Si falla el detalle, notificar sin coordenadas — el usuario deberá reintentar
+      // Si falla el detalle el usuario deberá reintentar
     }
   }
 
