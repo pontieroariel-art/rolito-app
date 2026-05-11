@@ -1,4 +1,4 @@
-import { useState, useRef, FormEvent } from 'react'
+import { useState, useRef, ChangeEvent, FormEvent } from 'react'
 import { GoogleMap, Marker } from '@react-google-maps/api'
 import Navbar from '../../components/layout/Navbar'
 import Input from '../../components/ui/Input'
@@ -300,7 +300,6 @@ function AddressForm({
   onSave: (addr: DeliveryAddress) => void
   onCancel: () => void
 }) {
-  const containerRef  = useRef<HTMLDivElement>(null)
   const [addrError, setAddrError] = useState('')
   const [form, setForm] = useState<AddrFormState>({
     nombre:          '',
@@ -314,34 +313,10 @@ function AddressForm({
     esPrincipal:     !hasPrincipal,
   })
 
-  // Mount PlaceAutocompleteElement (Places API New) once Maps is loaded
-  useEffect(() => {
-    if (!isLoaded || !containerRef.current) return
-
-    const el = new google.maps.places.PlaceAutocompleteElement({
-      includedRegionCodes: ['ar'],
-    })
-
-    const onSelect = async (e: google.maps.places.PlacePredictionSelectEvent) => {
-      setAddrError('')
-      const place = e.placePrediction.toPlace()
-      await place.fetchFields({ fields: ['formattedAddress', 'location'] })
-      setForm((f) => ({
-        ...f,
-        address: place.formattedAddress ?? '',
-        lat:     place.location?.lat()   ?? null,
-        lng:     place.location?.lng()   ?? null,
-      }))
-    }
-
-    el.addEventListener('gmp-select', onSelect)
-    containerRef.current.replaceChildren(el)
-
-    return () => {
-      el.removeEventListener('gmp-select', onSelect)
-      containerRef.current?.replaceChildren()
-    }
-  }, [isLoaded])
+  const handleAddressSelect = (address: string, lat: number, lng: number) => {
+    setAddrError('')
+    setForm((f) => ({ ...f, address, lat, lng }))
+  }
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -369,15 +344,9 @@ function AddressForm({
 
       <div className="flex flex-col gap-1">
         <label className="text-sm font-medium text-gray-300">Dirección</label>
-        {/* PlaceAutocompleteElement mounts here — renders its own <input> */}
-        <div ref={containerRef} className="w-full" />
-        {!isLoaded && (
-          <input
-            type="text"
-            disabled
-            placeholder="Cargando mapa..."
-            className="bg-bg border border-border rounded-lg px-3 py-2 text-muted w-full opacity-50"
-          />
+        <AddressAutocomplete onSelect={handleAddressSelect} />
+        {form.address && (
+          <p className="text-xs text-muted mt-1 truncate">✓ {form.address}</p>
         )}
         {addrError && (
           <p className="text-red-400 text-xs mt-1">{addrError}</p>
@@ -454,6 +423,117 @@ function AddressForm({
         </Button>
       </div>
     </form>
+  )
+}
+
+// ── AddressAutocomplete ───────────────────────────────────────────────────────
+
+interface ACSuggestion {
+  placeId:       string
+  mainText:      string
+  secondaryText: string
+  fullText:      string
+}
+
+function AddressAutocomplete({
+  onSelect,
+}: {
+  onSelect: (address: string, lat: number, lng: number) => void
+}) {
+  const [input,       setInput]       = useState('')
+  const [suggestions, setSuggestions] = useState<ACSuggestion[]>([])
+  const [fetching,    setFetching]    = useState(false)
+  const [open,        setOpen]        = useState(false)
+  const debounceRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const API_KEY       = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+
+  const fetchSuggestions = async (text: string) => {
+    if (text.length < 3) { setSuggestions([]); setOpen(false); return }
+    setFetching(true)
+    try {
+      const res  = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': API_KEY },
+        body:    JSON.stringify({ input: text, includedRegionCodes: ['ar'] }),
+      })
+      const data = await res.json()
+      const list: ACSuggestion[] = (data.suggestions ?? [])
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .filter((s: any) => s.placePrediction)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((s: any) => ({
+          placeId:       s.placePrediction.placeId,
+          mainText:      s.placePrediction.structuredFormat?.mainText?.text      ?? '',
+          secondaryText: s.placePrediction.structuredFormat?.secondaryText?.text ?? '',
+          fullText:      s.placePrediction.text?.text                             ?? '',
+        }))
+      setSuggestions(list)
+      setOpen(list.length > 0)
+    } catch {
+      setSuggestions([])
+    } finally {
+      setFetching(false)
+    }
+  }
+
+  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value
+    setInput(val)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => fetchSuggestions(val), 350)
+  }
+
+  const handleSelect = async (s: ACSuggestion) => {
+    setInput(s.fullText)
+    setSuggestions([])
+    setOpen(false)
+    try {
+      const res   = await fetch(
+        `https://places.googleapis.com/v1/places/${s.placeId}?fields=formattedAddress,location&key=${API_KEY}`,
+      )
+      const place = await res.json()
+      onSelect(
+        place.formattedAddress ?? s.fullText,
+        place.location.latitude,
+        place.location.longitude,
+      )
+    } catch {
+      // Si falla el detalle, notificar sin coordenadas — el usuario deberá reintentar
+    }
+  }
+
+  return (
+    <div className="relative">
+      <input
+        type="text"
+        value={input}
+        onChange={handleChange}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onFocus={() => { if (suggestions.length > 0) setOpen(true) }}
+        placeholder="Ingresá la dirección..."
+        autoComplete="off"
+        className="bg-bg border border-border rounded-lg px-3 py-2 text-white placeholder-muted w-full focus:outline-none focus:ring-2 focus:ring-accent transition-colors pr-8"
+      />
+      {fetching && (
+        <span className="absolute right-3 top-2.5 w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+      )}
+      {open && suggestions.length > 0 && (
+        <ul className="absolute z-50 w-full bg-surface border border-border rounded-xl mt-1 shadow-2xl overflow-hidden">
+          {suggestions.map((s) => (
+            <li
+              key={s.placeId}
+              onMouseDown={() => handleSelect(s)}
+              className="px-3 py-2.5 cursor-pointer hover:bg-bg border-b border-border/50 last:border-0"
+            >
+              <p className="text-sm text-white font-medium leading-tight">{s.mainText}</p>
+              {s.secondaryText && (
+                <p className="text-xs text-muted mt-0.5">{s.secondaryText}</p>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }
 
