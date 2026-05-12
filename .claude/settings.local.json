@@ -15,7 +15,23 @@
       "Bash(git pull *)",
       "Bash(git stash *)",
       "Bash(dir C:\\\\Users\\\\Ariel\\\\rolito-app *)",
-      "Bash(node *)"
+      "Bash(node *)",
+      "Bash(netlify --version)",
+      "mcp__firebase__firebase_get_project",
+      "mcp__firebase__firebase_login",
+      "mcp__firebase__firebase_list_projects",
+      "mcp__firebase__firestore_list_collections",
+      "mcp__firebase__firebase_update_environment",
+      "mcp__firebase__firebase_get_environment",
+      "mcp__firebase__firebase_logout",
+      "mcp__firebase__firestore_query_collection",
+      "mcp__firebase__firestore_list_documents",
+      "mcp__firebase__firestore_get_document",
+      "mcp__firebase__firestore_create_index",
+      "mcp__firebase__firestore_list_indexes",
+      "mcp__firebase__firebase_validate_security_rules",
+      "mcp__firebase__firebase_deploy",
+      "mcp__firebase__firebase_deploy_status"
     ]
   }
 }

@@ -17,11 +17,13 @@ const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
     { to: '/perfil',       label: 'Mi perfil' },
   ],
   super_admin: [
-    { to: '/admin',    label: 'Pedidos' },
-    { to: '/usuarios', label: 'Usuarios' },
+    { to: '/admin',         label: 'Pedidos' },
+    { to: '/usuarios',      label: 'Usuarios' },
+    { to: '/admin/precios', label: 'Precios' },
   ],
   logistica: [
-    { to: '/admin', label: 'Pedidos' },
+    { to: '/admin',         label: 'Pedidos' },
+    { to: '/admin/precios', label: 'Precios' },
   ],
   comercial: [
     { to: '/comercial', label: 'Panel' },

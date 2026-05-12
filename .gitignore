@@ -19,3 +19,6 @@ dist-ssr/
 # Logs
 *.log
 npm-debug.log*
+
+# Local Netlify folder
+.netlify

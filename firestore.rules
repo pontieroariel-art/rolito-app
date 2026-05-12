@@ -31,11 +31,12 @@ service cloud.firestore {
       // Cualquier usuario autenticado puede crear pedidos
       allow create: if request.auth != null;
 
-      // Lectura: el cliente dueño, el chofer asignado, o un operador
+      // Lectura: el cliente dueño, el chofer asignado, operador o comercial
       allow read: if request.auth != null && (
         request.auth.uid == resource.data.clientId ||
         request.auth.token.email == resource.data.driverId ||
-        isOperator()
+        isOperator() ||
+        isManager()
       );
 
       // Escritura: el chofer asignado (para marcar entregado) o un operador
@@ -55,6 +56,14 @@ service cloud.firestore {
     // Lectura: cualquier usuario autenticado (el cliente necesita los emails al crear un pedido)
     // Escritura: solo operadores
     match /configuracion/{docId} {
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null && isOperator();
+    }
+
+    // ── Listas de precios ─────────────────────────────────────────────────────
+    // Lectura: cualquier usuario autenticado (el cliente necesita su lista al pedir)
+    // Escritura: solo operadores
+    match /listas-precios/{listaId} {
       allow read:  if request.auth != null;
       allow write: if request.auth != null && isOperator();
     }

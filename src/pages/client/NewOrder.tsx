@@ -3,13 +3,21 @@ import { useNavigate, Link } from 'react-router-dom'
 import Navbar from '../../components/layout/Navbar'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
-import { PRODUCTS } from '../../utils/constants'
 import { summarizeProducts } from '../../utils/helpers'
 import { useAuth } from '../../context/AuthContext'
 import { createOrder } from '../../services/orderService'
 import { getNotificationEmails } from '../../services/configService'
-import { notifyPedidoRecibido, notifyAdminNuevoPedido } from '../../services/notificationService'
-import { Product, getPrimaryAddress } from '../../types'
+import { useNotifyPedidoRecibido, useNotifyAdminNuevoPedido } from '../../hooks/useNotifications'
+import { useListaPrecios } from '../../hooks/useListasPrecios'
+import { useCatalogo } from '../../hooks/useCatalogo'
+import { getPrimaryAddress } from '../../types'
+
+interface DisplayProduct {
+  id:     string
+  nombre: string
+  unidad: string
+  precio?: number
+}
 
 export default function NewOrder() {
   const { user }  = useAuth()
@@ -22,10 +30,38 @@ export default function NewOrder() {
   const [modal, setModal]     = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
+  const notifyPedidoRecibidoMutation    = useNotifyPedidoRecibido()
+  const notifyAdminNuevoPedidoMutation  = useNotifyAdminNuevoPedido()
 
-  const selected = PRODUCTS
+  const { lista }    = useListaPrecios(user?.listaPreciosId)
+  const { catalogo } = useCatalogo()
+
+  // Build the product list from price list (if assigned) or catalog fallback
+  const displayProducts: DisplayProduct[] = lista
+    ? lista.items
+        .filter((i) => i.activo)
+        .map((i) => ({
+          id:     i.productoId,
+          nombre: i.nombre,
+          unidad: i.unidad,
+          precio: user?.preciosCustom?.[i.productoId] ?? i.precio,
+        }))
+    : catalogo.map((p) => ({ id: p.id, nombre: p.nombre, unidad: p.unidad }))
+
+  const selected = displayProducts
     .filter((p) => (quantities[p.id] ?? 0) > 0)
-    .map((p) => ({ name: p.name, quantity: quantities[p.id] }))
+    .map((p) => ({
+      name:       p.nombre,
+      quantity:   quantities[p.id],
+      productoId: p.id,
+      ...(p.precio !== undefined ? { price: p.precio } : {}),
+    }))
+
+  const total = selected.reduce(
+    (acc, p) => acc + (p.price !== undefined ? p.price * p.quantity : 0),
+    0,
+  )
+  const hasPrecios = selected.some((p) => p.price !== undefined)
 
   const primaryAddr    = user ? getPrimaryAddress(user) : null
   const deliveryAddress = primaryAddr?.address ?? user?.address ?? ''
@@ -43,17 +79,17 @@ export default function NewOrder() {
       const clientName   = user.razonSocial   || user.nombre   || ''
       const clientPhone  = user.telefono      || user.phone    || ''
 
-      notifyPedidoRecibido({
+      notifyPedidoRecibidoMutation.mutate({
         email:    user.email,
         nombre,
         products: selected,
         date,
         notes:    notes || undefined,
-      }).catch(console.error)
+      })
 
       getNotificationEmails().then((adminEmails) => {
         if (adminEmails.length > 0) {
-          notifyAdminNuevoPedido({
+          notifyAdminNuevoPedidoMutation.mutate({
             adminEmails,
             clientName,
             clientAddress: deliveryAddress,
@@ -61,7 +97,7 @@ export default function NewOrder() {
             products:      selected,
             date,
             notes:         notes || undefined,
-          }).catch(console.error)
+          })
         }
       }).catch(console.error)
 
@@ -97,12 +133,20 @@ export default function NewOrder() {
           </div>
         )}
 
+        {!lista && user?.listaPreciosId === undefined && catalogo.length > 0 && (
+          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-3 text-sm text-yellow-400">
+            Sin lista de precios asignada — los precios se confirmarán con el administrador.
+          </div>
+        )}
+
         <section className="space-y-2">
           <h2 className="text-sm font-medium text-gray-300 mb-3">Productos</h2>
-          {PRODUCTS.map((p) => (
+          {displayProducts.map((p) => (
             <ProductRow
               key={p.id}
-              product={p}
+              nombre={p.nombre}
+              unidad={p.unidad}
+              precio={p.precio}
               qty={quantities[p.id] ?? 0}
               onChange={(qty) => setQty(p.id, qty)}
             />
@@ -110,9 +154,17 @@ export default function NewOrder() {
         </section>
 
         {selected.length > 0 && (
-          <div className="bg-accent/5 border border-accent/20 rounded-xl p-4 text-sm">
-            <p className="text-accent font-medium mb-1">Seleccionado:</p>
+          <div className="bg-accent/5 border border-accent/20 rounded-xl p-4 text-sm space-y-2">
+            <p className="text-accent font-medium">Seleccionado:</p>
             <p className="text-white">{summarizeProducts(selected)}</p>
+            {hasPrecios && total > 0 && (
+              <div className="flex justify-between items-center pt-2 border-t border-accent/20">
+                <span className="text-muted">Total estimado</span>
+                <span className="text-white font-bold text-base">
+                  ${total.toLocaleString('es-AR')}
+                </span>
+              </div>
+            )}
           </div>
         )}
 
@@ -201,12 +253,16 @@ export default function NewOrder() {
 }
 
 function ProductRow({
-  product,
+  nombre,
+  unidad,
+  precio,
   qty,
   onChange,
 }: {
-  product: Product
-  qty: number
+  nombre:  string
+  unidad:  string
+  precio?: number
+  qty:     number
   onChange: (qty: number) => void
 }) {
   const handleInput = (e: ChangeEvent<HTMLInputElement>) => {
@@ -216,7 +272,19 @@ function ProductRow({
 
   return (
     <div className="bg-surface border border-border rounded-xl p-4 flex justify-between items-center">
-      <span className="font-medium text-sm">{product.name}</span>
+      <div>
+        <p className="font-medium text-sm">{nombre}</p>
+        {precio !== undefined && precio > 0 && (
+          <p className="text-xs text-muted mt-0.5">
+            ${precio.toLocaleString('es-AR')} / {unidad}
+            {qty > 0 && (
+              <span className="text-accent ml-2 font-medium">
+                = ${(precio * qty).toLocaleString('es-AR')}
+              </span>
+            )}
+          </p>
+        )}
+      </div>
       <div className="flex items-center gap-2">
         <button
           onClick={() => onChange(qty - 1)}

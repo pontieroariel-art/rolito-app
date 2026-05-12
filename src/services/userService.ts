@@ -69,12 +69,15 @@ export const getUserDocument = async (uid: string): Promise<UserProfile | null> 
     fechaCreacion:   d.fechaCreacion   ?? d.createdAt ?? null,
     fechaAprobacion: d.fechaAprobacion ?? null,
     aprobadoPor:     d.aprobadoPor     ?? null,
+    listaPreciosId:  d.listaPreciosId  ?? undefined,
+    preciosCustom:   d.preciosCustom   ?? undefined,
   } as UserProfile
 }
 
 export const updateUserDocument = (
   uid: string,
-  data: Partial<Omit<UserProfile, 'uid' | 'fechaCreacion'>>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data: Record<string, any>,
 ): Promise<void> => updateDoc(doc(db, 'users', uid), data)
 
 export const getAllUsers = async (): Promise<UserProfile[]> => {

@@ -8,7 +8,7 @@ import { useClientOrders } from '../../hooks/useOrders'
 import { useAuth } from '../../context/AuthContext'
 import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
 import { subscribeDriverLocation, DriverLocation } from '../../services/locationService'
-import { notifyCerca } from '../../services/notificationService'
+import { useNotifyCerca } from '../../hooks/useNotifications'
 import { formatShortDate, summarizeProducts } from '../../utils/helpers'
 import { Order, getPrimaryAddress } from '../../types'
 
@@ -150,10 +150,11 @@ function TruckTracker({
   clientEmail:  string
   clientNombre: string
 }) {
-  const { isLoaded }  = useGoogleMapsLoader()
-  const mapRef        = useRef<google.maps.Map | null>(null)
-  const hasFitted     = useRef(false)
-  const hasSentNotif  = useRef(false)
+  const { isLoaded }        = useGoogleMapsLoader()
+  const mapRef              = useRef<google.maps.Map | null>(null)
+  const hasFitted           = useRef(false)
+  const hasSentNotif        = useRef(false)
+  const notifyCercaMutation = useNotifyCerca()
 
   const [driverData,   setDriverData]   = useState<DriverLocation | null>(null)
   const [deliveryPos,  setDeliveryPos]  = useState<Coords | null>(null)
@@ -225,11 +226,11 @@ function TruckTracker({
     if (!distance || hasSentNotif.current || !clientEmail) return
     if (distance < 1000) {
       hasSentNotif.current = true
-      notifyCerca({
+      notifyCercaMutation.mutate({
         email:    clientEmail,
         nombre:   clientNombre,
         products: order.products,
-      }).catch(console.error)
+      })
     }
   }, [distance, clientEmail, clientNombre, order.products])
 
