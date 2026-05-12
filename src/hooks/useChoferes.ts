@@ -1,32 +1,14 @@
-import { useEffect, useState } from 'react'
-import {
-  getChoferes,
-  addChofer,
-  removeChofer as removeChoferSvc,
-} from '../services/configService'
+import { useQuery } from '@tanstack/react-query'
+import { getAllUsers } from '../services/userService'
+import { UserProfile } from '../types'
 
 export function useChoferes() {
-  const [choferes, setChoferes] = useState<string[]>([])
-  const [loading,  setLoading]  = useState(true)
-
-  const load = async () => {
-    const data = await getChoferes()
-    setChoferes(data)
-    setLoading(false)
-  }
-
-  useEffect(() => { load() }, [])
-
-  const addNewChofer = async (email: string): Promise<void> => {
-    if (!email?.trim()) return
-    await addChofer(email.trim().toLowerCase())
-    await load()
-  }
-
-  const removeChofer = async (email: string): Promise<void> => {
-    await removeChoferSvc(email)
-    await load()
-  }
-
-  return { choferes, loading, addNewChofer, removeChofer }
+  const { data, isLoading } = useQuery({
+    queryKey: ['users', 'choferes'],
+    queryFn:  () => getAllUsers().then((users) =>
+      users.filter((u) => u.rol === 'chofer' && u.estado === 'activo')
+    ),
+    staleTime: 60_000,
+  })
+  return { choferes: (data ?? []) as UserProfile[], loading: isLoading }
 }

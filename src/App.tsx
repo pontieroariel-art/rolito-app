@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import ProtectedRoute from './components/layout/ProtectedRoute'
 import LoadingSpinner from './components/ui/LoadingSpinner'
@@ -13,10 +14,12 @@ import NewOrder        from './pages/client/NewOrder'
 import OrderHistory    from './pages/client/OrderHistory'
 import ClientProfile   from './pages/client/ClientProfile'
 
-import AdminDashboard from './pages/admin/AdminDashboard'
-import UserManagement from './pages/admin/UserManagement'
+import AdminDashboard  from './pages/admin/AdminDashboard'
+import UserManagement  from './pages/admin/UserManagement'
+import PriceListsPage  from './pages/admin/PriceListsPage'
 
 import ComercialDashboard from './pages/comercial/ComercialDashboard'
+import ComercialOrders    from './pages/comercial/ComercialOrders'
 
 import ChoferDashboard from './pages/chofer/ChoferDashboard'
 import ChoferMap       from './pages/chofer/ChoferMap'
@@ -70,7 +73,8 @@ function AppContent() {
 
       {/* Admin y logística */}
       <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica']} />}>
-        <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/admin"         element={<AdminDashboard />} />
+        <Route path="/admin/precios" element={<PriceListsPage />} />
       </Route>
 
       {/* Gestión de usuarios */}
@@ -80,7 +84,8 @@ function AppContent() {
 
       {/* Comercial */}
       <Route element={<ProtectedRoute allowedRoles={['comercial']} />}>
-        <Route path="/comercial" element={<ComercialDashboard />} />
+        <Route path="/comercial"         element={<ComercialDashboard />} />
+        <Route path="/comercial/pedidos" element={<ComercialOrders />} />
       </Route>
 
       {/* Chofer */}
@@ -97,12 +102,16 @@ function AppContent() {
 
 // ── App ───────────────────────────────────────────────────────────────────────
 
+const queryClient = new QueryClient()
+
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <AppContent />
-      </BrowserRouter>
-    </AuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <BrowserRouter>
+          <AppContent />
+        </BrowserRouter>
+      </AuthProvider>
+    </QueryClientProvider>
   )
 }

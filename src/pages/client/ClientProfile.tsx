@@ -1,4 +1,5 @@
-import { useState, useRef, ChangeEvent, FormEvent } from 'react'
+import { useState, useEffect, useRef, ChangeEvent, FormEvent } from 'react'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { GoogleMap, Marker } from '@react-google-maps/api'
 import Navbar from '../../components/layout/Navbar'
 import Input from '../../components/ui/Input'
@@ -435,65 +436,66 @@ interface ACSuggestion {
   fullText:      string
 }
 
+const AC_BASE = import.meta.env.VITE_NETLIFY_FUNCTIONS_URL ?? '/.netlify/functions'
+
+async function fetchAutocompleteSuggestions(input: string): Promise<ACSuggestion[]> {
+  const res  = await fetch(`${AC_BASE}/places-autocomplete`, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ input }),
+  })
+  const data = await res.json()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data.suggestions ?? []).filter((s: any) => s.placePrediction).map((s: any) => ({
+    placeId:       s.placePrediction.placeId,
+    mainText:      s.placePrediction.structuredFormat?.mainText?.text      ?? '',
+    secondaryText: s.placePrediction.structuredFormat?.secondaryText?.text ?? '',
+    fullText:      s.placePrediction.text?.text                             ?? '',
+  }))
+}
+
+async function fetchPlaceDetails(placeId: string) {
+  const res = await fetch(`${AC_BASE}/places-details`, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ placeId }),
+  })
+  return res.json()
+}
+
 function AddressAutocomplete({
   onSelect,
 }: {
   onSelect: (address: string, lat: number, lng: number) => void
 }) {
-  const [input,       setInput]       = useState('')
-  const [suggestions, setSuggestions] = useState<ACSuggestion[]>([])
-  const [fetching,    setFetching]    = useState(false)
-  const [open,        setOpen]        = useState(false)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const BASE        = import.meta.env.VITE_NETLIFY_FUNCTIONS_URL ?? '/.netlify/functions'
+  const [input,          setInput]          = useState('')
+  const [debouncedInput, setDebouncedInput] = useState('')
+  const [open,           setOpen]           = useState(false)
 
-  const fetchSuggestions = async (text: string) => {
-    if (text.length < 3) { setSuggestions([]); setOpen(false); return }
-    setFetching(true)
-    try {
-      const res  = await fetch(`${BASE}/places-autocomplete`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ input: text }),
-      })
-      const data = await res.json()
-      const list: ACSuggestion[] = (data.suggestions ?? [])
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .filter((s: any) => s.placePrediction)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .map((s: any) => ({
-          placeId:       s.placePrediction.placeId,
-          mainText:      s.placePrediction.structuredFormat?.mainText?.text      ?? '',
-          secondaryText: s.placePrediction.structuredFormat?.secondaryText?.text ?? '',
-          fullText:      s.placePrediction.text?.text                             ?? '',
-        }))
-      setSuggestions(list)
-      setOpen(list.length > 0)
-    } catch {
-      setSuggestions([])
-    } finally {
-      setFetching(false)
-    }
-  }
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedInput(input), 350)
+    return () => clearTimeout(id)
+  }, [input])
+
+  const { data: suggestions = [], isFetching } = useQuery({
+    queryKey: ['places-autocomplete', debouncedInput],
+    queryFn:  () => fetchAutocompleteSuggestions(debouncedInput),
+    enabled:  debouncedInput.length >= 3,
+    staleTime: 30_000,
+  })
+
+  const detailsMutation = useMutation({ mutationFn: fetchPlaceDetails })
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value
-    setInput(val)
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => fetchSuggestions(val), 350)
+    setInput(e.target.value)
+    setOpen(true)
   }
 
   const handleSelect = async (s: ACSuggestion) => {
     setInput(s.fullText)
-    setSuggestions([])
     setOpen(false)
     try {
-      const res   = await fetch(`${BASE}/places-details`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ placeId: s.placeId }),
-      })
-      const place = await res.json()
+      const place = await detailsMutation.mutateAsync(s.placeId)
       onSelect(
         place.formattedAddress ?? s.fullText,
         place.location.latitude,
@@ -503,6 +505,8 @@ function AddressAutocomplete({
       // Si falla el detalle el usuario deberá reintentar
     }
   }
+
+  const showDropdown = open && suggestions.length > 0 && debouncedInput.length >= 3
 
   return (
     <div className="relative">
@@ -516,10 +520,10 @@ function AddressAutocomplete({
         autoComplete="off"
         className="bg-bg border border-border rounded-lg px-3 py-2 text-white placeholder-muted w-full focus:outline-none focus:ring-2 focus:ring-accent transition-colors pr-8"
       />
-      {fetching && (
+      {(isFetching || detailsMutation.isPending) && (
         <span className="absolute right-3 top-2.5 w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
       )}
-      {open && suggestions.length > 0 && (
+      {showDropdown && (
         <ul className="absolute z-50 w-full bg-surface border border-border rounded-xl mt-1 shadow-2xl overflow-hidden">
           {suggestions.map((s) => (
             <li

@@ -17,8 +17,32 @@ export interface Product {
 }
 
 export interface OrderProduct {
-  name: string
-  quantity: number
+  name:       string
+  quantity:   number
+  productoId?: string
+  price?:     number
+}
+
+// ── Catálogo y listas de precios ──────────────────────────────────────────────
+
+export interface CatalogProducto {
+  id:     string
+  nombre: string
+  unidad: string
+}
+
+export interface ItemListaPrecios {
+  productoId: string
+  nombre:     string
+  unidad:     string
+  precio:     number
+  activo:     boolean
+}
+
+export interface ListaPrecios {
+  id:     string
+  nombre: string
+  items:  ItemListaPrecios[]
 }
 
 export interface DeliveryAddress {
@@ -52,6 +76,8 @@ export interface UserProfile {
   fechaCreacion: Timestamp | null
   fechaAprobacion: Timestamp | null
   aprobadoPor: string | null
+  listaPreciosId?: string
+  preciosCustom?: Record<string, number>
 }
 
 export function getPrimaryAddress(user: UserProfile): DeliveryAddress | null {

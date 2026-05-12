@@ -1,16 +1,21 @@
 import { useState, useEffect, ChangeEvent } from 'react'
+import { deleteField } from 'firebase/firestore'
+import { Tag } from 'lucide-react'
 import Navbar from '../../components/layout/Navbar'
 import Button from '../../components/ui/Button'
+import Modal from '../../components/ui/Modal'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useAuth } from '../../context/AuthContext'
 import {
   getAllUsers,
   updateUserRole,
   updateUserStatus,
+  updateUserDocument,
   approveUser,
 } from '../../services/userService'
-import { notifyAprobado } from '../../services/notificationService'
-import { UserProfile, UserRole, UserStatus } from '../../types'
+import { useNotifyAprobado } from '../../hooks/useNotifications'
+import { useAllListasPrecios } from '../../hooks/useListasPrecios'
+import { UserProfile, UserRole, UserStatus, ListaPrecios } from '../../types'
 
 const ROLE_LABELS: Record<UserRole, string> = {
   super_admin: 'Super Admin',
@@ -42,6 +47,8 @@ export default function UserManagement() {
   const [search, setSearch]             = useState('')
   const [roleFilter, setRoleFilter]     = useState<UserRole | 'all'>('all')
   const [statusFilter, setStatusFilter] = useState<UserStatus | 'all'>('all')
+  const notifyAprobadoMutation          = useNotifyAprobado()
+  const { listas }                      = useAllListasPrecios()
 
   const load = async () => {
     setLoading(true)
@@ -78,7 +85,7 @@ export default function UserManagement() {
     await approveUser(u.uid, currentUser.uid)
     setUsers((prev) => prev.map((p) => p.uid === u.uid ? { ...p, estado: 'activo' as UserStatus } : p))
     if (u.email) {
-      notifyAprobado(u.email, u.nombreContacto || u.nombre || '').catch(console.error)
+      notifyAprobadoMutation.mutate({ email: u.email, nombre: u.nombreContacto || u.nombre || '' })
     }
   }
 
@@ -180,6 +187,7 @@ export default function UserManagement() {
                 key={u.uid}
                 user={u}
                 currentUser={currentUser}
+                listas={listas}
                 onRoleChange={handleRole}
                 onToggleStatus={handleToggleStatus}
                 onApprove={handleApprove}
@@ -193,15 +201,17 @@ export default function UserManagement() {
 }
 
 interface UserRowProps {
-  user: UserProfile
-  currentUser: UserProfile | null
-  onRoleChange: (uid: string, rol: UserRole) => Promise<void>
+  user:           UserProfile
+  currentUser:    UserProfile | null
+  listas:         ListaPrecios[]
+  onRoleChange:   (uid: string, rol: UserRole) => Promise<void>
   onToggleStatus: (u: UserProfile) => Promise<void>
-  onApprove: (u: UserProfile) => Promise<void>
+  onApprove:      (u: UserProfile) => Promise<void>
 }
 
-function UserRow({ user, currentUser, onRoleChange, onToggleStatus, onApprove }: UserRowProps) {
-  const [busy, setBusy] = useState(false)
+function UserRow({ user, currentUser, listas, onRoleChange, onToggleStatus, onApprove }: UserRowProps) {
+  const [busy, setBusy]               = useState(false)
+  const [preciosModal, setPreciosModal] = useState(false)
   const isSelf = user.uid === currentUser?.uid
 
   const run = async (fn: () => Promise<void>) => {
@@ -209,13 +219,19 @@ function UserRow({ user, currentUser, onRoleChange, onToggleStatus, onApprove }:
     try { await fn() } finally { setBusy(false) }
   }
 
+  const handleListaChange = (listaPreciosId: string) =>
+    run(() => updateUserDocument(user.uid, { listaPreciosId: listaPreciosId || deleteField() }))
+
+  const listaAsignada = listas.find((l) => l.id === user.listaPreciosId)
+  const customCount   = Object.keys(user.preciosCustom ?? {}).length
+
   return (
-    <div className="bg-surface border border-border rounded-xl p-4">
+    <div className="bg-surface border border-border rounded-xl p-4 space-y-3">
       <div className="flex flex-wrap gap-4 items-center justify-between">
         {/* Info */}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="font-semibold text-sm">{user.nombre || '(sin nombre)'}</p>
+            <p className="font-semibold text-sm">{user.razonSocial || user.nombre || '(sin nombre)'}</p>
             {isSelf && <span className="text-xs text-muted">(vos)</span>}
             <span
               className={`text-xs px-2 py-0.5 rounded-full border font-medium whitespace-nowrap
@@ -223,16 +239,17 @@ function UserRow({ user, currentUser, onRoleChange, onToggleStatus, onApprove }:
             >
               {STATUS_LABELS[user.estado] ?? user.estado}
             </span>
+            {customCount > 0 && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-500/15 border border-yellow-500/30 text-yellow-400 font-medium flex items-center gap-1">
+                <Tag size={10} />
+                {customCount} precio{customCount !== 1 ? 's' : ''} especial{customCount !== 1 ? 'es' : ''}
+              </span>
+            )}
           </div>
           <p className="text-muted text-xs mt-0.5 truncate">{user.email}</p>
           {user.fechaCreacion && (
             <p className="text-muted text-xs mt-0.5">
               Registrado: {user.fechaCreacion.toDate().toLocaleDateString('es-AR')}
-            </p>
-          )}
-          {user.fechaAprobacion && (
-            <p className="text-muted text-xs">
-              Aprobado: {user.fechaAprobacion.toDate().toLocaleDateString('es-AR')}
             </p>
           )}
         </div>
@@ -253,11 +270,7 @@ function UserRow({ user, currentUser, onRoleChange, onToggleStatus, onApprove }:
           </select>
 
           {user.estado === 'pendiente' && (
-            <Button
-              onClick={() => run(() => onApprove(user))}
-              loading={busy}
-              className="text-xs py-1.5 px-3"
-            >
+            <Button onClick={() => run(() => onApprove(user))} loading={busy} className="text-xs py-1.5 px-3">
               ✓ Aprobar
             </Button>
           )}
@@ -275,6 +288,135 @@ function UserRow({ user, currentUser, onRoleChange, onToggleStatus, onApprove }:
           )}
         </div>
       </div>
+
+      {/* Fila de precios — solo para clientes */}
+      {user.rol === 'cliente' && (
+        <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-border/50">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <span className="text-xs text-muted whitespace-nowrap">Canal / lista:</span>
+            <select
+              value={user.listaPreciosId ?? ''}
+              disabled={busy}
+              onChange={(e: ChangeEvent<HTMLSelectElement>) => handleListaChange(e.target.value)}
+              className="bg-bg border border-border rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-accent flex-1 min-w-0 max-w-xs disabled:opacity-50"
+            >
+              <option value="">Sin lista asignada</option>
+              {listas.map((l) => (
+                <option key={l.id} value={l.id}>{l.nombre}</option>
+              ))}
+            </select>
+          </div>
+
+          {listaAsignada && (
+            <button
+              onClick={() => setPreciosModal(true)}
+              className="flex items-center gap-1.5 text-xs text-accent hover:text-white border border-accent/30 hover:border-accent rounded-lg px-3 py-1 transition-colors"
+            >
+              <Tag size={11} />
+              {customCount > 0 ? `${customCount} precio${customCount !== 1 ? 's' : ''} especial${customCount !== 1 ? 'es' : ''}` : 'Precios especiales'}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Modal de precios especiales */}
+      {preciosModal && listaAsignada && (
+        <PreciosCustomModal
+          user={user}
+          lista={listaAsignada}
+          onClose={() => setPreciosModal(false)}
+        />
+      )}
     </div>
+  )
+}
+
+// ── PreciosCustomModal ────────────────────────────────────────────────────────
+
+function PreciosCustomModal({
+  user,
+  lista,
+  onClose,
+}: {
+  user:    UserProfile
+  lista:   ListaPrecios
+  onClose: () => void
+}) {
+  const [overrides, setOverrides] = useState<Record<string, string>>(() => {
+    const map: Record<string, string> = {}
+    lista.items.filter((i) => i.activo).forEach((i) => {
+      const v = user.preciosCustom?.[i.productoId]
+      if (v !== undefined) map[i.productoId] = String(v)
+    })
+    return map
+  })
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = async () => {
+    setSaving(true)
+    const preciosCustom: Record<string, number> = {}
+    Object.entries(overrides).forEach(([id, val]) => {
+      const n = Number(val)
+      if (!isNaN(n) && val !== '') preciosCustom[id] = n
+    })
+    await updateUserDocument(user.uid, {
+      preciosCustom: Object.keys(preciosCustom).length ? preciosCustom : deleteField(),
+    })
+    setSaving(false)
+    onClose()
+  }
+
+  const activeItems = lista.items.filter((i) => i.activo)
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={`Precios especiales — ${user.razonSocial || user.nombre}`}
+    >
+      <p className="text-xs text-muted mb-4">
+        Dejá el campo vacío para usar el precio del canal ({lista.nombre}).
+        Ingresá un valor para sobreescribir solo ese producto.
+      </p>
+
+      <div className="space-y-2 max-h-80 overflow-y-auto">
+        {activeItems.map((item) => (
+          <div key={item.productoId} className="flex items-center gap-3">
+            <span className="text-sm flex-1 min-w-0 truncate">{item.nombre}</span>
+            <span className="text-xs text-muted shrink-0 w-16 text-right">
+              Canal: ${item.precio.toLocaleString('es-AR')}
+            </span>
+            <div className="relative w-28 shrink-0">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted text-xs">$</span>
+              <input
+                type="number"
+                min="0"
+                placeholder={String(item.precio)}
+                value={overrides[item.productoId] ?? ''}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                  const v = e.target.value
+                  setOverrides((p) => {
+                    const next = { ...p }
+                    if (v === '') delete next[item.productoId]
+                    else next[item.productoId] = v
+                    return next
+                  })
+                }}
+                className={`w-full bg-bg border rounded-lg pl-6 pr-2 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-accent ${
+                  overrides[item.productoId] !== undefined
+                    ? 'border-yellow-500/50 bg-yellow-500/5'
+                    : 'border-border'
+                }`}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex gap-3 mt-5">
+        <Button variant="outline" onClick={onClose} className="flex-1">Cancelar</Button>
+        <Button onClick={handleSave} loading={saving} className="flex-1">Guardar</Button>
+      </div>
+    </Modal>
   )
 }
