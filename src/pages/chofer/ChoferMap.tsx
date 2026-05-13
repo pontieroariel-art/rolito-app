@@ -13,18 +13,18 @@ const BA_CENTER = { lat: -34.6037, lng: -58.3816 }
 const MAP_CONTAINER_STYLE: React.CSSProperties = { width: '100%', height: '100%' }
 
 const DARK_MAP_STYLE: google.maps.MapTypeStyle[] = [
-  { elementType: 'geometry',           stylers: [{ color: '#0A1628' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#0A1628' }] },
-  { elementType: 'labels.text.fill',   stylers: [{ color: '#74a0c8' }] },
-  { featureType: 'administrative',     elementType: 'geometry', stylers: [{ color: '#1E3A5F' }] },
-  { featureType: 'road',               elementType: 'geometry', stylers: [{ color: '#1E3A5F' }] },
-  { featureType: 'road.highway',       elementType: 'geometry', stylers: [{ color: '#163868' }] },
-  { featureType: 'road',               elementType: 'labels.text.fill', stylers: [{ color: '#9ca5b3' }] },
-  { featureType: 'water',              elementType: 'geometry', stylers: [{ color: '#05101e' }] },
-  { featureType: 'water',              elementType: 'labels.text.fill', stylers: [{ color: '#515c6d' }] },
-  { featureType: 'poi',                elementType: 'geometry', stylers: [{ color: '#0e1f38' }] },
-  { featureType: 'poi.park',           elementType: 'geometry', stylers: [{ color: '#0a1e30' }] },
-  { featureType: 'transit',            elementType: 'geometry', stylers: [{ color: '#1E3A5F' }] },
+  { elementType: 'geometry',           stylers: [{ color: '#03160D' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#03160D' }] },
+  { elementType: 'labels.text.fill',   stylers: [{ color: '#40916C' }] },
+  { featureType: 'administrative',     elementType: 'geometry', stylers: [{ color: '#1B4332' }] },
+  { featureType: 'road',               elementType: 'geometry', stylers: [{ color: '#1B4332' }] },
+  { featureType: 'road.highway',       elementType: 'geometry', stylers: [{ color: '#2D6A4F' }] },
+  { featureType: 'road',               elementType: 'labels.text.fill', stylers: [{ color: '#52B788' }] },
+  { featureType: 'water',              elementType: 'geometry', stylers: [{ color: '#011507' }] },
+  { featureType: 'water',              elementType: 'labels.text.fill', stylers: [{ color: '#1B4332' }] },
+  { featureType: 'poi',                elementType: 'geometry', stylers: [{ color: '#081C11' }] },
+  { featureType: 'poi.park',           elementType: 'geometry', stylers: [{ color: '#0B2C1C' }] },
+  { featureType: 'transit',            elementType: 'geometry', stylers: [{ color: '#1B4332' }] },
 ]
 
 const MAP_OPTIONS: google.maps.MapOptions = {
@@ -147,7 +147,7 @@ export default function ChoferMap() {
               <DirectionsRenderer
                 directions={directions}
                 options={{
-                  polylineOptions: { strokeColor: '#00C2FF', strokeWeight: 4 },
+                  polylineOptions: { strokeColor: '#52B788', strokeWeight: 4 },
                   markerOptions:   { visible: true },
                 }}
               />
