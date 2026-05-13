@@ -38,7 +38,7 @@ export default function Login() {
   }
 
   return (
-    <AuthLayout title="Iniciar sesión">
+    <AuthLayout title="Iniciar sesión" subtitle="Realiza tu Pedido">
       <div className="flex flex-col gap-4">
         <Input
           label="Email"
@@ -88,7 +88,7 @@ export default function Login() {
           </Link>
           <p>
             ¿No tenés cuenta?{' '}
-            <Link to="/register" className="text-accent hover:underline">
+            <Link to="/register" className="text-success hover:underline">
               Registrarse
             </Link>
           </p>
