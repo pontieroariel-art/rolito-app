@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import { GoogleMap, DirectionsRenderer } from '@react-google-maps/api'
 import Navbar from '../../components/layout/Navbar'
 import Button from '../../components/ui/Button'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useDriverOrders } from '../../hooks/useOrders'
 import { updateOrderStatus } from '../../services/orderService'
+import { updateDriverLocation, deactivateDriverLocation } from '../../services/locationService'
+import { useAuth } from '../../context/AuthContext'
 import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
 import { summarizeProducts } from '../../utils/helpers'
 
@@ -36,6 +38,7 @@ const MAP_OPTIONS: google.maps.MapOptions = {
 
 export default function ChoferMap() {
   const { orders, loading }           = useDriverOrders()
+  const { user }                      = useAuth()
   const { isLoaded, loadError }       = useGoogleMapsLoader()
   const [directions, setDirections]   = useState<google.maps.DirectionsResult | null>(null)
   const [routeError, setRouteError]   = useState('')
@@ -47,15 +50,34 @@ export default function ChoferMap() {
     [orders],
   )
 
-  // Obtener posición GPS actual al cargar
-  useMemo(() => {
-    if (!navigator.geolocation) return
-    navigator.geolocation.getCurrentPosition(
-      (pos) => setCurrentPos({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => {},
-      { enableHighAccuracy: true, timeout: 10_000 },
-    )
-  }, [])
+  const nombreRef   = useRef(user?.nombreContacto || user?.nombre || '')
+  const telefonoRef = useRef(user?.telefono       || user?.phone  || '')
+  useEffect(() => {
+    nombreRef.current   = user?.nombreContacto || user?.nombre || ''
+    telefonoRef.current = user?.telefono       || user?.phone  || ''
+  })
+
+  // Comparte ubicación GPS cada 10 s mientras el mapa está abierto y hay pendientes
+  useEffect(() => {
+    if (!pending.length || !user?.email || !navigator.geolocation) return
+    const email = user.email
+    const send  = () =>
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setCurrentPos({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+          updateDriverLocation(email, pos.coords.latitude, pos.coords.longitude,
+            nombreRef.current, telefonoRef.current)
+        },
+        () => {},
+        { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 },
+      )
+    send()
+    const id = setInterval(send, 10_000)
+    return () => {
+      clearInterval(id)
+      deactivateDriverLocation(email).catch(console.error)
+    }
+  }, [pending.length, user?.email])
 
   const calculateRoute = async () => {
     if (pending.length === 0) return

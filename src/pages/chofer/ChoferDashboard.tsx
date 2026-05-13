@@ -17,9 +17,9 @@ export default function ChoferDashboard() {
   const { user }              = useAuth()
   const [pdfLoading, setPdfLoading] = useState(false)
 
-  const pending     = orders.filter((o) => o.status !== 'entregado')
-  const delivered   = orders.filter((o) => o.status === 'entregado')
-  const hasEnCamino = orders.some((o) => o.status === 'en_camino')
+  const pending   = orders.filter((o) => o.status !== 'entregado')
+  const delivered = orders.filter((o) => o.status === 'entregado')
+  const hasPending = pending.length > 0
 
   // Refs para evitar re-disparar el effect cuando cambia el nombre/teléfono
   const nombreRef   = useRef(user?.nombreContacto || user?.nombre || '')
@@ -29,10 +29,12 @@ export default function ChoferDashboard() {
     telefonoRef.current = user?.telefono       || user?.phone  || ''
   })
 
-  // Comparte ubicación GPS cada 10 s mientras haya entregas en_camino.
-  // Al desmontar (logout) o cuando no quedan en_camino, marca activo: false.
+  // Comparte ubicación GPS cada 10 s mientras haya pedidos pendientes.
+  // Activa desde que el chofer tiene cualquier pedido asignado (no solo en_camino)
+  // para que logística pueda ver su posición durante todo el reparto.
+  // Al desmontar (logout) o cuando no quedan pendientes, marca activo: false.
   useEffect(() => {
-    if (!hasEnCamino || !user?.email || !navigator.geolocation) return
+    if (!hasPending || !user?.email || !navigator.geolocation) return
 
     const email = user.email
     const send  = () =>
@@ -55,7 +57,7 @@ export default function ChoferDashboard() {
       clearInterval(id)
       deactivateDriverLocation(email).catch(console.error)
     }
-  }, [hasEnCamino, user?.email])
+  }, [hasPending, user?.email])
 
   if (loading) return <><Navbar /><LoadingSpinner fullScreen /></>
 
