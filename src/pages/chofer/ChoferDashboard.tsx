@@ -1,25 +1,42 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
 import Navbar from '../../components/layout/Navbar'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
+import Modal from '../../components/ui/Modal'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useDriverOrders } from '../../hooks/useOrders'
 import { useAuth } from '../../context/AuthContext'
+import { createOrder } from '../../services/orderService'
 import { updateOrderStatus } from '../../services/orderService'
 import { updateDriverLocation, deactivateDriverLocation } from '../../services/locationService'
+import { updateVisitaPuntual } from '../../services/visitasService'
+import { useProgramasVisita, useVisitasPuntuales, programasParaFecha, visitasParaFecha } from '../../hooks/useVisitas'
+import { useCatalogo } from '../../hooks/useCatalogo'
 import { summarizeProducts } from '../../utils/helpers'
 import { generateHojaDeRuta } from '../../utils/pdf'
-import { Order } from '../../types'
+import { Order, ProgramaVisita, VisitaPuntual, OrderProduct } from '../../types'
 
 export default function ChoferDashboard() {
   const { orders, loading }   = useDriverOrders()
   const { user }              = useAuth()
-  const [pdfLoading, setPdfLoading] = useState(false)
+  const { programas }         = useProgramasVisita()
+  const { visitas }           = useVisitasPuntuales()
+  const { catalogo }          = useCatalogo()
+  const [pdfLoading,  setPdfLoading]  = useState(false)
+  const [registrando, setRegistrando] = useState<
+    { tipo: 'programa'; data: ProgramaVisita } |
+    { tipo: 'visita';   data: VisitaPuntual   } | null
+  >(null)
 
   const pending   = orders.filter((o) => o.status !== 'entregado')
   const delivered = orders.filter((o) => o.status === 'entregado')
   const hasPending = pending.length > 0
+
+  const today           = new Date()
+  const visitasHoy      = programasParaFecha(programas, today).filter((p) => !p.driverId || p.driverId === user?.email)
+  const puntualHoy      = visitasParaFecha(visitas, today).filter((v) => !v.driverId || v.driverId === user?.email)
+  const entregadosHoyIds = new Set(orders.filter((o) => o.status === 'entregado').map((o) => o.clientId))
 
   // Refs para evitar re-disparar el effect cuando cambia el nombre/teléfono
   const nombreRef   = useRef(user?.nombreContacto || user?.nombre || '')
@@ -130,6 +147,66 @@ export default function ChoferDashboard() {
           </section>
         )}
 
+        {/* Visitas sin pedido previo */}
+        {(visitasHoy.length > 0 || puntualHoy.length > 0) && (
+          <section className="space-y-2">
+            <h2 className="text-lg font-semibold">Visitas de hoy</h2>
+            {visitasHoy.map((p) => {
+              const yaEntregado = entregadosHoyIds.has(p.clientId)
+              return (
+                <div key={p.id} className={`bg-surface border rounded-xl p-4 space-y-2 ${yaEntregado ? 'border-success/30 opacity-60' : 'border-accent/30'}`}>
+                  <div className="flex justify-between items-start gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-sm">{p.clientName}</p>
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-accent/15 text-accent border border-accent/20">recurrente</span>
+                        {yaEntregado && <span className="text-xs text-success font-medium">✓ Entregado</span>}
+                      </div>
+                      <p className="text-muted text-xs mt-0.5">{p.clientAddress}</p>
+                      {p.clientPhone && <a href={`tel:${p.clientPhone}`} className="text-accent text-xs hover:underline">{p.clientPhone}</a>}
+                      {p.notas && <p className="text-xs text-muted/70 italic mt-1">"{p.notas}"</p>}
+                    </div>
+                    {!yaEntregado && (
+                      <Button onClick={() => setRegistrando({ tipo: 'programa', data: p })} className="text-xs py-1.5 px-3 shrink-0">
+                        Registrar entrega
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+            {puntualHoy.map((v) => (
+              <div key={v.id} className={`bg-surface border rounded-xl p-4 space-y-2 ${v.status === 'visitado' ? 'border-success/30 opacity-60' : v.status === 'sin_contacto' ? 'border-orange-500/30 opacity-60' : 'border-border'}`}>
+                <div className="flex justify-between items-start gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-sm">{v.clientName}</p>
+                      {v.status === 'visitado' && <span className="text-xs text-success font-medium">✓ Entregado</span>}
+                      {v.status === 'sin_contacto' && <span className="text-xs text-orange-400 font-medium">Sin contacto</span>}
+                    </div>
+                    <p className="text-muted text-xs mt-0.5">{v.clientAddress}</p>
+                    {v.clientPhone && <a href={`tel:${v.clientPhone}`} className="text-accent text-xs hover:underline">{v.clientPhone}</a>}
+                    {v.notas && <p className="text-xs text-muted/70 italic mt-1">"{v.notas}"</p>}
+                  </div>
+                  {v.status === 'pendiente' && (
+                    <div className="flex flex-col gap-1.5 shrink-0">
+                      <Button onClick={() => setRegistrando({ tipo: 'visita', data: v })} className="text-xs py-1.5 px-3">
+                        Registrar entrega
+                      </Button>
+                      <button
+                        onClick={() => updateVisitaPuntual(v.id, { status: 'sin_contacto' })}
+                        className="text-xs text-muted hover:text-orange-400 text-center"
+                      >
+                        Sin contacto
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </section>
+        )}
+
         {delivered.length > 0 && (
           <section>
             <h2 className="text-lg font-semibold mb-3 text-success">✓ Entregados</h2>
@@ -148,7 +225,98 @@ export default function ChoferDashboard() {
           </section>
         )}
       </main>
+
+      {/* Modal registrar entrega de visita */}
+      {registrando && (
+        <RegistrarEntregaModal
+          clientName={registrando.data.clientName}
+          clientAddress={registrando.data.clientAddress}
+          clientPhone={registrando.data.clientPhone}
+          catalogo={catalogo}
+          user={user}
+          onConfirm={async (products) => {
+            if (!user) return
+            await createOrder({
+              user: {
+                ...user,
+                razonSocial:    registrando.data.clientName,
+                address:        registrando.data.clientAddress,
+                telefono:       registrando.data.clientPhone,
+                uid:            registrando.tipo === 'visita' ? registrando.data.clientId : user.uid,
+              },
+              products,
+              date: new Date().toISOString().split('T')[0],
+              notes: registrando.tipo === 'visita' ? (registrando.data.notas ?? '') : (registrando.data.notas ?? ''),
+            })
+            if (registrando.tipo === 'visita') {
+              await updateVisitaPuntual(registrando.data.id, { status: 'visitado' })
+            }
+            setRegistrando(null)
+          }}
+          onClose={() => setRegistrando(null)}
+        />
+      )}
     </>
+  )
+}
+
+function RegistrarEntregaModal({
+  clientName, clientAddress, catalogo, user, onConfirm, onClose,
+}: {
+  clientName:    string
+  clientAddress: string
+  clientPhone:   string
+  catalogo:      { id: string; nombre: string; unidad: string }[]
+  user:          import('../../types').UserProfile | null
+  onConfirm:     (products: OrderProduct[]) => Promise<void>
+  onClose:       () => void
+}) {
+  const [quantities, setQuantities] = useState<Record<string, number>>({})
+  const [saving,     setSaving]     = useState(false)
+
+  const selected: OrderProduct[] = catalogo
+    .filter((p) => (quantities[p.id] ?? 0) > 0)
+    .map((p) => ({ name: p.nombre, quantity: quantities[p.id], productoId: p.id }))
+
+  const handleConfirm = async () => {
+    if (selected.length === 0) return
+    setSaving(true)
+    await onConfirm(selected)
+    setSaving(false)
+  }
+
+  return (
+    <Modal open onClose={onClose} title={`Registrar entrega — ${clientName}`}>
+      <p className="text-xs text-muted mb-4 truncate">{clientAddress}</p>
+      <div className="space-y-2 max-h-72 overflow-y-auto">
+        {catalogo.map((p) => {
+          const qty = quantities[p.id] ?? 0
+          return (
+            <div key={p.id} className="flex items-center justify-between gap-3 bg-bg border border-border rounded-xl px-3 py-2">
+              <p className="text-sm flex-1">{p.nombre}</p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setQuantities((q) => ({ ...q, [p.id]: Math.max(0, (q[p.id] ?? 0) - 1) }))}
+                  disabled={qty === 0}
+                  className="w-8 h-8 rounded-full border border-border text-lg hover:border-accent transition-colors disabled:opacity-30 flex items-center justify-center"
+                >−</button>
+                <span className="w-8 text-center font-bold text-sm">{qty || '0'}</span>
+                <button
+                  onClick={() => setQuantities((q) => ({ ...q, [p.id]: (q[p.id] ?? 0) + 1 }))}
+                  className="w-8 h-8 rounded-full border border-border text-lg hover:border-accent transition-colors flex items-center justify-center"
+                >+</button>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      <div className="flex gap-3 mt-5">
+        <Button variant="outline" onClick={onClose} className="flex-1">Cancelar</Button>
+        <Button onClick={handleConfirm} loading={saving} disabled={selected.length === 0} className="flex-1">
+          Confirmar ({selected.length} productos)
+        </Button>
+      </div>
+    </Modal>
   )
 }
 

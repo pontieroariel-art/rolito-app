@@ -85,6 +85,37 @@ export interface UserProfile {
   camionFechaAsignacion?: Timestamp | null
 }
 
+// ── Visitas programadas ───────────────────────────────────────────────────────
+
+export const DIAS_SEMANA = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'] as const
+
+export interface ProgramaVisita {
+  id:            string
+  clientId:      string
+  clientName:    string
+  clientAddress: string
+  clientPhone:   string
+  diasSemana:    number[]         // 0=Dom … 6=Sáb (Date.getDay())
+  driverId:      string | null
+  activo:        boolean
+  notas?:        string
+  createdAt:     Timestamp
+}
+
+export interface VisitaPuntual {
+  id:            string
+  clientId:      string
+  clientName:    string
+  clientAddress: string
+  clientPhone:   string
+  fecha:         Timestamp
+  driverId:      string | null
+  status:        'pendiente' | 'visitado' | 'sin_contacto'
+  notas?:        string
+  orderId?:      string
+  createdAt:     Timestamp
+}
+
 export interface Camion {
   id:        string
   patente:   string
