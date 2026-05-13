@@ -37,7 +37,7 @@ export default function NewOrder() {
   const { catalogo } = useCatalogo()
 
   // Build the product list from price list (if assigned) or catalog fallback
-  const displayProducts: DisplayProduct[] = lista
+  const listaItems = lista
     ? lista.items
         .filter((i) => i.activo)
         .map((i) => ({
@@ -46,6 +46,11 @@ export default function NewOrder() {
           unidad: i.unidad,
           precio: user?.preciosCustom?.[i.productoId] ?? i.precio,
         }))
+    : []
+
+  // Si la lista no tiene items activos, cae al catálogo sin precios
+  const displayProducts: DisplayProduct[] = listaItems.length > 0
+    ? listaItems
     : catalogo.map((p) => ({ id: p.id, nombre: p.nombre, unidad: p.unidad }))
 
   const selected = displayProducts
