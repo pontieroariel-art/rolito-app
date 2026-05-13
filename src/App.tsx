@@ -17,6 +17,7 @@ import ClientProfile   from './pages/client/ClientProfile'
 import AdminDashboard  from './pages/admin/AdminDashboard'
 import UserManagement  from './pages/admin/UserManagement'
 import PriceListsPage  from './pages/admin/PriceListsPage'
+import FlotaPage       from './pages/admin/FlotaPage'
 
 import ComercialDashboard from './pages/comercial/ComercialDashboard'
 import ComercialOrders    from './pages/comercial/ComercialOrders'
@@ -75,6 +76,7 @@ function AppContent() {
       <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica']} />}>
         <Route path="/admin"         element={<AdminDashboard />} />
         <Route path="/admin/precios" element={<PriceListsPage />} />
+        <Route path="/admin/flota"   element={<FlotaPage />} />
       </Route>
 
       {/* Gestión de usuarios */}
