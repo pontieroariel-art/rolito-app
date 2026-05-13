@@ -80,6 +80,14 @@ export default function UserManagement() {
     setUsers((prev) => prev.map((p) => p.uid === u.uid ? { ...p, estado: newEstado } : p))
   }
 
+  const handleListaChange = (uid: string, listaPreciosId: string | null) => {
+    setUsers((prev) =>
+      prev.map((u) =>
+        u.uid === uid ? { ...u, listaPreciosId: listaPreciosId ?? undefined } : u,
+      ),
+    )
+  }
+
   const handleApprove = async (u: UserProfile) => {
     if (!currentUser) return
     await approveUser(u.uid, currentUser.uid)
@@ -191,6 +199,7 @@ export default function UserManagement() {
                 onRoleChange={handleRole}
                 onToggleStatus={handleToggleStatus}
                 onApprove={handleApprove}
+                onListaChange={handleListaChange}
               />
             ))
           )}
@@ -201,15 +210,16 @@ export default function UserManagement() {
 }
 
 interface UserRowProps {
-  user:           UserProfile
-  currentUser:    UserProfile | null
-  listas:         ListaPrecios[]
-  onRoleChange:   (uid: string, rol: UserRole) => Promise<void>
-  onToggleStatus: (u: UserProfile) => Promise<void>
-  onApprove:      (u: UserProfile) => Promise<void>
+  user:            UserProfile
+  currentUser:     UserProfile | null
+  listas:          ListaPrecios[]
+  onRoleChange:    (uid: string, rol: UserRole) => Promise<void>
+  onToggleStatus:  (u: UserProfile) => Promise<void>
+  onApprove:       (u: UserProfile) => Promise<void>
+  onListaChange:   (uid: string, listaPreciosId: string | null) => void
 }
 
-function UserRow({ user, currentUser, listas, onRoleChange, onToggleStatus, onApprove }: UserRowProps) {
+function UserRow({ user, currentUser, listas, onRoleChange, onToggleStatus, onApprove, onListaChange }: UserRowProps) {
   const [busy, setBusy]               = useState(false)
   const [preciosModal, setPreciosModal] = useState(false)
   const isSelf = user.uid === currentUser?.uid
@@ -219,8 +229,10 @@ function UserRow({ user, currentUser, listas, onRoleChange, onToggleStatus, onAp
     try { await fn() } finally { setBusy(false) }
   }
 
-  const handleListaChange = (listaPreciosId: string) =>
-    run(() => updateUserDocument(user.uid, { listaPreciosId: listaPreciosId || deleteField() }))
+  const handleListaChange = async (listaPreciosId: string) => {
+    await run(() => updateUserDocument(user.uid, { listaPreciosId: listaPreciosId || deleteField() }))
+    onListaChange(user.uid, listaPreciosId || null)
+  }
 
   const listaAsignada = listas.find((l) => l.id === user.listaPreciosId)
   const customCount   = Object.keys(user.preciosCustom ?? {}).length
