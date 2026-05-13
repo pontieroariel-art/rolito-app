@@ -108,6 +108,8 @@ export default function ChoferDashboard() {
           </div>
         </div>
 
+        {pending.length > 0 && <CargaDelDia orders={pending} />}
+
         {orders.length === 0 && (
           <div className="bg-surface border border-border rounded-xl p-10 text-center">
             <p className="text-4xl mb-3">📦</p>
@@ -198,6 +200,42 @@ function DeliveryCard({ order, index }: { order: Order; index: number }) {
         <Button onClick={markDelivered} loading={loading} variant="success" className="flex-1 text-sm py-2">
           ✓ Entregado
         </Button>
+      </div>
+    </div>
+  )
+}
+
+function CargaDelDia({ orders }: { orders: Order[] }) {
+  const totals: Record<string, number> = {}
+  orders.forEach((o) =>
+    o.products.forEach((p) => {
+      totals[p.name] = (totals[p.name] ?? 0) + p.quantity
+    }),
+  )
+  const items = Object.entries(totals).sort((a, b) => b[1] - a[1])
+  const totalUnidades = items.reduce((acc, [, q]) => acc + q, 0)
+
+  return (
+    <div className="bg-accent/10 border border-accent/30 rounded-xl p-4 space-y-3">
+      <div className="flex justify-between items-center">
+        <p className="font-semibold text-sm text-accent">Carga del día</p>
+        <span className="text-xs text-muted">{totalUnidades} unidades · {orders.length} paradas</span>
+      </div>
+      <div className="space-y-2">
+        {items.map(([nombre, qty]) => (
+          <div key={nombre} className="flex items-center gap-3">
+            <span className="text-sm text-white flex-1">{nombre}</span>
+            <div className="flex items-center gap-2">
+              <div className="w-24 h-1.5 bg-border rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-accent rounded-full"
+                  style={{ width: `${Math.round((qty / totalUnidades) * 100)}%` }}
+                />
+              </div>
+              <span className="text-accent font-bold text-sm w-8 text-right">{qty}</span>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   )
