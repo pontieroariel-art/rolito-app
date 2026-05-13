@@ -29,12 +29,6 @@ const DARK_MAP_STYLES: google.maps.MapTypeStyle[] = [
 
 const BA_DEFAULT = { lat: -34.6037, lng: -58.3816 }
 
-const TRUCK_ICON_SVG = encodeURIComponent(
-  '<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44">' +
-  '<circle cx="22" cy="22" r="20" fill="#2D6A4F" stroke="white" stroke-width="2.5"/>' +
-  '<text x="22" y="30" font-size="22" text-anchor="middle">🚛</text>' +
-  '</svg>',
-)
 
 // ── Haversine ─────────────────────────────────────────────────────────────────
 
@@ -348,9 +342,9 @@ function TruckTracker({
               <Marker
                 position={truckPos}
                 icon={{
-                  url:        `data:image/svg+xml;charset=UTF-8,${TRUCK_ICON_SVG}`,
-                  scaledSize: new google.maps.Size(44, 44),
-                  anchor:     new google.maps.Point(22, 22),
+                  url:        '/camion-rolito.png',
+                  scaledSize: new google.maps.Size(90, 62),
+                  anchor:     new google.maps.Point(45, 31),
                 }}
               />
             )}
