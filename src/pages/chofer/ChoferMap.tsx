@@ -35,16 +35,27 @@ const MAP_OPTIONS: google.maps.MapOptions = {
 }
 
 export default function ChoferMap() {
-  const { orders, loading }         = useDriverOrders()
-  const { isLoaded, loadError }     = useGoogleMapsLoader()
-  const [directions, setDirections] = useState<google.maps.DirectionsResult | null>(null)
-  const [routeError, setRouteError] = useState('')
+  const { orders, loading }           = useDriverOrders()
+  const { isLoaded, loadError }       = useGoogleMapsLoader()
+  const [directions, setDirections]   = useState<google.maps.DirectionsResult | null>(null)
+  const [routeError, setRouteError]   = useState('')
   const [calculating, setCalculating] = useState(false)
+  const [currentPos, setCurrentPos]   = useState<google.maps.LatLngLiteral | null>(null)
 
   const pending = useMemo(
     () => orders.filter((o) => o.status !== 'entregado' && o.clientAddress),
     [orders],
   )
+
+  // Obtener posición GPS actual al cargar
+  useMemo(() => {
+    if (!navigator.geolocation) return
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setCurrentPos({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => {},
+      { enableHighAccuracy: true, timeout: 10_000 },
+    )
+  }, [])
 
   const calculateRoute = async () => {
     if (pending.length === 0) return
@@ -52,15 +63,17 @@ export default function ChoferMap() {
     setRouteError('')
 
     try {
-      const service = new google.maps.DirectionsService()
-      const waypoints = pending.slice(1, -1).map((o) => ({
+      const service  = new google.maps.DirectionsService()
+      const origin   = currentPos ?? pending[0].clientAddress
+      const destination = pending[pending.length - 1].clientAddress
+      const waypoints   = (currentPos ? pending : pending.slice(1)).slice(0, -1).map((o) => ({
         location: o.clientAddress,
         stopover: true,
       }))
 
       const result = await service.route({
-        origin:            pending[0].clientAddress,
-        destination:       pending[pending.length - 1].clientAddress,
+        origin,
+        destination,
         waypoints,
         optimizeWaypoints: true,
         travelMode:        google.maps.TravelMode.DRIVING,
@@ -76,10 +89,9 @@ export default function ChoferMap() {
 
   const openAllInMaps = () => {
     if (pending.length === 0) return
-    const addresses = pending
-      .map((o) => encodeURIComponent(o.clientAddress))
-      .join('/')
-    window.open(`https://www.google.com/maps/dir/${addresses}`, '_blank')
+    const origin    = currentPos ? `${currentPos.lat},${currentPos.lng}` : encodeURIComponent(pending[0].clientAddress)
+    const addresses = pending.map((o) => encodeURIComponent(o.clientAddress)).join('/')
+    window.open(`https://www.google.com/maps/dir/${origin}/${addresses}`, '_blank')
   }
 
   const markDelivered = async (orderId: string) => {
@@ -139,8 +151,8 @@ export default function ChoferMap() {
         <div className="flex-1 min-h-0">
           <GoogleMap
             mapContainerStyle={MAP_CONTAINER_STYLE}
-            center={BA_CENTER}
-            zoom={12}
+            center={currentPos ?? BA_CENTER}
+            zoom={13}
             options={MAP_OPTIONS}
           >
             {directions && (
