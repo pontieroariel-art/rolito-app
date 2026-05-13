@@ -18,6 +18,7 @@ import { useNotifyEnCamino } from '../../hooks/useNotifications'
 import MetricsDashboard from './MetricsDashboard'
 import { ALL_STATUSES, STATUS_FLOW, STATUS_LABELS } from '../../utils/constants'
 import { formatShortDate, summarizeProducts } from '../../utils/helpers'
+import { generateHojaDeRuta } from '../../utils/pdf'
 import { Order, OrderStatus, UserProfile } from '../../types'
 
 // ── Map constants ─────────────────────────────────────────────────────────────
@@ -227,6 +228,8 @@ export default function AdminDashboard() {
   const [cleanupModal,  setCleanupModal]  = useState(false)
   const [cleanupLoading, setCleanupLoading] = useState(false)
   const [cleanupResult,  setCleanupResult]  = useState<CleanupResult | null>(null)
+  const [pdfDriver,   setPdfDriver]   = useState('')
+  const [pdfLoading,  setPdfLoading]  = useState(false)
 
   // Usa el email del token de Firebase Auth — no depende del doc de Firestore
   const isSuperAdmin = auth.currentUser?.email === 'pontieroariel@gmail.com'
@@ -332,6 +335,41 @@ export default function AdminDashboard() {
         <MetricsDashboard orders={orders} />
 
         <LiveMapSection orders={orders} />
+
+        {/* Exportar hoja de ruta */}
+        <div className="bg-surface border border-border rounded-xl p-4 flex flex-wrap items-center gap-3">
+          <span className="text-sm font-medium text-gray-300 shrink-0">📄 Hoja de ruta</span>
+          <select
+            value={pdfDriver}
+            onChange={(e: ChangeEvent<HTMLSelectElement>) => setPdfDriver(e.target.value)}
+            className="bg-bg border border-border rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-accent flex-1 min-w-40"
+          >
+            <option value="">— Seleccionar chofer —</option>
+            {choferes.choferes.map((c) => (
+              <option key={c.uid} value={c.email ?? ''}>
+                {c.nombreContacto || c.nombre || c.email}
+              </option>
+            ))}
+          </select>
+          <Button
+            variant="outline"
+            disabled={!pdfDriver || pdfLoading}
+            loading={pdfLoading}
+            className="text-sm shrink-0"
+            onClick={async () => {
+              setPdfLoading(true)
+              const driverOrders = orders.filter(
+                (o) => o.driverId === pdfDriver && !['entregado', 'cancelado'].includes(o.status),
+              )
+              const chofer = choferes.choferes.find((c) => c.email === pdfDriver)
+              const name   = chofer?.nombreContacto || chofer?.nombre || pdfDriver
+              await generateHojaDeRuta(driverOrders, name)
+              setPdfLoading(false)
+            }}
+          >
+            Exportar PDF
+          </Button>
+        </div>
 
         <div className="space-y-3">
           <div className="flex flex-wrap gap-3">

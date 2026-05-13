@@ -9,11 +9,13 @@ import { useAuth } from '../../context/AuthContext'
 import { updateOrderStatus } from '../../services/orderService'
 import { updateDriverLocation, deactivateDriverLocation } from '../../services/locationService'
 import { summarizeProducts } from '../../utils/helpers'
+import { generateHojaDeRuta } from '../../utils/pdf'
 import { Order } from '../../types'
 
 export default function ChoferDashboard() {
-  const { orders, loading } = useDriverOrders()
-  const { user }            = useAuth()
+  const { orders, loading }   = useDriverOrders()
+  const { user }              = useAuth()
+  const [pdfLoading, setPdfLoading] = useState(false)
 
   const pending     = orders.filter((o) => o.status !== 'entregado')
   const delivered   = orders.filter((o) => o.status === 'entregado')
@@ -70,11 +72,29 @@ export default function ChoferDashboard() {
               })}
             </p>
           </div>
-          {pending.length > 0 && (
-            <Link to="/chofer/map">
-              <Button className="text-sm">🗺 Ver ruta en mapa</Button>
-            </Link>
-          )}
+          <div className="flex gap-2 flex-wrap">
+            {pending.length > 0 && (
+              <Button
+                variant="outline"
+                loading={pdfLoading}
+                disabled={pdfLoading}
+                onClick={async () => {
+                  setPdfLoading(true)
+                  const name = user?.nombreContacto || user?.nombre || 'Chofer'
+                  await generateHojaDeRuta(pending, name)
+                  setPdfLoading(false)
+                }}
+                className="text-sm"
+              >
+                📄 Hoja de ruta
+              </Button>
+            )}
+            {pending.length > 0 && (
+              <Link to="/chofer/map">
+                <Button className="text-sm">🗺 Ver ruta en mapa</Button>
+              </Link>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
