@@ -472,16 +472,22 @@ function AdminOrderCard({ order, choferes }: { order: Order; choferes: UserProfi
       )}
 
       <div className="flex flex-wrap gap-2 items-center pt-3 border-t border-border">
-        <select
-          value={order.driverId ?? ''}
-          onChange={handleDriver}
-          className="bg-bg border border-border rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-accent flex-1 min-w-40"
-        >
-          <option value="">Sin chofer asignado</option>
-          {choferes.map((c) => (
-            <option key={c.uid} value={c.email}>{c.nombre || c.email}</option>
-          ))}
-        </select>
+        {['entregado', 'cancelado'].includes(order.status) ? (
+          <span className="text-xs text-muted flex-1 min-w-40">
+            Chofer: <span className="text-white">{order.driverId ?? '—'}</span>
+          </span>
+        ) : (
+          <select
+            value={order.driverId ?? ''}
+            onChange={handleDriver}
+            className="bg-bg border border-border rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-accent flex-1 min-w-40"
+          >
+            <option value="">Sin chofer asignado</option>
+            {choferes.map((c) => (
+              <option key={c.uid} value={c.email}>{c.nombre || c.email}</option>
+            ))}
+          </select>
+        )}
 
         {next && (
           <Button
