@@ -78,6 +78,20 @@ export interface UserProfile {
   aprobadoPor: string | null
   listaPreciosId?: string
   preciosCustom?: Record<string, number>
+  // Asignación de vehículo
+  camionId?:              string | null
+  camionPatente?:         string | null
+  camionModelo?:          string | null
+  camionFechaAsignacion?: Timestamp | null
+}
+
+export interface Camion {
+  id:        string
+  patente:   string
+  modelo:    string
+  marca?:    string
+  activo:    boolean
+  createdAt: Timestamp
 }
 
 export function getPrimaryAddress(user: UserProfile): DeliveryAddress | null {

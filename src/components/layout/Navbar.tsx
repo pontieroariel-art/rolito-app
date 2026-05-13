@@ -20,10 +20,12 @@ const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
     { to: '/admin',         label: 'Pedidos' },
     { to: '/usuarios',      label: 'Usuarios' },
     { to: '/admin/precios', label: 'Precios' },
+    { to: '/admin/flota',   label: 'Flota' },
   ],
   logistica: [
     { to: '/admin',         label: 'Pedidos' },
     { to: '/admin/precios', label: 'Precios' },
+    { to: '/admin/flota',   label: 'Flota' },
   ],
   comercial: [
     { to: '/comercial', label: 'Panel' },

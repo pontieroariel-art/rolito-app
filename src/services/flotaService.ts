@@ -1,0 +1,52 @@
+import {
+  collection,
+  addDoc,
+  updateDoc,
+  doc,
+  onSnapshot,
+  query,
+  orderBy,
+  serverTimestamp,
+  deleteField,
+} from 'firebase/firestore'
+import { db } from './firebase'
+import { Camion } from '../types'
+
+const FLOTA = 'flota'
+
+export const subscribeCamiones = (
+  callback: (camiones: Camion[]) => void,
+): () => void =>
+  onSnapshot(
+    query(collection(db, FLOTA), orderBy('patente')),
+    (snap) =>
+      callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Camion))),
+    () => callback([]),
+  )
+
+export const addCamion = (data: {
+  patente: string
+  modelo:  string
+  marca?:  string
+}): Promise<void> =>
+  addDoc(collection(db, FLOTA), {
+    ...data,
+    activo:    true,
+    createdAt: serverTimestamp(),
+  }).then(() => {})
+
+export const updateCamion = (
+  id:   string,
+  data: Partial<{ patente: string; modelo: string; marca: string; activo: boolean }>,
+): Promise<void> => updateDoc(doc(db, FLOTA, id), data)
+
+export const asignarCamion = (
+  choferUid: string,
+  camion: { id: string; patente: string; modelo: string } | null,
+): Promise<void> =>
+  updateDoc(doc(db, 'users', choferUid), {
+    camionId:              camion ? camion.id      : deleteField(),
+    camionPatente:         camion ? camion.patente : deleteField(),
+    camionModelo:          camion ? camion.modelo  : deleteField(),
+    camionFechaAsignacion: camion ? serverTimestamp() : deleteField(),
+  })

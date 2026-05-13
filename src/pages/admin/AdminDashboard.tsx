@@ -20,6 +20,7 @@ import { ALL_STATUSES, STATUS_FLOW, STATUS_LABELS } from '../../utils/constants'
 import { formatShortDate, summarizeProducts } from '../../utils/helpers'
 import { generateHojaDeRuta } from '../../utils/pdf'
 import { Order, OrderStatus, UserProfile } from '../../types'
+import { Link } from 'react-router-dom'
 
 // ── Map constants ─────────────────────────────────────────────────────────────
 
@@ -245,6 +246,18 @@ export default function AdminDashboard() {
     }
   }
 
+  // Choferes con pedidos activos hoy sin camión confirmado hoy
+  const hoy = new Date().toLocaleDateString('es-AR')
+  const choferesSinCamionHoy = choferes.choferes.filter((c) => {
+    const tieneOrden = orders.some(
+      (o) => o.driverId === c.email && !['entregado', 'cancelado'].includes(o.status),
+    )
+    if (!tieneOrden) return false
+    if (!c.camionId) return true
+    if (!c.camionFechaAsignacion?.toDate) return true
+    return c.camionFechaAsignacion.toDate().toLocaleDateString('es-AR') !== hoy
+  })
+
   const filtered = orders.filter((o) => {
     const matchStatus = filter === 'all' || o.status === filter
     const matchDate   = !dateFilter ||
@@ -272,6 +285,24 @@ export default function AdminDashboard() {
             <NotificationEmailManager notifEmails={notifEmails} />
           </div>
         </div>
+
+        {/* Alerta flota: choferes con pedidos sin camión confirmado hoy */}
+        {choferesSinCamionHoy.length > 0 && (
+          <Link
+            to="/admin/flota"
+            className="flex items-center gap-3 bg-orange-500/10 border border-orange-500/30 rounded-xl px-4 py-3 hover:bg-orange-500/15 transition-colors"
+          >
+            <span className="text-orange-400 text-xl shrink-0">🚛</span>
+            <div className="flex-1">
+              <p className="text-orange-400 font-semibold text-sm">
+                {choferesSinCamionHoy.length} chofer{choferesSinCamionHoy.length !== 1 ? 'es' : ''} sin camión confirmado para hoy
+              </p>
+              <p className="text-orange-400/70 text-xs mt-0.5">
+                {choferesSinCamionHoy.map((c) => c.nombreContacto || c.nombre).join(', ')} · Tocá para asignar →
+              </p>
+            </div>
+          </Link>
+        )}
 
         {isSuperAdmin && (
           <>
