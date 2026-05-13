@@ -258,25 +258,48 @@ function TruckTracker({
 
       {/* Info chofer + ETA */}
       {(driverData?.nombreChofer || eta) && (
-        <div className="bg-surface border border-border rounded-xl px-4 py-3 flex justify-between items-center gap-3">
-          <div>
-            {driverData?.nombreChofer && (
-              <p className="text-sm font-medium">{driverData.nombreChofer}</p>
-            )}
-            {eta && (
-              <p className="text-muted text-xs mt-0.5">
-                Tiempo estimado: <span className="text-white font-medium">{eta}</span>
-              </p>
+        <div className="bg-surface border border-border rounded-xl p-4 space-y-3">
+          {/* Fila superior: avatar + nombre + estado */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-white font-bold text-sm shrink-0">
+                {driverData?.nombreChofer?.charAt(0).toUpperCase() ?? '🚛'}
+              </div>
+              <div>
+                <p className="font-semibold text-sm">{driverData?.nombreChofer ?? 'Chofer en camino'}</p>
+                <p className="text-xs text-success flex items-center gap-1 mt-0.5">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-success" />
+                  En camino
+                </p>
+              </div>
+            </div>
+            {driverData?.telefonoChofer && (
+              <a
+                href={`tel:${driverData.telefonoChofer}`}
+                className="flex items-center gap-1.5 bg-accent/10 border border-accent/30 text-accent text-xs font-medium px-3 py-2 rounded-lg hover:bg-accent/20 transition-colors shrink-0"
+              >
+                📞 Llamar
+              </a>
             )}
           </div>
-          {driverData?.telefonoChofer && (
-            <a
-              href={`tel:${driverData.telefonoChofer}`}
-              className="flex items-center gap-1.5 text-accent text-sm hover:underline shrink-0"
-            >
-              📞 Llamar
-            </a>
-          )}
+
+          {/* Fila inferior: ETA + distancia */}
+          <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border">
+            <div className="text-center">
+              <p className="text-xs text-muted">Tiempo estimado</p>
+              <p className="text-lg font-bold text-white mt-0.5">{eta ?? '—'}</p>
+            </div>
+            <div className="text-center border-l border-border">
+              <p className="text-xs text-muted">Distancia</p>
+              <p className="text-lg font-bold text-white mt-0.5">
+                {distance !== null
+                  ? distance < 1000
+                    ? `${Math.round(distance)} m`
+                    : `${(distance / 1000).toFixed(1)} km`
+                  : '—'}
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
