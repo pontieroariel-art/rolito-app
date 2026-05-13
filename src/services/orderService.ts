@@ -86,20 +86,27 @@ export const subscribeDriverOrders = (
   callback: (orders: Order[]) => void,
   onError?: (error: Error) => void,
 ) => {
-  const start = new Date()
-  start.setHours(0, 0, 0, 0)
-  const end = new Date()
-  end.setHours(23, 59, 59, 999)
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
 
+  // Trae todos los pedidos asignados al chofer que no estén entregados/cancelados,
+  // más los entregados de hoy (para que pueda ver su progreso del día)
   const q = query(
     collection(db, ORDERS),
     where('driverId', '==', driverEmail),
-    where('date', '>=', Timestamp.fromDate(start)),
-    where('date', '<=', Timestamp.fromDate(end)),
   )
   return onSnapshot(
     q,
-    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Order))),
+    (snap) => {
+      const all = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Order))
+      const filtered = all.filter((o) => {
+        if (!['entregado', 'cancelado'].includes(o.status)) return true
+        // entregados/cancelados: solo mostrar los de hoy
+        const d = o.date?.toDate ? o.date.toDate() : new Date((o.date as any)?.seconds * 1000)
+        return d >= todayStart
+      })
+      callback(filtered)
+    },
     onError,
   )
 }
