@@ -259,6 +259,7 @@ function TruckTracker({
       {/* Info chofer + ETA */}
       {(driverData?.nombreChofer || eta) && (
         <div className="bg-surface border border-border rounded-xl p-4 space-y-3">
+          <p className="text-xs text-muted uppercase tracking-widest">Tu pedido lo entrega</p>
           {/* Fila superior: avatar + nombre + estado */}
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
