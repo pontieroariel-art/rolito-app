@@ -17,21 +17,21 @@ import { Order, getPrimaryAddress } from '../../types'
 const MAP_CONTAINER: React.CSSProperties = { width: '100%', height: '100%' }
 
 const DARK_MAP_STYLES: google.maps.MapTypeStyle[] = [
-  { elementType: 'geometry',     stylers: [{ color: '#0A1628' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#0A1628' }] },
-  { elementType: 'labels.text.fill',   stylers: [{ color: '#74a0c8' }] },
-  { featureType: 'road',         elementType: 'geometry', stylers: [{ color: '#1E3A5F' }] },
-  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#163868' }] },
-  { featureType: 'water',        elementType: 'geometry', stylers: [{ color: '#05101e' }] },
-  { featureType: 'poi',          elementType: 'geometry', stylers: [{ color: '#0e1f38' }] },
-  { featureType: 'transit',      elementType: 'geometry', stylers: [{ color: '#1E3A5F' }] },
+  { elementType: 'geometry',           stylers: [{ color: '#03160D' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#03160D' }] },
+  { elementType: 'labels.text.fill',   stylers: [{ color: '#40916C' }] },
+  { featureType: 'road',               elementType: 'geometry', stylers: [{ color: '#1B4332' }] },
+  { featureType: 'road.highway',       elementType: 'geometry', stylers: [{ color: '#2D6A4F' }] },
+  { featureType: 'water',              elementType: 'geometry', stylers: [{ color: '#011507' }] },
+  { featureType: 'poi',                elementType: 'geometry', stylers: [{ color: '#081C11' }] },
+  { featureType: 'transit',            elementType: 'geometry', stylers: [{ color: '#1B4332' }] },
 ]
 
 const BA_DEFAULT = { lat: -34.6037, lng: -58.3816 }
 
 const TRUCK_ICON_SVG = encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44">' +
-  '<circle cx="22" cy="22" r="20" fill="#00C2FF" stroke="white" stroke-width="2.5"/>' +
+  '<circle cx="22" cy="22" r="20" fill="#2D6A4F" stroke="white" stroke-width="2.5"/>' +
   '<text x="22" y="30" font-size="22" text-anchor="middle">🚛</text>' +
   '</svg>',
 )
@@ -160,6 +160,7 @@ function TruckTracker({
   const [deliveryPos,  setDeliveryPos]  = useState<Coords | null>(null)
   const [directions,   setDirections]   = useState<google.maps.DirectionsResult | null>(null)
   const [eta,          setEta]          = useState<string | null>(null)
+  const [expanded,     setExpanded]     = useState(false)
 
   const truckPos: Coords | null = driverData ? { lat: driverData.lat, lng: driverData.lng } : null
 
@@ -281,9 +282,15 @@ function TruckTracker({
 
       {/* Mapa */}
       <div
-        className="rounded-xl overflow-hidden border border-accent/30"
-        style={{ height: '240px' }}
+        className="rounded-xl overflow-hidden border border-accent/30 relative transition-all duration-300"
+        style={{ height: expanded ? '420px' : '240px' }}
       >
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="absolute top-2 right-2 z-10 bg-surface/80 backdrop-blur-sm border border-border rounded-lg px-2 py-1 text-xs text-muted hover:text-white transition-colors"
+        >
+          {expanded ? '⊠ Reducir' : '⊞ Expandir'}
+        </button>
         {isLoaded ? (
           <GoogleMap
             mapContainerStyle={MAP_CONTAINER}
@@ -304,7 +311,7 @@ function TruckTracker({
                 options={{
                   suppressMarkers:  true,
                   polylineOptions: {
-                    strokeColor:   '#00C2FF',
+                    strokeColor:   '#52B788',
                     strokeWeight:  4,
                     strokeOpacity: 0.85,
                   },
