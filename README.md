@@ -1,77 +1,105 @@
-# Rolito - Distribución de Hielo
+# Rolito App — Distribución de Hielo
 
-PWA para la gestión de pedidos de hielo a domicilio. Los clientes hacen pedidos, el administrador los gestiona y asigna a choferes, y los choferes ven sus entregas del día con ruta optimizada en Google Maps.
-
-## Funcionalidades
-
-### Cliente
-- Registro e inicio de sesión con email/contraseña
-- Crear pedidos seleccionando productos del catálogo
-- Ver dashboard con pedidos activos y entregados
-- Historial completo con filtros por estado
-- Repetir pedidos anteriores con un click
-- Editar perfil con autocompletado de dirección (Google Places)
-
-### Administrador
-- Panel con resumen de pedidos del día por estado
-- Listado de todos los pedidos con búsqueda y filtros (estado, fecha, texto)
-- Avanzar estado de los pedidos (pendiente → confirmado → en camino → entregado)
-- Asignar/cambiar chofer a cada pedido
-- Editar dirección de entrega
-- Gestionar lista de choferes (agregar/quitar por email)
-
-### Chofer
-- Dashboard con entregas asignadas del día
-- Marcar pedidos como entregados
-- Abrir dirección en Google Maps
-- Vista de mapa con ruta optimizada entre todas las paradas
-- Llamar al cliente directamente
+PWA para la gestión integral de pedidos y logística de distribución de hielo. Cubre el ciclo completo: alta de clientes, toma de pedidos, planificación de repartos, seguimiento GPS de choferes y reportes comerciales.
 
 ## Stack
 
 | Capa | Tecnología |
-|------|-----------|
-| Frontend | React 18, TypeScript, Tailwind CSS 3 |
+|---|---|
+| Frontend | React 18 + TypeScript + Vite |
+| Estilos | Tailwind CSS 3 |
+| Backend / DB | Firebase Authentication + Cloud Firestore |
+| Estado servidor | TanStack Query (React Query) |
 | Routing | React Router 6 |
-| Estado | Zustand, React Context (auth) |
-| Backend | Firebase Auth + Cloud Firestore |
-| Mapas | Google Maps API (@react-google-maps/api) |
-| Build | Vite |
-| PWA | vite-plugin-pwa |
+| Mapas | Google Maps API (`@react-google-maps/api`) |
+| PWA | vite-plugin-pwa (service worker + notificaciones push) |
+| Serverless | Netlify Functions (notificaciones push web) |
 | Deploy | Vercel |
 
-## Requisitos previos
+## Roles de usuario
 
-- Node.js 18+
-- Proyecto de Firebase con Authentication y Firestore habilitados
-- API Key de Google Maps con Places API habilitada
+| Rol | Portal de acceso | Capacidades principales |
+|---|---|---|
+| `cliente` | `/clientes` | Crear pedidos, ver historial, gestionar perfil y direcciones |
+| `chofer` | `/choferes` (usuario + PIN) | Ver entregas del día, registrar entregas, GPS en tiempo real |
+| `comercial` | `/empresa` | Crear clientes (borradores), reportes de precios y ventas |
+| `gerente_comercial` | `/empresa` | Activar clientes, asignar listas de precios, reportes |
+| `facturacion` | `/empresa` | Asignar código de cliente interno, acceso a reportes |
+| `logistica` | `/empresa` | Panel de pedidos, planificación, monitoreo GPS, flota, visitas |
+| `super_admin` | `/empresa` | Acceso completo a todo el sistema |
 
-## Instalación
+## Flujo de alta de clientes
 
-```bash
-git clone <repo-url>
-cd rolito-app
-npm install
+```
+Comercial crea borrador → Gerente Comercial activa + asigna lista de precios → Facturación asigna código interno
 ```
 
-Crear un archivo `.env.local` con las variables de Firebase y Google Maps:
+## Funcionalidades por módulo
+
+### Cliente
+- Registro con CUIT, razón social y datos fiscales
+- Catálogo de productos con precios de su lista asignada
+- Nuevo pedido con fecha, notas y repetición de pedidos anteriores
+- Soporte multi-sucursal (selector de dirección al ingresar)
+- Cancelación de pedidos pendientes con motivo
+- Historial completo con filtros por estado
+- Cambio de contraseña desde el perfil
+
+### Chofer
+- Login con usuario y PIN (sin email)
+- Dashboard de entregas del día con contador de unidades
+- Registro de entrega (total o parcial) con nota
+- Visitas comerciales del día (programas recurrentes + visitas puntuales)
+- Hoja de ruta exportable a PDF
+- Mapa de entregas con Google Maps
+- Compartir ubicación GPS cada 10 s (pausa automática en segundo plano)
+- Notificaciones push al recibir nuevos pedidos
+
+### Logística / Admin
+- Panel de pedidos con filtros por estado, fecha y búsqueda
+- Avanzar estados, asignar/reasignar choferes, reprogramar, cancelar
+- Importar pedidos desde PDF (órdenes de compra)
+- Planificación semanal con mapa por chofer y carga en pallets
+- Pedidos manuales (por teléfono/WhatsApp)
+- Monitoreo GPS en tiempo real de toda la flota
+- Reporte de incidencias (parciales, reprogramaciones, reasignaciones)
+- Gestión de flota (camiones: patente, modelo, capacidad, canales)
+- Visitas programadas (semanal/quincenal/mensual) y puntuales
+- Pronóstico del clima extendido
+
+### Comercial / Gerente Comercial
+- Panel comercial con métricas del día y mapa de choferes
+- Reporte de ventas por mes (unidades, ingresos, top clientes, por producto)
+- Reporte comparativo de listas de precios
+- Historial de cambios de precios con auditoría completa
+
+### Super Admin
+- Gestión completa de usuarios (crear, editar rol, activar/desactivar)
+- Listas de precios: crear, editar, asignar a clientes
+- Precios custom por cliente
+- Crear choferes (usuario + PIN) y personal interno
+
+## Comandos
+
+```bash
+npm install       # instalar dependencias
+npm run dev       # servidor de desarrollo (localhost:5173)
+npm run build     # build de producción
+npm run preview   # preview del build
+```
+
+## Variables de entorno
+
+Crear `.env.local` en la raíz:
 
 ```env
-VITE_FIREBASE_API_KEY=...
-VITE_FIREBASE_AUTH_DOMAIN=...
-VITE_FIREBASE_PROJECT_ID=...
-VITE_FIREBASE_STORAGE_BUCKET=...
-VITE_FIREBASE_MESSAGING_SENDER_ID=...
-VITE_FIREBASE_APP_ID=...
-VITE_GOOGLE_MAPS_KEY=...
-```
-
-## Desarrollo
-
-```bash
-npm run dev       # Servidor de desarrollo
-npm run build     # Build de producción
-npm run preview   # Preview del build
+VITE_FIREBASE_API_KEY=
+VITE_FIREBASE_AUTH_DOMAIN=
+VITE_FIREBASE_PROJECT_ID=
+VITE_FIREBASE_STORAGE_BUCKET=
+VITE_FIREBASE_MESSAGING_SENDER_ID=
+VITE_FIREBASE_APP_ID=
+VITE_GOOGLE_MAPS_KEY=
 ```
 
 ## Estructura del proyecto
@@ -79,28 +107,61 @@ npm run preview   # Preview del build
 ```
 src/
 ├── components/
-│   ├── layout/       # AuthLayout, Navbar, ProtectedRoute
-│   └── ui/           # Button, Input, Modal, Badge, LoadingSpinner
-├── context/          # AuthContext (autenticación + roles)
-├── hooks/            # useOrders, useChoferes, useProfile, useGoogleMapsLoader
+│   ├── admin/        # ImportarPedidoModal, PedidoManualModal
+│   ├── chofer/       # EntregaModal
+│   ├── layout/       # Navbar, ProtectedRoute
+│   └── ui/           # Button, Input, Modal, Badge, LoadingSpinner, AddressPickerField
+├── context/          # AuthContext, BranchContext
+├── hooks/            # useOrders, useChoferes, useListasPrecios, useHistorialPrecios, ...
 ├── pages/
-│   ├── auth/         # Login, Register, ForgotPassword
-│   ├── client/       # ClientDashboard, NewOrder, OrderHistory, ClientProfile
-│   ├── admin/        # AdminDashboard
-│   └── chofer/       # ChoferDashboard, ChoferMap
-├── services/         # firebase, authService, orderService, userService, configService
-├── utils/            # constants (productos, estados), helpers (formateo de fechas)
-└── types.ts          # UserRole, OrderStatus, Order, UserProfile, Product
+│   ├── admin/        # AdminDashboard, PlanificacionPage, MonitoreoPage, FlotaPage, VisitasPage, ClimaPage, ...
+│   ├── auth/         # Landing, LoginClientes, LoginEmpresa, LoginChofer, Register, ...
+│   ├── chofer/       # ChoferDashboard, ChoferMap
+│   ├── client/       # ClientDashboard, NewOrder, OrderHistory, ClientProfile, SelectSucursal
+│   ├── comercial/    # ComercialDashboard, HistorialPreciosPage, ReportePreciosPage, ReporteVentasPage
+│   └── shared/       # HistorialPage
+├── services/         # firebase, authService, orderService, userService, flotaService, ...
+├── types.ts
+└── utils/            # constants, helpers, pdf, parsePdf
 ```
 
-## Roles y permisos
+## Colecciones de Firestore
 
-| Rol | Cómo se asigna |
-|-----|----------------|
-| `admin` | Email hardcodeado en `AuthContext.tsx` y `userService.ts` |
-| `chofer` | Email agregado a `config/choferes` en Firestore (desde el panel admin) |
-| `cliente` | Por defecto para cualquier usuario registrado |
+| Colección | Descripción |
+|---|---|
+| `users/{uid}` | Perfiles con rol, estado, lista de precios, código de cliente |
+| `orders/{orderId}` | Pedidos (suscripción en tiempo real) |
+| `listas-precios/{id}` | Listas de precios con productos y valores |
+| `historialPrecios/{id}` | Auditoría de cambios de precios |
+| `flota/{camionId}` | Vehículos del parque |
+| `programas-visita/{id}` | Visitas recurrentes por cliente |
+| `visitas-puntuales/{id}` | Visitas extraordinarias |
+| `pedidos-recurrentes/{clientId}` | Pedidos automáticos programados |
+| `ubicaciones/{driverEmail}` | GPS en tiempo real |
+| `cuitIndex/{cuit}` | Índice CUIT → email para login de clientes |
+| `choferIndex/{username}` | Índice usuario → email para login de choferes |
 
-## Licencia
+## Seguridad (Firestore Rules)
 
-Proyecto privado.
+Las reglas están en `firestore.rules`. Para deployar:
+
+```bash
+npx firebase deploy --only firestore:rules
+```
+
+> Usar siempre la CLI directamente — el plugin de Firebase MCP no recoge el archivo local.
+
+## Estados de un pedido
+
+```
+pendiente → confirmado → en_camino → entregado
+                                    ↘ cancelado
+```
+
+## Manual de usuario
+
+Ver [`MANUAL_USUARIO.md`](./MANUAL_USUARIO.md) para la guía completa de uso por rol.
+
+---
+
+Proyecto privado — Rolito Distribución de Hielo.
