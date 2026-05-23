@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { GoogleMap, Marker, InfoWindow } from '@react-google-maps/api'
 import {
   Users, UserCheck, Tag, ArrowRight,
-  Package, Truck, CheckCircle, Clock, MapPin, History,
+  Package, Truck, CheckCircle, Clock, MapPin, History, BarChart2, CloudSun,
 } from 'lucide-react'
 import Navbar from '../../components/layout/Navbar'
 import Button from '../../components/ui/Button'
@@ -20,6 +20,8 @@ import { useNotifyAprobado } from '../../hooks/useNotifications'
 import { summarizeProducts, formatShortDate } from '../../utils/helpers'
 import { STATUS_LABELS } from '../../utils/constants'
 import { Order, UserProfile, OrderStatus } from '../../types'
+import MetricsDashboard from '../admin/MetricsDashboard'
+import { ForecastStrip } from '../admin/ClimaPage'
 
 const MAP_CONTAINER: React.CSSProperties = { width: '100%', height: '100%' }
 const BA_DEFAULT = { lat: -34.6037, lng: -58.3816 }
@@ -71,33 +73,39 @@ export default function ComercialDashboard() {
   const { data: users = [], isLoading: usersLoading } = useQuery({
     queryKey: ['users'],
     queryFn:  getAllUsers,
-    staleTime: 30_000,
+    staleTime: 300_000,
   })
 
   const isLoading = ordersLoading || usersLoading
 
   // ── Derived data ─────────────────────────────────────────────────────────
 
-  const clientes   = users.filter((u) => u.rol === 'cliente')
-  const pendientes = clientes.filter((u) => u.estado === 'pendiente')
-  const sinLista   = clientes.filter((u) => u.estado === 'activo' && !u.listaPreciosId)
-  const inactivos  = clientes.filter(
-    (u) => u.estado === 'activo' && daysSince(u.fechaCreacion) > INACTIVE_DAYS,
-  ).filter((u) => {
-    const lastOrder = orders
-      .filter((o) => o.clientId === u.uid)
-      .sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0))[0]
-    return !lastOrder || daysSince(lastOrder.createdAt) >= INACTIVE_DAYS
-  })
+  const clientes   = useMemo(() => users.filter((u) => u.rol === 'cliente'), [users])
+  const pendientes = useMemo(() => clientes.filter((u) => u.estado === 'pendiente'), [clientes])
+  const sinLista   = useMemo(() => clientes.filter((u) => u.estado === 'activo' && !u.listaPreciosId), [clientes])
 
-  const todayOrders = orders.filter(isToday)
-  const byStatus = (s: OrderStatus) => todayOrders.filter((o) => o.status === s)
+  const inactivos = useMemo(() => {
+    const lastOrderByClient = new Map<string, number>()
+    for (const o of orders) {
+      const prev = lastOrderByClient.get(o.clientId) ?? 0
+      const cur  = o.createdAt?.seconds ?? 0
+      if (cur > prev) lastOrderByClient.set(o.clientId, cur)
+    }
+    return clientes.filter((u) => {
+      if (u.estado !== 'activo' || daysSince(u.fechaCreacion) <= INACTIVE_DAYS) return false
+      const lastSec = lastOrderByClient.get(u.uid)
+      if (!lastSec) return true
+      return Math.floor((Date.now() / 1000 - lastSec) / 86400) >= INACTIVE_DAYS
+    })
+  }, [clientes, orders])
 
-  const entregados  = byStatus('entregado').length
-  const enCamino    = byStatus('en_camino').length
-  const confirmados = byStatus('confirmado').length
-  const pendientesP = byStatus('pendiente').length
-  const cancelados  = byStatus('cancelado').length
+  const todayOrders = useMemo(() => orders.filter(isToday), [orders])
+
+  const entregados  = useMemo(() => todayOrders.filter((o) => o.status === 'entregado').length,  [todayOrders])
+  const enCamino    = useMemo(() => todayOrders.filter((o) => o.status === 'en_camino').length,   [todayOrders])
+  const confirmados = useMemo(() => todayOrders.filter((o) => o.status === 'confirmado').length,  [todayOrders])
+  const pendientesP = useMemo(() => todayOrders.filter((o) => o.status === 'pendiente').length,   [todayOrders])
+  const cancelados  = useMemo(() => todayOrders.filter((o) => o.status === 'cancelado').length,   [todayOrders])
 
   const handleAprobar = async (u: UserProfile) => {
     if (!user) return
@@ -240,6 +248,18 @@ export default function ComercialDashboard() {
               </section>
             )}
 
+            {/* ── Pronóstico del tiempo ────────────────────────────────── */}
+            <section className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xs font-semibold text-muted uppercase tracking-wide">Clima — próximos 7 días</h2>
+                <Link to="/admin/clima" className="text-xs text-accent hover:underline">Historial →</Link>
+              </div>
+              <ForecastStrip />
+            </section>
+
+            {/* ── Ranking y métricas ───────────────────────────────────── */}
+            <MetricsDashboard orders={orders} />
+
             {/* ── Resumen de clientes ──────────────────────────────────── */}
             <section className="space-y-2">
               <h2 className="text-xs font-semibold text-muted uppercase tracking-wide">Clientes</h2>
@@ -275,6 +295,32 @@ export default function ComercialDashboard() {
                   <div>
                     <p className="font-medium text-sm group-hover:text-accent transition-colors">Gestión de usuarios</p>
                     <p className="text-muted text-xs mt-0.5">Aprobar clientes, asignar listas y precios especiales</p>
+                  </div>
+                </div>
+                <ArrowRight size={16} className="text-muted group-hover:text-accent transition-colors" />
+              </Link>
+              <Link
+                to="/comercial/ventas"
+                className="bg-surface border border-border rounded-xl p-4 flex items-center justify-between hover:border-accent transition-colors group"
+              >
+                <div className="flex items-center gap-3">
+                  <BarChart2 size={18} className="text-accent" />
+                  <div>
+                    <p className="font-medium text-sm group-hover:text-accent transition-colors">Reporte de ventas</p>
+                    <p className="text-muted text-xs mt-0.5">Entregas, volumen por producto y ranking de clientes</p>
+                  </div>
+                </div>
+                <ArrowRight size={16} className="text-muted group-hover:text-accent transition-colors" />
+              </Link>
+              <Link
+                to="/admin/clima"
+                className="bg-surface border border-border rounded-xl p-4 flex items-center justify-between hover:border-accent transition-colors group"
+              >
+                <div className="flex items-center gap-3">
+                  <CloudSun size={18} className="text-accent" />
+                  <div>
+                    <p className="font-medium text-sm group-hover:text-accent transition-colors">Historial de clima</p>
+                    <p className="text-muted text-xs mt-0.5">Temperatura e historial de ventas por día</p>
                   </div>
                 </div>
                 <ArrowRight size={16} className="text-muted group-hover:text-accent transition-colors" />

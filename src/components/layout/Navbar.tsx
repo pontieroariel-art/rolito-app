@@ -10,6 +10,13 @@ interface NavLinkItem {
 }
 
 const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
+  gerente_comercial: [
+    { to: '/usuarios',                     label: 'Clientes' },
+    { to: '/movimientos',                  label: 'Movimientos' },
+    { to: '/comercial/historial-precios',  label: 'Hist. precios' },
+    { to: '/comercial/reporte-precios',    label: 'Rep. precios' },
+    { to: '/comercial/ventas',             label: 'Rep. ventas' },
+  ],
   cliente: [
     { to: '/dashboard',    label: 'Inicio' },
     { to: '/nuevo-pedido', label: 'Nuevo pedido' },
@@ -17,21 +24,41 @@ const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
     { to: '/perfil',       label: 'Mi perfil' },
   ],
   super_admin: [
-    { to: '/admin',          label: 'Pedidos' },
-    { to: '/admin/visitas',  label: 'Visitas' },
-    { to: '/admin/flota',    label: 'Flota' },
-    { to: '/usuarios',       label: 'Usuarios' },
-    { to: '/admin/precios',  label: 'Precios' },
+    { to: '/admin',                           label: 'Pedidos' },
+    { to: '/admin/planificacion',             label: 'Planificación' },
+    { to: '/admin/monitoreo',                 label: 'Monitoreo' },
+    { to: '/admin/incidencias',               label: 'Incidencias' },
+    { to: '/admin/visitas',                   label: 'Visitas' },
+    { to: '/admin/flota',                     label: 'Flota' },
+    { to: '/usuarios',                        label: 'Usuarios' },
+    { to: '/admin/precios',                   label: 'Precios' },
+    { to: '/comercial/historial-precios',     label: 'Historial precios' },
   ],
   logistica: [
-    { to: '/admin',          label: 'Pedidos' },
-    { to: '/admin/visitas',  label: 'Visitas' },
-    { to: '/admin/flota',    label: 'Flota' },
-    { to: '/admin/precios',  label: 'Precios' },
+    { to: '/admin',                  label: 'Pedidos' },
+    { to: '/admin/planificacion',    label: 'Planificación' },
+    { to: '/admin/monitoreo',        label: 'Monitoreo' },
+    { to: '/admin/incidencias',      label: 'Incidencias' },
+    { to: '/admin/visitas',          label: 'Visitas' },
+    { to: '/admin/flota',            label: 'Flota' },
+    { to: '/admin/precios',               label: 'Precios' },
+    { to: '/comercial/historial-precios', label: 'Historial precios' },
+    { to: '/movimientos',                 label: 'Historial' },
   ],
   comercial: [
-    { to: '/comercial', label: 'Panel' },
-    { to: '/usuarios',  label: 'Usuarios' },
+    { to: '/comercial',                      label: 'Panel' },
+    { to: '/movimientos',                    label: 'Historial' },
+    { to: '/usuarios',                       label: 'Usuarios' },
+    { to: '/comercial/reporte-precios',      label: 'Reporte precios' },
+    { to: '/comercial/historial-precios',    label: 'Historial precios' },
+    { to: '/admin/clima',                    label: 'Clima' },
+  ],
+  facturacion: [
+    { to: '/movimientos',                    label: 'Historial' },
+    { to: '/comercial/ventas',               label: 'Reporte ventas' },
+    { to: '/comercial/reporte-precios',      label: 'Precios' },
+    { to: '/comercial/historial-precios',    label: 'Historial precios' },
+    { to: '/usuarios',                       label: 'Clientes' },
   ],
   chofer: [
     { to: '/chofer',     label: 'Mis entregas' },
@@ -40,11 +67,13 @@ const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
 }
 
 const ROLE_LABELS: Record<UserRole, string> = {
-  super_admin: 'Super Admin',
-  comercial:   'Comercial',
-  logistica:   'Logística',
-  chofer:      'Chofer',
-  cliente:     'Cliente',
+  super_admin:       'Super Admin',
+  gerente_comercial: 'Gte. Comercial',
+  comercial:         'Comercial',
+  logistica:         'Logística',
+  facturacion:       'Facturación',
+  chofer:            'Chofer',
+  cliente:           'Cliente',
 }
 
 export default function Navbar() {

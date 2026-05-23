@@ -10,7 +10,7 @@ import {
   deleteField,
 } from 'firebase/firestore'
 import { db } from './firebase'
-import { Camion } from '../types'
+import { Camion, CanalCamion } from '../types'
 
 const FLOTA = 'flota'
 
@@ -25,9 +25,11 @@ export const subscribeCamiones = (
   )
 
 export const addCamion = (data: {
-  patente: string
-  modelo:  string
-  marca?:  string
+  patente:          string
+  modelo:           string
+  marca?:           string
+  capacidadPallets?: number
+  canales?:         CanalCamion[]
 }): Promise<void> =>
   addDoc(collection(db, FLOTA), {
     ...data,
@@ -37,7 +39,7 @@ export const addCamion = (data: {
 
 export const updateCamion = (
   id:   string,
-  data: Partial<{ patente: string; modelo: string; marca: string; activo: boolean }>,
+  data: Partial<{ patente: string; modelo: string; marca: string; activo: boolean; capacidadPallets: number; canales: CanalCamion[] }>,
 ): Promise<void> => updateDoc(doc(db, FLOTA, id), data)
 
 export const asignarCamion = (

@@ -160,6 +160,34 @@ export function tplCerca(nombre: string, appUrl: string): string {
   `)
 }
 
+export function tplPedidoReprogramado(
+  nombre:   string,
+  products: Product[],
+  fechaNueva: string | null | undefined,
+  motivo:   string,
+): string {
+  return layout(`
+    ${greeting(nombre)}
+    <p style="margin:0 0 16px">
+      Te informamos que tu pedido fue <strong>reprogramado</strong> para una nueva fecha.
+    </p>
+    ${productsTable(products)}
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:16px">
+      <tr>
+        <td style="padding:6px 0;color:#6b7280;font-size:13px;width:140px">Nueva fecha de entrega</td>
+        <td style="padding:6px 0;font-size:14px;font-weight:600">${formatDate(fechaNueva)}</td>
+      </tr>
+      <tr style="border-top:1px solid #e5e7eb">
+        <td style="padding:6px 0;color:#6b7280;font-size:13px">Motivo</td>
+        <td style="padding:6px 0;font-size:13px">${motivo}</td>
+      </tr>
+    </table>
+    <p style="margin:0;font-size:13px;color:#6b7280">
+      Disculpá el inconveniente. Ante cualquier consulta respondé este email o contactate con nosotros.
+    </p>
+  `)
+}
+
 export function tplAdminNuevoPedido(order: {
   clientName:    string
   clientAddress: string

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, ChangeEvent, KeyboardEvent } from 'react'
+import { useState, useEffect, useRef, useMemo, ChangeEvent, KeyboardEvent } from 'react'
 import { GoogleMap, Marker, InfoWindow } from '@react-google-maps/api'
 import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
 import { subscribeAllActiveDrivers, ActiveDriver } from '../../services/locationService'
@@ -12,10 +12,15 @@ import { useNotificationEmails } from '../../hooks/useNotificationEmails'
 import { useAuth } from '../../context/AuthContext'
 import Modal from '../../components/ui/Modal'
 import { auth } from '../../services/firebase'
-import { updateOrderStatus, assignDriver, updateOrderAddress } from '../../services/orderService'
+import { updateOrderStatus, assignDriver, updateOrderAddress, cancelOrder } from '../../services/orderService'
 import { cleanupTestData, CleanupResult } from '../../services/cleanupService'
 import { useNotifyEnCamino } from '../../hooks/useNotifications'
+import { getPushSubscription, getPushSubscriptionByEmail } from '../../services/userService'
+import { sendPush } from '../../services/notificationService'
+import { generateRecurrentesForToday } from '../../services/recurrenteService'
 import MetricsDashboard from './MetricsDashboard'
+import { ForecastStrip } from './ClimaPage'
+import ImportarPedidoModal from '../../components/admin/ImportarPedidoModal'
 import { ALL_STATUSES, STATUS_FLOW, STATUS_LABELS } from '../../utils/constants'
 import { formatShortDate, summarizeProducts } from '../../utils/helpers'
 import { generateHojaDeRuta } from '../../utils/pdf'
@@ -229,11 +234,20 @@ export default function AdminDashboard() {
   const [cleanupModal,  setCleanupModal]  = useState(false)
   const [cleanupLoading, setCleanupLoading] = useState(false)
   const [cleanupResult,  setCleanupResult]  = useState<CleanupResult | null>(null)
-  const [pdfDriver,   setPdfDriver]   = useState('')
-  const [pdfLoading,  setPdfLoading]  = useState(false)
+  const [pdfDriver,       setPdfDriver]       = useState('')
+  const [pdfLoading,      setPdfLoading]      = useState(false)
+  const [importModal,     setImportModal]     = useState(false)
+  const [recurrentesBanner, setRecurrentesBanner] = useState<number | null>(null)
 
   // Usa el email del token de Firebase Auth — no depende del doc de Firestore
   const isSuperAdmin = auth.currentUser?.email === 'pontieroariel@gmail.com'
+
+  // Generar pedidos recurrentes del día al abrir el dashboard
+  useEffect(() => {
+    generateRecurrentesForToday()
+      .then((n) => { if (n > 0) setRecurrentesBanner(n) })
+      .catch(console.error)
+  }, [])
 
   const handleCleanup = async () => {
     if (!user?.uid) return
@@ -258,7 +272,7 @@ export default function AdminDashboard() {
     return c.camionFechaAsignacion.toDate().toLocaleDateString('es-AR') !== hoy
   })
 
-  const filtered = orders.filter((o) => {
+  const filtered = useMemo(() => orders.filter((o) => {
     const matchStatus = filter === 'all' || o.status === filter
     const matchDate   = !dateFilter ||
       o.date?.toDate?.().toISOString().split('T')[0] === dateFilter
@@ -268,7 +282,7 @@ export default function AdminDashboard() {
       o.clientAddress?.toLowerCase().includes(q) ||
       o.products?.some((p) => p.name.toLowerCase().includes(q))
     return matchStatus && matchDate && matchSearch
-  })
+  }), [orders, filter, dateFilter, search])
 
   if (loading) return <><Navbar /><LoadingSpinner fullScreen /></>
 
@@ -282,9 +296,22 @@ export default function AdminDashboard() {
             <p className="text-muted text-sm">Gestión de pedidos y logística</p>
           </div>
           <div className="flex gap-2 flex-wrap">
+            <Button onClick={() => setImportModal(true)} className="text-sm">
+              + Importar PDF
+            </Button>
             <NotificationEmailManager notifEmails={notifEmails} />
           </div>
         </div>
+
+        {/* Banner pedidos recurrentes generados */}
+        {recurrentesBanner !== null && (
+          <div className="bg-accent/10 border border-accent/30 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+            <p className="text-accent text-sm">
+              ↺ {recurrentesBanner} pedido{recurrentesBanner > 1 ? 's' : ''} recurrente{recurrentesBanner > 1 ? 's' : ''} generado{recurrentesBanner > 1 ? 's' : ''} automáticamente para hoy
+            </p>
+            <button onClick={() => setRecurrentesBanner(null)} className="text-muted hover:text-white text-xs">✕</button>
+          </div>
+        )}
 
         {/* Alerta flota: choferes con pedidos sin camión confirmado hoy */}
         {choferesSinCamionHoy.length > 0 && (
@@ -362,6 +389,15 @@ export default function AdminDashboard() {
           </Modal>
           </>
         )}
+
+        {/* Pronóstico del tiempo */}
+        <section className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-semibold text-muted uppercase tracking-wide">Clima — próximos 7 días</h2>
+            <Link to="/admin/clima" className="text-xs text-accent hover:underline">Historial →</Link>
+          </div>
+          <ForecastStrip />
+        </section>
 
         <MetricsDashboard orders={orders} />
 
@@ -459,6 +495,8 @@ export default function AdminDashboard() {
           )}
         </div>
       </main>
+
+      <ImportarPedidoModal open={importModal} onClose={() => setImportModal(false)} />
     </>
   )
 }
@@ -472,32 +510,32 @@ function ResumenCargaPorChofer({
 }) {
   const [open, setOpen] = useState(true)
 
-  const active = orders.filter((o) => !['entregado', 'cancelado'].includes(o.status) && o.driverId)
-
-  // Agrupar totales por chofer
-  const byDriver: Record<string, { nombre: string; totals: Record<string, number>; paradas: number }> = {}
-  active.forEach((o) => {
-    const id = o.driverId!
-    if (!byDriver[id]) {
-      const chofer = choferes.find((c) => c.email === id)
-      byDriver[id] = {
-        nombre:  chofer?.nombreContacto || chofer?.nombre || id,
-        totals:  {},
-        paradas: 0,
-      }
-    }
-    byDriver[id].paradas++
-    o.products.forEach((p) => {
-      byDriver[id].totals[p.name] = (byDriver[id].totals[p.name] ?? 0) + p.quantity
-    })
-  })
-
-  const drivers = Object.entries(byDriver)
-
-  // Sin asignar
-  const sinAsignar = orders.filter(
-    (o) => !['entregado', 'cancelado'].includes(o.status) && !o.driverId,
+  const active = useMemo(
+    () => orders.filter((o) => !['entregado', 'cancelado'].includes(o.status) && o.driverId),
+    [orders],
   )
+
+  const sinAsignar = useMemo(
+    () => orders.filter((o) => !['entregado', 'cancelado'].includes(o.status) && !o.driverId),
+    [orders],
+  )
+
+  const drivers = useMemo(() => {
+    const driverMap = new Map(choferes.map((c) => [c.email, c]))
+    const byDriver: Record<string, { nombre: string; totals: Record<string, number>; paradas: number }> = {}
+    active.forEach((o) => {
+      const id = o.driverId!
+      if (!byDriver[id]) {
+        const chofer = driverMap.get(id)
+        byDriver[id] = { nombre: chofer?.nombreContacto || chofer?.nombre || id, totals: {}, paradas: 0 }
+      }
+      byDriver[id].paradas++
+      o.products.forEach((p) => {
+        byDriver[id].totals[p.name] = (byDriver[id].totals[p.name] ?? 0) + p.quantity
+      })
+    })
+    return Object.entries(byDriver)
+  }, [active, choferes])
 
   if (drivers.length === 0 && sinAsignar.length === 0) return null
 
@@ -554,10 +592,21 @@ function ResumenCargaPorChofer({
   )
 }
 
+const MOTIVOS_CANCELACION = [
+  'Solicitud del cliente',
+  'Error en el pedido',
+  'Producto no disponible',
+  'Cliente no disponible',
+  'Fuera de zona',
+]
+
 function AdminOrderCard({ order, choferes }: { order: Order; choferes: UserProfile[] }) {
-  const [statusLoading, setStatusLoading] = useState(false)
-  const [editingAddress, setEditingAddress] = useState(false)
-  const [newAddress, setNewAddress]         = useState(order.clientAddress)
+  const [statusLoading,    setStatusLoading]    = useState(false)
+  const [editingAddress,   setEditingAddress]   = useState(false)
+  const [newAddress,       setNewAddress]       = useState(order.clientAddress)
+  const [cancelModal,      setCancelModal]      = useState(false)
+  const [cancelMotivo,     setCancelMotivo]     = useState('')
+  const [cancelLoading,    setCancelLoading]    = useState(false)
   const notifyEnCaminoMutation = useNotifyEnCamino()
 
   const getNextStatus = (): OrderStatus | null => {
@@ -569,11 +618,18 @@ function AdminOrderCard({ order, choferes }: { order: Order; choferes: UserProfi
     setStatusLoading(true)
     await updateOrderStatus(order.id, newStatus)
     if (newStatus === 'en_camino' && order.clientEmail) {
-      notifyEnCaminoMutation.mutate({
-        email:    order.clientEmail,
-        nombre:   (order.clientName || '').split(' ')[0] || 'Cliente',
-        products: order.products,
-      })
+      const nombre = (order.clientName || '').split(' ')[0] || 'Cliente'
+      notifyEnCaminoMutation.mutate({ email: order.clientEmail, nombre, products: order.products })
+      // Push notification si el cliente tiene suscripción guardada
+      if (order.clientId) {
+        getPushSubscription(order.clientId).then((sub) => {
+          if (sub) sendPush({
+            subscription: sub,
+            title: 'Tu pedido está en camino 🚛',
+            body:  summarizeProducts(order.products),
+          })
+        }).catch(console.error)
+      }
     }
     setStatusLoading(false)
   }
@@ -581,6 +637,15 @@ function AdminOrderCard({ order, choferes }: { order: Order; choferes: UserProfi
   const handleDriver = async (e: ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value || null
     await assignDriver(order.id, val)
+    if (val) {
+      getPushSubscriptionByEmail(val).then((sub) => {
+        if (sub) sendPush({
+          subscription: sub,
+          title: 'Nuevo pedido asignado',
+          body:  `${order.clientName} — ${formatShortDate(order.date)}`,
+        })
+      }).catch(console.error)
+    }
   }
 
   const handleSaveAddress = async () => {
@@ -591,11 +656,26 @@ function AdminOrderCard({ order, choferes }: { order: Order; choferes: UserProfi
   const next = getNextStatus()
 
   return (
+  <>
     <div className="bg-surface border border-border rounded-xl p-4 space-y-3">
       <div className="flex flex-wrap justify-between items-start gap-2">
         <div>
-          <p className="font-semibold">{order.clientName}</p>
-          <p className="text-muted text-xs">{order.clientPhone || 'Sin teléfono'}</p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="font-semibold">{order.clientName}</p>
+            {order.origenPdf && (
+              <span className="text-xs px-1.5 py-0.5 rounded bg-accent/15 text-accent border border-accent/20 font-medium">
+                OC
+              </span>
+            )}
+            {order.origenRecurrente && (
+              <span className="text-xs px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-400 border border-purple-500/20 font-medium">
+                ↺ Recurrente
+              </span>
+            )}
+          </div>
+          <p className="text-muted text-xs">
+            {order.numeroOC ? `#${order.numeroOC}` : (order.clientPhone || 'Sin teléfono')}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Badge status={order.status} />
@@ -628,6 +708,10 @@ function AdminOrderCard({ order, choferes }: { order: Order; choferes: UserProfi
       </div>
 
       <p className="text-sm text-white">{summarizeProducts(order.products)}</p>
+
+      {order.horaEntrega && (
+        <p className="text-xs text-muted">Entrega: <span className="text-white">{order.horaEntrega}</span></p>
+      )}
 
       {order.notes && (
         <p className="text-xs text-muted italic">"{order.notes}"</p>
@@ -664,7 +748,7 @@ function AdminOrderCard({ order, choferes }: { order: Order; choferes: UserProfi
         {!['cancelado', 'entregado'].includes(order.status) && (
           <Button
             variant="danger"
-            onClick={() => handleStatus('cancelado')}
+            onClick={() => { setCancelMotivo(''); setCancelModal(true) }}
             disabled={statusLoading}
             className="text-xs py-1.5 px-3"
           >
@@ -672,7 +756,65 @@ function AdminOrderCard({ order, choferes }: { order: Order; choferes: UserProfi
           </Button>
         )}
       </div>
+
+      {order.motivoCancelacion && (
+        <p className="text-xs text-red-400 italic border-t border-border pt-2">
+          Motivo: {order.motivoCancelacion}
+        </p>
+      )}
     </div>
+
+    {cancelModal && (
+      <Modal open onClose={() => setCancelModal(false)} title="Cancelar pedido">
+        <p className="text-sm text-muted mb-4">
+          {order.clientName} — {summarizeProducts(order.products)}
+        </p>
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            {MOTIVOS_CANCELACION.map((m) => (
+              <button
+                key={m}
+                onClick={() => setCancelMotivo(m)}
+                className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                  cancelMotivo === m
+                    ? 'bg-red-500/20 border-red-500/50 text-red-400'
+                    : 'border-border text-muted hover:border-red-500/40 hover:text-red-400'
+                }`}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+          <textarea
+            value={cancelMotivo}
+            onChange={(e) => setCancelMotivo(e.target.value)}
+            rows={2}
+            placeholder="O escribí el motivo..."
+            className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-white placeholder-muted resize-none focus:outline-none focus:ring-1 focus:ring-red-500"
+          />
+        </div>
+        <div className="flex gap-3 mt-5">
+          <Button variant="outline" onClick={() => setCancelModal(false)} className="flex-1">
+            Volver
+          </Button>
+          <Button
+            variant="danger"
+            loading={cancelLoading}
+            disabled={!cancelMotivo.trim()}
+            className="flex-1"
+            onClick={async () => {
+              setCancelLoading(true)
+              await cancelOrder(order.id, cancelMotivo.trim())
+              setCancelLoading(false)
+              setCancelModal(false)
+            }}
+          >
+            Confirmar cancelación
+          </Button>
+        </div>
+      </Modal>
+    )}
+  </>
   )
 }
 

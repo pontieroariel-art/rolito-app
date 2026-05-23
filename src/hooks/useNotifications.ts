@@ -5,6 +5,7 @@ import {
   notifyEnCamino,
   notifyAdminNuevoPedido,
   notifyCerca,
+  notifyReprogramado,
 } from '../services/notificationService'
 
 export const useNotifyAprobado = () =>
@@ -24,3 +25,6 @@ export const useNotifyAdminNuevoPedido = () =>
 
 export const useNotifyCerca = () =>
   useMutation({ mutationFn: notifyCerca })
+
+export const useNotifyReprogramado = () =>
+  useMutation({ mutationFn: notifyReprogramado })

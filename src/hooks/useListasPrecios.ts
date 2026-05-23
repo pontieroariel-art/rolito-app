@@ -5,7 +5,7 @@ export function useAllListasPrecios() {
   const { data, isLoading } = useQuery({
     queryKey:  ['listas-precios'],
     queryFn:   getAllListasPrecios,
-    staleTime: Infinity,
+    staleTime: 5 * 60_000,
   })
   return { listas: data ?? [], isLoading }
 }
@@ -15,7 +15,7 @@ export function useListaPrecios(id?: string) {
     queryKey:  ['listas-precios', id],
     queryFn:   () => getListaPrecios(id!),
     enabled:   !!id,
-    staleTime: Infinity,
+    staleTime: 5 * 60_000,
   })
   return { lista: data ?? null, isLoading }
 }

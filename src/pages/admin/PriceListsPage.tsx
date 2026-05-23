@@ -397,15 +397,35 @@ function CatalogoEditor({
         {catalogo.map((p) => (
           <div
             key={p.id}
-            className="flex items-center justify-between bg-bg border border-border rounded-lg px-3 py-2.5"
+            className="flex items-center gap-3 bg-bg border border-border rounded-lg px-3 py-2.5"
           >
-            <div>
+            <div className="flex-1 min-w-0">
               <span className="text-sm text-white">{p.nombre}</span>
               <span className="text-xs text-muted ml-2">{p.unidad}</span>
             </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <input
+                type="number"
+                min={1}
+                placeholder="u/pallet"
+                defaultValue={p.unidadesPorPallet ?? ''}
+                title="Unidades por pallet"
+                onBlur={async (e) => {
+                  const val = e.target.value ? parseInt(e.target.value) : undefined
+                  if (val === p.unidadesPorPallet) return
+                  const updated = catalogo.map((x) =>
+                    x.id === p.id ? { ...x, unidadesPorPallet: val } : x,
+                  )
+                  await saveCatalogo(updated)
+                  onSaved()
+                }}
+                className="w-24 bg-surface border border-border rounded px-2 py-1 text-xs text-white text-right focus:outline-none focus:ring-1 focus:ring-accent placeholder-muted/50"
+              />
+              <span className="text-xs text-muted whitespace-nowrap">u/pallet</span>
+            </div>
             <button
               onClick={() => handleRemove(p.id)}
-              className="text-muted hover:text-red-400 transition-colors p-1"
+              className="text-muted hover:text-red-400 transition-colors p-1 shrink-0"
             >
               <Trash2 size={14} />
             </button>

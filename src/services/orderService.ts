@@ -3,12 +3,14 @@ import {
   addDoc,
   updateDoc,
   doc,
+  getDocs,
   query,
   where,
   orderBy,
   onSnapshot,
   serverTimestamp,
   Timestamp,
+  limit,
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { Order, OrderProduct, UserProfile, getPrimaryAddress } from '../types'
@@ -20,11 +22,12 @@ interface CreateOrderParams {
   products: OrderProduct[]
   date: string
   notes: string
+  address?: string  // override para clientes multi-sucursal
 }
 
-export const createOrder = ({ user, products, date, notes }: CreateOrderParams) => {
+export const createOrder = ({ user, products, date, notes, address }: CreateOrderParams) => {
   const primaryAddr    = getPrimaryAddress(user)
-  const clientAddress  = primaryAddr?.address  || user.address  || ''
+  const clientAddress  = address               || primaryAddr?.address || user.address  || ''
   const clientName     = user.razonSocial      || user.nombre   || ''
   const clientPhone    = user.telefono         || user.phone    || ''
   return addDoc(collection(db, ORDERS), {
@@ -43,14 +46,131 @@ export const createOrder = ({ user, products, date, notes }: CreateOrderParams) 
   })
 }
 
+export const createOrderManual = ({
+  cliente, products, date, notes, address,
+}: {
+  cliente:  UserProfile
+  products: OrderProduct[]
+  date:     string
+  notes:    string
+  address:  string
+}) =>
+  addDoc(collection(db, ORDERS), {
+    clientId:      cliente.uid,
+    clientEmail:   cliente.email,
+    clientName:    cliente.razonSocial || cliente.nombre || '',
+    clientAddress: address,
+    clientPhone:   cliente.telefono   || cliente.phone  || '',
+    products,
+    status:       'pendiente',
+    date:         Timestamp.fromDate(new Date(date + 'T12:00:00')),
+    driverId:     null,
+    notes:        notes || '',
+    origenManual: true,
+    createdAt:    serverTimestamp(),
+    updatedAt:    serverTimestamp(),
+  })
+
+interface CreateOrderExternoParams {
+  clientName:    string
+  clientAddress: string
+  products:      OrderProduct[]
+  date:          string
+  notes?:        string
+  numeroOC?:     string
+  horaEntrega?:  string
+}
+
+export const createOrderExterno = (params: CreateOrderExternoParams) =>
+  addDoc(collection(db, ORDERS), {
+    clientId:      'externo',
+    clientEmail:   '',
+    clientName:    params.clientName,
+    clientAddress: params.clientAddress,
+    clientPhone:   '',
+    products:      params.products,
+    status:        'pendiente',
+    date:          Timestamp.fromDate(new Date(params.date + 'T12:00:00')),
+    driverId:      null,
+    notes:         params.notes ?? '',
+    origenPdf:     true,
+    numeroOC:      params.numeroOC ?? '',
+    horaEntrega:   params.horaEntrega ?? '',
+    createdAt:     serverTimestamp(),
+    updatedAt:     serverTimestamp(),
+  })
+
 export const updateOrderStatus = (orderId: string, status: string): Promise<void> =>
   updateDoc(doc(db, ORDERS, orderId), { status, updatedAt: serverTimestamp() })
+
+export const cancelOrder = (orderId: string, motivo: string): Promise<void> =>
+  updateDoc(doc(db, ORDERS, orderId), {
+    status:              'cancelado',
+    motivoCancelacion:   motivo,
+    updatedAt:           serverTimestamp(),
+  })
+
+export const markDelivered = (
+  orderId: string,
+  entregados: OrderProduct[],
+  parcial: boolean,
+  nota: string,
+): Promise<void> =>
+  updateDoc(doc(db, ORDERS, orderId), {
+    status:               'entregado',
+    productosEntregados:  entregados,
+    entregaParcial:       parcial,
+    notaEntrega:          nota || '',
+    updatedAt:            serverTimestamp(),
+  })
 
 export const assignDriver = (orderId: string, driverId: string | null): Promise<void> =>
   updateDoc(doc(db, ORDERS, orderId), { driverId, updatedAt: serverTimestamp() })
 
 export const updateOrderAddress = (orderId: string, clientAddress: string): Promise<void> =>
   updateDoc(doc(db, ORDERS, orderId), { clientAddress, updatedAt: serverTimestamp() })
+
+export const rescheduleOrder = (
+  orderId:  string,
+  newDate:  string,
+  motivo:   string,
+  opts:     { fechaOriginal: Timestamp; choferOriginal?: string },
+): Promise<void> =>
+  updateDoc(doc(db, ORDERS, orderId), {
+    date:                 Timestamp.fromDate(new Date(newDate + 'T12:00:00')),
+    reprogramado:         true,
+    fechaOriginal:        opts.fechaOriginal,
+    motivoReprogramacion: motivo,
+    choferOriginal:       opts.choferOriginal ?? null,
+    driverId:             null,
+    status:               'pendiente',
+    updatedAt:            serverTimestamp(),
+  })
+
+export const reassignOrder = (
+  orderId:        string,
+  newDriverId:    string,
+  motivo:         string,
+  choferOriginal: string,
+): Promise<void> =>
+  updateDoc(doc(db, ORDERS, orderId), {
+    driverId:           newDriverId,
+    reasignado:         true,
+    choferOriginal,
+    motivoReasignacion: motivo,
+    updatedAt:          serverTimestamp(),
+  })
+
+export const getOrdersInRange = async (start: Date, end: Date): Promise<Order[]> => {
+  const q = query(
+    collection(db, ORDERS),
+    where('date', '>=', Timestamp.fromDate(start)),
+    where('date', '<=', Timestamp.fromDate(end)),
+    orderBy('date', 'asc'),
+  )
+  const snap = await getDocs(q)
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Order))
+}
 
 export const subscribeClientOrders = (
   clientId: string,
@@ -61,6 +181,7 @@ export const subscribeClientOrders = (
     collection(db, ORDERS),
     where('clientId', '==', clientId),
     orderBy('createdAt', 'desc'),
+    limit(200),
   )
   return onSnapshot(
     q,
@@ -73,7 +194,13 @@ export const subscribeAllOrders = (
   callback: (orders: Order[]) => void,
   onError?: (error: Error) => void,
 ) => {
-  const q = query(collection(db, ORDERS), orderBy('createdAt', 'desc'))
+  const ninetyDaysAgo = Timestamp.fromDate(new Date(Date.now() - 90 * 24 * 60 * 60 * 1000))
+  const q = query(
+    collection(db, ORDERS),
+    where('date', '>=', ninetyDaysAgo),
+    orderBy('date', 'desc'),
+    limit(500),
+  )
   return onSnapshot(
     q,
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Order))),

@@ -50,3 +50,17 @@ export const notifyCerca = (data: {
   nombre:   string
   products: Product[]
 }): Promise<void> => post('notify-cerca', data)
+
+export const notifyReprogramado = (data: {
+  email:      string
+  nombre:     string
+  products:   Product[]
+  fechaNueva: string
+  motivo:     string
+}): Promise<void> => post('notify-reprogramado', data)
+
+export const sendPush = (data: {
+  subscription: PushSubscriptionJSON
+  title:        string
+  body:         string
+}): Promise<void> => post('send-push', data)

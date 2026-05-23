@@ -1,4 +1,4 @@
-import { useState, ChangeEvent } from 'react'
+import { useState, useEffect, ChangeEvent } from 'react'
 import Navbar from '../../components/layout/Navbar'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
@@ -12,7 +12,31 @@ import {
 } from '../../services/visitasService'
 import { ProgramaVisita, VisitaPuntual, UserProfile, DIAS_SEMANA } from '../../types'
 import { Timestamp } from 'firebase/firestore'
-import { useAllOrders } from '../../hooks/useOrders'
+
+// ── Week helpers ──────────────────────────────────────────────────────────────
+
+function thisWeekRange(): [Date, Date] {
+  const now = new Date()
+  const day = now.getDay()
+  const monday = new Date(now)
+  monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1))
+  monday.setHours(0, 0, 0, 0)
+  const sunday = new Date(monday)
+  sunday.setDate(monday.getDate() + 6)
+  sunday.setHours(23, 59, 59, 999)
+  return [monday, sunday]
+}
+
+function tsToDate(ts: Timestamp | null | undefined): Date {
+  if (!ts) return new Date(0)
+  return (ts as Timestamp).toDate ? (ts as Timestamp).toDate() : new Date(((ts as any).seconds) * 1000)
+}
+
+const FRECUENCIA_LABELS: Record<string, string> = {
+  semanal:   'Semanal',
+  quincenal: 'Quincenal',
+  mensual:   'Mensual',
+}
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -321,9 +345,8 @@ export default function VisitasPage() {
   const { programas, loading: loadP } = useProgramasVisita()
   const { visitas,   loading: loadV } = useVisitasPuntuales()
   const { choferes }                  = useChoferes()
-  const { orders }                    = useAllOrders()
 
-  const [tab,            setTab]            = useState<'agenda' | 'programas'>('agenda')
+  const [tab,            setTab]            = useState<'agenda' | 'programas' | 'seguimiento'>('agenda')
   const [agendaDate,     setAgendaDate]     = useState(today)
   const [addProgramaModal, setAddProgramaModal] = useState(false)
   const [editPrograma,   setEditPrograma]   = useState<ProgramaVisita | null>(null)
@@ -334,35 +357,29 @@ export default function VisitasPage() {
   const loadClients = async () => {
     if (clientes.length > 0) return
     setLoadingClients(true)
-    const all = await getAllUsers()
-    setClientes(all.filter((u) => u.rol === 'cliente' && u.estado === 'activo'))
-    setLoadingClients(false)
+    try {
+      const all = await getAllUsers()
+      setClientes(all.filter((u) => u.rol === 'cliente' && u.estado === 'activo'))
+    } finally {
+      setLoadingClients(false)
+    }
   }
 
   const openAddPrograma = () => { loadClients(); setAddProgramaModal(true) }
   const openAddVisita   = () => { loadClients(); setAddVisitaModal(true) }
   const openEditPrograma = (p: ProgramaVisita) => { loadClients(); setEditPrograma(p) }
 
+  useEffect(() => {
+    if (tab === 'seguimiento') loadClients()
+  }, [tab])
+
   // Agenda del día seleccionado
   const fechaAgenda     = new Date(agendaDate + 'T12:00:00')
   const programasHoy    = programasParaFecha(programas, fechaAgenda)
   const visitasPuntuales = visitasParaFecha(visitas, fechaAgenda)
 
-  // Detectar si un programa ya fue "visitado" ese día (hay un pedido de ese cliente ese día)
-  const agendaDateStr = agendaDate
-  const visitadosHoy  = new Set(
-    orders
-      .filter((o) => {
-        const d = o.date?.toDate?.()
-        return d && d.toISOString().split('T')[0] === agendaDateStr && o.status === 'entregado'
-      })
-      .map((o) => o.clientId),
-  )
-
-  // Alerta: programas de hoy sin visitar
-  const sinVisitar = programasParaFecha(programas, new Date()).filter(
-    (p) => !visitadosHoy.has(p.clientId),
-  ).length + visitasParaFecha(visitas, new Date()).filter(
+  // Alerta: visitas puntuales pendientes de hoy
+  const sinVisitar = visitasParaFecha(visitas, new Date()).filter(
     (v) => v.status === 'pendiente',
   ).length
 
@@ -382,7 +399,7 @@ export default function VisitasPage() {
 
         {/* Tabs */}
         <div className="flex border-b border-border gap-1">
-          {(['agenda', 'programas'] as const).map((t) => (
+          {(['agenda', 'programas', 'seguimiento'] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -396,7 +413,7 @@ export default function VisitasPage() {
                 <>Agenda {sinVisitar > 0 && tab !== 'agenda' && (
                   <span className="ml-1.5 bg-orange-500 text-white text-xs rounded-full px-1.5 py-0.5">{sinVisitar}</span>
                 )}</>
-              ) : 'Programas recurrentes'}
+              ) : t === 'programas' ? 'Programas recurrentes' : 'Seguimiento'}
             </button>
           ))}
         </div>
@@ -429,7 +446,6 @@ export default function VisitasPage() {
                     clientPhone={p.clientPhone}
                     driverId={p.driverId}
                     notas={p.notas}
-                    status={visitadosHoy.has(p.clientId) ? 'visitado' : undefined}
                     isRecurrente
                     choferes={choferes}
                   />
@@ -540,6 +556,127 @@ export default function VisitasPage() {
                 })}
               </div>
             )}
+          </div>
+        )}
+        {/* ── TAB SEGUIMIENTO ────────────────────────────────────────────────── */}
+        {tab === 'seguimiento' && (
+          <div className="space-y-4">
+            {loadingClients ? (
+              <LoadingSpinner />
+            ) : (() => {
+              const visitaClientes = clientes.filter((c) => c.esVisita)
+              const [weekStart, weekEnd] = thisWeekRange()
+
+              const isScheduledThisWeek = (clientId: string): boolean => {
+                if (programas.some((p) => p.clientId === clientId && p.activo)) return true
+                return visitas.some((v) => {
+                  if (v.clientId !== clientId) return false
+                  const d = tsToDate(v.fecha)
+                  return d >= weekStart && d <= weekEnd
+                })
+              }
+
+              if (visitaClientes.length === 0) {
+                return (
+                  <div className="bg-surface border border-border rounded-xl p-10 text-center">
+                    <p className="text-3xl mb-3">🗺</p>
+                    <p className="text-muted text-sm">No hay clientes marcados como visita</p>
+                    <p className="text-muted/60 text-xs mt-1">
+                      Marcá un cliente como visita desde Usuarios → Ficha del cliente
+                    </p>
+                  </div>
+                )
+              }
+
+              const sinProgramar = visitaClientes.filter((c) => !isScheduledThisWeek(c.uid))
+              return (
+                <>
+                  {sinProgramar.length > 0 && (
+                    <div className="bg-yellow-500/5 border border-yellow-500/30 rounded-xl p-4 flex items-start gap-3">
+                      <span className="text-yellow-400 text-lg shrink-0">⚠</span>
+                      <div>
+                        <p className="text-sm font-medium text-yellow-400">
+                          {sinProgramar.length} cliente{sinProgramar.length !== 1 ? 's' : ''} sin visita esta semana
+                        </p>
+                        <p className="text-xs text-muted mt-0.5">
+                          Revisá si faltan en la planificación o creá una visita puntual
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    {visitaClientes
+                      .sort((a, b) => {
+                        const aOk = isScheduledThisWeek(a.uid)
+                        const bOk = isScheduledThisWeek(b.uid)
+                        if (aOk !== bOk) return aOk ? 1 : -1
+                        return clientLabel(a).localeCompare(clientLabel(b))
+                      })
+                      .map((c) => {
+                        const scheduled = isScheduledThisWeek(c.uid)
+                        const prog = programas.find((p) => p.clientId === c.uid && p.activo)
+                        const primaryAddr = c.addresses?.find((a) => a.esPrincipal) ?? c.addresses?.[0]
+
+                        return (
+                          <div
+                            key={c.uid}
+                            className={`bg-surface border rounded-xl p-4 space-y-2 ${
+                              scheduled ? 'border-border' : 'border-yellow-500/30'
+                            }`}
+                          >
+                            <div className="flex justify-between items-start gap-3">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="font-semibold text-sm">{clientLabel(c)}</p>
+                                  {c.frecuenciaVisita && (
+                                    <span className="text-xs px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-400 border border-violet-500/20">
+                                      {FRECUENCIA_LABELS[c.frecuenciaVisita]}
+                                    </span>
+                                  )}
+                                </div>
+                                {primaryAddr?.address && (
+                                  <p className="text-xs text-muted mt-0.5 truncate">{primaryAddr.address}</p>
+                                )}
+                                {prog ? (
+                                  <div className="flex gap-1 mt-2">
+                                    {DOW_LABELS.map((label, i) => (
+                                      <span
+                                        key={i}
+                                        className={`w-5 h-5 rounded-full text-xs flex items-center justify-center font-bold ${
+                                          prog.diasSemana.includes(i) ? 'bg-accent text-bg' : 'bg-bg text-muted/30'
+                                        }`}
+                                      >
+                                        {label}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-muted mt-1">Sin programa recurrente</p>
+                                )}
+                              </div>
+                              <div className="shrink-0 text-right">
+                                {scheduled ? (
+                                  <p className="text-xs text-success font-medium">✓ Esta semana</p>
+                                ) : (
+                                  <>
+                                    <p className="text-xs text-yellow-400 font-medium">⚠ Sin programar</p>
+                                    <button
+                                      onClick={() => { openAddVisita(); }}
+                                      className="mt-1 text-xs text-accent hover:text-white border border-accent/30 hover:border-accent rounded-lg px-2 py-1 transition-colors"
+                                    >
+                                      + Visita
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                  </div>
+                </>
+              )
+            })()}
           </div>
         )}
       </main>

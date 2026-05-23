@@ -1,4 +1,6 @@
-import { useState, ChangeEvent } from 'react'
+import { useState, useCallback, useMemo, ChangeEvent } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { Timestamp } from 'firebase/firestore'
 import Navbar from '../../components/layout/Navbar'
 import Button from '../../components/ui/Button'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
@@ -7,7 +9,7 @@ import { useFlota } from '../../hooks/useFlota'
 import { useChoferes } from '../../hooks/useChoferes'
 import { useAllOrders } from '../../hooks/useOrders'
 import { addCamion, updateCamion, asignarCamion } from '../../services/flotaService'
-import { Camion, UserProfile } from '../../types'
+import { Camion, UserProfile, CANALES_CAMION, CanalCamion } from '../../types'
 
 function isConfirmadoHoy(fechaAsignacion?: { toDate?: () => Date } | null): boolean {
   if (!fechaAsignacion?.toDate) return false
@@ -17,25 +19,46 @@ function isConfirmadoHoy(fechaAsignacion?: { toDate?: () => Date } | null): bool
 
 // ── Formulario de camión ───────────────────────────────────────────────────────
 
+type CamionFormData = {
+  patente:          string
+  modelo:           string
+  marca:            string
+  capacidadPallets: number | undefined
+  canales:          CanalCamion[]
+}
+
 function CamionForm({
   initial,
   onSave,
   onCancel,
 }: {
   initial?: Partial<Camion>
-  onSave:   (data: { patente: string; modelo: string; marca: string }) => Promise<void>
+  onSave:   (data: CamionFormData) => Promise<void>
   onCancel: () => void
 }) {
-  const [patente, setPatente] = useState(initial?.patente ?? '')
-  const [modelo,  setModelo]  = useState(initial?.modelo  ?? '')
-  const [marca,   setMarca]   = useState(initial?.marca   ?? '')
-  const [saving,  setSaving]  = useState(false)
-  const [error,   setError]   = useState('')
+  const [patente,  setPatente]  = useState(initial?.patente ?? '')
+  const [modelo,   setModelo]   = useState(initial?.modelo  ?? '')
+  const [marca,    setMarca]    = useState(initial?.marca   ?? '')
+  const [pallets,  setPallets]  = useState<string>(initial?.capacidadPallets?.toString() ?? '')
+  const [canales,  setCanales]  = useState<CanalCamion[]>(initial?.canales ?? [])
+  const [saving,   setSaving]   = useState(false)
+  const [error,    setError]    = useState('')
+
+  const toggleCanal = (canal: CanalCamion) =>
+    setCanales((prev) =>
+      prev.includes(canal) ? prev.filter((c) => c !== canal) : [...prev, canal],
+    )
 
   const handleSubmit = async () => {
     if (!patente.trim() || !modelo.trim()) { setError('Patente y modelo son obligatorios'); return }
     setSaving(true)
-    await onSave({ patente: patente.trim().toUpperCase(), modelo: modelo.trim(), marca: marca.trim() })
+    await onSave({
+      patente:          patente.trim().toUpperCase(),
+      modelo:           modelo.trim(),
+      marca:            marca.trim(),
+      capacidadPallets: pallets ? parseInt(pallets) : undefined,
+      canales,
+    })
     setSaving(false)
   }
 
@@ -61,15 +84,53 @@ function CamionForm({
           />
         </div>
       </div>
-      <div>
-        <label className="text-xs text-muted mb-1 block">Modelo *</label>
-        <input
-          value={modelo}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => setModelo(e.target.value)}
-          placeholder="Daily 35S14, Sprinter 313..."
-          className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-accent"
-        />
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs text-muted mb-1 block">Modelo *</label>
+          <input
+            value={modelo}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setModelo(e.target.value)}
+            placeholder="Daily 35S14, Sprinter 313..."
+            className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+        </div>
+        <div>
+          <label className="text-xs text-muted mb-1 block">Capacidad (pallets)</label>
+          <input
+            type="number"
+            min={1}
+            value={pallets}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setPallets(e.target.value)}
+            placeholder="Ej: 12"
+            className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+        </div>
       </div>
+
+      {/* Canales */}
+      <div>
+        <label className="text-xs text-muted mb-2 block">Canales de distribución</label>
+        <div className="flex flex-wrap gap-2">
+          {CANALES_CAMION.map((canal) => {
+            const active = canales.includes(canal)
+            return (
+              <button
+                key={canal}
+                type="button"
+                onClick={() => toggleCanal(canal)}
+                className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
+                  active
+                    ? 'bg-accent/20 text-accent border-accent/50'
+                    : 'bg-bg text-muted border-border hover:border-accent/50 hover:text-white'
+                }`}
+              >
+                {active ? '✓ ' : ''}{canal}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
       {error && <p className="text-red-400 text-xs">{error}</p>}
       <div className="flex gap-2 pt-1">
         <Button variant="outline" onClick={onCancel} className="flex-1 text-sm">Cancelar</Button>
@@ -84,33 +145,40 @@ function CamionForm({
 function ChoferAsignacionRow({
   chofer,
   camiones,
+  ocupados,
   tieneOrdenesHoy,
-  onChange,
+  onUpdate,
 }: {
   chofer:          UserProfile
   camiones:        Camion[]
+  ocupados:        Set<string>
   tieneOrdenesHoy: boolean
-  onChange:        () => void
+  onUpdate:        (uid: string, updates: Partial<UserProfile>) => void
 }) {
-  const [busy,    setBusy]    = useState(false)
   const confirmadoHoy = isConfirmadoHoy(chofer.camionFechaAsignacion)
   const sinCamion     = !chofer.camionId
 
-  const handleChange = async (e: ChangeEvent<HTMLSelectElement>) => {
-    setBusy(true)
+  const handleChange = (e: ChangeEvent<HTMLSelectElement>) => {
     const camion = camiones.find((c) => c.id === e.target.value) ?? null
-    await asignarCamion(chofer.uid, camion)
-    onChange()
-    setBusy(false)
+    onUpdate(chofer.uid, camion ? {
+      camionId:              camion.id,
+      camionPatente:         camion.patente,
+      camionModelo:          camion.modelo,
+      camionFechaAsignacion: Timestamp.fromDate(new Date()),
+    } : {
+      camionId:              null,
+      camionPatente:         null,
+      camionModelo:          null,
+      camionFechaAsignacion: null,
+    })
+    asignarCamion(chofer.uid, camion).catch(console.error)
   }
 
-  const handleConfirmar = async () => {
+  const handleConfirmar = () => {
     if (!chofer.camionId) return
     const camion = camiones.find((c) => c.id === chofer.camionId) ?? null
-    setBusy(true)
-    await asignarCamion(chofer.uid, camion)
-    onChange()
-    setBusy(false)
+    onUpdate(chofer.uid, { camionFechaAsignacion: Timestamp.fromDate(new Date()) })
+    asignarCamion(chofer.uid, camion).catch(console.error)
   }
 
   const needsAttention = tieneOrdenesHoy && (!confirmadoHoy || sinCamion)
@@ -149,12 +217,11 @@ function ChoferAsignacionRow({
       {/* Selector */}
       <select
         value={chofer.camionId ?? ''}
-        disabled={busy}
         onChange={handleChange}
-        className="bg-bg border border-border rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-accent flex-1 min-w-44 max-w-xs disabled:opacity-50"
+        className="bg-bg border border-border rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-accent flex-1 min-w-44 max-w-xs"
       >
         <option value="">— Sin camión —</option>
-        {camiones.filter((c) => c.activo).map((c) => (
+        {camiones.filter((c) => c.activo && (!ocupados.has(c.id) || c.id === chofer.camionId)).map((c) => (
           <option key={c.id} value={c.id}>
             {c.patente} — {c.marca ? `${c.marca} ` : ''}{c.modelo}
           </option>
@@ -165,7 +232,6 @@ function ChoferAsignacionRow({
       {chofer.camionId && !confirmadoHoy && (
         <Button
           onClick={handleConfirmar}
-          loading={busy}
           className="text-xs py-1.5 px-3 shrink-0"
         >
           ✓ Confirmar
@@ -181,11 +247,20 @@ export default function FlotaPage() {
   const { camiones, loading: loadingCamiones } = useFlota()
   const { choferes, loading: loadingChoferes } = useChoferes()
   const { orders }                              = useAllOrders()
-  const [addModal,  setAddModal]   = useState(false)
+  const queryClient                             = useQueryClient()
+  const [addModal,   setAddModal]   = useState(false)
   const [editCamion, setEditCamion] = useState<Camion | null>(null)
-  const [refresh,   setRefresh]    = useState(0)
 
-  const reload = () => setRefresh((n) => n + 1)
+  const ocupados = useMemo(
+    () => new Set(choferes.filter((c) => c.camionId).map((c) => c.camionId!)),
+    [choferes],
+  )
+
+  const handleChoferUpdate = useCallback((uid: string, updates: Partial<UserProfile>) => {
+    queryClient.setQueryData<UserProfile[]>(['users', 'choferes'], (old) =>
+      old?.map((u) => u.uid === uid ? { ...u, ...updates } : u) ?? []
+    )
+  }, [queryClient])
 
   // Choferes con pedidos activos hoy
   const chofereConOrdenesHoy = new Set(
@@ -203,7 +278,7 @@ export default function FlotaPage() {
   return (
     <>
       <Navbar />
-      <main className="max-w-3xl mx-auto p-4 space-y-8 pb-10" key={refresh}>
+      <main className="max-w-3xl mx-auto p-4 space-y-8 pb-10">
 
         <div className="flex flex-wrap justify-between items-center gap-3">
           <div>
@@ -247,8 +322,9 @@ export default function FlotaPage() {
                   key={chofer.uid}
                   chofer={chofer}
                   camiones={camiones}
+                  ocupados={ocupados}
                   tieneOrdenesHoy={chofereConOrdenesHoy.has(chofer.email)}
-                  onChange={reload}
+                  onUpdate={handleChoferUpdate}
                 />
               ))}
             </div>
@@ -290,6 +366,21 @@ export default function FlotaPage() {
                           <p className="text-xs text-accent mt-0.5">
                             Asignado a {asignadoA.nombreContacto || asignadoA.nombre}
                           </p>
+                        )}
+                        {c.capacidadPallets && (
+                          <p className="text-xs text-muted mt-0.5">{c.capacidadPallets} pallets cap.</p>
+                        )}
+                        {c.canales && c.canales.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {c.canales.map((canal) => (
+                              <span
+                                key={canal}
+                                className="text-xs px-2 py-0.5 rounded-full bg-accent/10 text-accent border border-accent/25 font-medium"
+                              >
+                                {canal}
+                              </span>
+                            ))}
+                          </div>
                         )}
                       </div>
                     </div>
@@ -335,7 +426,17 @@ export default function FlotaPage() {
         <Modal open onClose={() => setEditCamion(null)} title="Editar vehículo">
           <CamionForm
             initial={editCamion}
-            onSave={async (data) => { await updateCamion(editCamion.id, data); setEditCamion(null) }}
+            onSave={async (data) => {
+              const payload: Parameters<typeof updateCamion>[1] = {
+                patente: data.patente,
+                modelo:  data.modelo,
+                marca:   data.marca,
+                canales: data.canales,
+              }
+              if (data.capacidadPallets !== undefined) payload.capacidadPallets = data.capacidadPallets
+              await updateCamion(editCamion.id, payload)
+              setEditCamion(null)
+            }}
             onCancel={() => setEditCamion(null)}
           />
         </Modal>

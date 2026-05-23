@@ -1,5 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useBranch } from '../../context/BranchContext'
+import { usePushNotification } from '../../hooks/usePushNotification'
 import { GoogleMap, Marker, DirectionsRenderer } from '@react-google-maps/api'
 import Navbar from '../../components/layout/Navbar'
 import Badge from '../../components/ui/Badge'
@@ -8,9 +10,16 @@ import { useClientOrders } from '../../hooks/useOrders'
 import { useAuth } from '../../context/AuthContext'
 import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
 import { subscribeDriverLocation, DriverLocation } from '../../services/locationService'
+import { savePushSubscription } from '../../services/userService'
+import { cancelOrder } from '../../services/orderService'
+import { getForecast, DayWeather } from '../../services/weatherService'
 import { useNotifyCerca } from '../../hooks/useNotifications'
 import { formatShortDate, summarizeProducts } from '../../utils/helpers'
-import { Order, getPrimaryAddress } from '../../types'
+import { Order, OrderStatus, OrderProduct, getPrimaryAddress, DIAS_SEMANA } from '../../types'
+import { useRecurrente } from '../../hooks/useRecurrente'
+import { useCatalogo } from '../../hooks/useCatalogo'
+import Modal from '../../components/ui/Modal'
+import Button from '../../components/ui/Button'
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -48,15 +57,52 @@ function haversineMeters(a: Coords, b: Coords): number {
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
 export default function ClientDashboard() {
-  const { user }            = useAuth()
-  const { orders, loading } = useClientOrders()
+  const { user }               = useAuth()
+  const { orders, loading }    = useClientOrders()
+  const { selectedAddress }    = useBranch()
+  const navigate               = useNavigate()
+  const { isLoaded }           = useGoogleMapsLoader()
 
-  const active        = orders.filter((o) => !['entregado', 'cancelado'].includes(o.status))
-  const delivered     = orders.filter((o) => o.status === 'entregado')
-  const recent        = orders.slice(0, 5)
-  const enCaminoOrder = orders.find((o) => o.status === 'en_camino') ?? null
-  const primaryAddr   = user ? getPrimaryAddress(user) : null
+  const multiSucursal = (user?.addresses?.length ?? 0) > 1
+
+  // Filtra pedidos por sucursal activa si tiene múltiples
+  const branchOrders = useMemo(() => {
+    if (!multiSucursal || !selectedAddress) return orders
+    return orders.filter((o) => o.clientAddress === selectedAddress.address)
+  }, [orders, multiSucursal, selectedAddress])
+
+  const active        = branchOrders.filter((o) => !['entregado', 'cancelado'].includes(o.status))
+  const delivered     = branchOrders.filter((o) => o.status === 'entregado')
+  const recent        = branchOrders.slice(0, 5)
+  const enCaminoOrder = branchOrders.find((o) => o.status === 'en_camino') ?? null
+  const primaryAddr   = selectedAddress ?? (user ? getPrimaryAddress(user) : null)
   const hasAddress    = !!(primaryAddr?.address || user?.address)
+
+  // Último pedido no cancelado que tenga al menos un producto con productoId (para poder mapearlo al catálogo)
+  const lastOrder = orders.find(
+    (o) => o.status !== 'cancelado' && o.products.some((p) => p.productoId),
+  )
+
+  const { permission, request, notify } = usePushNotification()
+
+  // Detectar cuando un pedido cambia a en_camino para notificar
+  const initializedRef  = useRef(false)
+  const prevStatusesRef = useRef<Record<string, OrderStatus>>({})
+  useEffect(() => {
+    if (orders.length === 0) return
+    if (!initializedRef.current) {
+      orders.forEach((o) => { prevStatusesRef.current[o.id] = o.status })
+      initializedRef.current = true
+      return
+    }
+    orders.forEach((o) => {
+      const prev = prevStatusesRef.current[o.id]
+      if (prev && prev !== o.status && o.status === 'en_camino') {
+        notify('Tu pedido está en camino 🚛', summarizeProducts(o.products))
+      }
+      prevStatusesRef.current[o.id] = o.status
+    })
+  }, [orders, notify])
 
   if (loading) return <><Navbar /><LoadingSpinner fullScreen /></>
 
@@ -68,7 +114,16 @@ export default function ClientDashboard() {
           <h1 className="text-2xl font-bold">
             Hola, {(user?.nombreContacto || user?.nombre)?.split(' ')[0] ?? 'amigo'} 👋
           </h1>
-          <p className="text-muted text-sm mt-1">Gestión de pedidos de hielo</p>
+          {multiSucursal && selectedAddress ? (
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-accent text-sm font-medium">📍 {selectedAddress.nombre}</p>
+              <Link to="/sucursal" className="text-xs text-muted hover:text-white transition-colors">
+                Cambiar →
+              </Link>
+            </div>
+          ) : (
+            <p className="text-muted text-sm mt-1">Gestión de pedidos de hielo</p>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -76,11 +131,27 @@ export default function ClientDashboard() {
           <StatCard label="Pedidos entregados" value={delivered.length} color="text-success" />
         </div>
 
+        {permission === 'default' && (
+          <div className="bg-surface border border-border rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium">Activar notificaciones</p>
+              <p className="text-xs text-muted mt-0.5">Avisamos cuando tu pedido sale y cuando el camión está cerca</p>
+            </div>
+            <button
+              onClick={() => request(user?.uid ? (sub) => savePushSubscription(user.uid, sub) : undefined)}
+              className="shrink-0 bg-accent text-bg text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-accent/90 transition-colors"
+            >
+              Activar
+            </button>
+          </div>
+        )}
+
         {enCaminoOrder && (
           <TruckTracker
             order={enCaminoOrder}
             clientEmail={user?.email ?? ''}
             clientNombre={(user?.nombreContacto || user?.nombre || '').split(' ')[0] || 'Cliente'}
+            onNearby={() => notify('Tu pedido llega en minutos ⏱️', 'El camión está a menos de 500 metros')}
           />
         )}
 
@@ -96,12 +167,34 @@ export default function ClientDashboard() {
           </div>
         )}
 
-        <Link
-          to="/nuevo-pedido"
-          className="flex items-center justify-center gap-2 w-full bg-accent text-bg font-semibold py-3 rounded-xl hover:bg-accent/90 transition-colors text-sm"
-        >
-          + Hacer nuevo pedido
-        </Link>
+        <div className="space-y-2">
+          <Link
+            to="/nuevo-pedido"
+            className="flex items-center justify-center gap-2 w-full bg-accent text-bg font-semibold py-3 rounded-xl hover:bg-accent/90 transition-colors text-sm"
+          >
+            + Hacer nuevo pedido
+          </Link>
+
+          {lastOrder && (
+            <button
+              onClick={() => navigate('/nuevo-pedido', { state: { repeatOrder: lastOrder } })}
+              className="w-full flex items-center justify-between gap-3 bg-surface border border-border hover:border-accent/50 rounded-xl px-4 py-3 text-sm transition-colors group"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-muted group-hover:text-accent transition-colors shrink-0">↩</span>
+                <div className="text-left min-w-0">
+                  <p className="text-xs text-muted">Repetir último pedido</p>
+                  <p className="text-white truncate text-sm">{summarizeProducts(lastOrder.products)}</p>
+                </div>
+              </div>
+              <span className="text-muted text-xs shrink-0 group-hover:text-accent transition-colors">→</span>
+            </button>
+          )}
+        </div>
+
+        <RecurrenteCard user={user} />
+
+        <ClientWeather address={selectedAddress?.address || primaryAddr?.address || user?.address || ''} isLoaded={isLoaded} />
 
         <section>
           <div className="flex justify-between items-center mb-3">
@@ -139,10 +232,12 @@ function TruckTracker({
   order,
   clientEmail,
   clientNombre,
+  onNearby,
 }: {
   order:        Order
   clientEmail:  string
   clientNombre: string
+  onNearby:     () => void
 }) {
   const { isLoaded }        = useGoogleMapsLoader()
   const mapRef              = useRef<google.maps.Map | null>(null)
@@ -226,8 +321,9 @@ function TruckTracker({
         nombre:   clientNombre,
         products: order.products,
       })
+      onNearby()
     }
-  }, [distance, clientEmail, clientNombre, order.products])
+  }, [distance, clientEmail, clientNombre, order.products, onNearby])
 
   const isNearby = distance !== null && distance < 500
 
@@ -377,6 +473,118 @@ function TruckTracker({
 
 // ── Sub-componentes ───────────────────────────────────────────────────────────
 
+// ── ClientWeather ─────────────────────────────────────────────────────────────
+
+function tempColor(t: number): string {
+  if (t >= 35) return '#ef4444'
+  if (t >= 30) return '#f97316'
+  if (t >= 25) return '#eab308'
+  if (t >= 20) return '#84cc16'
+  return '#60a5fa'
+}
+
+function ClientWeather({ address, isLoaded }: { address: string; isLoaded: boolean }) {
+  const [coords, setCoords]   = useState<{ lat: number; lng: number } | null>(null)
+  const [days,   setDays]     = useState<DayWeather[]>([])
+  const [loading, setLoading] = useState(true)
+  const [open,    setOpen]    = useState(false)
+  const geocodedRef           = useRef(false)
+
+  // Geocodificar la dirección del cliente (una sola vez)
+  useEffect(() => {
+    if (geocodedRef.current) return
+    if (isLoaded && address) {
+      geocodedRef.current = true
+      new google.maps.Geocoder().geocode({ address }, (results, status) => {
+        if (status === 'OK' && results?.[0]) {
+          const loc = results[0].geometry.location
+          setCoords({ lat: loc.lat(), lng: loc.lng() })
+        } else {
+          setCoords(null) // usa default BA
+        }
+      })
+    } else if (!address) {
+      setCoords(null)
+    }
+  }, [isLoaded, address])
+
+  // Traer pronóstico con las coordenadas resueltas
+  useEffect(() => {
+    setLoading(true)
+    getForecast(coords?.lat, coords?.lng)
+      .then(setDays)
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [coords])
+
+  const today = days[0]
+
+  return (
+    <div className="bg-surface border border-border rounded-xl overflow-hidden">
+      {/* Header siempre visible */}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.02] transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          {loading ? (
+            <span className="text-muted text-sm">Cargando clima...</span>
+          ) : today ? (
+            <>
+              <span className="text-2xl leading-none">{today.emoji}</span>
+              <div className="text-left">
+                <p className="text-sm font-medium leading-tight">
+                  Hoy{' '}
+                  <span style={{ color: tempColor(today.tempMax) }} className="font-bold">
+                    {today.tempMax}°
+                  </span>
+                  <span className="text-muted font-normal"> / {today.tempMin}°</span>
+                  {today.rain > 0 && (
+                    <span className="text-blue-400 text-xs ml-2">🌧️ {today.rain}mm</span>
+                  )}
+                </p>
+                <p className="text-xs text-muted">{today.label}</p>
+              </div>
+            </>
+          ) : null}
+        </div>
+        <span className="text-muted text-xs shrink-0 ml-2">{open ? '▲' : '▼ Semana'}</span>
+      </button>
+
+      {/* Pronóstico 7 días desplegable */}
+      {open && days.length > 0 && (
+        <div className="border-t border-border px-4 py-3">
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {days.map((d, i) => {
+              const date = new Date(d.date + 'T12:00:00')
+              return (
+                <div
+                  key={d.date}
+                  className={`flex flex-col items-center gap-1 rounded-xl p-3 min-w-[68px] border shrink-0 ${
+                    i === 0 ? 'bg-accent/10 border-accent/30' : 'bg-bg border-border/60'
+                  }`}
+                >
+                  <p className="text-xs text-muted font-medium">
+                    {i === 0 ? 'Hoy' : date.toLocaleDateString('es-AR', { weekday: 'short' })}
+                  </p>
+                  <p className="text-xl leading-none">{d.emoji}</p>
+                  <p className="font-bold text-sm" style={{ color: tempColor(d.tempMax) }}>
+                    {d.tempMax}°
+                  </p>
+                  <p className="text-xs text-muted">{d.tempMin}°</p>
+                  {d.rain > 0 && (
+                    <p className="text-xs text-blue-400">{d.rain}mm</p>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
   return (
     <div className="bg-surface border border-border rounded-xl p-4">
@@ -386,14 +594,236 @@ function StatCard({ label, value, color }: { label: string; value: number; color
   )
 }
 
-function OrderRow({ order }: { order: Order }) {
+// ── RecurrenteCard ────────────────────────────────────────────────────────────
+
+function RecurrenteCard({ user }: { user: import('../../types').UserProfile | null }) {
+  const { recurrente, save } = useRecurrente(user?.uid)
+  const { catalogo }         = useCatalogo()
+  const [modal,      setModal]      = useState(false)
+  const [diasSel,    setDiasSel]    = useState<number[]>([])
+  const [quantities, setQuantities] = useState<Record<string, number>>({})
+  const [saving,     setSaving]     = useState(false)
+
+  const primaryAddr = user ? getPrimaryAddress(user) : null
+
+  const openModal = () => {
+    setDiasSel(recurrente?.diasSemana ?? [])
+    const q: Record<string, number> = {}
+    recurrente?.products.forEach((p) => { if (p.productoId) q[p.productoId] = p.quantity })
+    setQuantities(q)
+    setModal(true)
+  }
+
+  const handleSave = async (activo: boolean) => {
+    if (!user) return
+    const products: OrderProduct[] = catalogo
+      .filter((p) => (quantities[p.id] ?? 0) > 0)
+      .map((p) => ({ name: p.nombre, quantity: quantities[p.id], productoId: p.id }))
+
+    setSaving(true)
+    await save({
+      clientId:     user.uid,
+      clientEmail:  user.email,
+      clientName:   user.razonSocial || user.nombre || '',
+      clientAddress: primaryAddr?.address || user.address || '',
+      clientPhone:  user.telefono || user.phone || '',
+      diasSemana:   diasSel,
+      products,
+      activo,
+    })
+    setSaving(false)
+    setModal(false)
+  }
+
+  if (recurrente === undefined) return null
+
+  const diasLabels = DIAS_SEMANA.filter((_, i) => recurrente?.diasSemana.includes(i))
+
   return (
-    <div className="bg-surface border border-border rounded-xl p-4 flex justify-between items-start gap-3">
-      <div className="min-w-0">
-        <p className="font-medium text-sm truncate">{summarizeProducts(order.products)}</p>
-        <p className="text-muted text-xs mt-1">Entrega: {formatShortDate(order.date)}</p>
+    <>
+      <div className="bg-surface border border-border rounded-xl p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <p className="text-sm font-semibold">Pedido automático</p>
+              {recurrente && (
+                <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
+                  recurrente.activo
+                    ? 'bg-success/15 text-success border-success/30'
+                    : 'bg-muted/15 text-muted border-muted/30'
+                }`}>
+                  {recurrente.activo ? 'Activo' : 'Pausado'}
+                </span>
+              )}
+            </div>
+            {recurrente ? (
+              <>
+                <p className="text-xs text-muted">{diasLabels.join(' · ')}</p>
+                <p className="text-xs text-white mt-0.5 truncate">{summarizeProducts(recurrente.products)}</p>
+              </>
+            ) : (
+              <p className="text-xs text-muted">Recibí tus productos los mismos días sin tener que pedir cada vez</p>
+            )}
+          </div>
+          <button
+            onClick={openModal}
+            className="shrink-0 text-xs text-accent hover:underline"
+          >
+            {recurrente ? 'Editar' : 'Configurar →'}
+          </button>
+        </div>
       </div>
-      <Badge status={order.status} />
-    </div>
+
+      <Modal open={modal} onClose={() => setModal(false)} title="Pedido automático">
+        <div className="space-y-5">
+          <div>
+            <p className="text-xs text-muted mb-2">Días de entrega</p>
+            <div className="flex gap-2 flex-wrap">
+              {DIAS_SEMANA.map((dia, i) => (
+                <button
+                  key={dia}
+                  onClick={() => setDiasSel((d) =>
+                    d.includes(i) ? d.filter((x) => x !== i) : [...d, i].sort()
+                  )}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                    diasSel.includes(i)
+                      ? 'bg-accent/20 border-accent text-accent'
+                      : 'border-border text-muted hover:border-accent/50'
+                  }`}
+                >
+                  {dia}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs text-muted mb-2">Productos</p>
+            <div className="space-y-2 max-h-52 overflow-y-auto">
+              {catalogo.map((p) => {
+                const qty = quantities[p.id] ?? 0
+                return (
+                  <div key={p.id} className="flex items-center justify-between gap-3 bg-bg border border-border rounded-xl px-3 py-2">
+                    <p className="text-sm flex-1 truncate">{p.nombre}</p>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => setQuantities((q) => ({ ...q, [p.id]: Math.max(0, (q[p.id] ?? 0) - 1) }))}
+                        disabled={qty === 0}
+                        className="w-7 h-7 rounded-full border border-border hover:border-accent transition-colors disabled:opacity-30 flex items-center justify-center text-sm"
+                      >−</button>
+                      <span className="w-7 text-center font-bold text-sm">{qty || '0'}</span>
+                      <button
+                        onClick={() => setQuantities((q) => ({ ...q, [p.id]: (q[p.id] ?? 0) + 1 }))}
+                        className="w-7 h-7 rounded-full border border-border hover:border-accent transition-colors flex items-center justify-center text-sm"
+                      >+</button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-2 mt-5">
+          {recurrente?.activo && (
+            <Button variant="outline" onClick={() => handleSave(false)} loading={saving} className="text-sm">
+              Pausar
+            </Button>
+          )}
+          <Button
+            onClick={() => handleSave(true)}
+            loading={saving}
+            disabled={diasSel.length === 0 || !catalogo.some((p) => (quantities[p.id] ?? 0) > 0)}
+            className="flex-1 text-sm"
+          >
+            Guardar
+          </Button>
+        </div>
+      </Modal>
+    </>
+  )
+}
+
+const MOTIVOS_CANCEL = [
+  'Ya no lo necesito',
+  'Me equivoqué en el pedido',
+  'Cambio de fecha',
+  'Otro motivo',
+]
+
+function OrderRow({ order }: { order: Order }) {
+  const [modal,   setModal]   = useState(false)
+  const [motivo,  setMotivo]  = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const canCancel = order.status === 'pendiente'
+
+  const handleCancel = useCallback(async () => {
+    if (!motivo) return
+    setLoading(true)
+    try {
+      await cancelOrder(order.id, motivo)
+      setModal(false)
+    } finally {
+      setLoading(false)
+    }
+  }, [order.id, motivo])
+
+  return (
+    <>
+      <div className="bg-surface border border-border rounded-xl p-4 flex justify-between items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="font-medium text-sm truncate">{summarizeProducts(order.products)}</p>
+          <p className="text-muted text-xs mt-1">Entrega: {formatShortDate(order.date)}</p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {canCancel && (
+            <button
+              onClick={() => { setMotivo(''); setModal(true) }}
+              className="text-xs text-red-400 hover:text-red-300 border border-red-500/30 hover:border-red-400/50 px-2.5 py-1 rounded-lg transition-colors"
+            >
+              Cancelar
+            </button>
+          )}
+          <Badge status={order.status} />
+        </div>
+      </div>
+
+      <Modal open={modal} onClose={() => setModal(false)} title="Cancelar pedido">
+        <div className="space-y-4">
+          <p className="text-sm text-muted">
+            ¿Por qué querés cancelar este pedido?
+          </p>
+          <div className="space-y-2">
+            {MOTIVOS_CANCEL.map((m) => (
+              <button
+                key={m}
+                onClick={() => setMotivo(m)}
+                className={`w-full text-left text-sm px-4 py-3 rounded-xl border transition-colors ${
+                  motivo === m
+                    ? 'bg-red-500/10 border-red-500/50 text-red-400'
+                    : 'border-border text-muted hover:border-border/70 hover:text-white'
+                }`}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2 pt-1">
+            <Button variant="outline" onClick={() => setModal(false)} className="flex-1 text-sm">
+              Volver
+            </Button>
+            <Button
+              onClick={handleCancel}
+              loading={loading}
+              disabled={!motivo}
+              className="flex-1 text-sm !bg-red-600 hover:!bg-red-500"
+            >
+              Confirmar cancelación
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    </>
   )
 }

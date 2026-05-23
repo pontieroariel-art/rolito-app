@@ -1,5 +1,5 @@
 import { Timestamp } from 'firebase/firestore'
-import { OrderProduct } from '../types'
+import { CatalogProducto, OrderProduct } from '../types'
 
 export const formatDate = (timestamp: Timestamp | null | undefined): string => {
   if (!timestamp?.toDate) return '—'
@@ -25,3 +25,13 @@ export const summarizeProducts = (products: OrderProduct[] = []): string =>
   products.map((p) => `${p.quantity}x ${p.name}`).join(', ')
 
 export const todayString = (): string => new Date().toISOString().split('T')[0]
+
+export const calcPallets = (
+  products: OrderProduct[],
+  catalogo: CatalogProducto[],
+): number =>
+  products.reduce((total, p) => {
+    const cat = catalogo.find((c) => c.id === p.productoId || c.nombre === p.name)
+    if (!cat?.unidadesPorPallet) return total
+    return total + p.quantity / cat.unidadesPorPallet
+  }, 0)
