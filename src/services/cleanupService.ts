@@ -1,4 +1,5 @@
 import { collection, getDocs, writeBatch } from 'firebase/firestore'
+import { getFunctions, httpsCallable } from 'firebase/functions'
 import { db } from './firebase'
 
 // Deletes all docs in a collection, optionally keeping docs by predicate.
@@ -27,17 +28,29 @@ export interface CleanupResult {
 
 // myUid: the UID of the currently-logged-in admin — their doc is never deleted.
 export async function cleanupTestData(myUid: string): Promise<CleanupResult> {
+  // Recolectar UIDs antes de borrar los documentos
+  const usersSnap = await getDocs(collection(db, 'users'))
+  const uidsToDelete = usersSnap.docs
+    .map((d) => d.id)
+    .filter((id) => id !== myUid)
+
   const [users, orders, ubicaciones] = await Promise.all([
-    batchDeleteCollection('users', (id) => id === myUid),
+    batchDeleteCollection('users',     (id) => id === myUid),
     batchDeleteCollection('orders'),
     batchDeleteCollection('ubicaciones'),
   ])
 
   let clientes = 0
-  try {
-    clientes = await batchDeleteCollection('clientes')
-  } catch {
-    // Collection doesn't exist — ignore
+  try { clientes = await batchDeleteCollection('clientes') } catch { /* no existe */ }
+
+  // Borrar cuentas de Firebase Auth via Cloud Function
+  if (uidsToDelete.length > 0) {
+    try {
+      const fn = httpsCallable(getFunctions(), 'deleteAuthUsers')
+      await fn({ uids: uidsToDelete })
+    } catch (err) {
+      console.warn('No se pudieron borrar cuentas de Auth:', err)
+    }
   }
 
   return { users, orders, ubicaciones, clientes }

@@ -1,10 +1,12 @@
 import { useState, ChangeEvent } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
+import { useBranch } from '../../context/BranchContext'
 import Navbar from '../../components/layout/Navbar'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
-import { summarizeProducts } from '../../utils/helpers'
+import { summarizeProducts, formatShortDate } from '../../utils/helpers'
 import { useAuth } from '../../context/AuthContext'
+import { Order } from '../../types'
 import { createOrder } from '../../services/orderService'
 import { getNotificationEmails } from '../../services/configService'
 import { useNotifyPedidoRecibido, useNotifyAdminNuevoPedido } from '../../hooks/useNotifications'
@@ -20,11 +22,21 @@ interface DisplayProduct {
 }
 
 export default function NewOrder() {
-  const { user }  = useAuth()
-  const navigate  = useNavigate()
-  const today     = new Date().toISOString().split('T')[0]
+  const { user }               = useAuth()
+  const { selectedAddress }    = useBranch()
+  const navigate               = useNavigate()
+  const location               = useLocation()
+  const repeatOrder = (location.state as { repeatOrder?: Order } | null)?.repeatOrder
+  const today       = new Date().toISOString().split('T')[0]
 
-  const [quantities, setQuantities] = useState<Record<string, number>>({})
+  const [quantities, setQuantities] = useState<Record<string, number>>(() => {
+    if (!repeatOrder) return {}
+    const q: Record<string, number> = {}
+    for (const p of repeatOrder.products) {
+      if (p.productoId) q[p.productoId] = p.quantity
+    }
+    return q
+  })
   const [date, setDate]       = useState(today)
   const [notes, setNotes]     = useState('')
   const [modal, setModal]     = useState(false)
@@ -68,8 +80,9 @@ export default function NewOrder() {
   )
   const hasPrecios = selected.some((p) => p.price !== undefined)
 
-  const primaryAddr    = user ? getPrimaryAddress(user) : null
-  const deliveryAddress = primaryAddr?.address ?? user?.address ?? ''
+  const primaryAddr     = user ? getPrimaryAddress(user) : null
+  const deliveryAddress = selectedAddress?.address ?? primaryAddr?.address ?? user?.address ?? ''
+  const deliveryNombre  = selectedAddress?.nombre ?? primaryAddr?.nombre
   const canSubmit = selected.length > 0 && !!deliveryAddress
 
   const handleSubmit = async () => {
@@ -77,7 +90,7 @@ export default function NewOrder() {
     setLoading(true)
     setError('')
     try {
-      await createOrder({ user, products: selected, date, notes })
+      await createOrder({ user, products: selected, date, notes, address: deliveryAddress })
 
       // Fire-and-forget — no bloquean la navegación
       const nombre       = (user.nombreContacto || user.nombre || '').split(' ')[0] || 'Cliente'
@@ -122,8 +135,27 @@ export default function NewOrder() {
       <main className="max-w-2xl mx-auto p-4 space-y-6 pb-10">
         <div>
           <h1 className="text-2xl font-bold">Nuevo pedido</h1>
-          <p className="text-muted text-sm mt-1">Seleccioná los productos que necesitás</p>
+          {deliveryNombre ? (
+            <p className="text-accent text-sm mt-1 font-medium">📍 {deliveryNombre}</p>
+          ) : (
+            <p className="text-muted text-sm mt-1">Seleccioná los productos que necesitás</p>
+          )}
         </div>
+
+        {repeatOrder && (
+          <div className="bg-accent/10 border border-accent/30 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs text-accent font-medium">Repetir pedido del {formatShortDate(repeatOrder.date)}</p>
+              <p className="text-sm text-white truncate mt-0.5">{summarizeProducts(repeatOrder.products)}</p>
+            </div>
+            <button
+              onClick={() => setQuantities({})}
+              className="text-xs text-muted hover:text-white shrink-0 transition-colors"
+            >
+              Limpiar
+            </button>
+          </div>
+        )}
 
         {!deliveryAddress && (
           <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 text-sm">

@@ -2,19 +2,33 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Lee el rol del usuario autenticado desde su propio documento
+    // Lee el rol del usuario autenticado desde su propio documento.
+    // Usa exists() antes de get() para no fallar si el doc aún no existe.
+    // Soporta campo nuevo 'rol' y campo viejo 'role' por compatibilidad.
     function myRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol;
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      let data = exists(path) ? get(path).data : {};
+      return data.get('rol', data.get('role', 'none'));
+    }
+
+    // Gerente comercial: acuerdos de precios y activación de clientes
+    function isGerenteComercial() {
+      return myRole() == 'gerente_comercial';
     }
 
     // Usuarios con acceso de gestión
     function isManager() {
-      return myRole() in ['super_admin', 'comercial'];
+      return myRole() in ['super_admin', 'gerente_comercial', 'comercial'];
     }
 
     // Usuarios con acceso operativo (pedidos y logística)
     function isOperator() {
       return myRole() in ['super_admin', 'logistica'];
+    }
+
+    // Facturación: solo lectura sobre pedidos y clientes
+    function isFacturacion() {
+      return myRole() == 'facturacion';
     }
 
     // ── Colección de usuarios ──────────────────────────────────────────────
@@ -24,6 +38,12 @@ service cloud.firestore {
 
       // super_admin y comercial pueden leer y modificar todos los usuarios
       allow read, write: if request.auth != null && isManager();
+
+      // logistica puede leer todos los usuarios (necesita listar clientes en visitas)
+      allow read: if request.auth != null && isOperator();
+
+      // facturacion puede leer todos los usuarios (para datos fiscales de clientes)
+      allow read: if request.auth != null && isFacturacion();
     }
 
     // ── Pedidos ────────────────────────────────────────────────────────────
@@ -31,12 +51,13 @@ service cloud.firestore {
       // Cualquier usuario autenticado puede crear pedidos
       allow create: if request.auth != null;
 
-      // Lectura: el cliente dueño, el chofer asignado, operador o comercial
+      // Lectura: el cliente dueño, el chofer asignado, operador, comercial o facturación
       allow read: if request.auth != null && (
         request.auth.uid == resource.data.clientId ||
         request.auth.token.email == resource.data.driverId ||
         isOperator() ||
-        isManager()
+        isManager() ||
+        isFacturacion()
       );
 
       // Escritura: el chofer asignado (para marcar entregado) o un operador
@@ -44,6 +65,12 @@ service cloud.firestore {
         request.auth.token.email == resource.data.driverId ||
         isOperator()
       );
+
+      // El cliente puede cancelar su propio pedido solo si está pendiente
+      allow update: if request.auth != null &&
+        request.auth.uid == resource.data.clientId &&
+        resource.data.status == 'pendiente' &&
+        request.resource.data.status == 'cancelado';
     }
 
     // ── Configuración (lista de choferes, etc.) ───────────────────────────
@@ -68,6 +95,12 @@ service cloud.firestore {
       allow write: if request.auth != null && isOperator();
     }
 
+    // ── Catálogo de productos ─────────────────────────────────────────────────
+    match /catalogo/{productoId} {
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null && isOperator();
+    }
+
     // ── Visitas programadas ───────────────────────────────────────────────────
     match /programas-visita/{id} {
       allow read:  if request.auth != null;
@@ -82,6 +115,32 @@ service cloud.firestore {
     match /flota/{camionId} {
       allow read:  if request.auth != null;
       allow write: if request.auth != null && isOperator();
+    }
+
+    // ── Pedidos recurrentes ───────────────────────────────────────────────────
+    // El documento ID es el clientId. El cliente gestiona el suyo; operadores leen todos.
+    match /pedidos-recurrentes/{clientId} {
+      allow read, write: if request.auth != null && request.auth.uid == clientId;
+      allow read, write: if request.auth != null && isOperator();
+    }
+
+    // ── Índice CUIT → email (necesario para login de clientes sin auth) ──────
+    match /cuitIndex/{cuit} {
+      allow read:  if true;
+      allow write: if request.auth != null;
+    }
+
+    // ── Índice username → email (necesario para login de choferes sin auth) ──
+    match /choferIndex/{username} {
+      allow read:  if true;
+      allow write: if request.auth != null && isOperator();
+    }
+
+    // ── Historial de precios ──────────────────────────────────────────────────
+    match /historialPrecios/{eventoId} {
+      allow read:   if request.auth != null && (isManager() || isOperator() || isFacturacion());
+      allow create: if request.auth != null && (isManager() || isOperator());
+      allow update, delete: if false;
     }
 
     // ── Ubicaciones en tiempo real (GPS del chofer) ────────────────────────

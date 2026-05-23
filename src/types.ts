@@ -1,6 +1,6 @@
 import { Timestamp } from 'firebase/firestore'
 
-export type UserRole = 'super_admin' | 'comercial' | 'logistica' | 'chofer' | 'cliente'
+export type UserRole = 'super_admin' | 'gerente_comercial' | 'comercial' | 'logistica' | 'chofer' | 'cliente' | 'facturacion'
 export type UserStatus = 'activo' | 'inactivo' | 'pendiente'
 
 export type OrderStatus =
@@ -26,9 +26,10 @@ export interface OrderProduct {
 // ── Catálogo y listas de precios ──────────────────────────────────────────────
 
 export interface CatalogProducto {
-  id:     string
-  nombre: string
-  unidad: string
+  id:                string
+  nombre:            string
+  unidad:            string
+  unidadesPorPallet?: number
 }
 
 export interface ItemListaPrecios {
@@ -78,11 +79,19 @@ export interface UserProfile {
   aprobadoPor: string | null
   listaPreciosId?: string
   preciosCustom?: Record<string, number>
+  username?: string
   // Asignación de vehículo
   camionId?:              string | null
   camionPatente?:         string | null
   camionModelo?:          string | null
   camionFechaAsignacion?: Timestamp | null
+  // Seguimiento de visita comercial
+  esVisita?:          boolean
+  frecuenciaVisita?:  'semanal' | 'quincenal' | 'mensual'
+  // Precios
+  vigenciaCustom?:    Record<string, string>    // productoId → ISO date
+  ultimoCambioPrecio?: Timestamp | null
+  codigoCliente?:     string
 }
 
 // ── Visitas programadas ───────────────────────────────────────────────────────
@@ -116,13 +125,25 @@ export interface VisitaPuntual {
   createdAt:     Timestamp
 }
 
+export const CANALES_CAMION = [
+  'General',
+  'Estaciones de servicio',
+  'Entrega de equipos',
+  'Aplicaciones',
+  'Uso interno',
+] as const
+
+export type CanalCamion = typeof CANALES_CAMION[number]
+
 export interface Camion {
-  id:        string
-  patente:   string
-  modelo:    string
-  marca?:    string
-  activo:    boolean
-  createdAt: Timestamp
+  id:                string
+  patente:           string
+  modelo:            string
+  marca?:            string
+  activo:            boolean
+  capacidadPallets?: number
+  canales?:          CanalCamion[]
+  createdAt:         Timestamp
 }
 
 export function getPrimaryAddress(user: UserProfile): DeliveryAddress | null {
@@ -144,4 +165,73 @@ export interface Order {
   notes: string
   createdAt: Timestamp
   updatedAt: Timestamp
+  origenPdf?:  boolean
+  numeroOC?:   string
+  horaEntrega?: string
+  entregaParcial?:      boolean
+  productosEntregados?: OrderProduct[]
+  notaEntrega?:         string
+  motivoCancelacion?:   string
+  origenRecurrente?:    boolean
+  // Reprogramación / reasignación
+  reprogramado?:         boolean
+  fechaOriginal?:        Timestamp
+  motivoReprogramacion?: string
+  choferOriginal?:       string
+  reasignado?:           boolean
+  motivoReasignacion?:   string
+}
+
+export const MOTIVOS_INCIDENCIA = [
+  'Tiempo insuficiente',
+  'Problema mecánico',
+  'Cliente ausente',
+  'Dirección incorrecta',
+  'Condiciones climáticas',
+  'Zona de riesgo',
+  'Otro',
+] as const
+export type MotivoIncidencia = typeof MOTIVOS_INCIDENCIA[number]
+
+// ── Historial de precios ──────────────────────────────────────────────────────
+
+export interface HistorialPrecioEvento {
+  id:                  string
+  clientId:            string
+  clientName:          string
+  tipo:                'lista' | 'custom'
+  // Cambio de lista
+  listaAnteriorId?:    string | null
+  listaAnteriorNombre?: string | null
+  listaNuevaId?:       string | null
+  listaNuevaNombre?:   string | null
+  // Cambio de precio custom
+  productoId?:         string
+  productoNombre?:     string
+  precioAnterior?:     number | null
+  precioNuevo?:        number | null
+  accion?:             'agregado' | 'modificado' | 'eliminado'
+  vigenciaHasta?:      Timestamp | null
+  // Metadata
+  fecha:               Timestamp
+  modificadoPor:       string
+  modificadoPorNombre: string
+  motivo?:             string | null
+}
+
+// ── Pedidos recurrentes ───────────────────────────────────────────────────────
+
+export interface PedidoRecurrente {
+  id:                string
+  clientId:          string
+  clientEmail:       string
+  clientName:        string
+  clientAddress:     string
+  clientPhone:       string
+  diasSemana:        number[]      // 0=Dom … 6=Sáb
+  products:          OrderProduct[]
+  activo:            boolean
+  notas?:            string
+  createdAt:         Timestamp
+  ultimaGeneracion?: Timestamp | null
 }

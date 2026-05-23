@@ -1,23 +1,26 @@
 import { useState, ChangeEvent, FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { FirebaseError } from 'firebase/app'
+import { Eye, EyeOff } from 'lucide-react'
 import AuthLayout from '../../components/layout/AuthLayout'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 import { registerUser } from '../../services/authService'
 
 interface RegisterForm {
-  nombre: string
-  email: string
-  phone: string
-  password: string
-  confirm: string
+  razonSocial:    string
+  nombreContacto: string
+  cuit:           string
+  email:          string
+  phone:          string
+  password:       string
+  confirm:        string
 }
 
 export default function Register() {
   const navigate = useNavigate()
   const [form, setForm] = useState<RegisterForm>({
-    nombre: '', email: '', phone: '', password: '', confirm: '',
+    razonSocial: '', nombreContacto: '', cuit: '', email: '', phone: '', password: '', confirm: '',
   })
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm,  setShowConfirm]  = useState(false)
@@ -37,14 +40,21 @@ export default function Register() {
       setError('La contraseña debe tener al menos 6 caracteres')
       return
     }
+    const cuitDigits = form.cuit.replace(/\D/g, '')
+    if (cuitDigits.length !== 11) {
+      setError('El CUIT debe tener 11 dígitos')
+      return
+    }
     setLoading(true)
     setError('')
     try {
       await registerUser({
-        email:    form.email,
-        password: form.password,
-        nombre:   form.nombre,
-        phone:    form.phone,
+        email:          form.email,
+        password:       form.password,
+        razonSocial:    form.razonSocial,
+        nombreContacto: form.nombreContacto,
+        cuit:           form.cuit,
+        phone:          form.phone,
       })
       navigate('/')
     } catch (err) {
@@ -62,15 +72,31 @@ export default function Register() {
     <AuthLayout title="Crear cuenta">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <Input
-          label="Nombre completo"
-          name="nombre"
-          value={form.nombre}
+          label="Razón social"
+          name="razonSocial"
+          value={form.razonSocial}
+          onChange={handleChange}
+          required
+          placeholder="Mi Empresa S.A."
+        />
+        <Input
+          label="Nombre de contacto"
+          name="nombreContacto"
+          value={form.nombreContacto}
           onChange={handleChange}
           required
           placeholder="Juan García"
         />
         <Input
-          label="Email"
+          label="CUIT"
+          name="cuit"
+          value={form.cuit}
+          onChange={handleChange}
+          required
+          placeholder="20123456789"
+        />
+        <Input
+          label="Email (para notificaciones y recuperación de contraseña)"
           name="email"
           type="email"
           value={form.email}
@@ -99,9 +125,9 @@ export default function Register() {
               type="button"
               tabIndex={-1}
               onClick={() => setShowPassword((v) => !v)}
-              className="text-lg leading-none text-muted hover:text-white transition-colors"
+              className="text-muted hover:text-white transition-colors"
             >
-              {showPassword ? '🙈' : '👁️'}
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           }
         />
@@ -118,9 +144,9 @@ export default function Register() {
               type="button"
               tabIndex={-1}
               onClick={() => setShowConfirm((v) => !v)}
-              className="text-lg leading-none text-muted hover:text-white transition-colors"
+              className="text-muted hover:text-white transition-colors"
             >
-              {showConfirm ? '🙈' : '👁️'}
+              {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           }
         />
@@ -137,7 +163,7 @@ export default function Register() {
 
         <p className="text-center text-sm text-muted mt-2">
           ¿Ya tenés cuenta?{' '}
-          <Link to="/login" className="text-accent hover:underline">
+          <Link to="/clientes" className="text-accent hover:underline">
             Iniciar sesión
           </Link>
         </p>

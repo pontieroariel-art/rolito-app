@@ -43,7 +43,7 @@ export default function ComercialOrders() {
   const { data: users = [], isLoading: usersLoading } = useQuery({
     queryKey: ['users'],
     queryFn:  getAllUsers,
-    staleTime: 60_000,
+    staleTime: 300_000,
   })
 
   const clientes = users.filter((u) => u.rol === 'cliente')

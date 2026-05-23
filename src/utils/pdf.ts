@@ -1,5 +1,3 @@
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
 import { Order } from '../types'
 
 async function fetchImageAsBase64(url: string): Promise<string | null> {
@@ -33,6 +31,8 @@ export async function generateHojaDeRuta(
   driverName: string,
   date: Date = new Date(),
 ) {
+  const { default: jsPDF }     = await import('jspdf')
+  const { default: autoTable } = await import('jspdf-autotable')
   const doc   = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const pageW = doc.internal.pageSize.getWidth()
 

@@ -4,7 +4,8 @@ import Navbar from '../../components/layout/Navbar'
 import Button from '../../components/ui/Button'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useDriverOrders } from '../../hooks/useOrders'
-import { updateOrderStatus } from '../../services/orderService'
+import { markDelivered } from '../../services/orderService'
+import EntregaModal from '../../components/chofer/EntregaModal'
 import { updateDriverLocation, deactivateDriverLocation } from '../../services/locationService'
 import { useAuth } from '../../context/AuthContext'
 import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
@@ -44,11 +45,18 @@ export default function ChoferMap() {
   const [routeError, setRouteError]   = useState('')
   const [calculating, setCalculating] = useState(false)
   const [currentPos, setCurrentPos]   = useState<google.maps.LatLngLiteral | null>(null)
+  const [skippedIds, setSkippedIds]     = useState<Set<string>>(new Set())
+  const [routeStale, setRouteStale]     = useState(false)
+  const [deliveryOrder, setDeliveryOrder] = useState<import('../../types').Order | null>(null)
 
   const pending = useMemo(
     () => orders.filter((o) => o.status !== 'entregado' && o.clientAddress),
     [orders],
   )
+
+  const activeOrders   = useMemo(() => pending.filter((o) => !skippedIds.has(o.id)), [pending, skippedIds])
+  const skippedOrders  = useMemo(() => pending.filter((o) =>  skippedIds.has(o.id)), [pending, skippedIds])
+  const orderedPending = useMemo(() => [...activeOrders, ...skippedOrders],           [activeOrders, skippedOrders])
 
   const nombreRef   = useRef(user?.nombreContacto || user?.nombre || '')
   const telefonoRef = useRef(user?.telefono       || user?.phone  || '')
@@ -80,15 +88,17 @@ export default function ChoferMap() {
   }, [pending.length, user?.email])
 
   const calculateRoute = async () => {
-    if (pending.length === 0) return
+    if (orderedPending.length === 0) return
     setCalculating(true)
     setRouteError('')
+    setRouteStale(false)
 
     try {
-      const service  = new google.maps.DirectionsService()
-      const origin   = currentPos ?? pending[0].clientAddress
-      const destination = pending[pending.length - 1].clientAddress
-      const waypoints   = (currentPos ? pending : pending.slice(1)).slice(0, -1).map((o) => ({
+      const service     = new google.maps.DirectionsService()
+      const origin      = currentPos ?? orderedPending[0].clientAddress
+      const allStops    = currentPos ? orderedPending : orderedPending.slice(1)
+      const destination = allStops[allStops.length - 1].clientAddress
+      const waypoints   = allStops.slice(0, -1).map((o) => ({
         location: o.clientAddress,
         stopover: true,
       }))
@@ -97,7 +107,8 @@ export default function ChoferMap() {
         origin,
         destination,
         waypoints,
-        optimizeWaypoints: true,
+        // Solo optimizar cuando no hay salteados — si hay salteados los queremos fijos al final
+        optimizeWaypoints: skippedOrders.length === 0,
         travelMode:        google.maps.TravelMode.DRIVING,
         region:            'AR',
       })
@@ -109,16 +120,43 @@ export default function ChoferMap() {
     }
   }
 
+  const skipOrder = (orderId: string) => {
+    setSkippedIds((prev) => new Set([...prev, orderId]))
+    setDirections(null)
+    setRouteStale(true)
+  }
+
+  const unskipOrder = (orderId: string) => {
+    setSkippedIds((prev) => {
+      const next = new Set(prev)
+      next.delete(orderId)
+      return next
+    })
+    setDirections(null)
+    setRouteStale(true)
+  }
+
   const openAllInMaps = () => {
-    if (pending.length === 0) return
-    const origin    = currentPos ? `${currentPos.lat},${currentPos.lng}` : encodeURIComponent(pending[0].clientAddress)
-    const addresses = pending.map((o) => encodeURIComponent(o.clientAddress)).join('/')
+    if (orderedPending.length === 0) return
+    const origin    = currentPos ? `${currentPos.lat},${currentPos.lng}` : encodeURIComponent(orderedPending[0].clientAddress)
+    const addresses = orderedPending.map((o) => encodeURIComponent(o.clientAddress)).join('/')
     window.open(`https://www.google.com/maps/dir/${origin}/${addresses}`, '_blank')
   }
 
-  const markDelivered = async (orderId: string) => {
-    await updateOrderStatus(orderId, 'entregado')
+  const handleDelivered = async (
+    entregados: import('../../types').OrderProduct[],
+    parcial: boolean,
+    nota: string,
+  ) => {
+    if (!deliveryOrder) return
+    await markDelivered(deliveryOrder.id, entregados, parcial, nota)
+    setSkippedIds((prev) => {
+      const next = new Set(prev)
+      next.delete(deliveryOrder.id)
+      return next
+    })
     setDirections(null)
+    setDeliveryOrder(null)
   }
 
   if (loading || (!isLoaded && !loadError)) {
@@ -144,15 +182,15 @@ export default function ChoferMap() {
           <Button
             onClick={calculateRoute}
             loading={calculating}
-            disabled={pending.length === 0}
+            disabled={orderedPending.length === 0}
             className="text-sm"
           >
-            🗺 Calcular ruta ({pending.length} paradas)
+            🗺 Calcular ruta ({activeOrders.length} paradas{skippedOrders.length > 0 ? ` + ${skippedOrders.length} postergadas` : ''})
           </Button>
           <Button
             variant="outline"
             onClick={openAllInMaps}
-            disabled={pending.length === 0}
+            disabled={orderedPending.length === 0}
             className="text-sm"
           >
             Abrir en Google Maps ↗
@@ -163,6 +201,22 @@ export default function ChoferMap() {
             </Button>
           )}
         </div>
+
+        {routeStale && !calculating && (
+          <div className="px-4 py-2 bg-yellow-500/10 border-b border-yellow-500/30 flex items-center justify-between gap-3">
+            <p className="text-yellow-400 text-xs">
+              {skippedOrders.length > 0
+                ? `${skippedOrders.length} parada${skippedOrders.length > 1 ? 's' : ''} postergada${skippedOrders.length > 1 ? 's' : ''} — recalculá la ruta`
+                : 'La ruta cambió — recalculá'}
+            </p>
+            <button
+              onClick={calculateRoute}
+              className="text-xs text-yellow-400 hover:text-yellow-300 underline shrink-0"
+            >
+              Recalcular
+            </button>
+          </div>
+        )}
 
         {routeError && (
           <div className="px-4 py-2 bg-red-500/10 border-b border-red-500/30">
@@ -189,41 +243,73 @@ export default function ChoferMap() {
           </GoogleMap>
         </div>
 
-        {pending.length > 0 && (
+        {orderedPending.length > 0 && (
           <div className="bg-surface border-t border-border max-h-52 overflow-y-auto shrink-0">
-            {pending.map((o, i) => (
-              <div
-                key={o.id}
-                className="flex justify-between items-center px-4 py-3 border-b border-border/50 last:border-0 gap-3"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="w-6 h-6 rounded-full bg-accent/20 text-accent text-xs flex items-center justify-center font-bold shrink-0">
-                    {i + 1}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{o.clientName}</p>
-                    <p className="text-xs text-muted truncate">{o.clientAddress}</p>
-                    <p className="text-xs text-muted/70">{summarizeProducts(o.products)}</p>
+            {orderedPending.map((o, i) => {
+              const isSkipped = skippedIds.has(o.id)
+              return (
+                <div
+                  key={o.id}
+                  className={`flex justify-between items-center px-4 py-3 border-b border-border/50 last:border-0 gap-3 ${isSkipped ? 'opacity-50' : ''}`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className={`w-6 h-6 rounded-full text-xs flex items-center justify-center font-bold shrink-0 ${isSkipped ? 'bg-orange-500/20 text-orange-400' : 'bg-accent/20 text-accent'}`}>
+                      {isSkipped ? '↩' : i + 1}
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium truncate">{o.clientName}</p>
+                        {isSkipped && <span className="text-xs text-orange-400 shrink-0">postergado</span>}
+                      </div>
+                      <p className="text-xs text-muted truncate">{o.clientAddress}</p>
+                      <p className="text-xs text-muted/70">{summarizeProducts(o.products)}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {isSkipped ? (
+                      <button
+                        onClick={() => unskipOrder(o.id)}
+                        className="text-xs text-orange-400 hover:text-orange-300 px-2 py-1 border border-orange-400/30 rounded"
+                      >
+                        Restaurar
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => skipOrder(o.id)}
+                        className="text-xs text-muted hover:text-yellow-400 px-2 py-1 border border-border rounded"
+                        title="Saltear esta parada"
+                      >
+                        ⏭
+                      </button>
+                    )}
+                    <Button
+                      onClick={() => setDeliveryOrder(o)}
+                      className="text-xs py-1 px-3"
+                      variant="success"
+                    >
+                      ✓
+                    </Button>
                   </div>
                 </div>
-                <Button
-                  onClick={() => markDelivered(o.id)}
-                  className="text-xs py-1 px-3 shrink-0"
-                  variant="success"
-                >
-                  ✓
-                </Button>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
 
-        {pending.length === 0 && (
+        {orderedPending.length === 0 && (
           <div className="p-4 text-center text-success bg-surface border-t border-border">
             ✓ Todas las entregas del día completadas
           </div>
         )}
       </div>
+
+      {deliveryOrder && (
+        <EntregaModal
+          order={deliveryOrder}
+          onConfirm={handleDelivered}
+          onClose={() => setDeliveryOrder(null)}
+        />
+      )}
     </>
   )
 }

@@ -7,8 +7,10 @@ import Modal from '../../components/ui/Modal'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useDriverOrders } from '../../hooks/useOrders'
 import { useAuth } from '../../context/AuthContext'
+import { usePushNotification } from '../../hooks/usePushNotification'
+import { savePushSubscription } from '../../services/userService'
 import { createOrder } from '../../services/orderService'
-import { updateOrderStatus } from '../../services/orderService'
+import { markDelivered } from '../../services/orderService'
 import { updateDriverLocation, deactivateDriverLocation } from '../../services/locationService'
 import { updateVisitaPuntual } from '../../services/visitasService'
 import { useProgramasVisita, useVisitasPuntuales, programasParaFecha, visitasParaFecha } from '../../hooks/useVisitas'
@@ -16,10 +18,12 @@ import { useCatalogo } from '../../hooks/useCatalogo'
 import { summarizeProducts } from '../../utils/helpers'
 import { generateHojaDeRuta } from '../../utils/pdf'
 import { Order, ProgramaVisita, VisitaPuntual, OrderProduct } from '../../types'
+import EntregaModal from '../../components/chofer/EntregaModal'
 
 export default function ChoferDashboard() {
   const { orders, loading }   = useDriverOrders()
   const { user }              = useAuth()
+  const { permission, request } = usePushNotification()
   const { programas }         = useProgramasVisita()
   const { visitas }           = useVisitasPuntuales()
   const { catalogo }          = useCatalogo()
@@ -28,6 +32,11 @@ export default function ChoferDashboard() {
     { tipo: 'programa'; data: ProgramaVisita } |
     { tipo: 'visita';   data: VisitaPuntual   } | null
   >(null)
+  const [sinContactoVisita,  setSinContactoVisita]  = useState<VisitaPuntual | null>(null)
+  const [sinContactoMotivo,  setSinContactoMotivo]  = useState('')
+  const [sinContactoLoading, setSinContactoLoading] = useState(false)
+
+  const MOTIVOS_SIN_CONTACTO = ['Nadie en el local', 'Local cerrado', 'No atendió el teléfono', 'Dirección incorrecta']
 
   const pending   = orders.filter((o) => o.status !== 'entregado')
   const delivered = orders.filter((o) => o.status === 'entregado')
@@ -50,11 +59,13 @@ export default function ChoferDashboard() {
   // Activa desde que el chofer tiene cualquier pedido asignado (no solo en_camino)
   // para que logística pueda ver su posición durante todo el reparto.
   // Al desmontar (logout) o cuando no quedan pendientes, marca activo: false.
+  // Se pausa automáticamente cuando la pestaña queda en segundo plano.
   useEffect(() => {
     if (!hasPending || !user?.email || !navigator.geolocation) return
 
     const email = user.email
-    const send  = () =>
+    const send  = () => {
+      if (document.visibilityState === 'hidden') return
       navigator.geolocation.getCurrentPosition(
         (pos) => updateDriverLocation(
           email,
@@ -66,6 +77,7 @@ export default function ChoferDashboard() {
         () => {},
         { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 },
       )
+    }
 
     send()
     const id = setInterval(send, 10_000)
@@ -81,6 +93,16 @@ export default function ChoferDashboard() {
   return (
     <>
       <Navbar />
+      {permission === 'default' && (
+        <div className="max-w-2xl mx-auto px-4 pt-3">
+          <button
+            onClick={() => request((sub) => { if (user?.uid) savePushSubscription(user.uid, sub) })}
+            className="w-full bg-accent/10 border border-accent/30 text-accent text-sm rounded-xl px-4 py-3 text-left hover:bg-accent/20 transition-colors"
+          >
+            Activar notificaciones para recibir alertas de nuevos pedidos
+          </button>
+        </div>
+      )}
       <main className="max-w-2xl mx-auto p-4 space-y-6 pb-10">
         <div className="flex flex-wrap justify-between items-start gap-3">
           <div>
@@ -194,7 +216,7 @@ export default function ChoferDashboard() {
                         Registrar entrega
                       </Button>
                       <button
-                        onClick={() => updateVisitaPuntual(v.id, { status: 'sin_contacto' })}
+                        onClick={() => { setSinContactoMotivo(''); setSinContactoVisita(v) }}
                         className="text-xs text-muted hover:text-orange-400 text-center"
                       >
                         Sin contacto
@@ -225,6 +247,58 @@ export default function ChoferDashboard() {
           </section>
         )}
       </main>
+
+      {/* Modal sin contacto */}
+      {sinContactoVisita && (
+        <Modal open onClose={() => setSinContactoVisita(null)} title="Sin contacto">
+          <p className="text-sm text-muted mb-4">{sinContactoVisita.clientName}</p>
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+              {MOTIVOS_SIN_CONTACTO.map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setSinContactoMotivo(m)}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                    sinContactoMotivo === m
+                      ? 'bg-orange-500/20 border-orange-500/50 text-orange-400'
+                      : 'border-border text-muted hover:border-orange-500/40 hover:text-orange-400'
+                  }`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+            <textarea
+              value={sinContactoMotivo}
+              onChange={(e) => setSinContactoMotivo(e.target.value)}
+              rows={2}
+              placeholder="O escribí el motivo..."
+              className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-white placeholder-muted resize-none focus:outline-none focus:ring-1 focus:ring-orange-500"
+            />
+          </div>
+          <div className="flex gap-3 mt-5">
+            <Button variant="outline" onClick={() => setSinContactoVisita(null)} className="flex-1">
+              Volver
+            </Button>
+            <Button
+              loading={sinContactoLoading}
+              disabled={!sinContactoMotivo.trim()}
+              className="flex-1 bg-orange-500 hover:bg-orange-400 text-white"
+              onClick={async () => {
+                setSinContactoLoading(true)
+                await updateVisitaPuntual(sinContactoVisita.id, {
+                  status: 'sin_contacto',
+                  notas:  sinContactoMotivo.trim(),
+                })
+                setSinContactoLoading(false)
+                setSinContactoVisita(null)
+              }}
+            >
+              Confirmar
+            </Button>
+          </div>
+        </Modal>
+      )}
 
       {/* Modal registrar entrega de visita */}
       {registrando && (
@@ -321,13 +395,7 @@ function RegistrarEntregaModal({
 }
 
 function DeliveryCard({ order, index }: { order: Order; index: number }) {
-  const [loading, setLoading] = useState(false)
-
-  const markDelivered = async () => {
-    setLoading(true)
-    await updateOrderStatus(order.id, 'entregado')
-    setLoading(false)
-  }
+  const [modal, setModal] = useState(false)
 
   const openInMaps = () => {
     const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.clientAddress)}`
@@ -335,43 +403,53 @@ function DeliveryCard({ order, index }: { order: Order; index: number }) {
   }
 
   return (
-    <div className="bg-surface border border-border rounded-xl p-4 space-y-3">
-      <div className="flex justify-between items-start gap-3">
-        <div className="flex items-start gap-3">
-          <span className="w-7 h-7 rounded-full bg-accent/20 text-accent text-sm flex items-center justify-center font-bold shrink-0 mt-0.5">
-            {index}
-          </span>
-          <div>
-            <p className="font-semibold">{order.clientName}</p>
-            <p className="text-muted text-sm">{order.clientAddress}</p>
-            {order.clientPhone && (
-              <a
-                href={`tel:${order.clientPhone}`}
-                className="text-accent text-sm hover:underline"
-              >
-                📞 {order.clientPhone}
-              </a>
-            )}
+    <>
+      <div className="bg-surface border border-border rounded-xl p-4 space-y-3">
+        <div className="flex justify-between items-start gap-3">
+          <div className="flex items-start gap-3">
+            <span className="w-7 h-7 rounded-full bg-accent/20 text-accent text-sm flex items-center justify-center font-bold shrink-0 mt-0.5">
+              {index}
+            </span>
+            <div>
+              <p className="font-semibold">{order.clientName}</p>
+              <p className="text-muted text-sm">{order.clientAddress}</p>
+              {order.clientPhone && (
+                <a href={`tel:${order.clientPhone}`} className="text-accent text-sm hover:underline">
+                  📞 {order.clientPhone}
+                </a>
+              )}
+            </div>
           </div>
+          <Badge status={order.status} />
         </div>
-        <Badge status={order.status} />
+
+        <p className="text-sm text-white pl-10">{summarizeProducts(order.products)}</p>
+
+        {order.notes && (
+          <p className="text-xs text-muted italic pl-10">"{order.notes}"</p>
+        )}
+
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={openInMaps} className="flex-1 text-sm py-2">
+            📍 Abrir en Maps
+          </Button>
+          <Button onClick={() => setModal(true)} variant="success" className="flex-1 text-sm py-2">
+            ✓ Entregado
+          </Button>
+        </div>
       </div>
 
-      <p className="text-sm text-white pl-10">{summarizeProducts(order.products)}</p>
-
-      {order.notes && (
-        <p className="text-xs text-muted italic pl-10">"{order.notes}"</p>
+      {modal && (
+        <EntregaModal
+          order={order}
+          onConfirm={async (entregados, parcial, nota) => {
+            await markDelivered(order.id, entregados, parcial, nota)
+            setModal(false)
+          }}
+          onClose={() => setModal(false)}
+        />
       )}
-
-      <div className="flex gap-2">
-        <Button variant="outline" onClick={openInMaps} className="flex-1 text-sm py-2">
-          📍 Abrir en Maps
-        </Button>
-        <Button onClick={markDelivered} loading={loading} variant="success" className="flex-1 text-sm py-2">
-          ✓ Entregado
-        </Button>
-      </div>
-    </div>
+    </>
   )
 }
 

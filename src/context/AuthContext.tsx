@@ -61,9 +61,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         let profile = await getUserDocument(firebaseUser.uid)
         if (!profile) {
           await createUserDocument(firebaseUser.uid, {
-            email:  firebaseUser.email,
-            nombre: firebaseUser.displayName ?? '',
-            phone:  '',
+            email:          firebaseUser.email ?? '',
+            razonSocial:    '',
+            nombreContacto: firebaseUser.displayName ?? '',
+            cuit:           '',
+            phone:          '',
           })
           profile = await getUserDocument(firebaseUser.uid)
         }
