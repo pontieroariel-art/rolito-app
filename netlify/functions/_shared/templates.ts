@@ -188,6 +188,26 @@ export function tplPedidoReprogramado(
   `)
 }
 
+export function tplPedidoConfirmado(
+  nombre:   string,
+  products: Product[],
+  date:     string | null | undefined,
+  appUrl:   string,
+): string {
+  return layout(`
+    ${greeting(nombre)}
+    <p style="margin:0 0 16px">
+      Tu pedido fue <strong style="color:#00C2FF">confirmado</strong> y está programado para la fecha indicada.
+    </p>
+    ${productsTable(products)}
+    <p style="margin:0 0 24px;font-size:14px">
+      <span style="color:#6b7280">Fecha de entrega:</span>
+      <strong> ${formatDate(date)}</strong>
+    </p>
+    ${ctaButton('Ver mi pedido →', appUrl)}
+  `)
+}
+
 export function tplAdminNuevoPedido(order: {
   clientName:    string
   clientAddress: string

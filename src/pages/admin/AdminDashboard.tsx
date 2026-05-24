@@ -14,7 +14,7 @@ import Modal from '../../components/ui/Modal'
 import { auth } from '../../services/firebase'
 import { updateOrderStatus, assignDriver, updateOrderAddress, cancelOrder } from '../../services/orderService'
 import { cleanupTestData, CleanupResult } from '../../services/cleanupService'
-import { useNotifyEnCamino } from '../../hooks/useNotifications'
+import { useNotifyConfirmado, useNotifyEnCamino } from '../../hooks/useNotifications'
 import { getPushSubscription, getPushSubscriptionByEmail } from '../../services/userService'
 import { sendPush } from '../../services/notificationService'
 import { generateRecurrentesForToday } from '../../services/recurrenteService'
@@ -607,7 +607,8 @@ function AdminOrderCard({ order, choferes }: { order: Order; choferes: UserProfi
   const [cancelModal,      setCancelModal]      = useState(false)
   const [cancelMotivo,     setCancelMotivo]     = useState('')
   const [cancelLoading,    setCancelLoading]    = useState(false)
-  const notifyEnCaminoMutation = useNotifyEnCamino()
+  const notifyConfirmadoMutation = useNotifyConfirmado()
+  const notifyEnCaminoMutation   = useNotifyEnCamino()
 
   const getNextStatus = (): OrderStatus | null => {
     const idx = STATUS_FLOW.indexOf(order.status)
@@ -617,10 +618,26 @@ function AdminOrderCard({ order, choferes }: { order: Order; choferes: UserProfi
   const handleStatus = async (newStatus: string) => {
     setStatusLoading(true)
     await updateOrderStatus(order.id, newStatus)
+    const nombre = (order.clientName || '').split(' ')[0] || 'Cliente'
+    if (newStatus === 'confirmado' && order.clientEmail) {
+      const dateStr = order.date?.toDate
+        ? order.date.toDate().toISOString().split('T')[0]
+        : ''
+      notifyConfirmadoMutation.mutate({
+        email: order.clientEmail, nombre, products: order.products, date: dateStr,
+      })
+      if (order.clientId) {
+        getPushSubscription(order.clientId).then((sub) => {
+          if (sub) sendPush({
+            subscription: sub,
+            title: 'Tu pedido fue confirmado ✅',
+            body:  summarizeProducts(order.products),
+          })
+        }).catch(console.error)
+      }
+    }
     if (newStatus === 'en_camino' && order.clientEmail) {
-      const nombre = (order.clientName || '').split(' ')[0] || 'Cliente'
       notifyEnCaminoMutation.mutate({ email: order.clientEmail, nombre, products: order.products })
-      // Push notification si el cliente tiene suscripción guardada
       if (order.clientId) {
         getPushSubscription(order.clientId).then((sub) => {
           if (sub) sendPush({
