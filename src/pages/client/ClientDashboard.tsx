@@ -637,7 +637,7 @@ function RecurrenteCard({ user }: { user: import('../../types').UserProfile | nu
 
   if (recurrente === undefined) return null
 
-  const diasLabels = DIAS_SEMANA.filter((_, i) => recurrente?.diasSemana.includes(i))
+  const diasLabels = DIAS_SEMANA.filter((_, i) => recurrente?.diasSemana?.includes(i))
 
   return (
     <>
