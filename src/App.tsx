@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { BranchProvider, useBranch } from './context/BranchContext'
 import ProtectedRoute from './components/layout/ProtectedRoute'
 import LoadingSpinner from './components/ui/LoadingSpinner'
+import { Component, ReactNode, ErrorInfo } from 'react'
 
 import Landing         from './pages/auth/Landing'
 import LoginClientes   from './pages/auth/LoginClientes'
@@ -39,6 +40,36 @@ import HistorialPage        from './pages/shared/HistorialPage'
 import ChoferDashboard from './pages/chofer/ChoferDashboard'
 import ChoferMap       from './pages/chofer/ChoferMap'
 
+
+// ── ErrorBoundary ─────────────────────────────────────────────────────────────
+
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null }
+  static getDerivedStateFromError(error: Error) { return { error } }
+  componentDidCatch(error: Error, info: ErrorInfo) { console.error('App error:', error, info) }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ minHeight: '100vh', background: '#03160D', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+          <div style={{ maxWidth: '480px', background: '#0d2218', border: '1px solid #1b4332', borderRadius: '12px', padding: '32px', color: '#d1fae5' }}>
+            <p style={{ fontSize: '22px', fontWeight: 700, color: '#00C2FF', marginBottom: '8px' }}>Rolito</p>
+            <p style={{ fontWeight: 600, marginBottom: '12px' }}>Algo salió mal</p>
+            <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '20px' }}>
+              {(this.state.error as Error).message}
+            </p>
+            <button
+              onClick={() => { this.setState({ error: null }); window.location.href = '/dashboard' }}
+              style={{ background: '#00C2FF', color: '#0a1628', fontWeight: 700, padding: '10px 24px', borderRadius: '8px', border: 'none', cursor: 'pointer' }}
+            >
+              Volver al inicio
+            </button>
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 // ── ClientBranchGuard ─────────────────────────────────────────────────────────
 // Redirige a /sucursal si el cliente tiene múltiples sucursales y no eligió.
@@ -147,14 +178,16 @@ const queryClient = new QueryClient({
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <BranchProvider>
-          <BrowserRouter>
-            <AppContent />
-          </BrowserRouter>
-        </BranchProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <BranchProvider>
+            <BrowserRouter>
+              <AppContent />
+            </BrowserRouter>
+          </BranchProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   )
 }
