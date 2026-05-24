@@ -38,7 +38,7 @@ export const createOrder = ({ user, products, date, notes, address }: CreateOrde
     clientPhone,
     products,
     status:    'pendiente',
-    date:      Timestamp.fromDate(new Date(date)),
+    date:      Timestamp.fromDate(new Date(date + 'T12:00:00')),
     driverId:  null,
     notes:     notes || '',
     createdAt: serverTimestamp(),
