@@ -2,6 +2,7 @@ import { useMutation } from '@tanstack/react-query'
 import {
   notifyAprobado,
   notifyPedidoRecibido,
+  notifyConfirmado,
   notifyEnCamino,
   notifyAdminNuevoPedido,
   notifyCerca,
@@ -16,6 +17,9 @@ export const useNotifyAprobado = () =>
 
 export const useNotifyPedidoRecibido = () =>
   useMutation({ mutationFn: notifyPedidoRecibido })
+
+export const useNotifyConfirmado = () =>
+  useMutation({ mutationFn: notifyConfirmado })
 
 export const useNotifyEnCamino = () =>
   useMutation({ mutationFn: notifyEnCamino })

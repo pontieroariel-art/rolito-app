@@ -29,6 +29,13 @@ export const notifyPedidoRecibido = (data: {
   notes?:     string
 }): Promise<void> => post('notify-pedido-recibido', data)
 
+export const notifyConfirmado = (data: {
+  email:    string
+  nombre:   string
+  products: Product[]
+  date:     string
+}): Promise<void> => post('notify-confirmado', data)
+
 export const notifyEnCamino = (data: {
   email:    string
   nombre:   string
