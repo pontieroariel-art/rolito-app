@@ -177,16 +177,26 @@ export const subscribeClientOrders = (
   callback: (orders: Order[]) => void,
   onError?: (error: Error) => void,
 ) => {
+  // orderBy('createdAt') junto con where('clientId') requeriría un índice
+  // compuesto; se ordena en cliente para evitar la dependencia del índice.
   const q = query(
     collection(db, ORDERS),
     where('clientId', '==', clientId),
-    orderBy('createdAt', 'desc'),
     limit(200),
   )
   return onSnapshot(
     q,
-    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Order))),
-    onError,
+    (snap) => {
+      const orders = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() } as Order))
+        .sort((a, b) => {
+          const at = a.createdAt?.seconds ?? 0
+          const bt = b.createdAt?.seconds ?? 0
+          return bt - at
+        })
+      callback(orders)
+    },
+    (err) => { console.error('subscribeClientOrders error:', err); onError?.(err) },
   )
 }
 
