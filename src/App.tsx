@@ -46,7 +46,10 @@ import ChoferMap       from './pages/chofer/ChoferMap'
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null }
   static getDerivedStateFromError(error: Error) { return { error } }
-  componentDidCatch(error: Error, info: ErrorInfo) { console.error('App error:', error, info) }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    // TODO: integrar Sentry u otro servicio de monitoreo en producción
+    console.error('[ErrorBoundary] Error no capturado:', error, info.componentStack)
+  }
   render() {
     if (this.state.error) {
       return (
@@ -58,7 +61,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
               {(this.state.error as Error).message}
             </p>
             <button
-              onClick={() => { this.setState({ error: null }); window.location.href = '/dashboard' }}
+              onClick={() => { this.setState({ error: null }); window.location.href = '/' }}
               style={{ background: '#00C2FF', color: '#0a1628', fontWeight: 700, padding: '10px 24px', borderRadius: '8px', border: 'none', cursor: 'pointer' }}
             >
               Volver al inicio

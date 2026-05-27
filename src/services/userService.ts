@@ -16,10 +16,8 @@ import { getFirestore } from 'firebase/firestore'
 import { db, firebaseConfig } from './firebase'
 import { UserProfile, UserRole, UserStatus } from '../types'
 
-const BOOTSTRAP_ROLES: Record<string, { rol: UserRole; estado: UserStatus }> = {
-  'pontieroariel@gmail.com':        { rol: 'super_admin', estado: 'activo' },
-  'lucasvazquez@redonhielo.com.ar': { rol: 'logistica',   estado: 'activo' },
-}
+// Los roles de admin se asignan desde el panel /usuarios (por un super_admin existente).
+// Para el primer bootstrap, editar el documento users/{uid} directamente en Firebase Console.
 
 interface CreateUserParams {
   email:          string
@@ -34,13 +32,12 @@ export const createUserDocument = async (
   { email, razonSocial, nombreContacto, cuit, phone }: CreateUserParams,
 ): Promise<void> => {
   const { setCuitIndex } = await import('./cuitService')
-  const bootstrap = BOOTSTRAP_ROLES[email.toLowerCase()]
   await setDoc(doc(db, 'users', uid), {
     nombre:         nombreContacto,
     email,
     phone:          phone || '',
-    rol:            bootstrap?.rol    ?? 'cliente',
-    estado:         bootstrap?.estado ?? 'pendiente',
+    rol:            'cliente',
+    estado:         'pendiente',
     address:        '',
     razonSocial:    razonSocial,
     nombreContacto: nombreContacto,

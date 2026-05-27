@@ -62,4 +62,6 @@ export const resetPasswordByCuit = async (cuit: string): Promise<void> => {
   const email = await getEmailByCuit(cuit)
   if (!email) throw new Error('cuit-not-found')
   await sendPasswordResetEmail(auth, email)
+  // Limpiar la sesión anónima temporal — el usuario no va a hacer login ahora
+  if (auth.currentUser?.isAnonymous) signOut(auth).catch(console.error)
 }

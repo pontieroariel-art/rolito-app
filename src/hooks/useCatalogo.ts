@@ -5,7 +5,7 @@ export function useCatalogo() {
   const { data, isLoading } = useQuery({
     queryKey:  ['catalogo'],
     queryFn:   getCatalogo,
-    staleTime: Infinity,
+    staleTime: 5 * 60 * 1000, // 5 min — el catálogo puede cambiar en producción
   })
   return { catalogo: data ?? [], isLoading }
 }
