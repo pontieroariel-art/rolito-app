@@ -17,6 +17,16 @@ interface RegisterForm {
   confirm:        string
 }
 
+// Algoritmo oficial de validación de CUIT/CUIL argentino
+function validateCuit(digits: string): boolean {
+  if (digits.length !== 11) return false
+  const multipliers = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2]
+  const sum = multipliers.reduce((acc, m, i) => acc + m * parseInt(digits[i]), 0)
+  const remainder = sum % 11
+  const verifier  = remainder === 0 ? 0 : remainder === 1 ? -1 : 11 - remainder
+  return verifier === parseInt(digits[10])
+}
+
 export default function Register() {
   const navigate = useNavigate()
   const [form, setForm] = useState<RegisterForm>({
@@ -43,6 +53,10 @@ export default function Register() {
     const cuitDigits = form.cuit.replace(/\D/g, '')
     if (cuitDigits.length !== 11) {
       setError('El CUIT debe tener 11 dígitos')
+      return
+    }
+    if (!validateCuit(cuitDigits)) {
+      setError('El CUIT ingresado no es válido (verificá el dígito verificador)')
       return
     }
     setLoading(true)

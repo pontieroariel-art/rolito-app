@@ -143,6 +143,9 @@ export default function Navbar() {
         {/* Hamburger mobile */}
         <button
           onClick={() => setOpen((o) => !o)}
+          aria-label={open ? 'Cerrar menú' : 'Abrir menú'}
+          aria-expanded={open}
+          aria-controls="mobile-menu"
           className="md:hidden flex items-center text-gray-400 hover:text-gray-700 p-1"
         >
           {open ? '✕' : '☰'}
@@ -151,7 +154,7 @@ export default function Navbar() {
 
       {/* Menú mobile */}
       {open && (
-        <div className="md:hidden border-t border-gray-100 px-4 py-3 space-y-1">
+        <div id="mobile-menu" className="md:hidden border-t border-gray-100 px-4 py-3 space-y-1">
           {links.map((l) => (
             <NavLink
               key={l.to}

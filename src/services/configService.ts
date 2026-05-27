@@ -18,7 +18,8 @@ export const getChoferes = async (): Promise<string[]> => {
     if (snap.exists()) return (snap.data().emails as string[]) ?? []
     await setDoc(choferesRef(), { emails: [] })
     return []
-  } catch {
+  } catch (err) {
+    console.error('[configService] getChoferes:', err)
     return []
   }
 }
@@ -39,7 +40,8 @@ export const getNotificationEmails = async (): Promise<string[]> => {
     if (snap.exists()) return (snap.data().emails as string[]) ?? []
     await setDoc(notifRef(), { emails: [] })
     return []
-  } catch {
+  } catch (err) {
+    console.error('[configService] getNotificationEmails:', err)
     return []
   }
 }

@@ -1,5 +1,6 @@
 import { doc, setDoc, getDoc } from 'firebase/firestore'
-import { db } from './firebase'
+import { signInAnonymously } from 'firebase/auth'
+import { db, auth } from './firebase'
 
 export function normalizeCuit(cuit: string): string {
   return cuit.replace(/\D/g, '')
@@ -20,6 +21,11 @@ export async function setCuitIndex(cuit: string, email: string): Promise<void> {
 export async function getEmailByCuit(cuit: string): Promise<string | null> {
   const key = normalizeCuit(cuit)
   if (!key) return null
+  // cuitIndex requiere auth; si no hay sesión, usamos anonymous auth temporalmente.
+  // signInWithEmailAndPassword posterior reemplaza la sesión anónima automáticamente.
+  if (!auth.currentUser) {
+    await signInAnonymously(auth)
+  }
   const snap = await getDoc(doc(db, 'cuitIndex', key))
   if (!snap.exists()) return null
   return (snap.data() as { email: string }).email

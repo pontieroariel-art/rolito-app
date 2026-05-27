@@ -16,7 +16,8 @@ export const getAllListasPrecios = async (): Promise<ListaPrecios[]> => {
   try {
     const snap = await getDocs(collection(db, COL))
     return snap.docs.map((d) => ({ id: d.id, ...d.data() } as ListaPrecios))
-  } catch {
+  } catch (err) {
+    console.error('[listaPreciosService] getAllListasPrecios:', err)
     return []
   }
 }
@@ -26,7 +27,8 @@ export const getListaPrecios = async (id: string): Promise<ListaPrecios | null> 
     const snap = await getDoc(doc(db, COL, id))
     if (!snap.exists()) return null
     return { id: snap.id, ...snap.data() } as ListaPrecios
-  } catch {
+  } catch (err) {
+    console.error('[listaPreciosService] getListaPrecios:', err)
     return null
   }
 }
