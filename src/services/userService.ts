@@ -96,16 +96,20 @@ export const getPushSubscription = async (uid: string): Promise<PushSubscription
 }
 
 export const getPushSubscriptionByEmail = async (email: string): Promise<PushSubscriptionJSON | null> => {
-  const users = await getAllUsers()
-  const user  = users.find((u) => u.email.toLowerCase() === email.toLowerCase())
-  if (!user) return null
-  return getPushSubscription(user.uid)
+  // Query directo en vez de cargar todos los usuarios para encontrar uno por email
+  const q    = query(collection(db, 'users'), where('email', '==', email.toLowerCase()), limit(1))
+  const snap = await getDocs(q)
+  if (snap.empty) return null
+  return snap.docs[0].data().pushSubscription ?? null
 }
 
 export const getAllUsers = async (): Promise<UserProfile[]> => {
   const snap = await getDocs(
-    query(collection(db, 'users'), orderBy('fechaCreacion', 'desc')),
+    query(collection(db, 'users'), orderBy('fechaCreacion', 'desc'), limit(500)),
   )
+  if (snap.docs.length === 500) {
+    console.warn('[userService] getAllUsers alcanzó el límite de 500 usuarios — implementar paginación')
+  }
   return snap.docs.map((d) => ({ uid: d.id, ...d.data() } as UserProfile))
 }
 

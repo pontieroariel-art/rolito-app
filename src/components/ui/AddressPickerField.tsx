@@ -1,7 +1,7 @@
 // Shared address picker: autocomplete dropdown (Google Maps JS API) + draggable map marker
 // Uses google.maps.places — requires the 'places' library to be loaded (useGoogleMapsLoader)
 
-import { useState, useEffect, useRef, ChangeEvent } from 'react'
+import { useState, useEffect, useRef, useId, ChangeEvent, KeyboardEvent } from 'react'
 import { GoogleMap, Marker } from '@react-google-maps/api'
 import { MapPin } from 'lucide-react'
 
@@ -23,7 +23,7 @@ export const DARK_MAP_OPTIONS: google.maps.MapOptions = {
 }
 
 // ── AddressAutocomplete ───────────────────────────────────────────────────────
-// Uses google.maps.places.AutocompleteService + PlacesService directly (no backend needed)
+// Combobox accesible: role="combobox", role="listbox", teclado (↑↓ Enter Esc)
 
 export function AddressAutocomplete({
   onSelect,
@@ -32,10 +32,12 @@ export function AddressAutocomplete({
   onSelect:      (address: string, lat: number, lng: number) => void
   initialValue?: string
 }) {
+  const listboxId   = useId()
   const [input,       setInput]       = useState(initialValue)
   const [suggestions, setSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([])
   const [loading,     setLoading]     = useState(false)
   const [open,        setOpen]        = useState(false)
+  const [focusedIdx,  setFocusedIdx]  = useState(-1)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   // PlacesService requiere un elemento DOM como contenedor (no visible)
   const phantomRef  = useRef<HTMLDivElement>(null)
@@ -43,6 +45,7 @@ export function AddressAutocomplete({
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     setInput(value)
+    setFocusedIdx(-1)
     setOpen(true)
     clearTimeout(debounceRef.current)
 
@@ -68,6 +71,7 @@ export function AddressAutocomplete({
     setInput(prediction.description)
     setOpen(false)
     setSuggestions([])
+    setFocusedIdx(-1)
     if (!phantomRef.current || !window.google?.maps?.places) return
     setLoading(true)
     const svc = new google.maps.places.PlacesService(phantomRef.current)
@@ -86,7 +90,34 @@ export function AddressAutocomplete({
     )
   }
 
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (!open || suggestions.length === 0) return
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault()
+        setFocusedIdx((i) => Math.min(i + 1, suggestions.length - 1))
+        break
+      case 'ArrowUp':
+        e.preventDefault()
+        setFocusedIdx((i) => Math.max(i - 1, -1))
+        break
+      case 'Enter':
+        e.preventDefault()
+        if (focusedIdx >= 0 && focusedIdx < suggestions.length) {
+          handleSelect(suggestions[focusedIdx])
+        }
+        break
+      case 'Escape':
+        setOpen(false)
+        setFocusedIdx(-1)
+        break
+    }
+  }
+
   useEffect(() => () => clearTimeout(debounceRef.current), [])
+
+  const isExpanded = open && suggestions.length > 0
 
   return (
     <div className="relative">
@@ -95,24 +126,43 @@ export function AddressAutocomplete({
 
       <input
         type="text"
+        role="combobox"
+        aria-expanded={isExpanded}
+        aria-haspopup="listbox"
+        aria-autocomplete="list"
+        aria-controls={listboxId}
+        aria-activedescendant={focusedIdx >= 0 ? `${listboxId}-opt-${focusedIdx}` : undefined}
         value={input}
         onChange={handleChange}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onKeyDown={handleKeyDown}
+        onBlur={() => setTimeout(() => { setOpen(false); setFocusedIdx(-1) }, 150)}
         onFocus={() => { if (suggestions.length > 0) setOpen(true) }}
         placeholder="Ingresá la dirección..."
         autoComplete="off"
         className="bg-bg border border-border rounded-lg px-3 py-2 text-white placeholder-muted w-full focus:outline-none focus:ring-2 focus:ring-accent transition-colors pr-8"
       />
       {loading && (
-        <span className="absolute right-3 top-2.5 w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+        <span
+          aria-hidden="true"
+          className="absolute right-3 top-2.5 w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin"
+        />
       )}
-      {open && suggestions.length > 0 && (
-        <ul className="absolute z-50 w-full bg-surface border border-border rounded-xl mt-1 shadow-2xl overflow-hidden">
-          {suggestions.map((s) => (
+      {isExpanded && (
+        <ul
+          id={listboxId}
+          role="listbox"
+          className="absolute z-50 w-full bg-surface border border-border rounded-xl mt-1 shadow-2xl overflow-hidden"
+        >
+          {suggestions.map((s, i) => (
             <li
               key={s.place_id}
+              id={`${listboxId}-opt-${i}`}
+              role="option"
+              aria-selected={focusedIdx === i}
               onMouseDown={() => handleSelect(s)}
-              className="px-3 py-2.5 cursor-pointer hover:bg-bg border-b border-border/50 last:border-0"
+              className={`px-3 py-2.5 cursor-pointer border-b border-border/50 last:border-0 ${
+                focusedIdx === i ? 'bg-accent/10' : 'hover:bg-bg'
+              }`}
             >
               <p className="text-sm text-white font-medium leading-tight">
                 {s.structured_formatting.main_text}
