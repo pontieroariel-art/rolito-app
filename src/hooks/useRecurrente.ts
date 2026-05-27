@@ -15,8 +15,12 @@ export function useRecurrente(clientId: string | undefined) {
     data: Omit<PedidoRecurrente, 'id' | 'createdAt' | 'ultimaGeneracion'>,
   ) => {
     if (!clientId) return
-    await saveRecurrente(clientId, data)
-    const updated = await getRecurrenteByClient(clientId)
+    const savedForId = clientId  // capturar al momento del llamado
+    await saveRecurrente(savedForId, data)
+    // Si el clientId cambió mientras guardábamos, no actualizar estado
+    if (clientId !== savedForId) return
+    const updated = await getRecurrenteByClient(savedForId)
+    if (clientId !== savedForId) return
     setRecurrente(updated)
   }, [clientId])
 

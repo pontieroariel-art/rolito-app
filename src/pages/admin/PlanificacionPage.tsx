@@ -13,7 +13,7 @@ import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
 import { useProgramasVisita, useVisitasPuntuales, programasParaFecha, visitasParaFecha } from '../../hooks/useVisitas'
 import { assignDriver } from '../../services/orderService'
 import { saveCatalogo } from '../../services/catalogoService'
-import { addVisitaPuntual } from '../../services/visitasService'
+import { addVisitaPuntual, deleteVisitaPuntual } from '../../services/visitasService'
 import PedidoManualModal from '../../components/admin/PedidoManualModal'
 import { getPushSubscriptionByEmail, getAllUsers } from '../../services/userService'
 import { sendPush } from '../../services/notificationService'
@@ -24,8 +24,9 @@ import { Timestamp } from 'firebase/firestore'
 // ── Constantes ────────────────────────────────────────────────────────────────
 
 const DRIVER_COLORS = ['#00C2FF', '#FF6B6B', '#4ECDC4', '#A8E6CF', '#FFE66D', '#C084FC', '#F97316', '#34D399']
-const VISIT_COLOR   = '#A78BFA'
-const UNASSIGNED_COLOR = '#F59E0B'
+const VISIT_COLOR        = '#A78BFA'
+const UNASSIGNED_COLOR   = '#F59E0B'
+const INACTIVE_CLIENT_COLOR = '#6B7280'
 
 const DARK_MAP_STYLES: google.maps.MapTypeStyle[] = [
   { elementType: 'geometry',           stylers: [{ color: '#0A1628' }] },
@@ -288,7 +289,7 @@ interface MapMarker {
   color:    string
   title:    string
   subtitle: string
-  type:     'order' | 'visit'
+  type:     'order' | 'visit' | 'inactive'
 }
 
 function DayMap({
@@ -296,11 +297,17 @@ function DayMap({
   visitas,
   programas,
   choferes,
+  allClients,
+  onAddVisita,
+  onDeleteVisita,
 }: {
-  orders:    Order[]
-  visitas:   ReturnType<typeof visitasParaFecha>
-  programas: ReturnType<typeof programasParaFecha>
-  choferes:  UserProfile[]
+  orders:       Order[]
+  visitas:      ReturnType<typeof visitasParaFecha>
+  programas:    ReturnType<typeof programasParaFecha>
+  choferes:     UserProfile[]
+  allClients:   UserProfile[]
+  onAddVisita?:    (client: UserProfile, driverId: string) => Promise<void>
+  onDeleteVisita?: (visitaId: string) => Promise<void>
 }) {
   const { isLoaded }                      = useGoogleMapsLoader()
   const mapRef                             = useRef<google.maps.Map | null>(null)
@@ -309,6 +316,36 @@ function DayMap({
   const [selected, setSelected]           = useState<string | null>(null)
   const [geocoding, setGeocoding]         = useState(false)
   const [open, setOpen]                   = useState(true)
+  const [showInactivos, setShowInactivos]   = useState(false)
+  const [addingVisita,  setAddingVisita]    = useState<string | null>(null)
+  const [visitaChofer,  setVisitaChofer]    = useState<string>('')
+  const [deletingVisita, setDeletingVisita] = useState<string | null>(null)
+
+  // Clientes sin pedido hoy que tienen coordenadas guardadas
+  const inactiveMarkers = useMemo<MapMarker[]>(() => {
+    if (!showInactivos) return []
+    const occupiedIds = new Set([
+      ...orders.map((o) => o.clientId),
+      ...visitas.map((v) => v.clientId),
+      ...programas.map((p) => p.clientId),
+    ].filter(Boolean))
+    return allClients
+      .filter((c) => c.rol === 'cliente' && c.estado === 'activo' && !occupiedIds.has(c.uid))
+      .flatMap((c) => {
+        const addr = getPrimaryAddress(c)
+        if (!addr?.lat || !addr?.lng) return []
+        return [{
+          id:       `inactive-${c.uid}`,
+          lat:      addr.lat,
+          lng:      addr.lng,
+          label:    '●',
+          color:    INACTIVE_CLIENT_COLOR,
+          title:    c.nombre || c.nombreContacto || c.email,
+          subtitle: 'Sin pedido hoy',
+          type:     'inactive' as const,
+        }]
+      })
+  }, [showInactivos, allClients, orders, visitas, programas])
 
   const geocodeAddress = useCallback(
     (address: string): Promise<{ lat: number; lng: number } | null> => {
@@ -352,9 +389,9 @@ function DayMap({
         id:       `v-${v.id}`,
         address:  v.clientAddress,
         label:    '📅',
-        color:    VISIT_COLOR,
+        color:    v.driverId ? driverColor(v.driverId, choferes) : VISIT_COLOR,
         title:    v.clientName,
-        subtitle: 'Visita puntual',
+        subtitle: 'Visita puntual' + (v.driverId ? ` · ${choferes.find(c => c.email === v.driverId)?.nombreContacto || choferes.find(c => c.email === v.driverId)?.nombre || ''}` : ''),
         type:     'visit' as const,
       })),
       ...programas.map((p) => ({
@@ -418,27 +455,32 @@ function DayMap({
       {open && (
         <div>
           {/* Leyenda */}
-          {choferes.filter((c) => orders.some((o) => o.driverId === c.email)).length > 0 && (
-            <div className="flex flex-wrap gap-2 px-4 pb-3">
-              {choferes
-                .filter((c) => orders.some((o) => o.driverId === c.email))
-                .map((c) => {
-                  const color = driverColor(c.email, choferes)
-                  return (
-                    <span key={c.uid} className="flex items-center gap-1.5 text-xs">
-                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                      {c.nombreContacto || c.nombre}
-                    </span>
-                  )
-                })}
-              {orders.some((o) => !o.driverId) && (
-                <span className="flex items-center gap-1.5 text-xs text-yellow-400">
-                  <span className="w-2.5 h-2.5 rounded-full bg-yellow-400 shrink-0" />
-                  Sin asignar
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 pb-3">
+            {choferes
+              .filter((c) => orders.some((o) => o.driverId === c.email))
+              .map((c) => (
+                <span key={c.uid} className="flex items-center gap-1.5 text-xs">
+                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: driverColor(c.email, choferes) }} />
+                  {c.nombreContacto || c.nombre}
                 </span>
-              )}
-            </div>
-          )}
+              ))}
+            {orders.some((o) => !o.driverId) && (
+              <span className="flex items-center gap-1.5 text-xs text-yellow-400">
+                <span className="w-2.5 h-2.5 rounded-full bg-yellow-400 shrink-0" />
+                Sin asignar
+              </span>
+            )}
+            {/* Toggle clientes sin pedido */}
+            <button
+              onClick={() => setShowInactivos((v) => !v)}
+              className={`flex items-center gap-1.5 text-xs transition-opacity ${showInactivos ? 'opacity-100' : 'opacity-50 hover:opacity-80'}`}
+            >
+              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: INACTIVE_CLIENT_COLOR }} />
+              {showInactivos
+                ? `Sin pedido hoy (${inactiveMarkers.length})`
+                : 'Ver clientes sin pedido'}
+            </button>
+          </div>
 
           <div style={{ height: '360px' }}>
             {!isLoaded ? (
@@ -456,23 +498,138 @@ function DayMap({
                 }}
                 onLoad={(m) => { mapRef.current = m }}
               >
-                {markers.map((m) => (
-                  <Marker
-                    key={m.id}
-                    position={{ lat: m.lat, lng: m.lng }}
-                    icon={makePin(m.color, m.label)}
-                    onClick={() => setSelected((s) => (s === m.id ? null : m.id))}
-                  >
-                    {selected === m.id && (
-                      <InfoWindow onCloseClick={() => setSelected(null)}>
-                        <div style={{ color: '#111', minWidth: '160px', fontSize: '13px', lineHeight: '1.5' }}>
-                          <p style={{ margin: '0 0 3px', fontWeight: 700 }}>{m.title}</p>
-                          <p style={{ margin: 0, color: '#555' }}>{m.subtitle}</p>
-                        </div>
-                      </InfoWindow>
-                    )}
-                  </Marker>
-                ))}
+                {/* Clientes sin pedido (grises, al fondo) */}
+                {inactiveMarkers.map((m) => {
+                  const clientUid = m.id.replace('inactive-', '')
+                  const client    = allClients.find((c) => c.uid === clientUid)
+                  const isAdding  = addingVisita === clientUid
+                  return (
+                    <Marker
+                      key={m.id}
+                      position={{ lat: m.lat, lng: m.lng }}
+                      icon={makePin(m.color, m.label)}
+                      onClick={() => setSelected((s) => (s === m.id ? null : m.id))}
+                      zIndex={1}
+                    >
+                      {selected === m.id && (
+                        <InfoWindow onCloseClick={() => { setSelected(null); setVisitaChofer('') }}>
+                          <div style={{ color: '#111', minWidth: '200px', fontSize: '13px', lineHeight: '1.6' }}>
+                            <p style={{ margin: '0 0 2px', fontWeight: 700 }}>{m.title}</p>
+                            <p style={{ margin: '0 0 10px', color: '#888', fontSize: '12px' }}>Sin pedido hoy</p>
+                            {client && onAddVisita && (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                {/* Selector de chofer */}
+                                <select
+                                  value={visitaChofer}
+                                  onChange={(e) => setVisitaChofer(e.target.value)}
+                                  style={{
+                                    width:        '100%',
+                                    padding:      '5px 8px',
+                                    border:       '1px solid #ccc',
+                                    borderRadius: '6px',
+                                    fontSize:     '12px',
+                                    background:   '#fff',
+                                    color:        '#111',
+                                    cursor:       'pointer',
+                                  }}
+                                >
+                                  <option value="">— Sin chofer asignado —</option>
+                                  {choferes.map((c) => (
+                                    <option key={c.uid} value={c.email}>
+                                      {c.nombreContacto || c.nombre || c.email}
+                                    </option>
+                                  ))}
+                                </select>
+                                {/* Botón agendar */}
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation()
+                                    setAddingVisita(clientUid)
+                                    try {
+                                      await onAddVisita(client, visitaChofer)
+                                      setSelected(null)
+                                      setVisitaChofer('')
+                                    } finally {
+                                      setAddingVisita(null)
+                                    }
+                                  }}
+                                  disabled={isAdding}
+                                  style={{
+                                    display:      'block',
+                                    width:        '100%',
+                                    padding:      '6px 10px',
+                                    background:   isAdding ? '#aaa' : '#2D6A4F',
+                                    color:        '#fff',
+                                    border:       'none',
+                                    borderRadius: '6px',
+                                    cursor:       isAdding ? 'default' : 'pointer',
+                                    fontSize:     '12px',
+                                    fontWeight:   600,
+                                  }}
+                                >
+                                  {isAdding ? 'Agendando…' : '📅 Agendar visita'}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </InfoWindow>
+                      )}
+                    </Marker>
+                  )
+                })}
+                {/* Pedidos y visitas del día (encima) */}
+                {markers.map((m) => {
+                  const isVisitaPuntual = m.id.startsWith('v-')
+                  const visitaId        = isVisitaPuntual ? m.id.slice(2) : null
+                  const isDeleting      = deletingVisita === visitaId
+                  return (
+                    <Marker
+                      key={m.id}
+                      position={{ lat: m.lat, lng: m.lng }}
+                      icon={makePin(m.color, m.label)}
+                      onClick={() => setSelected((s) => (s === m.id ? null : m.id))}
+                      zIndex={10}
+                    >
+                      {selected === m.id && (
+                        <InfoWindow onCloseClick={() => setSelected(null)}>
+                          <div style={{ color: '#111', minWidth: '160px', fontSize: '13px', lineHeight: '1.5' }}>
+                            <p style={{ margin: '0 0 3px', fontWeight: 700 }}>{m.title}</p>
+                            <p style={{ margin: isVisitaPuntual ? '0 0 8px' : 0, color: '#555' }}>{m.subtitle}</p>
+                            {isVisitaPuntual && onDeleteVisita && visitaId && (
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation()
+                                  setDeletingVisita(visitaId)
+                                  try {
+                                    await onDeleteVisita(visitaId)
+                                    setSelected(null)
+                                  } finally {
+                                    setDeletingVisita(null)
+                                  }
+                                }}
+                                disabled={isDeleting}
+                                style={{
+                                  display:      'block',
+                                  width:        '100%',
+                                  padding:      '5px 10px',
+                                  background:   isDeleting ? '#aaa' : '#ef4444',
+                                  color:        '#fff',
+                                  border:       'none',
+                                  borderRadius: '6px',
+                                  cursor:       isDeleting ? 'default' : 'pointer',
+                                  fontSize:     '12px',
+                                  fontWeight:   600,
+                                }}
+                              >
+                                {isDeleting ? 'Eliminando…' : '🗑 Eliminar visita'}
+                              </button>
+                            )}
+                          </div>
+                        </InfoWindow>
+                      )}
+                    </Marker>
+                  )
+                })}
               </GoogleMap>
             )}
           </div>
@@ -495,29 +652,77 @@ function ChoferCard({
   catalogo:  CatalogProducto[]
   choferes:  UserProfile[]
 }) {
+  const [notifying, setNotifying] = useState(false)
+  const [notified,  setNotified]  = useState(false)
+
   const nombre       = chofer ? (chofer.nombreContacto || chofer.nombre || chofer.email) : 'Sin asignar'
   const totalPallets = orders.reduce((sum, o) => sum + calcPallets(o.products, catalogo), 0)
   const totalUni     = orders.reduce((sum, o) => o.products.reduce((s, p) => s + p.quantity, sum), 0)
+  const overCapacity = camion?.capacidadPallets ? totalPallets > camion.capacidadPallets : false
+  const totalParadas = orders.length + visitas.length + programas.length
+
+  const handleNotify = async () => {
+    if (!chofer) return
+    setNotifying(true)
+    try {
+      const sub = await getPushSubscriptionByEmail(chofer.email)
+      if (sub) {
+        await sendPush({
+          subscription: sub,
+          title: '🧊 Ruta lista para hoy',
+          body:  `${totalParadas} parada${totalParadas !== 1 ? 's' : ''} · ${totalUni.toLocaleString('es-AR')} unidades`,
+        })
+        setNotified(true)
+        setTimeout(() => setNotified(false), 3000)
+      }
+    } finally {
+      setNotifying(false)
+    }
+  }
 
   if (orders.length === 0 && visitas.length === 0 && programas.length === 0 && chofer) return null
 
   return (
-    <div className={`bg-surface border rounded-xl p-4 space-y-3 ${!chofer ? 'border-yellow-500/30' : 'border-border'}`}>
+    <div className={`bg-surface border rounded-xl p-4 space-y-3 ${overCapacity ? 'border-red-500/50' : !chofer ? 'border-yellow-500/30' : 'border-border'}`}>
       <div className="flex justify-between items-start gap-2">
-        <div>
-          <p className="font-semibold text-sm">{nombre}</p>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="font-semibold text-sm">{nombre}</p>
+            {overCapacity && (
+              <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full font-medium">
+                ⚠ Sobrecarga
+              </span>
+            )}
+          </div>
           {camion ? (
             <p className="text-xs text-muted mt-0.5">🚛 {camion.patente} · {camion.marca ? `${camion.marca} ` : ''}{camion.modelo}</p>
           ) : chofer ? (
             <p className="text-xs text-orange-400 mt-0.5">Sin camión asignado</p>
           ) : null}
         </div>
-        {totalUni > 0 && (
-          <div className="text-right shrink-0">
-            <p className="text-accent font-bold">{totalUni}</p>
-            <p className="text-xs text-muted">unidades</p>
-          </div>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Botón notificar chofer */}
+          {chofer && totalParadas > 0 && (
+            <button
+              onClick={handleNotify}
+              disabled={notifying || notified}
+              title="Notificar al chofer que la ruta está lista"
+              className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg transition-colors font-medium ${
+                notified
+                  ? 'bg-success/20 text-success'
+                  : 'bg-accent/10 hover:bg-accent/25 text-accent'
+              }`}
+            >
+              {notified ? '✓ Enviado' : notifying ? '…' : '🔔 Notificar'}
+            </button>
+          )}
+          {totalUni > 0 && (
+            <div className="text-right">
+              <p className={`font-bold ${overCapacity ? 'text-red-400' : 'text-accent'}`}>{totalUni}</p>
+              <p className="text-xs text-muted">unidades</p>
+            </div>
+          )}
+        </div>
       </div>
 
       {orders.map((o) => (
@@ -734,6 +939,44 @@ function PalletSummary({
     return Object.values(map).sort((a, b) => b.totalUnidades - a.totalUnidades)
   }, [orders, catalogo])
 
+  // Desglose por chofer/camión
+  const byChofer = useMemo(() => {
+    const map: Record<string, {
+      email: string
+      nombre: string
+      camion?: Camion
+      productos: Record<string, { nombre: string; unidad: string; totalUnidades: number; unidadesPorPallet?: number }>
+      totalPallets: number
+    }> = {}
+
+    for (const o of orders) {
+      const key = o.driverId ?? '__sin_asignar__'
+      if (!map[key]) {
+        const chofer = choferes.find((c) => c.email === o.driverId)
+        const camion = camiones.find((c) => c.id === chofer?.camionId)
+        const nombre = chofer
+          ? (chofer.nombreContacto || chofer.nombre || chofer.email)
+          : 'Sin asignar'
+        map[key] = { email: key, nombre, camion, productos: {}, totalPallets: 0 }
+      }
+      for (const p of o.products) {
+        const id = p.productoId ?? p.name
+        if (!map[key].productos[id]) {
+          const cat = catalogo.find((c) => c.id === p.productoId || c.nombre === p.name)
+          map[key].productos[id] = { nombre: p.name, unidad: cat?.unidad ?? '', totalUnidades: 0, unidadesPorPallet: cat?.unidadesPorPallet }
+        }
+        map[key].productos[id].totalUnidades += p.quantity
+      }
+      map[key].totalPallets += calcPallets(o.products, catalogo)
+    }
+
+    return Object.values(map).sort((a, b) => {
+      if (a.email === '__sin_asignar__') return 1
+      if (b.email === '__sin_asignar__') return -1
+      return a.nombre.localeCompare(b.nombre)
+    })
+  }, [orders, catalogo, choferes, camiones])
+
   const totalPallets = useMemo(
     () => orders.reduce((sum, o) => sum + calcPallets(o.products, catalogo), 0),
     [orders, catalogo],
@@ -801,6 +1044,53 @@ function PalletSummary({
               )
             })}
           </div>
+
+          {/* Desglose por chofer/camión */}
+          {byChofer.length > 1 && (
+            <div className="pt-3 border-t border-border/60 space-y-3">
+              <p className="text-xs text-muted font-medium uppercase tracking-wide">Por camión</p>
+              {byChofer.map((c) => {
+                const productos = Object.values(c.productos)
+                const hasPallets = c.totalPallets > 0
+                return (
+                  <div key={c.email} className="bg-bg/60 rounded-lg p-3 space-y-2">
+                    {/* Cabecera chofer */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold truncate">{c.nombre}</p>
+                        {c.camion ? (
+                          <p className="text-xs text-muted">🚛 {c.camion.patente} · {c.camion.modelo}</p>
+                        ) : (
+                          <p className="text-xs text-orange-400">Sin camión asignado</p>
+                        )}
+                      </div>
+                      {hasPallets && (
+                        <div className="text-right shrink-0">
+                          <p className="text-accent font-bold text-lg leading-none">{fmtPallets(c.totalPallets)}</p>
+                          <p className="text-xs text-muted">pallets</p>
+                        </div>
+                      )}
+                    </div>
+                    {/* Productos */}
+                    <div className="space-y-1">
+                      {productos.map((p) => (
+                        <div key={p.nombre} className="flex justify-between text-xs">
+                          <span className="text-muted truncate">{p.nombre}</span>
+                          <span className="text-white font-medium shrink-0 ml-2">
+                            {p.totalUnidades.toLocaleString('es-AR')} {p.unidad}s
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Barra capacidad individual */}
+                    {hasPallets && c.camion?.capacidadPallets && (
+                      <CapacityBar used={c.totalPallets} total={c.camion.capacidadPallets} />
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
 
           {/* Total vs capacity */}
           {hasConfig && totalPallets > 0 && (
@@ -1046,18 +1336,28 @@ export default function PlanificacionPage() {
             {/* Tabs días */}
             <div className="flex gap-1 overflow-x-auto pb-1 -mx-1 px-1">
               {days.map((d, i) => {
-                const str   = dateToStr(d)
-                const count = orders.filter((o) => orderDateStr(o) === str && !['entregado', 'cancelado'].includes(o.status)).length
+                const str        = dateToStr(d)
+                const dayOrders  = orders.filter((o) => orderDateStr(o) === str && !['entregado', 'cancelado'].includes(o.status))
+                const count      = dayOrders.length
+                const hasOverload = choferes.some((c) => {
+                  const camion   = camiones.find((cam) => cam.id === c.camionId)
+                  if (!camion?.capacidadPallets) return false
+                  const pallets  = dayOrders.filter((o) => o.driverId === c.email).reduce((s, o) => s + calcPallets(o.products, catalogo), 0)
+                  return pallets > camion.capacidadPallets
+                })
                 return (
                   <button
                     key={str}
                     onClick={() => setSelectedIdx(i)}
-                    className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-medium border transition-colors ${
+                    className={`relative flex-shrink-0 px-3 py-2 rounded-xl text-xs font-medium border transition-colors ${
                       i === selectedIdx
                         ? 'bg-accent text-bg border-accent'
                         : 'bg-surface border-border text-muted hover:text-white hover:border-accent/50'
                     }`}
                   >
+                    {hasOverload && (
+                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-bg" title="Sobrecarga" />
+                    )}
                     <span className="block font-semibold">{dayShort(d, i)}</span>
                     <span className="block mt-0.5 opacity-80">
                       {d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}
@@ -1108,6 +1408,22 @@ export default function PlanificacionPage() {
                   visitas={visitasDay}
                   programas={programasDay}
                   choferes={choferes}
+                  allClients={allUsers}
+                  onAddVisita={async (client, driverId) => {
+                    const addr = getPrimaryAddress(client)
+                    await addVisitaPuntual({
+                      clientId:      client.uid,
+                      clientName:    client.nombre || client.nombreContacto || client.email,
+                      clientAddress: addr?.address || (client as any).address || '',
+                      clientPhone:   client.telefono || client.phone || '',
+                      fecha:         Timestamp.fromDate(new Date(`${selectedStr}T12:00:00`)),
+                      driverId:      driverId || '',
+                      status:        'pendiente',
+                    })
+                  }}
+                  onDeleteVisita={async (visitaId) => {
+                    await deleteVisitaPuntual(visitaId)
+                  }}
                 />
 
                 {/* Sin asignar */}

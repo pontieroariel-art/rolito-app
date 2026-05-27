@@ -5,11 +5,11 @@ import {
   getDoc,
   getDocs,
   updateDoc,
-  addDoc,
   serverTimestamp,
   Timestamp,
   query,
   where,
+  runTransaction,
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { PedidoRecurrente } from '../types'
@@ -52,30 +52,41 @@ export const generateRecurrentesForToday = async (): Promise<number> => {
   for (const t of templates) {
     if (!t.diasSemana.includes(todayDay)) continue
 
-    // Anti-duplicado: si ultimaGeneracion es hoy, saltar
-    const ultima = t.ultimaGeneracion?.toDate?.()
-    if (ultima && ultima.toDateString() === todayStr) continue
+    const recRef   = doc(db, COL, t.clientId)
+    // Crear ref con ID auto sin escribir (para usarla dentro de la transacción)
+    const orderRef = doc(collection(db, ORDERS))
 
-    // Crear el pedido como pendiente
-    await addDoc(collection(db, ORDERS), {
-      clientId:         t.clientId,
-      clientEmail:      t.clientEmail,
-      clientName:       t.clientName,
-      clientAddress:    t.clientAddress,
-      clientPhone:      t.clientPhone,
-      products:         t.products,
-      status:           'pendiente',
-      date:             Timestamp.fromDate(today),
-      driverId:         null,
-      notes:            t.notas ?? '',
-      origenRecurrente: true,
-      createdAt:        serverTimestamp(),
-      updatedAt:        serverTimestamp(),
-    })
+    try {
+      const didCreate = await runTransaction(db, async (tx) => {
+        const snap = await tx.get(recRef)
+        if (!snap.exists()) return false
 
-    // Marcar generado hoy
-    await updateDoc(doc(db, COL, t.clientId), { ultimaGeneracion: serverTimestamp() })
-    generated++
+        // Anti-duplicado atómico: si ultimaGeneracion es hoy, saltar
+        const ultima = (snap.data() as PedidoRecurrente).ultimaGeneracion?.toDate?.()
+        if (ultima && ultima.toDateString() === todayStr) return false
+
+        tx.set(orderRef, {
+          clientId:         t.clientId,
+          clientEmail:      t.clientEmail,
+          clientName:       t.clientName,
+          clientAddress:    t.clientAddress,
+          clientPhone:      t.clientPhone,
+          products:         t.products,
+          status:           'pendiente',
+          date:             Timestamp.fromDate(today),
+          driverId:         null,
+          notes:            t.notas ?? '',
+          origenRecurrente: true,
+          createdAt:        serverTimestamp(),
+          updatedAt:        serverTimestamp(),
+        })
+        tx.update(recRef, { ultimaGeneracion: serverTimestamp() })
+        return true
+      })
+      if (didCreate) generated++
+    } catch (err) {
+      console.error('[recurrenteService] generateRecurrentesForToday transaction error:', err)
+    }
   }
 
   return generated
