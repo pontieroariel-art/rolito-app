@@ -90,22 +90,22 @@ export default function ReporteIncidenciasPage() {
   if (loading) return <><Navbar /><LoadingSpinner fullScreen /></>
 
   return (
-    <>
+    <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
       <Navbar />
       <main className="max-w-3xl mx-auto p-4 space-y-6 pb-10">
 
         {/* Header */}
         <div className="flex flex-wrap justify-between items-end gap-3">
           <div>
-            <h1 className="text-2xl font-bold">Reporte de incidencias</h1>
-            <p className="text-muted text-sm mt-1">Pedidos reprogramados y reasignados</p>
+            <h1 className="text-2xl font-bold text-gray-900">Reporte de incidencias</h1>
+            <p className="text-gray-500 text-sm mt-1">Pedidos reprogramados y reasignados</p>
           </div>
-          <div className="flex rounded-lg border border-border overflow-hidden text-xs">
+          <div className="flex rounded-lg border border-[#D3D1C7] overflow-hidden text-xs">
             {(['7d', '30d', '90d'] as Periodo[]).map((p) => (
               <button
                 key={p}
                 onClick={() => setPeriodo(p)}
-                className={`px-3 py-1.5 transition-colors ${periodo === p ? 'bg-accent text-bg font-semibold' : 'text-muted hover:text-white'}`}
+                className={`px-3 py-1.5 transition-colors ${periodo === p ? 'bg-accent text-white font-semibold' : 'text-gray-500 hover:text-gray-900'}`}
               >
                 {p === '7d' ? '7 días' : p === '30d' ? '30 días' : '90 días'}
               </button>
@@ -115,25 +115,25 @@ export default function ReporteIncidenciasPage() {
 
         {/* KPIs */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="bg-surface border border-border rounded-xl p-4 space-y-1">
-            <p className="text-xs text-muted">Total incidencias</p>
-            <p className="text-3xl font-bold text-yellow-400">{stats.total}</p>
-            <p className="text-xs text-muted">{periodLabel(periodo)}</p>
+          <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-1">
+            <p className="text-xs text-gray-500">Total incidencias</p>
+            <p className="text-3xl font-bold text-amber-600">{stats.total}</p>
+            <p className="text-xs text-gray-500">{periodLabel(periodo)}</p>
           </div>
-          <div className="bg-surface border border-border rounded-xl p-4 space-y-1">
-            <p className="text-xs text-muted">% del total</p>
-            <p className="text-3xl font-bold">{stats.pct}%</p>
-            <p className="text-xs text-muted">de {stats.totalOrders} pedidos</p>
+          <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-1">
+            <p className="text-xs text-gray-500">% del total</p>
+            <p className="text-3xl font-bold text-gray-900">{stats.pct}%</p>
+            <p className="text-xs text-gray-500">de {stats.totalOrders} pedidos</p>
           </div>
-          <div className="bg-surface border border-border rounded-xl p-4 space-y-1">
-            <p className="text-xs text-muted">Reprogramadas</p>
+          <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-1">
+            <p className="text-xs text-gray-500">Reprogramadas</p>
             <p className="text-3xl font-bold text-accent">{stats.reprogramadas}</p>
-            <p className="text-xs text-muted">cambiaron de fecha</p>
+            <p className="text-xs text-gray-500">cambiaron de fecha</p>
           </div>
-          <div className="bg-surface border border-border rounded-xl p-4 space-y-1">
-            <p className="text-xs text-muted">Reasignadas</p>
-            <p className="text-3xl font-bold text-purple-400">{stats.reasignadas}</p>
-            <p className="text-xs text-muted">cambiaron de chofer</p>
+          <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-1">
+            <p className="text-xs text-gray-500">Reasignadas</p>
+            <p className="text-3xl font-bold text-purple-600">{stats.reasignadas}</p>
+            <p className="text-xs text-gray-500">cambiaron de chofer</p>
           </div>
         </div>
 
@@ -142,8 +142,8 @@ export default function ReporteIncidenciasPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
             {/* Por motivo */}
-            <div className="bg-surface border border-border rounded-xl p-4 space-y-3">
-              <p className="text-sm font-semibold">Por motivo</p>
+            <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-3">
+              <p className="text-sm font-semibold text-gray-900">Por motivo</p>
               {Object.entries(stats.porMotivo)
                 .sort((a, b) => b[1] - a[1])
                 .map(([motivo, count]) => {
@@ -151,11 +151,11 @@ export default function ReporteIncidenciasPage() {
                   return (
                     <div key={motivo} className="space-y-1">
                       <div className="flex justify-between text-xs">
-                        <span className="text-muted truncate">{motivo}</span>
-                        <span className="font-medium shrink-0 ml-2">{count} ({pct}%)</span>
+                        <span className="text-gray-500 truncate">{motivo}</span>
+                        <span className="font-medium text-gray-900 shrink-0 ml-2">{count} ({pct}%)</span>
                       </div>
-                      <div className="h-1 bg-bg rounded-full overflow-hidden">
-                        <div className="h-full bg-yellow-400 rounded-full" style={{ width: `${pct}%` }} />
+                      <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-amber-400 rounded-full" style={{ width: `${pct}%` }} />
                       </div>
                     </div>
                   )
@@ -163,15 +163,15 @@ export default function ReporteIncidenciasPage() {
             </div>
 
             {/* Insights */}
-            <div className="bg-surface border border-border rounded-xl p-4 space-y-3">
-              <p className="text-sm font-semibold">Highlights</p>
+            <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-3">
+              <p className="text-sm font-semibold text-gray-900">Highlights</p>
               {stats.topMotivo && (
                 <div className="flex items-start gap-3">
                   <span className="text-xl shrink-0">⚠</span>
                   <div>
-                    <p className="text-xs text-muted">Motivo más frecuente</p>
-                    <p className="text-sm font-medium">{stats.topMotivo[0]}</p>
-                    <p className="text-xs text-muted">{stats.topMotivo[1]} incidencia{stats.topMotivo[1] !== 1 ? 's' : ''}</p>
+                    <p className="text-xs text-gray-500">Motivo más frecuente</p>
+                    <p className="text-sm font-medium text-gray-900">{stats.topMotivo[0]}</p>
+                    <p className="text-xs text-gray-500">{stats.topMotivo[1]} incidencia{stats.topMotivo[1] !== 1 ? 's' : ''}</p>
                   </div>
                 </div>
               )}
@@ -179,9 +179,9 @@ export default function ReporteIncidenciasPage() {
                 <div className="flex items-start gap-3">
                   <span className="text-xl shrink-0">🚛</span>
                   <div>
-                    <p className="text-xs text-muted">Chofer con más incidencias</p>
-                    <p className="text-sm font-medium">{stats.topChofer.nombre}</p>
-                    <p className="text-xs text-muted">{stats.topChofer.count} incidencia{stats.topChofer.count !== 1 ? 's' : ''}</p>
+                    <p className="text-xs text-gray-500">Chofer con más incidencias</p>
+                    <p className="text-sm font-medium text-gray-900">{stats.topChofer.nombre}</p>
+                    <p className="text-xs text-gray-500">{stats.topChofer.count} incidencia{stats.topChofer.count !== 1 ? 's' : ''}</p>
                   </div>
                 </div>
               )}
@@ -189,8 +189,8 @@ export default function ReporteIncidenciasPage() {
                 <div className="flex items-start gap-3">
                   <span className="text-xl shrink-0">📊</span>
                   <div>
-                    <p className="text-xs text-red-400 font-medium">Tasa alta de incidencias</p>
-                    <p className="text-xs text-muted">Más del 10% de los pedidos tuvieron problemas</p>
+                    <p className="text-xs text-red-600 font-medium">Tasa alta de incidencias</p>
+                    <p className="text-xs text-gray-500">Más del 10% de los pedidos tuvieron problemas</p>
                   </div>
                 </div>
               )}
@@ -200,14 +200,14 @@ export default function ReporteIncidenciasPage() {
 
         {/* Listado detallado */}
         <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-muted uppercase tracking-wide">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
             Detalle — {incidencias.length} incidencia{incidencias.length !== 1 ? 's' : ''}
           </h2>
 
           {incidencias.length === 0 ? (
-            <div className="bg-surface border border-border rounded-xl p-10 text-center">
+            <div className="bg-white border border-[#D3D1C7] rounded-xl p-10 text-center">
               <p className="text-3xl mb-3">✅</p>
-              <p className="text-muted text-sm">Sin incidencias en este período</p>
+              <p className="text-gray-500 text-sm">Sin incidencias en este período</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -220,35 +220,35 @@ export default function ReporteIncidenciasPage() {
           )}
         </section>
       </main>
-    </>
+    </div>
   )
 }
 
 function IncidenciaRow({ order, choferNombre }: { order: Order; choferNombre: (email?: string) => string }) {
   const tipo   = order.reprogramado ? 'Reprogramado' : 'Reasignado'
   const motivo = order.motivoReprogramacion || order.motivoReasignacion || '—'
-  const color  = order.reprogramado ? 'text-accent border-accent/20 bg-accent/5' : 'text-purple-400 border-purple-400/20 bg-purple-400/5'
+  const color  = order.reprogramado ? 'text-accent border-accent/20 bg-accent/5' : 'text-purple-600 border-purple-200 bg-purple-50'
 
   return (
-    <div className="bg-surface border border-border rounded-xl p-4 flex flex-wrap gap-3 justify-between items-start">
+    <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 flex flex-wrap gap-3 justify-between items-start">
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex items-center gap-2 flex-wrap">
-          <p className="font-medium text-sm">{order.clientName}</p>
+          <p className="font-medium text-sm text-gray-900">{order.clientName}</p>
           <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${color}`}>{tipo}</span>
         </div>
-        <p className="text-xs text-muted">{order.clientAddress}</p>
-        <p className="text-xs text-muted">
-          Chofer: <span className="text-white">{choferNombre(order.choferOriginal)}</span>
+        <p className="text-xs text-gray-500">{order.clientAddress}</p>
+        <p className="text-xs text-gray-500">
+          Chofer: <span className="text-gray-900">{choferNombre(order.choferOriginal)}</span>
           {order.reprogramado && order.fechaOriginal && (
-            <> · Fecha original: <span className="text-white">{formatShortDate(order.fechaOriginal)}</span></>
+            <> · Fecha original: <span className="text-gray-900">{formatShortDate(order.fechaOriginal)}</span></>
           )}
         </p>
-        <p className="text-xs text-muted">
-          Motivo: <span className="text-white">{motivo}</span>
+        <p className="text-xs text-gray-500">
+          Motivo: <span className="text-gray-900">{motivo}</span>
         </p>
       </div>
       <div className="text-right shrink-0">
-        <p className="text-xs text-muted">{formatShortDate(order.updatedAt)}</p>
+        <p className="text-xs text-gray-500">{formatShortDate(order.updatedAt)}</p>
         {order.reprogramado && (
           <p className="text-xs text-accent mt-1">→ {formatShortDate(order.date)}</p>
         )}

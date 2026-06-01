@@ -7,15 +7,9 @@ import { Order } from '../../types'
 
 const MAP_CONTAINER: React.CSSProperties = { width: '100%', height: '100%' }
 
-const DARK_MAP_STYLES: google.maps.MapTypeStyle[] = [
-  { elementType: 'geometry',           stylers: [{ color: '#03160D' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#03160D' }] },
-  { elementType: 'labels.text.fill',   stylers: [{ color: '#40916C' }] },
-  { featureType: 'road',               elementType: 'geometry', stylers: [{ color: '#1B4332' }] },
-  { featureType: 'road.highway',       elementType: 'geometry', stylers: [{ color: '#2D6A4F' }] },
-  { featureType: 'water',              elementType: 'geometry', stylers: [{ color: '#011507' }] },
-  { featureType: 'poi',                elementType: 'geometry', stylers: [{ color: '#081C11' }] },
-  { featureType: 'transit',            elementType: 'geometry', stylers: [{ color: '#1B4332' }] },
+const LIGHT_MAP_STYLES: google.maps.MapTypeStyle[] = [
+  { featureType: 'poi',     elementType: 'labels', stylers: [{ visibility: 'off' }] },
+  { featureType: 'transit', elementType: 'labels', stylers: [{ visibility: 'off' }] },
 ]
 
 const BA_DEFAULT = { lat: -34.6037, lng: -58.3816 }
@@ -120,28 +114,28 @@ export function TruckTracker({ order, clientEmail, clientNombre, onNearby }: Tru
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" />
           <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-accent" />
         </span>
-        <h2 className="text-lg font-semibold">Tu pedido está en camino</h2>
+        <h2 className="text-lg font-semibold text-gray-900">Tu pedido está en camino</h2>
       </div>
 
       {isNearby && (
-        <div className="bg-accent/10 border border-accent/30 rounded-xl px-4 py-3 flex items-center gap-3">
+        <div className="bg-[#E8F5F0] border border-[#B3DDD3] rounded-2xl px-4 py-3 flex items-center gap-3">
           <span className="text-2xl">⏱️</span>
           <p className="text-accent font-semibold text-sm">Tu pedido llega en minutos</p>
         </div>
       )}
 
       {(driverData?.nombreChofer || eta) && (
-        <div className="bg-surface border border-border rounded-xl p-4 space-y-3">
-          <p className="text-xs text-muted uppercase tracking-widest">Tu pedido lo entrega</p>
+        <div className="bg-white border border-gray-200 rounded-2xl p-4 space-y-3">
+          <p className="text-xs text-gray-500 uppercase tracking-widest">Tu pedido lo entrega</p>
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-white font-bold text-sm shrink-0">
                 {driverData?.nombreChofer?.charAt(0).toUpperCase() ?? '🚛'}
               </div>
               <div>
-                <p className="font-semibold text-sm">{driverData?.nombreChofer ?? 'Chofer en camino'}</p>
-                <p className="text-xs text-success flex items-center gap-1 mt-0.5">
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-success" />
+                <p className="font-semibold text-sm text-gray-900">{driverData?.nombreChofer ?? 'Chofer en camino'}</p>
+                <p className="text-xs text-accent flex items-center gap-1 mt-0.5">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent" />
                   En camino
                 </p>
               </div>
@@ -149,20 +143,20 @@ export function TruckTracker({ order, clientEmail, clientNombre, onNearby }: Tru
             {driverData?.telefonoChofer && (
               <a
                 href={`tel:${driverData.telefonoChofer}`}
-                className="flex items-center gap-1.5 bg-accent/10 border border-accent/30 text-accent text-xs font-medium px-3 py-2 rounded-lg hover:bg-accent/20 transition-colors shrink-0"
+                className="flex items-center gap-1.5 bg-[#E8F5F0] border border-[#B3DDD3] text-accent text-xs font-medium px-3 py-2 rounded-lg hover:bg-accent/15 transition-colors shrink-0"
               >
                 📞 Llamar
               </a>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border">
+          <div className="grid grid-cols-2 gap-2 pt-1 border-t border-gray-100">
             <div className="text-center">
-              <p className="text-xs text-muted">Tiempo estimado</p>
-              <p className="text-lg font-bold text-white mt-0.5">{eta ?? '—'}</p>
+              <p className="text-xs text-gray-500">Tiempo estimado</p>
+              <p className="text-lg font-bold text-gray-900 mt-0.5">{eta ?? '—'}</p>
             </div>
-            <div className="text-center border-l border-border">
-              <p className="text-xs text-muted">Distancia</p>
-              <p className="text-lg font-bold text-white mt-0.5">
+            <div className="text-center border-l border-gray-100">
+              <p className="text-xs text-gray-500">Distancia</p>
+              <p className="text-lg font-bold text-gray-900 mt-0.5">
                 {distance !== null
                   ? distance < 1000 ? `${Math.round(distance)} m` : `${(distance / 1000).toFixed(1)} km`
                   : '—'}
@@ -173,13 +167,13 @@ export function TruckTracker({ order, clientEmail, clientNombre, onNearby }: Tru
       )}
 
       <div
-        className="rounded-xl overflow-hidden border border-accent/30 relative transition-all duration-300"
+        className="rounded-2xl overflow-hidden border border-gray-200 relative transition-all duration-300"
         style={{ height: expanded ? '420px' : '240px' }}
       >
         <button
           onClick={() => setExpanded((v) => !v)}
           aria-label={expanded ? 'Reducir mapa' : 'Expandir mapa'}
-          className="absolute top-2 right-2 z-10 bg-surface/80 backdrop-blur-sm border border-border rounded-lg px-2 py-1 text-xs text-muted hover:text-white transition-colors"
+          className="absolute top-2 right-2 z-10 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg px-2 py-1 text-xs text-gray-500 hover:text-gray-900 transition-colors"
         >
           {expanded ? '⊠ Reducir' : '⊞ Expandir'}
         </button>
@@ -188,13 +182,13 @@ export function TruckTracker({ order, clientEmail, clientNombre, onNearby }: Tru
             mapContainerStyle={MAP_CONTAINER}
             center={deliveryPos ?? truckPos ?? BA_DEFAULT}
             zoom={13}
-            options={{ disableDefaultUI: true, zoomControl: true, gestureHandling: 'cooperative', styles: DARK_MAP_STYLES }}
+            options={{ disableDefaultUI: true, zoomControl: true, gestureHandling: 'cooperative', styles: LIGHT_MAP_STYLES }}
             onLoad={(m) => { mapRef.current = m }}
           >
             {directions && (
               <DirectionsRenderer
                 directions={directions}
-                options={{ suppressMarkers: true, polylineOptions: { strokeColor: '#52B788', strokeWeight: 4, strokeOpacity: 0.85 } }}
+                options={{ suppressMarkers: true, polylineOptions: { strokeColor: '#1D9E75', strokeWeight: 4, strokeOpacity: 0.85 } }}
               />
             )}
             {truckPos && (
@@ -212,12 +206,12 @@ export function TruckTracker({ order, clientEmail, clientNombre, onNearby }: Tru
             )}
           </GoogleMap>
         ) : (
-          <div className="w-full h-full bg-surface animate-pulse" />
+          <div className="w-full h-full bg-gray-100 animate-pulse" />
         )}
       </div>
 
       {!truckPos && (
-        <p className="text-muted text-xs text-center">Esperando la ubicación del chofer...</p>
+        <p className="text-gray-400 text-xs text-center">Esperando la ubicación del chofer...</p>
       )}
     </section>
   )

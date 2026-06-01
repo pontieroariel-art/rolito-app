@@ -75,14 +75,14 @@ export function LiveMapSection({ orders }: LiveMapSectionProps) {
       <button
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="w-full flex justify-between items-center bg-surface border border-border rounded-xl px-4 py-3 text-left hover:border-accent/50 transition-colors"
+        className="w-full flex justify-between items-center bg-white border border-[#D3D1C7] rounded-xl px-4 py-3 text-left hover:border-accent/50 transition-colors"
       >
         <div className="flex items-center gap-2">
           <span className="relative flex h-2.5 w-2.5">
             {drivers.length > 0 && (
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" />
             )}
-            <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${drivers.length > 0 ? 'bg-accent' : 'bg-muted'}`} />
+            <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${drivers.length > 0 ? 'bg-accent' : 'bg-gray-300'}`} />
           </span>
           <span className="font-semibold text-sm">
             Mapa en vivo
@@ -91,18 +91,18 @@ export function LiveMapSection({ orders }: LiveMapSectionProps) {
             )}
           </span>
         </div>
-        <span className="text-muted text-xs">{open ? '▲' : '▼'}</span>
+        <span className="text-gray-500 text-xs">{open ? '▲' : '▼'}</span>
       </button>
 
       {open && (
         <div className="space-y-3">
           {staleDrivers.length > 0 && (
-            <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl px-4 py-3 text-sm text-orange-400">
+            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700">
               ⚠ {staleDrivers.map((d) => d.nombreChofer || d.email).join(', ')} sin movimiento &gt; 20 min
             </div>
           )}
 
-          <div className="rounded-xl overflow-hidden border border-border" style={{ height: '320px' }}>
+          <div className="rounded-xl overflow-hidden border border-[#D3D1C7]" style={{ height: '320px' }}>
             {isLoaded ? (
               <GoogleMap
                 mapContainerStyle={MAP_CONTAINER}
@@ -146,12 +146,12 @@ export function LiveMapSection({ orders }: LiveMapSectionProps) {
                 })}
               </GoogleMap>
             ) : (
-              <div className="w-full h-full bg-surface animate-pulse" />
+              <div className="w-full h-full bg-gray-200 animate-pulse" />
             )}
           </div>
 
           {drivers.length === 0 ? (
-            <p className="text-muted text-sm text-center py-2">No hay choferes activos en este momento</p>
+            <p className="text-gray-500 text-sm text-center py-2">No hay choferes activos en este momento</p>
           ) : (
             <div className="grid gap-2">
               {drivers.map((driver) => {
@@ -160,8 +160,8 @@ export function LiveMapSection({ orders }: LiveMapSectionProps) {
                 return (
                   <div
                     key={driver.email}
-                    className={`bg-surface border rounded-xl px-4 py-3 flex justify-between items-center gap-3 ${
-                      isStale ? 'border-orange-500/40' : 'border-border'
+                    className={`bg-white border rounded-xl px-4 py-3 flex justify-between items-center gap-3 ${
+                      isStale ? 'border-amber-300' : 'border-[#D3D1C7]'
                     }`}
                   >
                     <div>
@@ -174,8 +174,8 @@ export function LiveMapSection({ orders }: LiveMapSectionProps) {
                     </div>
                     <div className="text-right">
                       <p className="text-accent font-bold text-lg leading-none">{pending}</p>
-                      <p className="text-muted text-xs mt-0.5">pendientes</p>
-                      {isStale && <p className="text-orange-400 text-xs mt-1">⚠ &gt;20 min</p>}
+                      <p className="text-gray-500 text-xs mt-0.5">pendientes</p>
+                      {isStale && <p className="text-amber-600 text-xs mt-1">⚠ &gt;20 min</p>}
                     </div>
                   </div>
                 )

@@ -35,22 +35,22 @@ export function NotificationEmailManager({ notifEmails }: NotificationEmailManag
         <div
           role="dialog"
           aria-label="Emails de notificación"
-          className="absolute right-0 top-10 bg-surface border border-border rounded-xl p-4 z-50 w-80 shadow-2xl"
+          className="absolute right-0 top-10 bg-white border border-[#D3D1C7] rounded-xl p-4 z-50 w-80 shadow-2xl"
         >
           <h3 className="font-semibold mb-1 text-sm">Emails de notificación</h3>
-          <p className="text-muted text-xs mb-3">Reciben un email cuando llega un pedido nuevo.</p>
+          <p className="text-gray-500 text-xs mb-3">Reciben un email cuando llega un pedido nuevo.</p>
 
           {emails.length === 0 ? (
-            <p className="text-muted text-xs mb-3">Sin emails configurados</p>
+            <p className="text-gray-500 text-xs mb-3">Sin emails configurados</p>
           ) : (
             <div className="space-y-1 mb-3 max-h-40 overflow-y-auto">
               {emails.map((e) => (
-                <div key={e} className="flex justify-between items-center py-1.5 border-b border-border/50 last:border-0">
-                  <span className="text-sm text-muted truncate flex-1">{e}</span>
+                <div key={e} className="flex justify-between items-center py-1.5 border-b border-gray-200 last:border-0">
+                  <span className="text-sm text-gray-500 truncate flex-1">{e}</span>
                   <button
                     onClick={() => removeEmail(e)}
                     aria-label={`Quitar ${e}`}
-                    className="text-red-400 text-xs hover:underline ml-2 shrink-0"
+                    className="text-red-600 text-xs hover:underline ml-2 shrink-0"
                   >
                     Quitar
                   </button>
@@ -67,7 +67,7 @@ export function NotificationEmailManager({ notifEmails }: NotificationEmailManag
               placeholder="admin@empresa.com"
               type="email"
               aria-label="Email a agregar"
-              className="bg-bg border border-border rounded-lg px-2 py-1.5 text-sm text-white flex-1 focus:outline-none focus:ring-1 focus:ring-accent"
+              className="bg-white border border-[#D3D1C7] rounded-lg px-2 py-1.5 text-sm text-gray-900 placeholder-gray-400 flex-1 focus:outline-none focus:ring-1 focus:ring-accent"
             />
             <Button onClick={handleAdd} className="text-xs py-1.5 px-3">+ Agregar</Button>
           </div>

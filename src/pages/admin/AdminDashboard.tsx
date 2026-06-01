@@ -78,16 +78,16 @@ export default function AdminDashboard() {
     return matchStatus && matchDate && matchSearch
   }), [orders, filter, dateFilter, search])
 
-  if (loading) return <><Navbar /><LoadingSpinner fullScreen /></>
+  if (loading) return <div className="min-h-screen bg-[#F1EFE8]"><Navbar /><LoadingSpinner fullScreen /></div>
 
   return (
-    <>
+    <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
       <Navbar />
       <main className="max-w-5xl mx-auto p-4 space-y-6 pb-10">
         <div className="flex flex-wrap justify-between items-center gap-3">
           <div>
-            <h1 className="text-2xl font-bold">Panel Admin</h1>
-            <p className="text-muted text-sm">Gestión de pedidos y logística</p>
+            <h1 className="text-2xl font-bold text-gray-900">Panel Admin</h1>
+            <p className="text-gray-500 text-sm">Gestión de pedidos y logística</p>
           </div>
           <div className="flex gap-2 flex-wrap">
             <Button onClick={() => setImportModal(true)} className="text-sm">+ Importar PDF</Button>
@@ -96,25 +96,25 @@ export default function AdminDashboard() {
         </div>
 
         {recurrentesBanner !== null && (
-          <div className="bg-accent/10 border border-accent/30 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+          <div className="bg-[#E8F5F0] border border-[#B3DDD3] rounded-xl px-4 py-3 flex items-center justify-between gap-3">
             <p className="text-accent text-sm">
               ↺ {recurrentesBanner} pedido{recurrentesBanner > 1 ? 's' : ''} recurrente{recurrentesBanner > 1 ? 's' : ''} generado{recurrentesBanner > 1 ? 's' : ''} automáticamente para hoy
             </p>
-            <button onClick={() => setRecurrentesBanner(null)} className="text-muted hover:text-white text-xs">✕</button>
+            <button onClick={() => setRecurrentesBanner(null)} className="text-gray-400 hover:text-gray-700 text-xs">✕</button>
           </div>
         )}
 
         {choferesSinCamionHoy.length > 0 && (
           <Link
             to="/admin/flota"
-            className="flex items-center gap-3 bg-orange-500/10 border border-orange-500/30 rounded-xl px-4 py-3 hover:bg-orange-500/15 transition-colors"
+            className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 hover:bg-amber-100 transition-colors"
           >
-            <span className="text-orange-400 text-xl shrink-0">🚛</span>
+            <span className="text-amber-500 text-xl shrink-0">🚛</span>
             <div className="flex-1">
-              <p className="text-orange-400 font-semibold text-sm">
+              <p className="text-amber-700 font-medium text-sm">
                 {choferesSinCamionHoy.length} chofer{choferesSinCamionHoy.length !== 1 ? 'es' : ''} sin camión confirmado para hoy
               </p>
-              <p className="text-orange-400/70 text-xs mt-0.5">
+              <p className="text-amber-600/70 text-xs mt-0.5">
                 {choferesSinCamionHoy.map((c) => c.nombreContacto || c.nombre).join(', ')} · Tocá para asignar →
               </p>
             </div>
@@ -125,7 +125,7 @@ export default function AdminDashboard() {
           <>
             <button
               onClick={() => { setCleanupResult(null); setCleanupModal(true) }}
-              className="w-full text-left bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-sm text-red-400 hover:bg-red-500/20 transition-colors"
+              className="w-full text-left bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-600 hover:bg-red-100 transition-colors"
             >
               Limpiar datos de prueba →
             </button>
@@ -137,22 +137,22 @@ export default function AdminDashboard() {
             >
               {cleanupResult ? (
                 <div className="space-y-4">
-                  <div className="bg-success/10 border border-success/30 rounded-xl p-4 space-y-1 text-sm">
-                    <p className="font-semibold text-success mb-2">Limpieza completada</p>
-                    <p className="text-muted">Usuarios eliminados: <span className="text-white font-medium">{cleanupResult.users}</span></p>
-                    <p className="text-muted">Pedidos eliminados: <span className="text-white font-medium">{cleanupResult.orders}</span></p>
-                    <p className="text-muted">Ubicaciones eliminadas: <span className="text-white font-medium">{cleanupResult.ubicaciones}</span></p>
+                  <div className="bg-[#E8F5F0] border border-[#B3DDD3] rounded-xl p-4 space-y-1 text-sm">
+                    <p className="font-medium text-accent mb-2">Limpieza completada</p>
+                    <p className="text-gray-500">Usuarios eliminados: <span className="text-gray-900 font-medium">{cleanupResult.users}</span></p>
+                    <p className="text-gray-500">Pedidos eliminados: <span className="text-gray-900 font-medium">{cleanupResult.orders}</span></p>
+                    <p className="text-gray-500">Ubicaciones eliminadas: <span className="text-gray-900 font-medium">{cleanupResult.ubicaciones}</span></p>
                     {cleanupResult.clientes > 0 && (
-                      <p className="text-muted">Clientes eliminados: <span className="text-white font-medium">{cleanupResult.clientes}</span></p>
+                      <p className="text-gray-500">Clientes eliminados: <span className="text-gray-900 font-medium">{cleanupResult.clientes}</span></p>
                     )}
                   </div>
                   <Button className="w-full" onClick={() => setCleanupModal(false)}>Cerrar</Button>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-sm space-y-2">
-                    <p className="text-red-400 font-semibold">Esta acción no se puede deshacer.</p>
-                    <p className="text-muted">Se borrarán todos los usuarios de prueba (excepto tu cuenta), todos los pedidos, y todas las ubicaciones.</p>
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm space-y-2">
+                    <p className="text-red-600 font-medium">Esta acción no se puede deshacer.</p>
+                    <p className="text-gray-500">Se borrarán todos los usuarios de prueba (excepto tu cuenta), todos los pedidos, y todas las ubicaciones.</p>
                   </div>
                   <div className="flex gap-2">
                     <Button variant="outline" onClick={() => setCleanupModal(false)} className="flex-1" disabled={cleanupLoading}>Cancelar</Button>
@@ -166,7 +166,7 @@ export default function AdminDashboard() {
 
         <section className="space-y-2">
           <div className="flex items-center justify-between">
-            <h2 className="text-xs font-semibold text-muted uppercase tracking-wide">Clima — próximos 7 días</h2>
+            <h2 className="text-xs font-medium text-gray-500 uppercase tracking-wide">Clima — próximos 7 días</h2>
             <Link to="/admin/clima" className="text-xs text-accent hover:underline">Historial →</Link>
           </div>
           <ForecastStrip />
@@ -176,14 +176,13 @@ export default function AdminDashboard() {
         <LiveMapSection orders={orders} />
         <ResumenCargaPorChofer orders={orders} choferes={choferes.choferes} />
 
-        {/* Exportar hoja de ruta */}
-        <div className="bg-surface border border-border rounded-xl p-4 flex flex-wrap items-center gap-3">
-          <span className="text-sm font-medium text-gray-300 shrink-0">📄 Hoja de ruta</span>
+        <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 flex flex-wrap items-center gap-3">
+          <span className="text-sm font-medium text-gray-700 shrink-0">📄 Hoja de ruta</span>
           <select
             value={pdfDriver}
             onChange={(e: ChangeEvent<HTMLSelectElement>) => setPdfDriver(e.target.value)}
             aria-label="Seleccionar chofer para hoja de ruta"
-            className="bg-bg border border-border rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-accent flex-1 min-w-40"
+            className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent flex-1 min-w-40"
           >
             <option value="">— Seleccionar chofer —</option>
             {choferes.choferes.map((c) => (
@@ -208,7 +207,6 @@ export default function AdminDashboard() {
           </Button>
         </div>
 
-        {/* Filtros */}
         <div className="space-y-3">
           <div className="flex flex-wrap gap-3">
             <input
@@ -216,19 +214,19 @@ export default function AdminDashboard() {
               onChange={(e: ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
               placeholder="Buscar por cliente, dirección o producto..."
               aria-label="Buscar pedidos"
-              className="bg-surface border border-border rounded-lg px-3 py-2 text-white placeholder-muted text-sm flex-1 min-w-48 focus:outline-none focus:ring-2 focus:ring-accent"
+              className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 placeholder-gray-400 text-sm flex-1 min-w-48 focus:outline-none focus:ring-2 focus:ring-accent"
             />
             <input
               type="date"
               value={dateFilter}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setDateFilter(e.target.value)}
               aria-label="Filtrar por fecha"
-              className="bg-surface border border-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+              className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
             />
             {(search || dateFilter) && (
               <button
                 onClick={() => { setSearch(''); setDateFilter('') }}
-                className="text-sm text-muted hover:text-white px-3 py-2"
+                className="text-sm text-gray-400 hover:text-gray-700 px-3 py-2"
               >
                 Limpiar ✕
               </button>
@@ -243,8 +241,8 @@ export default function AdminDashboard() {
                 aria-pressed={filter === s}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                   filter === s
-                    ? 'bg-accent text-bg border-accent'
-                    : 'border-border text-muted hover:border-accent hover:text-white'
+                    ? 'bg-accent text-white border-accent'
+                    : 'border-[#D3D1C7] text-gray-500 hover:border-accent/50 hover:text-gray-900'
                 }`}
               >
                 {s === 'all' ? `Todos (${orders.length})` : `${STATUS_LABELS[s]} (${orders.filter((o: Order) => o.status === s).length})`}
@@ -253,11 +251,10 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Lista de pedidos */}
         <div className="space-y-3">
           {filtered.length === 0 ? (
-            <div className="bg-surface border border-border rounded-xl p-8 text-center">
-              <p className="text-muted text-sm">No hay pedidos con estos filtros</p>
+            <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center">
+              <p className="text-gray-400 text-sm">No hay pedidos con estos filtros</p>
             </div>
           ) : (
             filtered.map((o: Order) => (
@@ -268,6 +265,6 @@ export default function AdminDashboard() {
       </main>
 
       <ImportarPedidoModal open={importModal} onClose={() => setImportModal(false)} />
-    </>
+    </div>
   )
 }

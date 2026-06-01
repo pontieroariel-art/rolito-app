@@ -54,11 +54,11 @@ function daysSince(ts: any): number {
 }
 
 const STATUS_COLOR: Record<OrderStatus, string> = {
-  pendiente:  'text-yellow-400',
-  confirmado: 'text-blue-400',
+  pendiente:  'text-amber-600',
+  confirmado: 'text-blue-600',
   en_camino:  'text-accent',
-  entregado:  'text-green-400',
-  cancelado:  'text-red-400',
+  entregado:  'text-green-600',
+  cancelado:  'text-red-600',
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -115,14 +115,14 @@ export default function ComercialDashboard() {
   }
 
   return (
-    <>
+    <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
       <Navbar />
       <main className="max-w-4xl mx-auto p-4 space-y-6 pb-10">
         <div>
           <h1 className="text-2xl font-bold">
             Hola, {user?.nombre?.split(' ')[0] ?? 'Comercial'}
           </h1>
-          <p className="text-muted text-sm mt-1">
+          <p className="text-gray-500 text-sm mt-1">
             {new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}
           </p>
         </div>
@@ -131,14 +131,14 @@ export default function ComercialDashboard() {
           <>
             {/* ── Métricas del día ─────────────────────────────────────── */}
             <section className="space-y-2">
-              <h2 className="text-xs font-semibold text-muted uppercase tracking-wide">
+              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
                 Pedidos de hoy — {todayOrders.length} en total
               </h2>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <StatCard icon={<CheckCircle size={16} />} label="Entregados"  value={entregados}  color="text-green-400" border="border-green-500/20" />
+                <StatCard icon={<CheckCircle size={16} />} label="Entregados"  value={entregados}  color="text-green-600" border="border-green-500/20" />
                 <StatCard icon={<Truck       size={16} />} label="En camino"   value={enCamino}    color="text-accent"    border="border-accent/20" />
-                <StatCard icon={<Package     size={16} />} label="Confirmados" value={confirmados} color="text-blue-400"  border="border-blue-500/20" />
-                <StatCard icon={<Clock       size={16} />} label="Pendientes"  value={pendientesP} color="text-yellow-400" border="border-yellow-500/20" />
+                <StatCard icon={<Package     size={16} />} label="Confirmados" value={confirmados} color="text-blue-600"  border="border-blue-500/20" />
+                <StatCard icon={<Clock       size={16} />} label="Pendientes"  value={pendientesP} color="text-amber-600" border="border-yellow-500/20" />
               </div>
             </section>
 
@@ -148,7 +148,7 @@ export default function ComercialDashboard() {
             {/* ── Pedidos del día ───────────────────────────────────────── */}
             {todayOrders.length > 0 && (
               <section className="space-y-2">
-                <h2 className="text-xs font-semibold text-muted uppercase tracking-wide">
+                <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
                   Detalle de pedidos hoy
                 </h2>
                 <div className="space-y-2">
@@ -164,7 +164,7 @@ export default function ComercialDashboard() {
             )}
 
             {todayOrders.length === 0 && (
-              <div className="bg-surface border border-border rounded-xl p-6 text-center text-muted text-sm">
+              <div className="bg-white border border-[#D3D1C7] rounded-xl p-6 text-center text-gray-500 text-sm">
                 No hay pedidos programados para hoy
               </div>
             )}
@@ -172,21 +172,21 @@ export default function ComercialDashboard() {
             {/* ── Alertas comerciales ──────────────────────────────────── */}
             {(pendientes.length > 0 || sinLista.length > 0 || inactivos.length > 0) && (
               <section className="space-y-3">
-                <h2 className="text-xs font-semibold text-muted uppercase tracking-wide">
+                <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
                   Requieren atención
                 </h2>
 
                 {/* Pendientes de aprobación */}
                 {pendientes.length > 0 && (
-                  <div className="bg-surface border border-yellow-500/30 rounded-xl p-4 space-y-3">
-                    <p className="text-sm font-semibold text-yellow-400">
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+                    <p className="text-sm font-semibold text-amber-700">
                       {pendientes.length} cliente{pendientes.length !== 1 ? 's' : ''} pendiente{pendientes.length !== 1 ? 's' : ''} de aprobación
                     </p>
                     {pendientes.map((u) => (
                       <div key={u.uid} className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
                           <p className="text-sm font-medium truncate">{u.razonSocial || u.nombre}</p>
-                          <p className="text-xs text-muted truncate">{u.email}</p>
+                          <p className="text-xs text-gray-500 truncate">{u.email}</p>
                         </div>
                         <Button onClick={() => handleAprobar(u)} className="text-xs py-1.5 px-3 shrink-0">
                           Aprobar
@@ -198,10 +198,10 @@ export default function ComercialDashboard() {
 
                 {/* Sin lista de precios */}
                 {sinLista.length > 0 && (
-                  <div className="bg-surface border border-border rounded-xl p-4 space-y-2">
+                  <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-2">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-semibold flex items-center gap-2">
-                        <Tag size={14} className="text-muted" />
+                        <Tag size={14} className="text-gray-400" />
                         {sinLista.length} cliente{sinLista.length !== 1 ? 's' : ''} sin lista de precios
                       </p>
                       <Link to="/usuarios" className="text-xs text-accent hover:underline">
@@ -210,12 +210,12 @@ export default function ComercialDashboard() {
                     </div>
                     <div className="space-y-1">
                       {sinLista.slice(0, 3).map((u) => (
-                        <p key={u.uid} className="text-xs text-muted truncate">
+                        <p key={u.uid} className="text-xs text-gray-500 truncate">
                           {u.razonSocial || u.nombre} — {u.email}
                         </p>
                       ))}
                       {sinLista.length > 3 && (
-                        <p className="text-xs text-muted">+{sinLista.length - 3} más</p>
+                        <p className="text-xs text-gray-500">+{sinLista.length - 3} más</p>
                       )}
                     </div>
                   </div>
@@ -223,10 +223,10 @@ export default function ComercialDashboard() {
 
                 {/* Inactivos */}
                 {inactivos.length > 0 && (
-                  <div className="bg-surface border border-border rounded-xl p-4 space-y-2">
+                  <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-2">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-semibold flex items-center gap-2">
-                        <Clock size={14} className="text-muted" />
+                        <Clock size={14} className="text-gray-400" />
                         {inactivos.length} cliente{inactivos.length !== 1 ? 's' : ''} sin pedir hace {INACTIVE_DAYS}+ días
                       </p>
                       <Link to="/usuarios" className="text-xs text-accent hover:underline">
@@ -235,12 +235,12 @@ export default function ComercialDashboard() {
                     </div>
                     <div className="space-y-1">
                       {inactivos.slice(0, 3).map((u) => (
-                        <p key={u.uid} className="text-xs text-muted truncate">
+                        <p key={u.uid} className="text-xs text-gray-500 truncate">
                           {u.razonSocial || u.nombre}
                         </p>
                       ))}
                       {inactivos.length > 3 && (
-                        <p className="text-xs text-muted">+{inactivos.length - 3} más</p>
+                        <p className="text-xs text-gray-500">+{inactivos.length - 3} más</p>
                       )}
                     </div>
                   </div>
@@ -251,7 +251,7 @@ export default function ComercialDashboard() {
             {/* ── Pronóstico del tiempo ────────────────────────────────── */}
             <section className="space-y-2">
               <div className="flex items-center justify-between">
-                <h2 className="text-xs font-semibold text-muted uppercase tracking-wide">Clima — próximos 7 días</h2>
+                <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Clima — próximos 7 días</h2>
                 <Link to="/admin/clima" className="text-xs text-accent hover:underline">Historial →</Link>
               </div>
               <ForecastStrip />
@@ -262,74 +262,74 @@ export default function ComercialDashboard() {
 
             {/* ── Resumen de clientes ──────────────────────────────────── */}
             <section className="space-y-2">
-              <h2 className="text-xs font-semibold text-muted uppercase tracking-wide">Clientes</h2>
+              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Clientes</h2>
               <div className="grid grid-cols-3 gap-3">
-                <StatCard icon={<Users size={16} />}     label="Activos"   value={clientes.filter(u => u.estado === 'activo').length}   color="text-accent"      border="border-border" />
-                <StatCard icon={<UserCheck size={16} />} label="Pendientes" value={pendientes.length} color="text-yellow-400" border={pendientes.length > 0 ? 'border-yellow-500/30' : 'border-border'} />
-                <StatCard icon={<Tag size={16} />}       label="Sin lista"  value={sinLista.length}   color="text-muted"      border="border-border" />
+                <StatCard icon={<Users size={16} />}     label="Activos"   value={clientes.filter(u => u.estado === 'activo').length}   color="text-accent"      border="border-[#D3D1C7]" />
+                <StatCard icon={<UserCheck size={16} />} label="Pendientes" value={pendientes.length} color="text-amber-600" border={pendientes.length > 0 ? 'border-amber-300' : 'border-[#D3D1C7]'} />
+                <StatCard icon={<Tag size={16} />}       label="Sin lista"  value={sinLista.length}   color="text-gray-500"  border="border-[#D3D1C7]" />
               </div>
             </section>
 
             {/* ── Acceso rápido ────────────────────────────────────────── */}
             <section className="space-y-2">
-              <h2 className="text-xs font-semibold text-muted uppercase tracking-wide">Acciones</h2>
+              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Acciones</h2>
               <Link
                 to="/comercial/pedidos"
-                className="bg-surface border border-border rounded-xl p-4 flex items-center justify-between hover:border-accent transition-colors group"
+                className="bg-white border border-[#D3D1C7] rounded-xl p-4 flex items-center justify-between hover:border-accent transition-colors group"
               >
                 <div className="flex items-center gap-3">
                   <History size={18} className="text-accent" />
                   <div>
                     <p className="font-medium text-sm group-hover:text-accent transition-colors">Historial de pedidos</p>
-                    <p className="text-muted text-xs mt-0.5">Filtrá por cliente, día, mes o año</p>
+                    <p className="text-gray-500 text-xs mt-0.5">Filtrá por cliente, día, mes o año</p>
                   </div>
                 </div>
-                <ArrowRight size={16} className="text-muted group-hover:text-accent transition-colors" />
+                <ArrowRight size={16} className="text-gray-400 group-hover:text-accent transition-colors" />
               </Link>
               <Link
                 to="/usuarios"
-                className="bg-surface border border-border rounded-xl p-4 flex items-center justify-between hover:border-accent transition-colors group"
+                className="bg-white border border-[#D3D1C7] rounded-xl p-4 flex items-center justify-between hover:border-accent transition-colors group"
               >
                 <div className="flex items-center gap-3">
                   <Users size={18} className="text-accent" />
                   <div>
                     <p className="font-medium text-sm group-hover:text-accent transition-colors">Gestión de usuarios</p>
-                    <p className="text-muted text-xs mt-0.5">Aprobar clientes, asignar listas y precios especiales</p>
+                    <p className="text-gray-500 text-xs mt-0.5">Aprobar clientes, asignar listas y precios especiales</p>
                   </div>
                 </div>
-                <ArrowRight size={16} className="text-muted group-hover:text-accent transition-colors" />
+                <ArrowRight size={16} className="text-gray-400 group-hover:text-accent transition-colors" />
               </Link>
               <Link
                 to="/comercial/ventas"
-                className="bg-surface border border-border rounded-xl p-4 flex items-center justify-between hover:border-accent transition-colors group"
+                className="bg-white border border-[#D3D1C7] rounded-xl p-4 flex items-center justify-between hover:border-accent transition-colors group"
               >
                 <div className="flex items-center gap-3">
                   <BarChart2 size={18} className="text-accent" />
                   <div>
                     <p className="font-medium text-sm group-hover:text-accent transition-colors">Reporte de ventas</p>
-                    <p className="text-muted text-xs mt-0.5">Entregas, volumen por producto y ranking de clientes</p>
+                    <p className="text-gray-500 text-xs mt-0.5">Entregas, volumen por producto y ranking de clientes</p>
                   </div>
                 </div>
-                <ArrowRight size={16} className="text-muted group-hover:text-accent transition-colors" />
+                <ArrowRight size={16} className="text-gray-400 group-hover:text-accent transition-colors" />
               </Link>
               <Link
                 to="/admin/clima"
-                className="bg-surface border border-border rounded-xl p-4 flex items-center justify-between hover:border-accent transition-colors group"
+                className="bg-white border border-[#D3D1C7] rounded-xl p-4 flex items-center justify-between hover:border-accent transition-colors group"
               >
                 <div className="flex items-center gap-3">
                   <CloudSun size={18} className="text-accent" />
                   <div>
                     <p className="font-medium text-sm group-hover:text-accent transition-colors">Historial de clima</p>
-                    <p className="text-muted text-xs mt-0.5">Temperatura e historial de ventas por día</p>
+                    <p className="text-gray-500 text-xs mt-0.5">Temperatura e historial de ventas por día</p>
                   </div>
                 </div>
-                <ArrowRight size={16} className="text-muted group-hover:text-accent transition-colors" />
+                <ArrowRight size={16} className="text-gray-400 group-hover:text-accent transition-colors" />
               </Link>
             </section>
           </>
         )}
       </main>
-    </>
+    </div>
   )
 }
 
@@ -353,7 +353,7 @@ function TrackingMap({ orders }: { orders: Order[] }) {
     <section className="space-y-2">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-full bg-surface border border-border rounded-xl px-4 py-3 flex items-center justify-between hover:border-accent transition-colors text-sm"
+        className="w-full bg-white border border-[#D3D1C7] rounded-xl px-4 py-3 flex items-center justify-between hover:border-accent transition-colors text-sm"
       >
         <div className="flex items-center gap-2 font-medium">
           <MapPin size={15} className="text-accent" />
@@ -362,14 +362,14 @@ function TrackingMap({ orders }: { orders: Order[] }) {
             <span className="text-xs text-accent">· {drivers.length} chofer{drivers.length !== 1 ? 'es' : ''} activo{drivers.length !== 1 ? 's' : ''}</span>
           )}
           {activeOrders.length > 0 && (
-            <span className="text-xs text-muted">· {activeOrders.length} pedido{activeOrders.length !== 1 ? 's' : ''} en curso</span>
+            <span className="text-xs text-gray-500">· {activeOrders.length} pedido{activeOrders.length !== 1 ? 's' : ''} en curso</span>
           )}
         </div>
-        <span className="text-muted text-xs">{open ? '▲ Cerrar' : '▼ Ver mapa'}</span>
+        <span className="text-gray-500 text-xs">{open ? '▲ Cerrar' : '▼ Ver mapa'}</span>
       </button>
 
       {open && (
-        <div className="bg-surface border border-border rounded-xl overflow-hidden" style={{ height: 380 }}>
+        <div className="bg-white border border-[#D3D1C7] rounded-xl overflow-hidden" style={{ height: 380 }}>
           {!isLoaded ? (
             <div className="h-full flex items-center justify-center">
               <LoadingSpinner />
@@ -429,25 +429,25 @@ function OrderRow({ order, users }: { order: Order; users: UserProfile[] }) {
   const client = users.find((u) => u.uid === order.clientId)
 
   return (
-    <div className="bg-surface border border-border rounded-xl px-4 py-3 flex flex-wrap items-center gap-3 justify-between">
+    <div className="bg-white border border-[#D3D1C7] rounded-xl px-4 py-3 flex flex-wrap items-center gap-3 justify-between">
       <div className="min-w-0 flex-1 space-y-0.5">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="font-medium text-sm">{order.clientName}</span>
           {client?.razonSocial && client.razonSocial !== order.clientName && (
-            <span className="text-xs text-muted">{client.razonSocial}</span>
+            <span className="text-xs text-gray-500">{client.razonSocial}</span>
           )}
           <span className={`text-xs font-medium ${STATUS_COLOR[order.status]}`}>
             {STATUS_LABELS[order.status]}
           </span>
         </div>
-        <p className="text-xs text-muted truncate">{order.clientAddress}</p>
-        <p className="text-xs text-muted">{summarizeProducts(order.products)}</p>
+        <p className="text-xs text-gray-500 truncate">{order.clientAddress}</p>
+        <p className="text-xs text-gray-500">{summarizeProducts(order.products)}</p>
       </div>
       <div className="text-right space-y-0.5 shrink-0">
         {order.driverId && (
-          <p className="text-xs text-muted">{order.driverId}</p>
+          <p className="text-xs text-gray-500">{order.driverId}</p>
         )}
-        <Badge status={order.status} />
+        <Badge status={order.status} variant="light" />
       </div>
     </div>
   )
@@ -465,10 +465,10 @@ function StatCard({
   border: string
 }) {
   return (
-    <div className={`bg-surface border ${border} rounded-xl p-4 space-y-2`}>
+    <div className={`bg-white border ${border} rounded-xl p-4 space-y-2`}>
       <div className={color}>{icon}</div>
       <p className={`text-2xl font-bold ${color}`}>{value}</p>
-      <p className="text-muted text-xs">{label}</p>
+      <p className="text-gray-500 text-xs">{label}</p>
     </div>
   )
 }

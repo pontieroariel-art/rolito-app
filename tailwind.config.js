@@ -5,12 +5,14 @@ export default {
   theme: {
     extend: {
       colors: {
-        bg:      '#03160D',
-        accent:  '#2D6A4F',
-        success: '#52B788',
-        surface: '#081C11',
-        border:  '#1B4332',
-        muted:   '#40916C',
+        bg:           '#111110',
+        accent:       '#1D9E75',
+        success:      '#1D9E75',
+        surface:      '#1C1C1A',
+        border:       '#2C2C2A',
+        muted:        '#888780',
+        'warm-bg':    '#F1EFE8',
+        'warm-border':'#D3D1C7',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],

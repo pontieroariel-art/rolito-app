@@ -64,10 +64,10 @@ function exportCSV(rows: HistorialPrecioEvento[]) {
 
 function StatCard({ label, value, sub, color }: { label: string; value: string | number; sub?: string; color?: string }) {
   return (
-    <div className="bg-surface border border-border rounded-xl p-4 space-y-1">
-      <p className="text-xs text-muted">{label}</p>
-      <p className={`text-2xl font-bold ${color ?? 'text-white'}`}>{value}</p>
-      {sub && <p className="text-xs text-muted">{sub}</p>}
+    <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-1">
+      <p className="text-xs text-gray-500">{label}</p>
+      <p className={`text-2xl font-bold ${color ?? 'text-gray-900'}`}>{value}</p>
+      {sub && <p className="text-xs text-gray-500">{sub}</p>}
     </div>
   )
 }
@@ -82,62 +82,62 @@ function EventRow({ ev }: { ev: HistorialPrecioEvento }) {
   const expired = vigDate && vigDate < new Date()
 
   return (
-    <div className={`bg-surface border rounded-xl p-4 flex flex-wrap gap-3 items-start justify-between ${
-      big ? 'border-red-500/30' : 'border-border'
+    <div className={`bg-white border rounded-xl p-4 flex flex-wrap gap-3 items-start justify-between ${
+      big ? 'border-red-300' : 'border-[#D3D1C7]'
     }`}>
       <div className="min-w-0 space-y-1 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-base">{ev.tipo === 'lista' ? '📋' : '💰'}</span>
-          <p className="font-semibold text-sm">{ev.clientName}</p>
+          <p className="font-semibold text-sm text-gray-900">{ev.clientName}</p>
           <span className={`text-xs px-2 py-0.5 rounded-full border ${
             ev.tipo === 'lista'
               ? 'bg-accent/10 border-accent/30 text-accent'
-              : 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400'
+              : 'bg-amber-50 border-amber-200 text-amber-700'
           }`}>
             {ev.tipo === 'lista' ? 'Cambio de lista' : `Precio especial · ${ev.accion ?? ''}`}
           </span>
           {big && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/30 text-red-400 font-medium">
+            <span className="text-xs px-2 py-0.5 rounded-full bg-red-50 border border-red-200 text-red-600 font-medium">
               ⚠ variación &gt;20%
             </span>
           )}
         </div>
 
         {ev.tipo === 'lista' ? (
-          <p className="text-xs text-muted">
+          <p className="text-xs text-gray-500">
             <span className="line-through">{ev.listaAnteriorNombre ?? 'Sin lista'}</span>
             {' → '}
-            <span className="text-white font-medium">{ev.listaNuevaNombre ?? 'Sin lista'}</span>
+            <span className="text-gray-900 font-medium">{ev.listaNuevaNombre ?? 'Sin lista'}</span>
           </p>
         ) : (
-          <p className="text-xs text-muted">
-            <span className="text-white">{ev.productoNombre}</span>
+          <p className="text-xs text-gray-500">
+            <span className="text-gray-900">{ev.productoNombre}</span>
             {ev.accion !== 'eliminado' && ev.precioAnterior != null && ev.precioNuevo != null && (
               <>
                 {' '}
                 <span>${ev.precioAnterior.toLocaleString('es-AR')}</span>
                 {' → '}
-                <span className="text-white font-medium">${ev.precioNuevo.toLocaleString('es-AR')}</span>
+                <span className="text-gray-900 font-medium">${ev.precioNuevo.toLocaleString('es-AR')}</span>
                 {diff !== null && (
-                  <span className={`ml-1 font-bold ${big ? 'text-red-400' : diff > 0 ? 'text-orange-400' : 'text-success'}`}>
+                  <span className={`ml-1 font-bold ${big ? 'text-red-600' : diff > 0 ? 'text-amber-600' : 'text-success'}`}>
                     ({diff > 0 ? '+' : ''}{diff}%)
                   </span>
                 )}
               </>
             )}
             {ev.accion === 'eliminado' && (
-              <span className="text-red-400"> — eliminado (era ${(ev.precioAnterior ?? 0).toLocaleString('es-AR')})</span>
+              <span className="text-red-600"> — eliminado (era ${(ev.precioAnterior ?? 0).toLocaleString('es-AR')})</span>
             )}
           </p>
         )}
 
         <div className="flex items-center gap-3 flex-wrap">
           {ev.motivo && (
-            <p className="text-xs text-muted/70 italic">"{ev.motivo}"</p>
+            <p className="text-xs text-gray-400 italic">"{ev.motivo}"</p>
           )}
-          <p className="text-xs text-muted">por {ev.modificadoPorNombre}</p>
+          <p className="text-xs text-gray-500">por {ev.modificadoPorNombre}</p>
           {vigDate && (
-            <p className={`text-xs ${expired ? 'text-red-400' : 'text-accent/70'}`}>
+            <p className={`text-xs ${expired ? 'text-red-600' : 'text-accent/70'}`}>
               {expired ? '⚠ vigencia vencida' : `válido hasta ${fmtDate(vigDate)}`}
             </p>
           )}
@@ -145,8 +145,8 @@ function EventRow({ ev }: { ev: HistorialPrecioEvento }) {
       </div>
 
       <div className="text-right shrink-0">
-        <p className="text-xs text-muted">{fmtDate(fecha)}</p>
-        <p className="text-xs text-muted/50">{fecha.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</p>
+        <p className="text-xs text-gray-500">{fmtDate(fecha)}</p>
+        <p className="text-xs text-gray-400">{fecha.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</p>
       </div>
     </div>
   )
@@ -180,16 +180,16 @@ function ClienteChart({ eventos }: { eventos: HistorialPrecioEvento[] }) {
   })
 
   return (
-    <div className="bg-surface border border-border rounded-xl p-4 space-y-3">
-      <p className="text-sm font-semibold">Evolución de precios — {eventos[0]?.clientName}</p>
+    <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-3">
+      <p className="text-sm font-semibold text-gray-900">Evolución de precios — {eventos[0]?.clientName}</p>
       <ResponsiveContainer width="100%" height={220}>
         <LineChart data={rows} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#1e3a5f" />
+          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
           <XAxis dataKey="fecha" tick={{ fontSize: 10, fill: '#64748b' }} />
           <YAxis tick={{ fontSize: 10, fill: '#64748b' }} width={56}
             tickFormatter={(v) => `$${Number(v / 1000).toFixed(0)}k`} />
           <Tooltip
-            contentStyle={{ backgroundColor: '#0f1c30', border: '1px solid #1e3a5f', borderRadius: 8, fontSize: 12 }}
+            contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12, color: '#111' }}
             formatter={(v: any, name: any) => [`$${Number(v).toLocaleString('es-AR')}`, name as string]}
           />
           {productos.map((nombre, i) => (
@@ -277,20 +277,21 @@ export default function HistorialPreciosPage() {
 
   if (loading) return <><Navbar /><LoadingSpinner fullScreen /></>
   if (error) return (
-    <><Navbar />
+    <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
+      <Navbar />
       <main className="max-w-4xl mx-auto p-4 pt-10 text-center space-y-3">
         <p className="text-4xl">⚠️</p>
-        <p className="text-red-400 font-semibold">No se pudo cargar el historial</p>
-        <p className="text-muted text-sm">{error}</p>
+        <p className="text-red-600 font-semibold">No se pudo cargar el historial</p>
+        <p className="text-gray-500 text-sm">{error}</p>
         <button onClick={reload} className="mt-4 text-sm border border-accent text-accent rounded-lg px-4 py-2 hover:bg-accent/10 transition-colors">
           Reintentar
         </button>
       </main>
-    </>
+    </div>
   )
 
   return (
-    <>
+    <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
       <Navbar />
       <main className="max-w-4xl mx-auto p-4 space-y-6 pb-10">
 
@@ -298,18 +299,18 @@ export default function HistorialPreciosPage() {
         <div className="flex flex-wrap justify-between items-end gap-3">
           <div>
             <h1 className="text-2xl font-bold">Historial de precios</h1>
-            <p className="text-muted text-sm">Seguimiento de cambios por cliente</p>
+            <p className="text-gray-500 text-sm">Seguimiento de cambios por cliente</p>
           </div>
           <div className="flex gap-2">
             <button
               onClick={() => exportCSV(filtered)}
-              className="text-xs border border-border text-muted hover:text-white hover:border-accent rounded-lg px-3 py-1.5 transition-colors"
+              className="text-xs border border-[#D3D1C7] text-gray-500 hover:text-gray-900 hover:border-accent rounded-lg px-3 py-1.5 transition-colors"
             >
               ↓ Exportar CSV
             </button>
             <button
               onClick={reload}
-              className="text-xs border border-border text-muted hover:text-white hover:border-accent rounded-lg px-3 py-1.5 transition-colors"
+              className="text-xs border border-[#D3D1C7] text-gray-500 hover:text-gray-900 hover:border-accent rounded-lg px-3 py-1.5 transition-colors"
             >
               ↻ Actualizar
             </button>
@@ -321,22 +322,22 @@ export default function HistorialPreciosPage() {
           <StatCard label="Total cambios"   value={stats.total}    sub="en el período" />
           <StatCard label="Clientes"         value={stats.clientes} sub="con cambios" />
           <StatCard label="Alertas >20%"     value={stats.alertas}
-            color={stats.alertas > 0 ? 'text-red-400' : 'text-white'} sub="variaciones grandes" />
+            color={stats.alertas > 0 ? 'text-red-600' : 'text-gray-900'} sub="variaciones grandes" />
           <StatCard label="Mayor variación"
             value={stats.maxAumento > 0 ? `+${stats.maxAumento}%` : stats.maxBaja < 0 ? `${stats.maxBaja}%` : '—'}
-            color={stats.maxAumento > 20 ? 'text-red-400' : stats.maxBaja < -20 ? 'text-success' : 'text-white'}
+            color={stats.maxAumento > 20 ? 'text-red-600' : stats.maxBaja < -20 ? 'text-success' : 'text-gray-900'}
             sub="en precios custom" />
         </div>
 
         {/* Filtros */}
         <div className="flex flex-wrap gap-3 items-center">
           {/* Período */}
-          <div className="flex rounded-lg border border-border overflow-hidden text-xs">
+          <div className="flex rounded-lg border border-[#D3D1C7] overflow-hidden text-xs">
             {(['30d', '90d', '1y', 'all'] as Periodo[]).map((p) => (
               <button
                 key={p}
                 onClick={() => setPeriodo(p)}
-                className={`px-3 py-1.5 transition-colors ${periodo === p ? 'bg-accent text-bg font-semibold' : 'text-muted hover:text-white'}`}
+                className={`px-3 py-1.5 transition-colors ${periodo === p ? 'bg-accent text-white font-semibold' : 'text-gray-500 hover:text-gray-900'}`}
               >
                 {p === '30d' ? '30 días' : p === '90d' ? '3 meses' : p === '1y' ? '1 año' : 'Todo'}
               </button>
@@ -347,7 +348,7 @@ export default function HistorialPreciosPage() {
           <select
             value={tipoFilter}
             onChange={(e: ChangeEvent<HTMLSelectElement>) => setTipoFilter(e.target.value as any)}
-            className="bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-accent"
+            className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
           >
             <option value="all">Todos los tipos</option>
             <option value="lista">Solo listas</option>
@@ -359,7 +360,7 @@ export default function HistorialPreciosPage() {
             value={clientSearch}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setClientSearch(e.target.value)}
             placeholder="Buscar cliente…"
-            className="bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-white placeholder-muted focus:outline-none focus:ring-1 focus:ring-accent flex-1 min-w-40"
+            className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-accent flex-1 min-w-40"
           />
 
           {/* Solo alertas */}
@@ -370,13 +371,13 @@ export default function HistorialPreciosPage() {
               onChange={(e) => setSoloAlertas(e.target.checked)}
               className="w-4 h-4 accent-accent"
             />
-            <span className="text-muted text-xs">Solo alertas &gt;20%</span>
+            <span className="text-gray-500 text-xs">Solo alertas &gt;20%</span>
           </label>
 
           {(clientSearch || tipoFilter !== 'all' || soloAlertas) && (
             <button
               onClick={() => { setClientSearch(''); setTipoFilter('all'); setSoloAlertas(false) }}
-              className="text-xs text-muted hover:text-white"
+              className="text-xs text-gray-500 hover:text-gray-900"
             >
               Limpiar ✕
             </button>
@@ -386,13 +387,13 @@ export default function HistorialPreciosPage() {
         {/* Selector de cliente para ver gráfico */}
         {clientesUnicos.length > 0 && (
           <div className="flex items-center gap-3">
-            <span className="text-xs text-muted whitespace-nowrap">Ver evolución de:</span>
+            <span className="text-xs text-gray-500 whitespace-nowrap">Ver evolución de:</span>
             <select
               value={clienteDetalle ?? ''}
               onChange={(e: ChangeEvent<HTMLSelectElement>) =>
                 setClienteDetalle(e.target.value || null)
               }
-              className="bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-accent flex-1 max-w-xs"
+              className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent flex-1 max-w-xs"
             >
               <option value="">— Seleccioná un cliente —</option>
               {clientesUnicos.map(([id, name]) => (
@@ -410,15 +411,15 @@ export default function HistorialPreciosPage() {
         {/* Lista de eventos */}
         <section className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-muted uppercase tracking-wide">
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
               {filtered.length} cambio{filtered.length !== 1 ? 's' : ''}
             </h2>
           </div>
 
           {filtered.length === 0 ? (
-            <div className="bg-surface border border-border rounded-xl p-10 text-center">
+            <div className="bg-white border border-[#D3D1C7] rounded-xl p-10 text-center">
               <p className="text-3xl mb-3">🔍</p>
-              <p className="text-muted text-sm">No hay cambios con estos filtros</p>
+              <p className="text-gray-500 text-sm">No hay cambios con estos filtros</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -427,6 +428,6 @@ export default function HistorialPreciosPage() {
           )}
         </section>
       </main>
-    </>
+    </div>
   )
 }

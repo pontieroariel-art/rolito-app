@@ -48,7 +48,6 @@ export default function NewOrder() {
   const { lista }    = useListaPrecios(user?.listaPreciosId)
   const { catalogo } = useCatalogo()
 
-  // Build the product list from price list (if assigned) or catalog fallback
   const listaItems = lista
     ? lista.items
         .filter((i) => i.activo)
@@ -60,7 +59,6 @@ export default function NewOrder() {
         }))
     : []
 
-  // Si la lista no tiene items activos, cae al catálogo sin precios
   const displayProducts: DisplayProduct[] = listaItems.length > 0
     ? listaItems
     : catalogo.map((p) => ({ id: p.id, nombre: p.nombre, unidad: p.unidad }))
@@ -92,7 +90,6 @@ export default function NewOrder() {
     try {
       await createOrder({ user, products: selected, date, notes, address: deliveryAddress })
 
-      // Fire-and-forget — no bloquean la navegación
       const nombre       = (user.nombreContacto || user.nombre || '').split(' ')[0] || 'Cliente'
       const clientName   = user.razonSocial   || user.nombre   || ''
       const clientPhone  = user.telefono      || user.phone    || ''
@@ -130,27 +127,27 @@ export default function NewOrder() {
     setQuantities((q) => ({ ...q, [id]: Math.max(0, qty) }))
 
   return (
-    <>
+    <div className="min-h-screen bg-white text-gray-900">
       <Navbar />
       <main className="max-w-2xl mx-auto p-4 space-y-6 pb-10">
         <div>
-          <h1 className="text-2xl font-bold">Nuevo pedido</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Nuevo pedido</h1>
           {deliveryNombre ? (
             <p className="text-accent text-sm mt-1 font-medium">📍 {deliveryNombre}</p>
           ) : (
-            <p className="text-muted text-sm mt-1">Seleccioná los productos que necesitás</p>
+            <p className="text-gray-500 text-sm mt-1">Seleccioná los productos que necesitás</p>
           )}
         </div>
 
         {repeatOrder && (
-          <div className="bg-accent/10 border border-accent/30 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+          <div className="bg-[#E8F5F0] border border-[#B3DDD3] rounded-2xl px-4 py-3 flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-xs text-accent font-medium">Repetir pedido del {formatShortDate(repeatOrder.date)}</p>
-              <p className="text-sm text-white truncate mt-0.5">{summarizeProducts(repeatOrder.products)}</p>
+              <p className="text-sm text-gray-900 truncate mt-0.5">{summarizeProducts(repeatOrder.products)}</p>
             </div>
             <button
               onClick={() => setQuantities({})}
-              className="text-xs text-muted hover:text-white shrink-0 transition-colors"
+              className="text-xs text-gray-400 hover:text-gray-700 shrink-0 transition-colors"
             >
               Limpiar
             </button>
@@ -158,11 +155,11 @@ export default function NewOrder() {
         )}
 
         {!deliveryAddress && (
-          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 text-sm">
-            <p className="text-yellow-400 font-medium">⚠ Sin dirección de entrega</p>
-            <p className="text-yellow-400/70 mt-1">
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-sm">
+            <p className="text-amber-700 font-medium">⚠ Sin dirección de entrega</p>
+            <p className="text-amber-600/80 mt-1">
               Agregá una dirección en{' '}
-              <Link to="/perfil" className="underline hover:text-yellow-300">
+              <Link to="/perfil" className="underline hover:text-amber-700">
                 Mi perfil
               </Link>{' '}
               antes de hacer un pedido.
@@ -171,13 +168,13 @@ export default function NewOrder() {
         )}
 
         {!lista && user?.listaPreciosId === undefined && catalogo.length > 0 && (
-          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-3 text-sm text-yellow-400">
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-sm text-amber-700">
             Sin lista de precios asignada — los precios se confirmarán con el administrador.
           </div>
         )}
 
         <section className="space-y-2">
-          <h2 className="text-sm font-medium text-gray-300 mb-3">Productos</h2>
+          <h2 className="text-sm font-medium text-gray-500 mb-3 uppercase tracking-wide">Productos</h2>
           {displayProducts.map((p) => (
             <ProductRow
               key={p.id}
@@ -191,13 +188,13 @@ export default function NewOrder() {
         </section>
 
         {selected.length > 0 && (
-          <div className="bg-accent/5 border border-accent/20 rounded-xl p-4 text-sm space-y-2">
+          <div className="bg-[#E8F5F0] border border-[#B3DDD3] rounded-2xl p-4 text-sm space-y-2">
             <p className="text-accent font-medium">Seleccionado:</p>
-            <p className="text-white">{summarizeProducts(selected)}</p>
+            <p className="text-gray-900">{summarizeProducts(selected)}</p>
             {hasPrecios && total > 0 && (
-              <div className="flex justify-between items-center pt-2 border-t border-accent/20">
-                <span className="text-muted">Total estimado</span>
-                <span className="text-white font-bold text-base">
+              <div className="flex justify-between items-center pt-2 border-t border-[#B3DDD3]">
+                <span className="text-gray-500">Total estimado</span>
+                <span className="text-gray-900 font-bold text-base">
                   ${total.toLocaleString('es-AR')}
                 </span>
               </div>
@@ -206,37 +203,37 @@ export default function NewOrder() {
         )}
 
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-gray-300">Fecha de entrega</label>
+          <label className="text-sm font-medium text-gray-700">Fecha de entrega</label>
           <input
             type="date"
             value={date}
             min={today}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setDate(e.target.value)}
-            className="bg-surface border border-border rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-accent"
+            className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-accent"
           />
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-gray-300">Notas (opcional)</label>
+          <label className="text-sm font-medium text-gray-700">Notas (opcional)</label>
           <textarea
             value={notes}
             onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)}
             rows={3}
             placeholder="Horario preferido, instrucciones especiales..."
-            className="bg-surface border border-border rounded-lg px-3 py-2 text-white placeholder-muted resize-none focus:outline-none focus:ring-2 focus:ring-accent"
+            className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-accent"
           />
         </div>
 
         {error && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
-            <p className="text-red-400 text-sm">{error}</p>
+          <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            <p className="text-red-600 text-sm">{error}</p>
           </div>
         )}
 
         <Button
           onClick={() => setModal(true)}
           disabled={!canSubmit}
-          className="w-full"
+          className="w-full py-3.5"
         >
           Revisar y confirmar pedido
         </Button>
@@ -244,10 +241,10 @@ export default function NewOrder() {
         <Modal open={modal} onClose={() => setModal(false)} title="Confirmar pedido">
           <div className="space-y-4 text-sm">
             <div>
-              <p className="text-muted text-xs uppercase tracking-wide mb-2">Productos</p>
+              <p className="text-gray-400 text-xs uppercase tracking-wide mb-2">Productos</p>
               <div className="space-y-1">
                 {selected.map((p) => (
-                  <div key={p.name} className="flex justify-between">
+                  <div key={p.name} className="flex justify-between text-gray-900">
                     <span>{p.name}</span>
                     <span className="text-accent font-medium">x{p.quantity}</span>
                   </div>
@@ -255,20 +252,20 @@ export default function NewOrder() {
               </div>
             </div>
 
-            <div className="border-t border-border pt-3 space-y-2">
-              <div className="flex justify-between">
-                <span className="text-muted">Dirección</span>
+            <div className="border-t border-gray-100 pt-3 space-y-2">
+              <div className="flex justify-between text-gray-900">
+                <span className="text-gray-500">Dirección</span>
                 <span className="text-right max-w-[60%]">{deliveryAddress}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted">Fecha</span>
+              <div className="flex justify-between text-gray-900">
+                <span className="text-gray-500">Fecha</span>
                 <span>{new Date(date + 'T12:00:00').toLocaleDateString('es-AR', {
                   weekday: 'long', day: 'numeric', month: 'long',
                 })}</span>
               </div>
               {notes && (
-                <div className="flex justify-between">
-                  <span className="text-muted">Notas</span>
+                <div className="flex justify-between text-gray-900">
+                  <span className="text-gray-500">Notas</span>
                   <span className="text-right max-w-[60%] italic">{notes}</span>
                 </div>
               )}
@@ -285,7 +282,7 @@ export default function NewOrder() {
           </div>
         </Modal>
       </main>
-    </>
+    </div>
   )
 }
 
@@ -308,11 +305,11 @@ function ProductRow({
   }
 
   return (
-    <div className="bg-surface border border-border rounded-xl p-4 flex justify-between items-center">
+    <div className="bg-white border border-gray-200 rounded-2xl p-4 flex justify-between items-center">
       <div>
-        <p className="font-medium text-sm">{nombre}</p>
+        <p className="font-medium text-sm text-gray-900">{nombre}</p>
         {precio !== undefined && precio > 0 && (
-          <p className="text-xs text-muted mt-0.5">
+          <p className="text-xs text-gray-500 mt-0.5">
             ${precio.toLocaleString('es-AR')} / {unidad}
             {qty > 0 && (
               <span className="text-accent ml-2 font-medium">
@@ -326,7 +323,7 @@ function ProductRow({
         <button
           onClick={() => onChange(qty - 1)}
           disabled={qty === 0}
-          className="w-9 h-9 rounded-full bg-bg border border-border text-lg hover:border-accent transition-colors disabled:opacity-30 flex items-center justify-center"
+          className="w-9 h-9 rounded-full bg-white border border-gray-200 text-lg hover:border-accent transition-colors disabled:opacity-30 flex items-center justify-center text-gray-600"
         >
           −
         </button>
@@ -337,11 +334,11 @@ function ProductRow({
           value={qty > 0 ? String(qty) : ''}
           placeholder="0"
           onChange={handleInput}
-          className="w-12 text-center font-bold text-lg bg-transparent border-b border-border focus:outline-none focus:border-accent text-white placeholder-muted"
+          className="w-12 text-center font-bold text-lg bg-transparent border-b border-gray-200 focus:outline-none focus:border-accent text-gray-900 placeholder-gray-300"
         />
         <button
           onClick={() => onChange(qty + 1)}
-          className="w-9 h-9 rounded-full bg-bg border border-border text-lg hover:border-accent transition-colors flex items-center justify-center"
+          className="w-9 h-9 rounded-full bg-white border border-gray-200 text-lg hover:border-accent transition-colors flex items-center justify-center text-gray-600"
         >
           +
         </button>

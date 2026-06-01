@@ -8,15 +8,15 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variants: Record<ButtonVariant, string> = {
-  primary: 'bg-accent text-bg hover:bg-accent/90 focus:ring-accent/50',
+  primary: 'bg-accent text-white hover:bg-accent/90 focus:ring-accent/50',
   outline: 'border border-accent text-accent hover:bg-accent/10 focus:ring-accent/50',
   danger:  'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500/50',
-  ghost:   'text-muted hover:text-white hover:bg-surface',
-  success: 'bg-success text-bg hover:bg-success/90 focus:ring-success/50',
+  ghost:   'text-muted hover:text-[#D3D1C7] hover:bg-surface',
+  success: 'bg-accent text-white hover:bg-accent/90 focus:ring-accent/50',
 }
 
 const base =
-  'inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium transition-all focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed'
+  'inline-flex items-center justify-center gap-2 px-4 py-2 rounded-[10px] font-medium transition-all focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed'
 
 export default function Button({
   children,

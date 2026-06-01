@@ -146,7 +146,7 @@ export default function ReportePreciosPage() {
   const loading = loadingUsuarios || loadingListas
 
   return (
-    <>
+    <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
       <Navbar />
       <main className="max-w-full px-4 pb-10 space-y-6">
 
@@ -154,14 +154,14 @@ export default function ReportePreciosPage() {
         <div className="max-w-5xl mx-auto pt-6 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold">Reporte de precios</h1>
-            <p className="text-muted text-sm mt-1">
+            <p className="text-gray-500 text-sm mt-1">
               {clientes.length} clientes activos · {productosActivos.length} productos
             </p>
           </div>
           <div className="flex items-center gap-3">
             <button
               onClick={() => refetch()}
-              className="text-muted hover:text-white transition-colors"
+              className="text-gray-500 hover:text-gray-900 transition-colors"
               title="Actualizar"
             >
               <RefreshCw size={16} />
@@ -191,18 +191,18 @@ export default function ReportePreciosPage() {
             </div>
 
             {/* Tabla */}
-            <div className="overflow-x-auto rounded-2xl border border-border">
+            <div className="overflow-x-auto rounded-2xl border border-[#D3D1C7]">
               <table className="text-sm border-collapse min-w-max w-full">
                 <thead>
-                  <tr className="bg-surface border-b border-border">
-                    <th className="sticky left-0 z-10 bg-surface px-4 py-3 text-left font-semibold text-white whitespace-nowrap border-r border-border">
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="sticky left-0 z-10 bg-gray-50 px-4 py-3 text-left font-semibold text-gray-900 whitespace-nowrap border-r border-gray-200">
                       Cliente
                     </th>
-                    <th className="px-4 py-3 text-left font-semibold text-muted whitespace-nowrap border-r border-border/50">
+                    <th className="px-4 py-3 text-left font-semibold text-gray-500 whitespace-nowrap border-r border-gray-200">
                       Lista
                     </th>
                     {productosActivos.map((p) => (
-                      <th key={p.id} className="px-4 py-3 text-right font-semibold text-muted whitespace-nowrap">
+                      <th key={p.id} className="px-4 py-3 text-right font-semibold text-gray-500 whitespace-nowrap">
                         {p.name}
                       </th>
                     ))}
@@ -214,25 +214,25 @@ export default function ReportePreciosPage() {
                     return (
                       <tr
                         key={c.uid}
-                        className={`border-b border-border/50 hover:bg-surface/60 transition-colors ${
-                          i % 2 === 0 ? 'bg-bg/30' : ''
+                        className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${
+                          i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
                         }`}
                       >
-                        <td className="sticky left-0 z-10 bg-inherit px-4 py-2.5 font-medium text-white whitespace-nowrap border-r border-border">
+                        <td className="sticky left-0 z-10 bg-inherit px-4 py-2.5 font-medium text-gray-900 whitespace-nowrap border-r border-gray-200">
                           <div>
                             <p className="text-sm">{c.razonSocial || c.nombreContacto || c.email}</p>
                             {c.razonSocial && c.nombreContacto && (
-                              <p className="text-xs text-muted">{c.nombreContacto}</p>
+                              <p className="text-xs text-gray-500">{c.nombreContacto}</p>
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-2.5 whitespace-nowrap border-r border-border/50">
+                        <td className="px-4 py-2.5 whitespace-nowrap border-r border-gray-100">
                           {listaNombre ? (
                             <span className="text-xs px-2 py-0.5 rounded-full bg-accent/10 text-accent border border-accent/20">
                               {listaNombre}
                             </span>
                           ) : (
-                            <span className="text-xs text-muted/50">Sin lista</span>
+                            <span className="text-xs text-gray-300">Sin lista</span>
                           )}
                         </td>
                         {productosActivos.map((p) => {
@@ -242,8 +242,8 @@ export default function ReportePreciosPage() {
                               key={p.id}
                               className={`px-4 py-2.5 text-right tabular-nums whitespace-nowrap ${
                                 esCustom
-                                  ? 'text-yellow-400 font-semibold'
-                                  : precio !== null ? 'text-white' : 'text-muted/30'
+                                  ? 'text-amber-600 font-semibold'
+                                  : precio !== null ? 'text-gray-900' : 'text-gray-200'
                               }`}
                             >
                               {precio !== null ? (
@@ -261,10 +261,10 @@ export default function ReportePreciosPage() {
 
                   {/* Fila de promedio */}
                   <tr className="border-t-2 border-accent/30 bg-accent/5">
-                    <td className="sticky left-0 z-10 bg-surface px-4 py-3 font-bold text-accent whitespace-nowrap border-r border-border">
+                    <td className="sticky left-0 z-10 bg-white px-4 py-3 font-bold text-accent whitespace-nowrap border-r border-gray-200">
                       Precio promedio
                     </td>
-                    <td className="px-4 py-3 border-r border-border/50" />
+                    <td className="px-4 py-3 border-r border-gray-100" />
                     {productosActivos.map((p) => (
                       <td key={p.id} className="px-4 py-3 text-right font-bold text-accent tabular-nums whitespace-nowrap">
                         {promedios[p.id] !== null ? formatPrecio(promedios[p.id]!) : '—'}
@@ -275,21 +275,21 @@ export default function ReportePreciosPage() {
               </table>
             </div>
 
-            <p className="text-xs text-muted text-center">
+            <p className="text-xs text-gray-500 text-center">
               ★ precio especial (sobreescribe el de lista)
             </p>
           </>
         )}
       </main>
-    </>
+    </div>
   )
 }
 
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="bg-surface border border-border rounded-xl p-4 text-center">
-      <p className="text-2xl font-bold text-white">{value}</p>
-      <p className="text-xs text-muted mt-1">{label}</p>
+    <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 text-center">
+      <p className="text-2xl font-bold text-gray-900">{value}</p>
+      <p className="text-xs text-gray-500 mt-1">{label}</p>
     </div>
   )
 }
