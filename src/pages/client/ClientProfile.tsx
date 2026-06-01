@@ -12,9 +12,9 @@ import { auth } from '../../services/firebase'
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between items-start gap-3 py-2 border-b border-border/40 last:border-0">
-      <span className="text-xs text-muted shrink-0">{label}</span>
-      <span className="text-sm text-white text-right">{value || '—'}</span>
+    <div className="flex justify-between items-start gap-3 py-2 border-b border-gray-100 last:border-0">
+      <span className="text-xs text-gray-500 shrink-0">{label}</span>
+      <span className="text-sm text-gray-900 text-right">{value || '—'}</span>
     </div>
   )
 }
@@ -75,26 +75,26 @@ export default function ClientProfile() {
   }
 
   return (
-    <>
+    <div className="min-h-screen bg-white text-gray-900">
       <Navbar />
       <main className="max-w-xl mx-auto p-4 space-y-8 pb-10">
 
         <div>
-          <h1 className="text-2xl font-bold">Mi perfil</h1>
-          <p className="text-muted text-sm mt-1">{user.email}</p>
+          <h1 className="text-2xl font-bold text-gray-900">Mi perfil</h1>
+          <p className="text-gray-500 text-sm mt-1">{user.email}</p>
         </div>
 
         {/* ── Datos del cliente (solo lectura) ────────────────────────────── */}
         <section className="space-y-3">
           <h2 className="text-lg font-semibold">Datos del cliente</h2>
-          <div className="bg-surface border border-border rounded-2xl p-5 space-y-0">
+          <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-0">
             <Row label="Razón social"      value={user.razonSocial || '—'} />
             <Row label="Nombre de contacto" value={user.nombreContacto || user.nombre || '—'} />
             <Row label="Teléfono"          value={user.telefono || user.phone || '—'} />
             <Row label="Email"             value={user.email} />
             {user.cuit && <Row label="CUIT" value={formatCuit(user.cuit)} />}
           </div>
-          <p className="text-xs text-muted/60 px-1">
+          <p className="text-xs text-gray-400 px-1">
             Para actualizar tus datos, contactá con el equipo de Rolito.
           </p>
         </section>
@@ -107,7 +107,7 @@ export default function ClientProfile() {
             </h2>
             <div className="space-y-3">
               {user.addresses!.map((addr) => (
-                <div key={addr.id} className="bg-surface border border-border rounded-xl p-4 space-y-2">
+                <div key={addr.id} className="bg-white border border-gray-200 rounded-xl p-4 space-y-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-medium text-sm">{addr.nombre}</p>
                     {addr.esPrincipal && (
@@ -116,17 +116,17 @@ export default function ClientProfile() {
                       </span>
                     )}
                   </div>
-                  <p className="text-muted text-xs">{addr.address}</p>
+                  <p className="text-gray-500 text-xs">{addr.address}</p>
                   {isLoaded && addr.lat && addr.lng && (
                     <AddressMapMini lat={addr.lat} lng={addr.lng} />
                   )}
                   {addr.horarioApertura && addr.horarioCierre && (
-                    <p className="text-muted text-xs">
+                    <p className="text-gray-500 text-xs">
                       Horario: {addr.horarioApertura} – {addr.horarioCierre}
                     </p>
                   )}
                   {addr.contactoNombre && (
-                    <p className="text-muted text-xs">
+                    <p className="text-gray-500 text-xs">
                       Contacto: {addr.contactoNombre}
                       {addr.contactoTelefono && ` · ${addr.contactoTelefono}`}
                     </p>
@@ -142,7 +142,7 @@ export default function ClientProfile() {
           <h2 className="text-lg font-semibold">Cambiar contraseña</h2>
           <form
             onSubmit={handlePasswordChange}
-            className="bg-surface border border-border rounded-2xl p-5 space-y-4"
+            className="bg-white border border-gray-200 rounded-2xl p-5 space-y-4"
           >
             <Input
               label="Contraseña actual"
@@ -190,7 +190,7 @@ export default function ClientProfile() {
         </section>
 
         {/* ── Info de cuenta ───────────────────────────────────────────────── */}
-        <div className="bg-surface border border-border rounded-xl p-4 text-sm space-y-1.5">
+        <div className="bg-white border border-gray-200 rounded-xl p-4 text-sm space-y-1.5">
           <Row label="Estado"         value={user.estado === 'activo' ? 'Activo' : user.estado} />
           {user.fechaCreacion && (
             <Row label="Cuenta creada" value={user.fechaCreacion.toDate().toLocaleDateString('es-AR')} />
@@ -207,16 +207,16 @@ export default function ClientProfile() {
             {loadingLista ? (
               <LoadingSpinner />
             ) : lista ? (
-              <div className="bg-surface border border-border rounded-xl overflow-hidden">
-                <div className="px-4 py-3 border-b border-border">
-                  <p className="text-sm font-medium">{lista.nombre}</p>
-                  <p className="text-xs text-muted mt-0.5">Precios vigentes para tu cuenta</p>
+              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <div className="px-4 py-3 border-b border-gray-200">
+                  <p className="text-sm font-medium text-gray-900">{lista.nombre}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Precios vigentes para tu cuenta</p>
                 </div>
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-border/60">
-                      <th className="text-left text-xs text-muted font-medium px-4 py-2.5">Producto</th>
-                      <th className="text-right text-xs text-muted font-medium px-4 py-2.5">Precio</th>
+                    <tr className="border-b border-gray-100">
+                      <th className="text-left text-xs text-gray-500 font-medium px-4 py-2.5">Producto</th>
+                      <th className="text-right text-xs text-gray-500 font-medium px-4 py-2.5">Precio</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -224,11 +224,11 @@ export default function ClientProfile() {
                       const custom = user.preciosCustom?.[item.productoId]
                       const precio = custom ?? item.precio
                       return (
-                        <tr key={item.productoId} className="border-b border-border/30 last:border-0">
+                        <tr key={item.productoId} className="border-b border-gray-100 last:border-0">
                           <td className="px-4 py-3">
-                            <p className="font-medium">{item.nombre}</p>
+                            <p className="font-medium text-gray-900">{item.nombre}</p>
                             {item.unidad && (
-                              <p className="text-xs text-muted">por {item.unidad}</p>
+                              <p className="text-xs text-gray-500">por {item.unidad}</p>
                             )}
                           </td>
                           <td className="px-4 py-3 text-right">
@@ -236,7 +236,7 @@ export default function ClientProfile() {
                               ${precio.toLocaleString('es-AR')}
                             </span>
                             {custom !== undefined && (
-                              <p className="text-xs text-yellow-400 mt-0.5">precio especial</p>
+                              <p className="text-xs text-amber-600 mt-0.5">precio especial</p>
                             )}
                           </td>
                         </tr>
@@ -250,6 +250,6 @@ export default function ClientProfile() {
         )}
 
       </main>
-    </>
+    </div>
   )
 }

@@ -48,15 +48,15 @@ function KpiCard({
 }: { label: string; value: number; prev: number; unit?: string }) {
   const delta = pct(value, prev)
   return (
-    <div className="bg-surface border border-border rounded-xl p-4 space-y-1">
-      <p className="text-xs text-muted uppercase tracking-wide">{label}</p>
-      <p className="text-3xl font-bold">{value.toLocaleString('es-AR')}{unit}</p>
+    <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-1">
+      <p className="text-xs text-gray-500 uppercase tracking-wide">{label}</p>
+      <p className="text-3xl font-bold text-gray-900">{value.toLocaleString('es-AR')}{unit}</p>
       {delta !== null && (
-        <p className={`text-xs font-medium ${delta >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+        <p className={`text-xs font-medium ${delta >= 0 ? 'text-green-600' : 'text-red-600'}`}>
           {delta >= 0 ? '▲' : '▼'} {Math.abs(delta)}% vs mes anterior
         </p>
       )}
-      {delta === null && <p className="text-xs text-muted">Sin datos del mes anterior</p>}
+      {delta === null && <p className="text-xs text-gray-500">Sin datos del mes anterior</p>}
     </div>
   )
 }
@@ -181,7 +181,7 @@ export default function ReporteVentasPage() {
   }
 
   return (
-    <>
+    <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
       <Navbar />
       <main className="max-w-4xl mx-auto p-4 space-y-6 pb-10">
 
@@ -189,26 +189,26 @@ export default function ReporteVentasPage() {
         <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold">Reporte de ventas</h1>
-            <p className="text-muted text-sm mt-0.5 capitalize">{monthLabel}</p>
+            <p className="text-gray-500 text-sm mt-0.5 capitalize">{monthLabel}</p>
           </div>
           <div className="flex items-center gap-1">
             <button
               onClick={prevMonth}
-              className="p-2 rounded-lg hover:bg-surface border border-transparent hover:border-border transition-colors"
+              className="p-2 rounded-lg hover:bg-white border border-transparent hover:border-gray-200 transition-colors"
             >
               <ChevronLeft size={18} />
             </button>
             <button
               onClick={nextMonth}
               disabled={isCurrentMonth}
-              className="p-2 rounded-lg hover:bg-surface border border-transparent hover:border-border transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              className="p-2 rounded-lg hover:bg-white border border-transparent hover:border-gray-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <ChevronRight size={18} />
             </button>
             <button
               onClick={exportExcel}
               disabled={isLoading || delivered.length === 0}
-              className="ml-2 flex items-center gap-2 bg-surface border border-border rounded-lg px-3 py-2 text-sm hover:border-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="ml-2 flex items-center gap-2 bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm hover:border-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Download size={14} />
               Exportar
@@ -225,19 +225,19 @@ export default function ReporteVentasPage() {
             </section>
 
             {delivered.length === 0 ? (
-              <div className="bg-surface border border-border rounded-xl p-8 text-center text-muted text-sm">
+              <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center text-gray-500 text-sm">
                 No hay entregas registradas en {monthLabel}
               </div>
             ) : (
               <>
                 {/* Daily trend chart */}
-                <section className="bg-surface border border-border rounded-xl p-4 space-y-3">
-                  <h2 className="text-xs font-semibold text-muted uppercase tracking-wide">
+                <section className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-3">
+                  <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
                     Tendencia diaria — unidades entregadas
                   </h2>
                   <ResponsiveContainer width="100%" height={200}>
                     <BarChart data={dailyTrend} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#1e3a5f" vertical={false} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
                       <XAxis
                         dataKey="day"
                         tick={{ fill: '#6b7280', fontSize: 11 }}
@@ -252,36 +252,36 @@ export default function ReporteVentasPage() {
                         allowDecimals={false}
                       />
                       <Tooltip
-                        contentStyle={{ background: '#0d1f35', border: '1px solid #1e3a5f', borderRadius: 8, fontSize: 12 }}
+                        contentStyle={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12, color: '#111' }}
                         labelFormatter={(v) => `Día ${v}`}
                         formatter={(v: any) => [`${v} u.`, 'Entregadas']}
-                        cursor={{ fill: '#1e3a5f55' }}
+                        cursor={{ fill: '#e5e7eb55' }}
                       />
-                      <Bar dataKey="kg" fill="#3b82f6" radius={[3, 3, 0, 0]} maxBarSize={28} />
+                      <Bar dataKey="kg" fill="#1D9E75" radius={[3, 3, 0, 0]} maxBarSize={28} />
                     </BarChart>
                   </ResponsiveContainer>
                 </section>
 
                 {/* By product */}
                 {byProduct.length > 0 && (
-                  <section className="bg-surface border border-border rounded-xl p-4 space-y-3">
-                    <h2 className="text-xs font-semibold text-muted uppercase tracking-wide">
+                  <section className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-3">
+                    <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
                       Unidades por producto
                     </h2>
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b border-border">
-                          <th className="text-left text-muted text-xs py-2 font-medium">Producto</th>
-                          <th className="text-right text-muted text-xs py-2 font-medium">Unidades</th>
-                          <th className="text-right text-muted text-xs py-2 font-medium">%</th>
+                        <tr className="border-b border-gray-200">
+                          <th className="text-left text-gray-500 text-xs py-2 font-medium">Producto</th>
+                          <th className="text-right text-gray-500 text-xs py-2 font-medium">Unidades</th>
+                          <th className="text-right text-gray-500 text-xs py-2 font-medium">%</th>
                         </tr>
                       </thead>
                       <tbody>
                         {byProduct.map((p) => (
-                          <tr key={p.id} className="border-b border-border/40 last:border-0">
+                          <tr key={p.id} className="border-b border-gray-100 last:border-0">
                             <td className="py-2">{p.name}</td>
                             <td className="py-2 text-right font-medium">{p.qty.toLocaleString('es-AR')}</td>
-                            <td className="py-2 text-right text-muted">
+                            <td className="py-2 text-right text-gray-500">
                               {totalKg > 0 ? Math.round((p.qty / totalKg) * 100) : 0}%
                             </td>
                           </tr>
@@ -293,25 +293,25 @@ export default function ReporteVentasPage() {
 
                 {/* Top clients */}
                 {topClients.length > 0 && (
-                  <section className="bg-surface border border-border rounded-xl p-4 space-y-3">
-                    <h2 className="text-xs font-semibold text-muted uppercase tracking-wide">
+                  <section className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-3">
+                    <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
                       Clientes — mayor volumen
                     </h2>
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b border-border">
-                          <th className="text-left text-muted text-xs py-2 font-medium">#</th>
-                          <th className="text-left text-muted text-xs py-2 font-medium">Cliente</th>
-                          <th className="text-right text-muted text-xs py-2 font-medium">Pedidos</th>
-                          <th className="text-right text-muted text-xs py-2 font-medium">Unidades</th>
+                        <tr className="border-b border-gray-200">
+                          <th className="text-left text-gray-500 text-xs py-2 font-medium">#</th>
+                          <th className="text-left text-gray-500 text-xs py-2 font-medium">Cliente</th>
+                          <th className="text-right text-gray-500 text-xs py-2 font-medium">Pedidos</th>
+                          <th className="text-right text-gray-500 text-xs py-2 font-medium">Unidades</th>
                         </tr>
                       </thead>
                       <tbody>
                         {topClients.map((c, i) => (
-                          <tr key={i} className="border-b border-border/40 last:border-0">
-                            <td className="py-2 text-muted">{i + 1}</td>
+                          <tr key={i} className="border-b border-gray-100 last:border-0">
+                            <td className="py-2 text-gray-500">{i + 1}</td>
                             <td className="py-2 font-medium">{c.name}</td>
-                            <td className="py-2 text-right text-muted">{c.orders}</td>
+                            <td className="py-2 text-right text-gray-500">{c.orders}</td>
                             <td className="py-2 text-right font-medium">{c.qty.toLocaleString('es-AR')}</td>
                           </tr>
                         ))}
@@ -324,6 +324,6 @@ export default function ReporteVentasPage() {
           </>
         )}
       </main>
-    </>
+    </div>
   )
 }

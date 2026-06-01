@@ -38,9 +38,9 @@ const ROLE_LABELS: Record<UserRole, string> = {
 }
 
 const STATUS_STYLES: Record<UserStatus, string> = {
-  activo:    'bg-green-500/20 text-green-400 border-green-500/30',
-  inactivo:  'bg-red-500/20 text-red-400 border-red-500/30',
-  pendiente: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+  activo:    'bg-green-100 text-green-700 border-green-200',
+  inactivo:  'bg-red-100 text-red-700 border-red-200',
+  pendiente: 'bg-yellow-100 text-amber-700 border-yellow-200',
 }
 
 const STATUS_LABELS: Record<UserStatus, string> = {
@@ -133,17 +133,17 @@ export default function UserManagement() {
   if (loading) return <><Navbar /><LoadingSpinner fullScreen /></>
 
   return (
-    <>
+    <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
       <Navbar />
       <main className="max-w-5xl mx-auto p-4 space-y-6 pb-10">
         <div className="flex flex-wrap justify-between items-center gap-3">
           <div>
-            <h1 className="text-2xl font-bold">Gestión de usuarios</h1>
-            <p className="text-muted text-sm">{users.length} usuarios en total</p>
+            <h1 className="text-2xl font-bold text-gray-900">Gestión de usuarios</h1>
+            <p className="text-gray-500 text-sm">{users.length} usuarios en total</p>
           </div>
           <div className="flex items-center gap-3">
             {pendingCount > 0 && ['super_admin', 'gerente_comercial'].includes(currentUser?.rol ?? '') && (
-              <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-4 py-2 text-sm text-yellow-400">
+              <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-2 text-sm text-amber-700">
                 {pendingCount} borrador{pendingCount > 1 ? 'es' : ''} pendiente{pendingCount > 1 ? 's' : ''}
               </div>
             )}
@@ -164,7 +164,7 @@ export default function UserManagement() {
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-border gap-1">
+        <div className="flex border-b border-gray-200 gap-1">
           {(['clientes', 'equipo'] as const).map((t) => (
             <button
               key={t}
@@ -172,7 +172,7 @@ export default function UserManagement() {
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
                 tab === t
                   ? 'border-accent text-accent'
-                  : 'border-transparent text-muted hover:text-white'
+                  : 'border-transparent text-gray-400 hover:text-gray-900'
               }`}
             >
               {t === 'clientes'
@@ -188,14 +188,14 @@ export default function UserManagement() {
             value={search}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
             placeholder="Buscar por nombre o email..."
-            className="bg-surface border border-border rounded-lg px-3 py-2 text-white placeholder-muted text-sm flex-1 min-w-48 focus:outline-none focus:ring-2 focus:ring-accent"
+            className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 placeholder-gray-400 text-sm flex-1 min-w-48 focus:outline-none focus:ring-2 focus:ring-accent"
           />
           <select
             value={statusFilter}
             onChange={(e: ChangeEvent<HTMLSelectElement>) =>
               setStatusFilter(e.target.value as UserStatus | 'all')
             }
-            className="bg-surface border border-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+            className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
           >
             <option value="all">Todos los estados</option>
             {ALL_STATUSES.map((s) => (
@@ -205,7 +205,7 @@ export default function UserManagement() {
           {(search || statusFilter !== 'all') && (
             <button
               onClick={() => { setSearch(''); setStatusFilter('all') }}
-              className="text-sm text-muted hover:text-white px-3 py-2"
+              className="text-sm text-gray-400 hover:text-gray-900 px-3 py-2"
             >
               Limpiar ✕
             </button>
@@ -220,8 +220,8 @@ export default function UserManagement() {
               onClick={() => setStatusFilter(s)}
               className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                 statusFilter === s
-                  ? 'bg-accent text-bg border-accent'
-                  : 'border-border text-muted hover:border-accent hover:text-white'
+                  ? 'bg-accent text-white border-accent'
+                  : 'border-[#D3D1C7] text-gray-500 hover:border-accent/50 hover:text-gray-900'
               }`}
             >
               {s === 'all'
@@ -234,8 +234,8 @@ export default function UserManagement() {
         {/* Lista */}
         <div className="space-y-3">
           {filtered.length === 0 ? (
-            <div className="bg-surface border border-border rounded-xl p-8 text-center">
-              <p className="text-muted text-sm">No hay usuarios con estos filtros</p>
+            <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center">
+              <p className="text-gray-500 text-sm">No hay usuarios con estos filtros</p>
             </div>
           ) : (
             filtered.map((u) => (
@@ -269,7 +269,7 @@ export default function UserManagement() {
           currentUserRol={currentUser?.rol}
         />
       )}
-    </>
+    </div>
   )
 }
 
@@ -572,7 +572,7 @@ function UserRow({ user, currentUser, listas, onRoleChange, onToggleStatus, onAp
   const customCount   = Object.keys(user.preciosCustom ?? {}).length
 
   return (
-    <div className="bg-surface border border-border rounded-xl p-4 space-y-3">
+    <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-3">
       <div className="flex flex-wrap gap-4 items-center justify-between">
         {/* Info — clickeable para ver ficha completa */}
         <button
@@ -581,24 +581,24 @@ function UserRow({ user, currentUser, listas, onRoleChange, onToggleStatus, onAp
         >
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <p className="font-semibold text-sm group-hover:text-accent transition-colors">
+              <p className="font-semibold text-sm text-gray-900 group-hover:text-accent transition-colors">
                 {user.razonSocial || user.nombre || '(sin nombre)'}
               </p>
-              {isSelf && <span className="text-xs text-muted">(vos)</span>}
+              {isSelf && <span className="text-xs text-gray-500">(vos)</span>}
               <span
                 className={`text-xs px-2 py-0.5 rounded-full border font-medium whitespace-nowrap
-                  ${STATUS_STYLES[user.estado] ?? 'bg-muted/20 text-muted border-muted/30'}`}
+                  ${STATUS_STYLES[user.estado] ?? 'bg-gray-100 text-gray-500 border-gray-200'}`}
               >
                 {STATUS_LABELS[user.estado] ?? user.estado}
               </span>
               {customCount > 0 && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-500/15 border border-yellow-500/30 text-yellow-400 font-medium flex items-center gap-1">
+                <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 border border-yellow-200 text-amber-700 font-medium flex items-center gap-1">
                   <Tag size={10} />
                   {customCount} precio{customCount !== 1 ? 's' : ''} especial{customCount !== 1 ? 'es' : ''}
                 </span>
               )}
               {user.esVisita && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-violet-500/15 border border-violet-500/30 text-violet-400 font-medium flex items-center gap-1">
+                <span className="text-xs px-2 py-0.5 rounded-full bg-violet-100 border border-violet-200 text-violet-700 font-medium flex items-center gap-1">
                   <Navigation size={10} />
                   visita
                 </span>
@@ -609,7 +609,7 @@ function UserRow({ user, currentUser, listas, onRoleChange, onToggleStatus, onAp
                 const diffDays = Math.floor((Date.now() - d.getTime()) / 86400000)
                 if (diffDays > 7) return null
                 return (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-orange-500/15 border border-orange-500/30 text-orange-400 font-medium flex items-center gap-1">
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 border border-orange-200 text-orange-700 font-medium flex items-center gap-1">
                     <Clock size={10} />
                     precio actualizado
                   </span>
@@ -617,10 +617,10 @@ function UserRow({ user, currentUser, listas, onRoleChange, onToggleStatus, onAp
               })()}
             </div>
             {user.username
-              ? <p className="text-muted text-xs mt-0.5">@{user.username}</p>
-              : <p className="text-muted text-xs mt-0.5 truncate">{user.email}</p>
+              ? <p className="text-gray-500 text-xs mt-0.5">@{user.username}</p>
+              : <p className="text-gray-500 text-xs mt-0.5 truncate">{user.email}</p>
             }
-            {user.cuit && <p className="text-muted text-xs mt-0.5">CUIT: {user.cuit}</p>}
+            {user.cuit && <p className="text-gray-500 text-xs mt-0.5">CUIT: {user.cuit}</p>}
             {user.codigoCliente && (
               <p className="text-muted text-xs mt-0.5 flex items-center gap-1">
                 <Hash size={9} className="shrink-0" />
@@ -643,7 +643,7 @@ function UserRow({ user, currentUser, listas, onRoleChange, onToggleStatus, onAp
         {/* Acciones */}
         <div className="flex flex-wrap gap-2 items-center shrink-0">
           {user.rol === 'cliente' ? (
-            <span className="bg-bg border border-border rounded-lg px-2 py-1.5 text-sm text-muted">
+            <span className="bg-gray-100 border border-[#D3D1C7] rounded-lg px-2 py-1.5 text-sm text-gray-500">
               Cliente
             </span>
           ) : canChangeRole ? (
@@ -653,14 +653,14 @@ function UserRow({ user, currentUser, listas, onRoleChange, onToggleStatus, onAp
               onChange={(e: ChangeEvent<HTMLSelectElement>) =>
                 run(() => onRoleChange(user.uid, e.target.value as UserRole))
               }
-              className="bg-bg border border-border rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-white border border-[#D3D1C7] rounded-lg px-2 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {ALL_ROLES.filter((r) => r !== 'cliente').map((r) => (
                 <option key={r} value={r}>{ROLE_LABELS[r]}</option>
               ))}
             </select>
           ) : (
-            <span className="bg-bg border border-border rounded-lg px-2 py-1.5 text-sm text-muted">
+            <span className="bg-gray-100 border border-[#D3D1C7] rounded-lg px-2 py-1.5 text-sm text-gray-500">
               {ROLE_LABELS[user.rol]}
             </span>
           )}
@@ -687,14 +687,14 @@ function UserRow({ user, currentUser, listas, onRoleChange, onToggleStatus, onAp
 
       {/* Fila de precios — solo para clientes y roles con acceso a precios */}
       {user.rol === 'cliente' && canManagePrices && (
-        <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-border/50">
+        <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-gray-100">
           <div className="flex items-center gap-2 flex-1 min-w-0">
-            <span className="text-xs text-muted whitespace-nowrap">Canal / lista:</span>
+            <span className="text-xs text-gray-500 whitespace-nowrap">Canal / lista:</span>
             <select
               value={user.listaPreciosId ?? ''}
               disabled={busy}
               onChange={(e: ChangeEvent<HTMLSelectElement>) => handleListaChange(e.target.value)}
-              className="bg-bg border border-border rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-accent flex-1 min-w-0 max-w-xs disabled:opacity-50"
+              className="bg-white border border-[#D3D1C7] rounded-lg px-2 py-1 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent flex-1 min-w-0 max-w-xs disabled:opacity-50"
             >
               <option value="">Sin lista asignada</option>
               {listas.map((l) => (

@@ -55,16 +55,16 @@ export function RecurrenteCard({ user }: RecurrenteCardProps) {
 
   return (
     <>
-      <div className="bg-surface border border-border rounded-xl p-4">
+      <div className="bg-white border border-gray-200 rounded-2xl p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <p className="text-sm font-semibold">Pedido automático</p>
+              <p className="text-sm font-semibold text-gray-900">Pedido automático</p>
               {recurrente && (
                 <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
                   recurrente.activo
-                    ? 'bg-success/15 text-success border-success/30'
-                    : 'bg-muted/15 text-muted border-muted/30'
+                    ? 'bg-[#E8F5F0] text-[#0F6E56] border-[#B3DDD3]'
+                    : 'bg-gray-100 text-gray-500 border-gray-200'
                 }`}>
                   {recurrente.activo ? 'Activo' : 'Pausado'}
                 </span>
@@ -72,14 +72,14 @@ export function RecurrenteCard({ user }: RecurrenteCardProps) {
             </div>
             {recurrente ? (
               <>
-                <p className="text-xs text-muted">{diasLabels.join(' · ')}</p>
-                <p className="text-xs text-white mt-0.5 truncate">{summarizeProducts(recurrente.products)}</p>
+                <p className="text-xs text-gray-500">{diasLabels.join(' · ')}</p>
+                <p className="text-xs text-gray-700 mt-0.5 truncate">{summarizeProducts(recurrente.products)}</p>
               </>
             ) : (
-              <p className="text-xs text-muted">Recibí tus productos los mismos días sin tener que pedir cada vez</p>
+              <p className="text-xs text-gray-500">Recibí tus productos los mismos días sin tener que pedir cada vez</p>
             )}
           </div>
-          <button onClick={openModal} className="shrink-0 text-xs text-accent hover:underline">
+          <button onClick={openModal} className="shrink-0 text-xs text-accent hover:underline font-medium">
             {recurrente ? 'Editar' : 'Configurar →'}
           </button>
         </div>
@@ -88,7 +88,7 @@ export function RecurrenteCard({ user }: RecurrenteCardProps) {
       <Modal open={modal} onClose={() => setModal(false)} title="Pedido automático">
         <div className="space-y-5">
           <div>
-            <p className="text-xs text-muted mb-2">Días de entrega</p>
+            <p className="text-xs text-gray-500 mb-2">Días de entrega</p>
             <div className="flex gap-2 flex-wrap">
               {DIAS_SEMANA.map((dia, i) => (
                 <button
@@ -98,8 +98,8 @@ export function RecurrenteCard({ user }: RecurrenteCardProps) {
                   )}
                   className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
                     diasSel.includes(i)
-                      ? 'bg-accent/20 border-accent text-accent'
-                      : 'border-border text-muted hover:border-accent/50'
+                      ? 'bg-accent/15 border-accent text-accent'
+                      : 'border-gray-200 text-gray-500 hover:border-accent/50'
                   }`}
                 >
                   {dia}

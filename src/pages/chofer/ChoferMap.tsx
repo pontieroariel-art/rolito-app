@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from 'react'
+import { Link } from 'react-router-dom'
 import { GoogleMap, DirectionsRenderer } from '@react-google-maps/api'
 import Navbar from '../../components/layout/Navbar'
 import Button from '../../components/ui/Button'
@@ -10,24 +11,25 @@ import { updateDriverLocation, deactivateDriverLocation } from '../../services/l
 import { useAuth } from '../../context/AuthContext'
 import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
 import { summarizeProducts } from '../../utils/helpers'
+import { generateHojaDeRuta } from '../../utils/pdf'
 
 const BA_CENTER = { lat: -34.6037, lng: -58.3816 }
 
 const MAP_CONTAINER_STYLE: React.CSSProperties = { width: '100%', height: '100%' }
 
 const DARK_MAP_STYLE: google.maps.MapTypeStyle[] = [
-  { elementType: 'geometry',           stylers: [{ color: '#03160D' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#03160D' }] },
-  { elementType: 'labels.text.fill',   stylers: [{ color: '#40916C' }] },
-  { featureType: 'administrative',     elementType: 'geometry', stylers: [{ color: '#1B4332' }] },
-  { featureType: 'road',               elementType: 'geometry', stylers: [{ color: '#1B4332' }] },
-  { featureType: 'road.highway',       elementType: 'geometry', stylers: [{ color: '#2D6A4F' }] },
-  { featureType: 'road',               elementType: 'labels.text.fill', stylers: [{ color: '#52B788' }] },
-  { featureType: 'water',              elementType: 'geometry', stylers: [{ color: '#011507' }] },
-  { featureType: 'water',              elementType: 'labels.text.fill', stylers: [{ color: '#1B4332' }] },
-  { featureType: 'poi',                elementType: 'geometry', stylers: [{ color: '#081C11' }] },
-  { featureType: 'poi.park',           elementType: 'geometry', stylers: [{ color: '#0B2C1C' }] },
-  { featureType: 'transit',            elementType: 'geometry', stylers: [{ color: '#1B4332' }] },
+  { elementType: 'geometry',           stylers: [{ color: '#111110' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#111110' }] },
+  { elementType: 'labels.text.fill',   stylers: [{ color: '#888780' }] },
+  { featureType: 'administrative',     elementType: 'geometry', stylers: [{ color: '#2C2C2A' }] },
+  { featureType: 'road',               elementType: 'geometry', stylers: [{ color: '#2C2C2A' }] },
+  { featureType: 'road.highway',       elementType: 'geometry', stylers: [{ color: '#1D9E75' }] },
+  { featureType: 'road',               elementType: 'labels.text.fill', stylers: [{ color: '#888780' }] },
+  { featureType: 'water',              elementType: 'geometry', stylers: [{ color: '#0A0A09' }] },
+  { featureType: 'water',              elementType: 'labels.text.fill', stylers: [{ color: '#2C2C2A' }] },
+  { featureType: 'poi',                elementType: 'geometry', stylers: [{ color: '#1C1C1A' }] },
+  { featureType: 'poi.park',           elementType: 'geometry', stylers: [{ color: '#1A2A1A' }] },
+  { featureType: 'transit',            elementType: 'geometry', stylers: [{ color: '#2C2C2A' }] },
 ]
 
 const MAP_OPTIONS: google.maps.MapOptions = {
@@ -48,6 +50,7 @@ export default function ChoferMap() {
   const [skippedIds, setSkippedIds]     = useState<Set<string>>(new Set())
   const [routeStale, setRouteStale]     = useState(false)
   const [deliveryOrder, setDeliveryOrder] = useState<import('../../types').Order | null>(null)
+  const [pdfLoading, setPdfLoading] = useState(false)
 
   const pending = useMemo(
     () => orders.filter((o) => o.status !== 'entregado' && o.clientAddress),
@@ -65,7 +68,6 @@ export default function ChoferMap() {
     telefonoRef.current = user?.telefono       || user?.phone  || ''
   })
 
-  // Comparte ubicación GPS cada 10 s mientras el mapa está abierto y hay pendientes
   useEffect(() => {
     if (!pending.length || !user?.email || !navigator.geolocation) return
     const email = user.email
@@ -107,7 +109,6 @@ export default function ChoferMap() {
         origin,
         destination,
         waypoints,
-        // Solo optimizar cuando no hay salteados — si hay salteados los queremos fijos al final
         optimizeWaypoints: skippedOrders.length === 0,
         travelMode:        google.maps.TravelMode.DRIVING,
         region:            'AR',
@@ -165,19 +166,19 @@ export default function ChoferMap() {
 
   if (loadError) {
     return (
-      <>
+      <div className="min-h-screen bg-bg text-[#D3D1C7]">
         <Navbar />
         <div className="p-4 text-center text-red-400">
           Error cargando Google Maps. Verificá la API key.
         </div>
-      </>
+      </div>
     )
   }
 
   return (
-    <>
+    <div className="min-h-screen bg-bg text-[#D3D1C7]">
       <Navbar />
-      <div className="flex flex-col" style={{ height: 'calc(100vh - 57px)' }}>
+      <div className="flex flex-col" style={{ height: 'calc(100vh - 56px - 64px)' }}>
         <div className="p-3 flex flex-wrap gap-2 bg-surface border-b border-border shrink-0">
           <Button
             onClick={calculateRoute}
@@ -235,7 +236,7 @@ export default function ChoferMap() {
               <DirectionsRenderer
                 directions={directions}
                 options={{
-                  polylineOptions: { strokeColor: '#52B788', strokeWeight: 4 },
+                  polylineOptions: { strokeColor: '#1D9E75', strokeWeight: 4 },
                   markerOptions:   { visible: true },
                 }}
               />
@@ -244,7 +245,7 @@ export default function ChoferMap() {
         </div>
 
         {orderedPending.length > 0 && (
-          <div className="bg-surface border-t border-border max-h-52 overflow-y-auto shrink-0">
+          <div className="bg-surface border-t border-border max-h-48 overflow-y-auto shrink-0">
             {orderedPending.map((o, i) => {
               const isSkipped = skippedIds.has(o.id)
               return (
@@ -269,14 +270,14 @@ export default function ChoferMap() {
                     {isSkipped ? (
                       <button
                         onClick={() => unskipOrder(o.id)}
-                        className="text-xs text-orange-400 hover:text-orange-300 px-2 py-1 border border-orange-400/30 rounded"
+                        className="text-xs text-orange-400 hover:text-orange-300 px-2 py-1 border border-orange-400/30 rounded-lg"
                       >
                         Restaurar
                       </button>
                     ) : (
                       <button
                         onClick={() => skipOrder(o.id)}
-                        className="text-xs text-muted hover:text-yellow-400 px-2 py-1 border border-border rounded"
+                        className="text-xs text-muted hover:text-yellow-400 px-2 py-1 border border-border rounded-lg"
                         title="Saltear esta parada"
                       >
                         ⏭
@@ -284,8 +285,7 @@ export default function ChoferMap() {
                     )}
                     <Button
                       onClick={() => setDeliveryOrder(o)}
-                      className="text-xs py-1 px-3"
-                      variant="success"
+                      className="text-xs py-1.5 px-3"
                     >
                       ✓
                     </Button>
@@ -297,11 +297,54 @@ export default function ChoferMap() {
         )}
 
         {orderedPending.length === 0 && (
-          <div className="p-4 text-center text-success bg-surface border-t border-border">
+          <div className="p-4 text-center text-accent bg-surface border-t border-border">
             ✓ Todas las entregas del día completadas
           </div>
         )}
       </div>
+
+      <nav className="fixed bottom-0 left-0 right-0 bg-surface border-t border-border flex z-30" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        <Link
+          to="/chofer"
+          className="flex-1 flex flex-col items-center justify-center py-3 gap-1 text-xs font-medium text-muted hover:text-[#D3D1C7] transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-5 h-5">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10" />
+          </svg>
+          <span>Entregas</span>
+        </Link>
+
+        <Link
+          to="/chofer/map"
+          className="flex-1 flex flex-col items-center justify-center py-3 gap-1 text-xs font-medium text-accent transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-5 h-5">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+          </svg>
+          <span>Ruta</span>
+        </Link>
+
+        <button
+          onClick={async () => {
+            if (!pending.length) return
+            setPdfLoading(true)
+            const name = user?.nombreContacto || user?.nombre || 'Chofer'
+            await generateHojaDeRuta(pending, name)
+            setPdfLoading(false)
+          }}
+          disabled={!pending.length || pdfLoading}
+          className="flex-1 flex flex-col items-center justify-center py-3 gap-1 text-xs font-medium text-muted hover:text-[#D3D1C7] disabled:opacity-40 transition-colors"
+        >
+          {pdfLoading ? (
+            <span className="w-5 h-5 border-2 border-muted border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+          )}
+          <span>PDF</span>
+        </button>
+      </nav>
 
       {deliveryOrder && (
         <EntregaModal
@@ -310,6 +353,6 @@ export default function ChoferMap() {
           onClose={() => setDeliveryOrder(null)}
         />
       )}
-    </>
+    </div>
   )
 }

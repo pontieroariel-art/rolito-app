@@ -134,32 +134,32 @@ export default function ComercialOrders() {
   const isLoading = ordersLoading || usersLoading
 
   return (
-    <>
+    <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
       <Navbar />
       <main className="max-w-4xl mx-auto p-4 space-y-5 pb-10">
 
         {/* Header */}
         <div className="flex items-center gap-3">
-          <Link to="/comercial" className="text-muted hover:text-white transition-colors">
+          <Link to="/comercial" className="text-gray-400 hover:text-gray-900 transition-colors">
             <ChevronLeft size={20} />
           </Link>
           <div>
             <h1 className="text-2xl font-bold">Historial de pedidos</h1>
-            <p className="text-muted text-sm mt-0.5">Consultá y filtrá todas las compras</p>
+            <p className="text-gray-500 text-sm mt-0.5">Consultá y filtrá todas las compras</p>
           </div>
         </div>
 
         {/* ── Filtros ─────────────────────────────────────────────────── */}
-        <div className="bg-surface border border-border rounded-xl p-4 space-y-4">
+        <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-4">
 
           {/* Selector de período */}
-          <div className="flex gap-1 bg-bg border border-border rounded-lg p-1 w-fit">
+          <div className="flex gap-1 bg-gray-100 border border-gray-200 rounded-lg p-1 w-fit">
             {(['dia', 'mes', 'anio'] as Periodo[]).map((p) => (
               <button
                 key={p}
                 onClick={() => setPeriodo(p)}
                 className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                  periodo === p ? 'bg-accent text-bg' : 'text-muted hover:text-white'
+                  periodo === p ? 'bg-accent text-white' : 'text-gray-500 hover:text-gray-900'
                 }`}
               >
                 {p === 'dia' ? 'Día' : p === 'mes' ? 'Mes' : 'Año'}
@@ -171,7 +171,7 @@ export default function ComercialOrders() {
           <div className="flex items-center gap-3">
             <button
               onClick={prevPeriodo}
-              className="w-8 h-8 rounded-lg bg-bg border border-border flex items-center justify-center hover:border-accent transition-colors"
+              className="w-8 h-8 rounded-lg bg-white border border-[#D3D1C7] flex items-center justify-center hover:border-accent transition-colors"
             >
               <ChevronLeft size={16} />
             </button>
@@ -180,7 +180,7 @@ export default function ComercialOrders() {
             </span>
             <button
               onClick={nextPeriodo}
-              className="w-8 h-8 rounded-lg bg-bg border border-border flex items-center justify-center hover:border-accent transition-colors"
+              className="w-8 h-8 rounded-lg bg-white border border-[#D3D1C7] flex items-center justify-center hover:border-accent transition-colors"
             >
               <ChevronRight size={16} />
             </button>
@@ -192,7 +192,7 @@ export default function ComercialOrders() {
             <select
               value={clienteId}
               onChange={(e) => setClienteId(e.target.value)}
-              className="bg-bg border border-border rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-accent"
+              className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
             >
               <option value="todos">Todos los clientes</option>
               {clientes
@@ -208,7 +208,7 @@ export default function ComercialOrders() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as OrderStatus | 'todos')}
-              className="bg-bg border border-border rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-accent"
+              className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
             >
               <option value="todos">Todos los estados</option>
               {(['pendiente', 'confirmado', 'en_camino', 'entregado', 'cancelado'] as OrderStatus[]).map((s) => (
@@ -218,12 +218,12 @@ export default function ComercialOrders() {
 
             {/* Búsqueda */}
             <div className="relative flex-1 min-w-[180px]">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar cliente, dirección, producto..."
-                className="w-full bg-bg border border-border rounded-lg pl-8 pr-3 py-1.5 text-sm text-white placeholder-muted focus:outline-none focus:ring-1 focus:ring-accent"
+                className="w-full bg-white border border-[#D3D1C7] rounded-lg pl-8 pr-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-accent"
               />
             </div>
           </div>
@@ -245,7 +245,7 @@ export default function ComercialOrders() {
         {isLoading ? (
           <LoadingSpinner />
         ) : filtered.length === 0 ? (
-          <div className="bg-surface border border-border rounded-xl p-8 text-center text-muted text-sm">
+          <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center text-gray-500 text-sm">
             No hay pedidos para el período y filtros seleccionados
           </div>
         ) : (
@@ -257,7 +257,7 @@ export default function ComercialOrders() {
         )}
 
       </main>
-    </>
+    </div>
   )
 }
 
@@ -269,20 +269,20 @@ function OrderCard({ order, users }: { order: Order; users: UserProfile[] }) {
   const date    = tsToDate(order.date)
 
   return (
-    <div className="bg-surface border border-border rounded-xl p-4 space-y-2">
+    <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-2">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-medium text-sm">{client?.razonSocial || order.clientName}</span>
             {client?.razonSocial && client.razonSocial !== order.clientName && (
-              <span className="text-xs text-muted">({order.clientName})</span>
+              <span className="text-xs text-gray-500">({order.clientName})</span>
             )}
           </div>
-          <p className="text-xs text-muted mt-0.5 truncate">{order.clientAddress}</p>
+          <p className="text-xs text-gray-500 mt-0.5 truncate">{order.clientAddress}</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Badge status={order.status} />
-          <span className="text-xs text-muted">
+          <Badge status={order.status} variant="light" />
+          <span className="text-xs text-gray-500">
             {date.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
           </span>
         </div>
@@ -290,12 +290,12 @@ function OrderCard({ order, users }: { order: Order; users: UserProfile[] }) {
 
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <div className="space-y-1">
-          <p className="text-xs text-muted">{summarizeProducts(order.products)}</p>
+          <p className="text-xs text-gray-500">{summarizeProducts(order.products)}</p>
           {order.driverId && (
-            <p className="text-xs text-muted">Chofer: {order.driverId}</p>
+            <p className="text-xs text-gray-500">Chofer: {order.driverId}</p>
           )}
           {order.notes && (
-            <p className="text-xs text-muted italic">"{order.notes}"</p>
+            <p className="text-xs text-gray-500 italic">"{order.notes}"</p>
           )}
         </div>
         {total > 0 && (
@@ -312,9 +312,9 @@ function OrderCard({ order, users }: { order: Order; users: UserProfile[] }) {
 
 function SummaryCard({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
   return (
-    <div className="bg-surface border border-border rounded-xl p-4">
-      <p className={`text-lg font-bold ${accent ? 'text-accent' : 'text-white'}`}>{value}</p>
-      <p className="text-muted text-xs mt-1">{label}</p>
+    <div className="bg-white border border-[#D3D1C7] rounded-xl p-4">
+      <p className={`text-lg font-bold ${accent ? 'text-accent' : 'text-gray-900'}`}>{value}</p>
+      <p className="text-gray-500 text-xs mt-1">{label}</p>
     </div>
   )
 }

@@ -124,13 +124,13 @@ function thisWeekRange(): [Date, Date] {
 
 function CapacityBar({ used, total, compact }: { used: number; total?: number; compact?: boolean }) {
   const rounded = Math.ceil(used * 10) / 10
-  if (!total) return used > 0 && !compact ? <p className="text-xs text-muted">{rounded} pallets</p> : null
+  if (!total) return used > 0 && !compact ? <p className="text-xs text-gray-500">{rounded} pallets</p> : null
   const pct   = Math.min((used / total) * 100, 100)
   const color = pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-orange-400' : 'bg-success'
   if (compact) {
     return (
       <div className="flex items-center gap-1.5">
-        <div className="flex-1 h-1.5 bg-bg rounded-full overflow-hidden">
+        <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
           <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
         </div>
         <span className={`text-xs font-medium ${pct >= 90 ? 'text-red-400' : pct >= 70 ? 'text-orange-400' : 'text-success'}`}>
@@ -143,17 +143,17 @@ function CapacityBar({ used, total, compact }: { used: number; total?: number; c
   return (
     <div className="space-y-1">
       <div className="flex justify-between text-xs">
-        <span className="text-muted">{fmtPallets(used)} / {total} pallets cargados</span>
+        <span className="text-gray-500">{fmtPallets(used)} / {total} pallets cargados</span>
         <span className={pct >= 90 ? 'text-red-400 font-semibold' : pct >= 70 ? 'text-orange-400' : 'text-success'}>
           {Math.round(pct)}%
         </span>
       </div>
-      <div className="h-1.5 bg-bg rounded-full overflow-hidden">
+      <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
         <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
       </div>
       {remaining > 0 ? (
-        <p className="text-xs text-muted">
-          Quedan <span className="text-white font-medium">{fmtPallets(remaining)}</span> pallets libres
+        <p className="text-xs text-gray-500">
+          Quedan <span className="text-gray-900 font-medium">{fmtPallets(remaining)}</span> pallets libres
         </p>
       ) : (
         <p className="text-xs text-red-400 font-medium">Camión al límite de capacidad</p>
@@ -202,35 +202,35 @@ function WeekCard({
   return (
     <button
       onClick={() => onSelect(idx)}
-      className={`w-full text-left bg-surface border rounded-xl p-4 space-y-3 transition-colors hover:border-accent/50 ${
-        idx === 0 ? 'border-accent/40' : 'border-border'
+      className={`w-full text-left bg-white border rounded-xl p-4 space-y-3 transition-colors hover:border-accent/50 ${
+        idx === 0 ? 'border-accent/40' : 'border-[#D3D1C7]'
       }`}
     >
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
-          <p className={`font-bold text-sm ${idx === 0 ? 'text-accent' : 'text-white'}`}>
+          <p className={`font-bold text-sm ${idx === 0 ? 'text-accent' : 'text-gray-900'}`}>
             {dayShort(day, idx)}
           </p>
-          <p className="text-xs text-muted">
+          <p className="text-xs text-gray-500">
             {day.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}
           </p>
         </div>
         {!isEmpty && (
           <div className="text-right">
             <p className="text-accent font-bold text-lg leading-none">{dayOrders.length}</p>
-            <p className="text-xs text-muted">pedidos</p>
+            <p className="text-xs text-gray-500">pedidos</p>
           </div>
         )}
       </div>
 
       {isEmpty ? (
-        <p className="text-xs text-muted/50">Sin actividad</p>
+        <p className="text-xs text-gray-400">Sin actividad</p>
       ) : (
         <>
           {/* Totales */}
           {totalUnidades > 0 && (
-            <p className="text-xs text-muted">
+            <p className="text-xs text-gray-500">
               {totalUnidades.toLocaleString('es-AR')} u
               {totalPallets > 0 && ` · ${fmtPallets(totalPallets)} pallets`}
               {(dayProgramas.length + dayVisitas.length) > 0 && (
@@ -437,19 +437,19 @@ function DayMap({
   if (allItems === 0) return null
 
   return (
-    <div className="bg-surface border border-border rounded-xl overflow-hidden">
+    <div className="bg-white border border-[#D3D1C7] rounded-xl overflow-hidden">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex justify-between items-center px-4 py-3 text-left hover:bg-white/5 transition-colors"
+        className="w-full flex justify-between items-center px-4 py-3 text-left hover:bg-gray-50 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold">🗺 Mapa del día</span>
-          {geocoding && <span className="text-xs text-muted animate-pulse">Geocodificando…</span>}
+          <span className="text-sm font-semibold text-gray-900">🗺 Mapa del día</span>
+          {geocoding && <span className="text-xs text-gray-500 animate-pulse">Geocodificando…</span>}
           {!geocoding && markers.length > 0 && (
-            <span className="text-xs text-muted">{markers.length} ubicaciones</span>
+            <span className="text-xs text-gray-500">{markers.length} ubicaciones</span>
           )}
         </div>
-        <span className="text-muted text-xs">{open ? '▲' : '▼'}</span>
+        <span className="text-gray-500 text-xs">{open ? '▲' : '▼'}</span>
       </button>
 
       {open && (
@@ -484,7 +484,7 @@ function DayMap({
 
           <div style={{ height: '360px' }}>
             {!isLoaded ? (
-              <div className="w-full h-full bg-bg animate-pulse" />
+              <div className="w-full h-full bg-gray-100 animate-pulse" />
             ) : (
               <GoogleMap
                 mapContainerStyle={{ width: '100%', height: '100%' }}
@@ -683,11 +683,11 @@ function ChoferCard({
   if (orders.length === 0 && visitas.length === 0 && programas.length === 0 && chofer) return null
 
   return (
-    <div className={`bg-surface border rounded-xl p-4 space-y-3 ${overCapacity ? 'border-red-500/50' : !chofer ? 'border-yellow-500/30' : 'border-border'}`}>
+    <div className={`bg-white border rounded-xl p-4 space-y-3 ${overCapacity ? 'border-red-400' : !chofer ? 'border-amber-300' : 'border-[#D3D1C7]'}`}>
       <div className="flex justify-between items-start gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="font-semibold text-sm">{nombre}</p>
+            <p className="font-semibold text-sm text-gray-900">{nombre}</p>
             {overCapacity && (
               <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full font-medium">
                 ⚠ Sobrecarga
@@ -695,9 +695,9 @@ function ChoferCard({
             )}
           </div>
           {camion ? (
-            <p className="text-xs text-muted mt-0.5">🚛 {camion.patente} · {camion.marca ? `${camion.marca} ` : ''}{camion.modelo}</p>
+            <p className="text-xs text-gray-500 mt-0.5">🚛 {camion.patente} · {camion.marca ? `${camion.marca} ` : ''}{camion.modelo}</p>
           ) : chofer ? (
-            <p className="text-xs text-orange-400 mt-0.5">Sin camión asignado</p>
+            <p className="text-xs text-amber-600 mt-0.5">Sin camión asignado</p>
           ) : null}
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -718,8 +718,8 @@ function ChoferCard({
           )}
           {totalUni > 0 && (
             <div className="text-right">
-              <p className={`font-bold ${overCapacity ? 'text-red-400' : 'text-accent'}`}>{totalUni}</p>
-              <p className="text-xs text-muted">unidades</p>
+              <p className={`font-bold ${overCapacity ? 'text-red-600' : 'text-accent'}`}>{totalUni}</p>
+              <p className="text-xs text-gray-500">unidades</p>
             </div>
           )}
         </div>
@@ -729,12 +729,12 @@ function ChoferCard({
         <div key={o.id} className="flex items-start gap-2">
           <span className="shrink-0 mt-0.5">📦</span>
           <div className="min-w-0 flex-1">
-            <p className="font-medium text-sm truncate">
+            <p className="font-medium text-sm truncate text-gray-900">
               {o.clientName}
               {o.origenPdf && <span className="ml-1.5 text-xs text-accent/70">OC</span>}
             </p>
-            <p className="text-xs text-muted truncate">{summarizeProducts(o.products)}</p>
-            {o.horaEntrega && <p className="text-xs text-muted">{o.horaEntrega} hs</p>}
+            <p className="text-xs text-gray-500 truncate">{summarizeProducts(o.products)}</p>
+            {o.horaEntrega && <p className="text-xs text-gray-500">{o.horaEntrega} hs</p>}
           </div>
           <select
             value=""
@@ -750,7 +750,7 @@ function ChoferCard({
                 })
               }).catch(console.error)
             }}
-            className="bg-bg border border-border rounded-lg px-1.5 py-1 text-xs text-muted hover:text-white focus:outline-none focus:ring-1 focus:ring-accent shrink-0 mt-0.5"
+            className="bg-white border border-[#D3D1C7] rounded-lg px-1.5 py-1 text-xs text-gray-500 hover:text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent shrink-0 mt-0.5"
             title="Cambiar chofer"
           >
             <option value="">↺</option>
@@ -766,19 +766,19 @@ function ChoferCard({
       {visitas.map((v) => (
         <div key={v.id} className="flex items-center gap-2">
           <span className="shrink-0">📅</span>
-          <p className="text-sm truncate text-muted">Visita: <span className="text-white">{v.clientName}</span></p>
+          <p className="text-sm truncate text-gray-500">Visita: <span className="text-gray-900">{v.clientName}</span></p>
         </div>
       ))}
 
       {programas.map((p) => (
         <div key={p.id} className="flex items-center gap-2">
           <span className="shrink-0">🔄</span>
-          <p className="text-sm truncate text-muted">Recurrente: <span className="text-white">{p.clientName}</span></p>
+          <p className="text-sm truncate text-gray-500">Recurrente: <span className="text-gray-900">{p.clientName}</span></p>
         </div>
       ))}
 
       {totalPallets > 0 && (
-        <div className="pt-2 border-t border-border/60">
+        <div className="pt-2 border-t border-gray-100">
           <CapacityBar used={totalPallets} total={camion?.capacidadPallets} />
         </div>
       )}
@@ -791,14 +791,14 @@ function ChoferCard({
 function SinAsignarCard({ orders, choferes }: { orders: Order[]; choferes: UserProfile[] }) {
   if (orders.length === 0) return null
   return (
-    <div className="bg-yellow-500/5 border border-yellow-500/30 rounded-xl p-4 space-y-3">
-      <p className="font-semibold text-sm text-yellow-400">Sin asignar ({orders.length})</p>
+    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+      <p className="font-semibold text-sm text-amber-700">Sin asignar ({orders.length})</p>
       <div className="space-y-2">
         {orders.map((o) => (
           <div key={o.id} className="flex items-start gap-3">
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium truncate">{o.clientName}</p>
-              <p className="text-xs text-muted truncate">{summarizeProducts(o.products)}</p>
+              <p className="text-sm font-medium truncate text-gray-900">{o.clientName}</p>
+              <p className="text-xs text-gray-500 truncate">{summarizeProducts(o.products)}</p>
             </div>
             <select
               defaultValue=""
@@ -814,7 +814,7 @@ function SinAsignarCard({ orders, choferes }: { orders: Order[]; choferes: UserP
                   })
                 }).catch(console.error)
               }}
-              className="bg-bg border border-border rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-accent shrink-0"
+              className="bg-white border border-[#D3D1C7] rounded-lg px-2 py-1 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent shrink-0"
             >
               <option value="">Asignar →</option>
               {choferes.map((c) => (
@@ -997,13 +997,13 @@ function PalletSummary({
   const overCapacity = capacidadTotal > 0 && totalPallets > capacidadTotal
 
   return (
-    <div className="bg-surface border border-border rounded-xl overflow-hidden">
+    <div className="bg-white border border-[#D3D1C7] rounded-xl overflow-hidden">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex justify-between items-center px-4 py-3 text-left hover:bg-white/5 transition-colors"
+        className="w-full flex justify-between items-center px-4 py-3 text-left hover:bg-gray-50 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold">📦 Pallets del día</span>
+          <span className="text-sm font-semibold text-gray-900">📦 Pallets del día</span>
           {hasConfig && totalPallets > 0 && (
             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
               overCapacity ? 'bg-red-500/20 text-red-400' : 'bg-success/10 text-success'
@@ -1012,7 +1012,7 @@ function PalletSummary({
             </span>
           )}
         </div>
-        <span className="text-muted text-xs">{open ? '▲' : '▼'}</span>
+        <span className="text-gray-500 text-xs">{open ? '▲' : '▼'}</span>
       </button>
 
       {open && (
@@ -1024,8 +1024,8 @@ function PalletSummary({
               return (
                 <div key={p.nombre} className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{p.nombre}</p>
-                    <p className="text-xs text-muted">
+                    <p className="text-sm font-medium truncate text-gray-900">{p.nombre}</p>
+                    <p className="text-xs text-gray-500">
                       {p.totalUnidades.toLocaleString('es-AR')} {p.unidad}s
                       {p.unidadesPorPallet ? ` · ${p.unidadesPorPallet} u/pallet` : ''}
                     </p>
@@ -1034,10 +1034,10 @@ function PalletSummary({
                     {pallets !== null ? (
                       <>
                         <p className="text-accent font-bold text-lg leading-none">{fmtPallets(pallets)}</p>
-                        <p className="text-xs text-muted">pallets</p>
+                        <p className="text-xs text-gray-500">pallets</p>
                       </>
                     ) : (
-                      <p className="text-xs text-muted/40 italic">sin config</p>
+                      <p className="text-xs text-gray-400 italic">sin config</p>
                     )}
                   </div>
                 </div>
@@ -1047,27 +1047,27 @@ function PalletSummary({
 
           {/* Desglose por chofer/camión */}
           {byChofer.length > 1 && (
-            <div className="pt-3 border-t border-border/60 space-y-3">
-              <p className="text-xs text-muted font-medium uppercase tracking-wide">Por camión</p>
+            <div className="pt-3 border-t border-gray-100 space-y-3">
+              <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Por camión</p>
               {byChofer.map((c) => {
                 const productos = Object.values(c.productos)
                 const hasPallets = c.totalPallets > 0
                 return (
-                  <div key={c.email} className="bg-bg/60 rounded-lg p-3 space-y-2">
+                  <div key={c.email} className="bg-gray-50 rounded-lg p-3 space-y-2">
                     {/* Cabecera chofer */}
                     <div className="flex items-center justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold truncate">{c.nombre}</p>
+                        <p className="text-sm font-semibold truncate text-gray-900">{c.nombre}</p>
                         {c.camion ? (
-                          <p className="text-xs text-muted">🚛 {c.camion.patente} · {c.camion.modelo}</p>
+                          <p className="text-xs text-gray-500">🚛 {c.camion.patente} · {c.camion.modelo}</p>
                         ) : (
-                          <p className="text-xs text-orange-400">Sin camión asignado</p>
+                          <p className="text-xs text-amber-600">Sin camión asignado</p>
                         )}
                       </div>
                       {hasPallets && (
                         <div className="text-right shrink-0">
                           <p className="text-accent font-bold text-lg leading-none">{fmtPallets(c.totalPallets)}</p>
-                          <p className="text-xs text-muted">pallets</p>
+                          <p className="text-xs text-gray-500">pallets</p>
                         </div>
                       )}
                     </div>
@@ -1075,8 +1075,8 @@ function PalletSummary({
                     <div className="space-y-1">
                       {productos.map((p) => (
                         <div key={p.nombre} className="flex justify-between text-xs">
-                          <span className="text-muted truncate">{p.nombre}</span>
-                          <span className="text-white font-medium shrink-0 ml-2">
+                          <span className="text-gray-500 truncate">{p.nombre}</span>
+                          <span className="text-gray-900 font-medium shrink-0 ml-2">
                             {p.totalUnidades.toLocaleString('es-AR')} {p.unidad}s
                           </span>
                         </div>
@@ -1094,10 +1094,10 @@ function PalletSummary({
 
           {/* Total vs capacity */}
           {hasConfig && totalPallets > 0 && (
-            <div className="pt-3 border-t border-border/60 space-y-2">
+            <div className="pt-3 border-t border-gray-100 space-y-2">
               <CapacityBar used={totalPallets} total={capacidadTotal > 0 ? capacidadTotal : undefined} />
               {capacidadTotal === 0 && (
-                <p className="text-xs text-muted">Asigná choferes con camiones para ver la capacidad total.</p>
+                <p className="text-xs text-gray-500">Asigná choferes con camiones para ver la capacidad total.</p>
               )}
             </div>
           )}
@@ -1185,8 +1185,8 @@ function ProxCard({
   }
 
   return (
-    <div className="bg-violet-500/5 border border-violet-500/20 rounded-xl p-4 space-y-3">
-      <p className="text-sm font-semibold text-violet-400">
+    <div className="bg-violet-50 border border-violet-200 rounded-xl p-4 space-y-3">
+      <p className="text-sm font-semibold text-violet-700">
         📍 Clientes visita en la zona de {chofer.nombreContacto || chofer.nombre}
       </p>
       <div className="space-y-2">
@@ -1194,21 +1194,21 @@ function ProxCard({
           <div key={cliente.uid} className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-sm font-medium truncate">{clientLabel(cliente)}</p>
-              <p className="text-xs text-muted">
+              <p className="text-xs text-gray-500">
                 {distKm} km · {cliente.frecuenciaVisita ?? '—'}
               </p>
             </div>
             <button
               disabled={adding === cliente.uid}
               onClick={() => handleAdd(cliente)}
-              className="text-xs text-violet-400 border border-violet-400/30 hover:border-violet-400 hover:bg-violet-400/10 rounded-lg px-3 py-1.5 transition-colors shrink-0 disabled:opacity-50"
+              className="text-xs text-violet-600 border border-violet-300 hover:border-violet-500 hover:bg-violet-100 rounded-lg px-3 py-1.5 transition-colors shrink-0 disabled:opacity-50"
             >
               {adding === cliente.uid ? '…' : '+ Asignar visita'}
             </button>
           </div>
         ))}
       </div>
-      <p className="text-xs text-muted/60">Clientes con visita periódica dentro de 2 km de la ruta</p>
+      <p className="text-xs text-gray-400">Clientes con visita periódica dentro de 2 km de la ruta</p>
     </div>
   )
 }
@@ -1266,34 +1266,34 @@ export default function PlanificacionPage() {
   if (loading) return <><Navbar /><LoadingSpinner fullScreen /></>
 
   return (
-    <>
+    <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
       <Navbar />
       <main className="max-w-3xl mx-auto p-4 space-y-5 pb-10">
 
         {/* Header */}
         <div className="flex flex-wrap justify-between items-end gap-3">
           <div>
-            <h1 className="text-2xl font-bold">Planificación</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Planificación</h1>
             {viewMode === 'semana' ? (
-              <p className="text-muted text-sm">
+              <p className="text-gray-500 text-sm">
                 {weekTotal.length} pedidos · {weekUnidades.toLocaleString('es-AR')} unidades esta semana
               </p>
             ) : (
-              <p className="text-muted text-sm">{dayFull(selectedDay)}</p>
+              <p className="text-gray-500 text-sm">{dayFull(selectedDay)}</p>
             )}
           </div>
 
           {/* Toggle vista */}
-          <div className="flex rounded-lg border border-border overflow-hidden text-sm">
+          <div className="flex rounded-lg border border-[#D3D1C7] overflow-hidden text-sm">
             <button
               onClick={() => setViewMode('semana')}
-              className={`px-3 py-1.5 transition-colors ${viewMode === 'semana' ? 'bg-accent text-bg font-semibold' : 'text-muted hover:text-white'}`}
+              className={`px-3 py-1.5 transition-colors ${viewMode === 'semana' ? 'bg-accent text-white font-semibold' : 'text-gray-500 hover:text-gray-900'}`}
             >
               Semana
             </button>
             <button
               onClick={() => setViewMode('dia')}
-              className={`px-3 py-1.5 transition-colors ${viewMode === 'dia' ? 'bg-accent text-bg font-semibold' : 'text-muted hover:text-white'}`}
+              className={`px-3 py-1.5 transition-colors ${viewMode === 'dia' ? 'bg-accent text-white font-semibold' : 'text-gray-500 hover:text-gray-900'}`}
             >
               Día
             </button>
@@ -1351,8 +1351,8 @@ export default function PlanificacionPage() {
                     onClick={() => setSelectedIdx(i)}
                     className={`relative flex-shrink-0 px-3 py-2 rounded-xl text-xs font-medium border transition-colors ${
                       i === selectedIdx
-                        ? 'bg-accent text-bg border-accent'
-                        : 'bg-surface border-border text-muted hover:text-white hover:border-accent/50'
+                        ? 'bg-accent text-white border-accent'
+                        : 'bg-white border-[#D3D1C7] text-gray-500 hover:text-gray-900 hover:border-accent/50'
                     }`}
                   >
                     {hasOverload && (
@@ -1381,13 +1381,13 @@ export default function PlanificacionPage() {
               })
               if (sinProgramar.length === 0) return null
               return (
-                <div className="bg-yellow-500/5 border border-yellow-500/30 rounded-xl px-4 py-3 flex items-start gap-3">
-                  <span className="text-yellow-400 shrink-0">⚠</span>
+                <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-3">
+                  <span className="text-amber-600 shrink-0">⚠</span>
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-yellow-400">
+                    <p className="text-sm font-medium text-amber-700">
                       {sinProgramar.length} cliente{sinProgramar.length !== 1 ? 's' : ''} visita sin programar esta semana
                     </p>
-                    <p className="text-xs text-muted truncate">
+                    <p className="text-xs text-gray-500 truncate">
                       {sinProgramar.map(clientLabel).join(', ')}
                     </p>
                   </div>
@@ -1396,9 +1396,9 @@ export default function PlanificacionPage() {
             })()}
 
             {ordersDay.length === 0 && programasDay.length === 0 && visitasDay.length === 0 ? (
-              <div className="bg-surface border border-border rounded-xl p-10 text-center">
+              <div className="bg-white border border-[#D3D1C7] rounded-xl p-10 text-center">
                 <p className="text-3xl mb-3">📭</p>
-                <p className="text-muted text-sm">No hay pedidos ni visitas para este día</p>
+                <p className="text-gray-500 text-sm">No hay pedidos ni visitas para este día</p>
               </div>
             ) : (
               <>
@@ -1484,6 +1484,6 @@ export default function PlanificacionPage() {
         onClose={() => setPalletConfig(false)}
         catalogo={catalogo}
       />
-    </>
+    </div>
   )
 }

@@ -444,7 +444,7 @@ function DriverSideCard({
   return (
     <div
       className={`rounded-xl border transition-all ${
-        isSelected ? 'border-accent bg-accent/10' : 'border-border bg-surface'
+        isSelected ? 'border-accent bg-accent/10' : 'border-[#D3D1C7] bg-white'
       }`}
     >
       {/* Header clickeable */}
@@ -457,21 +457,21 @@ function DriverSideCard({
             {nombre.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="font-semibold text-sm truncate">{nombre}</p>
+            <p className="font-semibold text-sm truncate text-gray-900">{nombre}</p>
             {camion ? (
-              <p className="text-xs text-muted">🚛 {camion.patente}</p>
+              <p className="text-xs text-gray-500">🚛 {camion.patente}</p>
             ) : (
-              <p className="text-xs text-orange-400">Sin camión</p>
+              <p className="text-xs text-amber-600">Sin camión</p>
             )}
           </div>
           <div className="text-right shrink-0">
             <p className="font-bold text-lg leading-none" style={{ color }}>{delivered}</p>
-            <p className="text-xs text-muted">/ {total}</p>
+            <p className="text-xs text-gray-500">/ {total}</p>
           </div>
         </div>
 
         {/* Barra de progreso */}
-        <div className="h-1.5 bg-bg rounded-full overflow-hidden mb-1.5">
+        <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden mb-1.5">
           <div
             className="h-full rounded-full transition-all"
             style={{ width: `${pct}%`, backgroundColor: pct === 100 ? '#10b981' : color }}
@@ -490,26 +490,26 @@ function DriverSideCard({
           </p>
         )}
         {!alert && (
-          <p className="text-xs text-muted">{pct}% completado</p>
+          <p className="text-xs text-gray-500">{pct}% completado</p>
         )}
 
-        <p className={`text-xs mt-1 ${driver ? 'text-muted/50' : 'text-orange-400/70'}`}>
+        <p className={`text-xs mt-1 ${driver ? 'text-gray-400' : 'text-amber-500'}`}>
           {driver ? `📍 ${gpsAge(driver.timestamp)}` : '📍 GPS no activo aún'}
         </p>
       </button>
 
       {/* Detalle expandido cuando está seleccionado */}
       {isSelected && pending.length > 0 && (
-        <div className="border-t border-border/50 px-4 pb-4 pt-3 space-y-2">
-          <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-2">
+        <div className="border-t border-gray-200 px-4 pb-4 pt-3 space-y-2">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
             Pendientes ({pending.length})
           </p>
 
           {pending.map((o) => (
             <div key={o.id} className="flex items-center gap-2">
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-medium truncate">{o.clientName}</p>
-                <p className="text-xs text-muted truncate">{summarizeProducts(o.products)}</p>
+                <p className="text-xs font-medium truncate text-gray-900">{o.clientName}</p>
+                <p className="text-xs text-gray-500 truncate">{summarizeProducts(o.products)}</p>
               </div>
               <div className="flex gap-1 shrink-0">
                 <button
@@ -521,7 +521,7 @@ function DriverSideCard({
                 </button>
                 <button
                   onClick={() => onReasignar(o)}
-                  className="text-xs text-muted border border-border rounded-lg px-2 py-1 hover:border-accent/40 hover:text-white transition-colors"
+                  className="text-xs text-gray-500 border border-[#D3D1C7] rounded-lg px-2 py-1 hover:border-accent/40 hover:text-gray-900 transition-colors"
                   title="Reasignar"
                 >
                   🔄
@@ -533,7 +533,7 @@ function DriverSideCard({
           {/* Fin de jornada bulk */}
           <button
             onClick={onFinJornada}
-            className="w-full mt-1 text-xs font-medium text-yellow-400 border border-yellow-500/30 rounded-xl py-2 hover:bg-yellow-500/10 transition-colors"
+            className="w-full mt-1 text-xs font-medium text-amber-600 border border-amber-300 rounded-xl py-2 hover:bg-amber-50 transition-colors"
           >
             Fin de jornada — gestionar todos
           </button>
@@ -541,7 +541,7 @@ function DriverSideCard({
       )}
 
       {isSelected && pending.length === 0 && total > 0 && (
-        <div className="border-t border-border/50 px-4 py-3">
+        <div className="border-t border-gray-200 px-4 py-3">
           <p className="text-xs text-success font-medium text-center">Todas las entregas completadas</p>
         </div>
       )}
@@ -780,19 +780,19 @@ export default function MonitoreoPage() {
       <div className="flex" style={{ height: 'calc(100vh - 56px)' }}>
 
         {/* ── Sidebar ───────────────────────────────────────────────────────── */}
-        <aside className="w-72 shrink-0 bg-bg border-r border-border flex flex-col overflow-hidden">
+        <aside className="w-72 shrink-0 bg-white border-r border-[#D3D1C7] flex flex-col overflow-hidden">
 
-          <div className="p-4 border-b border-border">
+          <div className="p-4 border-b border-[#D3D1C7]">
             <div className="flex items-center gap-2 mb-1">
               <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
-              <h1 className="text-base font-bold">Monitoreo en vivo</h1>
+              <h1 className="text-base font-bold text-gray-900">Monitoreo en vivo</h1>
             </div>
-            <p className="text-xs text-muted">
+            <p className="text-xs text-gray-500">
               {totalEntregados} entregados · {totalPendientes} pendientes · {activeDrivers.length} con GPS
             </p>
           </div>
 
-          <div className="px-4 py-2.5 border-b border-border flex gap-3 text-xs text-muted flex-wrap">
+          <div className="px-4 py-2.5 border-b border-[#D3D1C7] flex gap-3 text-xs text-gray-500 flex-wrap">
             <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#4b5563]" />Pendiente</span>
             <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-accent" />En camino</span>
             <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-success" />Entregado</span>
@@ -800,7 +800,7 @@ export default function MonitoreoPage() {
 
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
             {driversToday.length === 0 && (
-              <p className="text-xs text-muted text-center mt-10">No hay choferes con pedidos asignados hoy</p>
+              <p className="text-xs text-gray-500 text-center mt-10">No hay choferes con pedidos asignados hoy</p>
             )}
 
             {selectedDriver && (
@@ -834,10 +834,10 @@ export default function MonitoreoPage() {
         <div className="flex-1 relative">
           {activeDrivers.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-              <div className="bg-bg/90 border border-border rounded-xl px-6 py-5 text-center shadow-xl">
+              <div className="bg-white/95 border border-[#D3D1C7] rounded-xl px-6 py-5 text-center shadow-xl">
                 <p className="text-3xl mb-3">📡</p>
-                <p className="text-sm font-semibold">Sin choferes activos</p>
-                <p className="text-xs text-muted mt-1 max-w-[200px]">El GPS se activa cuando el chofer comienza el reparto</p>
+                <p className="text-sm font-semibold text-gray-900">Sin choferes activos</p>
+                <p className="text-xs text-gray-500 mt-1 max-w-[200px]">El GPS se activa cuando el chofer comienza el reparto</p>
               </div>
             </div>
           )}

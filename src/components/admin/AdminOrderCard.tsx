@@ -81,25 +81,25 @@ export function AdminOrderCard({ order, choferes }: AdminOrderCardProps) {
 
   return (
     <>
-      <div className="bg-surface border border-border rounded-xl p-4 space-y-3">
+      <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-3">
         <div className="flex flex-wrap justify-between items-start gap-2">
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <p className="font-semibold">{order.clientName}</p>
+              <p className="font-medium text-gray-900">{order.clientName}</p>
               {order.origenPdf && (
-                <span className="text-xs px-1.5 py-0.5 rounded bg-accent/15 text-accent border border-accent/20 font-medium">OC</span>
+                <span className="text-xs px-1.5 py-0.5 rounded bg-[#E8F5F0] text-accent border border-[#B3DDD3] font-medium">OC</span>
               )}
               {order.origenRecurrente && (
-                <span className="text-xs px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-400 border border-purple-500/20 font-medium">↺ Recurrente</span>
+                <span className="text-xs px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 border border-purple-200 font-medium">↺ Recurrente</span>
               )}
             </div>
-            <p className="text-muted text-xs">
+            <p className="text-gray-500 text-xs">
               {order.numeroOC ? `#${order.numeroOC}` : (order.clientPhone || 'Sin teléfono')}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Badge status={order.status} />
-            <span className="text-xs text-muted">{formatShortDate(order.date)}</span>
+            <Badge status={order.status} variant="light" />
+            <span className="text-xs text-gray-400">{formatShortDate(order.date)}</span>
           </div>
         </div>
 
@@ -110,37 +110,37 @@ export function AdminOrderCard({ order, choferes }: AdminOrderCardProps) {
                 value={newAddress}
                 onChange={(e: ChangeEvent<HTMLInputElement>) => setNewAddress(e.target.value)}
                 aria-label="Nueva dirección"
-                className="bg-bg border border-border rounded px-2 py-1 text-white text-xs flex-1 focus:outline-none focus:ring-1 focus:ring-accent"
+                className="bg-white border border-[#D3D1C7] rounded px-2 py-1 text-gray-900 text-xs flex-1 focus:outline-none focus:ring-1 focus:ring-accent"
               />
-              <button onClick={handleSaveAddress} className="text-success text-xs hover:underline">Guardar</button>
-              <button onClick={() => setEditingAddress(false)} className="text-muted text-xs hover:underline">Cancelar</button>
+              <button onClick={handleSaveAddress} className="text-accent text-xs hover:underline">Guardar</button>
+              <button onClick={() => setEditingAddress(false)} className="text-gray-400 text-xs hover:underline">Cancelar</button>
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <p className="text-muted text-xs">📍 {order.clientAddress}</p>
+              <p className="text-gray-500 text-xs">📍 {order.clientAddress}</p>
               <button onClick={() => setEditingAddress(true)} className="text-accent text-xs hover:underline">Editar</button>
             </div>
           )}
         </div>
 
-        <p className="text-sm text-white">{summarizeProducts(order.products)}</p>
+        <p className="text-sm text-gray-900">{summarizeProducts(order.products)}</p>
 
         {order.horaEntrega && (
-          <p className="text-xs text-muted">Entrega: <span className="text-white">{order.horaEntrega}</span></p>
+          <p className="text-xs text-gray-500">Entrega: <span className="text-gray-900">{order.horaEntrega}</span></p>
         )}
-        {order.notes && <p className="text-xs text-muted italic">"{order.notes}"</p>}
+        {order.notes && <p className="text-xs text-gray-500 italic">"{order.notes}"</p>}
 
-        <div className="flex flex-wrap gap-2 items-center pt-3 border-t border-border">
+        <div className="flex flex-wrap gap-2 items-center pt-3 border-t border-gray-100">
           {['entregado', 'cancelado'].includes(order.status) ? (
-            <span className="text-xs text-muted flex-1 min-w-40">
-              Chofer: <span className="text-white">{order.driverId ?? '—'}</span>
+            <span className="text-xs text-gray-500 flex-1 min-w-40">
+              Chofer: <span className="text-gray-900">{order.driverId ?? '—'}</span>
             </span>
           ) : (
             <select
               value={order.driverId ?? ''}
               onChange={handleDriver}
               aria-label="Asignar chofer"
-              className="bg-bg border border-border rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-accent flex-1 min-w-40"
+              className="bg-white border border-[#D3D1C7] rounded-lg px-2 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent flex-1 min-w-40"
             >
               <option value="">Sin chofer asignado</option>
               {choferes.map((c) => (
@@ -168,7 +168,7 @@ export function AdminOrderCard({ order, choferes }: AdminOrderCardProps) {
         </div>
 
         {order.motivoCancelacion && (
-          <p className="text-xs text-red-400 italic border-t border-border pt-2">
+          <p className="text-xs text-red-500 italic border-t border-gray-100 pt-2">
             Motivo: {order.motivoCancelacion}
           </p>
         )}
@@ -176,7 +176,7 @@ export function AdminOrderCard({ order, choferes }: AdminOrderCardProps) {
 
       {cancelModal && (
         <Modal open onClose={() => setCancelModal(false)} title="Cancelar pedido">
-          <p className="text-sm text-muted mb-4">
+          <p className="text-sm text-gray-500 mb-4">
             {order.clientName} — {summarizeProducts(order.products)}
           </p>
           <div className="space-y-3">
@@ -187,8 +187,8 @@ export function AdminOrderCard({ order, choferes }: AdminOrderCardProps) {
                   onClick={() => setCancelMotivo(m)}
                   className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
                     cancelMotivo === m
-                      ? 'bg-red-500/20 border-red-500/50 text-red-400'
-                      : 'border-border text-muted hover:border-red-500/40 hover:text-red-400'
+                      ? 'bg-red-50 border-red-300 text-red-600'
+                      : 'border-gray-200 text-gray-500 hover:border-red-300 hover:text-red-500'
                   }`}
                 >
                   {m}
@@ -201,7 +201,7 @@ export function AdminOrderCard({ order, choferes }: AdminOrderCardProps) {
               rows={2}
               placeholder="O escribí el motivo..."
               aria-label="Motivo de cancelación"
-              className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-white placeholder-muted resize-none focus:outline-none focus:ring-1 focus:ring-red-500"
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-1 focus:ring-red-400"
             />
           </div>
           <div className="flex gap-3 mt-5">

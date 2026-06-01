@@ -34,9 +34,9 @@ const VISITA_STATUS_LABELS: Record<string, string> = {
 }
 
 const VISITA_STATUS_COLORS: Record<string, string> = {
-  pendiente:    'bg-yellow-500/15 text-yellow-400 border border-yellow-500/30',
-  visitado:     'bg-success/15 text-success border border-success/30',
-  sin_contacto: 'bg-orange-500/15 text-orange-400 border border-orange-500/30',
+  pendiente:    'bg-amber-100 text-amber-700 border border-amber-300',
+  visitado:     'bg-green-100 text-green-700 border border-green-300',
+  sin_contacto: 'bg-orange-100 text-orange-700 border border-orange-300',
 }
 
 export default function HistorialPage() {
@@ -174,26 +174,26 @@ export default function HistorialPage() {
   const isLoading = ordersLoading || visitasLoading || usersLoading
 
   return (
-    <>
+    <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
       <Navbar />
       <main className="max-w-4xl mx-auto p-4 space-y-5 pb-10">
 
         <div>
           <h1 className="text-2xl font-bold">Historial</h1>
-          <p className="text-muted text-sm mt-0.5">Pedidos y visitas del período</p>
+          <p className="text-gray-500 text-sm mt-0.5">Pedidos y visitas del período</p>
         </div>
 
         {/* ── Filtros ─────────────────────────────────────────────────── */}
-        <div className="bg-surface border border-border rounded-xl p-4 space-y-4">
+        <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-4">
 
           {/* Período */}
-          <div className="flex gap-1 bg-bg border border-border rounded-lg p-1 w-fit">
+          <div className="flex gap-1 bg-gray-100 border border-gray-200 rounded-lg p-1 w-fit">
             {(['dia', 'mes', 'anio'] as Periodo[]).map((p) => (
               <button
                 key={p}
                 onClick={() => setPeriodo(p)}
                 className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                  periodo === p ? 'bg-accent text-bg' : 'text-muted hover:text-white'
+                  periodo === p ? 'bg-accent text-white' : 'text-gray-500 hover:text-gray-900'
                 }`}
               >
                 {p === 'dia' ? 'Día' : p === 'mes' ? 'Mes' : 'Año'}
@@ -205,7 +205,7 @@ export default function HistorialPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={prevPeriodo}
-              className="w-8 h-8 rounded-lg bg-bg border border-border flex items-center justify-center hover:border-accent transition-colors"
+              className="w-8 h-8 rounded-lg bg-white border border-[#D3D1C7] flex items-center justify-center hover:border-accent transition-colors"
             >
               <ChevronLeft size={16} />
             </button>
@@ -214,7 +214,7 @@ export default function HistorialPage() {
             </span>
             <button
               onClick={nextPeriodo}
-              className="w-8 h-8 rounded-lg bg-bg border border-border flex items-center justify-center hover:border-accent transition-colors"
+              className="w-8 h-8 rounded-lg bg-white border border-[#D3D1C7] flex items-center justify-center hover:border-accent transition-colors"
             >
               <ChevronRight size={16} />
             </button>
@@ -227,7 +227,7 @@ export default function HistorialPage() {
             <select
               value={tipo}
               onChange={(e) => setTipo(e.target.value as TipoFiltro)}
-              className="bg-bg border border-border rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-accent"
+              className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
             >
               <option value="todos">Pedidos y visitas</option>
               <option value="pedidos">Solo pedidos</option>
@@ -238,7 +238,7 @@ export default function HistorialPage() {
             <select
               value={clienteId}
               onChange={(e) => setClienteId(e.target.value)}
-              className="bg-bg border border-border rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-accent"
+              className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
             >
               <option value="todos">Todos los clientes</option>
               {clientes
@@ -255,7 +255,7 @@ export default function HistorialPage() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as OrderStatus | 'todos')}
-                className="bg-bg border border-border rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-accent"
+                className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
               >
                 <option value="todos">Todos los estados</option>
                 {(['pendiente', 'confirmado', 'en_camino', 'entregado', 'cancelado'] as OrderStatus[]).map((s) => (
@@ -266,12 +266,12 @@ export default function HistorialPage() {
 
             {/* Búsqueda */}
             <div className="relative flex-1 min-w-[180px]">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar cliente, dirección..."
-                className="w-full bg-bg border border-border rounded-lg pl-8 pr-3 py-1.5 text-sm text-white placeholder-muted focus:outline-none focus:ring-1 focus:ring-accent"
+                className="w-full bg-white border border-[#D3D1C7] rounded-lg pl-8 pr-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-accent"
               />
             </div>
           </div>
@@ -304,7 +304,7 @@ export default function HistorialPage() {
         {isLoading ? (
           <LoadingSpinner />
         ) : items.length === 0 ? (
-          <div className="bg-surface border border-border rounded-xl p-8 text-center text-muted text-sm">
+          <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center text-gray-500 text-sm">
             No hay registros para el período y filtros seleccionados
           </div>
         ) : (
@@ -320,7 +320,7 @@ export default function HistorialPage() {
         )}
 
       </main>
-    </>
+    </div>
   )
 }
 
@@ -332,7 +332,7 @@ function PedidoCard({ order, users }: { order: Order; users: UserProfile[] }) {
   const date   = tsToDate(order.date)
 
   return (
-    <div className="bg-surface border border-border rounded-xl p-4 space-y-2">
+    <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-2">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap min-w-0">
           <span className="text-xs px-1.5 py-0.5 rounded bg-accent/10 text-accent border border-accent/20 font-medium shrink-0">
@@ -342,12 +342,12 @@ function PedidoCard({ order, users }: { order: Order; users: UserProfile[] }) {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {order.entregaParcial && (
-            <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-orange-500/15 text-orange-400 border border-orange-500/30">
+            <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-orange-100 text-orange-700 border border-orange-300">
               Parcial
             </span>
           )}
-          <Badge status={order.status} />
-          <span className="text-xs text-muted">
+          <Badge status={order.status} variant="light" />
+          <span className="text-xs text-gray-500">
             {date.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
           </span>
         </div>
@@ -355,25 +355,25 @@ function PedidoCard({ order, users }: { order: Order; users: UserProfile[] }) {
 
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <div className="space-y-0.5 min-w-0">
-          <p className="text-xs text-muted truncate">📍 {order.clientAddress}</p>
+          <p className="text-xs text-gray-500 truncate">📍 {order.clientAddress}</p>
           {order.productosEntregados ? (
-            <p className="text-xs text-muted">
+            <p className="text-xs text-gray-500">
               Entregado: {summarizeProducts(order.productosEntregados)}
             </p>
           ) : (
-            <p className="text-xs text-muted">{summarizeProducts(order.products)}</p>
+            <p className="text-xs text-gray-500">{summarizeProducts(order.products)}</p>
           )}
           {order.driverId && (
-            <p className="text-xs text-muted">Chofer: {order.driverId}</p>
+            <p className="text-xs text-gray-500">Chofer: {order.driverId}</p>
           )}
           {order.notes && (
-            <p className="text-xs text-muted italic">"{order.notes}"</p>
+            <p className="text-xs text-gray-500 italic">"{order.notes}"</p>
           )}
           {order.notaEntrega && (
-            <p className="text-xs text-orange-400 italic">⚠ {order.notaEntrega}</p>
+            <p className="text-xs text-amber-600 italic">⚠ {order.notaEntrega}</p>
           )}
           {order.motivoCancelacion && (
-            <p className="text-xs text-red-400 italic">✕ {order.motivoCancelacion}</p>
+            <p className="text-xs text-red-600 italic">✕ {order.motivoCancelacion}</p>
           )}
         </div>
         {total > 0 && (
@@ -390,13 +390,13 @@ function PedidoCard({ order, users }: { order: Order; users: UserProfile[] }) {
 
 function VisitaCard({ visita }: { visita: VisitaPuntual }) {
   const date    = tsToDate(visita.fecha)
-  const statusClass = VISITA_STATUS_COLORS[visita.status] ?? 'bg-surface text-muted'
+  const statusClass = VISITA_STATUS_COLORS[visita.status] ?? 'bg-white text-gray-500'
 
   return (
-    <div className="bg-surface border border-border rounded-xl p-4 space-y-2">
+    <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-2">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap min-w-0">
-          <span className="text-xs px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20 font-medium shrink-0">
+          <span className="text-xs px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 border border-purple-200 font-medium shrink-0">
             Visita
           </span>
           <span className="font-medium text-sm">{visita.clientName}</span>
@@ -405,19 +405,19 @@ function VisitaCard({ visita }: { visita: VisitaPuntual }) {
           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusClass}`}>
             {VISITA_STATUS_LABELS[visita.status] ?? visita.status}
           </span>
-          <span className="text-xs text-muted">
+          <span className="text-xs text-gray-500">
             {date.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
           </span>
         </div>
       </div>
 
       <div className="space-y-0.5">
-        <p className="text-xs text-muted truncate">📍 {visita.clientAddress}</p>
+        <p className="text-xs text-gray-500 truncate">📍 {visita.clientAddress}</p>
         {visita.clientPhone && (
           <p className="text-xs text-accent">{visita.clientPhone}</p>
         )}
         {visita.notas && (
-          <p className="text-xs text-muted italic">"{visita.notas}"</p>
+          <p className="text-xs text-gray-500 italic">"{visita.notas}"</p>
         )}
       </div>
     </div>
@@ -428,9 +428,9 @@ function VisitaCard({ visita }: { visita: VisitaPuntual }) {
 
 function SummaryCard({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
   return (
-    <div className="bg-surface border border-border rounded-xl p-4">
-      <p className={`text-lg font-bold ${accent ? 'text-accent' : 'text-white'}`}>{value}</p>
-      <p className="text-muted text-xs mt-1">{label}</p>
+    <div className="bg-white border border-[#D3D1C7] rounded-xl p-4">
+      <p className={`text-lg font-bold ${accent ? 'text-accent' : 'text-gray-900'}`}>{value}</p>
+      <p className="text-gray-500 text-xs mt-1">{label}</p>
     </div>
   )
 }

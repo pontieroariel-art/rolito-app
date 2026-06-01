@@ -5,6 +5,6 @@
 
 @layer base {
   body {
-    @apply bg-bg text-white min-h-screen;
+    @apply bg-bg text-[#D3D1C7] min-h-screen;
   }
 }

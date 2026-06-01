@@ -60,22 +60,22 @@ export default function PriceListsPage() {
   }
 
   return (
-    <>
+    <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
       <Navbar />
       <main className="max-w-5xl mx-auto p-4 pb-10 space-y-4">
         <div>
           <h1 className="text-2xl font-bold">Precios</h1>
-          <p className="text-muted text-sm mt-1">Catálogo de productos y listas de precios por canal</p>
+          <p className="text-gray-500 text-sm mt-1">Catálogo de productos y listas de precios por canal</p>
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 bg-surface border border-border rounded-xl p-1 w-fit">
+        <div className="flex gap-1 bg-white border border-[#D3D1C7] rounded-xl p-1 w-fit">
           {(['listas', 'catalogo'] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
               className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                tab === t ? 'bg-accent text-bg' : 'text-muted hover:text-white'
+                tab === t ? 'bg-accent text-white' : 'text-gray-500 hover:text-gray-900'
               }`}
             >
               {t === 'listas' ? 'Listas de precios' : 'Catálogo de productos'}
@@ -95,11 +95,11 @@ export default function PriceListsPage() {
                     className={`w-full text-left px-3 py-2.5 rounded-xl text-sm transition-colors ${
                       selectedId === l.id
                         ? 'bg-accent/10 text-accent border border-accent/30'
-                        : 'bg-surface border border-border text-white hover:border-accent/50'
+                        : 'bg-white border border-[#D3D1C7] text-gray-900 hover:border-accent/50'
                     }`}
                   >
                     <span className="font-medium">{l.nombre}</span>
-                    <span className="block text-xs text-muted mt-0.5">
+                    <span className="block text-xs text-gray-500 mt-0.5">
                       {l.items.filter((i) => i.activo).length} productos activos
                     </span>
                   </button>
@@ -107,7 +107,7 @@ export default function PriceListsPage() {
                 <button
                   onClick={handleNuevaLista}
                   disabled={createMutation.isPending}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-muted hover:text-accent border border-dashed border-border hover:border-accent/50 transition-colors"
+                  className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-gray-500 hover:text-accent border border-dashed border-[#D3D1C7] hover:border-accent/50 transition-colors"
                 >
                   <Plus size={14} /> Nueva lista
                 </button>
@@ -127,7 +127,7 @@ export default function PriceListsPage() {
                   }}
                 />
               ) : (
-                <div className="bg-surface border border-border rounded-xl p-8 text-center text-muted text-sm">
+                <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center text-gray-500 text-sm">
                   Seleccioná una lista o creá una nueva
                 </div>
               )}
@@ -140,7 +140,7 @@ export default function PriceListsPage() {
           />
         )}
       </main>
-    </>
+    </div>
   )
 }
 
@@ -219,15 +219,15 @@ function ListaEditor({
   }
 
   return (
-    <div className="bg-surface border border-border rounded-xl p-5 space-y-5">
+    <div className="bg-white border border-[#D3D1C7] rounded-xl p-5 space-y-5">
       {/* Header */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex-1 min-w-0">
-          <label className="text-xs text-muted uppercase tracking-wide">Nombre del canal</label>
+          <label className="text-xs text-gray-500 uppercase tracking-wide">Nombre del canal</label>
           <input
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
-            className="mt-1 bg-bg border border-border rounded-lg px-3 py-2 text-white text-sm w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-accent"
+            className="mt-1 bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-accent"
           />
         </div>
         <div className="flex gap-2 mt-5">
@@ -242,7 +242,7 @@ function ListaEditor({
 
       {/* Clients summary */}
       {clientsInList.length > 0 && (
-        <div className="flex items-center gap-2 text-xs text-muted">
+        <div className="flex items-center gap-2 text-xs text-gray-500">
           <Users size={13} />
           {clientsInList.length} cliente{clientsInList.length !== 1 ? 's' : ''} en este canal
         </div>
@@ -250,7 +250,7 @@ function ListaEditor({
 
       {/* Products table */}
       <div className="space-y-1">
-        <div className="grid grid-cols-[24px_1fr_110px_auto] gap-3 px-2 pb-1 text-xs text-muted uppercase tracking-wide">
+        <div className="grid grid-cols-[24px_1fr_110px_auto] gap-3 px-2 pb-1 text-xs text-gray-500 uppercase tracking-wide">
           <span></span>
           <span>Producto</span>
           <span>Precio</span>
@@ -265,7 +265,7 @@ function ListaEditor({
             <div key={item.productoId}>
               <div
                 className={`grid grid-cols-[24px_1fr_110px_auto] gap-3 items-center px-2 py-2 rounded-lg transition-colors ${
-                  item.activo ? 'bg-bg/60' : 'opacity-50'
+                  item.activo ? 'bg-gray-50' : 'opacity-50'
                 }`}
               >
                 {/* Toggle activo */}
@@ -274,21 +274,21 @@ function ListaEditor({
                   className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors flex-shrink-0 ${
                     item.activo
                       ? 'bg-accent border-accent'
-                      : 'border-border hover:border-accent/50'
+                      : 'border-[#D3D1C7] hover:border-accent/50'
                   }`}
                 >
-                  {item.activo && <span className="text-bg text-xs font-bold">✓</span>}
+                  {item.activo && <span className="text-white text-xs font-bold">✓</span>}
                 </button>
 
                 {/* Nombre */}
                 <span className="text-sm truncate">
                   {item.nombre}
-                  <span className="text-muted text-xs ml-1.5">{item.unidad}</span>
+                  <span className="text-gray-500 text-xs ml-1.5">{item.unidad}</span>
                 </span>
 
                 {/* Precio */}
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted text-xs">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
                   <input
                     type="number"
                     min="0"
@@ -297,7 +297,7 @@ function ListaEditor({
                     onChange={(e: ChangeEvent<HTMLInputElement>) =>
                       setItem(item.productoId, { precio: Number(e.target.value) || 0 })
                     }
-                    className="w-full bg-bg border border-border rounded-lg pl-6 pr-2 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-accent"
+                    className="w-full bg-white border border-[#D3D1C7] rounded-lg pl-6 pr-2 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
                   />
                 </div>
 
@@ -306,8 +306,8 @@ function ListaEditor({
                   onClick={() => overrides.length > 0 && setExpanded((p) => ({ ...p, [item.productoId]: !isExpanded }))}
                   className={`flex items-center gap-1 text-xs whitespace-nowrap ${
                     overrides.length > 0
-                      ? 'text-yellow-400 hover:text-yellow-300 cursor-pointer'
-                      : 'text-muted/30 cursor-default'
+                      ? 'text-amber-600 hover:text-amber-700 cursor-pointer'
+                      : 'text-gray-300 cursor-default'
                   }`}
                 >
                   {overrides.length > 0 ? (
@@ -326,17 +326,17 @@ function ListaEditor({
                   {overrides.map((u) => (
                     <div
                       key={u.uid}
-                      className="flex items-center justify-between gap-3 px-3 py-1.5 bg-yellow-500/5 border border-yellow-500/15 rounded-lg"
+                      className="flex items-center justify-between gap-3 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-lg"
                     >
-                      <span className="text-xs text-white truncate flex-1">
+                      <span className="text-xs text-gray-900 truncate flex-1">
                         {u.razonSocial || u.nombre}
                       </span>
-                      <span className="text-xs font-bold text-yellow-400 shrink-0">
+                      <span className="text-xs font-bold text-amber-600 shrink-0">
                         ${u.preciosCustom![item.productoId].toLocaleString('es-AR')}
                       </span>
                       <button
                         onClick={() => handleRemoveOverride(u, item.productoId)}
-                        className="text-muted hover:text-red-400 transition-colors shrink-0"
+                        className="text-gray-400 hover:text-red-500 transition-colors shrink-0"
                         title="Quitar precio especial"
                       >
                         <Trash2 size={11} />
@@ -387,8 +387,8 @@ function CatalogoEditor({
   }
 
   return (
-    <div className="bg-surface border border-border rounded-xl p-5 space-y-4">
-      <p className="text-sm text-muted">
+    <div className="bg-white border border-[#D3D1C7] rounded-xl p-5 space-y-4">
+      <p className="text-sm text-gray-500">
         El catálogo define los productos disponibles en el sistema. Agregar un producto aquí lo
         hace disponible para activar en cualquier lista de precios.
       </p>
@@ -397,11 +397,11 @@ function CatalogoEditor({
         {catalogo.map((p) => (
           <div
             key={p.id}
-            className="flex items-center gap-3 bg-bg border border-border rounded-lg px-3 py-2.5"
+            className="flex items-center gap-3 bg-gray-50 border border-[#D3D1C7] rounded-lg px-3 py-2.5"
           >
             <div className="flex-1 min-w-0">
-              <span className="text-sm text-white">{p.nombre}</span>
-              <span className="text-xs text-muted ml-2">{p.unidad}</span>
+              <span className="text-sm text-gray-900">{p.nombre}</span>
+              <span className="text-xs text-gray-500 ml-2">{p.unidad}</span>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
               <input
@@ -419,13 +419,13 @@ function CatalogoEditor({
                   await saveCatalogo(updated)
                   onSaved()
                 }}
-                className="w-24 bg-surface border border-border rounded px-2 py-1 text-xs text-white text-right focus:outline-none focus:ring-1 focus:ring-accent placeholder-muted/50"
+                className="w-24 bg-white border border-[#D3D1C7] rounded px-2 py-1 text-xs text-gray-900 text-right focus:outline-none focus:ring-1 focus:ring-accent placeholder-gray-300"
               />
-              <span className="text-xs text-muted whitespace-nowrap">u/pallet</span>
+              <span className="text-xs text-gray-500 whitespace-nowrap">u/pallet</span>
             </div>
             <button
               onClick={() => handleRemove(p.id)}
-              className="text-muted hover:text-red-400 transition-colors p-1 shrink-0"
+              className="text-gray-400 hover:text-red-500 transition-colors p-1 shrink-0"
             >
               <Trash2 size={14} />
             </button>
@@ -434,23 +434,23 @@ function CatalogoEditor({
       </div>
 
       {/* Agregar producto */}
-      <div className="border-t border-border pt-4 flex flex-wrap gap-2 items-end">
+      <div className="border-t border-gray-200 pt-4 flex flex-wrap gap-2 items-end">
         <div className="flex-1 min-w-[160px]">
-          <label className="text-xs text-muted uppercase tracking-wide">Nombre</label>
+          <label className="text-xs text-gray-500 uppercase tracking-wide">Nombre</label>
           <input
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
             placeholder="Ej: Hielo granizado 5kg"
-            className="mt-1 w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-white placeholder-muted focus:outline-none focus:ring-2 focus:ring-accent"
+            className="mt-1 w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent"
           />
         </div>
         <div className="w-28">
-          <label className="text-xs text-muted uppercase tracking-wide">Unidad</label>
+          <label className="text-xs text-gray-500 uppercase tracking-wide">Unidad</label>
           <select
             value={unidad}
             onChange={(e) => setUnidad(e.target.value)}
-            className="mt-1 w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-accent"
+            className="mt-1 w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-accent"
           >
             {['bolsa', 'barra', 'unidad', 'kg', 'litro', 'bidón', 'caja'].map((u) => (
               <option key={u} value={u}>{u}</option>

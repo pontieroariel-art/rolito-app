@@ -288,29 +288,29 @@ function VisitaCard({
   const isSinContacto = status === 'sin_contacto'
 
   return (
-    <div className={`bg-surface border rounded-xl p-4 space-y-2 ${
-      isVisitado ? 'border-success/30 opacity-70' :
-      isSinContacto ? 'border-orange-500/30 opacity-70' :
-      'border-border'
+    <div className={`bg-white border rounded-xl p-4 space-y-2 ${
+      isVisitado ? 'border-green-200 opacity-70' :
+      isSinContacto ? 'border-amber-300 opacity-70' :
+      'border-[#D3D1C7]'
     }`}>
       <div className="flex justify-between items-start gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="font-semibold text-sm">{clientName}</p>
+            <p className="font-semibold text-sm text-gray-900">{clientName}</p>
             {isRecurrente && (
               <span className="text-xs px-1.5 py-0.5 rounded bg-accent/15 text-accent border border-accent/20">
                 recurrente
               </span>
             )}
             {isVisitado && <span className="text-xs text-success font-medium">✓ Visitado</span>}
-            {isSinContacto && <span className="text-xs text-orange-400 font-medium">Sin contacto</span>}
+            {isSinContacto && <span className="text-xs text-amber-600 font-medium">Sin contacto</span>}
           </div>
-          <p className="text-muted text-xs mt-0.5 truncate">{clientAddress}</p>
+          <p className="text-gray-500 text-xs mt-0.5 truncate">{clientAddress}</p>
           {clientPhone && <p className="text-xs text-accent mt-0.5">{clientPhone}</p>}
-          {notas && <p className="text-xs text-muted/70 italic mt-1">"{notas}"</p>}
+          {notas && <p className="text-xs text-gray-400 italic mt-1">"{notas}"</p>}
           {chofer && (
-            <p className="text-xs text-muted mt-1">
-              Chofer: <span className="text-white">{choferLabel(chofer)}</span>
+            <p className="text-xs text-gray-500 mt-1">
+              Chofer: <span className="text-gray-900">{choferLabel(chofer)}</span>
             </p>
           )}
         </div>
@@ -318,7 +318,7 @@ function VisitaCard({
           {onSinContacto && !isVisitado && !isSinContacto && (
             <button
               onClick={onSinContacto}
-              className="text-xs text-muted hover:text-orange-400 border border-border hover:border-orange-400/50 rounded-lg px-2 py-1 transition-colors"
+              className="text-xs text-gray-400 hover:text-amber-600 border border-[#D3D1C7] hover:border-amber-300 rounded-lg px-2 py-1 transition-colors"
             >
               Sin contacto
             </button>
@@ -326,7 +326,7 @@ function VisitaCard({
           {onDelete && (
             <button
               onClick={onDelete}
-              className="text-xs text-muted hover:text-red-400 border border-border hover:border-red-400/50 rounded-lg px-2 py-1 transition-colors"
+              className="text-xs text-gray-400 hover:text-red-500 border border-[#D3D1C7] hover:border-red-300 rounded-lg px-2 py-1 transition-colors"
             >
               ✕
             </button>
@@ -386,19 +386,19 @@ export default function VisitasPage() {
   if (loadP || loadV) return <><Navbar /><LoadingSpinner fullScreen /></>
 
   return (
-    <>
+    <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
       <Navbar />
       <main className="max-w-3xl mx-auto p-4 space-y-6 pb-10">
 
         <div className="flex flex-wrap justify-between items-center gap-3">
           <div>
             <h1 className="text-2xl font-bold">Visitas</h1>
-            <p className="text-muted text-sm">Recorridos programados y visitas puntuales</p>
+            <p className="text-gray-500 text-sm">Recorridos programados y visitas puntuales</p>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-border gap-1">
+        <div className="flex border-b border-gray-200 gap-1">
           {(['agenda', 'programas', 'seguimiento'] as const).map((t) => (
             <button
               key={t}
@@ -406,7 +406,7 @@ export default function VisitasPage() {
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
                 tab === t
                   ? 'border-accent text-accent'
-                  : 'border-transparent text-muted hover:text-white'
+                  : 'border-transparent text-gray-500 hover:text-gray-900'
               }`}
             >
               {t === 'agenda' ? (
@@ -426,14 +426,14 @@ export default function VisitasPage() {
                 type="date"
                 value={agendaDate}
                 onChange={(e: ChangeEvent<HTMLInputElement>) => setAgendaDate(e.target.value)}
-                className="bg-surface border border-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
               />
               <Button onClick={openAddVisita} className="text-sm">+ Visita puntual</Button>
             </div>
 
             {programasHoy.length === 0 && visitasPuntuales.length === 0 ? (
-              <div className="bg-surface border border-border rounded-xl p-8 text-center">
-                <p className="text-muted text-sm">No hay visitas programadas para este día</p>
+              <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center">
+                <p className="text-gray-500 text-sm">No hay visitas programadas para este día</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -480,10 +480,10 @@ export default function VisitasPage() {
             </div>
 
             {programas.length === 0 ? (
-              <div className="bg-surface border border-border rounded-xl p-8 text-center">
+              <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center">
                 <p className="text-4xl mb-3">📅</p>
-                <p className="text-muted text-sm">Todavía no configuraste programas de visita</p>
-                <p className="text-muted/60 text-xs mt-1">
+                <p className="text-gray-500 text-sm">Todavía no configuraste programas de visita</p>
+                <p className="text-gray-400 text-xs mt-1">
                   Agregá un programa para que las visitas aparezcan automáticamente cada semana
                 </p>
               </div>
@@ -494,16 +494,16 @@ export default function VisitasPage() {
                   return (
                     <div
                       key={p.id}
-                      className={`bg-surface border rounded-xl p-4 flex flex-wrap items-start justify-between gap-3 ${
-                        p.activo ? 'border-border' : 'border-border/40 opacity-60'
+                      className={`bg-white border rounded-xl p-4 flex flex-wrap items-start justify-between gap-3 ${
+                        p.activo ? 'border-[#D3D1C7]' : 'border-gray-200 opacity-60'
                       }`}
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-semibold text-sm">{p.clientName}</p>
-                          {!p.activo && <span className="text-xs text-muted">(inactivo)</span>}
+                          <p className="font-semibold text-sm text-gray-900">{p.clientName}</p>
+                          {!p.activo && <span className="text-xs text-gray-400">(inactivo)</span>}
                         </div>
-                        <p className="text-muted text-xs truncate mt-0.5">{p.clientAddress}</p>
+                        <p className="text-gray-500 text-xs truncate mt-0.5">{p.clientAddress}</p>
 
                         {/* Días */}
                         <div className="flex gap-1 mt-2">
@@ -512,8 +512,8 @@ export default function VisitasPage() {
                               key={i}
                               className={`w-6 h-6 rounded-full text-xs flex items-center justify-center font-bold ${
                                 p.diasSemana.includes(i)
-                                  ? 'bg-accent text-bg'
-                                  : 'bg-bg text-muted/30'
+                                  ? 'bg-accent text-white'
+                                  : 'bg-gray-100 text-gray-300'
                               }`}
                             >
                               {label}
@@ -522,31 +522,31 @@ export default function VisitasPage() {
                         </div>
 
                         {chofer && (
-                          <p className="text-xs text-muted mt-1.5">
-                            Chofer: <span className="text-white">{choferLabel(chofer)}</span>
+                          <p className="text-xs text-gray-500 mt-1.5">
+                            Chofer: <span className="text-gray-900">{choferLabel(chofer)}</span>
                           </p>
                         )}
                         {p.notas && (
-                          <p className="text-xs text-muted/70 italic mt-1">"{p.notas}"</p>
+                          <p className="text-xs text-gray-400 italic mt-1">"{p.notas}"</p>
                         )}
                       </div>
 
                       <div className="flex gap-2 shrink-0">
                         <button
                           onClick={() => openEditPrograma(p)}
-                          className="text-xs text-muted hover:text-white border border-border hover:border-accent rounded-lg px-3 py-1.5 transition-colors"
+                          className="text-xs text-gray-500 hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-3 py-1.5 transition-colors"
                         >
                           Editar
                         </button>
                         <button
                           onClick={() => updatePrograma(p.id, { activo: !p.activo })}
-                          className="text-xs text-muted hover:text-white border border-border hover:border-accent rounded-lg px-3 py-1.5 transition-colors"
+                          className="text-xs text-gray-500 hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-3 py-1.5 transition-colors"
                         >
                           {p.activo ? 'Pausar' : 'Activar'}
                         </button>
                         <button
                           onClick={() => deletePrograma(p.id)}
-                          className="text-xs text-muted hover:text-red-400 border border-border hover:border-red-400/50 rounded-lg px-3 py-1.5 transition-colors"
+                          className="text-xs text-gray-500 hover:text-red-500 border border-[#D3D1C7] hover:border-red-300 rounded-lg px-3 py-1.5 transition-colors"
                         >
                           ✕
                         </button>
@@ -578,10 +578,10 @@ export default function VisitasPage() {
 
               if (visitaClientes.length === 0) {
                 return (
-                  <div className="bg-surface border border-border rounded-xl p-10 text-center">
+                  <div className="bg-white border border-[#D3D1C7] rounded-xl p-10 text-center">
                     <p className="text-3xl mb-3">🗺</p>
-                    <p className="text-muted text-sm">No hay clientes marcados como visita</p>
-                    <p className="text-muted/60 text-xs mt-1">
+                    <p className="text-gray-500 text-sm">No hay clientes marcados como visita</p>
+                    <p className="text-gray-400 text-xs mt-1">
                       Marcá un cliente como visita desde Usuarios → Ficha del cliente
                     </p>
                   </div>
@@ -592,13 +592,13 @@ export default function VisitasPage() {
               return (
                 <>
                   {sinProgramar.length > 0 && (
-                    <div className="bg-yellow-500/5 border border-yellow-500/30 rounded-xl p-4 flex items-start gap-3">
-                      <span className="text-yellow-400 text-lg shrink-0">⚠</span>
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+                      <span className="text-amber-600 text-lg shrink-0">⚠</span>
                       <div>
-                        <p className="text-sm font-medium text-yellow-400">
+                        <p className="text-sm font-medium text-amber-700">
                           {sinProgramar.length} cliente{sinProgramar.length !== 1 ? 's' : ''} sin visita esta semana
                         </p>
-                        <p className="text-xs text-muted mt-0.5">
+                        <p className="text-xs text-gray-500 mt-0.5">
                           Revisá si faltan en la planificación o creá una visita puntual
                         </p>
                       </div>
@@ -620,22 +620,22 @@ export default function VisitasPage() {
                         return (
                           <div
                             key={c.uid}
-                            className={`bg-surface border rounded-xl p-4 space-y-2 ${
-                              scheduled ? 'border-border' : 'border-yellow-500/30'
+                            className={`bg-white border rounded-xl p-4 space-y-2 ${
+                              scheduled ? 'border-[#D3D1C7]' : 'border-amber-300'
                             }`}
                           >
                             <div className="flex justify-between items-start gap-3">
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <p className="font-semibold text-sm">{clientLabel(c)}</p>
+                                  <p className="font-semibold text-sm text-gray-900">{clientLabel(c)}</p>
                                   {c.frecuenciaVisita && (
-                                    <span className="text-xs px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-400 border border-violet-500/20">
+                                    <span className="text-xs px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 border border-violet-200">
                                       {FRECUENCIA_LABELS[c.frecuenciaVisita]}
                                     </span>
                                   )}
                                 </div>
                                 {primaryAddr?.address && (
-                                  <p className="text-xs text-muted mt-0.5 truncate">{primaryAddr.address}</p>
+                                  <p className="text-xs text-gray-500 mt-0.5 truncate">{primaryAddr.address}</p>
                                 )}
                                 {prog ? (
                                   <div className="flex gap-1 mt-2">
@@ -643,7 +643,7 @@ export default function VisitasPage() {
                                       <span
                                         key={i}
                                         className={`w-5 h-5 rounded-full text-xs flex items-center justify-center font-bold ${
-                                          prog.diasSemana.includes(i) ? 'bg-accent text-bg' : 'bg-bg text-muted/30'
+                                          prog.diasSemana.includes(i) ? 'bg-accent text-white' : 'bg-gray-100 text-gray-300'
                                         }`}
                                       >
                                         {label}
@@ -651,7 +651,7 @@ export default function VisitasPage() {
                                     ))}
                                   </div>
                                 ) : (
-                                  <p className="text-xs text-muted mt-1">Sin programa recurrente</p>
+                                  <p className="text-xs text-gray-500 mt-1">Sin programa recurrente</p>
                                 )}
                               </div>
                               <div className="shrink-0 text-right">
@@ -659,10 +659,10 @@ export default function VisitasPage() {
                                   <p className="text-xs text-success font-medium">✓ Esta semana</p>
                                 ) : (
                                   <>
-                                    <p className="text-xs text-yellow-400 font-medium">⚠ Sin programar</p>
+                                    <p className="text-xs text-amber-600 font-medium">⚠ Sin programar</p>
                                     <button
                                       onClick={() => { openAddVisita(); }}
-                                      className="mt-1 text-xs text-accent hover:text-white border border-accent/30 hover:border-accent rounded-lg px-2 py-1 transition-colors"
+                                      className="mt-1 text-xs text-accent hover:text-gray-900 border border-accent/30 hover:border-accent rounded-lg px-2 py-1 transition-colors"
                                     >
                                       + Visita
                                     </button>
@@ -718,6 +718,6 @@ export default function VisitasPage() {
           />
         )}
       </Modal>
-    </>
+    </div>
   )
 }

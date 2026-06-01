@@ -33,27 +33,27 @@ export function OrderRow({ order }: { order: Order }) {
 
   return (
     <>
-      <div className="bg-surface border border-border rounded-xl p-4 flex justify-between items-start gap-3">
+      <div className="bg-white border border-gray-200 rounded-2xl p-4 flex justify-between items-start gap-3">
         <div className="min-w-0 flex-1">
-          <p className="font-medium text-sm truncate">{summarizeProducts(order.products)}</p>
-          <p className="text-muted text-xs mt-1">Entrega: {formatShortDate(order.date)}</p>
+          <p className="font-medium text-sm text-gray-900 truncate">{summarizeProducts(order.products)}</p>
+          <p className="text-gray-500 text-xs mt-1">Entrega: {formatShortDate(order.date)}</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {canCancel && (
             <button
               onClick={() => { setMotivo(''); setModal(true) }}
-              className="text-xs text-red-400 hover:text-red-300 border border-red-500/30 hover:border-red-400/50 px-2.5 py-1 rounded-lg transition-colors"
+              className="text-xs text-red-500 hover:text-red-600 border border-red-200 hover:border-red-300 px-2.5 py-1 rounded-lg transition-colors"
             >
               Cancelar
             </button>
           )}
-          <Badge status={order.status} />
+          <Badge status={order.status} variant="light" />
         </div>
       </div>
 
       <Modal open={modal} onClose={() => setModal(false)} title="Cancelar pedido">
         <div className="space-y-4">
-          <p className="text-sm text-muted">¿Por qué querés cancelar este pedido?</p>
+          <p className="text-sm text-gray-500">¿Por qué querés cancelar este pedido?</p>
           <div className="space-y-2">
             {MOTIVOS_CANCEL.map((m) => (
               <button
@@ -61,8 +61,8 @@ export function OrderRow({ order }: { order: Order }) {
                 onClick={() => setMotivo(m)}
                 className={`w-full text-left text-sm px-4 py-3 rounded-xl border transition-colors ${
                   motivo === m
-                    ? 'bg-red-500/10 border-red-500/50 text-red-400'
-                    : 'border-border text-muted hover:border-border/70 hover:text-white'
+                    ? 'bg-red-50 border-red-300 text-red-600'
+                    : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:text-gray-900'
                 }`}
               >
                 {m}

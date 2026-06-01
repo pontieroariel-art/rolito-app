@@ -184,33 +184,33 @@ function ChoferAsignacionRow({
   const needsAttention = tieneOrdenesHoy && (!confirmadoHoy || sinCamion)
 
   return (
-    <div className={`bg-surface border rounded-xl p-4 flex flex-wrap items-center gap-3 ${
-      needsAttention ? 'border-orange-500/40' : 'border-border'
+    <div className={`bg-white border rounded-xl p-4 flex flex-wrap items-center gap-3 ${
+      needsAttention ? 'border-amber-300' : 'border-[#D3D1C7]'
     }`}>
       {/* Indicador */}
       <div className="shrink-0">
         {needsAttention ? (
-          <span className="text-orange-400 text-lg">⚠</span>
+          <span className="text-amber-600 text-lg">⚠</span>
         ) : confirmadoHoy ? (
           <span className="text-success text-lg">✓</span>
         ) : (
-          <span className="text-muted text-lg">·</span>
+          <span className="text-gray-400 text-lg">·</span>
         )}
       </div>
 
       {/* Nombre */}
       <div className="flex-1 min-w-32">
-        <p className="font-semibold text-sm">{chofer.nombreContacto || chofer.nombre}</p>
+        <p className="font-semibold text-sm text-gray-900">{chofer.nombreContacto || chofer.nombre}</p>
         {confirmadoHoy && chofer.camionFechaAsignacion?.toDate && (
-          <p className="text-xs text-muted mt-0.5">
+          <p className="text-xs text-gray-500 mt-0.5">
             Confirmado {chofer.camionFechaAsignacion.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
           </p>
         )}
         {!confirmadoHoy && chofer.camionId && (
-          <p className="text-xs text-orange-400 mt-0.5">Sin confirmar hoy</p>
+          <p className="text-xs text-amber-600 mt-0.5">Sin confirmar hoy</p>
         )}
         {sinCamion && (
-          <p className="text-xs text-orange-400 mt-0.5">Sin camión asignado</p>
+          <p className="text-xs text-amber-600 mt-0.5">Sin camión asignado</p>
         )}
       </div>
 
@@ -218,7 +218,7 @@ function ChoferAsignacionRow({
       <select
         value={chofer.camionId ?? ''}
         onChange={handleChange}
-        className="bg-bg border border-border rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-accent flex-1 min-w-44 max-w-xs"
+        className="bg-white border border-[#D3D1C7] rounded-lg px-2 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent flex-1 min-w-44 max-w-xs"
       >
         <option value="">— Sin camión —</option>
         {camiones.filter((c) => c.activo && (!ocupados.has(c.id) || c.id === chofer.camionId)).map((c) => (
@@ -276,26 +276,26 @@ export default function FlotaPage() {
   if (loadingCamiones || loadingChoferes) return <><Navbar /><LoadingSpinner fullScreen /></>
 
   return (
-    <>
+    <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
       <Navbar />
       <main className="max-w-3xl mx-auto p-4 space-y-8 pb-10">
 
         <div className="flex flex-wrap justify-between items-center gap-3">
           <div>
-            <h1 className="text-2xl font-bold">Flota de camiones</h1>
-            <p className="text-muted text-sm">{camiones.filter((c) => c.activo).length} vehículos activos</p>
+            <h1 className="text-2xl font-bold text-gray-900">Flota de camiones</h1>
+            <p className="text-gray-500 text-sm">{camiones.filter((c) => c.activo).length} vehículos activos</p>
           </div>
         </div>
 
         {/* Alerta del día */}
         {sinConfirmarHoy.length > 0 && (
-          <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl px-4 py-3 flex items-start gap-3">
-            <span className="text-orange-400 text-xl shrink-0">⚠</span>
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-3">
+            <span className="text-amber-600 text-xl shrink-0">⚠</span>
             <div>
-              <p className="text-orange-400 font-semibold text-sm">
+              <p className="text-amber-700 font-semibold text-sm">
                 {sinConfirmarHoy.length} chofer{sinConfirmarHoy.length !== 1 ? 'es' : ''} sin camión confirmado para hoy
               </p>
-              <p className="text-orange-400/70 text-xs mt-0.5">
+              <p className="text-amber-600/70 text-xs mt-0.5">
                 {sinConfirmarHoy.map((c) => c.nombreContacto || c.nombre).join(', ')}
               </p>
             </div>
@@ -306,14 +306,14 @@ export default function FlotaPage() {
         <section className="space-y-3">
           <div className="flex items-center gap-3">
             <h2 className="text-lg font-semibold">Asignación del día</h2>
-            <span className="text-xs text-muted">
+            <span className="text-xs text-gray-500">
               {new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}
             </span>
           </div>
 
           {choferes.length === 0 ? (
-            <div className="bg-surface border border-border rounded-xl p-6 text-center">
-              <p className="text-muted text-sm">No hay choferes activos</p>
+            <div className="bg-white border border-[#D3D1C7] rounded-xl p-6 text-center">
+              <p className="text-gray-500 text-sm">No hay choferes activos</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -339,10 +339,10 @@ export default function FlotaPage() {
           </div>
 
           {camiones.length === 0 ? (
-            <div className="bg-surface border border-border rounded-xl p-8 text-center">
+            <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center">
               <p className="text-4xl mb-3">🚛</p>
-              <p className="text-muted text-sm">Todavía no cargaste ningún vehículo</p>
-              <p className="text-muted/60 text-xs mt-1">Usá el botón "Agregar" para empezar</p>
+              <p className="text-gray-500 text-sm">Todavía no cargaste ningún vehículo</p>
+              <p className="text-gray-400 text-xs mt-1">Usá el botón "Agregar" para empezar</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -351,15 +351,15 @@ export default function FlotaPage() {
                 return (
                   <div
                     key={c.id}
-                    className={`bg-surface border rounded-xl p-4 flex flex-wrap items-center justify-between gap-3 ${
-                      c.activo ? 'border-border' : 'border-border/40 opacity-60'
+                    className={`bg-white border rounded-xl p-4 flex flex-wrap items-center justify-between gap-3 ${
+                      c.activo ? 'border-[#D3D1C7]' : 'border-[#D3D1C7]/40 opacity-60'
                     }`}
                   >
                     <div className="flex items-center gap-3">
                       <span className="text-2xl">🚛</span>
                       <div>
-                        <p className="font-bold text-sm tracking-wide">{c.patente}</p>
-                        <p className="text-muted text-xs">
+                        <p className="font-bold text-sm tracking-wide text-gray-900">{c.patente}</p>
+                        <p className="text-gray-500 text-xs">
                           {c.marca ? `${c.marca} · ` : ''}{c.modelo}
                         </p>
                         {asignadoA && (
@@ -368,7 +368,7 @@ export default function FlotaPage() {
                           </p>
                         )}
                         {c.capacidadPallets && (
-                          <p className="text-xs text-muted mt-0.5">{c.capacidadPallets} pallets cap.</p>
+                          <p className="text-xs text-gray-500 mt-0.5">{c.capacidadPallets} pallets cap.</p>
                         )}
                         {c.canales && c.canales.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-1.5">
@@ -387,20 +387,20 @@ export default function FlotaPage() {
                     <div className="flex items-center gap-2">
                       <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
                         c.activo
-                          ? 'bg-green-500/20 text-green-400 border-green-500/30'
-                          : 'bg-muted/10 text-muted border-muted/20'
+                          ? 'bg-green-100 text-green-700 border-green-200'
+                          : 'bg-gray-100 text-gray-500 border-gray-200'
                       }`}>
                         {c.activo ? 'Activo' : 'Inactivo'}
                       </span>
                       <button
                         onClick={() => setEditCamion(c)}
-                        className="text-xs text-muted hover:text-white border border-border hover:border-accent rounded-lg px-3 py-1.5 transition-colors"
+                        className="text-xs text-gray-500 hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-3 py-1.5 transition-colors"
                       >
                         Editar
                       </button>
                       <button
                         onClick={() => updateCamion(c.id, { activo: !c.activo })}
-                        className="text-xs text-muted hover:text-white border border-border hover:border-accent rounded-lg px-3 py-1.5 transition-colors"
+                        className="text-xs text-gray-500 hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-3 py-1.5 transition-colors"
                       >
                         {c.activo ? 'Desactivar' : 'Activar'}
                       </button>
@@ -441,6 +441,6 @@ export default function FlotaPage() {
           />
         </Modal>
       )}
-    </>
+    </div>
   )
 }
