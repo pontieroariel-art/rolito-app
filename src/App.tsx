@@ -20,12 +20,13 @@ import OrderHistory     from './pages/client/OrderHistory'
 import ClientProfile    from './pages/client/ClientProfile'
 import SelectSucursal   from './pages/client/SelectSucursal'
 
-import AdminDashboard  from './pages/admin/AdminDashboard'
-import UserManagement  from './pages/admin/UserManagement'
-import PriceListsPage  from './pages/admin/PriceListsPage'
-import FlotaPage          from './pages/admin/FlotaPage'
-import VisitasPage        from './pages/admin/VisitasPage'
-import PlanificacionPage  from './pages/admin/PlanificacionPage'
+import AdminDashboard      from './pages/admin/AdminDashboard'
+import LogisticaDashboard  from './pages/admin/LogisticaDashboard'
+import UserManagement      from './pages/admin/UserManagement'
+import PriceListsPage      from './pages/admin/PriceListsPage'
+import FlotaPage              from './pages/admin/FlotaPage'
+import VisitasPage            from './pages/admin/VisitasPage'
+import PlanificacionPage      from './pages/admin/PlanificacionPage'
 import MonitoreoPage          from './pages/admin/MonitoreoPage'
 import ReporteIncidenciasPage from './pages/admin/ReporteIncidenciasPage'
 import ClimaPage              from './pages/admin/ClimaPage'
@@ -116,8 +117,9 @@ function AppContent() {
 
       {/* Admin y logística */}
       <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica']} />}>
-        <Route path="/admin"          element={<AdminDashboard />} />
-        <Route path="/admin/precios"  element={<PriceListsPage />} />
+        <Route path="/admin"                element={<AdminDashboard />} />
+        <Route path="/logistica"            element={<LogisticaDashboard />} />
+        <Route path="/admin/precios"        element={<PriceListsPage />} />
         <Route path="/admin/flota"          element={<FlotaPage />} />
         <Route path="/admin/visitas"        element={<VisitasPage />} />
         <Route path="/admin/planificacion"  element={<PlanificacionPage />} />
