@@ -1,5 +1,7 @@
 import { useState, ChangeEvent, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { getDocs, query, collection, where } from 'firebase/firestore'
+import { db } from '../../services/firebase'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import { getAllUsers } from '../../services/userService'
@@ -61,9 +63,20 @@ function StepCliente({
 }) {
   const [search, setSearch] = useState('')
 
-  const { data: allUsers = [], isLoading } = useQuery({
+  const { data: allUsers = [], isLoading, isError } = useQuery({
     queryKey:  ['users', 'clientes-activos'],
-    queryFn:   () => getAllUsers().then((u) => u.filter((x) => x.rol === 'cliente' && x.estado === 'activo')),
+    queryFn:   async () => {
+      try {
+        const users = await getAllUsers()
+        return users.filter((x) => x.rol === 'cliente' && x.estado === 'activo')
+      } catch {
+        // Fallback: query directa sin orderBy si falla el índice
+        const snap = await getDocs(
+          query(collection(db, 'users'), where('rol', '==', 'cliente'), where('estado', '==', 'activo')),
+        )
+        return snap.docs.map((d) => ({ uid: d.id, ...d.data() } as UserProfile))
+      }
+    },
     staleTime: 300_000,
   })
 
@@ -88,8 +101,12 @@ function StepCliente({
       />
       {isLoading ? (
         <p className="text-muted text-sm text-center py-4">Cargando clientes…</p>
+      ) : isError ? (
+        <p className="text-red-400 text-sm text-center py-4">Error al cargar clientes. Verificá la conexión.</p>
       ) : filtered.length === 0 ? (
-        <p className="text-muted text-sm text-center py-4">Sin resultados</p>
+        <p className="text-muted text-sm text-center py-4">
+          {search ? 'Sin resultados para esa búsqueda' : 'No hay clientes activos'}
+        </p>
       ) : (
         <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
           {filtered.map((c) => {
