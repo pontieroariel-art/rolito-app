@@ -10,7 +10,7 @@ import { loginUser, resetPassword } from '../../services/authService'
 
 const ROLE_HOME: Record<string, string> = {
   super_admin: '/admin',
-  logistica:   '/admin',
+  logistica:   '/logistica',
   comercial:   '/comercial',
   chofer:      '/chofer',
   cliente:     '/dashboard',
