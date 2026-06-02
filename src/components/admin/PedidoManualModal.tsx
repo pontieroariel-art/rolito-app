@@ -23,11 +23,11 @@ function ProductRow({
     onChange(raw === '' ? 0 : Math.max(0, parseInt(raw, 10)))
   }
   return (
-    <div className="bg-bg border border-border rounded-xl p-3 flex justify-between items-center">
+    <div className="bg-[#F1EFE8] border border-[#D3D1C7] rounded-xl p-3 flex justify-between items-center">
       <div>
-        <p className="font-medium text-sm">{nombre}</p>
+        <p className="font-medium text-sm text-gray-900">{nombre}</p>
         {precio !== undefined && precio > 0 && (
-          <p className="text-xs text-muted mt-0.5">
+          <p className="text-xs text-gray-500 mt-0.5">
             ${precio.toLocaleString('es-AR')} / {unidad}
             {qty > 0 && <span className="text-accent ml-2 font-medium">= ${(precio * qty).toLocaleString('es-AR')}</span>}
           </p>
@@ -37,17 +37,17 @@ function ProductRow({
         <button
           onClick={() => onChange(qty - 1)}
           disabled={qty === 0}
-          className="w-8 h-8 rounded-full bg-surface border border-border text-lg hover:border-accent transition-colors disabled:opacity-30 flex items-center justify-center"
+          className="w-8 h-8 rounded-full bg-white border border-[#D3D1C7] text-lg hover:border-accent transition-colors disabled:opacity-30 flex items-center justify-center text-gray-700"
         >−</button>
         <input
           type="text" inputMode="numeric" pattern="[0-9]*"
           value={qty > 0 ? String(qty) : ''} placeholder="0"
           onChange={handleInput}
-          className="w-10 text-center font-bold bg-transparent border-b border-border focus:outline-none focus:border-accent text-white placeholder-muted"
+          className="w-10 text-center font-bold bg-transparent border-b border-[#D3D1C7] focus:outline-none focus:border-accent text-gray-900 placeholder-gray-400"
         />
         <button
           onClick={() => onChange(qty + 1)}
-          className="w-8 h-8 rounded-full bg-surface border border-border text-lg hover:border-accent transition-colors flex items-center justify-center"
+          className="w-8 h-8 rounded-full bg-white border border-[#D3D1C7] text-lg hover:border-accent transition-colors flex items-center justify-center text-gray-700"
         >+</button>
       </div>
     </div>
@@ -97,14 +97,14 @@ function StepCliente({
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder="Buscar por nombre o CUIT…"
-        className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-accent placeholder-muted"
+        className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent placeholder-gray-400"
       />
       {isLoading ? (
-        <p className="text-muted text-sm text-center py-4">Cargando clientes…</p>
+        <p className="text-gray-500 text-sm text-center py-4">Cargando clientes…</p>
       ) : isError ? (
-        <p className="text-red-400 text-sm text-center py-4">Error al cargar clientes. Verificá la conexión.</p>
+        <p className="text-red-600 text-sm text-center py-4">Error al cargar clientes. Verificá la conexión.</p>
       ) : filtered.length === 0 ? (
-        <p className="text-muted text-sm text-center py-4">
+        <p className="text-gray-500 text-sm text-center py-4">
           {search ? 'Sin resultados para esa búsqueda' : 'No hay clientes activos'}
         </p>
       ) : (
@@ -116,10 +116,10 @@ function StepCliente({
               <button
                 key={c.uid}
                 onClick={() => onSelect(c)}
-                className="w-full text-left bg-surface border border-border hover:border-accent/60 rounded-xl px-4 py-3 transition-colors"
+                className="w-full text-left bg-[#F1EFE8] border border-[#D3D1C7] hover:border-accent/60 hover:bg-white rounded-xl px-4 py-3 transition-colors"
               >
-                <p className="font-medium text-sm text-white">{nombre}</p>
-                <p className="text-xs text-muted mt-0.5 truncate">
+                <p className="font-medium text-sm text-gray-900">{nombre}</p>
+                <p className="text-xs text-gray-500 mt-0.5 truncate">
                   {c.cuit && <span className="mr-2">CUIT {c.cuit}</span>}
                   {addr && <span>{addr}</span>}
                 </p>
@@ -213,12 +213,12 @@ function StepProductos({
 
       {/* Dirección */}
       <div>
-        <label className="text-xs text-muted mb-1 block">Dirección de entrega</label>
+        <label className="text-xs text-gray-500 mb-1 block">Dirección de entrega</label>
         <input
           value={address}
           onChange={(e) => setAddress(e.target.value)}
           placeholder="Dirección…"
-          className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+          className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent placeholder-gray-400"
         />
       </div>
 
@@ -246,28 +246,28 @@ function StepProductos({
 
       {/* Fecha */}
       <div>
-        <label className="text-xs text-muted mb-1 block">Fecha de entrega</label>
+        <label className="text-xs text-gray-500 mb-1 block">Fecha de entrega</label>
         <input
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+          className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
         />
       </div>
 
       {/* Notas */}
       <div>
-        <label className="text-xs text-muted mb-1 block">Notas (opcional)</label>
+        <label className="text-xs text-gray-500 mb-1 block">Notas (opcional)</label>
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows={2}
           placeholder="Horario preferido, instrucciones especiales…"
-          className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-white text-sm placeholder-muted resize-none focus:outline-none focus:ring-1 focus:ring-accent"
+          className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm placeholder-gray-400 resize-none focus:outline-none focus:ring-1 focus:ring-accent"
         />
       </div>
 
-      {error && <p className="text-red-400 text-sm">{error}</p>}
+      {error && <p className="text-red-600 text-sm">{error}</p>}
 
       <div className="flex gap-3">
         <Button variant="outline" onClick={onBack} className="flex-1 text-sm">Volver</Button>
@@ -306,12 +306,13 @@ export default function PedidoManualModal({
       open={open}
       onClose={handleClose}
       title={done ? 'Pedido creado' : cliente ? 'Nuevo pedido manual — Productos' : 'Nuevo pedido manual — Cliente'}
+      variant="light"
     >
       {done ? (
         <div className="text-center space-y-4 py-2">
           <p className="text-4xl">✅</p>
-          <p className="text-white font-semibold">Pedido creado correctamente</p>
-          <p className="text-muted text-sm">Aparece como pendiente en el panel de pedidos.</p>
+          <p className="text-gray-900 font-semibold">Pedido creado correctamente</p>
+          <p className="text-gray-500 text-sm">Aparece como pendiente en el panel de pedidos.</p>
           <Button onClick={handleClose} className="w-full">Cerrar</Button>
         </div>
       ) : !cliente ? (
