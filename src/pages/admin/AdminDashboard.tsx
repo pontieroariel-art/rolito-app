@@ -78,7 +78,7 @@ export default function AdminDashboard() {
     return matchStatus && matchDate && matchSearch
   }), [orders, filter, dateFilter, search])
 
-  if (loading) return <div className="min-h-screen bg-[#F1EFE8]"><Navbar /><LoadingSpinner fullScreen /></div>
+  if (loading) return <><Navbar /><LoadingSpinner fullScreen /></>
 
   return (
     <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
