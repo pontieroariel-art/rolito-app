@@ -5,9 +5,10 @@ interface ModalProps {
   onClose: () => void
   title: string
   children: ReactNode
+  variant?: 'dark' | 'light'
 }
 
-export default function Modal({ open, onClose, title, children }: ModalProps) {
+export default function Modal({ open, onClose, title, children, variant = 'dark' }: ModalProps) {
   const titleId    = useId()
   const panelRef   = useRef<HTMLDivElement>(null)
 
@@ -39,14 +40,22 @@ export default function Modal({ open, onClose, title, children }: ModalProps) {
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="bg-surface border border-border rounded-2xl w-full max-w-md p-6 shadow-2xl outline-none"
+        className={`rounded-2xl w-full max-w-md p-6 shadow-2xl outline-none ${
+          variant === 'light'
+            ? 'bg-white border border-[#D3D1C7]'
+            : 'bg-surface border border-border'
+        }`}
       >
         <div className="flex justify-between items-center mb-4">
-          <h2 id={titleId} className="text-lg font-semibold">{title}</h2>
+          <h2 id={titleId} className={`text-lg font-semibold ${variant === 'light' ? 'text-gray-900' : ''}`}>{title}</h2>
           <button
             onClick={onClose}
             aria-label="Cerrar"
-            className="text-muted hover:text-white transition-colors w-8 h-8 flex items-center justify-center rounded-lg hover:bg-bg"
+            className={`transition-colors w-8 h-8 flex items-center justify-center rounded-lg ${
+              variant === 'light'
+                ? 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
+                : 'text-muted hover:text-white hover:bg-bg'
+            }`}
           >
             ✕
           </button>

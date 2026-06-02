@@ -96,11 +96,11 @@ function ProgramaForm({
   return (
     <div className="space-y-4">
       <div>
-        <label className="text-xs text-muted mb-1 block">Cliente *</label>
+        <label className="text-xs text-gray-500 mb-1 block">Cliente *</label>
         <select
           value={clientId}
           onChange={(e: ChangeEvent<HTMLSelectElement>) => setClientId(e.target.value)}
-          className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-accent"
+          className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
         >
           <option value="">— Seleccioná un cliente —</option>
           {clientes.map((c) => (
@@ -110,7 +110,7 @@ function ProgramaForm({
       </div>
 
       <div>
-        <label className="text-xs text-muted mb-2 block">Días de visita *</label>
+        <label className="text-xs text-gray-500 mb-2 block">Días de visita *</label>
         <div className="flex gap-2 flex-wrap">
           {DOW_LABELS.map((label, i) => (
             <button
@@ -119,8 +119,8 @@ function ProgramaForm({
               onClick={() => toggleDia(i)}
               className={`w-10 h-10 rounded-full text-sm font-bold border transition-colors ${
                 dias.includes(i)
-                  ? 'bg-accent text-bg border-accent'
-                  : 'bg-bg border-border text-muted hover:border-accent hover:text-white'
+                  ? 'bg-accent text-white border-accent'
+                  : 'bg-white border-[#D3D1C7] text-gray-500 hover:border-accent hover:text-gray-900'
               }`}
             >
               {label}
@@ -130,11 +130,11 @@ function ProgramaForm({
       </div>
 
       <div>
-        <label className="text-xs text-muted mb-1 block">Chofer asignado</label>
+        <label className="text-xs text-gray-500 mb-1 block">Chofer asignado</label>
         <select
           value={driverId}
           onChange={(e: ChangeEvent<HTMLSelectElement>) => setDriverId(e.target.value)}
-          className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-accent"
+          className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
         >
           <option value="">— Sin asignar —</option>
           {choferes.map((c) => (
@@ -144,17 +144,17 @@ function ProgramaForm({
       </div>
 
       <div>
-        <label className="text-xs text-muted mb-1 block">Notas internas</label>
+        <label className="text-xs text-gray-500 mb-1 block">Notas internas</label>
         <textarea
           value={notas}
           onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setNotas(e.target.value)}
           rows={2}
           placeholder="Horario preferido, instrucciones..."
-          className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-white placeholder-muted resize-none focus:outline-none focus:ring-1 focus:ring-accent"
+          className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-1 focus:ring-accent"
         />
       </div>
 
-      {error && <p className="text-red-400 text-xs">{error}</p>}
+      {error && <p className="text-red-600 text-xs">{error}</p>}
 
       <div className="flex gap-2">
         <Button variant="outline" onClick={onCancel} className="flex-1 text-sm">Cancelar</Button>
@@ -207,11 +207,11 @@ function VisitaPuntualForm({
   return (
     <div className="space-y-4">
       <div>
-        <label className="text-xs text-muted mb-1 block">Cliente *</label>
+        <label className="text-xs text-gray-500 mb-1 block">Cliente *</label>
         <select
           value={clientId}
           onChange={(e: ChangeEvent<HTMLSelectElement>) => setClientId(e.target.value)}
-          className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-accent"
+          className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
         >
           <option value="">— Seleccioná un cliente —</option>
           {clientes.map((c) => (
@@ -222,20 +222,20 @@ function VisitaPuntualForm({
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-xs text-muted mb-1 block">Fecha *</label>
+          <label className="text-xs text-gray-500 mb-1 block">Fecha *</label>
           <input
             type="date"
             value={fecha}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setFecha(e.target.value)}
-            className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-accent"
+            className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
           />
         </div>
         <div>
-          <label className="text-xs text-muted mb-1 block">Chofer</label>
+          <label className="text-xs text-gray-500 mb-1 block">Chofer</label>
           <select
             value={driverId}
             onChange={(e: ChangeEvent<HTMLSelectElement>) => setDriverId(e.target.value)}
-            className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-accent"
+            className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
           >
             <option value="">— Sin asignar —</option>
             {choferes.map((c) => (
@@ -246,17 +246,17 @@ function VisitaPuntualForm({
       </div>
 
       <div>
-        <label className="text-xs text-muted mb-1 block">Notas</label>
+        <label className="text-xs text-gray-500 mb-1 block">Notas</label>
         <textarea
           value={notas}
           onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setNotas(e.target.value)}
           rows={2}
           placeholder="Instrucciones especiales..."
-          className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-white placeholder-muted resize-none focus:outline-none focus:ring-1 focus:ring-accent"
+          className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-1 focus:ring-accent"
         />
       </div>
 
-      {error && <p className="text-red-400 text-xs">{error}</p>}
+      {error && <p className="text-red-600 text-xs">{error}</p>}
 
       <div className="flex gap-2">
         <Button variant="outline" onClick={onCancel} className="flex-1 text-sm">Cancelar</Button>
@@ -682,7 +682,7 @@ export default function VisitasPage() {
       </main>
 
       {/* Modales */}
-      <Modal open={addProgramaModal} onClose={() => setAddProgramaModal(false)} title="Nuevo programa de visita">
+      <Modal open={addProgramaModal} onClose={() => setAddProgramaModal(false)} title="Nuevo programa de visita" variant="light">
         {loadingClients ? <LoadingSpinner /> : (
           <ProgramaForm
             choferes={choferes}
@@ -694,7 +694,7 @@ export default function VisitasPage() {
       </Modal>
 
       {editPrograma && (
-        <Modal open onClose={() => setEditPrograma(null)} title="Editar programa">
+        <Modal open onClose={() => setEditPrograma(null)} title="Editar programa" variant="light">
           {loadingClients ? <LoadingSpinner /> : (
             <ProgramaForm
               initial={editPrograma}
@@ -707,7 +707,7 @@ export default function VisitasPage() {
         </Modal>
       )}
 
-      <Modal open={addVisitaModal} onClose={() => setAddVisitaModal(false)} title="Agregar visita puntual">
+      <Modal open={addVisitaModal} onClose={() => setAddVisitaModal(false)} title="Agregar visita puntual" variant="light">
         {loadingClients ? <LoadingSpinner /> : (
           <VisitaPuntualForm
             clientes={clientes}

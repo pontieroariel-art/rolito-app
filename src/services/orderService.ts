@@ -130,6 +130,12 @@ export const assignDriver = (orderId: string, driverId: string | null): Promise<
 export const updateOrderAddress = (orderId: string, clientAddress: string): Promise<void> =>
   updateDoc(doc(db, ORDERS, orderId), { clientAddress, updatedAt: serverTimestamp() })
 
+export const moveOrderDate = (orderId: string, dateStr: string): Promise<void> =>
+  updateDoc(doc(db, ORDERS, orderId), {
+    date:      Timestamp.fromDate(new Date(dateStr + 'T12:00:00')),
+    updatedAt: serverTimestamp(),
+  })
+
 export const rescheduleOrder = (
   orderId:  string,
   newDate:  string,
