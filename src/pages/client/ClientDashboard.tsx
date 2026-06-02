@@ -61,7 +61,7 @@ export default function ClientDashboard() {
     })
   }, [orders, notify])
 
-  if (loading) return <div className="min-h-screen bg-white"><Navbar /><LoadingSpinner fullScreen /></div>
+  if (loading) return <><Navbar /><LoadingSpinner fullScreen className="bg-white" /></>
 
   return (
     <div className="min-h-screen bg-white text-gray-900">
