@@ -47,6 +47,24 @@ export default function ChoferDashboard() {
   const puntualHoy      = visitasParaFecha(visitas, today).filter((v) => !v.driverId || v.driverId === user?.email)
   const entregadosHoyIds = new Set(orders.filter((o) => o.status === 'entregado').map((o) => o.clientId))
 
+  // Próximas visitas puntuales (días 1–6 desde hoy, asignadas a este chofer)
+  const proximasVisitas = (() => {
+    const days: { label: string; fecha: string; items: VisitaPuntual[] }[] = []
+    for (let i = 1; i <= 6; i++) {
+      const d = new Date(today)
+      d.setDate(today.getDate() + i)
+      const items = visitasParaFecha(visitas, d).filter((v) => !v.driverId || v.driverId === user?.email)
+      if (items.length > 0) {
+        days.push({
+          label: i === 1 ? 'Mañana' : d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'short' }),
+          fecha: d.toISOString().split('T')[0],
+          items,
+        })
+      }
+    }
+    return days
+  })()
+
   const nombreRef   = useRef(user?.nombreContacto || user?.nombre || '')
   const telefonoRef = useRef(user?.telefono       || user?.phone  || '')
   useEffect(() => {
@@ -193,6 +211,27 @@ export default function ChoferDashboard() {
                       </button>
                     </div>
                   )}
+                </div>
+              </div>
+            ))}
+          </section>
+        )}
+
+        {proximasVisitas.length > 0 && (
+          <section className="space-y-3">
+            <h2 className="text-lg font-semibold">Próximas visitas</h2>
+            {proximasVisitas.map(({ label, fecha, items }) => (
+              <div key={fecha}>
+                <p className="text-xs text-muted font-semibold uppercase tracking-wide mb-2 capitalize">{label}</p>
+                <div className="space-y-2">
+                  {items.map((v) => (
+                    <div key={v.id} className="bg-surface border border-border rounded-2xl p-4">
+                      <p className="font-semibold text-sm">{v.clientName}</p>
+                      <p className="text-muted text-xs mt-0.5">{v.clientAddress}</p>
+                      {v.clientPhone && <a href={`tel:${v.clientPhone}`} className="text-accent text-xs hover:underline">{v.clientPhone}</a>}
+                      {v.notas && <p className="text-xs text-muted/70 italic mt-1">"{v.notas}"</p>}
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}

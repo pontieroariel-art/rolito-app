@@ -750,7 +750,7 @@ export default function MonitoreoPage() {
 
   const driversToday = useMemo(() => {
     const emails = [...new Set(ordersToday.filter((o) => o.driverId).map((o) => o.driverId!))]
-    return emails.map((email, idx) => ({
+    return emails.map((email) => ({
       email,
       chofer:  choferes.find((c) => c.email === email) ?? null,
       camion:  choferes.find((c) => c.email === email)
@@ -758,7 +758,7 @@ export default function MonitoreoPage() {
                : undefined,
       driver:  activeDrivers.find((d) => d.email === email) ?? null,
       orders:  ordersToday.filter((o) => o.driverId === email),
-      color:   DRIVER_COLORS[idx % DRIVER_COLORS.length],
+      color:   driverColor(email, choferes),
     }))
   }, [ordersToday, choferes, camiones, activeDrivers])
 
