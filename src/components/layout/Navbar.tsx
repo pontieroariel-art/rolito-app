@@ -35,11 +35,10 @@ const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
     { to: '/comercial/historial-precios',     label: 'Historial precios' },
   ],
   logistica: [
-    { to: '/logistica',           label: 'Logística' },
+    { to: '/logistica',           label: 'Planificación' },
     { to: '/admin/monitoreo',     label: 'Monitoreo' },
-    { to: '/admin/visitas',       label: 'Visitas' },
     { to: '/admin/flota',         label: 'Flota' },
-    { to: '/admin/incidencias',   label: 'Incidencias' },
+    { to: '/admin/clima',         label: 'Clima' },
   ],
   comercial: [
     { to: '/comercial',                      label: 'Panel' },

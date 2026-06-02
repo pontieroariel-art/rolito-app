@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import {
   DndContext, DragEndEvent, DragOverlay, DragStartEvent,
   MouseSensor, TouchSensor, useSensor, useSensors,
@@ -10,6 +10,9 @@ import Navbar from '../../components/layout/Navbar'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import ImportarPedidoModal from '../../components/admin/ImportarPedidoModal'
 import PedidoManualModal from '../../components/admin/PedidoManualModal'
+import VisitasPanel from '../../components/admin/VisitasPanel'
+import MapaPlanificacion from '../../components/admin/MapaPlanificacion'
+import { getAllUsers } from '../../services/userService'
 import { useAllOrders } from '../../hooks/useOrders'
 import { useChoferes } from '../../hooks/useChoferes'
 import { moveOrderDate, assignDriver } from '../../services/orderService'
@@ -210,20 +213,44 @@ function KanbanColumn({ id, label, sublabel, orders, choferes, isBandeja }: {
 // ── Página principal ──────────────────────────────────────────────────────────
 
 export default function LogisticaDashboard() {
+  const [mainTab,      setMainTab]      = useState<'pedidos' | 'visitas' | 'mapa'>('pedidos')
   const [importModal,  setImportModal]  = useState(false)
   const [pedidoManual, setPedidoManual] = useState(false)
   const [activeId,     setActiveId]     = useState<string | null>(null)
+  const [allClients,   setAllClients]   = useState<UserProfile[]>([])
+  const clientsLoadedRef = useRef(false)
 
   const { orders,   loading: loadO } = useAllOrders()
   const { choferes, loading: loadC } = useChoferes()
   const loading = loadO || loadC
+
+  // Cargar clientes al abrir el tab mapa (una sola vez)
+  useEffect(() => {
+    if (mainTab !== 'mapa' || clientsLoadedRef.current) return
+    const load = async () => {
+      try {
+        const all = await getAllUsers()
+        setAllClients(all.filter((u) => u.rol === 'cliente' && u.estado === 'activo'))
+      } catch {
+        const { getDocs, query, collection, where } = await import('firebase/firestore')
+        const { db } = await import('../../services/firebase')
+        const snap = await getDocs(query(collection(db, 'users'), where('rol', '==', 'cliente'), where('estado', '==', 'activo')))
+        setAllClients(snap.docs.map((d) => ({ uid: d.id, ...d.data() } as UserProfile)))
+      }
+      clientsLoadedRef.current = true
+    }
+    load()
+  }, [mainTab])
 
   const sensors = useSensors(
     useSensor(MouseSensor,  { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor,  { activationConstraint: { delay: 200, tolerance: 8 } }),
   )
 
-  const columns = useMemo(() => buildColumns(), [])
+  const columns  = useMemo(() => buildColumns(), [])
+  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + i); return d
+  }), [])
   const dayIds  = useMemo(() => new Set(columns.filter((c) => c.id !== 'bandeja').map((c) => c.id)), [columns])
 
   const ordersByColumn = useMemo(() => {
@@ -262,41 +289,71 @@ export default function LogisticaDashboard() {
   const todayStr = dateToStr(new Date())
 
   return (
-    <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
+    <div className="h-screen overflow-hidden flex flex-col bg-[#F1EFE8] text-gray-900">
       <Navbar />
 
-      <div className="px-4 pt-4 pb-6">
-        {/* Header */}
-        <div className="flex items-center justify-between gap-3 mb-4 max-w-full">
+      {/* Header + Tabs (altura fija) */}
+      <div className="px-4 pt-4 flex-shrink-0">
+        <div className="flex items-center justify-between gap-3 mb-3 max-w-full">
           <div>
             <h1 className="text-xl font-bold text-gray-900">Planificación</h1>
             <p className="text-xs text-gray-500 capitalize">
               {new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}
             </p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => setImportModal(true)}
-              className="flex items-center gap-1.5 text-sm px-3 py-2 bg-white border border-[#D3D1C7] rounded-xl hover:border-accent transition-colors text-gray-700"
-            >
-              <FileText size={14} />
-              <span className="hidden sm:inline">Cargar PDF</span>
-            </button>
-            <button
-              onClick={() => setPedidoManual(true)}
-              className="flex items-center gap-1.5 text-sm px-3 py-2 bg-accent text-white rounded-xl hover:bg-accent/90 transition-colors font-medium"
-            >
-              <Plus size={14} />
-              <span className="hidden sm:inline">Pedido manual</span>
-            </button>
-          </div>
+          {mainTab === 'pedidos' && (
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => setImportModal(true)}
+                className="flex items-center gap-1.5 text-sm px-3 py-2 bg-white border border-[#D3D1C7] rounded-xl hover:border-accent transition-colors text-gray-700"
+              >
+                <FileText size={14} />
+                <span className="hidden sm:inline">Cargar PDF</span>
+              </button>
+              <button
+                onClick={() => setPedidoManual(true)}
+                className="flex items-center gap-1.5 text-sm px-3 py-2 bg-accent text-white rounded-xl hover:bg-accent/90 transition-colors font-medium"
+              >
+                <Plus size={14} />
+                <span className="hidden sm:inline">Pedido manual</span>
+              </button>
+            </div>
+          )}
         </div>
 
-        {loading ? (
+        <div className="flex border-b border-gray-200 gap-1">
+          {(['pedidos', 'mapa', 'visitas'] as const).map((t) => (
+            <button key={t} onClick={() => setMainTab(t)}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+                mainTab === t ? 'border-accent text-accent' : 'border-transparent text-gray-500 hover:text-gray-900'
+              }`}>
+              {t === 'pedidos' ? 'Pedidos' : t === 'mapa' ? 'Mapa' : 'Visitas'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Contenido (ocupa el resto de la pantalla) */}
+      <div className={`flex-1 min-h-0 ${mainTab === 'mapa' ? 'overflow-hidden' : 'overflow-y-auto px-4 pb-6 pt-4'}`}>
+
+        {/* Tab Visitas */}
+        {mainTab === 'visitas' && <VisitasPanel />}
+
+        {/* Tab Mapa */}
+        {mainTab === 'mapa' && (
+          <MapaPlanificacion
+            orders={orders}
+            choferes={choferes}
+            allClients={allClients}
+            weekDays={weekDays}
+          />
+        )}
+
+        {/* Tab Pedidos */}
+        {mainTab === 'pedidos' && (loading ? (
           <div className="flex justify-center py-20"><LoadingSpinner /></div>
         ) : (
           <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-            {/* Kanban */}
             <div className="overflow-x-auto pb-2 -mx-4 px-4">
               <div className="flex gap-3" style={{ width: 'max-content', height: 'calc(100vh - 140px)', minHeight: 400 }}>
                 {columns.map((col) => (
@@ -313,7 +370,6 @@ export default function LogisticaDashboard() {
               </div>
             </div>
 
-            {/* Floating card while dragging */}
             <DragOverlay dropAnimation={null}>
               {activeOrder && (
                 <div className="bg-white border-2 border-accent rounded-xl p-3 shadow-2xl rotate-1 w-52 space-y-1.5">
@@ -324,7 +380,7 @@ export default function LogisticaDashboard() {
               )}
             </DragOverlay>
           </DndContext>
-        )}
+        ))}
       </div>
 
       <ImportarPedidoModal open={importModal}  onClose={() => setImportModal(false)} />
