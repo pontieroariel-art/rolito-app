@@ -9,6 +9,7 @@ import {
   query,
   orderBy,
   where,
+  limit,
 } from 'firebase/firestore'
 import { initializeApp, deleteApp } from 'firebase/app'
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth'
