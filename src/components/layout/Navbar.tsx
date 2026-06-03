@@ -45,6 +45,7 @@ const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
     { to: '/usuarios',                       label: 'Clientes' },
     { to: '/movimientos',                    label: 'Movimientos' },
     { to: '/comercial/reporte-precios',      label: 'Precios' },
+    { to: '/comercial/mapa',                 label: 'Mapa en vivo' },
   ],
   facturacion: [
     { to: '/movimientos',                    label: 'Historial' },

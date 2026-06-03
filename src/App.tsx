@@ -36,6 +36,7 @@ import ComercialOrders      from './pages/comercial/ComercialOrders'
 import ReportePreciosPage    from './pages/comercial/ReportePreciosPage'
 import ReporteVentasPage    from './pages/comercial/ReporteVentasPage'
 import HistorialPreciosPage from './pages/comercial/HistorialPreciosPage'
+import MapaLivePage         from './pages/comercial/MapaLivePage'
 import HistorialPage        from './pages/shared/HistorialPage'
 
 import ChoferDashboard from './pages/chofer/ChoferDashboard'
@@ -137,8 +138,9 @@ function AppContent() {
 
       {/* Comercial */}
       <Route element={<ProtectedRoute allowedRoles={['comercial']} />}>
-        <Route path="/comercial"         element={<ComercialDashboard />} />
-        <Route path="/comercial/pedidos" element={<ComercialOrders />} />
+        <Route path="/comercial"          element={<ComercialDashboard />} />
+        <Route path="/comercial/pedidos"  element={<ComercialOrders />} />
+        <Route path="/comercial/mapa"     element={<MapaLivePage />} />
       </Route>
 
       {/* Reportes: comercial + gerente + super_admin + facturacion */}
