@@ -1,6 +1,5 @@
 import { doc, setDoc, getDoc } from 'firebase/firestore'
-import { signInAnonymously } from 'firebase/auth'
-import { db, auth } from './firebase'
+import { db } from './firebase'
 
 export function normalizeUsername(username: string): string {
   return username.trim().toLowerCase().replace(/\s+/g, '.')
@@ -30,10 +29,6 @@ export async function setChoferIndex(username: string, email: string): Promise<v
 export async function getEmailByUsername(username: string): Promise<string | null> {
   const key = normalizeUsername(username)
   if (!key) return null
-  // choferIndex requiere auth; si no hay sesión, usamos anonymous auth temporalmente.
-  if (!auth.currentUser) {
-    await signInAnonymously(auth)
-  }
   const snap = await getDoc(doc(db, 'choferIndex', key))
   if (!snap.exists()) return null
   return (snap.data() as { email: string }).email
