@@ -6,9 +6,10 @@ interface ModalProps {
   title: string
   children: ReactNode
   variant?: 'dark' | 'light'
+  wide?: boolean
 }
 
-export default function Modal({ open, onClose, title, children, variant = 'dark' }: ModalProps) {
+export default function Modal({ open, onClose, title, children, variant = 'dark', wide = false }: ModalProps) {
   const titleId    = useId()
   const panelRef   = useRef<HTMLDivElement>(null)
 
@@ -40,7 +41,7 @@ export default function Modal({ open, onClose, title, children, variant = 'dark'
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className={`rounded-2xl w-full max-w-md p-6 shadow-2xl outline-none ${
+        className={`rounded-2xl w-full ${wide ? 'max-w-2xl' : 'max-w-md'} p-6 shadow-2xl outline-none ${
           variant === 'light'
             ? 'bg-white border border-[#D3D1C7]'
             : 'bg-surface border border-border'

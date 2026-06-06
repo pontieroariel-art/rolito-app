@@ -210,6 +210,44 @@ export const createClientUser = async ({ email, password, razonSocial, nombreCon
   if (cuit) await setCuitIndex(cuit, email)
 }
 
+export interface CreateClienteImportadoParams {
+  email:          string
+  password:       string
+  razonSocial:    string
+  cuit:           string
+  telefono:       string
+  notasContacto:  string
+  codigoCliente:  string
+  fechaAlta:      Date | null
+  addresses:      import('../types').DeliveryAddress[]
+}
+
+export const createClienteImportado = async (params: CreateClienteImportadoParams): Promise<void> => {
+  const { setCuitIndex } = await import('./cuitService')
+  const { email, password, razonSocial, cuit, telefono, notasContacto, codigoCliente, fechaAlta, addresses } = params
+  const firestoreData: Record<string, unknown> = {
+    nombre:          razonSocial,
+    email,
+    phone:           telefono,
+    rol:             'cliente' as import('../types').UserRole,
+    estado:          'activo' as import('../types').UserStatus,
+    address:         addresses[0]?.address ?? '',
+    razonSocial,
+    nombreContacto:  razonSocial,
+    cuit,
+    telefono,
+    notasContacto,
+    codigoCliente,
+    addresses,
+    fechaCreacion:   serverTimestamp(),
+    fechaAprobacion: serverTimestamp(),
+    aprobadoPor:     'importacion',
+  }
+  if (fechaAlta) firestoreData.fechaAlta = fechaAlta
+  await createUserViaSecondaryApp(email, password, firestoreData)
+  if (cuit) await setCuitIndex(cuit, email)
+}
+
 export interface CreateChoferParams {
   nombreContacto: string
   username:       string

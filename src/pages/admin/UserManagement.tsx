@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo, ChangeEvent, FormEvent, ReactNode } from 'react'
+import { useState, useEffect, useMemo, useRef, ChangeEvent, FormEvent, ReactNode } from 'react'
+import * as XLSX from 'xlsx'
 import { deleteField, serverTimestamp } from 'firebase/firestore'
 import { Tag, ChevronRight, MapPin, Phone, Mail, CreditCard, Building2, User, Calendar, CheckCircle, Plus, Trash2, Navigation, Clock, Hash } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
@@ -22,6 +23,7 @@ import {
   createStaffUser,
   createClientUser,
   createChoferUser,
+  createClienteImportado,
 } from '../../services/userService'
 import { useNotifyAprobado } from '../../hooks/useNotifications'
 import { useAllListasPrecios } from '../../hooks/useListasPrecios'
@@ -62,6 +64,7 @@ export default function UserManagement() {
   const [statusFilter, setStatusFilter] = useState<UserStatus | 'all'>('all')
   const [crearModal, setCrearModal]               = useState(false)
   const [crearClienteModal, setCrearClienteModal] = useState(false)
+  const [importarModal, setImportarModal]         = useState(false)
   const notifyAprobadoMutation          = useNotifyAprobado()
   const { listas }                      = useAllListasPrecios()
 
@@ -155,6 +158,11 @@ export default function UserManagement() {
             {tab === 'clientes' && ['super_admin', 'gerente_comercial', 'comercial'].includes(currentUser?.rol ?? '') && (
               <Button onClick={() => setCrearClienteModal(true)} className="text-sm">
                 + Crear cliente
+              </Button>
+            )}
+            {tab === 'clientes' && currentUser?.rol === 'super_admin' && (
+              <Button variant="outline" onClick={() => setImportarModal(true)} className="text-sm">
+                ↑ Importar Excel
               </Button>
             )}
             <Button variant="outline" onClick={load} className="text-sm">
@@ -267,6 +275,12 @@ export default function UserManagement() {
           onClose={() => setCrearClienteModal(false)}
           onCreated={() => { setCrearClienteModal(false); load() }}
           currentUserRol={currentUser?.rol}
+        />
+      )}
+      {importarModal && (
+        <ImportarClientesModal
+          onClose={() => setImportarModal(false)}
+          onDone={() => { setImportarModal(false); load() }}
         />
       )}
     </div>
@@ -1708,6 +1722,329 @@ function PreciosCustomModal({
         <Button variant="outline" onClick={onClose} className="flex-1">Cancelar</Button>
         <Button onClick={handleSave} loading={saving} className="flex-1">Guardar</Button>
       </div>
+    </Modal>
+  )
+}
+
+// ── ImportarClientesModal ─────────────────────────────────────────────────────
+
+interface ClientePreview {
+  cuit:            string
+  cuitDigits:      string
+  email:           string
+  syntheticEmail:  boolean
+  razonSocial:     string
+  codigoCliente:   string
+  telefono:        string
+  notasContacto:   string
+  fechaAlta:       Date | null
+  addresses:       import('../../types').DeliveryAddress[]
+  sucursales:      number
+}
+
+function excelSerialToDate(serial: unknown): Date | null {
+  if (typeof serial !== 'number' || serial <= 0) return null
+  // Excel epoch: Dec 30 1899 (accounts for the 1900 leap-year bug)
+  return new Date(Date.UTC(1899, 11, 30) + serial * 86400000)
+}
+
+function cleanPhoneDigits(raw: unknown): string {
+  if (!raw) return ''
+  return String(raw).replace(/\D/g, '').slice(0, 20)
+}
+
+function buildNotasContacto(t1: unknown, t2: unknown): string {
+  const parts = [t1, t2]
+    .map((v) => (v != null ? String(v).trim() : ''))
+    .filter(Boolean)
+  return parts.join(' / ')
+}
+
+function parseExcelFile(file: File): Promise<ClientePreview[]> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        const data  = e.target?.result
+        const wb    = XLSX.read(data, { type: 'array' })
+        const sheet = wb.Sheets[wb.SheetNames[0]]
+        const rows  = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' })
+
+        // Group by CUIT
+        const map = new Map<string, typeof rows>()
+        for (const row of rows) {
+          const cuit = String(row['CUIT'] ?? '').trim()
+          if (!cuit) continue
+          if (!map.has(cuit)) map.set(cuit, [])
+          map.get(cuit)!.push(row)
+        }
+
+        const clientes: ClientePreview[] = []
+        for (const [cuit, grupo] of map.entries()) {
+          const first       = grupo[0]
+          const cuitDigits  = cuit.replace(/\D/g, '')
+          const realEmail   = String(first['E_MAIL'] ?? '').trim().toLowerCase()
+          const email       = realEmail || `${cuitDigits}@rolito.app`
+          const syntheticEmail = !realEmail
+
+          const addresses: import('../../types').DeliveryAddress[] = grupo.map((row, idx) => {
+            const domicilio  = String(row['DOMICILIO']  ?? '').trim()
+            const localidad  = String(row['LOCALIDAD']  ?? '').trim()
+            const addressStr = [domicilio, localidad].filter(Boolean).join(', ')
+            const cod        = String(row['COD_CTE '] ?? row['COD_CTE'] ?? '').trim()
+            return {
+              id:               cod || `addr-${idx}`,
+              nombre:           cod || localidad || `Sucursal ${idx + 1}`,
+              address:          addressStr,
+              lat:              null,
+              lng:              null,
+              horarioApertura:  '',
+              horarioCierre:    '',
+              contactoNombre:   '',
+              contactoTelefono: cleanPhoneDigits(row['TELEFONO_1']),
+              esPrincipal:      idx === 0,
+            }
+          })
+
+          clientes.push({
+            cuit,
+            cuitDigits,
+            email,
+            syntheticEmail,
+            razonSocial:   String(first['RAZON_SOCI'] ?? '').trim(),
+            codigoCliente: String(first['COD_CTE '] ?? first['COD_CTE'] ?? '').trim(),
+            telefono:      cleanPhoneDigits(first['TELEFONO_1']),
+            notasContacto: buildNotasContacto(first['TELEFONO_1'], first['TELEFONO_2']),
+            fechaAlta:     excelSerialToDate(first['FECHA_ALTA'] as unknown),
+            addresses,
+            sucursales:    grupo.length,
+          })
+        }
+        resolve(clientes)
+      } catch (err) {
+        reject(err)
+      }
+    }
+    reader.onerror = () => reject(new Error('No se pudo leer el archivo'))
+    reader.readAsArrayBuffer(file)
+  })
+}
+
+function ImportarClientesModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const fileRef                         = useRef<HTMLInputElement>(null)
+  const [step, setStep]                 = useState<'pick' | 'preview' | 'importing' | 'done'>('pick')
+  const [clientes, setClientes]         = useState<ClientePreview[]>([])
+  const [parseError, setParseError]     = useState('')
+  const [progress, setProgress]         = useState(0)
+  const [total, setTotal]               = useState(0)
+  const [created, setCreated]           = useState(0)
+  const [skipped, setSkipped]           = useState(0)
+  const [errors, setErrors]             = useState<string[]>([])
+  const abortRef                        = useRef(false)
+
+  const handleFile = async (file: File) => {
+    setParseError('')
+    try {
+      const parsed = await parseExcelFile(file)
+      setClientes(parsed)
+      setStep('preview')
+    } catch {
+      setParseError('No se pudo leer el archivo. Verificá que sea un Excel válido (.xlsx).')
+    }
+  }
+
+  const handleImport = async () => {
+    abortRef.current = false
+    setStep('importing')
+    setProgress(0)
+    setTotal(clientes.length)
+    setCreated(0)
+    setSkipped(0)
+    setErrors([])
+
+    let ok = 0, skip = 0
+    const errs: string[] = []
+
+    for (let i = 0; i < clientes.length; i++) {
+      if (abortRef.current) break
+      const c = clientes[i]
+      try {
+        await createClienteImportado({
+          email:         c.email,
+          password:      c.cuitDigits,
+          razonSocial:   c.razonSocial,
+          cuit:          c.cuit,
+          telefono:      c.telefono,
+          notasContacto: c.notasContacto,
+          codigoCliente: c.codigoCliente,
+          fechaAlta:     c.fechaAlta,
+          addresses:     c.addresses,
+        })
+        ok++
+      } catch (err: unknown) {
+        const code = (err as { code?: string })?.code
+        if (code === 'auth/email-already-in-use') {
+          skip++
+        } else {
+          errs.push(`${c.razonSocial} (${c.cuit}): ${(err as Error).message ?? 'Error desconocido'}`)
+        }
+      }
+      setProgress(i + 1)
+      setCreated(ok)
+      setSkipped(skip)
+      setErrors([...errs])
+    }
+
+    setStep('done')
+  }
+
+  const synCount  = clientes.filter((c) => c.syntheticEmail).length
+  const branchCount = clientes.reduce((sum, c) => sum + c.sucursales, 0)
+
+  return (
+    <Modal open wide onClose={step === 'importing' ? () => {} : onClose} title="Importar clientes desde Excel">
+      {step === 'pick' && (
+        <div className="space-y-4">
+          <p className="text-sm text-muted">
+            Seleccioná el archivo Excel con la nómina de clientes. Se crearán cuentas agrupadas por CUIT.
+          </p>
+          {parseError && <p className="text-sm text-red-400">{parseError}</p>}
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".xlsx,.xls"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              if (f) handleFile(f)
+            }}
+          />
+          <div
+            onClick={() => fileRef.current?.click()}
+            className="border-2 border-dashed border-border rounded-xl p-10 text-center cursor-pointer hover:border-accent transition-colors"
+          >
+            <p className="text-muted text-sm">Hacé clic para seleccionar el archivo .xlsx</p>
+          </div>
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          </div>
+        </div>
+      )}
+
+      {step === 'preview' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-surface border border-border rounded-xl p-4 text-center">
+              <p className="text-2xl font-bold text-accent">{clientes.length.toLocaleString('es-AR')}</p>
+              <p className="text-xs text-muted mt-1">Cuentas a crear</p>
+            </div>
+            <div className="bg-surface border border-border rounded-xl p-4 text-center">
+              <p className="text-2xl font-bold text-white">{branchCount.toLocaleString('es-AR')}</p>
+              <p className="text-xs text-muted mt-1">Sucursales totales</p>
+            </div>
+            <div className="bg-surface border border-border rounded-xl p-4 text-center">
+              <p className="text-2xl font-bold text-amber-400">{synCount.toLocaleString('es-AR')}</p>
+              <p className="text-xs text-muted mt-1">Sin email real</p>
+            </div>
+          </div>
+
+          <div className="bg-surface border border-border rounded-xl p-3 text-xs text-muted space-y-1">
+            <p>• Contraseña de cada cuenta: el CUIT sin guiones</p>
+            <p>• Los {synCount.toLocaleString('es-AR')} sin email usarán <span className="text-white font-mono">cuit@rolito.app</span></p>
+            <p>• Las cuentas ya existentes se omiten automáticamente</p>
+            <p>• El proceso puede tomar varios minutos para {clientes.length.toLocaleString('es-AR')} cuentas</p>
+          </div>
+
+          <div className="max-h-48 overflow-y-auto border border-border rounded-xl">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-surface">
+                <tr className="border-b border-border">
+                  <th className="text-left px-3 py-2 text-muted font-medium">Razón social</th>
+                  <th className="text-left px-3 py-2 text-muted font-medium">CUIT</th>
+                  <th className="text-center px-3 py-2 text-muted font-medium">Suc.</th>
+                  <th className="text-left px-3 py-2 text-muted font-medium">Email</th>
+                </tr>
+              </thead>
+              <tbody>
+                {clientes.slice(0, 200).map((c) => (
+                  <tr key={c.cuit} className="border-b border-border/50 hover:bg-white/5">
+                    <td className="px-3 py-1.5 text-white truncate max-w-[160px]">{c.razonSocial || '—'}</td>
+                    <td className="px-3 py-1.5 text-white font-mono">{c.cuit}</td>
+                    <td className="px-3 py-1.5 text-center text-white">{c.sucursales}</td>
+                    <td className="px-3 py-1.5 font-mono truncate max-w-[160px]">
+                      <span className={c.syntheticEmail ? 'text-amber-400' : 'text-green-400'}>{c.email}</span>
+                    </td>
+                  </tr>
+                ))}
+                {clientes.length > 200 && (
+                  <tr>
+                    <td colSpan={4} className="px-3 py-2 text-center text-muted italic">
+                      … y {(clientes.length - 200).toLocaleString('es-AR')} más
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={() => setStep('pick')} className="flex-1">Volver</Button>
+            <Button onClick={handleImport} className="flex-1">
+              Importar {clientes.length.toLocaleString('es-AR')} cuentas
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {step === 'importing' && (
+        <div className="space-y-5 py-2">
+          <p className="text-sm text-muted text-center">
+            Creando cuentas… no cierres esta ventana.
+          </p>
+          <div className="w-full bg-surface rounded-full h-3 overflow-hidden border border-border">
+            <div
+              className="bg-accent h-full transition-all duration-200"
+              style={{ width: `${total > 0 ? (progress / total) * 100 : 0}%` }}
+            />
+          </div>
+          <p className="text-center text-sm text-white">
+            {progress.toLocaleString('es-AR')} / {total.toLocaleString('es-AR')}
+            {' · '}
+            <span className="text-green-400">{created} ok</span>
+            {skipped > 0 && <span className="text-amber-400"> · {skipped} existentes</span>}
+            {errors.length > 0 && <span className="text-red-400"> · {errors.length} errores</span>}
+          </p>
+        </div>
+      )}
+
+      {step === 'done' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-surface border border-border rounded-xl p-4 text-center">
+              <p className="text-2xl font-bold text-green-400">{created.toLocaleString('es-AR')}</p>
+              <p className="text-xs text-muted mt-1">Creadas</p>
+            </div>
+            <div className="bg-surface border border-border rounded-xl p-4 text-center">
+              <p className="text-2xl font-bold text-amber-400">{skipped.toLocaleString('es-AR')}</p>
+              <p className="text-xs text-muted mt-1">Ya existían</p>
+            </div>
+            <div className="bg-surface border border-border rounded-xl p-4 text-center">
+              <p className="text-2xl font-bold text-red-400">{errors.length.toLocaleString('es-AR')}</p>
+              <p className="text-xs text-muted mt-1">Errores</p>
+            </div>
+          </div>
+
+          {errors.length > 0 && (
+            <div className="max-h-36 overflow-y-auto bg-surface border border-red-900/40 rounded-xl p-3 space-y-1">
+              {errors.map((e, i) => (
+                <p key={i} className="text-xs text-red-400 font-mono">{e}</p>
+              ))}
+            </div>
+          )}
+
+          <Button onClick={onDone} className="w-full">Cerrar y actualizar lista</Button>
+        </div>
+      )}
     </Modal>
   )
 }

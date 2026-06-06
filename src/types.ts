@@ -92,6 +92,8 @@ export interface UserProfile {
   vigenciaCustom?:    Record<string, string>    // productoId → ISO date
   ultimoCambioPrecio?: Timestamp | null
   codigoCliente?:     string
+  notasContacto?:     string   // internal-only notes from Excel import (admin view)
+  fechaAlta?:         Timestamp | null
 }
 
 // ── Visitas programadas ───────────────────────────────────────────────────────
