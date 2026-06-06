@@ -1731,8 +1731,8 @@ function PreciosCustomModal({
 interface ClientePreview {
   cuit:            string
   cuitDigits:      string
-  email:           string
-  syntheticEmail:  boolean
+  email:           string        // Firebase Auth email — siempre sintético cuit@rolito.app
+  emailContacto:   string        // email real del Excel, solo guardado en Firestore
   razonSocial:     string
   codigoCliente:   string
   telefono:        string
@@ -1782,10 +1782,9 @@ function parseExcelFile(file: File): Promise<ClientePreview[]> {
         const clientes: ClientePreview[] = []
         for (const [cuit, grupo] of map.entries()) {
           const first       = grupo[0]
-          const cuitDigits  = cuit.replace(/\D/g, '')
-          const realEmail   = String(first['E_MAIL'] ?? '').trim().toLowerCase()
-          const email       = realEmail || `${cuitDigits}@rolito.app`
-          const syntheticEmail = !realEmail
+          const cuitDigits    = cuit.replace(/\D/g, '')
+          const emailContacto = String(first['E_MAIL'] ?? '').trim().toLowerCase()
+          const email         = `${cuitDigits}@rolito.app`   // Auth siempre sintético
 
           const addresses: import('../../types').DeliveryAddress[] = grupo.map((row, idx) => {
             const domicilio  = String(row['DOMICILIO']  ?? '').trim()
@@ -1810,7 +1809,7 @@ function parseExcelFile(file: File): Promise<ClientePreview[]> {
             cuit,
             cuitDigits,
             email,
-            syntheticEmail,
+            emailContacto,
             razonSocial:   String(first['RAZON_SOCI'] ?? '').trim(),
             codigoCliente: String(first['COD_CTE '] ?? first['COD_CTE'] ?? '').trim(),
             telefono:      cleanPhoneDigits(first['TELEFONO_1']),
@@ -1876,6 +1875,7 @@ function ImportarClientesModal({ onClose, onDone }: { onClose: () => void; onDon
           cuit:          c.cuit,
           telefono:      c.telefono,
           notasContacto: c.notasContacto,
+          emailContacto: c.emailContacto,
           codigoCliente: c.codigoCliente,
           fechaAlta:     c.fechaAlta,
           addresses:     c.addresses,
@@ -1898,7 +1898,7 @@ function ImportarClientesModal({ onClose, onDone }: { onClose: () => void; onDon
     setStep('done')
   }
 
-  const synCount  = clientes.filter((c) => c.syntheticEmail).length
+  const synCount  = clientes.filter((c) => !c.emailContacto).length
   const branchCount = clientes.reduce((sum, c) => sum + c.sucursales, 0)
 
   return (
@@ -1949,10 +1949,10 @@ function ImportarClientesModal({ onClose, onDone }: { onClose: () => void; onDon
           </div>
 
           <div className="bg-surface border border-border rounded-xl p-3 text-xs text-muted space-y-1">
-            <p>• Contraseña de cada cuenta: el CUIT sin guiones</p>
-            <p>• Los {synCount.toLocaleString('es-AR')} sin email usarán <span className="text-white font-mono">cuit@rolito.app</span></p>
+            <p>• Todos los clientes ingresan con <span className="text-white">CUIT + contraseña</span> (CUIT sin guiones)</p>
+            <p>• El email del Excel se guarda solo como dato de contacto</p>
+            <p>• {synCount.toLocaleString('es-AR')} clientes sin email de contacto registrado</p>
             <p>• Las cuentas ya existentes se omiten automáticamente</p>
-            <p>• El proceso puede tomar varios minutos para {clientes.length.toLocaleString('es-AR')} cuentas</p>
           </div>
 
           <div className="max-h-48 overflow-y-auto border border-border rounded-xl">
@@ -1962,7 +1962,7 @@ function ImportarClientesModal({ onClose, onDone }: { onClose: () => void; onDon
                   <th className="text-left px-3 py-2 text-muted font-medium">Razón social</th>
                   <th className="text-left px-3 py-2 text-muted font-medium">CUIT</th>
                   <th className="text-center px-3 py-2 text-muted font-medium">Suc.</th>
-                  <th className="text-left px-3 py-2 text-muted font-medium">Email</th>
+                  <th className="text-left px-3 py-2 text-muted font-medium">Email contacto</th>
                 </tr>
               </thead>
               <tbody>
@@ -1972,7 +1972,9 @@ function ImportarClientesModal({ onClose, onDone }: { onClose: () => void; onDon
                     <td className="px-3 py-1.5 text-white font-mono">{c.cuit}</td>
                     <td className="px-3 py-1.5 text-center text-white">{c.sucursales}</td>
                     <td className="px-3 py-1.5 font-mono truncate max-w-[160px]">
-                      <span className={c.syntheticEmail ? 'text-amber-400' : 'text-green-400'}>{c.email}</span>
+                      {c.emailContacto
+                        ? <span className="text-white">{c.emailContacto}</span>
+                        : <span className="text-muted italic">sin email</span>}
                     </td>
                   </tr>
                 ))}
