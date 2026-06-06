@@ -211,12 +211,13 @@ export const createClientUser = async ({ email, password, razonSocial, nombreCon
 }
 
 export interface CreateClienteImportadoParams {
-  email:          string
+  email:          string   // siempre cuit@rolito.app (Auth interno)
   password:       string
   razonSocial:    string
   cuit:           string
   telefono:       string
   notasContacto:  string
+  emailContacto:  string   // email real del Excel, solo como dato de contacto
   codigoCliente:  string
   fechaAlta:      Date | null
   addresses:      import('../types').DeliveryAddress[]
@@ -224,10 +225,11 @@ export interface CreateClienteImportadoParams {
 
 export const createClienteImportado = async (params: CreateClienteImportadoParams): Promise<void> => {
   const { setCuitIndex } = await import('./cuitService')
-  const { email, password, razonSocial, cuit, telefono, notasContacto, codigoCliente, fechaAlta, addresses } = params
+  const { email, password, razonSocial, cuit, telefono, notasContacto, emailContacto, codigoCliente, fechaAlta, addresses } = params
   const firestoreData: Record<string, unknown> = {
     nombre:          razonSocial,
-    email,
+    email:           emailContacto || email,   // visible en admin: email real si existe
+    emailAuth:       email,                    // email de Firebase Auth (interno)
     phone:           telefono,
     rol:             'cliente' as import('../types').UserRole,
     estado:          'activo' as import('../types').UserStatus,
