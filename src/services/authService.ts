@@ -53,6 +53,21 @@ export const loginChofer = async (username: string, pin: string) => {
   return signInWithEmailAndPassword(auth, email, padPin(pin))
 }
 
+export const loginWithStaffUsername = async (username: string, password: string) => {
+  const { getEmailByStaffUsername } = await import('./staffAuthService')
+  const email = await getEmailByStaffUsername(username)
+  if (email) {
+    await auth.authStateReady()
+    return signInWithEmailAndPassword(auth, email, password)
+  }
+  // Compatibilidad con cuentas antiguas creadas con email real
+  if (username.includes('@')) {
+    await auth.authStateReady()
+    return signInWithEmailAndPassword(auth, username, password)
+  }
+  throw new Error('username-not-found')
+}
+
 export const logoutUser = () => signOut(auth)
 
 export const resetPassword = (email: string) =>

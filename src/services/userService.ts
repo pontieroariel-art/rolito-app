@@ -135,7 +135,7 @@ export const approveUser = (uid: string, approvedByUid: string): Promise<void> =
   })
 
 export interface CreateStaffParams {
-  email:          string
+  username:       string
   password:       string
   nombreContacto: string
   rol:            UserRole
@@ -169,10 +169,14 @@ async function createUserViaSecondaryApp(
   }
 }
 
-export const createStaffUser = async ({ email, password, nombreContacto, rol }: CreateStaffParams): Promise<void> => {
+export const createStaffUser = async ({ username, password, nombreContacto, rol }: CreateStaffParams): Promise<void> => {
+  const { normalizeUsername, usernameToStaffEmail, setStaffIndex } = await import('./staffAuthService')
+  const key   = normalizeUsername(username)
+  const email = usernameToStaffEmail(username)
   await createUserViaSecondaryApp(email, password, {
     nombre:          nombreContacto,
     email,
+    username:        key,
     phone:           '',
     rol,
     estado:          'activo' as UserStatus,
@@ -186,6 +190,7 @@ export const createStaffUser = async ({ email, password, nombreContacto, rol }: 
     fechaAprobacion: serverTimestamp(),
     aprobadoPor:     'admin',
   })
+  await setStaffIndex(key, email)
 }
 
 export const createClientUser = async ({ email, password, razonSocial, nombreContacto, cuit, telefono, estadoInicial = 'pendiente' }: CreateClientParams): Promise<void> => {
