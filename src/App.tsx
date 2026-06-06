@@ -26,7 +26,7 @@ import UserManagement      from './pages/admin/UserManagement'
 import PriceListsPage      from './pages/admin/PriceListsPage'
 import FlotaPage              from './pages/admin/FlotaPage'
 import VisitasPage            from './pages/admin/VisitasPage'
-import PlanificacionPage      from './pages/admin/PlanificacionPage'
+// PlanificacionPage reemplazada por LogisticaDashboard (mismo componente)
 import MonitoreoPage          from './pages/admin/MonitoreoPage'
 import ReporteIncidenciasPage from './pages/admin/ReporteIncidenciasPage'
 import ClimaPage              from './pages/admin/ClimaPage'
@@ -123,7 +123,7 @@ function AppContent() {
         <Route path="/admin/precios"        element={<PriceListsPage />} />
         <Route path="/admin/flota"          element={<FlotaPage />} />
         <Route path="/admin/visitas"        element={<VisitasPage />} />
-        <Route path="/admin/planificacion"  element={<PlanificacionPage />} />
+        <Route path="/admin/planificacion"  element={<LogisticaDashboard />} />
         <Route path="/admin/monitoreo"      element={<MonitoreoPage />} />
         <Route path="/admin/incidencias"    element={<ReporteIncidenciasPage />} />
       </Route>
