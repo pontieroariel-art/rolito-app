@@ -305,19 +305,19 @@ function CrearStaffModal({ onClose, onCreated }: { onClose: () => void; onCreate
     e.preventDefault()
     if (isChofer && !/^\d{4}$/.test(password)) { setError('El PIN debe ser exactamente 4 dígitos numéricos'); return }
     if (!isChofer && password.length < 6) { setError('La contraseña debe tener al menos 6 caracteres'); return }
-    if (isChofer && !username.trim()) { setError('El nombre de usuario es obligatorio'); return }
+    if (!username.trim()) { setError('El nombre de usuario es obligatorio'); return }
     setLoading(true)
     setError('')
     try {
       if (isChofer) {
         await createChoferUser({ nombreContacto: nombre, username: username.trim(), pin: password })
       } else {
-        await createStaffUser({ email, password, nombreContacto: nombre, rol })
+        await createStaffUser({ username: username.trim(), password, nombreContacto: nombre, rol })
       }
       onCreated()
     } catch (err: any) {
       if (err?.code === 'auth/email-already-in-use') {
-        setError(isChofer ? 'Ya existe un chofer con ese nombre de usuario' : 'Ya existe una cuenta con ese email')
+        setError('Ya existe una cuenta con ese nombre de usuario')
       } else {
         setError('Error al crear el usuario. Intentá de nuevo.')
       }
@@ -349,30 +349,18 @@ function CrearStaffModal({ onClose, onCreated }: { onClose: () => void; onCreate
           </select>
         </div>
 
-        {isChofer ? (
-          <>
-            <Input
-              label="Nombre de usuario"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-              placeholder="juan.garcia"
-              autoComplete="off"
-            />
-            <p className="text-xs text-muted -mt-2">
-              El chofer ingresa con este usuario (sin espacios ni mayúsculas).
-            </p>
-          </>
-        ) : (
-          <Input
-            label="Email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            placeholder="juan@rolito.com"
-          />
-        )}
+        <Input
+          label="Nombre de usuario"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          required
+          placeholder="juan.garcia"
+          autoComplete="off"
+          autoCapitalize="none"
+        />
+        <p className="text-xs text-muted -mt-2">
+          {isChofer ? 'El chofer ingresa con este usuario.' : 'El usuario ingresa con este nombre en la pantalla de empresa.'}
+        </p>
 
         <Input
           label={isChofer ? 'PIN' : 'Contraseña temporal'}
