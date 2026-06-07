@@ -62,6 +62,7 @@ export default function UserManagement() {
   const [tab, setTab]                   = useState<'clientes' | 'equipo'>('clientes')
   const [search, setSearch]             = useState('')
   const [statusFilter, setStatusFilter] = useState<UserStatus | 'all'>('all')
+  const [sectorFilter, setSectorFilter] = useState<string>('all')
   const [crearModal, setCrearModal]               = useState(false)
   const [crearClienteModal, setCrearClienteModal] = useState(false)
   const [importarModal, setImportarModal]         = useState(false)
@@ -79,6 +80,12 @@ export default function UserManagement() {
 
   const isStaff = (u: UserProfile) => u.rol !== 'cliente'
 
+  const sectors = useMemo(() => {
+    const set = new Set<string>()
+    users.filter((u) => u.rol === 'cliente' && u.sector).forEach((u) => set.add(u.sector!))
+    return Array.from(set).sort()
+  }, [users])
+
   const filtered = users.filter((u) => {
     if (tab === 'clientes' && isStaff(u)) return false
     if (tab === 'equipo'   && !isStaff(u)) return false
@@ -88,7 +95,8 @@ export default function UserManagement() {
       u.razonSocial?.toLowerCase().includes(q) ||
       u.email?.toLowerCase().includes(q)
     const matchStatus = statusFilter === 'all' || u.estado === statusFilter
-    return matchSearch && matchStatus
+    const matchSector = sectorFilter === 'all' || u.sector === sectorFilter
+    return matchSearch && matchStatus && matchSector
   })
 
   const handleRole = async (uid: string, rol: UserRole) => {
@@ -176,7 +184,7 @@ export default function UserManagement() {
           {(['clientes', 'equipo'] as const).map((t) => (
             <button
               key={t}
-              onClick={() => { setTab(t); setSearch('') }}
+              onClick={() => { setTab(t); setSearch(''); setSectorFilter('all') }}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
                 tab === t
                   ? 'border-accent text-accent'
@@ -210,9 +218,21 @@ export default function UserManagement() {
               <option key={s} value={s}>{STATUS_LABELS[s]}</option>
             ))}
           </select>
-          {(search || statusFilter !== 'all') && (
+          {tab === 'clientes' && sectors.length > 0 && (
+            <select
+              value={sectorFilter}
+              onChange={(e: ChangeEvent<HTMLSelectElement>) => setSectorFilter(e.target.value)}
+              className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+            >
+              <option value="all">Todos los sectores</option>
+              {sectors.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          )}
+          {(search || statusFilter !== 'all' || sectorFilter !== 'all') && (
             <button
-              onClick={() => { setSearch(''); setStatusFilter('all') }}
+              onClick={() => { setSearch(''); setStatusFilter('all'); setSectorFilter('all') }}
               className="text-sm text-gray-400 hover:text-gray-900 px-3 py-2"
             >
               Limpiar ✕
