@@ -106,11 +106,8 @@ export const getPushSubscriptionByEmail = async (email: string): Promise<PushSub
 
 export const getAllUsers = async (): Promise<UserProfile[]> => {
   const snap = await getDocs(
-    query(collection(db, 'users'), orderBy('fechaCreacion', 'desc'), limit(500)),
+    query(collection(db, 'users'), orderBy('fechaCreacion', 'desc'), limit(6000)),
   )
-  if (snap.docs.length === 500) {
-    console.warn('[userService] getAllUsers alcanzó el límite de 500 usuarios — implementar paginación')
-  }
   return snap.docs.map((d) => ({ uid: d.id, ...d.data() } as UserProfile))
 }
 
