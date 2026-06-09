@@ -13,6 +13,7 @@ import ImportarPedidoModal from '../../components/admin/ImportarPedidoModal'
 import PedidoManualModal from '../../components/admin/PedidoManualModal'
 import VisitasPanel from '../../components/admin/VisitasPanel'
 import MapaPlanificacion from '../../components/admin/MapaPlanificacion'
+import DespachoBoard from '../../components/admin/DespachoBoard'
 import { useAllOrders } from '../../hooks/useOrders'
 import { useChoferes } from '../../hooks/useChoferes'
 import { useAuth } from '../../context/AuthContext'
@@ -435,7 +436,7 @@ function KanbanColumn({ id, label, sublabel, orders, choferes, isBandeja }: {
 // ── Página principal ──────────────────────────────────────────────────────────
 
 export default function LogisticaDashboard() {
-  const [mainTab,      setMainTab]      = useState<'pedidos' | 'visitas' | 'mapa'>('pedidos')
+  const [mainTab,      setMainTab]      = useState<'despacho' | 'pedidos' | 'visitas' | 'mapa'>('despacho')
   const [importModal,  setImportModal]  = useState(false)
   const [pedidoManual, setPedidoManual] = useState(false)
   const [activeId,     setActiveId]     = useState<string | null>(null)
@@ -446,9 +447,9 @@ export default function LogisticaDashboard() {
   const { choferes, loading: loadC } = useChoferes()
   const loading = loadO || loadC
 
-  // Cargar clientes al abrir el tab mapa (una sola vez)
+  // Cargar clientes al abrir el tab mapa o despacho (una sola vez)
   useEffect(() => {
-    if (mainTab !== 'mapa' || clientsLoadedRef.current) return
+    if (!['mapa', 'despacho'].includes(mainTab) || clientsLoadedRef.current) return
     const load = async () => {
       const { getClientesActivos } = await import('../../services/userService')
       const data = await getClientesActivos()
@@ -568,19 +569,29 @@ export default function LogisticaDashboard() {
         </div>
 
         <div className="flex border-b border-gray-200 gap-1">
-          {(['pedidos', 'visitas', 'mapa'] as const).map((t) => (
+          {(['despacho', 'pedidos', 'visitas', 'mapa'] as const).map((t) => (
             <button key={t} onClick={() => setMainTab(t)}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
                 mainTab === t ? 'border-accent text-accent' : 'border-transparent text-gray-500 hover:text-gray-900'
               }`}>
-              {t === 'pedidos' ? 'Pedidos' : t === 'visitas' ? 'Visitas' : 'Mapa'}
+              {t === 'despacho' ? 'Despacho' : t === 'pedidos' ? 'Pedidos' : t === 'visitas' ? 'Visitas' : 'Mapa'}
             </button>
           ))}
         </div>
       </div>
 
       {/* Contenido (ocupa el resto de la pantalla) */}
-      <div className={`flex-1 min-h-0 ${mainTab === 'mapa' ? 'overflow-hidden' : 'overflow-y-auto px-4 pb-6 pt-4'}`}>
+      <div className={`flex-1 min-h-0 ${mainTab === 'mapa' || mainTab === 'despacho' ? 'overflow-hidden' : 'overflow-y-auto px-4 pb-6 pt-4'}`}>
+
+        {/* Tab Despacho */}
+        {mainTab === 'despacho' && (
+          <DespachoBoard
+            orders={orders}
+            choferes={choferes}
+            allClients={allClients}
+            loading={loading}
+          />
+        )}
 
         {/* Tab Visitas */}
         {mainTab === 'visitas' && <VisitasPanel />}
