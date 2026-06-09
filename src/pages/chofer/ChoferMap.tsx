@@ -8,10 +8,12 @@ import { useDriverOrders } from '../../hooks/useOrders'
 import { markDelivered } from '../../services/orderService'
 import EntregaModal from '../../components/chofer/EntregaModal'
 import { updateDriverLocation, deactivateDriverLocation } from '../../services/locationService'
+import { subscribeMyDespacho, todayStr } from '../../services/despachoService'
 import { useAuth } from '../../context/AuthContext'
 import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
 import { summarizeProducts } from '../../utils/helpers'
 import { generateHojaDeRuta } from '../../utils/pdf'
+import type { Despacho, Order } from '../../types'
 
 const BA_CENTER = { lat: -34.6037, lng: -58.3816 }
 
@@ -47,19 +49,44 @@ export default function ChoferMap() {
   const [routeError, setRouteError]   = useState('')
   const [calculating, setCalculating] = useState(false)
   const [currentPos, setCurrentPos]   = useState<google.maps.LatLngLiteral | null>(null)
-  const [skippedIds, setSkippedIds]     = useState<Set<string>>(new Set())
-  const [routeStale, setRouteStale]     = useState(false)
-  const [deliveryOrder, setDeliveryOrder] = useState<import('../../types').Order | null>(null)
-  const [pdfLoading, setPdfLoading] = useState(false)
+  const [skippedIds, setSkippedIds]   = useState<Set<string>>(new Set())
+  const [routeStale, setRouteStale]   = useState(false)
+  const [deliveryOrder, setDeliveryOrder] = useState<Order | null>(null)
+  const [pdfLoading, setPdfLoading]   = useState(false)
+  const [myDespacho, setMyDespacho]   = useState<Despacho | null>(null)
+
+  // Suscribirse al despacho del día para respetar el orden de logística
+  useEffect(() => {
+    if (!user?.email) return
+    return subscribeMyDespacho(todayStr(), user.email, setMyDespacho)
+  }, [user?.email])
 
   const pending = useMemo(
     () => orders.filter((o) => o.status !== 'entregado' && o.clientAddress),
     [orders],
   )
 
-  const activeOrders   = useMemo(() => pending.filter((o) => !skippedIds.has(o.id)), [pending, skippedIds])
-  const skippedOrders  = useMemo(() => pending.filter((o) =>  skippedIds.has(o.id)), [pending, skippedIds])
-  const orderedPending = useMemo(() => [...activeOrders, ...skippedOrders],           [activeOrders, skippedOrders])
+  const activeOrders  = useMemo(() => pending.filter((o) => !skippedIds.has(o.id)), [pending, skippedIds])
+  const skippedOrders = useMemo(() => pending.filter((o) =>  skippedIds.has(o.id)), [pending, skippedIds])
+
+  // Si hay despacho confirmado, usar el orden de logística; si no, orden por defecto
+  const hasDespachoOrder = myDespacho?.status === 'confirmado' && (myDespacho.orderIds?.length ?? 0) > 0
+
+  const orderedPending = useMemo<Order[]>(() => {
+    if (hasDespachoOrder) {
+      const orderIdOrder = myDespacho!.orderIds
+        .filter((x) => x.startsWith('o:'))
+        .map((x) => x.slice(2))
+      const byId = new Map(pending.map((o) => [o.id, o]))
+      const sorted = orderIdOrder.map((id) => byId.get(id)).filter(Boolean) as Order[]
+      const inSet  = new Set(orderIdOrder)
+      const extra  = pending.filter((o) => !inSet.has(o.id))
+      return [...sorted, ...extra].filter((o) => !skippedIds.has(o.id)).concat(
+        pending.filter((o) => skippedIds.has(o.id))
+      )
+    }
+    return [...activeOrders, ...skippedOrders]
+  }, [hasDespachoOrder, myDespacho, pending, activeOrders, skippedOrders, skippedIds])
 
   const nombreRef   = useRef(user?.nombreContacto || user?.nombre || '')
   const telefonoRef = useRef(user?.telefono       || user?.phone  || '')
@@ -109,7 +136,8 @@ export default function ChoferMap() {
         origin,
         destination,
         waypoints,
-        optimizeWaypoints: skippedOrders.length === 0,
+        // Si el orden viene de logística ya está optimizado, no re-optimizar
+        optimizeWaypoints: !hasDespachoOrder && skippedOrders.length === 0,
         travelMode:        google.maps.TravelMode.DRIVING,
         region:            'AR',
       })
@@ -179,6 +207,12 @@ export default function ChoferMap() {
     <div className="min-h-screen bg-bg text-[#D3D1C7]">
       <Navbar />
       <div className="flex flex-col" style={{ height: 'calc(100vh - 56px - 64px)' }}>
+        {hasDespachoOrder && (
+          <div className="px-4 py-1.5 bg-accent/10 border-b border-accent/20 flex items-center gap-2">
+            <span className="text-accent text-xs font-medium">📋 Orden planificado por logística</span>
+          </div>
+        )}
+
         <div className="p-3 flex flex-wrap gap-2 bg-surface border-b border-border shrink-0">
           <Button
             onClick={calculateRoute}
@@ -186,7 +220,7 @@ export default function ChoferMap() {
             disabled={orderedPending.length === 0}
             className="text-sm"
           >
-            🗺 Calcular ruta ({activeOrders.length} paradas{skippedOrders.length > 0 ? ` + ${skippedOrders.length} postergadas` : ''})
+            🗺 Calcular ruta ({activeOrders.filter((o) => !skippedIds.has(o.id)).length} paradas{skippedOrders.length > 0 ? ` + ${skippedOrders.length} postergadas` : ''})
           </Button>
           <Button
             variant="outline"
