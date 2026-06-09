@@ -23,6 +23,7 @@ import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
 import { summarizeProducts } from '../../utils/helpers'
 import { generateHojaDeRuta } from '../../utils/pdf'
 import type { Despacho, Order } from '../../types'
+import { PLANTAS } from '../../types'
 
 const BA_CENTER = { lat: -34.6037, lng: -58.3816 }
 
@@ -253,9 +254,11 @@ export default function ChoferMap() {
     setRouteStale(false)
 
     try {
-      const service     = new google.maps.DirectionsService()
-      const origin      = currentPos ?? orderedPending[0].clientAddress
-      const allStops    = currentPos ? orderedPending : orderedPending.slice(1)
+      const service = new google.maps.DirectionsService()
+      const plantaCoords = myDespacho?.plantaId ? PLANTAS[myDespacho.plantaId] : null
+      const plantaLatLng = plantaCoords ? { lat: plantaCoords.lat, lng: plantaCoords.lng } : null
+      const origin   = currentPos ?? plantaLatLng ?? orderedPending[0].clientAddress
+      const allStops = (currentPos || plantaLatLng) ? orderedPending : orderedPending.slice(1)
       const destination = allStops[allStops.length - 1].clientAddress
       const waypoints   = allStops.slice(0, -1).map((o) => ({
         location: o.clientAddress,
@@ -338,8 +341,14 @@ export default function ChoferMap() {
       <Navbar />
       <div className="flex flex-col" style={{ height: 'calc(100vh - 56px - 64px)' }}>
         {hasDespachoOrder && (
-          <div className="px-4 py-1.5 bg-accent/10 border-b border-accent/20 flex items-center gap-2">
+          <div className="px-4 py-2 bg-accent/10 border-b border-accent/20 flex items-center justify-between gap-3">
             <span className="text-accent text-xs font-medium">📋 Orden planificado por logística</span>
+            {myDespacho?.plantaId && (
+              <span className="text-xs text-accent/80 shrink-0 font-medium">
+                🏭 {PLANTAS[myDespacho.plantaId].label}
+                {myDespacho.horaSalida && ` · ${myDespacho.horaSalida}`}
+              </span>
+            )}
           </div>
         )}
 
