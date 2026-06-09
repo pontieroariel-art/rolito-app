@@ -11,7 +11,6 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import Modal from '../../components/ui/Modal'
 import ImportarPedidoModal from '../../components/admin/ImportarPedidoModal'
 import PedidoManualModal from '../../components/admin/PedidoManualModal'
-import VisitasPanel from '../../components/admin/VisitasPanel'
 import MapaPlanificacion from '../../components/admin/MapaPlanificacion'
 import DespachoBoard from '../../components/admin/DespachoBoard'
 import { useAllOrders } from '../../hooks/useOrders'
@@ -436,7 +435,7 @@ function KanbanColumn({ id, label, sublabel, orders, choferes, isBandeja }: {
 // ── Página principal ──────────────────────────────────────────────────────────
 
 export default function LogisticaDashboard() {
-  const [mainTab,      setMainTab]      = useState<'despacho' | 'pedidos' | 'visitas' | 'mapa'>('despacho')
+  const [mainTab,      setMainTab]      = useState<'despacho' | 'pedidos' | 'mapa'>('despacho')
   const [importModal,  setImportModal]  = useState(false)
   const [pedidoManual, setPedidoManual] = useState(false)
   const [activeId,     setActiveId]     = useState<string | null>(null)
@@ -569,12 +568,12 @@ export default function LogisticaDashboard() {
         </div>
 
         <div className="flex border-b border-gray-200 gap-1">
-          {(['despacho', 'pedidos', 'visitas', 'mapa'] as const).map((t) => (
+          {(['despacho', 'pedidos', 'mapa'] as const).map((t) => (
             <button key={t} onClick={() => setMainTab(t)}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
                 mainTab === t ? 'border-accent text-accent' : 'border-transparent text-gray-500 hover:text-gray-900'
               }`}>
-              {t === 'despacho' ? 'Despacho' : t === 'pedidos' ? 'Pedidos' : t === 'visitas' ? 'Visitas' : 'Mapa'}
+              {t === 'despacho' ? 'Despacho' : t === 'pedidos' ? 'Pedidos' : 'Mapa'}
             </button>
           ))}
         </div>
@@ -582,6 +581,7 @@ export default function LogisticaDashboard() {
 
       {/* Contenido (ocupa el resto de la pantalla) */}
       <div className={`flex-1 min-h-0 ${mainTab === 'mapa' || mainTab === 'despacho' ? 'overflow-hidden' : 'overflow-y-auto px-4 pb-6 pt-4'}`}>
+
 
         {/* Tab Despacho */}
         {mainTab === 'despacho' && (
@@ -592,9 +592,6 @@ export default function LogisticaDashboard() {
             loading={loading}
           />
         )}
-
-        {/* Tab Visitas */}
-        {mainTab === 'visitas' && <VisitasPanel />}
 
         {/* Tab Mapa */}
         {mainTab === 'mapa' && (
