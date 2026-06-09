@@ -1,4 +1,4 @@
-import { useState, useEffect, ChangeEvent } from 'react'
+import { useState, useEffect, useRef, ChangeEvent } from 'react'
 import Navbar from '../../components/layout/Navbar'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
@@ -166,6 +166,109 @@ function ProgramaForm({
 
 // ── Formulario de visita puntual ──────────────────────────────────────────────
 
+function ClienteCombobox({
+  clientes,
+  value,
+  onChange,
+}: {
+  clientes: UserProfile[]
+  value:    string
+  onChange: (uid: string) => void
+}) {
+  const [query,  setQuery]  = useState('')
+  const [open,   setOpen]   = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  const selected = clientes.find((c) => c.uid === value)
+
+  const filtered = query.trim()
+    ? clientes.filter((c) => {
+        const q = query.toLowerCase()
+        return (
+          clientLabel(c).toLowerCase().includes(q) ||
+          (c.codigoCliente || '').toLowerCase().includes(q)
+        )
+      }).slice(0, 50)
+    : clientes.slice(0, 50)
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const select = (uid: string) => {
+    onChange(uid)
+    setQuery('')
+    setOpen(false)
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <div
+        className={`w-full bg-white border rounded-lg px-3 py-2 text-sm flex items-center justify-between gap-2 cursor-pointer ${
+          open ? 'border-accent ring-1 ring-accent' : 'border-[#D3D1C7]'
+        }`}
+        onClick={() => setOpen((o) => !o)}
+      >
+        {selected ? (
+          <span className="text-gray-900 truncate">
+            {selected.codigoCliente && (
+              <span className="text-gray-400 mr-1.5">[{selected.codigoCliente}]</span>
+            )}
+            {clientLabel(selected)}
+          </span>
+        ) : (
+          <span className="text-gray-400">— Seleccioná un cliente —</span>
+        )}
+        <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+      </div>
+
+      {open && (
+        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-[#D3D1C7] rounded-lg shadow-lg overflow-hidden">
+          <div className="p-2 border-b border-[#D3D1C7]">
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Buscar por nombre o código..."
+              className="w-full text-sm px-2 py-1.5 bg-[#F8F7F2] rounded border border-[#D3D1C7] focus:outline-none focus:ring-1 focus:ring-accent text-gray-900 placeholder-gray-400"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          <ul className="max-h-52 overflow-y-auto">
+            {filtered.length === 0 ? (
+              <li className="px-3 py-2 text-sm text-gray-400">Sin resultados</li>
+            ) : (
+              filtered.map((c) => (
+                <li
+                  key={c.uid}
+                  onClick={() => select(c.uid)}
+                  className={`px-3 py-2 text-sm cursor-pointer hover:bg-[#F0EEE7] flex items-center gap-2 ${
+                    c.uid === value ? 'bg-[#E8F5F0] text-accent font-medium' : 'text-gray-900'
+                  }`}
+                >
+                  {c.codigoCliente && (
+                    <span className="text-gray-400 text-xs shrink-0">[{c.codigoCliente}]</span>
+                  )}
+                  <span className="truncate">{clientLabel(c)}</span>
+                </li>
+              ))
+            )}
+          </ul>
+          {clientes.length > 50 && !query && (
+            <p className="px-3 py-1.5 text-xs text-gray-400 border-t border-[#D3D1C7]">
+              Escribí para filtrar entre {clientes.length} clientes
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function VisitaPuntualForm({
   clientes,
   choferes,
@@ -208,16 +311,7 @@ function VisitaPuntualForm({
     <div className="space-y-4">
       <div>
         <label className="text-xs text-gray-500 mb-1 block">Cliente *</label>
-        <select
-          value={clientId}
-          onChange={(e: ChangeEvent<HTMLSelectElement>) => setClientId(e.target.value)}
-          className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
-        >
-          <option value="">— Seleccioná un cliente —</option>
-          {clientes.map((c) => (
-            <option key={c.uid} value={c.uid}>{clientLabel(c)}</option>
-          ))}
-        </select>
+        <ClienteCombobox clientes={clientes} value={clientId} onChange={setClientId} />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
