@@ -2,6 +2,7 @@ import { useState, useEffect, ChangeEvent } from 'react'
 import Button from '../ui/Button'
 import Modal from '../ui/Modal'
 import LoadingSpinner from '../ui/LoadingSpinner'
+import ClienteCombobox, { toComboItems } from '../ui/ClienteCombobox'
 import { useProgramasVisita, useVisitasPuntuales, programasParaFecha, visitasParaFecha } from '../../hooks/useVisitas'
 import { useChoferes } from '../../hooks/useChoferes'
 import { getAllUsers } from '../../services/userService'
@@ -90,11 +91,7 @@ function ProgramaForm({
     <div className="space-y-4">
       <div>
         <label className="text-xs text-gray-500 mb-1 block">Cliente *</label>
-        <select value={clientId} onChange={(e: ChangeEvent<HTMLSelectElement>) => setClientId(e.target.value)}
-          className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent">
-          <option value="">— Seleccioná un cliente —</option>
-          {clientes.map((c) => <option key={c.uid} value={c.uid}>{clientLabel(c)}</option>)}
-        </select>
+        <ClienteCombobox items={toComboItems(clientes)} value={clientId} onChange={setClientId} />
       </div>
       <div>
         <label className="text-xs text-gray-500 mb-2 block">Días de visita *</label>
@@ -172,11 +169,7 @@ function VisitaPuntualForm({
     <div className="space-y-4">
       <div>
         <label className="text-xs text-gray-500 mb-1 block">Cliente *</label>
-        <select value={clientId} onChange={(e: ChangeEvent<HTMLSelectElement>) => setClientId(e.target.value)}
-          className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent">
-          <option value="">— Seleccioná un cliente —</option>
-          {clientes.map((c) => <option key={c.uid} value={c.uid}>{clientLabel(c)}</option>)}
-        </select>
+        <ClienteCombobox items={toComboItems(clientes)} value={clientId} onChange={setClientId} />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>

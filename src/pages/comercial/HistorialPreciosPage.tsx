@@ -1,4 +1,5 @@
 import { useState, useMemo, ChangeEvent } from 'react'
+import ClienteCombobox from '../../components/ui/ClienteCombobox'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import Navbar from '../../components/layout/Navbar'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
@@ -388,18 +389,12 @@ export default function HistorialPreciosPage() {
         {clientesUnicos.length > 0 && (
           <div className="flex items-center gap-3">
             <span className="text-xs text-gray-500 whitespace-nowrap">Ver evolución de:</span>
-            <select
+            <ClienteCombobox
+              items={clientesUnicos.map(([uid, label]) => ({ uid, label }))}
               value={clienteDetalle ?? ''}
-              onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                setClienteDetalle(e.target.value || null)
-              }
-              className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent flex-1 max-w-xs"
-            >
-              <option value="">— Seleccioná un cliente —</option>
-              {clientesUnicos.map(([id, name]) => (
-                <option key={id} value={id}>{name}</option>
-              ))}
-            </select>
+              onChange={(uid) => setClienteDetalle(uid || null)}
+              className="flex-1 max-w-xs"
+            />
           </div>
         )}
 

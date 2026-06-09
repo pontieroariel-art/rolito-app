@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
 import Navbar from '../../components/layout/Navbar'
 import Badge from '../../components/ui/Badge'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
+import ClienteCombobox, { toComboItems } from '../../components/ui/ClienteCombobox'
 import { useAllOrders } from '../../hooks/useOrders'
 import { getAllUsers } from '../../services/userService'
 import { summarizeProducts } from '../../utils/helpers'
@@ -189,20 +190,13 @@ export default function ComercialOrders() {
           {/* Filtros secundarios */}
           <div className="flex flex-wrap gap-2">
             {/* Cliente */}
-            <select
+            <ClienteCombobox
+              items={toComboItems(clientes)}
               value={clienteId}
-              onChange={(e) => setClienteId(e.target.value)}
-              className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
-            >
-              <option value="todos">Todos los clientes</option>
-              {clientes
-                .sort((a, b) => (a.razonSocial || a.nombre).localeCompare(b.razonSocial || b.nombre))
-                .map((c) => (
-                  <option key={c.uid} value={c.uid}>
-                    {c.razonSocial || c.nombre}
-                  </option>
-                ))}
-            </select>
+              onChange={setClienteId}
+              allLabel="Todos los clientes"
+              className="min-w-48"
+            />
 
             {/* Estado */}
             <select
