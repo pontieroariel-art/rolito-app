@@ -154,6 +154,22 @@ export function getPrimaryAddress(user: UserProfile): DeliveryAddress | null {
   return user.addresses.find((a) => a.esPrincipal) ?? user.addresses[0]
 }
 
+// ── Despacho ──────────────────────────────────────────────────────────────────
+
+export interface Despacho {
+  id:           string     // `${fecha}_${emailSanitizado}`
+  fecha:        string     // 'yyyy-MM-dd'
+  driverId:     string     // email del chofer
+  driverName:   string
+  camionId:     string | null
+  camionLabel:  string | null
+  status:       'borrador' | 'confirmado'
+  orderIds:     string[]   // IDs en orden optimizado ORS
+  confirmedAt?: Timestamp | null
+  confirmedBy?: string | null
+  modifiedAfterConfirm?: boolean
+}
+
 export interface AccionHistorial {
   accion:        string
   usuarioId:     string
