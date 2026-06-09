@@ -2,6 +2,7 @@ import {
   collection, doc, setDoc, onSnapshot,
   query, where, Timestamp,
 } from 'firebase/firestore'
+
 import { db } from './firebase'
 import { Despacho } from '../types'
 
@@ -18,6 +19,17 @@ export const subscribeDespachosByFecha = (
   const q = query(collection(db, 'despachos'), where('fecha', '==', fecha))
   return onSnapshot(q, (snap) => {
     cb(snap.docs.map((d) => ({ ...d.data(), id: d.id } as Despacho)))
+  })
+}
+
+export const subscribeMyDespacho = (
+  fecha: string,
+  driverEmail: string,
+  cb: (d: Despacho | null) => void,
+): () => void => {
+  const id = despachoId(fecha, driverEmail)
+  return onSnapshot(doc(db, 'despachos', id), (snap) => {
+    cb(snap.exists() ? ({ ...snap.data(), id: snap.id } as Despacho) : null)
   })
 }
 
