@@ -104,9 +104,35 @@ export const getPushSubscriptionByEmail = async (email: string): Promise<PushSub
   return snap.docs[0].data().pushSubscription ?? null
 }
 
-export const getAllUsers = async (): Promise<UserProfile[]> => {
+let _usersCache: UserProfile[] | null = null
+let _usersCacheTime = 0
+const CACHE_TTL = 5 * 60 * 1000
+
+export const invalidateUsersCache = () => { _usersCache = null }
+
+export const getAllUsers = async (force = false): Promise<UserProfile[]> => {
+  if (!force && _usersCache && Date.now() - _usersCacheTime < CACHE_TTL) {
+    return _usersCache
+  }
   const snap = await getDocs(
     query(collection(db, 'users'), orderBy('fechaCreacion', 'desc'), limit(6000)),
+  )
+  _usersCache = snap.docs.map((d) => ({ uid: d.id, ...d.data() } as UserProfile))
+  _usersCacheTime = Date.now()
+  return _usersCache
+}
+
+export const getStaffUsers = async (): Promise<UserProfile[]> => {
+  const roles: UserRole[] = ['super_admin', 'gerente_comercial', 'comercial', 'logistica', 'facturacion', 'chofer']
+  const snap = await getDocs(
+    query(collection(db, 'users'), where('rol', 'in', roles)),
+  )
+  return snap.docs.map((d) => ({ uid: d.id, ...d.data() } as UserProfile))
+}
+
+export const getClientesActivos = async (): Promise<UserProfile[]> => {
+  const snap = await getDocs(
+    query(collection(db, 'users'), where('rol', '==', 'cliente'), where('estado', '==', 'activo')),
   )
   return snap.docs.map((d) => ({ uid: d.id, ...d.data() } as UserProfile))
 }

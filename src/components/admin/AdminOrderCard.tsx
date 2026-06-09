@@ -5,7 +5,7 @@ import { sendPush } from '../../services/notificationService'
 import { useNotifyConfirmado, useNotifyEnCamino } from '../../hooks/useNotifications'
 import { STATUS_FLOW, STATUS_LABELS } from '../../utils/constants'
 import { formatShortDate, summarizeProducts } from '../../utils/helpers'
-import { Order, OrderStatus, UserProfile } from '../../types'
+import { Order, OrderStatus, UserProfile, AccionHistorial } from '../../types'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import Badge from '../ui/Badge'
@@ -30,6 +30,7 @@ export function AdminOrderCard({ order, choferes }: AdminOrderCardProps) {
   const [cancelModal,    setCancelModal]    = useState(false)
   const [cancelMotivo,   setCancelMotivo]   = useState('')
   const [cancelLoading,  setCancelLoading]  = useState(false)
+  const [histOpen,       setHistOpen]       = useState(false)
   const notifyConfirmadoMutation = useNotifyConfirmado()
   const notifyEnCaminoMutation   = useNotifyEnCamino()
 
@@ -171,6 +172,34 @@ export function AdminOrderCard({ order, choferes }: AdminOrderCardProps) {
           <p className="text-xs text-red-500 italic border-t border-gray-100 pt-2">
             Motivo: {order.motivoCancelacion}
           </p>
+        )}
+
+        {order.historialAcciones && order.historialAcciones.length > 0 && (
+          <div className="border-t border-gray-100 pt-2">
+            <button
+              onClick={() => setHistOpen((v) => !v)}
+              className="text-xs text-gray-400 hover:text-gray-600 transition-colors flex items-center gap-1"
+            >
+              Historial de cambios ({order.historialAcciones.length}) {histOpen ? '▲' : '▼'}
+            </button>
+            {histOpen && (
+              <div className="mt-2 space-y-2">
+                {[...order.historialAcciones].reverse().map((h: AccionHistorial, i: number) => {
+                  const ts    = h.timestamp?.toDate ? h.timestamp.toDate() : new Date((h.timestamp as any)?.seconds * 1000)
+                  const fecha = ts.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })
+                  const hora  = ts.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+                  const label = h.accion === 'cancelado' ? 'canceló el pedido' : h.accion === 'modificado' ? 'modificó el pedido' : h.accion
+                  return (
+                    <div key={i} className="flex items-start gap-2 text-xs bg-gray-50 rounded-lg px-2.5 py-1.5">
+                      <span className="text-gray-400 shrink-0 tabular-nums">{fecha} {hora}</span>
+                      <span className="text-accent font-semibold shrink-0">{h.usuarioNombre}</span>
+                      <span className="text-gray-500">{label}{h.detalle && h.detalle !== 'null' ? ` — ${h.detalle}` : ''}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         )}
       </div>
 

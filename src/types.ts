@@ -154,6 +154,14 @@ export function getPrimaryAddress(user: UserProfile): DeliveryAddress | null {
   return user.addresses.find((a) => a.esPrincipal) ?? user.addresses[0]
 }
 
+export interface AccionHistorial {
+  accion:        string
+  usuarioId:     string
+  usuarioNombre: string
+  timestamp:     Timestamp
+  detalle?:      string | null
+}
+
 export interface Order {
   id: string
   clientId: string
@@ -183,6 +191,8 @@ export interface Order {
   choferOriginal?:       string
   reasignado?:           boolean
   motivoReasignacion?:   string
+  // Auditoría
+  historialAcciones?: AccionHistorial[]
 }
 
 export const MOTIVOS_INCIDENCIA = [

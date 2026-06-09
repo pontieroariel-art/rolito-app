@@ -10,12 +10,25 @@ import {
   onSnapshot,
   serverTimestamp,
   Timestamp,
+  arrayUnion,
   limit,
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { Order, OrderProduct, UserProfile, getPrimaryAddress } from '../types'
 
 const ORDERS = 'orders'
+
+export interface Actor { uid: string; nombre: string }
+
+function accion(actor: Actor, tipo: string, detalle?: string) {
+  return {
+    accion:        tipo,
+    usuarioId:     actor.uid,
+    usuarioNombre: actor.nombre,
+    timestamp:     Timestamp.now(),
+    detalle:       detalle ?? null,
+  }
+}
 
 interface CreateOrderParams {
   user: UserProfile
@@ -166,6 +179,33 @@ export const reassignOrder = (
     motivoReasignacion: motivo,
     updatedAt:          serverTimestamp(),
   })
+
+export const cancelOrderBy = (orderId: string, motivo: string, actor: Actor): Promise<void> =>
+  updateDoc(doc(db, ORDERS, orderId), {
+    status:            'cancelado',
+    motivoCancelacion: motivo,
+    updatedAt:         serverTimestamp(),
+    historialAcciones: arrayUnion(accion(actor, 'cancelado', motivo)),
+  })
+
+export interface EditOrderParams {
+  products:    OrderProduct[]
+  date:        string
+  horaEntrega: string
+  notes:       string
+}
+
+export const editOrderBy = (orderId: string, params: EditOrderParams, actor: Actor): Promise<void> => {
+  const detalle = `Productos/fecha/hora actualizados`
+  return updateDoc(doc(db, ORDERS, orderId), {
+    products:    params.products,
+    date:        Timestamp.fromDate(new Date(params.date + 'T12:00:00')),
+    horaEntrega: params.horaEntrega || null,
+    notes:       params.notes,
+    updatedAt:   serverTimestamp(),
+    historialAcciones: arrayUnion(accion(actor, 'modificado', detalle)),
+  })
+}
 
 export const getOrdersInRange = async (start: Date, end: Date): Promise<Order[]> => {
   const q = query(

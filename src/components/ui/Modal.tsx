@@ -41,13 +41,13 @@ export default function Modal({ open, onClose, title, children, variant = 'dark'
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className={`rounded-2xl w-full ${wide ? 'max-w-2xl' : 'max-w-md'} p-6 shadow-2xl outline-none ${
+        className={`rounded-2xl w-full ${wide ? 'max-w-2xl' : 'max-w-md'} shadow-2xl outline-none flex flex-col max-h-[90vh] ${
           variant === 'light'
             ? 'bg-white border border-[#D3D1C7]'
             : 'bg-surface border border-border'
         }`}
       >
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center p-6 pb-4 shrink-0">
           <h2 id={titleId} className={`text-lg font-semibold ${variant === 'light' ? 'text-gray-900' : ''}`}>{title}</h2>
           <button
             onClick={onClose}
@@ -61,7 +61,7 @@ export default function Modal({ open, onClose, title, children, variant = 'dark'
             ✕
           </button>
         </div>
-        {children}
+        <div className="overflow-y-auto flex-1 px-6 pb-6">{children}</div>
       </div>
     </div>
   )
