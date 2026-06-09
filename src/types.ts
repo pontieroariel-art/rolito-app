@@ -156,6 +156,13 @@ export function getPrimaryAddress(user: UserProfile): DeliveryAddress | null {
 
 // ── Despacho ──────────────────────────────────────────────────────────────────
 
+export const PLANTAS = {
+  torcuato: { label: 'Planta Don Torcuato', lat: -34.484942373454,  lng: -58.608981028836155 },
+  merlo:    { label: 'Planta Merlo',        lat: -34.661216003246,  lng: -58.7437552243348   },
+} as const
+
+export type PlantaId = keyof typeof PLANTAS
+
 export interface Despacho {
   id:           string     // `${fecha}_${emailSanitizado}`
   fecha:        string     // 'yyyy-MM-dd'
@@ -165,6 +172,8 @@ export interface Despacho {
   camionLabel:  string | null
   status:       'borrador' | 'confirmado'
   orderIds:     string[]   // IDs en orden optimizado ORS
+  plantaId?:    PlantaId   // planta de salida
+  horaSalida?:  string     // 'HH:MM'
   confirmedAt?: Timestamp | null
   confirmedBy?: string | null
   modifiedAfterConfirm?: boolean

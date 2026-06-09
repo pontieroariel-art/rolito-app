@@ -7,18 +7,11 @@ import { addVisitaPuntual, deleteVisitaPuntual } from '../../services/visitasSer
 import { useVisitasPuntuales, visitasParaFecha } from '../../hooks/useVisitas'
 import { useZonasProhibidas } from '../../hooks/useZonas'
 import { saveZonas, ZonaProhibida } from '../../services/zonasService'
-import { Order, UserProfile, getPrimaryAddress } from '../../types'
+import { Order, UserProfile, getPrimaryAddress, PLANTAS, PlantaId } from '../../types'
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 
 const DRIVER_COLORS = ['#00C2FF', '#FF6B6B', '#4ECDC4', '#A8E6CF', '#FFE66D', '#C084FC', '#F97316', '#34D399']
-
-const PLANTAS = {
-  torcuato: { label: 'Planta Don Torcuato', lat: -34.484942373454,  lng: -58.608981028836155 },
-  merlo:    { label: 'Planta Merlo',        lat: -34.661216003246,  lng: -58.7437552243348   },
-} as const
-
-type PlantaId = keyof typeof PLANTAS
 
 const MAP_STYLES: google.maps.MapTypeStyle[] = [
   { featureType: 'poi',               stylers: [{ visibility: 'off' }] },

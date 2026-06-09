@@ -8,7 +8,7 @@ import { Truck, ChevronLeft, ChevronRight, Lock, CheckCircle, RotateCcw, Eye, Pa
 import Button from '../ui/Button'
 import Modal from '../ui/Modal'
 import LoadingSpinner from '../ui/LoadingSpinner'
-import { Order, UserProfile, Despacho, ProgramaVisita, VisitaPuntual, getPrimaryAddress } from '../../types'
+import { Order, UserProfile, Despacho, ProgramaVisita, VisitaPuntual, getPrimaryAddress, PLANTAS, PlantaId } from '../../types'
 import {
   despachoId, saveDespacho, subscribeDespachosByFecha,
   optimizeStopOrder, formatDespachoFecha, todayStr,
@@ -64,7 +64,8 @@ function summarize(products: Order['products']): string {
   return products.map((p) => `${p.quantity}x ${p.name}`).join(', ')
 }
 
-const PLANTA = { lat: -34.484942373454, lng: -58.608981028836155 }
+// PLANTA default (Torcuato) — se puede sobrescribir por despacho
+const PLANTA_DEFAULT: PlantaId = 'torcuato'
 
 const COL_COLORS = ['#00C2FF', '#FF6B6B', '#4ECDC4', '#FFE66D', '#C084FC', '#F97316', '#34D399', '#FB923C']
 function choferColor(idx: number) { return COL_COLORS[idx % COL_COLORS.length] }
@@ -187,18 +188,22 @@ function SinAsignarColumn({ items }: { items: DayItem[] }) {
 
 // ── ChoferColumn ──────────────────────────────────────────────────────────────
 
-function ChoferColumn({ chofer, camionLabel, items, routeOrder, arrivals, recalculating, despacho, colorIdx, onConfirm, onReopen, onTransfer }: {
-  chofer:        UserProfile
-  camionLabel:   string | null
-  items:         DayItem[]
-  routeOrder:    string[]
-  arrivals:      Record<string, string>
-  recalculating: boolean
-  despacho?:     Despacho
-  colorIdx:      number
-  onConfirm:     () => void
-  onReopen:      () => void
-  onTransfer:    () => void
+function ChoferColumn({ chofer, camionLabel, items, routeOrder, arrivals, recalculating, despacho, colorIdx, plantaId, horaSalida, onPlantaChange, onHoraSalidaChange, onConfirm, onReopen, onTransfer }: {
+  chofer:             UserProfile
+  camionLabel:        string | null
+  items:              DayItem[]
+  routeOrder:         string[]
+  arrivals:           Record<string, string>
+  recalculating:      boolean
+  despacho?:          Despacho
+  colorIdx:           number
+  plantaId:           PlantaId
+  horaSalida:         string
+  onPlantaChange:     (p: PlantaId) => void
+  onHoraSalidaChange: (h: string) => void
+  onConfirm:          () => void
+  onReopen:           () => void
+  onTransfer:         () => void
 }) {
   const confirmed = despacho?.status === 'confirmado'
   const color     = choferColor(colorIdx)
@@ -235,6 +240,28 @@ function ChoferColumn({ chofer, camionLabel, items, routeOrder, arrivals, recalc
           </div>
         </div>
         {camionLabel && <p className="text-[10px] text-gray-400 truncate">{camionLabel}</p>}
+
+        {/* Planta y hora de salida */}
+        <div className="mt-1.5 flex items-center gap-1.5">
+          <select
+            value={plantaId}
+            onChange={(e) => onPlantaChange(e.target.value as PlantaId)}
+            onPointerDown={(e) => e.stopPropagation()}
+            disabled={confirmed}
+            className="flex-1 text-[10px] border border-gray-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-gray-400 truncate"
+          >
+            {(Object.entries(PLANTAS) as [PlantaId, typeof PLANTAS[PlantaId]][]).map(([id, p]) => (
+              <option key={id} value={id}>{p.label}</option>
+            ))}
+          </select>
+          <input
+            type="time" value={horaSalida}
+            onChange={(e) => onHoraSalidaChange(e.target.value)}
+            onPointerDown={(e) => e.stopPropagation()}
+            disabled={confirmed}
+            className="w-16 text-[10px] border border-gray-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-gray-400"
+          />
+        </div>
 
         {/* Estado ruta */}
         <div className="mt-1.5 flex items-center gap-1.5">
@@ -498,6 +525,18 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
     return m
   }, [allClients])
 
+  // ── Planta y hora de salida por chofer ───────────────────────────────────
+  const [plantaByDriver,    setPlantaByDriver]    = useState<Record<string, PlantaId>>({})
+  const [horaSalidaByDriver, setHoraSalidaByDriver] = useState<Record<string, string>>({})
+
+  // Inicializar desde los despachos ya guardados
+  useEffect(() => {
+    despachos.forEach((d) => {
+      if (d.plantaId)   setPlantaByDriver((p)    => ({ ...p, [d.driverId]: d.plantaId! }))
+      if (d.horaSalida) setHoraSalidaByDriver((p) => ({ ...p, [d.driverId]: d.horaSalida! }))
+    })
+  }, [despachos])
+
   // ── Estado de rutas ───────────────────────────────────────────────────────
   const [routeOrder,    setRouteOrder]    = useState<Record<string, string[]>>({})
   const [routeArrivals, setRouteArrivals] = useState<Record<string, Record<string, string>>>({})
@@ -533,10 +572,14 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
         if (addr?.horarioCierre)   closeTimes[dndId] = addr.horarioCierre
       })
 
+      const plantaId = plantaByDriver[driverEmail] ?? PLANTA_DEFAULT
+      const planta   = PLANTAS[plantaId]
+      const departure = horaSalidaByDriver[driverEmail] ?? '07:00'
+
       const { orderedIds, arrivals } = await optimizeStopOrder({
         stopIds: dndIds, coords,
         arrivals: openTimes, closeTimes,
-        fecha, departure: '07:00', planta: PLANTA, orsKey,
+        fecha, departure, planta, orsKey,
       })
 
       setRouteOrder((prev)    => ({ ...prev, [driverEmail]: orderedIds }))
@@ -546,7 +589,7 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
       const desp = despachoByDriver[driverEmail]
       if (desp) await saveDespacho({ ...desp, orderIds: orderedIds })
     }, 1500)
-  }, [allItems, coordsByClientId, allClients, fecha, despachoByDriver])
+  }, [allItems, coordsByClientId, allClients, fecha, despachoByDriver, plantaByDriver, horaSalidaByDriver])
 
   // Detectar cambios en asignaciones y disparar recalc
   const prevAssignments = useRef<Record<string, string>>({})
@@ -687,7 +730,9 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
         id, fecha, driverId: driverEmail, driverName: nombre,
         camionId:    chofer.camionId    ?? null,
         camionLabel: chofer.camionModelo ? `${chofer.camionPatente ?? ''} ${chofer.camionModelo}`.trim() : null,
-        status: 'confirmado', orderIds: ordered,
+        status:      'confirmado', orderIds: ordered,
+        plantaId:    plantaByDriver[driverEmail]    ?? PLANTA_DEFAULT,
+        horaSalida:  horaSalidaByDriver[driverEmail] ?? '07:00',
         confirmedAt: null, confirmedBy: user?.uid ?? null, modifiedAfterConfirm: false,
       }
       await saveDespacho(desp)
@@ -809,6 +854,10 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
                 recalculating={!!recalculating[c.email]}
                 despacho={despachoByDriver[c.email]}
                 colorIdx={idx}
+                plantaId={plantaByDriver[c.email] ?? PLANTA_DEFAULT}
+                horaSalida={horaSalidaByDriver[c.email] ?? '07:00'}
+                onPlantaChange={(p) => { setPlantaByDriver((prev) => ({ ...prev, [c.email]: p })); const ids = Object.entries(assignments).filter(([, d]) => d === c.email).map(([id]) => id); scheduleRecalc(c.email, ids) }}
+                onHoraSalidaChange={(h) => { setHoraSalidaByDriver((prev) => ({ ...prev, [c.email]: h })); const ids = Object.entries(assignments).filter(([, d]) => d === c.email).map(([id]) => id); scheduleRecalc(c.email, ids) }}
                 onConfirm={() => setConfirmingDriver(c.email)}
                 onReopen={() => handleReopen(c.email)}
                 onTransfer={() => setTransferModal({ fromDriver: c.email })}
