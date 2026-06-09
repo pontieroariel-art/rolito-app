@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from './context/AuthContext'
@@ -6,6 +7,7 @@ import ProtectedRoute from './components/layout/ProtectedRoute'
 import LoadingSpinner from './components/ui/LoadingSpinner'
 import { Component, ReactNode, ErrorInfo } from 'react'
 
+// Auth pages — carga inmediata (primera pantalla visible)
 import Landing         from './pages/auth/Landing'
 import LoginClientes   from './pages/auth/LoginClientes'
 import LoginEmpresa    from './pages/auth/LoginEmpresa'
@@ -14,34 +16,34 @@ import Register        from './pages/auth/Register'
 import ForgotPassword  from './pages/auth/ForgotPassword'
 import PendingApproval from './pages/auth/PendingApproval'
 
-import ClientDashboard  from './pages/client/ClientDashboard'
-import NewOrder         from './pages/client/NewOrder'
-import OrderHistory     from './pages/client/OrderHistory'
-import ClientProfile    from './pages/client/ClientProfile'
-import SelectSucursal   from './pages/client/SelectSucursal'
+// Todas las demás páginas — carga bajo demanda
+const ClientDashboard  = lazy(() => import('./pages/client/ClientDashboard'))
+const NewOrder         = lazy(() => import('./pages/client/NewOrder'))
+const OrderHistory     = lazy(() => import('./pages/client/OrderHistory'))
+const ClientProfile    = lazy(() => import('./pages/client/ClientProfile'))
+const SelectSucursal   = lazy(() => import('./pages/client/SelectSucursal'))
 
-import AdminDashboard      from './pages/admin/AdminDashboard'
-import LogisticaDashboard  from './pages/admin/LogisticaDashboard'
-import UserManagement      from './pages/admin/UserManagement'
-import PriceListsPage      from './pages/admin/PriceListsPage'
-import FlotaPage              from './pages/admin/FlotaPage'
-import VisitasPage            from './pages/admin/VisitasPage'
-// PlanificacionPage reemplazada por LogisticaDashboard (mismo componente)
-import MonitoreoPage          from './pages/admin/MonitoreoPage'
-import ReporteIncidenciasPage from './pages/admin/ReporteIncidenciasPage'
-import ClimaPage              from './pages/admin/ClimaPage'
+const AdminDashboard      = lazy(() => import('./pages/admin/AdminDashboard'))
+const LogisticaDashboard  = lazy(() => import('./pages/admin/LogisticaDashboard'))
+const UserManagement      = lazy(() => import('./pages/admin/UserManagement'))
+const ClientesMapPage     = lazy(() => import('./pages/admin/ClientesMapPage'))
+const PriceListsPage      = lazy(() => import('./pages/admin/PriceListsPage'))
+const FlotaPage           = lazy(() => import('./pages/admin/FlotaPage'))
+const VisitasPage         = lazy(() => import('./pages/admin/VisitasPage'))
+const MonitoreoPage       = lazy(() => import('./pages/admin/MonitoreoPage'))
+const ReporteIncidenciasPage = lazy(() => import('./pages/admin/ReporteIncidenciasPage'))
+const ClimaPage           = lazy(() => import('./pages/admin/ClimaPage'))
 
-import ComercialDashboard   from './pages/comercial/ComercialDashboard'
-import ComercialOrders      from './pages/comercial/ComercialOrders'
-import ReportePreciosPage    from './pages/comercial/ReportePreciosPage'
-import ReporteVentasPage    from './pages/comercial/ReporteVentasPage'
-import HistorialPreciosPage from './pages/comercial/HistorialPreciosPage'
-import MapaLivePage         from './pages/comercial/MapaLivePage'
-import HistorialPage        from './pages/shared/HistorialPage'
+const ComercialDashboard   = lazy(() => import('./pages/comercial/ComercialDashboard'))
+const ComercialOrders      = lazy(() => import('./pages/comercial/ComercialOrders'))
+const ReportePreciosPage   = lazy(() => import('./pages/comercial/ReportePreciosPage'))
+const ReporteVentasPage    = lazy(() => import('./pages/comercial/ReporteVentasPage'))
+const HistorialPreciosPage = lazy(() => import('./pages/comercial/HistorialPreciosPage'))
+const MapaLivePage         = lazy(() => import('./pages/comercial/MapaLivePage'))
+const HistorialPage        = lazy(() => import('./pages/shared/HistorialPage'))
 
-import ChoferDashboard from './pages/chofer/ChoferDashboard'
-import ChoferMap       from './pages/chofer/ChoferMap'
-
+const ChoferDashboard = lazy(() => import('./pages/chofer/ChoferDashboard'))
+const ChoferMap       = lazy(() => import('./pages/chofer/ChoferMap'))
 
 // ── ErrorBoundary ─────────────────────────────────────────────────────────────
 
@@ -49,7 +51,6 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   state = { error: null }
   static getDerivedStateFromError(error: Error) { return { error } }
   componentDidCatch(error: Error, info: ErrorInfo) {
-    // TODO: integrar Sentry u otro servicio de monitoreo en producción
     console.error('[ErrorBoundary] Error no capturado:', error, info.componentStack)
   }
   render() {
@@ -77,7 +78,6 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
 }
 
 // ── ClientBranchGuard ─────────────────────────────────────────────────────────
-// Redirige a /sucursal si el cliente tiene múltiples sucursales y no eligió.
 
 function ClientBranchGuard() {
   const { needsSelection } = useBranch()
@@ -86,90 +86,94 @@ function ClientBranchGuard() {
 }
 
 // ── AppContent ────────────────────────────────────────────────────────────────
-// Mientras isInitializing = true → solo spinner.
-// Una vez que onAuthStateChanged corrió y Firestore cargó, las rutas se
-// renderizan y nunca se desmontan por transiciones de auth posteriores.
 
 function AppContent() {
   const { isInitializing } = useAuth()
   if (isInitializing) return <LoadingSpinner fullScreen />
   return (
-    <Routes>
-      {/* Rutas públicas */}
-      <Route path="/"                element={<Landing />} />
-      <Route path="/clientes"        element={<LoginClientes />} />
-      <Route path="/empresa"         element={<LoginEmpresa />} />
-      <Route path="/choferes"        element={<LoginChofer />} />
-      <Route path="/login"           element={<Navigate to="/clientes" replace />} />
-      <Route path="/register"        element={<Register />} />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
-      <Route path="/pendiente"       element={<PendingApproval />} />
+    <Suspense fallback={<LoadingSpinner fullScreen />}>
+      <Routes>
+        {/* Rutas públicas */}
+        <Route path="/"                element={<Landing />} />
+        <Route path="/clientes"        element={<LoginClientes />} />
+        <Route path="/empresa"         element={<LoginEmpresa />} />
+        <Route path="/choferes"        element={<LoginChofer />} />
+        <Route path="/login"           element={<Navigate to="/clientes" replace />} />
+        <Route path="/register"        element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/pendiente"       element={<PendingApproval />} />
 
-      {/* Cliente */}
-      <Route element={<ProtectedRoute allowedRoles={['cliente']} />}>
-        <Route path="/sucursal" element={<SelectSucursal />} />
-        <Route element={<ClientBranchGuard />}>
-          <Route path="/dashboard"    element={<ClientDashboard />} />
-          <Route path="/nuevo-pedido" element={<NewOrder />} />
-          <Route path="/historial"    element={<OrderHistory />} />
-          <Route path="/perfil"       element={<ClientProfile />} />
+        {/* Cliente */}
+        <Route element={<ProtectedRoute allowedRoles={['cliente']} />}>
+          <Route path="/sucursal" element={<SelectSucursal />} />
+          <Route element={<ClientBranchGuard />}>
+            <Route path="/dashboard"    element={<ClientDashboard />} />
+            <Route path="/nuevo-pedido" element={<NewOrder />} />
+            <Route path="/historial"    element={<OrderHistory />} />
+            <Route path="/perfil"       element={<ClientProfile />} />
+          </Route>
         </Route>
-      </Route>
 
-      {/* Admin y logística */}
-      <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica']} />}>
-        <Route path="/admin"                element={<AdminDashboard />} />
-        <Route path="/logistica"            element={<LogisticaDashboard />} />
-        <Route path="/admin/precios"        element={<PriceListsPage />} />
-        <Route path="/admin/flota"          element={<FlotaPage />} />
-        <Route path="/admin/visitas"        element={<VisitasPage />} />
-        <Route path="/admin/monitoreo"      element={<MonitoreoPage />} />
-        <Route path="/admin/incidencias"    element={<ReporteIncidenciasPage />} />
-      </Route>
-      <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica', 'comercial']} />}>
-        <Route path="/admin/planificacion"  element={<LogisticaDashboard />} />
-      </Route>
-      <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica', 'comercial']} />}>
-        <Route path="/admin/clima" element={<ClimaPage />} />
-      </Route>
+        {/* Admin y logística */}
+        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica']} />}>
+          <Route path="/admin"                element={<AdminDashboard />} />
+          <Route path="/logistica"            element={<LogisticaDashboard />} />
+          <Route path="/admin/precios"        element={<PriceListsPage />} />
+          <Route path="/admin/flota"          element={<FlotaPage />} />
+          <Route path="/admin/visitas"        element={<VisitasPage />} />
+          <Route path="/admin/monitoreo"      element={<MonitoreoPage />} />
+          <Route path="/admin/incidencias"    element={<ReporteIncidenciasPage />} />
+        </Route>
+        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica', 'comercial']} />}>
+          <Route path="/admin/planificacion"  element={<LogisticaDashboard />} />
+        </Route>
+        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica', 'comercial']} />}>
+          <Route path="/admin/clima" element={<ClimaPage />} />
+        </Route>
 
-      {/* Gestión de usuarios */}
-      <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_comercial', 'comercial', 'facturacion']} />}>
-        <Route path="/usuarios" element={<UserManagement />} />
-      </Route>
+        {/* Gestión de usuarios */}
+        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_comercial', 'comercial', 'facturacion']} />}>
+          <Route path="/usuarios" element={<UserManagement />} />
+        </Route>
+        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_comercial', 'comercial', 'facturacion', 'logistica']} />}>
+          <Route path="/admin/mapa-clientes" element={<ClientesMapPage />} />
+        </Route>
 
-      {/* Comercial */}
-      <Route element={<ProtectedRoute allowedRoles={['comercial']} />}>
-        <Route path="/comercial"          element={<ComercialDashboard />} />
-        <Route path="/comercial/pedidos"  element={<ComercialOrders />} />
-        <Route path="/comercial/mapa"     element={<MapaLivePage />} />
-      </Route>
+        {/* Comercial */}
+        <Route element={<ProtectedRoute allowedRoles={['comercial']} />}>
+          <Route path="/comercial"         element={<ComercialDashboard />} />
+          <Route path="/comercial/pedidos" element={<ComercialOrders />} />
+        </Route>
+        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'comercial', 'logistica']} />}>
+          <Route path="/comercial/mapa" element={<MapaLivePage />} />
+        </Route>
 
-      {/* Reportes: comercial + gerente + super_admin + facturacion */}
-      <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_comercial', 'comercial', 'facturacion']} />}>
-        <Route path="/comercial/reporte-precios"  element={<ReportePreciosPage />} />
-        <Route path="/comercial/ventas"           element={<ReporteVentasPage />} />
-      </Route>
+        {/* Reportes */}
+        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_comercial', 'comercial', 'facturacion']} />}>
+          <Route path="/comercial/reporte-precios"  element={<ReportePreciosPage />} />
+          <Route path="/comercial/ventas"           element={<ReporteVentasPage />} />
+        </Route>
 
-      {/* Historial de precios */}
-      <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_comercial', 'comercial', 'logistica', 'facturacion']} />}>
-        <Route path="/comercial/historial-precios" element={<HistorialPreciosPage />} />
-      </Route>
+        {/* Historial de precios */}
+        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_comercial', 'comercial', 'logistica', 'facturacion']} />}>
+          <Route path="/comercial/historial-precios" element={<HistorialPreciosPage />} />
+        </Route>
 
-      {/* Historial unificado */}
-      <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_comercial', 'logistica', 'comercial', 'facturacion']} />}>
-        <Route path="/movimientos" element={<HistorialPage />} />
-      </Route>
+        {/* Historial unificado */}
+        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_comercial', 'logistica', 'comercial', 'facturacion']} />}>
+          <Route path="/movimientos" element={<HistorialPage />} />
+        </Route>
 
-      {/* Chofer */}
-      <Route element={<ProtectedRoute allowedRoles={['chofer']} />}>
-        <Route path="/chofer"     element={<ChoferDashboard />} />
-        <Route path="/chofer/map" element={<ChoferMap />} />
-      </Route>
+        {/* Chofer */}
+        <Route element={<ProtectedRoute allowedRoles={['chofer']} />}>
+          <Route path="/chofer"     element={<ChoferDashboard />} />
+          <Route path="/chofer/map" element={<ChoferMap />} />
+        </Route>
 
-      {/* Cualquier otra ruta */}
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        {/* Cualquier otra ruta */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Suspense>
   )
 }
 

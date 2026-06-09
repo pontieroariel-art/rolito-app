@@ -8,18 +8,14 @@ import {
 } from 'lucide-react'
 import Navbar from '../../components/layout/Navbar'
 import Button from '../../components/ui/Button'
-import Badge from '../../components/ui/Badge'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useAuth } from '../../context/AuthContext'
 import { useAllOrders } from '../../hooks/useOrders'
 import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
-import { getAllUsers, approveUser } from '../../services/userService'
+import { getAllUsers, approveUser, updateUserStatus } from '../../services/userService'
 import { subscribeAllActiveDrivers, ActiveDriver } from '../../services/locationService'
-import { useAllListasPrecios } from '../../hooks/useListasPrecios'
 import { useNotifyAprobado } from '../../hooks/useNotifications'
-import { summarizeProducts, formatShortDate } from '../../utils/helpers'
-import { STATUS_LABELS } from '../../utils/constants'
-import { Order, UserProfile, OrderStatus } from '../../types'
+import { Order, UserProfile } from '../../types'
 import MetricsDashboard from '../admin/MetricsDashboard'
 import { ForecastStrip } from '../admin/ClimaPage'
 
@@ -53,20 +49,11 @@ function daysSince(ts: any): number {
   return Math.floor((Date.now() - d.getTime()) / 86_400_000)
 }
 
-const STATUS_COLOR: Record<OrderStatus, string> = {
-  pendiente:  'text-amber-600',
-  confirmado: 'text-blue-600',
-  en_camino:  'text-accent',
-  entregado:  'text-green-600',
-  cancelado:  'text-red-600',
-}
-
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export default function ComercialDashboard() {
   const { user }   = useAuth()
   const qc         = useQueryClient()
-  const { listas } = useAllListasPrecios()
   const notifyAprobado = useNotifyAprobado()
 
   const { orders, loading: ordersLoading } = useAllOrders()
@@ -107,11 +94,22 @@ export default function ComercialDashboard() {
   const pendientesP = useMemo(() => todayOrders.filter((o) => o.status === 'pendiente').length,   [todayOrders])
   const cancelados  = useMemo(() => todayOrders.filter((o) => o.status === 'cancelado').length,   [todayOrders])
 
+  const patchUser = (uid: string, patch: Partial<UserProfile>) =>
+    qc.setQueryData<UserProfile[]>(['users'], (prev) =>
+      prev?.map((p) => p.uid === uid ? { ...p, ...patch } : p) ?? []
+    )
+
   const handleAprobar = async (u: UserProfile) => {
     if (!user) return
     await approveUser(u.uid, user.uid)
-    notifyAprobado.mutate({ email: u.email, nombre: u.nombre })
-    qc.invalidateQueries({ queryKey: ['users'] })
+    notifyAprobado.mutate({ email: u.email, nombre: u.razonSocial || u.nombreContacto || u.nombre || '' })
+    patchUser(u.uid, { estado: 'activo' })
+  }
+
+  const handleRechazar = async (u: UserProfile) => {
+    if (!confirm(`¿Rechazar a ${u.razonSocial || u.nombre}? El cliente quedará inactivo.`)) return
+    await updateUserStatus(u.uid, 'inactivo')
+    patchUser(u.uid, { estado: 'inactivo' })
   }
 
   return (
@@ -119,56 +117,14 @@ export default function ComercialDashboard() {
       <Navbar />
       <main className="max-w-4xl mx-auto p-4 space-y-6 pb-10">
         <div>
-          <h1 className="text-2xl font-bold">
-            Hola, {user?.nombre?.split(' ')[0] ?? 'Comercial'}
-          </h1>
-          <p className="text-gray-500 text-sm mt-1">
+          <h1 className="text-2xl font-bold">Tablero</h1>
+          <p className="text-gray-500 text-sm capitalize mt-0.5">
             {new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}
           </p>
         </div>
 
         {isLoading ? <LoadingSpinner /> : (
           <>
-            {/* ── Métricas del día ─────────────────────────────────────── */}
-            <section className="space-y-2">
-              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                Pedidos de hoy — {todayOrders.length} en total
-              </h2>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <StatCard icon={<CheckCircle size={16} />} label="Entregados"  value={entregados}  color="text-green-600" border="border-green-500/20" />
-                <StatCard icon={<Truck       size={16} />} label="En camino"   value={enCamino}    color="text-accent"    border="border-accent/20" />
-                <StatCard icon={<Package     size={16} />} label="Confirmados" value={confirmados} color="text-blue-600"  border="border-blue-500/20" />
-                <StatCard icon={<Clock       size={16} />} label="Pendientes"  value={pendientesP} color="text-amber-600" border="border-yellow-500/20" />
-              </div>
-            </section>
-
-            {/* ── Mapa de seguimiento ───────────────────────────────────── */}
-            <TrackingMap orders={todayOrders} />
-
-            {/* ── Pedidos del día ───────────────────────────────────────── */}
-            {todayOrders.length > 0 && (
-              <section className="space-y-2">
-                <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                  Detalle de pedidos hoy
-                </h2>
-                <div className="space-y-2">
-                  {todayOrders
-                    .sort((a, b) => {
-                      const order: OrderStatus[] = ['en_camino', 'confirmado', 'pendiente', 'entregado', 'cancelado']
-                      return order.indexOf(a.status) - order.indexOf(b.status)
-                    })
-                    .map((o) => <OrderRow key={o.id} order={o} users={users} />)
-                  }
-                </div>
-              </section>
-            )}
-
-            {todayOrders.length === 0 && (
-              <div className="bg-white border border-[#D3D1C7] rounded-xl p-6 text-center text-gray-500 text-sm">
-                No hay pedidos programados para hoy
-              </div>
-            )}
-
             {/* ── Alertas comerciales ──────────────────────────────────── */}
             {(pendientes.length > 0 || sinLista.length > 0 || inactivos.length > 0) && (
               <section className="space-y-3">
@@ -188,9 +144,17 @@ export default function ComercialDashboard() {
                           <p className="text-sm font-medium truncate">{u.razonSocial || u.nombre}</p>
                           <p className="text-xs text-gray-500 truncate">{u.email}</p>
                         </div>
-                        <Button onClick={() => handleAprobar(u)} className="text-xs py-1.5 px-3 shrink-0">
-                          Aprobar
-                        </Button>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            onClick={() => handleRechazar(u)}
+                            className="text-xs py-1.5 px-3 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition-colors"
+                          >
+                            Rechazar
+                          </button>
+                          <Button onClick={() => handleAprobar(u)} className="text-xs py-1.5 px-3">
+                            Aprobar
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -248,6 +212,22 @@ export default function ComercialDashboard() {
               </section>
             )}
 
+            {/* ── Métricas del día ─────────────────────────────────────── */}
+            <section className="space-y-2">
+              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                Pedidos de hoy — {todayOrders.length} en total
+              </h2>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <StatCard icon={<CheckCircle size={16} />} label="Entregados"  value={entregados}  color="text-green-600" border="border-green-500/20" />
+                <StatCard icon={<Truck       size={16} />} label="En camino"   value={enCamino}    color="text-accent"    border="border-accent/20" />
+                <StatCard icon={<Package     size={16} />} label="Confirmados" value={confirmados} color="text-blue-600"  border="border-blue-500/20" />
+                <StatCard icon={<Clock       size={16} />} label="Pendientes"  value={pendientesP} color="text-amber-600" border="border-yellow-500/20" />
+              </div>
+            </section>
+
+            {/* ── Ranking y métricas ───────────────────────────────────── */}
+            <MetricsDashboard orders={orders} />
+
             {/* ── Pronóstico del tiempo ────────────────────────────────── */}
             <section className="space-y-2">
               <div className="flex items-center justify-between">
@@ -257,8 +237,8 @@ export default function ComercialDashboard() {
               <ForecastStrip />
             </section>
 
-            {/* ── Ranking y métricas ───────────────────────────────────── */}
-            <MetricsDashboard orders={orders} />
+            {/* ── Mapa de seguimiento ───────────────────────────────────── */}
+            <TrackingMap orders={todayOrders} />
 
             {/* ── Resumen de clientes ──────────────────────────────────── */}
             <section className="space-y-2">
@@ -420,36 +400,6 @@ function TrackingMap({ orders }: { orders: Order[] }) {
         </div>
       )}
     </section>
-  )
-}
-
-// ── OrderRow ──────────────────────────────────────────────────────────────────
-
-function OrderRow({ order, users }: { order: Order; users: UserProfile[] }) {
-  const client = users.find((u) => u.uid === order.clientId)
-
-  return (
-    <div className="bg-white border border-[#D3D1C7] rounded-xl px-4 py-3 flex flex-wrap items-center gap-3 justify-between">
-      <div className="min-w-0 flex-1 space-y-0.5">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-medium text-sm">{order.clientName}</span>
-          {client?.razonSocial && client.razonSocial !== order.clientName && (
-            <span className="text-xs text-gray-500">{client.razonSocial}</span>
-          )}
-          <span className={`text-xs font-medium ${STATUS_COLOR[order.status]}`}>
-            {STATUS_LABELS[order.status]}
-          </span>
-        </div>
-        <p className="text-xs text-gray-500 truncate">{order.clientAddress}</p>
-        <p className="text-xs text-gray-500">{summarizeProducts(order.products)}</p>
-      </div>
-      <div className="text-right space-y-0.5 shrink-0">
-        {order.driverId && (
-          <p className="text-xs text-gray-500">{order.driverId}</p>
-        )}
-        <Badge status={order.status} variant="light" />
-      </div>
-    </div>
   )
 }
 

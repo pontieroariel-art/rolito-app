@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, ChangeEvent } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import Navbar from '../../components/layout/Navbar'
 import Button from '../../components/ui/Button'
@@ -12,29 +12,18 @@ import { cleanupTestData, CleanupResult } from '../../services/cleanupService'
 import { generateRecurrentesForToday } from '../../services/recurrenteService'
 import MetricsDashboard from './MetricsDashboard'
 import { ForecastStrip } from './ClimaPage'
-import ImportarPedidoModal from '../../components/admin/ImportarPedidoModal'
 import { LiveMapSection }           from '../../components/admin/LiveMapSection'
 import { ResumenCargaPorChofer }    from '../../components/admin/ResumenCargaPorChofer'
-import { AdminOrderCard }           from '../../components/admin/AdminOrderCard'
 import { NotificationEmailManager } from '../../components/admin/NotificationEmailManager'
-import { ALL_STATUSES, STATUS_LABELS } from '../../utils/constants'
-import { generateHojaDeRuta } from '../../utils/pdf'
-import { Order, OrderStatus } from '../../types'
 
 export default function AdminDashboard() {
   const { orders, loading } = useAllOrders()
   const { user }            = useAuth()
   const choferes            = useChoferes()
   const notifEmails         = useNotificationEmails()
-  const [search,     setSearch]     = useState('')
-  const [filter,     setFilter]     = useState<OrderStatus | 'all'>('all')
-  const [dateFilter, setDateFilter] = useState('')
-  const [cleanupModal,  setCleanupModal]  = useState(false)
+  const [cleanupModal,   setCleanupModal]   = useState(false)
   const [cleanupLoading, setCleanupLoading] = useState(false)
   const [cleanupResult,  setCleanupResult]  = useState<CleanupResult | null>(null)
-  const [pdfDriver,  setPdfDriver]  = useState('')
-  const [pdfLoading, setPdfLoading] = useState(false)
-  const [importModal, setImportModal] = useState(false)
   const [recurrentesBanner, setRecurrentesBanner] = useState<number | null>(null)
 
   const isSuperAdmin = user?.rol === 'super_admin'
@@ -67,60 +56,76 @@ export default function AdminDashboard() {
     return c.camionFechaAsignacion.toDate().toLocaleDateString('es-AR') !== hoy
   })
 
-  const filtered = useMemo(() => orders.filter((o) => {
-    const matchStatus = filter === 'all' || o.status === filter
-    const matchDate   = !dateFilter || o.date?.toDate?.().toISOString().split('T')[0] === dateFilter
-    const q = search.toLowerCase()
-    const matchSearch = !q ||
-      o.clientName?.toLowerCase().includes(q) ||
-      o.clientAddress?.toLowerCase().includes(q) ||
-      o.products?.some((p) => p.name.toLowerCase().includes(q))
-    return matchStatus && matchDate && matchSearch
-  }), [orders, filter, dateFilter, search])
-
   if (loading) return <><Navbar /><LoadingSpinner fullScreen /></>
 
   return (
     <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
       <Navbar />
       <main className="max-w-5xl mx-auto p-4 space-y-6 pb-10">
+
+        {/* Header */}
         <div className="flex flex-wrap justify-between items-center gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Panel Admin</h1>
-            <p className="text-gray-500 text-sm">Gestión de pedidos y logística</p>
+            <h1 className="text-2xl font-bold text-gray-900">Tablero</h1>
+            <p className="text-gray-500 text-sm capitalize">
+              {new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </p>
           </div>
-          <div className="flex gap-2 flex-wrap">
-            <Button onClick={() => setImportModal(true)} className="text-sm">+ Importar PDF</Button>
-            <NotificationEmailManager notifEmails={notifEmails} />
-          </div>
+          <NotificationEmailManager notifEmails={notifEmails} />
         </div>
 
-        {recurrentesBanner !== null && (
-          <div className="bg-[#E8F5F0] border border-[#B3DDD3] rounded-xl px-4 py-3 flex items-center justify-between gap-3">
-            <p className="text-accent text-sm">
-              ↺ {recurrentesBanner} pedido{recurrentesBanner > 1 ? 's' : ''} recurrente{recurrentesBanner > 1 ? 's' : ''} generado{recurrentesBanner > 1 ? 's' : ''} automáticamente para hoy
-            </p>
-            <button onClick={() => setRecurrentesBanner(null)} className="text-gray-400 hover:text-gray-700 text-xs">✕</button>
+        {/* Alertas accionables */}
+        {(recurrentesBanner !== null || choferesSinCamionHoy.length > 0) && (
+          <section className="space-y-2">
+            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Requieren atención</h2>
+
+            {recurrentesBanner !== null && (
+              <div className="bg-[#E8F5F0] border border-[#B3DDD3] rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+                <p className="text-accent text-sm">
+                  ↺ {recurrentesBanner} pedido{recurrentesBanner > 1 ? 's' : ''} recurrente{recurrentesBanner > 1 ? 's' : ''} generado{recurrentesBanner > 1 ? 's' : ''} automáticamente para hoy
+                </p>
+                <button onClick={() => setRecurrentesBanner(null)} className="text-gray-400 hover:text-gray-700 text-xs">✕</button>
+              </div>
+            )}
+
+            {choferesSinCamionHoy.length > 0 && (
+              <Link
+                to="/admin/flota"
+                className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 hover:bg-amber-100 transition-colors"
+              >
+                <span className="text-amber-500 text-xl shrink-0">🚛</span>
+                <div className="flex-1">
+                  <p className="text-amber-700 font-medium text-sm">
+                    {choferesSinCamionHoy.length} chofer{choferesSinCamionHoy.length !== 1 ? 'es' : ''} sin camión confirmado para hoy
+                  </p>
+                  <p className="text-amber-600/70 text-xs mt-0.5">
+                    {choferesSinCamionHoy.map((c) => c.nombreContacto || c.nombre).join(', ')} · Tocá para asignar →
+                  </p>
+                </div>
+              </Link>
+            )}
+          </section>
+        )}
+
+        {/* KPIs y métricas */}
+        <MetricsDashboard orders={orders} />
+
+        {/* Clima */}
+        <section className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-medium text-gray-500 uppercase tracking-wide">Clima — próximos 7 días</h2>
+            <Link to="/admin/clima" className="text-xs text-accent hover:underline">Historial →</Link>
           </div>
-        )}
+          <ForecastStrip />
+        </section>
 
-        {choferesSinCamionHoy.length > 0 && (
-          <Link
-            to="/admin/flota"
-            className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 hover:bg-amber-100 transition-colors"
-          >
-            <span className="text-amber-500 text-xl shrink-0">🚛</span>
-            <div className="flex-1">
-              <p className="text-amber-700 font-medium text-sm">
-                {choferesSinCamionHoy.length} chofer{choferesSinCamionHoy.length !== 1 ? 'es' : ''} sin camión confirmado para hoy
-              </p>
-              <p className="text-amber-600/70 text-xs mt-0.5">
-                {choferesSinCamionHoy.map((c) => c.nombreContacto || c.nombre).join(', ')} · Tocá para asignar →
-              </p>
-            </div>
-          </Link>
-        )}
+        {/* Mapa en vivo */}
+        <LiveMapSection orders={orders} />
 
+        {/* Carga por chofer */}
+        <ResumenCargaPorChofer orders={orders} choferes={choferes.choferes} />
+
+        {/* Herramienta de pruebas (solo super_admin) */}
         {isSuperAdmin && (
           <>
             <button
@@ -163,108 +168,7 @@ export default function AdminDashboard() {
             </Modal>
           </>
         )}
-
-        <section className="space-y-2">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-medium text-gray-500 uppercase tracking-wide">Clima — próximos 7 días</h2>
-            <Link to="/admin/clima" className="text-xs text-accent hover:underline">Historial →</Link>
-          </div>
-          <ForecastStrip />
-        </section>
-
-        <MetricsDashboard orders={orders} />
-        <LiveMapSection orders={orders} />
-        <ResumenCargaPorChofer orders={orders} choferes={choferes.choferes} />
-
-        <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 flex flex-wrap items-center gap-3">
-          <span className="text-sm font-medium text-gray-700 shrink-0">📄 Hoja de ruta</span>
-          <select
-            value={pdfDriver}
-            onChange={(e: ChangeEvent<HTMLSelectElement>) => setPdfDriver(e.target.value)}
-            aria-label="Seleccionar chofer para hoja de ruta"
-            className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent flex-1 min-w-40"
-          >
-            <option value="">— Seleccionar chofer —</option>
-            {choferes.choferes.map((c) => (
-              <option key={c.uid} value={c.email ?? ''}>{c.nombreContacto || c.nombre || c.email}</option>
-            ))}
-          </select>
-          <Button
-            variant="outline"
-            disabled={!pdfDriver || pdfLoading}
-            loading={pdfLoading}
-            className="text-sm shrink-0"
-            onClick={async () => {
-              setPdfLoading(true)
-              const driverOrders = orders.filter((o) => o.driverId === pdfDriver && !['entregado', 'cancelado'].includes(o.status))
-              const chofer = choferes.choferes.find((c) => c.email === pdfDriver)
-              const name   = chofer?.nombreContacto || chofer?.nombre || pdfDriver
-              await generateHojaDeRuta(driverOrders, name)
-              setPdfLoading(false)
-            }}
-          >
-            Exportar PDF
-          </Button>
-        </div>
-
-        <div className="space-y-3">
-          <div className="flex flex-wrap gap-3">
-            <input
-              value={search}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
-              placeholder="Buscar por cliente, dirección o producto..."
-              aria-label="Buscar pedidos"
-              className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 placeholder-gray-400 text-sm flex-1 min-w-48 focus:outline-none focus:ring-2 focus:ring-accent"
-            />
-            <input
-              type="date"
-              value={dateFilter}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setDateFilter(e.target.value)}
-              aria-label="Filtrar por fecha"
-              className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
-            />
-            {(search || dateFilter) && (
-              <button
-                onClick={() => { setSearch(''); setDateFilter('') }}
-                className="text-sm text-gray-400 hover:text-gray-700 px-3 py-2"
-              >
-                Limpiar ✕
-              </button>
-            )}
-          </div>
-
-          <div className="flex gap-2 flex-wrap" role="group" aria-label="Filtrar por estado">
-            {(['all', ...ALL_STATUSES] as const).map((s) => (
-              <button
-                key={s}
-                onClick={() => setFilter(s)}
-                aria-pressed={filter === s}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                  filter === s
-                    ? 'bg-accent text-white border-accent'
-                    : 'border-[#D3D1C7] text-gray-500 hover:border-accent/50 hover:text-gray-900'
-                }`}
-              >
-                {s === 'all' ? `Todos (${orders.length})` : `${STATUS_LABELS[s]} (${orders.filter((o: Order) => o.status === s).length})`}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          {filtered.length === 0 ? (
-            <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center">
-              <p className="text-gray-400 text-sm">No hay pedidos con estos filtros</p>
-            </div>
-          ) : (
-            filtered.map((o: Order) => (
-              <AdminOrderCard key={o.id} order={o} choferes={choferes.choferes} />
-            ))
-          )}
-        </div>
       </main>
-
-      <ImportarPedidoModal open={importModal} onClose={() => setImportModal(false)} />
     </div>
   )
 }

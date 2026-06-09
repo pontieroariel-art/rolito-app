@@ -13,6 +13,7 @@ export default defineConfig({
           charts:   ['recharts'],
           pdf:      ['jspdf', 'jspdf-autotable'],
           pdfjs:    ['pdfjs-dist'],
+          dnd:      ['@dnd-kit/core', '@dnd-kit/utilities'],
         },
       },
     },
