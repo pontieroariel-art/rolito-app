@@ -1,6 +1,15 @@
-import { useMemo, useState, useEffect, useRef } from 'react'
+import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { GoogleMap, DirectionsRenderer } from '@react-google-maps/api'
+import {
+  DndContext, DragEndEvent, DragOverlay, DragStartEvent,
+  MouseSensor, TouchSensor, useSensor, useSensors,
+  closestCenter,
+} from '@dnd-kit/core'
+import {
+  SortableContext, useSortable, verticalListSortingStrategy, arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import Navbar from '../../components/layout/Navbar'
 import Button from '../../components/ui/Button'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
@@ -16,6 +25,82 @@ import { generateHojaDeRuta } from '../../utils/pdf'
 import type { Despacho, Order } from '../../types'
 
 const BA_CENTER = { lat: -34.6037, lng: -58.3816 }
+
+// ── SortableStop ──────────────────────────────────────────────────────────────
+
+function SortableStop({ order, index, isSkipped, onSkip, onUnskip, onDeliver }: {
+  order:     Order
+  index:     number
+  isSkipped: boolean
+  onSkip:    (id: string) => void
+  onUnskip:  (id: string) => void
+  onDeliver: (o: Order) => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: order.id })
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.35 : 1 }}
+      className={`flex justify-between items-center px-4 py-3 border-b border-border/50 last:border-0 gap-3 ${isSkipped ? 'opacity-50' : ''} ${isDragging ? 'bg-surface/80' : ''}`}
+    >
+      {/* Handle de arrastre + número */}
+      <div
+        {...listeners} {...attributes}
+        className="flex items-center gap-3 cursor-grab active:cursor-grabbing touch-none shrink-0"
+        style={{ touchAction: 'none' }}
+      >
+        <div className="flex flex-col gap-0.5 text-muted/40 hover:text-muted transition-colors px-0.5">
+          <span className="block w-3.5 h-0.5 bg-current rounded-full" />
+          <span className="block w-3.5 h-0.5 bg-current rounded-full" />
+          <span className="block w-3.5 h-0.5 bg-current rounded-full" />
+        </div>
+        <span className={`w-6 h-6 rounded-full text-xs flex items-center justify-center font-bold ${isSkipped ? 'bg-orange-500/20 text-orange-400' : 'bg-accent/20 text-accent'}`}>
+          {isSkipped ? '↩' : index + 1}
+        </span>
+      </div>
+
+      {/* Info */}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-medium truncate">{order.clientName}</p>
+          {isSkipped && <span className="text-xs text-orange-400 shrink-0">postergado</span>}
+        </div>
+        <p className="text-xs text-muted truncate">{order.clientAddress}</p>
+        <p className="text-xs text-muted/70">{summarizeProducts(order.products)}</p>
+      </div>
+
+      {/* Acciones */}
+      <div className="flex items-center gap-1.5 shrink-0">
+        {isSkipped ? (
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => onUnskip(order.id)}
+            className="text-xs text-orange-400 hover:text-orange-300 px-2 py-1 border border-orange-400/30 rounded-lg"
+          >
+            Restaurar
+          </button>
+        ) : (
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => onSkip(order.id)}
+            className="text-xs text-muted hover:text-yellow-400 px-2 py-1 border border-border rounded-lg"
+            title="Saltear esta parada"
+          >
+            ⏭
+          </button>
+        )}
+        <Button
+          onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
+          onClick={() => onDeliver(order)}
+          className="text-xs py-1.5 px-3"
+        >
+          ✓
+        </Button>
+      </div>
+    </div>
+  )
+}
 
 const MAP_CONTAINER_STYLE: React.CSSProperties = { width: '100%', height: '100%' }
 
@@ -53,7 +138,9 @@ export default function ChoferMap() {
   const [routeStale, setRouteStale]   = useState(false)
   const [deliveryOrder, setDeliveryOrder] = useState<Order | null>(null)
   const [pdfLoading, setPdfLoading]   = useState(false)
-  const [myDespacho, setMyDespacho]   = useState<Despacho | null>(null)
+  const [myDespacho,  setMyDespacho]  = useState<Despacho | null>(null)
+  const [manualOrder, setManualOrder] = useState<string[]>([]) // IDs en orden manual del chofer
+  const [activeId,    setActiveId]    = useState<string | null>(null)
 
   // Suscribirse al despacho del día para respetar el orden de logística
   useEffect(() => {
@@ -66,27 +153,70 @@ export default function ChoferMap() {
     [orders],
   )
 
-  const activeOrders  = useMemo(() => pending.filter((o) => !skippedIds.has(o.id)), [pending, skippedIds])
-  const skippedOrders = useMemo(() => pending.filter((o) =>  skippedIds.has(o.id)), [pending, skippedIds])
-
-  // Si hay despacho confirmado, usar el orden de logística; si no, orden por defecto
   const hasDespachoOrder = myDespacho?.status === 'confirmado' && (myDespacho.orderIds?.length ?? 0) > 0
 
-  const orderedPending = useMemo<Order[]>(() => {
+  // Calcular el orden base (de logística o por defecto)
+  const baseOrder = useMemo<Order[]>(() => {
     if (hasDespachoOrder) {
       const orderIdOrder = myDespacho!.orderIds
         .filter((x) => x.startsWith('o:'))
         .map((x) => x.slice(2))
-      const byId = new Map(pending.map((o) => [o.id, o]))
+      const byId  = new Map(pending.map((o) => [o.id, o]))
       const sorted = orderIdOrder.map((id) => byId.get(id)).filter(Boolean) as Order[]
       const inSet  = new Set(orderIdOrder)
       const extra  = pending.filter((o) => !inSet.has(o.id))
-      return [...sorted, ...extra].filter((o) => !skippedIds.has(o.id)).concat(
-        pending.filter((o) => skippedIds.has(o.id))
-      )
+      return [...sorted, ...extra]
     }
-    return [...activeOrders, ...skippedOrders]
-  }, [hasDespachoOrder, myDespacho, pending, activeOrders, skippedOrders, skippedIds])
+    return pending
+  }, [hasDespachoOrder, myDespacho, pending])
+
+  // Inicializar/sincronizar el orden manual cuando cambia el orden base
+  const prevBaseIds = useRef<string>('')
+  useEffect(() => {
+    const baseIds = baseOrder.map((o) => o.id).join(',')
+    if (baseIds === prevBaseIds.current) return
+    prevBaseIds.current = baseIds
+    // Conservar orden manual si ya existe, solo agregar/quitar los nuevos
+    setManualOrder((prev) => {
+      if (prev.length === 0) return baseOrder.map((o) => o.id)
+      const prevSet = new Set(prev)
+      const newIds  = baseOrder.map((o) => o.id).filter((id) => !prevSet.has(id))
+      return [...prev.filter((id) => baseOrder.some((o) => o.id === id)), ...newIds]
+    })
+  }, [baseOrder])
+
+  // Aplicar orden manual sobre los pedidos pendientes
+  const orderedPending = useMemo<Order[]>(() => {
+    const byId = new Map(pending.map((o) => [o.id, o]))
+    const active  = manualOrder.map((id) => byId.get(id)).filter((o): o is Order => !!o && !skippedIds.has(o.id))
+    const skipped = pending.filter((o) => skippedIds.has(o.id))
+    return [...active, ...skipped]
+  }, [pending, manualOrder, skippedIds])
+
+  const activeOrders  = useMemo(() => orderedPending.filter((o) => !skippedIds.has(o.id)), [orderedPending, skippedIds])
+  const skippedOrders = useMemo(() => orderedPending.filter((o) =>  skippedIds.has(o.id)), [orderedPending, skippedIds])
+
+  // DnD sensors
+  const sensors = useSensors(
+    useSensor(MouseSensor,  { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor,  { activationConstraint: { delay: 150, tolerance: 8 } }),
+  )
+
+  const handleDragStart = ({ active }: DragStartEvent) => setActiveId(active.id as string)
+
+  const handleDragEnd = useCallback(({ active, over }: DragEndEvent) => {
+    setActiveId(null)
+    if (!over || active.id === over.id) return
+    setManualOrder((prev) => {
+      const from = prev.indexOf(active.id as string)
+      const to   = prev.indexOf(over.id as string)
+      if (from === -1 || to === -1) return prev
+      const next = arrayMove(prev, from, to)
+      return next
+    })
+    setDirections(null)
+    setRouteStale(true)
+  }, [])
 
   const nombreRef   = useRef(user?.nombreContacto || user?.nombre || '')
   const telefonoRef = useRef(user?.telefono       || user?.phone  || '')
@@ -279,55 +409,45 @@ export default function ChoferMap() {
         </div>
 
         {orderedPending.length > 0 && (
-          <div className="bg-surface border-t border-border max-h-48 overflow-y-auto shrink-0">
-            {orderedPending.map((o, i) => {
-              const isSkipped = skippedIds.has(o.id)
-              return (
-                <div
-                  key={o.id}
-                  className={`flex justify-between items-center px-4 py-3 border-b border-border/50 last:border-0 gap-3 ${isSkipped ? 'opacity-50' : ''}`}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className={`w-6 h-6 rounded-full text-xs flex items-center justify-center font-bold shrink-0 ${isSkipped ? 'bg-orange-500/20 text-orange-400' : 'bg-accent/20 text-accent'}`}>
-                      {isSkipped ? '↩' : i + 1}
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext items={orderedPending.map((o) => o.id)} strategy={verticalListSortingStrategy}>
+              <div className="bg-surface border-t border-border max-h-48 overflow-y-auto shrink-0">
+                {orderedPending.map((o, i) => (
+                  <SortableStop
+                    key={o.id}
+                    order={o}
+                    index={i}
+                    isSkipped={skippedIds.has(o.id)}
+                    onSkip={skipOrder}
+                    onUnskip={unskipOrder}
+                    onDeliver={setDeliveryOrder}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+            <DragOverlay dropAnimation={null}>
+              {activeId && (() => {
+                const o = orderedPending.find((x) => x.id === activeId)
+                if (!o) return null
+                return (
+                  <div className="bg-surface border border-accent/40 rounded-xl px-4 py-3 shadow-2xl flex items-center gap-3 opacity-95">
+                    <span className="w-6 h-6 rounded-full bg-accent/20 text-accent text-xs flex items-center justify-center font-bold shrink-0">
+                      {orderedPending.indexOf(o) + 1}
                     </span>
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium truncate">{o.clientName}</p>
-                        {isSkipped && <span className="text-xs text-orange-400 shrink-0">postergado</span>}
-                      </div>
+                      <p className="text-sm font-medium text-[#D3D1C7] truncate">{o.clientName}</p>
                       <p className="text-xs text-muted truncate">{o.clientAddress}</p>
-                      <p className="text-xs text-muted/70">{summarizeProducts(o.products)}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {isSkipped ? (
-                      <button
-                        onClick={() => unskipOrder(o.id)}
-                        className="text-xs text-orange-400 hover:text-orange-300 px-2 py-1 border border-orange-400/30 rounded-lg"
-                      >
-                        Restaurar
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => skipOrder(o.id)}
-                        className="text-xs text-muted hover:text-yellow-400 px-2 py-1 border border-border rounded-lg"
-                        title="Saltear esta parada"
-                      >
-                        ⏭
-                      </button>
-                    )}
-                    <Button
-                      onClick={() => setDeliveryOrder(o)}
-                      className="text-xs py-1.5 px-3"
-                    >
-                      ✓
-                    </Button>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })()}
+            </DragOverlay>
+          </DndContext>
         )}
 
         {orderedPending.length === 0 && (
