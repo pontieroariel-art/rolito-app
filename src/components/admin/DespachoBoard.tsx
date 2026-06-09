@@ -4,7 +4,7 @@ import {
   useDroppable, useDraggable,
   MouseSensor, TouchSensor, useSensors, useSensor, PointerSensor,
 } from '@dnd-kit/core'
-import { Truck, ChevronLeft, ChevronRight, Lock, CheckCircle, RotateCcw, Eye, Package } from 'lucide-react'
+import { Truck, ChevronLeft, ChevronRight, Lock, CheckCircle, RotateCcw, Eye, Package, ArrowRightLeft, AlertTriangle } from 'lucide-react'
 import Button from '../ui/Button'
 import Modal from '../ui/Modal'
 import LoadingSpinner from '../ui/LoadingSpinner'
@@ -13,7 +13,7 @@ import {
   despachoId, saveDespacho, subscribeDespachosByFecha,
   optimizeStopOrder, formatDespachoFecha, todayStr,
 } from '../../services/despachoService'
-import { assignDriver, updateOrderStatus } from '../../services/orderService'
+import { assignDriver, updateOrderStatus, reassignOrder } from '../../services/orderService'
 import { updateVisitaPuntual, updatePrograma } from '../../services/visitasService'
 import { useProgramasVisita, useVisitasPuntuales, visitasParaFecha, programasParaFecha } from '../../hooks/useVisitas'
 import { getPushSubscriptionByEmail } from '../../services/userService'
@@ -187,7 +187,7 @@ function SinAsignarColumn({ items }: { items: DayItem[] }) {
 
 // ── ChoferColumn ──────────────────────────────────────────────────────────────
 
-function ChoferColumn({ chofer, camionLabel, items, routeOrder, arrivals, recalculating, despacho, colorIdx, onConfirm, onReopen }: {
+function ChoferColumn({ chofer, camionLabel, items, routeOrder, arrivals, recalculating, despacho, colorIdx, onConfirm, onReopen, onTransfer }: {
   chofer:        UserProfile
   camionLabel:   string | null
   items:         DayItem[]
@@ -198,6 +198,7 @@ function ChoferColumn({ chofer, camionLabel, items, routeOrder, arrivals, recalc
   colorIdx:      number
   onConfirm:     () => void
   onReopen:      () => void
+  onTransfer:    () => void
 }) {
   const confirmed = despacho?.status === 'confirmado'
   const color     = choferColor(colorIdx)
@@ -271,7 +272,7 @@ function ChoferColumn({ chofer, camionLabel, items, routeOrder, arrivals, recalc
       </DroppableZone>
 
       {/* Footer */}
-      <div className={`border border-t-0 rounded-b-xl px-2 py-2 ${confirmed ? 'bg-green-50 border-green-200' : 'bg-white border-[#D3D1C7]'}`}>
+      <div className={`border border-t-0 rounded-b-xl px-2 py-2 space-y-1.5 ${confirmed ? 'bg-green-50 border-green-200' : 'bg-white border-[#D3D1C7]'}`}>
         {confirmed ? (
           <button onClick={onReopen} className="w-full flex items-center justify-center gap-1.5 text-xs text-gray-400 hover:text-gray-700 py-1 transition-colors">
             <RotateCcw size={11} /> Reabrir despacho
@@ -285,8 +286,145 @@ function ChoferColumn({ chofer, camionLabel, items, routeOrder, arrivals, recalc
             <Lock size={11} /> Confirmar despacho
           </button>
         )}
+        {items.length > 0 && (
+          <button
+            onClick={onTransfer}
+            className="w-full flex items-center justify-center gap-1.5 text-xs text-amber-600 hover:text-amber-800 border border-amber-200 hover:border-amber-400 rounded-lg py-1.5 bg-amber-50 hover:bg-amber-100 transition-colors"
+          >
+            <ArrowRightLeft size={11} /> Transferir paradas
+          </button>
+        )}
       </div>
     </div>
+  )
+}
+
+// ── TransferModal ─────────────────────────────────────────────────────────────
+
+function TransferModal({ fromDriver, fromDriverName, items, choferes, onClose, onTransfer }: {
+  fromDriver:     string
+  fromDriverName: string
+  items:          DayItem[]
+  choferes:       UserProfile[]
+  onClose:        () => void
+  onTransfer:     (selectedDndIds: string[], toDriver: string, motivo: string) => Promise<void>
+}) {
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [toDriver, setToDriver] = useState('')
+  const [motivo,   setMotivo]   = useState('')
+  const [loading,  setLoading]  = useState(false)
+
+  const destChoferes = choferes.filter((c) => c.email !== fromDriver)
+
+  const toggle = (dndId: string) =>
+    setSelected((prev) => { const s = new Set(prev); s.has(dndId) ? s.delete(dndId) : s.add(dndId); return s })
+
+  const toggleAll = () =>
+    setSelected(selected.size === items.length ? new Set() : new Set(items.map((i) => i.dndId)))
+
+  const handleConfirm = async () => {
+    if (selected.size === 0 || !toDriver) return
+    setLoading(true)
+    await onTransfer(Array.from(selected), toDriver, motivo)
+    setLoading(false)
+    onClose()
+  }
+
+  return (
+    <Modal open onClose={onClose} title="Transferir paradas" variant="light">
+      <div className="space-y-4">
+
+        {/* Origen */}
+        <div className="flex items-center gap-2 text-sm text-gray-600 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
+          <AlertTriangle size={14} className="text-amber-500 shrink-0" />
+          Reasignando desde <span className="font-semibold text-gray-900">{fromDriverName}</span>
+        </div>
+
+        {/* Lista de ítems */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Seleccionar paradas</p>
+            <button onClick={toggleAll} className="text-xs text-accent hover:underline">
+              {selected.size === items.length ? 'Deseleccionar todo' : 'Seleccionar todo'}
+            </button>
+          </div>
+          <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+            {items.map((item) => (
+              <label key={item.dndId}
+                className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 cursor-pointer transition-colors ${
+                  selected.has(item.dndId)
+                    ? 'border-accent bg-accent/5'
+                    : item.kind !== 'order' ? 'border-violet-200 bg-violet-50/50' : 'border-[#D3D1C7] bg-white hover:border-accent/40'
+                }`}>
+                <input
+                  type="checkbox" checked={selected.has(item.dndId)} onChange={() => toggle(item.dndId)}
+                  className="w-4 h-4 rounded accent-[#00C2FF] shrink-0"
+                />
+                {item.kind !== 'order' ? <Eye size={13} className="text-violet-400 shrink-0" /> : <Package size={13} className="text-gray-400 shrink-0" />}
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-900 truncate">{item.label}</p>
+                  <p className="text-xs text-gray-400 truncate">{item.sublabel}</p>
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Destino */}
+        <div>
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Chofer destino</label>
+          <div className="grid grid-cols-2 gap-2">
+            {destChoferes.map((c, idx) => {
+              const nombre = c.nombreContacto || c.nombre || c.email
+              const color  = choferColor(choferes.findIndex((ch) => ch.email === c.email))
+              return (
+                <button key={c.email} onClick={() => setToDriver(c.email)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm transition-all ${
+                    toDriver === c.email ? 'border-accent bg-accent/5 font-semibold' : 'border-[#D3D1C7] bg-white hover:border-accent/40'
+                  }`}>
+                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                  <span className="truncate">{nombre}</span>
+                  {c.camionPatente && <span className="ml-auto text-[10px] text-gray-400 shrink-0">{c.camionPatente}</span>}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Motivo */}
+        <div>
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Motivo (opcional)</label>
+          <textarea
+            value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={2}
+            placeholder="Ej: problema mecánico, tiempo insuficiente..."
+            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 resize-none"
+          />
+        </div>
+
+        {/* Resumen */}
+        {selected.size > 0 && toDriver && (
+          <div className="flex items-center gap-2 text-xs text-gray-500 bg-gray-50 rounded-xl px-3 py-2">
+            <ArrowRightLeft size={12} className="text-accent shrink-0" />
+            Transferir <span className="font-semibold text-gray-900">{selected.size} parada{selected.size !== 1 ? 's' : ''}</span> a{' '}
+            <span className="font-semibold text-gray-900">
+              {(() => { const c = choferes.find((ch) => ch.email === toDriver); return c?.nombreContacto || c?.nombre || toDriver })()}
+            </span>
+          </div>
+        )}
+
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={onClose} className="flex-1 text-sm" disabled={loading}>Cancelar</Button>
+          <Button
+            onClick={handleConfirm}
+            loading={loading}
+            disabled={selected.size === 0 || !toDriver}
+            className="flex-1 text-sm"
+          >
+            Transferir
+          </Button>
+        </div>
+      </div>
+    </Modal>
   )
 }
 
@@ -488,6 +626,44 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
 
   const [pendingMove, setPendingMove] = useState<{ dndId: string; from: string; to: string } | null>(null)
 
+  // ── Transferir paradas ────────────────────────────────────────────────────
+  const [transferModal, setTransferModal] = useState<{ fromDriver: string } | null>(null)
+
+  const handleTransfer = useCallback(async (selectedDndIds: string[], toDriver: string, motivo: string) => {
+    const fromDriver = transferModal?.fromDriver
+    if (!fromDriver) return
+    await Promise.all(selectedDndIds.map(async (dndId) => {
+      const { kind, id } = parseDndId(dndId)
+      if (kind === 'order') {
+        await reassignOrder(id, toDriver, motivo || 'Reasignación operativa', fromDriver)
+      } else if (kind === 'visita') {
+        await updateVisitaPuntual(id, { driverId: toDriver })
+      } else {
+        await updatePrograma(id, { driverId: toDriver })
+      }
+      setAssignments((prev) => ({ ...prev, [dndId]: toDriver }))
+    }))
+
+    // Actualizar despacho origen (quitar ítems transferidos)
+    const despFrom = despachoByDriver[fromDriver]
+    if (despFrom) {
+      await saveDespacho({ ...despFrom, orderIds: despFrom.orderIds.filter((x) => !selectedDndIds.includes(x)), modifiedAfterConfirm: true })
+    }
+
+    // Notificar al chofer receptor
+    const toChofer = choferes.find((c) => c.email === toDriver)
+    if (toChofer) {
+      try {
+        const sub = await getPushSubscriptionByEmail(toDriver)
+        if (sub) await sendPush({
+          subscription: sub,
+          title: '🔄 Nueva asignación',
+          body: `Te reasignaron ${selectedDndIds.length} parada${selectedDndIds.length !== 1 ? 's' : ''} para ${formatDespachoFecha(fecha)}.`,
+        })
+      } catch { /* push no crítico */ }
+    }
+  }, [transferModal, despachoByDriver, choferes, fecha])
+
   // ── Confirmar despacho ────────────────────────────────────────────────────
   const [confirmingDriver, setConfirmingDriver] = useState<string | null>(null)
   const [confirmLoading,   setConfirmLoading]   = useState(false)
@@ -635,6 +811,7 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
                 colorIdx={idx}
                 onConfirm={() => setConfirmingDriver(c.email)}
                 onReopen={() => handleReopen(c.email)}
+                onTransfer={() => setTransferModal({ fromDriver: c.email })}
               />
             ))}
 
@@ -681,6 +858,18 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
           </div>
         )}
       </Modal>
+
+      {/* Modal transferir paradas */}
+      {transferModal && (
+        <TransferModal
+          fromDriver={transferModal.fromDriver}
+          fromDriverName={(() => { const c = choferes.find((ch) => ch.email === transferModal.fromDriver); return c?.nombreContacto || c?.nombre || transferModal.fromDriver })()}
+          items={itemsByDriver[transferModal.fromDriver] ?? []}
+          choferes={choferes}
+          onClose={() => setTransferModal(null)}
+          onTransfer={handleTransfer}
+        />
+      )}
 
       {/* Modal mover a despacho confirmado */}
       <Modal open={!!pendingMove} onClose={() => setPendingMove(null)} title="Despacho ya confirmado" variant="light">
