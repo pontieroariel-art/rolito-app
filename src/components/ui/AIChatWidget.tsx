@@ -107,8 +107,8 @@ export default function AIChatWidget() {
 
   const apiKey = import.meta.env.VITE_GEMINI_KEY as string | undefined
 
-  // No mostrar si el rol no tiene acceso o no hay key configurada
-  if (!ROLES_CON_ASISTENTE.includes(role) || !apiKey) return null
+  // No mostrar si el rol no tiene acceso, no hay key, o es el placeholder
+  if (!ROLES_CON_ASISTENTE.includes(role) || !apiKey || apiKey === 'PEGAR_TU_KEY_AQUI') return null
 
   const isChofer = role === 'chofer'
 
@@ -157,10 +157,12 @@ export default function AIChatWidget() {
       const history      = toGeminiHistory(newMessages.slice(0, -1))
       const reply        = await chatWithGemini(history, systemPrompt, userText, apiKey)
       setMessages((prev) => [...prev, { role: 'assistant', text: reply }])
-    } catch {
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err)
+      console.error('[Asistente IA] Error:', detail)
       setMessages((prev) => [...prev, {
         role: 'assistant',
-        text: 'No pude conectarme al asistente. Verificá la conexión o la configuración.',
+        text: `No pude conectarme al asistente.\n\nError: ${detail}`,
       }])
     } finally {
       setLoading(false)
