@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Bot, X, Send, Loader2, RotateCcw } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
-import { chatWithGemini, GeminiMsg } from '../../services/aiService'
+import { chatWithAI, ChatMsg } from '../../services/aiService'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -105,7 +105,7 @@ export default function AIChatWidget() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef       = useRef<HTMLInputElement>(null)
 
-  const apiKey = import.meta.env.VITE_GEMINI_KEY as string | undefined
+  const apiKey = import.meta.env.VITE_GROQ_KEY as string | undefined
 
   // No mostrar si el rol no tiene acceso, no hay key, o es el placeholder
   if (!ROLES_CON_ASISTENTE.includes(role) || !apiKey || apiKey === 'PEGAR_TU_KEY_AQUI') return null
@@ -135,12 +135,12 @@ export default function AIChatWidget() {
     if (open) setTimeout(() => inputRef.current?.focus(), 100)
   }, [open])
 
-  const toGeminiHistory = useCallback((msgs: ChatMessage[]): GeminiMsg[] =>
+  const toHistory = useCallback((msgs: ChatMessage[]): ChatMsg[] =>
     msgs
       .filter((_, i) => i > 0) // omitir saludo inicial
       .map((m) => ({
-        role:  m.role === 'user' ? 'user' : 'model',
-        parts: [{ text: m.text }],
+        role:    m.role === 'user' ? 'user' : 'assistant',
+        content: m.text,
       })),
   [])
 
@@ -154,8 +154,8 @@ export default function AIChatWidget() {
 
     try {
       const systemPrompt = buildSystemPrompt(role, context)
-      const history      = toGeminiHistory(newMessages.slice(0, -1))
-      const reply        = await chatWithGemini(history, systemPrompt, userText, apiKey)
+      const history      = toHistory(newMessages.slice(0, -1))
+      const reply        = await chatWithAI(history, systemPrompt, userText, apiKey)
       setMessages((prev) => [...prev, { role: 'assistant', text: reply }])
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err)
@@ -167,7 +167,7 @@ export default function AIChatWidget() {
     } finally {
       setLoading(false)
     }
-  }, [input, loading, messages, role, context, apiKey, toGeminiHistory])
+  }, [input, loading, messages, role, context, apiKey, toHistory])
 
   const handleReset = () => {
     setMessages([])
