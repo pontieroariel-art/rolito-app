@@ -19,22 +19,88 @@ const ROLES_CON_ASISTENTE = ['super_admin', 'logistica', 'gerente_comercial', 'c
 async function loadContext(role: string): Promise<string> {
   if (!['super_admin', 'logistica', 'gerente_comercial', 'comercial'].includes(role)) return ''
   try {
-    const { getOrdersInRange } = await import('../../services/orderService')
+    const [
+      { getOrdersInRange },
+      { getChoferes, getClientesActivos },
+      { getAllListasPrecios },
+      { getDocs, query, collection, where },
+      { db },
+      { todayStr },
+    ] = await Promise.all([
+      import('../../services/orderService'),
+      import('../../services/userService'),
+      import('../../services/listaPreciosService'),
+      import('firebase/firestore'),
+      import('../../services/firebase'),
+      import('../../services/despachoService'),
+    ])
+
     const today = new Date(); today.setHours(0, 0, 0, 0)
     const tmrw  = new Date(today); tmrw.setDate(today.getDate() + 1)
-    const todayOrders = await getOrdersInRange(today, tmrw)
+    const fecha = todayStr()
 
-    const cnt = (s: string) => todayOrders.filter((o) => o.status === s).length
-    const sinAsignar = todayOrders.filter((o) => !o.driverId && !['entregado','cancelado'].includes(o.status)).length
+    const [todayOrders, choferes, clientes, listas, despachoSnap] = await Promise.all([
+      getOrdersInRange(today, tmrw),
+      getChoferes(),
+      getClientesActivos(),
+      getAllListasPrecios(),
+      getDocs(query(collection(db, 'despachos'), where('fecha', '==', fecha))),
+    ])
 
-    const todayCtx = `Pedidos de hoy: ${todayOrders.length} total — pendientes ${cnt('pendiente')}, confirmados ${cnt('confirmado')}, en camino ${cnt('en_camino')}, entregados ${cnt('entregado')}, cancelados ${cnt('cancelado')}. Sin asignar: ${sinAsignar}.`
+    const lines: string[] = []
 
-    if (role === 'comercial' || role === 'gerente_comercial') {
-      const weekStart = new Date(today); weekStart.setDate(today.getDate() - today.getDay() || 7)
-      const weekOrders = await getOrdersInRange(weekStart, tmrw)
-      return `${todayCtx}\nPedidos esta semana: ${weekOrders.length}.`
+    // Choferes
+    const choferNames = choferes.map((c) => c.nombreContacto || c.nombre || c.email).filter(Boolean)
+    lines.push(`Choferes (${choferNames.length}): ${choferNames.join(', ')}.`)
+
+    // Clientes
+    const clienteNames = clientes.map((c) => c.razonSocial || c.nombreContacto).filter(Boolean)
+    lines.push(`Clientes activos (${clienteNames.length}): ${clienteNames.join(', ')}.`)
+
+    // Listas de precios
+    if (listas.length > 0) {
+      const listasCtx = listas.map((l) => {
+        const items = l.items.map((i) => `${i.nombre} $${i.precio}`).join(', ')
+        return `  - ${l.nombre}: ${items}`
+      }).join('\n')
+      lines.push(`\nListas de precios (${listas.length}):\n${listasCtx}`)
     }
-    return todayCtx
+
+    // Pedidos de hoy
+    const cnt = (s: string) => todayOrders.filter((o) => o.status === s).length
+    const sinAsignar = todayOrders.filter((o) => !o.driverId && !['entregado', 'cancelado'].includes(o.status)).length
+    lines.push(`\nPedidos de hoy: ${todayOrders.length} total — pendientes ${cnt('pendiente')}, confirmados ${cnt('confirmado')}, en camino ${cnt('en_camino')}, entregados ${cnt('entregado')}, cancelados ${cnt('cancelado')}. Sin asignar: ${sinAsignar}.`)
+
+    if (todayOrders.length > 0) {
+      const detalle = todayOrders.map((o) => {
+        const chofer = o.driverId
+          ? (choferes.find((c) => c.email === o.driverId)?.nombreContacto || o.driverId)
+          : 'sin asignar'
+        return `  - ${o.clientName} [${o.status}] → ${chofer}`
+      }).join('\n')
+      lines.push(detalle)
+    }
+
+    // Despachos de hoy
+    const despachos = despachoSnap.docs.map((d) => d.data())
+    if (despachos.length > 0) {
+      const despCtx = despachos.map((d) => {
+        const chofer = choferes.find((c) => c.email === d.driverId)?.nombreContacto || d.driverName || d.driverId
+        const paradas = (d.orderIds as string[])?.filter((id: string) => id.startsWith('o:')).length ?? 0
+        const planta = d.plantaId === 'merlo' ? 'Planta Merlo' : 'Planta Don Torcuato'
+        return `  - ${chofer}: ${paradas} paradas [${d.status}] desde ${planta}${d.horaSalida ? ` a las ${d.horaSalida}` : ''}`
+      }).join('\n')
+      lines.push(`\nDespachos de hoy:\n${despCtx}`)
+    }
+
+    // Pedidos de la semana para comercial
+    if (role === 'comercial' || role === 'gerente_comercial') {
+      const weekStart = new Date(today); weekStart.setDate(today.getDate() - (today.getDay() || 7))
+      const weekOrders = await getOrdersInRange(weekStart, tmrw)
+      lines.push(`\nPedidos esta semana: ${weekOrders.length}.`)
+    }
+
+    return lines.join('\n')
   } catch {
     return ''
   }
