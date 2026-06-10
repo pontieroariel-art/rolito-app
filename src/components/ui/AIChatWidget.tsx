@@ -161,35 +161,33 @@ export default function AIChatWidget() {
   const { user } = useAuth()
   const role     = user?.rol ?? ''
 
-  const [open,     setOpen]     = useState(false)
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [input,    setInput]    = useState('')
-  const [loading,  setLoading]  = useState(false)
-  const [context,  setContext]  = useState('')
+  const [open,      setOpen]      = useState(false)
+  const [messages,  setMessages]  = useState<ChatMessage[]>([])
+  const [input,     setInput]     = useState('')
+  const [loading,   setLoading]   = useState(false)
+  const [context,   setContext]   = useState('')
   const [ctxLoaded, setCtxLoaded] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef       = useRef<HTMLInputElement>(null)
 
-  const apiKey = import.meta.env.VITE_GROQ_KEY as string | undefined
-
-  // No mostrar si el rol no tiene acceso, no hay key, o es el placeholder
-  if (!ROLES_CON_ASISTENTE.includes(role) || !apiKey || apiKey === 'PEGAR_TU_KEY_AQUI') return null
-
+  const apiKey   = import.meta.env.VITE_GROQ_KEY as string | undefined
+  const isActive = ROLES_CON_ASISTENTE.includes(role) && !!apiKey && apiKey !== 'PEGAR_TU_KEY_AQUI'
   const isChofer = role === 'chofer'
 
   // Cargar contexto al abrir por primera vez
   useEffect(() => {
-    if (!open || ctxLoaded) return
+    if (!isActive || !open || ctxLoaded) return
     loadContext(role).then((ctx) => { setContext(ctx); setCtxLoaded(true) })
-  }, [open, role, ctxLoaded])
+  }, [isActive, open, role, ctxLoaded])
 
   // Saludo inicial
   useEffect(() => {
+    if (!isActive) return
     if (open && messages.length === 0 && ctxLoaded) {
       setMessages([{ role: 'assistant', text: GREETINGS[role] ?? '¡Hola! ¿En qué te ayudo?' }])
     }
-  }, [open, messages.length, ctxLoaded, role])
+  }, [isActive, open, messages.length, ctxLoaded, role])
 
   // Scroll al último mensaje
   useEffect(() => {
@@ -203,7 +201,7 @@ export default function AIChatWidget() {
 
   const toHistory = useCallback((msgs: ChatMessage[]): ChatMsg[] =>
     msgs
-      .filter((_, i) => i > 0) // omitir saludo inicial
+      .filter((_, i) => i > 0)
       .map((m) => ({
         role:    m.role === 'user' ? 'user' : 'assistant',
         content: m.text,
@@ -240,6 +238,8 @@ export default function AIChatWidget() {
     setCtxLoaded(false)
     setContext('')
   }
+
+  if (!isActive) return null
 
   return (
     <>
