@@ -1,31 +1,33 @@
-interface GeminiMsg {
-  role: 'user' | 'model'
-  parts: [{ text: string }]
+interface ChatMsg {
+  role: 'user' | 'assistant' | 'system'
+  content: string
 }
 
-export async function chatWithGemini(
-  history:      GeminiMsg[],
+export async function chatWithAI(
+  history:      ChatMsg[],
   systemPrompt: string,
   userMessage:  string,
   apiKey:       string,
 ): Promise<string> {
-  const contents: GeminiMsg[] = [
+  const messages: ChatMsg[] = [
+    { role: 'system',    content: systemPrompt },
     ...history,
-    { role: 'user', parts: [{ text: userMessage }] },
+    { role: 'user',      content: userMessage },
   ]
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-    {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: systemPrompt }] },
-        contents,
-        generationConfig: { maxOutputTokens: 700, temperature: 0.4 },
-      }),
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method:  'POST',
+    headers: {
+      'Content-Type':  'application/json',
+      'Authorization': `Bearer ${apiKey}`,
     },
-  )
+    body: JSON.stringify({
+      model:       'llama-3.3-70b-versatile',
+      messages,
+      max_tokens:  700,
+      temperature: 0.4,
+    }),
+  })
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
@@ -33,7 +35,7 @@ export async function chatWithGemini(
   }
 
   const data = await res.json()
-  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? 'Sin respuesta del modelo.'
+  return data.choices?.[0]?.message?.content ?? 'Sin respuesta del modelo.'
 }
 
-export type { GeminiMsg }
+export type { ChatMsg }
