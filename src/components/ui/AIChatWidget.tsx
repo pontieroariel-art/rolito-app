@@ -110,26 +110,32 @@ async function loadContext(role: string): Promise<string> {
 
 function buildSystemPrompt(role: string, context: string): string {
   const fecha = new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-  const base  = `Sos el asistente de Rolito, empresa argentina de distribución de hielo. Hoy es ${fecha}. Respondé siempre en español rioplatense, de forma concisa y directa. No uses markdown con asteriscos, respondé en texto plano.`
+
+  const reglas = `REGLAS ESTRICTAS:
+- Respondé ÚNICAMENTE con información del contexto provisto. NUNCA inventes datos, números, nombres ni hechos.
+- Si no tenés la información para responder, decí exactamente: "No tengo esa información disponible."
+- No supongas, no estimes, no ejemplifiques con datos ficticios.
+- Respondé en español rioplatense, de forma concisa y directa.
+- No uses markdown con asteriscos, respondé en texto plano.`
+
+  const base = `Sos el asistente interno de Rolito, empresa argentina de distribución de hielo. Hoy es ${fecha}.\n${reglas}`
 
   if (role === 'super_admin' || role === 'logistica') {
     return `${base}
-Tu especialidad es logística operativa: pedidos, despachos, asignación de choferes, rutas y entregas.
-Podés ayudar con redistribución de carga, análisis del día y procedimientos operativos.
-${context ? `\nContexto actual:\n${context}` : ''}`
+Tu especialidad es logística operativa: pedidos, despachos, choferes, rutas y entregas.
+${context ? `\nDatos actuales del sistema:\n${context}` : '\nATENCIÓN: No hay datos cargados del sistema. Si te preguntan por pedidos, choferes o despachos, indicá que no hay información disponible.'}`
   }
 
   if (role === 'gerente_comercial' || role === 'comercial') {
     return `${base}
-Tu especialidad es el área comercial: análisis de clientes, visitas, pedidos, listas de precios y relaciones comerciales.
-Podés ayudar con seguimiento de clientes, análisis de ventas y estrategia comercial.
-${context ? `\nContexto actual:\n${context}` : ''}`
+Tu especialidad es el área comercial: clientes, visitas, pedidos, listas de precios y ventas.
+${context ? `\nDatos actuales del sistema:\n${context}` : '\nATENCIÓN: No hay datos cargados del sistema. Si te preguntan por pedidos o clientes, indicá que no hay información disponible.'}`
   }
 
   if (role === 'chofer') {
     return `${base}
-Ayudás a los choferes con el uso de la app: cómo registrar entregas, marcar entrega parcial, postponer una parada, reportar incidencias y usar el mapa.
-Respondé de forma muy simple y clara, como si le explicaras a alguien que usa el celular mientras trabaja.`
+Ayudás a los choferes con el uso de la app: registrar entregas, marcar entrega parcial, postponer una parada, reportar incidencias y usar el mapa.
+Respondé de forma muy simple y clara.`
   }
 
   return base
