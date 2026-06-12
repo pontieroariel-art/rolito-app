@@ -53,9 +53,8 @@ async function loadContext(role: string): Promise<string> {
     const choferNames = choferes.map((c) => c.nombreContacto || c.nombre || c.email).filter(Boolean)
     lines.push(`Choferes (${choferNames.length}): ${choferNames.join(', ')}.`)
 
-    // Clientes
-    const clienteNames = clientes.map((c) => c.razonSocial || c.nombreContacto).filter(Boolean)
-    lines.push(`Clientes activos (${clienteNames.length}): ${clienteNames.join(', ')}.`)
+    // Clientes (solo total — la lista completa supera el límite de tokens)
+    lines.push(`Clientes activos: ${clientes.length} en total.`)
 
     // Listas de precios
     if (listas.length > 0) {
