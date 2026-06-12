@@ -56,13 +56,14 @@ async function loadContext(role: string): Promise<string> {
     // Clientes (solo total — la lista completa supera el límite de tokens)
     lines.push(`Clientes activos: ${clientes.length} en total.`)
 
-    // Listas de precios
+    // Listas de precios (máx 5 listas para no superar límite de tokens)
     if (listas.length > 0) {
-      const listasCtx = listas.map((l) => {
-        const items = l.items.map((i) => `${i.nombre} $${i.precio}`).join(', ')
+      const listasCtx = listas.slice(0, 5).map((l) => {
+        const items = l.items.slice(0, 10).map((i) => `${i.nombre} $${i.precio}`).join(', ')
         return `  - ${l.nombre}: ${items}`
       }).join('\n')
-      lines.push(`\nListas de precios (${listas.length}):\n${listasCtx}`)
+      const extra = listas.length > 5 ? ` (y ${listas.length - 5} más)` : ''
+      lines.push(`\nListas de precios (${listas.length}${extra}):\n${listasCtx}`)
     }
 
     // Pedidos de hoy
@@ -223,7 +224,8 @@ export default function AIChatWidget() {
 
     try {
       const systemPrompt = buildSystemPrompt(role, context)
-      const history      = toHistory(newMessages.slice(0, -1))
+      const allHistory   = toHistory(newMessages.slice(0, -1))
+      const history      = allHistory.slice(-6) // máximo 3 intercambios para no superar límite de tokens
       const reply        = await chatWithAI(history, systemPrompt, userText, apiKey)
       setMessages((prev) => [...prev, { role: 'assistant', text: reply }])
     } catch (err) {
