@@ -5,7 +5,6 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { BranchProvider, useBranch } from './context/BranchContext'
 import ProtectedRoute from './components/layout/ProtectedRoute'
 import LoadingSpinner from './components/ui/LoadingSpinner'
-import AIChatWidget from './components/ui/AIChatWidget'
 import { Component, ReactNode, ErrorInfo } from 'react'
 
 // Auth pages — carga inmediata (primera pantalla visible)
@@ -93,7 +92,6 @@ function AppContent() {
   if (isInitializing) return <LoadingSpinner fullScreen />
   return (
     <Suspense fallback={<LoadingSpinner fullScreen />}>
-      <AIChatWidget />
       <Routes>
         {/* Rutas públicas */}
         <Route path="/"                element={<Landing />} />

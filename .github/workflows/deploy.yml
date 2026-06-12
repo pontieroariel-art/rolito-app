@@ -30,7 +30,6 @@ jobs:
           VITE_GOOGLE_MAPS_API_KEY:           ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
           VITE_VAPID_PUBLIC_KEY:              ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
           VITE_ORS_KEY:                       ${{ secrets.VITE_ORS_KEY }}
-          VITE_GROQ_KEY:                      ${{ secrets.VITE_GROQ_KEY }}
         run: npm run build
 
       - name: Deploy to Firebase Hosting
