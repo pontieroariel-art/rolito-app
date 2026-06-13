@@ -3,6 +3,7 @@ import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import LoadingSpinner from '../ui/LoadingSpinner'
 import { extractPdfText, parsePedido } from '../../utils/parsePdf'
+import { PRODUCTS } from '../../utils/constants'
 import { createOrderExterno } from '../../services/orderService'
 import { getAllUsers } from '../../services/userService'
 import { UserProfile, getPrimaryAddress } from '../../types'
@@ -300,30 +301,43 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
             <div>
               <label className="text-xs text-gray-500 mb-1 block">Productos *</label>
               <div className="space-y-2">
-                {products.map((p, i) => (
-                  <div key={i} className="flex gap-2">
-                    <input
-                      value={p.name}
-                      onChange={(e) => {
-                        const upd = [...products]
-                        upd[i] = { ...upd[i], name: e.target.value }
-                        setProducts(upd)
-                      }}
-                      className="flex-1 bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
-                    />
-                    <input
-                      type="number"
-                      min={1}
-                      value={p.quantity}
-                      onChange={(e) => {
-                        const upd = [...products]
-                        upd[i] = { ...upd[i], quantity: parseInt(e.target.value) || 0 }
-                        setProducts(upd)
-                      }}
-                      className="w-24 bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent text-right"
-                    />
-                  </div>
-                ))}
+                {products.map((p, i) => {
+                  const enCatalogo = PRODUCTS.some((c) => c.name === p.name)
+                  return (
+                    <div key={i} className="flex gap-2">
+                      <div className="flex-1 flex flex-col gap-1">
+                        <select
+                          value={enCatalogo ? p.name : ''}
+                          onChange={(e) => {
+                            const upd = [...products]
+                            upd[i] = { ...upd[i], name: e.target.value }
+                            setProducts(upd)
+                          }}
+                          className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
+                        >
+                          <option value="">— Seleccioná un producto —</option>
+                          {PRODUCTS.map((c) => (
+                            <option key={c.id} value={c.name}>{c.name}</option>
+                          ))}
+                        </select>
+                        {!enCatalogo && p.name && (
+                          <p className="text-xs text-amber-600">PDF dice: "{p.name}" — seleccioná el producto correcto</p>
+                        )}
+                      </div>
+                      <input
+                        type="number"
+                        min={1}
+                        value={p.quantity}
+                        onChange={(e) => {
+                          const upd = [...products]
+                          upd[i] = { ...upd[i], quantity: parseInt(e.target.value) || 0 }
+                          setProducts(upd)
+                        }}
+                        className="w-24 bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent text-right"
+                      />
+                    </div>
+                  )
+                })}
               </div>
             </div>
 
