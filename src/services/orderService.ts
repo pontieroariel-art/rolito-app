@@ -92,15 +92,18 @@ interface CreateOrderExternoParams {
   notes?:        string
   numeroOC?:     string
   horaEntrega?:  string
+  clientId?:     string
+  clientEmail?:  string
+  clientPhone?:  string
 }
 
 export const createOrderExterno = (params: CreateOrderExternoParams) =>
   addDoc(collection(db, ORDERS), {
-    clientId:      'externo',
-    clientEmail:   '',
+    clientId:      params.clientId    ?? 'externo',
+    clientEmail:   params.clientEmail ?? '',
     clientName:    params.clientName,
     clientAddress: params.clientAddress,
-    clientPhone:   '',
+    clientPhone:   params.clientPhone ?? '',
     products:      params.products,
     status:        'pendiente',
     date:          Timestamp.fromDate(new Date(params.date + 'T12:00:00')),
