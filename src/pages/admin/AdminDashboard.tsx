@@ -45,16 +45,6 @@ export default function AdminDashboard() {
     }
   }
 
-  const hoy = new Date().toLocaleDateString('es-AR')
-  const choferesSinCamionHoy = choferes.choferes.filter((c) => {
-    const tieneOrden = orders.some(
-      (o) => o.driverId === c.email && !['entregado', 'cancelado'].includes(o.status),
-    )
-    if (!tieneOrden) return false
-    if (!c.camionId) return true
-    if (!c.camionFechaAsignacion?.toDate) return true
-    return c.camionFechaAsignacion.toDate().toLocaleDateString('es-AR') !== hoy
-  })
 
   if (loading) return <><Navbar /><LoadingSpinner fullScreen /></>
 
@@ -75,35 +65,15 @@ export default function AdminDashboard() {
         </div>
 
         {/* Alertas accionables */}
-        {(recurrentesBanner !== null || choferesSinCamionHoy.length > 0) && (
+        {recurrentesBanner !== null && (
           <section className="space-y-2">
             <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Requieren atención</h2>
-
-            {recurrentesBanner !== null && (
-              <div className="bg-[#E8F5F0] border border-[#B3DDD3] rounded-xl px-4 py-3 flex items-center justify-between gap-3">
-                <p className="text-accent text-sm">
-                  ↺ {recurrentesBanner} pedido{recurrentesBanner > 1 ? 's' : ''} recurrente{recurrentesBanner > 1 ? 's' : ''} generado{recurrentesBanner > 1 ? 's' : ''} automáticamente para hoy
-                </p>
-                <button onClick={() => setRecurrentesBanner(null)} className="text-gray-400 hover:text-gray-700 text-xs">✕</button>
-              </div>
-            )}
-
-            {choferesSinCamionHoy.length > 0 && (
-              <Link
-                to="/admin/flota"
-                className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 hover:bg-amber-100 transition-colors"
-              >
-                <span className="text-amber-500 text-xl shrink-0">🚛</span>
-                <div className="flex-1">
-                  <p className="text-amber-700 font-medium text-sm">
-                    {choferesSinCamionHoy.length} chofer{choferesSinCamionHoy.length !== 1 ? 'es' : ''} sin camión confirmado para hoy
-                  </p>
-                  <p className="text-amber-600/70 text-xs mt-0.5">
-                    {choferesSinCamionHoy.map((c) => c.nombreContacto || c.nombre).join(', ')} · Tocá para asignar →
-                  </p>
-                </div>
-              </Link>
-            )}
+            <div className="bg-[#E8F5F0] border border-[#B3DDD3] rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+              <p className="text-accent text-sm">
+                ↺ {recurrentesBanner} pedido{recurrentesBanner > 1 ? 's' : ''} recurrente{recurrentesBanner > 1 ? 's' : ''} generado{recurrentesBanner > 1 ? 's' : ''} automáticamente para hoy
+              </p>
+              <button onClick={() => setRecurrentesBanner(null)} className="text-gray-400 hover:text-gray-700 text-xs">✕</button>
+            </div>
           </section>
         )}
 
