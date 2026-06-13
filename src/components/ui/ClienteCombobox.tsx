@@ -99,7 +99,7 @@ export default function ClienteCombobox({
               onClick={(e) => e.stopPropagation()}
             />
           </div>
-          <ul className="max-h-52 overflow-y-auto">
+          <ul className="max-h-72 overflow-y-auto">
             {allLabel && !query && (
               <li
                 onClick={() => select('todos')}
