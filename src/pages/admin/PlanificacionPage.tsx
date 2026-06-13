@@ -689,7 +689,7 @@ function ChoferCard({
     }
   }
 
-  if (orders.length === 0 && visitas.length === 0 && programas.length === 0 && chofer) return null
+  if (orders.length === 0 && visitas.length === 0 && programas.length === 0 && !chofer) return null
 
   return (
     <div className={`bg-white border rounded-xl p-4 space-y-3 ${overCapacity ? 'border-red-400' : !chofer ? 'border-amber-300' : 'border-[#D3D1C7]'}`}>
