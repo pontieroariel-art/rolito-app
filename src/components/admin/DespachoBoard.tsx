@@ -8,7 +8,7 @@ import { Truck, ChevronLeft, ChevronRight, Lock, CheckCircle, RotateCcw, Eye, Pa
 import Button from '../ui/Button'
 import Modal from '../ui/Modal'
 import LoadingSpinner from '../ui/LoadingSpinner'
-import { Order, UserProfile, Despacho, ProgramaVisita, VisitaPuntual, getPrimaryAddress, PLANTAS, PlantaId } from '../../types'
+import { Order, UserProfile, Despacho, ProgramaVisita, VisitaPuntual, Camion, getPrimaryAddress, PLANTAS, PlantaId } from '../../types'
 import {
   despachoId, saveDespacho, subscribeDespachosByFecha,
   optimizeStopOrder, formatDespachoFecha, todayStr,
@@ -19,6 +19,8 @@ import { useProgramasVisita, useVisitasPuntuales, visitasParaFecha, programasPar
 import { getPushSubscriptionByEmail } from '../../services/userService'
 import { sendPush } from '../../services/notificationService'
 import { useAuth } from '../../context/AuthContext'
+import { subscribeCamiones } from '../../services/flotaService'
+import { getAsignacionesDia, setAsignacionChofer, AsignacionChofer, AsignacionesDia } from '../../services/asignacionesDiaService'
 
 // ── Tipos unificados ──────────────────────────────────────────────────────────
 
@@ -188,22 +190,25 @@ function SinAsignarColumn({ items }: { items: DayItem[] }) {
 
 // ── ChoferColumn ──────────────────────────────────────────────────────────────
 
-function ChoferColumn({ chofer, camionLabel, items, routeOrder, arrivals, recalculating, despacho, colorIdx, plantaId, horaSalida, onPlantaChange, onHoraSalidaChange, onConfirm, onReopen, onTransfer }: {
-  chofer:             UserProfile
-  camionLabel:        string | null
-  items:              DayItem[]
-  routeOrder:         string[]
-  arrivals:           Record<string, string>
-  recalculating:      boolean
-  despacho?:          Despacho
-  colorIdx:           number
-  plantaId:           PlantaId
-  horaSalida:         string
-  onPlantaChange:     (p: PlantaId) => void
-  onHoraSalidaChange: (h: string) => void
-  onConfirm:          () => void
-  onReopen:           () => void
-  onTransfer:         () => void
+function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionChange, items, routeOrder, arrivals, recalculating, despacho, colorIdx, plantaId, horaSalida, onPlantaChange, onHoraSalidaChange, onConfirm, onReopen, onTransfer }: {
+  chofer:               UserProfile
+  camiones:             Camion[]
+  ayudantes:            UserProfile[]
+  asignacion:           AsignacionChofer
+  onAsignacionChange:   (a: AsignacionChofer) => void
+  items:                DayItem[]
+  routeOrder:           string[]
+  arrivals:             Record<string, string>
+  recalculating:        boolean
+  despacho?:            Despacho
+  colorIdx:             number
+  plantaId:             PlantaId
+  horaSalida:           string
+  onPlantaChange:       (p: PlantaId) => void
+  onHoraSalidaChange:   (h: string) => void
+  onConfirm:            () => void
+  onReopen:             () => void
+  onTransfer:           () => void
 }) {
   const confirmed = despacho?.status === 'confirmado'
   const color     = choferColor(colorIdx)
@@ -239,7 +244,33 @@ function ChoferColumn({ chofer, camionLabel, items, routeOrder, arrivals, recalc
             )}
           </div>
         </div>
-        {camionLabel && <p className="text-[10px] text-gray-400 truncate">{camionLabel}</p>}
+        {/* Camión */}
+        <select
+          value={asignacion.camionId ?? ''}
+          onChange={(e) => onAsignacionChange({ ...asignacion, camionId: e.target.value || null })}
+          onPointerDown={(e) => e.stopPropagation()}
+          disabled={confirmed}
+          className="mt-1 w-full text-[10px] border border-gray-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-gray-400 truncate"
+        >
+          <option value="">Sin camión</option>
+          {camiones.filter((cam) => cam.activo).map((cam) => (
+            <option key={cam.id} value={cam.id}>{cam.patente} — {cam.modelo}</option>
+          ))}
+        </select>
+
+        {/* Ayudante */}
+        <select
+          value={asignacion.ayudanteEmail ?? ''}
+          onChange={(e) => onAsignacionChange({ ...asignacion, ayudanteEmail: e.target.value || null })}
+          onPointerDown={(e) => e.stopPropagation()}
+          disabled={confirmed}
+          className="mt-1 w-full text-[10px] border border-gray-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-gray-400 truncate"
+        >
+          <option value="">Sin ayudante</option>
+          {ayudantes.map((a) => (
+            <option key={a.email} value={a.email}>{a.nombreContacto || a.nombre || a.email}</option>
+          ))}
+        </select>
 
         {/* Planta y hora de salida */}
         <div className="mt-1.5 flex items-center gap-1.5">
@@ -467,6 +498,10 @@ interface Props {
 export default function DespachoBoard({ orders, choferes, allClients, loading }: Props) {
   const { user } = useAuth()
 
+  // ── Camiones ──────────────────────────────────────────────────────────────
+  const [camiones, setCamiones] = useState<Camion[]>([])
+  useEffect(() => subscribeCamiones(setCamiones), [])
+
   // ── Fecha ─────────────────────────────────────────────────────────────────
   const [fecha, setFecha] = useState(todayStr())
 
@@ -494,6 +529,19 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
     ...visitasHoy.map(itemsFromVisita),
     ...programasHoy.map(itemsFromPrograma),
   ], [dayOrders, visitasHoy, programasHoy])
+
+  // ── Choferes vs ayudantes ─────────────────────────────────────────────────
+  const choferesPrincipales = useMemo(() => choferes.filter((c) => c.subrol !== 'ayudante'), [choferes])
+  const ayudantes           = useMemo(() => choferes.filter((c) => c.subrol === 'ayudante'),  [choferes])
+
+  // ── Asignaciones del día ──────────────────────────────────────────────────
+  const [asignacionesDia, setAsignacionesDia] = useState<AsignacionesDia>({})
+  useEffect(() => { getAsignacionesDia(fecha).then(setAsignacionesDia) }, [fecha])
+
+  const handleAsignacionChange = useCallback(async (choferEmail: string, a: AsignacionChofer) => {
+    setAsignacionesDia((prev) => ({ ...prev, [choferEmail]: a }))
+    await setAsignacionChofer(fecha, choferEmail, a)
+  }, [fecha])
 
   // ── Despachos Firestore ───────────────────────────────────────────────────
   const [despachos, setDespachos] = useState<Despacho[]>([])
@@ -612,14 +660,14 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
   // Recalc inicial al cambiar de día
   useEffect(() => {
     const t = setTimeout(() => {
-      choferes.forEach((c) => {
+      choferesPrincipales.forEach((c) => {
         const ids = allItems.filter((i) => (i.driverId || 'sin_asignar') === c.email).map((i) => i.dndId)
         if (ids.length > 0) scheduleRecalc(c.email, ids)
       })
     }, 600)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fecha, choferes.length, allItems.length])
+  }, [fecha, choferesPrincipales.length, allItems.length])
 
   // ── DnD ──────────────────────────────────────────────────────────────────
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -724,12 +772,14 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
 
     setConfirmLoading(true)
     try {
-      const id     = despachoId(fecha, driverEmail)
-      const nombre = chofer.nombreContacto || chofer.nombre || chofer.email
+      const id      = despachoId(fecha, driverEmail)
+      const nombre  = chofer.nombreContacto || chofer.nombre || chofer.email
+      const asig    = asignacionesDia[driverEmail]
+      const camion  = asig?.camionId ? camiones.find((cam) => cam.id === asig.camionId) : null
       const desp: Despacho = {
         id, fecha, driverId: driverEmail, driverName: nombre,
-        camionId:    chofer.camionId    ?? null,
-        camionLabel: chofer.camionModelo ? `${chofer.camionPatente ?? ''} ${chofer.camionModelo}`.trim() : null,
+        camionId:    camion?.id    ?? chofer.camionId    ?? null,
+        camionLabel: camion ? `${camion.patente} — ${camion.modelo}` : (chofer.camionModelo ? `${chofer.camionPatente ?? ''} ${chofer.camionModelo}`.trim() : null),
         status:      'confirmado', orderIds: ordered,
         plantaId:    plantaByDriver[driverEmail]    ?? PLANTA_DEFAULT,
         horaSalida:  horaSalidaByDriver[driverEmail] ?? '07:00',
@@ -770,14 +820,14 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
   // ── Items por columna ─────────────────────────────────────────────────────
   const itemsByDriver = useMemo(() => {
     const m: Record<string, DayItem[]> = { sin_asignar: [] }
-    choferes.forEach((c) => { m[c.email] = [] })
+    choferesPrincipales.forEach((c) => { m[c.email] = [] })
     allItems.forEach((item) => {
       const col = assignments[item.dndId] ?? item.driverId ?? 'sin_asignar'
       if (m[col] !== undefined) m[col].push(item)
       else m['sin_asignar'].push(item)
     })
     return m
-  }, [allItems, assignments, choferes])
+  }, [allItems, assignments, choferesPrincipales])
 
   const activeItem = activeId ? allItems.find((i) => i.dndId === activeId) : null
   const confirmingChofer = confirmingDriver ? choferes.find((c) => c.email === confirmingDriver) : null
@@ -843,11 +893,14 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
 
             <SinAsignarColumn items={itemsByDriver['sin_asignar'] ?? []} />
 
-            {choferes.map((c, idx) => (
+            {choferesPrincipales.map((c, idx) => (
               <ChoferColumn
                 key={c.email}
                 chofer={c}
-                camionLabel={c.camionModelo ? `${c.camionPatente ?? ''} ${c.camionModelo}`.trim() : null}
+                camiones={camiones}
+                ayudantes={ayudantes}
+                asignacion={asignacionesDia[c.email] ?? { camionId: c.camionId ?? null, ayudanteEmail: null }}
+                onAsignacionChange={(a) => handleAsignacionChange(c.email, a)}
                 items={itemsByDriver[c.email] ?? []}
                 routeOrder={routeOrder[c.email] ?? []}
                 arrivals={routeArrivals[c.email] ?? {}}
@@ -878,9 +931,16 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
             <div className="bg-[#E8F5F0] border border-[#B3DDD3] rounded-xl p-4 text-sm space-y-1.5">
               <p className="font-medium text-accent">{confirmingChofer.nombreContacto || confirmingChofer.nombre}</p>
               <p className="text-gray-600">{confirmingItems.length} parada{confirmingItems.length !== 1 ? 's' : ''} — {formatDespachoFecha(fecha)}</p>
-              {confirmingChofer.camionModelo && (
-                <p className="text-xs text-gray-400">🚛 {confirmingChofer.camionPatente} — {confirmingChofer.camionModelo}</p>
-              )}
+              {(() => {
+                const asig   = confirmingDriver ? asignacionesDia[confirmingDriver] : null
+                const camion = asig?.camionId ? camiones.find((cam) => cam.id === asig.camionId) : null
+                const label  = camion ? `${camion.patente} — ${camion.modelo}` : (confirmingChofer.camionModelo ? `${confirmingChofer.camionPatente ?? ''} ${confirmingChofer.camionModelo}`.trim() : null)
+                const ayud   = asig?.ayudanteEmail ? choferes.find((c) => c.email === asig.ayudanteEmail) : null
+                return (<>
+                  {label && <p className="text-xs text-gray-400">🚛 {label}</p>}
+                  {ayud  && <p className="text-xs text-gray-400">👤 Ayudante: {ayud.nombreContacto || ayud.nombre || ayud.email}</p>}
+                </>)
+              })()}
             </div>
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-700">
               Los pedidos pasan a "Confirmado" y se envía push al chofer.
@@ -914,7 +974,7 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
           fromDriver={transferModal.fromDriver}
           fromDriverName={(() => { const c = choferes.find((ch) => ch.email === transferModal.fromDriver); return c?.nombreContacto || c?.nombre || transferModal.fromDriver })()}
           items={itemsByDriver[transferModal.fromDriver] ?? []}
-          choferes={choferes}
+          choferes={choferesPrincipales}
           onClose={() => setTransferModal(null)}
           onTransfer={handleTransfer}
         />
