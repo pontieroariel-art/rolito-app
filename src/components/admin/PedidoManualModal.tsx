@@ -206,7 +206,7 @@ function StepProductos({
           <p className="text-xs text-accent font-medium">Cliente</p>
           <p className="text-sm font-semibold text-white">{nombreCliente}</p>
         </div>
-        <button onClick={onBack} className="text-xs text-gray-500 hover:text-white transition-colors">
+        <button onClick={onBack} className="text-xs text-gray-500 hover:text-gray-700 transition-colors">
           Cambiar
         </button>
       </div>

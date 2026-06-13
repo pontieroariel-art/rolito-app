@@ -60,7 +60,7 @@ export default function Login() {
               type="button"
               tabIndex={-1}
               onClick={() => setShowPassword((v) => !v)}
-              className="text-lg leading-none text-gray-500 hover:text-white transition-colors"
+              className="text-lg leading-none text-gray-500 hover:text-gray-700 transition-colors"
             >
               {showPassword ? '🙈' : '👁️'}
             </button>

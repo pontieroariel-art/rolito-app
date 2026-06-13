@@ -15,7 +15,7 @@ export default function PendingApproval() {
     <AuthLayout title="Cuenta en verificación">
       <div className="text-center space-y-4">
         <div className="text-6xl py-2">⏳</div>
-        <p className="text-white text-sm leading-relaxed">
+        <p className="text-gray-900 text-sm leading-relaxed">
           Tu cuenta está siendo verificada. Te avisaremos cuando esté activa.
         </p>
         <p className="text-gray-500 text-xs">

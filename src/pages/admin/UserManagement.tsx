@@ -468,7 +468,7 @@ function CrearStaffModal({ onClose, onCreated }: { onClose: () => void; onCreate
               type="button"
               tabIndex={-1}
               onClick={() => setShowPass((v) => !v)}
-              className="text-lg leading-none text-gray-500 hover:text-white"
+              className="text-lg leading-none text-gray-500 hover:text-gray-700"
             >
               {showPass ? '🙈' : '👁️'}
             </button>
@@ -583,7 +583,7 @@ function CrearClienteModal({ onClose, onCreated, currentUserRol }: { onClose: ()
               type="button"
               tabIndex={-1}
               onClick={() => setShowPass((v) => !v)}
-              className="text-lg leading-none text-gray-500 hover:text-white"
+              className="text-lg leading-none text-gray-500 hover:text-gray-700"
             >
               {showPass ? '🙈' : '👁️'}
             </button>
@@ -819,7 +819,7 @@ function UserRow({ user, currentUser, listas, onRoleChange, onSubrolChange, onTo
           {listaAsignada && (
             <button
               onClick={() => setPreciosModal(true)}
-              className="flex items-center gap-1.5 text-xs text-accent hover:bg-accent hover:text-white border border-accent/30 hover:border-accent rounded-lg px-3 py-1 transition-colors"
+              className="flex items-center gap-1.5 text-xs text-accent hover:bg-accent hover:text-gray-700 border border-accent/30 hover:border-accent rounded-lg px-3 py-1 transition-colors"
             >
               <Tag size={11} />
               {customCount > 0 ? `${customCount} precio${customCount !== 1 ? 's' : ''} especial${customCount !== 1 ? 'es' : ''}` : 'Precios especiales'}
@@ -1085,7 +1085,7 @@ function FichaClienteModal({
             </h3>
             <button
               onClick={() => setDomiciliosModal(true)}
-              className="flex items-center gap-1 text-xs text-accent hover:bg-accent hover:text-white border border-accent/30 hover:border-accent rounded-lg px-2.5 py-1 transition-colors"
+              className="flex items-center gap-1 text-xs text-accent hover:bg-accent hover:text-gray-700 border border-accent/30 hover:border-accent rounded-lg px-2.5 py-1 transition-colors"
             >
               <Plus size={11} /> Gestionar
             </button>
@@ -1241,7 +1241,7 @@ function HistorialPreciosSection({
         {!visible && (
           <button
             onClick={handleLoad}
-            className="text-xs text-accent hover:bg-accent hover:text-white border border-accent/30 hover:border-accent rounded-lg px-2.5 py-1 transition-colors"
+            className="text-xs text-accent hover:bg-accent hover:text-gray-700 border border-accent/30 hover:border-accent rounded-lg px-2.5 py-1 transition-colors"
           >
             Ver historial
           </button>
@@ -1532,7 +1532,7 @@ function GestionarDomiciliosModal({
                   </button>
                   <button
                     onClick={() => setEditingLocId(null)}
-                    className="text-xs text-gray-500 hover:text-white border border-[#D3D1C7] rounded-lg px-3 py-1.5"
+                    className="text-xs text-gray-500 hover:text-gray-700 border border-[#D3D1C7] rounded-lg px-3 py-1.5"
                   >
                     Cancelar
                   </button>
@@ -1670,7 +1670,7 @@ function GestionarDomiciliosModal({
         ) : (
           <button
             onClick={() => setShowForm(true)}
-            className="w-full flex items-center justify-center gap-1.5 text-sm text-accent hover:text-white border border-dashed border-accent/30 hover:border-accent rounded-xl py-3 transition-colors"
+            className="w-full flex items-center justify-center gap-1.5 text-sm text-accent hover:text-gray-700 border border-dashed border-accent/30 hover:border-accent rounded-xl py-3 transition-colors"
           >
             <Plus size={14} /> Agregar domicilio
           </button>

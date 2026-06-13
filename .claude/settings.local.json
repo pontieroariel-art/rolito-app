@@ -83,7 +83,11 @@
       "Bash(pkill -f \"import-clientes\")",
       "Bash(taskkill /F /IM node.exe)",
       "Bash(gh run *)",
-      "Bash(Remove-Item *)"
+      "Bash(Remove-Item *)",
+      "Bash(git filter-branch *)",
+      "Bash(FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch --force --index-filter \"git rm --cached --ignore-unmatch scripts/serviceAccount.json\" --prune-empty --tag-name-filter cat -- --all)",
+      "Bash(git reflog *)",
+      "Bash(git gc *)"
     ]
   }
 }

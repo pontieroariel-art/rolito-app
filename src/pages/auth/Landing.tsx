@@ -41,31 +41,30 @@ export default function Landing() {
       </div>
 
       {/* Contenido */}
-      <div className="flex-1 flex flex-col items-center justify-center px-4 py-10 gap-8">
+      <div className="flex-1 flex flex-col items-center justify-center px-4 py-10 gap-6">
 
         <p className="text-gray-500 text-sm text-center">Seleccioná cómo querés ingresar</p>
 
-        <div className="w-full max-w-sm space-y-4">
+        <div className="w-full max-w-sm space-y-3">
 
           {/* Ingreso Clientes */}
           <Link
             to="/clientes"
-            className="block rounded-2xl border border-accent/30 hover:border-accent transition-colors p-6 group"
-            style={{ background: 'rgba(255,255,255,0.04)' }}
+            className="block bg-white rounded-2xl border border-[#D3D1C7] shadow-sm hover:border-accent hover:shadow-md transition-all p-5 group"
           >
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold text-accent uppercase tracking-widest mb-1">
                   Clientes
                 </p>
-                <h2 className="text-xl font-bold text-white group-hover:text-accent transition-colors">
+                <h2 className="text-lg font-bold text-gray-900 group-hover:text-accent transition-colors">
                   Ingreso Clientes
                 </h2>
-                <p className="text-gray-500 text-sm mt-1">
-                  Ingresá con tu CUIT y contraseña para gestionar tus pedidos
+                <p className="text-gray-500 text-sm mt-0.5">
+                  Gestioná tus pedidos con CUIT y contraseña
                 </p>
               </div>
-              <span className="text-accent text-2xl mt-1 shrink-0 group-hover:translate-x-1 transition-transform">
+              <span className="text-accent text-xl shrink-0 group-hover:translate-x-1 transition-transform">
                 →
               </span>
             </div>
@@ -74,22 +73,21 @@ export default function Landing() {
           {/* Ingreso Choferes */}
           <Link
             to="/choferes"
-            className="block rounded-2xl border border-[#D3D1C7] hover:border-white/30 transition-colors p-6 group"
-            style={{ background: 'rgba(255,255,255,0.02)' }}
+            className="block bg-white rounded-2xl border border-[#D3D1C7] shadow-sm hover:border-accent hover:shadow-md transition-all p-5 group"
           >
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">
                   Choferes
                 </p>
-                <h2 className="text-xl font-bold text-white group-hover:text-white/80 transition-colors">
+                <h2 className="text-lg font-bold text-gray-900 group-hover:text-accent transition-colors">
                   Ingreso Choferes
                 </h2>
-                <p className="text-gray-500 text-sm mt-1">
-                  Acceso con usuario y PIN para repartidores
+                <p className="text-gray-500 text-sm mt-0.5">
+                  Acceso con CUIT y PIN para repartidores
                 </p>
               </div>
-              <span className="text-gray-500 text-2xl mt-1 shrink-0 group-hover:translate-x-1 transition-transform">
+              <span className="text-gray-400 text-xl shrink-0 group-hover:text-accent group-hover:translate-x-1 transition-all">
                 →
               </span>
             </div>
@@ -98,22 +96,21 @@ export default function Landing() {
           {/* Ingreso Empresa */}
           <Link
             to="/empresa"
-            className="block rounded-2xl border border-[#D3D1C7] hover:border-white/30 transition-colors p-6 group"
-            style={{ background: 'rgba(255,255,255,0.02)' }}
+            className="block bg-white rounded-2xl border border-[#D3D1C7] shadow-sm hover:border-accent hover:shadow-md transition-all p-5 group"
           >
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">
                   Equipo Rolito
                 </p>
-                <h2 className="text-xl font-bold text-white group-hover:text-white/80 transition-colors">
+                <h2 className="text-lg font-bold text-gray-900 group-hover:text-accent transition-colors">
                   Ingreso Empresa
                 </h2>
-                <p className="text-gray-500 text-sm mt-1">
-                  Acceso para administración, comercial, logística y facturación
+                <p className="text-gray-500 text-sm mt-0.5">
+                  Administración, comercial, logística y facturación
                 </p>
               </div>
-              <span className="text-gray-500 text-2xl mt-1 shrink-0 group-hover:translate-x-1 transition-transform">
+              <span className="text-gray-400 text-xl shrink-0 group-hover:text-accent group-hover:translate-x-1 transition-all">
                 →
               </span>
             </div>
