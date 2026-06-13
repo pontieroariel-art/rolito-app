@@ -712,11 +712,15 @@ function UserRow({ user, currentUser, listas, onRoleChange, onSubrolChange, onTo
                 )
               })()}
             </div>
-            {user.username
-              ? <p className="text-gray-500 text-xs mt-0.5">@{user.username}</p>
-              : <p className="text-gray-500 text-xs mt-0.5 truncate">{user.email}</p>
+            {user.rol !== 'cliente'
+              ? user.dni
+                ? <p className="text-gray-500 text-xs mt-0.5">DNI: {user.dni}</p>
+                : <p className="text-gray-500 text-xs mt-0.5 truncate">{user.email}</p>
+              : <>
+                  {user.email && <p className="text-gray-500 text-xs mt-0.5 truncate">{user.email}</p>}
+                  {user.cuit && <p className="text-gray-500 text-xs mt-0.5">CUIT: {user.cuit}</p>}
+                </>
             }
-            {user.cuit && <p className="text-gray-500 text-xs mt-0.5">CUIT: {user.cuit}</p>}
             {user.codigoCliente && (
               <p className="text-gray-500 text-xs mt-0.5 flex items-center gap-1">
                 <Hash size={9} className="shrink-0" />
