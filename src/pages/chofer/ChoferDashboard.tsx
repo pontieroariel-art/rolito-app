@@ -14,6 +14,9 @@ import { markDelivered } from '../../services/orderService'
 import { updateDriverLocation, deactivateDriverLocation } from '../../services/locationService'
 import { subscribeMyDespacho } from '../../services/despachoService'
 import { Despacho } from '../../types'
+import { reauthenticateWithCredential, EmailAuthProvider, updatePassword } from 'firebase/auth'
+import { auth } from '../../services/firebase'
+import { padPin } from '../../services/choferAuthService'
 import { updateVisitaPuntual } from '../../services/visitasService'
 import { useProgramasVisita, useVisitasPuntuales, programasParaFecha, visitasParaFecha } from '../../hooks/useVisitas'
 import { useCatalogo } from '../../hooks/useCatalogo'
@@ -73,6 +76,40 @@ export default function ChoferDashboard() {
     const fecha = new Date().toISOString().split('T')[0]
     return subscribeMyDespacho(fecha, user.email, setDespachoHoy)
   }, [user?.email])
+
+  // ── Cambiar PIN ──────────────────────────────────────────────────────────
+  const [pinModal,     setPinModal]     = useState(false)
+  const [pinActual,    setPinActual]    = useState('')
+  const [pinNuevo,     setPinNuevo]     = useState('')
+  const [pinConfirm,   setPinConfirm]   = useState('')
+  const [pinLoading,   setPinLoading]   = useState(false)
+  const [pinError,     setPinError]     = useState('')
+  const [pinOk,        setPinOk]        = useState(false)
+
+  const handleCambiarPin = async () => {
+    if (pinNuevo.length !== 4) { setPinError('El PIN debe tener 4 dígitos'); return }
+    if (pinNuevo !== pinConfirm) { setPinError('Los PINs no coinciden'); return }
+    setPinLoading(true)
+    setPinError('')
+    try {
+      const firebaseUser = auth.currentUser
+      if (!firebaseUser?.email) throw new Error('Sin sesión')
+      const credential = EmailAuthProvider.credential(firebaseUser.email, padPin(pinActual))
+      await reauthenticateWithCredential(firebaseUser, credential)
+      await updatePassword(firebaseUser, padPin(pinNuevo))
+      setPinOk(true)
+      setPinActual(''); setPinNuevo(''); setPinConfirm('')
+    } catch (err: unknown) {
+      const code = (err as { code?: string }).code
+      if (code === 'auth/invalid-credential' || code === 'auth/wrong-password') {
+        setPinError('PIN actual incorrecto')
+      } else {
+        setPinError('Error al cambiar el PIN. Intentá de nuevo.')
+      }
+    } finally {
+      setPinLoading(false)
+    }
+  }
 
   const nombreRef   = useRef(user?.nombreContacto || user?.nombre || '')
   const telefonoRef = useRef(user?.telefono       || user?.phone  || '')
@@ -134,6 +171,12 @@ export default function ChoferDashboard() {
               })}
             </p>
           </div>
+          <button
+            onClick={() => { setPinModal(true); setPinOk(false); setPinError('') }}
+            className="text-xs text-muted hover:text-accent transition-colors border border-border rounded-lg px-3 py-1.5"
+          >
+            Cambiar PIN
+          </button>
         </div>
 
         {despachoHoy && (despachoHoy.camionLabel || despachoHoy.ayudanteName) && (
@@ -343,6 +386,52 @@ export default function ChoferDashboard() {
           </div>
         </Modal>
       )}
+
+      {/* Modal cambiar PIN */}
+      <Modal open={pinModal} onClose={() => setPinModal(false)} title="Cambiar PIN" variant="light">
+        {pinOk ? (
+          <div className="text-center py-4 space-y-3">
+            <p className="text-4xl">✅</p>
+            <p className="font-semibold text-gray-900">PIN actualizado correctamente</p>
+            <Button onClick={() => setPinModal(false)} className="w-full">Cerrar</Button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">PIN actual</label>
+              <input
+                type="password" inputMode="numeric" maxLength={4}
+                value={pinActual} onChange={(e) => setPinActual(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                placeholder="••••"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-center text-xl tracking-widest focus:outline-none focus:ring-2 focus:ring-accent/40"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">PIN nuevo</label>
+              <input
+                type="password" inputMode="numeric" maxLength={4}
+                value={pinNuevo} onChange={(e) => setPinNuevo(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                placeholder="••••"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-center text-xl tracking-widest focus:outline-none focus:ring-2 focus:ring-accent/40"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Confirmar PIN nuevo</label>
+              <input
+                type="password" inputMode="numeric" maxLength={4}
+                value={pinConfirm} onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                placeholder="••••"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-center text-xl tracking-widest focus:outline-none focus:ring-2 focus:ring-accent/40"
+              />
+            </div>
+            {pinError && <p className="text-sm text-red-500">{pinError}</p>}
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setPinModal(false)} className="flex-1" disabled={pinLoading}>Cancelar</Button>
+              <Button onClick={handleCambiarPin} loading={pinLoading} disabled={!pinActual || !pinNuevo || !pinConfirm} className="flex-1">Guardar</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {registrando && (
         <RegistrarEntregaModal
