@@ -61,24 +61,32 @@ export default function EntregaModal({ order, onConfirm, onClose }: Props) {
                   </p>
                 )}
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   onClick={() => setQuantities((q) => ({ ...q, [p.name]: Math.max(0, (q[p.name] ?? p.quantity) - 1) }))}
                   disabled={qty === 0}
-                  className="w-8 h-8 rounded-full border border-[#D3D1C7] text-lg hover:border-accent transition-colors disabled:opacity-30 flex items-center justify-center"
-                >
-                  −
-                </button>
-                <span className={`w-8 text-center font-bold text-sm ${menos ? 'text-orange-400' : 'text-white'}`}>
-                  {qty}
-                </span>
+                  className="w-9 h-9 rounded-full border border-[#D3D1C7] text-xl hover:border-accent transition-colors disabled:opacity-30 flex items-center justify-center text-gray-600"
+                >−</button>
+                <input
+                  type="number"
+                  min={0}
+                  max={p.quantity}
+                  value={qty}
+                  onChange={(e) => {
+                    const v = Math.min(p.quantity, Math.max(0, parseInt(e.target.value) || 0))
+                    setQuantities((q) => ({ ...q, [p.name]: v }))
+                  }}
+                  className={`w-12 text-center font-bold text-base rounded-lg border px-1 py-1 focus:outline-none focus:ring-1 focus:ring-accent ${
+                    menos
+                      ? 'text-orange-500 border-orange-300 bg-white'
+                      : 'text-gray-900 border-[#D3D1C7] bg-white'
+                  }`}
+                />
                 <button
                   onClick={() => setQuantities((q) => ({ ...q, [p.name]: Math.min(p.quantity, (q[p.name] ?? p.quantity) + 1) }))}
                   disabled={qty >= p.quantity}
-                  className="w-8 h-8 rounded-full border border-[#D3D1C7] text-lg hover:border-accent transition-colors disabled:opacity-30 flex items-center justify-center"
-                >
-                  +
-                </button>
+                  className="w-9 h-9 rounded-full border border-[#D3D1C7] text-xl hover:border-accent transition-colors disabled:opacity-30 flex items-center justify-center text-gray-600"
+                >+</button>
               </div>
             </div>
           )
