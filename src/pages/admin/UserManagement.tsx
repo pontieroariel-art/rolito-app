@@ -383,8 +383,7 @@ export default function UserManagement() {
 
 function CrearStaffModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [nombre,   setNombre]   = useState('')
-  const [email,    setEmail]    = useState('')
-  const [username, setUsername] = useState('')
+  const [dni,      setDni]      = useState('')
   const [password, setPassword] = useState('')
   const [rol,      setRol]      = useState<UserRole>('comercial')
   const [showPass, setShowPass] = useState(false)
@@ -397,19 +396,20 @@ function CrearStaffModal({ onClose, onCreated }: { onClose: () => void; onCreate
     e.preventDefault()
     if (isChofer && !/^\d{4}$/.test(password)) { setError('El PIN debe ser exactamente 4 dígitos numéricos'); return }
     if (!isChofer && password.length < 6) { setError('La contraseña debe tener al menos 6 caracteres'); return }
-    if (!username.trim()) { setError('El nombre de usuario es obligatorio'); return }
+    if (isChofer && !/^\d{11}$/.test(dni.replace(/\D/g, ''))) { setError('El CUIT debe tener 11 dígitos'); return }
+    if (!isChofer && !/^\d{8}$/.test(dni.replace(/\D/g, ''))) { setError('El DNI debe tener 8 dígitos'); return }
     setLoading(true)
     setError('')
     try {
       if (isChofer) {
-        await createChoferUser({ nombreContacto: nombre, username: username.trim(), pin: password })
+        await createChoferUser({ nombreContacto: nombre, cuit: dni.trim(), pin: password })
       } else {
-        await createStaffUser({ username: username.trim(), password, nombreContacto: nombre, rol })
+        await createStaffUser({ dni: dni.trim(), password, nombreContacto: nombre, rol })
       }
       onCreated()
     } catch (err: any) {
       if (err?.code === 'auth/email-already-in-use') {
-        setError('Ya existe una cuenta con ese nombre de usuario')
+        setError('Ya existe una cuenta con ese DNI/CUIT')
       } else {
         setError('Error al crear el usuario. Intentá de nuevo.')
       }
@@ -442,16 +442,17 @@ function CrearStaffModal({ onClose, onCreated }: { onClose: () => void; onCreate
         </div>
 
         <Input
-          label="Nombre de usuario"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
+          label={isChofer ? 'CUIT' : 'DNI'}
+          value={dni}
+          onChange={(e) => setDni(e.target.value.replace(/\D/g, '').slice(0, isChofer ? 11 : 8))}
           required
-          placeholder="juan.garcia"
+          placeholder={isChofer ? '20360242871' : '36024287'}
           autoComplete="off"
-          autoCapitalize="none"
+          inputMode="numeric"
+          maxLength={isChofer ? 11 : 8}
         />
         <p className="text-xs text-gray-500 -mt-2">
-          {isChofer ? 'El chofer ingresa con este usuario.' : 'El usuario ingresa con este nombre en la pantalla de empresa.'}
+          {isChofer ? 'El chofer ingresa con su DNI (8 dígitos del medio del CUIT) y PIN.' : 'El usuario ingresa con su DNI y contraseña.'}
         </p>
 
         <Input

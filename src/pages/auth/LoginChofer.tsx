@@ -1,4 +1,4 @@
-﻿import { useState, FormEvent, useEffect } from 'react'
+import { useState, FormEvent, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { FirebaseError } from 'firebase/app'
 import AuthLayout from '../../components/layout/AuthLayout'
@@ -16,24 +16,24 @@ export default function LoginChofer() {
     navigate('/chofer', { replace: true })
   }, [user])
 
-  const [username, setUsername] = useState('')
-  const [pin,      setPin]      = useState('')
-  const [error,    setError]    = useState('')
-  const [loading,  setLoading]  = useState(false)
+  const [dni,     setDni]     = useState('')
+  const [pin,     setPin]     = useState('')
+  const [error,   setError]   = useState('')
+  const [loading, setLoading] = useState(false)
 
   const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setLoading(true)
     setError('')
     try {
-      await loginChofer(username.trim(), pin)
+      await loginChofer(dni.trim(), pin)
     } catch (err) {
-      if (err instanceof Error && err.message === 'username-not-found') {
-        setError('CUIT no encontrado')
+      if (err instanceof Error && err.message === 'dni-not-found') {
+        setError('DNI no encontrado')
       } else if (err instanceof FirebaseError) {
         const wrongCreds = ['auth/invalid-credential', 'auth/wrong-password', 'auth/user-not-found']
         if (wrongCreds.includes(err.code)) {
-          setError('CUIT o PIN incorrecto')
+          setError('DNI o PIN incorrecto')
         } else if (err.code === 'auth/too-many-requests') {
           setError('Demasiados intentos. Esperá unos minutos.')
         } else {
@@ -48,16 +48,17 @@ export default function LoginChofer() {
   }
 
   return (
-    <AuthLayout title="Ingreso Choferes" subtitle="Ingresá con tu CUIT y PIN">
+    <AuthLayout title="Ingreso Choferes" subtitle="Ingresá con tu DNI y PIN">
       <form onSubmit={handleLogin} className="flex flex-col gap-4">
         <Input
-          label="CUIT"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
+          label="DNI"
+          value={dni}
+          onChange={(e) => setDni(e.target.value.replace(/\D/g, '').slice(0, 8))}
           required
-          placeholder="20360242871"
+          placeholder="36024287"
           autoComplete="username"
           inputMode="numeric"
+          maxLength={8}
         />
         <Input
           label="PIN"

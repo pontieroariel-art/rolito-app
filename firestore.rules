@@ -141,6 +141,16 @@ service cloud.firestore {
       allow write: if request.auth != null && myRole() == 'super_admin';
     }
 
+    match /dniIndex/{dni} {
+      allow read:  if true;
+      allow write: if request.auth != null && isOperator();
+    }
+
+    match /staffDniIndex/{dni} {
+      allow read:  if true;
+      allow write: if request.auth != null && myRole() == 'super_admin';
+    }
+
     // ── Historial de precios ──────────────────────────────────────────────────
     match /historialPrecios/{eventoId} {
       allow read:   if request.auth != null && (isManager() || isOperator() || isFacturacion());

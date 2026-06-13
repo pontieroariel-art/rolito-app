@@ -45,27 +45,25 @@ export const loginWithCuit = async (cuit: string, password: string) => {
   return signInWithEmailAndPassword(auth, email, password)
 }
 
-export const loginChofer = async (username: string, pin: string) => {
-  const { getEmailByUsername, padPin } = await import('./choferAuthService')
-  const email = await getEmailByUsername(username)
-  if (!email) throw new Error('username-not-found')
+export const loginChofer = async (dni: string, pin: string) => {
+  const { getEmailByDni, padPin } = await import('./choferAuthService')
+  const email = await getEmailByDni(dni)
+  if (!email) throw new Error('dni-not-found')
   await auth.authStateReady()
   return signInWithEmailAndPassword(auth, email, padPin(pin))
 }
 
-export const loginWithStaffUsername = async (username: string, password: string) => {
-  const { getEmailByStaffUsername } = await import('./staffAuthService')
-  const email = await getEmailByStaffUsername(username)
-  if (email) {
+export const loginWithStaffDni = async (dni: string, password: string) => {
+  const { getEmailByStaffDni } = await import('./staffAuthService')
+  // Fallback por email directo (para el admin)
+  if (dni.includes('@')) {
     await auth.authStateReady()
-    return signInWithEmailAndPassword(auth, email, password)
+    return signInWithEmailAndPassword(auth, dni, password)
   }
-  // Compatibilidad con cuentas antiguas creadas con email real
-  if (username.includes('@')) {
-    await auth.authStateReady()
-    return signInWithEmailAndPassword(auth, username, password)
-  }
-  throw new Error('username-not-found')
+  const email = await getEmailByStaffDni(dni)
+  if (!email) throw new Error('dni-not-found')
+  await auth.authStateReady()
+  return signInWithEmailAndPassword(auth, email, password)
 }
 
 export const logoutUser = () => signOut(auth)
