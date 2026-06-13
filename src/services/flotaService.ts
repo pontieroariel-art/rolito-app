@@ -7,7 +7,6 @@ import {
   query,
   orderBy,
   serverTimestamp,
-  deleteField,
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { Camion, CanalCamion } from '../types'
@@ -42,13 +41,3 @@ export const updateCamion = (
   data: Partial<{ patente: string; modelo: string; marca: string; activo: boolean; capacidadPallets: number; canales: CanalCamion[] }>,
 ): Promise<void> => updateDoc(doc(db, FLOTA, id), data)
 
-export const asignarCamion = (
-  choferUid: string,
-  camion: { id: string; patente: string; modelo: string } | null,
-): Promise<void> =>
-  updateDoc(doc(db, 'users', choferUid), {
-    camionId:              camion ? camion.id      : deleteField(),
-    camionPatente:         camion ? camion.patente : deleteField(),
-    camionModelo:          camion ? camion.modelo  : deleteField(),
-    camionFechaAsignacion: camion ? serverTimestamp() : deleteField(),
-  })

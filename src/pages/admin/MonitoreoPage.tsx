@@ -7,14 +7,13 @@ import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 import { useAllOrders } from '../../hooks/useOrders'
 import { useChoferes } from '../../hooks/useChoferes'
-import { useFlota } from '../../hooks/useFlota'
 import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
 import { useNotifyReprogramado } from '../../hooks/useNotifications'
 import { subscribeAllActiveDrivers, ActiveDriver } from '../../services/locationService'
 import { rescheduleOrder, reassignOrder, assignDriver } from '../../services/orderService'
 import { getPushSubscriptionByEmail } from '../../services/userService'
 import { sendPush } from '../../services/notificationService'
-import { Order, UserProfile, Camion, MOTIVOS_INCIDENCIA } from '../../types'
+import { Order, UserProfile, MOTIVOS_INCIDENCIA } from '../../types'
 import { summarizeProducts, formatShortDate } from '../../utils/helpers'
 
 // ── Constantes ────────────────────────────────────────────────────────────────
@@ -419,11 +418,10 @@ function FinJornadaModal({
 // ── DriverSideCard ────────────────────────────────────────────────────────────
 
 function DriverSideCard({
-  chofer, camion, driver, orders, color, isSelected, onSelect,
+  chofer, driver, orders, color, isSelected, onSelect,
   onReprogramar, onReasignar, onFinJornada,
 }: {
   chofer:        UserProfile | null
-  camion:        Camion | undefined
   driver:        ActiveDriver | null
   orders:        Order[]
   color:         string
@@ -458,11 +456,6 @@ function DriverSideCard({
           </div>
           <div className="min-w-0 flex-1">
             <p className="font-semibold text-sm truncate text-gray-900">{nombre}</p>
-            {camion ? (
-              <p className="text-xs text-gray-500">🚛 {camion.patente}</p>
-            ) : (
-              <p className="text-xs text-amber-600">Sin camión</p>
-            )}
           </div>
           <div className="text-right shrink-0">
             <p className="font-bold text-lg leading-none" style={{ color }}>{delivered}</p>
@@ -732,7 +725,6 @@ function LiveMap({
 export default function MonitoreoPage() {
   const { orders,   loading: loadO } = useAllOrders()
   const { choferes, loading: loadC } = useChoferes()
-  const { camiones, loading: loadF } = useFlota()
   const [activeDrivers, setActiveDrivers]   = useState<ActiveDriver[]>([])
   const [selectedDriver, setSelectedDriver] = useState<string | null>(null)
   const [reprogramarOrder, setReprogramarOrder] = useState<Order | null>(null)
@@ -753,14 +745,11 @@ export default function MonitoreoPage() {
     return emails.map((email) => ({
       email,
       chofer:  choferes.find((c) => c.email === email) ?? null,
-      camion:  choferes.find((c) => c.email === email)
-               ? camiones.find((c) => c.id === choferes.find((ch) => ch.email === email)!.camionId)
-               : undefined,
       driver:  activeDrivers.find((d) => d.email === email) ?? null,
       orders:  ordersToday.filter((o) => o.driverId === email),
       color:   driverColor(email, choferes),
     }))
-  }, [ordersToday, choferes, camiones, activeDrivers])
+  }, [ordersToday, choferes, activeDrivers])
 
   const handleSelect = (email: string) =>
     setSelectedDriver((prev) => (prev === email ? null : email))
@@ -769,7 +758,7 @@ export default function MonitoreoPage() {
     ? ordersToday.filter((o) => o.driverId === finJornadaEmail && !['entregado', 'cancelado'].includes(o.status))
     : []
 
-  if (loadO || loadC || loadF) return <><Navbar /><LoadingSpinner fullScreen /></>
+  if (loadO || loadC) return <><Navbar /><LoadingSpinner fullScreen /></>
 
   const totalEntregados = ordersToday.filter((o) => o.status === 'entregado').length
   const totalPendientes = ordersToday.filter((o) => o.driverId && !['entregado', 'cancelado'].includes(o.status)).length
@@ -812,11 +801,10 @@ export default function MonitoreoPage() {
               </button>
             )}
 
-            {driversToday.map(({ email, chofer, camion, driver, orders, color }) => (
+            {driversToday.map(({ email, chofer, driver, orders, color }) => (
               <DriverSideCard
                 key={email}
                 chofer={chofer}
-                camion={camion}
                 driver={driver}
                 orders={orders}
                 color={color}

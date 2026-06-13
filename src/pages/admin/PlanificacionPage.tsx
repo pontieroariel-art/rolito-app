@@ -187,13 +187,7 @@ function WeekCard({
   const totalUnidades = dayOrders.reduce((sum, o) => o.products.reduce((s, p) => s + p.quantity, sum), 0)
   const totalPallets  = dayOrders.reduce((sum, o) => sum + calcPallets(o.products, catalogo), 0)
 
-  // Capacidad total de camiones asignados ese día
-  const camionesCapacity = choferes.reduce((sum, c) => {
-    const tieneOrden = dayOrders.some((o) => o.driverId === c.email)
-    if (!tieneOrden) return sum
-    const cam = camiones.find((cam) => cam.id === c.camionId)
-    return sum + (cam?.capacidadPallets ?? 0)
-  }, 0)
+  const camionesCapacity = 0
 
   // Drivers con pedidos ese día
   const activeDriverEmails = [...new Set(dayOrders.filter((o) => o.driverId).map((o) => o.driverId!))]
@@ -661,7 +655,7 @@ function ChoferCard({
   const [notifying, setNotifying] = useState(false)
   const [notified,  setNotified]  = useState(false)
 
-  const camionEfectivo = camiones.find((c) => c.id === (asignacion.camionId ?? chofer?.camionId)) ?? camion
+  const camionEfectivo = camiones.find((c) => c.id === asignacion.camionId) ?? camion
   const ayudante       = ayudantes.find((a) => a.email === asignacion.ayudanteEmail)
 
   const nombre       = chofer ? (chofer.nombreContacto || chofer.nombre || chofer.email) : 'Sin asignar'
@@ -707,7 +701,7 @@ function ChoferCard({
             <div className="flex flex-wrap items-center gap-2 mt-1">
               {/* Selector camión */}
               <select
-                value={asignacion.camionId ?? chofer.camionId ?? ''}
+                value={asignacion.camionId ?? ''}
                 onChange={(e) => onAsignacionChange(e.target.value || null, asignacion.ayudanteEmail)}
                 className="text-xs bg-gray-50 border border-[#D3D1C7] rounded-lg px-2 py-1 text-gray-700 focus:outline-none focus:ring-1 focus:ring-accent"
               >
@@ -987,11 +981,10 @@ function PalletSummary({
       const key = o.driverId ?? '__sin_asignar__'
       if (!map[key]) {
         const chofer = choferes.find((c) => c.email === o.driverId)
-        const camion = camiones.find((c) => c.id === chofer?.camionId)
         const nombre = chofer
           ? (chofer.nombreContacto || chofer.nombre || chofer.email)
           : 'Sin asignar'
-        map[key] = { email: key, nombre, camion, productos: {}, totalPallets: 0 }
+        map[key] = { email: key, nombre, camion: undefined, productos: {}, totalPallets: 0 }
       }
       for (const p of o.products) {
         const id = p.productoId ?? p.name
@@ -1016,14 +1009,7 @@ function PalletSummary({
     [orders, catalogo],
   )
 
-  const capacidadTotal = useMemo(() => {
-    const activeDrivers = [...new Set(orders.filter((o) => o.driverId).map((o) => o.driverId!))]
-    return activeDrivers.reduce((sum, email) => {
-      const chofer = choferes.find((c) => c.email === email)
-      const camion = camiones.find((c) => c.id === chofer?.camionId)
-      return sum + (camion?.capacidadPallets ?? 0)
-    }, 0)
-  }, [orders, choferes, camiones])
+  const capacidadTotal = 0
 
   const hasConfig = byProduct.some((p) => p.unidadesPorPallet)
   if (orders.length === 0) return null
@@ -1387,12 +1373,7 @@ export default function PlanificacionPage() {
                 const str        = dateToStr(d)
                 const dayOrders  = orders.filter((o) => orderDateStr(o) === str && !['entregado', 'cancelado'].includes(o.status))
                 const count      = dayOrders.length
-                const hasOverload = choferes.some((c) => {
-                  const camion   = camiones.find((cam) => cam.id === c.camionId)
-                  if (!camion?.capacidadPallets) return false
-                  const pallets  = dayOrders.filter((o) => o.driverId === c.email).reduce((s, o) => s + calcPallets(o.products, catalogo), 0)
-                  return pallets > camion.capacidadPallets
-                })
+                const hasOverload = false
                 return (
                   <button
                     key={str}
@@ -1489,12 +1470,12 @@ export default function PlanificacionPage() {
                 {/* Por chofer */}
                 {choferes.filter((c) => c.subrol !== 'ayudante').map((chofer) => {
                   const choferOrders = ordersDay.filter((o) => o.driverId === chofer.email)
-                  const asignacion   = asignaciones[chofer.email] ?? { camionId: chofer.camionId ?? null, ayudanteEmail: null }
+                  const asignacion   = asignaciones[chofer.email] ?? { camionId: null, ayudanteEmail: null }
                   return (
                     <div key={chofer.uid} className="space-y-2">
                       <ChoferCard
                         chofer={chofer}
-                        camion={camiones.find((c) => c.id === chofer.camionId)}
+                        camion={camiones.find((c) => c.id === asignacion.camionId)}
                         orders={choferOrders}
                         visitas={visitasDay.filter((v) => !v.driverId || v.driverId === chofer.email)}
                         programas={programasDay.filter((p) => !p.driverId || p.driverId === chofer.email)}
