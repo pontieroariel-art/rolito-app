@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, ChangeEvent, DragEvent } from 'react'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import LoadingSpinner from '../ui/LoadingSpinner'
-import ClienteCombobox, { toComboItems, ComboItem } from '../ui/ClienteCombobox'
 import { extractPdfText, parsePedido } from '../../utils/parsePdf'
 import { createOrderExterno } from '../../services/orderService'
 import { getAllUsers } from '../../services/userService'
@@ -22,8 +21,8 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
   const [error,   setError]   = useState('')
 
   // Paso 1 — cliente
-  const [clientes,         setClientes]         = useState<ComboItem[]>([])
   const [clientesRaw,      setClientesRaw]      = useState<UserProfile[]>([])
+  const [busqueda,         setBusqueda]         = useState('')
   const [selectedClientId, setSelectedClientId] = useState('')
   const [loadingClientes,  setLoadingClientes]  = useState(false)
 
@@ -44,7 +43,6 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
     getAllUsers().then((users) => {
       const activos = users.filter((u) => u.rol === 'cliente' && u.estado === 'activo')
       setClientesRaw(activos)
-      setClientes(toComboItems(activos))
       setLoadingClientes(false)
     })
   }, [open])
@@ -55,6 +53,7 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
     setLoading(false)
     setSaving(false)
     setSelectedClientId('')
+    setBusqueda('')
     setClientName('')
     setClientAddress('')
     setNumeroOC('')
@@ -144,27 +143,68 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
   const inputClass = 'w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'
 
   return (
-    <Modal open={open} onClose={handleClose} title="Importar pedido desde PDF" variant="light" wide>
+    <Modal open={open} onClose={handleClose} title="Importar pedido desde PDF" variant="light">
 
       {/* Paso 1 — Selección de cliente */}
       {step === 'client' && (
-        <div className="space-y-4">
+        <div className="flex flex-col gap-3">
           <p className="text-sm text-gray-600">¿Para qué cliente es este pedido?</p>
 
+          <input
+            autoFocus
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar por nombre o código..."
+            className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+
           {loadingClientes ? (
-            <div className="flex justify-center py-6"><LoadingSpinner /></div>
+            <div className="flex justify-center py-10"><LoadingSpinner /></div>
           ) : (
-            <ClienteCombobox
-              items={clientes}
-              value={selectedClientId}
-              onChange={setSelectedClientId}
-              placeholder="Buscar cliente..."
-            />
+            <ul className="border border-[#D3D1C7] rounded-lg overflow-y-auto max-h-72 divide-y divide-[#ECEAE3]">
+              {clientesRaw
+                .filter((c) => {
+                  if (!busqueda.trim()) return true
+                  const q = busqueda.toLowerCase()
+                  return (
+                    (c.razonSocial || '').toLowerCase().includes(q) ||
+                    (c.nombreContacto || '').toLowerCase().includes(q) ||
+                    (c.codigoCliente || '').toLowerCase().includes(q)
+                  )
+                })
+                .slice(0, 80)
+                .map((c) => {
+                  const label = c.razonSocial || c.nombreContacto || c.nombre
+                  const selected = c.uid === selectedClientId
+                  return (
+                    <li
+                      key={c.uid}
+                      onClick={() => setSelectedClientId(c.uid)}
+                      className={`flex items-center gap-2 px-3 py-2.5 cursor-pointer text-sm transition-colors ${
+                        selected
+                          ? 'bg-[#E8F5F0] text-accent font-medium'
+                          : 'hover:bg-[#F0EEE7] text-gray-900'
+                      }`}
+                    >
+                      {c.codigoCliente && (
+                        <span className="text-xs text-gray-400 shrink-0">[{c.codigoCliente}]</span>
+                      )}
+                      <span className="truncate">{label}</span>
+                      {selected && <span className="ml-auto text-accent text-xs">✓</span>}
+                    </li>
+                  )
+                })}
+              {clientesRaw.length > 80 && !busqueda && (
+                <li className="px-3 py-2 text-xs text-gray-400 text-center">
+                  Escribí para filtrar entre {clientesRaw.length} clientes
+                </li>
+              )}
+            </ul>
           )}
 
           {error && <p className="text-red-600 text-sm">{error}</p>}
 
-          <Button onClick={handleContinueToUpload} className="w-full text-sm" disabled={loadingClientes}>
+          <Button onClick={handleContinueToUpload} className="w-full text-sm" disabled={loadingClientes || !selectedClientId}>
             Continuar →
           </Button>
         </div>
