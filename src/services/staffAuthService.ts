@@ -1,23 +1,20 @@
 import { doc, setDoc, getDoc } from 'firebase/firestore'
 import { db } from './firebase'
 
-export function normalizeUsername(username: string): string {
-  return username.trim().toLowerCase().replace(/\s+/g, '.')
+export function dniToStaffEmail(dni: string): string {
+  return `${dni.replace(/\D/g, '')}@staff.rolito.internal`
 }
 
-export function usernameToStaffEmail(username: string): string {
-  return `${normalizeUsername(username)}@staff.rolito.internal`
+export async function setStaffDniIndex(dni: string, email: string): Promise<void> {
+  const key = dni.replace(/\D/g, '')
+  if (!key) return
+  await setDoc(doc(db, 'staffDniIndex', key), { email })
 }
 
-export async function setStaffIndex(username: string, email: string): Promise<void> {
-  const key = normalizeUsername(username)
-  await setDoc(doc(db, 'staffIndex', key), { email })
-}
-
-export async function getEmailByStaffUsername(username: string): Promise<string | null> {
-  const key = normalizeUsername(username)
+export async function getEmailByStaffDni(dni: string): Promise<string | null> {
+  const key = dni.replace(/\D/g, '')
   if (!key) return null
-  const snap = await getDoc(doc(db, 'staffIndex', key))
+  const snap = await getDoc(doc(db, 'staffDniIndex', key))
   if (!snap.exists()) return null
   return (snap.data() as { email: string }).email
 }

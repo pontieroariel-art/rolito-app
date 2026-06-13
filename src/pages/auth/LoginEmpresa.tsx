@@ -6,7 +6,7 @@ import AuthLayout from '../../components/layout/AuthLayout'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 import { useAuth } from '../../context/AuthContext'
-import { loginWithStaffUsername } from '../../services/authService'
+import { loginWithStaffDni } from '../../services/authService'
 
 const ROLE_HOME: Record<string, string> = {
   super_admin:       '/admin',
@@ -40,10 +40,10 @@ export default function LoginEmpresa() {
     setLoading(true)
     setError('')
     try {
-      await loginWithStaffUsername(username.trim(), password)
+      await loginWithStaffDni(username.trim(), password)
     } catch (err) {
-      if (err instanceof Error && err.message === 'username-not-found') {
-        setError('Usuario no encontrado')
+      if (err instanceof Error && err.message === 'dni-not-found') {
+        setError('DNI no encontrado')
       } else if (err instanceof FirebaseError) {
         const wrongCreds = ['auth/invalid-credential', 'auth/wrong-password', 'auth/user-not-found']
         if (wrongCreds.includes(err.code)) {
@@ -65,13 +65,14 @@ export default function LoginEmpresa() {
     <AuthLayout title="Ingreso Empresa" subtitle="Acceso equipo Rolito">
       <form onSubmit={handleLogin} className="flex flex-col gap-4">
         <Input
-          label="Usuario"
+          label="DNI"
           value={username}
-          onChange={(e) => setUsername(e.target.value)}
+          onChange={(e) => setUsername(e.target.value.replace(/\D/g, '').slice(0, 8))}
           required
-          placeholder="juan.garcia"
+          placeholder="36024287"
           autoComplete="username"
-          autoCapitalize="none"
+          inputMode="numeric"
+          maxLength={8}
         />
         <Input
           label="Contraseña"

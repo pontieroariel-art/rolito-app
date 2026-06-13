@@ -158,7 +158,7 @@ export const approveUser = (uid: string, approvedByUid: string): Promise<void> =
   })
 
 export interface CreateStaffParams {
-  username:       string
+  dni:            string
   password:       string
   nombreContacto: string
   rol:            UserRole
@@ -192,14 +192,14 @@ async function createUserViaSecondaryApp(
   }
 }
 
-export const createStaffUser = async ({ username, password, nombreContacto, rol }: CreateStaffParams): Promise<void> => {
-  const { normalizeUsername, usernameToStaffEmail, setStaffIndex } = await import('./staffAuthService')
-  const key   = normalizeUsername(username)
-  const email = usernameToStaffEmail(username)
+export const createStaffUser = async ({ dni, password, nombreContacto, rol }: CreateStaffParams): Promise<void> => {
+  const { dniToStaffEmail, setStaffDniIndex } = await import('./staffAuthService')
+  const normalizedDni = dni.replace(/\D/g, '')
+  const email = dniToStaffEmail(normalizedDni)
   await createUserViaSecondaryApp(email, password, {
     nombre:          nombreContacto,
     email,
-    username:        key,
+    dni:             normalizedDni,
     phone:           '',
     rol,
     estado:          'activo' as UserStatus,
@@ -213,7 +213,7 @@ export const createStaffUser = async ({ username, password, nombreContacto, rol 
     fechaAprobacion: serverTimestamp(),
     aprobadoPor:     'admin',
   })
-  await setStaffIndex(key, email)
+  await setStaffDniIndex(normalizedDni, email)
 }
 
 export const createClientUser = async ({ email, password, razonSocial, nombreContacto, cuit, telefono, estadoInicial = 'pendiente' }: CreateClientParams): Promise<void> => {
@@ -280,15 +280,16 @@ export const createClienteImportado = async (params: CreateClienteImportadoParam
 
 export interface CreateChoferParams {
   nombreContacto: string
-  username:       string
+  cuit:           string
   pin:            string
   telefono?:      string
 }
 
-export const createChoferUser = async ({ nombreContacto, username, pin, telefono }: CreateChoferParams): Promise<void> => {
-  const { normalizeUsername, usernameToEmail, setChoferIndex, padPin } = await import('./choferAuthService')
-  const key   = normalizeUsername(username)
-  const email = usernameToEmail(username)
+export const createChoferUser = async ({ nombreContacto, cuit, pin, telefono }: CreateChoferParams): Promise<void> => {
+  const { setDniIndex, padPin, dniFromCuit } = await import('./choferAuthService')
+  const normalizedCuit = cuit.replace(/\D/g, '')
+  const email = `${normalizedCuit}@rolito.app`
+  const dni   = dniFromCuit(normalizedCuit)
   await createUserViaSecondaryApp(email, padPin(pin), {
     nombre:          nombreContacto,
     email,
@@ -298,15 +299,15 @@ export const createChoferUser = async ({ nombreContacto, username, pin, telefono
     address:         '',
     razonSocial:     '',
     nombreContacto,
-    cuit:            '',
+    cuit:            normalizedCuit,
+    dni,
     telefono:        telefono || '',
-    username:        key,
     addresses:       [],
     fechaCreacion:   serverTimestamp(),
     fechaAprobacion: serverTimestamp(),
     aprobadoPor:     'admin',
   })
-  await setChoferIndex(key, email)
+  await setDniIndex(normalizedCuit, email)
 }
 
 // Repara entradas faltantes en cuitIndex para todos los clientes activos

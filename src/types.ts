@@ -93,6 +93,7 @@ export interface UserProfile {
   ultimoCambioPrecio?: Timestamp | null
   codigoCliente?:     string
   codVendedor?:       string   // código de vendedor asignado (e.g. MV, AD)
+  dni?:               string   // DNI sin puntos (8 dígitos) — staff y choferes
   notasContacto?:     string   // internal-only notes from Excel import (admin view)
   fechaAlta?:         Timestamp | null
   sector?:            string   // internal-only prefix from COD_CTE (e.g. FC, MDP, YPF)
