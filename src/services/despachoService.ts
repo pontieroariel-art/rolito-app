@@ -33,6 +33,23 @@ export const subscribeMyDespacho = (
   })
 }
 
+export const subscribeDespachoForAyudante = (
+  fecha: string,
+  ayudanteEmail: string,
+  cb: (d: Despacho | null) => void,
+): () => void => {
+  const q = query(
+    collection(db, 'despachos'),
+    where('fecha', '==', fecha),
+    where('ayudanteEmail', '==', ayudanteEmail),
+  )
+  return onSnapshot(q, (snap) => {
+    if (snap.empty) { cb(null); return }
+    const d = snap.docs[0]
+    cb({ ...d.data(), id: d.id } as Despacho)
+  })
+}
+
 // Llama ORS Optimization y devuelve los IDs ordenados + llegadas estimadas
 export async function optimizeStopOrder(params: {
   stopIds:   string[]

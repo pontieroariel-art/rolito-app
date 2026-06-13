@@ -40,20 +40,29 @@ export function useAllOrders(): { orders: Order[]; loading: boolean } {
   return { orders, loading }
 }
 
-export function useDriverOrders(): { orders: Order[]; loading: boolean } {
+// overrideEmail: undefined = usar email propio; null = no cargar (ayudante sin turno asignado)
+export function useDriverOrders(overrideEmail?: string | null): { orders: Order[]; loading: boolean } {
   const { user }              = useAuth()
   const [orders, setOrders]   = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
 
+  const email = overrideEmail === undefined ? user?.email : overrideEmail
+
   useEffect(() => {
-    if (!user?.email) return
+    if (!email) {
+      setOrders([])
+      setLoading(false)
+      return
+    }
+    setLoading(true)
+    setOrders([])
     const unsub = subscribeDriverOrders(
-      user.email,
+      email,
       (data) => { setOrders(data); setLoading(false) },
       ()     => setLoading(false),
     )
     return unsub
-  }, [user?.email])
+  }, [email])
 
   return { orders, loading }
 }

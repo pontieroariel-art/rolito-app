@@ -17,7 +17,7 @@ import { useDriverOrders } from '../../hooks/useOrders'
 import { markDelivered } from '../../services/orderService'
 import EntregaModal from '../../components/chofer/EntregaModal'
 import { updateDriverLocation, deactivateDriverLocation } from '../../services/locationService'
-import { subscribeMyDespacho, todayStr } from '../../services/despachoService'
+import { subscribeMyDespacho, subscribeDespachoForAyudante, todayStr } from '../../services/despachoService'
 import { useAuth } from '../../context/AuthContext'
 import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
 import { summarizeProducts } from '../../utils/helpers'
@@ -125,7 +125,6 @@ const MAP_OPTIONS: google.maps.MapOptions = {
 }
 
 export default function ChoferMap() {
-  const { orders, loading }           = useDriverOrders()
   const { user }                      = useAuth()
   const { isLoaded, loadError }       = useGoogleMapsLoader()
   const [directions, setDirections]   = useState<google.maps.DirectionsResult | null>(null)
@@ -137,14 +136,34 @@ export default function ChoferMap() {
   const [deliveryOrder, setDeliveryOrder] = useState<Order | null>(null)
   const [pdfLoading, setPdfLoading]   = useState(false)
   const [myDespacho,  setMyDespacho]  = useState<Despacho | null>(null)
-  const [manualOrder, setManualOrder] = useState<string[]>([]) // IDs en orden manual del chofer
+  const [manualOrder, setManualOrder] = useState<string[]>([])
   const [activeId,    setActiveId]    = useState<string | null>(null)
 
-  // Suscribirse al despacho del día para respetar el orden de logística
+  const isAyudante = user?.subrol === 'ayudante'
+  const [pairedDespacho,        setPairedDespacho]        = useState<Despacho | null>(null)
+  const [pairedDespachoLoading, setPairedDespachoLoading] = useState(isAyudante)
+
+  // Suscribirse al despacho: chofer propio o del chofer asignado (ayudante)
   useEffect(() => {
-    if (!user?.email) return
+    if (!user?.email || isAyudante) return
     return subscribeMyDespacho(todayStr(), user.email, setMyDespacho)
-  }, [user?.email])
+  }, [user?.email, isAyudante])
+
+  useEffect(() => {
+    if (!user?.email || !isAyudante) return
+    return subscribeDespachoForAyudante(todayStr(), user.email, (d) => {
+      setPairedDespacho(d)
+      setPairedDespachoLoading(false)
+      setMyDespacho(d)
+    })
+  }, [user?.email, isAyudante])
+
+  // Email para cargar pedidos del chofer asignado (ayudante) o propios (chofer)
+  const ordersEmail = isAyudante
+    ? (pairedDespachoLoading ? null : (pairedDespacho?.driverId ?? null))
+    : undefined
+
+  const { orders, loading }           = useDriverOrders(ordersEmail)
 
   const pending = useMemo(
     () => orders.filter((o) => o.status !== 'entregado' && o.clientAddress),
