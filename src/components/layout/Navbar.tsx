@@ -103,31 +103,31 @@ export default function Navbar() {
 
   return (
     <nav className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
-      <div className="px-3 flex items-stretch justify-between h-16">
+      <div className="px-3 flex items-stretch justify-between h-[72px]">
 
         {/* Logo */}
-        <Link to="/" className="flex items-center shrink-0 pr-3">
-          <img src="/logo-rolito.png" alt="Rolito" className="h-9 object-contain" />
+        <Link to="/" className="flex items-center shrink-0 pr-4">
+          <img src="/logo-rolito.png" alt="Rolito" className="h-10 object-contain" />
         </Link>
 
         {/* Links desktop */}
-        <div className="hidden md:flex items-stretch flex-1 overflow-x-auto gap-0.5" style={{ scrollbarWidth: 'none' }}>
+        <div className="hidden md:flex items-stretch flex-1 overflow-x-auto gap-1" style={{ scrollbarWidth: 'none' }}>
           {links.map((l) => (
             <NavLink
               key={l.to}
               to={l.to}
               className={({ isActive }) =>
-                `flex flex-col items-center justify-center gap-1 px-3.5 border-b-2 transition-all shrink-0 ${
+                `flex flex-col items-center justify-center gap-1.5 px-4 border-b-[3px] transition-all shrink-0 ${
                   isActive
                     ? 'border-accent text-accent'
-                    : 'border-transparent text-gray-400 hover:text-gray-700 hover:border-gray-200'
+                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
                 }`
               }
             >
               {({ isActive }) => (
                 <>
-                  <l.icon size={18} strokeWidth={isActive ? 2.2 : 1.75} />
-                  <span className="text-[10px] font-medium leading-none whitespace-nowrap">{l.label}</span>
+                  <l.icon size={22} strokeWidth={isActive ? 2.2 : 1.75} />
+                  <span className="text-[11px] font-semibold leading-none whitespace-nowrap">{l.label}</span>
                 </>
               )}
             </NavLink>
@@ -137,22 +137,22 @@ export default function Navbar() {
         {/* Usuario desktop */}
         <div className="hidden md:flex items-center gap-2 pl-3 border-l border-gray-100 ml-2 shrink-0">
           <div className="text-right">
-            <p className="text-xs font-semibold text-gray-800 leading-tight">
+            <p className="text-sm font-semibold text-gray-800 leading-tight">
               {user?.nombre?.split(' ')[0]}
             </p>
             {user?.rol && (
-              <p className="text-[10px] text-gray-400 leading-tight">{ROLE_LABELS[user.rol]}</p>
+              <p className="text-xs text-gray-500 leading-tight">{ROLE_LABELS[user.rol]}</p>
             )}
           </div>
-          <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-white text-xs font-bold shrink-0">
+          <div className="w-9 h-9 rounded-full bg-accent flex items-center justify-center text-white text-sm font-bold shrink-0">
             {initials}
           </div>
           <button
             onClick={handleLogout}
             title="Cerrar sesión"
-            className="text-gray-300 hover:text-red-400 transition-colors p-1.5 rounded-lg hover:bg-red-50"
+            className="text-gray-400 hover:text-red-500 transition-colors p-2 rounded-lg hover:bg-red-50"
           >
-            <LogOut size={15} />
+            <LogOut size={17} />
           </button>
         </div>
 
@@ -162,53 +162,53 @@ export default function Navbar() {
           aria-label={open ? 'Cerrar menú' : 'Abrir menú'}
           aria-expanded={open}
           aria-controls="mobile-menu"
-          className="md:hidden flex items-center text-gray-400 hover:text-gray-700 p-1.5"
+          className="md:hidden flex items-center text-gray-600 hover:text-gray-900 p-2"
         >
-          {open ? <X size={20} /> : <Menu size={20} />}
+          {open ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>
 
       {/* Menú mobile */}
       {open && (
         <div id="mobile-menu" className="md:hidden border-t border-gray-100 bg-white">
-          <div className="grid grid-cols-4 gap-1 p-3">
+          <div className="grid grid-cols-4 gap-1.5 p-3">
             {links.map((l) => (
               <NavLink
                 key={l.to}
                 to={l.to}
                 onClick={() => setOpen(false)}
                 className={({ isActive }) =>
-                  `flex flex-col items-center justify-center gap-1 rounded-xl py-3 px-1 transition-colors text-center ${
+                  `flex flex-col items-center justify-center gap-1.5 rounded-xl py-3.5 px-1 transition-colors text-center ${
                     isActive
                       ? 'bg-accent/10 text-accent'
-                      : 'text-gray-400 hover:text-gray-700 hover:bg-gray-50'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                   }`
                 }
               >
                 {({ isActive }) => (
                   <>
-                    <l.icon size={20} strokeWidth={isActive ? 2.2 : 1.75} />
-                    <span className="text-[10px] font-medium leading-none">{l.label}</span>
+                    <l.icon size={24} strokeWidth={isActive ? 2.2 : 1.75} />
+                    <span className="text-[11px] font-semibold leading-none">{l.label}</span>
                   </>
                 )}
               </NavLink>
             ))}
           </div>
           <div className="border-t border-gray-100 px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-accent flex items-center justify-center text-white text-xs font-bold">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-full bg-accent flex items-center justify-center text-white text-sm font-bold">
                 {initials}
               </div>
               <div>
-                <p className="text-xs font-semibold text-gray-800">{user?.nombre?.split(' ')[0]}</p>
-                <p className="text-[10px] text-gray-400">{user?.rol && ROLE_LABELS[user.rol]}</p>
+                <p className="text-sm font-semibold text-gray-800">{user?.nombre?.split(' ')[0]}</p>
+                <p className="text-xs text-gray-500">{user?.rol && ROLE_LABELS[user.rol]}</p>
               </div>
             </div>
             <button
               onClick={handleLogout}
-              className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-400 transition-colors"
+              className="flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-red-500 transition-colors"
             >
-              <LogOut size={14} />
+              <LogOut size={16} />
               Salir
             </button>
           </div>
