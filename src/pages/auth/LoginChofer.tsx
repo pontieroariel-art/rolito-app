@@ -29,11 +29,11 @@ export default function LoginChofer() {
       await loginChofer(username.trim(), pin)
     } catch (err) {
       if (err instanceof Error && err.message === 'username-not-found') {
-        setError('Usuario no encontrado')
+        setError('CUIT no encontrado')
       } else if (err instanceof FirebaseError) {
         const wrongCreds = ['auth/invalid-credential', 'auth/wrong-password', 'auth/user-not-found']
         if (wrongCreds.includes(err.code)) {
-          setError('Usuario o PIN incorrecto')
+          setError('CUIT o PIN incorrecto')
         } else if (err.code === 'auth/too-many-requests') {
           setError('Demasiados intentos. Esperá unos minutos.')
         } else {
@@ -48,15 +48,16 @@ export default function LoginChofer() {
   }
 
   return (
-    <AuthLayout title="Ingreso Choferes" subtitle="Ingresá con tu usuario y PIN">
+    <AuthLayout title="Ingreso Choferes" subtitle="Ingresá con tu CUIT y PIN">
       <form onSubmit={handleLogin} className="flex flex-col gap-4">
         <Input
-          label="Usuario"
+          label="CUIT"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           required
-          placeholder="tu.usuario"
+          placeholder="20360242871"
           autoComplete="username"
+          inputMode="numeric"
         />
         <Input
           label="PIN"
