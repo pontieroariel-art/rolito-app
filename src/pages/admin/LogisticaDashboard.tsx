@@ -435,7 +435,7 @@ function KanbanColumn({ id, label, sublabel, orders, choferes, isBandeja }: {
 // ── Página principal ──────────────────────────────────────────────────────────
 
 export default function LogisticaDashboard() {
-  const [mainTab,      setMainTab]      = useState<'despacho' | 'pedidos' | 'mapa'>('despacho')
+  const [mainTab,      setMainTab]      = useState<'despacho' | 'pedidos' | 'mapa'>('pedidos')
   const [importModal,  setImportModal]  = useState(false)
   const [pedidoManual, setPedidoManual] = useState(false)
   const [activeId,     setActiveId]     = useState<string | null>(null)
@@ -568,7 +568,7 @@ export default function LogisticaDashboard() {
         </div>
 
         <div className="flex border-b border-gray-200 gap-1">
-          {(['despacho', 'pedidos', 'mapa'] as const).map((t) => (
+          {(['pedidos', 'despacho', 'mapa'] as const).map((t) => (
             <button key={t} onClick={() => setMainTab(t)}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
                 mainTab === t ? 'border-accent text-accent' : 'border-transparent text-gray-500 hover:text-gray-900'
