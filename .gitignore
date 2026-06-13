@@ -22,3 +22,13 @@ npm-debug.log*
 
 # Local Netlify folder
 .netlify
+
+# Scripts — credenciales y archivos locales
+scripts/serviceAccount.json
+scripts/import-errores.txt
+
+# Firebase cache
+.firebase/
+
+# Screenshots de verificación
+.verify_screenshots/
