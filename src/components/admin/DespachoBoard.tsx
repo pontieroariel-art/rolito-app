@@ -442,7 +442,6 @@ function TransferModal({ fromDriver, fromDriverName, items, choferes, onClose, o
                   }`}>
                   <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
                   <span className="truncate">{nombre}</span>
-                  {c.camionPatente && <span className="ml-auto text-[10px] text-gray-400 shrink-0">{c.camionPatente}</span>}
                 </button>
               )
             })}
@@ -779,8 +778,8 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
       const ayudante = asig?.ayudanteEmail ? choferes.find((c) => c.email === asig.ayudanteEmail) : null
       const desp: Despacho = {
         id, fecha, driverId: driverEmail, driverName: nombre,
-        camionId:     camion?.id    ?? chofer.camionId    ?? null,
-        camionLabel:  camion ? `${camion.patente} — ${camion.modelo}` : (chofer.camionModelo ? `${chofer.camionPatente ?? ''} ${chofer.camionModelo}`.trim() : null),
+        camionId:     camion?.id    ?? null,
+        camionLabel:  camion ? `${camion.patente} — ${camion.modelo}` : null,
         ayudanteEmail: asig?.ayudanteEmail ?? null,
         ayudanteName:  ayudante ? (ayudante.nombreContacto || ayudante.nombre || ayudante.email) : null,
         status:       'confirmado', orderIds: ordered,
@@ -902,7 +901,7 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
                 chofer={c}
                 camiones={camiones}
                 ayudantes={ayudantes}
-                asignacion={asignacionesDia[c.email] ?? { camionId: c.camionId ?? null, ayudanteEmail: null }}
+                asignacion={asignacionesDia[c.email] ?? { camionId: null, ayudanteEmail: null }}
                 onAsignacionChange={(a) => handleAsignacionChange(c.email, a)}
                 items={itemsByDriver[c.email] ?? []}
                 routeOrder={routeOrder[c.email] ?? []}
@@ -937,7 +936,7 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
               {(() => {
                 const asig   = confirmingDriver ? asignacionesDia[confirmingDriver] : null
                 const camion = asig?.camionId ? camiones.find((cam) => cam.id === asig.camionId) : null
-                const label  = camion ? `${camion.patente} — ${camion.modelo}` : (confirmingChofer.camionModelo ? `${confirmingChofer.camionPatente ?? ''} ${confirmingChofer.camionModelo}`.trim() : null)
+                const label  = camion ? `${camion.patente} — ${camion.modelo}` : null
                 const ayud   = asig?.ayudanteEmail ? choferes.find((c) => c.email === asig.ayudanteEmail) : null
                 return (<>
                   {label && <p className="text-xs text-gray-400">🚛 {label}</p>}
