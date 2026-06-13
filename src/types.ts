@@ -175,6 +175,8 @@ export interface Despacho {
   orderIds:     string[]   // IDs en orden optimizado ORS
   plantaId?:    PlantaId   // planta de salida
   horaSalida?:  string     // 'HH:MM'
+  ayudanteEmail?: string | null
+  ayudanteName?:  string | null
   confirmedAt?: Timestamp | null
   confirmedBy?: string | null
   modifiedAfterConfirm?: boolean
