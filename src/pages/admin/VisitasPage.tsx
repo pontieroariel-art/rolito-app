@@ -1,4 +1,4 @@
-import { useState, ChangeEvent } from 'react'
+import { useState, useEffect, ChangeEvent } from 'react'
 import Navbar from '../../components/layout/Navbar'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'

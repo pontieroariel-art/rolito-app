@@ -287,8 +287,9 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
         // Paso 1: ORS Optimization — orden respetando horarios de clientes
         const jobs = all.map((stop, idx) => {
           const client = allClients.find((c) => c.uid === stop.clientId)
-          const open   = client?.horarioApertura ? timeStrToUnix(selectedDate, client.horarioApertura) : 0
-          const close  = client?.horarioCierre   ? timeStrToUnix(selectedDate, client.horarioCierre)   : vehicleEnd
+          const addr   = client ? getPrimaryAddress(client) : null
+          const open   = addr?.horarioApertura ? timeStrToUnix(selectedDate, addr.horarioApertura) : 0
+          const close  = addr?.horarioCierre   ? timeStrToUnix(selectedDate, addr.horarioCierre)   : vehicleEnd
           const job: Record<string, unknown> = {
             id:       idx + 1,
             location: [stop.lng, stop.lat],

@@ -57,7 +57,7 @@ export default function HistorialPage() {
   const { visitas, loading: visitasLoading } = useVisitasPuntuales()
   const { data: users = [], isLoading: usersLoading } = useQuery({
     queryKey:  ['users'],
-    queryFn:   getAllUsers,
+    queryFn:   () => getAllUsers(),
     staleTime: 300_000,
   })
 

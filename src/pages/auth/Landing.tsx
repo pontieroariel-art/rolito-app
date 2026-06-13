@@ -3,12 +3,13 @@ import { useAuth } from '../../context/AuthContext'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 
 const ROLE_HOME: Record<string, string> = {
-  super_admin: '/admin',
-  logistica:   '/logistica',
-  comercial:   '/comercial',
-  facturacion: '/movimientos',
-  chofer:      '/chofer',
-  cliente:     '/dashboard',
+  super_admin:       '/admin',
+  logistica:         '/logistica',
+  comercial:         '/comercial',
+  gerente_comercial: '/usuarios',
+  facturacion:       '/movimientos',
+  chofer:            '/chofer',
+  cliente:           '/dashboard',
 }
 
 export default function Landing() {

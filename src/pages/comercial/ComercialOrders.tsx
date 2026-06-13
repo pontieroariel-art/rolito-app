@@ -43,7 +43,7 @@ export default function ComercialOrders() {
   const { orders, loading: ordersLoading } = useAllOrders()
   const { data: users = [], isLoading: usersLoading } = useQuery({
     queryKey: ['users'],
-    queryFn:  getAllUsers,
+    queryFn:  () => getAllUsers(),
     staleTime: 300_000,
   })
 
