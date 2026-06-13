@@ -35,6 +35,19 @@ function toISODate(ddmmyyyy: string): string {
   return m ? `${m[3]}-${m[2]}-${m[1]}` : ''
 }
 
+// Normaliza nombres de producto extraídos del PDF al catálogo interno
+function normalizarProducto(raw: string): string {
+  const s = raw.toLowerCase().replace(/\s+/g, ' ').trim()
+  if (s.includes('2') && s.includes('kg') && (s.includes('bolsa') || s.includes('hielo'))) return 'Hielo bolsa 2kg'
+  if (s.includes('3') && s.includes('kg') && s.includes('bolsa'))  return 'Hielo bolsa 3kg'
+  if (s.includes('10') && s.includes('kg') && s.includes('picado')) return 'Hielo picado bolsa 10kg'
+  if (s.includes('10') && s.includes('kg') && s.includes('escama')) return 'Hielo en escamas 10kg'
+  if (s.includes('10') && s.includes('kg') && s.includes('bolsa')) return 'Hielo bolsa 10kg'
+  if (s.includes('barra'))                                           return 'Barra de hielo'
+  if (s.includes('anticorrosivo'))                                   return 'Anticorrosivo'
+  return raw // si no matchea nada conocido, dejar el nombre original
+}
+
 export function parsePedido(text: string): PedidoParsed | null {
   if (/Purchase Order:/i.test(text))               return parsePOFormat(text)
   if (/Nro\.\s*OC:|planexware/i.test(text))        return parseCarrefourFormat(text)
@@ -62,7 +75,7 @@ function parsePOFormat(text: string): PedidoParsed {
   const afterBarcode = barcodeIdx >= 0 ? text.slice(barcodeIdx + 13) : ''
   const nameLines = afterBarcode.split('\n').map((s) => s.trim()).filter(Boolean)
   const rawName   = nameLines.slice(0, 2).join(' ').split(/\s+EA\s/i)[0].trim()
-  const productName = rawName || 'Hielo Rolito Bolsa 2 kg'
+  const productName = normalizarProducto(rawName || 'Hielo bolsa 2kg')
 
   return { numeroOC, clientName, clientAddress, deliveryDate, horaEntrega: '', products: [{ name: productName, quantity: qty }] }
 }
@@ -89,7 +102,7 @@ function parseCarrefourFormat(text: string): PedidoParsed {
   // Product row: "7798021470027 HIELO BOLSA ROLITO POR 2 KG CJ 1 174 1560.0000 ..."
   const productRowMatch = text.match(/7798021470027\s+([A-ZÁÉÍÓÚÑ\s\d]+?)\s+(?:CJ|EA|UN|KG)\s+\d+\s+(\d+)\s+[\d.,]+/i)
   const qty         = productRowMatch ? parseInt(productRowMatch[2]) : 0
-  const productName = productRowMatch?.[1]?.trim() || 'Hielo Bolsa 2 kg'
+  const productName = normalizarProducto(productRowMatch?.[1]?.trim() || 'Hielo bolsa 2kg')
 
   return { numeroOC, clientName, clientAddress, deliveryDate, horaEntrega, products: [{ name: productName, quantity: qty }] }
 }
