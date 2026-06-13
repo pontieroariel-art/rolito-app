@@ -273,8 +273,9 @@ export default function ChoferMap() {
       const service = new google.maps.DirectionsService()
       const plantaCoords = myDespacho?.plantaId ? PLANTAS[myDespacho.plantaId] : null
       const plantaLatLng = plantaCoords ? { lat: plantaCoords.lat, lng: plantaCoords.lng } : null
-      const origin   = currentPos ?? plantaLatLng ?? orderedPending[0].clientAddress
-      const allStops = (currentPos || plantaLatLng) ? orderedPending : orderedPending.slice(1)
+      // Siempre salir desde la planta (igual que planificación), no desde GPS actual
+      const origin   = plantaLatLng ?? orderedPending[0].clientAddress
+      const allStops = plantaLatLng ? orderedPending : orderedPending.slice(1)
       const destination = allStops[allStops.length - 1].clientAddress
       const waypoints   = allStops.slice(0, -1).map((o) => ({
         location: o.clientAddress,
@@ -316,7 +317,10 @@ export default function ChoferMap() {
 
   const openAllInMaps = () => {
     if (orderedPending.length === 0) return
-    const origin    = currentPos ? `${currentPos.lat},${currentPos.lng}` : encodeURIComponent(orderedPending[0].clientAddress)
+    const plantaCoords = myDespacho?.plantaId ? PLANTAS[myDespacho.plantaId] : null
+    const origin    = plantaCoords
+      ? `${plantaCoords.lat},${plantaCoords.lng}`
+      : encodeURIComponent(orderedPending[0].clientAddress)
     const addresses = orderedPending.map((o) => encodeURIComponent(o.clientAddress)).join('/')
     window.open(`https://www.google.com/maps/dir/${origin}/${addresses}`, '_blank')
   }
