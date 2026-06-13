@@ -1381,10 +1381,12 @@ function GestionarDomiciliosModal({
   onClose:             () => void
   onAddressesChanged?: (addresses: DeliveryAddress[]) => void
 }) {
-  const [addresses, setAddresses] = useState(user.addresses ?? [])
-  const [showForm,  setShowForm]  = useState(false)
-  const [saving,    setSaving]    = useState(false)
-  const [saveError, setSaveError] = useState('')
+  const [addresses,    setAddresses]    = useState(user.addresses ?? [])
+  const [showForm,     setShowForm]     = useState(false)
+  const [saving,       setSaving]       = useState(false)
+  const [saveError,    setSaveError]    = useState('')
+  const [editingLocId, setEditingLocId] = useState<string | null>(null)
+  const [editLoc,      setEditLoc]      = useState<{ address: string; lat: number | null; lng: number | null }>({ address: '', lat: null, lng: null })
 
   const [newAddr, setNewAddr] = useState({
     nombre:           '',
@@ -1417,6 +1419,12 @@ function GestionarDomiciliosModal({
 
   const handleSetPrincipal = (id: string) =>
     save(addresses.map((a) => ({ ...a, esPrincipal: a.id === id })))
+
+  const handleSaveLocation = async (id: string) => {
+    if (!editLoc.lat || !editLoc.lng) return
+    await save(addresses.map((a) => a.id === id ? { ...a, address: editLoc.address || a.address, lat: editLoc.lat, lng: editLoc.lng } : a))
+    setEditingLocId(null)
+  }
 
   const handleAddSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -1470,8 +1478,41 @@ function GestionarDomiciliosModal({
               </button>
             </div>
 
-            {isLoaded && addr.lat && addr.lng && (
+            {isLoaded && addr.lat && addr.lng && editingLocId !== addr.id && (
               <AddressMapMini lat={addr.lat} lng={addr.lng} />
+            )}
+
+            {/* Editor de ubicación inline */}
+            {isLoaded && editingLocId === addr.id && (
+              <div className="space-y-2 pt-1">
+                <AddressAutocomplete
+                  initialValue={addr.address}
+                  onSelect={(address, lat, lng) => setEditLoc({ address, lat, lng })}
+                />
+                {editLoc.lat && editLoc.lng && (
+                  <AddressMapPicker
+                    lat={editLoc.lat}
+                    lng={editLoc.lng}
+                    height={220}
+                    onLocationChange={(address, lat, lng) => setEditLoc({ address, lat, lng })}
+                  />
+                )}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleSaveLocation(addr.id)}
+                    disabled={!editLoc.lat || saving}
+                    className="flex-1 text-xs bg-accent text-white rounded-lg py-1.5 disabled:opacity-40"
+                  >
+                    Guardar ubicación
+                  </button>
+                  <button
+                    onClick={() => setEditingLocId(null)}
+                    className="text-xs text-muted hover:text-white border border-border rounded-lg px-3 py-1.5"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
             )}
 
             {addr.horarioApertura && (
@@ -1483,6 +1524,15 @@ function GestionarDomiciliosModal({
               </p>
             )}
 
+            <div className="flex items-center gap-2 flex-wrap">
+            {isLoaded && editingLocId !== addr.id && (
+              <button
+                onClick={() => { setEditingLocId(addr.id); setEditLoc({ address: addr.address, lat: addr.lat ?? null, lng: addr.lng ?? null }) }}
+                className="text-xs text-accent hover:underline flex items-center gap-1"
+              >
+                <Navigation size={10} /> {addr.lat ? 'Editar ubicación' : 'Fijar ubicación'}
+              </button>
+            )}
             {!addr.esPrincipal && (
               <button
                 onClick={() => handleSetPrincipal(addr.id)}
@@ -1492,6 +1542,7 @@ function GestionarDomiciliosModal({
                 Establecer como principal
               </button>
             )}
+          </div>
           </div>
         ))}
 
