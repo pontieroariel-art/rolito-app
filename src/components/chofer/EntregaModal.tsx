@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import { Order, OrderProduct } from '../../types'
@@ -40,7 +40,7 @@ export default function EntregaModal({ order, onConfirm, onClose }: Props) {
       onClose={onClose}
       title={`Confirmar entrega — ${order.clientName}`}
     >
-      <p className="text-xs text-muted mb-4 truncate">{order.clientAddress}</p>
+      <p className="text-xs text-gray-500 mb-4 truncate">{order.clientAddress}</p>
 
       <div className="space-y-2 max-h-64 overflow-y-auto">
         {order.products.map((p) => {
@@ -50,7 +50,7 @@ export default function EntregaModal({ order, onConfirm, onClose }: Props) {
             <div
               key={p.name}
               className={`flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 border ${
-                menos ? 'bg-orange-500/5 border-orange-500/30' : 'bg-bg border-border'
+                menos ? 'bg-orange-500/5 border-orange-500/30' : 'bg-[#F8F7F2] border-[#D3D1C7]'
               }`}
             >
               <div className="min-w-0">
@@ -65,7 +65,7 @@ export default function EntregaModal({ order, onConfirm, onClose }: Props) {
                 <button
                   onClick={() => setQuantities((q) => ({ ...q, [p.name]: Math.max(0, (q[p.name] ?? p.quantity) - 1) }))}
                   disabled={qty === 0}
-                  className="w-8 h-8 rounded-full border border-border text-lg hover:border-accent transition-colors disabled:opacity-30 flex items-center justify-center"
+                  className="w-8 h-8 rounded-full border border-[#D3D1C7] text-lg hover:border-accent transition-colors disabled:opacity-30 flex items-center justify-center"
                 >
                   −
                 </button>
@@ -75,7 +75,7 @@ export default function EntregaModal({ order, onConfirm, onClose }: Props) {
                 <button
                   onClick={() => setQuantities((q) => ({ ...q, [p.name]: Math.min(p.quantity, (q[p.name] ?? p.quantity) + 1) }))}
                   disabled={qty >= p.quantity}
-                  className="w-8 h-8 rounded-full border border-border text-lg hover:border-accent transition-colors disabled:opacity-30 flex items-center justify-center"
+                  className="w-8 h-8 rounded-full border border-[#D3D1C7] text-lg hover:border-accent transition-colors disabled:opacity-30 flex items-center justify-center"
                 >
                   +
                 </button>
@@ -95,7 +95,7 @@ export default function EntregaModal({ order, onConfirm, onClose }: Props) {
             onChange={(e) => setNota(e.target.value)}
             rows={2}
             placeholder="Ej: Faltaban unidades en el camión, cliente rechazó parte..."
-            className="w-full bg-bg border border-orange-500/40 rounded-lg px-3 py-2 text-sm text-white placeholder-muted resize-none focus:outline-none focus:ring-1 focus:ring-orange-500"
+            className="w-full bg-[#F8F7F2] border border-orange-500/40 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-1 focus:ring-orange-500"
           />
         </div>
       )}

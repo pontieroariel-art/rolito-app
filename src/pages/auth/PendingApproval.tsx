@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+﻿import { useNavigate } from 'react-router-dom'
 import AuthLayout from '../../components/layout/AuthLayout'
 import Button from '../../components/ui/Button'
 import { logoutUser } from '../../services/authService'
@@ -18,7 +18,7 @@ export default function PendingApproval() {
         <p className="text-white text-sm leading-relaxed">
           Tu cuenta está siendo verificada. Te avisaremos cuando esté activa.
         </p>
-        <p className="text-muted text-xs">
+        <p className="text-gray-500 text-xs">
           Si tenés alguna consulta, contactá a nuestro equipo.
         </p>
         <Button variant="outline" onClick={handleLogout} className="w-full mt-2">

@@ -11,7 +11,7 @@ const variants: Record<ButtonVariant, string> = {
   primary: 'bg-accent text-white hover:bg-accent/90 focus:ring-accent/50',
   outline: 'border border-accent text-accent hover:bg-accent/10 focus:ring-accent/50',
   danger:  'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500/50',
-  ghost:   'text-muted hover:text-[#D3D1C7] hover:bg-surface',
+  ghost:   'text-gray-500 hover:text-gray-800 hover:bg-[#F1EFE8]',
   success: 'bg-accent text-white hover:bg-accent/90 focus:ring-accent/50',
 }
 

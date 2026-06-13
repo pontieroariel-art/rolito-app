@@ -43,7 +43,7 @@ function SortableStop({ order, index, isSkipped, onSkip, onUnskip, onDeliver }: 
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.35 : 1 }}
-      className={`flex justify-between items-center px-4 py-3 border-b border-border/50 last:border-0 gap-3 ${isSkipped ? 'opacity-50' : ''} ${isDragging ? 'bg-surface/80' : ''}`}
+      className={`flex justify-between items-center px-4 py-3 border-b border-[#D3D1C7]/60 last:border-0 gap-3 ${isSkipped ? 'opacity-50' : ''} ${isDragging ? 'bg-[#F1EFE8]' : ''}`}
     >
       {/* Handle de arrastre + número */}
       <div
@@ -51,7 +51,7 @@ function SortableStop({ order, index, isSkipped, onSkip, onUnskip, onDeliver }: 
         className="flex items-center gap-3 cursor-grab active:cursor-grabbing touch-none shrink-0"
         style={{ touchAction: 'none' }}
       >
-        <div className="flex flex-col gap-0.5 text-muted/40 hover:text-muted transition-colors px-0.5">
+        <div className="flex flex-col gap-0.5 text-gray-300 hover:text-gray-500 transition-colors px-0.5">
           <span className="block w-3.5 h-0.5 bg-current rounded-full" />
           <span className="block w-3.5 h-0.5 bg-current rounded-full" />
           <span className="block w-3.5 h-0.5 bg-current rounded-full" />
@@ -64,11 +64,11 @@ function SortableStop({ order, index, isSkipped, onSkip, onUnskip, onDeliver }: 
       {/* Info */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <p className="text-sm font-medium truncate">{order.clientName}</p>
-          {isSkipped && <span className="text-xs text-orange-400 shrink-0">postergado</span>}
+          <p className="text-sm font-medium text-gray-900 truncate">{order.clientName}</p>
+          {isSkipped && <span className="text-xs text-orange-500 shrink-0">postergado</span>}
         </div>
-        <p className="text-xs text-muted truncate">{order.clientAddress}</p>
-        <p className="text-xs text-muted/70">{summarizeProducts(order.products)}</p>
+        <p className="text-xs text-gray-500 truncate">{order.clientAddress}</p>
+        <p className="text-xs text-gray-400">{summarizeProducts(order.products)}</p>
       </div>
 
       {/* Acciones */}
@@ -85,7 +85,7 @@ function SortableStop({ order, index, isSkipped, onSkip, onUnskip, onDeliver }: 
           <button
             onPointerDown={(e) => e.stopPropagation()}
             onClick={() => onSkip(order.id)}
-            className="text-xs text-muted hover:text-yellow-400 px-2 py-1 border border-border rounded-lg"
+            className="text-xs text-gray-400 hover:text-yellow-600 px-2 py-1 border border-[#D3D1C7] rounded-lg"
             title="Saltear esta parada"
           >
             ⏭
@@ -105,23 +105,20 @@ function SortableStop({ order, index, isSkipped, onSkip, onUnskip, onDeliver }: 
 
 const MAP_CONTAINER_STYLE: React.CSSProperties = { width: '100%', height: '100%' }
 
-const DARK_MAP_STYLE: google.maps.MapTypeStyle[] = [
-  { elementType: 'geometry',           stylers: [{ color: '#111110' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#111110' }] },
-  { elementType: 'labels.text.fill',   stylers: [{ color: '#888780' }] },
-  { featureType: 'administrative',     elementType: 'geometry', stylers: [{ color: '#2C2C2A' }] },
-  { featureType: 'road',               elementType: 'geometry', stylers: [{ color: '#2C2C2A' }] },
-  { featureType: 'road.highway',       elementType: 'geometry', stylers: [{ color: '#1D9E75' }] },
-  { featureType: 'road',               elementType: 'labels.text.fill', stylers: [{ color: '#888780' }] },
-  { featureType: 'water',              elementType: 'geometry', stylers: [{ color: '#0A0A09' }] },
-  { featureType: 'water',              elementType: 'labels.text.fill', stylers: [{ color: '#2C2C2A' }] },
-  { featureType: 'poi',                elementType: 'geometry', stylers: [{ color: '#1C1C1A' }] },
-  { featureType: 'poi.park',           elementType: 'geometry', stylers: [{ color: '#1A2A1A' }] },
-  { featureType: 'transit',            elementType: 'geometry', stylers: [{ color: '#2C2C2A' }] },
+const WARM_MAP_STYLE: google.maps.MapTypeStyle[] = [
+  { featureType: 'poi',     stylers: [{ visibility: 'off' }] },
+  { featureType: 'transit', stylers: [{ visibility: 'simplified' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#f5e9c8' }] },
+  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#e0c97a' }] },
+  { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#ffffff' }] },
+  { featureType: 'road.local', elementType: 'geometry', stylers: [{ color: '#f9f6f0' }] },
+  { featureType: 'landscape', elementType: 'geometry', stylers: [{ color: '#f5f2ec' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#c9e4f0' }] },
+  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#d8ead2' }] },
 ]
 
 const MAP_OPTIONS: google.maps.MapOptions = {
-  styles:            DARK_MAP_STYLE,
+  styles:            WARM_MAP_STYLE,
   streetViewControl: false,
   mapTypeControl:    false,
   fullscreenControl: true,
@@ -327,9 +324,9 @@ export default function ChoferMap() {
 
   if (loadError) {
     return (
-      <div className="min-h-screen bg-bg text-[#D3D1C7]">
+      <div className="min-h-screen bg-[#F8F7F2] text-gray-900">
         <Navbar />
-        <div className="p-4 text-center text-red-400">
+        <div className="p-4 text-center text-red-500">
           Error cargando Google Maps. Verificá la API key.
         </div>
       </div>
@@ -337,7 +334,7 @@ export default function ChoferMap() {
   }
 
   return (
-    <div className="min-h-screen bg-bg text-[#D3D1C7]">
+    <div className="min-h-screen bg-[#F8F7F2] text-gray-900">
       <Navbar />
       <div className="flex flex-col" style={{ height: 'calc(100vh - 56px - 64px)' }}>
         {hasDespachoOrder && (
@@ -352,7 +349,7 @@ export default function ChoferMap() {
           </div>
         )}
 
-        <div className="p-3 flex flex-wrap gap-2 bg-surface border-b border-border shrink-0">
+        <div className="p-3 flex flex-wrap gap-2 bg-white border-b border-[#D3D1C7] shrink-0 shadow-sm">
           <Button
             onClick={calculateRoute}
             loading={calculating}
@@ -425,7 +422,7 @@ export default function ChoferMap() {
             onDragEnd={handleDragEnd}
           >
             <SortableContext items={orderedPending.map((o) => o.id)} strategy={verticalListSortingStrategy}>
-              <div className="bg-surface border-t border-border max-h-48 overflow-y-auto shrink-0">
+              <div className="bg-white border-t border-[#D3D1C7] max-h-48 overflow-y-auto shrink-0 shadow-[0_-1px_6px_rgba(0,0,0,0.05)]">
                 {orderedPending.map((o, i) => (
                   <SortableStop
                     key={o.id}
@@ -444,13 +441,13 @@ export default function ChoferMap() {
                 const o = orderedPending.find((x) => x.id === activeId)
                 if (!o) return null
                 return (
-                  <div className="bg-surface border border-accent/40 rounded-xl px-4 py-3 shadow-2xl flex items-center gap-3 opacity-95">
+                  <div className="bg-white border border-accent/40 rounded-xl px-4 py-3 shadow-2xl flex items-center gap-3 opacity-95">
                     <span className="w-6 h-6 rounded-full bg-accent/20 text-accent text-xs flex items-center justify-center font-bold shrink-0">
                       {orderedPending.indexOf(o) + 1}
                     </span>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-[#D3D1C7] truncate">{o.clientName}</p>
-                      <p className="text-xs text-muted truncate">{o.clientAddress}</p>
+                      <p className="text-sm font-medium text-gray-900 truncate">{o.clientName}</p>
+                      <p className="text-xs text-gray-500 truncate">{o.clientAddress}</p>
                     </div>
                   </div>
                 )
@@ -460,16 +457,16 @@ export default function ChoferMap() {
         )}
 
         {orderedPending.length === 0 && (
-          <div className="p-4 text-center text-accent bg-surface border-t border-border">
+          <div className="p-4 text-center text-accent bg-white border-t border-[#D3D1C7] font-medium">
             ✓ Todas las entregas del día completadas
           </div>
         )}
       </div>
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-surface border-t border-border flex z-30" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-[#D3D1C7] flex z-30 shadow-[0_-1px_8px_rgba(0,0,0,0.06)]" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <Link
           to="/chofer"
-          className="flex-1 flex flex-col items-center justify-center py-3 gap-1 text-xs font-medium text-muted hover:text-[#D3D1C7] transition-colors"
+          className="flex-1 flex flex-col items-center justify-center py-3 gap-1 text-xs font-medium text-gray-400 hover:text-gray-700 transition-colors"
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-5 h-5">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10" />
@@ -496,7 +493,7 @@ export default function ChoferMap() {
             setPdfLoading(false)
           }}
           disabled={!pending.length || pdfLoading}
-          className="flex-1 flex flex-col items-center justify-center py-3 gap-1 text-xs font-medium text-muted hover:text-[#D3D1C7] disabled:opacity-40 transition-colors"
+          className="flex-1 flex flex-col items-center justify-center py-3 gap-1 text-xs font-medium text-gray-400 hover:text-gray-700 disabled:opacity-40 transition-colors"
         >
           {pdfLoading ? (
             <span className="w-5 h-5 border-2 border-muted border-t-transparent rounded-full animate-spin" />

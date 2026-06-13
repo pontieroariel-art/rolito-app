@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+﻿import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Timestamp } from 'firebase/firestore'
 import { GoogleMap, Marker, InfoWindow, Polyline } from '@react-google-maps/api'
 import Navbar from '../../components/layout/Navbar'
@@ -130,21 +130,21 @@ function ReprogramarModal({
   return (
     <Modal open onClose={onClose} title="Reprogramar entrega">
       <div className="space-y-4 text-sm">
-        <div className="bg-surface border border-border rounded-lg px-3 py-2.5">
+        <div className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2.5">
           <p className="font-medium">{order.clientName}</p>
-          <p className="text-muted text-xs mt-0.5">{summarizeProducts(order.products)}</p>
-          <p className="text-muted text-xs">Fecha original: {formatShortDate(order.date)}</p>
+          <p className="text-gray-500 text-xs mt-0.5">{summarizeProducts(order.products)}</p>
+          <p className="text-gray-500 text-xs">Fecha original: {formatShortDate(order.date)}</p>
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs font-medium text-muted">Nueva fecha de entrega</label>
+          <label className="text-xs font-medium text-gray-500">Nueva fecha de entrega</label>
           <div className="flex gap-2 items-center">
             <input
               type="date"
               value={fecha}
               min={new Date().toISOString().split('T')[0]}
               onChange={(e) => setFecha(e.target.value)}
-              className="flex-1 bg-bg border border-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+              className="flex-1 bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
             />
             <button
               onClick={() => setFecha(tomorrow())}
@@ -156,11 +156,11 @@ function ReprogramarModal({
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs font-medium text-muted">Motivo</label>
+          <label className="text-xs font-medium text-gray-500">Motivo</label>
           <select
             value={motivo}
             onChange={(e) => setMotivo(e.target.value)}
-            className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+            className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
           >
             {MOTIVOS_INCIDENCIA.map((m) => (
               <option key={m} value={m}>{m}</option>
@@ -168,7 +168,7 @@ function ReprogramarModal({
           </select>
         </div>
 
-        <div className="bg-accent/5 border border-accent/20 rounded-lg px-3 py-2 text-xs text-muted">
+        <div className="bg-accent/5 border border-accent/20 rounded-lg px-3 py-2 text-xs text-gray-500">
           El cliente recibirá un email con la nueva fecha y el motivo.
         </div>
       </div>
@@ -217,17 +217,17 @@ function ReasignarModal({
   return (
     <Modal open onClose={onClose} title="Reasignar a otro chofer">
       <div className="space-y-4 text-sm">
-        <div className="bg-surface border border-border rounded-lg px-3 py-2.5">
+        <div className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2.5">
           <p className="font-medium">{order.clientName}</p>
-          <p className="text-muted text-xs mt-0.5">{summarizeProducts(order.products)}</p>
+          <p className="text-gray-500 text-xs mt-0.5">{summarizeProducts(order.products)}</p>
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs font-medium text-muted">Asignar a</label>
+          <label className="text-xs font-medium text-gray-500">Asignar a</label>
           <select
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+            className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
           >
             {otrosChoferes.map((c) => (
               <option key={c.email} value={c.email}>{c.nombreContacto || c.nombre}</option>
@@ -236,11 +236,11 @@ function ReasignarModal({
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs font-medium text-muted">Motivo</label>
+          <label className="text-xs font-medium text-gray-500">Motivo</label>
           <select
             value={motivo}
             onChange={(e) => setMotivo(e.target.value)}
-            className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+            className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
           >
             {MOTIVOS_INCIDENCIA.map((m) => <option key={m} value={m}>{m}</option>)}
           </select>
@@ -324,7 +324,7 @@ function FinJornadaModal({
         {/* Lista de pendientes */}
         <div className="space-y-1.5 max-h-36 overflow-y-auto">
           {pendingOrders.map((o) => (
-            <div key={o.id} className="flex items-center gap-2 text-xs text-muted">
+            <div key={o.id} className="flex items-center gap-2 text-xs text-gray-500">
               <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 shrink-0" />
               <span className="font-medium text-white truncate">{o.clientName}</span>
               <span className="truncate">{summarizeProducts(o.products)}</span>
@@ -333,16 +333,16 @@ function FinJornadaModal({
         </div>
 
         {/* Acción */}
-        <div className="flex rounded-xl border border-border overflow-hidden text-xs">
+        <div className="flex rounded-xl border border-[#D3D1C7] overflow-hidden text-xs">
           <button
             onClick={() => setAccion('reprogramar')}
-            className={`flex-1 py-2.5 font-medium transition-colors ${accion === 'reprogramar' ? 'bg-accent text-bg' : 'text-muted hover:text-white'}`}
+            className={`flex-1 py-2.5 font-medium transition-colors ${accion === 'reprogramar' ? 'bg-accent text-bg' : 'text-gray-500 hover:text-white'}`}
           >
             📅 Reprogramar todos
           </button>
           <button
             onClick={() => setAccion('reasignar')}
-            className={`flex-1 py-2.5 font-medium transition-colors ${accion === 'reasignar' ? 'bg-accent text-bg' : 'text-muted hover:text-white'}`}
+            className={`flex-1 py-2.5 font-medium transition-colors ${accion === 'reasignar' ? 'bg-accent text-bg' : 'text-gray-500 hover:text-white'}`}
           >
             🔄 Reasignar todos
           </button>
@@ -350,14 +350,14 @@ function FinJornadaModal({
 
         {accion === 'reprogramar' && (
           <div className="space-y-1">
-            <label className="text-xs font-medium text-muted">Nueva fecha</label>
+            <label className="text-xs font-medium text-gray-500">Nueva fecha</label>
             <div className="flex gap-2">
               <input
                 type="date"
                 value={fecha}
                 min={new Date().toISOString().split('T')[0]}
                 onChange={(e) => setFecha(e.target.value)}
-                className="flex-1 bg-bg border border-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+                className="flex-1 bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
               />
               <button
                 onClick={() => setFecha(tomorrow())}
@@ -371,11 +371,11 @@ function FinJornadaModal({
 
         {accion === 'reasignar' && (
           <div className="space-y-1">
-            <label className="text-xs font-medium text-muted">Asignar a</label>
+            <label className="text-xs font-medium text-gray-500">Asignar a</label>
             <select
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+              className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
             >
               <option value="">Seleccioná un chofer…</option>
               {otrosChoferes.map((c) => (
@@ -386,18 +386,18 @@ function FinJornadaModal({
         )}
 
         <div className="space-y-1">
-          <label className="text-xs font-medium text-muted">Motivo</label>
+          <label className="text-xs font-medium text-gray-500">Motivo</label>
           <select
             value={motivo}
             onChange={(e) => setMotivo(e.target.value)}
-            className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+            className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
           >
             {MOTIVOS_INCIDENCIA.map((m) => <option key={m} value={m}>{m}</option>)}
           </select>
         </div>
 
         {accion === 'reprogramar' && (
-          <p className="text-xs text-muted/70">Los clientes recibirán un email con la nueva fecha.</p>
+          <p className="text-xs text-gray-400">Los clientes recibirán un email con la nueva fecha.</p>
         )}
       </div>
 
@@ -624,7 +624,7 @@ function LiveMap({
     return map
   }, [ordersToday])
 
-  if (!isLoaded) return <div className="flex-1 bg-bg animate-pulse" />
+  if (!isLoaded) return <div className="flex-1 bg-[#F8F7F2] animate-pulse" />
 
   const visibleDriverEmails = selectedDriver ? [selectedDriver] : Object.keys(ordersByDriver)
 

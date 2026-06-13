@@ -1,4 +1,4 @@
-// Shared address picker: autocomplete dropdown (Google Maps JS API) + draggable map marker
+﻿// Shared address picker: autocomplete dropdown (Google Maps JS API) + draggable map marker
 // Uses google.maps.places — requires the 'places' library to be loaded (useGoogleMapsLoader)
 
 import { useState, useEffect, useRef, useId, ChangeEvent, KeyboardEvent } from 'react'
@@ -139,7 +139,7 @@ export function AddressAutocomplete({
         onFocus={() => { if (suggestions.length > 0) setOpen(true) }}
         placeholder="Ingresá la dirección..."
         autoComplete="off"
-        className="bg-bg border border-border rounded-lg px-3 py-2 text-white placeholder-muted w-full focus:outline-none focus:ring-2 focus:ring-accent transition-colors pr-8"
+        className="bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 placeholder-gray-400 w-full focus:outline-none focus:ring-2 focus:ring-accent transition-colors pr-8"
       />
       {loading && (
         <span
@@ -151,7 +151,7 @@ export function AddressAutocomplete({
         <ul
           id={listboxId}
           role="listbox"
-          className="absolute z-50 w-full bg-surface border border-border rounded-xl mt-1 shadow-2xl overflow-hidden"
+          className="absolute z-50 w-full bg-white border border-[#D3D1C7] rounded-xl mt-1 shadow-2xl overflow-hidden"
         >
           {suggestions.map((s, i) => (
             <li
@@ -160,15 +160,15 @@ export function AddressAutocomplete({
               role="option"
               aria-selected={focusedIdx === i}
               onMouseDown={() => handleSelect(s)}
-              className={`px-3 py-2.5 cursor-pointer border-b border-border/50 last:border-0 ${
-                focusedIdx === i ? 'bg-accent/10' : 'hover:bg-bg'
+              className={`px-3 py-2.5 cursor-pointer border-b border-[#D3D1C7]/50 last:border-0 ${
+                focusedIdx === i ? 'bg-accent/10' : 'hover:bg-[#F8F7F2]'
               }`}
             >
               <p className="text-sm text-white font-medium leading-tight">
                 {s.structured_formatting.main_text}
               </p>
               {s.structured_formatting.secondary_text && (
-                <p className="text-xs text-muted mt-0.5">
+                <p className="text-xs text-gray-500 mt-0.5">
                   {s.structured_formatting.secondary_text}
                 </p>
               )}
@@ -232,7 +232,7 @@ export function AddressMapPicker({
           />
         </GoogleMap>
       </div>
-      <p className="text-xs text-muted flex items-center gap-1">
+      <p className="text-xs text-gray-500 flex items-center gap-1">
         <MapPin size={10} className="shrink-0" />
         Arrastrá el pin para ajustar la ubicación exacta
       </p>
@@ -245,7 +245,7 @@ export function AddressMapPicker({
 
 export function AddressMapMini({ lat, lng }: { lat: number; lng: number }) {
   return (
-    <div className="rounded-xl overflow-hidden border border-border" style={{ height: 120 }}>
+    <div className="rounded-xl overflow-hidden border border-[#D3D1C7]" style={{ height: 120 }}>
       <GoogleMap
         mapContainerStyle={{ width: '100%', height: '100%' }}
         center={{ lat, lng }}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import AuthLayout from '../../components/layout/AuthLayout'
 import Input from '../../components/ui/Input'
@@ -60,7 +60,7 @@ export default function Login() {
               type="button"
               tabIndex={-1}
               onClick={() => setShowPassword((v) => !v)}
-              className="text-lg leading-none text-muted hover:text-white transition-colors"
+              className="text-lg leading-none text-gray-500 hover:text-white transition-colors"
             >
               {showPassword ? '🙈' : '👁️'}
             </button>
@@ -82,7 +82,7 @@ export default function Login() {
           Entrar
         </Button>
 
-        <div className="text-center text-sm text-muted space-y-2 mt-2">
+        <div className="text-center text-sm text-gray-500 space-y-2 mt-2">
           <Link to="/forgot-password" className="hover:text-accent block transition-colors">
             ¿Olvidaste tu contraseña?
           </Link>

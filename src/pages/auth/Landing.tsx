@@ -1,4 +1,4 @@
-import { Navigate, Link } from 'react-router-dom'
+﻿import { Navigate, Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 
@@ -23,7 +23,7 @@ export default function Landing() {
   }
 
   return (
-    <div className="min-h-screen bg-bg flex flex-col">
+    <div className="min-h-screen bg-[#F8F7F2] flex flex-col">
 
       {/* Cabecera con gradiente */}
       <div
@@ -43,7 +43,7 @@ export default function Landing() {
       {/* Contenido */}
       <div className="flex-1 flex flex-col items-center justify-center px-4 py-10 gap-8">
 
-        <p className="text-muted text-sm text-center">Seleccioná cómo querés ingresar</p>
+        <p className="text-gray-500 text-sm text-center">Seleccioná cómo querés ingresar</p>
 
         <div className="w-full max-w-sm space-y-4">
 
@@ -61,7 +61,7 @@ export default function Landing() {
                 <h2 className="text-xl font-bold text-white group-hover:text-accent transition-colors">
                   Ingreso Clientes
                 </h2>
-                <p className="text-muted text-sm mt-1">
+                <p className="text-gray-500 text-sm mt-1">
                   Ingresá con tu CUIT y contraseña para gestionar tus pedidos
                 </p>
               </div>
@@ -74,22 +74,22 @@ export default function Landing() {
           {/* Ingreso Choferes */}
           <Link
             to="/choferes"
-            className="block rounded-2xl border border-border hover:border-white/30 transition-colors p-6 group"
+            className="block rounded-2xl border border-[#D3D1C7] hover:border-white/30 transition-colors p-6 group"
             style={{ background: 'rgba(255,255,255,0.02)' }}
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold text-muted uppercase tracking-widest mb-1">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">
                   Choferes
                 </p>
                 <h2 className="text-xl font-bold text-white group-hover:text-white/80 transition-colors">
                   Ingreso Choferes
                 </h2>
-                <p className="text-muted text-sm mt-1">
+                <p className="text-gray-500 text-sm mt-1">
                   Acceso con usuario y PIN para repartidores
                 </p>
               </div>
-              <span className="text-muted text-2xl mt-1 shrink-0 group-hover:translate-x-1 transition-transform">
+              <span className="text-gray-500 text-2xl mt-1 shrink-0 group-hover:translate-x-1 transition-transform">
                 →
               </span>
             </div>
@@ -98,22 +98,22 @@ export default function Landing() {
           {/* Ingreso Empresa */}
           <Link
             to="/empresa"
-            className="block rounded-2xl border border-border hover:border-white/30 transition-colors p-6 group"
+            className="block rounded-2xl border border-[#D3D1C7] hover:border-white/30 transition-colors p-6 group"
             style={{ background: 'rgba(255,255,255,0.02)' }}
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold text-muted uppercase tracking-widest mb-1">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">
                   Equipo Rolito
                 </p>
                 <h2 className="text-xl font-bold text-white group-hover:text-white/80 transition-colors">
                   Ingreso Empresa
                 </h2>
-                <p className="text-muted text-sm mt-1">
+                <p className="text-gray-500 text-sm mt-1">
                   Acceso para administración, comercial, logística y facturación
                 </p>
               </div>
-              <span className="text-muted text-2xl mt-1 shrink-0 group-hover:translate-x-1 transition-transform">
+              <span className="text-gray-500 text-2xl mt-1 shrink-0 group-hover:translate-x-1 transition-transform">
                 →
               </span>
             </div>

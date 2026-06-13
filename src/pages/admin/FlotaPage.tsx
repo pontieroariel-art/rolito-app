@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, ChangeEvent } from 'react'
+﻿import { useState, useCallback, useMemo, ChangeEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Timestamp } from 'firebase/firestore'
 import Navbar from '../../components/layout/Navbar'
@@ -66,50 +66,50 @@ function CamionForm({
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-xs text-muted mb-1 block">Patente *</label>
+          <label className="text-xs text-gray-500 mb-1 block">Patente *</label>
           <input
             value={patente}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setPatente(e.target.value)}
             placeholder="AB123CD"
-            className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-accent uppercase"
+            className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent uppercase"
           />
         </div>
         <div>
-          <label className="text-xs text-muted mb-1 block">Marca</label>
+          <label className="text-xs text-gray-500 mb-1 block">Marca</label>
           <input
             value={marca}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setMarca(e.target.value)}
             placeholder="Iveco, Mercedes..."
-            className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+            className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
           />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-xs text-muted mb-1 block">Modelo *</label>
+          <label className="text-xs text-gray-500 mb-1 block">Modelo *</label>
           <input
             value={modelo}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setModelo(e.target.value)}
             placeholder="Daily 35S14, Sprinter 313..."
-            className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+            className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
           />
         </div>
         <div>
-          <label className="text-xs text-muted mb-1 block">Capacidad (pallets)</label>
+          <label className="text-xs text-gray-500 mb-1 block">Capacidad (pallets)</label>
           <input
             type="number"
             min={1}
             value={pallets}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setPallets(e.target.value)}
             placeholder="Ej: 12"
-            className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+            className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
           />
         </div>
       </div>
 
       {/* Canales */}
       <div>
-        <label className="text-xs text-muted mb-2 block">Canales de distribución</label>
+        <label className="text-xs text-gray-500 mb-2 block">Canales de distribución</label>
         <div className="flex flex-wrap gap-2">
           {CANALES_CAMION.map((canal) => {
             const active = canales.includes(canal)
@@ -121,7 +121,7 @@ function CamionForm({
                 className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
                   active
                     ? 'bg-accent/20 text-accent border-accent/50'
-                    : 'bg-bg text-muted border-border hover:border-accent/50 hover:text-white'
+                    : 'bg-[#F8F7F2] text-gray-500 border-[#D3D1C7] hover:border-accent/50 hover:text-white'
                 }`}
               >
                 {active ? '✓ ' : ''}{canal}

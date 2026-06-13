@@ -1,4 +1,4 @@
-import { useState, FormEvent, useEffect } from 'react'
+﻿import { useState, FormEvent, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { FirebaseError } from 'firebase/app'
 import AuthLayout from '../../components/layout/AuthLayout'
@@ -81,19 +81,19 @@ export default function LoginChofer() {
           Ingresar
         </Button>
 
-        <p className="text-center text-xs text-muted/60 mt-1">
+        <p className="text-center text-xs text-gray-400 mt-1">
           ¿Olvidaste tu PIN? Contactá al administrador.
         </p>
 
         <div className="flex items-center gap-3 my-1">
           <div className="flex-1 h-px bg-border" />
-          <span className="text-xs text-muted">o</span>
+          <span className="text-xs text-gray-500">o</span>
           <div className="flex-1 h-px bg-border" />
         </div>
 
-        <p className="text-center text-xs text-muted/60">
+        <p className="text-center text-xs text-gray-400">
           ¿Sos del equipo Rolito?{' '}
-          <Link to="/empresa" className="text-muted hover:text-accent transition-colors">
+          <Link to="/empresa" className="text-gray-500 hover:text-accent transition-colors">
             Ingresá acá
           </Link>
         </p>
