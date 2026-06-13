@@ -1,21 +1,11 @@
-﻿import { useState, useCallback, useMemo, ChangeEvent } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
-import { Timestamp } from 'firebase/firestore'
+﻿import { useState, ChangeEvent } from 'react'
 import Navbar from '../../components/layout/Navbar'
 import Button from '../../components/ui/Button'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import Modal from '../../components/ui/Modal'
 import { useFlota } from '../../hooks/useFlota'
-import { useChoferes } from '../../hooks/useChoferes'
-import { useAllOrders } from '../../hooks/useOrders'
-import { addCamion, updateCamion, asignarCamion } from '../../services/flotaService'
-import { Camion, UserProfile, CANALES_CAMION, CanalCamion } from '../../types'
-
-function isConfirmadoHoy(fechaAsignacion?: { toDate?: () => Date } | null): boolean {
-  if (!fechaAsignacion?.toDate) return false
-  const hoy = new Date().toLocaleDateString('es-AR')
-  return fechaAsignacion.toDate().toLocaleDateString('es-AR') === hoy
-}
+import { addCamion, updateCamion } from '../../services/flotaService'
+import { Camion, CANALES_CAMION, CanalCamion } from '../../types'
 
 // ── Formulario de camión ───────────────────────────────────────────────────────
 
@@ -140,196 +130,30 @@ function CamionForm({
   )
 }
 
-// ── Fila de chofer con asignación ─────────────────────────────────────────────
-
-function ChoferAsignacionRow({
-  chofer,
-  camiones,
-  ocupados,
-  tieneOrdenesHoy,
-  onUpdate,
-}: {
-  chofer:          UserProfile
-  camiones:        Camion[]
-  ocupados:        Set<string>
-  tieneOrdenesHoy: boolean
-  onUpdate:        (uid: string, updates: Partial<UserProfile>) => void
-}) {
-  const confirmadoHoy = isConfirmadoHoy(chofer.camionFechaAsignacion)
-  const sinCamion     = !chofer.camionId
-
-  const handleChange = (e: ChangeEvent<HTMLSelectElement>) => {
-    const camion = camiones.find((c) => c.id === e.target.value) ?? null
-    onUpdate(chofer.uid, camion ? {
-      camionId:              camion.id,
-      camionPatente:         camion.patente,
-      camionModelo:          camion.modelo,
-      camionFechaAsignacion: Timestamp.fromDate(new Date()),
-    } : {
-      camionId:              null,
-      camionPatente:         null,
-      camionModelo:          null,
-      camionFechaAsignacion: null,
-    })
-    asignarCamion(chofer.uid, camion).catch(console.error)
-  }
-
-  const handleConfirmar = () => {
-    if (!chofer.camionId) return
-    const camion = camiones.find((c) => c.id === chofer.camionId) ?? null
-    onUpdate(chofer.uid, { camionFechaAsignacion: Timestamp.fromDate(new Date()) })
-    asignarCamion(chofer.uid, camion).catch(console.error)
-  }
-
-  const needsAttention = tieneOrdenesHoy && (!confirmadoHoy || sinCamion)
-
-  return (
-    <div className={`bg-white border rounded-xl p-4 flex flex-wrap items-center gap-3 ${
-      needsAttention ? 'border-amber-300' : 'border-[#D3D1C7]'
-    }`}>
-      {/* Indicador */}
-      <div className="shrink-0">
-        {needsAttention ? (
-          <span className="text-amber-600 text-lg">⚠</span>
-        ) : confirmadoHoy ? (
-          <span className="text-success text-lg">✓</span>
-        ) : (
-          <span className="text-gray-400 text-lg">·</span>
-        )}
-      </div>
-
-      {/* Nombre */}
-      <div className="flex-1 min-w-32">
-        <p className="font-semibold text-sm text-gray-900">{chofer.nombreContacto || chofer.nombre}</p>
-        {confirmadoHoy && chofer.camionFechaAsignacion?.toDate && (
-          <p className="text-xs text-gray-500 mt-0.5">
-            Confirmado {chofer.camionFechaAsignacion.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
-          </p>
-        )}
-        {!confirmadoHoy && chofer.camionId && (
-          <p className="text-xs text-amber-600 mt-0.5">Sin confirmar hoy</p>
-        )}
-        {sinCamion && (
-          <p className="text-xs text-amber-600 mt-0.5">Sin camión asignado</p>
-        )}
-      </div>
-
-      {/* Selector */}
-      <select
-        value={chofer.camionId ?? ''}
-        onChange={handleChange}
-        className="bg-white border border-[#D3D1C7] rounded-lg px-2 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent flex-1 min-w-44 max-w-xs"
-      >
-        <option value="">— Sin camión —</option>
-        {camiones.filter((c) => c.activo && (!ocupados.has(c.id) || c.id === chofer.camionId)).map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.patente} — {c.marca ? `${c.marca} ` : ''}{c.modelo}
-          </option>
-        ))}
-      </select>
-
-      {/* Confirmar (solo si ya tiene asignado y no confirmó hoy) */}
-      {chofer.camionId && !confirmadoHoy && (
-        <Button
-          onClick={handleConfirmar}
-          className="text-xs py-1.5 px-3 shrink-0"
-        >
-          ✓ Confirmar
-        </Button>
-      )}
-    </div>
-  )
-}
-
 // ── Página principal ──────────────────────────────────────────────────────────
 
 export default function FlotaPage() {
   const { camiones, loading: loadingCamiones } = useFlota()
-  const { choferes, loading: loadingChoferes } = useChoferes()
-  const { orders }                              = useAllOrders()
-  const queryClient                             = useQueryClient()
   const [addModal,   setAddModal]   = useState(false)
   const [editCamion, setEditCamion] = useState<Camion | null>(null)
 
-  const ocupados = useMemo(
-    () => new Set(choferes.filter((c) => c.camionId).map((c) => c.camionId!)),
-    [choferes],
-  )
-
-  const handleChoferUpdate = useCallback((uid: string, updates: Partial<UserProfile>) => {
-    queryClient.setQueryData<UserProfile[]>(['users', 'choferes'], (old) =>
-      old?.map((u) => u.uid === uid ? { ...u, ...updates } : u) ?? []
-    )
-  }, [queryClient])
-
-  // Choferes con pedidos activos hoy
-  const chofereConOrdenesHoy = new Set(
-    orders
-      .filter((o) => !['entregado', 'cancelado'].includes(o.status) && o.driverId)
-      .map((o) => o.driverId!),
-  )
-
-  const sinConfirmarHoy = choferes.filter(
-    (c) => chofereConOrdenesHoy.has(c.email) && (!isConfirmadoHoy(c.camionFechaAsignacion) || !c.camionId),
-  )
-
-  if (loadingCamiones || loadingChoferes) return <><Navbar /><LoadingSpinner fullScreen /></>
+  if (loadingCamiones) return <><Navbar /><LoadingSpinner fullScreen /></>
 
   return (
-    <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
+    <div className="min-h-screen bg-[#F8F7F2] text-gray-900">
       <Navbar />
-      <main className="max-w-3xl mx-auto p-4 space-y-8 pb-10">
+      <main className="max-w-3xl mx-auto p-4 space-y-6 pb-10">
 
         <div className="flex flex-wrap justify-between items-center gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Flota de camiones</h1>
-            <p className="text-gray-500 text-sm">{camiones.filter((c) => c.activo).length} vehículos activos</p>
+            <p className="text-gray-500 text-sm">
+              {camiones.filter((c) => c.activo).length} vehículos activos
+              {' · '}
+              <span className="text-gray-400">La asignación diaria se gestiona en Planificación</span>
+            </p>
           </div>
         </div>
-
-        {/* Alerta del día */}
-        {sinConfirmarHoy.length > 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-3">
-            <span className="text-amber-600 text-xl shrink-0">⚠</span>
-            <div>
-              <p className="text-amber-700 font-semibold text-sm">
-                {sinConfirmarHoy.length} chofer{sinConfirmarHoy.length !== 1 ? 'es' : ''} sin camión confirmado para hoy
-              </p>
-              <p className="text-amber-600/70 text-xs mt-0.5">
-                {sinConfirmarHoy.map((c) => c.nombreContacto || c.nombre).join(', ')}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* ── Asignación del día ──────────────────────────────────────────── */}
-        <section className="space-y-3">
-          <div className="flex items-center gap-3">
-            <h2 className="text-lg font-semibold">Asignación del día</h2>
-            <span className="text-xs text-gray-500">
-              {new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}
-            </span>
-          </div>
-
-          {choferes.length === 0 ? (
-            <div className="bg-white border border-[#D3D1C7] rounded-xl p-6 text-center">
-              <p className="text-gray-500 text-sm">No hay choferes activos</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {choferes.map((chofer) => (
-                <ChoferAsignacionRow
-                  key={chofer.uid}
-                  chofer={chofer}
-                  camiones={camiones}
-                  ocupados={ocupados}
-                  tieneOrdenesHoy={chofereConOrdenesHoy.has(chofer.email)}
-                  onUpdate={handleChoferUpdate}
-                />
-              ))}
-            </div>
-          )}
-        </section>
 
         {/* ── Vehículos ───────────────────────────────────────────────────── */}
         <section className="space-y-3">
