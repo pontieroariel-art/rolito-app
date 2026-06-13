@@ -284,7 +284,7 @@ export default function ChoferDashboard() {
           </div>
         </div>
 
-        {pending.length > 0 && <CargaDelDia orders={pending} />}
+        {pending.length > 0 && <CargaDelDia orders={pending} catalogo={catalogo} />}
 
         {orders.length === 0 && (
           <div className="bg-white border border-[#D3D1C7] rounded-2xl p-10 text-center shadow-sm">
@@ -667,7 +667,7 @@ function DeliveryCard({ order, index, isFirst }: { order: Order; index: number; 
   )
 }
 
-function CargaDelDia({ orders }: { orders: Order[] }) {
+function CargaDelDia({ orders, catalogo }: { orders: Order[]; catalogo: import('../../types').CatalogProducto[] }) {
   const totals: Record<string, number> = {}
   orders.forEach((o) =>
     o.products.forEach((p) => {
@@ -677,28 +677,44 @@ function CargaDelDia({ orders }: { orders: Order[] }) {
   const items = Object.entries(totals).sort((a, b) => b[1] - a[1])
   const totalUnidades = items.reduce((acc, [, q]) => acc + q, 0)
 
+  const totalPallets = items.reduce((acc, [nombre, qty]) => {
+    const cat = catalogo.find((c) => c.nombre === nombre)
+    return cat?.unidadesPorPallet ? acc + qty / cat.unidadesPorPallet : acc
+  }, 0)
+
   return (
     <div className="bg-white border border-[#D3D1C7] rounded-2xl p-4 space-y-3 shadow-sm">
       <div className="flex justify-between items-center">
         <p className="font-semibold text-sm text-accent">Carga del día</p>
-        <span className="text-xs text-gray-400">{totalUnidades} unidades · {orders.length} paradas</span>
+        <span className="text-xs text-gray-400">{orders.length} paradas</span>
       </div>
       <div className="space-y-2">
-        {items.map(([nombre, qty]) => (
-          <div key={nombre} className="flex items-center gap-3">
-            <span className="text-sm text-gray-700 flex-1">{nombre}</span>
-            <div className="flex items-center gap-2">
-              <div className="w-24 h-1.5 bg-[#E8E6DF] rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-accent rounded-full"
-                  style={{ width: `${Math.round((qty / totalUnidades) * 100)}%` }}
-                />
+        {items.map(([nombre, qty]) => {
+          const cat = catalogo.find((c) => c.nombre === nombre)
+          const pallets = cat?.unidadesPorPallet ? qty / cat.unidadesPorPallet : null
+          return (
+            <div key={nombre} className="flex items-center gap-3">
+              <span className="text-sm text-gray-700 flex-1">{nombre}</span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-gray-500">{qty} u</span>
+                {pallets !== null && (
+                  <span className="text-accent font-bold text-sm">
+                    {Number.isInteger(pallets) ? pallets : pallets.toFixed(1)} pal
+                  </span>
+                )}
               </div>
-              <span className="text-accent font-bold text-sm w-8 text-right">{qty}</span>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
+      {totalPallets > 0 && (
+        <div className="border-t border-[#E8E6DF] pt-2 flex justify-between items-center">
+          <span className="text-xs text-gray-500">Total</span>
+          <span className="text-accent font-bold text-sm">
+            {Number.isInteger(totalPallets) ? totalPallets : totalPallets.toFixed(1)} pallets · {totalUnidades} unidades
+          </span>
+        </div>
+      )}
     </div>
   )
 }
