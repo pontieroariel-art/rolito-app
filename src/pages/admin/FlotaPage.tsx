@@ -170,9 +170,7 @@ export default function FlotaPage() {
             </div>
           ) : (
             <div className="space-y-2">
-              {camiones.map((c) => {
-                const asignadoA = choferes.find((ch) => ch.camionId === c.id)
-                return (
+              {camiones.map((c) => (
                   <div
                     key={c.id}
                     className={`bg-white border rounded-xl p-4 flex flex-wrap items-center justify-between gap-3 ${
@@ -186,11 +184,6 @@ export default function FlotaPage() {
                         <p className="text-gray-500 text-xs">
                           {c.marca ? `${c.marca} · ` : ''}{c.modelo}
                         </p>
-                        {asignadoA && (
-                          <p className="text-xs text-accent mt-0.5">
-                            Asignado a {asignadoA.nombreContacto || asignadoA.nombre}
-                          </p>
-                        )}
                         {c.capacidadPallets && (
                           <p className="text-xs text-gray-500 mt-0.5">{c.capacidadPallets} pallets cap.</p>
                         )}
@@ -230,8 +223,7 @@ export default function FlotaPage() {
                       </button>
                     </div>
                   </div>
-                )
-              })}
+              ))}
             </div>
           )}
         </section>
