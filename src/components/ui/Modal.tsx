@@ -1,4 +1,4 @@
-import { useEffect, useRef, ReactNode, useId } from 'react'
+﻿import { useEffect, useRef, ReactNode, useId } from 'react'
 
 interface ModalProps {
   open: boolean
@@ -44,7 +44,7 @@ export default function Modal({ open, onClose, title, children, variant = 'dark'
         className={`rounded-2xl w-full ${wide ? 'max-w-2xl' : 'max-w-md'} shadow-2xl outline-none flex flex-col max-h-[90vh] ${
           variant === 'light'
             ? 'bg-white border border-[#D3D1C7]'
-            : 'bg-surface border border-border'
+            : 'bg-white border border-[#D3D1C7]'
         }`}
       >
         <div className="flex justify-between items-center p-6 pb-4 shrink-0">
@@ -55,7 +55,7 @@ export default function Modal({ open, onClose, title, children, variant = 'dark'
             className={`transition-colors w-8 h-8 flex items-center justify-center rounded-lg ${
               variant === 'light'
                 ? 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
-                : 'text-muted hover:text-white hover:bg-bg'
+                : 'text-gray-500 hover:text-white hover:bg-[#F8F7F2]'
             }`}
           >
             ✕

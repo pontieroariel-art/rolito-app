@@ -1,4 +1,4 @@
-import { useState, ChangeEvent, useMemo } from 'react'
+﻿import { useState, ChangeEvent, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getDocs, query, collection, where } from 'firebase/firestore'
 import { db } from '../../services/firebase'
@@ -206,7 +206,7 @@ function StepProductos({
           <p className="text-xs text-accent font-medium">Cliente</p>
           <p className="text-sm font-semibold text-white">{nombreCliente}</p>
         </div>
-        <button onClick={onBack} className="text-xs text-muted hover:text-white transition-colors">
+        <button onClick={onBack} className="text-xs text-gray-500 hover:text-white transition-colors">
           Cambiar
         </button>
       </div>
@@ -239,7 +239,7 @@ function StepProductos({
       {/* Total */}
       {hasPrecios && total > 0 && (
         <div className="flex justify-between items-center bg-accent/5 border border-accent/20 rounded-xl px-4 py-2.5 text-sm">
-          <span className="text-muted">Total estimado</span>
+          <span className="text-gray-500">Total estimado</span>
           <span className="font-bold text-white">${total.toLocaleString('es-AR')}</span>
         </div>
       )}

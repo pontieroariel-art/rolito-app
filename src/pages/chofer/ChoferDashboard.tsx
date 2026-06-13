@@ -149,7 +149,7 @@ export default function ChoferDashboard() {
   if (loading) return <><Navbar /><LoadingSpinner fullScreen /></>
 
   return (
-    <div className="min-h-screen bg-bg text-[#D3D1C7]">
+    <div className="min-h-screen bg-[#F8F7F2] text-gray-900">
       <Navbar />
       {permission === 'default' && (
         <div className="max-w-2xl mx-auto px-4 pt-3">
@@ -161,11 +161,13 @@ export default function ChoferDashboard() {
           </button>
         </div>
       )}
-      <main className="max-w-2xl mx-auto p-4 space-y-6 pb-24">
-        <div className="flex flex-wrap justify-between items-start gap-3">
+      <main className="max-w-2xl mx-auto p-4 space-y-5 pb-28">
+
+        {/* Header */}
+        <div className="flex flex-wrap justify-between items-start gap-3 pt-1">
           <div>
-            <h1 className="text-2xl font-bold">Mis entregas de hoy</h1>
-            <p className="text-muted text-sm">
+            <h1 className="text-2xl font-bold text-gray-900">Mis entregas de hoy</h1>
+            <p className="text-gray-500 text-sm mt-0.5">
               {new Date().toLocaleDateString('es-AR', {
                 weekday: 'long', day: 'numeric', month: 'long',
               })}
@@ -173,50 +175,52 @@ export default function ChoferDashboard() {
           </div>
           <button
             onClick={() => { setPinModal(true); setPinOk(false); setPinError('') }}
-            className="text-xs text-muted hover:text-accent transition-colors border border-border rounded-lg px-3 py-1.5"
+            className="text-xs text-gray-400 hover:text-accent transition-colors border border-[#D3D1C7] rounded-lg px-3 py-1.5"
           >
             Cambiar PIN
           </button>
         </div>
 
+        {/* Turno del día — camión y ayudante */}
         {despachoHoy && (despachoHoy.camionLabel || despachoHoy.ayudanteName) && (
-          <div className="bg-surface border border-border rounded-2xl px-4 py-3 flex flex-wrap gap-3 text-sm">
+          <div className="bg-accent/5 border border-accent/20 rounded-2xl px-4 py-3 flex flex-wrap gap-4 text-sm">
             {despachoHoy.camionLabel && (
-              <span className="flex items-center gap-1.5 text-[#D3D1C7]">
-                🚛 <span className="font-medium">{despachoHoy.camionLabel}</span>
+              <span className="flex items-center gap-1.5 text-gray-700">
+                🚛 <span className="font-semibold text-gray-900">{despachoHoy.camionLabel}</span>
               </span>
             )}
             {despachoHoy.ayudanteName && (
-              <span className="flex items-center gap-1.5 text-[#D3D1C7]">
-                👤 <span className="font-medium">{despachoHoy.ayudanteName}</span>
+              <span className="flex items-center gap-1.5 text-gray-700">
+                👤 <span className="font-semibold text-gray-900">{despachoHoy.ayudanteName}</span>
               </span>
             )}
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-surface border border-border rounded-2xl p-4 text-center">
-            <p className="text-muted text-sm">Pendientes</p>
-            <p className="text-4xl font-bold text-[#D3D1C7] mt-1">{pending.length}</p>
+        {/* Contadores */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-white border border-[#D3D1C7] rounded-2xl p-5 text-center shadow-sm">
+            <p className="text-gray-500 text-xs font-medium uppercase tracking-wide">Por entregar</p>
+            <p className="text-5xl font-bold text-gray-900 mt-2 leading-none">{pending.length}</p>
           </div>
-          <div className="bg-surface border border-border rounded-2xl p-4 text-center">
-            <p className="text-muted text-sm">Entregados</p>
-            <p className="text-4xl font-bold text-accent mt-1">{delivered.length}</p>
+          <div className="bg-white border border-[#D3D1C7] rounded-2xl p-5 text-center shadow-sm">
+            <p className="text-gray-500 text-xs font-medium uppercase tracking-wide">Entregados</p>
+            <p className="text-5xl font-bold text-accent mt-2 leading-none">{delivered.length}</p>
           </div>
         </div>
 
         {pending.length > 0 && <CargaDelDia orders={pending} />}
 
         {orders.length === 0 && (
-          <div className="bg-surface border border-border rounded-2xl p-10 text-center">
+          <div className="bg-white border border-[#D3D1C7] rounded-2xl p-10 text-center shadow-sm">
             <p className="text-4xl mb-3">📦</p>
-            <p className="text-muted">No tenés entregas asignadas para hoy</p>
+            <p className="text-gray-500">No tenés entregas asignadas para hoy</p>
           </div>
         )}
 
         {pending.length > 0 && (
           <section>
-            <h2 className="text-lg font-semibold mb-3">Por entregar</h2>
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Por entregar</h2>
             <div className="space-y-3">
               {pending.map((o, i) => (
                 <DeliveryCard key={o.id} order={o} index={i + 1} isFirst={i === 0} />
@@ -227,25 +231,25 @@ export default function ChoferDashboard() {
 
         {(visitasHoy.length > 0 || puntualHoy.length > 0) && (
           <section className="space-y-2">
-            <h2 className="text-lg font-semibold">Visitas de hoy</h2>
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Visitas de hoy</h2>
             {visitasHoy.map((p) => {
               const yaEntregado = entregadosHoyIds.has(p.clientId)
               return (
-                <div key={p.id} className={`bg-surface border rounded-2xl p-4 space-y-2 ${yaEntregado ? 'border-accent/30 opacity-60' : 'border-accent/30'}`}>
+                <div key={p.id} className={`bg-white border rounded-2xl p-4 space-y-2 shadow-sm ${yaEntregado ? 'border-accent/30 opacity-60' : 'border-accent/30'}`}>
                   <div className="flex justify-between items-start gap-3">
                     <div>
-                      <div className="flex items-center gap-2">
-                        <p className="font-semibold text-sm">{p.clientName}</p>
-                        <span className="text-xs px-1.5 py-0.5 rounded bg-accent/15 text-accent border border-accent/20">recurrente</span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-semibold text-sm text-gray-900">{p.clientName}</p>
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-accent/10 text-accent border border-accent/20">recurrente</span>
                         {yaEntregado && <span className="text-xs text-accent font-medium">✓ Entregado</span>}
                       </div>
-                      <p className="text-muted text-xs mt-0.5">{p.clientAddress}</p>
+                      <p className="text-gray-500 text-xs mt-0.5">{p.clientAddress}</p>
                       {p.clientPhone && <a href={`tel:${p.clientPhone}`} className="text-accent text-xs hover:underline">{p.clientPhone}</a>}
-                      {p.notas && <p className="text-xs text-muted/70 italic mt-1">"{p.notas}"</p>}
+                      {p.notas && <p className="text-xs text-gray-400 italic mt-1">"{p.notas}"</p>}
                     </div>
                     {!yaEntregado && (
                       <Button onClick={() => setRegistrando({ tipo: 'programa', data: p })} className="text-xs py-2 px-4 shrink-0">
-                        Registrar entrega
+                        Registrar
                       </Button>
                     )}
                   </div>
@@ -253,26 +257,26 @@ export default function ChoferDashboard() {
               )
             })}
             {puntualHoy.map((v) => (
-              <div key={v.id} className={`bg-surface border rounded-2xl p-4 space-y-2 ${v.status === 'visitado' ? 'border-accent/30 opacity-60' : v.status === 'sin_contacto' ? 'border-orange-500/30 opacity-60' : 'border-border'}`}>
+              <div key={v.id} className={`bg-white border rounded-2xl p-4 space-y-2 shadow-sm ${v.status === 'visitado' ? 'border-accent/30 opacity-60' : v.status === 'sin_contacto' ? 'border-orange-300 opacity-60' : 'border-[#D3D1C7]'}`}>
                 <div className="flex justify-between items-start gap-3">
                   <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-semibold text-sm">{v.clientName}</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-semibold text-sm text-gray-900">{v.clientName}</p>
                       {v.status === 'visitado' && <span className="text-xs text-accent font-medium">✓ Entregado</span>}
-                      {v.status === 'sin_contacto' && <span className="text-xs text-orange-400 font-medium">Sin contacto</span>}
+                      {v.status === 'sin_contacto' && <span className="text-xs text-orange-500 font-medium">Sin contacto</span>}
                     </div>
-                    <p className="text-muted text-xs mt-0.5">{v.clientAddress}</p>
+                    <p className="text-gray-500 text-xs mt-0.5">{v.clientAddress}</p>
                     {v.clientPhone && <a href={`tel:${v.clientPhone}`} className="text-accent text-xs hover:underline">{v.clientPhone}</a>}
-                    {v.notas && <p className="text-xs text-muted/70 italic mt-1">"{v.notas}"</p>}
+                    {v.notas && <p className="text-xs text-gray-400 italic mt-1">"{v.notas}"</p>}
                   </div>
                   {v.status === 'pendiente' && (
                     <div className="flex flex-col gap-1.5 shrink-0">
                       <Button onClick={() => setRegistrando({ tipo: 'visita', data: v })} className="text-xs py-2 px-4">
-                        Registrar entrega
+                        Registrar
                       </Button>
                       <button
                         onClick={() => { setSinContactoMotivo(''); setSinContactoVisita(v) }}
-                        className="text-xs text-muted hover:text-orange-400 text-center"
+                        className="text-xs text-gray-400 hover:text-orange-500 text-center transition-colors"
                       >
                         Sin contacto
                       </button>
@@ -286,17 +290,17 @@ export default function ChoferDashboard() {
 
         {proximasVisitas.length > 0 && (
           <section className="space-y-3">
-            <h2 className="text-lg font-semibold">Próximas visitas</h2>
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Próximas visitas</h2>
             {proximasVisitas.map(({ label, fecha, items }) => (
               <div key={fecha}>
-                <p className="text-xs text-muted font-semibold uppercase tracking-wide mb-2 capitalize">{label}</p>
+                <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-2 capitalize">{label}</p>
                 <div className="space-y-2">
                   {items.map((v) => (
-                    <div key={v.id} className="bg-surface border border-border rounded-2xl p-4">
-                      <p className="font-semibold text-sm">{v.clientName}</p>
-                      <p className="text-muted text-xs mt-0.5">{v.clientAddress}</p>
+                    <div key={v.id} className="bg-white border border-[#D3D1C7] rounded-2xl p-4 shadow-sm">
+                      <p className="font-semibold text-sm text-gray-900">{v.clientName}</p>
+                      <p className="text-gray-500 text-xs mt-0.5">{v.clientAddress}</p>
                       {v.clientPhone && <a href={`tel:${v.clientPhone}`} className="text-accent text-xs hover:underline">{v.clientPhone}</a>}
-                      {v.notas && <p className="text-xs text-muted/70 italic mt-1">"{v.notas}"</p>}
+                      {v.notas && <p className="text-xs text-gray-400 italic mt-1">"{v.notas}"</p>}
                     </div>
                   ))}
                 </div>
@@ -307,16 +311,19 @@ export default function ChoferDashboard() {
 
         {delivered.length > 0 && (
           <section>
-            <h2 className="text-lg font-semibold mb-3 text-accent">✓ Entregados</h2>
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Entregados hoy</h2>
             <div className="space-y-2">
               {delivered.map((o) => (
                 <div
                   key={o.id}
-                  className="bg-surface border border-accent/20 rounded-2xl p-3 opacity-60"
+                  className="bg-white border border-accent/30 rounded-2xl p-3 opacity-70 shadow-sm"
                 >
-                  <p className="font-medium text-sm">{o.clientName}</p>
-                  <p className="text-muted text-xs">{o.clientAddress}</p>
-                  <p className="text-xs text-muted mt-1">{summarizeProducts(o.products)}</p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-accent font-bold text-xs">✓</span>
+                    <p className="font-medium text-sm text-gray-900">{o.clientName}</p>
+                  </div>
+                  <p className="text-gray-500 text-xs mt-0.5 pl-4">{o.clientAddress}</p>
+                  <p className="text-xs text-gray-400 mt-0.5 pl-4">{summarizeProducts(o.products)}</p>
                 </div>
               ))}
             </div>
@@ -337,8 +344,8 @@ export default function ChoferDashboard() {
       />
 
       {sinContactoVisita && (
-        <Modal open onClose={() => setSinContactoVisita(null)} title="Sin contacto">
-          <p className="text-sm text-muted mb-4">{sinContactoVisita.clientName}</p>
+        <Modal open onClose={() => setSinContactoVisita(null)} title="Sin contacto" variant="light">
+          <p className="text-sm text-gray-500 mb-4">{sinContactoVisita.clientName}</p>
           <div className="space-y-3">
             <div className="flex flex-wrap gap-2">
               {MOTIVOS_SIN_CONTACTO.map((m) => (
@@ -347,8 +354,8 @@ export default function ChoferDashboard() {
                   onClick={() => setSinContactoMotivo(m)}
                   className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
                     sinContactoMotivo === m
-                      ? 'bg-orange-500/20 border-orange-500/50 text-orange-400'
-                      : 'border-border text-muted hover:border-orange-500/40 hover:text-orange-400'
+                      ? 'bg-orange-500/10 border-orange-400 text-orange-600'
+                      : 'border-[#D3D1C7] text-gray-500 hover:border-orange-400 hover:text-orange-600'
                   }`}
                 >
                   {m}
@@ -360,7 +367,7 @@ export default function ChoferDashboard() {
               onChange={(e) => setSinContactoMotivo(e.target.value)}
               rows={2}
               placeholder="O escribí el motivo..."
-              className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm placeholder-muted resize-none focus:outline-none focus:ring-1 focus:ring-orange-500"
+              className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-xl px-3 py-2 text-sm text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-orange-400/30"
             />
           </div>
           <div className="flex gap-3 mt-5">
@@ -492,24 +499,24 @@ function RegistrarEntregaModal({
   }
 
   return (
-    <Modal open onClose={onClose} title={`Registrar entrega — ${clientName}`}>
-      <p className="text-xs text-muted mb-4 truncate">{clientAddress}</p>
+    <Modal open onClose={onClose} title={`Registrar entrega — ${clientName}`} variant="light">
+      <p className="text-xs text-gray-500 mb-4 truncate">{clientAddress}</p>
       <div className="space-y-2 max-h-72 overflow-y-auto">
         {catalogo.map((p) => {
           const qty = quantities[p.id] ?? 0
           return (
-            <div key={p.id} className="flex items-center justify-between gap-3 bg-bg border border-border rounded-xl px-3 py-2">
-              <p className="text-sm flex-1">{p.nombre}</p>
+            <div key={p.id} className="flex items-center justify-between gap-3 bg-[#F8F7F2] border border-[#D3D1C7] rounded-xl px-3 py-2">
+              <p className="text-sm text-gray-800 flex-1">{p.nombre}</p>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setQuantities((q) => ({ ...q, [p.id]: Math.max(0, (q[p.id] ?? 0) - 1) }))}
                   disabled={qty === 0}
-                  className="w-9 h-9 rounded-full border border-border text-lg hover:border-accent transition-colors disabled:opacity-30 flex items-center justify-center"
+                  className="w-9 h-9 rounded-full border border-[#D3D1C7] text-lg text-gray-600 hover:border-accent hover:text-accent transition-colors disabled:opacity-30 flex items-center justify-center"
                 >−</button>
-                <span className="w-8 text-center font-bold text-sm">{qty || '0'}</span>
+                <span className="w-8 text-center font-bold text-sm text-gray-900">{qty || '0'}</span>
                 <button
                   onClick={() => setQuantities((q) => ({ ...q, [p.id]: (q[p.id] ?? 0) + 1 }))}
-                  className="w-9 h-9 rounded-full border border-border text-lg hover:border-accent transition-colors flex items-center justify-center"
+                  className="w-9 h-9 rounded-full border border-[#D3D1C7] text-lg text-gray-600 hover:border-accent hover:text-accent transition-colors flex items-center justify-center"
                 >+</button>
               </div>
             </div>
@@ -536,15 +543,15 @@ function DeliveryCard({ order, index, isFirst }: { order: Order; index: number; 
 
   return (
     <>
-      <div className={`bg-surface border rounded-2xl p-4 space-y-3 ${isFirst ? 'border-accent' : 'border-border'}`}>
+      <div className={`bg-white rounded-2xl p-4 space-y-3 shadow-sm border border-[#D3D1C7] ${isFirst ? 'border-l-4 border-l-accent' : ''}`}>
         <div className="flex justify-between items-start gap-3">
           <div className="flex items-start gap-3">
-            <span className={`w-7 h-7 rounded-full text-sm flex items-center justify-center font-bold shrink-0 mt-0.5 ${isFirst ? 'bg-accent text-white' : 'bg-accent/20 text-accent'}`}>
+            <span className={`w-7 h-7 rounded-full text-sm flex items-center justify-center font-bold shrink-0 mt-0.5 ${isFirst ? 'bg-accent text-white' : 'bg-accent/10 text-accent'}`}>
               {index}
             </span>
             <div>
-              <p className="font-semibold">{order.clientName}</p>
-              <p className="text-muted text-sm">{order.clientAddress}</p>
+              <p className="font-semibold text-gray-900">{order.clientName}</p>
+              <p className="text-gray-500 text-sm">{order.clientAddress}</p>
               {order.clientPhone && (
                 <a href={`tel:${order.clientPhone}`} className="text-accent text-sm hover:underline">
                   📞 {order.clientPhone}
@@ -555,10 +562,10 @@ function DeliveryCard({ order, index, isFirst }: { order: Order; index: number; 
           <Badge status={order.status} variant="dark" />
         </div>
 
-        <p className="text-sm pl-10">{summarizeProducts(order.products)}</p>
+        <p className="text-sm text-gray-700 pl-10">{summarizeProducts(order.products)}</p>
 
         {order.notes && (
-          <p className="text-xs text-muted italic pl-10">"{order.notes}"</p>
+          <p className="text-xs text-gray-400 italic pl-10">"{order.notes}"</p>
         )}
 
         <div className="flex gap-2 pt-1">
@@ -596,17 +603,17 @@ function CargaDelDia({ orders }: { orders: Order[] }) {
   const totalUnidades = items.reduce((acc, [, q]) => acc + q, 0)
 
   return (
-    <div className="bg-surface border border-border rounded-2xl p-4 space-y-3">
+    <div className="bg-white border border-[#D3D1C7] rounded-2xl p-4 space-y-3 shadow-sm">
       <div className="flex justify-between items-center">
         <p className="font-semibold text-sm text-accent">Carga del día</p>
-        <span className="text-xs text-muted">{totalUnidades} unidades · {orders.length} paradas</span>
+        <span className="text-xs text-gray-400">{totalUnidades} unidades · {orders.length} paradas</span>
       </div>
       <div className="space-y-2">
         {items.map(([nombre, qty]) => (
           <div key={nombre} className="flex items-center gap-3">
-            <span className="text-sm flex-1">{nombre}</span>
+            <span className="text-sm text-gray-700 flex-1">{nombre}</span>
             <div className="flex items-center gap-2">
-              <div className="w-24 h-1.5 bg-border rounded-full overflow-hidden">
+              <div className="w-24 h-1.5 bg-[#E8E6DF] rounded-full overflow-hidden">
                 <div
                   className="h-full bg-accent rounded-full"
                   style={{ width: `${Math.round((qty / totalUnidades) * 100)}%` }}
@@ -633,11 +640,11 @@ function ChoferBottomNav({
   hasPending?: boolean
 }) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-surface border-t border-border flex z-30" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-[#D3D1C7] flex z-30 shadow-[0_-1px_8px_rgba(0,0,0,0.06)]" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
       <Link
         to="/chofer"
         className={`flex-1 flex flex-col items-center justify-center py-3 gap-1 text-xs font-medium transition-colors ${
-          activePage === 'entregas' ? 'text-accent' : 'text-muted hover:text-[#D3D1C7]'
+          activePage === 'entregas' ? 'text-accent' : 'text-gray-400 hover:text-gray-700'
         }`}
       >
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-5 h-5">
@@ -649,7 +656,7 @@ function ChoferBottomNav({
       <Link
         to="/chofer/map"
         className={`flex-1 flex flex-col items-center justify-center py-3 gap-1 text-xs font-medium transition-colors ${
-          activePage === 'ruta' ? 'text-accent' : 'text-muted hover:text-[#D3D1C7]'
+          activePage === 'ruta' ? 'text-accent' : 'text-gray-400 hover:text-gray-700'
         }`}
       >
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-5 h-5">
@@ -661,7 +668,7 @@ function ChoferBottomNav({
       <button
         onClick={onPdf}
         disabled={!hasPending || pdfLoading}
-        className="flex-1 flex flex-col items-center justify-center py-3 gap-1 text-xs font-medium text-muted hover:text-[#D3D1C7] disabled:opacity-40 transition-colors"
+        className="flex-1 flex flex-col items-center justify-center py-3 gap-1 text-xs font-medium text-gray-400 hover:text-gray-700 disabled:opacity-40 transition-colors"
       >
         {pdfLoading ? (
           <span className="w-5 h-5 border-2 border-muted border-t-transparent rounded-full animate-spin" />

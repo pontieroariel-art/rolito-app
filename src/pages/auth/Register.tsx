@@ -1,4 +1,4 @@
-import { useState, ChangeEvent, FormEvent } from 'react'
+﻿import { useState, ChangeEvent, FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { FirebaseError } from 'firebase/app'
 import { Eye, EyeOff } from 'lucide-react'
@@ -139,7 +139,7 @@ export default function Register() {
               type="button"
               tabIndex={-1}
               onClick={() => setShowPassword((v) => !v)}
-              className="text-muted hover:text-white transition-colors"
+              className="text-gray-500 hover:text-white transition-colors"
             >
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
@@ -158,7 +158,7 @@ export default function Register() {
               type="button"
               tabIndex={-1}
               onClick={() => setShowConfirm((v) => !v)}
-              className="text-muted hover:text-white transition-colors"
+              className="text-gray-500 hover:text-white transition-colors"
             >
               {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
@@ -175,7 +175,7 @@ export default function Register() {
           Crear cuenta
         </Button>
 
-        <p className="text-center text-sm text-muted mt-2">
+        <p className="text-center text-sm text-gray-500 mt-2">
           ¿Ya tenés cuenta?{' '}
           <Link to="/clientes" className="text-accent hover:underline">
             Iniciar sesión

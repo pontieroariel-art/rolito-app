@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, ChangeEvent, FormEvent, ReactNode } from 'react'
+﻿import { useState, useEffect, useMemo, useRef, ChangeEvent, FormEvent, ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import { deleteField, serverTimestamp } from 'firebase/firestore'
@@ -429,11 +429,11 @@ function CrearStaffModal({ onClose, onCreated }: { onClose: () => void; onCreate
           placeholder="Juan García"
         />
         <div>
-          <label className="text-xs text-muted mb-1 block">Rol</label>
+          <label className="text-xs text-gray-500 mb-1 block">Rol</label>
           <select
             value={rol}
             onChange={(e: ChangeEvent<HTMLSelectElement>) => setRol(e.target.value as UserRole)}
-            className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-accent"
+            className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
           >
             {STAFF_ROLES.map((r) => (
               <option key={r} value={r}>{ROLE_LABELS[r]}</option>
@@ -450,7 +450,7 @@ function CrearStaffModal({ onClose, onCreated }: { onClose: () => void; onCreate
           autoComplete="off"
           autoCapitalize="none"
         />
-        <p className="text-xs text-muted -mt-2">
+        <p className="text-xs text-gray-500 -mt-2">
           {isChofer ? 'El chofer ingresa con este usuario.' : 'El usuario ingresa con este nombre en la pantalla de empresa.'}
         </p>
 
@@ -468,13 +468,13 @@ function CrearStaffModal({ onClose, onCreated }: { onClose: () => void; onCreate
               type="button"
               tabIndex={-1}
               onClick={() => setShowPass((v) => !v)}
-              className="text-lg leading-none text-muted hover:text-white"
+              className="text-lg leading-none text-gray-500 hover:text-white"
             >
               {showPass ? '🙈' : '👁️'}
             </button>
           }
         />
-        <p className="text-xs text-muted -mt-2">
+        <p className="text-xs text-gray-500 -mt-2">
           {isChofer
             ? 'PIN de 4 dígitos. El chofer ingresa desde "Ingreso Choferes" en la app.'
             : 'El usuario podrá cambiar su contraseña desde "¿Olvidaste tu contraseña?" en Ingreso Empresa.'}
@@ -583,7 +583,7 @@ function CrearClienteModal({ onClose, onCreated, currentUserRol }: { onClose: ()
               type="button"
               tabIndex={-1}
               onClick={() => setShowPass((v) => !v)}
-              className="text-lg leading-none text-muted hover:text-white"
+              className="text-lg leading-none text-gray-500 hover:text-white"
             >
               {showPass ? '🙈' : '👁️'}
             </button>
@@ -594,7 +594,7 @@ function CrearClienteModal({ onClose, onCreated, currentUserRol }: { onClose: ()
             La cuenta se creará como borrador. El gerente comercial deberá revisar las condiciones y activarla.
           </p>
         ) : (
-          <p className="text-xs text-muted">
+          <p className="text-xs text-gray-500">
             La cuenta quedará activa de inmediato. El cliente puede ingresar con su CUIT y contraseña.
           </p>
         )}
@@ -717,7 +717,7 @@ function UserRow({ user, currentUser, listas, onRoleChange, onSubrolChange, onTo
             }
             {user.cuit && <p className="text-gray-500 text-xs mt-0.5">CUIT: {user.cuit}</p>}
             {user.codigoCliente && (
-              <p className="text-muted text-xs mt-0.5 flex items-center gap-1">
+              <p className="text-gray-500 text-xs mt-0.5 flex items-center gap-1">
                 <Hash size={9} className="shrink-0" />
                 {user.codigoCliente}
               </p>
@@ -725,14 +725,14 @@ function UserRow({ user, currentUser, listas, onRoleChange, onSubrolChange, onTo
             {(() => {
               const primary = user.addresses?.find((a) => a.esPrincipal) ?? user.addresses?.[0]
               return primary ? (
-                <p className="text-muted text-xs mt-0.5 truncate flex items-center gap-1">
+                <p className="text-gray-500 text-xs mt-0.5 truncate flex items-center gap-1">
                   <MapPin size={10} className="shrink-0" />
                   {primary.address}
                 </p>
               ) : null
             })()}
           </div>
-          <ChevronRight size={14} className="text-muted group-hover:text-accent transition-colors shrink-0" />
+          <ChevronRight size={14} className="text-gray-500 group-hover:text-accent transition-colors shrink-0" />
         </button>
 
         {/* Acciones */}
@@ -819,7 +819,7 @@ function UserRow({ user, currentUser, listas, onRoleChange, onSubrolChange, onTo
           {listaAsignada && (
             <button
               onClick={() => setPreciosModal(true)}
-              className="flex items-center gap-1.5 text-xs text-accent hover:text-white border border-accent/30 hover:border-accent rounded-lg px-3 py-1 transition-colors"
+              className="flex items-center gap-1.5 text-xs text-accent hover:bg-accent hover:text-white border border-accent/30 hover:border-accent rounded-lg px-3 py-1 transition-colors"
             >
               <Tag size={11} />
               {customCount > 0 ? `${customCount} precio${customCount !== 1 ? 's' : ''} especial${customCount !== 1 ? 'es' : ''}` : 'Precios especiales'}
@@ -940,35 +940,35 @@ function FichaClienteModal({
 
         {/* Empresa */}
         <section className="space-y-2">
-          <h3 className="text-xs font-semibold text-muted uppercase tracking-wider flex items-center gap-1.5">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
             <Building2 size={12} /> Empresa
           </h3>
-          <div className="bg-bg rounded-xl p-3 space-y-2">
+          <div className="bg-[#F8F7F2] rounded-xl p-3 space-y-2">
             <Row label="Razón social"    value={user.razonSocial || '—'} />
             <Row label="Nombre contacto" value={user.nombreContacto || user.nombre || '—'} />
-            {user.cuit && <Row label="CUIT" value={formatCuit(user.cuit)} icon={<CreditCard size={13} className="text-muted shrink-0" />} />}
+            {user.cuit && <Row label="CUIT" value={formatCuit(user.cuit)} icon={<CreditCard size={13} className="text-gray-500 shrink-0" />} />}
           </div>
         </section>
 
         {/* Contacto */}
         <section className="space-y-2">
-          <h3 className="text-xs font-semibold text-muted uppercase tracking-wider flex items-center gap-1.5">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
             <User size={12} /> Contacto
           </h3>
-          <div className="bg-bg rounded-xl p-3 space-y-2">
-            <Row label="Email"    value={user.email || '—'} icon={<Mail  size={13} className="text-muted shrink-0" />} />
-            {tel && <Row label="Teléfono" value={tel}       icon={<Phone size={13} className="text-muted shrink-0" />} />}
+          <div className="bg-[#F8F7F2] rounded-xl p-3 space-y-2">
+            <Row label="Email"    value={user.email || '—'} icon={<Mail  size={13} className="text-gray-500 shrink-0" />} />
+            {tel && <Row label="Teléfono" value={tel}       icon={<Phone size={13} className="text-gray-500 shrink-0" />} />}
           </div>
         </section>
 
         {/* Cuenta */}
         <section className="space-y-2">
-          <h3 className="text-xs font-semibold text-muted uppercase tracking-wider flex items-center gap-1.5">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
             <Calendar size={12} /> Cuenta
           </h3>
-          <div className="bg-bg rounded-xl p-3 space-y-2">
+          <div className="bg-[#F8F7F2] rounded-xl p-3 space-y-2">
             <div className="flex justify-between items-center">
-              <span className="text-xs text-muted">Estado</span>
+              <span className="text-xs text-gray-500">Estado</span>
               <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${STATUS_STYLES[user.estado]}`}>
                 {STATUS_LABELS[user.estado]}
               </span>
@@ -994,10 +994,10 @@ function FichaClienteModal({
         {/* Canal de precios */}
         {lista && (
           <section className="space-y-2">
-            <h3 className="text-xs font-semibold text-muted uppercase tracking-wider flex items-center gap-1.5">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
               <Tag size={12} /> Canal / precios
             </h3>
-            <div className="bg-bg rounded-xl p-3">
+            <div className="bg-[#F8F7F2] rounded-xl p-3">
               <Row label="Lista asignada" value={lista.nombre} />
               {Object.keys(user.preciosCustom ?? {}).length > 0 && (
                 <p className="text-xs text-yellow-400 mt-1.5">
@@ -1005,7 +1005,7 @@ function FichaClienteModal({
                 </p>
               )}
               {!canManagePrices && (
-                <p className="text-xs text-muted/50 mt-1.5">Solo el gerente comercial puede modificar precios.</p>
+                <p className="text-xs text-gray-400 mt-1.5">Solo el gerente comercial puede modificar precios.</p>
               )}
             </div>
           </section>
@@ -1014,17 +1014,17 @@ function FichaClienteModal({
         {/* Código de cliente — asignado por facturación */}
         {user.rol === 'cliente' && (canAssignCode || user.codigoCliente) && (
           <section className="space-y-2">
-            <h3 className="text-xs font-semibold text-muted uppercase tracking-wider flex items-center gap-1.5">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
               <Hash size={12} /> Código de cliente
             </h3>
-            <div className="bg-bg rounded-xl p-3">
+            <div className="bg-[#F8F7F2] rounded-xl p-3">
               {canAssignCode ? (
                 <div className="flex gap-2">
                   <input
                     value={codigoCliente}
                     onChange={(e: ChangeEvent<HTMLInputElement>) => setCodigoCliente(e.target.value)}
                     placeholder="Ej: CLI-0042"
-                    className="bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white flex-1 focus:outline-none focus:ring-1 focus:ring-accent placeholder-muted"
+                    className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 flex-1 focus:outline-none focus:ring-1 focus:ring-accent placeholder-gray-400"
                   />
                   <Button onClick={handleSaveCodigo} loading={savingCodigo} className="text-xs shrink-0">
                     Guardar
@@ -1034,7 +1034,7 @@ function FichaClienteModal({
                 <Row label="Código" value={user.codigoCliente ?? '—'} />
               )}
               {canAssignCode && (
-                <p className="text-xs text-muted/60 mt-1.5">Código interno de facturación para este cliente.</p>
+                <p className="text-xs text-gray-400 mt-1.5">Código interno de facturación para este cliente.</p>
               )}
             </div>
           </section>
@@ -1043,10 +1043,10 @@ function FichaClienteModal({
         {/* Visita */}
         {user.rol === 'cliente' && (
           <section className="space-y-2">
-            <h3 className="text-xs font-semibold text-muted uppercase tracking-wider flex items-center gap-1.5">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
               <Navigation size={12} /> Seguimiento de visita
             </h3>
-            <div className="bg-bg rounded-xl p-3 space-y-3">
+            <div className="bg-[#F8F7F2] rounded-xl p-3 space-y-3">
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
                   type="checkbox"
@@ -1059,12 +1059,12 @@ function FichaClienteModal({
               </label>
               {esVisita && (
                 <div>
-                  <label className="text-xs text-muted mb-1 block">Frecuencia</label>
+                  <label className="text-xs text-gray-500 mb-1 block">Frecuencia</label>
                   <select
                     value={frecuenciaVisita}
                     disabled={savingVisita}
                     onChange={(e: ChangeEvent<HTMLSelectElement>) => handleFrecuenciaChange(e.target.value)}
-                    className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-accent"
+                    className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
                   >
                     {Object.entries(FRECUENCIA_LABELS).map(([val, label]) => (
                       <option key={val} value={val}>{label}</option>
@@ -1072,7 +1072,7 @@ function FichaClienteModal({
                   </select>
                 </div>
               )}
-              {savingVisita && <p className="text-xs text-muted">Guardando…</p>}
+              {savingVisita && <p className="text-xs text-gray-500">Guardando…</p>}
             </div>
           </section>
         )}
@@ -1080,12 +1080,12 @@ function FichaClienteModal({
         {/* Domicilios */}
         <section className="space-y-2">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-semibold text-muted uppercase tracking-wider flex items-center gap-1.5">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
               <MapPin size={12} /> Domicilios ({localAddresses.length})
             </h3>
             <button
               onClick={() => setDomiciliosModal(true)}
-              className="flex items-center gap-1 text-xs text-accent hover:text-white border border-accent/30 hover:border-accent rounded-lg px-2.5 py-1 transition-colors"
+              className="flex items-center gap-1 text-xs text-accent hover:bg-accent hover:text-white border border-accent/30 hover:border-accent rounded-lg px-2.5 py-1 transition-colors"
             >
               <Plus size={11} /> Gestionar
             </button>
@@ -1094,9 +1094,9 @@ function FichaClienteModal({
           {localAddresses.length > 0 ? (
             <div className="space-y-2">
               {localAddresses.map((addr) => (
-                <div key={addr.id} className="bg-bg rounded-xl p-3 space-y-2">
+                <div key={addr.id} className="bg-[#F8F7F2] rounded-xl p-3 space-y-2">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <p className="text-sm font-medium text-white">{addr.nombre}</p>
+                    <p className="text-sm font-medium text-gray-900">{addr.nombre}</p>
                     {addr.esPrincipal && (
                       <span className="text-xs px-1.5 py-0.5 bg-accent/15 text-accent rounded-full border border-accent/30">
                         Principal
@@ -1107,18 +1107,18 @@ function FichaClienteModal({
                       : <span className="text-xs text-yellow-400">⚠ sin ubicación</span>
                     }
                   </div>
-                  <p className="text-xs text-muted">{addr.address}</p>
+                  <p className="text-xs text-gray-500">{addr.address}</p>
                   {isLoaded && addr.lat && addr.lng && (
                     <AddressMapMini lat={addr.lat} lng={addr.lng} />
                   )}
                   {addr.contactoNombre && (
-                    <p className="text-xs text-muted">
+                    <p className="text-xs text-gray-500">
                       Contacto: {addr.contactoNombre}
                       {addr.contactoTelefono && ` · ${addr.contactoTelefono}`}
                     </p>
                   )}
                   {addr.horarioApertura && addr.horarioCierre && (
-                    <p className="text-xs text-muted">
+                    <p className="text-xs text-gray-500">
                       Horario: {addr.horarioApertura} – {addr.horarioCierre}
                     </p>
                   )}
@@ -1128,7 +1128,7 @@ function FichaClienteModal({
           ) : (
             <button
               onClick={() => setDomiciliosModal(true)}
-              className="w-full bg-bg border border-dashed border-border rounded-xl p-4 text-center text-xs text-muted hover:text-accent hover:border-accent transition-colors"
+              className="w-full bg-[#F8F7F2] border border-dashed border-[#D3D1C7] rounded-xl p-4 text-center text-xs text-gray-500 hover:text-accent hover:border-accent transition-colors"
             >
               Sin domicilios registrados — clic para agregar
             </button>
@@ -1235,13 +1235,13 @@ function HistorialPreciosSection({
   return (
     <section className="space-y-2">
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-semibold text-muted uppercase tracking-wider flex items-center gap-1.5">
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
           <Clock size={12} /> Historial de precios
         </h3>
         {!visible && (
           <button
             onClick={handleLoad}
-            className="text-xs text-accent hover:text-white border border-accent/30 hover:border-accent rounded-lg px-2.5 py-1 transition-colors"
+            className="text-xs text-accent hover:bg-accent hover:text-white border border-accent/30 hover:border-accent rounded-lg px-2.5 py-1 transition-colors"
           >
             Ver historial
           </button>
@@ -1250,14 +1250,14 @@ function HistorialPreciosSection({
 
       {/* Desviación vs lista base */}
       {desvios.length > 0 && (
-        <div className="bg-bg rounded-xl p-3 space-y-2">
-          <p className="text-xs font-medium text-muted">Desviación respecto a lista base ({lista?.nombre})</p>
+        <div className="bg-[#F8F7F2] rounded-xl p-3 space-y-2">
+          <p className="text-xs font-medium text-gray-500">Desviación respecto a lista base ({lista?.nombre})</p>
           {desvios.map((d) => (
             <div key={d.nombre} className="flex justify-between items-center text-xs">
-              <span className="text-muted truncate flex-1">{d.nombre}</span>
+              <span className="text-gray-500 truncate flex-1">{d.nombre}</span>
               <div className="flex items-center gap-3 shrink-0">
-                <span className="text-muted">${d.listaPrice.toLocaleString('es-AR')}</span>
-                <span className="text-white font-medium">${d.customPrice.toLocaleString('es-AR')}</span>
+                <span className="text-gray-500">${d.listaPrice.toLocaleString('es-AR')}</span>
+                <span className="text-gray-900 font-medium">${d.customPrice.toLocaleString('es-AR')}</span>
                 <span className={`font-bold w-12 text-right ${
                   Math.abs(d.pct) > 20 ? 'text-red-400' : d.pct < 0 ? 'text-success' : 'text-orange-400'
                 }`}>
@@ -1270,16 +1270,16 @@ function HistorialPreciosSection({
       )}
 
       {!visible && (
-        <p className="text-xs text-muted/60 text-center py-1">Cargá el historial para ver el detalle de cambios</p>
+        <p className="text-xs text-gray-400 text-center py-1">Cargá el historial para ver el detalle de cambios</p>
       )}
 
       {visible && loading && (
-        <p className="text-xs text-muted text-center py-2 animate-pulse">Cargando historial…</p>
+        <p className="text-xs text-gray-500 text-center py-2 animate-pulse">Cargando historial…</p>
       )}
 
       {visible && !loading && historial.length === 0 && (
-        <div className="bg-bg rounded-xl p-4 text-center">
-          <p className="text-xs text-muted">Sin cambios registrados aún</p>
+        <div className="bg-[#F8F7F2] rounded-xl p-4 text-center">
+          <p className="text-xs text-gray-500">Sin cambios registrados aún</p>
         </div>
       )}
 
@@ -1287,8 +1287,8 @@ function HistorialPreciosSection({
         <>
           {/* Gráfico evolución */}
           {chartData && (
-            <div className="bg-bg rounded-xl p-3">
-              <p className="text-xs text-muted mb-2">Evolución de precios</p>
+            <div className="bg-[#F8F7F2] rounded-xl p-3">
+              <p className="text-xs text-gray-500 mb-2">Evolución de precios</p>
               <ResponsiveContainer width="100%" height={150}>
                 <LineChart data={chartData.rows} margin={{ top: 4, right: 8, left: 0, bottom: 4 }}>
                   <XAxis dataKey="fecha" tick={{ fontSize: 9, fill: '#64748b' }} />
@@ -1321,7 +1321,7 @@ function HistorialPreciosSection({
               const expired = vigDate && vigDate < new Date()
 
               return (
-                <div key={ev.id} className={`bg-bg rounded-xl p-3 space-y-1 border ${
+                <div key={ev.id} className={`bg-[#F8F7F2] rounded-xl p-3 space-y-1 border ${
                   big ? 'border-red-500/20' : 'border-transparent'
                 }`}>
                   <div className="flex items-start justify-between gap-2">
@@ -1330,7 +1330,7 @@ function HistorialPreciosSection({
                       <div className="min-w-0">
                         {ev.tipo === 'lista' ? (
                           <p className="text-xs">
-                            <span className="text-muted line-through">{ev.listaAnteriorNombre ?? '—'}</span>
+                            <span className="text-gray-500 line-through">{ev.listaAnteriorNombre ?? '—'}</span>
                             {' → '}
                             <span className="text-accent font-medium">{ev.listaNuevaNombre ?? '—'}</span>
                           </p>
@@ -1342,7 +1342,7 @@ function HistorialPreciosSection({
                               <span className="text-red-400">eliminado (era ${(ev.precioAnterior ?? 0).toLocaleString('es-AR')})</span>
                             ) : (
                               <>
-                                <span className="text-muted">${(ev.precioAnterior ?? 0).toLocaleString('es-AR')}</span>
+                                <span className="text-gray-500">${(ev.precioAnterior ?? 0).toLocaleString('es-AR')}</span>
                                 {' → '}
                                 <span className="text-accent font-medium">${(ev.precioNuevo ?? 0).toLocaleString('es-AR')}</span>
                                 {diff !== null && (
@@ -1354,14 +1354,14 @@ function HistorialPreciosSection({
                             )}
                           </p>
                         )}
-                        <p className="text-xs text-muted/70">{ev.modificadoPorNombre}</p>
+                        <p className="text-xs text-gray-400">{ev.modificadoPorNombre}</p>
                         {ev.motivo && (
-                          <p className="text-xs text-muted/60 italic mt-0.5">"{ev.motivo}"</p>
+                          <p className="text-xs text-gray-400 italic mt-0.5">"{ev.motivo}"</p>
                         )}
                       </div>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-xs text-muted">{relativeTime(fecha)}</p>
+                      <p className="text-xs text-gray-500">{relativeTime(fecha)}</p>
                       {vigDate && (
                         <p className={`text-xs mt-0.5 ${expired ? 'text-red-400' : 'text-accent/70'}`}>
                           {expired ? 'vencido' : `hasta ${vigDate.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}`}
@@ -1384,8 +1384,8 @@ function HistorialPreciosSection({
 function Row({ label, value, icon }: { label: string; value: string; icon?: ReactNode }) {
   return (
     <div className="flex justify-between items-start gap-3">
-      <span className="text-xs text-muted shrink-0">{label}</span>
-      <span className="text-xs text-white text-right flex items-center gap-1">
+      <span className="text-xs text-gray-500 shrink-0">{label}</span>
+      <span className="text-xs text-gray-600 text-right flex items-center gap-1">
         {icon}
         {value}
       </span>
@@ -1477,7 +1477,7 @@ function GestionarDomiciliosModal({
 
         {/* Lista de domicilios existentes */}
         {addresses.map((addr) => (
-          <div key={addr.id} className="bg-bg rounded-xl p-3 space-y-2 border border-border">
+          <div key={addr.id} className="bg-[#F8F7F2] rounded-xl p-3 space-y-2 border border-[#D3D1C7]">
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
@@ -1492,7 +1492,7 @@ function GestionarDomiciliosModal({
                     : <span className="text-xs text-yellow-400">⚠ sin mapa</span>
                   }
                 </div>
-                <p className="text-xs text-muted mt-0.5">{addr.address}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{addr.address}</p>
               </div>
               <button
                 onClick={() => handleDelete(addr.id)}
@@ -1532,7 +1532,7 @@ function GestionarDomiciliosModal({
                   </button>
                   <button
                     onClick={() => setEditingLocId(null)}
-                    className="text-xs text-muted hover:text-white border border-border rounded-lg px-3 py-1.5"
+                    className="text-xs text-gray-500 hover:text-white border border-[#D3D1C7] rounded-lg px-3 py-1.5"
                   >
                     Cancelar
                   </button>
@@ -1541,10 +1541,10 @@ function GestionarDomiciliosModal({
             )}
 
             {addr.horarioApertura && (
-              <p className="text-xs text-muted">Horario: {addr.horarioApertura} – {addr.horarioCierre}</p>
+              <p className="text-xs text-gray-500">Horario: {addr.horarioApertura} – {addr.horarioCierre}</p>
             )}
             {addr.contactoNombre && (
-              <p className="text-xs text-muted">
+              <p className="text-xs text-gray-500">
                 Contacto: {addr.contactoNombre}{addr.contactoTelefono && ` · ${addr.contactoTelefono}`}
               </p>
             )}
@@ -1572,7 +1572,7 @@ function GestionarDomiciliosModal({
         ))}
 
         {addresses.length === 0 && !showForm && (
-          <p className="text-xs text-muted text-center py-2">Sin domicilios registrados</p>
+          <p className="text-xs text-gray-500 text-center py-2">Sin domicilios registrados</p>
         )}
 
         {saveError && (
@@ -1581,22 +1581,22 @@ function GestionarDomiciliosModal({
 
         {/* Formulario para agregar */}
         {showForm ? (
-          <form onSubmit={handleAddSubmit} className="space-y-3 border border-accent/30 rounded-xl p-4 bg-bg/50">
+          <form onSubmit={handleAddSubmit} className="space-y-3 border border-accent/30 rounded-xl p-4 bg-[#F8F7F2]/50">
             <p className="text-sm font-semibold text-accent">Nuevo domicilio</p>
 
             <div className="flex flex-col gap-1">
-              <label className="text-xs text-muted">Nombre de la sucursal</label>
+              <label className="text-xs text-gray-500">Nombre de la sucursal</label>
               <input
                 value={newAddr.nombre}
                 onChange={(e) => setNewAddr((f) => ({ ...f, nombre: e.target.value }))}
                 placeholder="Depósito norte, Sede central..."
                 required
-                className="bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white placeholder-muted focus:outline-none focus:ring-1 focus:ring-accent"
+                className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-accent"
               />
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-muted">Dirección</label>
+              <label className="text-xs text-gray-500">Dirección</label>
               <AddressAutocomplete
                 onSelect={(address, lat, lng) => {
                   setAddrError('')
@@ -1623,12 +1623,12 @@ function GestionarDomiciliosModal({
             <div className="grid grid-cols-2 gap-2">
               {(['horarioApertura', 'horarioCierre'] as const).map((field, i) => (
                 <div key={field} className="flex flex-col gap-1">
-                  <label className="text-xs text-muted">{i === 0 ? 'Apertura' : 'Cierre'}</label>
+                  <label className="text-xs text-gray-500">{i === 0 ? 'Apertura' : 'Cierre'}</label>
                   <input
                     type="time"
                     value={newAddr[field]}
                     onChange={(e) => setNewAddr((f) => ({ ...f, [field]: e.target.value }))}
-                    className="bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-accent"
+                    className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
                   />
                 </div>
               ))}
@@ -1637,12 +1637,12 @@ function GestionarDomiciliosModal({
             <div className="grid grid-cols-2 gap-2">
               {([['contactoNombre', 'Nombre contacto', 'Juan García'], ['contactoTelefono', 'Teléfono', '+54 11...']] as const).map(([field, label, placeholder]) => (
                 <div key={field} className="flex flex-col gap-1">
-                  <label className="text-xs text-muted">{label}</label>
+                  <label className="text-xs text-gray-500">{label}</label>
                   <input
                     value={newAddr[field]}
                     onChange={(e) => setNewAddr((f) => ({ ...f, [field]: e.target.value }))}
                     placeholder={placeholder}
-                    className="bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white placeholder-muted focus:outline-none focus:ring-1 focus:ring-accent"
+                    className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-accent"
                   />
                 </div>
               ))}
@@ -1784,7 +1784,7 @@ function PreciosCustomModal({
       onClose={onClose}
       title={`Precios especiales — ${user.razonSocial || user.nombre}`}
     >
-      <p className="text-xs text-muted mb-4">
+      <p className="text-xs text-gray-500 mb-4">
         Dejá el campo vacío para usar el precio del canal ({lista.nombre}).
         Ingresá un valor para sobreescribir solo ese producto.
       </p>
@@ -1808,11 +1808,11 @@ function PreciosCustomModal({
                   </span>
                 )}
               </div>
-              <span className="text-xs text-muted shrink-0 w-16 text-right">
+              <span className="text-xs text-gray-500 shrink-0 w-16 text-right">
                 Canal: ${item.precio.toLocaleString('es-AR')}
               </span>
               <div className="relative w-28 shrink-0">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted text-xs">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs">$</span>
                 <input
                   type="number"
                   min="0"
@@ -1827,8 +1827,8 @@ function PreciosCustomModal({
                       return next
                     })
                   }}
-                  className={`w-full bg-bg border rounded-lg pl-6 pr-2 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-accent ${
-                    hasOverride ? 'border-yellow-500/50 bg-yellow-500/5' : 'border-border'
+                  className={`w-full bg-[#F8F7F2] border rounded-lg pl-6 pr-2 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent ${
+                    hasOverride ? 'border-yellow-500/50 bg-yellow-500/5' : 'border-[#D3D1C7]'
                   }`}
                 />
               </div>
@@ -1838,26 +1838,26 @@ function PreciosCustomModal({
       </div>
 
       {/* Vigencia y motivo */}
-      <div className="mt-4 space-y-3 border-t border-border/50 pt-4">
+      <div className="mt-4 space-y-3 border-t border-[#D3D1C7]/50 pt-4">
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs text-muted mb-1 block">Válido hasta (opcional)</label>
+            <label className="text-xs text-gray-500 mb-1 block">Válido hasta (opcional)</label>
             <input
               type="date"
               value={vigenciaHasta}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setVigenciaHasta(e.target.value)}
               min={new Date().toISOString().split('T')[0]}
-              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-accent"
+              className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
             />
           </div>
           <div>
-            <label className="text-xs text-muted mb-1 block">Motivo del cambio</label>
+            <label className="text-xs text-gray-500 mb-1 block">Motivo del cambio</label>
             <input
               type="text"
               value={motivo}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setMotivo(e.target.value)}
               placeholder="Acuerdo comercial, ajuste..."
-              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm text-white placeholder-muted focus:outline-none focus:ring-1 focus:ring-accent"
+              className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-accent"
             />
           </div>
         </div>
@@ -2055,7 +2055,7 @@ function ImportarClientesModal({ onClose, onDone }: { onClose: () => void; onDon
     <Modal open wide onClose={step === 'importing' ? () => {} : onClose} title="Importar clientes desde Excel">
       {step === 'pick' && (
         <div className="space-y-4">
-          <p className="text-sm text-muted">
+          <p className="text-sm text-gray-500">
             Seleccioná el archivo Excel con la nómina de clientes. Se crearán cuentas agrupadas por CUIT.
           </p>
           {parseError && <p className="text-sm text-red-400">{parseError}</p>}
@@ -2071,9 +2071,9 @@ function ImportarClientesModal({ onClose, onDone }: { onClose: () => void; onDon
           />
           <div
             onClick={() => fileRef.current?.click()}
-            className="border-2 border-dashed border-border rounded-xl p-10 text-center cursor-pointer hover:border-accent transition-colors"
+            className="border-2 border-dashed border-[#D3D1C7] rounded-xl p-10 text-center cursor-pointer hover:border-accent transition-colors"
           >
-            <p className="text-muted text-sm">Hacé clic para seleccionar el archivo .xlsx</p>
+            <p className="text-gray-500 text-sm">Hacé clic para seleccionar el archivo .xlsx</p>
           </div>
           <div className="flex justify-end">
             <Button variant="outline" onClick={onClose}>Cancelar</Button>
@@ -2084,53 +2084,53 @@ function ImportarClientesModal({ onClose, onDone }: { onClose: () => void; onDon
       {step === 'preview' && (
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-3">
-            <div className="bg-surface border border-border rounded-xl p-4 text-center">
+            <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 text-center">
               <p className="text-2xl font-bold text-accent">{clientes.length.toLocaleString('es-AR')}</p>
-              <p className="text-xs text-muted mt-1">Cuentas a crear</p>
+              <p className="text-xs text-gray-500 mt-1">Cuentas a crear</p>
             </div>
-            <div className="bg-surface border border-border rounded-xl p-4 text-center">
+            <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 text-center">
               <p className="text-2xl font-bold text-white">{branchCount.toLocaleString('es-AR')}</p>
-              <p className="text-xs text-muted mt-1">Sucursales totales</p>
+              <p className="text-xs text-gray-500 mt-1">Sucursales totales</p>
             </div>
-            <div className="bg-surface border border-border rounded-xl p-4 text-center">
+            <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 text-center">
               <p className="text-2xl font-bold text-amber-400">{synCount.toLocaleString('es-AR')}</p>
-              <p className="text-xs text-muted mt-1">Sin email real</p>
+              <p className="text-xs text-gray-500 mt-1">Sin email real</p>
             </div>
           </div>
 
-          <div className="bg-surface border border-border rounded-xl p-3 text-xs text-muted space-y-1">
-            <p>• Todos los clientes ingresan con <span className="text-white">CUIT + contraseña</span> (CUIT sin guiones)</p>
+          <div className="bg-white border border-[#D3D1C7] rounded-xl p-3 text-xs text-gray-500 space-y-1">
+            <p>• Todos los clientes ingresan con <span className="text-gray-900">CUIT + contraseña</span> (CUIT sin guiones)</p>
             <p>• El email del Excel se guarda solo como dato de contacto</p>
             <p>• {synCount.toLocaleString('es-AR')} clientes sin email de contacto registrado</p>
             <p>• Las cuentas ya existentes se omiten automáticamente</p>
           </div>
 
-          <div className="max-h-48 overflow-y-auto border border-border rounded-xl">
+          <div className="max-h-48 overflow-y-auto border border-[#D3D1C7] rounded-xl">
             <table className="w-full text-xs">
-              <thead className="sticky top-0 bg-surface">
-                <tr className="border-b border-border">
-                  <th className="text-left px-3 py-2 text-muted font-medium">Razón social</th>
-                  <th className="text-left px-3 py-2 text-muted font-medium">CUIT</th>
-                  <th className="text-center px-3 py-2 text-muted font-medium">Suc.</th>
-                  <th className="text-left px-3 py-2 text-muted font-medium">Email contacto</th>
+              <thead className="sticky top-0 bg-white">
+                <tr className="border-b border-[#D3D1C7]">
+                  <th className="text-left px-3 py-2 text-gray-500 font-medium">Razón social</th>
+                  <th className="text-left px-3 py-2 text-gray-500 font-medium">CUIT</th>
+                  <th className="text-center px-3 py-2 text-gray-500 font-medium">Suc.</th>
+                  <th className="text-left px-3 py-2 text-gray-500 font-medium">Email contacto</th>
                 </tr>
               </thead>
               <tbody>
                 {clientes.slice(0, 200).map((c) => (
-                  <tr key={c.cuit} className="border-b border-border/50 hover:bg-white/5">
+                  <tr key={c.cuit} className="border-b border-[#D3D1C7]/50 hover:bg-white/5">
                     <td className="px-3 py-1.5 text-white truncate max-w-[160px]">{c.razonSocial || '—'}</td>
                     <td className="px-3 py-1.5 text-white font-mono">{c.cuit}</td>
                     <td className="px-3 py-1.5 text-center text-white">{c.sucursales}</td>
                     <td className="px-3 py-1.5 font-mono truncate max-w-[160px]">
                       {c.emailContacto
-                        ? <span className="text-white">{c.emailContacto}</span>
-                        : <span className="text-muted italic">sin email</span>}
+                        ? <span className="text-gray-900">{c.emailContacto}</span>
+                        : <span className="text-gray-500 italic">sin email</span>}
                     </td>
                   </tr>
                 ))}
                 {clientes.length > 200 && (
                   <tr>
-                    <td colSpan={4} className="px-3 py-2 text-center text-muted italic">
+                    <td colSpan={4} className="px-3 py-2 text-center text-gray-500 italic">
                       … y {(clientes.length - 200).toLocaleString('es-AR')} más
                     </td>
                   </tr>
@@ -2150,10 +2150,10 @@ function ImportarClientesModal({ onClose, onDone }: { onClose: () => void; onDon
 
       {step === 'importing' && (
         <div className="space-y-5 py-2">
-          <p className="text-sm text-muted text-center">
+          <p className="text-sm text-gray-500 text-center">
             Creando cuentas… no cierres esta ventana.
           </p>
-          <div className="w-full bg-surface rounded-full h-3 overflow-hidden border border-border">
+          <div className="w-full bg-white rounded-full h-3 overflow-hidden border border-[#D3D1C7]">
             <div
               className="bg-accent h-full transition-all duration-200"
               style={{ width: `${total > 0 ? (progress / total) * 100 : 0}%` }}
@@ -2172,22 +2172,22 @@ function ImportarClientesModal({ onClose, onDone }: { onClose: () => void; onDon
       {step === 'done' && (
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-3">
-            <div className="bg-surface border border-border rounded-xl p-4 text-center">
+            <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 text-center">
               <p className="text-2xl font-bold text-green-400">{created.toLocaleString('es-AR')}</p>
-              <p className="text-xs text-muted mt-1">Creadas</p>
+              <p className="text-xs text-gray-500 mt-1">Creadas</p>
             </div>
-            <div className="bg-surface border border-border rounded-xl p-4 text-center">
+            <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 text-center">
               <p className="text-2xl font-bold text-amber-400">{skipped.toLocaleString('es-AR')}</p>
-              <p className="text-xs text-muted mt-1">Ya existían</p>
+              <p className="text-xs text-gray-500 mt-1">Ya existían</p>
             </div>
-            <div className="bg-surface border border-border rounded-xl p-4 text-center">
+            <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 text-center">
               <p className="text-2xl font-bold text-red-400">{errors.length.toLocaleString('es-AR')}</p>
-              <p className="text-xs text-muted mt-1">Errores</p>
+              <p className="text-xs text-gray-500 mt-1">Errores</p>
             </div>
           </div>
 
           {errors.length > 0 && (
-            <div className="max-h-36 overflow-y-auto bg-surface border border-red-900/40 rounded-xl p-3 space-y-1">
+            <div className="max-h-36 overflow-y-auto bg-white border border-red-900/40 rounded-xl p-3 space-y-1">
               {errors.map((e, i) => (
                 <p key={i} className="text-xs text-red-400 font-mono">{e}</p>
               ))}

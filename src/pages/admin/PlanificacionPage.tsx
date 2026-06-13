@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+﻿import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { GoogleMap, Marker, InfoWindow } from '@react-google-maps/api'
 import Navbar from '../../components/layout/Navbar'
@@ -907,7 +907,7 @@ function PalletConfigModal({
   return (
     <Modal open={open} onClose={onClose} title="Unidades por pallet">
       <div className="space-y-1 mb-4">
-        <p className="text-xs text-muted">
+        <p className="text-xs text-gray-500">
           Configurá cuántas unidades entran en un pallet para cada producto.
           Esto permite calcular cuántos pallets se necesitan por día.
         </p>
@@ -917,7 +917,7 @@ function PalletConfigModal({
           <div key={p.id} className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-sm font-medium">{p.nombre}</p>
-              <p className="text-xs text-muted">por {p.unidad}</p>
+              <p className="text-xs text-gray-500">por {p.unidad}</p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <input
@@ -926,9 +926,9 @@ function PalletConfigModal({
                 value={values[p.id] ?? ''}
                 onChange={(e) => setValues((v) => ({ ...v, [p.id]: e.target.value }))}
                 placeholder="—"
-                className="w-20 text-right bg-bg border border-border rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-accent"
+                className="w-20 text-right bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-2 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
               />
-              <span className="text-xs text-muted w-12">u/pallet</span>
+              <span className="text-xs text-gray-500 w-12">u/pallet</span>
             </div>
           </div>
         ))}

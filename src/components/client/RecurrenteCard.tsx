@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { UserProfile, OrderProduct, getPrimaryAddress, DIAS_SEMANA } from '../../types'
 import { useRecurrente } from '../../hooks/useRecurrente'
 import { useCatalogo } from '../../hooks/useCatalogo'
@@ -109,25 +109,25 @@ export function RecurrenteCard({ user }: RecurrenteCardProps) {
           </div>
 
           <div>
-            <p className="text-xs text-muted mb-2">Productos</p>
+            <p className="text-xs text-gray-500 mb-2">Productos</p>
             <div className="space-y-2 max-h-52 overflow-y-auto">
               {catalogo.map((p) => {
                 const qty = quantities[p.id] ?? 0
                 return (
-                  <div key={p.id} className="flex items-center justify-between gap-3 bg-bg border border-border rounded-xl px-3 py-2">
+                  <div key={p.id} className="flex items-center justify-between gap-3 bg-[#F8F7F2] border border-[#D3D1C7] rounded-xl px-3 py-2">
                     <p className="text-sm flex-1 truncate">{p.nombre}</p>
                     <div className="flex items-center gap-2 shrink-0">
                       <button
                         onClick={() => setQuantities((q) => ({ ...q, [p.id]: Math.max(0, (q[p.id] ?? 0) - 1) }))}
                         disabled={qty === 0}
                         aria-label={`Reducir ${p.nombre}`}
-                        className="w-7 h-7 rounded-full border border-border hover:border-accent transition-colors disabled:opacity-30 flex items-center justify-center text-sm"
+                        className="w-7 h-7 rounded-full border border-[#D3D1C7] hover:border-accent transition-colors disabled:opacity-30 flex items-center justify-center text-sm"
                       >−</button>
                       <span className="w-7 text-center font-bold text-sm" aria-live="polite">{qty || '0'}</span>
                       <button
                         onClick={() => setQuantities((q) => ({ ...q, [p.id]: (q[p.id] ?? 0) + 1 }))}
                         aria-label={`Agregar ${p.nombre}`}
-                        className="w-7 h-7 rounded-full border border-border hover:border-accent transition-colors flex items-center justify-center text-sm"
+                        className="w-7 h-7 rounded-full border border-[#D3D1C7] hover:border-accent transition-colors flex items-center justify-center text-sm"
                       >+</button>
                     </div>
                   </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+﻿import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { GoogleMap, Marker, InfoWindow, Polyline } from '@react-google-maps/api'
 import Navbar from '../../components/layout/Navbar'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
@@ -197,7 +197,7 @@ function LiveMap({
     return map
   }, [ordersToday])
 
-  if (!isLoaded) return <div className="flex-1 bg-bg animate-pulse" />
+  if (!isLoaded) return <div className="flex-1 bg-[#F8F7F2] animate-pulse" />
 
   const visibleDriverEmails = selectedDriver ? [selectedDriver] : Object.keys(ordersByDriver)
 

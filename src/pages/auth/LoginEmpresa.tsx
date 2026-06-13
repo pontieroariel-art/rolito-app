@@ -1,4 +1,4 @@
-import { useState, FormEvent, useEffect } from 'react'
+﻿import { useState, FormEvent, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { FirebaseError } from 'firebase/app'
 import { Eye, EyeOff } from 'lucide-react'
@@ -86,7 +86,7 @@ export default function LoginEmpresa() {
               type="button"
               tabIndex={-1}
               onClick={() => setShowPass((v) => !v)}
-              className="text-muted hover:text-white transition-colors"
+              className="text-gray-500 hover:text-white transition-colors"
             >
               {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
@@ -103,12 +103,12 @@ export default function LoginEmpresa() {
           Ingresar
         </Button>
 
-        <p className="text-center text-xs text-muted/70">
+        <p className="text-center text-xs text-gray-400">
           Si olvidaste tu contraseña, contactá al administrador del sistema.
         </p>
 
-        <p className="text-center text-xs text-muted/60 mt-1">
-          <Link to="/" className="text-muted hover:text-accent transition-colors">
+        <p className="text-center text-xs text-gray-400 mt-1">
+          <Link to="/" className="text-gray-500 hover:text-accent transition-colors">
             ← Volver al inicio
           </Link>
         </p>
