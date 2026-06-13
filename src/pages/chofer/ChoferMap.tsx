@@ -243,6 +243,22 @@ export default function ChoferMap() {
     telefonoRef.current = user?.telefono       || user?.phone  || ''
   })
 
+  // Mantener pantalla encendida para que el GPS siga actualizando con pantalla bloqueada
+  useEffect(() => {
+    if (!pending.length || !('wakeLock' in navigator)) return
+    let lock: WakeLockSentinel | null = null
+    const acquire = () =>
+      (navigator as { wakeLock: { request: (t: string) => Promise<WakeLockSentinel> } })
+        .wakeLock.request('screen').then((l) => { lock = l }).catch(() => {})
+    acquire()
+    const onVisible = () => { if (document.visibilityState === 'visible') acquire() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      lock?.release().catch(() => {})
+    }
+  }, [pending.length])
+
   useEffect(() => {
     if (!pending.length || !user?.email || !navigator.geolocation) return
     const email = user.email
