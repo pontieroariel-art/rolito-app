@@ -121,7 +121,7 @@ function CamionForm({
                 className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
                   active
                     ? 'bg-accent/20 text-accent border-accent/50'
-                    : 'bg-[#F8F7F2] text-gray-500 border-[#D3D1C7] hover:border-accent/50 hover:text-white'
+                    : 'bg-[#F8F7F2] text-gray-500 border-[#D3D1C7] hover:border-accent/50 hover:text-gray-700'
                 }`}
               >
                 {active ? '✓ ' : ''}{canal}

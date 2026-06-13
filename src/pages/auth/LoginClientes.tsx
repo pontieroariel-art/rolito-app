@@ -152,7 +152,7 @@ export default function LoginClientes() {
                 type="button"
                 tabIndex={-1}
                 onClick={() => setShowPass((v) => !v)}
-                className="text-gray-500 hover:text-white transition-colors"
+                className="text-gray-500 hover:text-gray-700 transition-colors"
               >
                 {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -185,7 +185,7 @@ export default function LoginClientes() {
 
           <Link
             to="/register"
-            className="block text-center text-sm border border-[#D3D1C7] hover:border-accent rounded-xl py-2.5 text-gray-500 hover:text-white transition-colors"
+            className="block text-center text-sm border border-[#D3D1C7] hover:border-accent rounded-xl py-2.5 text-gray-500 hover:text-gray-700 transition-colors"
           >
             Crear cuenta nueva
           </Link>
