@@ -12,7 +12,7 @@ import { savePushSubscription } from '../../services/userService'
 import { createOrder } from '../../services/orderService'
 import { markDelivered } from '../../services/orderService'
 import { updateDriverLocation, deactivateDriverLocation } from '../../services/locationService'
-import { subscribeMyDespacho } from '../../services/despachoService'
+import { subscribeMyDespacho, subscribeDespachoForAyudante } from '../../services/despachoService'
 import { Despacho } from '../../types'
 import { reauthenticateWithCredential, EmailAuthProvider, updatePassword } from 'firebase/auth'
 import { auth } from '../../services/firebase'
@@ -26,13 +26,34 @@ import { Order, ProgramaVisita, VisitaPuntual, OrderProduct } from '../../types'
 import EntregaModal from '../../components/chofer/EntregaModal'
 
 export default function ChoferDashboard() {
-  const { orders, loading }   = useDriverOrders()
   const { user }              = useAuth()
   const { permission, request } = usePushNotification()
   const { programas }         = useProgramasVisita()
   const { visitas }           = useVisitasPuntuales()
   const { catalogo }          = useCatalogo()
   const [pdfLoading,  setPdfLoading]  = useState(false)
+
+  const isAyudante = user?.subrol === 'ayudante'
+
+  // Ayudante: buscar el despacho del día donde ayudanteEmail === user.email
+  const [pairedDespacho,        setPairedDespacho]        = useState<Despacho | null>(null)
+  const [pairedDespachoLoading, setPairedDespachoLoading] = useState(isAyudante)
+
+  useEffect(() => {
+    if (!user?.email || !isAyudante) return
+    const fecha = new Date().toISOString().split('T')[0]
+    return subscribeDespachoForAyudante(fecha, user.email, (d) => {
+      setPairedDespacho(d)
+      setPairedDespachoLoading(false)
+    })
+  }, [user?.email, isAyudante])
+
+  // Email para cargar pedidos: ayudante usa el del chofer principal; null mientras espera
+  const ordersEmail = isAyudante
+    ? (pairedDespachoLoading ? null : (pairedDespacho?.driverId ?? null))
+    : undefined
+
+  const { orders, loading }   = useDriverOrders(ordersEmail)
   const [registrando, setRegistrando] = useState<
     { tipo: 'programa'; data: ProgramaVisita } |
     { tipo: 'visita';   data: VisitaPuntual   } | null
@@ -70,12 +91,19 @@ export default function ChoferDashboard() {
     return days
   })()
 
+  // El despacho "activo" del día: para el chofer el suyo; para el ayudante el del chofer asignado
   const [despachoHoy, setDespachoHoy] = useState<Despacho | null>(null)
   useEffect(() => {
-    if (!user?.email) return
+    if (!user?.email || isAyudante) return
     const fecha = new Date().toISOString().split('T')[0]
     return subscribeMyDespacho(fecha, user.email, setDespachoHoy)
-  }, [user?.email])
+  }, [user?.email, isAyudante])
+
+  // Ayudante: su despacho activo es el del chofer principal
+  useEffect(() => {
+    if (!isAyudante) return
+    setDespachoHoy(pairedDespacho)
+  }, [isAyudante, pairedDespacho])
 
   // ── Cambiar PIN ──────────────────────────────────────────────────────────
   const [pinModal,     setPinModal]     = useState(false)
@@ -146,7 +174,24 @@ export default function ChoferDashboard() {
     }
   }, [hasPending, user?.email])
 
-  if (loading) return <><Navbar /><LoadingSpinner fullScreen /></>
+  if (loading || pairedDespachoLoading) return <><Navbar /><LoadingSpinner fullScreen /></>
+
+  // Ayudante sin turno asignado
+  if (isAyudante && !pairedDespacho) {
+    return (
+      <div className="min-h-screen bg-[#F8F7F2] text-gray-900">
+        <Navbar />
+        <main className="max-w-2xl mx-auto p-4 pt-12 text-center space-y-4">
+          <p className="text-5xl">🚛</p>
+          <h2 className="text-xl font-bold text-gray-900">Sin turno asignado</h2>
+          <p className="text-gray-500 text-sm">
+            Todavía no te asignaron a ningún chofer para hoy.<br />
+            Consultá con el área de logística.
+          </p>
+        </main>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-[#F8F7F2] text-gray-900">
@@ -166,7 +211,9 @@ export default function ChoferDashboard() {
         {/* Header */}
         <div className="flex flex-wrap justify-between items-start gap-3 pt-1">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Mis entregas de hoy</h1>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {isAyudante ? `Entregas de ${despachoHoy?.driverName?.split(' ')[0] ?? 'hoy'}` : 'Mis entregas de hoy'}
+            </h1>
             <p className="text-gray-500 text-sm mt-0.5">
               {new Date().toLocaleDateString('es-AR', {
                 weekday: 'long', day: 'numeric', month: 'long',
@@ -181,20 +228,48 @@ export default function ChoferDashboard() {
           </button>
         </div>
 
-        {/* Turno del día — camión y ayudante */}
-        {despachoHoy && (despachoHoy.camionLabel || despachoHoy.ayudanteName) && (
-          <div className="bg-accent/5 border border-accent/20 rounded-2xl px-4 py-3 flex flex-wrap gap-4 text-sm">
-            {despachoHoy.camionLabel && (
-              <span className="flex items-center gap-1.5 text-gray-700">
-                🚛 <span className="font-semibold text-gray-900">{despachoHoy.camionLabel}</span>
-              </span>
-            )}
-            {despachoHoy.ayudanteName && (
-              <span className="flex items-center gap-1.5 text-gray-700">
-                👤 <span className="font-semibold text-gray-900">{despachoHoy.ayudanteName}</span>
-              </span>
-            )}
-          </div>
+        {/* Banner turno del día */}
+        {despachoHoy && (
+          isAyudante ? (
+            // Ayudante: banner prominente con chofer + camión
+            <div className="bg-accent/5 border border-accent/20 rounded-2xl px-4 py-3 space-y-2 text-sm">
+              <p className="text-xs font-semibold text-accent uppercase tracking-wide">Tu turno de hoy</p>
+              <div className="flex flex-wrap gap-4">
+                <span className="flex items-center gap-1.5 text-gray-700">
+                  👷 Chofer: <span className="font-semibold text-gray-900">{despachoHoy.driverName}</span>
+                </span>
+                {despachoHoy.camionLabel && (
+                  <span className="flex items-center gap-1.5 text-gray-700">
+                    🚛 <span className="font-semibold text-gray-900">{despachoHoy.camionLabel}</span>
+                  </span>
+                )}
+                {despachoHoy.plantaId && (
+                  <span className="flex items-center gap-1.5 text-gray-700">
+                    🏭 <span className="font-semibold text-gray-900">
+                      {despachoHoy.plantaId === 'torcuato' ? 'Don Torcuato' : 'Merlo'}
+                      {despachoHoy.horaSalida && ` · ${despachoHoy.horaSalida}`}
+                    </span>
+                  </span>
+                )}
+              </div>
+            </div>
+          ) : (
+            // Chofer: banner con camión + ayudante asignado
+            (despachoHoy.camionLabel || despachoHoy.ayudanteName) && (
+              <div className="bg-accent/5 border border-accent/20 rounded-2xl px-4 py-3 flex flex-wrap gap-4 text-sm">
+                {despachoHoy.camionLabel && (
+                  <span className="flex items-center gap-1.5 text-gray-700">
+                    🚛 <span className="font-semibold text-gray-900">{despachoHoy.camionLabel}</span>
+                  </span>
+                )}
+                {despachoHoy.ayudanteName && (
+                  <span className="flex items-center gap-1.5 text-gray-700">
+                    👤 <span className="font-semibold text-gray-900">{despachoHoy.ayudanteName}</span>
+                  </span>
+                )}
+              </div>
+            )
+          )
         )}
 
         {/* Contadores */}
