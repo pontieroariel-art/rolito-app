@@ -12,6 +12,8 @@ import { savePushSubscription } from '../../services/userService'
 import { createOrder } from '../../services/orderService'
 import { markDelivered } from '../../services/orderService'
 import { updateDriverLocation, deactivateDriverLocation } from '../../services/locationService'
+import { subscribeMyDespacho } from '../../services/despachoService'
+import { Despacho } from '../../types'
 import { updateVisitaPuntual } from '../../services/visitasService'
 import { useProgramasVisita, useVisitasPuntuales, programasParaFecha, visitasParaFecha } from '../../hooks/useVisitas'
 import { useCatalogo } from '../../hooks/useCatalogo'
@@ -64,6 +66,13 @@ export default function ChoferDashboard() {
     }
     return days
   })()
+
+  const [despachoHoy, setDespachoHoy] = useState<Despacho | null>(null)
+  useEffect(() => {
+    if (!user?.email) return
+    const fecha = new Date().toISOString().split('T')[0]
+    return subscribeMyDespacho(fecha, user.email, setDespachoHoy)
+  }, [user?.email])
 
   const nombreRef   = useRef(user?.nombreContacto || user?.nombre || '')
   const telefonoRef = useRef(user?.telefono       || user?.phone  || '')
@@ -126,6 +135,21 @@ export default function ChoferDashboard() {
             </p>
           </div>
         </div>
+
+        {despachoHoy && (despachoHoy.camionLabel || despachoHoy.ayudanteName) && (
+          <div className="bg-surface border border-border rounded-2xl px-4 py-3 flex flex-wrap gap-3 text-sm">
+            {despachoHoy.camionLabel && (
+              <span className="flex items-center gap-1.5 text-[#D3D1C7]">
+                🚛 <span className="font-medium">{despachoHoy.camionLabel}</span>
+              </span>
+            )}
+            {despachoHoy.ayudanteName && (
+              <span className="flex items-center gap-1.5 text-[#D3D1C7]">
+                👤 <span className="font-medium">{despachoHoy.ayudanteName}</span>
+              </span>
+            )}
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-surface border border-border rounded-2xl p-4 text-center">

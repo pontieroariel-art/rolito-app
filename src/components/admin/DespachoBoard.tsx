@@ -776,14 +776,17 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
       const nombre  = chofer.nombreContacto || chofer.nombre || chofer.email
       const asig    = asignacionesDia[driverEmail]
       const camion  = asig?.camionId ? camiones.find((cam) => cam.id === asig.camionId) : null
+      const ayudante = asig?.ayudanteEmail ? choferes.find((c) => c.email === asig.ayudanteEmail) : null
       const desp: Despacho = {
         id, fecha, driverId: driverEmail, driverName: nombre,
-        camionId:    camion?.id    ?? chofer.camionId    ?? null,
-        camionLabel: camion ? `${camion.patente} — ${camion.modelo}` : (chofer.camionModelo ? `${chofer.camionPatente ?? ''} ${chofer.camionModelo}`.trim() : null),
-        status:      'confirmado', orderIds: ordered,
-        plantaId:    plantaByDriver[driverEmail]    ?? PLANTA_DEFAULT,
-        horaSalida:  horaSalidaByDriver[driverEmail] ?? '07:00',
-        confirmedAt: null, confirmedBy: user?.uid ?? null, modifiedAfterConfirm: false,
+        camionId:     camion?.id    ?? chofer.camionId    ?? null,
+        camionLabel:  camion ? `${camion.patente} — ${camion.modelo}` : (chofer.camionModelo ? `${chofer.camionPatente ?? ''} ${chofer.camionModelo}`.trim() : null),
+        ayudanteEmail: asig?.ayudanteEmail ?? null,
+        ayudanteName:  ayudante ? (ayudante.nombreContacto || ayudante.nombre || ayudante.email) : null,
+        status:       'confirmado', orderIds: ordered,
+        plantaId:     plantaByDriver[driverEmail]    ?? PLANTA_DEFAULT,
+        horaSalida:   horaSalidaByDriver[driverEmail] ?? '07:00',
+        confirmedAt:  null, confirmedBy: user?.uid ?? null, modifiedAfterConfirm: false,
       }
       await saveDespacho(desp)
 
