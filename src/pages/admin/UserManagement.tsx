@@ -148,6 +148,11 @@ export default function UserManagement() {
     setClientes((prev) => prev.map((u) => u.uid === uid ? { ...u, rol } : u))
   }
 
+  const handleSubrol = async (uid: string, subrol: 'chofer' | 'ayudante') => {
+    await updateUserDocument(uid, { subrol })
+    setEquipo((prev) => prev.map((u) => u.uid === uid ? { ...u, subrol } : u))
+  }
+
   const handleToggleStatus = async (u: UserProfile) => {
     const newEstado: UserStatus = u.estado === 'activo' ? 'inactivo' : 'activo'
     await updateUserStatus(u.uid, newEstado)
@@ -330,6 +335,7 @@ export default function UserManagement() {
                   currentUser={currentUser}
                   listas={listas}
                   onRoleChange={handleRole}
+                  onSubrolChange={handleSubrol}
                   onToggleStatus={handleToggleStatus}
                   onApprove={handleApprove}
                   onListaChange={handleListaChange}
@@ -613,6 +619,7 @@ interface UserRowProps {
   currentUser:         UserProfile | null
   listas:              ListaPrecios[]
   onRoleChange:        (uid: string, rol: UserRole) => Promise<void>
+  onSubrolChange:      (uid: string, subrol: 'chofer' | 'ayudante') => Promise<void>
   onToggleStatus:      (u: UserProfile) => Promise<void>
   onApprove:           (u: UserProfile) => Promise<void>
   onListaChange:       (uid: string, listaPreciosId: string | null) => void
@@ -620,7 +627,7 @@ interface UserRowProps {
   onVisitaChanged:     (uid: string, esVisita: boolean, frecuenciaVisita?: string) => void
 }
 
-function UserRow({ user, currentUser, listas, onRoleChange, onToggleStatus, onApprove, onListaChange, onAddressesChanged, onVisitaChanged }: UserRowProps) {
+function UserRow({ user, currentUser, listas, onRoleChange, onSubrolChange, onToggleStatus, onApprove, onListaChange, onAddressesChanged, onVisitaChanged }: UserRowProps) {
   const [busy, setBusy]               = useState(false)
   const [preciosModal, setPreciosModal] = useState(false)
   const [fichaModal, setFichaModal]   = useState(false)
@@ -772,6 +779,24 @@ function UserRow({ user, currentUser, listas, onRoleChange, onToggleStatus, onAp
           )}
         </div>
       </div>
+
+      {/* Subrol chofer / ayudante */}
+      {user.rol === 'chofer' && (
+        <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+          <span className="text-xs text-gray-500">Función:</span>
+          <select
+            value={user.subrol ?? 'chofer'}
+            disabled={busy}
+            onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+              run(() => onSubrolChange(user.uid, e.target.value as 'chofer' | 'ayudante'))
+            }
+            className="bg-white border border-[#D3D1C7] rounded-lg px-2 py-1 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
+          >
+            <option value="chofer">Chofer</option>
+            <option value="ayudante">Ayudante</option>
+          </select>
+        </div>
+      )}
 
       {/* Fila de precios — solo para clientes y roles con acceso a precios */}
       {user.rol === 'cliente' && canManagePrices && (

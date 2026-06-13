@@ -95,6 +95,7 @@ export interface UserProfile {
   notasContacto?:     string   // internal-only notes from Excel import (admin view)
   fechaAlta?:         Timestamp | null
   sector?:            string   // internal-only prefix from COD_CTE (e.g. FC, MDP, YPF)
+  subrol?:            'chofer' | 'ayudante'
 }
 
 // ── Visitas programadas ───────────────────────────────────────────────────────
