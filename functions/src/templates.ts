@@ -1,19 +1,23 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.tplRegistroPendiente = tplRegistroPendiente;
-exports.tplCuentaAprobada = tplCuentaAprobada;
-exports.tplPedidoRecibido = tplPedidoRecibido;
-exports.tplPedidoConfirmado = tplPedidoConfirmado;
-exports.tplPedidoEnCamino = tplPedidoEnCamino;
-exports.tplAdminNuevoPedido = tplAdminNuevoPedido;
-const LOGO_URL = 'https://rolito-app.web.app/logo-rolito.png';
-const GREEN = '#1D9E75';
-const GREEN_DARK = '#166a50';
-const GREEN_BG = '#e8f5ef';
-const DARK = '#081C11';
-function layout(pageTitle, banner, body) {
-    const accent = banner.accentColor ?? GREEN;
-    return `<!DOCTYPE html>
+interface Product { name: string; quantity: number }
+
+const LOGO_URL  = 'https://rolito-app.web.app/logo-rolito.png'
+const GREEN      = '#1D9E75'
+const GREEN_DARK = '#166a50'
+const GREEN_BG   = '#e8f5ef'
+const DARK       = '#081C11'
+
+// ── Layout ─────────────────────────────────────────────────────────────────────
+
+interface BannerOpts {
+  emoji:       string
+  title:       string
+  subtitle?:   string
+  accentColor?: string
+}
+
+function layout(pageTitle: string, banner: BannerOpts, body: string): string {
+  const accent = banner.accentColor ?? GREEN
+  return `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -45,8 +49,8 @@ function layout(pageTitle, banner, body) {
           <p style="margin:10px 0 0;color:#ffffff;font-size:20px;font-weight:700;
             letter-spacing:-0.3px;line-height:1.3">${banner.title}</p>
           ${banner.subtitle
-        ? `<p style="margin:6px 0 0;color:#9ca3af;font-size:13px">${banner.subtitle}</p>`
-        : ''}
+            ? `<p style="margin:6px 0 0;color:#9ca3af;font-size:13px">${banner.subtitle}</p>`
+            : ''}
         </td>
       </tr>
 
@@ -79,28 +83,31 @@ function layout(pageTitle, banner, body) {
   </td></tr>
 </table>
 </body>
-</html>`;
+</html>`
 }
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
-function greeting(nombre) {
-    return `<p style="margin:0 0 16px;font-size:16px">
-    Hola <strong style="color:#111827">${nombre}</strong>,</p>`;
+
+function greeting(nombre: string): string {
+  return `<p style="margin:0 0 16px;font-size:16px">
+    Hola <strong style="color:#111827">${nombre}</strong>,</p>`
 }
-function formatDate(value) {
-    try {
-        const d = value && typeof value.toDate === 'function'
-            ? value.toDate()
-            : new Date(value);
-        return d.toLocaleDateString('es-AR', {
-            weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-        });
-    }
-    catch {
-        return String(value ?? '—');
-    }
+
+function formatDate(value: unknown): string {
+  try {
+    const d = value && typeof (value as { toDate?: () => Date }).toDate === 'function'
+      ? (value as { toDate: () => Date }).toDate()
+      : new Date(value as string)
+    return d.toLocaleDateString('es-AR', {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    })
+  } catch {
+    return String(value ?? '—')
+  }
 }
-function productsTable(products) {
-    const rows = products.map((p, i) => `
+
+function productsTable(products: Product[]): string {
+  const rows = products.map((p, i) => `
     <tr style="background:${i % 2 === 0 ? '#ffffff' : '#fafafa'}">
       <td style="padding:11px 14px;font-size:14px;color:#111827;
         border-bottom:1px solid #f3f4f6">${p.name}</td>
@@ -109,8 +116,9 @@ function productsTable(products) {
         <span style="background:${GREEN_BG};color:${GREEN_DARK};font-size:13px;
           font-weight:700;padding:3px 10px;border-radius:100px">&times;${p.quantity}</span>
       </td>
-    </tr>`).join('');
-    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+    </tr>`).join('')
+
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
     style="border-collapse:collapse;margin:20px 0;border:1px solid #e5e7eb;
     border-radius:10px;overflow:hidden">
     <tr style="background:#f2f8f5">
@@ -122,10 +130,11 @@ function productsTable(products) {
         border-bottom:1px solid #e5e7eb">Cant.</th>
     </tr>
     ${rows}
-  </table>`;
+  </table>`
 }
-function dateBox(date) {
-    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+
+function dateBox(date: unknown): string {
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
     style="margin:4px 0 20px">
     <tr>
       <td style="background:${GREEN_BG};border-left:3px solid ${GREEN};
@@ -136,10 +145,11 @@ function dateBox(date) {
           ${formatDate(date)}</p>
       </td>
     </tr>
-  </table>`;
+  </table>`
 }
-function ctaButton(text, url) {
-    return `<table role="presentation" cellpadding="0" cellspacing="0" border="0"
+
+function ctaButton(text: string, url: string): string {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0"
     style="margin:28px auto 0">
     <tr>
       <td style="border-radius:8px;background:${GREEN}">
@@ -148,60 +158,68 @@ function ctaButton(text, url) {
           border-radius:8px;letter-spacing:0.01em">${text}</a>
       </td>
     </tr>
-  </table>`;
+  </table>`
 }
-function infoBox(lines) {
-    const rows = lines.map((l, i) => `
+
+function infoBox(lines: { label: string; value: string }[]): string {
+  const rows = lines.map((l, i) => `
     <tr style="${i > 0 ? 'border-top:1px solid #e8ede9' : ''}">
       <td style="padding:9px 14px;font-size:12px;color:#6b7280;font-weight:600;
         text-transform:uppercase;letter-spacing:.04em;width:110px;
         vertical-align:top">${l.label}</td>
       <td style="padding:9px 14px;font-size:14px;color:#111827;
         vertical-align:top">${l.value}</td>
-    </tr>`).join('');
-    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+    </tr>`).join('')
+
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
     style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;margin:0 0 20px">
     ${rows}
-  </table>`;
+  </table>`
 }
+
 // ── Templates ──────────────────────────────────────────────────────────────────
-function tplRegistroPendiente(nombre) {
-    return layout('Tu cuenta está siendo verificada', {
-        emoji: '🔔',
-        title: 'Cuenta en verificación',
-        subtitle: 'Te avisaremos cuando esté lista',
-        accentColor: '#F59E0B',
-    }, `
+
+export function tplRegistroPendiente(nombre: string): string {
+  return layout('Tu cuenta está siendo verificada', {
+    emoji:       '🔔',
+    title:       'Cuenta en verificación',
+    subtitle:    'Te avisaremos cuando esté lista',
+    accentColor: '#F59E0B',
+  }, `
     ${greeting(nombre)}
     <p style="margin:0 0 14px">Recibimos tu solicitud de registro en <strong>Rolito</strong>.</p>
     <p style="margin:0 0 14px">Estamos verificando tus datos y en breve te notificaremos cuando puedas comenzar a hacer pedidos.</p>
     <p style="margin:0;font-size:13px;color:#6b7280">¿Tenés alguna consulta? Podés responder este email.</p>
-  `);
+  `)
 }
-function tplCuentaAprobada(nombre, appUrl) {
-    return layout('¡Tu cuenta fue aprobada!', {
-        emoji: '🎉',
-        title: '¡Cuenta aprobada!',
-        subtitle: 'Ya podés hacer tus pedidos',
-    }, `
+
+export function tplCuentaAprobada(nombre: string, appUrl: string): string {
+  return layout('¡Tu cuenta fue aprobada!', {
+    emoji:   '🎉',
+    title:   '¡Cuenta aprobada!',
+    subtitle: 'Ya podés hacer tus pedidos',
+  }, `
     ${greeting(nombre)}
     <p style="margin:0 0 14px">¡Buenas noticias! Tu cuenta en <strong>Rolito</strong> fue aprobada.</p>
     <p style="margin:0 0 28px">Ya podés ingresar a la plataforma y empezar a hacer tus pedidos de hielo de forma rápida y sencilla.</p>
     ${ctaButton('Ingresar a la app →', appUrl)}
-  `);
+  `)
 }
-function tplPedidoRecibido(nombre, products, date, notes) {
-    const notasHtml = notes
-        ? `<p style="margin:16px 0 0;padding:12px 16px;background:#fafafa;
+
+export function tplPedidoRecibido(
+  nombre: string, products: Product[], date: unknown, notes?: string,
+): string {
+  const notasHtml = notes
+    ? `<p style="margin:16px 0 0;padding:12px 16px;background:#fafafa;
         border:1px solid #e5e7eb;border-radius:8px;font-size:13px;
         color:#6b7280;font-style:italic">&ldquo;${notes}&rdquo;</p>`
-        : '';
-    return layout('Pedido recibido', {
-        emoji: '📦',
-        title: 'Pedido recibido',
-        subtitle: 'Lo confirmaremos en breve',
-        accentColor: '#3B82F6',
-    }, `
+    : ''
+  return layout('Pedido recibido', {
+    emoji:       '📦',
+    title:       'Pedido recibido',
+    subtitle:    'Lo confirmaremos en breve',
+    accentColor: '#3B82F6',
+  }, `
     ${greeting(nombre)}
     <p style="margin:0 0 4px">Recibimos tu pedido correctamente.</p>
     <p style="margin:0 0 4px;color:#6b7280;font-size:13px">
@@ -209,55 +227,68 @@ function tplPedidoRecibido(nombre, products, date, notes) {
     ${productsTable(products)}
     ${dateBox(date)}
     ${notasHtml}
-  `);
+  `)
 }
-function tplPedidoConfirmado(nombre, products, date) {
-    return layout('Tu pedido fue confirmado', {
-        emoji: '✅',
-        title: 'Pedido confirmado',
-        subtitle: 'Estamos preparando tu entrega',
-    }, `
+
+export function tplPedidoConfirmado(
+  nombre: string, products: Product[], date: unknown,
+): string {
+  return layout('Tu pedido fue confirmado', {
+    emoji:   '✅',
+    title:   'Pedido confirmado',
+    subtitle: 'Estamos preparando tu entrega',
+  }, `
     ${greeting(nombre)}
     <p style="margin:0 0 4px">Tu pedido fue <strong>confirmado</strong> y ya estamos preparándolo para la entrega.</p>
     ${productsTable(products)}
     ${dateBox(date)}
-  `);
+  `)
 }
-function tplPedidoEnCamino(nombre, products, appUrl) {
-    return layout('Tu pedido está en camino', {
-        emoji: '🚛',
-        title: 'En camino',
-        subtitle: 'El chofer ya está en ruta hacia vos',
-        accentColor: '#F59E0B',
-    }, `
+
+export function tplPedidoEnCamino(
+  nombre: string, products: Product[], appUrl: string,
+): string {
+  return layout('Tu pedido está en camino', {
+    emoji:       '🚛',
+    title:       'En camino',
+    subtitle:    'El chofer ya está en ruta hacia vos',
+    accentColor: '#F59E0B',
+  }, `
     ${greeting(nombre)}
     <p style="margin:0 0 4px">Tu pedido está <strong>en camino</strong>. El chofer ya salió hacia tu dirección.</p>
     ${productsTable(products)}
     ${ctaButton('Seguir mi entrega →', appUrl)}
-  `);
+  `)
 }
-function tplAdminNuevoPedido(order) {
-    const notasHtml = order.notes
-        ? `<p style="margin:20px 0 0;padding:12px 16px;background:#fafafa;
+
+export function tplAdminNuevoPedido(order: {
+  clientName:    string
+  clientAddress: string
+  clientPhone:   string
+  products:      Product[]
+  date:          unknown
+  notes?:        string
+}): string {
+  const notasHtml = order.notes
+    ? `<p style="margin:20px 0 0;padding:12px 16px;background:#fafafa;
         border:1px solid #e5e7eb;border-radius:8px;font-size:13px;
         color:#6b7280;font-style:italic">
         <span style="font-weight:600;font-style:normal;color:#374151">Nota: </span>
         &ldquo;${order.notes}&rdquo;</p>`
-        : '';
-    return layout(`Nuevo pedido de ${order.clientName}`, {
-        emoji: '🆕',
-        title: 'Nuevo pedido recibido',
-        subtitle: `De: ${order.clientName}`,
-        accentColor: '#8B5CF6',
-    }, `
+    : ''
+  return layout(`Nuevo pedido de ${order.clientName}`, {
+    emoji:       '🆕',
+    title:       'Nuevo pedido recibido',
+    subtitle:    `De: ${order.clientName}`,
+    accentColor: '#8B5CF6',
+  }, `
     ${infoBox([
-        { label: 'Cliente', value: `<strong>${order.clientName}</strong>` },
-        { label: 'Teléfono', value: order.clientPhone || '—' },
-        { label: 'Dirección', value: order.clientAddress },
-        { label: 'Entrega', value: `<strong>${formatDate(order.date)}</strong>` },
+      { label: 'Cliente',   value: `<strong>${order.clientName}</strong>` },
+      { label: 'Teléfono',  value: order.clientPhone || '—' },
+      { label: 'Dirección', value: order.clientAddress },
+      { label: 'Entrega',   value: `<strong>${formatDate(order.date)}</strong>` },
     ])}
     ${productsTable(order.products)}
     ${notasHtml}
-  `);
+  `)
 }
-//# sourceMappingURL=templates.js.map
