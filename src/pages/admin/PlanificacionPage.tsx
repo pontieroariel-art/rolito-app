@@ -13,6 +13,7 @@ import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
 import { useProgramasVisita, useVisitasPuntuales, programasParaFecha, visitasParaFecha } from '../../hooks/useVisitas'
 import { assignDriver } from '../../services/orderService'
 import { saveCatalogo } from '../../services/catalogoService'
+import { getAsignacionesDia, setAsignacionChofer, AsignacionesDia } from '../../services/asignacionesDiaService'
 import { addVisitaPuntual, deleteVisitaPuntual } from '../../services/visitasService'
 import PedidoManualModal from '../../components/admin/PedidoManualModal'
 import { getPushSubscriptionByEmail, getAllUsers } from '../../services/userService'
@@ -643,6 +644,7 @@ function DayMap({
 
 function ChoferCard({
   chofer, camion, orders, visitas, programas, catalogo, choferes,
+  camiones, ayudantes, asignacion, onAsignacionChange,
 }: {
   chofer:    UserProfile | null
   camion?:   Camion
@@ -651,14 +653,21 @@ function ChoferCard({
   programas: ReturnType<typeof programasParaFecha>
   catalogo:  CatalogProducto[]
   choferes:  UserProfile[]
+  camiones:  Camion[]
+  ayudantes: UserProfile[]
+  asignacion: { camionId: string | null; ayudanteEmail: string | null }
+  onAsignacionChange: (camionId: string | null, ayudanteEmail: string | null) => void
 }) {
   const [notifying, setNotifying] = useState(false)
   const [notified,  setNotified]  = useState(false)
 
+  const camionEfectivo = camiones.find((c) => c.id === (asignacion.camionId ?? chofer?.camionId)) ?? camion
+  const ayudante       = ayudantes.find((a) => a.email === asignacion.ayudanteEmail)
+
   const nombre       = chofer ? (chofer.nombreContacto || chofer.nombre || chofer.email) : 'Sin asignar'
   const totalPallets = orders.reduce((sum, o) => sum + calcPallets(o.products, catalogo), 0)
   const totalUni     = orders.reduce((sum, o) => o.products.reduce((s, p) => s + p.quantity, sum), 0)
-  const overCapacity = camion?.capacidadPallets ? totalPallets > camion.capacidadPallets : false
+  const overCapacity = camionEfectivo?.capacidadPallets ? totalPallets > camionEfectivo.capacidadPallets : false
   const totalParadas = orders.length + visitas.length + programas.length
 
   const handleNotify = async () => {
@@ -694,11 +703,36 @@ function ChoferCard({
               </span>
             )}
           </div>
-          {camion ? (
-            <p className="text-xs text-gray-500 mt-0.5">🚛 {camion.patente} · {camion.marca ? `${camion.marca} ` : ''}{camion.modelo}</p>
-          ) : chofer ? (
-            <p className="text-xs text-amber-600 mt-0.5">Sin camión asignado</p>
-          ) : null}
+          {chofer && (
+            <div className="flex flex-wrap items-center gap-2 mt-1">
+              {/* Selector camión */}
+              <select
+                value={asignacion.camionId ?? chofer.camionId ?? ''}
+                onChange={(e) => onAsignacionChange(e.target.value || null, asignacion.ayudanteEmail)}
+                className="text-xs bg-gray-50 border border-[#D3D1C7] rounded-lg px-2 py-1 text-gray-700 focus:outline-none focus:ring-1 focus:ring-accent"
+              >
+                <option value="">🚛 Sin camión</option>
+                {camiones.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    🚛 {c.patente}{c.modelo ? ` · ${c.modelo}` : ''}
+                  </option>
+                ))}
+              </select>
+              {/* Selector ayudante */}
+              <select
+                value={asignacion.ayudanteEmail ?? ''}
+                onChange={(e) => onAsignacionChange(asignacion.camionId, e.target.value || null)}
+                className="text-xs bg-gray-50 border border-[#D3D1C7] rounded-lg px-2 py-1 text-gray-700 focus:outline-none focus:ring-1 focus:ring-accent"
+              >
+                <option value="">👤 Sin ayudante</option>
+                {ayudantes.map((a) => (
+                  <option key={a.uid} value={a.email}>
+                    👤 {a.nombreContacto || a.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {/* Botón notificar chofer */}
@@ -779,7 +813,7 @@ function ChoferCard({
 
       {totalPallets > 0 && (
         <div className="pt-2 border-t border-gray-100">
-          <CapacityBar used={totalPallets} total={camion?.capacidadPallets} />
+          <CapacityBar used={totalPallets} total={camionEfectivo?.capacidadPallets} />
         </div>
       )}
     </div>
@@ -1219,9 +1253,10 @@ export default function PlanificacionPage() {
   const days                          = next7Days()
   const [viewMode, setViewMode]         = useState<'semana' | 'dia'>('semana')
   const [selectedIdx, setSelectedIdx]   = useState(0)
-  const [pedidoManual, setPedidoManual] = useState(false)
-  const [palletConfig, setPalletConfig] = useState(false)
-  const [allUsers, setAllUsers]         = useState<UserProfile[]>([])
+  const [pedidoManual,   setPedidoManual]   = useState(false)
+  const [palletConfig,   setPalletConfig]   = useState(false)
+  const [allUsers,       setAllUsers]       = useState<UserProfile[]>([])
+  const [asignaciones,   setAsignaciones]   = useState<AsignacionesDia>({})
 
   const { orders,   loading: loadO } = useAllOrders()
   const { choferes, loading: loadC } = useChoferes()
@@ -1237,12 +1272,25 @@ export default function PlanificacionPage() {
     [allUsers],
   )
 
+  const ayudantes = useMemo(
+    () => choferes.filter((c) => c.subrol === 'ayudante'),
+    [choferes],
+  )
+
+  const handleAsignacion = async (choferEmail: string, camionId: string | null, ayudanteEmail: string | null) => {
+    const updated = { camionId, ayudanteEmail }
+    setAsignaciones((prev) => ({ ...prev, [choferEmail]: updated }))
+    await setAsignacionChofer(selectedStr, choferEmail, updated)
+  }
+
   const loading = loadO || loadC || loadF
 
   const goToDay = (idx: number) => { setSelectedIdx(idx); setViewMode('dia') }
 
   const selectedDay = days[selectedIdx]
   const selectedStr = dateToStr(selectedDay)
+
+  useEffect(() => { getAsignacionesDia(selectedStr).then(setAsignaciones) }, [selectedStr])
 
   const dayStrs = useMemo(() => new Set(days.map(dateToStr)), [days])
 
@@ -1439,8 +1487,9 @@ export default function PlanificacionPage() {
                 />
 
                 {/* Por chofer */}
-                {choferes.map((chofer) => {
+                {choferes.filter((c) => c.subrol !== 'ayudante').map((chofer) => {
                   const choferOrders = ordersDay.filter((o) => o.driverId === chofer.email)
+                  const asignacion   = asignaciones[chofer.email] ?? { camionId: chofer.camionId ?? null, ayudanteEmail: null }
                   return (
                     <div key={chofer.uid} className="space-y-2">
                       <ChoferCard
@@ -1451,6 +1500,10 @@ export default function PlanificacionPage() {
                         programas={programasDay.filter((p) => !p.driverId || p.driverId === chofer.email)}
                         catalogo={catalogo}
                         choferes={choferes}
+                        camiones={camiones}
+                        ayudantes={ayudantes}
+                        asignacion={asignacion}
+                        onAsignacionChange={(camionId, ayudanteEmail) => handleAsignacion(chofer.email, camionId, ayudanteEmail)}
                       />
                       {choferOrders.length > 0 && visitaClientes.length > 0 && (
                         <ProxCard
