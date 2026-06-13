@@ -122,6 +122,7 @@ const MAP_OPTIONS: google.maps.MapOptions = {
   streetViewControl: false,
   mapTypeControl:    false,
   fullscreenControl: true,
+  gestureHandling:   'greedy',
 }
 
 export default function ChoferMap() {
