@@ -8,28 +8,6 @@ import {
 } from 'firebase/firestore'
 import { db } from './firebase'
 
-// ── Choferes ──────────────────────────────────────────────────────────────────
-
-const choferesRef = () => doc(db, 'config', 'choferes')
-
-export const getChoferes = async (): Promise<string[]> => {
-  try {
-    const snap = await getDoc(choferesRef())
-    if (snap.exists()) return (snap.data().emails as string[]) ?? []
-    await setDoc(choferesRef(), { emails: [] })
-    return []
-  } catch (err) {
-    console.error('[configService] getChoferes:', err)
-    return []
-  }
-}
-
-export const addChofer = (email: string): Promise<void> =>
-  updateDoc(choferesRef(), { emails: arrayUnion(email) })
-
-export const removeChofer = (email: string): Promise<void> =>
-  updateDoc(choferesRef(), { emails: arrayRemove(email) })
-
 // ── Emails de notificación (admin) ────────────────────────────────────────────
 
 const notifRef = () => doc(db, 'configuracion', 'notificaciones')
