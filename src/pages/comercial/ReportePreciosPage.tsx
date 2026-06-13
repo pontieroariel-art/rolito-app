@@ -103,7 +103,7 @@ export default function ReportePreciosPage() {
 
   const { data: todosUsuarios, isLoading: loadingUsuarios, refetch } = useQuery({
     queryKey:  ['users', 'all'],
-    queryFn:   getAllUsers,
+    queryFn:   () => getAllUsers(),
     staleTime: 300_000,
   })
 

@@ -92,6 +92,7 @@ export interface UserProfile {
   vigenciaCustom?:    Record<string, string>    // productoId → ISO date
   ultimoCambioPrecio?: Timestamp | null
   codigoCliente?:     string
+  codVendedor?:       string   // código de vendedor asignado (e.g. MV, AD)
   notasContacto?:     string   // internal-only notes from Excel import (admin view)
   fechaAlta?:         Timestamp | null
   sector?:            string   // internal-only prefix from COD_CTE (e.g. FC, MDP, YPF)

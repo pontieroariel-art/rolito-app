@@ -28,7 +28,7 @@ export default function PriceListsPage() {
   const qc                        = useQueryClient()
   const { listas, isLoading }     = useAllListasPrecios()
   const { catalogo }              = useCatalogo()
-  const { data: users = [] }      = useQuery({ queryKey: ['users'], queryFn: getAllUsers })
+  const { data: users = [] }      = useQuery({ queryKey: ['users'], queryFn: () => getAllUsers() })
 
   const selectedLista = listas.find((l) => l.id === selectedId) ?? null
 

@@ -9,24 +9,30 @@ import { getAllUsers } from '../../services/userService'
 import { updateUserDocument } from '../../services/userService'
 import { UserProfile } from '../../types'
 
-// ── Colores por sector ────────────────────────────────────────────────────────
+// ── Colores por vendedor ──────────────────────────────────────────────────────
 
-const SECTOR_COLORS = [
-  '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6',
-  '#06B6D4', '#F97316', '#84CC16', '#EC4899', '#14B8A6',
-  '#6366F1', '#D946EF', '#FB923C', '#34D399', '#A78BFA',
+const VENDEDOR_COLORS = [
+  '#3B82F6', '#EF4444', '#8B5CF6', '#F97316', '#06B6D4',
+  '#EC4899', '#14B8A6', '#6366F1', '#D946EF', '#84CC16',
+  '#FB923C', '#34D399', '#A78BFA', '#F59E0B', '#10B981',
 ]
 
-const SECTOR_SIN = '#9CA3AF'
+const VENDEDOR_SIN = '#9CA3AF'
 
-const sectorColorMap = new Map<string, string>()
+const vendedorColorMap = new Map<string, string>()
 
-function getSectorColor(sector: string | undefined): string {
-  if (!sector) return SECTOR_SIN
-  if (!sectorColorMap.has(sector)) {
-    sectorColorMap.set(sector, SECTOR_COLORS[sectorColorMap.size % SECTOR_COLORS.length])
+function getVendedorColor(codVendedor: string | undefined): string {
+  if (!codVendedor) return VENDEDOR_SIN
+  if (!vendedorColorMap.has(codVendedor)) {
+    vendedorColorMap.set(codVendedor, VENDEDOR_COLORS[vendedorColorMap.size % VENDEDOR_COLORS.length])
   }
-  return sectorColorMap.get(sector)!
+  return vendedorColorMap.get(codVendedor)!
+}
+
+const ESTADO_RING: Record<string, string> = {
+  activo:    '#10B981',
+  pendiente: '#F59E0B',
+  inactivo:  '#6B7280',
 }
 
 // ── Map styles ────────────────────────────────────────────────────────────────
@@ -43,17 +49,21 @@ const MAP_STYLES: google.maps.MapTypeStyle[] = [
 
 // ── SVG pin ───────────────────────────────────────────────────────────────────
 
-function makePin(color: string, size = 26) {
+function makePin(fillColor: string, ringColor: string, label: string, size = 40) {
+  const r         = size / 2 - 2
+  const fontSize  = label.length <= 3 ? 11 : label.length <= 5 ? 9 : 8
   const svg = encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size + 8}">` +
-    `<circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - 1}" fill="${color}" stroke="white" stroke-width="2.5"/>` +
-    `<line x1="${size / 2}" y1="${size - 1}" x2="${size / 2}" y2="${size + 7}" stroke="${color}" stroke-width="2"/>` +
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size + 10}">` +
+    `<circle cx="${size/2}" cy="${size/2}" r="${r}" fill="${fillColor}" stroke="${ringColor}" stroke-width="3.5"/>` +
+    `<text x="${size/2}" y="${size/2 + fontSize/3}" text-anchor="middle" fill="white" ` +
+    `font-size="${fontSize}" font-weight="bold" font-family="Arial,sans-serif">${label}</text>` +
+    `<line x1="${size/2}" y1="${size-2}" x2="${size/2}" y2="${size+9}" stroke="${fillColor}" stroke-width="2.5"/>` +
     `</svg>`,
   )
   return {
     url:        `data:image/svg+xml;charset=UTF-8,${svg}`,
-    scaledSize: new google.maps.Size(size, size + 8),
-    anchor:     new google.maps.Point(size / 2, size + 8),
+    scaledSize: new google.maps.Size(size, size + 10),
+    anchor:     new google.maps.Point(size / 2, size + 10),
   }
 }
 
@@ -86,12 +96,13 @@ function sleep(ms: number) { return new Promise((r) => setTimeout(r, ms)) }
 // ── InfoCard ──────────────────────────────────────────────────────────────────
 
 function InfoCard({ user, onClose }: { user: UserProfile; onClose: () => void }) {
-  const color  = getSectorColor(user.sector)
-  const tel    = user.telefono || user.phone || ''
-  const addr   = primaryAddress(user)
-  const status = user.estado === 'activo' ? { label: 'Activo', cls: 'bg-emerald-100 text-emerald-700' }
-               : user.estado === 'pendiente' ? { label: 'Pendiente', cls: 'bg-amber-100 text-amber-700' }
-               : { label: 'Inactivo', cls: 'bg-gray-100 text-gray-500' }
+  const vendColor = getVendedorColor(user.codVendedor)
+  const ringColor = ESTADO_RING[user.estado] ?? '#9CA3AF'
+  const tel       = user.telefono || user.phone || ''
+  const addr      = primaryAddress(user)
+  const statusLabel = user.estado === 'activo' ? 'Activo' : user.estado === 'pendiente' ? 'Pendiente' : 'Inactivo'
+  const statusBg    = user.estado === 'activo' ? '#d1fae5' : user.estado === 'pendiente' ? '#fef3c7' : '#f3f4f6'
+  const statusClr   = user.estado === 'activo' ? '#065f46' : user.estado === 'pendiente' ? '#92400e' : '#6b7280'
 
   return (
     <div style={{ minWidth: 220, maxWidth: 260, fontFamily: 'sans-serif', fontSize: 13, lineHeight: 1.6, color: '#111' }}>
@@ -100,15 +111,13 @@ function InfoCard({ user, onClose }: { user: UserProfile; onClose: () => void })
         <button onClick={onClose} style={{ cursor: 'pointer', background: 'none', border: 'none', fontSize: 16, color: '#999', lineHeight: 1, padding: 0 }}>✕</button>
       </div>
       <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
-        {user.sector && (
-          <span style={{ background: color, color: 'white', fontSize: 11, fontWeight: 600, padding: '1px 8px', borderRadius: 99 }}>
-            {user.sector}
+        {user.codVendedor && (
+          <span style={{ background: vendColor, color: 'white', fontSize: 11, fontWeight: 700, padding: '1px 8px', borderRadius: 99 }}>
+            {user.codVendedor}
           </span>
         )}
-        <span style={{ background: status.cls.includes('emerald') ? '#d1fae5' : status.cls.includes('amber') ? '#fef3c7' : '#f3f4f6',
-                       color: status.cls.includes('emerald') ? '#065f46' : status.cls.includes('amber') ? '#92400e' : '#6b7280',
-                       fontSize: 11, fontWeight: 600, padding: '1px 8px', borderRadius: 99 }}>
-          {status.label}
+        <span style={{ background: statusBg, color: statusClr, border: `1.5px solid ${ringColor}`, fontSize: 11, fontWeight: 600, padding: '1px 8px', borderRadius: 99 }}>
+          {statusLabel}
         </span>
       </div>
       {user.codigoCliente && (
@@ -161,12 +170,15 @@ function ClientesMap({
 
   const pinCache = useRef<Map<string, google.maps.Icon>>(new Map())
 
-  const getPin = useCallback((sector: string | undefined) => {
-    const color = getSectorColor(sector)
-    if (!pinCache.current.has(color)) {
-      pinCache.current.set(color, makePin(color))
+  const getPin = useCallback((user: UserProfile) => {
+    const fillColor = getVendedorColor(user.codVendedor)
+    const ringColor = ESTADO_RING[user.estado] ?? '#9CA3AF'
+    const label     = user.codigoCliente?.split('.')[1] ?? user.codigoCliente ?? ''
+    const key       = `${fillColor}|${ringColor}|${label}`
+    if (!pinCache.current.has(key)) {
+      pinCache.current.set(key, makePin(fillColor, ringColor, label))
     }
-    return pinCache.current.get(color)!
+    return pinCache.current.get(key)!
   }, [])
 
   // Calcular bounds cuando hay resultados
@@ -210,7 +222,7 @@ function ClientesMap({
         <Marker
           key={user.uid}
           position={{ lat, lng }}
-          icon={getPin(user.sector)}
+          icon={getPin(user)}
           zIndex={selectedUid === user.uid ? 100 : 1}
           onClick={() => onSelect(user.uid)}
         />
@@ -237,6 +249,9 @@ export default function ClientesMapPage() {
   const [loading, setLoading]             = useState(true)
   const [search, setSearch]               = useState('')
   const [sectorFilter, setSectorFilter]   = useState<string>('all')
+  const [estadoFilter, setEstadoFilter]   = useState<string>('all')
+  const [vendedorFilter, setVendedorFilter] = useState<string>('all')
+  const [soloSinGeo, setSoloSinGeo]       = useState(false)
   const [geoResults, setGeoResults]       = useState<Map<string, { lat: number; lng: number } | null>>(new Map())
   const [geocoding, setGeocoding]         = useState(false)
   const [geoProgress, setGeoProgress]     = useState({ done: 0, total: 0 })
@@ -263,8 +278,13 @@ export default function ClientesMapPage() {
   const sectors = useMemo(() => {
     const set = new Set<string>()
     allClients.filter((u) => u.sector).forEach((u) => set.add(u.sector!))
-    // Inicializar colores en orden consistente
-    Array.from(set).sort().forEach((s) => getSectorColor(s))
+    return Array.from(set).sort()
+  }, [allClients])
+
+  // Códigos de vendedor únicos
+  const vendedores = useMemo(() => {
+    const set = new Set<string>()
+    allClients.filter((u) => u.codVendedor).forEach((u) => set.add(u.codVendedor!))
     return Array.from(set).sort()
   }, [allClients])
 
@@ -272,14 +292,17 @@ export default function ClientesMapPage() {
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
     return allClients.filter((u) => {
-      const matchSector = sectorFilter === 'all' || u.sector === sectorFilter
-      const matchSearch = !q ||
+      const matchSector  = sectorFilter === 'all' || u.sector === sectorFilter
+      const matchEstado  = estadoFilter === 'all' || u.estado === estadoFilter
+      const matchVendedor = vendedorFilter === 'all' || u.codVendedor === vendedorFilter
+      const matchSinGeo  = !soloSinGeo || !geoResults.get(u.uid)
+      const matchSearch  = !q ||
         u.razonSocial?.toLowerCase().includes(q) ||
         u.nombre?.toLowerCase().includes(q) ||
         u.codigoCliente?.toLowerCase().includes(q)
-      return matchSector && matchSearch
+      return matchSector && matchEstado && matchVendedor && matchSinGeo && matchSearch
     })
-  }, [allClients, search, sectorFilter])
+  }, [allClients, search, sectorFilter, estadoFilter, vendedorFilter, soloSinGeo, geoResults])
 
   const withCoords    = filtered.filter((u) => geoResults.get(u.uid))
   const withoutCoords = filtered.filter((u) => !geoResults.get(u.uid))
@@ -396,21 +419,106 @@ export default function ClientesMapPage() {
                 Todos ({allClients.length})
               </button>
               {sectors.map((s) => {
-                const color = getSectorColor(s)
                 const count = allClients.filter((u) => u.sector === s).length
                 const active = sectorFilter === s
                 return (
                   <button
                     key={s}
                     onClick={() => setSectorFilter(active ? 'all' : s)}
-                    style={active ? { background: color, borderColor: color, color: 'white' } : { borderColor: color + '80', color }}
-                    className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors hover:opacity-80`}
+                    className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                      active ? 'bg-gray-900 text-white border-gray-900' : 'border-[#D3D1C7] text-gray-500 hover:border-gray-400'
+                    }`}
                   >
                     {s} ({count})
                   </button>
                 )
               })}
             </div>
+          </div>
+
+          {/* Filtro estado */}
+          <div className="px-3 pb-3 border-b border-[#D3D1C7]">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Estado</p>
+            <div className="flex flex-wrap gap-1.5">
+              {(['all', 'activo', 'pendiente', 'inactivo'] as const).map((e) => {
+                const label   = e === 'all' ? 'Todos' : e === 'activo' ? 'Activo' : e === 'pendiente' ? 'Pendiente' : 'Inactivo'
+                const active  = estadoFilter === e
+                const colors  = e === 'activo'    ? 'bg-emerald-600 border-emerald-600 text-white'
+                              : e === 'pendiente' ? 'bg-amber-500 border-amber-500 text-white'
+                              : e === 'inactivo'  ? 'bg-gray-500 border-gray-500 text-white'
+                              : 'bg-gray-900 border-gray-900 text-white'
+                return (
+                  <button
+                    key={e}
+                    onClick={() => setEstadoFilter(e)}
+                    className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                      active ? colors : 'border-[#D3D1C7] text-gray-500 hover:border-gray-400'
+                    }`}
+                  >
+                    {label}
+                    {e !== 'all' && (
+                      <span className="ml-1 opacity-75">
+                        ({allClients.filter((u) => u.estado === e).length})
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Filtro vendedor */}
+          {vendedores.length > 0 && (
+            <div className="px-3 pb-3 border-b border-[#D3D1C7]">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Vendedor</p>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  onClick={() => setVendedorFilter('all')}
+                  className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                    vendedorFilter === 'all' ? 'bg-gray-900 text-white border-gray-900' : 'border-[#D3D1C7] text-gray-500 hover:border-gray-400'
+                  }`}
+                >
+                  Todos
+                </button>
+                {vendedores.map((v) => {
+                  const count  = allClients.filter((u) => u.codVendedor === v).length
+                  const active = vendedorFilter === v
+                  const color  = getVendedorColor(v)
+                  return (
+                    <button
+                      key={v}
+                      onClick={() => setVendedorFilter(active ? 'all' : v)}
+                      style={active ? { background: color, borderColor: color, color: 'white' } : { borderColor: color + '80', color }}
+                      className="px-2.5 py-1 rounded-full text-xs font-medium border transition-colors hover:opacity-80"
+                    >
+                      {v} <span className="opacity-75">({count})</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Toggle sin geocodificar */}
+          <div className="px-3 py-2.5 border-b border-[#D3D1C7]">
+            <button
+              onClick={() => setSoloSinGeo((v) => !v)}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl border text-xs font-medium transition-colors ${
+                soloSinGeo
+                  ? 'bg-amber-50 border-amber-300 text-amber-700'
+                  : 'border-[#D3D1C7] text-gray-500 hover:border-gray-400 hover:text-gray-700'
+              }`}
+            >
+              <span className="flex items-center gap-1.5">
+                <AlertCircle size={13} />
+                Solo sin geocodificar
+              </span>
+              <span className={`w-4 h-4 rounded border flex items-center justify-center ${
+                soloSinGeo ? 'bg-amber-500 border-amber-500 text-white' : 'border-gray-300'
+              }`}>
+                {soloSinGeo && '✓'}
+              </span>
+            </button>
           </div>
 
           {/* Stats */}
@@ -463,39 +571,59 @@ export default function ClientesMapPage() {
           )}
 
           {/* Leyenda */}
-          <div className="flex-1 overflow-y-auto p-3">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Leyenda</p>
-            <div className="space-y-1.5">
-              {sectors.map((s) => {
-                const color  = getSectorColor(s)
-                const total  = filtered.filter((u) => u.sector === s).length
-                const mapped = filtered.filter((u) => u.sector === s && geoResults.get(u.uid)).length
-                return (
-                  <button
-                    key={s}
-                    onClick={() => setSectorFilter(sectorFilter === s ? 'all' : s)}
-                    className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-left transition-colors hover:bg-gray-50 ${
-                      sectorFilter === s ? 'bg-gray-100' : ''
-                    }`}
-                  >
-                    <span
-                      className="w-3 h-3 rounded-full shrink-0"
-                      style={{ backgroundColor: color, boxShadow: `0 0 0 2px ${color}30` }}
-                    />
-                    <span className="text-sm text-gray-700 font-medium flex-1">{s}</span>
-                    <span className="text-xs text-gray-400">{mapped}/{total}</span>
-                  </button>
-                )
-              })}
-              <div className="flex items-center gap-2.5 px-2.5 py-1.5">
-                <span className="w-3 h-3 rounded-full shrink-0 bg-gray-400" />
-                <span className="text-sm text-gray-500">Sin sector</span>
-                <span className="text-xs text-gray-400 ml-auto">
-                  {filtered.filter((u) => !u.sector && geoResults.get(u.uid)).length}/
-                  {filtered.filter((u) => !u.sector).length}
-                </span>
+          <div className="flex-1 overflow-y-auto p-3 space-y-3">
+
+            {/* Vendedores */}
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Color → Vendedor</p>
+              <div className="space-y-1">
+                {vendedores.map((v) => {
+                  const color  = getVendedorColor(v)
+                  const total  = filtered.filter((u) => u.codVendedor === v).length
+                  const mapped = filtered.filter((u) => u.codVendedor === v && geoResults.get(u.uid)).length
+                  return (
+                    <button
+                      key={v}
+                      onClick={() => setVendedorFilter(vendedorFilter === v ? 'all' : v)}
+                      className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-left transition-colors hover:bg-gray-50 ${
+                        vendedorFilter === v ? 'bg-gray-100' : ''
+                      }`}
+                    >
+                      <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: color, boxShadow: `0 0 0 2px ${color}30` }} />
+                      <span className="text-sm text-gray-700 font-semibold flex-1">{v}</span>
+                      <span className="text-xs text-gray-400">{mapped}/{total}</span>
+                    </button>
+                  )
+                })}
+                <div className="flex items-center gap-2.5 px-2.5 py-1.5">
+                  <span className="w-3 h-3 rounded-full shrink-0 bg-gray-400" />
+                  <span className="text-sm text-gray-500 flex-1">Sin vendedor</span>
+                  <span className="text-xs text-gray-400">
+                    {filtered.filter((u) => !u.codVendedor && geoResults.get(u.uid)).length}/
+                    {filtered.filter((u) => !u.codVendedor).length}
+                  </span>
+                </div>
               </div>
             </div>
+
+            {/* Estado ring */}
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Anillo → Estado</p>
+              <div className="space-y-1">
+                {[
+                  { key: 'activo',    label: 'Activo',    color: '#10B981' },
+                  { key: 'pendiente', label: 'Pendiente', color: '#F59E0B' },
+                  { key: 'inactivo',  label: 'Inactivo',  color: '#6B7280' },
+                ].map(({ key, label, color }) => (
+                  <div key={key} className="flex items-center gap-2.5 px-2.5 py-1">
+                    <span className="w-3 h-3 rounded-full shrink-0 bg-gray-300" style={{ boxShadow: `0 0 0 2.5px ${color}` }} />
+                    <span className="text-sm text-gray-600 flex-1">{label}</span>
+                    <span className="text-xs text-gray-400">{filtered.filter((u) => u.estado === key).length}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
           </div>
 
           {/* Total footer */}
