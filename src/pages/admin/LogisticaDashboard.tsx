@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react'
 import {
   DndContext, DragEndEvent, DragOverlay, DragStartEvent,
   MouseSensor, TouchSensor, useSensor, useSensors,
@@ -13,7 +13,7 @@ import ImportarPedidoModal from '../../components/admin/ImportarPedidoModal'
 import PedidoManualModal from '../../components/admin/PedidoManualModal'
 import MapaPlanificacion from '../../components/admin/MapaPlanificacion'
 import DespachoBoard from '../../components/admin/DespachoBoard'
-import { useAllOrders } from '../../hooks/useOrders'
+import { useKanbanOrders } from '../../hooks/useOrders'
 import { useChoferes } from '../../hooks/useChoferes'
 import { useAuth } from '../../context/AuthContext'
 import { moveOrderDate, assignDriver, cancelOrderBy, editOrderBy, EditOrderParams } from '../../services/orderService'
@@ -241,7 +241,7 @@ function CancelOrderModal({ order, onClose, onCancelled }: { order: Order; onClo
 
 // ── KanbanCard ────────────────────────────────────────────────────────────────
 
-function KanbanCard({ order, choferes }: { order: Order; choferes: UserProfile[] }) {
+const KanbanCard = memo(function KanbanCard({ order, choferes }: { order: Order; choferes: UserProfile[] }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: order.id })
   const [assigning,     setAssigning]     = useState(false)
   const [loadingDriver, setLoadingDriver] = useState<string | null>(null)
@@ -366,11 +366,23 @@ function KanbanCard({ order, choferes }: { order: Order; choferes: UserProfile[]
       {cancelModal && <CancelOrderModal order={order} onClose={() => setCancelModal(false)} onCancelled={() => {}} />}
     </>
   )
-}
+}, (prev, next) => {
+  const o1 = prev.order, o2 = next.order
+  return (
+    o1.id          === o2.id          &&
+    o1.status      === o2.status      &&
+    o1.driverId    === o2.driverId    &&
+    o1.horaEntrega === o2.horaEntrega &&
+    o1.clientName  === o2.clientName  &&
+    o1.date?.seconds === o2.date?.seconds &&
+    o1.products.length === o2.products.length &&
+    prev.choferes  === next.choferes
+  )
+})
 
 // ── KanbanColumn ──────────────────────────────────────────────────────────────
 
-function KanbanColumn({ id, label, sublabel, orders, choferes, isBandeja }: {
+const KanbanColumn = memo(function KanbanColumn({ id, label, sublabel, orders, choferes, isBandeja }: {
   id:        string
   label:     string
   sublabel?: string
@@ -430,7 +442,14 @@ function KanbanColumn({ id, label, sublabel, orders, choferes, isBandeja }: {
       </div>
     </div>
   )
-}
+}, (prev, next) => {
+  if (prev.id !== next.id || prev.choferes !== next.choferes) return false
+  if (prev.orders.length !== next.orders.length) return false
+  return prev.orders.every((o, i) => {
+    const n = next.orders[i]
+    return o.id === n.id && o.status === n.status && o.driverId === n.driverId
+  })
+})
 
 // ── Página principal ──────────────────────────────────────────────────────────
 
@@ -442,7 +461,7 @@ export default function LogisticaDashboard() {
   const [allClients,   setAllClients]   = useState<UserProfile[]>([])
   const clientsLoadedRef = useRef(false)
 
-  const { orders,   loading: loadO } = useAllOrders()
+  const { orders,   loading: loadO } = useKanbanOrders()
   const { choferes, loading: loadC } = useChoferes()
   const loading = loadO || loadC
 

@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import {
   subscribeClientOrders,
   subscribeAllOrders,
+  subscribeKanbanOrders,
   subscribeDriverOrders,
 } from '../services/orderService'
 import { Order } from '../types'
@@ -31,6 +32,21 @@ export function useAllOrders(): { orders: Order[]; loading: boolean } {
 
   useEffect(() => {
     const unsub = subscribeAllOrders(
+      (data) => { setOrders(data); setLoading(false) },
+      ()     => setLoading(false),
+    )
+    return unsub
+  }, [])
+
+  return { orders, loading }
+}
+
+export function useKanbanOrders(): { orders: Order[]; loading: boolean } {
+  const [orders, setOrders]   = useState<Order[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const unsub = subscribeKanbanOrders(
       (data) => { setOrders(data); setLoading(false) },
       ()     => setLoading(false),
     )

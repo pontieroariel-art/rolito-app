@@ -253,12 +253,32 @@ export const subscribeAllOrders = (
   callback: (orders: Order[]) => void,
   onError?: (error: Error) => void,
 ) => {
-  const ninetyDaysAgo = Timestamp.fromDate(new Date(Date.now() - 90 * 24 * 60 * 60 * 1000))
+  const thirtyDaysAgo = Timestamp.fromDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
   const q = query(
     collection(db, ORDERS),
-    where('date', '>=', ninetyDaysAgo),
+    where('date', '>=', thirtyDaysAgo),
     orderBy('date', 'desc'),
     limit(500),
+  )
+  return onSnapshot(
+    q,
+    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Order))),
+    onError,
+  )
+}
+
+// Suscripción acotada para el Kanban: últimos 7 días → futuro ilimitado.
+// Mucho más estrecha que subscribeAllOrders para evitar re-renders por cambios en pedidos históricos.
+export const subscribeKanbanOrders = (
+  callback: (orders: Order[]) => void,
+  onError?: (error: Error) => void,
+) => {
+  const sevenDaysAgo = Timestamp.fromDate(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
+  const q = query(
+    collection(db, ORDERS),
+    where('date', '>=', sevenDaysAgo),
+    orderBy('date', 'asc'),
+    limit(300),
   )
   return onSnapshot(
     q,
@@ -274,12 +294,15 @@ export const subscribeDriverOrders = (
 ) => {
   const todayStart = new Date()
   todayStart.setHours(0, 0, 0, 0)
+  // Índice compuesto (driverId, date) ya existe en firestore.indexes.json
+  const thirtyDaysAgo = Timestamp.fromDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
 
-  // Trae todos los pedidos asignados al chofer que no estén entregados/cancelados,
-  // más los entregados de hoy (para que pueda ver su progreso del día)
   const q = query(
     collection(db, ORDERS),
     where('driverId', '==', driverEmail),
+    where('date', '>=', thirtyDaysAgo),
+    orderBy('date', 'asc'),
+    limit(100),
   )
   return onSnapshot(
     q,
