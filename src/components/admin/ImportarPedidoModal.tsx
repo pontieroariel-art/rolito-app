@@ -22,10 +22,11 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
   const [error,   setError]   = useState('')
 
   // Paso 1 — cliente
-  const [clientesRaw,      setClientesRaw]      = useState<UserProfile[]>([])
-  const [busqueda,         setBusqueda]         = useState('')
-  const [selectedClientId, setSelectedClientId] = useState('')
-  const [loadingClientes,  setLoadingClientes]  = useState(false)
+  const [clientesRaw,       setClientesRaw]       = useState<UserProfile[]>([])
+  const [busqueda,          setBusqueda]          = useState('')
+  const [selectedClientId,  setSelectedClientId]  = useState('')
+  const [selectedAddressId, setSelectedAddressId] = useState('')
+  const [loadingClientes,   setLoadingClientes]   = useState(false)
 
   // Paso 3 — datos del pedido
   const [clientName,    setClientName]    = useState('')
@@ -54,6 +55,7 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
     setLoading(false)
     setSaving(false)
     setSelectedClientId('')
+    setSelectedAddressId('')
     setBusqueda('')
     setClientName('')
     setClientAddress('')
@@ -67,9 +69,18 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
   const handleClose = () => { reset(); onClose() }
 
   const selectedCliente = clientesRaw.find((c) => c.uid === selectedClientId) ?? null
+  const selectedAddress = selectedCliente?.addresses?.find((a) => a.id === selectedAddressId) ?? null
+
+  const handleSelectCliente = (c: UserProfile) => {
+    setSelectedClientId(c.uid)
+    const primary = getPrimaryAddress(c)
+    setSelectedAddressId(primary?.id ?? c.addresses?.[0]?.id ?? '')
+  }
 
   const handleContinueToUpload = () => {
     if (!selectedClientId) { setError('Seleccioná un cliente'); return }
+    const addrs = selectedCliente?.addresses ?? []
+    if (addrs.length > 1 && !selectedAddressId) { setError('Seleccioná una sucursal'); return }
     setError('')
     setStep('upload')
   }
@@ -91,9 +102,9 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
         : (result?.clientName ?? '')
       setClientName(nombre)
 
-      // Dirección: del PDF si viene, sino la principal del cliente
-      const primaryAddr = selectedCliente ? getPrimaryAddress(selectedCliente) : null
-      setClientAddress(result?.clientAddress || primaryAddr?.address || '')
+      // Dirección: del PDF si viene, sino la sucursal seleccionada, sino la principal
+      const chosenAddr = selectedAddress ?? (selectedCliente ? getPrimaryAddress(selectedCliente) : null)
+      setClientAddress(result?.clientAddress || chosenAddr?.address || '')
 
       setNumeroOC(result?.numeroOC ?? '')
       setDeliveryDate(result?.deliveryDate ?? '')
@@ -170,32 +181,69 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
                   return (
                     (c.razonSocial || '').toLowerCase().includes(q) ||
                     (c.nombreContacto || '').toLowerCase().includes(q) ||
-                    (c.codigoCliente || '').toLowerCase().includes(q)
+                    (c.codigoCliente || '').toLowerCase().includes(q) ||
+                    (c.addresses || []).some((a) =>
+                      a.nombre.toLowerCase().includes(q) || a.address.toLowerCase().includes(q)
+                    )
                   )
                 })
-                .slice(0, 80)
+                .slice(0, 100)
                 .map((c) => {
-                  const label = c.razonSocial || c.nombreContacto || c.nombre
-                  const selected = c.uid === selectedClientId
+                  const label    = c.razonSocial || c.nombreContacto || c.nombre
+                  const isActive = c.uid === selectedClientId
+                  const addrs    = c.addresses ?? []
                   return (
-                    <li
-                      key={c.uid}
-                      onClick={() => setSelectedClientId(c.uid)}
-                      className={`flex items-center gap-2 px-3 py-2.5 cursor-pointer text-sm transition-colors ${
-                        selected
-                          ? 'bg-[#E8F5F0] text-accent font-medium'
-                          : 'hover:bg-[#F0EEE7] text-gray-900'
-                      }`}
-                    >
-                      {c.codigoCliente && (
-                        <span className="text-xs text-gray-400 shrink-0">[{c.codigoCliente}]</span>
+                    <li key={c.uid}>
+                      <div
+                        onClick={() => handleSelectCliente(c)}
+                        className={`flex items-center gap-2 px-3 py-2.5 cursor-pointer text-sm transition-colors ${
+                          isActive
+                            ? 'bg-[#E8F5F0] text-accent font-medium'
+                            : 'hover:bg-[#F0EEE7] text-gray-900'
+                        }`}
+                      >
+                        {c.codigoCliente && (
+                          <span className="text-xs text-gray-400 shrink-0">[{c.codigoCliente}]</span>
+                        )}
+                        <span className="truncate">{label}</span>
+                        {addrs.length > 1 && (
+                          <span className="ml-auto text-xs text-gray-400 shrink-0">{addrs.length} suc.</span>
+                        )}
+                        {isActive && addrs.length <= 1 && (
+                          <span className="ml-auto text-accent text-xs">✓</span>
+                        )}
+                      </div>
+
+                      {/* Sucursales desplegadas cuando el cliente está seleccionado */}
+                      {isActive && addrs.length > 1 && (
+                        <ul className="border-t border-[#ECEAE3] bg-[#F8F7F2]">
+                          {addrs.map((a) => {
+                            const selAddr = a.id === selectedAddressId
+                            return (
+                              <li
+                                key={a.id}
+                                onClick={() => setSelectedAddressId(a.id)}
+                                className={`flex items-start gap-2 pl-6 pr-3 py-2 cursor-pointer text-xs transition-colors ${
+                                  selAddr
+                                    ? 'bg-[#DCF0E8] text-accent font-medium'
+                                    : 'hover:bg-[#ECEAE3] text-gray-700'
+                                }`}
+                              >
+                                <span className="mt-0.5">📍</span>
+                                <span className="flex-1">
+                                  <span className="block font-medium">{a.nombre}</span>
+                                  <span className="text-gray-500">{a.address}</span>
+                                </span>
+                                {selAddr && <span className="text-accent shrink-0">✓</span>}
+                              </li>
+                            )
+                          })}
+                        </ul>
                       )}
-                      <span className="truncate">{label}</span>
-                      {selected && <span className="ml-auto text-accent text-xs">✓</span>}
                     </li>
                   )
                 })}
-              {clientesRaw.length > 80 && !busqueda && (
+              {clientesRaw.length > 100 && !busqueda && (
                 <li className="px-3 py-2 text-xs text-gray-400 text-center">
                   Escribí para filtrar entre {clientesRaw.length} clientes
                 </li>
@@ -284,6 +332,21 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
 
             <div>
               <label className="text-xs text-gray-500 mb-1 block">Dirección de entrega *</label>
+              {(selectedCliente?.addresses?.length ?? 0) > 1 && (
+                <select
+                  value={selectedAddressId}
+                  onChange={(e) => {
+                    setSelectedAddressId(e.target.value)
+                    const addr = selectedCliente!.addresses.find((a) => a.id === e.target.value)
+                    if (addr) setClientAddress(addr.address)
+                  }}
+                  className="w-full mb-1 bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
+                >
+                  {selectedCliente!.addresses.map((a) => (
+                    <option key={a.id} value={a.id}>{a.nombre} — {a.address}</option>
+                  ))}
+                </select>
+              )}
               <input value={clientAddress} onChange={(e) => setClientAddress(e.target.value)} className={inputClass} />
             </div>
 
