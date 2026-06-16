@@ -267,16 +267,16 @@ export const subscribeAllOrders = (
   )
 }
 
-// Suscripción acotada para el Kanban: últimos 7 días → futuro ilimitado.
-// Mucho más estrecha que subscribeAllOrders para evitar re-renders por cambios en pedidos históricos.
+// Suscripción acotada para el Kanban: últimos 30 días → futuro ilimitado.
+// Pedidos sin entregar de hasta 30 días atrás aparecen en la bandeja.
 export const subscribeKanbanOrders = (
   callback: (orders: Order[]) => void,
   onError?: (error: Error) => void,
 ) => {
-  const sevenDaysAgo = Timestamp.fromDate(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
+  const thirtyDaysAgo = Timestamp.fromDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
   const q = query(
     collection(db, ORDERS),
-    where('date', '>=', sevenDaysAgo),
+    where('date', '>=', thirtyDaysAgo),
     orderBy('date', 'asc'),
     limit(300),
   )
