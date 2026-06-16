@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { GoogleMap, Marker, InfoWindow } from '@react-google-maps/api'
+import { GoogleMap, Marker } from '@react-google-maps/api'
 import { ArrowLeft, Search, MapPin, Users, AlertCircle, CheckCircle, Loader2, X } from 'lucide-react'
 import Navbar from '../../components/layout/Navbar'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
@@ -204,9 +204,6 @@ function ClientesMap({
     return list
   }, [clients, geoResults])
 
-  const selectedUser = selectedUid ? clients.find((u) => u.uid === selectedUid) : null
-  const selectedPt   = selectedUid ? geoResults.get(selectedUid) : null
-
   if (!isLoaded) return <div className="flex-1 bg-gray-100 animate-pulse" />
 
   return (
@@ -227,16 +224,6 @@ function ClientesMap({
           onClick={() => onSelect(user.uid)}
         />
       ))}
-
-      {selectedUser && selectedPt && (
-        <InfoWindow
-          position={selectedPt}
-          onCloseClick={() => onSelect(null)}
-          options={{ disableAutoPan: true, pixelOffset: new google.maps.Size(0, -30) }}
-        >
-          <InfoCard user={selectedUser} onClose={() => onSelect(null)} />
-        </InfoWindow>
-      )}
     </GoogleMap>
   )
 }
@@ -637,6 +624,18 @@ export default function ClientesMapPage() {
 
         {/* ── Mapa ── */}
         <div className="flex-1 relative">
+
+          {/* Panel flotante de cliente seleccionado */}
+          {selectedUid && (() => {
+            const u = allClients.find((c) => c.uid === selectedUid)
+            if (!u) return null
+            return (
+              <div className="absolute top-3 right-3 z-20 w-72 bg-white rounded-2xl shadow-xl border border-[#D3D1C7] p-4 pointer-events-auto">
+                <InfoCard user={u} onClose={() => setSelectedUid(null)} />
+              </div>
+            )
+          })()}
+
           {withCoords.length === 0 && !geocoding && (
             <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
               <div className="bg-white/95 border border-[#D3D1C7] rounded-2xl px-8 py-6 text-center shadow-xl pointer-events-auto max-w-xs">
