@@ -320,7 +320,7 @@ function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionCha
           className="mt-1 w-full text-[10px] border border-gray-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-gray-400 truncate"
         >
           <option value="">Sin ayudante</option>
-          {ayudantes.map((a) => (
+          {ayudantes.filter((a) => a.email !== chofer.email).map((a) => (
             <option key={a.email} value={a.email}>{a.nombreContacto || a.nombre || a.email}</option>
           ))}
         </select>
@@ -585,11 +585,7 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
 
   // ── Choferes vs ayudantes ─────────────────────────────────────────────────
   const choferesPrincipales = useMemo(() => choferes.filter((c) => c.subrol !== 'ayudante'), [choferes])
-  // Ayudantes disponibles = todos los choferes que NO tienen columna propia (no son conductores principales)
-  const ayudantes = useMemo(() => {
-    const principalEmails = new Set(choferesPrincipales.map((c) => c.email))
-    return choferes.filter((c) => !principalEmails.has(c.email))
-  }, [choferes, choferesPrincipales])
+  // Ayudantes: todos los choferes — cada columna excluye al conductor propio en el render
 
   // ── Asignaciones del día ──────────────────────────────────────────────────
   const [asignacionesDia, setAsignacionesDia] = useState<AsignacionesDia>({})
@@ -958,7 +954,7 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
                 key={c.email}
                 chofer={c}
                 camiones={camiones}
-                ayudantes={ayudantes}
+                ayudantes={choferes}
                 asignacion={asignacionesDia[c.email] ?? { camionId: null, ayudanteEmail: null }}
                 onAsignacionChange={(a) => handleAsignacionChange(c.email, a)}
                 items={itemsByDriver[c.email] ?? []}
