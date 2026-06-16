@@ -27,7 +27,8 @@ export default function NewOrder() {
   const navigate               = useNavigate()
   const location               = useLocation()
   const repeatOrder = (location.state as { repeatOrder?: Order } | null)?.repeatOrder
-  const today       = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` })()
+  const today    = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` })()
+  const tomorrow = (() => { const d = new Date(); d.setDate(d.getDate() + 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` })()
 
   const [quantities, setQuantities] = useState<Record<string, number>>(() => {
     if (!repeatOrder) return {}
@@ -37,11 +38,12 @@ export default function NewOrder() {
     }
     return q
   })
-  const [date, setDate]       = useState(today)
-  const [notes, setNotes]     = useState('')
-  const [modal, setModal]     = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState('')
+  const [date,      setDate]      = useState(tomorrow)
+  const [notes,     setNotes]     = useState('')
+  const [modal,     setModal]     = useState(false)
+  const [loading,   setLoading]   = useState(false)
+  const [error,     setError]     = useState('')
+  const [esUrgente, setEsUrgente] = useState(false)
   const notifyPedidoRecibidoMutation    = useNotifyPedidoRecibido()
   const notifyAdminNuevoPedidoMutation  = useNotifyAdminNuevoPedido()
 
@@ -88,7 +90,7 @@ export default function NewOrder() {
     setLoading(true)
     setError('')
     try {
-      await createOrder({ user, products: selected, date, notes, address: deliveryAddress })
+      await createOrder({ user, products: selected, date, notes, address: deliveryAddress, esUrgente: esUrgente || undefined })
 
       const nombre       = (user.nombreContacto || user.nombre || '').split(' ')[0] || 'Cliente'
       const clientName   = user.razonSocial   || user.nombre   || ''
@@ -202,15 +204,52 @@ export default function NewOrder() {
           </div>
         )}
 
-        <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-gray-700">Fecha de entrega</label>
-          <input
-            type="date"
-            value={date}
-            min={today}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setDate(e.target.value)}
-            className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-accent"
-          />
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-gray-700">Fecha de entrega</label>
+            <input
+              type="date"
+              value={date}
+              min={esUrgente ? today : tomorrow}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setDate(e.target.value)}
+              className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-accent"
+            />
+            <p className="text-xs text-gray-400">Los pedidos requieren al menos 24 hs de anticipación.</p>
+          </div>
+
+          {/* Toggle urgente */}
+          <button
+            type="button"
+            onClick={() => {
+              const next = !esUrgente
+              setEsUrgente(next)
+              if (!next && date < tomorrow) setDate(tomorrow)
+            }}
+            className={`flex items-center gap-3 rounded-xl px-4 py-3 border text-sm transition-colors text-left ${
+              esUrgente
+                ? 'bg-red-50 border-red-200 text-red-700'
+                : 'bg-gray-50 border-gray-200 text-gray-600 hover:border-gray-300'
+            }`}
+          >
+            <span className="text-lg shrink-0">⚡</span>
+            <div>
+              <p className="font-medium">Pedido urgente</p>
+              <p className="text-xs opacity-70">
+                {esUrgente
+                  ? 'Activado — logística será notificada. La entrega queda sujeta a disponibilidad.'
+                  : 'Necesito entrega en menos de 24 hs'}
+              </p>
+            </div>
+            <div className={`ml-auto w-9 h-5 rounded-full transition-colors shrink-0 ${esUrgente ? 'bg-red-500' : 'bg-gray-300'}`}>
+              <div className={`w-4 h-4 bg-white rounded-full shadow mt-0.5 transition-transform ${esUrgente ? 'translate-x-4' : 'translate-x-0.5'}`} />
+            </div>
+          </button>
+
+          {esUrgente && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-700">
+              ⚠ El pedido urgente <strong>no garantiza la entrega</strong>. Logística evaluará la disponibilidad y te confirmará a la brevedad.
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col gap-1">
@@ -253,6 +292,12 @@ export default function NewOrder() {
             </div>
 
             <div className="border-t border-gray-100 pt-3 space-y-2">
+              {esUrgente && (
+                <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                  <span>⚡</span>
+                  <span className="text-xs text-red-700 font-medium">Pedido urgente — sujeto a disponibilidad</span>
+                </div>
+              )}
               <div className="flex justify-between text-gray-900">
                 <span className="text-gray-500">Dirección</span>
                 <span className="text-right max-w-[60%]">{deliveryAddress}</span>

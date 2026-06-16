@@ -87,6 +87,9 @@ export function AdminOrderCard({ order, choferes }: AdminOrderCardProps) {
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <p className="font-medium text-gray-900">{order.clientName}</p>
+              {order.esUrgente && (
+                <span className="text-xs px-1.5 py-0.5 rounded bg-red-50 text-red-600 border border-red-200 font-bold animate-pulse">⚡ URGENTE</span>
+              )}
               {order.origenPdf && (
                 <span className="text-xs px-1.5 py-0.5 rounded bg-[#E8F5F0] text-accent border border-[#B3DDD3] font-medium">OC</span>
               )}
