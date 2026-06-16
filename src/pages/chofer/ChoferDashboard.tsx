@@ -8,7 +8,7 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useDriverOrders } from '../../hooks/useOrders'
 import { useAuth } from '../../context/AuthContext'
 import { usePushNotification } from '../../hooks/usePushNotification'
-import { savePushSubscription } from '../../services/userService'
+import { savePushSubscription, proposeCoord } from '../../services/userService'
 import { createOrder } from '../../services/orderService'
 import { markDelivered } from '../../services/orderService'
 import { updateDriverLocation, deactivateDriverLocation } from '../../services/locationService'
@@ -298,7 +298,7 @@ export default function ChoferDashboard() {
             <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Por entregar</h2>
             <div className="space-y-3">
               {pending.map((o, i) => (
-                <DeliveryCard key={o.id} order={o} index={i + 1} isFirst={i === 0} />
+                <DeliveryCard key={o.id} order={o} index={i + 1} isFirst={i === 0} chofer={user} />
               ))}
             </div>
           </section>
@@ -608,12 +608,40 @@ function RegistrarEntregaModal({
   )
 }
 
-function DeliveryCard({ order, index, isFirst }: { order: Order; index: number; isFirst?: boolean }) {
-  const [modal, setModal] = useState(false)
+function DeliveryCard({ order, index, isFirst, chofer }: { order: Order; index: number; isFirst?: boolean; chofer: import('../../types').UserProfile | null }) {
+  const [modal,       setModal]       = useState(false)
+  const [geoLoading,  setGeoLoading]  = useState(false)
+  const [geoStatus,   setGeoStatus]   = useState<'idle' | 'ok' | 'error'>('idle')
 
   const openInMaps = () => {
     const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.clientAddress)}`
     window.open(url, '_blank')
+  }
+
+  const handleMarcarPunto = () => {
+    if (!navigator.geolocation || !order.clientId || order.clientId === 'externo' || !chofer) return
+    setGeoLoading(true)
+    setGeoStatus('idle')
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          await proposeCoord(
+            order.clientId,
+            pos.coords.latitude,
+            pos.coords.longitude,
+            chofer.uid,
+            chofer.nombreContacto || chofer.nombre || chofer.email,
+          )
+          setGeoStatus('ok')
+        } catch {
+          setGeoStatus('error')
+        } finally {
+          setGeoLoading(false)
+        }
+      },
+      () => { setGeoStatus('error'); setGeoLoading(false) },
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 },
+    )
   }
 
   return (
@@ -651,6 +679,29 @@ function DeliveryCard({ order, index, isFirst }: { order: Order; index: number; 
             ✓ Entregado
           </Button>
         </div>
+
+        {/* Marcar punto de entrega */}
+        {order.clientId && order.clientId !== 'externo' && (
+          <button
+            onClick={handleMarcarPunto}
+            disabled={geoLoading || geoStatus === 'ok'}
+            className={`w-full text-xs py-2.5 rounded-xl border transition-colors flex items-center justify-center gap-2 ${
+              geoStatus === 'ok'
+                ? 'bg-green-50 border-green-200 text-green-700'
+                : geoStatus === 'error'
+                ? 'bg-red-50 border-red-200 text-red-600'
+                : 'bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100'
+            }`}
+          >
+            {geoLoading
+              ? <><span className="w-3 h-3 border-2 border-orange-400 border-t-transparent rounded-full animate-spin" /> Obteniendo ubicación...</>
+              : geoStatus === 'ok'
+              ? '✓ Punto de entrega marcado — pendiente de confirmación'
+              : geoStatus === 'error'
+              ? '⚠ Error al obtener ubicación. Intentá de nuevo.'
+              : '📍 Marcar punto de entrega real'}
+          </button>
+        )}
       </div>
 
       {modal && (

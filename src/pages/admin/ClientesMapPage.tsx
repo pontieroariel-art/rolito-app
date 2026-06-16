@@ -5,8 +5,7 @@ import { ArrowLeft, Search, MapPin, Users, AlertCircle, CheckCircle, Loader2, X 
 import Navbar from '../../components/layout/Navbar'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
-import { getAllUsers } from '../../services/userService'
-import { updateUserDocument } from '../../services/userService'
+import { getAllUsers, updateUserDocument, approveCoord, rejectCoord } from '../../services/userService'
 import { UserProfile } from '../../types'
 
 // ── Colores por vendedor ──────────────────────────────────────────────────────
@@ -153,6 +152,49 @@ function InfoCard({ user, onClose }: { user: UserProfile; onClose: () => void })
   )
 }
 
+// ── Panel coordenada pendiente ────────────────────────────────────────────────
+
+function PendingCoordPanel({
+  coord, onApprove, onReject,
+}: {
+  coord:     { lat: number; lng: number; choferNombre: string; timestamp: import('firebase/firestore').Timestamp }
+  onApprove: () => Promise<void>
+  onReject:  () => Promise<void>
+}) {
+  const [loading, setLoading] = useState<'approve' | 'reject' | null>(null)
+
+  const handle = async (action: 'approve' | 'reject') => {
+    setLoading(action)
+    try { action === 'approve' ? await onApprove() : await onReject() } finally { setLoading(null) }
+  }
+
+  const fecha = coord.timestamp?.toDate?.()?.toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) ?? ''
+
+  return (
+    <div className="border-t border-orange-100 pt-3">
+      <p className="text-xs font-semibold text-orange-600 mb-1">📍 Punto propuesto por chofer</p>
+      <p className="text-xs text-gray-500 mb-1">{coord.choferNombre} · {fecha}</p>
+      <p className="text-xs text-gray-400 mb-3">{coord.lat.toFixed(6)}, {coord.lng.toFixed(6)}</p>
+      <div className="flex gap-2">
+        <button
+          onClick={() => handle('reject')}
+          disabled={loading !== null}
+          className="flex-1 text-xs py-2 rounded-lg border border-gray-200 text-gray-500 hover:border-red-300 hover:text-red-500 transition-colors disabled:opacity-50"
+        >
+          {loading === 'reject' ? '...' : 'Rechazar'}
+        </button>
+        <button
+          onClick={() => handle('approve')}
+          disabled={loading !== null}
+          className="flex-1 text-xs py-2 rounded-lg bg-orange-500 text-white font-medium hover:bg-orange-600 transition-colors disabled:opacity-50"
+        >
+          {loading === 'approve' ? '...' : '✓ Confirmar punto'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ── Componente mapa ───────────────────────────────────────────────────────────
 
 interface GeoResult { uid: string; lat: number; lng: number }
@@ -204,6 +246,21 @@ function ClientesMap({
     return list
   }, [clients, geoResults])
 
+  const pendingPin = useMemo(() => {
+    const svg = encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="46">` +
+      `<circle cx="18" cy="18" r="16" fill="#F97316" stroke="#EA580C" stroke-width="3"/>` +
+      `<text x="18" y="23" text-anchor="middle" fill="white" font-size="14" font-weight="bold" font-family="Arial">?</text>` +
+      `<line x1="18" y1="34" x2="18" y2="45" stroke="#F97316" stroke-width="2.5"/>` +
+      `</svg>`
+    )
+    return {
+      url:        `data:image/svg+xml;charset=UTF-8,${svg}`,
+      scaledSize: new google.maps.Size(36, 46),
+      anchor:     new google.maps.Point(18, 46),
+    }
+  }, [])
+
   if (!isLoaded) return <div className="flex-1 bg-gray-100 animate-pulse" />
 
   return (
@@ -224,6 +281,19 @@ function ClientesMap({
           onClick={() => onSelect(user.uid)}
         />
       ))}
+
+      {/* Pins naranjas para coordenadas pendientes */}
+      {markers
+        .filter(({ user }) => user.coordPendiente)
+        .map(({ user }) => (
+          <Marker
+            key={`pending-${user.uid}`}
+            position={{ lat: user.coordPendiente!.lat, lng: user.coordPendiente!.lng }}
+            icon={pendingPin}
+            zIndex={200}
+            onClick={() => onSelect(user.uid)}
+          />
+        ))}
     </GoogleMap>
   )
 }
@@ -232,7 +302,7 @@ function ClientesMap({
 
 export default function ClientesMapPage() {
   const navigate = useNavigate()
-  const [allClients, setAllClients]       = useState<UserProfile[]>([])
+  const [allClients, setAllClients] = useState<UserProfile[]>([])
   const [loading, setLoading]             = useState(true)
   const [search, setSearch]               = useState('')
   const [sectorFilter, setSectorFilter]   = useState<string>('all')
@@ -630,8 +700,29 @@ export default function ClientesMapPage() {
             const u = allClients.find((c) => c.uid === selectedUid)
             if (!u) return null
             return (
-              <div className="absolute top-3 right-3 z-20 w-72 bg-white rounded-2xl shadow-xl border border-[#D3D1C7] p-4 pointer-events-auto">
+              <div className="absolute top-3 right-3 z-20 w-72 bg-white rounded-2xl shadow-xl border border-[#D3D1C7] p-4 pointer-events-auto space-y-3">
                 <InfoCard user={u} onClose={() => setSelectedUid(null)} />
+
+                {u.coordPendiente && (
+                  <PendingCoordPanel
+                    coord={u.coordPendiente}
+                    onApprove={async () => {
+                      await approveCoord(u.uid, u.coordPendiente!.lat, u.coordPendiente!.lng)
+                      setAllClients((prev) => prev.map((c) =>
+                        c.uid === u.uid
+                          ? { ...c, lat: u.coordPendiente!.lat, lng: u.coordPendiente!.lng, coordPendiente: undefined }
+                          : c
+                      ))
+                      setGeoResults((prev) => new Map(prev).set(u.uid, { lat: u.coordPendiente!.lat, lng: u.coordPendiente!.lng }))
+                    }}
+                    onReject={async () => {
+                      await rejectCoord(u.uid)
+                      setAllClients((prev) => prev.map((c) =>
+                        c.uid === u.uid ? { ...c, coordPendiente: undefined } : c
+                      ))
+                    }}
+                  />
+                )}
               </div>
             )
           })()}

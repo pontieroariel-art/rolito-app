@@ -86,6 +86,13 @@ export interface UserProfile {
   camionModelo?:          string | null
   camionFechaAsignacion?: Timestamp | null
   // Seguimiento de visita comercial
+  coordPendiente?: {
+    lat:          number
+    lng:          number
+    choferId:     string
+    choferNombre: string
+    timestamp:    Timestamp
+  }
   esVisita?:          boolean
   frecuenciaVisita?:  'semanal' | 'quincenal' | 'mensual'
   // Precios
