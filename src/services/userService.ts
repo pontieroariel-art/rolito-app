@@ -88,6 +88,25 @@ export const updateUserDocument = (
   data: Record<string, any>,
 ): Promise<void> => updateDoc(doc(db, 'users', uid), data)
 
+import { deleteField, Timestamp } from 'firebase/firestore'
+
+export const proposeCoord = (
+  clientId: string,
+  lat: number,
+  lng: number,
+  choferId: string,
+  choferNombre: string,
+): Promise<void> =>
+  updateDoc(doc(db, 'users', clientId), {
+    coordPendiente: { lat, lng, choferId, choferNombre, timestamp: Timestamp.now() },
+  })
+
+export const approveCoord = (clientId: string, lat: number, lng: number): Promise<void> =>
+  updateDoc(doc(db, 'users', clientId), { lat, lng, coordPendiente: deleteField() })
+
+export const rejectCoord = (clientId: string): Promise<void> =>
+  updateDoc(doc(db, 'users', clientId), { coordPendiente: deleteField() })
+
 export const savePushSubscription = (uid: string, subscription: PushSubscriptionJSON): Promise<void> =>
   updateDoc(doc(db, 'users', uid), { pushSubscription: subscription })
 
