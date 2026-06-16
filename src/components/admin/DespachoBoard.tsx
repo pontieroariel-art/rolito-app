@@ -280,17 +280,19 @@ function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionCha
         </select>
 
         {/* Barra de pallets */}
-        {totalPallets > 0 && (
+        {(orderCount > 0 || capacidad !== null) && items.length > 0 && (
           <div className="mt-1.5 space-y-0.5">
             <div className="flex items-center justify-between text-[10px]">
               <span className={overloaded ? 'text-red-600 font-bold' : 'text-gray-500'}>
                 {overloaded && '⚠️ '}
-                {totalPallets % 1 === 0 ? totalPallets : totalPallets.toFixed(1)} pallets
+                📦 {totalPallets % 1 === 0 ? totalPallets : totalPallets.toFixed(1)} pallets
               </span>
-              {capacidad && (
+              {capacidad ? (
                 <span className={overloaded ? 'text-red-500 font-bold' : 'text-gray-400'}>
                   / {capacidad}
                 </span>
+              ) : (
+                <span className="text-gray-300">sin límite</span>
               )}
             </div>
             {capacidad && (
@@ -303,7 +305,7 @@ function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionCha
             )}
             {overloaded && (
               <p className="text-[10px] text-red-500 font-bold animate-pulse">
-                Sobrecarga: +{((totalPallets - capacidad!) % 1 === 0 ? (totalPallets - capacidad!) : (totalPallets - capacidad!).toFixed(1))} pallet{(totalPallets - capacidad!) !== 1 ? 's' : ''}
+                ⚠️ Sobrecarga: +{((totalPallets - capacidad!) % 1 === 0 ? (totalPallets - capacidad!) : (totalPallets - capacidad!).toFixed(1))} pallets extra
               </p>
             )}
           </div>
@@ -583,7 +585,11 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
 
   // ── Choferes vs ayudantes ─────────────────────────────────────────────────
   const choferesPrincipales = useMemo(() => choferes.filter((c) => c.subrol !== 'ayudante'), [choferes])
-  const ayudantes           = useMemo(() => choferes.filter((c) => c.subrol === 'ayudante'),  [choferes])
+  // Ayudantes disponibles = todos los choferes que NO tienen columna propia (no son conductores principales)
+  const ayudantes = useMemo(() => {
+    const principalEmails = new Set(choferesPrincipales.map((c) => c.email))
+    return choferes.filter((c) => !principalEmails.has(c.email))
+  }, [choferes, choferesPrincipales])
 
   // ── Asignaciones del día ──────────────────────────────────────────────────
   const [asignacionesDia, setAsignacionesDia] = useState<AsignacionesDia>({})
