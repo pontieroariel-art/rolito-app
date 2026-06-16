@@ -52,6 +52,14 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   static getDerivedStateFromError(error: Error) { return { error } }
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('[ErrorBoundary] Error no capturado:', error, info.componentStack)
+    // Chunk stale tras nuevo deploy → recargar automáticamente una vez
+    const isChunkError = error.message?.includes('Failed to fetch dynamically imported module')
+      || error.message?.includes('Importing a module script failed')
+      || error.name === 'ChunkLoadError'
+    if (isChunkError && !sessionStorage.getItem('chunk-reload')) {
+      sessionStorage.setItem('chunk-reload', '1')
+      window.location.reload()
+    }
   }
   render() {
     if (this.state.error) {
@@ -64,7 +72,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
               {(this.state.error as Error).message}
             </p>
             <button
-              onClick={() => { this.setState({ error: null }); window.location.href = '/' }}
+              onClick={() => { sessionStorage.removeItem('chunk-reload'); this.setState({ error: null }); window.location.href = '/' }}
               style={{ background: '#00C2FF', color: '#0a1628', fontWeight: 700, padding: '10px 24px', borderRadius: '8px', border: 'none', cursor: 'pointer' }}
             >
               Volver al inicio
