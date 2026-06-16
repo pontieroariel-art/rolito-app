@@ -443,13 +443,34 @@ export default function ChoferMap() {
             options={MAP_OPTIONS}
           >
             {directions && (
-              <DirectionsRenderer
-                directions={directions}
-                options={{
-                  polylineOptions: { strokeColor: '#1D9E75', strokeWeight: 4 },
-                  markerOptions:   { visible: true },
-                }}
-              />
+              <>
+                {/* Halo blanco para que la ruta resalte sobre cualquier fondo */}
+                <DirectionsRenderer
+                  directions={directions}
+                  options={{
+                    suppressMarkers: true,
+                    polylineOptions: {
+                      strokeColor:   '#ffffff',
+                      strokeWeight:  11,
+                      strokeOpacity: 0.85,
+                      zIndex:        1,
+                    },
+                  }}
+                />
+                {/* Línea de ruta en el color acento de la app */}
+                <DirectionsRenderer
+                  directions={directions}
+                  options={{
+                    polylineOptions: {
+                      strokeColor:   '#00C2FF',
+                      strokeWeight:  6,
+                      strokeOpacity: 1,
+                      zIndex:        2,
+                    },
+                    markerOptions: { visible: true },
+                  }}
+                />
+              </>
             )}
           </GoogleMap>
         </div>
