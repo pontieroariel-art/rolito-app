@@ -193,7 +193,7 @@ function SinAsignarColumn({ items }: { items: DayItem[] }) {
 
 // ── ChoferColumn ──────────────────────────────────────────────────────────────
 
-function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionChange, items, routeOrder, arrivals, recalculating, despacho, colorIdx, plantaId, horaSalida, catalogo, onPlantaChange, onHoraSalidaChange, onConfirm, onReopen, onTransfer }: {
+function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionChange, items, routeOrder, arrivals, recalculating, orsStatus, despacho, colorIdx, plantaId, horaSalida, catalogo, onPlantaChange, onHoraSalidaChange, onConfirm, onReopen, onTransfer }: {
   chofer:               UserProfile
   camiones:             Camion[]
   ayudantes:            UserProfile[]
@@ -203,6 +203,7 @@ function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionCha
   routeOrder:           string[]
   arrivals:             Record<string, string>
   recalculating:        boolean
+  orsStatus?:           { ok: boolean; error?: string }
   despacho?:            Despacho
   colorIdx:             number
   plantaId:             PlantaId
@@ -350,11 +351,23 @@ function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionCha
         {/* Estado ruta */}
         <div className="mt-1.5 flex items-center gap-1.5">
           {recalculating ? (
-            <><div className="w-3 h-3 border border-accent border-t-transparent rounded-full animate-spin shrink-0" /><span className="text-[10px] text-gray-400">Recalculando...</span></>
+            <><div className="w-3 h-3 border border-accent border-t-transparent rounded-full animate-spin shrink-0" /><span className="text-[10px] text-gray-400">Calculando ruta HGV...</span></>
           ) : confirmed ? (
             <><CheckCircle size={11} className="text-green-500 shrink-0" /><span className="text-[10px] text-green-600 font-medium">DESPACHADO{despacho?.modifiedAfterConfirm ? ' (+cambios)' : ''}</span></>
-          ) : routeOrder.length > 0 ? (
-            <><CheckCircle size={11} className="text-accent shrink-0" /><span className="text-[10px] text-accent">Ruta optimizada</span></>
+          ) : orsStatus && routeOrder.length > 0 ? (
+            orsStatus.ok ? (
+              <><CheckCircle size={11} className="text-accent shrink-0" /><span className="text-[10px] text-accent font-medium">Ruta HGV optimizada</span></>
+            ) : (
+              <div className="space-y-0.5 w-full">
+                <div className="flex items-center gap-1">
+                  <AlertTriangle size={11} className="text-amber-500 shrink-0" />
+                  <span className="text-[10px] text-amber-600 font-medium">ORS falló — orden sin HGV</span>
+                </div>
+                {orsStatus.error && (
+                  <p className="text-[9px] text-gray-400 leading-tight truncate" title={orsStatus.error}>{orsStatus.error}</p>
+                )}
+              </div>
+            )
           ) : items.length > 0 ? (
             <span className="text-[10px] text-gray-400">Sin optimizar aún...</span>
           ) : null}
@@ -642,6 +655,7 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
   const [routeOrder,    setRouteOrder]    = useState<Record<string, string[]>>({})
   const [routeArrivals, setRouteArrivals] = useState<Record<string, Record<string, string>>>({})
   const [recalculating, setRecalculating] = useState<Record<string, boolean>>({})
+  const [orsStatus,     setOrsStatus]     = useState<Record<string, { ok: boolean; error?: string }>>({})
   const debounceRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
 
   const scheduleRecalc = useCallback((driverEmail: string, dndIds: string[]) => {
@@ -677,7 +691,7 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
       const planta   = PLANTAS[plantaId]
       const departure = horaSalidaByDriver[driverEmail] ?? '07:00'
 
-      const { orderedIds, arrivals } = await optimizeStopOrder({
+      const { orderedIds, arrivals, orsOk, orsError } = await optimizeStopOrder({
         stopIds: dndIds, coords,
         arrivals: openTimes, closeTimes,
         fecha, departure, planta, orsKey,
@@ -685,6 +699,7 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
 
       setRouteOrder((prev)    => ({ ...prev, [driverEmail]: orderedIds }))
       setRouteArrivals((prev) => ({ ...prev, [driverEmail]: arrivals }))
+      setOrsStatus((prev)     => ({ ...prev, [driverEmail]: { ok: orsOk, error: orsError } }))
       setRecalculating((prev) => ({ ...prev, [driverEmail]: false }))
 
       const desp = despachoByDriver[driverEmail]
@@ -961,6 +976,7 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
                 routeOrder={routeOrder[c.email] ?? []}
                 arrivals={routeArrivals[c.email] ?? {}}
                 recalculating={!!recalculating[c.email]}
+                orsStatus={orsStatus[c.email]}
                 despacho={despachoByDriver[c.email]}
                 colorIdx={idx}
                 plantaId={plantaByDriver[c.email] ?? PLANTA_DEFAULT}

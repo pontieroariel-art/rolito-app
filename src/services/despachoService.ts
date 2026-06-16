@@ -60,11 +60,11 @@ export async function optimizeStopOrder(params: {
   departure: string  // 'HH:MM'
   planta:    { lat: number; lng: number }
   orsKey:    string
-}): Promise<{ orderedIds: string[]; arrivals: Record<string, string> }> {
+}): Promise<{ orderedIds: string[]; arrivals: Record<string, string>; orsOk: boolean; orsError?: string }> {
   const { stopIds, coords, fecha, departure, planta, orsKey } = params
 
   const validIds = stopIds.filter((id) => coords[id])
-  if (validIds.length === 0) return { orderedIds: stopIds, arrivals: {} }
+  if (validIds.length === 0) return { orderedIds: stopIds, arrivals: {}, orsOk: false, orsError: 'Sin coordenadas' }
 
   function timeStrToUnix(dateStr: string, time: string): number {
     const [h, m] = time.split(':').map(Number)
@@ -107,7 +107,18 @@ export async function optimizeStopOrder(params: {
       }),
     })
     const data = await res.json()
-    if (!data.routes?.[0]) throw new Error('ORS sin solución')
+
+    if (!res.ok) {
+      const msg = data?.error?.message ?? data?.message ?? `HTTP ${res.status}`
+      console.error('[ORS] Error API:', res.status, data)
+      throw new Error(msg)
+    }
+    if (!data.routes?.[0]) {
+      const unassigned = data.unassigned?.length ?? 0
+      const msg = unassigned > 0 ? `${unassigned} paradas sin asignar (HGV sin ruta disponible)` : 'Sin solución ORS'
+      console.error('[ORS] Sin solución:', data)
+      throw new Error(msg)
+    }
 
     const steps = (data.routes[0].steps as { type: string; id?: number; arrival: number }[])
       .filter((s) => s.type === 'job')
@@ -121,10 +132,11 @@ export async function optimizeStopOrder(params: {
     })
     // Ids sin coordenadas van al final
     stopIds.filter((id) => !coords[id]).forEach((id) => orderedIds.push(id))
-    return { orderedIds, arrivals }
-  } catch {
-    // Fallback: devuelve el orden original
-    return { orderedIds: stopIds, arrivals: {} }
+    return { orderedIds, arrivals, orsOk: true }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Error desconocido'
+    console.warn('[ORS] Fallback a orden original:', msg)
+    return { orderedIds: stopIds, arrivals: {}, orsOk: false, orsError: msg }
   }
 }
 
