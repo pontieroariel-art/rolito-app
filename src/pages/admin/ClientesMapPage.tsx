@@ -232,7 +232,7 @@ function ClientesMap({
         <InfoWindow
           position={selectedPt}
           onCloseClick={() => onSelect(null)}
-          options={{ disableAutoPan: false, pixelOffset: new google.maps.Size(0, -30) }}
+          options={{ disableAutoPan: true, pixelOffset: new google.maps.Size(0, -30) }}
         >
           <InfoCard user={selectedUser} onClose={() => onSelect(null)} />
         </InfoWindow>
