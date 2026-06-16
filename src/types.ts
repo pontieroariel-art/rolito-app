@@ -221,6 +221,7 @@ export interface Order {
   choferOriginal?:       string
   reasignado?:           boolean
   motivoReasignacion?:   string
+  esUrgente?: boolean
   // Auditoría
   historialAcciones?: AccionHistorial[]
 }

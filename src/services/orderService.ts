@@ -31,14 +31,15 @@ function accion(actor: Actor, tipo: string, detalle?: string) {
 }
 
 interface CreateOrderParams {
-  user: UserProfile
-  products: OrderProduct[]
-  date: string
-  notes: string
-  address?: string  // override para clientes multi-sucursal
+  user:       UserProfile
+  products:   OrderProduct[]
+  date:       string
+  notes:      string
+  address?:   string
+  esUrgente?: boolean
 }
 
-export const createOrder = ({ user, products, date, notes, address }: CreateOrderParams) => {
+export const createOrder = ({ user, products, date, notes, address, esUrgente }: CreateOrderParams) => {
   const primaryAddr    = getPrimaryAddress(user)
   const clientAddress  = address               || primaryAddr?.address || user.address  || ''
   const clientName     = user.razonSocial      || user.nombre   || ''
@@ -54,6 +55,7 @@ export const createOrder = ({ user, products, date, notes, address }: CreateOrde
     date:      Timestamp.fromDate(new Date(date + 'T12:00:00')),
     driverId:  null,
     notes:     notes || '',
+    ...(esUrgente ? { esUrgente: true } : {}),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   })
