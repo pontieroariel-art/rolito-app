@@ -11,6 +11,17 @@ import { getForecast, getHistoricalWeather, DayWeather } from '../../services/we
 import { getOrdersInRange } from '../../services/orderService'
 import { Order } from '../../types'
 
+// ── Ciudades ──────────────────────────────────────────────────────────────────
+
+const CIUDADES = [
+  { id: 'bsas',   label: 'Buenos Aires',  lat: -34.6037, lng: -58.3816 },
+  { id: 'mdp',    label: 'Mar del Plata', lat: -38.0023, lng: -57.5575 },
+  { id: 'tandil', label: 'Tandil',        lat: -37.3217, lng: -59.1332 },
+  { id: 'rosario',label: 'Rosario',       lat: -32.9468, lng: -60.6393 },
+] as const
+
+type CiudadId = typeof CIUDADES[number]['id']
+
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 function tempColor(t: number): string {
@@ -67,10 +78,10 @@ function CustomTooltip({ active, payload, label }: any) {
 
 // ── ForecastStrip ─────────────────────────────────────────────────────────────
 
-export function ForecastStrip() {
+export function ForecastStrip({ lat, lng }: { lat?: number; lng?: number } = {}) {
   const { data: days = [], isLoading } = useQuery({
-    queryKey: ['weather-forecast'],
-    queryFn:  () => getForecast(),
+    queryKey: ['weather-forecast', lat, lng],
+    queryFn:  () => getForecast(lat, lng),
     staleTime: 3_600_000,
   })
 
@@ -114,8 +125,11 @@ export function ForecastStrip() {
 
 export default function ClimaPage() {
   const now = new Date()
-  const [year,  setYear]  = useState(now.getFullYear())
-  const [month, setMonth] = useState(now.getMonth())
+  const [year,    setYear]    = useState(now.getFullYear())
+  const [month,   setMonth]   = useState(now.getMonth())
+  const [ciudadId, setCiudadId] = useState<CiudadId>('bsas')
+
+  const ciudad = CIUDADES.find((c) => c.id === ciudadId) ?? CIUDADES[0]
 
   const { start, end, startDate, endDate } = monthBounds(year, month)
   const monthLabel = new Date(year, month, 1).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
@@ -125,8 +139,8 @@ export default function ClimaPage() {
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
   const { data: weatherDays = [], isLoading: loadingW, isError: errorW, error: errW } = useQuery({
-    queryKey: ['weather-history', start, end],
-    queryFn:  () => getHistoricalWeather(start, isCurrentMonth ? localDateStr(now) : end),
+    queryKey: ['weather-history', start, end, ciudad.lat, ciudad.lng],
+    queryFn:  () => getHistoricalWeather(start, isCurrentMonth ? localDateStr(now) : end, ciudad.lat, ciudad.lng),
     staleTime: isCurrentMonth ? 3_600_000 : Infinity,
     retry: 1,
   })
@@ -173,15 +187,33 @@ export default function ClimaPage() {
       <main className="max-w-4xl mx-auto p-4 space-y-6 pb-10">
 
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Clima — Buenos Aires</h1>
-          <p className="text-gray-500 text-sm mt-0.5">Pronóstico e historial para planificar la temporada</p>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Clima — {ciudad.label}</h1>
+            <p className="text-gray-500 text-sm mt-0.5">Pronóstico e historial para planificar la temporada</p>
+          </div>
+          {/* Selector de ciudad */}
+          <div className="flex gap-1.5 flex-wrap">
+            {CIUDADES.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => setCiudadId(c.id)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${
+                  ciudadId === c.id
+                    ? 'bg-accent text-white border-accent'
+                    : 'bg-white text-gray-600 border-[#D3D1C7] hover:border-accent/50'
+                }`}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Pronóstico 7 días */}
         <section className="space-y-2">
           <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Próximos 7 días</h2>
-          <ForecastStrip />
+          <ForecastStrip lat={ciudad.lat} lng={ciudad.lng} />
         </section>
 
         {/* Historial mensual */}
