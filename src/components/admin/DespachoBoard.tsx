@@ -8,7 +8,9 @@ import { Truck, ChevronLeft, ChevronRight, Lock, CheckCircle, RotateCcw, Eye, Pa
 import Button from '../ui/Button'
 import Modal from '../ui/Modal'
 import LoadingSpinner from '../ui/LoadingSpinner'
-import { Order, UserProfile, Despacho, ProgramaVisita, VisitaPuntual, Camion, getPrimaryAddress, PLANTAS, PlantaId } from '../../types'
+import { Order, OrderProduct, CatalogProducto, UserProfile, Despacho, ProgramaVisita, VisitaPuntual, Camion, getPrimaryAddress, PLANTAS, PlantaId } from '../../types'
+import { calcPallets } from '../../utils/helpers'
+import { useCatalogo } from '../../hooks/useCatalogo'
 import {
   despachoId, saveDespacho, subscribeDespachosByFecha,
   optimizeStopOrder, formatDespachoFecha, todayStr,
@@ -34,10 +36,11 @@ interface DayItem {
   label:    string
   sublabel: string
   driverId: string | null
+  products?: OrderProduct[] // solo para kind === 'order'
 }
 
 function itemsFromOrder(o: Order): DayItem {
-  return { kind: 'order', dndId: `o:${o.id}`, id: o.id, clientId: o.clientId, label: o.clientName, sublabel: o.clientAddress, driverId: o.driverId }
+  return { kind: 'order', dndId: `o:${o.id}`, id: o.id, clientId: o.clientId, label: o.clientName, sublabel: o.clientAddress, driverId: o.driverId, products: o.products }
 }
 function itemsFromVisita(v: VisitaPuntual): DayItem {
   return { kind: 'visita', dndId: `v:${v.id}`, id: v.id, clientId: v.clientId, label: v.clientName, sublabel: v.clientAddress, driverId: v.driverId }
@@ -190,7 +193,7 @@ function SinAsignarColumn({ items }: { items: DayItem[] }) {
 
 // ── ChoferColumn ──────────────────────────────────────────────────────────────
 
-function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionChange, items, routeOrder, arrivals, recalculating, despacho, colorIdx, plantaId, horaSalida, onPlantaChange, onHoraSalidaChange, onConfirm, onReopen, onTransfer }: {
+function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionChange, items, routeOrder, arrivals, recalculating, despacho, colorIdx, plantaId, horaSalida, catalogo, onPlantaChange, onHoraSalidaChange, onConfirm, onReopen, onTransfer }: {
   chofer:               UserProfile
   camiones:             Camion[]
   ayudantes:            UserProfile[]
@@ -204,6 +207,7 @@ function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionCha
   colorIdx:             number
   plantaId:             PlantaId
   horaSalida:           string
+  catalogo:             CatalogProducto[]
   onPlantaChange:       (p: PlantaId) => void
   onHoraSalidaChange:   (h: string) => void
   onConfirm:            () => void
@@ -223,6 +227,23 @@ function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionCha
 
   const orderCount  = items.filter((i) => i.kind === 'order').length
   const visitCount  = items.filter((i) => i.kind !== 'order').length
+
+  // ── Pallets ────────────────────────────────────────────────────────────────
+  const selectedCamion = useMemo(() =>
+    camiones.find((cam) => cam.id === asignacion.camionId),
+  [camiones, asignacion.camionId])
+
+  const capacidad = selectedCamion?.capacidadPallets ?? null
+
+  const totalPallets = useMemo(() =>
+    items
+      .filter((i) => i.kind === 'order' && i.products)
+      .reduce((sum, i) => sum + calcPallets(i.products ?? [], catalogo), 0),
+  [items, catalogo])
+
+  const palletsRatio  = capacidad ? totalPallets / capacidad : null
+  const overloaded    = palletsRatio !== null && palletsRatio > 1
+  const barColor      = overloaded ? '#ef4444' : (palletsRatio ?? 0) > 0.8 ? '#f97316' : '#22c55e'
 
   return (
     <div className="flex flex-col w-56 shrink-0 h-full">
@@ -254,9 +275,39 @@ function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionCha
         >
           <option value="">Sin camión</option>
           {camiones.filter((cam) => cam.activo).map((cam) => (
-            <option key={cam.id} value={cam.id}>{cam.patente} — {cam.modelo}</option>
+            <option key={cam.id} value={cam.id}>{cam.patente} — {cam.modelo}{cam.capacidadPallets ? ` (${cam.capacidadPallets}p)` : ''}</option>
           ))}
         </select>
+
+        {/* Barra de pallets */}
+        {totalPallets > 0 && (
+          <div className="mt-1.5 space-y-0.5">
+            <div className="flex items-center justify-between text-[10px]">
+              <span className={overloaded ? 'text-red-600 font-bold' : 'text-gray-500'}>
+                {overloaded && '⚠️ '}
+                {totalPallets % 1 === 0 ? totalPallets : totalPallets.toFixed(1)} pallets
+              </span>
+              {capacidad && (
+                <span className={overloaded ? 'text-red-500 font-bold' : 'text-gray-400'}>
+                  / {capacidad}
+                </span>
+              )}
+            </div>
+            {capacidad && (
+              <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${overloaded ? 'animate-pulse' : ''}`}
+                  style={{ width: `${Math.min((palletsRatio ?? 0) * 100, 100)}%`, backgroundColor: barColor }}
+                />
+              </div>
+            )}
+            {overloaded && (
+              <p className="text-[10px] text-red-500 font-bold animate-pulse">
+                Sobrecarga: +{((totalPallets - capacidad!) % 1 === 0 ? (totalPallets - capacidad!) : (totalPallets - capacidad!).toFixed(1))} pallet{(totalPallets - capacidad!) !== 1 ? 's' : ''}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Ayudante */}
         <select
@@ -496,6 +547,7 @@ interface Props {
 
 export default function DespachoBoard({ orders, choferes, allClients, loading }: Props) {
   const { user } = useAuth()
+  const { catalogo } = useCatalogo()
 
   // ── Camiones ──────────────────────────────────────────────────────────────
   const [camiones, setCamiones] = useState<Camion[]>([])
@@ -911,6 +963,7 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
                 colorIdx={idx}
                 plantaId={plantaByDriver[c.email] ?? PLANTA_DEFAULT}
                 horaSalida={horaSalidaByDriver[c.email] ?? '07:00'}
+                catalogo={catalogo}
                 onPlantaChange={(p) => { setPlantaByDriver((prev) => ({ ...prev, [c.email]: p })); const ids = Object.entries(assignments).filter(([, d]) => d === c.email).map(([id]) => id); scheduleRecalc(c.email, ids) }}
                 onHoraSalidaChange={(h) => { setHoraSalidaByDriver((prev) => ({ ...prev, [c.email]: h })); const ids = Object.entries(assignments).filter(([, d]) => d === c.email).map(([id]) => id); scheduleRecalc(c.email, ids) }}
                 onConfirm={() => setConfirmingDriver(c.email)}
@@ -938,9 +991,19 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
                 const camion = asig?.camionId ? camiones.find((cam) => cam.id === asig.camionId) : null
                 const label  = camion ? `${camion.patente} — ${camion.modelo}` : null
                 const ayud   = asig?.ayudanteEmail ? choferes.find((c) => c.email === asig.ayudanteEmail) : null
+                const pallets = confirmingItems
+                  .filter((i) => i.kind === 'order' && i.products)
+                  .reduce((s, i) => s + calcPallets(i.products ?? [], catalogo), 0)
+                const cap = camion?.capacidadPallets ?? null
+                const over = cap !== null && pallets > cap
                 return (<>
                   {label && <p className="text-xs text-gray-400">🚛 {label}</p>}
                   {ayud  && <p className="text-xs text-gray-400">👤 Ayudante: {ayud.nombreContacto || ayud.nombre || ayud.email}</p>}
+                  {pallets > 0 && (
+                    <p className={`text-xs font-semibold ${over ? 'text-red-600' : 'text-gray-500'}`}>
+                      📦 {pallets % 1 === 0 ? pallets : pallets.toFixed(1)} pallets{cap ? ` / ${cap}` : ''}{over ? ' — ⚠️ SOBRECARGA' : ''}
+                    </p>
+                  )}
                 </>)
               })()}
             </div>
