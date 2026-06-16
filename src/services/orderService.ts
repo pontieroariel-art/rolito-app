@@ -152,6 +152,16 @@ export const moveOrderDate = (orderId: string, dateStr: string): Promise<void> =
     updatedAt: serverTimestamp(),
   })
 
+export const moveOrderToBandeja = (orderId: string): Promise<void> => {
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  yesterday.setHours(12, 0, 0, 0)
+  return updateDoc(doc(db, ORDERS, orderId), {
+    date:      Timestamp.fromDate(yesterday),
+    updatedAt: serverTimestamp(),
+  })
+}
+
 export const rescheduleOrder = (
   orderId:  string,
   newDate:  string,

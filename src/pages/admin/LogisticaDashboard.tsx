@@ -16,7 +16,7 @@ import DespachoBoard from '../../components/admin/DespachoBoard'
 import { useKanbanOrders } from '../../hooks/useOrders'
 import { useChoferes } from '../../hooks/useChoferes'
 import { useAuth } from '../../context/AuthContext'
-import { moveOrderDate, assignDriver, cancelOrderBy, editOrderBy, EditOrderParams } from '../../services/orderService'
+import { moveOrderDate, moveOrderToBandeja, assignDriver, cancelOrderBy, editOrderBy, EditOrderParams } from '../../services/orderService'
 import { summarizeProducts } from '../../utils/helpers'
 import { PRODUCTS } from '../../utils/constants'
 import { Order, OrderProduct, UserProfile, AccionHistorial } from '../../types'
@@ -513,12 +513,15 @@ export default function LogisticaDashboard() {
     if (!over) return
     const orderId   = active.id as string
     const targetCol = over.id as string
-    if (targetCol === 'bandeja') return
     const order = orders.find((o) => o.id === orderId)
     if (!order) return
     const currentCol = getOrderColumn(order, dayIds)
     if (currentCol === targetCol) return
-    await moveOrderDate(orderId, targetCol)
+    if (targetCol === 'bandeja') {
+      await moveOrderToBandeja(orderId)
+    } else {
+      await moveOrderDate(orderId, targetCol)
+    }
   }, [orders, dayIds])
 
   const todayStr = dateToStr(new Date())
