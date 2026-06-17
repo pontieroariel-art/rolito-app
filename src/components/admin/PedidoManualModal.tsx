@@ -84,7 +84,7 @@ function StepCliente({
         return u.addresses.map((addr) => ({
           key:     `${u.uid}_${addr.id}`,
           user:    u,
-          label:   addr.nombre ? `${baseName} — ${addr.nombre}` : baseName,
+          label:   addr.nombre || baseName,
           address: addr.address,
         }))
       }

@@ -749,7 +749,7 @@ function SucursalClienteRow({
                 </span>
               )}
               <p className="font-semibold text-sm text-gray-900 group-hover:text-accent transition-colors">
-                {user.razonSocial || user.nombre || '(sin nombre)'}
+                {address?.nombre || user.razonSocial || user.nombre || '(sin nombre)'}
               </p>
               <span className={`text-xs px-2 py-0.5 rounded-full border font-medium whitespace-nowrap ${STATUS_STYLES[user.estado] ?? 'bg-gray-100 text-gray-500 border-gray-200'}`}>
                 {STATUS_LABELS[user.estado] ?? user.estado}
