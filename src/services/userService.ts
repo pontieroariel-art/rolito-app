@@ -156,6 +156,14 @@ export const getClientesActivos = async (): Promise<UserProfile[]> => {
   return snap.docs.map((d) => ({ uid: d.id, ...d.data() } as UserProfile))
 }
 
+// Todos los clientes sin filtrar por estado — mismo conjunto que UserManagement
+export const getTodosLosClientes = async (): Promise<UserProfile[]> => {
+  const snap = await getDocs(
+    query(collection(db, 'users'), where('rol', '==', 'cliente')),
+  )
+  return snap.docs.map((d) => ({ uid: d.id, ...d.data() } as UserProfile))
+}
+
 export const getChoferes = async (): Promise<UserProfile[]> => {
   const snap = await getDocs(
     query(collection(db, 'users'), where('rol', '==', 'chofer'), where('estado', '==', 'activo')),
