@@ -249,7 +249,7 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
           >
             <p className="text-4xl mb-3">📄</p>
             <p className="text-sm font-medium text-gray-700">Arrastrá el PDF acá o hacé click para seleccionar</p>
-            <p className="text-xs text-gray-500 mt-1">Formatos compatibles: orden de compra propia · Carrefour (Planexware)</p>
+            <p className="text-xs text-gray-500 mt-1">Formatos: Carrefour · Josimar · Coto (Planexware) · Jumbo / Cencosud</p>
             <input
               ref={fileRef}
               type="file"
