@@ -41,6 +41,7 @@ interface SucursalFlat {
 
 const ROLE_LABELS: Record<UserRole, string> = {
   super_admin:       'Super Admin',
+  gerente_general:   'Gte. General',
   gerente_comercial: 'Gte. Comercial',
   comercial:         'Comercial',
   logistica:         'Logística',

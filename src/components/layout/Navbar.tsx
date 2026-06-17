@@ -17,6 +17,14 @@ interface NavLinkItem {
 }
 
 const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
+  gerente_general: [
+    { to: '/gerente',                       label: 'Tablero',        icon: LayoutDashboard },
+    { to: '/admin/monitoreo',               label: 'GPS en vivo',    icon: Activity },
+    { to: '/usuarios',                      label: 'Clientes',       icon: Users },
+    { to: '/admin/mapa-clientes',           label: 'Mapa clientes',  icon: Map },
+    { to: '/comercial/ventas',              label: 'Ventas',         icon: TrendingUp },
+    { to: '/comercial/historial-precios',   label: 'Hist. precios',  icon: Clock },
+  ],
   gerente_comercial: [
     { to: '/usuarios',                     label: 'Clientes',        icon: Users },
     { to: '/movimientos',                  label: 'Movimientos',     icon: BarChart2 },
@@ -78,6 +86,7 @@ const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
 
 const ROLE_LABELS: Record<UserRole, string> = {
   super_admin:       'Super Admin',
+  gerente_general:   'Gte. General',
   gerente_comercial: 'Gte. Comercial',
   comercial:         'Comercial',
   logistica:         'Logística',
