@@ -34,6 +34,11 @@ import { UserProfile, UserRole, UserStatus, ListaPrecios, DeliveryAddress } from
 
 const PAGE_SIZE = 50
 
+interface SucursalFlat {
+  user:    UserProfile
+  address: DeliveryAddress | null
+}
+
 const ROLE_LABELS: Record<UserRole, string> = {
   super_admin:       'Super Admin',
   gerente_comercial: 'Gte. Comercial',
@@ -123,10 +128,37 @@ export default function UserManagement() {
     return Array.from(set).sort()
   }, [clientes])
 
-  const activeList = tab === 'clientes' ? clientes : equipo
-  const loading    = tab === 'clientes' ? loadingClientes : loadingEquipo
+  // Lista plana: una entrada por sucursal (dirección) dentro de cada cuenta
+  const sucursalesFlat = useMemo<SucursalFlat[]>(() =>
+    clientes.flatMap((u): SucursalFlat[] =>
+      u.addresses?.length
+        ? u.addresses.map((addr) => ({ user: u, address: addr }))
+        : [{ user: u, address: null }]
+    )
+  , [clientes])
 
-  const filtered = activeList.filter((u) => {
+  const filteredSucursales = useMemo(() => {
+    const q = search.toLowerCase()
+    return sucursalesFlat.filter((sf) => {
+      const u    = sf.user
+      const addr = sf.address
+      const matchSearch = !q ||
+        u.razonSocial?.toLowerCase().includes(q) ||
+        u.nombre?.toLowerCase().includes(q) ||
+        u.cuit?.includes(q) ||
+        addr?.id?.toLowerCase().includes(q) ||
+        addr?.nombre?.toLowerCase().includes(q) ||
+        addr?.address?.toLowerCase().includes(q)
+      const matchStatus = statusFilter === 'all' || u.estado === statusFilter
+      const matchSector = sectorFilter === 'all' || u.sector === sectorFilter
+      return matchSearch && matchStatus && matchSector
+    })
+  }, [sucursalesFlat, search, statusFilter, sectorFilter])
+
+  const loading = tab === 'clientes' ? loadingClientes : loadingEquipo
+
+  // filtered sólo se usa para el tab equipo
+  const filtered = equipo.filter((u) => {
     const q           = search.toLowerCase()
     const matchSearch = !q ||
       u.nombre?.toLowerCase().includes(q) ||
@@ -201,7 +233,7 @@ export default function UserManagement() {
         <div className="flex flex-wrap justify-between items-center gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Gestión de usuarios</h1>
-            <p className="text-gray-500 text-sm">{clientes.length + equipo.length} usuarios en total</p>
+            <p className="text-gray-500 text-sm">{sucursalesFlat.length} sucursales · {equipo.length} equipo</p>
           </div>
           <div className="flex items-center gap-3">
             {pendingCount > 0 && ['super_admin', 'gerente_comercial'].includes(currentUser?.rol ?? '') && (
@@ -248,7 +280,7 @@ export default function UserManagement() {
               }`}
             >
               {t === 'clientes'
-                ? `Clientes (${clientes.length})`
+                ? `Clientes (${sucursalesFlat.length})`
                 : `Equipo Rolito (${equipo.length})`}
             </button>
           ))}
@@ -259,7 +291,7 @@ export default function UserManagement() {
           <input
             value={search}
             onChange={(e: ChangeEvent<HTMLInputElement>) => { setSearch(e.target.value); setVisibleCount(PAGE_SIZE) }}
-            placeholder="Buscar por nombre o email..."
+            placeholder={tab === 'clientes' ? 'Buscar por razón social, CUIT, código, dirección...' : 'Buscar por nombre o email...'}
             className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 placeholder-gray-400 text-sm flex-1 min-w-48 focus:outline-none focus:ring-2 focus:ring-accent"
           />
           <select
@@ -309,8 +341,12 @@ export default function UserManagement() {
               }`}
             >
               {s === 'all'
-                ? `Todos (${filtered.length})`
-                : `${STATUS_LABELS[s]} (${filtered.filter((u) => u.estado === s).length})`}
+                ? `Todos (${tab === 'clientes' ? filteredSucursales.length : filtered.length})`
+                : `${STATUS_LABELS[s]} (${
+                    tab === 'clientes'
+                      ? filteredSucursales.filter((sf) => sf.user.estado === s).length
+                      : filtered.filter((u) => u.estado === s).length
+                  })`}
             </button>
           ))}
         </div>
@@ -320,38 +356,70 @@ export default function UserManagement() {
           {loading ? (
             <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center">
               <LoadingSpinner />
-              <p className="text-gray-400 text-sm mt-2">Cargando clientes...</p>
+              <p className="text-gray-400 text-sm mt-2">Cargando...</p>
             </div>
-          ) : filtered.length === 0 ? (
-            <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center">
-              <p className="text-gray-500 text-sm">No hay usuarios con estos filtros</p>
-            </div>
+          ) : tab === 'clientes' ? (
+            filteredSucursales.length === 0 ? (
+              <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center">
+                <p className="text-gray-500 text-sm">No hay clientes con estos filtros</p>
+              </div>
+            ) : (
+              <>
+                {filteredSucursales.slice(0, visibleCount).map((sf) => (
+                  <SucursalClienteRow
+                    key={`${sf.user.uid}_${sf.address?.id ?? 'main'}`}
+                    sucursal={sf}
+                    currentUser={currentUser}
+                    listas={listas}
+                    onToggleStatus={handleToggleStatus}
+                    onApprove={handleApprove}
+                    onListaChange={handleListaChange}
+                    onAddressesChanged={handleAddressesChanged}
+                    onVisitaChanged={handleVisitaChanged}
+                  />
+                ))}
+                {visibleCount < filteredSucursales.length && (
+                  <button
+                    onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
+                    className="w-full bg-white border border-[#D3D1C7] rounded-xl py-3 text-sm text-gray-500 hover:text-gray-900 hover:bg-[#F8F7F2] transition-colors"
+                  >
+                    Ver más ({filteredSucursales.length - visibleCount} restantes)
+                  </button>
+                )}
+              </>
+            )
           ) : (
-            <>
-              {filtered.slice(0, visibleCount).map((u) => (
-                <UserRow
-                  key={u.uid}
-                  user={u}
-                  currentUser={currentUser}
-                  listas={listas}
-                  onRoleChange={handleRole}
-                  onSubrolChange={handleSubrol}
-                  onToggleStatus={handleToggleStatus}
-                  onApprove={handleApprove}
-                  onListaChange={handleListaChange}
-                  onAddressesChanged={handleAddressesChanged}
-                  onVisitaChanged={handleVisitaChanged}
-                />
-              ))}
-              {visibleCount < filtered.length && (
-                <button
-                  onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
-                  className="w-full bg-white border border-[#D3D1C7] rounded-xl py-3 text-sm text-gray-500 hover:text-gray-900 hover:bg-[#F8F7F2] transition-colors"
-                >
-                  Ver más ({filtered.length - visibleCount} restantes)
-                </button>
-              )}
-            </>
+            filtered.length === 0 ? (
+              <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center">
+                <p className="text-gray-500 text-sm">No hay usuarios con estos filtros</p>
+              </div>
+            ) : (
+              <>
+                {filtered.slice(0, visibleCount).map((u) => (
+                  <UserRow
+                    key={u.uid}
+                    user={u}
+                    currentUser={currentUser}
+                    listas={listas}
+                    onRoleChange={handleRole}
+                    onSubrolChange={handleSubrol}
+                    onToggleStatus={handleToggleStatus}
+                    onApprove={handleApprove}
+                    onListaChange={handleListaChange}
+                    onAddressesChanged={handleAddressesChanged}
+                    onVisitaChanged={handleVisitaChanged}
+                  />
+                ))}
+                {visibleCount < filtered.length && (
+                  <button
+                    onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
+                    className="w-full bg-white border border-[#D3D1C7] rounded-xl py-3 text-sm text-gray-500 hover:text-gray-900 hover:bg-[#F8F7F2] transition-colors"
+                  >
+                    Ver más ({filtered.length - visibleCount} restantes)
+                  </button>
+                )}
+              </>
+            )
           )}
         </div>
       </main>
@@ -614,6 +682,162 @@ function CrearClienteModal({ onClose, onCreated, currentUserRol }: { onClose: ()
     </Modal>
   )
 }
+
+// ── SucursalClienteRow ────────────────────────────────────────────────────────
+// Una fila por sucursal (dirección) dentro de una cuenta CUIT
+
+function SucursalClienteRow({
+  sucursal, currentUser, listas, onToggleStatus, onApprove, onListaChange, onAddressesChanged, onVisitaChanged,
+}: {
+  sucursal:           SucursalFlat
+  currentUser:        UserProfile | null
+  listas:             ListaPrecios[]
+  onToggleStatus:     (u: UserProfile) => Promise<void>
+  onApprove:          (u: UserProfile) => Promise<void>
+  onListaChange:      (uid: string, listaPreciosId: string | null) => void
+  onAddressesChanged: (uid: string, addresses: DeliveryAddress[]) => void
+  onVisitaChanged:    (uid: string, esVisita: boolean, frecuenciaVisita?: string) => void
+}) {
+  const { user, address } = sucursal
+  const [busy, setBusy]             = useState(false)
+  const [fichaModal, setFichaModal] = useState(false)
+
+  const canManagePrices = ['super_admin', 'gerente_comercial'].includes(currentUser?.rol ?? '')
+  const canChangeStatus = ['super_admin', 'gerente_comercial'].includes(currentUser?.rol ?? '')
+  const listaAsignada   = listas.find((l) => l.id === user.listaPreciosId)
+
+  const run = async (fn: () => Promise<void>) => {
+    setBusy(true)
+    try { await fn() } finally { setBusy(false) }
+  }
+
+  const handleListaChange = async (listaPreciosId: string) => {
+    const oldLista = listas.find((l) => l.id === user.listaPreciosId)
+    const newLista = listas.find((l) => l.id === listaPreciosId)
+    await run(() => updateUserDocument(user.uid, {
+      listaPreciosId:     listaPreciosId || deleteField(),
+      ultimoCambioPrecio: serverTimestamp(),
+    }))
+    onListaChange(user.uid, listaPreciosId || null)
+    if (currentUser) {
+      registrarCambioLista({
+        clientId:            user.uid,
+        clientName:          user.razonSocial || user.nombre || user.email,
+        listaAnteriorId:     user.listaPreciosId ?? null,
+        listaAnteriorNombre: oldLista?.nombre ?? null,
+        listaNuevaId:        listaPreciosId || null,
+        listaNuevaNombre:    newLista?.nombre ?? null,
+        modificadoPor:       currentUser.email,
+        modificadoPorNombre: currentUser.nombreContacto || currentUser.nombre || currentUser.email,
+      }).catch(console.error)
+    }
+  }
+
+  return (
+    <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-3">
+      <div className="flex flex-wrap gap-4 items-center justify-between">
+        <button
+          onClick={() => setFichaModal(true)}
+          className="min-w-0 flex-1 text-left group flex items-center gap-2"
+        >
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              {address?.id && (
+                <span className="font-mono text-xs font-bold text-accent bg-accent/10 border border-accent/20 rounded px-1.5 py-0.5">
+                  {address.id}
+                </span>
+              )}
+              <p className="font-semibold text-sm text-gray-900 group-hover:text-accent transition-colors">
+                {user.razonSocial || user.nombre || '(sin nombre)'}
+              </p>
+              <span className={`text-xs px-2 py-0.5 rounded-full border font-medium whitespace-nowrap ${STATUS_STYLES[user.estado] ?? 'bg-gray-100 text-gray-500 border-gray-200'}`}>
+                {STATUS_LABELS[user.estado] ?? user.estado}
+              </span>
+              {user.esVisita && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-violet-100 border border-violet-200 text-violet-700 font-medium flex items-center gap-1">
+                  <Navigation size={10} />
+                  visita
+                </span>
+              )}
+            </div>
+            {user.cuit && (
+              <p className="text-gray-400 text-xs mt-0.5 flex items-center gap-1">
+                <CreditCard size={9} className="shrink-0" />
+                {user.cuit}
+              </p>
+            )}
+            {address?.address && (
+              <p className="text-gray-500 text-xs mt-0.5 truncate flex items-center gap-1">
+                <MapPin size={10} className="shrink-0" />
+                {address.address}
+              </p>
+            )}
+            {address?.contactoTelefono && (
+              <p className="text-gray-400 text-xs mt-0.5 flex items-center gap-1">
+                <Phone size={9} className="shrink-0" />
+                {address.contactoTelefono}
+              </p>
+            )}
+          </div>
+          <ChevronRight size={14} className="text-gray-500 group-hover:text-accent transition-colors shrink-0" />
+        </button>
+
+        <div className="flex flex-wrap gap-2 items-center shrink-0">
+          <span className="bg-gray-100 border border-[#D3D1C7] rounded-lg px-2 py-1.5 text-sm text-gray-500">Cliente</span>
+          {user.estado === 'pendiente' && canChangeStatus && (
+            <Button onClick={() => run(() => onApprove(user))} loading={busy} className="text-xs py-1.5 px-3">
+              ✓ Activar
+            </Button>
+          )}
+          {user.estado !== 'pendiente' && canChangeStatus && (
+            <Button
+              variant={user.estado === 'activo' ? 'danger' : 'outline'}
+              onClick={() => run(() => onToggleStatus(user))}
+              loading={busy}
+              disabled={busy}
+              className="text-xs py-1.5 px-3"
+            >
+              {user.estado === 'activo' ? 'Desactivar' : 'Activar'}
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {canManagePrices && (
+        <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-gray-100">
+          <span className="text-xs text-gray-500 whitespace-nowrap">Canal / lista:</span>
+          <select
+            value={user.listaPreciosId ?? ''}
+            disabled={busy}
+            onChange={(e: ChangeEvent<HTMLSelectElement>) => handleListaChange(e.target.value)}
+            className="bg-white border border-[#D3D1C7] rounded-lg px-2 py-1 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent flex-1 min-w-0 max-w-xs disabled:opacity-50"
+          >
+            <option value="">Sin lista asignada</option>
+            {listas.map((l) => (
+              <option key={l.id} value={l.id}>{l.nombre}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {fichaModal && (
+        <FichaClienteModal
+          user={user}
+          lista={listaAsignada}
+          currentUser={currentUser}
+          onClose={() => setFichaModal(false)}
+          onAddressesChanged={(addresses) => onAddressesChanged(user.uid, addresses)}
+          onVisitaChanged={(esVisita, frecuenciaVisita) => onVisitaChanged(user.uid, esVisita, frecuenciaVisita)}
+          onActivar={canChangeStatus && user.estado === 'pendiente'
+            ? async () => { await onApprove(user); setFichaModal(false) }
+            : undefined}
+        />
+      )}
+    </div>
+  )
+}
+
+// ── UserRow ───────────────────────────────────────────────────────────────────
 
 interface UserRowProps {
   user:                UserProfile

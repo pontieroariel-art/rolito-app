@@ -6,7 +6,17 @@ import Navbar from '../../components/layout/Navbar'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
 import { getAllUsers, updateUserDocument, approveCoord, rejectCoord } from '../../services/userService'
-import { UserProfile } from '../../types'
+import { UserProfile, DeliveryAddress } from '../../types'
+
+// ── Tipos ─────────────────────────────────────────────────────────────────────
+
+interface SucursalMapItem {
+  key:           string          // uid_addrId o uid_main
+  uid:           string
+  user:          UserProfile
+  address:       DeliveryAddress | null
+  codigoCliente: string
+}
 
 // ── Colores por vendedor ──────────────────────────────────────────────────────
 
@@ -17,7 +27,6 @@ const VENDEDOR_COLORS = [
 ]
 
 const VENDEDOR_SIN = '#9CA3AF'
-
 const vendedorColorMap = new Map<string, string>()
 
 function getVendedorColor(codVendedor: string | undefined): string {
@@ -49,8 +58,8 @@ const MAP_STYLES: google.maps.MapTypeStyle[] = [
 // ── SVG pin ───────────────────────────────────────────────────────────────────
 
 function makePin(fillColor: string, ringColor: string, label: string, size = 40) {
-  const r         = size / 2 - 2
-  const fontSize  = label.length <= 3 ? 11 : label.length <= 5 ? 9 : 8
+  const r        = size / 2 - 2
+  const fontSize = label.length <= 3 ? 11 : label.length <= 5 ? 9 : 8
   const svg = encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size + 10}">` +
     `<circle cx="${size/2}" cy="${size/2}" r="${r}" fill="${fillColor}" stroke="${ringColor}" stroke-width="3.5"/>` +
@@ -72,63 +81,57 @@ const geoCache = new Map<string, { lat: number; lng: number } | null>()
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function primaryAddress(u: UserProfile): string {
-  if (u.addresses?.length) {
-    const p = u.addresses.find((a) => a.esPrincipal) ?? u.addresses[0]
-    return p.address
-  }
-  return u.address ?? ''
+function sucursalCoords(s: SucursalMapItem): { lat: number; lng: number } | null {
+  if (s.address?.lat && s.address?.lng) return { lat: s.address.lat, lng: s.address.lng }
+  if (!s.address && s.user.lat && s.user.lng) return { lat: s.user.lat, lng: s.user.lng }
+  return null
 }
 
-function primaryCoords(u: UserProfile): { lat: number; lng: number } | null {
-  // Coordenadas ya guardadas en el doc
-  if (u.lat && u.lng) return { lat: u.lat, lng: u.lng }
-  if (u.addresses?.length) {
-    const p = u.addresses.find((a) => a.esPrincipal) ?? u.addresses[0]
-    if (p.lat && p.lng) return { lat: p.lat, lng: p.lng }
-  }
-  return null
+function sucursalAddress(s: SucursalMapItem): string {
+  if (s.address?.address) return s.address.address
+  return s.user.address ?? ''
 }
 
 function sleep(ms: number) { return new Promise((r) => setTimeout(r, ms)) }
 
 // ── InfoCard ──────────────────────────────────────────────────────────────────
 
-function InfoCard({ user, onClose }: { user: UserProfile; onClose: () => void }) {
-  const vendColor = getVendedorColor(user.codVendedor)
-  const ringColor = ESTADO_RING[user.estado] ?? '#9CA3AF'
-  const tel       = user.telefono || user.phone || ''
-  const addr      = primaryAddress(user)
-  const statusLabel = user.estado === 'activo' ? 'Activo' : user.estado === 'pendiente' ? 'Pendiente' : 'Inactivo'
-  const statusBg    = user.estado === 'activo' ? '#d1fae5' : user.estado === 'pendiente' ? '#fef3c7' : '#f3f4f6'
-  const statusClr   = user.estado === 'activo' ? '#065f46' : user.estado === 'pendiente' ? '#92400e' : '#6b7280'
+function InfoCard({ sucursal, onClose }: { sucursal: SucursalMapItem; onClose: () => void }) {
+  const u         = sucursal.user
+  const vendColor = getVendedorColor(u.codVendedor)
+  const ringColor = ESTADO_RING[u.estado] ?? '#9CA3AF'
+  const tel       = u.telefono || u.phone || ''
+  const addr      = sucursalAddress(sucursal)
+  const statusLabel = u.estado === 'activo' ? 'Activo' : u.estado === 'pendiente' ? 'Pendiente' : 'Inactivo'
+  const statusBg    = u.estado === 'activo' ? '#d1fae5' : u.estado === 'pendiente' ? '#fef3c7' : '#f3f4f6'
+  const statusClr   = u.estado === 'activo' ? '#065f46' : u.estado === 'pendiente' ? '#92400e' : '#6b7280'
 
   return (
     <div style={{ minWidth: 220, maxWidth: 260, fontFamily: 'sans-serif', fontSize: 13, lineHeight: 1.6, color: '#111' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
-        <div style={{ fontWeight: 700, fontSize: 14, flex: 1, marginRight: 6 }}>{user.razonSocial || user.nombre}</div>
+        <div style={{ fontWeight: 700, fontSize: 14, flex: 1, marginRight: 6 }}>{u.razonSocial || u.nombre}</div>
         <button onClick={onClose} style={{ cursor: 'pointer', background: 'none', border: 'none', fontSize: 16, color: '#999', lineHeight: 1, padding: 0 }}>✕</button>
       </div>
       <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
-        {user.codVendedor && (
+        {u.codVendedor && (
           <span style={{ background: vendColor, color: 'white', fontSize: 11, fontWeight: 700, padding: '1px 8px', borderRadius: 99 }}>
-            {user.codVendedor}
+            {u.codVendedor}
           </span>
         )}
         <span style={{ background: statusBg, color: statusClr, border: `1.5px solid ${ringColor}`, fontSize: 11, fontWeight: 600, padding: '1px 8px', borderRadius: 99 }}>
           {statusLabel}
         </span>
       </div>
-      {user.codigoCliente && (
+      {sucursal.codigoCliente && (
         <div style={{ marginBottom: 3 }}>
           <span style={{ color: '#888', fontSize: 11 }}>Código: </span>
-          <span style={{ fontWeight: 600 }}>{user.codigoCliente}</span>
+          <span style={{ fontWeight: 600 }}>{sucursal.codigoCliente}</span>
         </div>
       )}
-      {user.cuit && (
+      {u.cuit && (
         <div style={{ marginBottom: 3 }}>
           <span style={{ color: '#888', fontSize: 11 }}>CUIT: </span>
-          <span>{user.cuit}</span>
+          <span>{u.cuit}</span>
         </div>
       )}
       {tel && (
@@ -143,9 +146,9 @@ function InfoCard({ user, onClose }: { user: UserProfile; onClose: () => void })
           {addr}
         </div>
       )}
-      {user.notasContacto && (
+      {u.notasContacto && (
         <div style={{ marginTop: 4, paddingTop: 4, borderTop: '1px solid #eee', color: '#666', fontSize: 11 }}>
-          {user.notasContacto}
+          {u.notasContacto}
         </div>
       )}
     </div>
@@ -197,25 +200,22 @@ function PendingCoordPanel({
 
 // ── Componente mapa ───────────────────────────────────────────────────────────
 
-interface GeoResult { uid: string; lat: number; lng: number }
-
 function ClientesMap({
-  clients, geoResults, selectedUid, onSelect,
+  clients, geoResults, selectedKey, onSelect,
 }: {
-  clients:     UserProfile[]
+  clients:     SucursalMapItem[]
   geoResults:  Map<string, { lat: number; lng: number } | null>
-  selectedUid: string | null
-  onSelect:    (uid: string | null) => void
+  selectedKey: string | null
+  onSelect:    (key: string | null) => void
 }) {
   const { isLoaded } = useGoogleMapsLoader()
-  const mapRef = useRef<google.maps.Map | null>(null)
-
+  const mapRef   = useRef<google.maps.Map | null>(null)
   const pinCache = useRef<Map<string, google.maps.Icon>>(new Map())
 
-  const getPin = useCallback((user: UserProfile) => {
-    const fillColor = getVendedorColor(user.codVendedor)
-    const ringColor = ESTADO_RING[user.estado] ?? '#9CA3AF'
-    const label     = user.codigoCliente?.split('.')[1] ?? user.codigoCliente ?? ''
+  const getPin = useCallback((s: SucursalMapItem) => {
+    const fillColor = getVendedorColor(s.user.codVendedor)
+    const ringColor = ESTADO_RING[s.user.estado] ?? '#9CA3AF'
+    const label     = s.codigoCliente?.split('.')[1] ?? s.codigoCliente ?? ''
     const key       = `${fillColor}|${ringColor}|${label}`
     if (!pinCache.current.has(key)) {
       pinCache.current.set(key, makePin(fillColor, ringColor, label))
@@ -223,7 +223,6 @@ function ClientesMap({
     return pinCache.current.get(key)!
   }, [])
 
-  // Calcular bounds cuando hay resultados
   useEffect(() => {
     if (!mapRef.current || geoResults.size === 0) return
     const bounds = new google.maps.LatLngBounds()
@@ -238,10 +237,10 @@ function ClientesMap({
   }, [geoResults.size]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const markers = useMemo(() => {
-    const list: { user: UserProfile; lat: number; lng: number }[] = []
-    for (const u of clients) {
-      const pt = geoResults.get(u.uid)
-      if (pt) list.push({ user: u, lat: pt.lat, lng: pt.lng })
+    const list: { s: SucursalMapItem; lat: number; lng: number }[] = []
+    for (const s of clients) {
+      const pt = geoResults.get(s.key)
+      if (pt) list.push({ s, lat: pt.lat, lng: pt.lng })
     }
     return list
   }, [clients, geoResults])
@@ -272,26 +271,25 @@ function ClientesMap({
       onLoad={(m) => { mapRef.current = m }}
       onClick={() => onSelect(null)}
     >
-      {markers.map(({ user, lat, lng }) => (
+      {markers.map(({ s, lat, lng }) => (
         <Marker
-          key={user.uid}
+          key={s.key}
           position={{ lat, lng }}
-          icon={getPin(user)}
-          zIndex={selectedUid === user.uid ? 100 : 1}
-          onClick={() => onSelect(user.uid)}
+          icon={getPin(s)}
+          zIndex={selectedKey === s.key ? 100 : 1}
+          onClick={() => onSelect(s.key)}
         />
       ))}
 
-      {/* Pins naranjas para coordenadas pendientes */}
       {markers
-        .filter(({ user }) => user.coordPendiente)
-        .map(({ user }) => (
+        .filter(({ s }) => s.user.coordPendiente)
+        .map(({ s }) => (
           <Marker
-            key={`pending-${user.uid}`}
-            position={{ lat: user.coordPendiente!.lat, lng: user.coordPendiente!.lng }}
+            key={`pending-${s.key}`}
+            position={{ lat: s.user.coordPendiente!.lat, lng: s.user.coordPendiente!.lng }}
             icon={pendingPin}
             zIndex={200}
-            onClick={() => onSelect(user.uid)}
+            onClick={() => onSelect(s.key)}
           />
         ))}
     </GoogleMap>
@@ -302,74 +300,90 @@ function ClientesMap({
 
 export default function ClientesMapPage() {
   const navigate = useNavigate()
-  const [allClients, setAllClients] = useState<UserProfile[]>([])
-  const [loading, setLoading]             = useState(true)
-  const [search, setSearch]               = useState('')
-  const [sectorFilter, setSectorFilter]   = useState<string>('all')
-  const [estadoFilter, setEstadoFilter]   = useState<string>('all')
+  const [allSucursales, setAllSucursales] = useState<SucursalMapItem[]>([])
+  const [loading, setLoading]               = useState(true)
+  const [search, setSearch]                 = useState('')
+  const [sectorFilter, setSectorFilter]     = useState<string>('all')
+  const [estadoFilter, setEstadoFilter]     = useState<string>('all')
   const [vendedorFilter, setVendedorFilter] = useState<string>('all')
-  const [soloSinGeo, setSoloSinGeo]       = useState(false)
-  const [geoResults, setGeoResults]       = useState<Map<string, { lat: number; lng: number } | null>>(new Map())
-  const [geocoding, setGeocoding]         = useState(false)
-  const [geoProgress, setGeoProgress]     = useState({ done: 0, total: 0 })
-  const [selectedUid, setSelectedUid]     = useState<string | null>(null)
+  const [soloSinGeo, setSoloSinGeo]         = useState(false)
+  const [geoResults, setGeoResults]         = useState<Map<string, { lat: number; lng: number } | null>>(new Map())
+  const [geocoding, setGeocoding]           = useState(false)
+  const [geoProgress, setGeoProgress]       = useState({ done: 0, total: 0 })
+  const [selectedKey, setSelectedKey]       = useState<string | null>(null)
   const geocodingRef = useRef(false)
 
-  // Cargar clientes
   useEffect(() => {
     getAllUsers().then((all) => {
       const clientes = all.filter((u) => u.rol === 'cliente')
-      setAllClients(clientes)
-      // Pre-cargar coordenadas ya guardadas
+
+      // Expandir a una entrada por sucursal
+      const sucursales: SucursalMapItem[] = clientes.flatMap((u): SucursalMapItem[] =>
+        u.addresses?.length
+          ? u.addresses.map((addr) => ({
+              key:           `${u.uid}_${addr.id}`,
+              uid:           u.uid,
+              user:          u,
+              address:       addr,
+              codigoCliente: addr.id || u.codigoCliente || '',
+            }))
+          : [{
+              key:           u.uid,
+              uid:           u.uid,
+              user:          u,
+              address:       null,
+              codigoCliente: u.codigoCliente || '',
+            }]
+      )
+      setAllSucursales(sucursales)
+
+      // Pre-cargar coordenadas ya guardadas en cada dirección
       const initial = new Map<string, { lat: number; lng: number } | null>()
-      for (const u of clientes) {
-        const pt = primaryCoords(u)
-        if (pt) { initial.set(u.uid, pt); geoCache.set(u.uid, pt) }
+      for (const s of sucursales) {
+        const pt = sucursalCoords(s)
+        if (pt) { initial.set(s.key, pt); geoCache.set(s.key, pt) }
       }
       setGeoResults(new Map(initial))
       setLoading(false)
     })
   }, [])
 
-  // Sectores únicos
   const sectors = useMemo(() => {
     const set = new Set<string>()
-    allClients.filter((u) => u.sector).forEach((u) => set.add(u.sector!))
+    allSucursales.filter((s) => s.user.sector).forEach((s) => set.add(s.user.sector!))
     return Array.from(set).sort()
-  }, [allClients])
+  }, [allSucursales])
 
-  // Códigos de vendedor únicos
   const vendedores = useMemo(() => {
     const set = new Set<string>()
-    allClients.filter((u) => u.codVendedor).forEach((u) => set.add(u.codVendedor!))
+    allSucursales.filter((s) => s.user.codVendedor).forEach((s) => set.add(s.user.codVendedor!))
     return Array.from(set).sort()
-  }, [allClients])
+  }, [allSucursales])
 
-  // Clientes filtrados
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
-    return allClients.filter((u) => {
-      const matchSector  = sectorFilter === 'all' || u.sector === sectorFilter
-      const matchEstado  = estadoFilter === 'all' || u.estado === estadoFilter
-      const matchVendedor = vendedorFilter === 'all' || u.codVendedor === vendedorFilter
-      const matchSinGeo  = !soloSinGeo || !geoResults.get(u.uid)
-      const matchSearch  = !q ||
-        u.razonSocial?.toLowerCase().includes(q) ||
-        u.nombre?.toLowerCase().includes(q) ||
-        u.codigoCliente?.toLowerCase().includes(q)
+    return allSucursales.filter((s) => {
+      const matchSector   = sectorFilter === 'all' || s.user.sector === sectorFilter
+      const matchEstado   = estadoFilter === 'all' || s.user.estado === estadoFilter
+      const matchVendedor = vendedorFilter === 'all' || s.user.codVendedor === vendedorFilter
+      const matchSinGeo   = !soloSinGeo || !geoResults.get(s.key)
+      const matchSearch   = !q ||
+        s.user.razonSocial?.toLowerCase().includes(q) ||
+        s.user.nombre?.toLowerCase().includes(q) ||
+        s.codigoCliente.toLowerCase().includes(q) ||
+        s.address?.address?.toLowerCase().includes(q)
       return matchSector && matchEstado && matchVendedor && matchSinGeo && matchSearch
     })
-  }, [allClients, search, sectorFilter, estadoFilter, vendedorFilter, soloSinGeo, geoResults])
+  }, [allSucursales, search, sectorFilter, estadoFilter, vendedorFilter, soloSinGeo, geoResults])
 
-  const withCoords    = filtered.filter((u) => geoResults.get(u.uid))
-  const withoutCoords = filtered.filter((u) => !geoResults.get(u.uid))
+  const withCoords    = filtered.filter((s) => geoResults.get(s.key))
+  const withoutCoords = filtered.filter((s) => !geoResults.get(s.key))
 
-  // Geocodificación en lote
   const runGeocoding = useCallback(async () => {
     if (geocodingRef.current) return
-    const toGeocode = withoutCoords.filter((u) => {
-      const addr = primaryAddress(u)
-      return addr && !geoCache.has(u.uid)
+    const toGeocode = withoutCoords.filter((s) => {
+      const addr = sucursalAddress(s)
+      return addr && !geoCache.has(s.key)
     })
     if (toGeocode.length === 0) return
 
@@ -385,9 +399,9 @@ export default function ClientesMapPage() {
       const chunk = toGeocode.slice(i, i + BATCH)
       await Promise.all(
         chunk.map(
-          (u) =>
+          (s) =>
             new Promise<void>((resolve) => {
-              const addr = primaryAddress(u)
+              const addr = sucursalAddress(s)
               geocoder.geocode(
                 { address: `${addr}, Argentina`, componentRestrictions: { country: 'AR' } },
                 async (results, status) => {
@@ -395,11 +409,18 @@ export default function ClientesMapPage() {
                     status === 'OK' && results?.[0]
                       ? { lat: results[0].geometry.location.lat(), lng: results[0].geometry.location.lng() }
                       : null
-                  geoCache.set(u.uid, pt)
+                  geoCache.set(s.key, pt)
                   if (pt) {
-                    setGeoResults((prev) => new Map(prev).set(u.uid, pt))
-                    // Guardar en Firestore para no repetir
-                    updateUserDocument(u.uid, { lat: pt.lat, lng: pt.lng }).catch(() => {})
+                    setGeoResults((prev) => new Map(prev).set(s.key, pt))
+                    // Guardar coords en la dirección específica o en el doc raíz
+                    if (s.address) {
+                      const updatedAddresses = s.user.addresses.map((a) =>
+                        a.id === s.address!.id ? { ...a, lat: pt.lat, lng: pt.lng } : a
+                      )
+                      updateUserDocument(s.uid, { addresses: updatedAddresses }).catch(() => {})
+                    } else {
+                      updateUserDocument(s.uid, { lat: pt.lat, lng: pt.lng }).catch(() => {})
+                    }
                   }
                   resolve()
                 },
@@ -452,7 +473,7 @@ export default function ClientesMapPage() {
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar cliente..."
+                placeholder="Buscar por código, razón social, dirección..."
                 className="w-full bg-gray-50 border border-[#D3D1C7] rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent text-gray-900 placeholder-gray-400"
               />
               {search && (
@@ -473,10 +494,10 @@ export default function ClientesMapPage() {
                   sectorFilter === 'all' ? 'bg-gray-900 text-white border-gray-900' : 'border-[#D3D1C7] text-gray-500 hover:border-gray-400'
                 }`}
               >
-                Todos ({allClients.length})
+                Todos ({allSucursales.length})
               </button>
               {sectors.map((s) => {
-                const count = allClients.filter((u) => u.sector === s).length
+                const count = allSucursales.filter((item) => item.user.sector === s).length
                 const active = sectorFilter === s
                 return (
                   <button
@@ -498,12 +519,12 @@ export default function ClientesMapPage() {
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Estado</p>
             <div className="flex flex-wrap gap-1.5">
               {(['all', 'activo', 'pendiente', 'inactivo'] as const).map((e) => {
-                const label   = e === 'all' ? 'Todos' : e === 'activo' ? 'Activo' : e === 'pendiente' ? 'Pendiente' : 'Inactivo'
-                const active  = estadoFilter === e
-                const colors  = e === 'activo'    ? 'bg-emerald-600 border-emerald-600 text-white'
-                              : e === 'pendiente' ? 'bg-amber-500 border-amber-500 text-white'
-                              : e === 'inactivo'  ? 'bg-gray-500 border-gray-500 text-white'
-                              : 'bg-gray-900 border-gray-900 text-white'
+                const label  = e === 'all' ? 'Todos' : e === 'activo' ? 'Activo' : e === 'pendiente' ? 'Pendiente' : 'Inactivo'
+                const active = estadoFilter === e
+                const colors = e === 'activo'    ? 'bg-emerald-600 border-emerald-600 text-white'
+                             : e === 'pendiente' ? 'bg-amber-500 border-amber-500 text-white'
+                             : e === 'inactivo'  ? 'bg-gray-500 border-gray-500 text-white'
+                             : 'bg-gray-900 border-gray-900 text-white'
                 return (
                   <button
                     key={e}
@@ -515,7 +536,7 @@ export default function ClientesMapPage() {
                     {label}
                     {e !== 'all' && (
                       <span className="ml-1 opacity-75">
-                        ({allClients.filter((u) => u.estado === e).length})
+                        ({allSucursales.filter((s) => s.user.estado === e).length})
                       </span>
                     )}
                   </button>
@@ -538,7 +559,7 @@ export default function ClientesMapPage() {
                   Todos
                 </button>
                 {vendedores.map((v) => {
-                  const count  = allClients.filter((u) => u.codVendedor === v).length
+                  const count  = allSucursales.filter((s) => s.user.codVendedor === v).length
                   const active = vendedorFilter === v
                   const color  = getVendedorColor(v)
                   return (
@@ -621,7 +642,7 @@ export default function ClientesMapPage() {
                   className="w-full py-2 rounded-xl bg-accent text-white text-sm font-medium hover:bg-accent/90 transition-colors flex items-center justify-center gap-2"
                 >
                   <MapPin size={14} />
-                  Geocodificar {withoutCoords.length} clientes
+                  Geocodificar {withoutCoords.length} sucursales
                 </button>
               )}
             </div>
@@ -629,15 +650,13 @@ export default function ClientesMapPage() {
 
           {/* Leyenda */}
           <div className="flex-1 overflow-y-auto p-3 space-y-3">
-
-            {/* Vendedores */}
             <div>
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Color → Vendedor</p>
               <div className="space-y-1">
                 {vendedores.map((v) => {
                   const color  = getVendedorColor(v)
-                  const total  = filtered.filter((u) => u.codVendedor === v).length
-                  const mapped = filtered.filter((u) => u.codVendedor === v && geoResults.get(u.uid)).length
+                  const total  = filtered.filter((s) => s.user.codVendedor === v).length
+                  const mapped = filtered.filter((s) => s.user.codVendedor === v && geoResults.get(s.key)).length
                   return (
                     <button
                       key={v}
@@ -656,14 +675,13 @@ export default function ClientesMapPage() {
                   <span className="w-3 h-3 rounded-full shrink-0 bg-gray-400" />
                   <span className="text-sm text-gray-500 flex-1">Sin vendedor</span>
                   <span className="text-xs text-gray-400">
-                    {filtered.filter((u) => !u.codVendedor && geoResults.get(u.uid)).length}/
-                    {filtered.filter((u) => !u.codVendedor).length}
+                    {filtered.filter((s) => !s.user.codVendedor && geoResults.get(s.key)).length}/
+                    {filtered.filter((s) => !s.user.codVendedor).length}
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Estado ring */}
             <div>
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Anillo → Estado</p>
               <div className="space-y-1">
@@ -675,19 +693,18 @@ export default function ClientesMapPage() {
                   <div key={key} className="flex items-center gap-2.5 px-2.5 py-1">
                     <span className="w-3 h-3 rounded-full shrink-0 bg-gray-300" style={{ boxShadow: `0 0 0 2.5px ${color}` }} />
                     <span className="text-sm text-gray-600 flex-1">{label}</span>
-                    <span className="text-xs text-gray-400">{filtered.filter((u) => u.estado === key).length}</span>
+                    <span className="text-xs text-gray-400">{filtered.filter((s) => s.user.estado === key).length}</span>
                   </div>
                 ))}
               </div>
             </div>
-
           </div>
 
           {/* Total footer */}
           <div className="p-3 border-t border-[#D3D1C7]">
             <div className="flex items-center gap-2 text-xs text-gray-500">
               <Users size={12} />
-              <span>{filtered.length} clientes · {withCoords.length} en mapa</span>
+              <span>{filtered.length} sucursales · {withCoords.length} en mapa</span>
             </div>
           </div>
         </aside>
@@ -695,30 +712,30 @@ export default function ClientesMapPage() {
         {/* ── Mapa ── */}
         <div className="flex-1 relative">
 
-          {/* Panel flotante de cliente seleccionado */}
-          {selectedUid && (() => {
-            const u = allClients.find((c) => c.uid === selectedUid)
-            if (!u) return null
+          {/* Panel flotante de sucursal seleccionada */}
+          {selectedKey && (() => {
+            const s = allSucursales.find((item) => item.key === selectedKey)
+            if (!s) return null
             return (
               <div className="absolute top-3 right-3 z-20 w-72 bg-white rounded-2xl shadow-xl border border-[#D3D1C7] p-4 pointer-events-auto space-y-3">
-                <InfoCard user={u} onClose={() => setSelectedUid(null)} />
+                <InfoCard sucursal={s} onClose={() => setSelectedKey(null)} />
 
-                {u.coordPendiente && (
+                {s.user.coordPendiente && (
                   <PendingCoordPanel
-                    coord={u.coordPendiente}
+                    coord={s.user.coordPendiente}
                     onApprove={async () => {
-                      await approveCoord(u.uid, u.coordPendiente!.lat, u.coordPendiente!.lng)
-                      setAllClients((prev) => prev.map((c) =>
-                        c.uid === u.uid
-                          ? { ...c, lat: u.coordPendiente!.lat, lng: u.coordPendiente!.lng, coordPendiente: undefined }
-                          : c
+                      await approveCoord(s.uid, s.user.coordPendiente!.lat, s.user.coordPendiente!.lng)
+                      setAllSucursales((prev) => prev.map((item) =>
+                        item.uid === s.uid
+                          ? { ...item, user: { ...item.user, lat: s.user.coordPendiente!.lat, lng: s.user.coordPendiente!.lng, coordPendiente: undefined } }
+                          : item
                       ))
-                      setGeoResults((prev) => new Map(prev).set(u.uid, { lat: u.coordPendiente!.lat, lng: u.coordPendiente!.lng }))
+                      setGeoResults((prev) => new Map(prev).set(s.key, { lat: s.user.coordPendiente!.lat, lng: s.user.coordPendiente!.lng }))
                     }}
                     onReject={async () => {
-                      await rejectCoord(u.uid)
-                      setAllClients((prev) => prev.map((c) =>
-                        c.uid === u.uid ? { ...c, coordPendiente: undefined } : c
+                      await rejectCoord(s.uid)
+                      setAllSucursales((prev) => prev.map((item) =>
+                        item.uid === s.uid ? { ...item, user: { ...item.user, coordPendiente: undefined } } : item
                       ))
                     }}
                   />
@@ -733,7 +750,7 @@ export default function ClientesMapPage() {
                 <MapPin size={36} className="text-gray-300 mx-auto mb-3" />
                 <p className="text-base font-semibold text-gray-900 mb-1">Sin ubicaciones</p>
                 <p className="text-sm text-gray-500 mb-4">
-                  Geocodificá los clientes para verlos en el mapa
+                  Geocodificá las sucursales para verlas en el mapa
                 </p>
                 <button
                   onClick={runGeocoding}
@@ -744,11 +761,12 @@ export default function ClientesMapPage() {
               </div>
             </div>
           )}
+
           <ClientesMap
             clients={filtered}
             geoResults={geoResults}
-            selectedUid={selectedUid}
-            onSelect={setSelectedUid}
+            selectedKey={selectedKey}
+            onSelect={setSelectedKey}
           />
         </div>
       </div>

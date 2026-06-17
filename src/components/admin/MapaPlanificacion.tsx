@@ -39,20 +39,6 @@ function driverColor(email: string, choferes: UserProfile[]): string {
   return idx >= 0 ? DRIVER_COLORS[idx % DRIVER_COLORS.length] : '#F59E0B'
 }
 
-function clientAddress(c: UserProfile): string {
-  return getPrimaryAddress(c)?.address || c.address || ''
-}
-
-function clientCoords(c: UserProfile): { lat: number; lng: number } | null {
-  const primary = getPrimaryAddress(c)
-  if (primary?.lat && primary?.lng) return { lat: primary.lat, lng: primary.lng }
-  if (c.lat && c.lng)               return { lat: c.lat, lng: c.lng }
-  return null
-}
-
-function clientName(c: UserProfile): string {
-  return c.razonSocial || c.nombreContacto || c.nombre || c.email
-}
 
 function timeStrToUnix(date: string, time: string): number {
   if (!time || !/^\d{1,2}:\d{2}$/.test(time)) return 0
@@ -118,7 +104,8 @@ interface OrderMarker {
 }
 
 interface ClientMarker {
-  id:       string
+  id:       string   // uid o uid_addrId — único por marcador
+  uid:      string   // uid base del usuario — para visitas
   lat:      number
   lng:      number
   title:    string
@@ -179,10 +166,35 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
     [orders, selectedDate],
   )
 
-  // Clientes sin pedido hoy
+  // Sucursales sin pedido hoy (una entrada por cada address del cliente)
   const clientsWithoutOrder = useMemo(() => {
     const ids = new Set(ordersDay.map((o) => o.clientId))
-    return allClients.filter((c) => !ids.has(c.uid))
+    return allClients
+      .filter((c) => !ids.has(c.uid))
+      .flatMap((c) => {
+        const name  = c.razonSocial || c.nombreContacto || c.nombre || c.email
+        const phone = c.telefono || c.phone || ''
+        if (c.addresses?.length) {
+          return c.addresses.map((addr) => ({
+            markerId: addr.id ? `${c.uid}_${addr.id}` : c.uid,
+            uid:      c.uid,
+            title:    addr.nombre ? `${name} – ${addr.nombre}` : name,
+            phone:    addr.contactoTelefono || phone,
+            address:  addr.address,
+            lat:      addr.lat ?? null,
+            lng:      addr.lng ?? null,
+          }))
+        }
+        return [{
+          markerId: c.uid,
+          uid:      c.uid,
+          title:    name,
+          phone,
+          address:  c.address || '',
+          lat:      c.lat ?? null,
+          lng:      c.lng ?? null,
+        }]
+      })
   }, [allClients, ordersDay])
 
   // Geocodificador con cache persistente
@@ -227,24 +239,25 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
     })
   }, [isLoaded, ordersDay, choferes, geocode])
 
-  // Geocodificar clientes sin pedido (usa coords guardadas primero)
+  // Geocodificar sucursales sin pedido (usa coords guardadas primero)
   useEffect(() => {
     if (!isLoaded || allClients.length === 0) return
     Promise.all(
-      clientsWithoutOrder.map(async (c) => {
-        let pt = clientCoords(c)
-        if (!pt) {
-          const addr = clientAddress(c)
-          if (!addr) return null
-          pt = await geocode(addr)
+      clientsWithoutOrder.map(async (s) => {
+        let pt: { lat: number; lng: number } | null = null
+        if (s.lat && s.lng) {
+          pt = { lat: s.lat, lng: s.lng }
+        } else if (s.address) {
+          pt = await geocode(s.address)
         }
         if (!pt) return null
         return {
-          id:      c.uid,
+          id:      s.markerId,
+          uid:     s.uid,
           ...pt,
-          title:   clientName(c),
-          address: clientAddress(c),
-          phone:   c.telefono || c.phone || '',
+          title:   s.title,
+          address: s.address,
+          phone:   s.phone,
         } as ClientMarker
       }),
     ).then((res) => setClientMarkers(res.filter(Boolean) as ClientMarker[]))
@@ -265,7 +278,7 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
     const visitWps = visitasDelDia
       .filter((v) => v.driverId === driverEmail)
       .flatMap((v) => {
-        const cm = clientMarkers.find((c) => c.id === v.clientId)
+        const cm = clientMarkers.find((c) => c.uid === v.clientId)
         return cm ? [{ id: v.clientId, clientId: v.clientId, lat: cm.lat, lng: cm.lng }] : []
       })
     const all: { id: string; clientId: string; lat: number; lng: number }[] = [
@@ -735,9 +748,9 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
           >
             {/* Pines de clientes sin pedido */}
             {clientMarkers
-              .filter((m) => showAllClients || visitasDelDia.some((v) => v.clientId === m.id))
+              .filter((m) => showAllClients || visitasDelDia.some((v) => v.clientId === m.uid))
               .map((m) => {
-              const visitaExistente = visitasDelDia.find((v) => v.clientId === m.id)
+              const visitaExistente = visitasDelDia.find((v) => v.clientId === m.uid)
               const pinColor = visitaExistente?.driverId
                 ? driverColor(visitaExistente.driverId, choferes)
                 : visitaExistente
@@ -760,7 +773,7 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
                       <p style={{ margin: '0 0 2px', fontWeight: 700 }}>{m.title}</p>
                       <p style={{ margin: '0 0 2px', color: '#666', fontSize: 11 }}>{m.address}</p>
                       {m.phone && <p style={{ margin: '0 0 10px', color: '#1D9E75', fontSize: 11 }}>{m.phone}</p>}
-                      {visitaDone.has(m.id) || visitaExistente ? (
+                      {visitaDone.has(m.id) || visitaDone.has(m.uid) || visitaExistente ? (
                         <p style={{ color: '#1D9E75', fontWeight: 700, margin: 0 }}>✓ Visita agendada</p>
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -784,7 +797,7 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
                               setVisitaSaving(true)
                               try {
                                 await addVisitaPuntual({
-                                  clientId:      m.id,
+                                  clientId:      m.uid,
                                   clientName:    m.title,
                                   clientAddress: m.address,
                                   clientPhone:   m.phone,
