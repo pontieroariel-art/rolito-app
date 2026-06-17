@@ -1,10 +1,8 @@
 ﻿import { useState, ChangeEvent, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { getDocs, query, collection, where } from 'firebase/firestore'
-import { db } from '../../services/firebase'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
-import { getAllUsers } from '../../services/userService'
+import { getClientesActivos } from '../../services/userService'
 import { createOrderManual } from '../../services/orderService'
 import { useListaPrecios } from '../../hooks/useListasPrecios'
 import { useCatalogo } from '../../hooks/useCatalogo'
@@ -74,18 +72,8 @@ function StepCliente({
 
   const { data: allUsers = [], isLoading, isError } = useQuery({
     queryKey:  ['users', 'clientes-activos'],
-    queryFn:   async () => {
-      try {
-        const users = await getAllUsers()
-        return users.filter((x) => x.rol === 'cliente' && x.estado === 'activo')
-      } catch {
-        const snap = await getDocs(
-          query(collection(db, 'users'), where('rol', '==', 'cliente'), where('estado', '==', 'activo')),
-        )
-        return snap.docs.map((d) => ({ uid: d.id, ...d.data() } as UserProfile))
-      }
-    },
-    staleTime: 300_000,
+    queryFn:   () => getClientesActivos(),
+    staleTime: 0,
   })
 
   // Expandir cada cliente a una entrada por sucursal
