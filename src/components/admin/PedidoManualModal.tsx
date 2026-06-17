@@ -54,12 +54,21 @@ function ProductRow({
   )
 }
 
+// ── Tipos ─────────────────────────────────────────────────────────────────────
+
+interface SucursalItem {
+  key:     string       // uid o uid_addrId — único por fila
+  user:    UserProfile
+  label:   string       // "Razón Social" o "Razón Social — Sucursal"
+  address: string       // dirección específica de esta sucursal
+}
+
 // ── StepCliente ───────────────────────────────────────────────────────────────
 
 function StepCliente({
   onSelect,
 }: {
-  onSelect: (c: UserProfile) => void
+  onSelect: (item: SucursalItem) => void
 }) {
   const [search, setSearch] = useState('')
 
@@ -70,7 +79,6 @@ function StepCliente({
         const users = await getAllUsers()
         return users.filter((x) => x.rol === 'cliente' && x.estado === 'activo')
       } catch {
-        // Fallback: query directa sin orderBy si falla el índice
         const snap = await getDocs(
           query(collection(db, 'users'), where('rol', '==', 'cliente'), where('estado', '==', 'activo')),
         )
@@ -80,15 +88,36 @@ function StepCliente({
     staleTime: 300_000,
   })
 
+  // Expandir cada cliente a una entrada por sucursal
+  const sucursales = useMemo<SucursalItem[]>(() => {
+    return allUsers.flatMap((u) => {
+      const baseName = u.razonSocial || u.nombre || u.email
+      if (u.addresses?.length) {
+        return u.addresses.map((addr) => ({
+          key:     `${u.uid}_${addr.id}`,
+          user:    u,
+          label:   addr.nombre ? `${baseName} — ${addr.nombre}` : baseName,
+          address: addr.address,
+        }))
+      }
+      return [{
+        key:     u.uid,
+        user:    u,
+        label:   baseName,
+        address: getPrimaryAddress(u)?.address || u.address || '',
+      }]
+    })
+  }, [allUsers])
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
-    if (!q) return allUsers
-    return allUsers.filter((u) => {
-      const name = (u.razonSocial || u.nombre || '').toLowerCase()
-      const cuit = (u.cuit || '').toLowerCase()
-      return name.includes(q) || cuit.includes(q)
-    })
-  }, [allUsers, search])
+    if (!q) return sucursales
+    return sucursales.filter((s) =>
+      s.label.toLowerCase().includes(q) ||
+      (s.user.cuit || '').toLowerCase().includes(q) ||
+      s.address.toLowerCase().includes(q),
+    )
+  }, [sucursales, search])
 
   return (
     <div className="space-y-3">
@@ -96,7 +125,7 @@ function StepCliente({
         autoFocus
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        placeholder="Buscar por nombre o CUIT…"
+        placeholder="Buscar por nombre, CUIT o dirección…"
         className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent placeholder-gray-400"
       />
       {isLoading ? (
@@ -109,23 +138,19 @@ function StepCliente({
         </p>
       ) : (
         <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
-          {filtered.map((c) => {
-            const nombre = c.razonSocial || c.nombre || c.email
-            const addr   = getPrimaryAddress(c)?.address || c.address || ''
-            return (
-              <button
-                key={c.uid}
-                onClick={() => onSelect(c)}
-                className="w-full text-left bg-[#F1EFE8] border border-[#D3D1C7] hover:border-accent/60 hover:bg-white rounded-xl px-4 py-3 transition-colors"
-              >
-                <p className="font-medium text-sm text-gray-900">{nombre}</p>
-                <p className="text-xs text-gray-500 mt-0.5 truncate">
-                  {c.cuit && <span className="mr-2">CUIT {c.cuit}</span>}
-                  {addr && <span>{addr}</span>}
-                </p>
-              </button>
-            )
-          })}
+          {filtered.map((s) => (
+            <button
+              key={s.key}
+              onClick={() => onSelect(s)}
+              className="w-full text-left bg-[#F1EFE8] border border-[#D3D1C7] hover:border-accent/60 hover:bg-white rounded-xl px-4 py-3 transition-colors"
+            >
+              <p className="font-medium text-sm text-gray-900">{s.label}</p>
+              <p className="text-xs text-gray-500 mt-0.5 truncate">
+                {s.user.cuit && <span className="mr-2">CUIT {s.user.cuit}</span>}
+                {s.address && <span>{s.address}</span>}
+              </p>
+            </button>
+          ))}
         </div>
       )}
     </div>
@@ -135,19 +160,18 @@ function StepCliente({
 // ── StepProductos ─────────────────────────────────────────────────────────────
 
 function StepProductos({
-  cliente, defaultDate, onBack, onConfirm,
+  cliente, initialAddress, defaultDate, onBack, onConfirm,
 }: {
-  cliente:     UserProfile
-  defaultDate: string
-  onBack:      () => void
-  onConfirm:   () => void
+  cliente:        UserProfile
+  initialAddress: string
+  defaultDate:    string
+  onBack:         () => void
+  onConfirm:      () => void
 }) {
   const [quantities, setQuantities] = useState<Record<string, number>>({})
   const [date, setDate]             = useState(defaultDate)
   const [notes, setNotes]           = useState('')
-  const [address, setAddress]       = useState(
-    () => getPrimaryAddress(cliente)?.address || cliente.address || ''
-  )
+  const [address, setAddress]       = useState(initialAddress)
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
 
@@ -288,24 +312,20 @@ export default function PedidoManualModal({
   onClose:     () => void
   defaultDate: string
 }) {
-  const [cliente, setCliente] = useState<UserProfile | null>(null)
-  const [done, setDone]       = useState(false)
+  const [selection, setSelection] = useState<{ user: UserProfile; address: string } | null>(null)
+  const [done, setDone]           = useState(false)
 
   const handleClose = () => {
-    setCliente(null)
+    setSelection(null)
     setDone(false)
     onClose()
-  }
-
-  const handleConfirm = () => {
-    setDone(true)
   }
 
   return (
     <Modal
       open={open}
       onClose={handleClose}
-      title={done ? 'Pedido creado' : cliente ? 'Nuevo pedido manual — Productos' : 'Nuevo pedido manual — Cliente'}
+      title={done ? 'Pedido creado' : selection ? 'Nuevo pedido manual — Productos' : 'Nuevo pedido manual — Cliente'}
       variant="light"
     >
       {done ? (
@@ -315,14 +335,15 @@ export default function PedidoManualModal({
           <p className="text-gray-500 text-sm">Aparece como pendiente en el panel de pedidos.</p>
           <Button onClick={handleClose} className="w-full">Cerrar</Button>
         </div>
-      ) : !cliente ? (
-        <StepCliente onSelect={setCliente} />
+      ) : !selection ? (
+        <StepCliente onSelect={(s) => setSelection({ user: s.user, address: s.address })} />
       ) : (
         <StepProductos
-          cliente={cliente}
+          cliente={selection.user}
+          initialAddress={selection.address}
           defaultDate={defaultDate}
-          onBack={() => setCliente(null)}
-          onConfirm={handleConfirm}
+          onBack={() => setSelection(null)}
+          onConfirm={() => setDone(true)}
         />
       )}
     </Modal>
