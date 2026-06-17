@@ -16,6 +16,11 @@ service cloud.firestore {
       return myRole() == 'gerente_comercial';
     }
 
+    // Gerente general: visibilidad total + aprobación de clientes (sin operación)
+    function isGerenteGeneral() {
+      return myRole() == 'gerente_general';
+    }
+
     // Usuarios con acceso de gestión
     function isManager() {
       return myRole() in ['super_admin', 'gerente_comercial', 'comercial'];
@@ -44,6 +49,11 @@ service cloud.firestore {
 
       // facturacion puede leer todos los usuarios (para datos fiscales de clientes)
       allow read: if request.auth != null && isFacturacion();
+
+      // gerente general: lectura total + escritura solo para aprobar/rechazar clientes
+      allow read: if request.auth != null && isGerenteGeneral();
+      allow update: if request.auth != null && isGerenteGeneral()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado']);
     }
 
     // ── Pedidos ────────────────────────────────────────────────────────────
@@ -51,13 +61,14 @@ service cloud.firestore {
       // Cualquier usuario autenticado puede crear pedidos
       allow create: if request.auth != null;
 
-      // Lectura: el cliente dueño, el chofer asignado, operador, comercial o facturación
+      // Lectura: el cliente dueño, el chofer asignado, operador, comercial, facturación o gerente general
       allow read: if request.auth != null && (
         request.auth.uid == resource.data.clientId ||
         request.auth.token.email == resource.data.driverId ||
         isOperator() ||
         isManager() ||
-        isFacturacion()
+        isFacturacion() ||
+        isGerenteGeneral()
       );
 
       // Escritura: el chofer asignado (para marcar entregado) o un operador
@@ -153,7 +164,7 @@ service cloud.firestore {
 
     // ── Historial de precios ──────────────────────────────────────────────────
     match /historialPrecios/{eventoId} {
-      allow read:   if request.auth != null && (isManager() || isOperator() || isFacturacion());
+      allow read:   if request.auth != null && (isManager() || isOperator() || isFacturacion() || isGerenteGeneral());
       allow create: if request.auth != null && (isManager() || isOperator());
       allow update, delete: if false;
     }
@@ -162,6 +173,7 @@ service cloud.firestore {
     match /despachos/{despachoId} {
       allow read: if request.auth != null && (
         isOperator() ||
+        isGerenteGeneral() ||
         request.auth.token.email == resource.data.driverId
       );
       allow write: if request.auth != null && isOperator();
@@ -170,7 +182,7 @@ service cloud.firestore {
     // ── Asignaciones diarias (camión + ayudante por chofer y fecha) ──────────
     // El documento ID es la fecha 'yyyy-MM-dd'
     match /asignacionesDia/{fecha} {
-      allow read:  if request.auth != null && isOperator();
+      allow read:  if request.auth != null && (isOperator() || isGerenteGeneral());
       allow write: if request.auth != null && isOperator();
     }
 

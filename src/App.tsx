@@ -42,8 +42,9 @@ const HistorialPreciosPage = lazy(() => import('./pages/comercial/HistorialPreci
 const MapaLivePage         = lazy(() => import('./pages/comercial/MapaLivePage'))
 const HistorialPage        = lazy(() => import('./pages/shared/HistorialPage'))
 
-const ChoferDashboard = lazy(() => import('./pages/chofer/ChoferDashboard'))
-const ChoferMap       = lazy(() => import('./pages/chofer/ChoferMap'))
+const ChoferDashboard   = lazy(() => import('./pages/chofer/ChoferDashboard'))
+const ChoferMap         = lazy(() => import('./pages/chofer/ChoferMap'))
+const GerenteDashboard  = lazy(() => import('./pages/gerente/GerenteDashboard'))
 
 // ── ErrorBoundary ─────────────────────────────────────────────────────────────
 
@@ -129,8 +130,10 @@ function AppContent() {
           <Route path="/admin/precios"        element={<PriceListsPage />} />
           <Route path="/admin/flota"          element={<FlotaPage />} />
           <Route path="/admin/visitas"        element={<VisitasPage />} />
-          <Route path="/admin/monitoreo"      element={<MonitoreoPage />} />
           <Route path="/admin/incidencias"    element={<ReporteIncidenciasPage />} />
+        </Route>
+        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica', 'gerente_general']} />}>
+          <Route path="/admin/monitoreo" element={<MonitoreoPage />} />
         </Route>
         <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica', 'comercial']} />}>
           <Route path="/admin/planificacion"  element={<LogisticaDashboard />} />
@@ -139,11 +142,16 @@ function AppContent() {
           <Route path="/admin/clima" element={<ClimaPage />} />
         </Route>
 
+        {/* Gerente general */}
+        <Route element={<ProtectedRoute allowedRoles={['gerente_general']} />}>
+          <Route path="/gerente" element={<GerenteDashboard />} />
+        </Route>
+
         {/* Gestión de usuarios */}
-        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_comercial', 'comercial', 'facturacion']} />}>
+        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'facturacion']} />}>
           <Route path="/usuarios" element={<UserManagement />} />
         </Route>
-        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_comercial', 'comercial', 'facturacion', 'logistica']} />}>
+        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'facturacion', 'logistica']} />}>
           <Route path="/admin/mapa-clientes" element={<ClientesMapPage />} />
         </Route>
 
@@ -157,18 +165,18 @@ function AppContent() {
         </Route>
 
         {/* Reportes */}
-        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_comercial', 'comercial', 'facturacion']} />}>
+        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'facturacion']} />}>
           <Route path="/comercial/reporte-precios"  element={<ReportePreciosPage />} />
           <Route path="/comercial/ventas"           element={<ReporteVentasPage />} />
         </Route>
 
         {/* Historial de precios */}
-        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_comercial', 'comercial', 'logistica', 'facturacion']} />}>
+        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'logistica', 'facturacion']} />}>
           <Route path="/comercial/historial-precios" element={<HistorialPreciosPage />} />
         </Route>
 
         {/* Historial unificado */}
-        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_comercial', 'logistica', 'comercial', 'facturacion']} />}>
+        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_general', 'gerente_comercial', 'logistica', 'comercial', 'facturacion']} />}>
           <Route path="/movimientos" element={<HistorialPage />} />
         </Route>
 
