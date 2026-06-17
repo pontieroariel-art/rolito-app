@@ -49,8 +49,10 @@ function normalizarProducto(raw: string): string {
 }
 
 export function parsePedido(text: string): PedidoParsed | null {
-  if (/Purchase Order:/i.test(text))               return parsePOFormat(text)
-  if (/Nro\.\s*OC:|planexware/i.test(text))        return parseCarrefourFormat(text)
+  if (/Purchase Order:\s*PO\w+/i.test(text))             return parsePOFormat(text)
+  if (/OrdJosimarAPlx|Comprador:\s*JOSIMAR/i.test(text)) return parseJosimarFormat(text)
+  if (/OrdCotoPlx|COTO\s+CICSA/i.test(text))             return parseCotoFormat(text)
+  if (/OrdIncPlx|OC_Carrefour|Nro\.\s*OC:/i.test(text)) return parseCarrefourFormat(text)
   return null
 }
 
@@ -78,6 +80,53 @@ function parsePOFormat(text: string): PedidoParsed {
   const productName = normalizarProducto(rawName || 'Hielo bolsa 2kg')
 
   return { numeroOC, clientName, clientAddress, deliveryDate, horaEntrega: '', products: [{ name: productName, quantity: qty }] }
+}
+
+function parseJosimarFormat(text: string): PedidoParsed {
+  // Nro OC: "Número OC:\n4501262733"
+  const numeroOC    = text.match(/N[uú]mero\s+OC:\s*(\d+)/i)?.[1] ?? ''
+
+  // Nombre del comprador: "Comprador:\nJOSIMAR"
+  const clientName  = text.match(/Comprador:\s*([^\n\r]+)/i)?.[1]?.trim() ?? ''
+
+  // Lugar de entrega: "Lugar Entrega:\nCalle 13 Esquina 150..."
+  const clientAddress = text.match(/Lugar\s+Entrega:\s*([^\n\r]+)/i)?.[1]?.trim() ?? ''
+
+  // Fecha entrega: "Fecha Entrega:\n19/06/2026"
+  const dateRaw      = text.match(/Fecha\s+Entrega:\s*(\d{2}\/\d{2}\/\d{4})/i)?.[1] ?? ''
+  const deliveryDate = dateRaw ? toISODate(dateRaw) : ''
+
+  // Cantidad: "Cantidad Cajas:\n12"
+  const qty = parseInt(text.match(/Cantidad\s+Cajas:\s*(\d+)/i)?.[1] ?? '0')
+
+  const products = qty > 0
+    ? [{ name: normalizarProducto('ROLITO HIELO BOLSA 2 Kg'), quantity: qty }]
+    : []
+
+  return { numeroOC, clientName, clientAddress, deliveryDate, horaEntrega: '', products }
+}
+
+function parseCotoFormat(text: string): PedidoParsed {
+  // Nro OC: "Pedido:\n59595870092" (mínimo 8 dígitos para evitar falsos matches)
+  const numeroOC    = text.match(/Pedido:\s*(\d{8,})/)?.[1] ?? ''
+
+  // Nombre del lugar: "L. de Entrega:\nVTE LOPEZ"
+  const clientName  = text.match(/L\.\s*de\s+Entrega:\s*([^\n\r]+)/i)?.[1]?.trim() ?? ''
+
+  // Fecha entrega: "Fecha de Entrega:\n17/06/2026"
+  const dateRaw      = text.match(/Fecha\s+de\s+Entrega:\s*(\d{2}\/\d{2}\/\d{4})/i)?.[1] ?? ''
+  const deliveryDate = dateRaw ? toISODate(dateRaw) : ''
+
+  // Cantidad: línea del EAN → "{EAN}\n{qty}\n1\n..."
+  // Coto no muestra precio, se extrae solo la cantidad
+  const qtyMatch = text.match(/7798021470027\s*(\d+)\s*1/)
+  const qty      = qtyMatch ? parseInt(qtyMatch[1]) : 0
+
+  const products = qty > 0
+    ? [{ name: normalizarProducto('HIELO . ROLITO BSA 2 KGM'), quantity: qty }]
+    : []
+
+  return { numeroOC, clientName, clientAddress: '', deliveryDate, horaEntrega: '', products }
 }
 
 function parseCarrefourFormat(text: string): PedidoParsed {
