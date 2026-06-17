@@ -1,12 +1,12 @@
-import { useState, useEffect, useRef, ChangeEvent, DragEvent } from 'react'
+import { useState, useRef, ChangeEvent, DragEvent } from 'react'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import LoadingSpinner from '../ui/LoadingSpinner'
 import { extractPdfText, parsePedido } from '../../utils/parsePdf'
 import { PRODUCTS } from '../../utils/constants'
 import { createOrderExterno } from '../../services/orderService'
-import { getAllUsers } from '../../services/userService'
-import { UserProfile, getPrimaryAddress } from '../../types'
+import { useSucursales, SucursalItem } from '../../hooks/useSucursales'
+import { getPrimaryAddress } from '../../types'
 
 interface Props {
   open:    boolean
@@ -22,11 +22,9 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
   const [error,   setError]   = useState('')
 
   // Paso 1 — cliente
-  const [clientesRaw,       setClientesRaw]       = useState<UserProfile[]>([])
   const [busqueda,          setBusqueda]          = useState('')
-  const [selectedClientId,  setSelectedClientId]  = useState('')
-  const [selectedAddressId, setSelectedAddressId] = useState('')
-  const [loadingClientes,   setLoadingClientes]   = useState(false)
+  const [selectedKey,       setSelectedKey]       = useState('')   // SucursalItem.key
+  const { sucursales, isLoading: loadingClientes } = useSucursales()
 
   // Paso 3 — datos del pedido
   const [clientName,    setClientName]    = useState('')
@@ -39,23 +37,12 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
 
   const fileRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    if (!open) return
-    setLoadingClientes(true)
-    getAllUsers().then((users) => {
-      const activos = users.filter((u) => u.rol === 'cliente' && u.estado === 'activo')
-      setClientesRaw(activos)
-      setLoadingClientes(false)
-    })
-  }, [open])
-
   const reset = () => {
     setStep('client')
     setError('')
     setLoading(false)
     setSaving(false)
-    setSelectedClientId('')
-    setSelectedAddressId('')
+    setSelectedKey('')
     setBusqueda('')
     setClientName('')
     setClientAddress('')
@@ -68,36 +55,24 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
 
   const handleClose = () => { reset(); onClose() }
 
-  const selectedCliente = clientesRaw.find((c) => c.uid === selectedClientId) ?? null
-  const selectedAddress = selectedCliente?.addresses?.find((a) => a.id === selectedAddressId) ?? null
-
-  // Lista aplanada: una fila por sucursal (o una fila por cliente si no tiene addresses)
-  const flatList = clientesRaw.flatMap((c) => {
-    const addrs = c.addresses ?? []
-    if (addrs.length === 0) return [{ c, a: null as null | typeof addrs[0] }]
-    return addrs.map((a) => ({ c, a }))
-  })
+  const selectedItem: SucursalItem | null = sucursales.find((s) => s.key === selectedKey) ?? null
+  const selectedCliente = selectedItem?.user ?? null
+  const selectedAddress = selectedCliente?.addresses?.find((a) => a.id === selectedItem?.addrId) ?? null
 
   const flatFiltered = busqueda.trim()
-    ? flatList.filter(({ c, a }) => {
+    ? sucursales.filter((s) => {
         const q = busqueda.toLowerCase()
         return (
-          (c.razonSocial || '').toLowerCase().includes(q) ||
-          (c.nombreContacto || '').toLowerCase().includes(q) ||
-          (c.codigoCliente || '').toLowerCase().includes(q) ||
-          (a?.nombre || '').toLowerCase().includes(q) ||
-          (a?.address || '').toLowerCase().includes(q)
+          s.label.toLowerCase().includes(q) ||
+          (s.user.cuit || '').toLowerCase().includes(q) ||
+          (s.user.codigoCliente || '').toLowerCase().includes(q) ||
+          s.address.toLowerCase().includes(q)
         )
       })
-    : flatList
-
-  const handleSelectRow = (c: UserProfile, a: typeof flatList[0]['a']) => {
-    setSelectedClientId(c.uid)
-    setSelectedAddressId(a?.id ?? '')
-  }
+    : sucursales
 
   const handleContinueToUpload = () => {
-    if (!selectedClientId) { setError('Seleccioná un cliente'); return }
+    if (!selectedKey) { setError('Seleccioná un cliente'); return }
     setError('')
     setStep('upload')
   }
@@ -113,9 +88,9 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
       const text   = await extractPdfText(file)
       const result = parsePedido(text)
 
-      // Nombre del cliente: siempre del cliente seleccionado
-      const nombre = selectedCliente
-        ? (selectedCliente.razonSocial || selectedCliente.nombreContacto || selectedCliente.nombre)
+      // Nombre del cliente: siempre de la sucursal seleccionada
+      const nombre = selectedItem
+        ? selectedItem.label
         : (result?.clientName ?? '')
       setClientName(nombre)
 
@@ -191,27 +166,25 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
             <div className="flex justify-center py-10"><LoadingSpinner /></div>
           ) : (
             <ul className="border border-[#D3D1C7] rounded-lg overflow-y-auto max-h-72 divide-y divide-[#ECEAE3]">
-              {flatFiltered.map(({ c, a }) => {
-                const rowKey   = `${c.uid}__${a?.id ?? 'noaddr'}`
-                const isActive = c.uid === selectedClientId && (a?.id ?? '') === selectedAddressId
-                const label    = c.razonSocial || c.nombreContacto || c.nombre
+              {flatFiltered.map((s) => {
+                const isActive = s.key === selectedKey
                 return (
                   <li
-                    key={rowKey}
-                    onClick={() => handleSelectRow(c, a)}
+                    key={s.key}
+                    onClick={() => setSelectedKey(s.key)}
                     className={`flex items-start gap-2 px-3 py-2.5 cursor-pointer text-sm transition-colors ${
                       isActive
                         ? 'bg-[#E8F5F0] text-accent font-medium'
                         : 'hover:bg-[#F0EEE7] text-gray-900'
                     }`}
                   >
-                    {c.codigoCliente && (
-                      <span className="text-xs text-gray-400 shrink-0 mt-0.5">[{c.codigoCliente}]</span>
+                    {s.addrId && (
+                      <span className="text-xs text-gray-400 shrink-0 mt-0.5">[{s.addrId}]</span>
                     )}
                     <span className="flex-1 min-w-0">
-                      <span className="block truncate">{label}</span>
-                      {a && (
-                        <span className="block text-xs text-gray-500 truncate">{a.nombre}{a.address ? ` — ${a.address}` : ''}</span>
+                      <span className="block truncate">{s.label}</span>
+                      {s.address && (
+                        <span className="block text-xs text-gray-500 truncate">{s.address}</span>
                       )}
                     </span>
                     {isActive && <span className="text-accent shrink-0 mt-0.5">✓</span>}
@@ -226,7 +199,7 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
 
           {error && <p className="text-red-600 text-sm">{error}</p>}
 
-          <Button onClick={handleContinueToUpload} className="w-full text-sm" disabled={loadingClientes || !selectedClientId}>
+          <Button onClick={handleContinueToUpload} className="w-full text-sm" disabled={loadingClientes || !selectedKey}>
             Continuar →
           </Button>
         </div>
@@ -235,9 +208,10 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
       {/* Paso 2 — Subir PDF */}
       {step === 'upload' && (
         <div className="space-y-4">
-          {selectedCliente && (
+          {selectedItem && (
             <div className="bg-[#E8F5F0] border border-accent/30 rounded-lg px-3 py-2 text-sm text-accent font-medium">
-              {selectedCliente.razonSocial || selectedCliente.nombreContacto}
+              {selectedItem.label}
+              {selectedItem.address && <span className="text-xs text-accent/70 ml-2">{selectedItem.address}</span>}
             </div>
           )}
 
@@ -307,11 +281,14 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
               <label className="text-xs text-gray-500 mb-1 block">Dirección de entrega *</label>
               {(selectedCliente?.addresses?.length ?? 0) > 1 && (
                 <select
-                  value={selectedAddressId}
+                  value={selectedItem?.addrId ?? ''}
                   onChange={(e) => {
-                    setSelectedAddressId(e.target.value)
                     const addr = selectedCliente!.addresses.find((a) => a.id === e.target.value)
-                    if (addr) setClientAddress(addr.address)
+                    if (addr) {
+                      const newKey = `${selectedCliente!.uid}_${addr.id}`
+                      setSelectedKey(newKey)
+                      setClientAddress(addr.address)
+                    }
                   }}
                   className="w-full mb-1 bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
                 >
