@@ -1,12 +1,11 @@
 ﻿import { useState, ChangeEvent, useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
-import { getClientesActivos } from '../../services/userService'
 import { createOrderManual } from '../../services/orderService'
 import { useListaPrecios } from '../../hooks/useListasPrecios'
 import { useCatalogo } from '../../hooks/useCatalogo'
-import { UserProfile, getPrimaryAddress } from '../../types'
+import { useSucursales, SucursalItem } from '../../hooks/useSucursales'
+import { UserProfile } from '../../types'
 
 // ── ProductRow ────────────────────────────────────────────────────────────────
 
@@ -52,15 +51,6 @@ function ProductRow({
   )
 }
 
-// ── Tipos ─────────────────────────────────────────────────────────────────────
-
-interface SucursalItem {
-  key:     string       // uid o uid_addrId — único por fila
-  user:    UserProfile
-  label:   string       // "Razón Social" o "Razón Social — Sucursal"
-  address: string       // dirección específica de esta sucursal
-}
-
 // ── StepCliente ───────────────────────────────────────────────────────────────
 
 function StepCliente({
@@ -69,33 +59,7 @@ function StepCliente({
   onSelect: (item: SucursalItem) => void
 }) {
   const [search, setSearch] = useState('')
-
-  const { data: allUsers = [], isLoading, isError } = useQuery({
-    queryKey:  ['users', 'clientes-activos'],
-    queryFn:   () => getClientesActivos(),
-    staleTime: 0,
-  })
-
-  // Expandir cada cliente a una entrada por sucursal
-  const sucursales = useMemo<SucursalItem[]>(() => {
-    return allUsers.flatMap((u) => {
-      const baseName = u.razonSocial || u.nombre || u.email
-      if (u.addresses?.length) {
-        return u.addresses.map((addr) => ({
-          key:     `${u.uid}_${addr.id}`,
-          user:    u,
-          label:   addr.nombre || baseName,
-          address: addr.address,
-        }))
-      }
-      return [{
-        key:     u.uid,
-        user:    u,
-        label:   baseName,
-        address: getPrimaryAddress(u)?.address || u.address || '',
-      }]
-    })
-  }, [allUsers])
+  const { sucursales, isLoading, isError } = useSucursales()
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
