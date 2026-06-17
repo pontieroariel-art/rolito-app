@@ -1119,10 +1119,25 @@ function FichaClienteModal({
   const [codigoCliente,    setCodigoCliente]    = useState(user.codigoCliente ?? '')
   const [savingCodigo,     setSavingCodigo]     = useState(false)
   const [activando,        setActivando]        = useState(false)
+  const [localRazonSocial,    setLocalRazonSocial]    = useState(user.razonSocial ?? '')
+  const [localNombreContacto, setLocalNombreContacto] = useState(user.nombreContacto ?? '')
+  const [localTelefono,       setLocalTelefono]       = useState(user.telefono || user.phone || '')
+  const [savingInfo,          setSavingInfo]           = useState(false)
   const { isLoaded } = useGoogleMapsLoader()
 
-  const canManagePrices = ['super_admin', 'gerente_comercial'].includes(currentUser?.rol ?? '')
-  const canAssignCode   = ['super_admin', 'facturacion'].includes(currentUser?.rol ?? '')
+  const canManagePrices  = ['super_admin', 'gerente_comercial'].includes(currentUser?.rol ?? '')
+  const canAssignCode    = ['super_admin', 'facturacion'].includes(currentUser?.rol ?? '')
+  const canEditInfoBasica = ['super_admin', 'gerente_comercial', 'comercial', 'logistica'].includes(currentUser?.rol ?? '')
+
+  const handleSaveInfo = async () => {
+    setSavingInfo(true)
+    await updateUserDocument(user.uid, {
+      razonSocial:    localRazonSocial.trim(),
+      nombreContacto: localNombreContacto.trim(),
+      telefono:       localTelefono.trim(),
+    })
+    setSavingInfo(false)
+  }
 
   const handleSaveCodigo = async () => {
     setSavingCodigo(true)
@@ -1174,8 +1189,30 @@ function FichaClienteModal({
             <Building2 size={12} /> Empresa
           </h3>
           <div className="bg-[#F8F7F2] rounded-xl p-3 space-y-2">
-            <Row label="Razón social"    value={user.razonSocial || '—'} />
-            <Row label="Nombre contacto" value={user.nombreContacto || user.nombre || '—'} />
+            {canEditInfoBasica ? (
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-500">Razón social</label>
+                <input
+                  value={localRazonSocial}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setLocalRazonSocial(e.target.value)}
+                  className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+              </div>
+            ) : (
+              <Row label="Razón social" value={user.razonSocial || '—'} />
+            )}
+            {canEditInfoBasica ? (
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-500">Nombre contacto</label>
+                <input
+                  value={localNombreContacto}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setLocalNombreContacto(e.target.value)}
+                  className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+              </div>
+            ) : (
+              <Row label="Nombre contacto" value={user.nombreContacto || user.nombre || '—'} />
+            )}
             {user.cuit && <Row label="CUIT" value={formatCuit(user.cuit)} icon={<CreditCard size={13} className="text-gray-500 shrink-0" />} />}
           </div>
         </section>
@@ -1186,8 +1223,25 @@ function FichaClienteModal({
             <User size={12} /> Contacto
           </h3>
           <div className="bg-[#F8F7F2] rounded-xl p-3 space-y-2">
-            <Row label="Email"    value={user.email || '—'} icon={<Mail  size={13} className="text-gray-500 shrink-0" />} />
-            {tel && <Row label="Teléfono" value={tel}       icon={<Phone size={13} className="text-gray-500 shrink-0" />} />}
+            <Row label="Email" value={user.email || '—'} icon={<Mail size={13} className="text-gray-500 shrink-0" />} />
+            {canEditInfoBasica ? (
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-500">Teléfono</label>
+                <input
+                  value={localTelefono}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setLocalTelefono(e.target.value)}
+                  placeholder="+54 11 1234-5678"
+                  className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+              </div>
+            ) : (
+              tel ? <Row label="Teléfono" value={tel} icon={<Phone size={13} className="text-gray-500 shrink-0" />} /> : null
+            )}
+            {canEditInfoBasica && (
+              <Button onClick={handleSaveInfo} loading={savingInfo} className="w-full text-xs mt-1">
+                Guardar cambios
+              </Button>
+            )}
           </div>
         </section>
 

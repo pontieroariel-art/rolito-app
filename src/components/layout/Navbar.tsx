@@ -59,6 +59,7 @@ const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
     { to: '/admin/monitoreo',     label: 'Monitoreo',      icon: Activity },
     { to: '/admin/flota',         label: 'Flota',          icon: Truck },
     { to: '/admin/clima',         label: 'Clima',          icon: Cloud },
+    { to: '/usuarios',            label: 'Clientes',       icon: Users },
     { to: '/admin/mapa-clientes', label: 'Mapa clientes',  icon: Map },
   ],
   comercial: [
