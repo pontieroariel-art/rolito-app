@@ -112,9 +112,10 @@ function StepCliente({
 // ── StepProductos ─────────────────────────────────────────────────────────────
 
 function StepProductos({
-  cliente, initialAddress, defaultDate, onBack, onConfirm,
+  cliente, clientLabel, initialAddress, defaultDate, onBack, onConfirm,
 }: {
   cliente:        UserProfile
+  clientLabel:    string
   initialAddress: string
   defaultDate:    string
   onBack:         () => void
@@ -164,7 +165,7 @@ function StepProductos({
     setLoading(true)
     setError('')
     try {
-      await createOrderManual({ cliente, products: selected, date, notes, address })
+      await createOrderManual({ cliente, clientLabel, products: selected, date, notes, address })
       onConfirm()
     } catch {
       setError('Error al crear el pedido. Intentá de nuevo.')
@@ -264,7 +265,7 @@ export default function PedidoManualModal({
   onClose:     () => void
   defaultDate: string
 }) {
-  const [selection, setSelection] = useState<{ user: UserProfile; address: string } | null>(null)
+  const [selection, setSelection] = useState<{ user: UserProfile; address: string; label: string } | null>(null)
   const [done, setDone]           = useState(false)
 
   const handleClose = () => {
@@ -288,10 +289,11 @@ export default function PedidoManualModal({
           <Button onClick={handleClose} className="w-full">Cerrar</Button>
         </div>
       ) : !selection ? (
-        <StepCliente onSelect={(s) => setSelection({ user: s.user, address: s.address })} />
+        <StepCliente onSelect={(s) => setSelection({ user: s.user, address: s.address, label: s.label })} />
       ) : (
         <StepProductos
           cliente={selection.user}
+          clientLabel={selection.label}
           initialAddress={selection.address}
           defaultDate={defaultDate}
           onBack={() => setSelection(null)}

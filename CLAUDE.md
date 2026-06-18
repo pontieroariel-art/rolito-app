@@ -12,7 +12,7 @@ No hay test runner ni linter configurados.
 
 ## Stack tecnológico
 
-React 18 + TypeScript, Vite, Tailwind CSS 3, Firebase (Auth + Firestore), React Router 6, Zustand, PWA via vite-plugin-pwa. Deploy en Vercel.
+React 18 + TypeScript, Vite, Tailwind CSS 3, Firebase (Auth + Firestore + Hosting), React Router 6, Zustand, PWA via vite-plugin-pwa. Deploy en Firebase Hosting (`npx firebase deploy --only hosting`).
 
 ## Arquitectura
 

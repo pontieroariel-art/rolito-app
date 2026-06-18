@@ -34,7 +34,7 @@ export function useSucursales() {
             key:     `${u.uid}_${addr.id}`,
             user:    u,
             addrId:  addr.id,
-            label:   addr.nombre || baseName,
+            label:   [baseName, addr.id, addr.nombre].filter(Boolean).join(' - '),
             address: addr.address,
           })
         }

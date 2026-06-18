@@ -62,18 +62,19 @@ export const createOrder = ({ user, products, date, notes, address, esUrgente }:
 }
 
 export const createOrderManual = ({
-  cliente, products, date, notes, address,
+  cliente, clientLabel, products, date, notes, address,
 }: {
-  cliente:  UserProfile
-  products: OrderProduct[]
-  date:     string
-  notes:    string
-  address:  string
+  cliente:      UserProfile
+  clientLabel?: string
+  products:     OrderProduct[]
+  date:         string
+  notes:        string
+  address:      string
 }) =>
   addDoc(collection(db, ORDERS), {
     clientId:      cliente.uid,
     clientEmail:   cliente.email,
-    clientName:    cliente.razonSocial || cliente.nombre || '',
+    clientName:    clientLabel || cliente.razonSocial || cliente.nombre || '',
     clientAddress: address,
     clientPhone:   cliente.telefono   || cliente.phone  || '',
     products,

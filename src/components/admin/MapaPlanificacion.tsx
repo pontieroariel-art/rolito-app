@@ -747,9 +747,7 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
             }}
           >
             {/* Pines de clientes sin pedido */}
-            {clientMarkers
-              .filter((m) => showAllClients || visitasDelDia.some((v) => v.clientId === m.uid))
-              .map((m) => {
+            {showAllClients && clientMarkers.map((m) => {
               const visitaExistente = visitasDelDia.find((v) => v.clientId === m.uid)
               const pinColor = visitaExistente?.driverId
                 ? driverColor(visitaExistente.driverId, choferes)
