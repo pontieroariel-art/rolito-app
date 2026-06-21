@@ -23,6 +23,7 @@ export function useSucursales() {
     const result: SucursalItem[] = []
 
     for (const u of allUsers) {
+      if (u.estado !== 'activo') continue
       const baseName = u.razonSocial || u.nombre || u.email
 
       if (u.addresses?.length) {

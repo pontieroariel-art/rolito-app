@@ -1131,12 +1131,15 @@ function FichaClienteModal({
 
   const handleSaveInfo = async () => {
     setSavingInfo(true)
-    await updateUserDocument(user.uid, {
-      razonSocial:    localRazonSocial.trim(),
-      nombreContacto: localNombreContacto.trim(),
-      telefono:       localTelefono.trim(),
-    })
-    setSavingInfo(false)
+    try {
+      await updateUserDocument(user.uid, {
+        razonSocial:    localRazonSocial.trim(),
+        nombreContacto: localNombreContacto.trim(),
+        telefono:       localTelefono.trim(),
+      })
+    } finally {
+      setSavingInfo(false)
+    }
   }
 
   const handleSaveCodigo = async () => {
