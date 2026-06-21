@@ -178,8 +178,8 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
                         : 'hover:bg-[#F0EEE7] text-gray-900'
                     }`}
                   >
-                    {s.addrId && (
-                      <span className="text-xs text-gray-400 shrink-0 mt-0.5">[{s.addrId}]</span>
+                    {s.user.codigoCliente && (
+                      <span className="text-xs text-gray-400 shrink-0 mt-0.5">[{s.user.codigoCliente}]</span>
                     )}
                     <span className="flex-1 min-w-0">
                       <span className="block truncate">{s.label}</span>
@@ -288,6 +288,7 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
                       const newKey = `${selectedCliente!.uid}_${addr.id}`
                       setSelectedKey(newKey)
                       setClientAddress(addr.address)
+                      setClientName(addr.nombre || selectedCliente!.razonSocial || selectedCliente!.nombre || '')
                     }
                   }}
                   className="w-full mb-1 bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
