@@ -1720,7 +1720,8 @@ function GestionarDomiciliosModal({
       await updateUserDocument(user.uid, { addresses: updated })
       setAddresses(updated)
       onAddressesChanged?.(updated)
-    } catch {
+    } catch (err) {
+      console.error('GestionarDomiciliosModal save error:', err)
       setSaveError('Error al guardar. Intentá de nuevo.')
     } finally {
       setSaving(false)

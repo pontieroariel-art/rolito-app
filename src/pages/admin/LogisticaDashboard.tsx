@@ -272,7 +272,7 @@ const KanbanCard = memo(function KanbanCard({ order, choferes }: { order: Order;
       >
         {/* Header: nombre + menú */}
         <div className="flex items-start justify-between gap-1">
-          <p className="text-sm font-semibold text-gray-900 leading-tight line-clamp-2 flex-1">{order.clientName}</p>
+          <p className="text-sm font-semibold text-gray-900 leading-tight flex-1">{order.clientName}</p>
           {canEdit && (
             <button
               onPointerDown={(e) => e.stopPropagation()}
