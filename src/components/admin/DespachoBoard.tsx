@@ -351,22 +351,14 @@ function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionCha
         {/* Estado ruta */}
         <div className="mt-1.5 flex items-center gap-1.5">
           {recalculating ? (
-            <><div className="w-3 h-3 border border-accent border-t-transparent rounded-full animate-spin shrink-0" /><span className="text-[10px] text-gray-400">Calculando ruta HGV...</span></>
+            <><div className="w-3 h-3 border border-accent border-t-transparent rounded-full animate-spin shrink-0" /><span className="text-[10px] text-gray-400">Calculando ruta...</span></>
           ) : confirmed ? (
             <><CheckCircle size={11} className="text-green-500 shrink-0" /><span className="text-[10px] text-green-600 font-medium">DESPACHADO{despacho?.modifiedAfterConfirm ? ' (+cambios)' : ''}</span></>
           ) : orsStatus && routeOrder.length > 0 ? (
             orsStatus.ok ? (
-              <><CheckCircle size={11} className="text-accent shrink-0" /><span className="text-[10px] text-accent font-medium">Ruta HGV optimizada</span></>
+              <><CheckCircle size={11} className="text-accent shrink-0" /><span className="text-[10px] text-accent font-medium">Ruta optimizada (ORS)</span></>
             ) : (
-              <div className="space-y-0.5 w-full">
-                <div className="flex items-center gap-1">
-                  <AlertTriangle size={11} className="text-amber-500 shrink-0" />
-                  <span className="text-[10px] text-amber-600 font-medium">ORS falló — orden sin HGV</span>
-                </div>
-                {orsStatus.error && (
-                  <p className="text-[9px] text-gray-400 leading-tight truncate" title={orsStatus.error}>{orsStatus.error}</p>
-                )}
-              </div>
+              <><CheckCircle size={11} className="text-gray-400 shrink-0" /><span className="text-[10px] text-gray-500 font-medium">Ruta estimada (local)</span></>
             )
           ) : items.length > 0 ? (
             <span className="text-[10px] text-gray-400">Sin optimizar aún...</span>
