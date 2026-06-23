@@ -11,7 +11,7 @@ import { Order, UserProfile, getPrimaryAddress, PLANTAS, PlantaId } from '../../
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 
-const DRIVER_COLORS = ['#00C2FF', '#FF6B6B', '#4ECDC4', '#A8E6CF', '#FFE66D', '#C084FC', '#F97316', '#34D399']
+const DRIVER_COLORS = ['#E53935', '#F57C00', '#7B1FA2', '#1565C0', '#E91E63', '#F9A825', '#2E7D32', '#00838F']
 
 const MAP_STYLES: google.maps.MapTypeStyle[] = [
   { featureType: 'poi',               stylers: [{ visibility: 'off' }] },
@@ -268,6 +268,17 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
     () => visitasParaFecha(visitas, new Date(selectedDate + 'T12:00:00')),
     [visitas, selectedDate],
   )
+
+  const clearRoute = useCallback((driverEmail: string) => {
+    const idsToRemove = new Set([
+      ...orderMarkers.filter((m) => m.driver === driverEmail).map((m) => m.id),
+      ...visitasDelDia.filter((v) => v.driverId === driverEmail).map((v) => v.clientId),
+    ])
+    setRoutePaths((prev)    => { const n = { ...prev }; delete n[driverEmail]; return n })
+    setRouteUnassigned((prev) => { const n = { ...prev }; delete n[driverEmail]; return n })
+    setRouteLabels((prev)   => { const n = { ...prev }; idsToRemove.forEach((id) => delete n[id]); return n })
+    setRouteArrivals((prev) => { const n = { ...prev }; idsToRemove.forEach((id) => delete n[id]); return n })
+  }, [orderMarkers, visitasDelDia])
 
   // Calcular ruta: ORS Optimization (time windows) → ORS Directions (avoid_polygons)
   const calculateRoute = useCallback((driverEmail: string) => {
@@ -644,13 +655,24 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
                       <option key={id} value={id}>{p.label}</option>
                     ))}
                   </select>
-                  <button
-                    onClick={() => calculateRoute(c.email)}
-                    disabled={calculating}
-                    className="w-full text-xs px-3 py-1.5 rounded-lg border transition-colors bg-accent text-white border-accent hover:bg-accent/90 disabled:opacity-50"
-                  >
-                    {calculating ? 'Calculando…' : hasRoute ? '↺ Recalcular ruta' : 'Calcular ruta'}
-                  </button>
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={() => calculateRoute(c.email)}
+                      disabled={calculating}
+                      className="flex-1 text-xs px-3 py-1.5 rounded-lg border transition-colors bg-accent text-white border-accent hover:bg-accent/90 disabled:opacity-50"
+                    >
+                      {calculating ? 'Calculando…' : hasRoute ? '↺ Recalcular' : 'Calcular ruta'}
+                    </button>
+                    {hasRoute && !calculating && (
+                      <button
+                        onClick={() => clearRoute(c.email)}
+                        className="text-xs px-2.5 py-1.5 rounded-lg border border-[#D3D1C7] text-gray-500 hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                        title="Limpiar ruta del mapa"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                   {hasRoute && !calculating && (
                     <p className="text-xs text-green-600 font-medium text-center">✓ Ruta optimizada</p>
                   )}
@@ -859,8 +881,8 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
                 path={path}
                 options={{
                   strokeColor:   driverColor(email, choferes),
-                  strokeWeight:  4,
-                  strokeOpacity: 0.65,
+                  strokeWeight:  5,
+                  strokeOpacity: 0.88,
                 }}
               />
             ))}

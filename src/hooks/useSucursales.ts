@@ -9,6 +9,7 @@ export interface SucursalItem {
   addrId:  string        // address.id o '' si no tiene addresses
   label:   string        // nombre de la sucursal (address.nombre || razonSocial)
   address: string        // dirección de entrega
+  horario?: string       // horarioApertura – horarioCierre del domicilio
 }
 
 export function useSucursales() {
@@ -37,6 +38,9 @@ export function useSucursales() {
             addrId:  addr.id,
             label:   addr.nombre || baseName,
             address: addr.address,
+            horario: addr.horarioApertura && addr.horarioCierre
+              ? `${addr.horarioApertura} – ${addr.horarioCierre}`
+              : addr.horarioApertura || undefined,
           })
         }
       } else {

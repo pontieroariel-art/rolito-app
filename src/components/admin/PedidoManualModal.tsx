@@ -112,19 +112,22 @@ function StepCliente({
 // ── StepProductos ─────────────────────────────────────────────────────────────
 
 function StepProductos({
-  cliente, clientLabel, initialAddress, defaultDate, onBack, onConfirm,
+  cliente, clientLabel, initialAddress, initialHorario, defaultDate, onBack, onConfirm,
 }: {
-  cliente:        UserProfile
-  clientLabel:    string
-  initialAddress: string
-  defaultDate:    string
-  onBack:         () => void
-  onConfirm:      () => void
+  cliente:         UserProfile
+  clientLabel:     string
+  initialAddress:  string
+  initialHorario?: string
+  defaultDate:     string
+  onBack:          () => void
+  onConfirm:       () => void
 }) {
   const [quantities, setQuantities] = useState<Record<string, number>>({})
   const [date, setDate]             = useState(defaultDate)
   const [notes, setNotes]           = useState('')
   const [address, setAddress]       = useState(initialAddress)
+  const [ordenCompra, setOrdenCompra] = useState('')
+  const [horario, setHorario]         = useState(initialHorario ?? '')
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
 
@@ -165,7 +168,7 @@ function StepProductos({
     setLoading(true)
     setError('')
     try {
-      await createOrderManual({ cliente, clientLabel, products: selected, date, notes, address })
+      await createOrderManual({ cliente, clientLabel, products: selected, date, notes, address, ordenCompra: ordenCompra.trim() || undefined, horaEntrega: horario.trim() || undefined })
       onConfirm()
     } catch {
       setError('Error al crear el pedido. Intentá de nuevo.')
@@ -232,6 +235,28 @@ function StepProductos({
         />
       </div>
 
+      {/* Orden de compra */}
+      <div>
+        <label className="text-xs text-gray-500 mb-1 block">Orden de compra (opcional)</label>
+        <input
+          value={ordenCompra}
+          onChange={(e) => setOrdenCompra(e.target.value)}
+          placeholder="Nro. de OC…"
+          className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent placeholder-gray-400"
+        />
+      </div>
+
+      {/* Rango horario */}
+      <div>
+        <label className="text-xs text-gray-500 mb-1 block">Rango horario del cliente (opcional)</label>
+        <input
+          value={horario}
+          onChange={(e) => setHorario(e.target.value)}
+          placeholder="Ej: 08:00 – 17:00"
+          className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent placeholder-gray-400"
+        />
+      </div>
+
       {/* Notas */}
       <div>
         <label className="text-xs text-gray-500 mb-1 block">Notas (opcional)</label>
@@ -265,7 +290,7 @@ export default function PedidoManualModal({
   onClose:     () => void
   defaultDate: string
 }) {
-  const [selection, setSelection] = useState<{ user: UserProfile; address: string; label: string } | null>(null)
+  const [selection, setSelection] = useState<{ user: UserProfile; address: string; label: string; horario?: string } | null>(null)
   const [done, setDone]           = useState(false)
 
   const handleClose = () => {
@@ -289,12 +314,13 @@ export default function PedidoManualModal({
           <Button onClick={handleClose} className="w-full">Cerrar</Button>
         </div>
       ) : !selection ? (
-        <StepCliente onSelect={(s) => setSelection({ user: s.user, address: s.address, label: s.label })} />
+        <StepCliente onSelect={(s) => setSelection({ user: s.user, address: s.address, label: s.label, horario: s.horario })} />
       ) : (
         <StepProductos
           cliente={selection.user}
           clientLabel={selection.label}
           initialAddress={selection.address}
+          initialHorario={selection.horario}
           defaultDate={defaultDate}
           onBack={() => setSelection(null)}
           onConfirm={() => setDone(true)}

@@ -62,14 +62,16 @@ export const createOrder = ({ user, products, date, notes, address, esUrgente }:
 }
 
 export const createOrderManual = ({
-  cliente, clientLabel, products, date, notes, address,
+  cliente, clientLabel, products, date, notes, address, ordenCompra, horaEntrega,
 }: {
-  cliente:      UserProfile
-  clientLabel?: string
-  products:     OrderProduct[]
-  date:         string
-  notes:        string
-  address:      string
+  cliente:       UserProfile
+  clientLabel?:  string
+  products:      OrderProduct[]
+  date:          string
+  notes:         string
+  address:       string
+  ordenCompra?:  string
+  horaEntrega?:  string
 }) =>
   addDoc(collection(db, ORDERS), {
     clientId:      cliente.uid,
@@ -83,6 +85,8 @@ export const createOrderManual = ({
     driverId:     null,
     notes:        notes || '',
     origenManual: true,
+    ...(ordenCompra ? { numeroOC: ordenCompra } : {}),
+    ...(horaEntrega ? { horaEntrega } : {}),
     createdAt:    serverTimestamp(),
     updatedAt:    serverTimestamp(),
   })
