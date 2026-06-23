@@ -9,7 +9,9 @@ import {
   ReactNode,
 } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
+import { onSnapshot, doc } from 'firebase/firestore'
 import { auth } from '../services/firebase'
+import { db } from '../services/firebase'
 import { getUserDocument, createUserDocument } from '../services/userService'
 import { UserProfile } from '../types'
 
@@ -44,6 +46,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Evita reprocesar el mismo uid si Firebase llama dos veces
   const lastUidRef = useRef<string | null | undefined>(undefined)
+  // Ref para acceder al usuario actual dentro de closures sin stale state
+  const userRef = useRef<UserProfile | null>(null)
+  userRef.current = state.user
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -76,6 +81,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
     return unsub
   }, [])
+
+  // Detecta cambios de rol/estado en tiempo real para sesiones activas
+  useEffect(() => {
+    if (!state.user?.uid) return
+    return onSnapshot(
+      doc(db, 'users', state.user.uid),
+      (snap) => {
+        if (!snap.exists()) return
+        const d       = snap.data()
+        const newRol  = (d.rol ?? d.role ?? 'cliente') as UserProfile['rol']
+        const newEst  = (d.estado ?? 'activo') as UserProfile['estado']
+        const cur     = userRef.current
+        if (!cur || newRol === cur.rol && newEst === cur.estado) return
+        dispatch({ type: 'RESOLVED', user: { ...cur, rol: newRol, estado: newEst } })
+      },
+      (err) => console.error('AuthContext profile snapshot error:', err),
+    )
+  }, [state.user?.uid])
 
   const setUser = useCallback((user: UserProfile | null) => {
     dispatch({ type: 'RESOLVED', user })

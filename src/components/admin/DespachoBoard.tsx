@@ -619,13 +619,17 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
     return m
   }, [despachos])
 
+  // ── DnD activeId — declarado aquí para que el effect de asignaciones pueda usarlo ──
+  const [activeId, setActiveId] = useState<string | null>(null)
+
   // ── Asignaciones locales ──────────────────────────────────────────────────
   const [assignments, setAssignments] = useState<Record<string, string>>({})
   useEffect(() => {
+    if (activeId) return  // no resetear mientras hay un drag activo
     const m: Record<string, string> = {}
     allItems.forEach((item) => { m[item.dndId] = item.driverId || 'sin_asignar' })
     setAssignments(m)
-  }, [allItems])
+  }, [allItems, activeId])
 
   // ── Coords para ORS ───────────────────────────────────────────────────────
   const coordsByClientId = useMemo(() => {
@@ -703,7 +707,10 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
       setRecalculating((prev) => ({ ...prev, [driverEmail]: false }))
 
       const desp = despachoByDriver[driverEmail]
-      if (desp) await saveDespacho({ ...desp, orderIds: orderedIds })
+      if (desp) {
+        const extra = desp.status === 'confirmado' ? { modifiedAfterConfirm: true } : {}
+        await saveDespacho({ ...desp, orderIds: orderedIds, ...extra })
+      }
     }, 1500)
   }, [allItems, coordsByClientId, allClients, fecha, despachoByDriver, plantaByDriver, horaSalidaByDriver])
 
@@ -738,8 +745,6 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
   }, [fecha, choferesPrincipales.length, allItems.length])
 
   // ── DnD ──────────────────────────────────────────────────────────────────
-  const [activeId, setActiveId] = useState<string | null>(null)
-
   const sensors = useSensors(
     useSensor(MouseSensor,   { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor,   { activationConstraint: { delay: 200, tolerance: 8 } }),

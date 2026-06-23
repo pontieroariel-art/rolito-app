@@ -58,8 +58,9 @@ service cloud.firestore {
 
     // ── Pedidos ────────────────────────────────────────────────────────────
     match /orders/{orderId} {
-      // Cualquier usuario autenticado puede crear pedidos
-      allow create: if request.auth != null;
+      // El cliente crea su propio pedido; staff puede crear para cualquier cliente
+      allow create: if request.auth != null
+        && (request.resource.data.clientId == request.auth.uid || isOperator() || isManager());
 
       // Lectura: el cliente dueño, el chofer asignado, operador, comercial, facturación o gerente general
       allow read: if request.auth != null && (
@@ -190,7 +191,7 @@ service cloud.firestore {
     // El documento ID es el email del chofer
     match /ubicaciones/{driverEmail} {
       allow write: if request.auth != null && (
-        request.auth.token.email == driverEmail || isManager()
+        request.auth.token.email == driverEmail || isOperator()
       );
       allow read:  if request.auth != null;
     }
