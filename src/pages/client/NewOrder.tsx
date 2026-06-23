@@ -104,7 +104,9 @@ export default function NewOrder() {
         notes:    notes || undefined,
       })
 
-      getNotificationEmails().then((adminEmails) => {
+      // Awaitar antes de navegar para que mutate se llame con el componente montado
+      try {
+        const adminEmails = await getNotificationEmails()
         if (adminEmails.length > 0) {
           notifyAdminNuevoPedidoMutation.mutate({
             adminEmails,
@@ -116,7 +118,7 @@ export default function NewOrder() {
             notes:         notes || undefined,
           })
         }
-      }).catch(console.error)
+      } catch { /* no bloquear la creación del pedido si falla la notificación */ }
 
       navigate('/dashboard')
     } catch {

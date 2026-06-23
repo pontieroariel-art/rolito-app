@@ -35,6 +35,9 @@ export default function ChoferDashboard() {
 
   const isAyudante = user?.subrol === 'ayudante'
 
+  // Para evitar race condition en deactivateDriverLocation
+  const locationGenRef = useRef(0)
+
   // Ayudante: buscar el despacho del día donde ayudanteEmail === user.email
   const [pairedDespacho,        setPairedDespacho]        = useState<Despacho | null>(null)
   const [pairedDespachoLoading, setPairedDespachoLoading] = useState(isAyudante)
@@ -68,9 +71,11 @@ export default function ChoferDashboard() {
   const delivered = orders.filter((o) => o.status === 'entregado')
   const hasPending = pending.length > 0
 
-  const today           = new Date()
-  const visitasHoy      = programasParaFecha(programas, today).filter((p) => !p.driverId || p.driverId === user?.email)
-  const puntualHoy      = visitasParaFecha(visitas, today).filter((v) => !v.driverId || v.driverId === user?.email)
+  const today = new Date()
+  // Ayudante filtra visitas por el email del chofer asignado, no el suyo propio
+  const driverEmailForVisits = isAyudante ? (pairedDespacho?.driverId ?? user?.email) : user?.email
+  const visitasHoy = programasParaFecha(programas, today).filter((p) => !p.driverId || p.driverId === driverEmailForVisits)
+  const puntualHoy = visitasParaFecha(visitas, today).filter((v) => !v.driverId || v.driverId === driverEmailForVisits)
   const entregadosHoyIds = new Set(orders.filter((o) => o.status === 'entregado').map((o) => o.clientId))
 
   // Próximas visitas puntuales (días 1–6 desde hoy, asignadas a este chofer)
@@ -150,16 +155,12 @@ export default function ChoferDashboard() {
     if (!hasPending || !user?.email || !navigator.geolocation) return
 
     const email = user.email
-    const send  = () => {
+    const gen   = ++locationGenRef.current
+
+    const send = () => {
       if (document.visibilityState === 'hidden') return
       navigator.geolocation.getCurrentPosition(
-        (pos) => updateDriverLocation(
-          email,
-          pos.coords.latitude,
-          pos.coords.longitude,
-          nombreRef.current,
-          telefonoRef.current,
-        ),
+        (pos) => updateDriverLocation(email, pos.coords.latitude, pos.coords.longitude, nombreRef.current, telefonoRef.current),
         () => {},
         { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 },
       )
@@ -170,7 +171,12 @@ export default function ChoferDashboard() {
 
     return () => {
       clearInterval(id)
-      deactivateDriverLocation(email).catch(console.error)
+      // Microtask: si un nuevo efecto ya montó (gen cambió), no desactivar
+      Promise.resolve().then(() => {
+        if (locationGenRef.current === gen) {
+          deactivateDriverLocation(email).catch(console.error)
+        }
+      })
     }
   }, [hasPending, user?.email])
 
@@ -530,7 +536,7 @@ export default function ChoferDashboard() {
                 razonSocial:    registrando.data.clientName,
                 address:        registrando.data.clientAddress,
                 telefono:       registrando.data.clientPhone,
-                uid:            registrando.tipo === 'visita' ? registrando.data.clientId : user.uid,
+                uid:            registrando.data.clientId,
               },
               products,
               date: new Date().toISOString().split('T')[0],

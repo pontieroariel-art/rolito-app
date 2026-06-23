@@ -15,6 +15,9 @@ export function BranchProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const [selectedAddress, setSelectedAddressState] = useState<DeliveryAddress | null>(null)
 
+  // Key estable basada en IDs de addresses — evita recalcular por cambios de propiedades internas
+  const addressesKey = user?.addresses?.map((a) => a.id).join(',') ?? ''
+
   useEffect(() => {
     if (!user?.uid) {
       setSelectedAddressState(null)
@@ -46,8 +49,7 @@ export function BranchProvider({ children }: { children: ReactNode }) {
     } else {
       setSelectedAddressState(null)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.uid, JSON.stringify(user?.addresses)])
+  }, [user?.uid, addressesKey])
 
   const setSelectedAddress = (addr: DeliveryAddress) => {
     setSelectedAddressState(addr)

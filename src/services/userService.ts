@@ -56,8 +56,10 @@ export const getUserDocument = async (uid: string): Promise<UserProfile | null> 
   const snap = await getDoc(doc(db, 'users', uid))
   if (!snap.exists()) return null
   const d = snap.data()
-  // Compatibilidad con documentos creados antes de la migración a campos en español
+  // Spread incluye todos los campos de Firestore (subrol, esVisita, dni, etc.)
+  // Los overrides aseguran compatibilidad con documentos viejos y valores por defecto
   return {
+    ...d,
     uid,
     email:           d.email           ?? '',
     nombre:          d.nombre          ?? d.name   ?? '',
@@ -75,10 +77,6 @@ export const getUserDocument = async (uid: string): Promise<UserProfile | null> 
     fechaCreacion:   d.fechaCreacion   ?? d.createdAt ?? null,
     fechaAprobacion: d.fechaAprobacion ?? null,
     aprobadoPor:     d.aprobadoPor     ?? null,
-    listaPreciosId:  d.listaPreciosId  ?? undefined,
-    preciosCustom:   d.preciosCustom   ?? undefined,
-    username:        d.username        ?? undefined,
-    codigoCliente:   d.codigoCliente   ?? undefined,
   } as UserProfile
 }
 
