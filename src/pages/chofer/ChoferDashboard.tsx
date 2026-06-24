@@ -461,12 +461,15 @@ export default function ChoferDashboard() {
               className="flex-1 bg-orange-500 hover:bg-orange-400 text-white"
               onClick={async () => {
                 setSinContactoLoading(true)
-                await updateVisitaPuntual(sinContactoVisita.id, {
-                  status: 'sin_contacto',
-                  notas:  sinContactoMotivo.trim(),
-                })
-                setSinContactoLoading(false)
-                setSinContactoVisita(null)
+                try {
+                  await updateVisitaPuntual(sinContactoVisita.id, {
+                    status: 'sin_contacto',
+                    notas:  sinContactoMotivo.trim(),
+                  })
+                  setSinContactoVisita(null)
+                } finally {
+                  setSinContactoLoading(false)
+                }
               }}
             >
               Confirmar

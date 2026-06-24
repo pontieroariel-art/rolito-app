@@ -306,7 +306,7 @@ function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionCha
             )}
             {overloaded && (
               <p className="text-[10px] text-red-500 font-bold animate-pulse">
-                ⚠️ Sobrecarga: +{((totalPallets - capacidad!) % 1 === 0 ? (totalPallets - capacidad!) : (totalPallets - capacidad!).toFixed(1))} pallets extra
+                ⚠️ Sobrecarga: +{((totalPallets - (capacidad ?? 0)) % 1 === 0 ? (totalPallets - (capacidad ?? 0)) : (totalPallets - (capacidad ?? 0)).toFixed(1))} pallets extra
               </p>
             )}
           </div>
@@ -653,6 +653,7 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
   const [recalculating, setRecalculating] = useState<Record<string, boolean>>({})
   const [orsStatus,     setOrsStatus]     = useState<Record<string, { ok: boolean; error?: string }>>({})
   const debounceRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+  useEffect(() => () => { Object.values(debounceRefs.current).forEach(clearTimeout) }, [])
 
   const scheduleRecalc = useCallback((driverEmail: string, dndIds: string[]) => {
     clearTimeout(debounceRefs.current[driverEmail])

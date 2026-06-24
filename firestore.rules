@@ -58,9 +58,13 @@ service cloud.firestore {
 
     // ── Pedidos ────────────────────────────────────────────────────────────
     match /orders/{orderId} {
-      // El cliente crea su propio pedido; staff puede crear para cualquier cliente
-      allow create: if request.auth != null
-        && (request.resource.data.clientId == request.auth.uid || isOperator() || isManager());
+      // El cliente solo puede crear pedidos pendientes para sí mismo
+      // El staff puede crear pedidos para cualquier cliente en cualquier estado
+      allow create: if request.auth != null && (
+        (request.resource.data.clientId == request.auth.uid && request.resource.data.status == 'pendiente') ||
+        isOperator() ||
+        isManager()
+      );
 
       // Lectura: el cliente dueño, el chofer asignado, operador, comercial, facturación o gerente general
       allow read: if request.auth != null && (
@@ -121,6 +125,10 @@ service cloud.firestore {
     match /visitas-puntuales/{id} {
       allow read:  if request.auth != null;
       allow write: if request.auth != null && isOperator();
+      // Chofer puede actualizar sus propias visitas (marcar sin_contacto, etc.)
+      allow update: if request.auth != null
+        && myRole() == 'chofer'
+        && resource.data.driverId == request.auth.token.email;
     }
 
     // ── Flota de vehículos ────────────────────────────────────────────────────
@@ -132,7 +140,8 @@ service cloud.firestore {
     // ── Pedidos recurrentes ───────────────────────────────────────────────────
     // El documento ID es el clientId. El cliente gestiona el suyo; operadores leen todos.
     match /pedidos-recurrentes/{clientId} {
-      allow read, write: if request.auth != null && request.auth.uid == clientId;
+      allow read, write: if request.auth != null && request.auth.uid == clientId
+        && (!request.resource.data.keys().hasAny(['clientId']) || request.resource.data.clientId == request.auth.uid);
       allow read, write: if request.auth != null && isOperator();
     }
 
@@ -140,7 +149,9 @@ service cloud.firestore {
     // No contienen datos sensibles; la contraseña sigue siendo requerida para autenticar.
     match /cuitIndex/{cuit} {
       allow read:  if true;
-      allow write: if request.auth != null;
+      allow write: if request.auth != null
+        && request.resource.data.keys().hasOnly(['email'])
+        && request.resource.data.email is string;
     }
 
     match /choferIndex/{username} {
