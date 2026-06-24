@@ -176,7 +176,7 @@ export default function ChoferMap() {
   // Calcular el orden base (de logística o por defecto)
   const baseOrder = useMemo<Order[]>(() => {
     if (hasDespachoOrder) {
-      const orderIdOrder = myDespacho!.orderIds
+      const orderIdOrder = (myDespacho?.orderIds ?? [])
         .filter((x) => x.startsWith('o:'))
         .map((x) => x.slice(2))
       const byId  = new Map(pending.map((o) => [o.id, o]))

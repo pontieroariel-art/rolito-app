@@ -157,7 +157,7 @@ export default function ClientDashboard() {
         <section>
           <div className="flex justify-between items-center mb-3">
             <h2 className="text-lg font-semibold text-gray-900">Pedidos recientes</h2>
-            {orders.length > 5 && (
+            {branchOrders.length > 5 && (
               <Link to="/historial" className="text-accent text-sm hover:underline">Ver todos</Link>
             )}
           </div>
