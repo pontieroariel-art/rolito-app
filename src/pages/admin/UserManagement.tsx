@@ -588,8 +588,9 @@ function CrearClienteModal({ onClose, onCreated, currentUserRol }: { onClose: ()
     if (password.length < 6)      { setError('La contraseña debe tener al menos 6 caracteres'); return }
     setLoading(true)
     setError('')
+    const emailFinal = email.trim() || `${cuitDigits}@rolito.app`
     try {
-      await createClientUser({ email, password, razonSocial, nombreContacto, cuit, telefono, estadoInicial })
+      await createClientUser({ email: emailFinal, password, razonSocial, nombreContacto: nombreContacto || undefined, cuit, telefono, estadoInicial })
       onCreated()
     } catch (err: any) {
       if (err?.code === 'auth/email-already-in-use') {
@@ -613,10 +614,9 @@ function CrearClienteModal({ onClose, onCreated, currentUserRol }: { onClose: ()
           placeholder="Mi Empresa S.A."
         />
         <Input
-          label="Nombre de contacto"
+          label="Nombre de contacto (opcional)"
           value={nombreContacto}
           onChange={(e) => setNombreContacto(e.target.value)}
-          required
           placeholder="Juan García"
         />
         <Input
@@ -627,11 +627,10 @@ function CrearClienteModal({ onClose, onCreated, currentUserRol }: { onClose: ()
           placeholder="20123456789"
         />
         <Input
-          label="Email"
+          label="Email (opcional)"
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          required
           placeholder="cliente@empresa.com"
         />
         <Input
