@@ -30,8 +30,16 @@ function dateToStr(d: Date): string {
 }
 
 function orderDateStr(o: Order): string {
-  if (!o.date?.toDate) return ''
-  return dateToStr(o.date.toDate())
+  if (!o.date) return ''
+  // String guardada directamente (legacy)
+  if (typeof o.date === 'string') return (o.date as string).slice(0, 10)
+  // Timestamp normal con toDate()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = o.date as any
+  if (typeof d.toDate === 'function') return dateToStr(d.toDate())
+  // Objeto plano { seconds } (cache offline de Firestore)
+  if (typeof d.seconds === 'number') return dateToStr(new Date(d.seconds * 1000))
+  return ''
 }
 
 function driverColor(email: string, choferes: UserProfile[]): string {
