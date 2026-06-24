@@ -127,7 +127,12 @@ function StepProductos({
   const [notes, setNotes]           = useState('')
   const [address, setAddress]       = useState(initialAddress)
   const [ordenCompra, setOrdenCompra] = useState('')
-  const [horario, setHorario]         = useState(initialHorario ?? '')
+  const parseHorario = (h?: string) => {
+    const parts = (h ?? '').split(/\s*[–\-]\s*/)
+    return { desde: parts[0]?.trim() ?? '', hasta: parts[1]?.trim() ?? '' }
+  }
+  const [horarioDesde, setHorarioDesde] = useState(() => parseHorario(initialHorario).desde)
+  const [horarioHasta, setHorarioHasta] = useState(() => parseHorario(initialHorario).hasta)
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
 
@@ -168,7 +173,10 @@ function StepProductos({
     setLoading(true)
     setError('')
     try {
-      await createOrderManual({ cliente, clientLabel, products: selected, date, notes, address, ordenCompra: ordenCompra.trim() || undefined, horaEntrega: horario.trim() || undefined })
+      const horarioCombinado = horarioDesde && horarioHasta
+        ? `${horarioDesde} – ${horarioHasta}`
+        : horarioDesde || horarioHasta || undefined
+      await createOrderManual({ cliente, clientLabel, products: selected, date, notes, address, ordenCompra: ordenCompra.trim() || undefined, horaEntrega: horarioCombinado })
       onConfirm()
     } catch {
       setError('Error al crear el pedido. Intentá de nuevo.')
@@ -249,12 +257,21 @@ function StepProductos({
       {/* Rango horario */}
       <div>
         <label className="text-xs text-gray-500 mb-1 block">Rango horario del cliente (opcional)</label>
-        <input
-          value={horario}
-          onChange={(e) => setHorario(e.target.value)}
-          placeholder="Ej: 08:00 – 17:00"
-          className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent placeholder-gray-400"
-        />
+        <div className="flex items-center gap-2">
+          <input
+            type="time"
+            value={horarioDesde}
+            onChange={(e) => setHorarioDesde(e.target.value)}
+            className="flex-1 bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+          <span className="text-gray-400 text-sm shrink-0">–</span>
+          <input
+            type="time"
+            value={horarioHasta}
+            onChange={(e) => setHorarioHasta(e.target.value)}
+            className="flex-1 bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+        </div>
       </div>
 
       {/* Notas */}
