@@ -190,13 +190,13 @@ export interface CreateStaffParams {
 }
 
 export interface CreateClientParams {
-  email:          string
-  password:       string
-  razonSocial:    string
-  nombreContacto: string
-  cuit:           string
-  telefono:       string
-  estadoInicial?: UserStatus
+  email:           string
+  password:        string
+  razonSocial:     string
+  nombreContacto?: string
+  cuit:            string
+  telefono:        string
+  estadoInicial?:  UserStatus
 }
 
 async function createUserViaSecondaryApp(
