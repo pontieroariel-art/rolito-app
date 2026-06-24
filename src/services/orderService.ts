@@ -213,6 +213,7 @@ export interface EditOrderParams {
   date:        string
   horaEntrega: string
   notes:       string
+  numeroOC?:   string
 }
 
 export const editOrderBy = (orderId: string, params: EditOrderParams, actor: Actor): Promise<void> => {
@@ -222,6 +223,7 @@ export const editOrderBy = (orderId: string, params: EditOrderParams, actor: Act
     date:        Timestamp.fromDate(new Date(params.date + 'T12:00:00')),
     horaEntrega: params.horaEntrega || null,
     notes:       params.notes,
+    numeroOC:    params.numeroOC?.trim() || null,
     updatedAt:   serverTimestamp(),
     historialAcciones: arrayUnion(accion(actor, 'modificado', detalle)),
   })

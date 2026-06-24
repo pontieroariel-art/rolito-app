@@ -71,6 +71,7 @@ function EditOrderModal({ order, onClose, onSaved }: { order: Order; onClose: ()
   const [date,        setDate]        = useState(order.date?.toDate ? order.date.toDate().toISOString().split('T')[0] : '')
   const [horaEntrega, setHoraEntrega] = useState(order.horaEntrega ?? '')
   const [notes,       setNotes]       = useState(order.notes ?? '')
+  const [numeroOC,    setNumeroOC]    = useState(order.numeroOC ?? '')
   const [saving,      setSaving]      = useState(false)
 
   const updateQty = (name: string, qty: number) => {
@@ -94,7 +95,7 @@ function EditOrderModal({ order, onClose, onSaved }: { order: Order; onClose: ()
     if (!user || products.length === 0 || !date) return
     setSaving(true)
     const actor = { uid: user.uid, nombre: user.nombre || user.email || 'Usuario' }
-    await editOrderBy(order.id, { products, date, horaEntrega, notes } as EditOrderParams, actor)
+    await editOrderBy(order.id, { products, date, horaEntrega, notes, numeroOC }, actor)
     setSaving(false)
     onSaved()
     onClose()
@@ -152,6 +153,14 @@ function EditOrderModal({ order, onClose, onSaved }: { order: Order; onClose: ()
             <input type="time" value={horaEntrega} onChange={(e) => setHoraEntrega(e.target.value)}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
           </div>
+        </div>
+
+        {/* Orden de compra */}
+        <div>
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Orden de compra</label>
+          <input type="text" value={numeroOC} onChange={(e) => setNumeroOC(e.target.value)}
+            placeholder="N° OC (opcional)"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
         </div>
 
         {/* Notas */}
