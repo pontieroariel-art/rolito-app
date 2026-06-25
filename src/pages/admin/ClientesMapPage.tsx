@@ -224,7 +224,7 @@ function ClientesMap({
   }, [])
 
   useEffect(() => {
-    if (!mapRef.current || geoResults.size === 0) return
+    if (!isLoaded || !mapRef.current || geoResults.size === 0) return
     const bounds = new google.maps.LatLngBounds()
     let count = 0
     geoResults.forEach((pt) => {
@@ -234,7 +234,7 @@ function ClientesMap({
     else if (count === 1) {
       geoResults.forEach((pt) => { if (pt) { mapRef.current!.panTo(pt); mapRef.current!.setZoom(14) } })
     }
-  }, [geoResults.size]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isLoaded, geoResults.size]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const markers = useMemo(() => {
     const list: { s: SucursalMapItem; lat: number; lng: number }[] = []
@@ -246,6 +246,7 @@ function ClientesMap({
   }, [clients, geoResults])
 
   const pendingPin = useMemo(() => {
+    if (!isLoaded) return null
     const svg = encodeURIComponent(
       `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="46">` +
       `<circle cx="18" cy="18" r="16" fill="#F97316" stroke="#EA580C" stroke-width="3"/>` +
@@ -258,7 +259,7 @@ function ClientesMap({
       scaledSize: new google.maps.Size(36, 46),
       anchor:     new google.maps.Point(18, 46),
     }
-  }, [])
+  }, [isLoaded])
 
   if (!isLoaded) return <div className="flex-1 bg-gray-100 animate-pulse" />
 
@@ -287,7 +288,7 @@ function ClientesMap({
           <Marker
             key={`pending-${s.key}`}
             position={{ lat: s.user.coordPendiente!.lat, lng: s.user.coordPendiente!.lng }}
-            icon={pendingPin}
+            icon={pendingPin ?? undefined}
             zIndex={200}
             onClick={() => onSelect(s.key)}
           />
