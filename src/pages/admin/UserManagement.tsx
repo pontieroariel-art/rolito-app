@@ -898,10 +898,10 @@ function UserRow({ user, currentUser, listas, onRoleChange, onSubrolChange, onTo
   return (
     <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-3">
       <div className="flex flex-wrap gap-4 items-center justify-between">
-        {/* Info — clickeable para ver ficha completa */}
+        {/* Info — clickeable para ver ficha completa (solo clientes) */}
         <button
-          onClick={() => setFichaModal(true)}
-          className="min-w-0 flex-1 text-left group flex items-center gap-2"
+          onClick={() => user.rol === 'cliente' && setFichaModal(true)}
+          className={`min-w-0 flex-1 text-left flex items-center gap-2 ${user.rol === 'cliente' ? 'group cursor-pointer' : 'cursor-default'}`}
         >
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
