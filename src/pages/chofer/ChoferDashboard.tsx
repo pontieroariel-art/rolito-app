@@ -84,7 +84,7 @@ export default function ChoferDashboard() {
     for (let i = 1; i <= 6; i++) {
       const d = new Date(today)
       d.setDate(today.getDate() + i)
-      const items = visitasParaFecha(visitas, d).filter((v) => !v.driverId || v.driverId === user?.email)
+      const items = visitasParaFecha(visitas, d).filter((v) => !v.driverId || v.driverId === driverEmailForVisits)
       if (items.length > 0) {
         days.push({
           label: i === 1 ? 'Mañana' : d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'short' }),
@@ -558,7 +558,7 @@ export default function ChoferDashboard() {
 }
 
 function RegistrarEntregaModal({
-  clientName, clientAddress, catalogo, user, onConfirm, onClose,
+  clientName, clientAddress, clientPhone, catalogo, user, onConfirm, onClose,
 }: {
   clientName:    string
   clientAddress: string
@@ -584,7 +584,13 @@ function RegistrarEntregaModal({
 
   return (
     <Modal open onClose={onClose} title={`Registrar entrega — ${clientName}`} variant="light">
-      <p className="text-xs text-gray-500 mb-4 truncate">{clientAddress}</p>
+      <p className="text-xs text-gray-500 truncate">{clientAddress}</p>
+      {clientPhone && (
+        <a href={`tel:${clientPhone}`} className="text-accent text-xs hover:underline mb-4 block">
+          📞 {clientPhone}
+        </a>
+      )}
+      {!clientPhone && <div className="mb-4" />}
       <div className="space-y-2 max-h-72 overflow-y-auto">
         {catalogo.map((p) => {
           const qty = quantities[p.id] ?? 0
@@ -728,17 +734,22 @@ function DeliveryCard({ order, index, isFirst, chofer }: { order: Order; index: 
 }
 
 function CargaDelDia({ orders, catalogo }: { orders: Order[]; catalogo: import('../../types').CatalogProducto[] }) {
-  const totals: Record<string, number> = {}
+  // Agrupa por productoId cuando está disponible; cae en nombre como fallback
+  const totals: Record<string, { nombre: string; qty: number }> = {}
   orders.forEach((o) =>
     o.products.forEach((p) => {
-      totals[p.name] = (totals[p.name] ?? 0) + p.quantity
+      const key = p.productoId ?? p.name
+      if (!totals[key]) totals[key] = { nombre: p.name, qty: 0 }
+      totals[key].qty += p.quantity
     }),
   )
-  const items = Object.entries(totals).sort((a, b) => b[1] - a[1])
+  const items = Object.entries(totals)
+    .map(([key, { nombre, qty }]) => [nombre, qty, key] as [string, number, string])
+    .sort((a, b) => b[1] - a[1])
   const totalUnidades = items.reduce((acc, [, q]) => acc + q, 0)
 
-  const totalPallets = items.reduce((acc, [nombre, qty]) => {
-    const cat = catalogo.find((c) => c.nombre === nombre)
+  const totalPallets = items.reduce((acc, [nombre, qty, key]) => {
+    const cat = catalogo.find((c) => c.id === key || c.nombre === nombre)
     return cat?.unidadesPorPallet ? acc + qty / cat.unidadesPorPallet : acc
   }, 0)
 
@@ -749,11 +760,11 @@ function CargaDelDia({ orders, catalogo }: { orders: Order[]; catalogo: import('
         <span className="text-xs text-gray-400">{orders.length} paradas</span>
       </div>
       <div className="space-y-2">
-        {items.map(([nombre, qty]) => {
-          const cat = catalogo.find((c) => c.nombre === nombre)
+        {items.map(([nombre, qty, key]) => {
+          const cat = catalogo.find((c) => c.id === key || c.nombre === nombre)
           const pallets = cat?.unidadesPorPallet ? qty / cat.unidadesPorPallet : null
           return (
-            <div key={nombre} className="flex items-center gap-3">
+            <div key={key} className="flex items-center gap-3">
               <span className="text-sm text-gray-700 flex-1">{nombre}</span>
               <div className="flex items-center gap-3">
                 <span className="text-xs text-gray-500">{qty} u</span>

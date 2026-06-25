@@ -89,12 +89,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       doc(db, 'users', state.user.uid),
       (snap) => {
         if (!snap.exists()) return
-        const d       = snap.data()
-        const newRol  = (d.rol ?? d.role ?? 'cliente') as UserProfile['rol']
-        const newEst  = (d.estado ?? 'activo') as UserProfile['estado']
-        const cur     = userRef.current
-        if (!cur || newRol === cur.rol && newEst === cur.estado) return
-        dispatch({ type: 'RESOLVED', user: { ...cur, rol: newRol, estado: newEst } })
+        const d          = snap.data()
+        const newRol     = (d.rol ?? d.role ?? 'cliente') as UserProfile['rol']
+        const newEst     = (d.estado ?? 'activo') as UserProfile['estado']
+        const newListaId = d.listaPreciosId as string | undefined
+        const newPrecios = d.preciosCustom  as Record<string, number> | undefined
+        const newAddrs   = d.addresses      as UserProfile['addresses'] | undefined
+        const cur        = userRef.current
+        if (!cur) return
+        const changed =
+          newRol     !== cur.rol    ||
+          newEst     !== cur.estado ||
+          newListaId !== cur.listaPreciosId ||
+          JSON.stringify(newPrecios) !== JSON.stringify(cur.preciosCustom) ||
+          JSON.stringify(newAddrs)   !== JSON.stringify(cur.addresses)
+        if (!changed) return
+        dispatch({ type: 'RESOLVED', user: {
+          ...cur,
+          rol:            newRol,
+          estado:         newEst,
+          listaPreciosId: newListaId,
+          preciosCustom:  newPrecios,
+          ...(newAddrs !== undefined ? { addresses: newAddrs } : {}),
+        }})
       },
       (err) => console.error('AuthContext profile snapshot error:', err),
     )

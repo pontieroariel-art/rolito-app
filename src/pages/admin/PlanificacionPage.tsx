@@ -19,7 +19,7 @@ import PedidoManualModal from '../../components/admin/PedidoManualModal'
 import { getPushSubscriptionByEmail, getAllUsers } from '../../services/userService'
 import { sendPush } from '../../services/notificationService'
 import { Order, UserProfile, Camion, CatalogProducto, getPrimaryAddress } from '../../types'
-import { calcPallets, summarizeProducts, formatShortDate } from '../../utils/helpers'
+import { calcPallets, summarizeProducts, formatShortDate, tsToDate } from '../../utils/helpers'
 import { Timestamp } from 'firebase/firestore'
 
 // ── Constantes ────────────────────────────────────────────────────────────────
@@ -1404,7 +1404,7 @@ export default function PlanificacionPage() {
                 if (programas.some((p) => p.clientId === vc.uid && p.activo)) return false
                 return !visitas.some((v) => {
                   if (v.clientId !== vc.uid) return false
-                  const d = (v.fecha as Timestamp)?.toDate?.() ?? new Date(((v.fecha as any).seconds) * 1000)
+                  const d = tsToDate(v.fecha)
                   return d >= wStart && d <= wEnd
                 })
               })

@@ -4,7 +4,7 @@ import { getPushSubscription, getPushSubscriptionByEmail } from '../../services/
 import { sendPush } from '../../services/notificationService'
 import { useNotifyConfirmado, useNotifyEnCamino } from '../../hooks/useNotifications'
 import { STATUS_FLOW, STATUS_LABELS } from '../../utils/constants'
-import { formatShortDate, summarizeProducts } from '../../utils/helpers'
+import { formatShortDate, summarizeProducts, tsToDate } from '../../utils/helpers'
 import { Order, OrderStatus, UserProfile, AccionHistorial } from '../../types'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
@@ -188,7 +188,7 @@ export function AdminOrderCard({ order, choferes }: AdminOrderCardProps) {
             {histOpen && (
               <div className="mt-2 space-y-2">
                 {[...order.historialAcciones].reverse().map((h: AccionHistorial, i: number) => {
-                  const ts    = h.timestamp?.toDate ? h.timestamp.toDate() : new Date((h.timestamp as any)?.seconds * 1000)
+                  const ts    = tsToDate(h.timestamp)
                   const fecha = ts.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })
                   const hora  = ts.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
                   const label = h.accion === 'cancelado' ? 'canceló el pedido' : h.accion === 'modificado' ? 'modificó el pedido' : h.accion

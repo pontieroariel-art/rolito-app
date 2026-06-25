@@ -10,6 +10,7 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { getForecast, getHistoricalWeather, DayWeather } from '../../services/weatherService'
 import { getOrdersInRange } from '../../services/orderService'
 import { Order } from '../../types'
+import { tsToDate } from '../../utils/helpers'
 
 // ── Ciudades ──────────────────────────────────────────────────────────────────
 
@@ -47,7 +48,7 @@ function unitsPerDay(orders: Order[]): Record<string, number> {
   const map: Record<string, number> = {}
   for (const o of orders) {
     if (o.status !== 'entregado') continue
-    const d = o.date?.toDate ? o.date.toDate() : new Date((o.date as any)?.seconds * 1000)
+    const d = tsToDate(o.date)
     const key = d.toISOString().split('T')[0]
     map[key] = (map[key] ?? 0) + o.products.reduce((s, p) => s + (p.quantity ?? 0), 0)
   }

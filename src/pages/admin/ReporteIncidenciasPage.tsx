@@ -3,16 +3,10 @@ import Navbar from '../../components/layout/Navbar'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useAllOrders } from '../../hooks/useOrders'
 import { useChoferes } from '../../hooks/useChoferes'
-import { formatShortDate } from '../../utils/helpers'
+import { formatShortDate, tsToDate } from '../../utils/helpers'
 import { Order } from '../../types'
-import { Timestamp } from 'firebase/firestore'
 
 type Periodo = '7d' | '30d' | '90d'
-
-function tsToDate(ts: Timestamp | null | undefined): Date {
-  if (!ts) return new Date(0)
-  return ts.toDate ? ts.toDate() : new Date((ts as any).seconds * 1000)
-}
 
 function periodLabel(p: Periodo): string {
   if (p === '7d')  return 'Últimos 7 días'

@@ -65,16 +65,16 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   render() {
     if (this.state.error) {
       return (
-        <div style={{ minHeight: '100vh', background: '#03160D', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
-          <div style={{ maxWidth: '480px', background: '#0d2218', border: '1px solid #1b4332', borderRadius: '12px', padding: '32px', color: '#d1fae5' }}>
-            <p style={{ fontSize: '22px', fontWeight: 700, color: '#00C2FF', marginBottom: '8px' }}>Rolito</p>
+        <div style={{ minHeight: '100vh', background: '#F8F7F2', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+          <div style={{ maxWidth: '480px', background: '#ffffff', border: '1px solid #D3D1C7', borderRadius: '12px', padding: '32px', color: '#111827' }}>
+            <p style={{ fontSize: '22px', fontWeight: 700, color: '#1D9E75', marginBottom: '8px' }}>Rolito</p>
             <p style={{ fontWeight: 600, marginBottom: '12px' }}>Algo salió mal</p>
             <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '20px' }}>
               {(this.state.error as Error).message}
             </p>
             <button
               onClick={() => { sessionStorage.removeItem('chunk-reload'); this.setState({ error: null }); window.location.href = '/' }}
-              style={{ background: '#00C2FF', color: '#0a1628', fontWeight: 700, padding: '10px 24px', borderRadius: '8px', border: 'none', cursor: 'pointer' }}
+              style={{ background: '#1D9E75', color: '#ffffff', fontWeight: 700, padding: '10px 24px', borderRadius: '8px', border: 'none', cursor: 'pointer' }}
             >
               Volver al inicio
             </button>
