@@ -31,6 +31,7 @@ import {
 import { useNotifyAprobado } from '../../hooks/useNotifications'
 import { useAllListasPrecios } from '../../hooks/useListasPrecios'
 import { UserProfile, UserRole, UserStatus, ListaPrecios, DeliveryAddress } from '../../types'
+import { tsToDate } from '../../utils/helpers'
 
 const PAGE_SIZE = 50
 
@@ -929,7 +930,7 @@ function UserRow({ user, currentUser, listas, onRoleChange, onSubrolChange, onTo
               )}
               {(() => {
                 if (!user.ultimoCambioPrecio) return null
-                const d = user.ultimoCambioPrecio.toDate?.() ?? new Date((user.ultimoCambioPrecio as any).seconds * 1000)
+                const d = tsToDate(user.ultimoCambioPrecio)
                 const diffDays = Math.floor((Date.now() - d.getTime()) / 86400000)
                 if (diffDays > 7) return null
                 return (

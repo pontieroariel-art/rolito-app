@@ -17,7 +17,7 @@ import { useKanbanOrders } from '../../hooks/useOrders'
 import { useChoferes } from '../../hooks/useChoferes'
 import { useAuth } from '../../context/AuthContext'
 import { moveOrderDate, moveOrderToBandeja, assignDriver, cancelOrderBy, editOrderBy, EditOrderParams } from '../../services/orderService'
-import { summarizeProducts } from '../../utils/helpers'
+import { summarizeProducts, tsToDate } from '../../utils/helpers'
 import { PRODUCTS } from '../../utils/constants'
 import { Order, OrderProduct, UserProfile, AccionHistorial } from '../../types'
 
@@ -184,7 +184,7 @@ function EditOrderModal({ order, onClose, onSaved }: { order: Order; onClose: ()
           <div className="border-t border-gray-100 pt-3 space-y-2">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Historial de cambios</p>
             {[...order.historialAcciones].reverse().map((h: AccionHistorial, i: number) => {
-              const ts    = h.timestamp?.toDate ? h.timestamp.toDate() : new Date((h.timestamp as any)?.seconds * 1000)
+              const ts    = tsToDate(h.timestamp)
               const fecha = ts.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })
               const hora  = ts.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
               const label = h.accion === 'cancelado' ? 'canceló el pedido' : h.accion === 'modificado' ? 'modificó el pedido' : h.accion

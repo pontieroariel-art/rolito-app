@@ -12,6 +12,7 @@ import {
 } from '../../services/visitasService'
 import { ProgramaVisita, VisitaPuntual, UserProfile, DIAS_SEMANA } from '../../types'
 import { Timestamp } from 'firebase/firestore'
+import { tsToDate } from '../../utils/helpers'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -35,10 +36,6 @@ function thisWeekRange(): [Date, Date] {
   return [monday, sunday]
 }
 
-function tsToDate(ts: Timestamp | null | undefined): Date {
-  if (!ts) return new Date(0)
-  return (ts as Timestamp).toDate ? (ts as Timestamp).toDate() : new Date(((ts as any).seconds) * 1000)
-}
 
 function clientLabel(c: UserProfile) {
   return c.razonSocial || c.nombreContacto || c.nombre || c.email

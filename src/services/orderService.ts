@@ -15,6 +15,7 @@ import {
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { Order, OrderProduct, UserProfile, getPrimaryAddress } from '../types'
+import { tsToDate } from '../utils/helpers'
 
 const ORDERS = 'orders'
 
@@ -330,7 +331,7 @@ export const subscribeDriverOrders = (
       const filtered = all.filter((o) => {
         if (!['entregado', 'cancelado'].includes(o.status)) return true
         // entregados/cancelados: solo mostrar los de hoy
-        const d = o.date?.toDate ? o.date.toDate() : new Date((o.date as any)?.seconds * 1000)
+        const d = tsToDate(o.date)
         return d >= todayStart
       })
       callback(filtered)

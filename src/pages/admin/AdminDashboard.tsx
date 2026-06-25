@@ -29,8 +29,10 @@ export default function AdminDashboard() {
   const isSuperAdmin = user?.rol === 'super_admin'
 
   useEffect(() => {
+    const key = `recurrentes-${new Date().toDateString()}`
+    if (sessionStorage.getItem(key)) return
     generateRecurrentesForToday()
-      .then((n) => { if (n > 0) setRecurrentesBanner(n) })
+      .then((n) => { sessionStorage.setItem(key, '1'); if (n > 0) setRecurrentesBanner(n) })
       .catch(console.error)
   }, [])
 
