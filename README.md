@@ -13,7 +13,8 @@ PWA para la gestión integral de pedidos y logística de distribución de hielo.
 | Routing | React Router 6 |
 | Mapas | Google Maps API (`@react-google-maps/api`) |
 | PWA | vite-plugin-pwa (service worker + notificaciones push) |
-| Deploy | Firebase Hosting |
+| Serverless | Netlify Functions (notificaciones email + push web) |
+| Deploy | Firebase Hosting (frontend) + Netlify (functions) |
 
 ## Roles de usuario
 
@@ -99,6 +100,7 @@ VITE_FIREBASE_STORAGE_BUCKET=
 VITE_FIREBASE_MESSAGING_SENDER_ID=
 VITE_FIREBASE_APP_ID=
 VITE_GOOGLE_MAPS_KEY=
+VITE_NETLIFY_FUNCTIONS_URL=   # URL de las Netlify Functions (ej: https://tu-sitio.netlify.app/.netlify/functions)
 ```
 
 ## Estructura del proyecto
