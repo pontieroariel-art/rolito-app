@@ -109,7 +109,7 @@ function InfoCard({ sucursal, onClose }: { sucursal: SucursalMapItem; onClose: (
   return (
     <div style={{ minWidth: 220, maxWidth: 260, fontFamily: 'sans-serif', fontSize: 13, lineHeight: 1.6, color: '#111' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
-        <div style={{ fontWeight: 700, fontSize: 14, flex: 1, marginRight: 6 }}>{u.razonSocial || u.nombre}</div>
+        <div style={{ fontWeight: 700, fontSize: 14, flex: 1, marginRight: 6 }}>{sucursal.address?.nombre || u.razonSocial || u.nombre}</div>
         <button onClick={onClose} style={{ cursor: 'pointer', background: 'none', border: 'none', fontSize: 16, color: '#999', lineHeight: 1, padding: 0 }}>✕</button>
       </div>
       <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
