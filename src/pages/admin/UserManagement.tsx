@@ -742,7 +742,7 @@ function SucursalClienteRow({
         >
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              {address?.id && (
+              {address?.id && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(address.id) && (
                 <span className="font-mono text-xs font-bold text-accent bg-accent/10 border border-accent/20 rounded px-1.5 py-0.5">
                   {address.id}
                 </span>
