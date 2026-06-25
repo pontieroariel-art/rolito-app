@@ -198,6 +198,8 @@ function PendingCoordPanel({
   )
 }
 
+const DEFAULT_CENTER = { lat: -34.6037, lng: -58.3816 }
+
 // ── Componente mapa ───────────────────────────────────────────────────────────
 
 function ClientesMap({
@@ -209,16 +211,18 @@ function ClientesMap({
   onSelect:    (key: string | null) => void
 }) {
   const { isLoaded } = useGoogleMapsLoader()
-  const mapRef   = useRef<google.maps.Map | null>(null)
-  const pinCache = useRef<Map<string, google.maps.Icon>>(new Map())
+  const mapRef      = useRef<google.maps.Map | null>(null)
+  const pinCache    = useRef<Map<string, google.maps.Icon>>(new Map())
+  const markersRef  = useRef<{ s: SucursalMapItem; lat: number; lng: number }[]>([])
 
-  const getPin = useCallback((s: SucursalMapItem) => {
+  const getPin = useCallback((s: SucursalMapItem, selected = false) => {
     const fillColor = getVendedorColor(s.user.codVendedor)
     const ringColor = ESTADO_RING[s.user.estado] ?? '#9CA3AF'
     const label     = s.codigoCliente?.split('.')[1] ?? s.codigoCliente ?? ''
-    const key       = `${fillColor}|${ringColor}|${label}`
+    const size      = selected ? 54 : 40
+    const key       = `${fillColor}|${ringColor}|${label}|${size}`
     if (!pinCache.current.has(key)) {
-      pinCache.current.set(key, makePin(fillColor, ringColor, label))
+      pinCache.current.set(key, makePin(fillColor, ringColor, label, size))
     }
     return pinCache.current.get(key)!
   }, [])
@@ -242,8 +246,16 @@ function ClientesMap({
       const pt = geoResults.get(s.key)
       if (pt) list.push({ s, lat: pt.lat, lng: pt.lng })
     }
+    markersRef.current = list
     return list
   }, [clients, geoResults])
+
+  // Paneo suave al marker seleccionado (solo cuando cambia la selección, no los filtros)
+  useEffect(() => {
+    if (!selectedKey || !mapRef.current) return
+    const m = markersRef.current.find(({ s }) => s.key === selectedKey)
+    if (m) mapRef.current.panTo({ lat: m.lat, lng: m.lng })
+  }, [selectedKey])
 
   const pendingPin = useMemo(() => {
     if (!isLoaded) return null
@@ -266,21 +278,24 @@ function ClientesMap({
   return (
     <GoogleMap
       mapContainerStyle={{ width: '100%', height: '100%' }}
-      center={{ lat: -34.6037, lng: -58.3816 }}
+      center={DEFAULT_CENTER}
       zoom={11}
       options={{ disableDefaultUI: false, zoomControl: true, gestureHandling: 'greedy', styles: MAP_STYLES, fullscreenControl: false }}
       onLoad={(m) => { mapRef.current = m }}
       onClick={() => onSelect(null)}
     >
-      {markers.map(({ s, lat, lng }) => (
-        <Marker
-          key={s.key}
-          position={{ lat, lng }}
-          icon={getPin(s)}
-          zIndex={selectedKey === s.key ? 100 : 1}
-          onClick={() => onSelect(s.key)}
-        />
-      ))}
+      {markers.map(({ s, lat, lng }) => {
+        const isSelected = selectedKey === s.key
+        return (
+          <Marker
+            key={s.key}
+            position={{ lat, lng }}
+            icon={getPin(s, isSelected)}
+            zIndex={isSelected ? 100 : 1}
+            onClick={() => onSelect(s.key)}
+          />
+        )
+      })}
 
       {markers
         .filter(({ s }) => s.user.coordPendiente)
