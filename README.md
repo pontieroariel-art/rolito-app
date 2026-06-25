@@ -13,8 +13,7 @@ PWA para la gestión integral de pedidos y logística de distribución de hielo.
 | Routing | React Router 6 |
 | Mapas | Google Maps API (`@react-google-maps/api`) |
 | PWA | vite-plugin-pwa (service worker + notificaciones push) |
-| Serverless | Netlify Functions (notificaciones push web) |
-| Deploy | Vercel |
+| Deploy | Firebase Hosting |
 
 ## Roles de usuario
 
