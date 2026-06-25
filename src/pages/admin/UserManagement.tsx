@@ -742,11 +742,15 @@ function SucursalClienteRow({
         >
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              {address?.id && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(address.id) && (
-                <span className="font-mono text-xs font-bold text-accent bg-accent/10 border border-accent/20 rounded px-1.5 py-0.5">
-                  {address.id}
-                </span>
-              )}
+              {(() => {
+                const addrCode = address?.id && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(address.id) ? address.id : null
+                const code = addrCode ?? user.codigoCliente ?? null
+                return code ? (
+                  <span className="font-mono text-xs font-bold text-accent bg-accent/10 border border-accent/20 rounded px-1.5 py-0.5">
+                    {code}
+                  </span>
+                ) : null
+              })()}
               <p className="font-semibold text-sm text-gray-900 group-hover:text-accent transition-colors">
                 {address?.nombre || user.razonSocial || user.nombre || '(sin nombre)'}
               </p>
