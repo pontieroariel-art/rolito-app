@@ -139,10 +139,10 @@ export default function MetricsDashboard({ orders }: { orders: Order[] }) {
       <div>
         <SectionTitle icon={<BarChart2 size={15} />} title={`Mes actual — ${now.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}`} />
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <MetricCard label="Pedidos del mes"     value={monthOrders.length} color="text-gray-900"      icon={<Package    size={14} />} />
-          <MetricCard label="Kg del mes"          value={monthKg}            color="text-accent"        icon={<Weight     size={14} />} suffix="kg" />
-          <MetricCard label="Clientes activos"    value={monthActiveClients} color="text-[#185FA5]"     icon={<Users      size={14} />} />
-          <MetricCard label="Promedio / pedido"   value={avgKgPerOrder}      color="text-[#0F6E56]"     icon={<TrendingUp size={14} />} suffix="kg" />
+          <MetricCard label="Pedidos del mes"     value={monthOrders.length} color="text-gray-900"  icon={<Package    size={14} />} />
+          <MetricCard label="Kg del mes"          value={monthKg}            color="text-accent"    icon={<Weight     size={14} />} suffix="kg" />
+          <MetricCard label="Clientes activos"    value={monthActiveClients} color="text-accent"    icon={<Users      size={14} />} />
+          <MetricCard label="Promedio / pedido"   value={avgKgPerOrder}      color="text-accent"    icon={<TrendingUp size={14} />} suffix="kg" />
         </div>
       </div>
 
@@ -154,7 +154,7 @@ export default function MetricsDashboard({ orders }: { orders: Order[] }) {
             Tendencia — últimos 7 días
           </p>
           <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={weeklyData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+            <BarChart data={weeklyData} margin={{ top: 4, right: 20, bottom: 0, left: -20 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
               <XAxis
                 dataKey="day"

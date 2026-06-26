@@ -4,6 +4,7 @@ import Navbar from '../../components/layout/Navbar'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
+import { Skeleton } from '../../components/ui/skeleton'
 import { useAllOrders } from '../../hooks/useOrders'
 import { useChoferes } from '../../hooks/useChoferes'
 import { useNotificationEmails } from '../../hooks/useNotificationEmails'
@@ -48,7 +49,23 @@ export default function AdminDashboard() {
   }
 
 
-  if (loading) return <><Navbar /><LoadingSpinner fullScreen /></>
+  if (loading) return (
+    <>
+      <Navbar />
+      <div className="max-w-5xl mx-auto p-4 space-y-6 pb-10">
+        <div className="flex justify-between items-center">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-9 w-32" />
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
+        </div>
+        <div className="space-y-3">
+          {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-36 rounded-xl" />)}
+        </div>
+      </div>
+    </>
+  )
 
   return (
     <div className="min-h-screen bg-[#F1EFE8] text-gray-900">

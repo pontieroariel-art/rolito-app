@@ -236,7 +236,7 @@ export default function ReporteVentasPage() {
                     Tendencia diaria — unidades entregadas
                   </h2>
                   <ResponsiveContainer width="100%" height={200}>
-                    <BarChart data={dailyTrend} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                    <BarChart data={dailyTrend} margin={{ top: 4, right: 20, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
                       <XAxis
                         dataKey="day"

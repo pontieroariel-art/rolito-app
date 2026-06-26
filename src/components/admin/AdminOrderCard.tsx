@@ -1,4 +1,5 @@
 import { useState, ChangeEvent } from 'react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { updateOrderStatus, assignDriver, updateOrderAddress, cancelOrder } from '../../services/orderService'
 import { getPushSubscription, getPushSubscriptionByEmail } from '../../services/userService'
 import { sendPush } from '../../services/notificationService'
@@ -63,11 +64,11 @@ export function AdminOrderCard({ order, choferes }: AdminOrderCardProps) {
     setStatusLoading(false)
   }
 
-  const handleDriver = async (e: ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value || null
-    await assignDriver(order.id, val)
-    if (val) {
-      getPushSubscriptionByEmail(val).then((sub) => {
+  const handleDriverSelect = async (val: string) => {
+    const driverId = val === '__none__' ? null : val
+    await assignDriver(order.id, driverId)
+    if (driverId) {
+      getPushSubscriptionByEmail(driverId).then((sub) => {
         if (sub) sendPush({ subscription: sub, title: 'Nuevo pedido asignado', body: `${order.clientName} — ${formatShortDate(order.date)}` })
       }).catch(console.error)
     }
@@ -82,7 +83,7 @@ export function AdminOrderCard({ order, choferes }: AdminOrderCardProps) {
 
   return (
     <>
-      <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-3">
+      <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-3 shadow-sm">
         <div className="flex flex-wrap justify-between items-start gap-2">
           <div>
             <div className="flex items-center gap-2 flex-wrap">
@@ -134,40 +135,41 @@ export function AdminOrderCard({ order, choferes }: AdminOrderCardProps) {
         )}
         {order.notes && <p className="text-xs text-gray-500 italic">"{order.notes}"</p>}
 
-        <div className="flex flex-wrap gap-2 items-center pt-3 border-t border-gray-100">
+        <div className="pt-3 border-t border-gray-100 space-y-2">
           {['entregado', 'cancelado'].includes(order.status) ? (
-            <span className="text-xs text-gray-500 flex-1 min-w-40">
+            <span className="text-xs text-gray-500 block">
               Chofer: <span className="text-gray-900">{order.driverId ?? '—'}</span>
             </span>
           ) : (
-            <select
-              value={order.driverId ?? ''}
-              onChange={handleDriver}
-              aria-label="Asignar chofer"
-              className="bg-white border border-[#D3D1C7] rounded-lg px-2 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent flex-1 min-w-40"
-            >
-              <option value="">Sin chofer asignado</option>
-              {choferes.map((c) => (
-                <option key={c.uid} value={c.email}>{c.nombre || c.email}</option>
-              ))}
-            </select>
-          )}
-
-          {next && (
-            <Button onClick={() => handleStatus(next)} loading={statusLoading} className="text-xs py-1.5 px-3">
-              → {STATUS_LABELS[next]}
-            </Button>
+            <Select value={order.driverId ?? '__none__'} onValueChange={handleDriverSelect}>
+              <SelectTrigger className="w-full h-8 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">Sin chofer asignado</SelectItem>
+                {choferes.map((c) => (
+                  <SelectItem key={c.uid} value={c.email}>{c.nombre || c.email}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
 
           {!['cancelado', 'entregado'].includes(order.status) && (
-            <Button
-              variant="danger"
-              onClick={() => { setCancelMotivo(''); setCancelModal(true) }}
-              disabled={statusLoading}
-              className="text-xs py-1.5 px-3"
-            >
-              Cancelar
-            </Button>
+            <div className="flex gap-2">
+              {next && (
+                <Button onClick={() => handleStatus(next)} loading={statusLoading} className="text-xs py-1.5 px-3 flex-1">
+                  → {STATUS_LABELS[next]}
+                </Button>
+              )}
+              <Button
+                variant="danger"
+                onClick={() => { setCancelMotivo(''); setCancelModal(true) }}
+                disabled={statusLoading}
+                className="text-xs py-1.5 px-3 flex-1"
+              >
+                Cancelar
+              </Button>
+            </div>
           )}
         </div>
 

@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect, useMemo, useRef, ChangeEvent, FormEvent, ReactNode } from 'react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import { deleteField, serverTimestamp } from 'firebase/firestore'
@@ -14,6 +15,7 @@ import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import Modal from '../../components/ui/Modal'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
+import { Skeleton } from '../../components/ui/skeleton'
 import { useAuth } from '../../context/AuthContext'
 import {
   getAllUsers,
@@ -226,7 +228,25 @@ export default function UserManagement() {
 
   const pendingCount = clientes.filter((u) => u.estado === 'pendiente').length
 
-  if (loadingEquipo && equipo.length === 0 && clientes.length === 0) return <><Navbar /><LoadingSpinner fullScreen /></>
+  if (loadingEquipo && equipo.length === 0 && clientes.length === 0) return (
+    <>
+      <Navbar />
+      <div className="max-w-5xl mx-auto p-4 space-y-6 pb-10">
+        <div className="flex justify-between items-center">
+          <Skeleton className="h-8 w-56" />
+          <Skeleton className="h-9 w-40" />
+        </div>
+        <div className="flex gap-3">
+          <Skeleton className="h-9 flex-1" />
+          <Skeleton className="h-9 w-44" />
+          <Skeleton className="h-9 w-44" />
+        </div>
+        <div className="space-y-3">
+          {[...Array(8)].map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
+        </div>
+      </div>
+    </>
+  )
 
   return (
     <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
@@ -237,10 +257,10 @@ export default function UserManagement() {
             <h1 className="text-2xl font-bold text-gray-900">Gestión de usuarios</h1>
             <p className="text-gray-500 text-sm">{sucursalesFlat.length} sucursales · {equipo.length} equipo</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             {pendingCount > 0 && ['super_admin', 'gerente_comercial'].includes(currentUser?.rol ?? '') && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-2 text-sm text-amber-700">
-                {pendingCount} borrador{pendingCount > 1 ? 'es' : ''} pendiente{pendingCount > 1 ? 's' : ''}
+              <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-1.5 text-sm text-amber-700">
+                {pendingCount} borrador{pendingCount > 1 ? 'es' : ''}
               </div>
             )}
             {tab === 'equipo' && currentUser?.rol === 'super_admin' && (
@@ -255,7 +275,7 @@ export default function UserManagement() {
             )}
             {tab === 'clientes' && currentUser?.rol === 'super_admin' && (
               <Button variant="outline" onClick={() => setImportarModal(true)} className="text-sm">
-                ↑ Importar Excel
+                ↑ Excel
               </Button>
             )}
             {tab === 'clientes' && (
@@ -264,7 +284,7 @@ export default function UserManagement() {
               </Button>
             )}
             <Button variant="outline" onClick={load} className="text-sm">
-              ↻ Actualizar
+              ↻
             </Button>
           </div>
         </div>
@@ -289,45 +309,47 @@ export default function UserManagement() {
         </div>
 
         {/* Filtros */}
-        <div className="flex flex-wrap gap-3">
+        <div className="space-y-2">
           <input
             value={search}
             onChange={(e: ChangeEvent<HTMLInputElement>) => { setSearch(e.target.value); setVisibleCount(PAGE_SIZE) }}
             placeholder={tab === 'clientes' ? 'Buscar por razón social, CUIT, código, dirección...' : 'Buscar por nombre o email...'}
-            className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 placeholder-gray-400 text-sm flex-1 min-w-48 focus:outline-none focus:ring-2 focus:ring-accent"
+            className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 placeholder-gray-400 text-sm w-full focus:outline-none focus:ring-2 focus:ring-accent"
           />
-          <select
-            value={statusFilter}
-            onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-              { setStatusFilter(e.target.value as UserStatus | 'all'); setVisibleCount(PAGE_SIZE) }
-            }
-            className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
-          >
-            <option value="all">Todos los estados</option>
-            {ALL_STATUSES.map((s) => (
-              <option key={s} value={s}>{STATUS_LABELS[s]}</option>
-            ))}
-          </select>
-          {tab === 'clientes' && sectors.length > 0 && (
-            <select
-              value={sectorFilter}
-              onChange={(e: ChangeEvent<HTMLSelectElement>) => { setSectorFilter(e.target.value); setVisibleCount(PAGE_SIZE) }}
-              className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
-            >
-              <option value="all">Todos los sectores</option>
-              {sectors.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          )}
-          {(search || statusFilter !== 'all' || sectorFilter !== 'all') && (
-            <button
-              onClick={() => { setSearch(''); setStatusFilter('all'); setSectorFilter('all'); setVisibleCount(PAGE_SIZE) }}
-              className="text-sm text-gray-400 hover:text-gray-900 px-3 py-2"
-            >
-              Limpiar ✕
-            </button>
-          )}
+          <div className="flex flex-wrap gap-2">
+            <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v as UserStatus | 'all'); setVisibleCount(PAGE_SIZE) }}>
+              <SelectTrigger className="flex-1 min-w-[130px] text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los estados</SelectItem>
+                {ALL_STATUSES.map((s) => (
+                  <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {tab === 'clientes' && sectors.length > 0 && (
+              <Select value={sectorFilter} onValueChange={(v) => { setSectorFilter(v); setVisibleCount(PAGE_SIZE) }}>
+                <SelectTrigger className="flex-1 min-w-[130px] text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los sectores</SelectItem>
+                  {sectors.map((s) => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {(search || statusFilter !== 'all' || sectorFilter !== 'all') && (
+              <button
+                onClick={() => { setSearch(''); setStatusFilter('all'); setSectorFilter('all'); setVisibleCount(PAGE_SIZE) }}
+                className="text-sm text-gray-400 hover:text-gray-900 px-3 py-2 shrink-0"
+              >
+                Limpiar ✕
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Contadores rápidos */}
