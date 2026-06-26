@@ -32,7 +32,7 @@ export default function Modal({ open, onClose, title, children, variant = 'dark'
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in-0 duration-150"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <div
@@ -41,7 +41,7 @@ export default function Modal({ open, onClose, title, children, variant = 'dark'
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className={`rounded-2xl w-full ${wide ? 'max-w-2xl' : 'max-w-md'} shadow-2xl outline-none flex flex-col max-h-[90vh] ${
+        className={`rounded-2xl w-full ${wide ? 'max-w-2xl' : 'max-w-md'} shadow-2xl outline-none flex flex-col max-h-[90vh] animate-in fade-in-0 zoom-in-95 duration-200 ${
           variant === 'light'
             ? 'bg-white border border-[#D3D1C7]'
             : 'bg-white border border-[#D3D1C7]'

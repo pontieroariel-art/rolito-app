@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
@@ -199,16 +200,17 @@ export default function ComercialOrders() {
             />
 
             {/* Estado */}
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as OrderStatus | 'todos')}
-              className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
-            >
-              <option value="todos">Todos los estados</option>
-              {(['pendiente', 'confirmado', 'en_camino', 'entregado', 'cancelado'] as OrderStatus[]).map((s) => (
-                <option key={s} value={s}>{STATUS_LABELS[s]}</option>
-              ))}
-            </select>
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as OrderStatus | 'todos')}>
+              <SelectTrigger className="w-auto min-w-40 text-sm h-[34px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos los estados</SelectItem>
+                {(['pendiente', 'confirmado', 'en_camino', 'entregado', 'cancelado'] as OrderStatus[]).map((s) => (
+                  <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
             {/* Búsqueda */}
             <div className="relative flex-1 min-w-[180px]">

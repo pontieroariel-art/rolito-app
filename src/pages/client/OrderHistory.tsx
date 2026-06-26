@@ -129,7 +129,7 @@ export default function OrderHistory() {
             </div>
 
             <ResponsiveContainer width="100%" height={120}>
-              <BarChart data={stats.meses} margin={{ top: 4, right: 0, left: -30, bottom: 0 }}>
+              <BarChart data={stats.meses} margin={{ top: 4, right: 30, left: -30, bottom: 0 }}>
                 <XAxis
                   dataKey="label"
                   tick={{ fill: '#9ca3af', fontSize: 11 }}

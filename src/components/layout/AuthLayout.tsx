@@ -11,7 +11,7 @@ export default function AuthLayout({ title, subtitle, children }: AuthLayoutProp
     <div className="min-h-screen bg-[#F8F7F2] flex flex-col">
 
       {/* Banda superior — gradiente con isotipo */}
-      <div className="flex justify-center items-end pt-10 pb-0" style={{ background: 'linear-gradient(180deg, #081C11 0%, #2D6A4F 100%)' }}>
+      <div className="flex justify-center items-end pt-10 pb-0" style={{ background: 'linear-gradient(180deg, #1a6b52 0%, #1D9E75 100%)' }}>
         <div className="bg-white rounded-2xl p-2 shadow-lg mb-0 translate-y-1/2">
           <img src="/isotipo-rolito.png" alt="Rolito" className="w-16 h-16 object-contain" />
         </div>
