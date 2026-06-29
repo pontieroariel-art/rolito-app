@@ -766,10 +766,10 @@ export default function MonitoreoPage() {
   return (
     <>
       <Navbar />
-      <div className="flex" style={{ height: 'calc(100vh - 56px)' }}>
+      <div className="flex flex-col md:flex-row" style={{ height: 'calc(100vh - 56px)' }}>
 
         {/* ── Sidebar ───────────────────────────────────────────────────────── */}
-        <aside className="w-72 shrink-0 bg-white border-r border-[#D3D1C7] flex flex-col overflow-hidden">
+        <aside className="w-full md:w-72 md:shrink-0 bg-white border-b md:border-b-0 md:border-r border-[#D3D1C7] flex flex-col overflow-hidden max-h-[45%] md:max-h-none">
 
           <div className="p-4 border-b border-[#D3D1C7]">
             <div className="flex items-center gap-2 mb-1">
@@ -819,7 +819,7 @@ export default function MonitoreoPage() {
         </aside>
 
         {/* ── Mapa ──────────────────────────────────────────────────────────── */}
-        <div className="flex-1 relative">
+        <div className="flex-1 relative min-h-[300px]">
           {activeDrivers.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
               <div className="bg-white/95 border border-[#D3D1C7] rounded-xl px-6 py-5 text-center shadow-xl">

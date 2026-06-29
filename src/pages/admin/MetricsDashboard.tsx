@@ -148,7 +148,7 @@ export default function MetricsDashboard({ orders }: { orders: Order[] }) {
 
       <div className="grid md:grid-cols-2 gap-4">
 
-        <div className="bg-white border border-[#D3D1C7] rounded-xl p-4">
+        <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 min-w-0 overflow-hidden">
           <p className="text-sm font-medium mb-4 flex items-center gap-2 text-gray-900">
             <TrendingUp size={14} className="text-accent" />
             Tendencia — últimos 7 días
@@ -184,7 +184,7 @@ export default function MetricsDashboard({ orders }: { orders: Order[] }) {
           </ResponsiveContainer>
         </div>
 
-        <div className="bg-white border border-[#D3D1C7] rounded-xl p-4">
+        <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 min-w-0 overflow-hidden">
           <p className="text-sm font-medium mb-4 flex items-center gap-2 text-gray-900">
             <Trophy size={14} className="text-accent" />
             Top clientes del mes

@@ -70,14 +70,14 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
       <Navbar />
-      <main className="max-w-5xl mx-auto p-4 space-y-6 pb-10">
+      <main className="max-w-5xl mx-auto p-4 space-y-6 pb-10 overflow-x-hidden">
 
         {/* Header */}
         <div className="flex flex-wrap justify-between items-center gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Tablero</h1>
-            <p className="text-gray-500 text-sm capitalize">
-              {new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}
+            <p className="text-gray-500 text-sm">
+              {new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }).replace(/^./, (c) => c.toUpperCase())}
             </p>
           </div>
           <NotificationEmailManager notifEmails={notifEmails} />
@@ -114,8 +114,8 @@ export default function AdminDashboard() {
         {/* Carga por chofer */}
         <ResumenCargaPorChofer orders={orders} choferes={choferes.choferes} />
 
-        {/* Herramienta de pruebas (solo super_admin) */}
-        {isSuperAdmin && (
+        {/* Herramienta de pruebas (solo super_admin, solo en dev) */}
+        {isSuperAdmin && import.meta.env.DEV && (
           <>
             <button
               onClick={() => { setCleanupResult(null); setCleanupModal(true) }}

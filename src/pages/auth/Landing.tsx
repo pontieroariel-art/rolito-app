@@ -26,7 +26,7 @@ const CARDS = [
     to:          '/choferes',
     label:       'Choferes',
     title:       'Ingreso Choferes',
-    description: 'Acceso con CUIT y PIN',
+    description: 'Acceso con DNI y PIN',
     icon:        Truck,
     accent:      false,
   },
