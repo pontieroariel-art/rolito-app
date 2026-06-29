@@ -65,16 +65,16 @@ export default function PriceListsPage() {
       <main className="max-w-5xl mx-auto p-4 pb-10 space-y-4">
         <div>
           <h1 className="text-2xl font-bold">Precios</h1>
-          <p className="text-gray-500 text-sm mt-1">Catálogo de productos y listas de precios por canal</p>
+          <p className="text-gray-500 text-sm mt-1 break-words">Catálogo de productos y listas de precios por canal</p>
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 bg-white border border-[#D3D1C7] rounded-xl p-1 w-fit">
+        <div className="flex gap-1 bg-white border border-[#D3D1C7] rounded-xl p-1 w-full sm:w-fit overflow-x-auto">
           {(['listas', 'catalogo'] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap flex-1 sm:flex-none ${
                 tab === t ? 'bg-accent text-white' : 'text-gray-500 hover:text-gray-900'
               }`}
             >
@@ -221,7 +221,7 @@ function ListaEditor({
   return (
     <div className="bg-white border border-[#D3D1C7] rounded-xl p-5 space-y-5">
       {/* Header */}
-      <div className="flex items-start justify-between gap-3 flex-wrap">
+      <div className="flex items-end justify-between gap-3 flex-wrap">
         <div className="flex-1 min-w-0">
           <label className="text-xs text-gray-500 uppercase tracking-wide">Nombre del canal</label>
           <input
@@ -230,7 +230,7 @@ function ListaEditor({
             className="mt-1 bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-accent"
           />
         </div>
-        <div className="flex gap-2 mt-5">
+        <div className="flex gap-2">
           <Button onClick={handleSave} loading={saving} className="text-sm py-2 px-4">
             <Save size={14} className="mr-1.5" />Guardar
           </Button>
@@ -281,7 +281,7 @@ function ListaEditor({
                 </button>
 
                 {/* Nombre */}
-                <span className="text-sm truncate">
+                <span className="text-sm truncate" title={item.nombre}>
                   {item.nombre}
                   <span className="text-gray-500 text-xs ml-1.5">{item.unidad}</span>
                 </span>

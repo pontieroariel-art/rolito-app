@@ -201,8 +201,8 @@ export default function FlotaPage() {
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`text-xs px-2 py-1 rounded-full border font-medium ${
                         c.activo
                           ? 'bg-green-100 text-green-700 border-green-200'
                           : 'bg-gray-100 text-gray-500 border-gray-200'
@@ -211,13 +211,13 @@ export default function FlotaPage() {
                       </span>
                       <button
                         onClick={() => setEditCamion(c)}
-                        className="text-xs text-gray-500 hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-3 py-1.5 transition-colors"
+                        className="text-xs text-gray-500 hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-4 py-2 transition-colors min-h-[36px]"
                       >
                         Editar
                       </button>
                       <button
                         onClick={() => updateCamion(c.id, { activo: !c.activo })}
-                        className="text-xs text-gray-500 hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-3 py-1.5 transition-colors"
+                        className="text-xs text-gray-500 hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-4 py-2 transition-colors min-h-[36px]"
                       >
                         {c.activo ? 'Desactivar' : 'Activar'}
                       </button>

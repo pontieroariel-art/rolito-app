@@ -29,7 +29,7 @@ export default function LoginChofer() {
       await loginChofer(dni.trim(), pin)
     } catch (err) {
       if (err instanceof Error && err.message === 'dni-not-found') {
-        setError('DNI no encontrado')
+        setError('DNI o PIN incorrecto')
       } else if (err instanceof FirebaseError) {
         const wrongCreds = ['auth/invalid-credential', 'auth/wrong-password', 'auth/user-not-found']
         if (wrongCreds.includes(err.code)) {

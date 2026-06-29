@@ -87,7 +87,7 @@ export function ForecastStrip({ lat, lng }: { lat?: number; lng?: number } = {})
   })
 
   if (isLoading) return (
-    <div className="flex gap-2 overflow-x-auto pb-1">
+    <div className="flex gap-2 overflow-x-auto pb-2 [&::-webkit-scrollbar]:h-[3px] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 hover:[&::-webkit-scrollbar-thumb]:bg-gray-400" style={{ scrollbarWidth: 'thin', scrollbarColor: '#d1d5db transparent' }}>
       {Array.from({ length: 7 }).map((_, i) => (
         <div key={i} className="bg-gray-100 border border-[#D3D1C7] rounded-xl p-3 min-w-[80px] h-24 animate-pulse" />
       ))}
@@ -95,7 +95,7 @@ export function ForecastStrip({ lat, lng }: { lat?: number; lng?: number } = {})
   )
 
   return (
-    <div className="flex gap-2 overflow-x-auto pb-1">
+    <div className="flex gap-2 overflow-x-auto pb-2 [&::-webkit-scrollbar]:h-[3px] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 hover:[&::-webkit-scrollbar-thumb]:bg-gray-400" style={{ scrollbarWidth: 'thin', scrollbarColor: '#d1d5db transparent' }}>
       {days.map((d, i) => {
         const date = new Date(d.date + 'T12:00:00')
         const isToday = i === 0

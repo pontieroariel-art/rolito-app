@@ -553,9 +553,9 @@ export default function LogisticaDashboard() {
       <div className="px-4 pt-4 flex-shrink-0">
         <div className="flex items-center justify-between gap-3 mb-3 max-w-full">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Tablero</h1>
-            <p className="text-xs text-gray-500 capitalize">
-              {new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}
+            <h1 className="text-xl font-bold text-gray-900">Planificación</h1>
+            <p className="text-xs text-gray-500">
+              {new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }).replace(/^./, (c) => c.toUpperCase())}
             </p>
           </div>
           {mainTab === 'pedidos' && (
@@ -639,7 +639,7 @@ export default function LogisticaDashboard() {
           <div className="flex justify-center py-20"><LoadingSpinner /></div>
         ) : (
           <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-            <div className="overflow-x-auto pb-2 -mx-4 px-4">
+            <div className="overflow-x-auto pb-2 -mx-4 px-4 [&::-webkit-scrollbar]:h-[3px] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 hover:[&::-webkit-scrollbar-thumb]:bg-gray-400" style={{ scrollbarWidth: 'thin', scrollbarColor: '#d1d5db transparent' }}>
               <div className="flex gap-3" style={{ width: 'max-content', height: 'calc(100vh - 140px)', minHeight: 400 }}>
                 {columns.map((col) => (
                   <KanbanColumn

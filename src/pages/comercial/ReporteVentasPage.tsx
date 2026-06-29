@@ -146,7 +146,9 @@ export default function ReporteVentasPage() {
     else setMonth((m) => m + 1)
   }
 
-  const monthLabel = new Date(year, month, 1).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
+  const monthLabel = new Date(year, month, 1)
+    .toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
+    .replace(/^./, (c) => c.toUpperCase())
   const isCurrentMonth = year === now.getFullYear() && month === now.getMonth()
 
   // Excel export
@@ -189,7 +191,7 @@ export default function ReporteVentasPage() {
         <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold">Reporte de ventas</h1>
-            <p className="text-gray-500 text-sm mt-0.5 capitalize">{monthLabel}</p>
+            <p className="text-gray-500 text-sm mt-0.5">{monthLabel}</p>
           </div>
           <div className="flex items-center gap-1">
             <button

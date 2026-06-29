@@ -108,7 +108,7 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     await logoutUser()
-    navigate('/login')
+    navigate('/')
   }
 
   return (
@@ -121,7 +121,10 @@ export default function Navbar() {
         </Link>
 
         {/* Links desktop */}
-        <div className="hidden md:flex items-stretch flex-1 overflow-x-auto gap-1" style={{ scrollbarWidth: 'none' }}>
+        <div
+          className="hidden md:flex items-stretch flex-1 overflow-x-auto gap-1 [&::-webkit-scrollbar]:h-[3px] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 hover:[&::-webkit-scrollbar-thumb]:bg-gray-400"
+          style={{ scrollbarWidth: 'thin', scrollbarColor: '#d1d5db transparent' }}
+        >
           {links.map((l) => (
             <NavLink
               key={l.to}
