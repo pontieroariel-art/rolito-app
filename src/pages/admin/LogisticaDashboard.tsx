@@ -5,7 +5,7 @@ import {
   useDroppable, useDraggable,
 } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
-import { FileText, Plus, MoreVertical, Pencil, XCircle, Minus } from 'lucide-react'
+import { FileText, Plus, MoreVertical, Pencil, XCircle, Minus, GripVertical } from 'lucide-react'
 import Navbar from '../../components/layout/Navbar'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import Modal from '../../components/ui/Modal'
@@ -275,12 +275,18 @@ const KanbanCard = memo(function KanbanCard({ order, choferes }: { order: Order;
       <div
         ref={setNodeRef}
         style={{ transform: CSS.Translate.toString(transform), opacity: isDragging ? 0.35 : 1 }}
-        {...listeners}
-        {...attributes}
-        className="bg-white border border-[#D3D1C7] rounded-xl p-3 space-y-2 cursor-grab active:cursor-grabbing touch-none select-none hover:border-accent/50 hover:shadow-sm transition-all"
+        className="bg-white border border-[#D3D1C7] rounded-xl p-3 space-y-2 select-none hover:border-accent/50 hover:shadow-sm transition-all"
       >
-        {/* Header: nombre + menú */}
-        <div className="flex items-start justify-between gap-1">
+        {/* Header: grip handle + nombre + menú */}
+        <div className="flex items-start gap-1">
+          <div
+            {...listeners}
+            {...attributes}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="shrink-0 touch-none cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 pt-0.5 -ml-1 pr-0.5"
+          >
+            <GripVertical size={14} />
+          </div>
           <p className="text-sm font-semibold text-gray-900 leading-tight flex-1">{order.clientName}</p>
           {canEdit && (
             <button
