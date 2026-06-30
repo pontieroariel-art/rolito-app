@@ -5,7 +5,7 @@ import {
   useDroppable, useDraggable,
 } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
-import { FileText, Plus, MoreVertical, Pencil, XCircle, Minus, GripVertical } from 'lucide-react'
+import { FileText, Plus, MoreVertical, Pencil, XCircle, Minus, GripVertical, ChevronLeft, ChevronRight } from 'lucide-react'
 import Navbar from '../../components/layout/Navbar'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import Modal from '../../components/ui/Modal'
@@ -41,26 +41,31 @@ function driverColor(email: string, choferes: UserProfile[]): string {
   return idx >= 0 ? DRIVER_COLORS[idx % DRIVER_COLORS.length] : '#F59E0B'
 }
 
-function buildColumns(): { id: string; label: string; sublabel?: string }[] {
+function buildColumns(start: Date): { id: string; label: string; sublabel?: string }[] {
+  const today = dateToStr(new Date())
   const cols: { id: string; label: string; sublabel?: string }[] = [
-    { id: 'bandeja', label: 'Bandeja', sublabel: 'Sin fecha / Reprogramar' },
+    { id: 'bandeja', label: 'Bandeja', sublabel: 'Sin fecha / Pendientes' },
   ]
   for (let i = 0; i < 7; i++) {
-    const d = new Date()
+    const d = new Date(start)
     d.setHours(12, 0, 0, 0)
     d.setDate(d.getDate() + i)
-    const label    = i === 0 ? 'Hoy' : i === 1 ? 'Mañana' : d.toLocaleDateString('es-AR', { weekday: 'short' })
-    const sublabel = d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
-    cols.push({ id: dateToStr(d), label, sublabel })
+    const str     = dateToStr(d)
+    const isToday = str === today
+    const name    = d.toLocaleDateString('es-AR', { weekday: 'short' })
+    const label   = isToday ? 'Hoy' : name.charAt(0).toUpperCase() + name.slice(1)
+    cols.push({ id: str, label, sublabel: d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' }) })
   }
   return cols
 }
 
-function getOrderColumn(order: Order, dayIds: Set<string>): string {
+function getOrderColumn(order: Order, dayIds: Set<string>): string | null {
   const dateStr = orderDateStr(order)
-  const today   = dateToStr(new Date())
-  if (!dateStr || dateStr < today || !dayIds.has(dateStr)) return 'bandeja'
-  return dateStr
+  if (!dateStr) return 'bandeja'
+  if (dayIds.has(dateStr)) return dateStr
+  const today = dateToStr(new Date())
+  if (dateStr < today && !['entregado', 'cancelado'].includes(order.status)) return 'bandeja'
+  return null
 }
 
 // ── EditOrderModal ────────────────────────────────────────────────────────────
@@ -395,6 +400,125 @@ const KanbanCard = memo(function KanbanCard({ order, choferes }: { order: Order;
   )
 })
 
+// ── MiniCalendar ─────────────────────────────────────────────────────────────
+
+function MiniCalendar({
+  orders,
+  startDate,
+  onSelectDay,
+}: {
+  orders:      Order[]
+  startDate:   Date
+  onSelectDay: (date: Date) => void
+}) {
+  const [viewMonth, setViewMonth] = useState(() => {
+    const d = new Date(startDate); d.setDate(1); d.setHours(0, 0, 0, 0); return d
+  })
+
+  useEffect(() => {
+    if (
+      startDate.getMonth()    !== viewMonth.getMonth() ||
+      startDate.getFullYear() !== viewMonth.getFullYear()
+    ) {
+      const d = new Date(startDate); d.setDate(1); d.setHours(0, 0, 0, 0)
+      setViewMonth(d)
+    }
+  }, [startDate])
+
+  const datesWithOrders = useMemo(() => {
+    const s = new Set<string>()
+    orders.forEach((o) => { if (o.status !== 'cancelado') { const d = orderDateStr(o); if (d) s.add(d) } })
+    return s
+  }, [orders])
+
+  const days = useMemo(() => {
+    const year = viewMonth.getFullYear()
+    const month = viewMonth.getMonth()
+    const firstDay = new Date(year, month, 1)
+    const lastDay  = new Date(year, month + 1, 0)
+    let dow = firstDay.getDay()
+    dow = dow === 0 ? 6 : dow - 1
+    const result: (Date | null)[] = Array(dow).fill(null)
+    for (let d = 1; d <= lastDay.getDate(); d++) result.push(new Date(year, month, d))
+    return result
+  }, [viewMonth])
+
+  const windowSet = useMemo(() => {
+    const s = new Set<string>()
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(startDate); d.setDate(d.getDate() + i); s.add(dateToStr(d))
+    }
+    return s
+  }, [startDate])
+
+  const today = dateToStr(new Date())
+  const monthLabel = viewMonth.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
+  const rangeStart = startDate.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
+  const rangeEnd   = new Date(startDate.getTime() + 6 * 86400000)
+    .toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
+
+  return (
+    <div className="w-44 shrink-0 bg-white border border-[#D3D1C7] rounded-xl p-3 flex flex-col gap-2 self-start sticky top-0">
+      {/* Navegación de mes */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
+          className="p-1 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"
+        >
+          <ChevronLeft size={13} />
+        </button>
+        <p className="text-[11px] font-semibold text-gray-700 capitalize">{monthLabel}</p>
+        <button
+          onClick={() => setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
+          className="p-1 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"
+        >
+          <ChevronRight size={13} />
+        </button>
+      </div>
+
+      {/* Cabecera días */}
+      <div className="grid grid-cols-7 text-center">
+        {['L','M','X','J','V','S','D'].map((d) => (
+          <span key={d} className="text-[9px] font-semibold text-gray-400">{d}</span>
+        ))}
+      </div>
+
+      {/* Grilla de días */}
+      <div className="grid grid-cols-7 gap-y-0.5">
+        {days.map((day, i) => {
+          if (!day) return <div key={`e-${i}`} />
+          const str       = dateToStr(day)
+          const inWindow  = windowSet.has(str)
+          const hasOrders = datesWithOrders.has(str)
+          const isToday   = str === today
+
+          return (
+            <button
+              key={str}
+              onClick={() => onSelectDay(day)}
+              title={str}
+              className={`relative flex flex-col items-center justify-center h-6 w-6 rounded-md mx-auto text-[11px] font-medium transition-colors
+                ${inWindow  ? 'bg-accent/15 text-accent font-bold'        : 'text-gray-700 hover:bg-gray-100'}
+                ${isToday && !inWindow ? 'ring-1 ring-accent/60 text-accent' : ''}
+              `}
+            >
+              {day.getDate()}
+              {hasOrders && (
+                <span className={`absolute bottom-0 w-1 h-1 rounded-full ${inWindow ? 'bg-accent' : 'bg-gray-300'}`} />
+              )}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Semana activa */}
+      <div className="border-t border-[#D3D1C7] pt-1.5 text-center">
+        <p className="text-[10px] text-gray-400">{rangeStart} – {rangeEnd}</p>
+      </div>
+    </div>
+  )
+}
+
 // ── KanbanColumn ──────────────────────────────────────────────────────────────
 
 const KanbanColumn = memo(function KanbanColumn({ id, label, sublabel, orders, choferes, isBandeja }: {
@@ -476,6 +600,15 @@ export default function LogisticaDashboard() {
   const [allClients,   setAllClients]   = useState<UserProfile[]>([])
   const clientsLoadedRef = useRef(false)
 
+  const [startDate, setStartDate] = useState<Date>(() => {
+    const d = new Date(); d.setHours(12, 0, 0, 0); return d
+  })
+
+  const goToToday    = () => { const d = new Date(); d.setHours(12, 0, 0, 0); setStartDate(d) }
+  const goToPrevWeek = () => setStartDate((p) => { const d = new Date(p); d.setDate(d.getDate() - 7); return d })
+  const goToNextWeek = () => setStartDate((p) => { const d = new Date(p); d.setDate(d.getDate() + 7); return d })
+  const handleSelectDay = (day: Date) => { const d = new Date(day); d.setHours(12, 0, 0, 0); setStartDate(d) }
+
   const { orders,   loading: loadO } = useKanbanOrders()
   const { choferes, loading: loadC } = useChoferes()
   const loading = loadO || loadC
@@ -497,10 +630,10 @@ export default function LogisticaDashboard() {
     useSensor(TouchSensor,  { activationConstraint: { delay: 200, tolerance: 8 } }),
   )
 
-  const columns  = useMemo(() => buildColumns(), [])
+  const columns  = useMemo(() => buildColumns(startDate), [startDate])
   const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + i); return d
-  }), [])
+    const d = new Date(startDate); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + i); return d
+  }), [startDate])
   const dayIds  = useMemo(() => new Set(columns.filter((c) => c.id !== 'bandeja').map((c) => c.id)), [columns])
 
   const ordersByColumn = useMemo(() => {
@@ -510,6 +643,7 @@ export default function LogisticaDashboard() {
       .filter((o) => !['entregado', 'cancelado'].includes(o.status))
       .forEach((o) => {
         const col = getOrderColumn(o, dayIds)
+        if (col === null) return
         if (result[col] !== undefined) result[col].push(o)
         else result['bandeja'].push(o)
       })
@@ -517,7 +651,7 @@ export default function LogisticaDashboard() {
       arr.sort((a, b) => orderDateStr(a).localeCompare(orderDateStr(b)) || a.clientName.localeCompare(b.clientName)),
     )
     return result
-  }, [orders, columns, dayIds])
+  }, [orders, columns, dayIds, startDate])
 
   const activeOrder = activeId ? orders.find((o) => o.id === activeId) : null
 
@@ -644,38 +778,77 @@ export default function LogisticaDashboard() {
         {mainTab === 'pedidos' && (loading ? (
           <div className="flex justify-center py-20"><LoadingSpinner /></div>
         ) : (
-          <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-            <div className="overflow-x-auto pb-2 -mx-4 px-4 [&::-webkit-scrollbar]:h-[3px] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 hover:[&::-webkit-scrollbar-thumb]:bg-gray-400" style={{ scrollbarWidth: 'thin', scrollbarColor: '#d1d5db transparent' }}>
-              <div className="flex gap-3" style={{ width: 'max-content', height: 'calc(100vh - 140px)', minHeight: 400 }}>
-                {columns.map((col) => (
-                  <KanbanColumn
-                    key={col.id}
-                    id={col.id}
-                    label={col.label}
-                    sublabel={col.sublabel}
-                    orders={ordersByColumn[col.id] ?? []}
-                    choferes={choferes}
-                    isBandeja={col.id === 'bandeja'}
-                  />
-                ))}
-              </div>
+          <div className="flex gap-3 h-full">
+
+            {/* Mini calendario — oculto en pantallas pequeñas */}
+            <div className="hidden lg:block pt-0.5">
+              <MiniCalendar orders={orders} startDate={startDate} onSelectDay={handleSelectDay} />
             </div>
 
-            <DragOverlay dropAnimation={null}>
-              {activeOrder && (
-                <div className="bg-white border-2 border-accent rounded-xl p-3 shadow-2xl rotate-1 w-52 space-y-1.5">
-                  <p className="text-sm font-semibold text-gray-900 leading-tight">{activeOrder.clientName}</p>
-                  <p className="text-xs text-gray-500 truncate">{activeOrder.clientAddress}</p>
-                  <p className="text-xs text-gray-600">{summarizeProducts(activeOrder.products)}</p>
+            {/* Kanban + navegación */}
+            <div className="flex-1 flex flex-col min-w-0">
+
+              {/* Barra de navegación de semana */}
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
+                <button
+                  onClick={goToPrevWeek}
+                  className="p-1.5 rounded-lg border border-[#D3D1C7] bg-white hover:border-accent text-gray-500 hover:text-accent transition-colors"
+                >
+                  <ChevronLeft size={15} />
+                </button>
+                <button
+                  onClick={goToToday}
+                  className="px-3 py-1.5 rounded-lg border border-[#D3D1C7] bg-white text-xs font-semibold text-gray-600 hover:border-accent hover:text-accent transition-colors"
+                >
+                  Hoy
+                </button>
+                <span className="text-xs text-gray-500 flex-1 text-center">
+                  {startDate.toLocaleDateString('es-AR', { day: 'numeric', month: 'long' })}
+                  {' – '}
+                  {new Date(startDate.getTime() + 6 * 86400000).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </span>
+                <button
+                  onClick={goToNextWeek}
+                  className="p-1.5 rounded-lg border border-[#D3D1C7] bg-white hover:border-accent text-gray-500 hover:text-accent transition-colors"
+                >
+                  <ChevronRight size={15} />
+                </button>
+              </div>
+
+              <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+                <div className="overflow-x-auto pb-2 [&::-webkit-scrollbar]:h-[3px] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 hover:[&::-webkit-scrollbar-thumb]:bg-gray-400" style={{ scrollbarWidth: 'thin', scrollbarColor: '#d1d5db transparent' }}>
+                  <div className="flex gap-3" style={{ width: 'max-content', height: 'calc(100vh - 200px)', minHeight: 400 }}>
+                    {columns.map((col) => (
+                      <KanbanColumn
+                        key={col.id}
+                        id={col.id}
+                        label={col.label}
+                        sublabel={col.sublabel}
+                        orders={ordersByColumn[col.id] ?? []}
+                        choferes={choferes}
+                        isBandeja={col.id === 'bandeja'}
+                      />
+                    ))}
+                  </div>
                 </div>
-              )}
-            </DragOverlay>
-          </DndContext>
+
+                <DragOverlay dropAnimation={null}>
+                  {activeOrder && (
+                    <div className="bg-white border-2 border-accent rounded-xl p-3 shadow-2xl rotate-1 w-52 space-y-1.5">
+                      <p className="text-sm font-semibold text-gray-900 leading-tight">{activeOrder.clientName}</p>
+                      <p className="text-xs text-gray-500 truncate">{activeOrder.clientAddress}</p>
+                      <p className="text-xs text-gray-600">{summarizeProducts(activeOrder.products)}</p>
+                    </div>
+                  )}
+                </DragOverlay>
+              </DndContext>
+            </div>
+          </div>
         ))}
       </div>
 
       <ImportarPedidoModal open={importModal}  onClose={() => setImportModal(false)} />
-      <PedidoManualModal   open={pedidoManual} onClose={() => setPedidoManual(false)} defaultDate={todayStr} />
+      <PedidoManualModal   open={pedidoManual} onClose={() => setPedidoManual(false)} defaultDate={dateToStr(startDate)} />
     </div>
   )
 }
