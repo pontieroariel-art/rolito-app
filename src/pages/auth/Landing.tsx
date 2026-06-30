@@ -7,7 +7,7 @@ const ROLE_HOME: Record<string, string> = {
   super_admin:       '/admin',
   logistica:         '/logistica',
   comercial:         '/comercial',
-  gerente_comercial: '/usuarios',
+  gerente_comercial: '/logistica',
   facturacion:       '/movimientos',
   chofer:            '/chofer',
   cliente:           '/dashboard',

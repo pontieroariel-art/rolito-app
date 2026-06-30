@@ -26,10 +26,11 @@ const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
     { to: '/comercial/historial-precios',   label: 'Hist. precios',  icon: Clock },
   ],
   gerente_comercial: [
+    { to: '/logistica',                    label: 'Kanban',          icon: CalendarDays },
+    { to: '/admin/monitoreo',              label: 'Monitoreo',       icon: Activity },
+    { to: '/admin/clima',                  label: 'Clima',           icon: Cloud },
     { to: '/usuarios',                     label: 'Clientes',        icon: Users },
     { to: '/movimientos',                  label: 'Movimientos',     icon: BarChart2 },
-    { to: '/comercial/historial-precios',  label: 'Hist. precios',   icon: Clock },
-    { to: '/comercial/reporte-precios',    label: 'Rep. precios',    icon: DollarSign },
     { to: '/comercial/ventas',             label: 'Rep. ventas',     icon: TrendingUp },
   ],
   cliente: [

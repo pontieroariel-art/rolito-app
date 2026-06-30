@@ -10,7 +10,7 @@ import { loginWithStaffDni } from '../../services/authService'
 
 const ROLE_HOME: Record<string, string> = {
   super_admin:       '/admin',
-  gerente_comercial: '/usuarios',
+  gerente_comercial: '/logistica',
   logistica:         '/logistica',
   comercial:         '/comercial',
   facturacion:       '/movimientos',
