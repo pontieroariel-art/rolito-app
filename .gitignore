@@ -30,5 +30,7 @@ scripts/import-errores.txt
 # Firebase cache
 .firebase/
 
-# Screenshots de verificación
+# Screenshots de verificación y Playwright
 .verify_screenshots/
+/*.png
+/*.jpg
