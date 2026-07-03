@@ -8,7 +8,6 @@ import {
 import { auth } from './firebase'
 import { createUserDocument } from './userService'
 import { getEmailByCuit } from './cuitService'
-import { notifyRegistro } from './notificationService'
 
 interface RegisterParams {
   email:          string
@@ -29,7 +28,7 @@ export const registerUser = async ({
 }: RegisterParams): Promise<User> => {
   const credential = await createUserWithEmailAndPassword(auth, email, password)
   await createUserDocument(credential.user.uid, { email, razonSocial, nombreContacto, cuit, phone })
-  notifyRegistro(email, razonSocial || nombreContacto).catch(console.error)
+  // El email de "registro pendiente" lo envía el trigger onUserRegistered.
   return credential.user
 }
 

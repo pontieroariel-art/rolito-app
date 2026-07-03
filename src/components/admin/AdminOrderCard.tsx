@@ -3,7 +3,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { updateOrderStatus, assignDriver, updateOrderAddress, cancelOrder } from '../../services/orderService'
 import { getPushSubscription, getPushSubscriptionByEmail } from '../../services/userService'
 import { sendPush } from '../../services/notificationService'
-import { useNotifyConfirmado, useNotifyEnCamino } from '../../hooks/useNotifications'
 import { STATUS_FLOW, STATUS_LABELS } from '../../utils/constants'
 import { formatShortDate, summarizeProducts, tsToDate } from '../../utils/helpers'
 import { Order, OrderStatus, UserProfile, AccionHistorial } from '../../types'
@@ -32,8 +31,6 @@ export function AdminOrderCard({ order, choferes }: AdminOrderCardProps) {
   const [cancelMotivo,   setCancelMotivo]   = useState('')
   const [cancelLoading,  setCancelLoading]  = useState(false)
   const [histOpen,       setHistOpen]       = useState(false)
-  const notifyConfirmadoMutation = useNotifyConfirmado()
-  const notifyEnCaminoMutation   = useNotifyEnCamino()
 
   const getNextStatus = (): OrderStatus | null => {
     const idx = STATUS_FLOW.indexOf(order.status)
@@ -45,8 +42,7 @@ export function AdminOrderCard({ order, choferes }: AdminOrderCardProps) {
     await updateOrderStatus(order.id, newStatus)
     const nombre = (order.clientName || '').split(' ')[0] || 'Cliente'
     if (newStatus === 'confirmado' && order.clientEmail) {
-      const dateStr = order.date?.toDate ? order.date.toDate().toISOString().split('T')[0] : ''
-      notifyConfirmadoMutation.mutate({ email: order.clientEmail, nombre, products: order.products, date: dateStr })
+      // El email de confirmación lo envía el trigger onOrderConfirmado (server-side).
       if (order.clientId) {
         getPushSubscription(order.clientId).then((sub) => {
           if (sub) sendPush({ subscription: sub, title: 'Tu pedido fue confirmado ✅', body: summarizeProducts(order.products) })
@@ -54,7 +50,7 @@ export function AdminOrderCard({ order, choferes }: AdminOrderCardProps) {
       }
     }
     if (newStatus === 'en_camino' && order.clientEmail) {
-      notifyEnCaminoMutation.mutate({ email: order.clientEmail, nombre, products: order.products })
+      // El email "en camino" lo envía el trigger onOrderEnCamino (server-side).
       if (order.clientId) {
         getPushSubscription(order.clientId).then((sub) => {
           if (sub) sendPush({ subscription: sub, title: 'Tu pedido está en camino 🚛', body: summarizeProducts(order.products) })

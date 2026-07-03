@@ -3,7 +3,7 @@ import { sendEmail } from './_shared/email'
 import { tplPedidoReprogramado, Product } from './_shared/templates'
 
 const CORS = {
-  'Access-Control-Allow-Origin':  '*',
+  'Access-Control-Allow-Origin':  process.env.ALLOWED_ORIGIN ?? 'https://app.rolito.com.ar',
   'Access-Control-Allow-Headers': 'Content-Type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }

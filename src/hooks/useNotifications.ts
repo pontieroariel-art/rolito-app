@@ -1,31 +1,9 @@
 import { useMutation } from '@tanstack/react-query'
-import {
-  notifyAprobado,
-  notifyPedidoRecibido,
-  notifyConfirmado,
-  notifyEnCamino,
-  notifyAdminNuevoPedido,
-  notifyCerca,
-  notifyReprogramado,
-} from '../services/notificationService'
+import { notifyCerca, notifyReprogramado } from '../services/notificationService'
 
-export const useNotifyAprobado = () =>
-  useMutation({
-    mutationFn: ({ email, nombre }: { email: string; nombre: string }) =>
-      notifyAprobado(email, nombre),
-  })
-
-export const useNotifyPedidoRecibido = () =>
-  useMutation({ mutationFn: notifyPedidoRecibido })
-
-export const useNotifyConfirmado = () =>
-  useMutation({ mutationFn: notifyConfirmado })
-
-export const useNotifyEnCamino = () =>
-  useMutation({ mutationFn: notifyEnCamino })
-
-export const useNotifyAdminNuevoPedido = () =>
-  useMutation({ mutationFn: notifyAdminNuevoPedido })
+// El resto de las notificaciones por email (registro, aprobación, pedido
+// recibido/confirmado/en-camino, nuevo pedido al admin) las envían triggers de
+// Firestore server-side (functions/src/triggers), no el cliente.
 
 export const useNotifyCerca = () =>
   useMutation({ mutationFn: notifyCerca })

@@ -38,22 +38,49 @@ service cloud.firestore {
 
     // ── Colección de usuarios ──────────────────────────────────────────────
     match /users/{userId} {
-      // Cada usuario puede leer y escribir su propio documento
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      function isSelf() { return request.auth != null && request.auth.uid == userId; }
 
-      // super_admin y comercial pueden leer y modificar todos los usuarios
-      allow read, write: if request.auth != null && isManager();
+      // Campos privilegiados que un no-super_admin NO puede alterar sobre un
+      // documento existente. Se comparan con get() para tolerar campos ausentes.
+      function rolUnchanged()    { return request.resource.data.rol == resource.data.rol; }
+      function estadoUnchanged() { return request.resource.data.estado == resource.data.estado; }
+      function preciosUnchanged() {
+        return request.resource.data.get('listaPreciosId', '') == resource.data.get('listaPreciosId', '')
+            && request.resource.data.get('preciosCustom', {}) == resource.data.get('preciosCustom', {});
+      }
 
-      // logistica puede leer y modificar usuarios (editar clientes, gestionar domicilios)
-      allow read, write: if request.auth != null && myRole() == 'logistica';
+      // ── Lectura ──
+      allow read: if isSelf();
+      allow read: if request.auth != null
+        && (isManager() || myRole() == 'logistica' || isFacturacion() || isGerenteGeneral());
 
-      // facturacion puede leer todos los usuarios (para datos fiscales de clientes)
-      allow read: if request.auth != null && isFacturacion();
+      // ── super_admin: control total (asigna roles, crea staff, limpia datos) ──
+      allow read, write: if request.auth != null && myRole() == 'super_admin';
 
-      // gerente general: lectura total + escritura solo para aprobar/rechazar clientes
-      allow read: if request.auth != null && isGerenteGeneral();
+      // ── Alta del propio documento ──
+      // Registro público: el usuario SOLO puede crearse como 'cliente'.
+      // El alta de staff la escribe un super_admin (regla de arriba) y la de
+      // choferes un operador (regla siguiente); nunca el propio usuario nuevo.
+      allow create: if isSelf() && request.resource.data.rol == 'cliente';
+
+      // Operadores (super_admin/logistica) pueden dar de alta choferes.
+      allow create: if request.auth != null && isOperator()
+        && request.resource.data.rol == 'chofer';
+
+      // ── Edición del propio perfil: NO puede tocar rol / estado / precios ──
+      allow update: if isSelf() && rolUnchanged() && estadoUnchanged() && preciosUnchanged();
+
+      // ── gerente_comercial y comercial: gestión de clientes y precios (no roles) ──
+      allow update: if request.auth != null
+        && myRole() in ['gerente_comercial', 'comercial'] && rolUnchanged();
+
+      // ── logistica: editar clientes y domicilios (no roles) ──
+      allow update: if request.auth != null && myRole() == 'logistica' && rolUnchanged();
+
+      // ── gerente_general: aprobar/rechazar clientes (solo estado) ──
       allow update: if request.auth != null && isGerenteGeneral()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado']);
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['estado', 'fechaAprobacion', 'aprobadoPor']);
     }
 
     // ── Pedidos ────────────────────────────────────────────────────────────
@@ -76,11 +103,14 @@ service cloud.firestore {
         isGerenteGeneral()
       );
 
-      // Escritura: el chofer asignado (para marcar entregado) o un operador
-      allow update, delete: if request.auth != null && (
+      // Actualización: el chofer asignado (para marcar entregado) o un operador
+      allow update: if request.auth != null && (
         request.auth.token.email == resource.data.driverId ||
         isOperator()
       );
+
+      // Borrado: solo operadores (herramienta de limpieza). El chofer no borra.
+      allow delete: if request.auth != null && isOperator();
 
       // El cliente puede cancelar su propio pedido solo si está pendiente
       allow update: if request.auth != null &&
@@ -146,12 +176,20 @@ service cloud.firestore {
     }
 
     // ── Índices de login (lectura pública — solo mapean usuario/CUIT → email)
-    // No contienen datos sensibles; la contraseña sigue siendo requerida para autenticar.
+    // La lectura debe ser pública: el login por CUIT/DNI resuelve el email
+    // ANTES de autenticar. La contraseña sigue siendo requerida para autenticar.
     match /cuitIndex/{cuit} {
       allow read:  if true;
+      // Un cliente solo puede apuntar un CUIT a SU PROPIO email (evita que un
+      // usuario redirija el índice de otro a un email arbitrario). Operadores
+      // y managers pueden escribir cualquiera (alta manual / importación).
       allow write: if request.auth != null
         && request.resource.data.keys().hasOnly(['email'])
-        && request.resource.data.email is string;
+        && request.resource.data.email is string
+        && (
+          request.resource.data.email == request.auth.token.email
+          || isManager() || isOperator()
+        );
     }
 
     match /choferIndex/{username} {

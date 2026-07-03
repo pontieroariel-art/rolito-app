@@ -30,7 +30,6 @@ import {
   createChoferUser,
   createClienteImportado,
 } from '../../services/userService'
-import { useNotifyAprobado } from '../../hooks/useNotifications'
 import { useAllListasPrecios } from '../../hooks/useListasPrecios'
 import { UserProfile, UserRole, UserStatus, ListaPrecios, DeliveryAddress } from '../../types'
 import { tsToDate } from '../../utils/helpers'
@@ -85,7 +84,6 @@ export default function UserManagement() {
   const [crearModal, setCrearModal]               = useState(false)
   const [crearClienteModal, setCrearClienteModal] = useState(false)
   const [importarModal, setImportarModal]         = useState(false)
-  const notifyAprobadoMutation          = useNotifyAprobado()
   const { listas }                      = useAllListasPrecios()
 
   const users = useMemo(() => [...equipo, ...clientes], [equipo, clientes])
@@ -223,7 +221,7 @@ export default function UserManagement() {
     await approveUser(u.uid, currentUser.uid)
     setClientes((prev) => prev.map((p) => p.uid === u.uid ? { ...p, estado: 'activo' as UserStatus } : p))
     if (u.email) {
-      notifyAprobadoMutation.mutate({ email: u.email, nombre: u.nombreContacto || u.nombre || '' })
+      // El email de aprobación lo envía el trigger onUserApproved server-side.
     }
   }
 

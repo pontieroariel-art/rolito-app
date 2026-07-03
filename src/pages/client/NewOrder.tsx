@@ -9,7 +9,6 @@ import { useAuth } from '../../context/AuthContext'
 import { Order } from '../../types'
 import { createOrder, cancelAndRecreateOrder } from '../../services/orderService'
 import { getNotificationEmails } from '../../services/configService'
-import { useNotifyPedidoRecibido, useNotifyAdminNuevoPedido } from '../../hooks/useNotifications'
 import { useListaPrecios } from '../../hooks/useListasPrecios'
 import { useCatalogo } from '../../hooks/useCatalogo'
 import { getPrimaryAddress } from '../../types'
@@ -49,8 +48,6 @@ export default function NewOrder() {
   const [loading,   setLoading]   = useState(false)
   const [error,     setError]     = useState('')
   const [esUrgente, setEsUrgente] = useState(false)
-  const notifyPedidoRecibidoMutation    = useNotifyPedidoRecibido()
-  const notifyAdminNuevoPedidoMutation  = useNotifyAdminNuevoPedido()
 
   const { lista }    = useListaPrecios(user?.listaPreciosId)
   const { catalogo } = useCatalogo()
@@ -102,34 +99,8 @@ export default function NewOrder() {
         await createOrder(orderParams)
       }
 
-      const nombre       = (user.nombreContacto || user.nombre || '').split(' ')[0] || 'Cliente'
-      const clientName   = user.razonSocial   || user.nombre   || ''
-      const clientPhone  = user.telefono      || user.phone    || ''
-
-      notifyPedidoRecibidoMutation.mutate({
-        email:    user.email,
-        nombre,
-        products: selected,
-        date,
-        notes:    notes || undefined,
-      })
-
-      // Awaitar antes de navegar para que mutate se llame con el componente montado
-      try {
-        const adminEmails = await getNotificationEmails()
-        if (adminEmails.length > 0) {
-          notifyAdminNuevoPedidoMutation.mutate({
-            adminEmails,
-            clientName,
-            clientAddress: deliveryAddress,
-            clientPhone,
-            products:      selected,
-            date,
-            notes:         notes || undefined,
-          })
-        }
-      } catch { /* no bloquear la creación del pedido si falla la notificación */ }
-
+      // Los emails al cliente (pedido recibido) y al admin (nuevo pedido) los
+      // envía el trigger onOrderCreated server-side; no se disparan desde acá.
       navigate('/dashboard')
     } catch {
       setError(modifyOrder ? 'Error al modificar el pedido. Intentá de nuevo.' : 'Error al crear el pedido. Intentá de nuevo.')

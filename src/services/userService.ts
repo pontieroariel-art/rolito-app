@@ -203,13 +203,17 @@ async function createUserViaSecondaryApp(
   email: string,
   password: string,
   firestoreData: Record<string, unknown>,
+  // Para roles privilegiados (staff/chofer) el documento lo escribe el admin
+  // desde su sesión primaria. Así las reglas de Firestore pueden prohibir que
+  // un usuario se autoasigne un rol ≠ 'cliente' al crearse su propio doc.
+  writeWithPrimaryDb = false,
 ): Promise<string> {
   const tempApp  = initializeApp(firebaseConfig, `user-create-${Date.now()}`)
   const tempAuth = getAuth(tempApp)
   const tempDb   = getFirestore(tempApp)
   try {
     const credential = await createUserWithEmailAndPassword(tempAuth, email, password)
-    await setDoc(doc(tempDb, 'users', credential.user.uid), firestoreData)
+    await setDoc(doc(writeWithPrimaryDb ? db : tempDb, 'users', credential.user.uid), firestoreData)
     return credential.user.uid
   } finally {
     await tempAuth.signOut()
@@ -237,7 +241,7 @@ export const createStaffUser = async ({ dni, password, nombreContacto, rol }: Cr
     fechaCreacion:   serverTimestamp(),
     fechaAprobacion: serverTimestamp(),
     aprobadoPor:     'admin',
-  })
+  }, true)   // rol privilegiado → el doc lo escribe el super_admin
   await setStaffDniIndex(normalizedDni, email)
 }
 
@@ -331,7 +335,7 @@ export const createChoferUser = async ({ nombreContacto, cuit, pin, telefono }: 
     fechaCreacion:   serverTimestamp(),
     fechaAprobacion: serverTimestamp(),
     aprobadoPor:     'admin',
-  })
+  }, true)   // rol 'chofer' → el doc lo escribe el operador
   await setDniIndex(normalizedCuit, email)
 }
 

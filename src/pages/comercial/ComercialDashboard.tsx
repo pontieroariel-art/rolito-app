@@ -14,7 +14,6 @@ import { useAllOrders } from '../../hooks/useOrders'
 import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
 import { getAllUsers, approveUser, updateUserStatus } from '../../services/userService'
 import { subscribeAllActiveDrivers, ActiveDriver } from '../../services/locationService'
-import { useNotifyAprobado } from '../../hooks/useNotifications'
 import { Order, UserProfile } from '../../types'
 import MetricsDashboard from '../admin/MetricsDashboard'
 import { ForecastStrip } from '../admin/ClimaPage'
@@ -54,7 +53,6 @@ function daysSince(ts: any): number {
 export default function ComercialDashboard() {
   const { user }   = useAuth()
   const qc         = useQueryClient()
-  const notifyAprobado = useNotifyAprobado()
 
   const { orders, loading: ordersLoading } = useAllOrders()
   const { data: users = [], isLoading: usersLoading } = useQuery({
@@ -102,7 +100,7 @@ export default function ComercialDashboard() {
   const handleAprobar = async (u: UserProfile) => {
     if (!user) return
     await approveUser(u.uid, user.uid)
-    notifyAprobado.mutate({ email: u.email, nombre: u.razonSocial || u.nombreContacto || u.nombre || '' })
+    // El email de aprobación lo envía el trigger onUserApproved server-side.
     patchUser(u.uid, { estado: 'activo' })
   }
 

@@ -15,42 +15,10 @@ const post = (fn: string, body: unknown): Promise<void> =>
     if (!r.ok) console.error(`notify ${fn} returned ${r.status}`)
   })
 
-export const notifyRegistro = (email: string, nombre: string): Promise<void> =>
-  post('notify-registro', { email, nombre })
-
-export const notifyAprobado = (email: string, nombre: string): Promise<void> =>
-  post('notify-aprobado', { email, nombre })
-
-export const notifyPedidoRecibido = (data: {
-  email:      string
-  nombre:     string
-  products:   Product[]
-  date:       string
-  notes?:     string
-}): Promise<void> => post('notify-pedido-recibido', data)
-
-export const notifyConfirmado = (data: {
-  email:    string
-  nombre:   string
-  products: Product[]
-  date:     string
-}): Promise<void> => post('notify-confirmado', data)
-
-export const notifyEnCamino = (data: {
-  email:    string
-  nombre:   string
-  products: Product[]
-}): Promise<void> => post('notify-en-camino', data)
-
-export const notifyAdminNuevoPedido = (data: {
-  adminEmails:   string[]
-  clientName:    string
-  clientAddress: string
-  clientPhone:   string
-  products:      Product[]
-  date:          string
-  notes?:        string
-}): Promise<void> => post('notify-admin-nuevo-pedido', data)
+// Los emails de registro, aprobación de cliente, pedido recibido, nuevo pedido
+// al admin, confirmado y en-camino los envían triggers de Firestore server-side
+// (functions/src/triggers). No se disparan desde el cliente para evitar emails
+// duplicados y para no exponer un endpoint de envío abierto.
 
 export const notifyCerca = (data: {
   email:    string
