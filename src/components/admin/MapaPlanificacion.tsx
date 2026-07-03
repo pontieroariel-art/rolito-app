@@ -811,8 +811,8 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
               <Marker
                 key={`c-${m.id}`}
                 position={{ lat: m.lat, lng: m.lng }}
-                icon={routeLabels[m.id] && pinColor
-                  ? makeOrderPin(pinColor, routeLabels[m.id])
+                icon={routeLabels[m.uid] && pinColor
+                  ? makeOrderPin(pinColor, routeLabels[m.uid])
                   : makeClientPin(pinColor)
                 }
                 zIndex={1}
