@@ -11,6 +11,8 @@ export interface PedidoParsed {
   clientAddress: string
   deliveryDate: string   // YYYY-MM-DD
   horaEntrega:  string
+  fechaEmision: string   // YYYY-MM-DD — fecha de emisión de la OC
+  fechaTope:    string   // YYYY-MM-DD — vigencia explícita de la OC (vacío si el formato no la trae)
   products:     Array<{ name: string; quantity: number }>
 }
 
@@ -33,6 +35,14 @@ export async function extractPdfText(file: File): Promise<string> {
 function toISODate(ddmmyyyy: string): string {
   const m = ddmmyyyy.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
   return m ? `${m[3]}-${m[2]}-${m[1]}` : ''
+}
+
+// Los formatos generados por Planexware (Josimar, Coto, Carrefour) traen en el
+// pie de página "FGDS: dd/mm/yyyy", que coincide siempre con la fecha de
+// emisión de la OC (verificado contra el campo explícito "Fecha emisión" de Coto).
+function extractFGDS(text: string): string {
+  const m = text.match(/FGDS:\s*(\d{2}\/\d{2}\/\d{4})/i)
+  return m ? toISODate(m[1]) : ''
 }
 
 // Normaliza nombres de producto extraídos del PDF al catálogo interno
@@ -65,9 +75,10 @@ function parsePOFormat(text: string): PedidoParsed {
   const clientName   = storeLines[0] ?? ''
   const clientAddress = storeLines.slice(1, 3).filter(Boolean).join(', ')
 
-  // Data row format: "PO789011 04/05/2026 12:12 05/05/2026"
+  // Data row format: "PO789011 04/05/2026 12:12 05/05/2026" → Order Date, Delivery Date
   const dateRowMatch = text.match(/PO\w+\s+(\d{2}\/\d{2}\/\d{4})\s+\d{2}:\d{2}\s+(\d{2}\/\d{2}\/\d{4})/)
-  const deliveryDate = dateRowMatch ? toISODate(dateRowMatch[2]) : ''
+  const fechaEmision  = dateRowMatch ? toISODate(dateRowMatch[1]) : ''
+  const deliveryDate  = dateRowMatch ? toISODate(dateRowMatch[2]) : ''
 
   const qtyMatch = text.match(/Total Case Number:\s*(\d+)/i)
   const qty      = qtyMatch ? parseInt(qtyMatch[1]) : 0
@@ -79,7 +90,7 @@ function parsePOFormat(text: string): PedidoParsed {
   const rawName   = nameLines.slice(0, 2).join(' ').split(/\s+EA\s/i)[0].trim()
   const productName = normalizarProducto(rawName || 'Hielo bolsa 2kg')
 
-  return { numeroOC, clientName, clientAddress, deliveryDate, horaEntrega: '', products: [{ name: productName, quantity: qty }] }
+  return { numeroOC, clientName, clientAddress, deliveryDate, horaEntrega: '', fechaEmision, fechaTope: '', products: [{ name: productName, quantity: qty }] }
 }
 
 function parseJosimarFormat(text: string): PedidoParsed {
@@ -103,7 +114,9 @@ function parseJosimarFormat(text: string): PedidoParsed {
     ? [{ name: normalizarProducto('ROLITO HIELO BOLSA 2 Kg'), quantity: qty }]
     : []
 
-  return { numeroOC, clientName, clientAddress, deliveryDate, horaEntrega: '', products }
+  const fechaEmision = extractFGDS(text)
+
+  return { numeroOC, clientName, clientAddress, deliveryDate, horaEntrega: '', fechaEmision, fechaTope: '', products }
 }
 
 function parseCotoFormat(text: string): PedidoParsed {
@@ -126,7 +139,13 @@ function parseCotoFormat(text: string): PedidoParsed {
     ? [{ name: normalizarProducto('HIELO . ROLITO BSA 2 KGM'), quantity: qty }]
     : []
 
-  return { numeroOC, clientName, clientAddress: '', deliveryDate, horaEntrega: '', products }
+  // Coto trae ambos campos explícitos en el cuerpo del documento
+  const emisionRaw = text.match(/Fecha\s+emisi[oó]n:\s*(\d{2}\/\d{2}\/\d{4})/i)?.[1] ?? ''
+  const fechaEmision = emisionRaw ? toISODate(emisionRaw) : extractFGDS(text)
+  const topeRaw     = text.match(/Fecha\s+Tope:\s*(\d{2}\/\d{2}\/\d{4})/i)?.[1] ?? ''
+  const fechaTope   = topeRaw ? toISODate(topeRaw) : ''
+
+  return { numeroOC, clientName, clientAddress: '', deliveryDate, horaEntrega: '', fechaEmision, fechaTope, products }
 }
 
 function parseCarrefourFormat(text: string): PedidoParsed {
@@ -153,5 +172,7 @@ function parseCarrefourFormat(text: string): PedidoParsed {
   const qty         = productRowMatch ? parseInt(productRowMatch[2]) : 0
   const productName = normalizarProducto(productRowMatch?.[1]?.trim() || 'Hielo bolsa 2kg')
 
-  return { numeroOC, clientName, clientAddress, deliveryDate, horaEntrega, products: [{ name: productName, quantity: qty }] }
+  const fechaEmision = extractFGDS(text)
+
+  return { numeroOC, clientName, clientAddress, deliveryDate, horaEntrega, fechaEmision, fechaTope: '', products: [{ name: productName, quantity: qty }] }
 }

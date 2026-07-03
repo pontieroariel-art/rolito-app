@@ -1,11 +1,13 @@
 ﻿import { useState, ChangeEvent, useMemo } from 'react'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
-import { createOrderManual } from '../../services/orderService'
+import { createOrderManual, findActiveOrdersSameDay } from '../../services/orderService'
 import { useListaPrecios } from '../../hooks/useListasPrecios'
 import { useCatalogo } from '../../hooks/useCatalogo'
 import { useSucursales, SucursalItem } from '../../hooks/useSucursales'
-import { UserProfile } from '../../types'
+import { UserProfile, Order } from '../../types'
+import { formatShortDate } from '../../utils/helpers'
+import { STATUS_LABELS } from '../../utils/constants'
 
 // ── ProductRow ────────────────────────────────────────────────────────────────
 
@@ -127,6 +129,9 @@ function StepProductos({
   const [notes, setNotes]           = useState('')
   const [address, setAddress]       = useState(initialAddress)
   const [ordenCompra, setOrdenCompra] = useState('')
+  const [fechaEmision, setFechaEmision] = useState('')
+  const [checkingDup, setCheckingDup] = useState(false)
+  const [duplicates,  setDuplicates]  = useState<Order[] | null>(null)
   const parseHorario = (h?: string) => {
     const parts = (h ?? '').split(/\s*[–\-]\s*/)
     return { desde: parts[0]?.trim() ?? '', hasta: parts[1]?.trim() ?? '' }
@@ -168,15 +173,32 @@ function StepProductos({
   const setQty = (id: string, qty: number) =>
     setQuantities((q) => ({ ...q, [id]: Math.max(0, qty) }))
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (skipDupCheck = false) => {
     if (!canSubmit) return
-    setLoading(true)
     setError('')
+
+    if (!skipDupCheck) {
+      setCheckingDup(true)
+      const dups = await findActiveOrdersSameDay(cliente.uid, date)
+      setCheckingDup(false)
+      if (dups.length > 0) {
+        setDuplicates(dups)
+        return
+      }
+    }
+    setDuplicates(null)
+
+    setLoading(true)
     try {
       const horarioCombinado = horarioDesde && horarioHasta
         ? `${horarioDesde} – ${horarioHasta}`
         : horarioDesde || horarioHasta || undefined
-      await createOrderManual({ cliente, clientLabel, products: selected, date, notes, address, ordenCompra: ordenCompra.trim() || undefined, horaEntrega: horarioCombinado })
+      await createOrderManual({
+        cliente, clientLabel, products: selected, date, notes, address,
+        ordenCompra: ordenCompra.trim() || undefined,
+        horaEntrega: horarioCombinado,
+        fechaEmision: fechaEmision || undefined,
+      })
       onConfirm()
     } catch {
       setError('Error al crear el pedido. Intentá de nuevo.')
@@ -244,14 +266,25 @@ function StepProductos({
       </div>
 
       {/* Orden de compra */}
-      <div>
-        <label className="text-xs text-gray-500 mb-1 block">Orden de compra (opcional)</label>
-        <input
-          value={ordenCompra}
-          onChange={(e) => setOrdenCompra(e.target.value)}
-          placeholder="Nro. de OC…"
-          className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent placeholder-gray-400"
-        />
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs text-gray-500 mb-1 block">Orden de compra (opcional)</label>
+          <input
+            value={ordenCompra}
+            onChange={(e) => setOrdenCompra(e.target.value)}
+            placeholder="Nro. de OC…"
+            className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent placeholder-gray-400"
+          />
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 mb-1 block">Fecha de emisión de la OC (opcional)</label>
+          <input
+            type="date"
+            value={fechaEmision}
+            onChange={(e) => setFechaEmision(e.target.value)}
+            className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+        </div>
       </div>
 
       {/* Rango horario */}
@@ -288,10 +321,33 @@ function StepProductos({
 
       {error && <p className="text-red-600 text-sm">{error}</p>}
 
+      {duplicates && duplicates.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 text-sm space-y-2">
+          <p className="text-amber-700 font-medium">
+            ⚠ Ya existe{duplicates.length > 1 ? 'n' : ''} {duplicates.length} pedido{duplicates.length > 1 ? 's' : ''} de este cliente para el {formatShortDate(duplicates[0].date)}
+          </p>
+          <ul className="text-xs text-amber-700/80 space-y-0.5">
+            {duplicates.map((d) => (
+              <li key={d.id}>
+                {d.numeroOC ? `OC #${d.numeroOC}` : 'Sin OC'} — {STATUS_LABELS[d.status]}
+              </li>
+            ))}
+          </ul>
+          <div className="flex gap-2 pt-1">
+            <Button variant="outline" onClick={() => setDuplicates(null)} className="flex-1 text-xs !py-1.5">
+              Revisar
+            </Button>
+            <Button onClick={() => handleSubmit(true)} loading={loading} className="flex-1 text-xs !py-1.5 !bg-amber-600 hover:!bg-amber-500">
+              Crear igual
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="flex gap-3">
         <Button variant="outline" onClick={onBack} className="flex-1 text-sm">Volver</Button>
-        <Button onClick={handleSubmit} loading={loading} disabled={!canSubmit} className="flex-1 text-sm">
-          Crear pedido
+        <Button onClick={() => handleSubmit()} loading={loading || checkingDup} disabled={!canSubmit} className="flex-1 text-sm">
+          {checkingDup ? 'Verificando…' : 'Crear pedido'}
         </Button>
       </div>
     </div>

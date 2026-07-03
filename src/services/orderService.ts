@@ -12,6 +12,7 @@ import {
   Timestamp,
   arrayUnion,
   limit,
+  writeBatch,
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { Order, OrderProduct, UserProfile, getPrimaryAddress } from '../types'
@@ -40,30 +41,47 @@ interface CreateOrderParams {
   esUrgente?: boolean
 }
 
-export const createOrder = ({ user, products, date, notes, address, esUrgente }: CreateOrderParams) => {
+function buildCreateOrderData({ user, products, date, notes, address, esUrgente }: CreateOrderParams) {
   const primaryAddr    = getPrimaryAddress(user)
   const clientAddress  = address               || primaryAddr?.address || user.address  || ''
   const clientName     = user.razonSocial      || user.nombre   || ''
   const clientPhone    = user.telefono         || user.phone    || ''
-  return addDoc(collection(db, ORDERS), {
+  return {
     clientId:    user.uid,
     clientEmail: user.email,
     clientName,
     clientAddress,
     clientPhone,
     products,
-    status:    'pendiente',
+    status:    'pendiente' as const,
     date:      Timestamp.fromDate(new Date(date + 'T12:00:00')),
     driverId:  null,
     notes:     notes || '',
     ...(esUrgente ? { esUrgente: true } : {}),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-  })
+  }
+}
+
+export const createOrder = (params: CreateOrderParams) =>
+  addDoc(collection(db, ORDERS), buildCreateOrderData(params))
+
+function dateStrToTimestamp(dateStr: string): Timestamp {
+  return Timestamp.fromDate(new Date(dateStr + 'T12:00:00'))
+}
+
+// Si el formato de OC no trae una fecha tope explícita (vigencia), se calcula
+// por defecto como la fecha de entrega + 1 día (mismo criterio que usa Coto,
+// el único proveedor que sí la declara explícitamente en el PDF).
+function resolveFechaTope(deliveryDateStr: string, fechaTope?: string): Timestamp {
+  if (fechaTope) return dateStrToTimestamp(fechaTope)
+  const d = new Date(deliveryDateStr + 'T12:00:00')
+  d.setDate(d.getDate() + 1)
+  return Timestamp.fromDate(d)
 }
 
 export const createOrderManual = ({
-  cliente, clientLabel, products, date, notes, address, ordenCompra, horaEntrega,
+  cliente, clientLabel, products, date, notes, address, ordenCompra, horaEntrega, fechaEmision,
 }: {
   cliente:       UserProfile
   clientLabel?:  string
@@ -73,6 +91,7 @@ export const createOrderManual = ({
   address:       string
   ordenCompra?:  string
   horaEntrega?:  string
+  fechaEmision?: string
 }) =>
   addDoc(collection(db, ORDERS), {
     clientId:      cliente.uid,
@@ -88,6 +107,10 @@ export const createOrderManual = ({
     origenManual: true,
     ...(ordenCompra ? { numeroOC: ordenCompra } : {}),
     ...(horaEntrega ? { horaEntrega } : {}),
+    ...(ordenCompra ? {
+      ...(fechaEmision ? { fechaEmision: dateStrToTimestamp(fechaEmision) } : {}),
+      fechaTope: resolveFechaTope(date, undefined),
+    } : {}),
     createdAt:    serverTimestamp(),
     updatedAt:    serverTimestamp(),
   })
@@ -103,6 +126,8 @@ interface CreateOrderExternoParams {
   clientId?:     string
   clientEmail?:  string
   clientPhone?:  string
+  fechaEmision?: string
+  fechaTope?:    string
 }
 
 export const createOrderExterno = (params: CreateOrderExternoParams) =>
@@ -120,6 +145,8 @@ export const createOrderExterno = (params: CreateOrderExternoParams) =>
     origenPdf:     true,
     numeroOC:      params.numeroOC ?? '',
     horaEntrega:   params.horaEntrega ?? '',
+    ...(params.fechaEmision ? { fechaEmision: dateStrToTimestamp(params.fechaEmision) } : {}),
+    fechaTope:     resolveFechaTope(params.date, params.fechaTope),
     createdAt:     serverTimestamp(),
     updatedAt:     serverTimestamp(),
   })
@@ -127,12 +154,38 @@ export const createOrderExterno = (params: CreateOrderExternoParams) =>
 export const updateOrderStatus = (orderId: string, status: string): Promise<void> =>
   updateDoc(doc(db, ORDERS, orderId), { status, updatedAt: serverTimestamp() })
 
+function buildCancelFields(motivo: string) {
+  return {
+    status:            'cancelado' as const,
+    motivoCancelacion: motivo,
+    updatedAt:         serverTimestamp(),
+  }
+}
+
 export const cancelOrder = (orderId: string, motivo: string): Promise<void> =>
-  updateDoc(doc(db, ORDERS, orderId), {
-    status:              'cancelado',
-    motivoCancelacion:   motivo,
-    updatedAt:           serverTimestamp(),
+  updateDoc(doc(db, ORDERS, orderId), buildCancelFields(motivo))
+
+// Cancela el pedido original y crea uno nuevo con los datos ajustados, en un
+// único batch atómico. Nunca se edita el pedido original in-place: se
+// preserva para trazabilidad/logística y el nuevo queda enlazado por
+// pedidoOriginalId.
+export const cancelAndRecreateOrder = async (
+  originalOrderId: string,
+  newOrderParams:  CreateOrderParams,
+  motivo = 'Modificado por el cliente',
+): Promise<string> => {
+  const batch = writeBatch(db)
+  batch.update(doc(db, ORDERS, originalOrderId), buildCancelFields(motivo))
+
+  const newRef = doc(collection(db, ORDERS))
+  batch.set(newRef, {
+    ...buildCreateOrderData(newOrderParams),
+    pedidoOriginalId: originalOrderId,
   })
+
+  await batch.commit()
+  return newRef.id
+}
 
 export const markDelivered = (
   orderId: string,
@@ -228,6 +281,23 @@ export const editOrderBy = (orderId: string, params: EditOrderParams, actor: Act
     updatedAt:   serverTimestamp(),
     historialAcciones: arrayUnion(accion(actor, 'modificado', detalle)),
   })
+}
+
+// Pedidos activos (no cancelados) de un cliente para una fecha de entrega dada.
+// Usado para avisar de posibles duplicados antes de crear un pedido manual o por PDF.
+export const findActiveOrdersSameDay = async (clientId: string, dateStr: string): Promise<Order[]> => {
+  const dayStart = Timestamp.fromDate(new Date(dateStr + 'T00:00:00'))
+  const dayEnd   = Timestamp.fromDate(new Date(dateStr + 'T23:59:59'))
+  const q = query(
+    collection(db, ORDERS),
+    where('clientId', '==', clientId),
+    where('date', '>=', dayStart),
+    where('date', '<=', dayEnd),
+  )
+  const snap = await getDocs(q)
+  return snap.docs
+    .map((d) => ({ id: d.id, ...d.data() } as Order))
+    .filter((o) => o.status !== 'cancelado')
 }
 
 export const getOrdersInRange = async (start: Date, end: Date): Promise<Order[]> => {

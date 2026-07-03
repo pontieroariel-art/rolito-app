@@ -216,6 +216,9 @@ export interface Order {
   origenPdf?:  boolean
   numeroOC?:   string
   horaEntrega?: string
+  // Trazabilidad de OC (PDF o manual)
+  fechaEmision?: Timestamp
+  fechaTope?:    Timestamp
   entregaParcial?:      boolean
   productosEntregados?: OrderProduct[]
   notaEntrega?:         string
@@ -231,6 +234,8 @@ export interface Order {
   esUrgente?: boolean
   // Auditoría
   historialAcciones?: AccionHistorial[]
+  // Modificación (cancelar + recrear)
+  pedidoOriginalId?: string
 }
 
 export const MOTIVOS_INCIDENCIA = [

@@ -80,6 +80,7 @@ export function AdminOrderCard({ order, choferes }: AdminOrderCardProps) {
   }
 
   const next = getNextStatus()
+  const ocVencida = order.status === 'pendiente' && !!order.fechaTope && tsToDate(order.fechaTope) < new Date()
 
   return (
     <>
@@ -96,6 +97,9 @@ export function AdminOrderCard({ order, choferes }: AdminOrderCardProps) {
               )}
               {order.origenRecurrente && (
                 <span className="text-xs px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 border border-purple-200 font-medium">↺ Recurrente</span>
+              )}
+              {ocVencida && (
+                <span className="text-xs px-1.5 py-0.5 rounded bg-red-50 text-red-600 border border-red-200 font-bold">⚠ OC vencida</span>
               )}
             </div>
             <p className="text-gray-500 text-xs">

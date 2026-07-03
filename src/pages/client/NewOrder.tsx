@@ -7,12 +7,13 @@ import Modal from '../../components/ui/Modal'
 import { summarizeProducts, formatShortDate } from '../../utils/helpers'
 import { useAuth } from '../../context/AuthContext'
 import { Order } from '../../types'
-import { createOrder } from '../../services/orderService'
+import { createOrder, cancelAndRecreateOrder } from '../../services/orderService'
 import { getNotificationEmails } from '../../services/configService'
 import { useNotifyPedidoRecibido, useNotifyAdminNuevoPedido } from '../../hooks/useNotifications'
 import { useListaPrecios } from '../../hooks/useListasPrecios'
 import { useCatalogo } from '../../hooks/useCatalogo'
 import { getPrimaryAddress } from '../../types'
+import { tsToDate } from '../../utils/helpers'
 
 interface DisplayProduct {
   id:     string
@@ -26,20 +27,24 @@ export default function NewOrder() {
   const { selectedAddress }    = useBranch()
   const navigate               = useNavigate()
   const location               = useLocation()
-  const repeatOrder = (location.state as { repeatOrder?: Order } | null)?.repeatOrder
+  const state       = location.state as { repeatOrder?: Order; modifyOrder?: Order } | null
+  const repeatOrder = state?.repeatOrder
+  const modifyOrder = state?.modifyOrder
+  const prefillOrder = modifyOrder ?? repeatOrder
   const today    = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` })()
   const tomorrow = (() => { const d = new Date(); d.setDate(d.getDate() + 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` })()
+  const toDateInput = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 
   const [quantities, setQuantities] = useState<Record<string, number>>(() => {
-    if (!repeatOrder) return {}
+    if (!prefillOrder) return {}
     const q: Record<string, number> = {}
-    for (const p of repeatOrder.products) {
+    for (const p of prefillOrder.products) {
       if (p.productoId) q[p.productoId] = p.quantity
     }
     return q
   })
-  const [date,      setDate]      = useState(tomorrow)
-  const [notes,     setNotes]     = useState('')
+  const [date,      setDate]      = useState(modifyOrder ? toDateInput(tsToDate(modifyOrder.date)) : tomorrow)
+  const [notes,     setNotes]     = useState(modifyOrder?.notes ?? '')
   const [modal,     setModal]     = useState(false)
   const [loading,   setLoading]   = useState(false)
   const [error,     setError]     = useState('')
@@ -90,7 +95,12 @@ export default function NewOrder() {
     setLoading(true)
     setError('')
     try {
-      await createOrder({ user, products: selected, date, notes, address: deliveryAddress, esUrgente: esUrgente || undefined })
+      const orderParams = { user, products: selected, date, notes, address: deliveryAddress, esUrgente: esUrgente || undefined }
+      if (modifyOrder) {
+        await cancelAndRecreateOrder(modifyOrder.id, orderParams)
+      } else {
+        await createOrder(orderParams)
+      }
 
       const nombre       = (user.nombreContacto || user.nombre || '').split(' ')[0] || 'Cliente'
       const clientName   = user.razonSocial   || user.nombre   || ''
@@ -122,7 +132,7 @@ export default function NewOrder() {
 
       navigate('/dashboard')
     } catch {
-      setError('Error al crear el pedido. Intentá de nuevo.')
+      setError(modifyOrder ? 'Error al modificar el pedido. Intentá de nuevo.' : 'Error al crear el pedido. Intentá de nuevo.')
       setLoading(false)
     }
   }
@@ -135,7 +145,7 @@ export default function NewOrder() {
       <Navbar />
       <main className="max-w-2xl mx-auto p-4 space-y-6 pb-10">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Nuevo pedido</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{modifyOrder ? 'Modificar pedido' : 'Nuevo pedido'}</h1>
           {deliveryNombre ? (
             <p className="text-accent text-sm mt-1 font-medium">📍 {deliveryNombre}</p>
           ) : (
@@ -143,7 +153,15 @@ export default function NewOrder() {
           )}
         </div>
 
-        {repeatOrder && (
+        {modifyOrder && (
+          <div className="bg-[#E8F5F0] border border-[#B3DDD3] rounded-2xl px-4 py-3">
+            <p className="text-xs text-accent font-medium">Modificando pedido del {formatShortDate(modifyOrder.date)}</p>
+            <p className="text-sm text-gray-900 truncate mt-0.5">{summarizeProducts(modifyOrder.products)}</p>
+            <p className="text-xs text-gray-500 mt-1">Al confirmar, este pedido se cancela y se crea uno nuevo con los cambios.</p>
+          </div>
+        )}
+
+        {repeatOrder && !modifyOrder && (
           <div className="bg-[#E8F5F0] border border-[#B3DDD3] rounded-2xl px-4 py-3 flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-xs text-accent font-medium">Repetir pedido del {formatShortDate(repeatOrder.date)}</p>
@@ -276,10 +294,10 @@ export default function NewOrder() {
           disabled={!canSubmit}
           className="w-full py-3.5"
         >
-          Revisar y confirmar pedido
+          {modifyOrder ? 'Revisar y confirmar modificación' : 'Revisar y confirmar pedido'}
         </Button>
 
-        <Modal open={modal} onClose={() => setModal(false)} title="Confirmar pedido">
+        <Modal open={modal} onClose={() => setModal(false)} title={modifyOrder ? 'Confirmar modificación' : 'Confirmar pedido'}>
           <div className="space-y-4 text-sm">
             <div>
               <p className="text-gray-400 text-xs uppercase tracking-wide mb-2">Productos</p>
@@ -324,7 +342,7 @@ export default function NewOrder() {
               Editar
             </Button>
             <Button onClick={handleSubmit} loading={loading} className="flex-1">
-              Enviar pedido
+              {modifyOrder ? 'Confirmar modificación' : 'Enviar pedido'}
             </Button>
           </div>
         </Modal>

@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { cancelOrder } from '../../services/orderService'
 import { formatShortDate, summarizeProducts } from '../../utils/helpers'
 import { Order } from '../../types'
@@ -14,11 +15,13 @@ const MOTIVOS_CANCEL = [
 ]
 
 export function OrderRow({ order }: { order: Order }) {
+  const navigate               = useNavigate()
   const [modal,   setModal]   = useState(false)
   const [motivo,  setMotivo]  = useState('')
   const [loading, setLoading] = useState(false)
 
   const canCancel = order.status === 'pendiente'
+  const canModify = order.status === 'pendiente'
 
   const handleCancel = useCallback(async () => {
     if (!motivo) return
@@ -39,6 +42,14 @@ export function OrderRow({ order }: { order: Order }) {
           <p className="text-gray-500 text-xs mt-1">Entrega: {formatShortDate(order.date)}</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {canModify && (
+            <button
+              onClick={() => navigate('/nuevo-pedido', { state: { modifyOrder: order } })}
+              className="text-xs text-accent hover:text-accent/80 border border-accent/30 hover:border-accent/50 px-2.5 py-1 rounded-lg transition-colors"
+            >
+              Modificar
+            </button>
+          )}
           {canCancel && (
             <button
               onClick={() => { setMotivo(''); setModal(true) }}

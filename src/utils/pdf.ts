@@ -65,19 +65,32 @@ export async function generateHojaDeRuta(
   doc.line(14, 30, pageW - 14, 30)
 
   // ── Tabla ───────────────────────────────────────────────────────────────────
-  const rows = orders.map((o, i) => [
-    String(i + 1),
-    o.clientName || '—',
-    o.clientPhone || '—',
-    o.clientAddress || '—',
-    o.products.map((p) => `${p.name} ×${p.quantity}`).join('\n'),
-    o.notes || '',
-    '',
-  ])
+  // Cada producto de un pedido se renderiza en su propia fila; #, Cliente, Teléfono,
+  // Dirección y Notas se combinan verticalmente (rowSpan) sobre las filas del pedido.
+  type CellSpec = string | { content: string; rowSpan: number; styles?: Record<string, unknown> }
+  const rows: CellSpec[][] = []
+  orders.forEach((o, i) => {
+    const products = o.products.length ? o.products : [{ name: '—', quantity: 0 }]
+    products.forEach((p, pi) => {
+      if (pi === 0) {
+        rows.push([
+          { content: String(i + 1), rowSpan: products.length, styles: { valign: 'middle' } },
+          { content: o.clientName || '—', rowSpan: products.length, styles: { valign: 'middle' } },
+          { content: o.clientPhone || '—', rowSpan: products.length, styles: { valign: 'middle' } },
+          { content: o.clientAddress || '—', rowSpan: products.length, styles: { valign: 'middle' } },
+          p.name,
+          p.quantity ? String(p.quantity) : '',
+          { content: o.notes || '', rowSpan: products.length, styles: { valign: 'middle' } },
+        ])
+      } else {
+        rows.push([p.name, p.quantity ? String(p.quantity) : ''])
+      }
+    })
+  })
 
   autoTable(doc, {
     startY: 34,
-    head: [['#', 'Cliente', 'Teléfono', 'Dirección', 'Productos', 'Notas', 'Firma']],
+    head: [['#', 'Cliente', 'Teléfono', 'Dirección', 'PRODUCTO', 'CANTIDAD', 'Notas']],
     body: rows,
     styles: {
       fontSize: 8,
@@ -94,12 +107,12 @@ export async function generateHojaDeRuta(
     alternateRowStyles: { fillColor: [240, 248, 244] },
     columnStyles: {
       0: { cellWidth: 8,  halign: 'center' },
-      1: { cellWidth: 36 },
-      2: { cellWidth: 26 },
-      3: { cellWidth: 44 },
-      4: { cellWidth: 36 },
-      5: { cellWidth: 22 },
-      6: { cellWidth: 18 },
+      1: { cellWidth: 32 },
+      2: { cellWidth: 24 },
+      3: { cellWidth: 40 },
+      4: { cellWidth: 34 },
+      5: { cellWidth: 18, halign: 'center' },
+      6: { cellWidth: 22 },
     },
     margin: { left: 14, right: 14 },
   })

@@ -4,9 +4,11 @@ import Button from '../ui/Button'
 import LoadingSpinner from '../ui/LoadingSpinner'
 import { extractPdfText, parsePedido } from '../../utils/parsePdf'
 import { PRODUCTS } from '../../utils/constants'
-import { createOrderExterno } from '../../services/orderService'
+import { createOrderExterno, findActiveOrdersSameDay } from '../../services/orderService'
 import { useSucursales, SucursalItem } from '../../hooks/useSucursales'
-import { getPrimaryAddress } from '../../types'
+import { getPrimaryAddress, Order } from '../../types'
+import { formatShortDate } from '../../utils/helpers'
+import { STATUS_LABELS } from '../../utils/constants'
 
 interface Props {
   open:    boolean
@@ -14,6 +16,12 @@ interface Props {
 }
 
 type Step = 'client' | 'upload' | 'review'
+
+function addOneDay(dateStr: string): string {
+  const d = new Date(dateStr + 'T12:00:00')
+  d.setDate(d.getDate() + 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
 
 export default function ImportarPedidoModal({ open, onClose }: Props) {
   const [step,    setStep]    = useState<Step>('client')
@@ -32,8 +40,14 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
   const [numeroOC,      setNumeroOC]      = useState('')
   const [deliveryDate,  setDeliveryDate]  = useState('')
   const [horaEntrega,   setHoraEntrega]   = useState('')
+  const [fechaEmision,  setFechaEmision]  = useState('')
+  const [fechaTope,     setFechaTope]     = useState('')
   const [products,      setProducts]      = useState<Array<{ name: string; quantity: number }>>([])
   const [notes,         setNotes]         = useState('')
+
+  // Chequeo de pedido duplicado (mismo cliente, misma fecha de entrega)
+  const [checkingDup, setCheckingDup] = useState(false)
+  const [duplicates,  setDuplicates]  = useState<Order[] | null>(null)
 
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -49,8 +63,12 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
     setNumeroOC('')
     setDeliveryDate('')
     setHoraEntrega('')
+    setFechaEmision('')
+    setFechaTope('')
     setProducts([])
     setNotes('')
+    setCheckingDup(false)
+    setDuplicates(null)
   }
 
   const handleClose = () => { reset(); onClose() }
@@ -101,6 +119,8 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
       setNumeroOC(result?.numeroOC ?? '')
       setDeliveryDate(result?.deliveryDate ?? '')
       setHoraEntrega(result?.horaEntrega ?? '')
+      setFechaEmision(result?.fechaEmision ?? '')
+      setFechaTope(result?.fechaTope ?? '')
       setProducts(result?.products ?? [])
       setStep('review')
     } catch (err) {
@@ -116,13 +136,25 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
     if (file) handleFile(file)
   }
 
-  const handleConfirm = async () => {
+  const handleConfirm = async (skipDupCheck = false) => {
     if (!clientName.trim())    { setError('Ingresá el nombre del cliente'); return }
     if (!clientAddress.trim()) { setError('Ingresá la dirección de entrega'); return }
     if (!deliveryDate)         { setError('Ingresá la fecha de entrega'); return }
     if (products.length === 0) { setError('El pedido no tiene productos'); return }
-    setSaving(true)
     setError('')
+
+    if (!skipDupCheck && selectedCliente) {
+      setCheckingDup(true)
+      const dups = await findActiveOrdersSameDay(selectedCliente.uid, deliveryDate)
+      setCheckingDup(false)
+      if (dups.length > 0) {
+        setDuplicates(dups)
+        return
+      }
+    }
+    setDuplicates(null)
+
+    setSaving(true)
     try {
       await createOrderExterno({
         clientName:    clientName.trim(),
@@ -135,6 +167,8 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
         clientId:      selectedCliente?.uid,
         clientEmail:   selectedCliente?.email,
         clientPhone:   selectedCliente?.telefono || selectedCliente?.phone,
+        fechaEmision:  fechaEmision || undefined,
+        fechaTope:     fechaTope || undefined,
       })
       handleClose()
     } catch (err) {
@@ -312,6 +346,20 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
               </div>
             </div>
 
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">Fecha de emisión de la OC</label>
+                <input type="date" value={fechaEmision} onChange={(e) => setFechaEmision(e.target.value)} className={inputClass} />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">Vigencia (fecha tope)</label>
+                <div className="w-full bg-[#F1EFE8] border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-500">
+                  {fechaTope || (deliveryDate ? addOneDay(deliveryDate) : '—')}
+                  {!fechaTope && deliveryDate && <span className="text-xs text-gray-400 ml-1">(calculada)</span>}
+                </div>
+              </div>
+            </div>
+
             <div>
               <label className="text-xs text-gray-500 mb-1 block">Productos *</label>
               <div className="space-y-2">
@@ -368,12 +416,35 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
 
           {error && <p className="text-red-600 text-sm">{error}</p>}
 
+          {duplicates && duplicates.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 text-sm space-y-2">
+              <p className="text-amber-700 font-medium">
+                ⚠ Ya existe{duplicates.length > 1 ? 'n' : ''} {duplicates.length} pedido{duplicates.length > 1 ? 's' : ''} de este cliente para el {formatShortDate(duplicates[0].date)}
+              </p>
+              <ul className="text-xs text-amber-700/80 space-y-0.5">
+                {duplicates.map((d) => (
+                  <li key={d.id}>
+                    {d.numeroOC ? `OC #${d.numeroOC}` : 'Sin OC'} — {STATUS_LABELS[d.status]}
+                  </li>
+                ))}
+              </ul>
+              <div className="flex gap-2 pt-1">
+                <Button variant="outline" onClick={() => setDuplicates(null)} className="flex-1 text-xs !py-1.5">
+                  Revisar
+                </Button>
+                <Button onClick={() => handleConfirm(true)} loading={saving} className="flex-1 text-xs !py-1.5 !bg-amber-600 hover:!bg-amber-500">
+                  Crear igual
+                </Button>
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => { setStep('upload'); setError('') }} className="flex-1 text-sm">
               ← Volver
             </Button>
-            <Button onClick={handleConfirm} loading={saving} className="flex-1 text-sm">
-              Crear pedido
+            <Button onClick={() => handleConfirm()} loading={saving || checkingDup} className="flex-1 text-sm">
+              {checkingDup ? 'Verificando…' : 'Crear pedido'}
             </Button>
           </div>
         </div>
