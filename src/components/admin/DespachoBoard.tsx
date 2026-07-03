@@ -4,7 +4,7 @@ import {
   useDroppable, useDraggable,
   MouseSensor, TouchSensor, useSensors, useSensor, PointerSensor,
 } from '@dnd-kit/core'
-import { Truck, ChevronLeft, ChevronRight, Lock, CheckCircle, RotateCcw, Eye, Package, ArrowRightLeft, AlertTriangle } from 'lucide-react'
+import { Truck, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Lock, CheckCircle, RotateCcw, Eye, Package, ArrowRightLeft, AlertTriangle } from 'lucide-react'
 import Button from '../ui/Button'
 import Modal from '../ui/Modal'
 import LoadingSpinner from '../ui/LoadingSpinner'
@@ -77,15 +77,18 @@ function choferColor(idx: number) { return COL_COLORS[idx % COL_COLORS.length] }
 
 // ── DraggableCard ─────────────────────────────────────────────────────────────
 
-function DraggableCard({ item, routeNum, arrival, color, locked }: {
+function DraggableCard({ item, routeNum, arrival, color, locked, onMoveUp, onMoveDown }: {
   item:      DayItem
   routeNum?: number
   arrival?:  string
   color?:    string
   locked?:   boolean
+  onMoveUp?:   () => void
+  onMoveDown?: () => void
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: item.dndId })
   const isVisit = item.kind !== 'order'
+  const showReorder = !locked && (onMoveUp || onMoveDown)
 
   return (
     <div
@@ -124,6 +127,28 @@ function DraggableCard({ item, routeNum, arrival, color, locked }: {
           )}
           {arrival && <p className="text-[10px] text-accent font-medium mt-1">⏱ {arrival}</p>}
         </div>
+        {showReorder && (
+          <div className="flex flex-col shrink-0 -mt-1 -mr-1">
+            <button
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={onMoveUp}
+              disabled={!onMoveUp}
+              title="Subir"
+              className="p-0.5 rounded text-gray-300 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-0 disabled:pointer-events-none transition-colors"
+            >
+              <ChevronUp size={14} />
+            </button>
+            <button
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={onMoveDown}
+              disabled={!onMoveDown}
+              title="Bajar"
+              className="p-0.5 rounded text-gray-300 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-0 disabled:pointer-events-none transition-colors"
+            >
+              <ChevronDown size={14} />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -193,7 +218,7 @@ function SinAsignarColumn({ items }: { items: DayItem[] }) {
 
 // ── ChoferColumn ──────────────────────────────────────────────────────────────
 
-function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionChange, items, routeOrder, arrivals, recalculating, orsStatus, despacho, colorIdx, plantaId, horaSalida, catalogo, onPlantaChange, onHoraSalidaChange, onConfirm, onReopen, onTransfer }: {
+function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionChange, items, routeOrder, arrivals, recalculating, orsStatus, despacho, colorIdx, plantaId, horaSalida, catalogo, manualOrder, onPlantaChange, onHoraSalidaChange, onConfirm, onReopen, onTransfer, onManualReorder, onRecalculate }: {
   chofer:               UserProfile
   camiones:             Camion[]
   ayudantes:            UserProfile[]
@@ -209,11 +234,14 @@ function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionCha
   plantaId:             PlantaId
   horaSalida:           string
   catalogo:             CatalogProducto[]
+  manualOrder:          boolean
   onPlantaChange:       (p: PlantaId) => void
   onHoraSalidaChange:   (h: string) => void
   onConfirm:            () => void
   onReopen:             () => void
   onTransfer:           () => void
+  onManualReorder:      (newOrderIds: string[]) => void
+  onRecalculate:        () => void
 }) {
   const confirmed = despacho?.status === 'confirmado'
   const color     = choferColor(colorIdx)
@@ -225,6 +253,15 @@ function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionCha
     routeOrder.forEach((id, i) => { idx[id] = i })
     return [...items].sort((a, b) => (idx[a.dndId] ?? 999) - (idx[b.dndId] ?? 999))
   }, [items, routeOrder])
+
+  const moveItem = (index: number, dir: -1 | 1) => {
+    const newIndex = index + dir
+    if (newIndex < 0 || newIndex >= sortedItems.length) return
+    const reordered = [...sortedItems]
+    const [moved] = reordered.splice(index, 1)
+    reordered.splice(newIndex, 0, moved)
+    onManualReorder(reordered.map((i) => i.dndId))
+  }
 
   const orderCount  = items.filter((i) => i.kind === 'order').length
   const visitCount  = items.filter((i) => i.kind !== 'order').length
@@ -354,6 +391,8 @@ function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionCha
             <><div className="w-3 h-3 border border-accent border-t-transparent rounded-full animate-spin shrink-0" /><span className="text-[10px] text-gray-400">Calculando ruta...</span></>
           ) : confirmed ? (
             <><CheckCircle size={11} className="text-green-500 shrink-0" /><span className="text-[10px] text-green-600 font-medium">DESPACHADO{despacho?.modifiedAfterConfirm ? ' (+cambios)' : ''}</span></>
+          ) : manualOrder ? (
+            <><Lock size={11} className="text-amber-500 shrink-0" /><span className="text-[10px] text-amber-600 font-medium">Orden manual</span></>
           ) : orsStatus && routeOrder.length > 0 ? (
             orsStatus.ok ? (
               <><CheckCircle size={11} className="text-accent shrink-0" /><span className="text-[10px] text-accent font-medium">Ruta optimizada (ORS)</span></>
@@ -364,6 +403,15 @@ function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionCha
             <span className="text-[10px] text-gray-400">Sin optimizar aún...</span>
           ) : null}
         </div>
+        {manualOrder && !confirmed && (
+          <button
+            onClick={onRecalculate}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="mt-1 flex items-center gap-1 text-[10px] text-gray-400 hover:text-accent transition-colors"
+          >
+            <RotateCcw size={10} /> Recalcular ruta automática
+          </button>
+        )}
       </div>
 
       {/* Cards */}
@@ -382,6 +430,8 @@ function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionCha
               arrival={arrivals[item.dndId]}
               color={color}
               locked={confirmed}
+              onMoveUp={!confirmed && sortedItems.length > 1 && i > 0 ? () => moveItem(i, -1) : undefined}
+              onMoveDown={!confirmed && sortedItems.length > 1 && i < sortedItems.length - 1 ? () => moveItem(i, 1) : undefined}
             />
           ))
         )}
@@ -655,6 +705,26 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
   const debounceRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   useEffect(() => () => { Object.values(debounceRefs.current).forEach(clearTimeout) }, [])
 
+  // Choferes con orden reordenado a mano — se congela el recálculo automático
+  // hasta que el usuario pida explícitamente "Recalcular ruta automática"
+  const [manualOrder, setManualOrder] = useState<Record<string, boolean>>({})
+  useEffect(() => { setManualOrder({}) }, [fecha])
+
+  const handleManualReorder = useCallback(async (driverEmail: string, newOrderIds: string[]) => {
+    clearTimeout(debounceRefs.current[driverEmail])
+    setManualOrder((prev) => ({ ...prev, [driverEmail]: true }))
+    setRouteOrder((prev) => ({ ...prev, [driverEmail]: newOrderIds }))
+    // Los horarios de llegada estimados quedaban calculados para el orden
+    // anterior — se limpian para no mostrar un dato que ya no es correcto.
+    setRouteArrivals((prev) => ({ ...prev, [driverEmail]: {} }))
+
+    const desp = despachoByDriver[driverEmail]
+    if (desp) {
+      const extra = desp.status === 'confirmado' ? { modifiedAfterConfirm: true } : {}
+      await saveDespacho({ ...desp, orderIds: newOrderIds, ...extra })
+    }
+  }, [despachoByDriver])
+
   const scheduleRecalc = useCallback((driverEmail: string, dndIds: string[]) => {
     clearTimeout(debounceRefs.current[driverEmail])
     setRecalculating((prev) => ({ ...prev, [driverEmail]: true }))
@@ -707,7 +777,14 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
     }, 1500)
   }, [allItems, coordsByClientId, allClients, fecha, despachoByDriver, plantaByDriver, horaSalidaByDriver])
 
-  // Detectar cambios en asignaciones y disparar recalc
+  const handleRecalculate = useCallback((driverEmail: string) => {
+    setManualOrder((prev) => { const n = { ...prev }; delete n[driverEmail]; return n })
+    const ids = Object.entries(assignments).filter(([, d]) => d === driverEmail).map(([id]) => id)
+    scheduleRecalc(driverEmail, ids)
+  }, [assignments, scheduleRecalc])
+
+  // Detectar cambios en asignaciones y disparar recalc — salvo en choferes
+  // con orden manual, para no pisar un reordenamiento hecho a mano
   const prevAssignments = useRef<Record<string, string>>({})
   useEffect(() => {
     const affected = new Set<string>()
@@ -720,10 +797,11 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
     })
     prevAssignments.current = { ...assignments }
     affected.forEach((email) => {
+      if (manualOrder[email]) return
       const ids = Object.entries(assignments).filter(([, d]) => d === email).map(([id]) => id)
       scheduleRecalc(email, ids)
     })
-  }, [assignments, scheduleRecalc])
+  }, [assignments, scheduleRecalc, manualOrder])
 
   // Recalc inicial al cambiar de día
   useEffect(() => {
@@ -980,11 +1058,14 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
                 plantaId={plantaByDriver[c.email] ?? PLANTA_DEFAULT}
                 horaSalida={horaSalidaByDriver[c.email] ?? '07:00'}
                 catalogo={catalogo}
+                manualOrder={!!manualOrder[c.email]}
                 onPlantaChange={(p) => { setPlantaByDriver((prev) => ({ ...prev, [c.email]: p })); const ids = Object.entries(assignments).filter(([, d]) => d === c.email).map(([id]) => id); scheduleRecalc(c.email, ids) }}
                 onHoraSalidaChange={(h) => { setHoraSalidaByDriver((prev) => ({ ...prev, [c.email]: h })); const ids = Object.entries(assignments).filter(([, d]) => d === c.email).map(([id]) => id); scheduleRecalc(c.email, ids) }}
                 onConfirm={() => setConfirmingDriver(c.email)}
                 onReopen={() => handleReopen(c.email)}
                 onTransfer={() => setTransferModal({ fromDriver: c.email })}
+                onManualReorder={(ids) => handleManualReorder(c.email, ids)}
+                onRecalculate={() => handleRecalculate(c.email)}
               />
             ))}
 
