@@ -150,6 +150,7 @@ export default function UserManagement() {
         u.razonSocial?.toLowerCase().includes(q) ||
         u.nombre?.toLowerCase().includes(q) ||
         u.cuit?.includes(q) ||
+        u.codigoCliente?.toLowerCase().includes(q) ||
         addr?.id?.toLowerCase().includes(q) ||
         addr?.nombre?.toLowerCase().includes(q) ||
         addr?.address?.toLowerCase().includes(q)

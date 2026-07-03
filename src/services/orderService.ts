@@ -401,6 +401,41 @@ async function searchOrdersByPrefix(field: 'clientName' | 'numeroOC', term: stri
 export const searchOrdersByClientName = (term: string): Promise<Order[]> => searchOrdersByPrefix('clientName', term)
 export const searchOrdersByNumeroOC   = (term: string): Promise<Order[]> => searchOrdersByPrefix('numeroOC', term)
 
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = []
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size))
+  return out
+}
+
+// Pedidos no guardan el código de cliente — se resuelve primero código →
+// clientId contra la colección users, y recién ahí se buscan los pedidos.
+export async function searchOrdersByClientCode(term: string): Promise<Order[]> {
+  const t = term.trim()
+  if (!t) return []
+  const variants = Array.from(new Set([t, t.toUpperCase()]))
+  const userSnaps = await Promise.all(variants.map((v) => getDocs(query(
+    collection(db, 'users'),
+    orderBy('codigoCliente'),
+    where('codigoCliente', '>=', v),
+    where('codigoCliente', '<', v + ''),
+    limit(10),
+  ))))
+  const clientIds = Array.from(new Set(userSnaps.flatMap((snap) => snap.docs.map((d) => d.id))))
+  if (clientIds.length === 0) return []
+
+  // Firestore 'in' soporta hasta 30 valores por query
+  const orderSnaps = await Promise.all(
+    chunk(clientIds, 30).map((ids) => getDocs(query(
+      collection(db, ORDERS),
+      where('clientId', 'in', ids),
+      limit(30),
+    ))),
+  )
+  const byId = new Map<string, Order>()
+  orderSnaps.forEach((snap) => snap.docs.forEach((d) => byId.set(d.id, { id: d.id, ...d.data() } as Order)))
+  return Array.from(byId.values()).sort((a, b) => (b.date?.seconds ?? 0) - (a.date?.seconds ?? 0))
+}
+
 export const subscribeDriverOrders = (
   driverEmail: string,
   callback: (orders: Order[]) => void,

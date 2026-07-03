@@ -69,6 +69,7 @@ function StepCliente({
     return sucursales.filter((s) =>
       s.label.toLowerCase().includes(q) ||
       (s.user.cuit || '').toLowerCase().includes(q) ||
+      (s.user.codigoCliente || '').toLowerCase().includes(q) ||
       s.address.toLowerCase().includes(q),
     )
   }, [sucursales, search])

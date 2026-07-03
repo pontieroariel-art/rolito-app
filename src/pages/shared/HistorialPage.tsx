@@ -64,6 +64,17 @@ export default function HistorialPage() {
 
   const clientes = users.filter((u) => u.rol === 'cliente')
 
+  // Clientes cuyo código coincide con la búsqueda — permite encontrar
+  // pedidos/visitas por código de cliente aunque el registro no lo guarde.
+  const codeMatchIds = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return new Set<string>()
+    return new Set(
+      clientes.filter((c) => c.codigoCliente?.toLowerCase().includes(q)).map((c) => c.uid),
+    )
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientes, search])
+
   // ── Helpers de período ────────────────────────────────────────────────────
 
   function enPeriodo(date: Date): boolean {
@@ -85,6 +96,7 @@ export default function HistorialPage() {
       if (search.trim()) {
         const q = search.toLowerCase()
         if (
+          !codeMatchIds.has(o.clientId) &&
           !o.clientName.toLowerCase().includes(q) &&
           !o.clientAddress.toLowerCase().includes(q) &&
           !o.products.some((p) => p.name.toLowerCase().includes(q))
@@ -93,7 +105,7 @@ export default function HistorialPage() {
       return true
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orders, periodo, year, month, day, clienteId, statusFilter, search, tipo])
+  }, [orders, periodo, year, month, day, clienteId, statusFilter, search, tipo, codeMatchIds])
 
   const filteredVisitas = useMemo(() => {
     if (tipo === 'pedidos') return []
@@ -104,6 +116,7 @@ export default function HistorialPage() {
       if (search.trim()) {
         const q = search.toLowerCase()
         if (
+          !codeMatchIds.has(v.clientId) &&
           !v.clientName.toLowerCase().includes(q) &&
           !v.clientAddress.toLowerCase().includes(q)
         ) return false
@@ -111,7 +124,7 @@ export default function HistorialPage() {
       return true
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visitas, periodo, year, month, day, clienteId, search, tipo])
+  }, [visitas, periodo, year, month, day, clienteId, search, tipo, codeMatchIds])
 
   // ── Unificar y ordenar ────────────────────────────────────────────────────
 

@@ -50,6 +50,17 @@ export default function ComercialOrders() {
 
   const clientes = users.filter((u) => u.rol === 'cliente')
 
+  // Clientes cuyo código coincide con la búsqueda — permite encontrar
+  // pedidos por código de cliente aunque el pedido no lo guarde.
+  const codeMatchIds = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return new Set<string>()
+    return new Set(
+      clientes.filter((c) => c.codigoCliente?.toLowerCase().includes(q)).map((c) => c.uid),
+    )
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientes, search])
+
   // ── Filtrado ─────────────────────────────────────────────────────────────
 
   const filtered = useMemo(() => {
@@ -79,6 +90,7 @@ export default function ComercialOrders() {
       if (search.trim()) {
         const q = search.toLowerCase()
         if (
+          !codeMatchIds.has(o.clientId) &&
           !o.clientName.toLowerCase().includes(q) &&
           !o.clientAddress.toLowerCase().includes(q) &&
           !o.products.some((p) => p.name.toLowerCase().includes(q))
@@ -87,7 +99,7 @@ export default function ComercialOrders() {
 
       return true
     }).sort((a, b) => tsToDate(b.date).getTime() - tsToDate(a.date).getTime())
-  }, [orders, periodo, year, month, day, clienteId, statusFilter, search])
+  }, [orders, periodo, year, month, day, clienteId, statusFilter, search, codeMatchIds])
 
   // ── Totales del período ───────────────────────────────────────────────────
 

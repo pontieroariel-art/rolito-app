@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Search, X, Eye } from 'lucide-react'
-import { searchOrdersByClientName, searchOrdersByNumeroOC, getOrdersInRange } from '../../services/orderService'
+import { searchOrdersByClientName, searchOrdersByClientCode, searchOrdersByNumeroOC, getOrdersInRange } from '../../services/orderService'
 import { formatShortDate, summarizeProducts } from '../../utils/helpers'
 import { STATUS_LABELS } from '../../utils/constants'
 import { Order } from '../../types'
@@ -48,8 +48,17 @@ export default function PedidoSearchBar({ onJumpAndHighlight, onOpenDetail }: Pr
     if (t.length < 2) { setResults([]); return }
     setLoading(true)
     const timer = setTimeout(() => {
-      const fn = mode === 'cliente' ? searchOrdersByClientName : searchOrdersByNumeroOC
-      fn(t).then((r) => { setResults(r); setLoading(false); setOpen(true) })
+      // "Cliente" busca por nombre Y por código (el pedido no guarda el
+      // código, así que se resuelve código → cliente por separado y se
+      // fusiona con lo encontrado por nombre).
+      const search = mode === 'cliente'
+        ? Promise.all([searchOrdersByClientName(t), searchOrdersByClientCode(t)]).then(([byName, byCode]) => {
+            const byId = new Map(byName.map((o) => [o.id, o]))
+            byCode.forEach((o) => byId.set(o.id, o))
+            return Array.from(byId.values()).sort((a, b) => (b.date?.seconds ?? 0) - (a.date?.seconds ?? 0))
+          })
+        : searchOrdersByNumeroOC(t)
+      search.then((r) => { setResults(r); setLoading(false); setOpen(true) })
     }, 300)
     return () => clearTimeout(timer)
   }, [mode, text, date])

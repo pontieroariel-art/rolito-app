@@ -1,9 +1,11 @@
 import { useState, useMemo, ChangeEvent } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import ClienteCombobox from '../../components/ui/ClienteCombobox'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import Navbar from '../../components/layout/Navbar'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useAllHistorial } from '../../hooks/useHistorialPrecios'
+import { getAllUsers } from '../../services/userService'
 import { HistorialPrecioEvento } from '../../types'
 import { Timestamp } from 'firebase/firestore'
 
@@ -218,6 +220,11 @@ type Periodo = '30d' | '90d' | '1y' | 'all'
 
 export default function HistorialPreciosPage() {
   const { historial, loading, error, reload } = useAllHistorial()
+  const { data: users = [] } = useQuery({
+    queryKey:  ['users'],
+    queryFn:   () => getAllUsers(),
+    staleTime: 300_000,
+  })
 
   const [periodo,       setPeriodo]       = useState<Periodo>('30d')
   const [clientSearch,  setClientSearch]  = useState('')
@@ -232,13 +239,23 @@ export default function HistorialPreciosPage() {
     'all': Infinity,
   }
 
+  // Clientes cuyo código coincide con la búsqueda — permite encontrar
+  // eventos por código de cliente aunque el evento no lo guarde.
+  const codeMatchIds = useMemo(() => {
+    const q = clientSearch.trim().toLowerCase()
+    if (!q) return new Set<string>()
+    return new Set(
+      users.filter((u) => u.codigoCliente?.toLowerCase().includes(q)).map((u) => u.uid),
+    )
+  }, [users, clientSearch])
+
   const filtered = useMemo(() => {
     const cutoff = periodo === 'all' ? new Date(0) : new Date(Date.now() - periodoMs[periodo])
     return historial.filter((ev) => {
       const d = evToDate(ev)
       if (d < cutoff) return false
       if (tipoFilter !== 'all' && ev.tipo !== tipoFilter) return false
-      if (clientSearch && !ev.clientName.toLowerCase().includes(clientSearch.toLowerCase())) return false
+      if (clientSearch && !codeMatchIds.has(ev.clientId) && !ev.clientName.toLowerCase().includes(clientSearch.toLowerCase())) return false
       if (soloAlertas) {
         const diff = ev.precioAnterior != null && ev.precioNuevo != null
           ? Math.abs(pctDiff(ev.precioNuevo, ev.precioAnterior)) : 0
@@ -246,7 +263,7 @@ export default function HistorialPreciosPage() {
       }
       return true
     })
-  }, [historial, periodo, tipoFilter, clientSearch, soloAlertas])
+  }, [historial, periodo, tipoFilter, clientSearch, soloAlertas, codeMatchIds])
 
   // Stats
   const stats = useMemo(() => {
