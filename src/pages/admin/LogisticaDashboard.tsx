@@ -13,6 +13,7 @@ import ImportarPedidoModal from '../../components/admin/ImportarPedidoModal'
 import PedidoManualModal from '../../components/admin/PedidoManualModal'
 import MapaPlanificacion from '../../components/admin/MapaPlanificacion'
 import DespachoBoard from '../../components/admin/DespachoBoard'
+import PedidoSearchBar from '../../components/admin/PedidoSearchBar'
 import { useKanbanOrders } from '../../hooks/useOrders'
 import { useChoferes } from '../../hooks/useChoferes'
 import { useAuth } from '../../context/AuthContext'
@@ -255,7 +256,7 @@ function CancelOrderModal({ order, onClose, onCancelled }: { order: Order; onClo
 
 // ── KanbanCard ────────────────────────────────────────────────────────────────
 
-const KanbanCard = memo(function KanbanCard({ order, choferes }: { order: Order; choferes: UserProfile[] }) {
+const KanbanCard = memo(function KanbanCard({ order, choferes, isHighlighted }: { order: Order; choferes: UserProfile[]; isHighlighted?: boolean }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: order.id })
   const [assigning,     setAssigning]     = useState(false)
   const [loadingDriver, setLoadingDriver] = useState<string | null>(null)
@@ -280,7 +281,11 @@ const KanbanCard = memo(function KanbanCard({ order, choferes }: { order: Order;
       <div
         ref={setNodeRef}
         style={{ transform: CSS.Translate.toString(transform), opacity: isDragging ? 0.35 : 1 }}
-        className="bg-white border border-[#D3D1C7] rounded-xl p-3 space-y-2 select-none hover:border-accent/50 hover:shadow-sm transition-all"
+        className={`bg-white rounded-xl p-3 space-y-2 select-none hover:border-accent/50 hover:shadow-sm transition-all ${
+          isHighlighted
+            ? 'border-2 border-accent ring-4 ring-accent/25 animate-pulse'
+            : 'border border-[#D3D1C7]'
+        }`}
       >
         {/* Header: grip handle + nombre + menú */}
         <div className="flex items-start gap-1">
@@ -396,7 +401,8 @@ const KanbanCard = memo(function KanbanCard({ order, choferes }: { order: Order;
     o1.clientName  === o2.clientName  &&
     o1.date?.seconds === o2.date?.seconds &&
     o1.products.length === o2.products.length &&
-    prev.choferes  === next.choferes
+    prev.choferes      === next.choferes &&
+    prev.isHighlighted === next.isHighlighted
   )
 })
 
@@ -521,13 +527,14 @@ function MiniCalendar({
 
 // ── KanbanColumn ──────────────────────────────────────────────────────────────
 
-const KanbanColumn = memo(function KanbanColumn({ id, label, sublabel, orders, choferes, isBandeja }: {
+const KanbanColumn = memo(function KanbanColumn({ id, label, sublabel, orders, choferes, isBandeja, highlightedOrderId }: {
   id:        string
   label:     string
   sublabel?: string
   orders:    Order[]
   choferes:  UserProfile[]
   isBandeja: boolean
+  highlightedOrderId?: string | null
 }) {
   const { setNodeRef, isOver } = useDroppable({ id })
 
@@ -569,7 +576,7 @@ const KanbanColumn = memo(function KanbanColumn({ id, label, sublabel, orders, c
         style={{ minHeight: 200 }}
       >
         {orders.map((order) => (
-          <KanbanCard key={order.id} order={order} choferes={choferes} />
+          <KanbanCard key={order.id} order={order} choferes={choferes} isHighlighted={order.id === highlightedOrderId} />
         ))}
         {orders.length === 0 && (
           <div className={`flex items-center justify-center rounded-lg border-2 border-dashed py-8 transition-colors ${
@@ -583,6 +590,7 @@ const KanbanColumn = memo(function KanbanColumn({ id, label, sublabel, orders, c
   )
 }, (prev, next) => {
   if (prev.id !== next.id || prev.choferes !== next.choferes) return false
+  if (prev.highlightedOrderId !== next.highlightedOrderId) return false
   if (prev.orders.length !== next.orders.length) return false
   return prev.orders.every((o, i) => {
     const n = next.orders[i]
@@ -603,11 +611,28 @@ export default function LogisticaDashboard() {
   const [startDate, setStartDate] = useState<Date>(() => {
     const d = new Date(); d.setHours(12, 0, 0, 0); return d
   })
+  const [highlightedOrderId, setHighlightedOrderId] = useState<string | null>(null)
+  const [detailOrder,        setDetailOrder]        = useState<Order | null>(null)
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const goToToday    = () => { const d = new Date(); d.setHours(12, 0, 0, 0); setStartDate(d) }
   const goToPrevWeek = () => setStartDate((p) => { const d = new Date(p); d.setDate(d.getDate() - 7); return d })
   const goToNextWeek = () => setStartDate((p) => { const d = new Date(p); d.setDate(d.getDate() + 7); return d })
   const handleSelectDay = (day: Date) => { const d = new Date(day); d.setHours(12, 0, 0, 0); setStartDate(d) }
+
+  // Resultado del buscador global: si el pedido está en la ventana del Kanban
+  // (últimos 30 días → futuro) se salta a su semana y se resalta la tarjeta;
+  // si es un pedido viejo que quedó fuera de esa ventana, se abre el detalle
+  // directamente porque no hay tarjeta a la que saltar.
+  const handleSearchJump = (order: Order) => {
+    const inKanbanWindow = orders.some((o) => o.id === order.id)
+    if (!inKanbanWindow) { setDetailOrder(order); return }
+    setMainTab('pedidos')
+    handleSelectDay(tsToDate(order.date))
+    setHighlightedOrderId(order.id)
+    if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current)
+    highlightTimerRef.current = setTimeout(() => setHighlightedOrderId(null), 2500)
+  }
 
   const { orders,   loading: loadO } = useKanbanOrders()
   const { choferes, loading: loadC } = useChoferes()
@@ -738,6 +763,9 @@ export default function LogisticaDashboard() {
           </div>
         </div>
 
+        {/* Buscador global de pedidos — compartido por las tres pestañas */}
+        <PedidoSearchBar onJumpAndHighlight={handleSearchJump} onOpenDetail={setDetailOrder} />
+
         <div className="flex border-b border-gray-200 gap-1">
           {(['pedidos', 'despacho', 'mapa'] as const).map((t) => (
             <button key={t} onClick={() => setMainTab(t)}
@@ -827,6 +855,7 @@ export default function LogisticaDashboard() {
                         orders={ordersByColumn[col.id] ?? []}
                         choferes={choferes}
                         isBandeja={col.id === 'bandeja'}
+                        highlightedOrderId={highlightedOrderId}
                       />
                     ))}
                   </div>
@@ -849,6 +878,10 @@ export default function LogisticaDashboard() {
 
       <ImportarPedidoModal open={importModal}  onClose={() => setImportModal(false)} />
       <PedidoManualModal   open={pedidoManual} onClose={() => setPedidoManual(false)} defaultDate={dateToStr(startDate)} />
+
+      {detailOrder && (
+        <EditOrderModal order={detailOrder} onClose={() => setDetailOrder(null)} onSaved={() => {}} />
+      )}
     </div>
   )
 }

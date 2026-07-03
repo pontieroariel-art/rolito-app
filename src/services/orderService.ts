@@ -377,6 +377,30 @@ export const subscribeKanbanOrders = (
   )
 }
 
+// Búsqueda puntual (no en tiempo real) por prefijo de un campo, sin
+// restricción de fecha — para encontrar pedidos fuera de la ventana del
+// Kanban (más de 30 días atrás o fuera del límite de 300).
+async function searchOrdersByPrefix(field: 'clientName' | 'numeroOC', term: string): Promise<Order[]> {
+  const t = term.trim()
+  if (!t) return []
+  // Firestore no soporta "contiene" ni case-insensitive nativo: se prueba el
+  // texto tal cual y en MAYÚSCULAS para cubrir clientes cargados por OCR/PDF.
+  const variants = Array.from(new Set([t, t.toUpperCase()]))
+  const snaps = await Promise.all(variants.map((v) => getDocs(query(
+    collection(db, ORDERS),
+    orderBy(field),
+    where(field, '>=', v),
+    where(field, '<', v + ''),
+    limit(15),
+  ))))
+  const byId = new Map<string, Order>()
+  snaps.forEach((snap) => snap.docs.forEach((d) => byId.set(d.id, { id: d.id, ...d.data() } as Order)))
+  return Array.from(byId.values()).sort((a, b) => (b.date?.seconds ?? 0) - (a.date?.seconds ?? 0))
+}
+
+export const searchOrdersByClientName = (term: string): Promise<Order[]> => searchOrdersByPrefix('clientName', term)
+export const searchOrdersByNumeroOC   = (term: string): Promise<Order[]> => searchOrdersByPrefix('numeroOC', term)
+
 export const subscribeDriverOrders = (
   driverEmail: string,
   callback: (orders: Order[]) => void,
