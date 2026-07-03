@@ -57,6 +57,40 @@ function unixToTimeStr(unix: number): string {
   return new Date(unix * 1000).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
+function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R    = 6371
+  const dLat = (b.lat - a.lat) * Math.PI / 180
+  const dLng = (b.lng - a.lng) * Math.PI / 180
+  const s = Math.sin(dLat / 2) ** 2 +
+    Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) * Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(s))
+}
+
+// Ordena las paradas por "vecino más cercano" desde el origen. Es una
+// heurística de distancia en línea recta, no una optimización real de
+// horarios — el aviso de "fuera de horario" se calcula después, comparando
+// contra los horarios reales de cada cliente.
+function nearestNeighborOrder<T extends { lat: number; lng: number }>(
+  start: { lat: number; lng: number },
+  stops: T[],
+): T[] {
+  const remaining = [...stops]
+  const ordered: T[] = []
+  let current = start
+  while (remaining.length > 0) {
+    let bestIdx  = 0
+    let bestDist = Infinity
+    remaining.forEach((s, i) => {
+      const d = haversineKm(current, s)
+      if (d < bestDist) { bestDist = d; bestIdx = i }
+    })
+    const [next] = remaining.splice(bestIdx, 1)
+    ordered.push(next)
+    current = next
+  }
+  return ordered
+}
+
 function clientInitials(name: string): string {
   const first = name.trim().split(/\s+/)[0] ?? name
   return first.slice(0, 3).toUpperCase()
@@ -288,7 +322,10 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
     setRouteArrivals((prev) => { const n = { ...prev }; idsToRemove.forEach((id) => delete n[id]); return n })
   }, [orderMarkers, visitasDelDia])
 
-  // Calcular ruta: ORS Optimization (time windows) → ORS Directions (avoid_polygons)
+  // Calcular ruta: orden por vecino más cercano → ORS Directions (camino real,
+  // avoid_polygons, y duración real de cada tramo para estimar llegadas).
+  // El endpoint público de ORS "Optimization" no existe (nunca funcionó);
+  // por eso el orden se resuelve acá y solo se usa ORS para el trazado.
   const calculateRoute = useCallback((driverEmail: string) => {
     const plantaId = plantaChofer[driverEmail] ?? 'torcuato'
     const planta   = PLANTAS[plantaId]
@@ -308,66 +345,20 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
 
     setRouteCalculating((prev) => ({ ...prev, [driverEmail]: true }))
 
+    // Orden de paradas: vecino más cercano desde la planta (heurística por
+    // distancia en línea recta, no considera horarios ni tráfico). Se calcula
+    // afuera del try/catch porque el fallback a Google Maps también lo usa.
+    const orderedStops = nearestNeighborOrder(planta, all)
+
     void (async () => {
       try {
         const orsKey         = import.meta.env.VITE_ORS_KEY
         const departureTime  = horasSalida[driverEmail] ?? '07:00'
         const vehicleStart   = timeStrToUnix(selectedDate, departureTime)
-        const vehicleEnd     = timeStrToUnix(selectedDate, '22:00')
         const serviceSeconds = tiempoServicio * 60
 
-        // Paso 1: ORS Optimization — orden respetando horarios de clientes
-        const jobs = all.map((stop, idx) => {
-          const client = allClients.find((c) => c.uid === stop.clientId)
-          const addr   = client ? getPrimaryAddress(client) : null
-          const open   = addr?.horarioApertura ? timeStrToUnix(selectedDate, addr.horarioApertura) : 0
-          const close  = addr?.horarioCierre   ? timeStrToUnix(selectedDate, addr.horarioCierre)   : vehicleEnd
-          const job: Record<string, unknown> = {
-            id:       idx + 1,
-            location: [stop.lng, stop.lat],
-            service:  serviceSeconds,
-          }
-          if (open && close && close > open) job.time_windows = [[open, close]]
-          return job
-        })
-
-        const optRes  = await fetch('https://api.openrouteservice.org/v2/optimization', {
-          method:  'POST',
-          headers: { 'Authorization': orsKey, 'Content-Type': 'application/json' },
-          body:    JSON.stringify({
-            jobs,
-            vehicles: [{
-              id:          1,
-              profile:     'driving-hgv',
-              start:       [planta.lng, planta.lat],
-              end:         [planta.lng, planta.lat],
-              time_window: [vehicleStart, vehicleEnd],
-            }],
-          }),
-        })
-        const optData = await optRes.json()
-        if (!optData.routes?.[0]) throw new Error(optData.error?.message ?? 'Sin solución ORS Opt.')
-
-        // Extraer orden y llegadas estimadas
-        const steps = (optData.routes[0].steps as { type: string; id?: number; arrival: number }[])
-          .filter((s) => s.type === 'job')
-        const orderedStops = steps.map((s) => all[s.id! - 1])
-
-        const labels:   Record<string, string> = {}
-        const arrivals: Record<string, string> = {}
-        steps.forEach((s, routeIdx) => {
-          const stop = all[s.id! - 1]
-          labels[stop.id]   = String(routeIdx + 1)
-          arrivals[stop.id] = unixToTimeStr(s.arrival)
-        })
-        setRouteLabels((prev)   => ({ ...prev, ...labels   }))
-        setRouteArrivals((prev) => ({ ...prev, ...arrivals }))
-
-        const unassigned = ((optData.unassigned ?? []) as { id: number }[])
-          .map((u) => all[u.id - 1]?.id).filter(Boolean) as string[]
-        setRouteUnassigned((prev) => ({ ...prev, [driverEmail]: unassigned }))
-
-        // Paso 2: ORS Directions — camino real con avoid_polygons
+        // ORS Directions: camino real con avoid_polygons + duración real de
+        // cada tramo, usada después para estimar los horarios de llegada
         const coordinates = [planta, ...orderedStops, planta].map((p) => [p.lng, p.lat])
         const zonasActivas = zonas.filter((z) => z.activa && z.polygon.length >= 3)
         const dirBody: Record<string, unknown> = { coordinates }
@@ -388,25 +379,57 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
           headers: { 'Authorization': orsKey, 'Content-Type': 'application/json' },
           body:    JSON.stringify(dirBody),
         })
-        const dirData = await dirRes.json()
+        const dirData  = await dirRes.json()
+        const feature  = dirData.features?.[0]
+        const segments = feature?.properties?.segments as { duration: number }[] | undefined
 
-        if (dirData.features?.[0]?.geometry?.coordinates) {
-          const path = (dirData.features[0].geometry.coordinates as [number, number][])
-            .map(([lng, lat]) => ({ lat, lng }))
-          setRoutePaths((prev) => ({ ...prev, [driverEmail]: path }))
-        } else {
+        if (!feature?.geometry?.coordinates || !segments) {
           throw new Error(dirData.error?.message ?? 'Sin ruta ORS Dir.')
         }
+
+        const path = (feature.geometry.coordinates as [number, number][])
+          .map(([lng, lat]) => ({ lat, lng }))
+        setRoutePaths((prev) => ({ ...prev, [driverEmail]: path }))
+
+        // Etiquetas de orden + horario de llegada estimado, a partir de la
+        // duración real de cada tramo (segments[0] = planta→parada 1, etc.)
+        const labels:     Record<string, string> = {}
+        const arrivals:   Record<string, string> = {}
+        const unassigned: string[] = []
+        let cursor = vehicleStart
+        orderedStops.forEach((stop, idx) => {
+          cursor += segments[idx]?.duration ?? 0
+          labels[stop.id]   = String(idx + 1)
+          arrivals[stop.id] = unixToTimeStr(cursor)
+
+          const client = allClients.find((c) => c.uid === stop.clientId)
+          const addr   = client ? getPrimaryAddress(client) : null
+          const open   = addr?.horarioApertura ? timeStrToUnix(selectedDate, addr.horarioApertura) : null
+          const close  = addr?.horarioCierre   ? timeStrToUnix(selectedDate, addr.horarioCierre)   : null
+          if ((open && cursor < open) || (close && cursor > close)) unassigned.push(stop.id)
+
+          cursor += serviceSeconds
+        })
+        setRouteLabels((prev)     => ({ ...prev, ...labels }))
+        setRouteArrivals((prev)   => ({ ...prev, ...arrivals }))
+        setRouteUnassigned((prev) => ({ ...prev, [driverEmail]: unassigned }))
 
         setRouteCalculating((prev) => ({ ...prev, [driverEmail]: false }))
       } catch (err) {
         console.warn('ORS falló, fallback a Google Maps:', err)
         const origin = new google.maps.LatLng(planta.lat, planta.lng)
+        // Google Directions admite hasta 25 waypoints (23 + origen/destino) —
+        // si hay más paradas, se recortan para que el fallback no falle del todo.
+        const fallbackStops = orderedStops.length > 0 ? orderedStops : all
+        const capped = fallbackStops.slice(0, 23)
+        if (capped.length < fallbackStops.length) {
+          console.warn(`Fallback a Google Maps: se recortaron ${fallbackStops.length - capped.length} paradas (límite de 25 waypoints).`)
+        }
         new google.maps.DirectionsService().route(
           {
             origin,
             destination:       origin,
-            waypoints:         all.map((w) => ({ location: new google.maps.LatLng(w.lat, w.lng), stopover: true })),
+            waypoints:         capped.map((w) => ({ location: new google.maps.LatLng(w.lat, w.lng), stopover: true })),
             optimizeWaypoints: true,
             travelMode:        google.maps.TravelMode.DRIVING,
           },
@@ -414,7 +437,7 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
             if (status === 'OK' && result) {
               const order = result.routes[0].waypoint_order
               const labels: Record<string, string> = {}
-              order.forEach((wIdx, idx) => { labels[all[wIdx].id] = String(idx + 1) })
+              order.forEach((wIdx, idx) => { labels[capped[wIdx].id] = String(idx + 1) })
               setRouteLabels((prev) => ({ ...prev, ...labels }))
               const path = result.routes[0].overview_path.map((p) => ({ lat: p.lat(), lng: p.lng() }))
               setRoutePaths((prev) => ({ ...prev, [driverEmail]: path }))
