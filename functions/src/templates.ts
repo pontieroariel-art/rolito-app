@@ -261,6 +261,39 @@ export function tplPedidoEnCamino(
   `)
 }
 
+export function tplPedidoCerca(nombre: string, products: Product[], appUrl: string): string {
+  return layout('Tu pedido está cerca', {
+    emoji:       '🚚',
+    title:       '¡Ya llega!',
+    subtitle:    'El chofer está a menos de 1 km',
+    accentColor: '#00C2FF',
+  }, `
+    ${greeting(nombre)}
+    <p style="margin:0 0 16px">Tu pedido está <strong>a menos de 1 km</strong> — el chofer llega en breve.</p>
+    ${productsTable(products)}
+    ${ctaButton('Ver en la app →', appUrl)}
+  `)
+}
+
+export function tplPedidoReprogramado(
+  nombre: string, products: Product[], date: unknown, motivo: string,
+): string {
+  return layout('Tu pedido fue reprogramado', {
+    emoji:       '📅',
+    title:       'Pedido reprogramado',
+    subtitle:    'Nueva fecha de entrega',
+    accentColor: '#F59E0B',
+  }, `
+    ${greeting(nombre)}
+    <p style="margin:0 0 16px">Te informamos que tu pedido fue <strong>reprogramado</strong> para una nueva fecha.</p>
+    ${productsTable(products)}
+    ${dateBox(date)}
+    <p style="margin:16px 0 0;padding:12px 16px;background:#fafafa;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;color:#6b7280">
+      <span style="font-weight:600;color:#374151">Motivo: </span>${motivo}
+    </p>
+  `)
+}
+
 export function tplAdminNuevoPedido(order: {
   clientName:    string
   clientAddress: string

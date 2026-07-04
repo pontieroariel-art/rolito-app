@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendPush = exports.deleteAuthUsers = exports.onOrderEnCamino = exports.onOrderConfirmado = exports.onOrderCreated = exports.onUserApproved = exports.onUserRegistered = void 0;
+exports.notifyReprogramado = exports.notifyCerca = exports.sendPush = exports.deleteAuthUsers = exports.onOrderEnCamino = exports.onOrderConfirmado = exports.onOrderCreated = exports.onUserApproved = exports.onUserRegistered = void 0;
 const app_1 = require("firebase-admin/app");
 (0, app_1.initializeApp)();
 var users_1 = require("./triggers/users");
@@ -14,4 +14,7 @@ var cleanup_1 = require("./triggers/cleanup");
 Object.defineProperty(exports, "deleteAuthUsers", { enumerable: true, get: function () { return cleanup_1.deleteAuthUsers; } });
 var push_1 = require("./triggers/push");
 Object.defineProperty(exports, "sendPush", { enumerable: true, get: function () { return push_1.sendPush; } });
+var clientNotify_1 = require("./triggers/clientNotify");
+Object.defineProperty(exports, "notifyCerca", { enumerable: true, get: function () { return clientNotify_1.notifyCerca; } });
+Object.defineProperty(exports, "notifyReprogramado", { enumerable: true, get: function () { return clientNotify_1.notifyReprogramado; } });
 //# sourceMappingURL=index.js.map

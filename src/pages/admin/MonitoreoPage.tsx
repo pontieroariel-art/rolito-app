@@ -112,13 +112,7 @@ function ReprogramarModal({
       })
       // Notificar al cliente (fire-and-forget)
       if (order.clientEmail) {
-        notifyReprogramadoMutation.mutate({
-          email:      order.clientEmail,
-          nombre:     order.clientName.split(' ')[0] || 'Cliente',
-          products:   order.products,
-          fechaNueva: fecha,
-          motivo,
-        })
+        notifyReprogramadoMutation.mutate({ orderId: order.id })
       }
       onDone()
     } finally {
@@ -285,10 +279,7 @@ function FinJornadaModal({
           if (accion === 'reprogramar') {
             await rescheduleOrder(o.id, fecha, motivo, { fechaOriginal: o.date, choferOriginal: driverEmail })
             if (o.clientEmail) {
-              notifyReprogramadoMutation.mutate({
-                email: o.clientEmail, nombre: o.clientName.split(' ')[0] || 'Cliente',
-                products: o.products, fechaNueva: fecha, motivo,
-              })
+              notifyReprogramadoMutation.mutate({ orderId: o.id })
             }
           } else {
             if (!email) return

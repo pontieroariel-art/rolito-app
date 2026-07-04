@@ -100,7 +100,7 @@ export function TruckTracker({ order, clientEmail, clientNombre, onNearby }: Tru
     if (!distance || hasSentNotif.current || !clientEmail) return
     if (distance < 1000) {
       hasSentNotif.current = true
-      notifyCercaMutation.mutate({ email: clientEmail, nombre: clientNombre, products: order.products })
+      notifyCercaMutation.mutate({ orderId: order.id })
       onNearby()
     }
   }, [distance, clientEmail, clientNombre, order.products, onNearby])
