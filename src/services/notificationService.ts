@@ -1,3 +1,5 @@
+import { getFunctions, httpsCallable } from 'firebase/functions'
+
 interface Product {
   name: string
   quantity: number
@@ -34,8 +36,17 @@ export const notifyReprogramado = (data: {
   motivo:     string
 }): Promise<void> => post('notify-reprogramado', data)
 
-export const sendPush = (data: {
+// El envío de web-push corre en una Cloud Function callable
+// (functions/src/triggers/push.ts). Antes iba a una Netlify Function que quedó
+// inalcanzable al hostear la app en Firebase Hosting.
+export const sendPush = async (data: {
   subscription: PushSubscriptionJSON
   title:        string
   body:         string
-}): Promise<void> => post('send-push', data)
+}): Promise<void> => {
+  try {
+    await httpsCallable(getFunctions(), 'sendPush')(data)
+  } catch (err) {
+    console.error('sendPush error:', err)
+  }
+}
