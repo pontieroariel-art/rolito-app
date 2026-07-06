@@ -149,6 +149,8 @@ service cloud.firestore {
     match /config/{docId} {
       allow read: if request.auth != null;
       allow write: if request.auth != null && isOperator();
+      // Comercial puede editar el catálogo de productos (config/catalogo).
+      allow write: if request.auth != null && docId == 'catalogo' && myRole() == 'comercial';
     }
 
     // ── Emails de notificación admin ──────────────────────────────────────────
@@ -161,10 +163,10 @@ service cloud.firestore {
 
     // ── Listas de precios ─────────────────────────────────────────────────────
     // Lectura: cualquier usuario autenticado (el cliente necesita su lista al pedir)
-    // Escritura: solo operadores
+    // Escritura: operadores (super_admin/logistica) y comercial
     match /listas-precios/{listaId} {
       allow read:  if request.auth != null;
-      allow write: if request.auth != null && isOperator();
+      allow write: if request.auth != null && (isOperator() || myRole() == 'comercial');
     }
 
     // ── Catálogo de productos ─────────────────────────────────────────────────

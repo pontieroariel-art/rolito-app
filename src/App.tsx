@@ -126,10 +126,13 @@ function AppContent() {
         {/* Admin y logística */}
         <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica']} />}>
           <Route path="/admin"                element={<AdminDashboard />} />
-          <Route path="/admin/precios"        element={<PriceListsPage />} />
           <Route path="/admin/flota"          element={<FlotaPage />} />
           <Route path="/admin/visitas"        element={<VisitasPage />} />
           <Route path="/admin/incidencias"    element={<ReporteIncidenciasPage />} />
+        </Route>
+        {/* Precios (catálogo + listas): super_admin, logística y comercial */}
+        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica', 'comercial']} />}>
+          <Route path="/admin/precios"        element={<PriceListsPage />} />
         </Route>
         <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica', 'gerente_comercial']} />}>
           <Route path="/logistica"           element={<LogisticaDashboard />} />

@@ -144,3 +144,21 @@ describe('cuitIndex — anti-poisoning', () => {
     await assertFails(setDoc(doc(db('cli', 'c@x.com'), 'cuitIndex/20111111119'), { email: 'victima@x.com' }))
   })
 })
+
+// ── precios: edición de catálogo y listas por comercial / logística ───────────
+describe('precios — edición por comercial', () => {
+  test('comercial SÍ puede editar una lista de precios', async () => {
+    await seed((d) => setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('com'), 'listas-precios/l1'), { nombre: 'Mayoristas', items: [] }))
+  })
+
+  test('comercial SÍ puede editar el catálogo (config/catalogo)', async () => {
+    await seed((d) => setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('com'), 'config/catalogo'), { productos: [] }))
+  })
+
+  test('un cliente NO puede editar listas de precios', async () => {
+    await seed((d) => setDoc(doc(d, 'users/cli'), cliente()))
+    await assertFails(setDoc(doc(db('cli'), 'listas-precios/l1'), { nombre: 'X', items: [] }))
+  })
+})

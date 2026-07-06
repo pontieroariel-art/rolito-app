@@ -60,6 +60,7 @@ const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
     { to: '/logistica',           label: 'Tablero',        icon: LayoutDashboard },
     { to: '/admin/monitoreo',     label: 'Monitoreo',      icon: Activity },
     { to: '/admin/flota',         label: 'Flota',          icon: Truck },
+    { to: '/admin/precios',       label: 'Precios',        icon: Tag },
     { to: '/admin/clima',         label: 'Clima',          icon: Cloud },
     { to: '/usuarios',            label: 'Clientes',       icon: Users },
     { to: '/admin/mapa-clientes', label: 'Mapa clientes',  icon: Map },
@@ -70,7 +71,8 @@ const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
     { to: '/usuarios',                    label: 'Clientes',       icon: Users },
     { to: '/admin/mapa-clientes',         label: 'Mapa clientes',  icon: Map },
     { to: '/movimientos',                 label: 'Movimientos',    icon: BarChart2 },
-    { to: '/comercial/reporte-precios',   label: 'Precios',        icon: DollarSign },
+    { to: '/admin/precios',               label: 'Precios',        icon: Tag },
+    { to: '/comercial/reporte-precios',   label: 'Rep. precios',   icon: DollarSign },
     { to: '/comercial/mapa',              label: 'En vivo',        icon: Navigation },
   ],
   facturacion: [
