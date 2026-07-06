@@ -30,3 +30,20 @@ jobs:
 
       - name: Typecheck (functions)
         run: npm run typecheck:functions
+
+  rules-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      # Los runners ubuntu ya traen Java, que el emulador de Firestore necesita.
+      - name: Tests de reglas Firestore (emulador)
+        run: npm run test:rules
