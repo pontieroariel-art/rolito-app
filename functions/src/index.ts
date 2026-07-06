@@ -6,3 +6,4 @@ export { onOrderCreated, onOrderConfirmado, onOrderEnCamino } from './triggers/o
 export { deleteAuthUsers }                     from './triggers/cleanup'
 export { sendPush }                            from './triggers/push'
 export { notifyCerca, notifyReprogramado }     from './triggers/clientNotify'
+export { validarPreciosPedido }                from './triggers/orderPricing'
