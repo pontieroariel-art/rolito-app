@@ -64,6 +64,7 @@ export default function ChoferDashboard() {
   const [sinContactoVisita,  setSinContactoVisita]  = useState<VisitaPuntual | null>(null)
   const [sinContactoMotivo,  setSinContactoMotivo]  = useState('')
   const [sinContactoLoading, setSinContactoLoading] = useState(false)
+  const [gpsStatus,          setGpsStatus]          = useState<'idle' | 'ok' | 'error'>('idle')
 
   const MOTIVOS_SIN_CONTACTO = ['Nadie en el local', 'Local cerrado', 'No atendió el teléfono', 'Dirección incorrecta']
 
@@ -160,17 +161,27 @@ export default function ChoferDashboard() {
     const send = () => {
       if (document.visibilityState === 'hidden') return
       navigator.geolocation.getCurrentPosition(
-        (pos) => updateDriverLocation(email, pos.coords.latitude, pos.coords.longitude, nombreRef.current, telefonoRef.current),
-        () => {},
+        (pos) => {
+          setGpsStatus('ok')
+          // Offline: el write se encola y sincroniza al reconectar (no es error).
+          updateDriverLocation(email, pos.coords.latitude, pos.coords.longitude, nombreRef.current, telefonoRef.current)
+            .catch(() => {})
+        },
+        () => setGpsStatus('error'),
         { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 },
       )
     }
 
     send()
     const id = setInterval(send, 10_000)
+    // En background el navegador suspende el envío; al volver la app al frente
+    // refrescamos la ubicación de inmediato en vez de esperar hasta 10s.
+    const onVisible = () => { if (document.visibilityState === 'visible') send() }
+    document.addEventListener('visibilitychange', onVisible)
 
     return () => {
       clearInterval(id)
+      document.removeEventListener('visibilitychange', onVisible)
       // Microtask: si un nuevo efecto ya montó (gen cambió), no desactivar
       Promise.resolve().then(() => {
         if (locationGenRef.current === gen) {
@@ -244,6 +255,19 @@ export default function ChoferDashboard() {
             >
               Reintentar
             </button>
+          </div>
+        )}
+
+        {/* Estado del GPS (el mapa en vivo del admin depende de esto) */}
+        {hasPending && gpsStatus !== 'idle' && (
+          <div className={`rounded-xl px-4 py-2 text-xs font-medium flex items-center gap-2 ${
+            gpsStatus === 'ok'
+              ? 'bg-green-50 border border-green-200 text-green-700'
+              : 'bg-amber-50 border border-amber-200 text-amber-700'
+          }`}>
+            {gpsStatus === 'ok'
+              ? '📍 Ubicación activa — el equipo puede seguir tu recorrido'
+              : '⚠ Buscando señal GPS — tu ubicación puede estar desactualizada'}
           </div>
         )}
 
