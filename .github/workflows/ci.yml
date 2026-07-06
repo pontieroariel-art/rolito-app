@@ -21,6 +21,9 @@ jobs:
       - name: Typecheck (app)
         run: npm run typecheck
 
+      - name: Lint (src)
+        run: npm run lint
+
       - name: Install functions deps
         run: npm ci
         working-directory: functions

@@ -483,7 +483,7 @@ function TransferModal({ fromDriver, fromDriverName, items, choferes, onClose, o
   const destChoferes = choferes.filter((c) => c.email !== fromDriver)
 
   const toggle = (dndId: string) =>
-    setSelected((prev) => { const s = new Set(prev); s.has(dndId) ? s.delete(dndId) : s.add(dndId); return s })
+    setSelected((prev) => { const s = new Set(prev); if (s.has(dndId)) s.delete(dndId); else s.add(dndId); return s })
 
   const toggleAll = () =>
     setSelected(selected.size === items.length ? new Set() : new Set(items.map((i) => i.dndId)))

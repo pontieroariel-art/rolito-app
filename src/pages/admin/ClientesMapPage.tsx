@@ -168,7 +168,7 @@ function PendingCoordPanel({
 
   const handle = async (action: 'approve' | 'reject') => {
     setLoading(action)
-    try { action === 'approve' ? await onApprove() : await onReject() } finally { setLoading(null) }
+    try { if (action === 'approve') await onApprove(); else await onReject() } finally { setLoading(null) }
   }
 
   const fecha = coord.timestamp?.toDate?.()?.toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) ?? ''

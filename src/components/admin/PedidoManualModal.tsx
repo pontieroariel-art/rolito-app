@@ -134,7 +134,7 @@ function StepProductos({
   const [checkingDup, setCheckingDup] = useState(false)
   const [duplicates,  setDuplicates]  = useState<Order[] | null>(null)
   const parseHorario = (h?: string) => {
-    const parts = (h ?? '').split(/\s*[–\-]\s*/)
+    const parts = (h ?? '').split(/\s*[–-]\s*/)
     return { desde: parts[0]?.trim() ?? '', hasta: parts[1]?.trim() ?? '' }
   }
   const [horarioDesde, setHorarioDesde] = useState(() => parseHorario(initialHorario).desde)
