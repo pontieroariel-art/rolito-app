@@ -157,6 +157,11 @@ describe('precios — edición por comercial', () => {
     await assertSucceeds(setDoc(doc(db('com'), 'config/catalogo'), { productos: [] }))
   })
 
+  test('gerente_comercial SÍ puede editar una lista de precios', async () => {
+    await seed((d) => setDoc(doc(d, 'users/gc'), { rol: 'gerente_comercial', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('gc'), 'listas-precios/l1'), { nombre: 'Mayoristas', items: [] }))
+  })
+
   test('un cliente NO puede editar listas de precios', async () => {
     await seed((d) => setDoc(doc(d, 'users/cli'), cliente()))
     await assertFails(setDoc(doc(db('cli'), 'listas-precios/l1'), { nombre: 'X', items: [] }))
