@@ -48,6 +48,14 @@ service cloud.firestore {
         return request.resource.data.get('listaPreciosId', '') == resource.data.get('listaPreciosId', '')
             && request.resource.data.get('preciosCustom', {}) == resource.data.get('preciosCustom', {});
       }
+      // Campos de identidad / internos que el cliente NO puede alterar sobre su
+      // propio documento (sí pueden hacerlo managers/logística).
+      function identidadUnchanged() {
+        return request.resource.data.get('cuit', '')           == resource.data.get('cuit', '')
+            && request.resource.data.get('codigoCliente', '')  == resource.data.get('codigoCliente', '')
+            && request.resource.data.get('codVendedor', '')    == resource.data.get('codVendedor', '')
+            && request.resource.data.get('sector', '')         == resource.data.get('sector', '');
+      }
 
       // ── Lectura ──
       allow read: if isSelf();
@@ -67,8 +75,9 @@ service cloud.firestore {
       allow create: if request.auth != null && isOperator()
         && request.resource.data.rol == 'chofer';
 
-      // ── Edición del propio perfil: NO puede tocar rol / estado / precios ──
-      allow update: if isSelf() && rolUnchanged() && estadoUnchanged() && preciosUnchanged();
+      // ── Edición del propio perfil: NO puede tocar rol / estado / precios / identidad ──
+      allow update: if isSelf() && rolUnchanged() && estadoUnchanged()
+        && preciosUnchanged() && identidadUnchanged();
 
       // ── gerente_comercial y comercial: gestión de clientes y precios (no roles) ──
       allow update: if request.auth != null
@@ -88,7 +97,21 @@ service cloud.firestore {
       // El cliente solo puede crear pedidos pendientes para sí mismo
       // El staff puede crear pedidos para cualquier cliente en cualquier estado
       allow create: if request.auth != null && (
-        (request.resource.data.clientId == request.auth.uid && request.resource.data.status == 'pendiente') ||
+        (
+          request.resource.data.clientId == request.auth.uid
+          && request.resource.data.status == 'pendiente'
+          // El cliente no puede autoasignarse un chofer al crear.
+          && request.resource.data.get('driverId', null) == null
+          // Ni fabricar campos que son solo de staff (PDF, reprogramación,
+          // entrega, OC, historial de acciones, etc.).
+          && !request.resource.data.keys().hasAny([
+               'origenPdf', 'origenManual', 'origenRecurrente', 'historialAcciones',
+               'reprogramado', 'reasignado', 'fechaOriginal', 'motivoReprogramacion',
+               'choferOriginal', 'motivoReasignacion', 'entregaParcial',
+               'productosEntregados', 'notaEntrega', 'numeroOC', 'fechaEmision',
+               'fechaTope', 'motivoCancelacion'
+             ])
+        ) ||
         isOperator() ||
         isManager()
       );
@@ -112,11 +135,14 @@ service cloud.firestore {
       // Borrado: solo operadores (herramienta de limpieza). El chofer no borra.
       allow delete: if request.auth != null && isOperator();
 
-      // El cliente puede cancelar su propio pedido solo si está pendiente
+      // El cliente puede cancelar su propio pedido solo si está pendiente, y esa
+      // operación solo puede tocar el estado/motivo (no reescribir el pedido).
       allow update: if request.auth != null &&
         request.auth.uid == resource.data.clientId &&
         resource.data.status == 'pendiente' &&
-        request.resource.data.status == 'cancelado';
+        request.resource.data.status == 'cancelado' &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'motivoCancelacion', 'updatedAt']);
     }
 
     // ── Configuración (lista de choferes, etc.) ───────────────────────────
@@ -155,10 +181,13 @@ service cloud.firestore {
     match /visitas-puntuales/{id} {
       allow read:  if request.auth != null;
       allow write: if request.auth != null && isOperator();
-      // Chofer puede actualizar sus propias visitas (marcar sin_contacto, etc.)
+      // Chofer puede actualizar sus propias visitas, solo el estado/notas/orderId
+      // (no reasignarse ni reescribir la visita).
       allow update: if request.auth != null
         && myRole() == 'chofer'
-        && resource.data.driverId == request.auth.token.email;
+        && resource.data.driverId == request.auth.token.email
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['status', 'notas', 'orderId']);
     }
 
     // ── Flota de vehículos ────────────────────────────────────────────────────
