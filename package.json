@@ -7,7 +7,9 @@
     "dev": "vite",
     "dev:netlify": "netlify dev",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "typecheck:functions": "tsc --noEmit -p functions/tsconfig.json"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
