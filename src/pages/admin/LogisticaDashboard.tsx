@@ -20,6 +20,7 @@ import { useAuth } from '../../context/AuthContext'
 import { moveOrderDate, moveOrderToBandeja, assignDriver, cancelOrderBy, editOrderBy, EditOrderParams } from '../../services/orderService'
 import { summarizeProducts, tsToDate } from '../../utils/helpers'
 import { PRODUCTS } from '../../utils/constants'
+import { useCatalogo } from '../../hooks/useCatalogo'
 import { Order, OrderProduct, UserProfile, AccionHistorial } from '../../types'
 
 // ── Constantes ────────────────────────────────────────────────────────────────
@@ -73,6 +74,12 @@ function getOrderColumn(order: Order, dayIds: Set<string>): string | null {
 
 function EditOrderModal({ order, onClose, onSaved }: { order: Order; onClose: () => void; onSaved: () => void }) {
   const { user } = useAuth()
+  const { catalogo } = useCatalogo()
+  // Catálogo completo desde Firestore. Si aún no cargó, cae a la lista base
+  // hardcodeada (evita quedarse sin productos para agregar).
+  const disponibles = catalogo.length > 0
+    ? catalogo.map((c) => ({ id: c.id, nombre: c.nombre }))
+    : PRODUCTS.map((p) => ({ id: p.id, nombre: p.name }))
   const [products,    setProducts]    = useState<OrderProduct[]>(order.products.map((p) => ({ ...p })))
   const [date,        setDate]        = useState(order.date?.toDate ? order.date.toDate().toISOString().split('T')[0] : '')
   const [horaEntrega, setHoraEntrega] = useState(order.horaEntrega ?? '')
@@ -88,12 +95,12 @@ function EditOrderModal({ order, onClose, onSaved }: { order: Order; onClose: ()
   const removeProduct = (name: string) => setProducts((prev) => prev.filter((p) => p.name !== name))
 
   const addProduct = (id: string) => {
-    const cat = PRODUCTS.find((p) => p.id === id)
+    const cat = disponibles.find((p) => p.id === id)
     if (!cat) return
-    if (products.find((p) => p.name === cat.name)) {
-      setProducts((prev) => prev.map((p) => p.name === cat.name ? { ...p, quantity: p.quantity + 1 } : p))
+    if (products.find((p) => p.name === cat.nombre)) {
+      setProducts((prev) => prev.map((p) => p.name === cat.nombre ? { ...p, quantity: p.quantity + 1 } : p))
     } else {
-      setProducts((prev) => [...prev, { name: cat.name, quantity: 1, productoId: cat.id }])
+      setProducts((prev) => [...prev, { name: cat.nombre, quantity: 1, productoId: cat.id }])
     }
   }
 
@@ -139,9 +146,9 @@ function EditOrderModal({ order, onClose, onSaved }: { order: Order; onClose: ()
           </div>
           {/* Agregar producto */}
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {PRODUCTS.filter((p) => !products.find((pp) => pp.name === p.name)).map((p) => (
+            {disponibles.filter((p) => !products.find((pp) => pp.name === p.nombre)).map((p) => (
               <button key={p.id} onClick={() => addProduct(p.id)} className="text-xs px-2.5 py-1 rounded-full border border-dashed border-gray-300 text-gray-500 hover:border-accent hover:text-accent transition-colors">
-                + {p.name}
+                + {p.nombre}
               </button>
             ))}
           </div>
