@@ -15,6 +15,7 @@ export default function EntregaModal({ order, onConfirm, onClose }: Props) {
   )
   const [nota,    setNota]    = useState('')
   const [saving,  setSaving]  = useState(false)
+  const [error,   setError]   = useState('')
 
   const entregados: OrderProduct[] = order.products.map((p) => ({
     ...p,
@@ -29,9 +30,15 @@ export default function EntregaModal({ order, onConfirm, onClose }: Props) {
   const canConfirm = !parcial || nota.trim().length > 0
 
   const handleConfirm = async () => {
+    setError('')
     setSaving(true)
-    await onConfirm(entregados, parcial, nota.trim())
-    setSaving(false)
+    try {
+      await onConfirm(entregados, parcial, nota.trim())
+      // Éxito: el padre desmonta el modal (setModal(false)).
+    } catch {
+      setError('No se pudo registrar la entrega. Revisá tu conexión y reintentá.')
+      setSaving(false)
+    }
   }
 
   return (
@@ -105,6 +112,12 @@ export default function EntregaModal({ order, onConfirm, onClose }: Props) {
             placeholder="Ej: Faltaban unidades en el camión, cliente rechazó parte..."
             className="w-full bg-[#F8F7F2] border border-orange-500/40 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-1 focus:ring-orange-500"
           />
+        </div>
+      )}
+
+      {error && (
+        <div className="mt-4 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          <p className="text-sm text-red-700">{error}</p>
         </div>
       )}
 

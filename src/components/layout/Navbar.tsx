@@ -7,6 +7,7 @@ import {
   LogOut, Menu, X,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
+import { useOnline } from '../../hooks/useOnline'
 import { logoutUser } from '../../services/authService'
 import { UserRole } from '../../types'
 
@@ -99,6 +100,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
 
 export default function Navbar() {
   const { user }        = useAuth()
+  const online          = useOnline()
   const navigate        = useNavigate()
   const [open, setOpen] = useState(false)
   const links           = user?.rol ? NAV_LINKS[user.rol] : []
@@ -181,6 +183,13 @@ export default function Navbar() {
           {open ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>
+
+      {/* Banner sin conexión — los writes se encolan y sincronizan al volver */}
+      {!online && (
+        <div className="bg-amber-500 text-white text-xs font-medium text-center px-4 py-1.5">
+          Sin conexión — los cambios se guardan y se sincronizan al reconectar.
+        </div>
+      )}
 
       {/* Menú mobile */}
       {open && (

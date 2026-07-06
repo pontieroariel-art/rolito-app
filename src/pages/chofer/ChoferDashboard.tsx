@@ -56,7 +56,7 @@ export default function ChoferDashboard() {
     ? (pairedDespachoLoading ? null : (pairedDespacho?.driverId ?? null))
     : undefined
 
-  const { orders, loading }   = useDriverOrders(ordersEmail)
+  const { orders, loading, error } = useDriverOrders(ordersEmail)
   const [registrando, setRegistrando] = useState<
     { tipo: 'programa'; data: ProgramaVisita } |
     { tipo: 'visita';   data: VisitaPuntual   } | null
@@ -233,6 +233,19 @@ export default function ChoferDashboard() {
             Cambiar PIN
           </button>
         </div>
+
+        {/* Error de carga de entregas (no confundir con "no hay entregas") */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+            <p className="text-sm text-red-700">No pudimos cargar tus entregas. Revisá tu conexión.</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="text-xs font-semibold text-red-700 border border-red-300 rounded-lg px-3 py-1.5 hover:bg-red-100 transition-colors shrink-0"
+            >
+              Reintentar
+            </button>
+          </div>
+        )}
 
         {/* Banner turno del día */}
         {despachoHoy && (
