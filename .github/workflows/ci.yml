@@ -44,6 +44,12 @@ jobs:
       - name: Install deps
         run: npm ci
 
-      # Los runners ubuntu ya traen Java, que el emulador de Firestore necesita.
+      # El emulador de Firestore necesita Java; firebase-tools exige JDK 21+
+      # y el default del runner ubuntu es más viejo.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
       - name: Tests de reglas Firestore (emulador)
         run: npm run test:rules
