@@ -1169,10 +1169,15 @@ function FichaClienteModal({
 
   const handleSaveCodigo = async () => {
     setSavingCodigo(true)
-    await updateUserDocument(user.uid, {
-      codigoCliente: codigoCliente.trim() || deleteField(),
-    })
-    setSavingCodigo(false)
+    try {
+      await updateUserDocument(user.uid, {
+        codigoCliente: codigoCliente.trim() || deleteField(),
+      })
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setSavingCodigo(false)
+    }
   }
 
   const handleActivar = async () => {
@@ -1187,9 +1192,15 @@ function FichaClienteModal({
     setEsVisita(checked)
     const update: Record<string, unknown> = { esVisita: checked }
     if (checked) update.frecuenciaVisita = frecuenciaVisita
-    await updateUserDocument(user.uid, update as any)
-    onVisitaChanged?.(checked, checked ? frecuenciaVisita : undefined)
-    setSavingVisita(false)
+    try {
+      await updateUserDocument(user.uid, update as any)
+      onVisitaChanged?.(checked, checked ? frecuenciaVisita : undefined)
+    } catch (err) {
+      console.error(err)
+      setEsVisita(!checked)
+    } finally {
+      setSavingVisita(false)
+    }
   }
 
   const handleFrecuenciaChange = async (val: string) => {
@@ -1363,7 +1374,7 @@ function FichaClienteModal({
                 <input
                   type="checkbox"
                   checked={esVisita}
-                  disabled={savingVisita}
+                  disabled={savingVisita || !canEditInfoBasica}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => handleToggleVisita(e.target.checked)}
                   className="w-4 h-4 accent-accent"
                 />
@@ -1374,7 +1385,7 @@ function FichaClienteModal({
                   <label className="text-xs text-gray-500 mb-1 block">Frecuencia</label>
                   <select
                     value={frecuenciaVisita}
-                    disabled={savingVisita}
+                    disabled={savingVisita || !canEditInfoBasica}
                     onChange={(e: ChangeEvent<HTMLSelectElement>) => handleFrecuenciaChange(e.target.value)}
                     className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
                   >

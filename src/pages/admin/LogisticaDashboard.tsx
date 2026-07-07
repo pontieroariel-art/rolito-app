@@ -86,6 +86,7 @@ function EditOrderModal({ order, onClose, onSaved }: { order: Order; onClose: ()
   const [notes,       setNotes]       = useState(order.notes ?? '')
   const [numeroOC,    setNumeroOC]    = useState(order.numeroOC ?? '')
   const [saving,      setSaving]      = useState(false)
+  const [error,       setError]       = useState('')
 
   const updateQty = (name: string, qty: number) => {
     if (qty < 1) { removeProduct(name); return }
@@ -107,11 +108,18 @@ function EditOrderModal({ order, onClose, onSaved }: { order: Order; onClose: ()
   const handleSave = async () => {
     if (!user || products.length === 0 || !date) return
     setSaving(true)
+    setError('')
     const actor = { uid: user.uid, nombre: user.nombre || user.email || 'Usuario' }
-    await editOrderBy(order.id, { products, date, horaEntrega, notes, numeroOC }, actor)
-    setSaving(false)
-    onSaved()
-    onClose()
+    try {
+      await editOrderBy(order.id, { products, date, horaEntrega, notes, numeroOC }, actor)
+      onSaved()
+      onClose()
+    } catch (err) {
+      console.error(err)
+      setError('No se pudieron guardar los cambios. Verificá tu conexión y permisos e intentá de nuevo.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -183,6 +191,10 @@ function EditOrderModal({ order, onClose, onSaved }: { order: Order; onClose: ()
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent resize-none" />
         </div>
 
+        {error && (
+          <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
+        )}
+
         <div className="flex gap-2 pt-1">
           <button onClick={onClose} className="flex-1 py-2 rounded-xl border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 transition-colors">
             Cancelar
@@ -222,15 +234,23 @@ function CancelOrderModal({ order, onClose, onCancelled }: { order: Order; onClo
   const { user }   = useAuth()
   const [motivo, setMotivo] = useState('')
   const [saving, setSaving] = useState(false)
+  const [error,  setError]  = useState('')
 
   const handleCancel = async () => {
     if (!user) return
     setSaving(true)
+    setError('')
     const actor = { uid: user.uid, nombre: user.nombre || user.email || 'Usuario' }
-    await cancelOrderBy(order.id, motivo || 'Sin motivo', actor)
-    setSaving(false)
-    onCancelled()
-    onClose()
+    try {
+      await cancelOrderBy(order.id, motivo || 'Sin motivo', actor)
+      onCancelled()
+      onClose()
+    } catch (err) {
+      console.error(err)
+      setError('No se pudo cancelar el pedido. Verificá tu conexión y permisos e intentá de nuevo.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -247,6 +267,9 @@ function CancelOrderModal({ order, onClose, onCancelled }: { order: Order; onClo
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-300 resize-none"
           />
         </div>
+        {error && (
+          <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
+        )}
         <div className="flex gap-2">
           <button onClick={onClose} className="flex-1 py-2 rounded-xl border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 transition-colors">
             Volver
@@ -276,9 +299,14 @@ const KanbanCard = memo(function KanbanCard({ order, choferes, isHighlighted }: 
 
   const handleAssign = async (email: string) => {
     setLoadingDriver(email)
-    await assignDriver(order.id, email)
-    setLoadingDriver(null)
-    setAssigning(false)
+    try {
+      await assignDriver(order.id, email)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoadingDriver(null)
+      setAssigning(false)
+    }
   }
 
   const canEdit = !['entregado', 'cancelado'].includes(order.status)
@@ -608,6 +636,12 @@ const KanbanColumn = memo(function KanbanColumn({ id, label, sublabel, orders, c
 // ── Página principal ──────────────────────────────────────────────────────────
 
 export default function LogisticaDashboard() {
+  const { user: currentUser } = useAuth()
+  // El tab Despacho opera colecciones reservadas a operadores (despachos,
+  // asignacionesDia): el gerente comercial no lo ve.
+  const tabs = currentUser?.rol === 'gerente_comercial'
+    ? (['pedidos', 'mapa'] as const)
+    : (['pedidos', 'despacho', 'mapa'] as const)
   const [mainTab,      setMainTab]      = useState<'despacho' | 'pedidos' | 'mapa'>('pedidos')
   const [importModal,  setImportModal]  = useState(false)
   const [pedidoManual, setPedidoManual] = useState(false)
@@ -698,10 +732,15 @@ export default function LogisticaDashboard() {
     if (!order) return
     const currentCol = getOrderColumn(order, dayIds)
     if (currentCol === targetCol) return
-    if (targetCol === 'bandeja') {
-      await moveOrderToBandeja(orderId)
-    } else {
-      await moveOrderDate(orderId, targetCol)
+    try {
+      if (targetCol === 'bandeja') {
+        await moveOrderToBandeja(orderId)
+      } else {
+        await moveOrderDate(orderId, targetCol)
+      }
+    } catch (err) {
+      // Si el write falla la tarjeta vuelve sola a su columna (onSnapshot manda).
+      console.error(err)
     }
   }, [orders, dayIds])
 
@@ -774,7 +813,7 @@ export default function LogisticaDashboard() {
         <PedidoSearchBar onJumpAndHighlight={handleSearchJump} onOpenDetail={setDetailOrder} />
 
         <div className="flex border-b border-gray-200 gap-1">
-          {(['pedidos', 'despacho', 'mapa'] as const).map((t) => (
+          {tabs.map((t) => (
             <button key={t} onClick={() => setMainTab(t)}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
                 mainTab === t ? 'border-accent text-accent' : 'border-transparent text-gray-500 hover:text-gray-900'

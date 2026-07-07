@@ -134,6 +134,55 @@ describe('orders — cancelación y borrado', () => {
   })
 })
 
+// ── orders: edición por gerente_comercial ─────────────────────────────────────
+describe('orders — edición por gerente_comercial', () => {
+  const seedPedido = () => seed((d) => setDoc(doc(d, 'orders/o1'), pedido()))
+
+  test('gerente_comercial SÍ puede editar un pedido (kanban de planificación)', async () => {
+    await seed((d) => setDoc(doc(d, 'users/gc'), { rol: 'gerente_comercial', estado: 'activo' }))
+    await seedPedido()
+    await assertSucceeds(updateDoc(doc(db('gc'), 'orders/o1'), {
+      products: [{ name: 'Hielo', quantity: 5 }], updatedAt: new Date(),
+    }))
+  })
+
+  test('gerente_general NO puede editar pedidos (sin operación)', async () => {
+    await seed((d) => setDoc(doc(d, 'users/gg'), { rol: 'gerente_general', estado: 'activo' }))
+    await seedPedido()
+    await assertFails(updateDoc(doc(db('gg'), 'orders/o1'), {
+      products: [{ name: 'Hielo', quantity: 5 }],
+    }))
+  })
+
+  test('comercial NO puede editar pedidos', async () => {
+    await seed((d) => setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' }))
+    await seedPedido()
+    await assertFails(updateDoc(doc(db('com'), 'orders/o1'), {
+      products: [{ name: 'Hielo', quantity: 5 }],
+    }))
+  })
+})
+
+// ── users: código de cliente por facturación ──────────────────────────────────
+describe('users — código de cliente por facturación', () => {
+  const seedFacturacion = () => seed(async (d) => {
+    await setDoc(doc(d, 'users/fac'), { rol: 'facturacion', estado: 'activo' })
+    await setDoc(doc(d, 'users/cli'), cliente())
+  })
+
+  test('facturacion SÍ puede asignar codigoCliente', async () => {
+    await seedFacturacion()
+    await assertSucceeds(updateDoc(doc(db('fac'), 'users/cli'), { codigoCliente: 'CLI-0042' }))
+  })
+
+  test('facturacion NO puede tocar otros campos del cliente', async () => {
+    await seedFacturacion()
+    await assertFails(updateDoc(doc(db('fac'), 'users/cli'), {
+      codigoCliente: 'CLI-0042', listaPreciosId: 'vip',
+    }))
+  })
+})
+
 // ── cuitIndex: anti-poisoning ─────────────────────────────────────────────────
 describe('cuitIndex — anti-poisoning', () => {
   test('cliente SÍ puede apuntar un CUIT a SU propio email', async () => {

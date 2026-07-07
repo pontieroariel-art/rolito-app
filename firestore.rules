@@ -90,6 +90,11 @@ service cloud.firestore {
       allow update: if request.auth != null && isGerenteGeneral()
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['estado', 'fechaAprobacion', 'aprobadoPor']);
+
+      // ── facturacion: asignar código interno de facturación (solo ese campo) ──
+      allow update: if request.auth != null && isFacturacion()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['codigoCliente']);
     }
 
     // ── Pedidos ────────────────────────────────────────────────────────────
@@ -126,10 +131,12 @@ service cloud.firestore {
         isGerenteGeneral()
       );
 
-      // Actualización: el chofer asignado (para marcar entregado) o un operador
+      // Actualización: el chofer asignado (para marcar entregado), un operador
+      // o el gerente comercial (gestiona pedidos desde el kanban de /logistica)
       allow update: if request.auth != null && (
         request.auth.token.email == resource.data.driverId ||
-        isOperator()
+        isOperator() ||
+        isGerenteComercial()
       );
 
       // Borrado: solo operadores (herramienta de limpieza). El chofer no borra.
