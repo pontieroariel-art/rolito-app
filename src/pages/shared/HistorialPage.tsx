@@ -194,7 +194,7 @@ export default function HistorialPage() {
       <main className="max-w-4xl mx-auto p-4 space-y-5 pb-10">
 
         <div>
-          <h1 className="text-2xl font-bold">Historial</h1>
+          <h1 className="text-2xl font-bold">Movimientos</h1>
           <p className="text-gray-500 text-sm mt-0.5">Pedidos y visitas del período</p>
         </div>
 

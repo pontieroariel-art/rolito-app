@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import {
-  LayoutDashboard, CalendarDays, Activity, AlertTriangle,
+  LayoutDashboard, CalendarDays, Activity, AlertTriangle, ClipboardList,
   Truck, Users, Tag, Map, Cloud, Package, Navigation, BarChart2,
   DollarSign, TrendingUp, Clock, Home, Plus, History, UserCircle,
   LogOut, Menu, X,
@@ -20,20 +20,20 @@ interface NavLinkItem {
 const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
   gerente_general: [
     { to: '/gerente',                       label: 'Tablero',        icon: LayoutDashboard },
-    { to: '/admin/monitoreo',               label: 'GPS en vivo',    icon: Activity },
+    { to: '/admin/monitoreo',               label: 'Monitoreo',      icon: Activity },
     { to: '/usuarios',                      label: 'Clientes',       icon: Users },
     { to: '/admin/mapa-clientes',           label: 'Mapa clientes',  icon: Map },
     { to: '/comercial/ventas',              label: 'Ventas',         icon: TrendingUp },
     { to: '/comercial/historial-precios',   label: 'Hist. precios',  icon: Clock },
   ],
   gerente_comercial: [
-    { to: '/logistica',                    label: 'Kanban',          icon: CalendarDays },
+    { to: '/logistica',                    label: 'Planificación',   icon: CalendarDays },
     { to: '/admin/monitoreo',              label: 'Monitoreo',       icon: Activity },
     { to: '/admin/clima',                  label: 'Clima',           icon: Cloud },
     { to: '/usuarios',                     label: 'Clientes',        icon: Users },
     { to: '/admin/precios',                label: 'Precios',         icon: Tag },
     { to: '/movimientos',                  label: 'Movimientos',     icon: BarChart2 },
-    { to: '/comercial/ventas',             label: 'Rep. ventas',     icon: TrendingUp },
+    { to: '/comercial/ventas',             label: 'Ventas',          icon: TrendingUp },
   ],
   cliente: [
     { to: '/dashboard',    label: 'Inicio',        icon: Home },
@@ -46,11 +46,12 @@ const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
     { to: '/admin/planificacion',           label: 'Planificación', icon: CalendarDays },
     { to: '/admin/monitoreo',               label: 'Monitoreo',     icon: Activity },
     { to: '/admin/incidencias',             label: 'Incidencias',   icon: AlertTriangle },
+    { to: '/admin/visitas',                 label: 'Visitas',       icon: ClipboardList },
     { to: '/admin/flota',                   label: 'Flota',         icon: Truck },
     { to: '/admin/clima',                   label: 'Clima',         icon: Cloud },
     { to: '/usuarios',                      label: 'Usuarios',      icon: Users },
     { to: '/admin/mapa-clientes',           label: 'Mapa clientes', icon: Map },
-    { to: '/comercial/mapa',                label: 'En vivo',       icon: Navigation },
+    { to: '/comercial/mapa',                label: 'Reparto',       icon: Navigation },
     { to: '/movimientos',                   label: 'Movimientos',   icon: BarChart2 },
     { to: '/admin/precios',                 label: 'Precios',       icon: Tag },
     { to: '/comercial/reporte-precios',     label: 'Rep. precios',  icon: DollarSign },
@@ -58,8 +59,9 @@ const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
     { to: '/comercial/historial-precios',   label: 'Hist. precios', icon: Clock },
   ],
   logistica: [
-    { to: '/logistica',           label: 'Tablero',        icon: LayoutDashboard },
+    { to: '/logistica',           label: 'Planificación',  icon: CalendarDays },
     { to: '/admin/monitoreo',     label: 'Monitoreo',      icon: Activity },
+    { to: '/admin/visitas',       label: 'Visitas',        icon: ClipboardList },
     { to: '/admin/flota',         label: 'Flota',          icon: Truck },
     { to: '/admin/precios',       label: 'Precios',        icon: Tag },
     { to: '/admin/clima',         label: 'Clima',          icon: Cloud },
@@ -68,25 +70,24 @@ const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
   ],
   comercial: [
     { to: '/comercial',                   label: 'Tablero',        icon: LayoutDashboard },
-    { to: '/admin/planificacion',         label: 'Planificación',  icon: CalendarDays },
     { to: '/usuarios',                    label: 'Clientes',       icon: Users },
     { to: '/admin/mapa-clientes',         label: 'Mapa clientes',  icon: Map },
     { to: '/movimientos',                 label: 'Movimientos',    icon: BarChart2 },
     { to: '/admin/precios',               label: 'Precios',        icon: Tag },
     { to: '/comercial/reporte-precios',   label: 'Rep. precios',   icon: DollarSign },
-    { to: '/comercial/mapa',              label: 'En vivo',        icon: Navigation },
+    { to: '/comercial/mapa',              label: 'Reparto',        icon: Navigation },
   ],
   facturacion: [
-    { to: '/movimientos',                  label: 'Historial',      icon: BarChart2 },
+    { to: '/movimientos',                  label: 'Movimientos',    icon: BarChart2 },
     { to: '/comercial/ventas',             label: 'Ventas',         icon: TrendingUp },
-    { to: '/comercial/reporte-precios',    label: 'Precios',        icon: DollarSign },
+    { to: '/comercial/reporte-precios',    label: 'Rep. precios',   icon: DollarSign },
     { to: '/comercial/historial-precios',  label: 'Hist. precios',  icon: Clock },
     { to: '/usuarios',                     label: 'Clientes',       icon: Users },
     { to: '/admin/mapa-clientes',          label: 'Mapa clientes',  icon: Map },
   ],
   chofer: [
     { to: '/chofer',     label: 'Inicio',       icon: Home },
-    { to: '/chofer/map', label: 'Ver ruta',     icon: Navigation },
+    { to: '/chofer/map', label: 'Ruta',         icon: Navigation },
   ],
 }
 

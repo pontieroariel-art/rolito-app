@@ -470,7 +470,7 @@ export default function ClientesMapPage() {
           <div className="p-4 border-b border-[#D3D1C7]">
             <div className="flex items-center gap-2 mb-1">
               <button
-                onClick={() => navigate('/admin/usuarios')}
+                onClick={() => navigate('/usuarios')}
                 className="text-gray-400 hover:text-gray-700 transition-colors p-1 -ml-1 rounded-lg hover:bg-gray-100"
               >
                 <ArrowLeft size={16} />

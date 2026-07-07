@@ -137,6 +137,9 @@ function AppContent() {
         <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica', 'gerente_comercial']} />}>
           <Route path="/logistica"           element={<LogisticaDashboard />} />
           <Route path="/admin/planificacion" element={<LogisticaDashboard />} />
+        </Route>
+        {/* Clima es solo lectura: comercial también entra (linkeado desde su tablero) */}
+        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica', 'gerente_comercial', 'comercial']} />}>
           <Route path="/admin/clima"         element={<ClimaPage />} />
         </Route>
         <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica', 'gerente_general', 'gerente_comercial']} />}>

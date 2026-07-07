@@ -288,9 +288,12 @@ export default function UserManagement() {
           </div>
         </div>
 
-        {/* Tabs */}
+        {/* Tabs — Equipo solo para quienes gestionan staff/choferes */}
         <div className="flex border-b border-gray-200 gap-1">
-          {(['clientes', 'equipo'] as const).map((t) => (
+          {(['super_admin', 'logistica'].includes(currentUser?.rol ?? '')
+            ? (['clientes', 'equipo'] as const)
+            : (['clientes'] as const)
+          ).map((t) => (
             <button
               key={t}
               onClick={() => { handleTabChange(t); setSearch(''); setSectorFilter('all') }}
@@ -302,7 +305,7 @@ export default function UserManagement() {
             >
               {t === 'clientes'
                 ? `Clientes (${sucursalesFlat.length})`
-                : `Equipo Rolito (${equipo.length})`}
+                : `Equipo (${equipo.length})`}
             </button>
           ))}
         </div>
