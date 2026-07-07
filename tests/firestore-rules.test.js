@@ -146,7 +146,26 @@ describe('orders — edición por gerente_comercial', () => {
     }))
   })
 
-  test('gerente_general NO puede editar pedidos (sin operación)', async () => {
+  test('gerente_general SÍ puede reprogramar un pedido (campos acotados)', async () => {
+    await seed((d) => setDoc(doc(d, 'users/gg'), { rol: 'gerente_general', estado: 'activo' }))
+    await seedPedido()
+    await assertSucceeds(updateDoc(doc(db('gg'), 'orders/o1'), {
+      date: new Date(), reprogramado: true, fechaOriginal: new Date(),
+      motivoReprogramacion: 'Camión averiado', choferOriginal: null,
+      driverId: null, status: 'pendiente', updatedAt: new Date(),
+    }))
+  })
+
+  test('gerente_general SÍ puede reasignar chofer', async () => {
+    await seed((d) => setDoc(doc(d, 'users/gg'), { rol: 'gerente_general', estado: 'activo' }))
+    await seedPedido()
+    await assertSucceeds(updateDoc(doc(db('gg'), 'orders/o1'), {
+      driverId: 'chofer2@x.com', reasignado: true, choferOriginal: 'chofer1@x.com',
+      motivoReasignacion: 'Zona más cercana', updatedAt: new Date(),
+    }))
+  })
+
+  test('gerente_general NO puede reescribir el pedido (productos)', async () => {
     await seed((d) => setDoc(doc(d, 'users/gg'), { rol: 'gerente_general', estado: 'activo' }))
     await seedPedido()
     await assertFails(updateDoc(doc(db('gg'), 'orders/o1'), {

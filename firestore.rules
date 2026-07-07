@@ -139,6 +139,16 @@ service cloud.firestore {
         isGerenteComercial()
       );
 
+      // gerente_general: reprogramar/reasignar desde /admin/monitoreo.
+      // Solo los campos de esas dos acciones; no puede reescribir el pedido.
+      allow update: if request.auth != null && isGerenteGeneral()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly([
+               'date', 'driverId', 'status', 'updatedAt',
+               'reprogramado', 'fechaOriginal', 'motivoReprogramacion',
+               'reasignado', 'choferOriginal', 'motivoReasignacion'
+             ]);
+
       // Borrado: solo operadores (herramienta de limpieza). El chofer no borra.
       allow delete: if request.auth != null && isOperator();
 
