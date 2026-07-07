@@ -82,7 +82,6 @@ export const getUserDocument = async (uid: string): Promise<UserProfile | null> 
 
 export const updateUserDocument = (
   uid: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: Record<string, any>,
 ): Promise<void> => updateDoc(doc(db, 'users', uid), data)
 

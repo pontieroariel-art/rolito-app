@@ -58,7 +58,6 @@ export default function ComercialOrders() {
     return new Set(
       clientes.filter((c) => c.codigoCliente?.toLowerCase().includes(q)).map((c) => c.uid),
     )
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientes, search])
 
   // ── Filtrado ─────────────────────────────────────────────────────────────
