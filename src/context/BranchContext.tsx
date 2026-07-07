@@ -49,6 +49,8 @@ export function BranchProvider({ children }: { children: ReactNode }) {
     } else {
       setSelectedAddressState(null)
     }
+    // addressesKey reemplaza deliberadamente a user.addresses (ver comentario arriba)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.uid, addressesKey])
 
   const setSelectedAddress = (addr: DeliveryAddress) => {

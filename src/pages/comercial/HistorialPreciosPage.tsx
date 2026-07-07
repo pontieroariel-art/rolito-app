@@ -218,6 +218,13 @@ function ClienteChart({ eventos }: { eventos: HistorialPrecioEvento[] }) {
 
 type Periodo = '30d' | '90d' | '1y' | 'all'
 
+const periodoMs: Record<Periodo, number> = {
+  '30d': 30 * 86400000,
+  '90d': 90 * 86400000,
+  '1y':  365 * 86400000,
+  'all': Infinity,
+}
+
 export default function HistorialPreciosPage() {
   const { historial, loading, error, reload } = useAllHistorial()
   const { data: users = [] } = useQuery({
@@ -231,13 +238,6 @@ export default function HistorialPreciosPage() {
   const [tipoFilter,    setTipoFilter]    = useState<'all' | 'lista' | 'custom'>('all')
   const [soloAlertas,   setSoloAlertas]   = useState(false)
   const [clienteDetalle, setClienteDetalle] = useState<string | null>(null)
-
-  const periodoMs: Record<Periodo, number> = {
-    '30d': 30 * 86400000,
-    '90d': 90 * 86400000,
-    '1y':  365 * 86400000,
-    'all': Infinity,
-  }
 
   // Clientes cuyo código coincide con la búsqueda — permite encontrar
   // eventos por código de cliente aunque el evento no lo guarde.

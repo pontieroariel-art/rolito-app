@@ -14,7 +14,7 @@ export default function LoginChofer() {
   useEffect(() => {
     if (!user) return
     navigate('/chofer', { replace: true })
-  }, [user])
+  }, [user, navigate])
 
   const [dni,     setDni]     = useState('')
   const [pin,     setPin]     = useState('')

@@ -1,4 +1,4 @@
-import { useState, useEffect, ChangeEvent } from 'react'
+import { useState, useEffect, useCallback, ChangeEvent } from 'react'
 import Navbar from '../../components/layout/Navbar'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
@@ -337,7 +337,7 @@ export default function VisitasPage() {
   const [clientes,       setClientes]       = useState<UserProfile[]>([])
   const [loadingClients, setLoadingClients] = useState(false)
 
-  const loadClients = async () => {
+  const loadClients = useCallback(async () => {
     if (clientes.length > 0) return
     setLoadingClients(true)
     try {
@@ -346,7 +346,7 @@ export default function VisitasPage() {
     } finally {
       setLoadingClients(false)
     }
-  }
+  }, [clientes.length])
 
   const openAddPrograma = () => { loadClients(); setAddProgramaModal(true) }
   const openAddVisita   = () => { loadClients(); setAddVisitaModal(true) }
@@ -354,7 +354,7 @@ export default function VisitasPage() {
 
   useEffect(() => {
     if (tab === 'seguimiento') loadClients()
-  }, [tab])
+  }, [tab, loadClients])
 
   // Agenda del día seleccionado
   const fechaAgenda     = new Date(agendaDate + 'T12:00:00')

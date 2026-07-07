@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { GoogleMap, Marker, DirectionsRenderer } from '@react-google-maps/api'
 import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
 import { subscribeDriverLocation, DriverLocation } from '../../services/locationService'
@@ -39,7 +39,7 @@ export function TruckTracker({ order, clientEmail, clientNombre, onNearby }: Tru
   const mapRef              = useRef<google.maps.Map | null>(null)
   const hasFitted           = useRef(false)
   const hasSentNotif        = useRef(false)
-  const notifyCercaMutation = useNotifyCerca()
+  const { mutate: notifyCerca } = useNotifyCerca()
 
   const [driverData,   setDriverData]   = useState<DriverLocation | null>(null)
   const [deliveryPos,  setDeliveryPos]  = useState<Coords | null>(null)
@@ -47,7 +47,10 @@ export function TruckTracker({ order, clientEmail, clientNombre, onNearby }: Tru
   const [eta,          setEta]          = useState<string | null>(null)
   const [expanded,     setExpanded]     = useState(false)
 
-  const truckPos: Coords | null = driverData ? { lat: driverData.lat, lng: driverData.lng } : null
+  const truckPos: Coords | null = useMemo(
+    () => (driverData ? { lat: driverData.lat, lng: driverData.lng } : null),
+    [driverData],
+  )
   const distance = truckPos && deliveryPos ? haversineMeters(truckPos, deliveryPos) : null
 
   useEffect(() => {
@@ -100,10 +103,10 @@ export function TruckTracker({ order, clientEmail, clientNombre, onNearby }: Tru
     if (!distance || hasSentNotif.current || !clientEmail) return
     if (distance < 1000) {
       hasSentNotif.current = true
-      notifyCercaMutation.mutate({ orderId: order.id })
+      notifyCerca({ orderId: order.id })
       onNearby()
     }
-  }, [distance, clientEmail, clientNombre, order.products, onNearby])
+  }, [distance, clientEmail, order.id, notifyCerca, onNearby])
 
   const isNearby = distance !== null && distance < 500
 

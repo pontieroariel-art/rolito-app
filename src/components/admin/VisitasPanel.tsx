@@ -1,4 +1,4 @@
-import { useState, useEffect, ChangeEvent } from 'react'
+import { useState, useEffect, useCallback, ChangeEvent } from 'react'
 import Button from '../ui/Button'
 import Modal from '../ui/Modal'
 import LoadingSpinner from '../ui/LoadingSpinner'
@@ -271,7 +271,7 @@ export default function VisitasPanel() {
   const [clientes,         setClientes]         = useState<UserProfile[]>([])
   const [loadingClients,   setLoadingClients]   = useState(false)
 
-  const loadClients = async () => {
+  const loadClients = useCallback(async () => {
     if (clientes.length > 0) return
     setLoadingClients(true)
     try {
@@ -280,13 +280,13 @@ export default function VisitasPanel() {
     } finally {
       setLoadingClients(false)
     }
-  }
+  }, [clientes.length])
 
   const openAddPrograma  = () => { loadClients(); setAddProgramaModal(true) }
   const openAddVisita    = () => { loadClients(); setAddVisitaModal(true) }
   const openEditPrograma = (p: ProgramaVisita) => { loadClients(); setEditPrograma(p) }
 
-  useEffect(() => { if (tab === 'seguimiento') loadClients() }, [tab])
+  useEffect(() => { if (tab === 'seguimiento') loadClients() }, [tab, loadClients])
 
   const fechaAgenda      = new Date(agendaDate + 'T12:00:00')
   const programasHoy     = programasParaFecha(programas, fechaAgenda)

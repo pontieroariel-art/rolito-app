@@ -302,7 +302,7 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
         } as ClientMarker
       }),
     ).then((res) => setClientMarkers(res.filter(Boolean) as ClientMarker[]))
-  }, [isLoaded, clientsWithoutOrder, geocode])
+  }, [isLoaded, allClients.length, clientsWithoutOrder, geocode])
 
   // Visitas puntuales del día seleccionado (de Firestore en tiempo real)
   const visitasDelDia = useMemo(
@@ -463,7 +463,7 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
     const bounds = new google.maps.LatLngBounds()
     pts.forEach((p) => bounds.extend(p))
     mapRef.current.fitBounds(bounds, 60)
-  }, [orderMarkers, clientMarkers, showAllClients])
+  }, [orderMarkers, clientMarkers, showAllClients, visitasDelDia])
 
   // Choferes activos en el día (con pedidos O con visitas agendadas)
   const activeDrivers = choferes.filter((c) =>

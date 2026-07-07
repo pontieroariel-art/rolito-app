@@ -27,7 +27,7 @@ export default function LoginEmpresa() {
     if (user.estado === 'pendiente') { navigate('/pendiente', { replace: true }); return }
     if (user.estado === 'inactivo')  { navigate('/',          { replace: true }); return }
     navigate(ROLE_HOME[user.rol] ?? '/', { replace: true })
-  }, [user])
+  }, [user, navigate])
 
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')

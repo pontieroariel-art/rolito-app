@@ -18,7 +18,7 @@ export default function LoginClientes() {
     if (user.estado === 'pendiente') { navigate('/pendiente',  { replace: true }); return }
     if (user.estado === 'inactivo')  { navigate('/clientes',   { replace: true }); return }
     navigate('/dashboard', { replace: true })
-  }, [user])
+  }, [user, navigate])
 
   const [cuit,     setCuit]     = useState('')
   const [password, setPassword] = useState('')

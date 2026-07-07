@@ -457,13 +457,14 @@ function MiniCalendar({
   })
 
   useEffect(() => {
-    if (
-      startDate.getMonth()    !== viewMonth.getMonth() ||
-      startDate.getFullYear() !== viewMonth.getFullYear()
-    ) {
+    setViewMonth((prev) => {
+      if (
+        startDate.getMonth()    === prev.getMonth() &&
+        startDate.getFullYear() === prev.getFullYear()
+      ) return prev
       const d = new Date(startDate); d.setDate(1); d.setHours(0, 0, 0, 0)
-      setViewMonth(d)
-    }
+      return d
+    })
   }, [startDate])
 
   const datesWithOrders = useMemo(() => {
@@ -717,7 +718,7 @@ export default function LogisticaDashboard() {
       arr.sort((a, b) => orderDateStr(a).localeCompare(orderDateStr(b)) || a.clientName.localeCompare(b.clientName)),
     )
     return result
-  }, [orders, columns, dayIds, startDate])
+  }, [orders, columns, dayIds])
 
   const activeOrder = activeId ? orders.find((o) => o.id === activeId) : null
 

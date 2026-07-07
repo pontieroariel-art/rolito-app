@@ -182,8 +182,10 @@ export default function ChoferDashboard() {
     return () => {
       clearInterval(id)
       document.removeEventListener('visibilitychange', onVisible)
-      // Microtask: si un nuevo efecto ya montó (gen cambió), no desactivar
+      // Microtask: si un nuevo efecto ya montó (gen cambió), no desactivar.
+      // Leer el .current actual (no una copia) es justamente el objetivo.
       Promise.resolve().then(() => {
+        // eslint-disable-next-line react-hooks/exhaustive-deps
         if (locationGenRef.current === gen) {
           deactivateDriverLocation(email).catch(console.error)
         }

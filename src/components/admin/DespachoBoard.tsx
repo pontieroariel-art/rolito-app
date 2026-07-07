@@ -824,23 +824,7 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
 
   const handleDragStart = ({ active }: DragStartEvent) => setActiveId(active.id as string)
 
-  const handleDragEnd = useCallback(async ({ active, over }: DragEndEvent) => {
-    setActiveId(null)
-    if (!over) return
-    const dndId    = active.id as string
-    const targetCol = over.id as string
-    const currentCol = assignments[dndId] ?? 'sin_asignar'
-    if (currentCol === targetCol) return
-
-    const targetDesp = targetCol !== 'sin_asignar' ? despachoByDriver[targetCol] : undefined
-    if (targetDesp?.status === 'confirmado') {
-      setPendingMove({ dndId, from: currentCol, to: targetCol })
-      return
-    }
-    await doMove(dndId, currentCol, targetCol)
-  }, [assignments, despachoByDriver])
-
-  async function doMove(dndId: string, from: string, to: string, flagModified = false) {
+  const doMove = useCallback(async (dndId: string, from: string, to: string, flagModified = false) => {
     setAssignments((prev) => ({ ...prev, [dndId]: to }))
     const { kind, id } = parseDndId(dndId)
     const newDriverId  = to === 'sin_asignar' ? null : to
@@ -857,7 +841,23 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
       const desp = despachoByDriver[to]
       if (desp) await saveDespacho({ ...desp, modifiedAfterConfirm: true })
     }
-  }
+  }, [despachoByDriver])
+
+  const handleDragEnd = useCallback(async ({ active, over }: DragEndEvent) => {
+    setActiveId(null)
+    if (!over) return
+    const dndId    = active.id as string
+    const targetCol = over.id as string
+    const currentCol = assignments[dndId] ?? 'sin_asignar'
+    if (currentCol === targetCol) return
+
+    const targetDesp = targetCol !== 'sin_asignar' ? despachoByDriver[targetCol] : undefined
+    if (targetDesp?.status === 'confirmado') {
+      setPendingMove({ dndId, from: currentCol, to: targetCol })
+      return
+    }
+    await doMove(dndId, currentCol, targetCol)
+  }, [assignments, despachoByDriver, doMove])
 
   const [pendingMove, setPendingMove] = useState<{ dndId: string; from: string; to: string } | null>(null)
 
