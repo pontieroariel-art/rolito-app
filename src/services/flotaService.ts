@@ -6,6 +6,7 @@ import {
   onSnapshot,
   query,
   orderBy,
+  limit,
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from './firebase'
@@ -17,7 +18,7 @@ export const subscribeCamiones = (
   callback: (camiones: Camion[]) => void,
 ): () => void =>
   onSnapshot(
-    query(collection(db, FLOTA), orderBy('patente')),
+    query(collection(db, FLOTA), orderBy('patente'), limit(500)),
     (snap) =>
       callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Camion))),
     () => callback([]),

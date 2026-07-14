@@ -8,6 +8,7 @@ import {
   query,
   where,
   orderBy,
+  limit,
   serverTimestamp,
   Timestamp,
 } from 'firebase/firestore'
@@ -43,14 +44,24 @@ export const deletePrograma = (id: string): Promise<void> =>
 
 // ── Visitas puntuales ─────────────────────────────────────────────────────────
 
+// Acotada a los últimos 30 días → futuro, igual que subscribeKanbanOrders:
+// visitas-puntuales crece un documento por visita, sin este límite la
+// colección entera se descarga en cada cliente que abre el panel/tablero.
 export const subscribeVisitasPuntuales = (
   callback: (v: VisitaPuntual[]) => void,
-): () => void =>
-  onSnapshot(
-    query(collection(db, PUNTUALES), orderBy('fecha', 'desc')),
+): () => void => {
+  const thirtyDaysAgo = Timestamp.fromDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
+  return onSnapshot(
+    query(
+      collection(db, PUNTUALES),
+      where('fecha', '>=', thirtyDaysAgo),
+      orderBy('fecha', 'desc'),
+      limit(500),
+    ),
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as VisitaPuntual))),
     () => callback([]),
   )
+}
 
 export const addVisitaPuntual = (
   data: Omit<VisitaPuntual, 'id' | 'createdAt'>,

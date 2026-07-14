@@ -13,6 +13,7 @@ const LIGHT_MAP_STYLES: google.maps.MapTypeStyle[] = [
 ]
 
 const BA_DEFAULT = { lat: -34.6037, lng: -58.3816 }
+const STALE_MS    = 20 * 60 * 1000
 
 type Coords = { lat: number; lng: number }
 
@@ -52,6 +53,7 @@ export function TruckTracker({ order, clientEmail, clientNombre, onNearby }: Tru
     [driverData],
   )
   const distance = truckPos && deliveryPos ? haversineMeters(truckPos, deliveryPos) : null
+  const isStale  = !!(driverData?.timestamp && Date.now() - driverData.timestamp > STALE_MS)
 
   useEffect(() => {
     if (!order.driverId) return
@@ -100,15 +102,18 @@ export function TruckTracker({ order, clientEmail, clientNombre, onNearby }: Tru
   }, [truckPos, deliveryPos])
 
   useEffect(() => {
-    if (!distance || hasSentNotif.current || !clientEmail) return
+    // No avisar "está cerca" en base a una posición vieja: si se cortó la
+    // señal del chofer, la última ubicación conocida puede estar a varios km
+    // de la actual y generaría una notificación falsa.
+    if (!distance || hasSentNotif.current || !clientEmail || isStale) return
     if (distance < 1000) {
       hasSentNotif.current = true
       notifyCerca({ orderId: order.id })
       onNearby()
     }
-  }, [distance, clientEmail, order.id, notifyCerca, onNearby])
+  }, [distance, clientEmail, order.id, notifyCerca, onNearby, isStale])
 
-  const isNearby = distance !== null && distance < 500
+  const isNearby = distance !== null && distance < 500 && !isStale
 
   return (
     <section className="space-y-3">
@@ -137,10 +142,17 @@ export function TruckTracker({ order, clientEmail, clientNombre, onNearby }: Tru
               </div>
               <div>
                 <p className="font-semibold text-sm text-gray-900">{driverData?.nombreChofer ?? 'Chofer en camino'}</p>
-                <p className="text-xs text-accent flex items-center gap-1 mt-0.5">
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent" />
-                  En camino
-                </p>
+                {isStale ? (
+                  <p className="text-xs text-orange-500 flex items-center gap-1 mt-0.5">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-orange-400" />
+                    Sin señal reciente — última ubicación hace rato
+                  </p>
+                ) : (
+                  <p className="text-xs text-accent flex items-center gap-1 mt-0.5">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent" />
+                    En camino
+                  </p>
+                )}
               </div>
             </div>
             {driverData?.telefonoChofer && (
@@ -166,6 +178,11 @@ export function TruckTracker({ order, clientEmail, clientNombre, onNearby }: Tru
               </p>
             </div>
           </div>
+          {isStale && (
+            <p className="text-xs text-orange-500 text-center pt-1 border-t border-gray-100">
+              ⚠ El tiempo y la distancia son aproximados: no recibimos una ubicación reciente del camión.
+            </p>
+          )}
         </div>
       )}
 

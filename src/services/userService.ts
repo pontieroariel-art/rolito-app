@@ -141,14 +141,14 @@ export const getAllUsers = async (force = false): Promise<UserProfile[]> => {
 export const getStaffUsers = async (): Promise<UserProfile[]> => {
   const roles: UserRole[] = ['super_admin', 'gerente_comercial', 'comercial', 'logistica', 'facturacion', 'chofer']
   const snap = await getDocs(
-    query(collection(db, 'users'), where('rol', 'in', roles)),
+    query(collection(db, 'users'), where('rol', 'in', roles), limit(6000)),
   )
   return snap.docs.map((d) => ({ uid: d.id, ...d.data() } as UserProfile))
 }
 
 export const getClientesActivos = async (): Promise<UserProfile[]> => {
   const snap = await getDocs(
-    query(collection(db, 'users'), where('rol', '==', 'cliente'), where('estado', '==', 'activo')),
+    query(collection(db, 'users'), where('rol', '==', 'cliente'), where('estado', '==', 'activo'), limit(6000)),
   )
   return snap.docs.map((d) => ({ uid: d.id, ...d.data() } as UserProfile))
 }
@@ -156,14 +156,14 @@ export const getClientesActivos = async (): Promise<UserProfile[]> => {
 // Todos los clientes sin filtrar por estado — mismo conjunto que UserManagement
 export const getTodosLosClientes = async (): Promise<UserProfile[]> => {
   const snap = await getDocs(
-    query(collection(db, 'users'), where('rol', '==', 'cliente')),
+    query(collection(db, 'users'), where('rol', '==', 'cliente'), limit(6000)),
   )
   return snap.docs.map((d) => ({ uid: d.id, ...d.data() } as UserProfile))
 }
 
 export const getChoferes = async (): Promise<UserProfile[]> => {
   const snap = await getDocs(
-    query(collection(db, 'users'), where('rol', '==', 'chofer'), where('estado', '==', 'activo')),
+    query(collection(db, 'users'), where('rol', '==', 'chofer'), where('estado', '==', 'activo'), limit(6000)),
   )
   return snap.docs.map((d) => ({ uid: d.id, ...d.data() } as UserProfile))
 }
@@ -338,20 +338,29 @@ export const createChoferUser = async ({ nombreContacto, cuit, pin, telefono }: 
   await setDniIndex(normalizedCuit, email)
 }
 
-// Repara entradas faltantes en cuitIndex para todos los clientes activos
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = []
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size))
+  return out
+}
+
+// Repara entradas faltantes en cuitIndex para todos los clientes activos.
+// Se procesa en lotes en paralelo (no todo de una, para no disparar miles de
+// requests simultáneos) en vez de un for..of secuencial con await por cliente.
 export const repairCuitIndex = async (): Promise<number> => {
   const { setCuitIndex, getEmailByCuit, normalizeCuit } = await import('./cuitService')
   const users = await getAllUsers()
-  const clientes = users.filter((u) => u.rol === 'cliente' && u.cuit)
+  const clientes = users.filter((u) => u.rol === 'cliente' && u.cuit && normalizeCuit(u.cuit).length === 11)
+
   let fixed = 0
-  for (const u of clientes) {
-    const key = normalizeCuit(u.cuit)
-    if (key.length !== 11) continue
-    const existing = await getEmailByCuit(u.cuit)
-    if (!existing) {
+  for (const batch of chunk(clientes, 20)) {
+    const results = await Promise.all(batch.map(async (u) => {
+      const existing = await getEmailByCuit(u.cuit)
+      if (existing) return false
       await setCuitIndex(u.cuit, u.email)
-      fixed++
-    }
+      return true
+    }))
+    fixed += results.filter(Boolean).length
   }
   return fixed
 }

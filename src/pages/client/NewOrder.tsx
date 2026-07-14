@@ -10,6 +10,7 @@ import { Order } from '../../types'
 import { createOrder, cancelAndRecreateOrder } from '../../services/orderService'
 import { getNotificationEmails } from '../../services/configService'
 import { useListaPrecios } from '../../hooks/useListasPrecios'
+import { useOnline } from '../../hooks/useOnline'
 import { useCatalogo } from '../../hooks/useCatalogo'
 import { getPrimaryAddress } from '../../types'
 import { tsToDate } from '../../utils/helpers'
@@ -87,8 +88,17 @@ export default function NewOrder() {
   const deliveryNombre  = selectedAddress?.nombre ?? primaryAddr?.nombre
   const canSubmit = selected.length > 0 && !!deliveryAddress
 
+  const online = useOnline()
+
   const handleSubmit = async () => {
     if (!user) return
+    // Sin conexión el pedido puede quedar colgado esperando confirmación del
+    // servidor sin que el cliente sepa si se envió — bloquear acá evita que
+    // reintente y termine generando un pedido duplicado al reconectarse.
+    if (!online) {
+      setError('Estás sin conexión. Conectate a internet para poder enviar el pedido.')
+      return
+    }
     setLoading(true)
     setError('')
     try {
@@ -308,11 +318,19 @@ export default function NewOrder() {
             </div>
           </div>
 
+          {!online && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-4">
+              <p className="text-amber-700 text-xs">
+                ⚠ Estás sin conexión. Reconectate para poder enviar el pedido.
+              </p>
+            </div>
+          )}
+
           <div className="flex gap-3 mt-5">
             <Button variant="outline" onClick={() => setModal(false)} className="flex-1">
               Editar
             </Button>
-            <Button onClick={handleSubmit} loading={loading} className="flex-1">
+            <Button onClick={handleSubmit} loading={loading} disabled={!online} className="flex-1">
               {modifyOrder ? 'Confirmar modificación' : 'Enviar pedido'}
             </Button>
           </div>
