@@ -154,6 +154,16 @@ export const createOrderExterno = (params: CreateOrderExternoParams) =>
 export const updateOrderStatus = (orderId: string, status: string): Promise<void> =>
   updateDoc(doc(db, ORDERS, orderId), { status, updatedAt: serverTimestamp() })
 
+// Igual que updateOrderStatus, pero para varios pedidos a la vez en una única
+// operación atómica — usado al confirmar/reabrir un despacho completo, en vez
+// de disparar N escrituras individuales en paralelo.
+export const updateOrdersStatusBatch = async (orderIds: string[], status: string): Promise<void> => {
+  if (orderIds.length === 0) return
+  const batch = writeBatch(db)
+  orderIds.forEach((id) => batch.update(doc(db, ORDERS, id), { status, updatedAt: serverTimestamp() }))
+  await batch.commit()
+}
+
 function buildCancelFields(motivo: string) {
   return {
     status:            'cancelado' as const,

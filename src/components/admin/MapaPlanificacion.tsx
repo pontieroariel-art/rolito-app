@@ -8,6 +8,7 @@ import { useVisitasPuntuales, visitasParaFecha } from '../../hooks/useVisitas'
 import { useZonasProhibidas } from '../../hooks/useZonas'
 import { saveZonas, ZonaProhibida } from '../../services/zonasService'
 import { Order, UserProfile, getPrimaryAddress, PLANTAS, PlantaId } from '../../types'
+import { nearestNeighborOrder, timeStrToUnix, unixToTimeStr } from '../../utils/routeMath'
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -47,48 +48,8 @@ function driverColor(email: string, choferes: UserProfile[]): string {
 }
 
 
-function timeStrToUnix(date: string, time: string): number {
-  if (!time || !/^\d{1,2}:\d{2}$/.test(time)) return 0
-  return Math.floor(new Date(`${date}T${time.padStart(5, '0')}:00`).getTime() / 1000)
-}
-
-function unixToTimeStr(unix: number): string {
-  return new Date(unix * 1000).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })
-}
-
-function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
-  const R    = 6371
-  const dLat = (b.lat - a.lat) * Math.PI / 180
-  const dLng = (b.lng - a.lng) * Math.PI / 180
-  const s = Math.sin(dLat / 2) ** 2 +
-    Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) * Math.sin(dLng / 2) ** 2
-  return 2 * R * Math.asin(Math.sqrt(s))
-}
-
-// Ordena las paradas por "vecino más cercano" desde el origen. Es una
-// heurística de distancia en línea recta, no una optimización real de
-// horarios — el aviso de "fuera de horario" se calcula después, comparando
-// contra los horarios reales de cada cliente.
-function nearestNeighborOrder<T extends { lat: number; lng: number }>(
-  start: { lat: number; lng: number },
-  stops: T[],
-): T[] {
-  const remaining = [...stops]
-  const ordered: T[] = []
-  let current = start
-  while (remaining.length > 0) {
-    let bestIdx  = 0
-    let bestDist = Infinity
-    remaining.forEach((s, i) => {
-      const d = haversineKm(current, s)
-      if (d < bestDist) { bestDist = d; bestIdx = i }
-    })
-    const [next] = remaining.splice(bestIdx, 1)
-    ordered.push(next)
-    current = next
-  }
-  return ordered
-}
+// timeStrToUnix, unixToTimeStr, nearestNeighborOrder: ver src/utils/routeMath.ts
+// (antes duplicadas acá, ahora compartidas con despachoService.optimizeStopOrder)
 
 function clientInitials(name: string): string {
   const first = name.trim().split(/\s+/)[0] ?? name

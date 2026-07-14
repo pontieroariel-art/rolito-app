@@ -1,83 +1,37 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useMemo, memo } from 'react'
 import {
-  DndContext, DragOverlay, DragStartEvent, DragEndEvent,
+  DndContext, DragOverlay,
   useDroppable, useDraggable,
-  MouseSensor, TouchSensor, useSensors, useSensor, PointerSensor,
 } from '@dnd-kit/core'
 import { Truck, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Lock, CheckCircle, RotateCcw, Eye, Package, ArrowRightLeft, AlertTriangle } from 'lucide-react'
 import Button from '../ui/Button'
 import Modal from '../ui/Modal'
 import LoadingSpinner from '../ui/LoadingSpinner'
-import { Order, OrderProduct, CatalogProducto, UserProfile, Despacho, ProgramaVisita, VisitaPuntual, Camion, getPrimaryAddress, PLANTAS, PlantaId } from '../../types'
+import { Order, CatalogProducto, UserProfile, Despacho, Camion, PLANTAS, PlantaId } from '../../types'
 import { calcPallets } from '../../utils/helpers'
-import { useCatalogo } from '../../hooks/useCatalogo'
-import {
-  despachoId, saveDespacho, subscribeDespachosByFecha,
-  optimizeStopOrder, formatDespachoFecha, todayStr,
-} from '../../services/despachoService'
-import { assignDriver, updateOrderStatus, reassignOrder } from '../../services/orderService'
-import { updateVisitaPuntual, updatePrograma } from '../../services/visitasService'
-import { useProgramasVisita, useVisitasPuntuales, visitasParaFecha, programasParaFecha } from '../../hooks/useVisitas'
-import { getPushSubscriptionByEmail } from '../../services/userService'
-import { sendPush } from '../../services/notificationService'
-import { useAuth } from '../../context/AuthContext'
-import { subscribeCamiones } from '../../services/flotaService'
-import { getAsignacionesDia, setAsignacionChofer, AsignacionChofer, AsignacionesDia } from '../../services/asignacionesDiaService'
+import { formatDespachoFecha, todayStr } from '../../services/despachoService'
+import { visitasParaFecha, programasParaFecha } from '../../hooks/useVisitas'
+import { AsignacionChofer } from '../../services/asignacionesDiaService'
+import { useDespachoBoard, DayItem, dateStr, orderDateStr, PLANTA_DEFAULT } from '../../hooks/useDespachoBoard'
 
-// ── Tipos unificados ──────────────────────────────────────────────────────────
-
-type ItemKind = 'order' | 'visita' | 'programa'
-
-interface DayItem {
-  kind:     ItemKind
-  dndId:    string          // 'o:{id}' | 'v:{id}' | 'p:{id}'
-  id:       string
-  clientId: string
-  label:    string
-  sublabel: string
-  driverId: string | null
-  products?: OrderProduct[] // solo para kind === 'order'
-}
-
-function itemsFromOrder(o: Order): DayItem {
-  return { kind: 'order', dndId: `o:${o.id}`, id: o.id, clientId: o.clientId, label: o.clientName, sublabel: o.clientAddress, driverId: o.driverId, products: o.products }
-}
-function itemsFromVisita(v: VisitaPuntual): DayItem {
-  return { kind: 'visita', dndId: `v:${v.id}`, id: v.id, clientId: v.clientId, label: v.clientName, sublabel: v.clientAddress, driverId: v.driverId }
-}
-function itemsFromPrograma(p: ProgramaVisita): DayItem {
-  return { kind: 'programa', dndId: `p:${p.id}`, id: p.id, clientId: p.clientId, label: p.clientName, sublabel: p.clientAddress, driverId: p.driverId }
-}
-
-function parseDndId(dndId: string): { kind: ItemKind; id: string } {
-  const [prefix, ...rest] = dndId.split(':')
-  const id = rest.join(':')
-  const kind: ItemKind = prefix === 'o' ? 'order' : prefix === 'v' ? 'visita' : 'programa'
-  return { kind, id }
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function dateStr(d: Date): string { return d.toISOString().split('T')[0] }
-
-function orderDateStr(o: Order): string {
-  if (!o.date?.toDate) return ''
-  return dateStr(o.date.toDate())
-}
-
-function summarize(products: Order['products']): string {
-  return products.map((p) => `${p.quantity}x ${p.name}`).join(', ')
-}
-
-// PLANTA default (Torcuato) — se puede sobrescribir por despacho
-const PLANTA_DEFAULT: PlantaId = 'torcuato'
+// Tipos (DayItem/ItemKind) y helpers de fecha (dateStr/orderDateStr) ahora
+// viven en useDespachoBoard.ts junto con el resto de la lógica del tablero.
 
 const COL_COLORS = ['#00C2FF', '#FF6B6B', '#4ECDC4', '#FFE66D', '#C084FC', '#F97316', '#34D399', '#FB923C']
 function choferColor(idx: number) { return COL_COLORS[idx % COL_COLORS.length] }
 
+// Referencias estables para los fallbacks "sin datos todavía" de cada chofer.
+// Si se usara `?? []`/`?? {}` inline, cada render crearía una instancia nueva
+// y rompería la comparación superficial de props de React.memo para columnas
+// sin cambios reales (la mayoría, en cualquier re-render no relacionado).
+const EMPTY_ITEMS:     DayItem[] = []
+const EMPTY_ROUTE:     string[] = []
+const EMPTY_ARRIVALS:  Record<string, string> = {}
+const EMPTY_ASIGNACION: AsignacionChofer = { camionId: null, ayudanteEmail: null }
+
 // ── DraggableCard ─────────────────────────────────────────────────────────────
 
-function DraggableCard({ item, routeNum, arrival, color, locked, onMoveUp, onMoveDown }: {
+const DraggableCard = memo(function DraggableCard({ item, routeNum, arrival, color, locked, onMoveUp, onMoveDown }: {
   item:      DayItem
   routeNum?: number
   arrival?:  string
@@ -152,7 +106,7 @@ function DraggableCard({ item, routeNum, arrival, color, locked, onMoveUp, onMov
       </div>
     </div>
   )
-}
+})
 
 // ── GhostCard ─────────────────────────────────────────────────────────────────
 
@@ -218,12 +172,12 @@ function SinAsignarColumn({ items }: { items: DayItem[] }) {
 
 // ── ChoferColumn ──────────────────────────────────────────────────────────────
 
-function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionChange, items, routeOrder, arrivals, recalculating, orsStatus, despacho, colorIdx, plantaId, horaSalida, catalogo, manualOrder, onPlantaChange, onHoraSalidaChange, onConfirm, onReopen, onTransfer, onManualReorder, onRecalculate }: {
+const ChoferColumn = memo(function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionChange, items, routeOrder, arrivals, recalculating, orsStatus, despacho, colorIdx, plantaId, horaSalida, catalogo, manualOrder, onPlantaChange, onHoraSalidaChange, onConfirm, onReopen, onTransfer, onManualReorder, onRecalculate }: {
   chofer:               UserProfile
   camiones:             Camion[]
   ayudantes:            UserProfile[]
   asignacion:           AsignacionChofer
-  onAsignacionChange:   (a: AsignacionChofer) => void
+  onAsignacionChange:   (email: string, patch: Partial<AsignacionChofer>) => void
   items:                DayItem[]
   routeOrder:           string[]
   arrivals:             Record<string, string>
@@ -235,13 +189,13 @@ function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionCha
   horaSalida:           string
   catalogo:             CatalogProducto[]
   manualOrder:          boolean
-  onPlantaChange:       (p: PlantaId) => void
-  onHoraSalidaChange:   (h: string) => void
-  onConfirm:            () => void
-  onReopen:             () => void
-  onTransfer:           () => void
-  onManualReorder:      (newOrderIds: string[]) => void
-  onRecalculate:        () => void
+  onPlantaChange:       (email: string, p: PlantaId) => void
+  onHoraSalidaChange:   (email: string, h: string) => void
+  onConfirm:            (email: string) => void
+  onReopen:             (email: string) => void
+  onTransfer:           (email: string) => void
+  onManualReorder:      (email: string, newOrderIds: string[]) => void
+  onRecalculate:        (email: string) => void
 }) {
   const confirmed = despacho?.status === 'confirmado'
   const color     = choferColor(colorIdx)
@@ -260,7 +214,7 @@ function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionCha
     const reordered = [...sortedItems]
     const [moved] = reordered.splice(index, 1)
     reordered.splice(newIndex, 0, moved)
-    onManualReorder(reordered.map((i) => i.dndId))
+    onManualReorder(chofer.email, reordered.map((i) => i.dndId))
   }
 
   const orderCount  = items.filter((i) => i.kind === 'order').length
@@ -306,7 +260,7 @@ function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionCha
         {/* Camión */}
         <select
           value={asignacion.camionId ?? ''}
-          onChange={(e) => onAsignacionChange({ ...asignacion, camionId: e.target.value || null })}
+          onChange={(e) => onAsignacionChange(chofer.email, { camionId: e.target.value || null })}
           onPointerDown={(e) => e.stopPropagation()}
           disabled={confirmed}
           className="mt-1 w-full text-[10px] border border-gray-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-gray-400 truncate"
@@ -352,7 +306,7 @@ function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionCha
         {/* Ayudante */}
         <select
           value={asignacion.ayudanteEmail ?? ''}
-          onChange={(e) => onAsignacionChange({ ...asignacion, ayudanteEmail: e.target.value || null })}
+          onChange={(e) => onAsignacionChange(chofer.email, { ayudanteEmail: e.target.value || null })}
           onPointerDown={(e) => e.stopPropagation()}
           disabled={confirmed}
           className="mt-1 w-full text-[10px] border border-gray-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-gray-400 truncate"
@@ -367,7 +321,7 @@ function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionCha
         <div className="mt-1.5 flex items-center gap-1.5">
           <select
             value={plantaId}
-            onChange={(e) => onPlantaChange(e.target.value as PlantaId)}
+            onChange={(e) => onPlantaChange(chofer.email, e.target.value as PlantaId)}
             onPointerDown={(e) => e.stopPropagation()}
             disabled={confirmed}
             className="flex-1 text-[10px] border border-gray-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-gray-400 truncate"
@@ -378,7 +332,7 @@ function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionCha
           </select>
           <input
             type="time" value={horaSalida}
-            onChange={(e) => onHoraSalidaChange(e.target.value)}
+            onChange={(e) => onHoraSalidaChange(chofer.email, e.target.value)}
             onPointerDown={(e) => e.stopPropagation()}
             disabled={confirmed}
             className="w-16 text-[10px] border border-gray-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-gray-400"
@@ -405,7 +359,7 @@ function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionCha
         </div>
         {manualOrder && !confirmed && (
           <button
-            onClick={onRecalculate}
+            onClick={() => onRecalculate(chofer.email)}
             onPointerDown={(e) => e.stopPropagation()}
             className="mt-1 flex items-center gap-1 text-[10px] text-gray-400 hover:text-accent transition-colors"
           >
@@ -440,12 +394,12 @@ function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionCha
       {/* Footer */}
       <div className={`border border-t-0 rounded-b-xl px-2 py-2 space-y-1.5 ${confirmed ? 'bg-green-50 border-green-200' : 'bg-white border-[#D3D1C7]'}`}>
         {confirmed ? (
-          <button onClick={onReopen} className="w-full flex items-center justify-center gap-1.5 text-xs text-gray-400 hover:text-gray-700 py-1 transition-colors">
+          <button onClick={() => onReopen(chofer.email)} className="w-full flex items-center justify-center gap-1.5 text-xs text-gray-400 hover:text-gray-700 py-1 transition-colors">
             <RotateCcw size={11} /> Reabrir despacho
           </button>
         ) : (
           <button
-            onClick={onConfirm}
+            onClick={() => onConfirm(chofer.email)}
             disabled={items.length === 0}
             className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold bg-accent text-white rounded-lg py-2 hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
@@ -454,7 +408,7 @@ function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionCha
         )}
         {items.length > 0 && (
           <button
-            onClick={onTransfer}
+            onClick={() => onTransfer(chofer.email)}
             className="w-full flex items-center justify-center gap-1.5 text-xs text-amber-600 hover:text-amber-800 border border-amber-200 hover:border-amber-400 rounded-lg py-1.5 bg-amber-50 hover:bg-amber-100 transition-colors"
           >
             <ArrowRightLeft size={11} /> Transferir paradas
@@ -463,7 +417,7 @@ function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionCha
       </div>
     </div>
   )
-}
+})
 
 // ── TransferModal ─────────────────────────────────────────────────────────────
 
@@ -603,382 +557,26 @@ interface Props {
 }
 
 export default function DespachoBoard({ orders, choferes, allClients, loading }: Props) {
-  const { user } = useAuth()
-  const { catalogo } = useCatalogo()
-
-  // ── Camiones ──────────────────────────────────────────────────────────────
-  const [camiones, setCamiones] = useState<Camion[]>([])
-  useEffect(() => subscribeCamiones(setCamiones), [])
-
-  // ── Fecha ─────────────────────────────────────────────────────────────────
-  const [fecha, setFecha] = useState(todayStr())
-
-  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + i); return dateStr(d)
-  }), [])
-
-  // ── Visitas del día ───────────────────────────────────────────────────────
-  const { programas } = useProgramasVisita()
-  const { visitas }   = useVisitasPuntuales()
-
-  const fechaDate = useMemo(() => new Date(fecha + 'T12:00:00'), [fecha])
-
-  const visitasHoy   = useMemo(() => visitasParaFecha(visitas, fechaDate),   [visitas, fechaDate])
-  const programasHoy = useMemo(() => programasParaFecha(programas, fechaDate), [programas, fechaDate])
-
-  // ── Pedidos del día ───────────────────────────────────────────────────────
-  const dayOrders = useMemo(() =>
-    orders.filter((o) => orderDateStr(o) === fecha && !['entregado', 'cancelado'].includes(o.status)),
-  [orders, fecha])
-
-  // ── Items unificados ──────────────────────────────────────────────────────
-  const allItems: DayItem[] = useMemo(() => [
-    ...dayOrders.map(itemsFromOrder),
-    ...visitasHoy.map(itemsFromVisita),
-    ...programasHoy.map(itemsFromPrograma),
-  ], [dayOrders, visitasHoy, programasHoy])
-
-  // ── Choferes vs ayudantes ─────────────────────────────────────────────────
-  const choferesPrincipales = useMemo(() => choferes.filter((c) => c.subrol !== 'ayudante'), [choferes])
-  // Ayudantes: todos los choferes — cada columna excluye al conductor propio en el render
-
-  // ── Asignaciones del día ──────────────────────────────────────────────────
-  const [asignacionesDia, setAsignacionesDia] = useState<AsignacionesDia>({})
-  useEffect(() => { getAsignacionesDia(fecha).then(setAsignacionesDia) }, [fecha])
-
-  const handleAsignacionChange = useCallback(async (choferEmail: string, a: AsignacionChofer) => {
-    setAsignacionesDia((prev) => ({ ...prev, [choferEmail]: a }))
-    await setAsignacionChofer(fecha, choferEmail, a)
-  }, [fecha])
-
-  // ── Despachos Firestore ───────────────────────────────────────────────────
-  const [despachos, setDespachos] = useState<Despacho[]>([])
-  useEffect(() => subscribeDespachosByFecha(fecha, setDespachos), [fecha])
-
-  const despachoByDriver = useMemo(() => {
-    const m: Record<string, Despacho> = {}
-    despachos.forEach((d) => { m[d.driverId] = d })
-    return m
-  }, [despachos])
-
-  // ── DnD activeId — declarado aquí para que el effect de asignaciones pueda usarlo ──
-  const [activeId, setActiveId] = useState<string | null>(null)
-
-  // ── Asignaciones locales ──────────────────────────────────────────────────
-  const [assignments, setAssignments] = useState<Record<string, string>>({})
-  useEffect(() => {
-    if (activeId) return  // no resetear mientras hay un drag activo
-    const m: Record<string, string> = {}
-    allItems.forEach((item) => { m[item.dndId] = item.driverId || 'sin_asignar' })
-    setAssignments(m)
-  }, [allItems, activeId])
-
-  // ── Coords para ORS ───────────────────────────────────────────────────────
-  const coordsByClientId = useMemo(() => {
-    const m: Record<string, { lat: number; lng: number }> = {}
-    allClients.forEach((c) => {
-      const addr = getPrimaryAddress(c)
-      const lat  = addr?.lat ?? c.lat
-      const lng  = addr?.lng ?? c.lng
-      if (lat && lng) m[c.uid] = { lat, lng }
-    })
-    return m
-  }, [allClients])
-
-  // ── Planta y hora de salida por chofer ───────────────────────────────────
-  const [plantaByDriver,    setPlantaByDriver]    = useState<Record<string, PlantaId>>({})
-  const [horaSalidaByDriver, setHoraSalidaByDriver] = useState<Record<string, string>>({})
-
-  // Inicializar desde los despachos ya guardados
-  useEffect(() => {
-    despachos.forEach((d) => {
-      if (d.plantaId)   setPlantaByDriver((p)    => ({ ...p, [d.driverId]: d.plantaId! }))
-      if (d.horaSalida) setHoraSalidaByDriver((p) => ({ ...p, [d.driverId]: d.horaSalida! }))
-    })
-  }, [despachos])
-
-  // ── Estado de rutas ───────────────────────────────────────────────────────
-  const [routeOrder,    setRouteOrder]    = useState<Record<string, string[]>>({})
-  const [routeArrivals, setRouteArrivals] = useState<Record<string, Record<string, string>>>({})
-  const [recalculating, setRecalculating] = useState<Record<string, boolean>>({})
-  const [orsStatus,     setOrsStatus]     = useState<Record<string, { ok: boolean; error?: string }>>({})
-  const debounceRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
-  useEffect(() => () => { Object.values(debounceRefs.current).forEach(clearTimeout) }, [])
-
-  // Choferes con orden reordenado a mano — se congela el recálculo automático
-  // hasta que el usuario pida explícitamente "Recalcular ruta automática"
-  const [manualOrder, setManualOrder] = useState<Record<string, boolean>>({})
-  useEffect(() => { setManualOrder({}) }, [fecha])
-
-  const handleManualReorder = useCallback(async (driverEmail: string, newOrderIds: string[]) => {
-    clearTimeout(debounceRefs.current[driverEmail])
-    setManualOrder((prev) => ({ ...prev, [driverEmail]: true }))
-    setRouteOrder((prev) => ({ ...prev, [driverEmail]: newOrderIds }))
-    // Los horarios de llegada estimados quedaban calculados para el orden
-    // anterior — se limpian para no mostrar un dato que ya no es correcto.
-    setRouteArrivals((prev) => ({ ...prev, [driverEmail]: {} }))
-
-    const desp = despachoByDriver[driverEmail]
-    if (desp) {
-      const extra = desp.status === 'confirmado' ? { modifiedAfterConfirm: true } : {}
-      await saveDespacho({ ...desp, orderIds: newOrderIds, ...extra })
-    }
-  }, [despachoByDriver])
-
-  const scheduleRecalc = useCallback((driverEmail: string, dndIds: string[]) => {
-    clearTimeout(debounceRefs.current[driverEmail])
-    setRecalculating((prev) => ({ ...prev, [driverEmail]: true }))
-
-    debounceRefs.current[driverEmail] = setTimeout(async () => {
-      if (dndIds.length === 0) {
-        setRecalculating((prev) => ({ ...prev, [driverEmail]: false }))
-        setRouteOrder((prev) => ({ ...prev, [driverEmail]: [] }))
-        return
-      }
-
-      const orsKey = import.meta.env.VITE_ORS_KEY
-      if (!orsKey) { setRecalculating((prev) => ({ ...prev, [driverEmail]: false })); return }
-
-      const coords:     Record<string, { lat: number; lng: number }> = {}
-      const openTimes:  Record<string, string> = {}
-      const closeTimes: Record<string, string> = {}
-
-      dndIds.forEach((dndId) => {
-        const item = allItems.find((i) => i.dndId === dndId)
-        if (!item) return
-        const c = coordsByClientId[item.clientId]
-        if (c) coords[dndId] = c
-        const clientProfile = allClients.find((cl) => cl.uid === item.clientId)
-        const addr = clientProfile ? getPrimaryAddress(clientProfile) : null
-        if (addr?.horarioApertura) openTimes[dndId]  = addr.horarioApertura
-        if (addr?.horarioCierre)   closeTimes[dndId] = addr.horarioCierre
-      })
-
-      const plantaId = plantaByDriver[driverEmail] ?? PLANTA_DEFAULT
-      const planta   = PLANTAS[plantaId]
-      const departure = horaSalidaByDriver[driverEmail] ?? '07:00'
-
-      const { orderedIds, arrivals, orsOk, orsError } = await optimizeStopOrder({
-        stopIds: dndIds, coords,
-        arrivals: openTimes, closeTimes,
-        fecha, departure, planta, orsKey,
-      })
-
-      setRouteOrder((prev)    => ({ ...prev, [driverEmail]: orderedIds }))
-      setRouteArrivals((prev) => ({ ...prev, [driverEmail]: arrivals }))
-      setOrsStatus((prev)     => ({ ...prev, [driverEmail]: { ok: orsOk, error: orsError } }))
-      setRecalculating((prev) => ({ ...prev, [driverEmail]: false }))
-
-      const desp = despachoByDriver[driverEmail]
-      if (desp) {
-        const extra = desp.status === 'confirmado' ? { modifiedAfterConfirm: true } : {}
-        await saveDespacho({ ...desp, orderIds: orderedIds, ...extra })
-      }
-    }, 1500)
-  }, [allItems, coordsByClientId, allClients, fecha, despachoByDriver, plantaByDriver, horaSalidaByDriver])
-
-  const handleRecalculate = useCallback((driverEmail: string) => {
-    setManualOrder((prev) => { const n = { ...prev }; delete n[driverEmail]; return n })
-    const ids = Object.entries(assignments).filter(([, d]) => d === driverEmail).map(([id]) => id)
-    scheduleRecalc(driverEmail, ids)
-  }, [assignments, scheduleRecalc])
-
-  // Detectar cambios en asignaciones y disparar recalc — salvo en choferes
-  // con orden manual, para no pisar un reordenamiento hecho a mano
-  const prevAssignments = useRef<Record<string, string>>({})
-  useEffect(() => {
-    const affected = new Set<string>()
-    Object.entries(assignments).forEach(([dndId, driver]) => {
-      if (prevAssignments.current[dndId] !== driver) {
-        if (prevAssignments.current[dndId] && prevAssignments.current[dndId] !== 'sin_asignar')
-          affected.add(prevAssignments.current[dndId])
-        if (driver !== 'sin_asignar') affected.add(driver)
-      }
-    })
-    prevAssignments.current = { ...assignments }
-    affected.forEach((email) => {
-      if (manualOrder[email]) return
-      const ids = Object.entries(assignments).filter(([, d]) => d === email).map(([id]) => id)
-      scheduleRecalc(email, ids)
-    })
-  }, [assignments, scheduleRecalc, manualOrder])
-
-  // Recalc inicial al cambiar de día
-  useEffect(() => {
-    const t = setTimeout(() => {
-      choferesPrincipales.forEach((c) => {
-        const ids = allItems.filter((i) => (i.driverId || 'sin_asignar') === c.email).map((i) => i.dndId)
-        if (ids.length > 0) scheduleRecalc(c.email, ids)
-      })
-    }, 600)
-    return () => clearTimeout(t)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fecha, choferesPrincipales.length, allItems.length])
-
-  // ── DnD ──────────────────────────────────────────────────────────────────
-  const sensors = useSensors(
-    useSensor(MouseSensor,   { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor,   { activationConstraint: { delay: 200, tolerance: 8 } }),
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-  )
-
-  const handleDragStart = ({ active }: DragStartEvent) => setActiveId(active.id as string)
-
-  const doMove = useCallback(async (dndId: string, from: string, to: string, flagModified = false) => {
-    setAssignments((prev) => ({ ...prev, [dndId]: to }))
-    const { kind, id } = parseDndId(dndId)
-    const newDriverId  = to === 'sin_asignar' ? null : to
-
-    if (kind === 'order')    await assignDriver(id, newDriverId)
-    else if (kind === 'visita')   await updateVisitaPuntual(id, { driverId: newDriverId })
-    else if (kind === 'programa') await updatePrograma(id, { driverId: newDriverId })
-
-    if (from !== 'sin_asignar' && despachoByDriver[from]?.status === 'confirmado') {
-      const desp = despachoByDriver[from]
-      if (desp) await saveDespacho({ ...desp, orderIds: desp.orderIds.filter((x) => x !== dndId), modifiedAfterConfirm: true })
-    }
-    if (flagModified && to !== 'sin_asignar' && despachoByDriver[to]?.status === 'confirmado') {
-      const desp = despachoByDriver[to]
-      if (desp) await saveDespacho({ ...desp, modifiedAfterConfirm: true })
-    }
-  }, [despachoByDriver])
-
-  const handleDragEnd = useCallback(async ({ active, over }: DragEndEvent) => {
-    setActiveId(null)
-    if (!over) return
-    const dndId    = active.id as string
-    const targetCol = over.id as string
-    const currentCol = assignments[dndId] ?? 'sin_asignar'
-    if (currentCol === targetCol) return
-
-    const targetDesp = targetCol !== 'sin_asignar' ? despachoByDriver[targetCol] : undefined
-    if (targetDesp?.status === 'confirmado') {
-      setPendingMove({ dndId, from: currentCol, to: targetCol })
-      return
-    }
-    await doMove(dndId, currentCol, targetCol)
-  }, [assignments, despachoByDriver, doMove])
-
-  const [pendingMove, setPendingMove] = useState<{ dndId: string; from: string; to: string } | null>(null)
-
-  // ── Transferir paradas ────────────────────────────────────────────────────
-  const [transferModal, setTransferModal] = useState<{ fromDriver: string } | null>(null)
-
-  const handleTransfer = useCallback(async (selectedDndIds: string[], toDriver: string, motivo: string) => {
-    const fromDriver = transferModal?.fromDriver
-    if (!fromDriver) return
-    await Promise.all(selectedDndIds.map(async (dndId) => {
-      const { kind, id } = parseDndId(dndId)
-      if (kind === 'order') {
-        await reassignOrder(id, toDriver, motivo || 'Reasignación operativa', fromDriver)
-      } else if (kind === 'visita') {
-        await updateVisitaPuntual(id, { driverId: toDriver })
-      } else {
-        await updatePrograma(id, { driverId: toDriver })
-      }
-      setAssignments((prev) => ({ ...prev, [dndId]: toDriver }))
-    }))
-
-    // Actualizar despacho origen (quitar ítems transferidos)
-    const despFrom = despachoByDriver[fromDriver]
-    if (despFrom) {
-      await saveDespacho({ ...despFrom, orderIds: despFrom.orderIds.filter((x) => !selectedDndIds.includes(x)), modifiedAfterConfirm: true })
-    }
-
-    // Notificar al chofer receptor
-    const toChofer = choferes.find((c) => c.email === toDriver)
-    if (toChofer) {
-      try {
-        const sub = await getPushSubscriptionByEmail(toDriver)
-        if (sub) await sendPush({
-          subscription: sub,
-          title: '🔄 Nueva asignación',
-          body: `Te reasignaron ${selectedDndIds.length} parada${selectedDndIds.length !== 1 ? 's' : ''} para ${formatDespachoFecha(fecha)}.`,
-        })
-      } catch { /* push no crítico */ }
-    }
-  }, [transferModal, despachoByDriver, choferes, fecha])
-
-  // ── Confirmar despacho ────────────────────────────────────────────────────
-  const [confirmingDriver, setConfirmingDriver] = useState<string | null>(null)
-  const [confirmLoading,   setConfirmLoading]   = useState(false)
-
-  async function handleConfirm(driverEmail: string) {
-    const chofer = choferes.find((c) => c.email === driverEmail)
-    if (!chofer) return
-
-    const driverItems = Object.entries(assignments)
-      .filter(([, d]) => d === driverEmail)
-      .map(([dndId]) => dndId)
-    const ordered = (routeOrder[driverEmail]?.filter((id) => driverItems.includes(id)) ?? []).length > 0
-      ? routeOrder[driverEmail].filter((id) => driverItems.includes(id))
-      : driverItems
-
-    setConfirmLoading(true)
-    try {
-      const id      = despachoId(fecha, driverEmail)
-      const nombre  = chofer.nombreContacto || chofer.nombre || chofer.email
-      const asig    = asignacionesDia[driverEmail]
-      const camion  = asig?.camionId ? camiones.find((cam) => cam.id === asig.camionId) : null
-      const ayudante = asig?.ayudanteEmail ? choferes.find((c) => c.email === asig.ayudanteEmail) : null
-      const desp: Despacho = {
-        id, fecha, driverId: driverEmail, driverName: nombre,
-        camionId:     camion?.id    ?? null,
-        camionLabel:  camion ? `${camion.patente} — ${camion.modelo}` : null,
-        ayudanteEmail: asig?.ayudanteEmail ?? null,
-        ayudanteName:  ayudante ? (ayudante.nombreContacto || ayudante.nombre || ayudante.email) : null,
-        status:       'confirmado', orderIds: ordered,
-        plantaId:     plantaByDriver[driverEmail]    ?? PLANTA_DEFAULT,
-        horaSalida:   horaSalidaByDriver[driverEmail] ?? '07:00',
-        confirmedAt:  null, confirmedBy: user?.uid ?? null, modifiedAfterConfirm: false,
-      }
-      await saveDespacho(desp)
-
-      // Pedidos → confirmado (visitas no cambian estado)
-      const orderDndIds = ordered.filter((x) => x.startsWith('o:'))
-      await Promise.all(orderDndIds.map((x) => updateOrderStatus(x.slice(2), 'confirmado')))
-
-      // Push al chofer
-      try {
-        const sub = await getPushSubscriptionByEmail(driverEmail)
-        if (sub) await sendPush({
-          subscription: sub,
-          title: '🚛 Despacho confirmado',
-          body: `Tenés ${ordered.length} parada${ordered.length !== 1 ? 's' : ''} asignadas para ${formatDespachoFecha(fecha)}.`,
-        })
-      } catch { /* push no crítico */ }
-
-      setConfirmingDriver(null)
-    } finally {
-      setConfirmLoading(false)
-    }
-  }
-
-  async function handleReopen(driverEmail: string) {
-    const desp = despachoByDriver[driverEmail]
-    if (!desp) return
-    await saveDespacho({ ...desp, status: 'borrador', modifiedAfterConfirm: false })
-    await Promise.all(
-      desp.orderIds.filter((x) => x.startsWith('o:'))
-        .map((x) => updateOrderStatus(x.slice(2), 'pendiente'))
-    )
-  }
-
-  // ── Items por columna ─────────────────────────────────────────────────────
-  const itemsByDriver = useMemo(() => {
-    const m: Record<string, DayItem[]> = { sin_asignar: [] }
-    choferesPrincipales.forEach((c) => { m[c.email] = [] })
-    allItems.forEach((item) => {
-      const col = assignments[item.dndId] ?? item.driverId ?? 'sin_asignar'
-      if (m[col] !== undefined) m[col].push(item)
-      else m['sin_asignar'].push(item)
-    })
-    return m
-  }, [allItems, assignments, choferesPrincipales])
-
-  const activeItem = activeId ? allItems.find((i) => i.dndId === activeId) : null
-  const confirmingChofer = confirmingDriver ? choferes.find((c) => c.email === confirmingDriver) : null
-  const confirmingItems  = confirmingDriver ? (itemsByDriver[confirmingDriver] ?? []) : []
+  const {
+    fecha, setFecha, weekDays,
+    visitas, programas,
+    camiones,
+    choferesPrincipales,
+    asignacionesDia, handleAsignacionChange,
+    despachoByDriver,
+    itemsByDriver,
+    routeOrder, routeArrivals, recalculating, orsStatus,
+    plantaByDriver, horaSalidaByDriver,
+    catalogo,
+    manualOrder,
+    handlePlantaChange, handleHoraSalidaChange, handleConfirmClick, handleReopen,
+    handleTransferClick, handleManualReorder, handleRecalculate,
+    sensors, handleDragStart, handleDragEnd,
+    activeItem,
+    confirmingDriver, setConfirmingDriver, confirmLoading, confirmingChofer, confirmingItems, handleConfirm,
+    transferModal, setTransferModal, handleTransfer,
+    pendingMove, setPendingMove, doMove,
+  } = useDespachoBoard(orders, choferes, allClients)
 
   // ── Render ────────────────────────────────────────────────────────────────
   if (loading) return <div className="flex justify-center py-20"><LoadingSpinner /></div>
@@ -1046,11 +644,11 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
                 chofer={c}
                 camiones={camiones}
                 ayudantes={choferes}
-                asignacion={asignacionesDia[c.email] ?? { camionId: null, ayudanteEmail: null }}
-                onAsignacionChange={(a) => handleAsignacionChange(c.email, a)}
-                items={itemsByDriver[c.email] ?? []}
-                routeOrder={routeOrder[c.email] ?? []}
-                arrivals={routeArrivals[c.email] ?? {}}
+                asignacion={asignacionesDia[c.email] ?? EMPTY_ASIGNACION}
+                onAsignacionChange={handleAsignacionChange}
+                items={itemsByDriver[c.email] ?? EMPTY_ITEMS}
+                routeOrder={routeOrder[c.email] ?? EMPTY_ROUTE}
+                arrivals={routeArrivals[c.email] ?? EMPTY_ARRIVALS}
                 recalculating={!!recalculating[c.email]}
                 orsStatus={orsStatus[c.email]}
                 despacho={despachoByDriver[c.email]}
@@ -1059,13 +657,13 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
                 horaSalida={horaSalidaByDriver[c.email] ?? '07:00'}
                 catalogo={catalogo}
                 manualOrder={!!manualOrder[c.email]}
-                onPlantaChange={(p) => { setPlantaByDriver((prev) => ({ ...prev, [c.email]: p })); const ids = Object.entries(assignments).filter(([, d]) => d === c.email).map(([id]) => id); scheduleRecalc(c.email, ids) }}
-                onHoraSalidaChange={(h) => { setHoraSalidaByDriver((prev) => ({ ...prev, [c.email]: h })); const ids = Object.entries(assignments).filter(([, d]) => d === c.email).map(([id]) => id); scheduleRecalc(c.email, ids) }}
-                onConfirm={() => setConfirmingDriver(c.email)}
-                onReopen={() => handleReopen(c.email)}
-                onTransfer={() => setTransferModal({ fromDriver: c.email })}
-                onManualReorder={(ids) => handleManualReorder(c.email, ids)}
-                onRecalculate={() => handleRecalculate(c.email)}
+                onPlantaChange={handlePlantaChange}
+                onHoraSalidaChange={handleHoraSalidaChange}
+                onConfirm={handleConfirmClick}
+                onReopen={handleReopen}
+                onTransfer={handleTransferClick}
+                onManualReorder={handleManualReorder}
+                onRecalculate={handleRecalculate}
               />
             ))}
 
