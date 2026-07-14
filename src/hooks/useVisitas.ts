@@ -1,24 +1,14 @@
-import { useState, useEffect } from 'react'
 import { subscribeProgramas, subscribeVisitasPuntuales } from '../services/visitasService'
 import { ProgramaVisita, VisitaPuntual } from '../types'
+import { useFirestoreSubscription } from './useFirestoreSubscription'
 
 export function useProgramasVisita() {
-  const [programas, setProgramas] = useState<ProgramaVisita[]>([])
-  const [loading,   setLoading]   = useState(true)
-  useEffect(() => {
-    const unsub = subscribeProgramas((data) => { setProgramas(data); setLoading(false) })
-    return unsub
-  }, [])
+  const { data: programas, loading } = useFirestoreSubscription<ProgramaVisita[]>(subscribeProgramas, [], [])
   return { programas, loading }
 }
 
 export function useVisitasPuntuales() {
-  const [visitas, setVisitas] = useState<VisitaPuntual[]>([])
-  const [loading, setLoading] = useState(true)
-  useEffect(() => {
-    const unsub = subscribeVisitasPuntuales((data) => { setVisitas(data); setLoading(false) })
-    return unsub
-  }, [])
+  const { data: visitas, loading } = useFirestoreSubscription<VisitaPuntual[]>(subscribeVisitasPuntuales, [], [])
   return { visitas, loading }
 }
 

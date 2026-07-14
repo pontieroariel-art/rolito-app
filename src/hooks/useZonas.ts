@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react'
 import { ZonaProhibida, subscribeZonas } from '../services/zonasService'
+import { useFirestoreSubscription } from './useFirestoreSubscription'
 
 export function useZonasProhibidas() {
-  const [zonas, setZonas] = useState<ZonaProhibida[]>([])
-  useEffect(() => subscribeZonas(setZonas), [])
+  const { data: zonas } = useFirestoreSubscription<ZonaProhibida[]>(subscribeZonas, [], [])
   return { zonas }
 }

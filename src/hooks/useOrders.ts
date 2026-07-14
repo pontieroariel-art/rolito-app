@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import {
   subscribeClientOrders,
@@ -7,82 +6,40 @@ import {
   subscribeDriverOrders,
 } from '../services/orderService'
 import { Order } from '../types'
+import { useFirestoreSubscription } from './useFirestoreSubscription'
 
 export function useClientOrders(): { orders: Order[]; loading: boolean; error: boolean } {
-  const { user }              = useAuth()
-  const [orders, setOrders]   = useState<Order[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error,   setError]   = useState(false)
-
-  useEffect(() => {
-    if (!user?.uid) return
-    const unsub = subscribeClientOrders(
-      user.uid,
-      (data) => { setOrders(data); setLoading(false); setError(false) },
-      ()     => { setLoading(false); setError(true) },
-    )
-    return unsub
-  }, [user?.uid])
-
+  const { user } = useAuth()
+  const { data: orders, loading, error } = useFirestoreSubscription<Order[]>(
+    (cb, onErr) => user?.uid ? subscribeClientOrders(user.uid, cb, onErr) : (() => {}),
+    [user?.uid],
+    [],
+  )
   return { orders, loading, error }
 }
 
 export function useAllOrders(): { orders: Order[]; loading: boolean; error: boolean } {
-  const [orders, setOrders]   = useState<Order[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error,   setError]   = useState(false)
-
-  useEffect(() => {
-    const unsub = subscribeAllOrders(
-      (data) => { setOrders(data); setLoading(false); setError(false) },
-      ()     => { setLoading(false); setError(true) },
-    )
-    return unsub
-  }, [])
-
+  const { data: orders, loading, error } = useFirestoreSubscription<Order[]>(subscribeAllOrders, [], [])
   return { orders, loading, error }
 }
 
 export function useKanbanOrders(): { orders: Order[]; loading: boolean; error: boolean } {
-  const [orders, setOrders]   = useState<Order[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error,   setError]   = useState(false)
-
-  useEffect(() => {
-    const unsub = subscribeKanbanOrders(
-      (data) => { setOrders(data); setLoading(false); setError(false) },
-      ()     => { setLoading(false); setError(true) },
-    )
-    return unsub
-  }, [])
-
+  const { data: orders, loading, error } = useFirestoreSubscription<Order[]>(subscribeKanbanOrders, [], [])
   return { orders, loading, error }
 }
 
 // overrideEmail: undefined = usar email propio; null = no cargar (ayudante sin turno asignado)
 export function useDriverOrders(overrideEmail?: string | null): { orders: Order[]; loading: boolean; error: boolean } {
-  const { user }              = useAuth()
-  const [orders, setOrders]   = useState<Order[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error,   setError]   = useState(false)
-
+  const { user } = useAuth()
   const email = overrideEmail === undefined ? user?.email : overrideEmail
 
-  useEffect(() => {
-    if (!email) {
-      setOrders([])
-      setLoading(false)
-      return
-    }
-    setLoading(true)
-    setOrders([])
-    const unsub = subscribeDriverOrders(
-      email,
-      (data) => { setOrders(data); setLoading(false); setError(false) },
-      ()     => { setLoading(false); setError(true) },
-    )
-    return unsub
-  }, [email])
-
+  const { data: orders, loading, error } = useFirestoreSubscription<Order[]>(
+    (cb, onErr) => {
+      if (!email) { cb([]); return () => {} }
+      return subscribeDriverOrders(email, cb, onErr)
+    },
+    [email],
+    [],
+  )
   return { orders, loading, error }
 }
