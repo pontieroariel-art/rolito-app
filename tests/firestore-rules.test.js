@@ -5,7 +5,7 @@ import {
   assertFails,
   assertSucceeds,
 } from '@firebase/rules-unit-testing'
-import { doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore'
+import { doc, getDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore'
 
 // Tests de las reglas de Firestore contra el emulador. Verifican de forma
 // automática y repetible los invariantes de seguridad que antes se validaban a
@@ -87,20 +87,36 @@ describe('users — escalada de privilegios', () => {
 
 // ── orders: creación del cliente ──────────────────────────────────────────────
 describe('orders — creación del cliente', () => {
+  const seedClienteActivo = () => seed((d) => setDoc(doc(d, 'users/cli'), cliente()))
+
   test('cliente SÍ puede crear su pedido pendiente', async () => {
+    await seedClienteActivo()
     await assertSucceeds(setDoc(doc(db('cli', 'c@x.com'), 'orders/o1'), pedido()))
   })
 
   test('cliente NO puede autoasignarse chofer (driverId)', async () => {
+    await seedClienteActivo()
     await assertFails(setDoc(doc(db('cli', 'c@x.com'), 'orders/o2'), pedido({ driverId: 'chofer@x.com' })))
   })
 
   test('cliente NO puede fabricar campos de staff (origenPdf)', async () => {
+    await seedClienteActivo()
     await assertFails(setDoc(doc(db('cli', 'c@x.com'), 'orders/o3'), pedido({ origenPdf: true })))
   })
 
   test('cliente NO puede crear pedido para otro clientId', async () => {
+    await seedClienteActivo()
     await assertFails(setDoc(doc(db('cli', 'c@x.com'), 'orders/o4'), pedido({ clientId: 'otro' })))
+  })
+
+  test('cliente NO ACTIVO (pendiente) no puede crear pedidos', async () => {
+    await seed((d) => setDoc(doc(d, 'users/cli'), cliente({ estado: 'pendiente' })))
+    await assertFails(setDoc(doc(db('cli', 'c@x.com'), 'orders/o5'), pedido()))
+  })
+
+  test('un chofer no puede crear un pedido "propio" (clientId==uid)', async () => {
+    await seed((d) => setDoc(doc(d, 'users/ch'), { rol: 'chofer', estado: 'activo', email: 'ch@x.com' }))
+    await assertFails(setDoc(doc(db('ch', 'ch@x.com'), 'orders/o6'), pedido({ clientId: 'ch' })))
   })
 })
 
@@ -182,6 +198,62 @@ describe('orders — edición por gerente_comercial', () => {
   })
 })
 
+// ── orders: actualización por el chofer asignado (campos acotados) ───────────
+describe('orders — actualización por el chofer asignado', () => {
+  const seedPedido = (extra = {}) =>
+    seed((d) => setDoc(doc(d, 'orders/o1'), pedido({ driverId: 'ch@x.com', ...extra })))
+
+  test('chofer asignado SÍ puede marcar el pedido como entregado', async () => {
+    await seedPedido()
+    await assertSucceeds(updateDoc(doc(db('ch', 'ch@x.com'), 'orders/o1'), {
+      status: 'entregado', productosEntregados: [{ name: 'Hielo', quantity: 1 }],
+      entregaParcial: false, notaEntrega: '', updatedAt: new Date(),
+    }))
+  })
+
+  test('chofer asignado NO puede reescribir products/precio al marcar entregado', async () => {
+    await seedPedido()
+    await assertFails(updateDoc(doc(db('ch', 'ch@x.com'), 'orders/o1'), {
+      status: 'entregado', products: [{ name: 'Hielo', quantity: 999 }], updatedAt: new Date(),
+    }))
+  })
+
+  test('chofer asignado NO puede reasignarse otro pedido (driverId/clientId)', async () => {
+    await seedPedido()
+    await assertFails(updateDoc(doc(db('ch', 'ch@x.com'), 'orders/o1'), {
+      clientId: 'otro-cliente', updatedAt: new Date(),
+    }))
+  })
+
+  test('un chofer NO asignado no puede tocar el pedido de otro chofer', async () => {
+    await seedPedido()
+    await assertFails(updateDoc(doc(db('ch2', 'ch2@x.com'), 'orders/o1'), {
+      status: 'entregado', updatedAt: new Date(),
+    }))
+  })
+})
+
+// ── orders: actualización por operador (campos acotados) ─────────────────────
+describe('orders — actualización por operador', () => {
+  const seedPedido = () => seed((d) => setDoc(doc(d, 'orders/o1'), pedido()))
+
+  test('operador (logistica) SÍ puede asignar chofer', async () => {
+    await seed((d) => setDoc(doc(d, 'users/ops'), { rol: 'logistica', estado: 'activo' }))
+    await seedPedido()
+    await assertSucceeds(updateDoc(doc(db('ops'), 'orders/o1'), {
+      driverId: 'chofer@x.com', updatedAt: new Date(),
+    }))
+  })
+
+  test('operador (logistica) NO puede reasignar el pedido a otro cliente', async () => {
+    await seed((d) => setDoc(doc(d, 'users/ops'), { rol: 'logistica', estado: 'activo' }))
+    await seedPedido()
+    await assertFails(updateDoc(doc(db('ops'), 'orders/o1'), {
+      clientId: 'otro-cliente', updatedAt: new Date(),
+    }))
+  })
+})
+
 // ── users: código de cliente por facturación ──────────────────────────────────
 describe('users — código de cliente por facturación', () => {
   const seedFacturacion = () => seed(async (d) => {
@@ -211,6 +283,19 @@ describe('cuitIndex — anti-poisoning', () => {
   test('cliente NO puede apuntar un CUIT a otro email', async () => {
     await assertFails(setDoc(doc(db('cli', 'c@x.com'), 'cuitIndex/20111111119'), { email: 'victima@x.com' }))
   })
+
+  test('cliente NO puede secuestrar un CUIT ya asignado a otro usuario', async () => {
+    await seed((d) => setDoc(doc(d, 'cuitIndex/20111111119'), { email: 'victima@x.com' }))
+    await assertFails(setDoc(doc(db('atk', 'atk@x.com'), 'cuitIndex/20111111119'), { email: 'atk@x.com' }))
+  })
+
+  test('operador SÍ puede corregir un CUIT ya asignado (alta manual/importación)', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/ops'), { rol: 'logistica', estado: 'activo' })
+      await setDoc(doc(d, 'cuitIndex/20111111119'), { email: 'viejo@x.com' })
+    })
+    await assertSucceeds(setDoc(doc(db('ops'), 'cuitIndex/20111111119'), { email: 'nuevo@x.com' }))
+  })
 })
 
 // ── precios: edición de catálogo y listas por comercial / logística ───────────
@@ -233,5 +318,254 @@ describe('precios — edición por comercial', () => {
   test('un cliente NO puede editar listas de precios', async () => {
     await seed((d) => setDoc(doc(d, 'users/cli'), cliente()))
     await assertFails(setDoc(doc(db('cli'), 'listas-precios/l1'), { nombre: 'X', items: [] }))
+  })
+})
+
+// ── despachos ──────────────────────────────────────────────────────────────
+describe('despachos', () => {
+  const seedDespacho = () => seed((d) => setDoc(doc(d, 'despachos/2026-01-01_ch'), {
+    fecha: '2026-01-01', driverId: 'ch@x.com', status: 'borrador', orderIds: [],
+  }))
+
+  test('operador (logistica) SÍ puede leer despachos', async () => {
+    await seed((d) => setDoc(doc(d, 'users/ops'), { rol: 'logistica', estado: 'activo' }))
+    await seedDespacho()
+    await assertSucceeds(getDoc(doc(db('ops'), 'despachos/2026-01-01_ch')))
+  })
+
+  test('el chofer asignado SÍ puede leer su propio despacho', async () => {
+    await seedDespacho()
+    await assertSucceeds(getDoc(doc(db('ch', 'ch@x.com'), 'despachos/2026-01-01_ch')))
+  })
+
+  test('un chofer NO puede leer el despacho de otro chofer', async () => {
+    await seedDespacho()
+    await assertFails(getDoc(doc(db('ch2', 'ch2@x.com'), 'despachos/2026-01-01_ch')))
+  })
+
+  test('comercial NO puede leer despachos', async () => {
+    await seed((d) => setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' }))
+    await seedDespacho()
+    await assertFails(getDoc(doc(db('com'), 'despachos/2026-01-01_ch')))
+  })
+
+  test('operador SÍ puede escribir un despacho', async () => {
+    await seed((d) => setDoc(doc(d, 'users/ops'), { rol: 'logistica', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('ops'), 'despachos/2026-01-02_ch'), {
+      fecha: '2026-01-02', driverId: 'ch@x.com', status: 'borrador', orderIds: [],
+    }))
+  })
+
+  test('el chofer NO puede escribir (ni actualizar) su propio despacho', async () => {
+    await seedDespacho()
+    await assertFails(updateDoc(doc(db('ch', 'ch@x.com'), 'despachos/2026-01-01_ch'), { status: 'confirmado' }))
+  })
+})
+
+// ── asignacionesDia ────────────────────────────────────────────────────────
+describe('asignacionesDia', () => {
+  test('operador SÍ puede leer asignacionesDia', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/ops'), { rol: 'logistica', estado: 'activo' })
+      await setDoc(doc(d, 'asignacionesDia/2026-01-01'), { choferes: {} })
+    })
+    await assertSucceeds(getDoc(doc(db('ops'), 'asignacionesDia/2026-01-01')))
+  })
+
+  test('comercial NO puede leer asignacionesDia', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' })
+      await setDoc(doc(d, 'asignacionesDia/2026-01-01'), { choferes: {} })
+    })
+    await assertFails(getDoc(doc(db('com'), 'asignacionesDia/2026-01-01')))
+  })
+
+  test('operador SÍ puede escribir asignacionesDia', async () => {
+    await seed((d) => setDoc(doc(d, 'users/ops'), { rol: 'logistica', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('ops'), 'asignacionesDia/2026-01-02'), { choferes: {} }))
+  })
+
+  test('un chofer NO puede escribir asignacionesDia', async () => {
+    await assertFails(setDoc(doc(db('ch', 'ch@x.com'), 'asignacionesDia/2026-01-02'), { choferes: {} }))
+  })
+})
+
+// ── ubicaciones (GPS del chofer) ───────────────────────────────────────────
+describe('ubicaciones', () => {
+  test('el chofer SÍ puede escribir su propia ubicación', async () => {
+    await assertSucceeds(setDoc(doc(db('ch', 'ch@x.com'), 'ubicaciones/ch@x.com'), { lat: 0, lng: 0 }))
+  })
+
+  test('un chofer NO puede escribir la ubicación de otro chofer', async () => {
+    await assertFails(setDoc(doc(db('ch', 'ch@x.com'), 'ubicaciones/otro@x.com'), { lat: 0, lng: 0 }))
+  })
+
+  test('operador SÍ puede escribir la ubicación de cualquier chofer', async () => {
+    await seed((d) => setDoc(doc(d, 'users/ops'), { rol: 'logistica', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('ops'), 'ubicaciones/ch@x.com'), { lat: 0, lng: 0 }))
+  })
+
+  test('cualquier usuario autenticado SÍ puede leer ubicaciones', async () => {
+    await seed((d) => setDoc(doc(d, 'ubicaciones/ch@x.com'), { lat: 0, lng: 0 }))
+    await assertSucceeds(getDoc(doc(db('cli', 'c@x.com'), 'ubicaciones/ch@x.com')))
+  })
+})
+
+// ── flota ──────────────────────────────────────────────────────────────────
+describe('flota', () => {
+  test('cualquier usuario autenticado SÍ puede leer flota', async () => {
+    await seed((d) => setDoc(doc(d, 'flota/cam1'), { patente: 'AA123BB' }))
+    await assertSucceeds(getDoc(doc(db('cli', 'c@x.com'), 'flota/cam1')))
+  })
+
+  test('operador SÍ puede escribir flota', async () => {
+    await seed((d) => setDoc(doc(d, 'users/ops'), { rol: 'logistica', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('ops'), 'flota/cam2'), { patente: 'BB456CC' }))
+  })
+
+  test('comercial NO puede escribir flota', async () => {
+    await seed((d) => setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' }))
+    await assertFails(setDoc(doc(db('com'), 'flota/cam3'), { patente: 'CC789DD' }))
+  })
+})
+
+// ── pedidos-recurrentes ────────────────────────────────────────────────────
+describe('pedidos-recurrentes', () => {
+  test('cliente SÍ puede escribir su propio pedido recurrente', async () => {
+    await assertSucceeds(setDoc(doc(db('cli', 'c@x.com'), 'pedidos-recurrentes/cli'), { activo: true }))
+  })
+
+  test('cliente NO puede escribir el pedido recurrente de otro', async () => {
+    await assertFails(setDoc(doc(db('cli', 'c@x.com'), 'pedidos-recurrentes/otro'), { activo: true }))
+  })
+
+  test('operador SÍ puede leer/escribir cualquier pedido recurrente', async () => {
+    await seed((d) => setDoc(doc(d, 'users/ops'), { rol: 'logistica', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('ops'), 'pedidos-recurrentes/cli'), { activo: true }))
+  })
+})
+
+// ── historialPrecios: inmutabilidad ───────────────────────────────────────
+describe('historialPrecios — inmutabilidad', () => {
+  test('manager SÍ puede crear un evento de historial', async () => {
+    await seed((d) => setDoc(doc(d, 'users/gc'), { rol: 'gerente_comercial', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('gc'), 'historialPrecios/ev1'), { clientId: 'cli', tipo: 'lista' }))
+  })
+
+  test('nadie puede actualizar un evento de historial (ni super_admin)', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/adm'), { rol: 'super_admin', estado: 'activo' })
+      await setDoc(doc(d, 'historialPrecios/ev1'), { clientId: 'cli', tipo: 'lista' })
+    })
+    await assertFails(updateDoc(doc(db('adm'), 'historialPrecios/ev1'), { tipo: 'custom' }))
+  })
+
+  test('nadie puede borrar un evento de historial (ni super_admin)', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/adm'), { rol: 'super_admin', estado: 'activo' })
+      await setDoc(doc(d, 'historialPrecios/ev1'), { clientId: 'cli', tipo: 'lista' })
+    })
+    await assertFails(deleteDoc(doc(db('adm'), 'historialPrecios/ev1')))
+  })
+})
+
+// ── config / configuracion ─────────────────────────────────────────────────
+describe('config y configuracion', () => {
+  test('cualquier usuario autenticado SÍ puede leer config', async () => {
+    await seed((d) => setDoc(doc(d, 'config/zonas'), { data: [] }))
+    await assertSucceeds(getDoc(doc(db('cli', 'c@x.com'), 'config/zonas')))
+  })
+
+  test('comercial NO puede escribir config genérico (no-catalogo)', async () => {
+    await seed((d) => setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' }))
+    await assertFails(setDoc(doc(db('com'), 'config/zonas'), { data: [] }))
+  })
+
+  test('operador SÍ puede escribir config genérico', async () => {
+    await seed((d) => setDoc(doc(d, 'users/ops'), { rol: 'logistica', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('ops'), 'config/zonas'), { data: [] }))
+  })
+
+  test('cualquier usuario autenticado SÍ puede leer configuracion', async () => {
+    await seed((d) => setDoc(doc(d, 'configuracion/emails'), { emails: [] }))
+    await assertSucceeds(getDoc(doc(db('cli', 'c@x.com'), 'configuracion/emails')))
+  })
+
+  test('comercial NO puede escribir configuracion', async () => {
+    await seed((d) => setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' }))
+    await assertFails(setDoc(doc(db('com'), 'configuracion/emails'), { emails: [] }))
+  })
+})
+
+// ── programas-visita / visitas-puntuales ──────────────────────────────────
+describe('programas-visita y visitas-puntuales', () => {
+  test('operador SÍ puede escribir un programa de visita', async () => {
+    await seed((d) => setDoc(doc(d, 'users/ops'), { rol: 'logistica', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('ops'), 'programas-visita/p1'), { clientId: 'cli', diasSemana: [1] }))
+  })
+
+  test('comercial NO puede escribir un programa de visita', async () => {
+    await seed((d) => setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' }))
+    await assertFails(setDoc(doc(db('com'), 'programas-visita/p1'), { clientId: 'cli', diasSemana: [1] }))
+  })
+
+  const seedVisita = () => seed((d) => setDoc(doc(d, 'visitas-puntuales/v1'), {
+    clientId: 'cli', driverId: 'ch@x.com', status: 'pendiente',
+  }))
+
+  test('el chofer asignado SÍ puede actualizar status/notas de su visita', async () => {
+    await seed((d) => setDoc(doc(d, 'users/ch'), { rol: 'chofer', estado: 'activo', email: 'ch@x.com' }))
+    await seedVisita()
+    await assertSucceeds(updateDoc(doc(db('ch', 'ch@x.com'), 'visitas-puntuales/v1'), { status: 'visitado', notas: 'ok' }))
+  })
+
+  test('el chofer NO puede reasignarse la visita a otro driverId', async () => {
+    await seed((d) => setDoc(doc(d, 'users/ch'), { rol: 'chofer', estado: 'activo', email: 'ch@x.com' }))
+    await seedVisita()
+    await assertFails(updateDoc(doc(db('ch', 'ch@x.com'), 'visitas-puntuales/v1'), { driverId: 'ch2@x.com' }))
+  })
+
+  test('un chofer no asignado NO puede actualizar la visita de otro', async () => {
+    await seed((d) => setDoc(doc(d, 'users/ch2'), { rol: 'chofer', estado: 'activo', email: 'ch2@x.com' }))
+    await seedVisita()
+    await assertFails(updateDoc(doc(db('ch2', 'ch2@x.com'), 'visitas-puntuales/v1'), { status: 'visitado' }))
+  })
+})
+
+// ── índices de login: choferIndex / staffIndex / dniIndex / staffDniIndex ──
+describe('índices de login', () => {
+  test('lectura pública de choferIndex sin autenticar', async () => {
+    await seed((d) => setDoc(doc(d, 'choferIndex/juanchofer'), { email: 'ch@x.com' }))
+    await assertSucceeds(getDoc(doc(testEnv.unauthenticatedContext().firestore(), 'choferIndex/juanchofer')))
+  })
+
+  test('operador SÍ puede escribir choferIndex', async () => {
+    await seed((d) => setDoc(doc(d, 'users/ops'), { rol: 'logistica', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('ops'), 'choferIndex/juanchofer'), { email: 'ch@x.com' }))
+  })
+
+  test('comercial NO puede escribir choferIndex', async () => {
+    await seed((d) => setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' }))
+    await assertFails(setDoc(doc(db('com'), 'choferIndex/juanchofer'), { email: 'ch@x.com' }))
+  })
+
+  test('operador NO puede escribir staffIndex (requiere super_admin)', async () => {
+    await seed((d) => setDoc(doc(d, 'users/ops'), { rol: 'logistica', estado: 'activo' }))
+    await assertFails(setDoc(doc(db('ops'), 'staffIndex/juan'), { email: 'staff@x.com' }))
+  })
+
+  test('super_admin SÍ puede escribir staffIndex', async () => {
+    await seed((d) => setDoc(doc(d, 'users/adm'), { rol: 'super_admin', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('adm'), 'staffIndex/juan'), { email: 'staff@x.com' }))
+  })
+
+  test('operador SÍ puede escribir dniIndex', async () => {
+    await seed((d) => setDoc(doc(d, 'users/ops'), { rol: 'logistica', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('ops'), 'dniIndex/12345678'), { email: 'ch@x.com' }))
+  })
+
+  test('super_admin SÍ puede escribir staffDniIndex', async () => {
+    await seed((d) => setDoc(doc(d, 'users/adm'), { rol: 'super_admin', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('adm'), 'staffDniIndex/12345678'), { email: 'staff@x.com' }))
   })
 })

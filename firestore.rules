@@ -11,6 +11,13 @@ service cloud.firestore {
       return data.get('rol', data.get('role', 'none'));
     }
 
+    // Lee el estado ('activo'/'inactivo'/'pendiente') del usuario autenticado.
+    function myEstado() {
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      let data = exists(path) ? get(path).data : {};
+      return data.get('estado', 'none');
+    }
+
     // Gerente comercial: acuerdos de precios y activación de clientes
     function isGerenteComercial() {
       return myRole() == 'gerente_comercial';
@@ -105,6 +112,10 @@ service cloud.firestore {
         (
           request.resource.data.clientId == request.auth.uid
           && request.resource.data.status == 'pendiente'
+          // Solo un cliente activo puede crear pedidos (bloquea a pendientes/
+          // inactivos y a roles no-cliente que también cumplirían clientId==uid).
+          && myRole() == 'cliente'
+          && myEstado() == 'activo'
           // El cliente no puede autoasignarse un chofer al crear.
           && request.resource.data.get('driverId', null) == null
           // Ni fabricar campos que son solo de staff (PDF, reprogramación,
@@ -131,13 +142,26 @@ service cloud.firestore {
         isGerenteGeneral()
       );
 
-      // Actualización: el chofer asignado (para marcar entregado), un operador
-      // o el gerente comercial (gestiona pedidos desde el kanban de /logistica)
-      allow update: if request.auth != null && (
-        request.auth.token.email == resource.data.driverId ||
-        isOperator() ||
-        isGerenteComercial()
-      );
+      // Actualización del chofer asignado: solo para marcar la entrega. Nunca
+      // precio/productos/cliente/chofer (antes esta rama no tenía ningún
+      // límite de campos y compartía allow con isOperator()/isGerenteComercial()).
+      allow update: if request.auth != null &&
+        request.auth.token.email == resource.data.driverId &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'productosEntregados', 'entregaParcial', 'notaEntrega', 'updatedAt']);
+
+      // Actualización por operador o gerente_comercial: gestión operativa
+      // completa del pedido (estado, chofer, reprogramación, edición de
+      // productos/fecha desde el kanban), pero nunca los campos de identidad
+      // del cliente ni los de auditoría de creación.
+      allow update: if request.auth != null && (isOperator() || isGerenteComercial())
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly([
+               'status', 'updatedAt', 'motivoCancelacion', 'historialAcciones',
+               'driverId', 'clientAddress', 'date', 'reprogramado', 'fechaOriginal',
+               'motivoReprogramacion', 'choferOriginal', 'reasignado',
+               'motivoReasignacion', 'products', 'horaEntrega', 'notes', 'numeroOC'
+             ]);
 
       // gerente_general: reprogramar/reasignar desde /admin/monitoreo.
       // Solo los campos de esas dos acciones; no puede reescribir el pedido.
@@ -228,14 +252,17 @@ service cloud.firestore {
     // ANTES de autenticar. La contraseña sigue siendo requerida para autenticar.
     match /cuitIndex/{cuit} {
       allow read:  if true;
-      // Un cliente solo puede apuntar un CUIT a SU PROPIO email (evita que un
-      // usuario redirija el índice de otro a un email arbitrario). Operadores
-      // y managers pueden escribir cualquiera (alta manual / importación).
+      // Un cliente solo puede CREAR (nunca sobrescribir) el índice de SU
+      // PROPIO CUIT, apuntando a su propio email — evita que un usuario
+      // secuestre/envenene el índice de un CUIT ya asignado a otra cuenta.
+      // Operadores y managers pueden escribir cualquiera en cualquier momento
+      // (alta manual / importación / corrección).
       allow write: if request.auth != null
         && request.resource.data.keys().hasOnly(['email'])
         && request.resource.data.email is string
         && (
-          request.resource.data.email == request.auth.token.email
+          (!exists(/databases/$(database)/documents/cuitIndex/$(cuit))
+            && request.resource.data.email == request.auth.token.email)
           || isManager() || isOperator()
         );
     }
