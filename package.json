@@ -40,7 +40,7 @@
     "resend": "^6.12.4",
     "use-places-autocomplete": "^4.0.1",
     "web-push": "^3.6.7",
-    "xlsx": "^0.18.5",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "zustand": "^5.0.13"
   },
   "devDependencies": {
