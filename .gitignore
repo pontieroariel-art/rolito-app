@@ -32,5 +32,6 @@ scripts/import-errores.txt
 
 # Screenshots de verificación y Playwright
 .verify_screenshots/
+.playwright-mcp/
 /*.png
 /*.jpg
