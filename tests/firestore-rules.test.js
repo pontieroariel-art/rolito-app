@@ -85,6 +85,80 @@ describe('users — escalada de privilegios', () => {
   })
 })
 
+// ── users: edición cruzada de staff por staff (C-2) ───────────────────────────
+describe('users — staff no puede editar documentos de otro staff', () => {
+  test('comercial NO puede desactivar a un super_admin (lockout)', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' })
+      await setDoc(doc(d, 'users/adm'), { rol: 'super_admin', estado: 'activo' })
+    })
+    await assertFails(updateDoc(doc(db('com'), 'users/adm'), { estado: 'inactivo' }))
+  })
+
+  test('logistica NO puede cambiar el email de otro staff', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/ops'), { rol: 'logistica', estado: 'activo' })
+      await setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo', email: 'com@x.com' })
+    })
+    await assertFails(updateDoc(doc(db('ops'), 'users/com'), { email: 'hijack@x.com' }))
+  })
+
+  test('comercial NO puede editar el cuit de un cliente', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' })
+      await setDoc(doc(d, 'users/cli'), cliente())
+    })
+    await assertFails(updateDoc(doc(db('com'), 'users/cli'), { cuit: '20999999999' }))
+  })
+
+  test('comercial NO puede editar el codigoCliente de un cliente (campo de facturación)', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' })
+      await setDoc(doc(d, 'users/cli'), cliente())
+    })
+    await assertFails(updateDoc(doc(db('com'), 'users/cli'), { codigoCliente: 'CLI-9999' }))
+  })
+
+  // ── Regresión positiva: los flujos reales de gestión de clientes siguen OK ──
+  test('comercial SÍ puede cambiar la lista de precios de un cliente', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' })
+      await setDoc(doc(d, 'users/cli'), cliente())
+    })
+    await assertSucceeds(updateDoc(doc(db('com'), 'users/cli'), {
+      listaPreciosId: 'mayoristas', ultimoCambioPrecio: new Date(),
+    }))
+  })
+
+  test('gerente_comercial SÍ puede activar un cliente (estado/aprobación)', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/gc'), { rol: 'gerente_comercial', estado: 'activo' })
+      await setDoc(doc(d, 'users/cli'), cliente({ estado: 'pendiente' }))
+    })
+    await assertSucceeds(updateDoc(doc(db('gc'), 'users/cli'), {
+      estado: 'activo', fechaAprobacion: new Date(), aprobadoPor: 'gc',
+    }))
+  })
+
+  test('logistica SÍ puede editar los domicilios de un cliente', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/ops'), { rol: 'logistica', estado: 'activo' })
+      await setDoc(doc(d, 'users/cli'), cliente())
+    })
+    await assertSucceeds(updateDoc(doc(db('ops'), 'users/cli'), {
+      addresses: [{ id: 'a1', nombre: 'Depósito', address: 'Calle 1', esPrincipal: true }],
+    }))
+  })
+
+  test('gerente_general NO puede desactivar a un super_admin (lockout)', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/gg'), { rol: 'gerente_general', estado: 'activo' })
+      await setDoc(doc(d, 'users/adm'), { rol: 'super_admin', estado: 'activo' })
+    })
+    await assertFails(updateDoc(doc(db('gg'), 'users/adm'), { estado: 'inactivo' }))
+  })
+})
+
 // ── orders: creación del cliente ──────────────────────────────────────────────
 describe('orders — creación del cliente', () => {
   const seedClienteActivo = () => seed((d) => setDoc(doc(d, 'users/cli'), cliente()))
@@ -405,9 +479,30 @@ describe('ubicaciones', () => {
     await assertSucceeds(setDoc(doc(db('ops'), 'ubicaciones/ch@x.com'), { lat: 0, lng: 0 }))
   })
 
-  test('cualquier usuario autenticado SÍ puede leer ubicaciones', async () => {
+  test('un cliente NO puede leer ubicaciones (se resuelve server-side)', async () => {
     await seed((d) => setDoc(doc(d, 'ubicaciones/ch@x.com'), { lat: 0, lng: 0 }))
-    await assertSucceeds(getDoc(doc(db('cli', 'c@x.com'), 'ubicaciones/ch@x.com')))
+    await assertFails(getDoc(doc(db('cli', 'c@x.com'), 'ubicaciones/ch@x.com')))
+  })
+
+  test('operador SÍ puede leer ubicaciones (mapa en vivo)', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/ops'), { rol: 'logistica', estado: 'activo' })
+      await setDoc(doc(d, 'ubicaciones/ch@x.com'), { lat: 0, lng: 0 })
+    })
+    await assertSucceeds(getDoc(doc(db('ops'), 'ubicaciones/ch@x.com')))
+  })
+
+  test('comercial SÍ puede leer ubicaciones (mapa en vivo)', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' })
+      await setDoc(doc(d, 'ubicaciones/ch@x.com'), { lat: 0, lng: 0 })
+    })
+    await assertSucceeds(getDoc(doc(db('com'), 'ubicaciones/ch@x.com')))
+  })
+
+  test('el chofer SÍ puede leer su propia ubicación', async () => {
+    await seed((d) => setDoc(doc(d, 'ubicaciones/ch@x.com'), { lat: 0, lng: 0 }))
+    await assertSucceeds(getDoc(doc(db('ch', 'ch@x.com'), 'ubicaciones/ch@x.com')))
   })
 })
 
@@ -471,9 +566,22 @@ describe('historialPrecios — inmutabilidad', () => {
 
 // ── config / configuracion ─────────────────────────────────────────────────
 describe('config y configuracion', () => {
-  test('cualquier usuario autenticado SÍ puede leer config', async () => {
-    await seed((d) => setDoc(doc(d, 'config/zonas'), { data: [] }))
-    await assertSucceeds(getDoc(doc(db('cli', 'c@x.com'), 'config/zonas')))
+  test('el cliente SÍ puede leer config/catalogo (lo necesita para pedir)', async () => {
+    await seed((d) => setDoc(doc(d, 'config/catalogo'), { productos: [] }))
+    await assertSucceeds(getDoc(doc(db('cli', 'c@x.com'), 'config/catalogo')))
+  })
+
+  test('el cliente NO puede leer config operativo (zonas)', async () => {
+    await seed((d) => setDoc(doc(d, 'config/zonasProhibidas'), { zonas: [] }))
+    await assertFails(getDoc(doc(db('cli', 'c@x.com'), 'config/zonasProhibidas')))
+  })
+
+  test('un operador SÍ puede leer config operativo (zonas)', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/ops'), { rol: 'logistica', estado: 'activo' })
+      await setDoc(doc(d, 'config/zonasProhibidas'), { zonas: [] })
+    })
+    await assertSucceeds(getDoc(doc(db('ops'), 'config/zonasProhibidas')))
   })
 
   test('comercial NO puede escribir config genérico (no-catalogo)', async () => {
@@ -486,9 +594,17 @@ describe('config y configuracion', () => {
     await assertSucceeds(setDoc(doc(db('ops'), 'config/zonas'), { data: [] }))
   })
 
-  test('cualquier usuario autenticado SÍ puede leer configuracion', async () => {
-    await seed((d) => setDoc(doc(d, 'configuracion/emails'), { emails: [] }))
-    await assertSucceeds(getDoc(doc(db('cli', 'c@x.com'), 'configuracion/emails')))
+  test('el cliente NO puede leer configuracion (emails de staff, modoTest)', async () => {
+    await seed((d) => setDoc(doc(d, 'configuracion/notificaciones'), { emails: [] }))
+    await assertFails(getDoc(doc(db('cli', 'c@x.com'), 'configuracion/notificaciones')))
+  })
+
+  test('un operador SÍ puede leer configuracion', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/ops'), { rol: 'logistica', estado: 'activo' })
+      await setDoc(doc(d, 'configuracion/notificaciones'), { emails: [] })
+    })
+    await assertSucceeds(getDoc(doc(db('ops'), 'configuracion/notificaciones')))
   })
 
   test('comercial NO puede escribir configuracion', async () => {

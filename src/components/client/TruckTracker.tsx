@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { GoogleMap, Marker, DirectionsRenderer } from '@react-google-maps/api'
 import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
-import { subscribeDriverLocation, DriverLocation } from '../../services/locationService'
+import { DriverLocation } from '../../services/locationService'
 import { useNotifyCerca } from '../../hooks/useNotifications'
 import { Order } from '../../types'
 
@@ -42,7 +42,22 @@ export function TruckTracker({ order, clientEmail, clientNombre, onNearby }: Tru
   const hasSentNotif        = useRef(false)
   const { mutate: notifyCerca } = useNotifyCerca()
 
-  const [driverData,   setDriverData]   = useState<DriverLocation | null>(null)
+  // La posición del chofer llega espejada dentro del propio pedido (campo
+  // driverLocation, escrito server-side por el trigger mirrorDriverLocation).
+  // El pedido se actualiza en vivo por la suscripción del cliente, así que el
+  // camión se sigue moviendo en tiempo real sin leer la colección `ubicaciones`.
+  const driverData = useMemo<DriverLocation | null>(() => {
+    const dl = order.driverLocation
+    if (!dl || typeof dl.lat !== 'number' || typeof dl.lng !== 'number') return null
+    return {
+      lat:            dl.lat,
+      lng:            dl.lng,
+      nombreChofer:   dl.nombreChofer   ?? '',
+      telefonoChofer: dl.telefonoChofer ?? '',
+      timestamp:      dl.updatedAt?.toMillis?.() ?? Date.now(),
+    }
+  }, [order.driverLocation])
+
   const [deliveryPos,  setDeliveryPos]  = useState<Coords | null>(null)
   const [directions,   setDirections]   = useState<google.maps.DirectionsResult | null>(null)
   const [eta,          setEta]          = useState<string | null>(null)
@@ -56,9 +71,7 @@ export function TruckTracker({ order, clientEmail, clientNombre, onNearby }: Tru
   const isStale  = !!(driverData?.timestamp && Date.now() - driverData.timestamp > STALE_MS)
 
   useEffect(() => {
-    if (!order.driverId) return
     hasFitted.current = false
-    return subscribeDriverLocation(order.driverId, setDriverData)
   }, [order.driverId])
 
   useEffect(() => {

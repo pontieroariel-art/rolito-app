@@ -236,6 +236,16 @@ export interface Order {
   historialAcciones?: AccionHistorial[]
   // Modificación (cancelar + recrear)
   pedidoOriginalId?: string
+  // Posición del chofer asignado, espejada server-side desde `ubicaciones` por
+  // el trigger mirrorDriverLocation mientras el pedido está en_camino. Permite
+  // al cliente seguir SU camión leyendo su propio pedido, sin acceso a la flota.
+  driverLocation?: {
+    lat:            number
+    lng:            number
+    nombreChofer:   string
+    telefonoChofer: string
+    updatedAt:      Timestamp | null
+  }
 }
 
 export const MOTIVOS_INCIDENCIA = [

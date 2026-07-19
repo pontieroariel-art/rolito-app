@@ -43,6 +43,11 @@ service cloud.firestore {
       return myRole() == 'facturacion';
     }
 
+    // Cualquier rol de staff (todo lo que no sea cliente).
+    function isStaff() {
+      return myRole() != 'cliente' && myRole() != 'none';
+    }
+
     // ── Colección de usuarios ──────────────────────────────────────────────
     match /users/{userId} {
       function isSelf() { return request.auth != null && request.auth.uid == userId; }
@@ -62,6 +67,27 @@ service cloud.firestore {
             && request.resource.data.get('codigoCliente', '')  == resource.data.get('codigoCliente', '')
             && request.resource.data.get('codVendedor', '')    == resource.data.get('codVendedor', '')
             && request.resource.data.get('sector', '')         == resource.data.get('sector', '');
+      }
+
+      // El documento objetivo es un CLIENTE (no otro staff ni un super_admin).
+      // Cierra el lockout de admin y la edición cruzada de cuentas de personal:
+      // las ramas de staff de abajo SOLO aplican sobre users con rol 'cliente'.
+      function targetEsCliente() {
+        return resource.data.get('rol', 'cliente') == 'cliente';
+      }
+
+      // Campos que el staff (comercial/gerente_comercial/logistica) puede editar
+      // sobre un cliente. Excluye identidad (cuit, codigoCliente, codVendedor,
+      // sector), credenciales/login (email, dni, username) y rol.
+      function camposGestionClienteOk() {
+        return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'razonSocial', 'nombreContacto', 'nombre', 'telefono',
+          'estado', 'fechaAprobacion', 'aprobadoPor',
+          'listaPreciosId', 'preciosCustom', 'vigenciaCustom', 'ultimoCambioPrecio',
+          'esVisita', 'frecuenciaVisita',
+          'addresses', 'lat', 'lng', 'coordPendiente',
+          'notasContacto',
+        ]);
       }
 
       // ── Lectura ──
@@ -86,15 +112,18 @@ service cloud.firestore {
       allow update: if isSelf() && rolUnchanged() && estadoUnchanged()
         && preciosUnchanged() && identidadUnchanged();
 
-      // ── gerente_comercial y comercial: gestión de clientes y precios (no roles) ──
+      // ── gerente_comercial / comercial / logistica: gestión de clientes ──
+      // Solo sobre documentos de CLIENTE y solo los campos de gestión (nunca
+      // identidad, login ni rol). Antes estas ramas permitían editar cualquier
+      // documento —incluido el de un super_admin— con cualquier campo salvo rol.
       allow update: if request.auth != null
-        && myRole() in ['gerente_comercial', 'comercial'] && rolUnchanged();
+        && myRole() in ['gerente_comercial', 'comercial', 'logistica']
+        && targetEsCliente()
+        && camposGestionClienteOk();
 
-      // ── logistica: editar clientes y domicilios (no roles) ──
-      allow update: if request.auth != null && myRole() == 'logistica' && rolUnchanged();
-
-      // ── gerente_general: aprobar/rechazar clientes (solo estado) ──
+      // ── gerente_general: aprobar/rechazar clientes (solo estado, solo clientes) ──
       allow update: if request.auth != null && isGerenteGeneral()
+        && targetEsCliente()
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['estado', 'fechaAprobacion', 'aprobadoPor']);
 
@@ -186,19 +215,22 @@ service cloud.firestore {
           .hasOnly(['status', 'motivoCancelacion', 'updatedAt']);
     }
 
-    // ── Configuración (lista de choferes, etc.) ───────────────────────────
+    // ── Configuración (catálogo, zonas prohibidas, etc.) ──────────────────────
     match /config/{docId} {
-      allow read: if request.auth != null;
+      // El catálogo lo necesita el cliente para armar el pedido; el resto
+      // (zonas prohibidas, etc.) es operativo → solo staff.
+      allow read: if request.auth != null && (docId == 'catalogo' || isStaff());
       allow write: if request.auth != null && isOperator();
       // Comercial y gerente_comercial pueden editar el catálogo (config/catalogo).
       allow write: if request.auth != null && docId == 'catalogo' && isManager();
     }
 
     // ── Emails de notificación admin ──────────────────────────────────────────
-    // Lectura: cualquier usuario autenticado (el cliente necesita los emails al crear un pedido)
-    // Escritura: solo operadores
+    // Contiene emails de staff, modoTest y testEmail → nunca legible por el
+    // cliente. Los triggers de email lo leen server-side (admin SDK), no la UI.
+    // Escritura: solo operadores.
     match /configuracion/{docId} {
-      allow read:  if request.auth != null;
+      allow read:  if request.auth != null && isStaff();
       allow write: if request.auth != null && isOperator();
     }
 
@@ -317,7 +349,15 @@ service cloud.firestore {
       allow write: if request.auth != null && (
         request.auth.token.email == driverEmail || isOperator()
       );
-      allow read:  if request.auth != null;
+      // Lectura: staff que ve el mapa en vivo (operadores, managers, gerente
+      // general) y el propio chofer. El CLIENTE ya no lee esta colección: su
+      // seguimiento del camión se resuelve server-side (trigger
+      // mirrorDriverLocation espeja la posición dentro de su propio pedido),
+      // para no exponerle la ubicación ni el teléfono de toda la flota.
+      allow read: if request.auth != null && (
+        isOperator() || isManager() || isGerenteGeneral() ||
+        request.auth.token.email == driverEmail
+      );
     }
   }
 }

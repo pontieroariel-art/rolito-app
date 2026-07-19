@@ -47,26 +47,6 @@ export const deactivateDriverLocation = (driverEmail: string): Promise<void> =>
     // El documento puede no existir si el chofer nunca compartió su ubicación
   })
 
-export const subscribeDriverLocation = (
-  driverEmail: string,
-  callback: (loc: DriverLocation | null) => void,
-): () => void =>
-  onSnapshot(
-    doc(db, LOCATIONS, driverEmail),
-    (snap) => {
-      if (!snap.exists()) { callback(null); return }
-      const d = snap.data()
-      callback({
-        lat:            d.lat,
-        lng:            d.lng,
-        nombreChofer:   d.nombreChofer   ?? '',
-        telefonoChofer: d.telefonoChofer ?? '',
-        timestamp:      d.timestamp?.toMillis?.() ?? Date.now(),
-      })
-    },
-    () => callback(null),
-  )
-
 // Suscripción en tiempo real a todos los choferes con activo: true
 export const subscribeAllActiveDrivers = (
   callback: (drivers: ActiveDriver[]) => void,
