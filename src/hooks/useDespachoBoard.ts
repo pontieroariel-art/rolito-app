@@ -7,9 +7,9 @@ import { useZonasProhibidas } from './useZonas'
 import {
   despachoId, saveDespacho, updateDespacho, subscribeDespachosByFecha,
   optimizeStopOrder, formatDespachoFecha, todayStr,
+  moveItemAtomic, transferItemsAtomic,
 } from '../services/despachoService'
-import { assignDriver, updateOrdersStatusBatch, reassignOrder } from '../services/orderService'
-import { updateVisitaPuntual, updatePrograma } from '../services/visitasService'
+import { updateOrdersStatusBatch } from '../services/orderService'
 import { useProgramasVisita, useVisitasPuntuales, visitasParaFecha, programasParaFecha } from './useVisitas'
 import { getPushSubscriptionByEmail } from '../services/userService'
 import { sendPush } from '../services/notificationService'
@@ -251,8 +251,6 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
         return
       }
 
-      const orsKey = import.meta.env.VITE_ORS_KEY ?? ''
-
       const coords: Record<string, { lat: number; lng: number }> = {}
       dndIds.forEach((dndId) => {
         const item = allItems.find((i) => i.dndId === dndId)
@@ -268,7 +266,7 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
 
       const { orderedIds, arrivals, orsOk, orsError } = await optimizeStopOrder({
         stopIds: dndIds, coords,
-        fecha, departure, planta, orsKey,
+        fecha, departure, planta,
         zonasProhibidas: zonasActivas,
       })
 
@@ -352,22 +350,16 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
   const doMove = useCallback(async (dndId: string, from: string, to: string, flagModified = false) => {
     setAssignments((prev) => ({ ...prev, [dndId]: to }))
     const { kind, id } = parseDndId(dndId)
-    const newDriverId  = to === 'sin_asignar' ? null : to
-
-    if (kind === 'order')    await assignDriver(id, newDriverId)
-    else if (kind === 'visita')   await updateVisitaPuntual(id, { driverId: newDriverId })
-    else if (kind === 'programa') await updatePrograma(id, { driverId: newDriverId })
-
-    if (from !== 'sin_asignar' && despachoByDriver[from]?.status === 'confirmado') {
-      await updateDespacho(despachoId(fecha, from), (current) => ({
-        orderIds: current.orderIds.filter((x) => x !== dndId),
-        modifiedAfterConfirm: true,
-      }))
-    }
-    if (flagModified && to !== 'sin_asignar' && despachoByDriver[to]?.status === 'confirmado') {
-      await updateDespacho(despachoId(fecha, to), () => ({ modifiedAfterConfirm: true }))
-    }
-  }, [despachoByDriver, fecha])
+    // El movimiento del ítem + la actualización del despacho de origen (y el
+    // flag del destino) se hacen en una única transacción atómica, que lee los
+    // despachos frescos del servidor y decide por su status confirmado.
+    await moveItemAtomic({
+      fecha, dndId,
+      item: { kind, id },
+      from, to,
+      flagModifiedTo: flagModified,
+    })
+  }, [fecha])
 
   const handleDragEnd = useCallback(async ({ active, over }: DragEndEvent) => {
     setActiveId(null)
@@ -394,25 +386,20 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
   const handleTransfer = useCallback(async (selectedDndIds: string[], toDriver: string, motivo: string) => {
     const fromDriver = transferModal?.fromDriver
     if (!fromDriver) return
-    await Promise.all(selectedDndIds.map(async (dndId) => {
-      const { kind, id } = parseDndId(dndId)
-      if (kind === 'order') {
-        await reassignOrder(id, toDriver, motivo || 'Reasignación operativa', fromDriver)
-      } else if (kind === 'visita') {
-        await updateVisitaPuntual(id, { driverId: toDriver })
-      } else {
-        await updatePrograma(id, { driverId: toDriver })
-      }
-      setAssignments((prev) => ({ ...prev, [dndId]: toDriver }))
-    }))
 
-    // Actualizar despacho origen (quitar ítems transferidos)
-    if (despachoByDriver[fromDriver]) {
-      await updateDespacho(despachoId(fecha, fromDriver), (current) => ({
-        orderIds: current.orderIds.filter((x) => !selectedDndIds.includes(x)),
-        modifiedAfterConfirm: true,
-      }))
-    }
+    // Reasignación de todas las paradas + limpieza del despacho de origen en una
+    // sola transacción atómica (antes eran N escrituras sueltas + la del
+    // despacho, sin garantía de que se aplicaran todas).
+    const items = selectedDndIds.map((dndId) => {
+      const { kind, id } = parseDndId(dndId)
+      return { kind, id, dndId }
+    })
+    await transferItemsAtomic({ fecha, fromDriver, toDriver, motivo, items })
+    setAssignments((prev) => {
+      const next = { ...prev }
+      selectedDndIds.forEach((dndId) => { next[dndId] = toDriver })
+      return next
+    })
 
     // Notificar al chofer receptor
     const toChofer = choferes.find((c) => c.email === toDriver)
@@ -426,7 +413,7 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
         })
       } catch { /* push no crítico */ }
     }
-  }, [transferModal, despachoByDriver, choferes, fecha])
+  }, [transferModal, choferes, fecha])
 
   // ── Confirmar despacho ────────────────────────────────────────────────────
   const [confirmingDriver, setConfirmingDriver] = useState<string | null>(null)

@@ -16,7 +16,7 @@ No hay tests unitarios de UI; la cobertura automatizada está en las reglas de s
 ## Stack tecnológico
 
 - **Frontend:** React 18 + TypeScript, Vite 6, Tailwind CSS 3, Radix UI, Lucide, React Router 6, Zustand, TanStack React Query 5, dnd-kit (tablero de despacho), Recharts, jsPDF/xlsx (exportes). PWA via `vite-plugin-pwa` con service worker propio (push + offline).
-- **Backend (serverless):** Firebase — Auth, Firestore (tiempo real via `onSnapshot`), Cloud Functions (Node 20, TS, en `functions/`: emails con Resend, web push, pricing, cleanup) y Hosting.
+- **Backend (serverless):** Firebase — Auth, Firestore (tiempo real via `onSnapshot`), Cloud Functions (Node 22, TS, en `functions/`: emails con Resend, web push, pricing, cleanup) y Hosting.
 - **Mapas:** Google Maps (`@react-google-maps/api`): planificación de rutas, tracking del camión, autocomplete de direcciones.
 
 Deploy: push a `master` despliega automáticamente a Firebase Hosting via GitHub Actions.
@@ -67,7 +67,7 @@ El mapa completo de rutas por rol está en `src/App.tsx`.
 
 ### Variables de entorno
 
-Prefijo `VITE_FIREBASE_*`: `API_KEY`, `AUTH_DOMAIN`, `PROJECT_ID`, `STORAGE_BUCKET`, `MESSAGING_SENDER_ID`, `APP_ID`. Además `VITE_GOOGLE_MAPS_KEY` para Google Maps.
+Prefijo `VITE_FIREBASE_*`: `API_KEY`, `AUTH_DOMAIN`, `PROJECT_ID`, `STORAGE_BUCKET`, `MESSAGING_SENDER_ID`, `APP_ID`. Además `VITE_GOOGLE_MAPS_API_KEY` (Google Maps) y `VITE_VAPID_PUBLIC_KEY` (web push). Los secretos de Cloud Functions (`RESEND_API_KEY`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `ORS_KEY` para OpenRouteService) se configuran con `firebase functions:secrets:set`, no en `.env`.
 
 ### CI (GitHub Actions)
 

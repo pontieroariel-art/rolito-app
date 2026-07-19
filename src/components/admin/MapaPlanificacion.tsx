@@ -9,6 +9,7 @@ import { useZonasProhibidas } from '../../hooks/useZonas'
 import { saveZonas, ZonaProhibida } from '../../services/zonasService'
 import { Order, UserProfile, getPrimaryAddress, PLANTAS, PlantaId } from '../../types'
 import { nearestNeighborOrder, timeStrToUnix, unixToTimeStr } from '../../utils/routeMath'
+import { fetchOrsDirections, OrsAvoidPolygons } from '../../services/orsService'
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -312,43 +313,28 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
 
     void (async () => {
       try {
-        const orsKey         = import.meta.env.VITE_ORS_KEY
         const departureTime  = horasSalida[driverEmail] ?? '07:00'
         const vehicleStart   = timeStrToUnix(selectedDate, departureTime)
         const serviceSeconds = tiempoServicio * 60
 
-        // ORS Directions: camino real con avoid_polygons + duración real de
-        // cada tramo, usada después para estimar los horarios de llegada
+        // ORS Directions server-side (Cloud Function orsDirections): camino real
+        // con avoid_polygons + duración real de cada tramo. La API key ya no
+        // viaja en el bundle. Si falla, se cae al fallback de Google Maps.
         const coordinates = [planta, ...orderedStops, planta].map((p) => [p.lng, p.lat])
         const zonasActivas = zonas.filter((z) => z.activa && z.polygon.length >= 3)
-        const dirBody: Record<string, unknown> = { coordinates }
-        if (zonasActivas.length > 0) {
-          dirBody.options = {
-            avoid_polygons: {
+        const avoidPolygons: OrsAvoidPolygons | null = zonasActivas.length > 0
+          ? {
               type: 'MultiPolygon',
               coordinates: zonasActivas.map((z) => {
                 const ring = z.polygon.map((p) => [p.lng, p.lat])
                 return [[...ring, ring[0]]]
               }),
-            },
-          }
-        }
+            }
+          : null
 
-        const dirRes  = await fetch('https://api.openrouteservice.org/v2/directions/driving-hgv/geojson', {
-          method:  'POST',
-          headers: { 'Authorization': orsKey, 'Content-Type': 'application/json' },
-          body:    JSON.stringify(dirBody),
-        })
-        const dirData  = await dirRes.json()
-        const feature  = dirData.features?.[0]
-        const segments = feature?.properties?.segments as { duration: number }[] | undefined
+        const { geometry, segments } = await fetchOrsDirections(coordinates, avoidPolygons)
 
-        if (!feature?.geometry?.coordinates || !segments) {
-          throw new Error(dirData.error?.message ?? 'Sin ruta ORS Dir.')
-        }
-
-        const path = (feature.geometry.coordinates as [number, number][])
-          .map(([lng, lat]) => ({ lat, lng }))
+        const path = geometry.coordinates.map(([lng, lat]) => ({ lat, lng }))
         setRoutePaths((prev) => ({ ...prev, [driverEmail]: path }))
 
         // Etiquetas de orden + horario de llegada estimado, a partir de la

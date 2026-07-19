@@ -1,11 +1,12 @@
 import {
   collection, doc, setDoc, onSnapshot,
-  query, where, Timestamp, runTransaction,
+  query, where, Timestamp, runTransaction, serverTimestamp,
 } from 'firebase/firestore'
 
 import { db } from './firebase'
 import { Despacho } from '../types'
 import { haversineKm, nearestNeighborOrder, timeStrToUnix, unixToTimeStr } from '../utils/routeMath'
+import { fetchOrsDirections, OrsAvoidPolygons } from './orsService'
 
 export const despachoId = (fecha: string, driverId: string) =>
   `${fecha}_${driverId.replace(/[^a-zA-Z0-9]/g, '_')}`
@@ -32,6 +33,90 @@ export async function updateDespacho(
     if (!snap.exists()) return
     const current = { ...snap.data(), id: snap.id } as Despacho
     tx.update(ref, mutate(current) as Record<string, unknown>)
+  })
+}
+
+type DespachoItemKind = 'order' | 'visita' | 'programa'
+
+function itemCollection(kind: DespachoItemKind): string {
+  return kind === 'order' ? 'orders' : kind === 'visita' ? 'visitas-puntuales' : 'programas-visita'
+}
+
+// Mueve un ítem (pedido/visita/programa) a otro chofer y, si el despacho de
+// origen ya estaba confirmado, lo quita de su lista de paradas — todo en UNA
+// transacción. Antes eran escrituras sueltas encadenadas: si fallaba la del
+// despacho, el pedido quedaba reasignado pero el despacho viejo seguía
+// listándolo (estado inconsistente). La transacción lee el despacho fresco del
+// servidor y hace todo atómico: o se aplica completo o no se aplica nada.
+export async function moveItemAtomic(params: {
+  fecha:          string
+  dndId:          string
+  item:           { kind: DespachoItemKind; id: string }
+  from:           string
+  to:             string
+  flagModifiedTo: boolean
+}): Promise<void> {
+  const { fecha, dndId, item, from, to, flagModifiedTo } = params
+  const newDriverId = to === 'sin_asignar' ? null : to
+
+  const fromRef = from !== 'sin_asignar' ? doc(db, 'despachos', despachoId(fecha, from)) : null
+  const toRef   = flagModifiedTo && to !== 'sin_asignar' ? doc(db, 'despachos', despachoId(fecha, to)) : null
+  const itemRef = doc(db, itemCollection(item.kind), item.id)
+
+  await runTransaction(db, async (tx) => {
+    // Todas las lecturas ANTES de cualquier escritura (requisito de Firestore).
+    const fromSnap = fromRef ? await tx.get(fromRef) : null
+    const toSnap   = toRef   ? await tx.get(toRef)   : null
+
+    if (item.kind === 'order') tx.update(itemRef, { driverId: newDriverId, updatedAt: serverTimestamp() })
+    else                        tx.update(itemRef, { driverId: newDriverId })
+
+    if (fromSnap?.exists() && fromSnap.data().status === 'confirmado') {
+      const orderIds = ((fromSnap.data().orderIds ?? []) as string[]).filter((x) => x !== dndId)
+      tx.update(fromRef!, { orderIds, modifiedAfterConfirm: true })
+    }
+    if (toSnap?.exists() && toSnap.data().status === 'confirmado') {
+      tx.update(toRef!, { modifiedAfterConfirm: true })
+    }
+  })
+}
+
+// Transfiere varias paradas de un chofer a otro (reasignación operativa) y las
+// quita del despacho de origen, en una sola transacción — mismo motivo de
+// atomicidad que moveItemAtomic, pero para N paradas a la vez.
+export async function transferItemsAtomic(params: {
+  fecha:      string
+  fromDriver: string
+  toDriver:   string
+  motivo:     string
+  items:      { kind: DespachoItemKind; id: string; dndId: string }[]
+}): Promise<void> {
+  const { fecha, fromDriver, toDriver, motivo, items } = params
+  const fromRef = doc(db, 'despachos', despachoId(fecha, fromDriver))
+  const dndIds  = items.map((i) => i.dndId)
+
+  await runTransaction(db, async (tx) => {
+    const fromSnap = await tx.get(fromRef)   // lectura antes de las escrituras
+
+    for (const it of items) {
+      const ref = doc(db, itemCollection(it.kind), it.id)
+      if (it.kind === 'order') {
+        tx.update(ref, {
+          driverId:           toDriver,
+          reasignado:         true,
+          choferOriginal:     fromDriver,
+          motivoReasignacion: motivo || 'Reasignación operativa',
+          updatedAt:          serverTimestamp(),
+        })
+      } else {
+        tx.update(ref, { driverId: toDriver })
+      }
+    }
+
+    if (fromSnap.exists()) {
+      const orderIds = ((fromSnap.data().orderIds ?? []) as string[]).filter((x) => !dndIds.includes(x))
+      tx.update(fromRef, { orderIds, modifiedAfterConfirm: true })
+    }
   })
 }
 
@@ -113,11 +198,10 @@ export async function optimizeStopOrder(params: {
   fecha:       string
   departure:   string
   planta:      { lat: number; lng: number }
-  orsKey:      string
   zonasProhibidas?:   RouteZonaProhibida[]
   tiempoServicioMin?: number
 }): Promise<{ orderedIds: string[]; arrivals: Record<string, string>; orsOk: boolean; orsError?: string }> {
-  const { stopIds, coords, fecha, departure, planta, orsKey, zonasProhibidas, tiempoServicioMin = 5 } = params
+  const { stopIds, coords, fecha, departure, planta, zonasProhibidas, tiempoServicioMin = 5 } = params
 
   const validStops = stopIds
     .filter((id) => coords[id])
@@ -132,59 +216,40 @@ export async function optimizeStopOrder(params: {
   const orderedIds   = [...orderedStops.map((s) => s.id), ...noCoordIds]
   const vehicleStart  = timeStrToUnix(fecha, departure)
 
-  if (orsKey) {
-    try {
-      const coordinates  = [planta, ...orderedStops, planta].map((p) => [p.lng, p.lat])
-      const zonasActivas = (zonasProhibidas ?? []).filter((z) => z.polygon.length >= 3)
-      const body: Record<string, unknown> = { coordinates }
-      if (zonasActivas.length > 0) {
-        body.options = {
-          avoid_polygons: {
-            type: 'MultiPolygon',
-            coordinates: zonasActivas.map((z) => {
-              const ring = z.polygon.map((p) => [p.lng, p.lat])
-              return [[...ring, ring[0]]]
-            }),
-          },
-        }
+  // ORS Directions se resuelve server-side (Cloud Function `orsDirections`): la
+  // API key ya no viaja al navegador. Si la function falla (ORS caído, sin
+  // cuota), se usa el fallback local, que siempre da un resultado.
+  const coordinates  = [planta, ...orderedStops, planta].map((p) => [p.lng, p.lat])
+  const zonasActivas = (zonasProhibidas ?? []).filter((z) => z.polygon.length >= 3)
+  const avoidPolygons: OrsAvoidPolygons | null = zonasActivas.length > 0
+    ? {
+        type: 'MultiPolygon',
+        coordinates: zonasActivas.map((z) => {
+          const ring = z.polygon.map((p) => [p.lng, p.lat])
+          return [[...ring, ring[0]]]
+        }),
       }
+    : null
 
-      const res = await fetch('https://api.openrouteservice.org/v2/directions/driving-hgv/geojson', {
-        method:  'POST',
-        headers: { Authorization: orsKey, 'Content-Type': 'application/json' },
-        body:    JSON.stringify(body),
-      })
-      const data     = await res.json()
-      const feature  = data.features?.[0]
-      const segments = feature?.properties?.segments as { duration: number }[] | undefined
+  try {
+    const { segments } = await fetchOrsDirections(coordinates, avoidPolygons)
 
-      if (!feature?.geometry?.coordinates || !segments) {
-        throw new Error(data.error?.message ?? 'Sin ruta de ORS Directions')
-      }
-
-      const arrivals: Record<string, string> = {}
-      let cursor = vehicleStart
-      orderedStops.forEach((stop, idx) => {
-        cursor += segments[idx]?.duration ?? 0
-        arrivals[stop.id] = unixToTimeStr(cursor)
-        cursor += tiempoServicioMin * 60
-      })
-      return { orderedIds, arrivals, orsOk: true }
-    } catch (err) {
-      // ORS no disponible — usar fallback local (siempre da un resultado)
-      return {
-        orderedIds,
-        arrivals: estimateArrivals(orderedIds, coords, planta, vehicleStart, tiempoServicioMin),
-        orsOk: false,
-        orsError: err instanceof Error ? err.message : 'Error ORS',
-      }
+    const arrivals: Record<string, string> = {}
+    let cursor = vehicleStart
+    orderedStops.forEach((stop, idx) => {
+      cursor += segments[idx]?.duration ?? 0
+      arrivals[stop.id] = unixToTimeStr(cursor)
+      cursor += tiempoServicioMin * 60
+    })
+    return { orderedIds, arrivals, orsOk: true }
+  } catch (err) {
+    // ORS no disponible — usar fallback local (siempre da un resultado)
+    return {
+      orderedIds,
+      arrivals: estimateArrivals(orderedIds, coords, planta, vehicleStart, tiempoServicioMin),
+      orsOk: false,
+      orsError: err instanceof Error ? err.message : 'Error ORS',
     }
-  }
-
-  return {
-    orderedIds,
-    arrivals: estimateArrivals(orderedIds, coords, planta, vehicleStart, tiempoServicioMin),
-    orsOk: false,
   }
 }
 
