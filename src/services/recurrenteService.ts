@@ -1,21 +1,8 @@
-import {
-  collection,
-  doc,
-  setDoc,
-  getDoc,
-  getDocs,
-  updateDoc,
-  serverTimestamp,
-  Timestamp,
-  query,
-  where,
-  runTransaction,
-} from 'firebase/firestore'
+import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from './firebase'
 import { PedidoRecurrente } from '../types'
 
-const COL    = 'pedidos-recurrentes'
-const ORDERS = 'orders'
+const COL = 'pedidos-recurrentes'
 
 export const getRecurrenteByClient = async (clientId: string): Promise<PedidoRecurrente | null> => {
   const snap = await getDoc(doc(db, COL, clientId))
@@ -36,58 +23,6 @@ export const saveRecurrente = async (
   }
 }
 
-export const getAllRecurrentes = async (): Promise<PedidoRecurrente[]> => {
-  const snap = await getDocs(query(collection(db, COL), where('activo', '==', true)))
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as PedidoRecurrente))
-}
-
-export const generateRecurrentesForToday = async (): Promise<number> => {
-  const today    = new Date()
-  const todayDay = today.getDay()
-  const todayStr = today.toDateString()
-
-  const templates = await getAllRecurrentes()
-  let generated   = 0
-
-  for (const t of templates) {
-    if (!t.diasSemana.includes(todayDay)) continue
-
-    const recRef   = doc(db, COL, t.clientId)
-    // Crear ref con ID auto sin escribir (para usarla dentro de la transacción)
-    const orderRef = doc(collection(db, ORDERS))
-
-    try {
-      const didCreate = await runTransaction(db, async (tx) => {
-        const snap = await tx.get(recRef)
-        if (!snap.exists()) return false
-
-        // Anti-duplicado atómico: si ultimaGeneracion es hoy, saltar
-        const ultima = (snap.data() as PedidoRecurrente).ultimaGeneracion?.toDate?.()
-        if (ultima && ultima.toDateString() === todayStr) return false
-
-        tx.set(orderRef, {
-          clientId:         t.clientId,
-          clientEmail:      t.clientEmail,
-          clientName:       t.clientName,
-          clientAddress:    t.clientAddress,
-          clientPhone:      t.clientPhone,
-          products:         t.products,
-          status:           'pendiente',
-          date:             Timestamp.fromDate(today),
-          driverId:         null,
-          notes:            t.notas ?? '',
-          origenRecurrente: true,
-          createdAt:        serverTimestamp(),
-          updatedAt:        serverTimestamp(),
-        })
-        tx.update(recRef, { ultimaGeneracion: serverTimestamp() })
-        return true
-      })
-      if (didCreate) generated++
-    } catch (err) {
-      console.error('[recurrenteService] generateRecurrentesForToday transaction error:', err)
-    }
-  }
-
-  return generated
-}
+// La generación diaria de pedidos a partir de estas plantillas corre server-side
+// en la Cloud Function programada `generarPedidosRecurrentes`
+// (functions/src/triggers/recurrentes.ts), no en el cliente.

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import Navbar from '../../components/layout/Navbar'
 import Button from '../../components/ui/Button'
@@ -10,7 +10,6 @@ import { useChoferes } from '../../hooks/useChoferes'
 import { useNotificationEmails } from '../../hooks/useNotificationEmails'
 import { useAuth } from '../../context/AuthContext'
 import { cleanupTestData, CleanupResult } from '../../services/cleanupService'
-import { generateRecurrentesForToday } from '../../services/recurrenteService'
 import MetricsDashboard from './MetricsDashboard'
 import { ForecastStrip } from './ClimaPage'
 import { LiveMapSection }           from '../../components/admin/LiveMapSection'
@@ -25,17 +24,8 @@ export default function AdminDashboard() {
   const [cleanupModal,   setCleanupModal]   = useState(false)
   const [cleanupLoading, setCleanupLoading] = useState(false)
   const [cleanupResult,  setCleanupResult]  = useState<CleanupResult | null>(null)
-  const [recurrentesBanner, setRecurrentesBanner] = useState<number | null>(null)
 
   const isSuperAdmin = user?.rol === 'super_admin'
-
-  useEffect(() => {
-    const key = `recurrentes-${new Date().toDateString()}`
-    if (sessionStorage.getItem(key)) return
-    generateRecurrentesForToday()
-      .then((n) => { sessionStorage.setItem(key, '1'); if (n > 0) setRecurrentesBanner(n) })
-      .catch(console.error)
-  }, [])
 
   const handleCleanup = async () => {
     if (!user?.uid) return
@@ -82,19 +72,6 @@ export default function AdminDashboard() {
           </div>
           <NotificationEmailManager notifEmails={notifEmails} />
         </div>
-
-        {/* Alertas accionables */}
-        {recurrentesBanner !== null && (
-          <section className="space-y-2">
-            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Requieren atención</h2>
-            <div className="bg-[#E8F5F0] border border-[#B3DDD3] rounded-xl px-4 py-3 flex items-center justify-between gap-3">
-              <p className="text-accent text-sm">
-                ↺ {recurrentesBanner} pedido{recurrentesBanner > 1 ? 's' : ''} recurrente{recurrentesBanner > 1 ? 's' : ''} generado{recurrentesBanner > 1 ? 's' : ''} automáticamente para hoy
-              </p>
-              <button onClick={() => setRecurrentesBanner(null)} className="text-gray-400 hover:text-gray-700 text-xs">✕</button>
-            </div>
-          </section>
-        )}
 
         {/* KPIs y métricas */}
         <MetricsDashboard orders={orders} />
