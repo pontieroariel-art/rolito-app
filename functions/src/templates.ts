@@ -1,5 +1,19 @@
 interface Product { name: string; quantity: number }
 
+// Escapa datos controlados por el usuario (razón social, notas, nombres de
+// producto, motivo, dirección, teléfono) antes de interpolarlos en el HTML del
+// email. Sin esto, p. ej. una razón social con markup podría inyectar contenido
+// (links, layout roto) en el correo que recibe el staff. Se aplica solo al dato
+// crudo, nunca al markup que los templates arman a propósito.
+function esc(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 const LOGO_URL  = 'https://rolito-app.web.app/logo-rolito.png'
 const GREEN      = '#1D9E75'
 const GREEN_DARK = '#166a50'
@@ -90,7 +104,7 @@ function layout(pageTitle: string, banner: BannerOpts, body: string): string {
 
 function greeting(nombre: string): string {
   return `<p style="margin:0 0 16px;font-size:16px">
-    Hola <strong style="color:#111827">${nombre}</strong>,</p>`
+    Hola <strong style="color:#111827">${esc(nombre)}</strong>,</p>`
 }
 
 function formatDate(value: unknown): string {
@@ -110,7 +124,7 @@ function productsTable(products: Product[]): string {
   const rows = products.map((p, i) => `
     <tr style="background:${i % 2 === 0 ? '#ffffff' : '#fafafa'}">
       <td style="padding:11px 14px;font-size:14px;color:#111827;
-        border-bottom:1px solid #f3f4f6">${p.name}</td>
+        border-bottom:1px solid #f3f4f6">${esc(p.name)}</td>
       <td style="padding:11px 14px;text-align:right;border-bottom:1px solid #f3f4f6;
         white-space:nowrap">
         <span style="background:${GREEN_BG};color:${GREEN_DARK};font-size:13px;
@@ -212,7 +226,7 @@ export function tplPedidoRecibido(
   const notasHtml = notes
     ? `<p style="margin:16px 0 0;padding:12px 16px;background:#fafafa;
         border:1px solid #e5e7eb;border-radius:8px;font-size:13px;
-        color:#6b7280;font-style:italic">&ldquo;${notes}&rdquo;</p>`
+        color:#6b7280;font-style:italic">&ldquo;${esc(notes)}&rdquo;</p>`
     : ''
   return layout('Pedido recibido', {
     emoji:       '📦',
@@ -289,7 +303,7 @@ export function tplPedidoReprogramado(
     ${productsTable(products)}
     ${dateBox(date)}
     <p style="margin:16px 0 0;padding:12px 16px;background:#fafafa;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;color:#6b7280">
-      <span style="font-weight:600;color:#374151">Motivo: </span>${motivo}
+      <span style="font-weight:600;color:#374151">Motivo: </span>${esc(motivo)}
     </p>
   `)
 }
@@ -307,18 +321,18 @@ export function tplAdminNuevoPedido(order: {
         border:1px solid #e5e7eb;border-radius:8px;font-size:13px;
         color:#6b7280;font-style:italic">
         <span style="font-weight:600;font-style:normal;color:#374151">Nota: </span>
-        &ldquo;${order.notes}&rdquo;</p>`
+        &ldquo;${esc(order.notes)}&rdquo;</p>`
     : ''
-  return layout(`Nuevo pedido de ${order.clientName}`, {
+  return layout(`Nuevo pedido de ${esc(order.clientName)}`, {
     emoji:       '🆕',
     title:       'Nuevo pedido recibido',
-    subtitle:    `De: ${order.clientName}`,
+    subtitle:    `De: ${esc(order.clientName)}`,
     accentColor: '#8B5CF6',
   }, `
     ${infoBox([
-      { label: 'Cliente',   value: `<strong>${order.clientName}</strong>` },
-      { label: 'Teléfono',  value: order.clientPhone || '—' },
-      { label: 'Dirección', value: order.clientAddress },
+      { label: 'Cliente',   value: `<strong>${esc(order.clientName)}</strong>` },
+      { label: 'Teléfono',  value: esc(order.clientPhone || '—') },
+      { label: 'Dirección', value: esc(order.clientAddress) },
       { label: 'Entrega',   value: `<strong>${formatDate(order.date)}</strong>` },
     ])}
     ${productsTable(order.products)}
