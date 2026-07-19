@@ -23,6 +23,9 @@ npm-debug.log*
 # Local Netlify folder
 .netlify
 
+# Claude Code — settings locales (pueden contener datos sensibles)
+.claude/settings.local.json
+
 # Scripts — credenciales y archivos locales
 scripts/serviceAccount.json
 scripts/import-errores.txt
