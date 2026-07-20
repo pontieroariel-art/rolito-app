@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.validarPreciosPedido = exports.notifyReprogramado = exports.notifyCerca = exports.sendPush = exports.deleteAuthUsers = exports.onOrderEnCamino = exports.onOrderConfirmado = exports.onOrderCreated = exports.onUserApproved = exports.onUserRegistered = void 0;
+exports.generarPedidosRecurrentes = exports.orsDirections = exports.mirrorDriverLocation = exports.validarPreciosPedido = exports.notifyReprogramado = exports.notifyCerca = exports.sendPush = exports.deleteAuthUsers = exports.onOrderEnCamino = exports.onOrderConfirmado = exports.onOrderCreated = exports.onUserApproved = exports.onUserRegistered = void 0;
 const app_1 = require("firebase-admin/app");
 (0, app_1.initializeApp)();
 var users_1 = require("./triggers/users");
@@ -19,4 +19,10 @@ Object.defineProperty(exports, "notifyCerca", { enumerable: true, get: function 
 Object.defineProperty(exports, "notifyReprogramado", { enumerable: true, get: function () { return clientNotify_1.notifyReprogramado; } });
 var orderPricing_1 = require("./triggers/orderPricing");
 Object.defineProperty(exports, "validarPreciosPedido", { enumerable: true, get: function () { return orderPricing_1.validarPreciosPedido; } });
+var location_1 = require("./triggers/location");
+Object.defineProperty(exports, "mirrorDriverLocation", { enumerable: true, get: function () { return location_1.mirrorDriverLocation; } });
+var routing_1 = require("./triggers/routing");
+Object.defineProperty(exports, "orsDirections", { enumerable: true, get: function () { return routing_1.orsDirections; } });
+var recurrentes_1 = require("./triggers/recurrentes");
+Object.defineProperty(exports, "generarPedidosRecurrentes", { enumerable: true, get: function () { return recurrentes_1.generarPedidosRecurrentes; } });
 //# sourceMappingURL=index.js.map
