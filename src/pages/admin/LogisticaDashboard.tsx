@@ -5,7 +5,7 @@ import {
   useDroppable, useDraggable,
 } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
-import { FileText, Plus, MoreVertical, Pencil, XCircle, Minus, GripVertical, ChevronLeft, ChevronRight } from 'lucide-react'
+import { FileText, Plus, MoreVertical, Pencil, XCircle, Minus, GripVertical, ChevronLeft, ChevronRight, Clock, CalendarDays } from 'lucide-react'
 import Navbar from '../../components/layout/Navbar'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import Modal from '../../components/ui/Modal'
@@ -284,18 +284,25 @@ function CancelOrderModal({ order, onClose, onCancelled }: { order: Order; onClo
   )
 }
 
-// ── KanbanCard ────────────────────────────────────────────────────────────────
+// ── OrderQuickView (popover de detalle) ─────────────────────────────────────
+// Al hacer clic en un bloque de la grilla horaria, un cluster o un pedido de
+// Bandeja se abre este detalle — reemplaza a la tarjeta expandible en línea
+// que tenía sentido en un tablero de columnas, no en una grilla horaria.
 
-const KanbanCard = memo(function KanbanCard({ order, choferes, isHighlighted }: { order: Order; choferes: UserProfile[]; isHighlighted?: boolean }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: order.id })
+function OrderQuickView({ order, choferes, codigoCliente, onClose, onEdit, onCancel }: {
+  order:         Order
+  choferes:      UserProfile[]
+  codigoCliente?: string
+  onClose:       () => void
+  onEdit:        (order: Order) => void
+  onCancel:      (order: Order) => void
+}) {
   const [assigning,     setAssigning]     = useState(false)
   const [loadingDriver, setLoadingDriver] = useState<string | null>(null)
-  const [menuOpen,      setMenuOpen]      = useState(false)
-  const [editModal,     setEditModal]     = useState(false)
-  const [cancelModal,   setCancelModal]   = useState(false)
 
   const driver = order.driverId ? choferes.find((c) => c.email === order.driverId) : null
   const color  = order.driverId ? driverColor(order.driverId, choferes) : null
+  const canEdit = !['entregado', 'cancelado'].includes(order.status)
 
   const handleAssign = async (email: string) => {
     setLoadingDriver(email)
@@ -309,73 +316,18 @@ const KanbanCard = memo(function KanbanCard({ order, choferes, isHighlighted }: 
     }
   }
 
-  const canEdit = !['entregado', 'cancelado'].includes(order.status)
-
   return (
-    <>
-      <div
-        ref={setNodeRef}
-        style={{ transform: CSS.Translate.toString(transform), opacity: isDragging ? 0.35 : 1 }}
-        className={`bg-white rounded-xl p-3 space-y-2 select-none hover:border-accent/50 hover:shadow-sm transition-all ${
-          isHighlighted
-            ? 'border-2 border-accent ring-4 ring-accent/25 animate-pulse'
-            : 'border border-[#D3D1C7]'
-        }`}
-      >
-        {/* Header: grip handle + nombre + menú */}
-        <div className="flex items-start gap-1">
-          <div
-            {...listeners}
-            {...attributes}
-            onPointerDown={(e) => e.stopPropagation()}
-            className="shrink-0 touch-none cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 pt-0.5 -ml-1 pr-0.5"
-          >
-            <GripVertical size={14} />
-          </div>
-          <p className="text-sm font-semibold text-gray-900 leading-tight flex-1">{order.clientName}</p>
-          {canEdit && (
-            <button
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v) }}
-              className="shrink-0 p-0.5 rounded-md text-gray-300 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-            >
-              <MoreVertical size={14} />
-            </button>
-          )}
-        </div>
-
-        {/* Menú desplegable */}
-        {menuOpen && (
-          <div
-            onPointerDown={(e) => e.stopPropagation()}
-            className="bg-white border border-gray-200 rounded-xl shadow-lg py-1 z-50"
-          >
-            <button
-              onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setEditModal(true) }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-            >
-              <Pencil size={13} className="text-gray-400" /> Editar pedido
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setCancelModal(true) }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors"
-            >
-              <XCircle size={13} /> Cancelar pedido
-            </button>
-          </div>
-        )}
-
-        {order.clientAddress && (
-          <p className="text-xs text-gray-400 truncate">{order.clientAddress}</p>
-        )}
-        <p className="text-xs text-gray-600">{summarizeProducts(order.products)}</p>
+    <Modal open onClose={onClose} title={order.clientName}>
+      <div className="space-y-3">
+        {codigoCliente && <p className="text-xs text-gray-400 font-mono -mt-1">{codigoCliente}</p>}
+        {order.clientAddress && <p className="text-sm text-gray-500">{order.clientAddress}</p>}
+        <p className="text-sm text-gray-700">{summarizeProducts(order.products)}</p>
 
         <div className="flex items-center justify-between gap-2 flex-wrap">
           {driver ? (
             <button
-              onPointerDown={(e) => e.stopPropagation()}
               onClick={() => setAssigning((v) => !v)}
-              className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium transition-opacity hover:opacity-80"
+              className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium transition-opacity hover:opacity-80"
               style={{ backgroundColor: `${color}18`, color: color!, border: `1px solid ${color}40` }}
             >
               <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: color! }} />
@@ -383,23 +335,17 @@ const KanbanCard = memo(function KanbanCard({ order, choferes, isHighlighted }: 
             </button>
           ) : (
             <button
-              onPointerDown={(e) => e.stopPropagation()}
               onClick={() => setAssigning((v) => !v)}
-              className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100 transition-colors"
+              className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100 transition-colors"
             >
               Sin asignar
             </button>
           )}
-          {order.horaEntrega && (
-            <span className="text-xs text-gray-400 shrink-0">{order.horaEntrega}</span>
-          )}
+          {order.horaEntrega && <span className="text-xs text-gray-400">{order.horaEntrega}</span>}
         </div>
 
         {assigning && (
-          <div
-            onPointerDown={(e) => e.stopPropagation()}
-            className="pt-2 border-t border-gray-100 flex flex-wrap gap-1.5"
-          >
+          <div className="pt-1 border-t border-gray-100 flex flex-wrap gap-1.5">
             {choferes.map((c) => {
               const col = driverColor(c.email, choferes)
               return (
@@ -420,25 +366,135 @@ const KanbanCard = memo(function KanbanCard({ order, choferes, isHighlighted }: 
             })}
           </div>
         )}
-      </div>
 
-      {editModal   && <EditOrderModal   order={order} onClose={() => setEditModal(false)}   onSaved={() => {}} />}
-      {cancelModal && <CancelOrderModal order={order} onClose={() => setCancelModal(false)} onCancelled={() => {}} />}
-    </>
+        {canEdit && (
+          <div className="flex gap-2 pt-2 border-t border-gray-100">
+            <button
+              onClick={() => { onClose(); onEdit(order) }}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+            >
+              <Pencil size={13} /> Editar
+            </button>
+            <button
+              onClick={() => { onClose(); onCancel(order) }}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border border-red-200 text-sm text-red-500 hover:bg-red-50 transition-colors"
+            >
+              <XCircle size={13} /> Cancelar
+            </button>
+          </div>
+        )}
+      </div>
+    </Modal>
+  )
+}
+
+// ── OrderListRow (fila draggable, sin horario) ──────────────────────────────
+
+const OrderListRow = memo(function OrderListRow({ order, choferes, isHighlighted, onClick }: {
+  order: Order; choferes: UserProfile[]; isHighlighted?: boolean; onClick: () => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: order.id })
+  const color = order.driverId ? driverColor(order.driverId, choferes) : '#D97706'
+  const totalUnits = order.products.reduce((sum, p) => sum + p.quantity, 0)
+
+  return (
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      onClick={onClick}
+      style={{
+        transform: CSS.Translate.toString(transform),
+        opacity: isDragging ? 0.35 : 1,
+        borderLeftColor: color,
+      }}
+      className={`flex items-center gap-1.5 pl-1.5 pr-2 py-1 rounded-r-lg overflow-hidden bg-white border border-l-[3px] border-[#E4E1D6] cursor-pointer touch-none select-none hover:border-accent/60 hover:shadow-sm transition-all ${
+        isHighlighted ? 'ring-2 ring-accent/40' : ''
+      }`}
+    >
+      <p className="text-xs font-semibold text-gray-900 truncate min-w-0 flex-1">{order.clientName}</p>
+      <span className="text-[10px] text-gray-400 font-mono tabular-nums shrink-0">{totalUnits}u</span>
+    </div>
   )
 }, (prev, next) => {
   const o1 = prev.order, o2 = next.order
   return (
-    o1.id          === o2.id          &&
-    o1.status      === o2.status      &&
-    o1.driverId    === o2.driverId    &&
-    o1.horaEntrega === o2.horaEntrega &&
-    o1.clientName  === o2.clientName  &&
-    o1.date?.seconds === o2.date?.seconds &&
-    o1.products.length === o2.products.length &&
-    prev.choferes      === next.choferes &&
-    prev.isHighlighted === next.isHighlighted
+    o1.id === o2.id && o1.status === o2.status && o1.driverId === o2.driverId &&
+    o1.clientName === o2.clientName && o1.products.length === o2.products.length &&
+    prev.choferes === next.choferes && prev.isHighlighted === next.isHighlighted
   )
+})
+
+// ── DayListColumn (columna de día: cabecera + lista completa de pedidos) ───
+
+const DayListColumn = memo(function DayListColumn({ id, label, sublabel, orders, choferes, isToday, isBandeja, highlightedOrderId, onOpenOrder }: {
+  id:        string
+  label:     string
+  sublabel?: string
+  orders:    Order[]
+  choferes:  UserProfile[]
+  isToday:   boolean
+  isBandeja?: boolean
+  highlightedOrderId?: string | null
+  onOpenOrder: (order: Order) => void
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id })
+  const unassigned = orders.filter((o) => !o.driverId).length
+  // Sin asignar primero, para triage rápido en días con muchos pedidos.
+  const sortedOrders = useMemo(
+    () => [...orders].sort((a, b) => Number(!!a.driverId) - Number(!!b.driverId)),
+    [orders],
+  )
+
+  return (
+    <div className={`w-[340px] shrink-0 flex flex-col rounded-xl border transition-colors ${
+      isBandeja ? 'sticky left-0 z-10 shadow-[6px_0_12px_-6px_rgba(0,0,0,0.15)]' : ''
+    } ${
+      isOver ? 'border-accent bg-accent/5' : isToday ? 'border-accent/40 bg-accent/[0.03]' : isBandeja ? 'border-[#D3D1C7] bg-gray-50' : 'border-[#D3D1C7] bg-white'
+    }`}>
+      <div className="text-center py-2 border-b border-[#D3D1C7] shrink-0">
+        <p className={`text-sm font-bold ${isToday ? 'text-accent' : 'text-gray-900'}`}>{label}</p>
+        {sublabel && <p className="text-[10px] text-gray-400">{sublabel}</p>}
+        <div className="flex items-center justify-center gap-1 mt-0.5 h-4">
+          {unassigned > 0 && (
+            <span className="text-[9px] bg-amber-100 text-amber-600 border border-amber-200 px-1.5 rounded-full font-semibold leading-none">
+              {unassigned}⚠
+            </span>
+          )}
+          {orders.length > 0 && (
+            <span className="text-[9px] bg-gray-100 text-gray-600 px-1.5 rounded-full font-semibold leading-none">
+              {orders.length}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div ref={setNodeRef} className="flex-1 min-h-0 overflow-y-auto p-1.5 space-y-0.5">
+        {sortedOrders.map((order) => (
+          <OrderListRow
+            key={order.id}
+            order={order}
+            choferes={choferes}
+            isHighlighted={order.id === highlightedOrderId}
+            onClick={() => onOpenOrder(order)}
+          />
+        ))}
+        {orders.length === 0 && (
+          <div className="flex items-center justify-center h-full py-6">
+            <p className="text-xs text-gray-400">{isOver ? '+ Soltar acá' : 'Sin pedidos'}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}, (prev, next) => {
+  if (prev.id !== next.id || prev.choferes !== next.choferes) return false
+  if (prev.isToday !== next.isToday || prev.highlightedOrderId !== next.highlightedOrderId) return false
+  if (prev.orders.length !== next.orders.length) return false
+  return prev.orders.every((o, i) => {
+    const n = next.orders[i]
+    return o.id === n.id && o.status === n.status && o.driverId === n.driverId
+  })
 })
 
 // ── MiniCalendar ─────────────────────────────────────────────────────────────
@@ -500,7 +556,7 @@ function MiniCalendar({
     .toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
 
   return (
-    <div className="w-44 shrink-0 bg-white border border-[#D3D1C7] rounded-xl p-3 flex flex-col gap-2 self-start sticky top-0">
+    <div className="w-44 shrink-0 bg-white border border-[#D3D1C7] rounded-xl shadow-lg p-3 flex flex-col gap-2">
       {/* Navegación de mes */}
       <div className="flex items-center justify-between">
         <button
@@ -561,79 +617,6 @@ function MiniCalendar({
   )
 }
 
-// ── KanbanColumn ──────────────────────────────────────────────────────────────
-
-const KanbanColumn = memo(function KanbanColumn({ id, label, sublabel, orders, choferes, isBandeja, highlightedOrderId }: {
-  id:        string
-  label:     string
-  sublabel?: string
-  orders:    Order[]
-  choferes:  UserProfile[]
-  isBandeja: boolean
-  highlightedOrderId?: string | null
-}) {
-  const { setNodeRef, isOver } = useDroppable({ id })
-
-  const unassigned = orders.filter((o) => !o.driverId).length
-  const colW = isBandeja ? 256 : 220
-
-  return (
-    <div className="flex flex-col" style={{ width: colW, minWidth: colW }}>
-      {/* Header */}
-      <div className={`px-3 py-2.5 rounded-t-xl border border-b-0 transition-colors ${
-        isOver ? 'bg-accent/5 border-accent' : 'bg-white border-[#D3D1C7]'
-      }`}>
-        <div className="flex items-start justify-between gap-1">
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-gray-900">{label}</p>
-            {sublabel && <p className="text-xs text-gray-400 mt-0.5">{sublabel}</p>}
-          </div>
-          <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
-            {unassigned > 0 && (
-              <span className="text-xs bg-amber-100 text-amber-600 border border-amber-200 px-1.5 py-0.5 rounded-full leading-none">
-                {unassigned}⚠
-              </span>
-            )}
-            {orders.length > 0 && (
-              <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-semibold leading-none">
-                {orders.length}
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Body */}
-      <div
-        ref={setNodeRef}
-        className={`flex-1 p-2 space-y-2 rounded-b-xl border overflow-y-auto transition-colors ${
-          isOver ? 'border-accent bg-accent/5' : 'border-[#D3D1C7] bg-[#F1EFE8]/60'
-        }`}
-        style={{ minHeight: 200 }}
-      >
-        {orders.map((order) => (
-          <KanbanCard key={order.id} order={order} choferes={choferes} isHighlighted={order.id === highlightedOrderId} />
-        ))}
-        {orders.length === 0 && (
-          <div className={`flex items-center justify-center rounded-lg border-2 border-dashed py-8 transition-colors ${
-            isOver ? 'border-accent' : 'border-[#D3D1C7]'
-          }`}>
-            <p className="text-xs text-gray-400">{isOver ? '+ Soltar acá' : 'Sin pedidos'}</p>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}, (prev, next) => {
-  if (prev.id !== next.id || prev.choferes !== next.choferes) return false
-  if (prev.highlightedOrderId !== next.highlightedOrderId) return false
-  if (prev.orders.length !== next.orders.length) return false
-  return prev.orders.every((o, i) => {
-    const n = next.orders[i]
-    return o.id === n.id && o.status === n.status && o.driverId === n.driverId
-  })
-})
-
 // ── Página principal ──────────────────────────────────────────────────────────
 
 export default function LogisticaDashboard() {
@@ -656,6 +639,45 @@ export default function LogisticaDashboard() {
   const [highlightedOrderId, setHighlightedOrderId] = useState<string | null>(null)
   const [detailOrder,        setDetailOrder]        = useState<Order | null>(null)
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Mini-calendario: popover en vez de columna fija, para no perder ancho
+  // de la grilla. Se cierra solo al elegir un día o al clickear afuera.
+  const [calendarOpen, setCalendarOpen] = useState(false)
+  const calendarRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!calendarOpen) return
+    const onOutside = (e: MouseEvent) => {
+      if (calendarRef.current && !calendarRef.current.contains(e.target as Node)) setCalendarOpen(false)
+    }
+    document.addEventListener('mousedown', onOutside)
+    return () => document.removeEventListener('mousedown', onOutside)
+  }, [calendarOpen])
+
+  // Fila de días: la rueda del mouse (vertical) también scrollea horizontal
+  // mientras el puntero está sobre la fila — sin trackpad, deslizar hacia
+  // la derecha no era descubrible. El degradado del borde derecho se apaga
+  // solo al llegar al final.
+  const [canScrollRight, setCanScrollRight] = useState(true)
+  const dayRowRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = dayRowRef.current
+    if (!el) return
+    const updateEdge = () => setCanScrollRight(el.scrollWidth - el.clientWidth - el.scrollLeft > 4)
+    updateEdge()
+    const onWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return
+      el.scrollLeft += e.deltaY
+      e.preventDefault()
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    el.addEventListener('scroll', updateEdge)
+    window.addEventListener('resize', updateEdge)
+    return () => {
+      el.removeEventListener('wheel', onWheel)
+      el.removeEventListener('scroll', updateEdge)
+      window.removeEventListener('resize', updateEdge)
+    }
+  }, [])
 
   const goToToday    = () => { const d = new Date(); d.setHours(12, 0, 0, 0); setStartDate(d) }
   const goToPrevWeek = () => setStartDate((p) => { const d = new Date(p); d.setDate(d.getDate() - 7); return d })
@@ -680,9 +702,10 @@ export default function LogisticaDashboard() {
   const { choferes, loading: loadC } = useChoferes()
   const loading = loadO || loadC
 
-  // Cargar clientes al abrir el tab mapa o despacho (una sola vez)
+  // Cargar clientes al abrir cualquier tab que los necesite (una sola vez):
+  // pedidos usa el código de cliente en las tarjetas, mapa/despacho el resto del perfil.
   useEffect(() => {
-    if (!['mapa', 'despacho'].includes(mainTab) || clientsLoadedRef.current) return
+    if (!['pedidos', 'mapa', 'despacho'].includes(mainTab) || clientsLoadedRef.current) return
     const load = async () => {
       const { getClientesActivos } = await import('../../services/userService')
       const data = await getClientesActivos()
@@ -691,6 +714,11 @@ export default function LogisticaDashboard() {
     }
     load()
   }, [mainTab])
+
+  const codigoByClientId = useMemo(
+    () => new Map(allClients.map((c) => [c.uid, c.codigoCliente])),
+    [allClients],
+  )
 
   const sensors = useSensors(
     useSensor(MouseSensor,  { activationConstraint: { distance: 5 } }),
@@ -702,6 +730,11 @@ export default function LogisticaDashboard() {
     const d = new Date(startDate); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + i); return d
   }), [startDate])
   const dayIds  = useMemo(() => new Set(columns.filter((c) => c.id !== 'bandeja').map((c) => c.id)), [columns])
+
+  // Detalle rápido de un pedido: no encaja en la fila de columnas, se
+  // resuelve como overlay aparte.
+  const [quickViewOrder, setQuickViewOrder] = useState<Order | null>(null)
+  const [cancelOrder,    setCancelOrder]    = useState<Order | null>(null)
 
   const ordersByColumn = useMemo(() => {
     const result: Record<string, Order[]> = {}
@@ -761,72 +794,72 @@ export default function LogisticaDashboard() {
     <div className="h-screen overflow-hidden flex flex-col bg-[#F1EFE8] text-gray-900">
       <Navbar />
 
-      {/* Header + Tabs (altura fija) */}
-      <div className="px-4 pt-4 flex-shrink-0">
-        <div className="flex items-center justify-between gap-3 mb-3 max-w-full">
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Planificación</h1>
-            <p className="text-xs text-gray-500">
-              {new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }).replace(/^./, (c) => c.toUpperCase())}
-            </p>
+      {/* Header + Tabs — compacto, altura fija: todo lo periférico cede el
+          máximo de alto y ancho posible a la grilla de la pestaña Pedidos. */}
+      <div className="px-4 pt-3 flex-shrink-0">
+        {/* Título + KPIs + acciones, en una sola fila */}
+        <div className="flex items-center justify-between gap-4 mb-2 flex-wrap">
+          <div className="flex items-center gap-4 flex-wrap">
+            <h1 className="text-base font-bold text-gray-900 shrink-0">Planificación</h1>
+            <div className="flex items-center gap-3 text-xs">
+              <span className="flex items-baseline gap-1">
+                <b className="text-sm font-bold text-gray-900 tabular-nums">{kpis.total}</b>
+                <span className="text-gray-400">hoy</span>
+              </span>
+              <span className="flex items-baseline gap-1">
+                <b className={`text-sm font-bold tabular-nums ${kpis.sinAsignar > 0 ? 'text-amber-600' : 'text-gray-900'}`}>{kpis.sinAsignar}</b>
+                <span className={kpis.sinAsignar > 0 ? 'text-amber-500' : 'text-gray-400'}>sin asignar</span>
+              </span>
+              <span className="flex items-baseline gap-1">
+                <b className="text-sm font-bold tabular-nums text-accent">{kpis.enCamino}</b>
+                <span className="text-gray-400">en camino</span>
+              </span>
+              <span className="flex items-baseline gap-1">
+                <b className="text-sm font-bold tabular-nums text-green-600">{kpis.entregados}</b>
+                <span className="text-gray-400">entregados</span>
+              </span>
+            </div>
           </div>
           {mainTab === 'pedidos' && (
             <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={() => setImportModal(true)}
-                className="flex items-center gap-1.5 text-sm px-3 py-2 bg-white border border-[#D3D1C7] rounded-xl hover:border-accent transition-colors text-gray-700"
+                className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 bg-white border border-[#D3D1C7] rounded-lg hover:border-accent transition-colors text-gray-700"
               >
-                <FileText size={14} />
+                <FileText size={13} />
                 <span className="hidden sm:inline">Cargar PDF</span>
               </button>
               <button
                 onClick={() => setPedidoManual(true)}
-                className="flex items-center gap-1.5 text-sm px-3 py-2 bg-accent text-white rounded-xl hover:bg-accent/90 transition-colors font-medium"
+                className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors font-medium"
               >
-                <Plus size={14} />
+                <Plus size={13} />
                 <span className="hidden sm:inline">Pedido manual</span>
               </button>
             </div>
           )}
         </div>
 
-        {/* KPI strip */}
-        <div className="grid grid-cols-4 gap-2 mb-3">
-          <div className="bg-white border border-[#D3D1C7] rounded-xl px-3 py-2 text-center">
-            <p className="text-lg font-bold text-gray-900">{kpis.total}</p>
-            <p className="text-[10px] text-gray-500 leading-tight">Hoy</p>
+        {/* Tabs + buscador global, compartiendo la misma fila */}
+        <div className="flex items-start gap-3">
+          <div className="flex border-b border-gray-200 gap-1 shrink-0">
+            {tabs.map((t) => (
+              <button key={t} onClick={() => setMainTab(t)}
+                className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors -mb-px whitespace-nowrap ${
+                  mainTab === t ? 'border-accent text-accent' : 'border-transparent text-gray-500 hover:text-gray-900'
+                }`}>
+                {t === 'despacho' ? 'Despacho' : t === 'pedidos' ? 'Pedidos' : 'Mapa'}
+              </button>
+            ))}
           </div>
-          <div className={`border rounded-xl px-3 py-2 text-center ${kpis.sinAsignar > 0 ? 'bg-amber-50 border-amber-200' : 'bg-white border-[#D3D1C7]'}`}>
-            <p className={`text-lg font-bold ${kpis.sinAsignar > 0 ? 'text-amber-600' : 'text-gray-900'}`}>{kpis.sinAsignar}</p>
-            <p className="text-[10px] text-gray-500 leading-tight">Sin asignar</p>
+          <div className="flex-1 min-w-[240px] max-w-lg">
+            <PedidoSearchBar onJumpAndHighlight={handleSearchJump} onOpenDetail={setDetailOrder} />
           </div>
-          <div className="bg-white border border-[#D3D1C7] rounded-xl px-3 py-2 text-center">
-            <p className="text-lg font-bold text-accent">{kpis.enCamino}</p>
-            <p className="text-[10px] text-gray-500 leading-tight">En camino</p>
-          </div>
-          <div className="bg-white border border-[#D3D1C7] rounded-xl px-3 py-2 text-center">
-            <p className="text-lg font-bold text-green-600">{kpis.entregados}</p>
-            <p className="text-[10px] text-gray-500 leading-tight">Entregados</p>
-          </div>
-        </div>
-
-        {/* Buscador global de pedidos — compartido por las tres pestañas */}
-        <PedidoSearchBar onJumpAndHighlight={handleSearchJump} onOpenDetail={setDetailOrder} />
-
-        <div className="flex border-b border-gray-200 gap-1">
-          {tabs.map((t) => (
-            <button key={t} onClick={() => setMainTab(t)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
-                mainTab === t ? 'border-accent text-accent' : 'border-transparent text-gray-500 hover:text-gray-900'
-              }`}>
-              {t === 'despacho' ? 'Despacho' : t === 'pedidos' ? 'Pedidos' : 'Mapa'}
-            </button>
-          ))}
         </div>
       </div>
 
       {/* Contenido (ocupa el resto de la pantalla) */}
-      <div className={`flex-1 min-h-0 ${mainTab === 'mapa' || mainTab === 'despacho' ? 'overflow-hidden' : 'overflow-y-auto px-4 pb-6 pt-4'}`}>
+      <div className={`flex-1 min-h-0 overflow-hidden ${mainTab === 'pedidos' ? 'flex flex-col' : ''}`}>
 
 
         {/* Tab Despacho */}
@@ -853,72 +886,96 @@ export default function LogisticaDashboard() {
         {mainTab === 'pedidos' && (loading ? (
           <div className="flex justify-center py-20"><LoadingSpinner /></div>
         ) : (
-          <div className="flex gap-3 h-full">
+          <div className="flex-1 min-h-0 flex flex-col px-4 pb-4 pt-4">
 
-            {/* Mini calendario — oculto en pantallas pequeñas */}
-            <div className="hidden lg:block pt-0.5">
-              <MiniCalendar orders={orders} startDate={startDate} onSelectDay={handleSelectDay} />
+            {/* Barra de navegación de semana — el rango de fechas abre el
+                mini-calendario como popover, ya no como columna fija */}
+            <div ref={calendarRef} className="relative flex items-center gap-2 mb-2 flex-wrap">
+              <button
+                onClick={goToPrevWeek}
+                className="p-1.5 rounded-lg border border-[#D3D1C7] bg-white hover:border-accent text-gray-500 hover:text-accent transition-colors"
+              >
+                <ChevronLeft size={15} />
+              </button>
+              <button
+                onClick={goToToday}
+                className="px-3 py-1.5 rounded-lg border border-[#D3D1C7] bg-white text-xs font-semibold text-gray-600 hover:border-accent hover:text-accent transition-colors"
+              >
+                Hoy
+              </button>
+              <button
+                onClick={() => setCalendarOpen((v) => !v)}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs transition-colors ${
+                  calendarOpen ? 'text-accent bg-white' : 'text-gray-500 hover:text-accent hover:bg-white'
+                }`}
+              >
+                <CalendarDays size={13} />
+                {startDate.toLocaleDateString('es-AR', { day: 'numeric', month: 'long' })}
+                {' – '}
+                {new Date(startDate.getTime() + 6 * 86400000).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </button>
+              <button
+                onClick={goToNextWeek}
+                className="p-1.5 rounded-lg border border-[#D3D1C7] bg-white hover:border-accent text-gray-500 hover:text-accent transition-colors"
+              >
+                <ChevronRight size={15} />
+              </button>
+
+              {calendarOpen && (
+                <div className="absolute z-30 top-full mt-1.5 left-1/2 -translate-x-1/2">
+                  <MiniCalendar
+                    orders={orders}
+                    startDate={startDate}
+                    onSelectDay={(d) => { handleSelectDay(d); setCalendarOpen(false) }}
+                  />
+                </div>
+              )}
             </div>
 
-            {/* Kanban + navegación */}
-            <div className="flex-1 flex flex-col min-w-0">
-
-              {/* Barra de navegación de semana */}
-              <div className="flex items-center gap-2 mb-3 flex-wrap">
-                <button
-                  onClick={goToPrevWeek}
-                  className="p-1.5 rounded-lg border border-[#D3D1C7] bg-white hover:border-accent text-gray-500 hover:text-accent transition-colors"
+            <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+              {/* Columnas anchas para que el nombre del cliente se lea bien;
+                  Bandeja arranca la fila y el resto de la semana se ve
+                  deslizando a la derecha (scroll horizontal). */}
+              <div className="relative flex-1 min-h-0">
+                <div
+                  ref={dayRowRef}
+                  className="h-full overflow-x-auto [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 hover:[&::-webkit-scrollbar-thumb]:bg-gray-400"
                 >
-                  <ChevronLeft size={15} />
-                </button>
-                <button
-                  onClick={goToToday}
-                  className="px-3 py-1.5 rounded-lg border border-[#D3D1C7] bg-white text-xs font-semibold text-gray-600 hover:border-accent hover:text-accent transition-colors"
-                >
-                  Hoy
-                </button>
-                <span className="text-xs text-gray-500 flex-1 text-center">
-                  {startDate.toLocaleDateString('es-AR', { day: 'numeric', month: 'long' })}
-                  {' – '}
-                  {new Date(startDate.getTime() + 6 * 86400000).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}
-                </span>
-                <button
-                  onClick={goToNextWeek}
-                  className="p-1.5 rounded-lg border border-[#D3D1C7] bg-white hover:border-accent text-gray-500 hover:text-accent transition-colors"
-                >
-                  <ChevronRight size={15} />
-                </button>
-              </div>
-
-              <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-                <div className="overflow-x-auto pb-2 [&::-webkit-scrollbar]:h-[3px] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 hover:[&::-webkit-scrollbar-thumb]:bg-gray-400" style={{ scrollbarWidth: 'thin', scrollbarColor: '#d1d5db transparent' }}>
-                  <div className="flex gap-3" style={{ width: 'max-content', height: 'calc(100vh - 200px)', minHeight: 400 }}>
+                  <div className="flex gap-1.5 h-full" style={{ width: 'max-content' }}>
                     {columns.map((col) => (
-                      <KanbanColumn
+                      <DayListColumn
                         key={col.id}
                         id={col.id}
                         label={col.label}
                         sublabel={col.sublabel}
                         orders={ordersByColumn[col.id] ?? []}
                         choferes={choferes}
+                        isToday={col.id === todayStr}
                         isBandeja={col.id === 'bandeja'}
                         highlightedOrderId={highlightedOrderId}
+                        onOpenOrder={setQuickViewOrder}
                       />
                     ))}
                   </div>
                 </div>
+                <div
+                  aria-hidden
+                  className={`pointer-events-none absolute top-0 right-0 h-full w-14 bg-gradient-to-l from-[#F1EFE8] to-transparent transition-opacity duration-200 ${
+                    canScrollRight ? 'opacity-100' : 'opacity-0'
+                  }`}
+                />
+              </div>
 
-                <DragOverlay dropAnimation={null}>
-                  {activeOrder && (
-                    <div className="bg-white border-2 border-accent rounded-xl p-3 shadow-2xl rotate-1 w-52 space-y-1.5">
-                      <p className="text-sm font-semibold text-gray-900 leading-tight">{activeOrder.clientName}</p>
-                      <p className="text-xs text-gray-500 truncate">{activeOrder.clientAddress}</p>
-                      <p className="text-xs text-gray-600">{summarizeProducts(activeOrder.products)}</p>
-                    </div>
-                  )}
-                </DragOverlay>
-              </DndContext>
-            </div>
+              <DragOverlay dropAnimation={null}>
+                {activeOrder && (
+                  <div className="bg-white border-2 border-accent rounded-xl p-3 shadow-2xl rotate-1 w-52 space-y-1.5">
+                    <p className="text-sm font-semibold text-gray-900 leading-tight">{activeOrder.clientName}</p>
+                    <p className="text-xs text-gray-500 truncate">{activeOrder.clientAddress}</p>
+                    <p className="text-xs text-gray-600">{summarizeProducts(activeOrder.products)}</p>
+                  </div>
+                )}
+              </DragOverlay>
+            </DndContext>
           </div>
         ))}
       </div>
@@ -928,6 +985,21 @@ export default function LogisticaDashboard() {
 
       {detailOrder && (
         <EditOrderModal order={detailOrder} onClose={() => setDetailOrder(null)} onSaved={() => {}} />
+      )}
+
+      {quickViewOrder && (
+        <OrderQuickView
+          order={quickViewOrder}
+          choferes={choferes}
+          codigoCliente={codigoByClientId.get(quickViewOrder.clientId)}
+          onClose={() => setQuickViewOrder(null)}
+          onEdit={setDetailOrder}
+          onCancel={setCancelOrder}
+        />
+      )}
+
+      {cancelOrder && (
+        <CancelOrderModal order={cancelOrder} onClose={() => setCancelOrder(null)} onCancelled={() => setCancelOrder(null)} />
       )}
     </div>
   )
