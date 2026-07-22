@@ -33,6 +33,9 @@ scripts/import-errores.txt
 # Firebase cache
 .firebase/
 
+# Datos exportados del emulador local (npm run emulators)
+/emulator-data/
+
 # Screenshots de verificación y Playwright
 .verify_screenshots/
 .playwright-mcp/

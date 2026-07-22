@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, memo } from 'react'
+import { useState, useMemo, useEffect, useCallback, memo } from 'react'
 import {
   DndContext, DragOverlay,
   useDroppable, useDraggable,
@@ -13,6 +13,7 @@ import { formatDespachoFecha, todayStr } from '../../services/despachoService'
 import { visitasParaFecha, programasParaFecha } from '../../hooks/useVisitas'
 import { AsignacionChofer } from '../../services/asignacionesDiaService'
 import { useDespachoBoard, DayItem, dateStr, orderDateStr, PLANTA_DEFAULT } from '../../hooks/useDespachoBoard'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 // Tipos (DayItem/ItemKind) y helpers de fecha (dateStr/orderDateStr) ahora
 // viven en useDespachoBoard.ts junto con el resto de la lógica del tablero.
@@ -28,6 +29,12 @@ const EMPTY_ITEMS:     DayItem[] = []
 const EMPTY_ROUTE:     string[] = []
 const EMPTY_ARRIVALS:  Record<string, string> = {}
 const EMPTY_ASIGNACION: AsignacionChofer = { camionId: null, ayudanteEmail: null }
+
+// Lee un valor keyed-by-chofer solo si hay chofer asignado a la columna;
+// si no, devuelve el fallback estable (evita crear objetos/arrays nuevos).
+function porChofer<T>(map: Record<string, T>, chofer: UserProfile | null, fallback: T): T {
+  return chofer ? (map[chofer.email] ?? fallback) : fallback
+}
 
 // ── DraggableCard ─────────────────────────────────────────────────────────────
 
@@ -170,11 +177,21 @@ function SinAsignarColumn({ items, fullWidth }: { items: DayItem[]; fullWidth?: 
   )
 }
 
-// ── ChoferColumn ──────────────────────────────────────────────────────────────
+// ── CamionColumn (columna = camión; adentro se elige chofer y ayudante) ─────
 
-const ChoferColumn = memo(function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionChange, items, routeOrder, arrivals, recalculating, orsStatus, despacho, colorIdx, plantaId, horaSalida, catalogo, manualOrder, onPlantaChange, onHoraSalidaChange, onConfirm, onReopen, onTransfer, onManualReorder, onRecalculate, fullWidth }: {
-  chofer:               UserProfile
-  camiones:             Camion[]
+const CamionColumn = memo(function CamionColumn({
+  camion, chofer, choferesPrincipales, assignedChoferEmails, onChoferChange,
+  ayudantes, asignacion, onAsignacionChange,
+  items, routeOrder, arrivals, recalculating, orsStatus, despacho, colorIdx,
+  plantaId, horaSalida, catalogo, manualOrder,
+  onPlantaChange, onHoraSalidaChange, onConfirm, onReopen, onTransfer, onManualReorder, onRecalculate,
+  fullWidth,
+}: {
+  camion:               Camion
+  chofer:               UserProfile | null
+  choferesPrincipales:  UserProfile[]
+  assignedChoferEmails: Set<string>
+  onChoferChange:       (camionId: string, email: string) => void
   ayudantes:            UserProfile[]
   asignacion:           AsignacionChofer
   onAsignacionChange:   (email: string, patch: Partial<AsignacionChofer>) => void
@@ -200,7 +217,13 @@ const ChoferColumn = memo(function ChoferColumn({ chofer, camiones, ayudantes, a
 }) {
   const confirmed = despacho?.status === 'confirmado'
   const color     = choferColor(colorIdx)
-  const nombre    = chofer.nombreContacto || chofer.nombre || chofer.email
+
+  // Choferes elegibles para este camión: el que ya lo maneja (si hay) + los
+  // que hoy no están manejando ningún otro camión activo (evita duplicarlos).
+  const choferesDisponibles = useMemo(
+    () => choferesPrincipales.filter((c) => c.email === chofer?.email || !assignedChoferEmails.has(c.email)),
+    [choferesPrincipales, assignedChoferEmails, chofer],
+  )
 
   const sortedItems = useMemo(() => {
     if (routeOrder.length === 0) return items
@@ -210,6 +233,7 @@ const ChoferColumn = memo(function ChoferColumn({ chofer, camiones, ayudantes, a
   }, [items, routeOrder])
 
   const moveItem = (index: number, dir: -1 | 1) => {
+    if (!chofer) return
     const newIndex = index + dir
     if (newIndex < 0 || newIndex >= sortedItems.length) return
     const reordered = [...sortedItems]
@@ -222,11 +246,7 @@ const ChoferColumn = memo(function ChoferColumn({ chofer, camiones, ayudantes, a
   const visitCount  = items.filter((i) => i.kind !== 'order').length
 
   // ── Pallets ────────────────────────────────────────────────────────────────
-  const selectedCamion = useMemo(() =>
-    camiones.find((cam) => cam.id === asignacion.camionId),
-  [camiones, asignacion.camionId])
-
-  const capacidad = selectedCamion?.capacidadPallets ?? null
+  const capacidad = camion.capacidadPallets ?? null
 
   const totalPallets = useMemo(() =>
     items
@@ -244,7 +264,7 @@ const ChoferColumn = memo(function ChoferColumn({ chofer, camiones, ayudantes, a
       <div className={`border rounded-t-xl px-3 py-2.5 ${confirmed ? 'bg-green-50 border-green-300' : 'bg-white border-[#D3D1C7]'}`}>
         <div className="flex items-center gap-2 mb-0.5">
           <Truck size={14} style={{ color }} className="shrink-0" />
-          <p className="text-sm font-semibold text-gray-900 truncate flex-1">{nombre}</p>
+          <p className="text-sm font-semibold text-gray-900 truncate flex-1">{camion.patente} — {camion.modelo}</p>
           <div className="flex items-center gap-1 shrink-0">
             {orderCount > 0 && (
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white" style={{ backgroundColor: color }}>
@@ -258,184 +278,200 @@ const ChoferColumn = memo(function ChoferColumn({ chofer, camiones, ayudantes, a
             )}
           </div>
         </div>
-        {/* Camión */}
+
+        {/* Chofer */}
         <select
-          value={asignacion.camionId ?? ''}
-          onChange={(e) => onAsignacionChange(chofer.email, { camionId: e.target.value || null })}
+          value={chofer?.email ?? ''}
+          onChange={(e) => onChoferChange(camion.id, e.target.value)}
           onPointerDown={(e) => e.stopPropagation()}
           disabled={confirmed}
           className="mt-1 w-full text-[10px] border border-gray-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-gray-400 truncate"
         >
-          <option value="">Sin camión</option>
-          {camiones.filter((cam) => cam.activo).map((cam) => (
-            <option key={cam.id} value={cam.id}>{cam.patente} — {cam.modelo}{cam.capacidadPallets ? ` (${cam.capacidadPallets}p)` : ''}</option>
+          <option value="">Sin chofer</option>
+          {choferesDisponibles.map((c) => (
+            <option key={c.email} value={c.email}>{c.nombreContacto || c.nombre || c.email}</option>
           ))}
         </select>
 
-        {/* Barra de pallets */}
-        {(orderCount > 0 || capacidad !== null) && items.length > 0 && (
-          <div className="mt-1.5 space-y-0.5">
-            <div className="flex items-center justify-between text-[10px]">
-              <span className={overloaded ? 'text-red-600 font-bold' : 'text-gray-500'}>
-                {overloaded && '⚠️ '}
-                📦 {totalPallets % 1 === 0 ? totalPallets : totalPallets.toFixed(1)} pallets
-              </span>
-              {capacidad ? (
-                <span className={overloaded ? 'text-red-500 font-bold' : 'text-gray-400'}>
-                  / {capacidad}
-                </span>
-              ) : (
-                <span className="text-gray-300">sin límite</span>
-              )}
-            </div>
-            {capacidad && (
-              <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all ${overloaded ? 'animate-pulse' : ''}`}
-                  style={{ width: `${Math.min((palletsRatio ?? 0) * 100, 100)}%`, backgroundColor: barColor }}
-                />
+        {!chofer ? (
+          <p className="mt-2 text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2 py-2 text-center leading-tight">
+            ⚠️ Asigná un chofer para poder cargar pedidos acá
+          </p>
+        ) : (
+          <>
+            {/* Barra de pallets */}
+            {(orderCount > 0 || capacidad !== null) && items.length > 0 && (
+              <div className="mt-1.5 space-y-0.5">
+                <div className="flex items-center justify-between text-[10px]">
+                  <span className={overloaded ? 'text-red-600 font-bold' : 'text-gray-500'}>
+                    {overloaded && '⚠️ '}
+                    📦 {totalPallets % 1 === 0 ? totalPallets : totalPallets.toFixed(1)} pallets
+                  </span>
+                  {capacidad ? (
+                    <span className={overloaded ? 'text-red-500 font-bold' : 'text-gray-400'}>
+                      / {capacidad}
+                    </span>
+                  ) : (
+                    <span className="text-gray-300">sin límite</span>
+                  )}
+                </div>
+                {capacidad && (
+                  <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${overloaded ? 'animate-pulse' : ''}`}
+                      style={{ width: `${Math.min((palletsRatio ?? 0) * 100, 100)}%`, backgroundColor: barColor }}
+                    />
+                  </div>
+                )}
+                {overloaded && (
+                  <p className="text-[10px] text-red-500 font-bold animate-pulse">
+                    ⚠️ Sobrecarga: +{((totalPallets - (capacidad ?? 0)) % 1 === 0 ? (totalPallets - (capacidad ?? 0)) : (totalPallets - (capacidad ?? 0)).toFixed(1))} pallets extra
+                  </p>
+                )}
               </div>
             )}
-            {overloaded && (
-              <p className="text-[10px] text-red-500 font-bold animate-pulse">
-                ⚠️ Sobrecarga: +{((totalPallets - (capacidad ?? 0)) % 1 === 0 ? (totalPallets - (capacidad ?? 0)) : (totalPallets - (capacidad ?? 0)).toFixed(1))} pallets extra
-              </p>
+
+            {/* Ayudante */}
+            <select
+              value={asignacion.ayudanteEmail ?? ''}
+              onChange={(e) => onAsignacionChange(chofer.email, { ayudanteEmail: e.target.value || null })}
+              onPointerDown={(e) => e.stopPropagation()}
+              disabled={confirmed}
+              className="mt-1 w-full text-[10px] border border-gray-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-gray-400 truncate"
+            >
+              <option value="">Sin ayudante</option>
+              {ayudantes.filter((a) => a.email !== chofer.email).map((a) => (
+                <option key={a.email} value={a.email}>{a.nombreContacto || a.nombre || a.email}</option>
+              ))}
+            </select>
+
+            {/* Planta y hora de salida */}
+            <div className="mt-1.5 flex items-center gap-1.5">
+              <select
+                value={plantaId}
+                onChange={(e) => onPlantaChange(chofer.email, e.target.value as PlantaId)}
+                onPointerDown={(e) => e.stopPropagation()}
+                disabled={confirmed}
+                className="flex-1 text-[10px] border border-gray-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-gray-400 truncate"
+              >
+                {(Object.entries(PLANTAS) as [PlantaId, typeof PLANTAS[PlantaId]][]).map(([id, p]) => (
+                  <option key={id} value={id}>{p.label}</option>
+                ))}
+              </select>
+              <input
+                type="time" value={horaSalida}
+                onChange={(e) => onHoraSalidaChange(chofer.email, e.target.value)}
+                onPointerDown={(e) => e.stopPropagation()}
+                disabled={confirmed}
+                className="w-16 text-[10px] border border-gray-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-gray-400"
+              />
+            </div>
+
+            {/* Estado ruta */}
+            <div className="mt-1.5 flex items-center gap-1.5">
+              {recalculating ? (
+                <><div className="w-3 h-3 border border-accent border-t-transparent rounded-full animate-spin shrink-0" /><span className="text-[10px] text-gray-400">Calculando ruta...</span></>
+              ) : confirmed ? (
+                <><CheckCircle size={11} className="text-green-500 shrink-0" /><span className="text-[10px] text-green-600 font-medium">DESPACHADO{despacho?.modifiedAfterConfirm ? ' (+cambios)' : ''}</span></>
+              ) : manualOrder ? (
+                <><Lock size={11} className="text-amber-500 shrink-0" /><span className="text-[10px] text-amber-600 font-medium">Orden manual</span></>
+              ) : orsStatus && routeOrder.length > 0 ? (
+                orsStatus.ok ? (
+                  <><CheckCircle size={11} className="text-accent shrink-0" /><span className="text-[10px] text-accent font-medium">Ruta optimizada (ORS)</span></>
+                ) : (
+                  <><CheckCircle size={11} className="text-gray-400 shrink-0" /><span className="text-[10px] text-gray-500 font-medium">Ruta estimada (local)</span></>
+                )
+              ) : items.length > 0 ? (
+                <span className="text-[10px] text-gray-400">Sin optimizar aún...</span>
+              ) : null}
+            </div>
+            {manualOrder && !confirmed && (
+              <button
+                onClick={() => onRecalculate(chofer.email)}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="mt-1 flex items-center gap-1 text-[10px] text-gray-400 hover:text-accent transition-colors"
+              >
+                <RotateCcw size={10} /> Recalcular ruta automática
+              </button>
+            )}
+          </>
+        )}
+      </div>
+
+      {chofer ? (
+        <>
+          {/* Cards */}
+          <DroppableZone
+            id={chofer.email}
+            className={`border border-t-0 p-2 space-y-2 overflow-y-auto flex-1 ${confirmed ? 'bg-green-50/40 border-green-200' : 'bg-white border-[#D3D1C7]'}`}
+          >
+            {sortedItems.length === 0 ? (
+              <p className="text-xs text-gray-400 text-center py-6">Arrastrar pedidos o visitas acá</p>
+            ) : (
+              sortedItems.map((item, i) => (
+                <DraggableCard
+                  key={item.dndId}
+                  item={item}
+                  routeNum={routeOrder.includes(item.dndId) ? routeOrder.indexOf(item.dndId) + 1 : i + 1}
+                  arrival={arrivals[item.dndId]}
+                  color={color}
+                  locked={confirmed}
+                  onMoveUp={!confirmed && sortedItems.length > 1 && i > 0 ? () => moveItem(i, -1) : undefined}
+                  onMoveDown={!confirmed && sortedItems.length > 1 && i < sortedItems.length - 1 ? () => moveItem(i, 1) : undefined}
+                />
+              ))
+            )}
+          </DroppableZone>
+
+          {/* Footer */}
+          <div className={`border border-t-0 rounded-b-xl px-2 py-2 space-y-1.5 ${confirmed ? 'bg-green-50 border-green-200' : 'bg-white border-[#D3D1C7]'}`}>
+            {confirmed ? (
+              <button onClick={() => onReopen(chofer.email)} className="w-full flex items-center justify-center gap-1.5 text-xs text-gray-400 hover:text-gray-700 py-1 transition-colors">
+                <RotateCcw size={11} /> Reabrir despacho
+              </button>
+            ) : (
+              <button
+                onClick={() => onConfirm(chofer.email)}
+                disabled={items.length === 0}
+                className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold bg-accent text-white rounded-lg py-2 hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                <Lock size={11} /> Confirmar despacho
+              </button>
+            )}
+            {items.length > 0 && (
+              <button
+                onClick={() => onTransfer(chofer.email)}
+                className="w-full flex items-center justify-center gap-1.5 text-xs text-amber-600 hover:text-amber-800 border border-amber-200 hover:border-amber-400 rounded-lg py-1.5 bg-amber-50 hover:bg-amber-100 transition-colors"
+              >
+                <ArrowRightLeft size={11} /> Transferir paradas
+              </button>
             )}
           </div>
-        )}
-
-        {/* Ayudante */}
-        <select
-          value={asignacion.ayudanteEmail ?? ''}
-          onChange={(e) => onAsignacionChange(chofer.email, { ayudanteEmail: e.target.value || null })}
-          onPointerDown={(e) => e.stopPropagation()}
-          disabled={confirmed}
-          className="mt-1 w-full text-[10px] border border-gray-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-gray-400 truncate"
-        >
-          <option value="">Sin ayudante</option>
-          {ayudantes.filter((a) => a.email !== chofer.email).map((a) => (
-            <option key={a.email} value={a.email}>{a.nombreContacto || a.nombre || a.email}</option>
-          ))}
-        </select>
-
-        {/* Planta y hora de salida */}
-        <div className="mt-1.5 flex items-center gap-1.5">
-          <select
-            value={plantaId}
-            onChange={(e) => onPlantaChange(chofer.email, e.target.value as PlantaId)}
-            onPointerDown={(e) => e.stopPropagation()}
-            disabled={confirmed}
-            className="flex-1 text-[10px] border border-gray-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-gray-400 truncate"
-          >
-            {(Object.entries(PLANTAS) as [PlantaId, typeof PLANTAS[PlantaId]][]).map(([id, p]) => (
-              <option key={id} value={id}>{p.label}</option>
-            ))}
-          </select>
-          <input
-            type="time" value={horaSalida}
-            onChange={(e) => onHoraSalidaChange(chofer.email, e.target.value)}
-            onPointerDown={(e) => e.stopPropagation()}
-            disabled={confirmed}
-            className="w-16 text-[10px] border border-gray-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-gray-400"
-          />
-        </div>
-
-        {/* Estado ruta */}
-        <div className="mt-1.5 flex items-center gap-1.5">
-          {recalculating ? (
-            <><div className="w-3 h-3 border border-accent border-t-transparent rounded-full animate-spin shrink-0" /><span className="text-[10px] text-gray-400">Calculando ruta...</span></>
-          ) : confirmed ? (
-            <><CheckCircle size={11} className="text-green-500 shrink-0" /><span className="text-[10px] text-green-600 font-medium">DESPACHADO{despacho?.modifiedAfterConfirm ? ' (+cambios)' : ''}</span></>
-          ) : manualOrder ? (
-            <><Lock size={11} className="text-amber-500 shrink-0" /><span className="text-[10px] text-amber-600 font-medium">Orden manual</span></>
-          ) : orsStatus && routeOrder.length > 0 ? (
-            orsStatus.ok ? (
-              <><CheckCircle size={11} className="text-accent shrink-0" /><span className="text-[10px] text-accent font-medium">Ruta optimizada (ORS)</span></>
-            ) : (
-              <><CheckCircle size={11} className="text-gray-400 shrink-0" /><span className="text-[10px] text-gray-500 font-medium">Ruta estimada (local)</span></>
-            )
-          ) : items.length > 0 ? (
-            <span className="text-[10px] text-gray-400">Sin optimizar aún...</span>
-          ) : null}
-        </div>
-        {manualOrder && !confirmed && (
-          <button
-            onClick={() => onRecalculate(chofer.email)}
-            onPointerDown={(e) => e.stopPropagation()}
-            className="mt-1 flex items-center gap-1 text-[10px] text-gray-400 hover:text-accent transition-colors"
-          >
-            <RotateCcw size={10} /> Recalcular ruta automática
-          </button>
-        )}
-      </div>
-
-      {/* Cards */}
-      <DroppableZone
-        id={chofer.email}
-        className={`border border-t-0 p-2 space-y-2 overflow-y-auto flex-1 ${confirmed ? 'bg-green-50/40 border-green-200' : 'bg-white border-[#D3D1C7]'}`}
-      >
-        {sortedItems.length === 0 ? (
-          <p className="text-xs text-gray-400 text-center py-6">Arrastrar pedidos o visitas acá</p>
-        ) : (
-          sortedItems.map((item, i) => (
-            <DraggableCard
-              key={item.dndId}
-              item={item}
-              routeNum={routeOrder.includes(item.dndId) ? routeOrder.indexOf(item.dndId) + 1 : i + 1}
-              arrival={arrivals[item.dndId]}
-              color={color}
-              locked={confirmed}
-              onMoveUp={!confirmed && sortedItems.length > 1 && i > 0 ? () => moveItem(i, -1) : undefined}
-              onMoveDown={!confirmed && sortedItems.length > 1 && i < sortedItems.length - 1 ? () => moveItem(i, 1) : undefined}
-            />
-          ))
-        )}
-      </DroppableZone>
-
-      {/* Footer */}
-      <div className={`border border-t-0 rounded-b-xl px-2 py-2 space-y-1.5 ${confirmed ? 'bg-green-50 border-green-200' : 'bg-white border-[#D3D1C7]'}`}>
-        {confirmed ? (
-          <button onClick={() => onReopen(chofer.email)} className="w-full flex items-center justify-center gap-1.5 text-xs text-gray-400 hover:text-gray-700 py-1 transition-colors">
-            <RotateCcw size={11} /> Reabrir despacho
-          </button>
-        ) : (
-          <button
-            onClick={() => onConfirm(chofer.email)}
-            disabled={items.length === 0}
-            className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold bg-accent text-white rounded-lg py-2 hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            <Lock size={11} /> Confirmar despacho
-          </button>
-        )}
-        {items.length > 0 && (
-          <button
-            onClick={() => onTransfer(chofer.email)}
-            className="w-full flex items-center justify-center gap-1.5 text-xs text-amber-600 hover:text-amber-800 border border-amber-200 hover:border-amber-400 rounded-lg py-1.5 bg-amber-50 hover:bg-amber-100 transition-colors"
-          >
-            <ArrowRightLeft size={11} /> Transferir paradas
-          </button>
-        )}
-      </div>
+        </>
+      ) : (
+        <div className="flex-1 border border-t-0 border-[#D3D1C7] rounded-b-xl bg-gray-50/50" />
+      )}
     </div>
   )
 })
 
 // ── TransferModal ─────────────────────────────────────────────────────────────
 
-function TransferModal({ fromDriver, fromDriverName, items, choferes, onClose, onTransfer }: {
-  fromDriver:     string
-  fromDriverName: string
-  items:          DayItem[]
-  choferes:       UserProfile[]
-  onClose:        () => void
-  onTransfer:     (selectedDndIds: string[], toDriver: string, motivo: string) => Promise<void>
+function TransferModal({ fromDriver, fromDriverName, fromCamionLabel, items, destinos, onClose, onTransfer }: {
+  fromDriver:      string
+  fromDriverName:  string
+  fromCamionLabel?: string
+  items:           DayItem[]
+  destinos:        { camion: Camion; chofer: UserProfile; colorIdx: number }[]
+  onClose:         () => void
+  onTransfer:      (selectedDndIds: string[], toDriver: string, motivo: string) => Promise<void>
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [toDriver, setToDriver] = useState('')
   const [motivo,   setMotivo]   = useState('')
   const [loading,  setLoading]  = useState(false)
 
-  const destChoferes = choferes.filter((c) => c.email !== fromDriver)
+  const destinosFiltrados = destinos.filter((d) => d.chofer.email !== fromDriver)
 
   const toggle = (dndId: string) =>
     setSelected((prev) => { const s = new Set(prev); if (s.has(dndId)) s.delete(dndId); else s.add(dndId); return s })
@@ -458,7 +494,7 @@ function TransferModal({ fromDriver, fromDriverName, items, choferes, onClose, o
         {/* Origen */}
         <div className="flex items-center gap-2 text-sm text-gray-600 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
           <AlertTriangle size={14} className="text-amber-500 shrink-0" />
-          Reasignando desde <span className="font-semibold text-gray-900">{fromDriverName}</span>
+          Reasignando desde <span className="font-semibold text-gray-900">{fromCamionLabel ? `${fromCamionLabel} — ${fromDriverName}` : fromDriverName}</span>
         </div>
 
         {/* Lista de ítems */}
@@ -493,22 +529,29 @@ function TransferModal({ fromDriver, fromDriverName, items, choferes, onClose, o
 
         {/* Destino */}
         <div>
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Chofer destino</label>
-          <div className="grid grid-cols-2 gap-2">
-            {destChoferes.map((c, idx) => {
-              const nombre = c.nombreContacto || c.nombre || c.email
-              const color  = choferColor(choferes.findIndex((ch) => ch.email === c.email))
-              return (
-                <button key={c.email} onClick={() => setToDriver(c.email)}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm transition-all ${
-                    toDriver === c.email ? 'border-accent bg-accent/5 font-semibold' : 'border-[#D3D1C7] bg-white hover:border-accent/40'
-                  }`}>
-                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                  <span className="truncate">{nombre}</span>
-                </button>
-              )
-            })}
-          </div>
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Camión destino</label>
+          {destinosFiltrados.length === 0 ? (
+            <p className="text-xs text-gray-400">No hay otros camiones con chofer asignado hoy.</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              {destinosFiltrados.map(({ camion, chofer, colorIdx }) => {
+                const nombre = chofer.nombreContacto || chofer.nombre || chofer.email
+                const color  = choferColor(colorIdx)
+                return (
+                  <button key={camion.id} onClick={() => setToDriver(chofer.email)}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm text-left transition-all ${
+                      toDriver === chofer.email ? 'border-accent bg-accent/5 font-semibold' : 'border-[#D3D1C7] bg-white hover:border-accent/40'
+                    }`}>
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate">{camion.patente}</p>
+                      <p className="truncate text-[11px] text-gray-400 font-normal">{nombre}</p>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         {/* Motivo */}
@@ -527,7 +570,7 @@ function TransferModal({ fromDriver, fromDriverName, items, choferes, onClose, o
             <ArrowRightLeft size={12} className="text-accent shrink-0" />
             Transferir <span className="font-semibold text-gray-900">{selected.size} parada{selected.size !== 1 ? 's' : ''}</span> a{' '}
             <span className="font-semibold text-gray-900">
-              {(() => { const c = choferes.find((ch) => ch.email === toDriver); return c?.nombreContacto || c?.nombre || toDriver })()}
+              {(() => { const d = destinosFiltrados.find((x) => x.chofer.email === toDriver); return d ? `${d.camion.patente} — ${d.chofer.nombreContacto || d.chofer.nombre}` : toDriver })()}
             </span>
           </div>
         )}
@@ -579,14 +622,79 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
     pendingMove, setPendingMove, doMove,
   } = useDespachoBoard(orders, choferes, allClients)
 
-  // Mobile: un chofer (o "sin asignar") a la vez, elegido con chips — no
-  // hay columnas vecinas visibles para arrastrar una parada entre choferes,
-  // ahí se usa el botón "Transferir paradas" ya existente.
+  // ── Camiones activos = columnas del tablero ───────────────────────────────
+  // Adentro de cada camión se elige chofer y ayudante (al revés de antes,
+  // donde la columna era el chofer y adentro se elegía el camión). El chofer
+  // asignado a cada camión hoy sale de una búsqueda inversa sobre
+  // `asignacionesDia` (que sigue guardando, por chofer, {camionId, ayudanteEmail}
+  // — no hace falta tocar el hook ni el modelo persistido).
+  const activeCamiones = useMemo(() => camiones.filter((c) => c.activo), [camiones])
+
+  const choferByCamionId = useMemo(() => {
+    const m: Record<string, UserProfile> = {}
+    choferesPrincipales.forEach((c) => {
+      const camionId = asignacionesDia[c.email]?.camionId
+      if (camionId) m[camionId] = c
+    })
+    return m
+  }, [choferesPrincipales, asignacionesDia])
+
+  const assignedChoferEmails = useMemo(
+    () => new Set(Object.values(choferByCamionId).map((c) => c.email)),
+    [choferByCamionId],
+  )
+
+  const handleChoferChange = useCallback((camionId: string, newEmail: string) => {
+    const prev = choferByCamionId[camionId]
+    if (prev) handleAsignacionChange(prev.email, { camionId: null })
+    if (newEmail) handleAsignacionChange(newEmail, { camionId })
+  }, [choferByCamionId, handleAsignacionChange])
+
+  const camionColumnProps = useCallback((camion: Camion, idx: number) => {
+    const chofer = choferByCamionId[camion.id] ?? null
+    return {
+      camion, chofer,
+      choferesPrincipales, assignedChoferEmails,
+      onChoferChange: handleChoferChange,
+      ayudantes: choferes,
+      asignacion: porChofer(asignacionesDia, chofer, EMPTY_ASIGNACION),
+      onAsignacionChange: handleAsignacionChange,
+      items: porChofer(itemsByDriver, chofer, EMPTY_ITEMS),
+      routeOrder: porChofer(routeOrder, chofer, EMPTY_ROUTE),
+      arrivals: porChofer(routeArrivals, chofer, EMPTY_ARRIVALS),
+      recalculating: !!(chofer && recalculating[chofer.email]),
+      orsStatus: chofer ? orsStatus[chofer.email] : undefined,
+      despacho: chofer ? despachoByDriver[chofer.email] : undefined,
+      colorIdx: idx,
+      plantaId: porChofer(plantaByDriver, chofer, PLANTA_DEFAULT),
+      horaSalida: porChofer(horaSalidaByDriver, chofer, '07:00'),
+      catalogo,
+      manualOrder: !!(chofer && manualOrder[chofer.email]),
+      onPlantaChange: handlePlantaChange,
+      onHoraSalidaChange: handleHoraSalidaChange,
+      onConfirm: handleConfirmClick,
+      onReopen: handleReopen,
+      onTransfer: handleTransferClick,
+      onManualReorder: handleManualReorder,
+      onRecalculate: handleRecalculate,
+    }
+  }, [
+    choferByCamionId, choferesPrincipales, assignedChoferEmails, handleChoferChange, choferes,
+    asignacionesDia, handleAsignacionChange, itemsByDriver, routeOrder, routeArrivals, recalculating,
+    orsStatus, despachoByDriver, plantaByDriver, horaSalidaByDriver, catalogo, manualOrder,
+    handlePlantaChange, handleHoraSalidaChange, handleConfirmClick, handleReopen, handleTransferClick,
+    handleManualReorder, handleRecalculate,
+  ])
+
+  // Mobile: un camión (o "sin asignar") a la vez, elegido con chips — no hay
+  // columnas vecinas visibles para arrastrar una parada entre camiones, ahí
+  // se usa el botón "Transferir paradas" ya existente.
+  const isMobile = useIsMobile()
   const [mobileBucket, setMobileBucket] = useState('sin_asignar')
   useEffect(() => {
-    if (mobileBucket === 'sin_asignar' || choferesPrincipales.some((c) => c.email === mobileBucket)) return
+    if (mobileBucket === 'sin_asignar' || activeCamiones.some((c) => c.id === mobileBucket)) return
     setMobileBucket('sin_asignar')
-  }, [choferesPrincipales, mobileBucket])
+  }, [activeCamiones, mobileBucket])
 
   // ── Render ────────────────────────────────────────────────────────────────
   if (loading) return <div className="flex justify-center py-20"><LoadingSpinner /></div>
@@ -641,118 +749,90 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
         <span className="flex items-center gap-1 text-violet-300">↺ Recurrente</span>
       </div>
 
+      {activeCamiones.length === 0 && (
+        <div className="px-4 py-2 bg-amber-50 border-b border-amber-200 text-xs text-amber-700">
+          No hay camiones activos — activalos desde <span className="font-semibold">Flota</span> para poder despachar.
+        </div>
+      )}
+
       {/* Tablero */}
-      <div className="flex-1 overflow-x-auto overflow-y-hidden">
+      <div className="flex-1 min-h-0">
         <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-          {/* Desktop: columnas lado a lado */}
-          <div className="hidden md:flex gap-3 h-full p-4" style={{ minWidth: 'max-content' }}>
-
-            <SinAsignarColumn items={itemsByDriver['sin_asignar'] ?? []} />
-
-            {choferesPrincipales.map((c, idx) => (
-              <ChoferColumn
-                key={c.email}
-                chofer={c}
-                camiones={camiones}
-                ayudantes={choferes}
-                asignacion={asignacionesDia[c.email] ?? EMPTY_ASIGNACION}
-                onAsignacionChange={handleAsignacionChange}
-                items={itemsByDriver[c.email] ?? EMPTY_ITEMS}
-                routeOrder={routeOrder[c.email] ?? EMPTY_ROUTE}
-                arrivals={routeArrivals[c.email] ?? EMPTY_ARRIVALS}
-                recalculating={!!recalculating[c.email]}
-                orsStatus={orsStatus[c.email]}
-                despacho={despachoByDriver[c.email]}
-                colorIdx={idx}
-                plantaId={plantaByDriver[c.email] ?? PLANTA_DEFAULT}
-                horaSalida={horaSalidaByDriver[c.email] ?? '07:00'}
-                catalogo={catalogo}
-                manualOrder={!!manualOrder[c.email]}
-                onPlantaChange={handlePlantaChange}
-                onHoraSalidaChange={handleHoraSalidaChange}
-                onConfirm={handleConfirmClick}
-                onReopen={handleReopen}
-                onTransfer={handleTransferClick}
-                onManualReorder={handleManualReorder}
-                onRecalculate={handleRecalculate}
-              />
-            ))}
-          </div>
-
-          {/* Mobile: un chofer (o "sin asignar") a la vez, elegido con chips */}
-          <div className="flex md:hidden flex-col h-full p-3 gap-2">
-            <div className="flex gap-1.5 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden">
-              <button
-                onClick={() => setMobileBucket('sin_asignar')}
-                className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                  mobileBucket === 'sin_asignar' ? 'bg-accent text-white' : 'bg-[#F1EFE8] text-gray-600 hover:bg-[#E8E6DF]'
-                }`}
-              >
-                Sin asignar
-                {(itemsByDriver['sin_asignar']?.length ?? 0) > 0 && (
-                  <span className={`ml-1 text-[10px] font-bold ${mobileBucket === 'sin_asignar' ? 'text-white/80' : 'text-gray-400'}`}>
-                    {itemsByDriver['sin_asignar']!.length}
-                  </span>
-                )}
-              </button>
-              {choferesPrincipales.map((c) => {
-                const nombre = c.nombreContacto || c.nombre || c.email
-                const count  = itemsByDriver[c.email]?.length ?? 0
-                const selected = mobileBucket === c.email
-                return (
-                  <button
-                    key={c.email}
-                    onClick={() => setMobileBucket(c.email)}
-                    className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                      selected ? 'bg-accent text-white' : 'bg-[#F1EFE8] text-gray-600 hover:bg-[#E8E6DF]'
-                    }`}
-                  >
-                    {nombre}
-                    {count > 0 && (
-                      <span className={`ml-1 text-[10px] font-bold ${selected ? 'text-white/80' : 'text-gray-400'}`}>{count}</span>
-                    )}
-                  </button>
-                )
-              })}
+          {/* Desktop vs. mobile se elige con JS (useIsMobile), no con CSS
+              (hidden md:...): dos columnas con el mismo id montadas a la vez
+              (una solo tapada por CSS) hacen que dnd-kit registre dos
+              useDraggable/useDroppable con el mismo id y mida la copia
+              oculta — el "fantasma" del drag aparecía pegado arriba de la
+              pantalla por esto. */}
+          {isMobile ? (
+            /* Mobile: un camión (o "sin asignar") a la vez, elegido con chips */
+            <div className="flex flex-col h-full p-3 gap-2">
+              <div className="flex gap-1.5 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden">
+                <button
+                  onClick={() => setMobileBucket('sin_asignar')}
+                  className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    mobileBucket === 'sin_asignar' ? 'bg-accent text-white' : 'bg-[#F1EFE8] text-gray-600 hover:bg-[#E8E6DF]'
+                  }`}
+                >
+                  Sin asignar
+                  {(itemsByDriver['sin_asignar']?.length ?? 0) > 0 && (
+                    <span className={`ml-1 text-[10px] font-bold ${mobileBucket === 'sin_asignar' ? 'text-white/80' : 'text-gray-400'}`}>
+                      {itemsByDriver['sin_asignar']!.length}
+                    </span>
+                  )}
+                </button>
+                {activeCamiones.map((camion) => {
+                  const chofer = choferByCamionId[camion.id] ?? null
+                  const count  = chofer ? (itemsByDriver[chofer.email]?.length ?? 0) : 0
+                  const selected = mobileBucket === camion.id
+                  return (
+                    <button
+                      key={camion.id}
+                      onClick={() => setMobileBucket(camion.id)}
+                      className={`shrink-0 flex flex-col items-center px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                        selected ? 'bg-accent text-white' : 'bg-[#F1EFE8] text-gray-600 hover:bg-[#E8E6DF]'
+                      }`}
+                    >
+                      <span className="flex items-center gap-1">
+                        {camion.patente}
+                        {count > 0 && (
+                          <span className={`text-[10px] font-bold ${selected ? 'text-white/80' : 'text-gray-400'}`}>{count}</span>
+                        )}
+                      </span>
+                      <span className={`text-[9px] ${selected ? 'text-white/70' : chofer ? 'text-gray-400' : 'text-amber-500'}`}>
+                        {chofer ? (chofer.nombreContacto || chofer.nombre || chofer.email) : 'Sin chofer'}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+              <div className="flex-1 min-h-0">
+                {mobileBucket === 'sin_asignar' ? (
+                  <SinAsignarColumn items={itemsByDriver['sin_asignar'] ?? []} fullWidth />
+                ) : (() => {
+                  const idx    = activeCamiones.findIndex((c) => c.id === mobileBucket)
+                  const camion = activeCamiones[idx]
+                  if (!camion) return null
+                  return <CamionColumn {...camionColumnProps(camion, idx)} fullWidth />
+                })()}
+              </div>
             </div>
-            <div className="flex-1 min-h-0">
-              {mobileBucket === 'sin_asignar' ? (
-                <SinAsignarColumn items={itemsByDriver['sin_asignar'] ?? []} fullWidth />
-              ) : (() => {
-                const idx = choferesPrincipales.findIndex((c) => c.email === mobileBucket)
-                const c   = choferesPrincipales[idx]
-                if (!c) return null
-                return (
-                  <ChoferColumn
-                    chofer={c}
-                    camiones={camiones}
-                    ayudantes={choferes}
-                    asignacion={asignacionesDia[c.email] ?? EMPTY_ASIGNACION}
-                    onAsignacionChange={handleAsignacionChange}
-                    items={itemsByDriver[c.email] ?? EMPTY_ITEMS}
-                    routeOrder={routeOrder[c.email] ?? EMPTY_ROUTE}
-                    arrivals={routeArrivals[c.email] ?? EMPTY_ARRIVALS}
-                    recalculating={!!recalculating[c.email]}
-                    orsStatus={orsStatus[c.email]}
-                    despacho={despachoByDriver[c.email]}
-                    colorIdx={idx}
-                    plantaId={plantaByDriver[c.email] ?? PLANTA_DEFAULT}
-                    horaSalida={horaSalidaByDriver[c.email] ?? '07:00'}
-                    catalogo={catalogo}
-                    manualOrder={!!manualOrder[c.email]}
-                    onPlantaChange={handlePlantaChange}
-                    onHoraSalidaChange={handleHoraSalidaChange}
-                    onConfirm={handleConfirmClick}
-                    onReopen={handleReopen}
-                    onTransfer={handleTransferClick}
-                    onManualReorder={handleManualReorder}
-                    onRecalculate={handleRecalculate}
-                    fullWidth
-                  />
-                )
-              })()}
+          ) : (
+            /* Desktop: columnas lado a lado. El scroll horizontal va en un
+                contenedor DENTRO del DndContext (no envolviéndolo) — el
+                DragOverlay queda afuera de esa zona con scroll, igual que en
+                la pestaña Pedidos. */
+            <div className="h-full overflow-x-auto overflow-y-hidden">
+              <div className="flex gap-3 h-full p-4" style={{ minWidth: 'max-content' }}>
+
+                <SinAsignarColumn items={itemsByDriver['sin_asignar'] ?? []} />
+
+                {activeCamiones.map((camion, idx) => (
+                  <CamionColumn key={camion.id} {...camionColumnProps(camion, idx)} />
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           <DragOverlay dropAnimation={null}>
             {activeItem && <GhostCard item={activeItem} />}
@@ -795,16 +875,19 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
               {(routeOrder[confirmingDriver!]?.length > 0
                 ? routeOrder[confirmingDriver!].map((id) => confirmingItems.find((i) => i.dndId === id)).filter(Boolean) as DayItem[]
                 : confirmingItems
-              ).map((item, i) => (
-                <li key={item.dndId} className="flex items-center gap-2 text-sm">
-                  <span className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
-                    style={{ backgroundColor: choferColor(choferes.findIndex((c) => c.email === confirmingDriver)) }}>
-                    {i + 1}
-                  </span>
-                  {item.kind !== 'order' ? <Eye size={11} className="text-violet-400 shrink-0" /> : <Package size={11} className="text-gray-400 shrink-0" />}
-                  <span className="text-gray-700 truncate">{item.label}</span>
-                </li>
-              ))}
+              ).map((item, i) => {
+                const camionIdx = activeCamiones.findIndex((c) => choferByCamionId[c.id]?.email === confirmingDriver)
+                return (
+                  <li key={item.dndId} className="flex items-center gap-2 text-sm">
+                    <span className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
+                      style={{ backgroundColor: choferColor(camionIdx) }}>
+                      {i + 1}
+                    </span>
+                    {item.kind !== 'order' ? <Eye size={11} className="text-violet-400 shrink-0" /> : <Package size={11} className="text-gray-400 shrink-0" />}
+                    <span className="text-gray-700 truncate">{item.label}</span>
+                  </li>
+                )
+              })}
             </ul>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setConfirmingDriver(null)} className="flex-1 text-sm" disabled={confirmLoading}>Cancelar</Button>
@@ -815,16 +898,24 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
       </Modal>
 
       {/* Modal transferir paradas */}
-      {transferModal && (
-        <TransferModal
-          fromDriver={transferModal.fromDriver}
-          fromDriverName={(() => { const c = choferes.find((ch) => ch.email === transferModal.fromDriver); return c?.nombreContacto || c?.nombre || transferModal.fromDriver })()}
-          items={itemsByDriver[transferModal.fromDriver] ?? []}
-          choferes={choferesPrincipales}
-          onClose={() => setTransferModal(null)}
-          onTransfer={handleTransfer}
-        />
-      )}
+      {transferModal && (() => {
+        const fromCamion = camiones.find((c) => c.id === asignacionesDia[transferModal.fromDriver]?.camionId)
+        const fromChoferName = (() => { const c = choferes.find((ch) => ch.email === transferModal.fromDriver); return c?.nombreContacto || c?.nombre || transferModal.fromDriver })()
+        const destinos = activeCamiones
+          .map((camion, idx) => ({ camion, chofer: choferByCamionId[camion.id] ?? null, colorIdx: idx }))
+          .filter((d): d is { camion: Camion; chofer: UserProfile; colorIdx: number } => !!d.chofer)
+        return (
+          <TransferModal
+            fromDriver={transferModal.fromDriver}
+            fromDriverName={fromChoferName}
+            fromCamionLabel={fromCamion ? `${fromCamion.patente} — ${fromCamion.modelo}` : undefined}
+            items={itemsByDriver[transferModal.fromDriver] ?? []}
+            destinos={destinos}
+            onClose={() => setTransferModal(null)}
+            onTransfer={handleTransfer}
+          />
+        )
+      })()}
 
       {/* Modal mover a despacho confirmado */}
       <Modal open={!!pendingMove} onClose={() => setPendingMove(null)} title="Despacho ya confirmado" variant="light">

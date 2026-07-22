@@ -16,6 +16,7 @@ import DespachoBoard from '../../components/admin/DespachoBoard'
 import PedidoSearchBar from '../../components/admin/PedidoSearchBar'
 import { useKanbanOrders } from '../../hooks/useOrders'
 import { useChoferes } from '../../hooks/useChoferes'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import { useAuth } from '../../context/AuthContext'
 import { moveOrderDate, moveOrderToBandeja, assignDriver, cancelOrderBy, editOrderBy, EditOrderParams } from '../../services/orderService'
 import { summarizeProducts, tsToDate } from '../../utils/helpers'
@@ -783,6 +784,7 @@ export default function LogisticaDashboard() {
   // Mobile: una sola columna visible a la vez, elegida con chips. Si la
   // semana cambia (navegación) y el día elegido ya no está en la ventana,
   // se recae en "hoy" (si está en el rango) o el primer día de la semana.
+  const isMobile = useIsMobile()
   const [mobileCol, setMobileCol] = useState(() => dateToStr(new Date()))
   useEffect(() => {
     if (columns.some((c) => c.id === mobileCol)) return
@@ -998,83 +1000,92 @@ export default function LogisticaDashboard() {
             </div>
 
             <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-              {/* Desktop: columnas anchas para que el nombre del cliente se
-                  lea bien; Bandeja arranca la fila y el resto de la semana
-                  se ve deslizando a la derecha (scroll horizontal). */}
-              <div className="hidden md:block relative flex-1 min-h-0">
-                <div
-                  ref={dayRowRef}
-                  className="h-full overflow-x-auto [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 hover:[&::-webkit-scrollbar-thumb]:bg-gray-400"
-                >
-                  <div className="flex gap-1.5 h-full" style={{ width: 'max-content' }}>
-                    {columns.map((col) => (
-                      <DayListColumn
-                        key={col.id}
-                        id={col.id}
-                        label={col.label}
-                        sublabel={col.sublabel}
-                        orders={ordersByColumn[col.id] ?? []}
-                        choferes={choferes}
-                        isToday={col.id === todayStr}
-                        isBandeja={col.id === 'bandeja'}
-                        highlightedOrderId={highlightedOrderId}
-                        onOpenOrder={setQuickViewOrder}
-                      />
-                    ))}
+              {/* Desktop vs. mobile se elige con JS (useIsMobile), no solo con
+                  CSS (hidden md:...): dos DayListColumn con el mismo id
+                  montadas a la vez (una solo tapada por CSS) hacen que
+                  dnd-kit registre dos useDraggable/useDroppable con el mismo
+                  id y termine midiendo la copia oculta — el "fantasma" del
+                  drag aparecía pegado arriba de la pantalla por esto. */}
+              {isMobile ? (
+                /* Mobile: un solo día/bandeja a la vez, elegido con chips —
+                    no hay columnas vecinas visibles para arrastrar una
+                    tarjeta hacia otro día, así que ahí se usa "Mover a..."
+                    en el detalle. */
+                <div className="flex flex-1 min-h-0 flex-col">
+                  <div className="flex gap-1.5 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden">
+                    {columns.map((col) => {
+                      const count = ordersByColumn[col.id]?.length ?? 0
+                      const selected = col.id === mobileCol
+                      return (
+                        <button
+                          key={col.id}
+                          onClick={() => setMobileCol(col.id)}
+                          className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                            selected ? 'bg-accent text-white' : 'bg-white border border-[#D3D1C7] text-gray-600 hover:border-accent/50'
+                          } ${col.id === todayStr && !selected ? 'ring-1 ring-accent/40' : ''}`}
+                        >
+                          {col.label}
+                          {count > 0 && (
+                            <span className={`ml-1 text-[10px] font-bold ${selected ? 'text-white/80' : 'text-gray-400'}`}>{count}</span>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <div className="flex-1 min-h-0">
+                    {(() => {
+                      const col = columns.find((c) => c.id === mobileCol) ?? columns[0]
+                      return (
+                        <DayListColumn
+                          id={col.id}
+                          label={col.label}
+                          sublabel={col.sublabel}
+                          orders={ordersByColumn[col.id] ?? []}
+                          choferes={choferes}
+                          isToday={col.id === todayStr}
+                          isBandeja={col.id === 'bandeja'}
+                          highlightedOrderId={highlightedOrderId}
+                          onOpenOrder={setQuickViewOrder}
+                          fullWidth
+                        />
+                      )
+                    })()}
                   </div>
                 </div>
-                <div
-                  aria-hidden
-                  className={`pointer-events-none absolute top-0 right-0 h-full w-14 bg-gradient-to-l from-[#F1EFE8] to-transparent transition-opacity duration-200 ${
-                    canScrollRight ? 'opacity-100' : 'opacity-0'
-                  }`}
-                />
-              </div>
-
-              {/* Mobile: un solo día/bandeja a la vez, elegido con chips —
-                  no hay columnas vecinas visibles para arrastrar una tarjeta
-                  hacia otro día, así que ahí se usa "Mover a..." en el detalle. */}
-              <div className="flex md:hidden flex-1 min-h-0 flex-col">
-                <div className="flex gap-1.5 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden">
-                  {columns.map((col) => {
-                    const count = ordersByColumn[col.id]?.length ?? 0
-                    const selected = col.id === mobileCol
-                    return (
-                      <button
-                        key={col.id}
-                        onClick={() => setMobileCol(col.id)}
-                        className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                          selected ? 'bg-accent text-white' : 'bg-white border border-[#D3D1C7] text-gray-600 hover:border-accent/50'
-                        } ${col.id === todayStr && !selected ? 'ring-1 ring-accent/40' : ''}`}
-                      >
-                        {col.label}
-                        {count > 0 && (
-                          <span className={`ml-1 text-[10px] font-bold ${selected ? 'text-white/80' : 'text-gray-400'}`}>{count}</span>
-                        )}
-                      </button>
-                    )
-                  })}
+              ) : (
+                /* Desktop: columnas anchas para que el nombre del cliente se
+                    lea bien; Bandeja arranca la fila y el resto de la semana
+                    se ve deslizando a la derecha (scroll horizontal). */
+                <div className="relative flex-1 min-h-0">
+                  <div
+                    ref={dayRowRef}
+                    className="h-full overflow-x-auto [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 hover:[&::-webkit-scrollbar-thumb]:bg-gray-400"
+                  >
+                    <div className="flex gap-1.5 h-full" style={{ width: 'max-content' }}>
+                      {columns.map((col) => (
+                        <DayListColumn
+                          key={col.id}
+                          id={col.id}
+                          label={col.label}
+                          sublabel={col.sublabel}
+                          orders={ordersByColumn[col.id] ?? []}
+                          choferes={choferes}
+                          isToday={col.id === todayStr}
+                          isBandeja={col.id === 'bandeja'}
+                          highlightedOrderId={highlightedOrderId}
+                          onOpenOrder={setQuickViewOrder}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <div
+                    aria-hidden
+                    className={`pointer-events-none absolute top-0 right-0 h-full w-14 bg-gradient-to-l from-[#F1EFE8] to-transparent transition-opacity duration-200 ${
+                      canScrollRight ? 'opacity-100' : 'opacity-0'
+                    }`}
+                  />
                 </div>
-                <div className="flex-1 min-h-0">
-                  {(() => {
-                    const col = columns.find((c) => c.id === mobileCol) ?? columns[0]
-                    return (
-                      <DayListColumn
-                        id={col.id}
-                        label={col.label}
-                        sublabel={col.sublabel}
-                        orders={ordersByColumn[col.id] ?? []}
-                        choferes={choferes}
-                        isToday={col.id === todayStr}
-                        isBandeja={col.id === 'bandeja'}
-                        highlightedOrderId={highlightedOrderId}
-                        onOpenOrder={setQuickViewOrder}
-                        fullWidth
-                      />
-                    )
-                  })()}
-                </div>
-              </div>
+              )}
 
               <DragOverlay dropAnimation={null}>
                 {activeOrder && (

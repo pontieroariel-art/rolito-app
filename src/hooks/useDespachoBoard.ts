@@ -291,7 +291,7 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
     scheduleRecalc(driverEmail, ids)
   }, [assignments, scheduleRecalc])
 
-  // Referencias estables (useCallback) para que ChoferColumn — envuelto en
+  // Referencias estables (useCallback) para que CamionColumn — envuelto en
   // React.memo — pueda saltear el re-render de columnas no relacionadas ante
   // cualquier cambio de estado del tablero (ej. activeId durante un drag).
   const handlePlantaChange = useCallback((driverEmail: string, p: PlantaId) => {

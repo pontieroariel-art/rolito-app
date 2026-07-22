@@ -4,7 +4,7 @@ Este archivo provee contexto a Claude Code (claude.ai/code) para trabajar con es
 
 ## Comandos
 
-- **Servidor de desarrollo:** `npm run dev`
+- **Servidor de desarrollo:** `npm run dev` — conecta a los emuladores locales de Firestore/Auth (no a producción), ver abajo
 - **Build de producción:** `npm run build`
 - **Preview del build:** `npm run preview`
 - **Typecheck:** `npm run typecheck` (app) / `npm run typecheck:functions` (functions)
@@ -12,6 +12,16 @@ Este archivo provee contexto a Claude Code (claude.ai/code) para trabajar con es
 - **Tests de reglas Firestore:** `npm run test:rules` (corre contra el emulador; requiere Java 21+)
 
 No hay tests unitarios de UI; la cobertura automatizada está en las reglas de seguridad.
+
+### Desarrollo local seguro (emuladores)
+
+`npm run dev` conecta a los emuladores de Firestore/Auth en vez de a producción (`src/services/firebase.ts`, gateado por `import.meta.env.DEV` — no afecta el build de producción). Flujo (requiere Java 21+, igual que `test:rules`):
+
+1. `npm run emulators` — levanta Firestore + Auth emulados (Emulator UI en `http://localhost:4000`; persiste datos entre reinicios en `emulator-data/`, gitignoreado)
+2. `npm run seed:emulator` — carga datos mínimos de prueba (staff, choferes, cliente, camiones activos, pedidos) e imprime las credenciales; solo hace falta una vez por sesión de emulador
+3. `npm run dev` — la app ya apunta al emulador
+
+**Ojo:** las Cloud Functions (`sendPush`, `notifyCerca`, `notifyReprogramado`, `orsDirections`) no están emuladas — siguen pegándole a las funciones reales desplegadas. En la práctica, confirmar un despacho en local todavía manda una push real a un chofer real.
 
 ## Stack tecnológico
 

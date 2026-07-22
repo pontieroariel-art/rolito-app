@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app'
-import { getAuth } from 'firebase/auth'
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore'
+import { getAuth, connectAuthEmulator } from 'firebase/auth'
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, connectFirestoreEmulator } from 'firebase/firestore'
 
 const apiKey            = import.meta.env.VITE_FIREBASE_API_KEY
 const authDomain        = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN
@@ -25,3 +25,13 @@ export const auth = getAuth(app)
 export const db   = initializeFirestore(app, {
   localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
 })
+
+// `npm run dev` (import.meta.env.DEV) apunta a los emuladores locales en vez
+// de a producción — así las pruebas locales (arrastrar pedidos, confirmar
+// despachos, loguearse) no tocan datos ni usuarios reales. Se elimina por
+// completo del bundle de producción (`npm run build`), donde DEV es `false`.
+// Requiere `npm run emulators` corriendo (ver CLAUDE.md).
+if (import.meta.env.DEV) {
+  connectFirestoreEmulator(db, 'localhost', 8080)
+  connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true })
+}
