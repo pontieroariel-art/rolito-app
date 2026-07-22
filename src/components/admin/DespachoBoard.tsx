@@ -1,4 +1,4 @@
-import { useState, useMemo, memo } from 'react'
+import { useState, useMemo, useEffect, memo } from 'react'
 import {
   DndContext, DragOverlay,
   useDroppable, useDraggable,
@@ -139,11 +139,11 @@ function DroppableZone({ id, children, className }: { id: string; children: Reac
 
 // ── SinAsignarColumn ──────────────────────────────────────────────────────────
 
-function SinAsignarColumn({ items }: { items: DayItem[] }) {
+function SinAsignarColumn({ items, fullWidth }: { items: DayItem[]; fullWidth?: boolean }) {
   const orders  = items.filter((i) => i.kind === 'order')
   const visitas = items.filter((i) => i.kind !== 'order')
   return (
-    <div className="flex flex-col w-56 shrink-0 h-full">
+    <div className={`flex flex-col h-full ${fullWidth ? 'w-full' : 'w-56 shrink-0'}`}>
       <div className="bg-[#F1EFE8] border border-[#D3D1C7] rounded-t-xl px-3 py-2.5 flex items-center gap-2">
         <div className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
         <p className="text-sm font-semibold text-gray-700">Sin asignar</p>
@@ -172,7 +172,7 @@ function SinAsignarColumn({ items }: { items: DayItem[] }) {
 
 // ── ChoferColumn ──────────────────────────────────────────────────────────────
 
-const ChoferColumn = memo(function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionChange, items, routeOrder, arrivals, recalculating, orsStatus, despacho, colorIdx, plantaId, horaSalida, catalogo, manualOrder, onPlantaChange, onHoraSalidaChange, onConfirm, onReopen, onTransfer, onManualReorder, onRecalculate }: {
+const ChoferColumn = memo(function ChoferColumn({ chofer, camiones, ayudantes, asignacion, onAsignacionChange, items, routeOrder, arrivals, recalculating, orsStatus, despacho, colorIdx, plantaId, horaSalida, catalogo, manualOrder, onPlantaChange, onHoraSalidaChange, onConfirm, onReopen, onTransfer, onManualReorder, onRecalculate, fullWidth }: {
   chofer:               UserProfile
   camiones:             Camion[]
   ayudantes:            UserProfile[]
@@ -196,6 +196,7 @@ const ChoferColumn = memo(function ChoferColumn({ chofer, camiones, ayudantes, a
   onTransfer:           (email: string) => void
   onManualReorder:      (email: string, newOrderIds: string[]) => void
   onRecalculate:        (email: string) => void
+  fullWidth?:           boolean
 }) {
   const confirmed = despacho?.status === 'confirmado'
   const color     = choferColor(colorIdx)
@@ -238,7 +239,7 @@ const ChoferColumn = memo(function ChoferColumn({ chofer, camiones, ayudantes, a
   const barColor      = overloaded ? '#ef4444' : (palletsRatio ?? 0) > 0.8 ? '#f97316' : '#22c55e'
 
   return (
-    <div className="flex flex-col w-56 shrink-0 h-full">
+    <div className={`flex flex-col h-full ${fullWidth ? 'w-full' : 'w-56 shrink-0'}`}>
       {/* Header */}
       <div className={`border rounded-t-xl px-3 py-2.5 ${confirmed ? 'bg-green-50 border-green-300' : 'bg-white border-[#D3D1C7]'}`}>
         <div className="flex items-center gap-2 mb-0.5">
@@ -578,6 +579,15 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
     pendingMove, setPendingMove, doMove,
   } = useDespachoBoard(orders, choferes, allClients)
 
+  // Mobile: un chofer (o "sin asignar") a la vez, elegido con chips — no
+  // hay columnas vecinas visibles para arrastrar una parada entre choferes,
+  // ahí se usa el botón "Transferir paradas" ya existente.
+  const [mobileBucket, setMobileBucket] = useState('sin_asignar')
+  useEffect(() => {
+    if (mobileBucket === 'sin_asignar' || choferesPrincipales.some((c) => c.email === mobileBucket)) return
+    setMobileBucket('sin_asignar')
+  }, [choferesPrincipales, mobileBucket])
+
   // ── Render ────────────────────────────────────────────────────────────────
   if (loading) return <div className="flex justify-center py-20"><LoadingSpinner /></div>
 
@@ -634,7 +644,8 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
       {/* Tablero */}
       <div className="flex-1 overflow-x-auto overflow-y-hidden">
         <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-          <div className="flex gap-3 h-full p-4" style={{ minWidth: 'max-content' }}>
+          {/* Desktop: columnas lado a lado */}
+          <div className="hidden md:flex gap-3 h-full p-4" style={{ minWidth: 'max-content' }}>
 
             <SinAsignarColumn items={itemsByDriver['sin_asignar'] ?? []} />
 
@@ -666,11 +677,86 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
                 onRecalculate={handleRecalculate}
               />
             ))}
-
-            <DragOverlay dropAnimation={null}>
-              {activeItem && <GhostCard item={activeItem} />}
-            </DragOverlay>
           </div>
+
+          {/* Mobile: un chofer (o "sin asignar") a la vez, elegido con chips */}
+          <div className="flex md:hidden flex-col h-full p-3 gap-2">
+            <div className="flex gap-1.5 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden">
+              <button
+                onClick={() => setMobileBucket('sin_asignar')}
+                className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  mobileBucket === 'sin_asignar' ? 'bg-accent text-white' : 'bg-[#F1EFE8] text-gray-600 hover:bg-[#E8E6DF]'
+                }`}
+              >
+                Sin asignar
+                {(itemsByDriver['sin_asignar']?.length ?? 0) > 0 && (
+                  <span className={`ml-1 text-[10px] font-bold ${mobileBucket === 'sin_asignar' ? 'text-white/80' : 'text-gray-400'}`}>
+                    {itemsByDriver['sin_asignar']!.length}
+                  </span>
+                )}
+              </button>
+              {choferesPrincipales.map((c) => {
+                const nombre = c.nombreContacto || c.nombre || c.email
+                const count  = itemsByDriver[c.email]?.length ?? 0
+                const selected = mobileBucket === c.email
+                return (
+                  <button
+                    key={c.email}
+                    onClick={() => setMobileBucket(c.email)}
+                    className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      selected ? 'bg-accent text-white' : 'bg-[#F1EFE8] text-gray-600 hover:bg-[#E8E6DF]'
+                    }`}
+                  >
+                    {nombre}
+                    {count > 0 && (
+                      <span className={`ml-1 text-[10px] font-bold ${selected ? 'text-white/80' : 'text-gray-400'}`}>{count}</span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+            <div className="flex-1 min-h-0">
+              {mobileBucket === 'sin_asignar' ? (
+                <SinAsignarColumn items={itemsByDriver['sin_asignar'] ?? []} fullWidth />
+              ) : (() => {
+                const idx = choferesPrincipales.findIndex((c) => c.email === mobileBucket)
+                const c   = choferesPrincipales[idx]
+                if (!c) return null
+                return (
+                  <ChoferColumn
+                    chofer={c}
+                    camiones={camiones}
+                    ayudantes={choferes}
+                    asignacion={asignacionesDia[c.email] ?? EMPTY_ASIGNACION}
+                    onAsignacionChange={handleAsignacionChange}
+                    items={itemsByDriver[c.email] ?? EMPTY_ITEMS}
+                    routeOrder={routeOrder[c.email] ?? EMPTY_ROUTE}
+                    arrivals={routeArrivals[c.email] ?? EMPTY_ARRIVALS}
+                    recalculating={!!recalculating[c.email]}
+                    orsStatus={orsStatus[c.email]}
+                    despacho={despachoByDriver[c.email]}
+                    colorIdx={idx}
+                    plantaId={plantaByDriver[c.email] ?? PLANTA_DEFAULT}
+                    horaSalida={horaSalidaByDriver[c.email] ?? '07:00'}
+                    catalogo={catalogo}
+                    manualOrder={!!manualOrder[c.email]}
+                    onPlantaChange={handlePlantaChange}
+                    onHoraSalidaChange={handleHoraSalidaChange}
+                    onConfirm={handleConfirmClick}
+                    onReopen={handleReopen}
+                    onTransfer={handleTransferClick}
+                    onManualReorder={handleManualReorder}
+                    onRecalculate={handleRecalculate}
+                    fullWidth
+                  />
+                )
+              })()}
+            </div>
+          </div>
+
+          <DragOverlay dropAnimation={null}>
+            {activeItem && <GhostCard item={activeItem} />}
+          </DragOverlay>
         </DndContext>
       </div>
 

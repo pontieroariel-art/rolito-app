@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { X, SlidersHorizontal } from 'lucide-react'
 import { Timestamp } from 'firebase/firestore'
 import { GoogleMap, Marker, InfoWindow, Polyline, Polygon } from '@react-google-maps/api'
 import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
@@ -154,6 +155,9 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
   const [drawingVertices,  setDrawingVertices]   = useState<{ lat: number; lng: number }[]>([])
   const [newZonaNombre,    setNewZonaNombre]     = useState('')
   const [zonaSaving,       setZonaSaving]        = useState(false)
+  // Mobile: el panel lateral (filtros, visitas, zonas) se abre como drawer
+  // sobre el mapa en vez de empujarlo — a ese ancho no queda lugar para los dos.
+  const [sidebarOpen,      setSidebarOpen]       = useState(false)
 
   // Resetear rutas al cambiar de día
   useEffect(() => {
@@ -419,10 +423,22 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
   )
 
   return (
-    <div className="flex h-full min-h-0">
+    <div className="flex h-full min-h-0 relative">
 
-      {/* ── Panel lateral ── */}
-      <div className="w-72 flex-shrink-0 flex flex-col overflow-y-auto bg-white border-r border-[#D3D1C7]">
+      {/* ── Panel lateral — en desktop es fijo; en mobile es un drawer que
+          se abre sobre el mapa, porque a ese ancho no entran los dos ── */}
+      <div className={`${sidebarOpen ? 'flex' : 'hidden'} md:flex flex-col overflow-y-auto bg-white border-r border-[#D3D1C7] absolute md:relative inset-0 z-20 md:z-auto w-full md:w-72 md:flex-shrink-0`}>
+
+        {/* Cabecera del drawer — solo mobile */}
+        <div className="flex md:hidden items-center justify-between p-3 border-b border-[#D3D1C7] shrink-0">
+          <p className="text-sm font-semibold text-gray-900">Filtros y visitas</p>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+          >
+            <X size={18} />
+          </button>
+        </div>
 
         {/* Selector de día */}
         <div className="p-3 border-b border-[#D3D1C7]">
@@ -715,6 +731,12 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
 
       {/* ── Mapa ── */}
       <div className="flex-1 relative">
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="md:hidden absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-white border border-[#D3D1C7] rounded-lg px-3 py-1.5 text-xs font-medium text-gray-700 shadow-md"
+        >
+          <SlidersHorizontal size={13} /> Filtros
+        </button>
         {drawingMode && (
           <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 bg-orange-500 text-white text-xs font-semibold px-4 py-2 rounded-full shadow-lg pointer-events-none">
             Modo dibujo — clic para agregar vértices

@@ -289,16 +289,19 @@ function CancelOrderModal({ order, onClose, onCancelled }: { order: Order; onClo
 // Bandeja se abre este detalle — reemplaza a la tarjeta expandible en línea
 // que tenía sentido en un tablero de columnas, no en una grilla horaria.
 
-function OrderQuickView({ order, choferes, codigoCliente, onClose, onEdit, onCancel }: {
+function OrderQuickView({ order, choferes, codigoCliente, columns, onClose, onEdit, onCancel }: {
   order:         Order
   choferes:      UserProfile[]
   codigoCliente?: string
+  columns:       { id: string; label: string; sublabel?: string }[]
   onClose:       () => void
   onEdit:        (order: Order) => void
   onCancel:      (order: Order) => void
 }) {
   const [assigning,     setAssigning]     = useState(false)
   const [loadingDriver, setLoadingDriver] = useState<string | null>(null)
+  const [showMoveTo,    setShowMoveTo]    = useState(false)
+  const [movingTo,      setMovingTo]      = useState<string | null>(null)
 
   const driver = order.driverId ? choferes.find((c) => c.email === order.driverId) : null
   const color  = order.driverId ? driverColor(order.driverId, choferes) : null
@@ -313,6 +316,21 @@ function OrderQuickView({ order, choferes, codigoCliente, onClose, onEdit, onCan
     } finally {
       setLoadingDriver(null)
       setAssigning(false)
+    }
+  }
+
+  // Alternativa no-drag para mover un pedido de día: en mobile no hay
+  // columnas visibles para arrastrar la tarjeta hacia otro día.
+  const handleMoveTo = async (targetCol: string) => {
+    setMovingTo(targetCol)
+    try {
+      if (targetCol === 'bandeja') await moveOrderToBandeja(order.id)
+      else await moveOrderDate(order.id, targetCol)
+      onClose()
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setMovingTo(null)
     }
   }
 
@@ -364,6 +382,33 @@ function OrderQuickView({ order, choferes, codigoCliente, onClose, onEdit, onCan
                 </button>
               )
             })}
+          </div>
+        )}
+
+        {canEdit && (
+          <div className="pt-2 border-t border-gray-100">
+            <button
+              onClick={() => setShowMoveTo((v) => !v)}
+              className={`w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border text-sm transition-colors ${
+                showMoveTo ? 'border-accent text-accent bg-accent/5' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <CalendarDays size={13} /> Mover a...
+            </button>
+            {showMoveTo && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {columns.map((col) => (
+                  <button
+                    key={col.id}
+                    disabled={movingTo !== null}
+                    onClick={() => handleMoveTo(col.id)}
+                    className="text-xs px-2.5 py-1.5 rounded-full border border-gray-200 text-gray-600 hover:border-accent hover:text-accent disabled:opacity-50 transition-colors"
+                  >
+                    {movingTo === col.id ? '...' : col.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -427,7 +472,7 @@ const OrderListRow = memo(function OrderListRow({ order, choferes, isHighlighted
 
 // ── DayListColumn (columna de día: cabecera + lista completa de pedidos) ───
 
-const DayListColumn = memo(function DayListColumn({ id, label, sublabel, orders, choferes, isToday, isBandeja, highlightedOrderId, onOpenOrder }: {
+const DayListColumn = memo(function DayListColumn({ id, label, sublabel, orders, choferes, isToday, isBandeja, highlightedOrderId, onOpenOrder, fullWidth }: {
   id:        string
   label:     string
   sublabel?: string
@@ -437,6 +482,7 @@ const DayListColumn = memo(function DayListColumn({ id, label, sublabel, orders,
   isBandeja?: boolean
   highlightedOrderId?: string | null
   onOpenOrder: (order: Order) => void
+  fullWidth?: boolean
 }) {
   const { setNodeRef, isOver } = useDroppable({ id })
   const unassigned = orders.filter((o) => !o.driverId).length
@@ -447,8 +493,10 @@ const DayListColumn = memo(function DayListColumn({ id, label, sublabel, orders,
   )
 
   return (
-    <div className={`w-[340px] shrink-0 flex flex-col rounded-xl border transition-colors ${
-      isBandeja ? 'sticky left-0 z-10 shadow-[6px_0_12px_-6px_rgba(0,0,0,0.15)]' : ''
+    <div className={`flex flex-col rounded-xl border transition-colors ${
+      fullWidth ? 'w-full h-full' : 'w-[340px] shrink-0'
+    } ${
+      !fullWidth && isBandeja ? 'sticky left-0 z-10 shadow-[6px_0_12px_-6px_rgba(0,0,0,0.15)]' : ''
     } ${
       isOver ? 'border-accent bg-accent/5' : isToday ? 'border-accent/40 bg-accent/[0.03]' : isBandeja ? 'border-[#D3D1C7] bg-gray-50' : 'border-[#D3D1C7] bg-white'
     }`}>
@@ -490,6 +538,7 @@ const DayListColumn = memo(function DayListColumn({ id, label, sublabel, orders,
 }, (prev, next) => {
   if (prev.id !== next.id || prev.choferes !== next.choferes) return false
   if (prev.isToday !== next.isToday || prev.highlightedOrderId !== next.highlightedOrderId) return false
+  if (prev.fullWidth !== next.fullWidth) return false
   if (prev.orders.length !== next.orders.length) return false
   return prev.orders.every((o, i) => {
     const n = next.orders[i]
@@ -731,6 +780,16 @@ export default function LogisticaDashboard() {
   }), [startDate])
   const dayIds  = useMemo(() => new Set(columns.filter((c) => c.id !== 'bandeja').map((c) => c.id)), [columns])
 
+  // Mobile: una sola columna visible a la vez, elegida con chips. Si la
+  // semana cambia (navegación) y el día elegido ya no está en la ventana,
+  // se recae en "hoy" (si está en el rango) o el primer día de la semana.
+  const [mobileCol, setMobileCol] = useState(() => dateToStr(new Date()))
+  useEffect(() => {
+    if (columns.some((c) => c.id === mobileCol)) return
+    const today = dateToStr(new Date())
+    setMobileCol(columns.some((c) => c.id === today) ? today : (columns[1]?.id ?? columns[0].id))
+  }, [columns, mobileCol])
+
   // Detalle rápido de un pedido: no encaja en la fila de columnas, se
   // resuelve como overlay aparte.
   const [quickViewOrder, setQuickViewOrder] = useState<Order | null>(null)
@@ -790,6 +849,10 @@ export default function LogisticaDashboard() {
     }
   }, [orders, todayStr])
 
+  const weekRangeLabel = `${startDate.toLocaleDateString('es-AR', { day: 'numeric', month: 'long' })} – ${
+    new Date(startDate.getTime() + 6 * 86400000).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })
+  }`
+
   return (
     <div className="h-screen overflow-hidden flex flex-col bg-[#F1EFE8] text-gray-900">
       <Navbar />
@@ -797,8 +860,8 @@ export default function LogisticaDashboard() {
       {/* Header + Tabs — compacto, altura fija: todo lo periférico cede el
           máximo de alto y ancho posible a la grilla de la pestaña Pedidos. */}
       <div className="px-4 pt-3 flex-shrink-0">
-        {/* Título + KPIs + acciones, en una sola fila */}
-        <div className="flex items-center justify-between gap-4 mb-2 flex-wrap">
+        {/* Título + KPIs + acciones — una sola fila en desktop, apilado en mobile */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-4 mb-2">
           <div className="flex items-center gap-4 flex-wrap">
             <h1 className="text-base font-bold text-gray-900 shrink-0">Planificación</h1>
             <div className="flex items-center gap-3 text-xs">
@@ -840,9 +903,9 @@ export default function LogisticaDashboard() {
           )}
         </div>
 
-        {/* Tabs + buscador global, compartiendo la misma fila */}
-        <div className="flex items-start gap-3">
-          <div className="flex border-b border-gray-200 gap-1 shrink-0">
+        {/* Tabs + buscador global — apilados en mobile para no comprimirse */}
+        <div className="flex flex-col md:flex-row md:items-start gap-2 md:gap-3">
+          <div className="flex border-b border-gray-200 gap-1 shrink-0 overflow-x-auto">
             {tabs.map((t) => (
               <button key={t} onClick={() => setMainTab(t)}
                 className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors -mb-px whitespace-nowrap ${
@@ -852,7 +915,7 @@ export default function LogisticaDashboard() {
               </button>
             ))}
           </div>
-          <div className="flex-1 min-w-[240px] max-w-lg">
+          <div className="w-full md:flex-1 md:min-w-[240px] md:max-w-lg">
             <PedidoSearchBar onJumpAndHighlight={handleSearchJump} onOpenDetail={setDetailOrder} />
           </div>
         </div>
@@ -889,7 +952,8 @@ export default function LogisticaDashboard() {
           <div className="flex-1 min-h-0 flex flex-col px-4 pb-4 pt-4">
 
             {/* Barra de navegación de semana — el rango de fechas abre el
-                mini-calendario como popover, ya no como columna fija */}
+                mini-calendario como popover en desktop; en mobile es solo
+                texto (la fila de chips de día ya cubre la navegación fina) */}
             <div ref={calendarRef} className="relative flex items-center gap-2 mb-2 flex-wrap">
               <button
                 onClick={goToPrevWeek}
@@ -905,15 +969,16 @@ export default function LogisticaDashboard() {
               </button>
               <button
                 onClick={() => setCalendarOpen((v) => !v)}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs transition-colors ${
+                className={`hidden md:flex flex-1 items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs transition-colors ${
                   calendarOpen ? 'text-accent bg-white' : 'text-gray-500 hover:text-accent hover:bg-white'
                 }`}
               >
                 <CalendarDays size={13} />
-                {startDate.toLocaleDateString('es-AR', { day: 'numeric', month: 'long' })}
-                {' – '}
-                {new Date(startDate.getTime() + 6 * 86400000).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                {weekRangeLabel}
               </button>
+              <span className="md:hidden flex-1 text-center text-xs font-medium text-gray-500">
+                {weekRangeLabel}
+              </span>
               <button
                 onClick={goToNextWeek}
                 className="p-1.5 rounded-lg border border-[#D3D1C7] bg-white hover:border-accent text-gray-500 hover:text-accent transition-colors"
@@ -933,10 +998,10 @@ export default function LogisticaDashboard() {
             </div>
 
             <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-              {/* Columnas anchas para que el nombre del cliente se lea bien;
-                  Bandeja arranca la fila y el resto de la semana se ve
-                  deslizando a la derecha (scroll horizontal). */}
-              <div className="relative flex-1 min-h-0">
+              {/* Desktop: columnas anchas para que el nombre del cliente se
+                  lea bien; Bandeja arranca la fila y el resto de la semana
+                  se ve deslizando a la derecha (scroll horizontal). */}
+              <div className="hidden md:block relative flex-1 min-h-0">
                 <div
                   ref={dayRowRef}
                   className="h-full overflow-x-auto [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 hover:[&::-webkit-scrollbar-thumb]:bg-gray-400"
@@ -966,6 +1031,51 @@ export default function LogisticaDashboard() {
                 />
               </div>
 
+              {/* Mobile: un solo día/bandeja a la vez, elegido con chips —
+                  no hay columnas vecinas visibles para arrastrar una tarjeta
+                  hacia otro día, así que ahí se usa "Mover a..." en el detalle. */}
+              <div className="flex md:hidden flex-1 min-h-0 flex-col">
+                <div className="flex gap-1.5 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden">
+                  {columns.map((col) => {
+                    const count = ordersByColumn[col.id]?.length ?? 0
+                    const selected = col.id === mobileCol
+                    return (
+                      <button
+                        key={col.id}
+                        onClick={() => setMobileCol(col.id)}
+                        className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                          selected ? 'bg-accent text-white' : 'bg-white border border-[#D3D1C7] text-gray-600 hover:border-accent/50'
+                        } ${col.id === todayStr && !selected ? 'ring-1 ring-accent/40' : ''}`}
+                      >
+                        {col.label}
+                        {count > 0 && (
+                          <span className={`ml-1 text-[10px] font-bold ${selected ? 'text-white/80' : 'text-gray-400'}`}>{count}</span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+                <div className="flex-1 min-h-0">
+                  {(() => {
+                    const col = columns.find((c) => c.id === mobileCol) ?? columns[0]
+                    return (
+                      <DayListColumn
+                        id={col.id}
+                        label={col.label}
+                        sublabel={col.sublabel}
+                        orders={ordersByColumn[col.id] ?? []}
+                        choferes={choferes}
+                        isToday={col.id === todayStr}
+                        isBandeja={col.id === 'bandeja'}
+                        highlightedOrderId={highlightedOrderId}
+                        onOpenOrder={setQuickViewOrder}
+                        fullWidth
+                      />
+                    )
+                  })()}
+                </div>
+              </div>
+
               <DragOverlay dropAnimation={null}>
                 {activeOrder && (
                   <div className="bg-white border-2 border-accent rounded-xl p-3 shadow-2xl rotate-1 w-52 space-y-1.5">
@@ -992,6 +1102,7 @@ export default function LogisticaDashboard() {
           order={quickViewOrder}
           choferes={choferes}
           codigoCliente={codigoByClientId.get(quickViewOrder.clientId)}
+          columns={columns}
           onClose={() => setQuickViewOrder(null)}
           onEdit={setDetailOrder}
           onCancel={setCancelOrder}
