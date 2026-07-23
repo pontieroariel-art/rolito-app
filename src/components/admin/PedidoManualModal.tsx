@@ -70,6 +70,9 @@ function StepCliente({
       s.label.toLowerCase().includes(q) ||
       (s.user.cuit || '').toLowerCase().includes(q) ||
       (s.user.codigoCliente || '').toLowerCase().includes(q) ||
+      // Código propio de esta sucursal (grupos empresarios: cada dirección
+      // tiene su propio código, distinto del codigoCliente del cliente).
+      s.addrId.toLowerCase().includes(q) ||
       s.address.toLowerCase().includes(q),
     )
   }, [sucursales, search])

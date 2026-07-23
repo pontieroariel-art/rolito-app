@@ -428,6 +428,7 @@ function chunk<T>(arr: T[], size: number): T[][] {
 export async function searchOrdersByClientCode(term: string): Promise<Order[]> {
   const t = term.trim()
   if (!t) return []
+  const tLower = t.toLowerCase()
   const variants = Array.from(new Set([t, t.toUpperCase()]))
   const userSnaps = await Promise.all(variants.map((v) => getDocs(query(
     collection(db, 'users'),
@@ -436,12 +437,24 @@ export async function searchOrdersByClientCode(term: string): Promise<Order[]> {
     where('codigoCliente', '<', v + ''),
     limit(10),
   ))))
-  const clientIds = Array.from(new Set(userSnaps.flatMap((snap) => snap.docs.map((d) => d.id))))
-  if (clientIds.length === 0) return []
+  const clientIds = new Set(userSnaps.flatMap((snap) => snap.docs.map((d) => d.id)))
+
+  // El codigoCliente a nivel usuario es solo el código de UNA sucursal (la
+  // primera cargada) — en grupos empresarios (un cliente, varias
+  // direcciones) cada sucursal tiene su propio código en addresses[].id,
+  // que la query de arriba no puede alcanzar. Se completa con un scan en
+  // memoria de esos códigos por sucursal.
+  const allClientsSnap = await getDocs(query(collection(db, 'users'), where('rol', '==', 'cliente')))
+  allClientsSnap.docs.forEach((d) => {
+    const addresses = (d.data().addresses ?? []) as { id?: string }[]
+    if (addresses.some((a) => (a.id || '').toLowerCase().includes(tLower))) clientIds.add(d.id)
+  })
+
+  if (clientIds.size === 0) return []
 
   // Firestore 'in' soporta hasta 30 valores por query
   const orderSnaps = await Promise.all(
-    chunk(clientIds, 30).map((ids) => getDocs(query(
+    chunk(Array.from(clientIds), 30).map((ids) => getDocs(query(
       collection(db, ORDERS),
       where('clientId', 'in', ids),
       limit(30),
