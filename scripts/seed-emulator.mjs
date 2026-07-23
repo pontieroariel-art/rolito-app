@@ -110,16 +110,19 @@ async function main() {
   const clienteCuit  = '30111111118'
   const clienteEmail = 'cliente.prueba@rolito.test'
   const clienteUid   = await upsertAuthUser(clienteEmail, PASSWORD)
+  // id = código real de sucursal (como quedaría de un import de Excel) —
+  // sirve para probar que cada sucursal muestra SU código, no el del cliente.
   const direccion = {
-    id: 'addr1', nombre: 'Depósito', address: 'Av. Siempre Viva 123, CABA',
+    id: 'FC.100', nombre: 'Depósito', address: 'Av. Siempre Viva 123, CABA',
     lat: -34.6037, lng: -58.3816, horarioApertura: '08:00', horarioCierre: '18:00',
     contactoNombre: 'Juan Prueba', contactoTelefono: '1122334455', esPrincipal: false,
   }
   // Segunda sucursal — "grupo empresario" (mismo CUIT, ninguna marcada
   // principal) para probar que el chequeo de pedido duplicado no confunda
-  // sucursales distintas del mismo cliente.
+  // sucursales distintas del mismo cliente, y que cada una tenga su propio
+  // código visible en las tarjetas de Pedidos.
   const direccion2 = {
-    id: 'addr2', nombre: 'Sucursal Norte', address: 'Av. Cabildo 2450, CABA',
+    id: 'FC.101', nombre: 'Sucursal Norte', address: 'Av. Cabildo 2450, CABA',
     lat: -34.5631, lng: -58.4593, horarioApertura: '08:00', horarioCierre: '18:00',
     contactoNombre: 'María Prueba', contactoTelefono: '1122334456', esPrincipal: false,
   }

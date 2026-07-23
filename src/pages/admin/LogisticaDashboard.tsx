@@ -434,6 +434,26 @@ function OrderQuickView({ order, choferes, codigoCliente, columns, onClose, onEd
   )
 }
 
+// addresses[].id es un id random (crypto.randomUUID()) cuando el domicilio
+// se creó desde la UI, o el código real de sucursal (ej. "FC.562") cuando
+// viene del import de Excel — solo el segundo caso sirve como "código".
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const PLACEHOLDER_ADDR_ID_RE = /^addr-?\d+$/i
+function isSucursalCode(id: string | undefined): id is string {
+  return !!id && !UUID_RE.test(id) && !PLACEHOLDER_ADDR_ID_RE.test(id)
+}
+
+// Resuelve el código de cliente exacto de la sucursal del pedido (grupos
+// empresarios tienen un código distinto por dirección en addresses[].id);
+// si no hay match por dirección, cae al código general del cliente.
+function getCodigoCliente(codigoByClientId: Map<string, string | undefined>, clientId: string, clientAddress?: string) {
+  if (clientAddress) {
+    const porDireccion = codigoByClientId.get(`${clientId}|${clientAddress.trim().toLowerCase()}`)
+    if (porDireccion) return porDireccion
+  }
+  return codigoByClientId.get(clientId)
+}
+
 // ── OrderListRow (fila draggable, sin horario) ──────────────────────────────
 
 const OrderListRow = memo(function OrderListRow({ order, choferes, codigoCliente, isHighlighted, onClick }: {
@@ -541,7 +561,7 @@ const DayListColumn = memo(function DayListColumn({ id, label, sublabel, orders,
             key={order.id}
             order={order}
             choferes={choferes}
-            codigoCliente={codigoByClientId.get(order.clientId)}
+            codigoCliente={getCodigoCliente(codigoByClientId, order.clientId, order.clientAddress)}
             isHighlighted={order.id === highlightedOrderId}
             onClick={() => onOpenOrder(order)}
           />
@@ -781,10 +801,23 @@ export default function LogisticaDashboard() {
     load()
   }, [mainTab])
 
-  const codigoByClientId = useMemo(
-    () => new Map(allClients.map((c) => [c.uid, c.codigoCliente])),
-    [allClients],
-  )
+  // codigoCliente a nivel usuario es solo el código de UNA sucursal (la
+  // primera cargada) — en grupos empresarios cada sucursal tiene su propio
+  // código en addresses[].id (así quedó del import de Excel). Domicilios
+  // creados desde la UI en cambio tienen un id random (crypto.randomUUID())
+  // que no es un código real, así que no se usa como tal. El mapa guarda
+  // ambas cosas: la clave "uid|dirección" para resolver el código exacto de
+  // la sucursal del pedido, y la clave "uid" sola como fallback.
+  const codigoByClientId = useMemo(() => {
+    const map = new Map<string, string | undefined>()
+    for (const c of allClients) {
+      map.set(c.uid, c.codigoCliente)
+      for (const a of c.addresses ?? []) {
+        if (a.address && isSucursalCode(a.id)) map.set(`${c.uid}|${a.address.trim().toLowerCase()}`, a.id)
+      }
+    }
+    return map
+  }, [allClients])
 
   const sensors = useSensors(
     useSensor(MouseSensor,  { activationConstraint: { distance: 5 } }),
@@ -1130,7 +1163,7 @@ export default function LogisticaDashboard() {
         <OrderQuickView
           order={quickViewOrder}
           choferes={choferes}
-          codigoCliente={codigoByClientId.get(quickViewOrder.clientId)}
+          codigoCliente={getCodigoCliente(codigoByClientId, quickViewOrder.clientId, quickViewOrder.clientAddress)}
           columns={columns}
           onClose={() => setQuickViewOrder(null)}
           onEdit={setDetailOrder}
