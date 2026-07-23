@@ -63,6 +63,15 @@ describe('users — escalada de privilegios', () => {
     await assertFails(updateDoc(doc(db('cli'), 'users/cli'), { cuit: '20999999999' }))
   })
 
+  test('un cliente NO puede modificar creadoPor', async () => {
+    await seed((d) => setDoc(doc(d, 'users/cli'), cliente({
+      creadoPor: { uid: 'staff1', nombre: 'Staff Uno', rol: 'comercial' },
+    })))
+    await assertFails(updateDoc(doc(db('cli'), 'users/cli'), {
+      creadoPor: { uid: 'cli', nombre: 'Cliente', rol: 'cliente' },
+    }))
+  })
+
   test('un cliente SÍ puede editar un campo benigno (telefono)', async () => {
     await seed((d) => setDoc(doc(d, 'users/cli'), cliente()))
     await assertSucceeds(updateDoc(doc(db('cli'), 'users/cli'), { telefono: '1122334455' }))

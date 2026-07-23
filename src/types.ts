@@ -105,6 +105,9 @@ export interface UserProfile {
   fechaAlta?:         Timestamp | null
   sector?:            string   // internal-only prefix from COD_CTE (e.g. FC, MDP, YPF)
   subrol?:            'chofer' | 'ayudante'
+  // Alta rápida de cliente por staff (CrearClienteModal) — ausente en
+  // clientes autorregistrados o importados por Excel.
+  creadoPor?: { uid: string; nombre: string; rol: UserRole }
 }
 
 // ── Visitas programadas ───────────────────────────────────────────────────────

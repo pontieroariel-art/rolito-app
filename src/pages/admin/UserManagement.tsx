@@ -215,7 +215,7 @@ export default function UserManagement() {
                 + Crear usuario
               </Button>
             )}
-            {tab === 'clientes' && ['super_admin', 'gerente_comercial', 'comercial'].includes(currentUser?.rol ?? '') && (
+            {tab === 'clientes' && ['super_admin', 'gerente_comercial', 'comercial', 'logistica'].includes(currentUser?.rol ?? '') && (
               <Button onClick={() => setCrearClienteModal(true)} className="text-sm">
                 + Crear cliente
               </Button>
@@ -408,7 +408,6 @@ export default function UserManagement() {
         <CrearClienteModal
           onClose={() => setCrearClienteModal(false)}
           onCreated={() => { setCrearClienteModal(false); load() }}
-          currentUserRol={currentUser?.rol}
         />
       )}
       {importarModal && (

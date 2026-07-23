@@ -1,11 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.generarPedidosRecurrentes = exports.orsDirections = exports.mirrorDriverLocation = exports.validarPreciosPedido = exports.notifyReprogramado = exports.notifyCerca = exports.sendPush = exports.deleteAuthUsers = exports.onOrderEnCamino = exports.onOrderConfirmado = exports.onOrderCreated = exports.onUserApproved = exports.onUserRegistered = void 0;
+exports.generarPedidosRecurrentes = exports.orsDirections = exports.mirrorDriverLocation = exports.validarPreciosPedido = exports.notifyReprogramado = exports.notifyCerca = exports.sendPush = exports.deleteAuthUsers = exports.onOrderEnCamino = exports.onOrderConfirmado = exports.onOrderCreated = exports.onClienteCreadoPorStaff = exports.onUserApproved = exports.onUserRegistered = void 0;
 const app_1 = require("firebase-admin/app");
 (0, app_1.initializeApp)();
 var users_1 = require("./triggers/users");
 Object.defineProperty(exports, "onUserRegistered", { enumerable: true, get: function () { return users_1.onUserRegistered; } });
 Object.defineProperty(exports, "onUserApproved", { enumerable: true, get: function () { return users_1.onUserApproved; } });
+Object.defineProperty(exports, "onClienteCreadoPorStaff", { enumerable: true, get: function () { return users_1.onClienteCreadoPorStaff; } });
 var orders_1 = require("./triggers/orders");
 Object.defineProperty(exports, "onOrderCreated", { enumerable: true, get: function () { return orders_1.onOrderCreated; } });
 Object.defineProperty(exports, "onOrderConfirmado", { enumerable: true, get: function () { return orders_1.onOrderConfirmado; } });

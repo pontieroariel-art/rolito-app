@@ -8,6 +8,7 @@ exports.tplPedidoEnCamino = tplPedidoEnCamino;
 exports.tplPedidoCerca = tplPedidoCerca;
 exports.tplPedidoReprogramado = tplPedidoReprogramado;
 exports.tplAdminNuevoPedido = tplAdminNuevoPedido;
+exports.tplAdminNuevoCliente = tplAdminNuevoCliente;
 // Escapa datos controlados por el usuario (razón social, notas, nombres de
 // producto, motivo, dirección, teléfono) antes de interpolarlos en el HTML del
 // email. Sin esto, p. ej. una razón social con markup podría inyectar contenido
@@ -302,6 +303,21 @@ function tplAdminNuevoPedido(order) {
     ])}
     ${productsTable(order.products)}
     ${notasHtml}
+  `);
+}
+function tplAdminNuevoCliente(cliente) {
+    return layout(`Nuevo cliente: ${esc(cliente.razonSocial)}`, {
+        emoji: '🏢',
+        title: 'Nuevo cliente creado',
+        subtitle: `Por: ${esc(cliente.creadoPorNombre)}`,
+        accentColor: '#8B5CF6',
+    }, `
+    ${infoBox([
+        { label: 'Razón social', value: `<strong>${esc(cliente.razonSocial)}</strong>` },
+        { label: 'CUIT', value: esc(cliente.cuit) },
+        { label: 'Dirección', value: esc(cliente.address || '—') },
+        { label: 'Creado por', value: `${esc(cliente.creadoPorNombre)} (${esc(cliente.creadoPorRol)})` },
+    ])}
   `);
 }
 //# sourceMappingURL=templates.js.map

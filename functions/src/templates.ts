@@ -339,3 +339,25 @@ export function tplAdminNuevoPedido(order: {
     ${notasHtml}
   `)
 }
+
+export function tplAdminNuevoCliente(cliente: {
+  razonSocial:     string
+  cuit:            string
+  address:         string
+  creadoPorNombre: string
+  creadoPorRol:    string
+}): string {
+  return layout(`Nuevo cliente: ${esc(cliente.razonSocial)}`, {
+    emoji:       '🏢',
+    title:       'Nuevo cliente creado',
+    subtitle:    `Por: ${esc(cliente.creadoPorNombre)}`,
+    accentColor: '#8B5CF6',
+  }, `
+    ${infoBox([
+      { label: 'Razón social', value: `<strong>${esc(cliente.razonSocial)}</strong>` },
+      { label: 'CUIT',         value: esc(cliente.cuit) },
+      { label: 'Dirección',    value: esc(cliente.address || '—') },
+      { label: 'Creado por',   value: `${esc(cliente.creadoPorNombre)} (${esc(cliente.creadoPorRol)})` },
+    ])}
+  `)
+}

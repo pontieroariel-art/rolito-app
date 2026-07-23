@@ -12,10 +12,10 @@ import {
   limit,
 } from 'firebase/firestore'
 import { initializeApp, deleteApp } from 'firebase/app'
-import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth'
-import { getFirestore } from 'firebase/firestore'
+import { getAuth, createUserWithEmailAndPassword, connectAuthEmulator } from 'firebase/auth'
+import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore'
 import { db, firebaseConfig } from './firebase'
-import { UserProfile, UserRole, UserStatus } from '../types'
+import { UserProfile, UserRole, UserStatus, DeliveryAddress } from '../types'
 
 // Los roles de admin se asignan desde el panel /usuarios (por un super_admin existente).
 // Para el primer bootstrap, editar el documento users/{uid} directamente en Firebase Console.
@@ -195,7 +195,8 @@ export interface CreateClientParams {
   nombreContacto?: string
   cuit:            string
   telefono:        string
-  estadoInicial?:  UserStatus
+  addresses:       DeliveryAddress[]
+  creadoPor:       { uid: string; nombre: string; rol: UserRole }
 }
 
 async function createUserViaSecondaryApp(
@@ -210,6 +211,15 @@ async function createUserViaSecondaryApp(
   const tempApp  = initializeApp(firebaseConfig, `user-create-${Date.now()}`)
   const tempAuth = getAuth(tempApp)
   const tempDb   = getFirestore(tempApp)
+  // La app secundaria es una instancia de Firebase totalmente aparte — no
+  // hereda la conexión al emulador de la app principal (src/services/firebase.ts).
+  // Sin esto, cualquier alta de usuario hecha por staff (cliente, chofer,
+  // staff, importación) termina pegándole a producción incluso corriendo
+  // `npm run dev` contra el emulador.
+  if (import.meta.env.DEV) {
+    connectAuthEmulator(tempAuth, 'http://localhost:9099', { disableWarnings: true })
+    connectFirestoreEmulator(tempDb, 'localhost', 8080)
+  }
   try {
     const credential = await createUserWithEmailAndPassword(tempAuth, email, password)
     await setDoc(doc(writeWithPrimaryDb ? db : tempDb, 'users', credential.user.uid), firestoreData)
@@ -244,24 +254,24 @@ export const createStaffUser = async ({ dni, password, nombreContacto, rol }: Cr
   await setStaffDniIndex(normalizedDni, email)
 }
 
-export const createClientUser = async ({ email, password, razonSocial, nombreContacto, cuit, telefono, estadoInicial = 'pendiente' }: CreateClientParams): Promise<void> => {
+export const createClientUser = async ({ email, password, razonSocial, nombreContacto, cuit, telefono, addresses, creadoPor }: CreateClientParams): Promise<void> => {
   const { setCuitIndex } = await import('./cuitService')
-  const aprobado = estadoInicial === 'activo'
   await createUserViaSecondaryApp(email, password, {
-    nombre:          nombreContacto,
+    nombre:          nombreContacto || '',
     email,
     phone:           telefono || '',
     rol:             'cliente' as UserRole,
-    estado:          estadoInicial,
-    address:         '',
+    estado:          'activo' as UserStatus,
+    address:         addresses[0]?.address ?? '',
     razonSocial,
-    nombreContacto,
+    nombreContacto:  nombreContacto || '',
     cuit:            cuit || '',
     telefono:        telefono || '',
-    addresses:       [],
+    addresses,
+    creadoPor,
     fechaCreacion:   serverTimestamp(),
-    fechaAprobacion: aprobado ? serverTimestamp() : null,
-    aprobadoPor:     aprobado ? 'admin' : null,
+    fechaAprobacion: serverTimestamp(),
+    aprobadoPor:     'admin',
   })
   if (cuit) await setCuitIndex(cuit, email)
 }
