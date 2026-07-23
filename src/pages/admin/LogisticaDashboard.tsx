@@ -19,8 +19,8 @@ import { useChoferes } from '../../hooks/useChoferes'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { useAuth } from '../../context/AuthContext'
 import { moveOrderDate, moveOrderToBandeja, assignDriver, cancelOrderBy, editOrderBy, EditOrderParams } from '../../services/orderService'
-import { summarizeProducts, tsToDate } from '../../utils/helpers'
-import { PRODUCTS } from '../../utils/constants'
+import { summarizeProducts, tsToDate, splitSucursalLabel } from '../../utils/helpers'
+import { PRODUCTS, DELIVERY_HERO_CLIENT_ID } from '../../utils/constants'
 import { useCatalogo } from '../../hooks/useCatalogo'
 import { Order, OrderProduct, UserProfile, AccionHistorial } from '../../types'
 
@@ -442,6 +442,8 @@ const OrderListRow = memo(function OrderListRow({ order, choferes, isHighlighted
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: order.id })
   const color = order.driverId ? driverColor(order.driverId, choferes) : '#D97706'
   const totalUnits = order.products.reduce((sum, p) => sum + p.quantity, 0)
+  const { empresa, sucursal } = splitSucursalLabel(order.clientName)
+  const isDeliveryHero = order.clientId === DELIVERY_HERO_CLIENT_ID
 
   return (
     <div
@@ -458,7 +460,17 @@ const OrderListRow = memo(function OrderListRow({ order, choferes, isHighlighted
         isHighlighted ? 'ring-2 ring-accent/40' : ''
       }`}
     >
-      <p className="text-xs font-semibold text-gray-900 truncate min-w-0 flex-1">{order.clientName}</p>
+      <p className="text-xs font-semibold text-gray-900 truncate min-w-0 flex-1">
+        {isDeliveryHero ? (
+          <img src="/logo-pedidosya.png" alt="" title="PedidosYa (Delivery Hero)" className="inline-block w-3 h-3 mr-1 align-middle" />
+        ) : empresa && (
+          <span className="text-gray-400 font-normal">{empresa} · </span>
+        )}
+        {sucursal}
+      </p>
+      {order.numeroOC && (
+        <span className="text-[9px] text-gray-400 font-mono shrink-0">OC {order.numeroOC}</span>
+      )}
       <span className="text-[10px] text-gray-400 font-mono tabular-nums shrink-0">{totalUnits}u</span>
     </div>
   )
@@ -466,7 +478,7 @@ const OrderListRow = memo(function OrderListRow({ order, choferes, isHighlighted
   const o1 = prev.order, o2 = next.order
   return (
     o1.id === o2.id && o1.status === o2.status && o1.driverId === o2.driverId &&
-    o1.clientName === o2.clientName && o1.products.length === o2.products.length &&
+    o1.clientName === o2.clientName && o1.numeroOC === o2.numeroOC && o1.products.length === o2.products.length &&
     prev.choferes === next.choferes && prev.isHighlighted === next.isHighlighted
   )
 })

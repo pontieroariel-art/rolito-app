@@ -145,12 +145,20 @@ async function main() {
     { id: 'seed-order-1', date: today,    products: [{ name: 'Hielo en cubo 5kg', quantity: 20 }] },
     { id: 'seed-order-2', date: today,    products: [{ name: 'Hielo en bolsa 2kg', quantity: 15 }] },
     { id: 'seed-order-3', date: tomorrow, products: [{ name: 'Hielo en cubo 5kg', quantity: 30 }] },
+    // Nombre "RAZÓN SOCIAL (SUCURSAL)" + OC — para probar splitSucursalLabel()
+    { id: 'seed-order-4', date: today, products: [{ name: 'Hielo en cubo 5kg', quantity: 88 }],
+      clientName: 'DELIVERY HERO E-COMMERCE SA (LA PLATA)', numeroOC: '4521' },
+    // Mismo clientId que DELIVERY_HERO_CLIENT_ID (src/utils/constants.ts) —
+    // para probar el ícono 🛵 en vez del prefijo de texto.
+    { id: 'seed-order-5', date: today, products: [{ name: 'Hielo en cubo 5kg', quantity: 100 }],
+      clientId: 'W5ipfqI6gEfRqFk5X13HdTi57l93', clientName: 'DELIVERY HERO E-COMMERCE SA (NUÑEZ)' },
   ]
   for (const p of pedidos) {
     await db.collection('orders').doc(p.id).set({
-      clientId: clienteUid, clientEmail: clienteEmail, clientName: 'Cliente de Prueba SA',
+      clientId: p.clientId ?? clienteUid, clientEmail: clienteEmail, clientName: p.clientName ?? 'Cliente de Prueba SA',
       clientAddress: direccion.address, clientPhone: '1122334455',
       products: p.products, status: 'pendiente', driverId: null, notes: '',
+      ...(p.numeroOC ? { numeroOC: p.numeroOC } : {}),
       date: Timestamp.fromDate(p.date),
       createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true })

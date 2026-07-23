@@ -20,6 +20,12 @@ export const STATUS_FLOW: OrderStatus[] = [
 
 export const ALL_STATUSES: OrderStatus[] = [...STATUS_FLOW, 'cancelado']
 
+// Cliente de altísimo volumen (66+ sucursales, la mayoría de la Bandeja en
+// Planificación) — razón social "DELIVERY HERO E-COMMERCE SA" (PedidosYa).
+// Ahí se abrevia con el logo de PedidosYa en vez de repetir la razón social
+// completa en cada tarjeta.
+export const DELIVERY_HERO_CLIENT_ID = 'W5ipfqI6gEfRqFk5X13HdTi57l93'
+
 export const STATUS_LABELS: Record<OrderStatus, string> = {
   pendiente:  'Pendiente',
   confirmado: 'Confirmado',

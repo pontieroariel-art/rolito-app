@@ -31,6 +31,20 @@ export const formatDateInput = (timestamp: Timestamp | null | undefined): string
 export const summarizeProducts = (products: OrderProduct[] = []): string =>
   products.map((p) => `${p.quantity}x ${p.name}`).join(', ')
 
+// Los pedidos de clientes con varias sucursales (ej. cadenas importadas por
+// PDF) guardan el nombre completo como "RAZÓN SOCIAL (SUCURSAL)" — en vistas
+// compactas (Bandeja/calendario) alcanza con la sucursal + la primera
+// palabra de la razón social, en vez de repetir el nombre completo entero
+// en cada tarjeta (el nombre completo solo importa para Tango al facturar).
+export function splitSucursalLabel(clientName: string): { empresa?: string; sucursal: string } {
+  const match = clientName.match(/^(.+?)\s*\(([^)]+)\)\s*$/)
+  if (!match) return { sucursal: clientName }
+  const [, razonSocial, sucursal] = match
+  const primeraPalabra = razonSocial.trim().split(/\s+/)[0] ?? ''
+  const empresa = primeraPalabra.charAt(0).toUpperCase() + primeraPalabra.slice(1).toLowerCase()
+  return { empresa, sucursal: sucursal.trim() }
+}
+
 export const todayString = (): string => new Date().toISOString().split('T')[0]
 
 export const calcPallets = (
