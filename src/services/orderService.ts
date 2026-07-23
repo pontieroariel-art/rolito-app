@@ -452,12 +452,16 @@ export async function searchOrdersByClientCode(term: string): Promise<Order[]> {
 
   if (clientIds.size === 0) return []
 
-  // Firestore 'in' soporta hasta 30 valores por query
+  // Firestore 'in' soporta hasta 30 valores por query. orderBy(date, desc)
+  // es necesario porque sin él Firestore corta por orden de documento (no
+  // por fecha) — un cliente con muchos pedidos (grupo empresario) podía
+  // perderse el pedido reciente buscado y traer solo pedidos viejos al azar.
   const orderSnaps = await Promise.all(
     chunk(Array.from(clientIds), 30).map((ids) => getDocs(query(
       collection(db, ORDERS),
       where('clientId', 'in', ids),
-      limit(30),
+      orderBy('date', 'desc'),
+      limit(60),
     ))),
   )
   const byId = new Map<string, Order>()
