@@ -19,7 +19,7 @@ import { useChoferes } from '../../hooks/useChoferes'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { useAuth } from '../../context/AuthContext'
 import { moveOrderDate, moveOrderToBandeja, assignDriver, cancelOrderBy, editOrderBy, EditOrderParams } from '../../services/orderService'
-import { summarizeProducts, tsToDate, splitSucursalLabel } from '../../utils/helpers'
+import { summarizeProducts, tsToDate, splitSucursalLabel, getCodigoCliente, isSucursalCode } from '../../utils/helpers'
 import { PRODUCTS, DELIVERY_HERO_CLIENT_ID } from '../../utils/constants'
 import { useCatalogo } from '../../hooks/useCatalogo'
 import { Order, OrderProduct, UserProfile, AccionHistorial } from '../../types'
@@ -432,26 +432,6 @@ function OrderQuickView({ order, choferes, codigoCliente, columns, onClose, onEd
       </div>
     </Modal>
   )
-}
-
-// addresses[].id es un id random (crypto.randomUUID()) cuando el domicilio
-// se creó desde la UI, o el código real de sucursal (ej. "FC.562") cuando
-// viene del import de Excel — solo el segundo caso sirve como "código".
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const PLACEHOLDER_ADDR_ID_RE = /^addr-?\d+$/i
-function isSucursalCode(id: string | undefined): id is string {
-  return !!id && !UUID_RE.test(id) && !PLACEHOLDER_ADDR_ID_RE.test(id)
-}
-
-// Resuelve el código de cliente exacto de la sucursal del pedido (grupos
-// empresarios tienen un código distinto por dirección en addresses[].id);
-// si no hay match por dirección, cae al código general del cliente.
-function getCodigoCliente(codigoByClientId: Map<string, string | undefined>, clientId: string, clientAddress?: string) {
-  if (clientAddress) {
-    const porDireccion = codigoByClientId.get(`${clientId}|${clientAddress.trim().toLowerCase()}`)
-    if (porDireccion) return porDireccion
-  }
-  return codigoByClientId.get(clientId)
 }
 
 // ── OrderListRow (fila draggable, sin horario) ──────────────────────────────
@@ -967,7 +947,7 @@ export default function LogisticaDashboard() {
             ))}
           </div>
           <div className="w-full md:flex-1 md:min-w-[240px] md:max-w-lg">
-            <PedidoSearchBar onJumpAndHighlight={handleSearchJump} onOpenDetail={setDetailOrder} />
+            <PedidoSearchBar onJumpAndHighlight={handleSearchJump} onOpenDetail={setDetailOrder} codigoByClientId={codigoByClientId} />
           </div>
         </div>
       </div>

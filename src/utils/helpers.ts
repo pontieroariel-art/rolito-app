@@ -47,6 +47,26 @@ export function splitSucursalLabel(clientName: string): { empresa?: string; sucu
 
 export const todayString = (): string => new Date().toISOString().split('T')[0]
 
+// addresses[].id es un id random (crypto.randomUUID()) cuando el domicilio
+// se creó desde la UI, o el código real de sucursal (ej. "FC.562") cuando
+// viene del import de Excel — solo el segundo caso sirve como "código".
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const PLACEHOLDER_ADDR_ID_RE = /^addr-?\d+$/i
+export function isSucursalCode(id: string | undefined): id is string {
+  return !!id && !UUID_RE.test(id) && !PLACEHOLDER_ADDR_ID_RE.test(id)
+}
+
+// Resuelve el código de cliente exacto de la sucursal del pedido (grupos
+// empresarios tienen un código distinto por dirección en addresses[].id);
+// si no hay match por dirección, cae al código general del cliente.
+export function getCodigoCliente(codigoByClientId: Map<string, string | undefined>, clientId: string, clientAddress?: string) {
+  if (clientAddress) {
+    const porDireccion = codigoByClientId.get(`${clientId}|${clientAddress.trim().toLowerCase()}`)
+    if (porDireccion) return porDireccion
+  }
+  return codigoByClientId.get(clientId)
+}
+
 export const calcPallets = (
   products: OrderProduct[],
   catalogo: CatalogProducto[],

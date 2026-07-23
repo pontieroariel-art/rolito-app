@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Search, X, Eye } from 'lucide-react'
 import { searchOrdersByClientName, searchOrdersByClientCode, searchOrdersByNumeroOC, getOrdersInRange } from '../../services/orderService'
-import { formatShortDate, summarizeProducts } from '../../utils/helpers'
+import { formatShortDate, summarizeProducts, getCodigoCliente } from '../../utils/helpers'
 import { STATUS_LABELS } from '../../utils/constants'
 import { Order } from '../../types'
 
@@ -16,9 +16,10 @@ const MODES: { id: Mode; label: string }[] = [
 interface Props {
   onJumpAndHighlight: (order: Order) => void
   onOpenDetail:       (order: Order) => void
+  codigoByClientId:   Map<string, string | undefined>
 }
 
-export default function PedidoSearchBar({ onJumpAndHighlight, onOpenDetail }: Props) {
+export default function PedidoSearchBar({ onJumpAndHighlight, onOpenDetail, codigoByClientId }: Props) {
   const [mode,    setMode]    = useState<Mode>('cliente')
   const [text,    setText]    = useState('')
   const [date,    setDate]    = useState('')
@@ -131,7 +132,9 @@ export default function PedidoSearchBar({ onJumpAndHighlight, onOpenDetail }: Pr
             <p className="text-xs text-gray-400 px-3 py-3 text-center">Sin resultados</p>
           ) : (
             <ul className="max-h-80 overflow-y-auto divide-y divide-gray-100">
-              {results.map((o) => (
+              {results.map((o) => {
+                const codigoCliente = getCodigoCliente(codigoByClientId, o.clientId, o.clientAddress)
+                return (
                 <li
                   key={o.id}
                   onClick={() => handleSelectRow(o)}
@@ -140,6 +143,7 @@ export default function PedidoSearchBar({ onJumpAndHighlight, onOpenDetail }: Pr
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm font-medium text-gray-900 truncate">{o.clientName || '—'}</p>
+                      {codigoCliente && <span className="text-[10px] text-gray-400 font-mono shrink-0">{codigoCliente}</span>}
                       <span className="text-[10px] text-gray-400 shrink-0">{STATUS_LABELS[o.status]}</span>
                     </div>
                     <p className="text-xs text-gray-400 truncate">{o.clientAddress || 'Sin dirección'}</p>
@@ -157,7 +161,8 @@ export default function PedidoSearchBar({ onJumpAndHighlight, onOpenDetail }: Pr
                     <Eye size={14} />
                   </button>
                 </li>
-              ))}
+                )
+              })}
             </ul>
           )}
         </div>
