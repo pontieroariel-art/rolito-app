@@ -436,8 +436,8 @@ function OrderQuickView({ order, choferes, codigoCliente, columns, onClose, onEd
 
 // ── OrderListRow (fila draggable, sin horario) ──────────────────────────────
 
-const OrderListRow = memo(function OrderListRow({ order, choferes, isHighlighted, onClick }: {
-  order: Order; choferes: UserProfile[]; isHighlighted?: boolean; onClick: () => void
+const OrderListRow = memo(function OrderListRow({ order, choferes, codigoCliente, isHighlighted, onClick }: {
+  order: Order; choferes: UserProfile[]; codigoCliente?: string; isHighlighted?: boolean; onClick: () => void
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: order.id })
   const color = order.driverId ? driverColor(order.driverId, choferes) : '#D97706'
@@ -468,6 +468,9 @@ const OrderListRow = memo(function OrderListRow({ order, choferes, isHighlighted
         )}
         {sucursal}
       </p>
+      {codigoCliente && (
+        <span className="text-[9px] text-gray-400 font-mono shrink-0">{codigoCliente}</span>
+      )}
       {order.numeroOC && (
         <span className="text-[9px] text-gray-400 font-mono shrink-0">OC {order.numeroOC}</span>
       )}
@@ -479,18 +482,20 @@ const OrderListRow = memo(function OrderListRow({ order, choferes, isHighlighted
   return (
     o1.id === o2.id && o1.status === o2.status && o1.driverId === o2.driverId &&
     o1.clientName === o2.clientName && o1.numeroOC === o2.numeroOC && o1.products.length === o2.products.length &&
-    prev.choferes === next.choferes && prev.isHighlighted === next.isHighlighted
+    prev.choferes === next.choferes && prev.isHighlighted === next.isHighlighted &&
+    prev.codigoCliente === next.codigoCliente
   )
 })
 
 // ── DayListColumn (columna de día: cabecera + lista completa de pedidos) ───
 
-const DayListColumn = memo(function DayListColumn({ id, label, sublabel, orders, choferes, isToday, isBandeja, highlightedOrderId, onOpenOrder, fullWidth }: {
+const DayListColumn = memo(function DayListColumn({ id, label, sublabel, orders, choferes, codigoByClientId, isToday, isBandeja, highlightedOrderId, onOpenOrder, fullWidth }: {
   id:        string
   label:     string
   sublabel?: string
   orders:    Order[]
   choferes:  UserProfile[]
+  codigoByClientId: Map<string, string | undefined>
   isToday:   boolean
   isBandeja?: boolean
   highlightedOrderId?: string | null
@@ -536,6 +541,7 @@ const DayListColumn = memo(function DayListColumn({ id, label, sublabel, orders,
             key={order.id}
             order={order}
             choferes={choferes}
+            codigoCliente={codigoByClientId.get(order.clientId)}
             isHighlighted={order.id === highlightedOrderId}
             onClick={() => onOpenOrder(order)}
           />
@@ -551,7 +557,7 @@ const DayListColumn = memo(function DayListColumn({ id, label, sublabel, orders,
 }, (prev, next) => {
   if (prev.id !== next.id || prev.choferes !== next.choferes) return false
   if (prev.isToday !== next.isToday || prev.highlightedOrderId !== next.highlightedOrderId) return false
-  if (prev.fullWidth !== next.fullWidth) return false
+  if (prev.fullWidth !== next.fullWidth || prev.codigoByClientId !== next.codigoByClientId) return false
   if (prev.orders.length !== next.orders.length) return false
   return prev.orders.every((o, i) => {
     const n = next.orders[i]
@@ -1052,6 +1058,7 @@ export default function LogisticaDashboard() {
                           sublabel={col.sublabel}
                           orders={ordersByColumn[col.id] ?? []}
                           choferes={choferes}
+                          codigoByClientId={codigoByClientId}
                           isToday={col.id === todayStr}
                           isBandeja={col.id === 'bandeja'}
                           highlightedOrderId={highlightedOrderId}
@@ -1080,6 +1087,7 @@ export default function LogisticaDashboard() {
                           sublabel={col.sublabel}
                           orders={ordersByColumn[col.id] ?? []}
                           choferes={choferes}
+                          codigoByClientId={codigoByClientId}
                           isToday={col.id === todayStr}
                           isBandeja={col.id === 'bandeja'}
                           highlightedOrderId={highlightedOrderId}
