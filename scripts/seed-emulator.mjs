@@ -72,20 +72,21 @@ function baseUserFields(overrides) {
 async function main() {
   console.log('Sembrando datos de prueba en el emulador...\n')
 
-  // ── Staff (super_admin) ─────────────────────────────────────────────────
+  // ── Staff ────────────────────────────────────────────────────────────────
   const staffSeed = [
-    { dni: '20000001', password: PASSWORD, nombre: 'Admin Prueba' },
-    { dni: '34551070', password: 'prueba', nombre: 'Ariel Pontiero' },
+    { dni: '20000001', password: PASSWORD, nombre: 'Admin Prueba', rol: 'super_admin' },
+    { dni: '34551070', password: 'prueba', nombre: 'Ariel Pontiero', rol: 'super_admin' },
+    { dni: '20000002', password: PASSWORD, nombre: 'Gerente Comercial Prueba', rol: 'gerente_comercial' },
   ]
   for (const s of staffSeed) {
     const staffEmail = dniToStaffEmail(s.dni)
     const staffUid   = await upsertAuthUser(staffEmail, s.password)
     await db.collection('users').doc(staffUid).set(baseUserFields({
       email: staffEmail, nombre: s.nombre, nombreContacto: s.nombre,
-      rol: 'super_admin', username: s.dni,
+      rol: s.rol, username: s.dni,
     }), { merge: true })
     await db.collection('staffDniIndex').doc(s.dni).set({ email: staffEmail })
-    console.log(`✓ Staff (super_admin) — DNI ${s.dni} / contraseña ${s.password}`)
+    console.log(`✓ Staff (${s.rol}) — DNI ${s.dni} / contraseña ${s.password}`)
   }
 
   // ── Choferes ─────────────────────────────────────────────────────────────
@@ -157,7 +158,7 @@ async function main() {
   console.log(`✓ ${pedidos.length} pedidos de prueba (Sin asignar)`)
 
   console.log('\n── Credenciales ─────────────────────────────────')
-  staffSeed.forEach((s) => console.log(`Staff (super_admin):  DNI ${s.dni}  /  ${s.password}`))
+  staffSeed.forEach((s) => console.log(`Staff (${s.rol}):  DNI ${s.dni}  /  ${s.password}`))
   console.log(`Choferes:             DNI ${dniFromCuit(choferesSeed[0].cuit)} o ${dniFromCuit(choferesSeed[1].cuit)}  /  PIN 1234`)
   console.log(`Cliente:              CUIT ${clienteCuit}  /  ${PASSWORD}`)
   console.log('\n¡Listo! Abrí la URL que te muestre `npm run dev` (por defecto http://localhost:5173).')

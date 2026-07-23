@@ -432,10 +432,23 @@ describe('despachos', () => {
     await assertFails(getDoc(doc(db('com'), 'despachos/2026-01-01_ch')))
   })
 
+  test('gerente_comercial SÍ puede leer despachos', async () => {
+    await seed((d) => setDoc(doc(d, 'users/gc'), { rol: 'gerente_comercial', estado: 'activo' }))
+    await seedDespacho()
+    await assertSucceeds(getDoc(doc(db('gc'), 'despachos/2026-01-01_ch')))
+  })
+
   test('operador SÍ puede escribir un despacho', async () => {
     await seed((d) => setDoc(doc(d, 'users/ops'), { rol: 'logistica', estado: 'activo' }))
     await assertSucceeds(setDoc(doc(db('ops'), 'despachos/2026-01-02_ch'), {
       fecha: '2026-01-02', driverId: 'ch@x.com', status: 'borrador', orderIds: [],
+    }))
+  })
+
+  test('gerente_comercial SÍ puede escribir un despacho', async () => {
+    await seed((d) => setDoc(doc(d, 'users/gc'), { rol: 'gerente_comercial', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('gc'), 'despachos/2026-01-03_ch'), {
+      fecha: '2026-01-03', driverId: 'ch@x.com', status: 'borrador', orderIds: [],
     }))
   })
 
@@ -461,6 +474,15 @@ describe('asignacionesDia', () => {
       await setDoc(doc(d, 'asignacionesDia/2026-01-01'), { choferes: {} })
     })
     await assertFails(getDoc(doc(db('com'), 'asignacionesDia/2026-01-01')))
+  })
+
+  test('gerente_comercial SÍ puede leer y escribir asignacionesDia', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/gc'), { rol: 'gerente_comercial', estado: 'activo' })
+      await setDoc(doc(d, 'asignacionesDia/2026-01-01'), { choferes: {} })
+    })
+    await assertSucceeds(getDoc(doc(db('gc'), 'asignacionesDia/2026-01-01')))
+    await assertSucceeds(setDoc(doc(db('gc'), 'asignacionesDia/2026-01-04'), { choferes: {} }))
   })
 
   test('operador SÍ puede escribir asignacionesDia', async () => {

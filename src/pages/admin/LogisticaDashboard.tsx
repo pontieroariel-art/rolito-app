@@ -670,12 +670,10 @@ function MiniCalendar({
 // ── Página principal ──────────────────────────────────────────────────────────
 
 export default function LogisticaDashboard() {
-  const { user: currentUser } = useAuth()
-  // El tab Despacho opera colecciones reservadas a operadores (despachos,
-  // asignacionesDia): el gerente comercial no lo ve.
-  const tabs = currentUser?.rol === 'gerente_comercial'
-    ? (['pedidos', 'mapa'] as const)
-    : (['pedidos', 'despacho', 'mapa'] as const)
+  // Gerente comercial ve las mismas pestañas que logística (incluido
+  // Despacho) — firestore.rules le da el mismo acceso a despachos/
+  // asignacionesDia que a operador (super_admin/logistica).
+  const tabs = ['pedidos', 'despacho', 'mapa'] as const
   const [mainTab,      setMainTab]      = useState<'despacho' | 'pedidos' | 'mapa'>('pedidos')
   const [importModal,  setImportModal]  = useState(false)
   const [pedidoManual, setPedidoManual] = useState(false)

@@ -331,17 +331,18 @@ service cloud.firestore {
     match /despachos/{despachoId} {
       allow read: if request.auth != null && (
         isOperator() ||
+        isGerenteComercial() ||
         isGerenteGeneral() ||
         request.auth.token.email == resource.data.driverId
       );
-      allow write: if request.auth != null && isOperator();
+      allow write: if request.auth != null && (isOperator() || isGerenteComercial());
     }
 
     // ── Asignaciones diarias (camión + ayudante por chofer y fecha) ──────────
     // El documento ID es la fecha 'yyyy-MM-dd'
     match /asignacionesDia/{fecha} {
-      allow read:  if request.auth != null && (isOperator() || isGerenteGeneral());
-      allow write: if request.auth != null && isOperator();
+      allow read:  if request.auth != null && (isOperator() || isGerenteComercial() || isGerenteGeneral());
+      allow write: if request.auth != null && (isOperator() || isGerenteComercial());
     }
 
     // ── Ubicaciones en tiempo real (GPS del chofer) ────────────────────────
