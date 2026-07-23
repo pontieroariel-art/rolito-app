@@ -180,7 +180,7 @@ function StepProductos({
 
     if (!skipDupCheck) {
       setCheckingDup(true)
-      const dups = await findActiveOrdersSameDay(cliente.uid, date)
+      const dups = await findActiveOrdersSameDay(cliente.uid, date, address)
       setCheckingDup(false)
       if (dups.length > 0) {
         setDuplicates(dups)

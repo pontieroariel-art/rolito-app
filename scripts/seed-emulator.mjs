@@ -113,12 +113,20 @@ async function main() {
   const direccion = {
     id: 'addr1', nombre: 'Depósito', address: 'Av. Siempre Viva 123, CABA',
     lat: -34.6037, lng: -58.3816, horarioApertura: '08:00', horarioCierre: '18:00',
-    contactoNombre: 'Juan Prueba', contactoTelefono: '1122334455', esPrincipal: true,
+    contactoNombre: 'Juan Prueba', contactoTelefono: '1122334455', esPrincipal: false,
+  }
+  // Segunda sucursal — "grupo empresario" (mismo CUIT, ninguna marcada
+  // principal) para probar que el chequeo de pedido duplicado no confunda
+  // sucursales distintas del mismo cliente.
+  const direccion2 = {
+    id: 'addr2', nombre: 'Sucursal Norte', address: 'Av. Cabildo 2450, CABA',
+    lat: -34.5631, lng: -58.4593, horarioApertura: '08:00', horarioCierre: '18:00',
+    contactoNombre: 'María Prueba', contactoTelefono: '1122334456', esPrincipal: false,
   }
   await db.collection('users').doc(clienteUid).set(baseUserFields({
     email: clienteEmail, razonSocial: 'Cliente de Prueba SA', nombreContacto: 'Juan Prueba',
     cuit: clienteCuit, telefono: '1122334455', phone: '1122334455',
-    addresses: [direccion], address: direccion.address, lat: direccion.lat, lng: direccion.lng,
+    addresses: [direccion, direccion2], address: direccion.address, lat: direccion.lat, lng: direccion.lng,
     codigoCliente: 'CL-0001', rol: 'cliente',
   }), { merge: true })
   await db.collection('cuitIndex').doc(clienteCuit).set({ email: clienteEmail })

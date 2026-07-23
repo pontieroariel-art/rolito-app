@@ -33,7 +33,10 @@ export function GestionarDomiciliosModal({
     horarioCierre:    '',
     contactoNombre:   '',
     contactoTelefono: '',
-    esPrincipal:      addresses.length === 0,
+    // No se auto-marca ni siquiera la primera dirección — "principal" queda
+    // siempre como una elección explícita (grupos empresarios con sucursales
+    // equivalentes pueden no tener ninguna).
+    esPrincipal:      false,
   })
   const [addrError, setAddrError] = useState('')
 
@@ -57,6 +60,12 @@ export function GestionarDomiciliosModal({
   const handleSetPrincipal = (id: string) =>
     save(addresses.map((a) => ({ ...a, esPrincipal: a.id === id })))
 
+  // "Principal" es opcional — un grupo empresario con sucursales equivalentes
+  // puede no tener ninguna marcada. A diferencia de handleSetPrincipal (que
+  // reemplaza al principal anterior), esto solo saca la marca de esta.
+  const handleUnsetPrincipal = (id: string) =>
+    save(addresses.map((a) => a.id === id ? { ...a, esPrincipal: false } : a))
+
   const handleSaveLocation = async (id: string) => {
     if (!editLoc.lat || !editLoc.lng) return
     await save(addresses.map((a) => a.id === id ? { ...a, address: editLoc.address || a.address, lat: editLoc.lat, lng: editLoc.lng } : a))
@@ -79,7 +88,7 @@ export function GestionarDomiciliosModal({
       nombre: '', address: '', lat: null, lng: null,
       horarioApertura: '', horarioCierre: '',
       contactoNombre: '', contactoTelefono: '',
-      esPrincipal: updated.length === 1,
+      esPrincipal: false,
     })
   }
 
@@ -170,7 +179,15 @@ export function GestionarDomiciliosModal({
                 <Navigation size={10} /> {addr.lat ? 'Editar ubicación' : 'Fijar ubicación'}
               </button>
             )}
-            {!addr.esPrincipal && (
+            {addr.esPrincipal ? (
+              <button
+                onClick={() => handleUnsetPrincipal(addr.id)}
+                disabled={saving}
+                className="text-xs text-gray-500 hover:underline disabled:opacity-40"
+              >
+                Quitar principal
+              </button>
+            ) : (
               <button
                 onClick={() => handleSetPrincipal(addr.id)}
                 disabled={saving}

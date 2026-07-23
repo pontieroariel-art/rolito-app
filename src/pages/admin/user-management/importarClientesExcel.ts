@@ -77,7 +77,10 @@ export function parseExcelFile(file: File): Promise<ClientePreview[]> {
               horarioCierre:    '',
               contactoNombre:   '',
               contactoTelefono: cleanPhoneDigits(row['TELEFONO_1']),
-              esPrincipal:      idx === 0,
+              // "Principal" queda como elección explícita, no se auto-marca
+              // la primera fila (grupos empresarios con sucursales
+              // equivalentes en el Excel).
+              esPrincipal:      false,
             }
           })
 

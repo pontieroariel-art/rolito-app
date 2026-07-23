@@ -293,9 +293,14 @@ export const editOrderBy = (orderId: string, params: EditOrderParams, actor: Act
   })
 }
 
-// Pedidos activos (no cancelados) de un cliente para una fecha de entrega dada.
-// Usado para avisar de posibles duplicados antes de crear un pedido manual o por PDF.
-export const findActiveOrdersSameDay = async (clientId: string, dateStr: string): Promise<Order[]> => {
+// Pedidos activos (no cancelados) de un cliente para una fecha de entrega dada,
+// en la MISMA dirección de entrega. Usado para avisar de posibles duplicados
+// antes de crear un pedido manual o por PDF.
+// El filtro por dirección es necesario para clientes "grupo empresario" (un
+// CUIT, varias sucursales): sin él, cargar un pedido para una sucursal
+// avisaba "ya existe un pedido" solo porque OTRA sucursal del mismo cliente
+// ya tenía uno ese día.
+export const findActiveOrdersSameDay = async (clientId: string, dateStr: string, address: string): Promise<Order[]> => {
   const dayStart = Timestamp.fromDate(new Date(dateStr + 'T00:00:00'))
   const dayEnd   = Timestamp.fromDate(new Date(dateStr + 'T23:59:59'))
   const q = query(
@@ -305,9 +310,10 @@ export const findActiveOrdersSameDay = async (clientId: string, dateStr: string)
     where('date', '<=', dayEnd),
   )
   const snap = await getDocs(q)
+  const normalizedAddress = address.trim().toLowerCase()
   return snap.docs
     .map((d) => ({ id: d.id, ...d.data() } as Order))
-    .filter((o) => o.status !== 'cancelado')
+    .filter((o) => o.status !== 'cancelado' && o.clientAddress.trim().toLowerCase() === normalizedAddress)
 }
 
 export const getOrdersInRange = async (start: Date, end: Date): Promise<Order[]> => {

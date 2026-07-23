@@ -48,7 +48,9 @@ export function CrearClienteModal({ onClose, onCreated }: { onClose: () => void;
           address: addr.address, lat: addr.lat, lng: addr.lng,
           horarioApertura: addr.horarioApertura, horarioCierre: addr.horarioCierre,
           contactoNombre: addr.contactoNombre, contactoTelefono: addr.contactoTelefono,
-          esPrincipal: true,
+          // "Principal" queda como elección explícita, no se auto-marca al
+          // crear (grupos empresarios con sucursales equivalentes).
+          esPrincipal: false,
         }],
         creadoPor: { uid: currentUser.uid, nombre: currentUser.nombreContacto || currentUser.nombre, rol: currentUser.rol },
       })

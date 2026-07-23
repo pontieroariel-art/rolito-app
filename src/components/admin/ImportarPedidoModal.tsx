@@ -145,7 +145,7 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
 
     if (!skipDupCheck && selectedCliente) {
       setCheckingDup(true)
-      const dups = await findActiveOrdersSameDay(selectedCliente.uid, deliveryDate)
+      const dups = await findActiveOrdersSameDay(selectedCliente.uid, deliveryDate, clientAddress)
       setCheckingDup(false)
       if (dups.length > 0) {
         setDuplicates(dups)
