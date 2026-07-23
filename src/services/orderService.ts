@@ -437,17 +437,31 @@ export async function searchOrdersByClientCode(term: string): Promise<Order[]> {
     where('codigoCliente', '<', v + ''),
     limit(10),
   ))))
-  const clientIds = new Set(userSnaps.flatMap((snap) => snap.docs.map((d) => d.id)))
+  // Match por codigoCliente general del usuario: no está atado a una
+  // sucursal en particular, así que trae todos los pedidos del cliente.
+  const unrestrictedClientIds = new Set(userSnaps.flatMap((snap) => snap.docs.map((d) => d.id)))
+  const clientIds = new Set(unrestrictedClientIds)
 
   // El codigoCliente a nivel usuario es solo el código de UNA sucursal (la
-  // primera cargada) — en grupos empresarios (un cliente, varias
+  // primera cargada) -- en grupos empresarios (un cliente, varias
   // direcciones) cada sucursal tiene su propio código en addresses[].id,
   // que la query de arriba no puede alcanzar. Se completa con un scan en
-  // memoria de esos códigos por sucursal.
+  // memoria de esos códigos por sucursal. A diferencia del match anterior,
+  // este SÍ identifica una dirección puntual -- restringe el resultado a
+  // los pedidos de esa sucursal (si no, un cliente con decenas de
+  // sucursales/pedidos como un grupo empresario ahoga en la lista el
+  // pedido puntual que se buscaba).
+  const addressesByClient = new Map<string, Set<string>>()
   const allClientsSnap = await getDocs(query(collection(db, 'users'), where('rol', '==', 'cliente')))
   allClientsSnap.docs.forEach((d) => {
-    const addresses = (d.data().addresses ?? []) as { id?: string }[]
-    if (addresses.some((a) => (a.id || '').toLowerCase().includes(tLower))) clientIds.add(d.id)
+    const addresses = (d.data().addresses ?? []) as { id?: string; address?: string }[]
+    for (const a of addresses) {
+      if (a.address && (a.id || '').toLowerCase().includes(tLower)) {
+        clientIds.add(d.id)
+        if (!addressesByClient.has(d.id)) addressesByClient.set(d.id, new Set())
+        addressesByClient.get(d.id)!.add(a.address.trim().toLowerCase())
+      }
+    }
   })
 
   if (clientIds.size === 0) return []
@@ -465,7 +479,17 @@ export async function searchOrdersByClientCode(term: string): Promise<Order[]> {
     ))),
   )
   const byId = new Map<string, Order>()
-  orderSnaps.forEach((snap) => snap.docs.forEach((d) => byId.set(d.id, { id: d.id, ...d.data() } as Order)))
+  orderSnaps.forEach((snap) => snap.docs.forEach((d) => {
+    const order = { id: d.id, ...d.data() } as Order
+    // Si el cliente matcheó por codigoCliente general (no solo por una
+    // sucursal puntual), no se restringe aunque también haya matcheado
+    // alguna dirección específica.
+    if (!unrestrictedClientIds.has(order.clientId)) {
+      const restrictedAddresses = addressesByClient.get(order.clientId)
+      if (restrictedAddresses && !restrictedAddresses.has(order.clientAddress.trim().toLowerCase())) return
+    }
+    byId.set(d.id, order)
+  }))
   return Array.from(byId.values()).sort((a, b) => (b.date?.seconds ?? 0) - (a.date?.seconds ?? 0))
 }
 
