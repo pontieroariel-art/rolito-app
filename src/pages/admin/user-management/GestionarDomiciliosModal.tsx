@@ -23,6 +23,8 @@ export function GestionarDomiciliosModal({
   const [saveError,    setSaveError]    = useState('')
   const [editingLocId, setEditingLocId] = useState<string | null>(null)
   const [editLoc,      setEditLoc]      = useState<{ address: string; lat: number | null; lng: number | null }>({ address: '', lat: null, lng: null })
+  const [editingHorarioId, setEditingHorarioId] = useState<string | null>(null)
+  const [editHorario,      setEditHorario]      = useState<{ apertura: string; cierre: string }>({ apertura: '', cierre: '' })
 
   const [newAddr, setNewAddr] = useState({
     nombre:           '',
@@ -70,6 +72,11 @@ export function GestionarDomiciliosModal({
     if (!editLoc.lat || !editLoc.lng) return
     await save(addresses.map((a) => a.id === id ? { ...a, address: editLoc.address || a.address, lat: editLoc.lat, lng: editLoc.lng } : a))
     setEditingLocId(null)
+  }
+
+  const handleSaveHorario = async (id: string) => {
+    await save(addresses.map((a) => a.id === id ? { ...a, horarioApertura: editHorario.apertura, horarioCierre: editHorario.cierre } : a))
+    setEditingHorarioId(null)
   }
 
   const handleAddSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -161,7 +168,45 @@ export function GestionarDomiciliosModal({
               </div>
             )}
 
-            {addr.horarioApertura && (
+            {editingHorarioId === addr.id ? (
+              <div className="space-y-2 pt-1">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-gray-500">Apertura</label>
+                    <input
+                      type="time"
+                      value={editHorario.apertura}
+                      onChange={(e) => setEditHorario((h) => ({ ...h, apertura: e.target.value }))}
+                      className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-gray-500">Cierre</label>
+                    <input
+                      type="time"
+                      value={editHorario.cierre}
+                      onChange={(e) => setEditHorario((h) => ({ ...h, cierre: e.target.value }))}
+                      className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleSaveHorario(addr.id)}
+                    disabled={saving}
+                    className="flex-1 text-xs bg-accent text-white rounded-lg py-1.5 disabled:opacity-40"
+                  >
+                    Guardar horario
+                  </button>
+                  <button
+                    onClick={() => setEditingHorarioId(null)}
+                    className="text-xs text-gray-500 hover:text-gray-700 border border-[#D3D1C7] rounded-lg px-3 py-1.5"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            ) : addr.horarioApertura && (
               <p className="text-xs text-gray-500">Horario: {addr.horarioApertura} – {addr.horarioCierre}</p>
             )}
             {addr.contactoNombre && (
@@ -177,6 +222,14 @@ export function GestionarDomiciliosModal({
                 className="text-xs text-accent hover:underline flex items-center gap-1"
               >
                 <Navigation size={10} /> {addr.lat ? 'Editar ubicación' : 'Fijar ubicación'}
+              </button>
+            )}
+            {editingHorarioId !== addr.id && (
+              <button
+                onClick={() => { setEditingHorarioId(addr.id); setEditHorario({ apertura: addr.horarioApertura || '', cierre: addr.horarioCierre || '' }) }}
+                className="text-xs text-accent hover:underline"
+              >
+                {addr.horarioApertura ? 'Editar horario' : 'Agregar horario'}
               </button>
             )}
             {addr.esPrincipal ? (
