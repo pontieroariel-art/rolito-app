@@ -20,11 +20,16 @@ export const STATUS_FLOW: OrderStatus[] = [
 
 export const ALL_STATUSES: OrderStatus[] = [...STATUS_FLOW, 'cancelado']
 
-// Cliente de altísimo volumen (66+ sucursales, la mayoría de la Bandeja en
-// Planificación) — razón social "DELIVERY HERO E-COMMERCE SA" (PedidosYa).
-// Ahí se abrevia con el logo de PedidosYa en vez de repetir la razón social
-// completa en cada tarjeta.
-export const DELIVERY_HERO_CLIENT_ID = 'W5ipfqI6gEfRqFk5X13HdTi57l93'
+// Clientes de altísimo volumen (grupos empresarios con decenas de sucursales,
+// la mayoría de la Bandeja en Planificación) — en las tarjetas de pedidos se
+// abrevian con su logo en vez de repetir la razón social completa.
+export const DELIVERY_HERO_CLIENT_ID = 'W5ipfqI6gEfRqFk5X13HdTi57l93' // DELIVERY HERO E-COMMERCE SA (PedidosYa)
+export const RAPPI_CLIENT_ID         = '8uZtrty0zFMSAcRgR9hQu3Hr72H3' // GASTRONOMIA EMPRENDIMIENTOS S.A.S (Rappi)
+
+export const CLIENT_LOGOS: Record<string, { src: string; alt: string }> = {
+  [DELIVERY_HERO_CLIENT_ID]: { src: '/logo-pedidosya.png', alt: 'PedidosYa (Delivery Hero)' },
+  [RAPPI_CLIENT_ID]:         { src: '/logo-rappi.webp',    alt: 'Rappi (Gastronomía Emprendimientos)' },
+}
 
 export const STATUS_LABELS: Record<OrderStatus, string> = {
   pendiente:  'Pendiente',

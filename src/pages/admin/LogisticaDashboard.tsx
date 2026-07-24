@@ -21,7 +21,7 @@ import { useIsMobile } from '../../hooks/useIsMobile'
 import { useAuth } from '../../context/AuthContext'
 import { moveOrderDate, moveOrderToBandeja, assignDriver, cancelOrderBy, editOrderBy, EditOrderParams } from '../../services/orderService'
 import { summarizeProducts, tsToDate, splitSucursalLabel, getCodigoCliente, isSucursalCode } from '../../utils/helpers'
-import { PRODUCTS, DELIVERY_HERO_CLIENT_ID } from '../../utils/constants'
+import { PRODUCTS, CLIENT_LOGOS } from '../../utils/constants'
 import { useCatalogo } from '../../hooks/useCatalogo'
 import { Order, OrderProduct, UserProfile, AccionHistorial } from '../../types'
 
@@ -444,7 +444,7 @@ const OrderListRow = memo(function OrderListRow({ order, choferes, codigoCliente
   const color = order.driverId ? driverColor(order.driverId, choferes) : '#D97706'
   const totalUnits = order.products.reduce((sum, p) => sum + p.quantity, 0)
   const { empresa, sucursal } = splitSucursalLabel(order.clientName)
-  const isDeliveryHero = order.clientId === DELIVERY_HERO_CLIENT_ID
+  const clientLogo = CLIENT_LOGOS[order.clientId]
 
   return (
     <div
@@ -462,8 +462,8 @@ const OrderListRow = memo(function OrderListRow({ order, choferes, codigoCliente
       }`}
     >
       <p className="text-xs font-semibold text-gray-900 truncate min-w-0 flex-1">
-        {isDeliveryHero ? (
-          <img src="/logo-pedidosya.png" alt="" title="PedidosYa (Delivery Hero)" className="inline-block w-3 h-3 mr-1 align-middle" />
+        {clientLogo ? (
+          <img src={clientLogo.src} alt="" title={clientLogo.alt} className="inline-block w-3 h-3 mr-1 align-middle" />
         ) : empresa && (
           <span className="text-gray-400 font-normal">{empresa} · </span>
         )}
