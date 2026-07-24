@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
+import MultiDatePicker from './MultiDatePicker'
 import { parsePedidosYaExcel, PedidoYaRow } from '../../utils/parsePedidosYaExcel'
 import { createOrderExterno, findActiveOrdersInRange } from '../../services/orderService'
 import { getUserDocument } from '../../services/userService'
@@ -20,6 +21,9 @@ interface ReviewRow extends PedidoYaRow {
   dupOC?:       boolean
   dupSameDay?:  boolean
   included:     boolean
+  // Días extra además de la fecha que trae el Excel — para tiendas que en
+  // realidad piden todos los días pero el Excel solo trae una fila.
+  diasAdicionales: string[]
 }
 
 interface Props {
@@ -42,14 +46,14 @@ function computeWarnings(addr: DeliveryAddress | undefined, fechaEntrega: string
 
 function buildReviewRow(row: PedidoYaRow, deliveryHero: UserProfile, existing: Order[]): ReviewRow {
   if (row.parseError) {
-    return { ...row, addrId: '', matchError: row.parseError, included: false }
+    return { ...row, addrId: '', matchError: row.parseError, included: false, diasAdicionales: [] }
   }
   const addr = deliveryHero.addresses.find((a) => a.id === row.codigo)
   if (!addr) {
-    return { ...row, addrId: '', matchError: 'Código no encontrado — elegí la sucursal manualmente', recoverable: true, included: false }
+    return { ...row, addrId: '', matchError: 'Código no encontrado — elegí la sucursal manualmente', recoverable: true, included: false, diasAdicionales: [] }
   }
   const { dupOC, dupSameDay } = computeWarnings(addr, row.fechaEntrega, row.oc, existing)
-  return { ...row, addrId: addr.id, dupOC, dupSameDay, included: !dupOC && !dupSameDay }
+  return { ...row, addrId: addr.id, dupOC, dupSameDay, included: !dupOC && !dupSameDay, diasAdicionales: [] }
 }
 
 export default function ImportarPedidosYaModal({ open, onClose }: Props) {
@@ -64,6 +68,8 @@ export default function ImportarPedidosYaModal({ open, onClose }: Props) {
   const [total,    setTotal]    = useState(0)
   const [created,  setCreated]  = useState(0)
   const [errors,   setErrors]   = useState<string[]>([])
+
+  const [datePickerRowIdx, setDatePickerRowIdx] = useState<number | null>(null)
 
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -132,21 +138,28 @@ export default function ImportarPedidosYaModal({ open, onClose }: Props) {
   }
 
   const includedRows = rows.filter((r) => r.included && r.addrId)
+  const totalPedidosAImportar = includedRows.reduce((sum, r) => sum + 1 + r.diasAdicionales.length, 0)
 
   const handleImport = async () => {
     if (!deliveryHero) return
     setStep('importing')
+
+    const tareas = includedRows.flatMap((row) => {
+      const addr   = deliveryHero.addresses.find((a) => a.id === row.addrId)
+      const fechas = [row.fechaEntrega, ...row.diasAdicionales]
+      return fechas.map((fecha) => ({ row, addr, fecha }))
+    })
+
     setProgress(0)
-    setTotal(includedRows.length)
+    setTotal(tareas.length)
     setCreated(0)
     setErrors([])
 
     let ok = 0
     const errs: string[] = []
 
-    for (let i = 0; i < includedRows.length; i++) {
-      const row  = includedRows[i]
-      const addr = deliveryHero.addresses.find((a) => a.id === row.addrId)
+    for (let i = 0; i < tareas.length; i++) {
+      const { row, addr, fecha } = tareas[i]
       try {
         if (!addr) throw new Error('Sucursal no resuelta')
         await createOrderExterno({
@@ -156,12 +169,12 @@ export default function ImportarPedidosYaModal({ open, onClose }: Props) {
           clientAddress: addr.address,
           clientPhone:   deliveryHero.telefono || deliveryHero.phone,
           products:      [{ name: PEDIDOS_YA_PRODUCTO.name, quantity: row.cantidad, productoId: PEDIDOS_YA_PRODUCTO.id }],
-          date:          row.fechaEntrega,
+          date:          fecha,
           numeroOC:      row.oc,
         })
         ok++
       } catch (err) {
-        errs.push(`OC ${row.oc}: ${(err as Error).message ?? 'Error desconocido'}`)
+        errs.push(`OC ${row.oc} (${fecha}): ${(err as Error).message ?? 'Error desconocido'}`)
       }
       setProgress(i + 1)
       setCreated(ok)
@@ -277,7 +290,21 @@ export default function ImportarPedidosYaModal({ open, onClose }: Props) {
                           )}
                       </td>
                       <td className="px-2 py-1.5 text-center text-gray-900">{r.cantidad || '—'}</td>
-                      <td className="px-2 py-1.5 text-center text-gray-600">{r.fechaEntrega || '—'}</td>
+                      <td className="px-2 py-1.5 text-center text-gray-600">
+                        {r.matchError || !r.fechaEntrega ? (
+                          r.fechaEntrega || '—'
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setDatePickerRowIdx(idx)}
+                            className="text-accent hover:underline"
+                            title="Repetir esta fila en más días"
+                          >
+                            {r.fechaEntrega}
+                            {r.diasAdicionales.length > 0 && ` +${r.diasAdicionales.length}`}
+                          </button>
+                        )}
+                      </td>
                       <td className="px-2 py-1.5">
                         {r.matchError && (
                           <span className="text-red-600">{r.matchError}</span>
@@ -302,11 +329,42 @@ export default function ImportarPedidosYaModal({ open, onClose }: Props) {
           <div className="flex gap-3">
             <Button variant="outline" onClick={handleClose} className="flex-1">Cancelar</Button>
             <Button onClick={handleImport} disabled={includedRows.length === 0} className="flex-1">
-              Cargar {includedRows.length} pedido{includedRows.length === 1 ? '' : 's'}
+              Cargar {totalPedidosAImportar} pedido{totalPedidosAImportar === 1 ? '' : 's'}
             </Button>
           </div>
         </div>
       )}
+
+      {datePickerRowIdx !== null && (() => {
+        const row  = rows[datePickerRowIdx]
+        const addr = deliveryHero?.addresses.find((a) => a.id === row.addrId)
+        const existingForRow = addr
+          ? new Set(
+              existing
+                .filter((o) => o.clientAddress.trim().toLowerCase() === addr.address.trim().toLowerCase())
+                .map((o) => (o.date?.toDate ? o.date.toDate().toISOString().split('T')[0] : ''))
+                .filter(Boolean),
+            )
+          : undefined
+        const selected = new Set([row.fechaEntrega, ...row.diasAdicionales])
+        return (
+          <Modal open onClose={() => setDatePickerRowIdx(null)} title={`Días para OC ${row.oc || '—'}`} variant="light">
+            <p className="text-sm text-gray-600 mb-3">
+              Sumá días extra si esta tienda pide más seguido de lo que trae el Excel.
+            </p>
+            <MultiDatePicker
+              selected={selected}
+              onChange={(next) => {
+                const idx = datePickerRowIdx
+                updateRow(idx, { diasAdicionales: [...next].filter((d) => d !== row.fechaEntrega) })
+              }}
+              existingDates={existingForRow}
+              minDate={row.fechaEntrega}
+            />
+            <Button onClick={() => setDatePickerRowIdx(null)} className="w-full mt-4">Listo</Button>
+          </Modal>
+        )
+      })()}
 
       {step === 'importing' && (
         <div className="space-y-5 py-2">

@@ -1,13 +1,24 @@
 ﻿import { useState, ChangeEvent, useMemo } from 'react'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
-import { createOrderManual, findActiveOrdersSameDay } from '../../services/orderService'
+import MultiDatePicker from './MultiDatePicker'
+import { createOrderManual, findActiveOrdersSameDay, findActiveOrdersInRange } from '../../services/orderService'
 import { useListaPrecios } from '../../hooks/useListasPrecios'
 import { useCatalogo } from '../../hooks/useCatalogo'
 import { useSucursales, SucursalItem } from '../../hooks/useSucursales'
 import { UserProfile, Order } from '../../types'
 import { formatShortDate } from '../../utils/helpers'
 import { STATUS_LABELS } from '../../utils/constants'
+
+function todayStr(): string {
+  return new Date().toISOString().split('T')[0]
+}
+
+function addDaysStr(dateStr: string, days: number): string {
+  const d = new Date(dateStr + 'T12:00:00')
+  d.setDate(d.getDate() + days)
+  return d.toISOString().split('T')[0]
+}
 
 // ── ProductRow ────────────────────────────────────────────────────────────────
 
@@ -126,7 +137,7 @@ function StepProductos({
   initialHorario?: string
   defaultDate:     string
   onBack:          () => void
-  onConfirm:       () => void
+  onConfirm:       (count: number) => void
 }) {
   const [quantities, setQuantities] = useState<Record<string, number>>({})
   const [date, setDate]             = useState(defaultDate)
@@ -136,6 +147,23 @@ function StepProductos({
   const [fechaEmision, setFechaEmision] = useState('')
   const [checkingDup, setCheckingDup] = useState(false)
   const [duplicates,  setDuplicates]  = useState<Order[] | null>(null)
+  const [modoMulti,   setModoMulti]   = useState(false)
+  const [multiDates,  setMultiDates]  = useState<Set<string>>(new Set())
+  const [existingDates, setExistingDates] = useState<Set<string>>(new Set())
+  const [progressLabel, setProgressLabel] = useState('')
+
+  const activarModoMulti = async () => {
+    setModoMulti(true)
+    const desde = todayStr()
+    const hasta = addDaysStr(desde, 60)
+    const existentes = await findActiveOrdersInRange(cliente.uid, desde, hasta)
+    const normalizedAddress = address.trim().toLowerCase()
+    const dias = existentes
+      .filter((o) => o.clientAddress.trim().toLowerCase() === normalizedAddress)
+      .map((o) => (o.date?.toDate ? o.date.toDate().toISOString().split('T')[0] : ''))
+      .filter(Boolean)
+    setExistingDates(new Set(dias))
+  }
   const parseHorario = (h?: string) => {
     const parts = (h ?? '').split(/\s*[–-]\s*/)
     return { desde: parts[0]?.trim() ?? '', hasta: parts[1]?.trim() ?? '' }
@@ -172,7 +200,7 @@ function StepProductos({
 
   const total     = selected.reduce((s, p) => s + ((p.price ?? 0) * p.quantity), 0)
   const hasPrecios = selected.some((p) => p.price !== undefined)
-  const canSubmit  = selected.length > 0 && !!address && !!date
+  const canSubmit  = selected.length > 0 && !!address && (modoMulti ? multiDates.size > 0 : !!date)
 
   const setQty = (id: string, qty: number) =>
     setQuantities((q) => ({ ...q, [id]: Math.max(0, qty) }))
@@ -180,6 +208,34 @@ function StepProductos({
   const handleSubmit = async (skipDupCheck = false) => {
     if (!canSubmit) return
     setError('')
+
+    const horarioCombinado = horarioDesde && horarioHasta
+      ? `${horarioDesde} – ${horarioHasta}`
+      : horarioDesde || horarioHasta || undefined
+
+    if (modoMulti) {
+      setLoading(true)
+      const fechas = [...multiDates].sort()
+      let ok = 0
+      try {
+        for (const f of fechas) {
+          setProgressLabel(`Creando ${ok + 1}/${fechas.length}…`)
+          await createOrderManual({
+            cliente, clientLabel, products: selected, date: f, notes, address,
+            ordenCompra: ordenCompra.trim() || undefined,
+            horaEntrega: horarioCombinado,
+            fechaEmision: fechaEmision || undefined,
+          })
+          ok++
+        }
+        onConfirm(ok)
+      } catch {
+        setError(`Se crearon ${ok} de ${fechas.length} pedidos. Revisá tu conexión y reintentá para el resto.`)
+        setLoading(false)
+        setProgressLabel('')
+      }
+      return
+    }
 
     if (!skipDupCheck) {
       setCheckingDup(true)
@@ -194,16 +250,13 @@ function StepProductos({
 
     setLoading(true)
     try {
-      const horarioCombinado = horarioDesde && horarioHasta
-        ? `${horarioDesde} – ${horarioHasta}`
-        : horarioDesde || horarioHasta || undefined
       await createOrderManual({
         cliente, clientLabel, products: selected, date, notes, address,
         ordenCompra: ordenCompra.trim() || undefined,
         horaEntrega: horarioCombinado,
         fechaEmision: fechaEmision || undefined,
       })
-      onConfirm()
+      onConfirm(1)
     } catch {
       setError('Error al crear el pedido. Intentá de nuevo.')
       setLoading(false)
@@ -260,13 +313,26 @@ function StepProductos({
 
       {/* Fecha */}
       <div>
-        <label className="text-xs text-gray-500 mb-1 block">Fecha de entrega</label>
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
-        />
+        <div className="flex items-center justify-between mb-1">
+          <label className="text-xs text-gray-500">{modoMulti ? 'Días de entrega' : 'Fecha de entrega'}</label>
+          <button
+            type="button"
+            onClick={() => (modoMulti ? setModoMulti(false) : activarModoMulti())}
+            className="text-xs text-accent hover:underline"
+          >
+            {modoMulti ? 'Un solo día' : 'Repetir en varios días'}
+          </button>
+        </div>
+        {modoMulti ? (
+          <MultiDatePicker selected={multiDates} onChange={setMultiDates} existingDates={existingDates} />
+        ) : (
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+        )}
       </div>
 
       {/* Orden de compra */}
@@ -351,7 +417,7 @@ function StepProductos({
       <div className="flex gap-3">
         <Button variant="outline" onClick={onBack} className="flex-1 text-sm">Volver</Button>
         <Button onClick={() => handleSubmit()} loading={loading || checkingDup} disabled={!canSubmit} className="flex-1 text-sm">
-          {checkingDup ? 'Verificando…' : 'Crear pedido'}
+          {checkingDup ? 'Verificando…' : loading && progressLabel ? progressLabel : modoMulti ? `Crear ${multiDates.size || ''} pedido${multiDates.size === 1 ? '' : 's'}` : 'Crear pedido'}
         </Button>
       </div>
     </div>
@@ -369,10 +435,12 @@ export default function PedidoManualModal({
 }) {
   const [selection, setSelection] = useState<{ user: UserProfile; address: string; label: string; horario?: string } | null>(null)
   const [done, setDone]           = useState(false)
+  const [doneCount, setDoneCount] = useState(1)
 
   const handleClose = () => {
     setSelection(null)
     setDone(false)
+    setDoneCount(1)
     onClose()
   }
 
@@ -386,8 +454,12 @@ export default function PedidoManualModal({
       {done ? (
         <div className="text-center space-y-4 py-2">
           <p className="text-4xl">✅</p>
-          <p className="text-gray-900 font-semibold">Pedido creado correctamente</p>
-          <p className="text-gray-500 text-sm">Aparece como pendiente en el panel de pedidos.</p>
+          <p className="text-gray-900 font-semibold">
+            {doneCount > 1 ? `${doneCount} pedidos creados correctamente` : 'Pedido creado correctamente'}
+          </p>
+          <p className="text-gray-500 text-sm">
+            {doneCount > 1 ? 'Aparecen como pendientes en el panel de pedidos.' : 'Aparece como pendiente en el panel de pedidos.'}
+          </p>
           <Button onClick={handleClose} className="w-full">Cerrar</Button>
         </div>
       ) : !selection ? (
@@ -400,7 +472,7 @@ export default function PedidoManualModal({
           initialHorario={selection.horario}
           defaultDate={defaultDate}
           onBack={() => setSelection(null)}
-          onConfirm={() => setDone(true)}
+          onConfirm={(count) => { setDoneCount(count); setDone(true) }}
         />
       )}
     </Modal>

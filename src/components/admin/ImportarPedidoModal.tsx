@@ -2,13 +2,24 @@ import { useState, useRef, ChangeEvent, DragEvent } from 'react'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import LoadingSpinner from '../ui/LoadingSpinner'
+import MultiDatePicker from './MultiDatePicker'
 import { extractPdfText, parsePedido } from '../../utils/parsePdf'
 import { PRODUCTS } from '../../utils/constants'
-import { createOrderExterno, findActiveOrdersSameDay } from '../../services/orderService'
+import { createOrderExterno, findActiveOrdersSameDay, findActiveOrdersInRange } from '../../services/orderService'
 import { useSucursales, SucursalItem } from '../../hooks/useSucursales'
 import { getPrimaryAddress, Order } from '../../types'
 import { formatShortDate } from '../../utils/helpers'
 import { STATUS_LABELS } from '../../utils/constants'
+
+function todayStr(): string {
+  return new Date().toISOString().split('T')[0]
+}
+
+function addDaysStr(dateStr: string, days: number): string {
+  const d = new Date(dateStr + 'T12:00:00')
+  d.setDate(d.getDate() + days)
+  return d.toISOString().split('T')[0]
+}
 
 interface Props {
   open:    boolean
@@ -49,6 +60,12 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
   const [checkingDup, setCheckingDup] = useState(false)
   const [duplicates,  setDuplicates]  = useState<Order[] | null>(null)
 
+  // Repetir el mismo pedido en varios días
+  const [modoMulti,     setModoMulti]     = useState(false)
+  const [multiDates,    setMultiDates]    = useState<Set<string>>(new Set())
+  const [existingDates, setExistingDates] = useState<Set<string>>(new Set())
+  const [progressLabel, setProgressLabel] = useState('')
+
   const fileRef = useRef<HTMLInputElement>(null)
 
   const reset = () => {
@@ -69,6 +86,10 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
     setNotes('')
     setCheckingDup(false)
     setDuplicates(null)
+    setModoMulti(false)
+    setMultiDates(new Set())
+    setExistingDates(new Set())
+    setProgressLabel('')
   }
 
   const handleClose = () => { reset(); onClose() }
@@ -76,6 +97,20 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
   const selectedItem: SucursalItem | null = sucursales.find((s) => s.key === selectedKey) ?? null
   const selectedCliente = selectedItem?.user ?? null
   const selectedAddress = selectedCliente?.addresses?.find((a) => a.id === selectedItem?.addrId) ?? null
+
+  const activarModoMulti = async () => {
+    setModoMulti(true)
+    if (!selectedCliente) return
+    const desde = todayStr()
+    const hasta = addDaysStr(desde, 60)
+    const existentes = await findActiveOrdersInRange(selectedCliente.uid, desde, hasta)
+    const normalizedAddress = clientAddress.trim().toLowerCase()
+    const dias = existentes
+      .filter((o) => o.clientAddress.trim().toLowerCase() === normalizedAddress)
+      .map((o) => (o.date?.toDate ? o.date.toDate().toISOString().split('T')[0] : ''))
+      .filter(Boolean)
+    setExistingDates(new Set(dias))
+  }
 
   const flatFiltered = busqueda.trim()
     ? sucursales.filter((s) => {
@@ -139,9 +174,42 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
   const handleConfirm = async (skipDupCheck = false) => {
     if (!clientName.trim())    { setError('Ingresá el nombre del cliente'); return }
     if (!clientAddress.trim()) { setError('Ingresá la dirección de entrega'); return }
-    if (!deliveryDate)         { setError('Ingresá la fecha de entrega'); return }
+    if (modoMulti ? multiDates.size === 0 : !deliveryDate) { setError('Ingresá la fecha de entrega'); return }
     if (products.length === 0) { setError('El pedido no tiene productos'); return }
     setError('')
+
+    const baseParams = {
+      clientName:    clientName.trim(),
+      clientAddress: clientAddress.trim(),
+      products:      products.map((p) => ({ name: p.name, quantity: p.quantity })),
+      notes:         notes.trim(),
+      numeroOC:      numeroOC.trim(),
+      horaEntrega:   horaEntrega.trim(),
+      clientId:      selectedCliente?.uid,
+      clientEmail:   selectedCliente?.email,
+      clientPhone:   selectedCliente?.telefono || selectedCliente?.phone,
+      fechaEmision:  fechaEmision || undefined,
+    }
+
+    if (modoMulti) {
+      setSaving(true)
+      const fechas = [...multiDates].sort()
+      let ok = 0
+      try {
+        for (const f of fechas) {
+          setProgressLabel(`Creando ${ok + 1}/${fechas.length}…`)
+          await createOrderExterno({ ...baseParams, date: f })
+          ok++
+        }
+        handleClose()
+      } catch (err) {
+        console.error(err)
+        setError(`Se crearon ${ok} de ${fechas.length} pedidos. Revisá tu conexión y reintentá para el resto.`)
+        setSaving(false)
+        setProgressLabel('')
+      }
+      return
+    }
 
     if (!skipDupCheck && selectedCliente) {
       setCheckingDup(true)
@@ -156,20 +224,7 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
 
     setSaving(true)
     try {
-      await createOrderExterno({
-        clientName:    clientName.trim(),
-        clientAddress: clientAddress.trim(),
-        products:      products.map((p) => ({ name: p.name, quantity: p.quantity })),
-        date:          deliveryDate,
-        notes:         notes.trim(),
-        numeroOC:      numeroOC.trim(),
-        horaEntrega:   horaEntrega.trim(),
-        clientId:      selectedCliente?.uid,
-        clientEmail:   selectedCliente?.email,
-        clientPhone:   selectedCliente?.telefono || selectedCliente?.phone,
-        fechaEmision:  fechaEmision || undefined,
-        fechaTope:     fechaTope || undefined,
-      })
+      await createOrderExterno({ ...baseParams, date: deliveryDate, fechaTope: fechaTope || undefined })
       handleClose()
     } catch (err) {
       console.error(err)
@@ -335,15 +390,31 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
               <input value={clientAddress} onChange={(e) => setClientAddress(e.target.value)} className={inputClass} />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs text-gray-500 mb-1 block">Fecha de entrega *</label>
-                <input type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} className={inputClass} />
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs text-gray-500">{modoMulti ? 'Días de entrega' : 'Fecha de entrega *'}</label>
+                <button
+                  type="button"
+                  onClick={() => (modoMulti ? setModoMulti(false) : activarModoMulti())}
+                  className="text-xs text-accent hover:underline"
+                >
+                  {modoMulti ? 'Un solo día' : 'Repetir en varios días'}
+                </button>
               </div>
-              <div>
-                <label className="text-xs text-gray-500 mb-1 block">Hora de entrega</label>
-                <input type="time" value={horaEntrega} onChange={(e) => setHoraEntrega(e.target.value)} className={inputClass} />
-              </div>
+              {modoMulti ? (
+                <>
+                  <MultiDatePicker selected={multiDates} onChange={setMultiDates} existingDates={existingDates} />
+                  <div className="mt-3">
+                    <label className="text-xs text-gray-500 mb-1 block">Hora de entrega</label>
+                    <input type="time" value={horaEntrega} onChange={(e) => setHoraEntrega(e.target.value)} className={inputClass} />
+                  </div>
+                </>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <input type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} className={inputClass} />
+                  <input type="time" value={horaEntrega} onChange={(e) => setHoraEntrega(e.target.value)} className={inputClass} />
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -444,7 +515,13 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
               ← Volver
             </Button>
             <Button onClick={() => handleConfirm()} loading={saving || checkingDup} className="flex-1 text-sm">
-              {checkingDup ? 'Verificando…' : 'Crear pedido'}
+              {checkingDup
+                ? 'Verificando…'
+                : saving && progressLabel
+                ? progressLabel
+                : modoMulti
+                ? `Crear ${multiDates.size || ''} pedido${multiDates.size === 1 ? '' : 's'}`
+                : 'Crear pedido'}
             </Button>
           </div>
         </div>
