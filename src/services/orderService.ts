@@ -316,6 +316,24 @@ export const findActiveOrdersSameDay = async (clientId: string, dateStr: string,
     .filter((o) => o.status !== 'cancelado' && o.clientAddress.trim().toLowerCase() === normalizedAddress)
 }
 
+// Pedidos activos (no cancelados) de un cliente en un rango de fechas —
+// una sola query para chequear duplicados de todo un archivo importado en
+// vez de una por fila (ver findActiveOrdersSameDay más arriba).
+export const findActiveOrdersInRange = async (clientId: string, startStr: string, endStr: string): Promise<Order[]> => {
+  const rangeStart = Timestamp.fromDate(new Date(startStr + 'T00:00:00'))
+  const rangeEnd   = Timestamp.fromDate(new Date(endStr + 'T23:59:59'))
+  const q = query(
+    collection(db, ORDERS),
+    where('clientId', '==', clientId),
+    where('date', '>=', rangeStart),
+    where('date', '<=', rangeEnd),
+  )
+  const snap = await getDocs(q)
+  return snap.docs
+    .map((d) => ({ id: d.id, ...d.data() } as Order))
+    .filter((o) => o.status !== 'cancelado')
+}
+
 export const getOrdersInRange = async (start: Date, end: Date): Promise<Order[]> => {
   const q = query(
     collection(db, ORDERS),

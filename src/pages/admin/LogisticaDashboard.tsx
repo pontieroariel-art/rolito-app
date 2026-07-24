@@ -10,6 +10,7 @@ import Navbar from '../../components/layout/Navbar'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import Modal from '../../components/ui/Modal'
 import ImportarPedidoModal from '../../components/admin/ImportarPedidoModal'
+import ImportarPedidosYaModal from '../../components/admin/ImportarPedidosYaModal'
 import PedidoManualModal from '../../components/admin/PedidoManualModal'
 import MapaPlanificacion from '../../components/admin/MapaPlanificacion'
 import DespachoBoard from '../../components/admin/DespachoBoard'
@@ -694,6 +695,7 @@ export default function LogisticaDashboard() {
   const tabs = ['pedidos', 'despacho', 'mapa'] as const
   const [mainTab,      setMainTab]      = useState<'despacho' | 'pedidos' | 'mapa'>('pedidos')
   const [importModal,  setImportModal]  = useState(false)
+  const [pedidosYaModal, setPedidosYaModal] = useState(false)
   const [pedidoManual, setPedidoManual] = useState(false)
   const [activeId,     setActiveId]     = useState<string | null>(null)
   const [allClients,   setAllClients]   = useState<UserProfile[]>([])
@@ -924,6 +926,13 @@ export default function LogisticaDashboard() {
                 <span className="hidden sm:inline">Cargar PDF</span>
               </button>
               <button
+                onClick={() => setPedidosYaModal(true)}
+                className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 bg-white border border-[#D3D1C7] rounded-lg hover:border-accent transition-colors text-gray-700"
+              >
+                <img src="/logo-pedidosya.png" alt="" className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Cargar Pedidos Ya</span>
+              </button>
+              <button
                 onClick={() => setPedidoManual(true)}
                 className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors font-medium"
               >
@@ -1132,8 +1141,9 @@ export default function LogisticaDashboard() {
         ))}
       </div>
 
-      <ImportarPedidoModal open={importModal}  onClose={() => setImportModal(false)} />
-      <PedidoManualModal   open={pedidoManual} onClose={() => setPedidoManual(false)} defaultDate={dateToStr(startDate)} />
+      <ImportarPedidoModal   open={importModal}    onClose={() => setImportModal(false)} />
+      <ImportarPedidosYaModal open={pedidosYaModal} onClose={() => setPedidosYaModal(false)} />
+      <PedidoManualModal     open={pedidoManual}   onClose={() => setPedidoManual(false)} defaultDate={dateToStr(startDate)} />
 
       {detailOrder && (
         <EditOrderModal order={detailOrder} onClose={() => setDetailOrder(null)} onSaved={() => {}} />
