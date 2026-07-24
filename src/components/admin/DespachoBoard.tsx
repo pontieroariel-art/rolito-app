@@ -86,6 +86,11 @@ const DraggableCard = memo(function DraggableCard({ item, routeNum, arrival, col
           {item.kind === 'programa' && (
             <p className="text-[10px] text-violet-400 mt-0.5">↺ Visita recurrente</p>
           )}
+          {item.reprogramado && (
+            <p className="text-[10px] text-amber-600 mt-0.5" title={item.motivoReprogramacion}>
+              ↻ Reprogramado{item.motivoReprogramacion ? `: ${item.motivoReprogramacion}` : ''}
+            </p>
+          )}
           {arrival && <p className="text-[10px] text-accent font-medium mt-1">⏱ {arrival}</p>}
         </div>
         {showReorder && (
