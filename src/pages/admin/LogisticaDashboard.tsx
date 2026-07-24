@@ -461,10 +461,13 @@ const OrderListRow = memo(function OrderListRow({ order, choferes, codigoCliente
         isHighlighted ? 'ring-2 ring-accent/40' : ''
       }`}
     >
+      {clientLogo && (
+        <span className="shrink-0 w-4 h-4 rounded bg-[#F8F7F2] ring-1 ring-[#E4E1D6] flex items-center justify-center overflow-hidden">
+          <img src={clientLogo.src} alt="" title={clientLogo.alt} className="w-full h-full object-contain" />
+        </span>
+      )}
       <p className="text-xs font-semibold text-gray-900 truncate min-w-0 flex-1">
-        {clientLogo ? (
-          <img src={clientLogo.src} alt="" title={clientLogo.alt} className="inline-block w-3 h-3 mr-1 align-middle" />
-        ) : empresa && (
+        {!clientLogo && empresa && (
           <span className="text-gray-400 font-normal">{empresa} · </span>
         )}
         {sucursal}
