@@ -97,6 +97,11 @@ export function AdminOrderCard({ order, choferes }: AdminOrderCardProps) {
               {ocVencida && (
                 <span className="text-xs px-1.5 py-0.5 rounded bg-red-50 text-red-600 border border-red-200 font-bold">⚠ OC vencida</span>
               )}
+              {order.reprogramado && (
+                <span className="text-xs px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200 font-medium">
+                  ↻ Reprogramado{order.motivoReprogramacion ? `: ${order.motivoReprogramacion}` : ''}
+                </span>
+              )}
             </div>
             <p className="text-gray-500 text-xs">
               {order.numeroOC ? `#${order.numeroOC}` : (order.clientPhone || 'Sin teléfono')}

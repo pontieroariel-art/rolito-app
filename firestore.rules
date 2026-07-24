@@ -180,6 +180,20 @@ service cloud.firestore {
         request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['status', 'productosEntregados', 'entregaParcial', 'notaEntrega', 'updatedAt']);
 
+      // Chofer marca "no entregado": reprograma su propio pedido asignado al
+      // día siguiente y lo libera (vuelve a bandeja sin chofer, para que
+      // planificación lo reasigne) — mismo mecanismo que ya usa staff desde
+      // /admin/monitoreo (rescheduleOrder), acotado a su propio pedido y sin
+      // poder tocar nada más ni reasignarse a otro chofer.
+      allow update: if request.auth != null &&
+        request.auth.token.email == resource.data.driverId &&
+        resource.data.status in ['pendiente', 'confirmado', 'en_camino'] &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'reprogramado', 'fechaOriginal', 'motivoReprogramacion', 'choferOriginal', 'driverId', 'date', 'updatedAt']) &&
+        request.resource.data.status == 'pendiente' &&
+        request.resource.data.reprogramado == true &&
+        request.resource.data.driverId == null;
+
       // Actualización por operador o gerente_comercial: gestión operativa
       // completa del pedido (estado, chofer, reprogramación, edición de
       // productos/fecha desde el kanban), pero nunca los campos de identidad

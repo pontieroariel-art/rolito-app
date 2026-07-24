@@ -24,6 +24,7 @@ import { summarizeProducts } from '../../utils/helpers'
 import { generateHojaDeRuta } from '../../utils/pdf'
 import { Order, ProgramaVisita, VisitaPuntual, OrderProduct } from '../../types'
 import EntregaModal from '../../components/chofer/EntregaModal'
+import NoEntregadoModal from '../../components/chofer/NoEntregadoModal'
 
 export default function ChoferDashboard() {
   const { user }              = useAuth()
@@ -663,9 +664,10 @@ function RegistrarEntregaModal({
 }
 
 function DeliveryCard({ order, index, isFirst, chofer }: { order: Order; index: number; isFirst?: boolean; chofer: import('../../types').UserProfile | null }) {
-  const [modal,       setModal]       = useState(false)
-  const [geoLoading,  setGeoLoading]  = useState(false)
-  const [geoStatus,   setGeoStatus]   = useState<'idle' | 'ok' | 'error'>('idle')
+  const [modal,           setModal]           = useState(false)
+  const [noEntregadoModal, setNoEntregadoModal] = useState(false)
+  const [geoLoading,      setGeoLoading]       = useState(false)
+  const [geoStatus,       setGeoStatus]        = useState<'idle' | 'ok' | 'error'>('idle')
 
   const openInMaps = () => {
     const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.clientAddress)}`
@@ -734,6 +736,13 @@ function DeliveryCard({ order, index, isFirst, chofer }: { order: Order; index: 
           </Button>
         </div>
 
+        <button
+          onClick={() => setNoEntregadoModal(true)}
+          className="w-full text-sm py-2.5 rounded-xl border border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors font-medium"
+        >
+          ✕ No entregado
+        </button>
+
         {/* Marcar punto de entrega */}
         {order.clientId && order.clientId !== 'externo' && (
           <button
@@ -766,6 +775,14 @@ function DeliveryCard({ order, index, isFirst, chofer }: { order: Order; index: 
             setModal(false)
           }}
           onClose={() => setModal(false)}
+        />
+      )}
+
+      {noEntregadoModal && (
+        <NoEntregadoModal
+          order={order}
+          onDone={() => setNoEntregadoModal(false)}
+          onClose={() => setNoEntregadoModal(false)}
         />
       )}
     </>

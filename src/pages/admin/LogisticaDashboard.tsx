@@ -478,6 +478,9 @@ const OrderListRow = memo(function OrderListRow({ order, choferes, codigoCliente
       {order.numeroOC && (
         <span className="text-[9px] text-gray-400 font-mono shrink-0">OC {order.numeroOC}</span>
       )}
+      {order.reprogramado && (
+        <span className="text-amber-500 shrink-0" title={`Reprogramado${order.motivoReprogramacion ? `: ${order.motivoReprogramacion}` : ''}`}>↻</span>
+      )}
       <span className="text-[10px] text-gray-400 font-mono tabular-nums shrink-0">{totalUnits}u</span>
     </div>
   )
@@ -486,6 +489,7 @@ const OrderListRow = memo(function OrderListRow({ order, choferes, codigoCliente
   return (
     o1.id === o2.id && o1.status === o2.status && o1.driverId === o2.driverId &&
     o1.clientName === o2.clientName && o1.numeroOC === o2.numeroOC && o1.products.length === o2.products.length &&
+    o1.reprogramado === o2.reprogramado && o1.motivoReprogramacion === o2.motivoReprogramacion &&
     prev.choferes === next.choferes && prev.isHighlighted === next.isHighlighted &&
     prev.codigoCliente === next.codigoCliente
   )

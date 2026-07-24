@@ -316,6 +316,45 @@ describe('orders — actualización por el chofer asignado', () => {
   })
 })
 
+// ── orders: chofer marca "no entregado" (reprograma a mañana) ────────────────
+describe('orders — chofer marca "no entregado"', () => {
+  const manana = new Date(Date.now() + 24 * 60 * 60 * 1000)
+  const seedPedido = (extra = {}) =>
+    seed((d) => setDoc(doc(d, 'orders/o1'), pedido({ driverId: 'ch@x.com', ...extra })))
+  const noEntregado = (extra = {}) => ({
+    status: 'pendiente', reprogramado: true, fechaOriginal: new Date(),
+    motivoReprogramacion: 'Cliente ausente', choferOriginal: 'ch@x.com',
+    driverId: null, date: manana, updatedAt: new Date(), ...extra,
+  })
+
+  test('chofer asignado SÍ puede marcar el pedido como no entregado', async () => {
+    await seedPedido()
+    await assertSucceeds(updateDoc(doc(db('ch', 'ch@x.com'), 'orders/o1'), noEntregado()))
+  })
+
+  test('un chofer NO asignado no puede marcar como no entregado el pedido de otro', async () => {
+    await seedPedido()
+    await assertFails(updateDoc(doc(db('ch2', 'ch2@x.com'), 'orders/o1'), noEntregado()))
+  })
+
+  test('chofer NO puede dejar el pedido asignado a otro chofer', async () => {
+    await seedPedido()
+    await assertFails(updateDoc(doc(db('ch', 'ch@x.com'), 'orders/o1'), noEntregado({ driverId: 'ch2@x.com' })))
+  })
+
+  test('chofer NO puede marcar como no entregado un pedido ya entregado', async () => {
+    await seedPedido({ status: 'entregado' })
+    await assertFails(updateDoc(doc(db('ch', 'ch@x.com'), 'orders/o1'), noEntregado()))
+  })
+
+  test('chofer NO puede aprovechar esta rama para tocar products', async () => {
+    await seedPedido()
+    await assertFails(updateDoc(doc(db('ch', 'ch@x.com'), 'orders/o1'), noEntregado({
+      products: [{ name: 'Hielo', quantity: 999 }],
+    })))
+  })
+})
+
 // ── orders: actualización por operador (campos acotados) ─────────────────────
 describe('orders — actualización por operador', () => {
   const seedPedido = () => seed((d) => setDoc(doc(d, 'orders/o1'), pedido()))
