@@ -709,7 +709,12 @@ function DeliveryCard({ order, index, isFirst, chofer }: { order: Order; index: 
               {index}
             </span>
             <div>
-              <p className="font-semibold text-gray-900">{order.clientName}</p>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <p className="font-semibold text-gray-900">{order.clientName}</p>
+                {order.codigoCliente && (
+                  <span className="text-xs font-mono text-gray-400 bg-gray-100 rounded px-1.5 py-0.5">{order.codigoCliente}</span>
+                )}
+              </div>
               <p className="text-gray-500 text-sm">{order.clientAddress}</p>
               {order.clientPhone && (
                 <a href={`tel:${order.clientPhone}`} className="text-accent text-sm hover:underline">

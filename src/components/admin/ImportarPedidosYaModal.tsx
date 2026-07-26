@@ -171,6 +171,7 @@ export default function ImportarPedidosYaModal({ open, onClose }: Props) {
           products:      [{ name: PEDIDOS_YA_PRODUCTO.name, quantity: row.cantidad, productoId: PEDIDOS_YA_PRODUCTO.id }],
           date:          fecha,
           numeroOC:      row.oc,
+          codigoCliente: addr.id,
         })
         ok++
       } catch (err) {

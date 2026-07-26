@@ -7,7 +7,7 @@ import { useListaPrecios } from '../../hooks/useListasPrecios'
 import { useCatalogo } from '../../hooks/useCatalogo'
 import { useSucursales, SucursalItem } from '../../hooks/useSucursales'
 import { UserProfile, Order } from '../../types'
-import { formatShortDate } from '../../utils/helpers'
+import { formatShortDate, isSucursalCode } from '../../utils/helpers'
 import { STATUS_LABELS } from '../../utils/constants'
 
 function todayStr(): string {
@@ -129,12 +129,13 @@ function StepCliente({
 // ── StepProductos ─────────────────────────────────────────────────────────────
 
 function StepProductos({
-  cliente, clientLabel, initialAddress, initialHorario, defaultDate, onBack, onConfirm,
+  cliente, clientLabel, initialAddress, initialHorario, initialAddrId, defaultDate, onBack, onConfirm,
 }: {
   cliente:         UserProfile
   clientLabel:     string
   initialAddress:  string
   initialHorario?: string
+  initialAddrId?:  string
   defaultDate:     string
   onBack:          () => void
   onConfirm:       (count: number) => void
@@ -205,6 +206,8 @@ function StepProductos({
   const setQty = (id: string, qty: number) =>
     setQuantities((q) => ({ ...q, [id]: Math.max(0, qty) }))
 
+  const codigoCliente = initialAddrId && isSucursalCode(initialAddrId) ? initialAddrId : cliente.codigoCliente
+
   const handleSubmit = async (skipDupCheck = false) => {
     if (!canSubmit) return
     setError('')
@@ -225,6 +228,7 @@ function StepProductos({
             ordenCompra: ordenCompra.trim() || undefined,
             horaEntrega: horarioCombinado,
             fechaEmision: fechaEmision || undefined,
+            codigoCliente,
           })
           ok++
         }
@@ -255,6 +259,7 @@ function StepProductos({
         ordenCompra: ordenCompra.trim() || undefined,
         horaEntrega: horarioCombinado,
         fechaEmision: fechaEmision || undefined,
+        codigoCliente,
       })
       onConfirm(1)
     } catch {
@@ -433,7 +438,7 @@ export default function PedidoManualModal({
   onClose:     () => void
   defaultDate: string
 }) {
-  const [selection, setSelection] = useState<{ user: UserProfile; address: string; label: string; horario?: string } | null>(null)
+  const [selection, setSelection] = useState<{ user: UserProfile; address: string; label: string; horario?: string; addrId?: string } | null>(null)
   const [done, setDone]           = useState(false)
   const [doneCount, setDoneCount] = useState(1)
 
@@ -463,13 +468,14 @@ export default function PedidoManualModal({
           <Button onClick={handleClose} className="w-full">Cerrar</Button>
         </div>
       ) : !selection ? (
-        <StepCliente onSelect={(s) => setSelection({ user: s.user, address: s.address, label: s.label, horario: s.horario })} />
+        <StepCliente onSelect={(s) => setSelection({ user: s.user, address: s.address, label: s.label, horario: s.horario, addrId: s.addrId })} />
       ) : (
         <StepProductos
           cliente={selection.user}
           clientLabel={selection.label}
           initialAddress={selection.address}
           initialHorario={selection.horario}
+          initialAddrId={selection.addrId}
           defaultDate={defaultDate}
           onBack={() => setSelection(null)}
           onConfirm={(count) => { setDoneCount(count); setDone(true) }}

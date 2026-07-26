@@ -99,12 +99,25 @@ export function GestionarDomiciliosModal({
     })
   }
 
+  // Cuántas sucursales de este mismo cliente comparten literalmente el mismo
+  // texto de dirección — suele pasar con datos incompletos importados de
+  // Excel (grupos empresarios). No hay forma de saber cuál es la dirección
+  // real correcta, así que solo se avisa para que el staff lo note y lo
+  // corrija a mano.
+  const addressCounts = new Map<string, number>()
+  addresses.forEach((a) => {
+    const key = a.address.trim().toLowerCase()
+    addressCounts.set(key, (addressCounts.get(key) ?? 0) + 1)
+  })
+
   return (
     <Modal open onClose={onClose} title={`Domicilios — ${user.razonSocial || user.nombre}`}>
       <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
 
         {/* Lista de domicilios existentes */}
-        {addresses.map((addr) => (
+        {addresses.map((addr) => {
+          const dupCount = addressCounts.get(addr.address.trim().toLowerCase()) ?? 1
+          return (
           <div key={addr.id} className="bg-[#F8F7F2] rounded-xl p-3 space-y-2 border border-[#D3D1C7]">
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
@@ -121,6 +134,11 @@ export function GestionarDomiciliosModal({
                   }
                 </div>
                 <p className="text-xs text-gray-500 mt-0.5">{addr.address}</p>
+                {dupCount > 1 && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    ⚠ Esta dirección se repite en {dupCount} sucursales — puede estar incompleta
+                  </p>
+                )}
               </div>
               <button
                 onClick={() => handleDelete(addr.id)}
@@ -251,7 +269,8 @@ export function GestionarDomiciliosModal({
             )}
           </div>
           </div>
-        ))}
+          )
+        })}
 
         {addresses.length === 0 && !showForm && (
           <p className="text-xs text-gray-500 text-center py-2">Sin domicilios registrados</p>

@@ -33,15 +33,16 @@ function accion(actor: Actor, tipo: string, detalle?: string) {
 }
 
 interface CreateOrderParams {
-  user:       UserProfile
-  products:   OrderProduct[]
-  date:       string
-  notes:      string
-  address?:   string
-  esUrgente?: boolean
+  user:           UserProfile
+  products:       OrderProduct[]
+  date:           string
+  notes:          string
+  address?:       string
+  esUrgente?:     boolean
+  codigoCliente?: string
 }
 
-function buildCreateOrderData({ user, products, date, notes, address, esUrgente }: CreateOrderParams) {
+function buildCreateOrderData({ user, products, date, notes, address, esUrgente, codigoCliente }: CreateOrderParams) {
   const primaryAddr    = getPrimaryAddress(user)
   const clientAddress  = address               || primaryAddr?.address || user.address  || ''
   const clientName     = user.razonSocial      || user.nombre   || ''
@@ -58,6 +59,7 @@ function buildCreateOrderData({ user, products, date, notes, address, esUrgente 
     driverId:  null,
     notes:     notes || '',
     ...(esUrgente ? { esUrgente: true } : {}),
+    ...(codigoCliente ? { codigoCliente } : {}),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   }
@@ -81,17 +83,18 @@ function resolveFechaTope(deliveryDateStr: string, fechaTope?: string): Timestam
 }
 
 export const createOrderManual = ({
-  cliente, clientLabel, products, date, notes, address, ordenCompra, horaEntrega, fechaEmision,
+  cliente, clientLabel, products, date, notes, address, ordenCompra, horaEntrega, fechaEmision, codigoCliente,
 }: {
-  cliente:       UserProfile
-  clientLabel?:  string
-  products:      OrderProduct[]
-  date:          string
-  notes:         string
-  address:       string
-  ordenCompra?:  string
-  horaEntrega?:  string
-  fechaEmision?: string
+  cliente:        UserProfile
+  clientLabel?:   string
+  products:       OrderProduct[]
+  date:           string
+  notes:          string
+  address:        string
+  ordenCompra?:   string
+  horaEntrega?:   string
+  fechaEmision?:  string
+  codigoCliente?: string
 }) =>
   addDoc(collection(db, ORDERS), {
     clientId:      cliente.uid,
@@ -107,6 +110,7 @@ export const createOrderManual = ({
     origenManual: true,
     ...(ordenCompra ? { numeroOC: ordenCompra } : {}),
     ...(horaEntrega ? { horaEntrega } : {}),
+    ...(codigoCliente ? { codigoCliente } : {}),
     ...(ordenCompra ? {
       ...(fechaEmision ? { fechaEmision: dateStrToTimestamp(fechaEmision) } : {}),
       fechaTope: resolveFechaTope(date, undefined),
@@ -116,18 +120,19 @@ export const createOrderManual = ({
   })
 
 interface CreateOrderExternoParams {
-  clientName:    string
-  clientAddress: string
-  products:      OrderProduct[]
-  date:          string
-  notes?:        string
-  numeroOC?:     string
-  horaEntrega?:  string
-  clientId?:     string
-  clientEmail?:  string
-  clientPhone?:  string
-  fechaEmision?: string
-  fechaTope?:    string
+  clientName:     string
+  clientAddress:  string
+  products:       OrderProduct[]
+  date:           string
+  notes?:         string
+  numeroOC?:      string
+  horaEntrega?:   string
+  clientId?:      string
+  clientEmail?:   string
+  clientPhone?:   string
+  fechaEmision?:  string
+  fechaTope?:     string
+  codigoCliente?: string
 }
 
 export const createOrderExterno = (params: CreateOrderExternoParams) =>
@@ -146,6 +151,7 @@ export const createOrderExterno = (params: CreateOrderExternoParams) =>
     numeroOC:      params.numeroOC ?? '',
     horaEntrega:   params.horaEntrega ?? '',
     ...(params.fechaEmision ? { fechaEmision: dateStrToTimestamp(params.fechaEmision) } : {}),
+    ...(params.codigoCliente ? { codigoCliente: params.codigoCliente } : {}),
     fechaTope:     resolveFechaTope(params.date, params.fechaTope),
     createdAt:     serverTimestamp(),
     updatedAt:     serverTimestamp(),

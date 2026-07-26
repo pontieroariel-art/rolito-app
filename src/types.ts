@@ -219,6 +219,10 @@ export interface Order {
   origenPdf?:  boolean
   numeroOC?:   string
   horaEntrega?: string
+  // Código de sucursal/cliente (ej. "FC.395") resuelto y guardado en el
+  // momento de crear el pedido — así el chofer lo ve sin necesitar permiso
+  // de lectura amplio sobre `users`. Mismo criterio que getCodigoCliente().
+  codigoCliente?: string
   // Trazabilidad de OC (PDF o manual)
   fechaEmision?: Timestamp
   fechaTope?:    Timestamp

@@ -4,7 +4,7 @@ import { useBranch } from '../../context/BranchContext'
 import Navbar from '../../components/layout/Navbar'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
-import { summarizeProducts, formatShortDate } from '../../utils/helpers'
+import { summarizeProducts, formatShortDate, isSucursalCode } from '../../utils/helpers'
 import { useAuth } from '../../context/AuthContext'
 import { Order } from '../../types'
 import { createOrder, cancelAndRecreateOrder } from '../../services/orderService'
@@ -83,8 +83,10 @@ export default function NewOrder() {
   const hasPrecios = selected.some((p) => p.price !== undefined)
 
   const primaryAddr     = user ? getPrimaryAddress(user) : null
+  const deliveryAddrObj = selectedAddress ?? primaryAddr
   const deliveryAddress = selectedAddress?.address ?? primaryAddr?.address ?? user?.address ?? ''
   const deliveryNombre  = selectedAddress?.nombre ?? primaryAddr?.nombre
+  const codigoCliente   = deliveryAddrObj && isSucursalCode(deliveryAddrObj.id) ? deliveryAddrObj.id : user?.codigoCliente
   const canSubmit = selected.length > 0 && !!deliveryAddress
 
   const online = useOnline()
@@ -101,7 +103,7 @@ export default function NewOrder() {
     setLoading(true)
     setError('')
     try {
-      const orderParams = { user, products: selected, date, notes, address: deliveryAddress, esUrgente: esUrgente || undefined }
+      const orderParams = { user, products: selected, date, notes, address: deliveryAddress, esUrgente: esUrgente || undefined, codigoCliente }
       if (modifyOrder) {
         await cancelAndRecreateOrder(modifyOrder.id, orderParams)
       } else {

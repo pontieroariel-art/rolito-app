@@ -8,7 +8,7 @@ import { PRODUCTS } from '../../utils/constants'
 import { createOrderExterno, findActiveOrdersSameDay, findActiveOrdersInRange } from '../../services/orderService'
 import { useSucursales, SucursalItem } from '../../hooks/useSucursales'
 import { getPrimaryAddress, Order } from '../../types'
-import { formatShortDate } from '../../utils/helpers'
+import { formatShortDate, isSucursalCode } from '../../utils/helpers'
 import { STATUS_LABELS } from '../../utils/constants'
 
 function todayStr(): string {
@@ -178,6 +178,10 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
     if (products.length === 0) { setError('El pedido no tiene productos'); return }
     setError('')
 
+    const codigoCliente = selectedItem?.addrId && isSucursalCode(selectedItem.addrId)
+      ? selectedItem.addrId
+      : selectedCliente?.codigoCliente
+
     const baseParams = {
       clientName:    clientName.trim(),
       clientAddress: clientAddress.trim(),
@@ -189,6 +193,7 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
       clientEmail:   selectedCliente?.email,
       clientPhone:   selectedCliente?.telefono || selectedCliente?.phone,
       fechaEmision:  fechaEmision || undefined,
+      codigoCliente,
     }
 
     if (modoMulti) {
