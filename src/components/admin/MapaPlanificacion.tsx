@@ -105,6 +105,7 @@ interface OrderMarker {
   subtitle:  string
   driver?:   string
   clientId?: string
+  address:   string
 }
 
 interface ClientMarker {
@@ -238,6 +239,7 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
           subtitle: summarizeProducts(o.products),
           driver:   o.driverId ?? undefined,
           clientId: o.clientId,
+          address:  o.clientAddress,
         } as OrderMarker
       }),
     ).then((res) => {
@@ -300,13 +302,21 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
       .filter((v) => v.driverId === driverEmail)
       .flatMap((v) => {
         const cm = clientMarkers.find((c) => c.uid === v.clientId)
-        return cm ? [{ id: v.clientId, clientId: v.clientId, lat: cm.lat, lng: cm.lng }] : []
+        return cm ? [{ id: v.clientId, clientId: v.clientId, lat: cm.lat, lng: cm.lng, address: cm.address }] : []
       })
-    const all: { id: string; clientId: string; lat: number; lng: number }[] = [
-      ...orderWps.map((m) => ({ id: m.id, clientId: m.clientId ?? '', lat: m.lat, lng: m.lng })),
+    const all: { id: string; clientId: string; lat: number; lng: number; address: string }[] = [
+      ...orderWps.map((m) => ({ id: m.id, clientId: m.clientId ?? '', lat: m.lat, lng: m.lng, address: m.address })),
       ...visitWps,
     ]
     if (all.length === 0 || !isLoaded) return
+
+    // Dirección real de cada parada (no necesariamente la principal del
+    // cliente) — un grupo empresario tiene un horarioApertura/Cierre distinto
+    // por sucursal, así que el chequeo de "fuera de horario" tiene que
+    // compararse contra la dirección exacta de esa parada, no contra
+    // getPrimaryAddress(cliente).
+    const addressByStopId = new Map(all.map((s) => [s.id, s.address]))
+    const normalizeAddress = (s: string) => s.trim().toLowerCase()
 
     setRouteCalculating((prev) => ({ ...prev, [driverEmail]: true }))
 
@@ -352,8 +362,11 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
           labels[stop.id]   = String(idx + 1)
           arrivals[stop.id] = unixToTimeStr(cursor)
 
-          const client = allClients.find((c) => c.uid === stop.clientId)
-          const addr   = client ? getPrimaryAddress(client) : null
+          const client      = allClients.find((c) => c.uid === stop.clientId)
+          const stopAddress = addressByStopId.get(stop.id)
+          const addr        = client
+            ? (stopAddress && client.addresses?.find((a) => normalizeAddress(a.address) === normalizeAddress(stopAddress))) || getPrimaryAddress(client)
+            : null
           const open   = addr?.horarioApertura ? timeStrToUnix(selectedDate, addr.horarioApertura) : null
           const close  = addr?.horarioCierre   ? timeStrToUnix(selectedDate, addr.horarioCierre)   : null
           if ((open && cursor < open) || (close && cursor > close)) unassigned.push(stop.id)
