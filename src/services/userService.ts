@@ -231,9 +231,16 @@ async function createUserViaSecondaryApp(
 }
 
 export const createStaffUser = async ({ dni, password, nombreContacto, rol }: CreateStaffParams): Promise<void> => {
-  const { dniToStaffEmail, setStaffDniIndex } = await import('./staffAuthService')
+  const { dniToStaffEmail, setStaffDniIndex, getEmailByStaffDni } = await import('./staffAuthService')
   const normalizedDni = dni.replace(/\D/g, '')
   const email = dniToStaffEmail(normalizedDni)
+  // Si el DNI ya está en uso por otra cuenta, sobrescribir el índice la deja
+  // sin poder loguearse — antes esto se hacía sin avisar (un typo en el alta
+  // le pisaba el login a otra persona en silencio).
+  const yaUsado = await getEmailByStaffDni(normalizedDni)
+  if (yaUsado && yaUsado !== email) {
+    throw new Error(`Ese DNI ya está en uso por otra cuenta (${yaUsado}). Verificalo antes de continuar.`)
+  }
   await createUserViaSecondaryApp(email, password, {
     nombre:          nombreContacto,
     email,
@@ -255,7 +262,13 @@ export const createStaffUser = async ({ dni, password, nombreContacto, rol }: Cr
 }
 
 export const createClientUser = async ({ email, password, razonSocial, nombreContacto, cuit, telefono, addresses, creadoPor }: CreateClientParams): Promise<void> => {
-  const { setCuitIndex } = await import('./cuitService')
+  const { setCuitIndex, getEmailByCuit } = await import('./cuitService')
+  if (cuit) {
+    const yaUsado = await getEmailByCuit(cuit)
+    if (yaUsado && yaUsado !== email) {
+      throw new Error(`Ese CUIT ya está en uso por otra cuenta (${yaUsado}). Verificalo antes de continuar.`)
+    }
+  }
   await createUserViaSecondaryApp(email, password, {
     nombre:          nombreContacto || '',
     email,
@@ -290,8 +303,14 @@ export interface CreateClienteImportadoParams {
 }
 
 export const createClienteImportado = async (params: CreateClienteImportadoParams): Promise<void> => {
-  const { setCuitIndex } = await import('./cuitService')
+  const { setCuitIndex, getEmailByCuit } = await import('./cuitService')
   const { email, password, razonSocial, cuit, telefono, notasContacto, emailContacto, codigoCliente, fechaAlta, addresses } = params
+  if (cuit) {
+    const yaUsado = await getEmailByCuit(cuit)
+    if (yaUsado && yaUsado !== email) {
+      throw new Error(`Ese CUIT ya está en uso por otra cuenta (${yaUsado}). Verificalo antes de continuar.`)
+    }
+  }
   const firestoreData: Record<string, unknown> = {
     nombre:          razonSocial,
     email:           emailContacto || email,   // visible en admin: email real si existe
@@ -324,10 +343,14 @@ export interface CreateChoferParams {
 }
 
 export const createChoferUser = async ({ nombreContacto, cuit, pin, telefono }: CreateChoferParams): Promise<void> => {
-  const { setDniIndex, padPin, dniFromCuit } = await import('./choferAuthService')
+  const { setDniIndex, padPin, dniFromCuit, getEmailByDni } = await import('./choferAuthService')
   const normalizedCuit = cuit.replace(/\D/g, '')
   const email = `${normalizedCuit}@rolito.app`
   const dni   = dniFromCuit(normalizedCuit)
+  const yaUsado = await getEmailByDni(dni)
+  if (yaUsado && yaUsado !== email) {
+    throw new Error(`Ese DNI ya está en uso por otra cuenta (${yaUsado}). Verificalo antes de continuar.`)
+  }
   await createUserViaSecondaryApp(email, padPin(pin), {
     nombre:          nombreContacto,
     email,

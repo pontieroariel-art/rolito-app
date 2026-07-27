@@ -35,6 +35,8 @@ export function CrearStaffModal({ onClose, onCreated }: { onClose: () => void; o
     } catch (err: any) {
       if (err?.code === 'auth/email-already-in-use') {
         setError('Ya existe una cuenta con ese DNI/CUIT')
+      } else if (err instanceof Error && err.message.includes('ya está en uso')) {
+        setError(err.message)
       } else {
         setError('Error al crear el usuario. Intentá de nuevo.')
       }

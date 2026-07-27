@@ -4,6 +4,7 @@ import Button from '../ui/Button'
 import { rescheduleOrder } from '../../services/orderService'
 import { useNotifyReprogramado } from '../../hooks/useNotifications'
 import { Order, MOTIVOS_INCIDENCIA } from '../../types'
+import { todayString, addDaysStr } from '../../utils/helpers'
 
 interface Props {
   order:   Order
@@ -12,9 +13,7 @@ interface Props {
 }
 
 function tomorrow(): string {
-  const d = new Date()
-  d.setDate(d.getDate() + 1)
-  return d.toISOString().split('T')[0]
+  return addDaysStr(todayString(), 1)
 }
 
 export default function NoEntregadoModal({ order, onDone, onClose }: Props) {

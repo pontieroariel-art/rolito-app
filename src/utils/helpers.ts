@@ -1,5 +1,5 @@
 import { Timestamp } from 'firebase/firestore'
-import { CatalogProducto, OrderProduct } from '../types'
+import { CatalogProducto, OrderProduct, UserProfile } from '../types'
 
 export function tsToDate(ts: Timestamp | { seconds: number } | null | undefined): Date {
   if (!ts) return new Date()
@@ -45,7 +45,20 @@ export function splitSucursalLabel(clientName: string): { empresa?: string; sucu
   return { empresa, sucursal: sucursal.trim() }
 }
 
-export const todayString = (): string => new Date().toISOString().split('T')[0]
+// Fecha local en formato YYYY-MM-DD. A diferencia de `d.toISOString().split('T')[0]`,
+// no pasa por UTC — evita que entre las 21:00 y las 23:59 (Argentina, UTC-3) la fecha
+// calculada salte al día siguiente.
+export const toDateStr = (d: Date): string =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+export const todayString = (): string => toDateStr(new Date())
+
+export const addDaysStr = (dateStr: string, days: number): string => {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const date = new Date(y, m - 1, d, 12)
+  date.setDate(date.getDate() + days)
+  return toDateStr(date)
+}
 
 // addresses[].id es un id random (crypto.randomUUID()) cuando el domicilio
 // se creó desde la UI, o el código real de sucursal (ej. "FC.562") cuando
@@ -56,15 +69,41 @@ export function isSucursalCode(id: string | undefined): id is string {
   return !!id && !UUID_RE.test(id) && !PLACEHOLDER_ADDR_ID_RE.test(id)
 }
 
+// Normaliza una dirección para comparar (detectar duplicados, matchear contra
+// addresses[]): ignora mayúsculas, tildes y espacios repetidos, para que
+// "Av. Córdoba  123" y "av cordoba 123" cuenten como la misma dirección.
+export function normalizeAddress(address: string): string {
+  return address
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[.,]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 // Resuelve el código de cliente exacto de la sucursal del pedido (grupos
 // empresarios tienen un código distinto por dirección en addresses[].id);
 // si no hay match por dirección, cae al código general del cliente.
 export function getCodigoCliente(codigoByClientId: Map<string, string | undefined>, clientId: string, clientAddress?: string) {
   if (clientAddress) {
-    const porDireccion = codigoByClientId.get(`${clientId}|${clientAddress.trim().toLowerCase()}`)
+    const porDireccion = codigoByClientId.get(`${clientId}|${normalizeAddress(clientAddress)}`)
     if (porDireccion) return porDireccion
   }
   return codigoByClientId.get(clientId)
+}
+
+// Precio especial de un cliente para un producto, respetando su vigencia. El
+// modal de precios especiales (PreciosCustomModal) solo usaba `vigenciaHasta`
+// para el texto informativo, pero nada revisaba esa fecha al calcular el
+// precio a cobrar — un precio "válido hasta el 30/06" se seguía aplicando
+// indefinidamente después de esa fecha. `preciosCustom` no se borra solo al
+// vencer, así que hay que chequear la vigencia en cada lectura.
+export function precioEfectivo(user: UserProfile, productoId: string, precioLista: number): number {
+  const custom = user.preciosCustom?.[productoId]
+  if (custom === undefined) return precioLista
+  const vigenciaHasta = user.vigenciaCustom?.[productoId]
+  if (vigenciaHasta && vigenciaHasta < todayString()) return precioLista
+  return custom
 }
 
 export const calcPallets = (

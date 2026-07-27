@@ -6,7 +6,7 @@ import { useAllOrders } from '../../hooks/useOrders'
 import { useChoferes } from '../../hooks/useChoferes'
 import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
 import { subscribeAllActiveDrivers, ActiveDriver } from '../../services/locationService'
-import { summarizeProducts } from '../../utils/helpers'
+import { summarizeProducts, toDateStr, todayString } from '../../utils/helpers'
 import { Order, UserProfile } from '../../types'
 
 // ── Constantes ────────────────────────────────────────────────────────────────
@@ -28,7 +28,7 @@ const DARK_MAP_STYLES: google.maps.MapTypeStyle[] = [
 
 function orderDateStr(o: Order): string {
   if (!o.date?.toDate) return ''
-  return o.date.toDate().toISOString().split('T')[0]
+  return toDateStr(o.date.toDate())
 }
 
 function driverColor(email: string, choferes: UserProfile[]): string {
@@ -313,7 +313,7 @@ export default function MapaLivePage() {
 
   useEffect(() => subscribeAllActiveDrivers(setActiveDrivers), [])
 
-  const today = useMemo(() => new Date().toISOString().split('T')[0], [])
+  const today = useMemo(() => todayString(), [])
 
   const ordersToday = useMemo(
     () => orders.filter((o) => orderDateStr(o) === today),

@@ -44,6 +44,19 @@ export const sendPush = onCall(
       throw new HttpsError('invalid-argument', 'Faltan subscription o title')
     }
 
+    // El endpoint tiene que corresponder a una suscripción real guardada en
+    // algún perfil — antes cualquier cuenta de staff podía pasar una
+    // subscription/title/body arbitrarios y esta función se los mandaba a
+    // cualquier endpoint sin verificar que fuera una suscripción legítima.
+    const ownerCheck = await getFirestore()
+      .collection('users')
+      .where('pushSubscription.endpoint', '==', subscription.endpoint)
+      .limit(1)
+      .get()
+    if (ownerCheck.empty) {
+      throw new HttpsError('invalid-argument', 'La suscripción no corresponde a ningún usuario registrado')
+    }
+
     webpush.setVapidDetails(
       'mailto:pedidos@rolito.com.ar',
       vapidPublicKey.value(),
@@ -62,13 +75,8 @@ export const sendPush = onCall(
         // no seguir intentando enviarle notificaciones a un endpoint muerto
         // en cada evento futuro sin que nadie se entere de que nunca llegan.
         try {
-          const usersRef = getFirestore().collection('users')
-          const owner = await usersRef
-            .where('pushSubscription.endpoint', '==', subscription.endpoint)
-            .limit(1)
-            .get()
-          if (!owner.empty) {
-            await owner.docs[0].ref.update({ pushSubscription: FieldValue.delete() })
+          if (!ownerCheck.empty) {
+            await ownerCheck.docs[0].ref.update({ pushSubscription: FieldValue.delete() })
           }
         } catch (cleanupErr) {
           console.error('sendPush cleanup error:', cleanupErr)

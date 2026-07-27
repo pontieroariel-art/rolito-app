@@ -170,6 +170,10 @@ export default function ChoferMap() {
     () => orders.filter((o) => o.status !== 'entregado' && o.clientAddress),
     [orders],
   )
+  // Booleano estable: cambia solo entre "hay pendientes" / "no hay", no en
+  // cada entrega marcada — usarlo como dependencia evita que los efectos de
+  // abajo (wake lock, envío de GPS) se reinicien en cada entrega individual.
+  const hasPending = pending.length > 0
 
   const hasDespachoOrder = myDespacho?.status === 'confirmado' && (myDespacho.orderIds?.length ?? 0) > 0
 
@@ -245,7 +249,7 @@ export default function ChoferMap() {
 
   // Mantener pantalla encendida para que el GPS siga actualizando con pantalla bloqueada
   useEffect(() => {
-    if (!pending.length || !('wakeLock' in navigator)) return
+    if (!hasPending || !('wakeLock' in navigator)) return
     let lock: WakeLockSentinel | null = null
     const acquire = () =>
       (navigator as { wakeLock: { request: (t: string) => Promise<WakeLockSentinel> } })
@@ -257,10 +261,15 @@ export default function ChoferMap() {
       document.removeEventListener('visibilitychange', onVisible)
       lock?.release().catch(() => {})
     }
-  }, [pending.length])
+  }, [hasPending])
 
   useEffect(() => {
-    if (!pending.length || !user?.email || !navigator.geolocation) return
+    // hasPending (no pending.length): antes este efecto se reiniciaba en cada
+    // entrega marcada (el cleanup desactivaba la ubicación y recién se
+    // reactivaba cuando volvía a resolver getCurrentPosition), así que el
+    // chofer "desaparecía" del mapa en vivo después de cada entrega en vez de
+    // solo al terminar la ruta.
+    if (!hasPending || !user?.email || !navigator.geolocation) return
     const email = user.email
     const send  = () =>
       navigator.geolocation.getCurrentPosition(
@@ -278,7 +287,7 @@ export default function ChoferMap() {
       clearInterval(id)
       deactivateDriverLocation(email).catch(console.error)
     }
-  }, [pending.length, user?.email])
+  }, [hasPending, user?.email])
 
   const calculateRoute = async () => {
     if (orderedPending.length === 0) return

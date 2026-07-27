@@ -13,10 +13,17 @@ import {
   arrayUnion,
   limit,
   writeBatch,
+  runTransaction,
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { Order, OrderProduct, UserProfile, getPrimaryAddress } from '../types'
-import { tsToDate } from '../utils/helpers'
+import { tsToDate, normalizeAddress } from '../utils/helpers'
+
+// El cliente puede "modificar" un pedido (cancelar + recrear) solo mientras
+// sigue pendiente. Si logística ya lo confirmó/asignó/despachó entre que el
+// cliente abrió el formulario y confirmó el envío, cancelAndRecreateOrder
+// tira este error en vez de pisar en silencio una entrega ya en curso.
+export class OrderNotEditableError extends Error {}
 
 const ORDERS = 'orders'
 
@@ -190,16 +197,23 @@ export const cancelAndRecreateOrder = async (
   newOrderParams:  CreateOrderParams,
   motivo = 'Modificado por el cliente',
 ): Promise<string> => {
-  const batch = writeBatch(db)
-  batch.update(doc(db, ORDERS, originalOrderId), buildCancelFields(motivo))
-
   const newRef = doc(collection(db, ORDERS))
-  batch.set(newRef, {
-    ...buildCreateOrderData(newOrderParams),
-    pedidoOriginalId: originalOrderId,
+  await runTransaction(db, async (tx) => {
+    const originalRef = doc(db, ORDERS, originalOrderId)
+    const snap = await tx.get(originalRef)
+    const current = snap.data() as Order | undefined
+    // Revalida el estado dentro de la misma transacción: si logística ya
+    // confirmó/asignó/despachó el pedido mientras el cliente tenía el
+    // formulario abierto, no se cancela/recrea por debajo suyo.
+    if (!current || current.status !== 'pendiente') {
+      throw new OrderNotEditableError('El pedido ya no está pendiente, así que no se puede modificar.')
+    }
+    tx.update(originalRef, buildCancelFields(motivo))
+    tx.set(newRef, {
+      ...buildCreateOrderData(newOrderParams),
+      pedidoOriginalId: originalOrderId,
+    })
   })
-
-  await batch.commit()
   return newRef.id
 }
 
@@ -220,8 +234,12 @@ export const markDelivered = (
 export const assignDriver = (orderId: string, driverId: string | null): Promise<void> =>
   updateDoc(doc(db, ORDERS, orderId), { driverId, updatedAt: serverTimestamp() })
 
-export const updateOrderAddress = (orderId: string, clientAddress: string): Promise<void> =>
-  updateDoc(doc(db, ORDERS, orderId), { clientAddress, updatedAt: serverTimestamp() })
+export const updateOrderAddress = (orderId: string, clientAddress: string, actor: Actor): Promise<void> =>
+  updateDoc(doc(db, ORDERS, orderId), {
+    clientAddress,
+    updatedAt: serverTimestamp(),
+    historialAcciones: arrayUnion(accion(actor, 'direccion_modificada', clientAddress)),
+  })
 
 export const moveOrderDate = (orderId: string, dateStr: string): Promise<void> =>
   updateDoc(doc(db, ORDERS, orderId), {
@@ -253,6 +271,9 @@ export const rescheduleOrder = (
     choferOriginal:       opts.choferOriginal ?? null,
     driverId:             null,
     status:               'pendiente',
+    // Es un nuevo intento de entrega — el aviso de "camión cerca" del intento
+    // anterior no debe bloquear el del nuevo día.
+    avisoCercaEnviado:    false,
     updatedAt:            serverTimestamp(),
   })
 
@@ -316,10 +337,10 @@ export const findActiveOrdersSameDay = async (clientId: string, dateStr: string,
     where('date', '<=', dayEnd),
   )
   const snap = await getDocs(q)
-  const normalizedAddress = address.trim().toLowerCase()
+  const normalizedAddress = normalizeAddress(address)
   return snap.docs
     .map((d) => ({ id: d.id, ...d.data() } as Order))
-    .filter((o) => o.status !== 'cancelado' && o.clientAddress.trim().toLowerCase() === normalizedAddress)
+    .filter((o) => o.status !== 'cancelado' && normalizeAddress(o.clientAddress) === normalizedAddress)
 }
 
 // Pedidos activos (no cancelados) de un cliente en un rango de fechas —
@@ -483,7 +504,7 @@ export async function searchOrdersByClientCode(term: string): Promise<Order[]> {
       if (a.address && (a.id || '').toLowerCase().includes(tLower)) {
         clientIds.add(d.id)
         if (!addressesByClient.has(d.id)) addressesByClient.set(d.id, new Set())
-        addressesByClient.get(d.id)!.add(a.address.trim().toLowerCase())
+        addressesByClient.get(d.id)!.add(normalizeAddress(a.address))
       }
     }
   })
@@ -510,7 +531,7 @@ export async function searchOrdersByClientCode(term: string): Promise<Order[]> {
     // alguna dirección específica.
     if (!unrestrictedClientIds.has(order.clientId)) {
       const restrictedAddresses = addressesByClient.get(order.clientId)
-      if (restrictedAddresses && !restrictedAddresses.has(order.clientAddress.trim().toLowerCase())) return
+      if (restrictedAddresses && !restrictedAddresses.has(normalizeAddress(order.clientAddress))) return
     }
     byId.set(d.id, order)
   }))

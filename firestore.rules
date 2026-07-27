@@ -175,8 +175,12 @@ service cloud.firestore {
       // Actualización del chofer asignado: solo para marcar la entrega. Nunca
       // precio/productos/cliente/chofer (antes esta rama no tenía ningún
       // límite de campos y compartía allow con isOperator()/isGerenteComercial()).
+      // myEstado() == 'activo': un chofer dado de baja con sesión todavía
+      // vigente no debe poder seguir marcando entregas de pedidos ya
+      // asignados (antes solo la UI se lo impedía, no las reglas).
       allow update: if request.auth != null &&
         request.auth.token.email == resource.data.driverId &&
+        myEstado() == 'activo' &&
         request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['status', 'productosEntregados', 'entregaParcial', 'notaEntrega', 'updatedAt']);
 
@@ -187,9 +191,10 @@ service cloud.firestore {
       // poder tocar nada más ni reasignarse a otro chofer.
       allow update: if request.auth != null &&
         request.auth.token.email == resource.data.driverId &&
+        myEstado() == 'activo' &&
         resource.data.status in ['pendiente', 'confirmado', 'en_camino'] &&
         request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['status', 'reprogramado', 'fechaOriginal', 'motivoReprogramacion', 'choferOriginal', 'driverId', 'date', 'updatedAt']) &&
+          .hasOnly(['status', 'reprogramado', 'fechaOriginal', 'motivoReprogramacion', 'choferOriginal', 'driverId', 'date', 'avisoCercaEnviado', 'updatedAt']) &&
         request.resource.data.status == 'pendiente' &&
         request.resource.data.reprogramado == true &&
         request.resource.data.driverId == null;
@@ -204,7 +209,8 @@ service cloud.firestore {
                'status', 'updatedAt', 'motivoCancelacion', 'historialAcciones',
                'driverId', 'clientAddress', 'date', 'reprogramado', 'fechaOriginal',
                'motivoReprogramacion', 'choferOriginal', 'reasignado',
-               'motivoReasignacion', 'products', 'horaEntrega', 'notes', 'numeroOC'
+               'motivoReasignacion', 'products', 'horaEntrega', 'notes', 'numeroOC',
+               'avisoCercaEnviado'
              ]);
 
       // gerente_general: reprogramar/reasignar desde /admin/monitoreo.
@@ -214,7 +220,8 @@ service cloud.firestore {
              .hasOnly([
                'date', 'driverId', 'status', 'updatedAt',
                'reprogramado', 'fechaOriginal', 'motivoReprogramacion',
-               'reasignado', 'choferOriginal', 'motivoReasignacion'
+               'reasignado', 'choferOriginal', 'motivoReasignacion',
+               'avisoCercaEnviado'
              ]);
 
       // Borrado: solo operadores (herramienta de limpieza). El chofer no borra.

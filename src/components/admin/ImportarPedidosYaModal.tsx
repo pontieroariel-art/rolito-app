@@ -6,6 +6,7 @@ import { parsePedidosYaExcel, PedidoYaRow } from '../../utils/parsePedidosYaExce
 import { createOrderExterno, findActiveOrdersInRange } from '../../services/orderService'
 import { getUserDocument } from '../../services/userService'
 import { DELIVERY_HERO_CLIENT_ID } from '../../utils/constants'
+import { normalizeAddress, toDateStr } from '../../utils/helpers'
 import { DeliveryAddress, Order, UserProfile } from '../../types'
 
 // Producto fijo: los pedidos de Pedidos Ya siempre son de este producto —
@@ -31,14 +32,10 @@ interface Props {
   onClose: () => void
 }
 
-function normalizeAddress(s: string): string {
-  return s.trim().toLowerCase()
-}
-
 function computeWarnings(addr: DeliveryAddress | undefined, fechaEntrega: string, oc: string, existing: Order[]) {
   const dupOC      = !!oc && existing.some((o) => (o.numeroOC ?? '').trim() === oc.trim())
   const dupSameDay = !!addr && existing.some((o) => {
-    const orderDateStr = o.date?.toDate ? o.date.toDate().toISOString().split('T')[0] : ''
+    const orderDateStr = o.date?.toDate ? toDateStr(o.date.toDate()) : ''
     return orderDateStr === fechaEntrega && normalizeAddress(o.clientAddress) === normalizeAddress(addr.address)
   })
   return { dupOC, dupSameDay }
@@ -54,6 +51,34 @@ function buildReviewRow(row: PedidoYaRow, deliveryHero: UserProfile, existing: O
   }
   const { dupOC, dupSameDay } = computeWarnings(addr, row.fechaEntrega, row.oc, existing)
   return { ...row, addrId: addr.id, dupOC, dupSameDay, included: !dupOC && !dupSameDay, diasAdicionales: [] }
+}
+
+// A diferencia de computeWarnings (que compara contra lo ya cargado en Firestore),
+// esto detecta filas repetidas DENTRO del mismo Excel (mismo OC, o misma
+// sucursal+fecha) — sin esto, dos filas duplicadas por un error de carga en la
+// planilla se marcaban ambas "✓ OK" y se creaban dos pedidos.
+function withBatchDuplicates(rows: ReviewRow[]): ReviewRow[] {
+  const ocFirstIdx      = new Map<string, number>()
+  const addrDayFirstIdx = new Map<string, number>()
+  rows.forEach((r, idx) => {
+    if (r.matchError) return
+    const oc = r.oc.trim()
+    if (oc && !ocFirstIdx.has(oc)) ocFirstIdx.set(oc, idx)
+    if (r.addrId) {
+      const key = `${r.addrId}|${r.fechaEntrega}`
+      if (!addrDayFirstIdx.has(key)) addrDayFirstIdx.set(key, idx)
+    }
+  })
+  return rows.map((r, idx) => {
+    if (r.matchError) return r
+    const oc = r.oc.trim()
+    const batchDupOC      = !!oc && ocFirstIdx.get(oc) !== idx
+    const key             = r.addrId ? `${r.addrId}|${r.fechaEntrega}` : ''
+    const batchDupSameDay = !!r.addrId && addrDayFirstIdx.get(key) !== idx
+    const dupOC      = r.dupOC || batchDupOC
+    const dupSameDay = r.dupSameDay || batchDupSameDay
+    return { ...r, dupOC, dupSameDay, included: !dupOC && !dupSameDay }
+  })
 }
 
 export default function ImportarPedidosYaModal({ open, onClose }: Props) {
@@ -115,7 +140,7 @@ export default function ImportarPedidosYaModal({ open, onClose }: Props) {
 
       setDeliveryHero(cliente)
       setExisting(existingOrders)
-      setRows(parsed.map((r) => buildReviewRow(r, cliente, existingOrders)))
+      setRows(withBatchDuplicates(parsed.map((r) => buildReviewRow(r, cliente, existingOrders))))
       setStep('preview')
     } catch (err) {
       console.error(err)
@@ -134,7 +159,8 @@ export default function ImportarPedidosYaModal({ open, onClose }: Props) {
     if (!addr) return
     const row = rows[idx]
     const { dupOC, dupSameDay } = computeWarnings(addr, row.fechaEntrega, row.oc, existing)
-    updateRow(idx, { addrId, matchError: undefined, dupOC, dupSameDay, included: !dupOC && !dupSameDay })
+    const updated = rows.map((r, i) => (i === idx ? { ...r, addrId, matchError: undefined, dupOC, dupSameDay, included: !dupOC && !dupSameDay } : r))
+    setRows(withBatchDuplicates(updated))
   }
 
   const includedRows = rows.filter((r) => r.included && r.addrId)
@@ -342,8 +368,8 @@ export default function ImportarPedidosYaModal({ open, onClose }: Props) {
         const existingForRow = addr
           ? new Set(
               existing
-                .filter((o) => o.clientAddress.trim().toLowerCase() === addr.address.trim().toLowerCase())
-                .map((o) => (o.date?.toDate ? o.date.toDate().toISOString().split('T')[0] : ''))
+                .filter((o) => normalizeAddress(o.clientAddress) === normalizeAddress(addr.address))
+                .map((o) => (o.date?.toDate ? toDateStr(o.date.toDate()) : ''))
                 .filter(Boolean),
             )
           : undefined

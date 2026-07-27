@@ -20,7 +20,7 @@ import { useChoferes } from '../../hooks/useChoferes'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { useAuth } from '../../context/AuthContext'
 import { moveOrderDate, moveOrderToBandeja, assignDriver, cancelOrderBy, editOrderBy, EditOrderParams } from '../../services/orderService'
-import { summarizeProducts, tsToDate, splitSucursalLabel, getCodigoCliente, isSucursalCode } from '../../utils/helpers'
+import { summarizeProducts, tsToDate, splitSucursalLabel, getCodigoCliente, isSucursalCode, normalizeAddress, toDateStr as dateToStr } from '../../utils/helpers'
 import { PRODUCTS, CLIENT_LOGOS } from '../../utils/constants'
 import { useCatalogo } from '../../hooks/useCatalogo'
 import { Order, OrderProduct, UserProfile, AccionHistorial } from '../../types'
@@ -30,10 +30,6 @@ import { Order, OrderProduct, UserProfile, AccionHistorial } from '../../types'
 const DRIVER_COLORS = ['#00C2FF', '#FF6B6B', '#4ECDC4', '#A8E6CF', '#FFE66D', '#C084FC', '#F97316', '#34D399']
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function dateToStr(d: Date): string {
-  return d.toISOString().split('T')[0]
-}
 
 function orderDateStr(o: Order): string {
   if (!o.date?.toDate) return ''
@@ -802,7 +798,7 @@ export default function LogisticaDashboard() {
     for (const c of allClients) {
       map.set(c.uid, c.codigoCliente)
       for (const a of c.addresses ?? []) {
-        if (a.address && isSucursalCode(a.id)) map.set(`${c.uid}|${a.address.trim().toLowerCase()}`, a.id)
+        if (a.address && isSucursalCode(a.id)) map.set(`${c.uid}|${normalizeAddress(a.address)}`, a.id)
       }
     }
     return map

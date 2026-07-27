@@ -7,6 +7,7 @@ import { db } from './firebase'
 import { Despacho } from '../types'
 import { haversineKm, nearestNeighborOrder, timeStrToUnix, unixToTimeStr } from '../utils/routeMath'
 import { fetchOrsDirections, OrsAvoidPolygons } from './orsService'
+import { todayString } from '../utils/helpers'
 
 export const despachoId = (fecha: string, driverId: string) =>
   `${fecha}_${driverId.replace(/[^a-zA-Z0-9]/g, '_')}`
@@ -259,5 +260,5 @@ export function formatDespachoFecha(fecha: string): string {
 }
 
 export function todayStr(): string {
-  return new Date().toISOString().split('T')[0]
+  return todayString()
 }

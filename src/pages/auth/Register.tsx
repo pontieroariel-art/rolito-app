@@ -5,7 +5,7 @@ import { Eye, EyeOff } from 'lucide-react'
 import AuthLayout from '../../components/layout/AuthLayout'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
-import { registerUser } from '../../services/authService'
+import { registerUser, CuitTakenError } from '../../services/authService'
 
 interface RegisterForm {
   razonSocial:    string
@@ -74,6 +74,8 @@ export default function Register() {
     } catch (err) {
       if (err instanceof FirebaseError && err.code === 'auth/email-already-in-use') {
         setError('El email ya está registrado')
+      } else if (err instanceof CuitTakenError) {
+        setError('Ya existe una cuenta registrada con ese CUIT. Si es tu empresa, contactá al administrador.')
       } else {
         setError('Error al registrarse. Intentá de nuevo.')
       }

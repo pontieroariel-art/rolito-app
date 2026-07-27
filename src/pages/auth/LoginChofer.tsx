@@ -11,15 +11,20 @@ export default function LoginChofer() {
   const navigate = useNavigate()
   const { user } = useAuth()
 
-  useEffect(() => {
-    if (!user) return
-    navigate('/chofer', { replace: true })
-  }, [user, navigate])
-
   const [dni,     setDni]     = useState('')
   const [pin,     setPin]     = useState('')
   const [error,   setError]   = useState('')
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!user) return
+    // A diferencia de los otros dos logins, antes no chequeaba `estado` acá —
+    // un chofer dado de baja terminaba rebotando a "/" → login de clientes
+    // (un flujo que no le corresponde) en vez de ver un mensaje claro en esta
+    // misma pantalla.
+    if (user.estado === 'inactivo') { setError('Tu cuenta está inactiva. Contactá al administrador.'); return }
+    navigate('/chofer', { replace: true })
+  }, [user, navigate])
 
   const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()

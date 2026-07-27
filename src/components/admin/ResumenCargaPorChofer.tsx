@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Order, UserProfile } from '../../types'
+import { toDateStr, todayString } from '../../utils/helpers'
 
 interface ResumenCargaPorChoferProps {
   orders:   Order[]
@@ -9,14 +10,21 @@ interface ResumenCargaPorChoferProps {
 export function ResumenCargaPorChofer({ orders, choferes }: ResumenCargaPorChoferProps) {
   const [open, setOpen] = useState(true)
 
+  // "del día" — antes no filtraba por fecha, así que un pedido asignado para
+  // la semana que viene inflaba la carga "de hoy" de cada chofer.
+  const ordersHoy = useMemo(() => {
+    const today = todayString()
+    return orders.filter((o) => o.date?.toDate && toDateStr(o.date.toDate()) === today)
+  }, [orders])
+
   const active = useMemo(
-    () => orders.filter((o) => !['entregado', 'cancelado'].includes(o.status) && o.driverId),
-    [orders],
+    () => ordersHoy.filter((o) => !['entregado', 'cancelado'].includes(o.status) && o.driverId),
+    [ordersHoy],
   )
 
   const sinAsignar = useMemo(
-    () => orders.filter((o) => !['entregado', 'cancelado'].includes(o.status) && !o.driverId),
-    [orders],
+    () => ordersHoy.filter((o) => !['entregado', 'cancelado'].includes(o.status) && !o.driverId),
+    [ordersHoy],
   )
 
   const drivers = useMemo(() => {

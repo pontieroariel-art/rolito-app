@@ -1,4 +1,4 @@
-﻿import { useState, ChangeEvent, useMemo } from 'react'
+﻿import { useState, ChangeEvent, useMemo, useCallback, useEffect } from 'react'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import MultiDatePicker from './MultiDatePicker'
@@ -7,18 +7,8 @@ import { useListaPrecios } from '../../hooks/useListasPrecios'
 import { useCatalogo } from '../../hooks/useCatalogo'
 import { useSucursales, SucursalItem } from '../../hooks/useSucursales'
 import { UserProfile, Order } from '../../types'
-import { formatShortDate, isSucursalCode } from '../../utils/helpers'
+import { formatShortDate, isSucursalCode, todayString as todayStr, addDaysStr, precioEfectivo } from '../../utils/helpers'
 import { STATUS_LABELS } from '../../utils/constants'
-
-function todayStr(): string {
-  return new Date().toISOString().split('T')[0]
-}
-
-function addDaysStr(dateStr: string, days: number): string {
-  const d = new Date(dateStr + 'T12:00:00')
-  d.setDate(d.getDate() + days)
-  return d.toISOString().split('T')[0]
-}
 
 // ── ProductRow ────────────────────────────────────────────────────────────────
 
@@ -153,18 +143,29 @@ function StepProductos({
   const [existingDates, setExistingDates] = useState<Set<string>>(new Set())
   const [progressLabel, setProgressLabel] = useState('')
 
-  const activarModoMulti = async () => {
-    setModoMulti(true)
+  const refreshExistingDates = useCallback(async (addr: string) => {
     const desde = todayStr()
     const hasta = addDaysStr(desde, 60)
     const existentes = await findActiveOrdersInRange(cliente.uid, desde, hasta)
-    const normalizedAddress = address.trim().toLowerCase()
+    const normalizedAddress = addr.trim().toLowerCase()
     const dias = existentes
       .filter((o) => o.clientAddress.trim().toLowerCase() === normalizedAddress)
       .map((o) => (o.date?.toDate ? o.date.toDate().toISOString().split('T')[0] : ''))
       .filter(Boolean)
     setExistingDates(new Set(dias))
+  }, [cliente.uid])
+
+  const activarModoMulti = async () => {
+    setModoMulti(true)
+    await refreshExistingDates(address)
   }
+
+  // Si se edita la dirección con el modo "varios días" ya activo, el calendario
+  // de "ya hay un pedido" tiene que reflejar la dirección nueva, no la de cuando
+  // se activó el modo.
+  useEffect(() => {
+    if (modoMulti) refreshExistingDates(address)
+  }, [address, modoMulti, refreshExistingDates])
   const parseHorario = (h?: string) => {
     const parts = (h ?? '').split(/\s*[–-]\s*/)
     return { desde: parts[0]?.trim() ?? '', hasta: parts[1]?.trim() ?? '' }
@@ -183,7 +184,7 @@ function StepProductos({
         id:     i.productoId,
         nombre: i.nombre,
         unidad: i.unidad,
-        precio: cliente.preciosCustom?.[i.productoId] ?? i.precio,
+        precio: precioEfectivo(cliente, i.productoId, i.precio),
       }))
       if (items.length > 0) return items
     }
@@ -219,10 +220,11 @@ function StepProductos({
     if (modoMulti) {
       setLoading(true)
       const fechas = [...multiDates].sort()
+      const total = fechas.length
       let ok = 0
       try {
         for (const f of fechas) {
-          setProgressLabel(`Creando ${ok + 1}/${fechas.length}…`)
+          setProgressLabel(`Creando ${ok + 1}/${total}…`)
           await createOrderManual({
             cliente, clientLabel, products: selected, date: f, notes, address,
             ordenCompra: ordenCompra.trim() || undefined,
@@ -231,10 +233,18 @@ function StepProductos({
             codigoCliente,
           })
           ok++
+          // Se saca del set apenas se crea: si falla más adelante y se reintenta,
+          // "Crear pedido" solo vuelve a iterar sobre las fechas pendientes —
+          // no recrea (duplica) las que ya se confirmaron.
+          setMultiDates((prev) => {
+            const next = new Set(prev)
+            next.delete(f)
+            return next
+          })
         }
-        onConfirm(ok)
+        onConfirm(total)
       } catch {
-        setError(`Se crearon ${ok} de ${fechas.length} pedidos. Revisá tu conexión y reintentá para el resto.`)
+        setError(`Se crearon ${ok} de ${total} pedidos. Las fechas creadas ya se sacaron de la selección — reintentá para el resto.`)
         setLoading(false)
         setProgressLabel('')
       }

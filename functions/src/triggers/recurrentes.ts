@@ -50,6 +50,14 @@ export const generarPedidosRecurrentes = onSchedule(
       const t = tSnap.data() as PedidoRecurrente
       if (!t.diasSemana?.includes(hoyDia)) continue
 
+      // Nada sincroniza `pedidos-recurrentes/{clientId}.activo` a `false`
+      // cuando se da de baja al cliente — sin este chequeo, un cliente
+      // inactivo/pendiente seguía recibiendo un pedido nuevo todos los días
+      // indefinidamente después de la baja.
+      const clientSnap = await db.collection('users').doc(t.clientId).get()
+      const clientEstado = clientSnap.data()?.estado
+      if (!clientSnap.exists || clientEstado !== 'activo') continue
+
       const orderRef = db.collection('orders').doc()
       try {
         const creado = await db.runTransaction(async (tx) => {

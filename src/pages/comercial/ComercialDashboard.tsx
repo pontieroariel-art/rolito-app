@@ -17,6 +17,7 @@ import { subscribeAllActiveDrivers, ActiveDriver } from '../../services/location
 import { Order, UserProfile } from '../../types'
 import MetricsDashboard from '../admin/MetricsDashboard'
 import { ForecastStrip } from '../admin/ClimaPage'
+import { toDateStr, todayString, normalizeAddress } from '../../utils/helpers'
 
 const MAP_CONTAINER: React.CSSProperties = { width: '100%', height: '100%' }
 const BA_DEFAULT = { lat: -34.6037, lng: -58.3816 }
@@ -32,14 +33,10 @@ const DARK_MAP_STYLES: google.maps.MapTypeStyle[] = [
   { featureType: 'transit',            stylers: [{ visibility: 'off' }] },
 ]
 
-function todayStr() {
-  return new Date().toISOString().split('T')[0]
-}
-
 function isToday(order: Order) {
   if (!order.date) return false
   const d = order.date.toDate ? order.date.toDate() : new Date((order.date as any).seconds * 1000)
-  return d.toISOString().split('T')[0] === todayStr()
+  return toDateStr(d) === todayString()
 }
 
 function daysSince(ts: any): number {
@@ -236,7 +233,7 @@ export default function ComercialDashboard() {
             </section>
 
             {/* ── Mapa de seguimiento ───────────────────────────────────── */}
-            <TrackingMap orders={todayOrders} />
+            <TrackingMap orders={todayOrders} clientes={clientes} />
 
             {/* ── Resumen de clientes ──────────────────────────────────── */}
             <section className="space-y-2">
@@ -313,7 +310,7 @@ export default function ComercialDashboard() {
 
 // ── TrackingMap ───────────────────────────────────────────────────────────────
 
-function TrackingMap({ orders }: { orders: Order[] }) {
+function TrackingMap({ orders, clientes }: { orders: Order[]; clientes: UserProfile[] }) {
   const { isLoaded }                  = useGoogleMapsLoader()
   const [open, setOpen]               = useState(false)
   const [drivers, setDrivers]         = useState<ActiveDriver[]>([])
@@ -326,6 +323,29 @@ function TrackingMap({ orders }: { orders: Order[] }) {
   }, [open])
 
   const activeOrders = orders.filter((o) => !['entregado', 'cancelado'].includes(o.status))
+
+  // Antes se dibujaba cada pedido activo en BA_DEFAULT (coordenada fija) sin
+  // importar su dirección real — todos los pines quedaban superpuestos en el
+  // mismo punto. Se resuelve la posición real matcheando contra las
+  // direcciones ya geocodificadas del cliente (lat/lng cargados desde el
+  // mapa de clientes); si no hay match geocodificado, no se dibuja el pin en
+  // vez de mostrar una ubicación falsa.
+  const clientCoordsByKey = useMemo(() => {
+    const map = new Map<string, { lat: number; lng: number }>()
+    for (const c of clientes) {
+      for (const a of c.addresses ?? []) {
+        if (a.lat != null && a.lng != null) {
+          map.set(`${c.uid}|${normalizeAddress(a.address)}`, { lat: a.lat, lng: a.lng })
+        }
+      }
+      if (c.lat != null && c.lng != null) map.set(`${c.uid}|${normalizeAddress(c.address || '')}`, { lat: c.lat, lng: c.lng })
+    }
+    return map
+  }, [clientes])
+
+  const ordersWithCoords = activeOrders
+    .map((o) => ({ order: o, coords: clientCoordsByKey.get(`${o.clientId}|${normalizeAddress(o.clientAddress)}`) }))
+    .filter((x): x is { order: Order; coords: { lat: number; lng: number } } => !!x.coords)
 
   return (
     <section className="space-y-2">
@@ -379,20 +399,14 @@ function TrackingMap({ orders }: { orders: Order[] }) {
                 </Marker>
               ))}
 
-              {/* Pedidos activos con lat/lng */}
-              {activeOrders
-                .filter((o) => {
-                  const addr = o.clientAddress
-                  return addr && addr.includes(',')
-                })
-                .map((o) => (
-                  <Marker
-                    key={o.id}
-                    position={BA_DEFAULT}
-                    icon={{ url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png' }}
-                  />
-                ))
-              }
+              {/* Pedidos activos con coordenadas reales (geocodificadas) */}
+              {ordersWithCoords.map(({ order, coords }) => (
+                <Marker
+                  key={order.id}
+                  position={coords}
+                  icon={{ url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png' }}
+                />
+              ))}
             </GoogleMap>
           )}
         </div>

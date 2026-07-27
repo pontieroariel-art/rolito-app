@@ -26,9 +26,14 @@ export default function MultiDatePicker({ selected, onChange, existingDates, min
   const min = minDate || todayStr()
   const [minYear, minMonth] = min.split('-').map(Number)
 
+  // Si minDate cae en un mes futuro (ej. vigencia de una OC), arrancar ahí en
+  // vez del mes calendario actual — si no, la navegación hacia atrás quedaba
+  // habilitada hacia meses enteros ya bloqueados (todos los días deshabilitados).
   const [visibleMonth, setVisibleMonth] = useState(() => {
     const d = new Date()
-    return new Date(d.getFullYear(), d.getMonth(), 1, 12)
+    const [minY, minM] = min.split('-').map(Number)
+    const startsBeforeMin = d.getFullYear() < minY || (d.getFullYear() === minY && d.getMonth() + 1 < minM)
+    return startsBeforeMin ? new Date(minY, minM - 1, 1, 12) : new Date(d.getFullYear(), d.getMonth(), 1, 12)
   })
 
   const year  = visibleMonth.getFullYear()

@@ -4,6 +4,7 @@ import { AddressAutocomplete, AddressMapPicker, AddressMapMini } from '../../../
 import Button from '../../../components/ui/Button'
 import Modal from '../../../components/ui/Modal'
 import { updateUserDocument } from '../../../services/userService'
+import { normalizeAddress } from '../../../utils/helpers'
 import { UserProfile, DeliveryAddress } from '../../../types'
 
 export function GestionarDomiciliosModal({
@@ -106,7 +107,7 @@ export function GestionarDomiciliosModal({
   // corrija a mano.
   const addressCounts = new Map<string, number>()
   addresses.forEach((a) => {
-    const key = a.address.trim().toLowerCase()
+    const key = normalizeAddress(a.address)
     addressCounts.set(key, (addressCounts.get(key) ?? 0) + 1)
   })
 
@@ -116,7 +117,7 @@ export function GestionarDomiciliosModal({
 
         {/* Lista de domicilios existentes */}
         {addresses.map((addr) => {
-          const dupCount = addressCounts.get(addr.address.trim().toLowerCase()) ?? 1
+          const dupCount = addressCounts.get(normalizeAddress(addr.address)) ?? 1
           return (
           <div key={addr.id} className="bg-[#F8F7F2] rounded-xl p-3 space-y-2 border border-[#D3D1C7]">
             <div className="flex items-start justify-between gap-2">

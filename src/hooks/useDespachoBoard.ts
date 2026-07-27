@@ -332,10 +332,15 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
     })
   }, [assignments, scheduleRecalc, manualOrder])
 
-  // Recalc inicial al cambiar de día
+  // Recalc inicial al cambiar de día — salvo en despachos ya confirmados: antes
+  // esto se disparaba para TODOS los choferes con ítems asignados cada vez que
+  // se abría la pestaña o cambiaba el día, sobreescribiendo en Firestore el
+  // orden ya confirmado y marcando "modifiedAfterConfirm" sin que nadie
+  // hubiera tocado nada.
   useEffect(() => {
     const t = setTimeout(() => {
       choferesPrincipales.forEach((c) => {
+        if (despachoByDriver[c.email]?.status === 'confirmado') return
         const ids = allItems.filter((i) => (i.driverId || 'sin_asignar') === c.email).map((i) => i.dndId)
         if (ids.length > 0) scheduleRecalc(c.email, ids)
       })
@@ -356,15 +361,23 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
   const doMove = useCallback(async (dndId: string, from: string, to: string, flagModified = false) => {
     setAssignments((prev) => ({ ...prev, [dndId]: to }))
     const { kind, id } = parseDndId(dndId)
-    // El movimiento del ítem + la actualización del despacho de origen (y el
-    // flag del destino) se hacen en una única transacción atómica, que lee los
-    // despachos frescos del servidor y decide por su status confirmado.
-    await moveItemAtomic({
-      fecha, dndId,
-      item: { kind, id },
-      from, to,
-      flagModifiedTo: flagModified,
-    })
+    try {
+      // El movimiento del ítem + la actualización del despacho de origen (y el
+      // flag del destino) se hacen en una única transacción atómica, que lee los
+      // despachos frescos del servidor y decide por su status confirmado.
+      await moveItemAtomic({
+        fecha, dndId,
+        item: { kind, id },
+        from, to,
+        flagModifiedTo: flagModified,
+      })
+    } catch (err) {
+      // Sin este catch, si la transacción fallaba (permisos, red) la tarjeta
+      // quedaba movida visualmente hasta que algún cambio no relacionado en
+      // allItems forzara un reset — acá se revierte de inmediato.
+      console.error('No se pudo mover la parada:', err)
+      setAssignments((prev) => ({ ...prev, [dndId]: from }))
+    }
   }, [fecha])
 
   const handleDragEnd = useCallback(async ({ active, over }: DragEndEvent) => {

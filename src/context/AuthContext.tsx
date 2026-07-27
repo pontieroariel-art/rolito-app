@@ -74,8 +74,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           })
           profile = await getUserDocument(firebaseUser.uid)
         }
+        // Revalida que este uid siga siendo el vigente: si en el medio otro
+        // usuario ya inició sesión (dispositivo compartido, ej. la tablet de
+        // choferes con login por DNI+PIN en cambio de turno), esta respuesta
+        // tardía del perfil anterior no debe pisar la sesión ya activa.
+        if (uid !== lastUidRef.current) return
         dispatch({ type: 'RESOLVED', user: profile })
-      } catch {
+      } catch (err) {
+        console.error('AuthContext: error al cargar el perfil', err)
+        if (uid !== lastUidRef.current) return
+        // Un error transitorio (offline, timeout) no debería desloguear a un
+        // usuario que ya tenía una sesión activa con este mismo uid — antes
+        // cualquier falla de red se trataba igual que un logout real.
+        if (userRef.current?.uid === uid) return
         dispatch({ type: 'RESOLVED', user: null })
       }
     })

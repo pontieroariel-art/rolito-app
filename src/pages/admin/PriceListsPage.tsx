@@ -15,6 +15,8 @@ import {
 import { getCatalogo, saveCatalogo } from '../../services/catalogoService'
 import { getAllUsers } from '../../services/userService'
 import { updateUserDocument } from '../../services/userService'
+import { registrarCambiosLista } from '../../services/historialPreciosService'
+import { useAuth } from '../../context/AuthContext'
 import { CatalogProducto, ItemListaPrecios, ListaPrecios, UserProfile } from '../../types'
 
 type Tab = 'listas' | 'catalogo'
@@ -171,6 +173,7 @@ function ListaEditor({
     })
   }
 
+  const { user: currentUser } = useAuth()
   const [nombre, setNombre]   = useState(lista.nombre)
   const [items,  setItems]    = useState<ItemListaPrecios[]>(buildItems)
   const [saving, setSaving]   = useState(false)
@@ -192,7 +195,34 @@ function ListaEditor({
   const handleSave = async () => {
     setSaving(true)
     try {
+      // Cambios de precio de productos ya activos, respecto a como estaba la
+      // lista antes de abrir el editor — antes esta edición no dejaba ningún
+      // rastro en el historial (solo se registraban cambios de lista
+      // asignada a un cliente puntual, o overrides individuales).
+      const originalByProductId = new Map(lista.items.map((i) => [i.productoId, i]))
+      const cambios = items.flatMap((i) => {
+        const original = originalByProductId.get(i.productoId)
+        if (!original || !original.activo || !i.activo || original.precio === i.precio) return []
+        return [{
+          productoId:     i.productoId,
+          productoNombre: i.nombre,
+          precioAnterior: original.precio,
+          precioNuevo:    i.precio,
+        }]
+      })
+
       await updateListaPrecios(lista.id, { nombre, items })
+
+      if (cambios.length > 0 && currentUser) {
+        registrarCambiosLista({
+          listaId:             lista.id,
+          listaNombre:         nombre,
+          cambios,
+          modificadoPor:       currentUser.email,
+          modificadoPorNombre: currentUser.nombreContacto || currentUser.nombre || currentUser.email,
+        }).catch(console.error)
+      }
+
       onSaved()
     } finally {
       setSaving(false)

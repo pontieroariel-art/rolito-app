@@ -239,6 +239,9 @@ export interface Order {
   reasignado?:           boolean
   motivoReasignacion?:   string
   esUrgente?: boolean
+  // Idempotencia del aviso "camión cerca" (Cloud Function notifyCerca) — se
+  // resetea al reprogramar (nuevo intento de entrega).
+  avisoCercaEnviado?: boolean
   // Auditoría
   historialAcciones?: AccionHistorial[]
   // Modificación (cancelar + recrear)
@@ -270,15 +273,22 @@ export type MotivoIncidencia = typeof MOTIVOS_INCIDENCIA[number]
 
 export interface HistorialPrecioEvento {
   id:                  string
-  clientId:            string
-  clientName:          string
-  tipo:                'lista' | 'custom'
-  // Cambio de lista
+  // Cambio de lista asignada / precio custom: por cliente puntual.
+  // Edición de una lista completa (tipo 'lista_editada'): no hay un cliente
+  // puntual, así que clientId/clientName quedan sin usar y se completan
+  // listaId/listaNombre en su lugar.
+  clientId?:           string
+  clientName?:         string
+  tipo:                'lista' | 'custom' | 'lista_editada'
+  // Cambio de lista asignada a un cliente
   listaAnteriorId?:    string | null
   listaAnteriorNombre?: string | null
   listaNuevaId?:       string | null
   listaNuevaNombre?:   string | null
-  // Cambio de precio custom
+  // Edición de una lista completa (afecta a todos sus clientes asignados)
+  listaId?:            string
+  listaNombre?:        string
+  // Cambio de precio custom / de un producto dentro de una lista editada
   productoId?:         string
   productoNombre?:     string
   precioAnterior?:     number | null

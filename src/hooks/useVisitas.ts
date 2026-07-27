@@ -1,6 +1,7 @@
 import { subscribeProgramas, subscribeVisitasPuntuales } from '../services/visitasService'
 import { ProgramaVisita, VisitaPuntual } from '../types'
 import { useFirestoreSubscription } from './useFirestoreSubscription'
+import { toDateStr } from '../utils/helpers'
 
 export function useProgramasVisita() {
   const { data: programas, loading } = useFirestoreSubscription<ProgramaVisita[]>(subscribeProgramas, [], [])
@@ -20,9 +21,9 @@ export function programasParaFecha(programas: ProgramaVisita[], date: Date): Pro
 
 /** Devuelve visitas puntuales para una fecha específica (comparando YYYY-MM-DD) */
 export function visitasParaFecha(visitas: VisitaPuntual[], date: Date): VisitaPuntual[] {
-  const dateStr = date.toISOString().split('T')[0]
+  const dateStr = toDateStr(date)
   return visitas.filter((v) => {
     if (!v.fecha?.toDate) return false
-    return v.fecha.toDate().toISOString().split('T')[0] === dateStr
+    return toDateStr(v.fecha.toDate()) === dateStr
   })
 }

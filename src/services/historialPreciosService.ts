@@ -78,6 +78,47 @@ export const registrarCambiosCustom = async (data: {
   )
 }
 
+// ── Registrar edición de una lista completa ───────────────────────────────────
+// A diferencia de registrarCambioLista (un cliente puntual cambia de lista
+// asignada), esto es para cuando se edita el precio de un producto DENTRO de
+// una lista — afecta a todos los clientes que la tengan asignada. Antes
+// ListaEditor.handleSave no dejaba ningún rastro de estos cambios.
+
+export type CambioItemLista = {
+  productoId:     string
+  productoNombre: string
+  precioAnterior: number
+  precioNuevo:    number
+}
+
+export const registrarCambiosLista = async (data: {
+  listaId:             string
+  listaNombre:         string
+  cambios:             CambioItemLista[]
+  modificadoPor:       string
+  modificadoPorNombre: string
+  motivo?:             string
+}): Promise<void> => {
+  if (data.cambios.length === 0) return
+  await Promise.all(
+    data.cambios.map((c) =>
+      addDoc(collection(db, COL), {
+        tipo:                'lista_editada',
+        listaId:             data.listaId,
+        listaNombre:         data.listaNombre,
+        productoId:          c.productoId,
+        productoNombre:      c.productoNombre,
+        precioAnterior:      c.precioAnterior,
+        precioNuevo:         c.precioNuevo,
+        modificadoPor:       data.modificadoPor,
+        modificadoPorNombre: data.modificadoPorNombre,
+        motivo:              data.motivo ?? null,
+        fecha:               serverTimestamp(),
+      }),
+    ),
+  )
+}
+
 // ── Queries ───────────────────────────────────────────────────────────────────
 
 export const getHistorialCliente = async (clientId: string): Promise<HistorialPrecioEvento[]> => {

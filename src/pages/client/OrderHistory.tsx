@@ -10,7 +10,7 @@ import Badge from '../../components/ui/Badge'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useClientOrders } from '../../hooks/useOrders'
 import { ALL_STATUSES, STATUS_LABELS } from '../../utils/constants'
-import { formatDate, formatShortDate, summarizeProducts, isSucursalCode } from '../../utils/helpers'
+import { formatDate, formatShortDate, summarizeProducts, isSucursalCode, todayString } from '../../utils/helpers'
 import { createOrder } from '../../services/orderService'
 import { Order, OrderStatus } from '../../types'
 
@@ -203,7 +203,7 @@ function OrderCard({ order }: { order: Order }) {
     if (!user) return
     setCopying(true)
     try {
-      const today = new Date().toISOString().split('T')[0]
+      const today = todayString()
       // La dirección del pedido original se respeta tal cual — antes no se
       // pasaba `address` acá, así que "Repetir" siempre caía en la dirección
       // primaria/actual del cliente en vez de la sucursal real del pedido.

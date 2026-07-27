@@ -6,6 +6,7 @@ import { sendPush } from '../../services/notificationService'
 import { STATUS_FLOW, STATUS_LABELS } from '../../utils/constants'
 import { formatShortDate, summarizeProducts, tsToDate } from '../../utils/helpers'
 import { Order, OrderStatus, UserProfile, AccionHistorial } from '../../types'
+import { useAuth } from '../../context/AuthContext'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import Badge from '../ui/Badge'
@@ -24,6 +25,7 @@ interface AdminOrderCardProps {
 }
 
 export function AdminOrderCard({ order, choferes }: AdminOrderCardProps) {
+  const { user } = useAuth()
   const [statusLoading,  setStatusLoading]  = useState(false)
   const [editingAddress, setEditingAddress] = useState(false)
   const [newAddress,     setNewAddress]     = useState(order.clientAddress)
@@ -71,12 +73,17 @@ export function AdminOrderCard({ order, choferes }: AdminOrderCardProps) {
   }
 
   const handleSaveAddress = async () => {
-    await updateOrderAddress(order.id, newAddress)
+    if (!user) return
+    const actor = { uid: user.uid, nombre: user.nombre || user.email || 'Usuario' }
+    await updateOrderAddress(order.id, newAddress, actor)
     setEditingAddress(false)
   }
 
   const next = getNextStatus()
   const ocVencida = order.status === 'pendiente' && !!order.fechaTope && tsToDate(order.fechaTope) < new Date()
+  // Editar la dirección de un pedido ya entregado/cancelado no tiene sentido
+  // (ya se facturó/cerró) — antes se podía tocar en silencio y sin dejar rastro.
+  const canEditAddress = !['entregado', 'cancelado'].includes(order.status)
 
   return (
     <>
@@ -128,7 +135,9 @@ export function AdminOrderCard({ order, choferes }: AdminOrderCardProps) {
           ) : (
             <div className="flex items-center gap-2">
               <p className="text-gray-500 text-xs">📍 {order.clientAddress}</p>
-              <button onClick={() => setEditingAddress(true)} className="text-accent text-xs hover:underline">Editar</button>
+              {canEditAddress && (
+                <button onClick={() => setEditingAddress(true)} className="text-accent text-xs hover:underline">Editar</button>
+              )}
             </div>
           )}
         </div>
@@ -198,7 +207,10 @@ export function AdminOrderCard({ order, choferes }: AdminOrderCardProps) {
                   const ts    = tsToDate(h.timestamp)
                   const fecha = ts.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })
                   const hora  = ts.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
-                  const label = h.accion === 'cancelado' ? 'canceló el pedido' : h.accion === 'modificado' ? 'modificó el pedido' : h.accion
+                  const label = h.accion === 'cancelado' ? 'canceló el pedido'
+                    : h.accion === 'modificado' ? 'modificó el pedido'
+                    : h.accion === 'direccion_modificada' ? 'cambió la dirección'
+                    : h.accion
                   return (
                     <div key={i} className="flex items-start gap-2 text-xs bg-gray-50 rounded-lg px-2.5 py-1.5">
                       <span className="text-gray-400 shrink-0 tabular-nums">{fecha} {hora}</span>

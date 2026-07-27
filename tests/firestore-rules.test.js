@@ -285,8 +285,11 @@ describe('orders — edición por gerente_comercial', () => {
 describe('orders — actualización por el chofer asignado', () => {
   const seedPedido = (extra = {}) =>
     seed((d) => setDoc(doc(d, 'orders/o1'), pedido({ driverId: 'ch@x.com', ...extra })))
+  const seedChofer = (estado = 'activo') =>
+    seed((d) => setDoc(doc(d, 'users/ch'), { rol: 'chofer', estado, email: 'ch@x.com' }))
 
   test('chofer asignado SÍ puede marcar el pedido como entregado', async () => {
+    await seedChofer()
     await seedPedido()
     await assertSucceeds(updateDoc(doc(db('ch', 'ch@x.com'), 'orders/o1'), {
       status: 'entregado', productosEntregados: [{ name: 'Hielo', quantity: 1 }],
@@ -295,6 +298,7 @@ describe('orders — actualización por el chofer asignado', () => {
   })
 
   test('chofer asignado NO puede reescribir products/precio al marcar entregado', async () => {
+    await seedChofer()
     await seedPedido()
     await assertFails(updateDoc(doc(db('ch', 'ch@x.com'), 'orders/o1'), {
       status: 'entregado', products: [{ name: 'Hielo', quantity: 999 }], updatedAt: new Date(),
@@ -302,6 +306,7 @@ describe('orders — actualización por el chofer asignado', () => {
   })
 
   test('chofer asignado NO puede reasignarse otro pedido (driverId/clientId)', async () => {
+    await seedChofer()
     await seedPedido()
     await assertFails(updateDoc(doc(db('ch', 'ch@x.com'), 'orders/o1'), {
       clientId: 'otro-cliente', updatedAt: new Date(),
@@ -309,9 +314,19 @@ describe('orders — actualización por el chofer asignado', () => {
   })
 
   test('un chofer NO asignado no puede tocar el pedido de otro chofer', async () => {
+    await seedChofer()
     await seedPedido()
     await assertFails(updateDoc(doc(db('ch2', 'ch2@x.com'), 'orders/o1'), {
       status: 'entregado', updatedAt: new Date(),
+    }))
+  })
+
+  test('chofer dado de baja (estado inactivo) NO puede marcar el pedido como entregado', async () => {
+    await seedChofer('inactivo')
+    await seedPedido()
+    await assertFails(updateDoc(doc(db('ch', 'ch@x.com'), 'orders/o1'), {
+      status: 'entregado', productosEntregados: [{ name: 'Hielo', quantity: 1 }],
+      entregaParcial: false, notaEntrega: '', updatedAt: new Date(),
     }))
   })
 })
@@ -321,6 +336,8 @@ describe('orders — chofer marca "no entregado"', () => {
   const manana = new Date(Date.now() + 24 * 60 * 60 * 1000)
   const seedPedido = (extra = {}) =>
     seed((d) => setDoc(doc(d, 'orders/o1'), pedido({ driverId: 'ch@x.com', ...extra })))
+  const seedChofer = (estado = 'activo') =>
+    seed((d) => setDoc(doc(d, 'users/ch'), { rol: 'chofer', estado, email: 'ch@x.com' }))
   const noEntregado = (extra = {}) => ({
     status: 'pendiente', reprogramado: true, fechaOriginal: new Date(),
     motivoReprogramacion: 'Cliente ausente', choferOriginal: 'ch@x.com',
@@ -328,22 +345,33 @@ describe('orders — chofer marca "no entregado"', () => {
   })
 
   test('chofer asignado SÍ puede marcar el pedido como no entregado', async () => {
+    await seedChofer()
     await seedPedido()
     await assertSucceeds(updateDoc(doc(db('ch', 'ch@x.com'), 'orders/o1'), noEntregado()))
   })
 
   test('un chofer NO asignado no puede marcar como no entregado el pedido de otro', async () => {
+    await seedChofer()
+    await seed((d) => setDoc(doc(d, 'users/ch2'), { rol: 'chofer', estado: 'activo', email: 'ch2@x.com' }))
     await seedPedido()
     await assertFails(updateDoc(doc(db('ch2', 'ch2@x.com'), 'orders/o1'), noEntregado()))
   })
 
   test('chofer NO puede dejar el pedido asignado a otro chofer', async () => {
+    await seedChofer()
     await seedPedido()
     await assertFails(updateDoc(doc(db('ch', 'ch@x.com'), 'orders/o1'), noEntregado({ driverId: 'ch2@x.com' })))
   })
 
   test('chofer NO puede marcar como no entregado un pedido ya entregado', async () => {
+    await seedChofer()
     await seedPedido({ status: 'entregado' })
+    await assertFails(updateDoc(doc(db('ch', 'ch@x.com'), 'orders/o1'), noEntregado()))
+  })
+
+  test('chofer dado de baja (estado inactivo) NO puede marcar como no entregado', async () => {
+    await seedChofer('inactivo')
+    await seedPedido()
     await assertFails(updateDoc(doc(db('ch', 'ch@x.com'), 'orders/o1'), noEntregado()))
   })
 

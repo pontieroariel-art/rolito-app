@@ -22,21 +22,33 @@ export const notifyCerca = onCall({ secrets: [resendApiKey] }, async (request) =
   const orderId = (request.data?.orderId ?? '') as string
   if (!orderId) throw new HttpsError('invalid-argument', 'Falta orderId')
 
-  const snap = await getFirestore().doc(`orders/${orderId}`).get()
-  const o = snap.data()
-  if (!o) throw new HttpsError('not-found', 'Pedido inexistente')
-
-  // Solo el dueño del pedido, o el staff, puede disparar el aviso.
+  const db  = getFirestore()
+  const ref = db.doc(`orders/${orderId}`)
   const rol = await getRol(request.auth.uid)
   const esStaff = rol ? STAFF_ROLES.has(rol) : false
-  if (o.clientId !== request.auth.uid && !esStaff) {
-    throw new HttpsError('permission-denied', 'No autorizado')
-  }
 
-  const email = o.clientEmail as string | undefined
+  // Transacción: lee el pedido y marca el aviso como enviado de forma atómica.
+  // Antes no había ningún flag server-side — la única protección contra
+  // reenvíos vivía en un useRef del lado del cliente, que se resetea al
+  // recargar la página o abrirla en otra pestaña, disparando un segundo email
+  // real de producción para el mismo evento.
+  const order = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref)
+    const o = snap.data()
+    if (!o) throw new HttpsError('not-found', 'Pedido inexistente')
+    if (o.clientId !== request.auth!.uid && !esStaff) {
+      throw new HttpsError('permission-denied', 'No autorizado')
+    }
+    if (o.avisoCercaEnviado) return null
+    tx.update(ref, { avisoCercaEnviado: true })
+    return o
+  })
+  if (!order) return { ok: true, skipped: true }
+
+  const email = order.clientEmail as string | undefined
   if (!email) return { ok: true, skipped: true }
-  const nombre = ((o.clientName as string) || '').split(' ')[0] || 'Cliente'
-  await sendEmail(email, 'Tu pedido está cerca 🚚 - Rolito', tplPedidoCerca(nombre, o.products ?? [], APP_URL))
+  const nombre = ((order.clientName as string) || '').split(' ')[0] || 'Cliente'
+  await sendEmail(email, 'Tu pedido está cerca 🚚 - Rolito', tplPedidoCerca(nombre, order.products ?? [], APP_URL))
   return { ok: true }
 })
 

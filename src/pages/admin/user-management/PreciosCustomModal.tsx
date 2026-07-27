@@ -5,6 +5,7 @@ import Modal from '../../../components/ui/Modal'
 import { registrarCambiosCustom, CambioCustom } from '../../../services/historialPreciosService'
 import { updateUserDocument } from '../../../services/userService'
 import { UserProfile, ListaPrecios } from '../../../types'
+import { todayString } from '../../../utils/helpers'
 
 export function PreciosCustomModal({
   user,
@@ -170,7 +171,7 @@ export function PreciosCustomModal({
               type="date"
               value={vigenciaHasta}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setVigenciaHasta(e.target.value)}
-              min={new Date().toISOString().split('T')[0]}
+              min={todayString()}
               className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
             />
           </div>

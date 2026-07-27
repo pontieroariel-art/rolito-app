@@ -8,6 +8,7 @@ import {
   orderBy,
   limit,
   serverTimestamp,
+  FieldValue,
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { Camion, CanalCamion } from '../types'
@@ -39,6 +40,6 @@ export const addCamion = (data: {
 
 export const updateCamion = (
   id:   string,
-  data: Partial<{ patente: string; modelo: string; marca: string; activo: boolean; capacidadPallets: number; canales: CanalCamion[] }>,
+  data: Partial<{ patente: string; modelo: string; marca: string; activo: boolean; capacidadPallets: number | FieldValue; canales: CanalCamion[] }>,
 ): Promise<void> => updateDoc(doc(db, FLOTA, id), data)
 

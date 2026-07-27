@@ -1,4 +1,5 @@
 import { Order } from '../types'
+import { toDateStr } from './helpers'
 
 async function fetchImageAsBase64(url: string): Promise<string | null> {
   try {
@@ -139,6 +140,6 @@ export async function generateHojaDeRuta(
 
   // ── Guardar ─────────────────────────────────────────────────────────────────
   const slug     = driverName.toLowerCase().replace(/\s+/g, '-')
-  const dateSlug = date.toISOString().split('T')[0]
+  const dateSlug = toDateStr(date)
   doc.save(`hoja-de-ruta-${slug}-${dateSlug}.pdf`)
 }

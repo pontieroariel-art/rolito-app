@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { GoogleMap, Marker, InfoWindow } from '@react-google-maps/api'
 import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
 import { subscribeAllActiveDrivers, ActiveDriver } from '../../services/locationService'
@@ -47,6 +47,17 @@ export function LiveMapSection({ orders }: LiveMapSectionProps) {
 
   useEffect(() => subscribeAllActiveDrivers(setDrivers), [])
 
+  // Fuerza un re-render periódico mientras el panel está abierto para que el
+  // badge de "sin movimiento" se actualice solo con el paso del tiempo — antes
+  // `now` solo se recalculaba cuando llegaba una posición GPS nueva, así que
+  // un chofer que dejó de mandar GPS quedaba con el badge desactualizado.
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    if (!open) return
+    const id = setInterval(() => setTick((t) => t + 1), 60_000)
+    return () => clearInterval(id)
+  }, [open])
+
   const now = Date.now()
 
   const pendingByDriver = orders.reduce<Record<string, number>>((acc, o) => {
@@ -56,8 +67,17 @@ export function LiveMapSection({ orders }: LiveMapSectionProps) {
     return acc
   }, {})
 
+  // Solo reencuadra cuando cambia el CONJUNTO de choferes activos (alguien se
+  // conecta/desconecta), no en cada tick de posición GPS — antes se
+  // reencuadraba con cada actualización de `drivers`, deshaciendo cualquier
+  // pan/zoom manual que el admin hiciera para mirar una zona puntual.
+  const driversKey = useMemo(() => drivers.map((d) => d.email).sort().join(','), [drivers])
+  const prevDriversKeyRef = useRef<string>('')
   useEffect(() => {
-    if (!open || !mapRef.current || drivers.length === 0) return
+    if (!open) { prevDriversKeyRef.current = ''; return }
+    if (!mapRef.current || drivers.length === 0) return
+    if (driversKey === prevDriversKeyRef.current) return
+    prevDriversKeyRef.current = driversKey
     if (drivers.length === 1) {
       mapRef.current.panTo({ lat: drivers[0].lat, lng: drivers[0].lng })
       mapRef.current.setZoom(14)
@@ -66,7 +86,8 @@ export function LiveMapSection({ orders }: LiveMapSectionProps) {
     const bounds = new google.maps.LatLngBounds()
     drivers.forEach((d) => bounds.extend({ lat: d.lat, lng: d.lng }))
     mapRef.current.fitBounds(bounds, 80)
-  }, [open, drivers])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, driversKey])
 
   const staleDrivers = drivers.filter((d) => d.timestamp && now - d.timestamp > STALE_MS)
 

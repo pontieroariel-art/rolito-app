@@ -54,47 +54,40 @@ const DraggableCard = memo(function DraggableCard({ item, routeNum, arrival, col
   return (
     <div
       ref={setNodeRef} {...listeners} {...attributes}
-      className={`border rounded-xl p-3 cursor-grab active:cursor-grabbing select-none transition-all ${
+      className={`border rounded-lg pl-2 pr-1 py-1.5 cursor-grab active:cursor-grabbing select-none transition-all ${
         isDragging ? 'opacity-30' : 'hover:shadow-md hover:-translate-y-0.5'
       } ${locked ? 'border-green-200 bg-green-50/40' : isVisit ? 'bg-violet-50 border-violet-200' : 'bg-white border-[#D3D1C7]'}`}
       style={{ touchAction: 'none' }}
     >
-      <div className="flex items-start gap-2">
+      <div className="flex items-center gap-1.5">
         {routeNum != null ? (
           <span
-            className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold mt-0.5"
+            className="shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-white text-[9px] font-bold"
             style={{ backgroundColor: color ?? '#6b7280' }}
           >
             {routeNum}
           </span>
         ) : (
-          <span className={`shrink-0 mt-0.5 ${isVisit ? 'text-violet-400' : 'text-gray-300'}`}>
-            {isVisit ? <Eye size={14} /> : <Package size={14} />}
+          <span className={`shrink-0 ${isVisit ? 'text-violet-400' : 'text-gray-300'}`}>
+            {isVisit ? <Eye size={12} /> : <Package size={12} />}
           </span>
         )}
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            <p className="text-sm font-semibold text-gray-900 leading-tight truncate">{item.label}</p>
-            {locked && <Lock size={10} className="text-green-500 shrink-0" />}
+          <div className="flex items-center gap-1">
+            <p className="text-xs font-semibold text-gray-900 truncate">{item.label}</p>
+            {locked && <Lock size={9} className="text-green-500 shrink-0" />}
+            {item.kind === 'programa' && (
+              <span className="text-violet-400 shrink-0" title="Visita recurrente">↺</span>
+            )}
+            {item.reprogramado && (
+              <span className="text-amber-500 shrink-0" title={`Reprogramado${item.motivoReprogramacion ? `: ${item.motivoReprogramacion}` : ''}`}>↻</span>
+            )}
           </div>
-          <p className="text-xs text-gray-400 truncate mt-0.5">{item.sublabel}</p>
-          {item.kind === 'order' && (
-            <p className="text-xs text-gray-600 mt-1">
-              {/* products summary only available for orders */}
-            </p>
-          )}
-          {item.kind === 'programa' && (
-            <p className="text-[10px] text-violet-400 mt-0.5">↺ Visita recurrente</p>
-          )}
-          {item.reprogramado && (
-            <p className="text-[10px] text-amber-600 mt-0.5" title={item.motivoReprogramacion}>
-              ↻ Reprogramado{item.motivoReprogramacion ? `: ${item.motivoReprogramacion}` : ''}
-            </p>
-          )}
-          {arrival && <p className="text-[10px] text-accent font-medium mt-1">⏱ {arrival}</p>}
+          <p className="text-[10px] text-gray-400 truncate leading-tight">{item.sublabel}</p>
         </div>
+        {arrival && <span className="text-[9px] text-accent font-medium shrink-0">⏱{arrival}</span>}
         {showReorder && (
-          <div className="flex flex-col shrink-0 -mt-1 -mr-1">
+          <div className="flex flex-col shrink-0">
             <button
               onPointerDown={(e) => e.stopPropagation()}
               onClick={onMoveUp}
@@ -102,7 +95,7 @@ const DraggableCard = memo(function DraggableCard({ item, routeNum, arrival, col
               title="Subir"
               className="p-0.5 rounded text-gray-300 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-0 disabled:pointer-events-none transition-colors"
             >
-              <ChevronUp size={14} />
+              <ChevronUp size={12} />
             </button>
             <button
               onPointerDown={(e) => e.stopPropagation()}
@@ -111,7 +104,7 @@ const DraggableCard = memo(function DraggableCard({ item, routeNum, arrival, col
               title="Bajar"
               className="p-0.5 rounded text-gray-300 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-0 disabled:pointer-events-none transition-colors"
             >
-              <ChevronDown size={14} />
+              <ChevronDown size={12} />
             </button>
           </div>
         )}
@@ -163,7 +156,7 @@ function SinAsignarColumn({ items, fullWidth }: { items: DayItem[]; fullWidth?: 
           {items.length}
         </span>
       </div>
-      <DroppableZone id="sin_asignar" className="bg-[#F8F7F2] border border-t-0 border-[#D3D1C7] rounded-b-xl p-2 space-y-2 overflow-y-auto flex-1">
+      <DroppableZone id="sin_asignar" className="bg-[#F8F7F2] border border-t-0 border-[#D3D1C7] rounded-b-xl p-2 space-y-1 overflow-y-auto flex-1">
         {items.length === 0 ? (
           <p className="text-xs text-gray-400 text-center py-6">Todo asignado ✓</p>
         ) : (
@@ -408,7 +401,7 @@ const CamionColumn = memo(function CamionColumn({
           {/* Cards */}
           <DroppableZone
             id={chofer.email}
-            className={`border border-t-0 p-2 space-y-2 overflow-y-auto flex-1 ${confirmed ? 'bg-green-50/40 border-green-200' : 'bg-white border-[#D3D1C7]'}`}
+            className={`border border-t-0 p-2 space-y-1 overflow-y-auto flex-1 ${confirmed ? 'bg-green-50/40 border-green-200' : 'bg-white border-[#D3D1C7]'}`}
           >
             {sortedItems.length === 0 ? (
               <p className="text-xs text-gray-400 text-center py-6">Arrastrar pedidos o visitas acá</p>
@@ -475,6 +468,7 @@ function TransferModal({ fromDriver, fromDriverName, fromCamionLabel, items, des
   const [toDriver, setToDriver] = useState('')
   const [motivo,   setMotivo]   = useState('')
   const [loading,  setLoading]  = useState(false)
+  const [error,    setError]    = useState('')
 
   const destinosFiltrados = destinos.filter((d) => d.chofer.email !== fromDriver)
 
@@ -487,9 +481,19 @@ function TransferModal({ fromDriver, fromDriverName, fromCamionLabel, items, des
   const handleConfirm = async () => {
     if (selected.size === 0 || !toDriver) return
     setLoading(true)
-    await onTransfer(Array.from(selected), toDriver, motivo)
-    setLoading(false)
-    onClose()
+    setError('')
+    try {
+      await onTransfer(Array.from(selected), toDriver, motivo)
+      onClose()
+    } catch (err) {
+      // Antes, si esto fallaba, el modal quedaba trabado para siempre (el
+      // "Cancelar" se deshabilita mientras loading es true, y loading nunca
+      // volvía a false porque no había catch/finally).
+      console.error(err)
+      setError('No se pudo transferir. Revisá tu conexión e intentá de nuevo.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -579,6 +583,8 @@ function TransferModal({ fromDriver, fromDriverName, fromCamionLabel, items, des
             </span>
           </div>
         )}
+
+        {error && <p className="text-red-600 text-sm">{error}</p>}
 
         <div className="flex gap-2">
           <Button variant="outline" onClick={onClose} className="flex-1 text-sm" disabled={loading}>Cancelar</Button>

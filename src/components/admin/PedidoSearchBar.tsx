@@ -27,6 +27,10 @@ export default function PedidoSearchBar({ onJumpAndHighlight, onOpenDetail, codi
   const [loading, setLoading] = useState(false)
   const [open,    setOpen]    = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  // Firestore getDocs no soporta cancelación — si dos búsquedas quedan en
+  // vuelo (jitter de red), esta secuencia descarta la respuesta que ya quedó
+  // obsoleta en vez de dejar que pise resultados más nuevos.
+  const searchSeqRef = useRef(0)
 
   useEffect(() => {
     const onOutside = (e: MouseEvent) => {
@@ -40,15 +44,20 @@ export default function PedidoSearchBar({ onJumpAndHighlight, onOpenDetail, codi
     if (mode === 'fecha') {
       if (!date) { setResults([]); return }
       setLoading(true)
+      const mySeq = ++searchSeqRef.current
       const start = new Date(date + 'T00:00:00')
       const end   = new Date(date + 'T23:59:59')
-      getOrdersInRange(start, end).then((r) => { setResults(r); setLoading(false); setOpen(true) })
+      getOrdersInRange(start, end).then((r) => {
+        if (searchSeqRef.current !== mySeq) return
+        setResults(r); setLoading(false); setOpen(true)
+      })
       return
     }
     const t = text.trim()
     if (t.length < 2) { setResults([]); return }
     setLoading(true)
     const timer = setTimeout(() => {
+      const mySeq = ++searchSeqRef.current
       // "Cliente" busca por nombre Y por código (el pedido no guarda el
       // código, así que se resuelve código → cliente por separado y se
       // fusiona con lo encontrado por nombre).
@@ -59,7 +68,10 @@ export default function PedidoSearchBar({ onJumpAndHighlight, onOpenDetail, codi
             return Array.from(byId.values()).sort((a, b) => (b.date?.seconds ?? 0) - (a.date?.seconds ?? 0))
           })
         : searchOrdersByNumeroOC(t)
-      search.then((r) => { setResults(r); setLoading(false); setOpen(true) })
+      search.then((r) => {
+        if (searchSeqRef.current !== mySeq) return
+        setResults(r); setLoading(false); setOpen(true)
+      })
     }, 300)
     return () => clearTimeout(timer)
   }, [mode, text, date])

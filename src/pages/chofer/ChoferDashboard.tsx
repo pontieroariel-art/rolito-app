@@ -20,7 +20,7 @@ import { padPin } from '../../services/choferAuthService'
 import { updateVisitaPuntual } from '../../services/visitasService'
 import { useProgramasVisita, useVisitasPuntuales, programasParaFecha, visitasParaFecha } from '../../hooks/useVisitas'
 import { useCatalogo } from '../../hooks/useCatalogo'
-import { summarizeProducts } from '../../utils/helpers'
+import { summarizeProducts, toDateStr, todayString } from '../../utils/helpers'
 import { generateHojaDeRuta } from '../../utils/pdf'
 import { Order, ProgramaVisita, VisitaPuntual, OrderProduct } from '../../types'
 import EntregaModal from '../../components/chofer/EntregaModal'
@@ -45,7 +45,7 @@ export default function ChoferDashboard() {
 
   useEffect(() => {
     if (!user?.email || !isAyudante) return
-    const fecha = new Date().toISOString().split('T')[0]
+    const fecha = todayString()
     return subscribeDespachoForAyudante(fecha, user.email, (d) => {
       setPairedDespacho(d)
       setPairedDespachoLoading(false)
@@ -90,7 +90,7 @@ export default function ChoferDashboard() {
       if (items.length > 0) {
         days.push({
           label: i === 1 ? 'Mañana' : d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'short' }),
-          fecha: d.toISOString().split('T')[0],
+          fecha: toDateStr(d),
           items,
         })
       }
@@ -102,7 +102,7 @@ export default function ChoferDashboard() {
   const [despachoHoy, setDespachoHoy] = useState<Despacho | null>(null)
   useEffect(() => {
     if (!user?.email || isAyudante) return
-    const fecha = new Date().toISOString().split('T')[0]
+    const fecha = todayString()
     return subscribeMyDespacho(fecha, user.email, setDespachoHoy)
   }, [user?.email, isAyudante])
 
@@ -582,7 +582,7 @@ export default function ChoferDashboard() {
                 uid:            registrando.data.clientId,
               },
               products,
-              date: new Date().toISOString().split('T')[0],
+              date: todayString(),
               notes: registrando.tipo === 'visita' ? (registrando.data.notas ?? '') : (registrando.data.notas ?? ''),
             })
             if (registrando.tipo === 'visita') {

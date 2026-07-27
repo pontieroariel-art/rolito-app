@@ -410,6 +410,29 @@ export default function ClientesMapPage() {
     const geocoder = new google.maps.Geocoder()
     const BATCH = 6
 
+    // Dos sucursales del mismo cliente geocodificadas en el mismo lote (común
+    // en grupos empresarios) escribían cada una `addresses` completo a partir
+    // de la misma referencia stale (`s.user.addresses`, capturada al armar
+    // `toGeocode`) — la que terminaba último pisaba en silencio las coords que
+    // la otra acababa de guardar. `latestAddressesByUid` mantiene la versión
+    // más actualizada en memoria (mutación síncrona, sin carrera posible entre
+    // callbacks de geocode), y `queueWrite` serializa las escrituras a
+    // Firestore por uid para que además lleguen en el mismo orden en que se
+    // encolaron (si no, un write con payload viejo podría de todos modos
+    // aplicarse después de uno con payload más nuevo por jitter de red).
+    const latestAddressesByUid = new Map<string, DeliveryAddress[]>()
+    const getLatestAddresses = (s: SucursalMapItem) => {
+      if (!latestAddressesByUid.has(s.uid)) latestAddressesByUid.set(s.uid, s.user.addresses)
+      return latestAddressesByUid.get(s.uid)!
+    }
+    const writeQueueByUid = new Map<string, Promise<unknown>>()
+    const queueWrite = (uid: string, run: () => Promise<unknown>) => {
+      const prev = writeQueueByUid.get(uid) ?? Promise.resolve()
+      const next = prev.then(run, run).catch(() => {})
+      writeQueueByUid.set(uid, next)
+      return next
+    }
+
     for (let i = 0; i < toGeocode.length; i += BATCH) {
       if (!geocodingRef.current) break
       const chunk = toGeocode.slice(i, i + BATCH)
@@ -420,7 +443,7 @@ export default function ClientesMapPage() {
               const addr = sucursalAddress(s)
               geocoder.geocode(
                 { address: `${addr}, Argentina`, componentRestrictions: { country: 'AR' } },
-                async (results, status) => {
+                (results, status) => {
                   const pt =
                     status === 'OK' && results?.[0]
                       ? { lat: results[0].geometry.location.lat(), lng: results[0].geometry.location.lng() }
@@ -430,12 +453,13 @@ export default function ClientesMapPage() {
                     setGeoResults((prev) => new Map(prev).set(s.key, pt))
                     // Guardar coords en la dirección específica o en el doc raíz
                     if (s.address) {
-                      const updatedAddresses = s.user.addresses.map((a) =>
+                      const updatedAddresses = getLatestAddresses(s).map((a) =>
                         a.id === s.address!.id ? { ...a, lat: pt.lat, lng: pt.lng } : a
                       )
-                      updateUserDocument(s.uid, { addresses: updatedAddresses }).catch(() => {})
+                      latestAddressesByUid.set(s.uid, updatedAddresses)
+                      queueWrite(s.uid, () => updateUserDocument(s.uid, { addresses: updatedAddresses }))
                     } else {
-                      updateUserDocument(s.uid, { lat: pt.lat, lng: pt.lng }).catch(() => {})
+                      queueWrite(s.uid, () => updateUserDocument(s.uid, { lat: pt.lat, lng: pt.lng }))
                     }
                   }
                   resolve()

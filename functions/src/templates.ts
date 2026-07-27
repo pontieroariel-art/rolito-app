@@ -112,11 +112,15 @@ function formatDate(value: unknown): string {
     const d = value && typeof (value as { toDate?: () => Date }).toDate === 'function'
       ? (value as { toDate: () => Date }).toDate()
       : new Date(value as string)
+    // toLocaleDateString sobre una fecha inválida no tira excepción — devuelve
+    // el literal "Invalid Date" en inglés, que quedaba tal cual dentro de un
+    // email en español (el catch de abajo nunca llegaba a activarse).
+    if (isNaN(d.getTime())) return '—'
     return d.toLocaleDateString('es-AR', {
       weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
     })
   } catch {
-    return String(value ?? '—')
+    return '—'
   }
 }
 

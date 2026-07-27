@@ -14,7 +14,7 @@ import { rescheduleOrder, reassignOrder, assignDriver } from '../../services/ord
 import { getPushSubscriptionByEmail } from '../../services/userService'
 import { sendPush } from '../../services/notificationService'
 import { Order, UserProfile, MOTIVOS_INCIDENCIA } from '../../types'
-import { summarizeProducts, formatShortDate } from '../../utils/helpers'
+import { summarizeProducts, formatShortDate, toDateStr, todayString, addDaysStr } from '../../utils/helpers'
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -33,9 +33,7 @@ const DARK_MAP_STYLES: google.maps.MapTypeStyle[] = [
 ]
 
 function tomorrow(): string {
-  const d = new Date()
-  d.setDate(d.getDate() + 1)
-  return d.toISOString().split('T')[0]
+  return addDaysStr(todayString(), 1)
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -47,7 +45,7 @@ function driverColor(email: string, choferes: UserProfile[]): string {
 
 function orderDateStr(o: Order): string {
   if (!o.date?.toDate) return ''
-  return o.date.toDate().toISOString().split('T')[0]
+  return toDateStr(o.date.toDate())
 }
 
 function gpsAge(timestamp?: number): string {
@@ -135,7 +133,7 @@ function ReprogramarModal({
             <input
               type="date"
               value={fecha}
-              min={new Date().toISOString().split('T')[0]}
+              min={todayString()}
               onChange={(e) => setFecha(e.target.value)}
               className="flex-1 bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
             />
@@ -345,7 +343,7 @@ function FinJornadaModal({
               <input
                 type="date"
                 value={fecha}
-                min={new Date().toISOString().split('T')[0]}
+                min={todayString()}
                 onChange={(e) => setFecha(e.target.value)}
                 className="flex-1 bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
               />
@@ -724,7 +722,7 @@ export default function MonitoreoPage() {
 
   useEffect(() => subscribeAllActiveDrivers(setActiveDrivers), [])
 
-  const today = useMemo(() => new Date().toISOString().split('T')[0], [])
+  const today = useMemo(() => todayString(), [])
 
   const ordersToday = useMemo(
     () => orders.filter((o) => orderDateStr(o) === today),

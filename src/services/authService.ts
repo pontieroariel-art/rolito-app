@@ -5,9 +5,15 @@ import {
   sendPasswordResetEmail,
   User,
 } from 'firebase/auth'
-import { auth } from './firebase'
+import { deleteDoc, doc } from 'firebase/firestore'
+import { auth, db } from './firebase'
 import { createUserDocument } from './userService'
 import { getEmailByCuit } from './cuitService'
+
+// El CUIT ya está tomado por otra cuenta — ya sea porque el chequeo previo lo
+// detectó, o porque se destapó recién al intentar fijar el índice (carrera:
+// dos registros con el mismo CUIT casi al mismo tiempo).
+export class CuitTakenError extends Error {}
 
 interface RegisterParams {
   email:          string
@@ -26,8 +32,25 @@ export const registerUser = async ({
   cuit,
   phone,
 }: RegisterParams): Promise<User> => {
+  // Chequeo previo para el caso común (dos registros normales con el mismo
+  // CUIT, o un reintento tras un typo) — no elimina la carrera por completo,
+  // pero la limpieza de abajo cubre el caso residual (dos registros casi
+  // simultáneos) sin dejar una cuenta "zombie".
+  if (cuit && await getEmailByCuit(cuit)) {
+    throw new CuitTakenError('Ya existe una cuenta registrada con ese CUIT.')
+  }
+
   const credential = await createUserWithEmailAndPassword(auth, email, password)
-  await createUserDocument(credential.user.uid, { email, razonSocial, nombreContacto, cuit, phone })
+  try {
+    await createUserDocument(credential.user.uid, { email, razonSocial, nombreContacto, cuit, phone })
+  } catch (err) {
+    // El índice de CUIT se lo ganó otra cuenta entre el chequeo de arriba y
+    // este punto — deshacer el alta en vez de dejar una cuenta de Auth +
+    // perfil "pendiente" huérfana que nunca va a poder loguearse por CUIT.
+    await deleteDoc(doc(db, 'users', credential.user.uid)).catch(() => {})
+    await credential.user.delete().catch(() => {})
+    throw new CuitTakenError('Ya existe una cuenta registrada con ese CUIT.')
+  }
   // El email de "registro pendiente" lo envía el trigger onUserRegistered.
   return credential.user
 }

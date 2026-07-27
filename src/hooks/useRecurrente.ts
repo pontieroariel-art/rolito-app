@@ -1,10 +1,17 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { PedidoRecurrente } from '../types'
 import { getRecurrenteByClient, saveRecurrente } from '../services/recurrenteService'
 
 export function useRecurrente(clientId: string | undefined) {
   // undefined = cargando, null = no configurado, PedidoRecurrente = configurado
   const [recurrente, setRecurrente] = useState<PedidoRecurrente | null | undefined>(undefined)
+
+  // Ref actualizada en cada render — a diferencia de comparar contra `clientId`
+  // capturado en el mismo closure de `save` (que es tautológico: ambos valores
+  // vienen de la misma instancia y nunca difieren), esto sí detecta si el
+  // clientId cambió mientras un guardado anterior seguía en vuelo.
+  const clientIdRef = useRef(clientId)
+  useEffect(() => { clientIdRef.current = clientId }, [clientId])
 
   useEffect(() => {
     if (!clientId) return
@@ -17,10 +24,9 @@ export function useRecurrente(clientId: string | undefined) {
     if (!clientId) return
     const savedForId = clientId  // capturar al momento del llamado
     await saveRecurrente(savedForId, data)
-    // Si el clientId cambió mientras guardábamos, no actualizar estado
-    if (clientId !== savedForId) return
+    if (clientIdRef.current !== savedForId) return
     const updated = await getRecurrenteByClient(savedForId)
-    if (clientId !== savedForId) return
+    if (clientIdRef.current !== savedForId) return
     setRecurrente(updated)
   }, [clientId])
 

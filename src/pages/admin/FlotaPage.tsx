@@ -1,4 +1,5 @@
 ﻿import { useState, ChangeEvent } from 'react'
+import { deleteField } from 'firebase/firestore'
 import Navbar from '../../components/layout/Navbar'
 import Button from '../../components/ui/Button'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
@@ -248,8 +249,12 @@ export default function FlotaPage() {
                 modelo:  data.modelo,
                 marca:   data.marca,
                 canales: data.canales,
+                // Vaciar el campo tiene que borrar el límite en Firestore, no
+                // dejarlo sin tocar — antes, si `capacidadPallets` quedaba
+                // undefined, directamente no se incluía en el payload y el
+                // valor viejo seguía vigente aunque el input se viera vacío.
+                capacidadPallets: data.capacidadPallets !== undefined ? data.capacidadPallets : deleteField(),
               }
-              if (data.capacidadPallets !== undefined) payload.capacidadPallets = data.capacidadPallets
               await updateCamion(editCamion.id, payload)
               setEditCamion(null)
             }}

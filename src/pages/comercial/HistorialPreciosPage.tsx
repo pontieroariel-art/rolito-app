@@ -8,6 +8,7 @@ import { useAllHistorial } from '../../hooks/useHistorialPrecios'
 import { getAllUsers } from '../../services/userService'
 import { HistorialPrecioEvento } from '../../types'
 import { Timestamp } from 'firebase/firestore'
+import { todayString } from '../../utils/helpers'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -38,7 +39,7 @@ function exportCSV(rows: HistorialPrecioEvento[]) {
   const lines = rows.map((ev) => {
     const d    = evToDate(ev)
     const fecha = fmtDateTime(d)
-    const tipo  = ev.tipo === 'lista' ? 'Cambio de lista' : 'Precio especial'
+    const tipo  = ev.tipo === 'lista' ? 'Cambio de lista' : ev.tipo === 'lista_editada' ? 'Edición de lista' : 'Precio especial'
     const detalle = ev.tipo === 'lista'
       ? `${ev.listaAnteriorNombre ?? '—'} → ${ev.listaNuevaNombre ?? '—'}`
       : `${ev.productoNombre ?? ''} (${ev.accion ?? ''})`
@@ -46,8 +47,9 @@ function exportCSV(rows: HistorialPrecioEvento[]) {
       ? `${pctDiff(ev.precioNuevo, ev.precioAnterior)}%` : ''
     const vigTs = ev.vigenciaHasta as any
     const vigDate = vigTs?.toDate?.() ?? (vigTs?.seconds ? new Date(vigTs.seconds * 1000) : null)
+    const quien = ev.tipo === 'lista_editada' ? (ev.listaNombre ?? '') : (ev.clientName ?? '')
     return [
-      fecha, ev.clientName, tipo, detalle,
+      fecha, quien, tipo, detalle,
       ev.precioAnterior ?? '', ev.precioNuevo ?? '', pctStr,
       ev.motivo ?? '', ev.modificadoPorNombre,
       vigDate ? fmtDate(vigDate) : '',
@@ -58,7 +60,7 @@ function exportCSV(rows: HistorialPrecioEvento[]) {
   const url   = URL.createObjectURL(blob)
   const a     = document.createElement('a')
   a.href      = url
-  a.download  = `historial-precios-${new Date().toISOString().split('T')[0]}.csv`
+  a.download  = `historial-precios-${todayString()}.csv`
   a.click()
   URL.revokeObjectURL(url)
 }
@@ -90,14 +92,16 @@ function EventRow({ ev }: { ev: HistorialPrecioEvento }) {
     }`}>
       <div className="min-w-0 space-y-1 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-base">{ev.tipo === 'lista' ? '📋' : '💰'}</span>
-          <p className="font-semibold text-sm text-gray-900">{ev.clientName}</p>
+          <span className="text-base">{ev.tipo === 'lista' ? '📋' : ev.tipo === 'lista_editada' ? '📦' : '💰'}</span>
+          <p className="font-semibold text-sm text-gray-900">{ev.tipo === 'lista_editada' ? ev.listaNombre : ev.clientName}</p>
           <span className={`text-xs px-2 py-0.5 rounded-full border ${
             ev.tipo === 'lista'
               ? 'bg-accent/10 border-accent/30 text-accent'
-              : 'bg-amber-50 border-amber-200 text-amber-700'
+              : ev.tipo === 'lista_editada'
+                ? 'bg-violet-50 border-violet-200 text-violet-700'
+                : 'bg-amber-50 border-amber-200 text-amber-700'
           }`}>
-            {ev.tipo === 'lista' ? 'Cambio de lista' : `Precio especial · ${ev.accion ?? ''}`}
+            {ev.tipo === 'lista' ? 'Cambio de lista' : ev.tipo === 'lista_editada' ? 'Edición de lista' : `Precio especial · ${ev.accion ?? ''}`}
           </span>
           {big && (
             <span className="text-xs px-2 py-0.5 rounded-full bg-red-50 border border-red-200 text-red-600 font-medium">
@@ -235,7 +239,7 @@ export default function HistorialPreciosPage() {
 
   const [periodo,       setPeriodo]       = useState<Periodo>('30d')
   const [clientSearch,  setClientSearch]  = useState('')
-  const [tipoFilter,    setTipoFilter]    = useState<'all' | 'lista' | 'custom'>('all')
+  const [tipoFilter,    setTipoFilter]    = useState<'all' | 'lista' | 'custom' | 'lista_editada'>('all')
   const [soloAlertas,   setSoloAlertas]   = useState(false)
   const [clienteDetalle, setClienteDetalle] = useState<string | null>(null)
 
@@ -255,7 +259,15 @@ export default function HistorialPreciosPage() {
       const d = evToDate(ev)
       if (d < cutoff) return false
       if (tipoFilter !== 'all' && ev.tipo !== tipoFilter) return false
-      if (clientSearch && !codeMatchIds.has(ev.clientId) && !ev.clientName.toLowerCase().includes(clientSearch.toLowerCase())) return false
+      if (clientSearch) {
+        // Las ediciones de lista completa no son de un cliente puntual — se
+        // buscan por el nombre de la lista en vez de por cliente/código.
+        if (ev.tipo === 'lista_editada') {
+          if (!(ev.listaNombre ?? '').toLowerCase().includes(clientSearch.toLowerCase())) return false
+        } else if (!codeMatchIds.has(ev.clientId ?? '') && !(ev.clientName ?? '').toLowerCase().includes(clientSearch.toLowerCase())) {
+          return false
+        }
+      }
       if (soloAlertas) {
         const diff = ev.precioAnterior != null && ev.precioNuevo != null
           ? Math.abs(pctDiff(ev.precioNuevo, ev.precioAnterior)) : 0
@@ -267,7 +279,7 @@ export default function HistorialPreciosPage() {
 
   // Stats
   const stats = useMemo(() => {
-    const clientes    = new Set(filtered.map((e) => e.clientId)).size
+    const clientes    = new Set(filtered.map((e) => e.clientId).filter((id): id is string => !!id)).size
     const alertas     = filtered.filter((e) => {
       const diff = e.precioAnterior != null && e.precioNuevo != null
         ? Math.abs(pctDiff(e.precioNuevo, e.precioAnterior)) : 0
@@ -286,10 +298,11 @@ export default function HistorialPreciosPage() {
     [filtered, clienteDetalle],
   )
 
-  // Lista de clientes únicos en los resultados
+  // Lista de clientes únicos en los resultados (las ediciones de lista
+  // completa no son de un cliente puntual, quedan afuera de este selector)
   const clientesUnicos = useMemo(() => {
     const map = new Map<string, string>()
-    filtered.forEach((e) => map.set(e.clientId, e.clientName))
+    filtered.forEach((e) => { if (e.clientId && e.clientName) map.set(e.clientId, e.clientName) })
     return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]))
   }, [filtered])
 
@@ -369,7 +382,8 @@ export default function HistorialPreciosPage() {
             className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
           >
             <option value="all">Todos los tipos</option>
-            <option value="lista">Solo listas</option>
+            <option value="lista">Solo cambios de lista asignada</option>
+            <option value="lista_editada">Solo ediciones de lista</option>
             <option value="custom">Solo precios especiales</option>
           </select>
 

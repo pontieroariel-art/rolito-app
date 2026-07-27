@@ -9,10 +9,11 @@ import {
   AlertTriangle, Weight, Trophy,
 } from 'lucide-react'
 import type { Order } from '../../types'
+import { toDateStr, todayString } from '../../utils/helpers'
 
-function toDateStr(ts: Order['date'] | null | undefined): string {
+function orderDateStr(ts: Order['date'] | null | undefined): string {
   if (!ts) return ''
-  try { return ts.toDate().toISOString().split('T')[0] } catch { return '' }
+  try { return toDateStr(ts.toDate()) } catch { return '' }
 }
 
 function sumKg(orders: Order[]): number {
@@ -24,11 +25,11 @@ const DAY_LABELS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 
 export default function MetricsDashboard({ orders }: { orders: Order[] }) {
   const now         = new Date()
-  const today       = now.toISOString().split('T')[0]
+  const today       = todayString()
   const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 
   const todayOrders = useMemo(
-    () => orders.filter((o) => toDateStr(o.date) === today),
+    () => orders.filter((o) => orderDateStr(o.date) === today),
     [orders, today],
   )
 
@@ -46,27 +47,33 @@ export default function MetricsDashboard({ orders }: { orders: Order[] }) {
   )
 
   const monthOrders = useMemo(
-    () => orders.filter((o) => toDateStr(o.date).startsWith(monthPrefix)),
+    () => orders.filter((o) => orderDateStr(o.date).startsWith(monthPrefix)),
     [orders, monthPrefix],
   )
 
-  const monthKg             = useMemo(() => sumKg(monthOrders), [monthOrders])
+  // Igual que "Kg de hoy": solo entregados. Antes sumaba también pendientes/
+  // cancelados, inflando el total del mes respecto a lo realmente entregado.
+  const monthDeliveredOrders = useMemo(
+    () => monthOrders.filter((o) => o.status === 'entregado'),
+    [monthOrders],
+  )
+  const monthKg             = useMemo(() => sumKg(monthDeliveredOrders), [monthDeliveredOrders])
   const monthActiveClients  = useMemo(
     () => new Set(monthOrders.map((o) => o.clientId)).size,
     [monthOrders],
   )
-  const avgKgPerOrder = monthOrders.length > 0
-    ? Math.round(monthKg / monthOrders.length)
+  const avgKgPerOrder = monthDeliveredOrders.length > 0
+    ? Math.round(monthKg / monthDeliveredOrders.length)
     : 0
 
   const weeklyData = useMemo(() =>
     Array.from({ length: 7 }, (_, i) => {
       const d = new Date(now)
       d.setDate(d.getDate() - (6 - i))
-      const dateStr = d.toISOString().split('T')[0]
+      const dateStr = toDateStr(d)
       return {
         day:   DAY_LABELS[d.getDay()],
-        count: orders.filter((o) => toDateStr(o.date) === dateStr).length,
+        count: orders.filter((o) => orderDateStr(o.date) === dateStr).length,
       }
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps

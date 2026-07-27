@@ -9,6 +9,7 @@ import { getAllUsers } from '../../services/userService'
 import { getAllListasPrecios } from '../../services/listaPreciosService'
 import { PRODUCTS } from '../../utils/constants'
 import { UserProfile, ListaPrecios } from '../../types'
+import { todayString } from '../../utils/helpers'
 
 // Solo productos activos en al menos una lista
 function productoActivo(productoId: string, listas: ListaPrecios[]): boolean {
@@ -21,7 +22,12 @@ function precioEfectivo(
   listas: ListaPrecios[],
 ): { precio: number | null; esCustom: boolean } {
   const custom = cliente.preciosCustom?.[productoId]
-  if (custom !== undefined) return { precio: custom, esCustom: true }
+  // Un precio especial vencido (vigenciaCustom pasada) no debe seguir
+  // reportándose como el precio efectivo del cliente — antes este reporte
+  // (y el cálculo real del pedido) ignoraban la vigencia por completo.
+  const vigenciaHasta = cliente.vigenciaCustom?.[productoId]
+  const vencido = !!vigenciaHasta && vigenciaHasta < todayString()
+  if (custom !== undefined && !vencido) return { precio: custom, esCustom: true }
   const lista = listas.find((l) => l.id === cliente.listaPreciosId)
   if (!lista) return { precio: null, esCustom: false }
   const item = lista.items.find((i) => i.productoId === productoId && i.activo)
@@ -101,17 +107,23 @@ function exportarExcel(
 export default function ReportePreciosPage() {
   const [exporting, setExporting] = useState(false)
 
-  const { data: todosUsuarios, isLoading: loadingUsuarios, refetch } = useQuery({
+  const { data: todosUsuarios, isLoading: loadingUsuarios, refetch: refetchUsuarios } = useQuery({
     queryKey:  ['users', 'all'],
     queryFn:   () => getAllUsers(),
     staleTime: 300_000,
   })
 
-  const { data: listas = [], isLoading: loadingListas } = useQuery({
+  // Antes tenía staleTime: Infinity y el botón "Actualizar" solo refrescaba
+  // la query de usuarios — un cambio de precios hecho por gerencia comercial
+  // nunca se veía reflejado acá para un comercial con la pestaña abierta, ni
+  // siquiera tocando "Actualizar" (solo un F5 completo lo arreglaba).
+  const { data: listas = [], isLoading: loadingListas, refetch: refetchListas } = useQuery({
     queryKey:  ['listas-precios'],
     queryFn:   getAllListasPrecios,
-    staleTime: Infinity,
+    staleTime: 300_000,
   })
+
+  const refetch = () => { refetchUsuarios(); refetchListas() }
 
   const clientes = useMemo(
     () => (todosUsuarios ?? []).filter((u) => u.rol === 'cliente' && u.estado === 'activo'),

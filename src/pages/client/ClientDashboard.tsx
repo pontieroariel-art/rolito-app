@@ -37,7 +37,10 @@ export default function ClientDashboard() {
   const primaryAddr   = selectedAddress ?? (user ? getPrimaryAddress(user) : null)
   const hasAddress    = !!(primaryAddr?.address || user?.address)
 
-  const lastOrder = orders.find(
+  // branchOrders (no orders): para un cliente multi-sucursal, "repetir último
+  // pedido" tiene que repetir el último pedido DE LA SUCURSAL que se está
+  // viendo, no el último de cualquier sucursal del cliente.
+  const lastOrder = branchOrders.find(
     (o) => o.status !== 'cancelado' && o.products.some((p) => p.productoId),
   )
 

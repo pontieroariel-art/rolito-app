@@ -1,4 +1,4 @@
-import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, getDoc, serverTimestamp, runTransaction } from 'firebase/firestore'
 import { db } from './firebase'
 import { PedidoRecurrente } from '../types'
 
@@ -14,13 +14,18 @@ export const saveRecurrente = async (
   clientId: string,
   data: Omit<PedidoRecurrente, 'id' | 'createdAt' | 'ultimaGeneracion'>,
 ): Promise<void> => {
-  const ref      = doc(db, COL, clientId)
-  const existing = await getDoc(ref)
-  if (existing.exists()) {
-    await updateDoc(ref, { ...data })
-  } else {
-    await setDoc(ref, { ...data, createdAt: serverTimestamp(), ultimaGeneracion: null })
-  }
+  const ref = doc(db, COL, clientId)
+  // Transacción en vez de getDoc + set/update sueltos — evita la ventana de
+  // carrera si dos guardados concurrentes tocan el mismo cliente (ej. dos
+  // pestañas abiertas del mismo admin).
+  await runTransaction(db, async (tx) => {
+    const existing = await tx.get(ref)
+    if (existing.exists()) {
+      tx.update(ref, { ...data })
+    } else {
+      tx.set(ref, { ...data, createdAt: serverTimestamp(), ultimaGeneracion: null })
+    }
+  })
 }
 
 // La generación diaria de pedidos a partir de estas plantillas corre server-side

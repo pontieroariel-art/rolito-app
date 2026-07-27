@@ -104,8 +104,12 @@ export default function ComercialOrders() {
 
   const totalPedidos  = filtered.length
   const totalEntregados = filtered.filter((o) => o.status === 'entregado').length
-  const totalImporte  = filtered.reduce((acc, o) => acc + orderTotal(o), 0)
-  const totalUnidades = filtered.reduce(
+  // Importe y unidades excluyen cancelados — antes los sumaba igual que
+  // cualquier otro pedido, sobreestimando ventas/volumen real del período
+  // (con el filtro de estado en "todos", que es el default).
+  const facturables = filtered.filter((o) => o.status !== 'cancelado')
+  const totalImporte  = facturables.reduce((acc, o) => acc + orderTotal(o), 0)
+  const totalUnidades = facturables.reduce(
     (acc, o) => acc + o.products.reduce((a, p) => a + p.quantity, 0),
     0,
   )

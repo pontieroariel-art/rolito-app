@@ -8,18 +8,8 @@ import { PRODUCTS } from '../../utils/constants'
 import { createOrderExterno, findActiveOrdersSameDay, findActiveOrdersInRange } from '../../services/orderService'
 import { useSucursales, SucursalItem } from '../../hooks/useSucursales'
 import { getPrimaryAddress, Order } from '../../types'
-import { formatShortDate, isSucursalCode } from '../../utils/helpers'
+import { formatShortDate, isSucursalCode, todayString as todayStr, addDaysStr } from '../../utils/helpers'
 import { STATUS_LABELS } from '../../utils/constants'
-
-function todayStr(): string {
-  return new Date().toISOString().split('T')[0]
-}
-
-function addDaysStr(dateStr: string, days: number): string {
-  const d = new Date(dateStr + 'T12:00:00')
-  d.setDate(d.getDate() + days)
-  return d.toISOString().split('T')[0]
-}
 
 interface Props {
   open:    boolean
@@ -27,12 +17,6 @@ interface Props {
 }
 
 type Step = 'client' | 'upload' | 'review'
-
-function addOneDay(dateStr: string): string {
-  const d = new Date(dateStr + 'T12:00:00')
-  d.setDate(d.getDate() + 1)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
 
 export default function ImportarPedidoModal({ open, onClose }: Props) {
   const [step,    setStep]    = useState<Step>('client')
@@ -176,6 +160,7 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
     if (!clientAddress.trim()) { setError('Ingresá la dirección de entrega'); return }
     if (modoMulti ? multiDates.size === 0 : !deliveryDate) { setError('Ingresá la fecha de entrega'); return }
     if (products.length === 0) { setError('El pedido no tiene productos'); return }
+    if (products.some((p) => !(p.quantity > 0))) { setError('Hay un producto con cantidad inválida (tiene que ser mayor a 0)'); return }
     setError('')
 
     const codigoCliente = selectedItem?.addrId && isSucursalCode(selectedItem.addrId)
@@ -193,23 +178,32 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
       clientEmail:   selectedCliente?.email,
       clientPhone:   selectedCliente?.telefono || selectedCliente?.phone,
       fechaEmision:  fechaEmision || undefined,
+      fechaTope:     fechaTope || undefined,
       codigoCliente,
     }
 
     if (modoMulti) {
       setSaving(true)
       const fechas = [...multiDates].sort()
+      const total = fechas.length
       let ok = 0
       try {
         for (const f of fechas) {
-          setProgressLabel(`Creando ${ok + 1}/${fechas.length}…`)
+          setProgressLabel(`Creando ${ok + 1}/${total}…`)
           await createOrderExterno({ ...baseParams, date: f })
           ok++
+          // Se saca del set apenas se crea para que un reintento tras una falla
+          // parcial no vuelva a crear las fechas ya confirmadas (duplicados).
+          setMultiDates((prev) => {
+            const next = new Set(prev)
+            next.delete(f)
+            return next
+          })
         }
         handleClose()
       } catch (err) {
         console.error(err)
-        setError(`Se crearon ${ok} de ${fechas.length} pedidos. Revisá tu conexión y reintentá para el resto.`)
+        setError(`Se crearon ${ok} de ${total} pedidos. Las fechas creadas ya se sacaron de la selección — reintentá para el resto.`)
         setSaving(false)
         setProgressLabel('')
       }
@@ -229,7 +223,7 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
 
     setSaving(true)
     try {
-      await createOrderExterno({ ...baseParams, date: deliveryDate, fechaTope: fechaTope || undefined })
+      await createOrderExterno({ ...baseParams, date: deliveryDate })
       handleClose()
     } catch (err) {
       console.error(err)
@@ -430,7 +424,7 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">Vigencia (fecha tope)</label>
                 <div className="w-full bg-[#F1EFE8] border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-500">
-                  {fechaTope || (deliveryDate ? addOneDay(deliveryDate) : '—')}
+                  {fechaTope || (deliveryDate ? addDaysStr(deliveryDate, 1) : '—')}
                   {!fechaTope && deliveryDate && <span className="text-xs text-gray-400 ml-1">(calculada)</span>}
                 </div>
               </div>
@@ -468,7 +462,7 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
                         value={p.quantity}
                         onChange={(e) => {
                           const upd = [...products]
-                          upd[i] = { ...upd[i], quantity: parseInt(e.target.value) || 0 }
+                          upd[i] = { ...upd[i], quantity: Math.max(0, parseInt(e.target.value) || 0) }
                           setProducts(upd)
                         }}
                         className="w-24 bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent text-right"

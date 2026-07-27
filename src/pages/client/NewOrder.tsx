@@ -4,10 +4,10 @@ import { useBranch } from '../../context/BranchContext'
 import Navbar from '../../components/layout/Navbar'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
-import { summarizeProducts, formatShortDate, isSucursalCode } from '../../utils/helpers'
+import { summarizeProducts, formatShortDate, isSucursalCode, precioEfectivo } from '../../utils/helpers'
 import { useAuth } from '../../context/AuthContext'
 import { Order } from '../../types'
-import { createOrder, cancelAndRecreateOrder } from '../../services/orderService'
+import { createOrder, cancelAndRecreateOrder, OrderNotEditableError } from '../../services/orderService'
 import { useListaPrecios } from '../../hooks/useListasPrecios'
 import { useOnline } from '../../hooks/useOnline'
 import { useCatalogo } from '../../hooks/useCatalogo'
@@ -59,7 +59,7 @@ export default function NewOrder() {
           id:     i.productoId,
           nombre: i.nombre,
           unidad: i.unidad,
-          precio: user?.preciosCustom?.[i.productoId] ?? i.precio,
+          precio: user ? precioEfectivo(user, i.productoId, i.precio) : i.precio,
         }))
     : []
 
@@ -113,8 +113,12 @@ export default function NewOrder() {
       // Los emails al cliente (pedido recibido) y al admin (nuevo pedido) los
       // envía el trigger onOrderCreated server-side; no se disparan desde acá.
       navigate('/dashboard')
-    } catch {
-      setError(modifyOrder ? 'Error al modificar el pedido. Intentá de nuevo.' : 'Error al crear el pedido. Intentá de nuevo.')
+    } catch (err) {
+      if (err instanceof OrderNotEditableError) {
+        setError('Este pedido ya no se puede modificar — logística ya empezó a procesarlo. Volvé al inicio para ver su estado actual.')
+      } else {
+        setError(modifyOrder ? 'Error al modificar el pedido. Intentá de nuevo.' : 'Error al crear el pedido. Intentá de nuevo.')
+      }
       setLoading(false)
     }
   }

@@ -9,16 +9,13 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useAllOrders } from '../../hooks/useOrders'
 import { getAllUsers, updateUserDocument } from '../../services/userService'
 import { UserProfile, Order } from '../../types'
+import { toDateStr, todayString as todayStr } from '../../utils/helpers'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function todayStr(): string {
-  return new Date().toISOString().split('T')[0]
-}
-
 function orderDateStr(o: Order): string {
   if (!o.date?.toDate) return ''
-  return o.date.toDate().toISOString().split('T')[0]
+  return toDateStr(o.date.toDate())
 }
 
 function nDaysAgo(n: number): Date {
@@ -91,7 +88,7 @@ export default function GerenteDashboard() {
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date()
       d.setDate(d.getDate() - (6 - i))
-      const str   = d.toISOString().split('T')[0]
+      const str   = toDateStr(d)
       const label = i === 6 ? 'Hoy' : d.toLocaleDateString('es-AR', { weekday: 'short' })
       const count = orders.filter((o) => orderDateStr(o) === str && o.status !== 'cancelado').length
       return { str, label, count }

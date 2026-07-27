@@ -13,20 +13,13 @@ import {
 } from '../../services/visitasService'
 import { ProgramaVisita, VisitaPuntual, UserProfile, DIAS_SEMANA } from '../../types'
 import { Timestamp } from 'firebase/firestore'
+import { todayString } from '../../utils/helpers'
 
-// ── Week helpers ──────────────────────────────────────────────────────────────
-
-function thisWeekRange(): [Date, Date] {
-  const now = new Date()
-  const day = now.getDay()
-  const monday = new Date(now)
-  monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1))
-  monday.setHours(0, 0, 0, 0)
-  const sunday = new Date(monday)
-  sunday.setDate(monday.getDate() + 6)
-  sunday.setHours(23, 59, 59, 999)
-  return [monday, sunday]
-}
+// Días de tolerancia según la frecuencia declarada del cliente — antes el
+// chequeo de "sin programar" solo miraba la semana calendario actual, así
+// que un cliente quincenal/mensual sin programa fijo salía marcado como
+// atrasado todas las semanas, aunque estuviera al día según su frecuencia.
+const FRECUENCIA_DIAS: Record<string, number> = { semanal: 7, quincenal: 14, mensual: 30 }
 
 function tsToDate(ts: Timestamp | null | undefined): Date {
   if (!ts) return new Date(0)
@@ -323,7 +316,7 @@ function VisitaCard({
 // ── Página principal ───────────────────────────────────────────────────────────
 
 export default function VisitasPage() {
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayString()
 
   const { programas, loading: loadP } = useProgramasVisita()
   const { visitas,   loading: loadV } = useVisitasPuntuales()
@@ -548,15 +541,14 @@ export default function VisitasPage() {
               <LoadingSpinner />
             ) : (() => {
               const visitaClientes = clientes.filter((c) => c.esVisita)
-              const [weekStart, weekEnd] = thisWeekRange()
 
-              const isScheduledThisWeek = (clientId: string): boolean => {
+              const isUpToDate = (client: UserProfile): boolean => {
+                const clientId = client.uid
                 if (programas.some((p) => p.clientId === clientId && p.activo)) return true
-                return visitas.some((v) => {
-                  if (v.clientId !== clientId) return false
-                  const d = tsToDate(v.fecha)
-                  return d >= weekStart && d <= weekEnd
-                })
+                const intervalDays = FRECUENCIA_DIAS[client.frecuenciaVisita ?? 'semanal'] ?? 7
+                const windowStart = new Date()
+                windowStart.setDate(windowStart.getDate() - intervalDays)
+                return visitas.some((v) => v.clientId === clientId && tsToDate(v.fecha) >= windowStart)
               }
 
               if (visitaClientes.length === 0) {
@@ -571,7 +563,7 @@ export default function VisitasPage() {
                 )
               }
 
-              const sinProgramar = visitaClientes.filter((c) => !isScheduledThisWeek(c.uid))
+              const sinProgramar = visitaClientes.filter((c) => !isUpToDate(c))
               return (
                 <>
                   {sinProgramar.length > 0 && (
@@ -579,7 +571,7 @@ export default function VisitasPage() {
                       <span className="text-amber-600 text-lg shrink-0">⚠</span>
                       <div>
                         <p className="text-sm font-medium text-amber-700">
-                          {sinProgramar.length} cliente{sinProgramar.length !== 1 ? 's' : ''} sin visita esta semana
+                          {sinProgramar.length} cliente{sinProgramar.length !== 1 ? 's' : ''} sin visita según su frecuencia
                         </p>
                         <p className="text-xs text-gray-500 mt-0.5">
                           Revisá si faltan en la planificación o creá una visita puntual
@@ -590,13 +582,13 @@ export default function VisitasPage() {
                   <div className="space-y-2">
                     {visitaClientes
                       .sort((a, b) => {
-                        const aOk = isScheduledThisWeek(a.uid)
-                        const bOk = isScheduledThisWeek(b.uid)
+                        const aOk = isUpToDate(a)
+                        const bOk = isUpToDate(b)
                         if (aOk !== bOk) return aOk ? 1 : -1
                         return clientLabel(a).localeCompare(clientLabel(b))
                       })
                       .map((c) => {
-                        const scheduled = isScheduledThisWeek(c.uid)
+                        const scheduled = isUpToDate(c)
                         const prog = programas.find((p) => p.clientId === c.uid && p.activo)
                         const primaryAddr = c.addresses?.find((a) => a.esPrincipal) ?? c.addresses?.[0]
 
