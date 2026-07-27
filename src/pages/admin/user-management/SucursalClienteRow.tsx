@@ -74,7 +74,16 @@ export function SucursalClienteRow({
                 ) : null
               })()}
               <p className="font-semibold text-sm text-gray-900 group-hover:text-accent transition-colors">
-                {address?.nombre || user.razonSocial || user.nombre || '(sin nombre)'}
+                {/* El nombre de la sucursal solo tiene sentido como título
+                    principal cuando hace falta distinguir entre varias
+                    direcciones del mismo cliente (grupos empresarios). Para
+                    un cliente de una sola dirección, mostrarlo en vez de la
+                    razón social confundía — sobre todo con el nombre
+                    genérico "Principal" que se guarda por defecto al crear
+                    un cliente sin nombrar la sucursal. */}
+                {(user.addresses?.length ?? 0) > 1 && address?.nombre
+                  ? address.nombre
+                  : (user.razonSocial || user.nombre || address?.nombre || '(sin nombre)')}
               </p>
               <span className={`text-xs px-2 py-0.5 rounded-full border font-medium whitespace-nowrap ${STATUS_STYLES[user.estado] ?? 'bg-gray-100 text-gray-500 border-gray-200'}`}>
                 {STATUS_LABELS[user.estado] ?? user.estado}
