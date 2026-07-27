@@ -36,6 +36,18 @@ exports.sendPush = (0, https_1.onCall)({ secrets: [vapidPublicKey, vapidPrivateK
     if (!subscription?.endpoint || !title) {
         throw new https_1.HttpsError('invalid-argument', 'Faltan subscription o title');
     }
+    // El endpoint tiene que corresponder a una suscripción real guardada en
+    // algún perfil — antes cualquier cuenta de staff podía pasar una
+    // subscription/title/body arbitrarios y esta función se los mandaba a
+    // cualquier endpoint sin verificar que fuera una suscripción legítima.
+    const ownerCheck = await (0, firestore_1.getFirestore)()
+        .collection('users')
+        .where('pushSubscription.endpoint', '==', subscription.endpoint)
+        .limit(1)
+        .get();
+    if (ownerCheck.empty) {
+        throw new https_1.HttpsError('invalid-argument', 'La suscripción no corresponde a ningún usuario registrado');
+    }
     web_push_1.default.setVapidDetails('mailto:pedidos@rolito.com.ar', vapidPublicKey.value(), vapidPrivateKey.value());
     try {
         await web_push_1.default.sendNotification(subscription, JSON.stringify({ title, body: body ?? '' }));
@@ -49,13 +61,8 @@ exports.sendPush = (0, https_1.onCall)({ secrets: [vapidPublicKey, vapidPrivateK
             // no seguir intentando enviarle notificaciones a un endpoint muerto
             // en cada evento futuro sin que nadie se entere de que nunca llegan.
             try {
-                const usersRef = (0, firestore_1.getFirestore)().collection('users');
-                const owner = await usersRef
-                    .where('pushSubscription.endpoint', '==', subscription.endpoint)
-                    .limit(1)
-                    .get();
-                if (!owner.empty) {
-                    await owner.docs[0].ref.update({ pushSubscription: firestore_1.FieldValue.delete() });
+                if (!ownerCheck.empty) {
+                    await ownerCheck.docs[0].ref.update({ pushSubscription: firestore_1.FieldValue.delete() });
                 }
             }
             catch (cleanupErr) {

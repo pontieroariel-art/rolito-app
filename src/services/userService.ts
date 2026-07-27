@@ -197,6 +197,7 @@ export interface CreateClientParams {
   telefono:        string
   addresses:       DeliveryAddress[]
   creadoPor:       { uid: string; nombre: string; rol: UserRole }
+  codigoCliente?:  string
 }
 
 async function createUserViaSecondaryApp(
@@ -261,7 +262,7 @@ export const createStaffUser = async ({ dni, password, nombreContacto, rol }: Cr
   await setStaffDniIndex(normalizedDni, email)
 }
 
-export const createClientUser = async ({ email, password, razonSocial, nombreContacto, cuit, telefono, addresses, creadoPor }: CreateClientParams): Promise<void> => {
+export const createClientUser = async ({ email, password, razonSocial, nombreContacto, cuit, telefono, addresses, creadoPor, codigoCliente }: CreateClientParams): Promise<void> => {
   const { setCuitIndex, getEmailByCuit } = await import('./cuitService')
   if (cuit) {
     const yaUsado = await getEmailByCuit(cuit)
@@ -282,6 +283,7 @@ export const createClientUser = async ({ email, password, razonSocial, nombreCon
     telefono:        telefono || '',
     addresses,
     creadoPor,
+    ...(codigoCliente ? { codigoCliente } : {}),
     fechaCreacion:   serverTimestamp(),
     fechaAprobacion: serverTimestamp(),
     aprobadoPor:     'admin',

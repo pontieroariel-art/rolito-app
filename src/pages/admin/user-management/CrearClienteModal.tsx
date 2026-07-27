@@ -10,10 +10,16 @@ import { createClientUser } from '../../../services/userService'
 export function CrearClienteModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const { user: currentUser } = useAuth()
   const { isLoaded } = useGoogleMapsLoader()
+  // Igual que en la ficha del cliente (FichaClienteModal): el código interno
+  // de facturación solo lo carga super_admin/facturación. El resto de los
+  // roles que pueden dar de alta un cliente (comercial, logística, gerente
+  // comercial) lo dejan para que facturación lo asigne después.
+  const canAssignCode = ['super_admin', 'facturacion'].includes(currentUser?.rol ?? '')
 
   const [razonSocial,    setRazonSocial]    = useState('')
   const [nombreContacto, setNombreContacto] = useState('')
   const [cuit,           setCuit]           = useState('')
+  const [codigoCliente,  setCodigoCliente]  = useState('')
   const [email,          setEmail]          = useState('')
   const [telefono,       setTelefono]       = useState('')
   const [password,       setPassword]       = useState('')
@@ -42,6 +48,7 @@ export function CrearClienteModal({ onClose, onCreated }: { onClose: () => void;
     try {
       await createClientUser({
         email: emailFinal, password, razonSocial, nombreContacto: nombreContacto || undefined, cuit, telefono,
+        codigoCliente: canAssignCode ? (codigoCliente.trim() || undefined) : undefined,
         addresses: [{
           id: crypto.randomUUID(),
           nombre: addr.nombre || 'Principal',
@@ -89,6 +96,14 @@ export function CrearClienteModal({ onClose, onCreated }: { onClose: () => void;
           required
           placeholder="20123456789"
         />
+        {canAssignCode && (
+          <Input
+            label="Código de cliente (opcional)"
+            value={codigoCliente}
+            onChange={(e) => setCodigoCliente(e.target.value)}
+            placeholder="Ej: CLI-0042"
+          />
+        )}
         <Input
           label="Email (opcional)"
           type="email"
