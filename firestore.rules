@@ -78,8 +78,10 @@ service cloud.firestore {
       }
 
       // Campos que el staff (comercial/gerente_comercial/logistica) puede editar
-      // sobre un cliente. Excluye identidad (cuit, codigoCliente, codVendedor,
-      // sector), credenciales/login (email, dni, username) y rol.
+      // sobre un cliente. codigoCliente ahora es de gestión compartida (antes
+      // era exclusivo de facturación). Sigue excluyendo identidad real
+      // (cuit, codVendedor, sector), credenciales/login (email, dni, username)
+      // y rol.
       function camposGestionClienteOk() {
         return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'razonSocial', 'nombreContacto', 'nombre', 'telefono',
@@ -87,7 +89,7 @@ service cloud.firestore {
           'listaPreciosId', 'preciosCustom', 'vigenciaCustom', 'ultimoCambioPrecio',
           'esVisita', 'frecuenciaVisita',
           'addresses', 'lat', 'lng', 'coordPendiente',
-          'notasContacto',
+          'notasContacto', 'codigoCliente',
         ]);
       }
 

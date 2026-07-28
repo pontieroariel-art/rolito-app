@@ -49,7 +49,7 @@ export function FichaClienteModal({
   const { isLoaded } = useGoogleMapsLoader()
 
   const canManagePrices  = ['super_admin', 'gerente_comercial'].includes(currentUser?.rol ?? '')
-  const canAssignCode    = ['super_admin', 'facturacion'].includes(currentUser?.rol ?? '')
+  const canAssignCode    = ['super_admin', 'facturacion', 'gerente_comercial', 'comercial', 'logistica'].includes(currentUser?.rol ?? '')
   const canEditInfoBasica = ['super_admin', 'gerente_comercial', 'comercial', 'logistica'].includes(currentUser?.rol ?? '')
 
   const handleSaveInfo = async () => {
@@ -232,7 +232,7 @@ export function FichaClienteModal({
           </section>
         )}
 
-        {/* Código de cliente — asignado por facturación */}
+        {/* Código de cliente — gestión compartida (facturación y comercial/logística) */}
         {user.rol === 'cliente' && (canAssignCode || user.codigoCliente) && (
           <section className="space-y-2">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
@@ -255,7 +255,7 @@ export function FichaClienteModal({
                 <Row label="Código" value={user.codigoCliente ?? '—'} />
               )}
               {canAssignCode && (
-                <p className="text-xs text-gray-400 mt-1.5">Código interno de facturación para este cliente.</p>
+                <p className="text-xs text-gray-400 mt-1.5">Código interno de cliente (facturación / gestión comercial).</p>
               )}
             </div>
           </section>

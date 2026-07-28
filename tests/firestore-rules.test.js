@@ -120,12 +120,12 @@ describe('users — staff no puede editar documentos de otro staff', () => {
     await assertFails(updateDoc(doc(db('com'), 'users/cli'), { cuit: '20999999999' }))
   })
 
-  test('comercial NO puede editar el codigoCliente de un cliente (campo de facturación)', async () => {
+  test('comercial SÍ puede editar el codigoCliente de un cliente (gestión compartida con facturación)', async () => {
     await seed(async (d) => {
       await setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' })
       await setDoc(doc(d, 'users/cli'), cliente())
     })
-    await assertFails(updateDoc(doc(db('com'), 'users/cli'), { codigoCliente: 'CLI-9999' }))
+    await assertSucceeds(updateDoc(doc(db('com'), 'users/cli'), { codigoCliente: 'CLI-9999' }))
   })
 
   // ── Regresión positiva: los flujos reales de gestión de clientes siguen OK ──

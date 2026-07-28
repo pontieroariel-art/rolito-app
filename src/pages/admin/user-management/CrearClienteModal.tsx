@@ -10,11 +10,10 @@ import { createClientUser } from '../../../services/userService'
 export function CrearClienteModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const { user: currentUser } = useAuth()
   const { isLoaded } = useGoogleMapsLoader()
-  // Igual que en la ficha del cliente (FichaClienteModal): el código interno
-  // de facturación solo lo carga super_admin/facturación. El resto de los
-  // roles que pueden dar de alta un cliente (comercial, logística, gerente
-  // comercial) lo dejan para que facturación lo asigne después.
-  const canAssignCode = ['super_admin', 'facturacion'].includes(currentUser?.rol ?? '')
+  // Gestión compartida: además de super_admin/facturación, también pueden
+  // cargarlo comercial/gerente_comercial/logística (mismo criterio que en
+  // FichaClienteModal).
+  const canAssignCode = ['super_admin', 'facturacion', 'gerente_comercial', 'comercial', 'logistica'].includes(currentUser?.rol ?? '')
 
   const [razonSocial,    setRazonSocial]    = useState('')
   const [nombreContacto, setNombreContacto] = useState('')
