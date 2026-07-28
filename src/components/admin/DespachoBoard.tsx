@@ -8,7 +8,8 @@ import Button from '../ui/Button'
 import Modal from '../ui/Modal'
 import LoadingSpinner from '../ui/LoadingSpinner'
 import { Order, CatalogProducto, UserProfile, Despacho, Camion, PLANTAS, PlantaId } from '../../types'
-import { calcPallets } from '../../utils/helpers'
+import { calcPallets, splitSucursalLabel, getCodigoCliente, buildCodigoByClientId } from '../../utils/helpers'
+import { CLIENT_LOGOS } from '../../utils/constants'
 import { formatDespachoFecha, todayStr } from '../../services/despachoService'
 import { visitasParaFecha, programasParaFecha } from '../../hooks/useVisitas'
 import { AsignacionChofer } from '../../services/asignacionesDiaService'
@@ -38,18 +39,27 @@ function porChofer<T>(map: Record<string, T>, chofer: UserProfile | null, fallba
 
 // ── DraggableCard ─────────────────────────────────────────────────────────────
 
-const DraggableCard = memo(function DraggableCard({ item, routeNum, arrival, color, locked, onMoveUp, onMoveDown }: {
+const DraggableCard = memo(function DraggableCard({ item, routeNum, arrival, color, locked, codigoByClientId, onMoveUp, onMoveDown }: {
   item:      DayItem
   routeNum?: number
   arrival?:  string
   color?:    string
   locked?:   boolean
+  codigoByClientId?: Map<string, string | undefined>
   onMoveUp?:   () => void
   onMoveDown?: () => void
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: item.dndId })
   const isVisit = item.kind !== 'order'
   const showReorder = !locked && (onMoveUp || onMoveDown)
+  // Mismo tratamiento visual que las tarjetas de Pedidos (OrderListRow en
+  // LogisticaDashboard): logo de PedidosYa/Rappi en vez del nombre completo
+  // truncado, sucursal separada de la razón social, código de cliente y N°
+  // de OC — compacto, se agrega a la misma línea del nombre en vez de sumar
+  // altura a la tarjeta.
+  const { empresa, sucursal } = splitSucursalLabel(item.label)
+  const clientLogo    = CLIENT_LOGOS[item.clientId]
+  const codigoCliente = codigoByClientId ? getCodigoCliente(codigoByClientId, item.clientId, item.sublabel) : undefined
 
   return (
     <div
@@ -74,7 +84,23 @@ const DraggableCard = memo(function DraggableCard({ item, routeNum, arrival, col
         )}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1">
-            <p className="text-xs font-semibold text-gray-900 truncate">{item.label}</p>
+            {clientLogo && (
+              <span className="shrink-0 w-3.5 h-3.5 rounded bg-[#F8F7F2] ring-1 ring-[#E4E1D6] flex items-center justify-center overflow-hidden">
+                <img src={clientLogo.src} alt="" title={clientLogo.alt} className="w-full h-full object-contain" />
+              </span>
+            )}
+            <p className="text-xs font-semibold text-gray-900 truncate">
+              {!clientLogo && empresa && (
+                <span className="text-gray-400 font-normal">{empresa} · </span>
+              )}
+              {sucursal}
+            </p>
+            {codigoCliente && (
+              <span className="text-[9px] text-gray-400 font-mono shrink-0">{codigoCliente}</span>
+            )}
+            {item.numeroOC && (
+              <span className="text-[9px] text-gray-400 font-mono shrink-0">OC {item.numeroOC}</span>
+            )}
             {locked && <Lock size={9} className="text-green-500 shrink-0" />}
             {item.kind === 'programa' && (
               <span className="text-violet-400 shrink-0" title="Visita recurrente">↺</span>
@@ -116,13 +142,24 @@ const DraggableCard = memo(function DraggableCard({ item, routeNum, arrival, col
 // ── GhostCard ─────────────────────────────────────────────────────────────────
 
 function GhostCard({ item }: { item: DayItem }) {
+  const { empresa, sucursal } = splitSucursalLabel(item.label)
+  const clientLogo = CLIENT_LOGOS[item.clientId]
   return (
     <div className={`border-2 border-accent rounded-xl p-3 shadow-2xl rotate-1 w-52 ${
       item.kind !== 'order' ? 'bg-violet-50' : 'bg-white'
     }`}>
       <div className="flex items-center gap-2 mb-1">
-        {item.kind !== 'order' ? <Eye size={13} className="text-violet-400" /> : <Package size={13} className="text-gray-400" />}
-        <p className="text-sm font-semibold text-gray-900 leading-tight">{item.label}</p>
+        {clientLogo ? (
+          <span className="shrink-0 w-4 h-4 rounded bg-[#F8F7F2] ring-1 ring-[#E4E1D6] flex items-center justify-center overflow-hidden">
+            <img src={clientLogo.src} alt="" title={clientLogo.alt} className="w-full h-full object-contain" />
+          </span>
+        ) : (
+          item.kind !== 'order' ? <Eye size={13} className="text-violet-400" /> : <Package size={13} className="text-gray-400" />
+        )}
+        <p className="text-sm font-semibold text-gray-900 leading-tight truncate">
+          {!clientLogo && empresa && <span className="text-gray-400 font-normal">{empresa} · </span>}
+          {sucursal}
+        </p>
       </div>
       <p className="text-xs text-gray-400 truncate">{item.sublabel}</p>
     </div>
@@ -144,7 +181,7 @@ function DroppableZone({ id, children, className }: { id: string; children: Reac
 
 // ── SinAsignarColumn ──────────────────────────────────────────────────────────
 
-function SinAsignarColumn({ items, fullWidth }: { items: DayItem[]; fullWidth?: boolean }) {
+function SinAsignarColumn({ items, codigoByClientId, fullWidth }: { items: DayItem[]; codigoByClientId: Map<string, string | undefined>; fullWidth?: boolean }) {
   const orders  = items.filter((i) => i.kind === 'order')
   const visitas = items.filter((i) => i.kind !== 'order')
   return (
@@ -161,11 +198,11 @@ function SinAsignarColumn({ items, fullWidth }: { items: DayItem[]; fullWidth?: 
           <p className="text-xs text-gray-400 text-center py-6">Todo asignado ✓</p>
         ) : (
           <>
-            {orders.length > 0 && orders.map((i) => <DraggableCard key={i.dndId} item={i} />)}
+            {orders.length > 0 && orders.map((i) => <DraggableCard key={i.dndId} item={i} codigoByClientId={codigoByClientId} />)}
             {visitas.length > 0 && (
               <>
                 {orders.length > 0 && <div className="border-t border-[#D3D1C7] my-1" />}
-                {visitas.map((i) => <DraggableCard key={i.dndId} item={i} />)}
+                {visitas.map((i) => <DraggableCard key={i.dndId} item={i} codigoByClientId={codigoByClientId} />)}
               </>
             )}
           </>
@@ -177,11 +214,19 @@ function SinAsignarColumn({ items, fullWidth }: { items: DayItem[]; fullWidth?: 
 
 // ── CamionColumn (columna = camión; adentro se elige chofer y ayudante) ─────
 
+// Iniciales para el avatar circular del chofer (ej. "Gastón Pereyra" → "GP").
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
 const CamionColumn = memo(function CamionColumn({
   camion, chofer, choferesPrincipales, assignedChoferEmails, onChoferChange,
   ayudantes, asignacion, onAsignacionChange,
   items, routeOrder, arrivals, recalculating, orsStatus, despacho, colorIdx,
-  plantaId, horaSalida, catalogo, manualOrder,
+  plantaId, horaSalida, catalogo, manualOrder, codigoByClientId,
   onPlantaChange, onHoraSalidaChange, onConfirm, onReopen, onTransfer, onManualReorder, onRecalculate,
   fullWidth,
 }: {
@@ -204,6 +249,7 @@ const CamionColumn = memo(function CamionColumn({
   horaSalida:           string
   catalogo:             CatalogProducto[]
   manualOrder:          boolean
+  codigoByClientId:     Map<string, string | undefined>
   onPlantaChange:       (email: string, p: PlantaId) => void
   onHoraSalidaChange:   (email: string, h: string) => void
   onConfirm:            (email: string) => void
@@ -260,9 +306,16 @@ const CamionColumn = memo(function CamionColumn({
     <div className={`flex flex-col h-full ${fullWidth ? 'w-full' : 'w-56 shrink-0'}`}>
       {/* Header */}
       <div className={`border rounded-t-xl px-3 py-2.5 ${confirmed ? 'bg-green-50 border-green-300' : 'bg-white border-[#D3D1C7]'}`}>
-        <div className="flex items-center gap-2 mb-0.5">
+        <div className="flex items-center gap-2">
           <Truck size={14} style={{ color }} className="shrink-0" />
-          <p className="text-sm font-semibold text-gray-900 truncate flex-1">{camion.patente} — {camion.modelo}</p>
+          {/* Patente en su propia línea (nunca trunca, son cortas) — el
+              modelo va abajo en gris, así puede truncar sin esconder la
+              patente (antes "patente — modelo" en una sola línea perdía el
+              modelo entero con nombres largos). */}
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold text-gray-900 truncate leading-tight">{camion.patente}</p>
+            <p className="text-[10px] text-gray-400 truncate leading-tight">{camion.modelo}</p>
+          </div>
           <div className="flex items-center gap-1 shrink-0">
             {orderCount > 0 && (
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white" style={{ backgroundColor: color }}>
@@ -277,19 +330,32 @@ const CamionColumn = memo(function CamionColumn({
           </div>
         </div>
 
-        {/* Chofer */}
-        <select
-          value={chofer?.email ?? ''}
-          onChange={(e) => onChoferChange(camion.id, e.target.value)}
-          onPointerDown={(e) => e.stopPropagation()}
-          disabled={confirmed}
-          className="mt-1 w-full text-[10px] border border-gray-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-gray-400 truncate"
-        >
-          <option value="">Sin chofer</option>
-          {choferesDisponibles.map((c) => (
-            <option key={c.email} value={c.email}>{c.nombreContacto || c.nombre || c.email}</option>
-          ))}
-        </select>
+        {/* Chofer — avatar con iniciales coloreado igual que los círculos de
+            orden de ruta, para identificar la columna de un vistazo sin
+            tener que leer el nombre completo. */}
+        <div className="mt-1 flex items-center gap-1.5">
+          {chofer && (
+            <span
+              className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] font-bold"
+              style={{ backgroundColor: color }}
+              title={chofer.nombreContacto || chofer.nombre || chofer.email}
+            >
+              {initials(chofer.nombreContacto || chofer.nombre || chofer.email)}
+            </span>
+          )}
+          <select
+            value={chofer?.email ?? ''}
+            onChange={(e) => onChoferChange(camion.id, e.target.value)}
+            onPointerDown={(e) => e.stopPropagation()}
+            disabled={confirmed}
+            className="flex-1 min-w-0 text-[10px] border border-gray-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-gray-400 truncate"
+          >
+            <option value="">Sin chofer</option>
+            {choferesDisponibles.map((c) => (
+              <option key={c.email} value={c.email}>{c.nombreContacto || c.nombre || c.email}</option>
+            ))}
+          </select>
+        </div>
 
         {!chofer ? (
           <p className="mt-2 text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2 py-2 text-center leading-tight">
@@ -414,6 +480,7 @@ const CamionColumn = memo(function CamionColumn({
                   arrival={arrivals[item.dndId]}
                   color={color}
                   locked={confirmed}
+                  codigoByClientId={codigoByClientId}
                   onMoveUp={!confirmed && sortedItems.length > 1 && i > 0 ? () => moveItem(i, -1) : undefined}
                   onMoveDown={!confirmed && sortedItems.length > 1 && i < sortedItems.length - 1 ? () => moveItem(i, 1) : undefined}
                 />
@@ -641,6 +708,10 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
   // — no hace falta tocar el hook ni el modelo persistido).
   const activeCamiones = useMemo(() => camiones.filter((c) => c.activo), [camiones])
 
+  // Para el logo/código de cliente en las tarjetas de parada (mismo patrón
+  // que las tarjetas de Pedidos en LogisticaDashboard).
+  const codigoByClientId = useMemo(() => buildCodigoByClientId(allClients), [allClients])
+
   const choferByCamionId = useMemo(() => {
     const m: Record<string, UserProfile> = {}
     choferesPrincipales.forEach((c) => {
@@ -681,6 +752,7 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
       horaSalida: porChofer(horaSalidaByDriver, chofer, '07:00'),
       catalogo,
       manualOrder: !!(chofer && manualOrder[chofer.email]),
+      codigoByClientId,
       onPlantaChange: handlePlantaChange,
       onHoraSalidaChange: handleHoraSalidaChange,
       onConfirm: handleConfirmClick,
@@ -692,7 +764,7 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
   }, [
     choferByCamionId, choferesPrincipales, assignedChoferEmails, handleChoferChange, choferes,
     asignacionesDia, handleAsignacionChange, itemsByDriver, routeOrder, routeArrivals, recalculating,
-    orsStatus, despachoByDriver, plantaByDriver, horaSalidaByDriver, catalogo, manualOrder,
+    orsStatus, despachoByDriver, plantaByDriver, horaSalidaByDriver, catalogo, manualOrder, codigoByClientId,
     handlePlantaChange, handleHoraSalidaChange, handleConfirmClick, handleReopen, handleTransferClick,
     handleManualReorder, handleRecalculate,
   ])
@@ -819,7 +891,7 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
               </div>
               <div className="flex-1 min-h-0">
                 {mobileBucket === 'sin_asignar' ? (
-                  <SinAsignarColumn items={itemsByDriver['sin_asignar'] ?? []} fullWidth />
+                  <SinAsignarColumn items={itemsByDriver['sin_asignar'] ?? []} codigoByClientId={codigoByClientId} fullWidth />
                 ) : (() => {
                   const idx    = activeCamiones.findIndex((c) => c.id === mobileBucket)
                   const camion = activeCamiones[idx]
@@ -836,7 +908,7 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
             <div className="h-full overflow-x-auto overflow-y-hidden">
               <div className="flex gap-3 h-full p-4" style={{ minWidth: 'max-content' }}>
 
-                <SinAsignarColumn items={itemsByDriver['sin_asignar'] ?? []} />
+                <SinAsignarColumn items={itemsByDriver['sin_asignar'] ?? []} codigoByClientId={codigoByClientId} />
 
                 {activeCamiones.map((camion, idx) => (
                   <CamionColumn key={camion.id} {...camionColumnProps(camion, idx)} />

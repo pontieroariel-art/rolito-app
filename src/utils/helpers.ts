@@ -81,6 +81,19 @@ export function normalizeAddress(address: string): string {
     .trim()
 }
 
+// Arma el mapa uid[|dirección] → código de sucursal, usado por getCodigoCliente.
+// Extraído para no duplicar esta lógica entre las vistas de Pedidos y Despacho.
+export function buildCodigoByClientId(allClients: UserProfile[]): Map<string, string | undefined> {
+  const map = new Map<string, string | undefined>()
+  for (const c of allClients) {
+    map.set(c.uid, c.codigoCliente)
+    for (const a of c.addresses ?? []) {
+      if (a.address && isSucursalCode(a.id)) map.set(`${c.uid}|${normalizeAddress(a.address)}`, a.id)
+    }
+  }
+  return map
+}
+
 // Resuelve el código de cliente exacto de la sucursal del pedido (grupos
 // empresarios tienen un código distinto por dirección en addresses[].id);
 // si no hay match por dirección, cae al código general del cliente.

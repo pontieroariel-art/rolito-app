@@ -33,6 +33,7 @@ export interface DayItem {
   sublabel: string
   driverId: string | null
   products?: OrderProduct[] // solo para kind === 'order'
+  numeroOC?:             string // solo para kind === 'order'
   reprogramado?:         boolean
   motivoReprogramacion?: string
 }
@@ -40,7 +41,7 @@ export interface DayItem {
 function itemsFromOrder(o: Order): DayItem {
   return {
     kind: 'order', dndId: `o:${o.id}`, id: o.id, clientId: o.clientId, label: o.clientName, sublabel: o.clientAddress,
-    driverId: o.driverId, products: o.products,
+    driverId: o.driverId, products: o.products, numeroOC: o.numeroOC,
     reprogramado: o.reprogramado, motivoReprogramacion: o.motivoReprogramacion,
   }
 }

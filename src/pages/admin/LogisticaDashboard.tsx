@@ -20,7 +20,7 @@ import { useChoferes } from '../../hooks/useChoferes'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { useAuth } from '../../context/AuthContext'
 import { moveOrderDate, moveOrderToBandeja, assignDriver, cancelOrderBy, editOrderBy, EditOrderParams } from '../../services/orderService'
-import { summarizeProducts, tsToDate, splitSucursalLabel, getCodigoCliente, isSucursalCode, normalizeAddress, toDateStr as dateToStr } from '../../utils/helpers'
+import { summarizeProducts, tsToDate, splitSucursalLabel, getCodigoCliente, buildCodigoByClientId, toDateStr as dateToStr } from '../../utils/helpers'
 import { PRODUCTS, CLIENT_LOGOS } from '../../utils/constants'
 import { useCatalogo } from '../../hooks/useCatalogo'
 import { Order, OrderProduct, UserProfile, AccionHistorial } from '../../types'
@@ -793,16 +793,7 @@ export default function LogisticaDashboard() {
   // que no es un código real, así que no se usa como tal. El mapa guarda
   // ambas cosas: la clave "uid|dirección" para resolver el código exacto de
   // la sucursal del pedido, y la clave "uid" sola como fallback.
-  const codigoByClientId = useMemo(() => {
-    const map = new Map<string, string | undefined>()
-    for (const c of allClients) {
-      map.set(c.uid, c.codigoCliente)
-      for (const a of c.addresses ?? []) {
-        if (a.address && isSucursalCode(a.id)) map.set(`${c.uid}|${normalizeAddress(a.address)}`, a.id)
-      }
-    }
-    return map
-  }, [allClients])
+  const codigoByClientId = useMemo(() => buildCodigoByClientId(allClients), [allClients])
 
   const sensors = useSensors(
     useSensor(MouseSensor,  { activationConstraint: { distance: 5 } }),
