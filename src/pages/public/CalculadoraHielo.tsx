@@ -68,6 +68,22 @@ export default function CalculadoraHielo() {
     document.title = 'Calculadora de Hielo - Rolito'
   }, [])
 
+  // Si esta página está embebida en un iframe (ej. WordPress), le avisamos al
+  // padre la altura real del contenido para que ajuste el iframe sin scroll doble.
+  useEffect(() => {
+    if (window.self === window.top) return
+    const avisarAltura = () => {
+      window.parent.postMessage(
+        { type: 'rolito:calculadora-hielo:height', height: document.documentElement.scrollHeight },
+        '*'
+      )
+    }
+    const observer = new ResizeObserver(avisarAltura)
+    observer.observe(document.documentElement)
+    avisarAltura()
+    return () => observer.disconnect()
+  }, [])
+
   const { data: pronostico } = useQuery({
     queryKey:  ['pronostico-calculadora-hielo'],
     queryFn:   () => getForecast(undefined, undefined, DIAS_PRONOSTICO),
