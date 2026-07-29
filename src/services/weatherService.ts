@@ -2,7 +2,8 @@ const DEFAULT_LAT = -34.6037
 const DEFAULT_LNG = -58.3816
 const TZ          = 'America/Argentina/Buenos_Aires'
 
-const DAILY_VARS = 'temperature_2m_max,temperature_2m_min,precipitation_sum,weathercode'
+const DAILY_VARS   = 'temperature_2m_max,temperature_2m_min,precipitation_sum,weathercode'
+const FORECAST_DAYS = 7
 
 export interface DayWeather {
   date:     string   // 'YYYY-MM-DD'
@@ -45,8 +46,8 @@ function parseDays(data: any): DayWeather[] {
   })
 }
 
-export async function getForecast(lat = DEFAULT_LAT, lng = DEFAULT_LNG): Promise<DayWeather[]> {
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=${DAILY_VARS}&timezone=${TZ}&forecast_days=7`
+export async function getForecast(lat = DEFAULT_LAT, lng = DEFAULT_LNG, days = FORECAST_DAYS): Promise<DayWeather[]> {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=${DAILY_VARS}&timezone=${TZ}&forecast_days=${days}`
   const res = await fetch(url)
   if (!res.ok) throw new Error('Error al obtener pronóstico')
   return parseDays(await res.json())

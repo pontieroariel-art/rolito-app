@@ -47,6 +47,8 @@ const ChoferDashboard   = lazy(() => import('./pages/chofer/ChoferDashboard'))
 const ChoferMap         = lazy(() => import('./pages/chofer/ChoferMap'))
 const GerenteDashboard  = lazy(() => import('./pages/gerente/GerenteDashboard'))
 
+const CalculadoraHielo  = lazy(() => import('./pages/public/CalculadoraHielo'))
+
 // ── ErrorBoundary ─────────────────────────────────────────────────────────────
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -112,6 +114,7 @@ function AppContent() {
         <Route path="/register"        element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/pendiente"       element={<PendingApproval />} />
+        <Route path="/calculadora-rolito" element={<CalculadoraHielo />} />
 
         {/* Cliente */}
         <Route element={<ProtectedRoute allowedRoles={['cliente']} />}>
