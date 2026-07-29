@@ -8,7 +8,7 @@ import { orderDateStr } from '../../hooks/useDespachoBoard'
 import { subscribeDespachosByFecha, formatDespachoFecha } from '../../services/despachoService'
 import { toDateStr, todayString, addDaysStr, tsToDate, initials, summarizeProducts } from '../../utils/helpers'
 import { generateHistorialDespachoPdf, HistorialDespachoRow } from '../../utils/pdf'
-import { Order, Despacho } from '../../types'
+import { Order, Despacho, OrderProduct } from '../../types'
 
 type Resultado = 'entregado' | 'reprogramado' | 'cancelado' | 'pendiente'
 
@@ -70,6 +70,18 @@ function groupStats(g: ChoferGroup) {
     entregados:   g.items.filter((i) => i.resultado === 'entregado').length,
     noEntregados: g.items.filter((i) => i.resultado === 'reprogramado' || i.resultado === 'cancelado').length,
   }
+}
+
+// Suma cantidades por producto solo entre lo efectivamente entregado (no lo
+// pedido) — misma fuente que la columna "Cantidad"/el pie del PDF.
+function totalDescargado(items: HistorialItem[]): OrderProduct[] {
+  const map = new Map<string, number>()
+  items.forEach(({ order, resultado }) => {
+    if (resultado !== 'entregado') return
+    const productos = order.productosEntregados ?? order.products
+    productos.forEach((p) => map.set(p.name, (map.get(p.name) ?? 0) + p.quantity))
+  })
+  return [...map.entries()].map(([name, quantity]) => ({ name, quantity }))
 }
 
 function resultadoYChofer(o: Order, fecha: string): { resultado: Resultado; choferKey: string } | null {
@@ -271,6 +283,7 @@ function ChoferCard({ grupo, open, onToggle, onDownloadPdf, pdfLoading }: {
   const entregados = grupo.items.filter((i) => i.resultado === 'entregado').length
   const total = grupo.items.length
   const pct = total > 0 ? Math.round((entregados / total) * 100) : 0
+  const descargado = summarizeProducts(totalDescargado(grupo.items))
 
   return (
     <div className="bg-white border border-[#D3D1C7] rounded-xl overflow-hidden">
@@ -309,6 +322,9 @@ function ChoferCard({ grupo, open, onToggle, onDownloadPdf, pdfLoading }: {
               </div>
               <span className="text-xs text-gray-500">{entregados}/{total} entregados{grupo.horaSalida ? ` · salió ${grupo.horaSalida}` : ''}</span>
             </div>
+            {descargado && (
+              <p className="text-xs text-gray-500 mt-0.5">Total entregado: <span className="text-gray-900">{descargado}</span></p>
+            )}
           </div>
         </button>
 
