@@ -160,6 +160,7 @@ export interface HistorialDespachoRow {
   camion:    string | null
   cliente:   string
   direccion: string
+  cantidad:  string   // productos entregados (o pedidos, si no se entregó), ya resumidos
   resultado: string   // ya formateado: 'Entregado' | 'No entregado' | 'Cancelado' | 'Pendiente'
   motivo?:   string
 }
@@ -221,12 +222,12 @@ export async function generateHistorialDespachoPdf(
 
   // ── Tabla ───────────────────────────────────────────────────────────────────
   const head = scope
-    ? ['Cliente', 'Dirección', 'Resultado', 'Motivo']
-    : ['Chofer', 'Camión', 'Cliente', 'Dirección', 'Resultado', 'Motivo']
+    ? ['Cliente', 'Dirección', 'Cantidad', 'Resultado', 'Motivo']
+    : ['Chofer', 'Camión', 'Cliente', 'Dirección', 'Cantidad', 'Resultado', 'Motivo']
   const body = rows.map((r) => scope
-    ? [r.cliente, r.direccion, r.resultado, r.motivo ?? '']
-    : [r.chofer, r.camion ?? '—', r.cliente, r.direccion, r.resultado, r.motivo ?? ''])
-  const resultadoCol = scope ? 2 : 4
+    ? [r.cliente, r.direccion, r.cantidad, r.resultado, r.motivo ?? '']
+    : [r.chofer, r.camion ?? '—', r.cliente, r.direccion, r.cantidad, r.resultado, r.motivo ?? ''])
+  const resultadoCol = scope ? 3 : 5
 
   autoTable(doc, {
     startY: 34,
@@ -246,8 +247,8 @@ export async function generateHistorialDespachoPdf(
     },
     alternateRowStyles: { fillColor: [240, 248, 244] },
     columnStyles: scope
-      ? { 0: { cellWidth: 60 }, 1: { cellWidth: 90 }, 2: { cellWidth: 30 }, 3: { cellWidth: 60 } }
-      : { 0: { cellWidth: 38 }, 1: { cellWidth: 38 }, 2: { cellWidth: 50 }, 3: { cellWidth: 70 }, 4: { cellWidth: 28 }, 5: { cellWidth: 40 } },
+      ? { 0: { cellWidth: 50 }, 1: { cellWidth: 65 }, 2: { cellWidth: 55 }, 3: { cellWidth: 30 }, 4: { cellWidth: 50 } }
+      : { 0: { cellWidth: 32 }, 1: { cellWidth: 32 }, 2: { cellWidth: 42 }, 3: { cellWidth: 55 }, 4: { cellWidth: 45 }, 5: { cellWidth: 26 }, 6: { cellWidth: 32 } },
     margin: { left: 14, right: 14 },
     didParseCell: (data) => {
       if (data.section === 'body' && data.column.index === resultadoCol) {

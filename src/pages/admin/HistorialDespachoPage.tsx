@@ -51,6 +51,7 @@ function buildRows(g: ChoferGroup): HistorialDespachoRow[] {
     camion:    g.camion,
     cliente:   order.clientName,
     direccion: order.clientAddress,
+    cantidad:  summarizeProducts(resultado === 'entregado' && order.productosEntregados ? order.productosEntregados : order.products),
     resultado: RESULTADO_LABEL[resultado],
     motivo:    resultado === 'reprogramado' ? order.motivoReprogramacion
              : resultado === 'cancelado'    ? order.motivoCancelacion
