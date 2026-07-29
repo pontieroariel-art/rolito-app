@@ -1,4 +1,4 @@
-import { Order } from '../types'
+import { Order, OrderProduct } from '../types'
 import { toDateStr } from './helpers'
 
 // El logo fuente (/logo-rolito.png) es un PNG de 8334x2836px — insertado tal
@@ -160,8 +160,10 @@ export interface HistorialDespachoRow {
   camion:    string | null
   cliente:   string
   direccion: string
-  cantidad:  string   // productos entregados (o pedidos, si no se entregó), ya resumidos
-  resultado: string   // ya formateado: 'Entregado' | 'No entregado' | 'Cancelado' | 'Pendiente'
+  cantidad:  string          // productos entregados (o pedidos, si no se entregó), ya resumidos
+  productos: OrderProduct[]  // mismos productos que `cantidad`, sin resumir — para el total del pie
+  resultado: string          // ya formateado: 'Entregado' | 'No entregado' | 'Cancelado' | 'Pendiente'
+  hora?:     string          // hora de entrega, solo si resultado === 'Entregado'
   motivo?:   string
 }
 
@@ -222,11 +224,11 @@ export async function generateHistorialDespachoPdf(
 
   // ── Tabla ───────────────────────────────────────────────────────────────────
   const head = scope
-    ? ['Cliente', 'Dirección', 'Cantidad', 'Resultado', 'Motivo']
-    : ['Chofer', 'Camión', 'Cliente', 'Dirección', 'Cantidad', 'Resultado', 'Motivo']
+    ? ['Cliente', 'Dirección', 'Cantidad', 'Resultado', 'Hora', 'Motivo']
+    : ['Chofer', 'Camión', 'Cliente', 'Dirección', 'Cantidad', 'Resultado', 'Hora', 'Motivo']
   const body = rows.map((r) => scope
-    ? [r.cliente, r.direccion, r.cantidad, r.resultado, r.motivo ?? '']
-    : [r.chofer, r.camion ?? '—', r.cliente, r.direccion, r.cantidad, r.resultado, r.motivo ?? ''])
+    ? [r.cliente, r.direccion, r.cantidad, r.resultado, r.hora ?? '', r.motivo ?? '']
+    : [r.chofer, r.camion ?? '—', r.cliente, r.direccion, r.cantidad, r.resultado, r.hora ?? '', r.motivo ?? ''])
   const resultadoCol = scope ? 3 : 5
 
   autoTable(doc, {
@@ -247,8 +249,8 @@ export async function generateHistorialDespachoPdf(
     },
     alternateRowStyles: { fillColor: [240, 248, 244] },
     columnStyles: scope
-      ? { 0: { cellWidth: 50 }, 1: { cellWidth: 65 }, 2: { cellWidth: 55 }, 3: { cellWidth: 30 }, 4: { cellWidth: 50 } }
-      : { 0: { cellWidth: 32 }, 1: { cellWidth: 32 }, 2: { cellWidth: 42 }, 3: { cellWidth: 55 }, 4: { cellWidth: 45 }, 5: { cellWidth: 26 }, 6: { cellWidth: 32 } },
+      ? { 0: { cellWidth: 45 }, 1: { cellWidth: 60 }, 2: { cellWidth: 50 }, 3: { cellWidth: 28 }, 4: { cellWidth: 18 }, 5: { cellWidth: 45 } }
+      : { 0: { cellWidth: 30 }, 1: { cellWidth: 30 }, 2: { cellWidth: 38 }, 3: { cellWidth: 48 }, 4: { cellWidth: 40 }, 5: { cellWidth: 24 }, 6: { cellWidth: 16 }, 7: { cellWidth: 28 } },
     margin: { left: 14, right: 14 },
     didParseCell: (data) => {
       if (data.section === 'body' && data.column.index === resultadoCol) {
@@ -260,6 +262,31 @@ export async function generateHistorialDespachoPdf(
       }
     },
   })
+
+  // ── Resumen final ───────────────────────────────────────────────────────────
+  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
+  const finalY: number = doc.lastAutoTable?.finalY ?? 34 + rows.length * 8
+
+  doc.setDrawColor(200)
+  doc.setLineWidth(0.3)
+  doc.line(14, finalY + 4, pageW - 14, finalY + 4)
+
+  doc.setFontSize(8.5)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(0)
+  doc.text(`Total de pedidos: ${stats.total}   ·   Entregados: ${stats.entregados}   ·   No entregados: ${stats.noEntregados}`, 14, finalY + 10)
+
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(60)
+  const productMap: Record<string, number> = {}
+  rows.forEach((r) => {
+    if (r.resultado !== 'Entregado') return
+    r.productos.forEach((p) => { productMap[p.name] = (productMap[p.name] ?? 0) + p.quantity })
+  })
+  const productSummary = Object.entries(productMap).map(([name, qty]) => `${name}: ${qty}`).join('   |   ')
+  if (productSummary) {
+    doc.text('Descargado en total: ' + productSummary, 14, finalY + 16)
+  }
 
   // ── Guardar ─────────────────────────────────────────────────────────────────
   const suffix = scope ? `-${scope.chofer.toLowerCase().replace(/\s+/g, '-')}` : ''

@@ -46,17 +46,22 @@ interface ChoferGroup {
 // lo tenía). `fechaOriginal` se sobreescribe en cada reprogramación, así que
 // un pedido reprogramado más de una vez solo queda trazable en su último salto.
 function buildRows(g: ChoferGroup): HistorialDespachoRow[] {
-  return g.items.map(({ order, resultado }) => ({
-    chofer:    g.nombre,
-    camion:    g.camion,
-    cliente:   order.clientName,
-    direccion: order.clientAddress,
-    cantidad:  summarizeProducts(resultado === 'entregado' && order.productosEntregados ? order.productosEntregados : order.products),
-    resultado: RESULTADO_LABEL[resultado],
-    motivo:    resultado === 'reprogramado' ? order.motivoReprogramacion
-             : resultado === 'cancelado'    ? order.motivoCancelacion
-             : undefined,
-  }))
+  return g.items.map(({ order, resultado }) => {
+    const productos = resultado === 'entregado' && order.productosEntregados ? order.productosEntregados : order.products
+    return {
+      chofer:    g.nombre,
+      camion:    g.camion,
+      cliente:   order.clientName,
+      direccion: order.clientAddress,
+      cantidad:  summarizeProducts(productos),
+      productos,
+      resultado: RESULTADO_LABEL[resultado],
+      hora:      resultado === 'entregado' ? order.horaEntrega : undefined,
+      motivo:    resultado === 'reprogramado' ? order.motivoReprogramacion
+               : resultado === 'cancelado'    ? order.motivoCancelacion
+               : undefined,
+    }
+  })
 }
 
 function groupStats(g: ChoferGroup) {
