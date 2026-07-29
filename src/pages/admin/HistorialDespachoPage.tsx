@@ -335,9 +335,17 @@ function ChoferCard({ grupo, open, onToggle, onDownloadPdf, pdfLoading }: {
                     </span>
                   </div>
                   <p className="text-xs text-gray-500">{order.clientAddress}</p>
-                  <p className="text-xs text-gray-500">{summarizeProducts(order.products)}</p>
-                  {order.entregaParcial && order.productosEntregados && (
-                    <p className="text-xs text-amber-600">Entrega parcial: {summarizeProducts(order.productosEntregados)}</p>
+                  {resultado === 'entregado' && order.productosEntregados ? (
+                    <>
+                      <p className="text-xs text-gray-500">
+                        Descargado: <span className="text-gray-900">{summarizeProducts(order.productosEntregados)}</span>
+                      </p>
+                      {order.entregaParcial && (
+                        <p className="text-xs text-amber-600">Pedido original: {summarizeProducts(order.products)}</p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-xs text-gray-500">{summarizeProducts(order.products)}</p>
                   )}
                   {resultado === 'reprogramado' && order.motivoReprogramacion && (
                     <p className="text-xs text-gray-500">Motivo: <span className="text-gray-900">{order.motivoReprogramacion}</span></p>
