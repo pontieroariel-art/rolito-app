@@ -60,81 +60,91 @@ const DraggableCard = memo(function DraggableCard({ item, routeNum, arrival, col
   const { empresa, sucursal } = splitSucursalLabel(item.label)
   const clientLogo    = CLIENT_LOGOS[item.clientId]
   const codigoCliente = codigoByClientId ? getCodigoCliente(codigoByClientId, item.clientId, item.sublabel) : undefined
+  const totalUnits    = item.products?.reduce((sum, p) => sum + p.quantity, 0)
+  // Mismo ancho de columna y misma "píldora" con borde de color que las
+  // tarjetas de Pedidos (OrderListRow): identifica de un vistazo a qué
+  // chofer está asignada (o ámbar si sigue sin asignar, igual que en
+  // Pedidos). Se mantienen dirección y hora estimada — a diferencia de
+  // Pedidos, acá sí hacen falta para armar la ruta.
+  const borderColor = color ?? (isVisit ? '#a78bfa' : '#D97706')
 
   return (
     <div
       ref={setNodeRef} {...listeners} {...attributes}
-      className={`border rounded-lg pl-2 pr-1 py-1.5 cursor-grab active:cursor-grabbing select-none transition-all ${
-        isDragging ? 'opacity-30' : 'hover:shadow-md hover:-translate-y-0.5'
-      } ${locked ? 'border-green-200 bg-green-50/40' : isVisit ? 'bg-violet-50 border-violet-200' : 'bg-white border-[#D3D1C7]'}`}
-      style={{ touchAction: 'none' }}
+      style={{ opacity: isDragging ? 0.3 : 1, touchAction: 'none', borderLeftColor: borderColor }}
+      className={`flex items-center gap-1.5 pl-1.5 pr-1 py-1.5 rounded-r-lg overflow-hidden border border-l-[3px] cursor-grab active:cursor-grabbing select-none transition-all ${
+        isDragging ? '' : 'hover:shadow-sm hover:border-accent/60'
+      } ${locked ? 'border-green-200 bg-green-50/40' : isVisit ? 'border-violet-200 bg-violet-50' : 'border-[#E4E1D6] bg-white'}`}
     >
-      <div className="flex items-center gap-1.5">
-        {routeNum != null ? (
-          <span
-            className="shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-white text-[9px] font-bold"
-            style={{ backgroundColor: color ?? '#6b7280' }}
-          >
-            {routeNum}
-          </span>
-        ) : (
-          <span className={`shrink-0 ${isVisit ? 'text-violet-400' : 'text-gray-300'}`}>
-            {isVisit ? <Eye size={12} /> : <Package size={12} />}
-          </span>
-        )}
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1">
-            {clientLogo && (
-              <span className="shrink-0 w-3.5 h-3.5 rounded bg-[#F8F7F2] ring-1 ring-[#E4E1D6] flex items-center justify-center overflow-hidden">
-                <img src={clientLogo.src} alt="" title={clientLogo.alt} className="w-full h-full object-contain" />
-              </span>
+      {routeNum != null ? (
+        <span
+          className="shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-white text-[9px] font-bold"
+          style={{ backgroundColor: color ?? '#6b7280' }}
+        >
+          {routeNum}
+        </span>
+      ) : (
+        <span className={`shrink-0 ${isVisit ? 'text-violet-400' : 'text-gray-300'}`}>
+          {isVisit ? <Eye size={12} /> : <Package size={12} />}
+        </span>
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1">
+          {clientLogo && (
+            <span className="shrink-0 w-3.5 h-3.5 rounded bg-[#F8F7F2] ring-1 ring-[#E4E1D6] flex items-center justify-center overflow-hidden">
+              <img src={clientLogo.src} alt="" title={clientLogo.alt} className="w-full h-full object-contain" />
+            </span>
+          )}
+          <p className="text-xs font-semibold text-gray-900 truncate">
+            {!clientLogo && empresa && (
+              <span className="text-gray-400 font-normal">{empresa} · </span>
             )}
-            <p className="text-xs font-semibold text-gray-900 truncate">
-              {!clientLogo && empresa && (
-                <span className="text-gray-400 font-normal">{empresa} · </span>
-              )}
-              {sucursal}
-            </p>
-            {codigoCliente && (
-              <span className="text-[9px] text-gray-400 font-mono shrink-0">{codigoCliente}</span>
-            )}
-            {item.numeroOC && (
-              <span className="text-[9px] text-gray-400 font-mono shrink-0">OC {item.numeroOC}</span>
-            )}
-            {locked && <Lock size={9} className="text-green-500 shrink-0" />}
-            {item.kind === 'programa' && (
-              <span className="text-violet-400 shrink-0" title="Visita recurrente">↺</span>
-            )}
-            {item.reprogramado && (
-              <span className="text-amber-500 shrink-0" title={`Reprogramado${item.motivoReprogramacion ? `: ${item.motivoReprogramacion}` : ''}`}>↻</span>
-            )}
-          </div>
-          <p className="text-[10px] text-gray-400 truncate leading-tight">{item.sublabel}</p>
+            {sucursal}
+          </p>
+          {codigoCliente && (
+            <span className="text-[9px] text-gray-400 font-mono shrink-0">{codigoCliente}</span>
+          )}
+          {item.numeroOC && (
+            <span className="text-[9px] text-gray-400 font-mono shrink-0">OC {item.numeroOC}</span>
+          )}
+          {locked && <Lock size={9} className="text-green-500 shrink-0" />}
+          {item.kind === 'programa' && (
+            <span className="text-violet-400 shrink-0" title="Visita recurrente">↺</span>
+          )}
+          {item.reprogramado && (
+            <span className="text-amber-500 shrink-0" title={`Reprogramado${item.motivoReprogramacion ? `: ${item.motivoReprogramacion}` : ''}`}>↻</span>
+          )}
+          {!!totalUnits && (
+            <span className="ml-auto text-[9px] text-gray-400 font-mono tabular-nums shrink-0">{totalUnits}u</span>
+          )}
         </div>
-        {arrival && <span className="text-[9px] text-accent font-medium shrink-0">⏱{arrival}</span>}
-        {showReorder && (
-          <div className="flex flex-col shrink-0">
-            <button
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={onMoveUp}
-              disabled={!onMoveUp}
-              title="Subir"
-              className="p-0.5 rounded text-gray-300 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-0 disabled:pointer-events-none transition-colors"
-            >
-              <ChevronUp size={12} />
-            </button>
-            <button
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={onMoveDown}
-              disabled={!onMoveDown}
-              title="Bajar"
-              className="p-0.5 rounded text-gray-300 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-0 disabled:pointer-events-none transition-colors"
-            >
-              <ChevronDown size={12} />
-            </button>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          <p className="text-[10px] text-gray-400 truncate leading-tight flex-1">{item.sublabel}</p>
+          {arrival && <span className="text-[9px] text-accent font-medium shrink-0">⏱{arrival}</span>}
+        </div>
       </div>
+      {showReorder && (
+        <div className="flex flex-col shrink-0">
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={onMoveUp}
+            disabled={!onMoveUp}
+            title="Subir"
+            className="p-0.5 rounded text-gray-300 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-0 disabled:pointer-events-none transition-colors"
+          >
+            <ChevronUp size={12} />
+          </button>
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={onMoveDown}
+            disabled={!onMoveDown}
+            title="Bajar"
+            className="p-0.5 rounded text-gray-300 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-0 disabled:pointer-events-none transition-colors"
+          >
+            <ChevronDown size={12} />
+          </button>
+        </div>
+      )}
     </div>
   )
 })
@@ -185,7 +195,7 @@ function SinAsignarColumn({ items, codigoByClientId, fullWidth }: { items: DayIt
   const orders  = items.filter((i) => i.kind === 'order')
   const visitas = items.filter((i) => i.kind !== 'order')
   return (
-    <div className={`flex flex-col h-full ${fullWidth ? 'w-full' : 'w-56 shrink-0'}`}>
+    <div className={`flex flex-col h-full ${fullWidth ? 'w-full' : 'w-[340px] shrink-0'}`}>
       <div className="bg-[#F1EFE8] border border-[#D3D1C7] rounded-t-xl px-3 py-2.5 flex items-center gap-2">
         <div className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
         <p className="text-sm font-semibold text-gray-700">Sin asignar</p>
@@ -303,7 +313,7 @@ const CamionColumn = memo(function CamionColumn({
   const barColor      = overloaded ? '#ef4444' : (palletsRatio ?? 0) > 0.8 ? '#f97316' : '#22c55e'
 
   return (
-    <div className={`flex flex-col h-full ${fullWidth ? 'w-full' : 'w-56 shrink-0'}`}>
+    <div className={`flex flex-col h-full ${fullWidth ? 'w-full' : 'w-[340px] shrink-0'}`}>
       {/* Header */}
       <div className={`border rounded-t-xl px-3 py-2.5 ${confirmed ? 'bg-green-50 border-green-300' : 'bg-white border-[#D3D1C7]'}`}>
         <div className="flex items-center gap-2">
