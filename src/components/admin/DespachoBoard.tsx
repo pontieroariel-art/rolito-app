@@ -8,7 +8,7 @@ import Button from '../ui/Button'
 import Modal from '../ui/Modal'
 import LoadingSpinner from '../ui/LoadingSpinner'
 import { Order, CatalogProducto, UserProfile, Despacho, Camion, PLANTAS, PlantaId } from '../../types'
-import { calcPallets, splitSucursalLabel, getCodigoCliente, buildCodigoByClientId } from '../../utils/helpers'
+import { calcPallets, splitSucursalLabel, getCodigoCliente, buildCodigoByClientId, initials } from '../../utils/helpers'
 import { CLIENT_LOGOS } from '../../utils/constants'
 import { formatDespachoFecha, todayStr } from '../../services/despachoService'
 import { visitasParaFecha, programasParaFecha } from '../../hooks/useVisitas'
@@ -223,14 +223,6 @@ function SinAsignarColumn({ items, codigoByClientId, fullWidth }: { items: DayIt
 }
 
 // ── CamionColumn (columna = camión; adentro se elige chofer y ayudante) ─────
-
-// Iniciales para el avatar circular del chofer (ej. "Gastón Pereyra" → "GP").
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (parts.length === 0) return '?'
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-}
 
 const CamionColumn = memo(function CamionColumn({
   camion, chofer, choferesPrincipales, assignedChoferEmails, onChoferChange,

@@ -105,6 +105,15 @@ export function getCodigoCliente(codigoByClientId: Map<string, string | undefine
   return codigoByClientId.get(clientId)
 }
 
+// Iniciales para un avatar circular (ej. "Gastón Pereyra" → "GP"). Usado por
+// el tablero de Despacho y por el historial de despacho.
+export function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
 // Precio especial de un cliente para un producto, respetando su vigencia. El
 // modal de precios especiales (PreciosCustomModal) solo usaba `vigenciaHasta`
 // para el texto informativo, pero nada revisaba esa fecha al calcular el

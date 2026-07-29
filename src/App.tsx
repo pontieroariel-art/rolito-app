@@ -32,6 +32,7 @@ const FlotaPage           = lazy(() => import('./pages/admin/FlotaPage'))
 const VisitasPage         = lazy(() => import('./pages/admin/VisitasPage'))
 const MonitoreoPage       = lazy(() => import('./pages/admin/MonitoreoPage'))
 const ReporteIncidenciasPage = lazy(() => import('./pages/admin/ReporteIncidenciasPage'))
+const HistorialDespachoPage  = lazy(() => import('./pages/admin/HistorialDespachoPage'))
 const ClimaPage           = lazy(() => import('./pages/admin/ClimaPage'))
 
 const ComercialDashboard   = lazy(() => import('./pages/comercial/ComercialDashboard'))
@@ -135,8 +136,9 @@ function AppContent() {
           <Route path="/admin/precios"        element={<PriceListsPage />} />
         </Route>
         <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica', 'gerente_comercial']} />}>
-          <Route path="/logistica"           element={<LogisticaDashboard />} />
-          <Route path="/admin/planificacion" element={<LogisticaDashboard />} />
+          <Route path="/logistica"              element={<LogisticaDashboard />} />
+          <Route path="/admin/planificacion"    element={<LogisticaDashboard />} />
+          <Route path="/admin/historial-despacho" element={<HistorialDespachoPage />} />
         </Route>
         {/* Clima es solo lectura: comercial también entra (linkeado desde su tablero) */}
         <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica', 'gerente_comercial', 'comercial']} />}>

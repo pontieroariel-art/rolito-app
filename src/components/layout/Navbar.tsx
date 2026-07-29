@@ -28,6 +28,7 @@ const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
   ],
   gerente_comercial: [
     { to: '/logistica',                    label: 'Planificación',   icon: CalendarDays },
+    { to: '/admin/historial-despacho',     label: 'Hist. despacho',  icon: History },
     { to: '/admin/monitoreo',              label: 'Monitoreo',       icon: Activity },
     { to: '/admin/clima',                  label: 'Clima',           icon: Cloud },
     { to: '/usuarios',                     label: 'Clientes',        icon: Users },
@@ -46,6 +47,7 @@ const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
     { to: '/admin/planificacion',           label: 'Planificación', icon: CalendarDays },
     { to: '/admin/monitoreo',               label: 'Monitoreo',     icon: Activity },
     { to: '/admin/incidencias',             label: 'Incidencias',   icon: AlertTriangle },
+    { to: '/admin/historial-despacho',      label: 'Hist. despacho', icon: History },
     { to: '/admin/visitas',                 label: 'Visitas',       icon: ClipboardList },
     { to: '/admin/flota',                   label: 'Flota',         icon: Truck },
     { to: '/admin/clima',                   label: 'Clima',         icon: Cloud },
@@ -60,6 +62,7 @@ const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
   ],
   logistica: [
     { to: '/logistica',           label: 'Planificación',  icon: CalendarDays },
+    { to: '/admin/historial-despacho', label: 'Hist. despacho', icon: History },
     { to: '/admin/monitoreo',     label: 'Monitoreo',      icon: Activity },
     { to: '/admin/visitas',       label: 'Visitas',        icon: ClipboardList },
     { to: '/admin/flota',         label: 'Flota',          icon: Truck },
