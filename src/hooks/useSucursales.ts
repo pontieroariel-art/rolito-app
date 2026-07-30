@@ -28,6 +28,12 @@ export function useSucursales() {
       const baseName = u.razonSocial || u.nombre || u.email
 
       if (u.addresses?.length) {
+        // El nombre de sucursal solo sirve para distinguir direcciones
+        // cuando hay más de una (grupos empresarios). Con una sola dirección
+        // termina siendo el "Principal" genérico que se guarda por defecto
+        // al crear un cliente sin nombrar la sucursal — mismo criterio que
+        // SucursalClienteRow.tsx.
+        const multi = u.addresses.length > 1
         for (const addr of u.addresses) {
           const dedupeKey = `${u.uid}|${addr.id}|${addr.address}`
           if (seen.has(dedupeKey)) continue
@@ -36,7 +42,7 @@ export function useSucursales() {
             key:     `${u.uid}_${addr.id}`,
             user:    u,
             addrId:  addr.id,
-            label:   addr.nombre || baseName,
+            label:   (multi && addr.nombre) ? addr.nombre : baseName,
             address: addr.address,
             horario: addr.horarioApertura && addr.horarioCierre
               ? `${addr.horarioApertura} – ${addr.horarioCierre}`
