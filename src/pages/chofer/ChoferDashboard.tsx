@@ -772,11 +772,14 @@ function DeliveryCard({ order, index, isFirst, chofer }: { order: Order; index: 
         )}
       </div>
 
-      {modal && (
+      {modal && chofer && (
         <EntregaModal
           order={order}
           onConfirm={async (entregados, parcial, nota) => {
-            await markDelivered(order.id, entregados, parcial, nota)
+            await markDelivered(order.id, entregados, parcial, nota, {
+              uid: chofer.uid,
+              nombre: chofer.nombreContacto || chofer.nombre || chofer.email,
+            })
             setModal(false)
           }}
           onClose={() => setModal(false)}

@@ -356,8 +356,11 @@ export default function ChoferMap() {
     parcial: boolean,
     nota: string,
   ) => {
-    if (!deliveryOrder) return
-    await markDelivered(deliveryOrder.id, entregados, parcial, nota)
+    if (!deliveryOrder || !user) return
+    await markDelivered(deliveryOrder.id, entregados, parcial, nota, {
+      uid: user.uid,
+      nombre: user.nombreContacto || user.nombre || user.email,
+    })
     setSkippedIds((prev) => {
       const next = new Set(prev)
       next.delete(deliveryOrder.id)

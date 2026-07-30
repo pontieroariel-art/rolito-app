@@ -5,7 +5,7 @@ import {
   assertFails,
   assertSucceeds,
 } from '@firebase/rules-unit-testing'
-import { doc, getDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore'
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, arrayUnion } from 'firebase/firestore'
 
 // Tests de las reglas de Firestore contra el emulador. Verifican de forma
 // automática y repetible los invariantes de seguridad que antes se validaban a
@@ -294,6 +294,19 @@ describe('orders — actualización por el chofer asignado', () => {
     await assertSucceeds(updateDoc(doc(db('ch', 'ch@x.com'), 'orders/o1'), {
       status: 'entregado', productosEntregados: [{ name: 'Hielo', quantity: 1 }],
       entregaParcial: false, notaEntrega: '', updatedAt: new Date(),
+    }))
+  })
+
+  test('chofer asignado SÍ puede marcar el pedido como entregado dejando registro en historialAcciones', async () => {
+    await seedChofer()
+    await seedPedido()
+    await assertSucceeds(updateDoc(doc(db('ch', 'ch@x.com'), 'orders/o1'), {
+      status: 'entregado', productosEntregados: [{ name: 'Hielo', quantity: 1 }],
+      entregaParcial: false, notaEntrega: '', updatedAt: new Date(),
+      historialAcciones: arrayUnion({
+        accion: 'entregado', usuarioId: 'ch', usuarioNombre: 'Chofer Uno',
+        timestamp: new Date(), detalle: null,
+      }),
     }))
   })
 

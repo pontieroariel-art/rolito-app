@@ -222,6 +222,7 @@ export const markDelivered = (
   entregados: OrderProduct[],
   parcial: boolean,
   nota: string,
+  actor: Actor,
 ): Promise<void> =>
   updateDoc(doc(db, ORDERS, orderId), {
     status:               'entregado',
@@ -229,6 +230,7 @@ export const markDelivered = (
     entregaParcial:       parcial,
     notaEntrega:          nota || '',
     updatedAt:            serverTimestamp(),
+    historialAcciones:    arrayUnion(accion(actor, 'entregado', parcial ? `Parcial: ${nota}` : undefined)),
   })
 
 export const assignDriver = (orderId: string, driverId: string | null): Promise<void> =>

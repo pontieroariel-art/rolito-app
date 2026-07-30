@@ -184,7 +184,7 @@ service cloud.firestore {
         request.auth.token.email == resource.data.driverId &&
         myEstado() == 'activo' &&
         request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['status', 'productosEntregados', 'entregaParcial', 'notaEntrega', 'updatedAt']);
+          .hasOnly(['status', 'productosEntregados', 'entregaParcial', 'notaEntrega', 'updatedAt', 'historialAcciones']);
 
       // Chofer marca "no entregado": reprograma su propio pedido asignado al
       // día siguiente y lo libera (vuelve a bandeja sin chofer, para que

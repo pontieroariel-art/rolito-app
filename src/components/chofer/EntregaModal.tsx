@@ -77,10 +77,9 @@ export default function EntregaModal({ order, onConfirm, onClose }: Props) {
                 <input
                   type="number"
                   min={0}
-                  max={p.quantity}
                   value={qty}
                   onChange={(e) => {
-                    const v = Math.min(p.quantity, Math.max(0, parseInt(e.target.value) || 0))
+                    const v = Math.max(0, parseInt(e.target.value) || 0)
                     setQuantities((q) => ({ ...q, [p.name]: v }))
                   }}
                   className={`w-12 text-center font-bold text-base rounded-lg border px-1 py-1 focus:outline-none focus:ring-1 focus:ring-accent ${
@@ -90,8 +89,7 @@ export default function EntregaModal({ order, onConfirm, onClose }: Props) {
                   }`}
                 />
                 <button
-                  onClick={() => setQuantities((q) => ({ ...q, [p.name]: Math.min(p.quantity, (q[p.name] ?? p.quantity) + 1) }))}
-                  disabled={qty >= p.quantity}
+                  onClick={() => setQuantities((q) => ({ ...q, [p.name]: (q[p.name] ?? p.quantity) + 1 }))}
                   className="w-9 h-9 rounded-full border border-[#D3D1C7] text-xl hover:border-accent transition-colors disabled:opacity-30 flex items-center justify-center text-gray-600"
                 >+</button>
               </div>
