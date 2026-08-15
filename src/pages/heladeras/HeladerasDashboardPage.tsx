@@ -11,9 +11,6 @@ import { useHeladeras } from '../../hooks/useHeladeras'
 import { useTicketsServicio } from '../../hooks/useTicketsServicio'
 import { usePasosTaller } from '../../hooks/usePasosTaller'
 import { crearHeladera } from '../../services/heladeraService'
-import { tsToDate } from '../../utils/helpers'
-
-const DIAS_TICKET_DEMORADO = 3
 
 // Centro de control operativo del módulo heladeras — reemplaza la grilla
 // estática de HeladerasHubPage. Todos los conteos son client-side sobre las
@@ -35,13 +32,8 @@ export default function HeladerasDashboardPage() {
     const enTaller     = heladeras.filter((h) => h.estado === 'en_taller').length
     const enComodato   = heladeras.filter((h) => h.estado === 'en_comodato').length
     const pendientes = tickets.filter((t) => ['abierto', 'asignado_tecnico', 'asignado_chofer'].includes(t.estado))
-    // No hay campo de SLA/urgencia en TicketServicio — "demorado" se deriva
-    // de fechaPedido, el único dato de fecha disponible.
-    const demorados = pendientes.filter((t) => {
-      const dias = (Date.now() - tsToDate(t.fechaPedido).getTime()) / (1000 * 60 * 60 * 24)
-      return dias > DIAS_TICKET_DEMORADO
-    })
-    return { disponibles, enTaller, enComodato, pendientes: pendientes.length, demorados: demorados.length }
+    const urgentes = pendientes.filter((t) => t.urgente)
+    return { disponibles, enTaller, enComodato, pendientes: pendientes.length, urgentes: urgentes.length }
   }, [heladeras, tickets])
 
   const handleBuscar = (e: FormEvent) => {
@@ -64,8 +56,8 @@ export default function HeladerasDashboardPage() {
           to="/heladeras/consulta-service"
           value={kpis.pendientes}
           label="Tickets pendientes"
-          tone={kpis.demorados > 0 ? 'warn' : undefined}
-          subtitle={kpis.demorados > 0 ? `${kpis.demorados} hace más de ${DIAS_TICKET_DEMORADO} días` : undefined}
+          tone={kpis.urgentes > 0 ? 'warn' : undefined}
+          subtitle={kpis.urgentes > 0 ? `${kpis.urgentes} urgentes` : undefined}
         />
         <KpiCard to="/heladeras/asignacion" value={kpis.enComodato} label="En comodato activo" />
       </div>

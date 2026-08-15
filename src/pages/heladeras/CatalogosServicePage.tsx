@@ -121,7 +121,7 @@ function MotivosEditor({ motivos, onSaved }: { motivos: MotivoReparacion[]; onSa
     if (!nombre.trim()) return
     setSaving(true)
     try {
-      const nuevo: MotivoReparacion = { id: nuevoId(nombre), nombre: nombre.trim(), activo: true, requiereChofer: false }
+      const nuevo: MotivoReparacion = { id: nuevoId(nombre), nombre: nombre.trim(), activo: true, requiereChofer: false, urgente: false }
       await saveMotivosReparacion([...motivos, nuevo])
       onSaved()
       setNombre('')
@@ -158,6 +158,10 @@ function MotivosEditor({ motivos, onSaved }: { motivos: MotivoReparacion[]; onSa
             <label className="flex items-center gap-1.5 text-xs text-gray-500 shrink-0">
               <input type="checkbox" checked={!!m.requiereChofer} onChange={(e) => toggle(m.id, { requiereChofer: e.target.checked })} />
               Requiere chofer
+            </label>
+            <label className="flex items-center gap-1.5 text-xs text-gray-500 shrink-0">
+              <input type="checkbox" checked={!!m.urgente} onChange={(e) => toggle(m.id, { urgente: e.target.checked })} />
+              Urgente
             </label>
             <button
               onClick={() => toggle(m.id, { activo: !m.activo })}

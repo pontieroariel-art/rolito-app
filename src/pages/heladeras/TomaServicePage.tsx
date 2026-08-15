@@ -100,6 +100,7 @@ export default function TomaServicePage() {
         motivoId:       motivo.id,
         motivoNombre:   motivo.nombre,
         requiereChofer: !!motivo.requiereChofer,
+        urgente:        !!motivo.urgente,
       }, { uid: user.uid, nombre: user.nombre })
       setOk(true)
       setHeladera(null)
@@ -225,7 +226,7 @@ export default function TomaServicePage() {
               >
                 <option value="">Elegí un motivo…</option>
                 {motivos.filter((m) => m.activo).map((m) => (
-                  <option key={m.id} value={m.id}>{m.nombre}{m.requiereChofer ? ' (traslado)' : ''}</option>
+                  <option key={m.id} value={m.id}>{m.nombre}{m.requiereChofer ? ' (traslado)' : ''}{m.urgente ? ' — urgente' : ''}</option>
                 ))}
               </select>
             </div>

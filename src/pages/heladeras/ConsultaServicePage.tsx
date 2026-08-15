@@ -177,9 +177,11 @@ export default function ConsultaServicePage() {
   const actor: Actor | null = user ? { uid: user.uid, nombre: user.nombre } : null
 
   const filtrados = useMemo(() => {
-    if (tab === 'abiertos') return tickets.filter((t) => t.estado === 'abierto')
-    if (tab === 'curso') return tickets.filter((t) => t.estado === 'asignado_tecnico' || t.estado === 'asignado_chofer')
-    return tickets.filter((t) => t.estado === 'cerrado' || t.estado === 'anulado')
+    let lista: TicketServicio[]
+    if (tab === 'abiertos') lista = tickets.filter((t) => t.estado === 'abierto')
+    else if (tab === 'curso') lista = tickets.filter((t) => t.estado === 'asignado_tecnico' || t.estado === 'asignado_chofer')
+    else lista = tickets.filter((t) => t.estado === 'cerrado' || t.estado === 'anulado')
+    return [...lista].sort((a, b) => Number(b.urgente) - Number(a.urgente))
   }, [tickets, tab])
 
   const imprimirPedido = async (ticket: TicketServicio) => {
@@ -249,9 +251,16 @@ export default function ConsultaServicePage() {
                     {t.trabajoRealizado && <p className="text-xs text-gray-500 mt-0.5">Trabajo: {t.trabajoRealizado}</p>}
                     {t.motivoAnulacion && <p className="text-xs text-red-500 mt-0.5">Anulado: {t.motivoAnulacion}</p>}
                   </div>
-                  <span className={`text-xs px-2 py-1 rounded-full border font-medium shrink-0 ${ESTADO_STYLES[t.estado]}`}>
-                    {ESTADO_LABELS[t.estado] ?? t.estado}
-                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {t.urgente && (
+                      <span className="text-xs px-2 py-1 rounded-full border font-medium bg-red-100 text-red-700 border-red-200">
+                        Urgente
+                      </span>
+                    )}
+                    <span className={`text-xs px-2 py-1 rounded-full border font-medium ${ESTADO_STYLES[t.estado]}`}>
+                      {ESTADO_LABELS[t.estado] ?? t.estado}
+                    </span>
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {t.estado === 'abierto' && (

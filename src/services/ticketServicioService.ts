@@ -89,6 +89,7 @@ export const crearTicket = (
     motivoId:       string
     motivoNombre:   string
     requiereChofer: boolean
+    urgente:        boolean
   },
   actor: Actor,
 ): Promise<TicketServicio> =>
@@ -108,6 +109,7 @@ export const crearTicket = (
       motivoId:       data.motivoId,
       motivoNombre:   data.motivoNombre,
       requiereChofer: data.requiereChofer,
+      urgente:        data.urgente,
       estado:         'abierto',
       asignadoA:      null,
       historialAcciones: [accion(actor, 'creado', data.motivoNombre)],

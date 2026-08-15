@@ -456,6 +456,7 @@ export interface MotivoReparacion {
   nombre: string
   activo: boolean
   requiereChofer?: boolean   // el ticket con este motivo se asigna a un chofer, no a un técnico
+  urgente?:        boolean  // urgencia por defecto de los tickets abiertos con este motivo
 }
 
 export interface TipoReparacion {
@@ -482,6 +483,9 @@ export interface TicketServicio {
   motivoId:        string
   motivoNombre:    string
   requiereChofer:  boolean
+  // Snapshot de MotivoReparacion.urgente al crear el ticket — un cambio
+  // posterior al catálogo no reescribe tickets ya abiertos.
+  urgente:         boolean
   estado:          EstadoTicketServicio
   asignadoA?: {
     tipo:   'tecnico' | 'chofer'
