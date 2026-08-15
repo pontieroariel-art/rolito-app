@@ -39,6 +39,30 @@
         { "fieldPath": "clientId", "order": "ASCENDING" },
         { "fieldPath": "fecha",    "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "ticketsServicio",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "heladeraId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt",  "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "ticketsServicio",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "clientId",  "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "ticketsServicio",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "asignadoA.uid", "order": "ASCENDING" },
+        { "fieldPath": "createdAt",     "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

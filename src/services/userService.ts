@@ -15,7 +15,7 @@ import { initializeApp, deleteApp } from 'firebase/app'
 import { getAuth, createUserWithEmailAndPassword, connectAuthEmulator } from 'firebase/auth'
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore'
 import { db, firebaseConfig } from './firebase'
-import { UserProfile, UserRole, UserStatus, DeliveryAddress } from '../types'
+import { UserProfile, UserRole, UserStatus, DeliveryAddress, AreaHeladera } from '../types'
 
 // Los roles de admin se asignan desde el panel /usuarios (por un super_admin existente).
 // Para el primer bootstrap, editar el documento users/{uid} directamente en Firebase Console.
@@ -139,7 +139,7 @@ export const getAllUsers = async (force = false): Promise<UserProfile[]> => {
 }
 
 export const getStaffUsers = async (): Promise<UserProfile[]> => {
-  const roles: UserRole[] = ['super_admin', 'gerente_comercial', 'comercial', 'logistica', 'facturacion', 'chofer']
+  const roles: UserRole[] = ['super_admin', 'gerente_comercial', 'comercial', 'logistica', 'facturacion', 'chofer', 'heladeras', 'heladeras_encargado', 'tecnico']
   const snap = await getDocs(
     query(collection(db, 'users'), where('rol', 'in', roles), limit(6000)),
   )
@@ -168,6 +168,13 @@ export const getChoferes = async (): Promise<UserProfile[]> => {
   return snap.docs.map((d) => ({ uid: d.id, ...d.data() } as UserProfile))
 }
 
+export const getTecnicos = async (): Promise<UserProfile[]> => {
+  const snap = await getDocs(
+    query(collection(db, 'users'), where('rol', '==', 'tecnico'), limit(500)),
+  )
+  return snap.docs.map((d) => ({ uid: d.id, ...d.data() } as UserProfile))
+}
+
 export const updateUserRole = (uid: string, rol: UserRole): Promise<void> =>
   updateDoc(doc(db, 'users', uid), { rol })
 
@@ -186,6 +193,7 @@ export interface CreateStaffParams {
   password:       string
   nombreContacto: string
   rol:            UserRole
+  area?:          AreaHeladera   // solo aplica cuando rol === 'heladeras'
 }
 
 export interface CreateClientParams {
@@ -231,7 +239,7 @@ async function createUserViaSecondaryApp(
   }
 }
 
-export const createStaffUser = async ({ dni, password, nombreContacto, rol }: CreateStaffParams): Promise<void> => {
+export const createStaffUser = async ({ dni, password, nombreContacto, rol, area }: CreateStaffParams): Promise<void> => {
   const { dniToStaffEmail, setStaffDniIndex, getEmailByStaffDni } = await import('./staffAuthService')
   const normalizedDni = dni.replace(/\D/g, '')
   const email = dniToStaffEmail(normalizedDni)
@@ -248,6 +256,7 @@ export const createStaffUser = async ({ dni, password, nombreContacto, rol }: Cr
     dni:             normalizedDni,
     phone:           '',
     rol,
+    ...(area ? { area } : {}),
     estado:          'activo' as UserStatus,
     address:         '',
     razonSocial:     '',
@@ -371,6 +380,43 @@ export const createChoferUser = async ({ nombreContacto, cuit, pin, telefono }: 
     aprobadoPor:     'admin',
   }, true)   // rol 'chofer' → el doc lo escribe el operador
   await setDniIndex(normalizedCuit, email)
+}
+
+export interface CreateTecnicoParams {
+  nombreContacto: string
+  dni:            string
+  pin:            string
+  telefono?:      string
+  area?:          AreaHeladera   // sector de reparación (pintura/lijado/refrigeración)
+}
+
+export const createTecnicoUser = async ({ nombreContacto, dni, pin, telefono, area }: CreateTecnicoParams): Promise<void> => {
+  const { dniToTecnicoEmail, setTecnicoDniIndex, padPinTecnico, getEmailByTecnicoDni } = await import('./tecnicoAuthService')
+  const normalizedDni = dni.replace(/\D/g, '')
+  const email = dniToTecnicoEmail(normalizedDni)
+  const yaUsado = await getEmailByTecnicoDni(normalizedDni)
+  if (yaUsado && yaUsado !== email) {
+    throw new Error(`Ese DNI ya está en uso por otra cuenta (${yaUsado}). Verificalo antes de continuar.`)
+  }
+  await createUserViaSecondaryApp(email, padPinTecnico(pin), {
+    nombre:          nombreContacto,
+    email,
+    ...(area ? { area } : {}),
+    dni:             normalizedDni,
+    phone:           telefono || '',
+    rol:             'tecnico' as UserRole,
+    estado:          'activo' as UserStatus,
+    address:         '',
+    razonSocial:     '',
+    nombreContacto,
+    cuit:            '',
+    telefono:        telefono || '',
+    addresses:       [],
+    fechaCreacion:   serverTimestamp(),
+    fechaAprobacion: serverTimestamp(),
+    aprobadoPor:     'admin',
+  }, true)   // rol privilegiado → el doc lo escribe el operador
+  await setTecnicoDniIndex(normalizedDni, email)
 }
 
 function chunk<T>(arr: T[], size: number): T[][] {

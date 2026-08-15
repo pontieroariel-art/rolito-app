@@ -25,6 +25,7 @@ import { generateHojaDeRuta } from '../../utils/pdf'
 import { Order, ProgramaVisita, VisitaPuntual, OrderProduct } from '../../types'
 import EntregaModal from '../../components/chofer/EntregaModal'
 import NoEntregadoModal from '../../components/chofer/NoEntregadoModal'
+import TicketsServicioSection from '../../components/chofer/TicketsServicioSection'
 
 export default function ChoferDashboard() {
   const { user }              = useAuth()
@@ -429,6 +430,8 @@ export default function ChoferDashboard() {
             ))}
           </section>
         )}
+
+        <TicketsServicioSection uid={user?.uid ?? null} actor={user ? { uid: user.uid, nombre: user.nombre } : null} />
 
         {delivered.length > 0 && (
           <section>

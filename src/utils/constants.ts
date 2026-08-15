@@ -26,6 +26,15 @@ export const ALL_STATUSES: OrderStatus[] = [...STATUS_FLOW, 'cancelado']
 export const DELIVERY_HERO_CLIENT_ID = 'W5ipfqI6gEfRqFk5X13HdTi57l93' // DELIVERY HERO E-COMMERCE SA (PedidosYa)
 export const RAPPI_CLIENT_ID         = '8uZtrty0zFMSAcRgR9hQu3Hr72H3' // GASTRONOMIA EMPRENDIMIENTOS S.A.S (Rappi)
 
+// Datos fijos de la empresa para la etiqueta Zebra de las heladeras.
+export const ROLITO_INFO = {
+  razonSocial: 'Redonhielo S.A.',
+  direccion:   'Ruta Panamericana Km. 25.700',
+  localidad:   'Don Torcuato',
+  cp:          '1611',
+  telefono:    '(011) 4741-8000',
+}
+
 export const CLIENT_LOGOS: Record<string, { src: string; alt: string }> = {
   [DELIVERY_HERO_CLIENT_ID]: { src: '/logo-pedidosya.png', alt: 'PedidosYa (Delivery Hero)' },
   [RAPPI_CLIENT_ID]:         { src: '/logo-rappi.webp',    alt: 'Rappi (Gastronomía Emprendimientos)' },

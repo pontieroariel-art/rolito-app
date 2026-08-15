@@ -1,0 +1,172 @@
+import { useState, useRef, useMemo } from 'react'
+import Modal from '../ui/Modal'
+import Button from '../ui/Button'
+import SignaturePad, { SignaturePadHandle } from './SignaturePad'
+import { useClientesActivos } from '../../hooks/useClientesActivos'
+import { asignarHeladera, Actor } from '../../services/asignacionHeladeraService'
+import { generateRemitoComodato } from '../../utils/pdf'
+import { Heladera, UserProfile, getPrimaryAddress } from '../../types'
+
+// Entra por dos caminos: desde una heladera puntual (Equipos/Detalle, `heladera`
+// ya viene fijo, se busca el cliente) o desde un cliente puntual (Asignación
+// de equipos, `clienteFijo` ya viene fijo, se elige la heladera entre las
+// `heladerasDisponibles`). Solo uno de los dos debe venir sin resolver.
+export default function AsignarEquipoModal({
+  heladera: heladeraFija,
+  clienteFijo,
+  heladerasDisponibles = [],
+  actor,
+  onClose,
+}: {
+  heladera?: Heladera
+  clienteFijo?: UserProfile
+  heladerasDisponibles?: Heladera[]
+  actor:    Actor
+  onClose:  () => void
+}) {
+  const { clientes } = useClientesActivos()
+  const [busqueda,          setBusqueda]          = useState('')
+  const [clienteElegido,    setClienteElegido]    = useState<UserProfile | null>(clienteFijo ?? null)
+  const [heladeraElegida,   setHeladeraElegida]   = useState<Heladera | null>(heladeraFija ?? null)
+  const [saving,            setSaving]            = useState(false)
+  const [error,             setError]             = useState('')
+  const padRef = useRef<SignaturePadHandle>(null)
+
+  const resultadosCliente = useMemo(() => {
+    if (clienteFijo) return []
+    const q = busqueda.trim().toLowerCase()
+    if (!q) return []
+    return clientes
+      .filter((c) =>
+        c.razonSocial?.toLowerCase().includes(q) ||
+        c.nombreContacto?.toLowerCase().includes(q) ||
+        c.cuit?.includes(q))
+      .slice(0, 8)
+  }, [clientes, busqueda, clienteFijo])
+
+  const handleSubmit = async () => {
+    if (!clienteElegido)  { setError('Elegí un cliente'); return }
+    if (!heladeraElegida) { setError('Elegí una heladera'); return }
+    const firma = padRef.current?.toDataURL()
+    if (!firma) { setError('Falta la firma del cliente'); return }
+    setSaving(true)
+    setError('')
+    try {
+      const asignacion = await asignarHeladera(
+        heladeraElegida.id,
+        { id: clienteElegido.uid, nombre: clienteElegido.razonSocial },
+        actor,
+        firma,
+      )
+      const direccion = getPrimaryAddress(clienteElegido)?.address || clienteElegido.address || ''
+      await generateRemitoComodato({
+        numero:   asignacion.numero,
+        tipo:     'asignacion',
+        fecha:    asignacion.fecha.toDate(),
+        heladera: { codigoInterno: heladeraElegida.codigoInterno, modelo: heladeraElegida.modelo, numeroSerie: heladeraElegida.numeroSerie },
+        cliente:  { razonSocial: clienteElegido.razonSocial, cuit: clienteElegido.cuit, direccion },
+        firmaDataUrl: firma,
+        actorNombre:  actor.nombre,
+      })
+      onClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo asignar. Intentá de nuevo.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title={heladeraFija ? `Asignar ${heladeraFija.codigoInterno}` : 'Asignar heladera'} wide>
+      <div className="space-y-4">
+
+        {/* Heladera: fija o a elegir */}
+        {!heladeraFija && (
+          !heladeraElegida ? (
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Heladera disponible</label>
+              {heladerasDisponibles.length === 0 ? (
+                <p className="text-xs text-amber-600">No hay heladeras disponibles para asignar en este momento.</p>
+              ) : (
+                <div className="border border-[#D3D1C7] rounded-lg divide-y divide-gray-100 max-h-40 overflow-y-auto">
+                  {heladerasDisponibles.map((h) => (
+                    <button
+                      key={h.id}
+                      type="button"
+                      onClick={() => setHeladeraElegida(h)}
+                      className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors"
+                    >
+                      <p className="text-sm font-medium text-gray-900">{h.codigoInterno}</p>
+                      <p className="text-xs text-gray-500">{h.modelo} · serie {h.numeroSerie}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg p-3 flex justify-between items-center">
+              <div>
+                <p className="text-sm font-medium text-gray-900">{heladeraElegida.codigoInterno}</p>
+                <p className="text-xs text-gray-500">{heladeraElegida.modelo} · serie {heladeraElegida.numeroSerie}</p>
+              </div>
+              <button type="button" onClick={() => setHeladeraElegida(null)} className="text-xs text-gray-500 hover:text-accent">
+                Cambiar
+              </button>
+            </div>
+          )
+        )}
+
+        {/* Cliente: fijo o a elegir */}
+        {!clienteFijo && (
+          !clienteElegido ? (
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Cliente</label>
+              <input
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                placeholder="Buscar por razón social, contacto o CUIT…"
+                className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+              {resultadosCliente.length > 0 && (
+                <div className="border border-[#D3D1C7] rounded-lg mt-1.5 divide-y divide-gray-100 max-h-56 overflow-y-auto">
+                  {resultadosCliente.map((c) => (
+                    <button
+                      key={c.uid}
+                      type="button"
+                      onClick={() => { setClienteElegido(c); setBusqueda('') }}
+                      className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors"
+                    >
+                      <p className="text-sm font-medium text-gray-900">{c.razonSocial}</p>
+                      <p className="text-xs text-gray-500">CUIT {c.cuit}{c.nombreContacto ? ` · ${c.nombreContacto}` : ''}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg p-3 flex justify-between items-center">
+              <div>
+                <p className="text-sm font-medium text-gray-900">{clienteElegido.razonSocial}</p>
+                <p className="text-xs text-gray-500">CUIT {clienteElegido.cuit}</p>
+              </div>
+              <button type="button" onClick={() => setClienteElegido(null)} className="text-xs text-gray-500 hover:text-accent">
+                Cambiar
+              </button>
+            </div>
+          )
+        )}
+
+        <div>
+          <label className="text-xs text-gray-500 mb-1 block">Firma del cliente</label>
+          <SignaturePad ref={padRef} />
+        </div>
+
+        {error && <p className="text-red-500 text-xs">{error}</p>}
+        <div className="flex gap-2 pt-1">
+          <Button variant="outline" onClick={onClose} className="flex-1">Cancelar</Button>
+          <Button onClick={handleSubmit} loading={saving} className="flex-1">Asignar y generar remito</Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}

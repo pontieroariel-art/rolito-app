@@ -3,7 +3,8 @@ import Button from '../../../components/ui/Button'
 import Input from '../../../components/ui/Input'
 import Modal from '../../../components/ui/Modal'
 import { createStaffUser, createChoferUser } from '../../../services/userService'
-import { UserRole } from '../../../types'
+import { AREAS_HELADERA, AreaHeladera, UserRole } from '../../../types'
+import { AREA_HELADERA_LABELS as AREA_LABELS } from '../../../utils/heladeraLabels'
 import { ROLE_LABELS, STAFF_ROLES } from './shared'
 
 export function CrearStaffModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
@@ -11,11 +12,13 @@ export function CrearStaffModal({ onClose, onCreated }: { onClose: () => void; o
   const [dni,      setDni]      = useState('')
   const [password, setPassword] = useState('')
   const [rol,      setRol]      = useState<UserRole>('comercial')
+  const [area,     setArea]     = useState<AreaHeladera>('refrigeracion')
   const [showPass, setShowPass] = useState(false)
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState('')
 
-  const isChofer = rol === 'chofer'
+  const isChofer    = rol === 'chofer'
+  const isHeladeras = rol === 'heladeras'
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -29,7 +32,7 @@ export function CrearStaffModal({ onClose, onCreated }: { onClose: () => void; o
       if (isChofer) {
         await createChoferUser({ nombreContacto: nombre, cuit: dni.trim(), pin: password })
       } else {
-        await createStaffUser({ dni: dni.trim(), password, nombreContacto: nombre, rol })
+        await createStaffUser({ dni: dni.trim(), password, nombreContacto: nombre, rol, area: isHeladeras ? area : undefined })
       }
       onCreated()
     } catch (err: any) {
@@ -67,6 +70,21 @@ export function CrearStaffModal({ onClose, onCreated }: { onClose: () => void; o
             ))}
           </select>
         </div>
+
+        {isHeladeras && (
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Área</label>
+            <select
+              value={area}
+              onChange={(e: ChangeEvent<HTMLSelectElement>) => setArea(e.target.value as AreaHeladera)}
+              className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
+            >
+              {AREAS_HELADERA.map((a) => (
+                <option key={a} value={a}>{AREA_LABELS[a]}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <Input
           label={isChofer ? 'CUIT' : 'DNI'}

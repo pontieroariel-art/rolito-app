@@ -31,6 +31,18 @@ export const formatDateInput = (timestamp: Timestamp | null | undefined): string
 export const summarizeProducts = (products: OrderProduct[] = []): string =>
   products.map((p) => `${p.quantity}x ${p.name}`).join(', ')
 
+// Kg por unidad a partir del nombre del producto (ej. "Hielo bolsa 10kg" → 10).
+// Los productos que no son hielo (agua, anticorrosivo, bidones) no tienen
+// "kg" en el nombre y quedan afuera del total automáticamente.
+export function kgPorUnidad(nombre: string): number {
+  const match = nombre.match(/(\d+)\s*kg/i)
+  return match ? Number(match[1]) : 0
+}
+
+export function kgHielo(products: OrderProduct[]): number {
+  return products.reduce((s, p) => s + kgPorUnidad(p.name) * (p.quantity ?? 0), 0)
+}
+
 // Los pedidos de clientes con varias sucursales (ej. cadenas importadas por
 // PDF) guardan el nombre completo como "RAZÓN SOCIAL (SUCURSAL)" — en vistas
 // compactas (Bandeja/calendario) alcanza con la sucursal + la primera

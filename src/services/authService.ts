@@ -75,6 +75,14 @@ export const loginChofer = async (dni: string, pin: string) => {
   return signInWithEmailAndPassword(auth, email, padPin(pin))
 }
 
+export const loginTecnico = async (dni: string, pin: string) => {
+  const { getEmailByTecnicoDni, padPinTecnico } = await import('./tecnicoAuthService')
+  const email = await getEmailByTecnicoDni(dni)
+  if (!email) throw new Error('dni-not-found')
+  await auth.authStateReady()
+  return signInWithEmailAndPassword(auth, email, padPinTecnico(pin))
+}
+
 export const loginWithStaffDni = async (dni: string, password: string) => {
   const { getEmailByStaffDni } = await import('./staffAuthService')
   // Fallback por email directo (para el admin)

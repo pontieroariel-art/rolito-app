@@ -5,7 +5,7 @@ import {
   assertFails,
   assertSucceeds,
 } from '@firebase/rules-unit-testing'
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, arrayUnion } from 'firebase/firestore'
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, arrayUnion, deleteField } from 'firebase/firestore'
 
 // Tests de las reglas de Firestore contra el emulador. Verifican de forma
 // automática y repetible los invariantes de seguridad que antes se validaban a
@@ -417,6 +417,21 @@ describe('orders — actualización por operador', () => {
   })
 })
 
+// ── orders: lectura por heladeras_encargado (ranking de consumo) ──────────────
+describe('orders — lectura por heladeras_encargado', () => {
+  test('heladeras_encargado SÍ puede leer pedidos', async () => {
+    await seed((d) => setDoc(doc(d, 'users/enc'), { rol: 'heladeras_encargado', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'orders/o1'), pedido()))
+    await assertSucceeds(getDoc(doc(db('enc'), 'orders/o1')))
+  })
+
+  test('personal de taller (rol heladeras) NO puede leer pedidos', async () => {
+    await seed((d) => setDoc(doc(d, 'users/per'), { rol: 'heladeras', estado: 'activo', area: 'refrigeracion' }))
+    await seed((d) => setDoc(doc(d, 'orders/o1'), pedido()))
+    await assertFails(getDoc(doc(db('per'), 'orders/o1')))
+  })
+})
+
 // ── users: código de cliente por facturación ──────────────────────────────────
 describe('users — código de cliente por facturación', () => {
   const seedFacturacion = () => seed(async (d) => {
@@ -632,6 +647,735 @@ describe('flota', () => {
   test('comercial NO puede escribir flota', async () => {
     await seed((d) => setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' }))
     await assertFails(setDoc(doc(db('com'), 'flota/cam3'), { patente: 'CC789DD' }))
+  })
+})
+
+// ── heladeras ──────────────────────────────────────────────────────────────
+describe('heladeras', () => {
+  // Catálogo de prueba: reacondicionamiento replica el pipeline de 4 pasos
+  // de siempre (refrigeración → lijado → pintura → control de calidad, este
+  // último con requiereAprobacion); fabricación es la cadena nueva de 2
+  // pasos (plástico → terminación, sin control de calidad).
+  const seedCatalogoPasos = () => seed((d) => setDoc(doc(d, 'config/pasosTaller'), {
+    pasos: {
+      p_refri:    { id: 'p_refri',    nombre: 'Refrigeración',      tipoPipeline: 'reacondicionamiento', area: 'refrigeracion', orden: 1, activo: true, siguientePasoId: 'p_lijado' },
+      p_lijado:   { id: 'p_lijado',   nombre: 'Lijado',             tipoPipeline: 'reacondicionamiento', area: 'lijado',        orden: 2, activo: true, siguientePasoId: 'p_pintura' },
+      p_pintura:  { id: 'p_pintura',  nombre: 'Pintura',            tipoPipeline: 'reacondicionamiento', area: 'pintura',       orden: 3, activo: true, siguientePasoId: 'p_cc' },
+      p_cc:       { id: 'p_cc',       nombre: 'Control de calidad', tipoPipeline: 'reacondicionamiento', area: 'refrigeracion', orden: 4, activo: true, requiereAprobacion: true, siguientePasoId: null },
+      p_plastico: { id: 'p_plastico', nombre: 'Plástico',           tipoPipeline: 'fabricacion',          area: 'plastico',      orden: 1, activo: true, siguientePasoId: 'p_termina' },
+      p_termina:  { id: 'p_termina',  nombre: 'Terminación',        tipoPipeline: 'fabricacion',          area: 'terminacion',   orden: 2, activo: true, siguientePasoId: null },
+    },
+  }))
+  const heladera = (extra = {}) => ({
+    numeroSerie: 'HL-001', modelo: 'Slim 300', estado: 'en_taller',
+    tipoPipeline: 'reacondicionamiento', pasoActualId: 'p_refri', primerPasoId: 'p_refri',
+    motivoIngresoId: 'retiro_heladera', motivoIngresoNombre: 'Retiro de heladera', tipoOperacion: 'RETIRO',
+    creadoPor: { uid: 'enc', nombre: 'Encargado' }, fechaIngreso: new Date(), cicloActual: 1,
+    enProceso: null, historialAcciones: [], ...extra,
+  })
+  const seedEncargado = () => seed((d) => setDoc(doc(d, 'users/enc'), { rol: 'heladeras_encargado', estado: 'activo' }))
+  const seedPersonal = (uid = 'per', area = 'refrigeracion') => seed((d) => setDoc(doc(d, `users/${uid}`), { rol: 'heladeras', estado: 'activo', area }))
+  const seedHeladera = (extra = {}) => seed((d) => setDoc(doc(d, 'heladeras/h1'), heladera(extra)))
+
+  test('heladeras_encargado SÍ puede cargar una heladera nueva', async () => {
+    await seedEncargado()
+    await assertSucceeds(setDoc(doc(db('enc'), 'heladeras/h1'), heladera()))
+  })
+
+  test('personal de sector NO puede cargar una heladera nueva', async () => {
+    await seedPersonal()
+    await assertFails(setDoc(doc(db('per'), 'heladeras/h1'), heladera()))
+  })
+
+  test('personal de refrigeración SÍ puede agarrar una heladera libre en el primer paso', async () => {
+    await seedPersonal()
+    await seedCatalogoPasos()
+    await seedHeladera()
+    await assertSucceeds(updateDoc(doc(db('per'), 'heladeras/h1'), {
+      enProceso: { uid: 'per', nombre: 'Personal Uno', area: 'refrigeracion', desde: new Date() },
+      updatedAt: new Date(),
+    }))
+  })
+
+  test('personal de sector NO puede editar numeroSerie/modelo', async () => {
+    await seedPersonal()
+    await seedCatalogoPasos()
+    await seedHeladera()
+    await assertFails(updateDoc(doc(db('per'), 'heladeras/h1'), { modelo: 'Slim 500' }))
+  })
+
+  test('personal de sector NO puede saltear el flujo y poner estado "disponible" directo', async () => {
+    await seedPersonal()
+    await seedCatalogoPasos()
+    await seedHeladera()
+    await assertFails(updateDoc(doc(db('per'), 'heladeras/h1'), { estado: 'disponible', pasoActualId: null, updatedAt: new Date() }))
+  })
+
+  test('personal de lijado NO puede agarrar directo desde el primer paso (saltear refrigeración)', async () => {
+    await seedPersonal('per', 'lijado')
+    await seedCatalogoPasos()
+    await seedHeladera()
+    await assertFails(updateDoc(doc(db('per'), 'heladeras/h1'), {
+      enProceso: { uid: 'per', nombre: 'Personal Uno', area: 'lijado', desde: new Date() },
+      updatedAt: new Date(),
+    }))
+  })
+
+  test('personal de sector NO puede darse de baja a sí mismo una heladera', async () => {
+    await seedPersonal()
+    await seedCatalogoPasos()
+    await seedHeladera()
+    await assertFails(updateDoc(doc(db('per'), 'heladeras/h1'), { estado: 'baja', updatedAt: new Date() }))
+  })
+
+  test('personal de sector NO puede agarrar una heladera que ya está en proceso de otro', async () => {
+    await seedPersonal()
+    await seedCatalogoPasos()
+    await seedHeladera({ enProceso: { uid: 'otro', nombre: 'Otra Persona', area: 'refrigeracion', desde: new Date() } })
+    await assertFails(updateDoc(doc(db('per'), 'heladeras/h1'), {
+      enProceso: { uid: 'per', nombre: 'Personal Uno', area: 'refrigeracion', desde: new Date() },
+      updatedAt: new Date(),
+    }))
+  })
+
+  test('personal de sector NO puede agarrar con un área distinta a la de su perfil', async () => {
+    await seedPersonal('per', 'pintura')
+    await seedCatalogoPasos()
+    await seedHeladera()
+    await assertFails(updateDoc(doc(db('per'), 'heladeras/h1'), {
+      enProceso: { uid: 'per', nombre: 'Personal Uno', area: 'pintura', desde: new Date() },
+      updatedAt: new Date(),
+    }))
+  })
+
+  test('personal de refrigeración SÍ puede soltar la heladera que tiene agarrada (avanza al siguiente paso)', async () => {
+    await seedPersonal()
+    await seedCatalogoPasos()
+    await seedHeladera({ enProceso: { uid: 'per', nombre: 'Personal Uno', area: 'refrigeracion', desde: new Date() } })
+    await assertSucceeds(updateDoc(doc(db('per'), 'heladeras/h1'), {
+      estado: 'en_taller',
+      pasoActualId: 'p_lijado',
+      enProceso: deleteField(),
+      historialAcciones: arrayUnion({ accion: 'paso_completado', usuarioId: 'per', usuarioNombre: 'Personal Uno', timestamp: new Date(), detalle: 'listo' }),
+      updatedAt: new Date(),
+    }))
+  })
+
+  test('personal de sector NO puede soltar una heladera que tiene agarrada otra persona', async () => {
+    await seedPersonal()
+    await seedCatalogoPasos()
+    await seedHeladera({ enProceso: { uid: 'otro', nombre: 'Otra Persona', area: 'refrigeracion', desde: new Date() } })
+    await assertFails(updateDoc(doc(db('per'), 'heladeras/h1'), {
+      estado: 'en_taller',
+      pasoActualId: 'p_lijado',
+      enProceso: deleteField(),
+      updatedAt: new Date(),
+    }))
+  })
+
+  test('personal de sector NO puede reescribir/borrar el historial al soltar', async () => {
+    await seedPersonal()
+    await seedCatalogoPasos()
+    await seedHeladera({ enProceso: { uid: 'per', nombre: 'Personal Uno', area: 'refrigeracion', desde: new Date() } })
+    await assertFails(updateDoc(doc(db('per'), 'heladeras/h1'), {
+      estado: 'en_taller',
+      pasoActualId: 'p_lijado',
+      enProceso: deleteField(),
+      historialAcciones: [],
+      updatedAt: new Date(),
+    }))
+  })
+
+  test('personal de sector NO puede saltear un paso al soltar (mandarla a un pasoActualId que no es el siguiente)', async () => {
+    await seedPersonal()
+    await seedCatalogoPasos()
+    await seedHeladera({ enProceso: { uid: 'per', nombre: 'Personal Uno', area: 'refrigeracion', desde: new Date() } })
+    await assertFails(updateDoc(doc(db('per'), 'heladeras/h1'), {
+      estado: 'en_taller',
+      pasoActualId: 'p_pintura', // saltea lijado
+      enProceso: deleteField(),
+      historialAcciones: arrayUnion({ accion: 'paso_completado', usuarioId: 'per', usuarioNombre: 'Personal Uno', timestamp: new Date() }),
+      updatedAt: new Date(),
+    }))
+  })
+
+  test('personal de lijado SÍ puede agarrar una heladera en el paso 2', async () => {
+    await seedPersonal('per', 'lijado')
+    await seedCatalogoPasos()
+    await seedHeladera({ pasoActualId: 'p_lijado' })
+    await assertSucceeds(updateDoc(doc(db('per'), 'heladeras/h1'), {
+      enProceso: { uid: 'per', nombre: 'Personal Uno', area: 'lijado', desde: new Date() },
+      updatedAt: new Date(),
+    }))
+  })
+
+  test('personal de pintura SÍ puede agarrar una heladera en el paso 3', async () => {
+    await seedPersonal('per', 'pintura')
+    await seedCatalogoPasos()
+    await seedHeladera({ pasoActualId: 'p_pintura' })
+    await assertSucceeds(updateDoc(doc(db('per'), 'heladeras/h1'), {
+      enProceso: { uid: 'per', nombre: 'Personal Uno', area: 'pintura', desde: new Date() },
+      updatedAt: new Date(),
+    }))
+  })
+
+  test('personal de refrigeración SÍ puede agarrar el control de calidad en el paso 4', async () => {
+    await seedPersonal()
+    await seedCatalogoPasos()
+    await seedHeladera({ pasoActualId: 'p_cc' })
+    await assertSucceeds(updateDoc(doc(db('per'), 'heladeras/h1'), {
+      enProceso: { uid: 'per', nombre: 'Personal Uno', area: 'refrigeracion', desde: new Date() },
+      updatedAt: new Date(),
+    }))
+  })
+
+  test('personal de pintura NO puede agarrar el control de calidad (es de refrigeración)', async () => {
+    await seedPersonal('per', 'pintura')
+    await seedCatalogoPasos()
+    await seedHeladera({ pasoActualId: 'p_cc' })
+    await assertFails(updateDoc(doc(db('per'), 'heladeras/h1'), {
+      enProceso: { uid: 'per', nombre: 'Personal Uno', area: 'pintura', desde: new Date() },
+      updatedAt: new Date(),
+    }))
+  })
+
+  test('personal de refrigeración SÍ puede aprobar el control de calidad (pasa a disponible)', async () => {
+    await seedPersonal()
+    await seedCatalogoPasos()
+    await seedHeladera({ pasoActualId: 'p_cc', enProceso: { uid: 'per', nombre: 'Personal Uno', area: 'refrigeracion', desde: new Date() } })
+    await assertSucceeds(updateDoc(doc(db('per'), 'heladeras/h1'), {
+      estado: 'disponible',
+      pasoActualId: null,
+      enProceso: deleteField(),
+      historialAcciones: arrayUnion({ accion: 'paso_aprobado', usuarioId: 'per', usuarioNombre: 'Personal Uno', timestamp: new Date() }),
+      updatedAt: new Date(),
+    }))
+  })
+
+  test('personal de refrigeración SÍ puede rechazar el control de calidad (vuelve al primer paso, sube el ciclo)', async () => {
+    await seedPersonal()
+    await seedCatalogoPasos()
+    await seedHeladera({ pasoActualId: 'p_cc', enProceso: { uid: 'per', nombre: 'Personal Uno', area: 'refrigeracion', desde: new Date() }, cicloActual: 1 })
+    await assertSucceeds(updateDoc(doc(db('per'), 'heladeras/h1'), {
+      estado: 'en_taller',
+      pasoActualId: 'p_refri',
+      enProceso: deleteField(),
+      cicloActual: 2,
+      historialAcciones: arrayUnion({ accion: 'paso_rechazado', usuarioId: 'per', usuarioNombre: 'Personal Uno', timestamp: new Date(), detalle: 'sigue perdiendo gas' }),
+      updatedAt: new Date(),
+    }))
+  })
+
+  test('personal de refrigeración NO puede rechazar saltando el ciclo (subir más de uno)', async () => {
+    await seedPersonal()
+    await seedCatalogoPasos()
+    await seedHeladera({ pasoActualId: 'p_cc', enProceso: { uid: 'per', nombre: 'Personal Uno', area: 'refrigeracion', desde: new Date() }, cicloActual: 1 })
+    await assertFails(updateDoc(doc(db('per'), 'heladeras/h1'), {
+      estado: 'en_taller',
+      pasoActualId: 'p_refri',
+      enProceso: deleteField(),
+      cicloActual: 5,
+      historialAcciones: arrayUnion({ accion: 'paso_rechazado', usuarioId: 'per', usuarioNombre: 'Personal Uno', timestamp: new Date() }),
+      updatedAt: new Date(),
+    }))
+  })
+
+  test('personal de un paso sin requiereAprobacion NO puede "rechazar" (solo soltar tiene una salida)', async () => {
+    await seedPersonal()
+    await seedCatalogoPasos()
+    await seedHeladera({ enProceso: { uid: 'per', nombre: 'Personal Uno', area: 'refrigeracion', desde: new Date() }, cicloActual: 1 })
+    await assertFails(updateDoc(doc(db('per'), 'heladeras/h1'), {
+      estado: 'en_taller',
+      pasoActualId: 'p_refri',
+      enProceso: deleteField(),
+      cicloActual: 2,
+      historialAcciones: arrayUnion({ accion: 'paso_rechazado', usuarioId: 'per', usuarioNombre: 'Personal Uno', timestamp: new Date() }),
+      updatedAt: new Date(),
+    }))
+  })
+
+  test('heladeras_encargado SÍ puede liberar forzado una heladera trabada', async () => {
+    await seedEncargado()
+    await seedCatalogoPasos()
+    await seedHeladera({ pasoActualId: 'p_lijado', enProceso: { uid: 'otro', nombre: 'Se olvidó', area: 'lijado', desde: new Date() } })
+    await assertSucceeds(updateDoc(doc(db('enc'), 'heladeras/h1'), {
+      enProceso: deleteField(),
+      historialAcciones: arrayUnion({ accion: 'liberada_por_encargado', usuarioId: 'enc', usuarioNombre: 'Encargado', timestamp: new Date() }),
+      updatedAt: new Date(),
+    }))
+  })
+
+  // ── Pipeline de fabricación (heladeras nuevas, sin motivo de ingreso) ────
+  test('personal de plástico SÍ puede agarrar una heladera de fabricación en el primer paso', async () => {
+    await seedPersonal('per', 'plastico')
+    await seedCatalogoPasos()
+    await seedHeladera({
+      tipoPipeline: 'fabricacion', pasoActualId: 'p_plastico', primerPasoId: 'p_plastico',
+      motivoIngresoId: null, motivoIngresoNombre: null, tipoOperacion: null,
+    })
+    await assertSucceeds(updateDoc(doc(db('per'), 'heladeras/h1'), {
+      enProceso: { uid: 'per', nombre: 'Personal Uno', area: 'plastico', desde: new Date() },
+      updatedAt: new Date(),
+    }))
+  })
+
+  test('personal de terminación SÍ puede soltar el último paso de fabricación (pasa a disponible, sin control de calidad)', async () => {
+    await seedPersonal('per', 'terminacion')
+    await seedCatalogoPasos()
+    await seedHeladera({
+      tipoPipeline: 'fabricacion', pasoActualId: 'p_termina', primerPasoId: 'p_plastico',
+      motivoIngresoId: null, motivoIngresoNombre: null, tipoOperacion: null,
+      enProceso: { uid: 'per', nombre: 'Personal Uno', area: 'terminacion', desde: new Date() },
+    })
+    await assertSucceeds(updateDoc(doc(db('per'), 'heladeras/h1'), {
+      estado: 'disponible',
+      pasoActualId: null,
+      enProceso: deleteField(),
+      historialAcciones: arrayUnion({ accion: 'paso_completado', usuarioId: 'per', usuarioNombre: 'Personal Uno', timestamp: new Date(), detalle: 'listo' }),
+      updatedAt: new Date(),
+    }))
+  })
+
+  test('un cliente NO puede leer heladeras', async () => {
+    await seed((d) => setDoc(doc(d, 'users/cli'), cliente()))
+    await seedHeladera()
+    await assertFails(getDoc(doc(db('cli', 'c@x.com'), 'heladeras/h1')))
+  })
+
+  test('un chofer NO puede leer ni escribir heladeras', async () => {
+    await seed((d) => setDoc(doc(d, 'users/ch'), { rol: 'chofer', estado: 'activo', email: 'ch@x.com' }))
+    await seedHeladera()
+    await assertFails(getDoc(doc(db('ch', 'ch@x.com'), 'heladeras/h1')))
+  })
+
+  test('un técnico SÍ puede leer heladeras (escanea el QR de la etiqueta) pero NO escribir', async () => {
+    await seed((d) => setDoc(doc(d, 'users/tec'), { rol: 'tecnico', estado: 'activo' }))
+    await seedHeladera()
+    await assertSucceeds(getDoc(doc(db('tec'), 'heladeras/h1')))
+    await assertFails(updateDoc(doc(db('tec'), 'heladeras/h1'), { estado: 'disponible', updatedAt: new Date() }))
+  })
+
+  test('nadie puede borrar una heladera (ni el encargado)', async () => {
+    await seedEncargado()
+    await seedHeladera()
+    await assertFails(deleteDoc(doc(db('enc'), 'heladeras/h1')))
+  })
+
+  test('gerente_comercial SÍ puede cargar y editar heladeras (mismo nivel que encargado)', async () => {
+    await seed((d) => setDoc(doc(d, 'users/gc'), { rol: 'gerente_comercial', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('gc'), 'heladeras/h1'), heladera()))
+    await assertSucceeds(updateDoc(doc(db('gc'), 'heladeras/h1'), { estado: 'baja', motivoBaja: 'test', updatedAt: new Date() }))
+  })
+
+  test('comercial SÍ puede leer heladeras pero NO puede escribir', async () => {
+    await seed((d) => setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' }))
+    await seedHeladera()
+    await assertSucceeds(getDoc(doc(db('com'), 'heladeras/h1')))
+    await assertFails(updateDoc(doc(db('com'), 'heladeras/h1'), { estado: 'disponible', updatedAt: new Date() }))
+    await assertFails(setDoc(doc(db('com'), 'heladeras/h2'), heladera()))
+  })
+})
+
+// ── asignacionesHeladera (remitos + comodatos) ────────────────────────────────
+describe('asignacionesHeladera', () => {
+  const asignacion = (extra = {}) => ({
+    heladeraId: 'h1', heladeraCodigo: 'HL-001', clientId: 'cli', clientName: 'Cliente de Prueba SA',
+    tipo: 'asignacion', numero: 1, firmaDataUrl: 'data:image/png;base64,xx', actor: { uid: 'enc', nombre: 'Encargado' },
+    fecha: new Date(), ...extra,
+  })
+
+  test('heladeras_encargado SÍ puede crear una asignación', async () => {
+    await seed((d) => setDoc(doc(d, 'users/enc'), { rol: 'heladeras_encargado', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('enc'), 'asignacionesHeladera/a1'), asignacion()))
+  })
+
+  test('comercial SÍ puede leer asignaciones pero NO puede crear', async () => {
+    await seed((d) => setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'asignacionesHeladera/a1'), asignacion()))
+    await assertSucceeds(getDoc(doc(db('com'), 'asignacionesHeladera/a1')))
+    await assertFails(setDoc(doc(db('com'), 'asignacionesHeladera/a2'), asignacion()))
+  })
+
+  test('personal de sector (rol heladeras) NO puede leer ni crear asignaciones', async () => {
+    await seed((d) => setDoc(doc(d, 'users/per'), { rol: 'heladeras', estado: 'activo', area: 'refrigeracion' }))
+    await seed((d) => setDoc(doc(d, 'asignacionesHeladera/a1'), asignacion()))
+    await assertFails(getDoc(doc(db('per'), 'asignacionesHeladera/a1')))
+    await assertFails(setDoc(doc(db('per'), 'asignacionesHeladera/a2'), asignacion()))
+  })
+
+  test('nadie puede editar ni borrar una asignación (ni el encargado) — append-only', async () => {
+    await seed((d) => setDoc(doc(d, 'users/enc'), { rol: 'heladeras_encargado', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'asignacionesHeladera/a1'), asignacion()))
+    await assertFails(updateDoc(doc(db('enc'), 'asignacionesHeladera/a1'), { clientName: 'Otro' }))
+    await assertFails(deleteDoc(doc(db('enc'), 'asignacionesHeladera/a1')))
+  })
+})
+
+describe('config/movimientoHeladeraCounter', () => {
+  test('heladeras_encargado SÍ puede escribir el contador', async () => {
+    await seed((d) => setDoc(doc(d, 'users/enc'), { rol: 'heladeras_encargado', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('enc'), 'config/movimientoHeladeraCounter'), { next: 2 }))
+  })
+
+  test('comercial NO puede escribir el contador', async () => {
+    await seed((d) => setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' }))
+    await assertFails(setDoc(doc(db('com'), 'config/movimientoHeladeraCounter'), { next: 2 }))
+  })
+
+  test('heladeras_encargado SÍ puede escribir el contador de tickets de service', async () => {
+    await seed((d) => setDoc(doc(d, 'users/enc'), { rol: 'heladeras_encargado', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('enc'), 'config/ticketServicioCounter'), { next: 2 }))
+  })
+})
+
+// ── modelosHeladera ──────────────────────────────────────────────────────────
+describe('modelosHeladera', () => {
+  const modelo = (extra = {}) => ({
+    nombre: 'Slim 300', medidas: { ancho: 60, alto: 150, profundo: 60 },
+    capacidadBolsas: 40, activo: true, ...extra,
+  })
+  const seedEncargado = () => seed((d) => setDoc(doc(d, 'users/enc'), { rol: 'heladeras_encargado', estado: 'activo' }))
+  const seedPersonal  = () => seed((d) => setDoc(doc(d, 'users/per'), { rol: 'heladeras', estado: 'activo', area: 'refrigeracion' }))
+
+  test('heladeras_encargado SÍ puede crear un modelo', async () => {
+    await seedEncargado()
+    await assertSucceeds(setDoc(doc(db('enc'), 'modelosHeladera/m1'), modelo()))
+  })
+
+  test('personal de sector NO puede crear un modelo', async () => {
+    await seedPersonal()
+    await assertFails(setDoc(doc(db('per'), 'modelosHeladera/m1'), modelo()))
+  })
+
+  test('personal de sector SÍ puede leer modelos (los necesita para el alta)', async () => {
+    await seedPersonal()
+    await seed((d) => setDoc(doc(d, 'modelosHeladera/m1'), modelo()))
+    await assertSucceeds(getDoc(doc(db('per'), 'modelosHeladera/m1')))
+  })
+
+  test('un cliente NO puede leer modelos', async () => {
+    await seed((d) => setDoc(doc(d, 'users/cli'), cliente()))
+    await seed((d) => setDoc(doc(d, 'modelosHeladera/m1'), modelo()))
+    await assertFails(getDoc(doc(db('cli', 'c@x.com'), 'modelosHeladera/m1')))
+  })
+})
+
+// ── heladeraCodigoIndex (anti-duplicado) ──────────────────────────────────────
+describe('heladeraCodigoIndex', () => {
+  test('heladeras_encargado SÍ puede crear un código nuevo', async () => {
+    await seed((d) => setDoc(doc(d, 'users/enc'), { rol: 'heladeras_encargado', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('enc'), 'heladeraCodigoIndex/HL-001'), { heladeraId: 'h1' }))
+  })
+
+  test('heladeras_encargado NO puede sobrescribir un código ya usado', async () => {
+    await seed((d) => setDoc(doc(d, 'users/enc'), { rol: 'heladeras_encargado', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'heladeraCodigoIndex/HL-001'), { heladeraId: 'h1' }))
+    await assertFails(setDoc(doc(db('enc'), 'heladeraCodigoIndex/HL-001'), { heladeraId: 'h2' }))
+  })
+
+  test('personal de sector NO puede crear un código', async () => {
+    await seed((d) => setDoc(doc(d, 'users/per'), { rol: 'heladeras', estado: 'activo', area: 'refrigeracion' }))
+    await assertFails(setDoc(doc(db('per'), 'heladeraCodigoIndex/HL-001'), { heladeraId: 'h1' }))
+  })
+})
+
+// ── motivos y tipos de reparación (config/*) ──────────────────────────────────
+describe('motivos y tipos de reparación', () => {
+  test('heladeras_encargado SÍ puede escribir motivosReparacion y tiposReparacion', async () => {
+    await seed((d) => setDoc(doc(d, 'users/enc'), { rol: 'heladeras_encargado', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('enc'), 'config/motivosReparacion'), { items: [] }))
+    await assertSucceeds(setDoc(doc(db('enc'), 'config/tiposReparacion'), { items: [] }))
+  })
+
+  test('heladeras_encargado SÍ puede escribir motivosIngreso', async () => {
+    await seed((d) => setDoc(doc(d, 'users/enc'), { rol: 'heladeras_encargado', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('enc'), 'config/motivosIngreso'), { items: [] }))
+  })
+
+  test('heladeras_encargado SÍ puede escribir pasosTaller', async () => {
+    await seed((d) => setDoc(doc(d, 'users/enc'), { rol: 'heladeras_encargado', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('enc'), 'config/pasosTaller'), { pasos: {} }))
+  })
+
+  test('comercial NO puede escribir motivosReparacion', async () => {
+    await seed((d) => setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' }))
+    await assertFails(setDoc(doc(db('com'), 'config/motivosReparacion'), { items: [] }))
+  })
+
+  test('comercial NO puede escribir motivosIngreso', async () => {
+    await seed((d) => setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' }))
+    await assertFails(setDoc(doc(db('com'), 'config/motivosIngreso'), { items: [] }))
+  })
+
+  test('comercial NO puede escribir pasosTaller', async () => {
+    await seed((d) => setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' }))
+    await assertFails(setDoc(doc(db('com'), 'config/pasosTaller'), { pasos: {} }))
+  })
+
+  test('cualquier staff puede leer motivosReparacion', async () => {
+    await seed((d) => setDoc(doc(d, 'users/per'), { rol: 'heladeras', estado: 'activo', area: 'refrigeracion' }))
+    await seed((d) => setDoc(doc(d, 'config/motivosReparacion'), { items: [] }))
+    await assertSucceeds(getDoc(doc(db('per'), 'config/motivosReparacion')))
+  })
+})
+
+// ── rol técnico (fase 2) ──────────────────────────────────────────────────────
+describe('tecnicoDniIndex', () => {
+  test('lectura pública de tecnicoDniIndex sin autenticar', async () => {
+    await seed((d) => setDoc(doc(d, 'tecnicoDniIndex/36024287'), { email: 'tec@tecnico.rolito.internal' }))
+    await assertSucceeds(getDoc(doc(testEnv.unauthenticatedContext().firestore(), 'tecnicoDniIndex/36024287')))
+  })
+
+  test('heladeras_encargado SÍ puede escribir tecnicoDniIndex', async () => {
+    await seed((d) => setDoc(doc(d, 'users/enc'), { rol: 'heladeras_encargado', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('enc'), 'tecnicoDniIndex/36024287'), { email: 'tec@tecnico.rolito.internal' }))
+  })
+
+  test('comercial NO puede escribir tecnicoDniIndex', async () => {
+    await seed((d) => setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' }))
+    await assertFails(setDoc(doc(db('com'), 'tecnicoDniIndex/36024287'), { email: 'tec@tecnico.rolito.internal' }))
+  })
+})
+
+describe('users — alta y gestión de técnicos', () => {
+  const tecnico = (extra = {}) => ({
+    rol: 'tecnico', estado: 'activo', nombre: 'Técnico Uno', dni: '36024287', ...extra,
+  })
+
+  test('heladeras_encargado SÍ puede dar de alta un técnico', async () => {
+    await seed((d) => setDoc(doc(d, 'users/enc'), { rol: 'heladeras_encargado', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('enc'), 'users/tec1'), tecnico()))
+  })
+
+  test('gerente_comercial SÍ puede dar de alta un técnico', async () => {
+    await seed((d) => setDoc(doc(d, 'users/gc'), { rol: 'gerente_comercial', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('gc'), 'users/tec1'), tecnico()))
+  })
+
+  test('comercial NO puede dar de alta un técnico', async () => {
+    await seed((d) => setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' }))
+    await assertFails(setDoc(doc(db('com'), 'users/tec1'), tecnico()))
+  })
+
+  test('heladeras_encargado SÍ puede leer la ficha de un técnico', async () => {
+    await seed((d) => setDoc(doc(d, 'users/enc'), { rol: 'heladeras_encargado', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'users/tec1'), tecnico()))
+    await assertSucceeds(getDoc(doc(db('enc'), 'users/tec1')))
+  })
+
+  test('heladeras_encargado SÍ puede activar/desactivar un técnico (solo el campo estado)', async () => {
+    await seed((d) => setDoc(doc(d, 'users/enc'), { rol: 'heladeras_encargado', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'users/tec1'), tecnico()))
+    await assertSucceeds(updateDoc(doc(db('enc'), 'users/tec1'), { estado: 'inactivo' }))
+  })
+
+  test('heladeras_encargado NO puede tocar otros campos de un técnico (ej. nombre)', async () => {
+    await seed((d) => setDoc(doc(d, 'users/enc'), { rol: 'heladeras_encargado', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'users/tec1'), tecnico()))
+    await assertFails(updateDoc(doc(db('enc'), 'users/tec1'), { nombre: 'Otro Nombre' }))
+  })
+
+  test('heladeras_encargado NO puede tocar el estado de un usuario que no es técnico', async () => {
+    await seed((d) => setDoc(doc(d, 'users/enc'), { rol: 'heladeras_encargado', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'users/ch1'), { rol: 'chofer', estado: 'activo' }))
+    await assertFails(updateDoc(doc(db('enc'), 'users/ch1'), { estado: 'inactivo' }))
+  })
+})
+
+// ── ticketsServicio ────────────────────────────────────────────────────────
+describe('ticketsServicio', () => {
+  const ticket = (extra = {}) => ({
+    numero: 1, heladeraId: 'h1', heladeraCodigo: 'HL-001', clientId: 'cli', clientName: 'Cliente de Prueba SA',
+    motivoId: 'm1', motivoNombre: 'No enfría', requiereChofer: false, estado: 'abierto', asignadoA: null,
+    historialAcciones: [], fechaPedido: new Date(), createdAt: new Date(), updatedAt: new Date(), ...extra,
+  })
+  const seedEncargado = () => seed((d) => setDoc(doc(d, 'users/enc'), { rol: 'heladeras_encargado', estado: 'activo' }))
+  const seedTecnico   = (uid = 'tec') => seed((d) => setDoc(doc(d, `users/${uid}`), { rol: 'tecnico', estado: 'activo' }))
+  const seedChofer    = (uid = 'ch')  => seed((d) => setDoc(doc(d, `users/${uid}`), { rol: 'chofer', estado: 'activo', email: 'ch@x.com' }))
+
+  test('heladeras_encargado SÍ puede crear un ticket', async () => {
+    await seedEncargado()
+    await assertSucceeds(setDoc(doc(db('enc'), 'ticketsServicio/t1'), ticket()))
+  })
+
+  test('comercial NO puede leer ni crear tickets', async () => {
+    await seed((d) => setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'ticketsServicio/t1'), ticket()))
+    await assertFails(getDoc(doc(db('com'), 'ticketsServicio/t1')))
+    await assertFails(setDoc(doc(db('com'), 'ticketsServicio/t2'), ticket()))
+  })
+
+  test('técnico NO puede leer un ticket que no le asignaron', async () => {
+    await seedTecnico()
+    await seed((d) => setDoc(doc(d, 'ticketsServicio/t1'), ticket()))
+    await assertFails(getDoc(doc(db('tec'), 'ticketsServicio/t1')))
+  })
+
+  test('técnico SÍ puede leer y registrar trabajo en su propio ticket asignado', async () => {
+    await seedTecnico()
+    await seed((d) => setDoc(doc(d, 'ticketsServicio/t1'), ticket({
+      estado: 'asignado_tecnico', asignadoA: { tipo: 'tecnico', uid: 'tec', nombre: 'Técnico Uno' },
+    })))
+    await assertSucceeds(getDoc(doc(db('tec'), 'ticketsServicio/t1')))
+    await assertSucceeds(updateDoc(doc(db('tec'), 'ticketsServicio/t1'), {
+      tipoReparacionId: 'tr1', tipoReparacionNombre: 'Cambio termostato', trabajoRealizado: 'listo', updatedAt: new Date(),
+    }))
+  })
+
+  test('técnico NO puede cerrar el ticket ni cambiarle el estado', async () => {
+    await seedTecnico()
+    await seed((d) => setDoc(doc(d, 'ticketsServicio/t1'), ticket({
+      estado: 'asignado_tecnico', asignadoA: { tipo: 'tecnico', uid: 'tec', nombre: 'Técnico Uno' },
+    })))
+    await assertFails(updateDoc(doc(db('tec'), 'ticketsServicio/t1'), { estado: 'cerrado' }))
+  })
+
+  test('técnico NO puede registrar trabajo en el ticket de otro técnico', async () => {
+    await seedTecnico('tec')
+    await seed((d) => setDoc(doc(d, 'ticketsServicio/t1'), ticket({
+      estado: 'asignado_tecnico', asignadoA: { tipo: 'tecnico', uid: 'otro-tec', nombre: 'Otro Técnico' },
+    })))
+    await assertFails(updateDoc(doc(db('tec'), 'ticketsServicio/t1'), { trabajoRealizado: 'listo', updatedAt: new Date() }))
+  })
+
+  test('chofer SÍ puede marcar hecho su propio traslado, sin tocar tipoReparacion', async () => {
+    await seedChofer()
+    await seed((d) => setDoc(doc(d, 'ticketsServicio/t1'), ticket({
+      requiereChofer: true, estado: 'asignado_chofer', asignadoA: { tipo: 'chofer', uid: 'ch', nombre: 'Chofer Uno' },
+    })))
+    await assertSucceeds(updateDoc(doc(db('ch'), 'ticketsServicio/t1'), { trabajoRealizado: 'retirado', updatedAt: new Date() }))
+    await assertFails(updateDoc(doc(db('ch'), 'ticketsServicio/t1'), { tipoReparacionId: 'tr1', updatedAt: new Date() }))
+  })
+
+  test('heladeras_encargado SÍ puede asignar, cerrar y anular', async () => {
+    await seedEncargado()
+    await seed((d) => setDoc(doc(d, 'ticketsServicio/t1'), ticket()))
+    await assertSucceeds(updateDoc(doc(db('enc'), 'ticketsServicio/t1'), {
+      estado: 'asignado_tecnico', asignadoA: { tipo: 'tecnico', uid: 'tec', nombre: 'Técnico Uno' }, updatedAt: new Date(),
+    }))
+    await assertSucceeds(updateDoc(doc(db('enc'), 'ticketsServicio/t1'), {
+      estado: 'cerrado', conformidad: { firmaDataUrl: 'x', nombreQuienConfirma: 'Juan' }, cerradoPor: { uid: 'enc', nombre: 'Encargado' }, updatedAt: new Date(),
+    }))
+  })
+
+  test('nadie puede borrar un ticket (ni el encargado)', async () => {
+    await seedEncargado()
+    await seed((d) => setDoc(doc(d, 'ticketsServicio/t1'), ticket()))
+    await assertFails(deleteDoc(doc(db('enc'), 'ticketsServicio/t1')))
+  })
+})
+
+// ── preventivos ──────────────────────────────────────────────────────────────
+describe('preventivos', () => {
+  const preventivo = (extra = {}) => ({
+    clientId: 'cli', year: 2026, hecho: true, fecha: new Date(), actor: { uid: 'enc', nombre: 'Encargado' }, ...extra,
+  })
+
+  test('heladeras_encargado SÍ puede marcar un preventivo hecho', async () => {
+    await seed((d) => setDoc(doc(d, 'users/enc'), { rol: 'heladeras_encargado', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('enc'), 'preventivos/cli_2026'), preventivo()))
+  })
+
+  test('gerente_comercial SÍ puede marcar un preventivo hecho', async () => {
+    await seed((d) => setDoc(doc(d, 'users/gc'), { rol: 'gerente_comercial', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('gc'), 'preventivos/cli_2026'), preventivo()))
+  })
+
+  test('comercial SÍ puede leer preventivos pero NO puede escribir', async () => {
+    await seed((d) => setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'preventivos/cli_2026'), preventivo()))
+    await assertSucceeds(getDoc(doc(db('com'), 'preventivos/cli_2026')))
+    await assertFails(setDoc(doc(db('com'), 'preventivos/cli_2026'), preventivo({ hecho: false })))
+  })
+
+  test('personal de sector (rol heladeras) NO puede leer ni escribir preventivos', async () => {
+    await seed((d) => setDoc(doc(d, 'users/per'), { rol: 'heladeras', estado: 'activo', area: 'refrigeracion' }))
+    await seed((d) => setDoc(doc(d, 'preventivos/cli_2026'), preventivo()))
+    await assertFails(getDoc(doc(db('per'), 'preventivos/cli_2026')))
+    await assertFails(setDoc(doc(db('per'), 'preventivos/cli_2026'), preventivo()))
+  })
+
+  test('heladeras_encargado SÍ puede desmarcar (borrar) un preventivo', async () => {
+    await seed((d) => setDoc(doc(d, 'users/enc'), { rol: 'heladeras_encargado', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'preventivos/cli_2026'), preventivo()))
+    await assertSucceeds(deleteDoc(doc(db('enc'), 'preventivos/cli_2026')))
+  })
+})
+
+// ── pañol ──────────────────────────────────────────────────────────────────
+describe('panolArticulos', () => {
+  const articulo = (extra = {}) => ({
+    nombre: 'Termostato', codigoBarras: '7791234567890', unidad: 'unidad',
+    stockActual: 5, stockMinimo: 2, stockMaximo: 20, ...extra,
+  })
+
+  test('heladeras_encargado SÍ puede crear un artículo', async () => {
+    await seed((d) => setDoc(doc(d, 'users/enc'), { rol: 'heladeras_encargado', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('enc'), 'panolArticulos/a1'), articulo()))
+  })
+
+  test('técnico SÍ puede leer artículos pero NO puede escribir', async () => {
+    await seed((d) => setDoc(doc(d, 'users/tec'), { rol: 'tecnico', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'panolArticulos/a1'), articulo()))
+    await assertSucceeds(getDoc(doc(db('tec'), 'panolArticulos/a1')))
+    await assertFails(updateDoc(doc(db('tec'), 'panolArticulos/a1'), { stockActual: 999 }))
+  })
+
+  test('comercial NO puede leer artículos del pañol', async () => {
+    await seed((d) => setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'panolArticulos/a1'), articulo()))
+    await assertFails(getDoc(doc(db('com'), 'panolArticulos/a1')))
+  })
+})
+
+describe('panolMovimientos', () => {
+  const movimiento = (extra = {}) => ({
+    tipo: 'entrega', articulos: [{ articuloId: 'a1', nombre: 'Termostato', cantidad: 2 }],
+    destinatario: { uid: 'tec', nombre: 'Técnico Uno', rol: 'tecnico' },
+    confirmado: false, firmaDataUrl: null, confirmadoAt: null,
+    actor: { uid: 'enc', nombre: 'Encargado' }, fecha: new Date(), ...extra,
+  })
+
+  test('heladeras_encargado SÍ puede registrar una entrega', async () => {
+    await seed((d) => setDoc(doc(d, 'users/enc'), { rol: 'heladeras_encargado', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('enc'), 'panolMovimientos/m1'), movimiento()))
+  })
+
+  test('técnico SÍ puede leer su propia entrega, pero NO la de otro técnico', async () => {
+    await seed((d) => setDoc(doc(d, 'users/tec'), { rol: 'tecnico', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'panolMovimientos/m1'), movimiento()))
+    await assertSucceeds(getDoc(doc(db('tec'), 'panolMovimientos/m1')))
+
+    await seed((d) => setDoc(doc(d, 'users/otro-tec'), { rol: 'tecnico', estado: 'activo' }))
+    await assertFails(getDoc(doc(db('otro-tec'), 'panolMovimientos/m1')))
+  })
+
+  test('técnico SÍ puede firmar para confirmar su propia entrega', async () => {
+    await seed((d) => setDoc(doc(d, 'users/tec'), { rol: 'tecnico', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'panolMovimientos/m1'), movimiento()))
+    await assertSucceeds(updateDoc(doc(db('tec'), 'panolMovimientos/m1'), {
+      confirmado: true, firmaDataUrl: 'data:image/png;base64,xx', confirmadoAt: new Date(),
+    }))
+  })
+
+  test('técnico NO puede confirmar una entrega ya confirmada', async () => {
+    await seed((d) => setDoc(doc(d, 'users/tec'), { rol: 'tecnico', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'panolMovimientos/m1'), movimiento({ confirmado: true })))
+    await assertFails(updateDoc(doc(db('tec'), 'panolMovimientos/m1'), { firmaDataUrl: 'x', confirmadoAt: new Date() }))
+  })
+
+  test('técnico NO puede tocar otros campos al confirmar', async () => {
+    await seed((d) => setDoc(doc(d, 'users/tec'), { rol: 'tecnico', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'panolMovimientos/m1'), movimiento()))
+    await assertFails(updateDoc(doc(db('tec'), 'panolMovimientos/m1'), {
+      confirmado: true, firmaDataUrl: 'x', confirmadoAt: new Date(), articulos: [],
+    }))
+  })
+
+  test('nadie puede borrar un movimiento (ni el encargado)', async () => {
+    await seed((d) => setDoc(doc(d, 'users/enc'), { rol: 'heladeras_encargado', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'panolMovimientos/m1'), movimiento()))
+    await assertFails(deleteDoc(doc(db('enc'), 'panolMovimientos/m1')))
   })
 })
 

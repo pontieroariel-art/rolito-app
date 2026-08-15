@@ -1,5 +1,6 @@
 import { Order, OrderProduct } from '../types'
 import { toDateStr } from './helpers'
+import { ROLITO_INFO } from './constants'
 
 // El logo fuente (/logo-rolito.png) es un PNG de 8334x2836px — insertado tal
 // cual con doc.addImage(), jsPDF lo reincrusta a resolución completa (el PDF
@@ -291,4 +292,261 @@ export async function generateHistorialDespachoPdf(
   // ── Guardar ─────────────────────────────────────────────────────────────────
   const suffix = scope ? `-${scope.chofer.toLowerCase().replace(/\s+/g, '-')}` : ''
   doc.save(`historial-despacho${suffix}-${fechaSlug}.pdf`)
+}
+
+// Remito de traslado (pág. 1) + comodato (pág. 2) en un solo PDF, generados
+// juntos porque comparten número de movimiento y se imprimen/archivan como
+// una unidad. El texto del comodato es un modelo genérico de préstamo de
+// uso — no reemplaza una revisión legal/contable si la empresa quiere
+// ajustar cláusulas.
+export async function generateRemitoComodato(params: {
+  numero:       number
+  tipo:         'asignacion' | 'retiro'
+  fecha:        Date
+  heladera:     { codigoInterno: string; modelo: string; numeroSerie: string }
+  cliente:      { razonSocial: string; cuit: string; direccion: string }
+  firmaDataUrl: string
+  actorNombre:  string
+}) {
+  const { numero, tipo, fecha, heladera, cliente, firmaDataUrl, actorNombre } = params
+  const { default: jsPDF }     = await import('jspdf')
+  const { default: autoTable } = await import('jspdf-autotable')
+  const doc   = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const pageW = doc.internal.pageSize.getWidth()
+  const logo  = await fetchImageAsBase64('/logo-rolito.png')
+
+  const fechaStr = fecha.toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })
+  const tipoLabel = tipo === 'asignacion' ? 'Entrega' : 'Retiro'
+
+  const header = (titulo: string) => {
+    if (logo) doc.addImage(logo, 'PNG', 14, 8, 40, 13)
+    doc.setFontSize(15)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(0)
+    doc.text(titulo, pageW - 14, 14, { align: 'right' })
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(80)
+    doc.text(`N° ${numero}   ·   ${fechaStr}`, pageW - 14, 20, { align: 'right' })
+    doc.setTextColor(0)
+    doc.setDrawColor(45, 106, 79)
+    doc.setLineWidth(0.6)
+    doc.line(14, 26, pageW - 14, 26)
+  }
+
+  const datosPartes = (startY: number) => {
+    autoTable(doc, {
+      startY,
+      theme: 'plain',
+      body: [
+        ['De',   `${ROLITO_INFO.razonSocial} — ${ROLITO_INFO.direccion}, ${ROLITO_INFO.localidad} (CP ${ROLITO_INFO.cp})`],
+        ['A',    `${cliente.razonSocial} — CUIT ${cliente.cuit}`],
+        ['Domicilio', cliente.direccion || '—'],
+      ],
+      styles: { fontSize: 9, cellPadding: 1.5 },
+      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 28 } },
+      margin: { left: 14, right: 14 },
+    })
+    // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
+    return doc.lastAutoTable?.finalY ?? startY + 20
+  }
+
+  const tablaEquipo = (startY: number) => {
+    autoTable(doc, {
+      startY,
+      head: [['Código', 'Modelo', 'N° de serie']],
+      body: [[heladera.codigoInterno, heladera.modelo, heladera.numeroSerie]],
+      styles: { fontSize: 9, cellPadding: 2.5 },
+      headStyles: { fillColor: [45, 106, 79], textColor: 255, fontStyle: 'bold', fontSize: 8 },
+      margin: { left: 14, right: 14 },
+    })
+    // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
+    return doc.lastAutoTable?.finalY ?? startY + 20
+  }
+
+  const firmaYAclaracion = (y: number) => {
+    doc.addImage(firmaDataUrl, 'PNG', 14, y, 60, 22)
+    doc.setDrawColor(150)
+    doc.setLineWidth(0.2)
+    doc.line(14, y + 24, 90, y + 24)
+    doc.setFontSize(8)
+    doc.setTextColor(100)
+    doc.text('Firma del cliente', 14, y + 28)
+    doc.setFontSize(8.5)
+    doc.setTextColor(60)
+    doc.text(`Registró: ${actorNombre}`, pageW - 14, y + 28, { align: 'right' })
+  }
+
+  // ── Página 1: remito ──────────────────────────────────────────────────────
+  header(`Remito de Traslado — ${tipoLabel}`)
+  let y = datosPartes(32)
+  y = tablaEquipo(y + 6)
+  doc.setFontSize(9)
+  doc.setTextColor(60)
+  doc.text(
+    tipo === 'asignacion'
+      ? 'Se traslada el equipo detallado arriba al domicilio del cliente.'
+      : 'Se retira el equipo detallado arriba del domicilio del cliente.',
+    14, y + 10,
+  )
+  firmaYAclaracion(y + 20)
+
+  // ── Página 2: comodato ────────────────────────────────────────────────────
+  doc.addPage()
+  header('Contrato de Comodato')
+  y = datosPartes(32)
+
+  doc.setFontSize(9)
+  doc.setTextColor(30)
+  const parrafos = [
+    `Entre ${ROLITO_INFO.razonSocial} (en adelante "EL COMODANTE") y ${cliente.razonSocial}, ` +
+    `CUIT ${cliente.cuit} (en adelante "EL COMODATARIO"), se conviene el préstamo de uso gratuito ` +
+    `del equipo detallado a continuación.`,
+    '1. Objeto: el equipo permanece en todo momento en propiedad de EL COMODANTE. EL COMODATARIO ' +
+    'lo recibe en préstamo de uso, sin cargo, para la conservación y venta de los productos de EL COMODANTE.',
+    '2. Uso: EL COMODATARIO se compromete a darle al equipo el uso exclusivo previsto y a mantenerlo ' +
+    'en buen estado de funcionamiento y conservación.',
+    '3. Responsabilidad: cualquier daño, pérdida o rotura del equipo durante la vigencia del préstamo ' +
+    'es responsabilidad de EL COMODATARIO, salvo desgaste normal por uso.',
+    '4. Devolución: EL COMODATARIO se obliga a restituir el equipo en buen estado a simple ' +
+    'requerimiento de EL COMODANTE, o al finalizar la relación comercial entre las partes.',
+  ]
+  let ty = y + 8
+  parrafos.forEach((p) => {
+    const lines = doc.splitTextToSize(p, pageW - 28)
+    doc.text(lines, 14, ty)
+    ty += lines.length * 4.2 + 3
+  })
+
+  y = tablaEquipo(ty + 2)
+  firmaYAclaracion(y + 10)
+
+  // ── Guardar ─────────────────────────────────────────────────────────────────
+  doc.save(`remito-comodato-${numero}-${toDateStr(fecha)}.pdf`)
+}
+
+// Hoja para entregarle al técnico/chofer con lo que necesita saber del
+// pedido de reparación: quién es el cliente, dónde queda, y qué equipo es.
+export async function generatePedidoReparacion(params: {
+  ticket: {
+    numero:       number
+    motivoNombre: string
+    fechaPedido:  Date
+    estado:       string
+  }
+  heladera: {
+    codigoInterno: string
+    modelo:        string
+    numeroSerie:   string
+    medidas?:      { ancho: number; alto: number; profundo: number }
+    fotoUrl?:      string
+  }
+  cliente: {
+    razonSocial:   string
+    cuit:          string
+    codigoCliente?: string
+    direccion:     string
+    localidad?:    string
+  }
+}) {
+  const { ticket, heladera, cliente } = params
+  const { default: jsPDF }     = await import('jspdf')
+  const { default: autoTable } = await import('jspdf-autotable')
+  const doc   = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const pageW = doc.internal.pageSize.getWidth()
+  const logo  = await fetchImageAsBase64('/logo-rolito.png')
+  const fotoHeladera = heladera.fotoUrl ? await fetchImageAsBase64(heladera.fotoUrl, 300) : null
+
+  if (logo) doc.addImage(logo, 'PNG', 14, 8, 40, 13)
+  doc.setFontSize(15)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(0)
+  doc.text('Pedido de Reparación', pageW - 14, 14, { align: 'right' })
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(80)
+  const fechaStr = ticket.fechaPedido.toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })
+  doc.text(`N° ${ticket.numero}   ·   ${fechaStr}`, pageW - 14, 20, { align: 'right' })
+  doc.setTextColor(0)
+  doc.setDrawColor(45, 106, 79)
+  doc.setLineWidth(0.6)
+  doc.line(14, 26, pageW - 14, 26)
+
+  autoTable(doc, {
+    startY: 32,
+    theme: 'plain',
+    body: [
+      ['Cliente',    cliente.razonSocial],
+      ['CUIT',       cliente.cuit || '—'],
+      ['Código',     cliente.codigoCliente || '—'],
+      ['Domicilio',  `${cliente.direccion || '—'}${cliente.localidad ? `, ${cliente.localidad}` : ''}`],
+      ['Motivo',     ticket.motivoNombre],
+    ],
+    styles: { fontSize: 9, cellPadding: 1.5 },
+    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 28 } },
+    margin: { left: 14, right: 14 },
+  })
+  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
+  let y = doc.lastAutoTable?.finalY ?? 60
+
+  autoTable(doc, {
+    startY: y + 6,
+    head: [['Código', 'Modelo', 'N° de serie', 'Medidas']],
+    body: [[
+      heladera.codigoInterno,
+      heladera.modelo,
+      heladera.numeroSerie,
+      heladera.medidas ? `${heladera.medidas.ancho}×${heladera.medidas.alto}×${heladera.medidas.profundo} cm` : '—',
+    ]],
+    styles: { fontSize: 9, cellPadding: 2.5 },
+    headStyles: { fillColor: [45, 106, 79], textColor: 255, fontStyle: 'bold', fontSize: 8 },
+    margin: { left: 14, right: 14 },
+  })
+  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
+  y = doc.lastAutoTable?.finalY ?? y + 20
+
+  if (fotoHeladera) {
+    doc.addImage(fotoHeladera, 'PNG', 14, y + 6, 60, 60)
+  }
+
+  // ── Guardar ─────────────────────────────────────────────────────────────────
+  doc.save(`pedido-reparacion-${ticket.numero}-${toDateStr(ticket.fechaPedido)}.pdf`)
+}
+
+// Listado genérico imprimible (título + tabla) — usado por el dashboard de
+// informes de heladeras para cualquiera de sus tarjetas.
+export async function generateListadoPdf(titulo: string, head: string[], rows: (string | number)[][], subtitulo?: string) {
+  const { default: jsPDF }     = await import('jspdf')
+  const { default: autoTable } = await import('jspdf-autotable')
+  const doc   = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const pageW = doc.internal.pageSize.getWidth()
+  const logo  = await fetchImageAsBase64('/logo-rolito.png')
+
+  if (logo) doc.addImage(logo, 'PNG', 14, 8, 40, 13)
+  doc.setFontSize(15)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(0)
+  doc.text(titulo, pageW - 14, 14, { align: 'right' })
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(80)
+  const fechaHora = new Date().toLocaleString('es-AR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  doc.text(subtitulo ?? fechaHora, pageW - 14, 20, { align: 'right' })
+  doc.setTextColor(0)
+  doc.setDrawColor(45, 106, 79)
+  doc.setLineWidth(0.6)
+  doc.line(14, 26, pageW - 14, 26)
+
+  autoTable(doc, {
+    startY: 32,
+    head: [head],
+    body: rows,
+    styles: { fontSize: 8, cellPadding: 2.5, overflow: 'linebreak' },
+    headStyles: { fillColor: [45, 106, 79], textColor: 255, fontStyle: 'bold', fontSize: 8 },
+    alternateRowStyles: { fillColor: [240, 248, 244] },
+    margin: { left: 14, right: 14 },
+  })
+
+  const slug = titulo.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '')
+  doc.save(`${slug}-${toDateStr(new Date())}.pdf`)
 }

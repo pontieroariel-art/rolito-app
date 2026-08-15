@@ -1,6 +1,6 @@
 import { Timestamp } from 'firebase/firestore'
 
-export type UserRole = 'super_admin' | 'gerente_general' | 'gerente_comercial' | 'comercial' | 'logistica' | 'chofer' | 'cliente' | 'facturacion'
+export type UserRole = 'super_admin' | 'gerente_general' | 'gerente_comercial' | 'comercial' | 'logistica' | 'chofer' | 'cliente' | 'facturacion' | 'heladeras' | 'heladeras_encargado' | 'tecnico'
 export type UserStatus = 'activo' | 'inactivo' | 'pendiente'
 
 export type OrderStatus =
@@ -105,6 +105,7 @@ export interface UserProfile {
   fechaAlta?:         Timestamp | null
   sector?:            string   // internal-only prefix from COD_CTE (e.g. FC, MDP, YPF)
   subrol?:            'chofer' | 'ayudante'
+  area?:              AreaHeladera   // sector de heladeras (rol 'heladeras')
   // Alta rápida de cliente por staff (CrearClienteModal) — ausente en
   // clientes autorregistrados o importados por Excel.
   creadoPor?: { uid: string; nombre: string; rol: UserRole }
@@ -200,6 +201,10 @@ export interface AccionHistorial {
   usuarioNombre: string
   timestamp:     Timestamp
   detalle?:      string | null
+  // Solo se completan en transiciones de pipeline (heladeras) — trazabilidad
+  // estado_origen -> estado_destino pedida para el módulo de taller.
+  estadoOrigen?:  EstadoHeladera | null
+  estadoDestino?: EstadoHeladera | null
 }
 
 export interface Order {
@@ -317,4 +322,230 @@ export interface PedidoRecurrente {
   notas?:            string
   createdAt:         Timestamp
   ultimaGeneracion?: Timestamp | null
+}
+
+// ── Heladeras (taller) ─────────────────────────────────────────────────────
+
+export const AREAS_HELADERA = [
+  'produccion', 'lijado', 'pintura', 'refrigeracion', 'servicio_tecnico',
+  'plastico', 'ensamble_inyectado', 'terminacion',
+] as const
+export type AreaHeladera = typeof AREAS_HELADERA[number]
+
+export type TipoPipelineHeladera = 'fabricacion' | 'reacondicionamiento'
+
+// Catálogo administrable por el encargado (config/pasosTaller, doc único con
+// mapa {id: PasoTaller}) — reemplaza la secuencia fija que antes vivía
+// hardcodeada en heladeraPipeline.ts. Dos pipelines conviven: fabricación
+// (heladeras nuevas, hechas desde cero) y reacondicionamiento (heladeras
+// usadas que vuelven de un cliente). `siguientePasoId` se recalcula cada vez
+// que se guarda el catálogo (ver pasosTallerService.ts) para que las
+// Firestore rules puedan validar la transición con un acceso directo, sin
+// tener que ordenar/buscar en una lista.
+export interface PasoTaller {
+  id:                  string
+  nombre:              string
+  tipoPipeline:        TipoPipelineHeladera
+  area:                AreaHeladera   // sector dueño de este paso
+  orden:               number
+  activo:              boolean
+  requiereAprobacion?: boolean         // ej. "Control de calidad": soltar tiene 2 salidas (aprobar/rechazar)
+  siguientePasoId:     string | null   // null = último paso activo de su tipoPipeline
+}
+
+// Estado grueso de una heladera. La cola/en-proceso dentro del taller ya no
+// se codifica acá (antes era un estado por cada paso × fase) — vive en
+// pasoActualId + enProceso (null = en cola, con datos = en proceso).
+export type EstadoHeladera =
+  | 'en_taller'    // dentro de algún pipeline (fabricación o reacondicionamiento), en cola o en proceso
+  | 'disponible'   // depósito de heladeras fabricadas/reacondicionadas, lista para asignar
+  | 'en_comodato'
+  | 'baja'
+
+export type TipoOperacionIngreso = 'RETIRO' | 'CAMBIO'
+
+// Catálogo administrable por el encargado — por qué ingresa una heladera
+// USADA al taller (solo aplica a tipoPipeline 'reacondicionamiento'; una
+// heladera de fabricación nueva no tiene motivo de ingreso). El tipo de
+// operación va tageado en el motivo (no es un campo independiente): "Retiro
+// de heladera" es RETIRO, el resto son CAMBIO.
+export interface MotivoIngreso {
+  id:            string
+  nombre:        string
+  tipoOperacion: TipoOperacionIngreso
+  activo:        boolean
+}
+
+export interface Heladera {
+  id:          string
+  numeroSerie: string
+  modeloId:    string   // referencia a ModeloHeladera
+  modelo:      string   // snapshot del nombre del modelo al momento del alta
+  codigoInterno: string // código propio (no autogenerado), único, va impreso en la etiqueta
+  estado:      EstadoHeladera
+  tipoPipeline: TipoPipelineHeladera
+  // Paso en cola o en proceso dentro de pasosTaller — null cuando estado es
+  // disponible/en_comodato/baja.
+  pasoActualId: string | null
+  // Snapshot del primer paso activo del tipoPipeline al momento del alta —
+  // destino fijo de un rechazo (control de calidad u otro paso con
+  // requiereAprobacion), para no depender de una búsqueda dinámica.
+  primerPasoId: string | null
+  // Motivo de ingreso — solo aplica a tipoPipeline 'reacondicionamiento',
+  // snapshot del catálogo al momento de cargarla.
+  motivoIngresoId?:      string | null
+  motivoIngresoNombre?:  string | null
+  tipoOperacion?:        TipoOperacionIngreso | null
+  observacionesIngreso?: string | null
+  creadoPor:   { uid: string; nombre: string }
+  fechaIngreso: Timestamp
+  // Cuántas veces entró al pipeline — arranca en 1, sube si un paso con
+  // requiereAprobacion la rechaza y vuelve al primer paso para un
+  // reprocesamiento completo.
+  cicloActual: number
+  motivoBaja?: string | null
+  enProceso?: {
+    uid:    string
+    nombre: string
+    area:   AreaHeladera
+    desde:  Timestamp
+  } | null
+  clienteAsignadoId?:     string | null
+  clienteAsignadoNombre?: string | null
+  fechaAsignacion?:       Timestamp | null
+  historialAcciones: AccionHistorial[]
+  createdAt: Timestamp
+  updatedAt: Timestamp
+}
+
+// ── Asignación de equipos (comodatos) ───────────────────────────────────────
+// Colección aparte, append-only: es el historial de remitos/comodatos —
+// heladeras.clienteAsignadoId solo refleja el estado ACTUAL.
+
+export interface AsignacionHeladera {
+  id:            string
+  heladeraId:    string
+  heladeraCodigo: string
+  clientId:      string
+  clientName:    string
+  tipo:          'asignacion' | 'retiro'
+  numero:        number   // número de remito/comodato, compartido entre ambos documentos
+  firmaDataUrl:  string   // PNG en base64 — pesa unos KB, no justifica Storage
+  motivo?:       string | null   // solo en retiro
+  actor:         { uid: string; nombre: string }
+  fecha:         Timestamp
+}
+
+// ── Modelos de heladera (ficha técnica) ─────────────────────────────────────
+
+export interface ModeloHeladera {
+  id:      string
+  nombre:  string
+  medidas: { ancho: number; alto: number; profundo: number }   // cm
+  capacidadBolsas: number
+  fotoUrl?: string
+  activo:  boolean
+  createdAt: Timestamp
+  updatedAt: Timestamp
+}
+
+// ── Catálogos de service (motivos y tipos de reparación) ───────────────────
+
+export interface MotivoReparacion {
+  id:     string
+  nombre: string
+  activo: boolean
+  requiereChofer?: boolean   // el ticket con este motivo se asigna a un chofer, no a un técnico
+}
+
+export interface TipoReparacion {
+  id:     string
+  nombre: string
+  activo: boolean
+  // Sector que hace este trabajo — pintura/lijado/refrigeración. Filtra qué
+  // tipos ve cada técnico (según su propio sector) y cada personal de taller
+  // al soltar un paso o aprobar control de calidad.
+  area:   AreaHeladera
+}
+
+// ── Tickets de service ──────────────────────────────────────────────────────
+
+export type EstadoTicketServicio = 'abierto' | 'asignado_tecnico' | 'asignado_chofer' | 'cerrado' | 'anulado'
+
+export interface TicketServicio {
+  id:              string
+  numero:          number
+  heladeraId:      string
+  heladeraCodigo:  string
+  clientId:        string
+  clientName:      string
+  motivoId:        string
+  motivoNombre:    string
+  requiereChofer:  boolean
+  estado:          EstadoTicketServicio
+  asignadoA?: {
+    tipo:   'tecnico' | 'chofer'
+    uid:    string
+    nombre: string
+  } | null
+  tipoReparacionId?:     string | null
+  tipoReparacionNombre?: string | null
+  trabajoRealizado?:     string | null
+  conformidad?: {
+    firmaDataUrl:        string
+    nombreQuienConfirma: string
+  } | null
+  anuladoPor?:      { uid: string; nombre: string } | null
+  motivoAnulacion?: string | null
+  cerradoPor?:      { uid: string; nombre: string } | null
+  historialAcciones: AccionHistorial[]
+  fechaPedido:  Timestamp
+  fechaCierre?: Timestamp | null
+  createdAt:    Timestamp
+  updatedAt:    Timestamp
+}
+
+// ── Preventivos (mantenimiento anual) ───────────────────────────────────────
+// El documento ID es `${clientId}_${year}` — si no existe, se asume pendiente
+// (no hace falta un doc "pendiente" por cliente, solo se guardan los hechos).
+
+export interface Preventivo {
+  id:       string
+  clientId: string
+  year:     number
+  hecho:    boolean
+  fecha?:   Timestamp | null
+  actor?:   { uid: string; nombre: string } | null
+}
+
+// ── Pañol (repuestos y materiales) ──────────────────────────────────────────
+
+export interface PanolArticulo {
+  id:           string
+  nombre:       string
+  codigoBarras: string
+  unidad:       string
+  stockActual:  number
+  stockMinimo:  number
+  stockMaximo:  number
+  createdAt:    Timestamp
+  updatedAt:    Timestamp
+}
+
+export interface PanolMovimientoArticulo {
+  articuloId: string
+  nombre:     string
+  cantidad:   number
+}
+
+export interface PanolMovimiento {
+  id:          string
+  tipo:        'entrega' | 'recepcion'
+  articulos:   PanolMovimientoArticulo[]
+  destinatario?: { uid: string; nombre: string; rol: UserRole } | null   // solo en 'entrega'
+  confirmado:  boolean
+  firmaDataUrl?: string | null
+  confirmadoAt?: Timestamp | null
+  actor:       { uid: string; nombre: string }
+  fecha:       Timestamp
 }

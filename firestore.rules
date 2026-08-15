@@ -18,6 +18,13 @@ service cloud.firestore {
       return data.get('estado', 'none');
     }
 
+    // Área de taller del usuario autenticado (solo aplica a rol 'heladeras').
+    function myArea() {
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      let data = exists(path) ? get(path).data : {};
+      return data.get('area', null);
+    }
+
     // Gerente comercial: acuerdos de precios y activación de clientes
     function isGerenteComercial() {
       return myRole() == 'gerente_comercial';
@@ -46,6 +53,93 @@ service cloud.firestore {
     // Cualquier rol de staff (todo lo que no sea cliente).
     function isStaff() {
       return myRole() != 'cliente' && myRole() != 'none';
+    }
+
+    // Sector heladeras: personal de taller y su encargado
+    function isHeladeras() {
+      return myRole() == 'heladeras';
+    }
+    function isHeladerasEncargado() {
+      return myRole() == 'heladeras_encargado' || myRole() == 'super_admin';
+    }
+    // Acceso completo al módulo heladeras (más allá del taller): encargado,
+    // super_admin y gerente_comercial (por pedido explícito del negocio,
+    // gerente_comercial tiene el mismo nivel que el encargado acá).
+    function isHeladerasFullAccess() {
+      return isHeladerasEncargado() || isGerenteComercial();
+    }
+    // Técnico de campo (rol nuevo, distinto del personal de taller).
+    function isTecnico() {
+      return myRole() == 'tecnico';
+    }
+    function isChofer() {
+      return myRole() == 'chofer';
+    }
+
+    // Pipeline de taller de heladeras — catálogo configurable
+    // (config/pasosTaller, mismo doc que edita el encargado desde
+    // "Catálogos de service"), replica la lógica de
+    // src/utils/heladeraPipeline.ts. Cualquier cambio ahí tiene que
+    // reflejarse acá también.
+    function pasoDe(pasoId) {
+      let path = /databases/$(database)/documents/config/pasosTaller;
+      let data = exists(path) ? get(path).data : {};
+      return data.get('pasos', {}).get(pasoId, null);
+    }
+
+    // Agarrar el paso actual: desde en_taller, sin nadie más en proceso,
+    // área propia == área del paso (tomada del perfil, no de lo que mande
+    // el cliente). pasoActualId no cambia.
+    function puedeAgarrarPasoActual() {
+      let paso = pasoDe(resource.data.get('pasoActualId', null));
+      return isHeladeras() && paso != null && myArea() == paso.area
+        && resource.data.estado == 'en_taller'
+        && resource.data.get('enProceso', null) == null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['enProceso', 'updatedAt'])
+        && request.resource.data.pasoActualId == resource.data.pasoActualId
+        && request.resource.data.enProceso.uid == request.auth.uid
+        && request.resource.data.enProceso.nombre is string
+        && request.resource.data.enProceso.area == paso.area;
+    }
+
+    // Soltar (paso simple) o aprobar (paso con requiereAprobacion) tienen la
+    // misma forma de escritura: avanza a paso.siguientePasoId, o pasa a
+    // 'disponible' si era el último paso activo del pipeline. Solo quien lo
+    // tiene agarrado; historial append-only (solo suma una entrada).
+    function puedeAvanzarPasoActual() {
+      let paso = pasoDe(resource.data.get('pasoActualId', null));
+      let siguiente = paso == null ? null : paso.get('siguientePasoId', null);
+      let nuevoEstado = siguiente == null ? 'disponible' : 'en_taller';
+      return isHeladeras() && paso != null && myArea() == paso.area
+        && resource.data.estado == 'en_taller'
+        && resource.data.get('enProceso', null) != null
+        && resource.data.enProceso.uid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['estado', 'pasoActualId', 'enProceso', 'historialAcciones', 'updatedAt'])
+        && request.resource.data.estado == nuevoEstado
+        && request.resource.data.get('pasoActualId', null) == siguiente
+        && request.resource.data.get('enProceso', null) == null
+        && request.resource.data.historialAcciones.size() == resource.data.historialAcciones.size() + 1;
+    }
+
+    // Rechazar: solo pasos con requiereAprobacion (ej. control de calidad).
+    // Vuelve a primerPasoId (snapshot tomado al alta) para un
+    // reprocesamiento completo — no hay salto a mitad de pipeline.
+    // cicloActual solo puede subir de a uno.
+    function puedeRechazarPasoActual() {
+      let paso = pasoDe(resource.data.get('pasoActualId', null));
+      return isHeladeras() && paso != null && paso.get('requiereAprobacion', false) == true
+        && myArea() == paso.area
+        && resource.data.estado == 'en_taller'
+        && resource.data.get('enProceso', null) != null
+        && resource.data.enProceso.uid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['estado', 'pasoActualId', 'enProceso', 'cicloActual', 'historialAcciones', 'updatedAt'])
+        && request.resource.data.estado == 'en_taller'
+        && request.resource.data.pasoActualId == resource.data.get('primerPasoId', null)
+        && request.resource.data.get('enProceso', null) == null
+        && request.resource.data.cicloActual == resource.data.get('cicloActual', 1) + 1
+        && request.resource.data.historialAcciones.size() == resource.data.historialAcciones.size() + 1;
     }
 
     // ── Colección de usuarios ──────────────────────────────────────────────
@@ -96,7 +190,11 @@ service cloud.firestore {
       // ── Lectura ──
       allow read: if isSelf();
       allow read: if request.auth != null
-        && (isManager() || myRole() == 'logistica' || isFacturacion() || isGerenteGeneral());
+        && (isManager() || myRole() == 'logistica' || isFacturacion() || isGerenteGeneral()
+            // heladeras_encargado necesita buscar clientes (asignación de equipos)
+            // y ver la lista de técnicos — gerente_comercial/super_admin ya
+            // entran por isManager().
+            || myRole() == 'heladeras_encargado');
 
       // ── super_admin: control total (asigna roles, crea staff, limpia datos) ──
       allow read, write: if request.auth != null && myRole() == 'super_admin';
@@ -110,6 +208,11 @@ service cloud.firestore {
       // Operadores (super_admin/logistica) pueden dar de alta choferes.
       allow create: if request.auth != null && isOperator()
         && request.resource.data.rol == 'chofer';
+
+      // Acceso completo al módulo heladeras (encargado/gerente_comercial, además
+      // de super_admin que ya tiene control total arriba) puede dar de alta técnicos.
+      allow create: if request.auth != null && isHeladerasFullAccess()
+        && request.resource.data.rol == 'tecnico';
 
       // ── Edición del propio perfil: NO puede tocar rol / estado / precios / identidad ──
       allow update: if isSelf() && rolUnchanged() && estadoUnchanged()
@@ -134,6 +237,12 @@ service cloud.firestore {
       allow update: if request.auth != null && isFacturacion()
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['codigoCliente']);
+
+      // ── Módulo heladeras: activar/desactivar cuentas de técnico (solo ese
+      // campo, solo sobre docs con rol 'tecnico' — no pueden tocar otro staff). ──
+      allow update: if request.auth != null && isHeladerasFullAccess()
+        && resource.data.get('rol', '') == 'tecnico'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado']);
     }
 
     // ── Pedidos ────────────────────────────────────────────────────────────
@@ -164,14 +273,17 @@ service cloud.firestore {
         isManager()
       );
 
-      // Lectura: el cliente dueño, el chofer asignado, operador, comercial, facturación o gerente general
+      // Lectura: el cliente dueño, el chofer asignado, operador, comercial, facturación,
+      // gerente general o el encargado de heladeras (necesita ver entregas de hielo
+      // para el ranking de consumo por cliente).
       allow read: if request.auth != null && (
         request.auth.uid == resource.data.clientId ||
         request.auth.token.email == resource.data.driverId ||
         isOperator() ||
         isManager() ||
         isFacturacion() ||
-        isGerenteGeneral()
+        isGerenteGeneral() ||
+        myRole() == 'heladeras_encargado'
       );
 
       // Actualización del chofer asignado: solo para marcar la entrega. Nunca
@@ -247,6 +359,11 @@ service cloud.firestore {
       allow write: if request.auth != null && isOperator();
       // Comercial y gerente_comercial pueden editar el catálogo (config/catalogo).
       allow write: if request.auth != null && docId == 'catalogo' && isManager();
+      // Catálogos de motivos/tipos de reparación, pasos de taller y contador
+      // de remitos/comodatos: solo el módulo heladeras.
+      allow write: if request.auth != null
+        && docId in ['motivosReparacion', 'tiposReparacion', 'motivosIngreso', 'pasosTaller', 'movimientoHeladeraCounter', 'ticketServicioCounter']
+        && isHeladerasFullAccess();
     }
 
     // ── Emails de notificación admin ──────────────────────────────────────────
@@ -295,6 +412,129 @@ service cloud.firestore {
       allow write: if request.auth != null && isOperator();
     }
 
+    // ── Heladeras (taller: pipeline configurable — ver config/pasosTaller) ──
+    match /heladeras/{heladeraId} {
+      // Lectura: personal de taller, acceso completo del módulo (encargado/super_admin/
+      // gerente_comercial), comercial en solo-lectura (necesita ver qué cliente tiene
+      // qué heladera y su ficha para la pantalla de asignación — sin poder escribir) y
+      // técnico (escanea el QR de la etiqueta en el equipo del cliente).
+      allow read:   if request.auth != null && (isHeladeras() || isHeladerasFullAccess() || myRole() == 'comercial' || isTecnico());
+      allow create: if request.auth != null && isHeladerasFullAccess();
+      // El encargado, super_admin y gerente_comercial conservan permiso amplio: además
+      // de crear y aprobar, usan esta rama para liberarForzado/marcarBaja desde
+      // cualquier estado (es la vía de corrección cuando el personal se
+      // olvidó de soltar una heladera o el registro quedó inconsistente).
+      allow update: if request.auth != null && isHeladerasFullAccess();
+
+      // Personal de sector: NO tiene una rama de "update libre" — solo puede
+      // ejecutar las transiciones puntuales de SU paso actual, cada una
+      // validada contra el estado actual del documento y el catálogo
+      // config/pasosTaller (antes solo se limitaban las claves tocadas, así
+      // que cualquiera con acceso a la consola de Firestore podía poner
+      // estado:'disponible' o 'baja' sin pasar por el flujo). El paso lo da
+      // el catálogo — no hay una rama que permita saltear ni repetir uno.
+      allow update: if request.auth != null && puedeAgarrarPasoActual();
+      allow update: if request.auth != null && puedeAvanzarPasoActual();
+      allow update: if request.auth != null && puedeRechazarPasoActual();
+
+      allow delete: if false;
+    }
+
+    // ── Asignación de equipos (remitos + comodatos) ────────────────────────
+    // Historial append-only de asignaciones/retiros — mismo espíritu que
+    // historialPrecios. comercial lo lee (quiere saber qué cliente tiene
+    // heladera) pero no puede generar ni tocar movimientos.
+    match /asignacionesHeladera/{asignacionId} {
+      allow read:   if request.auth != null && (isHeladerasFullAccess() || myRole() == 'comercial');
+      allow create: if request.auth != null && isHeladerasFullAccess();
+      allow update, delete: if false;
+    }
+
+    // ── Tickets de service ──────────────────────────────────────────────────
+    match /ticketsServicio/{ticketId} {
+      // Lectura: acceso completo del módulo, o el técnico/chofer asignado —
+      // solo su propio ticket (Toma/Consulta de service son pantallas de
+      // encargado; técnico y chofer solo ven lo que les toca a ellos).
+      allow read: if request.auth != null && (
+        isHeladerasFullAccess() ||
+        (isTecnico() && resource.data.get('asignadoA', null) != null && resource.data.asignadoA.uid == request.auth.uid) ||
+        (isChofer()  && resource.data.get('asignadoA', null) != null && resource.data.asignadoA.uid == request.auth.uid)
+      );
+      // Crear, asignar/reasignar, cerrar y anular: solo el módulo heladeras
+      // (Toma de service / Consulta de service).
+      allow create: if request.auth != null && isHeladerasFullAccess();
+      allow update: if request.auth != null && isHeladerasFullAccess();
+
+      // Técnico: solo puede registrar el trabajo en SU ticket asignado,
+      // mientras siga 'asignado_tecnico' — no puede cerrarlo ni reasignarlo.
+      allow update: if request.auth != null && isTecnico()
+        && resource.data.get('asignadoA', null) != null
+        && resource.data.asignadoA.uid == request.auth.uid
+        && resource.data.estado == 'asignado_tecnico'
+        && request.resource.data.estado == resource.data.estado
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['tipoReparacionId', 'tipoReparacionNombre', 'trabajoRealizado', 'historialAcciones', 'updatedAt']);
+
+      // Chofer: solo puede marcar hecho su propio traslado, sin tipo de
+      // reparación (no es un service técnico) y sin cerrar el ticket.
+      allow update: if request.auth != null && isChofer()
+        && resource.data.get('asignadoA', null) != null
+        && resource.data.asignadoA.uid == request.auth.uid
+        && resource.data.estado == 'asignado_chofer'
+        && request.resource.data.estado == resource.data.estado
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['trabajoRealizado', 'historialAcciones', 'updatedAt']);
+
+      allow delete: if false;
+    }
+
+    // ── Preventivos (mantenimiento anual) ──────────────────────────────────
+    match /preventivos/{preventivoId} {
+      allow read:  if request.auth != null && (isHeladerasFullAccess() || myRole() == 'comercial');
+      allow write: if request.auth != null && isHeladerasFullAccess();
+    }
+
+    // ── Pañol (stock de repuestos/materiales) ──────────────────────────────
+    match /panolArticulos/{articuloId} {
+      // El técnico necesita ver qué es lo que le van a entregar/entregaron.
+      allow read:  if request.auth != null && (isHeladerasFullAccess() || isTecnico());
+      allow write: if request.auth != null && isHeladerasFullAccess();
+    }
+
+    match /panolMovimientos/{movimientoId} {
+      allow read: if request.auth != null && (
+        isHeladerasFullAccess() ||
+        (isTecnico() && resource.data.get('destinatario', null) != null && resource.data.destinatario.uid == request.auth.uid)
+      );
+      allow create: if request.auth != null && isHeladerasFullAccess();
+      // Técnico: solo firma su propia entrega para confirmar que la recibió,
+      // una sola vez (no puede reescribir una ya confirmada ni tocar otro campo).
+      allow update: if request.auth != null && isTecnico()
+        && resource.data.get('destinatario', null) != null
+        && resource.data.destinatario.uid == request.auth.uid
+        && resource.data.confirmado == false
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['confirmado', 'firmaDataUrl', 'confirmadoAt']);
+      allow delete: if false;
+    }
+
+    // ── Modelos de heladera (ficha técnica) ────────────────────────────────
+    match /modelosHeladera/{modeloId} {
+      // Lectura amplia a cualquier staff: la necesitan la pantalla de alta de
+      // equipos, la etiqueta Zebra y el pedido de reparación impreso.
+      allow read:  if request.auth != null && isStaff();
+      allow write: if request.auth != null && isHeladerasFullAccess();
+    }
+
+    // ── Índice de códigos internos de heladera (anti-duplicado) ───────────
+    // Mismo patrón que cuitIndex: crear pero nunca sobrescribir/borrar, así
+    // dos altas simultáneas no pueden terminar con el mismo código.
+    match /heladeraCodigoIndex/{codigo} {
+      allow read:   if request.auth != null && isStaff();
+      allow create: if request.auth != null && isHeladerasFullAccess();
+      allow update, delete: if false;
+    }
+
     // ── Pedidos recurrentes ───────────────────────────────────────────────────
     // El documento ID es el clientId. El cliente gestiona el suyo; operadores leen todos.
     match /pedidos-recurrentes/{clientId} {
@@ -341,6 +581,11 @@ service cloud.firestore {
     match /staffDniIndex/{dni} {
       allow read:  if true;
       allow write: if request.auth != null && myRole() == 'super_admin';
+    }
+
+    match /tecnicoDniIndex/{dni} {
+      allow read:  if true;
+      allow write: if request.auth != null && isHeladerasFullAccess();
     }
 
     // ── Historial de precios ──────────────────────────────────────────────────

@@ -31,3 +31,13 @@
     @apply bg-[#F8F7F2] text-gray-900 min-h-screen;
   }
 }
+
+/* Tamaño de página para la etiqueta Zebra (100x100mm). Único uso de
+   window.print() en la app hoy — si se agrega otro flujo de impresión con
+   otro tamaño, pasar esto a un @page con nombre en vez de dejarlo global. */
+@media print {
+  @page {
+    size: 100mm 100mm;
+    margin: 0;
+  }
+}
