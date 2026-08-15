@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo, useRef, ChangeEvent } from 'react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useNavigate } from 'react-router-dom'
 import { MapPin } from 'lucide-react'
-import Navbar from '../../components/layout/Navbar'
 import Button from '../../components/ui/Button'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { Skeleton } from '../../components/ui/skeleton'
@@ -176,28 +175,24 @@ export default function UserManagement() {
   const pendingCount = clientes.filter((u) => u.estado === 'pendiente').length
 
   if (loadingEquipo && equipo.length === 0 && clientes.length === 0) return (
-    <>
-      <Navbar />
-      <div className="max-w-5xl mx-auto p-4 space-y-6 pb-10">
-        <div className="flex justify-between items-center">
-          <Skeleton className="h-8 w-56" />
-          <Skeleton className="h-9 w-40" />
-        </div>
-        <div className="flex gap-3">
-          <Skeleton className="h-9 flex-1" />
-          <Skeleton className="h-9 w-44" />
-          <Skeleton className="h-9 w-44" />
-        </div>
-        <div className="space-y-3">
-          {[...Array(8)].map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
-        </div>
+    <div className="max-w-5xl mx-auto p-4 space-y-6 pb-10">
+      <div className="flex justify-between items-center">
+        <Skeleton className="h-8 w-56" />
+        <Skeleton className="h-9 w-40" />
       </div>
-    </>
+      <div className="flex gap-3">
+        <Skeleton className="h-9 flex-1" />
+        <Skeleton className="h-9 w-44" />
+        <Skeleton className="h-9 w-44" />
+      </div>
+      <div className="space-y-3">
+        {[...Array(8)].map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
+      </div>
+    </div>
   )
 
   return (
     <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
-      <Navbar />
       <main className="max-w-5xl mx-auto p-4 space-y-6 pb-10">
         <div className="flex flex-wrap justify-between items-center gap-3">
           <div>

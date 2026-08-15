@@ -2,7 +2,6 @@ import { useState, useMemo } from 'react'
 import * as XLSX from 'xlsx'
 import { Download, RefreshCw } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
-import Navbar from '../../components/layout/Navbar'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import Button from '../../components/ui/Button'
 import { getAllUsers } from '../../services/userService'
@@ -159,7 +158,6 @@ export default function ReportePreciosPage() {
 
   return (
     <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
-      <Navbar />
       <main className="max-w-full px-4 pb-10 space-y-6">
 
         {/* Header */}

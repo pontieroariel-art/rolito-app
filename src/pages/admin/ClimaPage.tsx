@@ -5,12 +5,11 @@ import {
   ResponsiveContainer, CartesianGrid, Legend,
 } from 'recharts'
 import { ChevronLeft, ChevronRight, Thermometer, Droplets, CloudSun } from 'lucide-react'
-import Navbar from '../../components/layout/Navbar'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { getForecast, getHistoricalWeather, DayWeather } from '../../services/weatherService'
 import { getOrdersInRange } from '../../services/orderService'
 import { Order } from '../../types'
-import { tsToDate } from '../../utils/helpers'
+import { tsToDate, kgHielo } from '../../utils/helpers'
 
 // ── Ciudades ──────────────────────────────────────────────────────────────────
 
@@ -44,13 +43,13 @@ function monthBounds(year: number, month: number) {
   }
 }
 
-function unitsPerDay(orders: Order[]): Record<string, number> {
+function kgHieloPerDay(orders: Order[]): Record<string, number> {
   const map: Record<string, number> = {}
   for (const o of orders) {
     if (o.status !== 'entregado') continue
     const d = tsToDate(o.date)
     const key = d.toISOString().split('T')[0]
-    map[key] = (map[key] ?? 0) + o.products.reduce((s, p) => s + (p.quantity ?? 0), 0)
+    map[key] = (map[key] ?? 0) + kgHielo(o.products)
   }
   return map
 }
@@ -64,15 +63,15 @@ function shortDay(dateStr: string): string {
 
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
-  const temp  = payload.find((p: any) => p.dataKey === 'tempMax')
-  const units = payload.find((p: any) => p.dataKey === 'unidades')
-  const rain  = payload.find((p: any) => p.dataKey === 'rain')
+  const temp = payload.find((p: any) => p.dataKey === 'tempMax')
+  const kg   = payload.find((p: any) => p.dataKey === 'kgHielo')
+  const rain = payload.find((p: any) => p.dataKey === 'rain')
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-3 text-sm space-y-1 shadow-lg">
       <p className="font-semibold text-gray-900">{label}</p>
-      {temp  && <p style={{ color: temp.color  }}>🌡️ {temp.value}°C máx</p>}
-      {rain  && rain.value > 0 && <p className="text-blue-500">🌧️ {rain.value} mm</p>}
-      {units && <p style={{ color: units.color }}>📦 {units.value} unidades</p>}
+      {temp && <p style={{ color: temp.color }}>🌡️ {temp.value}°C máx</p>}
+      {rain && rain.value > 0 && <p className="text-blue-500">🌧️ {rain.value} mm</p>}
+      {kg   && <p style={{ color: kg.color }}>🧊 {kg.value} kg de hielo</p>}
     </div>
   )
 }
@@ -154,7 +153,7 @@ export default function ClimaPage() {
 
   const isLoading = loadingW || loadingO
 
-  const salesByDay = useMemo(() => unitsPerDay(orders), [orders])
+  const kgByDay = useMemo(() => kgHieloPerDay(orders), [orders])
 
   const chartData = useMemo(() => weatherDays.map((d) => ({
     label:    shortDay(d.date),
@@ -162,15 +161,15 @@ export default function ClimaPage() {
     tempMax:  d.tempMax,
     tempMin:  d.tempMin,
     rain:     d.rain,
-    unidades: salesByDay[d.date] ?? 0,
+    kgHielo:  kgByDay[d.date] ?? 0,
     emoji:    d.emoji,
     fill:     tempColor(d.tempMax),
-  })), [weatherDays, salesByDay])
+  })), [weatherDays, kgByDay])
 
   const maxTemp  = useMemo(() => Math.max(...weatherDays.map((d) => d.tempMax), 0), [weatherDays])
   const avgTemp  = useMemo(() => weatherDays.length ? Math.round(weatherDays.reduce((s, d) => s + d.tempMax, 0) / weatherDays.length) : 0, [weatherDays])
   const rainDays = useMemo(() => weatherDays.filter((d) => d.rain > 1).length, [weatherDays])
-  const totalUnidades = useMemo(() => Object.values(salesByDay).reduce((s, v) => s + v, 0), [salesByDay])
+  const totalKgHielo = useMemo(() => Object.values(kgByDay).reduce((s, v) => s + v, 0), [kgByDay])
 
   function prevMonth() {
     if (month === 0) { setYear((y) => y - 1); setMonth(11) }
@@ -184,7 +183,6 @@ export default function ClimaPage() {
 
   return (
     <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
-      <Navbar />
       <main className="max-w-4xl mx-auto p-4 space-y-6 pb-10">
 
         {/* Header */}
@@ -260,9 +258,9 @@ export default function ClimaPage() {
               <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-1">
                 <div className="flex items-center gap-1.5 text-gray-500">
                   <CloudSun size={14} />
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">Unidades entregadas</p>
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">Kg de hielo entregados</p>
                 </div>
-                <p className="text-2xl font-bold text-accent">{totalUnidades.toLocaleString('es-AR')}</p>
+                <p className="text-2xl font-bold text-accent">{totalKgHielo.toLocaleString('es-AR')}</p>
               </div>
             </div>
           )}
@@ -270,7 +268,7 @@ export default function ClimaPage() {
           {/* Gráfico correlación */}
           <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-3">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Temperatura máxima vs. unidades entregadas
+              Temperatura máxima vs. kg de hielo entregados
             </p>
             {isLoading ? <div className="flex items-center justify-center h-56"><LoadingSpinner /></div> : errorW ? (
               <p className="text-center text-red-400 text-sm py-10">
@@ -308,7 +306,7 @@ export default function ClimaPage() {
                     />
                     <Tooltip content={<CustomTooltip />} />
                     <Legend
-                      formatter={(v) => v === 'tempMax' ? 'Temp. máx (°C)' : 'Unidades entregadas'}
+                      formatter={(v) => v === 'tempMax' ? 'Temp. máx (°C)' : 'Kg de hielo entregados'}
                       wrapperStyle={{ fontSize: 11, color: '#9ca3af' }}
                     />
                     <Bar
@@ -325,8 +323,8 @@ export default function ClimaPage() {
                     </Bar>
                     <Line
                       yAxisId="units"
-                      dataKey="unidades"
-                      name="unidades"
+                      dataKey="kgHielo"
+                      name="kgHielo"
                       stroke="#00C2FF"
                       strokeWidth={2}
                       dot={{ r: 3, fill: '#00C2FF', strokeWidth: 0 }}
@@ -350,12 +348,12 @@ export default function ClimaPage() {
                     <th className="text-right text-gray-500 text-xs py-3 px-4 font-medium">Máx</th>
                     <th className="text-right text-gray-500 text-xs py-3 px-4 font-medium">Mín</th>
                     <th className="text-right text-gray-500 text-xs py-3 px-4 font-medium">Lluvia</th>
-                    <th className="text-right text-gray-500 text-xs py-3 px-4 font-medium">Unidades</th>
+                    <th className="text-right text-gray-500 text-xs py-3 px-4 font-medium">Kg hielo</th>
                   </tr>
                 </thead>
                 <tbody>
                   {weatherDays.map((d) => {
-                    const units = salesByDay[d.date] ?? 0
+                    const kg = kgByDay[d.date] ?? 0
                     return (
                       <tr key={d.date} className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
                         <td className="py-2.5 px-4 text-gray-500">{shortDay(d.date)}</td>
@@ -368,8 +366,8 @@ export default function ClimaPage() {
                           {d.rain > 0 ? `${d.rain}mm` : '—'}
                         </td>
                         <td className="py-2.5 px-4 text-right">
-                          {units > 0 ? (
-                            <span className="font-medium text-accent">{units}</span>
+                          {kg > 0 ? (
+                            <span className="font-medium text-accent">{kg.toLocaleString('es-AR')}</span>
                           ) : (
                             <span className="text-gray-400">—</span>
                           )}

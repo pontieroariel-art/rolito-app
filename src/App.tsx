@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { BranchProvider, useBranch } from './context/BranchContext'
+import { SistemaProvider } from './context/SistemaContext'
 import ProtectedRoute from './components/layout/ProtectedRoute'
 import LoadingSpinner from './components/ui/LoadingSpinner'
 import { Component, ReactNode, ErrorInfo } from 'react'
@@ -12,17 +13,20 @@ import Landing         from './pages/auth/Landing'
 import LoginClientes   from './pages/auth/LoginClientes'
 import LoginEmpresa    from './pages/auth/LoginEmpresa'
 import LoginChofer     from './pages/auth/LoginChofer'
+import LoginTecnico    from './pages/auth/LoginTecnico'
 import Register        from './pages/auth/Register'
 import ForgotPassword  from './pages/auth/ForgotPassword'
 import PendingApproval from './pages/auth/PendingApproval'
 
 // Todas las demás páginas — carga bajo demanda
+const SeleccionSistemaPage = lazy(() => import('./pages/auth/SeleccionSistemaPage'))
 const ClientDashboard  = lazy(() => import('./pages/client/ClientDashboard'))
 const NewOrder         = lazy(() => import('./pages/client/NewOrder'))
 const OrderHistory     = lazy(() => import('./pages/client/OrderHistory'))
 const ClientProfile    = lazy(() => import('./pages/client/ClientProfile'))
 const SelectSucursal   = lazy(() => import('./pages/client/SelectSucursal'))
 
+const LogisticaLayout     = lazy(() => import('./components/layout/LogisticaLayout'))
 const AdminDashboard      = lazy(() => import('./pages/admin/AdminDashboard'))
 const LogisticaDashboard  = lazy(() => import('./pages/admin/LogisticaDashboard'))
 const UserManagement      = lazy(() => import('./pages/admin/UserManagement'))
@@ -46,6 +50,24 @@ const HistorialPage        = lazy(() => import('./pages/shared/HistorialPage'))
 const ChoferDashboard   = lazy(() => import('./pages/chofer/ChoferDashboard'))
 const ChoferMap         = lazy(() => import('./pages/chofer/ChoferMap'))
 const GerenteDashboard  = lazy(() => import('./pages/gerente/GerenteDashboard'))
+
+const HeladerasLayout      = lazy(() => import('./components/heladeras/HeladerasLayout'))
+const HeladerasPage        = lazy(() => import('./pages/heladeras/HeladerasPage'))
+const HeladerasEntryPage   = lazy(() => import('./pages/heladeras/HeladerasEntryPage'))
+const ModelosHeladeraPage  = lazy(() => import('./pages/heladeras/ModelosHeladeraPage'))
+const CatalogosServicePage = lazy(() => import('./pages/heladeras/CatalogosServicePage'))
+const TecnicosPage         = lazy(() => import('./pages/heladeras/TecnicosPage'))
+const TecnicoDashboard     = lazy(() => import('./pages/heladeras/TecnicoDashboard'))
+const EquiposPage          = lazy(() => import('./pages/heladeras/EquiposPage'))
+const EtiquetaHeladeraPage = lazy(() => import('./pages/heladeras/EtiquetaHeladeraPage'))
+const FichaHeladeraPage    = lazy(() => import('./pages/heladeras/FichaHeladeraPage'))
+const AsignacionEquiposPage = lazy(() => import('./pages/heladeras/AsignacionEquiposPage'))
+const TomaServicePage       = lazy(() => import('./pages/heladeras/TomaServicePage'))
+const ConsultaServicePage   = lazy(() => import('./pages/heladeras/ConsultaServicePage'))
+const RankingConsumoPage    = lazy(() => import('./pages/heladeras/RankingConsumoPage'))
+const InformesDashboardPage = lazy(() => import('./pages/heladeras/InformesDashboardPage'))
+const MapaClientesHeladerasPage = lazy(() => import('./pages/heladeras/MapaClientesHeladerasPage'))
+const PanolPage             = lazy(() => import('./pages/heladeras/PanolPage'))
 
 const CalculadoraHielo  = lazy(() => import('./pages/public/CalculadoraHielo'))
 
@@ -110,6 +132,7 @@ function AppContent() {
         <Route path="/clientes"        element={<LoginClientes />} />
         <Route path="/empresa"         element={<LoginEmpresa />} />
         <Route path="/choferes"        element={<LoginChofer />} />
+        <Route path="/tecnicos"        element={<LoginTecnico />} />
         <Route path="/login"           element={<Navigate to="/clientes" replace />} />
         <Route path="/register"        element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -127,72 +150,123 @@ function AppContent() {
           </Route>
         </Route>
 
-        {/* Admin y logística */}
-        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica']} />}>
-          <Route path="/admin"                element={<AdminDashboard />} />
-          <Route path="/admin/flota"          element={<FlotaPage />} />
-          <Route path="/admin/visitas"        element={<VisitasPage />} />
-          <Route path="/admin/incidencias"    element={<ReporteIncidenciasPage />} />
-        </Route>
-        {/* Precios (catálogo + listas): super_admin, logística, comercial y gerente comercial */}
-        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica', 'comercial', 'gerente_comercial']} />}>
-          <Route path="/admin/precios"        element={<PriceListsPage />} />
-        </Route>
-        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica', 'gerente_comercial']} />}>
-          <Route path="/logistica"              element={<LogisticaDashboard />} />
-          <Route path="/admin/planificacion"    element={<LogisticaDashboard />} />
-          <Route path="/admin/historial-despacho" element={<HistorialDespachoPage />} />
-        </Route>
-        {/* Clima es solo lectura: comercial también entra (linkeado desde su tablero) */}
-        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica', 'gerente_comercial', 'comercial']} />}>
-          <Route path="/admin/clima"         element={<ClimaPage />} />
-        </Route>
-        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica', 'gerente_general', 'gerente_comercial']} />}>
-          <Route path="/admin/monitoreo" element={<MonitoreoPage />} />
-        </Route>
+        {/* Sistema logística/oficina — LogisticaLayout agrega el sidebar del
+            sistema (sin Navbar arriba, ver src/components/layout/LogisticaLayout.tsx). */}
+        <Route element={<LogisticaLayout />}>
+          {/* Admin y logística */}
+          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica']} />}>
+            <Route path="/admin"                element={<AdminDashboard />} />
+            <Route path="/admin/flota"          element={<FlotaPage />} />
+            <Route path="/admin/visitas"        element={<VisitasPage />} />
+            <Route path="/admin/incidencias"    element={<ReporteIncidenciasPage />} />
+          </Route>
+          {/* Precios (catálogo + listas): super_admin, logística, comercial y gerente comercial */}
+          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica', 'comercial', 'gerente_comercial']} />}>
+            <Route path="/admin/precios"        element={<PriceListsPage />} />
+          </Route>
+          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica', 'gerente_comercial']} />}>
+            <Route path="/logistica"              element={<LogisticaDashboard />} />
+            <Route path="/admin/planificacion"    element={<LogisticaDashboard />} />
+            <Route path="/admin/historial-despacho" element={<HistorialDespachoPage />} />
+          </Route>
+          {/* Clima es solo lectura: comercial también entra (linkeado desde su tablero) */}
+          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica', 'gerente_comercial', 'comercial']} />}>
+            <Route path="/admin/clima"         element={<ClimaPage />} />
+          </Route>
+          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica', 'gerente_general', 'gerente_comercial']} />}>
+            <Route path="/admin/monitoreo" element={<MonitoreoPage />} />
+          </Route>
 
-        {/* Gerente general */}
-        <Route element={<ProtectedRoute allowedRoles={['gerente_general']} />}>
-          <Route path="/gerente" element={<GerenteDashboard />} />
-        </Route>
+          {/* Gerente general */}
+          <Route element={<ProtectedRoute allowedRoles={['gerente_general']} />}>
+            <Route path="/gerente" element={<GerenteDashboard />} />
+          </Route>
 
-        {/* Gestión de usuarios */}
-        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'facturacion', 'logistica']} />}>
-          <Route path="/usuarios" element={<UserManagement />} />
-        </Route>
-        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'facturacion', 'logistica']} />}>
-          <Route path="/admin/mapa-clientes" element={<ClientesMapPage />} />
-        </Route>
+          {/* Gestión de usuarios */}
+          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'facturacion', 'logistica']} />}>
+            <Route path="/usuarios" element={<UserManagement />} />
+          </Route>
+          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'facturacion', 'logistica']} />}>
+            <Route path="/admin/mapa-clientes" element={<ClientesMapPage />} />
+          </Route>
 
-        {/* Comercial */}
-        <Route element={<ProtectedRoute allowedRoles={['comercial']} />}>
-          <Route path="/comercial"         element={<ComercialDashboard />} />
-          <Route path="/comercial/pedidos" element={<ComercialOrders />} />
-        </Route>
-        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'comercial', 'logistica']} />}>
-          <Route path="/comercial/mapa" element={<MapaLivePage />} />
-        </Route>
+          {/* Comercial */}
+          <Route element={<ProtectedRoute allowedRoles={['comercial']} />}>
+            <Route path="/comercial"         element={<ComercialDashboard />} />
+            <Route path="/comercial/pedidos" element={<ComercialOrders />} />
+          </Route>
+          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'comercial', 'logistica']} />}>
+            <Route path="/comercial/mapa" element={<MapaLivePage />} />
+          </Route>
 
-        {/* Reportes */}
-        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'facturacion']} />}>
-          <Route path="/comercial/reporte-precios"  element={<ReportePreciosPage />} />
-          <Route path="/comercial/ventas"           element={<ReporteVentasPage />} />
-        </Route>
+          {/* Reportes */}
+          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'facturacion']} />}>
+            <Route path="/comercial/reporte-precios"  element={<ReportePreciosPage />} />
+            <Route path="/comercial/ventas"           element={<ReporteVentasPage />} />
+          </Route>
 
-        {/* Historial de precios */}
-        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'logistica', 'facturacion']} />}>
-          <Route path="/comercial/historial-precios" element={<HistorialPreciosPage />} />
-        </Route>
+          {/* Historial de precios */}
+          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'logistica', 'facturacion']} />}>
+            <Route path="/comercial/historial-precios" element={<HistorialPreciosPage />} />
+          </Route>
 
-        {/* Historial unificado */}
-        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_general', 'gerente_comercial', 'logistica', 'comercial', 'facturacion']} />}>
-          <Route path="/movimientos" element={<HistorialPage />} />
+          {/* Historial unificado */}
+          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_general', 'gerente_comercial', 'logistica', 'comercial', 'facturacion']} />}>
+            <Route path="/movimientos" element={<HistorialPage />} />
+          </Route>
         </Route>
 
         {/* Chofer */}
         <Route element={<ProtectedRoute allowedRoles={['chofer']} />}>
           <Route path="/chofer"     element={<ChoferDashboard />} />
           <Route path="/chofer/map" element={<ChoferMap />} />
+        </Route>
+
+        {/* Selección de sistema (roles con acceso a más de uno, ver src/utils/sistemas.ts) */}
+        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_comercial', 'comercial']} />}>
+          <Route path="/sistema" element={<SeleccionSistemaPage />} />
+        </Route>
+
+        {/* Heladeras — HeladerasLayout agrega Navbar + sidebar del módulo.
+            Quedan afuera /heladeras/etiqueta y /heladeras/ficha (vistas
+            standalone/print) y /tecnico (vista simplificada, no forma parte
+            del hub). */}
+        <Route element={<HeladerasLayout />}>
+          <Route element={<ProtectedRoute allowedRoles={['heladeras', 'heladeras_encargado', 'super_admin', 'gerente_comercial', 'comercial']} />}>
+            <Route path="/heladeras" element={<HeladerasEntryPage />} />
+          </Route>
+          <Route element={<ProtectedRoute allowedRoles={['heladeras', 'heladeras_encargado', 'super_admin', 'gerente_comercial']} />}>
+            <Route path="/heladeras/taller" element={<HeladerasPage />} />
+          </Route>
+          <Route element={<ProtectedRoute allowedRoles={['heladeras_encargado', 'super_admin', 'gerente_comercial']} />}>
+            <Route path="/heladeras/modelos"   element={<ModelosHeladeraPage />} />
+            <Route path="/heladeras/catalogos" element={<CatalogosServicePage />} />
+            <Route path="/heladeras/tecnicos"  element={<TecnicosPage />} />
+            <Route path="/heladeras/equipos"   element={<EquiposPage />} />
+            <Route path="/heladeras/informes"  element={<InformesDashboardPage />} />
+            <Route path="/heladeras/mapa"      element={<MapaClientesHeladerasPage />} />
+            <Route path="/heladeras/panol"     element={<PanolPage />} />
+          </Route>
+          <Route element={<ProtectedRoute allowedRoles={['heladeras_encargado', 'super_admin', 'gerente_comercial', 'comercial']} />}>
+            <Route path="/heladeras/asignacion" element={<AsignacionEquiposPage />} />
+            <Route path="/heladeras/ranking"    element={<RankingConsumoPage />} />
+          </Route>
+          <Route element={<ProtectedRoute allowedRoles={['heladeras_encargado', 'super_admin', 'gerente_comercial']} />}>
+            <Route path="/heladeras/consulta-service" element={<ConsultaServicePage />} />
+          </Route>
+          <Route element={<ProtectedRoute allowedRoles={['heladeras_encargado', 'super_admin', 'gerente_comercial']} />}>
+            <Route path="/heladeras/toma-service" element={<TomaServicePage />} />
+          </Route>
+        </Route>
+        <Route element={<ProtectedRoute allowedRoles={['heladeras_encargado', 'super_admin', 'gerente_comercial']} />}>
+          <Route path="/heladeras/etiqueta/:heladeraId" element={<EtiquetaHeladeraPage />} />
+        </Route>
+        <Route element={<ProtectedRoute allowedRoles={['tecnico']} />}>
+          <Route path="/tecnico" element={<TecnicoDashboard />} />
+        </Route>
+        {/* Ficha pública (dentro de la app) de una heladera — destino del QR de la etiqueta */}
+        <Route element={<ProtectedRoute allowedRoles={['heladeras', 'heladeras_encargado', 'super_admin', 'gerente_comercial', 'comercial', 'tecnico']} />}>
+          <Route path="/heladeras/ficha/:heladeraId" element={<FichaHeladeraPage />} />
         </Route>
 
         {/* Cualquier otra ruta */}
@@ -219,11 +293,13 @@ export default function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <BranchProvider>
-            <BrowserRouter>
-              <AppContent />
-            </BrowserRouter>
-          </BranchProvider>
+          <SistemaProvider>
+            <BranchProvider>
+              <BrowserRouter>
+                <AppContent />
+              </BrowserRouter>
+            </BranchProvider>
+          </SistemaProvider>
         </AuthProvider>
       </QueryClientProvider>
     </ErrorBoundary>

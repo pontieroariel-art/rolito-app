@@ -2,11 +2,11 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { GoogleMap, Marker } from '@react-google-maps/api'
 import { ArrowLeft, Search, MapPin, Users, AlertCircle, CheckCircle, Loader2, X } from 'lucide-react'
-import Navbar from '../../components/layout/Navbar'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
 import { getAllUsers, updateUserDocument, approveCoord, rejectCoord } from '../../services/userService'
 import { UserProfile, DeliveryAddress } from '../../types'
+import { makePin } from '../../utils/mapPins'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -54,26 +54,6 @@ const MAP_STYLES: google.maps.MapTypeStyle[] = [
   { featureType: 'transit',  stylers: [{ visibility: 'off' }] },
   { elementType: 'labels.text.fill', stylers: [{ color: '#555' }] },
 ]
-
-// ── SVG pin ───────────────────────────────────────────────────────────────────
-
-function makePin(fillColor: string, ringColor: string, label: string, size = 40) {
-  const r        = size / 2 - 2
-  const fontSize = label.length <= 3 ? 11 : label.length <= 5 ? 9 : 8
-  const svg = encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size + 10}">` +
-    `<circle cx="${size/2}" cy="${size/2}" r="${r}" fill="${fillColor}" stroke="${ringColor}" stroke-width="3.5"/>` +
-    `<text x="${size/2}" y="${size/2 + fontSize/3}" text-anchor="middle" fill="white" ` +
-    `font-size="${fontSize}" font-weight="bold" font-family="Arial,sans-serif">${label}</text>` +
-    `<line x1="${size/2}" y1="${size-2}" x2="${size/2}" y2="${size+9}" stroke="${fillColor}" stroke-width="2.5"/>` +
-    `</svg>`,
-  )
-  return {
-    url:        `data:image/svg+xml;charset=UTF-8,${svg}`,
-    scaledSize: new google.maps.Size(size, size + 10),
-    anchor:     new google.maps.Point(size / 2, size + 10),
-  }
-}
 
 // ── Geocoding cache en memoria ────────────────────────────────────────────────
 
@@ -478,14 +458,13 @@ export default function ClientesMapPage() {
 
   const stopGeocoding = () => { geocodingRef.current = false }
 
-  if (loading) return <><Navbar /><LoadingSpinner fullScreen /></>
+  if (loading) return <LoadingSpinner fullScreen />
 
   const pct = geoProgress.total > 0 ? Math.round((geoProgress.done / geoProgress.total) * 100) : 0
 
   return (
     <>
-      <Navbar />
-      <div className="flex" style={{ height: 'calc(100vh - 56px)' }}>
+      <div className="flex h-[calc(100vh-48px)] md:h-screen">
 
         {/* ── Sidebar ── */}
         <aside className="w-72 shrink-0 bg-white border-r border-[#D3D1C7] flex flex-col overflow-hidden">

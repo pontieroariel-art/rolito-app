@@ -6,7 +6,6 @@ import {
 } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { FileText, Plus, MoreVertical, Pencil, XCircle, Minus, GripVertical, ChevronLeft, ChevronRight, Clock, CalendarDays } from 'lucide-react'
-import Navbar from '../../components/layout/Navbar'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import Modal from '../../components/ui/Modal'
 import ImportarPedidoModal from '../../components/admin/ImportarPedidoModal'
@@ -882,7 +881,6 @@ export default function LogisticaDashboard() {
 
   return (
     <div className="h-screen overflow-hidden flex flex-col bg-[#F1EFE8] text-gray-900">
-      <Navbar />
 
       {/* Header + Tabs — compacto, altura fija: todo lo periférico cede el
           máximo de alto y ancho posible a la grilla de la pestaña Pedidos. */}

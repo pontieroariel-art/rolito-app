@@ -6,7 +6,6 @@ import {
   Users, UserCheck, Tag, ArrowRight,
   Package, Truck, CheckCircle, Clock, MapPin, History, BarChart2, CloudSun,
 } from 'lucide-react'
-import Navbar from '../../components/layout/Navbar'
 import Button from '../../components/ui/Button'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useAuth } from '../../context/AuthContext'
@@ -109,7 +108,6 @@ export default function ComercialDashboard() {
 
   return (
     <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
-      <Navbar />
       <main className="max-w-4xl mx-auto p-4 space-y-6 pb-10">
         <div>
           <h1 className="text-2xl font-bold">Tablero</h1>

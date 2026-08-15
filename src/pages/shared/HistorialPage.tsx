@@ -2,7 +2,6 @@ import { useState, useMemo } from 'react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
-import Navbar from '../../components/layout/Navbar'
 import Badge from '../../components/ui/Badge'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import ClienteCombobox, { toComboItems } from '../../components/ui/ClienteCombobox'
@@ -189,7 +188,6 @@ export default function HistorialPage() {
 
   return (
     <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
-      <Navbar />
       <main className="max-w-4xl mx-auto p-4 space-y-5 pb-10">
 
         <div>

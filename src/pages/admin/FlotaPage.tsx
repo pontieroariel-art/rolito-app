@@ -1,6 +1,5 @@
 ﻿import { useState, ChangeEvent } from 'react'
 import { deleteField } from 'firebase/firestore'
-import Navbar from '../../components/layout/Navbar'
 import Button from '../../components/ui/Button'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import Modal from '../../components/ui/Modal'
@@ -138,11 +137,10 @@ export default function FlotaPage() {
   const [addModal,   setAddModal]   = useState(false)
   const [editCamion, setEditCamion] = useState<Camion | null>(null)
 
-  if (loadingCamiones) return <><Navbar /><LoadingSpinner fullScreen /></>
+  if (loadingCamiones) return <LoadingSpinner fullScreen />
 
   return (
     <div className="min-h-screen bg-[#F8F7F2] text-gray-900">
-      <Navbar />
       <main className="max-w-3xl mx-auto p-4 space-y-6 pb-10">
 
         <div className="flex flex-wrap justify-between items-center gap-3">

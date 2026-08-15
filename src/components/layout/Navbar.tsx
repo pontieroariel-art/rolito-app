@@ -4,12 +4,14 @@ import {
   LayoutDashboard, CalendarDays, Activity, AlertTriangle, ClipboardList,
   Truck, Users, Tag, Map, Cloud, Package, Navigation, BarChart2,
   DollarSign, TrendingUp, Clock, Home, Plus, History, UserCircle,
-  LogOut, Menu, X,
+  LogOut, Menu, X, Snowflake, Wrench, ArrowLeftRight,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useOnline } from '../../hooks/useOnline'
+import { useSistema } from '../../context/SistemaContext'
 import { logoutUser } from '../../services/authService'
 import { UserRole } from '../../types'
+import { SISTEMA_LABELS } from '../../utils/sistemas'
 
 interface NavLinkItem {
   to:    string
@@ -91,17 +93,35 @@ const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
     { to: '/chofer',     label: 'Inicio',       icon: Home },
     { to: '/chofer/map', label: 'Ruta',         icon: Navigation },
   ],
+  heladeras: [
+    { to: '/heladeras', label: 'Heladeras', icon: Snowflake },
+  ],
+  heladeras_encargado: [
+    { to: '/heladeras', label: 'Heladeras', icon: Snowflake },
+  ],
+  tecnico: [
+    { to: '/tecnico', label: 'Mis service', icon: Wrench },
+  ],
 }
 
-const ROLE_LABELS: Record<UserRole, string> = {
-  super_admin:       'Super Admin',
-  gerente_general:   'Gte. General',
-  gerente_comercial: 'Gte. Comercial',
-  comercial:         'Comercial',
-  logistica:         'Logística',
-  facturacion:       'Facturación',
-  chofer:            'Chofer',
-  cliente:           'Cliente',
+// Link set para el sistema "heladeras" de los roles con más de un sistema
+// (super_admin, gerente_comercial, comercial) — ver src/utils/sistemas.ts.
+const HELADERAS_LINKS: NavLinkItem[] = [
+  { to: '/heladeras', label: 'Heladeras', icon: Snowflake },
+]
+
+export const ROLE_LABELS: Record<UserRole, string> = {
+  super_admin:        'Super Admin',
+  gerente_general:    'Gte. General',
+  gerente_comercial:  'Gte. Comercial',
+  comercial:          'Comercial',
+  logistica:          'Logística',
+  facturacion:        'Facturación',
+  chofer:             'Chofer',
+  cliente:            'Cliente',
+  heladeras:          'Heladeras',
+  heladeras_encargado: 'Enc. Heladeras',
+  tecnico:            'Técnico',
 }
 
 export default function Navbar() {
@@ -109,7 +129,12 @@ export default function Navbar() {
   const online          = useOnline()
   const navigate        = useNavigate()
   const [open, setOpen] = useState(false)
-  const links           = user?.rol ? NAV_LINKS[user.rol] : []
+  const { sistemasDisponibles, sistemaActual, cambiarSistema } = useSistema()
+
+  const multiSistema = sistemasDisponibles.length > 1
+  const links = user?.rol
+    ? (multiSistema && sistemaActual === 'heladeras' ? HELADERAS_LINKS : NAV_LINKS[user.rol])
+    : []
 
   const initials = user?.nombre
     ? user.nombre.split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase()
@@ -118,6 +143,11 @@ export default function Navbar() {
   const handleLogout = async () => {
     await logoutUser()
     navigate('/')
+  }
+
+  const handleCambiarSistema = () => {
+    cambiarSistema()
+    navigate('/sistema')
   }
 
   return (
@@ -163,12 +193,23 @@ export default function Navbar() {
               {user?.nombre?.split(' ')[0]}
             </p>
             {user?.rol && (
-              <p className="text-xs text-gray-500 leading-tight">{ROLE_LABELS[user.rol]}</p>
+              <p className="text-xs text-gray-500 leading-tight">
+                {ROLE_LABELS[user.rol]}{multiSistema && sistemaActual ? ` · ${SISTEMA_LABELS[sistemaActual]}` : ''}
+              </p>
             )}
           </div>
           <div className="w-9 h-9 rounded-full bg-accent flex items-center justify-center text-white text-sm font-bold shrink-0">
             {initials}
           </div>
+          {multiSistema && (
+            <button
+              onClick={handleCambiarSistema}
+              title="Cambiar de sistema"
+              className="text-gray-400 hover:text-accent transition-colors p-2 rounded-lg hover:bg-accent/10"
+            >
+              <ArrowLeftRight size={17} />
+            </button>
+          )}
           <button
             onClick={handleLogout}
             title="Cerrar sesión"
@@ -230,16 +271,29 @@ export default function Navbar() {
               </div>
               <div>
                 <p className="text-sm font-semibold text-gray-800">{user?.nombre?.split(' ')[0]}</p>
-                <p className="text-xs text-gray-500">{user?.rol && ROLE_LABELS[user.rol]}</p>
+                <p className="text-xs text-gray-500">
+                  {user?.rol && ROLE_LABELS[user.rol]}{multiSistema && sistemaActual ? ` · ${SISTEMA_LABELS[sistemaActual]}` : ''}
+                </p>
               </div>
             </div>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-red-500 transition-colors"
-            >
-              <LogOut size={16} />
-              Salir
-            </button>
+            <div className="flex items-center gap-3">
+              {multiSistema && (
+                <button
+                  onClick={() => { setOpen(false); handleCambiarSistema() }}
+                  className="flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-accent transition-colors"
+                >
+                  <ArrowLeftRight size={16} />
+                  Sistema
+                </button>
+              )}
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-red-500 transition-colors"
+              >
+                <LogOut size={16} />
+                Salir
+              </button>
+            </div>
           </div>
         </div>
       )}

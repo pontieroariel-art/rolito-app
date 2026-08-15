@@ -4,7 +4,6 @@ import {
   TrendingUp, Users, Package, AlertCircle, CheckCircle,
   Clock, Map, Activity, ChevronRight, Truck,
 } from 'lucide-react'
-import Navbar from '../../components/layout/Navbar'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useAllOrders } from '../../hooks/useOrders'
 import { getAllUsers, updateUserDocument } from '../../services/userService'
@@ -143,7 +142,7 @@ export default function GerenteDashboard() {
     }
   }
 
-  if (loadO || loadU) return <><Navbar /><LoadingSpinner fullScreen /></>
+  if (loadO || loadU) return <LoadingSpinner fullScreen />
 
   const fechaHoy = new Date().toLocaleDateString('es-AR', {
     weekday: 'long', day: 'numeric', month: 'long',
@@ -151,7 +150,6 @@ export default function GerenteDashboard() {
 
   return (
     <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
-      <Navbar />
       <main className="max-w-5xl mx-auto p-4 space-y-5 pb-12">
 
         {/* Header */}

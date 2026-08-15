@@ -1,6 +1,5 @@
 ﻿import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { GoogleMap, Marker, InfoWindow, Polyline } from '@react-google-maps/api'
-import Navbar from '../../components/layout/Navbar'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useAllOrders } from '../../hooks/useOrders'
 import { useChoferes } from '../../hooks/useChoferes'
@@ -337,12 +336,11 @@ export default function MapaLivePage() {
   const totalEntregados = ordersToday.filter((o) => o.status === 'entregado').length
   const totalPendientes = ordersToday.filter((o) => o.driverId && !['entregado', 'cancelado'].includes(o.status)).length
 
-  if (loadO || loadC) return <><Navbar /><LoadingSpinner fullScreen /></>
+  if (loadO || loadC) return <LoadingSpinner fullScreen />
 
   return (
     <>
-      <Navbar />
-      <div className="flex" style={{ height: 'calc(100vh - 56px)' }}>
+      <div className="flex h-[calc(100vh-48px)] md:h-screen">
 
         {/* Sidebar */}
         <aside className="w-64 shrink-0 bg-white border-r border-[#D3D1C7] flex flex-col overflow-hidden">

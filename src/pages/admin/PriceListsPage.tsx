@@ -2,7 +2,6 @@ import { useState, useEffect, ChangeEvent } from 'react'
 import { deleteField } from 'firebase/firestore'
 import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query'
 import { Plus, Trash2, Save, ChevronDown, ChevronRight, Tag, Users } from 'lucide-react'
-import Navbar from '../../components/layout/Navbar'
 import Button from '../../components/ui/Button'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useCatalogo } from '../../hooks/useCatalogo'
@@ -63,7 +62,6 @@ export default function PriceListsPage() {
 
   return (
     <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
-      <Navbar />
       <main className="max-w-5xl mx-auto p-4 pb-10 space-y-4">
         <div>
           <h1 className="text-2xl font-bold">Precios</h1>

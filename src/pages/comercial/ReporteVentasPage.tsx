@@ -5,7 +5,6 @@ import {
 } from 'recharts'
 import { ChevronLeft, ChevronRight, Download } from 'lucide-react'
 import * as XLSX from 'xlsx'
-import Navbar from '../../components/layout/Navbar'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { getOrdersInRange } from '../../services/orderService'
 import { Order, OrderProduct } from '../../types'
@@ -184,7 +183,6 @@ export default function ReporteVentasPage() {
 
   return (
     <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
-      <Navbar />
       <main className="max-w-4xl mx-auto p-4 space-y-6 pb-10">
 
         {/* Header + nav */}

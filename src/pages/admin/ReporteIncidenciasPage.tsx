@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import Navbar from '../../components/layout/Navbar'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useAllOrders } from '../../hooks/useOrders'
 import { useChoferes } from '../../hooks/useChoferes'
@@ -81,11 +80,10 @@ export default function ReporteIncidenciasPage() {
     return c?.nombreContacto || c?.nombre || email.split('@')[0]
   }
 
-  if (loading) return <><Navbar /><LoadingSpinner fullScreen /></>
+  if (loading) return <LoadingSpinner fullScreen />
 
   return (
     <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
-      <Navbar />
       <main className="max-w-3xl mx-auto p-4 space-y-6 pb-10">
 
         {/* Header */}

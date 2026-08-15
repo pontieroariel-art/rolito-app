@@ -2,7 +2,6 @@ import { useState, useMemo, ChangeEvent } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import ClienteCombobox from '../../components/ui/ClienteCombobox'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
-import Navbar from '../../components/layout/Navbar'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useAllHistorial } from '../../hooks/useHistorialPrecios'
 import { getAllUsers } from '../../services/userService'
@@ -306,10 +305,9 @@ export default function HistorialPreciosPage() {
     return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]))
   }, [filtered])
 
-  if (loading) return <><Navbar /><LoadingSpinner fullScreen /></>
+  if (loading) return <LoadingSpinner fullScreen />
   if (error) return (
     <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
-      <Navbar />
       <main className="max-w-4xl mx-auto p-4 pt-10 text-center space-y-3">
         <p className="text-4xl">⚠️</p>
         <p className="text-red-600 font-semibold">No se pudo cargar el historial</p>
@@ -323,7 +321,6 @@ export default function HistorialPreciosPage() {
 
   return (
     <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
-      <Navbar />
       <main className="max-w-4xl mx-auto p-4 space-y-6 pb-10">
 
         {/* Header */}

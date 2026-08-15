@@ -1,7 +1,6 @@
 ﻿import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Timestamp } from 'firebase/firestore'
 import { GoogleMap, Marker, InfoWindow, Polyline } from '@react-google-maps/api'
-import Navbar from '../../components/layout/Navbar'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
@@ -747,15 +746,14 @@ export default function MonitoreoPage() {
     ? ordersToday.filter((o) => o.driverId === finJornadaEmail && !['entregado', 'cancelado'].includes(o.status))
     : []
 
-  if (loadO || loadC) return <><Navbar /><LoadingSpinner fullScreen /></>
+  if (loadO || loadC) return <LoadingSpinner fullScreen />
 
   const totalEntregados = ordersToday.filter((o) => o.status === 'entregado').length
   const totalPendientes = ordersToday.filter((o) => o.driverId && !['entregado', 'cancelado'].includes(o.status)).length
 
   return (
     <>
-      <Navbar />
-      <div className="flex flex-col md:flex-row" style={{ height: 'calc(100vh - 56px)' }}>
+      <div className="flex flex-col md:flex-row h-[calc(100vh-48px)] md:h-screen">
 
         {/* ── Sidebar ───────────────────────────────────────────────────────── */}
         <aside className="w-full md:w-72 md:shrink-0 bg-white border-b md:border-b-0 md:border-r border-[#D3D1C7] flex flex-col overflow-hidden max-h-[45%] md:max-h-none">

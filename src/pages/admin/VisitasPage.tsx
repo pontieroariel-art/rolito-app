@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, ChangeEvent } from 'react'
-import Navbar from '../../components/layout/Navbar'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
@@ -359,11 +358,10 @@ export default function VisitasPage() {
     (v) => v.status === 'pendiente',
   ).length
 
-  if (loadP || loadV) return <><Navbar /><LoadingSpinner fullScreen /></>
+  if (loadP || loadV) return <LoadingSpinner fullScreen />
 
   return (
     <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
-      <Navbar />
       <main className="max-w-3xl mx-auto p-4 space-y-6 pb-10">
 
         <div className="flex flex-wrap justify-between items-center gap-3">
