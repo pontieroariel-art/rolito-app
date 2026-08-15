@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { Menu, X, ArrowLeftRight, LogOut } from 'lucide-react'
+import { Menu, X, ArrowLeftRight, LogOut, UserCog } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useOnline } from '../../hooks/useOnline'
 import { useSistema } from '../../context/SistemaContext'
@@ -21,9 +21,16 @@ export default function LogisticaLayout() {
   const [open, setOpen] = useState(false)
   const { sistemasDisponibles, sistemaActual, cambiarSistema } = useSistema()
   const multiSistema = sistemasDisponibles.length > 1
+  // Acceso fijo a Usuarios (mismos roles que ya podían ver esa pestaña) sin
+  // importar en qué sistema esté parado — no depende de sistemaActual.
+  const puedeGestionarUsuarios = !!user && ['super_admin', 'logistica'].includes(user.rol)
 
   const grupos = LOGISTICA_NAV_GROUPS
-    .map((g) => ({ ...g, items: g.items.filter((i) => user && i.roles.includes(user.rol)) }))
+    .map((g) => ({
+      ...g,
+      items: g.items.filter((i) => user && i.roles.includes(user.rol)
+        && (!user.pestanasPermitidas || user.pestanasPermitidas.includes(i.to))),
+    }))
     .filter((g) => g.items.length > 0)
 
   const initials = user?.nombre
@@ -56,6 +63,15 @@ export default function LogisticaLayout() {
           {user?.rol && ROLE_LABELS[user.rol]}{multiSistema && sistemaActual ? ` · ${SISTEMA_LABELS[sistemaActual]}` : ''}
         </p>
       </div>
+      {puedeGestionarUsuarios && (
+        <Link
+          to="/usuarios/equipo"
+          title="Usuarios"
+          className="text-gray-400 hover:text-accent transition-colors p-1.5 rounded-lg hover:bg-accent/10 shrink-0"
+        >
+          <UserCog size={16} />
+        </Link>
+      )}
       {multiSistema && (
         <button
           onClick={handleCambiarSistema}

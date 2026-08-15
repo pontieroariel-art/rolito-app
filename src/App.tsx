@@ -182,9 +182,14 @@ function AppContent() {
             <Route path="/gerente" element={<GerenteDashboard />} />
           </Route>
 
-          {/* Gestión de usuarios */}
+          {/* Gestión de usuarios — Clientes (todos) y Usuarios/equipo interno
+              (solo quienes ya veían la pestaña Equipo) son dos entradas de
+              sidebar separadas que renderizan el mismo componente. */}
           <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'facturacion', 'logistica']} />}>
             <Route path="/usuarios" element={<UserManagement />} />
+          </Route>
+          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica']} />}>
+            <Route path="/usuarios/equipo" element={<UserManagement />} />
           </Route>
           <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'facturacion', 'logistica']} />}>
             <Route path="/admin/mapa-clientes" element={<ClientesMapPage />} />

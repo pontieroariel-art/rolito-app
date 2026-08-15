@@ -106,14 +106,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const newListaId = d.listaPreciosId as string | undefined
         const newPrecios = d.preciosCustom  as Record<string, number> | undefined
         const newAddrs   = d.addresses      as UserProfile['addresses'] | undefined
+        const newSistemas = d.sistemasPermitidos as UserProfile['sistemasPermitidos']
+        const newPestanas = d.pestanasPermitidas as UserProfile['pestanasPermitidas']
         const cur        = userRef.current
         if (!cur) return
         const changed =
           newRol     !== cur.rol    ||
           newEst     !== cur.estado ||
           newListaId !== cur.listaPreciosId ||
-          JSON.stringify(newPrecios) !== JSON.stringify(cur.preciosCustom) ||
-          JSON.stringify(newAddrs)   !== JSON.stringify(cur.addresses)
+          JSON.stringify(newPrecios)  !== JSON.stringify(cur.preciosCustom) ||
+          JSON.stringify(newAddrs)    !== JSON.stringify(cur.addresses) ||
+          JSON.stringify(newSistemas) !== JSON.stringify(cur.sistemasPermitidos) ||
+          JSON.stringify(newPestanas) !== JSON.stringify(cur.pestanasPermitidas)
         if (!changed) return
         dispatch({ type: 'RESOLVED', user: {
           ...cur,
@@ -122,6 +126,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           listaPreciosId: newListaId,
           preciosCustom:  newPrecios,
           ...(newAddrs !== undefined ? { addresses: newAddrs } : {}),
+          sistemasPermitidos: newSistemas,
+          pestanasPermitidas: newPestanas,
         }})
       },
       (err) => console.error('AuthContext profile snapshot error:', err),

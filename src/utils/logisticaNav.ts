@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, CalendarDays, History, Activity, AlertTriangle, ClipboardList,
-  Truck, Cloud, Navigation, Users, Map, Tag, DollarSign, TrendingUp, Clock, BarChart2,
+  Truck, Cloud, Navigation, Users, UserCog, Map, Tag, DollarSign, TrendingUp, Clock, BarChart2,
 } from 'lucide-react'
 import { NavGroup } from './navGroups'
 
@@ -34,8 +34,8 @@ export const LOGISTICA_NAV_GROUPS: NavGroup[] = [
   {
     id: 'clientes', label: 'Clientes & Precios',
     items: [
-      { to: '/usuarios',                 label: 'Usuarios',      icon: Users,      roles: ['super_admin'] },
-      { to: '/usuarios',                 label: 'Clientes',      icon: Users,      roles: ['gerente_general', 'gerente_comercial', 'logistica', 'comercial', 'facturacion'] },
+      { to: '/usuarios',                 label: 'Clientes',      icon: Users,      roles: ['super_admin', 'gerente_general', 'gerente_comercial', 'logistica', 'comercial', 'facturacion'] },
+      { to: '/usuarios/equipo',          label: 'Usuarios',      icon: UserCog,    roles: ['super_admin', 'logistica'] },
       { to: '/admin/mapa-clientes',      label: 'Mapa clientes', icon: Map,        roles: ['super_admin', 'gerente_general', 'gerente_comercial', 'logistica', 'comercial', 'facturacion'] },
       { to: '/admin/precios',            label: 'Precios',       icon: Tag,        roles: ['super_admin', 'logistica', 'gerente_comercial', 'comercial'] },
       { to: '/comercial/reporte-precios', label: 'Rep. precios', icon: DollarSign, roles: ['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'facturacion'] },

@@ -2,7 +2,7 @@ import { Navigate, Link } from 'react-router-dom'
 import { ShoppingBag, Truck, Building2, ChevronRight } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
-import { ROLE_SISTEMAS } from '../../utils/sistemas'
+import { sistemasDeUsuario } from '../../utils/sistemas'
 
 const ROLE_HOME: Record<string, string> = {
   super_admin:       '/admin',
@@ -53,7 +53,7 @@ export default function Landing() {
   if (user) {
     if (user.estado === 'pendiente') return <Navigate to="/pendiente" replace />
     if (user.estado === 'inactivo')  return <Navigate to="/clientes"  replace />
-    if (ROLE_SISTEMAS[user.rol].length > 1) return <Navigate to="/sistema" replace />
+    if (sistemasDeUsuario(user).length > 1) return <Navigate to="/sistema" replace />
     return <Navigate to={ROLE_HOME[user.rol] ?? '/dashboard'} replace />
   }
 

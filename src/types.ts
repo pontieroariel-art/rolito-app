@@ -3,6 +3,10 @@ import { Timestamp } from 'firebase/firestore'
 export type UserRole = 'super_admin' | 'gerente_general' | 'gerente_comercial' | 'comercial' | 'logistica' | 'chofer' | 'cliente' | 'facturacion' | 'heladeras' | 'heladeras_encargado' | 'tecnico'
 export type UserStatus = 'activo' | 'inactivo' | 'pendiente'
 
+// Sistema (Logística/Heladeras) — ver src/utils/sistemas.ts para el mapeo
+// rol→sistemas y la lógica de recorte por usuario.
+export type Sistema = 'logistica' | 'heladeras'
+
 export type OrderStatus =
   | 'pendiente'
   | 'confirmado'
@@ -109,6 +113,11 @@ export interface UserProfile {
   // Alta rápida de cliente por staff (CrearClienteModal) — ausente en
   // clientes autorregistrados o importados por Excel.
   creadoPor?: { uid: string; nombre: string; rol: UserRole }
+  // Recorte de acceso por usuario (solo lo edita super_admin, desde
+  // Usuarios → Permisos) — subconjunto de lo que su rol ya permite, nunca
+  // lo amplía. Sin setear = sin recorte, se comporta como hoy.
+  sistemasPermitidos?: Sistema[]
+  pestanasPermitidas?: string[]
 }
 
 // ── Visitas programadas ───────────────────────────────────────────────────────

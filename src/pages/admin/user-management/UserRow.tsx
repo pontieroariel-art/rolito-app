@@ -9,6 +9,7 @@ import { tsToDate } from '../../../utils/helpers'
 import { ALL_ROLES, ROLE_LABELS, STATUS_STYLES, STATUS_LABELS } from './shared'
 import { FichaClienteModal } from './FichaClienteModal'
 import { PreciosCustomModal } from './PreciosCustomModal'
+import { PermisosUsuarioModal } from './PermisosUsuarioModal'
 
 export interface UserRowProps {
   user:                UserProfile
@@ -27,6 +28,7 @@ export function UserRow({ user, currentUser, listas, onRoleChange, onSubrolChang
   const [busy, setBusy]               = useState(false)
   const [preciosModal, setPreciosModal] = useState(false)
   const [fichaModal, setFichaModal]   = useState(false)
+  const [permisosModal, setPermisosModal] = useState(false)
   const isSelf            = user.uid === currentUser?.uid
   const canManagePrices   = ['super_admin', 'gerente_comercial'].includes(currentUser?.rol ?? '')
   const canChangeStatus   = ['super_admin', 'gerente_comercial'].includes(currentUser?.rol ?? '')
@@ -177,6 +179,12 @@ export function UserRow({ user, currentUser, listas, onRoleChange, onSubrolChang
               {user.estado === 'activo' ? 'Desactivar' : 'Activar'}
             </Button>
           )}
+
+          {canChangeRole && (
+            <Button variant="outline" onClick={() => setPermisosModal(true)} className="text-xs py-1.5 px-3">
+              Permisos
+            </Button>
+          )}
         </div>
       </div>
 
@@ -250,6 +258,15 @@ export function UserRow({ user, currentUser, listas, onRoleChange, onSubrolChang
           onActivar={canChangeStatus && user.estado === 'pendiente'
             ? async () => { await onApprove(user); setFichaModal(false) }
             : undefined}
+        />
+      )}
+
+      {/* Permisos: qué sistemas y pestañas ve este usuario */}
+      {permisosModal && (
+        <PermisosUsuarioModal
+          user={user}
+          onClose={() => setPermisosModal(false)}
+          onSaved={() => setPermisosModal(false)}
         />
       )}
     </div>

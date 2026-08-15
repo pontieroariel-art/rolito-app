@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { useAuth } from './AuthContext'
-import { ROLE_SISTEMAS, Sistema } from '../utils/sistemas'
+import { Sistema, sistemasDeUsuario } from '../utils/sistemas'
 
 interface SistemaContextValue {
   sistemasDisponibles: Sistema[]
@@ -16,14 +16,14 @@ export function SistemaProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const [sistemaActual, setSistemaActual] = useState<Sistema | null>(null)
 
-  const sistemasDisponibles = user ? ROLE_SISTEMAS[user.rol] : []
+  const sistemasDisponibles = user ? sistemasDeUsuario(user) : []
 
   useEffect(() => {
     if (!user?.uid) {
       setSistemaActual(null)
       return
     }
-    const disponibles = ROLE_SISTEMAS[user.rol]
+    const disponibles = sistemasDeUsuario(user)
 
     // Un solo sistema → se selecciona automáticamente
     if (disponibles.length === 1) {
@@ -33,7 +33,11 @@ export function SistemaProvider({ children }: { children: ReactNode }) {
     // Múltiples: restaurar desde localStorage
     const stored = localStorage.getItem(`sistema_${user.uid}`) as Sistema | null
     setSistemaActual(stored && disponibles.includes(stored) ? stored : null)
-  }, [user?.uid, user?.rol])
+    // sistemasPermitidosKey (no el array en sí, para no recalcular por
+    // cambios de referencia) hace que esto se re-evalúe si un admin le
+    // recorta los sistemas a este usuario mientras tiene la sesión abierta.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid, user?.rol, user?.sistemasPermitidos?.join(',')])
 
   const elegirSistema = (s: Sistema) => {
     setSistemaActual(s)

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, ChangeEvent } from 'react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { MapPin } from 'lucide-react'
 import Button from '../../components/ui/Button'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
@@ -28,13 +28,17 @@ const PAGE_SIZE = 50
 
 export default function UserManagement() {
   const navigate = useNavigate()
+  const location = useLocation()
+  // Clientes y Usuarios son dos entradas de sidebar separadas (/usuarios y
+  // /usuarios/equipo) que renderizan este mismo componente — la vista activa
+  // se deriva de la ruta en vez de un estado de tab manejado con botones.
+  const tab: 'clientes' | 'equipo' = location.pathname === '/usuarios/equipo' ? 'equipo' : 'clientes'
   const { user: currentUser }           = useAuth()
   const [clientes, setClientes]         = useState<UserProfile[]>([])
   const [equipo, setEquipo]             = useState<UserProfile[]>([])
   const [loadingClientes, setLoadingClientes] = useState(false)
   const [loadingEquipo, setLoadingEquipo]     = useState(false)
   const clientesLoadedRef               = useRef(false)
-  const [tab, setTab]                   = useState<'clientes' | 'equipo'>('clientes')
   const [search, setSearch]             = useState('')
   const [statusFilter, setStatusFilter] = useState<UserStatus | 'all'>('all')
   const [sectorFilter, setSectorFilter] = useState<string>('all')
@@ -72,11 +76,13 @@ export default function UserManagement() {
     loadClientes()
   }, [])
 
-  const handleTabChange = (newTab: 'clientes' | 'equipo') => {
-    setTab(newTab)
+  // Al navegar entre /usuarios y /usuarios/equipo se resetean filtros y
+  // paginado, igual que hacía el viejo handleTabChange al clickear una tab.
+  useEffect(() => {
     setVisibleCount(PAGE_SIZE)
-    if (newTab === 'clientes') loadClientes()
-  }
+    setSearch('')
+    setSectorFilter('all')
+  }, [tab])
 
   const sectors = useMemo(() => {
     const set = new Set<string>()
@@ -196,8 +202,10 @@ export default function UserManagement() {
       <main className="max-w-5xl mx-auto p-4 space-y-6 pb-10">
         <div className="flex flex-wrap justify-between items-center gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Gestión de usuarios</h1>
-            <p className="text-gray-500 text-sm">{sucursalesFlat.length} sucursales · {equipo.length} equipo</p>
+            <h1 className="text-2xl font-bold text-gray-900">{tab === 'clientes' ? 'Clientes' : 'Usuarios'}</h1>
+            <p className="text-gray-500 text-sm">
+              {tab === 'clientes' ? `${sucursalesFlat.length} sucursales` : `${equipo.length} personas del equipo`}
+            </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {pendingCount > 0 && ['super_admin', 'gerente_comercial'].includes(currentUser?.rol ?? '') && (
@@ -229,28 +237,6 @@ export default function UserManagement() {
               ↻
             </Button>
           </div>
-        </div>
-
-        {/* Tabs — Equipo solo para quienes gestionan staff/choferes */}
-        <div className="flex border-b border-gray-200 gap-1">
-          {(['super_admin', 'logistica'].includes(currentUser?.rol ?? '')
-            ? (['clientes', 'equipo'] as const)
-            : (['clientes'] as const)
-          ).map((t) => (
-            <button
-              key={t}
-              onClick={() => { handleTabChange(t); setSearch(''); setSectorFilter('all') }}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
-                tab === t
-                  ? 'border-accent text-accent'
-                  : 'border-transparent text-gray-400 hover:text-gray-900'
-              }`}
-            >
-              {t === 'clientes'
-                ? `Clientes (${sucursalesFlat.length})`
-                : `Equipo (${equipo.length})`}
-            </button>
-          ))}
         </div>
 
         {/* Filtros */}
