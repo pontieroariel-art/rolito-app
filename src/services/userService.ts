@@ -168,6 +168,13 @@ export const getChoferes = async (): Promise<UserProfile[]> => {
   return snap.docs.map((d) => ({ uid: d.id, ...d.data() } as UserProfile))
 }
 
+export const getHeladerasEncargados = async (): Promise<UserProfile[]> => {
+  const snap = await getDocs(
+    query(collection(db, 'users'), where('rol', '==', 'heladeras_encargado'), where('estado', '==', 'activo'), limit(50)),
+  )
+  return snap.docs.map((d) => ({ uid: d.id, ...d.data() } as UserProfile))
+}
+
 export const getTecnicos = async (): Promise<UserProfile[]> => {
   const snap = await getDocs(
     query(collection(db, 'users'), where('rol', '==', 'tecnico'), limit(500)),

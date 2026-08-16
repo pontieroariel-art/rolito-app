@@ -344,6 +344,38 @@ export function tplAdminNuevoPedido(order: {
   `)
 }
 
+export function tplTicketCerrado(
+  nombre: string, heladeraCodigo: string, motivoNombre: string, trabajoRealizado: string | undefined, appUrl: string,
+): string {
+  return layout('Tu service fue completado', {
+    emoji:   '🔧',
+    title:   'Service completado',
+    subtitle: `Heladera ${esc(heladeraCodigo)}`,
+  }, `
+    ${greeting(nombre)}
+    <p style="margin:0 0 16px">El service que pediste para tu heladera <strong>${esc(heladeraCodigo)}</strong> (${esc(motivoNombre)}) ya fue completado.</p>
+    ${trabajoRealizado ? `<p style="margin:0 0 20px;padding:12px 16px;background:#fafafa;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;color:#6b7280">
+      <span style="font-weight:600;color:#374151">Trabajo realizado: </span>${esc(trabajoRealizado)}</p>` : ''}
+    ${ctaButton('Ver mis heladeras →', `${appUrl}/mis-heladeras`)}
+  `)
+}
+
+export function tplStockBajo(articulo: { nombre: string; stockActual: number; stockMinimo: number }, appUrl: string): string {
+  return layout('Stock bajo en pañol', {
+    emoji:       '📉',
+    title:       'Stock bajo en pañol',
+    subtitle:    esc(articulo.nombre),
+    accentColor: '#F59E0B',
+  }, `
+    <p style="margin:0 0 16px">El artículo <strong>${esc(articulo.nombre)}</strong> del pañol está por debajo del stock mínimo configurado.</p>
+    ${infoBox([
+      { label: 'Stock actual',  value: `<strong>${articulo.stockActual}</strong>` },
+      { label: 'Stock mínimo',  value: String(articulo.stockMinimo) },
+    ])}
+    ${ctaButton('Ver pañol →', `${appUrl}/heladeras/panol`)}
+  `)
+}
+
 export function tplAdminNuevoCliente(cliente: {
   razonSocial:     string
   cuit:            string

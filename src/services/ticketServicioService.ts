@@ -13,7 +13,7 @@ import {
   updateDoc,
 } from 'firebase/firestore'
 import { db } from './firebase'
-import { getPushSubscription } from './userService'
+import { getPushSubscription, getHeladerasEncargados } from './userService'
 import { sendPush } from './notificationService'
 import { TicketServicio } from '../types'
 
@@ -127,6 +127,17 @@ export const crearTicket = (
     })
 
     return { id: ticketRef.id, ...ticket }
+  }).then(async (ticket) => {
+    // Ticket urgente recién abierto: avisa a todo el equipo de encargados —
+    // nadie está "en sesión" en ese momento salvo quien lo tomó (Toma de
+    // service), así que sin este push nadie más se entera hasta refrescar.
+    if (ticket.urgente) {
+      const encargados = await getHeladerasEncargados()
+      await Promise.all(
+        encargados.map((e) => notificarAsignacion(e.uid, 'Service urgente', `${ticket.heladeraCodigo} — ${ticket.clientName}: ${ticket.motivoNombre}`)),
+      )
+    }
+    return ticket
   })
 
 async function notificarAsignacion(uid: string, titulo: string, cuerpo: string) {
@@ -212,6 +223,7 @@ export const cerrarTicket = (
   actor:    Actor,
   firmaDataUrl: string,
   nombreQuienConfirma: string,
+  clientId?: string,
 ): Promise<void> =>
   updateDoc(doc(db, TICKETS, ticketId), {
     estado:     'cerrado',
@@ -220,6 +232,8 @@ export const cerrarTicket = (
     conformidad: { firmaDataUrl, nombreQuienConfirma },
     updatedAt:   serverTimestamp(),
     historialAcciones: arrayUnion(accion(actor, 'cerrado', `Conformidad: ${nombreQuienConfirma}`)),
+  }).then(() => {
+    if (clientId) notificarAsignacion(clientId, 'Tu service fue cerrado', 'Ya podés ver el detalle en "Mis heladeras".')
   })
 
 export const anularTicket = (
