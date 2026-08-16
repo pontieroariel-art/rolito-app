@@ -6,10 +6,12 @@ import Button from '../../components/ui/Button'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import TicketsServicioList from '../../components/heladeras/TicketsServicioList'
 import { useAuth } from '../../context/AuthContext'
+import { usePasosTaller } from '../../hooks/usePasosTaller'
 import { getHeladera } from '../../services/heladeraService'
 import { getModeloHeladera } from '../../services/modelosHeladeraService'
 import { Heladera, ModeloHeladera } from '../../types'
 import { ESTADO_HELADERA_LABELS } from '../../utils/heladeraLabels'
+import { historialConDuraciones, formatDuracion } from '../../utils/heladeraPipeline'
 import { tsToDate } from '../../utils/helpers'
 
 const ACCION_LABELS: Record<string, string> = {
@@ -33,6 +35,7 @@ export default function FichaHeladeraPage() {
   const { user } = useAuth()
   const [heladera, setHeladera] = useState<Heladera | null | undefined>(undefined)
   const [modelo,   setModelo]   = useState<ModeloHeladera | null>(null)
+  const { pasos: catalogoPasos } = usePasosTaller()
 
   useEffect(() => {
     if (!heladeraId) return
@@ -44,8 +47,8 @@ export default function FichaHeladeraPage() {
   }, [heladera?.modeloId])
 
   const historial = useMemo(
-    () => [...(heladera?.historialAcciones ?? [])].sort((a, b) => tsToDate(b.timestamp).getTime() - tsToDate(a.timestamp).getTime()),
-    [heladera?.historialAcciones],
+    () => (heladera ? [...historialConDuraciones(heladera)].reverse() : []),
+    [heladera],
   )
 
   const puedeGestionar = user && ['heladeras_encargado', 'super_admin', 'gerente_comercial'].includes(user.rol)
@@ -118,15 +121,23 @@ export default function FichaHeladeraPage() {
                 <p className="text-gray-400 text-xs">Sin movimientos registrados.</p>
               ) : (
                 <div className="space-y-1.5">
-                  {historial.map((a, i) => (
-                    <div key={i} className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-medium text-gray-900">{ACCION_LABELS[a.accion] ?? a.accion}</p>
-                        <p className="text-xs text-gray-500">{a.usuarioNombre}{a.detalle ? ` · ${a.detalle}` : ''}</p>
+                  {historial.map((a, i) => {
+                    const pasoNombre = a.pasoId ? catalogoPasos[a.pasoId]?.nombre : undefined
+                    return (
+                      <div key={i} className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-medium text-gray-900">{ACCION_LABELS[a.accion] ?? a.accion}</p>
+                          <p className="text-xs text-gray-500">{a.usuarioNombre}{a.detalle ? ` · ${a.detalle}` : ''}</p>
+                          {a.duracionMs !== undefined && (
+                            <p className="text-xs text-accent">
+                              Tardó {formatDuracion(a.duracionMs)}{pasoNombre ? ` en ${pasoNombre.toLowerCase()}` : ''}
+                            </p>
+                          )}
+                        </div>
+                        <span className="text-xs text-gray-400 whitespace-nowrap">{tsToDate(a.timestamp).toLocaleString('es-AR')}</span>
                       </div>
-                      <span className="text-xs text-gray-400 whitespace-nowrap">{tsToDate(a.timestamp).toLocaleString('es-AR')}</span>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </section>

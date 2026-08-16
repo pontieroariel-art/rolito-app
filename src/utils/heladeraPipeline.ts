@@ -17,7 +17,7 @@
 // Firestore (firestore.rules) replican la misma lógica leyendo el mismo
 // catálogo con get() — cualquier cambio acá tiene que reflejarse ahí también.
 
-import { AreaHeladera, Heladera, PasoTaller, TipoPipelineHeladera } from '../types'
+import { AccionHistorial, AreaHeladera, Heladera, PasoTaller, TipoPipelineHeladera } from '../types'
 import { tsToDate } from './helpers'
 
 export type CatalogoPasos = Record<string, PasoTaller>
@@ -73,33 +73,51 @@ export interface TiempoPorPaso {
   promedioDias: number
 }
 
-// Reconstruye, a partir de historialAcciones, cuánto tardó cada heladera en
-// cada paso por el que pasó: cada transición (paso_completado/paso_aprobado/
-// paso_rechazado) trae `pasoId` = el paso que se acaba de DEJAR, así que la
-// duración es su timestamp menos el de la transición anterior (o `creada`
-// para el primer paso). No retroactivo: transiciones viejas sin `pasoId` no
-// generan una muestra, pero sí siguen marcando el límite de tiempo para la
-// transición siguiente.
+const TIPOS_TRANSICION = ['paso_completado', 'paso_aprobado', 'paso_rechazado']
+
+export interface EventoConDuracion extends AccionHistorial {
+  // Cuánto pasó desde que se entró al paso que este evento acaba de dejar
+  // (gap con la transición anterior, o con `creada` si es la primera).
+  // undefined si el evento no es una transición de paso, o si es una
+  // transición vieja sin `pasoId` (no retroactivo).
+  duracionMs?: number
+}
+
+// Recorre el historial de una heladera en orden cronológico y le suma a cada
+// transición de pipeline (paso_completado/paso_aprobado/paso_rechazado, que
+// traen `pasoId` = el paso recién DEJADO) cuánto duró ese paso. Comparten
+// esta reconstrucción tanto el detalle por heladera (ficha del equipo) como
+// el agregado por paso (Informes) — ver `calcularTiemposPorPaso`.
+export function historialConDuraciones(heladera: Heladera): EventoConDuracion[] {
+  const eventos = [...heladera.historialAcciones].sort(
+    (a, b) => tsToDate(a.timestamp).getTime() - tsToDate(b.timestamp).getTime(),
+  )
+  const creada = eventos.find((e) => e.accion === 'creada')
+  if (!creada) return eventos
+
+  let entradaMs = tsToDate(creada.timestamp).getTime()
+  return eventos.map((evento) => {
+    if (!TIPOS_TRANSICION.includes(evento.accion)) return evento
+    const salidaMs = tsToDate(evento.timestamp).getTime()
+    const duracionMs = evento.pasoId ? salidaMs - entradaMs : undefined
+    entradaMs = salidaMs
+    return { ...evento, duracionMs }
+  })
+}
+
+// Agregado por paso across todas las heladeras — para el gráfico de
+// "cuellos de botella" en Informes. No retroactivo: transiciones viejas sin
+// `pasoId` no generan una muestra, pero sí siguen marcando el límite de
+// tiempo para la transición siguiente (ver `historialConDuraciones`).
 export function calcularTiemposPorPaso(heladeras: Heladera[], catalogo: CatalogoPasos): TiempoPorPaso[] {
   const duracionesPorPaso = new Map<string, number[]>()
 
   for (const heladera of heladeras) {
-    const eventos = [...heladera.historialAcciones].sort(
-      (a, b) => tsToDate(a.timestamp).getTime() - tsToDate(b.timestamp).getTime(),
-    )
-    const creada = eventos.find((e) => e.accion === 'creada')
-    if (!creada) continue
-
-    let entradaMs = tsToDate(creada.timestamp).getTime()
-    for (const evento of eventos) {
-      if (!['paso_completado', 'paso_aprobado', 'paso_rechazado'].includes(evento.accion)) continue
-      const salidaMs = tsToDate(evento.timestamp).getTime()
-      if (evento.pasoId) {
-        const lista = duracionesPorPaso.get(evento.pasoId) ?? []
-        lista.push(salidaMs - entradaMs)
-        duracionesPorPaso.set(evento.pasoId, lista)
-      }
-      entradaMs = salidaMs
+    for (const evento of historialConDuraciones(heladera)) {
+      if (!evento.pasoId || evento.duracionMs === undefined) continue
+      const lista = duracionesPorPaso.get(evento.pasoId) ?? []
+      lista.push(evento.duracionMs)
+      duracionesPorPaso.set(evento.pasoId, lista)
     }
   }
 
@@ -118,4 +136,15 @@ export function calcularTiemposPorPaso(heladeras: Heladera[], catalogo: Catalogo
       }]
     })
     .sort((a, b) => b.promedioDias - a.promedioDias)
+}
+
+// Formato legible para una duración puntual (a diferencia del promedio de
+// Informes, que siempre se expresa en días): minutos/horas si fue rápido,
+// días con un decimal si no.
+export function formatDuracion(ms: number): string {
+  const minutos = ms / 60_000
+  if (minutos < 60) return `${Math.max(1, Math.round(minutos))} min`
+  const horas = minutos / 60
+  if (horas < 24) return `${Math.round(horas * 10) / 10} h`
+  return `${Math.round((horas / 24) * 10) / 10} días`
 }
