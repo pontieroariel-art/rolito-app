@@ -4,6 +4,7 @@ import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import BarcodeScanner from '../../components/heladeras/BarcodeScanner'
+import KpiTile from '../../components/heladeras/KpiTile'
 import { useAuth } from '../../context/AuthContext'
 import { usePanolArticulos } from '../../hooks/usePanolArticulos'
 import { usePanolMovimientos } from '../../hooks/usePanolMovimientos'
@@ -264,6 +265,14 @@ export default function PanolPage() {
 
   const actor: Actor | null = user ? { uid: user.uid, nombre: user.nombre } : null
 
+  // Bajo stock arriba de todo — no hay que escanear la tabla entera para
+  // encontrar lo que hay que reponer.
+  const articulosOrdenados = useMemo(
+    () => [...articulos].sort((a, b) => Number(b.stockActual < b.stockMinimo) - Number(a.stockActual < a.stockMinimo)),
+    [articulos],
+  )
+  const bajoStockCount = articulos.filter((a) => a.stockActual < a.stockMinimo).length
+
   if (loadingArticulos || loadingMovimientos) return <LoadingSpinner fullScreen />
 
   return (
@@ -279,6 +288,12 @@ export default function PanolPage() {
             <Button className="text-sm" onClick={() => setEntrega(true)}>Entrega</Button>
           </div>
         </div>
+
+        {bajoStockCount > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+            <KpiTile value={bajoStockCount} label="Bajo stock mínimo" tone="warn" active={false} onClick={() => {}} />
+          </div>
+        )}
 
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-gray-900">Artículos</h2>
@@ -300,13 +315,14 @@ export default function PanolPage() {
                 </tr>
               </thead>
               <tbody>
-                {articulos.map((a) => {
+                {articulosOrdenados.map((a) => {
                   const bajo = a.stockActual < a.stockMinimo
+                  const sobre = a.stockMaximo > 0 && a.stockActual > a.stockMaximo
                   return (
                     <tr key={a.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
                       <td className="py-2 px-4 text-gray-900">{a.nombre}<span className="text-gray-400 text-xs ml-1">({a.unidad})</span></td>
-                      <td className={`py-2 px-4 text-right font-medium ${bajo ? 'text-amber-600' : 'text-gray-700'}`}>
-                        {a.stockActual}{bajo && ' ⚠'}
+                      <td className={`py-2 px-4 text-right font-medium ${bajo ? 'text-amber-600' : sobre ? 'text-blue-600' : 'text-gray-700'}`}>
+                        {a.stockActual}{bajo && ' ⚠'}{sobre && ' ▲'}
                       </td>
                       <td className="py-2 px-4 text-right text-gray-400 text-xs">{a.stockMinimo} / {a.stockMaximo}</td>
                     </tr>
