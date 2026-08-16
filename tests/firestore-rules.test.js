@@ -1199,7 +1199,8 @@ describe('users — alta y gestión de técnicos', () => {
 describe('ticketsServicio', () => {
   const ticket = (extra = {}) => ({
     numero: 1, heladeraId: 'h1', heladeraCodigo: 'HL-001', clientId: 'cli', clientName: 'Cliente de Prueba SA',
-    motivoId: 'm1', motivoNombre: 'No enfría', requiereChofer: false, estado: 'abierto', asignadoA: null,
+    motivoId: 'm1', motivoNombre: 'No enfría', requiereChofer: false, urgente: false, origen: 'staff',
+    estado: 'abierto', asignadoA: null,
     historialAcciones: [], fechaPedido: new Date(), createdAt: new Date(), updatedAt: new Date(), ...extra,
   })
   const seedEncargado = () => seed((d) => setDoc(doc(d, 'users/enc'), { rol: 'heladeras_encargado', estado: 'activo' }))
@@ -1218,12 +1219,40 @@ describe('ticketsServicio', () => {
     await assertFails(setDoc(doc(db('com'), 'ticketsServicio/t2'), ticket()))
   })
 
-  test('cliente SÍ puede leer su propio ticket de service, pero no crearlo/editarlo', async () => {
+  test('cliente SÍ puede leer su propio ticket, pero no editarlo, y no puede crear uno para una heladera ajena', async () => {
     await seed((d) => setDoc(doc(d, 'users/cli'), cliente()))
     await seed((d) => setDoc(doc(d, 'ticketsServicio/t1'), ticket()))
     await assertSucceeds(getDoc(doc(db('cli', 'c@x.com'), 'ticketsServicio/t1')))
+    // No hay heladera 'h1' asignada a 'cli' → falla la verificación de dueño.
     await assertFails(setDoc(doc(db('cli', 'c@x.com'), 'ticketsServicio/t2'), ticket()))
     await assertFails(updateDoc(doc(db('cli', 'c@x.com'), 'ticketsServicio/t1'), { estado: 'cerrado' }))
+  })
+
+  test('cliente SÍ puede autogestionar un pedido de service para SU PROPIA heladera', async () => {
+    await seed((d) => setDoc(doc(d, 'users/cli'), cliente()))
+    await seed((d) => setDoc(doc(d, 'heladeras/h1'), { estado: 'en_comodato', clienteAsignadoId: 'cli', historialAcciones: [] }))
+    await assertSucceeds(setDoc(doc(db('cli', 'c@x.com'), 'ticketsServicio/t1'), ticket({ origen: 'cliente' })))
+  })
+
+  test('cliente NO puede pedir service para la heladera de OTRO cliente', async () => {
+    await seed((d) => setDoc(doc(d, 'users/cli'), cliente()))
+    await seed((d) => setDoc(doc(d, 'heladeras/h1'), { estado: 'en_comodato', clienteAsignadoId: 'otro-cliente', historialAcciones: [] }))
+    await assertFails(setDoc(doc(db('cli', 'c@x.com'), 'ticketsServicio/t1'), ticket()))
+  })
+
+  test('cliente NO puede crear un ticket a nombre de otro clientId', async () => {
+    await seed((d) => setDoc(doc(d, 'users/cli'), cliente()))
+    await seed((d) => setDoc(doc(d, 'heladeras/h1'), { estado: 'en_comodato', clienteAsignadoId: 'cli', historialAcciones: [] }))
+    await assertFails(setDoc(doc(db('cli', 'c@x.com'), 'ticketsServicio/t1'), ticket({ clientId: 'otro-cliente' })))
+  })
+
+  test('cliente NO puede crear el ticket ya asignado o cerrado', async () => {
+    await seed((d) => setDoc(doc(d, 'users/cli'), cliente()))
+    await seed((d) => setDoc(doc(d, 'heladeras/h1'), { estado: 'en_comodato', clienteAsignadoId: 'cli', historialAcciones: [] }))
+    await assertFails(setDoc(doc(db('cli', 'c@x.com'), 'ticketsServicio/t1'), ticket({ estado: 'cerrado' })))
+    await assertFails(setDoc(doc(db('cli', 'c@x.com'), 'ticketsServicio/t1'), ticket({
+      asignadoA: { tipo: 'tecnico', uid: 'tec', nombre: 'Técnico Uno' },
+    })))
   })
 
   test('cliente NO puede leer el ticket de OTRO cliente', async () => {
@@ -1289,6 +1318,27 @@ describe('ticketsServicio', () => {
     await seedEncargado()
     await seed((d) => setDoc(doc(d, 'ticketsServicio/t1'), ticket()))
     await assertFails(deleteDoc(doc(db('enc'), 'ticketsServicio/t1')))
+  })
+
+  test('cliente SÍ puede incrementar en 1 el contador de tickets, pero no resetearlo ni tocar otro campo', async () => {
+    await seed((d) => setDoc(doc(d, 'users/cli'), cliente()))
+    await seed((d) => setDoc(doc(d, 'config/ticketServicioCounter'), { next: 5 }))
+    await assertSucceeds(updateDoc(doc(db('cli', 'c@x.com'), 'config/ticketServicioCounter'), { next: 6 }))
+    await assertFails(updateDoc(doc(db('cli', 'c@x.com'), 'config/ticketServicioCounter'), { next: 1 }))
+    await assertFails(updateDoc(doc(db('cli', 'c@x.com'), 'config/ticketServicioCounter'), { next: 6, otro: 'x' }))
+  })
+
+  test('cliente SÍ puede dejar una línea en el historial de SU heladera al pedir service, pero no tocar otro campo ni la de otro cliente', async () => {
+    await seed((d) => setDoc(doc(d, 'users/cli'), cliente()))
+    await seed((d) => setDoc(doc(d, 'heladeras/h1'), { estado: 'en_comodato', clienteAsignadoId: 'cli', historialAcciones: [] }))
+    await seed((d) => setDoc(doc(d, 'heladeras/h2'), { estado: 'en_comodato', clienteAsignadoId: 'otro-cliente', historialAcciones: [] }))
+    await assertSucceeds(updateDoc(doc(db('cli', 'c@x.com'), 'heladeras/h1'), {
+      historialAcciones: arrayUnion({ accion: 'service_abierto', usuarioId: 'cli', timestamp: new Date() }), updatedAt: new Date(),
+    }))
+    await assertFails(updateDoc(doc(db('cli', 'c@x.com'), 'heladeras/h1'), { estado: 'baja' }))
+    await assertFails(updateDoc(doc(db('cli', 'c@x.com'), 'heladeras/h2'), {
+      historialAcciones: arrayUnion({ accion: 'service_abierto', usuarioId: 'cli', timestamp: new Date() }), updatedAt: new Date(),
+    }))
   })
 })
 

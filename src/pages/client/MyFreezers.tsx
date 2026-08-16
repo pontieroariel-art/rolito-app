@@ -1,20 +1,25 @@
+import { useState } from 'react'
 import { Snowflake, Wrench } from 'lucide-react'
 import Navbar from '../../components/layout/Navbar'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
+import Modal from '../../components/ui/Modal'
+import Button from '../../components/ui/Button'
 import { useAuth } from '../../context/AuthContext'
 import { useHeladerasPorCliente } from '../../hooks/useHeladerasPorCliente'
 import { useTicketsPorCliente } from '../../hooks/useTicketsPorCliente'
+import { useMotivosReparacion } from '../../hooks/useReparacionCatalogos'
+import { crearTicket } from '../../services/ticketServicioService'
 import { ESTADO_TICKET_LABELS, ESTADO_TICKET_STYLES } from '../../utils/heladeraLabels'
 import { formatShortDate } from '../../utils/helpers'
 import { Heladera, TicketServicio } from '../../types'
 
-function FreezerCard({ heladera }: { heladera: Heladera }) {
+function FreezerCard({ heladera, onPedirService }: { heladera: Heladera; onPedirService: (h: Heladera) => void }) {
   return (
     <div className="bg-white border border-gray-200 rounded-2xl p-4 flex items-center gap-3">
       <div className="w-11 h-11 rounded-xl bg-[#E8F5F0] text-accent flex items-center justify-center shrink-0">
         <Snowflake size={20} />
       </div>
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <p className="font-semibold text-gray-900">{heladera.modelo}</p>
         <p className="text-xs text-gray-500">
           Código {heladera.codigoInterno} · Serie {heladera.numeroSerie}
@@ -23,6 +28,12 @@ function FreezerCard({ heladera }: { heladera: Heladera }) {
           <p className="text-xs text-gray-400 mt-0.5">Desde el {formatShortDate(heladera.fechaAsignacion)}</p>
         )}
       </div>
+      <button
+        onClick={() => onPedirService(heladera)}
+        className="shrink-0 text-xs font-medium text-accent border border-accent/40 rounded-lg px-3 py-1.5 hover:bg-accent/10"
+      >
+        Pedir service
+      </button>
     </div>
   )
 }
@@ -53,6 +64,38 @@ export default function MyFreezers() {
   const { user } = useAuth()
   const { heladeras, loading: loadingHeladeras } = useHeladerasPorCliente(user?.uid ?? null)
   const { tickets, loading: loadingTickets } = useTicketsPorCliente(user?.uid ?? null)
+  const { motivos } = useMotivosReparacion()
+
+  const [heladeraParaService, setHeladeraParaService] = useState<Heladera | null>(null)
+  const [motivoId, setMotivoId] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const cerrarModal = () => { setHeladeraParaService(null); setMotivoId(''); setError('') }
+
+  const handlePedirService = async () => {
+    if (!user || !heladeraParaService || !motivoId) return
+    const motivo = motivos.find((m) => m.id === motivoId)
+    if (!motivo) { setError('Elegí un motivo válido'); return }
+    setSaving(true)
+    setError('')
+    try {
+      await crearTicket({
+        heladeraId:     heladeraParaService.id,
+        heladeraCodigo: heladeraParaService.codigoInterno,
+        clientId:       user.uid,
+        clientName:     user.razonSocial,
+        motivoId:       motivo.id,
+        motivoNombre:   motivo.nombre,
+        requiereChofer: !!motivo.requiereChofer,
+        urgente:        !!motivo.urgente,
+      }, { uid: user.uid, nombre: user.nombre })
+      cerrarModal()
+    } catch {
+      setError('No se pudo pedir el service. Intentá de nuevo.')
+      setSaving(false)
+    }
+  }
 
   if (loadingHeladeras || loadingTickets) return <><Navbar /><LoadingSpinner fullScreen className="bg-white" /></>
 
@@ -75,7 +118,7 @@ export default function MyFreezers() {
             </div>
           ) : (
             <div className="space-y-3">
-              {heladeras.map((h) => <FreezerCard key={h.id} heladera={h} />)}
+              {heladeras.map((h) => <FreezerCard key={h.id} heladera={h} onPedirService={setHeladeraParaService} />)}
             </div>
           )}
         </section>
@@ -95,6 +138,36 @@ export default function MyFreezers() {
           )}
         </section>
       </main>
+
+      <Modal open={!!heladeraParaService} onClose={cerrarModal} title="Pedir service" variant="light">
+        {heladeraParaService && (
+          <div className="space-y-4">
+            <div className="bg-[#F8F7F2] border border-gray-200 rounded-xl p-3">
+              <p className="text-sm font-medium text-gray-900">{heladeraParaService.codigoInterno}</p>
+              <p className="text-xs text-gray-500">{heladeraParaService.modelo} · serie {heladeraParaService.numeroSerie}</p>
+            </div>
+
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">¿Qué le pasa?</label>
+              <select
+                value={motivoId}
+                onChange={(e) => setMotivoId(e.target.value)}
+                className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
+              >
+                <option value="">Elegí un motivo…</option>
+                {motivos.filter((m) => m.activo).map((m) => (
+                  <option key={m.id} value={m.id}>{m.nombre}</option>
+                ))}
+              </select>
+            </div>
+
+            {error && <p className="text-red-500 text-xs">{error}</p>}
+            <Button onClick={handlePedirService} loading={saving} disabled={!motivoId} className="w-full">
+              Pedir service
+            </Button>
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }

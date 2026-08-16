@@ -13,7 +13,7 @@ import {
   updateDoc,
 } from 'firebase/firestore'
 import { db } from './firebase'
-import { getPushSubscription, getHeladerasEncargados } from './userService'
+import { getPushSubscription } from './userService'
 import { sendPush } from './notificationService'
 import { TicketServicio } from '../types'
 
@@ -110,6 +110,12 @@ export const crearTicket = (
       motivoNombre:   data.motivoNombre,
       requiereChofer: data.requiereChofer,
       urgente:        data.urgente,
+      // Un ticket autogestionado por el cliente no lo conoce ningún miembro
+      // del staff hasta que alguien lo revisa — a diferencia de uno creado
+      // desde Toma de service, donde quien lo abre ya está al tanto. Lo usa
+      // el trigger onTicketCreado para decidir si avisa por push a los
+      // encargados.
+      origen:         actor.uid === data.clientId ? 'cliente' : 'staff',
       estado:         'abierto',
       asignadoA:      null,
       historialAcciones: [accion(actor, 'creado', data.motivoNombre)],
@@ -127,17 +133,6 @@ export const crearTicket = (
     })
 
     return { id: ticketRef.id, ...ticket }
-  }).then(async (ticket) => {
-    // Ticket urgente recién abierto: avisa a todo el equipo de encargados —
-    // nadie está "en sesión" en ese momento salvo quien lo tomó (Toma de
-    // service), así que sin este push nadie más se entera hasta refrescar.
-    if (ticket.urgente) {
-      const encargados = await getHeladerasEncargados()
-      await Promise.all(
-        encargados.map((e) => notificarAsignacion(e.uid, 'Service urgente', `${ticket.heladeraCodigo} — ${ticket.clientName}: ${ticket.motivoNombre}`)),
-      )
-    }
-    return ticket
   })
 
 async function notificarAsignacion(uid: string, titulo: string, cuerpo: string) {

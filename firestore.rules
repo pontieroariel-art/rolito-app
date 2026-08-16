@@ -356,9 +356,12 @@ service cloud.firestore {
 
     // ── Configuración (catálogo, zonas prohibidas, etc.) ──────────────────────
     match /config/{docId} {
-      // El catálogo lo necesita el cliente para armar el pedido; el resto
-      // (zonas prohibidas, etc.) es operativo → solo staff.
-      allow read: if request.auth != null && (docId == 'catalogo' || isStaff());
+      // El catálogo lo necesita el cliente para armar el pedido; motivosReparacion
+      // y ticketServicioCounter los necesita para autogestionar un pedido de
+      // service desde "Mis heladeras" (crearTicket lee el contador antes de
+      // incrementarlo); el resto (zonas prohibidas, etc.) es operativo → solo staff.
+      allow read: if request.auth != null
+        && (docId == 'catalogo' || docId == 'motivosReparacion' || docId == 'ticketServicioCounter' || isStaff());
       allow write: if request.auth != null && isOperator();
       // Comercial y gerente_comercial pueden editar el catálogo (config/catalogo).
       allow write: if request.auth != null && docId == 'catalogo' && isManager();
@@ -367,6 +370,12 @@ service cloud.firestore {
       allow write: if request.auth != null
         && docId in ['motivosReparacion', 'tiposReparacion', 'motivosIngreso', 'pasosTaller', 'movimientoHeladeraCounter', 'ticketServicioCounter']
         && isHeladerasFullAccess();
+      // Cliente: incrementa en 1 el contador de tickets al autogestionar su
+      // propio pedido de service (mismo contador que usa Toma de service) —
+      // nada más que ese doc, ese campo, ese delta.
+      allow update: if request.auth != null && isCliente() && docId == 'ticketServicioCounter'
+        && request.resource.data.next == resource.data.next + 1
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next']);
     }
 
     // ── Emails de notificación admin ──────────────────────────────────────────
@@ -443,6 +452,12 @@ service cloud.firestore {
       allow update: if request.auth != null && puedeAvanzarPasoActual();
       allow update: if request.auth != null && puedeRechazarPasoActual();
 
+      // Cliente: al autogestionar un pedido de service desde "Mis heladeras"
+      // deja una línea en el historial de SU PROPIA heladera — nada más.
+      allow update: if request.auth != null && isCliente()
+        && resource.data.get('clienteAsignadoId', null) == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['historialAcciones', 'updatedAt']);
+
       allow delete: if false;
     }
 
@@ -470,6 +485,16 @@ service cloud.firestore {
       // Crear, asignar/reasignar, cerrar y anular: solo el módulo heladeras
       // (Toma de service / Consulta de service).
       allow create: if request.auth != null && isHeladerasFullAccess();
+
+      // Cliente: puede autogestionar un pedido de service desde "Mis
+      // heladeras" — solo para SU PROPIA heladera (verificado contra el doc
+      // en heladeras/), a su propio nombre, recién abierto y sin asignar.
+      allow create: if request.auth != null && isCliente()
+        && request.resource.data.clientId == request.auth.uid
+        && get(/databases/$(database)/documents/heladeras/$(request.resource.data.heladeraId)).data.clienteAsignadoId == request.auth.uid
+        && request.resource.data.estado == 'abierto'
+        && request.resource.data.get('asignadoA', null) == null;
+
       allow update: if request.auth != null && isHeladerasFullAccess();
 
       // Técnico: solo puede registrar el trabajo en SU ticket asignado,

@@ -495,6 +495,11 @@ export interface TicketServicio {
   // Snapshot de MotivoReparacion.urgente al crear el ticket — un cambio
   // posterior al catálogo no reescribe tickets ya abiertos.
   urgente:         boolean
+  // Quién lo abrió: 'cliente' (autogestionado desde "Mis heladeras") o
+  // 'staff' (Toma de service). Determina si el trigger onTicketCreado avisa
+  // por push a los encargados — un ticket de staff ya lo conoce quien lo
+  // creó, uno de cliente no lo conoce nadie hasta que alguien se entera.
+  origen:          'cliente' | 'staff'
   estado:          EstadoTicketServicio
   asignadoA?: {
     tipo:   'tecnico' | 'chofer'

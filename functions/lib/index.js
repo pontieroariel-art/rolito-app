@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onStockBajo = exports.onTicketCerrado = exports.generarPedidosRecurrentes = exports.orsDirections = exports.mirrorDriverLocation = exports.validarPreciosPedido = exports.notifyReprogramado = exports.notifyCerca = exports.sendPush = exports.deleteAuthUsers = exports.onOrderEnCamino = exports.onOrderConfirmado = exports.onOrderCreated = exports.onClienteCreadoPorStaff = exports.onUserApproved = exports.onUserRegistered = void 0;
+exports.onTicketCreado = exports.onStockBajo = exports.onTicketCerrado = exports.generarPedidosRecurrentes = exports.orsDirections = exports.mirrorDriverLocation = exports.validarPreciosPedido = exports.notifyReprogramado = exports.notifyCerca = exports.sendPush = exports.deleteAuthUsers = exports.onOrderEnCamino = exports.onOrderConfirmado = exports.onOrderCreated = exports.onClienteCreadoPorStaff = exports.onUserApproved = exports.onUserRegistered = void 0;
 const app_1 = require("firebase-admin/app");
 (0, app_1.initializeApp)();
 // Nota: cambio trivial para forzar un hash de fuente distinto y que
@@ -36,4 +36,5 @@ Object.defineProperty(exports, "generarPedidosRecurrentes", { enumerable: true, 
 var heladeras_1 = require("./triggers/heladeras");
 Object.defineProperty(exports, "onTicketCerrado", { enumerable: true, get: function () { return heladeras_1.onTicketCerrado; } });
 Object.defineProperty(exports, "onStockBajo", { enumerable: true, get: function () { return heladeras_1.onStockBajo; } });
+Object.defineProperty(exports, "onTicketCreado", { enumerable: true, get: function () { return heladeras_1.onTicketCreado; } });
 //# sourceMappingURL=index.js.map

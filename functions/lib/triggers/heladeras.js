@@ -1,10 +1,17 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onStockBajo = exports.onTicketCerrado = void 0;
+exports.onStockBajo = exports.onTicketCerrado = exports.onTicketCreado = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const firestore_2 = require("firebase-admin/firestore");
+const params_1 = require("firebase-functions/params");
+const web_push_1 = __importDefault(require("web-push"));
 const email_1 = require("../email");
 const templates_1 = require("../templates");
+const vapidPublicKey = (0, params_1.defineSecret)('VAPID_PUBLIC_KEY');
+const vapidPrivateKey = (0, params_1.defineSecret)('VAPID_PRIVATE_KEY');
 async function getClientEmail(clientId) {
     if (!clientId)
         return undefined;
@@ -16,6 +23,45 @@ async function getClientEmail(clientId) {
         return undefined;
     }
 }
+function isStaleSubscriptionError(err) {
+    const status = err?.statusCode;
+    return status === 404 || status === 410;
+}
+// Ticket recién creado → push a los encargados. Un ticket que abre el
+// cliente (autogestionado desde "Mis heladeras") no lo conoce nadie del
+// staff todavía, así que siempre avisa; uno que abre el staff (Toma de
+// service) ya lo conoce quien lo creó, así que solo avisa si es urgente
+// (mismo criterio de antes, cuando este aviso era client-initiated). Server-
+// side porque `sendPush` le prohíbe explícitamente a un cliente disparar
+// notificaciones, y porque el cliente tampoco puede leer el directorio de
+// encargados (reglas de `users`).
+exports.onTicketCreado = (0, firestore_1.onDocumentCreated)({ document: 'ticketsServicio/{ticketId}', secrets: [vapidPublicKey, vapidPrivateKey] }, async (event) => {
+    const ticket = event.data?.data();
+    if (!ticket)
+        return;
+    const esDeCliente = ticket.origen === 'cliente';
+    const urgente = ticket.urgente === true;
+    if (!esDeCliente && !urgente)
+        return;
+    const encargados = await (0, firestore_2.getFirestore)().collection('users')
+        .where('rol', '==', 'heladeras_encargado').where('estado', '==', 'activo').get();
+    const conSubscripcion = encargados.docs.filter((d) => d.data().pushSubscription?.endpoint);
+    if (conSubscripcion.length === 0)
+        return;
+    const titulo = urgente ? 'Service urgente' : 'Nuevo pedido de service';
+    const cuerpo = `${(ticket.heladeraCodigo || '')} — ${(ticket.clientName || '')}: ${(ticket.motivoNombre || '')}`;
+    web_push_1.default.setVapidDetails('mailto:pedidos@rolito.com.ar', vapidPublicKey.value(), vapidPrivateKey.value());
+    await Promise.all(conSubscripcion.map(async (d) => {
+        try {
+            await web_push_1.default.sendNotification(d.data().pushSubscription, JSON.stringify({ title: titulo, body: cuerpo }));
+        }
+        catch (err) {
+            if (isStaleSubscriptionError(err)) {
+                await d.ref.update({ pushSubscription: firestore_2.FieldValue.delete() }).catch(() => { });
+            }
+        }
+    }));
+});
 // Ticket de service cerrado → email al cliente. El técnico/chofer que hace
 // el trabajo en campo no está en condiciones de avisar (cierra el encargado
 // desde Consulta de service, a veces horas después), por eso es un trigger
