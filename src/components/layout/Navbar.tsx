@@ -39,10 +39,11 @@ const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
     { to: '/comercial/ventas',             label: 'Ventas',          icon: TrendingUp },
   ],
   cliente: [
-    { to: '/dashboard',    label: 'Inicio',        icon: Home },
-    { to: '/nuevo-pedido', label: 'Nuevo pedido',  icon: Plus },
-    { to: '/historial',    label: 'Historial',     icon: History },
-    { to: '/perfil',       label: 'Mi perfil',     icon: UserCircle },
+    { to: '/dashboard',      label: 'Inicio',         icon: Home },
+    { to: '/nuevo-pedido',   label: 'Nuevo pedido',   icon: Plus },
+    { to: '/historial',      label: 'Historial',      icon: History },
+    { to: '/mis-heladeras',  label: 'Mis heladeras',  icon: Snowflake },
+    { to: '/perfil',         label: 'Mi perfil',      icon: UserCircle },
   ],
   super_admin: [
     { to: '/admin',                         label: 'Tablero',       icon: LayoutDashboard },

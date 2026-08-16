@@ -24,6 +24,7 @@ const ClientDashboard  = lazy(() => import('./pages/client/ClientDashboard'))
 const NewOrder         = lazy(() => import('./pages/client/NewOrder'))
 const OrderHistory     = lazy(() => import('./pages/client/OrderHistory'))
 const ClientProfile    = lazy(() => import('./pages/client/ClientProfile'))
+const MyFreezers       = lazy(() => import('./pages/client/MyFreezers'))
 const SelectSucursal   = lazy(() => import('./pages/client/SelectSucursal'))
 
 const LogisticaLayout     = lazy(() => import('./components/layout/LogisticaLayout'))
@@ -142,6 +143,9 @@ function AppContent() {
         {/* Cliente */}
         <Route element={<ProtectedRoute allowedRoles={['cliente']} />}>
           <Route path="/sucursal" element={<SelectSucursal />} />
+          {/* Mis heladeras: no depende de sucursal (clienteAsignadoId es por
+              cliente, no por dirección), por eso queda afuera de ClientBranchGuard. */}
+          <Route path="/mis-heladeras" element={<MyFreezers />} />
           <Route element={<ClientBranchGuard />}>
             <Route path="/dashboard"    element={<ClientDashboard />} />
             <Route path="/nuevo-pedido" element={<NewOrder />} />

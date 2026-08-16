@@ -1,4 +1,4 @@
-import { AreaHeladera, EstadoHeladera, TipoOperacionIngreso, TipoPipelineHeladera } from '../types'
+import { AreaHeladera, EstadoHeladera, EstadoTicketServicio, TipoOperacionIngreso, TipoPipelineHeladera } from '../types'
 
 export const ESTADO_HELADERA_LABELS: Record<EstadoHeladera, string> = {
   en_taller:   'En taller',
@@ -28,6 +28,22 @@ export const AREA_HELADERA_LABELS: Record<AreaHeladera, string> = {
   plastico:            'Plástico',
   ensamble_inyectado:  'Ensamble e inyectado',
   terminacion:         'Terminación',
+}
+
+export const ESTADO_TICKET_LABELS: Record<EstadoTicketServicio, string> = {
+  abierto:           'Abierto',
+  asignado_tecnico:  'Con técnico',
+  asignado_chofer:   'Con chofer',
+  cerrado:           'Cerrado',
+  anulado:           'Anulado',
+}
+
+export const ESTADO_TICKET_STYLES: Record<EstadoTicketServicio, string> = {
+  abierto:           'bg-amber-100 text-amber-700 border-amber-200',
+  asignado_tecnico:  'bg-blue-100 text-blue-700 border-blue-200',
+  asignado_chofer:   'bg-blue-100 text-blue-700 border-blue-200',
+  cerrado:           'bg-green-100 text-green-700 border-green-200',
+  anulado:           'bg-gray-100 text-gray-500 border-gray-200',
 }
 
 // Sectores que hacen trabajos de reparación — sectorizan tanto a los técnicos

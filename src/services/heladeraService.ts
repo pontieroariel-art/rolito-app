@@ -5,6 +5,7 @@ import {
   getDoc,
   onSnapshot,
   query,
+  where,
   orderBy,
   limit,
   serverTimestamp,
@@ -57,6 +58,18 @@ export const subscribeHeladeras = (
 ): () => void =>
   onSnapshot(
     query(collection(db, HELADERAS), orderBy('updatedAt', 'desc'), limit(500)),
+    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Heladera))),
+    () => callback([]),
+  )
+
+// Heladeras actualmente en comodato de un cliente — pantalla "Mis heladeras"
+// del cliente (`clienteAsignadoId` solo refleja el estado ACTUAL, ver types.ts).
+export const subscribeHeladerasPorCliente = (
+  clientId: string,
+  callback: (heladeras: Heladera[]) => void,
+): () => void =>
+  onSnapshot(
+    query(collection(db, HELADERAS), where('clienteAsignadoId', '==', clientId), where('estado', '==', 'en_comodato')),
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Heladera))),
     () => callback([]),
   )

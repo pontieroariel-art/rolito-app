@@ -1,18 +1,39 @@
 import { useMemo, useState } from 'react'
 import { Download, Printer } from 'lucide-react'
 import * as XLSX from 'xlsx'
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+} from 'recharts'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import KpiTile from '../../components/heladeras/KpiTile'
 import { useHeladeras } from '../../hooks/useHeladeras'
 import { useTicketsServicio } from '../../hooks/useTicketsServicio'
 import { generateListadoPdf } from '../../utils/pdf'
 import { Heladera, TicketServicio } from '../../types'
-
-const ESTADO_TICKET_LABELS: Record<string, string> = {
-  abierto: 'Abierto', asignado_tecnico: 'Con técnico', asignado_chofer: 'Con chofer',
-}
+import { ESTADO_TICKET_LABELS } from '../../utils/heladeraLabels'
+import { tsToDate } from '../../utils/helpers'
 
 type Categoria = 'disponibles' | 'pintura' | 'refrigeracion' | 'deposito' | 'asignados' | 'service'
+
+const DIA_MS = 86_400_000
+
+// Última vez que la heladera llegó a 'disponible' (puede haber más de una si
+// tuvo un rechazo y volvió a empezar el ciclo) menos el alta — tiempo total
+// que pasó en taller en su paso por el pipeline más reciente. `null` si
+// todavía no llegó a disponible ninguna vez (sigue en taller o no hay datos).
+function tiempoEnTallerDias(h: Heladera): number | null {
+  const creada = h.historialAcciones.find((a) => a.accion === 'creada')
+  if (!creada) return null
+  const llegadas = h.historialAcciones.filter((a) => a.estadoDestino === 'disponible')
+  if (llegadas.length === 0) return null
+  const ultima = llegadas.reduce((max, a) => (tsToDate(a.timestamp) > tsToDate(max.timestamp) ? a : max))
+  return (tsToDate(ultima.timestamp).getTime() - tsToDate(creada.timestamp).getTime()) / DIA_MS
+}
+
+function promedio(valores: number[]): number | null {
+  if (valores.length === 0) return null
+  return valores.reduce((s, v) => s + v, 0) / valores.length
+}
 
 export default function InformesDashboardPage() {
   const { heladeras, loading: loadingHeladeras } = useHeladeras()
@@ -32,6 +53,33 @@ export default function InformesDashboardPage() {
     const service         = tickets.filter((t) => ['abierto', 'asignado_tecnico', 'asignado_chofer'].includes(t.estado))
     return { disponibles, pintura, refrigeracion, deposito, asignados, service }
   }, [heladeras, tickets])
+
+  // Métricas históricas — SLA de tickets cerrados y tiempo total en taller.
+  // Se calculan sobre lo que ya traen useTicketsServicio()/useHeladeras()
+  // (300/500 más recientes, ya acotado), no hace falta una query aparte.
+  const metricas = useMemo(() => {
+    const cerrados = tickets.filter((t) => t.estado === 'cerrado' && t.fechaCierre)
+    const slaDias = promedio(cerrados.map((t) => (tsToDate(t.fechaCierre!).getTime() - tsToDate(t.fechaPedido).getTime()) / DIA_MS))
+
+    const tallerDias = promedio(
+      heladeras.map(tiempoEnTallerDias).filter((v): v is number => v !== null),
+    )
+
+    const now = new Date()
+    const semanas = Array.from({ length: 8 }, (_, idx) => {
+      const i = 7 - idx
+      const inicio = new Date(now); inicio.setHours(0, 0, 0, 0); inicio.setDate(inicio.getDate() - (i * 7 + 6))
+      const fin    = new Date(now); fin.setHours(23, 59, 59, 999); fin.setDate(fin.getDate() - i * 7)
+      return { label: inicio.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' }), inicio, fin, cerrados: 0 }
+    })
+    cerrados.forEach((t) => {
+      const d = tsToDate(t.fechaCierre!)
+      const semana = semanas.find((s) => d >= s.inicio && d <= s.fin)
+      if (semana) semana.cerrados++
+    })
+
+    return { slaDias, tallerDias, semanas, cerradosCount: cerrados.length }
+  }, [tickets, heladeras])
 
   const tarjetas: { id: Categoria; label: string; value: number; tone?: 'warn' | 'good' }[] = [
     { id: 'disponibles',   label: 'Disponibles',      value: grupos.disponibles.length, tone: 'good' },
@@ -102,6 +150,43 @@ export default function InformesDashboardPage() {
             />
           ))}
         </div>
+
+        <section className="space-y-2.5">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Tiempos y SLA</h2>
+          <div className="grid grid-cols-2 gap-2.5">
+            <KpiTile
+              value={metricas.slaDias !== null ? Math.round(metricas.slaDias * 10) / 10 : 0}
+              label={`SLA service (días)${metricas.cerradosCount === 0 ? ' · sin datos' : ''}`}
+              active={false}
+              onClick={() => {}}
+            />
+            <KpiTile
+              value={metricas.tallerDias !== null ? Math.round(metricas.tallerDias * 10) / 10 : 0}
+              label={`Tiempo en taller (días)${metricas.tallerDias === null ? ' · sin datos' : ''}`}
+              active={false}
+              onClick={() => {}}
+            />
+          </div>
+
+          {metricas.cerradosCount > 0 && (
+            <div className="bg-white border border-[#D3D1C7] rounded-xl p-4">
+              <p className="text-xs font-medium text-gray-500 mb-2">Tickets de service cerrados por semana</p>
+              <ResponsiveContainer width="100%" height={160}>
+                <BarChart data={metricas.semanas} margin={{ top: 4, right: 12, bottom: 0, left: -20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fill: '#9CA3AF', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: '#9CA3AF', fontSize: 12 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{ background: '#ffffff', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 12 }}
+                    labelStyle={{ color: '#6B7280' }} itemStyle={{ color: '#1D9E75' }}
+                    cursor={{ fill: 'rgba(29,158,117,0.06)' }}
+                  />
+                  <Bar dataKey="cerrados" name="Cerrados" fill="#1D9E75" radius={[4, 4, 0, 0]} maxBarSize={36} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </section>
 
         {catAbierta && (
           <section className="bg-white border border-[#D3D1C7] rounded-xl overflow-hidden">

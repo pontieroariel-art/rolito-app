@@ -19,18 +19,7 @@ import { getUserDocument } from '../../services/userService'
 import { generatePedidoReparacion } from '../../utils/pdf'
 import { TicketServicio, getPrimaryAddress } from '../../types'
 import { tsToDate } from '../../utils/helpers'
-
-const ESTADO_LABELS: Record<string, string> = {
-  abierto: 'Abierto', asignado_tecnico: 'Con técnico', asignado_chofer: 'Con chofer',
-  cerrado: 'Cerrado', anulado: 'Anulado',
-}
-const ESTADO_STYLES: Record<string, string> = {
-  abierto:           'bg-amber-100 text-amber-700 border-amber-200',
-  asignado_tecnico:  'bg-blue-100 text-blue-700 border-blue-200',
-  asignado_chofer:   'bg-blue-100 text-blue-700 border-blue-200',
-  cerrado:           'bg-green-100 text-green-700 border-green-200',
-  anulado:           'bg-gray-100 text-gray-500 border-gray-200',
-}
+import { ESTADO_TICKET_LABELS as ESTADO_LABELS, ESTADO_TICKET_STYLES as ESTADO_STYLES } from '../../utils/heladeraLabels'
 
 type Tab = 'abiertos' | 'curso' | 'cerrados'
 
@@ -93,7 +82,7 @@ function CerrarModal({ ticket, actor, onClose }: { ticket: TicketServicio; actor
     setSaving(true)
     setError('')
     try {
-      await cerrarTicket(ticket.id, actor, firma, nombre.trim())
+      await cerrarTicket(ticket.id, actor, firma, nombre.trim(), ticket.clientId)
       onClose()
     } catch {
       setError('No se pudo cerrar. Intentá de nuevo.')
