@@ -214,6 +214,11 @@ export interface AccionHistorial {
   // estado_origen -> estado_destino pedida para el módulo de taller.
   estadoOrigen?:  EstadoHeladera | null
   estadoDestino?: EstadoHeladera | null
+  // Paso de config/pasosTaller que se acaba de DEJAR en esta transición
+  // (paso_completado/paso_aprobado/paso_rechazado) — permite reconstruir
+  // cuánto tiempo pasó la heladera en cada paso. No retroactivo: entradas
+  // viejas (previas a este campo) no lo tienen, se ignoran al calcular.
+  pasoId?: string | null
 }
 
 export interface Order {

@@ -32,6 +32,7 @@ function accion(
   detalle?: string | null,
   estadoOrigen?: EstadoHeladera,
   estadoDestino?: EstadoHeladera,
+  pasoId?: string | null,
 ) {
   return {
     accion:        tipo,
@@ -41,6 +42,7 @@ function accion(
     detalle:       detalle ?? null,
     estadoOrigen:  estadoOrigen ?? null,
     estadoDestino: estadoDestino ?? null,
+    pasoId:        pasoId ?? null,
   }
 }
 
@@ -178,7 +180,7 @@ export const soltarPaso = (
       pasoActualId:      siguiente ?? null,
       enProceso:         deleteField(),
       updatedAt:         serverTimestamp(),
-      historialAcciones: arrayUnion(accion(actor, 'paso_completado', detalle, data.estado, nuevoEstado)),
+      historialAcciones: arrayUnion(accion(actor, 'paso_completado', detalle, data.estado, nuevoEstado, paso.id)),
     })
   })
 
@@ -203,7 +205,7 @@ export const aprobarPaso = (
       pasoActualId:      siguiente ?? null,
       enProceso:         deleteField(),
       updatedAt:         serverTimestamp(),
-      historialAcciones: arrayUnion(accion(actor, 'paso_aprobado', detalle ?? null, data.estado, nuevoEstado)),
+      historialAcciones: arrayUnion(accion(actor, 'paso_aprobado', detalle ?? null, data.estado, nuevoEstado, paso.id)),
     })
   })
 
@@ -229,7 +231,7 @@ export const rechazarPaso = (
       enProceso:         deleteField(),
       cicloActual:       (data.cicloActual ?? 1) + 1,
       updatedAt:         serverTimestamp(),
-      historialAcciones: arrayUnion(accion(actor, 'paso_rechazado', motivo, data.estado, 'en_taller')),
+      historialAcciones: arrayUnion(accion(actor, 'paso_rechazado', motivo, data.estado, 'en_taller', data.pasoActualId)),
     })
   })
 

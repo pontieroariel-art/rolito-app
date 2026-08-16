@@ -18,6 +18,7 @@
 // catálogo con get() — cualquier cambio acá tiene que reflejarse ahí también.
 
 import { AreaHeladera, Heladera, PasoTaller, TipoPipelineHeladera } from '../types'
+import { tsToDate } from './helpers'
 
 export type CatalogoPasos = Record<string, PasoTaller>
 
@@ -58,4 +59,63 @@ export function puedeResolverAprobacion(heladera: Heladera, catalogo: CatalogoPa
 
 export function puedeLiberar(heladera: Heladera): boolean {
   return heladera.estado === 'en_taller' && !!heladera.enProceso
+}
+
+// ── Tiempo por paso ─────────────────────────────────────────────────────────
+
+const DIA_MS = 86_400_000
+
+export interface TiempoPorPaso {
+  pasoId:       string
+  pasoNombre:   string
+  tipoPipeline: TipoPipelineHeladera
+  muestras:     number
+  promedioDias: number
+}
+
+// Reconstruye, a partir de historialAcciones, cuánto tardó cada heladera en
+// cada paso por el que pasó: cada transición (paso_completado/paso_aprobado/
+// paso_rechazado) trae `pasoId` = el paso que se acaba de DEJAR, así que la
+// duración es su timestamp menos el de la transición anterior (o `creada`
+// para el primer paso). No retroactivo: transiciones viejas sin `pasoId` no
+// generan una muestra, pero sí siguen marcando el límite de tiempo para la
+// transición siguiente.
+export function calcularTiemposPorPaso(heladeras: Heladera[], catalogo: CatalogoPasos): TiempoPorPaso[] {
+  const duracionesPorPaso = new Map<string, number[]>()
+
+  for (const heladera of heladeras) {
+    const eventos = [...heladera.historialAcciones].sort(
+      (a, b) => tsToDate(a.timestamp).getTime() - tsToDate(b.timestamp).getTime(),
+    )
+    const creada = eventos.find((e) => e.accion === 'creada')
+    if (!creada) continue
+
+    let entradaMs = tsToDate(creada.timestamp).getTime()
+    for (const evento of eventos) {
+      if (!['paso_completado', 'paso_aprobado', 'paso_rechazado'].includes(evento.accion)) continue
+      const salidaMs = tsToDate(evento.timestamp).getTime()
+      if (evento.pasoId) {
+        const lista = duracionesPorPaso.get(evento.pasoId) ?? []
+        lista.push(salidaMs - entradaMs)
+        duracionesPorPaso.set(evento.pasoId, lista)
+      }
+      entradaMs = salidaMs
+    }
+  }
+
+  return Array.from(duracionesPorPaso.entries())
+    // Un paso puede haberse borrado del catálogo después de que se usó —
+    // sin nombre/pipeline no hay forma útil de etiquetarlo, se omite.
+    .flatMap(([pasoId, duraciones]) => {
+      const paso = catalogo[pasoId]
+      if (!paso) return []
+      return [{
+        pasoId,
+        pasoNombre:   paso.nombre,
+        tipoPipeline: paso.tipoPipeline,
+        muestras:     duraciones.length,
+        promedioDias: duraciones.reduce((s, v) => s + v, 0) / duraciones.length / DIA_MS,
+      }]
+    })
+    .sort((a, b) => b.promedioDias - a.promedioDias)
 }
