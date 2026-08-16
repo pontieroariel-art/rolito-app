@@ -1,6 +1,14 @@
 import { initializeApp } from 'firebase-admin/app'
 initializeApp()
 
+// Nota: cambio trivial para forzar un hash de fuente distinto y que
+// `firebase deploy --only functions` no salte el redeploy de las 12
+// functions que quedaron en una revisión de Cloud Run vieja tras el
+// "Quota exceeded for total allowable CPU per project per region" del
+// 2026-08-16 (firebase-tools marca el hash como "ya deployado" apenas se
+// actualiza la config, aunque el rollout de la revisión haya fallado
+// después por la cuota).
+
 export { onUserRegistered, onUserApproved, onClienteCreadoPorStaff } from './triggers/users'
 export { onOrderCreated, onOrderConfirmado, onOrderEnCamino } from './triggers/orders'
 export { deleteAuthUsers }                     from './triggers/cleanup'
