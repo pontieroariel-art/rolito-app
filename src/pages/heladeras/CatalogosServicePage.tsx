@@ -24,29 +24,43 @@ function MotivosIngresoEditor({ motivos, onSaved }: { motivos: MotivoIngreso[]; 
   const [nombre, setNombre] = useState('')
   const [tipoOperacion, setTipoOperacion] = useState<TipoOperacionIngreso>('CAMBIO')
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
   const handleAdd = async () => {
     if (!nombre.trim()) return
     setSaving(true)
+    setError('')
     try {
       const nuevo: MotivoIngreso = { id: nuevoId(nombre), nombre: nombre.trim(), tipoOperacion, activo: true }
       await saveMotivosIngreso([...motivos, nuevo])
       onSaved()
       setNombre('')
+    } catch {
+      setError('No se pudo guardar. Revisá tu conexión y reintentá.')
     } finally {
       setSaving(false)
     }
   }
 
   const toggle = async (id: string, patch: Partial<MotivoIngreso>) => {
-    await saveMotivosIngreso(motivos.map((m) => (m.id === id ? { ...m, ...patch } : m)))
-    onSaved()
+    setError('')
+    try {
+      await saveMotivosIngreso(motivos.map((m) => (m.id === id ? { ...m, ...patch } : m)))
+      onSaved()
+    } catch {
+      setError('No se pudo guardar. Revisá tu conexión y reintentá.')
+    }
   }
 
   const remove = async (id: string) => {
     if (!confirm('¿Eliminar este motivo de ingreso?')) return
-    await saveMotivosIngreso(motivos.filter((m) => m.id !== id))
-    onSaved()
+    setError('')
+    try {
+      await saveMotivosIngreso(motivos.filter((m) => m.id !== id))
+      onSaved()
+    } catch {
+      setError('No se pudo eliminar. Revisá tu conexión y reintentá.')
+    }
   }
 
   return (
@@ -77,6 +91,8 @@ function MotivosIngresoEditor({ motivos, onSaved }: { motivos: MotivoIngreso[]; 
         ))}
         {motivos.length === 0 && <p className="text-gray-400 text-sm">Todavía no cargaste ningún motivo.</p>}
       </div>
+
+      {error && <p className="text-red-500 text-xs">{error}</p>}
 
       <div className="border-t border-gray-200 pt-4 flex gap-2 items-end flex-wrap">
         <div className="flex-1 min-w-[160px]">
@@ -116,29 +132,43 @@ function MotivosIngresoEditor({ motivos, onSaved }: { motivos: MotivoIngreso[]; 
 function MotivosEditor({ motivos, onSaved }: { motivos: MotivoReparacion[]; onSaved: () => void }) {
   const [nombre, setNombre] = useState('')
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
   const handleAdd = async () => {
     if (!nombre.trim()) return
     setSaving(true)
+    setError('')
     try {
       const nuevo: MotivoReparacion = { id: nuevoId(nombre), nombre: nombre.trim(), activo: true, requiereChofer: false, urgente: false }
       await saveMotivosReparacion([...motivos, nuevo])
       onSaved()
       setNombre('')
+    } catch {
+      setError('No se pudo guardar. Revisá tu conexión y reintentá.')
     } finally {
       setSaving(false)
     }
   }
 
   const toggle = async (id: string, patch: Partial<MotivoReparacion>) => {
-    await saveMotivosReparacion(motivos.map((m) => (m.id === id ? { ...m, ...patch } : m)))
-    onSaved()
+    setError('')
+    try {
+      await saveMotivosReparacion(motivos.map((m) => (m.id === id ? { ...m, ...patch } : m)))
+      onSaved()
+    } catch {
+      setError('No se pudo guardar. Revisá tu conexión y reintentá.')
+    }
   }
 
   const remove = async (id: string) => {
     if (!confirm('¿Eliminar este motivo de reparación?')) return
-    await saveMotivosReparacion(motivos.filter((m) => m.id !== id))
-    onSaved()
+    setError('')
+    try {
+      await saveMotivosReparacion(motivos.filter((m) => m.id !== id))
+      onSaved()
+    } catch {
+      setError('No se pudo eliminar. Revisá tu conexión y reintentá.')
+    }
   }
 
   return (
@@ -177,6 +207,8 @@ function MotivosEditor({ motivos, onSaved }: { motivos: MotivoReparacion[]; onSa
         {motivos.length === 0 && <p className="text-gray-400 text-sm">Todavía no cargaste ningún motivo.</p>}
       </div>
 
+      {error && <p className="text-red-500 text-xs">{error}</p>}
+
       <div className="border-t border-gray-200 pt-4 flex gap-2 items-end">
         <div className="flex-1">
           <label className="text-xs text-gray-500 uppercase tracking-wide">Nuevo motivo</label>
@@ -205,29 +237,43 @@ function TiposEditor({ tipos, onSaved }: { tipos: TipoReparacion[]; onSaved: () 
   const [nombre, setNombre] = useState('')
   const [area,   setArea]   = useState<AreaHeladera>(SECTORES_REPARACION[0])
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
   const handleAdd = async () => {
     if (!nombre.trim()) return
     setSaving(true)
+    setError('')
     try {
       const nuevo: TipoReparacion = { id: nuevoId(nombre), nombre: nombre.trim(), activo: true, area }
       await saveTiposReparacion([...tipos, nuevo])
       onSaved()
       setNombre('')
+    } catch {
+      setError('No se pudo guardar. Revisá tu conexión y reintentá.')
     } finally {
       setSaving(false)
     }
   }
 
   const toggle = async (id: string, patch: Partial<TipoReparacion>) => {
-    await saveTiposReparacion(tipos.map((t) => (t.id === id ? { ...t, ...patch } : t)))
-    onSaved()
+    setError('')
+    try {
+      await saveTiposReparacion(tipos.map((t) => (t.id === id ? { ...t, ...patch } : t)))
+      onSaved()
+    } catch {
+      setError('No se pudo guardar. Revisá tu conexión y reintentá.')
+    }
   }
 
   const remove = async (id: string) => {
     if (!confirm('¿Eliminar este tipo de reparación?')) return
-    await saveTiposReparacion(tipos.filter((t) => t.id !== id))
-    onSaved()
+    setError('')
+    try {
+      await saveTiposReparacion(tipos.filter((t) => t.id !== id))
+      onSaved()
+    } catch {
+      setError('No se pudo eliminar. Revisá tu conexión y reintentá.')
+    }
   }
 
   return (
@@ -264,6 +310,8 @@ function TiposEditor({ tipos, onSaved }: { tipos: TipoReparacion[]; onSaved: () 
         ))}
         {tipos.length === 0 && <p className="text-gray-400 text-sm">Todavía no cargaste ningún tipo.</p>}
       </div>
+
+      {error && <p className="text-red-500 text-xs">{error}</p>}
 
       <div className="border-t border-gray-200 pt-4 flex gap-2 items-end flex-wrap">
         <div className="flex-1 min-w-[160px]">
@@ -305,6 +353,7 @@ function PasosTallerEditor({ pasos, onSaved }: { pasos: Record<string, PasoTalle
   const [area, setArea]                           = useState<AreaHeladera>('plastico')
   const [requiereAprobacion, setRequiereAprobacion] = useState(false)
   const [saving, setSaving]                       = useState(false)
+  const [error, setError]                         = useState('')
 
   const porTipo = (tipo: TipoPipelineHeladera) =>
     Object.values(pasos).filter((p) => p.tipoPipeline === tipo).sort((a, b) => a.orden - b.orden)
@@ -312,6 +361,7 @@ function PasosTallerEditor({ pasos, onSaved }: { pasos: Record<string, PasoTalle
   const handleAdd = async () => {
     if (!nombre.trim()) return
     setSaving(true)
+    setError('')
     try {
       const id       = nuevoId(nombre)
       const maxOrden = porTipo(tipoPipeline).reduce((m, p) => Math.max(m, p.orden), 0)
@@ -323,22 +373,34 @@ function PasosTallerEditor({ pasos, onSaved }: { pasos: Record<string, PasoTalle
       onSaved()
       setNombre('')
       setRequiereAprobacion(false)
+    } catch {
+      setError('No se pudo guardar. Revisá tu conexión y reintentá.')
     } finally {
       setSaving(false)
     }
   }
 
   const patch = async (id: string, cambios: Partial<PasoTaller>) => {
-    await savePasosTaller({ ...pasos, [id]: { ...pasos[id], ...cambios } })
-    onSaved()
+    setError('')
+    try {
+      await savePasosTaller({ ...pasos, [id]: { ...pasos[id], ...cambios } })
+      onSaved()
+    } catch {
+      setError('No se pudo guardar. Revisá tu conexión y reintentá.')
+    }
   }
 
   const remove = async (id: string) => {
     if (!confirm('¿Eliminar este paso de taller?')) return
-    const resto = { ...pasos }
-    delete resto[id]
-    await savePasosTaller(resto)
-    onSaved()
+    setError('')
+    try {
+      const resto = { ...pasos }
+      delete resto[id]
+      await savePasosTaller(resto)
+      onSaved()
+    } catch {
+      setError('No se pudo eliminar. Revisá tu conexión y reintentá.')
+    }
   }
 
   const mover = async (tipo: TipoPipelineHeladera, id: string, direccion: -1 | 1) => {
@@ -347,12 +409,17 @@ function PasosTallerEditor({ pasos, onSaved }: { pasos: Record<string, PasoTalle
     const vecino = lista[idx + direccion]
     if (!vecino) return
     const actual = lista[idx]
-    await savePasosTaller({
-      ...pasos,
-      [actual.id]:  { ...actual, orden: vecino.orden },
-      [vecino.id]:  { ...vecino, orden: actual.orden },
-    })
-    onSaved()
+    setError('')
+    try {
+      await savePasosTaller({
+        ...pasos,
+        [actual.id]:  { ...actual, orden: vecino.orden },
+        [vecino.id]:  { ...vecino, orden: actual.orden },
+      })
+      onSaved()
+    } catch {
+      setError('No se pudo guardar el orden. Revisá tu conexión y reintentá.')
+    }
   }
 
   return (
@@ -405,6 +472,8 @@ function PasosTallerEditor({ pasos, onSaved }: { pasos: Record<string, PasoTalle
           </div>
         )
       })}
+
+      {error && <p className="text-red-500 text-xs">{error}</p>}
 
       <div className="border-t border-gray-200 pt-4 flex gap-2 items-end flex-wrap">
         <div className="flex-1 min-w-[160px]">

@@ -38,6 +38,7 @@ function ModeloForm({
   const handleSubmit = async () => {
     if (!nombre.trim()) { setError('El nombre del modelo es obligatorio'); return }
     setSaving(true)
+    setError('')
     try {
       await onSave({
         nombre:          nombre.trim(),
@@ -47,7 +48,8 @@ function ModeloForm({
         capacidadBolsas: Number(bolsas) || 0,
         fotoUrl:         fotoUrl.trim(),
       })
-    } finally {
+    } catch {
+      setError('No se pudo guardar. Revisá tu conexión y reintentá.')
       setSaving(false)
     }
   }
@@ -122,6 +124,20 @@ export default function ModelosHeladeraPage() {
   const { modelos, loading } = useModelosHeladera()
   const [addModal,    setAddModal]    = useState(false)
   const [editModelo,  setEditModelo]  = useState<ModeloHeladera | null>(null)
+  const [togglingId,  setTogglingId]  = useState<string | null>(null)
+  const [toggleError, setToggleError] = useState('')
+
+  const handleToggle = async (m: ModeloHeladera) => {
+    setTogglingId(m.id)
+    setToggleError('')
+    try {
+      await actualizarModeloHeladera(m.id, { activo: !m.activo })
+    } catch {
+      setToggleError('No se pudo actualizar. Revisá tu conexión y reintentá.')
+    } finally {
+      setTogglingId(null)
+    }
+  }
 
   if (loading) return <LoadingSpinner fullScreen />
 
@@ -136,6 +152,8 @@ export default function ModelosHeladeraPage() {
           </div>
           <Button onClick={() => setAddModal(true)} className="text-sm">+ Agregar</Button>
         </div>
+
+        {toggleError && <p className="text-red-500 text-xs">{toggleError}</p>}
 
         {modelos.length === 0 ? (
           <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center">
@@ -178,10 +196,11 @@ export default function ModelosHeladeraPage() {
                     Editar
                   </button>
                   <button
-                    onClick={() => actualizarModeloHeladera(m.id, { activo: !m.activo })}
-                    className="text-xs text-gray-500 hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-4 py-2 transition-colors min-h-[36px]"
+                    onClick={() => handleToggle(m)}
+                    disabled={togglingId === m.id}
+                    className="text-xs text-gray-500 hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-4 py-2 transition-colors min-h-[36px] disabled:opacity-40"
                   >
-                    {m.activo ? 'Desactivar' : 'Activar'}
+                    {togglingId === m.id ? 'Guardando…' : m.activo ? 'Desactivar' : 'Activar'}
                   </button>
                 </div>
               </div>
