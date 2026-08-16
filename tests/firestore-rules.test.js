@@ -936,9 +936,22 @@ describe('heladeras', () => {
     }))
   })
 
-  test('un cliente NO puede leer heladeras', async () => {
+  test('un cliente NO puede leer heladeras que no son suyas', async () => {
     await seed((d) => setDoc(doc(d, 'users/cli'), cliente()))
     await seedHeladera()
+    await assertFails(getDoc(doc(db('cli', 'c@x.com'), 'heladeras/h1')))
+  })
+
+  test('un cliente SÍ puede leer su propia heladera asignada (en comodato)', async () => {
+    await seed((d) => setDoc(doc(d, 'users/cli'), cliente()))
+    await seedHeladera({ estado: 'en_comodato', pasoActualId: null, clienteAsignadoId: 'cli', clienteAsignadoNombre: 'Cliente de Prueba' })
+    await assertSucceeds(getDoc(doc(db('cli', 'c@x.com'), 'heladeras/h1')))
+    await assertFails(updateDoc(doc(db('cli', 'c@x.com'), 'heladeras/h1'), { motivoBaja: 'test', updatedAt: new Date() }))
+  })
+
+  test('un cliente NO puede leer la heladera asignada a OTRO cliente', async () => {
+    await seed((d) => setDoc(doc(d, 'users/cli'), cliente()))
+    await seedHeladera({ estado: 'en_comodato', pasoActualId: null, clienteAsignadoId: 'otro-cliente', clienteAsignadoNombre: 'Otro Cliente' })
     await assertFails(getDoc(doc(db('cli', 'c@x.com'), 'heladeras/h1')))
   })
 
@@ -1203,6 +1216,20 @@ describe('ticketsServicio', () => {
     await seed((d) => setDoc(doc(d, 'ticketsServicio/t1'), ticket()))
     await assertFails(getDoc(doc(db('com'), 'ticketsServicio/t1')))
     await assertFails(setDoc(doc(db('com'), 'ticketsServicio/t2'), ticket()))
+  })
+
+  test('cliente SÍ puede leer su propio ticket de service, pero no crearlo/editarlo', async () => {
+    await seed((d) => setDoc(doc(d, 'users/cli'), cliente()))
+    await seed((d) => setDoc(doc(d, 'ticketsServicio/t1'), ticket()))
+    await assertSucceeds(getDoc(doc(db('cli', 'c@x.com'), 'ticketsServicio/t1')))
+    await assertFails(setDoc(doc(db('cli', 'c@x.com'), 'ticketsServicio/t2'), ticket()))
+    await assertFails(updateDoc(doc(db('cli', 'c@x.com'), 'ticketsServicio/t1'), { estado: 'cerrado' }))
+  })
+
+  test('cliente NO puede leer el ticket de OTRO cliente', async () => {
+    await seed((d) => setDoc(doc(d, 'users/cli'), cliente()))
+    await seed((d) => setDoc(doc(d, 'ticketsServicio/t1'), ticket({ clientId: 'otro-cliente' })))
+    await assertFails(getDoc(doc(db('cli', 'c@x.com'), 'ticketsServicio/t1')))
   })
 
   test('técnico NO puede leer un ticket que no le asignaron', async () => {
