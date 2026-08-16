@@ -43,6 +43,16 @@ export const subscribeAsignacionesPorHeladera = (
     () => callback([]),
   )
 
+export const subscribeAsignacionesPorCliente = (
+  clientId: string,
+  callback: (asignaciones: AsignacionHeladera[]) => void,
+): () => void =>
+  onSnapshot(
+    query(collection(db, ASIGNACIONES), where('clientId', '==', clientId), orderBy('fecha', 'desc'), limit(50)),
+    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as AsignacionHeladera))),
+    () => callback([]),
+  )
+
 // Asigna una heladera 'disponible' a un cliente: pasa a 'en_comodato', y
 // registra el movimiento (remito + comodato) con firma. Transaccional para
 // evitar que dos personas asignen la misma heladera a la vez.

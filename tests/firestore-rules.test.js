@@ -1022,6 +1022,15 @@ describe('asignacionesHeladera', () => {
     await assertFails(updateDoc(doc(db('enc'), 'asignacionesHeladera/a1'), { clientName: 'Otro' }))
     await assertFails(deleteDoc(doc(db('enc'), 'asignacionesHeladera/a1')))
   })
+
+  test('cliente SÍ puede leer su propio historial de comodatos, pero no el de otro ni crear', async () => {
+    await seed((d) => setDoc(doc(d, 'users/cli'), cliente()))
+    await seed((d) => setDoc(doc(d, 'asignacionesHeladera/a1'), asignacion()))
+    await seed((d) => setDoc(doc(d, 'asignacionesHeladera/a2'), asignacion({ clientId: 'otro-cliente' })))
+    await assertSucceeds(getDoc(doc(db('cli', 'c@x.com'), 'asignacionesHeladera/a1')))
+    await assertFails(getDoc(doc(db('cli', 'c@x.com'), 'asignacionesHeladera/a2')))
+    await assertFails(setDoc(doc(db('cli', 'c@x.com'), 'asignacionesHeladera/a3'), asignacion()))
+  })
 })
 
 describe('config/movimientoHeladeraCounter', () => {

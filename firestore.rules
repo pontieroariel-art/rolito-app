@@ -466,7 +466,12 @@ service cloud.firestore {
     // historialPrecios. comercial lo lee (quiere saber qué cliente tiene
     // heladera) pero no puede generar ni tocar movimientos.
     match /asignacionesHeladera/{asignacionId} {
-      allow read:   if request.auth != null && (isHeladerasFullAccess() || myRole() == 'comercial');
+      // Cliente: solo su propio historial de comodatos (asignaciones y
+      // retiros) — pantalla "Mis heladeras".
+      allow read:   if request.auth != null && (
+        isHeladerasFullAccess() || myRole() == 'comercial' ||
+        (isCliente() && resource.data.get('clientId', null) == request.auth.uid)
+      );
       allow create: if request.auth != null && isHeladerasFullAccess();
       allow update, delete: if false;
     }
