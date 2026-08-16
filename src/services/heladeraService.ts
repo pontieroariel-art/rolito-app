@@ -15,9 +15,9 @@ import {
   runTransaction,
 } from 'firebase/firestore'
 import { db } from './firebase'
-import { AreaHeladera, EstadoHeladera, Heladera, TipoOperacionIngreso, TipoPipelineHeladera } from '../types'
+import { AreaHeladera, EstadoHeladera, Heladera, TipoOperacionIngreso, TipoPipelineHeladera, TrabajoRealizadoItem } from '../types'
 import {
-  CatalogoPasos, pasoActual, primerPasoActivo,
+  CatalogoPasos, pasoActual, primerPasoActivo, textoTrabajos,
   puedeAgarrar, puedeSoltar, puedeResolverAprobacion, puedeLiberar,
 } from '../utils/heladeraPipeline'
 
@@ -33,6 +33,7 @@ function accion(
   estadoOrigen?: EstadoHeladera,
   estadoDestino?: EstadoHeladera,
   pasoId?: string | null,
+  tiposReparacion?: TrabajoRealizadoItem[] | null,
 ) {
   return {
     accion:        tipo,
@@ -43,6 +44,7 @@ function accion(
     estadoOrigen:  estadoOrigen ?? null,
     estadoDestino: estadoDestino ?? null,
     pasoId:        pasoId ?? null,
+    tiposReparacion: tiposReparacion ?? null,
   }
 }
 
@@ -159,10 +161,12 @@ export const agarrarPaso = (
 // paso.siguientePasoId, o a 'disponible' si era el último paso activo del
 // pipeline. Los pasos con requiereAprobacion (ej. control de calidad) usan
 // aprobarPaso/rechazarPaso en su lugar.
+export interface TrabajoHecho { tipos: TrabajoRealizadoItem[]; notas?: string }
+
 export const soltarPaso = (
   heladeraId: string,
   actor:      Actor,
-  detalle:    string,
+  trabajo:    TrabajoHecho,
   catalogo:   CatalogoPasos,
 ): Promise<void> =>
   runTransaction(db, async (tx) => {
@@ -175,12 +179,13 @@ export const soltarPaso = (
     const paso = pasoActual(data, catalogo)!
     const siguiente   = paso.siguientePasoId
     const nuevoEstado: EstadoHeladera = siguiente ? 'en_taller' : 'disponible'
+    const detalle = textoTrabajos(trabajo.tipos, trabajo.notas)
     tx.update(ref, {
       estado:            nuevoEstado,
       pasoActualId:      siguiente ?? null,
       enProceso:         deleteField(),
       updatedAt:         serverTimestamp(),
-      historialAcciones: arrayUnion(accion(actor, 'paso_completado', detalle, data.estado, nuevoEstado, paso.id)),
+      historialAcciones: arrayUnion(accion(actor, 'paso_completado', detalle, data.estado, nuevoEstado, paso.id, trabajo.tipos)),
     })
   })
 
@@ -188,7 +193,7 @@ export const aprobarPaso = (
   heladeraId: string,
   actor:      Actor,
   catalogo:   CatalogoPasos,
-  detalle?:   string,
+  trabajo:    TrabajoHecho,
 ): Promise<void> =>
   runTransaction(db, async (tx) => {
     const ref  = doc(db, HELADERAS, heladeraId)
@@ -200,12 +205,13 @@ export const aprobarPaso = (
     const paso = pasoActual(data, catalogo)!
     const siguiente   = paso.siguientePasoId
     const nuevoEstado: EstadoHeladera = siguiente ? 'en_taller' : 'disponible'
+    const detalle = textoTrabajos(trabajo.tipos, trabajo.notas)
     tx.update(ref, {
       estado:            nuevoEstado,
       pasoActualId:      siguiente ?? null,
       enProceso:         deleteField(),
       updatedAt:         serverTimestamp(),
-      historialAcciones: arrayUnion(accion(actor, 'paso_aprobado', detalle ?? null, data.estado, nuevoEstado, paso.id)),
+      historialAcciones: arrayUnion(accion(actor, 'paso_aprobado', detalle, data.estado, nuevoEstado, paso.id, trabajo.tipos)),
     })
   })
 

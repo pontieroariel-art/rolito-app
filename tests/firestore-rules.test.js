@@ -1287,6 +1287,17 @@ describe('ticketsServicio', () => {
     }))
   })
 
+  test('técnico SÍ puede registrar trabajo con el checklist (trabajosRealizados)', async () => {
+    await seedTecnico()
+    await seed((d) => setDoc(doc(d, 'ticketsServicio/t1'), ticket({
+      estado: 'asignado_tecnico', asignadoA: { tipo: 'tecnico', uid: 'tec', nombre: 'Técnico Uno' },
+    })))
+    await assertSucceeds(updateDoc(doc(db('tec'), 'ticketsServicio/t1'), {
+      trabajosRealizados: [{ tipoId: 'tr1', tipoNombre: 'Cambio termostato' }],
+      trabajoRealizado: 'Cambio termostato', updatedAt: new Date(),
+    }))
+  })
+
   test('técnico NO puede cerrar el ticket ni cambiarle el estado', async () => {
     await seedTecnico()
     await seed((d) => setDoc(doc(d, 'ticketsServicio/t1'), ticket({

@@ -3,6 +3,7 @@ import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import CrearHeladeraModal, { CrearHeladeraData } from '../../components/heladeras/CrearHeladeraModal'
+import TipoReparacionChecklist from '../../components/heladeras/TipoReparacionChecklist'
 import { useAuth } from '../../context/AuthContext'
 import { useHeladeras } from '../../hooks/useHeladeras'
 import { usePasosTaller } from '../../hooks/usePasosTaller'
@@ -10,7 +11,7 @@ import { useTiposReparacion } from '../../hooks/useReparacionCatalogos'
 import {
   agarrarPaso, soltarPaso, liberarForzado,
   aprobarPaso, rechazarPaso, marcarBaja, crearHeladera,
-  HeladeraNoDisponibleError,
+  HeladeraNoDisponibleError, TrabajoHecho,
 } from '../../services/heladeraService'
 import { pasoActual, pasosOrdenados } from '../../utils/heladeraPipeline'
 import { AreaHeladera, Heladera, PasoTaller, TipoReparacion } from '../../types'
@@ -39,54 +40,30 @@ function tiposDelSector(area: AreaHeladera | undefined, tipos: TipoReparacion[])
   return tipos.filter((t) => t.activo && t.area === area)
 }
 
-function SelectorTipoReparacion({
-  area, tipos, tipoId, onChange,
-}: {
-  area:     AreaHeladera | undefined
-  tipos:    TipoReparacion[]
-  tipoId:   string
-  onChange: (id: string) => void
-}) {
-  const opciones = tiposDelSector(area, tipos)
-  if (opciones.length === 0) return null
-  return (
-    <div>
-      <label className="text-xs text-gray-500 mb-1 block">Tipo de reparación</label>
-      <select
-        value={tipoId}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
-      >
-        <option value="">Elegí un tipo…</option>
-        {opciones.map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-      </select>
-    </div>
-  )
-}
-
 function SoltarModal({
   area, tipos, onClose, onSave,
 }: {
   area?:   AreaHeladera
   tipos:   TipoReparacion[]
   onClose: () => void
-  onSave:  (detalle: string) => Promise<void>
+  onSave:  (trabajo: TrabajoHecho) => Promise<void>
 }) {
-  const [tipoId, setTipoId]   = useState('')
-  const [detalle, setDetalle] = useState('')
+  const [seleccionados, setSeleccionados] = useState<string[]>([])
+  const [notas, setNotas]     = useState('')
   const [saving, setSaving]   = useState(false)
   const [error, setError]     = useState('')
 
   const opciones = tiposDelSector(area, tipos)
+  const toggle = (id: string) => setSeleccionados((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    if (!detalle.trim()) { setError('Contá qué le hiciste'); return }
-    if (opciones.length > 0 && !tipoId) { setError('Elegí el tipo de reparación'); return }
+    if (opciones.length > 0 && seleccionados.length === 0) { setError('Tildá al menos un arreglo'); return }
+    if (opciones.length === 0 && !notas.trim()) { setError('Contá qué le hiciste'); return }
     setSaving(true)
     try {
-      const tipo = opciones.find((t) => t.id === tipoId)
-      await onSave(tipo ? `${tipo.nombre} — ${detalle.trim()}` : detalle.trim())
+      const tipos = opciones.filter((t) => seleccionados.includes(t.id)).map((t) => ({ tipoId: t.id, tipoNombre: t.nombre }))
+      await onSave({ tipos, notas: notas.trim() || undefined })
       onClose()
     } catch {
       setError('No se pudo guardar. Intentá de nuevo.')
@@ -96,16 +73,16 @@ function SoltarModal({
   }
 
   return (
-    <Modal open onClose={onClose} title="Soltar heladera">
+    <Modal open onClose={onClose} title="Soltar heladera" wide>
       <form onSubmit={handleSubmit} className="space-y-4">
-        <SelectorTipoReparacion area={area} tipos={tipos} tipoId={tipoId} onChange={setTipoId} />
+        <TipoReparacionChecklist tipos={opciones} seleccionados={seleccionados} onToggle={toggle} showSearch={opciones.length > 6} />
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">¿Qué le hiciste?</label>
+          <label className="text-xs text-gray-500 mb-1 block">Notas adicionales (opcional)</label>
           <textarea
-            value={detalle}
-            onChange={(e) => setDetalle(e.target.value)}
-            rows={3}
-            placeholder="Ej: control de refrigeración, cambié el termostato"
+            value={notas}
+            onChange={(e) => setNotas(e.target.value)}
+            rows={2}
+            placeholder="Algo que no esté en la lista de arriba"
             className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
           />
         </div>
@@ -126,23 +103,25 @@ function AprobacionModal({
   area?:      AreaHeladera
   tipos:      TipoReparacion[]
   onClose:    () => void
-  onAprobar:  (detalle?: string) => Promise<void>
+  onAprobar:  (trabajo: TrabajoHecho) => Promise<void>
   onRechazar: (motivo: string) => Promise<void>
 }) {
-  const [rechazando, setRechazando] = useState(false)
-  const [tipoId, setTipoId]         = useState('')
-  const [motivo, setMotivo]         = useState('')
-  const [saving, setSaving]         = useState(false)
-  const [error, setError]           = useState('')
+  const [rechazando, setRechazando]       = useState(false)
+  const [seleccionados, setSeleccionados] = useState<string[]>([])
+  const [notas, setNotas]                 = useState('')
+  const [motivo, setMotivo]               = useState('')
+  const [saving, setSaving]               = useState(false)
+  const [error, setError]                 = useState('')
 
   const opciones = tiposDelSector(area, tipos)
+  const toggle = (id: string) => setSeleccionados((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
 
   const handleAprobar = async () => {
-    if (opciones.length > 0 && !tipoId) { setError('Elegí el tipo de reparación'); return }
+    if (opciones.length > 0 && seleccionados.length === 0) { setError('Tildá al menos un arreglo'); return }
     setSaving(true); setError('')
     try {
-      const tipo = opciones.find((t) => t.id === tipoId)
-      await onAprobar(tipo?.nombre)
+      const tipos = opciones.filter((t) => seleccionados.includes(t.id)).map((t) => ({ tipoId: t.id, tipoNombre: t.nombre }))
+      await onAprobar({ tipos, notas: notas.trim() || undefined })
       onClose()
     } catch { setError('No se pudo aprobar. Intentá de nuevo.') } finally { setSaving(false) }
   }
@@ -155,11 +134,21 @@ function AprobacionModal({
   }
 
   return (
-    <Modal open onClose={onClose} title="Aprobar paso">
+    <Modal open onClose={onClose} title="Aprobar paso" wide>
       {!rechazando ? (
         <div className="space-y-4">
           <p className="text-sm text-gray-600">¿La heladera pasa este control?</p>
-          <SelectorTipoReparacion area={area} tipos={tipos} tipoId={tipoId} onChange={setTipoId} />
+          <TipoReparacionChecklist tipos={opciones} seleccionados={seleccionados} onToggle={toggle} showSearch={opciones.length > 6} />
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Notas adicionales (opcional)</label>
+            <textarea
+              value={notas}
+              onChange={(e) => setNotas(e.target.value)}
+              rows={2}
+              placeholder="Algo que no esté en la lista de arriba"
+              className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+          </div>
           {error && <p className="text-red-500 text-xs">{error}</p>}
           <div className="flex gap-2 pt-1">
             <Button variant="outline" className="flex-1 text-red-500 border-red-200 hover:bg-red-50" onClick={() => setRechazando(true)}>Rechazar</Button>
@@ -387,7 +376,7 @@ export default function HeladerasPage() {
           area={pasoActual(soltando, catalogo)?.area}
           tipos={tiposReparacion}
           onClose={() => setSoltarId(null)}
-          onSave={(detalle) => soltarPaso(soltarId, actor, detalle, catalogo)}
+          onSave={(trabajo) => soltarPaso(soltarId, actor, trabajo, catalogo)}
         />
       )}
 
@@ -396,7 +385,7 @@ export default function HeladerasPage() {
           area={pasoActual(aprobando, catalogo)?.area}
           tipos={tiposReparacion}
           onClose={() => setAprobacionId(null)}
-          onAprobar={(detalle) => aprobarPaso(aprobacionId, actor, catalogo, detalle)}
+          onAprobar={(trabajo) => aprobarPaso(aprobacionId, actor, catalogo, trabajo)}
           onRechazar={(motivo) => rechazarPaso(aprobacionId, actor, motivo, catalogo)}
         />
       )}

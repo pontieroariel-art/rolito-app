@@ -15,7 +15,8 @@ import {
 import { db } from './firebase'
 import { getPushSubscription } from './userService'
 import { sendPush } from './notificationService'
-import { TicketServicio } from '../types'
+import { textoTrabajos } from '../utils/heladeraPipeline'
+import { TicketServicio, TrabajoRealizadoItem } from '../types'
 
 const TICKETS = 'ticketsServicio'
 const HELADERAS = 'heladeras'
@@ -189,17 +190,17 @@ export const asignarAChofer = (
 export const registrarTrabajoTecnico = (
   ticketId: string,
   actor:    Actor,
-  tipoReparacionId:     string,
-  tipoReparacionNombre: string,
-  detalle:  string,
-): Promise<void> =>
-  updateDoc(doc(db, TICKETS, ticketId), {
-    tipoReparacionId,
-    tipoReparacionNombre,
+  tipos:    TrabajoRealizadoItem[],
+  notas?:   string,
+): Promise<void> => {
+  const detalle = textoTrabajos(tipos, notas)
+  return updateDoc(doc(db, TICKETS, ticketId), {
+    trabajosRealizados: tipos,
     trabajoRealizado: detalle,
     updatedAt: serverTimestamp(),
-    historialAcciones: arrayUnion(accion(actor, 'trabajo_registrado', `${tipoReparacionNombre} — ${detalle}`)),
+    historialAcciones: arrayUnion(accion(actor, 'trabajo_registrado', detalle)),
   })
+}
 
 // Baja confianza — chofer marca hecho el traslado, sin poder cambiar el estado.
 export const marcarHechoChofer = (

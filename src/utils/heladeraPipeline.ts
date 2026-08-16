@@ -17,10 +17,20 @@
 // Firestore (firestore.rules) replican la misma lógica leyendo el mismo
 // catálogo con get() — cualquier cambio acá tiene que reflejarse ahí también.
 
-import { AccionHistorial, AreaHeladera, Heladera, PasoTaller, TipoPipelineHeladera } from '../types'
+import { AccionHistorial, AreaHeladera, Heladera, PasoTaller, TicketServicio, TipoPipelineHeladera, TrabajoRealizadoItem } from '../types'
 import { tsToDate } from './helpers'
 
 export type CatalogoPasos = Record<string, PasoTaller>
+
+// Texto legible autogenerado a partir del checklist tildado + notas
+// opcionales — reemplaza lo que antes escribía a mano el técnico/personal
+// de taller, así el detalle queda siempre con la misma forma (base de la
+// estadística de arreglos) sin romper los lugares que ya lo muestran como
+// string (ficha del equipo, Consulta de service, dashboard del técnico).
+export function textoTrabajos(tipos: TrabajoRealizadoItem[], notas?: string): string {
+  const base = tipos.map((t) => t.tipoNombre).join(', ')
+  return notas?.trim() ? `${base} — ${notas.trim()}` : base
+}
 
 export const pasoDe = (catalogo: CatalogoPasos, id: string | null | undefined): PasoTaller | undefined =>
   id ? catalogo[id] : undefined
@@ -147,4 +157,39 @@ export function formatDuracion(ms: number): string {
   const horas = minutos / 60
   if (horas < 24) return `${Math.round(horas * 10) / 10} h`
   return `${Math.round((horas / 24) * 10) / 10} días`
+}
+
+// ── Estadística de arreglos ─────────────────────────────────────────────────
+
+export interface ArregloContado {
+  tipoId:     string
+  tipoNombre: string
+  veces:      number
+}
+
+// Cuenta cuántas veces se tildó cada tipo de reparación, combinando el
+// checklist del taller (heladera.historialAcciones[].tiposReparacion) y el
+// del técnico de calle (ticket.trabajosRealizados). No hace falta el
+// catálogo actual: cada ítem ya trae su propio nombre snapshot (tipoNombre),
+// así que un tipo borrado del catálogo después de usarse sigue apareciendo
+// con el nombre que tenía en su momento.
+export function calcularEstadisticaArreglos(heladeras: Heladera[], tickets: TicketServicio[]): ArregloContado[] {
+  const conteoPorTipo = new Map<string, ArregloContado>()
+
+  const sumar = (item: TrabajoRealizadoItem) => {
+    const actual = conteoPorTipo.get(item.tipoId)
+    if (actual) { actual.veces += 1; return }
+    conteoPorTipo.set(item.tipoId, { tipoId: item.tipoId, tipoNombre: item.tipoNombre, veces: 1 })
+  }
+
+  for (const heladera of heladeras) {
+    for (const evento of heladera.historialAcciones) {
+      (evento.tiposReparacion ?? []).forEach(sumar)
+    }
+  }
+  for (const ticket of tickets) {
+    (ticket.trabajosRealizados ?? []).forEach(sumar)
+  }
+
+  return Array.from(conteoPorTipo.values()).sort((a, b) => b.veces - a.veces)
 }

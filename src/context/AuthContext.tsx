@@ -108,16 +108,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const newAddrs   = d.addresses      as UserProfile['addresses'] | undefined
         const newSistemas = d.sistemasPermitidos as UserProfile['sistemasPermitidos']
         const newPestanas = d.pestanasPermitidas as UserProfile['pestanasPermitidas']
+        // Favoritos del checklist de tipos de reparación (técnico de calle) —
+        // se tildan/destildan en vivo desde el modal de Registrar trabajo, sin
+        // recargar la página.
+        const newFavoritos = d.tiposFavoritos as UserProfile['tiposFavoritos']
         const cur        = userRef.current
         if (!cur) return
         const changed =
           newRol     !== cur.rol    ||
           newEst     !== cur.estado ||
           newListaId !== cur.listaPreciosId ||
-          JSON.stringify(newPrecios)  !== JSON.stringify(cur.preciosCustom) ||
-          JSON.stringify(newAddrs)    !== JSON.stringify(cur.addresses) ||
-          JSON.stringify(newSistemas) !== JSON.stringify(cur.sistemasPermitidos) ||
-          JSON.stringify(newPestanas) !== JSON.stringify(cur.pestanasPermitidas)
+          JSON.stringify(newPrecios)   !== JSON.stringify(cur.preciosCustom) ||
+          JSON.stringify(newAddrs)     !== JSON.stringify(cur.addresses) ||
+          JSON.stringify(newSistemas)  !== JSON.stringify(cur.sistemasPermitidos) ||
+          JSON.stringify(newPestanas)  !== JSON.stringify(cur.pestanasPermitidas) ||
+          JSON.stringify(newFavoritos) !== JSON.stringify(cur.tiposFavoritos)
         if (!changed) return
         dispatch({ type: 'RESOLVED', user: {
           ...cur,
@@ -128,6 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           ...(newAddrs !== undefined ? { addresses: newAddrs } : {}),
           sistemasPermitidos: newSistemas,
           pestanasPermitidas: newPestanas,
+          tiposFavoritos: newFavoritos,
         }})
       },
       (err) => console.error('AuthContext profile snapshot error:', err),

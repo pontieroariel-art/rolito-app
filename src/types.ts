@@ -110,6 +110,10 @@ export interface UserProfile {
   sector?:            string   // internal-only prefix from COD_CTE (e.g. FC, MDP, YPF)
   subrol?:            'chofer' | 'ayudante'
   area?:              AreaHeladera   // sector de heladeras (rol 'heladeras')
+  // Favoritos del técnico en el checklist de tipos de reparación (id de
+  // config/tiposReparacion) — solo lo usa el técnico de calle (rol
+  // 'tecnico'), para encontrar rápido desde el celular.
+  tiposFavoritos?:    string[]
   // Alta rápida de cliente por staff (CrearClienteModal) — ausente en
   // clientes autorregistrados o importados por Excel.
   creadoPor?: { uid: string; nombre: string; rol: UserRole }
@@ -219,6 +223,10 @@ export interface AccionHistorial {
   // cuánto tiempo pasó la heladera en cada paso. No retroactivo: entradas
   // viejas (previas a este campo) no lo tienen, se ignoran al calcular.
   pasoId?: string | null
+  // Checklist de config/tiposReparacion tildados al soltar/aprobar este
+  // paso — mismo propósito que TicketServicio.trabajosRealizados, para
+  // estadística de arreglos también del lado del taller.
+  tiposReparacion?: TrabajoRealizadoItem[] | null
 }
 
 export interface Order {
@@ -483,6 +491,13 @@ export interface TipoReparacion {
   area:   AreaHeladera
 }
 
+// Snapshot de un TipoReparacion tildado en el checklist — nombre incluido
+// para no depender de que el catálogo no haya cambiado después.
+export interface TrabajoRealizadoItem {
+  tipoId:     string
+  tipoNombre: string
+}
+
 // ── Tickets de service ──────────────────────────────────────────────────────
 
 export type EstadoTicketServicio = 'abierto' | 'asignado_tecnico' | 'asignado_chofer' | 'cerrado' | 'anulado'
@@ -511,8 +526,16 @@ export interface TicketServicio {
     uid:    string
     nombre: string
   } | null
+  // Snapshot legacy — código nuevo ya no los escribe, ver trabajosRealizados.
   tipoReparacionId?:     string | null
   tipoReparacionNombre?: string | null
+  // Checklist de config/tiposReparacion tildados al registrar el trabajo —
+  // multi-select, reemplaza el <select> de un solo tipo de antes. Habilita
+  // estadística de arreglos (calcularEstadisticaArreglos).
+  trabajosRealizados?:   TrabajoRealizadoItem[] | null
+  // Texto autogenerado (nombres de trabajosRealizados unidos + notas
+  // opcionales) — se sigue mostrando como string en todos los lugares que
+  // ya lo leían así (ficha del equipo, Consulta de service, dashboard).
   trabajoRealizado?:     string | null
   conformidad?: {
     firmaDataUrl:        string

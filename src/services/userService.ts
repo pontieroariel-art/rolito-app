@@ -10,6 +10,8 @@ import {
   orderBy,
   where,
   limit,
+  arrayUnion,
+  arrayRemove,
 } from 'firebase/firestore'
 import { initializeApp, deleteApp } from 'firebase/app'
 import { getAuth, createUserWithEmailAndPassword, connectAuthEmulator } from 'firebase/auth'
@@ -106,6 +108,14 @@ export const rejectCoord = (clientId: string): Promise<void> =>
 
 export const savePushSubscription = (uid: string, subscription: PushSubscriptionJSON): Promise<void> =>
   updateDoc(doc(db, 'users', uid), { pushSubscription: subscription })
+
+// Favoritos del técnico en el checklist de tipos de reparación — el
+// llamador ya sabe si es favorito (viene de su propio perfil en sesión),
+// así que no hace falta leer antes de escribir.
+export const toggleTipoFavorito = (uid: string, tipoId: string, esFavorito: boolean): Promise<void> =>
+  updateDoc(doc(db, 'users', uid), {
+    tiposFavoritos: esFavorito ? arrayRemove(tipoId) : arrayUnion(tipoId),
+  })
 
 export const getPushSubscription = async (uid: string): Promise<PushSubscriptionJSON | null> => {
   const snap = await getDoc(doc(db, 'users', uid))

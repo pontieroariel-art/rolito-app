@@ -5,12 +5,14 @@ import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import SignaturePad, { SignaturePadHandle } from '../../components/heladeras/SignaturePad'
+import TipoReparacionChecklist from '../../components/heladeras/TipoReparacionChecklist'
 import { useAuth } from '../../context/AuthContext'
 import { useTicketsAsignadosAMi } from '../../hooks/useTicketsAsignadosAMi'
 import { usePanolMovimientosAsignadosA } from '../../hooks/usePanolMovimientos'
 import { useTiposReparacion } from '../../hooks/useReparacionCatalogos'
 import { registrarTrabajoTecnico } from '../../services/ticketServicioService'
 import { confirmarRecepcionTecnico } from '../../services/panolService'
+import { toggleTipoFavorito } from '../../services/userService'
 import { AREA_HELADERA_LABELS } from '../../utils/heladeraLabels'
 import { TicketServicio, PanolMovimiento } from '../../types'
 import { tsToDate } from '../../utils/helpers'
@@ -59,20 +61,21 @@ function ConfirmarMaterialesModal({ movimiento, onClose }: { movimiento: PanolMo
 function RegistrarTrabajoModal({ ticket, onClose }: { ticket: TicketServicio; onClose: () => void }) {
   const { user } = useAuth()
   const { tipos } = useTiposReparacion()
-  const [tipoId, setTipoId] = useState('')
-  const [detalle, setDetalle] = useState('')
+  const [seleccionados, setSeleccionados] = useState<string[]>([])
+  const [notas, setNotas]   = useState('')
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError]   = useState('')
 
   const tiposDeMiSector = tipos.filter((t) => t.activo && t.area === user?.area)
+  const toggle = (id: string) => setSeleccionados((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
 
   const handleSubmit = async () => {
-    const tipo = tiposDeMiSector.find((t) => t.id === tipoId)
-    if (!tipo || !detalle.trim() || !user) { setError('Elegí el tipo de trabajo y contá qué hiciste'); return }
+    if (!user || seleccionados.length === 0) { setError('Tildá al menos un arreglo'); return }
     setSaving(true)
     setError('')
     try {
-      await registrarTrabajoTecnico(ticket.id, { uid: user.uid, nombre: user.nombre }, tipo.id, tipo.nombre, detalle.trim())
+      const trabajos = tiposDeMiSector.filter((t) => seleccionados.includes(t.id)).map((t) => ({ tipoId: t.id, tipoNombre: t.nombre }))
+      await registrarTrabajoTecnico(ticket.id, { uid: user.uid, nombre: user.nombre }, trabajos, notas.trim() || undefined)
       onClose()
     } catch {
       setError('No se pudo guardar. Intentá de nuevo.')
@@ -90,26 +93,24 @@ function RegistrarTrabajoModal({ ticket, onClose }: { ticket: TicketServicio; on
           </p>
         ) : (
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Tipo de reparación · {AREA_HELADERA_LABELS[user.area]}</label>
-            <select
-              value={tipoId}
-              onChange={(e) => setTipoId(e.target.value)}
-              className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
-            >
-              <option value="">Elegí un tipo…</option>
-              {tiposDeMiSector.map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-            </select>
-            {tiposDeMiSector.length === 0 && (
-              <p className="text-xs text-amber-600 mt-1">Todavía no hay tipos cargados para tu sector.</p>
-            )}
+            <label className="text-xs text-gray-500 mb-1 block">Qué le hiciste · {AREA_HELADERA_LABELS[user.area]}</label>
+            <TipoReparacionChecklist
+              tipos={tiposDeMiSector}
+              seleccionados={seleccionados}
+              onToggle={toggle}
+              showSearch
+              favoritos={user.tiposFavoritos ?? []}
+              onToggleFavorito={(id) => toggleTipoFavorito(user.uid, id, (user.tiposFavoritos ?? []).includes(id))}
+            />
           </div>
         )}
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">¿Qué hiciste?</label>
+          <label className="text-xs text-gray-500 mb-1 block">Notas adicionales (opcional)</label>
           <textarea
-            value={detalle}
-            onChange={(e) => setDetalle(e.target.value)}
-            rows={3}
+            value={notas}
+            onChange={(e) => setNotas(e.target.value)}
+            rows={2}
+            placeholder="Algo que no esté en la lista de arriba"
             className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
           />
         </div>

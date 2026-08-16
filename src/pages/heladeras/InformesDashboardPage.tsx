@@ -12,7 +12,7 @@ import { usePasosTaller } from '../../hooks/usePasosTaller'
 import { generateListadoPdf } from '../../utils/pdf'
 import { Heladera, TicketServicio } from '../../types'
 import { ESTADO_TICKET_LABELS, TIPO_PIPELINE_LABELS } from '../../utils/heladeraLabels'
-import { calcularTiemposPorPaso } from '../../utils/heladeraPipeline'
+import { calcularTiemposPorPaso, calcularEstadisticaArreglos } from '../../utils/heladeraPipeline'
 import { tsToDate } from '../../utils/helpers'
 
 type Categoria = 'disponibles' | 'pintura' | 'refrigeracion' | 'deposito' | 'asignados' | 'service'
@@ -87,6 +87,11 @@ export default function InformesDashboardPage() {
   const tiemposPorPaso = useMemo(
     () => calcularTiemposPorPaso(heladeras, catalogoPasos),
     [heladeras, catalogoPasos],
+  )
+
+  const arreglosMasComunes = useMemo(
+    () => calcularEstadisticaArreglos(heladeras, tickets).slice(0, 10),
+    [heladeras, tickets],
   )
 
   const tarjetas: { id: Categoria; label: string; value: number; tone?: 'warn' | 'good' }[] = [
@@ -225,6 +230,37 @@ export default function InformesDashboardPage() {
                     cursor={{ fill: 'rgba(29,158,117,0.06)' }}
                   />
                   <Bar dataKey="promedioDias" name="Promedio" fill="#1D9E75" radius={[0, 4, 4, 0]} maxBarSize={20} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          <div className="bg-white border border-[#D3D1C7] rounded-xl p-4">
+            <p className="text-xs font-medium text-gray-500 mb-2">Arreglos más comunes</p>
+            {arreglosMasComunes.length === 0 ? (
+              <p className="text-gray-400 text-sm">
+                Sin datos todavía — se completa cuando se registra trabajo con el checklist
+                (taller o técnico de calle).
+              </p>
+            ) : (
+              <ResponsiveContainer width="100%" height={Math.max(120, arreglosMasComunes.length * 34)}>
+                <BarChart data={arreglosMasComunes} layout="vertical" margin={{ top: 4, right: 24, bottom: 0, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" horizontal={false} />
+                  <XAxis type="number" tick={{ fill: '#9CA3AF', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <YAxis
+                    type="category" dataKey="tipoNombre" width={160}
+                    tick={{ fill: '#374151', fontSize: 11 }} axisLine={false} tickLine={false}
+                  />
+                  <Tooltip
+                    contentStyle={{ background: '#ffffff', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 12 }}
+                    labelStyle={{ color: '#6B7280' }} itemStyle={{ color: '#1D9E75' }}
+                    formatter={(value) => {
+                      const veces = Number(value)
+                      return [`${veces} vez${veces === 1 ? '' : 'es'}`, 'Registrado']
+                    }}
+                    cursor={{ fill: 'rgba(29,158,117,0.06)' }}
+                  />
+                  <Bar dataKey="veces" name="Registrado" fill="#1D9E75" radius={[0, 4, 4, 0]} maxBarSize={20} />
                 </BarChart>
               </ResponsiveContainer>
             )}

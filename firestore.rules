@@ -510,7 +510,7 @@ service cloud.firestore {
         && resource.data.estado == 'asignado_tecnico'
         && request.resource.data.estado == resource.data.estado
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['tipoReparacionId', 'tipoReparacionNombre', 'trabajoRealizado', 'historialAcciones', 'updatedAt']);
+             .hasOnly(['tipoReparacionId', 'tipoReparacionNombre', 'trabajosRealizados', 'trabajoRealizado', 'historialAcciones', 'updatedAt']);
 
       // Chofer: solo puede marcar hecho su propio traslado, sin tipo de
       // reparación (no es un service técnico) y sin cerrar el ticket.
