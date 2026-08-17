@@ -33,6 +33,22 @@ export default defineConfig({
       filename:     'sw.ts',
       registerType: 'autoUpdate',
       includeAssets: ['icons/icon-192.png', 'icons/icon-512.png', 'apple-touch-icon.png'],
+      injectManifest: {
+        // Los chunks pesados de uso puntual (Excel, PDF, reportes, pañol) no
+        // se precachean en el install del SW — la mayoría de los roles nunca
+        // los visita, y precachearlos igual compite por ancho de banda con la
+        // carga real en conexiones intermitentes. Se cachean en runtime
+        // (StaleWhileRevalidate, ver src/sw.ts) recién cuando se usan.
+        globIgnores: [
+          '**/xlsx-*.js',
+          '**/pdfjs-*.js',
+          '**/pdf-*.js',
+          '**/PanolPage-*.js',
+          '**/charts-*.js',
+          '**/html2canvas*.js',
+          '**/BarcodeScanner-*.js',
+        ],
+      },
       manifest: {
         name: 'Rolito - Distribución de Hielo',
         short_name: 'Rolito',

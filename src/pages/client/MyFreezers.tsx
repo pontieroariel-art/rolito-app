@@ -124,7 +124,7 @@ export default function MyFreezers() {
   return (
     <div className="min-h-screen bg-white text-gray-900">
       <Navbar />
-      <main className="max-w-2xl mx-auto p-4 space-y-6 pb-10">
+      <main className="max-w-2xl mx-auto p-4 space-y-6 pb-24 md:pb-10">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Mis heladeras</h1>
           <p className="text-gray-500 text-sm mt-1">Equipos en comodato y estado de tus pedidos de service</p>
@@ -189,7 +189,7 @@ export default function MyFreezers() {
               <select
                 value={motivoId}
                 onChange={(e) => setMotivoId(e.target.value)}
-                className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
+                className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
               >
                 <option value="">Elegí un motivo…</option>
                 {motivos.filter((m) => m.activo).map((m) => (

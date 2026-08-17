@@ -640,16 +640,16 @@ function RegistrarEntregaModal({
           return (
             <div key={p.id} className="flex items-center justify-between gap-3 bg-[#F8F7F2] border border-[#D3D1C7] rounded-xl px-3 py-2">
               <p className="text-sm text-gray-800 flex-1">{p.nombre}</p>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <button
                   onClick={() => setQuantities((q) => ({ ...q, [p.id]: Math.max(0, (q[p.id] ?? 0) - 1) }))}
                   disabled={qty === 0}
-                  className="w-9 h-9 rounded-full border border-[#D3D1C7] text-lg text-gray-600 hover:border-accent hover:text-accent transition-colors disabled:opacity-30 flex items-center justify-center"
+                  className="w-11 h-11 rounded-full border border-[#D3D1C7] text-lg text-gray-600 hover:border-accent hover:text-accent transition-colors disabled:opacity-30 flex items-center justify-center shrink-0"
                 >−</button>
                 <span className="w-8 text-center font-bold text-sm text-gray-900">{qty || '0'}</span>
                 <button
                   onClick={() => setQuantities((q) => ({ ...q, [p.id]: (q[p.id] ?? 0) + 1 }))}
-                  className="w-9 h-9 rounded-full border border-[#D3D1C7] text-lg text-gray-600 hover:border-accent hover:text-accent transition-colors flex items-center justify-center"
+                  className="w-11 h-11 rounded-full border border-[#D3D1C7] text-lg text-gray-600 hover:border-accent hover:text-accent transition-colors flex items-center justify-center shrink-0"
                 >+</button>
               </div>
             </div>
@@ -746,7 +746,7 @@ function DeliveryCard({ order, index, isFirst, chofer }: { order: Order; index: 
 
         <button
           onClick={() => setNoEntregadoModal(true)}
-          className="w-full text-sm py-2.5 rounded-xl border border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors font-medium"
+          className="w-full text-sm py-3 rounded-xl border border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors font-medium"
         >
           ✕ No entregado
         </button>

@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react'
-import * as XLSX from 'xlsx'
 import { Download, RefreshCw } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
@@ -39,11 +38,13 @@ function formatPrecio(n: number): string {
 
 // ── Lógica de exportación ─────────────────────────────────────────────────────
 
-function exportarExcel(
+// xlsx (484K) se carga recién acá, al exportar — no al abrir la pantalla
+async function exportarExcel(
   clientes: UserProfile[],
   listas: ListaPrecios[],
   productosActivos: typeof PRODUCTS,
 ) {
+  const XLSX = await import('xlsx')
   const fecha = new Date().toLocaleDateString('es-AR').replace(/\//g, '-')
 
   // Encabezados
@@ -150,7 +151,7 @@ export default function ReportePreciosPage() {
 
   const handleExportar = async () => {
     setExporting(true)
-    try { exportarExcel(clientes, listas, productosActivos) }
+    try { await exportarExcel(clientes, listas, productosActivos) }
     finally { setExporting(false) }
   }
 

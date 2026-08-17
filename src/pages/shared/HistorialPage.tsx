@@ -214,19 +214,19 @@ export default function HistorialPage() {
           </div>
 
           {/* Navegación de fecha */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <button
               onClick={prevPeriodo}
-              className="w-8 h-8 rounded-lg bg-white border border-[#D3D1C7] flex items-center justify-center hover:border-accent transition-colors"
+              className="w-8 h-8 shrink-0 rounded-lg bg-white border border-[#D3D1C7] flex items-center justify-center hover:border-accent transition-colors"
             >
               <ChevronLeft size={16} />
             </button>
-            <span className="text-sm font-medium capitalize min-w-[200px] text-center">
+            <span className="text-sm font-medium capitalize min-w-0 flex-1 sm:min-w-[200px] sm:flex-none text-center truncate">
               {periodoLabel()}
             </span>
             <button
               onClick={nextPeriodo}
-              className="w-8 h-8 rounded-lg bg-white border border-[#D3D1C7] flex items-center justify-center hover:border-accent transition-colors"
+              className="w-8 h-8 shrink-0 rounded-lg bg-white border border-[#D3D1C7] flex items-center justify-center hover:border-accent transition-colors"
             >
               <ChevronRight size={16} />
             </button>

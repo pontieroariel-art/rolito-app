@@ -272,8 +272,8 @@ export default function ImportarPedidosYaModal({ open, onClose }: Props) {
             </div>
           </div>
 
-          <div className="max-h-96 overflow-y-auto border border-[#D3D1C7] rounded-xl">
-            <table className="w-full text-xs">
+          <div className="max-h-96 overflow-y-auto overflow-x-auto border border-[#D3D1C7] rounded-xl">
+            <table className="w-full text-xs min-w-[640px]">
               <thead className="sticky top-0 bg-white border-b border-[#D3D1C7]">
                 <tr>
                   <th className="text-center px-2 py-2 text-gray-500 font-medium">Cargar</th>

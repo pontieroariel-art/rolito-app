@@ -310,7 +310,9 @@ export default function ClientesMapPage() {
   const geocodingRef = useRef(false)
 
   useEffect(() => {
+    let cancelled = false
     getAllUsers().then((all) => {
+      if (cancelled) return
       const clientes = all.filter((u) => u.rol === 'cliente')
 
       // Expandir a una entrada por sucursal
@@ -342,6 +344,7 @@ export default function ClientesMapPage() {
       setGeoResults(new Map(initial))
       setLoading(false)
     })
+    return () => { cancelled = true }
   }, [])
 
   const sectors = useMemo(() => {
@@ -464,10 +467,10 @@ export default function ClientesMapPage() {
 
   return (
     <>
-      <div className="flex h-[calc(100vh-48px)] md:h-screen">
+      <div className="flex flex-col md:flex-row h-[calc(100dvh-48px)] md:h-dvh">
 
         {/* ── Sidebar ── */}
-        <aside className="w-72 shrink-0 bg-white border-r border-[#D3D1C7] flex flex-col overflow-hidden">
+        <aside className="w-full md:w-72 md:shrink-0 bg-white border-b md:border-b-0 md:border-r border-[#D3D1C7] flex flex-col overflow-hidden max-h-[45%] md:max-h-none">
 
           {/* Header */}
           <div className="p-4 border-b border-[#D3D1C7]">

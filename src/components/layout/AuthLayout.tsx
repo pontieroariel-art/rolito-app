@@ -19,7 +19,7 @@ export default function AuthLayout({ title, subtitle, children }: AuthLayoutProp
 
       {/* Banda blanca — logo */}
       <div className="bg-white flex flex-col items-center pt-12 pb-4 shadow-sm border-b border-[#E8E6DF]">
-        <img src="/logo-rolito.png" alt="Rolito" className="h-24 object-contain" />
+        <img src="/logo-rolito.png" alt="Rolito" width={282} height={96} className="h-24 w-auto object-contain" />
       </div>
 
       {/* Área principal */}

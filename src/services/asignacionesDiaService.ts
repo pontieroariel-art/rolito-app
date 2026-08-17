@@ -1,4 +1,4 @@
-import { doc, getDoc, runTransaction } from 'firebase/firestore'
+import { doc, getDoc, onSnapshot, runTransaction } from 'firebase/firestore'
 import { db } from './firebase'
 
 export interface AsignacionChofer {
@@ -11,6 +11,20 @@ export type AsignacionesDia = Record<string, AsignacionChofer>
 export async function getAsignacionesDia(fecha: string): Promise<AsignacionesDia> {
   const snap = await getDoc(doc(db, 'asignacionesDia', fecha))
   return snap.exists() ? (snap.data()?.choferes ?? {}) : {}
+}
+
+// En vivo: si dos admins tienen el tablero de despacho abierto el mismo día,
+// un cambio de camión/ayudante de uno se refleja en el otro sin recargar.
+// También cierra de raíz la race condition de cambiar de fecha rápido que
+// tenía el fetch puntual (una respuesta tardía de la fecha anterior ya no
+// puede pisar el estado — onSnapshot se re-suscribe limpio en cada fecha).
+export function subscribeAsignacionesDia(
+  fecha:    string,
+  callback: (asignaciones: AsignacionesDia) => void,
+): () => void {
+  return onSnapshot(doc(db, 'asignacionesDia', fecha), (snap) => {
+    callback(snap.exists() ? (snap.data()?.choferes ?? {}) : {})
+  })
 }
 
 // Actualiza solo los campos indicados (camionId y/o ayudanteEmail) de UN

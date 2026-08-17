@@ -35,11 +35,11 @@
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",
     "lucide-react": "^1.14.0",
-    "pdfjs-dist": "^5.7.284",
+    "pdfjs-dist": "^6.2.108",
     "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.28.0",
+    "react-router-dom": "^7.18.2",
     "recharts": "^3.8.1",
     "resend": "^6.12.4",
     "use-places-autocomplete": "^4.0.1",
@@ -62,7 +62,7 @@
     "clsx": "^2.1.1",
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^5.2.0",
-    "firebase-admin": "^13.10.0",
+    "firebase-admin": "^14.2.0",
     "globals": "^17.7.0",
     "postcss": "^8.4.49",
     "tailwind-merge": "^3.6.0",
@@ -71,6 +71,13 @@
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.62.1",
     "vite": "^6.0.5",
-    "vite-plugin-pwa": "^0.21.1"
+    "vite-plugin-pwa": "^0.21.1",
+    "workbox-cacheable-response": "^7.4.1",
+    "workbox-expiration": "^7.4.1",
+    "workbox-routing": "^7.4.1",
+    "workbox-strategies": "^7.4.1"
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
   }
 }

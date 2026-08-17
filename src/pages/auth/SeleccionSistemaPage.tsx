@@ -47,7 +47,7 @@ export default function SeleccionSistemaPage() {
       </div>
 
       <div className="bg-white flex flex-col items-center pt-12 pb-5 shadow-sm">
-        <img src="/logo-rolito.png" alt="Rolito" className="h-20 object-contain" />
+        <img src="/logo-rolito.png" alt="Rolito" width={235} height={80} className="h-20 w-auto object-contain" />
       </div>
 
       <div className="flex-1 flex flex-col items-center px-4 pt-7 pb-8 gap-4">

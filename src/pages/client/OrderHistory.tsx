@@ -81,7 +81,7 @@ export default function OrderHistory() {
   return (
     <div className="min-h-screen bg-white text-gray-900">
       <Navbar />
-      <main className="max-w-2xl mx-auto p-4 space-y-4 pb-10">
+      <main className="max-w-2xl mx-auto p-4 space-y-4 pb-24 md:pb-10">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Historial de pedidos</h1>
           {multiSucursal && selectedAddress ? (

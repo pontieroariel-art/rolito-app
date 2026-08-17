@@ -340,7 +340,8 @@ export default function ClimaPage() {
           {/* Tabla historial */}
           {!isLoading && weatherDays.length > 0 && (
             <div className="bg-white border border-[#D3D1C7] rounded-xl overflow-hidden">
-              <table className="w-full text-sm">
+              <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[560px]">
                 <thead>
                   <tr className="border-b border-[#D3D1C7]">
                     <th className="text-left text-gray-500 text-xs py-3 px-4 font-medium">Fecha</th>
@@ -377,6 +378,7 @@ export default function ClimaPage() {
                   })}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </section>

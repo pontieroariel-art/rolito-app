@@ -14,7 +14,7 @@ import { useProgramasVisita, useVisitasPuntuales, visitasParaFecha, programasPar
 import { getPushSubscriptionByEmail } from '../services/userService'
 import { sendPush } from '../services/notificationService'
 import { subscribeCamiones } from '../services/flotaService'
-import { getAsignacionesDia, setAsignacionChofer, AsignacionChofer, AsignacionesDia } from '../services/asignacionesDiaService'
+import { subscribeAsignacionesDia, setAsignacionChofer, AsignacionChofer, AsignacionesDia } from '../services/asignacionesDiaService'
 
 // Orquestación completa del tablero de despacho diario (estado, suscripciones
 // a Firestore, drag & drop, recálculo de rutas, confirmación/reapertura y
@@ -160,8 +160,10 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
   // Ayudantes: todos los choferes — cada columna excluye al conductor propio en el render
 
   // ── Asignaciones del día ──────────────────────────────────────────────────
+  // En vivo (onSnapshot): si otro admin cambia el camión/ayudante de un
+  // chofer con el tablero abierto el mismo día, se refleja acá sin recargar.
   const [asignacionesDia, setAsignacionesDia] = useState<AsignacionesDia>({})
-  useEffect(() => { getAsignacionesDia(fecha).then(setAsignacionesDia) }, [fecha])
+  useEffect(() => subscribeAsignacionesDia(fecha, setAsignacionesDia), [fecha])
 
   const handleAsignacionChange = useCallback(async (choferEmail: string, patch: Partial<AsignacionChofer>) => {
     setAsignacionesDia((prev) => ({
@@ -223,7 +225,10 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
   const [recalculating, setRecalculating] = useState<Record<string, boolean>>({})
   const [orsStatus,     setOrsStatus]     = useState<Record<string, { ok: boolean; error?: string }>>({})
   const debounceRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
-  useEffect(() => () => { Object.values(debounceRefs.current).forEach(clearTimeout) }, [])
+  useEffect(() => () => {
+    Object.values(debounceRefs.current).forEach(clearTimeout)
+    debounceRefs.current = {}
+  }, [fecha])
 
   // Choferes con orden reordenado a mano — se congela el recálculo automático
   // hasta que el usuario pida explícitamente "Recalcular ruta automática"

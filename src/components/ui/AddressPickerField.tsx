@@ -164,7 +164,7 @@ export function AddressAutocomplete({
                 focusedIdx === i ? 'bg-accent/10' : 'hover:bg-[#F8F7F2]'
               }`}
             >
-              <p className="text-sm text-white font-medium leading-tight">
+              <p className="text-sm text-gray-900 font-medium leading-tight">
                 {s.structured_formatting.main_text}
               </p>
               {s.structured_formatting.secondary_text && (

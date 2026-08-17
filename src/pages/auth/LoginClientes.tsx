@@ -107,9 +107,11 @@ export default function LoginClientes() {
             <Input
               label="CUIT"
               value={resetCuit}
-              onChange={(e) => setResetCuit(e.target.value)}
+              onChange={(e) => setResetCuit(e.target.value.replace(/\D/g, '').slice(0, 11))}
               required
               placeholder="20123456789"
+              inputMode="numeric"
+              autoComplete="username"
             />
             {resetError && (
               <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
@@ -134,9 +136,10 @@ export default function LoginClientes() {
           <Input
             label="CUIT"
             value={cuit}
-            onChange={(e) => setCuit(e.target.value)}
+            onChange={(e) => setCuit(e.target.value.replace(/\D/g, '').slice(0, 11))}
             required
             placeholder="20123456789"
+            inputMode="numeric"
             autoComplete="username"
           />
           <Input

@@ -16,17 +16,17 @@
 process.env.FIRESTORE_EMULATOR_HOST     = 'localhost:8080'
 process.env.FIREBASE_AUTH_EMULATOR_HOST = 'localhost:9099'
 
-import admin from 'firebase-admin'
+import { initializeApp } from 'firebase-admin/app'
+import { getAuth } from 'firebase-admin/auth'
+import { getFirestore, Timestamp, FieldValue } from 'firebase-admin/firestore'
 
 // Tiene que ser el MISMO project id que usa la app (VITE_FIREBASE_PROJECT_ID
 // en .env.local) — el emulador aloja los datos separados por project id, así
 // que si no coinciden la app busca en un "proyecto" vacío y nunca encuentra
 // nada, aunque el seed haya corrido bien.
-admin.initializeApp({ projectId: 'rolito-app' })
-const auth = admin.auth()
-const db   = admin.firestore()
-
-const { Timestamp, FieldValue } = admin.firestore
+initializeApp({ projectId: 'rolito-app' })
+const auth = getAuth()
+const db   = getFirestore()
 
 const PASSWORD = 'test1234'
 

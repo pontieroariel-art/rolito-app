@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef, memo, lazy, Suspense } from 'react'
 import {
   DndContext, DragEndEvent, DragOverlay, DragStartEvent,
   MouseSensor, TouchSensor, useSensor, useSensors,
@@ -8,8 +8,6 @@ import { CSS } from '@dnd-kit/utilities'
 import { FileText, Plus, MoreVertical, Pencil, XCircle, Minus, GripVertical, ChevronLeft, ChevronRight, Clock, CalendarDays } from 'lucide-react'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import Modal from '../../components/ui/Modal'
-import ImportarPedidoModal from '../../components/admin/ImportarPedidoModal'
-import ImportarPedidosYaModal from '../../components/admin/ImportarPedidosYaModal'
 import PedidoManualModal from '../../components/admin/PedidoManualModal'
 import MapaPlanificacion from '../../components/admin/MapaPlanificacion'
 import DespachoBoard from '../../components/admin/DespachoBoard'
@@ -23,6 +21,12 @@ import { summarizeProducts, tsToDate, splitSucursalLabel, getCodigoCliente, buil
 import { PRODUCTS, CLIENT_LOGOS } from '../../utils/constants'
 import { useCatalogo } from '../../hooks/useCatalogo'
 import { Order, OrderProduct, UserProfile, AccionHistorial } from '../../types'
+
+// Lazy: cargan pdfjs-dist (448K) y xlsx (484K) respectivamente — pesan casi
+// 1MB entre las dos y son de uso puntual ("Importar"), no tiene sentido que
+// entren al bundle de la pantalla que logística tiene abierta todo el día.
+const ImportarPedidoModal    = lazy(() => import('../../components/admin/ImportarPedidoModal'))
+const ImportarPedidosYaModal = lazy(() => import('../../components/admin/ImportarPedidosYaModal'))
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -1133,8 +1137,16 @@ export default function LogisticaDashboard() {
         ))}
       </div>
 
-      <ImportarPedidoModal   open={importModal}    onClose={() => setImportModal(false)} />
-      <ImportarPedidosYaModal open={pedidosYaModal} onClose={() => setPedidosYaModal(false)} />
+      {importModal && (
+        <Suspense fallback={null}>
+          <ImportarPedidoModal open={importModal} onClose={() => setImportModal(false)} />
+        </Suspense>
+      )}
+      {pedidosYaModal && (
+        <Suspense fallback={null}>
+          <ImportarPedidosYaModal open={pedidosYaModal} onClose={() => setPedidosYaModal(false)} />
+        </Suspense>
+      )}
       <PedidoManualModal     open={pedidoManual}   onClose={() => setPedidoManual(false)} defaultDate={dateToStr(startDate)} />
 
       {detailOrder && (

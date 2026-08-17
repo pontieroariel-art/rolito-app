@@ -152,12 +152,13 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
+    <>
+    <nav className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm pt-[env(safe-area-inset-top)]">
       <div className="px-3 flex items-stretch justify-between h-[72px]">
 
         {/* Logo */}
         <Link to="/" className="flex items-center shrink-0 pr-4">
-          <img src="/logo-rolito.png" alt="Rolito" className="h-10 object-contain" />
+          <img src="/logo-rolito.png" alt="Rolito" width={118} height={40} className="h-10 w-auto object-contain" />
         </Link>
 
         {/* Links desktop */}
@@ -226,7 +227,7 @@ export default function Navbar() {
           aria-label={open ? 'Cerrar menú' : 'Abrir menú'}
           aria-expanded={open}
           aria-controls="mobile-menu"
-          className="md:hidden flex items-center text-gray-600 hover:text-gray-900 p-2"
+          className="md:hidden flex items-center justify-center w-11 h-11 -mr-1.5 text-gray-600 hover:text-gray-900"
         >
           {open ? <X size={24} /> : <Menu size={24} />}
         </button>
@@ -299,5 +300,33 @@ export default function Navbar() {
         </div>
       )}
     </nav>
+
+    {/* Bottom nav — solo cliente: es quien más pide hielo desde el celular
+        con una sola mano, y sus 5 secciones entran cómodas en una tab bar
+        fija (mismo patrón que ya usa ChoferDashboard/ChoferMap). El resto de
+        los roles sigue navegando por el menú hamburguesa de arriba. */}
+    {user?.rol === 'cliente' && (
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-gray-200 flex shadow-[0_-1px_8px_rgba(0,0,0,0.06)] pb-[env(safe-area-inset-bottom)]">
+        {NAV_LINKS.cliente.map((l) => (
+          <NavLink
+            key={l.to}
+            to={l.to}
+            className={({ isActive }) =>
+              `flex-1 flex flex-col items-center justify-center py-2.5 gap-0.5 text-[11px] font-medium transition-colors ${
+                isActive ? 'text-accent' : 'text-gray-400 hover:text-gray-700'
+              }`
+            }
+          >
+            {({ isActive }) => (
+              <>
+                <l.icon size={20} strokeWidth={isActive ? 2.2 : 1.75} />
+                <span>{l.label}</span>
+              </>
+            )}
+          </NavLink>
+        ))}
+      </nav>
+    )}
+    </>
   )
 }

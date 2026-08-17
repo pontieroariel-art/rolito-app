@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, lazy, Suspense } from 'react'
 import { Camera, Plus, Trash2 } from 'lucide-react'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
-import BarcodeScanner from '../../components/heladeras/BarcodeScanner'
+// Lazy: trae @zxing/browser (cámara + decoder), el chunk más pesado de la
+// app entera — solo hace falta si el usuario realmente toca "Escanear".
+const BarcodeScanner = lazy(() => import('../../components/heladeras/BarcodeScanner'))
 import KpiTile from '../../components/heladeras/KpiTile'
 import { useAuth } from '../../context/AuthContext'
 import { usePanolArticulos } from '../../hooks/usePanolArticulos'
@@ -83,10 +85,12 @@ function NuevoArticuloModal({ onClose }: { onClose: () => void }) {
       </div>
 
       {scanning && (
-        <BarcodeScanner
-          onDetected={(codigo) => { setCodigoBarras(codigo); setScanning(false) }}
-          onClose={() => setScanning(false)}
-        />
+        <Suspense fallback={null}>
+          <BarcodeScanner
+            onDetected={(codigo) => { setCodigoBarras(codigo); setScanning(false) }}
+            onClose={() => setScanning(false)}
+          />
+        </Suspense>
       )}
     </Modal>
   )
@@ -159,7 +163,9 @@ function CarritoUI({ carrito, articulos }: { carrito: ReturnType<typeof useCarri
       )}
 
       {carrito.scanning && (
-        <BarcodeScanner onDetected={(codigo) => { carrito.agregarPorCodigo(codigo); carrito.setScanning(false) }} onClose={() => carrito.setScanning(false)} />
+        <Suspense fallback={null}>
+          <BarcodeScanner onDetected={(codigo) => { carrito.agregarPorCodigo(codigo); carrito.setScanning(false) }} onClose={() => carrito.setScanning(false)} />
+        </Suspense>
       )}
     </div>
   )
@@ -306,7 +312,8 @@ export default function PanolPage() {
           <p className="text-gray-400 text-sm">Todavía no cargaste ningún artículo.</p>
         ) : (
           <div className="bg-white border border-[#D3D1C7] rounded-xl overflow-hidden">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[480px]">
               <thead>
                 <tr className="border-b border-[#D3D1C7] bg-[#F8F7F2]">
                   <th className="text-left text-gray-500 text-xs py-2.5 px-4 font-medium">Artículo</th>
@@ -330,6 +337,7 @@ export default function PanolPage() {
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         )}
 

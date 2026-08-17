@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, Download } from 'lucide-react'
-import * as XLSX from 'xlsx'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { getOrdersInRange } from '../../services/orderService'
 import { useHeladeras } from '../../hooks/useHeladeras'
@@ -49,7 +48,9 @@ export default function RankingConsumoPage() {
   const prevMonth = () => { if (month === 0) { setYear((y) => y - 1); setMonth(11) } else setMonth((m) => m - 1) }
   const nextMonth = () => { if (month === 11) { setYear((y) => y + 1); setMonth(0) } else setMonth((m) => m + 1) }
 
-  const exportExcel = () => {
+  // xlsx (484K) se carga recién acá, al exportar — no al abrir la pantalla
+  const exportExcel = async () => {
+    const XLSX = await import('xlsx')
     const rows = ranking.map((r) => ({
       Cliente: r.nombre,
       'Kg de hielo': r.kg,
@@ -97,7 +98,8 @@ export default function RankingConsumoPage() {
           <p className="text-gray-400 text-sm">Sin entregas de hielo en este mes.</p>
         ) : (
           <div className="bg-white border border-[#D3D1C7] rounded-xl overflow-hidden">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[560px]">
               <thead>
                 <tr className="border-b border-[#D3D1C7] bg-[#F8F7F2]">
                   <th className="text-left text-gray-500 text-xs py-3 px-4 font-medium">Cliente</th>
@@ -123,6 +125,7 @@ export default function RankingConsumoPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </main>

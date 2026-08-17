@@ -72,12 +72,12 @@ function SortableStop({ order, index, isSkipped, onSkip, onUnskip, onDeliver }: 
       </div>
 
       {/* Acciones */}
-      <div className="flex items-center gap-1.5 shrink-0">
+      <div className="flex items-center gap-2 shrink-0">
         {isSkipped ? (
           <button
             onPointerDown={(e) => e.stopPropagation()}
             onClick={() => onUnskip(order.id)}
-            className="text-xs text-orange-400 hover:text-orange-300 px-2 py-1 border border-orange-400/30 rounded-lg"
+            className="text-xs text-orange-400 hover:text-orange-300 px-3 py-2.5 min-h-[44px] border border-orange-400/30 rounded-lg"
           >
             Restaurar
           </button>
@@ -85,7 +85,7 @@ function SortableStop({ order, index, isSkipped, onSkip, onUnskip, onDeliver }: 
           <button
             onPointerDown={(e) => e.stopPropagation()}
             onClick={() => onSkip(order.id)}
-            className="text-xs text-gray-400 hover:text-yellow-600 px-2 py-1 border border-[#D3D1C7] rounded-lg"
+            className="text-sm text-gray-500 hover:text-yellow-600 px-3 py-2.5 min-w-[44px] min-h-[44px] border border-[#D3D1C7] rounded-lg"
             title="Saltear esta parada"
           >
             ⏭
@@ -94,7 +94,7 @@ function SortableStop({ order, index, isSkipped, onSkip, onUnskip, onDeliver }: 
         <Button
           onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
           onClick={() => onDeliver(order)}
-          className="text-xs py-1.5 px-3"
+          className="text-sm py-2.5 px-4 min-h-[44px]"
         >
           ✓
         </Button>
@@ -247,6 +247,12 @@ export default function ChoferMap() {
     telefonoRef.current = user?.telefono       || user?.phone  || ''
   })
 
+  // Para evitar race condition en deactivateDriverLocation (ver ChoferDashboard.tsx)
+  const locationGenRef = useRef(0)
+  // Para descartar una respuesta de ruta obsoleta si el usuario toca
+  // "Calcular ruta" dos veces antes de que resuelva la primera llamada
+  const routeRequestIdRef = useRef(0)
+
   // Mantener pantalla encendida para que el GPS siga actualizando con pantalla bloqueada
   useEffect(() => {
     if (!hasPending || !('wakeLock' in navigator)) return
@@ -271,6 +277,7 @@ export default function ChoferMap() {
     // solo al terminar la ruta.
     if (!hasPending || !user?.email || !navigator.geolocation) return
     const email = user.email
+    const gen   = ++locationGenRef.current
     const send  = () =>
       navigator.geolocation.getCurrentPosition(
         (pos) => {
@@ -285,12 +292,21 @@ export default function ChoferMap() {
     const id = setInterval(send, 10_000)
     return () => {
       clearInterval(id)
-      deactivateDriverLocation(email).catch(console.error)
+      // Microtask: si un nuevo efecto ya montó (gen cambió), no desactivar
+      // (mismo fix que ChoferDashboard.tsx, para evitar la race condition
+      // donde una desactivación en vuelo pisa una reactivación posterior).
+      Promise.resolve().then(() => {
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        if (locationGenRef.current === gen) {
+          deactivateDriverLocation(email).catch(console.error)
+        }
+      })
     }
   }, [hasPending, user?.email])
 
   const calculateRoute = async () => {
     if (orderedPending.length === 0) return
+    const requestId = ++routeRequestIdRef.current
     setCalculating(true)
     setRouteError('')
     setRouteStale(false)
@@ -317,11 +333,13 @@ export default function ChoferMap() {
         travelMode:        google.maps.TravelMode.DRIVING,
         region:            'AR',
       })
+      if (requestId !== routeRequestIdRef.current) return // respuesta obsoleta, se pidió otro cálculo después
       setDirections(result)
     } catch {
+      if (requestId !== routeRequestIdRef.current) return
       setRouteError('No se pudo calcular la ruta. Verificá que las direcciones sean correctas.')
     } finally {
-      setCalculating(false)
+      if (requestId === routeRequestIdRef.current) setCalculating(false)
     }
   }
 
@@ -388,7 +406,7 @@ export default function ChoferMap() {
   return (
     <div className="min-h-screen bg-[#F8F7F2] text-gray-900">
       <Navbar />
-      <div className="flex flex-col" style={{ height: 'calc(100vh - 56px - 64px)' }}>
+      <div className="flex flex-col" style={{ height: 'calc(100dvh - 56px - 64px)' }}>
         {hasDespachoOrder && (
           <div className="px-4 py-2 bg-accent/10 border-b border-accent/20 flex items-center justify-between gap-3">
             <span className="text-accent text-xs font-medium">📋 Orden planificado por logística</span>

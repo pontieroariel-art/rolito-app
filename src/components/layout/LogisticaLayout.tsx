@@ -101,22 +101,30 @@ export default function LogisticaLayout() {
       <div className="md:flex">
 
       {/* Franja mínima — mobile/tablet angosto */}
-      <div className="md:hidden sticky top-0 z-40 bg-white border-b border-[#D3D1C7] px-3 h-12 flex items-center justify-between">
+      <div className="md:hidden sticky top-0 z-40 bg-white border-b border-[#D3D1C7] px-3 min-h-12 pt-[env(safe-area-inset-top)] flex items-center justify-between">
         <Link to="/" className="flex items-center">
-          <img src="/logo-rolito.png" alt="Rolito" className="h-6 object-contain" />
+          <img src="/logo-rolito.png" alt="Rolito" width={71} height={24} className="h-6 w-auto object-contain" />
         </Link>
         <button
           onClick={() => setOpen((o) => !o)}
           aria-label={open ? 'Cerrar menú' : 'Abrir menú'}
-          className="text-gray-600 p-1.5"
+          className="text-gray-600 p-3 -mr-3 flex items-center justify-center"
         >
           {open ? <X size={20} /> : <Menu size={20} />}
         </button>
       </div>
 
-      {/* Panel colapsable — mobile/tablet angosto */}
+      {/* Panel colapsable — mobile/tablet angosto: overlay con backdrop, no
+          empuja el contenido (antes el usuario tenía que scrollear el propio
+          menú antes de llegar a la pantalla). */}
       {open && (
-        <div className="md:hidden border-b border-[#D3D1C7] bg-white px-4 py-3 space-y-4">
+        <div
+          className="md:hidden fixed inset-0 z-30 bg-black/40"
+          onClick={() => setOpen(false)}
+        />
+      )}
+      {open && (
+        <div className="md:hidden fixed inset-x-0 top-[calc(3rem+env(safe-area-inset-top))] z-40 max-h-[calc(100dvh-3rem-env(safe-area-inset-top))] overflow-y-auto border-b border-[#D3D1C7] bg-white px-4 py-3 space-y-4 shadow-lg">
           {grupos.map((g) => (
             <div key={g.id}>
               <p className="text-[11px] uppercase tracking-wide text-gray-400 font-semibold mb-1 px-1">{g.label}</p>
@@ -139,7 +147,7 @@ export default function LogisticaLayout() {
       {/* Sidebar — única navegación en desktop/tablet ancho, sin Navbar arriba */}
       <aside className="hidden md:flex md:flex-col w-60 shrink-0 border-r border-[#D3D1C7] bg-white sticky top-0 h-screen">
         <Link to="/" className="flex items-center px-4 h-16 border-b border-[#D3D1C7] shrink-0">
-          <img src="/logo-rolito.png" alt="Rolito" className="h-8 object-contain" />
+          <img src="/logo-rolito.png" alt="Rolito" width={94} height={32} className="h-8 w-auto object-contain" />
         </Link>
 
         <nav className="flex-1 p-4 space-y-6 overflow-y-auto">

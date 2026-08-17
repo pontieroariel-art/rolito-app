@@ -100,7 +100,7 @@ export default function MapaClientesHeladerasPage() {
 
   return (
     <div className="min-h-screen bg-[#F8F7F2] text-gray-900">
-      <div className="flex flex-col h-[calc(100vh-48px)] md:h-screen">
+      <div className="flex flex-col h-[calc(100dvh-48px)] md:h-dvh">
         <div className="p-3 border-b border-[#D3D1C7] bg-white flex flex-wrap items-center gap-2">
           <h1 className="text-base font-bold text-gray-900 mr-2">Mapa de clientes</h1>
           {!centro ? (

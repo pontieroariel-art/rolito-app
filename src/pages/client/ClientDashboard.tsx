@@ -69,7 +69,7 @@ export default function ClientDashboard() {
   return (
     <div className="min-h-screen bg-white text-gray-900">
       <Navbar />
-      <main className="max-w-2xl mx-auto p-4 space-y-6 pb-10">
+      <main className="max-w-2xl mx-auto p-4 space-y-6 pb-24 md:pb-10">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
             Hola, {(user?.nombreContacto || user?.nombre)?.split(' ')[0] ?? 'amigo'} 👋

@@ -4,7 +4,6 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
 import { ChevronLeft, ChevronRight, Download } from 'lucide-react'
-import * as XLSX from 'xlsx'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { getOrdersInRange } from '../../services/orderService'
 import { Order, OrderProduct } from '../../types'
@@ -150,8 +149,9 @@ export default function ReporteVentasPage() {
     .replace(/^./, (c) => c.toUpperCase())
   const isCurrentMonth = year === now.getFullYear() && month === now.getMonth()
 
-  // Excel export
-  function exportExcel() {
+  // Excel export — xlsx (484K) se carga recién acá, no al abrir la pantalla
+  async function exportExcel() {
+    const XLSX = await import('xlsx')
     const wb = XLSX.utils.book_new()
 
     // Sheet 1: resumen diario
@@ -268,6 +268,7 @@ export default function ReporteVentasPage() {
                     <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
                       Unidades por producto
                     </h2>
+                    <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-gray-200">
@@ -288,6 +289,7 @@ export default function ReporteVentasPage() {
                         ))}
                       </tbody>
                     </table>
+                    </div>
                   </section>
                 )}
 
@@ -297,6 +299,7 @@ export default function ReporteVentasPage() {
                     <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
                       Clientes — mayor volumen
                     </h2>
+                    <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-gray-200">
@@ -317,6 +320,7 @@ export default function ReporteVentasPage() {
                         ))}
                       </tbody>
                     </table>
+                    </div>
                   </section>
                 )}
               </>

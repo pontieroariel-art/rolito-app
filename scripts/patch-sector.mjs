@@ -7,7 +7,8 @@
  */
 
 import { readFileSync } from 'fs'
-import admin from 'firebase-admin'
+import { initializeApp, cert, getApps } from 'firebase-admin/app'
+import { getFirestore } from 'firebase-admin/firestore'
 
 const SERVICE_ACCOUNT_PATH = 'C:/Users/Ariel/Desktop/rolito-app-firebase-adminsdk-fbsvc-e15e1d16f8.json'
 const BATCH_SIZE = 400
@@ -15,11 +16,11 @@ const DELAY_MS   = 50
 
 const serviceAccount = JSON.parse(readFileSync(SERVICE_ACCOUNT_PATH, 'utf8'))
 
-if (!admin.apps.length) {
-  admin.initializeApp({ credential: admin.credential.cert(serviceAccount) })
+if (!getApps().length) {
+  initializeApp({ credential: cert(serviceAccount) })
 }
 
-const db = admin.firestore()
+const db = getFirestore()
 
 const SECTOR_NORMALIZE = { MDQ: 'MDP' }
 

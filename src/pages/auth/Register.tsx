@@ -40,6 +40,9 @@ export default function Register() {
   const handleChange = (e: ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }))
 
+  const handleCuitChange = (e: ChangeEvent<HTMLInputElement>) =>
+    setForm((f) => ({ ...f, cuit: e.target.value.replace(/\D/g, '').slice(0, 11) }))
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (form.password !== form.confirm) {
@@ -94,6 +97,7 @@ export default function Register() {
           onChange={handleChange}
           required
           placeholder="Mi Empresa S.A."
+          autoComplete="organization"
         />
         <Input
           label="Nombre de contacto"
@@ -102,14 +106,17 @@ export default function Register() {
           onChange={handleChange}
           required
           placeholder="Juan García"
+          autoComplete="name"
         />
         <Input
           label="CUIT"
           name="cuit"
           value={form.cuit}
-          onChange={handleChange}
+          onChange={handleCuitChange}
           required
           placeholder="20123456789"
+          inputMode="numeric"
+          autoComplete="off"
         />
         <Input
           label="Email (para notificaciones y recuperación de contraseña)"
@@ -119,6 +126,8 @@ export default function Register() {
           onChange={handleChange}
           required
           placeholder="tu@email.com"
+          inputMode="email"
+          autoComplete="email"
         />
         <Input
           label="Teléfono (opcional)"
@@ -136,6 +145,7 @@ export default function Register() {
           onChange={handleChange}
           required
           placeholder="Mínimo 6 caracteres"
+          autoComplete="new-password"
           rightElement={
             <button
               type="button"
@@ -155,6 +165,7 @@ export default function Register() {
           onChange={handleChange}
           required
           placeholder="Repetí la contraseña"
+          autoComplete="new-password"
           rightElement={
             <button
               type="button"

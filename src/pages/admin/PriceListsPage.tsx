@@ -309,7 +309,7 @@ function ListaEditor({
                 </button>
 
                 {/* Nombre */}
-                <span className="text-sm truncate" title={item.nombre}>
+                <span className="text-sm truncate min-w-0" title={item.nombre}>
                   {item.nombre}
                   <span className="text-gray-500 text-xs ml-1.5">{item.unidad}</span>
                 </span>
@@ -323,7 +323,7 @@ function ListaEditor({
                     value={item.precio || ''}
                     placeholder="0"
                     onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                      setItem(item.productoId, { precio: Number(e.target.value) || 0 })
+                      setItem(item.productoId, { precio: Math.max(0, Number(e.target.value) || 0) })
                     }
                     className="w-full bg-white border border-[#D3D1C7] rounded-lg pl-6 pr-2 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
                   />

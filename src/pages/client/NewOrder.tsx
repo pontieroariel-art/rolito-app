@@ -124,12 +124,12 @@ export default function NewOrder() {
   }
 
   const setQty = (id: string, qty: number) =>
-    setQuantities((q) => ({ ...q, [id]: Math.max(0, qty) }))
+    setQuantities((q) => ({ ...q, [id]: Math.min(500, Math.max(0, qty)) }))
 
   return (
     <div className="min-h-screen bg-white text-gray-900">
       <Navbar />
-      <main className="max-w-2xl mx-auto p-4 space-y-6 pb-10">
+      <main className="max-w-2xl mx-auto p-4 space-y-6 pb-24 md:pb-10">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{modifyOrder ? 'Modificar pedido' : 'Nuevo pedido'}</h1>
           {deliveryNombre ? (
@@ -275,13 +275,15 @@ export default function NewOrder() {
           </div>
         )}
 
-        <Button
-          onClick={() => setModal(true)}
-          disabled={!canSubmit}
-          className="w-full py-3.5"
-        >
-          {modifyOrder ? 'Revisar y confirmar modificación' : 'Revisar y confirmar pedido'}
-        </Button>
+        <div className="sticky bottom-[calc(3.5rem+env(safe-area-inset-bottom))] md:bottom-0 -mx-4 px-4 pt-3 pb-3 md:pb-[calc(0.75rem+env(safe-area-inset-bottom))] bg-white border-t border-gray-100">
+          <Button
+            onClick={() => setModal(true)}
+            disabled={!canSubmit}
+            className="w-full py-3.5"
+          >
+            {modifyOrder ? 'Revisar y confirmar modificación' : 'Revisar y confirmar pedido'}
+          </Button>
+        </div>
 
         <Modal open={modal} onClose={() => setModal(false)} title={modifyOrder ? 'Confirmar modificación' : 'Confirmar pedido'}>
           <div className="space-y-4 text-sm">
@@ -378,11 +380,11 @@ function ProductRow({
           </p>
         )}
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         <button
           onClick={() => onChange(qty - 1)}
           disabled={qty === 0}
-          className="w-9 h-9 rounded-full bg-white border border-gray-200 text-lg hover:border-accent transition-colors disabled:opacity-30 flex items-center justify-center text-gray-600"
+          className="w-11 h-11 rounded-full bg-white border border-gray-200 text-lg hover:border-accent transition-colors disabled:opacity-30 flex items-center justify-center text-gray-600"
         >
           −
         </button>
@@ -397,7 +399,7 @@ function ProductRow({
         />
         <button
           onClick={() => onChange(qty + 1)}
-          className="w-9 h-9 rounded-full bg-white border border-gray-200 text-lg hover:border-accent transition-colors flex items-center justify-center text-gray-600"
+          className="w-11 h-11 rounded-full bg-white border border-gray-200 text-lg hover:border-accent transition-colors flex items-center justify-center text-gray-600"
         >
           +
         </button>

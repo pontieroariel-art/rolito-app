@@ -130,8 +130,8 @@ export function ImportarClientesModal({ onClose, onDone }: { onClose: () => void
             <p>• Las cuentas ya existentes se omiten automáticamente</p>
           </div>
 
-          <div className="max-h-48 overflow-y-auto border border-[#D3D1C7] rounded-xl">
-            <table className="w-full text-xs">
+          <div className="max-h-48 overflow-y-auto overflow-x-auto border border-[#D3D1C7] rounded-xl">
+            <table className="w-full text-xs min-w-[480px]">
               <thead className="sticky top-0 bg-white">
                 <tr className="border-b border-[#D3D1C7]">
                   <th className="text-left px-3 py-2 text-gray-500 font-medium">Razón social</th>

@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { Download, Printer } from 'lucide-react'
-import * as XLSX from 'xlsx'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
@@ -138,7 +137,9 @@ export default function InformesDashboardPage() {
     }
   }
 
-  const exportarExcel = (cat: Categoria) => {
+  // xlsx (484K) se carga recién acá, al exportar — no al abrir la pantalla
+  const exportarExcel = async (cat: Categoria) => {
+    const XLSX = await import('xlsx')
     const { titulo, cols, filas } = datosDe(cat)
     const rows = filas.map((f) => Object.fromEntries(cols.map((c, i) => [c, f[i]])))
     const wb = XLSX.utils.book_new()
