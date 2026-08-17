@@ -10,12 +10,12 @@ import { useHeladeras } from '../../hooks/useHeladeras'
 import { useTicketsServicio } from '../../hooks/useTicketsServicio'
 import { usePasosTaller } from '../../hooks/usePasosTaller'
 import { generateListadoPdf } from '../../utils/pdf'
-import { Heladera, TicketServicio } from '../../types'
-import { ESTADO_TICKET_LABELS, TIPO_PIPELINE_LABELS } from '../../utils/heladeraLabels'
+import { AreaHeladera, Heladera, TicketServicio } from '../../types'
+import { ESTADO_TICKET_LABELS, TIPO_PIPELINE_LABELS, AREA_HELADERA_LABELS, SECTORES_REPARACION } from '../../utils/heladeraLabels'
 import { calcularTiemposPorPaso, calcularEstadisticaArreglos } from '../../utils/heladeraPipeline'
 import { tsToDate } from '../../utils/helpers'
 
-type Categoria = 'disponibles' | 'pintura' | 'refrigeracion' | 'deposito' | 'asignados' | 'service'
+type Categoria = 'disponibles' | 'deposito' | 'asignados' | 'service' | AreaHeladera
 
 const DIA_MS = 86_400_000
 
@@ -45,16 +45,20 @@ export default function InformesDashboardPage() {
 
   const grupos = useMemo(() => {
     const disponibles = heladeras.filter((h) => h.estado === 'disponible')
-    // Pintura/refrigeración son sectores compartidos por ambos pipelines
-    // (fabricación y reacondicionamiento) — se identifican por el área del
-    // que la tiene agarrada, no por el estado (que ahora es genérico).
-    const pintura       = heladeras.filter((h) => h.enProceso?.area === 'pintura')
-    const refrigeracion = heladeras.filter((h) => h.enProceso?.area === 'refrigeracion')
+    // Cualquier sector de reparación (pintura/lijado/refrigeración) puede
+    // tener una heladera agarrada — se arma dinámico desde SECTORES_REPARACION
+    // en vez de hardcodear un par de sectores, así uno nuevo (o lijado, que
+    // ya se nos escapó una vez) no queda afuera de Informes sin que se note.
+    // Se identifican por el área del que la tiene agarrada, no por el
+    // estado (que ahora es genérico).
+    const porSector = new Map<AreaHeladera, Heladera[]>(
+      SECTORES_REPARACION.map((area) => [area, heladeras.filter((h) => h.enProceso?.area === area)]),
+    )
     // "Depósito" = recién ingresada, todavía no arrancó ningún paso.
     const deposito       = heladeras.filter((h) => h.estado === 'en_taller' && !h.enProceso && h.pasoActualId === h.primerPasoId)
     const asignados      = heladeras.filter((h) => h.estado === 'en_comodato')
     const service         = tickets.filter((t) => ['abierto', 'asignado_tecnico', 'asignado_chofer'].includes(t.estado))
-    return { disponibles, pintura, refrigeracion, deposito, asignados, service }
+    return { disponibles, porSector, deposito, asignados, service }
   }, [heladeras, tickets])
 
   // Métricas históricas — SLA de tickets cerrados y tiempo total en taller.
@@ -95,12 +99,15 @@ export default function InformesDashboardPage() {
   )
 
   const tarjetas: { id: Categoria; label: string; value: number; tone?: 'warn' | 'good' }[] = [
-    { id: 'disponibles',   label: 'Disponibles',      value: grupos.disponibles.length, tone: 'good' },
-    { id: 'pintura',       label: 'En pintura',       value: grupos.pintura.length },
-    { id: 'refrigeracion', label: 'En refrigeración', value: grupos.refrigeracion.length },
-    { id: 'deposito',      label: 'En depósito',      value: grupos.deposito.length },
-    { id: 'asignados',     label: 'Asignados',        value: grupos.asignados.length },
-    { id: 'service',       label: 'Service tomados',  value: grupos.service.length, tone: 'warn' },
+    { id: 'disponibles', label: 'Disponibles', value: grupos.disponibles.length, tone: 'good' },
+    ...SECTORES_REPARACION.map((area) => ({
+      id:    area as Categoria,
+      label: `En ${AREA_HELADERA_LABELS[area].toLowerCase()}`,
+      value: (grupos.porSector.get(area) ?? []).length,
+    })),
+    { id: 'deposito',  label: 'En depósito',      value: grupos.deposito.length },
+    { id: 'asignados', label: 'Asignados',        value: grupos.asignados.length },
+    { id: 'service',   label: 'Service tomados',  value: grupos.service.length, tone: 'warn' },
   ]
 
   const heladeraCols = ['Código', 'Modelo', 'Serie']
@@ -115,13 +122,19 @@ export default function InformesDashboardPage() {
   ])
 
   function datosDe(cat: Categoria): { titulo: string; cols: string[]; filas: (string | number)[][] } {
-    switch (cat) {
-      case 'disponibles':   return { titulo: 'Equipos disponibles',      cols: heladeraCols, filas: heladeraFilas(grupos.disponibles) }
-      case 'pintura':       return { titulo: 'Equipos en pintura',       cols: heladeraCols, filas: heladeraFilas(grupos.pintura) }
-      case 'refrigeracion': return { titulo: 'Equipos en refrigeración', cols: heladeraCols, filas: heladeraFilas(grupos.refrigeracion) }
-      case 'deposito':      return { titulo: 'Equipos en depósito',      cols: heladeraCols, filas: heladeraFilas(grupos.deposito) }
-      case 'asignados':     return { titulo: 'Equipos asignados',        cols: asignadosCols, filas: asignadosFilas(grupos.asignados) }
-      case 'service':       return { titulo: 'Service tomados',          cols: serviceCols, filas: serviceFilas(grupos.service) }
+    if ((SECTORES_REPARACION as AreaHeladera[]).includes(cat as AreaHeladera)) {
+      const area = cat as AreaHeladera
+      return {
+        titulo: `Equipos en ${AREA_HELADERA_LABELS[area].toLowerCase()}`,
+        cols:   heladeraCols,
+        filas:  heladeraFilas(grupos.porSector.get(area) ?? []),
+      }
+    }
+    switch (cat as 'disponibles' | 'deposito' | 'asignados' | 'service') {
+      case 'disponibles': return { titulo: 'Equipos disponibles', cols: heladeraCols, filas: heladeraFilas(grupos.disponibles) }
+      case 'deposito':    return { titulo: 'Equipos en depósito', cols: heladeraCols, filas: heladeraFilas(grupos.deposito) }
+      case 'asignados':   return { titulo: 'Equipos asignados',   cols: asignadosCols, filas: asignadosFilas(grupos.asignados) }
+      case 'service':     return { titulo: 'Service tomados',     cols: serviceCols, filas: serviceFilas(grupos.service) }
     }
   }
 
