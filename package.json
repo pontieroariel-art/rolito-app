@@ -10,10 +10,18 @@
     "typecheck": "tsc --noEmit",
     "typecheck:functions": "tsc --noEmit -p functions/tsconfig.json",
     "lint": "eslint src",
+    "lint:functions": "eslint functions/src",
+    "format": "prettier --write .",
+    "test:unit": "vitest run",
     "test": "npm run test:rules",
     "test:rules": "npx --yes firebase-tools emulators:exec --only firestore --project demo-rolito \"node --test tests/firestore-rules.test.js\"",
     "emulators": "npx --yes firebase-tools emulators:start --only auth,firestore --project rolito-app --import=./emulator-data --export-on-exit=./emulator-data",
-    "seed:emulator": "node scripts/seed-emulator.mjs"
+    "seed:emulator": "node scripts/seed-emulator.mjs",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "src/**/*.{ts,tsx}": "eslint --fix",
+    "functions/src/**/*.ts": "eslint --fix"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -50,6 +58,7 @@
   "devDependencies": {
     "@eslint/js": "^9.39.4",
     "@firebase/rules-unit-testing": "^4.0.1",
+    "@playwright/test": "^1.62.1",
     "@radix-ui/react-slot": "^1.3.0",
     "@types/google.maps": "^3.64.0",
     "@types/node": "^26.0.1",
@@ -61,10 +70,14 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "eslint": "^9.39.4",
+    "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^5.2.0",
     "firebase-admin": "^14.2.0",
     "globals": "^17.7.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.3.0",
     "postcss": "^8.4.49",
+    "prettier": "^3.9.6",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^3.4.17",
     "tailwindcss-animate": "^1.0.7",
@@ -72,6 +85,7 @@
     "typescript-eslint": "^8.62.1",
     "vite": "^6.0.5",
     "vite-plugin-pwa": "^0.21.1",
+    "vitest": "^4.1.10",
     "workbox-cacheable-response": "^7.4.1",
     "workbox-expiration": "^7.4.1",
     "workbox-routing": "^7.4.1",

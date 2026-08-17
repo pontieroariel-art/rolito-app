@@ -96,3 +96,4 @@ Vite divide chunks manualmente: `firebase`, `maps` (Google Maps), `router` (Reac
 - Tema oscuro con paleta personalizada definida en `tailwind.config.js` (bg, accent, success, surface, border, muted)
 - Fuente: Inter
 - ESLint debe quedar en 0 warnings (`react-hooks/exhaustive-deps` se resuelve o se documenta con disable puntual comentado)
+- Preferir el alias `@/` (`@/components`, `@/hooks`, `@/services`) en imports nuevos en vez de rutas relativas de 2+ niveles (`../../..`). No hace falta migrar imports existentes

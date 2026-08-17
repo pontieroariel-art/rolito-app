@@ -31,4 +31,21 @@ export default tseslint.config(
       'no-constant-condition': 'off',
     },
   },
+  {
+    files: ['functions/src/**/*.ts'],
+    extends: [js.configs.recommended, ...tseslint.configs.recommended],
+    languageOptions: {
+      ecmaVersion: 2022,
+      globals: { ...globals.node },
+    },
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+      '@typescript-eslint/ban-ts-comment': 'off',
+      '@typescript-eslint/no-empty-function': 'off',
+      '@typescript-eslint/no-empty-object-type': 'off',
+      'no-empty': 'off',
+      'no-constant-condition': 'off',
+    },
+  },
 )
