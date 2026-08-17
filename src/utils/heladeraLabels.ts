@@ -1,4 +1,4 @@
-import { AreaHeladera, EstadoHeladera, EstadoTicketServicio, TipoOperacionIngreso, TipoPipelineHeladera } from '../types'
+import { AreaHeladera, EstadoHeladera, EstadoTicketServicio, TipoOperacionIngreso, TipoPipelineHeladera, UserRole } from '../types'
 
 export const ESTADO_HELADERA_LABELS: Record<EstadoHeladera, string> = {
   en_taller:   'En taller',
@@ -51,3 +51,15 @@ export const ESTADO_TICKET_STYLES: Record<EstadoTicketServicio, string> = {
 // AreaHeladera: no incluye los sectores de fabricación (plástico, ensamble e
 // inyectado, terminación) ni producción/servicio técnico.
 export const SECTORES_REPARACION: AreaHeladera[] = ['pintura', 'lijado', 'refrigeracion']
+
+// Acceso completo al módulo heladeras (más allá del taller): encargado,
+// super_admin y gerente_comercial — mismo criterio que isHeladerasFullAccess()
+// en firestore.rules (esa es la que manda; esto es solo para mostrar/ocultar
+// UI del lado del cliente). Antes estaba copiado a mano en 4 lugares
+// distintos — un cambio de quién gestiona heladeras necesitaba acordarse de
+// tocar los 4; ahora es uno solo.
+const HELADERAS_FULL_ACCESS_ROLES: UserRole[] = ['heladeras_encargado', 'super_admin', 'gerente_comercial']
+
+export function puedeGestionarHeladeras(rol: UserRole | undefined): boolean {
+  return !!rol && HELADERAS_FULL_ACCESS_ROLES.includes(rol)
+}

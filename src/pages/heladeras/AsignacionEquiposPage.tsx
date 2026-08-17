@@ -8,6 +8,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useClientesActivos } from '../../hooks/useClientesActivos'
 import { useHeladeras } from '../../hooks/useHeladeras'
 import { usePasosTaller } from '../../hooks/usePasosTaller'
+import { puedeGestionarHeladeras } from '../../utils/heladeraLabels'
 import { Heladera, UserProfile } from '../../types'
 
 export default function AsignacionEquiposPage() {
@@ -21,7 +22,7 @@ export default function AsignacionEquiposPage() {
   const [asignarAbierto, setAsignarAbierto] = useState(false)
   const [retirarObjetivo, setRetirarObjetivo] = useState<Heladera | null>(null)
 
-  const puedeGestionar = user && ['heladeras_encargado', 'super_admin', 'gerente_comercial'].includes(user.rol)
+  const puedeGestionar = puedeGestionarHeladeras(user?.rol)
 
   const resultados = useMemo(() => {
     const q = busqueda.trim().toLowerCase()

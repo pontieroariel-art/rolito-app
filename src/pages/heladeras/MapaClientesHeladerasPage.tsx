@@ -9,6 +9,7 @@ import { useClientesActivos } from '../../hooks/useClientesActivos'
 import { subscribePreventivosDelAnio, marcarPreventivoHecho, desmarcarPreventivo } from '../../services/preventivoService'
 import { makePin } from '../../utils/mapPins'
 import { haversineKm, LatLng } from '../../utils/routeMath'
+import { puedeGestionarHeladeras } from '../../utils/heladeraLabels'
 import { UserProfile, Preventivo, getPrimaryAddress } from '../../types'
 
 const DEFAULT_CENTER: LatLng = { lat: -34.6037, lng: -58.3816 }
@@ -44,7 +45,7 @@ export default function MapaClientesHeladerasPage() {
   const [seleccionado, setSeleccionado] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
-  const puedeGestionar = user && ['heladeras_encargado', 'super_admin', 'gerente_comercial'].includes(user.rol)
+  const puedeGestionar = puedeGestionarHeladeras(user?.rol)
 
   const conCoords: ClientePin[] = useMemo(
     () => clientes.map((u) => { const pos = clientCoords(u); return pos ? { user: u, pos } : null }).filter((x): x is ClientePin => !!x),

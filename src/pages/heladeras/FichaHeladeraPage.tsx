@@ -10,7 +10,7 @@ import { usePasosTaller } from '../../hooks/usePasosTaller'
 import { getHeladera } from '../../services/heladeraService'
 import { getModeloHeladera } from '../../services/modelosHeladeraService'
 import { Heladera, ModeloHeladera } from '../../types'
-import { ESTADO_HELADERA_LABELS } from '../../utils/heladeraLabels'
+import { ESTADO_HELADERA_LABELS, puedeGestionarHeladeras } from '../../utils/heladeraLabels'
 import { historialConDuraciones, formatDuracion } from '../../utils/heladeraPipeline'
 import { tsToDate } from '../../utils/helpers'
 
@@ -53,8 +53,8 @@ export default function FichaHeladeraPage() {
     [heladera],
   )
 
-  const puedeGestionar = user && ['heladeras_encargado', 'super_admin', 'gerente_comercial'].includes(user.rol)
-  const puedeReportar   = user && ['heladeras_encargado', 'super_admin', 'gerente_comercial'].includes(user.rol)
+  const puedeGestionar = puedeGestionarHeladeras(user?.rol)
+  const puedeReportar   = puedeGestionar
 
   return (
     <div className="min-h-screen bg-[#F8F7F2] text-gray-900">
