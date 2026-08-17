@@ -5,14 +5,14 @@ import Input from '../ui/Input'
 import { useModelosHeladera } from '../../hooks/useModelosHeladera'
 import { useMotivosIngreso } from '../../hooks/useMotivosIngreso'
 import { usePasosTaller } from '../../hooks/usePasosTaller'
-import { CodigoHeladeraDuplicadoError } from '../../services/heladeraService'
+import { CodigoHeladeraDuplicadoError, slugModelo } from '../../services/heladeraService'
 import { primerPasoActivo } from '../../utils/heladeraPipeline'
 import { TIPO_OPERACION_LABELS, TIPO_PIPELINE_LABELS } from '../../utils/heladeraLabels'
 import { TipoOperacionIngreso, TipoPipelineHeladera } from '../../types'
 
 export interface CrearHeladeraData {
   numeroSerie:          string
-  codigoInterno:        string
+  codigoInterno?:       string   // ignorado en fabricación, se autogenera
   modeloId:             string
   modeloNombre:         string
   tipoPipeline:         TipoPipelineHeladera
@@ -44,12 +44,18 @@ export default function CrearHeladeraModal({
   const [error,         setError]         = useState('')
 
   const esReacondicionamiento = tipoPipeline === 'reacondicionamiento'
+  const esFabricacion = tipoPipeline === 'fabricacion'
   const motivoElegido = motivosActivos.find((m) => m.id === motivoId)
+  const modeloElegido = modelosActivos.find((m) => m.id === modeloId)
   const sinPasos = !primerPasoActivo(catalogoPasos, tipoPipeline)
+
+  const codigoPreview = modeloElegido
+    ? `${modeloElegido.prefijoCodigo?.trim() || slugModelo(modeloElegido.nombre)}-${String(modeloElegido.proximoNumero ?? 1).padStart(4, '0')}`
+    : ''
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    if (!numeroSerie.trim() || !codigoInterno.trim() || !modeloId) {
+    if (!numeroSerie.trim() || !modeloId || (esReacondicionamiento && !codigoInterno.trim())) {
       setError('Completá número de serie, código interno y modelo')
       return
     }
@@ -65,7 +71,7 @@ export default function CrearHeladeraModal({
     try {
       await onSave({
         numeroSerie:          numeroSerie.trim(),
-        codigoInterno:        codigoInterno.trim(),
+        codigoInterno:        esFabricacion ? undefined : codigoInterno.trim(),
         modeloId,
         modeloNombre:         modelo.nombre,
         tipoPipeline,
@@ -101,7 +107,6 @@ export default function CrearHeladeraModal({
             </p>
           )}
         </div>
-        <Input label="Código interno" value={codigoInterno} onChange={(e) => setCodigoInterno(e.target.value)} required placeholder="Tu código propio" />
         <Input label="Número de serie" value={numeroSerie} onChange={(e) => setNumeroSerie(e.target.value)} required placeholder="HL-0042" />
         <div>
           <label className="text-xs text-gray-500 mb-1 block">Modelo</label>
@@ -120,6 +125,19 @@ export default function CrearHeladeraModal({
             <p className="text-xs text-amber-600 mt-1">Todavía no hay modelos cargados — agregá uno primero en "Modelos".</p>
           )}
         </div>
+        {esFabricacion ? (
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Código interno</label>
+            <div className="w-full bg-gray-100 border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-700">
+              {modeloElegido ? codigoPreview : 'Elegí un modelo para ver el código'}
+            </div>
+            {modeloElegido && (
+              <p className="text-xs text-gray-400 mt-1">Se genera solo — próximo número libre para este modelo.</p>
+            )}
+          </div>
+        ) : (
+          <Input label="Código interno" value={codigoInterno} onChange={(e) => setCodigoInterno(e.target.value)} required placeholder="Tu código propio" />
+        )}
         {esReacondicionamiento && (
           <div>
             <label className="text-xs text-gray-500 mb-1 block">Motivo de ingreso</label>

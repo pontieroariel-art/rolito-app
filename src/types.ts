@@ -467,6 +467,12 @@ export interface ModeloHeladera {
   capacidadBolsas: number
   fotoUrl?: string
   activo:  boolean
+  // Código automático para heladeras de fabricación (nunca para
+  // reacondicionamiento, que sigue cargándose a mano): prefijoCodigo lo
+  // edita el encargado (si no lo cargó, se arma un slug del nombre);
+  // proximoNumero es interno, solo lo mueve la transacción de crearHeladera.
+  prefijoCodigo?: string
+  proximoNumero?: number
   createdAt: Timestamp
   updatedAt: Timestamp
 }

@@ -23,6 +23,14 @@ import {
 
 const HELADERAS = 'heladeras'
 const CODIGO_INDEX = 'heladeraCodigoIndex'
+const MODELOS = 'modelosHeladera'
+
+// Fallback cuando el modelo no tiene prefijoCodigo cargado — mayúsculas,
+// alfanumérico, primeras 6 letras (ej. "Slim 300" -> "SLIM30"). Exportada
+// para que CrearHeladeraModal arme la misma vista previa antes de guardar.
+export function slugModelo(nombre: string): string {
+  return nombre.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) || 'MOD'
+}
 
 export interface Actor { uid: string; nombre: string }
 
@@ -78,13 +86,18 @@ export const subscribeHeladerasPorCliente = (
     () => callback([]),
   )
 
-// El código interno NO se autogenera: la empresa ya tiene su propio esquema
-// de numeración. Se valida unicidad con un doc índice creado en la misma
-// transacción (mismo patrón anti-poisoning que cuitIndex).
+// El código interno de reacondicionamiento sigue sin autogenerarse (equipo
+// usado que nunca estuvo en el sistema, no hay de dónde sacar un número).
+// Fabricación sí se autogenera: próximo número libre del modelo elegido,
+// incrementado dentro de esta misma transacción (mismo criterio que
+// ticketServicioCounter/movimientoHeladeraCounter — sin huecos por altas
+// canceladas, único por construcción). Se valida unicidad igual con un doc
+// índice creado en la misma transacción (mismo patrón anti-poisoning que
+// cuitIndex) — insurance barata aunque el código autogenerado ya sea único.
 export const crearHeladera = (
   data: {
     numeroSerie:         string
-    codigoInterno:       string
+    codigoInterno?:      string   // ignorado para fabricación, se autogenera
     modeloId:            string
     modeloNombre:        string
     tipoPipeline:        TipoPipelineHeladera
@@ -101,16 +114,30 @@ export const crearHeladera = (
   if (!primerPaso) {
     throw new PipelineSinPasosError('Todavía no hay pasos configurados para este pipeline — agregá uno primero en "Catálogos de service".')
   }
+  const esFabricacion = data.tipoPipeline === 'fabricacion'
   return runTransaction(db, async (tx) => {
-    const codigoRef  = doc(db, CODIGO_INDEX, data.codigoInterno)
+    let codigoInterno = data.codigoInterno?.trim() ?? ''
+    const modeloRef = doc(db, MODELOS, data.modeloId)
+    let proximoNumero: number | null = null
+    if (esFabricacion) {
+      const modeloSnap = await tx.get(modeloRef)
+      const modeloData = modeloSnap.data() as { prefijoCodigo?: string; proximoNumero?: number } | undefined
+      proximoNumero = modeloData?.proximoNumero ?? 1
+      const prefijo = modeloData?.prefijoCodigo?.trim() || slugModelo(data.modeloNombre)
+      codigoInterno = `${prefijo}-${String(proximoNumero).padStart(4, '0')}`
+    }
+
+    const codigoRef  = doc(db, CODIGO_INDEX, codigoInterno)
     const codigoSnap = await tx.get(codigoRef)
     if (codigoSnap.exists()) {
       throw new CodigoHeladeraDuplicadoError('Ese código ya está en uso por otra heladera.')
     }
+
+    if (proximoNumero !== null) tx.update(modeloRef, { proximoNumero: proximoNumero + 1 })
     const heladeraRef = doc(collection(db, HELADERAS))
     tx.set(heladeraRef, {
       numeroSerie:           data.numeroSerie,
-      codigoInterno:         data.codigoInterno,
+      codigoInterno,
       modeloId:              data.modeloId,
       modelo:                data.modeloNombre,
       estado:                'en_taller',
@@ -259,6 +286,30 @@ export const liberarForzado = (
       enProceso:         deleteField(),
       updatedAt:         serverTimestamp(),
       historialAcciones: arrayUnion(accion(actor, 'liberada_por_encargado', null, data.estado, data.estado)),
+    })
+  })
+
+// Uso del encargado: una heladera que entró al depósito del taller (ej. un
+// retiro de cliente que reingresó automáticamente) resulta no necesitar
+// reacondicionamiento — la libera directo a disponible sin pasar ningún
+// paso. Solo aplica si todavía nadie la agarró.
+export const liberarSinReacondicionar = (
+  heladeraId: string,
+  actor:      Actor,
+): Promise<void> =>
+  runTransaction(db, async (tx) => {
+    const ref  = doc(db, HELADERAS, heladeraId)
+    const snap = await tx.get(ref)
+    const data = snap.data() as Heladera | undefined
+    if (!data || data.estado !== 'en_taller' || data.enProceso) {
+      throw new HeladeraNoDisponibleError('Esta heladera no está esperando en el depósito del taller.')
+    }
+    tx.update(ref, {
+      estado:            'disponible',
+      pasoActualId:       null,
+      enProceso:          deleteField(),
+      updatedAt:          serverTimestamp(),
+      historialAcciones: arrayUnion(accion(actor, 'liberada_sin_reacondicionar', null, 'en_taller', 'disponible')),
     })
   })
 

@@ -9,7 +9,7 @@ import { useHeladeras } from '../../hooks/useHeladeras'
 import { usePasosTaller } from '../../hooks/usePasosTaller'
 import { useTiposReparacion } from '../../hooks/useReparacionCatalogos'
 import {
-  agarrarPaso, soltarPaso, liberarForzado,
+  agarrarPaso, soltarPaso, liberarForzado, liberarSinReacondicionar,
   aprobarPaso, rechazarPaso, marcarBaja, crearHeladera,
   HeladeraNoDisponibleError, TrabajoHecho,
 } from '../../services/heladeraService'
@@ -180,7 +180,7 @@ function AprobacionModal({
 }
 
 function HeladeraCard({
-  heladera, paso, isEncargado, isMine, onAgarrar, onSoltar, onBaja, onLiberar,
+  heladera, paso, isEncargado, isMine, onAgarrar, onSoltar, onBaja, onLiberar, onDisponibleSinArreglo,
 }: {
   heladera:    Heladera
   paso?:       PasoTaller
@@ -190,6 +190,7 @@ function HeladeraCard({
   onSoltar?:   () => void
   onBaja?:     () => void
   onLiberar?:  () => void
+  onDisponibleSinArreglo?: () => void
 }) {
   const badge = heladera.estado === 'en_taller' ? (paso?.nombre ?? 'En taller') : ESTADO_LABELS[heladera.estado]
   return (
@@ -212,6 +213,9 @@ function HeladeraCard({
         {onAgarrar && <Button size="sm" onClick={onAgarrar}>Agarrar</Button>}
         {isMine && onSoltar && <Button size="sm" onClick={onSoltar}>Soltar</Button>}
         {isEncargado && onLiberar && <Button size="sm" variant="outline" onClick={onLiberar}>Liberar</Button>}
+        {isEncargado && onDisponibleSinArreglo && (
+          <Button size="sm" variant="outline" onClick={onDisponibleSinArreglo}>Disponible sin arreglo</Button>
+        )}
         {isEncargado && onBaja && <Button size="sm" variant="outline" onClick={onBaja}>Baja</Button>}
       </div>
     </div>
@@ -340,6 +344,11 @@ export default function HeladerasPage() {
                                 key={h.id} heladera={h} paso={paso} isEncargado={isEncargado} isMine={false}
                                 onAgarrar={puedeAgarrar ? () => runAction(() => agarrarPaso(h.id, actor, paso.area, catalogo)) : undefined}
                                 onBaja={isEncargado ? () => runAction(() => marcarBaja(h.id, actor, 'Sin arreglo posible')) : undefined}
+                                onDisponibleSinArreglo={
+                                  isEncargado && h.pasoActualId === h.primerPasoId
+                                    ? () => runAction(() => liberarSinReacondicionar(h.id, actor))
+                                    : undefined
+                                }
                               />
                             ))}
                           </div>

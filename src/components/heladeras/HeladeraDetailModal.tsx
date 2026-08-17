@@ -177,6 +177,7 @@ export default function HeladeraDetailModal({ heladera, onClose }: { heladera: H
         <RetirarEquipoModal
           heladera={heladera}
           actor={{ uid: user.uid, nombre: user.nombre }}
+          catalogo={catalogo}
           onClose={() => setRetirarAbierto(false)}
         />
       )}

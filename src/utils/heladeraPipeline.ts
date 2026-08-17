@@ -29,7 +29,9 @@ export type CatalogoPasos = Record<string, PasoTaller>
 // string (ficha del equipo, Consulta de service, dashboard del técnico).
 export function textoTrabajos(tipos: TrabajoRealizadoItem[], notas?: string): string {
   const base = tipos.map((t) => t.tipoNombre).join(', ')
-  return notas?.trim() ? `${base} — ${notas.trim()}` : base
+  const nota = notas?.trim()
+  if (!nota) return base
+  return base ? `${base} — ${nota}` : nota
 }
 
 export const pasoDe = (catalogo: CatalogoPasos, id: string | null | undefined): PasoTaller | undefined =>
@@ -85,11 +87,20 @@ export interface TiempoPorPaso {
 
 const TIPOS_TRANSICION = ['paso_completado', 'paso_aprobado', 'paso_rechazado']
 
+// Eventos "ancla": reinician el cronómetro de tiempo-por-paso sin generar
+// ellos mismos una muestra de duración. `reingreso_taller` pasa cuando una
+// heladera que ya tenía historial (fabricada hace tiempo, estuvo en
+// comodato) vuelve a entrar al taller — sin este reset, la primera
+// transición post-reingreso mediría desde la `creada` original y contaría
+// todo el tiempo en comodato como "tiempo en el primer paso".
+const EVENTOS_ANCLA = ['reingreso_taller']
+
 export interface EventoConDuracion extends AccionHistorial {
   // Cuánto pasó desde que se entró al paso que este evento acaba de dejar
-  // (gap con la transición anterior, o con `creada` si es la primera).
-  // undefined si el evento no es una transición de paso, o si es una
-  // transición vieja sin `pasoId` (no retroactivo).
+  // (gap con la transición anterior, con `creada`, o con el último evento
+  // ancla — lo que haya pasado más recientemente). undefined si el evento
+  // no es una transición de paso, o si es una transición vieja sin
+  // `pasoId` (no retroactivo).
   duracionMs?: number
 }
 
@@ -107,6 +118,10 @@ export function historialConDuraciones(heladera: Heladera): EventoConDuracion[] 
 
   let entradaMs = tsToDate(creada.timestamp).getTime()
   return eventos.map((evento) => {
+    if (EVENTOS_ANCLA.includes(evento.accion)) {
+      entradaMs = tsToDate(evento.timestamp).getTime()
+      return evento
+    }
     if (!TIPOS_TRANSICION.includes(evento.accion)) return evento
     const salidaMs = tsToDate(evento.timestamp).getTime()
     const duracionMs = evento.pasoId ? salidaMs - entradaMs : undefined

@@ -15,6 +15,7 @@ type ModeloFormData = {
   profundo:        number
   capacidadBolsas: number
   fotoUrl:         string
+  prefijoCodigo:   string
 }
 
 function ModeloForm({
@@ -32,6 +33,7 @@ function ModeloForm({
   const [profundo, setProfundo] = useState(initial?.medidas?.profundo?.toString() ?? '')
   const [bolsas,   setBolsas]   = useState(initial?.capacidadBolsas?.toString() ?? '')
   const [fotoUrl,  setFotoUrl]  = useState(initial?.fotoUrl ?? '')
+  const [prefijoCodigo, setPrefijoCodigo] = useState(initial?.prefijoCodigo ?? '')
   const [saving,   setSaving]   = useState(false)
   const [error,    setError]    = useState('')
 
@@ -47,6 +49,7 @@ function ModeloForm({
         profundo:        Number(profundo) || 0,
         capacidadBolsas: Number(bolsas) || 0,
         fotoUrl:         fotoUrl.trim(),
+        prefijoCodigo:   prefijoCodigo.trim().toUpperCase(),
       })
     } catch {
       setError('No se pudo guardar. Revisá tu conexión y reintentá.')
@@ -107,6 +110,18 @@ function ModeloForm({
           placeholder="https://..."
           className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
         />
+      </div>
+      <div>
+        <label className="text-xs text-gray-500 mb-1 block">Prefijo de código (opcional)</label>
+        <input
+          value={prefijoCodigo}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => setPrefijoCodigo(e.target.value)}
+          placeholder="SL300"
+          className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+        />
+        <p className="text-xs text-gray-400 mt-1">
+          Base del código automático para heladeras de fabricación de este modelo (ej. {prefijoCodigo.trim() || 'SL300'}-0001). Si lo dejás vacío, se arma solo a partir del nombre.
+        </p>
       </div>
 
       {error && <p className="text-red-400 text-xs">{error}</p>}
@@ -217,6 +232,7 @@ export default function ModelosHeladeraPage() {
               medidas: { ancho: data.ancho, alto: data.alto, profundo: data.profundo },
               capacidadBolsas: data.capacidadBolsas,
               ...(data.fotoUrl ? { fotoUrl: data.fotoUrl } : {}),
+              ...(data.prefijoCodigo ? { prefijoCodigo: data.prefijoCodigo } : {}),
             })
             setAddModal(false)
           }}
@@ -234,6 +250,7 @@ export default function ModelosHeladeraPage() {
                 medidas: { ancho: data.ancho, alto: data.alto, profundo: data.profundo },
                 capacidadBolsas: data.capacidadBolsas,
                 fotoUrl: data.fotoUrl,
+                prefijoCodigo: data.prefijoCodigo,
               })
               setEditModelo(null)
             }}

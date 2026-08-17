@@ -7,12 +7,14 @@ import RetirarEquipoModal from '../../components/heladeras/RetirarEquipoModal'
 import { useAuth } from '../../context/AuthContext'
 import { useClientesActivos } from '../../hooks/useClientesActivos'
 import { useHeladeras } from '../../hooks/useHeladeras'
+import { usePasosTaller } from '../../hooks/usePasosTaller'
 import { Heladera, UserProfile } from '../../types'
 
 export default function AsignacionEquiposPage() {
   const { user } = useAuth()
   const { clientes, loading: loadingClientes } = useClientesActivos()
   const { heladeras, loading: loadingHeladeras } = useHeladeras()
+  const { pasos: catalogoPasos } = usePasosTaller()
 
   const [busqueda,   setBusqueda]   = useState('')
   const [cliente,    setCliente]    = useState<UserProfile | null>(null)
@@ -126,6 +128,7 @@ export default function AsignacionEquiposPage() {
         <RetirarEquipoModal
           heladera={retirarObjetivo}
           actor={{ uid: user.uid, nombre: user.nombre }}
+          catalogo={catalogoPasos}
           onClose={() => setRetirarObjetivo(null)}
         />
       )}

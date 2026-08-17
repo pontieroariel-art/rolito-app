@@ -21,6 +21,8 @@ const ACCION_LABELS: Record<string, string> = {
   paso_completado:        'Paso completado',
   paso_aprobado:          'Paso aprobado',
   paso_rechazado:         'Paso rechazado',
+  reingreso_taller:       'Reingresó al taller',
+  liberada_sin_reacondicionar: 'Liberada sin reacondicionar',
   baja:                   'Dada de baja',
   asignada:               'Asignada a cliente',
   retirada:               'Retirada de cliente',

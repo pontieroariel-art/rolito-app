@@ -1,20 +1,25 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import SignaturePad, { SignaturePadHandle } from './SignaturePad'
 import { retirarHeladera, Actor } from '../../services/asignacionHeladeraService'
 import { getUserDocument } from '../../services/userService'
 import { generateRemitoComodato } from '../../utils/pdf'
+import { useMotivosIngreso } from '../../hooks/useMotivosIngreso'
+import { CatalogoPasos } from '../../utils/heladeraPipeline'
 import { Heladera, getPrimaryAddress } from '../../types'
 
 export default function RetirarEquipoModal({
-  heladera, actor, onClose,
+  heladera, actor, catalogo, onClose,
 }: {
   heladera: Heladera
   actor:    Actor
+  catalogo: CatalogoPasos
   onClose:  () => void
 }) {
-  const [motivo, setMotivo] = useState('')
+  const { motivos } = useMotivosIngreso()
+  const motivosActivos = useMemo(() => motivos.filter((m) => m.activo), [motivos])
+  const [motivoId, setMotivoId] = useState('')
   const [saving, setSaving] = useState(false)
   const [error,  setError]  = useState('')
   const padRef = useRef<SignaturePadHandle>(null)
@@ -22,11 +27,13 @@ export default function RetirarEquipoModal({
   const handleSubmit = async () => {
     const firma = padRef.current?.toDataURL()
     if (!firma) { setError('Falta la firma del cliente'); return }
+    const motivo = motivosActivos.find((m) => m.id === motivoId)
+    if (!motivo) { setError('Elegí el motivo de ingreso'); return }
     setSaving(true)
     setError('')
     try {
       const clientePrevio = heladera.clienteAsignadoId ? await getUserDocument(heladera.clienteAsignadoId) : null
-      const asignacion = await retirarHeladera(heladera.id, actor, firma, motivo.trim() || undefined)
+      const asignacion = await retirarHeladera(heladera.id, actor, firma, motivo, catalogo)
       await generateRemitoComodato({
         numero:   asignacion.numero,
         tipo:     'retiro',
@@ -52,18 +59,24 @@ export default function RetirarEquipoModal({
     <Modal open onClose={onClose} title={`Retirar ${heladera.codigoInterno}`} wide>
       <div className="space-y-4">
         <p className="text-sm text-gray-500">
-          Se retira de <span className="font-medium text-gray-900">{heladera.clienteAsignadoNombre}</span> y vuelve a disponible.
+          Se retira de <span className="font-medium text-gray-900">{heladera.clienteAsignadoNombre}</span> y entra al taller para reacondicionamiento.
         </p>
 
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Motivo (opcional)</label>
-          <textarea
-            value={motivo}
-            onChange={(e) => setMotivo(e.target.value)}
-            rows={2}
-            placeholder="Ej: cierre del local, cambio de equipo…"
+          <label className="text-xs text-gray-500 mb-1 block">Motivo de ingreso</label>
+          <select
+            value={motivoId}
+            onChange={(e) => setMotivoId(e.target.value)}
             className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
-          />
+          >
+            <option value="">Elegí un motivo…</option>
+            {motivosActivos.map((m) => (
+              <option key={m.id} value={m.id}>{m.nombre}</option>
+            ))}
+          </select>
+          {motivosActivos.length === 0 && (
+            <p className="text-xs text-amber-600 mt-1">Todavía no hay motivos cargados — agregá uno primero en "Catálogos de service".</p>
+          )}
         </div>
 
         <div>

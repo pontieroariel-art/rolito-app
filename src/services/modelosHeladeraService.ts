@@ -34,10 +34,12 @@ export const crearModeloHeladera = (data: {
   medidas: { ancho: number; alto: number; profundo: number }
   capacidadBolsas: number
   fotoUrl?: string
+  prefijoCodigo?: string
 }): Promise<void> =>
   addDoc(collection(db, MODELOS), {
     ...data,
     activo:    true,
+    proximoNumero: 1,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   }).then(() => {})
@@ -50,6 +52,7 @@ export const actualizarModeloHeladera = (
     capacidadBolsas: number
     fotoUrl: string
     activo: boolean
+    prefijoCodigo: string
   }>,
 ): Promise<void> =>
   updateDoc(doc(db, MODELOS, id), { ...data, updatedAt: serverTimestamp() })
