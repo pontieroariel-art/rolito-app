@@ -22,11 +22,26 @@ export interface CrearHeladeraData {
   observaciones?:       string
 }
 
+// Título y copy por modo — el tipo de ingreso ya lo decidió el botón desde el
+// que se abrió el modal, no se vuelve a preguntar acá (antes era un <select>
+// dentro del modal, que competía en confuso con el buscador+Retirar de
+// Equipos para el caso de un equipo que ya está cargado).
+const COPY: Record<TipoPipelineHeladera, { titulo: string; ayuda?: string }> = {
+  fabricacion: {
+    titulo: 'Fabricar heladera nueva',
+  },
+  reacondicionamiento: {
+    titulo: 'Registrar equipo usado no cargado',
+    ayuda:  'Es solo para equipos que nunca estuvieron en el sistema. Si la heladera ya está cargada y asignada a un cliente, buscala en Equipos y usá "Retirar" en su ficha.',
+  },
+}
+
 export default function CrearHeladeraModal({
-  onClose, onSave,
+  tipoPipeline, onClose, onSave,
 }: {
-  onClose: () => void
-  onSave:  (data: CrearHeladeraData) => Promise<void>
+  tipoPipeline: TipoPipelineHeladera
+  onClose:      () => void
+  onSave:       (data: CrearHeladeraData) => Promise<void>
 }) {
   const { modelos } = useModelosHeladera()
   const modelosActivos = useMemo(() => modelos.filter((m) => m.activo), [modelos])
@@ -34,7 +49,6 @@ export default function CrearHeladeraModal({
   const motivosActivos = useMemo(() => motivos.filter((m) => m.activo), [motivos])
   const { pasos: catalogoPasos } = usePasosTaller()
 
-  const [tipoPipeline,  setTipoPipeline]  = useState<TipoPipelineHeladera>('fabricacion')
   const [numeroSerie,   setNumeroSerie]   = useState('')
   const [codigoInterno, setCodigoInterno] = useState('')
   const [modeloId,      setModeloId]      = useState('')
@@ -88,25 +102,17 @@ export default function CrearHeladeraModal({
     }
   }
 
+  const copy = COPY[tipoPipeline]
+
   return (
-    <Modal open onClose={onClose} title="Cargar heladera nueva">
+    <Modal open onClose={onClose} title={copy.titulo}>
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="text-xs text-gray-500 mb-1 block">¿Qué tipo de ingreso es?</label>
-          <select
-            value={tipoPipeline}
-            onChange={(e) => setTipoPipeline(e.target.value as TipoPipelineHeladera)}
-            className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
-          >
-            <option value="fabricacion">{TIPO_PIPELINE_LABELS.fabricacion} (heladera nueva)</option>
-            <option value="reacondicionamiento">{TIPO_PIPELINE_LABELS.reacondicionamiento} (equipo usado)</option>
-          </select>
-          {sinPasos && (
-            <p className="text-xs text-amber-600 mt-1">
-              Todavía no hay pasos configurados para {TIPO_PIPELINE_LABELS[tipoPipeline].toLowerCase()} — agregá uno primero en "Catálogos de service".
-            </p>
-          )}
-        </div>
+        {copy.ayuda && <p className="text-xs text-gray-500 -mt-2">{copy.ayuda}</p>}
+        {sinPasos && (
+          <p className="text-xs text-amber-600">
+            Todavía no hay pasos configurados para {TIPO_PIPELINE_LABELS[tipoPipeline].toLowerCase()} — agregá uno primero en "Catálogos de service".
+          </p>
+        )}
         <Input label="Número de serie" value={numeroSerie} onChange={(e) => setNumeroSerie(e.target.value)} required placeholder="HL-0042" />
         <div>
           <label className="text-xs text-gray-500 mb-1 block">Modelo</label>

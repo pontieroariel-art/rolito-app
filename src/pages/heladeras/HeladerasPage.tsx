@@ -14,7 +14,7 @@ import {
   HeladeraNoDisponibleError, TrabajoHecho,
 } from '../../services/heladeraService'
 import { pasoActual, pasosOrdenados } from '../../utils/heladeraPipeline'
-import { AreaHeladera, Heladera, PasoTaller, TipoReparacion } from '../../types'
+import { AreaHeladera, Heladera, PasoTaller, TipoPipelineHeladera, TipoReparacion } from '../../types'
 import { ESTADO_HELADERA_LABELS as ESTADO_LABELS, SECTORES_REPARACION, TIPO_PIPELINE_LABELS } from '../../utils/heladeraLabels'
 
 function StatTile({ value, label, tone }: { value: number; label: string; tone?: 'warn' | 'good' }) {
@@ -229,7 +229,7 @@ export default function HeladerasPage() {
   const { heladeras, loading }              = useHeladeras()
   const { pasos: catalogo, isLoading: loadingPasos } = usePasosTaller()
   const { tipos: tiposReparacion }          = useTiposReparacion()
-  const [crearModal, setCrearModal]             = useState(false)
+  const [crearModal, setCrearModal]             = useState<TipoPipelineHeladera | null>(null)
   const [soltarId, setSoltarId]                 = useState<string | null>(null)
   const [aprobacionId, setAprobacionId]         = useState<string | null>(null)
   const [error, setError]                       = useState('')
@@ -265,7 +265,17 @@ export default function HeladerasPage() {
             <h1 className="text-2xl font-bold text-gray-900">Heladeras</h1>
             <p className="text-gray-500 text-sm">Taller: fabricación y reacondicionamiento</p>
           </div>
-          {isEncargado && <Button onClick={() => setCrearModal(true)}>+ Cargar heladera</Button>}
+          {isEncargado && (
+            <div className="flex flex-col items-end gap-1">
+              <Button onClick={() => setCrearModal('fabricacion')}>+ Fabricar heladera nueva</Button>
+              <button
+                onClick={() => setCrearModal('reacondicionamiento')}
+                className="text-xs text-gray-500 hover:text-accent underline-offset-2 hover:underline"
+              >
+                Registrar equipo usado no cargado
+              </button>
+            </div>
+          )}
         </div>
 
         {error && (
@@ -375,7 +385,8 @@ export default function HeladerasPage() {
 
       {crearModal && (
         <CrearHeladeraModal
-          onClose={() => setCrearModal(false)}
+          tipoPipeline={crearModal}
+          onClose={() => setCrearModal(null)}
           onSave={(data: CrearHeladeraData) => crearHeladera(data, actor, catalogo)}
         />
       )}

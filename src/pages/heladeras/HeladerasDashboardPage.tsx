@@ -11,6 +11,7 @@ import { useHeladeras } from '../../hooks/useHeladeras'
 import { useTicketsServicio } from '../../hooks/useTicketsServicio'
 import { usePasosTaller } from '../../hooks/usePasosTaller'
 import { crearHeladera } from '../../services/heladeraService'
+import { TipoPipelineHeladera } from '../../types'
 
 // Centro de control operativo del módulo heladeras — reemplaza la grilla
 // estática de HeladerasHubPage. Todos los conteos son client-side sobre las
@@ -22,7 +23,7 @@ export default function HeladerasDashboardPage() {
   const { heladeras }             = useHeladeras()
   const { tickets }               = useTicketsServicio()
   const { pasos: catalogo }       = usePasosTaller()
-  const [crearModal, setCrearModal] = useState(false)
+  const [crearModal, setCrearModal] = useState<TipoPipelineHeladera | null>(null)
   const [busqueda, setBusqueda]     = useState('')
 
   const actor = user ? { uid: user.uid, nombre: user.nombre } : null
@@ -63,8 +64,11 @@ export default function HeladerasDashboardPage() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <Button onClick={() => setCrearModal(true)} className="text-sm flex items-center gap-1.5">
-          <Plus size={15} /> Ingreso a depósito
+        <Button onClick={() => setCrearModal('fabricacion')} className="text-sm flex items-center gap-1.5">
+          <Plus size={15} /> Fabricar heladera nueva
+        </Button>
+        <Button variant="outline" onClick={() => setCrearModal('reacondicionamiento')} className="text-sm flex items-center gap-1.5">
+          <Plus size={15} /> Equipo usado no cargado
         </Button>
         <Button variant="outline" onClick={() => navigate('/heladeras/asignacion')} className="text-sm flex items-center gap-1.5">
           <Truck size={15} /> Asignar comodato
@@ -90,7 +94,8 @@ export default function HeladerasDashboardPage() {
 
       {crearModal && actor && (
         <CrearHeladeraModal
-          onClose={() => setCrearModal(false)}
+          tipoPipeline={crearModal}
+          onClose={() => setCrearModal(null)}
           onSave={(data: CrearHeladeraData) => crearHeladera(data, actor, catalogo)}
         />
       )}

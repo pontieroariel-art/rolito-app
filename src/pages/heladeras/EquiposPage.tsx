@@ -7,7 +7,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useHeladeras } from '../../hooks/useHeladeras'
 import { usePasosTaller } from '../../hooks/usePasosTaller'
 import { crearHeladera } from '../../services/heladeraService'
-import { EstadoHeladera } from '../../types'
+import { EstadoHeladera, TipoPipelineHeladera } from '../../types'
 import { ESTADO_HELADERA_LABELS } from '../../utils/heladeraLabels'
 import HeladeraDetailModal from '../../components/heladeras/HeladeraDetailModal'
 import CrearHeladeraModal from '../../components/heladeras/CrearHeladeraModal'
@@ -27,7 +27,9 @@ export default function EquiposPage() {
   const [busqueda, setBusqueda] = useState(() => searchParams.get('q') ?? '')
   const [estadoFiltro, setEstadoFiltro] = useState<EstadoHeladera | 'todos'>('todos')
   const [seleccionadaId, setSeleccionadaId] = useState<string | null>(null)
-  const [crearModal, setCrearModal] = useState(false)
+  // null = cerrado. El tipo de ingreso lo decide qué botón se tocó, no se
+  // vuelve a preguntar dentro del modal (ver CrearHeladeraModal).
+  const [crearModal, setCrearModal] = useState<TipoPipelineHeladera | null>(null)
 
   const filtradas = useMemo(() => {
     const q = busqueda.trim().toLowerCase()
@@ -52,7 +54,15 @@ export default function EquiposPage() {
             <h1 className="text-2xl font-bold text-gray-900">Equipos</h1>
             <p className="text-gray-500 text-sm">{heladeras.length} heladeras cargadas</p>
           </div>
-          <Button onClick={() => setCrearModal(true)} className="text-sm">+ Cargar heladera</Button>
+          <div className="flex flex-col items-end gap-1">
+            <Button onClick={() => setCrearModal('fabricacion')} className="text-sm">+ Fabricar heladera nueva</Button>
+            <button
+              onClick={() => setCrearModal('reacondicionamiento')}
+              className="text-xs text-gray-500 hover:text-accent underline-offset-2 hover:underline"
+            >
+              Registrar equipo usado no cargado
+            </button>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -78,7 +88,17 @@ export default function EquiposPage() {
         </div>
 
         {filtradas.length === 0 ? (
-          <p className="text-gray-400 text-sm">No se encontraron heladeras con ese criterio.</p>
+          <div className="text-sm">
+            <p className="text-gray-400">No se encontraron heladeras con ese criterio.</p>
+            {busqueda.trim() && (
+              <p className="text-gray-400 mt-1">
+                ¿Es un equipo usado que nunca se cargó?{' '}
+                <button onClick={() => setCrearModal('reacondicionamiento')} className="text-accent hover:underline">
+                  Registralo acá
+                </button>
+              </p>
+            )}
+          </div>
         ) : (
           <div className="space-y-2">
             {filtradas.map((h) => (
@@ -111,7 +131,8 @@ export default function EquiposPage() {
 
       {crearModal && user && (
         <CrearHeladeraModal
-          onClose={() => setCrearModal(false)}
+          tipoPipeline={crearModal}
+          onClose={() => setCrearModal(null)}
           onSave={(data) => crearHeladera(data, { uid: user.uid, nombre: user.nombre }, catalogo)}
         />
       )}
