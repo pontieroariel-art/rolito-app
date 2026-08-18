@@ -8,6 +8,7 @@ const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-admin/firestore");
 const params_1 = require("firebase-functions/params");
 const web_push_1 = __importDefault(require("web-push"));
+const rateLimit_1 = require("../rateLimit");
 const vapidPublicKey = (0, params_1.defineSecret)('VAPID_PUBLIC_KEY');
 const vapidPrivateKey = (0, params_1.defineSecret)('VAPID_PRIVATE_KEY');
 // 404/410 de un push provider significan que la suscripción ya no es válida
@@ -32,6 +33,7 @@ exports.sendPush = (0, https_1.onCall)({ secrets: [vapidPublicKey, vapidPrivateK
     if (!rol || rol === 'cliente') {
         throw new https_1.HttpsError('permission-denied', 'Solo el staff puede enviar notificaciones');
     }
+    await (0, rateLimit_1.assertRateLimit)(request.auth.uid, 'sendPush', 30, 60);
     const { subscription, title, body } = (request.data ?? {});
     if (!subscription?.endpoint || !title) {
         throw new https_1.HttpsError('invalid-argument', 'Faltan subscription o title');

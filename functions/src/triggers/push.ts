@@ -2,6 +2,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { getFirestore, FieldValue } from 'firebase-admin/firestore'
 import { defineSecret } from 'firebase-functions/params'
 import webpush from 'web-push'
+import { assertRateLimit } from '../rateLimit'
 
 const vapidPublicKey  = defineSecret('VAPID_PUBLIC_KEY')
 const vapidPrivateKey = defineSecret('VAPID_PRIVATE_KEY')
@@ -38,6 +39,7 @@ export const sendPush = onCall(
     if (!rol || rol === 'cliente') {
       throw new HttpsError('permission-denied', 'Solo el staff puede enviar notificaciones')
     }
+    await assertRateLimit(request.auth.uid, 'sendPush', 30, 60)
 
     const { subscription, title, body } = (request.data ?? {}) as SendPushData
     if (!subscription?.endpoint || !title) {

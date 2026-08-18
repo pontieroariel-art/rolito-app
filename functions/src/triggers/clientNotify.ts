@@ -2,6 +2,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'
 import { sendEmail, APP_URL, resendApiKey } from '../email'
 import { tplPedidoCerca, tplPedidoReprogramado } from '../templates'
+import { assertRateLimit } from '../rateLimit'
 
 const STAFF_ROLES = new Set([
   'super_admin', 'gerente_general', 'gerente_comercial',
@@ -18,6 +19,7 @@ async function getRol(uid: string): Promise<string | undefined> {
 // servidor — el cliente solo pasa el orderId, nunca el email → sin relay.
 export const notifyCerca = onCall({ secrets: [resendApiKey] }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Requiere autenticación')
+  await assertRateLimit(request.auth.uid, 'notifyCerca', 5, 60)
 
   const orderId = (request.data?.orderId ?? '') as string
   if (!orderId) throw new HttpsError('invalid-argument', 'Falta orderId')
@@ -61,6 +63,7 @@ export const notifyReprogramado = onCall({ secrets: [resendApiKey] }, async (req
   if (!rol || !STAFF_ROLES.has(rol)) {
     throw new HttpsError('permission-denied', 'Solo el staff puede reprogramar')
   }
+  await assertRateLimit(request.auth.uid, 'notifyReprogramado', 20, 60)
 
   const orderId = (request.data?.orderId ?? '') as string
   if (!orderId) throw new HttpsError('invalid-argument', 'Falta orderId')

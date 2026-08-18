@@ -4,6 +4,7 @@ exports.orsDirections = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-admin/firestore");
 const params_1 = require("firebase-functions/params");
+const rateLimit_1 = require("../rateLimit");
 const orsKey = (0, params_1.defineSecret)('ORS_KEY');
 // Proxy server-side de ORS Directions. La API key de OpenRouteService vive como
 // secreto de Functions (ORS_KEY) y NUNCA se manda al navegador — antes viajaba
@@ -18,6 +19,7 @@ exports.orsDirections = (0, https_1.onCall)({ secrets: [orsKey] }, async (reques
     if (!rol || rol === 'cliente') {
         throw new https_1.HttpsError('permission-denied', 'Solo el staff puede calcular rutas');
     }
+    await (0, rateLimit_1.assertRateLimit)(request.auth.uid, 'orsDirections', 60, 60);
     const { coordinates, avoidPolygons } = (request.data ?? {});
     if (!Array.isArray(coordinates) || coordinates.length < 2) {
         throw new https_1.HttpsError('invalid-argument', 'Se requieren al menos 2 coordenadas');

@@ -4,6 +4,7 @@ exports.deleteAuthUsers = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const auth_1 = require("firebase-admin/auth");
 const firestore_1 = require("firebase-admin/firestore");
+const rateLimit_1 = require("../rateLimit");
 exports.deleteAuthUsers = (0, https_1.onCall)(async (request) => {
     if (!request.auth)
         throw new https_1.HttpsError('unauthenticated', 'No autenticado');
@@ -13,6 +14,7 @@ exports.deleteAuthUsers = (0, https_1.onCall)(async (request) => {
     if (!callerData || callerData.rol !== 'super_admin') {
         throw new https_1.HttpsError('permission-denied', 'Solo super_admin puede ejecutar esta acción');
     }
+    await (0, rateLimit_1.assertRateLimit)(request.auth.uid, 'deleteAuthUsers', 5, 60);
     const { uids, indices } = request.data;
     if (!Array.isArray(uids) || uids.length === 0)
         return { deleted: 0 };

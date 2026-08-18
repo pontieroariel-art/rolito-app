@@ -1,6 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
+import { assertRateLimit } from '../rateLimit'
 
 interface IndiceUsuario {
   email?: string
@@ -18,6 +19,7 @@ export const deleteAuthUsers = onCall(async (request) => {
   if (!callerData || callerData.rol !== 'super_admin') {
     throw new HttpsError('permission-denied', 'Solo super_admin puede ejecutar esta acción')
   }
+  await assertRateLimit(request.auth.uid, 'deleteAuthUsers', 5, 60)
 
   const { uids, indices } = request.data as { uids: string[]; indices?: IndiceUsuario[] }
   if (!Array.isArray(uids) || uids.length === 0) return { deleted: 0 }

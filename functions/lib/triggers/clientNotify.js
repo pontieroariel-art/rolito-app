@@ -5,6 +5,7 @@ const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-admin/firestore");
 const email_1 = require("../email");
 const templates_1 = require("../templates");
+const rateLimit_1 = require("../rateLimit");
 const STAFF_ROLES = new Set([
     'super_admin', 'gerente_general', 'gerente_comercial',
     'comercial', 'logistica', 'facturacion', 'chofer',
@@ -19,6 +20,7 @@ async function getRol(uid) {
 exports.notifyCerca = (0, https_1.onCall)({ secrets: [email_1.resendApiKey] }, async (request) => {
     if (!request.auth)
         throw new https_1.HttpsError('unauthenticated', 'Requiere autenticación');
+    await (0, rateLimit_1.assertRateLimit)(request.auth.uid, 'notifyCerca', 5, 60);
     const orderId = (request.data?.orderId ?? '');
     if (!orderId)
         throw new https_1.HttpsError('invalid-argument', 'Falta orderId');
@@ -62,6 +64,7 @@ exports.notifyReprogramado = (0, https_1.onCall)({ secrets: [email_1.resendApiKe
     if (!rol || !STAFF_ROLES.has(rol)) {
         throw new https_1.HttpsError('permission-denied', 'Solo el staff puede reprogramar');
     }
+    await (0, rateLimit_1.assertRateLimit)(request.auth.uid, 'notifyReprogramado', 20, 60);
     const orderId = (request.data?.orderId ?? '');
     if (!orderId)
         throw new https_1.HttpsError('invalid-argument', 'Falta orderId');

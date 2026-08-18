@@ -1,6 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'
 import { defineSecret } from 'firebase-functions/params'
+import { assertRateLimit } from '../rateLimit'
 
 const orsKey = defineSecret('ORS_KEY')
 
@@ -27,6 +28,7 @@ export const orsDirections = onCall({ secrets: [orsKey] }, async (request) => {
   if (!rol || rol === 'cliente') {
     throw new HttpsError('permission-denied', 'Solo el staff puede calcular rutas')
   }
+  await assertRateLimit(request.auth.uid, 'orsDirections', 60, 60)
 
   const { coordinates, avoidPolygons } = (request.data ?? {}) as OrsDirectionsData
   if (!Array.isArray(coordinates) || coordinates.length < 2) {
