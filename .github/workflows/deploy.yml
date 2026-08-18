@@ -34,6 +34,7 @@ jobs:
           VITE_FIREBASE_APP_ID:               ${{ secrets.VITE_FIREBASE_APP_ID }}
           VITE_GOOGLE_MAPS_API_KEY:           ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
           VITE_VAPID_PUBLIC_KEY:              ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
+          VITE_RECAPTCHA_SITE_KEY:            ${{ secrets.VITE_RECAPTCHA_SITE_KEY }}
         run: npm run build
 
       - name: Deploy to Firebase Hosting

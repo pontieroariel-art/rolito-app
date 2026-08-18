@@ -1,4 +1,5 @@
 import { initializeApp } from 'firebase/app'
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check'
 import { getAuth, connectAuthEmulator } from 'firebase/auth'
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, connectFirestoreEmulator } from 'firebase/firestore'
 
@@ -34,4 +35,16 @@ export const db   = initializeFirestore(app, {
 if (import.meta.env.DEV) {
   connectFirestoreEmulator(db, 'localhost', 8080)
   connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true })
+}
+
+// App Check queda listo pero inactivo hasta registrar la Web app en Firebase
+// Console (App Check → reCAPTCHA v3) y cargar VITE_RECAPTCHA_SITE_KEY. Sin esa
+// key no se inicializa nada — ningún cliente/build actual se ve afectado. No
+// se activa en dev/emulador (los tokens de App Check no aplican ahí).
+const recaptchaSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY
+if (recaptchaSiteKey && !import.meta.env.DEV) {
+  initializeAppCheck(app, {
+    provider: new ReCaptchaV3Provider(recaptchaSiteKey),
+    isTokenAutoRefreshEnabled: true,
+  })
 }
