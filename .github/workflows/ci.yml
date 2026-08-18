@@ -24,6 +24,9 @@ jobs:
       - name: Lint (src)
         run: npm run lint
 
+      - name: Tests unitarios (vitest)
+        run: npm run test:unit
+
       - name: Install functions deps
         run: npm ci
         working-directory: functions

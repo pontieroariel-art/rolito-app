@@ -41,3 +41,9 @@ scripts/import-errores.txt
 .playwright-mcp/
 /*.png
 /*.jpg
+
+# Reportes de test (Playwright / Vitest)
+/test-results/
+/playwright-report/
+/blob-report/
+/coverage/

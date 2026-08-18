@@ -2,6 +2,7 @@ import js from '@eslint/js'
 import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
 import tseslint from 'typescript-eslint'
+import eslintConfigPrettier from 'eslint-config-prettier'
 
 // Config lean, enfocada en bugs reales (no estilo). Arranca permisiva sobre el
 // código existente: apagamos las reglas ruidosas que marcarían patrones ya
@@ -48,4 +49,7 @@ export default tseslint.config(
       'no-constant-condition': 'off',
     },
   },
+  // Al final: apaga las reglas de ESLint que compiten con Prettier (estilo,
+  // no bugs) para que no haya conflictos entre `eslint --fix` y `format`.
+  eslintConfigPrettier,
 )
