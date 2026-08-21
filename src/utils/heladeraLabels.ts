@@ -48,9 +48,11 @@ export const ESTADO_TICKET_STYLES: Record<EstadoTicketServicio, string> = {
 
 // Sectores que hacen trabajos de reparación — sectorizan tanto a los técnicos
 // (su propio perfil) como al catálogo de tipos de reparación. Subconjunto de
-// AreaHeladera: no incluye los sectores de fabricación (plástico, ensamble e
-// inyectado, terminación) ni producción/servicio técnico.
-export const SECTORES_REPARACION: AreaHeladera[] = ['pintura', 'lijado', 'refrigeracion']
+// AreaHeladera: no incluye los sectores de fabricación (producción, plástico,
+// ensamble e inyectado, terminación). "servicio_tecnico" es el técnico que
+// repara en lo del cliente (va solo, con vehículo de la empresa) en vez de
+// en el taller — no requiere chofer para traslado.
+export const SECTORES_REPARACION: AreaHeladera[] = ['pintura', 'lijado', 'refrigeracion', 'servicio_tecnico']
 
 // Acceso completo al módulo heladeras (más allá del taller): encargado,
 // super_admin y gerente_comercial — mismo criterio que isHeladerasFullAccess()
