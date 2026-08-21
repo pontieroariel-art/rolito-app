@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, memo } from 'react'
 import {
-  DndContext, DragOverlay,
+  DndContext, DragOverlay, closestCenter,
   useDroppable, useDraggable,
 } from '@dnd-kit/core'
 import { Truck, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Lock, CheckCircle, RotateCcw, Eye, Package, ArrowRightLeft, AlertTriangle } from 'lucide-react'
@@ -938,7 +938,7 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
 
       {/* Tablero */}
       <div className="flex-1 min-h-0">
-        <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           {/* Desktop vs. mobile se elige con JS (useIsMobile), no con CSS
               (hidden md:...): dos columnas con el mismo id montadas a la vez
               (una solo tapada por CSS) hacen que dnd-kit registre dos

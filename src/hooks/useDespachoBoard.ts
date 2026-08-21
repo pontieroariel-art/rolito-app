@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { DragStartEvent, DragEndEvent, MouseSensor, TouchSensor, useSensors, useSensor, PointerSensor } from '@dnd-kit/core'
+import { DragStartEvent, DragEndEvent, MouseSensor, TouchSensor, useSensors, useSensor } from '@dnd-kit/core'
 import { Order, OrderProduct, UserProfile, Despacho, ProgramaVisita, VisitaPuntual, Camion, getPrimaryAddress, PLANTAS, PlantaId } from '../types'
 import { useCatalogo } from './useCatalogo'
 import { useAuth } from '../context/AuthContext'
@@ -236,11 +236,31 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
   const [activeId, setActiveId] = useState<string | null>(null)
 
   // ── Asignaciones locales ──────────────────────────────────────────────────
+  // `pendingMoves` trackea los ítems recién movidos a mano (doMove/handleTransfer)
+  // cuya escritura en Firestore todavía no volvió — moveItemAtomic/transferItemsAtomic
+  // usan runTransaction, que a diferencia de un update/set común NO tiene eco
+  // optimista en el cache local: hasta que el server confirma, `allItems` (que
+  // viene del listener onSnapshot) sigue mostrando el driverId viejo. Sin este
+  // seguimiento, el efecto de abajo (que corre apenas termina el drag, porque
+  // depende de `activeId`) reconstruía `assignments` a partir de ese `allItems`
+  // todavía viejo y pisaba el movimiento optimista — la tarjeta volvía a "Sin
+  // asignar" un instante después de soltarla y recién se corregía cuando
+  // llegaba la confirmación del server (cientos de ms después, más en
+  // producción que en el emulador local), lo que en el peor caso se veía como
+  // que arrastrar "no hacía nada".
+  const pendingMoves = useRef<Record<string, string>>({})
+
   const [assignments, setAssignments] = useState<Record<string, string>>({})
   useEffect(() => {
     if (activeId) return  // no resetear mientras hay un drag activo
     const m: Record<string, string> = {}
-    allItems.forEach((item) => { m[item.dndId] = item.driverId ? slotKey(item.driverId, item.vuelta) : 'sin_asignar' })
+    allItems.forEach((item) => {
+      const actual  = item.driverId ? slotKey(item.driverId, item.vuelta) : 'sin_asignar'
+      const pending = pendingMoves.current[item.dndId]
+      if (pending === undefined) { m[item.dndId] = actual; return }
+      if (pending === actual) delete pendingMoves.current[item.dndId]  // el server ya confirmó
+      m[item.dndId] = pending
+    })
     setAssignments(m)
   }, [allItems, activeId])
 
@@ -412,15 +432,19 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
   }, [fecha, choferesPrincipales.length, allItems.length])
 
   // ── DnD ──────────────────────────────────────────────────────────────────
+  // Solo Mouse+Touch (no también Pointer): dnd-kit desaconseja combinar
+  // PointerSensor con MouseSensor/TouchSensor porque compiten por el mismo
+  // mousedown/pointerdown. Mismo patrón (Mouse+Touch sin Pointer) que ya usan
+  // LogisticaDashboard.tsx y ChoferMap.tsx.
   const sensors = useSensors(
-    useSensor(MouseSensor,   { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor,   { activationConstraint: { delay: 200, tolerance: 8 } }),
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
   )
 
   const handleDragStart = ({ active }: DragStartEvent) => setActiveId(active.id as string)
 
   const doMove = useCallback(async (dndId: string, from: string, to: string, flagModified = false) => {
+    pendingMoves.current[dndId] = to  // ver comentario en pendingMoves más arriba
     setAssignments((prev) => ({ ...prev, [dndId]: to }))
     const { kind, id } = parseDndId(dndId)
     const fromP = from !== 'sin_asignar' ? parseSlotKey(from) : null
@@ -443,6 +467,7 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
       // quedaba movida visualmente hasta que algún cambio no relacionado en
       // allItems forzara un reset — acá se revierte de inmediato.
       console.error('No se pudo mover la parada:', err)
+      delete pendingMoves.current[dndId]
       setAssignments((prev) => ({ ...prev, [dndId]: from }))
     }
   }, [fecha])
@@ -484,6 +509,7 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
       const { kind, id } = parseDndId(dndId)
       return { kind, id, dndId }
     })
+    selectedDndIds.forEach((dndId) => { pendingMoves.current[dndId] = toDriver })  // ver comentario en pendingMoves
     await transferItemsAtomic({ fecha, fromDriver, toDriver, motivo, items, fromVuelta, toVuelta: 1 })
     setAssignments((prev) => {
       const next = { ...prev }
