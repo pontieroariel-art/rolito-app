@@ -117,6 +117,18 @@ export const toggleTipoFavorito = (uid: string, tipoId: string, esFavorito: bool
     tiposFavoritos: esFavorito ? arrayRemove(tipoId) : arrayUnion(tipoId),
   })
 
+// "Ocultar del mapa" es una preferencia personal de CADA usuario de staff
+// (guardada en su propio documento, no en el del cliente) — así lo que un
+// logística no quiere ver no le afecta la vista a comercial ni a nadie más,
+// y el cliente ocultado sigue activo/pudiendo pedir como siempre.
+export const setClienteOcultoMapa = (staffUid: string, clientId: string, oculto: boolean): Promise<void> =>
+  updateDoc(doc(db, 'users', staffUid), {
+    clientesOcultosMapa: oculto ? arrayUnion(clientId) : arrayRemove(clientId),
+  })
+
+export const restoreClientesOcultosMapa = (staffUid: string): Promise<void> =>
+  updateDoc(doc(db, 'users', staffUid), { clientesOcultosMapa: [] })
+
 export const getPushSubscription = async (uid: string): Promise<PushSubscriptionJSON | null> => {
   const snap = await getDoc(doc(db, 'users', uid))
   return snap.exists() ? (snap.data().pushSubscription ?? null) : null

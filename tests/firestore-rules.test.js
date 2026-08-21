@@ -139,6 +139,16 @@ describe('users — staff no puede editar documentos de otro staff', () => {
     }))
   })
 
+  test('logistica SÍ puede fijar la condición de venta de un cliente', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/ops'), { rol: 'logistica', estado: 'activo' })
+      await setDoc(doc(d, 'users/cli'), cliente())
+    })
+    await assertSucceeds(updateDoc(doc(db('ops'), 'users/cli'), {
+      condicionVenta: 'Cuenta corriente',
+    }))
+  })
+
   test('gerente_comercial SÍ puede activar un cliente (estado/aprobación)', async () => {
     await seed(async (d) => {
       await setDoc(doc(d, 'users/gc'), { rol: 'gerente_comercial', estado: 'activo' })
@@ -415,6 +425,14 @@ describe('orders — actualización por operador', () => {
       clientId: 'otro-cliente', updatedAt: new Date(),
     }))
   })
+
+  test('operador (logistica) SÍ puede asignar el pedido a una 2da vuelta del chofer', async () => {
+    await seed((d) => setDoc(doc(d, 'users/ops'), { rol: 'logistica', estado: 'activo' }))
+    await seedPedido()
+    await assertSucceeds(updateDoc(doc(db('ops'), 'orders/o1'), {
+      driverId: 'chofer@x.com', vuelta: 2, updatedAt: new Date(),
+    }))
+  })
 })
 
 // ── orders: lectura por heladeras_encargado (ranking de consumo) ──────────────
@@ -429,6 +447,33 @@ describe('orders — lectura por heladeras_encargado', () => {
     await seed((d) => setDoc(doc(d, 'users/per'), { rol: 'heladeras', estado: 'activo', area: 'refrigeracion' }))
     await seed((d) => setDoc(doc(d, 'orders/o1'), pedido()))
     await assertFails(getDoc(doc(db('per'), 'orders/o1')))
+  })
+})
+
+// ── users: clientesOcultosMapa (preferencia personal de mapa) ─────────────────
+describe('users — clientesOcultosMapa (preferencia personal de mapa)', () => {
+  test('logistica SÍ puede ocultar un cliente en su propio mapa', async () => {
+    await seed((d) => setDoc(doc(d, 'users/ops'), { rol: 'logistica', estado: 'activo' }))
+    await assertSucceeds(updateDoc(doc(db('ops'), 'users/ops'), {
+      clientesOcultosMapa: ['cli1'],
+    }))
+  })
+
+  test('logistica NO puede tocar clientesOcultosMapa de otro miembro del staff', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/ops'),  { rol: 'logistica', estado: 'activo' })
+      await setDoc(doc(d, 'users/ops2'), { rol: 'logistica', estado: 'activo' })
+    })
+    await assertFails(updateDoc(doc(db('ops'), 'users/ops2'), {
+      clientesOcultosMapa: ['cli1'],
+    }))
+  })
+
+  test('ocultar un cliente en el mapa no le cambia el rol ni el estado (no es un lockout disfrazado)', async () => {
+    await seed((d) => setDoc(doc(d, 'users/ops'), { rol: 'logistica', estado: 'activo' }))
+    await assertFails(updateDoc(doc(db('ops'), 'users/ops'), {
+      clientesOcultosMapa: ['cli1'], estado: 'inactivo',
+    }))
   })
 })
 

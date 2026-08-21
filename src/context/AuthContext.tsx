@@ -112,6 +112,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // se tildan/destildan en vivo desde el modal de Registrar trabajo, sin
         // recargar la página.
         const newFavoritos = d.tiposFavoritos as UserProfile['tiposFavoritos']
+        // Clientes que este usuario de staff ocultó en su propio mapa de
+        // Planificación (ver MapaPlanificacion.tsx) — mismo motivo que
+        // tiposFavoritos: se togglea desde otra pantalla y tiene que
+        // reflejarse en vivo sin recargar.
+        const newOcultosMapa = d.clientesOcultosMapa as UserProfile['clientesOcultosMapa']
         const cur        = userRef.current
         if (!cur) return
         const changed =
@@ -122,7 +127,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           JSON.stringify(newAddrs)     !== JSON.stringify(cur.addresses) ||
           JSON.stringify(newSistemas)  !== JSON.stringify(cur.sistemasPermitidos) ||
           JSON.stringify(newPestanas)  !== JSON.stringify(cur.pestanasPermitidas) ||
-          JSON.stringify(newFavoritos) !== JSON.stringify(cur.tiposFavoritos)
+          JSON.stringify(newFavoritos) !== JSON.stringify(cur.tiposFavoritos) ||
+          JSON.stringify(newOcultosMapa) !== JSON.stringify(cur.clientesOcultosMapa)
         if (!changed) return
         dispatch({ type: 'RESOLVED', user: {
           ...cur,
@@ -134,6 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           sistemasPermitidos: newSistemas,
           pestanasPermitidas: newPestanas,
           tiposFavoritos: newFavoritos,
+          clientesOcultosMapa: newOcultosMapa,
         }})
       },
       (err) => console.error('AuthContext profile snapshot error:', err),

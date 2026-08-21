@@ -104,8 +104,18 @@ export interface UserProfile {
   ultimoCambioPrecio?: Timestamp | null
   codigoCliente?:     string
   codVendedor?:       string   // código de vendedor asignado (e.g. MV, AD)
+  // Contado / cuenta corriente, etc. — ver CONDICIONES_VENTA en constants.ts.
+  // String libre (no unión estricta) porque algunos clientes ya traen un
+  // valor crudo de la importación vieja de Tango (COND_VTA) que no
+  // necesariamente coincide con las opciones fijas del desplegable.
+  condicionVenta?:    string
   dni?:               string   // DNI sin puntos (8 dígitos) — staff y choferes
   notasContacto?:     string   // internal-only notes from Excel import (admin view)
+  // Clientes que ESTE usuario de staff decidió sacarse de encima en su propio
+  // mapa de Planificación (ej. estaciones de servicio que no coordina) — es
+  // una preferencia personal, no un estado del cliente: no afecta su login,
+  // sus pedidos ni lo que ve otro miembro del staff.
+  clientesOcultosMapa?: string[]
   fechaAlta?:         Timestamp | null
   sector?:            string   // internal-only prefix from COD_CTE (e.g. FC, MDP, YPF)
   subrol?:            'chofer' | 'ayudante'
@@ -136,6 +146,7 @@ export interface ProgramaVisita {
   clientPhone:   string
   diasSemana:    number[]         // 0=Dom … 6=Sáb (Date.getDay())
   driverId:      string | null
+  vuelta?:       number           // ver Order.vuelta / Despacho.vuelta
   activo:        boolean
   notas?:        string
   createdAt:     Timestamp
@@ -149,6 +160,7 @@ export interface VisitaPuntual {
   clientPhone:   string
   fecha:         Timestamp
   driverId:      string | null
+  vuelta?:       number           // ver Order.vuelta / Despacho.vuelta
   status:        'pendiente' | 'visitado' | 'sin_contacto'
   notas?:        string
   orderId?:      string
@@ -191,7 +203,7 @@ export const PLANTAS = {
 export type PlantaId = keyof typeof PLANTAS
 
 export interface Despacho {
-  id:           string     // `${fecha}_${emailSanitizado}`
+  id:           string     // `${fecha}_${emailSanitizado}` (vuelta 1) | `${fecha}_${emailSanitizado}_v${vuelta}` (vuelta 2+)
   fecha:        string     // 'yyyy-MM-dd'
   driverId:     string     // email del chofer
   driverName:   string
@@ -206,6 +218,11 @@ export interface Despacho {
   confirmedAt?: Timestamp | null
   confirmedBy?: string | null
   modifiedAfterConfirm?: boolean
+  // Número de vuelta del camión/chofer ese día (1 = primera, sin campo =
+  // también 1). Permite un 2do despacho independiente del mismo chofer el
+  // mismo día ("sale, entrega, vuelve a cargar") sin mezclar sus paradas con
+  // las de la 1ra vuelta.
+  vuelta?:      number
 }
 
 export interface AccionHistorial {
@@ -240,6 +257,11 @@ export interface Order {
   status: OrderStatus
   date: Timestamp
   driverId: string | null
+  // Vuelta del despacho del chofer a la que pertenece esta parada (ver
+  // Despacho.vuelta) — sin campo = vuelta 1. Se persiste en el pedido (no
+  // solo en Despacho.orderIds) para que un despacho todavía en borrador
+  // sobreviva a un refresh de página sin colapsar a una sola vuelta.
+  vuelta?: number
   notes: string
   createdAt: Timestamp
   updatedAt: Timestamp

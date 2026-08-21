@@ -17,8 +17,8 @@ import { useChoferes } from '../../hooks/useChoferes'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { useAuth } from '../../context/AuthContext'
 import { moveOrderDate, moveOrderToBandeja, assignDriver, cancelOrderBy, editOrderBy, EditOrderParams } from '../../services/orderService'
-import { summarizeProducts, tsToDate, splitSucursalLabel, getCodigoCliente, buildCodigoByClientId, toDateStr as dateToStr } from '../../utils/helpers'
-import { PRODUCTS, CLIENT_LOGOS } from '../../utils/constants'
+import { summarizeProducts, tsToDate, getCodigoCliente, buildCodigoByClientId, toDateStr as dateToStr } from '../../utils/helpers'
+import { PRODUCTS, resolveClientDisplay } from '../../utils/constants'
 import { useCatalogo } from '../../hooks/useCatalogo'
 import { Order, OrderProduct, UserProfile, AccionHistorial } from '../../types'
 
@@ -442,8 +442,7 @@ const OrderListRow = memo(function OrderListRow({ order, choferes, codigoCliente
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: order.id })
   const color = order.driverId ? driverColor(order.driverId, choferes) : '#D97706'
   const totalUnits = order.products.reduce((sum, p) => sum + p.quantity, 0)
-  const { empresa, sucursal } = splitSucursalLabel(order.clientName)
-  const clientLogo = CLIENT_LOGOS[order.clientId]
+  const { logo: clientLogo, empresa, sucursal } = resolveClientDisplay(order.clientId, order.clientName)
 
   return (
     <div

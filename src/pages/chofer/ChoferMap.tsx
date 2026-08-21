@@ -17,7 +17,7 @@ import { useDriverOrders } from '../../hooks/useOrders'
 import { markDelivered } from '../../services/orderService'
 import EntregaModal from '../../components/chofer/EntregaModal'
 import { updateDriverLocation, deactivateDriverLocation } from '../../services/locationService'
-import { subscribeMyDespacho, subscribeDespachoForAyudante, todayStr } from '../../services/despachoService'
+import { subscribeDespachosForDriver, subscribeDespachosForAyudante, pickActiveDespacho, todayStr } from '../../services/despachoService'
 import { useAuth } from '../../context/AuthContext'
 import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
 import { summarizeProducts } from '../../utils/helpers'
@@ -136,32 +136,38 @@ export default function ChoferMap() {
   const [routeStale, setRouteStale]   = useState(false)
   const [deliveryOrder, setDeliveryOrder] = useState<Order | null>(null)
   const [pdfLoading, setPdfLoading]   = useState(false)
-  const [myDespacho,  setMyDespacho]  = useState<Despacho | null>(null)
   const [manualOrder, setManualOrder] = useState<string[]>([])
   const [activeId,    setActiveId]    = useState<string | null>(null)
 
   const isAyudante = user?.subrol === 'ayudante'
-  const [pairedDespacho,        setPairedDespacho]        = useState<Despacho | null>(null)
+  // Puede haber más de un despacho el mismo día (varias vueltas del mismo
+  // chofer) — vienen ordenados por vuelta ascendente.
+  const [misDespachos,          setMisDespachos]          = useState<Despacho[]>([])
+  const [pairedDespachos,       setPairedDespachos]       = useState<Despacho[]>([])
   const [pairedDespachoLoading, setPairedDespachoLoading] = useState(isAyudante)
 
   // Suscribirse al despacho: chofer propio o del chofer asignado (ayudante)
   useEffect(() => {
     if (!user?.email || isAyudante) return
-    return subscribeMyDespacho(todayStr(), user.email, setMyDespacho)
+    return subscribeDespachosForDriver(todayStr(), user.email, setMisDespachos)
   }, [user?.email, isAyudante])
 
   useEffect(() => {
     if (!user?.email || !isAyudante) return
-    return subscribeDespachoForAyudante(todayStr(), user.email, (d) => {
-      setPairedDespacho(d)
+    return subscribeDespachosForAyudante(todayStr(), user.email, (ds) => {
+      setPairedDespachos(ds)
       setPairedDespachoLoading(false)
-      setMyDespacho(d)
     })
   }, [user?.email, isAyudante])
 
+  const despachosHoy = isAyudante ? pairedDespachos : misDespachos
+  // El despacho "activo" — el confirmado de vuelta más alta (o el primero si
+  // ninguno está confirmado todavía) — solo para el banner de camión/planta.
+  const myDespacho = pickActiveDespacho(despachosHoy)
+
   // Email para cargar pedidos del chofer asignado (ayudante) o propios (chofer)
   const ordersEmail = isAyudante
-    ? (pairedDespachoLoading ? null : (pairedDespacho?.driverId ?? null))
+    ? (pairedDespachoLoading ? null : (pairedDespachos[0]?.driverId ?? null))
     : undefined
 
   const { orders, loading }           = useDriverOrders(ordersEmail)
@@ -175,14 +181,17 @@ export default function ChoferMap() {
   // abajo (wake lock, envío de GPS) se reinicien en cada entrega individual.
   const hasPending = pending.length > 0
 
-  const hasDespachoOrder = myDespacho?.status === 'confirmado' && (myDespacho.orderIds?.length ?? 0) > 0
+  const hasDespachoOrder = despachosHoy.some((d) => d.status === 'confirmado' && (d.orderIds?.length ?? 0) > 0)
 
-  // Calcular el orden base (de logística o por defecto)
+  // Calcular el orden base (de logística o por defecto): concatena las
+  // paradas de todos los despachos confirmados del día, en orden de vuelta
+  // (vuelta 1 primero) — el chofer termina una vuelta antes de empezar la
+  // siguiente.
   const baseOrder = useMemo<Order[]>(() => {
     if (hasDespachoOrder) {
-      const orderIdOrder = (myDespacho?.orderIds ?? [])
-        .filter((x) => x.startsWith('o:'))
-        .map((x) => x.slice(2))
+      const orderIdOrder = despachosHoy
+        .filter((d) => d.status === 'confirmado')
+        .flatMap((d) => (d.orderIds ?? []).filter((x) => x.startsWith('o:')).map((x) => x.slice(2)))
       const byId  = new Map(pending.map((o) => [o.id, o]))
       const sorted = orderIdOrder.map((id) => byId.get(id)).filter(Boolean) as Order[]
       const inSet  = new Set(orderIdOrder)
@@ -190,7 +199,7 @@ export default function ChoferMap() {
       return [...sorted, ...extra]
     }
     return pending
-  }, [hasDespachoOrder, myDespacho, pending])
+  }, [hasDespachoOrder, despachosHoy, pending])
 
   // Inicializar/sincronizar el orden manual cuando cambia el orden base
   const prevBaseIds = useRef<string>('')

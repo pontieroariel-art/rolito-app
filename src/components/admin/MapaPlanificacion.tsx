@@ -12,6 +12,8 @@ import { Order, UserProfile, Despacho, getPrimaryAddress, PLANTAS, PlantaId } fr
 import { nearestNeighborOrder, timeStrToUnix, unixToTimeStr, LatLng } from '../../utils/routeMath'
 import { fetchOrsDirections, OrsAvoidPolygons } from '../../services/orsService'
 import { subscribeDespachosByFecha, despachoId, updateDespacho } from '../../services/despachoService'
+import { setClienteOcultoMapa, restoreClientesOcultosMapa } from '../../services/userService'
+import { useAuth } from '../../context/AuthContext'
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -194,13 +196,25 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
   const { isLoaded }       = useGoogleMapsLoader()
   const { visitas }        = useVisitasPuntuales()
   const { zonas }          = useZonasProhibidas()
+  const { user: staffUser } = useAuth()
   const mapRef             = useRef<google.maps.Map | null>(null)
+
+  // Clientes que ESTE usuario decidió sacarse de encima en su propio mapa
+  // (ej. estaciones de servicio que no coordina) — preferencia personal, no
+  // toca el estado del cliente ni lo que ve otro miembro del staff.
+  const ocultosMapa = useMemo(
+    () => new Set(staffUser?.clientesOcultosMapa ?? []),
+    [staffUser?.clientesOcultosMapa],
+  )
 
   const [selectedDate,      setSelectedDate]      = useState(() => todayString())
   const [orderMarkers,      setOrderMarkers]      = useState<OrderMarker[]>([])
   const [clientMarkers,     setClientMarkers]     = useState<ClientMarker[]>([])
   const [geocoding,         setGeocoding]         = useState(false)
-  const [showAllClients,    setShowAllClients]    = useState(true)
+  // Apagado por defecto: geocodificar y montar un pin por cada cliente sin
+  // pedido (pueden ser miles) es pesado — se activa a pedido con el botón
+  // "Mostrar clientes sin pedido", no en cada entrada a la pestaña Mapa.
+  const [showAllClients,    setShowAllClients]    = useState(false)
   const [selectedOrder,     setSelectedOrder]     = useState<string | null>(null)
   const [selectedClientId,  setSelectedClientId]  = useState<string | null>(null)
   const [visitaDriverId,    setVisitaDriverId]    = useState<string | null>(null)
@@ -239,9 +253,15 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
     return subscribeDespachosByFecha(selectedDate, setDespachos)
   }, [selectedDate])
 
+  // Un chofer puede tener más de un despacho el mismo día (varias vueltas,
+  // ver DespachoBoard) — acá nos quedamos siempre con la vuelta 1: esta
+  // pantalla es de planificación general, no de multi-vuelta.
   const despachoByDriver = useMemo(() => {
     const m: Record<string, Despacho> = {}
-    despachos.forEach((d) => { m[d.driverId] = d })
+    despachos.forEach((d) => {
+      const existing = m[d.driverId]
+      if (!existing || (d.vuelta ?? 1) < (existing.vuelta ?? 1)) m[d.driverId] = d
+    })
     return m
   }, [despachos])
 
@@ -325,11 +345,29 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
     })
   }, [isLoaded, ordersDay, choferes, geocode])
 
-  // Geocodificar sucursales sin pedido (usa coords guardadas primero)
+  // Visitas puntuales del día seleccionado (de Firestore en tiempo real) —
+  // declarado acá arriba (antes vivía después del efecto de geocodificación)
+  // porque el efecto de abajo necesita saber qué clientes tienen visita hoy.
+  const visitasDelDia = useMemo(
+    () => visitasParaFecha(visitas, new Date(selectedDate + 'T12:00:00')),
+    [visitas, selectedDate],
+  )
+
+  // Geocodificar sucursales sin pedido (usa coords guardadas primero). Los
+  // clientes con VISITA agendada hoy se geocodifican siempre (son pocos y el
+  // cálculo de ruta los necesita, incluso si el usuario los ocultó en algún
+  // momento); el resto — que puede ser toda la cartera, miles de clientes —
+  // solo si el usuario los pidió ver con "Mostrar clientes sin pedido" (nunca
+  // de entrada al abrir la pestaña Mapa) y no los ocultó individualmente.
   useEffect(() => {
     if (!isLoaded || allClients.length === 0) return
+    const visitClientIds = new Set(visitasDelDia.map((v) => v.clientId))
+    const toGeocode = showAllClients
+      ? clientsWithoutOrder.filter((s) => !ocultosMapa.has(s.uid) || visitClientIds.has(s.uid))
+      : clientsWithoutOrder.filter((s) => visitClientIds.has(s.uid))
+    if (toGeocode.length === 0) { setClientMarkers([]); return }
     Promise.all(
-      clientsWithoutOrder.map(async (s) => {
+      toGeocode.map(async (s) => {
         let pt: { lat: number; lng: number } | null = null
         if (s.lat && s.lng) {
           pt = { lat: s.lat, lng: s.lng }
@@ -347,13 +385,7 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
         } as ClientMarker
       }),
     ).then((res) => setClientMarkers(res.filter(Boolean) as ClientMarker[]))
-  }, [isLoaded, allClients.length, clientsWithoutOrder, geocode])
-
-  // Visitas puntuales del día seleccionado (de Firestore en tiempo real)
-  const visitasDelDia = useMemo(
-    () => visitasParaFecha(visitas, new Date(selectedDate + 'T12:00:00')),
-    [visitas, selectedDate],
-  )
+  }, [isLoaded, showAllClients, allClients.length, clientsWithoutOrder, visitasDelDia, ocultosMapa, geocode])
 
   const clearRoute = useCallback((driverEmail: string) => {
     const idsToRemove = new Set([
@@ -524,22 +556,19 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
     void runRouteCalculation(driverEmail, orderedStops)
   }, [plantaChofer, orderMarkers, visitasDelDia, clientMarkers, isLoaded, despachoByDriver, runRouteCalculation])
 
-  // Auto-fit bounds
+  // Auto-fit bounds — `clientMarkers` ya viene acotado por el efecto de
+  // geocodificación (todos los clientes sin pedido si el toggle está
+  // prendido, o solo los que tienen visita hoy si está apagado), no hace
+  // falta volver a filtrar acá.
   useEffect(() => {
     if (!mapRef.current) return
-    const pts = [
-      ...orderMarkers,
-      ...(showAllClients
-        ? clientMarkers
-        : clientMarkers.filter((m) => visitasDelDia.some((v) => v.clientId === m.id))
-      ),
-    ]
+    const pts = [...orderMarkers, ...clientMarkers]
     if (pts.length === 0) return
     if (pts.length === 1) { mapRef.current.panTo(pts[0]); mapRef.current.setZoom(14); return }
     const bounds = new google.maps.LatLngBounds()
     pts.forEach((p) => bounds.extend(p))
     mapRef.current.fitBounds(bounds, 60)
-  }, [orderMarkers, clientMarkers, showAllClients, visitasDelDia])
+  }, [orderMarkers, clientMarkers])
 
   // Choferes activos en el día (con pedidos O con visitas agendadas)
   const activeDrivers = choferes.filter((c) =>
@@ -696,8 +725,16 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
                 : 'bg-white border-[#D3D1C7] text-gray-500 hover:border-accent'
             }`}
           >
-            {showAllClients ? 'Ocultar clientes sin pedido' : 'Ver todos los clientes'}
+            {showAllClients ? 'Ocultar clientes sin pedido' : 'Mostrar clientes sin pedido'}
           </button>
+          {ocultosMapa.size > 0 && (
+            <button
+              onClick={() => { if (staffUser) restoreClientesOcultosMapa(staffUser.uid) }}
+              className="w-full text-xs text-gray-400 hover:text-accent transition-colors"
+            >
+              {ocultosMapa.size} oculto{ocultosMapa.size !== 1 ? 's' : ''} por vos · Mostrar de nuevo
+            </button>
+          )}
         </div>
 
         {/* Zonas prohibidas */}
@@ -1000,8 +1037,11 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
               setSelectedOrder(null)
             }}
           >
-            {/* Pines de clientes sin pedido */}
-            {showAllClients && clientMarkers.map((m) => {
+            {/* Pines de clientes sin pedido — con el toggle apagado, `clientMarkers`
+                ya viene acotado (por el efecto de geocodificación) a solo los
+                clientes con visita agendada hoy, así que no hace falta
+                repetir el gate acá: siempre se muestra lo que haya. */}
+            {clientMarkers.map((m) => {
               const visitaExistente = visitasDelDia.find((v) => v.clientId === m.uid)
               const visitaLabel = visitaExistente ? routeLabels[visitaExistente.id] : undefined
               const pinColor = visitaExistente?.driverId
@@ -1025,7 +1065,19 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
                     <div style={{ fontSize: 13, minWidth: 200, lineHeight: 1.5, fontFamily: 'sans-serif', color: '#111' }}>
                       <p style={{ margin: '0 0 2px', fontWeight: 700 }}>{m.title}</p>
                       <p style={{ margin: '0 0 2px', color: '#666', fontSize: 11 }}>{m.address}</p>
-                      {m.phone && <p style={{ margin: '0 0 10px', color: '#1D9E75', fontSize: 11 }}>{m.phone}</p>}
+                      {m.phone && <p style={{ margin: '0 0 6px', color: '#1D9E75', fontSize: 11 }}>{m.phone}</p>}
+                      {!visitaExistente && staffUser && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setClienteOcultoMapa(staffUser.uid, m.uid, true)
+                            setSelectedClientId(null)
+                          }}
+                          style={{ display: 'block', margin: '0 0 10px', padding: 0, background: 'none', border: 'none', color: '#999', fontSize: 11, cursor: 'pointer', textDecoration: 'underline' }}
+                        >
+                          No mostrar de nuevo en mi mapa
+                        </button>
+                      )}
                       {visitaDone.has(m.id) || visitaDone.has(m.uid) || visitaExistente ? (
                         <p style={{ color: '#1D9E75', fontWeight: 700, margin: 0 }}>✓ Visita agendada</p>
                       ) : (

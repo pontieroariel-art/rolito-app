@@ -32,6 +32,7 @@ export interface DayItem {
   label:    string
   sublabel: string
   driverId: string | null
+  vuelta:   number          // vuelta del despacho a la que pertenece (1 si no tiene)
   products?: OrderProduct[] // solo para kind === 'order'
   numeroOC?:             string // solo para kind === 'order'
   reprogramado?:         boolean
@@ -41,15 +42,15 @@ export interface DayItem {
 function itemsFromOrder(o: Order): DayItem {
   return {
     kind: 'order', dndId: `o:${o.id}`, id: o.id, clientId: o.clientId, label: o.clientName, sublabel: o.clientAddress,
-    driverId: o.driverId, products: o.products, numeroOC: o.numeroOC,
+    driverId: o.driverId, vuelta: o.vuelta ?? 1, products: o.products, numeroOC: o.numeroOC,
     reprogramado: o.reprogramado, motivoReprogramacion: o.motivoReprogramacion,
   }
 }
 function itemsFromVisita(v: VisitaPuntual): DayItem {
-  return { kind: 'visita', dndId: `v:${v.id}`, id: v.id, clientId: v.clientId, label: v.clientName, sublabel: v.clientAddress, driverId: v.driverId }
+  return { kind: 'visita', dndId: `v:${v.id}`, id: v.id, clientId: v.clientId, label: v.clientName, sublabel: v.clientAddress, driverId: v.driverId, vuelta: v.vuelta ?? 1 }
 }
 function itemsFromPrograma(p: ProgramaVisita): DayItem {
-  return { kind: 'programa', dndId: `p:${p.id}`, id: p.id, clientId: p.clientId, label: p.clientName, sublabel: p.clientAddress, driverId: p.driverId }
+  return { kind: 'programa', dndId: `p:${p.id}`, id: p.id, clientId: p.clientId, label: p.clientName, sublabel: p.clientAddress, driverId: p.driverId, vuelta: p.vuelta ?? 1 }
 }
 
 function parseDndId(dndId: string): { kind: ItemKind; id: string } {
@@ -57,6 +58,23 @@ function parseDndId(dndId: string): { kind: ItemKind; id: string } {
   const id = rest.join(':')
   const kind: ItemKind = prefix === 'o' ? 'order' : prefix === 'v' ? 'visita' : 'programa'
   return { kind, id }
+}
+
+// ── Slots (chofer + vuelta) ──────────────────────────────────────────────────
+// Cada columna de camión puede tener más de un despacho el mismo día ("vuelta
+// 2" — el camión vuelve a planta y carga de nuevo). Puertas adentro del
+// tablero, cada combinación chofer+vuelta se identifica con un "slot": para
+// la vuelta 1 el slot es directamente el email del chofer (idéntico al
+// comportamiento histórico, sin cambios visibles si nadie usa vueltas
+// extra); de la vuelta 2 en adelante el slot suma un sufijo `#N`.
+export function slotKey(driverEmail: string, vuelta = 1): string {
+  return vuelta > 1 ? `${driverEmail}#${vuelta}` : driverEmail
+}
+
+export function parseSlotKey(slot: string): { email: string; vuelta: number } {
+  const i = slot.indexOf('#')
+  if (i === -1) return { email: slot, vuelta: 1 }
+  return { email: slot.slice(0, i), vuelta: Number(slot.slice(i + 1)) || 1 }
 }
 
 // ── Helpers de fecha (también usados por el render de DespachoBoard.tsx) ────
@@ -81,6 +99,11 @@ export interface DespachoBoardState {
   choferesPrincipales: UserProfile[]
   asignacionesDia:    AsignacionesDia
   handleAsignacionChange: (choferEmail: string, patch: Partial<AsignacionChofer>) => Promise<void>
+  // Todos los Record<string, ...> de acá para abajo están keyeados por "slot"
+  // (ver slotKey/parseSlotKey): el email del chofer para su vuelta 1, o
+  // `email#N` para la vuelta N — no por email de chofer a secas.
+  vueltasByDriver:    Record<string, number[]>
+  handleAddVuelta:    (driverEmail: string) => void
   despachoByDriver:   Record<string, Despacho>
   itemsByDriver:      Record<string, DayItem[]>
   routeOrder:         Record<string, string[]>
@@ -91,23 +114,23 @@ export interface DespachoBoardState {
   horaSalidaByDriver: Record<string, string>
   catalogo:           ReturnType<typeof useCatalogo>['catalogo']
   manualOrder:        Record<string, boolean>
-  handlePlantaChange:     (driverEmail: string, p: PlantaId) => void
-  handleHoraSalidaChange: (driverEmail: string, h: string) => void
-  handleConfirmClick:     (email: string) => void
-  handleReopen:           (driverEmail: string) => Promise<void>
-  handleTransferClick:    (email: string) => void
-  handleManualReorder:    (driverEmail: string, newOrderIds: string[]) => Promise<void>
-  handleRecalculate:      (driverEmail: string) => void
+  handlePlantaChange:     (slot: string, p: PlantaId) => void
+  handleHoraSalidaChange: (slot: string, h: string) => void
+  handleConfirmClick:     (slot: string) => void
+  handleReopen:           (slot: string) => Promise<void>
+  handleTransferClick:    (slot: string) => void
+  handleManualReorder:    (slot: string, newOrderIds: string[]) => Promise<void>
+  handleRecalculate:      (slot: string) => void
   sensors:            ReturnType<typeof useSensors>
   handleDragStart:    (e: DragStartEvent) => void
   handleDragEnd:      (e: DragEndEvent) => Promise<void>
   activeItem:         DayItem | null | undefined
   confirmingDriver:   string | null
-  setConfirmingDriver: (email: string | null) => void
+  setConfirmingDriver: (slot: string | null) => void
   confirmLoading:     boolean
   confirmingChofer:   UserProfile | null | undefined
   confirmingItems:    DayItem[]
-  handleConfirm:      (driverEmail: string) => Promise<void>
+  handleConfirm:      (slot: string) => Promise<void>
   transferModal:      { fromDriver: string } | null
   setTransferModal:   (m: { fromDriver: string } | null) => void
   handleTransfer:     (selectedDndIds: string[], toDriver: string, motivo: string) => Promise<void>
@@ -179,9 +202,35 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
 
   const despachoByDriver = useMemo(() => {
     const m: Record<string, Despacho> = {}
-    despachos.forEach((d) => { m[d.driverId] = d })
+    despachos.forEach((d) => { m[slotKey(d.driverId, d.vuelta ?? 1)] = d })
     return m
   }, [despachos])
+
+  // ── Vueltas abiertas por chofer ────────────────────────────────────────────
+  // Vuelta 2+ que el admin abrió a mano esta sesión ("+ Agregar vuelta") pero
+  // todavía no tiene despacho guardado (recién se crea al confirmar, como la
+  // vuelta 1 hoy). Se resetea al cambiar de día.
+  const [openVueltas, setOpenVueltas] = useState<Record<string, number>>({})
+  useEffect(() => { setOpenVueltas({}) }, [fecha])
+
+  const handleAddVuelta = useCallback((driverEmail: string) => {
+    setOpenVueltas((prev) => ({ ...prev, [driverEmail]: (prev[driverEmail] ?? 1) + 1 }))
+  }, [])
+
+  // Vueltas visibles por chofer: unión de lo abierto a mano, lo que ya tiene
+  // despacho guardado, y lo que ya viene asignado en algún pedido/visita
+  // (para que una vuelta 2 en borrador sobreviva a un refresh de página, aun
+  // sin despacho todavía confirmado).
+  const vueltasByDriver = useMemo(() => {
+    const m: Record<string, number[]> = {}
+    choferesPrincipales.forEach((c) => {
+      const fromDespachos = despachos.filter((d) => d.driverId === c.email).map((d) => d.vuelta ?? 1)
+      const fromItems     = allItems.filter((i) => i.driverId === c.email).map((i) => i.vuelta)
+      const maxVuelta = Math.max(1, openVueltas[c.email] ?? 1, ...fromDespachos, ...fromItems, 0)
+      m[c.email] = Array.from({ length: maxVuelta }, (_, i) => i + 1)
+    })
+    return m
+  }, [choferesPrincipales, despachos, allItems, openVueltas])
 
   // ── DnD activeId — declarado aquí para que el effect de asignaciones pueda usarlo ──
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -191,7 +240,7 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
   useEffect(() => {
     if (activeId) return  // no resetear mientras hay un drag activo
     const m: Record<string, string> = {}
-    allItems.forEach((item) => { m[item.dndId] = item.driverId || 'sin_asignar' })
+    allItems.forEach((item) => { m[item.dndId] = item.driverId ? slotKey(item.driverId, item.vuelta) : 'sin_asignar' })
     setAssignments(m)
   }, [allItems, activeId])
 
@@ -214,8 +263,9 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
   // Inicializar desde los despachos ya guardados
   useEffect(() => {
     despachos.forEach((d) => {
-      if (d.plantaId)   setPlantaByDriver((p)    => ({ ...p, [d.driverId]: d.plantaId! }))
-      if (d.horaSalida) setHoraSalidaByDriver((p) => ({ ...p, [d.driverId]: d.horaSalida! }))
+      const slot = slotKey(d.driverId, d.vuelta ?? 1)
+      if (d.plantaId)   setPlantaByDriver((p)    => ({ ...p, [slot]: d.plantaId! }))
+      if (d.horaSalida) setHoraSalidaByDriver((p) => ({ ...p, [slot]: d.horaSalida! }))
     })
   }, [despachos])
 
@@ -235,31 +285,32 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
   const [manualOrder, setManualOrder] = useState<Record<string, boolean>>({})
   useEffect(() => { setManualOrder({}) }, [fecha])
 
-  const handleManualReorder = useCallback(async (driverEmail: string, newOrderIds: string[]) => {
-    clearTimeout(debounceRefs.current[driverEmail])
-    setManualOrder((prev) => ({ ...prev, [driverEmail]: true }))
-    setRouteOrder((prev) => ({ ...prev, [driverEmail]: newOrderIds }))
+  const handleManualReorder = useCallback(async (slot: string, newOrderIds: string[]) => {
+    clearTimeout(debounceRefs.current[slot])
+    setManualOrder((prev) => ({ ...prev, [slot]: true }))
+    setRouteOrder((prev) => ({ ...prev, [slot]: newOrderIds }))
     // Los horarios de llegada estimados quedaban calculados para el orden
     // anterior — se limpian para no mostrar un dato que ya no es correcto.
-    setRouteArrivals((prev) => ({ ...prev, [driverEmail]: {} }))
+    setRouteArrivals((prev) => ({ ...prev, [slot]: {} }))
 
-    const desp = despachoByDriver[driverEmail]
+    const desp = despachoByDriver[slot]
     if (desp) {
-      await updateDespacho(despachoId(fecha, driverEmail), (current) => ({
+      const { email, vuelta } = parseSlotKey(slot)
+      await updateDespacho(despachoId(fecha, email, vuelta), (current) => ({
         orderIds: newOrderIds,
         ...(current.status === 'confirmado' ? { modifiedAfterConfirm: true } : {}),
       }))
     }
   }, [despachoByDriver, fecha])
 
-  const scheduleRecalc = useCallback((driverEmail: string, dndIds: string[]) => {
-    clearTimeout(debounceRefs.current[driverEmail])
-    setRecalculating((prev) => ({ ...prev, [driverEmail]: true }))
+  const scheduleRecalc = useCallback((slot: string, dndIds: string[]) => {
+    clearTimeout(debounceRefs.current[slot])
+    setRecalculating((prev) => ({ ...prev, [slot]: true }))
 
-    debounceRefs.current[driverEmail] = setTimeout(async () => {
+    debounceRefs.current[slot] = setTimeout(async () => {
       if (dndIds.length === 0) {
-        setRecalculating((prev) => ({ ...prev, [driverEmail]: false }))
-        setRouteOrder((prev) => ({ ...prev, [driverEmail]: [] }))
+        setRecalculating((prev) => ({ ...prev, [slot]: false }))
+        setRouteOrder((prev) => ({ ...prev, [slot]: [] }))
         return
       }
 
@@ -271,9 +322,9 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
         if (c) coords[dndId] = c
       })
 
-      const plantaId = plantaByDriver[driverEmail] ?? PLANTA_DEFAULT
+      const plantaId = plantaByDriver[slot] ?? PLANTA_DEFAULT
       const planta   = PLANTAS[plantaId]
-      const departure = horaSalidaByDriver[driverEmail] ?? '07:00'
+      const departure = horaSalidaByDriver[slot] ?? '07:00'
       const zonasActivas = zonas.filter((z) => z.activa)
 
       const { orderedIds, arrivals, orsOk, orsError } = await optimizeStopOrder({
@@ -282,14 +333,15 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
         zonasProhibidas: zonasActivas,
       })
 
-      setRouteOrder((prev)    => ({ ...prev, [driverEmail]: orderedIds }))
-      setRouteArrivals((prev) => ({ ...prev, [driverEmail]: arrivals }))
-      setOrsStatus((prev)     => ({ ...prev, [driverEmail]: { ok: orsOk, error: orsError } }))
-      setRecalculating((prev) => ({ ...prev, [driverEmail]: false }))
+      setRouteOrder((prev)    => ({ ...prev, [slot]: orderedIds }))
+      setRouteArrivals((prev) => ({ ...prev, [slot]: arrivals }))
+      setOrsStatus((prev)     => ({ ...prev, [slot]: { ok: orsOk, error: orsError } }))
+      setRecalculating((prev) => ({ ...prev, [slot]: false }))
 
-      const desp = despachoByDriver[driverEmail]
+      const desp = despachoByDriver[slot]
       if (desp) {
-        await updateDespacho(despachoId(fecha, driverEmail), (current) => ({
+        const { email, vuelta } = parseSlotKey(slot)
+        await updateDespacho(despachoId(fecha, email, vuelta), (current) => ({
           orderIds: orderedIds,
           ...(current.status === 'confirmado' ? { modifiedAfterConfirm: true } : {}),
         }))
@@ -297,44 +349,44 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
     }, 1500)
   }, [allItems, coordsByClientId, zonas, fecha, despachoByDriver, plantaByDriver, horaSalidaByDriver])
 
-  const handleRecalculate = useCallback((driverEmail: string) => {
-    setManualOrder((prev) => { const n = { ...prev }; delete n[driverEmail]; return n })
-    const ids = Object.entries(assignments).filter(([, d]) => d === driverEmail).map(([id]) => id)
-    scheduleRecalc(driverEmail, ids)
+  const handleRecalculate = useCallback((slot: string) => {
+    setManualOrder((prev) => { const n = { ...prev }; delete n[slot]; return n })
+    const ids = Object.entries(assignments).filter(([, s]) => s === slot).map(([id]) => id)
+    scheduleRecalc(slot, ids)
   }, [assignments, scheduleRecalc])
 
   // Referencias estables (useCallback) para que CamionColumn — envuelto en
   // React.memo — pueda saltear el re-render de columnas no relacionadas ante
   // cualquier cambio de estado del tablero (ej. activeId durante un drag).
-  const handlePlantaChange = useCallback((driverEmail: string, p: PlantaId) => {
-    setPlantaByDriver((prev) => ({ ...prev, [driverEmail]: p }))
-    const ids = Object.entries(assignments).filter(([, d]) => d === driverEmail).map(([id]) => id)
-    scheduleRecalc(driverEmail, ids)
+  const handlePlantaChange = useCallback((slot: string, p: PlantaId) => {
+    setPlantaByDriver((prev) => ({ ...prev, [slot]: p }))
+    const ids = Object.entries(assignments).filter(([, s]) => s === slot).map(([id]) => id)
+    scheduleRecalc(slot, ids)
   }, [assignments, scheduleRecalc])
 
-  const handleHoraSalidaChange = useCallback((driverEmail: string, h: string) => {
-    setHoraSalidaByDriver((prev) => ({ ...prev, [driverEmail]: h }))
-    const ids = Object.entries(assignments).filter(([, d]) => d === driverEmail).map(([id]) => id)
-    scheduleRecalc(driverEmail, ids)
+  const handleHoraSalidaChange = useCallback((slot: string, h: string) => {
+    setHoraSalidaByDriver((prev) => ({ ...prev, [slot]: h }))
+    const ids = Object.entries(assignments).filter(([, s]) => s === slot).map(([id]) => id)
+    scheduleRecalc(slot, ids)
   }, [assignments, scheduleRecalc])
 
-  // Detectar cambios en asignaciones y disparar recalc — salvo en choferes
-  // con orden manual, para no pisar un reordenamiento hecho a mano
+  // Detectar cambios en asignaciones y disparar recalc — salvo en slots
+  // (chofer+vuelta) con orden manual, para no pisar un reordenamiento hecho a mano
   const prevAssignments = useRef<Record<string, string>>({})
   useEffect(() => {
     const affected = new Set<string>()
-    Object.entries(assignments).forEach(([dndId, driver]) => {
-      if (prevAssignments.current[dndId] !== driver) {
+    Object.entries(assignments).forEach(([dndId, slot]) => {
+      if (prevAssignments.current[dndId] !== slot) {
         if (prevAssignments.current[dndId] && prevAssignments.current[dndId] !== 'sin_asignar')
           affected.add(prevAssignments.current[dndId])
-        if (driver !== 'sin_asignar') affected.add(driver)
+        if (slot !== 'sin_asignar') affected.add(slot)
       }
     })
     prevAssignments.current = { ...assignments }
-    affected.forEach((email) => {
-      if (manualOrder[email]) return
-      const ids = Object.entries(assignments).filter(([, d]) => d === email).map(([id]) => id)
-      scheduleRecalc(email, ids)
+    affected.forEach((slot) => {
+      if (manualOrder[slot]) return
+      const ids = Object.entries(assignments).filter(([, s]) => s === slot).map(([id]) => id)
+      scheduleRecalc(slot, ids)
     })
   }, [assignments, scheduleRecalc, manualOrder])
 
@@ -342,13 +394,17 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
   // esto se disparaba para TODOS los choferes con ítems asignados cada vez que
   // se abría la pestaña o cambiaba el día, sobreescribiendo en Firestore el
   // orden ya confirmado y marcando "modifiedAfterConfirm" sin que nadie
-  // hubiera tocado nada.
+  // hubiera tocado nada. Recorre TODAS las vueltas abiertas de cada chofer,
+  // no solo la 1.
   useEffect(() => {
     const t = setTimeout(() => {
       choferesPrincipales.forEach((c) => {
-        if (despachoByDriver[c.email]?.status === 'confirmado') return
-        const ids = allItems.filter((i) => (i.driverId || 'sin_asignar') === c.email).map((i) => i.dndId)
-        if (ids.length > 0) scheduleRecalc(c.email, ids)
+        (vueltasByDriver[c.email] ?? [1]).forEach((vuelta) => {
+          const slot = slotKey(c.email, vuelta)
+          if (despachoByDriver[slot]?.status === 'confirmado') return
+          const ids = allItems.filter((i) => i.driverId === c.email && i.vuelta === vuelta).map((i) => i.dndId)
+          if (ids.length > 0) scheduleRecalc(slot, ids)
+        })
       })
     }, 600)
     return () => clearTimeout(t)
@@ -367,6 +423,8 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
   const doMove = useCallback(async (dndId: string, from: string, to: string, flagModified = false) => {
     setAssignments((prev) => ({ ...prev, [dndId]: to }))
     const { kind, id } = parseDndId(dndId)
+    const fromP = from !== 'sin_asignar' ? parseSlotKey(from) : null
+    const toP   = to   !== 'sin_asignar' ? parseSlotKey(to)   : null
     try {
       // El movimiento del ítem + la actualización del despacho de origen (y el
       // flag del destino) se hacen en una única transacción atómica, que lee los
@@ -374,7 +432,10 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
       await moveItemAtomic({
         fecha, dndId,
         item: { kind, id },
-        from, to,
+        from: fromP ? fromP.email : 'sin_asignar',
+        to:   toP   ? toP.email   : 'sin_asignar',
+        fromVuelta: fromP?.vuelta ?? 1,
+        toVuelta:   toP?.vuelta   ?? 1,
         flagModifiedTo: flagModified,
       })
     } catch (err) {
@@ -405,21 +466,25 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
   const [pendingMove, setPendingMove] = useState<{ dndId: string; from: string; to: string } | null>(null)
 
   // ── Transferir paradas ────────────────────────────────────────────────────
+  // `fromDriver` guarda un slot (chofer o chofer#vuelta) — el nombre del
+  // campo se mantiene por compatibilidad con el resto del componente.
   const [transferModal, setTransferModal] = useState<{ fromDriver: string } | null>(null)
-  const handleTransferClick = useCallback((email: string) => setTransferModal({ fromDriver: email }), [])
+  const handleTransferClick = useCallback((slot: string) => setTransferModal({ fromDriver: slot }), [])
 
   const handleTransfer = useCallback(async (selectedDndIds: string[], toDriver: string, motivo: string) => {
-    const fromDriver = transferModal?.fromDriver
-    if (!fromDriver) return
+    const fromSlot = transferModal?.fromDriver
+    if (!fromSlot) return
+    const { email: fromDriver, vuelta: fromVuelta } = parseSlotKey(fromSlot)
 
     // Reasignación de todas las paradas + limpieza del despacho de origen en una
     // sola transacción atómica (antes eran N escrituras sueltas + la del
-    // despacho, sin garantía de que se aplicaran todas).
+    // despacho, sin garantía de que se aplicaran todas). Siempre transfiere a
+    // la vuelta 1 del camión destino.
     const items = selectedDndIds.map((dndId) => {
       const { kind, id } = parseDndId(dndId)
       return { kind, id, dndId }
     })
-    await transferItemsAtomic({ fecha, fromDriver, toDriver, motivo, items })
+    await transferItemsAtomic({ fecha, fromDriver, toDriver, motivo, items, fromVuelta, toVuelta: 1 })
     setAssignments((prev) => {
       const next = { ...prev }
       selectedDndIds.forEach((dndId) => { next[dndId] = toDriver })
@@ -441,24 +506,27 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
   }, [transferModal, choferes, fecha])
 
   // ── Confirmar despacho ────────────────────────────────────────────────────
+  // `confirmingDriver` guarda un slot (chofer o chofer#vuelta) — el nombre se
+  // mantiene por compatibilidad con el resto del componente.
   const [confirmingDriver, setConfirmingDriver] = useState<string | null>(null)
   const [confirmLoading,   setConfirmLoading]   = useState(false)
-  const handleConfirmClick = useCallback((email: string) => setConfirmingDriver(email), [])
+  const handleConfirmClick = useCallback((slot: string) => setConfirmingDriver(slot), [])
 
-  const handleConfirm = useCallback(async (driverEmail: string) => {
+  const handleConfirm = useCallback(async (slot: string) => {
+    const { email: driverEmail, vuelta } = parseSlotKey(slot)
     const chofer = choferes.find((c) => c.email === driverEmail)
     if (!chofer) return
 
     const driverItems = Object.entries(assignments)
-      .filter(([, d]) => d === driverEmail)
+      .filter(([, s]) => s === slot)
       .map(([dndId]) => dndId)
-    const ordered = (routeOrder[driverEmail]?.filter((id) => driverItems.includes(id)) ?? []).length > 0
-      ? routeOrder[driverEmail].filter((id) => driverItems.includes(id))
+    const ordered = (routeOrder[slot]?.filter((id) => driverItems.includes(id)) ?? []).length > 0
+      ? routeOrder[slot].filter((id) => driverItems.includes(id))
       : driverItems
 
     setConfirmLoading(true)
     try {
-      const id      = despachoId(fecha, driverEmail)
+      const id      = despachoId(fecha, driverEmail, vuelta)
       const nombre  = chofer.nombreContacto || chofer.nombre || chofer.email
       const asig    = asignacionesDia[driverEmail]
       const camion  = asig?.camionId ? camiones.find((cam) => cam.id === asig.camionId) : null
@@ -470,9 +538,10 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
         ayudanteEmail: asig?.ayudanteEmail ?? null,
         ayudanteName:  ayudante ? (ayudante.nombreContacto || ayudante.nombre || ayudante.email) : null,
         status:       'confirmado', orderIds: ordered,
-        plantaId:     plantaByDriver[driverEmail]    ?? PLANTA_DEFAULT,
-        horaSalida:   horaSalidaByDriver[driverEmail] ?? '07:00',
+        plantaId:     plantaByDriver[slot]    ?? PLANTA_DEFAULT,
+        horaSalida:   horaSalidaByDriver[slot] ?? '07:00',
         confirmedAt:  null, confirmedBy: user?.uid ?? null, modifiedAfterConfirm: false,
+        vuelta,
       }
       await saveDespacho(desp)
 
@@ -487,7 +556,7 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
         if (sub) await sendPush({
           subscription: sub,
           title: '🚛 Despacho confirmado',
-          body: `Tenés ${ordered.length} parada${ordered.length !== 1 ? 's' : ''} asignadas para ${formatDespachoFecha(fecha)}.`,
+          body: `Tenés ${ordered.length} parada${ordered.length !== 1 ? 's' : ''} asignadas para ${formatDespachoFecha(fecha)}${vuelta > 1 ? ` (vuelta ${vuelta})` : ''}.`,
         })
       } catch { /* push no crítico */ }
 
@@ -497,10 +566,11 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
     }
   }, [choferes, assignments, routeOrder, fecha, asignacionesDia, camiones, plantaByDriver, horaSalidaByDriver, user])
 
-  const handleReopen = useCallback(async (driverEmail: string) => {
-    const desp = despachoByDriver[driverEmail]
+  const handleReopen = useCallback(async (slot: string) => {
+    const desp = despachoByDriver[slot]
     if (!desp) return
-    await updateDespacho(despachoId(fecha, driverEmail), () => ({ status: 'borrador', modifiedAfterConfirm: false }))
+    const { email, vuelta } = parseSlotKey(slot)
+    await updateDespacho(despachoId(fecha, email, vuelta), () => ({ status: 'borrador', modifiedAfterConfirm: false }))
     await updateOrdersStatusBatch(
       desp.orderIds.filter((x) => x.startsWith('o:')).map((x) => x.slice(2)),
       'pendiente',
@@ -510,17 +580,19 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
   // ── Items por columna ─────────────────────────────────────────────────────
   const itemsByDriver = useMemo(() => {
     const m: Record<string, DayItem[]> = { sin_asignar: [] }
-    choferesPrincipales.forEach((c) => { m[c.email] = [] })
+    choferesPrincipales.forEach((c) => {
+      (vueltasByDriver[c.email] ?? [1]).forEach((v) => { m[slotKey(c.email, v)] = [] })
+    })
     allItems.forEach((item) => {
-      const col = assignments[item.dndId] ?? item.driverId ?? 'sin_asignar'
+      const col = assignments[item.dndId] ?? (item.driverId ? slotKey(item.driverId, item.vuelta) : 'sin_asignar')
       if (m[col] !== undefined) m[col].push(item)
       else m['sin_asignar'].push(item)
     })
     return m
-  }, [allItems, assignments, choferesPrincipales])
+  }, [allItems, assignments, choferesPrincipales, vueltasByDriver])
 
   const activeItem = activeId ? allItems.find((i) => i.dndId === activeId) : null
-  const confirmingChofer = confirmingDriver ? choferes.find((c) => c.email === confirmingDriver) : null
+  const confirmingChofer = confirmingDriver ? choferes.find((c) => c.email === parseSlotKey(confirmingDriver).email) : null
   const confirmingItems  = confirmingDriver ? (itemsByDriver[confirmingDriver] ?? []) : []
 
   return {
@@ -529,6 +601,7 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
     camiones,
     choferesPrincipales,
     asignacionesDia, handleAsignacionChange,
+    vueltasByDriver, handleAddVuelta,
     despachoByDriver,
     itemsByDriver,
     routeOrder, routeArrivals, recalculating, orsStatus,

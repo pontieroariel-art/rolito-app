@@ -4,7 +4,7 @@
 > aplicado a esta app: licencias, API, mapeo de datos, arquitectura y preguntas abiertas.
 > Se actualiza a medida que llegan documentos, exportes y respuestas de Axoft.
 >
-> Última actualización: 2026-07-19
+> Última actualización: 2026-08-20
 
 ## 1. Contexto y decisión de timing
 
@@ -12,6 +12,7 @@
 - **Delta 6 sale en 1-2 meses** (dicho por Axoft, jul 2026) con cambios significativos.
 - **Decisión (2026-07-19):** no pagar la llave testing de 90 días hasta que Delta 6 esté disponible. Mientras tanto se desarrolla todo lo que no depende de la versión instalada (ver §4), porque la integración va por la **API cloud de Tiendas**, cuyo contrato no cambia con las tablas internas de cada versión de escritorio.
 - Plan general: sandbox en la nube (llave testing + VM) → validar integración → recién después migrar el Tango productivo. Ver presupuestos y alternativas (Axoft / BETA connect / TC Cloud) en las notas del proyecto.
+- **Actualización (2026-08-18/20):** se abandonó el plan de sandbox aislado. Se actualizó DIRECTAMENTE la llave productiva (001174) a Delta 6 Gold (motivo: "facturación en calle", ausente en la v21 sin soporte) y **el servidor de Tango Delta 6 ya está corriendo en la nube** (migración hecha por TC Servicios Informáticos). Con la infraestructura resuelta, el gate para diseñar el detalle técnico pasa a ser exclusivamente las dos preguntas de la §6 (cuál API está habilitada, cómo quedó expuesto el servidor) — ver ahí.
 
 ## 2. Licencias — qué hay y qué falta confirmar
 
@@ -136,12 +137,11 @@ Principios acordados:
 
 ## 6. Preguntas abiertas
 
-1. **[CRÍTICA]** ¿"Extensión API ABMs y Consultas Live" (ya en la llave) = Tango Tiendas API? ¿O hace falta contratar "Tango Tiendas Full"? → Silvina.
-2. ¿La llave testing post-Delta 6 se genera directo en Delta 6? ¿Fecha comprometida de salida? → Silvina.
-3. ¿Quién habilita/configura Nexo Tiendas + AccessToken en el sandbox? (no está en el alcance de TC Cloud ni de BETA connect) → definir antes de contratar.
-4. Numeración: ¿`OrderNumber` lo definimos nosotros o Tango exige talonario (`OrderCounterfoil`)? → probar en sandbox.
-5. ¿Qué `SaleConditionCode` usar por cliente? (condición de venta vive en Tango) → export de clientes.
-6. ¿La conversión de base T21 → Delta 6 es directa o escalonada? → Axoft/implementador.
+1. **[CRÍTICA, sigue abierta 2026-08-20]** ¿"APIs Tipo ABM" (módulo Plataforma, confirmada activa en Delta 6) y/o la Tango Tiendas API están habilitadas y con token generado? Ninguna de las dos confirmada todavía → reconfirmar con Silvina (Axoft) ahora que el server ya está arriba.
+2. **[CRÍTICA, sigue abierta 2026-08-20]** ¿Cómo quedó expuesto el servidor Tango en la nube (IP pública/DNS + HTTPS directo, o detrás de VPN)? Define si Cloud Functions le pega directo o si hace falta bridge en la VM → preguntar a TC Servicios Informáticos.
+3. Numeración: ¿`OrderNumber` lo definimos nosotros o Tango exige talonario (`OrderCounterfoil`)? → probar contra el server real.
+4. ¿Qué `SaleConditionCode` usar por cliente? (condición de venta vive en Tango) → export de clientes.
+5. Proceso exacto de generación del token de desarrollador para "APIs Tipo ABM".
 
 ## 7. Material pendiente de recopilar (Ariel)
 

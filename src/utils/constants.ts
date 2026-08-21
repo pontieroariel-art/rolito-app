@@ -1,4 +1,5 @@
 import { Product, OrderStatus } from '../types'
+import { splitSucursalLabel } from './helpers'
 
 export const PRODUCTS: Product[] = [
   { id: 'bolsa_2kg',     name: 'Hielo bolsa 2kg',         unit: 'bolsa'  },
@@ -20,6 +21,9 @@ export const STATUS_FLOW: OrderStatus[] = [
 
 export const ALL_STATUSES: OrderStatus[] = [...STATUS_FLOW, 'cancelado']
 
+// Opciones fijas para UserProfile.condicionVenta — ver Ficha del cliente.
+export const CONDICIONES_VENTA = ['Contado', 'Cuenta corriente'] as const
+
 // Clientes de altísimo volumen (grupos empresarios con decenas de sucursales,
 // la mayoría de la Bandeja en Planificación) — en las tarjetas de pedidos se
 // abrevian con su logo en vez de repetir la razón social completa.
@@ -38,6 +42,63 @@ export const ROLITO_INFO = {
 export const CLIENT_LOGOS: Record<string, { src: string; alt: string }> = {
   [DELIVERY_HERO_CLIENT_ID]: { src: '/logo-pedidosya.png', alt: 'PedidosYa (Delivery Hero)' },
   [RAPPI_CLIENT_ID]:         { src: '/logo-rappi.webp',    alt: 'Rappi (Gastronomía Emprendimientos)' },
+}
+
+interface ClientBrandOverride {
+  label: string                        // texto abreviado que reemplaza la razón social completa
+  logo:  { src: string; alt: string }
+}
+
+// Uppercase + solo alfanuméricos: tolera que la razón social real difiera un
+// poco en puntuación/espacios/guión final del texto con el que se cargó acá
+// (ej. "COTO C.I.C.S.A." vs "COTO C.I.C.S.A. -") sin perder precisión.
+function normalizeRazonSocial(s: string): string {
+  return s.toUpperCase().replace(/[^A-Z0-9]+/g, '')
+}
+
+// Mismo objetivo que CLIENT_LOGOS (abreviar clientes de alto volumen con su
+// logo en las tarjetas de pedidos), pero para clientes que llegan por
+// PDF/importación sin un clientId de cuenta propia estable — se identifican
+// por razón social en vez de por id.
+const CLIENT_NAME_OVERRIDES: Record<string, ClientBrandOverride> = {
+  [normalizeRazonSocial('COTO C.I.C.S.A.')]:
+    { label: 'COTO', logo: { src: '/logo-coto.svg', alt: 'Coto' } },
+  [normalizeRazonSocial('OPERADORA DE ESTACIONES DE SERVICIOS S.A.')]:
+    { label: 'YPF', logo: { src: '/logo-ypf.svg', alt: 'YPF' } },
+  // La razón social es Pan American Energy, pero de cara al público (y a
+  // quien arma el reparto) la marca reconocible es Axion — sus estaciones.
+  [normalizeRazonSocial('PAN AMERICAN ENERGY S.L. SUCURSAL ARGENTINA')]:
+    { label: 'PAN AMERICAN', logo: { src: '/logo-axion.png', alt: 'Axion Energy (Pan American Energy)' } },
+  [normalizeRazonSocial('SUPERMERCADOS TOLEDO S.A')]:
+    { label: 'TOLEDO', logo: { src: '/logo-toledo.png', alt: 'Toledo' } },
+  [normalizeRazonSocial('L Y L EMPRENDALS S.A')]:
+    { label: 'DON ANGEL', logo: { src: '/logo-donangel.png', alt: 'Don Angel' } },
+}
+
+export interface ClientDisplay {
+  logo?:     { src: string; alt: string }
+  empresa?:  string   // prefijo "Empresa · " para nombres sin logo (heurística genérica de splitSucursalLabel)
+  sucursal:  string   // texto principal a mostrar en la tarjeta
+}
+
+// Resuelve qué mostrar en vez del nombre completo del cliente en las
+// tarjetas de pedidos: el logo/abreviatura fijo de CLIENT_LOGOS o
+// CLIENT_NAME_OVERRIDES si es un cliente de alto volumen conocido: si el
+// nombre trae sucursal entre paréntesis ("RAZÓN (SUCURSAL)") se muestra esa
+// sucursal (mismo criterio que PedidosYa/Rappi); si no, la abreviatura fija
+// (ej. "COTO").
+export function resolveClientDisplay(clientId: string, clientName: string): ClientDisplay {
+  const { empresa, sucursal } = splitSucursalLabel(clientName)
+  const hadSucursal  = sucursal !== clientName
+  const parensMatch  = clientName.match(/^(.+?)\s*\([^)]+\)\s*$/)
+  const razonSocial  = parensMatch ? parensMatch[1] : clientName
+  const override     = CLIENT_NAME_OVERRIDES[normalizeRazonSocial(razonSocial)]
+  const logo          = CLIENT_LOGOS[clientId] ?? override?.logo
+  return {
+    logo,
+    empresa:  logo ? undefined : empresa,
+    sucursal: hadSucursal ? sucursal : (override?.label ?? sucursal),
+  }
 }
 
 export const STATUS_LABELS: Record<OrderStatus, string> = {

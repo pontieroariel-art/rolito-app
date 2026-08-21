@@ -12,7 +12,7 @@ import { savePushSubscription, proposeCoord } from '../../services/userService'
 import { createOrder } from '../../services/orderService'
 import { markDelivered } from '../../services/orderService'
 import { updateDriverLocation, deactivateDriverLocation } from '../../services/locationService'
-import { subscribeMyDespacho, subscribeDespachoForAyudante } from '../../services/despachoService'
+import { subscribeDespachosForDriver, subscribeDespachosForAyudante, pickActiveDespacho } from '../../services/despachoService'
 import { Despacho } from '../../types'
 import { reauthenticateWithCredential, EmailAuthProvider, updatePassword } from 'firebase/auth'
 import { auth } from '../../services/firebase'
@@ -40,22 +40,25 @@ export default function ChoferDashboard() {
   // Para evitar race condition en deactivateDriverLocation
   const locationGenRef = useRef(0)
 
-  // Ayudante: buscar el despacho del día donde ayudanteEmail === user.email
-  const [pairedDespacho,        setPairedDespacho]        = useState<Despacho | null>(null)
+  // Ayudante: buscar el/los despacho(s) del día donde ayudanteEmail === user.email
+  // (puede haber más de uno — varias vueltas del mismo chofer principal).
+  const [pairedDespachos,       setPairedDespachos]       = useState<Despacho[]>([])
   const [pairedDespachoLoading, setPairedDespachoLoading] = useState(isAyudante)
 
   useEffect(() => {
     if (!user?.email || !isAyudante) return
     const fecha = todayString()
-    return subscribeDespachoForAyudante(fecha, user.email, (d) => {
-      setPairedDespacho(d)
+    return subscribeDespachosForAyudante(fecha, user.email, (ds) => {
+      setPairedDespachos(ds)
       setPairedDespachoLoading(false)
     })
   }, [user?.email, isAyudante])
 
+  const pairedDespacho = pickActiveDespacho(pairedDespachos)
+
   // Email para cargar pedidos: ayudante usa el del chofer principal; null mientras espera
   const ordersEmail = isAyudante
-    ? (pairedDespachoLoading ? null : (pairedDespacho?.driverId ?? null))
+    ? (pairedDespachoLoading ? null : (pairedDespachos[0]?.driverId ?? null))
     : undefined
 
   const { orders, loading, error } = useDriverOrders(ordersEmail)
@@ -99,19 +102,16 @@ export default function ChoferDashboard() {
     return days
   })()
 
-  // El despacho "activo" del día: para el chofer el suyo; para el ayudante el del chofer asignado
-  const [despachoHoy, setDespachoHoy] = useState<Despacho | null>(null)
+  // El despacho "activo" del día: para el chofer el suyo (puede tener más de
+  // uno — varias vueltas); para el ayudante el del chofer asignado.
+  const [misDespachos, setMisDespachos] = useState<Despacho[]>([])
   useEffect(() => {
     if (!user?.email || isAyudante) return
     const fecha = todayString()
-    return subscribeMyDespacho(fecha, user.email, setDespachoHoy)
+    return subscribeDespachosForDriver(fecha, user.email, setMisDespachos)
   }, [user?.email, isAyudante])
 
-  // Ayudante: su despacho activo es el del chofer principal
-  useEffect(() => {
-    if (!isAyudante) return
-    setDespachoHoy(pairedDespacho)
-  }, [isAyudante, pairedDespacho])
+  const despachoHoy = isAyudante ? pairedDespacho : pickActiveDespacho(misDespachos)
 
   // ── Cambiar PIN ──────────────────────────────────────────────────────────
   const [pinModal,     setPinModal]     = useState(false)

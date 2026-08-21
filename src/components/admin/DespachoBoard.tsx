@@ -8,12 +8,12 @@ import Button from '../ui/Button'
 import Modal from '../ui/Modal'
 import LoadingSpinner from '../ui/LoadingSpinner'
 import { Order, CatalogProducto, UserProfile, Despacho, Camion, PLANTAS, PlantaId } from '../../types'
-import { calcPallets, splitSucursalLabel, getCodigoCliente, buildCodigoByClientId, initials } from '../../utils/helpers'
-import { CLIENT_LOGOS } from '../../utils/constants'
+import { calcPallets, getCodigoCliente, buildCodigoByClientId, initials } from '../../utils/helpers'
+import { resolveClientDisplay } from '../../utils/constants'
 import { formatDespachoFecha, todayStr } from '../../services/despachoService'
 import { visitasParaFecha, programasParaFecha } from '../../hooks/useVisitas'
 import { AsignacionChofer } from '../../services/asignacionesDiaService'
-import { useDespachoBoard, DayItem, dateStr, orderDateStr, PLANTA_DEFAULT } from '../../hooks/useDespachoBoard'
+import { useDespachoBoard, DayItem, dateStr, orderDateStr, PLANTA_DEFAULT, slotKey, parseSlotKey } from '../../hooks/useDespachoBoard'
 import { useIsMobile } from '../../hooks/useIsMobile'
 
 // Tipos (DayItem/ItemKind) y helpers de fecha (dateStr/orderDateStr) ahora
@@ -57,8 +57,7 @@ const DraggableCard = memo(function DraggableCard({ item, routeNum, arrival, col
   // truncado, sucursal separada de la razón social, código de cliente y N°
   // de OC — compacto, se agrega a la misma línea del nombre en vez de sumar
   // altura a la tarjeta.
-  const { empresa, sucursal } = splitSucursalLabel(item.label)
-  const clientLogo    = CLIENT_LOGOS[item.clientId]
+  const { logo: clientLogo, empresa, sucursal } = resolveClientDisplay(item.clientId, item.label)
   const codigoCliente = codigoByClientId ? getCodigoCliente(codigoByClientId, item.clientId, item.sublabel) : undefined
   const totalUnits    = item.products?.reduce((sum, p) => sum + p.quantity, 0)
   // Mismo ancho de columna y misma "píldora" con borde de color que las
@@ -152,8 +151,7 @@ const DraggableCard = memo(function DraggableCard({ item, routeNum, arrival, col
 // ── GhostCard ─────────────────────────────────────────────────────────────────
 
 function GhostCard({ item }: { item: DayItem }) {
-  const { empresa, sucursal } = splitSucursalLabel(item.label)
-  const clientLogo = CLIENT_LOGOS[item.clientId]
+  const { logo: clientLogo, empresa, sucursal } = resolveClientDisplay(item.clientId, item.label)
   return (
     <div className={`border-2 border-accent rounded-xl p-3 shadow-2xl rotate-1 w-52 ${
       item.kind !== 'order' ? 'bg-violet-50' : 'bg-white'
@@ -222,54 +220,44 @@ function SinAsignarColumn({ items, codigoByClientId, fullWidth }: { items: DayIt
   )
 }
 
-// ── CamionColumn (columna = camión; adentro se elige chofer y ayudante) ─────
+// ── VueltaSection (un despacho del camión — puede haber más de uno el mismo
+// día, "vuelta 2": el camión sale, entrega, vuelve a planta y carga de
+// nuevo) ─────────────────────────────────────────────────────────────────────
 
-const CamionColumn = memo(function CamionColumn({
-  camion, chofer, choferesPrincipales, assignedChoferEmails, onChoferChange,
-  ayudantes, asignacion, onAsignacionChange,
-  items, routeOrder, arrivals, recalculating, orsStatus, despacho, colorIdx,
-  plantaId, horaSalida, catalogo, manualOrder, codigoByClientId,
+export interface VueltaData {
+  slot:          string
+  vuelta:        number
+  items:         DayItem[]
+  routeOrder:    string[]
+  arrivals:      Record<string, string>
+  recalculating: boolean
+  orsStatus?:    { ok: boolean; error?: string }
+  despacho?:     Despacho
+  plantaId:      PlantaId
+  horaSalida:    string
+  manualOrder:   boolean
+}
+
+const VueltaSection = memo(function VueltaSection({
+  data, showLabel, color, camion, catalogo, codigoByClientId,
   onPlantaChange, onHoraSalidaChange, onConfirm, onReopen, onTransfer, onManualReorder, onRecalculate,
-  fullWidth,
 }: {
-  camion:               Camion
-  chofer:               UserProfile | null
-  choferesPrincipales:  UserProfile[]
-  assignedChoferEmails: Set<string>
-  onChoferChange:       (camionId: string, email: string) => void
-  ayudantes:            UserProfile[]
-  asignacion:           AsignacionChofer
-  onAsignacionChange:   (email: string, patch: Partial<AsignacionChofer>) => void
-  items:                DayItem[]
-  routeOrder:           string[]
-  arrivals:             Record<string, string>
-  recalculating:        boolean
-  orsStatus?:           { ok: boolean; error?: string }
-  despacho?:            Despacho
-  colorIdx:             number
-  plantaId:             PlantaId
-  horaSalida:           string
-  catalogo:             CatalogProducto[]
-  manualOrder:          boolean
-  codigoByClientId:     Map<string, string | undefined>
-  onPlantaChange:       (email: string, p: PlantaId) => void
-  onHoraSalidaChange:   (email: string, h: string) => void
-  onConfirm:            (email: string) => void
-  onReopen:             (email: string) => void
-  onTransfer:           (email: string) => void
-  onManualReorder:      (email: string, newOrderIds: string[]) => void
-  onRecalculate:        (email: string) => void
-  fullWidth?:           boolean
+  data:             VueltaData
+  showLabel:        boolean
+  color:            string
+  camion:           Camion
+  catalogo:         CatalogProducto[]
+  codigoByClientId: Map<string, string | undefined>
+  onPlantaChange:       (slot: string, p: PlantaId) => void
+  onHoraSalidaChange:   (slot: string, h: string) => void
+  onConfirm:            (slot: string) => void
+  onReopen:             (slot: string) => void
+  onTransfer:           (slot: string) => void
+  onManualReorder:      (slot: string, newOrderIds: string[]) => void
+  onRecalculate:        (slot: string) => void
 }) {
+  const { slot, vuelta, items, routeOrder, arrivals, recalculating, orsStatus, despacho, plantaId, horaSalida, manualOrder } = data
   const confirmed = despacho?.status === 'confirmado'
-  const color     = choferColor(colorIdx)
-
-  // Choferes elegibles para este camión: el que ya lo maneja (si hay) + los
-  // que hoy no están manejando ningún otro camión activo (evita duplicarlos).
-  const choferesDisponibles = useMemo(
-    () => choferesPrincipales.filter((c) => c.email === chofer?.email || !assignedChoferEmails.has(c.email)),
-    [choferesPrincipales, assignedChoferEmails, chofer],
-  )
 
   const sortedItems = useMemo(() => {
     if (routeOrder.length === 0) return items
@@ -279,17 +267,16 @@ const CamionColumn = memo(function CamionColumn({
   }, [items, routeOrder])
 
   const moveItem = (index: number, dir: -1 | 1) => {
-    if (!chofer) return
     const newIndex = index + dir
     if (newIndex < 0 || newIndex >= sortedItems.length) return
     const reordered = [...sortedItems]
     const [moved] = reordered.splice(index, 1)
     reordered.splice(newIndex, 0, moved)
-    onManualReorder(chofer.email, reordered.map((i) => i.dndId))
+    onManualReorder(slot, reordered.map((i) => i.dndId))
   }
 
-  const orderCount  = items.filter((i) => i.kind === 'order').length
-  const visitCount  = items.filter((i) => i.kind !== 'order').length
+  const orderCount = items.filter((i) => i.kind === 'order').length
+  const visitCount = items.filter((i) => i.kind !== 'order').length
 
   // ── Pallets ────────────────────────────────────────────────────────────────
   const capacidad = camion.capacidadPallets ?? null
@@ -300,14 +287,219 @@ const CamionColumn = memo(function CamionColumn({
       .reduce((sum, i) => sum + calcPallets(i.products ?? [], catalogo), 0),
   [items, catalogo])
 
-  const palletsRatio  = capacidad ? totalPallets / capacidad : null
-  const overloaded    = palletsRatio !== null && palletsRatio > 1
+  const palletsRatio = capacidad ? totalPallets / capacidad : null
+  const overloaded   = palletsRatio !== null && palletsRatio > 1
   const barColor      = overloaded ? '#ef4444' : (palletsRatio ?? 0) > 0.8 ? '#f97316' : '#22c55e'
 
   return (
-    <div className={`flex flex-col h-full ${fullWidth ? 'w-full' : 'w-[340px] shrink-0'}`}>
+    <div className={showLabel ? 'mt-2 border border-[#D3D1C7] rounded-xl overflow-hidden' : 'contents'}>
+      {showLabel && (
+        <div className={`px-3 py-1.5 flex items-center gap-2 ${confirmed ? 'bg-green-50 border-b border-green-200' : 'bg-[#F1EFE8] border-b border-[#D3D1C7]'}`}>
+          <p className="text-xs font-semibold text-gray-600">Vuelta {vuelta}</p>
+          {orderCount > 0 && (
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white" style={{ backgroundColor: color }}>
+              {orderCount}📦
+            </span>
+          )}
+          {visitCount > 0 && (
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700">
+              {visitCount}👁
+            </span>
+          )}
+          {confirmed && <CheckCircle size={11} className="text-green-500 ml-auto shrink-0" />}
+        </div>
+      )}
+
+      <div className={`px-3 py-2 ${showLabel ? '' : `border rounded-t-xl ${confirmed ? 'bg-green-50 border-green-300' : 'bg-white border-[#D3D1C7]'}`}`}>
+        {/* Barra de pallets */}
+        {(orderCount > 0 || capacidad !== null) && items.length > 0 && (
+          <div className="space-y-0.5">
+            <div className="flex items-center justify-between text-[10px]">
+              <span className={overloaded ? 'text-red-600 font-bold' : 'text-gray-500'}>
+                {overloaded && '⚠️ '}
+                📦 {totalPallets % 1 === 0 ? totalPallets : totalPallets.toFixed(1)} pallets
+              </span>
+              {capacidad ? (
+                <span className={overloaded ? 'text-red-500 font-bold' : 'text-gray-400'}>
+                  / {capacidad}
+                </span>
+              ) : (
+                <span className="text-gray-300">sin límite</span>
+              )}
+            </div>
+            {capacidad && (
+              <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${overloaded ? 'animate-pulse' : ''}`}
+                  style={{ width: `${Math.min((palletsRatio ?? 0) * 100, 100)}%`, backgroundColor: barColor }}
+                />
+              </div>
+            )}
+            {overloaded && (
+              <p className="text-[10px] text-red-500 font-bold animate-pulse">
+                ⚠️ Sobrecarga: +{((totalPallets - (capacidad ?? 0)) % 1 === 0 ? (totalPallets - (capacidad ?? 0)) : (totalPallets - (capacidad ?? 0)).toFixed(1))} pallets extra
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Planta y hora de salida */}
+        <div className={`flex items-center gap-1.5 ${(orderCount > 0 || capacidad !== null) && items.length > 0 ? 'mt-1.5' : ''}`}>
+          <select
+            value={plantaId}
+            onChange={(e) => onPlantaChange(slot, e.target.value as PlantaId)}
+            onPointerDown={(e) => e.stopPropagation()}
+            disabled={confirmed}
+            className="flex-1 text-[10px] border border-gray-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-gray-400 truncate"
+          >
+            {(Object.entries(PLANTAS) as [PlantaId, typeof PLANTAS[PlantaId]][]).map(([id, p]) => (
+              <option key={id} value={id}>{p.label}</option>
+            ))}
+          </select>
+          <input
+            type="time" value={horaSalida}
+            onChange={(e) => onHoraSalidaChange(slot, e.target.value)}
+            onPointerDown={(e) => e.stopPropagation()}
+            disabled={confirmed}
+            className="w-16 text-[10px] border border-gray-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-gray-400"
+          />
+        </div>
+
+        {/* Estado ruta */}
+        <div className="mt-1.5 flex items-center gap-1.5">
+          {recalculating ? (
+            <><div className="w-3 h-3 border border-accent border-t-transparent rounded-full animate-spin shrink-0" /><span className="text-[10px] text-gray-400">Calculando ruta...</span></>
+          ) : confirmed ? (
+            <><CheckCircle size={11} className="text-green-500 shrink-0" /><span className="text-[10px] text-green-600 font-medium">DESPACHADO{despacho?.modifiedAfterConfirm ? ' (+cambios)' : ''}</span></>
+          ) : manualOrder ? (
+            <><Lock size={11} className="text-amber-500 shrink-0" /><span className="text-[10px] text-amber-600 font-medium">Orden manual</span></>
+          ) : orsStatus && routeOrder.length > 0 ? (
+            orsStatus.ok ? (
+              <><CheckCircle size={11} className="text-accent shrink-0" /><span className="text-[10px] text-accent font-medium">Ruta optimizada (ORS)</span></>
+            ) : (
+              <><CheckCircle size={11} className="text-gray-400 shrink-0" /><span className="text-[10px] text-gray-500 font-medium">Ruta estimada (local)</span></>
+            )
+          ) : items.length > 0 ? (
+            <span className="text-[10px] text-gray-400">Sin optimizar aún...</span>
+          ) : null}
+        </div>
+        {manualOrder && !confirmed && (
+          <button
+            onClick={() => onRecalculate(slot)}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="mt-1 flex items-center gap-1 text-[10px] text-gray-400 hover:text-accent transition-colors"
+          >
+            <RotateCcw size={10} /> Recalcular ruta automática
+          </button>
+        )}
+      </div>
+
+      {/* Cards */}
+      <DroppableZone
+        id={slot}
+        className={`border border-t-0 p-2 space-y-1 overflow-y-auto ${showLabel ? 'max-h-72' : 'flex-1'} ${confirmed ? 'bg-green-50/40 border-green-200' : 'bg-white border-[#D3D1C7]'}`}
+      >
+        {sortedItems.length === 0 ? (
+          <p className="text-xs text-gray-400 text-center py-6">Arrastrar pedidos o visitas acá</p>
+        ) : (
+          sortedItems.map((item, i) => (
+            <DraggableCard
+              key={item.dndId}
+              item={item}
+              routeNum={routeOrder.includes(item.dndId) ? routeOrder.indexOf(item.dndId) + 1 : i + 1}
+              arrival={arrivals[item.dndId]}
+              color={color}
+              locked={confirmed}
+              codigoByClientId={codigoByClientId}
+              onMoveUp={!confirmed && sortedItems.length > 1 && i > 0 ? () => moveItem(i, -1) : undefined}
+              onMoveDown={!confirmed && sortedItems.length > 1 && i < sortedItems.length - 1 ? () => moveItem(i, 1) : undefined}
+            />
+          ))
+        )}
+      </DroppableZone>
+
+      {/* Footer */}
+      <div className={`border border-t-0 px-2 py-2 space-y-1.5 ${showLabel ? '' : 'rounded-b-xl'} ${confirmed ? 'bg-green-50 border-green-200' : 'bg-white border-[#D3D1C7]'}`}>
+        {confirmed ? (
+          <button onClick={() => onReopen(slot)} className="w-full flex items-center justify-center gap-1.5 text-xs text-gray-400 hover:text-gray-700 py-1 transition-colors">
+            <RotateCcw size={11} /> Reabrir despacho
+          </button>
+        ) : (
+          <button
+            onClick={() => onConfirm(slot)}
+            disabled={items.length === 0}
+            className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold bg-accent text-white rounded-lg py-2 hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            <Lock size={11} /> Confirmar despacho
+          </button>
+        )}
+        {items.length > 0 && (
+          <button
+            onClick={() => onTransfer(slot)}
+            className="w-full flex items-center justify-center gap-1.5 text-xs text-amber-600 hover:text-amber-800 border border-amber-200 hover:border-amber-400 rounded-lg py-1.5 bg-amber-50 hover:bg-amber-100 transition-colors"
+          >
+            <ArrowRightLeft size={11} /> Transferir paradas
+          </button>
+        )}
+      </div>
+    </div>
+  )
+})
+
+// ── CamionColumn (columna = camión; adentro se elige chofer y ayudante, y se
+// apilan 1..N vueltas — ver VueltaSection) ─────────────────────────────────
+
+const CamionColumn = memo(function CamionColumn({
+  camion, chofer, choferesPrincipales, assignedChoferEmails, onChoferChange,
+  ayudantes, asignacion, onAsignacionChange,
+  vueltas, colorIdx, catalogo, codigoByClientId,
+  onPlantaChange, onHoraSalidaChange, onConfirm, onReopen, onTransfer, onManualReorder, onRecalculate,
+  onAddVuelta,
+  fullWidth,
+}: {
+  camion:               Camion
+  chofer:               UserProfile | null
+  choferesPrincipales:  UserProfile[]
+  assignedChoferEmails: Set<string>
+  onChoferChange:       (camionId: string, email: string) => void
+  ayudantes:            UserProfile[]
+  asignacion:           AsignacionChofer
+  onAsignacionChange:   (email: string, patch: Partial<AsignacionChofer>) => void
+  vueltas:              VueltaData[]
+  colorIdx:             number
+  catalogo:             CatalogProducto[]
+  codigoByClientId:     Map<string, string | undefined>
+  onPlantaChange:       (slot: string, p: PlantaId) => void
+  onHoraSalidaChange:   (slot: string, h: string) => void
+  onConfirm:            (slot: string) => void
+  onReopen:             (slot: string) => void
+  onTransfer:           (slot: string) => void
+  onManualReorder:      (slot: string, newOrderIds: string[]) => void
+  onRecalculate:        (slot: string) => void
+  onAddVuelta:          (driverEmail: string) => void
+  fullWidth?:           boolean
+}) {
+  const color = choferColor(colorIdx)
+  const anyConfirmed = vueltas.some((v) => v.despacho?.status === 'confirmado')
+
+  // Choferes elegibles para este camión: el que ya lo maneja (si hay) + los
+  // que hoy no están manejando ningún otro camión activo (evita duplicarlos).
+  const choferesDisponibles = useMemo(
+    () => choferesPrincipales.filter((c) => c.email === chofer?.email || !assignedChoferEmails.has(c.email)),
+    [choferesPrincipales, assignedChoferEmails, chofer],
+  )
+
+  const totalOrderCount = vueltas.reduce((sum, v) => sum + v.items.filter((i) => i.kind === 'order').length, 0)
+  const totalVisitCount = vueltas.reduce((sum, v) => sum + v.items.filter((i) => i.kind !== 'order').length, 0)
+  const showLabel = vueltas.length > 1
+
+  const lastVuelta = vueltas[vueltas.length - 1]
+  const canAddVuelta = !!chofer && (!lastVuelta || lastVuelta.despacho?.status === 'confirmado')
+
+  return (
+    <div className={`flex flex-col h-full ${fullWidth ? 'w-full' : 'w-[340px] shrink-0'} ${showLabel ? 'overflow-y-auto' : ''}`}>
       {/* Header */}
-      <div className={`border rounded-t-xl px-3 py-2.5 ${confirmed ? 'bg-green-50 border-green-300' : 'bg-white border-[#D3D1C7]'}`}>
+      <div className="border rounded-t-xl px-3 py-2.5 bg-white border-[#D3D1C7]">
         <div className="flex items-center gap-2">
           <Truck size={14} style={{ color }} className="shrink-0" />
           {/* Patente en su propia línea (nunca trunca, son cortas) — el
@@ -319,14 +511,14 @@ const CamionColumn = memo(function CamionColumn({
             <p className="text-[10px] text-gray-400 truncate leading-tight">{camion.modelo}</p>
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            {orderCount > 0 && (
+            {totalOrderCount > 0 && (
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white" style={{ backgroundColor: color }}>
-                {orderCount}📦
+                {totalOrderCount}📦
               </span>
             )}
-            {visitCount > 0 && (
+            {totalVisitCount > 0 && (
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700">
-                {visitCount}👁
+                {totalVisitCount}👁
               </span>
             )}
           </div>
@@ -349,7 +541,7 @@ const CamionColumn = memo(function CamionColumn({
             value={chofer?.email ?? ''}
             onChange={(e) => onChoferChange(camion.id, e.target.value)}
             onPointerDown={(e) => e.stopPropagation()}
-            disabled={confirmed}
+            disabled={anyConfirmed}
             className="flex-1 min-w-0 text-[10px] border border-gray-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-gray-400 truncate"
           >
             <option value="">Sin chofer</option>
@@ -364,156 +556,49 @@ const CamionColumn = memo(function CamionColumn({
             ⚠️ Asigná un chofer para poder cargar pedidos acá
           </p>
         ) : (
-          <>
-            {/* Barra de pallets */}
-            {(orderCount > 0 || capacidad !== null) && items.length > 0 && (
-              <div className="mt-1.5 space-y-0.5">
-                <div className="flex items-center justify-between text-[10px]">
-                  <span className={overloaded ? 'text-red-600 font-bold' : 'text-gray-500'}>
-                    {overloaded && '⚠️ '}
-                    📦 {totalPallets % 1 === 0 ? totalPallets : totalPallets.toFixed(1)} pallets
-                  </span>
-                  {capacidad ? (
-                    <span className={overloaded ? 'text-red-500 font-bold' : 'text-gray-400'}>
-                      / {capacidad}
-                    </span>
-                  ) : (
-                    <span className="text-gray-300">sin límite</span>
-                  )}
-                </div>
-                {capacidad && (
-                  <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all ${overloaded ? 'animate-pulse' : ''}`}
-                      style={{ width: `${Math.min((palletsRatio ?? 0) * 100, 100)}%`, backgroundColor: barColor }}
-                    />
-                  </div>
-                )}
-                {overloaded && (
-                  <p className="text-[10px] text-red-500 font-bold animate-pulse">
-                    ⚠️ Sobrecarga: +{((totalPallets - (capacidad ?? 0)) % 1 === 0 ? (totalPallets - (capacidad ?? 0)) : (totalPallets - (capacidad ?? 0)).toFixed(1))} pallets extra
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Ayudante */}
-            <select
-              value={asignacion.ayudanteEmail ?? ''}
-              onChange={(e) => onAsignacionChange(chofer.email, { ayudanteEmail: e.target.value || null })}
-              onPointerDown={(e) => e.stopPropagation()}
-              disabled={confirmed}
-              className="mt-1 w-full text-[10px] border border-gray-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-gray-400 truncate"
-            >
-              <option value="">Sin ayudante</option>
-              {ayudantes.filter((a) => a.email !== chofer.email).map((a) => (
-                <option key={a.email} value={a.email}>{a.nombreContacto || a.nombre || a.email}</option>
-              ))}
-            </select>
-
-            {/* Planta y hora de salida */}
-            <div className="mt-1.5 flex items-center gap-1.5">
-              <select
-                value={plantaId}
-                onChange={(e) => onPlantaChange(chofer.email, e.target.value as PlantaId)}
-                onPointerDown={(e) => e.stopPropagation()}
-                disabled={confirmed}
-                className="flex-1 text-[10px] border border-gray-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-gray-400 truncate"
-              >
-                {(Object.entries(PLANTAS) as [PlantaId, typeof PLANTAS[PlantaId]][]).map(([id, p]) => (
-                  <option key={id} value={id}>{p.label}</option>
-                ))}
-              </select>
-              <input
-                type="time" value={horaSalida}
-                onChange={(e) => onHoraSalidaChange(chofer.email, e.target.value)}
-                onPointerDown={(e) => e.stopPropagation()}
-                disabled={confirmed}
-                className="w-16 text-[10px] border border-gray-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-gray-400"
-              />
-            </div>
-
-            {/* Estado ruta */}
-            <div className="mt-1.5 flex items-center gap-1.5">
-              {recalculating ? (
-                <><div className="w-3 h-3 border border-accent border-t-transparent rounded-full animate-spin shrink-0" /><span className="text-[10px] text-gray-400">Calculando ruta...</span></>
-              ) : confirmed ? (
-                <><CheckCircle size={11} className="text-green-500 shrink-0" /><span className="text-[10px] text-green-600 font-medium">DESPACHADO{despacho?.modifiedAfterConfirm ? ' (+cambios)' : ''}</span></>
-              ) : manualOrder ? (
-                <><Lock size={11} className="text-amber-500 shrink-0" /><span className="text-[10px] text-amber-600 font-medium">Orden manual</span></>
-              ) : orsStatus && routeOrder.length > 0 ? (
-                orsStatus.ok ? (
-                  <><CheckCircle size={11} className="text-accent shrink-0" /><span className="text-[10px] text-accent font-medium">Ruta optimizada (ORS)</span></>
-                ) : (
-                  <><CheckCircle size={11} className="text-gray-400 shrink-0" /><span className="text-[10px] text-gray-500 font-medium">Ruta estimada (local)</span></>
-                )
-              ) : items.length > 0 ? (
-                <span className="text-[10px] text-gray-400">Sin optimizar aún...</span>
-              ) : null}
-            </div>
-            {manualOrder && !confirmed && (
-              <button
-                onClick={() => onRecalculate(chofer.email)}
-                onPointerDown={(e) => e.stopPropagation()}
-                className="mt-1 flex items-center gap-1 text-[10px] text-gray-400 hover:text-accent transition-colors"
-              >
-                <RotateCcw size={10} /> Recalcular ruta automática
-              </button>
-            )}
-          </>
+          <select
+            value={asignacion.ayudanteEmail ?? ''}
+            onChange={(e) => onAsignacionChange(chofer.email, { ayudanteEmail: e.target.value || null })}
+            onPointerDown={(e) => e.stopPropagation()}
+            disabled={anyConfirmed}
+            className="mt-1 w-full text-[10px] border border-gray-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-gray-400 truncate"
+          >
+            <option value="">Sin ayudante</option>
+            {ayudantes.filter((a) => a.email !== chofer.email).map((a) => (
+              <option key={a.email} value={a.email}>{a.nombreContacto || a.nombre || a.email}</option>
+            ))}
+          </select>
         )}
       </div>
 
       {chofer ? (
         <>
-          {/* Cards */}
-          <DroppableZone
-            id={chofer.email}
-            className={`border border-t-0 p-2 space-y-1 overflow-y-auto flex-1 ${confirmed ? 'bg-green-50/40 border-green-200' : 'bg-white border-[#D3D1C7]'}`}
+          {vueltas.map((v) => (
+            <VueltaSection
+              key={v.slot}
+              data={v}
+              showLabel={showLabel}
+              color={color}
+              camion={camion}
+              catalogo={catalogo}
+              codigoByClientId={codigoByClientId}
+              onPlantaChange={onPlantaChange}
+              onHoraSalidaChange={onHoraSalidaChange}
+              onConfirm={onConfirm}
+              onReopen={onReopen}
+              onTransfer={onTransfer}
+              onManualReorder={onManualReorder}
+              onRecalculate={onRecalculate}
+            />
+          ))}
+          <button
+            onClick={() => onAddVuelta(chofer.email)}
+            disabled={!canAddVuelta}
+            title={canAddVuelta ? undefined : 'Confirmá la vuelta actual para poder agregar otra'}
+            className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs text-gray-400 border border-dashed border-[#D3D1C7] rounded-xl py-2 hover:text-accent hover:border-accent/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
-            {sortedItems.length === 0 ? (
-              <p className="text-xs text-gray-400 text-center py-6">Arrastrar pedidos o visitas acá</p>
-            ) : (
-              sortedItems.map((item, i) => (
-                <DraggableCard
-                  key={item.dndId}
-                  item={item}
-                  routeNum={routeOrder.includes(item.dndId) ? routeOrder.indexOf(item.dndId) + 1 : i + 1}
-                  arrival={arrivals[item.dndId]}
-                  color={color}
-                  locked={confirmed}
-                  codigoByClientId={codigoByClientId}
-                  onMoveUp={!confirmed && sortedItems.length > 1 && i > 0 ? () => moveItem(i, -1) : undefined}
-                  onMoveDown={!confirmed && sortedItems.length > 1 && i < sortedItems.length - 1 ? () => moveItem(i, 1) : undefined}
-                />
-              ))
-            )}
-          </DroppableZone>
-
-          {/* Footer */}
-          <div className={`border border-t-0 rounded-b-xl px-2 py-2 space-y-1.5 ${confirmed ? 'bg-green-50 border-green-200' : 'bg-white border-[#D3D1C7]'}`}>
-            {confirmed ? (
-              <button onClick={() => onReopen(chofer.email)} className="w-full flex items-center justify-center gap-1.5 text-xs text-gray-400 hover:text-gray-700 py-1 transition-colors">
-                <RotateCcw size={11} /> Reabrir despacho
-              </button>
-            ) : (
-              <button
-                onClick={() => onConfirm(chofer.email)}
-                disabled={items.length === 0}
-                className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold bg-accent text-white rounded-lg py-2 hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                <Lock size={11} /> Confirmar despacho
-              </button>
-            )}
-            {items.length > 0 && (
-              <button
-                onClick={() => onTransfer(chofer.email)}
-                className="w-full flex items-center justify-center gap-1.5 text-xs text-amber-600 hover:text-amber-800 border border-amber-200 hover:border-amber-400 rounded-lg py-1.5 bg-amber-50 hover:bg-amber-100 transition-colors"
-              >
-                <ArrowRightLeft size={11} /> Transferir paradas
-              </button>
-            )}
-          </div>
+            + Agregar vuelta
+          </button>
         </>
       ) : (
         <div className="flex-1 border border-t-0 border-[#D3D1C7] rounded-b-xl bg-gray-50/50" />
@@ -687,6 +772,7 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
     camiones,
     choferesPrincipales,
     asignacionesDia, handleAsignacionChange,
+    vueltasByDriver, handleAddVuelta,
     despachoByDriver,
     itemsByDriver,
     routeOrder, routeArrivals, recalculating, orsStatus,
@@ -736,6 +822,23 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
 
   const camionColumnProps = useCallback((camion: Camion, idx: number) => {
     const chofer = choferByCamionId[camion.id] ?? null
+    const vueltas = chofer
+      ? (vueltasByDriver[chofer.email] ?? [1]).map((vuelta) => {
+          const slot = slotKey(chofer.email, vuelta)
+          return {
+            slot, vuelta,
+            items:         itemsByDriver[slot] ?? EMPTY_ITEMS,
+            routeOrder:    routeOrder[slot] ?? EMPTY_ROUTE,
+            arrivals:      routeArrivals[slot] ?? EMPTY_ARRIVALS,
+            recalculating: !!recalculating[slot],
+            orsStatus:     orsStatus[slot],
+            despacho:      despachoByDriver[slot],
+            plantaId:      plantaByDriver[slot] ?? PLANTA_DEFAULT,
+            horaSalida:    horaSalidaByDriver[slot] ?? '07:00',
+            manualOrder:   !!manualOrder[slot],
+          }
+        })
+      : []
     return {
       camion, chofer,
       choferesPrincipales, assignedChoferEmails,
@@ -743,17 +846,9 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
       ayudantes: choferes,
       asignacion: porChofer(asignacionesDia, chofer, EMPTY_ASIGNACION),
       onAsignacionChange: handleAsignacionChange,
-      items: porChofer(itemsByDriver, chofer, EMPTY_ITEMS),
-      routeOrder: porChofer(routeOrder, chofer, EMPTY_ROUTE),
-      arrivals: porChofer(routeArrivals, chofer, EMPTY_ARRIVALS),
-      recalculating: !!(chofer && recalculating[chofer.email]),
-      orsStatus: chofer ? orsStatus[chofer.email] : undefined,
-      despacho: chofer ? despachoByDriver[chofer.email] : undefined,
+      vueltas,
       colorIdx: idx,
-      plantaId: porChofer(plantaByDriver, chofer, PLANTA_DEFAULT),
-      horaSalida: porChofer(horaSalidaByDriver, chofer, '07:00'),
       catalogo,
-      manualOrder: !!(chofer && manualOrder[chofer.email]),
       codigoByClientId,
       onPlantaChange: handlePlantaChange,
       onHoraSalidaChange: handleHoraSalidaChange,
@@ -762,10 +857,11 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
       onTransfer: handleTransferClick,
       onManualReorder: handleManualReorder,
       onRecalculate: handleRecalculate,
+      onAddVuelta: handleAddVuelta,
     }
   }, [
     choferByCamionId, choferesPrincipales, assignedChoferEmails, handleChoferChange, choferes,
-    asignacionesDia, handleAsignacionChange, itemsByDriver, routeOrder, routeArrivals, recalculating,
+    asignacionesDia, handleAsignacionChange, vueltasByDriver, handleAddVuelta, itemsByDriver, routeOrder, routeArrivals, recalculating,
     orsStatus, despachoByDriver, plantaByDriver, horaSalidaByDriver, catalogo, manualOrder, codigoByClientId,
     handlePlantaChange, handleHoraSalidaChange, handleConfirmClick, handleReopen, handleTransferClick,
     handleManualReorder, handleRecalculate,
@@ -868,7 +964,9 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
                 </button>
                 {activeCamiones.map((camion) => {
                   const chofer = choferByCamionId[camion.id] ?? null
-                  const count  = chofer ? (itemsByDriver[chofer.email]?.length ?? 0) : 0
+                  const count  = chofer
+                    ? (vueltasByDriver[chofer.email] ?? [1]).reduce((sum, v) => sum + (itemsByDriver[slotKey(chofer.email, v)]?.length ?? 0), 0)
+                    : 0
                   const selected = mobileBucket === camion.id
                   return (
                     <button
@@ -931,9 +1029,12 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
           <div className="space-y-4">
             <div className="bg-[#E8F5F0] border border-[#B3DDD3] rounded-xl p-4 text-sm space-y-1.5">
               <p className="font-medium text-accent">{confirmingChofer.nombreContacto || confirmingChofer.nombre}</p>
-              <p className="text-gray-600">{confirmingItems.length} parada{confirmingItems.length !== 1 ? 's' : ''} — {formatDespachoFecha(fecha)}</p>
+              <p className="text-gray-600">
+                {confirmingItems.length} parada{confirmingItems.length !== 1 ? 's' : ''} — {formatDespachoFecha(fecha)}
+                {confirmingDriver && parseSlotKey(confirmingDriver).vuelta > 1 && ` · Vuelta ${parseSlotKey(confirmingDriver).vuelta}`}
+              </p>
               {(() => {
-                const asig   = confirmingDriver ? asignacionesDia[confirmingDriver] : null
+                const asig   = confirmingDriver ? asignacionesDia[parseSlotKey(confirmingDriver).email] : null
                 const camion = asig?.camionId ? camiones.find((cam) => cam.id === asig.camionId) : null
                 const label  = camion ? `${camion.patente} — ${camion.modelo}` : null
                 const ayud   = asig?.ayudanteEmail ? choferes.find((c) => c.email === asig.ayudanteEmail) : null
@@ -961,7 +1062,7 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
                 ? routeOrder[confirmingDriver!].map((id) => confirmingItems.find((i) => i.dndId === id)).filter(Boolean) as DayItem[]
                 : confirmingItems
               ).map((item, i) => {
-                const camionIdx = activeCamiones.findIndex((c) => choferByCamionId[c.id]?.email === confirmingDriver)
+                const camionIdx = activeCamiones.findIndex((c) => choferByCamionId[c.id]?.email === (confirmingDriver ? parseSlotKey(confirmingDriver).email : null))
                 return (
                   <li key={item.dndId} className="flex items-center gap-2 text-sm">
                     <span className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
@@ -984,14 +1085,15 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
 
       {/* Modal transferir paradas */}
       {transferModal && (() => {
-        const fromCamion = camiones.find((c) => c.id === asignacionesDia[transferModal.fromDriver]?.camionId)
-        const fromChoferName = (() => { const c = choferes.find((ch) => ch.email === transferModal.fromDriver); return c?.nombreContacto || c?.nombre || transferModal.fromDriver })()
+        const fromEmail = parseSlotKey(transferModal.fromDriver).email
+        const fromCamion = camiones.find((c) => c.id === asignacionesDia[fromEmail]?.camionId)
+        const fromChoferName = (() => { const c = choferes.find((ch) => ch.email === fromEmail); return c?.nombreContacto || c?.nombre || fromEmail })()
         const destinos = activeCamiones
           .map((camion, idx) => ({ camion, chofer: choferByCamionId[camion.id] ?? null, colorIdx: idx }))
           .filter((d): d is { camion: Camion; chofer: UserProfile; colorIdx: number } => !!d.chofer)
         return (
           <TransferModal
-            fromDriver={transferModal.fromDriver}
+            fromDriver={fromEmail}
             fromDriverName={fromChoferName}
             fromCamionLabel={fromCamion ? `${fromCamion.patente} — ${fromCamion.modelo}` : undefined}
             items={itemsByDriver[transferModal.fromDriver] ?? []}

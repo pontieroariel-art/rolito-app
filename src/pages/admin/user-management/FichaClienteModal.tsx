@@ -1,12 +1,13 @@
 import { useState, ChangeEvent } from 'react'
 import { deleteField } from 'firebase/firestore'
-import { MapPin, Phone, Mail, CreditCard, Building2, User, Calendar, CheckCircle, Plus, Navigation, Tag, Hash } from 'lucide-react'
+import { MapPin, Phone, Mail, CreditCard, Building2, User, Calendar, CheckCircle, Plus, Navigation, Tag, Hash, Wallet } from 'lucide-react'
 import { AddressMapMini } from '../../../components/ui/AddressPickerField'
 import { useGoogleMapsLoader } from '../../../hooks/useGoogleMapsLoader'
 import Button from '../../../components/ui/Button'
 import Modal from '../../../components/ui/Modal'
 import { updateUserDocument } from '../../../services/userService'
 import { UserProfile, ListaPrecios, DeliveryAddress } from '../../../types'
+import { CONDICIONES_VENTA } from '../../../utils/constants'
 import { STATUS_STYLES, STATUS_LABELS, Row } from './shared'
 import { GestionarDomiciliosModal } from './GestionarDomiciliosModal'
 import { HistorialPreciosSection } from './HistorialPreciosSection'
@@ -41,6 +42,8 @@ export function FichaClienteModal({
   const [savingVisita,     setSavingVisita]     = useState(false)
   const [codigoCliente,    setCodigoCliente]    = useState(user.codigoCliente ?? '')
   const [savingCodigo,     setSavingCodigo]     = useState(false)
+  const [condicionVenta,       setCondicionVenta]       = useState(user.condicionVenta ?? '')
+  const [savingCondicionVenta, setSavingCondicionVenta] = useState(false)
   const [activando,        setActivando]        = useState(false)
   const [localRazonSocial,    setLocalRazonSocial]    = useState(user.razonSocial ?? '')
   const [localNombreContacto, setLocalNombreContacto] = useState(user.nombreContacto ?? '')
@@ -75,6 +78,18 @@ export function FichaClienteModal({
       console.error(err)
     } finally {
       setSavingCodigo(false)
+    }
+  }
+
+  const handleCondicionVentaChange = async (val: string) => {
+    setCondicionVenta(val)
+    setSavingCondicionVenta(true)
+    try {
+      await updateUserDocument(user.uid, { condicionVenta: val || deleteField() })
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setSavingCondicionVenta(false)
     }
   }
 
@@ -228,6 +243,33 @@ export function FichaClienteModal({
               {!canManagePrices && (
                 <p className="text-xs text-gray-400 mt-1.5">Solo el gerente comercial puede modificar precios.</p>
               )}
+            </div>
+          </section>
+        )}
+
+        {/* Condición de venta */}
+        {user.rol === 'cliente' && (canEditInfoBasica || user.condicionVenta) && (
+          <section className="space-y-2">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+              <Wallet size={12} /> Condición de venta
+            </h3>
+            <div className="bg-[#F8F7F2] rounded-xl p-3">
+              {canEditInfoBasica ? (
+                <select
+                  value={condicionVenta}
+                  disabled={savingCondicionVenta}
+                  onChange={(e: ChangeEvent<HTMLSelectElement>) => handleCondicionVentaChange(e.target.value)}
+                  className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
+                >
+                  <option value="">Sin definir</option>
+                  {CONDICIONES_VENTA.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              ) : (
+                <Row label="Condición de venta" value={user.condicionVenta || '—'} />
+              )}
+              {savingCondicionVenta && <p className="text-xs text-gray-500 mt-1.5">Guardando…</p>}
             </div>
           </section>
         )}

@@ -9,8 +9,12 @@ import { haversineKm, nearestNeighborOrder, timeStrToUnix, unixToTimeStr } from 
 import { fetchOrsDirections, OrsAvoidPolygons } from './orsService'
 import { todayString } from '../utils/helpers'
 
-export const despachoId = (fecha: string, driverId: string) =>
-  `${fecha}_${driverId.replace(/[^a-zA-Z0-9]/g, '_')}`
+// vuelta 1 (o sin especificar) mantiene el id histórico `fecha_email` — cero
+// migración para los despachos ya existentes. Solo vuelta 2+ suma un sufijo,
+// para que un mismo chofer pueda tener despachos independientes el mismo día
+// ("sale, entrega, vuelve a cargar").
+export const despachoId = (fecha: string, driverId: string, vuelta = 1) =>
+  `${fecha}_${driverId.replace(/[^a-zA-Z0-9]/g, '_')}${vuelta > 1 ? `_v${vuelta}` : ''}`
 
 export const saveDespacho = (d: Despacho): Promise<void> =>
   setDoc(doc(db, 'despachos', d.id), d, { merge: true })
@@ -55,13 +59,15 @@ export async function moveItemAtomic(params: {
   item:           { kind: DespachoItemKind; id: string }
   from:           string
   to:             string
+  fromVuelta?:    number
+  toVuelta?:      number
   flagModifiedTo: boolean
 }): Promise<void> {
-  const { fecha, dndId, item, from, to, flagModifiedTo } = params
+  const { fecha, dndId, item, from, to, fromVuelta = 1, toVuelta = 1, flagModifiedTo } = params
   const newDriverId = to === 'sin_asignar' ? null : to
 
-  const fromRef = from !== 'sin_asignar' ? doc(db, 'despachos', despachoId(fecha, from)) : null
-  const toRef   = flagModifiedTo && to !== 'sin_asignar' ? doc(db, 'despachos', despachoId(fecha, to)) : null
+  const fromRef = from !== 'sin_asignar' ? doc(db, 'despachos', despachoId(fecha, from, fromVuelta)) : null
+  const toRef   = flagModifiedTo && to !== 'sin_asignar' ? doc(db, 'despachos', despachoId(fecha, to, toVuelta)) : null
   const itemRef = doc(db, itemCollection(item.kind), item.id)
 
   await runTransaction(db, async (tx) => {
@@ -69,8 +75,8 @@ export async function moveItemAtomic(params: {
     const fromSnap = fromRef ? await tx.get(fromRef) : null
     const toSnap   = toRef   ? await tx.get(toRef)   : null
 
-    if (item.kind === 'order') tx.update(itemRef, { driverId: newDriverId, updatedAt: serverTimestamp() })
-    else                        tx.update(itemRef, { driverId: newDriverId })
+    if (item.kind === 'order') tx.update(itemRef, { driverId: newDriverId, vuelta: toVuelta, updatedAt: serverTimestamp() })
+    else                        tx.update(itemRef, { driverId: newDriverId, vuelta: toVuelta })
 
     if (fromSnap?.exists() && fromSnap.data().status === 'confirmado') {
       const orderIds = ((fromSnap.data().orderIds ?? []) as string[]).filter((x) => x !== dndId)
@@ -91,9 +97,14 @@ export async function transferItemsAtomic(params: {
   toDriver:   string
   motivo:     string
   items:      { kind: DespachoItemKind; id: string; dndId: string }[]
+  fromVuelta?: number
+  // Transferir siempre apunta a la vuelta 1 del camión destino — mover entre
+  // vueltas puntuales de dos camiones distintos es un caso de uso que no
+  // existe hoy (queda fuera de alcance).
+  toVuelta?:   number
 }): Promise<void> {
-  const { fecha, fromDriver, toDriver, motivo, items } = params
-  const fromRef = doc(db, 'despachos', despachoId(fecha, fromDriver))
+  const { fecha, fromDriver, toDriver, motivo, items, fromVuelta = 1, toVuelta = 1 } = params
+  const fromRef = doc(db, 'despachos', despachoId(fecha, fromDriver, fromVuelta))
   const dndIds  = items.map((i) => i.dndId)
 
   await runTransaction(db, async (tx) => {
@@ -104,13 +115,14 @@ export async function transferItemsAtomic(params: {
       if (it.kind === 'order') {
         tx.update(ref, {
           driverId:           toDriver,
+          vuelta:             toVuelta,
           reasignado:         true,
           choferOriginal:     fromDriver,
           motivoReasignacion: motivo || 'Reasignación operativa',
           updatedAt:          serverTimestamp(),
         })
       } else {
-        tx.update(ref, { driverId: toDriver })
+        tx.update(ref, { driverId: toDriver, vuelta: toVuelta })
       }
     }
 
@@ -131,21 +143,34 @@ export const subscribeDespachosByFecha = (
   })
 }
 
-export const subscribeMyDespacho = (
+// Todos los despachos de un chofer para un día (puede haber más de uno —
+// varias vueltas). Usado por el lado chofer, que antes asumía un único
+// despacho por chofer/día (lectura directa por id de vuelta 1).
+export const subscribeDespachosForDriver = (
   fecha: string,
   driverEmail: string,
-  cb: (d: Despacho | null) => void,
+  cb: (despachos: Despacho[]) => void,
 ): () => void => {
-  const id = despachoId(fecha, driverEmail)
-  return onSnapshot(doc(db, 'despachos', id), (snap) => {
-    cb(snap.exists() ? ({ ...snap.data(), id: snap.id } as Despacho) : null)
+  const q = query(
+    collection(db, 'despachos'),
+    where('fecha', '==', fecha),
+    where('driverId', '==', driverEmail),
+  )
+  return onSnapshot(q, (snap) => {
+    const despachos = snap.docs
+      .map((d) => ({ ...d.data(), id: d.id } as Despacho))
+      .sort((a, b) => (a.vuelta ?? 1) - (b.vuelta ?? 1))
+    cb(despachos)
   })
 }
 
-export const subscribeDespachoForAyudante = (
+// Igual que subscribeDespachosForDriver pero buscando por ayudanteEmail —
+// para el chofer con subrol "ayudante", que ve el/los despacho(s) del chofer
+// principal al que fue asignado.
+export const subscribeDespachosForAyudante = (
   fecha: string,
   ayudanteEmail: string,
-  cb: (d: Despacho | null) => void,
+  cb: (despachos: Despacho[]) => void,
 ): () => void => {
   const q = query(
     collection(db, 'despachos'),
@@ -153,10 +178,21 @@ export const subscribeDespachoForAyudante = (
     where('ayudanteEmail', '==', ayudanteEmail),
   )
   return onSnapshot(q, (snap) => {
-    if (snap.empty) { cb(null); return }
-    const d = snap.docs[0]
-    cb({ ...d.data(), id: d.id } as Despacho)
+    const despachos = snap.docs
+      .map((d) => ({ ...d.data(), id: d.id } as Despacho))
+      .sort((a, b) => (a.vuelta ?? 1) - (b.vuelta ?? 1))
+    cb(despachos)
   })
+}
+
+// El chofer puede tener más de un despacho el mismo día (varias vueltas). El
+// lado chofer (banner de camión/planta/hora, mapa de ruta) solo puede
+// mostrar uno a la vez: el confirmado de vuelta más alta (el viaje en curso
+// o el próximo a arrancar), o si ninguno está confirmado todavía, el primero.
+export function pickActiveDespacho(despachos: Despacho[]): Despacho | null {
+  if (despachos.length === 0) return null
+  const confirmados = despachos.filter((d) => d.status === 'confirmado')
+  return confirmados.length > 0 ? confirmados[confirmados.length - 1] : despachos[0]
 }
 
 // ── Estimación de horarios de llegada (local, sin API — siempre disponible) ──

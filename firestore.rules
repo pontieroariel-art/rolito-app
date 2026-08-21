@@ -186,7 +186,7 @@ service cloud.firestore {
           'listaPreciosId', 'preciosCustom', 'vigenciaCustom', 'ultimoCambioPrecio',
           'esVisita', 'frecuenciaVisita',
           'addresses', 'lat', 'lng', 'coordPendiente',
-          'notasContacto', 'codigoCliente',
+          'notasContacto', 'codigoCliente', 'condicionVenta',
         ]);
       }
 
@@ -324,7 +324,7 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly([
                'status', 'updatedAt', 'motivoCancelacion', 'historialAcciones',
-               'driverId', 'clientAddress', 'date', 'reprogramado', 'fechaOriginal',
+               'driverId', 'vuelta', 'clientAddress', 'date', 'reprogramado', 'fechaOriginal',
                'motivoReprogramacion', 'choferOriginal', 'reasignado',
                'motivoReasignacion', 'products', 'horaEntrega', 'notes', 'numeroOC',
                'avisoCercaEnviado'
