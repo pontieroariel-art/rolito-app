@@ -1,0 +1,195 @@
+import { useCallback, useEffect, useState, FormEvent, ChangeEvent } from 'react'
+import Navbar from '../../components/layout/Navbar'
+import Button from '../../components/ui/Button'
+import Input from '../../components/ui/Input'
+import Modal from '../../components/ui/Modal'
+import LoadingSpinner from '../../components/ui/LoadingSpinner'
+import { useOperariosProduccion } from '../../hooks/useOperariosProduccion'
+import { createOperarioProduccionUser, updateUserStatus } from '../../services/userService'
+import { inicializarContador, getProximoNumero } from '../../services/produccionCounterService'
+import { PLANTAS, PlantaId } from '../../types'
+
+function CrearOperarioModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const [nombre, setNombre] = useState('')
+  const [dni,    setDni]    = useState('')
+  const [pin,    setPin]    = useState('')
+  const [planta, setPlanta] = useState<PlantaId>('torcuato')
+  const [saving, setSaving] = useState(false)
+  const [error,  setError]  = useState('')
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!nombre.trim() || dni.length !== 8 || pin.length !== 4) {
+      setError('Completá nombre, DNI (8 dígitos) y PIN (4 dígitos)')
+      return
+    }
+    setSaving(true)
+    try {
+      await createOperarioProduccionUser({ nombreContacto: nombre.trim(), dni, pin, planta })
+      onCreated()
+      onClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo crear el operario. Intentá de nuevo.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title="Nuevo operario">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Input label="Nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} required placeholder="Nombre y apellido" />
+        <Input
+          label="DNI" value={dni}
+          onChange={(e) => setDni(e.target.value.replace(/\D/g, '').slice(0, 8))}
+          required inputMode="numeric" maxLength={8} placeholder="36024287"
+        />
+        <Input
+          label="PIN (4 dígitos)" type="password" value={pin}
+          onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+          required inputMode="numeric" maxLength={4} placeholder="••••"
+        />
+        <div>
+          <label className="text-xs text-gray-500 mb-1 block">Planta</label>
+          <select
+            value={planta}
+            onChange={(e: ChangeEvent<HTMLSelectElement>) => setPlanta(e.target.value as PlantaId)}
+            className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
+          >
+            {Object.entries(PLANTAS).map(([id, p]) => <option key={id} value={id}>{p.label}</option>)}
+          </select>
+          <p className="text-xs text-gray-400 mt-1">El operario solo va a poder cargar pallets de esta planta.</p>
+        </div>
+        {error && <p className="text-red-500 text-xs">{error}</p>}
+        <div className="flex gap-2 pt-1">
+          <Button variant="outline" type="button" onClick={onClose} className="flex-1">Cancelar</Button>
+          <Button type="submit" loading={saving} className="flex-1">Crear</Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+function ContadorPlanta({ plantaId }: { plantaId: PlantaId }) {
+  const [proximo, setProximo] = useState<number | null | undefined>(undefined)
+  const [primerNumero, setPrimerNumero] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const cargar = useCallback(() => getProximoNumero(plantaId).then(setProximo), [plantaId])
+  useEffect(() => { cargar() }, [cargar])
+
+  const handleInicializar = async () => {
+    const n = parseInt(primerNumero, 10)
+    if (!n || n < 1) { setError('Ingresá un número válido'); return }
+    setSaving(true)
+    setError('')
+    try {
+      await inicializarContador(plantaId, n)
+      await cargar()
+    } catch {
+      setError('No se pudo inicializar. ¿Ya tiene un número asignado?')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (proximo === undefined) return <LoadingSpinner />
+
+  return (
+    <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-2">
+      <p className="font-bold text-sm text-gray-900">{PLANTAS[plantaId].label}</p>
+      {proximo !== null ? (
+        <p className="text-sm text-gray-600">Próximo número de pallet: <span className="font-semibold">{proximo}</span></p>
+      ) : (
+        <>
+          <p className="text-xs text-amber-600">Todavía no tiene número de arranque — no se pueden cargar pallets acá hasta inicializarlo.</p>
+          <div className="flex gap-2">
+            <Input
+              value={primerNumero} onChange={(e) => setPrimerNumero(e.target.value.replace(/\D/g, ''))}
+              placeholder="Número de arranque" inputMode="numeric" className="flex-1"
+            />
+            <Button size="sm" onClick={handleInicializar} loading={saving}>Inicializar</Button>
+          </div>
+          {error && <p className="text-red-500 text-xs">{error}</p>}
+        </>
+      )}
+    </div>
+  )
+}
+
+export default function OperariosProduccionPage() {
+  const { operarios, loading, refetch } = useOperariosProduccion()
+  const [crearModal, setCrearModal] = useState(false)
+
+  if (loading) return <LoadingSpinner fullScreen />
+
+  return (
+    <div className="min-h-screen bg-[#F8F7F2] text-gray-900">
+      <Navbar />
+      <main className="max-w-2xl mx-auto p-4 space-y-6 pb-10">
+        <section className="space-y-2">
+          <h2 className="text-sm font-semibold text-gray-900">Correlativo por planta</h2>
+          <div className="grid sm:grid-cols-2 gap-3">
+            {Object.keys(PLANTAS).map((id) => <ContadorPlanta key={id} plantaId={id as PlantaId} />)}
+          </div>
+        </section>
+
+        <div className="flex flex-wrap justify-between items-center gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Operarios de producción</h1>
+            <p className="text-gray-500 text-sm">Personal de planta — login por DNI y PIN en /planta</p>
+          </div>
+          <Button onClick={() => setCrearModal(true)} className="text-sm">+ Nuevo operario</Button>
+        </div>
+
+        {operarios.length === 0 ? (
+          <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center">
+            <p className="text-gray-500 text-sm">Todavía no cargaste ningún operario</p>
+            <p className="text-gray-400 text-xs mt-1">Usá el botón "Nuevo operario" para empezar</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {operarios.map((o) => (
+              <div
+                key={o.uid}
+                className={`bg-white border rounded-xl p-4 flex flex-wrap items-center justify-between gap-3 ${
+                  o.estado === 'activo' ? 'border-[#D3D1C7]' : 'border-[#D3D1C7]/40 opacity-60'
+                }`}
+              >
+                <div>
+                  <p className="font-bold text-sm text-gray-900">{o.nombre}</p>
+                  <p className="text-gray-500 text-xs">
+                    DNI {o.dni}{o.planta ? ` · ${PLANTAS[o.planta].label}` : ''}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className={`text-xs px-2 py-1 rounded-full border font-medium ${
+                    o.estado === 'activo'
+                      ? 'bg-green-100 text-green-700 border-green-200'
+                      : 'bg-gray-100 text-gray-500 border-gray-200'
+                  }`}>
+                    {o.estado === 'activo' ? 'Activo' : 'Inactivo'}
+                  </span>
+                  <button
+                    onClick={async () => {
+                      await updateUserStatus(o.uid, o.estado === 'activo' ? 'inactivo' : 'activo')
+                      refetch()
+                    }}
+                    className="text-xs text-gray-500 hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-4 py-2 transition-colors min-h-[36px]"
+                  >
+                    {o.estado === 'activo' ? 'Desactivar' : 'Activar'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </main>
+
+      {crearModal && (
+        <CrearOperarioModal onClose={() => setCrearModal(false)} onCreated={refetch} />
+      )}
+    </div>
+  )
+}

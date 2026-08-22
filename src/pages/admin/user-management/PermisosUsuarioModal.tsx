@@ -10,9 +10,13 @@ import { HELADERAS_NAV_GROUPS } from '../../../utils/heladerasNav'
 import { NavGroup } from '../../../utils/navGroups'
 
 const SISTEMAS_ORDEN: Sistema[] = ['logistica', 'heladeras']
+// 'produccion' no tiene pestañas finas que recortar (dashboard de carga de
+// un solo propósito, sin sub-navegación) — queda fuera de SISTEMAS_ORDEN, el
+// array vacío solo satisface el Record completo.
 const GRUPOS_POR_SISTEMA: Record<Sistema, NavGroup[]> = {
-  logistica: LOGISTICA_NAV_GROUPS,
-  heladeras: HELADERAS_NAV_GROUPS,
+  logistica:  LOGISTICA_NAV_GROUPS,
+  heladeras:  HELADERAS_NAV_GROUPS,
+  produccion: [],
 }
 
 // Ítems de nav que el rol de este usuario ya puede ver en un sistema dado —

@@ -21,6 +21,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   heladeras:          'Heladeras',
   heladeras_encargado: 'Enc. Heladeras',
   tecnico:            'Técnico',
+  produccion_hielo:   'Producción',
 }
 
 export const STATUS_STYLES: Record<UserStatus, string> = {

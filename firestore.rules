@@ -72,6 +72,16 @@ service cloud.firestore {
     function isTecnico() {
       return myRole() == 'tecnico';
     }
+    // Operario de producción de hielo en planta.
+    function isProduccion() {
+      return myRole() == 'produccion_hielo';
+    }
+    // Planta asignada al usuario autenticado (solo aplica a rol 'produccion_hielo').
+    function myPlanta() {
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      let data = exists(path) ? get(path).data : {};
+      return data.get('planta', null);
+    }
     function isChofer() {
       return myRole() == 'chofer';
     }
@@ -376,6 +386,23 @@ service cloud.firestore {
       allow update: if request.auth != null && isCliente() && docId == 'ticketServicioCounter'
         && request.resource.data.next == resource.data.next + 1
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next']);
+
+      // Contadores de correlativo de producción (uno por planta:
+      // produccionCounter_torcuato / produccionCounter_merlo). Alta inicial
+      // (número de arranque real) solo por super_admin y solo si el doc
+      // todavía no existe — OJO: esto no es una garantía dura, isOperator()
+      // arriba ya le da a super_admin/logistica write total sobre config/*,
+      // así que en la práctica la protección "no pisar un contador ya
+      // inicializado" depende de que inicializarContador() solo se llame
+      // desde el botón dedicado, no de las reglas.
+      allow create: if request.auth != null && docId.matches('produccionCounter_.*')
+        && myRole() == 'super_admin';
+      // Reserva de lote: el operario de producción solo puede incrementar
+      // `next`, nunca retroceder ni tocar otro campo.
+      allow update: if request.auth != null && docId.matches('produccionCounter_.*')
+        && isProduccion()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next'])
+        && request.resource.data.next > resource.data.next;
     }
 
     // ── Emails de notificación admin ──────────────────────────────────────────
@@ -555,6 +582,27 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── Producción de hielo: pallets cargados en planta ────────────────────
+    // Inmutable: un pallet cargado equivale a un comprobante ya emitido (el
+    // ticket físico ya está pegado al pallet) — nunca se edita ni se borra.
+    match /produccionPallets/{palletId} {
+      allow read: if request.auth != null
+        && (isProduccion() || isManager() || isGerenteGeneral() || myRole() == 'logistica');
+
+      allow create: if request.auth != null && isProduccion()
+        && request.resource.data.plantaId == myPlanta()
+        && request.resource.data.operador.uid == request.auth.uid
+        && request.resource.data.productoId in [
+             'bolsas_10kg_rolito', 'bolsas_3kg_rolito', 'bolsas_2kg_rolito',
+             'picado_10kg', 'escama_10kg', 'barras_hielo', 'rembolsado_cementera_10kg'
+           ]
+        && request.resource.data.numero is int && request.resource.data.numero > 0
+        && request.resource.data.unidades is int && request.resource.data.unidades > 0
+        && request.resource.data.codigo is string;
+
+      allow update, delete: if false;
+    }
+
     // ── Modelos de heladera (ficha técnica) ────────────────────────────────
     match /modelosHeladera/{modeloId} {
       // Lectura amplia a cualquier staff: la necesitan la pantalla de alta de
@@ -623,6 +671,11 @@ service cloud.firestore {
     match /tecnicoDniIndex/{dni} {
       allow read:  if true;
       allow write: if request.auth != null && isHeladerasFullAccess();
+    }
+
+    match /produccionDniIndex/{dni} {
+      allow read:  if true;
+      allow write: if request.auth != null && myRole() == 'super_admin';
     }
 
     // ── Historial de precios ──────────────────────────────────────────────────

@@ -117,12 +117,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // tiposFavoritos: se togglea desde otra pantalla y tiene que
         // reflejarse en vivo sin recargar.
         const newOcultosMapa = d.clientesOcultosMapa as UserProfile['clientesOcultosMapa']
+        // Planta del operario de producción — reasignar a alguien de Don
+        // Torcuato a Merlo tiene que reflejarse en la tablet sin relogin.
+        const newPlanta = d.planta as UserProfile['planta']
         const cur        = userRef.current
         if (!cur) return
         const changed =
           newRol     !== cur.rol    ||
           newEst     !== cur.estado ||
           newListaId !== cur.listaPreciosId ||
+          newPlanta  !== cur.planta ||
           JSON.stringify(newPrecios)   !== JSON.stringify(cur.preciosCustom) ||
           JSON.stringify(newAddrs)     !== JSON.stringify(cur.addresses) ||
           JSON.stringify(newSistemas)  !== JSON.stringify(cur.sistemasPermitidos) ||
@@ -136,6 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           estado:         newEst,
           listaPreciosId: newListaId,
           preciosCustom:  newPrecios,
+          planta:         newPlanta,
           ...(newAddrs !== undefined ? { addresses: newAddrs } : {}),
           sistemasPermitidos: newSistemas,
           pestanasPermitidas: newPestanas,

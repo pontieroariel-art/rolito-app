@@ -1,11 +1,11 @@
 import { Timestamp } from 'firebase/firestore'
 
-export type UserRole = 'super_admin' | 'gerente_general' | 'gerente_comercial' | 'comercial' | 'logistica' | 'chofer' | 'cliente' | 'facturacion' | 'heladeras' | 'heladeras_encargado' | 'tecnico'
+export type UserRole = 'super_admin' | 'gerente_general' | 'gerente_comercial' | 'comercial' | 'logistica' | 'chofer' | 'cliente' | 'facturacion' | 'heladeras' | 'heladeras_encargado' | 'tecnico' | 'produccion_hielo'
 export type UserStatus = 'activo' | 'inactivo' | 'pendiente'
 
-// Sistema (Logística/Heladeras) — ver src/utils/sistemas.ts para el mapeo
-// rol→sistemas y la lógica de recorte por usuario.
-export type Sistema = 'logistica' | 'heladeras'
+// Sistema (Logística/Heladeras/Producción) — ver src/utils/sistemas.ts para el
+// mapeo rol→sistemas y la lógica de recorte por usuario.
+export type Sistema = 'logistica' | 'heladeras' | 'produccion'
 
 export type OrderStatus =
   | 'pendiente'
@@ -120,6 +120,7 @@ export interface UserProfile {
   sector?:            string   // internal-only prefix from COD_CTE (e.g. FC, MDP, YPF)
   subrol?:            'chofer' | 'ayudante'
   area?:              AreaHeladera   // sector de heladeras (rol 'heladeras')
+  planta?:            PlantaId   // planta de producción fija del operario (rol 'produccion_hielo')
   // Favoritos del técnico en el checklist de tipos de reparación (id de
   // config/tiposReparacion) — solo lo usa el técnico de calle (rol
   // 'tecnico'), para encontrar rápido desde el celular.
@@ -201,6 +202,32 @@ export const PLANTAS = {
 } as const
 
 export type PlantaId = keyof typeof PLANTAS
+
+// ── Producción de hielo ───────────────────────────────────────────────────────
+// Carga de pallets en planta (rol 'produccion_hielo'). Catálogo cerrado de
+// productos en src/utils/produccionCatalogo.ts.
+
+export type ProductoHieloId =
+  | 'bolsas_10kg_rolito'
+  | 'bolsas_3kg_rolito'
+  | 'bolsas_2kg_rolito'
+  | 'picado_10kg'
+  | 'escama_10kg'
+  | 'barras_hielo'
+  | 'rembolsado_cementera_10kg'
+
+export interface PalletProduccion {
+  id:               string
+  codigo:           string   // "DT-000123" — correlativo por planta, va en QR/barcode en texto plano
+  numero:           number   // parte numérica de `codigo`
+  plantaId:         PlantaId
+  productoId:       ProductoHieloId
+  productoNombre:   string   // denormalizado del catálogo al momento de crear
+  unidades:         number   // denormalizado del catálogo (protege el historial si el catálogo cambia)
+  operador:         { uid: string; nombre: string }
+  fechaFabricacion: Timestamp   // Timestamp.now() del cliente — se necesita para imprimir ya, no depende de serverTimestamp()
+  createdAt:        Timestamp   // serverTimestamp(), solo para orden/sincronización
+}
 
 export interface Despacho {
   id:           string     // `${fecha}_${emailSanitizado}` (vuelta 1) | `${fecha}_${emailSanitizado}_v${vuelta}` (vuelta 2+)

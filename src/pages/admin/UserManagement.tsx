@@ -214,6 +214,11 @@ export default function UserManagement() {
               </div>
             )}
             {tab === 'equipo' && currentUser?.rol === 'super_admin' && (
+              <Button variant="outline" onClick={() => navigate('/produccion/operarios')} className="text-sm">
+                Operarios de producción →
+              </Button>
+            )}
+            {tab === 'equipo' && currentUser?.rol === 'super_admin' && (
               <Button onClick={() => setCrearModal(true)} className="text-sm">
                 + Crear usuario
               </Button>

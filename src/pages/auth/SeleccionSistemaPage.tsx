@@ -1,19 +1,21 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, LayoutDashboard, Snowflake } from 'lucide-react'
+import { ChevronRight, LayoutDashboard, Snowflake, Package } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useSistema } from '../../context/SistemaContext'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { MULTI_SISTEMA_HOME, SISTEMA_LABELS, Sistema } from '../../utils/sistemas'
 
 const DESCRIPCIONES: Record<Sistema, string> = {
-  logistica: 'Pedidos, despacho, flota y monitoreo',
-  heladeras: 'Equipos, service y pañol',
+  logistica:  'Pedidos, despacho, flota y monitoreo',
+  heladeras:  'Equipos, service y pañol',
+  produccion: 'Producción de hielo en planta',
 }
 
 const ICONOS: Record<Sistema, typeof LayoutDashboard> = {
-  logistica: LayoutDashboard,
-  heladeras: Snowflake,
+  logistica:  LayoutDashboard,
+  heladeras:  Snowflake,
+  produccion: Package,
 }
 
 export default function SeleccionSistemaPage() {

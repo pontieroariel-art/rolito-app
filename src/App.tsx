@@ -72,6 +72,13 @@ const PanolPage             = lazy(() => import('./pages/heladeras/PanolPage'))
 
 const CalculadoraHielo  = lazy(() => import('./pages/public/CalculadoraHielo'))
 
+const LoginProduccion         = lazy(() => import('./pages/auth/LoginProduccion'))
+const ProduccionDashboard     = lazy(() => import('./pages/produccion/ProduccionDashboard'))
+const ProduccionTicketPage    = lazy(() => import('./pages/produccion/ProduccionTicketPage'))
+const FichaPalletPage         = lazy(() => import('./pages/produccion/FichaPalletPage'))
+const ProduccionListadoPage   = lazy(() => import('./pages/produccion/ProduccionListadoPage'))
+const OperariosProduccionPage = lazy(() => import('./pages/produccion/OperariosProduccionPage'))
+
 // ── ErrorBoundary ─────────────────────────────────────────────────────────────
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -134,6 +141,7 @@ function AppContent() {
         <Route path="/empresa"         element={<LoginEmpresa />} />
         <Route path="/choferes"        element={<LoginChofer />} />
         <Route path="/tecnicos"        element={<LoginTecnico />} />
+        <Route path="/planta"          element={<LoginProduccion />} />
         <Route path="/login"           element={<Navigate to="/clientes" replace />} />
         <Route path="/register"        element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -276,6 +284,25 @@ function AppContent() {
         {/* Ficha pública (dentro de la app) de una heladera — destino del QR de la etiqueta */}
         <Route element={<ProtectedRoute allowedRoles={['heladeras', 'heladeras_encargado', 'super_admin', 'gerente_comercial', 'comercial', 'tecnico']} />}>
           <Route path="/heladeras/ficha/:heladeraId" element={<FichaHeladeraPage />} />
+        </Route>
+
+        {/* Producción de hielo — dashboard de carga (tablet en planta), fuera
+            de cualquier layout, mismo criterio que /tecnico. */}
+        <Route element={<ProtectedRoute allowedRoles={['produccion_hielo']} />}>
+          <Route path="/produccion" element={<ProduccionDashboard />} />
+        </Route>
+        {/* Ticket (impresión standalone) y ficha de consulta de un pallet */}
+        <Route element={<ProtectedRoute allowedRoles={['produccion_hielo', 'super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'logistica']} />}>
+          <Route path="/produccion/ticket/:palletId" element={<ProduccionTicketPage />} />
+          <Route path="/produccion/ficha/:palletId"  element={<FichaPalletPage />} />
+        </Route>
+        {/* Listado de producción para gerencia/logística */}
+        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'logistica']} />}>
+          <Route path="/produccion/listado" element={<ProduccionListadoPage />} />
+        </Route>
+        {/* Alta de operarios de producción — solo super_admin por ahora */}
+        <Route element={<ProtectedRoute allowedRoles={['super_admin']} />}>
+          <Route path="/produccion/operarios" element={<OperariosProduccionPage />} />
         </Route>
 
         {/* Cualquier otra ruta */}

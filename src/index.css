@@ -31,12 +31,23 @@
   }
 }
 
-/* Tamaño de página para la etiqueta Zebra (100x100mm). Único uso de
-   window.print() en la app hoy — si se agrega otro flujo de impresión con
-   otro tamaño, pasar esto a un @page con nombre en vez de dejarlo global. */
+/* Tamaño de página para la etiqueta Zebra de heladeras (100x100mm) — @page
+   global sin nombre, sigue siendo el tamaño por defecto de window.print(). */
 @media print {
   @page {
     size: 100mm 100mm;
     margin: 0;
+  }
+
+  /* Ticket de producción (pallets) — tamaño distinto, @page NOMBRADO para no
+     pisar el de heladeras. 100x150mm es un punto de partida razonable para
+     una etiqueta angosta tipo ticket; falta calibrar contra el rollo real de
+     la Zebra en planta — ajustar acá y en ProduccionTicket.tsx (mismo mm). */
+  @page produccion-ticket {
+    size: 100mm 150mm;
+    margin: 0;
+  }
+  .produccion-ticket-page {
+    page: produccion-ticket;
   }
 }

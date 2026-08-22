@@ -1682,3 +1682,104 @@ describe('índices de login', () => {
     await assertSucceeds(setDoc(doc(db('adm'), 'staffDniIndex/12345678'), { email: 'staff@x.com' }))
   })
 })
+
+// ── produccionPallets: carga de pallets en planta ─────────────────────────────
+describe('produccionPallets', () => {
+  const seedOperario = (uid = 'op1', planta = 'torcuato') =>
+    seed((d) => setDoc(doc(d, `users/${uid}`), { rol: 'produccion_hielo', estado: 'activo', planta }))
+
+  const pallet = (extra = {}) => ({
+    codigo: 'DT-000123', numero: 123, plantaId: 'torcuato',
+    productoId: 'bolsas_10kg_rolito', unidades: 88,
+    operador: { uid: 'op1', nombre: 'Juan' },
+    fechaFabricacion: new Date(), createdAt: new Date(), ...extra,
+  })
+
+  test('operario puede cargar un pallet de SU planta', async () => {
+    await seedOperario()
+    await assertSucceeds(setDoc(doc(db('op1'), 'produccionPallets/p1'), pallet()))
+  })
+
+  test('operario NO puede cargar un pallet de OTRA planta', async () => {
+    await seedOperario('op1', 'torcuato')
+    await assertFails(setDoc(doc(db('op1'), 'produccionPallets/p1'), pallet({ plantaId: 'merlo' })))
+  })
+
+  test('operario NO puede spoofear el uid del operador', async () => {
+    await seedOperario()
+    await assertFails(setDoc(doc(db('op1'), 'produccionPallets/p1'), pallet({ operador: { uid: 'otro', nombre: 'Juan' } })))
+  })
+
+  test('operario NO puede cargar un producto fuera del catálogo', async () => {
+    await seedOperario()
+    await assertFails(setDoc(doc(db('op1'), 'produccionPallets/p1'), pallet({ productoId: 'inventado' })))
+  })
+
+  test('un pallet cargado no se puede editar ni borrar', async () => {
+    await seedOperario()
+    await seed((d) => setDoc(doc(d, 'produccionPallets/p1'), pallet()))
+    await assertFails(updateDoc(doc(db('op1'), 'produccionPallets/p1'), { unidades: 999 }))
+    await assertFails(deleteDoc(doc(db('op1'), 'produccionPallets/p1')))
+  })
+
+  test('gerente_general puede leer pallets pero no crearlos', async () => {
+    await seed((d) => setDoc(doc(d, 'users/gg'), { rol: 'gerente_general', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'produccionPallets/p1'), pallet()))
+    await assertSucceeds(getDoc(doc(db('gg'), 'produccionPallets/p1')))
+    await assertFails(setDoc(doc(db('gg'), 'produccionPallets/p2'), pallet()))
+  })
+
+  test('cliente NO puede leer pallets', async () => {
+    await seed((d) => setDoc(doc(d, 'users/cli'), cliente()))
+    await seed((d) => setDoc(doc(d, 'produccionPallets/p1'), pallet()))
+    await assertFails(getDoc(doc(db('cli', 'c@x.com'), 'produccionPallets/p1')))
+  })
+})
+
+// ── config/produccionCounter_*: correlativo por planta ────────────────────────
+describe('config/produccionCounter_*', () => {
+  const seedSuperAdmin = (uid = 'sa') =>
+    seed((d) => setDoc(doc(d, `users/${uid}`), { rol: 'super_admin', estado: 'activo' }))
+  const seedOperario = (uid = 'op1', planta = 'torcuato') =>
+    seed((d) => setDoc(doc(d, `users/${uid}`), { rol: 'produccion_hielo', estado: 'activo', planta }))
+
+  test('super_admin puede inicializar el contador si no existe', async () => {
+    await seedSuperAdmin()
+    await assertSucceeds(setDoc(doc(db('sa'), 'config/produccionCounter_torcuato'), { next: 500 }))
+  })
+
+  test('operario puede reservar un lote (incrementar next)', async () => {
+    await seedOperario()
+    await seed((d) => setDoc(doc(d, 'config/produccionCounter_torcuato'), { next: 500 }))
+    await assertSucceeds(updateDoc(doc(db('op1'), 'config/produccionCounter_torcuato'), { next: 530 }))
+  })
+
+  test('operario NO puede retroceder el contador', async () => {
+    await seedOperario()
+    await seed((d) => setDoc(doc(d, 'config/produccionCounter_torcuato'), { next: 500 }))
+    await assertFails(updateDoc(doc(db('op1'), 'config/produccionCounter_torcuato'), { next: 499 }))
+  })
+
+  test('operario NO puede tocar otro campo del contador', async () => {
+    await seedOperario()
+    await seed((d) => setDoc(doc(d, 'config/produccionCounter_torcuato'), { next: 500 }))
+    await assertFails(updateDoc(doc(db('op1'), 'config/produccionCounter_torcuato'), { next: 530, otro: 'x' }))
+  })
+
+  test('comercial NO puede inicializar el contador', async () => {
+    await seed((d) => setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' }))
+    await assertFails(setDoc(doc(db('com'), 'config/produccionCounter_merlo'), { next: 1 }))
+  })
+})
+
+// ── users: alta de produccion_hielo ────────────────────────────────────────────
+describe('users: alta de produccion_hielo', () => {
+  test('super_admin puede dar de alta un operario', async () => {
+    await seed((d) => setDoc(doc(d, 'users/sa'), { rol: 'super_admin', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('sa'), 'users/op1'), { rol: 'produccion_hielo', estado: 'activo', planta: 'torcuato' }))
+  })
+
+  test('un operario de producción NO puede darse de alta a sí mismo', async () => {
+    await assertFails(setDoc(doc(db('op1'), 'users/op1'), { rol: 'produccion_hielo', estado: 'activo', planta: 'torcuato' }))
+  })
+})

@@ -1,4 +1,4 @@
-import { Product, OrderStatus } from '../types'
+import { Product, OrderStatus, PlantaId } from '../types'
 import { splitSucursalLabel } from './helpers'
 
 export const PRODUCTS: Product[] = [
@@ -37,6 +37,32 @@ export const ROLITO_INFO = {
   localidad:   'Don Torcuato',
   cp:          '1611',
   telefono:    '(011) 4741-8000',
+}
+
+// Datos por planta para el ticket de producción de hielo — no confundir con
+// ROLITO_INFO (esa es la razón social genérica de la etiqueta de heladeras,
+// siempre Don Torcuato). `prefijoCodigo` arma el correlativo (DT-000123).
+export const PLANTA_INFO: Record<PlantaId, {
+  razonSocial:   string
+  direccion:     string
+  localidad:     string
+  telefono:      string
+  prefijoCodigo: string
+}> = {
+  torcuato: {
+    razonSocial:   'Redonhielo S.A.',
+    direccion:     'Ruta Panamericana Km. 25.700',
+    localidad:     'Don Torcuato',
+    telefono:      '(011) 4741-8000',
+    prefijoCodigo: 'DT',
+  },
+  merlo: {
+    razonSocial:   'Redonhielo S.A.',
+    direccion:     'Av. Pres. Juan Domingo Perón 26875, B1722 Merlo, Provincia de Buenos Aires',
+    localidad:     'Merlo',
+    telefono:      '(011) 4741-8000',
+    prefijoCodigo: 'ML',
+  },
 }
 
 export const CLIENT_LOGOS: Record<string, { src: string; alt: string }> = {

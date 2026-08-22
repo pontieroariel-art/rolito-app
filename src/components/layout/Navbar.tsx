@@ -103,6 +103,9 @@ const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
   tecnico: [
     { to: '/tecnico', label: 'Mis service', icon: Wrench },
   ],
+  produccion_hielo: [
+    { to: '/produccion', label: 'Cargar producción', icon: Package },
+  ],
 }
 
 // Link set para el sistema "heladeras" de los roles con más de un sistema
@@ -123,6 +126,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   heladeras:          'Heladeras',
   heladeras_encargado: 'Enc. Heladeras',
   tecnico:            'Técnico',
+  produccion_hielo:   'Producción',
 }
 
 export default function Navbar() {

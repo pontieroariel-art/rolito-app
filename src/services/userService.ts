@@ -17,7 +17,7 @@ import { initializeApp, deleteApp } from 'firebase/app'
 import { getAuth, createUserWithEmailAndPassword, connectAuthEmulator } from 'firebase/auth'
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore'
 import { db, firebaseConfig } from './firebase'
-import { UserProfile, UserRole, UserStatus, DeliveryAddress, AreaHeladera } from '../types'
+import { UserProfile, UserRole, UserStatus, DeliveryAddress, AreaHeladera, PlantaId } from '../types'
 
 // Los roles de admin se asignan desde el panel /usuarios (por un super_admin existente).
 // Para el primer bootstrap, editar el documento users/{uid} directamente en Firebase Console.
@@ -200,6 +200,13 @@ export const getHeladerasEncargados = async (): Promise<UserProfile[]> => {
 export const getTecnicos = async (): Promise<UserProfile[]> => {
   const snap = await getDocs(
     query(collection(db, 'users'), where('rol', '==', 'tecnico'), limit(500)),
+  )
+  return snap.docs.map((d) => ({ uid: d.id, ...d.data() } as UserProfile))
+}
+
+export const getOperariosProduccion = async (): Promise<UserProfile[]> => {
+  const snap = await getDocs(
+    query(collection(db, 'users'), where('rol', '==', 'produccion_hielo'), limit(500)),
   )
   return snap.docs.map((d) => ({ uid: d.id, ...d.data() } as UserProfile))
 }
@@ -446,6 +453,42 @@ export const createTecnicoUser = async ({ nombreContacto, dni, pin, telefono, ar
     aprobadoPor:     'admin',
   }, true)   // rol privilegiado → el doc lo escribe el operador
   await setTecnicoDniIndex(normalizedDni, email)
+}
+
+export interface CreateOperarioParams {
+  nombreContacto: string
+  dni:            string
+  pin:            string
+  planta:         PlantaId
+}
+
+export const createOperarioProduccionUser = async ({ nombreContacto, dni, pin, planta }: CreateOperarioParams): Promise<void> => {
+  const { dniToProduccionEmail, setProduccionDniIndex, padPinProduccion, getEmailByProduccionDni } = await import('./produccionAuthService')
+  const normalizedDni = dni.replace(/\D/g, '')
+  const email = dniToProduccionEmail(normalizedDni)
+  const yaUsado = await getEmailByProduccionDni(normalizedDni)
+  if (yaUsado && yaUsado !== email) {
+    throw new Error(`Ese DNI ya está en uso por otra cuenta (${yaUsado}). Verificalo antes de continuar.`)
+  }
+  await createUserViaSecondaryApp(email, padPinProduccion(pin), {
+    nombre:          nombreContacto,
+    email,
+    planta,
+    dni:             normalizedDni,
+    phone:           '',
+    rol:             'produccion_hielo' as UserRole,
+    estado:          'activo' as UserStatus,
+    address:         '',
+    razonSocial:     '',
+    nombreContacto,
+    cuit:            '',
+    telefono:        '',
+    addresses:       [],
+    fechaCreacion:   serverTimestamp(),
+    fechaAprobacion: serverTimestamp(),
+    aprobadoPor:     'admin',
+  }, true)   // rol privilegiado → el doc lo escribe el operador
+  await setProduccionDniIndex(normalizedDni, email)
 }
 
 function chunk<T>(arr: T[], size: number): T[][] {

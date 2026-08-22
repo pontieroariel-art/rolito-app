@@ -65,7 +65,10 @@ export default function AdminDashboard() {
               {new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }).replace(/^./, (c) => c.toUpperCase())}
             </p>
           </div>
-          <NotificationEmailManager notifEmails={notifEmails} />
+          <div className="flex items-center gap-3">
+            <Link to="/produccion/listado" className="text-sm text-accent hover:underline">Producción →</Link>
+            <NotificationEmailManager notifEmails={notifEmails} />
+          </div>
         </div>
 
         {/* KPIs y métricas */}
