@@ -76,6 +76,10 @@ service cloud.firestore {
     function isProduccion() {
       return myRole() == 'produccion_hielo';
     }
+    // Encargado de producción — mismo criterio que isHeladerasEncargado().
+    function isProduccionEncargado() {
+      return myRole() == 'produccion_encargado' || myRole() == 'super_admin';
+    }
     // Planta asignada al usuario autenticado (solo aplica a rol 'produccion_hielo').
     function myPlanta() {
       let path = /databases/$(database)/documents/users/$(request.auth.uid);
@@ -207,7 +211,9 @@ service cloud.firestore {
             // heladeras_encargado necesita buscar clientes (asignación de equipos)
             // y ver la lista de técnicos — gerente_comercial/super_admin ya
             // entran por isManager().
-            || myRole() == 'heladeras_encargado');
+            || myRole() == 'heladeras_encargado'
+            // produccion_encargado necesita ver la lista de operarios de planta.
+            || myRole() == 'produccion_encargado');
 
       // ── super_admin: control total (asigna roles, crea staff, limpia datos) ──
       allow read, write: if request.auth != null && myRole() == 'super_admin';
@@ -226,6 +232,11 @@ service cloud.firestore {
       // de super_admin que ya tiene control total arriba) puede dar de alta técnicos.
       allow create: if request.auth != null && isHeladerasFullAccess()
         && request.resource.data.rol == 'tecnico';
+
+      // produccion_encargado puede dar de alta operarios de producción
+      // (super_admin ya tiene control total arriba).
+      allow create: if request.auth != null && isProduccionEncargado()
+        && request.resource.data.rol == 'produccion_hielo';
 
       // ── Edición del propio perfil: NO puede tocar rol / estado / precios / identidad ──
       allow update: if isSelf() && rolUnchanged() && estadoUnchanged()
@@ -255,6 +266,12 @@ service cloud.firestore {
       // campo, solo sobre docs con rol 'tecnico' — no pueden tocar otro staff). ──
       allow update: if request.auth != null && isHeladerasFullAccess()
         && resource.data.get('rol', '') == 'tecnico'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado']);
+
+      // ── Producción: activar/desactivar cuentas de operario (solo ese campo,
+      // solo sobre docs con rol 'produccion_hielo'). ──
+      allow update: if request.auth != null && isProduccionEncargado()
+        && resource.data.get('rol', '') == 'produccion_hielo'
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado']);
     }
 
@@ -389,14 +406,14 @@ service cloud.firestore {
 
       // Contadores de correlativo de producción (uno por planta:
       // produccionCounter_torcuato / produccionCounter_merlo). Alta inicial
-      // (número de arranque real) solo por super_admin y solo si el doc
-      // todavía no existe — OJO: esto no es una garantía dura, isOperator()
-      // arriba ya le da a super_admin/logistica write total sobre config/*,
-      // así que en la práctica la protección "no pisar un contador ya
-      // inicializado" depende de que inicializarContador() solo se llame
+      // (número de arranque real) solo por super_admin/produccion_encargado y
+      // solo si el doc todavía no existe — OJO: esto no es una garantía dura,
+      // isOperator() arriba ya le da a super_admin/logistica write total sobre
+      // config/*, así que en la práctica la protección "no pisar un contador
+      // ya inicializado" depende de que inicializarContador() solo se llame
       // desde el botón dedicado, no de las reglas.
       allow create: if request.auth != null && docId.matches('produccionCounter_.*')
-        && myRole() == 'super_admin';
+        && isProduccionEncargado();
       // Reserva de lote: el operario de producción solo puede incrementar
       // `next`, nunca retroceder ni tocar otro campo.
       allow update: if request.auth != null && docId.matches('produccionCounter_.*')
@@ -587,7 +604,8 @@ service cloud.firestore {
     // ticket físico ya está pegado al pallet) — nunca se edita ni se borra.
     match /produccionPallets/{palletId} {
       allow read: if request.auth != null
-        && (isProduccion() || isManager() || isGerenteGeneral() || myRole() == 'logistica');
+        && (isProduccion() || isManager() || isGerenteGeneral() || myRole() == 'logistica'
+            || myRole() == 'produccion_encargado');
 
       allow create: if request.auth != null && isProduccion()
         && request.resource.data.plantaId == myPlanta()
@@ -675,7 +693,7 @@ service cloud.firestore {
 
     match /produccionDniIndex/{dni} {
       allow read:  if true;
-      allow write: if request.auth != null && myRole() == 'super_admin';
+      allow write: if request.auth != null && isProduccionEncargado();
     }
 
     // ── Historial de precios ──────────────────────────────────────────────────

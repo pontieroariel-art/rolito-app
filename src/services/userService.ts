@@ -161,7 +161,7 @@ export const getAllUsers = async (force = false): Promise<UserProfile[]> => {
 }
 
 export const getStaffUsers = async (): Promise<UserProfile[]> => {
-  const roles: UserRole[] = ['super_admin', 'gerente_comercial', 'comercial', 'logistica', 'facturacion', 'chofer', 'heladeras', 'heladeras_encargado', 'tecnico']
+  const roles: UserRole[] = ['super_admin', 'gerente_comercial', 'comercial', 'logistica', 'facturacion', 'chofer', 'heladeras', 'heladeras_encargado', 'tecnico', 'produccion_encargado']
   const snap = await getDocs(
     query(collection(db, 'users'), where('rol', 'in', roles), limit(6000)),
   )

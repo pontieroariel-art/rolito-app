@@ -1842,4 +1842,59 @@ describe('users: alta de produccion_hielo', () => {
   test('un operario de producción NO puede darse de alta a sí mismo', async () => {
     await assertFails(setDoc(doc(db('op1'), 'users/op1'), { rol: 'produccion_hielo', estado: 'activo', planta: 'torcuato' }))
   })
+
+  test('produccion_encargado SÍ puede dar de alta un operario', async () => {
+    await seed((d) => setDoc(doc(d, 'users/enc'), { rol: 'produccion_encargado', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('enc'), 'users/op2'), { rol: 'produccion_hielo', estado: 'activo', planta: 'merlo' }))
+  })
+
+  test('produccion_encargado SÍ puede activar/desactivar un operario (solo el campo estado)', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/enc'), { rol: 'produccion_encargado', estado: 'activo' })
+      await setDoc(doc(d, 'users/op3'), { rol: 'produccion_hielo', estado: 'activo', planta: 'torcuato' })
+    })
+    await assertSucceeds(updateDoc(doc(db('enc'), 'users/op3'), { estado: 'inactivo' }))
+  })
+
+  test('produccion_encargado NO puede tocar otros campos de un operario (ej. nombre)', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/enc'), { rol: 'produccion_encargado', estado: 'activo' })
+      await setDoc(doc(d, 'users/op4'), { rol: 'produccion_hielo', estado: 'activo', planta: 'torcuato', nombre: 'Uno' })
+    })
+    await assertFails(updateDoc(doc(db('enc'), 'users/op4'), { nombre: 'Otro' }))
+  })
+
+  test('produccion_encargado NO puede tocar el estado de un usuario que no es operario', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/enc'), { rol: 'produccion_encargado', estado: 'activo' })
+      await setDoc(doc(d, 'users/log'), { rol: 'logistica', estado: 'activo' })
+    })
+    await assertFails(updateDoc(doc(db('enc'), 'users/log'), { estado: 'inactivo' }))
+  })
+})
+
+// ── produccion_encargado: pallets y contador ──────────────────────────────────
+describe('produccion_encargado — pallets y contador', () => {
+  test('produccion_encargado SÍ puede leer produccionPallets', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/enc'), { rol: 'produccion_encargado', estado: 'activo' })
+      await setDoc(doc(d, 'produccionPallets/p1'), { plantaId: 'torcuato', numero: 1 })
+    })
+    await assertSucceeds(getDoc(doc(db('enc'), 'produccionPallets/p1')))
+  })
+
+  test('produccion_encargado SÍ puede inicializar un contador de planta', async () => {
+    await seed((d) => setDoc(doc(d, 'users/enc'), { rol: 'produccion_encargado', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('enc'), 'config/produccionCounter_merlo'), { next: 1 }))
+  })
+
+  test('produccion_encargado SÍ puede escribir produccionDniIndex (alta de operario)', async () => {
+    await seed((d) => setDoc(doc(d, 'users/enc'), { rol: 'produccion_encargado', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('enc'), 'produccionDniIndex/40111222'), { email: 'op@planta.rolito.internal' }))
+  })
+
+  test('logistica NO puede escribir produccionDniIndex', async () => {
+    await seed((d) => setDoc(doc(d, 'users/log'), { rol: 'logistica', estado: 'activo' }))
+    await assertFails(setDoc(doc(db('log'), 'produccionDniIndex/40111222'), { email: 'op@planta.rolito.internal' }))
+  })
 })

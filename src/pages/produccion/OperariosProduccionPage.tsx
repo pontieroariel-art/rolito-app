@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, FormEvent, ChangeEvent } from 'react'
+import { Link } from 'react-router-dom'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import Modal from '../../components/ui/Modal'
@@ -138,7 +139,10 @@ export default function OperariosProduccionPage() {
             <h1 className="text-2xl font-bold text-gray-900">Operarios de producción</h1>
             <p className="text-gray-500 text-sm">Personal de planta — login por DNI y PIN en /planta</p>
           </div>
-          <Button onClick={() => setCrearModal(true)} className="text-sm">+ Nuevo operario</Button>
+          <div className="flex items-center gap-3">
+            <Link to="/produccion/listado" className="text-sm text-accent hover:underline">Listado de producción →</Link>
+            <Button onClick={() => setCrearModal(true)} className="text-sm">+ Nuevo operario</Button>
+          </div>
         </div>
 
         {operarios.length === 0 ? (

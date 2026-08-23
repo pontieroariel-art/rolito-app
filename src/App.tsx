@@ -76,6 +76,7 @@ const PanolPage             = lazy(() => import('./pages/heladeras/PanolPage'))
 const CalculadoraHielo  = lazy(() => import('./pages/public/CalculadoraHielo'))
 
 const LoginProduccion         = lazy(() => import('./pages/auth/LoginProduccion'))
+const ProduccionLayout        = lazy(() => import('./components/produccion/ProduccionLayout'))
 const ProduccionDashboard     = lazy(() => import('./pages/produccion/ProduccionDashboard'))
 const ProduccionTicketPage    = lazy(() => import('./pages/produccion/ProduccionTicketPage'))
 const FichaPalletPage         = lazy(() => import('./pages/produccion/FichaPalletPage'))
@@ -250,8 +251,10 @@ function AppContent() {
           <Route path="/chofer/map" element={<ChoferMap />} />
         </Route>
 
-        {/* Selección de sistema (roles con acceso a más de uno, ver src/utils/sistemas.ts) */}
-        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_comercial', 'comercial']} />}>
+        {/* Selección de sistema (roles con acceso a más de uno, ver src/utils/sistemas.ts).
+            super_admin no entra acá — no opera ningún sistema, administra
+            desde /admin sin picker. */}
+        <Route element={<ProtectedRoute allowedRoles={['gerente_comercial', 'comercial']} />}>
           <Route path="/sistema" element={<SeleccionSistemaPage />} />
         </Route>
 
@@ -309,27 +312,36 @@ function AppContent() {
           <Route path="/produccion" element={<ProduccionDashboard />} />
         </Route>
         {/* Ticket (impresión standalone) y ficha de consulta de un pallet */}
-        <Route element={<ProtectedRoute allowedRoles={['produccion_hielo', 'gerente_general', 'gerente_comercial', 'comercial', 'logistica']} />}>
+        <Route element={<ProtectedRoute allowedRoles={['produccion_hielo', 'produccion_encargado', 'gerente_general', 'gerente_comercial', 'comercial', 'logistica']} />}>
           <Route path="/produccion/ticket/:palletId" element={<ProduccionTicketPage />} />
           <Route path="/produccion/ficha/:palletId"  element={<FichaPalletPage />} />
         </Route>
-        {/* Listado de producción para gerencia/logística */}
-        <Route element={<ProtectedRoute allowedRoles={['gerente_general', 'gerente_comercial', 'comercial', 'logistica']} />}>
+        {/* Listado de producción para gerencia/logística/encargado */}
+        <Route element={<ProtectedRoute allowedRoles={['gerente_general', 'gerente_comercial', 'comercial', 'logistica', 'produccion_encargado']} />}>
           <Route path="/produccion/listado" element={<ProduccionListadoPage />} />
+        </Route>
+
+        {/* Producción — panel del encargado (rol produccion_encargado), mismo
+            patrón que LogisticaLayout/HeladerasLayout. Arranca con Operarios
+            nada más, se va a ir sumando a medida que crezca (ver
+            utils/produccionNav.ts). */}
+        <Route element={<ProduccionLayout />}>
+          <Route element={<ProtectedRoute allowedRoles={['produccion_encargado', 'super_admin']} />}>
+            <Route path="/produccion/operarios" element={<OperariosProduccionPage />} />
+          </Route>
         </Route>
 
         {/* Backoffice — panel de administración centralizado, exclusivo
             super_admin. BackofficeLayout agrega su propio sidebar (ver
             src/components/layout/BackofficeLayout.tsx). Las pantallas de
             configuración que además usa un rol operativo a diario (Flota,
-            Modelos, Catálogos, Técnicos, Precios) NO viven acá — se quedan
-            en su layout de siempre y el Backoffice solo linkea a ellas
-            desde BackofficeHome. */}
+            Modelos, Catálogos, Técnicos, Precios, Operarios de producción)
+            NO viven acá — se quedan en su layout de siempre y el Backoffice
+            solo linkea a ellas desde BackofficeHome. */}
         <Route element={<BackofficeLayout />}>
           <Route element={<ProtectedRoute allowedRoles={['super_admin']} />}>
             <Route path="/admin"                  element={<BackofficeHome />} />
             <Route path="/admin/usuarios"         element={<UserManagement />} />
-            <Route path="/admin/produccion/operarios" element={<OperariosProduccionPage />} />
             <Route path="/admin/general"          element={<AjustesGeneralesPage />} />
           </Route>
         </Route>

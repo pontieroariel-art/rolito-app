@@ -16,6 +16,7 @@ const ROLE_HOME: Record<string, string> = {
   heladeras:         '/heladeras',
   heladeras_encargado: '/heladeras',
   tecnico:           '/tecnico',
+  produccion_encargado: '/produccion/operarios',
 }
 
 export default function Landing() {

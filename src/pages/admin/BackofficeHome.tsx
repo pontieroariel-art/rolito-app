@@ -15,18 +15,17 @@ interface CardSection {
 }
 
 // Punto de entrada del Backoffice: desde acá se llega a cada parte
-// administrable de la app. "Usuarios & Roles", "Producción" y "Ajustes
-// generales" viven en este mismo layout (BackofficeLayout). Los de
-// Logística y Heladeras son cross-links a pantallas que se quedan en su
-// layout operativo de siempre (las sigue usando gente que no es
-// super_admin como parte de su trabajo diario — ver plan de migración).
+// administrable de la app. "Usuarios & Roles" y "Ajustes generales" viven
+// en este mismo layout (BackofficeLayout). El resto son cross-links a
+// pantallas que se quedan en su layout operativo de siempre (las sigue
+// usando gente que no es super_admin como parte de su trabajo diario —
+// ver plan de migración).
 const SECTIONS: CardSection[] = [
   {
     id: 'admin', title: 'Administración',
     cards: [
-      { to: '/admin/usuarios',             label: 'Usuarios & Roles',         description: 'Alta de personal, asignación de rol y permisos por pestaña.', icon: UserCog },
-      { to: '/admin/produccion/operarios', label: 'Operarios de producción',  description: 'Alta y gestión de operarios de planta.',                       icon: Factory },
-      { to: '/admin/general',              label: 'Ajustes generales',        description: 'Configuración global del sistema.',                            icon: Settings },
+      { to: '/admin/usuarios', label: 'Usuarios & Roles',  description: 'Alta de personal, asignación de rol y permisos por pestaña.', icon: UserCog },
+      { to: '/admin/general',  label: 'Ajustes generales', description: 'Configuración global del sistema.',                          icon: Settings },
     ],
   },
   {
@@ -44,6 +43,13 @@ const SECTIONS: CardSection[] = [
       { to: '/heladeras/tecnicos',  label: 'Técnicos',           description: 'Alta y gestión de técnicos de calle.',    icon: Users2 },
       { to: '/heladeras/equipos',   label: 'Padrón de equipos',  description: 'Registro de heladeras (unidades físicas).', icon: Package },
       { to: '/heladeras/panol',     label: 'Pañol de repuestos', description: 'Stock y catálogo de repuestos.',          icon: Package },
+    ],
+  },
+  {
+    id: 'produccion', title: 'Configuración — Producción',
+    cards: [
+      { to: '/produccion/operarios', label: 'Operarios',        description: 'Alta y gestión de operarios de planta.', icon: Factory },
+      { to: '/produccion/listado',   label: 'Listado',          description: 'Pallets cargados por planta.',           icon: ClipboardList },
     ],
   },
 ]

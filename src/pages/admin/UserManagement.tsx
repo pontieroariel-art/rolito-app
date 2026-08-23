@@ -44,6 +44,7 @@ export default function UserManagement() {
   const [search, setSearch]             = useState('')
   const [statusFilter, setStatusFilter] = useState<UserStatus | 'all'>('all')
   const [sectorFilter, setSectorFilter] = useState<string>('all')
+  const [rolFilter, setRolFilter]       = useState<UserRole | 'all'>('all')
   const [visibleCount, setVisibleCount]           = useState(PAGE_SIZE)
   const [crearModal, setCrearModal]               = useState(false)
   const [crearClienteModal, setCrearClienteModal] = useState(false)
@@ -84,6 +85,7 @@ export default function UserManagement() {
     setVisibleCount(PAGE_SIZE)
     setSearch('')
     setSectorFilter('all')
+    setRolFilter('all')
   }, [tab])
 
   const sectors = useMemo(() => {
@@ -91,6 +93,14 @@ export default function UserManagement() {
     clientes.filter((u) => u.sector).forEach((u) => set.add(u.sector!))
     return Array.from(set).sort()
   }, [clientes])
+
+  // Funciones (roles) presentes en el equipo — solo las que hay, no el
+  // catálogo completo de roles del sistema.
+  const roles = useMemo(() => {
+    const set = new Set<UserRole>()
+    equipo.forEach((u) => set.add(u.rol))
+    return Array.from(set).sort((a, b) => ROLE_LABELS[a].localeCompare(ROLE_LABELS[b]))
+  }, [equipo])
 
   // Lista plana: una entrada por sucursal (dirección) dentro de cada cuenta
   const sucursalesFlat = useMemo<SucursalFlat[]>(() =>
@@ -131,7 +141,8 @@ export default function UserManagement() {
       u.email?.toLowerCase().includes(q)
     const matchStatus = statusFilter === 'all' || u.estado === statusFilter
     const matchSector = sectorFilter === 'all' || u.sector === sectorFilter
-    return matchSearch && matchStatus && matchSector
+    const matchRol     = rolFilter === 'all' || u.rol === rolFilter
+    return matchSearch && matchStatus && matchSector && matchRol
   })
 
   const handleRole = async (uid: string, rol: UserRole) => {
@@ -237,7 +248,7 @@ export default function UserManagement() {
               </div>
             )}
             {tab === 'equipo' && currentUser?.rol === 'super_admin' && (
-              <Button variant="outline" onClick={() => navigate('/admin/produccion/operarios')} className="text-sm">
+              <Button variant="outline" onClick={() => navigate('/produccion/operarios')} className="text-sm">
                 Operarios de producción →
               </Button>
             )}
@@ -300,9 +311,22 @@ export default function UserManagement() {
                 </SelectContent>
               </Select>
             )}
-            {(search || statusFilter !== 'all' || sectorFilter !== 'all') && (
+            {tab === 'equipo' && roles.length > 0 && (
+              <Select value={rolFilter} onValueChange={(v) => { setRolFilter(v as UserRole | 'all'); setVisibleCount(PAGE_SIZE) }}>
+                <SelectTrigger className="flex-1 min-w-[130px] text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las funciones</SelectItem>
+                  {roles.map((r) => (
+                    <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {(search || statusFilter !== 'all' || sectorFilter !== 'all' || rolFilter !== 'all') && (
               <button
-                onClick={() => { setSearch(''); setStatusFilter('all'); setSectorFilter('all'); setVisibleCount(PAGE_SIZE) }}
+                onClick={() => { setSearch(''); setStatusFilter('all'); setSectorFilter('all'); setRolFilter('all'); setVisibleCount(PAGE_SIZE) }}
                 className="text-sm text-gray-400 hover:text-gray-900 px-3 py-2 shrink-0"
               >
                 Limpiar ✕

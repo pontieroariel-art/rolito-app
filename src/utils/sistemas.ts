@@ -6,8 +6,14 @@ export type { Sistema }
 // obligue a cubrir roles nuevos. 'logistica' acá es "todo lo que no es
 // heladeras" — para cliente/chofer/facturacion/gerente_general no implica que
 // sean personal de logística, solo que no tienen picker (un solo sistema).
+//
+// super_admin no opera ningún sistema (ver plan de migración del Backoffice,
+// Fase 2) — administra desde /admin, sin picker. Antes tenía
+// ['logistica','heladeras'] de cuando el super_admin operaba ambos; dejarlo
+// así rompía el picker (/heladeras ya no lo deja pasar → loop de redirects
+// /heladeras → / → /sistema → /heladeras).
 export const ROLE_SISTEMAS: Record<UserRole, Sistema[]> = {
-  super_admin:         ['logistica', 'heladeras'],
+  super_admin:         [],
   gerente_comercial:   ['logistica', 'heladeras'],
   comercial:           ['logistica', 'heladeras'],
   gerente_general:     ['logistica'],
@@ -19,6 +25,7 @@ export const ROLE_SISTEMAS: Record<UserRole, Sistema[]> = {
   heladeras_encargado: ['heladeras'],
   tecnico:             ['heladeras'],
   produccion_hielo:    ['produccion'],
+  produccion_encargado: ['produccion'],
 }
 
 // Home por sistema, solo para los roles con más de un sistema (los demás ya
@@ -28,7 +35,6 @@ export const ROLE_SISTEMAS: Record<UserRole, Sistema[]> = {
 // string> completo — apunta al listado de gerencia por si a futuro se les
 // suma acceso.
 export const MULTI_SISTEMA_HOME: Partial<Record<UserRole, Record<Sistema, string>>> = {
-  super_admin:       { logistica: '/admin',     heladeras: '/heladeras', produccion: '/produccion/listado' },
   gerente_comercial: { logistica: '/logistica', heladeras: '/heladeras', produccion: '/produccion/listado' },
   comercial:         { logistica: '/comercial', heladeras: '/heladeras', produccion: '/produccion/listado' },
 }
