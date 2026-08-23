@@ -670,9 +670,24 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
 
   const handleChoferChange = useCallback((camionId: string, newEmail: string) => {
     const prev = choferByCamionId[camionId]
-    if (prev) handleAsignacionChange(prev.email, { camionId: null })
+    if (prev) {
+      // Mover las paradas que ya tenía el chofer anterior (todas sus
+      // vueltas) al chofer nuevo — o a "Sin asignar" si se saca el chofer
+      // del camión sin reemplazo. Antes esto solo cambiaba el mapeo
+      // chofer→camión: el chofer anterior se quedaba sin camión (su columna
+      // desaparecía del tablero, con los pedidos adentro) y la columna del
+      // chofer nuevo arrancaba vacía — se veía como que "desaparecían los
+      // pedidos" al cambiar el chofer de un camión. Reportado por Lucas.
+      (vueltasByDriver[prev.email] ?? [1]).forEach((vuelta) => {
+        const fromSlot = slotKey(prev.email, vuelta)
+        const toSlot    = newEmail ? slotKey(newEmail, vuelta) : 'sin_asignar'
+        if (fromSlot === toSlot) return
+        ;(itemsByDriver[fromSlot] ?? []).forEach((item) => { doMove(item.dndId, fromSlot, toSlot) })
+      })
+      handleAsignacionChange(prev.email, { camionId: null })
+    }
     if (newEmail) handleAsignacionChange(newEmail, { camionId })
-  }, [choferByCamionId, handleAsignacionChange])
+  }, [choferByCamionId, handleAsignacionChange, vueltasByDriver, itemsByDriver, doMove])
 
   const camionColumnProps = useCallback((camion: Camion, idx: number) => {
     const chofer = choferByCamionId[camion.id] ?? null
