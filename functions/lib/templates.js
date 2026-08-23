@@ -11,6 +11,8 @@ exports.tplAdminNuevoPedido = tplAdminNuevoPedido;
 exports.tplTicketCerrado = tplTicketCerrado;
 exports.tplStockBajo = tplStockBajo;
 exports.tplAdminNuevoCliente = tplAdminNuevoCliente;
+exports.tplAdminAccionAltoRiesgo = tplAdminAccionAltoRiesgo;
+exports.tplAdminResumenDiario = tplAdminResumenDiario;
 // Escapa datos controlados por el usuario (razón social, notas, nombres de
 // producto, motivo, dirección, teléfono) antes de interpolarlos en el HTML del
 // email. Sin esto, p. ej. una razón social con markup podría inyectar contenido
@@ -353,6 +355,69 @@ function tplAdminNuevoCliente(cliente) {
         { label: 'Dirección', value: esc(cliente.address || '—') },
         { label: 'Creado por', value: `${esc(cliente.creadoPorNombre)} (${esc(cliente.creadoPorRol)})` },
     ])}
+  `);
+}
+// ── Auditoría del Backoffice (Fase 4 del plan de migración) ───────────────────
+const ACCION_ADMIN_LABELS = {
+    creado: 'creó',
+    modificado: 'modificó',
+    activado: 'activó',
+    desactivado: 'desactivó',
+    rol_cambiado: 'cambió el rol de',
+    usuario_creado: 'creó el usuario',
+    usuario_desactivado: 'desactivó al usuario',
+};
+const COLECCION_LABELS = {
+    users: 'Usuarios',
+    flota: 'Flota',
+    modelosHeladera: 'Modelos de heladera',
+    panolArticulos: 'Pañol de repuestos',
+    motivosReparacion: 'Motivos de reparación',
+    tiposReparacion: 'Tipos de reparación',
+    motivosIngreso: 'Motivos de ingreso',
+    pasosTaller: 'Pasos de taller',
+};
+function accionLabel(accion) {
+    return ACCION_ADMIN_LABELS[accion] ?? accion;
+}
+function coleccionLabel(coleccion) {
+    return COLECCION_LABELS[coleccion] ?? coleccion;
+}
+function tplAdminAccionAltoRiesgo(evento, appUrl) {
+    return layout('Acción administrativa', {
+        emoji: '🔐',
+        title: 'Cambio de alto riesgo en el Backoffice',
+        subtitle: esc(coleccionLabel(evento.coleccion)),
+        accentColor: '#DC2626',
+    }, `
+    <p style="margin:0 0 16px">
+      <strong>${esc(evento.actorNombre)}</strong> (${esc(evento.actorRol)}) ${esc(accionLabel(evento.accion))}
+      ${evento.detalle ? `<strong>${esc(evento.detalle)}</strong>` : ''} en ${esc(coleccionLabel(evento.coleccion))}.
+    </p>
+    ${ctaButton('Ver Usuarios & Roles →', `${appUrl}/admin/usuarios`)}
+  `);
+}
+function tplAdminResumenDiario(eventos, appUrl) {
+    const filas = eventos.map((e) => `
+    <tr style="border-top:1px solid #e8ede9">
+      <td style="padding:9px 14px;font-size:13px;color:#111827;vertical-align:top">
+        <strong>${esc(e.actorNombre)}</strong> ${esc(accionLabel(e.accion))}
+        ${e.detalle ? esc(e.detalle) : ''}
+        <span style="color:#9ca3af"> — ${esc(coleccionLabel(e.coleccion))}</span>
+      </td>
+    </tr>`).join('');
+    return layout('Resumen diario del Backoffice', {
+        emoji: '🗒️',
+        title: 'Resumen diario del Backoffice',
+        subtitle: `${eventos.length} cambio${eventos.length !== 1 ? 's' : ''} de catálogo/config`,
+        accentColor: GREEN,
+    }, `
+    <p style="margin:0 0 16px">Esto es lo que cambió ayer en Flota, Modelos, Catálogos de service, Técnicos y Pañol.</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+      style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;margin:0 0 20px">
+      ${filas}
+    </table>
+    ${ctaButton('Ir al Backoffice →', `${appUrl}/admin`)}
   `);
 }
 //# sourceMappingURL=templates.js.map

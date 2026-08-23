@@ -20,9 +20,10 @@ export default function HeladerasLayout() {
   const [open, setOpen] = useState(false)
   const { sistemasDisponibles, sistemaActual, cambiarSistema } = useSistema()
   const multiSistema = sistemasDisponibles.length > 1
-  // Acceso fijo a Usuarios (mismos roles que ya podían ver esa pestaña) sin
-  // importar en qué sistema esté parado — no depende de sistemaActual.
-  const puedeGestionarUsuarios = !!user && ['super_admin', 'logistica'].includes(user.rol)
+  // Acceso fijo a Usuarios & Roles (Backoffice) sin importar en qué sistema
+  // esté parado — no depende de sistemaActual. Ya no incluye a `logistica`:
+  // ese ítem ahora vive en /admin/usuarios, exclusivo super_admin.
+  const puedeGestionarUsuarios = user?.rol === 'super_admin'
 
   const grupos = HELADERAS_NAV_GROUPS
     .map((g) => ({
@@ -64,8 +65,8 @@ export default function HeladerasLayout() {
       </div>
       {puedeGestionarUsuarios && (
         <Link
-          to="/usuarios/equipo"
-          title="Usuarios"
+          to="/admin/usuarios"
+          title="Usuarios & Roles"
           className="text-gray-400 hover:text-accent transition-colors p-1.5 rounded-lg hover:bg-accent/10 shrink-0"
         >
           <UserCog size={16} />

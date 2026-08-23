@@ -234,7 +234,11 @@ export default function HeladerasPage() {
   const [aprobacionId, setAprobacionId]         = useState<string | null>(null)
   const [error, setError]                       = useState('')
 
-  const isEncargado = user?.rol === 'heladeras_encargado' || user?.rol === 'super_admin'
+  // super_admin ya no llega a esta pantalla (ver Fase 2 del plan de
+  // migración del Backoffice) — gerente_comercial sí, y antes se quedaba
+  // sin ver ninguna de las acciones de gestión pese a poder entrar por
+  // ruta (App.tsx). Bug cerrado: ahora coincide con el allowedRoles real.
+  const isEncargado = user?.rol === 'heladeras_encargado' || user?.rol === 'gerente_comercial'
   const actor = user ? { uid: user.uid, nombre: user.nombre } : null
 
   const misEnProceso = useMemo(

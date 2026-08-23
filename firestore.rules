@@ -685,6 +685,17 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ── Auditoría del Backoffice ───────────────────────────────────────────────
+    // Append-only: cualquier staff puede dejar su propio registro (nunca en
+    // nombre de otro — el actor.uid tiene que ser quien escribe), pero solo
+    // super_admin lo lee. Ver plan de migración del Backoffice, Fase 4.
+    match /historialAdmin/{eventoId} {
+      allow read:   if request.auth != null && myRole() == 'super_admin';
+      allow create: if request.auth != null && isStaff()
+        && request.resource.data.actor.uid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
     // ── Despachos ─────────────────────────────────────────────────────────────
     match /despachos/{despachoId} {
       allow read: if request.auth != null && (

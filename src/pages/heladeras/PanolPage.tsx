@@ -15,6 +15,7 @@ import {
   crearArticulo, registrarEntrega, registrarRecepcion,
   Actor, StockInsuficienteError,
 } from '../../services/panolService'
+import { registrarAccionRutina } from '../../services/historialAdminService'
 import { generateListadoPdf } from '../../utils/pdf'
 import { PanolArticulo, PanolMovimientoArticulo } from '../../types'
 import { tsToDate } from '../../utils/helpers'
@@ -22,6 +23,7 @@ import { tsToDate } from '../../utils/helpers'
 // ── Alta de artículo ─────────────────────────────────────────────────────────
 
 function NuevoArticuloModal({ onClose }: { onClose: () => void }) {
+  const { user: currentUser } = useAuth()
   const [nombre, setNombre] = useState('')
   const [codigoBarras, setCodigoBarras] = useState('')
   const [unidad, setUnidad] = useState('unidad')
@@ -40,6 +42,12 @@ function NuevoArticuloModal({ onClose }: { onClose: () => void }) {
         nombre: nombre.trim(), codigoBarras: codigoBarras.trim(), unidad,
         stockMinimo: Number(stockMinimo) || 0, stockMaximo: Number(stockMaximo) || 0,
       })
+      if (currentUser) {
+        registrarAccionRutina({
+          coleccion: 'panolArticulos', docId: codigoBarras.trim(), accion: 'creado', detalle: nombre.trim(),
+          actor: { uid: currentUser.uid, nombre: currentUser.nombre, rol: currentUser.rol },
+        }).catch((err) => console.error('[historialAdmin] no se pudo registrar alta de artículo:', err))
+      }
       onClose()
     } catch {
       setError('No se pudo crear el artículo. Intentá de nuevo.')

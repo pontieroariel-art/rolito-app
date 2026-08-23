@@ -1,36 +1,30 @@
 import { useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { Menu, X, ArrowLeftRight, LogOut, UserCog } from 'lucide-react'
+import { Menu, X, ArrowLeftRight, LogOut } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useOnline } from '../../hooks/useOnline'
 import { useSistema } from '../../context/SistemaContext'
 import { logoutUser } from '../../services/authService'
 import { ROLE_LABELS } from './Navbar'
-import { LOGISTICA_NAV_GROUPS } from '../../utils/logisticaNav'
+import { BACKOFFICE_NAV_GROUPS } from '../../utils/backofficeNav'
 import { SISTEMA_LABELS } from '../../utils/sistemas'
 
-// Shell del sistema logística/oficina — mismo esqueleto que
-// components/heladeras/HeladerasLayout.tsx: el sidebar ES la navegación
-// (logo, secciones, cuenta), sin Navbar global arriba. En mobile/tablet
-// angosto colapsa a un panel, con una franja mínima (logo + toggle) siempre
-// visible arriba.
-export default function LogisticaLayout() {
+// Shell del Backoffice (`/admin/*`) — mismo esqueleto que LogisticaLayout/
+// HeladerasLayout (sidebar-como-nav, sin Navbar arriba). A diferencia de
+// esos dos, hoy solo lo pisa super_admin: es el panel de administración,
+// separado de los tableros operativos de cada módulo.
+export default function BackofficeLayout() {
   const { user }   = useAuth()
   const online     = useOnline()
   const navigate   = useNavigate()
   const [open, setOpen] = useState(false)
   const { sistemasDisponibles, sistemaActual, cambiarSistema } = useSistema()
   const multiSistema = sistemasDisponibles.length > 1
-  // Acceso fijo a Usuarios & Roles (Backoffice) sin importar en qué sistema
-  // esté parado — no depende de sistemaActual. Ya no incluye a `logistica`:
-  // ese ítem ahora vive en /admin/usuarios, exclusivo super_admin.
-  const puedeGestionarUsuarios = user?.rol === 'super_admin'
 
-  const grupos = LOGISTICA_NAV_GROUPS
+  const grupos = BACKOFFICE_NAV_GROUPS
     .map((g) => ({
       ...g,
-      items: g.items.filter((i) => user && i.roles.includes(user.rol)
-        && (!user.pestanasPermitidas || user.pestanasPermitidas.includes(i.to))),
+      items: g.items.filter((i) => user && i.roles.includes(user.rol)),
     }))
     .filter((g) => g.items.length > 0)
 
@@ -64,15 +58,6 @@ export default function LogisticaLayout() {
           {user?.rol && ROLE_LABELS[user.rol]}{multiSistema && sistemaActual ? ` · ${SISTEMA_LABELS[sistemaActual]}` : ''}
         </p>
       </div>
-      {puedeGestionarUsuarios && (
-        <Link
-          to="/admin/usuarios"
-          title="Usuarios & Roles"
-          className="text-gray-400 hover:text-accent transition-colors p-1.5 rounded-lg hover:bg-accent/10 shrink-0"
-        >
-          <UserCog size={16} />
-        </Link>
-      )}
       {multiSistema && (
         <button
           onClick={handleCambiarSistema}
@@ -103,7 +88,7 @@ export default function LogisticaLayout() {
 
       {/* Franja mínima — mobile/tablet angosto */}
       <div className="md:hidden sticky top-0 z-40 bg-white border-b border-[#D3D1C7] px-3 min-h-12 pt-[env(safe-area-inset-top)] flex items-center justify-between">
-        <Link to="/" className="flex items-center">
+        <Link to="/admin" className="flex items-center">
           <img src="/logo-rolito.png" alt="Rolito" width={71} height={24} className="h-6 w-auto object-contain" />
         </Link>
         <button
@@ -115,9 +100,6 @@ export default function LogisticaLayout() {
         </button>
       </div>
 
-      {/* Panel colapsable — mobile/tablet angosto: overlay con backdrop, no
-          empuja el contenido (antes el usuario tenía que scrollear el propio
-          menú antes de llegar a la pantalla). */}
       {open && (
         <div
           className="md:hidden fixed inset-0 z-30 bg-black/40"
@@ -126,9 +108,9 @@ export default function LogisticaLayout() {
       )}
       {open && (
         <div className="md:hidden fixed inset-x-0 top-[calc(3rem+env(safe-area-inset-top))] z-40 max-h-[calc(100dvh-3rem-env(safe-area-inset-top))] overflow-y-auto border-b border-[#D3D1C7] bg-white px-4 py-3 space-y-4 shadow-lg">
+          <p className="text-[11px] uppercase tracking-wide text-accent font-semibold px-1">Backoffice</p>
           {grupos.map((g) => (
             <div key={g.id}>
-              <p className="text-[11px] uppercase tracking-wide text-gray-400 font-semibold mb-1 px-1">{g.label}</p>
               <div className="space-y-0.5">
                 {g.items.map((item) => (
                   <NavLink key={item.to} to={item.to} end onClick={() => setOpen(false)} className={linkClass}>
@@ -147,14 +129,14 @@ export default function LogisticaLayout() {
 
       {/* Sidebar — única navegación en desktop/tablet ancho, sin Navbar arriba */}
       <aside className="hidden md:flex md:flex-col w-60 shrink-0 border-r border-[#D3D1C7] bg-white sticky top-0 h-screen">
-        <Link to="/" className="flex items-center px-4 h-16 border-b border-[#D3D1C7] shrink-0">
+        <Link to="/admin" className="flex items-center px-4 h-16 border-b border-[#D3D1C7] shrink-0">
           <img src="/logo-rolito.png" alt="Rolito" width={94} height={32} className="h-8 w-auto object-contain" />
         </Link>
+        <p className="text-[11px] uppercase tracking-wide text-accent font-semibold px-6 pt-4">Backoffice</p>
 
         <nav className="flex-1 p-4 space-y-6 overflow-y-auto">
           {grupos.map((g) => (
             <div key={g.id}>
-              <p className="text-[11px] uppercase tracking-wide text-gray-400 font-semibold mb-2 px-2.5">{g.label}</p>
               <div className="space-y-0.5">
                 {g.items.map((item) => (
                   <NavLink key={item.to} to={item.to} end className={linkClass}>

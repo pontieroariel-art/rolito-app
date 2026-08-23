@@ -275,7 +275,7 @@ async function createUserViaSecondaryApp(
   }
 }
 
-export const createStaffUser = async ({ dni, password, nombreContacto, rol, area }: CreateStaffParams): Promise<void> => {
+export const createStaffUser = async ({ dni, password, nombreContacto, rol, area }: CreateStaffParams): Promise<string> => {
   const { dniToStaffEmail, setStaffDniIndex, getEmailByStaffDni } = await import('./staffAuthService')
   const normalizedDni = dni.replace(/\D/g, '')
   const email = dniToStaffEmail(normalizedDni)
@@ -286,7 +286,7 @@ export const createStaffUser = async ({ dni, password, nombreContacto, rol, area
   if (yaUsado && yaUsado !== email) {
     throw new Error(`Ese DNI ya está en uso por otra cuenta (${yaUsado}). Verificalo antes de continuar.`)
   }
-  await createUserViaSecondaryApp(email, password, {
+  const uid = await createUserViaSecondaryApp(email, password, {
     nombre:          nombreContacto,
     email,
     dni:             normalizedDni,
@@ -305,6 +305,7 @@ export const createStaffUser = async ({ dni, password, nombreContacto, rol, area
     aprobadoPor:     'admin',
   }, true)   // rol privilegiado → el doc lo escribe el super_admin
   await setStaffDniIndex(normalizedDni, email)
+  return uid
 }
 
 export const createClientUser = async ({ email, password, razonSocial, nombreContacto, cuit, telefono, addresses, creadoPor, codigoCliente }: CreateClientParams): Promise<void> => {

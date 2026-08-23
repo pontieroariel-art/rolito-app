@@ -5,9 +5,11 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useMotivosReparacion, useTiposReparacion } from '../../hooks/useReparacionCatalogos'
 import { useMotivosIngreso } from '../../hooks/useMotivosIngreso'
 import { usePasosTaller } from '../../hooks/usePasosTaller'
+import { useAuth } from '../../context/AuthContext'
 import { saveMotivosReparacion, saveTiposReparacion } from '../../services/reparacionCatalogService'
 import { saveMotivosIngreso } from '../../services/motivoIngresoService'
 import { savePasosTaller } from '../../services/pasosTallerService'
+import { registrarAccionRutina, ActorAdmin } from '../../services/historialAdminService'
 import {
   AREAS_HELADERA, AreaHeladera, MotivoIngreso, MotivoReparacion, PasoTaller,
   TipoOperacionIngreso, TipoPipelineHeladera, TipoReparacion,
@@ -525,11 +527,24 @@ function PasosTallerEditor({ pasos, onSaved }: { pasos: Record<string, PasoTalle
 // ── Página principal ─────────────────────────────────────────────────────────
 
 export default function CatalogosServicePage() {
+  const { user } = useAuth()
   const { motivos, isLoading: loadingMotivos } = useMotivosReparacion()
   const { tipos, isLoading: loadingTipos }     = useTiposReparacion()
   const { motivos: motivosIngreso, isLoading: loadingMotivosIngreso } = useMotivosIngreso()
   const { pasos, isLoading: loadingPasos }     = usePasosTaller()
   const qc = useQueryClient()
+
+  // Auditoría a nivel de catálogo (no de ítem individual): cada editor ya
+  // llama a onSaved() después de cualquier alta/edición/baja — alcanza para
+  // el resumen diario, sin tener que instrumentar los 3 handlers de los 4
+  // editores por separado.
+  const logCatalogo = (coleccion: string, detalle: string) => {
+    if (!user) return
+    registrarAccionRutina({
+      coleccion, docId: coleccion, accion: 'modificado', detalle,
+      actor: { uid: user.uid, nombre: user.nombre, rol: user.rol } as ActorAdmin,
+    }).catch((err) => console.error('[historialAdmin] no se pudo registrar cambio de catálogo:', err))
+  }
 
   if (loadingMotivos || loadingTipos || loadingMotivosIngreso || loadingPasos) return <LoadingSpinner fullScreen />
 
@@ -541,10 +556,10 @@ export default function CatalogosServicePage() {
           <p className="text-gray-500 text-sm">Pasos de taller, motivos de ingreso, motivos y tipos de reparación</p>
         </div>
 
-        <PasosTallerEditor pasos={pasos} onSaved={() => qc.invalidateQueries({ queryKey: ['pasosTaller'] })} />
-        <MotivosIngresoEditor motivos={motivosIngreso} onSaved={() => qc.invalidateQueries({ queryKey: ['motivosIngreso'] })} />
-        <MotivosEditor motivos={motivos} onSaved={() => qc.invalidateQueries({ queryKey: ['motivosReparacion'] })} />
-        <TiposEditor tipos={tipos} onSaved={() => qc.invalidateQueries({ queryKey: ['tiposReparacion'] })} />
+        <PasosTallerEditor pasos={pasos} onSaved={() => { qc.invalidateQueries({ queryKey: ['pasosTaller'] }); logCatalogo('pasosTaller', 'Pasos de taller') }} />
+        <MotivosIngresoEditor motivos={motivosIngreso} onSaved={() => { qc.invalidateQueries({ queryKey: ['motivosIngreso'] }); logCatalogo('motivosIngreso', 'Motivos de ingreso') }} />
+        <MotivosEditor motivos={motivos} onSaved={() => { qc.invalidateQueries({ queryKey: ['motivosReparacion'] }); logCatalogo('motivosReparacion', 'Motivos de reparación') }} />
+        <TiposEditor tipos={tipos} onSaved={() => { qc.invalidateQueries({ queryKey: ['tiposReparacion'] }); logCatalogo('tiposReparacion', 'Tipos de reparación') }} />
       </main>
     </div>
   )

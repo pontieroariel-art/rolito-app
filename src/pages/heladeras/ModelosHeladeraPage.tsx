@@ -3,7 +3,9 @@ import Button from '../../components/ui/Button'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import Modal from '../../components/ui/Modal'
 import { useModelosHeladera } from '../../hooks/useModelosHeladera'
+import { useAuth } from '../../context/AuthContext'
 import { crearModeloHeladera, actualizarModeloHeladera } from '../../services/modelosHeladeraService'
+import { registrarAccionRutina } from '../../services/historialAdminService'
 import { ModeloHeladera } from '../../types'
 
 // ── Formulario de modelo ────────────────────────────────────────────────────
@@ -136,17 +138,27 @@ function ModeloForm({
 // ── Página principal ─────────────────────────────────────────────────────────
 
 export default function ModelosHeladeraPage() {
-  const { modelos, loading } = useModelosHeladera()
+  const { user }              = useAuth()
+  const { modelos, loading }  = useModelosHeladera()
   const [addModal,    setAddModal]    = useState(false)
   const [editModelo,  setEditModelo]  = useState<ModeloHeladera | null>(null)
   const [togglingId,  setTogglingId]  = useState<string | null>(null)
   const [toggleError, setToggleError] = useState('')
+
+  const logModelo = (docId: string, accion: 'creado' | 'modificado' | 'activado' | 'desactivado', detalle: string) => {
+    if (!user) return
+    registrarAccionRutina({
+      coleccion: 'modelosHeladera', docId, accion, detalle,
+      actor: { uid: user.uid, nombre: user.nombre, rol: user.rol },
+    }).catch((err) => console.error('[historialAdmin] no se pudo registrar cambio de modelo:', err))
+  }
 
   const handleToggle = async (m: ModeloHeladera) => {
     setTogglingId(m.id)
     setToggleError('')
     try {
       await actualizarModeloHeladera(m.id, { activo: !m.activo })
+      logModelo(m.id, m.activo ? 'desactivado' : 'activado', m.nombre)
     } catch {
       setToggleError('No se pudo actualizar. Revisá tu conexión y reintentá.')
     } finally {
@@ -234,6 +246,7 @@ export default function ModelosHeladeraPage() {
               ...(data.fotoUrl ? { fotoUrl: data.fotoUrl } : {}),
               ...(data.prefijoCodigo ? { prefijoCodigo: data.prefijoCodigo } : {}),
             })
+            logModelo(data.nombre, 'creado', data.nombre)
             setAddModal(false)
           }}
           onCancel={() => setAddModal(false)}
@@ -252,6 +265,7 @@ export default function ModelosHeladeraPage() {
                 fotoUrl: data.fotoUrl,
                 prefijoCodigo: data.prefijoCodigo,
               })
+              logModelo(editModelo.id, 'modificado', data.nombre)
               setEditModelo(null)
             }}
             onCancel={() => setEditModelo(null)}

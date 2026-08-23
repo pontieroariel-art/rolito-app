@@ -2,12 +2,15 @@ import { useState, ChangeEvent, FormEvent } from 'react'
 import Button from '../../../components/ui/Button'
 import Input from '../../../components/ui/Input'
 import Modal from '../../../components/ui/Modal'
+import { useAuth } from '../../../context/AuthContext'
 import { createStaffUser, createChoferUser } from '../../../services/userService'
+import { registrarAccionAlto } from '../../../services/historialAdminService'
 import { AREAS_HELADERA, AreaHeladera, UserRole } from '../../../types'
 import { AREA_HELADERA_LABELS as AREA_LABELS } from '../../../utils/heladeraLabels'
 import { ROLE_LABELS, STAFF_ROLES } from './shared'
 
 export function CrearStaffModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const { user: currentUser } = useAuth()
   const [nombre,   setNombre]   = useState('')
   const [dni,      setDni]      = useState('')
   const [password, setPassword] = useState('')
@@ -32,7 +35,16 @@ export function CrearStaffModal({ onClose, onCreated }: { onClose: () => void; o
       if (isChofer) {
         await createChoferUser({ nombreContacto: nombre, cuit: dni.trim(), pin: password })
       } else {
-        await createStaffUser({ dni: dni.trim(), password, nombreContacto: nombre, rol, area: isHeladeras ? area : undefined })
+        const uid = await createStaffUser({ dni: dni.trim(), password, nombreContacto: nombre, rol, area: isHeladeras ? area : undefined })
+        if (currentUser) {
+          registrarAccionAlto({
+            coleccion: 'users',
+            docId:     uid,
+            accion:    'usuario_creado',
+            detalle:   `${nombre} — ${ROLE_LABELS[rol]}`,
+            actor:     { uid: currentUser.uid, nombre: currentUser.nombre, rol: currentUser.rol },
+          }).catch((err) => console.error('[historialAdmin] no se pudo registrar usuario_creado:', err))
+        }
       }
       onCreated()
     } catch (err: any) {

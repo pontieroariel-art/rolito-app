@@ -45,23 +45,12 @@ const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
     { to: '/mis-heladeras',  label: 'Mis heladeras',  icon: Snowflake },
     { to: '/perfil',         label: 'Mi perfil',      icon: UserCircle },
   ],
-  super_admin: [
-    { to: '/admin',                         label: 'Tablero',       icon: LayoutDashboard },
-    { to: '/admin/planificacion',           label: 'Planificación', icon: CalendarDays },
-    { to: '/admin/monitoreo',               label: 'Monitoreo',     icon: Activity },
-    { to: '/admin/incidencias',             label: 'Incidencias',   icon: AlertTriangle },
-    { to: '/admin/historial-despacho',      label: 'Hist. despacho', icon: History },
-    { to: '/admin/visitas',                 label: 'Visitas',       icon: ClipboardList },
-    { to: '/admin/flota',                   label: 'Flota',         icon: Truck },
-    { to: '/admin/clima',                   label: 'Clima',         icon: Cloud },
-    { to: '/usuarios',                      label: 'Usuarios',      icon: Users },
-    { to: '/admin/mapa-clientes',           label: 'Mapa clientes', icon: Map },
-    { to: '/movimientos',                   label: 'Movimientos',   icon: BarChart2 },
-    { to: '/admin/precios',                 label: 'Precios',       icon: Tag },
-    { to: '/comercial/reporte-precios',     label: 'Rep. precios',  icon: DollarSign },
-    { to: '/comercial/ventas',              label: 'Ventas',        icon: TrendingUp },
-    { to: '/comercial/historial-precios',   label: 'Hist. precios', icon: Clock },
-  ],
+  // super_admin ya no llega a ninguna pantalla que use este Navbar genérico
+  // (administra desde BackofficeLayout, y conserva Flota/Precios/Modelos/
+  // etc. dentro de LogisticaLayout/HeladerasLayout, que tienen su propio
+  // chrome) — ver plan de migración del Backoffice. Se deja vacío en vez de
+  // borrar la key porque UserRole exige que NAV_LINKS cubra los 12 roles.
+  super_admin: [],
   logistica: [
     { to: '/logistica',           label: 'Planificación',  icon: CalendarDays },
     { to: '/admin/historial-despacho', label: 'Hist. despacho', icon: History },

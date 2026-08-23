@@ -15,9 +15,10 @@ import {
   updateUserDocument,
   approveUser,
 } from '../../services/userService'
+import { registrarAccionAlto } from '../../services/historialAdminService'
 import { useAllListasPrecios } from '../../hooks/useListasPrecios'
 import { UserProfile, UserRole, UserStatus, DeliveryAddress } from '../../types'
-import { SucursalFlat, ALL_STATUSES, STATUS_LABELS } from './user-management/shared'
+import { SucursalFlat, ALL_STATUSES, STATUS_LABELS, ROLE_LABELS } from './user-management/shared'
 import { CrearStaffModal } from './user-management/CrearStaffModal'
 import { CrearClienteModal } from './user-management/CrearClienteModal'
 import { ImportarClientesModal } from './user-management/ImportarClientesModal'
@@ -29,10 +30,11 @@ const PAGE_SIZE = 50
 export default function UserManagement() {
   const navigate = useNavigate()
   const location = useLocation()
-  // Clientes y Usuarios son dos entradas de sidebar separadas (/usuarios y
-  // /usuarios/equipo) que renderizan este mismo componente — la vista activa
+  // Clientes y Usuarios son dos entradas de sidebar separadas (/usuarios,
+  // operativa, en LogisticaLayout; /admin/usuarios, Backoffice, solo
+  // super_admin) que renderizan este mismo componente — la vista activa
   // se deriva de la ruta en vez de un estado de tab manejado con botones.
-  const tab: 'clientes' | 'equipo' = location.pathname === '/usuarios/equipo' ? 'equipo' : 'clientes'
+  const tab: 'clientes' | 'equipo' = location.pathname === '/admin/usuarios' ? 'equipo' : 'clientes'
   const { user: currentUser }           = useAuth()
   const [clientes, setClientes]         = useState<UserProfile[]>([])
   const [equipo, setEquipo]             = useState<UserProfile[]>([])
@@ -76,7 +78,7 @@ export default function UserManagement() {
     loadClientes()
   }, [])
 
-  // Al navegar entre /usuarios y /usuarios/equipo se resetean filtros y
+  // Al navegar entre /usuarios y /admin/usuarios se resetean filtros y
   // paginado, igual que hacía el viejo handleTabChange al clickear una tab.
   useEffect(() => {
     setVisibleCount(PAGE_SIZE)
@@ -133,9 +135,19 @@ export default function UserManagement() {
   })
 
   const handleRole = async (uid: string, rol: UserRole) => {
+    const anterior = equipo.find((u) => u.uid === uid)
     await updateUserRole(uid, rol)
     setEquipo((prev) => prev.map((u) => u.uid === uid ? { ...u, rol } : u))
     setClientes((prev) => prev.map((u) => u.uid === uid ? { ...u, rol } : u))
+    if (currentUser && anterior) {
+      registrarAccionAlto({
+        coleccion: 'users',
+        docId:     uid,
+        accion:    'rol_cambiado',
+        detalle:   `${anterior.nombreContacto || anterior.nombre} — ${ROLE_LABELS[anterior.rol]} → ${ROLE_LABELS[rol]}`,
+        actor:     { uid: currentUser.uid, nombre: currentUser.nombre, rol: currentUser.rol },
+      }).catch((err) => console.error('[historialAdmin] no se pudo registrar rol_cambiado:', err))
+    }
   }
 
   const handleSubrol = async (uid: string, subrol: 'chofer' | 'ayudante') => {
@@ -148,6 +160,17 @@ export default function UserManagement() {
     await updateUserStatus(u.uid, newEstado)
     setClientes((prev) => prev.map((p) => p.uid === u.uid ? { ...p, estado: newEstado } : p))
     setEquipo((prev) => prev.map((p) => p.uid === u.uid ? { ...p, estado: newEstado } : p))
+    // Solo se audita la baja de personal (equipo) — desactivar un cliente es
+    // rutina comercial, no una acción administrativa de riesgo.
+    if (currentUser && tab === 'equipo' && newEstado === 'inactivo') {
+      registrarAccionAlto({
+        coleccion: 'users',
+        docId:     u.uid,
+        accion:    'usuario_desactivado',
+        detalle:   `${u.nombreContacto || u.nombre} (${ROLE_LABELS[u.rol]})`,
+        actor:     { uid: currentUser.uid, nombre: currentUser.nombre, rol: currentUser.rol },
+      }).catch((err) => console.error('[historialAdmin] no se pudo registrar usuario_desactivado:', err))
+    }
   }
 
   const handleListaChange = (uid: string, listaPreciosId: string | null) => {
@@ -214,7 +237,7 @@ export default function UserManagement() {
               </div>
             )}
             {tab === 'equipo' && currentUser?.rol === 'super_admin' && (
-              <Button variant="outline" onClick={() => navigate('/produccion/operarios')} className="text-sm">
+              <Button variant="outline" onClick={() => navigate('/admin/produccion/operarios')} className="text-sm">
                 Operarios de producción →
               </Button>
             )}

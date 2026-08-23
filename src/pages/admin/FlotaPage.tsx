@@ -4,7 +4,9 @@ import Button from '../../components/ui/Button'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import Modal from '../../components/ui/Modal'
 import { useFlota } from '../../hooks/useFlota'
+import { useAuth } from '../../context/AuthContext'
 import { addCamion, updateCamion } from '../../services/flotaService'
+import { registrarAccionRutina } from '../../services/historialAdminService'
 import { Camion, CANALES_CAMION, CanalCamion } from '../../types'
 
 // ── Formulario de camión ───────────────────────────────────────────────────────
@@ -133,9 +135,18 @@ function CamionForm({
 // ── Página principal ──────────────────────────────────────────────────────────
 
 export default function FlotaPage() {
+  const { user }                    = useAuth()
   const { camiones, loading: loadingCamiones } = useFlota()
   const [addModal,   setAddModal]   = useState(false)
   const [editCamion, setEditCamion] = useState<Camion | null>(null)
+
+  const logFlota = (docId: string, accion: 'creado' | 'modificado' | 'activado' | 'desactivado', detalle: string) => {
+    if (!user) return
+    registrarAccionRutina({
+      coleccion: 'flota', docId, accion, detalle,
+      actor: { uid: user.uid, nombre: user.nombre, rol: user.rol },
+    }).catch((err) => console.error('[historialAdmin] no se pudo registrar cambio de flota:', err))
+  }
 
   if (loadingCamiones) return <LoadingSpinner fullScreen />
 
@@ -215,7 +226,7 @@ export default function FlotaPage() {
                         Editar
                       </button>
                       <button
-                        onClick={() => updateCamion(c.id, { activo: !c.activo })}
+                        onClick={() => { updateCamion(c.id, { activo: !c.activo }); logFlota(c.id, c.activo ? 'desactivado' : 'activado', c.patente) }}
                         className="text-xs text-gray-500 hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-4 py-2 transition-colors min-h-[36px]"
                       >
                         {c.activo ? 'Desactivar' : 'Activar'}
@@ -231,7 +242,7 @@ export default function FlotaPage() {
       {/* Modal agregar */}
       <Modal open={addModal} onClose={() => setAddModal(false)} title="Agregar vehículo">
         <CamionForm
-          onSave={async (data) => { await addCamion(data); setAddModal(false) }}
+          onSave={async (data) => { await addCamion(data); logFlota(data.patente, 'creado', data.patente); setAddModal(false) }}
           onCancel={() => setAddModal(false)}
         />
       </Modal>
@@ -254,6 +265,7 @@ export default function FlotaPage() {
                 capacidadPallets: data.capacidadPallets !== undefined ? data.capacidadPallets : deleteField(),
               }
               await updateCamion(editCamion.id, payload)
+              logFlota(editCamion.id, 'modificado', data.patente)
               setEditCamion(null)
             }}
             onCancel={() => setEditCamion(null)}

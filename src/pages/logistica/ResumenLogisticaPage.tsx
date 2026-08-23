@@ -9,13 +9,18 @@ import { useChoferes } from '../../hooks/useChoferes'
 import { useNotificationEmails } from '../../hooks/useNotificationEmails'
 import { useAuth } from '../../context/AuthContext'
 import { cleanupTestData, CleanupResult } from '../../services/cleanupService'
-import MetricsDashboard from './MetricsDashboard'
-import { ForecastStrip } from './ClimaPage'
+import MetricsDashboard from '../admin/MetricsDashboard'
+import { ForecastStrip } from '../admin/ClimaPage'
 import { LiveMapSection }           from '../../components/admin/LiveMapSection'
 import { ResumenCargaPorChofer }    from '../../components/admin/ResumenCargaPorChofer'
 import { NotificationEmailManager } from '../../components/admin/NotificationEmailManager'
 
-export default function AdminDashboard() {
+// Tablero de KPIs de logística (ex AdminDashboard.tsx) — hasta ahora vivía
+// en /admin y era exclusivo de super_admin junto con el resto de logística.
+// Ahora que /admin pasó a ser el Backoffice, este tablero se muda acá como
+// pantalla operativa de logística/gerencia comercial (ver plan de
+// migración del Backoffice).
+export default function ResumenLogisticaPage() {
   const { orders, loading } = useAllOrders()
   const { user }            = useAuth()
   const choferes            = useChoferes()
@@ -23,8 +28,6 @@ export default function AdminDashboard() {
   const [cleanupModal,   setCleanupModal]   = useState(false)
   const [cleanupLoading, setCleanupLoading] = useState(false)
   const [cleanupResult,  setCleanupResult]  = useState<CleanupResult | null>(null)
-
-  const isSuperAdmin = user?.rol === 'super_admin'
 
   const handleCleanup = async () => {
     if (!user?.uid) return
@@ -60,7 +63,7 @@ export default function AdminDashboard() {
         {/* Header */}
         <div className="flex flex-wrap justify-between items-center gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Tablero</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Resumen</h1>
             <p className="text-gray-500 text-sm">
               {new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }).replace(/^./, (c) => c.toUpperCase())}
             </p>
@@ -89,8 +92,8 @@ export default function AdminDashboard() {
         {/* Carga por chofer */}
         <ResumenCargaPorChofer orders={orders} choferes={choferes.choferes} />
 
-        {/* Herramienta de pruebas (solo super_admin, solo en dev) */}
-        {isSuperAdmin && import.meta.env.DEV && (
+        {/* Herramienta de pruebas (solo en dev, contra el emulador) */}
+        {import.meta.env.DEV && (
           <>
             <button
               onClick={() => { setCleanupResult(null); setCleanupModal(true) }}

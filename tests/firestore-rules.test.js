@@ -1561,6 +1561,66 @@ describe('historialPrecios — inmutabilidad', () => {
   })
 })
 
+// ── historialAdmin — auditoría del Backoffice (Fase 4) ────────────────────────
+describe('historialAdmin — auditoría del Backoffice', () => {
+  test('staff SÍ puede crear su propio evento', async () => {
+    await seed((d) => setDoc(doc(d, 'users/ops'), { rol: 'logistica', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('ops'), 'historialAdmin/ev1'), {
+      coleccion: 'flota', docId: 'c1', accion: 'creado', riesgo: 'rutina',
+      actor: { uid: 'ops', nombre: 'Ops', rol: 'logistica' },
+    }))
+  })
+
+  test('staff NO puede crear un evento a nombre de otro actor (spoof)', async () => {
+    await seed((d) => setDoc(doc(d, 'users/ops'), { rol: 'logistica', estado: 'activo' }))
+    await assertFails(setDoc(doc(db('ops'), 'historialAdmin/ev1'), {
+      coleccion: 'flota', docId: 'c1', accion: 'creado', riesgo: 'rutina',
+      actor: { uid: 'otro-uid', nombre: 'Ops', rol: 'logistica' },
+    }))
+  })
+
+  test('cliente NO puede crear un evento', async () => {
+    await assertFails(setDoc(doc(db('cli', 'c@x.com'), 'historialAdmin/ev1'), {
+      coleccion: 'flota', docId: 'c1', accion: 'creado', riesgo: 'rutina',
+      actor: { uid: 'cli', nombre: 'Cliente', rol: 'cliente' },
+    }))
+  })
+
+  test('super_admin SÍ puede leer historialAdmin', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/adm'), { rol: 'super_admin', estado: 'activo' })
+      await setDoc(doc(d, 'historialAdmin/ev1'), {
+        coleccion: 'flota', docId: 'c1', accion: 'creado', riesgo: 'rutina',
+        actor: { uid: 'ops', nombre: 'Ops', rol: 'logistica' },
+      })
+    })
+    await assertSucceeds(getDoc(doc(db('adm'), 'historialAdmin/ev1')))
+  })
+
+  test('logistica (no super_admin) NO puede leer historialAdmin', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/ops'), { rol: 'logistica', estado: 'activo' })
+      await setDoc(doc(d, 'historialAdmin/ev1'), {
+        coleccion: 'flota', docId: 'c1', accion: 'creado', riesgo: 'rutina',
+        actor: { uid: 'ops', nombre: 'Ops', rol: 'logistica' },
+      })
+    })
+    await assertFails(getDoc(doc(db('ops'), 'historialAdmin/ev1')))
+  })
+
+  test('nadie puede actualizar ni borrar un evento (ni super_admin)', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/adm'), { rol: 'super_admin', estado: 'activo' })
+      await setDoc(doc(d, 'historialAdmin/ev1'), {
+        coleccion: 'flota', docId: 'c1', accion: 'creado', riesgo: 'rutina',
+        actor: { uid: 'ops', nombre: 'Ops', rol: 'logistica' },
+      })
+    })
+    await assertFails(updateDoc(doc(db('adm'), 'historialAdmin/ev1'), { accion: 'modificado' }))
+    await assertFails(deleteDoc(doc(db('adm'), 'historialAdmin/ev1')))
+  })
+})
+
 // ── config / configuracion ─────────────────────────────────────────────────
 describe('config y configuracion', () => {
   test('el cliente SÍ puede leer config/catalogo (lo necesita para pedir)', async () => {

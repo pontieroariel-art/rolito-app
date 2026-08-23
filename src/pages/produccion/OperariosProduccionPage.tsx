@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState, FormEvent, ChangeEvent } from 'react'
-import Navbar from '../../components/layout/Navbar'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import Modal from '../../components/ui/Modal'
@@ -126,7 +125,6 @@ export default function OperariosProduccionPage() {
 
   return (
     <div className="min-h-screen bg-[#F8F7F2] text-gray-900">
-      <Navbar />
       <main className="max-w-2xl mx-auto p-4 space-y-6 pb-10">
         <section className="space-y-2">
           <h2 className="text-sm font-semibold text-gray-900">Correlativo por planta</h2>

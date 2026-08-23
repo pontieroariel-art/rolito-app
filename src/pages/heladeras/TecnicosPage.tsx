@@ -4,11 +4,14 @@ import Input from '../../components/ui/Input'
 import Modal from '../../components/ui/Modal'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useTecnicos } from '../../hooks/useTecnicos'
+import { useAuth } from '../../context/AuthContext'
 import { createTecnicoUser, updateUserStatus } from '../../services/userService'
+import { registrarAccionRutina } from '../../services/historialAdminService'
 import { AREA_HELADERA_LABELS, SECTORES_REPARACION } from '../../utils/heladeraLabels'
 import { AreaHeladera } from '../../types'
 
 function CrearTecnicoModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const { user: currentUser } = useAuth()
   const [nombre,   setNombre]   = useState('')
   const [dni,      setDni]      = useState('')
   const [pin,      setPin]      = useState('')
@@ -26,6 +29,12 @@ function CrearTecnicoModal({ onClose, onCreated }: { onClose: () => void; onCrea
     setSaving(true)
     try {
       await createTecnicoUser({ nombreContacto: nombre.trim(), dni, pin, telefono: telefono.trim(), area })
+      if (currentUser) {
+        registrarAccionRutina({
+          coleccion: 'users', docId: dni, accion: 'creado', detalle: `${nombre.trim()} — Técnico (${AREA_HELADERA_LABELS[area]})`,
+          actor: { uid: currentUser.uid, nombre: currentUser.nombre, rol: currentUser.rol },
+        }).catch((err) => console.error('[historialAdmin] no se pudo registrar alta de técnico:', err))
+      }
       onCreated()
       onClose()
     } catch (err) {
@@ -72,6 +81,7 @@ function CrearTecnicoModal({ onClose, onCreated }: { onClose: () => void; onCrea
 }
 
 export default function TecnicosPage() {
+  const { user: currentUser } = useAuth()
   const { tecnicos, loading, refetch } = useTecnicos()
   const [crearModal, setCrearModal] = useState(false)
 
@@ -120,8 +130,15 @@ export default function TecnicosPage() {
                   </span>
                   <button
                     onClick={async () => {
-                      await updateUserStatus(t.uid, t.estado === 'activo' ? 'inactivo' : 'activo')
+                      const nuevoEstado = t.estado === 'activo' ? 'inactivo' : 'activo'
+                      await updateUserStatus(t.uid, nuevoEstado)
                       refetch()
+                      if (currentUser) {
+                        registrarAccionRutina({
+                          coleccion: 'users', docId: t.uid, accion: nuevoEstado === 'activo' ? 'activado' : 'desactivado', detalle: t.nombre,
+                          actor: { uid: currentUser.uid, nombre: currentUser.nombre, rol: currentUser.rol },
+                        }).catch((err) => console.error('[historialAdmin] no se pudo registrar cambio de estado de técnico:', err))
+                      }
                     }}
                     className="text-xs text-gray-500 hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-4 py-2 transition-colors min-h-[36px]"
                   >
