@@ -280,8 +280,11 @@ function AppContent() {
             <Route path="/heladeras/equipos"   element={<EquiposPage />} />
             <Route path="/heladeras/panol"     element={<PanolPage />} />
           </Route>
-          {/* Informes y Mapa son reporte/monitoreo, no config — ya no super_admin */}
-          <Route element={<ProtectedRoute allowedRoles={['heladeras_encargado', 'gerente_comercial', 'gerente_general']} />}>
+          {/* Informes y Mapa son reporte/monitoreo, no config — sin nav propio para
+              super_admin (vive en Backoffice), pero sí alcanzable como drill-down de
+              solo lectura desde el link "Ver informes →" del Panel de directores
+              (/gerente, accesible por gerente_general y super_admin). */}
+          <Route element={<ProtectedRoute allowedRoles={['heladeras_encargado', 'gerente_comercial', 'gerente_general', 'super_admin']} />}>
             <Route path="/heladeras/informes"  element={<InformesDashboardPage />} />
             <Route path="/heladeras/mapa"      element={<MapaClientesHeladerasPage />} />
           </Route>
@@ -317,8 +320,10 @@ function AppContent() {
           <Route path="/produccion/ticket/:palletId" element={<ProduccionTicketPage />} />
           <Route path="/produccion/ficha/:palletId"  element={<FichaPalletPage />} />
         </Route>
-        {/* Listado de producción para gerencia/logística/encargado */}
-        <Route element={<ProtectedRoute allowedRoles={['gerente_general', 'gerente_comercial', 'comercial', 'logistica', 'produccion_encargado']} />}>
+        {/* Listado de producción para gerencia/logística/encargado. super_admin
+            entra también — tiene una card directa a esta ruta en el Backoffice
+            (Configuración — Producción) que hasta ahora rebotaba. */}
+        <Route element={<ProtectedRoute allowedRoles={['gerente_general', 'gerente_comercial', 'comercial', 'logistica', 'produccion_encargado', 'super_admin']} />}>
           <Route path="/produccion/listado" element={<ProduccionListadoPage />} />
         </Route>
 
