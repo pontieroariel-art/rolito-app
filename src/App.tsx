@@ -203,8 +203,9 @@ function AppContent() {
             <Route path="/admin/monitoreo" element={<MonitoreoPage />} />
           </Route>
 
-          {/* Gerente general */}
-          <Route element={<ProtectedRoute allowedRoles={['gerente_general']} />}>
+          {/* Gerente general — super_admin entra en solo lectura, mismo dato que ya
+              puede leer desde el Backoffice, solo que resumido (ver BackofficeHome). */}
+          <Route element={<ProtectedRoute allowedRoles={['gerente_general', 'super_admin']} />}>
             <Route path="/gerente" element={<GerenteDashboard />} />
           </Route>
 
@@ -280,7 +281,7 @@ function AppContent() {
             <Route path="/heladeras/panol"     element={<PanolPage />} />
           </Route>
           {/* Informes y Mapa son reporte/monitoreo, no config — ya no super_admin */}
-          <Route element={<ProtectedRoute allowedRoles={['heladeras_encargado', 'gerente_comercial']} />}>
+          <Route element={<ProtectedRoute allowedRoles={['heladeras_encargado', 'gerente_comercial', 'gerente_general']} />}>
             <Route path="/heladeras/informes"  element={<InformesDashboardPage />} />
             <Route path="/heladeras/mapa"      element={<MapaClientesHeladerasPage />} />
           </Route>

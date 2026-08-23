@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { UserCog, Factory, Settings, Truck, Tag, Layers, ClipboardList, Users2, Package } from 'lucide-react'
+import { UserCog, Factory, Settings, Truck, Tag, Layers, ClipboardList, Users2, Package, LayoutDashboard } from 'lucide-react'
 
 interface CardLink {
   to:          string
@@ -21,6 +21,12 @@ interface CardSection {
 // usando gente que no es super_admin como parte de su trabajo diario —
 // ver plan de migración).
 const SECTIONS: CardSection[] = [
+  {
+    id: 'gerencia', title: 'Gerencia',
+    cards: [
+      { to: '/gerente', label: 'Panel de directores', description: 'Resumen ejecutivo de solo lectura: logística, heladeras y producción.', icon: LayoutDashboard },
+    ],
+  },
   {
     id: 'admin', title: 'Administración',
     cards: [

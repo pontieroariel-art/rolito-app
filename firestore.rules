@@ -472,9 +472,11 @@ service cloud.firestore {
     match /heladeras/{heladeraId} {
       // Lectura: personal de taller, acceso completo del módulo (encargado/super_admin/
       // gerente_comercial), comercial en solo-lectura (necesita ver qué cliente tiene
-      // qué heladera y su ficha para la pantalla de asignación — sin poder escribir) y
-      // técnico (escanea el QR de la etiqueta en el equipo del cliente).
-      allow read:   if request.auth != null && (isHeladeras() || isHeladerasFullAccess() || myRole() == 'comercial' || isTecnico());
+      // qué heladera y su ficha para la pantalla de asignación — sin poder escribir),
+      // técnico (escanea el QR de la etiqueta en el equipo del cliente) y gerente_general
+      // en solo-lectura (panorama cross-sector del panel de directores, /gerente — nunca
+      // opera el módulo, solo mira el resumen).
+      allow read:   if request.auth != null && (isHeladeras() || isHeladerasFullAccess() || myRole() == 'comercial' || isTecnico() || myRole() == 'gerente_general');
       // Cliente: solo lee SU PROPIA heladera asignada (comodato vigente) —
       // pantalla "Mis heladeras".
       allow read:   if request.auth != null && isCliente() && resource.data.get('clienteAsignadoId', null) == request.auth.uid;

@@ -2,12 +2,14 @@ import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
   TrendingUp, Users, Package, AlertCircle, CheckCircle,
-  Clock, Map, Activity, ChevronRight, Truck,
+  Clock, Map, Activity, ChevronRight, Truck, Snowflake, Factory,
 } from 'lucide-react'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useAllOrders } from '../../hooks/useOrders'
+import { useHeladeras } from '../../hooks/useHeladeras'
+import { useProduccionPallets } from '../../hooks/useProduccionPallets'
 import { getAllUsers, updateUserDocument } from '../../services/userService'
-import { UserProfile, Order } from '../../types'
+import { UserProfile, Order, PlantaId, PLANTAS } from '../../types'
 import { toDateStr, todayString as todayStr } from '../../utils/helpers'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -57,10 +59,23 @@ function StatCard({ label, value, sub, accent, icon: Icon }: {
   )
 }
 
+// ── MiniStat ──────────────────────────────────────────────────────────────────
+
+function MiniStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div>
+      <p className="text-xl font-bold leading-none text-gray-900">{value.toLocaleString('es-AR')}</p>
+      <p className="text-[10px] text-gray-400 mt-1">{label}</p>
+    </div>
+  )
+}
+
 // ── Página ────────────────────────────────────────────────────────────────────
 
 export default function GerenteDashboard() {
   const { orders, loading: loadO } = useAllOrders()
+  const { heladeras, loading: loadH } = useHeladeras()
+  const { pallets, loading: loadP }   = useProduccionPallets(undefined)
   const [allUsers, setAllUsers]   = useState<UserProfile[]>([])
   const [loadU, setLoadU]         = useState(true)
   const [approving, setApproving] = useState<string | null>(null)
@@ -131,6 +146,32 @@ export default function GerenteDashboard() {
       .filter((c) => c.estado === 'activo' && (!ultimo[c.uid] || ultimo[c.uid] < cutoff))
       .slice(0, 8)
   }, [clientes, orders])
+
+  // ── Heladeras: panorama de estado del parque ────────────────────────────
+  const heladerasStats = useMemo(() => ({
+    enTaller:   heladeras.filter((h) => h.estado === 'en_taller').length,
+    disponible: heladeras.filter((h) => h.estado === 'disponible').length,
+    enComodato: heladeras.filter((h) => h.estado === 'en_comodato').length,
+  }), [heladeras])
+
+  // ── Producción de hielo: pallets cargados hoy / últimos 7 días ──────────
+  const palletsHoy = useMemo(
+    () => pallets.filter((p) => {
+      try { return toDateStr(p.fechaFabricacion.toDate()) === today } catch { return false }
+    }),
+    [pallets, today],
+  )
+  const palletsSemana = useMemo(() => {
+    const cutoff = nDaysAgo(6)
+    return pallets.filter((p) => {
+      try { return p.fechaFabricacion.toDate() >= cutoff } catch { return false }
+    })
+  }, [pallets])
+  const porPlantaHoy = useMemo(() => {
+    const counts: Partial<Record<PlantaId, number>> = {}
+    for (const p of palletsHoy) counts[p.plantaId] = (counts[p.plantaId] ?? 0) + 1
+    return counts
+  }, [palletsHoy])
 
   const handleApprove = async (uid: string) => {
     setApproving(uid)
@@ -313,6 +354,63 @@ export default function GerenteDashboard() {
             </div>
           </div>
 
+        </div>
+
+        {/* Otras áreas */}
+        <div>
+          <p className="text-sm font-semibold text-gray-900 mb-3">Otras áreas</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            {/* Heladeras */}
+            <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Snowflake size={15} className="text-accent" />
+                <p className="text-sm font-semibold text-gray-900">Heladeras</p>
+              </div>
+              {loadH ? (
+                <p className="text-xs text-gray-400 py-2">Cargando…</p>
+              ) : (
+                <div className="grid grid-cols-3 gap-2">
+                  <MiniStat label="En taller"    value={heladerasStats.enTaller} />
+                  <MiniStat label="Disponibles"  value={heladerasStats.disponible} />
+                  <MiniStat label="En comodato"  value={heladerasStats.enComodato} />
+                </div>
+              )}
+              <Link to="/heladeras/informes" className="block text-xs text-accent hover:underline">
+                Ver informes →
+              </Link>
+            </div>
+
+            {/* Producción de hielo */}
+            <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Factory size={15} className="text-accent" />
+                <p className="text-sm font-semibold text-gray-900">Producción de hielo</p>
+              </div>
+              {loadP ? (
+                <p className="text-xs text-gray-400 py-2">Cargando…</p>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    <MiniStat label="Pallets hoy"      value={palletsHoy.length} />
+                    <MiniStat label="Pallets — 7 días" value={palletsSemana.length} />
+                  </div>
+                  {palletsHoy.length > 0 && (
+                    <p className="text-xs text-gray-500">
+                      {(Object.keys(PLANTAS) as PlantaId[])
+                        .filter((id) => porPlantaHoy[id])
+                        .map((id) => `${PLANTAS[id].label.replace('Planta ', '')}: ${porPlantaHoy[id]}`)
+                        .join(' · ')}
+                    </p>
+                  )}
+                </>
+              )}
+              <Link to="/produccion/listado" className="block text-xs text-accent hover:underline">
+                Ver listado →
+              </Link>
+            </div>
+
+          </div>
         </div>
 
         {/* Completado hoy */}

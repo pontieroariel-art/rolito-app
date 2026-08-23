@@ -1032,6 +1032,14 @@ describe('heladeras', () => {
     await assertFails(updateDoc(doc(db('com'), 'heladeras/h1'), { estado: 'disponible', updatedAt: new Date() }))
     await assertFails(setDoc(doc(db('com'), 'heladeras/h2'), heladera()))
   })
+
+  test('gerente_general SÍ puede leer heladeras (panel de directores) pero NO puede escribir', async () => {
+    await seed((d) => setDoc(doc(d, 'users/gg'), { rol: 'gerente_general', estado: 'activo' }))
+    await seedHeladera()
+    await assertSucceeds(getDoc(doc(db('gg'), 'heladeras/h1')))
+    await assertFails(updateDoc(doc(db('gg'), 'heladeras/h1'), { estado: 'disponible', updatedAt: new Date() }))
+    await assertFails(setDoc(doc(db('gg'), 'heladeras/h2'), heladera()))
+  })
 })
 
 // ── asignacionesHeladera (remitos + comodatos) ────────────────────────────────
