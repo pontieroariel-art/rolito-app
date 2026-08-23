@@ -1,4 +1,4 @@
-import { useState, FormEvent } from 'react'
+import { useState, FormEvent, useMemo } from 'react'
 import Button from '../../../components/ui/Button'
 import Input from '../../../components/ui/Input'
 import Modal from '../../../components/ui/Modal'
@@ -6,8 +6,18 @@ import { AddressAutocomplete, AddressMapPicker } from '../../../components/ui/Ad
 import { useGoogleMapsLoader } from '../../../hooks/useGoogleMapsLoader'
 import { useAuth } from '../../../context/AuthContext'
 import { createClientUser } from '../../../services/userService'
+import { UserProfile } from '../../../types'
 
-export function CrearClienteModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+export function CrearClienteModal({
+  onClose, onCreated, existingClientes, onGoToExisting,
+}: {
+  onClose:          () => void
+  onCreated:        () => void
+  // Clientes ya cargados (misma lista que ya tiene UserManagement) — se usan
+  // solo para el aviso de CUIT repetido de más abajo, no se vuelven a pedir.
+  existingClientes?: UserProfile[]
+  onGoToExisting?:   (user: UserProfile) => void
+}) {
   const { user: currentUser } = useAuth()
   const { isLoaded } = useGoogleMapsLoader()
   // Gestión compartida: además de super_admin/facturación, también pueden
@@ -25,6 +35,17 @@ export function CrearClienteModal({ onClose, onCreated }: { onClose: () => void;
   const [showPass,       setShowPass]       = useState(false)
   const [loading,        setLoading]        = useState(false)
   const [error,          setError]          = useState('')
+
+  // Aviso proactivo de CUIT repetido — antes el choque solo se veía como un
+  // error genérico al final del formulario ("Ese CUIT ya está en uso..."),
+  // sin indicar que el camino correcto para sumar una sucursal a un grupo
+  // empresario ya existente es su ficha (Gestionar domicilios), no un
+  // cliente nuevo. Se calcula apenas hay 11 dígitos, sin esperar al submit.
+  const cuitExistente = useMemo(() => {
+    const digits = cuit.replace(/\D/g, '')
+    if (digits.length !== 11 || !existingClientes) return null
+    return existingClientes.find((c) => (c.cuit || '').replace(/\D/g, '') === digits) ?? null
+  }, [cuit, existingClientes])
 
   // Dirección de entrega — obligatoria: sin esto el cliente no tiene dónde
   // recibir un pedido ni aparece en el mapa.
@@ -95,6 +116,24 @@ export function CrearClienteModal({ onClose, onCreated }: { onClose: () => void;
           required
           placeholder="20123456789"
         />
+        {cuitExistente && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 space-y-2">
+            <p className="text-amber-700 text-sm">
+              Ya existe un cliente con este CUIT: <strong>{cuitExistente.razonSocial || cuitExistente.nombre || cuitExistente.email}</strong>.
+              {' '}Si es una sucursal nueva del mismo grupo, agregala desde su ficha en vez de crear una cuenta nueva.
+            </p>
+            {onGoToExisting && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onGoToExisting(cuitExistente)}
+                className="text-xs !py-1.5 w-full"
+              >
+                Ir a la ficha de {cuitExistente.razonSocial || cuitExistente.nombre}
+              </Button>
+            )}
+          </div>
+        )}
         {canAssignCode && (
           <Input
             label="Código de cliente (opcional)"

@@ -37,6 +37,7 @@ export function FichaClienteModal({
 }) {
   const [domiciliosModal,  setDomiciliosModal]  = useState(false)
   const [localAddresses,   setLocalAddresses]   = useState(user.addresses ?? [])
+  const [domicilioSearch,  setDomicilioSearch]  = useState('')
   const [esVisita,         setEsVisita]         = useState(user.esVisita ?? false)
   const [frecuenciaVisita, setFrecuenciaVisita] = useState(user.frecuenciaVisita ?? 'semanal')
   const [savingVisita,     setSavingVisita]     = useState(false)
@@ -130,6 +131,18 @@ export function FichaClienteModal({
   }
 
   const tel = user.telefono || user.phone || ''
+
+  // Buscador de domicilios — solo hace falta a partir de unas pocas
+  // direcciones; para un cliente con 1-3 sucursales agregarlo es ruido.
+  // Grupos empresarios como YPF pueden tener 80+.
+  const q = domicilioSearch.trim().toLowerCase()
+  const domiciliosFiltrados = q
+    ? localAddresses.filter((a) =>
+        a.nombre?.toLowerCase().includes(q) ||
+        a.address?.toLowerCase().includes(q) ||
+        a.id?.toLowerCase().includes(q),
+      )
+    : localAddresses
 
   return (
     <Modal open onClose={onClose} title="Ficha del cliente">
@@ -354,10 +367,25 @@ export function FichaClienteModal({
             </button>
           </div>
 
+          {localAddresses.length > 5 && (
+            <input
+              value={domicilioSearch}
+              onChange={(e) => setDomicilioSearch(e.target.value)}
+              placeholder="Buscar sucursal por nombre, dirección o código…"
+              className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-1.5 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+          )}
+
           {localAddresses.length > 0 ? (
-            <div className="space-y-2">
-              {localAddresses.map((addr) => (
-                <div key={addr.id} className="bg-[#F8F7F2] rounded-xl p-3 space-y-2">
+            domiciliosFiltrados.length === 0 ? (
+              <p className="text-xs text-gray-400 text-center py-3">Sin resultados para "{domicilioSearch}"</p>
+            ) : (
+            <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
+              {/* addr.id no alcanza como key: dos sucursales pueden compartir
+                  código (ver aviso en GestionarDomiciliosModal) y React
+                  confunde las filas al filtrar — el índice desempata. */}
+              {domiciliosFiltrados.map((addr, i) => (
+                <div key={`${addr.id}_${i}`} className="bg-[#F8F7F2] rounded-xl p-3 space-y-2">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <p className="text-sm font-medium text-gray-900">{addr.nombre}</p>
                     {addr.esPrincipal && (
@@ -388,6 +416,7 @@ export function FichaClienteModal({
                 </div>
               ))}
             </div>
+            )
           ) : (
             <button
               onClick={() => setDomiciliosModal(true)}

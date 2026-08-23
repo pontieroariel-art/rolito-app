@@ -8,7 +8,7 @@ import { PRODUCTS } from '../../utils/constants'
 import { createOrderExterno, findActiveOrdersSameDay, findActiveOrdersInRange } from '../../services/orderService'
 import { useSucursales, SucursalItem } from '../../hooks/useSucursales'
 import { getPrimaryAddress, Order } from '../../types'
-import { formatShortDate, isSucursalCode, todayString as todayStr, addDaysStr } from '../../utils/helpers'
+import { formatShortDate, isSucursalCode, normalizeAddress, todayString as todayStr, addDaysStr } from '../../utils/helpers'
 import { STATUS_LABELS } from '../../utils/constants'
 
 interface Props {
@@ -81,6 +81,9 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
   const selectedItem: SucursalItem | null = sucursales.find((s) => s.key === selectedKey) ?? null
   const selectedCliente = selectedItem?.user ?? null
   const selectedAddress = selectedCliente?.addresses?.find((a) => a.id === selectedItem?.addrId) ?? null
+  // undefined (no cae al código general del cliente) cuando esta sucursal no
+  // tiene código propio — mismo criterio que PedidoManualModal.tsx.
+  const codigoSucursalPropio = selectedItem?.addrId && isSucursalCode(selectedItem.addrId) ? selectedItem.addrId : undefined
 
   const activarModoMulti = async () => {
     setModoMulti(true)
@@ -88,9 +91,11 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
     const desde = todayStr()
     const hasta = addDaysStr(desde, 60)
     const existentes = await findActiveOrdersInRange(selectedCliente.uid, desde, hasta)
-    const normalizedAddress = clientAddress.trim().toLowerCase()
+    // Comparar por código de sucursal cuando existe, no por texto de dirección
+    // — ver el comentario de findActiveOrdersSameDay en orderService.ts.
+    const normalizedAddress = normalizeAddress(clientAddress)
     const dias = existentes
-      .filter((o) => o.clientAddress.trim().toLowerCase() === normalizedAddress)
+      .filter((o) => codigoSucursalPropio ? o.codigoCliente === codigoSucursalPropio : normalizeAddress(o.clientAddress) === normalizedAddress)
       .map((o) => (o.date?.toDate ? o.date.toDate().toISOString().split('T')[0] : ''))
       .filter(Boolean)
     setExistingDates(new Set(dias))
@@ -212,7 +217,7 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
 
     if (!skipDupCheck && selectedCliente) {
       setCheckingDup(true)
-      const dups = await findActiveOrdersSameDay(selectedCliente.uid, deliveryDate, clientAddress)
+      const dups = await findActiveOrdersSameDay(selectedCliente.uid, deliveryDate, clientAddress, codigoSucursalPropio)
       setCheckingDup(false)
       if (dups.length > 0) {
         setDuplicates(dups)

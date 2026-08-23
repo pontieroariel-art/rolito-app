@@ -4,7 +4,7 @@ import { AddressAutocomplete, AddressMapPicker, AddressMapMini } from '../../../
 import Button from '../../../components/ui/Button'
 import Modal from '../../../components/ui/Modal'
 import { updateUserDocument } from '../../../services/userService'
-import { normalizeAddress } from '../../../utils/helpers'
+import { isSucursalCode, normalizeAddress } from '../../../utils/helpers'
 import { UserProfile, DeliveryAddress } from '../../../types'
 
 export function GestionarDomiciliosModal({
@@ -19,6 +19,7 @@ export function GestionarDomiciliosModal({
   onAddressesChanged?: (addresses: DeliveryAddress[]) => void
 }) {
   const [addresses,    setAddresses]    = useState(user.addresses ?? [])
+  const [search,       setSearch]       = useState('')
   const [showForm,     setShowForm]     = useState(false)
   const [saving,       setSaving]       = useState(false)
   const [saveError,    setSaveError]    = useState('')
@@ -111,15 +112,53 @@ export function GestionarDomiciliosModal({
     addressCounts.set(key, (addressCounts.get(key) ?? 0) + 1)
   })
 
+  // Mismo criterio que arriba, pero para el código propio de la sucursal
+  // (id, ej. "YPF085") en vez del texto de la dirección — un código repetido
+  // entre dos sucursales del mismo grupo suele venir de un choque en el
+  // Excel de origen (dos filas con el mismo COD_CTE) y confunde tanto el
+  // aviso de "ya existe un pedido" como cualquier reporte que agrupe por
+  // código. Solo se avisa (no hay forma de saber cuál es el código correcto).
+  const codeCounts = new Map<string, number>()
+  addresses.forEach((a) => {
+    if (!isSucursalCode(a.id)) return
+    codeCounts.set(a.id, (codeCounts.get(a.id) ?? 0) + 1)
+  })
+
+  const q = search.trim().toLowerCase()
+  const visibleAddresses = q
+    ? addresses.filter((a) =>
+        a.nombre?.toLowerCase().includes(q) ||
+        a.address?.toLowerCase().includes(q) ||
+        a.id?.toLowerCase().includes(q),
+      )
+    : addresses
+
   return (
     <Modal open onClose={onClose} title={`Domicilios — ${user.razonSocial || user.nombre}`}>
       <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
 
+        {addresses.length > 5 && (
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar sucursal por nombre, dirección o código…"
+            className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+        )}
+        {q && visibleAddresses.length === 0 && (
+          <p className="text-xs text-gray-500 text-center py-2">Sin resultados para "{search}"</p>
+        )}
+
         {/* Lista de domicilios existentes */}
-        {addresses.map((addr) => {
+        {visibleAddresses.map((addr, i) => {
           const dupCount = addressCounts.get(normalizeAddress(addr.address)) ?? 1
+          const dupCode  = isSucursalCode(addr.id) ? (codeCounts.get(addr.id) ?? 1) : 1
           return (
-          <div key={addr.id} className="bg-[#F8F7F2] rounded-xl p-3 space-y-2 border border-[#D3D1C7]">
+          // No alcanza con addr.id como key: dos sucursales con el mismo
+          // código (ver aviso de arriba) comparten key y React confunde qué
+          // fila reusar al filtrar — se vio como resultados fantasma/
+          // duplicados en el buscador. El índice desempata.
+          <div key={`${addr.id}_${i}`} className="bg-[#F8F7F2] rounded-xl p-3 space-y-2 border border-[#D3D1C7]">
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
@@ -138,6 +177,11 @@ export function GestionarDomiciliosModal({
                 {dupCount > 1 && (
                   <p className="text-xs text-amber-600 mt-1">
                     ⚠ Esta dirección se repite en {dupCount} sucursales — puede estar incompleta
+                  </p>
+                )}
+                {dupCode > 1 && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    ⚠ El código "{addr.id}" se repite en {dupCode} sucursales — revisar en el archivo de origen
                   </p>
                 )}
               </div>

@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import Button from '../../../components/ui/Button'
 import Modal from '../../../components/ui/Modal'
 import { createClienteImportado } from '../../../services/userService'
+import { isSucursalCode } from '../../../utils/helpers'
 import { ClientePreview, parseExcelFile } from './importarClientesExcel'
 
 export function ImportarClientesModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
@@ -76,6 +77,26 @@ export function ImportarClientesModal({ onClose, onDone }: { onClose: () => void
   const synCount  = clientes.filter((c) => !c.emailContacto).length
   const branchCount = clientes.reduce((sum, c) => sum + c.sucursales, 0)
 
+  // Sucursales del MISMO cliente que comparten código (COD_CTE) en el
+  // Excel — suele ser un error de carga en el archivo de origen. Si entra
+  // así, después confunde el aviso de "ya existe un pedido" (que compara
+  // por este código) y cualquier reporte agrupado por código. Solo se
+  // avisa antes de importar, no bloquea — el staff decide si sigue igual.
+  const codigosDuplicados = useMemo(() => {
+    const result: { cliente: string; codigo: string; count: number }[] = []
+    for (const c of clientes) {
+      const counts = new Map<string, number>()
+      for (const a of c.addresses) {
+        if (!isSucursalCode(a.id)) continue
+        counts.set(a.id, (counts.get(a.id) ?? 0) + 1)
+      }
+      for (const [codigo, count] of counts) {
+        if (count > 1) result.push({ cliente: c.razonSocial || c.cuit, codigo, count })
+      }
+    }
+    return result
+  }, [clientes])
+
   return (
     <Modal open wide onClose={step === 'importing' ? () => {} : onClose} title="Importar clientes desde Excel">
       {step === 'pick' && (
@@ -129,6 +150,19 @@ export function ImportarClientesModal({ onClose, onDone }: { onClose: () => void
             <p>• {synCount.toLocaleString('es-AR')} clientes sin email de contacto registrado</p>
             <p>• Las cuentas ya existentes se omiten automáticamente</p>
           </div>
+
+          {codigosDuplicados.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs space-y-1.5 max-h-32 overflow-y-auto">
+              <p className="text-amber-700 font-medium">
+                ⚠ {codigosDuplicados.length} código{codigosDuplicados.length > 1 ? 's' : ''} de sucursal repetido{codigosDuplicados.length > 1 ? 's' : ''} en el archivo — revisar antes de importar:
+              </p>
+              {codigosDuplicados.map((d, i) => (
+                <p key={i} className="text-amber-700/80">
+                  {d.cliente} — código "{d.codigo}" aparece {d.count} veces
+                </p>
+              ))}
+            </div>
+          )}
 
           <div className="max-h-48 overflow-y-auto overflow-x-auto border border-[#D3D1C7] rounded-xl">
             <table className="w-full text-xs min-w-[480px]">

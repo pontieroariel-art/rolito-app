@@ -325,11 +325,22 @@ export const editOrderBy = (orderId: string, params: EditOrderParams, actor: Act
 // Pedidos activos (no cancelados) de un cliente para una fecha de entrega dada,
 // en la MISMA dirección de entrega. Usado para avisar de posibles duplicados
 // antes de crear un pedido manual o por PDF.
-// El filtro por dirección es necesario para clientes "grupo empresario" (un
+// El filtro por sucursal es necesario para clientes "grupo empresario" (un
 // CUIT, varias sucursales): sin él, cargar un pedido para una sucursal
 // avisaba "ya existe un pedido" solo porque OTRA sucursal del mismo cliente
 // ya tenía uno ese día.
-export const findActiveOrdersSameDay = async (clientId: string, dateStr: string, address: string): Promise<Order[]> => {
+//
+// Preferimos comparar por `codigoSucursal` (código propio de la dirección,
+// ej. "YPF085") en vez de por texto de dirección cuando está disponible: en
+// grupos importados de Excel es común que dos sucursales distintas terminen
+// con el mismo texto de dirección (incompleto/repetido en el archivo de
+// origen), lo que hacía que el aviso de duplicado se disparara para una
+// sucursal distinta a la que realmente ya tenía el pedido — falso positivo
+// reportado por Lucas. Sin código de sucursal (cliente sin grupo, o
+// dirección cargada a mano) se sigue comparando por texto, como antes.
+export const findActiveOrdersSameDay = async (
+  clientId: string, dateStr: string, address: string, codigoSucursal?: string,
+): Promise<Order[]> => {
   const dayStart = Timestamp.fromDate(new Date(dateStr + 'T00:00:00'))
   const dayEnd   = Timestamp.fromDate(new Date(dateStr + 'T23:59:59'))
   const q = query(
@@ -342,7 +353,11 @@ export const findActiveOrdersSameDay = async (clientId: string, dateStr: string,
   const normalizedAddress = normalizeAddress(address)
   return snap.docs
     .map((d) => ({ id: d.id, ...d.data() } as Order))
-    .filter((o) => o.status !== 'cancelado' && normalizeAddress(o.clientAddress) === normalizedAddress)
+    .filter((o) => {
+      if (o.status === 'cancelado') return false
+      if (codigoSucursal) return o.codigoCliente === codigoSucursal
+      return normalizeAddress(o.clientAddress) === normalizedAddress
+    })
 }
 
 // Pedidos activos (no cancelados) de un cliente en un rango de fechas —

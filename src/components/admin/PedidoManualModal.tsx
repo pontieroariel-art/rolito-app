@@ -7,7 +7,7 @@ import { useListaPrecios } from '../../hooks/useListasPrecios'
 import { useCatalogo } from '../../hooks/useCatalogo'
 import { useSucursales, SucursalItem } from '../../hooks/useSucursales'
 import { UserProfile, Order } from '../../types'
-import { formatShortDate, isSucursalCode, todayString as todayStr, addDaysStr, precioEfectivo } from '../../utils/helpers'
+import { formatShortDate, isSucursalCode, normalizeAddress, todayString as todayStr, addDaysStr, precioEfectivo } from '../../utils/helpers'
 import { STATUS_LABELS } from '../../utils/constants'
 
 // ── ProductRow ────────────────────────────────────────────────────────────────
@@ -143,17 +143,26 @@ function StepProductos({
   const [existingDates, setExistingDates] = useState<Set<string>>(new Set())
   const [progressLabel, setProgressLabel] = useState('')
 
+  const codigoCliente = initialAddrId && isSucursalCode(initialAddrId) ? initialAddrId : cliente.codigoCliente
+  // undefined (no cae al código general del cliente) cuando esta sucursal no
+  // tiene código propio — así el chequeo de duplicado sabe cuándo puede
+  // comparar por código y cuándo tiene que seguir comparando por dirección.
+  const codigoSucursalPropio = initialAddrId && isSucursalCode(initialAddrId) ? initialAddrId : undefined
+
   const refreshExistingDates = useCallback(async (addr: string) => {
     const desde = todayStr()
     const hasta = addDaysStr(desde, 60)
     const existentes = await findActiveOrdersInRange(cliente.uid, desde, hasta)
-    const normalizedAddress = addr.trim().toLowerCase()
+    // Mismo criterio que el chequeo de duplicado de un solo día: comparar por
+    // código de sucursal cuando existe, no por texto de dirección (ver
+    // findActiveOrdersSameDay en orderService.ts).
+    const normalizedAddress = normalizeAddress(addr)
     const dias = existentes
-      .filter((o) => o.clientAddress.trim().toLowerCase() === normalizedAddress)
+      .filter((o) => codigoSucursalPropio ? o.codigoCliente === codigoSucursalPropio : normalizeAddress(o.clientAddress) === normalizedAddress)
       .map((o) => (o.date?.toDate ? o.date.toDate().toISOString().split('T')[0] : ''))
       .filter(Boolean)
     setExistingDates(new Set(dias))
-  }, [cliente.uid])
+  }, [cliente.uid, codigoSucursalPropio])
 
   const activarModoMulti = async () => {
     setModoMulti(true)
@@ -207,8 +216,6 @@ function StepProductos({
   const setQty = (id: string, qty: number) =>
     setQuantities((q) => ({ ...q, [id]: Math.max(0, qty) }))
 
-  const codigoCliente = initialAddrId && isSucursalCode(initialAddrId) ? initialAddrId : cliente.codigoCliente
-
   const handleSubmit = async (skipDupCheck = false) => {
     if (!canSubmit) return
     setError('')
@@ -253,7 +260,7 @@ function StepProductos({
 
     if (!skipDupCheck) {
       setCheckingDup(true)
-      const dups = await findActiveOrdersSameDay(cliente.uid, date, address)
+      const dups = await findActiveOrdersSameDay(cliente.uid, date, address, codigoSucursalPropio)
       setCheckingDup(false)
       if (dups.length > 0) {
         setDuplicates(dups)

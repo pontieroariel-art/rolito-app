@@ -24,6 +24,7 @@ import { CrearClienteModal } from './user-management/CrearClienteModal'
 import { ImportarClientesModal } from './user-management/ImportarClientesModal'
 import { SucursalClienteRow } from './user-management/SucursalClienteRow'
 import { UserRow } from './user-management/UserRow'
+import { FichaClienteModal } from './user-management/FichaClienteModal'
 
 const PAGE_SIZE = 50
 
@@ -49,6 +50,9 @@ export default function UserManagement() {
   const [crearModal, setCrearModal]               = useState(false)
   const [crearClienteModal, setCrearClienteModal] = useState(false)
   const [importarModal, setImportarModal]         = useState(false)
+  // Ficha abierta desde "Ir a la ficha de..." en CrearClienteModal (CUIT
+  // repetido) — independiente del fichaModal local de cada SucursalClienteRow.
+  const [fichaModalTarget, setFichaModalTarget]   = useState<UserProfile | null>(null)
   const { listas }                      = useAllListasPrecios()
 
   const loadEquipo = async () => {
@@ -441,6 +445,18 @@ export default function UserManagement() {
         <CrearClienteModal
           onClose={() => setCrearClienteModal(false)}
           onCreated={() => { setCrearClienteModal(false); load() }}
+          existingClientes={clientes}
+          onGoToExisting={(u) => { setCrearClienteModal(false); setFichaModalTarget(u) }}
+        />
+      )}
+      {fichaModalTarget && (
+        <FichaClienteModal
+          user={fichaModalTarget}
+          lista={listas.find((l) => l.id === fichaModalTarget.listaPreciosId)}
+          currentUser={currentUser}
+          onClose={() => setFichaModalTarget(null)}
+          onAddressesChanged={(addresses) => handleAddressesChanged(fichaModalTarget.uid, addresses)}
+          onVisitaChanged={(esVisita, frecuenciaVisita) => handleVisitaChanged(fichaModalTarget.uid, esVisita, frecuenciaVisita)}
         />
       )}
       {importarModal && (
