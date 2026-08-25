@@ -69,7 +69,7 @@ export const subscribeHeladeras = (
   callback: (heladeras: Heladera[]) => void,
 ): () => void =>
   onSnapshot(
-    query(collection(db, HELADERAS), orderBy('updatedAt', 'desc'), limit(500)),
+    query(collection(db, HELADERAS), orderBy('updatedAt', 'desc'), limit(5000)),
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Heladera))),
     () => callback([]),
   )
