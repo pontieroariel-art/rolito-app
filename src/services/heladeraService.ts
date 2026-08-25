@@ -3,6 +3,7 @@ import {
   updateDoc,
   doc,
   getDoc,
+  getCountFromServer,
   onSnapshot,
   query,
   where,
@@ -73,6 +74,20 @@ export const subscribeHeladeras = (
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Heladera))),
     () => callback([]),
   )
+
+// Conteo agregado por estado — para paneles resumen (ej. tablero de
+// directores) que solo necesitan los 3 números, no los ~1700+ documentos
+// completos con su historial. getCountFromServer no descarga los docs, solo
+// el conteo, así que no pesa nada aunque la colección siga creciendo.
+export const getHeladerasStats = async (): Promise<Record<EstadoHeladera, number>> => {
+  const estados: EstadoHeladera[] = ['en_taller', 'disponible', 'en_comodato', 'baja']
+  const counts = await Promise.all(
+    estados.map((estado) => getCountFromServer(query(collection(db, HELADERAS), where('estado', '==', estado)))),
+  )
+  const result = {} as Record<EstadoHeladera, number>
+  estados.forEach((estado, i) => { result[estado] = counts[i].data().count })
+  return result
+}
 
 // Heladeras actualmente en comodato de un cliente — pantalla "Mis heladeras"
 // del cliente (`clienteAsignadoId` solo refleja el estado ACTUAL, ver types.ts).

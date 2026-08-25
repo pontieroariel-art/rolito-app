@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useAllOrders } from '../../hooks/useOrders'
-import { useHeladeras } from '../../hooks/useHeladeras'
+import { useHeladerasStats } from '../../hooks/useHeladerasStats'
 import { useProduccionPallets } from '../../hooks/useProduccionPallets'
 import { getAllUsers, updateUserDocument } from '../../services/userService'
 import { UserProfile, Order, PlantaId, PLANTAS } from '../../types'
@@ -74,7 +74,7 @@ function MiniStat({ label, value }: { label: string; value: number }) {
 
 export default function GerenteDashboard() {
   const { orders, loading: loadO } = useAllOrders()
-  const { heladeras, loading: loadH } = useHeladeras()
+  const { stats: heladerasStats, loading: loadH } = useHeladerasStats()
   const { pallets, loading: loadP }   = useProduccionPallets(undefined)
   const [allUsers, setAllUsers]   = useState<UserProfile[]>([])
   const [loadU, setLoadU]         = useState(true)
@@ -146,13 +146,6 @@ export default function GerenteDashboard() {
       .filter((c) => c.estado === 'activo' && (!ultimo[c.uid] || ultimo[c.uid] < cutoff))
       .slice(0, 8)
   }, [clientes, orders])
-
-  // ── Heladeras: panorama de estado del parque ────────────────────────────
-  const heladerasStats = useMemo(() => ({
-    enTaller:   heladeras.filter((h) => h.estado === 'en_taller').length,
-    disponible: heladeras.filter((h) => h.estado === 'disponible').length,
-    enComodato: heladeras.filter((h) => h.estado === 'en_comodato').length,
-  }), [heladeras])
 
   // ── Producción de hielo: pallets cargados hoy / últimos 7 días ──────────
   const palletsHoy = useMemo(
@@ -367,13 +360,13 @@ export default function GerenteDashboard() {
                 <Snowflake size={15} className="text-accent" />
                 <p className="text-sm font-semibold text-gray-900">Heladeras</p>
               </div>
-              {loadH ? (
+              {loadH || !heladerasStats ? (
                 <p className="text-xs text-gray-400 py-2">Cargando…</p>
               ) : (
                 <div className="grid grid-cols-3 gap-2">
-                  <MiniStat label="En taller"    value={heladerasStats.enTaller} />
+                  <MiniStat label="En taller"    value={heladerasStats.en_taller} />
                   <MiniStat label="Disponibles"  value={heladerasStats.disponible} />
-                  <MiniStat label="En comodato"  value={heladerasStats.enComodato} />
+                  <MiniStat label="En comodato"  value={heladerasStats.en_comodato} />
                 </div>
               )}
               <Link to="/heladeras/informes" className="block text-xs text-accent hover:underline">
