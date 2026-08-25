@@ -8,14 +8,14 @@ import {
 import { Order } from '../types'
 import { useFirestoreSubscription } from './useFirestoreSubscription'
 
-export function useClientOrders(): { orders: Order[]; loading: boolean; error: boolean } {
+export function useClientOrders(): { orders: Order[]; loading: boolean; error: boolean; timedOut: boolean } {
   const { user } = useAuth()
-  const { data: orders, loading, error } = useFirestoreSubscription<Order[]>(
+  const { data: orders, loading, error, timedOut } = useFirestoreSubscription<Order[]>(
     (cb, onErr) => user?.uid ? subscribeClientOrders(user.uid, cb, onErr) : (() => {}),
     [user?.uid],
     [],
   )
-  return { orders, loading, error }
+  return { orders, loading, error, timedOut }
 }
 
 export function useAllOrders(): { orders: Order[]; loading: boolean; error: boolean } {

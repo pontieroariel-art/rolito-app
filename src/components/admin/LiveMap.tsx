@@ -14,6 +14,9 @@ import { Order, UserProfile } from '../../types'
 
 export const DRIVER_COLORS = ['#00C2FF', '#FF6B6B', '#4ECDC4', '#A8E6CF', '#FFE66D', '#C084FC', '#F97316', '#34D399']
 
+// Cache de geocodificación a nivel de módulo — persiste entre montajes
+const GEO_CACHE = new Map<string, { lat: number; lng: number } | null>()
+
 const DARK_MAP_STYLES: google.maps.MapTypeStyle[] = [
   { elementType: 'geometry',           stylers: [{ color: '#0A1628' }] },
   { elementType: 'labels.text.stroke', stylers: [{ color: '#0A1628' }] },
@@ -71,7 +74,7 @@ export function LiveMap({
 }) {
   const { isLoaded }    = useGoogleMapsLoader()
   const mapRef          = useRef<google.maps.Map | null>(null)
-  const geocacheRef     = useRef<Map<string, { lat: number; lng: number } | null>>(new Map())
+  const geocacheRef     = useRef<Map<string, { lat: number; lng: number } | null>>(GEO_CACHE)
   const [geocoded, setGeocoded]             = useState<Map<string, { lat: number; lng: number } | null>>(new Map())
   const [selectedMarker, setSelectedMarker] = useState<string | null>(null)
 

@@ -59,8 +59,8 @@ function useConsumoStats(orders: Order[]) {
 }
 
 export default function OrderHistory() {
-  const { user }               = useAuth()
-  const { orders, loading }    = useClientOrders()
+  const { user }                       = useAuth()
+  const { orders, loading, timedOut }  = useClientOrders()
   const { selectedAddress }    = useBranch()
   const [filter, setFilter]    = useState<OrderStatus | 'all'>('all')
 
@@ -76,7 +76,23 @@ export default function OrderHistory() {
   const filtered =
     filter === 'all' ? branchOrders : branchOrders.filter((o) => o.status === filter)
 
-  if (loading) return <><Navbar /><LoadingSpinner fullScreen className="bg-white" /></>
+  if (loading && !timedOut) return <><Navbar /><LoadingSpinner fullScreen className="bg-white" /></>
+  if (timedOut) return (
+    <div className="min-h-screen bg-white text-gray-900">
+      <Navbar />
+      <main className="max-w-2xl mx-auto p-4 pt-10 text-center space-y-3">
+        <p className="text-4xl">⚠️</p>
+        <p className="text-red-600 font-semibold">No se pudo conectar</p>
+        <p className="text-gray-500 text-sm">Revisá tu conexión a internet e intentá de nuevo.</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="mt-4 text-sm border border-accent text-accent rounded-lg px-4 py-2 hover:bg-accent/10 transition-colors"
+        >
+          Reintentar
+        </button>
+      </main>
+    </div>
+  )
 
   return (
     <div className="min-h-screen bg-white text-gray-900">

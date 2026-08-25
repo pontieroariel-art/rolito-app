@@ -83,9 +83,10 @@ function AsignacionCard({ asignacion }: { asignacion: AsignacionHeladera }) {
 
 export default function MyFreezers() {
   const { user } = useAuth()
-  const { heladeras, loading: loadingHeladeras } = useHeladerasPorCliente(user?.uid ?? null)
-  const { tickets, loading: loadingTickets } = useTicketsPorCliente(user?.uid ?? null)
-  const { asignaciones, loading: loadingAsignaciones } = useAsignacionesPorCliente(user?.uid ?? null)
+  const { heladeras, loading: loadingHeladeras, timedOut: timedOutHeladeras } = useHeladerasPorCliente(user?.uid ?? null)
+  const { tickets, loading: loadingTickets, timedOut: timedOutTickets } = useTicketsPorCliente(user?.uid ?? null)
+  const { asignaciones, loading: loadingAsignaciones, timedOut: timedOutAsignaciones } = useAsignacionesPorCliente(user?.uid ?? null)
+  const timedOut = timedOutHeladeras || timedOutTickets || timedOutAsignaciones
   const { motivos } = useMotivosReparacion()
 
   const [heladeraParaService, setHeladeraParaService] = useState<Heladera | null>(null)
@@ -119,7 +120,25 @@ export default function MyFreezers() {
     }
   }
 
-  if (loadingHeladeras || loadingTickets || loadingAsignaciones) return <><Navbar /><LoadingSpinner fullScreen className="bg-white" /></>
+  if ((loadingHeladeras || loadingTickets || loadingAsignaciones) && !timedOut) {
+    return <><Navbar /><LoadingSpinner fullScreen className="bg-white" /></>
+  }
+  if (timedOut) return (
+    <div className="min-h-screen bg-white text-gray-900">
+      <Navbar />
+      <main className="max-w-2xl mx-auto p-4 pt-10 text-center space-y-3">
+        <p className="text-4xl">⚠️</p>
+        <p className="text-red-600 font-semibold">No se pudo conectar</p>
+        <p className="text-gray-500 text-sm">Revisá tu conexión a internet e intentá de nuevo.</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="mt-4 text-sm border border-accent text-accent rounded-lg px-4 py-2 hover:bg-accent/10 transition-colors"
+        >
+          Reintentar
+        </button>
+      </main>
+    </div>
+  )
 
   return (
     <div className="min-h-screen bg-white text-gray-900">

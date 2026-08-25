@@ -3,7 +3,7 @@ import { Heladera } from '../types'
 import { useFirestoreSubscription } from './useFirestoreSubscription'
 
 export function useHeladerasPorCliente(clientId: string | null) {
-  const { data: heladeras, loading } = useFirestoreSubscription<Heladera[]>(
+  const { data: heladeras, loading, timedOut } = useFirestoreSubscription<Heladera[]>(
     (cb) => {
       if (!clientId) { cb([]); return () => {} }
       return subscribeHeladerasPorCliente(clientId, cb)
@@ -11,5 +11,5 @@ export function useHeladerasPorCliente(clientId: string | null) {
     [clientId],
     [],
   )
-  return { heladeras, loading }
+  return { heladeras, loading, timedOut }
 }

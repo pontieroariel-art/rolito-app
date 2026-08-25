@@ -3,7 +3,7 @@ import { TicketServicio } from '../types'
 import { useFirestoreSubscription } from './useFirestoreSubscription'
 
 export function useTicketsPorCliente(clientId: string | null) {
-  const { data: tickets, loading } = useFirestoreSubscription<TicketServicio[]>(
+  const { data: tickets, loading, timedOut } = useFirestoreSubscription<TicketServicio[]>(
     (cb) => {
       if (!clientId) { cb([]); return () => {} }
       return subscribeTicketsPorCliente(clientId, cb)
@@ -11,5 +11,5 @@ export function useTicketsPorCliente(clientId: string | null) {
     [clientId],
     [],
   )
-  return { tickets, loading }
+  return { tickets, loading, timedOut }
 }
