@@ -9,6 +9,7 @@ import { useAuth } from '../../context/AuthContext'
 import { usePasosTaller } from '../../hooks/usePasosTaller'
 import { getHeladera } from '../../services/heladeraService'
 import { getModeloHeladera } from '../../services/modelosHeladeraService'
+import { getUserDocument } from '../../services/userService'
 import { Heladera, ModeloHeladera } from '../../types'
 import { ESTADO_HELADERA_LABELS, puedeGestionarHeladeras } from '../../utils/heladeraLabels'
 import { historialConDuraciones, formatDuracion } from '../../utils/heladeraPipeline'
@@ -37,6 +38,7 @@ export default function FichaHeladeraPage() {
   const { user } = useAuth()
   const [heladera, setHeladera] = useState<Heladera | null | undefined>(undefined)
   const [modelo,   setModelo]   = useState<ModeloHeladera | null>(null)
+  const [clienteCodigo, setClienteCodigo] = useState<string | undefined>(undefined)
   const { pasos: catalogoPasos } = usePasosTaller()
 
   useEffect(() => {
@@ -47,6 +49,13 @@ export default function FichaHeladeraPage() {
   useEffect(() => {
     if (heladera?.modeloId) getModeloHeladera(heladera.modeloId).then(setModelo)
   }, [heladera?.modeloId])
+
+  useEffect(() => {
+    setClienteCodigo(undefined)
+    if (heladera?.clienteAsignadoId) {
+      getUserDocument(heladera.clienteAsignadoId).then((c) => setClienteCodigo(c?.codigoCliente))
+    }
+  }, [heladera?.clienteAsignadoId])
 
   const historial = useMemo(
     () => (heladera ? [...historialConDuraciones(heladera)].reverse() : []),
@@ -90,7 +99,7 @@ export default function FichaHeladeraPage() {
                 <p className="text-xs text-gray-500">Alta: {tsToDate(heladera.createdAt).toLocaleDateString('es-AR')}</p>
                 <p className="text-xs text-gray-500">
                   Cliente asignado: <span className={heladera.clienteAsignadoNombre ? 'text-gray-900 font-medium' : 'text-gray-400'}>
-                    {heladera.clienteAsignadoNombre ?? 'sin asignar'}
+                    {heladera.clienteAsignadoNombre ?? 'sin asignar'}{heladera.clienteAsignadoNombre && clienteCodigo ? ` (${clienteCodigo})` : ''}
                   </span>
                 </p>
                 {heladera.motivoBaja && <p className="text-xs text-red-500">Motivo de baja: {heladera.motivoBaja}</p>}

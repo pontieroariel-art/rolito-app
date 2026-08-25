@@ -26,7 +26,7 @@ const ACCION_LABELS: Record<string, string> = {
   service_abierto:         'Service abierto',
 }
 
-export default function HeladeraDetailModal({ heladera, onClose }: { heladera: Heladera; onClose: () => void }) {
+export default function HeladeraDetailModal({ heladera, clienteCodigo, onClose }: { heladera: Heladera; clienteCodigo?: string; onClose: () => void }) {
   const { user } = useAuth()
   const { modelos } = useModelosHeladera()
   const { pasos: catalogo } = usePasosTaller()
@@ -79,7 +79,7 @@ export default function HeladeraDetailModal({ heladera, onClose }: { heladera: H
             )}
             <p className="text-xs text-gray-500 mt-1">
               Cliente asignado: <span className={heladera.clienteAsignadoNombre ? 'text-gray-900 font-medium' : 'text-gray-400'}>
-                {heladera.clienteAsignadoNombre ?? 'sin asignar'}
+                {heladera.clienteAsignadoNombre ?? 'sin asignar'}{heladera.clienteAsignadoNombre && clienteCodigo ? ` (${clienteCodigo})` : ''}
               </span>
             </p>
             <p className="text-xs text-gray-500">

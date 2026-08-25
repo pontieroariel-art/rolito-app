@@ -31,7 +31,9 @@ export default function AsignacionEquiposPage() {
       .filter((c) =>
         c.razonSocial?.toLowerCase().includes(q) ||
         c.nombreContacto?.toLowerCase().includes(q) ||
-        c.cuit?.includes(q))
+        c.cuit?.includes(q) ||
+        c.codigoCliente?.toLowerCase().includes(q) ||
+        c.addresses?.some((a) => a.id?.toLowerCase().includes(q)))
       .slice(0, 8)
   }, [clientes, busqueda, cliente])
 
@@ -58,7 +60,7 @@ export default function AsignacionEquiposPage() {
               <input
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
-                placeholder="Buscar por razón social, contacto o CUIT…"
+                placeholder="Buscar por razón social, contacto, CUIT o código de cliente…"
                 className="w-full bg-white border border-[#D3D1C7] rounded-lg pl-9 pr-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
               />
             </div>
@@ -71,7 +73,9 @@ export default function AsignacionEquiposPage() {
                     className="w-full text-left px-3 py-2.5 hover:bg-gray-50 transition-colors"
                   >
                     <p className="text-sm font-medium text-gray-900">{c.razonSocial}</p>
-                    <p className="text-xs text-gray-500">CUIT {c.cuit}{c.nombreContacto ? ` · ${c.nombreContacto}` : ''}</p>
+                    <p className="text-xs text-gray-500">
+                      {c.codigoCliente ? `Código ${c.codigoCliente} · ` : ''}CUIT {c.cuit}{c.nombreContacto ? ` · ${c.nombreContacto}` : ''}
+                    </p>
                   </button>
                 ))}
               </div>
@@ -82,7 +86,9 @@ export default function AsignacionEquiposPage() {
             <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 flex justify-between items-center">
               <div>
                 <p className="text-sm font-semibold text-gray-900">{cliente.razonSocial}</p>
-                <p className="text-xs text-gray-500">CUIT {cliente.cuit}</p>
+                <p className="text-xs text-gray-500">
+                  {cliente.codigoCliente ? `Código ${cliente.codigoCliente} · ` : ''}CUIT {cliente.cuit}
+                </p>
               </div>
               <button onClick={() => setCliente(null)} className="text-xs text-gray-500 hover:text-accent">
                 Buscar otro

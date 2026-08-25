@@ -4,6 +4,7 @@ import { Search } from 'lucide-react'
 import Button from '../../components/ui/Button'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useAuth } from '../../context/AuthContext'
+import { useClientesActivos } from '../../hooks/useClientesActivos'
 import { useHeladeras } from '../../hooks/useHeladeras'
 import { usePasosTaller } from '../../hooks/usePasosTaller'
 import { crearHeladera } from '../../services/heladeraService'
@@ -22,7 +23,14 @@ const ESTADO_STYLES: Record<EstadoHeladera, string> = {
 export default function EquiposPage() {
   const { user } = useAuth()
   const { heladeras, loading } = useHeladeras()
+  const { clientes } = useClientesActivos()
   const { pasos: catalogo } = usePasosTaller()
+
+  const codigoPorClienteId = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const c of clientes) if (c.codigoCliente) m.set(c.uid, c.codigoCliente)
+    return m
+  }, [clientes])
   const [searchParams] = useSearchParams()
   const [busqueda, setBusqueda] = useState(() => searchParams.get('q') ?? '')
   const [estadoFiltro, setEstadoFiltro] = useState<EstadoHeladera | 'todos'>('todos')
@@ -36,9 +44,15 @@ export default function EquiposPage() {
     return heladeras.filter((h) => {
       if (estadoFiltro !== 'todos' && h.estado !== estadoFiltro) return false
       if (!q) return true
-      return h.codigoInterno?.toLowerCase().includes(q) || h.numeroSerie?.toLowerCase().includes(q)
+      const codigoCliente = h.clienteAsignadoId ? codigoPorClienteId.get(h.clienteAsignadoId) : undefined
+      return (
+        h.codigoInterno?.toLowerCase().includes(q) ||
+        h.numeroSerie?.toLowerCase().includes(q) ||
+        h.clienteAsignadoNombre?.toLowerCase().includes(q) ||
+        codigoCliente?.toLowerCase().includes(q)
+      )
     })
-  }, [heladeras, busqueda, estadoFiltro])
+  }, [heladeras, busqueda, estadoFiltro, codigoPorClienteId])
 
   // Se busca por id en el listado en vivo (no se guarda el objeto tal cual)
   // así el modal de detalle refleja al toque un asignar/retirar/baja.
@@ -71,7 +85,7 @@ export default function EquiposPage() {
             <input
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Buscar por código o número de serie…"
+              placeholder="Buscar por código o serie de heladera, cliente o código de cliente…"
               className="w-full bg-white border border-[#D3D1C7] rounded-lg pl-9 pr-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
             />
           </div>
@@ -113,7 +127,9 @@ export default function EquiposPage() {
                 </div>
                 <div className="flex items-center gap-3">
                   <span className={`text-xs ${h.clienteAsignadoNombre ? 'text-gray-600' : 'text-gray-400'}`}>
-                    {h.clienteAsignadoNombre ?? 'Sin cliente asignado'}
+                    {h.clienteAsignadoNombre
+                      ? `${h.clienteAsignadoNombre}${h.clienteAsignadoId && codigoPorClienteId.get(h.clienteAsignadoId) ? ` (${codigoPorClienteId.get(h.clienteAsignadoId)})` : ''}`
+                      : 'Sin cliente asignado'}
                   </span>
                   <span className={`text-xs px-2 py-1 rounded-full border font-medium ${ESTADO_STYLES[h.estado]}`}>
                     {ESTADO_HELADERA_LABELS[h.estado]}
@@ -126,7 +142,11 @@ export default function EquiposPage() {
       </main>
 
       {seleccionada && (
-        <HeladeraDetailModal heladera={seleccionada} onClose={() => setSeleccionadaId(null)} />
+        <HeladeraDetailModal
+          heladera={seleccionada}
+          clienteCodigo={seleccionada.clienteAsignadoId ? codigoPorClienteId.get(seleccionada.clienteAsignadoId) : undefined}
+          onClose={() => setSeleccionadaId(null)}
+        />
       )}
 
       {crearModal && user && (
