@@ -29,6 +29,7 @@ npm-debug.log*
 # Scripts — credenciales y archivos locales
 scripts/serviceAccount.json
 scripts/import-errores.txt
+scripts/import-heladeras-log.txt
 
 # Firebase cache
 .firebase/
