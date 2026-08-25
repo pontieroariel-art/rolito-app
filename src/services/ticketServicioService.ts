@@ -87,6 +87,8 @@ export const crearTicket = (
     heladeraCodigo: string
     clientId:       string
     clientName:     string
+    direccionId?:   string | null
+    direccion?:     string | null
     motivoId:       string
     motivoNombre:   string
     requiereChofer: boolean
@@ -107,6 +109,8 @@ export const crearTicket = (
       heladeraCodigo: data.heladeraCodigo,
       clientId:       data.clientId,
       clientName:     data.clientName,
+      direccionId:    data.direccionId ?? null,
+      direccion:      data.direccion ?? null,
       motivoId:       data.motivoId,
       motivoNombre:   data.motivoNombre,
       requiereChofer: data.requiereChofer,

@@ -111,6 +111,9 @@ export default function AsignacionEquiposPage() {
                     <div>
                       <p className="font-bold text-sm text-gray-900">{h.codigoInterno}</p>
                       <p className="text-gray-500 text-xs">{h.modelo} · serie {h.numeroSerie}</p>
+                      {h.clienteAsignadoDireccion && (
+                        <p className="text-accent text-xs">{h.clienteAsignadoDireccion}</p>
+                      )}
                     </div>
                     {puedeGestionar && (
                       <Button variant="outline" className="text-sm" onClick={() => setRetirarObjetivo(h)}>Retirar</Button>

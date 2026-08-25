@@ -483,6 +483,16 @@ export interface Heladera {
   } | null
   clienteAsignadoId?:     string | null
   clienteAsignadoNombre?: string | null
+  // Sucursal específica del cliente donde está el equipo — clientes con
+  // muchas sucursales bajo un mismo CUIT (grupos empresarios: YPF, cadenas,
+  // etc.) tienen UN solo `clienteAsignadoId` pero decenas de direcciones
+  // distintas en `addresses[]`. Sin esto no hay forma de saber a qué
+  // sucursal ir a hacer una visita o un service. `clienteAsignadoDireccionId`
+  // referencia `UserProfile.addresses[].id` (coincide con el código de
+  // sucursal en la mayoría de los casos); `clienteAsignadoDireccion` es un
+  // snapshot de texto para no depender de un join en cada pantalla.
+  clienteAsignadoDireccionId?: string | null
+  clienteAsignadoDireccion?:   string | null
   fechaAsignacion?:       Timestamp | null
   historialAcciones: AccionHistorial[]
   createdAt: Timestamp
@@ -499,6 +509,8 @@ export interface AsignacionHeladera {
   heladeraCodigo: string
   clientId:      string
   clientName:    string
+  direccionId?:  string | null   // sucursal del cliente, ver Heladera.clienteAsignadoDireccionId
+  direccion?:    string | null
   tipo:          'asignacion' | 'retiro'
   numero:        number   // número de remito/comodato, compartido entre ambos documentos
   firmaDataUrl:  string   // PNG en base64 — pesa unos KB, no justifica Storage
@@ -564,6 +576,12 @@ export interface TicketServicio {
   heladeraCodigo:  string
   clientId:        string
   clientName:      string
+  // Sucursal puntual donde está la heladera — snapshot tomado de
+  // Heladera.clienteAsignadoDireccion al abrir el ticket, para que el
+  // técnico/chofer sepa a qué dirección ir sin depender de un join (crucial
+  // en clientes con muchas sucursales, ver Heladera.clienteAsignadoDireccionId).
+  direccionId?:    string | null
+  direccion?:      string | null
   motivoId:        string
   motivoNombre:    string
   requiereChofer:  boolean

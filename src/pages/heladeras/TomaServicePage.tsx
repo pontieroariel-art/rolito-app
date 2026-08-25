@@ -97,6 +97,8 @@ export default function TomaServicePage() {
         heladeraCodigo: heladera.codigoInterno,
         clientId:       cliente.uid,
         clientName:     cliente.razonSocial,
+        direccionId:    heladera.clienteAsignadoDireccionId,
+        direccion:      heladera.clienteAsignadoDireccion,
         motivoId:       motivo.id,
         motivoNombre:   motivo.nombre,
         requiereChofer: !!motivo.requiereChofer,
@@ -172,6 +174,9 @@ export default function TomaServicePage() {
                   >
                     <p className="text-sm font-medium text-gray-900">{h.codigoInterno}</p>
                     <p className="text-xs text-gray-500">{h.modelo} · {h.clienteAsignadoNombre ?? 'sin cliente'}</p>
+                    {h.clienteAsignadoDireccion && (
+                      <p className="text-xs text-accent">{h.clienteAsignadoDireccion}</p>
+                    )}
                   </button>
                 ))}
               </div>
@@ -200,6 +205,9 @@ export default function TomaServicePage() {
                   <button key={h.id} onClick={() => setHeladera(h)} className="w-full text-left px-3 py-2.5 hover:bg-gray-50">
                     <p className="text-sm font-medium text-gray-900">{h.codigoInterno}</p>
                     <p className="text-xs text-gray-500">{h.modelo} · serie {h.numeroSerie}</p>
+                    {h.clienteAsignadoDireccion && (
+                      <p className="text-xs text-accent">{h.clienteAsignadoDireccion}</p>
+                    )}
                   </button>
                 ))}
               </div>
@@ -213,6 +221,9 @@ export default function TomaServicePage() {
               <div>
                 <p className="text-sm font-medium text-gray-900">{heladera.codigoInterno}</p>
                 <p className="text-xs text-gray-500">{heladera.modelo} · serie {heladera.numeroSerie}</p>
+                {heladera.clienteAsignadoDireccion && (
+                  <p className="text-xs text-accent">{heladera.clienteAsignadoDireccion}</p>
+                )}
               </div>
               <button onClick={() => setHeladera(null)} className="text-xs text-gray-500 hover:text-accent">Cambiar</button>
             </div>

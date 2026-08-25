@@ -63,6 +63,9 @@ export const asignarHeladera = (
   cliente:      { id: string; nombre: string },
   actor:        Actor,
   firmaDataUrl: string,
+  // Sucursal puntual del cliente (obligatoria cuando el cliente tiene más de
+  // una dirección cargada — ver Heladera.clienteAsignadoDireccionId).
+  direccion?:   { id: string; address: string },
 ): Promise<AsignacionHeladera> =>
   runTransaction(db, async (tx) => {
     const heladeraRef = doc(db, HELADERAS, heladeraId)
@@ -78,12 +81,14 @@ export const asignarHeladera = (
 
     const fecha = Timestamp.now()
     tx.update(heladeraRef, {
-      estado:                'en_comodato',
-      clienteAsignadoId:     cliente.id,
-      clienteAsignadoNombre: cliente.nombre,
-      fechaAsignacion:       fecha,
-      updatedAt:             serverTimestamp(),
-      historialAcciones:     arrayUnion(accion(actor, 'asignada', `A ${cliente.nombre}`)),
+      estado:                     'en_comodato',
+      clienteAsignadoId:          cliente.id,
+      clienteAsignadoNombre:      cliente.nombre,
+      clienteAsignadoDireccionId: direccion?.id ?? null,
+      clienteAsignadoDireccion:   direccion?.address ?? null,
+      fechaAsignacion:            fecha,
+      updatedAt:                  serverTimestamp(),
+      historialAcciones:          arrayUnion(accion(actor, 'asignada', `A ${cliente.nombre}${direccion?.address ? ` (${direccion.address})` : ''}`)),
     })
 
     const asignacionRef = doc(collection(db, ASIGNACIONES))
@@ -92,6 +97,8 @@ export const asignarHeladera = (
       heladeraCodigo: heladera.codigoInterno,
       clientId:       cliente.id,
       clientName:     cliente.nombre,
+      direccionId:    direccion?.id ?? null,
+      direccion:      direccion?.address ?? null,
       tipo:           'asignacion',
       numero,
       firmaDataUrl,
@@ -144,8 +151,10 @@ export const retirarHeladera = (
       motivoIngresoNombre:    motivo.nombre,
       tipoOperacion:          motivo.tipoOperacion,
       enProceso:              null,
-      clienteAsignadoId:     deleteField(),
-      clienteAsignadoNombre: deleteField(),
+      clienteAsignadoId:          deleteField(),
+      clienteAsignadoNombre:      deleteField(),
+      clienteAsignadoDireccionId: deleteField(),
+      clienteAsignadoDireccion:   deleteField(),
       fechaAsignacion:       deleteField(),
       updatedAt:             serverTimestamp(),
       historialAcciones:     arrayUnion(
@@ -160,6 +169,8 @@ export const retirarHeladera = (
       heladeraCodigo: heladera.codigoInterno,
       clientId,
       clientName,
+      direccionId:    heladera.clienteAsignadoDireccionId ?? null,
+      direccion:      heladera.clienteAsignadoDireccion ?? null,
       tipo:           'retiro',
       numero,
       firmaDataUrl,

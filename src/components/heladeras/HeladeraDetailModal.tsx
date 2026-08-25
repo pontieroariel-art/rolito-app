@@ -82,6 +82,9 @@ export default function HeladeraDetailModal({ heladera, clienteCodigo, onClose }
                 {heladera.clienteAsignadoNombre ?? 'sin asignar'}{heladera.clienteAsignadoNombre && clienteCodigo ? ` (${clienteCodigo})` : ''}
               </span>
             </p>
+            {heladera.clienteAsignadoDireccion && (
+              <p className="text-xs text-accent">Sucursal: {heladera.clienteAsignadoDireccion}</p>
+            )}
             <p className="text-xs text-gray-500">
               Ingreso: <span className="text-gray-700">
                 {heladera.motivoIngresoNombre && heladera.tipoOperacion

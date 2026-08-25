@@ -102,6 +102,9 @@ export default function FichaHeladeraPage() {
                     {heladera.clienteAsignadoNombre ?? 'sin asignar'}{heladera.clienteAsignadoNombre && clienteCodigo ? ` (${clienteCodigo})` : ''}
                   </span>
                 </p>
+                {heladera.clienteAsignadoDireccion && (
+                  <p className="text-xs text-accent">Sucursal: {heladera.clienteAsignadoDireccion}</p>
+                )}
                 {heladera.motivoBaja && <p className="text-xs text-red-500">Motivo de baja: {heladera.motivoBaja}</p>}
               </div>
             </section>

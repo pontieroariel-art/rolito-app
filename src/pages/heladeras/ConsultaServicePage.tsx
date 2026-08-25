@@ -235,6 +235,7 @@ export default function ConsultaServicePage() {
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
                     <p className="font-bold text-sm text-gray-900">{t.heladeraCodigo} — {t.clientName}</p>
+                    {t.direccion && <p className="text-xs text-gray-600">{t.direccion}</p>}
                     <p className="text-xs text-gray-500">{t.motivoNombre} · {tsToDate(t.fechaPedido).toLocaleDateString('es-AR')}</p>
                     {t.asignadoA && <p className="text-xs text-gray-500 mt-0.5">Asignado a {t.asignadoA.nombre} ({t.asignadoA.tipo})</p>}
                     {t.trabajoRealizado && <p className="text-xs text-gray-500 mt-0.5">Trabajo: {t.trabajoRealizado}</p>}

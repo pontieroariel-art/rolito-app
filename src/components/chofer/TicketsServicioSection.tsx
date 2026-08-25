@@ -61,6 +61,7 @@ export default function TicketsServicioSection({ uid, actor }: { uid: string | n
           <div key={t.id} className="bg-white border border-[#D3D1C7] rounded-2xl p-4 space-y-2 shadow-sm">
             <div>
               <p className="font-semibold text-sm text-gray-900">{t.heladeraCodigo} — {t.clientName}</p>
+              {t.direccion && <p className="text-gray-600 text-xs">{t.direccion}</p>}
               <p className="text-gray-500 text-xs mt-0.5">{t.motivoNombre} · {tsToDate(t.fechaPedido).toLocaleDateString('es-AR')}</p>
               {t.trabajoRealizado && <p className="text-xs text-accent mt-1">Ya registraste: {t.trabajoRealizado}</p>}
             </div>

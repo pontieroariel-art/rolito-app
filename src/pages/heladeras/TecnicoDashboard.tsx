@@ -159,6 +159,7 @@ export default function TecnicoDashboard() {
               <div key={t.id} className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-2">
                 <div>
                   <p className="font-bold text-sm text-gray-900">{t.heladeraCodigo} — {t.clientName}</p>
+                  {t.direccion && <p className="text-xs text-gray-600">{t.direccion}</p>}
                   <p className="text-xs text-gray-500">{t.motivoNombre} · {tsToDate(t.fechaPedido).toLocaleDateString('es-AR')}</p>
                   {t.trabajoRealizado && <p className="text-xs text-accent mt-1">Ya registraste: {t.trabajoRealizado}</p>}
                 </div>

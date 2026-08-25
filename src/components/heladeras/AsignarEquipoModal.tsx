@@ -5,7 +5,7 @@ import SignaturePad, { SignaturePadHandle } from './SignaturePad'
 import { useClientesActivos } from '../../hooks/useClientesActivos'
 import { asignarHeladera, Actor } from '../../services/asignacionHeladeraService'
 import { generateRemitoComodato } from '../../utils/pdf'
-import { Heladera, UserProfile, getPrimaryAddress } from '../../types'
+import { DeliveryAddress, Heladera, UserProfile, getPrimaryAddress } from '../../types'
 
 // Entra por dos caminos: desde una heladera puntual (Equipos/Detalle, `heladera`
 // ya viene fijo, se busca el cliente) o desde un cliente puntual (Asignación
@@ -28,9 +28,17 @@ export default function AsignarEquipoModal({
   const [busqueda,          setBusqueda]          = useState('')
   const [clienteElegido,    setClienteElegido]    = useState<UserProfile | null>(clienteFijo ?? null)
   const [heladeraElegida,   setHeladeraElegida]   = useState<Heladera | null>(heladeraFija ?? null)
+  const [direccionElegida,  setDireccionElegida]  = useState<DeliveryAddress | null>(null)
   const [saving,            setSaving]            = useState(false)
   const [error,             setError]             = useState('')
   const padRef = useRef<SignaturePadHandle>(null)
+
+  // Clientes con una sola sucursal no piden elegir — se usa esa directo. Con
+  // más de una (grupos empresarios: YPF, cadenas, etc.) hay que preguntar,
+  // si no la heladera queda asignada al cliente sin saber a qué sucursal va.
+  const direcciones = clienteElegido?.addresses ?? []
+  const necesitaElegirDireccion = direcciones.length > 1 && !direccionElegida
+  const direccionResuelta = direccionElegida ?? (direcciones.length === 1 ? direcciones[0] : null)
 
   const resultadosCliente = useMemo(() => {
     if (clienteFijo) return []
@@ -47,6 +55,7 @@ export default function AsignarEquipoModal({
   const handleSubmit = async () => {
     if (!clienteElegido)  { setError('Elegí un cliente'); return }
     if (!heladeraElegida) { setError('Elegí una heladera'); return }
+    if (necesitaElegirDireccion) { setError('Elegí a qué sucursal va'); return }
     const firma = padRef.current?.toDataURL()
     if (!firma) { setError('Falta la firma del cliente'); return }
     setSaving(true)
@@ -57,8 +66,9 @@ export default function AsignarEquipoModal({
         { id: clienteElegido.uid, nombre: clienteElegido.razonSocial },
         actor,
         firma,
+        direccionResuelta ? { id: direccionResuelta.id, address: direccionResuelta.address } : undefined,
       )
-      const direccion = getPrimaryAddress(clienteElegido)?.address || clienteElegido.address || ''
+      const direccion = direccionResuelta?.address || getPrimaryAddress(clienteElegido)?.address || clienteElegido.address || ''
       await generateRemitoComodato({
         numero:   asignacion.numero,
         tipo:     'asignacion',
@@ -149,7 +159,43 @@ export default function AsignarEquipoModal({
                 <p className="text-sm font-medium text-gray-900">{clienteElegido.razonSocial}</p>
                 <p className="text-xs text-gray-500">CUIT {clienteElegido.cuit}</p>
               </div>
-              <button type="button" onClick={() => setClienteElegido(null)} className="text-xs text-gray-500 hover:text-accent">
+              <button
+                type="button"
+                onClick={() => { setClienteElegido(null); setDireccionElegida(null) }}
+                className="text-xs text-gray-500 hover:text-accent"
+              >
+                Cambiar
+              </button>
+            </div>
+          )
+        )}
+
+        {/* Sucursal: solo se pregunta si el cliente tiene más de una */}
+        {clienteElegido && direcciones.length > 1 && (
+          !direccionElegida ? (
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">¿A qué sucursal va?</label>
+              <div className="border border-[#D3D1C7] rounded-lg divide-y divide-gray-100 max-h-56 overflow-y-auto">
+                {direcciones.map((a) => (
+                  <button
+                    key={a.id}
+                    type="button"
+                    onClick={() => setDireccionElegida(a)}
+                    className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors"
+                  >
+                    <p className="text-sm font-medium text-gray-900">{a.nombre || a.id}</p>
+                    <p className="text-xs text-gray-500">{a.address}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg p-3 flex justify-between items-center">
+              <div>
+                <p className="text-sm font-medium text-gray-900">{direccionElegida.nombre || direccionElegida.id}</p>
+                <p className="text-xs text-gray-500">{direccionElegida.address}</p>
+              </div>
+              <button type="button" onClick={() => setDireccionElegida(null)} className="text-xs text-gray-500 hover:text-accent">
                 Cambiar
               </button>
             </div>
