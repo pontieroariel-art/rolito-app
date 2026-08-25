@@ -10,6 +10,7 @@ exports.tplPedidoReprogramado = tplPedidoReprogramado;
 exports.tplAdminNuevoPedido = tplAdminNuevoPedido;
 exports.tplTicketCerrado = tplTicketCerrado;
 exports.tplStockBajo = tplStockBajo;
+exports.tplComodatosPorVencer = tplComodatosPorVencer;
 exports.tplAdminNuevoCliente = tplAdminNuevoCliente;
 exports.tplAdminAccionAltoRiesgo = tplAdminAccionAltoRiesgo;
 exports.tplAdminResumenDiario = tplAdminResumenDiario;
@@ -340,6 +341,22 @@ function tplStockBajo(articulo, appUrl) {
         { label: 'Stock mínimo', value: String(articulo.stockMinimo) },
     ])}
     ${ctaButton('Ver pañol →', `${appUrl}/heladeras/panol`)}
+  `);
+}
+function tplComodatosPorVencer(items, appUrl) {
+    return layout('Comodatos para renovar', {
+        emoji: '📋',
+        title: 'Comodatos para renovar',
+        subtitle: `${items.length} equipo${items.length !== 1 ? 's' : ''}`,
+        accentColor: '#F59E0B',
+    }, `
+    <p style="margin:0 0 16px">Estos equipos tienen el comodato vencido o por vencer — coordiná una visita para volver a firmarlo.</p>
+    ${infoBox(items.map((i) => ({
+        label: esc(i.heladeraCodigo),
+        value: `${esc(i.clientName)}${i.direccion ? ` — ${esc(i.direccion)}` : ''}<br>` +
+            `<span style="color:#9ca3af;font-size:12px">${i.diasVencido > 0 ? `Vencido hace ${i.diasVencido} día${i.diasVencido !== 1 ? 's' : ''}` : 'Vence hoy'}</span>`,
+    })))}
+    ${ctaButton('Ver equipos →', `${appUrl}/heladeras/equipos`)}
   `);
 }
 function tplAdminNuevoCliente(cliente) {

@@ -494,6 +494,18 @@ export interface Heladera {
   clienteAsignadoDireccionId?: string | null
   clienteAsignadoDireccion?:   string | null
   fechaAsignacion?:       Timestamp | null
+  // Número de compresor del equipo — se carga una sola vez al asignar (no se
+  // vuelve a pedir en una renovación), va impreso en la orden de entrega.
+  compresor?: string | null
+  // Comodato vigente: `comodatoNumero` es el correlativo del contrato firmado
+  // (mismo `numero` que su AsignacionHeladera de tipo asignación/renovación),
+  // `comodatoFirmadoEl`/`comodatoVenceEl` marcan la vigencia (12 meses desde
+  // la última firma). `comodatoAvisoEnviado` evita que el aviso semanal de
+  // vencimiento repita la misma heladera hasta la próxima renovación.
+  comodatoNumero?:        number | null
+  comodatoFirmadoEl?:     Timestamp | null
+  comodatoVenceEl?:       Timestamp | null
+  comodatoAvisoEnviado?:  boolean
   historialAcciones: AccionHistorial[]
   createdAt: Timestamp
   updatedAt: Timestamp
@@ -511,10 +523,16 @@ export interface AsignacionHeladera {
   clientName:    string
   direccionId?:  string | null   // sucursal del cliente, ver Heladera.clienteAsignadoDireccionId
   direccion?:    string | null
-  tipo:          'asignacion' | 'retiro'
+  tipo:          'asignacion' | 'retiro' | 'renovacion'
   numero:        number   // número de remito/comodato, compartido entre ambos documentos
   firmaDataUrl:  string   // PNG en base64 — pesa unos KB, no justifica Storage
   motivo?:       string | null   // solo en retiro
+  // Quién firmó físicamente por el cliente — el contrato de comodato real
+  // pide "representada por [nombre], cargo [x]" (el documento/CUIT ya sale
+  // de clientId). Solo aplica a asignación/renovación.
+  firmanteNombre?: string | null
+  firmanteCargo?:  string | null
+  compresor?:      string | null   // snapshot, solo se completa en asignación
   actor:         { uid: string; nombre: string }
   fecha:         Timestamp
 }

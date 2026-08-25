@@ -1,6 +1,6 @@
 import { Order, OrderProduct } from '../types'
 import { toDateStr } from './helpers'
-import { ROLITO_INFO } from './constants'
+import { ROLITO_INFO, COMODATO_COMODANTE } from './constants'
 
 // El logo fuente (/logo-rolito.png) es un PNG de 8334x2836px — insertado tal
 // cual con doc.addImage(), jsPDF lo reincrusta a resolución completa (el PDF
@@ -423,6 +423,232 @@ export async function generateRemitoComodato(params: {
 
   // ── Guardar ─────────────────────────────────────────────────────────────────
   doc.save(`remito-comodato-${numero}-${toDateStr(fecha)}.pdf`)
+}
+
+const MESES = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+]
+
+// Texto real del "CONTRATO DE COMODATO DE HELADERA" de Redonhielo (cláusulas
+// PRIMERA a OCTAVA transcriptas tal cual del contrato en papel) — reemplaza
+// el contrato genérico de 4 párrafos que tenía generateRemitoComodato. Se
+// usa tanto para la firma inicial (asignación) como para cada renovación
+// anual — mismo texto, cambia la fecha y el número de contrato.
+export async function generateContratoComodato(params: {
+  numero:       number
+  fecha:        Date
+  heladera:     { modelo: string; numeroSerie: string }
+  cliente:      { razonSocial: string; cuit: string; direccion: string }
+  firmante:     { nombre: string; cargo: string }
+  firmaDataUrl: string
+}) {
+  const { numero, fecha, heladera, cliente, firmante, firmaDataUrl } = params
+  const { default: jsPDF } = await import('jspdf')
+  const doc   = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const pageW = doc.internal.pageSize.getWidth()
+  const pageH = doc.internal.pageSize.getHeight()
+  const marginL = 14, marginR = 14, maxWidth = pageW - marginL - marginR
+  const logo  = await fetchImageAsBase64('/logo-rolito.png')
+
+  const fechaTexto = `${fecha.getDate()} días del mes de ${MESES[fecha.getMonth()]} de ${fecha.getFullYear()}`
+
+  let y = 12
+  const nuevaPagina = () => {
+    doc.addPage()
+    y = 14
+  }
+  const escribirParrafo = (texto: string, opts: { bold?: boolean; size?: number; gap?: number } = {}) => {
+    doc.setFont('helvetica', opts.bold ? 'bold' : 'normal')
+    doc.setFontSize(opts.size ?? 9)
+    doc.setTextColor(20)
+    const lines = doc.splitTextToSize(texto, maxWidth)
+    const lineH = (opts.size ?? 9) * 0.42
+    if (y + lines.length * lineH > pageH - 20) nuevaPagina()
+    doc.text(lines, marginL, y)
+    y += lines.length * lineH + (opts.gap ?? 3)
+  }
+
+  if (logo) doc.addImage(logo, 'PNG', marginL, y, 32, 11)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(9)
+  doc.setTextColor(20)
+  doc.text(`Nº ${numero}`, pageW - marginR, y + 5, { align: 'right' })
+  y += 18
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(13)
+  doc.text('CONTRATO DE COMODATO DE HELADERA', pageW / 2, y, { align: 'center' })
+  y += 9
+
+  escribirParrafo(
+    `En Merlo, provincia de Buenos Aires, a los ${fechaTexto}, entre ${COMODATO_COMODANTE.razonSocial}, ` +
+    `representada por el ${COMODATO_COMODANTE.cargo}, ${COMODATO_COMODANTE.representante}, con domicilio real en ` +
+    `${COMODATO_COMODANTE.domicilio}, en adelante 'la comodante', por una parte; y por la otra, ${cliente.razonSocial} ` +
+    `representada por ${firmante.nombre} (${firmante.cargo}), con documento Nº ${cliente.cuit}, domiciliada en ` +
+    `${cliente.direccion || '—'}, en adelante 'la comodataria', se conviene en celebrar el presente contrato de ` +
+    `comodato de heladera, conforme a las siguientes cláusulas:`,
+    { gap: 4 },
+  )
+
+  escribirParrafo(
+    `PRIMERA: ${COMODATO_COMODANTE.razonSocial} entrega a la comodataria y ésta recibe en préstamo de uso gratuito ` +
+    `una heladera comercial para la conservación de hielo MARCA: ROLITO MODELO: ${heladera.modelo} SERIE: ${heladera.numeroSerie}`,
+  )
+  escribirParrafo(
+    `SEGUNDA: La comodataria reconoce expresamente que la heladera objeto del presente contrato, es de propiedad ` +
+    `exclusiva de ${COMODATO_COMODANTE.razonSocial}.`,
+  )
+  escribirParrafo(
+    'TERCERA: El presente contrato se efectúa en concepto de préstamo de uso en forma totalmente gratuita.',
+  )
+  escribirParrafo(
+    `CUARTA: Las partes convienen como condición esencial que la comodataria sólo podrá utilizar la heladera para ` +
+    `la venta de hielo provista por ${COMODATO_COMODANTE.razonSocial} en forma exclusiva, pudiendo ésta, en caso de ` +
+    `incumplimiento de esta obligación resolver el presente comunicándolo fehacientemente a la comodataria. Ésta ` +
+    `deberá poner la heladera a disposición de la comodante dentro del plazo de dos días desde que hubiera sido ` +
+    `intimada fehacientemente. ${COMODATO_COMODANTE.razonSocial} se reserva el derecho de reclamar los daños y ` +
+    `perjuicios por la retención indebida y el incumplimiento de la obligación de venta de hielo provisto ` +
+    `exclusivamente por la comodante.`,
+  )
+  escribirParrafo(
+    `QUINTA: ${COMODATO_COMODANTE.razonSocial} se reserva el derecho de resolver el contrato en cualquier tiempo ` +
+    `desde el inicio del mismo, sin expresión de causa y sin derecho a indemnización alguna a favor de la ` +
+    `comodataria. La resolución deberá comunicarse fehacientemente a la comodataria, debiendo ésta poner la ` +
+    `máquina a disposición de la comodante, dentro del plazo de 48 horas desde que hubiera sido notificada.`,
+  )
+  escribirParrafo(
+    `SEXTA: ${COMODATO_COMODANTE.razonSocial} entrega la heladera en perfectas condiciones de funcionamiento, ` +
+    `quedando obligada la comodataria a conservarla en el mismo estado en que la recibe. La comodante se ` +
+    `encargará exclusivamente de la conservación técnica de la máquina y de reparar o sustituir por su cuenta las ` +
+    `partes que sean necesarias para mantener su normal funcionamiento. Los servicios de mantenimiento y ` +
+    `reparación serán efectuados por la comodante durante sus horas normales de trabajo. La comodataria abonará ` +
+    `las reparaciones que sean consecuencia del mal uso o negligencia en la obligación de conservar la heladera ` +
+    `en el mismo estado en que la recibió.`,
+  )
+  escribirParrafo(
+    `SÉPTIMA: La comodataria no podrá, bajo pena de resolverse el presente contrato, ceder el presente ni alquilar ` +
+    `la heladera. Deberá notificar la transferencia del fondo de comercio a la comodante, quien podrá decidir la ` +
+    `continuidad o resolución del contrato, sin derecho a indemnización alguna. La comodataria no podrá mover la ` +
+    `heladera del lugar en que la comodante la instaló, sin la conformidad de ésta; ni introducirle modificaciones ` +
+    `o alteraciones. La comodataria deberá permitir el acceso del personal de ${COMODATO_COMODANTE.razonSocial} a ` +
+    `los efectos de realizar las operaciones necesarias o inspeccionar el equipo. Indispensablemente, y como ` +
+    `condición esencial del presente y de expresa resolución del mismo, la comodataria deberá efectuar la conexión ` +
+    `a tierra del equipo. Deberá asimismo dar aviso a ${COMODATO_COMODANTE.razonSocial} del concurso o quiebra que ` +
+    `se le hubiere dispuesto. El presente contrato deja sin valor ni efecto algunos a cualquier acto, contrato, ` +
+    `acuerdo o estipulación entre las partes por causa de comodato de heladera.`,
+  )
+  escribirParrafo(
+    'OCTAVA: Las partes se someten a la jurisdicción de los Tribunales Ordinarios de Morón, renunciando a ' +
+    'cualquier otro fuero o jurisdicción que pudiere corresponderles. Constituyen domicilios en los indicados arriba.',
+    { gap: 10 },
+  )
+
+  if (y + 32 > pageH - 20) nuevaPagina()
+  doc.addImage(firmaDataUrl, 'PNG', marginL, y, 55, 20)
+  doc.setDrawColor(150)
+  doc.setLineWidth(0.2)
+  doc.line(marginL, y + 22, marginL + 80, y + 22)
+  doc.setFontSize(8)
+  doc.setTextColor(90)
+  doc.text('Firma del comodatario', marginL, y + 26)
+  doc.text(`Aclaración: ${firmante.nombre}`, marginL, y + 31)
+  doc.text(`Doc.: ${cliente.cuit}`, marginL, y + 35)
+  doc.text(`Cargo: ${firmante.cargo}`, marginL, y + 39)
+
+  doc.save(`comodato-${numero}-${toDateStr(fecha)}.pdf`)
+}
+
+// "Orden de entrega" — segunda hoja del comodato real: ficha técnica del
+// equipo (con compresor, que el contrato no menciona), mapa de ubicación de
+// la sucursal y conformidad de recepción. Solo se genera al asignar (primera
+// entrega) — una renovación no mueve el equipo, no hace falta otra vez.
+export async function generateOrdenEntrega(params: {
+  numero:       number
+  fecha:        Date
+  heladera:     { codigoInterno: string; modelo: string; numeroSerie: string; color: string; fabricacion?: Date | null; compresor?: string | null }
+  cliente:      { razonSocial: string; codigoCliente: string; cuit: string; direccion: string; lat?: number | null; lng?: number | null }
+}) {
+  const { numero, fecha, heladera, cliente } = params
+  const { default: jsPDF }     = await import('jspdf')
+  const { default: autoTable } = await import('jspdf-autotable')
+  const doc   = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const pageW = doc.internal.pageSize.getWidth()
+  const logo  = await fetchImageAsBase64('/logo-rolito.png')
+
+  doc.setFontSize(15)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(0)
+  if (logo) doc.addImage(logo, 'PNG', 14, 8, 40, 13)
+  doc.text('ORDEN DE ENTREGA', pageW - 14, 14, { align: 'right' })
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(80)
+  doc.text(`N° ${numero}   ·   ${fecha.toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}`, pageW - 14, 20, { align: 'right' })
+  doc.setDrawColor(45, 106, 79)
+  doc.setLineWidth(0.6)
+  doc.line(14, 26, pageW - 14, 26)
+
+  autoTable(doc, {
+    startY: 32,
+    theme: 'plain',
+    body: [
+      ['Cliente',  `${cliente.razonSocial} (${cliente.codigoCliente})`],
+      ['CUIT',     cliente.cuit],
+      ['Domicilio', cliente.direccion || '—'],
+    ],
+    styles: { fontSize: 9, cellPadding: 1.5 },
+    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 28 } },
+    margin: { left: 14, right: 14 },
+  })
+  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
+  let y = doc.lastAutoTable?.finalY ?? 60
+
+  autoTable(doc, {
+    startY: y + 6,
+    head: [['Código', 'Modelo', 'Color', 'N° de serie', 'Compresor', 'Fabricación']],
+    body: [[
+      heladera.codigoInterno, heladera.modelo, heladera.color, heladera.numeroSerie,
+      heladera.compresor || '—',
+      heladera.fabricacion ? heladera.fabricacion.toLocaleDateString('es-AR') : '—',
+    ]],
+    styles: { fontSize: 8, cellPadding: 2.5 },
+    headStyles: { fillColor: [45, 106, 79], textColor: 255, fontStyle: 'bold', fontSize: 7.5 },
+    margin: { left: 14, right: 14 },
+  })
+  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
+  y = doc.lastAutoTable?.finalY ?? y + 20
+
+  // Mapa de ubicación — best-effort: si la Static Maps API no está habilitada
+  // en la key o el fetch falla por lo que sea, se sigue sin el mapa (no
+  // bloquea la generación del resto del documento).
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined
+  if (apiKey && cliente.lat != null && cliente.lng != null) {
+    const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${cliente.lat},${cliente.lng}&zoom=15&size=600x300&markers=color:red%7C${cliente.lat},${cliente.lng}&key=${apiKey}`
+    const mapImg = await fetchImageAsBase64(mapUrl, 600)
+    if (mapImg) {
+      doc.addImage(mapImg, 'PNG', 14, y + 6, pageW - 28, (pageW - 28) / 2)
+      y += 6 + (pageW - 28) / 2
+    }
+  }
+
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(20)
+  doc.text('Observaciones', 14, y + 10)
+  doc.setDrawColor(200)
+  doc.setLineWidth(0.2)
+  for (let i = 0; i < 4; i++) doc.line(14, y + 15 + i * 6, pageW - 14, y + 15 + i * 6)
+  y += 15 + 4 * 6
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8.5)
+  doc.setTextColor(60)
+  doc.text('Entregó: ______________________________', 14, y + 10)
+  doc.text('Firma en conformidad: x', pageW - 14, y + 10, { align: 'right' })
+  doc.text('Aclaración: ______________________________', pageW - 14, y + 16, { align: 'right' })
+
+  doc.save(`orden-entrega-${numero}-${toDateStr(fecha)}.pdf`)
 }
 
 // Hoja para entregarle al técnico/chofer con lo que necesita saber del

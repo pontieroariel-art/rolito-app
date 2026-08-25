@@ -27,6 +27,7 @@ const ACCION_LABELS: Record<string, string> = {
   baja:                   'Dada de baja',
   asignada:               'Asignada a cliente',
   retirada:               'Retirada de cliente',
+  comodato_renovado:      'Comodato renovado',
   service_abierto:        'Service abierto',
 }
 

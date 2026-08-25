@@ -65,6 +65,17 @@ export const PLANTA_INFO: Record<PlantaId, {
   },
 }
 
+// Datos fijos de la comodante para el Contrato de Comodato real (ver
+// generateContratoComodato en utils/pdf.ts) — siempre los mismos, el
+// contrato no varía esta parte cliente a cliente. El domicilio coincide con
+// PLANTA_INFO.merlo.direccion (mismo domicilio real constituido).
+export const COMODATO_COMODANTE = {
+  razonSocial:  'REDONHIELO S.A.',
+  representante: 'Alejandro Tomás Pontiero',
+  cargo:        'Presidente del Directorio',
+  domicilio:    'Av. Pte. Perón 26875, de Merlo, Provincia de Buenos Aires',
+}
+
 export const CLIENT_LOGOS: Record<string, { src: string; alt: string }> = {
   [DELIVERY_HERO_CLIENT_ID]: { src: '/logo-pedidosya.png', alt: 'PedidosYa (Delivery Hero)' },
   [RAPPI_CLIENT_ID]:         { src: '/logo-rappi.webp',    alt: 'Rappi (Gastronomía Emprendimientos)' },

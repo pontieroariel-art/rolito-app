@@ -10,6 +10,7 @@ import { usePasosTaller } from '../../hooks/usePasosTaller'
 import { crearHeladera } from '../../services/heladeraService'
 import { EstadoHeladera, TipoPipelineHeladera } from '../../types'
 import { ESTADO_HELADERA_LABELS } from '../../utils/heladeraLabels'
+import { tsToDate } from '../../utils/helpers'
 import HeladeraDetailModal from '../../components/heladeras/HeladeraDetailModal'
 import CrearHeladeraModal from '../../components/heladeras/CrearHeladeraModal'
 
@@ -33,7 +34,7 @@ export default function EquiposPage() {
   }, [clientes])
   const [searchParams] = useSearchParams()
   const [busqueda, setBusqueda] = useState(() => searchParams.get('q') ?? '')
-  const [estadoFiltro, setEstadoFiltro] = useState<EstadoHeladera | 'todos'>('todos')
+  const [estadoFiltro, setEstadoFiltro] = useState<EstadoHeladera | 'todos' | 'por_vencer'>('todos')
   const [seleccionadaId, setSeleccionadaId] = useState<string | null>(null)
   // null = cerrado. El tipo de ingreso lo decide qué botón se tocó, no se
   // vuelve a preguntar dentro del modal (ver CrearHeladeraModal).
@@ -42,7 +43,13 @@ export default function EquiposPage() {
   const filtradas = useMemo(() => {
     const q = busqueda.trim().toLowerCase()
     return heladeras.filter((h) => {
-      if (estadoFiltro !== 'todos' && h.estado !== estadoFiltro) return false
+      if (estadoFiltro === 'por_vencer') {
+        if (h.estado !== 'en_comodato' || !h.comodatoVenceEl) return false
+        const dias = (tsToDate(h.comodatoVenceEl).getTime() - Date.now()) / 86400000
+        if (dias > 30) return false
+      } else if (estadoFiltro !== 'todos' && h.estado !== estadoFiltro) {
+        return false
+      }
       if (!q) return true
       const codigoCliente = h.clienteAsignadoId ? codigoPorClienteId.get(h.clienteAsignadoId) : undefined
       return (
@@ -92,13 +99,14 @@ export default function EquiposPage() {
           </div>
           <select
             value={estadoFiltro}
-            onChange={(e) => setEstadoFiltro(e.target.value as EstadoHeladera | 'todos')}
+            onChange={(e) => setEstadoFiltro(e.target.value as EstadoHeladera | 'todos' | 'por_vencer')}
             className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
           >
             <option value="todos">Todos los estados</option>
             {Object.entries(ESTADO_HELADERA_LABELS).map(([estado, label]) => (
               <option key={estado} value={estado}>{label}</option>
             ))}
+            <option value="por_vencer">Comodato por vencer/vencido</option>
           </select>
         </div>
 

@@ -35,6 +35,15 @@ function accion(actor: Actor, tipo: string, detalle?: string) {
   }
 }
 
+// 12 meses desde la firma — período de renovación del comodato (ver
+// plan: en Argentina es lo habitual para poder actualizar cláusulas de
+// multa/garantía en pesos frente a la inflación).
+function agregarUnAnio(fecha: Timestamp): Timestamp {
+  const d = fecha.toDate()
+  d.setFullYear(d.getFullYear() + 1)
+  return Timestamp.fromDate(d)
+}
+
 export const subscribeAsignacionesPorHeladera = (
   heladeraId: string,
   callback: (asignaciones: AsignacionHeladera[]) => void,
@@ -66,6 +75,10 @@ export const asignarHeladera = (
   // Sucursal puntual del cliente (obligatoria cuando el cliente tiene más de
   // una dirección cargada — ver Heladera.clienteAsignadoDireccionId).
   direccion?:   { id: string; address: string },
+  // Quién firma el contrato de comodato por el cliente, y n° de compresor
+  // del equipo (se carga una sola vez, no se vuelve a pedir en la renovación).
+  firmante?:    { nombre: string; cargo: string },
+  compresor?:   string,
 ): Promise<AsignacionHeladera> =>
   runTransaction(db, async (tx) => {
     const heladeraRef = doc(db, HELADERAS, heladeraId)
@@ -87,6 +100,11 @@ export const asignarHeladera = (
       clienteAsignadoDireccionId: direccion?.id ?? null,
       clienteAsignadoDireccion:   direccion?.address ?? null,
       fechaAsignacion:            fecha,
+      compresor:                  compresor?.trim() || null,
+      comodatoNumero:             numero,
+      comodatoFirmadoEl:          fecha,
+      comodatoVenceEl:            agregarUnAnio(fecha),
+      comodatoAvisoEnviado:       false,
       updatedAt:                  serverTimestamp(),
       historialAcciones:          arrayUnion(accion(actor, 'asignada', `A ${cliente.nombre}${direccion?.address ? ` (${direccion.address})` : ''}`)),
     })
@@ -102,6 +120,61 @@ export const asignarHeladera = (
       tipo:           'asignacion',
       numero,
       firmaDataUrl,
+      firmanteNombre: firmante?.nombre ?? null,
+      firmanteCargo:  firmante?.cargo ?? null,
+      compresor:      compresor?.trim() || null,
+      actor,
+      fecha,
+    }
+    tx.set(asignacionRef, asignacion)
+    return { id: asignacionRef.id, ...asignacion }
+  })
+
+// Renueva el comodato de una heladera YA asignada: vuelve a pedir firma
+// (mismo contrato, fecha y número nuevos) sin tocar cliente/sucursal/estado
+// — a diferencia de asignarHeladera, no hay traslado físico del equipo, así
+// que no genera una nueva orden de entrega.
+export const renovarComodato = (
+  heladeraId:   string,
+  actor:        Actor,
+  firmaDataUrl: string,
+  firmante:     { nombre: string; cargo: string },
+): Promise<AsignacionHeladera> =>
+  runTransaction(db, async (tx) => {
+    const heladeraRef = doc(db, HELADERAS, heladeraId)
+    const heladeraSnap = await tx.get(heladeraRef)
+    const heladera = heladeraSnap.data() as Heladera | undefined
+    if (!heladera || heladera.estado !== 'en_comodato' || !heladera.clienteAsignadoId) {
+      throw new HeladeraNoAsignableError('Esta heladera no está asignada a ningún cliente.')
+    }
+
+    const counterSnap = await tx.get(COUNTER_REF())
+    const numero = (counterSnap.exists() ? (counterSnap.data().next as number) : 1)
+    tx.set(COUNTER_REF(), { next: numero + 1 })
+
+    const fecha = Timestamp.now()
+    tx.update(heladeraRef, {
+      comodatoNumero:       numero,
+      comodatoFirmadoEl:    fecha,
+      comodatoVenceEl:      agregarUnAnio(fecha),
+      comodatoAvisoEnviado: false,
+      updatedAt:            serverTimestamp(),
+      historialAcciones:    arrayUnion(accion(actor, 'comodato_renovado', `Firmado por ${firmante.nombre} (${firmante.cargo})`)),
+    })
+
+    const asignacionRef = doc(collection(db, ASIGNACIONES))
+    const asignacion: Omit<AsignacionHeladera, 'id'> = {
+      heladeraId,
+      heladeraCodigo: heladera.codigoInterno,
+      clientId:       heladera.clienteAsignadoId,
+      clientName:     heladera.clienteAsignadoNombre ?? '—',
+      direccionId:    heladera.clienteAsignadoDireccionId ?? null,
+      direccion:      heladera.clienteAsignadoDireccion ?? null,
+      tipo:           'renovacion',
+      numero,
+      firmaDataUrl,
+      firmanteNombre: firmante.nombre,
+      firmanteCargo:  firmante.cargo,
       actor,
       fecha,
     }
@@ -156,6 +229,10 @@ export const retirarHeladera = (
       clienteAsignadoDireccionId: deleteField(),
       clienteAsignadoDireccion:   deleteField(),
       fechaAsignacion:       deleteField(),
+      comodatoNumero:        deleteField(),
+      comodatoFirmadoEl:     deleteField(),
+      comodatoVenceEl:       deleteField(),
+      comodatoAvisoEnviado:  deleteField(),
       updatedAt:             serverTimestamp(),
       historialAcciones:     arrayUnion(
         accion(actor, 'retirada', `De ${clientName}`),

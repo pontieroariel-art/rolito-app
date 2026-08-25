@@ -4,6 +4,7 @@ import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import AsignarEquipoModal from './AsignarEquipoModal'
 import RetirarEquipoModal from './RetirarEquipoModal'
+import RenovarComodatoModal from './RenovarComodatoModal'
 import TicketsServicioList from './TicketsServicioList'
 import { useAuth } from '../../context/AuthContext'
 import { useModelosHeladera } from '../../hooks/useModelosHeladera'
@@ -23,6 +24,7 @@ const ACCION_LABELS: Record<string, string> = {
   baja:                    'Dada de baja',
   asignada:                'Asignada a cliente',
   retirada:                'Retirada de cliente',
+  comodato_renovado:       'Comodato renovado',
   service_abierto:         'Service abierto',
 }
 
@@ -39,6 +41,11 @@ export default function HeladeraDetailModal({ heladera, clienteCodigo, onClose }
   const [error,          setError]          = useState('')
   const [asignarAbierto, setAsignarAbierto] = useState(false)
   const [retirarAbierto, setRetirarAbierto] = useState(false)
+  const [renovarAbierto, setRenovarAbierto] = useState(false)
+
+  const vencimiento = heladera.comodatoVenceEl ? tsToDate(heladera.comodatoVenceEl) : null
+  const diasParaVencer = vencimiento ? Math.ceil((vencimiento.getTime() - Date.now()) / 86400000) : null
+  const vencimientoColor = diasParaVencer == null ? 'text-gray-500' : diasParaVencer <= 0 ? 'text-red-600' : diasParaVencer <= 30 ? 'text-amber-600' : 'text-gray-500'
 
   const historial = useMemo(
     () => [...heladera.historialAcciones].sort((a, b) => tsToDate(b.timestamp).getTime() - tsToDate(a.timestamp).getTime()),
@@ -85,6 +92,11 @@ export default function HeladeraDetailModal({ heladera, clienteCodigo, onClose }
             {heladera.clienteAsignadoDireccion && (
               <p className="text-xs text-accent">Sucursal: {heladera.clienteAsignadoDireccion}</p>
             )}
+            {vencimiento && (
+              <p className={`text-xs ${vencimientoColor}`}>
+                Comodato {diasParaVencer != null && diasParaVencer <= 0 ? 'vencido el' : 'vence el'} {vencimiento.toLocaleDateString('es-AR')}
+              </p>
+            )}
             <p className="text-xs text-gray-500">
               Ingreso: <span className="text-gray-700">
                 {heladera.motivoIngresoNombre && heladera.tipoOperacion
@@ -116,7 +128,10 @@ export default function HeladeraDetailModal({ heladera, clienteCodigo, onClose }
             <Button className="text-sm" onClick={() => setAsignarAbierto(true)}>Asignar a cliente</Button>
           )}
           {heladera.estado === 'en_comodato' && (
-            <Button variant="outline" className="text-sm" onClick={() => setRetirarAbierto(true)}>Retirar del cliente</Button>
+            <>
+              <Button variant="outline" className="text-sm" onClick={() => setRetirarAbierto(true)}>Retirar del cliente</Button>
+              <Button variant="outline" className="text-sm" onClick={() => setRenovarAbierto(true)}>Renovar comodato</Button>
+            </>
           )}
           {heladera.estado !== 'baja' && (
             <Button variant="outline" className="text-sm text-red-500 border-red-200 hover:bg-red-50" onClick={() => setBajaAbierta((v) => !v)}>
@@ -182,6 +197,13 @@ export default function HeladeraDetailModal({ heladera, clienteCodigo, onClose }
           actor={{ uid: user.uid, nombre: user.nombre }}
           catalogo={catalogo}
           onClose={() => setRetirarAbierto(false)}
+        />
+      )}
+      {renovarAbierto && user && (
+        <RenovarComodatoModal
+          heladera={heladera}
+          actor={{ uid: user.uid, nombre: user.nombre }}
+          onClose={() => setRenovarAbierto(false)}
         />
       )}
     </Modal>

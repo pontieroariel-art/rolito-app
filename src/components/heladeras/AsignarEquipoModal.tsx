@@ -4,8 +4,9 @@ import Button from '../ui/Button'
 import SignaturePad, { SignaturePadHandle } from './SignaturePad'
 import { useClientesActivos } from '../../hooks/useClientesActivos'
 import { asignarHeladera, Actor } from '../../services/asignacionHeladeraService'
-import { generateRemitoComodato } from '../../utils/pdf'
+import { generateContratoComodato, generateOrdenEntrega } from '../../utils/pdf'
 import { DeliveryAddress, Heladera, UserProfile, getPrimaryAddress } from '../../types'
+import { tsToDate } from '../../utils/helpers'
 
 // Entra por dos caminos: desde una heladera puntual (Equipos/Detalle, `heladera`
 // ya viene fijo, se busca el cliente) o desde un cliente puntual (Asignación
@@ -29,6 +30,9 @@ export default function AsignarEquipoModal({
   const [clienteElegido,    setClienteElegido]    = useState<UserProfile | null>(clienteFijo ?? null)
   const [heladeraElegida,   setHeladeraElegida]   = useState<Heladera | null>(heladeraFija ?? null)
   const [direccionElegida,  setDireccionElegida]  = useState<DeliveryAddress | null>(null)
+  const [firmanteNombre,   setFirmanteNombre]     = useState('')
+  const [firmanteCargo,    setFirmanteCargo]      = useState('')
+  const [compresor,        setCompresor]          = useState('')
   const [saving,            setSaving]            = useState(false)
   const [error,             setError]             = useState('')
   const padRef = useRef<SignaturePadHandle>(null)
@@ -56,27 +60,44 @@ export default function AsignarEquipoModal({
     if (!clienteElegido)  { setError('Elegí un cliente'); return }
     if (!heladeraElegida) { setError('Elegí una heladera'); return }
     if (necesitaElegirDireccion) { setError('Elegí a qué sucursal va'); return }
+    if (!firmanteNombre.trim() || !firmanteCargo.trim()) { setError('Completá nombre y cargo de quién firma'); return }
     const firma = padRef.current?.toDataURL()
     if (!firma) { setError('Falta la firma del cliente'); return }
     setSaving(true)
     setError('')
     try {
+      const firmante = { nombre: firmanteNombre.trim(), cargo: firmanteCargo.trim() }
       const asignacion = await asignarHeladera(
         heladeraElegida.id,
         { id: clienteElegido.uid, nombre: clienteElegido.razonSocial },
         actor,
         firma,
         direccionResuelta ? { id: direccionResuelta.id, address: direccionResuelta.address } : undefined,
+        firmante,
+        compresor.trim() || undefined,
       )
       const direccion = direccionResuelta?.address || getPrimaryAddress(clienteElegido)?.address || clienteElegido.address || ''
-      await generateRemitoComodato({
+      await generateContratoComodato({
         numero:   asignacion.numero,
-        tipo:     'asignacion',
         fecha:    asignacion.fecha.toDate(),
-        heladera: { codigoInterno: heladeraElegida.codigoInterno, modelo: heladeraElegida.modelo, numeroSerie: heladeraElegida.numeroSerie },
+        heladera: { modelo: heladeraElegida.modelo, numeroSerie: heladeraElegida.numeroSerie },
         cliente:  { razonSocial: clienteElegido.razonSocial, cuit: clienteElegido.cuit, direccion },
+        firmante,
         firmaDataUrl: firma,
-        actorNombre:  actor.nombre,
+      })
+      await generateOrdenEntrega({
+        numero:   asignacion.numero,
+        fecha:    asignacion.fecha.toDate(),
+        heladera: {
+          codigoInterno: heladeraElegida.codigoInterno, modelo: heladeraElegida.modelo,
+          numeroSerie: heladeraElegida.numeroSerie, color: 'Blanco/Verde',
+          fabricacion: tsToDate(heladeraElegida.fechaIngreso), compresor: compresor.trim() || null,
+        },
+        cliente: {
+          razonSocial: clienteElegido.razonSocial, codigoCliente: clienteElegido.codigoCliente ?? '',
+          cuit: clienteElegido.cuit, direccion,
+          lat: direccionResuelta?.lat ?? clienteElegido.lat, lng: direccionResuelta?.lng ?? clienteElegido.lng,
+        },
       })
       onClose()
     } catch (err) {
@@ -202,6 +223,35 @@ export default function AsignarEquipoModal({
           )
         )}
 
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Nombre de quien firma</label>
+            <input
+              value={firmanteNombre}
+              onChange={(e) => setFirmanteNombre(e.target.value)}
+              className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Cargo</label>
+            <input
+              value={firmanteCargo}
+              onChange={(e) => setFirmanteCargo(e.target.value)}
+              placeholder="Encargado, dueño, gerente…"
+              className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="text-xs text-gray-500 mb-1 block">N° de compresor (opcional)</label>
+          <input
+            value={compresor}
+            onChange={(e) => setCompresor(e.target.value)}
+            className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+        </div>
+
         <div>
           <label className="text-xs text-gray-500 mb-1 block">Firma del cliente</label>
           <SignaturePad ref={padRef} />
@@ -210,7 +260,7 @@ export default function AsignarEquipoModal({
         {error && <p className="text-red-500 text-xs">{error}</p>}
         <div className="flex gap-2 pt-1">
           <Button variant="outline" onClick={onClose} className="flex-1">Cancelar</Button>
-          <Button onClick={handleSubmit} loading={saving} className="flex-1">Asignar y generar remito</Button>
+          <Button onClick={handleSubmit} loading={saving} className="flex-1">Asignar y firmar comodato</Button>
         </div>
       </div>
     </Modal>
