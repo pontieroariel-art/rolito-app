@@ -165,7 +165,7 @@ export default function ProduccionDashboard() {
                 key={p.id}
                 disabled={!reservaLista}
                 onClick={() => setProductoSeleccionado(p.id)}
-                className={`flex flex-col items-center justify-center gap-0.5 rounded-xl border-[3px] transition-transform active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none disabled:grayscale ${
+                className={`flex flex-col items-center justify-center gap-0.5 rounded-xl border-[3px] transition-transform active:scale-[0.97] disabled:opacity-60 disabled:pointer-events-none ${
                   i === PRODUCTOS_HIELO_LIST.length - 1 ? 'col-span-2' : ''
                 }`}
                 style={{ borderColor: p.color, backgroundColor: `${p.color}14` }}
