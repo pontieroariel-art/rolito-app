@@ -138,6 +138,12 @@ export default function Navbar() {
     ? user.nombre.split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase()
     : '?'
 
+  // ProtectedRoute redirige a "/" apenas la sesión se cierra (antes de que
+  // cualquier navigate() propio alcance a ejecutarse — pierde la carrera
+  // contra ese redirect). Por eso acá no se decide el destino: Landing.tsx
+  // ("/") es quien sabe, vía localStorage, si ESTE dispositivo es una
+  // tablet de planta y manda de vuelta a produccion-{planta} en vez de
+  // mostrar el landing genérico (Clientes/Choferes/Equipo Rolito).
   const handleLogout = async () => {
     await logoutUser()
     navigate('/')

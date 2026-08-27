@@ -1,11 +1,12 @@
 import { useState, FormEvent, useEffect, useRef } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { FirebaseError } from 'firebase/app'
 import AuthLayout from '../../components/layout/AuthLayout'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 import { useAuth } from '../../context/AuthContext'
 import { loginProduccion, logoutUser } from '../../services/authService'
+import { marcarDispositivoProduccion } from '../../services/produccionAuthService'
 import { PLANTAS, PlantaId } from '../../types'
 
 interface Props { planta: PlantaId }
@@ -37,6 +38,7 @@ export default function LoginProduccion({ planta }: Props) {
       logoutUser().finally(() => { rechazando.current = false })
       return
     }
+    marcarDispositivoProduccion(planta)
     navigate('/produccion', { replace: true })
   }, [user, navigate, planta])
 
@@ -92,19 +94,6 @@ export default function LoginProduccion({ planta }: Props) {
 
         <p className="text-center text-xs text-gray-400 mt-1">
           ¿No tenés legajo cargado? Contactá al encargado de producción.
-        </p>
-
-        <div className="flex items-center gap-3 my-1">
-          <div className="flex-1 h-px bg-border" />
-          <span className="text-xs text-gray-500">o</span>
-          <div className="flex-1 h-px bg-border" />
-        </div>
-
-        <p className="text-center text-xs text-gray-400">
-          ¿Sos del equipo Rolito?{' '}
-          <Link to="/empresa" className="text-gray-500 hover:text-accent transition-colors">
-            Ingresá acá
-          </Link>
         </p>
       </form>
     </AuthLayout>

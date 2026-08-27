@@ -3,6 +3,7 @@ import { ShoppingBag, ChevronRight } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { sistemasDeUsuario } from '../../utils/sistemas'
+import { getDispositivoProduccion } from '../../services/produccionAuthService'
 
 const ROLE_HOME: Record<string, string> = {
   super_admin:       '/sistema',
@@ -31,6 +32,14 @@ export default function Landing() {
     if (sistemasDeUsuario(user).length > 1) return <Navigate to="/sistema" replace />
     return <Navigate to={ROLE_HOME[user.rol] ?? '/dashboard'} replace />
   }
+
+  // Sin sesión, pero este dispositivo ya se identificó antes como una
+  // tablet de planta (ver marcarDispositivoProduccion) — nunca mostrarle
+  // el landing genérico (Clientes/Choferes/Equipo Rolito), va derecho a su
+  // login por legajo. Cubre tanto el logout (ProtectedRoute manda acá) como
+  // reabrir la app instalada desde cero.
+  const plantaDispositivo = getDispositivoProduccion()
+  if (plantaDispositivo) return <Navigate to={`/produccion-${plantaDispositivo}`} replace />
 
   return (
     <div className="min-h-screen bg-[#F8F7F2] flex flex-col">
