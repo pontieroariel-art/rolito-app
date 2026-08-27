@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { WifiOff, Package } from 'lucide-react'
+import { WifiOff, Package, Snowflake } from 'lucide-react'
 import Navbar from '../../components/layout/Navbar'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
@@ -29,10 +29,15 @@ function ConfirmarPalletModal({
   return (
     <Modal open onClose={onCancel} title="Confirmar pallet">
       <div className="space-y-4">
-        <p className="text-sm text-gray-700">
-          Vas a cargar un pallet de <span className="font-semibold">{producto.nombre}</span> ({producto.unidadesPorPallet} {producto.unidadLabel}).
-        </p>
-        <p className="text-xs text-gray-400">Esta acción imprime el ticket y no se puede deshacer.</p>
+        <div
+          className="flex flex-col items-center gap-1.5 rounded-2xl border-[3px] py-5"
+          style={{ borderColor: producto.color, backgroundColor: `${producto.color}14` }}
+        >
+          <span className="text-4xl font-black leading-none" style={{ color: producto.color }}>{producto.tamanioTicket}</span>
+          <span className="text-lg font-bold text-gray-900 text-center px-3">{producto.nombre}</span>
+          <span className="text-sm text-gray-500 font-medium">{producto.unidadesPorPallet} {producto.unidadLabel}/pallet</span>
+        </div>
+        <p className="text-xs text-gray-400 text-center">Esta acción imprime el ticket y no se puede deshacer.</p>
         <div className="flex gap-2">
           <Button variant="outline" onClick={onCancel} className="flex-1" disabled={loading}>Cancelar</Button>
           <Button onClick={onConfirm} loading={loading} className="flex-1">Confirmar e imprimir</Button>
@@ -130,45 +135,58 @@ export default function ProduccionDashboard() {
     <>
       <div className="min-h-screen bg-[#F8F7F2] text-gray-900 print:hidden">
         <Navbar />
-        <main className="max-w-lg mx-auto p-4 space-y-6 pb-10">
+        <main className="p-4 sm:p-6 space-y-6 pb-10">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Hola, {user.nombre?.split(' ')[0] ?? 'operario'}</h1>
-              <p className="text-gray-500 text-sm">{PLANTAS[user.planta].label}</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Hola, {user.nombre?.split(' ')[0] ?? 'operario'}</h1>
+              <p className="text-gray-500 text-base">{PLANTAS[user.planta].label}</p>
             </div>
             {!online && (
-              <div className="flex items-center gap-1.5 text-amber-600 text-xs bg-amber-50 border border-amber-200 rounded-full px-3 py-1.5">
-                <WifiOff size={14} /> Sin conexión
+              <div className="flex items-center gap-1.5 text-amber-600 text-sm bg-amber-50 border border-amber-200 rounded-full px-3 py-1.5">
+                <WifiOff size={16} /> Sin conexión
               </div>
             )}
           </div>
 
           {error && (
-            <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
-              <p className="text-red-500 text-sm">{error}</p>
+            <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3">
+              <p className="text-red-500 text-base font-medium">{error}</p>
             </div>
           )}
 
           <section>
-            <h2 className="text-sm font-semibold text-gray-900 mb-2">Pallet completo — elegí el producto</h2>
-            <div className="grid grid-cols-2 gap-3">
+            <h2 className="text-base font-semibold text-gray-900 mb-3">Pallet completo — elegí el producto</h2>
+            {/* Grilla grande, a pantalla completa: esto lo usan operarios con
+                guantes/apuro embolsando hielo — cada tarjeta tiene que
+                reconocerse de un vistazo (color + tamaño en grande), nunca
+                solo por texto chico. El color nunca es el único identificador
+                (siempre va con el nombre completo abajo). */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
               {PRODUCTOS_HIELO_LIST.map((p) => (
-                <Button
+                <button
                   key={p.id}
-                  variant="outline"
-                  className="h-24 flex-col gap-1 text-center"
                   disabled={!reservaLista}
                   onClick={() => setProductoSeleccionado(p.id)}
+                  className="flex flex-col items-center justify-center gap-2 rounded-2xl border-[3px] p-4 aspect-square sm:aspect-[4/3] transition-transform active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none disabled:grayscale"
+                  style={{ borderColor: p.color, backgroundColor: `${p.color}14` }}
                 >
-                  <span className="font-semibold text-sm leading-tight">{p.nombre}</span>
-                  <span className="text-xs text-gray-500">{p.unidadesPorPallet} {p.unidadLabel}/pallet</span>
-                </Button>
+                  <Snowflake size={22} style={{ color: p.color }} />
+                  <span className="text-4xl sm:text-5xl font-black leading-none" style={{ color: p.color }}>
+                    {p.tamanioTicket}
+                  </span>
+                  <span className="text-lg sm:text-xl font-bold text-gray-900 text-center leading-tight">
+                    {p.nombre}
+                  </span>
+                  <span className="text-sm sm:text-base text-gray-500 font-medium">
+                    {p.unidadesPorPallet} {p.unidadLabel}/pallet
+                  </span>
+                </button>
               ))}
             </div>
           </section>
 
           <section className="space-y-2">
-            <h2 className="text-sm font-semibold text-gray-900">Cargados hoy</h2>
+            <h2 className="text-base font-semibold text-gray-900">Cargados hoy</h2>
             {loading ? (
               <LoadingSpinner />
             ) : pallettsHoy.length === 0 ? (
@@ -177,11 +195,11 @@ export default function ProduccionDashboard() {
                 <p className="text-gray-500 text-sm">Todavía no cargaste ningún pallet hoy.</p>
               </div>
             ) : (
-              <div className="space-y-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
                 {pallettsHoy.map((p) => (
-                  <div key={p.id} className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 flex items-center justify-between gap-3">
-                    <p className="text-xs text-gray-700">{p.codigo} — {p.productoNombre}</p>
-                    <span className="text-xs text-gray-400">
+                  <div key={p.id} className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2.5 flex items-center justify-between gap-3">
+                    <p className="text-sm text-gray-700">{p.codigo} — {p.productoNombre}</p>
+                    <span className="text-sm text-gray-400 shrink-0">
                       {p.fechaFabricacion.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>

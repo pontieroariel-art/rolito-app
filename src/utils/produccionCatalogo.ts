@@ -9,43 +9,48 @@ export interface ProductoHieloDef {
   tamanioTicket:     string   // texto grande del ticket, ej. "10KG"
   unidadesPorPallet: number
   unidadLabel:       'bolsas' | 'barras'
+  // Color categórico para distinguir productos de un vistazo en la grilla
+  // de carga (tablet de planta, "no pueden pifiar" con guantes/apuro) —
+  // paleta validada anti-daltonismo (dataviz skill), nunca es el ÚNICO
+  // identificador: siempre va acompañado del nombre completo en texto.
+  color:             string
 }
 
 export const PRODUCTOS_HIELO: Record<ProductoHieloId, ProductoHieloDef> = {
   bolsas_10kg_rolito: {
     id: 'bolsas_10kg_rolito', nombre: 'Bolsas 10kg Rolito',
     descripcionTicket: 'HIELO EN BOLSA ROLITO 10KG', tamanioTicket: '10KG',
-    unidadesPorPallet: 88, unidadLabel: 'bolsas',
+    unidadesPorPallet: 88, unidadLabel: 'bolsas', color: '#2a78d6',
   },
   bolsas_3kg_rolito: {
     id: 'bolsas_3kg_rolito', nombre: 'Bolsas 3kg Rolito',
     descripcionTicket: 'HIELO EN BOLSA ROLITO 3KG', tamanioTicket: '3KG',
-    unidadesPorPallet: 315, unidadLabel: 'bolsas',
+    unidadesPorPallet: 315, unidadLabel: 'bolsas', color: '#eb6834',
   },
   bolsas_2kg_rolito: {
     id: 'bolsas_2kg_rolito', nombre: 'Bolsas 2kg Rolito',
     descripcionTicket: 'HIELO EN BOLSA ROLITO 2KG', tamanioTicket: '2KG',
-    unidadesPorPallet: 460, unidadLabel: 'bolsas',
+    unidadesPorPallet: 460, unidadLabel: 'bolsas', color: '#1baf7a',
   },
   picado_10kg: {
     id: 'picado_10kg', nombre: 'Hielo picado bolsa 10kg',
     descripcionTicket: 'HIELO PICADO BOLSA 10KG', tamanioTicket: '10KG',
-    unidadesPorPallet: 80, unidadLabel: 'bolsas',
+    unidadesPorPallet: 80, unidadLabel: 'bolsas', color: '#eda100',
   },
   escama_10kg: {
     id: 'escama_10kg', nombre: 'Escama bolsa 10kg',
     descripcionTicket: 'HIELO EN ESCAMA BOLSA 10KG', tamanioTicket: '10KG',
-    unidadesPorPallet: 70, unidadLabel: 'bolsas',
+    unidadesPorPallet: 70, unidadLabel: 'bolsas', color: '#e87ba4',
   },
   barras_hielo: {
     id: 'barras_hielo', nombre: 'Barras de hielo',
     descripcionTicket: 'BARRAS DE HIELO', tamanioTicket: 'BARRA',
-    unidadesPorPallet: 56, unidadLabel: 'barras',
+    unidadesPorPallet: 56, unidadLabel: 'barras', color: '#008300',
   },
   rembolsado_cementera_10kg: {
     id: 'rembolsado_cementera_10kg', nombre: 'Rembolsado cementera bolsa 10kg',
     descripcionTicket: 'HIELO REMBOLSADO CEMENTERA 10KG', tamanioTicket: '10KG',
-    unidadesPorPallet: 88, unidadLabel: 'bolsas',
+    unidadesPorPallet: 88, unidadLabel: 'bolsas', color: '#4a3aa7',
   },
 }
 
