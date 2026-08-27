@@ -4,7 +4,7 @@
 > aplicado a esta app: licencias, API, mapeo de datos, arquitectura y preguntas abiertas.
 > Se actualiza a medida que llegan documentos, exportes y respuestas de Axoft.
 >
-> Última actualización: 2026-08-20
+> Última actualización: 2026-08-27
 
 ## 1. Contexto y decisión de timing
 
@@ -153,6 +153,7 @@ Principios acordados:
 4. ¿Qué `SaleConditionCode` usar por cliente? (condición de venta vive en Tango) → export de clientes.
 5. ~~Proceso exacto de generación del token~~ **RESUELTO** — Menú de usuario (ícono arriba a la derecha) → "Desarrollador" → "Generar".
 6. **[NUEVA]** Nombre exacto de `{process}` para Clientes/Artículos en la API de Plataforma, y el esquema de campos de la respuesta — pendiente de probar un GET real contra `Api/Get/Clientes/.../.../...` (o el nombre real del proceso) desde dentro de Tango.
+7. **[NUEVA, 2026-08-27]** ¿Qué pantalla/proceso puntual de Tango usa hoy el administrativo para cargar producción de hielo a mano (¿ingreso de stock? ¿ajuste de stock? ¿orden de producción?), y está ese proceso expuesto por la API de Plataforma/ABM (como Clientes, `process=2117`) o requiere un módulo aparte no confirmado — ver §8.
 
 ### 6.1 API de Plataforma (ABM) — confirmada, reemplaza la sección 3 como camino principal
 
@@ -208,3 +209,92 @@ A diferencia de lo relevado en julio (Tango Tiendas, e-commerce), la API que **s
 - [ ] Manuales/PDFs que tenga el implementador sobre la extensión API.
 
 > Dejá todo en `docs/tango/material/` (crear la carpeta al primer archivo) y avisá — se procesa y se vuelca acá.
+
+## 8. Producción → Tango en tiempo real (Fase A, 2026-08-27)
+
+Replanteo de objetivo (conversación 2026-08-27): la idea original de empujar
+ediciones de clientes app→Tango se descartó — esos campos ya son "propiedad"
+de Tango vía la sync diaria de §6.1 (pisarlos de vuelta generaría loops). El
+caso real es **producción de hielo**: antes se cargaba con una app llamada
+Bluesoft (dada de baja); hoy el personal de planta anota en planillas de papel
+y un administrativo teclea eso a mano en Tango. Rolito ya tiene el reemplazo
+de Bluesoft construido — `ProduccionDashboard.tsx` (ruta `/produccion`,
+colección `produccionPallets`) — falta que esa carga viaje sola a Tango.
+
+**Bloqueo pendiente (no resuelto por este trabajo):** no sabemos todavía qué
+proceso/pantalla de Tango usa el administrativo para cargar producción, ni si
+está expuesto por la API de Plataforma/ABM (como Clientes) o requiere otro
+módulo. Ver pregunta abierta 7 en §6. Hasta confirmarlo, el envío real a
+Tango queda como un stub explícito (ver abajo) — no se escribió nada
+especulativo contra un endpoint que todavía no confirmamos que existe.
+
+### Arquitectura implementada
+
+```
+produccionPallets/{id} (onCreate, Cloud Function)
+        │
+        ▼
+tango-outbox/{id}  (estado: pendiente → enviado → confirmado/error)
+        │  onSnapshot en tiempo real (SDK cliente, no Admin SDK)
+        ▼
+scripts/tango/bridge-listener.mjs  (servicio de Windows en la VM de Tango)
+        │
+        ▼
+enviarProduccionATango()  ← STUB, pendiente de confirmar el proceso Tango
+```
+
+- **`tango-outbox`** (Firestore): cola genérica, pensada para reusarse en
+  futuros casos, no solo producción. Un doc por evento, ID determinístico
+  (`produccionPallets_{palletId}`) para que un reintento del trigger no
+  duplique el envío.
+- **Trigger** `functions/src/triggers/tangoOutbox.ts` (`onProduccionPalletCreado`):
+  `onDocumentCreated('produccionPallets/{palletId}')` → un `tango-outbox`.
+  `produccionPallets` es inmutable (firestore.rules), así que `onCreate` es
+  el único evento que hace falta.
+- **Credencial acotada del bridge**: en vez de un rol nuevo en `UserRole`
+  (que tocaría navegación/rutas de toda la app para una cuenta que nunca
+  hace login por la UI), es un flag booleano propio: `users/{uid}.tangoBridge
+  = true`, reconocido por `isTangoBridge()` en `firestore.rules`. Cuenta real
+  de Firebase Auth creada una vez con `scripts/tango/setup-bridge-account.mjs`.
+  Reglas: puede leer/escuchar `tango-outbox` y actualizar solo sus campos de
+  estado (`estado`, `intentos`, `ultimoError`, `actualizadoEn`) — nunca el
+  `payload` ni el origen. También puede leer y actualizar (solo su propio
+  heartbeat) `config/tango`.
+- **`scripts/tango/bridge-listener.mjs`**: corre en la misma VM que
+  `bridge-sync-clientes.mjs`, pero como **servicio de Windows persistente**
+  (NSSM), no tarea diaria — usa el SDK **cliente** de Firestore (nunca
+  Admin SDK: coherente con la decisión de agosto de que el bridge nunca
+  tiene la clave maestra), `onSnapshot` sobre `tango-outbox` donde
+  `estado=='pendiente'` (cero polling para trabajo nuevo). Gateado además por
+  un flag propio y separado del de clientes: `config/tango.produccionEnabled`
+  (default `false`).
+- **Retry/backoff — ojo con este detalle:** un item que falla NO vuelve a
+  `estado:'pendiente'` (eso dispararía un reintento instantáneo sin backoff,
+  porque el listener en tiempo real escucha justo ese estado — se probó y
+  reprodujo este bug contra el emulador antes de corregirlo). Pasa a
+  `estado:'enviado'` (fuera del query del listener) y un barrido cada 5 min
+  es el único que lo reintenta — eso ES el backoff. Tras `MAX_INTENTOS=5`
+  pasa a `estado:'error'` (terminal, revisión manual).
+- **`enviarProduccionATango()`** (dentro de `bridge-listener.mjs`): stub
+  explícito — solo loguea el payload que mandaría y devuelve un error
+  controlado. Es la única función que hay que completar una vez confirmado
+  el proceso Tango (pregunta abierta 7, §6).
+
+### Verificado (2026-08-27)
+
+`npm run test:rules` (reglas nuevas de `tango-outbox` y `config/tango` para
+`isTangoBridge()`) y flujo end-to-end contra el emulador (Firestore+Auth):
+alta de item → recogido por el listener en tiempo real → stub invocado →
+backoff correcto entre reintentos → `estado:'error'` a los 5 intentos. No se
+probó contra el Tango real (el stub no llama a nada real todavía).
+
+### Fuera de alcance de esta fase
+
+- Tango → app en tiempo real (requiere SQL Server Change Data Capture en el
+  servidor de Tango — administrado por TC Servicios Informáticos, acceso
+  pendiente).
+- Completar `enviarProduccionATango()` con el proceso Tango real (pregunta
+  abierta 7, §6).
+- Panel `/admin/tango` de monitoreo (§4 punto 6) — no pedido todavía; por
+  ahora la única visibilidad es `config/tango.bridgeListenerLastSeen`
+  (heartbeat) y los estados de los docs de `tango-outbox`.

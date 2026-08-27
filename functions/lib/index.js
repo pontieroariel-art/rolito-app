@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.syncClientesTango = exports.enviarResumenAdminDiario = exports.onHistorialAdminAltoRiesgo = exports.backupAuthUsers = exports.avisarComodatosPorVencer = exports.onTicketCreado = exports.onStockBajo = exports.onTicketCerrado = exports.generarPedidosRecurrentes = exports.orsDirections = exports.mirrorDriverLocation = exports.validarPreciosPedido = exports.notifyReprogramado = exports.notifyCerca = exports.sendPush = exports.deleteAuthUsers = exports.onOrderEnCamino = exports.onOrderConfirmado = exports.onOrderCreated = exports.onClienteCreadoPorStaff = exports.onUserApproved = exports.onUserRegistered = void 0;
+exports.onProduccionPalletCreado = exports.syncClientesTango = exports.enviarResumenAdminDiario = exports.onHistorialAdminAltoRiesgo = exports.backupAuthUsers = exports.avisarComodatosPorVencer = exports.onTicketCreado = exports.onStockBajo = exports.onTicketCerrado = exports.generarPedidosRecurrentes = exports.orsDirections = exports.mirrorDriverLocation = exports.validarPreciosPedido = exports.notifyReprogramado = exports.notifyCerca = exports.sendPush = exports.deleteAuthUsers = exports.onOrderEnCamino = exports.onOrderConfirmado = exports.onOrderCreated = exports.onClienteCreadoPorStaff = exports.onUserApproved = exports.onUserRegistered = void 0;
 const app_1 = require("firebase-admin/app");
 (0, app_1.initializeApp)();
 // Nota: cambio trivial para forzar un hash de fuente distinto y que
@@ -46,4 +46,6 @@ Object.defineProperty(exports, "onHistorialAdminAltoRiesgo", { enumerable: true,
 Object.defineProperty(exports, "enviarResumenAdminDiario", { enumerable: true, get: function () { return adminAudit_1.enviarResumenAdminDiario; } });
 var tangoSync_1 = require("./triggers/tangoSync");
 Object.defineProperty(exports, "syncClientesTango", { enumerable: true, get: function () { return tangoSync_1.syncClientesTango; } });
+var tangoOutbox_1 = require("./triggers/tangoOutbox");
+Object.defineProperty(exports, "onProduccionPalletCreado", { enumerable: true, get: function () { return tangoOutbox_1.onProduccionPalletCreado; } });
 //# sourceMappingURL=index.js.map
