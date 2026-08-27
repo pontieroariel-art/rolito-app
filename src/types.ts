@@ -134,6 +134,7 @@ export interface UserProfile {
   subrol?:            'chofer' | 'ayudante'
   area?:              AreaHeladera   // sector de heladeras (rol 'heladeras')
   planta?:            PlantaId   // planta de producción fija del operario (rol 'produccion_hielo')
+  legajo?:            string   // login del operario de producción (rol 'produccion_hielo') — solo el número, sin contraseña, ver produccionAuthService.ts
   // Favoritos del técnico en el checklist de tipos de reparación (id de
   // config/tiposReparacion) — solo lo usa el técnico de calle (rol
   // 'tecnico'), para encontrar rápido desde el celular.

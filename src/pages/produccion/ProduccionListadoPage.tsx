@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import Navbar from '../../components/layout/Navbar'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useProduccionPallets } from '../../hooks/useProduccionPallets'
+import { ProduccionResumen } from '../../components/produccion/ProduccionResumen'
 import { PLANTAS, PlantaId } from '../../types'
 import { PRODUCTOS_HIELO_LIST } from '../../utils/produccionCatalogo'
 
@@ -27,6 +28,8 @@ export default function ProduccionListadoPage() {
           <h1 className="text-2xl font-bold text-gray-900">Producción de hielo</h1>
           <p className="text-gray-500 text-sm">Últimos pallets cargados</p>
         </div>
+
+        <ProduccionResumen />
 
         <div className="flex flex-wrap gap-3">
           <select

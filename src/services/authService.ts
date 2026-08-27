@@ -83,12 +83,12 @@ export const loginTecnico = async (dni: string, pin: string) => {
   return signInWithEmailAndPassword(auth, email, padPinTecnico(pin))
 }
 
-export const loginProduccion = async (dni: string, pin: string) => {
-  const { getEmailByProduccionDni, padPinProduccion } = await import('./produccionAuthService')
-  const email = await getEmailByProduccionDni(dni)
-  if (!email) throw new Error('dni-not-found')
+export const loginProduccion = async (legajo: string) => {
+  const { getEmailByProduccionLegajo, passwordProduccion } = await import('./produccionAuthService')
+  const email = await getEmailByProduccionLegajo(legajo)
+  if (!email) throw new Error('legajo-not-found')
   await auth.authStateReady()
-  return signInWithEmailAndPassword(auth, email, padPinProduccion(pin))
+  return signInWithEmailAndPassword(auth, email, passwordProduccion())
 }
 
 export const loginWithStaffDni = async (dni: string, password: string) => {

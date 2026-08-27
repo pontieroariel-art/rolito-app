@@ -11,8 +11,7 @@ export default function LoginProduccion() {
   const navigate = useNavigate()
   const { user } = useAuth()
 
-  const [dni,     setDni]     = useState('')
-  const [pin,     setPin]     = useState('')
+  const [legajo,  setLegajo]  = useState('')
   const [error,   setError]   = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -27,21 +26,21 @@ export default function LoginProduccion() {
     setLoading(true)
     setError('')
     try {
-      await loginProduccion(dni.trim(), pin)
+      await loginProduccion(legajo.trim())
     } catch (err) {
-      if (err instanceof Error && err.message === 'dni-not-found') {
-        setError('DNI o PIN incorrecto')
+      if (err instanceof Error && err.message === 'legajo-not-found') {
+        setError('Legajo no encontrado')
       } else if (err instanceof FirebaseError) {
         const wrongCreds = ['auth/invalid-credential', 'auth/wrong-password', 'auth/user-not-found']
         if (wrongCreds.includes(err.code)) {
-          setError('DNI o PIN incorrecto')
+          setError('Legajo no encontrado')
         } else if (err.code === 'auth/too-many-requests') {
           setError('Demasiados intentos. Esperá unos minutos.')
         } else {
           setError(`Error al ingresar (${err.code})`)
         }
       } else {
-        setError('Error al ingresar. Verificá tus datos.')
+        setError('Error al ingresar. Verificá el legajo.')
       }
     } finally {
       setLoading(false)
@@ -49,28 +48,17 @@ export default function LoginProduccion() {
   }
 
   return (
-    <AuthLayout title="Ingreso Producción" subtitle="Ingresá con tu DNI y PIN">
+    <AuthLayout title="Ingreso Producción" subtitle="Ingresá con tu número de legajo">
       <form onSubmit={handleLogin} className="flex flex-col gap-4">
         <Input
-          label="DNI"
-          value={dni}
-          onChange={(e) => setDni(e.target.value.replace(/\D/g, '').slice(0, 8))}
+          label="Legajo"
+          value={legajo}
+          onChange={(e) => setLegajo(e.target.value.replace(/\D/g, '').slice(0, 6))}
           required
-          placeholder="36024287"
+          placeholder="1234"
           autoComplete="username"
           inputMode="numeric"
-          maxLength={8}
-        />
-        <Input
-          label="PIN"
-          type="password"
-          value={pin}
-          onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-          required
-          placeholder="••••"
-          autoComplete="current-password"
-          inputMode="numeric"
-          maxLength={4}
+          maxLength={6}
         />
 
         {error && (
@@ -84,7 +72,7 @@ export default function LoginProduccion() {
         </Button>
 
         <p className="text-center text-xs text-gray-400 mt-1">
-          ¿Olvidaste tu PIN? Contactá al administrador.
+          ¿No tenés legajo cargado? Contactá al encargado de producción.
         </p>
 
         <div className="flex items-center gap-3 my-1">

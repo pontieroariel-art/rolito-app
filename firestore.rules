@@ -92,6 +92,15 @@ service cloud.firestore {
     function isCliente() {
       return myRole() == 'cliente';
     }
+    // Bridge de Tango — cuenta de servicio que corre en la VM de Tango, sin
+    // rol de UI (nunca loguea por la app). Se identifica con un flag booleano
+    // propio en vez de myRole(), para no tocar UserRole ni la navegación de
+    // la app por una cuenta que no la usa. Ver docs/tango/INTEGRACION.md §7.
+    function isTangoBridge() {
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      let data = exists(path) ? get(path).data : {};
+      return data.get('tangoBridge', false) == true;
+    }
 
     // Pipeline de taller de heladeras — catálogo configurable
     // (config/pasosTaller, mismo doc que edita el encargado desde
@@ -390,6 +399,11 @@ service cloud.firestore {
       allow read: if request.auth != null
         && (docId == 'catalogo' || docId == 'motivosReparacion' || docId == 'ticketServicioCounter' || isStaff());
       allow write: if request.auth != null && isOperator();
+      // Bridge de Tango: necesita leer config/tango (interruptor
+      // produccionEnabled) y escribir su propio heartbeat, nada más.
+      allow read: if request.auth != null && isTangoBridge() && docId == 'tango';
+      allow update: if request.auth != null && isTangoBridge() && docId == 'tango'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['bridgeListenerLastSeen']);
       // Comercial y gerente_comercial pueden editar el catálogo (config/catalogo).
       allow write: if request.auth != null && docId == 'catalogo' && isManager();
       // Catálogos de motivos/tipos de reparación, pasos de taller y contador
@@ -623,6 +637,22 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ── Cola de salida hacia Tango (app → Tango, tiempo real) ──────────────
+    // Un doc por evento a informar a Tango (hoy solo producción de hielo,
+    // pensado genérico para futuros casos). Solo lo crea un Cloud Function
+    // trigger (Admin SDK, bypassa estas reglas). El bridge en la VM de Tango
+    // (isTangoBridge()) lo escucha en tiempo real y solo puede tocar los
+    // campos de estado del procesamiento, nunca el payload ni el origen — así
+    // un bridge comprometido no puede falsificar qué se le mandó a Tango.
+    // Ver docs/tango/INTEGRACION.md §7.
+    match /tango-outbox/{docId} {
+      allow read: if request.auth != null && (isTangoBridge() || isOperator());
+      allow update: if request.auth != null && isTangoBridge()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['estado', 'intentos', 'ultimoError', 'actualizadoEn']);
+      allow create, delete: if false;
+    }
+
     // ── Modelos de heladera (ficha técnica) ────────────────────────────────
     match /modelosHeladera/{modeloId} {
       // Lectura amplia a cualquier staff: la necesitan la pantalla de alta de
@@ -693,7 +723,7 @@ service cloud.firestore {
       allow write: if request.auth != null && isHeladerasFullAccess();
     }
 
-    match /produccionDniIndex/{dni} {
+    match /produccionLegajoIndex/{legajo} {
       allow read:  if true;
       allow write: if request.auth != null && isProduccionEncargado();
     }

@@ -458,24 +458,23 @@ export const createTecnicoUser = async ({ nombreContacto, dni, pin, telefono, ar
 
 export interface CreateOperarioParams {
   nombreContacto: string
-  dni:            string
-  pin:            string
+  legajo:         string
   planta:         PlantaId
 }
 
-export const createOperarioProduccionUser = async ({ nombreContacto, dni, pin, planta }: CreateOperarioParams): Promise<void> => {
-  const { dniToProduccionEmail, setProduccionDniIndex, padPinProduccion, getEmailByProduccionDni } = await import('./produccionAuthService')
-  const normalizedDni = dni.replace(/\D/g, '')
-  const email = dniToProduccionEmail(normalizedDni)
-  const yaUsado = await getEmailByProduccionDni(normalizedDni)
+export const createOperarioProduccionUser = async ({ nombreContacto, legajo, planta }: CreateOperarioParams): Promise<void> => {
+  const { legajoToProduccionEmail, setProduccionLegajoIndex, passwordProduccion, getEmailByProduccionLegajo } = await import('./produccionAuthService')
+  const normalizedLegajo = legajo.replace(/\D/g, '')
+  const email = legajoToProduccionEmail(normalizedLegajo)
+  const yaUsado = await getEmailByProduccionLegajo(normalizedLegajo)
   if (yaUsado && yaUsado !== email) {
-    throw new Error(`Ese DNI ya está en uso por otra cuenta (${yaUsado}). Verificalo antes de continuar.`)
+    throw new Error(`Ese legajo ya está en uso por otra cuenta (${yaUsado}). Verificalo antes de continuar.`)
   }
-  await createUserViaSecondaryApp(email, padPinProduccion(pin), {
+  await createUserViaSecondaryApp(email, passwordProduccion(), {
     nombre:          nombreContacto,
     email,
     planta,
-    dni:             normalizedDni,
+    legajo:          normalizedLegajo,
     phone:           '',
     rol:             'produccion_hielo' as UserRole,
     estado:          'activo' as UserStatus,
@@ -489,7 +488,7 @@ export const createOperarioProduccionUser = async ({ nombreContacto, dni, pin, p
     fechaAprobacion: serverTimestamp(),
     aprobadoPor:     'admin',
   }, true)   // rol privilegiado → el doc lo escribe el operador
-  await setProduccionDniIndex(normalizedDni, email)
+  await setProduccionLegajoIndex(normalizedLegajo, email)
 }
 
 function chunk<T>(arr: T[], size: number): T[][] {

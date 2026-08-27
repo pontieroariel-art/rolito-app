@@ -11,21 +11,20 @@ import { PLANTAS, PlantaId } from '../../types'
 
 function CrearOperarioModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [nombre, setNombre] = useState('')
-  const [dni,    setDni]    = useState('')
-  const [pin,    setPin]    = useState('')
+  const [legajo, setLegajo] = useState('')
   const [planta, setPlanta] = useState<PlantaId>('torcuato')
   const [saving, setSaving] = useState(false)
   const [error,  setError]  = useState('')
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    if (!nombre.trim() || dni.length !== 8 || pin.length !== 4) {
-      setError('Completá nombre, DNI (8 dígitos) y PIN (4 dígitos)')
+    if (!nombre.trim() || !legajo) {
+      setError('Completá nombre y legajo')
       return
     }
     setSaving(true)
     try {
-      await createOperarioProduccionUser({ nombreContacto: nombre.trim(), dni, pin, planta })
+      await createOperarioProduccionUser({ nombreContacto: nombre.trim(), legajo, planta })
       onCreated()
       onClose()
     } catch (err) {
@@ -40,15 +39,11 @@ function CrearOperarioModal({ onClose, onCreated }: { onClose: () => void; onCre
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input label="Nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} required placeholder="Nombre y apellido" />
         <Input
-          label="DNI" value={dni}
-          onChange={(e) => setDni(e.target.value.replace(/\D/g, '').slice(0, 8))}
-          required inputMode="numeric" maxLength={8} placeholder="36024287"
+          label="Legajo" value={legajo}
+          onChange={(e) => setLegajo(e.target.value.replace(/\D/g, '').slice(0, 6))}
+          required inputMode="numeric" maxLength={6} placeholder="1234"
         />
-        <Input
-          label="PIN (4 dígitos)" type="password" value={pin}
-          onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-          required inputMode="numeric" maxLength={4} placeholder="••••"
-        />
+        <p className="text-xs text-gray-400 -mt-2">El operario ingresa a /planta con solo este número, sin contraseña.</p>
         <div>
           <label className="text-xs text-gray-500 mb-1 block">Planta</label>
           <select
@@ -137,7 +132,7 @@ export default function OperariosProduccionPage() {
         <div className="flex flex-wrap justify-between items-center gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Operarios de producción</h1>
-            <p className="text-gray-500 text-sm">Personal de planta — login por DNI y PIN en /planta</p>
+            <p className="text-gray-500 text-sm">Personal de planta — login por legajo en /planta</p>
           </div>
           <div className="flex items-center gap-3">
             <Link to="/produccion/listado" className="text-sm text-accent hover:underline">Listado de producción →</Link>
@@ -162,7 +157,7 @@ export default function OperariosProduccionPage() {
                 <div>
                   <p className="font-bold text-sm text-gray-900">{o.nombre}</p>
                   <p className="text-gray-500 text-xs">
-                    DNI {o.dni}{o.planta ? ` · ${PLANTAS[o.planta].label}` : ''}
+                    Legajo {o.legajo}{o.planta ? ` · ${PLANTAS[o.planta].label}` : ''}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">

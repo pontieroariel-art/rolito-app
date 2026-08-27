@@ -1804,6 +1804,69 @@ describe('produccionPallets', () => {
   })
 })
 
+// ── tango-outbox: cola de salida app → Tango ──────────────────────────────────
+describe('tango-outbox', () => {
+  const seedBridge = (uid = 'bridge1') =>
+    seed((d) => setDoc(doc(d, `users/${uid}`), { tangoBridge: true }))
+  const seedOperador = (uid = 'sa') =>
+    seed((d) => setDoc(doc(d, `users/${uid}`), { rol: 'super_admin', estado: 'activo' }))
+
+  const item = (extra = {}) => ({
+    entidad: 'produccionPallet', origenColeccion: 'produccionPallets', origenId: 'p1',
+    payload: { codigo: 'DT-000123' }, estado: 'pendiente', intentos: 0, ultimoError: null,
+    creadoEn: new Date(), actualizadoEn: new Date(), ...extra,
+  })
+
+  test('nadie puede crear un item vía cliente (solo lo crea el Admin SDK)', async () => {
+    await seedBridge()
+    await assertFails(setDoc(doc(db('bridge1'), 'tango-outbox/i1'), item()))
+  })
+
+  test('el bridge puede leer pendientes', async () => {
+    await seedBridge()
+    await seed((d) => setDoc(doc(d, 'tango-outbox/i1'), item()))
+    await assertSucceeds(getDoc(doc(db('bridge1'), 'tango-outbox/i1')))
+  })
+
+  test('el bridge puede actualizar solo los campos de estado', async () => {
+    await seedBridge()
+    await seed((d) => setDoc(doc(d, 'tango-outbox/i1'), item()))
+    await assertSucceeds(updateDoc(doc(db('bridge1'), 'tango-outbox/i1'), {
+      estado: 'confirmado', intentos: 1, ultimoError: null, actualizadoEn: new Date(),
+    }))
+  })
+
+  test('el bridge NO puede tocar el payload ni el origen', async () => {
+    await seedBridge()
+    await seed((d) => setDoc(doc(d, 'tango-outbox/i1'), item()))
+    await assertFails(updateDoc(doc(db('bridge1'), 'tango-outbox/i1'), {
+      estado: 'confirmado', payload: { codigo: 'FALSO' },
+    }))
+    await assertFails(updateDoc(doc(db('bridge1'), 'tango-outbox/i1'), {
+      estado: 'confirmado', origenId: 'otro',
+    }))
+  })
+
+  test('un operador puede leer pero no escribir', async () => {
+    await seedOperador()
+    await seed((d) => setDoc(doc(d, 'tango-outbox/i1'), item()))
+    await assertSucceeds(getDoc(doc(db('sa'), 'tango-outbox/i1')))
+    await assertFails(updateDoc(doc(db('sa'), 'tango-outbox/i1'), { estado: 'confirmado' }))
+  })
+
+  test('un cliente NO puede leer ni escribir', async () => {
+    await seed((d) => setDoc(doc(d, 'users/cli'), cliente()))
+    await seed((d) => setDoc(doc(d, 'tango-outbox/i1'), item()))
+    await assertFails(getDoc(doc(db('cli', 'c@x.com'), 'tango-outbox/i1')))
+  })
+
+  test('un operario de producción NO puede leer ni escribir', async () => {
+    await seed((d) => setDoc(doc(d, 'users/op1'), { rol: 'produccion_hielo', estado: 'activo', planta: 'torcuato' }))
+    await seed((d) => setDoc(doc(d, 'tango-outbox/i1'), item()))
+    await assertFails(getDoc(doc(db('op1'), 'tango-outbox/i1')))
+  })
+})
+
 // ── config/produccionCounter_*: correlativo por planta ────────────────────────
 describe('config/produccionCounter_*', () => {
   const seedSuperAdmin = (uid = 'sa') =>
@@ -1896,13 +1959,13 @@ describe('produccion_encargado — pallets y contador', () => {
     await assertSucceeds(setDoc(doc(db('enc'), 'config/produccionCounter_merlo'), { next: 1 }))
   })
 
-  test('produccion_encargado SÍ puede escribir produccionDniIndex (alta de operario)', async () => {
+  test('produccion_encargado SÍ puede escribir produccionLegajoIndex (alta de operario)', async () => {
     await seed((d) => setDoc(doc(d, 'users/enc'), { rol: 'produccion_encargado', estado: 'activo' }))
-    await assertSucceeds(setDoc(doc(db('enc'), 'produccionDniIndex/40111222'), { email: 'op@planta.rolito.internal' }))
+    await assertSucceeds(setDoc(doc(db('enc'), 'produccionLegajoIndex/1234'), { email: 'op@planta.rolito.internal' }))
   })
 
-  test('logistica NO puede escribir produccionDniIndex', async () => {
+  test('logistica NO puede escribir produccionLegajoIndex', async () => {
     await seed((d) => setDoc(doc(d, 'users/log'), { rol: 'logistica', estado: 'activo' }))
-    await assertFails(setDoc(doc(db('log'), 'produccionDniIndex/40111222'), { email: 'op@planta.rolito.internal' }))
+    await assertFails(setDoc(doc(db('log'), 'produccionLegajoIndex/1234'), { email: 'op@planta.rolito.internal' }))
   })
 })

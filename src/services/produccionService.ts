@@ -61,3 +61,23 @@ export const subscribePalletsRecientes = (
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as PalletProduccion))),
     () => callback([]),
   )
+
+// Para sumar totales de un período (Resumen de Producción) — a diferencia de
+// subscribePalletsRecientes, NO tiene limit(): un total que se corta en
+// silencio por un límite artificial sería el mismo bug que se corrigió en
+// subscribeKanbanOrders (pedidos agendados a futuro que desaparecían). Acá
+// el rango ya viene acotado por fecha en las dos puntas, así que el
+// resultado es naturalmente finito sin necesidad de limit().
+export const subscribePalletsEnRango = (
+  desde: Date, hasta: Date,
+  callback: (pallets: PalletProduccion[]) => void,
+): () => void =>
+  onSnapshot(
+    query(
+      collection(db, PALLETS),
+      where('fechaFabricacion', '>=', Timestamp.fromDate(desde)),
+      where('fechaFabricacion', '<',  Timestamp.fromDate(hasta)),
+    ),
+    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as PalletProduccion))),
+    () => callback([]),
+  )
