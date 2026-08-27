@@ -133,80 +133,75 @@ export default function ProduccionDashboard() {
 
   return (
     <>
-      <div className="min-h-screen bg-[#F8F7F2] text-gray-900 print:hidden">
+      <div className="h-dvh flex flex-col overflow-hidden bg-[#F8F7F2] text-gray-900 print:hidden">
         <Navbar />
-        <main className="p-4 sm:p-6 space-y-6 pb-10">
-          <div className="flex items-center justify-between">
+        {/* Todo lo de acá abajo tiene que entrar SIN scrollear en una tablet
+            chica en vertical (Galaxy Tab A11 de 8,7", 1340x800 — encargado
+            de embolsar hielo, no puede estar scrolleando para encontrar el
+            producto). flex-1 min-h-0 + una grilla de filas 1fr es lo que
+            garantiza esto sin depender de adivinar los px exactos del
+            dispositivo. */}
+        <main className="flex-1 min-h-0 flex flex-col p-2.5 gap-2 overflow-hidden">
+          <div className="flex items-center justify-between shrink-0">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Hola, {user.nombre?.split(' ')[0] ?? 'operario'}</h1>
-              <p className="text-gray-500 text-base">{PLANTAS[user.planta].label}</p>
+              <h1 className="text-lg font-bold text-gray-900 leading-tight">Hola, {user.nombre?.split(' ')[0] ?? 'operario'}</h1>
+              <p className="text-gray-500 text-xs">{PLANTAS[user.planta].label}</p>
             </div>
-            {!online && (
-              <div className="flex items-center gap-1.5 text-amber-600 text-sm bg-amber-50 border border-amber-200 rounded-full px-3 py-1.5">
-                <WifiOff size={16} /> Sin conexión
-              </div>
-            )}
           </div>
 
           {error && (
-            <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3">
-              <p className="text-red-500 text-base font-medium">{error}</p>
+            <div className="shrink-0 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-1.5">
+              <p className="text-red-500 text-xs font-medium leading-snug">{error}</p>
             </div>
           )}
 
-          <section>
-            <h2 className="text-base font-semibold text-gray-900 mb-3">Pallet completo — elegí el producto</h2>
-            {/* Grilla grande, a pantalla completa: esto lo usan operarios con
-                guantes/apuro embolsando hielo — cada tarjeta tiene que
-                reconocerse de un vistazo (color + tamaño en grande), nunca
-                solo por texto chico. El color nunca es el único identificador
-                (siempre va con el nombre completo abajo). */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
-              {PRODUCTOS_HIELO_LIST.map((p) => (
-                <button
-                  key={p.id}
-                  disabled={!reservaLista}
-                  onClick={() => setProductoSeleccionado(p.id)}
-                  className="flex flex-col items-center justify-center gap-2 rounded-2xl border-[3px] p-4 aspect-square sm:aspect-[4/3] transition-transform active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none disabled:grayscale"
-                  style={{ borderColor: p.color, backgroundColor: `${p.color}14` }}
-                >
-                  <Snowflake size={22} style={{ color: p.color }} />
-                  <span className="text-4xl sm:text-5xl font-black leading-none" style={{ color: p.color }}>
-                    {p.tamanioTicket}
-                  </span>
-                  <span className="text-lg sm:text-xl font-bold text-gray-900 text-center leading-tight">
-                    {p.nombre}
-                  </span>
-                  <span className="text-sm sm:text-base text-gray-500 font-medium">
-                    {p.unidadesPorPallet} {p.unidadLabel}/pallet
-                  </span>
-                </button>
-              ))}
-            </div>
-          </section>
+          {/* Grilla de productos — ocupa todo el espacio que sobra. Color
+              categórico (paleta validada anti-daltonismo) + tamaño enorme
+              para reconocer de un vistazo con guantes/apuro; el color nunca
+              es el único identificador, siempre va con el nombre completo. */}
+          <div className="flex-1 min-h-0 grid grid-cols-2 grid-rows-4 gap-2">
+            {PRODUCTOS_HIELO_LIST.map((p, i) => (
+              <button
+                key={p.id}
+                disabled={!reservaLista}
+                onClick={() => setProductoSeleccionado(p.id)}
+                className={`flex flex-col items-center justify-center gap-0.5 rounded-xl border-[3px] transition-transform active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none disabled:grayscale ${
+                  i === PRODUCTOS_HIELO_LIST.length - 1 ? 'col-span-2' : ''
+                }`}
+                style={{ borderColor: p.color, backgroundColor: `${p.color}14` }}
+              >
+                <Snowflake size={16} style={{ color: p.color }} />
+                <span className="text-[clamp(1.1rem,5.5vh,2.5rem)] font-black leading-none" style={{ color: p.color }}>
+                  {p.tamanioTicket}
+                </span>
+                <span className="text-[clamp(0.7rem,2.1vh,1.05rem)] font-bold text-gray-900 text-center leading-tight px-1">
+                  {p.nombre}
+                </span>
+                <span className="text-[clamp(0.55rem,1.5vh,0.8rem)] text-gray-500 font-medium">
+                  {p.unidadesPorPallet} {p.unidadLabel}/pallet
+                </span>
+              </button>
+            ))}
+          </div>
 
-          <section className="space-y-2">
-            <h2 className="text-base font-semibold text-gray-900">Cargados hoy</h2>
+          {/* Resumen compacto de una sola línea — a propósito NO es una
+              lista (eso obligaría a scrollear si hay muchos pallets hoy). */}
+          <div className="shrink-0 bg-white border border-[#D3D1C7] rounded-lg px-3 py-1.5 flex items-center justify-between gap-2">
             {loading ? (
-              <LoadingSpinner />
+              <span className="text-xs text-gray-400">Cargando...</span>
             ) : pallettsHoy.length === 0 ? (
-              <div className="bg-white border border-[#D3D1C7] rounded-xl p-6 text-center">
-                <Package className="mx-auto text-gray-300 mb-2" size={24} />
-                <p className="text-gray-500 text-sm">Todavía no cargaste ningún pallet hoy.</p>
-              </div>
+              <span className="text-xs text-gray-400 flex items-center gap-1.5"><Package size={14} className="text-gray-300" /> Todavía no cargaste ningún pallet hoy.</span>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
-                {pallettsHoy.map((p) => (
-                  <div key={p.id} className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2.5 flex items-center justify-between gap-3">
-                    <p className="text-sm text-gray-700">{p.codigo} — {p.productoNombre}</p>
-                    <span className="text-sm text-gray-400 shrink-0">
-                      {p.fechaFabricacion.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-                ))}
-              </div>
+              <>
+                <span className="text-xs text-gray-600 font-medium">
+                  Hoy: <span className="text-gray-900 font-bold">{pallettsHoy.length}</span> pallet{pallettsHoy.length !== 1 ? 's' : ''} cargado{pallettsHoy.length !== 1 ? 's' : ''}
+                </span>
+                <span className="text-xs text-gray-400 truncate">
+                  último: {pallettsHoy[0].productoNombre} — {pallettsHoy[0].fechaFabricacion.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </>
             )}
-          </section>
+          </div>
         </main>
       </div>
 
