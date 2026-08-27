@@ -5,7 +5,7 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { sistemasDeUsuario } from '../../utils/sistemas'
 
 const ROLE_HOME: Record<string, string> = {
-  super_admin:       '/admin',
+  super_admin:       '/sistema',
   logistica:         '/logistica',
   comercial:         '/comercial',
   gerente_comercial: '/logistica',

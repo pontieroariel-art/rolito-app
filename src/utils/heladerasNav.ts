@@ -8,24 +8,22 @@ import { NavGroup } from './navGroups'
 // el sidebar nunca debe ofrecer un link al que ProtectedRoute le va a negar
 // el paso. Si cambia el allowedRoles de una ruta, actualizar acá también.
 //
-// super_admin ya no opera ni mira el día a día de heladeras (tablero,
-// asignación, service, informes) — solo conserva "Activos & Stock" y
-// "Configuración" (maestro/catálogo compartido, ver plan de migración del
-// Backoffice, también linkeado desde BackofficeHome).
+// super_admin vuelve a operar/mirar el día a día de heladeras (2026-08-27,
+// ver sistemas.ts).
 export const HELADERAS_NAV_GROUPS: NavGroup[] = [
   {
     id: 'operaciones', label: 'Operaciones',
     items: [
-      { to: '/heladeras/taller',     label: 'Tablero de taller',     icon: Snowflake, roles: ['heladeras', 'heladeras_encargado', 'gerente_comercial'] },
-      { to: '/heladeras/asignacion', label: 'Asignación de equipos', icon: Truck,     roles: ['heladeras_encargado', 'gerente_comercial', 'comercial'] },
+      { to: '/heladeras/taller',     label: 'Tablero de taller',     icon: Snowflake, roles: ['super_admin', 'heladeras', 'heladeras_encargado', 'gerente_comercial'] },
+      { to: '/heladeras/asignacion', label: 'Asignación de equipos', icon: Truck,     roles: ['super_admin', 'heladeras_encargado', 'gerente_comercial', 'comercial'] },
     ],
   },
   {
     id: 'service', label: 'Soporte & Service',
     items: [
-      { to: '/heladeras/toma-service',     label: 'Toma de service',     icon: Wrench, roles: ['heladeras_encargado', 'gerente_comercial'] },
-      { to: '/heladeras/consulta-service', label: 'Consulta de service', icon: Search, roles: ['heladeras_encargado', 'gerente_comercial'] },
-      { to: '/heladeras/mapa',             label: 'Mapa y preventivos',  icon: Map,    roles: ['heladeras_encargado', 'gerente_comercial'] },
+      { to: '/heladeras/toma-service',     label: 'Toma de service',     icon: Wrench, roles: ['super_admin', 'heladeras_encargado', 'gerente_comercial'] },
+      { to: '/heladeras/consulta-service', label: 'Consulta de service', icon: Search, roles: ['super_admin', 'heladeras_encargado', 'gerente_comercial'] },
+      { to: '/heladeras/mapa',             label: 'Mapa y preventivos',  icon: Map,    roles: ['super_admin', 'heladeras_encargado', 'gerente_comercial'] },
     ],
   },
   {
@@ -38,8 +36,8 @@ export const HELADERAS_NAV_GROUPS: NavGroup[] = [
   {
     id: 'reportes', label: 'Reportes',
     items: [
-      { to: '/heladeras/informes',  label: 'Informes y métricas',  icon: BarChart2,     roles: ['heladeras_encargado', 'gerente_comercial'] },
-      { to: '/heladeras/ranking',   label: 'Ranking de consumo',   icon: TrendingUp,    roles: ['heladeras_encargado', 'gerente_comercial', 'comercial'] },
+      { to: '/heladeras/informes',  label: 'Informes y métricas',  icon: BarChart2,     roles: ['super_admin', 'heladeras_encargado', 'gerente_comercial'] },
+      { to: '/heladeras/ranking',   label: 'Ranking de consumo',   icon: TrendingUp,    roles: ['super_admin', 'heladeras_encargado', 'gerente_comercial', 'comercial'] },
     ],
   },
   {

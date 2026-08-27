@@ -12,34 +12,32 @@ import { NavGroup } from './navGroups'
 // para gerente_general/logistica). /comercial/pedidos no tiene nav propio
 // (se llega desde un link contextual en el tablero comercial).
 //
-// super_admin ya no tiene ítems acá salvo Flota/Precios (config compartida,
-// ver plan de migración del Backoffice) — el resto de su navegación vive en
-// el Backoffice (`/admin/*`, ver backofficeNav.ts). Lo que sigue en este
-// archivo son pantallas operativas/de reporte de logística, comercial y
-// gerencia — ya no las opera ni las mira super_admin, son cosa de cada rol.
+// super_admin vuelve a tener el menú completo acá (2026-08-27, ver
+// sistemas.ts) — mismo criterio de siempre: los roles de cada ítem son
+// exactamente el allowedRoles de su <Route> en App.tsx.
 export const LOGISTICA_NAV_GROUPS: NavGroup[] = [
   {
     id: 'operacion', label: 'Operación',
     items: [
-      { to: '/comercial',           label: 'Tablero',       icon: LayoutDashboard, roles: ['comercial'] },
+      { to: '/comercial',           label: 'Tablero',       icon: LayoutDashboard, roles: ['super_admin', 'comercial'] },
       { to: '/gerente',             label: 'Tablero',       icon: LayoutDashboard, roles: ['gerente_general'] },
-      { to: '/logistica/resumen',   label: 'Resumen',       icon: LayoutDashboard, roles: ['logistica', 'gerente_comercial'] },
-      { to: '/logistica',           label: 'Planificación', icon: CalendarDays,    roles: ['logistica', 'gerente_comercial'] },
-      { to: '/admin/historial-despacho', label: 'Hist. despacho', icon: History,        roles: ['logistica', 'gerente_comercial'] },
-      { to: '/admin/monitoreo',          label: 'Monitoreo',      icon: Activity,       roles: ['logistica', 'gerente_general', 'gerente_comercial'] },
-      { to: '/admin/incidencias',        label: 'Incidencias',    icon: AlertTriangle,  roles: ['logistica'] },
-      { to: '/admin/visitas',            label: 'Visitas',        icon: ClipboardList,  roles: ['logistica'] },
-      { to: '/admin/clima',              label: 'Clima',          icon: Cloud,          roles: ['logistica', 'gerente_comercial', 'comercial'] },
-      { to: '/comercial/mapa',           label: 'Reparto',        icon: Navigation,     roles: ['logistica', 'comercial'] },
+      { to: '/logistica/resumen',   label: 'Resumen',       icon: LayoutDashboard, roles: ['super_admin', 'logistica', 'gerente_comercial'] },
+      { to: '/logistica',           label: 'Planificación', icon: CalendarDays,    roles: ['super_admin', 'logistica', 'gerente_comercial'] },
+      { to: '/admin/historial-despacho', label: 'Hist. despacho', icon: History,        roles: ['super_admin', 'logistica', 'gerente_comercial'] },
+      { to: '/admin/monitoreo',          label: 'Monitoreo',      icon: Activity,       roles: ['super_admin', 'logistica', 'gerente_general', 'gerente_comercial'] },
+      { to: '/admin/incidencias',        label: 'Incidencias',    icon: AlertTriangle,  roles: ['super_admin', 'logistica'] },
+      { to: '/admin/visitas',            label: 'Visitas',        icon: ClipboardList,  roles: ['super_admin', 'logistica'] },
+      { to: '/admin/clima',              label: 'Clima',          icon: Cloud,          roles: ['super_admin', 'logistica', 'gerente_comercial', 'comercial'] },
+      { to: '/comercial/mapa',           label: 'Reparto',        icon: Navigation,     roles: ['super_admin', 'logistica', 'comercial'] },
     ],
   },
   {
     id: 'clientes', label: 'Clientes & Precios',
     items: [
-      { to: '/usuarios',                 label: 'Clientes',      icon: Users,      roles: ['gerente_general', 'gerente_comercial', 'logistica', 'comercial', 'facturacion'] },
-      { to: '/admin/mapa-clientes',      label: 'Mapa clientes', icon: Map,        roles: ['gerente_general', 'gerente_comercial', 'logistica', 'comercial', 'facturacion'] },
-      { to: '/comercial/reporte-precios', label: 'Rep. precios', icon: DollarSign, roles: ['gerente_general', 'gerente_comercial', 'comercial', 'facturacion'] },
-      { to: '/comercial/historial-precios', label: 'Hist. precios', icon: Clock,   roles: ['gerente_general', 'gerente_comercial', 'comercial', 'logistica', 'facturacion'] },
+      { to: '/usuarios',                 label: 'Clientes',      icon: Users,      roles: ['super_admin', 'gerente_general', 'gerente_comercial', 'logistica', 'comercial', 'facturacion'] },
+      { to: '/admin/mapa-clientes',      label: 'Mapa clientes', icon: Map,        roles: ['super_admin', 'gerente_general', 'gerente_comercial', 'logistica', 'comercial', 'facturacion'] },
+      { to: '/comercial/reporte-precios', label: 'Rep. precios', icon: DollarSign, roles: ['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'facturacion'] },
+      { to: '/comercial/historial-precios', label: 'Hist. precios', icon: Clock,   roles: ['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'logistica', 'facturacion'] },
     ],
   },
   {
@@ -52,8 +50,8 @@ export const LOGISTICA_NAV_GROUPS: NavGroup[] = [
   {
     id: 'reportes', label: 'Reportes',
     items: [
-      { to: '/movimientos',       label: 'Movimientos', icon: BarChart2,  roles: ['gerente_general', 'gerente_comercial', 'logistica', 'comercial', 'facturacion'] },
-      { to: '/comercial/ventas',  label: 'Ventas',       icon: TrendingUp, roles: ['gerente_general', 'gerente_comercial', 'comercial', 'facturacion'] },
+      { to: '/movimientos',       label: 'Movimientos', icon: BarChart2,  roles: ['super_admin', 'gerente_general', 'gerente_comercial', 'logistica', 'comercial', 'facturacion'] },
+      { to: '/comercial/ventas',  label: 'Ventas',       icon: TrendingUp, roles: ['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'facturacion'] },
     ],
   },
 ]

@@ -7,13 +7,14 @@ export type { Sistema }
 // heladeras" — para cliente/chofer/facturacion/gerente_general no implica que
 // sean personal de logística, solo que no tienen picker (un solo sistema).
 //
-// super_admin no opera ningún sistema (ver plan de migración del Backoffice,
-// Fase 2) — administra desde /admin, sin picker. Antes tenía
-// ['logistica','heladeras'] de cuando el super_admin operaba ambos; dejarlo
-// así rompía el picker (/heladeras ya no lo deja pasar → loop de redirects
-// /heladeras → / → /sistema → /heladeras).
+// super_admin vuelve a operar los 3 sistemas como antes de la migración del
+// Backoffice (2026-08-27, pedido de Ariel: quiere navegar la app igual que
+// el resto del staff, no un panel administrativo aparte). El loop de
+// redirects que esto causaba (/heladeras → / → /sistema → /heladeras) ya no
+// pasa porque ahora super_admin está en el allowedRoles de esas rutas en
+// App.tsx — si se vuelve a sacar de una ruta ahí, hay que sacarlo de acá también.
 export const ROLE_SISTEMAS: Record<UserRole, Sistema[]> = {
-  super_admin:         [],
+  super_admin:         ['logistica', 'heladeras', 'produccion'],
   gerente_comercial:   ['logistica', 'heladeras'],
   comercial:           ['logistica', 'heladeras'],
   gerente_general:     ['logistica'],
@@ -37,6 +38,7 @@ export const ROLE_SISTEMAS: Record<UserRole, Sistema[]> = {
 export const MULTI_SISTEMA_HOME: Partial<Record<UserRole, Record<Sistema, string>>> = {
   gerente_comercial: { logistica: '/logistica', heladeras: '/heladeras', produccion: '/produccion/listado' },
   comercial:         { logistica: '/comercial', heladeras: '/heladeras', produccion: '/produccion/listado' },
+  super_admin:       { logistica: '/logistica', heladeras: '/heladeras', produccion: '/produccion/listado' },
 }
 
 export const SISTEMA_LABELS: Record<Sistema, string> = {

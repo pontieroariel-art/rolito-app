@@ -9,7 +9,7 @@ import { useAuth } from '../../context/AuthContext'
 import { loginWithStaffDni } from '../../services/authService'
 
 const ROLE_HOME: Record<string, string> = {
-  super_admin:       '/admin',
+  super_admin:       '/sistema',
   gerente_comercial: '/logistica',
   gerente_general:   '/gerente',
   logistica:         '/logistica',
