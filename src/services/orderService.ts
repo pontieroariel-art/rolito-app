@@ -442,10 +442,18 @@ export const subscribeKanbanOrders = (
   onError?: (error: Error) => void,
 ) => {
   const thirtyDaysAgo = Timestamp.fromDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
+  // 'desc', no 'asc': con más de 300 pedidos en la ventana de 30 días → futuro,
+  // el límite tiene que sacrificar el extremo VIEJO, no el nuevo. Con 'asc' los
+  // primeros 300 son los pedidos de hace 30 días — un pedido recién agendado a
+  // futuro (el último en orden ascendente) quedaba directamente afuera del
+  // snapshot, sin aparecer en Despacho ni en la pestaña Pedidos (pero sí en
+  // Historial, que usa subscribeAllOrders con 'desc' — de ahí la discrepancia
+  // reportada). El orden del array no importa para nada río abajo (Despacho/
+  // Pedidos solo hacen .filter()/.find() por fecha, nunca asumen el orden).
   const q = query(
     collection(db, ORDERS),
     where('date', '>=', thirtyDaysAgo),
-    orderBy('date', 'asc'),
+    orderBy('date', 'desc'),
     limit(300),
   )
   return onSnapshot(
