@@ -8,6 +8,7 @@ import LoadingSpinner from '../ui/LoadingSpinner'
 import { useProduccionResumen, PeriodoResumen } from '../../hooks/useProduccionResumen'
 import { PLANTAS, PlantaId } from '../../types'
 import { PRODUCTOS_HIELO_LIST } from '../../utils/produccionCatalogo'
+import { toDateStr } from '../../utils/helpers'
 
 const PERIODOS: { id: PeriodoResumen; label: string }[] = [
   { id: 'hoy', label: 'Hoy' },
@@ -52,12 +53,14 @@ export function ProduccionResumen() {
       .sort((a, b) => b.unidades - a.unidades)
   }, [pallets])
 
-  // Serie por día — clave 'yyyy-MM-dd' con el mismo criterio (.toISOString().slice(0,10))
-  // que ya usa el filtro de fecha de ProduccionListadoPage, para quedar consistentes.
+  // Serie por día — clave 'yyyy-MM-dd' en fecha LOCAL (toDateStr), consistente
+  // con el rango local de la query (useProduccionResumen) y con el filtro de
+  // ProduccionListadoPage. Con toISOString (UTC) la producción de la noche
+  // (21:00–23:59 en Argentina, UTC-3) caía en el día siguiente.
   const porDia = useMemo(() => {
     const map = new Map<string, number>()
     pallets.forEach((p) => {
-      const key = p.fechaFabricacion.toDate().toISOString().slice(0, 10)
+      const key = toDateStr(p.fechaFabricacion.toDate())
       map.set(key, (map.get(key) ?? 0) + p.unidades)
     })
     return [...map.entries()]

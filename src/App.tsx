@@ -152,6 +152,12 @@ function AppContent() {
             mal la producción. */}
         <Route path="/produccion-torcuato" element={<LoginProduccion planta="torcuato" />} />
         <Route path="/produccion-merlo"    element={<LoginProduccion planta="merlo" />} />
+        {/* Compat: la ruta vieja "/planta" (login de operario pre-split, cuando
+            había una sola planta) — una tablet con ese bookmark/PWA anclada la
+            mandamos al login de Don Torcuato (única planta con operarios hoy),
+            en vez de al landing genérico de clientes donde no hay forma de
+            llegar a producción. */}
+        <Route path="/planta"          element={<Navigate to="/produccion-torcuato" replace />} />
         <Route path="/login"           element={<Navigate to="/clientes" replace />} />
         <Route path="/register"        element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />

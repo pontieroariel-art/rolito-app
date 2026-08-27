@@ -6,6 +6,7 @@ import { useProduccionPallets } from '../../hooks/useProduccionPallets'
 import { ProduccionResumen } from '../../components/produccion/ProduccionResumen'
 import { PLANTAS, PlantaId } from '../../types'
 import { PRODUCTOS_HIELO_LIST } from '../../utils/produccionCatalogo'
+import { toDateStr } from '../../utils/helpers'
 
 export default function ProduccionListadoPage() {
   const { pallets, loading } = useProduccionPallets(undefined)
@@ -16,7 +17,7 @@ export default function ProduccionListadoPage() {
   const filtrados = useMemo(() => pallets.filter((p) => {
     if (planta && p.plantaId !== planta) return false
     if (producto && p.productoId !== producto) return false
-    if (fecha && p.fechaFabricacion.toDate().toISOString().slice(0, 10) !== fecha) return false
+    if (fecha && toDateStr(p.fechaFabricacion.toDate()) !== fecha) return false
     return true
   }), [pallets, planta, producto, fecha])
 

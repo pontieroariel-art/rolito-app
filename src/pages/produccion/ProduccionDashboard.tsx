@@ -147,6 +147,15 @@ export default function ProduccionDashboard() {
               <h1 className="text-lg font-bold text-gray-900 leading-tight">Hola, {user.nombre?.split(' ')[0] ?? 'operario'}</h1>
               <p className="text-gray-500 text-xs">{PLANTAS[user.planta].label}</p>
             </div>
+            {/* Indicador de sin conexión — el flujo es offline-first (reserva de
+                números offline), pero el operario tiene que saber de un vistazo
+                que está desconectado; los pallets se siguen cargando contra la
+                reserva hasta que se agota. */}
+            {!online && (
+              <span className="flex items-center gap-1.5 rounded-full bg-amber-500/15 border border-amber-500/40 px-2.5 py-1 text-amber-700 text-xs font-semibold">
+                <WifiOff size={14} /> Sin conexión
+              </span>
+            )}
           </div>
 
           {error && (
@@ -159,14 +168,19 @@ export default function ProduccionDashboard() {
               categórico (paleta validada anti-daltonismo) + tamaño enorme
               para reconocer de un vistazo con guantes/apuro; el color nunca
               es el único identificador, siempre va con el nombre completo. */}
-          <div className="flex-1 min-h-0 grid grid-cols-2 grid-rows-4 gap-2">
+          <div
+            className="flex-1 min-h-0 grid grid-cols-2 gap-2"
+            style={{ gridTemplateRows: `repeat(${Math.ceil(PRODUCTOS_HIELO_LIST.length / 2)}, minmax(0, 1fr))` }}
+          >
             {PRODUCTOS_HIELO_LIST.map((p, i) => (
               <button
                 key={p.id}
                 disabled={!reservaLista}
                 onClick={() => setProductoSeleccionado(p.id)}
                 className={`flex flex-col items-center justify-center gap-0.5 rounded-xl border-[3px] transition-transform active:scale-[0.97] disabled:opacity-60 disabled:pointer-events-none ${
-                  i === PRODUCTOS_HIELO_LIST.length - 1 ? 'col-span-2' : ''
+                  // El último ocupa las 2 columnas solo si la cuenta es impar
+                  // (si no, quedaría una fila con un solo item descentrado).
+                  i === PRODUCTOS_HIELO_LIST.length - 1 && PRODUCTOS_HIELO_LIST.length % 2 === 1 ? 'col-span-2' : ''
                 }`}
                 style={{ borderColor: p.color, backgroundColor: `${p.color}14` }}
               >

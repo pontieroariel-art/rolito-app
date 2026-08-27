@@ -38,6 +38,11 @@ export default function LoginProduccion({ planta }: Props) {
       logoutUser().finally(() => { rechazando.current = false })
       return
     }
+    // Solo marcar el dispositivo como tablet de planta para operarios reales.
+    // Si un super_admin/cliente con sesión activa cae en esta URL, no tiene
+    // `planta` y el chequeo de arriba no aplica — sin esta guarda, su
+    // dispositivo quedaría atrapado en /produccion sin forma de salir por UI.
+    if (user.rol !== 'produccion_hielo') return
     marcarDispositivoProduccion(planta)
     navigate('/produccion', { replace: true })
   }, [user, navigate, planta])
