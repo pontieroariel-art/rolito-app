@@ -1,5 +1,9 @@
 import { Link } from 'react-router-dom'
-import { UserCog, Factory, Settings, Truck, Tag, Layers, ClipboardList, Users2, Package, LayoutDashboard } from 'lucide-react'
+import {
+  UserCog, Factory, Settings, Truck, Tag, Layers, ClipboardList, Users2, Package, LayoutDashboard,
+  CalendarDays, History, Activity, Cloud, Users, Map, BarChart2, DollarSign, TrendingUp, Clock,
+  Navigation, Snowflake, Wrench, ArrowLeftRight,
+} from 'lucide-react'
 
 interface CardLink {
   to:          string
@@ -32,6 +36,21 @@ const SECTIONS: CardSection[] = [
     cards: [
       { to: '/admin/usuarios', label: 'Usuarios & Roles',  description: 'Alta de personal, asignación de rol y permisos por pestaña.', icon: UserCog },
       { to: '/admin/general',  label: 'Ajustes generales', description: 'Configuración global del sistema.',                          icon: Settings },
+      { to: '/usuarios',              label: 'Clientes (CRM)', description: 'Alta, edición y ficha de clientes.',      icon: Users },
+      { to: '/admin/mapa-clientes',   label: 'Mapa de clientes', description: 'Ubicación geográfica de la cartera.',    icon: Map },
+      { to: '/movimientos',           label: 'Movimientos',    description: 'Historial unificado de la operación.',    icon: BarChart2 },
+      { to: '/sistema',               label: 'Selección de sistema', description: 'Vista del selector que usan los roles con más de un sistema.', icon: ArrowLeftRight },
+    ],
+  },
+  {
+    id: 'logistica-operacion', title: 'Logística — Operación',
+    cards: [
+      { to: '/logistica',                label: 'Despacho',         description: 'Tablero de despacho drag & drop del día.',  icon: CalendarDays },
+      { to: '/admin/historial-despacho', label: 'Hist. despacho',   description: 'Despachos de días anteriores.',              icon: History },
+      { to: '/admin/monitoreo',          label: 'Monitoreo',        description: 'Seguimiento en vivo de camiones y pedidos.', icon: Activity },
+      { to: '/admin/visitas',            label: 'Visitas',          description: 'Planificación de visitas comerciales.',      icon: ClipboardList },
+      { to: '/admin/incidencias',        label: 'Incidencias',      description: 'Reporte de incidencias de reparto.',         icon: ClipboardList },
+      { to: '/admin/clima',              label: 'Clima',            description: 'Pronóstico para planificar reparto.',        icon: Cloud },
     ],
   },
   {
@@ -39,6 +58,29 @@ const SECTIONS: CardSection[] = [
     cards: [
       { to: '/admin/flota',   label: 'Flota',   description: 'Camiones, patentes y canales de reparto.', icon: Truck },
       { to: '/admin/precios', label: 'Precios',  description: 'Listas de precios y catálogo.',            icon: Tag },
+    ],
+  },
+  {
+    id: 'comercial', title: 'Comercial',
+    cards: [
+      { to: '/comercial',                  label: 'Tablero comercial',   description: 'Panel de trabajo del equipo comercial.',      icon: LayoutDashboard },
+      { to: '/comercial/mapa',             label: 'Reparto en vivo',     description: 'Mapa de camiones en ruta.',                    icon: Navigation },
+      { to: '/comercial/reporte-precios',  label: 'Reporte de precios',  description: 'Precios vigentes y desvíos por cliente.',      icon: DollarSign },
+      { to: '/comercial/ventas',           label: 'Ventas',              description: 'Reporte de ventas.',                           icon: TrendingUp },
+      { to: '/comercial/historial-precios', label: 'Historial de precios', description: 'Cambios de precio a lo largo del tiempo.',   icon: Clock },
+    ],
+  },
+  {
+    id: 'heladeras-operacion', title: 'Heladeras — Operación',
+    cards: [
+      { to: '/heladeras',                 label: 'Heladeras',          description: 'Hub del módulo de heladeras.',              icon: Snowflake },
+      { to: '/heladeras/taller',          label: 'Taller',             description: 'Tickets de service en taller.',             icon: Wrench },
+      { to: '/heladeras/asignacion',      label: 'Asignación de equipos', description: 'Asignar heladeras a clientes.',          icon: Package },
+      { to: '/heladeras/ranking',         label: 'Ranking de consumo', description: 'Consumo de hielo por heladera/cliente.',    icon: BarChart2 },
+      { to: '/heladeras/consulta-service', label: 'Consulta service',  description: 'Buscar el historial de service de un equipo.', icon: ClipboardList },
+      { to: '/heladeras/toma-service',    label: 'Toma de service',    description: 'Cargar un nuevo pedido de service.',        icon: ClipboardList },
+      { to: '/heladeras/informes',        label: 'Informes',           description: 'Reportes del módulo de heladeras.',         icon: Activity },
+      { to: '/heladeras/mapa',            label: 'Mapa de heladeras',  description: 'Ubicación geográfica de los equipos.',      icon: Map },
     ],
   },
   {
