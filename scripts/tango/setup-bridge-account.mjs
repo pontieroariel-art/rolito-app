@@ -55,6 +55,18 @@ async function main() {
 
   await db.collection('users').doc(user.uid).set({ tangoBridge: true }, { merge: true })
   console.log(`users/${user.uid} marcado con tangoBridge: true`)
+
+  // Sembrar config/tango si no existe. El bridge escribe su heartbeat con
+  // update() (no crea docs) y la regla de create es `if false`, así que solo
+  // el Admin SDK puede inicializarlo — sin esto, el heartbeat falla en loop y
+  // la sync queda deshabilitada en silencio. `merge` no pisa flags ya seteados.
+  const configRef = db.doc('config/tango')
+  if (!(await configRef.get()).exists) {
+    await configRef.set({ enabled: false, produccionEnabled: false }, { merge: true })
+    console.log('config/tango creado (enabled: false, produccionEnabled: false — kill switch apagado por defecto)')
+  } else {
+    console.log('config/tango ya existe — no se toca.')
+  }
 }
 
 main().catch((err) => {
