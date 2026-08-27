@@ -145,7 +145,13 @@ function AppContent() {
         <Route path="/empresa"         element={<LoginEmpresa />} />
         <Route path="/choferes"        element={<LoginChofer />} />
         <Route path="/tecnicos"        element={<LoginTecnico />} />
-        <Route path="/planta"          element={<LoginProduccion />} />
+        {/* Una URL fija por planta física (no "/planta" genérico) — cada
+            tablet de planta guarda la suya. LoginProduccion valida que el
+            legajo ingresado pertenezca a ESA planta y rechaza (con logout)
+            si no, para que un legajo tipeado de la otra planta no atribuya
+            mal la producción. */}
+        <Route path="/produccion-torcuato" element={<LoginProduccion planta="torcuato" />} />
+        <Route path="/produccion-merlo"    element={<LoginProduccion planta="merlo" />} />
         <Route path="/login"           element={<Navigate to="/clientes" replace />} />
         <Route path="/register"        element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />

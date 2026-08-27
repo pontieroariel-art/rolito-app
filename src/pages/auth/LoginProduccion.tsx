@@ -1,25 +1,44 @@
-import { useState, FormEvent, useEffect } from 'react'
+import { useState, FormEvent, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { FirebaseError } from 'firebase/app'
 import AuthLayout from '../../components/layout/AuthLayout'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 import { useAuth } from '../../context/AuthContext'
-import { loginProduccion } from '../../services/authService'
+import { loginProduccion, logoutUser } from '../../services/authService'
+import { PLANTAS, PlantaId } from '../../types'
 
-export default function LoginProduccion() {
+interface Props { planta: PlantaId }
+
+export default function LoginProduccion({ planta }: Props) {
   const navigate = useNavigate()
   const { user } = useAuth()
 
   const [legajo,  setLegajo]  = useState('')
   const [error,   setError]   = useState('')
   const [loading, setLoading] = useState(false)
+  // El logout por planta incorrecta también dispara este efecto (user pasa a
+  // null) — sin esta guarda, entraría de nuevo al `if (!user) return` sin
+  // problema, pero se marca igual para que un usuario que YA estaba logueado
+  // con la cuenta correcta al entrar a esta página no dispare el chequeo dos
+  // veces innecesariamente.
+  const rechazando = useRef(false)
 
   useEffect(() => {
     if (!user) return
     if (user.estado === 'inactivo') { setError('Tu cuenta está inactiva. Contactá al administrador.'); return }
+    // Legajo válido pero de OTRA planta — no lo dejamos operar acá adentro:
+    // un pallet cargado con esta cuenta se le atribuiría a su planta real
+    // (la del legajo), no a la física donde está parado el dispositivo.
+    if (user.planta && user.planta !== planta) {
+      if (rechazando.current) return
+      rechazando.current = true
+      setError(`Ese legajo pertenece a ${PLANTAS[user.planta].label}, no a ${PLANTAS[planta].label}. Avisá al encargado.`)
+      logoutUser().finally(() => { rechazando.current = false })
+      return
+    }
     navigate('/produccion', { replace: true })
-  }, [user, navigate])
+  }, [user, navigate, planta])
 
   const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -48,7 +67,7 @@ export default function LoginProduccion() {
   }
 
   return (
-    <AuthLayout title="Ingreso Producción" subtitle="Ingresá con tu número de legajo">
+    <AuthLayout title={`Ingreso Producción — ${PLANTAS[planta].label}`} subtitle="Ingresá con tu número de legajo">
       <form onSubmit={handleLogin} className="flex flex-col gap-4">
         <Input
           label="Legajo"

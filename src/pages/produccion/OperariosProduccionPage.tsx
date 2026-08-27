@@ -43,7 +43,7 @@ function CrearOperarioModal({ onClose, onCreated }: { onClose: () => void; onCre
           onChange={(e) => setLegajo(e.target.value.replace(/\D/g, '').slice(0, 6))}
           required inputMode="numeric" maxLength={6} placeholder="1234"
         />
-        <p className="text-xs text-gray-400 -mt-2">El operario ingresa a /planta con solo este número, sin contraseña.</p>
+        <p className="text-xs text-gray-400 -mt-2">El operario ingresa a /produccion-{planta} con solo este número, sin contraseña.</p>
         <div>
           <label className="text-xs text-gray-500 mb-1 block">Planta</label>
           <select
@@ -132,7 +132,7 @@ export default function OperariosProduccionPage() {
         <div className="flex flex-wrap justify-between items-center gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Operarios de producción</h1>
-            <p className="text-gray-500 text-sm">Personal de planta — login por legajo en /planta</p>
+            <p className="text-gray-500 text-sm">Personal de planta — login por legajo en /produccion-torcuato o /produccion-merlo</p>
           </div>
           <div className="flex items-center gap-3">
             <Link to="/produccion/listado" className="text-sm text-accent hover:underline">Listado de producción →</Link>
