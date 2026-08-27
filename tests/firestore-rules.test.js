@@ -13,13 +13,17 @@ import { doc, getDoc, setDoc, updateDoc, deleteDoc, arrayUnion, deleteField } fr
 
 let testEnv
 
+// emulators:exec exporta FIRESTORE_EMULATOR_HOST; respetarla permite correr los
+// tests en un puerto alternativo cuando el emulador de desarrollo ocupa el 8080.
+const [emuHost, emuPort] = (process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8080').split(':')
+
 before(async () => {
   testEnv = await initializeTestEnvironment({
     projectId: 'demo-rolito',
     firestore: {
       rules: readFileSync('firestore.rules', 'utf8'),
-      host: '127.0.0.1',
-      port: 8080,
+      host: emuHost,
+      port: Number(emuPort),
     },
   })
 })
@@ -70,6 +74,13 @@ describe('users — escalada de privilegios', () => {
     await assertFails(updateDoc(doc(db('cli'), 'users/cli'), {
       creadoPor: { uid: 'cli', nombre: 'Cliente', rol: 'cliente' },
     }))
+  })
+
+  test('un cliente NO puede auto-otorgarse el flag de bridge de Tango', async () => {
+    // tangoBridge habilita isTangoBridge() → acceso a tango-outbox y config/tango.
+    // Solo lo setea el Admin SDK; nadie puede dárselo editando su propio perfil.
+    await seed((d) => setDoc(doc(d, 'users/cli'), cliente()))
+    await assertFails(updateDoc(doc(db('cli'), 'users/cli'), { tangoBridge: true }))
   })
 
   test('un cliente SÍ puede editar un campo benigno (telefono)', async () => {

@@ -189,6 +189,13 @@ service cloud.firestore {
             && request.resource.data.get('sector', '')         == resource.data.get('sector', '')
             && request.resource.data.get('creadoPor', null)    == resource.data.get('creadoPor', null);
       }
+      // El flag de bridge de Tango (isTangoBridge()) da acceso al pipeline de
+      // Tango (tango-outbox, config/tango). Solo lo setea el Admin SDK al
+      // aprovisionar la cuenta de servicio; nadie puede auto-otorgárselo
+      // editando su propio perfil.
+      function tangoBridgeUnchanged() {
+        return request.resource.data.get('tangoBridge', false) == resource.data.get('tangoBridge', false);
+      }
 
       // El documento objetivo es un CLIENTE (no otro staff ni un super_admin).
       // Cierra el lockout de admin y la edición cruzada de cuentas de personal:
@@ -249,7 +256,7 @@ service cloud.firestore {
 
       // ── Edición del propio perfil: NO puede tocar rol / estado / precios / identidad ──
       allow update: if isSelf() && rolUnchanged() && estadoUnchanged()
-        && preciosUnchanged() && identidadUnchanged();
+        && preciosUnchanged() && identidadUnchanged() && tangoBridgeUnchanged();
 
       // ── gerente_comercial / comercial / logistica: gestión de clientes ──
       // Solo sobre documentos de CLIENTE y solo los campos de gestión (nunca
