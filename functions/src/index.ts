@@ -22,3 +22,4 @@ export { onTicketCerrado, onStockBajo, onTicketCreado } from './triggers/helader
 export { avisarComodatosPorVencer }             from './triggers/comodatos'
 export { backupAuthUsers }                     from './triggers/authBackup'
 export { onHistorialAdminAltoRiesgo, enviarResumenAdminDiario } from './triggers/adminAudit'
+export { syncClientesTango }                    from './triggers/tangoSync'

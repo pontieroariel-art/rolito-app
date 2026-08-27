@@ -141,17 +141,24 @@ export function SucursalClienteRow({
       {canManagePrices && (
         <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-gray-100">
           <span className="text-xs text-gray-500 whitespace-nowrap">Canal / lista:</span>
-          <select
-            value={user.listaPreciosId ?? ''}
-            disabled={busy}
-            onChange={(e: ChangeEvent<HTMLSelectElement>) => handleListaChange(e.target.value)}
-            className="bg-white border border-[#D3D1C7] rounded-lg px-2 py-1 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent flex-1 min-w-0 max-w-xs disabled:opacity-50"
-          >
-            <option value="">Sin lista asignada</option>
-            {listas.map((l) => (
-              <option key={l.id} value={l.id}>{l.nombre}</option>
-            ))}
-          </select>
+          {user.codigoTango ? (
+            <div className="flex flex-col gap-0.5 min-w-0">
+              <span className="text-xs text-gray-900 truncate">{listaAsignada?.nombre ?? 'Sin lista asignada'}</span>
+              <span className="text-[10px] text-gray-400">Dato de Tango — se edita en Tango, se sincroniza acá</span>
+            </div>
+          ) : (
+            <select
+              value={user.listaPreciosId ?? ''}
+              disabled={busy}
+              onChange={(e: ChangeEvent<HTMLSelectElement>) => handleListaChange(e.target.value)}
+              className="bg-white border border-[#D3D1C7] rounded-lg px-2 py-1 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent flex-1 min-w-0 max-w-xs disabled:opacity-50"
+            >
+              <option value="">Sin lista asignada</option>
+              {listas.map((l) => (
+                <option key={l.id} value={l.id}>{l.nombre}</option>
+              ))}
+            </select>
+          )}
         </div>
       )}
 

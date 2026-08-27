@@ -1,0 +1,10 @@
+{
+  "tangoBaseUrl": "http://rhielotg:17000/Api/Get",
+  "tangoToken": "TANGO_DEV_TOKEN_AQUI",
+  "tangoCompany": "1",
+  "tangoProcess": 2117,
+  "pageSize": 200,
+  "cloudFunctionUrl": "CLOUD_FUNCTION_URL_AQUI",
+  "bridgeSecret": "BRIDGE_SECRET_AQUI",
+  "logFile": "C:\\RolitoSync\\tango-sync-log.txt"
+}

@@ -154,7 +154,7 @@ export function FichaClienteModal({
             <Building2 size={12} /> Empresa
           </h3>
           <div className="bg-[#F8F7F2] rounded-xl p-3 space-y-2">
-            {canEditInfoBasica ? (
+            {canEditInfoBasica && !user.codigoTango ? (
               <div className="flex flex-col gap-1">
                 <label className="text-xs text-gray-500">Razón social</label>
                 <input
@@ -164,7 +164,12 @@ export function FichaClienteModal({
                 />
               </div>
             ) : (
-              <Row label="Razón social" value={user.razonSocial || '—'} />
+              <div className="flex flex-col gap-0.5">
+                <Row label="Razón social" value={user.razonSocial || '—'} />
+                {user.codigoTango && (
+                  <span className="text-[10px] text-gray-400 pl-0.5">Dato de Tango — se edita en Tango, se sincroniza acá</span>
+                )}
+              </div>
             )}
             {canEditInfoBasica ? (
               <div className="flex flex-col gap-1">
@@ -267,7 +272,7 @@ export function FichaClienteModal({
               <Wallet size={12} /> Condición de venta
             </h3>
             <div className="bg-[#F8F7F2] rounded-xl p-3">
-              {canEditInfoBasica ? (
+              {canEditInfoBasica && !user.codigoTango ? (
                 <select
                   value={condicionVenta}
                   disabled={savingCondicionVenta}
@@ -280,7 +285,12 @@ export function FichaClienteModal({
                   ))}
                 </select>
               ) : (
-                <Row label="Condición de venta" value={user.condicionVenta || '—'} />
+                <div className="flex flex-col gap-0.5">
+                  <Row label="Condición de venta" value={user.condicionVenta || '—'} />
+                  {user.codigoTango && (
+                    <span className="text-[10px] text-gray-400 pl-0.5">Dato de Tango — se edita en Tango, se sincroniza acá</span>
+                  )}
+                </div>
               )}
               {savingCondicionVenta && <p className="text-xs text-gray-500 mt-1.5">Guardando…</p>}
             </div>

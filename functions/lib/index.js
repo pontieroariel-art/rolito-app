@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.enviarResumenAdminDiario = exports.onHistorialAdminAltoRiesgo = exports.backupAuthUsers = exports.avisarComodatosPorVencer = exports.onTicketCreado = exports.onStockBajo = exports.onTicketCerrado = exports.generarPedidosRecurrentes = exports.orsDirections = exports.mirrorDriverLocation = exports.validarPreciosPedido = exports.notifyReprogramado = exports.notifyCerca = exports.sendPush = exports.deleteAuthUsers = exports.onOrderEnCamino = exports.onOrderConfirmado = exports.onOrderCreated = exports.onClienteCreadoPorStaff = exports.onUserApproved = exports.onUserRegistered = void 0;
+exports.syncClientesTango = exports.enviarResumenAdminDiario = exports.onHistorialAdminAltoRiesgo = exports.backupAuthUsers = exports.avisarComodatosPorVencer = exports.onTicketCreado = exports.onStockBajo = exports.onTicketCerrado = exports.generarPedidosRecurrentes = exports.orsDirections = exports.mirrorDriverLocation = exports.validarPreciosPedido = exports.notifyReprogramado = exports.notifyCerca = exports.sendPush = exports.deleteAuthUsers = exports.onOrderEnCamino = exports.onOrderConfirmado = exports.onOrderCreated = exports.onClienteCreadoPorStaff = exports.onUserApproved = exports.onUserRegistered = void 0;
 const app_1 = require("firebase-admin/app");
 (0, app_1.initializeApp)();
 // Nota: cambio trivial para forzar un hash de fuente distinto y que
@@ -44,4 +44,6 @@ Object.defineProperty(exports, "backupAuthUsers", { enumerable: true, get: funct
 var adminAudit_1 = require("./triggers/adminAudit");
 Object.defineProperty(exports, "onHistorialAdminAltoRiesgo", { enumerable: true, get: function () { return adminAudit_1.onHistorialAdminAltoRiesgo; } });
 Object.defineProperty(exports, "enviarResumenAdminDiario", { enumerable: true, get: function () { return adminAudit_1.enviarResumenAdminDiario; } });
+var tangoSync_1 = require("./triggers/tangoSync");
+Object.defineProperty(exports, "syncClientesTango", { enumerable: true, get: function () { return tangoSync_1.syncClientesTango; } });
 //# sourceMappingURL=index.js.map

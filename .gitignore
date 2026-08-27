@@ -31,6 +31,12 @@ scripts/serviceAccount.json
 scripts/import-errores.txt
 scripts/import-heladeras-log.txt
 
+# Scripts/tango — exports/cruces con datos reales de clientes (CUIT, mail, tel)
+scripts/tango/*.json
+scripts/tango/*.csv
+# ...salvo la plantilla de config del bridge (sin secretos, solo placeholders)
+!scripts/tango/*.example.json
+
 # Firebase cache
 .firebase/
 

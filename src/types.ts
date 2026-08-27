@@ -103,6 +103,19 @@ export interface UserProfile {
   vigenciaCustom?:    Record<string, string>    // productoId → ISO date
   ultimoCambioPrecio?: Timestamp | null
   codigoCliente?:     string
+  codigoTango?:       string   // COD_GVA14 de Tango (cruzado por CUIT, ver scripts/tango/) — numeración distinta de codigoCliente
+  idGva14Tango?:      number   // ID_GVA14 de Tango — para GetById/Update/Delete contra la API de Plataforma
+  // Datos de Tango, namespaced para no pisar los operativos existentes (domicilio
+  // fiscal, no necesariamente el punto real de entrega — no usar en logística,
+  // ver orderService.ts que usa `address`/`addresses[]`). Los escribe la Cloud
+  // Function syncClientesTango (functions/src/triggers/tangoSync.ts).
+  domicilioTango?:        string
+  localidadTango?:        string
+  provinciaTango?:        string
+  codigoPostalTango?:     string
+  categoriaIvaTango?:     string   // COD_CATEGORIA_IVA (ej. "RI")
+  categoriaIvaTangoDesc?: string   // DESC_CATEGORIA_IVA (ej. "Responsable Inscripto")
+  tangoUltimaSync?:       Timestamp | null
   codVendedor?:       string   // código de vendedor asignado (e.g. MV, AD)
   // Contado / cuenta corriente, etc. — ver CONDICIONES_VENTA en constants.ts.
   // String libre (no unión estricta) porque algunos clientes ya traen un
