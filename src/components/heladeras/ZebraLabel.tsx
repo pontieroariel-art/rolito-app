@@ -1,40 +1,62 @@
 import { Heladera } from '../../types'
 import { ROLITO_INFO } from '../../utils/constants'
 
-// Etiqueta 100x100mm para Zebra ZD421. El tamaño de página real lo define
-// EtiquetaHeladeraPage con @page — este componente solo dibuja el contenido.
-// El QR (generado por quien llama, ver EtiquetaHeladeraPage) apunta a la
-// ficha en vivo de la heladera, no a datos fijos: así, cuando la reasignen
-// a otro cliente, escanear la misma etiqueta siempre muestra el estado
-// actual en vez de quedar desactualizada.
-export default function ZebraLabel({ heladera, qrDataUrl }: { heladera: Heladera; qrDataUrl: string }) {
+// Etiqueta 100x100mm para Zebra ZD421 (térmica, B&N). El tamaño de página real
+// lo define EtiquetaHeladeraPage con @page — este componente solo dibuja el
+// contenido. El logo va en su versión B&N (`/logo-rolito-bn.png`: negro con los
+// blancos internos preservados) para que imprima nítido en la térmica en vez de
+// salir gris. El QR (generado por quien llama) apunta a la ficha en vivo de la
+// heladera, no a datos fijos: así, cuando la reasignen a otro cliente, escanear
+// la misma etiqueta siempre muestra el estado actual en vez de quedar
+// desactualizada. El código de barra codifica el N° de serie.
+export default function ZebraLabel({
+  heladera,
+  qrDataUrl,
+  barcodeDataUrl,
+}: {
+  heladera: Heladera
+  qrDataUrl: string
+  barcodeDataUrl: string
+}) {
   return (
-    <div className="w-[100mm] h-[100mm] p-[3mm] flex flex-col items-center justify-between text-black bg-white box-border">
-      <img src="/logo-rolito.png" alt="Rolito" className="h-[13mm] object-contain" />
-
-      <div className="text-center space-y-[1mm]">
-        <p className="font-bold text-[3.2mm] leading-tight">{ROLITO_INFO.razonSocial}</p>
-        <p className="text-[2.6mm] leading-tight">{heladera.modelo}</p>
+    <div className="w-[100mm] h-[100mm] flex flex-col text-black bg-white box-border overflow-hidden">
+      {/* Logo protagonista — grande y a lo ancho para leerse de lejos */}
+      <div className="text-center pt-[3mm] pb-[1.5mm] px-[4mm]">
+        <img
+          src="/logo-rolito-bn.png"
+          alt="Rolito"
+          className="w-[86mm] max-w-full h-auto object-contain mx-auto"
+        />
       </div>
 
-      <div className="text-center text-[2.2mm] leading-snug">
-        <p>{ROLITO_INFO.direccion}</p>
-        <p>{ROLITO_INFO.localidad} · CP {ROLITO_INFO.cp}</p>
-        <p>Tel. {ROLITO_INFO.telefono}</p>
+      {/* Banda NO REMOVER */}
+      <div className="bg-black text-white text-center font-extrabold tracking-[1mm] text-[3mm] py-[1mm]">
+        NO REMOVER
       </div>
 
-      <div className="text-center text-[2.2mm] leading-snug">
-        <p>INPUT AC 240V 50-60HZ</p>
-        <p>HECHO EN ARGENTINA</p>
+      {/* Serie destacada */}
+      <div className="flex items-baseline justify-between px-[4mm] pt-[2mm] pb-[0.5mm]">
+        <span className="text-[2mm] font-extrabold tracking-widest uppercase">Serie N°</span>
+        <span className="font-mono font-black text-[6.5mm] leading-none tracking-wide">
+          {heladera.numeroSerie}
+        </span>
       </div>
 
-      <div className="flex items-center gap-[3mm]">
-        <img src={qrDataUrl} alt="QR" className="w-[20mm] h-[20mm]" />
-        <div className="text-left text-[2.4mm] leading-snug">
-          <p className="font-bold">N° SERIE</p>
-          <p>{heladera.numeroSerie}</p>
-          <p className="text-gray-500 mt-[1mm]">Escaneá para ver la ficha</p>
+      {/* QR + datos */}
+      <div className="flex items-center gap-[3mm] px-[4mm] py-[1mm] flex-1">
+        <img src={qrDataUrl} alt="QR" className="w-[21mm] h-[21mm] border border-black shrink-0" />
+        <div className="text-[2.2mm] leading-snug flex-1">
+          <p>Modelo <b>{heladera.modelo}</b> · Input AC 240V 50-60Hz</p>
+          <p>Hecho en Argentina</p>
+          <p className="font-extrabold mt-[1mm]">{ROLITO_INFO.razonSocial}</p>
+          <p>{ROLITO_INFO.direccion} · {ROLITO_INFO.localidad}</p>
+          <p>(CP {ROLITO_INFO.cp}) Bs. As. · Tel. {ROLITO_INFO.telefono}</p>
         </div>
+      </div>
+
+      {/* Código de barra (N° de serie) */}
+      <div className="px-[4mm] pb-[3mm]">
+        <img src={barcodeDataUrl} alt="Código de barra" className="w-full h-[9mm] object-contain" />
       </div>
     </div>
   )
