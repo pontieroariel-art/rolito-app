@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
-import Navbar from '../../components/layout/Navbar'
+import { Package } from 'lucide-react'
+import ChoferHeader from '../../components/chofer/ChoferHeader'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
@@ -195,13 +196,13 @@ export default function ChoferDashboard() {
     }
   }, [hasPending, user?.email])
 
-  if (loading || pairedDespachoLoading) return <><Navbar /><LoadingSpinner fullScreen /></>
+  if (loading || pairedDespachoLoading) return <><ChoferHeader /><LoadingSpinner fullScreen /></>
 
   // Ayudante sin turno asignado
   if (isAyudante && !pairedDespacho) {
     return (
       <div className="min-h-screen bg-[#F8F7F2] text-gray-900">
-        <Navbar />
+        <ChoferHeader />
         <main className="max-w-2xl mx-auto p-4 pt-12 text-center space-y-4">
           <p className="text-5xl">🚛</p>
           <h2 className="text-xl font-bold text-gray-900">Sin turno asignado</h2>
@@ -216,7 +217,17 @@ export default function ChoferDashboard() {
 
   return (
     <div className="min-h-screen bg-[#F8F7F2] text-gray-900">
-      <Navbar />
+      <ChoferHeader />
+
+      {/* Acción principal — grande y a mano para vender en la calle */}
+      <div className="max-w-2xl mx-auto px-4 pt-4">
+        <Link to="/chofer/venta"
+          className="flex items-center justify-center gap-2.5 rounded-2xl bg-accent text-white py-5 shadow-sm active:scale-[0.99] transition-transform">
+          <Package size={26} />
+          <span className="text-lg font-bold">Vender</span>
+        </Link>
+      </div>
+
       {permission === 'default' && (
         <div className="max-w-2xl mx-auto px-4 pt-3">
           <button

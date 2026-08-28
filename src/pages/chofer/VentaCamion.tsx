@@ -1,10 +1,10 @@
 import { useMemo, useRef, useState } from 'react'
 import {
   Minus, Plus, PenLine, User, Banknote, Smartphone, Wallet,
-  Trash2, CheckCircle2, ShoppingCart, ChevronRight, Truck, Clock, UserPlus,
+  Trash2, CheckCircle2, ShoppingCart, ChevronRight, Clock, UserPlus,
   FileText, Tag, ArrowLeft,
 } from 'lucide-react'
-import Navbar from '../../components/layout/Navbar'
+import { Link } from 'react-router-dom'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
@@ -55,7 +55,7 @@ export default function VentaCamion() {
   const [canal, setCanal] = useState<CanalVenta | null>(null)
   const [clienteId, setClienteId] = useState('')
   const [cantidades, setCantidades] = useState<Record<string, number>>({})
-  const [formaPago, setFormaPago] = useState<FormaPago>('contado_efectivo')
+  const [formaPago, setFormaPago] = useState<FormaPago | null>(null)
   const [firmante, setFirmante] = useState('')
   const [resumenOpen, setResumenOpen] = useState(false)
   const [firmaPreview, setFirmaPreview] = useState<string | null>(null)
@@ -90,7 +90,7 @@ export default function VentaCamion() {
   const reset = () => {
     setClienteId('')
     setCantidades({})
-    setFormaPago('contado_efectivo')
+    setFormaPago(null)
     setFirmante('')
     setFirmaPreview(null)
     firmaRef.current?.clear()
@@ -101,6 +101,7 @@ export default function VentaCamion() {
     if (!user?.camionId)     { setError('No tenés un camión asignado. Avisá a logística.'); return }
     if (!cliente)            { setError('Elegí un cliente.'); return }
     if (items.length === 0)  { setError('Cargá al menos un producto.'); return }
+    if (!formaPago)          { setError('Elegí la forma de pago.'); return }
     if (!firmante.trim())    { setError('Poné el nombre de quien firma.'); return }
     const firma = firmaRef.current?.toDataURL()
     if (!firma)              { setError('Falta la firma del cliente.'); return }
@@ -109,7 +110,7 @@ export default function VentaCamion() {
   }
 
   const confirmar = () => {
-    if (!user?.camionId || !cliente || !canal) return
+    if (!user?.camionId || !cliente || !canal || !formaPago) return
     setGuardando(true)
     try {
       crearVentaCamion(
@@ -129,14 +130,13 @@ export default function VentaCamion() {
 
   if (!user) return <LoadingSpinner fullScreen />
 
-  const formaPagoActual = FORMAS_PAGO.find((f) => f.id === formaPago)!
+  const formaPagoActual = formaPago ? FORMAS_PAGO.find((f) => f.id === formaPago)! : null
   const canalActual = canal ? CANALES.find((c) => c.id === canal)! : null
 
   // ── Pantalla de éxito ──────────────────────────────────────────────────────
   if (exito) {
     return (
       <div className="min-h-dvh bg-[#F8F7F2] text-gray-900 flex flex-col">
-        <Navbar />
         <main className="flex-1 flex flex-col items-center justify-center px-6 text-center">
           <div className="relative mb-6">
             <span className="absolute inset-0 rounded-full bg-success/20 animate-ping" />
@@ -160,12 +160,12 @@ export default function VentaCamion() {
   if (!canal) {
     return (
       <div className="min-h-dvh bg-[#F8F7F2] text-gray-900 flex flex-col">
-        <Navbar />
         <div className="bg-gradient-to-br from-[#1a6b52] to-[#1D9E75] text-white">
           <div className="max-w-lg mx-auto px-4 py-5 flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-white/15 backdrop-blur flex items-center justify-center shrink-0">
-              <Truck size={22} />
-            </div>
+            <Link to="/chofer" aria-label="Volver al inicio"
+              className="w-11 h-11 rounded-2xl bg-white/15 backdrop-blur flex items-center justify-center shrink-0 active:scale-90 transition-transform">
+              <ArrowLeft size={20} />
+            </Link>
             <div>
               <h1 className="text-xl font-bold leading-tight">Nueva venta</h1>
               <p className="text-white/70 text-xs">Elegí el tipo de venta para empezar</p>
@@ -197,8 +197,6 @@ export default function VentaCamion() {
 
   return (
     <div className="min-h-screen bg-[#F8F7F2] text-gray-900">
-      <Navbar />
-
       {/* Encabezado con acento + canal elegido */}
       <div className="bg-gradient-to-br from-[#1a6b52] to-[#1D9E75] text-white">
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center gap-3">
@@ -395,9 +393,11 @@ export default function VentaCamion() {
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-xl border border-[#D3D1C7] px-3.5 py-2.5">
               <p className="text-[11px] uppercase tracking-wide text-gray-400">Pago</p>
-              <p className="text-sm font-semibold flex items-center gap-1.5 mt-0.5">
-                <formaPagoActual.icon size={15} className="text-accent" /> {formaPagoActual.label}
-              </p>
+              {formaPagoActual && (
+                <p className="text-sm font-semibold flex items-center gap-1.5 mt-0.5">
+                  <formaPagoActual.icon size={15} className="text-accent" /> {formaPagoActual.label}
+                </p>
+              )}
             </div>
             <div className="rounded-xl border border-[#D3D1C7] px-3.5 py-2.5 min-w-0">
               <p className="text-[11px] uppercase tracking-wide text-gray-400">Firma</p>

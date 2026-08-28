@@ -10,7 +10,7 @@ import {
   SortableContext, useSortable, verticalListSortingStrategy, arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import Navbar from '../../components/layout/Navbar'
+import ChoferHeader from '../../components/chofer/ChoferHeader'
 import Button from '../../components/ui/Button'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useDriverOrders } from '../../hooks/useOrders'
@@ -398,13 +398,13 @@ export default function ChoferMap() {
   }
 
   if (loading || (!isLoaded && !loadError)) {
-    return <><Navbar /><LoadingSpinner fullScreen /></>
+    return <><ChoferHeader title="Ruta" back /><LoadingSpinner fullScreen /></>
   }
 
   if (loadError) {
     return (
       <div className="min-h-screen bg-[#F8F7F2] text-gray-900">
-        <Navbar />
+        <ChoferHeader title="Ruta" back />
         <div className="p-4 text-center text-red-500">
           Error cargando Google Maps. Verificá la API key.
         </div>
@@ -414,7 +414,7 @@ export default function ChoferMap() {
 
   return (
     <div className="min-h-screen bg-[#F8F7F2] text-gray-900">
-      <Navbar />
+      <ChoferHeader title="Ruta" back />
       <div className="flex flex-col" style={{ height: 'calc(100dvh - 56px - 64px)' }}>
         {hasDespachoOrder && (
           <div className="px-4 py-2 bg-accent/10 border-b border-accent/20 flex items-center justify-between gap-3">
