@@ -33,7 +33,7 @@ function ConfirmarPalletModal({
           className="flex flex-col items-center gap-1.5 rounded-2xl border-[3px] py-5"
           style={{ borderColor: producto.color, backgroundColor: `${producto.color}14` }}
         >
-          <span className="text-4xl font-black leading-none" style={{ color: producto.color }}>{producto.tamanioTicket}</span>
+          <span className="text-4xl font-black leading-none" style={{ color: producto.color }}>{producto.etiquetaGrilla}</span>
           <span className="text-lg font-bold text-gray-900 text-center px-3">{producto.nombre}</span>
           <span className="text-sm text-gray-500 font-medium">{producto.unidadesPorPallet} {producto.unidadLabel}/pallet</span>
         </div>
@@ -186,7 +186,7 @@ export default function ProduccionDashboard() {
               >
                 <Snowflake size={16} style={{ color: p.color }} />
                 <span className="text-[clamp(1.1rem,5.5vh,2.5rem)] font-black leading-none" style={{ color: p.color }}>
-                  {p.tamanioTicket}
+                  {p.etiquetaGrilla}
                 </span>
                 <span className="text-[clamp(0.7rem,2.1vh,1.05rem)] font-bold text-gray-900 text-center leading-tight px-1">
                   {p.nombre}
