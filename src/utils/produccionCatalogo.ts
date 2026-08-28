@@ -7,10 +7,11 @@ export interface ProductoHieloDef {
   nombre:            string   // "Bolsas 10kg Rolito" — para los botones de carga
   descripcionTicket: string   // línea de descripción del ticket, ej. "HIELO EN BOLSA ROLITO 10KG"
   tamanioTicket:     string   // texto grande del ticket, ej. "10KG"
-  // Texto grande del botón en la grilla de carga (tablet). NO es tamanioTicket:
-  // cuatro productos son "10KG" y el operario en el campo elige por la palabra
-  // distintiva (PICADO/ESCAMA/CEMENTERA), no por el peso — pedido de Ariel
-  // 2026-08-28 tras ver la grilla con cuatro botones gritando "10KG".
+  // Palabra distintiva del producto, en grande en la grilla de carga (tablet)
+  // y en el texto grande del ticket impreso. NO es tamanioTicket: cuatro
+  // productos son "10KG" y tanto el operario como quien mira pallets en la
+  // cámara identifican por PICADO/ESCAMA/CEMENTERA, no por el peso — pedido
+  // de Ariel 2026-08-28.
   etiquetaGrilla:    string
   unidadesPorPallet: number
   unidadLabel:       'bolsas' | 'barras'

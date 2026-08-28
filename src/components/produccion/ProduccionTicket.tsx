@@ -18,12 +18,19 @@ export default function ProduccionTicket({
   const producto = PRODUCTOS_HIELO[pallet.productoId]
   const fecha    = pallet.fechaFabricacion.toDate()
 
+  // Mismo criterio que la grilla de carga: la palabra distintiva en grande
+  // (cuatro productos comparten "10KG" y en la cámara se identifica por
+  // PICADO/ESCAMA/CEMENTERA), con el peso al lado cuando no es redundante.
+  const tamanioLinea = producto.etiquetaGrilla === producto.tamanioTicket
+    ? producto.tamanioTicket
+    : `${producto.etiquetaGrilla} · ${producto.tamanioTicket}`
+
   return (
     <div className="produccion-ticket-page w-[100mm] h-[150mm] p-[4mm] flex flex-col items-center justify-between text-black bg-white box-border">
       <img src="/logo-rolito.png" alt="Rolito" className="h-[14mm] object-contain" />
 
       <p className="font-bold text-[7mm] leading-tight text-center">
-        {producto.tamanioTicket} · {producto.tamanioTicket}
+        {tamanioLinea}
       </p>
 
       <div className="text-center text-[2.6mm] leading-snug">
