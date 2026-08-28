@@ -1,5 +1,6 @@
 import { useMemo, useState, ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
+import { Printer } from 'lucide-react'
 import Navbar from '../../components/layout/Navbar'
 import ProduccionLayout from '../../components/produccion/ProduccionLayout'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
@@ -81,6 +82,7 @@ export default function ProduccionListadoPage() {
                   <th className="px-4 py-2">Unidades</th>
                   <th className="px-4 py-2">Operario</th>
                   <th className="px-4 py-2">Fabricación</th>
+                  <th className="px-4 py-2" aria-label="Etiqueta" />
                 </tr>
               </thead>
               <tbody>
@@ -95,6 +97,16 @@ export default function ProduccionListadoPage() {
                     <td className="px-4 py-2">{p.operador.nombre}</td>
                     <td className="px-4 py-2 text-gray-500">
                       {p.fechaFabricacion.toDate().toLocaleString('es-AR')}
+                    </td>
+                    <td className="px-4 py-2">
+                      <Link
+                        to={`/produccion/ticket/${p.id}`}
+                        target="_blank"
+                        title="Reimprimir etiqueta"
+                        className="inline-flex text-gray-400 hover:text-accent transition-colors p-1"
+                      >
+                        <Printer size={16} />
+                      </Link>
                     </td>
                   </tr>
                 ))}
