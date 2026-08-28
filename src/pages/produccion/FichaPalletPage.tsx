@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
+import { Printer } from 'lucide-react'
 import Navbar from '../../components/layout/Navbar'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { getPalletProduccion } from '../../services/produccionService'
@@ -50,6 +51,16 @@ export default function FichaPalletPage() {
                 {pallet.fechaFabricacion.toDate().toLocaleString('es-AR')}
               </p>
             </div>
+            {/* /produccion/ticket abre la etiqueta y dispara la impresión
+                sola — target _blank para no perder la ficha al volver. */}
+            <Link
+              to={`/produccion/ticket/${pallet.id}`}
+              target="_blank"
+              className="flex items-center justify-center gap-2 w-full border border-[#D3D1C7] hover:border-accent text-sm text-gray-700 hover:text-accent rounded-lg px-4 py-2.5 transition-colors"
+            >
+              <Printer size={16} />
+              Reimprimir etiqueta
+            </Link>
           </div>
         )}
       </main>
