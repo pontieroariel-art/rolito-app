@@ -4,7 +4,7 @@ import {
 } from 'firebase/firestore'
 
 import { db } from './firebase'
-import { Despacho } from '../types'
+import { Despacho, Order } from '../types'
 import { haversineKm, nearestNeighborOrder, timeStrToUnix, unixToTimeStr } from '../utils/routeMath'
 import { fetchOrsDirections, OrsAvoidPolygons } from './orsService'
 import { todayString } from '../utils/helpers'
@@ -288,6 +288,26 @@ export async function optimizeStopOrder(params: {
       orsError: err instanceof Error ? err.message : 'Error ORS',
     }
   }
+}
+
+// Ordena los pedidos pendientes según la secuencia de paradas que armó
+// logística en los despachos confirmados (`despacho.orderIds`), concatenando
+// las vueltas en el orden en que vienen los despachos. Los pedidos que no
+// están en ningún despacho van al final; si no hay orden de despacho, devuelve
+// la lista tal cual. Lo usan el mapa de ruta Y la lista de entregas del chofer
+// —así las dos muestran la MISMA ruta que definió el encargado (antes la lista
+// salía ordenada por fecha, arbitraria, y no coincidía con el reorden manual).
+export function ordenarPorRutaDespacho(pending: Order[], despachos: Despacho[]): Order[] {
+  const orderIdOrder = despachos
+    .filter((d) => d.status === 'confirmado')
+    .flatMap((d) => (d.orderIds ?? []).filter((x) => x.startsWith('o:')).map((x) => x.slice(2)))
+  if (orderIdOrder.length === 0) return pending
+
+  const byId   = new Map(pending.map((o) => [o.id, o]))
+  const sorted = orderIdOrder.map((id) => byId.get(id)).filter(Boolean) as Order[]
+  const inSet  = new Set(orderIdOrder)
+  const extra  = pending.filter((o) => !inSet.has(o.id))
+  return [...sorted, ...extra]
 }
 
 export function formatDespachoFecha(fecha: string): string {

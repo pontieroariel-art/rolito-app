@@ -226,11 +226,25 @@ function OrderQuickView({ order, choferes, codigoCliente, columns, onClose, onEd
 
 // ── OrderListRow (fila draggable, sin horario) ──────────────────────────────
 
+// Indicador de estado del pedido en la agenda (el borde izquierdo sigue siendo
+// el color del CHOFER; esto se suma como un punto). Pedido por Lucas: ver de un
+// vistazo entregados/pendientes/despachados/cancelados sin que los entregados
+// se oculten.
+const ESTADO_INFO: Record<Order['status'], { label: string; color: string }> = {
+  pendiente:  { label: 'Pendiente',  color: '#9ca3af' },
+  confirmado: { label: 'Despachado', color: '#2563eb' },
+  en_camino:  { label: 'En camino',  color: '#0891b2' },
+  entregado:  { label: 'Entregado',  color: '#16a34a' },
+  cancelado:  { label: 'Cancelado',  color: '#dc2626' },
+}
+
 const OrderListRow = memo(function OrderListRow({ order, choferes, codigoCliente, isHighlighted, onClick }: {
   order: Order; choferes: UserProfile[]; codigoCliente?: string; isHighlighted?: boolean; onClick: () => void
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: order.id })
   const color = order.driverId ? driverColor(order.driverId, choferes) : '#D97706'
+  const est = ESTADO_INFO[order.status] ?? ESTADO_INFO.pendiente
+  const completado = order.status === 'entregado' || order.status === 'cancelado'
   const totalUnits = order.products.reduce((sum, p) => sum + p.quantity, 0)
   const { logo: clientLogo, empresa, sucursal } = resolveClientDisplay(order.clientId, order.clientName)
 
@@ -247,14 +261,14 @@ const OrderListRow = memo(function OrderListRow({ order, choferes, codigoCliente
       }}
       className={`flex items-center gap-1.5 pl-1.5 pr-2 py-1 rounded-r-lg overflow-hidden bg-white border border-l-[3px] border-[#E4E1D6] cursor-pointer touch-none select-none hover:border-accent/60 hover:shadow-sm transition-all ${
         isHighlighted ? 'ring-2 ring-accent/40' : ''
-      }`}
+      } ${completado ? 'opacity-60' : ''}`}
     >
       {clientLogo && (
         <span className="shrink-0 w-4 h-4 rounded bg-[#F8F7F2] ring-1 ring-[#E4E1D6] flex items-center justify-center overflow-hidden">
           <img src={clientLogo.src} alt="" title={clientLogo.alt} className="w-full h-full object-contain" />
         </span>
       )}
-      <p className="text-xs font-semibold text-gray-900 truncate min-w-0 flex-1">
+      <p className={`text-xs font-semibold text-gray-900 truncate min-w-0 flex-1 ${order.status === 'cancelado' ? 'line-through' : ''}`}>
         {!clientLogo && empresa && (
           <span className="text-gray-400 font-normal">{empresa} · </span>
         )}
@@ -270,6 +284,7 @@ const OrderListRow = memo(function OrderListRow({ order, choferes, codigoCliente
         <span className="text-amber-500 shrink-0" title={`Reprogramado${order.motivoReprogramacion ? `: ${order.motivoReprogramacion}` : ''}`}>↻</span>
       )}
       <span className="text-[10px] text-gray-400 font-mono tabular-nums shrink-0">{totalUnits}u</span>
+      <span title={est.label} aria-label={est.label} className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: est.color }} />
     </div>
   )
 }, (prev, next) => {
@@ -617,8 +632,11 @@ export default function LogisticaDashboard() {
   const ordersByColumn = useMemo(() => {
     const result: Record<string, Order[]> = {}
     columns.forEach((c) => { result[c.id] = [] })
+    // Se incluyen entregados y cancelados (antes se filtraban): la agenda ahora
+    // muestra el día completo, con el estado indicado por color y atenuados
+    // (ver OrderListRow). getOrderColumn ya evita traer completados viejos
+    // fuera de la semana visible.
     orders
-      .filter((o) => !['entregado', 'cancelado'].includes(o.status))
       .forEach((o) => {
         const col = getOrderColumn(o, dayIds)
         if (col === null) return

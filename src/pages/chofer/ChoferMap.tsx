@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { GoogleMap, DirectionsRenderer } from '@react-google-maps/api'
+import { GoogleMap, DirectionsRenderer, Marker } from '@react-google-maps/api'
 import {
   DndContext, DragEndEvent, DragOverlay, DragStartEvent,
   MouseSensor, TouchSensor, useSensor, useSensors,
@@ -14,10 +14,8 @@ import ChoferHeader from '../../components/chofer/ChoferHeader'
 import Button from '../../components/ui/Button'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useDriverOrders } from '../../hooks/useOrders'
-import { markDelivered } from '../../services/orderService'
-import EntregaModal from '../../components/chofer/EntregaModal'
 import { updateDriverLocation, deactivateDriverLocation } from '../../services/locationService'
-import { subscribeDespachosForDriver, subscribeDespachosForAyudante, pickActiveDespacho, todayStr } from '../../services/despachoService'
+import { subscribeDespachosForDriver, subscribeDespachosForAyudante, pickActiveDespacho, todayStr, ordenarPorRutaDespacho } from '../../services/despachoService'
 import { useAuth } from '../../context/AuthContext'
 import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
 import { summarizeProducts } from '../../utils/helpers'
@@ -29,21 +27,15 @@ const BA_CENTER = { lat: -34.6037, lng: -58.3816 }
 
 // ── SortableStop ──────────────────────────────────────────────────────────────
 
-function SortableStop({ order, index, isSkipped, onSkip, onUnskip, onDeliver }: {
-  order:     Order
-  index:     number
-  isSkipped: boolean
-  onSkip:    (id: string) => void
-  onUnskip:  (id: string) => void
-  onDeliver: (o: Order) => void
-}) {
+function SortableStop({ order, index }: { order: Order; index: number }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: order.id })
+  const totalUnits = order.products.reduce((s, p) => s + p.quantity, 0)
 
   return (
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.35 : 1 }}
-      className={`flex justify-between items-center px-4 py-3 border-b border-[#D3D1C7]/60 last:border-0 gap-3 ${isSkipped ? 'opacity-50' : ''} ${isDragging ? 'bg-[#F1EFE8]' : ''}`}
+      className={`flex justify-between items-center px-4 py-3 border-b border-[#D3D1C7]/60 last:border-0 gap-3 ${isDragging ? 'bg-[#F1EFE8]' : ''}`}
     >
       {/* Handle de arrastre + número */}
       <div
@@ -56,48 +48,21 @@ function SortableStop({ order, index, isSkipped, onSkip, onUnskip, onDeliver }: 
           <span className="block w-3.5 h-0.5 bg-current rounded-full" />
           <span className="block w-3.5 h-0.5 bg-current rounded-full" />
         </div>
-        <span className={`w-6 h-6 rounded-full text-xs flex items-center justify-center font-bold ${isSkipped ? 'bg-orange-500/20 text-orange-400' : 'bg-accent/20 text-accent'}`}>
-          {isSkipped ? '↩' : index + 1}
+        <span className="w-6 h-6 rounded-full text-xs flex items-center justify-center font-bold bg-accent/20 text-accent">
+          {index + 1}
         </span>
       </div>
 
       {/* Info */}
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <p className="text-sm font-medium text-gray-900 truncate">{order.clientName}</p>
-          {isSkipped && <span className="text-xs text-orange-500 shrink-0">postergado</span>}
-        </div>
+        <p className="text-sm font-medium text-gray-900 truncate">{order.clientName}</p>
         <p className="text-xs text-gray-500 truncate">{order.clientAddress}</p>
-        <p className="text-xs text-gray-400">{summarizeProducts(order.products)}</p>
       </div>
 
-      {/* Acciones */}
-      <div className="flex items-center gap-2 shrink-0">
-        {isSkipped ? (
-          <button
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => onUnskip(order.id)}
-            className="text-xs text-orange-400 hover:text-orange-300 px-3 py-2.5 min-h-[44px] border border-orange-400/30 rounded-lg"
-          >
-            Restaurar
-          </button>
-        ) : (
-          <button
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => onSkip(order.id)}
-            className="text-sm text-gray-500 hover:text-yellow-600 px-3 py-2.5 min-w-[44px] min-h-[44px] border border-[#D3D1C7] rounded-lg"
-            title="Saltear esta parada"
-          >
-            ⏭
-          </button>
-        )}
-        <Button
-          onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
-          onClick={() => onDeliver(order)}
-          className="text-sm py-2.5 px-4 min-h-[44px]"
-        >
-          ✓
-        </Button>
+      {/* Cantidad pedida (las acciones de entrega viven en la pestaña Entregas) */}
+      <div className="shrink-0 text-right max-w-[45%]">
+        <p className="text-base font-bold text-gray-900 tabular-nums leading-none">{totalUnits}<span className="text-xs font-medium text-gray-400"> u</span></p>
+        <p className="text-[11px] text-gray-400 truncate">{summarizeProducts(order.products)}</p>
       </div>
     </div>
   )
@@ -132,9 +97,7 @@ export default function ChoferMap() {
   const [routeError, setRouteError]   = useState('')
   const [calculating, setCalculating] = useState(false)
   const [currentPos, setCurrentPos]   = useState<google.maps.LatLngLiteral | null>(null)
-  const [skippedIds, setSkippedIds]   = useState<Set<string>>(new Set())
   const [routeStale, setRouteStale]   = useState(false)
-  const [deliveryOrder, setDeliveryOrder] = useState<Order | null>(null)
   const [pdfLoading, setPdfLoading]   = useState(false)
   const [manualOrder, setManualOrder] = useState<string[]>([])
   const [activeId,    setActiveId]    = useState<string | null>(null)
@@ -183,23 +146,13 @@ export default function ChoferMap() {
 
   const hasDespachoOrder = despachosHoy.some((d) => d.status === 'confirmado' && (d.orderIds?.length ?? 0) > 0)
 
-  // Calcular el orden base (de logística o por defecto): concatena las
-  // paradas de todos los despachos confirmados del día, en orden de vuelta
-  // (vuelta 1 primero) — el chofer termina una vuelta antes de empezar la
-  // siguiente.
-  const baseOrder = useMemo<Order[]>(() => {
-    if (hasDespachoOrder) {
-      const orderIdOrder = despachosHoy
-        .filter((d) => d.status === 'confirmado')
-        .flatMap((d) => (d.orderIds ?? []).filter((x) => x.startsWith('o:')).map((x) => x.slice(2)))
-      const byId  = new Map(pending.map((o) => [o.id, o]))
-      const sorted = orderIdOrder.map((id) => byId.get(id)).filter(Boolean) as Order[]
-      const inSet  = new Set(orderIdOrder)
-      const extra  = pending.filter((o) => !inSet.has(o.id))
-      return [...sorted, ...extra]
-    }
-    return pending
-  }, [hasDespachoOrder, despachosHoy, pending])
+  // Orden base = la ruta que armó logística (despacho.orderIds, concatenando
+  // vueltas). Misma lógica que usa la lista de entregas del chofer
+  // (ChoferDashboard) vía el helper compartido, para que mapa y lista coincidan.
+  const baseOrder = useMemo<Order[]>(
+    () => ordenarPorRutaDespacho(pending, despachosHoy),
+    [despachosHoy, pending],
+  )
 
   // Inicializar/sincronizar el orden manual cuando cambia el orden base
   const prevBaseIds = useRef<string>('')
@@ -219,13 +172,24 @@ export default function ChoferMap() {
   // Aplicar orden manual sobre los pedidos pendientes
   const orderedPending = useMemo<Order[]>(() => {
     const byId = new Map(pending.map((o) => [o.id, o]))
-    const active  = manualOrder.map((id) => byId.get(id)).filter((o): o is Order => !!o && !skippedIds.has(o.id))
-    const skipped = pending.filter((o) => skippedIds.has(o.id))
-    return [...active, ...skipped]
-  }, [pending, manualOrder, skippedIds])
+    return manualOrder.map((id) => byId.get(id)).filter((o): o is Order => !!o)
+  }, [pending, manualOrder])
 
-  const activeOrders  = useMemo(() => orderedPending.filter((o) => !skippedIds.has(o.id)), [orderedPending, skippedIds])
-  const skippedOrders = useMemo(() => orderedPending.filter((o) =>  skippedIds.has(o.id)), [orderedPending, skippedIds])
+  // Posiciones de las paradas (y de la planta) para dibujar marcadores NUMERADOS
+  // (Google numera con letras A/B/C por defecto — el chofer quiere números). Se
+  // extraen de la ruta ya calculada: la secuencia de puntos es
+  // [inicio, fin de cada tramo]; si el primer punto es la planta (hay un punto
+  // más que paradas), se separa y las paradas se numeran 1..n en orden de ruta.
+  const routeMarkers = useMemo(() => {
+    const legs = directions?.routes[0]?.legs ?? []
+    if (legs.length === 0) return null
+    const points = [legs[0].start_location, ...legs.map((l) => l.end_location)]
+    const conPlanta = points.length === orderedPending.length + 1
+    return {
+      plantaPos: conPlanta ? points[0] : null,
+      stops:     conPlanta ? points.slice(1) : points,
+    }
+  }, [directions, orderedPending.length])
 
   // DnD sensors
   const sensors = useSensors(
@@ -338,7 +302,7 @@ export default function ChoferMap() {
         destination,
         waypoints,
         // Si el orden viene de logística ya está optimizado, no re-optimizar
-        optimizeWaypoints: !hasDespachoOrder && skippedOrders.length === 0,
+        optimizeWaypoints: !hasDespachoOrder,
         travelMode:        google.maps.TravelMode.DRIVING,
         region:            'AR',
       })
@@ -352,22 +316,6 @@ export default function ChoferMap() {
     }
   }
 
-  const skipOrder = (orderId: string) => {
-    setSkippedIds((prev) => new Set([...prev, orderId]))
-    setDirections(null)
-    setRouteStale(true)
-  }
-
-  const unskipOrder = (orderId: string) => {
-    setSkippedIds((prev) => {
-      const next = new Set(prev)
-      next.delete(orderId)
-      return next
-    })
-    setDirections(null)
-    setRouteStale(true)
-  }
-
   const openAllInMaps = () => {
     if (orderedPending.length === 0) return
     const plantaCoords = myDespacho?.plantaId ? PLANTAS[myDespacho.plantaId] : null
@@ -376,25 +324,6 @@ export default function ChoferMap() {
       : encodeURIComponent(orderedPending[0].clientAddress)
     const addresses = orderedPending.map((o) => encodeURIComponent(o.clientAddress)).join('/')
     window.open(`https://www.google.com/maps/dir/${origin}/${addresses}`, '_blank')
-  }
-
-  const handleDelivered = async (
-    entregados: import('../../types').OrderProduct[],
-    parcial: boolean,
-    nota: string,
-  ) => {
-    if (!deliveryOrder || !user) return
-    await markDelivered(deliveryOrder.id, entregados, parcial, nota, {
-      uid: user.uid,
-      nombre: user.nombreContacto || user.nombre || user.email,
-    })
-    setSkippedIds((prev) => {
-      const next = new Set(prev)
-      next.delete(deliveryOrder.id)
-      return next
-    })
-    setDirections(null)
-    setDeliveryOrder(null)
   }
 
   if (loading || (!isLoaded && !loadError)) {
@@ -435,7 +364,7 @@ export default function ChoferMap() {
             disabled={orderedPending.length === 0}
             className="text-sm"
           >
-            🗺 Calcular ruta ({activeOrders.filter((o) => !skippedIds.has(o.id)).length} paradas{skippedOrders.length > 0 ? ` + ${skippedOrders.length} postergadas` : ''})
+            🗺 Calcular ruta ({orderedPending.length} paradas)
           </Button>
           <Button
             variant="outline"
@@ -454,11 +383,7 @@ export default function ChoferMap() {
 
         {routeStale && !calculating && (
           <div className="px-4 py-2 bg-yellow-500/10 border-b border-yellow-500/30 flex items-center justify-between gap-3">
-            <p className="text-yellow-400 text-xs">
-              {skippedOrders.length > 0
-                ? `${skippedOrders.length} parada${skippedOrders.length > 1 ? 's' : ''} postergada${skippedOrders.length > 1 ? 's' : ''} — recalculá la ruta`
-                : 'La ruta cambió — recalculá'}
-            </p>
+            <p className="text-yellow-400 text-xs">La ruta cambió — recalculá</p>
             <button
               onClick={calculateRoute}
               className="text-xs text-yellow-400 hover:text-yellow-300 underline shrink-0"
@@ -506,9 +431,26 @@ export default function ChoferMap() {
                       strokeOpacity: 1,
                       zIndex:        2,
                     },
-                    markerOptions: { visible: true },
+                    suppressMarkers: true,
                   }}
                 />
+                {routeMarkers?.plantaPos && (
+                  <Marker
+                    position={routeMarkers.plantaPos}
+                    zIndex={5}
+                    label={{ text: 'P', color: '#ffffff', fontWeight: 'bold', fontSize: '11px' }}
+                    icon={{ path: google.maps.SymbolPath.CIRCLE, scale: 9, fillColor: '#1D9E75', fillOpacity: 1, strokeColor: '#ffffff', strokeWeight: 2 }}
+                  />
+                )}
+                {routeMarkers?.stops.map((pos, i) => (
+                  <Marker
+                    key={i}
+                    position={pos}
+                    zIndex={6}
+                    label={{ text: String(i + 1), color: '#ffffff', fontWeight: 'bold', fontSize: '12px' }}
+                    icon={{ path: google.maps.SymbolPath.CIRCLE, scale: 11, fillColor: '#00C2FF', fillOpacity: 1, strokeColor: '#ffffff', strokeWeight: 2 }}
+                  />
+                ))}
               </>
             )}
           </GoogleMap>
@@ -524,15 +466,7 @@ export default function ChoferMap() {
             <SortableContext items={orderedPending.map((o) => o.id)} strategy={verticalListSortingStrategy}>
               <div className="bg-white border-t border-[#D3D1C7] max-h-48 overflow-y-auto shrink-0 shadow-[0_-1px_6px_rgba(0,0,0,0.05)]">
                 {orderedPending.map((o, i) => (
-                  <SortableStop
-                    key={o.id}
-                    order={o}
-                    index={i}
-                    isSkipped={skippedIds.has(o.id)}
-                    onSkip={skipOrder}
-                    onUnskip={unskipOrder}
-                    onDeliver={setDeliveryOrder}
-                  />
+                  <SortableStop key={o.id} order={o} index={i} />
                 ))}
               </div>
             </SortableContext>
@@ -606,13 +540,6 @@ export default function ChoferMap() {
         </button>
       </nav>
 
-      {deliveryOrder && (
-        <EntregaModal
-          order={deliveryOrder}
-          onConfirm={handleDelivered}
-          onClose={() => setDeliveryOrder(null)}
-        />
-      )}
     </div>
   )
 }

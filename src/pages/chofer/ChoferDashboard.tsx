@@ -13,7 +13,7 @@ import { savePushSubscription, proposeCoord } from '../../services/userService'
 import { createOrder } from '../../services/orderService'
 import { markDelivered } from '../../services/orderService'
 import { updateDriverLocation, deactivateDriverLocation } from '../../services/locationService'
-import { subscribeDespachosForDriver, subscribeDespachosForAyudante, pickActiveDespacho } from '../../services/despachoService'
+import { subscribeDespachosForDriver, subscribeDespachosForAyudante, pickActiveDespacho, ordenarPorRutaDespacho } from '../../services/despachoService'
 import { Despacho } from '../../types'
 import { reauthenticateWithCredential, EmailAuthProvider, updatePassword } from 'firebase/auth'
 import { auth } from '../../services/firebase'
@@ -113,6 +113,11 @@ export default function ChoferDashboard() {
   }, [user?.email, isAyudante])
 
   const despachoHoy = isAyudante ? pairedDespacho : pickActiveDespacho(misDespachos)
+
+  // Lista de entregas en el ORDEN de la ruta que armó logística
+  // (despacho.orderIds), igual que el mapa — no por fecha (que daba un orden
+  // arbitrario que no coincidía con el reorden manual del encargado).
+  const pendingOrdenado = ordenarPorRutaDespacho(pending, isAyudante ? pairedDespachos : misDespachos)
 
   // ── Cambiar PIN ──────────────────────────────────────────────────────────
   const [pinModal,     setPinModal]     = useState(false)
@@ -355,7 +360,7 @@ export default function ChoferDashboard() {
           <section>
             <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Por entregar</h2>
             <div className="space-y-3">
-              {pending.map((o, i) => (
+              {pendingOrdenado.map((o, i) => (
                 <DeliveryCard key={o.id} order={o} index={i + 1} isFirst={i === 0} chofer={user} />
               ))}
             </div>
