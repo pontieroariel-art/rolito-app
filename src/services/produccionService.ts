@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, onSnapshot, query, where, orderBy, limit, setDoc, serverTimestamp, Timestamp } from 'firebase/firestore'
+import { collection, doc, getDoc, getDocs, onSnapshot, query, where, orderBy, limit, setDoc, serverTimestamp, Timestamp } from 'firebase/firestore'
 import { db } from './firebase'
 import { PalletProduccion, PlantaId, ProductoHieloId } from '../types'
 import { PLANTA_INFO } from '../utils/constants'
@@ -61,6 +61,19 @@ export const subscribePalletsRecientes = (
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as PalletProduccion))),
     () => callback([]),
   )
+
+// Último pallet realmente cargado de una planta (para la pantalla de Plantas:
+// el contador del servidor muestra dónde arranca el PRÓXIMO LOTE a reservar,
+// no el próximo pallet — las tablets reservan lotes de a 30 y los consumen
+// localmente, ver produccionReservaService). Mismo índice compuesto que
+// subscribePalletsRecientes (plantaId + createdAt desc).
+export const getUltimoPallet = async (plantaId: PlantaId): Promise<PalletProduccion | null> => {
+  const snap = await getDocs(
+    query(collection(db, PALLETS), where('plantaId', '==', plantaId), orderBy('createdAt', 'desc'), limit(1)),
+  )
+  const d = snap.docs[0]
+  return d ? ({ id: d.id, ...d.data() } as PalletProduccion) : null
+}
 
 // Para sumar totales de un período (Resumen de Producción) — a diferencia de
 // subscribePalletsRecientes, NO tiene limit(): un total que se corta en

@@ -2,19 +2,24 @@ import { useCallback, useEffect, useState } from 'react'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
-import { inicializarContador, getProximoNumero } from '../../services/produccionCounterService'
-import { PLANTAS, PlantaId } from '../../types'
+import { inicializarContador, getProximoNumero, BATCH_SIZE } from '../../services/produccionCounterService'
+import { getUltimoPallet } from '../../services/produccionService'
+import { PalletProduccion, PLANTAS, PlantaId } from '../../types'
 
 // Configuración por planta (correlativo de pallets) — vivía incrustada
 // arriba de la lista de operarios; es algo que se toca una vez cada tanto,
 // no gestión diaria, por eso tiene su propio panel bajo "Configuración".
 function ContadorPlanta({ plantaId }: { plantaId: PlantaId }) {
   const [proximo, setProximo] = useState<number | null | undefined>(undefined)
+  const [ultimo,  setUltimo]  = useState<PalletProduccion | null>(null)
   const [primerNumero, setPrimerNumero] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const cargar = useCallback(() => getProximoNumero(plantaId).then(setProximo), [plantaId])
+  const cargar = useCallback(() => Promise.all([
+    getProximoNumero(plantaId).then(setProximo),
+    getUltimoPallet(plantaId).then(setUltimo),
+  ]), [plantaId])
   useEffect(() => { cargar() }, [cargar])
 
   const handleInicializar = async () => {
@@ -39,7 +44,19 @@ function ContadorPlanta({ plantaId }: { plantaId: PlantaId }) {
       <p className="font-bold text-sm text-gray-900">{PLANTAS[plantaId].label}</p>
       <p className="text-xs text-gray-400">Ingreso de operarios: /produccion-{plantaId}</p>
       {proximo !== null ? (
-        <p className="text-sm text-gray-600">Próximo número de pallet: <span className="font-semibold">{proximo}</span></p>
+        <>
+          <p className="text-sm text-gray-600">
+            Último pallet cargado:{' '}
+            <span className="font-semibold">{ultimo ? `${ultimo.codigo} (N° ${ultimo.numero})` : 'ninguno todavía'}</span>
+          </p>
+          <p className="text-sm text-gray-600">
+            Números entregados a tablets: <span className="font-semibold">hasta el {proximo - 1}</span>
+          </p>
+          <p className="text-xs text-gray-400">
+            Las tablets reservan números en lotes de {BATCH_SIZE} para poder cargar sin wifi — el próximo
+            lote arranca en el {proximo}. Es normal que este número vaya adelantado al último pallet real.
+          </p>
+        </>
       ) : (
         <>
           <p className="text-xs text-amber-600">Todavía no tiene número de arranque — no se pueden cargar pallets acá hasta inicializarlo.</p>
