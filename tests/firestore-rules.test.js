@@ -1815,6 +1815,75 @@ describe('produccionPallets', () => {
   })
 })
 
+// ── partesMaquinas: parte de máquinas del maquinista ──────────────────────────
+describe('partesMaquinas', () => {
+  const seedMaquinista = (uid = 'maq1', planta = 'torcuato') =>
+    seed((d) => setDoc(doc(d, `users/${uid}`), { rol: 'produccion_hielo', subrol: 'maquinista', estado: 'activo', planta }))
+
+  const parte = (extra = {}) => ({
+    plantaId: 'torcuato', fecha: '2026-08-28', turno: 'manana',
+    maquinista: { uid: 'maq1', nombre: 'Piris' },
+    ciclos: [], maquinarias: {}, observaciones: '',
+    createdAt: new Date(), updatedAt: new Date(), ...extra,
+  })
+
+  test('maquinista puede crear el parte de SU planta', async () => {
+    await seedMaquinista()
+    await assertSucceeds(setDoc(doc(db('maq1'), 'partesMaquinas/torcuato_2026-08-28_manana'), parte()))
+  })
+
+  test('maquinista NO puede crear un parte de OTRA planta', async () => {
+    await seedMaquinista('maq1', 'torcuato')
+    await assertFails(setDoc(doc(db('maq1'), 'partesMaquinas/merlo_2026-08-28_manana'), parte({ plantaId: 'merlo' })))
+  })
+
+  test('maquinista NO puede crear un parte con turno inventado', async () => {
+    await seedMaquinista()
+    await assertFails(setDoc(doc(db('maq1'), 'partesMaquinas/torcuato_2026-08-28_finde'), parte({ turno: 'finde' })))
+  })
+
+  test('maquinista puede estampar ciclos (update) en el parte de su planta', async () => {
+    await seedMaquinista()
+    await seed((d) => setDoc(doc(d, 'partesMaquinas/torcuato_2026-08-28_manana'), parte()))
+    await assertSucceeds(updateDoc(doc(db('maq1'), 'partesMaquinas/torcuato_2026-08-28_manana'), {
+      ciclos: [{ rolitera: 1, ciclo: 1, sale: new Date(), entra: null }],
+    }))
+  })
+
+  test('maquinista NO puede editar un parte de otra planta ni reasignarle la planta', async () => {
+    await seedMaquinista('maq1', 'torcuato')
+    await seed((d) => setDoc(doc(d, 'partesMaquinas/merlo_2026-08-28_manana'), parte({ plantaId: 'merlo' })))
+    await assertFails(updateDoc(doc(db('maq1'), 'partesMaquinas/merlo_2026-08-28_manana'), { observaciones: 'x' }))
+    await seed((d) => setDoc(doc(d, 'partesMaquinas/torcuato_2026-08-28_manana'), parte()))
+    await assertFails(updateDoc(doc(db('maq1'), 'partesMaquinas/torcuato_2026-08-28_manana'), { plantaId: 'merlo' }))
+  })
+
+  test('produccion_encargado puede corregir partes de cualquier planta', async () => {
+    await seed((d) => setDoc(doc(d, 'users/enc'), { rol: 'produccion_encargado', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'partesMaquinas/merlo_2026-08-28_tarde'), parte({ plantaId: 'merlo', turno: 'tarde' })))
+    await assertSucceeds(updateDoc(doc(db('enc'), 'partesMaquinas/merlo_2026-08-28_tarde'), { observaciones: 'corregido' }))
+  })
+
+  test('gerente_general puede leer partes pero no crearlos', async () => {
+    await seed((d) => setDoc(doc(d, 'users/gg'), { rol: 'gerente_general', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'partesMaquinas/torcuato_2026-08-28_manana'), parte()))
+    await assertSucceeds(getDoc(doc(db('gg'), 'partesMaquinas/torcuato_2026-08-28_manana')))
+    await assertFails(setDoc(doc(db('gg'), 'partesMaquinas/torcuato_2026-08-28_tarde'), parte({ turno: 'tarde' })))
+  })
+
+  test('nadie puede borrar un parte (ni el encargado)', async () => {
+    await seed((d) => setDoc(doc(d, 'users/enc'), { rol: 'produccion_encargado', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'partesMaquinas/torcuato_2026-08-28_manana'), parte()))
+    await assertFails(deleteDoc(doc(db('enc'), 'partesMaquinas/torcuato_2026-08-28_manana')))
+  })
+
+  test('cliente NO puede leer partes', async () => {
+    await seed((d) => setDoc(doc(d, 'users/cli'), cliente()))
+    await seed((d) => setDoc(doc(d, 'partesMaquinas/torcuato_2026-08-28_manana'), parte()))
+    await assertFails(getDoc(doc(db('cli', 'c@x.com'), 'partesMaquinas/torcuato_2026-08-28_manana')))
+  })
+})
+
 // ── tango-outbox: cola de salida app → Tango ──────────────────────────────────
 describe('tango-outbox', () => {
   const seedBridge = (uid = 'bridge1') =>

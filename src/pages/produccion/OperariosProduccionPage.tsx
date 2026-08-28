@@ -11,6 +11,7 @@ function CrearOperarioModal({ onClose, onCreated }: { onClose: () => void; onCre
   const [nombre, setNombre] = useState('')
   const [legajo, setLegajo] = useState('')
   const [planta, setPlanta] = useState<PlantaId>('torcuato')
+  const [puesto, setPuesto] = useState<'operario' | 'maquinista'>('operario')
   const [saving, setSaving] = useState(false)
   const [error,  setError]  = useState('')
 
@@ -22,7 +23,10 @@ function CrearOperarioModal({ onClose, onCreated }: { onClose: () => void; onCre
     }
     setSaving(true)
     try {
-      await createOperarioProduccionUser({ nombreContacto: nombre.trim(), legajo, planta })
+      await createOperarioProduccionUser({
+        nombreContacto: nombre.trim(), legajo, planta,
+        ...(puesto === 'maquinista' ? { subrol: 'maquinista' as const } : {}),
+      })
       onCreated()
       onClose()
     } catch (err) {
@@ -42,6 +46,25 @@ function CrearOperarioModal({ onClose, onCreated }: { onClose: () => void; onCre
           required inputMode="numeric" maxLength={6} placeholder="1234"
         />
         <p className="text-xs text-gray-400 -mt-2">El operario ingresa a /produccion-{planta} con solo este número, sin contraseña.</p>
+        <div>
+          <label className="text-xs text-gray-500 mb-1 block">Puesto</label>
+          <div className="grid grid-cols-2 gap-2">
+            {([
+              { id: 'operario',   label: 'Operario',   desc: 'Carga pallets' },
+              { id: 'maquinista', label: 'Maquinista', desc: 'Parte de máquinas' },
+            ] as const).map((p) => (
+              <button
+                key={p.id} type="button" onClick={() => setPuesto(p.id)}
+                className={`rounded-lg border px-3 py-2 text-left transition-colors ${
+                  puesto === p.id ? 'border-accent bg-accent/10' : 'border-[#D3D1C7] bg-white'
+                }`}
+              >
+                <p className={`text-sm font-semibold ${puesto === p.id ? 'text-accent' : 'text-gray-800'}`}>{p.label}</p>
+                <p className="text-xs text-gray-400">{p.desc}</p>
+              </button>
+            ))}
+          </div>
+        </div>
         <div>
           <label className="text-xs text-gray-500 mb-1 block">Planta</label>
           <select
@@ -97,7 +120,7 @@ export default function OperariosProduccionPage() {
                 <div>
                   <p className="font-bold text-sm text-gray-900">{o.nombre}</p>
                   <p className="text-gray-500 text-xs">
-                    Legajo {o.legajo}{o.planta ? ` · ${PLANTAS[o.planta].label}` : ''}
+                    {o.subrol === 'maquinista' ? 'Maquinista' : 'Operario'} · Legajo {o.legajo}{o.planta ? ` · ${PLANTAS[o.planta].label}` : ''}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">

@@ -647,6 +647,32 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ── Producción de hielo: parte de máquinas del maquinista ──────────────
+    // Un doc por planta/día/turno (`{plantaId}_{fecha}_{turno}`). Lo carga el
+    // maquinista (rol 'produccion_hielo', subrol en el perfil — las reglas no
+    // distinguen subrol: cualquier operario de la planta puede escribir, la UI
+    // decide qué pantalla ve cada puesto). El encargado puede corregir.
+    match /partesMaquinas/{parteId} {
+      allow read: if request.auth != null
+        && (isProduccion() || isManager() || isGerenteGeneral() || myRole() == 'logistica'
+            || myRole() == 'produccion_encargado');
+
+      // El operario/maquinista solo crea y edita partes de SU planta, y nunca
+      // puede reasignar el doc a otra planta.
+      allow create: if request.auth != null && isProduccion()
+        && request.resource.data.plantaId == myPlanta()
+        && request.resource.data.turno in ['manana', 'tarde', 'noche']
+        && request.resource.data.fecha is string;
+      allow update: if request.auth != null && isProduccion()
+        && resource.data.plantaId == myPlanta()
+        && request.resource.data.plantaId == resource.data.plantaId;
+
+      // Encargado (y super_admin) pueden crear/corregir partes de cualquier planta.
+      allow create, update: if request.auth != null && isProduccionEncargado();
+
+      allow delete: if false;
+    }
+
     // ── Ventas desde el camión (reparto a demanda) ─────────────────────────
     // El chofer registra la venta/entrega que hace desde su camión (descarga
     // del depósito-camión → remito en Tango). Inmutable tras crearse: el número

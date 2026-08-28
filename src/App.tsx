@@ -85,6 +85,16 @@ const ProduccionListadoPage   = lazy(() => import('./pages/produccion/Produccion
 const OperariosProduccionPage = lazy(() => import('./pages/produccion/OperariosProduccionPage'))
 const ProduccionResumenPage   = lazy(() => import('./pages/produccion/ProduccionResumenPage'))
 const PlantasProduccionPage   = lazy(() => import('./pages/produccion/PlantasProduccionPage'))
+const MaquinistaDashboard     = lazy(() => import('./pages/produccion/MaquinistaDashboard'))
+const PartesMaquinasPage      = lazy(() => import('./pages/produccion/PartesMaquinasPage'))
+
+// /produccion es el home de todo rol produccion_hielo, pero el puesto define
+// la pantalla: subrol 'maquinista' → parte de máquinas; sin subrol → carga de
+// pallets. Mismo login por legajo para los dos (LoginProduccion).
+function ProduccionEntry() {
+  const { user } = useAuth()
+  return user?.subrol === 'maquinista' ? <MaquinistaDashboard /> : <ProduccionDashboard />
+}
 
 // ── ErrorBoundary ─────────────────────────────────────────────────────────────
 
@@ -329,7 +339,7 @@ function AppContent() {
         {/* Producción de hielo — dashboard de carga (tablet en planta), fuera
             de cualquier layout, mismo criterio que /tecnico. */}
         <Route element={<ProtectedRoute allowedRoles={['produccion_hielo']} />}>
-          <Route path="/produccion" element={<ProduccionDashboard />} />
+          <Route path="/produccion" element={<ProduccionEntry />} />
         </Route>
         {/* Ticket (impresión standalone) y ficha de consulta de un pallet */}
         <Route element={<ProtectedRoute allowedRoles={['super_admin', 'produccion_hielo', 'produccion_encargado', 'gerente_general', 'gerente_comercial', 'comercial', 'logistica']} />}>
@@ -352,6 +362,7 @@ function AppContent() {
         <Route element={<ProduccionLayout />}>
           <Route element={<ProtectedRoute allowedRoles={['produccion_encargado', 'super_admin']} />}>
             <Route path="/produccion/resumen"   element={<ProduccionResumenPage />} />
+            <Route path="/produccion/partes"    element={<PartesMaquinasPage />} />
             <Route path="/produccion/operarios" element={<OperariosProduccionPage />} />
             <Route path="/produccion/plantas"   element={<PlantasProduccionPage />} />
           </Route>

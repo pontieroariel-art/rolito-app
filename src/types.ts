@@ -198,7 +198,7 @@ export interface UserProfile {
   clientesOcultosMapa?: string[]
   fechaAlta?:         Timestamp | null
   sector?:            string   // internal-only prefix from COD_CTE (e.g. FC, MDP, YPF)
-  subrol?:            'chofer' | 'ayudante'
+  subrol?:            'chofer' | 'ayudante' | 'maquinista'   // 'maquinista' aplica a rol 'produccion_hielo': parte de máquinas en vez de carga de pallets
   area?:              AreaHeladera   // sector de heladeras (rol 'heladeras')
   planta?:            PlantaId   // planta de producción fija del operario (rol 'produccion_hielo')
   legajo?:            string   // login del operario de producción (rol 'produccion_hielo') — solo el número, sin contraseña, ver produccionAuthService.ts
@@ -308,6 +308,32 @@ export interface PalletProduccion {
   operador:         { uid: string; nombre: string }
   fechaFabricacion: Timestamp   // Timestamp.now() del cliente — se necesita para imprimir ya, no depende de serverTimestamp()
   createdAt:        Timestamp   // serverTimestamp(), solo para orden/sincronización
+}
+
+// Parte de máquinas — planilla diaria por turno que carga el maquinista
+// (subrol 'maquinista' del rol 'produccion_hielo'): horarios de cada ciclo de
+// las roliteras + qué maquinarias estuvieron encendidas. Digitaliza la
+// planilla papel "PARTE DE MÁQUINAS" (catálogo en utils/maquinasCatalogo.ts).
+export type TurnoProduccion = 'manana' | 'tarde' | 'noche'
+
+export interface CicloRolitera {
+  rolitera: number      // 1..ROLITERAS_POR_PLANTA
+  ciclo:    number      // correlativo dentro del turno para esa rolitera (1, 2, 3…)
+  sale:     Timestamp | null   // la rolitera empieza a tirar el hielo
+  entra:    Timestamp | null   // arranca el ciclo nuevo de producción (~4 min después de sale)
+}
+
+export interface ParteMaquinas {
+  id:            string   // `${plantaId}_${fecha}_${turno}` — un parte por planta/día/turno
+  plantaId:      PlantaId
+  fecha:         string   // 'yyyy-MM-dd' (fecha local de planta)
+  turno:         TurnoProduccion
+  maquinista:    { uid: string; nombre: string }
+  ciclos:        CicloRolitera[]
+  maquinarias:   Record<string, number[]>   // { bombas: [1,2,3], osmosis: [2], … } — ids de utils/maquinasCatalogo.ts
+  observaciones: string
+  createdAt:     Timestamp   // Timestamp.now() del cliente — mismo criterio offline-first que PalletProduccion
+  updatedAt:     Timestamp
 }
 
 export interface Despacho {

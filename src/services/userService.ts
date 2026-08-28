@@ -460,9 +460,12 @@ export interface CreateOperarioParams {
   nombreContacto: string
   legajo:         string
   planta:         PlantaId
+  // 'maquinista' → carga el parte de máquinas en vez de pallets (mismo rol y
+  // login por legajo, distinto puesto — ver ProduccionEntry en App.tsx).
+  subrol?:        'maquinista'
 }
 
-export const createOperarioProduccionUser = async ({ nombreContacto, legajo, planta }: CreateOperarioParams): Promise<void> => {
+export const createOperarioProduccionUser = async ({ nombreContacto, legajo, planta, subrol }: CreateOperarioParams): Promise<void> => {
   const { legajoToProduccionEmail, setProduccionLegajoIndex, passwordProduccion, getEmailByProduccionLegajo } = await import('./produccionAuthService')
   const normalizedLegajo = legajo.replace(/\D/g, '')
   const email = legajoToProduccionEmail(normalizedLegajo)
@@ -475,6 +478,7 @@ export const createOperarioProduccionUser = async ({ nombreContacto, legajo, pla
     email,
     planta,
     legajo:          normalizedLegajo,
+    ...(subrol ? { subrol } : {}),
     phone:           '',
     rol:             'produccion_hielo' as UserRole,
     estado:          'activo' as UserStatus,

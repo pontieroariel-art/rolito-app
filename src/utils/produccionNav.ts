@@ -1,4 +1,4 @@
-import { ClipboardList, Factory, LayoutDashboard, Users } from 'lucide-react'
+import { ClipboardList, Factory, Gauge, LayoutDashboard, Users } from 'lucide-react'
 import { NavGroup } from './navGroups'
 import { UserRole } from '../types'
 
@@ -12,9 +12,10 @@ export const PRODUCCION_NAV_GROUPS: NavGroup[] = [
   {
     id: 'produccion', label: 'Producción',
     items: [
-      { to: '/produccion/resumen',   label: 'Resumen',   icon: LayoutDashboard, roles: ['produccion_encargado', 'super_admin'] },
-      { to: '/produccion/listado',   label: 'Listado',   icon: ClipboardList,   roles: ['produccion_encargado', 'super_admin'] },
-      { to: '/produccion/operarios', label: 'Operarios', icon: Users,           roles: ['produccion_encargado', 'super_admin'] },
+      { to: '/produccion/resumen',   label: 'Resumen',           icon: LayoutDashboard, roles: ['produccion_encargado', 'super_admin'] },
+      { to: '/produccion/listado',   label: 'Listado',           icon: ClipboardList,   roles: ['produccion_encargado', 'super_admin'] },
+      { to: '/produccion/partes',    label: 'Partes de máquinas', icon: Gauge,          roles: ['produccion_encargado', 'super_admin'] },
+      { to: '/produccion/operarios', label: 'Operarios',         icon: Users,           roles: ['produccion_encargado', 'super_admin'] },
     ],
   },
   {
