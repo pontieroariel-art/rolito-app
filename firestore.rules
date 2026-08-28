@@ -229,7 +229,10 @@ service cloud.firestore {
             // entran por isManager().
             || myRole() == 'heladeras_encargado'
             // produccion_encargado necesita ver la lista de operarios de planta.
-            || myRole() == 'produccion_encargado');
+            || myRole() == 'produccion_encargado'
+            // chofer necesita buscar el cliente registrado al que le vende desde
+            // el camión (venta a demanda → remito). Ver ventaCamionService.ts.
+            || myRole() == 'chofer');
 
       // ── super_admin: control total (asigna roles, crea staff, limpia datos) ──
       allow read, write: if request.auth != null && myRole() == 'super_admin';
@@ -644,6 +647,28 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ── Ventas desde el camión (reparto a demanda) ─────────────────────────
+    // El chofer registra la venta/entrega que hace desde su camión (descarga
+    // del depósito-camión → remito en Tango). Inmutable tras crearse: el número
+    // de remito lo escribe de vuelta la Cloud Function onOutboxConfirmado
+    // (Admin SDK, bypassa estas reglas). Ver docs/tango/INTEGRACION.md.
+    match /ventasCamion/{ventaId} {
+      allow read: if request.auth != null
+        && (isOperator() || isManager() || isGerenteGeneral()
+            || (isChofer() && resource.data.choferId == request.auth.uid));
+
+      allow create: if request.auth != null && isChofer()
+        && request.resource.data.choferId == request.auth.uid
+        && request.resource.data.clienteId is string
+        && request.resource.data.camionId is string
+        && request.resource.data.canal in ['promo', 'contado']
+        && request.resource.data.formaPago in ['contado_efectivo', 'contado_transferencia', 'cuenta_corriente']
+        && request.resource.data.items is list
+        && request.resource.data.total is number;
+
+      allow update, delete: if false;
+    }
+
     // ── Cola de salida hacia Tango (app → Tango, tiempo real) ──────────────
     // Un doc por evento a informar a Tango (hoy solo producción de hielo,
     // pensado genérico para futuros casos). Solo lo crea un Cloud Function
@@ -656,7 +681,7 @@ service cloud.firestore {
       allow read: if request.auth != null && (isTangoBridge() || isOperator());
       allow update: if request.auth != null && isTangoBridge()
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['estado', 'intentos', 'ultimoError', 'actualizadoEn']);
+             .hasOnly(['estado', 'intentos', 'ultimoError', 'actualizadoEn', 'resultado']);
       allow create, delete: if false;
     }
 

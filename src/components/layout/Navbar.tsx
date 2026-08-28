@@ -80,8 +80,9 @@ const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
     { to: '/admin/mapa-clientes',          label: 'Mapa clientes',  icon: Map },
   ],
   chofer: [
-    { to: '/chofer',     label: 'Inicio',       icon: Home },
-    { to: '/chofer/map', label: 'Ruta',         icon: Navigation },
+    { to: '/chofer',       label: 'Inicio',       icon: Home },
+    { to: '/chofer/venta', label: 'Vender',       icon: Package },
+    { to: '/chofer/map',   label: 'Ruta',         icon: Navigation },
   ],
   heladeras: [
     { to: '/heladeras', label: 'Heladeras', icon: Snowflake },

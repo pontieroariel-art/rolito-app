@@ -50,6 +50,69 @@ export interface ListaPrecios {
   items:  ItemListaPrecios[]
 }
 
+// ── Reparto: depósitos y venta desde camión (integración Tango) ───────────────
+// Ver docs/tango/INTEGRACION.md y el plan de reparto. El stock/contabilidad es
+// fuente de verdad de Tango; Rolito registra la operación en tiempo real y le
+// manda los movimientos por la vía oficial (writers del bridge, por ahora stub).
+
+// Cámaras (Torcuato/Merlo) y camiones son depósitos en Tango.
+export interface Deposito {
+  id:                  string
+  nombre:              string
+  tipo:                'camara' | 'camion'
+  depositoTangoCodigo: string
+  camionId?:           string   // solo si tipo === 'camion'
+}
+
+export type FormaPago = 'contado_efectivo' | 'contado_transferencia' | 'cuenta_corriente'
+
+// Canal de la venta → decide la empresa de Tango donde entra el remito y el
+// precio aplicado. 'contado' = Venta Contado (Redonhielo, se factura);
+// 'promo' = Promo (Rolito, no se factura). Las dos empresas comparten la misma
+// base de clientes con el mismo código, así que el codigoTango sirve para ambas.
+export type CanalVenta = 'contado' | 'promo'
+
+export interface VentaCamionItem {
+  productoId:     string
+  nombre:         string
+  cantidad:       number
+  precioUnitario: number
+}
+
+// Estado de sincronización del remito con Tango (mismo patrón que el resto de
+// la cola tango-outbox: pendiente → enviado → confirmado/error).
+export interface RemitoTangoEstado {
+  estado:       'pendiente' | 'enviado' | 'confirmado' | 'error'
+  remitoNumero?: string
+  ultimoError?:  string
+}
+
+// Una venta/entrega hecha por el chofer desde el camión (flujo principal del
+// reparto: a demanda, a clientes ya registrados, precio = lista del cliente).
+// Descarga del depósito-camión y genera un remito en Tango (async).
+export interface VentaCamion {
+  id:                   string
+  canal:                CanalVenta   // promo (Rolito) / contado (Redonhielo)
+  camionId:             string
+  choferId:             string
+  choferNombre:         string
+  clienteId:            string     // uid del cliente registrado
+  clienteNombre:        string
+  clienteCodigoTango?:  string     // COD_GVA14 (para el remito en Tango)
+  clienteIdGva14Tango?: number
+  items:                VentaCamionItem[]
+  total:                number
+  formaPago:            FormaPago
+  // Constancia de entrega: dataURL PNG de la firma, guardado en el propio doc
+  // (una firma pesa decenas de KB, muy por debajo del límite de 1MB, y así se
+  // encola offline con el resto de la venta — Storage no encola sin red).
+  firmaCliente?:        string
+  firmanteNombre?:      string     // nombre y apellido de quien firma (aclaración)
+  fecha:                Timestamp
+  pedidoId?:            string | null   // pedido previo que la originó, si hubo
+  tango?:               RemitoTangoEstado
+}
+
 export interface DeliveryAddress {
   id: string
   nombre: string
@@ -123,6 +186,10 @@ export interface UserProfile {
   // necesariamente coincide con las opciones fijas del desplegable.
   condicionVenta?:    string
   dni?:               string   // DNI sin puntos (8 dígitos) — staff y choferes
+  // Chofer: propio (no cobra comisión) vs fletero (cobra % mensual sobre lo
+  // facturado). Ver liquidación / comisión en la integración de reparto Tango.
+  tipoChofer?:        'propio' | 'fletero'
+  comisionPorcentaje?: number   // % de comisión mensual (solo fleteros)
   notasContacto?:     string   // internal-only notes from Excel import (admin view)
   // Clientes que ESTE usuario de staff decidió sacarse de encima en su propio
   // mapa de Planificación (ej. estaciones de servicio que no coordina) — es

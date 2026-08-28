@@ -91,8 +91,8 @@ async function main() {
 
   // ── Choferes ─────────────────────────────────────────────────────────────
   const choferesSeed = [
-    { cuit: '20111111112', nombre: 'Chofer Prueba Uno' },
-    { cuit: '20222222223', nombre: 'Chofer Prueba Dos' },
+    { cuit: '20111111112', nombre: 'Chofer Prueba Uno', camionId: 'camion-1', camionPatente: 'AF313WU', tipoChofer: 'fletero', comisionPorcentaje: 8 },
+    { cuit: '20222222223', nombre: 'Chofer Prueba Dos', camionId: 'camion-2', camionPatente: 'AB222CC', tipoChofer: 'propio' },
   ]
   for (const c of choferesSeed) {
     const dni   = dniFromCuit(c.cuit)
@@ -101,10 +101,27 @@ async function main() {
     await db.collection('users').doc(uid).set(baseUserFields({
       email, nombre: c.nombre, nombreContacto: c.nombre, cuit: c.cuit,
       rol: 'chofer', username: dni,
+      // Camión asignado + tipo de chofer — para probar la venta desde el camión.
+      camionId: c.camionId, camionPatente: c.camionPatente, tipoChofer: c.tipoChofer,
+      ...(c.comisionPorcentaje ? { comisionPorcentaje: c.comisionPorcentaje } : {}),
     }), { merge: true })
     await db.collection('dniIndex').doc(dni).set({ email, cuit: c.cuit })
-    console.log(`✓ Chofer — DNI ${dni} / PIN 1234 (${c.nombre})`)
+    console.log(`✓ Chofer — DNI ${dni} / PIN 1234 (${c.nombre}, camión ${c.camionId})`)
   }
+
+  // ── Lista de precios (para la venta desde el camión) ──────────────────────
+  const listaItems = [
+    { productoId: 'bolsa_2kg',     nombre: 'Hielo bolsa 2kg',         unidad: 'bolsa',  precio: 1200, activo: true },
+    { productoId: 'bolsa_3kg',     nombre: 'Hielo bolsa 3kg',         unidad: 'bolsa',  precio: 1600, activo: true },
+    { productoId: 'bolsa_10kg',    nombre: 'Hielo bolsa 10kg',        unidad: 'bolsa',  precio: 4000, activo: true },
+    { productoId: 'picado_10kg',   nombre: 'Hielo picado bolsa 10kg', unidad: 'bolsa',  precio: 4500, activo: true },
+    { productoId: 'escamas_10kg',  nombre: 'Hielo en escamas 10kg',   unidad: 'bolsa',  precio: 4800, activo: true },
+    { productoId: 'barra',         nombre: 'Barra de hielo',          unidad: 'barra',  precio: 6000, activo: true },
+    { productoId: 'anticorrosivo', nombre: 'Anticorrosivo',           unidad: 'unidad', precio: 900,  activo: true },
+    { productoId: 'agua_6l',       nombre: 'Agua de mesa x 6 litros', unidad: 'bidón',  precio: 3000, activo: true },
+  ]
+  await db.collection('listas-precios').doc('lista-general').set({ nombre: 'Lista General', items: listaItems }, { merge: true })
+  console.log('✓ Lista de precios "Lista General"')
 
   // ── Cliente ──────────────────────────────────────────────────────────────
   const clienteCuit  = '30111111118'
@@ -131,6 +148,8 @@ async function main() {
     cuit: clienteCuit, telefono: '1122334455', phone: '1122334455',
     addresses: [direccion, direccion2], address: direccion.address, lat: direccion.lat, lng: direccion.lng,
     codigoCliente: 'CL-0001', rol: 'cliente',
+    // Lista de precios + código Tango — para probar la venta desde el camión (remito).
+    listaPreciosId: 'lista-general', codigoTango: '099001', idGva14Tango: 99001,
   }), { merge: true })
   await db.collection('cuitIndex').doc(clienteCuit).set({ email: clienteEmail })
   console.log(`✓ Cliente — CUIT ${clienteCuit} / contraseña ${PASSWORD}`)

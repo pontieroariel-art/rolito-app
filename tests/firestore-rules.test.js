@@ -1876,6 +1876,90 @@ describe('tango-outbox', () => {
     await seed((d) => setDoc(doc(d, 'tango-outbox/i1'), item()))
     await assertFails(getDoc(doc(db('op1'), 'tango-outbox/i1')))
   })
+
+  test('el bridge puede escribir el resultado (nº de remito de vuelta)', async () => {
+    await seedBridge()
+    await seed((d) => setDoc(doc(d, 'tango-outbox/i1'), item({ entidad: 'remito' })))
+    await assertSucceeds(updateDoc(doc(db('bridge1'), 'tango-outbox/i1'), {
+      estado: 'confirmado', resultado: { remitoNumero: '0001-00012345' }, actualizadoEn: new Date(),
+    }))
+  })
+})
+
+// ── ventasCamion: venta desde el camión (reparto a demanda) ───────────────────
+describe('ventasCamion', () => {
+  const venta = (extra = {}) => ({
+    canal: 'contado', camionId: 'cam1', choferId: 'chof1', choferNombre: 'Chofer Uno',
+    clienteId: 'cli', clienteNombre: 'Cliente SA',
+    items: [{ productoId: 'bolsa_10kg', nombre: 'Hielo 10kg', cantidad: 5, precioUnitario: 100 }],
+    total: 500, formaPago: 'contado_efectivo', fecha: new Date(),
+    pedidoId: null, tango: { estado: 'pendiente' }, ...extra,
+  })
+  const seedChofer = (uid = 'chof1') =>
+    seed((d) => setDoc(doc(d, `users/${uid}`), { rol: 'chofer', estado: 'activo' }))
+
+  test('un chofer puede crear su propia venta', async () => {
+    await seedChofer()
+    await assertSucceeds(setDoc(doc(db('chof1'), 'ventasCamion/v1'), venta()))
+  })
+
+  test('un chofer NO puede crear una venta a nombre de otro chofer', async () => {
+    await seedChofer()
+    await assertFails(setDoc(doc(db('chof1'), 'ventasCamion/v1'), venta({ choferId: 'otro' })))
+  })
+
+  test('un chofer NO puede crear con forma de pago inválida', async () => {
+    await seedChofer()
+    await assertFails(setDoc(doc(db('chof1'), 'ventasCamion/v1'), venta({ formaPago: 'cripto' })))
+  })
+
+  test('un chofer NO puede crear con canal inválido', async () => {
+    await seedChofer()
+    await assertFails(setDoc(doc(db('chof1'), 'ventasCamion/v1'), venta({ canal: 'otro' })))
+  })
+
+  test('un chofer SÍ puede crear una venta Promo', async () => {
+    await seedChofer()
+    await assertSucceeds(setDoc(doc(db('chof1'), 'ventasCamion/v1'), venta({ canal: 'promo' })))
+  })
+
+  test('una venta es inmutable tras crearse', async () => {
+    await seedChofer()
+    await seed((d) => setDoc(doc(d, 'ventasCamion/v1'), venta()))
+    await assertFails(updateDoc(doc(db('chof1'), 'ventasCamion/v1'), { total: 999 }))
+  })
+
+  test('el chofer puede leer su propia venta pero no la de otro', async () => {
+    await seedChofer()
+    await seed((d) => setDoc(doc(d, 'ventasCamion/mia'), venta()))
+    await seed((d) => setDoc(doc(d, 'ventasCamion/ajena'), venta({ choferId: 'otro' })))
+    await assertSucceeds(getDoc(doc(db('chof1'), 'ventasCamion/mia')))
+    await assertFails(getDoc(doc(db('chof1'), 'ventasCamion/ajena')))
+  })
+
+  test('un operador (super_admin) puede leer cualquier venta', async () => {
+    await seed((d) => setDoc(doc(d, 'users/sa'), { rol: 'super_admin', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'ventasCamion/v1'), venta()))
+    await assertSucceeds(getDoc(doc(db('sa'), 'ventasCamion/v1')))
+  })
+
+  test('un cliente NO puede leer ventas de camión', async () => {
+    await seed((d) => setDoc(doc(d, 'users/cli'), cliente()))
+    await seed((d) => setDoc(doc(d, 'ventasCamion/v1'), venta()))
+    await assertFails(getDoc(doc(db('cli', 'c@x.com'), 'ventasCamion/v1')))
+  })
+
+  test('el chofer puede leer un cliente registrado (para venderle desde el camión)', async () => {
+    await seedChofer()
+    await seed((d) => setDoc(doc(d, 'users/cli'), cliente()))
+    await assertSucceeds(getDoc(doc(db('chof1'), 'users/cli')))
+  })
+
+  test('el chofer NO puede modificar el doc de un cliente', async () => {
+    await seedChofer()
+    await seed((d) => setDoc(doc(d, 'users/cli'), cliente()))
+    await assertFails(updateDoc(doc(db('chof1'), 'users/cli'), { razonSocial: 'Hackeado' }))
+  })
 })
 
 // ── config/produccionCounter_*: correlativo por planta ────────────────────────
