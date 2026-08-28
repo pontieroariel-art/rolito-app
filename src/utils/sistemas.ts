@@ -38,7 +38,7 @@ export const ROLE_SISTEMAS: Record<UserRole, Sistema[]> = {
 export const MULTI_SISTEMA_HOME: Partial<Record<UserRole, Record<Sistema, string>>> = {
   gerente_comercial: { logistica: '/logistica', heladeras: '/heladeras', produccion: '/produccion/listado' },
   comercial:         { logistica: '/comercial', heladeras: '/heladeras', produccion: '/produccion/listado' },
-  super_admin:       { logistica: '/logistica', heladeras: '/heladeras', produccion: '/produccion/listado' },
+  super_admin:       { logistica: '/logistica', heladeras: '/heladeras', produccion: '/produccion/resumen' },
 }
 
 export const SISTEMA_LABELS: Record<Sistema, string> = {

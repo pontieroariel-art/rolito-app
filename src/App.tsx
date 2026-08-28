@@ -83,6 +83,8 @@ const ProduccionTicketPage    = lazy(() => import('./pages/produccion/Produccion
 const FichaPalletPage         = lazy(() => import('./pages/produccion/FichaPalletPage'))
 const ProduccionListadoPage   = lazy(() => import('./pages/produccion/ProduccionListadoPage'))
 const OperariosProduccionPage = lazy(() => import('./pages/produccion/OperariosProduccionPage'))
+const ProduccionResumenPage   = lazy(() => import('./pages/produccion/ProduccionResumenPage'))
+const PlantasProduccionPage   = lazy(() => import('./pages/produccion/PlantasProduccionPage'))
 
 // ── ErrorBoundary ─────────────────────────────────────────────────────────────
 
@@ -336,18 +338,22 @@ function AppContent() {
         </Route>
         {/* Listado de producción para gerencia/logística/encargado. super_admin
             entra también — tiene una card directa a esta ruta en el Backoffice
-            (Configuración — Producción) que hasta ahora rebotaba. */}
+            (Configuración — Producción) que hasta ahora rebotaba. La página
+            elige su shell por rol: sidebar de producción para encargado/
+            super_admin, Navbar genérico para el resto (usaShellProduccion). */}
         <Route element={<ProtectedRoute allowedRoles={['gerente_general', 'gerente_comercial', 'comercial', 'logistica', 'produccion_encargado', 'super_admin']} />}>
           <Route path="/produccion/listado" element={<ProduccionListadoPage />} />
         </Route>
 
         {/* Producción — panel del encargado (rol produccion_encargado), mismo
-            patrón que LogisticaLayout/HeladerasLayout. Arranca con Operarios
-            nada más, se va a ir sumando a medida que crezca (ver
-            utils/produccionNav.ts). */}
+            patrón que LogisticaLayout/HeladerasLayout. Resumen es su home
+            (ROLE_HOME en Landing.tsx); Listado también aparece en su sidebar
+            pero la ruta vive arriba porque es compartida con gerencia. */}
         <Route element={<ProduccionLayout />}>
           <Route element={<ProtectedRoute allowedRoles={['produccion_encargado', 'super_admin']} />}>
+            <Route path="/produccion/resumen"   element={<ProduccionResumenPage />} />
             <Route path="/produccion/operarios" element={<OperariosProduccionPage />} />
+            <Route path="/produccion/plantas"   element={<PlantasProduccionPage />} />
           </Route>
         </Route>
 

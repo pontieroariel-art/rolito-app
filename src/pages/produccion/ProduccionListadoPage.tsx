@@ -1,14 +1,23 @@
 import { useMemo, useState, ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
 import Navbar from '../../components/layout/Navbar'
+import ProduccionLayout from '../../components/produccion/ProduccionLayout'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
+import { useAuth } from '../../context/AuthContext'
 import { useProduccionPallets } from '../../hooks/useProduccionPallets'
 import { ProduccionResumen } from '../../components/produccion/ProduccionResumen'
+import { usaShellProduccion } from '../../utils/produccionNav'
 import { PLANTAS, PlantaId } from '../../types'
 import { PRODUCTOS_HIELO_LIST } from '../../utils/produccionCatalogo'
 import { toDateStr } from '../../utils/helpers'
 
+// Pantalla compartida: el encargado (y super_admin) la ven dentro del shell
+// de producción (sidebar), gerencia/logística/comercial con su Navbar de
+// siempre. La ruta es una sola (/produccion/listado) y no puede vivir anidada
+// bajo la <Route> de ProduccionLayout sin arrastrar el sidebar a todos, por
+// eso el shell se elige acá por rol.
 export default function ProduccionListadoPage() {
+  const { user } = useAuth()
   const { pallets, loading } = useProduccionPallets(undefined)
   const [planta,   setPlanta]   = useState<PlantaId | ''>('')
   const [producto, setProducto] = useState('')
@@ -21,9 +30,7 @@ export default function ProduccionListadoPage() {
     return true
   }), [pallets, planta, producto, fecha])
 
-  return (
-    <div className="min-h-screen bg-[#F8F7F2] text-gray-900">
-      <Navbar />
+  const contenido = (
       <main className="max-w-3xl mx-auto p-4 space-y-4 pb-10">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Producción de hielo</h1>
@@ -96,6 +103,15 @@ export default function ProduccionListadoPage() {
           </div>
         )}
       </main>
+  )
+
+  if (usaShellProduccion(user?.rol)) {
+    return <ProduccionLayout>{contenido}</ProduccionLayout>
+  }
+  return (
+    <div className="min-h-screen bg-[#F8F7F2] text-gray-900">
+      <Navbar />
+      {contenido}
     </div>
   )
 }

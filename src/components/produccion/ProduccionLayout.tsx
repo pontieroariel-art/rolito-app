@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { ReactNode, useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Menu, X, LogOut, UserCog } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
@@ -12,7 +12,11 @@ import { PRODUCCION_NAV_GROUPS } from '../../utils/produccionNav'
 // produccion_encargado (rol de un solo sistema, sin picker — ver
 // utils/sistemas.ts), por eso no tiene el botón "Cambiar de sistema" que sí
 // tienen los otros dos layouts.
-export default function ProduccionLayout() {
+//
+// Acepta children además de <Outlet/> para las pantallas compartidas con
+// otros roles (Listado) que eligen shell según el rol y no pueden vivir
+// anidadas bajo la ruta del layout — ver ProduccionListadoPage.
+export default function ProduccionLayout({ children }: { children?: ReactNode }) {
   const { user }   = useAuth()
   const online     = useOnline()
   const navigate   = useNavigate()
@@ -147,7 +151,7 @@ export default function ProduccionLayout() {
       </aside>
 
       <main className="flex-1 min-w-0">
-        <Outlet />
+        {children ?? <Outlet />}
       </main>
       </div>
     </div>

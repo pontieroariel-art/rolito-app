@@ -7,16 +7,14 @@ import { UserProfile } from '../../../types'
 import { ROLE_SISTEMAS, SISTEMA_LABELS, Sistema } from '../../../utils/sistemas'
 import { LOGISTICA_NAV_GROUPS } from '../../../utils/logisticaNav'
 import { HELADERAS_NAV_GROUPS } from '../../../utils/heladerasNav'
+import { PRODUCCION_NAV_GROUPS } from '../../../utils/produccionNav'
 import { NavGroup } from '../../../utils/navGroups'
 
-const SISTEMAS_ORDEN: Sistema[] = ['logistica', 'heladeras']
-// 'produccion' no tiene pestañas finas que recortar (dashboard de carga de
-// un solo propósito, sin sub-navegación) — queda fuera de SISTEMAS_ORDEN, el
-// array vacío solo satisface el Record completo.
+const SISTEMAS_ORDEN: Sistema[] = ['logistica', 'heladeras', 'produccion']
 const GRUPOS_POR_SISTEMA: Record<Sistema, NavGroup[]> = {
   logistica:  LOGISTICA_NAV_GROUPS,
   heladeras:  HELADERAS_NAV_GROUPS,
-  produccion: [],
+  produccion: PRODUCCION_NAV_GROUPS,
 }
 
 // Ítems de nav que el rol de este usuario ya puede ver en un sistema dado —

@@ -1,20 +1,34 @@
-import { Factory } from 'lucide-react'
+import { ClipboardList, Factory, LayoutDashboard, Users } from 'lucide-react'
 import { NavGroup } from './navGroups'
+import { UserRole } from '../types'
 
 // Roles de cada ítem = exactamente el allowedRoles de su <Route> en App.tsx.
-// Arranca chico a propósito (ver plan de migración del Backoffice, rol
-// produccion_encargado) — se va a ir sumando acá a medida que se agreguen
-// pantallas de gestión de planta.
 //
-// "Listado" (/produccion/listado) queda afuera a propósito: es una pantalla
-// compartida con gerencia/logística que tiene su propio Navbar genérico, no
-// este layout — meterla en este sidebar sacaría al encargado de este shell
-// en cada click. Se linkea desde adentro de las páginas, no desde acá.
+// "Listado" (/produccion/listado) es una pantalla compartida con gerencia/
+// logística/comercial: la MISMA ruta se renderiza dentro de este shell para
+// encargado/super_admin (usaShellProduccion) y con el Navbar genérico para el
+// resto — ver ProduccionListadoPage.
 export const PRODUCCION_NAV_GROUPS: NavGroup[] = [
   {
     id: 'produccion', label: 'Producción',
     items: [
-      { to: '/produccion/operarios', label: 'Operarios', icon: Factory, roles: ['produccion_encargado', 'super_admin'] },
+      { to: '/produccion/resumen',   label: 'Resumen',   icon: LayoutDashboard, roles: ['produccion_encargado', 'super_admin'] },
+      { to: '/produccion/listado',   label: 'Listado',   icon: ClipboardList,   roles: ['produccion_encargado', 'super_admin'] },
+      { to: '/produccion/operarios', label: 'Operarios', icon: Users,           roles: ['produccion_encargado', 'super_admin'] },
+    ],
+  },
+  {
+    id: 'configuracion', label: 'Configuración',
+    items: [
+      { to: '/produccion/plantas', label: 'Plantas', icon: Factory, roles: ['produccion_encargado', 'super_admin'] },
     ],
   },
 ]
+
+// ¿Este rol ve las pantallas de producción dentro del shell del encargado
+// (sidebar de ProduccionLayout)? super_admin entra igual que el encargado —
+// consistente con /produccion/operarios, que ya le muestra este sidebar.
+// Gerencia/logística/comercial consultan el listado con su Navbar de siempre.
+export function usaShellProduccion(rol: UserRole | undefined): boolean {
+  return rol === 'produccion_encargado' || rol === 'super_admin'
+}
