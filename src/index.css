@@ -34,6 +34,16 @@
 /* Tamaño de página para la etiqueta Zebra de heladeras (100x100mm) — @page
    global sin nombre, sigue siendo el tamaño por defecto de window.print(). */
 @media print {
+  /* Los navegadores omiten los colores de fondo al imprimir (opción "gráficos
+     de fondo" apagada por defecto, para ahorrar tinta) — la banda negra
+     "NO REMOVER" de la etiqueta de heladeras salía como texto suelto sin
+     fondo. Acá solo se imprimen etiquetas/tickets B&N: forzar los fondos
+     siempre, sin depender de esa casilla del diálogo. */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
   @page {
     size: 100mm 100mm;
     margin: 0;
