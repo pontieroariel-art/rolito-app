@@ -9,7 +9,12 @@ import { subscribeRemitosCargaDelDia } from '../../services/remitoCargaService'
 import {
   confirmarEntregaRemito, crearDescargaCamion, subscribeDescargasDelDia,
 } from '../../services/descargaCamionService'
-import { DescargaCamion, DescargaCamionItem, PLANTAS, RemitoCarga } from '../../types'
+import {
+  confirmarEntregaVentanilla, subscribeVentanillaDelDia,
+} from '../../services/ventaVentanillaService'
+import {
+  DescargaCamion, DescargaCamionItem, PLANTAS, RemitoCarga, VentaVentanilla,
+} from '../../types'
 
 // Pantalla del rol muelle (tablet en planta): confirma la entrega de la
 // mercadería contra el remito de carga, y cuenta la descarga física cuando el
@@ -20,11 +25,13 @@ export default function MuelleDashboard() {
   const { catalogo } = useCatalogo()
   const plantaId = user?.planta ?? 'torcuato'
 
-  const [remitos,   setRemitos]   = useState<RemitoCarga[]>([])
-  const [descargas, setDescargas] = useState<DescargaCamion[]>([])
+  const [remitos,     setRemitos]     = useState<RemitoCarga[]>([])
+  const [descargas,   setDescargas]   = useState<DescargaCamion[]>([])
+  const [ventanillas, setVentanillas] = useState<VentaVentanilla[]>([])
 
   useEffect(() => subscribeRemitosCargaDelDia(plantaId, new Date(), setRemitos), [plantaId])
   useEffect(() => subscribeDescargasDelDia(plantaId, new Date(), setDescargas), [plantaId])
+  useEffect(() => subscribeVentanillaDelDia(plantaId, new Date(), setVentanillas), [plantaId])
 
   // ── Descarga: formulario ──
   const [remitoDescargaId, setRemitoDescargaId] = useState('')
@@ -39,6 +46,7 @@ export default function MuelleDashboard() {
   const [okMsg,       setOkMsg]       = useState('')
 
   const porEntregar = remitos.filter((r) => r.estado === 'emitido')
+  const ventanillasPendientes = ventanillas.filter((v) => v.estado === 'pendiente_entrega')
   // Para descargar: cualquier remito ya entregado (el camión salió y volvió).
   const entregados  = remitos.filter((r) => r.estado !== 'emitido')
   const remitoDescarga = entregados.find((r) => r.id === remitoDescargaId)
@@ -57,6 +65,17 @@ export default function MuelleDashboard() {
       await confirmarEntregaRemito(r, { uid: user.uid, nombre: user.nombre, plantaId })
     } catch (err) {
       console.error('[muelle] error al confirmar entrega:', err)
+      setError('No se pudo confirmar la entrega. Intentá de nuevo.')
+    }
+  }
+
+  const entregarVentanilla = async (v: VentaVentanilla) => {
+    if (!user) return
+    setError('')
+    try {
+      await confirmarEntregaVentanilla(v, { uid: user.uid, nombre: user.nombre })
+    } catch (err) {
+      console.error('[muelle] error al entregar ventanilla:', err)
       setError('No se pudo confirmar la entrega. Intentá de nuevo.')
     }
   }
@@ -147,6 +166,32 @@ export default function MuelleDashboard() {
             </div>
           ))}
         </section>
+
+        {/* ── Ventanillas para entregar ── */}
+        {ventanillasPendientes.length > 0 && (
+          <section className="space-y-2">
+            <h2 className="font-semibold text-gray-800 flex items-center gap-2">
+              <PackageCheck size={18} className="text-accent" /> Ventanillas para entregar
+            </h2>
+            {ventanillasPendientes.map((v) => (
+              <div key={v.id} className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-gray-900">{v.clienteNombre}</p>
+                  <p className="text-xs text-gray-500">Caja: {v.cajaNombre}</p>
+                </div>
+                <div className="text-xs text-gray-600 space-y-0.5">
+                  {v.items.map((i) => (
+                    <div key={i.productoId} className="flex justify-between">
+                      <span>{i.nombre}</span>
+                      <span className="font-medium">{i.cantidad}</span>
+                    </div>
+                  ))}
+                </div>
+                <Button onClick={() => entregarVentanilla(v)} className="w-full">Mercadería entregada</Button>
+              </div>
+            ))}
+          </section>
+        )}
 
         {/* ── Registrar descarga ── */}
         <section className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-4 space-y-4">

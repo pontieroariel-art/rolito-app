@@ -2397,3 +2397,92 @@ describe('ventasCamion: lectura de caja', () => {
     await assertFails(getDoc(doc(db('mue1'), 'ventasCamion/v1')))
   })
 })
+
+// ── Expedición Fase 3: ventanilla y cobranzas ─────────────────────────────────
+describe('expedicion: ventanilla y cobranzas', () => {
+  const seedCaja   = (uid = 'caja1', planta = 'torcuato') =>
+    seed((d) => setDoc(doc(d, `users/${uid}`), { rol: 'caja', estado: 'activo', planta }))
+  const seedMuelle = (uid = 'mue1', planta = 'torcuato') =>
+    seed((d) => setDoc(doc(d, `users/${uid}`), { rol: 'muelle', estado: 'activo', planta }))
+
+  const venta = (extra = {}) => ({
+    plantaId: 'torcuato', canal: 'contado', cajaId: 'caja1', cajaNombre: 'Caja',
+    clienteNombre: 'Cliente SA',
+    items: [{ productoId: 'bolsa_10kg', nombre: 'Hielo 10kg', cantidad: 5, precioUnitario: 4000 }],
+    total: 20000, formaPago: 'contado_efectivo', estado: 'pendiente_entrega',
+    fecha: new Date(), tango: { estado: 'pendiente' }, ...extra,
+  })
+  const cobranza = (extra = {}) => ({
+    origen: 'caja', plantaId: 'torcuato', registradoPor: { uid: 'caja1', nombre: 'Caja' },
+    clienteId: 'cli', clienteNombre: 'Cliente SA', importe: 50000,
+    formaPago: 'contado_efectivo', fecha: new Date(), ...extra,
+  })
+
+  test('caja crea una venta de ventanilla en su planta', async () => {
+    await seedCaja()
+    await assertSucceeds(setDoc(doc(db('caja1'), 'ventasVentanilla/v1'), venta()))
+  })
+
+  test('caja NO crea ventas de otra planta ni a nombre de otro', async () => {
+    await seedCaja()
+    await assertFails(setDoc(doc(db('caja1'), 'ventasVentanilla/v1'), venta({ plantaId: 'merlo' })))
+    await assertFails(setDoc(doc(db('caja1'), 'ventasVentanilla/v2'), venta({ cajaId: 'otro' })))
+  })
+
+  test('caja NO crea la venta ya entregada', async () => {
+    await seedCaja()
+    await assertFails(setDoc(doc(db('caja1'), 'ventasVentanilla/v1'), venta({ estado: 'entregado' })))
+  })
+
+  test('muelle entrega una ventanilla pendiente de su planta', async () => {
+    await seedMuelle()
+    await seed((d) => setDoc(doc(d, 'ventasVentanilla/v1'), venta()))
+    await assertSucceeds(updateDoc(doc(db('mue1'), 'ventasVentanilla/v1'), {
+      estado: 'entregado', entregadoPor: { uid: 'mue1', nombre: 'Muelle', hora: new Date() },
+    }))
+  })
+
+  test('muelle NO puede tocar el total al entregar', async () => {
+    await seedMuelle()
+    await seed((d) => setDoc(doc(d, 'ventasVentanilla/v1'), venta()))
+    await assertFails(updateDoc(doc(db('mue1'), 'ventasVentanilla/v1'), {
+      estado: 'entregado', entregadoPor: { uid: 'mue1', nombre: 'Muelle', hora: new Date() },
+      total: 1,
+    }))
+  })
+
+  test('caja NO puede entregar (eso es de muelle)', async () => {
+    await seedCaja()
+    await seed((d) => setDoc(doc(d, 'ventasVentanilla/v1'), venta()))
+    await assertFails(updateDoc(doc(db('caja1'), 'ventasVentanilla/v1'), {
+      estado: 'entregado', entregadoPor: { uid: 'caja1', nombre: 'Caja', hora: new Date() },
+    }))
+  })
+
+  test('caja registra una cobranza de mostrador', async () => {
+    await seedCaja()
+    await assertSucceeds(setDoc(doc(db('caja1'), 'cobranzas/c1'), cobranza()))
+  })
+
+  test('caja NO registra cobranzas con origen cobrador ni importe cero', async () => {
+    await seedCaja()
+    await assertFails(setDoc(doc(db('caja1'), 'cobranzas/c1'), cobranza({ origen: 'cobrador' })))
+    await assertFails(setDoc(doc(db('caja1'), 'cobranzas/c2'), cobranza({ importe: 0 })))
+  })
+
+  test('una cobranza es inmutable; muelle no las crea', async () => {
+    await seedCaja()
+    await seedMuelle()
+    await seed((d) => setDoc(doc(d, 'cobranzas/c1'), cobranza()))
+    await assertFails(updateDoc(doc(db('caja1'), 'cobranzas/c1'), { importe: 1 }))
+    await assertFails(setDoc(doc(db('mue1'), 'cobranzas/c2'), cobranza({ registradoPor: { uid: 'mue1', nombre: 'M' } })))
+  })
+
+  test('un cliente NO lee ventanilla ni cobranzas', async () => {
+    await seed((d) => setDoc(doc(d, 'users/cli'), cliente()))
+    await seed((d) => setDoc(doc(d, 'ventasVentanilla/v1'), venta()))
+    await seed((d) => setDoc(doc(d, 'cobranzas/c1'), cobranza()))
+    await assertFails(getDoc(doc(db('cli', 'c@x.com'), 'ventasVentanilla/v1')))
+    await assertFails(getDoc(doc(db('cli', 'c@x.com'), 'cobranzas/c1')))
+  })
+})

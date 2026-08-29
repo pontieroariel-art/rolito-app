@@ -91,6 +91,8 @@ const PartesMaquinasPage      = lazy(() => import('./pages/produccion/PartesMaqu
 const ExpedicionLayout  = lazy(() => import('./components/expedicion/ExpedicionLayout'))
 const RemitosCargaPage  = lazy(() => import('./pages/expedicion/RemitosCargaPage'))
 const LiquidacionesPage = lazy(() => import('./pages/expedicion/LiquidacionesPage'))
+const VentanillaPage    = lazy(() => import('./pages/expedicion/VentanillaPage'))
+const CobranzasPage     = lazy(() => import('./pages/expedicion/CobranzasPage'))
 const MuelleDashboard   = lazy(() => import('./pages/expedicion/MuelleDashboard'))
 const CambioCamion      = lazy(() => import('./pages/chofer/CambioCamion'))
 
@@ -382,6 +384,8 @@ function AppContent() {
           <Route element={<ProtectedRoute allowedRoles={['caja', 'super_admin']} />}>
             <Route path="/caja"                element={<Navigate to="/caja/remitos" replace />} />
             <Route path="/caja/remitos"        element={<RemitosCargaPage />} />
+            <Route path="/caja/ventanilla"     element={<VentanillaPage />} />
+            <Route path="/caja/cobranzas"      element={<CobranzasPage />} />
             <Route path="/caja/liquidaciones"  element={<LiquidacionesPage />} />
           </Route>
         </Route>

@@ -796,6 +796,53 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ── Expedición: venta por ventanilla (caja en mostrador) ───────────────
+    // Caja cobra y emite el comprobante; muelle entrega la mercadería contra
+    // ese papel (única transición permitida). Los items/importes son
+    // inmutables tras emitirse.
+    match /ventasVentanilla/{ventaId} {
+      allow read: if request.auth != null
+        && (isCaja() || isMuelle() || isOperator() || isManager() || isGerenteGeneral());
+
+      allow create: if request.auth != null && isCaja()
+        && request.resource.data.plantaId == myPlanta()
+        && request.resource.data.cajaId == request.auth.uid
+        && request.resource.data.canal in ['promo', 'contado']
+        && request.resource.data.formaPago in ['contado_efectivo', 'contado_transferencia', 'cuenta_corriente']
+        && request.resource.data.items is list && request.resource.data.items.size() > 0
+        && request.resource.data.total is number
+        && request.resource.data.estado == 'pendiente_entrega';
+
+      // Muelle confirma la entrega: solo la transición y solo esos campos.
+      allow update: if request.auth != null && isMuelle()
+        && resource.data.plantaId == myPlanta()
+        && resource.data.estado == 'pendiente_entrega'
+        && request.resource.data.estado == 'entregado'
+        && request.resource.data.entregadoPor.uid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['estado', 'entregadoPor']);
+
+      allow delete: if false;
+    }
+
+    // ── Expedición: cobranzas (mostrador y calle) ──────────────────────────
+    // Pagos de cta. cte. Inmutable. Origen 'caja' lo crea caja en su planta;
+    // origen 'cobrador' llega en la Fase 5 con su propia rama.
+    match /cobranzas/{cobranzaId} {
+      allow read: if request.auth != null
+        && (isCaja() || isOperator() || isManager() || isGerenteGeneral() || isFacturacion());
+
+      allow create: if request.auth != null && isCaja()
+        && request.resource.data.origen == 'caja'
+        && request.resource.data.plantaId == myPlanta()
+        && request.resource.data.registradoPor.uid == request.auth.uid
+        && request.resource.data.clienteId is string
+        && request.resource.data.importe is number && request.resource.data.importe > 0
+        && request.resource.data.formaPago in ['contado_efectivo', 'contado_transferencia'];
+
+      allow update, delete: if false;
+    }
+
     // ── Expedición: liquidación del repartidor (cierre del día, por caja) ──
     // ID determinístico {fecha}_{choferId} + create-only: un segundo cierre
     // del mismo día falla en vez de pisar el snapshot.

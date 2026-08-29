@@ -970,3 +970,165 @@ export async function generateLiquidacion(liq: Liquidacion) {
 
   doc.save(`liquidacion-${liq.fecha}-${liq.choferNombre.toLowerCase().replace(/\s+/g, '-')}.pdf`)
 }
+
+// ── Comprobante de venta por ventanilla (módulo expedición) ──────────────────
+// Papel contra el que muelle entrega la mercadería al tercero que compró en
+// el mostrador. Ver src/services/ventaVentanillaService.ts.
+export async function generateComprobanteVentanilla(venta: {
+  id:            string
+  plantaId:      'torcuato' | 'merlo'
+  canal:         'contado' | 'promo'
+  clienteNombre: string
+  clienteCuit?:  string
+  items:         { nombre: string; cantidad: number; precioUnitario: number }[]
+  total:         number
+  formaPago:     string
+  cajaNombre:    string
+  fecha:         Date
+}) {
+  const { default: jsPDF }     = await import('jspdf')
+  const { default: autoTable } = await import('jspdf-autotable')
+  const doc   = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const pageW = doc.internal.pageSize.getWidth()
+  const logo  = await fetchImageAsBase64('/logo-rolito.png')
+  const planta = PLANTA_INFO[venta.plantaId]
+  const money  = (n: number) => `$${n.toLocaleString('es-AR')}`
+  const FP: Record<string, string> = {
+    contado_efectivo: 'Efectivo', contado_transferencia: 'Transferencia', cuenta_corriente: 'Cuenta corriente',
+  }
+
+  const fechaStr = venta.fecha.toLocaleString('es-AR', {
+    day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  })
+
+  if (logo) doc.addImage(logo, 'PNG', 14, 8, 40, 13)
+  doc.setFontSize(15)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(0)
+  doc.text('Comprobante de Ventanilla', pageW - 14, 14, { align: 'right' })
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(80)
+  doc.text(fechaStr, pageW - 14, 20, { align: 'right' })
+  doc.setTextColor(0)
+  doc.setDrawColor(45, 106, 79)
+  doc.setLineWidth(0.6)
+  doc.line(14, 26, pageW - 14, 26)
+
+  autoTable(doc, {
+    startY: 32,
+    theme: 'plain',
+    body: [
+      ['Planta', `${planta.razonSocial} — ${planta.direccion}, ${planta.localidad}`],
+      ['Cliente', venta.clienteCuit ? `${venta.clienteNombre} — CUIT ${venta.clienteCuit}` : venta.clienteNombre],
+      ['Canal', venta.canal === 'contado' ? 'Venta Contado (Redonhielo)' : 'Promo (Rolito)'],
+      ['Forma de pago', FP[venta.formaPago] ?? venta.formaPago],
+    ],
+    styles: { fontSize: 9, cellPadding: 1.5 },
+    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 32 } },
+    margin: { left: 14, right: 14 },
+  })
+  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
+  let y = (doc.lastAutoTable?.finalY ?? 58) + 6
+
+  autoTable(doc, {
+    startY: y,
+    head: [['Producto', 'Cantidad', 'Precio', 'Subtotal']],
+    body: venta.items.map((i) => [
+      i.nombre, String(i.cantidad), money(i.precioUnitario), money(i.precioUnitario * i.cantidad),
+    ]),
+    foot: [['Total', '', '', money(venta.total)]],
+    styles: { fontSize: 9.5, cellPadding: 2.5 },
+    headStyles: { fillColor: [45, 106, 79], textColor: 255, fontStyle: 'bold', fontSize: 8.5 },
+    footStyles: { fillColor: [240, 248, 244], textColor: 30, fontStyle: 'bold', fontSize: 9.5 },
+    columnStyles: {
+      1: { halign: 'right', cellWidth: 24 },
+      2: { halign: 'right', cellWidth: 30 },
+      3: { halign: 'right', cellWidth: 32 },
+    },
+    margin: { left: 14, right: 14 },
+  })
+  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
+  y = (doc.lastAutoTable?.finalY ?? y + 30) + 8
+
+  doc.setFontSize(8.5)
+  doc.setTextColor(80)
+  doc.text('Presentar este comprobante en muelle para retirar la mercadería.', 14, y)
+  y += 22
+
+  doc.setDrawColor(150)
+  doc.setLineWidth(0.2)
+  doc.line(14, y, 88, y)
+  doc.setFontSize(8)
+  doc.setTextColor(100)
+  doc.text('Firma del cliente', 14, y + 4)
+  doc.setFontSize(8.5)
+  doc.setTextColor(60)
+  doc.text(`Caja: ${venta.cajaNombre}`, pageW - 14, y + 4, { align: 'right' })
+
+  doc.save(`ventanilla-${venta.id.slice(0, 8)}.pdf`)
+}
+
+// ── Recibo de cobranza en mostrador (módulo expedición) ──────────────────────
+export async function generateReciboCobranza(cobranza: {
+  id:            string
+  plantaId:      'torcuato' | 'merlo'
+  clienteNombre: string
+  importe:       number
+  formaPago:     string
+  referencia?:   string
+  registradoPor: string
+  fecha:         Date
+}) {
+  const { default: jsPDF }     = await import('jspdf')
+  const { default: autoTable } = await import('jspdf-autotable')
+  const doc   = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const pageW = doc.internal.pageSize.getWidth()
+  const logo  = await fetchImageAsBase64('/logo-rolito.png')
+  const planta = PLANTA_INFO[cobranza.plantaId]
+  const money  = (n: number) => `$${n.toLocaleString('es-AR')}`
+
+  const fechaStr = cobranza.fecha.toLocaleString('es-AR', {
+    day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  })
+
+  if (logo) doc.addImage(logo, 'PNG', 14, 8, 40, 13)
+  doc.setFontSize(15)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(0)
+  doc.text('Recibo de Cobranza', pageW - 14, 14, { align: 'right' })
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(80)
+  doc.text(fechaStr, pageW - 14, 20, { align: 'right' })
+  doc.setTextColor(0)
+  doc.setDrawColor(45, 106, 79)
+  doc.setLineWidth(0.6)
+  doc.line(14, 26, pageW - 14, 26)
+
+  autoTable(doc, {
+    startY: 32,
+    theme: 'plain',
+    body: [
+      ['Recibimos de', cobranza.clienteNombre],
+      ['La suma de', money(cobranza.importe)],
+      ['Forma de pago', cobranza.formaPago === 'contado_efectivo' ? 'Efectivo' : 'Transferencia'],
+      ...(cobranza.referencia ? [['En concepto de', cobranza.referencia]] : []),
+      ['Planta', `${planta.razonSocial} — ${planta.direccion}, ${planta.localidad}`],
+    ],
+    styles: { fontSize: 10, cellPadding: 2 },
+    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 36 } },
+    margin: { left: 14, right: 14 },
+  })
+  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
+  const y = (doc.lastAutoTable?.finalY ?? 70) + 26
+
+  doc.setDrawColor(150)
+  doc.setLineWidth(0.2)
+  doc.line(pageW - 88, y, pageW - 14, y)
+  doc.setFontSize(8)
+  doc.setTextColor(100)
+  doc.text(`Firma y aclaración — Caja: ${cobranza.registradoPor}`, pageW - 88, y + 4)
+
+  doc.save(`recibo-cobranza-${cobranza.id.slice(0, 8)}.pdf`)
+}

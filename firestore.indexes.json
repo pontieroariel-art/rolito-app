@@ -111,6 +111,22 @@
         { "fieldPath": "plantaId", "order": "ASCENDING" },
         { "fieldPath": "fecha",    "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "ventasVentanilla",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "plantaId", "order": "ASCENDING" },
+        { "fieldPath": "fecha",    "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "cobranzas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "plantaId", "order": "ASCENDING" },
+        { "fieldPath": "fecha",    "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

@@ -157,6 +157,52 @@ export interface RemitoCarga {
   tango?:       RemitoTangoEstado
 }
 
+// ── Expedición: venta por ventanilla (caja, en planta) ────────────────────────
+// Terceros que compran en el mostrador de la planta: caja cobra (o anota en
+// cta. cte. si es cliente registrado) y muelle entrega la mercadería contra el
+// comprobante. Cliente registrado → su lista de precios; ocasional (sin
+// registro) → la lista que elija caja.
+export type VentaVentanillaEstado = 'pendiente_entrega' | 'entregado'
+
+export interface VentaVentanilla {
+  id:                   string
+  plantaId:             PlantaId
+  canal:                CanalVenta   // mismo ruteo que el camión: contado=Redonhielo / promo=Rolito
+  cajaId:               string
+  cajaNombre:           string
+  // Registrado (uid + datos Tango) O ocasional (solo nombre/cuit) — uno de los dos.
+  clienteId?:           string
+  clienteNombre:        string
+  clienteCodigoTango?:  string
+  clienteIdGva14Tango?: number
+  clienteOcasional?:    { nombre: string; cuit?: string }
+  items:                VentaCamionItem[]   // misma shape que la venta del camión
+  total:                number
+  formaPago:            FormaPago   // cuenta_corriente solo para registrados
+  estado:               VentaVentanillaEstado
+  entregadoPor?:        { uid: string; nombre: string; hora: Timestamp }   // muelle
+  fecha:                Timestamp
+  tango?:               RemitoTangoEstado
+}
+
+// ── Expedición: cobranza (mostrador o calle) ──────────────────────────────────
+// Plata que entra por fuera de una venta del momento: clientes de cta. cte.
+// que pagan deudas. Dos puntos de captura, misma entidad: caja en ventanilla
+// (origen 'caja') y cobradores en la calle (origen 'cobrador', Fase 5 — en el
+// sistema viejo los cobradores también eran "depósitos"). Inmutable.
+export interface Cobranza {
+  id:            string
+  origen:        'caja' | 'cobrador'
+  plantaId?:     PlantaId   // solo origen 'caja'
+  registradoPor: { uid: string; nombre: string }
+  clienteId:     string
+  clienteNombre: string
+  importe:       number
+  formaPago:     'contado_efectivo' | 'contado_transferencia'
+  referencia?:   string   // n° de factura/recibo que se está pagando (texto libre)
+  fecha:         Timestamp
+}
+
 // ── Expedición: cambio de producto defectuoso (en la calle) ───────────────────
 // El cliente le entrega al chofer una bolsa defectuosa/rota y el chofer se la
 // cambia por una nueva: baja una unidad buena del stock del camión SIN generar
