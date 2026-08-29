@@ -3,9 +3,9 @@ import { Timestamp } from 'firebase/firestore'
 export type UserRole = 'super_admin' | 'gerente_general' | 'gerente_comercial' | 'comercial' | 'logistica' | 'chofer' | 'cliente' | 'facturacion' | 'heladeras' | 'heladeras_encargado' | 'tecnico' | 'produccion_hielo' | 'produccion_encargado' | 'caja' | 'muelle'
 export type UserStatus = 'activo' | 'inactivo' | 'pendiente'
 
-// Sistema (Logística/Heladeras/Producción) — ver src/utils/sistemas.ts para el
-// mapeo rol→sistemas y la lógica de recorte por usuario.
-export type Sistema = 'logistica' | 'heladeras' | 'produccion'
+// Sistema (Logística/Heladeras/Producción/Expedición) — ver src/utils/sistemas.ts
+// para el mapeo rol→sistemas y la lógica de recorte por usuario.
+export type Sistema = 'logistica' | 'heladeras' | 'produccion' | 'expedicion'
 
 export type OrderStatus =
   | 'pendiente'

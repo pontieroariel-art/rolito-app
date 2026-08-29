@@ -1,8 +1,9 @@
 import { ReactNode, useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { Menu, X, LogOut, UserCog } from 'lucide-react'
+import { ArrowLeftRight, Menu, X, LogOut, UserCog } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useOnline } from '../../hooks/useOnline'
+import { useSistema } from '../../context/SistemaContext'
 import { logoutUser } from '../../services/authService'
 import { ROLE_LABELS } from '../layout/Navbar'
 import { EXPEDICION_NAV_GROUPS } from '../../utils/expedicionNav'
@@ -17,6 +18,8 @@ export default function ExpedicionLayout({ children }: { children?: ReactNode })
   const online     = useOnline()
   const navigate   = useNavigate()
   const [open, setOpen] = useState(false)
+  const { sistemasDisponibles, cambiarSistema } = useSistema()
+  const multiSistema = sistemasDisponibles.length > 1
   const puedeGestionarUsuarios = user?.rol === 'super_admin'
 
   const grupos = EXPEDICION_NAV_GROUPS
@@ -61,6 +64,15 @@ export default function ExpedicionLayout({ children }: { children?: ReactNode })
         >
           <UserCog size={16} />
         </Link>
+      )}
+      {multiSistema && (
+        <button
+          onClick={() => { cambiarSistema(); navigate('/sistema') }}
+          title="Cambiar de sistema"
+          className="text-gray-400 hover:text-accent transition-colors p-1.5 rounded-lg hover:bg-accent/10 shrink-0"
+        >
+          <ArrowLeftRight size={16} />
+        </button>
       )}
       <button
         onClick={handleLogout}

@@ -14,7 +14,7 @@ export type { Sistema }
 // pasa porque ahora super_admin está en el allowedRoles de esas rutas en
 // App.tsx — si se vuelve a sacar de una ruta ahí, hay que sacarlo de acá también.
 export const ROLE_SISTEMAS: Record<UserRole, Sistema[]> = {
-  super_admin:         ['logistica', 'heladeras', 'produccion'],
+  super_admin:         ['logistica', 'heladeras', 'produccion', 'expedicion'],
   gerente_comercial:   ['logistica', 'heladeras'],
   comercial:           ['logistica', 'heladeras'],
   gerente_general:     ['logistica'],
@@ -27,8 +27,8 @@ export const ROLE_SISTEMAS: Record<UserRole, Sistema[]> = {
   tecnico:             ['heladeras'],
   produccion_hielo:    ['produccion'],
   produccion_encargado: ['produccion'],
-  caja:                ['logistica'],
-  muelle:              ['logistica'],
+  caja:                ['expedicion'],
+  muelle:              ['expedicion'],
 }
 
 // Home por sistema, solo para los roles con más de un sistema (los demás ya
@@ -38,15 +38,16 @@ export const ROLE_SISTEMAS: Record<UserRole, Sistema[]> = {
 // string> completo — apunta al listado de gerencia por si a futuro se les
 // suma acceso.
 export const MULTI_SISTEMA_HOME: Partial<Record<UserRole, Record<Sistema, string>>> = {
-  gerente_comercial: { logistica: '/logistica', heladeras: '/heladeras', produccion: '/produccion/listado' },
-  comercial:         { logistica: '/comercial', heladeras: '/heladeras', produccion: '/produccion/listado' },
-  super_admin:       { logistica: '/logistica', heladeras: '/heladeras', produccion: '/produccion/resumen' },
+  gerente_comercial: { logistica: '/logistica', heladeras: '/heladeras', produccion: '/produccion/listado', expedicion: '/caja/remitos' },
+  comercial:         { logistica: '/comercial', heladeras: '/heladeras', produccion: '/produccion/listado', expedicion: '/caja/remitos' },
+  super_admin:       { logistica: '/logistica', heladeras: '/heladeras', produccion: '/produccion/resumen', expedicion: '/caja/remitos' },
 }
 
 export const SISTEMA_LABELS: Record<Sistema, string> = {
   logistica:  'Logística',
   heladeras:  'Heladeras',
   produccion: 'Producción',
+  expedicion: 'Expedición',
 }
 
 // Sistemas efectivos de un usuario: su `sistemasPermitidos` (si el admin lo
