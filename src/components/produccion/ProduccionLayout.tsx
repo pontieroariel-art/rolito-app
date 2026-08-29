@@ -1,17 +1,17 @@
 import { ReactNode, useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { Menu, X, LogOut, UserCog } from 'lucide-react'
+import { ArrowLeftRight, Menu, X, LogOut, UserCog } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useOnline } from '../../hooks/useOnline'
+import { useSistema } from '../../context/SistemaContext'
 import { logoutUser } from '../../services/authService'
 import { ROLE_LABELS } from '../layout/Navbar'
 import { PRODUCCION_NAV_GROUPS } from '../../utils/produccionNav'
 
 // Shell del módulo producción — mismo patrón que LogisticaLayout/
-// HeladerasLayout (sidebar-como-nav, sin Navbar arriba). Hoy solo lo pisa
-// produccion_encargado (rol de un solo sistema, sin picker — ver
-// utils/sistemas.ts), por eso no tiene el botón "Cambiar de sistema" que sí
-// tienen los otros dos layouts.
+// HeladerasLayout (sidebar-como-nav, sin Navbar arriba). Lo pisan
+// produccion_encargado (rol de un solo sistema, sin picker) y super_admin —
+// para el segundo muestra el botón "Cambiar de sistema" como los otros layouts.
 //
 // Acepta children además de <Outlet/> para las pantallas compartidas con
 // otros roles (Listado) que eligen shell según el rol y no pueden vivir
@@ -21,6 +21,8 @@ export default function ProduccionLayout({ children }: { children?: ReactNode })
   const online     = useOnline()
   const navigate   = useNavigate()
   const [open, setOpen] = useState(false)
+  const { sistemasDisponibles, cambiarSistema } = useSistema()
+  const multiSistema = sistemasDisponibles.length > 1
   const puedeGestionarUsuarios = user?.rol === 'super_admin'
 
   const grupos = PRODUCCION_NAV_GROUPS
@@ -62,6 +64,15 @@ export default function ProduccionLayout({ children }: { children?: ReactNode })
         >
           <UserCog size={16} />
         </Link>
+      )}
+      {multiSistema && (
+        <button
+          onClick={() => { cambiarSistema(); navigate('/sistema') }}
+          title="Cambiar de sistema"
+          className="text-gray-400 hover:text-accent transition-colors p-1.5 rounded-lg hover:bg-accent/10 shrink-0"
+        >
+          <ArrowLeftRight size={16} />
+        </button>
       )}
       <button
         onClick={handleLogout}
