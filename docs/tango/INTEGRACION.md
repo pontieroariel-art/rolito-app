@@ -4,7 +4,7 @@
 > aplicado a esta app: licencias, API, mapeo de datos, arquitectura y preguntas abiertas.
 > Se actualiza a medida que llegan documentos, exportes y respuestas de Axoft.
 >
-> Última actualización: 2026-08-27
+> Última actualización: 2026-08-29
 
 ## 1. Contexto y decisión de timing
 
@@ -196,7 +196,92 @@ A diferencia de lo relevado en julio (Tango Tiendas, e-commerce), la API que **s
 | `SUCURSAL_NRO`/`_DESC` | Sucursal DE REDONHIELO que atiende (no confundir con sucursal del cliente) | — |
 
 **⚠️ Hallazgo importante (2026-08-25):** el `COD_GVA14` real de Tango es **numérico puro** (ej. `092435`, `122136`) — no tiene relación con el `codigoCliente` alfanumérico que ya usa la app hoy (ej. `MDP214`, `FC.570`, con prefijo de zona), que viene del Excel histórico de clientes/heladeras, no de Tango. La decisión tomada en julio ("`codigoCliente` de la app pasa a ser el código de Tango") **no se puede aplicar tal cual** — son dos numeraciones distintas y no hay forma de saber la correspondencia sin cruzarlas. **Camino recomendado:** cruzar por **CUIT** (existe y es confiable en ambos sistemas), guardar el `COD_GVA14`/`ID_GVA14` de Tango como campo NUEVO y separado (ej. `codigoTango`) en el perfil del cliente, sin tocar el `codigoCliente` existente — decisión pendiente de confirmar con Ariel.
-- **Importante:** esta API NO tiene endpoint de pedidos/facturas (eso vive en "Transacciones Tango Ventas", no licenciado — ver §2). Sirve para sincronizar **maestros** (clientes, artículos, stock), no para que la app cree pedidos dentro de Tango. Si más adelante se necesita eso, hay que volver a evaluar Tango Tiendas o pedirle a Axoft el módulo de transacciones.
+- **Importante:** esta API, con solo "ABMs y consultas Live" licenciado, NO permite crear pedidos/facturas — eso es "Transacciones Tango Ventas" (misma superficie técnica, módulo de licencia aparte). Ver §6.2: la API de transacciones está documentada públicamente y es la que Axoft respondería habilitar ("API Ventas").
+
+### 6.2 API de Transacciones de Ventas ("API Ventas" / Pedidos) — relevada 2026-08-29, a la espera de habilitación
+
+> Fuente oficial: `github.com/TangoSoftware/TangoDeltaApi` (repo "Pedidos de Ventas", con PDF
+> `src/Implementations/PedidosApiConsole/API Pedidos - TangoSoftware.pdf` y código C# de ejemplo).
+> Es la API que Axoft debe confirmar/habilitar (respuesta esperada: lunes 2026-09-01). En la
+> licencia actual figura "Transacciones Tango Ventas: **No**" (§2) — habilitarla es el gate.
+
+**Dato clave de arquitectura: es la MISMA superficie que la API de Plataforma (§6.1).** El ejemplo
+oficial usa `TangoUrl = "http://localhost:17000"`, headers `ApiAuthorization` + `Company`, y los
+mismos endpoints `Api/Get`, `Api/GetById`, `Api/GetByFilter`, `Api/Create` con `process=...`.
+Implicancias:
+
+1. **El bridge en la VM sigue siendo necesario** para este camino (host interno `rhielotg:17000`,
+   HTTP plano — igual que §6.1). No es la API cloud de Tiendas.
+2. El token de desarrollador ya generado y el patrón de requests ya probado (2026-08-25) sirven
+   tal cual — al habilitarse la licencia solo se suma un `process` nuevo.
+3. Toda la infraestructura ya construida (cola `tango-outbox`, `bridge-listener.mjs`,
+   `isTangoBridge()`, flags en `config/tango`) aplica sin cambios: completar el worker =
+   implementar `POST Api/Create?process=19845` en el bridge.
+
+**Detalles del servicio de Pedidos:**
+
+- **`process = 19845`** (constante `ProcessId` en `PedidosServices.cs` del repo oficial).
+- Métodos que funcionan: `Get`, `GetById`, `GetByFilter`, `Create` (Post), más **`Close`**
+  (cerrar) y **`Cancel`** (anular). **`Update`/`Delete` NO funcionan por el momento** (dicho
+  explícito del README oficial).
+- `GetByFilter` trabaja contra la vista **`AXV_PEDIDO`** (no la tabla `GVA21`) — igual que
+  Clientes/Artículos/Proveedores usan `AXV_*`.
+- Respuesta del `Create`: `{ Succeeded, SavedId, Message, ExceptionInfo }` — `SavedId` es el
+  `ID_GVA21` del pedido creado (guardarlo en el outbox para idempotencia/trazabilidad).
+- **Crea PEDIDOS** (comprobante de venta en GVA21). La facturación/remito posterior corre por el
+  circuito interno de Tango (Facturador). El repo oficial dice que la doc de **"Facturación de
+  Ventas"** por API viene "próximamente" — hoy por API solo se ingresan pedidos.
+
+**Esquema JSON del pedido (`PedidoData`)** — campos principales (todos IDs internos de Tango,
+resueltos vía `GetByFilter` sobre el proceso correspondiente):
+
+| Campo | Qué es | Cómo se resuelve | Obligatorio |
+|---|---|---|---|
+| `ID_GVA43_TALON_PED` | Talonario de pedido | a definir con el implementador | práctico sí |
+| `FECHA_PEDIDO` / `FECHA_ENTREGA` | Fechas | de la app | — |
+| `ID_GVA14` + `ES_CLIENTE_HABITUAL: true` | Cliente | **ya lo tenemos**: `users/{uid}.idGva14Tango` | sí (o cliente ocasional) |
+| `ID_DIRECCION_ENTREGA` | Dirección de entrega | del `GetById` del cliente (`DireccionEntrega[]`) | — |
+| `ID_GVA01` | Condición de venta | `GetByFilter("GVA01.COND_VTA = n")` | — |
+| `ID_GVA10` | Lista de precios | `GetByFilter("GVA10.NOMBRE_LIS = '...'")` — mapear Promo/Contado | — |
+| `ID_GVA23` | Vendedor | `GetByFilter("COD_VENDED = n")` | — |
+| `ID_GVA24` | Transporte | `GetByFilter("GVA24.COD_TRANSP = '...'")` | — |
+| `ID_STA22` | **Depósito** | `GetByFilter("STA22.COD_STA22 = n")` — **clave para depósito-camión** | — |
+| `ID_MONEDA` | Moneda | `GetByFilter("MONEDA.COD_MONEDA = 'PES'")` | **sí (Required.Always)** |
+| `PORCENTAJE_DESCUENTO_GENERAL` | Descuento general | 0 si no aplica | **sí (Required.Always)** |
+| `ESTADO` | 1 = entra al circuito de aprobación, **2 = ingresa aprobado** | decisión de circuito | — |
+| `COMPROMETE_STOCK` | Compromete stock | decisión de circuito | — |
+| `OBSERVACIONES` (8000) / `LEYENDA_1..5` (60) / `NOTA_PEDIDO_DTO[]` | Textos | de la app | — |
+| `VALIDA_LIMITE_CREDITO`, `APLICA_DESCUENTO_CLIENTE`, `CALCULA_PROMOCIONES` | Flags de negocio | decisión de circuito | — |
+| `RENGLON_DTO[]` | Renglones | ver abajo | sí |
+| `CLIENTE_OCASIONAL_DTO[]` | Cliente ocasional (razón social, domicilio, `ID_TIPO_DOCUMENTO_GV` 23=CUIT, `ID_CATEGORIA_IVA` 1=RI, `ID_GVA18_PROVINCIA`, …) | solo si `ES_CLIENTE_HABITUAL: false` | — |
+
+**Renglón (`RenglonDto`):**
+
+| Campo | Qué es |
+|---|---|
+| `ID_STA11` | Artículo — `GetByFilter("AXV_ARTICULO.COD_STA11 = '...'")` → **requiere tabla de equivalencias catálogo app ↔ artículos Tango** |
+| `MODULO_UNIDAD_MEDIDA` | `"GV"` (unidad de ventas) en los ejemplos oficiales |
+| `CANTIDAD_PEDIDA` | Cantidad |
+| `CANTIDAD_A_FACTURAR` / `CANTIDAD_A_DESCARGAR` | Control del circuito de facturación/descarga de stock |
+| `PRECIO` | Precio unitario (si se omite, "se puede buscar el precio por lista de precios automáticamente" según el ejemplo oficial) |
+| `PORCENTAJE_BONIFICACION` | Bonificación del renglón |
+| `ID_STA22` | Depósito por renglón (pisa el de cabecera) |
+| `PLAN_DE_ENTREGA_DTO[]` | Cantidad + fecha de entrega parcial |
+
+**Procesos relacionados cuyos `process` IDs hay que relevar** (mismo método que Clientes=2117:
+pararse en la pantalla del ABM → "Apertura > API"): Artículos, Condiciones de venta (GVA01),
+Listas de precios (GVA10), Vendedores (GVA23), Transportes (GVA24), Depósitos (STA22), Monedas,
+Talonarios (GVA43), Clasificación de comprobantes (GVA81).
+
+**Preguntas para Axoft/TC con la respuesta del lunes 2026-09-01:**
+
+1. Confirmar que lo que habilitan es "Transacciones Tango Ventas" sobre la llave 001174 (y costo/fecha).
+2. ¿El pedido creado por API entra al circuito que necesitan (pedido → facturador → remito que
+   descarga del depósito-camión)? ¿`ID_STA22` por camión-depósito alcanza para la descarga?
+3. ¿Qué talonario (`ID_GVA43_TALON_PED`) usar para los pedidos que vienen de la app?
+4. ¿Las DOS empresas (Redonhielo/Rolito) = dos valores del header `Company`? ¿El token sirve para ambas?
+5. ¿`ESTADO: 2` (ingresa aprobado) o circuito de aprobación?
+6. ¿Hay fecha para la API de "Facturación de Ventas" (hoy "próximamente" en el repo oficial)?
 
 ## 7. Material pendiente de recopilar (Ariel)
 
