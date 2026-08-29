@@ -1,6 +1,6 @@
 import { Timestamp } from 'firebase/firestore'
 
-export type UserRole = 'super_admin' | 'gerente_general' | 'gerente_comercial' | 'comercial' | 'logistica' | 'chofer' | 'cliente' | 'facturacion' | 'heladeras' | 'heladeras_encargado' | 'tecnico' | 'produccion_hielo' | 'produccion_encargado' | 'caja'
+export type UserRole = 'super_admin' | 'gerente_general' | 'gerente_comercial' | 'comercial' | 'logistica' | 'chofer' | 'cliente' | 'facturacion' | 'heladeras' | 'heladeras_encargado' | 'tecnico' | 'produccion_hielo' | 'produccion_encargado' | 'caja' | 'muelle'
 export type UserStatus = 'activo' | 'inactivo' | 'pendiente'
 
 // Sistema (Logística/Heladeras/Producción) — ver src/utils/sistemas.ts para el
@@ -157,6 +157,102 @@ export interface RemitoCarga {
   tango?:       RemitoTangoEstado
 }
 
+// ── Expedición: cambio de producto defectuoso (en la calle) ───────────────────
+// El cliente le entrega al chofer una bolsa defectuosa/rota y el chofer se la
+// cambia por una nueva: baja una unidad buena del stock del camión SIN generar
+// venta ni plata. La bolsa rota vuelve físicamente y muelle la cuenta en la
+// descarga — en la liquidación los cambios deben cuadrar con las rotas
+// recibidas. Inmutable (comprobante de un hecho ya ocurrido).
+export interface CambioCamion {
+  id:            string
+  camionId:      string
+  choferId:      string
+  choferNombre:  string
+  clienteId:     string
+  clienteNombre: string
+  productoId:    string
+  nombre:        string   // nombre del producto (snapshot)
+  cantidad:      number
+  fecha:         Timestamp
+}
+
+// ── Expedición: descarga del camión (retorno contado por muelle) ─────────────
+// Cuando el camión vuelve, muelle cuenta FÍSICAMENTE lo que bajó: mercadería
+// sin vender, bolsas rotas de los cambios, y los envases (cada pallet = 1 base
+// de metal + 4 puntales; vuelven completos con hielo, parciales o vacíos).
+// Una descarga por retorno de camión — si hay dos vueltas, dos descargas; la
+// liquidación del día agrega todas las del chofer. Inmutable.
+export interface DescargaCamionItem {
+  productoId: string
+  nombre:     string
+  cantidad:   number
+}
+
+export interface DescargaCamion {
+  id:               string
+  plantaId:         PlantaId
+  camionId:         string
+  camionLabel:      string
+  choferId:         string
+  choferNombre:     string
+  items:            DescargaCamionItem[]   // mercadería sana que volvió
+  bolsasRotas:      DescargaCamionItem[]   // rotas recibidas (contra los cambios)
+  palletsCompletos: number   // pallets con hielo intactos (no vendidos)
+  palletsParciales: number   // pallets con algo de hielo
+  palletsVacios:    number   // solo base de metal + 4 puntales
+  registradoPor:    { uid: string; nombre: string }
+  fecha:            Timestamp
+}
+
+// ── Expedición: liquidación del repartidor ────────────────────────────────────
+// Cierre del día por persona (repartidor; a futuro también cobrador). El doc se
+// crea recién AL CERRAR — hasta entonces la pantalla de caja calcula todo en
+// vivo desde las fuentes (remitosCarga + ventasCamion + cambiosCamion +
+// descargasCamion). Snapshot inmutable, calcado de la hoja "Liquidación de
+// repartidores" del sistema viejo. ID determinístico: {yyyy-MM-dd}_{choferId}.
+export interface LiquidacionResumenProducto {
+  productoId:        string
+  nombre:            string
+  carga:             number   // total cargado (remitos del día)
+  ventaContado:      number   // unidades vendidas canal contado
+  ventaPromo:        number   // unidades vendidas canal promo
+  cambios:           number   // unidades entregadas por cambio (sin venta)
+  devolucionTeorica: number   // carga − ventas − cambios
+  descarga:          number   // contado físico por muelle
+  diferencia:        number   // descarga − devolucionTeorica (0 = cuadra)
+}
+
+export interface Liquidacion {
+  id:            string     // {yyyy-MM-dd}_{choferId}
+  fecha:         string     // yyyy-MM-dd (día liquidado)
+  plantaId:      PlantaId
+  choferId:      string
+  choferNombre:  string
+  productos:     LiquidacionResumenProducto[]
+  // Cuadre de envases: salieron (Σ palletsCarga de los remitos) vs volvieron.
+  pallets: {
+    salidos:    number
+    completos:  number
+    parciales:  number
+    vacios:     number
+    diferencia: number   // (completos+parciales+vacios) − salidos
+  }
+  // Bolsas rotas recibidas por muelle vs cambios registrados por el chofer.
+  cambios: { registrados: number; rotasRecibidas: number }
+  // Plata: totales por forma de pago (de ventasCamion del día).
+  importes: {
+    contadoEfectivo:      number
+    contadoTransferencia: number
+    cuentaCorriente:      number
+    total:                number
+  }
+  efectivoARendir:  number   // = importes.contadoEfectivo
+  efectivoRecibido: number   // lo que caja contó al recibir la plata
+  diferenciaEfectivo: number // recibido − a rendir
+  cerradaPor:    { uid: string; nombre: string }
+  createdAt:     Timestamp
+}
+
 export interface DeliveryAddress {
   id: string
   nombre: string
@@ -244,7 +340,7 @@ export interface UserProfile {
   sector?:            string   // internal-only prefix from COD_CTE (e.g. FC, MDP, YPF)
   subrol?:            'chofer' | 'ayudante' | 'maquinista'   // 'maquinista' aplica a rol 'produccion_hielo': parte de máquinas en vez de carga de pallets
   area?:              AreaHeladera   // sector de heladeras (rol 'heladeras')
-  planta?:            PlantaId   // planta fija del usuario (roles 'produccion_hielo' y 'caja')
+  planta?:            PlantaId   // planta fija del usuario (roles 'produccion_hielo', 'caja' y 'muelle')
   legajo?:            string   // login del operario de producción (rol 'produccion_hielo') — solo el número, sin contraseña, ver produccionAuthService.ts
   // Favoritos del técnico en el checklist de tipos de reparación (id de
   // config/tiposReparacion) — solo lo usa el técnico de calle (rol

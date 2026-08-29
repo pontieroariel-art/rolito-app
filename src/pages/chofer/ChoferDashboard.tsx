@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { Package } from 'lucide-react'
+import { Package, Repeat } from 'lucide-react'
 import ChoferHeader from '../../components/chofer/ChoferHeader'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
@@ -226,12 +226,17 @@ export default function ChoferDashboard() {
     <div className="min-h-screen bg-[#F8F7F2] text-gray-900">
       <ChoferHeader />
 
-      {/* Acción principal — grande y a mano para vender en la calle */}
-      <div className="max-w-2xl mx-auto px-4 pt-4">
+      {/* Acciones principales — grandes y a mano para operar en la calle */}
+      <div className="max-w-2xl mx-auto px-4 pt-4 flex gap-3">
         <Link to="/chofer/venta"
-          className="flex items-center justify-center gap-2.5 rounded-2xl bg-accent text-white py-5 shadow-sm active:scale-[0.99] transition-transform">
+          className="flex-[2] flex items-center justify-center gap-2.5 rounded-2xl bg-accent text-white py-5 shadow-sm active:scale-[0.99] transition-transform">
           <Package size={26} />
           <span className="text-lg font-bold">Vender</span>
+        </Link>
+        <Link to="/chofer/cambio"
+          className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-white border border-[#D3D1C7] text-gray-700 py-5 shadow-sm active:scale-[0.99] transition-transform">
+          <Repeat size={22} className="text-accent" />
+          <span className="text-base font-bold">Cambio</span>
         </Link>
       </div>
 

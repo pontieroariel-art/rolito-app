@@ -79,6 +79,24 @@ export const subscribeVentasCamionEnRango = (
     () => callback([]),
   )
 
+// Ventas de un chofer en un rango (para la liquidación del día — la hoja
+// vieja liquida por repartidor, no por camión).
+export const subscribeVentasChoferEnRango = (
+  choferId: string,
+  desde: Date, hasta: Date,
+  callback: (ventas: VentaCamion[]) => void,
+): () => void =>
+  onSnapshot(
+    query(
+      collection(db, VENTAS),
+      where('choferId', '==', choferId),
+      where('fecha', '>=', Timestamp.fromDate(desde)),
+      where('fecha', '<', Timestamp.fromDate(hasta)),
+    ),
+    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as VentaCamion))),
+    () => callback([]),
+  )
+
 // Últimas ventas del chofer (para el resumen de su pantalla).
 export const subscribeVentasRecientesChofer = (
   choferId: string,

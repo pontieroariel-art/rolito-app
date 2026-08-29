@@ -1,4 +1,4 @@
-import { Order, OrderProduct } from '../types'
+import { Liquidacion, Order, OrderProduct } from '../types'
 import { toDateStr } from './helpers'
 import { ROLITO_INFO, COMODATO_COMODANTE, PLANTA_INFO } from './constants'
 
@@ -872,4 +872,101 @@ export async function generateRemitoCarga(remito: {
   doc.text(`Emitió: ${remito.creadoPor.nombre}`, 14, y + 14)
 
   doc.save(`${remito.codigo}.pdf`)
+}
+
+// ── Liquidación de repartidores (módulo expedición) ──────────────────────────
+// Espejo de la hoja del sistema viejo: detalle por producto (carga / venta /
+// promoción / cambios / devolución teórica / descarga / diferencia), cuadre de
+// envases, cambios vs rotas, importes y rendición de efectivo.
+export async function generateLiquidacion(liq: Liquidacion) {
+  const { default: jsPDF }     = await import('jspdf')
+  const { default: autoTable } = await import('jspdf-autotable')
+  const doc   = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const pageW = doc.internal.pageSize.getWidth()
+  const logo  = await fetchImageAsBase64('/logo-rolito.png')
+  const money = (n: number) => `$${n.toLocaleString('es-AR')}`
+
+  if (logo) doc.addImage(logo, 'PNG', 14, 8, 40, 13)
+  doc.setFontSize(15)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(0)
+  doc.text('Liquidación de repartidores', pageW - 14, 14, { align: 'right' })
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(80)
+  doc.text(`${liq.choferNombre}   ·   ${liq.fecha}`, pageW - 14, 20, { align: 'right' })
+  doc.setTextColor(0)
+  doc.setDrawColor(45, 106, 79)
+  doc.setLineWidth(0.6)
+  doc.line(14, 26, pageW - 14, 26)
+
+  autoTable(doc, {
+    startY: 32,
+    head: [['Producto', 'Carga', 'Venta Cdo.', 'Promoción', 'Cambios', 'Dev. teórica', 'Descarga', 'Diferencia']],
+    body: liq.productos.map((p) => [
+      p.nombre, String(p.carga), String(p.ventaContado), String(p.ventaPromo),
+      String(p.cambios), String(p.devolucionTeorica), String(p.descarga),
+      p.diferencia === 0 ? '0' : (p.diferencia > 0 ? `+${p.diferencia}` : String(p.diferencia)),
+    ]),
+    styles: { fontSize: 8.5, cellPadding: 2 },
+    headStyles: { fillColor: [45, 106, 79], textColor: 255, fontStyle: 'bold', fontSize: 7.5 },
+    columnStyles: {
+      1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' },
+      4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' }, 7: { halign: 'right', fontStyle: 'bold' },
+    },
+    margin: { left: 14, right: 14 },
+  })
+  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
+  let y = (doc.lastAutoTable?.finalY ?? 60) + 6
+
+  autoTable(doc, {
+    startY: y,
+    head: [['Envases (pallets)', ''], ],
+    body: [
+      ['Salieron', String(liq.pallets.salidos)],
+      ['Volvieron completos (con hielo)', String(liq.pallets.completos)],
+      ['Volvieron parciales', String(liq.pallets.parciales)],
+      ['Volvieron vacíos (base + 4 puntales)', String(liq.pallets.vacios)],
+      ['Diferencia', liq.pallets.diferencia === 0 ? '0' : String(liq.pallets.diferencia)],
+      ['Cambios registrados por el chofer', String(liq.cambios.registrados)],
+      ['Bolsas rotas recibidas en muelle', String(liq.cambios.rotasRecibidas)],
+    ],
+    styles: { fontSize: 8.5, cellPadding: 2 },
+    headStyles: { fillColor: [45, 106, 79], textColor: 255, fontStyle: 'bold', fontSize: 7.5 },
+    columnStyles: { 1: { halign: 'right', cellWidth: 30 } },
+    margin: { left: 14, right: 108 },
+  })
+  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
+  const yEnvases = doc.lastAutoTable?.finalY ?? y + 40
+
+  autoTable(doc, {
+    startY: y,
+    head: [['Importes y rendición', '']],
+    body: [
+      ['Contado efectivo', money(liq.importes.contadoEfectivo)],
+      ['Contado transferencia', money(liq.importes.contadoTransferencia)],
+      ['Cuenta corriente', money(liq.importes.cuentaCorriente)],
+      ['Total vendido', money(liq.importes.total)],
+      ['Efectivo a rendir', money(liq.efectivoARendir)],
+      ['Efectivo recibido', money(liq.efectivoRecibido)],
+      ['Diferencia de efectivo', money(liq.diferenciaEfectivo)],
+    ],
+    styles: { fontSize: 8.5, cellPadding: 2 },
+    headStyles: { fillColor: [45, 106, 79], textColor: 255, fontStyle: 'bold', fontSize: 7.5 },
+    columnStyles: { 1: { halign: 'right', cellWidth: 34 } },
+    margin: { left: 108, right: 14 },
+  })
+  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
+  y = Math.max(yEnvases, doc.lastAutoTable?.finalY ?? y + 40) + 26
+
+  doc.setDrawColor(150)
+  doc.setLineWidth(0.2)
+  doc.line(14, y, 88, y)
+  doc.line(pageW - 88, y, pageW - 14, y)
+  doc.setFontSize(8)
+  doc.setTextColor(100)
+  doc.text('Firma del repartidor', 14, y + 4)
+  doc.text(`Caja: ${liq.cerradaPor.nombre}`, pageW - 88, y + 4)
+
+  doc.save(`liquidacion-${liq.fecha}-${liq.choferNombre.toLowerCase().replace(/\s+/g, '-')}.pdf`)
 }

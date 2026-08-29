@@ -101,6 +101,9 @@ const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
   produccion_encargado: [],
   // caja usa ExpedicionLayout (sidebar propio) — no usa este Navbar genérico.
   caja: [],
+  muelle: [
+    { to: '/muelle', label: 'Muelle', icon: Package },
+  ],
 }
 
 // Link set para el sistema "heladeras" de los roles con más de un sistema
@@ -124,6 +127,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   produccion_hielo:   'Producción',
   produccion_encargado: 'Enc. Producción',
   caja:               'Caja',
+  muelle:             'Muelle',
 }
 
 export default function Navbar() {

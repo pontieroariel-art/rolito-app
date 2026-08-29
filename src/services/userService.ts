@@ -161,7 +161,7 @@ export const getAllUsers = async (force = false): Promise<UserProfile[]> => {
 }
 
 export const getStaffUsers = async (): Promise<UserProfile[]> => {
-  const roles: UserRole[] = ['super_admin', 'gerente_comercial', 'comercial', 'logistica', 'facturacion', 'chofer', 'heladeras', 'heladeras_encargado', 'tecnico', 'produccion_encargado', 'caja']
+  const roles: UserRole[] = ['super_admin', 'gerente_comercial', 'comercial', 'logistica', 'facturacion', 'chofer', 'heladeras', 'heladeras_encargado', 'tecnico', 'produccion_encargado', 'caja', 'muelle']
   const snap = await getDocs(
     query(collection(db, 'users'), where('rol', 'in', roles), limit(6000)),
   )
@@ -230,7 +230,7 @@ export interface CreateStaffParams {
   nombreContacto: string
   rol:            UserRole
   area?:          AreaHeladera   // solo aplica cuando rol === 'heladeras'
-  planta?:        PlantaId       // solo aplica cuando rol === 'caja'
+  planta?:        PlantaId       // roles de planta fija ('caja', 'muelle')
 }
 
 export interface CreateClientParams {

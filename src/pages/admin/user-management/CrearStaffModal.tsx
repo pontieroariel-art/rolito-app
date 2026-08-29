@@ -23,7 +23,8 @@ export function CrearStaffModal({ onClose, onCreated }: { onClose: () => void; o
 
   const isChofer    = rol === 'chofer'
   const isHeladeras = rol === 'heladeras'
-  const isCaja      = rol === 'caja'
+  // Roles de planta fija: llevan selector de planta en el alta.
+  const conPlanta   = rol === 'caja' || rol === 'muelle'
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -37,7 +38,7 @@ export function CrearStaffModal({ onClose, onCreated }: { onClose: () => void; o
       if (isChofer) {
         await createChoferUser({ nombreContacto: nombre, cuit: dni.trim(), pin: password })
       } else {
-        const uid = await createStaffUser({ dni: dni.trim(), password, nombreContacto: nombre, rol, area: isHeladeras ? area : undefined, planta: isCaja ? planta : undefined })
+        const uid = await createStaffUser({ dni: dni.trim(), password, nombreContacto: nombre, rol, area: isHeladeras ? area : undefined, planta: conPlanta ? planta : undefined })
         if (currentUser) {
           registrarAccionAlto({
             coleccion: 'users',
@@ -85,7 +86,7 @@ export function CrearStaffModal({ onClose, onCreated }: { onClose: () => void; o
           </select>
         </div>
 
-        {isCaja && (
+        {conPlanta && (
           <div>
             <label className="text-xs text-gray-500 mb-1 block">Planta</label>
             <select

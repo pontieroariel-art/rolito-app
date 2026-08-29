@@ -85,6 +85,11 @@ service cloud.firestore {
     function isCaja() {
       return myRole() == 'caja';
     }
+    // Personal de muelle en planta (módulo expedición: entrega la carga
+    // contra el remito y cuenta la descarga al volver el camión).
+    function isMuelle() {
+      return myRole() == 'muelle';
+    }
     // Planta asignada al usuario autenticado (roles 'produccion_hielo' y 'caja').
     function myPlanta() {
       let path = /databases/$(database)/documents/users/$(request.auth.uid);
@@ -699,8 +704,9 @@ service cloud.firestore {
     // de remito lo escribe de vuelta la Cloud Function onOutboxConfirmado
     // (Admin SDK, bypassa estas reglas). Ver docs/tango/INTEGRACION.md.
     match /ventasCamion/{ventaId} {
+      // isCaja: la liquidación del repartidor suma las ventas del día.
       allow read: if request.auth != null
-        && (isOperator() || isManager() || isGerenteGeneral()
+        && (isOperator() || isManager() || isGerenteGeneral() || isCaja()
             || (isChofer() && resource.data.choferId == request.auth.uid));
 
       allow create: if request.auth != null && isChofer()
@@ -722,7 +728,7 @@ service cloud.firestore {
     // en fases siguientes con reglas propias por rol — por ahora update: false.
     match /remitosCarga/{remitoId} {
       allow read: if request.auth != null
-        && (isCaja() || isOperator() || isManager() || isGerenteGeneral()
+        && (isCaja() || isMuelle() || isOperator() || isManager() || isGerenteGeneral()
             || (isChofer() && resource.data.choferId == request.auth.uid));
 
       allow create: if request.auth != null && isCaja()
@@ -734,6 +740,79 @@ service cloud.firestore {
         && request.resource.data.codigo is string
         && request.resource.data.items is list && request.resource.data.items.size() > 0
         && request.resource.data.estado == 'emitido';
+
+      // Muelle confirma que entregó la mercadería: solo la transición
+      // emitido → entregado, solo esos dos campos, solo en su planta y a su
+      // propio nombre. Los items del remito siguen siendo inmutables.
+      allow update: if request.auth != null && isMuelle()
+        && resource.data.plantaId == myPlanta()
+        && resource.data.estado == 'emitido'
+        && request.resource.data.estado == 'entregado'
+        && request.resource.data.entregadoPor.uid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['estado', 'entregadoPor']);
+
+      allow delete: if false;
+    }
+
+    // ── Expedición: cambios de producto defectuoso (chofer, en la calle) ───
+    // Bolsa rota del cliente por una nueva, sin venta ni plata. Inmutable —
+    // en la liquidación cuadra contra las rotas que recibe muelle.
+    match /cambiosCamion/{cambioId} {
+      allow read: if request.auth != null
+        && (isCaja() || isMuelle() || isOperator() || isManager() || isGerenteGeneral()
+            || (isChofer() && resource.data.choferId == request.auth.uid));
+
+      allow create: if request.auth != null && isChofer()
+        && request.resource.data.choferId == request.auth.uid
+        && request.resource.data.clienteId is string
+        && request.resource.data.camionId is string
+        && request.resource.data.productoId is string
+        && request.resource.data.cantidad is int && request.resource.data.cantidad > 0;
+
+      allow update, delete: if false;
+    }
+
+    // ── Expedición: descarga del camión (conteo físico de muelle) ──────────
+    // El conteo contra el que se liquida el día — inmutable, y solo muelle de
+    // la planta puede registrarlo (separación de controles: quien cuenta la
+    // mercadería no es quien cierra la plata).
+    match /descargasCamion/{descargaId} {
+      allow read: if request.auth != null
+        && (isCaja() || isMuelle() || isOperator() || isManager() || isGerenteGeneral()
+            || (isChofer() && resource.data.choferId == request.auth.uid));
+
+      allow create: if request.auth != null && isMuelle()
+        && request.resource.data.plantaId == myPlanta()
+        && request.resource.data.registradoPor.uid == request.auth.uid
+        && request.resource.data.choferId is string
+        && request.resource.data.camionId is string
+        && request.resource.data.items is list
+        && request.resource.data.bolsasRotas is list
+        && request.resource.data.palletsCompletos is int && request.resource.data.palletsCompletos >= 0
+        && request.resource.data.palletsParciales is int && request.resource.data.palletsParciales >= 0
+        && request.resource.data.palletsVacios is int && request.resource.data.palletsVacios >= 0;
+
+      allow update, delete: if false;
+    }
+
+    // ── Expedición: liquidación del repartidor (cierre del día, por caja) ──
+    // ID determinístico {fecha}_{choferId} + create-only: un segundo cierre
+    // del mismo día falla en vez de pisar el snapshot.
+    match /liquidaciones/{liquidacionId} {
+      allow read: if request.auth != null
+        && (isCaja() || isOperator() || isManager() || isGerenteGeneral()
+            || (isChofer() && resource.data.choferId == request.auth.uid));
+
+      allow create: if request.auth != null && isCaja()
+        && request.resource.data.plantaId == myPlanta()
+        && request.resource.data.cerradaPor.uid == request.auth.uid
+        && request.resource.data.choferId is string
+        && request.resource.data.fecha is string
+        && liquidacionId == request.resource.data.fecha + '_' + request.resource.data.choferId
+        && request.resource.data.productos is list
+        && request.resource.data.efectivoARendir is number
+        && request.resource.data.efectivoRecibido is number;
 
       allow update, delete: if false;
     }

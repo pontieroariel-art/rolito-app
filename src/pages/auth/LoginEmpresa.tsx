@@ -18,6 +18,7 @@ const ROLE_HOME: Record<string, string> = {
   chofer:            '/chofer',
   cliente:           '/dashboard',
   caja:              '/caja',
+  muelle:            '/muelle',
 }
 
 export default function LoginEmpresa() {

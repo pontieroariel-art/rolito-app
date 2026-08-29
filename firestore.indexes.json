@@ -79,6 +79,38 @@
         { "fieldPath": "choferId", "order": "ASCENDING" },
         { "fieldPath": "fecha",    "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "ventasCamion",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "choferId", "order": "ASCENDING" },
+        { "fieldPath": "fecha",    "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "cambiosCamion",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "choferId", "order": "ASCENDING" },
+        { "fieldPath": "fecha",    "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "descargasCamion",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "choferId", "order": "ASCENDING" },
+        { "fieldPath": "fecha",    "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "descargasCamion",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "plantaId", "order": "ASCENDING" },
+        { "fieldPath": "fecha",    "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

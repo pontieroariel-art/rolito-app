@@ -90,6 +90,9 @@ const PartesMaquinasPage      = lazy(() => import('./pages/produccion/PartesMaqu
 
 const ExpedicionLayout  = lazy(() => import('./components/expedicion/ExpedicionLayout'))
 const RemitosCargaPage  = lazy(() => import('./pages/expedicion/RemitosCargaPage'))
+const LiquidacionesPage = lazy(() => import('./pages/expedicion/LiquidacionesPage'))
+const MuelleDashboard   = lazy(() => import('./pages/expedicion/MuelleDashboard'))
+const CambioCamion      = lazy(() => import('./pages/chofer/CambioCamion'))
 
 // /produccion es el home de todo rol produccion_hielo, pero el puesto define
 // la pantalla: subrol 'maquinista' → parte de máquinas; sin subrol → carga de
@@ -276,9 +279,10 @@ function AppContent() {
 
         {/* Chofer */}
         <Route element={<ProtectedRoute allowedRoles={['chofer']} />}>
-          <Route path="/chofer"       element={<ChoferDashboard />} />
-          <Route path="/chofer/map"   element={<ChoferMap />} />
-          <Route path="/chofer/venta" element={<VentaCamion />} />
+          <Route path="/chofer"        element={<ChoferDashboard />} />
+          <Route path="/chofer/map"    element={<ChoferMap />} />
+          <Route path="/chofer/venta"  element={<VentaCamion />} />
+          <Route path="/chofer/cambio" element={<CambioCamion />} />
         </Route>
 
         {/* Selección de sistema (roles con acceso a más de uno, ver src/utils/sistemas.ts).
@@ -376,9 +380,16 @@ function AppContent() {
             siguientes (ver docs del módulo). Shell propio tipo producción. */}
         <Route element={<ExpedicionLayout />}>
           <Route element={<ProtectedRoute allowedRoles={['caja', 'super_admin']} />}>
-            <Route path="/caja"         element={<Navigate to="/caja/remitos" replace />} />
-            <Route path="/caja/remitos" element={<RemitosCargaPage />} />
+            <Route path="/caja"                element={<Navigate to="/caja/remitos" replace />} />
+            <Route path="/caja/remitos"        element={<RemitosCargaPage />} />
+            <Route path="/caja/liquidaciones"  element={<LiquidacionesPage />} />
           </Route>
+        </Route>
+
+        {/* Muelle — tablet en planta, Navbar genérico (una sola pantalla):
+            entrega la carga contra el remito y cuenta la descarga al volver. */}
+        <Route element={<ProtectedRoute allowedRoles={['muelle', 'super_admin']} />}>
+          <Route path="/muelle" element={<MuelleDashboard />} />
         </Route>
 
         {/* Backoffice — panel de administración centralizado, exclusivo

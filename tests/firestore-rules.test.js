@@ -2233,3 +2233,167 @@ describe('config/cargaCounter_*', () => {
     await assertFails(setDoc(doc(db('chof1'), 'config/cargaCounter_torcuato'), { next: 2 }))
   })
 })
+
+// ── Expedición Fase 2: muelle, cambios, descargas y liquidaciones ─────────────
+describe('expedicion: muelle / cambios / descargas / liquidaciones', () => {
+  const seedCaja   = (uid = 'caja1',   planta = 'torcuato') =>
+    seed((d) => setDoc(doc(d, `users/${uid}`), { rol: 'caja', estado: 'activo', planta }))
+  const seedMuelle = (uid = 'mue1',    planta = 'torcuato') =>
+    seed((d) => setDoc(doc(d, `users/${uid}`), { rol: 'muelle', estado: 'activo', planta }))
+  const seedChofer = (uid = 'chof1') =>
+    seed((d) => setDoc(doc(d, `users/${uid}`), { rol: 'chofer', estado: 'activo' }))
+
+  const remito = (extra = {}) => ({
+    numero: 1, codigo: 'RC-DT-000001', plantaId: 'torcuato',
+    camionId: 'cam1', camionLabel: 'AB123CD', choferId: 'chof1', choferNombre: 'Chofer Uno',
+    items: [{ productoId: 'bolsa_10kg', nombre: 'Hielo 10kg', cantidad: 100, pallets: 1 }],
+    palletsCarga: 1, estado: 'emitido', creadoPor: { uid: 'caja1', nombre: 'Caja' },
+    fecha: new Date(), ...extra,
+  })
+  const cambio = (extra = {}) => ({
+    camionId: 'cam1', choferId: 'chof1', choferNombre: 'Chofer Uno',
+    clienteId: 'cli', clienteNombre: 'Cliente SA',
+    productoId: 'bolsa_10kg', nombre: 'Hielo 10kg', cantidad: 2, fecha: new Date(), ...extra,
+  })
+  const descarga = (extra = {}) => ({
+    plantaId: 'torcuato', camionId: 'cam1', camionLabel: 'AB123CD',
+    choferId: 'chof1', choferNombre: 'Chofer Uno',
+    items: [{ productoId: 'bolsa_10kg', nombre: 'Hielo 10kg', cantidad: 20 }],
+    bolsasRotas: [], palletsCompletos: 0, palletsParciales: 1, palletsVacios: 0,
+    registradoPor: { uid: 'mue1', nombre: 'Muelle' }, fecha: new Date(), ...extra,
+  })
+  const liquidacion = (extra = {}) => ({
+    fecha: '2026-08-29', plantaId: 'torcuato', choferId: 'chof1', choferNombre: 'Chofer Uno',
+    productos: [], pallets: { salidos: 1, completos: 0, parciales: 1, vacios: 0, diferencia: 0 },
+    cambios: { registrados: 2, rotasRecibidas: 2 },
+    importes: { contadoEfectivo: 1000, contadoTransferencia: 0, cuentaCorriente: 0, total: 1000 },
+    efectivoARendir: 1000, efectivoRecibido: 1000, diferenciaEfectivo: 0,
+    cerradaPor: { uid: 'caja1', nombre: 'Caja' }, createdAt: new Date(), ...extra,
+  })
+
+  // ── remito: transición de entrega por muelle ──
+  test('muelle confirma la entrega de un remito emitido de su planta', async () => {
+    await seedMuelle()
+    await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), remito()))
+    await assertSucceeds(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), {
+      estado: 'entregado', entregadoPor: { uid: 'mue1', nombre: 'Muelle', hora: new Date() },
+    }))
+  })
+
+  test('muelle NO confirma entrega en OTRA planta', async () => {
+    await seedMuelle('mue1', 'merlo')
+    await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), remito()))
+    await assertFails(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), {
+      estado: 'entregado', entregadoPor: { uid: 'mue1', nombre: 'Muelle', hora: new Date() },
+    }))
+  })
+
+  test('muelle NO puede tocar los items del remito al confirmar', async () => {
+    await seedMuelle()
+    await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), remito()))
+    await assertFails(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), {
+      estado: 'entregado', entregadoPor: { uid: 'mue1', nombre: 'Muelle', hora: new Date() },
+      items: [],
+    }))
+  })
+
+  test('muelle NO re-entrega un remito ya entregado', async () => {
+    await seedMuelle()
+    await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), remito({ estado: 'entregado' })))
+    await assertFails(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), {
+      estado: 'entregado', entregadoPor: { uid: 'mue1', nombre: 'Muelle', hora: new Date() },
+    }))
+  })
+
+  test('caja NO puede confirmar entregas (eso es de muelle)', async () => {
+    await seedCaja()
+    await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), remito()))
+    await assertFails(updateDoc(doc(db('caja1'), 'remitosCarga/r1'), {
+      estado: 'entregado', entregadoPor: { uid: 'caja1', nombre: 'Caja', hora: new Date() },
+    }))
+  })
+
+  // ── cambiosCamion ──
+  test('el chofer registra su propio cambio', async () => {
+    await seedChofer()
+    await assertSucceeds(setDoc(doc(db('chof1'), 'cambiosCamion/c1'), cambio()))
+  })
+
+  test('el chofer NO registra cambios a nombre de otro', async () => {
+    await seedChofer()
+    await assertFails(setDoc(doc(db('chof1'), 'cambiosCamion/c1'), cambio({ choferId: 'otro' })))
+  })
+
+  test('un cambio es inmutable', async () => {
+    await seedChofer()
+    await seed((d) => setDoc(doc(d, 'cambiosCamion/c1'), cambio()))
+    await assertFails(updateDoc(doc(db('chof1'), 'cambiosCamion/c1'), { cantidad: 99 }))
+  })
+
+  // ── descargasCamion ──
+  test('muelle registra la descarga en su planta', async () => {
+    await seedMuelle()
+    await assertSucceeds(setDoc(doc(db('mue1'), 'descargasCamion/d1'), descarga()))
+  })
+
+  test('muelle NO registra descargas de otra planta', async () => {
+    await seedMuelle('mue1', 'merlo')
+    await assertFails(setDoc(doc(db('mue1'), 'descargasCamion/d1'), descarga()))
+  })
+
+  test('el chofer NO puede registrar descargas', async () => {
+    await seedChofer()
+    await assertFails(setDoc(doc(db('chof1'), 'descargasCamion/d1'), descarga({ registradoPor: { uid: 'chof1', nombre: 'X' } })))
+  })
+
+  test('una descarga es inmutable', async () => {
+    await seedMuelle()
+    await seed((d) => setDoc(doc(d, 'descargasCamion/d1'), descarga()))
+    await assertFails(updateDoc(doc(db('mue1'), 'descargasCamion/d1'), { palletsVacios: 5 }))
+  })
+
+  // ── liquidaciones ──
+  test('caja cierra la liquidación del día con id determinístico', async () => {
+    await seedCaja()
+    await assertSucceeds(setDoc(doc(db('caja1'), 'liquidaciones/2026-08-29_chof1'), liquidacion()))
+  })
+
+  test('caja NO puede cerrar con id que no matchea fecha_chofer', async () => {
+    await seedCaja()
+    await assertFails(setDoc(doc(db('caja1'), 'liquidaciones/otro-id'), liquidacion()))
+  })
+
+  test('una liquidación cerrada NO se puede pisar (create-only)', async () => {
+    await seedCaja()
+    await seed((d) => setDoc(doc(d, 'liquidaciones/2026-08-29_chof1'), liquidacion()))
+    await assertFails(setDoc(doc(db('caja1'), 'liquidaciones/2026-08-29_chof1'), liquidacion({ efectivoRecibido: 0 })))
+  })
+
+  test('muelle NO puede cerrar liquidaciones', async () => {
+    await seedMuelle()
+    await assertFails(setDoc(doc(db('mue1'), 'liquidaciones/2026-08-29_chof1'), liquidacion({ cerradaPor: { uid: 'mue1', nombre: 'M' } })))
+  })
+
+  test('el chofer lee su liquidación pero no la de otro', async () => {
+    await seedChofer()
+    await seed((d) => setDoc(doc(d, 'liquidaciones/2026-08-29_chof1'), liquidacion()))
+    await seed((d) => setDoc(doc(d, 'liquidaciones/2026-08-29_otro'), liquidacion({ choferId: 'otro' })))
+    await assertSucceeds(getDoc(doc(db('chof1'), 'liquidaciones/2026-08-29_chof1')))
+    await assertFails(getDoc(doc(db('chof1'), 'liquidaciones/2026-08-29_otro')))
+  })
+})
+
+// Caja lee ventas de camión (las necesita la liquidación del repartidor).
+describe('ventasCamion: lectura de caja', () => {
+  test('caja puede leer una venta; muelle NO', async () => {
+    await seed((d) => setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' }))
+    await seed((d) => setDoc(doc(d, 'users/mue1'), { rol: 'muelle', estado: 'activo', planta: 'torcuato' }))
+    await seed((d) => setDoc(doc(d, 'ventasCamion/v1'), {
+      canal: 'promo', camionId: 'cam1', choferId: 'chof1', choferNombre: 'Chofer',
+      clienteId: 'cli', clienteNombre: 'Cliente SA', items: [], total: 100,
+      formaPago: 'contado_efectivo', fecha: new Date(), tango: { estado: 'pendiente' },
+    }))
+    await assertSucceeds(getDoc(doc(db('caja1'), 'ventasCamion/v1')))
+    await assertFails(getDoc(doc(db('mue1'), 'ventasCamion/v1')))
+  })
+})
