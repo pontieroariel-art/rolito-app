@@ -1,6 +1,6 @@
 import { Timestamp } from 'firebase/firestore'
 
-export type UserRole = 'super_admin' | 'gerente_general' | 'gerente_comercial' | 'comercial' | 'logistica' | 'chofer' | 'cliente' | 'facturacion' | 'heladeras' | 'heladeras_encargado' | 'tecnico' | 'produccion_hielo' | 'produccion_encargado'
+export type UserRole = 'super_admin' | 'gerente_general' | 'gerente_comercial' | 'comercial' | 'logistica' | 'chofer' | 'cliente' | 'facturacion' | 'heladeras' | 'heladeras_encargado' | 'tecnico' | 'produccion_hielo' | 'produccion_encargado' | 'caja'
 export type UserStatus = 'activo' | 'inactivo' | 'pendiente'
 
 // Sistema (Logística/Heladeras/Producción) — ver src/utils/sistemas.ts para el
@@ -113,6 +113,50 @@ export interface VentaCamion {
   tango?:               RemitoTangoEstado
 }
 
+// ── Expedición: remito de carga del camión ────────────────────────────────────
+// Caja (rol 'caja', fijo por planta) arma el remito de carga: qué mercadería
+// sube a qué camión con qué chofer. Se imprime y muelle entrega contra él —
+// reemplaza el remito manuscrito del circuito viejo. Es el "debe" contra el
+// que después se liquida el día del repartidor (ventas + cambios + descarga).
+
+export interface RemitoCargaItem {
+  productoId: string   // id de config/catalogo
+  nombre:     string
+  cantidad:   number
+  // Pallets que ocupa este producto: ceil(cantidad / unidadesPorPallet del
+  // catálogo). Ausente si el producto no viaja en pallet (sin unidadesPorPallet).
+  pallets?:   number
+}
+
+// Estados del circuito físico: caja lo emite → muelle entrega la mercadería →
+// seguridad controla la salida en el portón → la liquidación del día lo cierra.
+// Fase 1 solo usa 'emitido'; las transiciones llegan con muelle/seguridad.
+export type RemitoCargaEstado = 'emitido' | 'entregado' | 'salido' | 'liquidado'
+
+export interface RemitoCarga {
+  id:           string
+  numero:       number       // correlativo por planta (config/cargaCounter_{plantaId})
+  codigo:       string       // "RC-DT-000123" / "RC-ML-000045"
+  plantaId:     PlantaId
+  camionId:     string
+  camionLabel:  string       // patente + modelo al momento de emitir (snapshot)
+  choferId:     string       // uid del chofer
+  choferNombre: string
+  items:        RemitoCargaItem[]
+  // Total de pallets que salen en el camión, DERIVADO de las cantidades por
+  // formato (suma de items[].pallets) — el camión carga pallets armados, nunca
+  // bases sueltas. Cada pallet = 1 base de metal + 4 puntales; en la descarga
+  // las bases vuelven como pallets completos (con hielo), parciales o vacíos —
+  // la cuenta de envases cierra contra este número (ver liquidación, Fase 2).
+  palletsCarga: number
+  estado:       RemitoCargaEstado
+  creadoPor:    { uid: string; nombre: string }
+  fecha:        Timestamp
+  entregadoPor?: { uid: string; nombre: string; hora: Timestamp }   // muelle (Fase 2)
+  salida?:       { uid: string; nombre: string; hora: Timestamp }   // seguridad (Fase 4)
+  tango?:       RemitoTangoEstado
+}
+
 export interface DeliveryAddress {
   id: string
   nombre: string
@@ -200,7 +244,7 @@ export interface UserProfile {
   sector?:            string   // internal-only prefix from COD_CTE (e.g. FC, MDP, YPF)
   subrol?:            'chofer' | 'ayudante' | 'maquinista'   // 'maquinista' aplica a rol 'produccion_hielo': parte de máquinas en vez de carga de pallets
   area?:              AreaHeladera   // sector de heladeras (rol 'heladeras')
-  planta?:            PlantaId   // planta de producción fija del operario (rol 'produccion_hielo')
+  planta?:            PlantaId   // planta fija del usuario (roles 'produccion_hielo' y 'caja')
   legajo?:            string   // login del operario de producción (rol 'produccion_hielo') — solo el número, sin contraseña, ver produccionAuthService.ts
   // Favoritos del técnico en el checklist de tipos de reparación (id de
   // config/tiposReparacion) — solo lo usa el técnico de calle (rol

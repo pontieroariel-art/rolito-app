@@ -1,6 +1,6 @@
 import { Order, OrderProduct } from '../types'
 import { toDateStr } from './helpers'
-import { ROLITO_INFO, COMODATO_COMODANTE } from './constants'
+import { ROLITO_INFO, COMODATO_COMODANTE, PLANTA_INFO } from './constants'
 
 // El logo fuente (/logo-rolito.png) es un PNG de 8334x2836px — insertado tal
 // cual con doc.addImage(), jsPDF lo reincrusta a resolución completa (el PDF
@@ -775,4 +775,101 @@ export async function generateListadoPdf(titulo: string, head: string[], rows: (
 
   const slug = titulo.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '')
   doc.save(`${slug}-${toDateStr(new Date())}.pdf`)
+}
+
+// ── Remito de carga del camión (módulo expedición) ───────────────────────────
+// Comprobante A4 que caja imprime y le entrega a muelle: contra este papel
+// muelle carga la mercadería al camión. Espeja el remito manuscrito del
+// circuito viejo. Ver src/services/remitoCargaService.ts.
+export async function generateRemitoCarga(remito: {
+  codigo:       string
+  plantaId:     'torcuato' | 'merlo'
+  camionLabel:  string
+  choferNombre: string
+  items:        { nombre: string; cantidad: number; pallets?: number }[]
+  palletsCarga: number
+  creadoPor:    { nombre: string }
+  fecha:        Date
+}) {
+  const { default: jsPDF }     = await import('jspdf')
+  const { default: autoTable } = await import('jspdf-autotable')
+  const doc   = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const pageW = doc.internal.pageSize.getWidth()
+  const logo  = await fetchImageAsBase64('/logo-rolito.png')
+  const planta = PLANTA_INFO[remito.plantaId]
+
+  const fechaStr = remito.fecha.toLocaleString('es-AR', {
+    day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  })
+
+  if (logo) doc.addImage(logo, 'PNG', 14, 8, 40, 13)
+  doc.setFontSize(15)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(0)
+  doc.text('Remito de Carga', pageW - 14, 14, { align: 'right' })
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(80)
+  doc.text(`${remito.codigo}   ·   ${fechaStr}`, pageW - 14, 20, { align: 'right' })
+  doc.setTextColor(0)
+  doc.setDrawColor(45, 106, 79)
+  doc.setLineWidth(0.6)
+  doc.line(14, 26, pageW - 14, 26)
+
+  autoTable(doc, {
+    startY: 32,
+    theme: 'plain',
+    body: [
+      ['Planta', `${planta.razonSocial} — ${planta.direccion}, ${planta.localidad}`],
+      ['Camión', remito.camionLabel],
+      ['Chofer', remito.choferNombre],
+    ],
+    styles: { fontSize: 9, cellPadding: 1.5 },
+    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 28 } },
+    margin: { left: 14, right: 14 },
+  })
+  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
+  let y = (doc.lastAutoTable?.finalY ?? 52) + 6
+
+  autoTable(doc, {
+    startY: y,
+    head: [['Producto', 'Cantidad', 'Pallets']],
+    body: remito.items.map((i) => [i.nombre, String(i.cantidad), i.pallets ? String(i.pallets) : '—']),
+    foot: remito.palletsCarga > 0
+      ? [['Total pallets de carga', '', String(remito.palletsCarga)]]
+      : undefined,
+    styles: { fontSize: 9.5, cellPadding: 2.5 },
+    headStyles: { fillColor: [45, 106, 79], textColor: 255, fontStyle: 'bold', fontSize: 8.5 },
+    footStyles: { fillColor: [240, 248, 244], textColor: 30, fontStyle: 'bold', fontSize: 9 },
+    columnStyles: { 1: { halign: 'right', cellWidth: 28 }, 2: { halign: 'right', cellWidth: 24 } },
+    margin: { left: 14, right: 14 },
+  })
+  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
+  y = (doc.lastAutoTable?.finalY ?? y + 30) + 8
+
+  if (remito.palletsCarga > 0) {
+    doc.setFontSize(8.5)
+    doc.setTextColor(80)
+    doc.text(
+      `Envases: ${remito.palletsCarga} base(s) de metal · ${remito.palletsCarga * 4} puntales. ` +
+      'Deben regresar como pallets completos, parciales o vacíos (base + 4 puntales).',
+      14, y,
+    )
+  }
+  y += 22
+
+  // Firmas en blanco: chofer y muelle firman el papel al cargar, como siempre.
+  doc.setDrawColor(150)
+  doc.setLineWidth(0.2)
+  doc.line(14, y, 88, y)
+  doc.line(pageW - 88, y, pageW - 14, y)
+  doc.setFontSize(8)
+  doc.setTextColor(100)
+  doc.text('Firma del chofer', 14, y + 4)
+  doc.text('Firma de muelle', pageW - 88, y + 4)
+  doc.setFontSize(8.5)
+  doc.setTextColor(60)
+  doc.text(`Emitió: ${remito.creadoPor.nombre}`, 14, y + 14)
+
+  doc.save(`${remito.codigo}.pdf`)
 }

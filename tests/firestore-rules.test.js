@@ -2133,3 +2133,103 @@ describe('produccion_encargado — pallets y contador', () => {
     await assertFails(setDoc(doc(db('log'), 'produccionLegajoIndex/1234'), { email: 'op@planta.rolito.internal' }))
   })
 })
+
+// ── remitosCarga: remito de carga del camión (módulo expedición) ──────────────
+describe('remitosCarga', () => {
+  const remito = (extra = {}) => ({
+    numero: 1, codigo: 'RC-DT-000001', plantaId: 'torcuato',
+    camionId: 'cam1', camionLabel: 'AB123CD · Iveco', choferId: 'chof1', choferNombre: 'Chofer Uno',
+    items: [{ productoId: 'bolsa_10kg', nombre: 'Hielo 10kg', cantidad: 100, pallets: 2 }],
+    palletsCarga: 2,
+    estado: 'emitido', creadoPor: { uid: 'caja1', nombre: 'Caja Uno' },
+    fecha: new Date(), tango: { estado: 'pendiente' }, ...extra,
+  })
+  const seedCaja = (uid = 'caja1', planta = 'torcuato') =>
+    seed((d) => setDoc(doc(d, `users/${uid}`), { rol: 'caja', estado: 'activo', planta }))
+
+  test('caja puede emitir un remito de su planta', async () => {
+    await seedCaja()
+    await assertSucceeds(setDoc(doc(db('caja1'), 'remitosCarga/r1'), remito()))
+  })
+
+  test('caja NO puede emitir un remito de OTRA planta', async () => {
+    await seedCaja()
+    await assertFails(setDoc(doc(db('caja1'), 'remitosCarga/r1'), remito({ plantaId: 'merlo' })))
+  })
+
+  test('caja NO puede emitir a nombre de otro usuario', async () => {
+    await seedCaja()
+    await assertFails(setDoc(doc(db('caja1'), 'remitosCarga/r1'), remito({ creadoPor: { uid: 'otro', nombre: 'Otro' } })))
+  })
+
+  test('caja NO puede emitir sin items', async () => {
+    await seedCaja()
+    await assertFails(setDoc(doc(db('caja1'), 'remitosCarga/r1'), remito({ items: [] })))
+  })
+
+  test('caja NO puede emitir en estado distinto de emitido', async () => {
+    await seedCaja()
+    await assertFails(setDoc(doc(db('caja1'), 'remitosCarga/r1'), remito({ estado: 'entregado' })))
+  })
+
+  test('un remito es inmutable tras emitirse (también para caja)', async () => {
+    await seedCaja()
+    await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), remito()))
+    await assertFails(updateDoc(doc(db('caja1'), 'remitosCarga/r1'), { estado: 'entregado' }))
+  })
+
+  test('un chofer NO puede crear remitos de carga', async () => {
+    await seed((d) => setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' }))
+    await assertFails(setDoc(doc(db('chof1'), 'remitosCarga/r1'), remito()))
+  })
+
+  test('el chofer puede leer su propio remito pero no el de otro', async () => {
+    await seed((d) => setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'remitosCarga/mio'), remito()))
+    await seed((d) => setDoc(doc(d, 'remitosCarga/ajeno'), remito({ choferId: 'otro' })))
+    await assertSucceeds(getDoc(doc(db('chof1'), 'remitosCarga/mio')))
+    await assertFails(getDoc(doc(db('chof1'), 'remitosCarga/ajeno')))
+  })
+
+  test('caja puede leer remitos; un cliente NO', async () => {
+    await seedCaja()
+    await seed((d) => setDoc(doc(d, 'users/cli'), cliente()))
+    await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), remito()))
+    await assertSucceeds(getDoc(doc(db('caja1'), 'remitosCarga/r1')))
+    await assertFails(getDoc(doc(db('cli', 'c@x.com'), 'remitosCarga/r1')))
+  })
+
+  test('caja puede leer el doc de un chofer (para elegirlo en el remito)', async () => {
+    await seedCaja()
+    await seed((d) => setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' }))
+    await assertSucceeds(getDoc(doc(db('caja1'), 'users/chof1')))
+  })
+})
+
+// ── config/cargaCounter_*: correlativo de remitos de carga por planta ─────────
+describe('config/cargaCounter_*', () => {
+  const seedCaja = (uid = 'caja1', planta = 'torcuato') =>
+    seed((d) => setDoc(doc(d, `users/${uid}`), { rol: 'caja', estado: 'activo', planta }))
+
+  test('caja crea el contador de SU planta en el primer uso (next 2 = emitió el 1)', async () => {
+    await seedCaja()
+    await assertSucceeds(setDoc(doc(db('caja1'), 'config/cargaCounter_torcuato'), { next: 2 }))
+  })
+
+  test('caja NO puede crear el contador de otra planta', async () => {
+    await seedCaja()
+    await assertFails(setDoc(doc(db('caja1'), 'config/cargaCounter_merlo'), { next: 2 }))
+  })
+
+  test('caja avanza el contador de su planta, nunca lo retrocede', async () => {
+    await seedCaja()
+    await seed((d) => setDoc(doc(d, 'config/cargaCounter_torcuato'), { next: 10 }))
+    await assertSucceeds(setDoc(doc(db('caja1'), 'config/cargaCounter_torcuato'), { next: 11 }))
+    await assertFails(setDoc(doc(db('caja1'), 'config/cargaCounter_torcuato'), { next: 9 }))
+  })
+
+  test('un chofer NO puede tocar el contador de carga', async () => {
+    await seed((d) => setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' }))
+    await assertFails(setDoc(doc(db('chof1'), 'config/cargaCounter_torcuato'), { next: 2 }))
+  })
+})

@@ -5,7 +5,7 @@ import Modal from '../../../components/ui/Modal'
 import { useAuth } from '../../../context/AuthContext'
 import { createStaffUser, createChoferUser } from '../../../services/userService'
 import { registrarAccionAlto } from '../../../services/historialAdminService'
-import { AREAS_HELADERA, AreaHeladera, UserRole } from '../../../types'
+import { AREAS_HELADERA, AreaHeladera, PLANTAS, PlantaId, UserRole } from '../../../types'
 import { AREA_HELADERA_LABELS as AREA_LABELS } from '../../../utils/heladeraLabels'
 import { ROLE_LABELS, STAFF_ROLES } from './shared'
 
@@ -16,12 +16,14 @@ export function CrearStaffModal({ onClose, onCreated }: { onClose: () => void; o
   const [password, setPassword] = useState('')
   const [rol,      setRol]      = useState<UserRole>('comercial')
   const [area,     setArea]     = useState<AreaHeladera>('refrigeracion')
+  const [planta,   setPlanta]   = useState<PlantaId>('torcuato')
   const [showPass, setShowPass] = useState(false)
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState('')
 
   const isChofer    = rol === 'chofer'
   const isHeladeras = rol === 'heladeras'
+  const isCaja      = rol === 'caja'
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -35,7 +37,7 @@ export function CrearStaffModal({ onClose, onCreated }: { onClose: () => void; o
       if (isChofer) {
         await createChoferUser({ nombreContacto: nombre, cuit: dni.trim(), pin: password })
       } else {
-        const uid = await createStaffUser({ dni: dni.trim(), password, nombreContacto: nombre, rol, area: isHeladeras ? area : undefined })
+        const uid = await createStaffUser({ dni: dni.trim(), password, nombreContacto: nombre, rol, area: isHeladeras ? area : undefined, planta: isCaja ? planta : undefined })
         if (currentUser) {
           registrarAccionAlto({
             coleccion: 'users',
@@ -82,6 +84,21 @@ export function CrearStaffModal({ onClose, onCreated }: { onClose: () => void; o
             ))}
           </select>
         </div>
+
+        {isCaja && (
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Planta</label>
+            <select
+              value={planta}
+              onChange={(e: ChangeEvent<HTMLSelectElement>) => setPlanta(e.target.value as PlantaId)}
+              className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
+            >
+              {(Object.keys(PLANTAS) as PlantaId[]).map((p) => (
+                <option key={p} value={p}>{PLANTAS[p].label}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {isHeladeras && (
           <div>

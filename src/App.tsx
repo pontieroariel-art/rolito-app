@@ -88,6 +88,9 @@ const PlantasProduccionPage   = lazy(() => import('./pages/produccion/PlantasPro
 const MaquinistaDashboard     = lazy(() => import('./pages/produccion/MaquinistaDashboard'))
 const PartesMaquinasPage      = lazy(() => import('./pages/produccion/PartesMaquinasPage'))
 
+const ExpedicionLayout  = lazy(() => import('./components/expedicion/ExpedicionLayout'))
+const RemitosCargaPage  = lazy(() => import('./pages/expedicion/RemitosCargaPage'))
+
 // /produccion es el home de todo rol produccion_hielo, pero el puesto define
 // la pantalla: subrol 'maquinista' → parte de máquinas; sin subrol → carga de
 // pallets. Mismo login por legajo para los dos (LoginProduccion).
@@ -365,6 +368,16 @@ function AppContent() {
             <Route path="/produccion/partes"    element={<PartesMaquinasPage />} />
             <Route path="/produccion/operarios" element={<OperariosProduccionPage />} />
             <Route path="/produccion/plantas"   element={<PlantasProduccionPage />} />
+          </Route>
+        </Route>
+
+        {/* Expedición de planta — rol 'caja' (fijo por planta): remitos de
+            carga de camiones; ventanilla y liquidaciones llegan en fases
+            siguientes (ver docs del módulo). Shell propio tipo producción. */}
+        <Route element={<ExpedicionLayout />}>
+          <Route element={<ProtectedRoute allowedRoles={['caja', 'super_admin']} />}>
+            <Route path="/caja"         element={<Navigate to="/caja/remitos" replace />} />
+            <Route path="/caja/remitos" element={<RemitosCargaPage />} />
           </Route>
         </Route>
 

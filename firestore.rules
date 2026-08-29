@@ -80,7 +80,12 @@ service cloud.firestore {
     function isProduccionEncargado() {
       return myRole() == 'produccion_encargado' || myRole() == 'super_admin';
     }
-    // Planta asignada al usuario autenticado (solo aplica a rol 'produccion_hielo').
+    // Personal de caja en planta (módulo expedición: remitos de carga,
+    // ventanilla, liquidaciones). Fijo por planta — ver myPlanta().
+    function isCaja() {
+      return myRole() == 'caja';
+    }
+    // Planta asignada al usuario autenticado (roles 'produccion_hielo' y 'caja').
     function myPlanta() {
       let path = /databases/$(database)/documents/users/$(request.auth.uid);
       let data = exists(path) ? get(path).data : {};
@@ -232,7 +237,10 @@ service cloud.firestore {
             || myRole() == 'produccion_encargado'
             // chofer necesita buscar el cliente registrado al que le vende desde
             // el camión (venta a demanda → remito). Ver ventaCamionService.ts.
-            || myRole() == 'chofer');
+            || myRole() == 'chofer'
+            // caja necesita elegir el chofer del remito de carga (y, en fases
+            // siguientes, buscar clientes para la venta por ventanilla).
+            || isCaja());
 
       // ── super_admin: control total (asigna roles, crea staff, limpia datos) ──
       allow read, write: if request.auth != null && myRole() == 'super_admin';
@@ -427,6 +435,18 @@ service cloud.firestore {
       allow update: if request.auth != null && isCliente() && docId == 'ticketServicioCounter'
         && request.resource.data.next == resource.data.next + 1
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next']);
+
+      // Contador de remitos de carga por planta (cargaCounter_torcuato /
+      // cargaCounter_merlo) — caja solo toca el de SU planta, y en updates
+      // solo puede avanzar `next` (la transacción de crearRemitoCarga crea el
+      // doc en el primer uso con next >= 2: número emitido + 1).
+      allow create: if request.auth != null && isCaja()
+        && docId == 'cargaCounter_' + myPlanta()
+        && request.resource.data.next is int && request.resource.data.next > 1;
+      allow update: if request.auth != null && isCaja()
+        && docId == 'cargaCounter_' + myPlanta()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next'])
+        && request.resource.data.next > resource.data.next;
 
       // Contadores de correlativo de producción (uno por planta:
       // produccionCounter_torcuato / produccionCounter_merlo). Alta inicial
@@ -691,6 +711,29 @@ service cloud.firestore {
         && request.resource.data.formaPago in ['contado_efectivo', 'contado_transferencia', 'cuenta_corriente']
         && request.resource.data.items is list
         && request.resource.data.total is number;
+
+      allow update, delete: if false;
+    }
+
+    // ── Expedición: remitos de carga del camión ────────────────────────────
+    // Caja (rol 'caja', fijo por planta) emite el remito con el que muelle
+    // carga el camión. Los items nunca se editan tras emitirse (comprobante
+    // impreso); las transiciones de estado (entregado/salido/liquidado) llegan
+    // en fases siguientes con reglas propias por rol — por ahora update: false.
+    match /remitosCarga/{remitoId} {
+      allow read: if request.auth != null
+        && (isCaja() || isOperator() || isManager() || isGerenteGeneral()
+            || (isChofer() && resource.data.choferId == request.auth.uid));
+
+      allow create: if request.auth != null && isCaja()
+        && request.resource.data.plantaId == myPlanta()
+        && request.resource.data.creadoPor.uid == request.auth.uid
+        && request.resource.data.camionId is string
+        && request.resource.data.choferId is string
+        && request.resource.data.numero is int && request.resource.data.numero > 0
+        && request.resource.data.codigo is string
+        && request.resource.data.items is list && request.resource.data.items.size() > 0
+        && request.resource.data.estado == 'emitido';
 
       allow update, delete: if false;
     }

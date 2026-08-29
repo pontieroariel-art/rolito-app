@@ -13,6 +13,7 @@ import SignaturePad, { SignaturePadHandle } from '../../components/heladeras/Sig
 import { useAuth } from '../../context/AuthContext'
 import { useClientesActivos } from '../../hooks/useClientesActivos'
 import { useAllListasPrecios } from '../../hooks/useListasPrecios'
+import { useRemitosCargaChofer } from '../../hooks/useRemitosCargaChofer'
 import { crearVentaCamion } from '../../services/ventaCamionService'
 import { precioEfectivo } from '../../utils/helpers'
 import { PRODUCTS } from '../../utils/constants'
@@ -50,7 +51,13 @@ export default function VentaCamion() {
   const { user } = useAuth()
   const { clientes, loading: loadingClientes } = useClientesActivos()
   const { listas } = useAllListasPrecios()
+  const { remitos: remitosCarga } = useRemitosCargaChofer()
   const firmaRef = useRef<SignaturePadHandle>(null)
+
+  // Camión del día: el remito de carga emitido por caja es la fuente primaria
+  // (users/{uid}.camionId no lo escribe ninguna UI, solo el seed — queda como
+  // fallback para no romper choferes sin remito digital todavía).
+  const camionIdHoy = remitosCarga[0]?.camionId ?? user?.camionId
 
   const [canal, setCanal] = useState<CanalVenta | null>(null)
   const [clienteId, setClienteId] = useState('')
@@ -98,7 +105,7 @@ export default function VentaCamion() {
 
   const abrirResumen = () => {
     setError('')
-    if (!user?.camionId)     { setError('No tenés un camión asignado. Avisá a logística.'); return }
+    if (!camionIdHoy)        { setError('No tenés un camión asignado. Avisá a logística.'); return }
     if (!cliente)            { setError('Elegí un cliente.'); return }
     if (items.length === 0)  { setError('Cargá al menos un producto.'); return }
     if (!formaPago)          { setError('Elegí la forma de pago.'); return }
@@ -110,12 +117,12 @@ export default function VentaCamion() {
   }
 
   const confirmar = () => {
-    if (!user?.camionId || !cliente || !canal || !formaPago) return
+    if (!user || !camionIdHoy || !cliente || !canal || !formaPago) return
     setGuardando(true)
     try {
       crearVentaCamion(
         { canal, cliente, items, formaPago, firmaCliente: firmaPreview ?? undefined, firmanteNombre: firmante },
-        { uid: user.uid, nombre: user.nombre, camionId: user.camionId },
+        { uid: user.uid, nombre: user.nombre, camionId: camionIdHoy },
       )
       setExito({ cliente: cliente.razonSocial || cliente.nombre, total })
       reset()

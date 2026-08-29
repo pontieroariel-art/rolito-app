@@ -77,6 +77,7 @@ async function main() {
     { dni: '20000001', password: PASSWORD, nombre: 'Admin Prueba', rol: 'super_admin' },
     { dni: '34551070', password: 'prueba', nombre: 'Ariel Pontiero', rol: 'super_admin' },
     { dni: '20000002', password: PASSWORD, nombre: 'Gerente Comercial Prueba', rol: 'gerente_comercial' },
+    { dni: '20000003', password: PASSWORD, nombre: 'Caja Torcuato Prueba', rol: 'caja', planta: 'torcuato' },
   ]
   for (const s of staffSeed) {
     const staffEmail = dniToStaffEmail(s.dni)
@@ -84,6 +85,7 @@ async function main() {
     await db.collection('users').doc(staffUid).set(baseUserFields({
       email: staffEmail, nombre: s.nombre, nombreContacto: s.nombre,
       rol: s.rol, username: s.dni,
+      ...(s.planta ? { planta: s.planta } : {}),
     }), { merge: true })
     await db.collection('staffDniIndex').doc(s.dni).set({ email: staffEmail })
     console.log(`✓ Staff (${s.rol}) — DNI ${s.dni} / contraseña ${s.password}`)
@@ -122,6 +124,22 @@ async function main() {
   ]
   await db.collection('listas-precios').doc('lista-general').set({ nombre: 'Lista General', items: listaItems }, { merge: true })
   console.log('✓ Lista de precios "Lista General"')
+
+  // ── Catálogo con unidades por pallet (para el remito de carga de caja) ───
+  // Valores reales de planta (mismos que produccionCatalogo.ts); anticorrosivo
+  // y agua no viajan en pallet.
+  const catalogoProductos = [
+    { id: 'bolsa_2kg',     nombre: 'Hielo bolsa 2kg',         unidad: 'bolsa',  unidadesPorPallet: 460 },
+    { id: 'bolsa_3kg',     nombre: 'Hielo bolsa 3kg',         unidad: 'bolsa',  unidadesPorPallet: 315 },
+    { id: 'bolsa_10kg',    nombre: 'Hielo bolsa 10kg',        unidad: 'bolsa',  unidadesPorPallet: 88 },
+    { id: 'picado_10kg',   nombre: 'Hielo picado bolsa 10kg', unidad: 'bolsa',  unidadesPorPallet: 80 },
+    { id: 'escamas_10kg',  nombre: 'Hielo en escamas 10kg',   unidad: 'bolsa',  unidadesPorPallet: 70 },
+    { id: 'barra',         nombre: 'Barra de hielo',          unidad: 'barra',  unidadesPorPallet: 56 },
+    { id: 'anticorrosivo', nombre: 'Anticorrosivo',           unidad: 'unidad' },
+    { id: 'agua_6l',       nombre: 'Agua de mesa x 6 litros', unidad: 'bidón' },
+  ]
+  await db.collection('config').doc('catalogo').set({ productos: catalogoProductos }, { merge: true })
+  console.log('✓ Catálogo (config/catalogo) con unidades por pallet')
 
   // ── Cliente ──────────────────────────────────────────────────────────────
   const clienteCuit  = '30111111118'

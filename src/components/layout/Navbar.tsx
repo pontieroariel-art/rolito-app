@@ -99,6 +99,8 @@ const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
   // produccion_encargado tiene su propio ProduccionLayout (con sidebar
   // propio, igual que Logística/Heladeras) — no usa este Navbar genérico.
   produccion_encargado: [],
+  // caja usa ExpedicionLayout (sidebar propio) — no usa este Navbar genérico.
+  caja: [],
 }
 
 // Link set para el sistema "heladeras" de los roles con más de un sistema
@@ -121,6 +123,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   tecnico:            'Técnico',
   produccion_hielo:   'Producción',
   produccion_encargado: 'Enc. Producción',
+  caja:               'Caja',
 }
 
 export default function Navbar() {

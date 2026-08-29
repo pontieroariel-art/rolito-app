@@ -161,7 +161,7 @@ export const getAllUsers = async (force = false): Promise<UserProfile[]> => {
 }
 
 export const getStaffUsers = async (): Promise<UserProfile[]> => {
-  const roles: UserRole[] = ['super_admin', 'gerente_comercial', 'comercial', 'logistica', 'facturacion', 'chofer', 'heladeras', 'heladeras_encargado', 'tecnico', 'produccion_encargado']
+  const roles: UserRole[] = ['super_admin', 'gerente_comercial', 'comercial', 'logistica', 'facturacion', 'chofer', 'heladeras', 'heladeras_encargado', 'tecnico', 'produccion_encargado', 'caja']
   const snap = await getDocs(
     query(collection(db, 'users'), where('rol', 'in', roles), limit(6000)),
   )
@@ -230,6 +230,7 @@ export interface CreateStaffParams {
   nombreContacto: string
   rol:            UserRole
   area?:          AreaHeladera   // solo aplica cuando rol === 'heladeras'
+  planta?:        PlantaId       // solo aplica cuando rol === 'caja'
 }
 
 export interface CreateClientParams {
@@ -275,7 +276,7 @@ async function createUserViaSecondaryApp(
   }
 }
 
-export const createStaffUser = async ({ dni, password, nombreContacto, rol, area }: CreateStaffParams): Promise<string> => {
+export const createStaffUser = async ({ dni, password, nombreContacto, rol, area, planta }: CreateStaffParams): Promise<string> => {
   const { dniToStaffEmail, setStaffDniIndex, getEmailByStaffDni } = await import('./staffAuthService')
   const normalizedDni = dni.replace(/\D/g, '')
   const email = dniToStaffEmail(normalizedDni)
@@ -293,6 +294,7 @@ export const createStaffUser = async ({ dni, password, nombreContacto, rol, area
     phone:           '',
     rol,
     ...(area ? { area } : {}),
+    ...(planta ? { planta } : {}),
     estado:          'activo' as UserStatus,
     address:         '',
     razonSocial:     '',

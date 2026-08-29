@@ -63,6 +63,22 @@
         { "fieldPath": "asignadoA.uid", "order": "ASCENDING" },
         { "fieldPath": "createdAt",     "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "remitosCarga",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "plantaId", "order": "ASCENDING" },
+        { "fieldPath": "fecha",    "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "remitosCarga",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "choferId", "order": "ASCENDING" },
+        { "fieldPath": "fecha",    "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

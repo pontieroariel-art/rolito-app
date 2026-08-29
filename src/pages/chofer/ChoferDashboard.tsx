@@ -21,6 +21,7 @@ import { padPin } from '../../services/choferAuthService'
 import { updateVisitaPuntual } from '../../services/visitasService'
 import { useProgramasVisita, useVisitasPuntuales, programasParaFecha, visitasParaFecha } from '../../hooks/useVisitas'
 import { useCatalogo } from '../../hooks/useCatalogo'
+import { useRemitosCargaChofer } from '../../hooks/useRemitosCargaChofer'
 import { summarizeProducts, toDateStr, todayString } from '../../utils/helpers'
 import { generateHojaDeRuta } from '../../utils/pdf'
 import { Order, ProgramaVisita, VisitaPuntual, OrderProduct } from '../../types'
@@ -34,6 +35,7 @@ export default function ChoferDashboard() {
   const { programas }         = useProgramasVisita()
   const { visitas }           = useVisitasPuntuales()
   const { catalogo }          = useCatalogo()
+  const { remitos: remitosCarga } = useRemitosCargaChofer()
   const [pdfLoading,  setPdfLoading]  = useState(false)
 
   const isAyudante = user?.subrol === 'ayudante'
@@ -346,6 +348,35 @@ export default function ChoferDashboard() {
             <p className="text-5xl font-bold text-accent mt-2 leading-none">{delivered.length}</p>
           </div>
         </div>
+
+        {/* Carga despachada por caja (remito de carga del módulo expedición) —
+            lo que realmente subió al camión, contra lo que se liquida el día. */}
+        {remitosCarga.length > 0 && (
+          <section className="bg-white border border-[#D3D1C7] rounded-2xl p-4 shadow-sm">
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Mi carga de hoy</h2>
+            <div className="space-y-3">
+              {remitosCarga.map((r) => (
+                <div key={r.id}>
+                  <p className="text-xs text-gray-500 mb-1">{r.codigo} · {r.camionLabel}</p>
+                  <div className="space-y-0.5">
+                    {r.items.map((i) => (
+                      <div key={i.productoId} className="flex justify-between text-sm">
+                        <span className="text-gray-700">{i.nombre}</span>
+                        <span className="font-semibold text-gray-900">{i.cantidad}</span>
+                      </div>
+                    ))}
+                    {r.palletsCarga > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-700">Pallets de carga</span>
+                        <span className="font-semibold text-gray-900">{r.palletsCarga}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {pending.length > 0 && <CargaDelDia orders={pending} catalogo={catalogo} />}
 
