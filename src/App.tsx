@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { BranchProvider, useBranch } from './context/BranchContext'
 import { SistemaProvider } from './context/SistemaContext'
 import ProtectedRoute from './components/layout/ProtectedRoute'
+import { EXPEDICION_NAV_GROUPS } from './utils/expedicionNav'
 import LoadingSpinner from './components/ui/LoadingSpinner'
 import { Component, ReactNode, ErrorInfo } from 'react'
 
@@ -95,6 +96,18 @@ const VentanillaPage    = lazy(() => import('./pages/expedicion/VentanillaPage')
 const CobranzasPage     = lazy(() => import('./pages/expedicion/CobranzasPage'))
 const MuelleDashboard   = lazy(() => import('./pages/expedicion/MuelleDashboard'))
 const CambioCamion      = lazy(() => import('./pages/chofer/CambioCamion'))
+
+// /caja aterriza en la primera pestaña PERMITIDA del usuario, no siempre en
+// Remitos: una tablet de mostrador con las pestañas recortadas a solo
+// Cobranzas (Usuarios → Permisos) tiene que caer directo ahí.
+function CajaEntry() {
+  const { user } = useAuth()
+  const primera = EXPEDICION_NAV_GROUPS
+    .flatMap((g) => g.items)
+    .find((i) => user && i.roles.includes(user.rol)
+      && (!user.pestanasPermitidas || user.pestanasPermitidas.includes(i.to)))
+  return <Navigate to={primera?.to ?? '/caja/remitos'} replace />
+}
 
 // /produccion es el home de todo rol produccion_hielo, pero el puesto define
 // la pantalla: subrol 'maquinista' → parte de máquinas; sin subrol → carga de
@@ -382,7 +395,7 @@ function AppContent() {
             siguientes (ver docs del módulo). Shell propio tipo producción. */}
         <Route element={<ExpedicionLayout />}>
           <Route element={<ProtectedRoute allowedRoles={['caja', 'super_admin']} />}>
-            <Route path="/caja"                element={<Navigate to="/caja/remitos" replace />} />
+            <Route path="/caja"                element={<CajaEntry />} />
             <Route path="/caja/remitos"        element={<RemitosCargaPage />} />
             <Route path="/caja/ventanilla"     element={<VentanillaPage />} />
             <Route path="/caja/cobranzas"      element={<CobranzasPage />} />
