@@ -6,6 +6,9 @@ import ClienteCombobox, { toComboItems } from '../../components/ui/ClienteCombob
 import { useAuth } from '../../context/AuthContext'
 import { useClientesActivos } from '../../hooks/useClientesActivos'
 import { crearCobranzaCaja, subscribeCobranzasCajaDelDia } from '../../services/cobranzaService'
+import {
+  desmarcarDispositivoCobranza, esDispositivoCobranza, marcarDispositivoCobranza,
+} from '../../services/expedicionDeviceService'
 import { generateReciboCobranza } from '../../utils/pdf'
 import { Cobranza, PLANTAS } from '../../types'
 
@@ -32,6 +35,7 @@ export default function CobranzasPage() {
   const [guardando,   setGuardando]   = useState(false)
   const [error,       setError]       = useState('')
   const [cobranzas,   setCobranzas]   = useState<Cobranza[]>([])
+  const [tabletFija,  setTabletFija]  = useState(esDispositivoCobranza())
 
   useEffect(() => subscribeCobranzasCajaDelDia(plantaId, new Date(), setCobranzas), [plantaId])
 
@@ -162,6 +166,29 @@ export default function CobranzasPage() {
           </div>
         ))}
       </section>
+
+      {/* Puesto de cobranza: marca del APARATO (localStorage), no del usuario —
+          los turnos rotan en la misma tablet, cada persona con su login. */}
+      <p className="text-center">
+        {tabletFija ? (
+          <span className="text-xs text-gray-400">
+            Este dispositivo está fijo en Cobranzas ·{' '}
+            <button
+              onClick={() => { desmarcarDispositivoCobranza(); setTabletFija(false) }}
+              className="underline hover:text-accent"
+            >
+              desfijar
+            </button>
+          </span>
+        ) : (
+          <button
+            onClick={() => { marcarDispositivoCobranza(); setTabletFija(true) }}
+            className="text-xs text-gray-400 underline hover:text-accent"
+          >
+            Fijar este dispositivo solo para cobranzas (tablet de mostrador)
+          </button>
+        )}
+      </p>
 
       {confirmando && cliente && formaPago && (
         <Modal open onClose={() => setConfirmando(false)} title="Confirmar cobranza">

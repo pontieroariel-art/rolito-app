@@ -1,5 +1,5 @@
 import { ReactNode, useState } from 'react'
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeftRight, Menu, X, LogOut, UserCog } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useOnline } from '../../hooks/useOnline'
@@ -7,6 +7,7 @@ import { useSistema } from '../../context/SistemaContext'
 import { logoutUser } from '../../services/authService'
 import { ROLE_LABELS } from '../layout/Navbar'
 import { EXPEDICION_NAV_GROUPS } from '../../utils/expedicionNav'
+import { esDispositivoCobranza } from '../../services/expedicionDeviceService'
 import { PLANTAS } from '../../types'
 
 // Shell del módulo expedición (rol 'caja' + super_admin) — mismo patrón que
@@ -19,13 +20,20 @@ export default function ExpedicionLayout({ children }: { children?: ReactNode })
   const navigate   = useNavigate()
   const [open, setOpen] = useState(false)
   const { sistemasDisponibles, cambiarSistema } = useSistema()
+  const location = useLocation()
   const multiSistema = sistemasDisponibles.length > 1
   const puedeGestionarUsuarios = user?.rol === 'super_admin'
+
+  // Tablet marcada como puesto de cobranza: sin importar qué usuario de caja
+  // se loguee (los turnos rotan en el mismo aparato), acá solo se ve y se
+  // puede usar Cobranzas. super_admin queda exento para poder administrar.
+  const soloCobranza = esDispositivoCobranza() && user?.rol === 'caja'
 
   const grupos = EXPEDICION_NAV_GROUPS
     .map((g) => ({
       ...g,
       items: g.items.filter((i) => user && i.roles.includes(user.rol)
+        && (!soloCobranza || i.to === '/caja/cobranzas')
         && (!user.pestanasPermitidas || user.pestanasPermitidas.includes(i.to))),
     }))
     .filter((g) => g.items.length > 0)
@@ -83,6 +91,11 @@ export default function ExpedicionLayout({ children }: { children?: ReactNode })
       </button>
     </>
   )
+
+  // Guard del puesto de cobranza: cualquier otra ruta de /caja redirige.
+  if (soloCobranza && location.pathname.startsWith('/caja') && location.pathname !== '/caja/cobranzas') {
+    return <Navigate to="/caja/cobranzas" replace />
+  }
 
   return (
     <div className="min-h-screen bg-[#F8F7F2] text-gray-900">

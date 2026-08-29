@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { sistemasDeUsuario } from '../../utils/sistemas'
 import { getDispositivoProduccion } from '../../services/produccionAuthService'
+import { esDispositivoCobranza } from '../../services/expedicionDeviceService'
 
 const ROLE_HOME: Record<string, string> = {
   super_admin:       '/sistema',
@@ -42,6 +43,11 @@ export default function Landing() {
   // reabrir la app instalada desde cero.
   const plantaDispositivo = getDispositivoProduccion()
   if (plantaDispositivo) return <Navigate to={`/produccion-${plantaDispositivo}`} replace />
+
+  // Tablet de cobranza del mostrador (turnos rotativos, cada persona con su
+  // usuario): tras el logout va derecho al login de empresa, no al landing
+  // genérico de clientes.
+  if (esDispositivoCobranza()) return <Navigate to="/empresa" replace />
 
   return (
     <div className="min-h-screen bg-[#F8F7F2] flex flex-col">
