@@ -5,7 +5,7 @@ import {
   assertFails,
   assertSucceeds,
 } from '@firebase/rules-unit-testing'
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, arrayUnion, deleteField } from 'firebase/firestore'
+import { doc, getDoc, getDocs, collection, setDoc, updateDoc, deleteDoc, arrayUnion, deleteField } from 'firebase/firestore'
 
 // Tests de las reglas de Firestore contra el emulador. Verifican de forma
 // automática y repetible los invariantes de seguridad que antes se validaban a
@@ -2718,5 +2718,46 @@ describe('expedicion: turnos de ventanilla', () => {
     await assertFails(setDoc(doc(db('caja1'), 'turnosPublicos/torcuato'), { fecha: 'x', turnos: [] }))
     const sinAuth = testEnv.unauthenticatedContext().firestore()
     await assertFails(getDoc(doc(sinAuth, 'turnosPublicos/torcuato')))
+  })
+})
+
+// ── H2: scraping del padrón bloqueado en los índices de login (get sí, list no) ─
+describe('H2 — indices de login: get puntual sí, enumeracion no', () => {
+  test('el login puede resolver UN cuit por get, sin autenticar', async () => {
+    await seed((d) => setDoc(doc(d, 'cuitIndex/20111111119'), { email: 'c@x.com' }))
+    const anon = testEnv.unauthenticatedContext().firestore()
+    await assertSucceeds(getDoc(doc(anon, 'cuitIndex/20111111119')))
+  })
+
+  test('un anonimo NO puede ENUMERAR cuitIndex (scraping del padron)', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'cuitIndex/20111111119'), { email: 'a@x.com' })
+      await setDoc(doc(d, 'cuitIndex/20222222229'), { email: 'b@x.com' })
+    })
+    const anon = testEnv.unauthenticatedContext().firestore()
+    await assertFails(getDocs(collection(anon, 'cuitIndex')))
+  })
+
+  test('un cliente autenticado tampoco puede enumerar cuitIndex', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/cli'), cliente())
+      await setDoc(doc(d, 'cuitIndex/20111111119'), { email: 'a@x.com' })
+    })
+    await assertFails(getDocs(collection(db('cli'), 'cuitIndex')))
+  })
+
+  test('un staff (logistica) SÍ puede enumerar cuitIndex (gestion/reparacion)', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/ops'), { rol: 'logistica', estado: 'activo' })
+      await setDoc(doc(d, 'cuitIndex/20111111119'), { email: 'a@x.com' })
+    })
+    await assertSucceeds(getDocs(collection(db('ops'), 'cuitIndex')))
+  })
+
+  test('mismo criterio para dniIndex: login por get sí, enumerar no', async () => {
+    await seed((d) => setDoc(doc(d, 'dniIndex/12345678'), { email: 'ch@x.com' }))
+    const anon = testEnv.unauthenticatedContext().firestore()
+    await assertSucceeds(getDoc(doc(anon, 'dniIndex/12345678')))
+    await assertFails(getDocs(collection(anon, 'dniIndex')))
   })
 })
