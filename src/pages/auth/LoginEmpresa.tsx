@@ -19,6 +19,7 @@ const ROLE_HOME: Record<string, string> = {
   cliente:           '/dashboard',
   caja:              '/caja',
   muelle:            '/muelle',
+  seguridad:         '/seguridad',
 }
 
 export default function LoginEmpresa() {

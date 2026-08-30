@@ -24,7 +24,7 @@ export function CrearStaffModal({ onClose, onCreated }: { onClose: () => void; o
   const isChofer    = rol === 'chofer'
   const isHeladeras = rol === 'heladeras'
   // Roles de planta fija: llevan selector de planta en el alta.
-  const conPlanta   = rol === 'caja' || rol === 'muelle'
+  const conPlanta   = rol === 'caja' || rol === 'muelle' || rol === 'seguridad'
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()

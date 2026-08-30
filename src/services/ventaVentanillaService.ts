@@ -58,6 +58,16 @@ export const confirmarEntregaVentanilla = (
     entregadoPor: { uid: actor.uid, nombre: actor.nombre, hora: Timestamp.now() },
   })
 
+// Seguridad marca en el portón que la mercadería de ventanilla salió de la
+// planta (terceros que retiran con vehículo). Solo estampa `salida`.
+export const marcarSalidaVentanilla = (
+  venta: VentaVentanilla,
+  actor: { uid: string; nombre: string },
+): Promise<void> =>
+  updateDoc(doc(db, VENTAS, venta.id), {
+    salida: { uid: actor.uid, nombre: actor.nombre, hora: Timestamp.now() },
+  })
+
 // Ventas de ventanilla del día de una planta (pantallas de caja y muelle).
 export const subscribeVentanillaDelDia = (
   plantaId: PlantaId,

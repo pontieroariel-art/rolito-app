@@ -79,6 +79,7 @@ async function main() {
     { dni: '20000002', password: PASSWORD, nombre: 'Gerente Comercial Prueba', rol: 'gerente_comercial' },
     { dni: '20000003', password: PASSWORD, nombre: 'Caja Torcuato Prueba', rol: 'caja', planta: 'torcuato' },
     { dni: '20000004', password: PASSWORD, nombre: 'Muelle Torcuato Prueba', rol: 'muelle', planta: 'torcuato' },
+    { dni: '20000005', password: PASSWORD, nombre: 'Seguridad Torcuato Prueba', rol: 'seguridad', planta: 'torcuato' },
   ]
   for (const s of staffSeed) {
     const staffEmail = dniToStaffEmail(s.dni)

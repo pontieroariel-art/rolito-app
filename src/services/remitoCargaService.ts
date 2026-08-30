@@ -1,5 +1,5 @@
 import {
-  collection, doc, onSnapshot, query, runTransaction, where, Timestamp,
+  collection, doc, onSnapshot, query, runTransaction, updateDoc, where, Timestamp,
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { CatalogProducto, RemitoCarga, RemitoCargaItem, PlantaId } from '../types'
@@ -77,6 +77,17 @@ export async function crearRemitoCarga(args: CrearRemitoCargaArgs, actor: ActorC
   })
   return { id: remitoRef.id, ...data }
 }
+
+// Seguridad controla el camión cargado en el portón y libera la salida.
+// Solo la transición entregado → salido — reglas con hasOnly.
+export const marcarSalidaRemito = (
+  remito: RemitoCarga,
+  actor: { uid: string; nombre: string },
+): Promise<void> =>
+  updateDoc(doc(db, REMITOS, remito.id), {
+    estado: 'salido',
+    salida: { uid: actor.uid, nombre: actor.nombre, hora: Timestamp.now() },
+  })
 
 const rangoDia = (dia: Date): [Timestamp, Timestamp] => {
   const desde = new Date(dia); desde.setHours(0, 0, 0, 0)

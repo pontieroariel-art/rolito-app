@@ -2486,3 +2486,96 @@ describe('expedicion: ventanilla y cobranzas', () => {
     await assertFails(getDoc(doc(db('cli', 'c@x.com'), 'cobranzas/c1')))
   })
 })
+
+// ── Expedición Fase 4: seguridad en el portón ─────────────────────────────────
+describe('expedicion: seguridad (control de salidas)', () => {
+  const seedSeguridad = (uid = 'seg1', planta = 'torcuato') =>
+    seed((d) => setDoc(doc(d, `users/${uid}`), { rol: 'seguridad', estado: 'activo', planta }))
+
+  const remito = (extra = {}) => ({
+    numero: 1, codigo: 'RC-DT-000001', plantaId: 'torcuato',
+    camionId: 'cam1', camionLabel: 'AB123CD', choferId: 'chof1', choferNombre: 'Chofer Uno',
+    items: [{ productoId: 'bolsa_10kg', nombre: 'Hielo 10kg', cantidad: 100, pallets: 1 }],
+    palletsCarga: 1, estado: 'entregado', creadoPor: { uid: 'caja1', nombre: 'Caja' },
+    fecha: new Date(), ...extra,
+  })
+  const ventanilla = (extra = {}) => ({
+    plantaId: 'torcuato', canal: 'contado', cajaId: 'caja1', cajaNombre: 'Caja',
+    clienteNombre: 'Cliente SA',
+    items: [{ productoId: 'bolsa_10kg', nombre: 'Hielo 10kg', cantidad: 5, precioUnitario: 4000 }],
+    total: 20000, formaPago: 'contado_efectivo', estado: 'entregado',
+    fecha: new Date(), ...extra,
+  })
+
+  test('seguridad libera un camión entregado de su planta', async () => {
+    await seedSeguridad()
+    await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), remito()))
+    await assertSucceeds(updateDoc(doc(db('seg1'), 'remitosCarga/r1'), {
+      estado: 'salido', salida: { uid: 'seg1', nombre: 'Seguridad', hora: new Date() },
+    }))
+  })
+
+  test('seguridad NO libera un camión todavía no entregado por muelle', async () => {
+    await seedSeguridad()
+    await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), remito({ estado: 'emitido' })))
+    await assertFails(updateDoc(doc(db('seg1'), 'remitosCarga/r1'), {
+      estado: 'salido', salida: { uid: 'seg1', nombre: 'Seguridad', hora: new Date() },
+    }))
+  })
+
+  test('seguridad NO libera camiones de otra planta ni toca items', async () => {
+    await seedSeguridad('seg1', 'merlo')
+    await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), remito()))
+    await assertFails(updateDoc(doc(db('seg1'), 'remitosCarga/r1'), {
+      estado: 'salido', salida: { uid: 'seg1', nombre: 'Seguridad', hora: new Date() },
+    }))
+    await seedSeguridad('seg2', 'torcuato')
+    await assertFails(updateDoc(doc(db('seg2'), 'remitosCarga/r1'), {
+      estado: 'salido', salida: { uid: 'seg2', nombre: 'Seguridad', hora: new Date() },
+      items: [],
+    }))
+  })
+
+  test('muelle NO puede liberar salidas (eso es de seguridad)', async () => {
+    await seed((d) => setDoc(doc(d, 'users/mue1'), { rol: 'muelle', estado: 'activo', planta: 'torcuato' }))
+    await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), remito()))
+    await assertFails(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), {
+      estado: 'salido', salida: { uid: 'mue1', nombre: 'Muelle', hora: new Date() },
+    }))
+  })
+
+  test('seguridad estampa la salida de un retiro de ventanilla entregado', async () => {
+    await seedSeguridad()
+    await seed((d) => setDoc(doc(d, 'ventasVentanilla/v1'), ventanilla()))
+    await assertSucceeds(updateDoc(doc(db('seg1'), 'ventasVentanilla/v1'), {
+      salida: { uid: 'seg1', nombre: 'Seguridad', hora: new Date() },
+    }))
+  })
+
+  test('seguridad NO estampa salida dos veces ni sobre pendientes', async () => {
+    await seedSeguridad()
+    await seed((d) => setDoc(doc(d, 'ventasVentanilla/v1'), ventanilla({
+      salida: { uid: 'otro', nombre: 'Otro', hora: new Date() },
+    })))
+    await assertFails(updateDoc(doc(db('seg1'), 'ventasVentanilla/v1'), {
+      salida: { uid: 'seg1', nombre: 'Seguridad', hora: new Date() },
+    }))
+    await seed((d) => setDoc(doc(d, 'ventasVentanilla/v2'), ventanilla({ estado: 'pendiente_entrega' })))
+    await assertFails(updateDoc(doc(db('seg1'), 'ventasVentanilla/v2'), {
+      salida: { uid: 'seg1', nombre: 'Seguridad', hora: new Date() },
+    }))
+  })
+
+  test('seguridad lee remitos y ventanillas pero NO crea nada', async () => {
+    await seedSeguridad()
+    await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), remito()))
+    await seed((d) => setDoc(doc(d, 'ventasVentanilla/v1'), ventanilla()))
+    await assertSucceeds(getDoc(doc(db('seg1'), 'remitosCarga/r1')))
+    await assertSucceeds(getDoc(doc(db('seg1'), 'ventasVentanilla/v1')))
+    await assertFails(setDoc(doc(db('seg1'), 'remitosCarga/r2'), remito({ estado: 'emitido', creadoPor: { uid: 'seg1', nombre: 'S' } })))
+    await assertFails(setDoc(doc(db('seg1'), 'cobranzas/c1'), {
+      origen: 'caja', plantaId: 'torcuato', registradoPor: { uid: 'seg1', nombre: 'S' },
+      clienteId: 'cli', clienteNombre: 'X', importe: 1, formaPago: 'contado_efectivo', fecha: new Date(),
+    }))
+  })
+})

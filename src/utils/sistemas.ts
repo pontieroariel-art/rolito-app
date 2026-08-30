@@ -29,6 +29,7 @@ export const ROLE_SISTEMAS: Record<UserRole, Sistema[]> = {
   produccion_encargado: ['produccion'],
   caja:                ['expedicion'],
   muelle:              ['expedicion'],
+  seguridad:           ['expedicion'],
 }
 
 // Home por sistema, solo para los roles con más de un sistema (los demás ya

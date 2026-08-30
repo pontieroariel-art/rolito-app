@@ -1,6 +1,6 @@
 import { Timestamp } from 'firebase/firestore'
 
-export type UserRole = 'super_admin' | 'gerente_general' | 'gerente_comercial' | 'comercial' | 'logistica' | 'chofer' | 'cliente' | 'facturacion' | 'heladeras' | 'heladeras_encargado' | 'tecnico' | 'produccion_hielo' | 'produccion_encargado' | 'caja' | 'muelle'
+export type UserRole = 'super_admin' | 'gerente_general' | 'gerente_comercial' | 'comercial' | 'logistica' | 'chofer' | 'cliente' | 'facturacion' | 'heladeras' | 'heladeras_encargado' | 'tecnico' | 'produccion_hielo' | 'produccion_encargado' | 'caja' | 'muelle' | 'seguridad'
 export type UserStatus = 'activo' | 'inactivo' | 'pendiente'
 
 // Sistema (Logística/Heladeras/Producción/Expedición) — ver src/utils/sistemas.ts
@@ -181,6 +181,7 @@ export interface VentaVentanilla {
   formaPago:            FormaPago   // cuenta_corriente solo para registrados
   estado:               VentaVentanillaEstado
   entregadoPor?:        { uid: string; nombre: string; hora: Timestamp }   // muelle
+  salida?:              { uid: string; nombre: string; hora: Timestamp }   // seguridad en el portón (Fase 4)
   fecha:                Timestamp
   tango?:               RemitoTangoEstado
 }
@@ -386,7 +387,7 @@ export interface UserProfile {
   sector?:            string   // internal-only prefix from COD_CTE (e.g. FC, MDP, YPF)
   subrol?:            'chofer' | 'ayudante' | 'maquinista'   // 'maquinista' aplica a rol 'produccion_hielo': parte de máquinas en vez de carga de pallets
   area?:              AreaHeladera   // sector de heladeras (rol 'heladeras')
-  planta?:            PlantaId   // planta fija del usuario (roles 'produccion_hielo', 'caja' y 'muelle')
+  planta?:            PlantaId   // planta fija del usuario (roles 'produccion_hielo', 'caja', 'muelle' y 'seguridad')
   legajo?:            string   // login del operario de producción (rol 'produccion_hielo') — solo el número, sin contraseña, ver produccionAuthService.ts
   // Favoritos del técnico en el checklist de tipos de reparación (id de
   // config/tiposReparacion) — solo lo usa el técnico de calle (rol

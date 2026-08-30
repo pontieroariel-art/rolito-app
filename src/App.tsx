@@ -94,8 +94,9 @@ const RemitosCargaPage  = lazy(() => import('./pages/expedicion/RemitosCargaPage
 const LiquidacionesPage = lazy(() => import('./pages/expedicion/LiquidacionesPage'))
 const VentanillaPage    = lazy(() => import('./pages/expedicion/VentanillaPage'))
 const CobranzasPage     = lazy(() => import('./pages/expedicion/CobranzasPage'))
-const MuelleDashboard   = lazy(() => import('./pages/expedicion/MuelleDashboard'))
-const CambioCamion      = lazy(() => import('./pages/chofer/CambioCamion'))
+const MuelleDashboard    = lazy(() => import('./pages/expedicion/MuelleDashboard'))
+const SeguridadDashboard = lazy(() => import('./pages/expedicion/SeguridadDashboard'))
+const CambioCamion       = lazy(() => import('./pages/chofer/CambioCamion'))
 
 // /caja aterriza en la primera pestaña PERMITIDA del usuario, no siempre en
 // Remitos: una tablet de mostrador con las pestañas recortadas a solo
@@ -407,6 +408,11 @@ function AppContent() {
             entrega la carga contra el remito y cuenta la descarga al volver. */}
         <Route element={<ProtectedRoute allowedRoles={['muelle', 'super_admin']} />}>
           <Route path="/muelle" element={<MuelleDashboard />} />
+        </Route>
+
+        {/* Seguridad — celular/tablet en el portón: control de salidas. */}
+        <Route element={<ProtectedRoute allowedRoles={['seguridad', 'super_admin']} />}>
+          <Route path="/seguridad" element={<SeguridadDashboard />} />
         </Route>
 
         {/* Backoffice — panel de administración centralizado, exclusivo

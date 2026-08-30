@@ -90,6 +90,11 @@ service cloud.firestore {
     function isMuelle() {
       return myRole() == 'muelle';
     }
+    // Personal de seguridad en el portón (módulo expedición: controla y
+    // libera lo que sale cargado de la planta).
+    function isSeguridad() {
+      return myRole() == 'seguridad';
+    }
     // Planta asignada al usuario autenticado (roles 'produccion_hielo' y 'caja').
     function myPlanta() {
       let path = /databases/$(database)/documents/users/$(request.auth.uid);
@@ -728,7 +733,7 @@ service cloud.firestore {
     // en fases siguientes con reglas propias por rol — por ahora update: false.
     match /remitosCarga/{remitoId} {
       allow read: if request.auth != null
-        && (isCaja() || isMuelle() || isOperator() || isManager() || isGerenteGeneral()
+        && (isCaja() || isMuelle() || isSeguridad() || isOperator() || isManager() || isGerenteGeneral()
             || (isChofer() && resource.data.choferId == request.auth.uid));
 
       allow create: if request.auth != null && isCaja()
@@ -751,6 +756,16 @@ service cloud.firestore {
         && request.resource.data.entregadoPor.uid == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['estado', 'entregadoPor']);
+
+      // Seguridad libera la salida en el portón: solo entregado → salido,
+      // solo esos dos campos, solo en su planta y a su propio nombre.
+      allow update: if request.auth != null && isSeguridad()
+        && resource.data.plantaId == myPlanta()
+        && resource.data.estado == 'entregado'
+        && request.resource.data.estado == 'salido'
+        && request.resource.data.salida.uid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['estado', 'salida']);
 
       allow delete: if false;
     }
@@ -802,7 +817,7 @@ service cloud.firestore {
     // inmutables tras emitirse.
     match /ventasVentanilla/{ventaId} {
       allow read: if request.auth != null
-        && (isCaja() || isMuelle() || isOperator() || isManager() || isGerenteGeneral());
+        && (isCaja() || isMuelle() || isSeguridad() || isOperator() || isManager() || isGerenteGeneral());
 
       allow create: if request.auth != null && isCaja()
         && request.resource.data.plantaId == myPlanta()
@@ -821,6 +836,16 @@ service cloud.firestore {
         && request.resource.data.entregadoPor.uid == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['estado', 'entregadoPor']);
+
+      // Seguridad estampa la salida del retiro (una sola vez): solo el campo
+      // salida, solo sobre ventas ya entregadas de su planta.
+      allow update: if request.auth != null && isSeguridad()
+        && resource.data.plantaId == myPlanta()
+        && resource.data.estado == 'entregado'
+        && resource.data.get('salida', null) == null
+        && request.resource.data.salida.uid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['salida']);
 
       allow delete: if false;
     }
