@@ -981,10 +981,17 @@ service cloud.firestore {
     }
 
     // ── Índices de login (lectura pública — solo mapean usuario/CUIT → email)
-    // La lectura debe ser pública: el login por CUIT/DNI resuelve el email
-    // ANTES de autenticar. La contraseña sigue siendo requerida para autenticar.
+    // El login por CUIT/DNI/legajo resuelve el email ANTES de autenticar, así
+    // que el GET de un doc puntual del índice tiene que ser público (la
+    // contraseña sigue siendo requerida para entrar). Pero el LIST/enumeración
+    // se cierra a staff: así nadie puede listar toda la colección y armarse el
+    // padrón de clientes de una sola query (auditoría 2026-08-29, H2 — scraping
+    // masivo). Adivinar CUITs de a uno con get sigue siendo posible pero costoso;
+    // cerrarlo del todo requiere App Check o mover el lookup a una Cloud Function
+    // (fase 2). Mismo criterio para todos los índices de login de abajo.
     match /cuitIndex/{cuit} {
-      allow read:  if true;
+      allow get:  if true;
+      allow list: if request.auth != null && isStaff();
       // Un cliente solo puede CREAR (nunca sobrescribir) el índice de SU
       // PROPIO CUIT, apuntando a su propio email — evita que un usuario
       // secuestre/envenene el índice de un CUIT ya asignado a otra cuenta.
@@ -1001,32 +1008,38 @@ service cloud.firestore {
     }
 
     match /choferIndex/{username} {
-      allow read:  if true;
+      allow get:  if true;
+      allow list: if request.auth != null && isStaff();
       allow write: if request.auth != null && isOperator();
     }
 
     match /staffIndex/{username} {
-      allow read:  if true;
+      allow get:  if true;
+      allow list: if request.auth != null && isStaff();
       allow write: if request.auth != null && myRole() == 'super_admin';
     }
 
     match /dniIndex/{dni} {
-      allow read:  if true;
+      allow get:  if true;
+      allow list: if request.auth != null && isStaff();
       allow write: if request.auth != null && isOperator();
     }
 
     match /staffDniIndex/{dni} {
-      allow read:  if true;
+      allow get:  if true;
+      allow list: if request.auth != null && isStaff();
       allow write: if request.auth != null && myRole() == 'super_admin';
     }
 
     match /tecnicoDniIndex/{dni} {
-      allow read:  if true;
+      allow get:  if true;
+      allow list: if request.auth != null && isStaff();
       allow write: if request.auth != null && isHeladerasFullAccess();
     }
 
     match /produccionLegajoIndex/{legajo} {
-      allow read:  if true;
+      allow get:  if true;
+      allow list: if request.auth != null && isStaff();
       allow write: if request.auth != null && isProduccionEncargado();
     }
 
