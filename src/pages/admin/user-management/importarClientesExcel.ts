@@ -1,4 +1,3 @@
-import * as XLSX from 'xlsx'
 import { DeliveryAddress } from '../../../types'
 
 // Parser puro del Excel de importación masiva de clientes — separado del
@@ -36,7 +35,10 @@ export function buildNotasContacto(t1: unknown, t2: unknown): string {
   return parts.join(' / ')
 }
 
-export function parseExcelFile(file: File): Promise<ClientePreview[]> {
+export async function parseExcelFile(file: File): Promise<ClientePreview[]> {
+  // Import dinámico de xlsx (lib pesada): solo hace falta al importar el Excel,
+  // no en el arranque de la gestión de usuarios.
+  const XLSX = await import('xlsx')
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = (e) => {
