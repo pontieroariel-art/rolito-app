@@ -6,6 +6,7 @@ import Badge from '../../components/ui/Badge'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import ClienteCombobox, { toComboItems } from '../../components/ui/ClienteCombobox'
 import { useAllOrders } from '../../hooks/useOrders'
+import { AvisoDatosTruncados } from '../../components/admin/AvisoDatosTruncados'
 import { useVisitasPuntuales } from '../../hooks/useVisitas'
 import { getAllUsers } from '../../services/userService'
 import { summarizeProducts } from '../../utils/helpers'
@@ -53,7 +54,7 @@ export default function HistorialPage() {
   const [month, setMonth] = useState(now.getMonth())
   const [day,   setDay]   = useState(now.getDate())
 
-  const { orders, loading: ordersLoading }  = useAllOrders()
+  const { orders, loading: ordersLoading, truncado }  = useAllOrders()
   const { visitas, loading: visitasLoading } = useVisitasPuntuales()
   const { data: users = [], isLoading: usersLoading } = useQuery({
     queryKey:  ['users'],
@@ -194,6 +195,8 @@ export default function HistorialPage() {
           <h1 className="text-2xl font-bold">Movimientos</h1>
           <p className="text-gray-500 text-sm mt-0.5">Pedidos y visitas del período</p>
         </div>
+
+        {truncado && <AvisoDatosTruncados />}
 
         {/* ── Filtros ─────────────────────────────────────────────────── */}
         <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-4">

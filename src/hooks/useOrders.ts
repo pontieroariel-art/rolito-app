@@ -4,6 +4,7 @@ import {
   subscribeAllOrders,
   subscribeKanbanOrders,
   subscribeDriverOrders,
+  MAX_ALL_ORDERS,
 } from '../services/orderService'
 import { Order } from '../types'
 import { useFirestoreSubscription } from './useFirestoreSubscription'
@@ -18,9 +19,12 @@ export function useClientOrders(): { orders: Order[]; loading: boolean; error: b
   return { orders, loading, error, timedOut }
 }
 
-export function useAllOrders(): { orders: Order[]; loading: boolean; error: boolean } {
+export function useAllOrders(): { orders: Order[]; loading: boolean; error: boolean; truncado: boolean } {
   const { data: orders, loading, error } = useFirestoreSubscription<Order[]>(subscribeAllOrders, [], [])
-  return { orders, loading, error }
+  // Si el stream llegó al tope, hay pedidos que no se están viendo. Los tableros
+  // lo muestran con <AvisoDatosTruncados> en vez de mentir en silencio (H5).
+  const truncado = orders.length >= MAX_ALL_ORDERS
+  return { orders, loading, error, truncado }
 }
 
 export function useKanbanOrders(): { orders: Order[]; loading: boolean; error: boolean } {

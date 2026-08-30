@@ -10,6 +10,7 @@ import { useNotificationEmails } from '../../hooks/useNotificationEmails'
 import { useAuth } from '../../context/AuthContext'
 import { cleanupTestData, CleanupResult } from '../../services/cleanupService'
 import MetricsDashboard from '../admin/MetricsDashboard'
+import { AvisoDatosTruncados } from '../../components/admin/AvisoDatosTruncados'
 import { ForecastStrip } from '../admin/ClimaPage'
 import { LiveMapSection }           from '../../components/admin/LiveMapSection'
 import { ResumenCargaPorChofer }    from '../../components/admin/ResumenCargaPorChofer'
@@ -21,7 +22,7 @@ import { NotificationEmailManager } from '../../components/admin/NotificationEma
 // pantalla operativa de logística/gerencia comercial (ver plan de
 // migración del Backoffice).
 export default function ResumenLogisticaPage() {
-  const { orders, loading } = useAllOrders()
+  const { orders, loading, truncado } = useAllOrders()
   const { user }            = useAuth()
   const choferes            = useChoferes()
   const notifEmails         = useNotificationEmails()
@@ -75,6 +76,7 @@ export default function ResumenLogisticaPage() {
         </div>
 
         {/* KPIs y métricas */}
+        {truncado && <AvisoDatosTruncados />}
         <MetricsDashboard orders={orders} />
 
         {/* Clima */}

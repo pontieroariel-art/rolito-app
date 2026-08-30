@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useAllOrders } from '../../hooks/useOrders'
+import { AvisoDatosTruncados } from '../../components/admin/AvisoDatosTruncados'
 import { useChoferes } from '../../hooks/useChoferes'
 import { formatShortDate, tsToDate } from '../../utils/helpers'
 import { Order } from '../../types'
@@ -20,7 +21,7 @@ function periodDays(p: Periodo): number {
 }
 
 export default function ReporteIncidenciasPage() {
-  const { orders, loading } = useAllOrders()
+  const { orders, loading, truncado } = useAllOrders()
   const { choferes }        = useChoferes()
   const [periodo, setPeriodo] = useState<Periodo>('30d')
 
@@ -104,6 +105,8 @@ export default function ReporteIncidenciasPage() {
             ))}
           </div>
         </div>
+
+        {truncado && <AvisoDatosTruncados />}
 
         {/* KPIs */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

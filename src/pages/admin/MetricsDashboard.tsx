@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import type { Order } from '../../types'
 import { toDateStr, todayString } from '../../utils/helpers'
+import { useRollupsUltimosDias } from '../../hooks/useRollups'
 
 function orderDateStr(ts: Order['date'] | null | undefined): string {
   if (!ts) return ''
@@ -24,6 +25,9 @@ function sumKg(orders: Order[]): number {
 const DAY_LABELS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 
 export default function MetricsDashboard({ orders }: { orders: Order[] }) {
+  // Mes y semana salen de los rollups diarios (agregados server-side, no
+  // truncan); "hoy" sigue del stream (un solo día nunca trunca). Auditoría H5.
+  const { rollups } = useRollupsUltimosDias(31)
   const now         = new Date()
   const today       = todayString()
   const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
@@ -46,25 +50,19 @@ export default function MetricsDashboard({ orders }: { orders: Order[] }) {
     [todayOrders],
   )
 
-  const monthOrders = useMemo(
-    () => orders.filter((o) => orderDateStr(o.date).startsWith(monthPrefix)),
-    [orders, monthPrefix],
+  const rollupsDelMes = useMemo(
+    () => rollups.filter((r) => r.fecha.startsWith(monthPrefix)),
+    [rollups, monthPrefix],
   )
-
-  // Igual que "Kg de hoy": solo entregados. Antes sumaba también pendientes/
-  // cancelados, inflando el total del mes respecto a lo realmente entregado.
-  const monthDeliveredOrders = useMemo(
-    () => monthOrders.filter((o) => o.status === 'entregado'),
-    [monthOrders],
-  )
-  const monthKg             = useMemo(() => sumKg(monthDeliveredOrders), [monthDeliveredOrders])
-  const monthActiveClients  = useMemo(
-    () => new Set(monthOrders.map((o) => o.clientId)).size,
-    [monthOrders],
-  )
-  const avgKgPerOrder = monthDeliveredOrders.length > 0
-    ? Math.round(monthKg / monthDeliveredOrders.length)
-    : 0
+  const monthTotal      = useMemo(() => rollupsDelMes.reduce((s, r) => s + r.total, 0), [rollupsDelMes])
+  const monthKg         = useMemo(() => rollupsDelMes.reduce((s, r) => s + (r.bolsasEntregadas ?? 0), 0), [rollupsDelMes])
+  const monthEntregados = useMemo(() => rollupsDelMes.reduce((s, r) => s + (r.porEstado?.entregado ?? 0), 0), [rollupsDelMes])
+  const monthActiveClients = useMemo(() => {
+    const set = new Set<string>()
+    rollupsDelMes.forEach((r) => Object.keys(r.porCliente ?? {}).forEach((c) => set.add(c)))
+    return set.size
+  }, [rollupsDelMes])
+  const avgKgPerOrder = monthEntregados > 0 ? Math.round(monthKg / monthEntregados) : 0
 
   const weeklyData = useMemo(() =>
     Array.from({ length: 7 }, (_, i) => {
@@ -73,51 +71,54 @@ export default function MetricsDashboard({ orders }: { orders: Order[] }) {
       const dateStr = toDateStr(d)
       return {
         day:   DAY_LABELS[d.getDay()],
-        count: orders.filter((o) => orderDateStr(o.date) === dateStr).length,
+        count: rollups.find((r) => r.fecha === dateStr)?.total ?? 0,
       }
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [orders],
+    [rollups],
   )
 
   const topClients = useMemo(() => {
     const map = new Map<string, { name: string; count: number; kg: number }>()
-    monthOrders.forEach((o) => {
-      const prev = map.get(o.clientId) ?? { name: o.clientName, count: 0, kg: 0 }
-      prev.count += 1
-      prev.kg    += o.products.reduce((s, p) => s + p.quantity, 0)
-      map.set(o.clientId, prev)
+    rollupsDelMes.forEach((r) => {
+      for (const [cid, c] of Object.entries(r.porCliente ?? {})) {
+        const prev = map.get(cid) ?? { name: c.nombre, count: 0, kg: 0 }
+        prev.count += c.pedidos
+        prev.kg    += c.bolsas
+        map.set(cid, prev)
+      }
     })
     return [...map.entries()]
       .map(([id, v]) => ({ clientId: id, ...v }))
       .sort((a, b) => b.kg - a.kg)
       .slice(0, 5)
-  }, [monthOrders])
+  }, [rollupsDelMes])
 
   const inactiveClients = useMemo(() => {
-    const sevenDaysAgo = new Date(now)
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-
-    const lastOrder = new Map<string, { name: string; date: Date }>()
-    orders.forEach((o) => {
-      let d: Date
-      try { d = o.date.toDate() } catch { return }
-      const prev = lastOrder.get(o.clientId)
-      if (!prev || d > prev.date) lastOrder.set(o.clientId, { name: o.clientName, date: d })
+    const sevenDaysAgoStr = toDateStr(new Date(now.getTime() - 7 * 86_400_000))
+    // Último día con pedido por cliente dentro de la ventana de rollups (vienen
+    // ordenados asc, así que la última asignación es la más reciente).
+    const ultimo = new Map<string, { name: string; fecha: string }>()
+    rollups.forEach((r) => {
+      for (const [cid, c] of Object.entries(r.porCliente ?? {})) {
+        ultimo.set(cid, { name: c.nombre, fecha: r.fecha })
+      }
     })
-
-    return [...lastOrder.entries()]
-      .filter(([, v]) => v.date < sevenDaysAgo)
-      .map(([id, v]) => ({
-        clientId:  id,
-        name:      v.name,
-        lastDate:  v.date,
-        daysSince: Math.floor((now.getTime() - v.date.getTime()) / 86_400_000),
-      }))
+    return [...ultimo.entries()]
+      .filter(([, v]) => v.fecha < sevenDaysAgoStr)
+      .map(([id, v]) => {
+        const d = new Date(`${v.fecha}T12:00:00`)
+        return {
+          clientId:  id,
+          name:      v.name,
+          lastDate:  d,
+          daysSince: Math.floor((now.getTime() - d.getTime()) / 86_400_000),
+        }
+      })
       .sort((a, b) => b.daysSince - a.daysSince)
       .slice(0, 10)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orders])
+  }, [rollups])
 
   return (
     <section className="space-y-5">
@@ -146,7 +147,7 @@ export default function MetricsDashboard({ orders }: { orders: Order[] }) {
       <div>
         <SectionTitle icon={<BarChart2 size={15} />} title={`Mes actual — ${now.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}`} />
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <MetricCard label="Pedidos del mes"     value={monthOrders.length} color="text-gray-900"  icon={<Package    size={14} />} />
+          <MetricCard label="Pedidos del mes"     value={monthTotal}         color="text-gray-900"  icon={<Package    size={14} />} />
           <MetricCard label="Kg del mes"          value={monthKg}            color="text-accent"    icon={<Weight     size={14} />} suffix="kg" />
           <MetricCard label="Clientes activos"    value={monthActiveClients} color="text-accent"    icon={<Users      size={14} />} />
           <MetricCard label="Promedio / pedido"   value={avgKgPerOrder}      color="text-accent"    icon={<TrendingUp size={14} />} suffix="kg" />
