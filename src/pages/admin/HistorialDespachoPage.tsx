@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight, Truck, ChevronDown, ChevronUp, Download } from 'lucide-react'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useAllOrders } from '../../hooks/useOrders'
+import { AvisoDatosTruncados } from '../../components/admin/AvisoDatosTruncados'
 import { useChoferes } from '../../hooks/useChoferes'
 import { orderDateStr } from '../../hooks/useDespachoBoard'
 import { subscribeDespachosByFecha, formatDespachoFecha } from '../../services/despachoService'
@@ -97,7 +98,7 @@ function resultadoYChofer(o: Order, fecha: string): { resultado: Resultado; chof
 }
 
 export default function HistorialDespachoPage() {
-  const { orders, loading } = useAllOrders()
+  const { orders, loading, truncado } = useAllOrders()
   const { choferes }        = useChoferes()
   const [fecha, setFecha]   = useState(() => addDaysStr(todayString(), -1))
   const [despachos, setDespachos] = useState<Despacho[]>([])
@@ -195,6 +196,8 @@ export default function HistorialDespachoPage() {
             {pdfLoading ? 'Generando…' : 'Descargar PDF'}
           </button>
         </div>
+
+        {truncado && <AvisoDatosTruncados />}
 
         {/* Selector de día */}
         <div className="flex items-center gap-2">

@@ -44,6 +44,7 @@ async function recalcularDia(fechaStr: string): Promise<void> {
   const porCliente: Record<string, { nombre: string; bolsas: number; pedidos: number }> = {}
   let total = 0
   let bolsas = 0
+  let bolsasEntregadas = 0
 
   for (const doc of snap.docs) {
     const o = doc.data() as PedidoRollup
@@ -53,6 +54,7 @@ async function recalcularDia(fechaStr: string): Promise<void> {
     total++
     const q = (o.products ?? []).reduce((s, p) => s + (p.quantity ?? 0), 0)
     bolsas += q
+    if (estado === 'entregado') bolsasEntregadas += q
     if (o.clientId) {
       const c = porCliente[o.clientId] ?? (porCliente[o.clientId] = { nombre: o.clientName ?? '', bolsas: 0, pedidos: 0 })
       c.bolsas += q
@@ -61,7 +63,7 @@ async function recalcularDia(fechaStr: string): Promise<void> {
   }
 
   await db().doc(`rollupsPedidos/${fechaStr}`).set({
-    fecha: fechaStr, total, bolsas, porEstado, porCliente,
+    fecha: fechaStr, total, bolsas, bolsasEntregadas, porEstado, porCliente,
     updatedAt: FieldValue.serverTimestamp(),
   })
 }

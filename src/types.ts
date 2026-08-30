@@ -618,12 +618,13 @@ export interface AccionHistorial {
 // pedidos, que se truncaban en silencio a escala (auditoría 2026-08-29, H5).
 export interface RollupClienteDia { nombre: string; bolsas: number; pedidos: number }
 export interface RollupPedidosDia {
-  fecha:      string   // YYYY-MM-DD (Argentina, UTC-3)
-  total:      number   // pedidos no cancelados del día
-  bolsas:     number   // suma de unidades de pedidos no cancelados
-  porEstado:  Record<OrderStatus, number>
-  porCliente: Record<string, RollupClienteDia>
-  updatedAt:  Timestamp | null
+  fecha:            string   // YYYY-MM-DD (Argentina, UTC-3)
+  total:            number   // pedidos no cancelados del día
+  bolsas:           number   // suma de unidades de pedidos no cancelados
+  bolsasEntregadas: number   // suma de unidades de pedidos entregados (kg reales)
+  porEstado:        Record<OrderStatus, number>
+  porCliente:       Record<string, RollupClienteDia>
+  updatedAt:        Timestamp | null
 }
 
 export interface Order {

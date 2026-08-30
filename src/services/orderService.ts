@@ -417,6 +417,12 @@ export const subscribeClientOrders = (
   )
 }
 
+// Tope de pedidos del stream de 30 días. Subido de 500 a 1500 para dar aire; los
+// tableros que leen este stream avisan cuando lo alcanzan (ver useAllOrders y
+// AvisoDatosTruncados). Los KPIs agregados de gerencia usan los rollups diarios
+// (useRollups), que no dependen de este tope. Ver auditoría H5.
+export const MAX_ALL_ORDERS = 1500
+
 export const subscribeAllOrders = (
   callback: (orders: Order[]) => void,
   onError?: (error: Error) => void,
@@ -426,7 +432,7 @@ export const subscribeAllOrders = (
     collection(db, ORDERS),
     where('date', '>=', thirtyDaysAgo),
     orderBy('date', 'desc'),
-    limit(500),
+    limit(MAX_ALL_ORDERS),
   )
   return onSnapshot(
     q,

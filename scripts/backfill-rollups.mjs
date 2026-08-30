@@ -44,7 +44,7 @@ async function main() {
     const fecha  = diaArg(o.date)
     const estado = ESTADOS.includes(o.status) ? o.status : 'pendiente'
     const r = rollups[fecha] ?? (rollups[fecha] = {
-      fecha, total: 0, bolsas: 0,
+      fecha, total: 0, bolsas: 0, bolsasEntregadas: 0,
       porEstado: { pendiente: 0, confirmado: 0, en_camino: 0, entregado: 0, cancelado: 0 },
       porCliente: {},
     })
@@ -53,6 +53,7 @@ async function main() {
       r.total++
       const q = (o.products ?? []).reduce((s, p) => s + (p.quantity ?? 0), 0)
       r.bolsas += q
+      if (estado === 'entregado') r.bolsasEntregadas += q
       if (o.clientId) {
         const c = r.porCliente[o.clientId] ?? (r.porCliente[o.clientId] = { nombre: o.clientName ?? '', bolsas: 0, pedidos: 0 })
         c.bolsas += q

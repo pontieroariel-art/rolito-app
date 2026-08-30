@@ -10,6 +10,7 @@ import Button from '../../components/ui/Button'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useAuth } from '../../context/AuthContext'
 import { useAllOrders } from '../../hooks/useOrders'
+import { AvisoDatosTruncados } from '../../components/admin/AvisoDatosTruncados'
 import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
 import { getAllUsers, approveUser, updateUserStatus } from '../../services/userService'
 import { subscribeAllActiveDrivers, ActiveDriver } from '../../services/locationService'
@@ -50,7 +51,7 @@ export default function ComercialDashboard() {
   const { user }   = useAuth()
   const qc         = useQueryClient()
 
-  const { orders, loading: ordersLoading } = useAllOrders()
+  const { orders, loading: ordersLoading, truncado } = useAllOrders()
   const { data: users = [], isLoading: usersLoading } = useQuery({
     queryKey: ['users'],
     queryFn:  () => getAllUsers(),
@@ -65,20 +66,16 @@ export default function ComercialDashboard() {
   const pendientes = useMemo(() => clientes.filter((u) => u.estado === 'pendiente'), [clientes])
   const sinLista   = useMemo(() => clientes.filter((u) => u.estado === 'activo' && !u.listaPreciosId), [clientes])
 
+  // Clientes inactivos: usa users.ultimoPedidoAt (lo mantiene el trigger
+  // onOrderRollup), así el dato es exacto y no depende del stream de 30 días que
+  // se truncaba a escala (auditoría H5).
   const inactivos = useMemo(() => {
-    const lastOrderByClient = new Map<string, number>()
-    for (const o of orders) {
-      const prev = lastOrderByClient.get(o.clientId) ?? 0
-      const cur  = o.createdAt?.seconds ?? 0
-      if (cur > prev) lastOrderByClient.set(o.clientId, cur)
-    }
     return clientes.filter((u) => {
       if (u.estado !== 'activo' || daysSince(u.fechaCreacion) <= INACTIVE_DAYS) return false
-      const lastSec = lastOrderByClient.get(u.uid)
-      if (!lastSec) return true
-      return Math.floor((Date.now() / 1000 - lastSec) / 86400) >= INACTIVE_DAYS
+      if (!u.ultimoPedidoAt) return true
+      return Math.floor((Date.now() / 1000 - u.ultimoPedidoAt.seconds) / 86400) >= INACTIVE_DAYS
     })
-  }, [clientes, orders])
+  }, [clientes])
 
   const todayOrders = useMemo(() => orders.filter(isToday), [orders])
 
@@ -219,6 +216,7 @@ export default function ComercialDashboard() {
             </section>
 
             {/* ── Ranking y métricas ───────────────────────────────────── */}
+            {truncado && <AvisoDatosTruncados />}
             <MetricsDashboard orders={orders} />
 
             {/* ── Pronóstico del tiempo ────────────────────────────────── */}
