@@ -855,11 +855,21 @@ service cloud.firestore {
     // origen 'cobrador' llega en la Fase 5 con su propia rama.
     match /cobranzas/{cobranzaId} {
       allow read: if request.auth != null
-        && (isCaja() || isOperator() || isManager() || isGerenteGeneral() || isFacturacion());
+        && (isCaja() || isOperator() || isManager() || isGerenteGeneral() || isFacturacion()
+            // el chofer/cobrador ve sus propias cobranzas (resumen y liquidación)
+            || (isChofer() && resource.data.registradoPor.uid == request.auth.uid));
 
       allow create: if request.auth != null && isCaja()
         && request.resource.data.origen == 'caja'
         && request.resource.data.plantaId == myPlanta()
+        && request.resource.data.registradoPor.uid == request.auth.uid
+        && request.resource.data.clienteId is string
+        && request.resource.data.importe is number && request.resource.data.importe > 0
+        && request.resource.data.formaPago in ['contado_efectivo', 'contado_transferencia'];
+
+      // Cobranza en la calle: los cobradores son choferes en la app (Fase 5).
+      allow create: if request.auth != null && isChofer()
+        && request.resource.data.origen == 'cobrador'
         && request.resource.data.registradoPor.uid == request.auth.uid
         && request.resource.data.clienteId is string
         && request.resource.data.importe is number && request.resource.data.importe > 0

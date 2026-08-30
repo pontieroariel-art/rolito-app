@@ -34,6 +34,54 @@ export async function crearCobranzaCaja(
   return { id: ref.id, ...cobranza }
 }
 
+// Cobranza en la calle (origen 'cobrador'): los cobradores son choferes en la
+// app — mismo patrón offline-first que la venta del camión (setDoc
+// fire-and-forget, persistentLocalCache encola sin señal). Sin plantaId: la
+// cobranza es de la persona, no de una planta.
+export function crearCobranzaCalle(
+  args: {
+    clienteId:     string
+    clienteNombre: string
+    importe:       number
+    formaPago:     Cobranza['formaPago']
+    referencia?:   string
+  },
+  actor: { uid: string; nombre: string },
+): Cobranza {
+  const ref = doc(collection(db, COBRANZAS))
+  const cobranza: Omit<Cobranza, 'id'> = {
+    origen:        'cobrador',
+    registradoPor: { uid: actor.uid, nombre: actor.nombre },
+    clienteId:     args.clienteId,
+    clienteNombre: args.clienteNombre,
+    importe:       args.importe,
+    formaPago:     args.formaPago,
+    fecha:         Timestamp.now(),
+    ...(args.referencia?.trim() ? { referencia: args.referencia.trim() } : {}),
+  }
+  setDoc(ref, cobranza)   // fire-and-forget, sincroniza al reconectar
+  return { id: ref.id, ...cobranza }
+}
+
+// Cobranzas de una persona en un rango (liquidación del día y su propio
+// resumen). Un chofer/cobrador solo registra en la calle, así que no hace
+// falta filtrar por origen.
+export const subscribeCobranzasChoferEnRango = (
+  choferId: string,
+  desde: Date, hasta: Date,
+  callback: (cobranzas: Cobranza[]) => void,
+): () => void =>
+  onSnapshot(
+    query(
+      collection(db, COBRANZAS),
+      where('registradoPor.uid', '==', choferId),
+      where('fecha', '>=', Timestamp.fromDate(desde)),
+      where('fecha', '<', Timestamp.fromDate(hasta)),
+    ),
+    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Cobranza))),
+    () => callback([]),
+  )
+
 // Cobranzas de mostrador del día de una planta (pantalla de caja).
 export const subscribeCobranzasCajaDelDia = (
   plantaId: PlantaId,

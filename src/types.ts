@@ -293,7 +293,16 @@ export interface Liquidacion {
     cuentaCorriente:      number
     total:                number
   }
-  efectivoARendir:  number   // = importes.contadoEfectivo
+  // Cobranzas de cta. cte. hechas en la calle por esta persona (los
+  // cobradores son choferes en la app — ver Fase 5). Ausente en
+  // liquidaciones cerradas antes de esta fase.
+  cobranzasCalle?: {
+    cantidad:      number
+    efectivo:      number
+    transferencia: number
+    total:         number
+  }
+  efectivoARendir:  number   // = ventas en efectivo + cobranzas en efectivo
   efectivoRecibido: number   // lo que caja contó al recibir la plata
   diferenciaEfectivo: number // recibido − a rendir
   cerradaPor:    { uid: string; nombre: string }

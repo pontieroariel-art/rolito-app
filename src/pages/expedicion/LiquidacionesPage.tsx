@@ -7,12 +7,14 @@ import { subscribeRemitosCargaDelDia } from '../../services/remitoCargaService'
 import { subscribeVentasChoferEnRango } from '../../services/ventaCamionService'
 import { subscribeCambiosChoferEnRango } from '../../services/cambioCamionService'
 import { subscribeDescargasChoferEnRango } from '../../services/descargaCamionService'
+import { subscribeCobranzasChoferEnRango } from '../../services/cobranzaService'
+import { useChoferes } from '../../hooks/useChoferes'
 import { cerrarLiquidacion, subscribeLiquidacion } from '../../services/liquidacionService'
 import { calcularLiquidacion } from '../../utils/liquidacion'
 import { generateLiquidacion } from '../../utils/pdf'
 import { todayString } from '../../utils/helpers'
 import {
-  CambioCamion, DescargaCamion, Liquidacion, PLANTAS, RemitoCarga, VentaCamion,
+  CambioCamion, Cobranza, DescargaCamion, Liquidacion, PLANTAS, RemitoCarga, VentaCamion,
 } from '../../types'
 
 const money = (n: number) => `$${n.toLocaleString('es-AR')}`
@@ -26,11 +28,13 @@ export default function LiquidacionesPage() {
   const plantaId = user?.planta ?? 'torcuato'
   const hoy      = todayString()
 
+  const { choferes: todosLosChoferes } = useChoferes()
   const [remitosPlanta, setRemitosPlanta] = useState<RemitoCarga[]>([])
   const [choferId, setChoferId] = useState('')
   const [ventas,    setVentas]    = useState<VentaCamion[]>([])
   const [cambios,   setCambios]   = useState<CambioCamion[]>([])
   const [descargas, setDescargas] = useState<DescargaCamion[]>([])
+  const [cobranzas, setCobranzas] = useState<Cobranza[]>([])
   const [cerrada,   setCerrada]   = useState<Liquidacion | null>(null)
   const [efectivoRecibido, setEfectivoRecibido] = useState('')
   const [confirmando, setConfirmando] = useState(false)
@@ -39,32 +43,42 @@ export default function LiquidacionesPage() {
 
   useEffect(() => subscribeRemitosCargaDelDia(plantaId, new Date(), setRemitosPlanta), [plantaId])
 
-  // Choferes con actividad hoy en esta planta (salieron con remito).
+  // Primero los que salieron hoy con remito de esta planta; abajo el resto de
+  // los choferes activos — un cobrador puede tener un día SOLO de cobranzas,
+  // sin remito de carga, y también se liquida.
   const choferes = useMemo(() => {
     const m = new Map<string, string>()
     remitosPlanta.forEach((r) => m.set(r.choferId, r.choferNombre))
     return [...m.entries()].map(([id, nombre]) => ({ id, nombre }))
   }, [remitosPlanta])
+  const otrosChoferes = useMemo(
+    () => todosLosChoferes
+      .filter((c) => !choferes.some((x) => x.id === c.uid))
+      .map((c) => ({ id: c.uid, nombre: c.nombre || c.nombreContacto || '' })),
+    [todosLosChoferes, choferes],
+  )
 
   const remitosChofer = remitosPlanta.filter((r) => r.choferId === choferId)
-  const choferNombre  = choferes.find((c) => c.id === choferId)?.nombre ?? ''
+  const choferNombre  = choferes.find((c) => c.id === choferId)?.nombre
+    ?? otrosChoferes.find((c) => c.id === choferId)?.nombre ?? ''
 
   useEffect(() => {
-    if (!choferId) { setVentas([]); setCambios([]); setDescargas([]); setCerrada(null); return }
+    if (!choferId) { setVentas([]); setCambios([]); setDescargas([]); setCobranzas([]); setCerrada(null); return }
     const desde = new Date(); desde.setHours(0, 0, 0, 0)
     const hasta = new Date(desde); hasta.setDate(hasta.getDate() + 1)
     const unsubs = [
       subscribeVentasChoferEnRango(choferId, desde, hasta, setVentas),
       subscribeCambiosChoferEnRango(choferId, desde, hasta, setCambios),
       subscribeDescargasChoferEnRango(choferId, desde, hasta, setDescargas),
+      subscribeCobranzasChoferEnRango(choferId, desde, hasta, setCobranzas),
       subscribeLiquidacion(hoy, choferId, setCerrada),
     ]
     return () => unsubs.forEach((u) => u())
   }, [choferId, hoy])
 
   const calc = useMemo(
-    () => calcularLiquidacion(remitosChofer, ventas, cambios, descargas),
-    [remitosChofer, ventas, cambios, descargas],
+    () => calcularLiquidacion(remitosChofer, ventas, cambios, descargas, cobranzas),
+    [remitosChofer, ventas, cambios, descargas, cobranzas],
   )
 
   const recibido = parseInt(efectivoRecibido.replace(/\D/g, ''), 10) || 0
@@ -108,13 +122,21 @@ export default function LiquidacionesPage() {
         <label className="text-xs text-gray-500 mb-1 block">Repartidor</label>
         <select value={choferId} onChange={(e) => setChoferId(e.target.value)} className={selectClass}>
           <option value="">Elegir repartidor…</option>
-          {choferes.map((c) => (
-            <option key={c.id} value={c.id}>{c.nombre}</option>
-          ))}
+          {choferes.length > 0 && (
+            <optgroup label="Con salida hoy">
+              {choferes.map((c) => (
+                <option key={c.id} value={c.id}>{c.nombre}</option>
+              ))}
+            </optgroup>
+          )}
+          {otrosChoferes.length > 0 && (
+            <optgroup label="Sin remito hoy (cobradores, etc.)">
+              {otrosChoferes.map((c) => (
+                <option key={c.id} value={c.id}>{c.nombre}</option>
+              ))}
+            </optgroup>
+          )}
         </select>
-        {choferes.length === 0 && (
-          <p className="text-xs text-gray-400 mt-1">Hoy no salió ningún camión con remito de esta planta.</p>
-        )}
       </div>
 
       {choferId && cerrada && (
@@ -213,6 +235,13 @@ export default function LiquidacionesPage() {
               <div className="flex justify-between"><span className="text-gray-600">Contado transferencia</span><span className="font-medium">{money(calc.importes.contadoTransferencia)}</span></div>
               <div className="flex justify-between"><span className="text-gray-600">Cuenta corriente</span><span className="font-medium">{money(calc.importes.cuentaCorriente)}</span></div>
               <div className="flex justify-between border-t border-gray-100 pt-1 mt-1"><span className="text-gray-700 font-medium">Total vendido</span><span className="font-semibold">{money(calc.importes.total)}</span></div>
+              {calc.cobranzasCalle && calc.cobranzasCalle.cantidad > 0 && (
+                <>
+                  <div className="flex justify-between pt-1"><span className="text-gray-600">Cobranzas en efectivo ({calc.cobranzasCalle.cantidad})</span><span className="font-medium">{money(calc.cobranzasCalle.efectivo)}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-600">Cobranzas por transferencia</span><span className="font-medium">{money(calc.cobranzasCalle.transferencia)}</span></div>
+                  <div className="flex justify-between border-t border-gray-100 pt-1 mt-1"><span className="text-gray-700 font-medium">Total cobrado</span><span className="font-semibold">{money(calc.cobranzasCalle.total)}</span></div>
+                </>
+              )}
             </div>
             <div className="grid sm:grid-cols-3 gap-3 items-end">
               <div>
@@ -244,7 +273,11 @@ export default function LiquidacionesPage() {
             </div>
           )}
 
-          <Button onClick={() => setConfirmando(true)} disabled={calc.productos.length === 0} className="w-full sm:w-auto">
+          <Button
+            onClick={() => setConfirmando(true)}
+            disabled={calc.productos.length === 0 && cobranzas.length === 0}
+            className="w-full sm:w-auto"
+          >
             Cerrar liquidación e imprimir
           </Button>
 

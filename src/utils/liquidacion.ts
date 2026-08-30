@@ -1,5 +1,5 @@
 import {
-  CambioCamion, DescargaCamion, Liquidacion, LiquidacionResumenProducto,
+  CambioCamion, Cobranza, DescargaCamion, Liquidacion, LiquidacionResumenProducto,
   RemitoCarga, VentaCamion,
 } from '../types'
 
@@ -16,6 +16,9 @@ export function calcularLiquidacion(
   ventas:    VentaCamion[],
   cambios:   CambioCamion[],
   descargas: DescargaCamion[],
+  // Cobranzas de cta. cte. hechas en la calle por esta persona (los
+  // cobradores son choferes — "Detalle de cobranzas" de la hoja vieja).
+  cobranzasCalle: Cobranza[] = [],
 ): LiquidacionCalculada {
   // ── Por producto ── acumular cada fuente sobre el mismo mapa, indexado por
   // productoId, para que ningún producto quede afuera aunque aparezca en una
@@ -61,6 +64,15 @@ export function calcularLiquidacion(
   const contadoTransferencia = porPago('contado_transferencia')
   const cuentaCorriente      = porPago('cuenta_corriente')
 
+  // ── Cobranzas de calle ── el efectivo cobrado se rinde junto con el de
+  // las ventas, en el mismo cierre (así rendían en el sistema viejo).
+  const cobranzasEfectivo = cobranzasCalle
+    .filter((c) => c.formaPago === 'contado_efectivo')
+    .reduce((s, c) => s + c.importe, 0)
+  const cobranzasTransferencia = cobranzasCalle
+    .filter((c) => c.formaPago === 'contado_transferencia')
+    .reduce((s, c) => s + c.importe, 0)
+
   return {
     productos,
     pallets: { salidos, completos, parciales, vacios, diferencia: (completos + parciales + vacios) - salidos },
@@ -69,6 +81,12 @@ export function calcularLiquidacion(
       contadoEfectivo, contadoTransferencia, cuentaCorriente,
       total: contadoEfectivo + contadoTransferencia + cuentaCorriente,
     },
-    efectivoARendir: contadoEfectivo,
+    cobranzasCalle: {
+      cantidad:      cobranzasCalle.length,
+      efectivo:      cobranzasEfectivo,
+      transferencia: cobranzasTransferencia,
+      total:         cobranzasEfectivo + cobranzasTransferencia,
+    },
+    efectivoARendir: contadoEfectivo + cobranzasEfectivo,
   }
 }

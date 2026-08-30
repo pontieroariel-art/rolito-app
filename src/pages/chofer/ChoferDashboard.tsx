@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { Package, Repeat } from 'lucide-react'
+import { HandCoins, Package, Repeat } from 'lucide-react'
 import ChoferHeader from '../../components/chofer/ChoferHeader'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
@@ -237,6 +237,11 @@ export default function ChoferDashboard() {
           className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-white border border-[#D3D1C7] text-gray-700 py-5 shadow-sm active:scale-[0.99] transition-transform">
           <Repeat size={22} className="text-accent" />
           <span className="text-base font-bold">Cambio</span>
+        </Link>
+        <Link to="/chofer/cobrar"
+          className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-white border border-[#D3D1C7] text-gray-700 py-5 shadow-sm active:scale-[0.99] transition-transform">
+          <HandCoins size={22} className="text-accent" />
+          <span className="text-base font-bold">Cobrar</span>
         </Link>
       </div>
 

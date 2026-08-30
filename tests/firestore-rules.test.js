@@ -2579,3 +2579,41 @@ describe('expedicion: seguridad (control de salidas)', () => {
     }))
   })
 })
+
+// ── Expedición Fase 5: cobranzas en la calle (cobradores = choferes) ──────────
+describe('expedicion: cobranzas de calle', () => {
+  const seedChofer = (uid = 'chof1') =>
+    seed((d) => setDoc(doc(d, `users/${uid}`), { rol: 'chofer', estado: 'activo' }))
+
+  const cobranzaCalle = (extra = {}) => ({
+    origen: 'cobrador', registradoPor: { uid: 'chof1', nombre: 'Cobrador Uno' },
+    clienteId: 'cli', clienteNombre: 'Cliente SA', importe: 30000,
+    formaPago: 'contado_efectivo', fecha: new Date(), ...extra,
+  })
+
+  test('el chofer/cobrador registra su propia cobranza en la calle', async () => {
+    await seedChofer()
+    await assertSucceeds(setDoc(doc(db('chof1'), 'cobranzas/c1'), cobranzaCalle()))
+  })
+
+  test('el chofer NO registra con origen caja ni a nombre de otro', async () => {
+    await seedChofer()
+    await assertFails(setDoc(doc(db('chof1'), 'cobranzas/c1'), cobranzaCalle({ origen: 'caja', plantaId: 'torcuato' })))
+    await assertFails(setDoc(doc(db('chof1'), 'cobranzas/c2'), cobranzaCalle({ registradoPor: { uid: 'otro', nombre: 'Otro' } })))
+  })
+
+  test('el chofer NO registra importe cero ni cuenta corriente como forma de pago', async () => {
+    await seedChofer()
+    await assertFails(setDoc(doc(db('chof1'), 'cobranzas/c1'), cobranzaCalle({ importe: 0 })))
+    await assertFails(setDoc(doc(db('chof1'), 'cobranzas/c2'), cobranzaCalle({ formaPago: 'cuenta_corriente' })))
+  })
+
+  test('el chofer lee su cobranza pero no la de otro; sigue inmutable', async () => {
+    await seedChofer()
+    await seed((d) => setDoc(doc(d, 'cobranzas/mia'), cobranzaCalle()))
+    await seed((d) => setDoc(doc(d, 'cobranzas/ajena'), cobranzaCalle({ registradoPor: { uid: 'otro', nombre: 'Otro' } })))
+    await assertSucceeds(getDoc(doc(db('chof1'), 'cobranzas/mia')))
+    await assertFails(getDoc(doc(db('chof1'), 'cobranzas/ajena')))
+    await assertFails(updateDoc(doc(db('chof1'), 'cobranzas/mia'), { importe: 1 }))
+  })
+})

@@ -97,6 +97,7 @@ const CobranzasPage     = lazy(() => import('./pages/expedicion/CobranzasPage'))
 const MuelleDashboard    = lazy(() => import('./pages/expedicion/MuelleDashboard'))
 const SeguridadDashboard = lazy(() => import('./pages/expedicion/SeguridadDashboard'))
 const CambioCamion       = lazy(() => import('./pages/chofer/CambioCamion'))
+const CobranzaCalle      = lazy(() => import('./pages/chofer/CobranzaCalle'))
 
 // /caja aterriza en la primera pestaña PERMITIDA del usuario, no siempre en
 // Remitos: una tablet de mostrador con las pestañas recortadas a solo
@@ -299,6 +300,7 @@ function AppContent() {
           <Route path="/chofer/map"    element={<ChoferMap />} />
           <Route path="/chofer/venta"  element={<VentaCamion />} />
           <Route path="/chofer/cambio" element={<CambioCamion />} />
+          <Route path="/chofer/cobrar" element={<CobranzaCalle />} />
         </Route>
 
         {/* Selección de sistema (roles con acceso a más de uno, ver src/utils/sistemas.ts).

@@ -127,6 +127,14 @@
         { "fieldPath": "plantaId", "order": "ASCENDING" },
         { "fieldPath": "fecha",    "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "cobranzas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "registradoPor.uid", "order": "ASCENDING" },
+        { "fieldPath": "fecha",             "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

@@ -947,6 +947,10 @@ export async function generateLiquidacion(liq: Liquidacion) {
       ['Contado transferencia', money(liq.importes.contadoTransferencia)],
       ['Cuenta corriente', money(liq.importes.cuentaCorriente)],
       ['Total vendido', money(liq.importes.total)],
+      ...(liq.cobranzasCalle && liq.cobranzasCalle.cantidad > 0 ? [
+        [`Cobranzas en efectivo (${liq.cobranzasCalle.cantidad})`, money(liq.cobranzasCalle.efectivo)],
+        ['Cobranzas por transferencia', money(liq.cobranzasCalle.transferencia)],
+      ] : []),
       ['Efectivo a rendir', money(liq.efectivoARendir)],
       ['Efectivo recibido', money(liq.efectivoRecibido)],
       ['Diferencia de efectivo', money(liq.diferenciaEfectivo)],
