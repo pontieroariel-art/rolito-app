@@ -7,6 +7,7 @@ import { SistemaProvider } from './context/SistemaContext'
 import ProtectedRoute from './components/layout/ProtectedRoute'
 import { EXPEDICION_NAV_GROUPS } from './utils/expedicionNav'
 import LoadingSpinner from './components/ui/LoadingSpinner'
+import { reportError } from './services/observability'
 import { Component, ReactNode, ErrorInfo } from 'react'
 
 // Auth pages — carga inmediata (primera pantalla visible)
@@ -127,7 +128,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   state = { error: null }
   static getDerivedStateFromError(error: Error) { return { error } }
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error('[ErrorBoundary] Error no capturado:', error, info.componentStack)
+    reportError(error, { componentStack: info.componentStack, boundary: 'root' })
     // Chunk stale tras nuevo deploy → recargar automáticamente una vez
     const isChunkError = error.message?.includes('Failed to fetch dynamically imported module')
       || error.message?.includes('Importing a module script failed')

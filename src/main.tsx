@@ -1,6 +1,11 @@
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import './index.css'
+import { initObservability } from './services/observability'
+
+// Captura de errores en producción (gateada por VITE_SENTRY_DSN). Se inicializa
+// lo antes posible para no perder errores tempranos de arranque.
+initObservability()
 
 // ── Auto-actualización del PWA ────────────────────────────────────────────────
 // Cuando el SW nuevo toma control (skipWaiting + clientsClaim en sw.ts),

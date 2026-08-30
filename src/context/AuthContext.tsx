@@ -13,6 +13,7 @@ import { onSnapshot, doc } from 'firebase/firestore'
 import { auth } from '../services/firebase'
 import { db } from '../services/firebase'
 import { getUserDocument, createUserDocument } from '../services/userService'
+import { reportError, setObservabilityUser } from '../services/observability'
 import { UserProfile } from '../types'
 
 // ── Reducer ───────────────────────────────────────────────────────────────────
@@ -81,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (uid !== lastUidRef.current) return
         dispatch({ type: 'RESOLVED', user: profile })
       } catch (err) {
-        console.error('AuthContext: error al cargar el perfil', err)
+        reportError(err, { origen: 'AuthContext.cargarPerfil', uid })
         if (uid !== lastUidRef.current) return
         // Un error transitorio (offline, timeout) no debería desloguear a un
         // usuario que ya tenía una sesión activa con este mismo uid — antes
@@ -92,6 +93,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
     return unsub
   }, [])
+
+  // Asocia el usuario logueado (uid + rol, sin PII) con los reportes de errores,
+  // para poder rastrear a qué operario/rol le pasó cada falla en producción.
+  const observedUid = state.user?.uid
+  const observedRol = state.user?.rol
+  useEffect(() => {
+    setObservabilityUser(observedUid ? { uid: observedUid, rol: observedRol } : null)
+  }, [observedUid, observedRol])
 
   // Detecta cambios de rol/estado en tiempo real para sesiones activas
   useEffect(() => {
