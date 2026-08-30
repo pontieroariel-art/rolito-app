@@ -5,9 +5,9 @@ import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
 import Badge from '../../components/ui/Badge'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import ClienteCombobox, { toComboItems } from '../../components/ui/ClienteCombobox'
-import { useAllOrders } from '../../hooks/useOrders'
-import { AvisoDatosTruncados } from '../../components/admin/AvisoDatosTruncados'
-import { useVisitasPuntuales } from '../../hooks/useVisitas'
+import { useOrdersRango } from '../../hooks/useOrders'
+import { useVisitasPuntualesRango } from '../../hooks/useVisitas'
+import { rangoCalendario } from '../../utils/rangoFechas'
 import { getAllUsers } from '../../services/userService'
 import { summarizeProducts } from '../../utils/helpers'
 import { STATUS_LABELS } from '../../utils/constants'
@@ -54,8 +54,12 @@ export default function HistorialPage() {
   const [month, setMonth] = useState(now.getMonth())
   const [day,   setDay]   = useState(now.getDate())
 
-  const { orders, loading: ordersLoading, truncado }  = useAllOrders()
-  const { visitas, loading: visitasLoading } = useVisitasPuntuales()
+  const { desde, hasta } = useMemo(
+    () => rangoCalendario(periodo, year, month, day),
+    [periodo, year, month, day],
+  )
+  const { orders, loading: ordersLoading }  = useOrdersRango(desde, hasta)
+  const { visitas, loading: visitasLoading } = useVisitasPuntualesRango(desde, hasta)
   const { data: users = [], isLoading: usersLoading } = useQuery({
     queryKey:  ['users'],
     queryFn:   () => getAllUsers(),
@@ -195,8 +199,6 @@ export default function HistorialPage() {
           <h1 className="text-2xl font-bold">Movimientos</h1>
           <p className="text-gray-500 text-sm mt-0.5">Pedidos y visitas del período</p>
         </div>
-
-        {truncado && <AvisoDatosTruncados />}
 
         {/* ── Filtros ─────────────────────────────────────────────────── */}
         <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-4">

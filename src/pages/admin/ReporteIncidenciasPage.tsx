@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
-import { useAllOrders } from '../../hooks/useOrders'
-import { AvisoDatosTruncados } from '../../components/admin/AvisoDatosTruncados'
+import { useOrdersActualizadosDesde } from '../../hooks/useOrders'
 import { useChoferes } from '../../hooks/useChoferes'
 import { formatShortDate, tsToDate } from '../../utils/helpers'
 import { Order } from '../../types'
@@ -21,9 +20,17 @@ function periodDays(p: Periodo): number {
 }
 
 export default function ReporteIncidenciasPage() {
-  const { orders, loading, truncado } = useAllOrders()
   const { choferes }        = useChoferes()
   const [periodo, setPeriodo] = useState<Periodo>('30d')
+
+  // Ventana móvil de N días (por updatedAt). useMemo keyed por periodo ⇒ Date
+  // estable entre renders, sin re-fetch en loop. El fetch arranca en/antes del
+  // cutoff que usan los filtros client-side, así que es un superset correcto.
+  const desde = useMemo(
+    () => new Date(Date.now() - periodDays(periodo) * 24 * 60 * 60 * 1000),
+    [periodo],
+  )
+  const { orders, loading } = useOrdersActualizadosDesde(desde)
 
   const incidencias = useMemo(() => {
     const cutoff = new Date(Date.now() - periodDays(periodo) * 24 * 60 * 60 * 1000)
@@ -105,8 +112,6 @@ export default function ReporteIncidenciasPage() {
             ))}
           </div>
         </div>
-
-        {truncado && <AvisoDatosTruncados />}
 
         {/* KPIs */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

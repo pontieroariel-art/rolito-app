@@ -389,6 +389,25 @@ export const getOrdersInRange = async (start: Date, end: Date): Promise<Order[]>
   return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Order))
 }
 
+// Pedidos cuya última actividad (updatedAt) cae desde `desde` — para el reporte
+// de incidencias, que mira reprogramaciones/reasignaciones por su updatedAt. Un
+// pedido reprogramado tiene fecha de ENTREGA futura pero updatedAt reciente, así
+// que filtrar por `date` lo perdería. Todos los pedidos setean updatedAt al
+// crearse (ver buildCreateOrderData/createOrderManual/createOrderExterno), así
+// que esto también incluye los creados en la ventana — un superset correcto de
+// lo que el reporte filtra client-side (incidencias por updatedAt, total por
+// createdAt). Query puntual (no stream): los reportes analíticos no necesitan
+// tiempo real y así se puede mirar cualquier ventana, no solo los últimos 30 días.
+export const getOrdersActualizadosDesde = async (desde: Date): Promise<Order[]> => {
+  const q = query(
+    collection(db, ORDERS),
+    where('updatedAt', '>=', Timestamp.fromDate(desde)),
+    orderBy('updatedAt', 'desc'),
+  )
+  const snap = await getDocs(q)
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Order))
+}
+
 export const subscribeClientOrders = (
   clientId: string,
   callback: (orders: Order[]) => void,

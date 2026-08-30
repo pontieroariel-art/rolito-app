@@ -1,4 +1,5 @@
-import { subscribeProgramas, subscribeVisitasPuntuales } from '../services/visitasService'
+import { useQuery } from '@tanstack/react-query'
+import { subscribeProgramas, subscribeVisitasPuntuales, getVisitasPuntualesInRange } from '../services/visitasService'
 import { ProgramaVisita, VisitaPuntual } from '../types'
 import { useFirestoreSubscription } from './useFirestoreSubscription'
 import { toDateStr } from '../utils/helpers'
@@ -11,6 +12,18 @@ export function useProgramasVisita() {
 export function useVisitasPuntuales() {
   const { data: visitas, loading } = useFirestoreSubscription<VisitaPuntual[]>(subscribeVisitasPuntuales, [], [])
   return { visitas, loading }
+}
+
+// Versión por rango del hook de arriba, para el Historial (/movimientos): trae
+// las visitas con `fecha` en [desde, hasta] con una query puntual, en vez del
+// stream fijo de 30 días. Pasá Dates ESTABLES (useMemo) para no re-fetchear.
+export function useVisitasPuntualesRango(desde: Date, hasta: Date): { visitas: VisitaPuntual[]; loading: boolean } {
+  const { data: visitas = [], isLoading } = useQuery({
+    queryKey:  ['visitasPuntualesRango', desde.getTime(), hasta.getTime()],
+    queryFn:   () => getVisitasPuntualesInRange(desde, hasta),
+    staleTime: 60_000,
+  })
+  return { visitas, loading: isLoading }
 }
 
 /** Devuelve programas activos cuyo día de semana coincide con `date` */

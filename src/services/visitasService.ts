@@ -5,6 +5,7 @@ import {
   deleteDoc,
   doc,
   onSnapshot,
+  getDocs,
   query,
   where,
   orderBy,
@@ -61,6 +62,20 @@ export const subscribeVisitasPuntuales = (
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as VisitaPuntual))),
     () => callback([]),
   )
+}
+
+// Visitas puntuales con `fecha` en [desde, hasta] — versión por rango del
+// stream de 30 días de arriba, para el Historial (/movimientos), que puede
+// mirar cualquier mes/año. Query puntual (getDocs), no suscripción: es un
+// reporte, no el tablero operativo.
+export const getVisitasPuntualesInRange = async (desde: Date, hasta: Date): Promise<VisitaPuntual[]> => {
+  const snap = await getDocs(query(
+    collection(db, PUNTUALES),
+    where('fecha', '>=', Timestamp.fromDate(desde)),
+    where('fecha', '<=', Timestamp.fromDate(hasta)),
+    orderBy('fecha', 'desc'),
+  ))
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as VisitaPuntual))
 }
 
 export const addVisitaPuntual = (

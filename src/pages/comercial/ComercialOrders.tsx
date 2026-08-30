@@ -6,8 +6,8 @@ import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
 import Badge from '../../components/ui/Badge'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import ClienteCombobox, { toComboItems } from '../../components/ui/ClienteCombobox'
-import { useAllOrders } from '../../hooks/useOrders'
-import { AvisoDatosTruncados } from '../../components/admin/AvisoDatosTruncados'
+import { useOrdersRango } from '../../hooks/useOrders'
+import { rangoCalendario } from '../../utils/rangoFechas'
 import { getAllUsers } from '../../services/userService'
 import { summarizeProducts } from '../../utils/helpers'
 import { STATUS_LABELS } from '../../utils/constants'
@@ -41,7 +41,11 @@ export default function ComercialOrders() {
   const [month, setMonth] = useState(now.getMonth())       // 0-indexed
   const [day,   setDay]   = useState(now.getDate())
 
-  const { orders, loading: ordersLoading, truncado } = useAllOrders()
+  const { desde, hasta } = useMemo(
+    () => rangoCalendario(periodo, year, month, day),
+    [periodo, year, month, day],
+  )
+  const { orders, loading: ordersLoading } = useOrdersRango(desde, hasta)
   const { data: users = [], isLoading: usersLoading } = useQuery({
     queryKey: ['users'],
     queryFn:  () => getAllUsers(),
@@ -164,8 +168,6 @@ export default function ComercialOrders() {
             <p className="text-gray-500 text-sm mt-0.5">Consultá y filtrá todas las compras</p>
           </div>
         </div>
-
-        {truncado && <AvisoDatosTruncados />}
 
         {/* ── Filtros ─────────────────────────────────────────────────── */}
         <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-4">
