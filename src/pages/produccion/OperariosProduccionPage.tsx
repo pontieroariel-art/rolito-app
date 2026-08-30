@@ -10,6 +10,7 @@ import { PLANTAS, PlantaId } from '../../types'
 function CrearOperarioModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [nombre, setNombre] = useState('')
   const [legajo, setLegajo] = useState('')
+  const [pin,    setPin]    = useState('')
   const [planta, setPlanta] = useState<PlantaId>('torcuato')
   const [puesto, setPuesto] = useState<'operario' | 'maquinista'>('operario')
   const [saving, setSaving] = useState(false)
@@ -21,10 +22,14 @@ function CrearOperarioModal({ onClose, onCreated }: { onClose: () => void; onCre
       setError('Completá nombre y legajo')
       return
     }
+    if (pin.length !== 4) {
+      setError('Asignale un PIN de 4 dígitos')
+      return
+    }
     setSaving(true)
     try {
       await createOperarioProduccionUser({
-        nombreContacto: nombre.trim(), legajo, planta,
+        nombreContacto: nombre.trim(), legajo, pin, planta,
         ...(puesto === 'maquinista' ? { subrol: 'maquinista' as const } : {}),
       })
       onCreated()
@@ -45,7 +50,12 @@ function CrearOperarioModal({ onClose, onCreated }: { onClose: () => void; onCre
           onChange={(e) => setLegajo(e.target.value.replace(/\D/g, '').slice(0, 6))}
           required inputMode="numeric" maxLength={6} placeholder="1234"
         />
-        <p className="text-xs text-gray-400 -mt-2">El operario ingresa a /produccion-{planta} con solo este número, sin contraseña.</p>
+        <Input
+          label="PIN (4 dígitos)" value={pin}
+          onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+          required inputMode="numeric" maxLength={4} placeholder="••••"
+        />
+        <p className="text-xs text-gray-400 -mt-2">El operario ingresa a /produccion-{planta} con su legajo y este PIN. Anotá el PIN y comunicáselo; se puede cambiar después.</p>
         <div>
           <label className="text-xs text-gray-500 mb-1 block">Puesto</label>
           <div className="grid grid-cols-2 gap-2">
@@ -98,7 +108,7 @@ export default function OperariosProduccionPage() {
         <div className="flex flex-wrap justify-between items-center gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Operarios de producción</h1>
-            <p className="text-gray-500 text-sm">Personal de planta — login por legajo en /produccion-torcuato o /produccion-merlo</p>
+            <p className="text-gray-500 text-sm">Personal de planta — login por legajo y PIN en /produccion-torcuato o /produccion-merlo</p>
           </div>
           <Button onClick={() => setCrearModal(true)} className="text-sm">+ Nuevo operario</Button>
         </div>

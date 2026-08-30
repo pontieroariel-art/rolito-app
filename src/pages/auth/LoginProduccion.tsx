@@ -16,6 +16,7 @@ export default function LoginProduccion({ planta }: Props) {
   const { user } = useAuth()
 
   const [legajo,  setLegajo]  = useState('')
+  const [pin,     setPin]     = useState('')
   const [error,   setError]   = useState('')
   const [loading, setLoading] = useState(false)
   // El logout por planta incorrecta también dispara este efecto (user pasa a
@@ -49,17 +50,18 @@ export default function LoginProduccion({ planta }: Props) {
 
   const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (pin.length !== 4) { setError('El PIN son 4 dígitos'); return }
     setLoading(true)
     setError('')
     try {
-      await loginProduccion(legajo.trim())
+      await loginProduccion(legajo.trim(), pin)
     } catch (err) {
       if (err instanceof Error && err.message === 'legajo-not-found') {
         setError('Legajo no encontrado')
       } else if (err instanceof FirebaseError) {
         const wrongCreds = ['auth/invalid-credential', 'auth/wrong-password', 'auth/user-not-found']
         if (wrongCreds.includes(err.code)) {
-          setError('Legajo no encontrado')
+          setError('Legajo o PIN incorrecto')
         } else if (err.code === 'auth/too-many-requests') {
           setError('Demasiados intentos. Esperá unos minutos.')
         } else {
@@ -74,7 +76,7 @@ export default function LoginProduccion({ planta }: Props) {
   }
 
   return (
-    <AuthLayout title={`Ingreso Producción — ${PLANTAS[planta].label}`} subtitle="Ingresá con tu número de legajo">
+    <AuthLayout title={`Ingreso Producción — ${PLANTAS[planta].label}`} subtitle="Ingresá con tu legajo y PIN">
       <form onSubmit={handleLogin} className="flex flex-col gap-4">
         <Input
           label="Legajo"
@@ -85,6 +87,17 @@ export default function LoginProduccion({ planta }: Props) {
           autoComplete="username"
           inputMode="numeric"
           maxLength={6}
+        />
+        <Input
+          label="PIN"
+          type="password"
+          value={pin}
+          onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+          required
+          placeholder="••••"
+          autoComplete="current-password"
+          inputMode="numeric"
+          maxLength={4}
         />
 
         {error && (

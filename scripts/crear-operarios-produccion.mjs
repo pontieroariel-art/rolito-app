@@ -24,9 +24,11 @@ admin.initializeApp({ credential: admin.credential.cert(serviceAccount) })
 const db   = admin.firestore()
 const auth = admin.auth()
 
-// Mismos valores que src/services/produccionAuthService.ts — si cambia ahí,
-// cambiar acá también.
-const PASSWORD_FIJA = 'rolito-produccion-legajo'
+// Login por legajo + PIN individual (ver src/services/produccionAuthService.ts →
+// padPinProduccion). Cada operario recibe un PIN aleatorio de 4 dígitos que el
+// script imprime para comunicárselo (ya no hay contraseña fija en el bundle).
+const padPinProduccion = (pin) => `${String(pin).replace(/\D/g, '')}__pr`
+const nuevoPin = () => String(Math.floor(1000 + Math.random() * 9000))
 const legajoToEmail = (legajo) => `${legajo}@produccion.rolito.internal`
 
 function tituloCase(nombreCompleto) {
@@ -65,9 +67,10 @@ async function crearOperario({ nombre, legajo }) {
     return
   }
 
+  const pin = nuevoPin()
   let uid
   try {
-    const user = await auth.createUser({ email, password: PASSWORD_FIJA, displayName: nombreContacto })
+    const user = await auth.createUser({ email, password: padPinProduccion(pin), displayName: nombreContacto })
     uid = user.uid
   } catch (err) {
     if (err.code === 'auth/email-already-exists') {
@@ -99,7 +102,7 @@ async function crearOperario({ nombre, legajo }) {
 
   await db.collection('produccionLegajoIndex').doc(legajo).set({ email })
 
-  console.log(`  OK ${nombreContacto} (legajo ${legajo})`)
+  console.log(`  OK ${nombreContacto} (legajo ${legajo}) → PIN ${pin}`)
 }
 
 async function main() {
