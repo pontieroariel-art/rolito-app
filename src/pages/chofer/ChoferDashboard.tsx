@@ -22,6 +22,7 @@ import { updateVisitaPuntual } from '../../services/visitasService'
 import { useProgramasVisita, useVisitasPuntuales, programasParaFecha, visitasParaFecha } from '../../hooks/useVisitas'
 import { useCatalogo } from '../../hooks/useCatalogo'
 import { useRemitosCargaChofer } from '../../hooks/useRemitosCargaChofer'
+import { useDiaActual, useFechaDelDia } from '../../hooks/useDiaActual'
 import { summarizeProducts, toDateStr, todayString } from '../../utils/helpers'
 import { generateHojaDeRuta } from '../../utils/pdf'
 import { Order, ProgramaVisita, VisitaPuntual, OrderProduct } from '../../types'
@@ -39,6 +40,11 @@ export default function ChoferDashboard() {
   const [pdfLoading,  setPdfLoading]  = useState(false)
 
   const isAyudante = user?.subrol === 'ayudante'
+  // Día actual reactivo: cambia solo al cruzar la medianoche, para que una app
+  // de chofer abierta desde temprano no siga clavada en el día anterior (afecta
+  // la suscripción de despachos del día y el filtro de visitas de hoy).
+  const diaHoy = useDiaActual()
+  const today  = useFechaDelDia()
 
   // Para evitar race condition en deactivateDriverLocation
   const locationGenRef = useRef(0)
@@ -50,12 +56,11 @@ export default function ChoferDashboard() {
 
   useEffect(() => {
     if (!user?.email || !isAyudante) return
-    const fecha = todayString()
-    return subscribeDespachosForAyudante(fecha, user.email, (ds) => {
+    return subscribeDespachosForAyudante(diaHoy, user.email, (ds) => {
       setPairedDespachos(ds)
       setPairedDespachoLoading(false)
     })
-  }, [user?.email, isAyudante])
+  }, [user?.email, isAyudante, diaHoy])
 
   const pairedDespacho = pickActiveDespacho(pairedDespachos)
 
@@ -80,7 +85,6 @@ export default function ChoferDashboard() {
   const delivered = orders.filter((o) => o.status === 'entregado')
   const hasPending = pending.length > 0
 
-  const today = new Date()
   // Ayudante filtra visitas por el email del chofer asignado, no el suyo propio
   const driverEmailForVisits = isAyudante ? (pairedDespacho?.driverId ?? user?.email) : user?.email
   const visitasHoy = programasParaFecha(programas, today).filter((p) => !p.driverId || p.driverId === driverEmailForVisits)
@@ -110,9 +114,8 @@ export default function ChoferDashboard() {
   const [misDespachos, setMisDespachos] = useState<Despacho[]>([])
   useEffect(() => {
     if (!user?.email || isAyudante) return
-    const fecha = todayString()
-    return subscribeDespachosForDriver(fecha, user.email, setMisDespachos)
-  }, [user?.email, isAyudante])
+    return subscribeDespachosForDriver(diaHoy, user.email, setMisDespachos)
+  }, [user?.email, isAyudante, diaHoy])
 
   const despachoHoy = isAyudante ? pairedDespacho : pickActiveDespacho(misDespachos)
 

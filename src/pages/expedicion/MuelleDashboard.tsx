@@ -5,6 +5,7 @@ import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import { useAuth } from '../../context/AuthContext'
 import { useCatalogo } from '../../hooks/useCatalogo'
+import { useFechaDelDia } from '../../hooks/useDiaActual'
 import { asignarDarsena, subscribeRemitosCargaDelDia } from '../../services/remitoCargaService'
 import {
   confirmarEntregaRemito, crearDescargaCamion, subscribeDescargasDelDia,
@@ -26,14 +27,15 @@ export default function MuelleDashboard() {
   const { user } = useAuth()
   const { catalogo } = useCatalogo()
   const plantaId = user?.planta ?? 'torcuato'
+  const fecha = useFechaDelDia()
 
   const [remitos,     setRemitos]     = useState<RemitoCarga[]>([])
   const [descargas,   setDescargas]   = useState<DescargaCamion[]>([])
   const [ventanillas, setVentanillas] = useState<VentaVentanilla[]>([])
 
-  useEffect(() => subscribeRemitosCargaDelDia(plantaId, new Date(), setRemitos), [plantaId])
-  useEffect(() => subscribeDescargasDelDia(plantaId, new Date(), setDescargas), [plantaId])
-  useEffect(() => subscribeVentanillaDelDia(plantaId, new Date(), setVentanillas), [plantaId])
+  useEffect(() => subscribeRemitosCargaDelDia(plantaId, fecha, setRemitos), [plantaId, fecha])
+  useEffect(() => subscribeDescargasDelDia(plantaId, fecha, setDescargas), [plantaId, fecha])
+  useEffect(() => subscribeVentanillaDelDia(plantaId, fecha, setVentanillas), [plantaId, fecha])
 
   // ── Descarga: formulario ──
   const [remitoDescargaId, setRemitoDescargaId] = useState('')

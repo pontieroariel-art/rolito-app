@@ -5,6 +5,7 @@ import Modal from '../../components/ui/Modal'
 import ClienteCombobox, { toComboItems } from '../../components/ui/ClienteCombobox'
 import { useAuth } from '../../context/AuthContext'
 import { useClientesActivos } from '../../hooks/useClientesActivos'
+import { useFechaDelDia } from '../../hooks/useDiaActual'
 import { crearCobranzaCaja, subscribeCobranzasCajaDelDia } from '../../services/cobranzaService'
 import {
   desmarcarDispositivoCobranza, esDispositivoCobranza, marcarDispositivoCobranza,
@@ -26,6 +27,7 @@ export default function CobranzasPage() {
   const { user } = useAuth()
   const { clientes } = useClientesActivos()
   const plantaId = user?.planta ?? 'torcuato'
+  const fecha = useFechaDelDia()
 
   const [clienteId,  setClienteId]  = useState('')
   const [importe,    setImporte]    = useState('')
@@ -37,7 +39,7 @@ export default function CobranzasPage() {
   const [cobranzas,   setCobranzas]   = useState<Cobranza[]>([])
   const [tabletFija,  setTabletFija]  = useState(esDispositivoCobranza())
 
-  useEffect(() => subscribeCobranzasCajaDelDia(plantaId, new Date(), setCobranzas), [plantaId])
+  useEffect(() => subscribeCobranzasCajaDelDia(plantaId, fecha, setCobranzas), [plantaId, fecha])
 
   const cliente = useMemo(() => clientes.find((c) => c.uid === clienteId), [clientes, clienteId])
   const monto   = parseInt(importe.replace(/\D/g, ''), 10) || 0

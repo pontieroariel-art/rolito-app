@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useFlota } from '../../hooks/useFlota'
 import { useChoferes } from '../../hooks/useChoferes'
 import { useCatalogo } from '../../hooks/useCatalogo'
+import { useFechaDelDia } from '../../hooks/useDiaActual'
 import { crearRemitoCarga, palletsInfo, subscribeRemitosCargaDelDia } from '../../services/remitoCargaService'
 import { generateRemitoCarga } from '../../utils/pdf'
 import { PLANTAS, RemitoCarga, RemitoCargaEstado, RemitoCargaItem } from '../../types'
@@ -32,6 +33,7 @@ export default function RemitosCargaPage() {
   const { catalogo } = useCatalogo()
 
   const plantaId = user?.planta ?? 'torcuato'
+  const fecha = useFechaDelDia()
 
   const [camionId,   setCamionId]   = useState('')
   const [choferId,   setChoferId]   = useState('')
@@ -45,8 +47,8 @@ export default function RemitosCargaPage() {
   const [remitos,     setRemitos]     = useState<RemitoCarga[]>([])
 
   useEffect(
-    () => subscribeRemitosCargaDelDia(plantaId, new Date(), setRemitos),
-    [plantaId],
+    () => subscribeRemitosCargaDelDia(plantaId, fecha, setRemitos),
+    [plantaId, fecha],
   )
 
   const camionesActivos = useMemo(() => camiones.filter((c) => c.activo), [camiones])

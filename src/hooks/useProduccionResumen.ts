@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { PalletProduccion } from '../types'
 import { subscribePalletsEnRango } from '../services/produccionService'
 import { useFirestoreSubscription } from './useFirestoreSubscription'
-import { toDateStr } from '../utils/helpers'
+import { useDiaActual } from './useDiaActual'
 
 export type PeriodoResumen = 'hoy' | '7d' | '30d'
 
@@ -19,20 +19,6 @@ function rangoPara(periodo: PeriodoResumen, hoy: Date): { desde: Date; hasta: Da
   desde.setHours(0, 0, 0, 0)
 
   return { desde, hasta }
-}
-
-// Clave del día actual (fecha local). Cuando cambia (la pantalla cruzó la
-// medianoche), forzamos a recalcular el rango para que "Hoy" no siga clavado
-// en el día anterior en una tablet dejada abierta toda la noche.
-function useDiaActual(): string {
-  const [dia, setDia] = useState(() => toDateStr(new Date()))
-  useEffect(() => {
-    const proximaMedianoche = new Date()
-    proximaMedianoche.setHours(24, 0, 0, 0)
-    const id = setTimeout(() => setDia(toDateStr(new Date())), proximaMedianoche.getTime() - Date.now() + 1000)
-    return () => clearTimeout(id)
-  }, [dia])
-  return dia
 }
 
 export function useProduccionResumen(periodo: PeriodoResumen) {

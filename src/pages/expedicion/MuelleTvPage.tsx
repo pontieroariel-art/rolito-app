@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Volume2, VolumeX } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
+import { useFechaDelDia } from '../../hooks/useDiaActual'
 import { subscribeRemitosCargaDelDia } from '../../services/remitoCargaService'
 import { subscribeVentanillaDelDia } from '../../services/ventaVentanillaService'
 import {
@@ -21,6 +22,7 @@ export default function MuelleTvPage() {
   const plantaId = user?.planta ?? 'torcuato'
   const totalDarsenas = DARSENAS_POR_PLANTA[plantaId]
   const dVentanilla   = DARSENAS_VENTANILLA[plantaId]
+  const fecha = useFechaDelDia()
 
   const [remitos,     setRemitos]     = useState<RemitoCarga[]>([])
   const [ventanillas, setVentanillas] = useState<VentaVentanilla[]>([])
@@ -28,8 +30,8 @@ export default function MuelleTvPage() {
   const [escala, setEscala] = useState(1)
   const [sonido, setSonido] = useState(false)
 
-  useEffect(() => subscribeRemitosCargaDelDia(plantaId, new Date(), setRemitos), [plantaId])
-  useEffect(() => subscribeVentanillaDelDia(plantaId, new Date(), setVentanillas), [plantaId])
+  useEffect(() => subscribeRemitosCargaDelDia(plantaId, fecha, setRemitos), [plantaId, fecha])
+  useEffect(() => subscribeVentanillaDelDia(plantaId, fecha, setVentanillas), [plantaId, fecha])
   useEffect(() => {
     const t = setInterval(() => setAhora(Date.now()), 10_000)
     return () => clearInterval(t)

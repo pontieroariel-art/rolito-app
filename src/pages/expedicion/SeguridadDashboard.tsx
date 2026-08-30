@@ -3,6 +3,7 @@ import { CheckCircle2, ShieldCheck, Truck } from 'lucide-react'
 import Navbar from '../../components/layout/Navbar'
 import Button from '../../components/ui/Button'
 import { useAuth } from '../../context/AuthContext'
+import { useFechaDelDia } from '../../hooks/useDiaActual'
 import { subscribeRemitosCargaDelDia, marcarSalidaRemito } from '../../services/remitoCargaService'
 import { subscribeVentanillaDelDia, marcarSalidaVentanilla } from '../../services/ventaVentanillaService'
 import { PLANTAS, RemitoCarga, VentaVentanilla } from '../../types'
@@ -17,13 +18,14 @@ const horaDe = (t: { toDate: () => Date }) =>
 export default function SeguridadDashboard() {
   const { user } = useAuth()
   const plantaId = user?.planta ?? 'torcuato'
+  const fecha = useFechaDelDia()
 
   const [remitos,     setRemitos]     = useState<RemitoCarga[]>([])
   const [ventanillas, setVentanillas] = useState<VentaVentanilla[]>([])
   const [error, setError] = useState('')
 
-  useEffect(() => subscribeRemitosCargaDelDia(plantaId, new Date(), setRemitos), [plantaId])
-  useEffect(() => subscribeVentanillaDelDia(plantaId, new Date(), setVentanillas), [plantaId])
+  useEffect(() => subscribeRemitosCargaDelDia(plantaId, fecha, setRemitos), [plantaId, fecha])
+  useEffect(() => subscribeVentanillaDelDia(plantaId, fecha, setVentanillas), [plantaId, fecha])
 
   const camionesPorSalir  = remitos.filter((r) => r.estado === 'entregado')
   const camionesSalidos   = remitos.filter((r) => r.estado === 'salido')

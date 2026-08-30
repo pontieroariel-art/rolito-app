@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useClientesActivos } from '../../hooks/useClientesActivos'
 import { useAllListasPrecios } from '../../hooks/useListasPrecios'
 import { useCatalogo } from '../../hooks/useCatalogo'
+import { useFechaDelDia } from '../../hooks/useDiaActual'
 import { crearVentaVentanilla, subscribeVentanillaDelDia } from '../../services/ventaVentanillaService'
 import { generateComprobanteVentanilla } from '../../utils/pdf'
 import { generateQrDataUrl } from '../../utils/qr'
@@ -36,6 +37,7 @@ export default function VentanillaPage() {
   const { listas } = useAllListasPrecios()
   const { catalogo } = useCatalogo()
   const plantaId = user?.planta ?? 'torcuato'
+  const fecha = useFechaDelDia()
 
   const [tipoCliente, setTipoCliente] = useState<'registrado' | 'ocasional'>('registrado')
   const [clienteId,   setClienteId]   = useState('')
@@ -50,7 +52,7 @@ export default function VentanillaPage() {
   const [error,       setError]       = useState('')
   const [ventas,      setVentas]      = useState<VentaVentanilla[]>([])
 
-  useEffect(() => subscribeVentanillaDelDia(plantaId, new Date(), setVentas), [plantaId])
+  useEffect(() => subscribeVentanillaDelDia(plantaId, fecha, setVentas), [plantaId, fecha])
 
   const cliente = useMemo(() => clientes.find((c) => c.uid === clienteId), [clientes, clienteId])
   const lista = tipoCliente === 'registrado'

@@ -8,6 +8,7 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import ClienteCombobox, { toComboItems } from '../../components/ui/ClienteCombobox'
 import { useAuth } from '../../context/AuthContext'
 import { useClientesActivos } from '../../hooks/useClientesActivos'
+import { useFechaDelDia } from '../../hooks/useDiaActual'
 import { crearCobranzaCalle, subscribeCobranzasChoferEnRango } from '../../services/cobranzaService'
 import { Cobranza } from '../../types'
 
@@ -25,6 +26,7 @@ const FORMAS: { id: Cobranza['formaPago']; label: string }[] = [
 export default function CobranzaCalle() {
   const { user } = useAuth()
   const { clientes, loading: loadingClientes } = useClientesActivos()
+  const fecha = useFechaDelDia()
 
   const [clienteId,  setClienteId]  = useState('')
   const [importe,    setImporte]    = useState('')
@@ -37,10 +39,10 @@ export default function CobranzaCalle() {
 
   useEffect(() => {
     if (!user) return
-    const desde = new Date(); desde.setHours(0, 0, 0, 0)
+    const desde = new Date(fecha); desde.setHours(0, 0, 0, 0)
     const hasta = new Date(desde); hasta.setDate(hasta.getDate() + 1)
     return subscribeCobranzasChoferEnRango(user.uid, desde, hasta, setCobranzasHoy)
-  }, [user])
+  }, [user, fecha])
 
   const cliente = useMemo(() => clientes.find((c) => c.uid === clienteId), [clientes, clienteId])
   const monto   = parseInt(importe.replace(/\D/g, ''), 10) || 0
