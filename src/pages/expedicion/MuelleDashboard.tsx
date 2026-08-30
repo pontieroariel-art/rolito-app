@@ -5,7 +5,7 @@ import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import { useAuth } from '../../context/AuthContext'
 import { useCatalogo } from '../../hooks/useCatalogo'
-import { subscribeRemitosCargaDelDia } from '../../services/remitoCargaService'
+import { asignarDarsena, subscribeRemitosCargaDelDia } from '../../services/remitoCargaService'
 import {
   confirmarEntregaRemito, crearDescargaCamion, subscribeDescargasDelDia,
 } from '../../services/descargaCamionService'
@@ -13,7 +13,7 @@ import {
   confirmarEntregaVentanilla, subscribeVentanillaDelDia,
 } from '../../services/ventaVentanillaService'
 import {
-  DescargaCamion, DescargaCamionItem, PLANTAS, RemitoCarga, VentaVentanilla,
+  DARSENAS_POR_PLANTA, DescargaCamion, DescargaCamionItem, PLANTAS, RemitoCarga, VentaVentanilla,
 } from '../../types'
 
 // Pantalla del rol muelle (tablet en planta): confirma la entrega de la
@@ -118,9 +118,14 @@ export default function MuelleDashboard() {
     <div className="min-h-screen bg-[#F8F7F2]">
       <Navbar />
       <main className="max-w-3xl mx-auto p-4 space-y-6 pb-10">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Muelle</h1>
-          <p className="text-gray-500 text-sm">{PLANTAS[plantaId].label}</p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Muelle</h1>
+            <p className="text-gray-500 text-sm">{PLANTAS[plantaId].label}</p>
+          </div>
+          <a href="/muelle/tv" target="_blank" rel="noreferrer" className="text-xs text-gray-400 underline hover:text-accent mt-1">
+            Pantalla TV →
+          </a>
         </div>
 
         {error && (
@@ -161,6 +166,29 @@ export default function MuelleDashboard() {
                     <span>Pallets de carga</span><span className="font-medium">{r.palletsCarga}</span>
                   </div>
                 )}
+              </div>
+              {/* Dársena: alimenta el tablero de TV — sin asignar queda "en espera". */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 shrink-0">Dársena</span>
+                <div className="flex gap-1.5 flex-wrap">
+                  {Array.from({ length: DARSENAS_POR_PLANTA[plantaId] }, (_, i) => i + 1).map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => asignarDarsena(r, n).catch((err) => {
+                        console.error('[muelle] error al asignar dársena:', err)
+                        setError('No se pudo asignar la dársena. Intentá de nuevo.')
+                      })}
+                      className={`w-9 h-9 rounded-lg border text-sm font-bold transition-colors ${
+                        r.darsena === n
+                          ? 'bg-accent text-white border-accent'
+                          : 'bg-white text-gray-600 border-[#D3D1C7] hover:bg-gray-50'
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
               </div>
               <Button onClick={() => entregar(r)} className="w-full">Mercadería entregada</Button>
             </div>

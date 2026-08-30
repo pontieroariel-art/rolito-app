@@ -95,6 +95,7 @@ const LiquidacionesPage = lazy(() => import('./pages/expedicion/LiquidacionesPag
 const VentanillaPage    = lazy(() => import('./pages/expedicion/VentanillaPage'))
 const CobranzasPage     = lazy(() => import('./pages/expedicion/CobranzasPage'))
 const MuelleDashboard    = lazy(() => import('./pages/expedicion/MuelleDashboard'))
+const MuelleTvPage       = lazy(() => import('./pages/expedicion/MuelleTvPage'))
 const SeguridadDashboard = lazy(() => import('./pages/expedicion/SeguridadDashboard'))
 const CambioCamion       = lazy(() => import('./pages/chofer/CambioCamion'))
 const CobranzaCalle      = lazy(() => import('./pages/chofer/CobranzaCalle'))
@@ -409,7 +410,9 @@ function AppContent() {
         {/* Muelle — tablet en planta, Navbar genérico (una sola pantalla):
             entrega la carga contra el remito y cuenta la descarga al volver. */}
         <Route element={<ProtectedRoute allowedRoles={['muelle', 'super_admin']} />}>
-          <Route path="/muelle" element={<MuelleDashboard />} />
+          <Route path="/muelle"    element={<MuelleDashboard />} />
+          {/* TV en kiosco del muelle: solo lectura, tipografía gigante. */}
+          <Route path="/muelle/tv" element={<MuelleTvPage />} />
         </Route>
 
         {/* Seguridad — celular/tablet en el portón: control de salidas. */}

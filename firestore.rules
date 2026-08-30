@@ -757,6 +757,15 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['estado', 'entregadoPor']);
 
+      // Muelle asigna/cambia la dársena de carga (tablero de TV) mientras el
+      // remito sigue emitido — solo ese campo.
+      allow update: if request.auth != null && isMuelle()
+        && resource.data.plantaId == myPlanta()
+        && resource.data.estado == 'emitido'
+        && request.resource.data.darsena is int
+        && request.resource.data.darsena >= 1 && request.resource.data.darsena <= 20
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['darsena']);
+
       // Seguridad libera la salida en el portón: solo entregado → salido,
       // solo esos dos campos, solo en su planta y a su propio nombre.
       allow update: if request.auth != null && isSeguridad()

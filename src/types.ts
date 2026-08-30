@@ -150,6 +150,10 @@ export interface RemitoCarga {
   // la cuenta de envases cierra contra este número (ver liquidación, Fase 2).
   palletsCarga: number
   estado:       RemitoCargaEstado
+  // Dársena asignada por muelle cuando el camión entra a cargar (1..N según
+  // la planta — ver DARSENAS_POR_PLANTA). Sin asignar = en espera. El
+  // tablero de TV del muelle agrupa por este campo.
+  darsena?:     number
   creadoPor:    { uid: string; nombre: string }
   fecha:        Timestamp
   entregadoPor?: { uid: string; nombre: string; hora: Timestamp }   // muelle (Fase 2)
@@ -479,6 +483,13 @@ export const PLANTAS = {
 } as const
 
 export type PlantaId = keyof typeof PLANTAS
+
+// Dársenas de carga del muelle por planta (dato de Ariel 2026-08-29: hoy hay
+// 5 en Torcuato). Si cambia la infraestructura, se ajusta acá.
+export const DARSENAS_POR_PLANTA: Record<PlantaId, number> = {
+  torcuato: 5,
+  merlo:    5,
+}
 
 // ── Producción de hielo ───────────────────────────────────────────────────────
 // Carga de pallets en planta (rol 'produccion_hielo'). Catálogo cerrado de

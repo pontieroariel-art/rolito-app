@@ -78,6 +78,14 @@ export async function crearRemitoCarga(args: CrearRemitoCargaArgs, actor: ActorC
   return { id: remitoRef.id, ...data }
 }
 
+// Muelle asigna (o cambia) la dársena donde carga el camión — el tablero de
+// TV agrupa por este campo. Solo mientras el remito sigue 'emitido'.
+export const asignarDarsena = (
+  remito: RemitoCarga,
+  darsena: number,
+): Promise<void> =>
+  updateDoc(doc(db, REMITOS, remito.id), { darsena })
+
 // Seguridad controla el camión cargado en el portón y libera la salida.
 // Solo la transición entregado → salido — reglas con hasOnly.
 export const marcarSalidaRemito = (

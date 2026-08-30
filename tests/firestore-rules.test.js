@@ -2617,3 +2617,39 @@ describe('expedicion: cobranzas de calle', () => {
     await assertFails(updateDoc(doc(db('chof1'), 'cobranzas/mia'), { importe: 1 }))
   })
 })
+
+// Muelle asigna la dársena de carga (tablero de TV).
+describe('remitosCarga: asignacion de darsena', () => {
+  const remito = (extra = {}) => ({
+    numero: 1, codigo: 'RC-DT-000001', plantaId: 'torcuato',
+    camionId: 'cam1', camionLabel: 'AB123CD', choferId: 'chof1', choferNombre: 'Chofer Uno',
+    items: [{ productoId: 'bolsa_10kg', nombre: 'Hielo 10kg', cantidad: 100 }],
+    palletsCarga: 1, estado: 'emitido', creadoPor: { uid: 'caja1', nombre: 'Caja' },
+    fecha: new Date(), ...extra,
+  })
+
+  test('muelle asigna y cambia la darsena de un remito emitido de su planta', async () => {
+    await seed((d) => setDoc(doc(d, 'users/mue1'), { rol: 'muelle', estado: 'activo', planta: 'torcuato' }))
+    await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), remito()))
+    await assertSucceeds(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), { darsena: 3 }))
+    await assertSucceeds(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), { darsena: 5 }))
+  })
+
+  test('muelle NO asigna darsena a un remito ya entregado, ni fuera de rango, ni de otra planta', async () => {
+    await seed((d) => setDoc(doc(d, 'users/mue1'), { rol: 'muelle', estado: 'activo', planta: 'torcuato' }))
+    await seed((d) => setDoc(doc(d, 'users/mue2'), { rol: 'muelle', estado: 'activo', planta: 'merlo' }))
+    await seed((d) => setDoc(doc(d, 'remitosCarga/entregado'), remito({ estado: 'entregado' })))
+    await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), remito()))
+    await assertFails(updateDoc(doc(db('mue1'), 'remitosCarga/entregado'), { darsena: 1 }))
+    await assertFails(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), { darsena: 0 }))
+    await assertFails(updateDoc(doc(db('mue2'), 'remitosCarga/r1'), { darsena: 1 }))
+  })
+
+  test('caja y chofer NO asignan darsena', async () => {
+    await seed((d) => setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' }))
+    await seed((d) => setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), remito()))
+    await assertFails(updateDoc(doc(db('caja1'), 'remitosCarga/r1'), { darsena: 1 }))
+    await assertFails(updateDoc(doc(db('chof1'), 'remitosCarga/r1'), { darsena: 1 }))
+  })
+})
