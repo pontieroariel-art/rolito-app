@@ -30,6 +30,10 @@ npm-debug.log*
 scripts/serviceAccount.json
 scripts/import-errores.txt
 scripts/import-heladeras-log.txt
+# Cruces/fixes con datos reales de clientes (razón social, dirección, código).
+# NO versionar: el dato vive en Firestore, no en el repo.
+scripts/razon-social-fix.json
+scripts/*-fix.json
 
 # Scripts/tango — exports/cruces con datos reales de clientes (CUIT, mail, tel)
 scripts/tango/*.json
