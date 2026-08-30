@@ -2720,3 +2720,46 @@ describe('expedicion: turnos de ventanilla', () => {
     await assertFails(getDoc(doc(sinAuth, 'turnosPublicos/torcuato')))
   })
 })
+
+// ── H11: lectura acotada de users (chofer/caja) y listas-precios ──────────────
+describe('H11 — lectura acotada', () => {
+  test('un chofer NO puede leer a otro miembro del staff (comercial)', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/ch'), { rol: 'chofer', estado: 'activo' })
+      await setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' })
+    })
+    await assertFails(getDoc(doc(db('ch'), 'users/com')))
+  })
+
+  test('caja puede leer un cliente y un chofer, pero no a gerencia', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' })
+      await setDoc(doc(d, 'users/cli'), cliente())
+      await setDoc(doc(d, 'users/ch'), { rol: 'chofer', estado: 'activo' })
+      await setDoc(doc(d, 'users/gg'), { rol: 'gerente_general', estado: 'activo' })
+    })
+    await assertSucceeds(getDoc(doc(db('caja1'), 'users/cli')))
+    await assertSucceeds(getDoc(doc(db('caja1'), 'users/ch')))
+    await assertFails(getDoc(doc(db('caja1'), 'users/gg')))
+  })
+
+  test('listas-precios: un comercial lee cualquiera; un cliente solo la suya', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' })
+      await setDoc(doc(d, 'users/cli'), cliente({ listaPreciosId: 'lista-A' }))
+      await setDoc(doc(d, 'listas-precios/lista-A'), { nombre: 'Minorista', items: [] })
+      await setDoc(doc(d, 'listas-precios/lista-B'), { nombre: 'Mayorista', items: [] })
+    })
+    await assertSucceeds(getDoc(doc(db('com'), 'listas-precios/lista-B')))   // staff, cualquiera
+    await assertSucceeds(getDoc(doc(db('cli'), 'listas-precios/lista-A')))   // el cliente, la suya
+    await assertFails(getDoc(doc(db('cli'), 'listas-precios/lista-B')))      // no la de otro segmento
+  })
+
+  test('listas-precios: un cliente sin lista asignada no lee ninguna', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/cli'), cliente())
+      await setDoc(doc(d, 'listas-precios/lista-A'), { nombre: 'Minorista', items: [] })
+    })
+    await assertFails(getDoc(doc(db('cli'), 'listas-precios/lista-A')))
+  })
+})
