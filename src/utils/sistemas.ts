@@ -32,8 +32,34 @@ export const ROLE_SISTEMAS: Record<UserRole, Sistema[]> = {
   seguridad:           ['expedicion'],
 }
 
+// Home por rol: adónde va el usuario tras loguearse (los multi-sistema pasan
+// primero por el picker /sistema). Fuente ÚNICA — antes estaba duplicado en
+// Landing.tsx y LoginEmpresa.tsx y ya había divergido: a LoginEmpresa le
+// faltaban heladeras/heladeras_encargado/tecnico/produccion_hielo/
+// produccion_encargado, así que esos roles, al entrar por /empresa, caían al
+// fallback en vez de su home. Record completo para que TS obligue a cubrir cada
+// rol nuevo (auditoría 2026-08-29, H12).
+export const ROLE_HOME: Record<UserRole, string> = {
+  super_admin:          '/sistema',
+  logistica:            '/logistica',
+  comercial:            '/comercial',
+  gerente_comercial:    '/logistica',
+  gerente_general:      '/gerente',
+  facturacion:          '/movimientos',
+  chofer:               '/chofer',
+  cliente:              '/dashboard',
+  heladeras:            '/heladeras',
+  heladeras_encargado:  '/heladeras',
+  tecnico:              '/tecnico',
+  produccion_hielo:     '/produccion',
+  produccion_encargado: '/produccion/resumen',
+  caja:                 '/caja',
+  muelle:               '/muelle',
+  seguridad:            '/seguridad',
+}
+
 // Home por sistema, solo para los roles con más de un sistema (los demás ya
-// tienen su home fijo en ROLE_HOME de Landing.tsx).
+// tienen su home fijo en ROLE_HOME, arriba).
 // 'produccion' nunca aparece realmente en el picker de estos roles (su
 // ROLE_SISTEMAS no lo incluye), pero el tipo interno es un Record<Sistema,
 // string> completo — apunta al listado de gerencia por si a futuro se les
