@@ -6,6 +6,10 @@ const params_1 = require("firebase-functions/params");
 const firestore_1 = require("firebase-admin/firestore");
 const auth_1 = require("firebase-admin/auth");
 const tangoBridgeSecret = (0, params_1.defineSecret)('TANGO_BRIDGE_SECRET');
+// Tope de filas por request (auditoría 2026-08-29, H11): el bridge sincroniza el
+// padrón en lotes y ninguno legítimo se acerca a esto. Acota el costo / DoS si
+// el secret se filtrara o el bridge tuviera un bug que mande un array enorme.
+const MAX_ROWS_POR_LOTE = 10000;
 function soloDigitos(v) {
     return v != null ? String(v).replace(/\D/g, '') : '';
 }
@@ -220,6 +224,10 @@ exports.syncClientesTango = (0, https_1.onRequest)({ secrets: [tangoBridgeSecret
     const rows = req.body?.rows;
     if (!Array.isArray(rows)) {
         res.status(400).json({ succeeded: false, reason: 'rows[] requerido' });
+        return;
+    }
+    if (rows.length > MAX_ROWS_POR_LOTE) {
+        res.status(413).json({ succeeded: false, reason: `demasiadas filas (${rows.length} > ${MAX_ROWS_POR_LOTE}); enviá lotes más chicos` });
         return;
     }
     try {
