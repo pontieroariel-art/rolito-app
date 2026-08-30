@@ -2,7 +2,7 @@ import {
   collection, doc, onSnapshot, query, runTransaction, updateDoc, where, Timestamp,
 } from 'firebase/firestore'
 import { db } from './firebase'
-import { CatalogProducto, RemitoCarga, RemitoCargaItem, PlantaId } from '../types'
+import { RemitoCarga, RemitoCargaItem, PlantaId } from '../types'
 import { PLANTA_INFO } from '../utils/constants'
 
 const REMITOS = 'remitosCarga'
@@ -19,23 +19,9 @@ export const codigoRemitoCarga = (plantaId: PlantaId, numero: number): string =>
 
 export interface ActorCaja { uid: string; nombre: string; plantaId: PlantaId }
 
-// Pallets que ocupa una cantidad de un producto. Solo los pallets JUSTOS se
-// derivan solos (floor): cuando la cantidad no cierra exacta, el excedente a
-// veces viaja en un pallet propio y a veces suelto arriba del camión — eso lo
-// decide caja en la pantalla (checkbox por producto), el sistema no puede
-// adivinarlo. Sin `unidadesPorPallet` en el catálogo el producto no viaja en
-// pallet y no suma envases.
-export interface PalletsInfo {
-  completos: number   // pallets justos (floor)
-  resto:     number   // unidades que no llegan a otro pallet (0 = carga justa)
-}
-export const palletsInfo = (producto: CatalogProducto | undefined, cantidad: number): PalletsInfo | undefined => {
-  if (!producto?.unidadesPorPallet || cantidad <= 0) return undefined
-  return {
-    completos: Math.floor(cantidad / producto.unidadesPorPallet),
-    resto:     cantidad % producto.unidadesPorPallet,
-  }
-}
+// palletsInfo vive en utils/helpers (función pura, testeable sin Firebase). Se
+// reexporta acá porque la pantalla de caja la importa desde este service.
+export { palletsInfo, type PalletsInfo } from '../utils/helpers'
 
 export interface CrearRemitoCargaArgs {
   camionId:     string

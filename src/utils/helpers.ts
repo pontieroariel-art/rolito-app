@@ -149,3 +149,22 @@ export const calcPallets = (
     if (!cat?.unidadesPorPallet) return total
     return total + p.quantity / cat.unidadesPorPallet
   }, 0)
+
+// Pallets que ocupa una cantidad de un producto. Solo los pallets JUSTOS se
+// derivan solos (floor): cuando la cantidad no cierra exacta, el excedente a
+// veces viaja en un pallet propio y a veces suelto arriba del camión — eso lo
+// decide caja en la pantalla (checkbox por producto), el sistema no puede
+// adivinarlo. Sin `unidadesPorPallet` en el catálogo el producto no viaja en
+// pallet y no suma envases. (Vive acá, y no en remitoCargaService, para ser
+// pura y testeable sin arrastrar la inicialización de Firebase.)
+export interface PalletsInfo {
+  completos: number   // pallets justos (floor)
+  resto:     number   // unidades que no llegan a otro pallet (0 = carga justa)
+}
+export const palletsInfo = (producto: CatalogProducto | undefined, cantidad: number): PalletsInfo | undefined => {
+  if (!producto?.unidadesPorPallet || cantidad <= 0) return undefined
+  return {
+    completos: Math.floor(cantidad / producto.unidadesPorPallet),
+    resto:     cantidad % producto.unidadesPorPallet,
+  }
+}
