@@ -24,19 +24,16 @@ export function getDispositivoProduccion(): PlantaId | null {
   }
 }
 
-// Login por legajo — SOLO el número, sin contraseña que el operario tenga que
-// tipear (pedido explícito de Ariel, 2026-08-27: simplificar el ingreso en
-// planta). Firebase Auth igual necesita una contraseña técnica por debajo —
-// se usa esta constante fija, que a propósito NO es secreta (vive en el
-// bundle del cliente, cualquiera puede leerla). La seguridad real de esta
-// cuenta no depende de esto: produccion_hielo solo puede crear pallets
-// INMUTABLES de SU PROPIA planta (ver firestore.rules), nada financiero ni
-// sensible — el trade-off (cualquiera que sepa el legajo de otro puede
-// loguearse como él) fue aceptado conscientemente dado ese alcance acotado.
-const PRODUCCION_PASSWORD_FIJA = 'rolito-produccion-legajo'
-
-export function passwordProduccion(): string {
-  return PRODUCCION_PASSWORD_FIJA
+// Login por legajo + PIN individual (mismo patrón que los choferes, ver
+// choferAuthService.padPin). Antes se usaba una contraseña FIJA embebida en el
+// bundle (ingreso solo con el legajo, pedido de Ariel 2026-08-27 para
+// simplificar la operación en planta), pero la auditoría 2026-08-29 la marcó
+// como crítica: cualquiera que leyera el bundle y un legajo del índice público
+// entraba como ese operario. Ahora el PIN es la contraseña de Auth (NUNCA se
+// guarda en Firestore); el sufijo cumple el mínimo de 6 caracteres de Firebase
+// Auth cuando el PIN son 4 dígitos.
+export function padPinProduccion(pin: string): string {
+  return `${pin.replace(/\D/g, '')}__pr`
 }
 
 export function legajoToProduccionEmail(legajo: string): string {

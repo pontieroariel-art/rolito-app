@@ -461,21 +461,22 @@ export const createTecnicoUser = async ({ nombreContacto, dni, pin, telefono, ar
 export interface CreateOperarioParams {
   nombreContacto: string
   legajo:         string
+  pin:            string   // PIN individual (4 dígitos) — contraseña de Auth del operario
   planta:         PlantaId
   // 'maquinista' → carga el parte de máquinas en vez de pallets (mismo rol y
   // login por legajo, distinto puesto — ver ProduccionEntry en App.tsx).
   subrol?:        'maquinista'
 }
 
-export const createOperarioProduccionUser = async ({ nombreContacto, legajo, planta, subrol }: CreateOperarioParams): Promise<void> => {
-  const { legajoToProduccionEmail, setProduccionLegajoIndex, passwordProduccion, getEmailByProduccionLegajo } = await import('./produccionAuthService')
+export const createOperarioProduccionUser = async ({ nombreContacto, legajo, pin, planta, subrol }: CreateOperarioParams): Promise<void> => {
+  const { legajoToProduccionEmail, setProduccionLegajoIndex, padPinProduccion, getEmailByProduccionLegajo } = await import('./produccionAuthService')
   const normalizedLegajo = legajo.replace(/\D/g, '')
   const email = legajoToProduccionEmail(normalizedLegajo)
   const yaUsado = await getEmailByProduccionLegajo(normalizedLegajo)
   if (yaUsado && yaUsado !== email) {
     throw new Error(`Ese legajo ya está en uso por otra cuenta (${yaUsado}). Verificalo antes de continuar.`)
   }
-  await createUserViaSecondaryApp(email, passwordProduccion(), {
+  await createUserViaSecondaryApp(email, padPinProduccion(pin), {
     nombre:          nombreContacto,
     email,
     planta,
