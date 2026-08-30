@@ -5,6 +5,11 @@ import { getAuth } from 'firebase-admin/auth'
 
 const tangoBridgeSecret = defineSecret('TANGO_BRIDGE_SECRET')
 
+// Tope de filas por request (auditoría 2026-08-29, H11): el bridge sincroniza el
+// padrón en lotes y ninguno legítimo se acerca a esto. Acota el costo / DoS si
+// el secret se filtrara o el bridge tuviera un bug que mande un array enorme.
+const MAX_ROWS_POR_LOTE = 10000
+
 // Fila tal como la arma scripts/tango/bridge-sync-clientes.mjs a partir de la
 // respuesta de Tango (Api/Get, process=2117 = Clientes). Ver docs/tango/INTEGRACION.md §6.1.
 interface TangoClienteRow {
@@ -272,6 +277,10 @@ export const syncClientesTango = onRequest(
     const rows = req.body?.rows as TangoClienteRow[] | undefined
     if (!Array.isArray(rows)) {
       res.status(400).json({ succeeded: false, reason: 'rows[] requerido' })
+      return
+    }
+    if (rows.length > MAX_ROWS_POR_LOTE) {
+      res.status(413).json({ succeeded: false, reason: `demasiadas filas (${rows.length} > ${MAX_ROWS_POR_LOTE}); enviá lotes más chicos` })
       return
     }
 
