@@ -60,33 +60,53 @@ export default function MuelleTvPage() {
     }
   }, [])
 
-  // ── Campanilla de llegada ── dos tonos por Web Audio (sin archivos). Los
-  // navegadores solo dejan sonar tras un gesto humano: el botón de abajo a la
-  // derecha arma el audio una vez al instalar el TV.
+  // ── Bocina de llegada ── el muelle tiene MUCHO ruido ambiente (dato de
+  // Ariel): esto no es una campanita, es una alarma industrial — onda
+  // CUADRADA (llena de armónicos, corta el ruido de máquinas) alternando dos
+  // frecuencias en la zona más sensible del oído, 3 ráfagas largas a volumen
+  // máximo, más un destello de toda la pantalla como baliza (por si igual no
+  // se escucha). Los navegadores solo dejan sonar tras un gesto humano: el
+  // botón de abajo a la derecha arma el audio una vez al instalar el TV.
   const audioRef = useRef<AudioContext | null>(null)
-  const chime = () => {
+  const [flash, setFlash] = useState(false)
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const bocina = () => {
     const ctx = audioRef.current
     if (!ctx) return
     const t = ctx.currentTime
-    ;[880, 660].forEach((freq, i) => {
-      const osc  = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.type = 'sine'
-      osc.frequency.value = freq
-      gain.gain.setValueAtTime(0.0001, t + i * 0.18)
-      gain.gain.exponentialRampToValueAtTime(0.5, t + i * 0.18 + 0.02)
-      gain.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.18 + 0.17)
-      osc.connect(gain).connect(ctx.destination)
-      osc.start(t + i * 0.18)
-      osc.stop(t + i * 0.18 + 0.2)
-    })
+    // 3 ráfagas de 0.45s alternando 1000/1500Hz (dos osciladores por ráfaga
+    // = más grueso), con 0.2s de silencio entre ráfagas. ~1.8s total.
+    for (let r = 0; r < 3; r++) {
+      const inicio = t + r * 0.65
+      ;[1000, 1500].forEach((freq) => {
+        const osc  = ctx.createOscillator()
+        const gain = ctx.createGain()
+        osc.type = 'square'
+        osc.frequency.setValueAtTime(freq, inicio)
+        gain.gain.setValueAtTime(0.0001, inicio)
+        gain.gain.exponentialRampToValueAtTime(0.9, inicio + 0.02)
+        gain.gain.setValueAtTime(0.9, inicio + 0.4)
+        gain.gain.exponentialRampToValueAtTime(0.0001, inicio + 0.45)
+        osc.connect(gain).connect(ctx.destination)
+        osc.start(inicio)
+        osc.stop(inicio + 0.5)
+      })
+    }
   }
+  // Baliza visual: toda la pantalla destella unos segundos junto con la bocina.
+  const balizar = () => {
+    if (flashTimer.current) clearTimeout(flashTimer.current)
+    setFlash(true)
+    flashTimer.current = setTimeout(() => setFlash(false), 5_000)
+  }
+  const alarmaLlegada = () => { bocina(); balizar() }
+  useEffect(() => () => { if (flashTimer.current) clearTimeout(flashTimer.current) }, [])
   const activarSonido = () => {
     try {
       if (!audioRef.current) audioRef.current = new AudioContext()
       audioRef.current.resume()
       setSonido(true)
-      chime()   // campanilla de prueba, para saber que quedó armado
+      alarmaLlegada()   // ráfaga de prueba, para calibrar el volumen del TV
     } catch { /* sin soporte de audio */ }
   }
   const apagarSonido = () => setSonido(false)
@@ -95,12 +115,12 @@ export default function MuelleTvPage() {
   const idsVistos = useRef<{ remitos: Set<string> | null; ventanillas: Set<string> | null }>({ remitos: null, ventanillas: null })
   useEffect(() => {
     const previos = idsVistos.current.remitos
-    if (previos && sonido && remitos.some((r) => !previos.has(r.id))) chime()
+    if (previos && sonido && remitos.some((r) => !previos.has(r.id))) alarmaLlegada()
     idsVistos.current.remitos = new Set(remitos.map((r) => r.id))
   }, [remitos, sonido])
   useEffect(() => {
     const previos = idsVistos.current.ventanillas
-    if (previos && sonido && ventanillas.some((v) => !previos.has(v.id))) chime()
+    if (previos && sonido && ventanillas.some((v) => !previos.has(v.id))) alarmaLlegada()
     idsVistos.current.ventanillas = new Set(ventanillas.map((v) => v.id))
   }, [ventanillas, sonido])
 
@@ -256,6 +276,11 @@ export default function MuelleTvPage() {
         </div>
       </div>
     </div>
+
+    {/* Baliza: marco de toda la pantalla destellando mientras suena la bocina. */}
+    {flash && (
+      <div className="absolute inset-0 pointer-events-none animate-pulse z-50" style={{ boxShadow: 'inset 0 0 0 30px #f59e0b' }} />
+    )}
 
     {/* Sonido de llegada: se arma con un toque al instalar el TV. */}
     <button
