@@ -1,6 +1,6 @@
 import { collection, doc, onSnapshot, query, setDoc, where, Timestamp } from 'firebase/firestore'
 import { db } from './firebase'
-import { fireAndForget } from './observability'
+import { fireAndForget, onSnapshotError } from './observability'
 import { Cobranza, PlantaId } from '../types'
 
 const COBRANZAS = 'cobranzas'
@@ -82,7 +82,7 @@ export const subscribeCobranzasChoferEnRango = (
       where('fecha', '<', Timestamp.fromDate(hasta)),
     ),
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Cobranza))),
-    () => callback([]),
+    onSnapshotError(callback, 'cobranzas'),
   )
 
 // Cobranzas de mostrador del día de una planta (pantalla de caja).
@@ -105,6 +105,6 @@ export const subscribeCobranzasCajaDelDia = (
         .map((d) => ({ id: d.id, ...d.data() } as Cobranza))
         .sort((a, b) => b.fecha.toMillis() - a.fecha.toMillis()),
     ),
-    () => callback([]),
+    onSnapshotError(callback, 'cobranzas'),
   )
 }

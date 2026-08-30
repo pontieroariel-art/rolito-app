@@ -1,6 +1,6 @@
 import { collection, doc, onSnapshot, query, setDoc, where, Timestamp } from 'firebase/firestore'
 import { db } from './firebase'
-import { fireAndForget } from './observability'
+import { fireAndForget, onSnapshotError } from './observability'
 import { CambioCamion } from '../types'
 
 const CAMBIOS = 'cambiosCamion'
@@ -51,5 +51,5 @@ export const subscribeCambiosChoferEnRango = (
       where('fecha', '<', Timestamp.fromDate(hasta)),
     ),
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as CambioCamion))),
-    () => callback([]),
+    onSnapshotError(callback, 'cambiosCamion'),
   )

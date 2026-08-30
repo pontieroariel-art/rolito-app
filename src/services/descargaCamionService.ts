@@ -2,6 +2,7 @@ import {
   collection, doc, onSnapshot, query, setDoc, updateDoc, where, Timestamp,
 } from 'firebase/firestore'
 import { db } from './firebase'
+import { onSnapshotError } from './observability'
 import { DescargaCamion, DescargaCamionItem, PlantaId, RemitoCarga } from '../types'
 
 const DESCARGAS = 'descargasCamion'
@@ -71,7 +72,7 @@ export const subscribeDescargasDelDia = (
       where('fecha', '<', hasta),
     ),
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as DescargaCamion))),
-    () => callback([]),
+    onSnapshotError(callback, 'descargasCamion'),
   )
 }
 
@@ -89,5 +90,5 @@ export const subscribeDescargasChoferEnRango = (
       where('fecha', '<', Timestamp.fromDate(hasta)),
     ),
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as DescargaCamion))),
-    () => callback([]),
+    onSnapshotError(callback, 'descargasCamion'),
   )

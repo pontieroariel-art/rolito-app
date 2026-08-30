@@ -2,6 +2,7 @@ import {
   collection, doc, onSnapshot, query, runTransaction, setDoc, updateDoc, where, Timestamp,
 } from 'firebase/firestore'
 import { db } from './firebase'
+import { onSnapshotError } from './observability'
 import { todayString } from '../utils/helpers'
 import {
   CanalVenta, FormaPago, PlantaId, VentaCamionItem, VentaVentanilla,
@@ -127,6 +128,6 @@ export const subscribeVentanillaDelDia = (
         .map((d) => ({ id: d.id, ...d.data() } as VentaVentanilla))
         .sort((a, b) => b.fecha.toMillis() - a.fecha.toMillis()),
     ),
-    () => callback([]),
+    onSnapshotError(callback, 'ventasVentanilla'),
   )
 }

@@ -50,3 +50,16 @@ export function reportError(error: unknown, context?: Record<string, unknown>): 
 export function fireAndForget(op: Promise<unknown>, context?: Record<string, unknown>): void {
   op.catch((err) => reportError(err, { fireAndForget: true, ...context }))
 }
+
+// Handler de error para onSnapshot que reporta en vez de tragar en silencio.
+// Sigue entregando lista vacía al callback (no rompe la UI), pero el error
+// queda visible en vez de confundirse con "no hay datos" — clave en las
+// pantallas de plata (una liquidación mostrada en $0 por un error de lectura
+// no debe parecer un día sin ventas). Ver auditoría 2026-08-29. FirestoreError
+// extiende Error, así que este handler encaja donde onSnapshot lo espera.
+export function onSnapshotError<T>(callback: (items: T[]) => void, origen: string): (err: Error) => void {
+  return (err) => {
+    reportError(err, { subscription: origen })
+    callback([])
+  }
+}

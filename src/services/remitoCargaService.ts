@@ -2,6 +2,7 @@ import {
   collection, doc, onSnapshot, query, runTransaction, updateDoc, where, Timestamp,
 } from 'firebase/firestore'
 import { db } from './firebase'
+import { onSnapshotError } from './observability'
 import { RemitoCarga, RemitoCargaItem, PlantaId } from '../types'
 import { PLANTA_INFO } from '../utils/constants'
 
@@ -108,7 +109,7 @@ export const subscribeRemitosCargaDelDia = (
         .map((d) => ({ id: d.id, ...d.data() } as RemitoCarga))
         .sort((a, b) => b.numero - a.numero),
     ),
-    () => callback([]),
+    onSnapshotError(callback, 'remitosCarga'),
   )
 }
 
@@ -131,6 +132,6 @@ export const subscribeRemitosCargaChoferHoy = (
         .map((d) => ({ id: d.id, ...d.data() } as RemitoCarga))
         .sort((a, b) => b.numero - a.numero),
     ),
-    () => callback([]),
+    onSnapshotError(callback, 'remitosCarga'),
   )
 }

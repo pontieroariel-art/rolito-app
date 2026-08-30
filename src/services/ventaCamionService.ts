@@ -1,6 +1,6 @@
 import { collection, doc, getDoc, onSnapshot, query, where, orderBy, limit, setDoc, Timestamp } from 'firebase/firestore'
 import { db } from './firebase'
-import { fireAndForget } from './observability'
+import { fireAndForget, onSnapshotError } from './observability'
 import { VentaCamion, VentaCamionItem, FormaPago, CanalVenta, UserProfile } from '../types'
 
 const VENTAS = 'ventasCamion'
@@ -79,7 +79,7 @@ export const subscribeVentasCamionEnRango = (
       where('fecha', '<',  Timestamp.fromDate(hasta)),
     ),
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as VentaCamion))),
-    () => callback([]),
+    onSnapshotError(callback, 'ventasCamion'),
   )
 
 // Ventas de un chofer en un rango (para la liquidación del día — la hoja
@@ -97,7 +97,7 @@ export const subscribeVentasChoferEnRango = (
       where('fecha', '<', Timestamp.fromDate(hasta)),
     ),
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as VentaCamion))),
-    () => callback([]),
+    onSnapshotError(callback, 'ventasCamion'),
   )
 
 // Últimas ventas del chofer (para el resumen de su pantalla).
@@ -108,5 +108,5 @@ export const subscribeVentasRecientesChofer = (
   onSnapshot(
     query(collection(db, VENTAS), where('choferId', '==', choferId), orderBy('fecha', 'desc'), limit(50)),
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as VentaCamion))),
-    () => callback([]),
+    onSnapshotError(callback, 'ventasCamion'),
   )

@@ -12,7 +12,7 @@ import { useChoferes } from '../../hooks/useChoferes'
 import { cerrarLiquidacion, subscribeLiquidacion } from '../../services/liquidacionService'
 import { calcularLiquidacion } from '../../utils/liquidacion'
 import { generateLiquidacion } from '../../utils/pdf'
-import { todayString } from '../../utils/helpers'
+import { useDiaActual, useFechaDelDia } from '../../hooks/useDiaActual'
 import {
   CambioCamion, Cobranza, DescargaCamion, Liquidacion, PLANTAS, RemitoCarga, VentaCamion,
 } from '../../types'
@@ -26,7 +26,13 @@ const money = (n: number) => `$${n.toLocaleString('es-AR')}`
 export default function LiquidacionesPage() {
   const { user } = useAuth()
   const plantaId = user?.planta ?? 'torcuato'
-  const hoy      = todayString()
+  // Un solo reloj reactivo para toda la pantalla. Antes convivían todayString()
+  // (recalculado en cada render) y varios new Date() sueltos: al cruzar la
+  // medianoche podían quedar en días distintos y la liquidación mezclaba datos
+  // del día viejo con los del nuevo. hoy (string) y fecha (Date) salen del mismo
+  // día y cambian juntos.
+  const hoy   = useDiaActual()
+  const fecha = useFechaDelDia()
 
   const { choferes: todosLosChoferes } = useChoferes()
   const [remitosPlanta, setRemitosPlanta] = useState<RemitoCarga[]>([])
@@ -41,7 +47,7 @@ export default function LiquidacionesPage() {
   const [guardando,   setGuardando]   = useState(false)
   const [error,       setError]       = useState('')
 
-  useEffect(() => subscribeRemitosCargaDelDia(plantaId, new Date(), setRemitosPlanta), [plantaId])
+  useEffect(() => subscribeRemitosCargaDelDia(plantaId, fecha, setRemitosPlanta), [plantaId, fecha])
 
   // Primero los que salieron hoy con remito de esta planta; abajo el resto de
   // los choferes activos — un cobrador puede tener un día SOLO de cobranzas,
@@ -64,7 +70,7 @@ export default function LiquidacionesPage() {
 
   useEffect(() => {
     if (!choferId) { setVentas([]); setCambios([]); setDescargas([]); setCobranzas([]); setCerrada(null); return }
-    const desde = new Date(); desde.setHours(0, 0, 0, 0)
+    const desde = new Date(fecha); desde.setHours(0, 0, 0, 0)
     const hasta = new Date(desde); hasta.setDate(hasta.getDate() + 1)
     const unsubs = [
       subscribeVentasChoferEnRango(choferId, desde, hasta, setVentas),
@@ -74,7 +80,7 @@ export default function LiquidacionesPage() {
       subscribeLiquidacion(hoy, choferId, setCerrada),
     ]
     return () => unsubs.forEach((u) => u())
-  }, [choferId, hoy])
+  }, [choferId, hoy, fecha])
 
   const calc = useMemo(
     () => calcularLiquidacion(remitosChofer, ventas, cambios, descargas, cobranzas),
@@ -115,7 +121,7 @@ export default function LiquidacionesPage() {
     <main className="max-w-4xl mx-auto p-4 space-y-6 pb-10">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Liquidación de repartidores</h1>
-        <p className="text-gray-500 text-sm">{PLANTAS[plantaId].label} · {new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+        <p className="text-gray-500 text-sm">{PLANTAS[plantaId].label} · {fecha.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
       </div>
 
       <div className="max-w-sm">

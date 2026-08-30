@@ -1,5 +1,6 @@
 import { doc, getDoc, onSnapshot, setDoc, Timestamp } from 'firebase/firestore'
 import { db } from './firebase'
+import { reportError } from './observability'
 import { Liquidacion, PlantaId } from '../types'
 import { LiquidacionCalculada } from '../utils/liquidacion'
 import { todayString } from '../utils/helpers'
@@ -53,5 +54,7 @@ export const subscribeLiquidacion = (
   onSnapshot(
     doc(db, LIQUIDACIONES, liquidacionId(fecha, choferId)),
     (snap) => callback(snap.exists() ? ({ id: snap.id, ...snap.data() } as Liquidacion) : null),
-    () => callback(null),
+    // Un error de lectura acá es delicado: si se traga como null, la UI cree que
+    // la liquidación NO está cerrada y deja cerrarla de nuevo. Se reporta.
+    (err) => { reportError(err, { subscription: 'liquidaciones', fecha, choferId }); callback(null) },
   )
