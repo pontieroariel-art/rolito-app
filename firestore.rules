@@ -237,20 +237,22 @@ service cloud.firestore {
 
       // ── Lectura ──
       allow read: if isSelf();
+      // Gestión y operación con acceso amplio legítimo (ven/administran todo el
+      // personal). gerente_comercial/super_admin entran por isManager().
       allow read: if request.auth != null
         && (isManager() || myRole() == 'logistica' || isFacturacion() || isGerenteGeneral()
             // heladeras_encargado necesita buscar clientes (asignación de equipos)
-            // y ver la lista de técnicos — gerente_comercial/super_admin ya
-            // entran por isManager().
+            // y ver la lista de técnicos.
             || myRole() == 'heladeras_encargado'
             // produccion_encargado necesita ver la lista de operarios de planta.
-            || myRole() == 'produccion_encargado'
-            // chofer necesita buscar el cliente registrado al que le vende desde
-            // el camión (venta a demanda → remito). Ver ventaCamionService.ts.
-            || myRole() == 'chofer'
-            // caja necesita elegir el chofer del remito de carga (y, en fases
-            // siguientes, buscar clientes para la venta por ventanilla).
-            || isCaja());
+            || myRole() == 'produccion_encargado');
+      // Chofer (vende en la calle → remito) y caja (remitos de carga +
+      // ventanilla) solo necesitan CLIENTES y CHOFERES, no el resto del personal
+      // ni sus datos. Acotado por rol del target (auditoría 2026-08-29, H11): sus
+      // queries ya filtran where rol=='cliente' / where rol=='chofer', así que
+      // esto no cambia lo que ven, solo cierra el acceso al resto de la colección.
+      allow read: if request.auth != null && (myRole() == 'chofer' || isCaja())
+        && resource.data.get('rol', 'cliente') in ['cliente', 'chofer'];
 
       // ── super_admin: control total (asigna roles, crea staff, limpia datos) ──
       allow read, write: if request.auth != null && myRole() == 'super_admin';
@@ -497,7 +499,14 @@ service cloud.firestore {
     // Lectura: cualquier usuario autenticado (el cliente necesita su lista al pedir)
     // Escritura: operadores (super_admin/logistica) y managers (comercial/gerente_comercial)
     match /listas-precios/{listaId} {
-      allow read:  if request.auth != null;
+      // Todo el staff ve las listas (operan y consultan precios). Un cliente
+      // solo puede leer SU propia lista —la de su perfil—, no las de otros
+      // segmentos comerciales (auditoría 2026-08-29, H11). El get() del perfil
+      // no pasa por reglas, así que no depende de los permisos de arriba.
+      allow read:  if request.auth != null && (
+        isStaff()
+        || listaId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('listaPreciosId', '')
+      );
       allow write: if request.auth != null && (isOperator() || isManager());
     }
 
