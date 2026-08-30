@@ -7,20 +7,7 @@ import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 import { useAuth } from '../../context/AuthContext'
 import { loginWithStaffDni } from '../../services/authService'
-
-const ROLE_HOME: Record<string, string> = {
-  super_admin:       '/sistema',
-  gerente_comercial: '/logistica',
-  gerente_general:   '/gerente',
-  logistica:         '/logistica',
-  comercial:         '/comercial',
-  facturacion:       '/movimientos',
-  chofer:            '/chofer',
-  cliente:           '/dashboard',
-  caja:              '/caja',
-  muelle:            '/muelle',
-  seguridad:         '/seguridad',
-}
+import { ROLE_HOME } from '../../utils/sistemas'
 
 export default function LoginEmpresa() {
   const navigate = useNavigate()

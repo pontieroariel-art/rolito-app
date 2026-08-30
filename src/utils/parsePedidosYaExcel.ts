@@ -1,5 +1,3 @@
-import * as XLSX from 'xlsx'
-
 // Parser puro del Excel de carga masiva de pedidos Pedidos Ya — separado del
 // componente de UI para poder testearlo/reusarlo sin depender de React.
 // Columnas esperadas: OC, CANTIDAD, TIENDA (informativa), CODIGO (matchea
@@ -64,7 +62,11 @@ function parseFecha(raw: unknown): string {
   return ''
 }
 
-export function parsePedidosYaExcel(file: File): Promise<PedidoYaRow[]> {
+export async function parsePedidosYaExcel(file: File): Promise<PedidoYaRow[]> {
+  // Import dinámico: xlsx es pesado y solo hace falta al importar un Excel — que
+  // no se carga en el arranque de ninguna pantalla (mismo criterio que los
+  // exportes de reportes). Evita que la lib entre en el chunk de quien use esto.
+  const XLSX = await import('xlsx')
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = (e) => {

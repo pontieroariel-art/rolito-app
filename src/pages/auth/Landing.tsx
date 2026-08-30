@@ -2,28 +2,9 @@ import { Navigate, Link } from 'react-router-dom'
 import { ShoppingBag, ChevronRight } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
-import { sistemasDeUsuario } from '../../utils/sistemas'
+import { ROLE_HOME, sistemasDeUsuario } from '../../utils/sistemas'
 import { getDispositivoProduccion } from '../../services/produccionAuthService'
 import { esDispositivoCobranza } from '../../services/expedicionDeviceService'
-
-const ROLE_HOME: Record<string, string> = {
-  super_admin:       '/sistema',
-  logistica:         '/logistica',
-  comercial:         '/comercial',
-  gerente_comercial: '/logistica',
-  gerente_general:   '/gerente',
-  facturacion:       '/movimientos',
-  chofer:            '/chofer',
-  cliente:           '/dashboard',
-  heladeras:         '/heladeras',
-  heladeras_encargado: '/heladeras',
-  tecnico:           '/tecnico',
-  produccion_hielo:  '/produccion',
-  produccion_encargado: '/produccion/resumen',
-  caja:              '/caja',
-  muelle:            '/muelle',
-  seguridad:         '/seguridad',
-}
 
 export default function Landing() {
   const { user, isInitializing } = useAuth()

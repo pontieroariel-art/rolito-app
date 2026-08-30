@@ -9,24 +9,9 @@ export interface SucursalFlat {
   address: DeliveryAddress | null
 }
 
-export const ROLE_LABELS: Record<UserRole, string> = {
-  super_admin:        'Super Admin',
-  gerente_general:    'Gte. General',
-  gerente_comercial:  'Gte. Comercial',
-  comercial:          'Comercial',
-  logistica:          'Logística',
-  facturacion:        'Facturación',
-  chofer:             'Chofer',
-  cliente:            'Cliente',
-  heladeras:          'Heladeras',
-  heladeras_encargado: 'Enc. Heladeras',
-  tecnico:            'Técnico',
-  produccion_hielo:   'Producción',
-  produccion_encargado: 'Enc. Producción',
-  caja:               'Caja',
-  muelle:             'Muelle',
-  seguridad:          'Seguridad',
-}
+// ROLE_LABELS vive en Navbar (fuente única); se re-exporta acá porque la
+// gestión de usuarios lo importa desde este módulo (auditoría H12).
+export { ROLE_LABELS } from '../../../components/layout/Navbar'
 
 export const STATUS_STYLES: Record<UserStatus, string> = {
   activo:    'bg-green-100 text-green-700 border-green-200',
