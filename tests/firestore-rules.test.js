@@ -2720,3 +2720,29 @@ describe('expedicion: turnos de ventanilla', () => {
     await assertFails(getDoc(doc(sinAuth, 'turnosPublicos/torcuato')))
   })
 })
+
+// ── rollupsPedidos: agregados de solo lectura para staff ──────────────────────
+describe('rollupsPedidos', () => {
+  const rollup = { fecha: '2026-08-30', total: 5, bolsas: 20, porEstado: {}, porCliente: {} }
+
+  test('un staff (gerente_general) puede leer un rollup', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/gg'), { rol: 'gerente_general', estado: 'activo' })
+      await setDoc(doc(d, 'rollupsPedidos/2026-08-30'), rollup)
+    })
+    await assertSucceeds(getDoc(doc(db('gg'), 'rollupsPedidos/2026-08-30')))
+  })
+
+  test('un cliente NO puede leer un rollup (dato de gestión)', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/cli'), cliente())
+      await setDoc(doc(d, 'rollupsPedidos/2026-08-30'), rollup)
+    })
+    await assertFails(getDoc(doc(db('cli'), 'rollupsPedidos/2026-08-30')))
+  })
+
+  test('ni siquiera un staff puede escribir un rollup (solo el trigger, vía Admin SDK)', async () => {
+    await seed((d) => setDoc(doc(d, 'users/gg'), { rol: 'gerente_general', estado: 'activo' }))
+    await assertFails(setDoc(doc(db('gg'), 'rollupsPedidos/2026-08-30'), rollup))
+  })
+})

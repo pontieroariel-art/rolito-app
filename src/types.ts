@@ -428,6 +428,10 @@ export interface UserProfile {
   // lo amplía. Sin setear = sin recorte, se comporta como hoy.
   sistemasPermitidos?: Sistema[]
   pestanasPermitidas?: string[]
+  // Fecha del último pedido del cliente, que mantiene el trigger onOrderRollup
+  // (monotónico). Sirve para detectar clientes "fríos" sin recorrer todos los
+  // pedidos — ver auditoría H5.
+  ultimoPedidoAt?: Timestamp
 }
 
 // ── Visitas programadas ───────────────────────────────────────────────────────
@@ -606,6 +610,20 @@ export interface AccionHistorial {
   // paso — mismo propósito que TicketServicio.trabajosRealizados, para
   // estadística de arreglos también del lado del taller.
   tiposReparacion?: TrabajoRealizadoItem[] | null
+}
+
+// ── Rollups de pedidos ────────────────────────────────────────────────────────
+// Agregados diarios que mantiene el trigger onOrderRollup (functions/src/triggers/
+// rollups.ts). Los tableros de gerencia los leen en vez de escanear todos los
+// pedidos, que se truncaban en silencio a escala (auditoría 2026-08-29, H5).
+export interface RollupClienteDia { nombre: string; bolsas: number; pedidos: number }
+export interface RollupPedidosDia {
+  fecha:      string   // YYYY-MM-DD (Argentina, UTC-3)
+  total:      number   // pedidos no cancelados del día
+  bolsas:     number   // suma de unidades de pedidos no cancelados
+  porEstado:  Record<OrderStatus, number>
+  porCliente: Record<string, RollupClienteDia>
+  updatedAt:  Timestamp | null
 }
 
 export interface Order {

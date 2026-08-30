@@ -25,3 +25,4 @@ export { onHistorialAdminAltoRiesgo, enviarResumenAdminDiario } from './triggers
 export { syncClientesTango }                    from './triggers/tangoSync'
 export { onProduccionPalletCreado, onVentaCamionCreada, onOutboxConfirmado } from './triggers/tangoOutbox'
 export { publicarTurnosVentanilla } from './triggers/turnosVentanilla'
+export { onOrderRollup } from './triggers/rollups'

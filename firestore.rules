@@ -1037,6 +1037,17 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ── Rollups de pedidos ─────────────────────────────────────────────────────
+    // Agregados diarios (conteos por estado, bolsas, top de clientes) que
+    // mantiene el trigger onOrderRollup con el Admin SDK. Los tableros de
+    // gerencia los leen en vez de escanear todos los pedidos (auditoría H5). Son
+    // datos no sensibles (agregados), así que los lee cualquier staff; nadie los
+    // escribe desde el cliente.
+    match /rollupsPedidos/{fecha} {
+      allow read:  if request.auth != null && isStaff();
+      allow write: if false;
+    }
+
     // ── Auditoría del Backoffice ───────────────────────────────────────────────
     // Append-only: cualquier staff puede dejar su propio registro (nunca en
     // nombre de otro — el actor.uid tiene que ser quien escribe), pero solo

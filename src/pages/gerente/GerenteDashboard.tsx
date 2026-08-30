@@ -8,6 +8,7 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useAllOrders } from '../../hooks/useOrders'
 import { useHeladerasStats } from '../../hooks/useHeladerasStats'
 import { useProduccionPallets } from '../../hooks/useProduccionPallets'
+import { useRollupsUltimosDias } from '../../hooks/useRollups'
 import { getAllUsers, updateUserDocument } from '../../services/userService'
 import { UserProfile, Order, PlantaId, PLANTAS } from '../../types'
 import { toDateStr, todayString as todayStr } from '../../utils/helpers'
@@ -76,6 +77,9 @@ export default function GerenteDashboard() {
   const { orders, loading: loadO } = useAllOrders()
   const { stats: heladerasStats, loading: loadH } = useHeladerasStats()
   const { pallets, loading: loadP }   = useProduccionPallets(undefined)
+  // Semana y top del mes salen de los rollups diarios (agregados server-side),
+  // no del stream de pedidos que se truncaba a 500 en temporada (auditoría H5).
+  const { rollups }                   = useRollupsUltimosDias(31)
   const [allUsers, setAllUsers]   = useState<UserProfile[]>([])
   const [loadU, setLoadU]         = useState(true)
   const [approving, setApproving] = useState<string | null>(null)
@@ -104,10 +108,10 @@ export default function GerenteDashboard() {
       d.setDate(d.getDate() - (6 - i))
       const str   = toDateStr(d)
       const label = i === 6 ? 'Hoy' : d.toLocaleDateString('es-AR', { weekday: 'short' })
-      const count = orders.filter((o) => orderDateStr(o) === str && o.status !== 'cancelado').length
+      const count = rollups.find((r) => r.fecha === str)?.total ?? 0
       return { str, label, count }
     })
-  }, [orders])
+  }, [rollups])
 
   const maxSemana = Math.max(...semana.map((d) => d.count), 1)
 
@@ -118,34 +122,34 @@ export default function GerenteDashboard() {
   )
 
   // ── Top clientes del mes ─────────────────────────────────────────────────
+  // Suma de bolsas por cliente desde el 1° del mes, agregando los rollups
+  // diarios (que ya excluyen cancelados) en vez del stream truncado.
   const topMes = useMemo(() => {
     const inicioMes = new Date()
-    inicioMes.setDate(1); inicioMes.setHours(0, 0, 0, 0)
+    inicioMes.setDate(1)
+    const inicioMesStr = toDateStr(inicioMes)
     const counts: Record<string, { nombre: string; qty: number }> = {}
-    for (const o of orders) {
-      if (!o.date?.toDate) continue
-      if (o.date.toDate() < inicioMes || o.status === 'cancelado') continue
-      if (!counts[o.clientId]) counts[o.clientId] = { nombre: o.clientName, qty: 0 }
-      counts[o.clientId].qty += o.products.reduce((s, p) => s + p.quantity, 0)
+    for (const r of rollups) {
+      if (r.fecha < inicioMesStr) continue
+      for (const [cid, c] of Object.entries(r.porCliente)) {
+        if (!counts[cid]) counts[cid] = { nombre: c.nombre, qty: 0 }
+        counts[cid].qty += c.bolsas
+      }
     }
     return Object.entries(counts)
       .sort((a, b) => b[1].qty - a[1].qty)
       .slice(0, 6)
-  }, [orders])
+  }, [rollups])
 
   // ── Clientes fríos (activos sin pedir hace 30+ días) ────────────────────
+  // Usa users.ultimoPedidoAt (lo mantiene el trigger onOrderRollup), así el
+  // dato es exacto aunque el último pedido sea más viejo que la ventana.
   const frios = useMemo(() => {
     const cutoff = nDaysAgo(30)
-    const ultimo: Record<string, Date> = {}
-    for (const o of orders) {
-      if (!o.date?.toDate || o.status === 'cancelado') continue
-      const d = o.date.toDate()
-      if (!ultimo[o.clientId] || d > ultimo[o.clientId]) ultimo[o.clientId] = d
-    }
     return clientes
-      .filter((c) => c.estado === 'activo' && (!ultimo[c.uid] || ultimo[c.uid] < cutoff))
+      .filter((c) => c.estado === 'activo' && (!c.ultimoPedidoAt || c.ultimoPedidoAt.toDate() < cutoff))
       .slice(0, 8)
-  }, [clientes, orders])
+  }, [clientes])
 
   // ── Producción de hielo: pallets cargados hoy / últimos 7 días ──────────
   const palletsHoy = useMemo(
