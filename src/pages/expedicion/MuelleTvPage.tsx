@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Volume2, VolumeX } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { subscribeRemitosCargaDelDia } from '../../services/remitoCargaService'
@@ -70,7 +70,7 @@ export default function MuelleTvPage() {
   const audioRef = useRef<AudioContext | null>(null)
   const [flash, setFlash] = useState(false)
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const bocina = () => {
+  const bocina = useCallback(() => {
     const ctx = audioRef.current
     if (!ctx) return
     const t = ctx.currentTime
@@ -92,14 +92,14 @@ export default function MuelleTvPage() {
         osc.stop(inicio + 0.5)
       })
     }
-  }
+  }, [])
   // Baliza visual: toda la pantalla destella unos segundos junto con la bocina.
-  const balizar = () => {
+  const balizar = useCallback(() => {
     if (flashTimer.current) clearTimeout(flashTimer.current)
     setFlash(true)
     flashTimer.current = setTimeout(() => setFlash(false), 5_000)
-  }
-  const alarmaLlegada = () => { bocina(); balizar() }
+  }, [])
+  const alarmaLlegada = useCallback(() => { bocina(); balizar() }, [bocina, balizar])
   useEffect(() => () => { if (flashTimer.current) clearTimeout(flashTimer.current) }, [])
   const activarSonido = () => {
     try {
@@ -117,12 +117,12 @@ export default function MuelleTvPage() {
     const previos = idsVistos.current.remitos
     if (previos && sonido && remitos.some((r) => !previos.has(r.id))) alarmaLlegada()
     idsVistos.current.remitos = new Set(remitos.map((r) => r.id))
-  }, [remitos, sonido])
+  }, [remitos, sonido, alarmaLlegada])
   useEffect(() => {
     const previos = idsVistos.current.ventanillas
     if (previos && sonido && ventanillas.some((v) => !previos.has(v.id))) alarmaLlegada()
     idsVistos.current.ventanillas = new Set(ventanillas.map((v) => v.id))
-  }, [ventanillas, sonido])
+  }, [ventanillas, sonido, alarmaLlegada])
 
   // ── Datos derivados ──
   const camionEnDarsena = (n: number) => remitos.find((r) => r.estado === 'emitido' && r.darsena === n)
