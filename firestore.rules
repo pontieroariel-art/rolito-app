@@ -25,6 +25,19 @@ service cloud.firestore {
       return data.get('area', null);
     }
 
+    // Usuario autenticado que NO es una sesión anónima. La página pública de
+    // turnos (/turnos/{planta}) entra con signInAnonymously SOLO para leer
+    // turnosPublicos/{planta} (doc sanitizado). Las colecciones que abren a
+    // "cualquier autenticado" (catálogo, visitas, flota, config) tienen que
+    // seguir cerradas a esas sesiones anónimas — antes de habilitar el
+    // proveedor Anonymous, `request.auth != null` equivalía a "usuario real";
+    // ahora hay que exigirlo explícito. Los roles de staff/cliente entran con
+    // provider 'password', nunca 'anonymous'.
+    function esNoAnonimo() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+
     // Gerente comercial: acuerdos de precios y activación de clientes
     function isGerenteComercial() {
       return myRole() == 'gerente_comercial';
@@ -426,7 +439,7 @@ service cloud.firestore {
       // y ticketServicioCounter los necesita para autogestionar un pedido de
       // service desde "Mis heladeras" (crearTicket lee el contador antes de
       // incrementarlo); el resto (zonas prohibidas, etc.) es operativo → solo staff.
-      allow read: if request.auth != null
+      allow read: if esNoAnonimo()
         && (docId == 'catalogo' || docId == 'motivosReparacion' || docId == 'ticketServicioCounter' || isStaff());
       allow write: if request.auth != null && isOperator();
       // Bridge de Tango: necesita leer config/tango (interruptor
@@ -512,17 +525,17 @@ service cloud.firestore {
 
     // ── Catálogo de productos ─────────────────────────────────────────────────
     match /catalogo/{productoId} {
-      allow read:  if request.auth != null;
+      allow read:  if esNoAnonimo();
       allow write: if request.auth != null && isOperator();
     }
 
     // ── Visitas programadas ───────────────────────────────────────────────────
     match /programas-visita/{id} {
-      allow read:  if request.auth != null;
+      allow read:  if esNoAnonimo();
       allow write: if request.auth != null && isOperator();
     }
     match /visitas-puntuales/{id} {
-      allow read:  if request.auth != null;
+      allow read:  if esNoAnonimo();
       allow write: if request.auth != null && isOperator();
       // Chofer puede actualizar sus propias visitas, solo el estado/notas/orderId
       // (no reasignarse ni reescribir la visita).
@@ -535,7 +548,7 @@ service cloud.firestore {
 
     // ── Flota de vehículos ────────────────────────────────────────────────────
     match /flota/{camionId} {
-      allow read:  if request.auth != null;
+      allow read:  if esNoAnonimo();
       allow write: if request.auth != null && isOperator();
     }
 

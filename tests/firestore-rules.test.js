@@ -2721,6 +2721,52 @@ describe('expedicion: turnos de ventanilla', () => {
   })
 })
 
+// ── Anonymous auth: la sesión anónima (QR de turnos) solo ve turnosPublicos ────
+// Al habilitar el proveedor Anonymous, `request.auth != null` deja de significar
+// "usuario real" — cualquiera crea una sesión anónima. esNoAnonimo() mantiene
+// cerradas las colecciones que abrían a "cualquier autenticado".
+describe('Anonymous auth — sesion anonima acotada a turnosPublicos', () => {
+  // Token con provider 'anonymous' (signInAnonymously). El resto de los
+  // contextos de estos tests usan el default ('custom'), que cuenta como real.
+  const anonDb = () =>
+    testEnv
+      .authenticatedContext('anon-1', { firebase: { sign_in_provider: 'anonymous', identities: {} } })
+      .firestore()
+
+  test('una sesion anonima SI lee turnosPublicos (la pagina del QR)', async () => {
+    await seed((d) => setDoc(doc(d, 'turnosPublicos/torcuato'), { fecha: '2026-08-30', turnos: [] }))
+    await assertSucceeds(getDoc(doc(anonDb(), 'turnosPublicos/torcuato')))
+  })
+
+  test('una sesion anonima NO lee catalogo, visitas, flota ni config', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'catalogo/p1'),           { nombre: 'Hielo 10kg' })
+      await setDoc(doc(d, 'programas-visita/pv1'),  { clienteId: 'c1' })
+      await setDoc(doc(d, 'visitas-puntuales/vp1'), { clienteId: 'c1' })
+      await setDoc(doc(d, 'flota/f1'),              { patente: 'AA123BB' })
+      await setDoc(doc(d, 'config/catalogo'),       { productos: [] })
+    })
+    const anon = anonDb()
+    await assertFails(getDoc(doc(anon, 'catalogo/p1')))
+    await assertFails(getDoc(doc(anon, 'programas-visita/pv1')))
+    await assertFails(getDoc(doc(anon, 'visitas-puntuales/vp1')))
+    await assertFails(getDoc(doc(anon, 'flota/f1')))
+    await assertFails(getDoc(doc(anon, 'config/catalogo')))
+  })
+
+  test('un usuario REAL (no anonimo) SI sigue leyendo catalogo, flota y config', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/cli'),       cliente())
+      await setDoc(doc(d, 'catalogo/p1'),     { nombre: 'Hielo 10kg' })
+      await setDoc(doc(d, 'flota/f1'),        { patente: 'AA123BB' })
+      await setDoc(doc(d, 'config/catalogo'), { productos: [] })
+    })
+    await assertSucceeds(getDoc(doc(db('cli', 'c@x.com'), 'catalogo/p1')))
+    await assertSucceeds(getDoc(doc(db('cli', 'c@x.com'), 'flota/f1')))
+    await assertSucceeds(getDoc(doc(db('cli', 'c@x.com'), 'config/catalogo')))
+  })
+})
+
 // ── H2: scraping del padrón bloqueado en los índices de login (get sí, list no) ─
 describe('H2 — indices de login: get puntual sí, enumeracion no', () => {
   test('el login puede resolver UN cuit por get, sin autenticar', async () => {
