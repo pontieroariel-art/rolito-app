@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onOrderRollup = exports.publicarTurnosVentanilla = exports.onOutboxConfirmado = exports.onVentaCamionCreada = exports.onProduccionPalletCreado = exports.syncClientesTango = exports.enviarResumenAdminDiario = exports.onHistorialAdminAltoRiesgo = exports.backupAuthUsers = exports.avisarComodatosPorVencer = exports.onTicketCreado = exports.onStockBajo = exports.onTicketCerrado = exports.generarPedidosRecurrentes = exports.orsDirections = exports.mirrorDriverLocation = exports.validarPreciosPedido = exports.notifyReprogramado = exports.notifyCerca = exports.sendPush = exports.deleteAuthUsers = exports.onOrderEnCamino = exports.onOrderConfirmado = exports.onOrderCreated = exports.onClienteCreadoPorStaff = exports.onUserApproved = exports.onUserRegistered = void 0;
+exports.resetPinProduccion = exports.onOrderRollup = exports.publicarTurnosVentanilla = exports.onOutboxConfirmado = exports.onVentaCamionCreada = exports.onProduccionPalletCreado = exports.syncClientesTango = exports.enviarResumenAdminDiario = exports.onHistorialAdminAltoRiesgo = exports.backupAuthUsers = exports.avisarComodatosPorVencer = exports.onTicketCreado = exports.onStockBajo = exports.onTicketCerrado = exports.generarPedidosRecurrentes = exports.orsDirections = exports.mirrorDriverLocation = exports.validarPreciosPedido = exports.notifyReprogramado = exports.notifyCerca = exports.sendPush = exports.deleteAuthUsers = exports.onOrderEnCamino = exports.onOrderConfirmado = exports.onOrderCreated = exports.onClienteCreadoPorStaff = exports.onUserApproved = exports.onUserRegistered = void 0;
 const app_1 = require("firebase-admin/app");
 (0, app_1.initializeApp)();
 // Nota: cambio trivial para forzar un hash de fuente distinto y que
@@ -54,4 +54,6 @@ var turnosVentanilla_1 = require("./triggers/turnosVentanilla");
 Object.defineProperty(exports, "publicarTurnosVentanilla", { enumerable: true, get: function () { return turnosVentanilla_1.publicarTurnosVentanilla; } });
 var rollups_1 = require("./triggers/rollups");
 Object.defineProperty(exports, "onOrderRollup", { enumerable: true, get: function () { return rollups_1.onOrderRollup; } });
+var produccionAuth_1 = require("./triggers/produccionAuth");
+Object.defineProperty(exports, "resetPinProduccion", { enumerable: true, get: function () { return produccionAuth_1.resetPinProduccion; } });
 //# sourceMappingURL=index.js.map

@@ -1,4 +1,5 @@
 import { doc, setDoc, getDoc } from 'firebase/firestore'
+import { getFunctions, httpsCallable } from 'firebase/functions'
 import { db } from './firebase'
 import { PlantaId } from '../types'
 
@@ -52,4 +53,19 @@ export async function getEmailByProduccionLegajo(legajo: string): Promise<string
   const snap = await getDoc(doc(db, 'produccionLegajoIndex', key))
   if (!snap.exists()) return null
   return (snap.data() as { email: string }).email
+}
+
+// Resetea el PIN de un operario y devuelve el nuevo (4 dígitos) para que el
+// encargado se lo comunique. Va por la Cloud Function `resetPinProduccion`
+// porque cambiar la contraseña de OTRO usuario necesita el Admin SDK; la
+// function valida que quien llama sea encargado/super_admin y que el target
+// sea un operario de producción. El PIN no se guarda en ningún lado: si se
+// pierde, se vuelve a resetear.
+export async function resetPinProduccion(operarioUid: string): Promise<string> {
+  const call = httpsCallable<{ operarioUid: string }, { pin: string }>(
+    getFunctions(),
+    'resetPinProduccion',
+  )
+  const res = await call({ operarioUid })
+  return res.data.pin
 }

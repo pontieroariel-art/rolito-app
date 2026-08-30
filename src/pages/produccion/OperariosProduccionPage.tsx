@@ -5,7 +5,8 @@ import Modal from '../../components/ui/Modal'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useOperariosProduccion } from '../../hooks/useOperariosProduccion'
 import { createOperarioProduccionUser, updateUserStatus } from '../../services/userService'
-import { PLANTAS, PlantaId } from '../../types'
+import { resetPinProduccion } from '../../services/produccionAuthService'
+import { PLANTAS, PlantaId, UserProfile } from '../../types'
 
 function CrearOperarioModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [nombre, setNombre] = useState('')
@@ -96,9 +97,59 @@ function CrearOperarioModal({ onClose, onCreated }: { onClose: () => void; onCre
   )
 }
 
+function ResetPinModal({ operario, onClose }: { operario: UserProfile; onClose: () => void }) {
+  const [resetting, setResetting] = useState(false)
+  const [pin,       setPin]       = useState<string | null>(null)
+  const [error,     setError]     = useState('')
+
+  const handleReset = async () => {
+    setResetting(true)
+    setError('')
+    try {
+      setPin(await resetPinProduccion(operario.uid))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo resetear el PIN. Intentá de nuevo.')
+    } finally {
+      setResetting(false)
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title={pin ? 'PIN nuevo' : 'Resetear PIN'}>
+      {pin ? (
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Nuevo PIN de <span className="font-semibold text-gray-900">{operario.nombre}</span> (legajo {operario.legajo}):
+          </p>
+          <div className="bg-[#F8F7F2] border border-[#D3D1C7] rounded-xl py-4 text-center">
+            <span className="text-4xl font-bold tracking-[0.3em] text-accent tabular-nums">{pin}</span>
+          </div>
+          <p className="text-xs text-amber-600">
+            ⚠ Comunicáselo ahora: no queda guardado en ningún lado consultable. Si se pierde, hay que resetearlo de nuevo. El PIN anterior ya no funciona.
+          </p>
+          <Button onClick={onClose} className="w-full">Listo</Button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Vas a generar un PIN nuevo para <span className="font-semibold text-gray-900">{operario.nombre}</span> (legajo {operario.legajo}).
+            El PIN actual deja de funcionar al instante; el operario entra con el nuevo.
+          </p>
+          {error && <p className="text-red-500 text-xs">{error}</p>}
+          <div className="flex gap-2">
+            <Button variant="outline" type="button" onClick={onClose} className="flex-1">Cancelar</Button>
+            <Button type="button" loading={resetting} onClick={handleReset} className="flex-1">Resetear PIN</Button>
+          </div>
+        </div>
+      )}
+    </Modal>
+  )
+}
+
 export default function OperariosProduccionPage() {
   const { operarios, loading, refetch } = useOperariosProduccion()
-  const [crearModal, setCrearModal] = useState(false)
+  const [crearModal,  setCrearModal]  = useState(false)
+  const [resetTarget, setResetTarget] = useState<UserProfile | null>(null)
 
   if (loading) return <LoadingSpinner fullScreen />
 
@@ -142,6 +193,12 @@ export default function OperariosProduccionPage() {
                     {o.estado === 'activo' ? 'Activo' : 'Inactivo'}
                   </span>
                   <button
+                    onClick={() => setResetTarget(o)}
+                    className="text-xs text-gray-500 hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-4 py-2 transition-colors min-h-[36px]"
+                  >
+                    Resetear PIN
+                  </button>
+                  <button
                     onClick={async () => {
                       await updateUserStatus(o.uid, o.estado === 'activo' ? 'inactivo' : 'activo')
                       refetch()
@@ -159,6 +216,10 @@ export default function OperariosProduccionPage() {
 
       {crearModal && (
         <CrearOperarioModal onClose={() => setCrearModal(false)} onCreated={refetch} />
+      )}
+
+      {resetTarget && (
+        <ResetPinModal operario={resetTarget} onClose={() => setResetTarget(null)} />
       )}
     </div>
   )
