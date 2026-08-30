@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Volume2, VolumeX } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { subscribeRemitosCargaDelDia } from '../../services/remitoCargaService'
 import { subscribeVentanillaDelDia } from '../../services/ventaVentanillaService'
@@ -6,13 +7,15 @@ import {
   DARSENAS_POR_PLANTA, DARSENAS_VENTANILLA, PLANTAS, RemitoCarga, VentaVentanilla,
 } from '../../types'
 
-// Tablero de TV del muelle (/muelle/tv): pantalla grande de solo lectura que
-// muestra en vivo las dársenas (las de camiones con su carga completa; las de
-// ventanilla con el TURNO llamado), la cola de turnos, el panel PARA JUNTAR
-// (suma por producto de los turnos sin preparar → un solo viaje de
-// autoelevador a la cámara) y los ausentes. Pensada para un TV con Chrome en
-// kiosco, logueado UNA vez con el usuario de muelle — se actualiza sola
-// (onSnapshot), sin interacción. Wake-lock para que no se apague la pantalla.
+// Tablero de TV del muelle (/muelle/tv) — diseño "E1 Neón oscuro" elegido por
+// Ariel (2026-08-30) sobre la info de la variante E "Operativo": los
+// clarkistas y el personal NO tienen tablet en mano, así que las cantidades
+// viven acá, enormes (nombre corto + número gigante por dársena, legibles
+// desde el autoelevador), con el PARA JUNTAR (suma de turnos sin preparar =
+// un solo viaje a la cámara) y la cola SIGUEN abajo. Se dibuja a 1920x1080
+// lógicos y se escala entero a la pantalla real. Suena una campanilla cuando
+// entra alguien nuevo (turno de ventanilla o carga de camión) — el sonido se
+// activa una vez al montar el TV (los navegadores exigen un toque humano).
 export default function MuelleTvPage() {
   const { user } = useAuth()
   const plantaId = user?.planta ?? 'torcuato'
@@ -21,24 +24,23 @@ export default function MuelleTvPage() {
 
   const [remitos,     setRemitos]     = useState<RemitoCarga[]>([])
   const [ventanillas, setVentanillas] = useState<VentaVentanilla[]>([])
-  const [ahora, setAhora] = useState(Date.now())
+  const [ahora,  setAhora]  = useState(Date.now())
   const [escala, setEscala] = useState(1)
-
-  // El tablero se diseña a 1920x1080 lógicos y se escala entero para entrar
-  // SIEMPRE completo en la pantalla real (TVs con otra resolución, escalado
-  // de Windows, ventana sin F11...). Sin scroll, sin cortes.
-  useEffect(() => {
-    const ajustar = () => setEscala(Math.min(window.innerWidth / 1920, window.innerHeight / 1080))
-    ajustar()
-    window.addEventListener('resize', ajustar)
-    return () => window.removeEventListener('resize', ajustar)
-  }, [])
+  const [sonido, setSonido] = useState(false)
 
   useEffect(() => subscribeRemitosCargaDelDia(plantaId, new Date(), setRemitos), [plantaId])
   useEffect(() => subscribeVentanillaDelDia(plantaId, new Date(), setVentanillas), [plantaId])
   useEffect(() => {
     const t = setInterval(() => setAhora(Date.now()), 10_000)
     return () => clearInterval(t)
+  }, [])
+
+  // Auto-escala: el tablero entra SIEMPRE completo, sea el TV que sea.
+  useEffect(() => {
+    const ajustar = () => setEscala(Math.min(window.innerWidth / 1920, window.innerHeight / 1080))
+    ajustar()
+    window.addEventListener('resize', ajustar)
+    return () => window.removeEventListener('resize', ajustar)
   }, [])
 
   // Que el TV no apague la pantalla (si el navegador lo soporta).
@@ -58,6 +60,51 @@ export default function MuelleTvPage() {
     }
   }, [])
 
+  // ── Campanilla de llegada ── dos tonos por Web Audio (sin archivos). Los
+  // navegadores solo dejan sonar tras un gesto humano: el botón de abajo a la
+  // derecha arma el audio una vez al instalar el TV.
+  const audioRef = useRef<AudioContext | null>(null)
+  const chime = () => {
+    const ctx = audioRef.current
+    if (!ctx) return
+    const t = ctx.currentTime
+    ;[880, 660].forEach((freq, i) => {
+      const osc  = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'sine'
+      osc.frequency.value = freq
+      gain.gain.setValueAtTime(0.0001, t + i * 0.18)
+      gain.gain.exponentialRampToValueAtTime(0.5, t + i * 0.18 + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.18 + 0.17)
+      osc.connect(gain).connect(ctx.destination)
+      osc.start(t + i * 0.18)
+      osc.stop(t + i * 0.18 + 0.2)
+    })
+  }
+  const activarSonido = () => {
+    try {
+      if (!audioRef.current) audioRef.current = new AudioContext()
+      audioRef.current.resume()
+      setSonido(true)
+      chime()   // campanilla de prueba, para saber que quedó armado
+    } catch { /* sin soporte de audio */ }
+  }
+  const apagarSonido = () => setSonido(false)
+
+  // Suena cuando aparece un id NUEVO (nunca en la carga inicial de la página).
+  const idsVistos = useRef<{ remitos: Set<string> | null; ventanillas: Set<string> | null }>({ remitos: null, ventanillas: null })
+  useEffect(() => {
+    const previos = idsVistos.current.remitos
+    if (previos && sonido && remitos.some((r) => !previos.has(r.id))) chime()
+    idsVistos.current.remitos = new Set(remitos.map((r) => r.id))
+  }, [remitos, sonido])
+  useEffect(() => {
+    const previos = idsVistos.current.ventanillas
+    if (previos && sonido && ventanillas.some((v) => !previos.has(v.id))) chime()
+    idsVistos.current.ventanillas = new Set(ventanillas.map((v) => v.id))
+  }, [ventanillas, sonido])
+
+  // ── Datos derivados ──
   const camionEnDarsena = (n: number) => remitos.find((r) => r.estado === 'emitido' && r.darsena === n)
   const turnoEnDarsena  = (n: number) =>
     ventanillas.find((v) => v.estado === 'pendiente_entrega' && v.turnoEstado === 'llamado' && v.darsena === n)
@@ -69,13 +116,11 @@ export default function MuelleTvPage() {
     .sort((a, b) => a.turno - b.turno)
   const ausentes = ventanillas.filter((v) => v.estado === 'pendiente_entrega' && v.turnoEstado === 'ausente')
 
-  // PARA JUNTAR: suma por producto de los turnos todavía SIN preparar — la
-  // lista del próximo viaje de autoelevador a la cámara.
   const paraJuntar = useMemo(() => {
-    const m = new Map<string, { nombre: string; cantidad: number }>()
+    const m = new Map<string, { productoId: string; nombre: string; cantidad: number }>()
     colaTurnos.filter((v) => v.turnoEstado === 'en_espera').forEach((v) =>
       v.items.forEach((i) => {
-        const f = m.get(i.productoId) ?? { nombre: i.nombre, cantidad: 0 }
+        const f = m.get(i.productoId) ?? { productoId: i.productoId, nombre: i.nombre, cantidad: 0 }
         f.cantidad += i.cantidad
         m.set(i.productoId, f)
       }),
@@ -83,165 +128,145 @@ export default function MuelleTvPage() {
     return [...m.values()]
   }, [colaTurnos])
 
-  // Llamado reciente (< 45s): banner gigante arriba de todo.
   const llamadoReciente = ventanillas.find((v) =>
     v.turnoEstado === 'llamado' && v.llamadoAt && (ahora - v.llamadoAt.toMillis()) < 45_000)
 
-  const minutos = (v: VentaVentanilla) => Math.max(0, Math.round((ahora - v.fecha.toMillis()) / 60_000))
   const patente = (label: string) => label.split('·')[0].trim()
+
+  // Nombre corto de producto, para leerse desde el autoelevador.
+  const ETIQUETAS: Record<string, string> = {
+    bolsa_2kg: '2kg', bolsa_3kg: '3kg', bolsa_10kg: '10kg',
+    picado_10kg: 'PICADO', escamas_10kg: 'ESCAMA', barra: 'BARRA',
+    anticorrosivo: 'ANTIC.', agua_6l: 'AGUA',
+  }
+  const corto = (productoId: string, nombre: string) =>
+    ETIQUETAS[productoId] ?? (nombre.match(/\d+\s?kg/i)?.[0].replace(/\s/g, '') ?? nombre.split(' ')[0].toUpperCase().slice(0, 7))
+
+  const filaProducto = (key: string, etiqueta: string, cantidad: number, borde: string) => (
+    <div key={key} className="flex justify-between items-baseline pb-1" style={{ borderBottom: `2px solid ${borde}` }}>
+      <span className="text-[44px] font-bold text-gray-200 leading-none">{etiqueta}</span>
+      <span className="text-[76px] font-black leading-none tabular-nums">{cantidad}</span>
+    </div>
+  )
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-gray-950 relative">
     <div
-      className="bg-gray-950 text-white p-5 flex flex-col gap-4 absolute left-1/2 top-1/2"
+      className="bg-gray-950 text-white p-6 flex flex-col gap-[18px] absolute left-1/2 top-1/2"
       style={{ width: 1920, height: 1080, transform: `translate(-50%, -50%) scale(${escala})` }}
     >
       {/* Header + llamado */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4 shrink-0">
-          <img src="/logo-rolito.png" alt="Rolito" className="h-9 w-auto brightness-0 invert" />
-          <p className="text-xl font-bold text-gray-300">Muelle · {PLANTAS[plantaId].label}</p>
-        </div>
+      <div className="flex items-center gap-[18px] h-[84px] shrink-0">
+        <p className="text-2xl font-bold text-gray-400 shrink-0">MUELLE · {PLANTAS[plantaId].label.toUpperCase().replace('PLANTA ', '')}</p>
         {llamadoReciente ? (
-          <div className="flex-1 bg-green-600 rounded-xl px-6 py-2 text-center animate-pulse">
-            <p className="text-4xl font-black">TURNO {llamadoReciente.turno} → DÁRSENA {llamadoReciente.darsena}</p>
+          <div className="flex-1 bg-green-600 rounded-2xl text-center py-2 animate-pulse" style={{ boxShadow: '0 0 40px rgba(22,163,74,0.45)' }}>
+            <span className="text-[54px] font-black leading-none">TURNO {llamadoReciente.turno} → DÁRSENA {llamadoReciente.darsena}</span>
           </div>
         ) : <div className="flex-1" />}
-        <p className="text-3xl font-black tabular-nums shrink-0">
+        <p className="text-[40px] font-black tabular-nums shrink-0">
           {new Date(ahora).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
         </p>
       </div>
 
       {/* Dársenas */}
-      <div className="grid gap-3 flex-1" style={{ gridTemplateColumns: `repeat(${totalDarsenas}, minmax(0, 1fr))` }}>
+      <div className="grid gap-4 flex-1 min-h-0" style={{ gridTemplateColumns: `repeat(${totalDarsenas}, minmax(0, 1fr))` }}>
         {Array.from({ length: totalDarsenas }, (_, i) => i + 1).map((n) => {
           const esVentanilla = dVentanilla.includes(n)
+          const tag = (
+            <div className="flex justify-between items-baseline">
+              <span className="text-5xl font-black text-gray-500">{n}</span>
+              <span className={`text-lg font-bold tracking-[3px] ${esVentanilla ? 'text-sky-400' : 'text-amber-500'}`}>
+                {esVentanilla ? 'VENTANILLA' : 'CAMIÓN'}
+              </span>
+            </div>
+          )
           if (esVentanilla) {
             const v = turnoEnDarsena(n)
-            return (
-              <div key={n} className={`rounded-2xl border-4 p-3 flex flex-col ${
-                v ? 'border-sky-400 bg-sky-400/10' : 'border-gray-800 bg-gray-900'
-              }`}>
-                <div className="flex items-baseline justify-between">
-                  <p className="text-4xl font-black text-gray-500">{n}</p>
-                  <p className="text-xs font-bold text-sky-500 tracking-widest">VENTANILLA</p>
+            return v ? (
+              <div key={n} className="rounded-[20px] p-[18px] flex flex-col gap-2.5 border-[5px] border-green-500 bg-green-500/10" style={{ boxShadow: '0 0 32px rgba(34,197,94,0.3)' }}>
+                {tag}
+                <p className="text-[110px] font-black leading-none text-green-400">T-{v.turno}</p>
+                <div className="flex flex-col gap-2 mt-1.5 min-h-0 overflow-hidden">
+                  {v.items.map((i) => filaProducto(i.productoId, corto(i.productoId, i.nombre), i.cantidad, 'rgba(34,197,94,0.3)'))}
                 </div>
-                {v ? (
-                  <div className="flex-1 flex flex-col">
-                    <p className="text-6xl font-black text-sky-300 leading-none my-2">T-{v.turno}</p>
-                    <p className="text-base text-gray-300 truncate">{v.clienteNombre}</p>
-                    <div className="space-y-0.5 pt-1">
-                      {v.items.map((i) => (
-                        <div key={i.productoId} className="flex justify-between gap-2 text-lg leading-tight">
-                          <span className="text-gray-200 truncate">{i.nombre}</span>
-                          <span className="font-black tabular-nums">{i.cantidad}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-xl text-gray-700 font-bold flex-1 flex items-center justify-center">LIBRE</p>
-                )}
+                <p className="mt-auto text-[26px] text-gray-400 truncate">{v.clienteNombre}</p>
+              </div>
+            ) : (
+              <div key={n} className="rounded-[20px] p-[18px] flex flex-col border-[5px] border-gray-800 bg-[#0b1220]">
+                {tag}
+                <p className="flex-1 flex items-center justify-center text-[44px] font-black text-gray-700">LIBRE</p>
               </div>
             )
           }
           const r = camionEnDarsena(n)
-          return (
-            <div key={n} className={`rounded-2xl border-4 p-3 flex flex-col ${
-              r ? 'border-amber-400 bg-amber-400/10' : 'border-gray-800 bg-gray-900'
-            }`}>
-              <div className="flex items-baseline justify-between">
-                <p className="text-4xl font-black text-gray-500">{n}</p>
-                <p className="text-xs font-bold text-amber-500 tracking-widest">CAMIONES</p>
+          return r ? (
+            <div key={n} className="rounded-[20px] p-[18px] flex flex-col gap-2.5 border-[5px] border-amber-400 bg-amber-400/10" style={{ boxShadow: '0 0 32px rgba(251,191,36,0.25)' }}>
+              {tag}
+              <p className="text-[64px] font-black leading-none tracking-tight">{patente(r.camionLabel)}</p>
+              <div className="flex flex-col gap-2 mt-1.5 min-h-0 overflow-hidden">
+                {r.items.map((i) => filaProducto(i.productoId, corto(i.productoId, i.nombre), i.cantidad, 'rgba(251,191,36,0.25)'))}
               </div>
-              {r ? (
-                <div className="space-y-1 flex-1">
-                  <p className="text-2xl font-black leading-tight">{patente(r.camionLabel)}</p>
-                  <p className="text-sm text-gray-300">{r.choferNombre}</p>
-                  <div className="space-y-0.5 pt-1">
-                    {r.items.map((i) => (
-                      <div key={i.productoId} className="flex justify-between gap-2 text-lg leading-tight">
-                        <span className="text-gray-200 truncate">{i.nombre}</span>
-                        <span className="font-black tabular-nums">{i.cantidad}</span>
-                      </div>
-                    ))}
-                  </div>
-                  {r.palletsCarga > 0 && (
-                    <p className="text-sm text-amber-200 font-bold">{r.palletsCarga} pallets</p>
-                  )}
-                </div>
-              ) : (
-                <p className="text-xl text-gray-700 font-bold flex-1 flex items-center justify-center">LIBRE</p>
-              )}
+              <div className="mt-auto flex justify-between items-baseline">
+                <span className="text-[26px] text-gray-400 truncate">{r.choferNombre}</span>
+                {r.palletsCarga > 0 && <span className="text-[34px] font-black text-amber-300 shrink-0">{r.palletsCarga} PAL</span>}
+              </div>
+            </div>
+          ) : (
+            <div key={n} className="rounded-[20px] p-[18px] flex flex-col border-[5px] border-gray-800 bg-[#0b1220]">
+              {tag}
+              <p className="flex-1 flex items-center justify-center text-[44px] font-black text-gray-700">LIBRE</p>
             </div>
           )
         })}
       </div>
 
-      {/* Fila inferior */}
-      <div className="grid grid-cols-4 gap-3">
-        {/* Cola de turnos */}
-        <div className="rounded-2xl bg-gray-900 border-2 border-sky-900 p-3">
-          <p className="text-lg font-bold text-sky-400 mb-1.5">TURNOS EN COLA ({colaTurnos.length})</p>
-          <div className="flex flex-wrap gap-2">
-            {colaTurnos.length === 0 && <p className="text-gray-700 text-lg">—</p>}
-            {colaTurnos.slice(0, 8).map((v) => (
-              <span key={v.id} className={`rounded-lg px-3 py-1 text-xl font-black ${
-                v.turnoEstado === 'preparado' ? 'bg-green-700 text-green-100' : 'bg-gray-800 text-gray-200'
-              }`}>
-                {v.turno}
-                <span className="text-xs font-medium text-gray-400 ml-1.5">{minutos(v)}m</span>
-              </span>
-            ))}
-          </div>
-          {ausentes.length > 0 && (
-            <p className="text-sm text-red-400 font-bold mt-2">
-              AUSENTES: {ausentes.map((v) => `T-${v.turno}`).join(' · ')}
-            </p>
-          )}
-        </div>
-
-        {/* Para juntar */}
-        <div className="rounded-2xl bg-gray-900 border-2 border-amber-800 p-3">
-          <p className="text-lg font-bold text-amber-400 mb-1.5">PARA JUNTAR (próx. viaje)</p>
-          {paraJuntar.length === 0 && <p className="text-gray-700 text-lg">—</p>}
-          <div className="space-y-0.5">
+      {/* Fila inferior: PARA JUNTAR + SIGUEN */}
+      <div className="flex gap-4 h-[250px] shrink-0">
+        <div className="flex-[3] bg-gray-900 border-[5px] border-amber-700 rounded-[20px] px-[30px] py-5 flex flex-col min-w-0">
+          <p className="text-[34px] font-black text-amber-400 tracking-[3px] mb-3">PARA JUNTAR → PRÓXIMO VIAJE</p>
+          <div className="flex gap-10 items-baseline flex-1 overflow-hidden">
+            {paraJuntar.length === 0 && <p className="text-[44px] font-black text-gray-700">—</p>}
             {paraJuntar.map((p) => (
-              <div key={p.nombre} className="flex justify-between gap-2 text-xl leading-tight">
-                <span className="text-gray-200 truncate">{p.nombre}</span>
-                <span className="font-black tabular-nums text-amber-200">{p.cantidad}</span>
+              <div key={p.productoId} className="flex items-baseline gap-3.5 shrink-0">
+                <span className="text-[110px] font-black text-amber-300 leading-none tabular-nums">{p.cantidad}</span>
+                <span className="text-[44px] font-bold">{corto(p.productoId, p.nombre)}</span>
               </div>
             ))}
           </div>
         </div>
-
-        {/* Camiones en espera */}
-        <div className="rounded-2xl bg-gray-900 border-2 border-gray-800 p-3">
-          <p className="text-lg font-bold text-gray-400 mb-1.5">CAMIONES EN ESPERA ({camionesEnEspera.length})</p>
-          <div className="space-y-0.5">
-            {camionesEnEspera.length === 0 && <p className="text-gray-700 text-lg">—</p>}
-            {camionesEnEspera.slice(0, 4).map((r) => (
-              <p key={r.id} className="text-xl font-bold leading-tight">
-                {patente(r.camionLabel)} <span className="text-gray-400 text-sm font-medium">{r.choferNombre}</span>
-              </p>
+        <div className="flex-[2] bg-gray-900 border-[5px] border-sky-900 rounded-[20px] px-[30px] py-5 flex flex-col min-w-0">
+          <p className="text-[34px] font-black text-sky-400 tracking-[3px] mb-3">SIGUEN</p>
+          <div className="flex gap-[18px] items-center flex-1 overflow-hidden">
+            {colaTurnos.length === 0 && <p className="text-[44px] font-black text-gray-700">—</p>}
+            {colaTurnos.slice(0, 6).map((v) => (
+              <span key={v.id} className={`rounded-2xl px-[26px] py-2 text-[84px] font-black leading-none shrink-0 ${
+                v.turnoEstado === 'preparado' ? 'bg-green-700' : 'bg-gray-800'
+              }`}>
+                {v.turno}
+              </span>
             ))}
           </div>
-        </div>
-
-        {/* Listos para salir */}
-        <div className="rounded-2xl bg-gray-900 border-2 border-green-900 p-3">
-          <p className="text-lg font-bold text-green-400 mb-1.5">LISTOS PARA SALIR ({listosParaSalir.length})</p>
-          <div className="space-y-0.5">
-            {listosParaSalir.length === 0 && <p className="text-gray-700 text-lg">—</p>}
-            {listosParaSalir.slice(0, 4).map((r) => (
-              <p key={r.id} className="text-xl font-bold leading-tight text-green-200">
-                {patente(r.camionLabel)} <span className="text-gray-400 text-sm font-medium">{r.choferNombre}</span>
-              </p>
-            ))}
-          </div>
+          <p className="text-[26px] font-bold truncate">
+            {ausentes.length > 0 && <span className="text-red-400">AUSENTE: {ausentes.map((v) => `T-${v.turno}`).join(', ')}</span>}
+            {ausentes.length > 0 && (camionesEnEspera.length > 0 || listosParaSalir.length > 0) && <span className="text-gray-600"> · </span>}
+            {camionesEnEspera.length > 0 && <span className="text-gray-400">ESPERA: {camionesEnEspera.map((r) => patente(r.camionLabel)).join(', ')}</span>}
+            {camionesEnEspera.length > 0 && listosParaSalir.length > 0 && <span className="text-gray-600"> · </span>}
+            {listosParaSalir.length > 0 && <span className="text-green-400">SALE: {listosParaSalir.map((r) => patente(r.camionLabel)).join(', ')}</span>}
+          </p>
         </div>
       </div>
     </div>
+
+    {/* Sonido de llegada: se arma con un toque al instalar el TV. */}
+    <button
+      onClick={sonido ? apagarSonido : activarSonido}
+      className={`absolute bottom-3 right-3 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+        sonido ? 'text-gray-600 hover:text-gray-400' : 'bg-gray-800 text-gray-200 hover:bg-gray-700'
+      }`}
+    >
+      {sonido ? <Volume2 size={16} /> : <VolumeX size={16} />}
+      {sonido ? 'Sonido activado' : 'Activar sonido'}
+    </button>
     </div>
   )
 }
