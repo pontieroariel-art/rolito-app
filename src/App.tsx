@@ -76,6 +76,7 @@ const MapaClientesHeladerasPage = lazy(() => import('./pages/heladeras/MapaClien
 const PanolPage             = lazy(() => import('./pages/heladeras/PanolPage'))
 
 const CalculadoraHielo  = lazy(() => import('./pages/public/CalculadoraHielo'))
+const TurnosVentanillaPage = lazy(() => import('./pages/public/TurnosVentanillaPage'))
 
 const LoginProduccion         = lazy(() => import('./pages/auth/LoginProduccion'))
 const ProduccionLayout        = lazy(() => import('./components/produccion/ProduccionLayout'))
@@ -200,6 +201,9 @@ function AppContent() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/pendiente"       element={<PendingApproval />} />
         <Route path="/calculadora-rolito" element={<CalculadoraHielo />} />
+        {/* Turnos de ventanilla — pública, la abre el QR del comprobante
+            (sesión anónima; solo lee el tablero sanitizado turnosPublicos). */}
+        <Route path="/turnos/:plantaId" element={<TurnosVentanillaPage />} />
 
         {/* Cliente */}
         <Route element={<ProtectedRoute allowedRoles={['cliente']} />}>

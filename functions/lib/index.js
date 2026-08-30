@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onOutboxConfirmado = exports.onVentaCamionCreada = exports.onProduccionPalletCreado = exports.syncClientesTango = exports.enviarResumenAdminDiario = exports.onHistorialAdminAltoRiesgo = exports.backupAuthUsers = exports.avisarComodatosPorVencer = exports.onTicketCreado = exports.onStockBajo = exports.onTicketCerrado = exports.generarPedidosRecurrentes = exports.orsDirections = exports.mirrorDriverLocation = exports.validarPreciosPedido = exports.notifyReprogramado = exports.notifyCerca = exports.sendPush = exports.deleteAuthUsers = exports.onOrderEnCamino = exports.onOrderConfirmado = exports.onOrderCreated = exports.onClienteCreadoPorStaff = exports.onUserApproved = exports.onUserRegistered = void 0;
+exports.publicarTurnosVentanilla = exports.onOutboxConfirmado = exports.onVentaCamionCreada = exports.onProduccionPalletCreado = exports.syncClientesTango = exports.enviarResumenAdminDiario = exports.onHistorialAdminAltoRiesgo = exports.backupAuthUsers = exports.avisarComodatosPorVencer = exports.onTicketCreado = exports.onStockBajo = exports.onTicketCerrado = exports.generarPedidosRecurrentes = exports.orsDirections = exports.mirrorDriverLocation = exports.validarPreciosPedido = exports.notifyReprogramado = exports.notifyCerca = exports.sendPush = exports.deleteAuthUsers = exports.onOrderEnCamino = exports.onOrderConfirmado = exports.onOrderCreated = exports.onClienteCreadoPorStaff = exports.onUserApproved = exports.onUserRegistered = void 0;
 const app_1 = require("firebase-admin/app");
 (0, app_1.initializeApp)();
 // Nota: cambio trivial para forzar un hash de fuente distinto y que
@@ -50,4 +50,6 @@ var tangoOutbox_1 = require("./triggers/tangoOutbox");
 Object.defineProperty(exports, "onProduccionPalletCreado", { enumerable: true, get: function () { return tangoOutbox_1.onProduccionPalletCreado; } });
 Object.defineProperty(exports, "onVentaCamionCreada", { enumerable: true, get: function () { return tangoOutbox_1.onVentaCamionCreada; } });
 Object.defineProperty(exports, "onOutboxConfirmado", { enumerable: true, get: function () { return tangoOutbox_1.onOutboxConfirmado; } });
+var turnosVentanilla_1 = require("./triggers/turnosVentanilla");
+Object.defineProperty(exports, "publicarTurnosVentanilla", { enumerable: true, get: function () { return turnosVentanilla_1.publicarTurnosVentanilla; } });
 //# sourceMappingURL=index.js.map

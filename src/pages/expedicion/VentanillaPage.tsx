@@ -9,6 +9,7 @@ import { useAllListasPrecios } from '../../hooks/useListasPrecios'
 import { useCatalogo } from '../../hooks/useCatalogo'
 import { crearVentaVentanilla, subscribeVentanillaDelDia } from '../../services/ventaVentanillaService'
 import { generateComprobanteVentanilla } from '../../utils/pdf'
+import { generateQrDataUrl } from '../../utils/qr'
 import { precioEfectivo } from '../../utils/helpers'
 import {
   CanalVenta, FormaPago, PLANTAS, VentaCamionItem, VentaVentanilla,
@@ -82,19 +83,31 @@ export default function VentanillaPage() {
     setConfirmando(true)
   }
 
-  const imprimir = (v: VentaVentanilla) =>
-    generateComprobanteVentanilla({
-      id:            v.id,
-      plantaId:      v.plantaId,
-      canal:         v.canal,
-      clienteNombre: v.clienteNombre,
-      clienteCuit:   v.clienteOcasional?.cuit,
-      items:         v.items,
-      total:         v.total,
-      formaPago:     v.formaPago,
-      cajaNombre:    v.cajaNombre,
-      fecha:         v.fecha.toDate(),
-    }).catch((err) => console.error('[ventanilla] error al generar el PDF:', err))
+  const imprimir = async (v: VentaVentanilla) => {
+    try {
+      // QR de seguimiento del turno: el papel es la identificación (el
+      // número viaja adentro del link — ver TurnosVentanillaPage).
+      const qrDataUrl = await generateQrDataUrl(
+        `${window.location.origin}/turnos/${v.plantaId}?turno=${v.turno}`,
+      )
+      await generateComprobanteVentanilla({
+        id:            v.id,
+        plantaId:      v.plantaId,
+        canal:         v.canal,
+        clienteNombre: v.clienteNombre,
+        clienteCuit:   v.clienteOcasional?.cuit,
+        items:         v.items,
+        total:         v.total,
+        formaPago:     v.formaPago,
+        cajaNombre:    v.cajaNombre,
+        fecha:         v.fecha.toDate(),
+        turno:         v.turno,
+        qrDataUrl,
+      })
+    } catch (err) {
+      console.error('[ventanilla] error al generar el PDF:', err)
+    }
+  }
 
   const confirmar = async () => {
     if (!user || !formaPago) return
@@ -241,6 +254,9 @@ export default function VentanillaPage() {
         {ventas.length === 0 && <p className="text-gray-400 text-sm">Todavía no hubo ventas por ventanilla hoy.</p>}
         {ventas.map((v) => (
           <div key={v.id} className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-3 flex items-center gap-3">
+            <span className="shrink-0 w-11 h-11 rounded-xl bg-accent/10 text-accent font-black text-lg flex items-center justify-center">
+              {v.turno}
+            </span>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-gray-900 truncate">{v.clienteNombre}</p>
               <p className="text-xs text-gray-500">

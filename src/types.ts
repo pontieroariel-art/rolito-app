@@ -168,6 +168,14 @@ export interface RemitoCarga {
 // registro) → la lista que elija caja.
 export type VentaVentanillaEstado = 'pendiente_entrega' | 'entregado'
 
+// Ciclo de vida del TURNO mientras la venta sigue pendiente de entrega
+// (sistema de cola de ventanilla, ver plan): en_espera → preparado (la
+// mercadería ya está juntada fuera de cámara) → llamado (muelle lo llama a
+// una dársena; el TV lo canta y la página pública avisa) → se entrega
+// (estado 'entregado') — o 'ausente' si no se presenta (sale de la cola
+// activa sin bloquear la dársena; se lo puede re-llamar cuando aparece).
+export type TurnoEstado = 'en_espera' | 'preparado' | 'llamado' | 'ausente'
+
 export interface VentaVentanilla {
   id:                   string
   plantaId:             PlantaId
@@ -184,6 +192,12 @@ export interface VentaVentanilla {
   total:                number
   formaPago:            FormaPago   // cuenta_corriente solo para registrados
   estado:               VentaVentanillaEstado
+  // Sistema de turnos: correlativo del DÍA por planta (T-7), impreso grande
+  // en el comprobante junto con un QR que abre /turnos/{planta}?turno=N.
+  turno:                number
+  turnoEstado:          TurnoEstado
+  darsena?:             number      // asignada al llamar (dársenas de ventanilla)
+  llamadoAt?:           Timestamp   // último llamado (el TV lo canta ~30s)
   entregadoPor?:        { uid: string; nombre: string; hora: Timestamp }   // muelle
   salida?:              { uid: string; nombre: string; hora: Timestamp }   // seguridad en el portón (Fase 4)
   fecha:                Timestamp
@@ -489,6 +503,13 @@ export type PlantaId = keyof typeof PLANTAS
 export const DARSENAS_POR_PLANTA: Record<PlantaId, number> = {
   torcuato: 5,
   merlo:    5,
+}
+
+// Dársenas reservadas a clientes de ventanilla (alta temporada): las demás
+// son de los camiones propios, que siempre tienen prioridad en las suyas.
+export const DARSENAS_VENTANILLA: Record<PlantaId, number[]> = {
+  torcuato: [4, 5],
+  merlo:    [4, 5],
 }
 
 // ── Producción de hielo ───────────────────────────────────────────────────────

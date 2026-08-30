@@ -10,10 +10,12 @@ import {
   confirmarEntregaRemito, crearDescargaCamion, subscribeDescargasDelDia,
 } from '../../services/descargaCamionService'
 import {
-  confirmarEntregaVentanilla, subscribeVentanillaDelDia,
+  confirmarEntregaVentanilla, llamarTurno, marcarTurnoAusente, marcarTurnoPreparado,
+  subscribeVentanillaDelDia,
 } from '../../services/ventaVentanillaService'
 import {
-  DARSENAS_POR_PLANTA, DescargaCamion, DescargaCamionItem, PLANTAS, RemitoCarga, VentaVentanilla,
+  DARSENAS_POR_PLANTA, DARSENAS_VENTANILLA, DescargaCamion, DescargaCamionItem,
+  PLANTAS, RemitoCarga, VentaVentanilla,
 } from '../../types'
 
 // Pantalla del rol muelle (tablet en planta): confirma la entrega de la
@@ -46,7 +48,19 @@ export default function MuelleDashboard() {
   const [okMsg,       setOkMsg]       = useState('')
 
   const porEntregar = remitos.filter((r) => r.estado === 'emitido')
-  const ventanillasPendientes = ventanillas.filter((v) => v.estado === 'pendiente_entrega')
+  // Cola de turnos de ventanilla, en orden. Los ausentes van aparte (no
+  // bloquean la cola; se re-llaman cuando aparecen).
+  const colaVentanilla = ventanillas
+    .filter((v) => v.estado === 'pendiente_entrega' && v.turnoEstado !== 'ausente')
+    .sort((a, b) => a.turno - b.turno)
+  const ausentes = ventanillas
+    .filter((v) => v.estado === 'pendiente_entrega' && v.turnoEstado === 'ausente')
+    .sort((a, b) => a.turno - b.turno)
+  const darsenasVentanilla = DARSENAS_VENTANILLA[plantaId]
+  const darsenaLibre = (n: number) =>
+    !colaVentanilla.some((v) => v.turnoEstado === 'llamado' && v.darsena === n)
+  const minutosEsperando = (v: VentaVentanilla) =>
+    Math.max(0, Math.round((Date.now() - v.fecha.toMillis()) / 60_000))
   // Para descargar: cualquier remito ya entregado (el camión salió y volvió).
   const entregados  = remitos.filter((r) => r.estado !== 'emitido')
   const remitoDescarga = entregados.find((r) => r.id === remitoDescargaId)
@@ -167,11 +181,15 @@ export default function MuelleDashboard() {
                   </div>
                 )}
               </div>
-              {/* Dársena: alimenta el tablero de TV — sin asignar queda "en espera". */}
+              {/* Dársena: alimenta el tablero de TV — sin asignar queda "en
+                  espera". Los camiones usan SOLO sus dársenas (las de
+                  ventanilla quedan para los turnos de clientes). */}
               <div className="flex items-center gap-2">
                 <span className="text-xs text-gray-500 shrink-0">Dársena</span>
                 <div className="flex gap-1.5 flex-wrap">
-                  {Array.from({ length: DARSENAS_POR_PLANTA[plantaId] }, (_, i) => i + 1).map((n) => (
+                  {Array.from({ length: DARSENAS_POR_PLANTA[plantaId] }, (_, i) => i + 1)
+                    .filter((n) => !DARSENAS_VENTANILLA[plantaId].includes(n))
+                    .map((n) => (
                     <button
                       key={n}
                       type="button"
@@ -195,17 +213,32 @@ export default function MuelleDashboard() {
           ))}
         </section>
 
-        {/* ── Ventanillas para entregar ── */}
-        {ventanillasPendientes.length > 0 && (
+        {/* ── Cola de turnos de ventanilla ── */}
+        {(colaVentanilla.length > 0 || ausentes.length > 0) && (
           <section className="space-y-2">
             <h2 className="font-semibold text-gray-800 flex items-center gap-2">
-              <PackageCheck size={18} className="text-accent" /> Ventanillas para entregar
+              <PackageCheck size={18} className="text-accent" /> Turnos de ventanilla
             </h2>
-            {ventanillasPendientes.map((v) => (
-              <div key={v.id} className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold text-gray-900">{v.clienteNombre}</p>
-                  <p className="text-xs text-gray-500">Caja: {v.cajaNombre}</p>
+            {colaVentanilla.map((v) => (
+              <div key={v.id} className={`bg-white rounded-xl border shadow-sm p-3 space-y-2 ${
+                v.turnoEstado === 'llamado' ? 'border-green-400' : v.turnoEstado === 'preparado' ? 'border-amber-300' : 'border-[#D3D1C7]'
+              }`}>
+                <div className="flex items-center gap-3">
+                  <span className={`shrink-0 w-12 h-12 rounded-xl font-black text-xl flex items-center justify-center ${
+                    v.turnoEstado === 'llamado' ? 'bg-green-600 text-white'
+                      : v.turnoEstado === 'preparado' ? 'bg-amber-400 text-white' : 'bg-gray-100 text-gray-700'
+                  }`}>
+                    {v.turno}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 truncate">{v.clienteNombre}</p>
+                    <p className="text-xs text-gray-500">
+                      {v.turnoEstado === 'llamado' && v.darsena
+                        ? `Llamado a dársena ${v.darsena}`
+                        : v.turnoEstado === 'preparado' ? 'Preparado — listo para llamar' : 'En espera'}
+                      {' · '}{minutosEsperando(v)} min
+                    </p>
+                  </div>
                 </div>
                 <div className="text-xs text-gray-600 space-y-0.5">
                   {v.items.map((i) => (
@@ -215,9 +248,57 @@ export default function MuelleDashboard() {
                     </div>
                   ))}
                 </div>
-                <Button onClick={() => entregarVentanilla(v)} className="w-full">Mercadería entregada</Button>
+                <div className="flex flex-wrap gap-2">
+                  {v.turnoEstado === 'en_espera' && (
+                    <Button variant="outline" onClick={() => marcarTurnoPreparado(v).catch(() => setError('No se pudo marcar. Intentá de nuevo.'))} className="flex-1">
+                      Preparado
+                    </Button>
+                  )}
+                  {v.turnoEstado !== 'llamado' && darsenasVentanilla.map((n) => (
+                    <Button
+                      key={n}
+                      disabled={!darsenaLibre(n)}
+                      onClick={() => llamarTurno(v, n).catch(() => setError('No se pudo llamar. Intentá de nuevo.'))}
+                      className="flex-1"
+                    >
+                      Llamar a D{n}
+                    </Button>
+                  ))}
+                  {v.turnoEstado === 'llamado' && (
+                    <>
+                      <Button onClick={() => entregarVentanilla(v)} className="flex-[2]">Mercadería entregada</Button>
+                      <Button variant="outline" onClick={() => marcarTurnoAusente(v).catch(() => setError('No se pudo marcar. Intentá de nuevo.'))} className="flex-1">
+                        No se presentó
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
             ))}
+
+            {ausentes.length > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 space-y-2">
+                <p className="text-xs font-semibold text-red-600 uppercase tracking-wide">Ausentes (llamar cuando aparezcan)</p>
+                {ausentes.map((v) => (
+                  <div key={v.id} className="flex items-center gap-3">
+                    <span className="shrink-0 w-10 h-10 rounded-lg bg-white border border-red-200 text-red-600 font-black flex items-center justify-center">
+                      {v.turno}
+                    </span>
+                    <p className="flex-1 text-sm text-gray-800 truncate">{v.clienteNombre}</p>
+                    {darsenasVentanilla.map((n) => (
+                      <Button
+                        key={n}
+                        variant="outline"
+                        disabled={!darsenaLibre(n)}
+                        onClick={() => llamarTurno(v, n).catch(() => setError('No se pudo llamar. Intentá de nuevo.'))}
+                      >
+                        D{n}
+                      </Button>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
         )}
 

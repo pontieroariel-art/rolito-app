@@ -458,6 +458,14 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next'])
         && request.resource.data.next > resource.data.next;
 
+      // Contador de TURNOS de ventanilla por planta (se resetea por día:
+      // { fecha, next }) — solo caja de esa planta, dentro de la transacción
+      // de crearVentaVentanilla.
+      allow create, update: if request.auth != null && isCaja()
+        && docId == 'turnoVentanilla_' + myPlanta()
+        && request.resource.data.fecha is string
+        && request.resource.data.next is int && request.resource.data.next > 1;
+
       // Contadores de correlativo de producción (uno por planta:
       // produccionCounter_torcuato / produccionCounter_merlo). Alta inicial
       // (número de arranque real) solo por super_admin/produccion_encargado y
@@ -835,7 +843,19 @@ service cloud.firestore {
         && request.resource.data.formaPago in ['contado_efectivo', 'contado_transferencia', 'cuenta_corriente']
         && request.resource.data.items is list && request.resource.data.items.size() > 0
         && request.resource.data.total is number
-        && request.resource.data.estado == 'pendiente_entrega';
+        && request.resource.data.estado == 'pendiente_entrega'
+        && request.resource.data.turno is int && request.resource.data.turno > 0
+        && request.resource.data.turnoEstado == 'en_espera';
+
+      // Muelle maneja la COLA de turnos (preparado / llamado a dársena /
+      // ausente) mientras la venta sigue pendiente — solo esos campos, nunca
+      // items ni importes.
+      allow update: if request.auth != null && isMuelle()
+        && resource.data.plantaId == myPlanta()
+        && resource.data.estado == 'pendiente_entrega'
+        && request.resource.data.turnoEstado in ['en_espera', 'preparado', 'llamado', 'ausente']
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['turnoEstado', 'darsena', 'llamadoAt']);
 
       // Muelle confirma la entrega: solo la transición y solo esos campos.
       allow update: if request.auth != null && isMuelle()
@@ -857,6 +877,17 @@ service cloud.firestore {
              .hasOnly(['salida']);
 
       allow delete: if false;
+    }
+
+    // ── Expedición: tablero público de turnos de ventanilla ────────────────
+    // Documento DERIVADO y sanitizado que escribe la Cloud Function
+    // publicarTurnosVentanilla (Admin SDK): SOLO números de turno + estado +
+    // dársena — sin nombres, productos ni montos, por construcción. Lo lee la
+    // página pública /turnos/{planta} con sesión anónima de Firebase (el QR
+    // del comprobante). Ver plan del módulo expedición.
+    match /turnosPublicos/{plantaId} {
+      allow read: if request.auth != null;
+      allow write: if false;
     }
 
     // ── Expedición: cobranzas (mostrador y calle) ──────────────────────────

@@ -2410,6 +2410,7 @@ describe('expedicion: ventanilla y cobranzas', () => {
     clienteNombre: 'Cliente SA',
     items: [{ productoId: 'bolsa_10kg', nombre: 'Hielo 10kg', cantidad: 5, precioUnitario: 4000 }],
     total: 20000, formaPago: 'contado_efectivo', estado: 'pendiente_entrega',
+    turno: 1, turnoEstado: 'en_espera',
     fecha: new Date(), tango: { estado: 'pendiente' }, ...extra,
   })
   const cobranza = (extra = {}) => ({
@@ -2651,5 +2652,71 @@ describe('remitosCarga: asignacion de darsena', () => {
     await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), remito()))
     await assertFails(updateDoc(doc(db('caja1'), 'remitosCarga/r1'), { darsena: 1 }))
     await assertFails(updateDoc(doc(db('chof1'), 'remitosCarga/r1'), { darsena: 1 }))
+  })
+})
+
+// ── Expedición: sistema de turnos de ventanilla ───────────────────────────────
+describe('expedicion: turnos de ventanilla', () => {
+  const seedCaja   = (uid = 'caja1', planta = 'torcuato') =>
+    seed((d) => setDoc(doc(d, `users/${uid}`), { rol: 'caja', estado: 'activo', planta }))
+  const seedMuelle = (uid = 'mue1', planta = 'torcuato') =>
+    seed((d) => setDoc(doc(d, `users/${uid}`), { rol: 'muelle', estado: 'activo', planta }))
+
+  const venta = (extra = {}) => ({
+    plantaId: 'torcuato', canal: 'contado', cajaId: 'caja1', cajaNombre: 'Caja',
+    clienteNombre: 'Cliente SA',
+    items: [{ productoId: 'bolsa_10kg', nombre: 'Hielo 10kg', cantidad: 5, precioUnitario: 4000 }],
+    total: 20000, formaPago: 'contado_efectivo', estado: 'pendiente_entrega',
+    turno: 7, turnoEstado: 'en_espera', fecha: new Date(), ...extra,
+  })
+
+  test('caja NO crea una venta sin turno ni con turnoEstado distinto de en_espera', async () => {
+    await seedCaja()
+    const { turno, ...sinTurno } = venta()
+    await assertFails(setDoc(doc(db('caja1'), 'ventasVentanilla/v1'), sinTurno))
+    await assertFails(setDoc(doc(db('caja1'), 'ventasVentanilla/v2'), venta({ turnoEstado: 'llamado' })))
+  })
+
+  test('caja crea/avanza el contador de turnos de SU planta; muelle no', async () => {
+    await seedCaja()
+    await seedMuelle()
+    await assertSucceeds(setDoc(doc(db('caja1'), 'config/turnoVentanilla_torcuato'), { fecha: '2026-08-29', next: 2 }))
+    await assertSucceeds(setDoc(doc(db('caja1'), 'config/turnoVentanilla_torcuato'), { fecha: '2026-08-30', next: 2 }))
+    await assertFails(setDoc(doc(db('caja1'), 'config/turnoVentanilla_merlo'), { fecha: '2026-08-29', next: 2 }))
+    await assertFails(setDoc(doc(db('mue1'), 'config/turnoVentanilla_torcuato'), { fecha: '2026-08-29', next: 2 }))
+  })
+
+  test('muelle maneja la cola: preparado, llamado con darsena, ausente', async () => {
+    await seedMuelle()
+    await seed((d) => setDoc(doc(d, 'ventasVentanilla/v1'), venta()))
+    await assertSucceeds(updateDoc(doc(db('mue1'), 'ventasVentanilla/v1'), { turnoEstado: 'preparado' }))
+    await assertSucceeds(updateDoc(doc(db('mue1'), 'ventasVentanilla/v1'), { turnoEstado: 'llamado', darsena: 4, llamadoAt: new Date() }))
+    await assertSucceeds(updateDoc(doc(db('mue1'), 'ventasVentanilla/v1'), { turnoEstado: 'ausente' }))
+  })
+
+  test('muelle NO toca items/total/turno al manejar la cola, ni de otra planta', async () => {
+    await seedMuelle()
+    await seedMuelle('mue2', 'merlo')
+    await seed((d) => setDoc(doc(d, 'ventasVentanilla/v1'), venta()))
+    await assertFails(updateDoc(doc(db('mue1'), 'ventasVentanilla/v1'), { turnoEstado: 'preparado', total: 1 }))
+    await assertFails(updateDoc(doc(db('mue1'), 'ventasVentanilla/v1'), { turnoEstado: 'preparado', turno: 99 }))
+    await assertFails(updateDoc(doc(db('mue2'), 'ventasVentanilla/v1'), { turnoEstado: 'preparado' }))
+  })
+
+  test('muelle NO maneja la cola de una venta ya entregada', async () => {
+    await seedMuelle()
+    await seed((d) => setDoc(doc(d, 'ventasVentanilla/v1'), venta({ estado: 'entregado' })))
+    await assertFails(updateDoc(doc(db('mue1'), 'ventasVentanilla/v1'), { turnoEstado: 'llamado', darsena: 4, llamadoAt: new Date() }))
+  })
+
+  test('turnosPublicos: lo lee cualquier autenticado (anonimo incluido) y nadie lo escribe', async () => {
+    await seed((d) => setDoc(doc(d, 'turnosPublicos/torcuato'), { fecha: '2026-08-29', turnos: [{ n: 7, estado: 'en_espera' }] }))
+    const anon = testEnv.authenticatedContext('anon-123').firestore()
+    await assertSucceeds(getDoc(doc(anon, 'turnosPublicos/torcuato')))
+    await assertFails(setDoc(doc(anon, 'turnosPublicos/torcuato'), { fecha: 'x', turnos: [] }))
+    await seed((d) => setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' }))
+    await assertFails(setDoc(doc(db('caja1'), 'turnosPublicos/torcuato'), { fecha: 'x', turnos: [] }))
+    const sinAuth = testEnv.unauthenticatedContext().firestore()
+    await assertFails(getDoc(doc(sinAuth, 'turnosPublicos/torcuato')))
   })
 })

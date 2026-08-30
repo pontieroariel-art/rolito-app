@@ -989,6 +989,10 @@ export async function generateComprobanteVentanilla(venta: {
   formaPago:     string
   cajaNombre:    string
   fecha:         Date
+  // Sistema de turnos: número del día bien grande + QR que abre la página
+  // pública /turnos/{planta}?turno=N (el papel es la identificación).
+  turno?:        number
+  qrDataUrl?:    string
 }) {
   const { default: jsPDF }     = await import('jspdf')
   const { default: autoTable } = await import('jspdf-autotable')
@@ -1058,7 +1062,30 @@ export async function generateComprobanteVentanilla(venta: {
   doc.setFontSize(8.5)
   doc.setTextColor(80)
   doc.text('Presentar este comprobante en muelle para retirar la mercadería.', 14, y)
-  y += 22
+  y += 8
+
+  // Turno del día + QR de seguimiento (cola de ventanilla).
+  if (venta.turno != null) {
+    doc.setDrawColor(45, 106, 79)
+    doc.setLineWidth(0.8)
+    doc.roundedRect(14, y, pageW - 28, 46, 3, 3)
+    doc.setTextColor(0)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(13)
+    doc.text('TU TURNO', 24, y + 12)
+    doc.setFontSize(40)
+    doc.text(String(venta.turno), 24, y + 34)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8.5)
+    doc.setTextColor(80)
+    doc.text('Esperá en tu vehículo. Escaneá el QR para seguir', 78, y + 16)
+    doc.text('la fila desde tu teléfono y ver cuándo te toca.', 78, y + 21)
+    if (venta.qrDataUrl) {
+      doc.addImage(venta.qrDataUrl, 'PNG', pageW - 14 - 40, y + 3, 40, 40)
+    }
+    y += 54
+  }
+  y += 14
 
   doc.setDrawColor(150)
   doc.setLineWidth(0.2)
