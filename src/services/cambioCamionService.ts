@@ -1,5 +1,6 @@
 import { collection, doc, onSnapshot, query, setDoc, where, Timestamp } from 'firebase/firestore'
 import { db } from './firebase'
+import { fireAndForget } from './observability'
 import { CambioCamion } from '../types'
 
 const CAMBIOS = 'cambiosCamion'
@@ -30,7 +31,9 @@ export function crearCambioCamion(
     cantidad:      args.cantidad,
     fecha:         Timestamp.now(),
   }
-  setDoc(ref, cambio)   // fire-and-forget, se sincroniza solo al reconectar
+  // fire-and-forget (offline-first); el .catch reporta un rechazo en vez de
+  // perder el cambio en silencio (cuadra contra las bolsas rotas en muelle).
+  fireAndForget(setDoc(ref, cambio), { origen: 'crearCambioCamion', cambioId: ref.id, choferId: actor.uid })
   return { id: ref.id, ...cambio }
 }
 

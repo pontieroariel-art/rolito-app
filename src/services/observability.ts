@@ -40,3 +40,13 @@ export function reportError(error: unknown, context?: Record<string, unknown>): 
   if (!activo) return
   Sentry.captureException(error, context ? { extra: context } : undefined)
 }
+
+// Envuelve un write fire-and-forget (offline-first) para que un rechazo del
+// servidor —una regla que lo niega, un revert— deje de ser invisible. NO
+// bloquea ni cambia el comportamiento offline: sin red la promesa queda
+// pendiente y el write se encola local igual; pero si el servidor lo rechaza,
+// en vez de morir en silencio (la UI ya dijo "registrado") queda reportado.
+// Ver auditoría 2026-08-29: ventas/cobranzas que podían perderse sin aviso.
+export function fireAndForget(op: Promise<unknown>, context?: Record<string, unknown>): void {
+  op.catch((err) => reportError(err, { fireAndForget: true, ...context }))
+}

@@ -1,5 +1,6 @@
 import { collection, doc, getDoc, onSnapshot, query, where, orderBy, limit, setDoc, Timestamp } from 'firebase/firestore'
 import { db } from './firebase'
+import { fireAndForget } from './observability'
 import { VentaCamion, VentaCamionItem, FormaPago, CanalVenta, UserProfile } from '../types'
 
 const VENTAS = 'ventasCamion'
@@ -51,7 +52,9 @@ export function crearVentaCamion(
     ...(args.firmanteNombre ? { firmanteNombre: args.firmanteNombre.trim() } : {}),
   }
 
-  setDoc(ref, venta)   // fire-and-forget, se sincroniza solo al reconectar
+  // fire-and-forget (offline-first); el .catch reporta un rechazo del servidor
+  // en vez de perderlo en silencio tras haber dicho "registrado".
+  fireAndForget(setDoc(ref, venta), { origen: 'crearVentaCamion', ventaId: ref.id, choferId: actor.uid })
   return { id: ref.id, ...venta }
 }
 

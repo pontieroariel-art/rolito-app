@@ -4,6 +4,7 @@ import { PalletProduccion, PlantaId, ProductoHieloId } from '../types'
 import { PLANTA_INFO } from '../utils/constants'
 import { PRODUCTOS_HIELO } from '../utils/produccionCatalogo'
 import { consumirNumero, precargarSiSeAcerca } from './produccionReservaService'
+import { fireAndForget } from './observability'
 
 const PALLETS = 'produccionPallets'
 
@@ -36,7 +37,9 @@ export function crearPallet(
     fechaFabricacion,
     createdAt:      serverTimestamp() as unknown as Timestamp,
   }
-  setDoc(palletRef, pallet)   // fire-and-forget, se sincroniza solo al reconectar si hace falta
+  // fire-and-forget (offline-first); el .catch reporta un rechazo en vez de
+  // perder el pallet en silencio.
+  fireAndForget(setDoc(palletRef, pallet), { origen: 'crearPallet', palletId: palletRef.id, plantaId: data.plantaId })
 
   precargarSiSeAcerca(actor.uid, data.plantaId, online)
 

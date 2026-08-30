@@ -1,5 +1,6 @@
 import { collection, doc, onSnapshot, query, setDoc, where, Timestamp } from 'firebase/firestore'
 import { db } from './firebase'
+import { fireAndForget } from './observability'
 import { Cobranza, PlantaId } from '../types'
 
 const COBRANZAS = 'cobranzas'
@@ -59,7 +60,9 @@ export function crearCobranzaCalle(
     fecha:         Timestamp.now(),
     ...(args.referencia?.trim() ? { referencia: args.referencia.trim() } : {}),
   }
-  setDoc(ref, cobranza)   // fire-and-forget, sincroniza al reconectar
+  // fire-and-forget (offline-first); el .catch reporta un rechazo en vez de
+  // perder la cobranza en silencio.
+  fireAndForget(setDoc(ref, cobranza), { origen: 'crearCobranzaCalle', cobranzaId: ref.id, choferId: actor.uid })
   return { id: ref.id, ...cobranza }
 }
 
