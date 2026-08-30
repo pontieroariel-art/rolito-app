@@ -22,6 +22,17 @@ export default function MuelleTvPage() {
   const [remitos,     setRemitos]     = useState<RemitoCarga[]>([])
   const [ventanillas, setVentanillas] = useState<VentaVentanilla[]>([])
   const [ahora, setAhora] = useState(Date.now())
+  const [escala, setEscala] = useState(1)
+
+  // El tablero se diseña a 1920x1080 lógicos y se escala entero para entrar
+  // SIEMPRE completo en la pantalla real (TVs con otra resolución, escalado
+  // de Windows, ventana sin F11...). Sin scroll, sin cortes.
+  useEffect(() => {
+    const ajustar = () => setEscala(Math.min(window.innerWidth / 1920, window.innerHeight / 1080))
+    ajustar()
+    window.addEventListener('resize', ajustar)
+    return () => window.removeEventListener('resize', ajustar)
+  }, [])
 
   useEffect(() => subscribeRemitosCargaDelDia(plantaId, new Date(), setRemitos), [plantaId])
   useEffect(() => subscribeVentanillaDelDia(plantaId, new Date(), setVentanillas), [plantaId])
@@ -80,7 +91,11 @@ export default function MuelleTvPage() {
   const patente = (label: string) => label.split('·')[0].trim()
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white p-5 flex flex-col gap-4">
+    <div className="h-screen w-screen overflow-hidden bg-gray-950 relative">
+    <div
+      className="bg-gray-950 text-white p-5 flex flex-col gap-4 absolute left-1/2 top-1/2"
+      style={{ width: 1920, height: 1080, transform: `translate(-50%, -50%) scale(${escala})` }}
+    >
       {/* Header + llamado */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4 shrink-0">
@@ -226,6 +241,7 @@ export default function MuelleTvPage() {
           </div>
         </div>
       </div>
+    </div>
     </div>
   )
 }
