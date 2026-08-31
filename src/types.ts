@@ -36,6 +36,8 @@ export interface CatalogProducto {
   unidadesPorPallet?: number
   fotoUrl?:          string   // downloadURL de Storage (botonera de venta)
   destacado?:        boolean  // aparece en la sección "Frecuentes" de la botonera
+  etiqueta?:         string   // texto del badge de la tarjeta (lo que distingue: "10 kg", "Picado"…); default: peso del nombre
+  color?:            string   // color del badge/placeholder (hex); default: derivado del id
 }
 
 export interface ItemListaPrecios {

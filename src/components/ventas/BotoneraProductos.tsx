@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { CatalogProducto } from '../../types'
 import ProductoThumb from './ProductoThumb'
 import CalculadoraCantidad from './CalculadoraCantidad'
+import { colorDe, etiquetaDe } from '../../utils/productoVisual'
 
 const money = (n: number) => `$${n.toLocaleString('es-AR')}`
 
@@ -69,23 +70,48 @@ export default function BotoneraProductos({ catalogo, precioDe, cantidades, onCh
   )
 }
 
+// Badge de la tarjeta: lo que distingue al producto (peso "10 kg" o tipo "Picado").
+// El número va grande y la unidad chica; una palabra va en mayúsculas.
+function EtiquetaBadge({ text, color }: { text: string; color: string }) {
+  const size = text.match(/^(\d+)\s*([a-zA-Z]+)$/)
+  return (
+    <span
+      className="absolute top-1.5 left-1.5 flex items-baseline gap-0.5 rounded-lg px-2 py-0.5 text-white shadow"
+      style={{ backgroundColor: color }}
+    >
+      {size ? (
+        <>
+          <span className="text-2xl font-black leading-none tracking-tight">{size[1]}</span>
+          <span className="text-[11px] font-extrabold">{size[2]}</span>
+        </>
+      ) : (
+        <span className="text-[15px] font-black uppercase tracking-wide leading-none py-0.5">{text}</span>
+      )}
+    </span>
+  )
+}
+
 function ProductoCard({ producto, cantidad, precio, onClick }: {
   producto: CatalogProducto
   cantidad: number
   precio:   number
   onClick:  () => void
 }) {
-  const activo = cantidad > 0
+  const activo   = cantidad > 0
+  const color    = colorDe(producto)
+  const etiqueta = etiquetaDe(producto)
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`relative text-left bg-white rounded-xl border p-2.5 flex flex-col gap-2 active:scale-[0.98] transition-transform ${
-        activo ? 'border-accent shadow-sm' : 'border-[#D3D1C7]'
+      style={{ borderTopColor: color, borderTopWidth: '4px' }}
+      className={`relative text-left bg-white rounded-xl border border-[#D3D1C7] p-2.5 flex flex-col gap-2 active:scale-[0.98] transition-transform ${
+        activo ? 'ring-2 ring-accent shadow-sm' : ''
       }`}
     >
       <div className="relative">
         <ProductoThumb producto={producto} fill />
+        {etiqueta && <EtiquetaBadge text={etiqueta} color={color} />}
         {activo && (
           <span className="absolute -top-1.5 -right-1.5 min-w-[26px] h-[26px] px-1.5 rounded-full bg-accent text-white text-sm font-extrabold flex items-center justify-center tabular-nums shadow">
             {cantidad}

@@ -13,6 +13,7 @@ import {
 } from '../../services/listaPreciosService'
 import { getCatalogo, saveCatalogo, subirFotoProducto } from '../../services/catalogoService'
 import ProductoThumb from '../../components/ventas/ProductoThumb'
+import { autoEtiqueta } from '../../utils/productoVisual'
 import { getAllUsers } from '../../services/userService'
 import { updateUserDocument } from '../../services/userService'
 import { registrarCambiosLista } from '../../services/historialPreciosService'
@@ -482,6 +483,28 @@ function CatalogoEditor({
             >
               <Star size={16} fill={p.destacado ? 'currentColor' : 'none'} />
             </button>
+
+            {/* Texto del badge de la tarjeta (vacío = automático desde el nombre) */}
+            <input
+              type="text"
+              defaultValue={p.etiqueta ?? ''}
+              placeholder={autoEtiqueta(p.nombre) || 'badge'}
+              title="Texto del badge en la botonera (ej: 10 kg, Picado). Vacío = automático."
+              onBlur={async (e) => {
+                const val = e.target.value.trim()
+                if (val === (p.etiqueta ?? '')) return
+                const updated = catalogo.map((x) => {
+                  if (x.id !== p.id) return x
+                  const copy = { ...x }
+                  if (val) copy.etiqueta = val
+                  else delete copy.etiqueta
+                  return copy
+                })
+                await saveCatalogo(updated)
+                onSaved()
+              }}
+              className="w-20 bg-white border border-[#D3D1C7] rounded px-2 py-1 text-xs text-gray-900 text-center focus:outline-none focus:ring-1 focus:ring-accent placeholder-gray-300 shrink-0"
+            />
 
             <div className="flex items-center gap-1.5 shrink-0">
               <input

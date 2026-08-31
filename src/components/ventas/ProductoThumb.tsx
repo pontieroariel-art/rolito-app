@@ -1,20 +1,9 @@
 import { useState } from 'react'
 import { CatalogProducto } from '../../types'
-
-// Color estable derivado del id, para el placeholder cuando el producto no tiene
-// foto cargada. Así cada producto tiene siempre una identidad visual mínima.
-const PLACEHOLDER_COLORS = [
-  '#2563eb', '#0891b2', '#4f46e5', '#0d9488', '#7c3aed', '#db2777',
-  '#ea580c', '#16a34a', '#0ea5e9', '#64748b', '#9333ea', '#0284c7',
-]
-function colorDeId(id: string): string {
-  let h = 0
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0
-  return PLACEHOLDER_COLORS[h % PLACEHOLDER_COLORS.length]
-}
+import { colorDe } from '../../utils/productoVisual'
 
 interface Props {
-  producto:   Pick<CatalogProducto, 'id' | 'nombre' | 'fotoUrl'>
+  producto:   Pick<CatalogProducto, 'id' | 'nombre' | 'fotoUrl' | 'color'>
   size?:      number   // lado en px (modo cuadrado fijo); ignorado si fill
   fill?:      boolean  // ocupa todo el ancho disponible, aspecto cuadrado
   className?: string
@@ -40,7 +29,7 @@ export default function ProductoThumb({ producto, size = 48, fill = false, class
     )
   }
 
-  const color   = colorDeId(producto.id)
+  const color   = colorDe(producto)
   const inicial = (producto.nombre.trim()[0] || '?').toUpperCase()
   return (
     <div
