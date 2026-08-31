@@ -238,7 +238,7 @@ Descubierta por Ariel en la pantalla **Ventas → Consultas → Clientes → Sal
 |---|---|---|
 | **12205** | "Saldos" (Ventas → Consultas → Clientes → Saldos) | Una fila por CLIENTE con `saldO_CTE`/`saldO_EXT` (totales, sin composición) + datos de contacto |
 | **17953** | **"Deudas vencidas"** (Ventas → Consultas → Cuenta Corriente) | **LA COMPOSICIÓN**: una fila por comprobante pendiente vencido |
-| (pendiente) | "Deudas a vencer" (mismo menú) | La otra mitad: comprobantes pendientes no vencidos |
+| **17955** | **"Deudas a vencer"** (mismo menú) | La otra mitad: comprobantes pendientes no vencidos (confirmado 2026-08-31, misma estructura que 17953) |
 
 **Formato REAL del GetApiLiveQueryData (probado con datos, difiere de la plantilla de la Apertura):**
 
