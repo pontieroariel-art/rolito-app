@@ -35,7 +35,7 @@ export default function ProductoThumb({ producto, size = 48, fill = false, class
         loading="lazy"
         onError={() => setError(true)}
         style={boxStyle}
-        className={`rounded-lg object-cover bg-[#F0EEE7] shrink-0 ${boxClass} ${className}`}
+        className={`rounded-lg object-contain bg-white shrink-0 ${boxClass} ${className}`}
       />
     )
   }
