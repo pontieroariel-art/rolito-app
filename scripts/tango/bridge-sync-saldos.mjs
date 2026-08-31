@@ -4,15 +4,25 @@
  * Corre EN LA VM de Tango (no en este repo, no en CI), programado con el
  * Task Scheduler de Windows (cada 1-2 horas — más frecuente que el sync de
  * clientes: es el cache que ven los supervisores al cobrar). Trae la
- * composición de saldos de los clientes (facturas pendientes de cobro, con
- * saldo restante) y se la manda en lotes a la Cloud Function `syncSaldosTango`,
- * que es la única con la clave de Firestore — este script nunca la tiene.
+ * composición de saldos de los clientes (comprobantes pendientes de cobro,
+ * con saldo restante) y se la manda en lotes a la Cloud Function
+ * `syncSaldosTango`, que es la única con la clave de Firestore — este script
+ * nunca la tiene.
  *
- * ⚠ El `process`/vista de la composición de saldos TODAVÍA NO ESTÁ RELEVADO
- * (ver docs/tango/INTEGRACION.md). Todo lo específico de Tango está
- * parametrizado en el config (`tangoProcess`, `tangoView`) y aislado en
- * `recortarComprobante()`/`agruparPorCliente()` — al relevar el contrato real
- * solo hay que ajustar esos nombres de campo.
+ * Fuente: las consultas LIVE de Tango (relevadas y probadas 2026-08-31, ver
+ * docs/tango/INTEGRACION.md §6.1bis):
+ *   - "Deudas vencidas"  (process 17953)
+ *   - "Deudas a vencer"  (process en el config)
+ * La suma de ambas = composición completa de la deuda viva.
+ *
+ * Formato confirmado contra el server real:
+ *   GET {base}/Api/GetApiLiveQueryData?process=N&customQuery=0&fromDate=dd/MM/yyyy&toDate=dd/MM/yyyy&pageSize=500&pageIndex=0
+ *   Headers: ApiAuthorization (token dev) + Company (1 = Redonhielo)
+ *   → { resultData: { list, totalPages, ... }, succeeded }
+ *   Fila: ID_GVA12 (id del comprobante), ID_GVA14 (id del cliente — matchea
+ *   users.idGva14Tango), TIPO_COMPROBANTE, NRO_COMPROBANTE, CLIENTE
+ *   ("COD - RAZON SOCIAL"), FECHA_DE_VENCIMIENTO (ISO),
+ *   IMPORTE_AL_VENCIMIENTO_CTE, IMPORTE_PENDIENTE_CTE, DIAS_DE_ATRASO.
  *
  * Uso:
  *   1. Copiar este archivo + un `bridge-sync-saldos.config.json` (basado en
@@ -39,12 +49,16 @@ function cargarConfig() {
     console.error(`No se pudo leer ${CONFIG_PATH}. Copiá bridge-sync-saldos.config.example.json a bridge-sync-saldos.config.json y completá los valores reales.`)
     process.exit(1)
   }
-  for (const [clave, valor] of Object.entries(cfg)) {
-    if (typeof valor === 'string' && valor.includes('_AQUI')) {
-      console.error(`Falta completar "${clave}" en ${CONFIG_PATH}.`)
-      process.exit(1)
+  const chequear = (obj, prefijo = '') => {
+    for (const [clave, valor] of Object.entries(obj)) {
+      if (typeof valor === 'string' && valor.includes('_AQUI')) {
+        console.error(`Falta completar "${prefijo}${clave}" en ${CONFIG_PATH}.`)
+        process.exit(1)
+      }
+      if (valor && typeof valor === 'object') chequear(valor, `${prefijo}${clave}.`)
     }
   }
+  chequear(cfg)
   return cfg
 }
 
@@ -60,33 +74,93 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms))
 }
 
-// ── Mapeo Tango → row de la Function ─────────────────────────────────────────
-// Nombres de campo TENTATIVOS (estilo AXV_* clásico de Tango) — ajustar acá
-// cuando se releve la vista real de composición de saldos. La Function
-// (functions/src/triggers/tangoSaldos.ts) solo conoce el formato de salida de
-// estas dos funciones, no el de Tango.
-function recortarComprobante(c) {
+// dd/MM/yyyy — el único formato de fecha que acepta GetApiLiveQueryData
+// (probado: yyyy-MM-dd tira "not recognized as a valid DateTime").
+function ddMMyyyy(d) {
+  const dd = String(d.getDate()).padStart(2, '0')
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  return `${dd}/${mm}/${d.getFullYear()}`
+}
+
+// "2022-03-04T00:00:00" → "2022-03-04"
+function soloFecha(iso) {
+  return typeof iso === 'string' ? iso.slice(0, 10) : ''
+}
+
+function recortarComprobante(fila) {
   return {
-    tipo:               c.T_COMP ?? c.TIPO_COMP ?? c.TIPO ?? '',
-    numero:             c.N_COMP ?? c.NRO_COMP ?? c.NUMERO ?? '',
-    fechaEmision:       c.FECHA_EMIS ?? c.FECHA ?? '',
-    fechaVencimiento:   c.FECHA_VTO ?? undefined,
-    importeOriginal:    Number(c.IMPORTE ?? c.TOTAL ?? 0),
-    saldoPendiente:     Number(c.SALDO ?? c.IMPORTE_PENDIENTE ?? 0),
-    idComprobanteTango: c.ID_GVA12 ?? c.ID_COMP ?? undefined,
+    tipo:               String(fila.TIPO_COMPROBANTE ?? ''),
+    numero:             String(fila.NRO_COMPROBANTE ?? ''),
+    fechaEmision:       soloFecha(fila.FECHA_DE_EMISION),
+    ...(fila.FECHA_DE_VENCIMIENTO ? { fechaVencimiento: soloFecha(fila.FECHA_DE_VENCIMIENTO) } : {}),
+    importeOriginal:    Number(fila.IMPORTE_AL_VENCIMIENTO_CTE ?? 0),
+    saldoPendiente:     Number(fila.IMPORTE_PENDIENTE_CTE ?? 0),
+    ...(typeof fila.ID_GVA12 === 'number' ? { idComprobanteTango: fila.ID_GVA12 } : {}),
+    ...(typeof fila.DIAS_DE_ATRASO === 'number' && fila.DIAS_DE_ATRASO > 0 ? { diasAtraso: fila.DIAS_DE_ATRASO } : {}),
   }
 }
 
-function agruparPorCliente(lista) {
+// "ACH082 - HANZA MARIA ELENA" → { codigo: 'ACH082', nombre: 'HANZA MARIA ELENA' }
+function parseCliente(campo) {
+  const s = String(campo ?? '')
+  const idx = s.indexOf(' - ')
+  if (idx === -1) return { codigo: '', nombre: s }
+  return { codigo: s.slice(0, idx).trim(), nombre: s.slice(idx + 3).trim() }
+}
+
+async function traerConsultaLive(proceso, etiqueta) {
+  const desde = cfg.fromDate ?? '01/01/2015'
+  const hastaDate = new Date()
+  hastaDate.setFullYear(hastaDate.getFullYear() + 5)   // "a vencer" incluye vencimientos futuros
+  const hasta = cfg.toDate ?? ddMMyyyy(hastaDate)
+
+  const todos = []
+  let pageIndex = 0
+  let totalPages = 1
+  do {
+    const uri = cfg.tangoBaseUrl + '/Api/GetApiLiveQueryData'
+      + '?process=' + proceso
+      + '&customQuery=0'
+      + '&fromDate=' + encodeURIComponent(desde)
+      + '&toDate=' + encodeURIComponent(hasta)
+      + '&pageSize=' + (cfg.pageSize ?? 500)
+      + '&pageIndex=' + pageIndex
+    const resp = await fetch(uri, {
+      headers: { ApiAuthorization: cfg.tangoToken, Company: cfg.tangoCompany },
+    })
+    if (!resp.ok) throw new Error(`Tango respondió ${resp.status} en ${etiqueta} página ${pageIndex}`)
+    const data = await resp.json()
+    if (!data.succeeded) throw new Error(`Tango succeeded=false en ${etiqueta} página ${pageIndex}: ${data.exceptionInfo?.messages?.join('; ') ?? data.message ?? ''}`)
+
+    totalPages = data.resultData.totalPages
+    todos.push(...data.resultData.list)
+    log(`  ${etiqueta}: página ${pageIndex + 1}/${totalPages} — ${todos.length} filas acumuladas`)
+    pageIndex++
+    await sleep(200)
+  } while (pageIndex < totalPages)
+
+  return todos
+}
+
+async function traerSaldosTango() {
+  const filas = []
+  filas.push(...await traerConsultaLive(cfg.procesoDeudasVencidas, 'deudas vencidas'))
+  if (cfg.procesoDeudasAVencer) {
+    filas.push(...await traerConsultaLive(cfg.procesoDeudasAVencer, 'deudas a vencer'))
+  } else {
+    log('  AVISO: procesoDeudasAVencer sin configurar — el cache solo va a tener las deudas YA VENCIDAS')
+  }
+
   const porCliente = new Map()
-  for (const fila of lista) {
-    const idGva14 = fila.ID_GVA14 ?? fila.GVA14_ID
+  for (const fila of filas) {
+    const idGva14 = fila.ID_GVA14
     if (typeof idGva14 !== 'number') continue
     if (!porCliente.has(idGva14)) {
+      const { codigo, nombre } = parseCliente(fila.CLIENTE)
       porCliente.set(idGva14, {
         idGva14,
-        codGva14:     fila.COD_GVA14 ?? undefined,
-        razonSocial:  fila.RAZON_SOCI ?? undefined,
+        codGva14:     codigo || undefined,
+        razonSocial:  nombre || undefined,
         empresa:      cfg.empresa ?? 'redonhielo',
         comprobantes: [],
       })
@@ -94,30 +168,6 @@ function agruparPorCliente(lista) {
     porCliente.get(idGva14).comprobantes.push(recortarComprobante(fila))
   }
   return [...porCliente.values()]
-}
-
-async function traerSaldosTango() {
-  const todos = []
-  let pageIndex = 0
-  let totalPages = 1
-
-  do {
-    const uri = cfg.tangoBaseUrl + '?process=' + cfg.tangoProcess + '&pageSize=' + cfg.pageSize + '&pageIndex=' + pageIndex + '&view=' + (cfg.tangoView ?? '')
-    const resp = await fetch(uri, {
-      headers: { ApiAuthorization: cfg.tangoToken, Company: cfg.tangoCompany },
-    })
-    if (!resp.ok) throw new Error(`Tango respondió ${resp.status} en la página ${pageIndex}`)
-    const data = await resp.json()
-    if (!data.succeeded) throw new Error(`Tango succeeded=false en la página ${pageIndex}: ${data.message ?? ''}`)
-
-    totalPages = data.resultData.totalPages
-    todos.push(...data.resultData.list)
-    log(`  página ${pageIndex + 1}/${totalPages} — ${todos.length} filas acumuladas`)
-    pageIndex++
-    await sleep(200)
-  } while (pageIndex < totalPages)
-
-  return agruparPorCliente(todos)
 }
 
 function chunk(arr, size) {

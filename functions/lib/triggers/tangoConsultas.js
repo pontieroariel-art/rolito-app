@@ -38,6 +38,7 @@ exports.onConsultaRespondida = (0, firestore_1.onDocumentUpdated)('tango-consult
         importeOriginal: redondear2(Number(c.importeOriginal ?? c.saldoPendiente ?? 0)),
         saldoPendiente: redondear2(Number(c.saldoPendiente ?? 0)),
         ...(typeof c.idComprobanteTango === 'number' ? { idComprobanteTango: c.idComprobanteTango } : {}),
+        ...(typeof c.diasAtraso === 'number' && c.diasAtraso > 0 ? { diasAtraso: c.diasAtraso } : {}),
     }));
     // Igual que el sync periódico (tangoSaldos.ts): re-aplicar los descuentos de
     // cobranzas de supervisor que Tango todavía no vio (tango.estado !=

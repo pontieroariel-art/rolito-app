@@ -285,12 +285,13 @@ export type EmpresaTango = 'redonhielo' | 'rolito'
 
 export interface ComprobanteSaldoTango {
   tipo:               string   // 'FAC' | 'ND' | 'NC' | … (tal como venga de Tango)
-  numero:             string   // ej. 'A-0001-00012345'
-  fechaEmision:       string   // 'yyyy-MM-dd'
+  numero:             string   // ej. 'A0010100173697'
+  fechaEmision:       string   // 'yyyy-MM-dd' — puede venir vacía (las Live de deudas no la traen)
   fechaVencimiento?:  string
   importeOriginal:    number   // hasta 2 decimales
   saldoPendiente:     number   // saldo restante (facturas parciales incluidas)
-  idComprobanteTango?: number  // ID interno de Tango, para imputar en el recibo
+  idComprobanteTango?: number  // ID_GVA12 — ID interno del comprobante, para imputar en el recibo
+  diasAtraso?:        number   // días vencida (solo deudas vencidas)
 }
 
 export interface SaldoTango {

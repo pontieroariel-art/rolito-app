@@ -20,6 +20,7 @@ function normalizarComprobante(c) {
         importeOriginal: redondear2(Number(c.importeOriginal ?? c.saldoPendiente ?? 0)),
         saldoPendiente: redondear2(Number(c.saldoPendiente ?? 0)),
         ...(typeof c.idComprobanteTango === 'number' ? { idComprobanteTango: c.idComprobanteTango } : {}),
+        ...(typeof c.diasAtraso === 'number' && c.diasAtraso > 0 ? { diasAtraso: c.diasAtraso } : {}),
     };
 }
 async function descuentosPendientes(db) {

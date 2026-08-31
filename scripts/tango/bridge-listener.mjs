@@ -198,42 +198,77 @@ async function procesarItem(db, docId, data) {
 
 // ── Consultas on-demand (tango-consultas): composición de saldos ────────────
 // La pantalla de cobro del supervisor crea un doc pidiendo el saldo fresco de
-// UN cliente; acá se le pega a Tango (GetByFilter por ID_GVA14) y se escribe
-// el resultado en el MISMO doc. Una Cloud Function (onConsultaRespondida)
-// copia después el resultado al cache saldosTango — este script nunca escribe
-// el cache directo, coherente con el modelo de confianza del outbox.
+// UN cliente; acá se consultan las Live de "Deudas vencidas" + "Deudas a
+// vencer" y se filtra por ID_GVA14, escribiendo el resultado en el MISMO doc.
+// Una Cloud Function (onConsultaRespondida) copia después el resultado al
+// cache saldosTango — este script nunca escribe el cache directo, coherente
+// con el modelo de confianza del outbox.
 //
-// ⚠ El process/vista de composición de saldos todavía no está relevado — los
-// nombres de campo de recortarComprobante() son tentativos (mismos que
-// bridge-sync-saldos.mjs); ajustar ambos juntos al relevar el contrato real.
-function recortarComprobante(c) {
+// Formato de la API Live confirmado 2026-08-31 (ver docs/tango/INTEGRACION.md
+// §6.1bis y bridge-sync-saldos.mjs, que usa el mismo): query string,
+// customQuery=0 obligatorio, fechas dd/MM/yyyy.
+function soloFecha(iso) {
+  return typeof iso === 'string' ? iso.slice(0, 10) : ''
+}
+
+function recortarComprobante(fila) {
   return {
-    tipo:               c.T_COMP ?? c.TIPO_COMP ?? c.TIPO ?? '',
-    numero:             c.N_COMP ?? c.NRO_COMP ?? c.NUMERO ?? '',
-    fechaEmision:       c.FECHA_EMIS ?? c.FECHA ?? '',
-    ...(c.FECHA_VTO ? { fechaVencimiento: c.FECHA_VTO } : {}),
-    importeOriginal:    Number(c.IMPORTE ?? c.TOTAL ?? 0),
-    saldoPendiente:     Number(c.SALDO ?? c.IMPORTE_PENDIENTE ?? 0),
-    ...(c.ID_GVA12 != null ? { idComprobanteTango: c.ID_GVA12 } : {}),
+    tipo:               String(fila.TIPO_COMPROBANTE ?? ''),
+    numero:             String(fila.NRO_COMPROBANTE ?? ''),
+    fechaEmision:       soloFecha(fila.FECHA_DE_EMISION),
+    ...(fila.FECHA_DE_VENCIMIENTO ? { fechaVencimiento: soloFecha(fila.FECHA_DE_VENCIMIENTO) } : {}),
+    importeOriginal:    Number(fila.IMPORTE_AL_VENCIMIENTO_CTE ?? 0),
+    saldoPendiente:     Number(fila.IMPORTE_PENDIENTE_CTE ?? 0),
+    ...(typeof fila.ID_GVA12 === 'number' ? { idComprobanteTango: fila.ID_GVA12 } : {}),
+    ...(typeof fila.DIAS_DE_ATRASO === 'number' && fila.DIAS_DE_ATRASO > 0 ? { diasAtraso: fila.DIAS_DE_ATRASO } : {}),
   }
+}
+
+function ddMMyyyy(d) {
+  const dd = String(d.getDate()).padStart(2, '0')
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  return `${dd}/${mm}/${d.getFullYear()}`
+}
+
+async function traerDeudasLive(t, proceso, idGva14) {
+  const hastaDate = new Date()
+  hastaDate.setFullYear(hastaDate.getFullYear() + 5)
+  const filas = []
+  let pageIndex = 0
+  let totalPages = 1
+  do {
+    const uri = t.baseUrl + '/Api/GetApiLiveQueryData'
+      + '?process=' + proceso
+      + '&customQuery=0'
+      + '&fromDate=' + encodeURIComponent(t.fromDate ?? '01/01/2015')
+      + '&toDate=' + encodeURIComponent(ddMMyyyy(hastaDate))
+      + '&pageSize=' + (t.pageSize ?? 500)
+      + '&pageIndex=' + pageIndex
+    const resp = await fetch(uri, { headers: { ApiAuthorization: t.token, Company: t.company } })
+    if (!resp.ok) throw new Error(`Tango respondió ${resp.status} (process ${proceso}, página ${pageIndex})`)
+    const data = await resp.json()
+    if (!data.succeeded) throw new Error(`Tango succeeded=false (process ${proceso}): ${data.exceptionInfo?.messages?.join('; ') ?? data.message ?? ''}`)
+    // El filtro por cliente es client-side (customQuery es un flag, no un
+    // filtro): se pagina todo y se queda con las filas del ID_GVA14 pedido.
+    filas.push(...data.resultData.list.filter((f) => f.ID_GVA14 === idGva14))
+    totalPages = data.resultData.totalPages
+    pageIndex++
+  } while (pageIndex < totalPages)
+  return filas
 }
 
 async function consultarSaldoEnTango(idGva14) {
   const t = cfg.tangoSaldos
-  if (!t || !t.process) {
-    return { ok: false, error: 'tangoSaldos.process no configurado en bridge-listener.config.json (falta relevar el process de composición de saldos)' }
+  if (!t || !t.procesoDeudasVencidas) {
+    return { ok: false, error: 'tangoSaldos.procesoDeudasVencidas no configurado en bridge-listener.config.json' }
   }
   try {
-    const uri = t.baseUrlGetByFilter + '?process=' + t.process + '&view=' + (t.view ?? '') +
-      '&filtroSql=' + encodeURIComponent(`${t.campoIdCliente ?? 'ID_GVA14'} = ${Number(idGva14)}`)
-    const resp = await fetch(uri, {
-      headers: { ApiAuthorization: t.token, Company: t.company },
-    })
-    if (!resp.ok) return { ok: false, error: `Tango respondió ${resp.status}` }
-    const data = await resp.json()
-    if (!data.succeeded) return { ok: false, error: `Tango succeeded=false: ${data.message ?? ''}` }
-    const lista = data.resultData?.list ?? data.resultData ?? []
-    const comprobantes = (Array.isArray(lista) ? lista : []).map(recortarComprobante)
+    const id = Number(idGva14)
+    const filas = await traerDeudasLive(t, t.procesoDeudasVencidas, id)
+    if (t.procesoDeudasAVencer) {
+      filas.push(...await traerDeudasLive(t, t.procesoDeudasAVencer, id))
+    }
+    const comprobantes = filas.map(recortarComprobante)
     const saldoTotal = Math.round(comprobantes.reduce((s, c) => s + c.saldoPendiente, 0) * 100) / 100
     return { ok: true, resultado: { comprobantes, saldoTotal } }
   } catch (err) {

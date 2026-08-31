@@ -248,7 +248,10 @@ export default function CobranzaSupervisorPage() {
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium text-gray-900 truncate">{c.tipo} {c.numero}</p>
                               <p className="text-xs text-gray-500">
-                                {c.fechaEmision}
+                                {c.fechaEmision || (c.fechaVencimiento ? `Vto. ${c.fechaVencimiento}` : '')}
+                                {c.diasAtraso ? (
+                                  <span className="text-red-500"> · {c.diasAtraso} {c.diasAtraso === 1 ? 'día' : 'días'} de atraso</span>
+                                ) : null}
                                 {aCentavos(c.saldoPendiente) < aCentavos(c.importeOriginal) && (
                                   <span className="text-amber-600"> · cobro parcial previo</span>
                                 )}

@@ -27,7 +27,7 @@ Según factura Axoft A00006-00260794 (04/12/2025), la llave `001174/003` incluye
 
 **Pregunta crítica abierta (Silvina, Axoft):** ¿la "Extensión API ABMs y Consultas Live" es lo mismo que la **API de Tango Tiendas** (REST cloud, requiere licencia "Tango Tiendas Full" + módulo tesorería según la doc), o es otra API distinta (local, tipo ABM)? De la respuesta depende el camino técnico. Segunda pregunta: si la llave testing pagada post-lanzamiento se genera directo en Delta 6.
 
-**CONFIRMADO (2026-08-25), directo del servidor productivo — Administrador general → Datos de licencia → solapa API:**
+**CONFIRMADO (2026-08-25; re-verificado 2026-08-31 sin cambios tras la reunión con Tango/TC), directo del servidor productivo — Datos de licencia → solapa "API (Apertura)":**
 
 | Ítem | Habilitada |
 |---|---|
@@ -36,6 +36,25 @@ Según factura Axoft A00006-00260794 (04/12/2025), la llave `001174/003` incluye
 | Transacciones Tango Contabilidad | **No** |
 
 Esto confirma dos cosas: (1) la API de **Plataforma/ABM** (Clientes, Proveedores, Artículos, Cuentas de tesorería — GET/POST/PUT/DELETE) está activa y lista para usar — es API distinta de Tango Tiendas, ya no es una incógnita. (2) **No está licenciada la escritura de pedidos/facturas** por esta vía (Transacciones Ventas = No) — el plan de "la app crea el pedido y lo sube a Tango" necesita, para ESTE camino, contratar ese módulo aparte a Axoft, o bien resolverse por la API de Tango Tiendas (licencia distinta, todavía sin confirmar). **Alcance inmediato desbloqueado sin costo adicional:** sincronizar clientes/artículos/stock (lectura y escritura de maestros) vía ABM API.
+
+**Módulos instalados en la llave (2026-08-31, captura de Ariel — Datos de licencia → solapa "Módulos"; llave `001174/003`, licencia 896437, GOLD, 15 terminales, estado Ok, instalación 20/08/2026, tipo "Virtual HL"):**
+
+| Módulo | Código |
+|---|---|
+| Procesos generales | 11 |
+| Administrador | 51 |
+| Contabilidad Astor | 6 |
+| Sueldos Astor | 8 |
+| Control de personal | 9 |
+| **Tesorería** | 10005 |
+| Aplicaciones Nexo | 10026 |
+| **Stock** | 10002 |
+| Compras | 10003 |
+| **Central** | 10010 |
+| Cash Flow | 10006 |
+| **Ventas** | 10023 |
+
+Lectura relevante para la integración: **Tesorería (10005) y Ventas (10023) están instalados como módulos** — o sea que los recibos de cobranza y el circuito de facturación existen en el Tango; lo que falta no son módulos sino el flag de licencia de la **API de transacciones** (solapa "API (Apertura)": Transacciones Tango Ventas = No al 25/08). Central (10010) también está — mantiene abierta la vía "transferencia de comprobantes" como plan C. En la UI web de Delta 6 el camino es: lupa → "Datos de licencia" (o Administrador → Datos de licencia), solapas Principal / Módulos / Funcionalidad opcional / **API (Apertura)** / Licencias de Sueldos.
 
 ## 3. API de Tango Tiendas — resumen técnico
 
@@ -197,6 +216,50 @@ A diferencia de lo relevado en julio (Tango Tiendas, e-commerce), la API que **s
 
 **⚠️ Hallazgo importante (2026-08-25):** el `COD_GVA14` real de Tango es **numérico puro** (ej. `092435`, `122136`) — no tiene relación con el `codigoCliente` alfanumérico que ya usa la app hoy (ej. `MDP214`, `FC.570`, con prefijo de zona), que viene del Excel histórico de clientes/heladeras, no de Tango. La decisión tomada en julio ("`codigoCliente` de la app pasa a ser el código de Tango") **no se puede aplicar tal cual** — son dos numeraciones distintas y no hay forma de saber la correspondencia sin cruzarlas. **Camino recomendado:** cruzar por **CUIT** (existe y es confiable en ambos sistemas), guardar el `COD_GVA14`/`ID_GVA14` de Tango como campo NUEVO y separado (ej. `codigoTango`) en el perfil del cliente, sin tocar el `codigoCliente` existente — decisión pendiente de confirmar con Ariel.
 - **Importante:** esta API, con solo "ABMs y consultas Live" licenciado, NO permite crear pedidos/facturas — eso es "Transacciones Tango Ventas" (misma superficie técnica, módulo de licencia aparte). Ver §6.2: la API de transacciones está documentada públicamente y es la que Axoft respondería habilitar ("API Ventas").
+
+### 6.1 bis — API de Consultas Live ("Apertura") — relevada 2026-08-31, EN VIVO desde el server
+
+Descubierta por Ariel en la pantalla **Ventas → Consultas → Clientes → Saldos → Apertura**
+(la composición de saldos para las cobranzas de supervisores). Las consultas Live tienen
+**endpoints propios**, distintos del `Api/Get?process=` de los ABMs:
+
+- **Auth:** mismos headers de siempre — `ApiAuthorization` (el token de desarrollador ya
+  generado) + `Company` (1 = Redonhielo). La pantalla de Apertura los muestra precargados.
+- `GET Api/GetColumnDefinition/{process}/{sortAlphabetically}` — **definición de columnas**
+  de la consulta: permite descubrir el esquema programáticamente, sin adivinar campos.
+- `GET Api/GetApiLiveQueryData/{process}/{fromDate}/{toDate}/{pageSize}/{pageIndex}/{customQuery}`
+  — la consulta paginada (parámetros en el PATH, no query string), con rango de fechas y
+  filtro `customQuery`.
+- `POST Api/GetApiLiveFullOpenData` — consulta Live con parámetros en el body.
+
+**Consultas Live relevadas y PROBADAS contra el server real (2026-08-31, sesión RDP de Ariel):**
+
+| process | Consulta | Qué devuelve |
+|---|---|---|
+| **12205** | "Saldos" (Ventas → Consultas → Clientes → Saldos) | Una fila por CLIENTE con `saldO_CTE`/`saldO_EXT` (totales, sin composición) + datos de contacto |
+| **17953** | **"Deudas vencidas"** (Ventas → Consultas → Cuenta Corriente) | **LA COMPOSICIÓN**: una fila por comprobante pendiente vencido |
+| (pendiente) | "Deudas a vencer" (mismo menú) | La otra mitad: comprobantes pendientes no vencidos |
+
+**Formato REAL del GetApiLiveQueryData (probado con datos, difiere de la plantilla de la Apertura):**
+
+```
+GET /Api/GetApiLiveQueryData?process=17953&customQuery=0&fromDate=01/01/2020&toDate=31/12/2026&pageSize=3&pageIndex=0
+Headers: ApiAuthorization + Company
+```
+
+- Parámetros por **query string** (la plantilla `/{process}/...` de la pantalla de Apertura NO funciona — devuelve el HTML de la app, mismo caso que el ABM).
+- `customQuery=0` obligatorio (no acepta vacío, ni espacios, ni `1=1`, ni `false` — es un flag numérico).
+- Fechas en **dd/MM/yyyy** (con `yyyy-MM-dd` tira "String was not recognized as a valid DateTime").
+- Respuesta: `{ resultData: { list, pageIndex, pageSize, totalCount, totalPages, ... }, succeeded }` — mismo sobre que el ABM.
+- `GetColumnDefinition?process=N&sortAlphabetically=false` sí es query string y devuelve el esquema completo.
+
+**Fila real de 17953 (campos confirmados):** `ID_GVA12` (ID interno del comprobante en cta. cte. — para imputar), `FECHA_DE_VENCIMIENTO` (ISO), `TIPO_COMPROBANTE` ('FAC'), `NRO_COMPROBANTE` ('A0010100173697'), **`ID_GVA14`** (¡el vínculo directo con `users/{uid}.idGva14Tango`!), `CLIENTE` ("ACH082 - HANZA MARIA ELENA" — código alfanumérico histórico + razón social), `NOMBRE_PROVINCIA`, `IMPORTE_AL_VENCIMIENTO_CTE`, `IMPORTE_PENDIENTE_CTE` (el saldo restante — los cobros parciales se ven: 1028.50 → pendiente 150.50), `DIAS_DE_ATRASO`, `ID_GVA23`/`COD_VENDEDOR`. Nota: la respuesta trae las columnas del diseño por defecto de la consulta (no las ~55 del GetColumnDefinition); `FECHA_DE_EMISION` no viene en el default. 1.022 deudas vencidas al 2026-08-31.
+
+**Pendiente inmediato:** con el process ya conocido: primero `GetColumnDefinition` para el esquema, después
+ajustar `scripts/tango/bridge-sync-saldos.mjs` y el handler de consultas de
+`bridge-listener.mjs` (hoy asumen el formato ABM `Api/Get`/`GetByFilter` — hay que
+migrarlos a `GetApiLiveQueryData`). Esto corre con la licencia ACTUAL ("ABMs y consultas
+Live: Sí") — no depende de Axoft.
 
 ### 6.2 API de Transacciones de Ventas ("API Ventas" / Pedidos) — relevada 2026-08-29, a la espera de habilitación
 

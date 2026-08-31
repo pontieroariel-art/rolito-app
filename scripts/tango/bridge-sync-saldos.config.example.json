@@ -1,12 +1,13 @@
 {
-  "tangoBaseUrl": "http://rhielotg:17000/Api/Get",
+  "tangoBaseUrl": "http://rhielotg:17000",
   "tangoToken": "TOKEN_DE_DESARROLLADOR_AQUI",
   "tangoCompany": "1",
-  "tangoProcess": "PROCESS_DE_COMPOSICION_DE_SALDOS_AQUI",
-  "tangoView": "",
+  "procesoDeudasVencidas": "17953",
+  "procesoDeudasAVencer": "",
   "empresa": "redonhielo",
-  "pageSize": "500",
-  "cloudFunctionUrl": "URL_DE_SYNCSALDOSTANGO_AQUI",
+  "fromDate": "01/01/2015",
+  "pageSize": 500,
+  "cloudFunctionUrl": "https://us-central1-rolito-app.cloudfunctions.net/syncSaldosTango",
   "bridgeSecret": "TANGO_BRIDGE_SECRET_AQUI",
   "logFile": "C:\\RolitoSync\\bridge-sync-saldos.log"
 }
