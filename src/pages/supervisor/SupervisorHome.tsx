@@ -48,7 +48,7 @@ export default function SupervisorHome() {
   }, [cobranzasHoy])
 
   const descargarRecibo = (c: Cobranza) => {
-    if (!c.numeroRecibo || !c.imputaciones || !c.medios) return
+    if (!c.imputaciones || !c.medios) return
     generateReciboCobranzaSupervisor({
       numeroRecibo:  c.numeroRecibo,
       clienteNombre: c.clienteNombre,
@@ -117,7 +117,7 @@ export default function SupervisorHome() {
                       <p className="text-sm font-semibold text-gray-900 shrink-0">{formatoARS(c.importe)}</p>
                     </div>
                     <p className="text-xs text-gray-500">
-                      {c.numeroRecibo ?? 'Sin recibo'} · {c.imputaciones?.length ?? 0} {(c.imputaciones?.length ?? 0) === 1 ? 'factura' : 'facturas'} · tocá para reimprimir
+                      {c.numeroRecibo ?? 'Sin número'} · {c.imputaciones?.length ?? 0} {(c.imputaciones?.length ?? 0) === 1 ? 'factura' : 'facturas'} · tocá para reimprimir
                     </p>
                   </button>
                 ))}

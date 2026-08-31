@@ -16,7 +16,6 @@ const COUNTER_REF = () => doc(db, 'config', 'reciboSupervisorCounter')
 
 export class ReciboCounterNoInicializadoError extends Error {}
 export class ReservaAgotadaError extends Error {}
-export class SinNumerosDisponiblesOfflineError extends Error {}
 
 export function codigoRecibo(numero: number): string {
   return `RS-${String(numero).padStart(6, '0')}`
@@ -104,21 +103,27 @@ function margenRestante(r: ReservaLocalRecibos): number {
   return r.activo ? r.activo.to - r.activo.usedUpTo : 0
 }
 
-// Llamar al montar la pantalla de cobro: si ya hay margen no hace nada; si no
-// hay nada y hay red, reserva bloqueante; si no hay nada y no hay red, es el
-// único caso que bloquea el cobro (trade-off aceptado, igual que producción).
-export async function asegurarReserva(uid: string, online: boolean): Promise<void> {
+// Llamar al montar la pantalla de cobro. Devuelve si la numeración está
+// ACTIVA (hay números para consumir). La numeración es OPCIONAL por decisión
+// de Ariel (2026-08-31): mientras config/reciboSupervisorCounter no esté
+// inicializado, los recibos salen SIN número y el cobro nunca se bloquea —
+// cuando se conecte Tango y se inicialice el contador, la numeración arranca
+// sola. Por eso acá nada tira error: sin red y sin reserva → sin número.
+export async function asegurarReserva(uid: string, online: boolean): Promise<boolean> {
   const r = leerReserva(uid)
-  if (margenRestante(r) > 0 || r.siguiente) return
+  if (margenRestante(r) > 0 || r.siguiente) return true
 
-  if (!online) {
-    throw new SinNumerosDisponiblesOfflineError(
-      'Sin conexión y sin números de recibo disponibles. Reconectate para poder cobrar.',
-    )
+  if (!online) return false
+
+  try {
+    const rango = await reservarLote()
+    guardarReserva(uid, { ...r, activo: { ...rango, usedUpTo: rango.from - 1 } })
+    return true
+  } catch {
+    // Contador no inicializado (modo "sin numeración") o error de red — el
+    // cobro sigue sin número.
+    return false
   }
-
-  const rango = await reservarLote()
-  guardarReserva(uid, { ...r, activo: { ...rango, usedUpTo: rango.from - 1 } })
 }
 
 // Fire-and-forget después de cada cobranza: recarga el próximo lote en

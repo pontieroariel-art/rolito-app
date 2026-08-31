@@ -967,7 +967,9 @@ service cloud.firestore {
         && request.resource.data.clienteId is string
         && request.resource.data.importe is number && request.resource.data.importe > 0
         && request.resource.data.formaPago == 'mixto'
-        && request.resource.data.numeroRecibo is string
+        // numeroRecibo es opcional (sin numeración hasta conectar Tango,
+        // decisión 2026-08-31); si viene, tiene que ser string.
+        && (!('numeroRecibo' in request.resource.data) || request.resource.data.numeroRecibo is string)
         && request.resource.data.empresa in ['redonhielo', 'rolito']
         && request.resource.data.imputaciones is list
         && request.resource.data.imputaciones.size() > 0

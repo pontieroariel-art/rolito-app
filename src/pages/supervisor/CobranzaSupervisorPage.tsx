@@ -50,7 +50,7 @@ export default function CobranzaSupervisorPage() {
   const [modal, setModal] = useState<'cheque' | 'retencion' | 'confirmar' | null>(null)
   const [exito, setExito] = useState<Cobranza | null>(null)
   const [error, setError] = useState('')
-  const [errorReserva, setErrorReserva] = useState('')
+  const [numeracionActiva, setNumeracionActiva] = useState(false)
 
   // Solo clientes vinculados a Tango pueden cobrarse con imputación.
   const clientesTango = useMemo(
@@ -65,12 +65,12 @@ export default function CobranzaSupervisorPage() {
   )
   const { saldo, cargando: cargandoSaldo, refrescando, esCache } = useSaldoClienteEnVivo(cliente, actor)
 
-  // Reserva de números de recibo para poder emitir sin señal.
+  // Reserva de números de recibo para poder emitir sin señal. La numeración
+  // es opcional: si el contador no está inicializado (decisión hasta conectar
+  // Tango), los recibos salen sin número y el cobro no se bloquea nunca.
   useEffect(() => {
     if (!user) return
-    asegurarReserva(user.uid, online)
-      .then(() => setErrorReserva(''))
-      .catch((e: Error) => setErrorReserva(e.message))
+    asegurarReserva(user.uid, online).then(setNumeracionActiva)
     // online a propósito: si vuelve la señal, reintenta la reserva.
   }, [user, online])
 
@@ -126,14 +126,18 @@ export default function CobranzaSupervisorPage() {
     if (imputacionInvalida)       { setError('Hay una imputación en cero o mayor al saldo de la factura.'); return }
     if (totalMediosCent === 0)    { setError('Cargá al menos un medio de pago.'); return }
     if (diferenciaCent !== 0)     { setError('La suma de los valores no coincide con lo imputado.'); return }
-    if (errorReserva)             { setError(errorReserva); return }
     setModal('confirmar')
   }
 
   const confirmar = () => {
     if (!user || !cliente || !saldo) return
     try {
-      const numeroRecibo = codigoRecibo(consumirNumero(user.uid))
+      // Con numeración activa consume un número de la reserva local; si justo
+      // se agotó (carrera), el recibo sale sin número antes que bloquear.
+      let numeroRecibo: string | undefined
+      if (numeracionActiva) {
+        try { numeroRecibo = codigoRecibo(consumirNumero(user.uid)) } catch { /* sin número */ }
+      }
       const cobranza = crearCobranzaSupervisor(
         {
           clienteId:     cliente.uid,
@@ -150,7 +154,7 @@ export default function CobranzaSupervisorPage() {
         },
         { uid: user.uid, nombre: user.nombre },
       )
-      precargarSiSeAcerca(user.uid, online)
+      if (numeracionActiva) precargarSiSeAcerca(user.uid, online)
       setExito(cobranza)
       setModal(null)
       setClienteId('')
@@ -161,7 +165,7 @@ export default function CobranzaSupervisorPage() {
   }
 
   const descargarRecibo = (c: Cobranza) => {
-    if (!c.numeroRecibo || !c.imputaciones || !c.medios) return
+    if (!c.imputaciones || !c.medios) return
     generateReciboCobranzaSupervisor({
       numeroRecibo:  c.numeroRecibo,
       clienteNombre: c.clienteNombre,
@@ -184,7 +188,7 @@ export default function CobranzaSupervisorPage() {
           <CheckCircle2 size={48} className="text-accent mx-auto" />
           <div>
             <p className="text-lg font-semibold text-gray-900">Cobranza registrada</p>
-            <p className="text-sm text-gray-600 mt-1">Recibo {exito.numeroRecibo} — {formatoARS(exito.importe)} — {exito.clienteNombre}</p>
+            <p className="text-sm text-gray-600 mt-1">{exito.numeroRecibo ? `Recibo ${exito.numeroRecibo} — ` : ''}{formatoARS(exito.importe)} — {exito.clienteNombre}</p>
             <p className="text-xs text-gray-500 mt-2">Queda encolada para impactar en la cuenta corriente de Tango.</p>
           </div>
           <div className="flex flex-col gap-2 pt-2">
@@ -207,12 +211,6 @@ export default function CobranzaSupervisorPage() {
           <label className="text-xs text-gray-500 mb-1 block">Cliente</label>
           <ClienteCombobox items={toComboItems(clientesTango)} value={clienteId} onChange={setClienteId} placeholder="Buscar cliente…" />
         </div>
-
-        {errorReserva && (
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">
-            <p className="text-amber-700 text-sm">{errorReserva}</p>
-          </div>
-        )}
 
         {cliente && (
           <>

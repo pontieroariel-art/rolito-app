@@ -1169,7 +1169,7 @@ export async function generateReciboCobranza(cobranza: {
 // recibidos (efectivo / transferencia / cheques con banco, fechas y días /
 // retenciones con certificado). Ver plan de cobranzas de supervisores.
 export async function generateReciboCobranzaSupervisor(cobranza: {
-  numeroRecibo:  string
+  numeroRecibo?: string   // ausente mientras la numeración no esté inicializada
   clienteNombre: string
   empresa:       'redonhielo' | 'rolito'
   importe:       number
@@ -1202,7 +1202,7 @@ export async function generateReciboCobranzaSupervisor(cobranza: {
   doc.setFontSize(15)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(0)
-  doc.text(`Recibo ${cobranza.numeroRecibo}`, pageW - 14, 14, { align: 'right' })
+  doc.text(cobranza.numeroRecibo ? `Recibo ${cobranza.numeroRecibo}` : 'Recibo de Cobranza', pageW - 14, 14, { align: 'right' })
   doc.setFontSize(9)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(80)
@@ -1283,5 +1283,5 @@ export async function generateReciboCobranzaSupervisor(cobranza: {
   doc.setTextColor(100)
   doc.text(`Firma y aclaración — Supervisor: ${cobranza.registradoPor}`, pageW - 88, y + 4)
 
-  doc.save(`recibo-${cobranza.numeroRecibo}.pdf`)
+  doc.save(`recibo-${cobranza.numeroRecibo ?? `cobranza-${cobranza.fecha.getTime()}`}.pdf`)
 }

@@ -81,7 +81,7 @@ export function crearCobranzaSupervisor(
     clienteId:     string
     clienteNombre: string
     empresa:       EmpresaTango
-    numeroRecibo:  string
+    numeroRecibo?: string   // ausente mientras la numeración no esté inicializada
     imputaciones:  ImputacionFactura[]
     medios:        MediosPago
   },
@@ -111,7 +111,7 @@ export function crearCobranzaSupervisor(
     importe:       totalImputado / 100,
     formaPago:     'mixto',
     fecha:         Timestamp.now(),
-    numeroRecibo:  args.numeroRecibo,
+    ...(args.numeroRecibo ? { numeroRecibo: args.numeroRecibo } : {}),
     empresa:       args.empresa,
     imputaciones:  args.imputaciones,
     medios:        args.medios,

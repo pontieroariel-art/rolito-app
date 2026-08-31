@@ -2703,12 +2703,18 @@ describe('cobranzas de supervisor', () => {
     await assertSucceeds(setDoc(doc(db('sup'), 'cobranzas/c1'), cobranzaSup()))
   })
 
-  test('el supervisor NO crea con otro origen, otra formaPago, sin recibo ni sin imputaciones', async () => {
+  test('el supervisor crea SIN numeroRecibo (numeración opcional hasta conectar Tango)', async () => {
+    await seedSupervisor()
+    const { numeroRecibo: _omitido, ...sinNumero } = cobranzaSup()
+    await assertSucceeds(setDoc(doc(db('sup'), 'cobranzas/c1'), sinNumero))
+  })
+
+  test('el supervisor NO crea con otro origen, otra formaPago, recibo no-string ni sin imputaciones', async () => {
     await seedSupervisor()
     await assertFails(setDoc(doc(db('sup'), 'cobranzas/c1'), cobranzaSup({ origen: 'caja', plantaId: 'torcuato' })))
     await assertFails(setDoc(doc(db('sup'), 'cobranzas/c2'), cobranzaSup({ origen: 'cobrador' })))
     await assertFails(setDoc(doc(db('sup'), 'cobranzas/c3'), cobranzaSup({ formaPago: 'contado_efectivo' })))
-    await assertFails(setDoc(doc(db('sup'), 'cobranzas/c4'), cobranzaSup({ numeroRecibo: null })))
+    await assertFails(setDoc(doc(db('sup'), 'cobranzas/c4'), cobranzaSup({ numeroRecibo: 123 })))
     await assertFails(setDoc(doc(db('sup'), 'cobranzas/c5'), cobranzaSup({ imputaciones: [] })))
   })
 
