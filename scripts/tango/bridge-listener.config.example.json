@@ -9,5 +9,13 @@
   },
   "tangoBridgeEmail": "tango-bridge@rolito.internal",
   "tangoBridgePassword": "TANGO_BRIDGE_PASSWORD_AQUI",
+  "tangoSaldos": {
+    "baseUrlGetByFilter": "http://rhielotg:17000/Api/GetByFilter",
+    "token": "TOKEN_DE_DESARROLLADOR_AQUI",
+    "company": "1",
+    "process": "",
+    "view": "",
+    "campoIdCliente": "ID_GVA14"
+  },
   "logFile": "C:\\RolitoSync\\tango-listener-log.txt"
 }

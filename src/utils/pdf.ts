@@ -1163,3 +1163,125 @@ export async function generateReciboCobranza(cobranza: {
 
   doc.save(`recibo-cobranza-${cobranza.id.slice(0, 8)}.pdf`)
 }
+
+// ── Recibo de cobranza de supervisor (multi-medio, con imputaciones) ─────────
+// Numerado (RS-000123), con tabla de facturas imputadas y tabla de valores
+// recibidos (efectivo / transferencia / cheques con banco, fechas y días /
+// retenciones con certificado). Ver plan de cobranzas de supervisores.
+export async function generateReciboCobranzaSupervisor(cobranza: {
+  numeroRecibo:  string
+  clienteNombre: string
+  empresa:       'redonhielo' | 'rolito'
+  importe:       number
+  imputaciones:  Array<{ comprobanteTipo: string; comprobanteNumero: string; saldoAlMomento: number; importeImputado: number }>
+  medios: {
+    efectivo:      number
+    transferencia: number
+    cheques:       Array<{ numero: string; bancoNombre: string; fechaEmision: string; fechaAcreditacion: string; dias: number; importe: number }>
+    retenciones:   Array<{ tipo: string; nroCertificado: string; importe: number }>
+  }
+  registradoPor: string
+  fecha:         Date
+}) {
+  const { default: jsPDF }     = await import('jspdf')
+  const { default: autoTable } = await import('jspdf-autotable')
+  const doc   = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const pageW = doc.internal.pageSize.getWidth()
+  const logo  = await fetchImageAsBase64('/logo-rolito.png')
+  const money = (n: number) => `$${n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  const RETENCION_LABELS: Record<string, string> = {
+    ganancias: 'Ret. Ganancias', iva: 'Ret. IVA', iibb_caba: 'Ret. IIBB CABA',
+    iibb_pba: 'Ret. IIBB Prov. Bs. As.', suss: 'Ret. SUSS',
+  }
+
+  const fechaStr = cobranza.fecha.toLocaleString('es-AR', {
+    day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  })
+
+  if (logo) doc.addImage(logo, 'PNG', 14, 8, 40, 13)
+  doc.setFontSize(15)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(0)
+  doc.text(`Recibo ${cobranza.numeroRecibo}`, pageW - 14, 14, { align: 'right' })
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(80)
+  doc.text(fechaStr, pageW - 14, 20, { align: 'right' })
+  doc.setTextColor(0)
+  doc.setDrawColor(45, 106, 79)
+  doc.setLineWidth(0.6)
+  doc.line(14, 26, pageW - 14, 26)
+
+  autoTable(doc, {
+    startY: 32,
+    theme: 'plain',
+    body: [
+      ['Recibimos de', cobranza.clienteNombre],
+      ['La suma de', money(cobranza.importe)],
+      ['Empresa', cobranza.empresa === 'rolito' ? 'Rolito' : 'Redonhielo S.A.'],
+    ],
+    styles: { fontSize: 10, cellPadding: 2 },
+    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 36 } },
+    margin: { left: 14, right: 14 },
+  })
+  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
+  let y = (doc.lastAutoTable?.finalY ?? 60) + 6
+
+  // Facturas imputadas
+  autoTable(doc, {
+    startY: y,
+    head: [['Imputado a', 'Saldo al cobro', 'Importe imputado']],
+    body: cobranza.imputaciones.map((i) => [
+      `${i.comprobanteTipo} ${i.comprobanteNumero}`,
+      money(i.saldoAlMomento),
+      money(i.importeImputado),
+    ]),
+    styles: { fontSize: 9, cellPadding: 2 },
+    headStyles: { fillColor: [45, 106, 79], textColor: 255 },
+    columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' } },
+    margin: { left: 14, right: 14 },
+  })
+  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
+  y = (doc.lastAutoTable?.finalY ?? y) + 6
+
+  // Valores recibidos (multi-medio)
+  const filasMedios: string[][] = []
+  if (cobranza.medios.efectivo > 0) filasMedios.push(['Efectivo', '', money(cobranza.medios.efectivo)])
+  if (cobranza.medios.transferencia > 0) filasMedios.push(['Transferencia', '', money(cobranza.medios.transferencia)])
+  for (const ch of cobranza.medios.cheques) {
+    filasMedios.push([
+      `Cheque Nº ${ch.numero} — ${ch.bancoNombre}`,
+      `Emisión ${ch.fechaEmision} · Acreditación ${ch.fechaAcreditacion} (${ch.dias} ${ch.dias === 1 ? 'día' : 'días'})`,
+      money(ch.importe),
+    ])
+  }
+  for (const r of cobranza.medios.retenciones) {
+    filasMedios.push([
+      RETENCION_LABELS[r.tipo] ?? r.tipo,
+      `Certificado Nº ${r.nroCertificado}`,
+      money(r.importe),
+    ])
+  }
+  autoTable(doc, {
+    startY: y,
+    head: [['Valores recibidos', 'Detalle', 'Importe']],
+    body: filasMedios,
+    foot: [['', 'Total', money(cobranza.importe)]],
+    styles: { fontSize: 9, cellPadding: 2 },
+    headStyles: { fillColor: [45, 106, 79], textColor: 255 },
+    footStyles: { fontStyle: 'bold', fillColor: [240, 240, 240], textColor: 0, halign: 'right' },
+    columnStyles: { 2: { halign: 'right' } },
+    margin: { left: 14, right: 14 },
+  })
+  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
+  y = (doc.lastAutoTable?.finalY ?? y) + 26
+
+  doc.setDrawColor(150)
+  doc.setLineWidth(0.2)
+  doc.line(pageW - 88, y, pageW - 14, y)
+  doc.setFontSize(8)
+  doc.setTextColor(100)
+  doc.text(`Firma y aclaración — Supervisor: ${cobranza.registradoPor}`, pageW - 88, y + 4)
+
+  doc.save(`recibo-${cobranza.numeroRecibo}.pdf`)
+}

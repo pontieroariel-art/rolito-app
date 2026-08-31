@@ -135,6 +135,23 @@
         { "fieldPath": "registradoPor.uid", "order": "ASCENDING" },
         { "fieldPath": "fecha",             "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "cobranzas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "origen", "order": "ASCENDING" },
+        { "fieldPath": "fecha",  "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "cobranzas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "origen",    "order": "ASCENDING" },
+        { "fieldPath": "clienteId", "order": "ASCENDING" },
+        { "fieldPath": "fecha",     "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

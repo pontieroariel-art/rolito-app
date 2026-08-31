@@ -25,8 +25,8 @@ export const STATUS_LABELS: Record<UserStatus, string> = {
   pendiente: 'Borrador',
 }
 
-export const ALL_ROLES: UserRole[]      = ['super_admin', 'gerente_comercial', 'comercial', 'logistica', 'facturacion', 'chofer', 'cliente', 'heladeras', 'heladeras_encargado', 'tecnico', 'produccion_encargado', 'caja', 'muelle', 'seguridad']
-export const STAFF_ROLES: UserRole[]    = ['super_admin', 'gerente_comercial', 'comercial', 'logistica', 'facturacion', 'chofer', 'heladeras', 'heladeras_encargado', 'produccion_encargado', 'caja', 'muelle', 'seguridad']
+export const ALL_ROLES: UserRole[]      = ['super_admin', 'gerente_comercial', 'comercial', 'logistica', 'facturacion', 'chofer', 'cliente', 'heladeras', 'heladeras_encargado', 'tecnico', 'produccion_encargado', 'caja', 'muelle', 'seguridad', 'supervisor']
+export const STAFF_ROLES: UserRole[]    = ['super_admin', 'gerente_comercial', 'comercial', 'logistica', 'facturacion', 'chofer', 'heladeras', 'heladeras_encargado', 'produccion_encargado', 'caja', 'muelle', 'seguridad', 'supervisor']
 export const ALL_STATUSES: UserStatus[] = ['activo', 'inactivo', 'pendiente']
 
 export function Row({ label, value, icon }: { label: string; value: string; icon?: ReactNode }) {

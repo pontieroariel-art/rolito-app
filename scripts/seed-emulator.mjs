@@ -80,6 +80,7 @@ async function main() {
     { dni: '20000003', password: PASSWORD, nombre: 'Caja Torcuato Prueba', rol: 'caja', planta: 'torcuato' },
     { dni: '20000004', password: PASSWORD, nombre: 'Muelle Torcuato Prueba', rol: 'muelle', planta: 'torcuato' },
     { dni: '20000005', password: PASSWORD, nombre: 'Seguridad Torcuato Prueba', rol: 'seguridad', planta: 'torcuato' },
+    { dni: '20000009', password: PASSWORD, nombre: 'Supervisor Prueba', rol: 'supervisor' },
   ]
   for (const s of staffSeed) {
     const staffEmail = dniToStaffEmail(s.dni)
@@ -214,6 +215,22 @@ async function main() {
     }, { merge: true })
   }
   console.log(`✓ ${pedidos.length} pedidos de prueba (Sin asignar)`)
+
+  // ── Cobranzas de supervisor: saldo de Tango + contador de recibos ────────
+  // Cache de composición de saldos del cliente de prueba (con una factura
+  // parcialmente cobrada) para probar la pantalla de cobro del supervisor.
+  await db.collection('saldosTango').doc(clienteUid).set({
+    idGva14: 99001, codigoTango: '099001', empresa: 'redonhielo',
+    razonSocial: 'Cliente de Prueba SA',
+    comprobantes: [
+      { tipo: 'FAC', numero: 'A-0001-00000101', fechaEmision: '2026-08-05', importeOriginal: 120000, saldoPendiente: 120000 },
+      { tipo: 'FAC', numero: 'A-0001-00000087', fechaEmision: '2026-07-22', importeOriginal: 80000, saldoPendiente: 35000.5 },
+      { tipo: 'ND',  numero: 'A-0001-00000012', fechaEmision: '2026-08-10', importeOriginal: 15000, saldoPendiente: 15000 },
+    ],
+    saldoTotal: 170000.5, actualizadoEn: FieldValue.serverTimestamp(), origen: 'sync', runId: 'seed',
+  }, { merge: true })
+  await db.collection('config').doc('reciboSupervisorCounter').set({ next: 1 }, { merge: true })
+  console.log('✓ Saldo de Tango del cliente de prueba + contador de recibos (RS-)')
 
   console.log('\n── Credenciales ─────────────────────────────────')
   staffSeed.forEach((s) => console.log(`Staff (${s.rol}):  DNI ${s.dni}  /  ${s.password}`))

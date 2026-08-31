@@ -69,10 +69,115 @@ export const onVentaCamionCreada = onDocumentCreated(
   },
 )
 
-// Cuando el bridge confirma un remito en Tango, escribe el número devuelto en
-// tango-outbox.resultado y marca estado 'confirmado'. Acá lo copiamos de vuelta
-// al doc de la venta (el bridge no tiene permiso para escribir ventasCamion —
-// solo los campos de estado del outbox; el write-back va por Admin SDK).
+// Alta de una cobranza de supervisor → un item 'recibo' en tango-outbox (el
+// bridge genera el recibo de cobranza en Tango cuando la licencia habilite
+// transacciones — hasta entonces el writer es stub y el item queda pendiente)
+// + DESCUENTO OPTIMISTA del cache de saldos: se resta lo imputado de cada
+// comprobante en saldosTango/{clienteId} en el momento, así el próximo cobro
+// no muestra deuda vieja aunque Tango todavía no haya recibido el recibo.
+export const onCobranzaCreada = onDocumentCreated(
+  'cobranzas/{cobranzaId}',
+  async (event) => {
+    const cobranza = event.data?.data()
+    if (!cobranza || cobranza.origen !== 'supervisor') return
+
+    const db = getFirestore()
+
+    // El bridge necesita el vínculo Tango del cliente para armar el recibo.
+    const userSnap = await db.collection('users').doc(cobranza.clienteId).get()
+    const user = userSnap.data()
+
+    await encolarOutbox(`cobranzas_${event.params.cobranzaId}`, {
+      entidad: 'recibo',
+      origenColeccion: 'cobranzas',
+      origenId: event.params.cobranzaId,
+      payload: {
+        numeroRecibo:  cobranza.numeroRecibo,
+        empresa:       cobranza.empresa,
+        clienteId:     cobranza.clienteId,
+        clienteNombre: cobranza.clienteNombre,
+        clienteIdGva14Tango: user?.idGva14Tango ?? null,
+        clienteCodigoTango:  user?.codigoTango ?? null,
+        importe:       cobranza.importe,
+        imputaciones:  cobranza.imputaciones,
+        medios:        cobranza.medios,
+        fecha:         cobranza.fecha,
+        registradoPor: cobranza.registradoPor,
+        // Referencia idempotente: el writer del bridge la escribe en el recibo
+        // de Tango y la busca ANTES de crear, para no duplicar recibos si se
+        // muere entre el Create y la confirmación.
+        referenciaIdempotente: `ROLITO:${event.params.cobranzaId}`,
+      },
+    })
+
+    // Descuento optimista del cache (transacción: dos cobranzas simultáneas al
+    // mismo cliente no se pisan). Si el doc de saldo no existe, no hay cache
+    // que corregir.
+    const imputaciones = Array.isArray(cobranza.imputaciones) ? cobranza.imputaciones : []
+    if (imputaciones.length === 0) return
+    const saldoRef = db.collection('saldosTango').doc(cobranza.clienteId)
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(saldoRef)
+      if (!snap.exists) return
+      const data = snap.data()!
+      const yaAplicadas: string[] = Array.isArray(data.cobranzasAplicadas) ? data.cobranzasAplicadas : []
+      // Reintento del trigger (no es exactly-once): no descontar dos veces.
+      if (yaAplicadas.includes(event.params.cobranzaId)) return
+
+      const comprobantes = (Array.isArray(data.comprobantes) ? data.comprobantes : []).map(
+        (c: { tipo: string; numero: string; saldoPendiente: number }) => {
+          const imp = imputaciones.find(
+            (i: { comprobanteTipo: string; comprobanteNumero: string }) =>
+              i.comprobanteTipo === c.tipo && i.comprobanteNumero === c.numero,
+          )
+          if (!imp) return c
+          const nuevoSaldo = Math.round((c.saldoPendiente - imp.importeImputado) * 100) / 100
+          return { ...c, saldoPendiente: Math.max(0, nuevoSaldo) }
+        },
+      ).filter((c: { saldoPendiente: number }) => c.saldoPendiente > 0)
+
+      const saldoTotal = Math.round(comprobantes.reduce(
+        (s: number, c: { saldoPendiente: number }) => s + c.saldoPendiente, 0,
+      ) * 100) / 100
+
+      tx.update(saldoRef, {
+        comprobantes,
+        saldoTotal,
+        cobranzasAplicadas: FieldValue.arrayUnion(event.params.cobranzaId),
+        actualizadoEn: FieldValue.serverTimestamp(),
+      })
+    })
+  },
+)
+
+// Write-backs por entidad: cuando el bridge confirma un item en Tango escribe
+// el número devuelto en tango-outbox.resultado y marca estado 'confirmado';
+// acá lo copiamos de vuelta al doc de origen (el bridge no tiene permiso para
+// escribir esas colecciones — solo los campos de estado del outbox; el
+// write-back va por Admin SDK, que además bypassa la inmutabilidad de
+// cobranzas en las reglas, a propósito).
+const WRITE_BACKS: Record<string, {
+  coleccion: string
+  buildUpdate: (resultado: Record<string, unknown>) => Record<string, unknown> | null
+}> = {
+  remito: {
+    coleccion: 'ventasCamion',
+    buildUpdate: (resultado) => {
+      const remitoNumero = resultado?.remitoNumero
+      if (!remitoNumero) return null
+      return { tango: { estado: 'confirmado', remitoNumero } }
+    },
+  },
+  recibo: {
+    coleccion: 'cobranzas',
+    buildUpdate: (resultado) => {
+      const reciboNumero = resultado?.reciboNumero ?? resultado?.savedId
+      if (!reciboNumero) return null
+      return { tango: { estado: 'confirmado', reciboNumero: String(reciboNumero) } }
+    },
+  },
+}
+
 export const onOutboxConfirmado = onDocumentUpdated(
   'tango-outbox/{docId}',
   async (event) => {
@@ -80,13 +185,13 @@ export const onOutboxConfirmado = onDocumentUpdated(
     const after  = event.data?.after.data()
     if (!after) return
     if (before?.estado === 'confirmado' || after.estado !== 'confirmado') return
-    if (after.entidad !== 'remito' || after.origenColeccion !== 'ventasCamion') return
 
-    const remitoNumero = after.resultado?.remitoNumero
-    if (!remitoNumero) return
+    const writeBack = WRITE_BACKS[after.entidad]
+    if (!writeBack || after.origenColeccion !== writeBack.coleccion) return
 
-    await getFirestore().collection('ventasCamion').doc(after.origenId).update({
-      tango: { estado: 'confirmado', remitoNumero },
-    })
+    const update = writeBack.buildUpdate(after.resultado ?? {})
+    if (!update) return
+
+    await getFirestore().collection(writeBack.coleccion).doc(after.origenId).update(update)
   },
 )

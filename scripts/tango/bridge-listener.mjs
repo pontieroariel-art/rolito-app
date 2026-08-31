@@ -4,15 +4,19 @@
  * Corre EN LA VM de Tango (misma red que bridge-sync-clientes.mjs), pero como
  * SERVICIO DE WINDOWS persistente (ver NSSM más abajo), no como tarea diaria:
  * escucha tango-outbox en tiempo real y manda cada novedad a Tango apenas se
- * carga en la app (hoy: pallets de producción). Ver docs/tango/INTEGRACION.md §7.
+ * carga en la app (producción, remitos, recibos de cobranza), y responde las
+ * consultas on-demand de tango-consultas (composición de saldos de un cliente
+ * puntual, para la pantalla de cobro del supervisor).
+ * Ver docs/tango/INTEGRACION.md §7.
  *
  * A diferencia de bridge-sync-clientes.mjs (que solo usa fetch, sin
  * dependencias), este script necesita el SDK cliente de Firestore para poder
  * escuchar cambios en tiempo real (onSnapshot) — no hay forma liviana de
  * hacer eso con fetch suelto. Usa el SDK CLIENTE (firebase/*), nunca
  * firebase-admin: la cuenta con la que se loguea (ver setup-bridge-account.mjs)
- * está acotada por firestore.rules a leer/actualizar tango-outbox y nada más
- * — este script nunca tiene la clave maestra de Firestore.
+ * está acotada por firestore.rules a leer/actualizar tango-outbox y
+ * tango-consultas y nada más — este script nunca tiene la clave maestra de
+ * Firestore.
  *
  * Uso:
  *   1. En esta carpeta: npm install firebase (una vez, deja node_modules acá).
@@ -47,6 +51,9 @@ const CONFIG_PATH = path.join(__dirname, 'bridge-listener.config.json')
 const MAX_INTENTOS = 5
 const SWEEP_INTERVAL_MS = 5 * 60 * 1000   // barrido de seguridad cada 5 min
 const HEARTBEAT_INTERVAL_MS = 60 * 1000
+// Una consulta de saldo que quedó 'pendiente' más de esto ya no le sirve a
+// nadie (la UI cae al cache a los ~12s) — el barrido la marca como error.
+const CONSULTA_TIMEOUT_MS = 10 * 60 * 1000
 
 function cargarConfig() {
   let cfg
@@ -82,7 +89,16 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms))
 }
 
-// ── Envío a Tango — STUB pendiente de confirmar ────────────────────────────
+async function flagTango(db, campo) {
+  try {
+    const snap = await getDoc(doc(db, 'config/tango'))
+    return snap.data()?.[campo] === true
+  } catch {
+    return false
+  }
+}
+
+// ── Writers hacia Tango — STUBS pendientes de confirmar ─────────────────────
 // No sabemos todavía qué pantalla/proceso usa el administrativo en Tango para
 // cargar producción (¿ingreso de stock? ¿ajuste de stock? ¿orden de
 // producción?), ni si está expuesto por la misma API ABM que ya usamos para
@@ -98,13 +114,35 @@ async function enviarProduccionATango(payload) {
   }
 }
 
-async function produccionSyncHabilitado(db) {
-  try {
-    const snap = await getDoc(doc(db, 'config/tango'))
-    return snap.data()?.produccionEnabled === true
-  } catch {
-    return false
+async function enviarRemitoATango(payload) {
+  log(`  [STUB] enviarRemitoATango — payload que se mandaría: ${JSON.stringify(payload)}`)
+  return {
+    ok: false,
+    error: 'API de transacciones de ventas no habilitada todavía — ver docs/tango/INTEGRACION.md §6.2',
   }
+}
+
+// Recibo de cobranza del supervisor. Cuando la licencia habilite transacciones
+// y se releve el process de recibos, acá va el writer real — OBLIGATORIO con
+// mitigación de duplicados: (1) GetByFilter previo buscando la referencia
+// idempotente `ROLITO:{cobranzaId}` que viaja en el payload (cubre "Create OK
+// → el bridge murió antes de confirmar → el barrido reintenta"); (2) persistir
+// resultado.savedId en el outbox inmediatamente después del Create.
+async function enviarReciboATango(payload) {
+  log(`  [STUB] enviarReciboATango — payload que se mandaría: ${JSON.stringify(payload)}`)
+  return {
+    ok: false,
+    error: 'API de recibos de cobranza no habilitada todavía (Transacciones Tango Ventas: No) — ver docs/tango/INTEGRACION.md',
+  }
+}
+
+// ── Dispatcher por entidad ──────────────────────────────────────────────────
+// Cada entidad del outbox tiene su writer y su interruptor propio en
+// config/tango — así se puede habilitar producción sin habilitar recibos, etc.
+const HANDLERS = {
+  produccionPallet: { enviar: enviarProduccionATango, flag: 'produccionEnabled' },
+  remito:           { enviar: enviarRemitoATango,     flag: 'remitosEnabled' },
+  recibo:           { enviar: enviarReciboATango,     flag: 'recibosEnabled' },
 }
 
 const enProceso = new Set()
@@ -113,8 +151,13 @@ async function procesarItem(db, docId, data) {
   if (enProceso.has(docId)) return
   enProceso.add(docId)
   try {
-    if (!(await produccionSyncHabilitado(db))) {
-      log(`  ${docId}: config/tango.produccionEnabled=false, se deja pendiente (lo retoma el barrido)`)
+    const handler = HANDLERS[data.entidad]
+    if (!handler) {
+      log(`  ${docId}: entidad desconocida "${data.entidad}", se deja pendiente`)
+      return
+    }
+    if (!(await flagTango(db, handler.flag))) {
+      log(`  ${docId}: config/tango.${handler.flag}=false, se deja pendiente (lo retoma el barrido)`)
       return
     }
 
@@ -124,11 +167,12 @@ async function procesarItem(db, docId, data) {
       actualizadoEn: serverTimestamp(),
     })
 
-    const resultado = await enviarProduccionATango(data.payload)
+    const resultado = await handler.enviar(data.payload)
 
     if (resultado.ok) {
       await updateDoc(doc(db, 'tango-outbox', docId), {
         estado: 'confirmado', ultimoError: null, actualizadoEn: serverTimestamp(),
+        ...(resultado.resultado ? { resultado: resultado.resultado } : {}),
       })
       log(`  ${docId}: confirmado en Tango`)
     } else {
@@ -152,18 +196,114 @@ async function procesarItem(db, docId, data) {
   }
 }
 
+// ── Consultas on-demand (tango-consultas): composición de saldos ────────────
+// La pantalla de cobro del supervisor crea un doc pidiendo el saldo fresco de
+// UN cliente; acá se le pega a Tango (GetByFilter por ID_GVA14) y se escribe
+// el resultado en el MISMO doc. Una Cloud Function (onConsultaRespondida)
+// copia después el resultado al cache saldosTango — este script nunca escribe
+// el cache directo, coherente con el modelo de confianza del outbox.
+//
+// ⚠ El process/vista de composición de saldos todavía no está relevado — los
+// nombres de campo de recortarComprobante() son tentativos (mismos que
+// bridge-sync-saldos.mjs); ajustar ambos juntos al relevar el contrato real.
+function recortarComprobante(c) {
+  return {
+    tipo:               c.T_COMP ?? c.TIPO_COMP ?? c.TIPO ?? '',
+    numero:             c.N_COMP ?? c.NRO_COMP ?? c.NUMERO ?? '',
+    fechaEmision:       c.FECHA_EMIS ?? c.FECHA ?? '',
+    ...(c.FECHA_VTO ? { fechaVencimiento: c.FECHA_VTO } : {}),
+    importeOriginal:    Number(c.IMPORTE ?? c.TOTAL ?? 0),
+    saldoPendiente:     Number(c.SALDO ?? c.IMPORTE_PENDIENTE ?? 0),
+    ...(c.ID_GVA12 != null ? { idComprobanteTango: c.ID_GVA12 } : {}),
+  }
+}
+
+async function consultarSaldoEnTango(idGva14) {
+  const t = cfg.tangoSaldos
+  if (!t || !t.process) {
+    return { ok: false, error: 'tangoSaldos.process no configurado en bridge-listener.config.json (falta relevar el process de composición de saldos)' }
+  }
+  try {
+    const uri = t.baseUrlGetByFilter + '?process=' + t.process + '&view=' + (t.view ?? '') +
+      '&filtroSql=' + encodeURIComponent(`${t.campoIdCliente ?? 'ID_GVA14'} = ${Number(idGva14)}`)
+    const resp = await fetch(uri, {
+      headers: { ApiAuthorization: t.token, Company: t.company },
+    })
+    if (!resp.ok) return { ok: false, error: `Tango respondió ${resp.status}` }
+    const data = await resp.json()
+    if (!data.succeeded) return { ok: false, error: `Tango succeeded=false: ${data.message ?? ''}` }
+    const lista = data.resultData?.list ?? data.resultData ?? []
+    const comprobantes = (Array.isArray(lista) ? lista : []).map(recortarComprobante)
+    const saldoTotal = Math.round(comprobantes.reduce((s, c) => s + c.saldoPendiente, 0) * 100) / 100
+    return { ok: true, resultado: { comprobantes, saldoTotal } }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+}
+
+async function procesarConsulta(db, docId, data) {
+  const clave = `consulta:${docId}`
+  if (enProceso.has(clave)) return
+  enProceso.add(clave)
+  try {
+    if (data.tipo !== 'saldoCliente') {
+      await updateDoc(doc(db, 'tango-consultas', docId), {
+        estado: 'error', ultimoError: `tipo de consulta desconocido: ${data.tipo}`, actualizadoEn: serverTimestamp(),
+      })
+      return
+    }
+    if (!(await flagTango(db, 'consultasEnabled'))) {
+      // Se deja pendiente: la UI cae al cache sola; el barrido la vence a los 10 min.
+      return
+    }
+
+    const resultado = await consultarSaldoEnTango(data.idGva14)
+
+    if (resultado.ok) {
+      await updateDoc(doc(db, 'tango-consultas', docId), {
+        estado: 'respondida', resultado: resultado.resultado, ultimoError: null, actualizadoEn: serverTimestamp(),
+      })
+      log(`  consulta ${docId}: saldo de idGva14=${data.idGva14} respondido (${resultado.resultado.comprobantes.length} comprobantes)`)
+    } else {
+      // Una consulta fallida se marca error de una (sin reintentos): el
+      // supervisor ya está mirando el cache; reintentar tarde no aporta.
+      await updateDoc(doc(db, 'tango-consultas', docId), {
+        estado: 'error', ultimoError: resultado.error, actualizadoEn: serverTimestamp(),
+      })
+      log(`  consulta ${docId}: falló — ${resultado.error}`)
+    }
+  } catch (err) {
+    log(`  consulta ${docId}: ERROR inesperado — ${err.message}`)
+  } finally {
+    enProceso.delete(clave)
+  }
+}
+
 // Reintenta 'pendiente' (red de seguridad por si el listener se perdió un
-// evento, ej. produccionEnabled estaba en false cuando se creó el item) y
-// 'enviado' (items que fallaron un intento — ver nota en procesarItem: este
-// barrido cada 5 min ES el backoff de esos reintentos).
+// evento, ej. el flag estaba en false cuando se creó el item) y 'enviado'
+// (items que fallaron un intento — ver nota en procesarItem: este barrido
+// cada 5 min ES el backoff de esos reintentos). También vence consultas
+// viejas que quedaron pendientes.
 async function barridoPendientes(db) {
-  const snap = await getDoc(doc(db, 'config/tango')).catch(() => null)
-  if (snap?.data()?.produccionEnabled !== true) return
   const q = query(collection(db, 'tango-outbox'), where('estado', 'in', ['pendiente', 'enviado']))
   const res = await getDocs(q)
-  if (res.empty) return
-  log(`Barrido: ${res.size} item(s) pendientes/a reintentar`)
-  for (const d of res.docs) await procesarItem(db, d.id, d.data())
+  if (!res.empty) {
+    log(`Barrido: ${res.size} item(s) pendientes/a reintentar en tango-outbox`)
+    for (const d of res.docs) await procesarItem(db, d.id, d.data())
+  }
+
+  const qc = query(collection(db, 'tango-consultas'), where('estado', '==', 'pendiente'))
+  const resC = await getDocs(qc)
+  for (const d of resC.docs) {
+    const creado = d.data().creadoEn?.toDate?.()
+    if (creado && Date.now() - creado.getTime() > CONSULTA_TIMEOUT_MS) {
+      await updateDoc(doc(db, 'tango-consultas', d.id), {
+        estado: 'error', ultimoError: 'consulta vencida sin responder', actualizadoEn: serverTimestamp(),
+      }).catch(() => {})
+    } else {
+      await procesarConsulta(db, d.id, d.data())
+    }
+  }
 }
 
 async function main() {
@@ -181,7 +321,7 @@ async function main() {
 
   log('Iniciando sesión como bridge...')
   await signInWithEmailAndPassword(auth, cfg.tangoBridgeEmail, cfg.tangoBridgePassword)
-  log('Sesión OK. Escuchando tango-outbox en tiempo real...')
+  log('Sesión OK. Escuchando tango-outbox y tango-consultas en tiempo real...')
 
   const q = query(collection(db, 'tango-outbox'), where('estado', '==', 'pendiente'))
   onSnapshot(q, (snap) => {
@@ -192,6 +332,17 @@ async function main() {
     }
   }, (err) => {
     log(`ERROR en el listener de tango-outbox (el SDK va a reintentar solo): ${err.message}`)
+  })
+
+  const qc = query(collection(db, 'tango-consultas'), where('estado', '==', 'pendiente'))
+  onSnapshot(qc, (snap) => {
+    for (const change of snap.docChanges()) {
+      if (change.type === 'added' || change.type === 'modified') {
+        procesarConsulta(db, change.doc.id, change.doc.data())
+      }
+    }
+  }, (err) => {
+    log(`ERROR en el listener de tango-consultas (el SDK va a reintentar solo): ${err.message}`)
   })
 
   setInterval(() => { barridoPendientes(db).catch((err) => log(`ERROR en barrido: ${err.message}`)) }, SWEEP_INTERVAL_MS)

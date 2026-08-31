@@ -383,3 +383,54 @@ probó contra el Tango real (el stub no llama a nada real todavía).
 - Panel `/admin/tango` de monitoreo (§4 punto 6) — no pedido todavía; por
   ahora la única visibilidad es `config/tango.bridgeListenerLastSeen`
   (heartbeat) y los estados de los docs de `tango-outbox`.
+
+## 9. Cobranzas de supervisores: composición de saldos + recibos (Fase B, 2026-08-31)
+
+Feature nueva del lado app (plan completo aprobado por Ariel — rol `supervisor`
+que cobra cta. cte. en la calle con imputación de facturas, cheques y
+retenciones). Lo relevante para ESTA integración:
+
+**Lectura de saldos (Tango → app), dos canales que ya están codeados:**
+- **Cache periódico:** `scripts/tango/bridge-sync-saldos.mjs` (Task Scheduler
+  cada 1-2 h en la VM) → Cloud Function `syncSaldosTango`
+  (`functions/src/triggers/tangoSaldos.ts`, mismo patrón/secret que
+  `syncClientesTango`, gates `config/tango.enabled` + `saldosEnabled`) →
+  colección `saldosTango/{uid}`. El snapshot es completo por corrida (`runId`):
+  el último lote vacía los docs de clientes que ya no deben nada.
+- **Refresh on-demand:** cola inversa `tango-consultas` (la pantalla de cobro
+  crea un doc `tipo:'saldoCliente'`; `bridge-listener.mjs` lo responde vía
+  `Api/GetByFilter` con `ID_GVA14 = n` y gate `consultasEnabled`; la Function
+  `onConsultaRespondida` copia el resultado al cache). Timeout de 12 s en la
+  UI → cae al cache con etiqueta "actualizado hace X".
+
+**⚠ PENDIENTE DE RELEVAR (bloquea la conexión real, no el código):** el
+`process`/vista de la **composición de saldos** en el server (pararse en la
+pantalla de la consulta Live → "Apertura > API"). Es LECTURA, así que debería
+estar cubierto por "ABMs y Consultas Live: Sí" ya licenciado. Los nombres de
+campo en `recortarComprobante()`/`recortarSaldo()` (en ambos scripts) son
+tentativos — ajustarlos al relevar. Config: `bridge-sync-saldos.config.json`
+y la sección `tangoSaldos` de `bridge-listener.config.json`.
+
+**Escritura de recibos (app → Tango):** `onCobranzaCreada` encola
+`entidad:'recibo'` en `tango-outbox` (payload con `imputaciones[]`, `medios`
+—cheques con banco/fechas/días, retenciones—, `numeroRecibo` interno
+`RS-000123` y `referenciaIdempotente: ROLITO:{cobranzaId}`).
+`bridge-listener.mjs` ahora es un **dispatcher por entidad**
+(`produccionPallet`/`remito`/`recibo`, cada una con su flag en `config/tango`);
+`enviarReciboATango()` es **stub** hasta que Axoft habilite "Transacciones
+Tango Ventas" (respuesta esperada 2026-09-01) y se releve el process de
+recibos. Al implementarlo es OBLIGATORIO el anti-duplicado: `GetByFilter`
+previo por la referencia idempotente antes del `Create` (cubre el gap
+"Create OK → bridge muere → barrido reintenta"), y persistir `SavedId` en
+`resultado` inmediatamente.
+
+**Descuento optimista:** mientras el writer no exista, `onCobranzaCreada`
+descuenta lo imputado del cache `saldosTango` en el momento, y tanto el sync
+periódico como la consulta on-demand **re-aplican** los descuentos de
+cobranzas con `tango.estado != 'confirmado'` (ventana 90 días) para no
+resucitar deuda ya cobrada. Cuando Tango confirme el recibo, su propia
+composición ya lo refleja y la cobranza deja de restarse sola.
+
+**Flags nuevos en `config/tango`:** `saldosEnabled`, `consultasEnabled`,
+`remitosEnabled`, `recibosEnabled` (todos default false; `produccionEnabled`
+ya existía).

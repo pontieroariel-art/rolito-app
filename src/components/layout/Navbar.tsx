@@ -107,6 +107,9 @@ const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
   seguridad: [
     { to: '/seguridad', label: 'Salidas', icon: Truck },
   ],
+  supervisor: [
+    { to: '/supervisor', label: 'Inicio', icon: Home },
+  ],
 }
 
 // Link set para el sistema "heladeras" de los roles con más de un sistema
@@ -132,6 +135,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   caja:               'Caja',
   muelle:             'Muelle',
   seguridad:          'Seguridad',
+  supervisor:         'Supervisor',
 }
 
 export default function Navbar() {

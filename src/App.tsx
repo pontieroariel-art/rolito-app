@@ -102,6 +102,10 @@ const SeguridadDashboard = lazy(() => import('./pages/expedicion/SeguridadDashbo
 const CambioCamion       = lazy(() => import('./pages/chofer/CambioCamion'))
 const CobranzaCalle      = lazy(() => import('./pages/chofer/CobranzaCalle'))
 
+const SupervisorHome         = lazy(() => import('./pages/supervisor/SupervisorHome'))
+const SupervisorClientesPage = lazy(() => import('./pages/supervisor/SupervisorClientesPage'))
+const CobranzaSupervisorPage = lazy(() => import('./pages/supervisor/CobranzaSupervisorPage'))
+
 // /caja aterriza en la primera pestaña PERMITIDA del usuario, no siempre en
 // Remitos: una tablet de mostrador con las pestañas recortadas a solo
 // Cobranzas (Usuarios → Permisos) tiene que caer directo ahí.
@@ -423,6 +427,14 @@ function AppContent() {
         {/* Seguridad — celular/tablet en el portón: control de salidas. */}
         <Route element={<ProtectedRoute allowedRoles={['seguridad', 'super_admin']} />}>
           <Route path="/seguridad" element={<SeguridadDashboard />} />
+        </Route>
+
+        {/* Supervisor — cobranzas de cta. cte. en la calle (celular): saldos
+            de Tango, imputación de facturas, cheques y retenciones. */}
+        <Route element={<ProtectedRoute allowedRoles={['supervisor', 'super_admin']} />}>
+          <Route path="/supervisor"          element={<SupervisorHome />} />
+          <Route path="/supervisor/clientes" element={<SupervisorClientesPage />} />
+          <Route path="/supervisor/cobrar"   element={<CobranzaSupervisorPage />} />
         </Route>
 
         {/* Backoffice — panel de administración centralizado, exclusivo

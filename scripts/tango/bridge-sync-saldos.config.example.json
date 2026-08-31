@@ -1,0 +1,12 @@
+{
+  "tangoBaseUrl": "http://rhielotg:17000/Api/Get",
+  "tangoToken": "TOKEN_DE_DESARROLLADOR_AQUI",
+  "tangoCompany": "1",
+  "tangoProcess": "PROCESS_DE_COMPOSICION_DE_SALDOS_AQUI",
+  "tangoView": "",
+  "empresa": "redonhielo",
+  "pageSize": "500",
+  "cloudFunctionUrl": "URL_DE_SYNCSALDOSTANGO_AQUI",
+  "bridgeSecret": "TANGO_BRIDGE_SECRET_AQUI",
+  "logFile": "C:\\RolitoSync\\bridge-sync-saldos.log"
+}

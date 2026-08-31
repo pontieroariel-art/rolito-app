@@ -1,7 +1,8 @@
 import { collection, doc, onSnapshot, query, setDoc, where, Timestamp } from 'firebase/firestore'
 import { db } from './firebase'
 import { fireAndForget, onSnapshotError } from './observability'
-import { Cobranza, PlantaId } from '../types'
+import { aCentavos, sumaCentavos } from '../utils/money'
+import { Cobranza, EmpresaTango, ImputacionFactura, MediosPago, PlantaId } from '../types'
 
 const COBRANZAS = 'cobranzas'
 
@@ -63,6 +64,59 @@ export function crearCobranzaCalle(
   // fire-and-forget (offline-first); el .catch reporta un rechazo en vez de
   // perder la cobranza en silencio.
   fireAndForget(setDoc(ref, cobranza), { origen: 'crearCobranzaCalle', cobranzaId: ref.id, choferId: actor.uid })
+  return { id: ref.id, ...cobranza }
+}
+
+export class CobranzaDescuadradaError extends Error {}
+
+// Cobranza completa del supervisor (origen 'supervisor'): imputación contra
+// facturas de la composición de saldos de Tango + recibo multi-medio
+// (efectivo / transferencia / cheques / retenciones). Mismo patrón
+// offline-first que la calle (fire-and-forget); el numeroRecibo ya viene
+// consumido de la reserva local (reciboSupervisorService), así que no
+// necesita red para confirmar. Los importes admiten centavos: la triple
+// igualdad total == Σ(imputaciones) == Σ(medios) se valida en CENTAVOS.
+export function crearCobranzaSupervisor(
+  args: {
+    clienteId:     string
+    clienteNombre: string
+    empresa:       EmpresaTango
+    numeroRecibo:  string
+    imputaciones:  ImputacionFactura[]
+    medios:        MediosPago
+  },
+  actor: { uid: string; nombre: string },
+): Cobranza {
+  const totalImputado = sumaCentavos(args.imputaciones.map((i) => i.importeImputado))
+  const totalMedios =
+    aCentavos(args.medios.efectivo) +
+    aCentavos(args.medios.transferencia) +
+    sumaCentavos(args.medios.cheques.map((c) => c.importe)) +
+    sumaCentavos(args.medios.retenciones.map((r) => r.importe))
+
+  if (totalImputado <= 0) throw new CobranzaDescuadradaError('No hay facturas imputadas.')
+  if (totalImputado !== totalMedios) {
+    throw new CobranzaDescuadradaError('La suma de los medios de pago no coincide con lo imputado a facturas.')
+  }
+  if (args.imputaciones.some((i) => aCentavos(i.importeImputado) <= 0 || aCentavos(i.importeImputado) > aCentavos(i.saldoAlMomento))) {
+    throw new CobranzaDescuadradaError('Hay una imputación en cero o mayor al saldo de la factura.')
+  }
+
+  const ref = doc(collection(db, COBRANZAS))
+  const cobranza: Omit<Cobranza, 'id'> = {
+    origen:        'supervisor',
+    registradoPor: { uid: actor.uid, nombre: actor.nombre },
+    clienteId:     args.clienteId,
+    clienteNombre: args.clienteNombre,
+    importe:       totalImputado / 100,
+    formaPago:     'mixto',
+    fecha:         Timestamp.now(),
+    numeroRecibo:  args.numeroRecibo,
+    empresa:       args.empresa,
+    imputaciones:  args.imputaciones,
+    medios:        args.medios,
+  }
+  fireAndForget(setDoc(ref, cobranza), { origen: 'crearCobranzaSupervisor', cobranzaId: ref.id, supervisorId: actor.uid })
   return { id: ref.id, ...cobranza }
 }
 

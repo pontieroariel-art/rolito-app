@@ -1955,6 +1955,66 @@ describe('tango-outbox', () => {
   })
 })
 
+// ── tango-consultas: cola inversa (refresh on-demand de saldos) ──────────────
+describe('tango-consultas', () => {
+  const seedBridge = (uid = 'bridge1') =>
+    seed((d) => setDoc(doc(d, `users/${uid}`), { tangoBridge: true }))
+  const seedSupervisor = (uid = 'sup') =>
+    seed((d) => setDoc(doc(d, `users/${uid}`), { rol: 'supervisor', estado: 'activo' }))
+
+  const consulta = (extra = {}) => ({
+    tipo: 'saldoCliente', clienteUid: 'cli', idGva14: 1234, empresa: 'redonhielo',
+    solicitadoPor: { uid: 'sup', nombre: 'Supervisor' }, estado: 'pendiente',
+    creadoEn: new Date(), ...extra,
+  })
+
+  test('supervisor crea una consulta bien formada', async () => {
+    await seedSupervisor()
+    await assertSucceeds(setDoc(doc(db('sup'), 'tango-consultas/c1'), consulta()))
+  })
+
+  test('supervisor NO crea a nombre de otro, con otro tipo, ni ya respondida', async () => {
+    await seedSupervisor()
+    await assertFails(setDoc(doc(db('sup'), 'tango-consultas/c1'), consulta({ solicitadoPor: { uid: 'otro', nombre: 'X' } })))
+    await assertFails(setDoc(doc(db('sup'), 'tango-consultas/c2'), consulta({ tipo: 'otraCosa' })))
+    await assertFails(setDoc(doc(db('sup'), 'tango-consultas/c3'), consulta({ estado: 'respondida' })))
+  })
+
+  test('un chofer NO crea consultas', async () => {
+    await seed((d) => setDoc(doc(d, 'users/ch'), { rol: 'chofer', estado: 'activo' }))
+    await assertFails(setDoc(doc(db('ch'), 'tango-consultas/c1'), consulta({ solicitadoPor: { uid: 'ch', nombre: 'Chofer' } })))
+  })
+
+  test('el bridge responde tocando solo los campos de estado', async () => {
+    await seedBridge()
+    await seed((d) => setDoc(doc(d, 'tango-consultas/c1'), consulta()))
+    await assertSucceeds(updateDoc(doc(db('bridge1'), 'tango-consultas/c1'), {
+      estado: 'respondida', resultado: { comprobantes: [], saldoTotal: 0 }, ultimoError: null, actualizadoEn: new Date(),
+    }))
+  })
+
+  test('el bridge NO puede cambiar qué se preguntó ni por quién', async () => {
+    await seedBridge()
+    await seed((d) => setDoc(doc(d, 'tango-consultas/c1'), consulta()))
+    await assertFails(updateDoc(doc(db('bridge1'), 'tango-consultas/c1'), {
+      estado: 'respondida', clienteUid: 'otro',
+    }))
+    await assertFails(updateDoc(doc(db('bridge1'), 'tango-consultas/c1'), {
+      estado: 'respondida', solicitadoPor: { uid: 'bridge1', nombre: 'Bridge' },
+    }))
+  })
+
+  test('el creador lee su consulta; otro supervisor no', async () => {
+    await seedSupervisor()
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/sup2'), { rol: 'supervisor', estado: 'activo' })
+      await setDoc(doc(d, 'tango-consultas/c1'), consulta())
+    })
+    await assertSucceeds(getDoc(doc(db('sup'), 'tango-consultas/c1')))
+    await assertFails(getDoc(doc(db('sup2'), 'tango-consultas/c1')))
+  })
+})
+
 // ── ventasCamion: venta desde el camión (reparto a demanda) ───────────────────
 describe('ventasCamion', () => {
   const venta = (extra = {}) => ({
@@ -2619,6 +2679,89 @@ describe('expedicion: cobranzas de calle', () => {
   })
 })
 
+// ── Cobranzas de supervisor: recibo multi-medio con imputación de facturas ────
+describe('cobranzas de supervisor', () => {
+  const seedSupervisor = (uid = 'sup') =>
+    seed((d) => setDoc(doc(d, `users/${uid}`), { rol: 'supervisor', estado: 'activo' }))
+
+  const cobranzaSup = (extra = {}) => ({
+    origen: 'supervisor', registradoPor: { uid: 'sup', nombre: 'Supervisor Uno' },
+    clienteId: 'cli', clienteNombre: 'Cliente SA', importe: 45000.5,
+    formaPago: 'mixto', fecha: new Date(),
+    numeroRecibo: 'RS-000123', empresa: 'redonhielo',
+    imputaciones: [{ comprobanteTipo: 'FAC', comprobanteNumero: 'A-0001-00000001', saldoAlMomento: 60000, importeImputado: 45000.5 }],
+    medios: {
+      efectivo: 10000, transferencia: 0,
+      cheques: [{ numero: '123', bancoCodigo: '011', bancoNombre: 'Banco Nación', fechaEmision: '2026-08-31', fechaAcreditacion: '2026-09-30', dias: 30, importe: 30000 }],
+      retenciones: [{ tipo: 'iibb_pba', nroCertificado: 'C-1', importe: 5000.5 }],
+    },
+    ...extra,
+  })
+
+  test('el supervisor crea una cobranza mixta válida', async () => {
+    await seedSupervisor()
+    await assertSucceeds(setDoc(doc(db('sup'), 'cobranzas/c1'), cobranzaSup()))
+  })
+
+  test('el supervisor NO crea con otro origen, otra formaPago, sin recibo ni sin imputaciones', async () => {
+    await seedSupervisor()
+    await assertFails(setDoc(doc(db('sup'), 'cobranzas/c1'), cobranzaSup({ origen: 'caja', plantaId: 'torcuato' })))
+    await assertFails(setDoc(doc(db('sup'), 'cobranzas/c2'), cobranzaSup({ origen: 'cobrador' })))
+    await assertFails(setDoc(doc(db('sup'), 'cobranzas/c3'), cobranzaSup({ formaPago: 'contado_efectivo' })))
+    await assertFails(setDoc(doc(db('sup'), 'cobranzas/c4'), cobranzaSup({ numeroRecibo: null })))
+    await assertFails(setDoc(doc(db('sup'), 'cobranzas/c5'), cobranzaSup({ imputaciones: [] })))
+  })
+
+  test('el supervisor NO crea a nombre de otro ni con empresa inventada', async () => {
+    await seedSupervisor()
+    await assertFails(setDoc(doc(db('sup'), 'cobranzas/c1'), cobranzaSup({ registradoPor: { uid: 'otro', nombre: 'Otro' } })))
+    await assertFails(setDoc(doc(db('sup'), 'cobranzas/c2'), cobranzaSup({ empresa: 'acme' })))
+  })
+
+  test('caja y chofer NO crean cobranzas de supervisor', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' })
+      await setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' })
+    })
+    await assertFails(setDoc(doc(db('caja1'), 'cobranzas/c1'), cobranzaSup({ registradoPor: { uid: 'caja1', nombre: 'Caja' } })))
+    await assertFails(setDoc(doc(db('chof1'), 'cobranzas/c2'), cobranzaSup({ registradoPor: { uid: 'chof1', nombre: 'Chofer' } })))
+  })
+
+  test('el supervisor NO crea la cobranza simple de calle (origen cobrador)', async () => {
+    await seedSupervisor()
+    await assertFails(setDoc(doc(db('sup'), 'cobranzas/c1'), {
+      origen: 'cobrador', registradoPor: { uid: 'sup', nombre: 'Supervisor Uno' },
+      clienteId: 'cli', clienteNombre: 'Cliente SA', importe: 1000,
+      formaPago: 'contado_efectivo', fecha: new Date(),
+    }))
+  })
+
+  test('el supervisor lee su cobranza pero no la de otro; sigue inmutable', async () => {
+    await seedSupervisor()
+    await seed(async (d) => {
+      await setDoc(doc(d, 'cobranzas/mia'), cobranzaSup())
+      await setDoc(doc(d, 'cobranzas/ajena'), cobranzaSup({ registradoPor: { uid: 'otro', nombre: 'Otro' } }))
+    })
+    await assertSucceeds(getDoc(doc(db('sup'), 'cobranzas/mia')))
+    await assertFails(getDoc(doc(db('sup'), 'cobranzas/ajena')))
+    await assertFails(updateDoc(doc(db('sup'), 'cobranzas/mia'), { importe: 1 }))
+    await assertFails(deleteDoc(doc(db('sup'), 'cobranzas/mia')))
+  })
+
+  test('contador de recibos: el supervisor solo avanza next; no lo crea ni retrocede', async () => {
+    await seedSupervisor()
+    await seed((d) => setDoc(doc(d, 'config/reciboSupervisorCounter'), { next: 100 }))
+    await assertSucceeds(updateDoc(doc(db('sup'), 'config/reciboSupervisorCounter'), { next: 120 }))
+    await assertFails(updateDoc(doc(db('sup'), 'config/reciboSupervisorCounter'), { next: 50 }))
+    await assertFails(setDoc(doc(db('sup'), 'config/otroCounter'), { next: 1 }))
+  })
+
+  test('contador de recibos: super_admin lo inicializa', async () => {
+    await seed((d) => setDoc(doc(d, 'users/adm'), { rol: 'super_admin', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('adm'), 'config/reciboSupervisorCounter'), { next: 1000 }))
+  })
+})
+
 // Muelle asigna la dársena de carga (tablero de TV).
 describe('remitosCarga: asignacion de darsena', () => {
   const remito = (extra = {}) => ({
@@ -2848,6 +2991,58 @@ describe('H11 — lectura acotada', () => {
       await setDoc(doc(d, 'listas-precios/lista-A'), { nombre: 'Minorista', items: [] })
     })
     await assertFails(getDoc(doc(db('cli'), 'listas-precios/lista-A')))
+  })
+
+  test('supervisor lee un cliente, pero no choferes ni otro staff', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/sup'), { rol: 'supervisor', estado: 'activo' })
+      await setDoc(doc(d, 'users/cli'), cliente())
+      await setDoc(doc(d, 'users/ch'), { rol: 'chofer', estado: 'activo' })
+      await setDoc(doc(d, 'users/gg'), { rol: 'gerente_general', estado: 'activo' })
+    })
+    await assertSucceeds(getDoc(doc(db('sup'), 'users/cli')))
+    await assertFails(getDoc(doc(db('sup'), 'users/ch')))
+    await assertFails(getDoc(doc(db('sup'), 'users/gg')))
+  })
+})
+
+// ── saldosTango: cache de composición de saldos (cobranzas de supervisor) ─────
+describe('saldosTango — cache de saldos de Tango', () => {
+  const saldo = {
+    idGva14: 1234, codigoTango: '092435', empresa: 'redonhielo',
+    razonSocial: 'Cliente SA', saldoTotal: 15000.5,
+    comprobantes: [{ tipo: 'FAC', numero: 'A-0001-00000001', fechaEmision: '2026-08-01', importeOriginal: 20000, saldoPendiente: 15000.5 }],
+    origen: 'sync',
+  }
+
+  test('supervisor y facturación leen el saldo de un cliente', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/sup'), { rol: 'supervisor', estado: 'activo' })
+      await setDoc(doc(d, 'users/fac'), { rol: 'facturacion', estado: 'activo' })
+      await setDoc(doc(d, 'saldosTango/cli'), saldo)
+    })
+    await assertSucceeds(getDoc(doc(db('sup'), 'saldosTango/cli')))
+    await assertSucceeds(getDoc(doc(db('fac'), 'saldosTango/cli')))
+  })
+
+  test('un cliente NO lee su propio saldo (por ahora) ni un chofer el de nadie', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/cli'), cliente())
+      await setDoc(doc(d, 'users/ch'), { rol: 'chofer', estado: 'activo' })
+      await setDoc(doc(d, 'saldosTango/cli'), saldo)
+    })
+    await assertFails(getDoc(doc(db('cli'), 'saldosTango/cli')))
+    await assertFails(getDoc(doc(db('ch'), 'saldosTango/cli')))
+  })
+
+  test('nadie escribe el cache por reglas (solo Admin SDK)', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/sup'), { rol: 'supervisor', estado: 'activo' })
+      await setDoc(doc(d, 'saldosTango/cli'), saldo)
+    })
+    await assertFails(setDoc(doc(db('sup'), 'saldosTango/otro'), saldo))
+    await assertFails(updateDoc(doc(db('sup'), 'saldosTango/cli'), { saldoTotal: 0 }))
+    await assertFails(deleteDoc(doc(db('sup'), 'saldosTango/cli')))
   })
 })
 

@@ -1,6 +1,6 @@
 import { Timestamp } from 'firebase/firestore'
 
-export type UserRole = 'super_admin' | 'gerente_general' | 'gerente_comercial' | 'comercial' | 'logistica' | 'chofer' | 'cliente' | 'facturacion' | 'heladeras' | 'heladeras_encargado' | 'tecnico' | 'produccion_hielo' | 'produccion_encargado' | 'caja' | 'muelle' | 'seguridad'
+export type UserRole = 'super_admin' | 'gerente_general' | 'gerente_comercial' | 'comercial' | 'logistica' | 'chofer' | 'cliente' | 'facturacion' | 'heladeras' | 'heladeras_encargado' | 'tecnico' | 'produccion_hielo' | 'produccion_encargado' | 'caja' | 'muelle' | 'seguridad' | 'supervisor'
 export type UserStatus = 'activo' | 'inactivo' | 'pendiente'
 
 // Sistema (Logística/Heladeras/Producción/Expedición) — ver src/utils/sistemas.ts
@@ -208,22 +208,119 @@ export interface VentaVentanilla {
   tango?:               RemitoTangoEstado
 }
 
-// ── Expedición: cobranza (mostrador o calle) ──────────────────────────────────
+// ── Expedición: cobranza (mostrador, calle o supervisor) ──────────────────────
 // Plata que entra por fuera de una venta del momento: clientes de cta. cte.
-// que pagan deudas. Dos puntos de captura, misma entidad: caja en ventanilla
-// (origen 'caja') y cobradores en la calle (origen 'cobrador', Fase 5 — en el
-// sistema viejo los cobradores también eran "depósitos"). Inmutable.
+// que pagan deudas. Tres puntos de captura, misma entidad: caja en ventanilla
+// (origen 'caja'), cobradores en la calle (origen 'cobrador') y supervisores
+// (origen 'supervisor': flujo completo con imputación de facturas de Tango,
+// recibo multi-medio con cheques y retenciones — los campos extra son
+// opcionales para no tocar las cobranzas simples). Inmutable.
+
+// Imputación: contra qué factura de la composición de saldos va la plata.
+// Parcial permitido (importeImputado <= saldoAlMomento).
+export interface ImputacionFactura {
+  comprobanteTipo:    string
+  comprobanteNumero:  string
+  idComprobanteTango?: number
+  saldoAlMomento:     number   // snapshot del saldo pendiente al cobrar
+  importeImputado:    number
+}
+
+// Cheque recibido ("valores a depositar").
+export interface ChequeRecibido {
+  numero:            string
+  bancoCodigo:       string   // código BCRA — ver src/constants/bancos.ts
+  bancoNombre:       string   // snapshot
+  fechaEmision:      string   // yyyy-MM-dd
+  fechaAcreditacion: string   // yyyy-MM-dd (>= emisión)
+  dias:              number   // días entre emisión y acreditación (derivado, snapshoteado)
+  importe:           number
+  esEcheq?:          boolean
+}
+
+export type TipoRetencion = 'ganancias' | 'iva' | 'iibb_caba' | 'iibb_pba' | 'suss'
+
+export interface RetencionRecibida {
+  tipo:           TipoRetencion
+  nroCertificado: string
+  importe:        number
+  fecha?:         string   // yyyy-MM-dd
+}
+
+// Desglose multi-medio del recibo de supervisor: Σ(medios) == Σ(imputaciones)
+// == importe total (validado en cliente, en centavos).
+export interface MediosPago {
+  efectivo:      number
+  transferencia: number
+  cheques:       ChequeRecibido[]
+  retenciones:   RetencionRecibida[]
+}
+
 export interface Cobranza {
   id:            string
-  origen:        'caja' | 'cobrador'
+  origen:        'caja' | 'cobrador' | 'supervisor'
   plantaId?:     PlantaId   // solo origen 'caja'
   registradoPor: { uid: string; nombre: string }
   clienteId:     string
   clienteNombre: string
-  importe:       number
-  formaPago:     'contado_efectivo' | 'contado_transferencia'
+  importe:       number     // total; en origen 'supervisor' admite 2 decimales
+  formaPago:     'contado_efectivo' | 'contado_transferencia' | 'mixto'   // 'mixto' solo supervisor
   referencia?:   string   // n° de factura/recibo que se está pagando (texto libre)
   fecha:         Timestamp
+  // ── Solo origen 'supervisor' ──
+  numeroRecibo?: string             // 'RS-000123' (interno; el fiscal lo asigna Tango)
+  empresa?:      EmpresaTango
+  imputaciones?: ImputacionFactura[]
+  medios?:       MediosPago
+  tango?:        RemitoTangoEstado  // write-back del recibo en Tango (Fase 4)
+}
+
+// ── Cobranzas de supervisor: composición de saldos de Tango ───────────────────
+// Cache en Firestore de la cuenta corriente del cliente en Tango (facturas
+// pendientes con su saldo restante, incluidas las cobradas parcialmente). Lo
+// escribe SOLO el Admin SDK: el sync periódico del bridge (origen 'sync') o la
+// respuesta a un refresh on-demand (origen 'consulta', cola tango-consultas).
+// Empresa de Tango a la que pertenece la deuda (header Company del API).
+export type EmpresaTango = 'redonhielo' | 'rolito'
+
+export interface ComprobanteSaldoTango {
+  tipo:               string   // 'FAC' | 'ND' | 'NC' | … (tal como venga de Tango)
+  numero:             string   // ej. 'A-0001-00012345'
+  fechaEmision:       string   // 'yyyy-MM-dd'
+  fechaVencimiento?:  string
+  importeOriginal:    number   // hasta 2 decimales
+  saldoPendiente:     number   // saldo restante (facturas parciales incluidas)
+  idComprobanteTango?: number  // ID interno de Tango, para imputar en el recibo
+}
+
+export interface SaldoTango {
+  id:            string   // == uid del cliente en la app
+  idGva14:       number
+  codigoTango:   string
+  empresa:       EmpresaTango
+  razonSocial:   string   // snapshot para listar sin join
+  comprobantes:  ComprobanteSaldoTango[]
+  saldoTotal:    number   // Σ saldoPendiente
+  actualizadoEn: Timestamp
+  origen:        'sync' | 'consulta'
+}
+
+// Consulta on-demand a Tango (cola inversa tango-consultas): la pantalla de
+// cobro pide el saldo fresco de UN cliente, el bridge la responde en segundos
+// escribiendo `resultado` en el mismo doc, y onConsultaRespondida lo copia al
+// cache saldosTango. Si el bridge está caído, la UI cae al cache por timeout.
+export interface TangoConsulta {
+  id:            string
+  tipo:          'saldoCliente'
+  clienteUid:    string
+  idGva14:       number
+  empresa:       EmpresaTango
+  solicitadoPor: { uid: string; nombre: string }
+  estado:        'pendiente' | 'respondida' | 'error'
+  resultado?:    { comprobantes: ComprobanteSaldoTango[]; saldoTotal: number }
+  ultimoError?:  string | null
+  creadoEn:      Timestamp
+  actualizadoEn?: Timestamp
 }
 
 // ── Expedición: cambio de producto defectuoso (en la calle) ───────────────────

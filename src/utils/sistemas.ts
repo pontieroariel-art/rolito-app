@@ -30,6 +30,7 @@ export const ROLE_SISTEMAS: Record<UserRole, Sistema[]> = {
   caja:                ['expedicion'],
   muelle:              ['expedicion'],
   seguridad:           ['expedicion'],
+  supervisor:          ['expedicion'],
 }
 
 // Home por rol: adónde va el usuario tras loguearse (los multi-sistema pasan
@@ -56,6 +57,7 @@ export const ROLE_HOME: Record<UserRole, string> = {
   caja:                 '/caja',
   muelle:               '/muelle',
   seguridad:            '/seguridad',
+  supervisor:           '/supervisor',
 }
 
 // Home por sistema, solo para los roles con más de un sistema (los demás ya

@@ -108,6 +108,11 @@ service cloud.firestore {
     function isSeguridad() {
       return myRole() == 'seguridad';
     }
+    // Supervisor de cobranzas en la calle: cobra cta. cte. con composición de
+    // saldos de Tango, imputación de facturas, cheques y retenciones.
+    function isSupervisor() {
+      return myRole() == 'supervisor';
+    }
     // Planta asignada al usuario autenticado (roles 'produccion_hielo' y 'caja').
     function myPlanta() {
       let path = /databases/$(database)/documents/users/$(request.auth.uid);
@@ -266,6 +271,10 @@ service cloud.firestore {
       // esto no cambia lo que ven, solo cierra el acceso al resto de la colección.
       allow read: if request.auth != null && (myRole() == 'chofer' || isCaja())
         && resource.data.get('rol', 'cliente') in ['cliente', 'chofer'];
+      // Supervisor de cobranzas: solo necesita el padrón de CLIENTES (a quién
+      // cobra); mismo criterio de acotamiento por rol del target que chofer/caja.
+      allow read: if request.auth != null && isSupervisor()
+        && resource.data.get('rol', 'cliente') == 'cliente';
 
       // ── super_admin: control total (asigna roles, crea staff, limpia datos) ──
       allow read, write: if request.auth != null && myRole() == 'super_admin';
@@ -495,6 +504,15 @@ service cloud.firestore {
       // `next`, nunca retroceder ni tocar otro campo.
       allow update: if request.auth != null && docId.matches('produccionCounter_.*')
         && isProduccion()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next'])
+        && request.resource.data.next > resource.data.next;
+
+      // Contador de recibos de cobranza de supervisor (único, global — los
+      // supervisores no están fijos a una planta). Alta inicial solo por
+      // super_admin (isOperator() write total, arriba); el supervisor solo
+      // puede avanzar `next` al reservar un lote — mismo patrón que producción.
+      allow update: if request.auth != null && docId == 'reciboSupervisorCounter'
+        && isSupervisor()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next'])
         && request.resource.data.next > resource.data.next;
     }
@@ -919,7 +937,9 @@ service cloud.firestore {
       allow read: if request.auth != null
         && (isCaja() || isOperator() || isManager() || isGerenteGeneral() || isFacturacion()
             // el chofer/cobrador ve sus propias cobranzas (resumen y liquidación)
-            || (isChofer() && resource.data.registradoPor.uid == request.auth.uid));
+            || (isChofer() && resource.data.registradoPor.uid == request.auth.uid)
+            // el supervisor ve las suyas (resumen del día, reimpresión de recibos)
+            || (isSupervisor() && resource.data.registradoPor.uid == request.auth.uid));
 
       allow create: if request.auth != null && isCaja()
         && request.resource.data.origen == 'caja'
@@ -937,7 +957,60 @@ service cloud.firestore {
         && request.resource.data.importe is number && request.resource.data.importe > 0
         && request.resource.data.formaPago in ['contado_efectivo', 'contado_transferencia'];
 
+      // Cobranza completa del supervisor: recibo multi-medio con imputación a
+      // facturas de Tango. La triple igualdad total == Σ(imputaciones) ==
+      // Σ(medios) no se puede validar acá (las reglas no iteran arrays) — la
+      // valida crearCobranzaSupervisor() en el cliente; el doc es inmutable.
+      allow create: if request.auth != null && isSupervisor()
+        && request.resource.data.origen == 'supervisor'
+        && request.resource.data.registradoPor.uid == request.auth.uid
+        && request.resource.data.clienteId is string
+        && request.resource.data.importe is number && request.resource.data.importe > 0
+        && request.resource.data.formaPago == 'mixto'
+        && request.resource.data.numeroRecibo is string
+        && request.resource.data.empresa in ['redonhielo', 'rolito']
+        && request.resource.data.imputaciones is list
+        && request.resource.data.imputaciones.size() > 0
+        && request.resource.data.medios is map;
+
       allow update, delete: if false;
+    }
+
+    // ── Cobranzas de supervisor: cache de composición de saldos de Tango ──
+    // saldosTango/{uid} (uid del cliente): facturas pendientes de cobro con su
+    // saldo restante. Lo escribe SOLO el Admin SDK (syncSaldosTango del bridge
+    // o la respuesta de tango-consultas). Lectura para quien cobra/gestiona;
+    // el cliente NO ve su propio saldo por ahora (decisión de producto).
+    match /saldosTango/{clienteUid} {
+      allow read: if request.auth != null
+        && (isSupervisor() || isCaja() || isOperator() || isManager()
+            || isGerenteGeneral() || isFacturacion());
+      allow write: if false;
+    }
+
+    // ── Cola inversa de consultas a Tango (refresh on-demand de saldos) ────
+    // El supervisor crea un doc pidiendo el saldo fresco de UN cliente; el
+    // bridge (isTangoBridge()) lo responde escribiendo SOLO los campos de
+    // estado/resultado — nunca puede cambiar qué se preguntó ni por quién.
+    // El resultado llega al cache saldosTango vía la Function
+    // onConsultaRespondida (Admin SDK), no directo del bridge.
+    match /tango-consultas/{consultaId} {
+      allow read: if request.auth != null
+        && (isTangoBridge() || isOperator()
+            || resource.data.solicitadoPor.uid == request.auth.uid);
+
+      allow create: if request.auth != null && isSupervisor()
+        && request.resource.data.tipo == 'saldoCliente'
+        && request.resource.data.estado == 'pendiente'
+        && request.resource.data.solicitadoPor.uid == request.auth.uid
+        && request.resource.data.clienteUid is string
+        && request.resource.data.idGva14 is number;
+
+      allow update: if request.auth != null && isTangoBridge()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['estado', 'resultado', 'ultimoError', 'actualizadoEn']);
+
+      allow delete: if false;
     }
 
     // ── Expedición: liquidación del repartidor (cierre del día, por caja) ──
