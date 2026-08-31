@@ -1,0 +1,28 @@
+rules_version = '2';
+
+// Reglas de Firebase Storage. Hoy el único uso es la foto de cada producto del
+// catálogo (botonera de venta). Todo lo demás queda cerrado por defecto.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Fotos del catálogo: catalogo/{productoId}
+    // - Lectura abierta: en la práctica el downloadURL lleva su propio token y
+    //   <img> lo sirve igual; igual la dejamos pública porque son fotos de
+    //   productos, nada sensible.
+    // - Escritura solo managers (mismos roles que editan config/catalogo en
+    //   firestore.rules → isManager()), imagen y < 2 MB (ya se redimensiona en
+    //   el cliente, esto es el tope de seguridad).
+    match /catalogo/{productoId} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.rol
+             in ['super_admin', 'gerente_comercial', 'comercial']
+        && request.resource.size < 2 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import {
-  Minus, Plus, PenLine, User, Banknote, Smartphone, Wallet,
+  PenLine, User, Banknote, Smartphone, Wallet,
   Trash2, CheckCircle2, ShoppingCart, ChevronRight, Clock, UserPlus,
   FileText, Tag, ArrowLeft,
 } from 'lucide-react'
@@ -14,9 +14,10 @@ import { useAuth } from '../../context/AuthContext'
 import { useClientesActivos } from '../../hooks/useClientesActivos'
 import { useAllListasPrecios } from '../../hooks/useListasPrecios'
 import { useRemitosCargaChofer } from '../../hooks/useRemitosCargaChofer'
+import { useCatalogo } from '../../hooks/useCatalogo'
+import BotoneraProductos from '../../components/ventas/BotoneraProductos'
 import { crearVentaCamion } from '../../services/ventaCamionService'
 import { precioEfectivo } from '../../utils/helpers'
-import { PRODUCTS } from '../../utils/constants'
 import { FormaPago, CanalVenta, VentaCamionItem } from '../../types'
 
 const CANALES: { id: CanalVenta; titulo: string; empresa: string; color: string; icon: typeof Tag }[] = [
@@ -52,6 +53,7 @@ export default function VentaCamion() {
   const { clientes, loading: loadingClientes } = useClientesActivos()
   const { listas } = useAllListasPrecios()
   const { remitos: remitosCarga } = useRemitosCargaChofer()
+  const { catalogo } = useCatalogo()
   const firmaRef = useRef<SignaturePadHandle>(null)
 
   // Camión del día: el remito de carga emitido por caja es la fuente primaria
@@ -79,20 +81,12 @@ export default function VentaCamion() {
     return precioEfectivo(cliente, productoId, base)
   }
 
-  const items: VentaCamionItem[] = PRODUCTS
-    .map((p) => ({ productoId: p.id, nombre: p.name, cantidad: cantidades[p.id] ?? 0, precioUnitario: precioDe(p.id) }))
+  const items: VentaCamionItem[] = catalogo
+    .map((p) => ({ productoId: p.id, nombre: p.nombre, cantidad: cantidades[p.id] ?? 0, precioUnitario: precioDe(p.id) }))
     .filter((i) => i.cantidad > 0)
 
   const total    = items.reduce((s, i) => s + i.precioUnitario * i.cantidad, 0)
   const unidades = items.reduce((s, i) => s + i.cantidad, 0)
-
-  const setCantidad = (productoId: string, delta: number) =>
-    setCantidades((c) => ({ ...c, [productoId]: Math.max(0, (c[productoId] ?? 0) + delta) }))
-
-  // Carga directa por teclado (numérico): para cantidades grandes no hace falta
-  // tocar "+" de a uno. Filtra a dígitos y limita a 99.999.
-  const setCantidadInput = (productoId: string, raw: string) =>
-    setCantidades((c) => ({ ...c, [productoId]: Math.min(99999, Number(raw.replace(/\D/g, '')) || 0) }))
 
   const reset = () => {
     setClienteId('')
@@ -253,48 +247,12 @@ export default function VentaCamion() {
               <p className="text-xs text-gray-400 mt-0.5">Los precios se cargan de su lista automáticamente.</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {PRODUCTS.map((p) => {
-                const cant = cantidades[p.id] ?? 0
-                const precio = precioDe(p.id)
-                const activo = cant > 0
-                const color = colorDe(p.id)
-                return (
-                  <div key={p.id}
-                    className={`flex items-center gap-3 bg-white rounded-xl px-3.5 py-2.5 border transition-all duration-150 ${
-                      activo ? 'border-accent shadow-sm' : 'border-[#D3D1C7]'
-                    }`}>
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 truncate">{p.name}</p>
-                      <p className="text-xs text-gray-400">
-                        {money(precio)} / {p.unit}
-                        {activo && <span className="font-semibold" style={{ color }}> · {money(precio * cant)}</span>}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button onClick={() => setCantidad(p.id, -1)} disabled={cant === 0} aria-label="Restar"
-                        className="w-9 h-9 rounded-lg border border-[#D3D1C7] bg-white flex items-center justify-center disabled:opacity-30 active:scale-90 transition-transform">
-                        <Minus size={16} />
-                      </button>
-                      <input
-                        type="text" inputMode="numeric" value={cant === 0 ? '' : String(cant)}
-                        onChange={(e) => setCantidadInput(p.id, e.target.value)}
-                        onFocus={(e) => e.target.select()}
-                        placeholder="0" aria-label={`Cantidad de ${p.name}`}
-                        className={`w-12 text-center text-base font-bold tabular-nums bg-transparent rounded-md border py-1 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors ${
-                          activo ? 'text-gray-900 border-transparent' : 'text-gray-300 border-transparent placeholder-gray-300'
-                        }`}
-                      />
-                      <button onClick={() => setCantidad(p.id, 1)} aria-label="Sumar"
-                        className="w-9 h-9 rounded-lg bg-accent text-white flex items-center justify-center active:scale-90 transition-transform">
-                        <Plus size={16} />
-                      </button>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+            <BotoneraProductos
+              catalogo={catalogo}
+              precioDe={precioDe}
+              cantidades={cantidades}
+              onChange={setCantidades}
+            />
           )}
         </section>
 

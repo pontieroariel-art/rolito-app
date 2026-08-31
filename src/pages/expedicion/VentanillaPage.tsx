@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Minus, Plus, Printer, ShoppingCart } from 'lucide-react'
+import { Printer, ShoppingCart } from 'lucide-react'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import ClienteCombobox, { toComboItems } from '../../components/ui/ClienteCombobox'
+import BotoneraProductos from '../../components/ventas/BotoneraProductos'
 import { useAuth } from '../../context/AuthContext'
 import { useClientesActivos } from '../../hooks/useClientesActivos'
 import { useAllListasPrecios } from '../../hooks/useListasPrecios'
@@ -68,11 +69,6 @@ export default function VentanillaPage() {
     .filter((p) => (cantidades[p.id] ?? 0) > 0)
     .map((p) => ({ productoId: p.id, nombre: p.nombre, cantidad: cantidades[p.id], precioUnitario: precioDe(p.id) }))
   const total = items.reduce((s, i) => s + i.precioUnitario * i.cantidad, 0)
-
-  const setCantidad = (id: string, delta: number) =>
-    setCantidades((prev) => ({ ...prev, [id]: Math.max(0, Math.min(99999, (prev[id] ?? 0) + delta)) }))
-  const setCantidadInput = (id: string, v: string) =>
-    setCantidades((prev) => ({ ...prev, [id]: Math.max(0, Math.min(99999, parseInt(v.replace(/\D/g, ''), 10) || 0)) }))
 
   const abrirConfirmacion = () => {
     setError('')
@@ -211,21 +207,12 @@ export default function VentanillaPage() {
         {/* Productos */}
         <div>
           <p className="text-xs text-gray-500 mb-2">Mercadería</p>
-          <div className="space-y-2">
-            {catalogo.map((p) => (
-              <div key={p.id} className="flex items-center gap-3">
-                <span className="flex-1 text-sm text-gray-800">
-                  {p.nombre}
-                  <span className="ml-2 text-xs text-gray-400">{money(precioDe(p.id))}</span>
-                </span>
-                <div className="flex items-center gap-1">
-                  <button type="button" onClick={() => setCantidad(p.id, -1)} className="w-8 h-8 rounded-lg border border-[#D3D1C7] text-gray-600 flex items-center justify-center hover:bg-gray-50 active:scale-95"><Minus size={14} /></button>
-                  <input value={cantidades[p.id] ?? 0} onChange={(e) => setCantidadInput(p.id, e.target.value)} inputMode="numeric" className="w-16 text-center bg-white border border-[#D3D1C7] rounded-lg py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-accent" />
-                  <button type="button" onClick={() => setCantidad(p.id, +1)} className="w-8 h-8 rounded-lg border border-[#D3D1C7] text-gray-600 flex items-center justify-center hover:bg-gray-50 active:scale-95"><Plus size={14} /></button>
-                </div>
-              </div>
-            ))}
-          </div>
+          <BotoneraProductos
+            catalogo={catalogo}
+            precioDe={precioDe}
+            cantidades={cantidades}
+            onChange={setCantidades}
+          />
         </div>
 
         {/* Forma de pago */}

@@ -1,7 +1,7 @@
 import { useState, useEffect, ChangeEvent } from 'react'
 import { deleteField } from 'firebase/firestore'
 import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query'
-import { Plus, Trash2, Save, ChevronDown, ChevronRight, Tag, Users } from 'lucide-react'
+import { Plus, Trash2, Save, ChevronDown, ChevronRight, Tag, Users, Star, ImagePlus } from 'lucide-react'
 import Button from '../../components/ui/Button'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useCatalogo } from '../../hooks/useCatalogo'
@@ -11,7 +11,8 @@ import {
   updateListaPrecios,
   deleteListaPrecios,
 } from '../../services/listaPreciosService'
-import { getCatalogo, saveCatalogo } from '../../services/catalogoService'
+import { getCatalogo, saveCatalogo, subirFotoProducto } from '../../services/catalogoService'
+import ProductoThumb from '../../components/ventas/ProductoThumb'
 import { getAllUsers } from '../../services/userService'
 import { updateUserDocument } from '../../services/userService'
 import { registrarCambiosLista } from '../../services/historialPreciosService'
@@ -393,6 +394,28 @@ function CatalogoEditor({
   const [nombre,  setNombre]  = useState('')
   const [unidad,  setUnidad]  = useState('unidad')
   const [saving,  setSaving]  = useState(false)
+  const [uploadingId, setUploadingId] = useState<string | null>(null)
+
+  const handleFoto = async (p: CatalogProducto, e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // permitir re-subir la misma imagen
+    if (!file) return
+    setUploadingId(p.id)
+    try {
+      const fotoUrl = await subirFotoProducto(p.id, file)
+      await saveCatalogo(catalogo.map((x) => (x.id === p.id ? { ...x, fotoUrl } : x)))
+      onSaved()
+    } catch {
+      alert('No se pudo subir la foto. Probá con otra imagen.')
+    } finally {
+      setUploadingId(null)
+    }
+  }
+
+  const handleToggleDestacado = async (p: CatalogProducto) => {
+    await saveCatalogo(catalogo.map((x) => (x.id === p.id ? { ...x, destacado: !x.destacado } : x)))
+    onSaved()
+  }
 
   const handleAdd = async () => {
     if (!nombre.trim()) return
@@ -427,10 +450,39 @@ function CatalogoEditor({
             key={p.id}
             className="flex items-center gap-3 bg-gray-50 border border-[#D3D1C7] rounded-lg px-3 py-2.5"
           >
+            {/* Foto: la miniatura es el control para subir/cambiar */}
+            <label className="relative cursor-pointer group shrink-0" title="Subir o cambiar foto">
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={uploadingId === p.id}
+                onChange={(e) => handleFoto(p, e)}
+              />
+              <ProductoThumb producto={p} size={44} />
+              <span
+                className={`absolute inset-0 rounded-lg bg-black/30 flex items-center justify-center text-white transition-opacity ${
+                  uploadingId === p.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                }`}
+              >
+                {uploadingId === p.id ? <span className="text-[11px] font-semibold">…</span> : <ImagePlus size={16} />}
+              </span>
+            </label>
+
             <div className="flex-1 min-w-0">
               <span className="text-sm text-gray-900">{p.nombre}</span>
               <span className="text-xs text-gray-500 ml-2">{p.unidad}</span>
             </div>
+
+            {/* Frecuente: aparece arriba en la botonera de venta */}
+            <button
+              onClick={() => handleToggleDestacado(p)}
+              title={p.destacado ? 'Frecuente (aparece arriba en la venta)' : 'Marcar como frecuente'}
+              className={`p-1.5 rounded-lg transition-colors shrink-0 ${p.destacado ? 'text-amber-500' : 'text-gray-300 hover:text-gray-500'}`}
+            >
+              <Star size={16} fill={p.destacado ? 'currentColor' : 'none'} />
+            </button>
+
             <div className="flex items-center gap-1.5 shrink-0">
               <input
                 type="number"

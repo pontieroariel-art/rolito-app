@@ -34,6 +34,8 @@ export interface CatalogProducto {
   nombre:            string
   unidad:            string
   unidadesPorPallet?: number
+  fotoUrl?:          string   // downloadURL de Storage (botonera de venta)
+  destacado?:        boolean  // aparece en la sección "Frecuentes" de la botonera
 }
 
 export interface ItemListaPrecios {

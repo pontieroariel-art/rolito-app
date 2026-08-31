@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app'
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check'
 import { getAuth, connectAuthEmulator } from 'firebase/auth'
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, connectFirestoreEmulator } from 'firebase/firestore'
+import { getStorage, connectStorageEmulator } from 'firebase/storage'
 
 const apiKey            = import.meta.env.VITE_FIREBASE_API_KEY
 const authDomain        = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN
@@ -26,6 +27,9 @@ export const auth = getAuth(app)
 export const db   = initializeFirestore(app, {
   localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
 })
+// Storage: hoy solo se usa para las fotos del catálogo de productos (botonera de
+// venta). El bucket ya está en firebaseConfig.
+export const storage = getStorage(app)
 
 // `npm run dev` (import.meta.env.DEV) apunta a los emuladores locales en vez
 // de a producción — así las pruebas locales (arrastrar pedidos, confirmar
@@ -35,6 +39,7 @@ export const db   = initializeFirestore(app, {
 if (import.meta.env.DEV) {
   connectFirestoreEmulator(db, 'localhost', 8080)
   connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true })
+  connectStorageEmulator(storage, 'localhost', 9199)
 }
 
 // App Check queda listo pero inactivo hasta registrar la Web app en Firebase
