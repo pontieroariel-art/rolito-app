@@ -223,6 +223,13 @@ async function main() {
       vaciados += resultado.vaciados ?? 0
       chunksOk++
       log(`  lote ${i + 1}/${lotes.length} OK — ${resultado.actualizados} actualizados${esUltimoLote ? `, ${resultado.vaciados ?? 0} vaciados (sin deuda)` : ''}`)
+      // En dry-run la Function devuelve quiénes son los deudores SIN cuenta en
+      // la app — se listan para decidir a quién dar de alta.
+      if (DRY_RUN && Array.isArray(resultado.sinMatch)) {
+        for (const s of resultado.sinMatch) {
+          log(`    SIN CUENTA EN LA APP: ${s.codigo} - ${s.nombre} (idGva14 ${s.idGva14}) debe $${s.saldo}`)
+        }
+      }
     } catch (err) {
       // Si un lote falló, NO se manda esUltimoLote en los siguientes: el
       // snapshot quedó incompleto y el vaciado borraría deuda real.

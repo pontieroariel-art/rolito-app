@@ -40,6 +40,10 @@ interface ResultadoSyncSaldos {
   skippedNoMatch?: number
   vaciados?: number
   wouldUpdate?: unknown[]
+  // Solo en dryRun: quiénes son los deudores de Tango SIN cuenta en la app
+  // (el sync de clientes no crea cuentas — estos quedan fuera del cache y los
+  // supervisores no los ven; el listado sirve para decidir a quién dar de alta).
+  sinMatch?: Array<{ idGva14: number; codigo: string; nombre: string; saldo: number }>
 }
 
 function redondear2(n: number): number {
@@ -126,6 +130,7 @@ async function procesarLoteSaldos(
   let skippedNoMatch = 0
   let vaciados = 0
   const wouldUpdate: unknown[] = []
+  const sinMatch: Array<{ idGva14: number; codigo: string; nombre: string; saldo: number }> = []
 
   let batch = db.batch()
   let enBatch = 0
@@ -141,6 +146,10 @@ async function procesarLoteSaldos(
     if (!user) {
       // Cliente de Tango sin cuenta en la app — fuera de alcance del cache.
       skippedNoMatch++
+      if (opts.dryRun && sinMatch.length < 300) {
+        const saldo = redondear2((row.comprobantes ?? []).reduce((s, c) => s + Number(c.saldoPendiente ?? 0), 0))
+        sinMatch.push({ idGva14: row.idGva14, codigo: row.codGva14 ?? '', nombre: row.razonSocial ?? '', saldo })
+      }
       continue
     }
 
@@ -224,7 +233,7 @@ async function procesarLoteSaldos(
     actualizados,
     skippedNoMatch,
     vaciados,
-    ...(opts.dryRun ? { wouldUpdate } : {}),
+    ...(opts.dryRun ? { wouldUpdate, sinMatch } : {}),
   }
 }
 

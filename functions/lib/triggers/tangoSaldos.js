@@ -70,6 +70,7 @@ async function procesarLoteSaldos(db, rows, opts) {
     let skippedNoMatch = 0;
     let vaciados = 0;
     const wouldUpdate = [];
+    const sinMatch = [];
     let batch = db.batch();
     let enBatch = 0;
     const flush = async () => {
@@ -85,6 +86,10 @@ async function procesarLoteSaldos(db, rows, opts) {
         if (!user) {
             // Cliente de Tango sin cuenta en la app — fuera de alcance del cache.
             skippedNoMatch++;
+            if (opts.dryRun && sinMatch.length < 300) {
+                const saldo = redondear2((row.comprobantes ?? []).reduce((s, c) => s + Number(c.saldoPendiente ?? 0), 0));
+                sinMatch.push({ idGva14: row.idGva14, codigo: row.codGva14 ?? '', nombre: row.razonSocial ?? '', saldo });
+            }
             continue;
         }
         let comprobantes = (row.comprobantes ?? []).map(normalizarComprobante);
@@ -164,7 +169,7 @@ async function procesarLoteSaldos(db, rows, opts) {
         actualizados,
         skippedNoMatch,
         vaciados,
-        ...(opts.dryRun ? { wouldUpdate } : {}),
+        ...(opts.dryRun ? { wouldUpdate, sinMatch } : {}),
     };
 }
 // Recibe la composición de saldos de los clientes desde el script del bridge
