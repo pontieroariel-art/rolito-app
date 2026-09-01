@@ -58,3 +58,19 @@ scripts/tango/*.csv
 /playwright-report/
 /blob-report/
 /coverage/
+
+# Certificados y claves privadas (ARCA/AFIP, firma de comprobantes, cualquier otro).
+# NUNCA commitear: la clave privada del certificado fiscal permite emitir facturas
+# electrónicas reales a nombre de la empresa. Van en secrets de Cloud Functions
+# (firebase functions:secrets:set), igual que TANGO_BRIDGE_SECRET.
+*.crt
+*.key
+*.pem
+*.pfx
+*.p12
+*.csr
+certs/
+!**/*.example.key
+
+# Salida de auditorías con datos reales de clientes (CUIT, razón social)
+scripts/arca/salida/
