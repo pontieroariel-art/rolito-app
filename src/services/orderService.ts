@@ -15,7 +15,7 @@ import {
   writeBatch,
   runTransaction,
 } from 'firebase/firestore'
-import { db } from './firebase'
+import { db, auth } from './firebase'
 import { Order, OrderProduct, UserProfile, getPrimaryAddress } from '../types'
 import { tsToDate, normalizeAddress } from '../utils/helpers'
 
@@ -115,6 +115,7 @@ export const createOrderManual = ({
     driverId:     null,
     notes:        notes || '',
     origenManual: true,
+    ...(auth.currentUser?.email ? { creadoPor: auth.currentUser.email } : {}),
     ...(ordenCompra ? { numeroOC: ordenCompra } : {}),
     ...(horaEntrega ? { horaEntrega } : {}),
     ...(codigoCliente ? { codigoCliente } : {}),

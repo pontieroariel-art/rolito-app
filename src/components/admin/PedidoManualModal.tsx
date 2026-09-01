@@ -1,4 +1,5 @@
 ﻿import { useState, ChangeEvent, useMemo, useCallback, useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import MultiDatePicker from './MultiDatePicker'
@@ -128,7 +129,7 @@ function StepProductos({
   initialAddrId?:  string
   defaultDate:     string
   onBack:          () => void
-  onConfirm:       (count: number) => void
+  onConfirm:       (count: number, fechas: string[]) => void
 }) {
   const [quantities, setQuantities] = useState<Record<string, number>>({})
   const [date, setDate]             = useState(defaultDate)
@@ -183,6 +184,16 @@ function StepProductos({
   const [horarioHasta, setHorarioHasta] = useState(() => parseHorario(initialHorario).hasta)
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
+  const queryClient = useQueryClient()
+
+  // Las listas de pedidos por rango (ComercialOrders, reportes) son consultas
+  // cacheadas (staleTime 60s), no suscripciones: sin esto, un pedido recién
+  // creado tarda hasta un minuto en aparecer y el operador lo recarga pensando
+  // que no entró (visto en producción el 2026-08-31).
+  const invalidateOrderQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ['ordersRango'] })
+    queryClient.invalidateQueries({ queryKey: ['ordersActualizados'] })
+  }
 
   const { lista }    = useListaPrecios(cliente.listaPreciosId ?? undefined)
   const { catalogo } = useCatalogo()
@@ -249,8 +260,10 @@ function StepProductos({
             return next
           })
         }
-        onConfirm(total)
+        invalidateOrderQueries()
+        onConfirm(total, fechas)
       } catch {
+        if (ok > 0) invalidateOrderQueries()
         setError(`Se crearon ${ok} de ${total} pedidos. Las fechas creadas ya se sacaron de la selección — reintentá para el resto.`)
         setLoading(false)
         setProgressLabel('')
@@ -278,7 +291,8 @@ function StepProductos({
         fechaEmision: fechaEmision || undefined,
         codigoCliente,
       })
-      onConfirm(1)
+      invalidateOrderQueries()
+      onConfirm(1, [date])
     } catch {
       setError('Error al crear el pedido. Intentá de nuevo.')
       setLoading(false)
@@ -455,16 +469,23 @@ export default function PedidoManualModal({
   onClose:     () => void
   defaultDate: string
 }) {
-  const [selection, setSelection] = useState<{ user: UserProfile; address: string; label: string; horario?: string; addrId?: string } | null>(null)
-  const [done, setDone]           = useState(false)
-  const [doneCount, setDoneCount] = useState(1)
+  const [selection, setSelection]   = useState<{ user: UserProfile; address: string; label: string; horario?: string; addrId?: string } | null>(null)
+  const [done, setDone]             = useState(false)
+  const [doneCount, setDoneCount]   = useState(1)
+  const [doneFechas, setDoneFechas] = useState<string[]>([])
 
   const handleClose = () => {
     setSelection(null)
     setDone(false)
     setDoneCount(1)
+    setDoneFechas([])
     onClose()
   }
+
+  // 'YYYY-MM-DD' → 'DD/MM/YYYY' (sin pasar por Date: evita el corrimiento de
+  // día por timezone de un string sin hora).
+  const fmtFecha = (s: string) => s.split('-').reverse().join('/')
+  const fueraDelDiaVisible = doneFechas.some((f) => f !== defaultDate)
 
   return (
     <Modal
@@ -480,8 +501,17 @@ export default function PedidoManualModal({
             {doneCount > 1 ? `${doneCount} pedidos creados correctamente` : 'Pedido creado correctamente'}
           </p>
           <p className="text-gray-500 text-sm">
-            {doneCount > 1 ? 'Aparecen como pendientes en el panel de pedidos.' : 'Aparece como pendiente en el panel de pedidos.'}
+            {doneCount > 1
+              ? `Entregas: ${doneFechas.map(fmtFecha).join(', ')}. Aparecen como pendientes en el panel de pedidos.`
+              : `Entrega: ${doneFechas.map(fmtFecha).join(', ')}. Aparece como pendiente en el panel de pedidos.`}
           </p>
+          {fueraDelDiaVisible && (
+            <p className="text-sm bg-amber-50 border border-amber-300 text-amber-800 rounded-xl px-3 py-2">
+              Ojo: {doneCount > 1 ? 'hay fechas distintas al día' : 'la fecha es distinta al día'} que
+              estás viendo en el tablero ({fmtFecha(defaultDate)}) — para encontrar
+              {doneCount > 1 ? 'los' : 'lo'}, navegá hasta esa fecha.
+            </p>
+          )}
           <Button onClick={handleClose} className="w-full">Cerrar</Button>
         </div>
       ) : !selection ? (
@@ -495,7 +525,7 @@ export default function PedidoManualModal({
           initialAddrId={selection.addrId}
           defaultDate={defaultDate}
           onBack={() => setSelection(null)}
-          onConfirm={(count) => { setDoneCount(count); setDone(true) }}
+          onConfirm={(count, fechas) => { setDoneCount(count); setDoneFechas(fechas); setDone(true) }}
         />
       )}
     </Modal>

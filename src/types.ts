@@ -749,6 +749,10 @@ export interface Order {
   createdAt: Timestamp
   updatedAt: Timestamp
   origenPdf?:  boolean
+  origenManual?: boolean
+  // Email del staff que cargó el pedido manual (auditoría; ausente en pedidos
+  // viejos y en los del propio cliente, donde clientId ya identifica al autor).
+  creadoPor?: string
   numeroOC?:   string
   horaEntrega?: string
   // Código de sucursal/cliente (ej. "FC.395") resuelto y guardado en el
