@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.resetPinProduccion = exports.onOrderRollup = exports.publicarTurnosVentanilla = exports.onOutboxConfirmado = exports.onCobranzaCreada = exports.onVentaCamionCreada = exports.onProduccionPalletCreado = exports.onConsultaRespondida = exports.syncSaldosTango = exports.syncClientesTango = exports.enviarResumenAdminDiario = exports.onHistorialAdminAltoRiesgo = exports.backupAuthUsers = exports.avisarComodatosPorVencer = exports.onTicketCreado = exports.onStockBajo = exports.onTicketCerrado = exports.generarPedidosRecurrentes = exports.orsDirections = exports.mirrorDriverLocation = exports.validarPreciosPedido = exports.notifyReprogramado = exports.notifyCerca = exports.sendPush = exports.deleteAuthUsers = exports.onOrderEnCamino = exports.onOrderConfirmado = exports.onOrderCreated = exports.onClienteCreadoPorStaff = exports.onUserApproved = exports.onUserRegistered = void 0;
+exports.reconciliarFacturasArca = exports.onVentaContadoFacturar = exports.resetPinProduccion = exports.onOrderRollup = exports.publicarTurnosVentanilla = exports.onOutboxConfirmado = exports.onCobranzaCreada = exports.onVentaCamionCreada = exports.onProduccionPalletCreado = exports.onConsultaRespondida = exports.syncSaldosTango = exports.syncClientesTango = exports.enviarResumenAdminDiario = exports.onHistorialAdminAltoRiesgo = exports.backupAuthUsers = exports.avisarComodatosPorVencer = exports.onTicketCreado = exports.onStockBajo = exports.onTicketCerrado = exports.generarPedidosRecurrentes = exports.orsDirections = exports.mirrorDriverLocation = exports.validarPreciosPedido = exports.notifyReprogramado = exports.notifyCerca = exports.sendPush = exports.deleteAuthUsers = exports.onOrderEnCamino = exports.onOrderConfirmado = exports.onOrderCreated = exports.onClienteCreadoPorStaff = exports.onUserApproved = exports.onUserRegistered = void 0;
 const app_1 = require("firebase-admin/app");
 (0, app_1.initializeApp)();
 // Nota: cambio trivial para forzar un hash de fuente distinto y que
@@ -62,18 +62,11 @@ Object.defineProperty(exports, "onOrderRollup", { enumerable: true, get: functio
 var produccionAuth_1 = require("./triggers/produccionAuth");
 Object.defineProperty(exports, "resetPinProduccion", { enumerable: true, get: function () { return produccionAuth_1.resetPinProduccion; } });
 // ── Facturación electrónica ARCA ─────────────────────────────────────────────
-// A PROPÓSITO todavía sin exportar. Estas funciones declaran los secrets
-// ARCA_CERT_PEM y ARCA_KEY_PEM, y `firebase deploy --only functions` FALLA
-// ENTERO si un secret declarado no existe — bloquearía también el deploy de
-// funciones que no tienen nada que ver.
-//
-// Para habilitarlas:
-//   1. firebase functions:secrets:set ARCA_CERT_PEM   (pegar el .crt completo)
-//   2. firebase functions:secrets:set ARCA_KEY_PEM    (pegar la .key completa)
-//   3. Crear config/arca en Firestore (ver services/arca/configuracion.ts;
-//      arranca con habilitado: false y se enciende cuando esté probado).
-//   4. Descomentar la línea de abajo, compilar y desplegar.
-//
+// Requieren los secrets ARCA_CERT_PEM y ARCA_KEY_PEM (creados 2026-09-01) y el
+// documento config/arca. Que estén desplegadas NO significa que emitan: el
+// interruptor real es `config/arca.habilitado`, que arranca en false.
 // Ver docs/arca/FACTURACION_ELECTRONICA.md.
-// export { onVentaContadoFacturar, reconciliarFacturasArca } from './triggers/arcaFacturacion'
+var arcaFacturacion_1 = require("./triggers/arcaFacturacion");
+Object.defineProperty(exports, "onVentaContadoFacturar", { enumerable: true, get: function () { return arcaFacturacion_1.onVentaContadoFacturar; } });
+Object.defineProperty(exports, "reconciliarFacturasArca", { enumerable: true, get: function () { return arcaFacturacion_1.reconciliarFacturasArca; } });
 //# sourceMappingURL=index.js.map
