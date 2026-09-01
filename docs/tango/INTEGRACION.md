@@ -331,10 +331,42 @@ resueltos vía `GetByFilter` sobre el proceso correspondiente):
 | `ID_STA22` | Depósito por renglón (pisa el de cabecera) |
 | `PLAN_DE_ENTREGA_DTO[]` | Cantidad + fecha de entrega parcial |
 
-**Procesos relacionados cuyos `process` IDs hay que relevar** (mismo método que Clientes=2117:
-pararse en la pantalla del ABM → "Apertura > API"): Artículos, Condiciones de venta (GVA01),
-Listas de precios (GVA10), Vendedores (GVA23), Transportes (GVA24), Depósitos (STA22), Monedas,
-Talonarios (GVA43), Clasificación de comprobantes (GVA81).
+**Procesos relacionados — RESUELTOS (2026-09-01), no hace falta relevarlos por RDP.** Están
+hardcodeados en el código C# oficial (constante `ProcessId` de cada `*Services.cs` en
+`github.com/TangoSoftware/TangoDeltaApi/src/CommonServices/`):
+
+| `process` | Tabla | Campo del pedido que resuelve |
+|---|---|---|
+| **87** | Artículos (STA11) | `RENGLON_DTO[].ID_STA11` |
+| **2941** | Depósitos (STA22) | `ID_STA22` — **los camiones** |
+| **2497** | Condiciones de venta (GVA01) | `ID_GVA01` |
+| **984** | Listas de precios (GVA10) | `ID_GVA10` |
+| **952** | Vendedores (GVA23) | `ID_GVA23` |
+| **960** | Transportes (GVA24) | `ID_GVA24` |
+| **1660** | Monedas | `ID_MONEDA` |
+| **326** | Clasificación de comprobantes (GVA81) | `ID_GVA81` |
+| 2117 | Clientes (GVA14) | `ID_GVA14` — ya confirmado en vivo (2026-08-25) |
+| 19845 | Pedidos (GVA21) | el `Api/Create` del pedido |
+
+> **Por qué confiar en esta lista sin haberla probado:** dos de sus valores (Clientes=2117 y
+> Pedidos=19845) ya estaban confirmados contra el server real por vías independientes, y ambos
+> coinciden con lo que dice el código oficial. Eso valida la fuente.
+
+**Sigue pendiente de relevar por RDP: Talonarios (GVA43)** → `ID_GVA43_TALON_PED`. No hay un
+servicio de talonarios en el repo oficial, así que ese `process` hay que sacarlo de la pantalla
+(Apertura > API) o preguntarlo. Es el único dato de tabla que falta para armar el pedido.
+
+**Herramientas ya escritas para bajar todo esto (2026-09-01):**
+- `scripts/tango/export-tablas-tango.ps1` — corre en el server, baja las 8 tablas de arriba a
+  `Escritorio\tango-tablas\*.json` (una pasada, mismo patrón que `export-clientes-tango.ps1`,
+  incluido el armado del `$uri` por concatenación para esquivar el bug del parser de PowerShell).
+- `scripts/tango/cruce-articulos.mjs` — empareja `config/catalogo` (11 productos) contra los
+  artículos de Tango y propone candidatos con nivel de confianza. **No escribe nada**: a
+  diferencia del cruce de clientes (que tenía el CUIT como clave dura), acá el emparejamiento es
+  por nombre y necesita confirmación humana. Puntúa por familia (hielo/agua/insumo) + magnitud
+  (2/3/10 kg, 1/6 l) + solapamiento de palabras; un choque de magnitud o familia hunde el
+  puntaje. Validado contra un set de prueba con señuelos ("BOLSA POLIETILENO 2 KG VACIA" quedó
+  en 42 vs 88 del artículo correcto).
 
 **Preguntas para Axoft/TC con la respuesta del lunes 2026-09-01:**
 
