@@ -18,6 +18,13 @@ jobs:
       - name: Install app deps
         run: npm ci
 
+      # Antes de los tests, no después: vitest también corre los tests de
+      # functions/src (la lógica fiscal de ARCA vive del lado servidor), y esos
+      # importan dependencias que solo están en functions/node_modules.
+      - name: Install functions deps
+        run: npm ci
+        working-directory: functions
+
       - name: Typecheck (app)
         run: npm run typecheck
 
@@ -26,10 +33,6 @@ jobs:
 
       - name: Tests unitarios (vitest)
         run: npm run test:unit
-
-      - name: Install functions deps
-        run: npm ci
-        working-directory: functions
 
       - name: Typecheck (functions)
         run: npm run typecheck:functions
