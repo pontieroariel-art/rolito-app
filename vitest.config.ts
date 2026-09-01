@@ -14,6 +14,9 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['src/**/*.test.{ts,tsx}'],
+    // Incluye functions/: la lógica fiscal de ARCA vive del lado servidor (la
+    // clave privada del certificado nunca baja al dispositivo) pero es código
+    // puro y tiene que poder testearse sin desplegar nada.
+    include: ['src/**/*.test.{ts,tsx}', 'functions/src/**/*.test.ts'],
   },
 })

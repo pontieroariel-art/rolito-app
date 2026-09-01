@@ -11,5 +11,9 @@
     "esModuleInterop": true
   },
   "compileOnSave": true,
-  "include": ["src"]
+  "include": ["src"],
+  // Los tests corren con vitest desde la raíz del repo, no se despliegan. Sin
+  // este exclude `tsc` los emitiría a lib/ (que va commiteado y se sube en el
+  // deploy), arrastrando imports de vitest que no son dependencia de functions.
+  "exclude": ["**/*.test.ts"]
 }
