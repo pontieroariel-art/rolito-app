@@ -3077,3 +3077,122 @@ describe('rollupsPedidos', () => {
     await assertFails(setDoc(doc(db('gg'), 'rollupsPedidos/2026-08-30'), rollup))
   })
 })
+
+// ── Facturación electrónica ARCA ──────────────────────────────────────────────
+// Lo que se protege acá no es "datos internos": el Ticket de Acceso es una
+// credencial que permite EMITIR COMPROBANTES en nombre de la empresa, y los
+// contadores correlativos, si se editan a mano, hacen que ARCA rechace todo lo
+// que venga después. Ver docs/arca/FACTURACION_ELECTRONICA.md.
+describe('ARCA — ticket de acceso (credencial)', () => {
+  test('ni siquiera super_admin puede leer el ticket de acceso', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/adm'), { rol: 'super_admin', estado: 'activo' })
+      await setDoc(doc(d, 'arcaTickets/produccion_wsfe_30697668973'), {
+        token: 'TK', sign: 'SG', expiracionMs: Date.now() + 3600_000,
+      })
+    })
+    await assertFails(getDoc(doc(db('adm'), 'arcaTickets/produccion_wsfe_30697668973')))
+  })
+
+  test('nadie puede escribir un ticket de acceso', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/adm'), { rol: 'super_admin', estado: 'activo' })
+    })
+    await assertFails(
+      setDoc(doc(db('adm'), 'arcaTickets/produccion_wsfe_30697668973'), { token: 'robado' }),
+    )
+  })
+})
+
+describe('ARCA — contadores de numeración', () => {
+  test('un operador NO puede tocar el contador correlativo', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/op'), { rol: 'logistica', estado: 'activo' })
+      await setDoc(doc(d, 'config/arcaNumeracion_1104_1'), { ultimoAsignado: 100, librados: [] })
+    })
+    // Adelantar el contador a mano deja un hueco y ARCA rechaza por no correlativo.
+    await assertFails(
+      updateDoc(doc(db('op'), 'config/arcaNumeracion_1104_1'), { ultimoAsignado: 500 }),
+    )
+  })
+
+  test('un super_admin tampoco', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/adm'), { rol: 'super_admin', estado: 'activo' })
+      await setDoc(doc(d, 'config/arcaNumeracion_1104_1'), { ultimoAsignado: 100, librados: [] })
+    })
+    await assertFails(
+      updateDoc(doc(db('adm'), 'config/arcaNumeracion_1104_1'), { ultimoAsignado: 500 }),
+    )
+  })
+
+  test('leerlo sí se puede: es diagnóstico, no un secreto', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/op'), { rol: 'logistica', estado: 'activo' })
+      await setDoc(doc(d, 'config/arcaNumeracion_1104_1'), { ultimoAsignado: 100, librados: [] })
+    })
+    await assertSucceeds(getDoc(doc(db('op'), 'config/arcaNumeracion_1104_1')))
+  })
+
+  test('el resto de config sigue siendo editable por un operador', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/op'), { rol: 'logistica', estado: 'activo' })
+      await setDoc(doc(d, 'config/zonas'), { prohibidas: [] })
+    })
+    await assertSucceeds(updateDoc(doc(db('op'), 'config/zonas'), { prohibidas: ['x'] }))
+  })
+})
+
+describe('ARCA — configuración de facturación', () => {
+  test('un operador NO puede cambiar config/arca', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/op'), { rol: 'logistica', estado: 'activo' })
+      await setDoc(doc(d, 'config/arca'), {
+        ambiente: 'produccion', cuit: '30697668973', puntoVenta: 1104,
+        preciosIncluyenIva: false, tributoIdPercepcionIIBB: 7, habilitado: true,
+      })
+    })
+    // Tocar preciosIncluyenIva cambiaría el total facturado un 21%.
+    await assertFails(
+      updateDoc(doc(db('op'), 'config/arca'), { preciosIncluyenIva: true }),
+    )
+  })
+
+  test('el staff sí puede leerla', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/op'), { rol: 'logistica', estado: 'activo' })
+      await setDoc(doc(d, 'config/arca'), { ambiente: 'produccion', habilitado: false })
+    })
+    await assertSucceeds(getDoc(doc(db('op'), 'config/arca')))
+  })
+})
+
+describe('ARCA — estado de facturas', () => {
+  test('el staff puede consultar el estado de una factura', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/op'), { rol: 'logistica', estado: 'activo' })
+      await setDoc(doc(d, 'facturasArca/venta1'), {
+        estado: 'emitida', numero: 1, cae: '75123456789012',
+      })
+    })
+    await assertSucceeds(getDoc(doc(db('op'), 'facturasArca/venta1')))
+  })
+
+  test('un cliente NO puede leer facturas', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/cli'), cliente())
+      await setDoc(doc(d, 'facturasArca/venta1'), { estado: 'emitida', numero: 1 })
+    })
+    await assertFails(getDoc(doc(db('cli'), 'facturasArca/venta1')))
+  })
+
+  test('nadie puede escribir el CAE a mano', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/adm'), { rol: 'super_admin', estado: 'activo' })
+      await setDoc(doc(d, 'facturasArca/venta1'), { estado: 'incierta', numero: 1 })
+    })
+    await assertFails(
+      updateDoc(doc(db('adm'), 'facturasArca/venta1'), { estado: 'emitida', cae: 'inventado' }),
+    )
+  })
+})

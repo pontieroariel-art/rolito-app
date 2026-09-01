@@ -448,9 +448,23 @@ service cloud.firestore {
       // y ticketServicioCounter los necesita para autogestionar un pedido de
       // service desde "Mis heladeras" (crearTicket lee el contador antes de
       // incrementarlo); el resto (zonas prohibidas, etc.) es operativo → solo staff.
+      // Documentos de facturación electrónica: NADIE los escribe desde un
+      // cliente, solo el Admin SDK (y la consola de Firebase, que lo usa).
+      //   config/arca                → si alguien tocara `preciosIncluyenIva`
+      //                                cambiaría el total facturado un 21%.
+      //   config/arcaNumeracion_*    → contadores correlativos: editarlos a mano
+      //                                rompe la correlatividad y ARCA rechaza
+      //                                todo lo que venga después.
+      // Las reglas de Firestore son permisivas por unión: una regla más
+      // específica no puede RESTRINGIR lo que otra concede, así que la
+      // excepción tiene que estar acá adentro y no en un match aparte.
+      function esConfigArca() {
+        return docId == 'arca' || docId.matches('arcaNumeracion_.*');
+      }
+
       allow read: if esNoAnonimo()
         && (docId == 'catalogo' || docId == 'motivosReparacion' || docId == 'ticketServicioCounter' || isStaff());
-      allow write: if request.auth != null && isOperator();
+      allow write: if request.auth != null && isOperator() && !esConfigArca();
       // Bridge de Tango: necesita leer config/tango (interruptor
       // produccionEnabled) y escribir su propio heartbeat, nada más.
       allow read: if request.auth != null && isTangoBridge() && docId == 'tango';
@@ -1050,6 +1064,27 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['estado', 'intentos', 'ultimoError', 'actualizadoEn', 'resultado']);
       allow create, delete: if false;
+    }
+
+    // ── Facturación electrónica ARCA ──────────────────────────────────────────
+    // Ver docs/arca/FACTURACION_ELECTRONICA.md.
+
+    // Ticket de Acceso de ARCA (token + sign). Es una CREDENCIAL: con eso se
+    // puede emitir comprobantes en nombre de Redonhielo. Nadie lo lee ni lo
+    // escribe desde un cliente — solo el Admin SDK, desde las Cloud Functions.
+    // Ni siquiera super_admin: no hay ningún motivo para verlo desde la app.
+    match /arcaTickets/{docId} {
+      allow read, write: if false;
+    }
+
+    // Estado de la factura de cada venta (uno por ventaId). El staff puede
+    // MIRARLO — hace falta para saber si una venta se facturó, con qué número y
+    // con qué CAE, o por qué falló. Escribir, nadie: el número correlativo y el
+    // CAE los maneja la Cloud Function, y una escritura a mano acá desincroniza
+    // el estado real que tiene ARCA del otro lado.
+    match /facturasArca/{ventaId} {
+      allow read:  if request.auth != null && isStaff();
+      allow write: if false;
     }
 
     // ── Modelos de heladera (ficha técnica) ────────────────────────────────
