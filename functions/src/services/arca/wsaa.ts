@@ -125,6 +125,47 @@ export function firmarTRA(tra: string, certificadoPem: string, clavePrivadaPem: 
   return forge.util.encode64(der)
 }
 
+// ── Identidad del certificado ─────────────────────────────────────────────────
+
+/**
+ * Extrae el CUIT del certificado (viene en el `serialNumber` del subject, con
+ * el formato `CUIT 30697668973`).
+ */
+export function cuitDelCertificado(certificadoPem: string): string | null {
+  const cert = forge.pki.certificateFromPem(certificadoPem)
+  const campo = cert.subject.attributes.find((a) => a.name === 'serialNumber')
+  const valor = typeof campo?.value === 'string' ? campo.value : ''
+  const m = valor.match(/(\d{11})/)
+  return m ? m[1] : null
+}
+
+/**
+ * Verifica que el certificado cargado sea el del CUIT configurado.
+ *
+ * Existe por un riesgo concreto: el certificado vive en un secret y el ambiente
+ * en `config/arca`, y son dos cosas que se cambian por separado. El de
+ * homologación está a nombre de otro CUIT (una persona física) que el de
+ * producción, así que es fácil quedar cruzado al pasar de un ambiente al otro.
+ *
+ * Cruzados, ARCA responde un error opaco (601, "CUIT representada no incluida
+ * en token") que no dice cuál de las dos puntas está mal. Chequearlo acá cuesta
+ * nada y convierte eso en un mensaje que se entiende.
+ */
+export function verificarCertificadoCoincide(certificadoPem: string, cuitConfigurado: string): void {
+  const delCert = cuitDelCertificado(certificadoPem)
+  if (!delCert) {
+    throw new Error('El certificado no declara un CUIT en su subject; no se puede validar')
+  }
+  const esperado = String(cuitConfigurado).replace(/\D/g, '')
+  if (delCert !== esperado) {
+    throw new Error(
+      `El certificado cargado es del CUIT ${delCert}, pero config/arca dice ${esperado}. ` +
+      'Suele pasar al cambiar de ambiente: el certificado de homologación está a nombre de ' +
+      'otro CUIT que el de producción. Revisá que el secret y el ambiente vayan juntos.',
+    )
+  }
+}
+
 // ── 3. Llamada al WSAA ────────────────────────────────────────────────────────
 
 function envolverEnSoap(cmsBase64: string): string {

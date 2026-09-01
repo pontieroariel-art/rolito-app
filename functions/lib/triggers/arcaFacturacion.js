@@ -20,6 +20,7 @@ const params_1 = require("firebase-functions/params");
 const firestore_2 = require("firebase-admin/firestore");
 const configuracion_1 = require("../services/arca/configuracion");
 const ticketCache_1 = require("../services/arca/ticketCache");
+const wsaa_1 = require("../services/arca/wsaa");
 const wsfev1_1 = require("../services/arca/wsfev1");
 const emision_1 = require("../services/arca/emision");
 const facturacionVenta_1 = require("../services/arca/facturacionVenta");
@@ -37,6 +38,10 @@ function comoDb(db) {
 }
 /** Arma el puerto hacia ARCA: autentica (con cache) y expone las dos operaciones. */
 async function puertoArca(db, config) {
+    // El certificado (secret) y el ambiente (config/arca) se cambian por
+    // separado, y el de homologación está a nombre de otro CUIT. Cruzados, ARCA
+    // devuelve un 601 que no dice cuál de las dos puntas está mal.
+    (0, wsaa_1.verificarCertificadoCoincide)(arcaCert.value(), config.cuit);
     const ta = await (0, ticketCache_1.obtenerTicketAcceso)({
         db: comoDb(db),
         cuit: config.cuit,

@@ -56,6 +56,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SERVICIO_WSFE = exports.WSAA_URL = void 0;
 exports.generarTRA = generarTRA;
 exports.firmarTRA = firmarTRA;
+exports.cuitDelCertificado = cuitDelCertificado;
+exports.verificarCertificadoCoincide = verificarCertificadoCoincide;
 exports.extraerTag = extraerTag;
 exports.parsearRespuestaWsaa = parsearRespuestaWsaa;
 exports.solicitarTicketAcceso = solicitarTicketAcceso;
@@ -144,6 +146,42 @@ function firmarTRA(tra, certificadoPem, clavePrivadaPem) {
     p7.sign({ detached: false });
     const der = forge.asn1.toDer(p7.toAsn1()).getBytes();
     return forge.util.encode64(der);
+}
+// ── Identidad del certificado ─────────────────────────────────────────────────
+/**
+ * Extrae el CUIT del certificado (viene en el `serialNumber` del subject, con
+ * el formato `CUIT 30697668973`).
+ */
+function cuitDelCertificado(certificadoPem) {
+    const cert = forge.pki.certificateFromPem(certificadoPem);
+    const campo = cert.subject.attributes.find((a) => a.name === 'serialNumber');
+    const valor = typeof campo?.value === 'string' ? campo.value : '';
+    const m = valor.match(/(\d{11})/);
+    return m ? m[1] : null;
+}
+/**
+ * Verifica que el certificado cargado sea el del CUIT configurado.
+ *
+ * Existe por un riesgo concreto: el certificado vive en un secret y el ambiente
+ * en `config/arca`, y son dos cosas que se cambian por separado. El de
+ * homologación está a nombre de otro CUIT (una persona física) que el de
+ * producción, así que es fácil quedar cruzado al pasar de un ambiente al otro.
+ *
+ * Cruzados, ARCA responde un error opaco (601, "CUIT representada no incluida
+ * en token") que no dice cuál de las dos puntas está mal. Chequearlo acá cuesta
+ * nada y convierte eso en un mensaje que se entiende.
+ */
+function verificarCertificadoCoincide(certificadoPem, cuitConfigurado) {
+    const delCert = cuitDelCertificado(certificadoPem);
+    if (!delCert) {
+        throw new Error('El certificado no declara un CUIT en su subject; no se puede validar');
+    }
+    const esperado = String(cuitConfigurado).replace(/\D/g, '');
+    if (delCert !== esperado) {
+        throw new Error(`El certificado cargado es del CUIT ${delCert}, pero config/arca dice ${esperado}. ` +
+            'Suele pasar al cambiar de ambiente: el certificado de homologación está a nombre de ' +
+            'otro CUIT que el de producción. Revisá que el secret y el ambiente vayan juntos.');
+    }
 }
 // ── 3. Llamada al WSAA ────────────────────────────────────────────────────────
 function envolverEnSoap(cmsBase64) {

@@ -20,6 +20,7 @@ import type { Firestore } from 'firebase-admin/firestore'
 
 import { leerConfigParaEmitir, type ConfigArca } from '../services/arca/configuracion'
 import { obtenerTicketAcceso } from '../services/arca/ticketCache'
+import { verificarCertificadoCoincide } from '../services/arca/wsaa'
 import { feCaeSolicitar, feCompConsultar, type ConfigWsfev1 } from '../services/arca/wsfev1'
 import type { PuertoArca } from '../services/arca/emision'
 import { resolverIncierto } from '../services/arca/emision'
@@ -44,6 +45,11 @@ function comoDb(db: Firestore): DbLike {
 
 /** Arma el puerto hacia ARCA: autentica (con cache) y expone las dos operaciones. */
 async function puertoArca(db: Firestore, config: ConfigArca): Promise<PuertoArca> {
+  // El certificado (secret) y el ambiente (config/arca) se cambian por
+  // separado, y el de homologación está a nombre de otro CUIT. Cruzados, ARCA
+  // devuelve un 601 que no dice cuál de las dos puntas está mal.
+  verificarCertificadoCoincide(arcaCert.value(), config.cuit)
+
   const ta = await obtenerTicketAcceso({
     db: comoDb(db),
     cuit: config.cuit,

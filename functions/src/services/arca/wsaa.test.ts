@@ -6,6 +6,8 @@ import {
   parsearRespuestaWsaa,
   extraerTag,
   SERVICIO_WSFE,
+  cuitDelCertificado,
+  verificarCertificadoCoincide,
 } from './wsaa'
 
 /**
@@ -118,6 +120,44 @@ describe('firmarTRA', () => {
     } catch (e) {
       expect((e as Error).message).not.toContain(secreto)
     }
+  })
+})
+
+describe('verificarCertificadoCoincide', () => {
+  /** Certificado de prueba con un CUIT en el serialNumber, como los de ARCA. */
+  function certConCuit(cuit: string) {
+    const par = forge.pki.rsa.generateKeyPair(2048)
+    const cert = forge.pki.createCertificate()
+    cert.publicKey = par.publicKey
+    cert.serialNumber = '01'
+    cert.validity.notBefore = new Date()
+    cert.validity.notAfter = new Date(Date.now() + 365 * 86400000)
+    const attrs = [
+      { name: 'commonName', value: 'App Rolito' },
+      { name: 'serialNumber', value: `CUIT ${cuit}` },
+    ]
+    cert.setSubject(attrs)
+    cert.setIssuer(attrs)
+    cert.sign(par.privateKey, forge.md.sha256.create())
+    return forge.pki.certificateToPem(cert)
+  }
+
+  it('lee el CUIT del subject', () => {
+    expect(cuitDelCertificado(certConCuit('30697668973'))).toBe('30697668973')
+  })
+
+  it('pasa cuando el certificado y la configuración coinciden', () => {
+    expect(() => verificarCertificadoCoincide(certConCuit('30697668973'), '30697668973')).not.toThrow()
+  })
+
+  it('tolera el CUIT con guiones en la configuración', () => {
+    expect(() => verificarCertificadoCoincide(certConCuit('30697668973'), '30-69766897-3')).not.toThrow()
+  })
+
+  it('detecta el cruce típico: cert de homologación con ambiente de producción', () => {
+    // El de homologación está a nombre de una persona física (prefijo 20).
+    expect(() => verificarCertificadoCoincide(certConCuit('20128494651'), '30697668973'))
+      .toThrow(/es del CUIT 20128494651, pero config\/arca dice 30697668973/)
   })
 })
 
