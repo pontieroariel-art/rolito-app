@@ -44,6 +44,8 @@ const MonitoreoPage       = lazy(() => import('./pages/admin/MonitoreoPage'))
 const ReporteIncidenciasPage = lazy(() => import('./pages/admin/ReporteIncidenciasPage'))
 const HistorialDespachoPage  = lazy(() => import('./pages/admin/HistorialDespachoPage'))
 const ClimaPage           = lazy(() => import('./pages/admin/ClimaPage'))
+// Lazy con doble motivo: además del peso normal, arrastra pdfjs-dist (448K).
+const RecuperoFacturasPage = lazy(() => import('./pages/admin/RecuperoFacturasPage'))
 
 const ComercialDashboard   = lazy(() => import('./pages/comercial/ComercialDashboard'))
 const ComercialOrders      = lazy(() => import('./pages/comercial/ComercialOrders'))
@@ -296,6 +298,11 @@ function AppContent() {
           {/* Historial de precios */}
           <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'logistica', 'facturacion']} />}>
             <Route path="/comercial/historial-precios" element={<HistorialPreciosPage />} />
+          </Route>
+
+          {/* Recupero de facturas viejas — campaña puntual, se saca cuando termine */}
+          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'facturacion']} />}>
+            <Route path="/admin/recupero-facturas" element={<RecuperoFacturasPage />} />
           </Route>
 
           {/* Historial unificado */}

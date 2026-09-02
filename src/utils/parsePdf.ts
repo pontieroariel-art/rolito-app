@@ -16,6 +16,34 @@ export interface PedidoParsed {
   products:     Array<{ name: string; quantity: number }>
 }
 
+/** Un fragmento de texto del PDF con su posición en la página, en milímetros. */
+export interface PdfItem {
+  x:   number
+  y:   number   // desde el borde SUPERIOR (al revés que el sistema del PDF)
+  str: string
+}
+
+/**
+ * Texto con coordenadas de una página. Para documentos que son FORMULARIOS
+ * (posiciones fijas) en vez de texto corrido: ahí el orden de lectura no
+ * significa nada y cada dato se ubica por dónde está impreso — ver
+ * `utils/facturaTango.ts`.
+ */
+export async function extractPdfItems(file: File, pageNum = 1): Promise<PdfItem[]> {
+  const data = await file.arrayBuffer()
+  const pdf  = await pdfjsLib.getDocument({ data }).promise
+  const page = await pdf.getPage(pageNum)
+  const vp   = page.getViewport({ scale: 1 })
+  const content = await page.getTextContent()
+  return content.items
+    .map((item: any) => ({
+      x:   +((item.transform?.[4] * 25.4) / 72).toFixed(1),
+      y:   +(((vp.height - item.transform?.[5]) * 25.4) / 72).toFixed(1),
+      str: 'str' in item ? item.str : '',
+    }))
+    .filter((i) => i.str.trim() && Number.isFinite(i.x) && Number.isFinite(i.y))
+}
+
 export async function extractPdfText(file: File): Promise<string> {
   const data = await file.arrayBuffer()
   const pdf  = await pdfjsLib.getDocument({ data }).promise

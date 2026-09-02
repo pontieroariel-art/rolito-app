@@ -239,6 +239,7 @@ Descubierta por Ariel en la pantalla **Ventas → Consultas → Clientes → Sal
 | **12205** | "Saldos" (Ventas → Consultas → Clientes → Saldos) | Una fila por CLIENTE con `saldO_CTE`/`saldO_EXT` (totales, sin composición) + datos de contacto |
 | **17953** | **"Deudas vencidas"** (Ventas → Consultas → Cuenta Corriente) | **LA COMPOSICIÓN**: una fila por comprobante pendiente vencido |
 | **17955** | **"Deudas a vencer"** (mismo menú) | La otra mitad: comprobantes pendientes no vencidos (confirmado 2026-08-31, misma estructura que 17953) |
+| **17943** | **"Detalle de comprobantes"** (Ventas → Consultas → Facturación) | **LOS RENGLONES**: una fila por artículo facturado (ver §10) |
 
 **Formato REAL del GetApiLiveQueryData (probado con datos, difiere de la plantilla de la Apertura):**
 
@@ -529,3 +530,139 @@ composición ya lo refleja y la cobranza deja de restarse sola.
 **Flags nuevos en `config/tango`:** `saldosEnabled`, `consultasEnabled`,
 `remitosEnabled`, `recibosEnabled` (todos default false; `produccionEnabled`
 ya existía).
+
+## 10. Recupero de las facturas viejas de Bluesoft (2026-09-01)
+
+Las facturas emitidas hasta el **20/08/2026** que siguen impagas se perdieron en el
+formato PDF con el que las mandaba Bluesoft. Los datos están en Tango; lo que se
+rehace es la impresión. **Es una corrida puntual, no una función de la app:** son
+REIMPRESIONES de comprobantes ya autorizados, así que jamás se pide un CAE nuevo.
+
+### Qué se construyó
+
+| Archivo | Qué hace |
+|---|---|
+| `src/utils/facturaPdf.ts` | El layout de la factura A: réplica del comprobante de Bluesoft (relevado de la 00101-00282302), con el QR de la RG 4892 y el código de barras I25 del pie. Corre igual en el browser y en Node. |
+| `src/utils/facturaPdf.test.ts` | Importe en letras, composición de los 40 dígitos del barcode + su DV, y el JSON del QR. |
+| `scripts/tango/generar-facturas-pdf.mjs` | Toma un JSON de facturas y escribe un PDF por comprobante. Rechaza las que vengan sin CAE. |
+| `scripts/tango/relevar-facturas-tango.ps1` | El relevamiento de la consulta (ya cumplió su función, queda por si hace falta otra). |
+| `public/marca-agua-factura.jpg`, `public/logo-rolito-factura.png` | Las imágenes del comprobante, reducidas para impresión (con los originales cada PDF pesaba 3,4 MB; ahora 84 KB). |
+
+### La consulta 17943 — "Detalle de comprobantes"
+
+`Ventas → Consultas → Facturación → Detalle de comprobantes` (`/company/1/live/17943`).
+Es la que tiene **el detalle renglón por renglón**, que la composición de saldos no trae.
+
+**Fila real confirmada (2026-09-01):**
+
+```json
+{
+  "FECHA_DE_EMISION": "2026-08-19T00:00:00",
+  "TIPO_COMPROBANTE": "FAC",
+  "NRO_COMPROBANTE": "A0020300000121",
+  "NOMBRE_VENDEDOR": "NICOLAS DIAZ",
+  "RAZON_SOCIAL": "ALVAREZ MARIA CONSTANZA",
+  "ID_GVA14": 9733,
+  "COD_ARTICULO": "PTHIBOLROLI0003",
+  "DESCRIPCION": "HIELO EN BOLSA ROLITO 3 KG",
+  "CANTIDAD": 30,
+  "TOTAL": 48000,
+  "ID_GVA12": 371572,
+  "ID_GVA23": 9762, "ID_GVA38": null, "ID_STA11": 1466
+}
+```
+
+88 renglones para un solo día (19/08). Notar:
+
+- **`ID_GVA12` es el mismo identificador que devuelven 17953/17955**, así que los
+  renglones se cruzan con la composición de saldos sin ambigüedad: de ahí salen el
+  total del comprobante, el vencimiento y el saldo pendiente.
+- **No viene el precio unitario**: se deriva `TOTAL / CANTIDAD` (48000/30 = 1600).
+- **El punto de venta no es uno solo** (`A00203…` acá, `A00101…` en la factura de
+  muestra): el generador lo toma del número de comprobante, no lo fija.
+- El `GetColumnDefinition` devuelve 71 columnas identificadas por id numérico, no por
+  nombre — la respuesta trae solo las del diseño por defecto, como en 17953.
+
+### El CAE: no está en 17943
+
+La **Ficha Live de facturas, créditos y débitos** no es una consulta Live sino un
+dashboard (`/company/1/dashboard/14077`), y su Apertura expone un solo endpoint:
+
+```
+GET Api/GetPdf/{process}/{id}
+```
+
+Es decir, Tango devuelve el PDF de un comprobante por API — pero con **su** diseño, no
+con el de Bluesoft, así que no reemplaza al generador. Queda anotado por si sirve para
+otra cosa (verificar contra el original, por ejemplo).
+
+**Plan para el CAE:** traerlo de ARCA con `FECompConsultar`, que ya está implementado y
+probado contra producción (`functions/src/services/arca/wsfev1.ts`). Una llamada por
+comprobante, con throttle; para ~1.000 facturas es perfectamente viable y de paso
+verifica que el importe de Tango coincide con lo que ARCA tiene registrado. Requiere el
+certificado del CUIT que emitió cada factura (hoy está el de Redonhielo, 30-69766897-3).
+
+### El camino que quedó: parsear el PDF "en blanco" de Tango
+
+Antes de armar el export por API apareció una vía mejor. Tango imprime las facturas
+en un PDF **"en blanco"** — el que se tiraba sobre formulario preimpreso: trae los
+datos, no el diseño. Y ese PDF tiene **todo lo que la API no daba**: precio unitario,
+CUIT, domicilio, condición de venta y el remito.
+
+`scripts/tango/parsear-facturas-tango.mjs` lo lee con `pdfjs-dist` y arma el JSON de
+entrada del generador. El formulario tiene posiciones fijas, así que cada dato se ubica
+por su banda de Y y su rango de X (en mm) — las constantes `CAMPOS` y `COLS` del script.
+
+Verificado contra `00101-00281898` (13/08/2026, PAN AMERICAN ENERGY): los tres renglones
+suman el neto y neto + IVA da el total, y el importe en letras que calcula
+`importeEnLetras` coincide palabra por palabra con el que imprime Tango
+("CIENTO SIETE MIL CUATROCIENTOS NOVENTA Y SEIS CON 40/100"). El script hace ese control
+aritmético en cada factura y avisa si no cierra.
+
+**Lo único que el PDF de Tango NO trae es el CAE.** Se completa con `--caes archivo.json`,
+un mapa `"00101-00281898" → { cae, caeVto }` que sale de la consulta con la columna
+`C.A.I. / C.A.E.` agregada desde Configurar → Columnas y exportada a Excel. Sin CAE la
+factura se escribe igual en el JSON pero con `cae: ""`, y el generador la rechaza: mejor
+que falte a que salga un comprobante sin su autorización.
+
+### Por qué el CAE no sale por API
+
+La consulta 17943 devuelve **siempre las columnas de su diseño base**, sin importar lo que
+se configure en pantalla. Comprobado con las dos vías:
+
+- `GET Api/GetApiLiveQueryData?process=17943&…` → los mismos 14 campos.
+- `POST Api/GetApiLiveFullOpenData` con el mismo process → idénticos 14 campos.
+
+El campo existe (`C.A.I. / C.A.E.` figura en Configurar → Columnas), pero agregarlo a la
+grilla no cambia lo que responde la API. Falta probar guardarlo en **"Mis consultas"**,
+que le asignaría un process propio a la consulta con las columnas elegidas.
+
+### La pantalla: `/admin/recupero-facturas`
+
+El recupero terminó siendo una pantalla y no un script, por una razón operativa: el
+CAE lo carga a mano quien lo está mirando en Tango, y conviene ver los datos leídos
+**antes** de generar. Roles `super_admin` y `facturacion`.
+
+| Archivo | Qué hace |
+|---|---|
+| `src/utils/parsePdf.ts` → `extractPdfItems` | Texto CON coordenadas (mm). El resto del módulo devuelve texto corrido, que acá no sirve. |
+| `src/utils/facturaTango.ts` | El parser del formulario + `verificarFactura` (control aritmético). |
+| `src/utils/facturaTango.test.ts` | 10 casos sobre los items reales de la 00101-00281898. |
+| `src/pages/admin/RecuperoFacturasPage.tsx` | La pantalla: drop de PDF, campos de CAE, generar. |
+
+Todo corre en el navegador del administrativo: los PDF no se suben a ningún lado y no
+tocan Firestore ni Storage.
+
+**Es una campaña puntual.** Cuando el recupero termine se borran la página, su ruta en
+`App.tsx` y los dos accesos (Navbar de `facturacion` y BackofficeHome). El generador
+(`facturaPdf.ts`) se queda: lo va a necesitar la facturación con ARCA.
+
+También quedaron los scripts de línea de comandos, por si conviene hacerlo en lote:
+`parsear-facturas-tango.mjs` (PDF → JSON) y `generar-facturas-pdf.mjs` (JSON → PDF).
+
+### Lo que falta
+
+1. Los CAE: se cargan a mano en la pantalla, o se exportan de Tango con la columna
+   `C.A.I. / C.A.E.` si se prefiere el camino por lote.
+2. Bajar los PDF de las facturas impagas y pasarlos por la pantalla.
+3. Confirmar el corte (se habló de 20/8 y de 28/8).

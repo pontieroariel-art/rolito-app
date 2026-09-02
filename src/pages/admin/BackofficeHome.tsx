@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import {
   UserCog, Factory, Settings, Truck, Tag, Layers, ClipboardList, Users2, Package, LayoutDashboard,
   CalendarDays, History, Activity, Cloud, Users, Map, BarChart2, DollarSign, TrendingUp, Clock,
-  Navigation, Snowflake, Wrench, ArrowLeftRight,
+  Navigation, Snowflake, Wrench, ArrowLeftRight, FileText,
 } from 'lucide-react'
 
 interface CardLink {
@@ -39,6 +39,7 @@ const SECTIONS: CardSection[] = [
       { to: '/usuarios',              label: 'Clientes (CRM)', description: 'Alta, edición y ficha de clientes.',      icon: Users },
       { to: '/admin/mapa-clientes',   label: 'Mapa de clientes', description: 'Ubicación geográfica de la cartera.',    icon: Map },
       { to: '/movimientos',           label: 'Movimientos',    description: 'Historial unificado de la operación.',    icon: BarChart2 },
+      { to: '/admin/recupero-facturas', label: 'Recupero de facturas', description: 'Reimprime las facturas viejas de Tango con el formato de siempre.', icon: FileText },
       { to: '/sistema',               label: 'Selección de sistema', description: 'Vista del selector que usan los roles con más de un sistema.', icon: ArrowLeftRight },
     ],
   },
