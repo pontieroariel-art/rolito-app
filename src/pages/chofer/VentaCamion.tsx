@@ -62,7 +62,13 @@ export default function VentaCamion() {
   // Camión del día: el remito de carga emitido por caja es la fuente primaria
   // (users/{uid}.camionId no lo escribe ninguna UI, solo el seed — queda como
   // fallback para no romper choferes sin remito digital todavía).
-  const camionIdHoy = remitosCarga[0]?.camionId ?? user?.camionId
+  //
+  // Puede no haber ninguno, y NO frena la venta: el que va de acompañante no
+  // tiene remito propio, y un chofer sin camión asignado igual sale a vender.
+  // La venta queda sin camión y por lo tanto fuera del stock en vivo de ese
+  // camión, pero sigue contando para la liquidación del repartidor, que es por
+  // persona. Perder la venta sería mucho peor que perder la atribución.
+  const camionIdHoy = remitosCarga[0]?.camionId ?? user?.camionId ?? ''
 
   const [canal, setCanal] = useState<CanalVenta | null>(null)
   const [clienteId, setClienteId] = useState('')
@@ -131,7 +137,6 @@ export default function VentaCamion() {
 
   const abrirResumen = () => {
     setError('')
-    if (!camionIdHoy)        { setError('No tenés un camión asignado. Avisá a logística.'); return }
     if (!cliente)            { setError('Elegí un cliente.'); return }
     if (items.length === 0 && cambios.length === 0) { setError('Cargá al menos un producto o un cambio.'); return }
     if (seCobra && !formaPago) { setError('Elegí la forma de pago.'); return }
@@ -144,7 +149,7 @@ export default function VentaCamion() {
   }
 
   const confirmar = () => {
-    if (!user || !camionIdHoy || !cliente || !canal) return
+    if (!user || !cliente || !canal) return
     // Una operación de solo cambios no se cobra: la forma de pago no se le
     // pregunta al chofer, y contra un total de $0 no mueve ninguna cuenta.
     const formaPagoFinal = formaPago ?? 'contado_efectivo'
@@ -254,6 +259,17 @@ export default function VentaCamion() {
       </div>
 
       <main className="max-w-lg mx-auto p-4 space-y-5 pb-28">
+        {/* Sin camión se vende igual (acompañante, o todavía sin remito de
+            carga). Solo se avisa que la venta no va a figurar en el stock de
+            ningún camión — para la liquidación de la persona cuenta igual. */}
+        {!camionIdHoy && (
+          <div className="rounded-xl border border-[#D3D1C7] bg-white px-3.5 py-2.5">
+            <p className="text-sm text-gray-600">
+              No tenés un camión asignado hoy. Podés vender igual: la venta queda a tu nombre.
+            </p>
+          </div>
+        )}
+
         {/* Cliente */}
         <section className="space-y-2">
           <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 flex items-center gap-1.5">

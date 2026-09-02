@@ -5,6 +5,10 @@ import { VentaCamion, VentaCamionItem, FormaPago, CanalVenta, UserProfile } from
 
 const VENTAS = 'ventasCamion'
 
+// `camionId` puede venir vacío: el que va de acompañante no tiene remito de
+// carga propio, y un chofer sin camión asignado igual sale a vender. La venta
+// queda sin camión (fuera del stock en vivo de ese camión) pero sigue contando
+// para la liquidación, que es por repartidor.
 export interface ActorChofer { uid: string; nombre: string; camionId: string }
 
 // Cliente mínimo necesario para armar el remito de la venta.
