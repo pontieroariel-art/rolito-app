@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { HandCoins, Package } from 'lucide-react'
+import { HandCoins, Package, FileText } from 'lucide-react'
 import ChoferHeader from '../../components/chofer/ChoferHeader'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
@@ -242,6 +242,14 @@ export default function ChoferDashboard() {
           className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-white border border-[#D3D1C7] text-gray-700 py-5 shadow-sm active:scale-[0.99] transition-transform">
           <HandCoins size={22} className="text-accent" />
           <span className="text-base font-bold">Cobrar</span>
+        </Link>
+        {/* Sin esto la pantalla de facturas existía pero no se llegaba desde
+            ningún lado, y el chofer no tenía cómo darle el comprobante al
+            cliente parado en la puerta. */}
+        <Link to="/chofer/ventas"
+          className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-white border border-[#D3D1C7] text-gray-700 py-5 shadow-sm active:scale-[0.99] transition-transform">
+          <FileText size={22} className="text-accent" />
+          <span className="text-base font-bold">Facturas</span>
         </Link>
       </div>
 
