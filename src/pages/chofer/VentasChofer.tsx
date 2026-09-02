@@ -1,0 +1,168 @@
+// Las ventas que hizo el chofer, con la factura de cada una.
+//
+// Existe por un motivo concreto: hasta ahora la app emitía la factura
+// electrónica y el chofer no tenía forma de dársela al cliente. Acá la ve y la
+// manda por WhatsApp o mail desde el mismo teléfono, sin esperar al mail que
+// Tango envía por su cuenta.
+import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { ArrowLeft, FileText, Share2, Download, Clock, AlertTriangle } from 'lucide-react'
+import LoadingSpinner from '@/components/ui/LoadingSpinner'
+import { useAuth } from '@/context/AuthContext'
+import { useClientesActivos } from '@/hooks/useClientesActivos'
+import { subscribeVentasRecientesChofer } from '@/services/ventaCamionService'
+import { generateFacturaArcaPdf } from '@/utils/facturaArcaPdf'
+import { armarFacturaDeVenta } from '@/utils/facturaDeVenta'
+import { compartirArchivo, descargarArchivo, puedeCompartirArchivos } from '@/utils/compartir'
+import { VentaCamion } from '@/types'
+
+const money = (n: number) =>
+  n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+const nroFactura = (v: VentaCamion) =>
+  v.factura
+    ? `${String(v.factura.puntoVenta).padStart(5, '0')}-${String(v.factura.numero).padStart(8, '0')}`
+    : ''
+
+export default function VentasChofer() {
+  const { user } = useAuth()
+  const { clientes } = useClientesActivos()
+  const [ventas, setVentas] = useState<VentaCamion[] | null>(null)
+  const [ocupada, setOcupada] = useState<string | null>(null)
+  const [aviso, setAviso] = useState('')
+
+  const compartible = useMemo(() => puedeCompartirArchivos(), [])
+
+  useEffect(() => {
+    if (!user) return
+    return subscribeVentasRecientesChofer(user.uid, setVentas)
+  }, [user])
+
+  const clientePorId = useMemo(
+    () => new Map(clientes.map((c) => [c.uid, c])),
+    [clientes],
+  )
+
+  const entregarFactura = async (venta: VentaCamion, compartir: boolean) => {
+    setAviso('')
+    const armado = armarFacturaDeVenta(venta, clientePorId.get(venta.clienteId))
+    if (!armado.ok) { setAviso(armado.motivo); return }
+
+    setOcupada(venta.id)
+    try {
+      const blob = (await generateFacturaArcaPdf(armado.datos)) as Blob
+      const nombre = `factura-${nroFactura(venta)}.pdf`
+      if (compartir) {
+        const r = await compartirArchivo(blob, nombre, {
+          titulo: `Factura ${nroFactura(venta)}`,
+          texto: `Factura ${nroFactura(venta)} — ${venta.clienteNombre}`,
+        })
+        if (r === 'descargado') setAviso('Este dispositivo no puede compartir archivos: se descargó.')
+      } else {
+        descargarArchivo(blob, nombre)
+      }
+    } catch {
+      setAviso('No se pudo generar el comprobante. Probá de nuevo.')
+    } finally {
+      setOcupada(null)
+    }
+  }
+
+  if (!user || ventas === null) return <LoadingSpinner fullScreen />
+
+  return (
+    <div className="min-h-screen bg-[#F8F7F2]">
+      <header className="flex items-center gap-3 bg-gradient-to-b from-[#1a6b52] to-[#1D9E75] px-4 py-4 text-white">
+        <Link to="/chofer" className="rounded-full bg-white/20 p-2" aria-label="Volver">
+          <ArrowLeft size={18} />
+        </Link>
+        <div>
+          <h1 className="text-lg font-bold leading-tight">Mis ventas</h1>
+          <p className="text-xs text-white/80">Entregá la factura al cliente</p>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-2xl p-4">
+        {aviso && (
+          <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{aviso}</p>
+        )}
+
+        {ventas.length === 0 && (
+          <p className="mt-10 text-center text-sm text-gray-400">Todavía no cargaste ninguna venta.</p>
+        )}
+
+        <div className="flex flex-col gap-2.5">
+          {ventas.map((v) => {
+            const f = v.factura
+            const emitida = f?.estado === 'emitida' && !!f.cae
+
+            return (
+              <article key={v.id} className="rounded-xl border border-[#E4E2D9] bg-white p-4 shadow-sm">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="font-semibold text-gray-800">{v.clienteNombre}</span>
+                  <span className="font-mono text-sm font-semibold tabular-nums text-gray-900">
+                    ${money(v.total)}
+                  </span>
+                </div>
+
+                <p className="mt-0.5 text-xs text-gray-500">
+                  {v.fecha.toDate().toLocaleString('es-AR', {
+                    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+                  })}
+                  {' · '}
+                  {v.canal === 'contado' ? 'Venta contado' : 'Promo'}
+                  {v.items.length > 0 && ` · ${v.items.length} ${v.items.length === 1 ? 'producto' : 'productos'}`}
+                </p>
+
+                {/* Promo no factura: no hay nada que entregar. */}
+                {v.canal === 'contado' && (
+                  <div className="mt-3 border-t border-[#F2F1EA] pt-3">
+                    {emitida ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="mr-auto font-mono text-xs text-gray-600">
+                          Factura {nroFactura(v)}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={ocupada === v.id}
+                          onClick={() => entregarFactura(v, true)}
+                          className="flex items-center gap-1.5 rounded-lg bg-[#1D9E75] px-3 py-2 text-sm font-semibold text-white hover:bg-[#178760] disabled:opacity-50"
+                        >
+                          <Share2 size={15} />
+                          {ocupada === v.id ? 'Generando…' : compartible ? 'Enviar' : 'Descargar'}
+                        </button>
+                        {compartible && (
+                          <button
+                            type="button"
+                            disabled={ocupada === v.id}
+                            onClick={() => entregarFactura(v, false)}
+                            className="flex items-center gap-1.5 rounded-lg border border-[#D3D1C7] px-3 py-2 text-sm text-gray-700 disabled:opacity-50"
+                            aria-label="Descargar la factura"
+                          >
+                            <Download size={15} />
+                          </button>
+                        )}
+                      </div>
+                    ) : f?.estado === 'incierta' ? (
+                      <p className="flex items-center gap-1.5 text-xs text-amber-700">
+                        <Clock size={14} /> Factura en revisión — se resuelve sola en unos minutos.
+                      </p>
+                    ) : f?.estado === 'rechazada' ? (
+                      <p className="flex items-center gap-1.5 text-xs text-red-700">
+                        <AlertTriangle size={14} /> ARCA rechazó la factura. Avisá a la oficina.
+                      </p>
+                    ) : (
+                      <p className="flex items-center gap-1.5 text-xs text-gray-400">
+                        <FileText size={14} /> Facturando…
+                      </p>
+                    )}
+                  </div>
+                )}
+              </article>
+            )
+          })}
+        </div>
+      </main>
+    </div>
+  )
+}

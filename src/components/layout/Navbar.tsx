@@ -4,7 +4,7 @@ import {
   LayoutDashboard, CalendarDays, Activity, AlertTriangle, ClipboardList,
   Truck, Users, Tag, Map, Cloud, Package, Navigation, BarChart2,
   DollarSign, TrendingUp, Clock, Home, Plus, History, UserCircle,
-  LogOut, Menu, X, Snowflake, Wrench, ArrowLeftRight,
+  LogOut, Menu, X, Snowflake, Wrench, ArrowLeftRight, FileText,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useOnline } from '../../hooks/useOnline'
@@ -80,9 +80,11 @@ const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
     { to: '/admin/mapa-clientes',          label: 'Mapa clientes',  icon: Map },
   ],
   chofer: [
-    { to: '/chofer',       label: 'Inicio',       icon: Home },
-    { to: '/chofer/venta', label: 'Vender',       icon: Package },
-    { to: '/chofer/map',   label: 'Ruta',         icon: Navigation },
+    { to: '/chofer',        label: 'Inicio',   icon: Home },
+    { to: '/chofer/venta',  label: 'Vender',   icon: Package },
+    // Donde el chofer entrega la factura al cliente (WhatsApp / mail).
+    { to: '/chofer/ventas', label: 'Facturas', icon: FileText },
+    { to: '/chofer/map',    label: 'Ruta',     icon: Navigation },
   ],
   heladeras: [
     { to: '/heladeras', label: 'Heladeras', icon: Snowflake },

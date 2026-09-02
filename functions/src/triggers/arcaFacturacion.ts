@@ -123,7 +123,10 @@ async function persistir(db: Firestore, registro: RegistroFactura): Promise<void
     { merge: true },
   )
   // Espejo en la venta, para que la pantalla del chofer y los listados no
-  // tengan que hacer un join.
+  // tengan que hacer un join. Lleva todo lo que necesita el comprobante
+  // impreso: el tipo (define si es A o B), la fecha y los importes TAL COMO se
+  // le informaron a ARCA. Recalcularlos en el front arriesgaría que el papel
+  // no coincida con lo declarado.
   batch.set(
     db.doc(`ventasCamion/${registro.ventaId}`),
     {
@@ -131,8 +134,10 @@ async function persistir(db: Firestore, registro: RegistroFactura): Promise<void
         estado: registro.estado,
         numero: registro.numero,
         puntoVenta: registro.puntoVenta,
+        cbteTipo: registro.cbteTipo,
         cae: registro.cae ?? null,
         caeFchVto: registro.caeFchVto ?? null,
+        ...(registro.importes ? { importes: registro.importes } : {}),
       },
     },
     { merge: true },

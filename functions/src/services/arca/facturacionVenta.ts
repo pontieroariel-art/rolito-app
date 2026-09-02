@@ -20,7 +20,7 @@
  */
 
 import type { DbLike } from './numeracion'
-import type { PuertoArca } from './emision'
+import type { ImportesInformados, PuertoArca } from './emision'
 import { emitirComprobante, resolverIncierto } from './emision'
 import type { DatosComprobante, OpcionesCalculo, PercepcionIIBB } from './comprobante'
 import type { ConfigArca } from './configuracion'
@@ -46,6 +46,8 @@ export interface RegistroFactura {
   caeFchVto?: string | null
   motivo?: string | null
   observaciones?: Array<{ code: number; msg: string }>
+  /** Lo que efectivamente se le informó a ARCA. Es lo que va en el papel. */
+  importes?: ImportesInformados
 }
 
 export function rutaFactura(ventaId: string): string {
@@ -153,6 +155,7 @@ export async function facturarVenta(opts: OpcionesFacturarVenta): Promise<Regist
           cbteTipo: resultado.cbteTipo, numero: resultado.numero,
           cae: resultado.cae, caeFchVto: resultado.caeFchVto,
           observaciones: resultado.observaciones,
+          importes: resultado.importes,
         }
       : {
           ventaId,

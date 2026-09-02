@@ -102,6 +102,7 @@ async function facturarVenta(opts) {
             cbteTipo: resultado.cbteTipo, numero: resultado.numero,
             cae: resultado.cae, caeFchVto: resultado.caeFchVto,
             observaciones: resultado.observaciones,
+            importes: resultado.importes,
         }
         : {
             ventaId,

@@ -60,6 +60,13 @@ async function emitirComprobante(opts) {
         }
     }
     const { detalle } = (0, comprobante_1.construirDetalle)({ ...datos, numeroComprobante: numero }, calculo);
+    const importes = {
+        fecha: detalle.CbteFch,
+        neto: detalle.ImpNeto,
+        iva: detalle.ImpIVA,
+        tributos: detalle.ImpTrib,
+        total: detalle.ImpTotal,
+    };
     // 4. La llamada que puede dejarnos sin saber qué pasó.
     try {
         const r = await arca.solicitarCae(ptoVta, cbteTipo, detalle);
@@ -70,6 +77,7 @@ async function emitirComprobante(opts) {
             cae: r.cae,
             caeFchVto: r.caeFchVto,
             observaciones: r.observaciones,
+            importes,
         };
     }
     catch (e) {
@@ -94,6 +102,7 @@ async function emitirComprobante(opts) {
                     cae: consulta.cae,
                     caeFchVto: consulta.caeFchVto ?? null,
                     observaciones: [],
+                    importes,
                 };
             }
             await (0, numeracion_1.marcarNumeroLibre)(db, clave, numero);

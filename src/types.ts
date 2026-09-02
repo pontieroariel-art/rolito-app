@@ -94,6 +94,25 @@ export interface RemitoTangoEstado {
 // Una venta/entrega hecha por el chofer desde el camión (flujo principal del
 // reparto: a demanda, a clientes ya registrados, precio = lista del cliente).
 // Descarga del depósito-camión y genera un remito en Tango (async).
+// Espejo de la factura electrónica en la venta, que escribe el trigger
+// `onVentaContadoFacturar`. Los importes son los que se le informaron a ARCA:
+// el comprobante impreso tiene que mostrar exactamente eso, no un recálculo.
+export interface FacturaArcaVenta {
+  estado:     'emitida' | 'rechazada' | 'incierta'
+  numero:     number
+  puntoVenta: number
+  cbteTipo:   number      // 1 = Factura A, 6 = Factura B, 11 = C
+  cae:        string | null
+  caeFchVto:  string | null   // AAAAMMDD
+  importes?: {
+    fecha:    string      // AAAAMMDD
+    neto:     number
+    iva:      number
+    tributos: number      // percepción de IIBB
+    total:    number
+  }
+}
+
 export interface VentaCamion {
   id:                   string
   canal:                CanalVenta   // promo (Rolito) / contado (Redonhielo)
@@ -115,6 +134,7 @@ export interface VentaCamion {
   fecha:                Timestamp
   pedidoId?:            string | null   // pedido previo que la originó, si hubo
   tango?:               RemitoTangoEstado
+  factura?:             FacturaArcaVenta   // solo en ventas contado
 }
 
 // ── Expedición: remito de carga del camión ────────────────────────────────────

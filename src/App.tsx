@@ -58,6 +58,7 @@ const HistorialPage        = lazy(() => import('./pages/shared/HistorialPage'))
 const ChoferDashboard   = lazy(() => import('./pages/chofer/ChoferDashboard'))
 const ChoferMap         = lazy(() => import('./pages/chofer/ChoferMap'))
 const VentaCamion       = lazy(() => import('./pages/chofer/VentaCamion'))
+const VentasChofer      = lazy(() => import('./pages/chofer/VentasChofer'))
 const GerenteDashboard  = lazy(() => import('./pages/gerente/GerenteDashboard'))
 
 const HeladerasLayout      = lazy(() => import('./components/heladeras/HeladerasLayout'))
@@ -316,6 +317,7 @@ function AppContent() {
           <Route path="/chofer"        element={<ChoferDashboard />} />
           <Route path="/chofer/map"    element={<ChoferMap />} />
           <Route path="/chofer/venta"  element={<VentaCamion />} />
+          <Route path="/chofer/ventas" element={<VentasChofer />} />
           <Route path="/chofer/cambio" element={<CambioCamion />} />
           <Route path="/chofer/cobrar" element={<CobranzaCalle />} />
         </Route>

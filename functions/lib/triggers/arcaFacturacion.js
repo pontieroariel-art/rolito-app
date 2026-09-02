@@ -103,14 +103,19 @@ async function persistir(db, registro) {
     const batch = db.batch();
     batch.set(db.doc((0, facturacionVenta_1.rutaFactura)(registro.ventaId)), { ...registro, actualizadoEn: firestore_2.FieldValue.serverTimestamp() }, { merge: true });
     // Espejo en la venta, para que la pantalla del chofer y los listados no
-    // tengan que hacer un join.
+    // tengan que hacer un join. Lleva todo lo que necesita el comprobante
+    // impreso: el tipo (define si es A o B), la fecha y los importes TAL COMO se
+    // le informaron a ARCA. Recalcularlos en el front arriesgaría que el papel
+    // no coincida con lo declarado.
     batch.set(db.doc(`ventasCamion/${registro.ventaId}`), {
         factura: {
             estado: registro.estado,
             numero: registro.numero,
             puntoVenta: registro.puntoVenta,
+            cbteTipo: registro.cbteTipo,
             cae: registro.cae ?? null,
             caeFchVto: registro.caeFchVto ?? null,
+            ...(registro.importes ? { importes: registro.importes } : {}),
         },
     }, { merge: true });
     await batch.commit();

@@ -35,6 +35,21 @@ export interface PuertoArca {
   consultarComprobante(ptoVta: number, cbteTipo: number, numero: number): Promise<ComprobanteConsultado>
 }
 
+/**
+ * Los importes tal como se le informaron a ARCA.
+ *
+ * Se devuelven para poder guardarlos: el comprobante impreso tiene que mostrar
+ * exactamente lo declarado. Recalcularlos después arriesga diferencias de
+ * redondeo entre el papel y lo que figura en ARCA.
+ */
+export interface ImportesInformados {
+  fecha:   string   // AAAAMMDD, el CbteFch que viajó
+  neto:    number
+  iva:     number
+  tributos: number  // percepciones (IIBB)
+  total:   number
+}
+
 export type ResultadoEmision =
   | {
       estado: 'emitido'
@@ -43,6 +58,7 @@ export type ResultadoEmision =
       cae: string
       caeFchVto: string | null
       observaciones: ObservacionArca[]
+      importes?: ImportesInformados
     }
   | {
       estado: 'rechazado'
@@ -128,6 +144,14 @@ export async function emitirComprobante(opts: OpcionesEmision): Promise<Resultad
 
   const { detalle } = construirDetalle({ ...datos, numeroComprobante: numero }, calculo)
 
+  const importes: ImportesInformados = {
+    fecha:    detalle.CbteFch,
+    neto:     detalle.ImpNeto,
+    iva:      detalle.ImpIVA,
+    tributos: detalle.ImpTrib,
+    total:    detalle.ImpTotal,
+  }
+
   // 4. La llamada que puede dejarnos sin saber qué pasó.
   try {
     const r = await arca.solicitarCae(ptoVta, cbteTipo, detalle)
@@ -138,6 +162,7 @@ export async function emitirComprobante(opts: OpcionesEmision): Promise<Resultad
       cae: r.cae!,
       caeFchVto: r.caeFchVto,
       observaciones: r.observaciones,
+      importes,
     }
   } catch (e) {
     const esRechazoDeArca = e instanceof ArcaError
@@ -163,6 +188,7 @@ export async function emitirComprobante(opts: OpcionesEmision): Promise<Resultad
           cae: consulta.cae!,
           caeFchVto: consulta.caeFchVto ?? null,
           observaciones: [],
+          importes,
         }
       }
       await marcarNumeroLibre(db, clave, numero)
