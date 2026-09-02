@@ -71,6 +71,57 @@ function enBanda(item, campo) {
   return Math.abs(item.y - campo.y) <= TOLERANCIA_Y && item.x >= campo.x[0] && item.x <= campo.x[1]
 }
 
+// ── Normalización de escala ──────────────────────────────────────────────────
+// Mismo criterio que src/utils/facturaTango.ts (que es lo que usa la pantalla):
+// el formulario sale con distinta escala segun el usuario de Tango que lo
+// imprima -- uno tal cual y otro "ajustado a la pagina", que lo deja al 94% en
+// vertical y al 83% en horizontal. Se deduce la transformacion con textos fijos
+// del formulario y se llevan los items a la escala de referencia.
+const ANCLAS = [
+  { texto: /^\d{4,5}-\d{7,8}$/,                            x: 147.2, y: 25.7 },
+  { texto: 'VENDEDOR:',                                    x: 111.7, y: 59.3 },
+  { texto: 'Impuesto Interno %',                           x: 145.7, y: 226.9 },
+  { texto: 'GRACIAS POR CONFIAR EN NUESTRO SERVICIO !!!',  x: 17,    y: 239.5 },
+  { texto: 'EMITIR CHEQUES A LA ORDEN DE REDONHIELO SA.',  x: 17,    y: 243.7 },
+  { texto: 'PESOS',                                        x: 17,    y: 252.1 },
+  { texto: 'PERC.IB.BA XXXXXXX',                           x: 145.7, y: 252.1 },
+]
+
+function ajustar(pares) {
+  if (new Set(pares.map(([ref]) => ref)).size < 2) return null
+  const n = pares.length
+  const sx = pares.reduce((s, [ref]) => s + ref, 0)
+  const sy = pares.reduce((s, [, real]) => s + real, 0)
+  const sxy = pares.reduce((s, [ref, real]) => s + ref * real, 0)
+  const sxx = pares.reduce((s, [ref]) => s + ref * ref, 0)
+  const den = n * sxx - sx * sx
+  if (Math.abs(den) < 1e-9) return null
+  const a = (n * sxy - sx * sy) / den
+  return { a, b: (sy - a * sx) / n }
+}
+
+function normalizarEscala(items) {
+  const paresX = []
+  const paresY = []
+  for (const ancla of ANCLAS) {
+    const encontrado = items.find((i) => {
+      const t = i.str.trim()
+      return typeof ancla.texto === 'string' ? t === ancla.texto : ancla.texto.test(t)
+    })
+    if (!encontrado) continue
+    paresX.push([ancla.x, encontrado.x])
+    paresY.push([ancla.y, encontrado.y])
+  }
+  const fx = ajustar(paresX)
+  const fy = ajustar(paresY)
+  if (!fx || !fy) return items
+  return items.map((i) => ({
+    ...i,
+    x: +((i.x - fx.b) / fx.a).toFixed(1),
+    y: +((i.y - fy.b) / fy.a).toFixed(1),
+  }))
+}
+
 function enColumna(item, rango) {
   return item.x >= rango[0] && item.x < rango[1]
 }
@@ -144,7 +195,9 @@ function parsearRenglones(items) {
   return { renglones, remitos: [...remitos] }
 }
 
-function parsearFactura(items, archivo) {
+function parsearFactura(crudos, archivo) {
+  if (crudos.length === 0) throw new Error('el PDF no tiene texto: parece un escaneo')
+  const items = normalizarEscala(crudos)
   const numero = primero(items, CAMPOS.numero)
   const m = /^(\d{4,5})-(\d{7,8})$/.exec(numero.replace(/\s/g, ''))
   if (!m) throw new Error(`no se pudo leer el número de comprobante (leí "${numero}")`)

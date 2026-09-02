@@ -48,6 +48,74 @@ const TOL_Y = 1.6
 const enBanda = (i: PdfItem, c: Campo) =>
   Math.abs(i.y - c.y) <= TOL_Y && i.x >= c.x[0] && i.x <= c.x[1]
 
+// ── Normalización de escala ──────────────────────────────────────────────────
+// El mismo formulario sale con distinta escala según el usuario de Tango que lo
+// imprima: uno lo baja tal cual y otro "ajustado a la página", y ahí el
+// contenido queda al 94% en vertical y al 83% en horizontal (medido sobre dos
+// PDF reales de la misma numeración). No es un corrimiento parejo — cada eje
+// se estira distinto —, así que no alcanza con ensanchar las bandas.
+//
+// La salida son textos FIJOS del formulario, que están siempre y en el mismo
+// lugar: con ellos se deduce la transformación y se llevan los items a la
+// escala de referencia. Desde ahí, el resto del parser no se entera de nada.
+interface Ancla { texto: string | RegExp; x: number; y: number }
+
+const ANCLAS: Ancla[] = [
+  { texto: /^\d{4,5}-\d{7,8}$/,                            x: 147.2, y: 25.7 },
+  { texto: 'VENDEDOR:',                                    x: 111.7, y: 59.3 },
+  { texto: 'Impuesto Interno %',                           x: 145.7, y: 226.9 },
+  { texto: 'GRACIAS POR CONFIAR EN NUESTRO SERVICIO !!!',  x: 17,    y: 239.5 },
+  { texto: 'EMITIR CHEQUES A LA ORDEN DE REDONHIELO SA.',  x: 17,    y: 243.7 },
+  { texto: 'PESOS',                                        x: 17,    y: 252.1 },
+  { texto: 'PERC.IB.BA XXXXXXX',                           x: 145.7, y: 252.1 },
+]
+
+/** Recta de mínimos cuadrados: real = a·referencia + b. */
+function ajustar(pares: Array<[number, number]>): { a: number; b: number } | null {
+  // Con un solo valor de referencia distinto la pendiente es indeterminada.
+  if (new Set(pares.map(([ref]) => ref)).size < 2) return null
+  const n = pares.length
+  const sx = pares.reduce((s, [ref]) => s + ref, 0)
+  const sy = pares.reduce((s, [, real]) => s + real, 0)
+  const sxy = pares.reduce((s, [ref, real]) => s + ref * real, 0)
+  const sxx = pares.reduce((s, [ref]) => s + ref * ref, 0)
+  const den = n * sxx - sx * sx
+  if (Math.abs(den) < 1e-9) return null
+  const a = (n * sxy - sx * sy) / den
+  return { a, b: (sy - a * sx) / n }
+}
+
+/**
+ * Lleva los items a la escala del formulario de referencia. Si el PDF ya viene
+ * en esa escala, la transformación es la identidad y no cambia nada.
+ */
+export function normalizarEscala(items: PdfItem[]): PdfItem[] {
+  const paresX: Array<[number, number]> = []
+  const paresY: Array<[number, number]> = []
+
+  for (const ancla of ANCLAS) {
+    const encontrado = items.find((i) => {
+      const t = i.str.trim()
+      return typeof ancla.texto === 'string' ? t === ancla.texto : ancla.texto.test(t)
+    })
+    if (!encontrado) continue
+    paresX.push([ancla.x, encontrado.x])
+    paresY.push([ancla.y, encontrado.y])
+  }
+
+  const fx = ajustar(paresX)
+  const fy = ajustar(paresY)
+  // Sin anclas suficientes se devuelve tal cual: si el PDF es el de referencia
+  // funciona igual, y si no, el error sale más adelante con un mensaje claro.
+  if (!fx || !fy) return items
+
+  return items.map((i) => ({
+    ...i,
+    x: +((i.x - fx.b) / fx.a).toFixed(1),
+    y: +((i.y - fy.b) / fy.a).toFixed(1),
+  }))
+}
+
 /** Tango imprime a la inglesa: "3,250.0000" → 3250 */
 function num(texto: string): number {
   const n = Number(String(texto ?? '').replace(/,/g, '').trim())
@@ -101,7 +169,12 @@ function parsearRenglones(items: PdfItem[]): { renglones: FacturaRenglon[]; remi
  * Devuelve el comprobante SIN CAE: el PDF de Tango no lo trae (venía impreso
  * en el formulario). Lo carga a mano quien lo esté mirando en Tango.
  */
-export function parsearFacturaTango(items: PdfItem[]): FacturaPdfData {
+export function parsearFacturaTango(crudos: PdfItem[]): FacturaPdfData {
+  if (crudos.length === 0) {
+    throw new Error('El PDF no tiene texto: parece un escaneo o una imagen, no la factura que emite Tango')
+  }
+  const items = normalizarEscala(crudos)
+
   const numero = leer(items, CAMPOS.numero).replace(/\s/g, '')
   const m = /^(\d{4,5})-(\d{7,8})$/.exec(numero)
   if (!m) throw new Error(`No se pudo leer el número de comprobante (leí "${numero || 'nada'}")`)
