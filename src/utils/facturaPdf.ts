@@ -18,6 +18,7 @@
 // código corre en el browser y en Node — útil para previsualizar el layout.
 
 import { generateQrDataUrl } from './qr'
+import { urlQrArca } from './arcaQr'
 
 // ── Datos del emisor ─────────────────────────────────────────────────────────
 // Relevados de una factura A real (00101-00282302). El domicilio acá difiere
@@ -240,29 +241,20 @@ function dibujarI25(doc: Lienzo, cadena: string, x: number, y: number, alto: num
 }
 
 // ── QR de la RG 4892 ─────────────────────────────────────────────────────────
-function aBase64(texto: string): string {
-  if (typeof btoa === 'function') return btoa(texto)
-  return Buffer.from(texto, 'utf-8').toString('base64')
-}
-
+/** El QR de la RG 4892. La lógica vive en arcaQr.ts: la comparte con el
+ * comprobante que emite la app (facturaArcaPdf.ts). */
 export function urlQrAfip(d: FacturaPdfData): string {
   const emisor = d.emisor ?? EMISOR_REDONHIELO
-  const datos = {
-    ver:        1,
-    fecha:      fechaISO(d.fechaEmision),
-    cuit:       Number(emisor.cuit.replace(/\D/g, '')),
-    ptoVta:     d.puntoVenta,
-    tipoCmp:    Number(d.codigoTipo),
-    nroCmp:     d.numero,
-    importe:    Number(d.totales.total.toFixed(2)),
-    moneda:     'PES',
-    ctz:        1,
-    tipoDocRec: 80,                                       // 80 = CUIT
-    nroDocRec:  Number(d.cliente.cuit.replace(/\D/g, '')),
-    tipoCodAut: 'E',                                      // E = CAE
-    codAut:     Number(d.cae.replace(/\D/g, '')),
-  }
-  return `https://www.afip.gob.ar/fe/qr/?p=${aBase64(JSON.stringify(datos))}`
+  return urlQrArca({
+    fechaEmision: d.fechaEmision,
+    cuitEmisor:   emisor.cuit,
+    puntoVenta:   d.puntoVenta,
+    codigoTipo:   d.codigoTipo,
+    numero:       d.numero,
+    importeTotal: d.totales.total,
+    cuitReceptor: d.cliente.cuit,
+    cae:          d.cae,
+  })
 }
 
 // ── El comprobante ───────────────────────────────────────────────────────────
