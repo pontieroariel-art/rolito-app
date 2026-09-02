@@ -217,6 +217,21 @@ async function main() {
   }
 
   await flush()
+
+  // Estado del padrón, para que `avisarPadronIIBB` (Cloud Function diaria) sepa
+  // cuándo vence y avise antes de que deje de poder facturarse. Sin esto el
+  // vencimiento se descubre recién cuando rebota la primera factura.
+  await db.doc('config/arcaPadronIIBB').set({
+    archivo:               path.basename(PADRON),
+    vigenciaDesde:         iso(vigenciaDesde),
+    vigenciaHasta:         iso(vigenciaHasta),
+    clientesConPercepcion: aAplicar.length,
+    clientesSinPercepcion: aBorrar.length,
+    importadoEn:           admin.firestore.FieldValue.serverTimestamp(),
+    // Se limpia el aviso anterior: es un padrón nuevo, arranca de cero.
+    ultimoAviso:           admin.firestore.FieldValue.delete(),
+  }, { merge: true })
+
   console.log(`\n${escritos} clientes actualizados (${aAplicar.length} con percepción, ${aBorrar.length} borrados).`)
   console.log(`Vigencia cargada: ${iso(vigenciaDesde)} → ${iso(vigenciaHasta)}.`)
   console.log('Acordate de volver a correr esto cuando AGIP publique el padrón del mes que viene.')

@@ -3165,6 +3165,20 @@ describe('ARCA — configuración de facturación', () => {
     })
     await assertSucceeds(getDoc(doc(db('op'), 'config/arca')))
   })
+
+  test('un operador NO puede tocar la vigencia del padrón de IIBB', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/op'), { rol: 'logistica', estado: 'activo' })
+      await setDoc(doc(d, 'config/arcaPadronIIBB'), {
+        vigenciaDesde: '2026-09-01', vigenciaHasta: '2026-09-30', clientesConPercepcion: 347,
+      })
+    })
+    // Estirar la vigencia haría facturar con alícuotas vencidas sin que nada avise.
+    await assertFails(
+      updateDoc(doc(db('op'), 'config/arcaPadronIIBB'), { vigenciaHasta: '2027-12-31' }),
+    )
+    await assertSucceeds(getDoc(doc(db('op'), 'config/arcaPadronIIBB')))
+  })
 })
 
 describe('ARCA — estado de facturas', () => {

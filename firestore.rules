@@ -458,8 +458,12 @@ service cloud.firestore {
       // Las reglas de Firestore son permisivas por unión: una regla más
       // específica no puede RESTRINGIR lo que otra concede, así que la
       // excepción tiene que estar acá adentro y no en un match aparte.
+      // Cubre config/arca, config/arcaNumeracion_* y config/arcaPadronIIBB: todo
+      // lo que toca la emisión de comprobantes lo escribe solo el Admin SDK.
+      // Falsear la vigencia del padrón, por ejemplo, haría facturar con
+      // alícuotas viejas sin que nada avise.
       function esConfigArca() {
-        return docId == 'arca' || docId.matches('arcaNumeracion_.*');
+        return docId.matches('arca.*');
       }
 
       allow read: if esNoAnonimo()

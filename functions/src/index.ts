@@ -36,3 +36,6 @@ export { resetPinProduccion } from './triggers/produccionAuth'
 // interruptor real es `config/arca.habilitado`, que arranca en false.
 // Ver docs/arca/FACTURACION_ELECTRONICA.md.
 export { onVentaContadoFacturar, reconciliarFacturasArca } from './triggers/arcaFacturacion'
+// Aviso de vencimiento del padrón de IIBB. No declara los secrets de ARCA, así
+// que se puede desplegar suelta.
+export { avisarPadronIIBB } from './triggers/padronIIBB'
