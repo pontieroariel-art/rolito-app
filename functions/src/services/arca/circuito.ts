@@ -67,3 +67,45 @@ export function documentoDeVenta(
 export function facturaContraArca(canal: unknown, formaPago: unknown, total: unknown): boolean {
   return documentoDeVenta(canal, formaPago, total) === 'factura_arca'
 }
+
+/** Las dos empresas de Tango. El número sale de la URL: /company/{N}/. */
+export const COMPANY_TANGO = { redonhielo: 1, rolito: 3 } as const
+
+export interface DestinoTango {
+  /** Qué comprobante hay que crear del otro lado. */
+  entidad: 'factura' | 'remito'
+  empresa: 'redonhielo' | 'rolito'
+  /** Header `Company` de la API de Tango. */
+  company: number
+  /**
+   * Si el comprobante ya viene con un CAE que pidió esta app. Tango tiene que
+   * registrarlo **como ya emitido**: si le pidiera a ARCA un CAE propio, la
+   * misma operación quedaría autorizada dos veces.
+   */
+  conCaePropio: boolean
+}
+
+/**
+ * A dónde va esta venta dentro de Tango.
+ *
+ * El canal elige la empresa (dos bases distintas, misma cartera de clientes) y
+ * la forma de pago elige el comprobante. Devuelve `null` con los mismos datos
+ * con los que `documentoDeVenta` no se anima a decidir.
+ */
+export function destinoTango(canal: unknown, formaPago: unknown, total: unknown): DestinoTango | null {
+  const documento = documentoDeVenta(canal, formaPago, total)
+  if (documento === null) return null
+
+  if (documento === 'factura_arca') {
+    return { entidad: 'factura', empresa: 'redonhielo', company: COMPANY_TANGO.redonhielo, conCaePropio: true }
+  }
+  if (documento === 'remito') {
+    return { entidad: 'remito', empresa: 'redonhielo', company: COMPANY_TANGO.redonhielo, conCaePropio: false }
+  }
+
+  // Promo: mismo reparto por forma de pago, pero en Rolito y sin ARCA. La
+  // numeración y el "CAE" son propios, así que nunca hay riesgo de duplicar
+  // una autorización fiscal.
+  const entidad = formaPago === 'cuenta_corriente' || Number(total) <= 0 ? 'remito' : 'factura'
+  return { entidad, empresa: 'rolito', company: COMPANY_TANGO.rolito, conCaePropio: false }
+}

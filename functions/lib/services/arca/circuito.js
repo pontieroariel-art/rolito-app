@@ -25,8 +25,10 @@
  * Ver docs/arca/FACTURACION_ELECTRONICA.md §11.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.COMPANY_TANGO = void 0;
 exports.documentoDeVenta = documentoDeVenta;
 exports.facturaContraArca = facturaContraArca;
+exports.destinoTango = destinoTango;
 const FORMAS_QUE_FACTURAN = ['contado_efectivo', 'contado_transferencia'];
 /**
  * Devuelve `null` cuando los datos de la venta no alcanzan para decidir (un
@@ -56,5 +58,30 @@ function documentoDeVenta(canal, formaPago, total) {
 /** Atajo para el trigger: ¿esta venta la factura la app contra ARCA? */
 function facturaContraArca(canal, formaPago, total) {
     return documentoDeVenta(canal, formaPago, total) === 'factura_arca';
+}
+/** Las dos empresas de Tango. El número sale de la URL: /company/{N}/. */
+exports.COMPANY_TANGO = { redonhielo: 1, rolito: 3 };
+/**
+ * A dónde va esta venta dentro de Tango.
+ *
+ * El canal elige la empresa (dos bases distintas, misma cartera de clientes) y
+ * la forma de pago elige el comprobante. Devuelve `null` con los mismos datos
+ * con los que `documentoDeVenta` no se anima a decidir.
+ */
+function destinoTango(canal, formaPago, total) {
+    const documento = documentoDeVenta(canal, formaPago, total);
+    if (documento === null)
+        return null;
+    if (documento === 'factura_arca') {
+        return { entidad: 'factura', empresa: 'redonhielo', company: exports.COMPANY_TANGO.redonhielo, conCaePropio: true };
+    }
+    if (documento === 'remito') {
+        return { entidad: 'remito', empresa: 'redonhielo', company: exports.COMPANY_TANGO.redonhielo, conCaePropio: false };
+    }
+    // Promo: mismo reparto por forma de pago, pero en Rolito y sin ARCA. La
+    // numeración y el "CAE" son propios, así que nunca hay riesgo de duplicar
+    // una autorización fiscal.
+    const entidad = formaPago === 'cuenta_corriente' || Number(total) <= 0 ? 'remito' : 'factura';
+    return { entidad, empresa: 'rolito', company: exports.COMPANY_TANGO.rolito, conCaePropio: false };
 }
 //# sourceMappingURL=circuito.js.map

@@ -114,11 +114,41 @@ async function enviarProduccionATango(payload) {
   }
 }
 
-async function enviarRemitoATango(payload) {
-  log(`  [STUB] enviarRemitoATango — payload que se mandaría: ${JSON.stringify(payload)}`)
+async function enviarRemitoATango(payload, item) {
+  log(`  [STUB] enviarRemitoATango — Company ${item?.company ?? '?'} (${item?.empresa ?? '?'}), payload: ${JSON.stringify(payload)}`)
   return {
     ok: false,
     error: 'API de transacciones de ventas no habilitada todavía — ver docs/tango/INTEGRACION.md §6.2',
+  }
+}
+
+// Factura de venta del camión.
+//
+// ⚠️ LO MÁS IMPORTANTE DE TODA LA INTEGRACIÓN: cuando `item.conCaePropio` es
+// true, la factura **YA FUE AUTORIZADA POR ARCA** — la emitió esta app, con su
+// punto de venta 1104, y el CAE viaja en `payload.factura`. Tango tiene que
+// registrarla como comprobante ya emitido, respetando ese punto de venta,
+// número y CAE.
+//
+// Si el writer usara un proceso que le pide a ARCA un CAE propio, la MISMA
+// operación quedaría autorizada dos veces: dos comprobantes fiscales por una
+// sola venta, que después hay que anular con notas de crédito. Antes de
+// completar esta función hay que confirmar con Axoft que la API admite
+// registrar un comprobante con CAE externo. Si no lo admite, hay que replantear
+// quién factura — no completar esto igual.
+//
+// Datos que ya vienen en el payload: `factura.puntoVenta`, `factura.numero`,
+// `factura.cbteTipo` (1 = A, 6 = B), `factura.cae`, `factura.caeFchVto` y
+// `factura.importes` (neto, iva, tributos, total) TAL COMO se le informaron a
+// ARCA — no se recalculan de este lado.
+async function enviarFacturaATango(payload, item) {
+  log(
+    `  [STUB] enviarFacturaATango — Company ${item?.company ?? '?'} (${item?.empresa ?? '?'}), ` +
+    `conCaePropio=${item?.conCaePropio === true}, payload: ${JSON.stringify(payload)}`,
+  )
+  return {
+    ok: false,
+    error: 'API de transacciones de ventas no habilitada todavía — y falta confirmar con Axoft que admite registrar un comprobante con CAE externo (ver docs/tango/INTEGRACION.md §6.2)',
   }
 }
 
@@ -142,6 +172,7 @@ async function enviarReciboATango(payload) {
 const HANDLERS = {
   produccionPallet: { enviar: enviarProduccionATango, flag: 'produccionEnabled' },
   remito:           { enviar: enviarRemitoATango,     flag: 'remitosEnabled' },
+  factura:          { enviar: enviarFacturaATango,    flag: 'facturasEnabled' },
   recibo:           { enviar: enviarReciboATango,     flag: 'recibosEnabled' },
 }
 
@@ -167,7 +198,9 @@ async function procesarItem(db, docId, data) {
       actualizadoEn: serverTimestamp(),
     })
 
-    const resultado = await handler.enviar(data.payload)
+    // Se le pasa el item entero, no solo el payload: el writer necesita la
+    // empresa (header Company) y si el comprobante ya trae CAE propio.
+    const resultado = await handler.enviar(data.payload, data)
 
     if (resultado.ok) {
       await updateDoc(doc(db, 'tango-outbox', docId), {

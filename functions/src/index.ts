@@ -25,7 +25,7 @@ export { onHistorialAdminAltoRiesgo, enviarResumenAdminDiario } from './triggers
 export { syncClientesTango }                    from './triggers/tangoSync'
 export { syncSaldosTango }                      from './triggers/tangoSaldos'
 export { onConsultaRespondida }                 from './triggers/tangoConsultas'
-export { onProduccionPalletCreado, onVentaCamionCreada, onCobranzaCreada, onOutboxConfirmado } from './triggers/tangoOutbox'
+export { onProduccionPalletCreado, onVentaCamionCreada, onVentaCamionFacturada, onCobranzaCreada, onOutboxConfirmado } from './triggers/tangoOutbox'
 export { publicarTurnosVentanilla } from './triggers/turnosVentanilla'
 export { onOrderRollup } from './triggers/rollups'
 export { resetPinProduccion } from './triggers/produccionAuth'

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.avisarPadronIIBB = exports.reconciliarFacturasArca = exports.onVentaContadoFacturar = exports.resetPinProduccion = exports.onOrderRollup = exports.publicarTurnosVentanilla = exports.onOutboxConfirmado = exports.onCobranzaCreada = exports.onVentaCamionCreada = exports.onProduccionPalletCreado = exports.onConsultaRespondida = exports.syncSaldosTango = exports.syncClientesTango = exports.enviarResumenAdminDiario = exports.onHistorialAdminAltoRiesgo = exports.backupAuthUsers = exports.avisarComodatosPorVencer = exports.onTicketCreado = exports.onStockBajo = exports.onTicketCerrado = exports.generarPedidosRecurrentes = exports.orsDirections = exports.mirrorDriverLocation = exports.validarPreciosPedido = exports.notifyReprogramado = exports.notifyCerca = exports.sendPush = exports.deleteAuthUsers = exports.onOrderEnCamino = exports.onOrderConfirmado = exports.onOrderCreated = exports.onClienteCreadoPorStaff = exports.onUserApproved = exports.onUserRegistered = void 0;
+exports.avisarPadronIIBB = exports.reconciliarFacturasArca = exports.onVentaContadoFacturar = exports.resetPinProduccion = exports.onOrderRollup = exports.publicarTurnosVentanilla = exports.onOutboxConfirmado = exports.onCobranzaCreada = exports.onVentaCamionFacturada = exports.onVentaCamionCreada = exports.onProduccionPalletCreado = exports.onConsultaRespondida = exports.syncSaldosTango = exports.syncClientesTango = exports.enviarResumenAdminDiario = exports.onHistorialAdminAltoRiesgo = exports.backupAuthUsers = exports.avisarComodatosPorVencer = exports.onTicketCreado = exports.onStockBajo = exports.onTicketCerrado = exports.generarPedidosRecurrentes = exports.orsDirections = exports.mirrorDriverLocation = exports.validarPreciosPedido = exports.notifyReprogramado = exports.notifyCerca = exports.sendPush = exports.deleteAuthUsers = exports.onOrderEnCamino = exports.onOrderConfirmado = exports.onOrderCreated = exports.onClienteCreadoPorStaff = exports.onUserApproved = exports.onUserRegistered = void 0;
 const app_1 = require("firebase-admin/app");
 (0, app_1.initializeApp)();
 // Nota: cambio trivial para forzar un hash de fuente distinto y que
@@ -53,6 +53,7 @@ Object.defineProperty(exports, "onConsultaRespondida", { enumerable: true, get: 
 var tangoOutbox_1 = require("./triggers/tangoOutbox");
 Object.defineProperty(exports, "onProduccionPalletCreado", { enumerable: true, get: function () { return tangoOutbox_1.onProduccionPalletCreado; } });
 Object.defineProperty(exports, "onVentaCamionCreada", { enumerable: true, get: function () { return tangoOutbox_1.onVentaCamionCreada; } });
+Object.defineProperty(exports, "onVentaCamionFacturada", { enumerable: true, get: function () { return tangoOutbox_1.onVentaCamionFacturada; } });
 Object.defineProperty(exports, "onCobranzaCreada", { enumerable: true, get: function () { return tangoOutbox_1.onCobranzaCreada; } });
 Object.defineProperty(exports, "onOutboxConfirmado", { enumerable: true, get: function () { return tangoOutbox_1.onOutboxConfirmado; } });
 var turnosVentanilla_1 = require("./triggers/turnosVentanilla");

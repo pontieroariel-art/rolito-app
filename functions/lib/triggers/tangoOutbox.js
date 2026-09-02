@@ -1,8 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onOutboxConfirmado = exports.onCobranzaCreada = exports.onVentaCamionCreada = exports.onProduccionPalletCreado = void 0;
+exports.onOutboxConfirmado = exports.onCobranzaCreada = exports.onVentaCamionFacturada = exports.onVentaCamionCreada = exports.onProduccionPalletCreado = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const firestore_2 = require("firebase-admin/firestore");
+const circuito_1 = require("../services/arca/circuito");
 // Helper: crea un item en tango-outbox con ID determinístico. Idempotente —
 // un reintento del trigger tira ALREADY_EXISTS (código 6) y se ignora, así el
 // mismo origen no se manda dos veces a Tango.
@@ -46,21 +47,84 @@ exports.onProduccionPalletCreado = (0, firestore_1.onDocumentCreated)('produccio
         payload: pallet,
     });
 });
-// Alta de una venta desde el camión → un item 'remito' en tango-outbox. El
-// bridge genera el remito en Tango (descarga del depósito-camión) por la vía
-// oficial de importación. La firma NO va en el payload: es constancia en Rolito
-// (queda en el doc de la venta), no en el remito de Tango.
+/**
+ * El payload que viaja a Tango. La firma NO va: es constancia en Rolito (queda
+ * en el doc de la venta), no en el comprobante de Tango, y pesa decenas de KB.
+ */
+function payloadDeVenta(venta) {
+    const payload = { ...venta };
+    delete payload.firmaCliente;
+    return payload;
+}
+/**
+ * Alta de una venta desde el camión → un item en tango-outbox.
+ *
+ * QUÉ comprobante y en QUÉ empresa lo decide `destinoTango`, que es la misma
+ * regla que decide si se le pide un CAE a ARCA — así no pueden divergir. Ver
+ * docs/arca/FACTURACION_ELECTRONICA.md §11.
+ *
+ * Las que van como **factura de Redonhielo** NO se encolan acá: primero tiene
+ * que existir el CAE, que lo escribe `onVentaContadoFacturar` unos segundos
+ * después. Esas las encola `onVentaCamionFacturada`. Mandarlas ahora sería
+ * mandar una factura sin su autorización.
+ */
 exports.onVentaCamionCreada = (0, firestore_1.onDocumentCreated)('ventasCamion/{ventaId}', async (event) => {
     const venta = event.data?.data();
     if (!venta)
         return;
-    const payload = { ...venta };
-    delete payload.firmaCliente;
+    const destino = (0, circuito_1.destinoTango)(venta.canal, venta.formaPago, venta.total);
+    if (!destino) {
+        // Mismo criterio que la facturación: ante la duda, no mandar. Un
+        // comprobante creado en la empresa equivocada se arregla a mano del otro
+        // lado; mandarlo bien más tarde, no.
+        console.warn(`[tango] la venta ${event.params.ventaId} no dice a dónde va ` +
+            `(canal=${String(venta.canal)}, formaPago=${String(venta.formaPago)}, ` +
+            `total=${String(venta.total)}); no se encola`);
+        return;
+    }
+    if (destino.conCaePropio)
+        return; // espera el CAE — ver onVentaCamionFacturada
     await encolarOutbox(`ventasCamion_${event.params.ventaId}`, {
-        entidad: 'remito',
+        entidad: destino.entidad,
+        empresa: destino.empresa,
+        company: destino.company,
         origenColeccion: 'ventasCamion',
         origenId: event.params.ventaId,
-        payload,
+        payload: payloadDeVenta(venta),
+    });
+});
+/**
+ * La factura de Redonhielo viaja recién cuando ARCA la autorizó.
+ *
+ * El id del item es el mismo que usaría `onVentaCamionCreada`, así que una
+ * venta produce **un solo** comprobante en Tango, nunca un remito y una
+ * factura por la misma operación.
+ *
+ * `conCaePropio` viaja en el item para que el bridge lo registre como
+ * comprobante YA EMITIDO: si Tango le pidiera a ARCA un CAE propio, la misma
+ * venta quedaría autorizada dos veces.
+ */
+exports.onVentaCamionFacturada = (0, firestore_1.onDocumentUpdated)('ventasCamion/{ventaId}', async (event) => {
+    const antes = event.data?.before.data();
+    const ahora = event.data?.after.data();
+    if (!ahora)
+        return;
+    const facturada = (v) => v?.factura?.estado === 'emitida';
+    // Solo el paso a 'emitida'. Cualquier otra escritura sobre la venta no
+    // tiene por qué volver a encolar nada.
+    if (facturada(antes) || !facturada(ahora))
+        return;
+    const destino = (0, circuito_1.destinoTango)(ahora.canal, ahora.formaPago, ahora.total);
+    if (!destino?.conCaePropio)
+        return;
+    await encolarOutbox(`ventasCamion_${event.params.ventaId}`, {
+        entidad: destino.entidad,
+        empresa: destino.empresa,
+        company: destino.company,
+        conCaePropio: true,
+        origenColeccion: 'ventasCamion',
+        origenId: event.params.ventaId,
+        payload: payloadDeVenta(ahora),
     });
 });
 // Alta de una cobranza de supervisor → un item 'recibo' en tango-outbox (el
@@ -145,6 +209,18 @@ const WRITE_BACKS = {
             if (!remitoNumero)
                 return null;
             return { tango: { estado: 'confirmado', remitoNumero } };
+        },
+    },
+    // El número que le puso TANGO al comprobante. No se toca `venta.factura`,
+    // que es el comprobante de ARCA con su propio número y CAE: son dos
+    // identidades distintas de la misma operación.
+    factura: {
+        coleccion: 'ventasCamion',
+        buildUpdate: (resultado) => {
+            const facturaNumero = resultado?.facturaNumero ?? resultado?.comprobanteNumero;
+            if (!facturaNumero)
+                return null;
+            return { tango: { estado: 'confirmado', facturaNumero: String(facturaNumero) } };
         },
     },
     recibo: {

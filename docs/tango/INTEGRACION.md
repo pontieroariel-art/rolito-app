@@ -694,3 +694,53 @@ que evitaría tipear 100-200 números de 14 dígitos.
 
 El corte de fecha quedó sin definir (se habló de 20/8 y de 28/8); en la práctica no
 hizo falta, porque las facturas se procesan de a una a medida que se necesitan.
+
+---
+
+## 12. Preparado para el día que llegue la API de Ventas (2026-09-02)
+
+Con la facturación contra ARCA ya en producción, el outbox pasó a decidir **qué comprobante** y
+**en qué empresa** va cada venta, en vez de mandar todo como remito. La regla es
+`destinoTango(canal, formaPago, total)` en `functions/src/services/arca/circuito.ts` — la **misma**
+que decide si se le pide un CAE a ARCA, para que no puedan divergir:
+
+| Venta | entidad | empresa | `Company` | `conCaePropio` |
+|---|---|---|---|---|
+| contado efectivo / transferencia | `factura` | Redonhielo | 1 | **sí** |
+| contado cuenta corriente | `remito` | Redonhielo | 1 | no |
+| promo efectivo / transferencia | `factura` | Rolito | 3 | no |
+| promo cuenta corriente | `remito` | Rolito | 3 | no |
+| solo cambios (total 0), cualquier canal | `remito` | según canal | | no |
+
+Cada item de `tango-outbox` ahora lleva `empresa`, `company` y `conCaePropio`, y el writer recibe
+el item entero (`handler.enviar(payload, item)`), no solo el payload.
+
+### La pregunta que hay que hacerle a Axoft ANTES de completar el writer
+
+> **¿La API permite registrar un comprobante con un CAE ya obtenido por afuera, sin que Tango le
+> pida el suyo a ARCA?**
+
+Las facturas de contado **ya vienen autorizadas**: las emitió la app con el punto de venta 1104, y
+el CAE viaja en `payload.factura` (`puntoVenta`, `numero`, `cbteTipo`, `cae`, `caeFchVto`,
+`importes` tal como se le informaron a ARCA). Si el writer usara un proceso que pide CAE propio, la
+misma operación quedaría **autorizada dos veces** — dos comprobantes fiscales por una sola venta,
+que después hay que anular con notas de crédito.
+
+Si la API no lo admite, **no completar el writer igual**: hay que replantear quién factura.
+
+### Orden de emisión, que importa
+
+`onVentaCamionCreada` NO encola las facturas de Redonhielo: cuando la venta se crea, el CAE
+todavía no existe (lo escribe `onVentaContadoFacturar` unos segundos después). Esas las encola
+`onVentaCamionFacturada`, que dispara con el paso de `factura.estado` a `emitida`. Los dos usan el
+**mismo id de outbox** (`ventasCamion_{ventaId}`), así que una venta produce **un solo**
+comprobante en Tango: nunca un remito y una factura por la misma operación.
+
+### Lo que queda por hacer cuando llegue la API
+
+Tres funciones en `scripts/tango/bridge-listener.mjs`, hoy stubs que solo loguean el payload:
+`enviarFacturaATango`, `enviarRemitoATango`, `enviarProduccionATango` (y `enviarReciboATango` para
+cobranzas). Cada una tiene su interruptor propio en `config/tango`
+(`facturasEnabled`, `remitosEnabled`, `produccionEnabled`, `recibosEnabled`), así se puede habilitar
+una sin las otras. El resto de la máquina —cola idempotente, reintentos, barrido, write-back del
+número de comprobante al doc de origen— ya está y no se toca.

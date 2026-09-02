@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { documentoDeVenta, facturaContraArca } from './circuito'
+import { destinoTango, documentoDeVenta, facturaContraArca } from './circuito'
 
 describe('documentoDeVenta', () => {
   it('contado en efectivo o transferencia lo factura la app', () => {
@@ -38,5 +38,48 @@ describe('documentoDeVenta', () => {
     expect(documentoDeVenta('contado', 'contado_efectivo', undefined)).toBeNull()
     expect(documentoDeVenta('contado', 'contado_efectivo', 'mucho')).toBeNull()
     expect(facturaContraArca('contado', undefined, 20000)).toBe(false)
+  })
+})
+
+describe('destinoTango', () => {
+  it('contado cobrado va como FACTURA a Redonhielo, con el CAE que ya pidió la app', () => {
+    // Es el punto delicado de toda la integración: si Tango le pidiera a ARCA
+    // un CAE propio, la misma operación quedaría autorizada dos veces.
+    expect(destinoTango('contado', 'contado_efectivo', 20000)).toEqual({
+      entidad: 'factura', empresa: 'redonhielo', company: 1, conCaePropio: true,
+    })
+    expect(destinoTango('contado', 'contado_transferencia', 20000)?.conCaePropio).toBe(true)
+  })
+
+  it('contado en cuenta corriente va como REMITO a Redonhielo, sin CAE', () => {
+    expect(destinoTango('contado', 'cuenta_corriente', 20000)).toEqual({
+      entidad: 'remito', empresa: 'redonhielo', company: 1, conCaePropio: false,
+    })
+  })
+
+  it('promo va a Rolito, con el mismo reparto por forma de pago', () => {
+    expect(destinoTango('promo', 'contado_efectivo', 20000)).toEqual({
+      entidad: 'factura', empresa: 'rolito', company: 3, conCaePropio: false,
+    })
+    expect(destinoTango('promo', 'cuenta_corriente', 20000)).toMatchObject({
+      entidad: 'remito', empresa: 'rolito', company: 3,
+    })
+  })
+
+  it('una operación de solo cambios va como remito, en las dos empresas', () => {
+    expect(destinoTango('contado', 'contado_efectivo', 0)?.entidad).toBe('remito')
+    expect(destinoTango('promo', 'contado_efectivo', 0)?.entidad).toBe('remito')
+  })
+
+  it('nunca manda un comprobante de Rolito con CAE de ARCA', () => {
+    for (const fp of ['contado_efectivo', 'contado_transferencia', 'cuenta_corriente']) {
+      expect(destinoTango('promo', fp, 20000)?.conCaePropio).toBe(false)
+      expect(destinoTango('promo', fp, 20000)?.company).toBe(3)
+    }
+  })
+
+  it('no decide con datos que no reconoce', () => {
+    expect(destinoTango('contado', 'cheque', 20000)).toBeNull()
+    expect(destinoTango('mayorista', 'contado_efectivo', 20000)).toBeNull()
   })
 })
