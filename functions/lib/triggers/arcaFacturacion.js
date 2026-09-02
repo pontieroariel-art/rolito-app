@@ -25,6 +25,7 @@ const wsfev1_1 = require("../services/arca/wsfev1");
 const emision_1 = require("../services/arca/emision");
 const facturacionVenta_1 = require("../services/arca/facturacionVenta");
 const circuito_1 = require("../services/arca/circuito");
+const percepcionPerfil_1 = require("../services/arca/percepcionPerfil");
 const TZ = 'America/Argentina/Buenos_Aires';
 // El certificado y su clave viven en secrets, nunca en el repo ni en Firestore:
 // con ellos se puede emitir comprobantes en nombre de la empresa.
@@ -57,38 +58,6 @@ async function puertoArca(db, config) {
     return {
         solicitarCae: (ptoVta, cbteTipo, detalle) => (0, wsfev1_1.feCaeSolicitar)(cfg, ptoVta, cbteTipo, detalle),
         consultarComprobante: (ptoVta, cbteTipo, numero) => (0, wsfev1_1.feCompConsultar)(cfg, ptoVta, cbteTipo, numero),
-    };
-}
-/**
- * Percepción de IIBB del cliente.
- *
- * Se espera en `users/{uid}.percepcionIIBB` con la alícuota del padrón de AGIP y
- * su período de vigencia. Devuelve undefined si el cliente no está en el padrón:
- * eso significa "no corresponde percibirle", no "faltan datos".
- *
- * OJO: quien complete este campo (el sync desde Tango) **tiene que escribir la
- * vigencia**. Sin vigencia no se puede distinguir una alícuota del mes en curso
- * de una del mes pasado, y usar la vieja factura mal sin que nada falle.
- */
-function percepcionDe(perfil, config) {
-    const p = perfil.percepcionIIBB;
-    if (!p)
-        return undefined;
-    const alicuota = Number(p.alicuota);
-    if (!Number.isFinite(alicuota) || alicuota <= 0)
-        return undefined;
-    const desde = p.vigenciaDesde?.toDate?.();
-    const hasta = p.vigenciaHasta?.toDate?.();
-    if (!desde || !hasta) {
-        throw new Error('El cliente tiene alícuota de percepción de IIBB pero sin período de vigencia. ' +
-            'No se puede saber si el padrón está al día, así que no se factura.');
-    }
-    return {
-        alicuota,
-        tributoId: config.tributoIdPercepcionIIBB,
-        descripcion: 'Percepción IIBB CABA',
-        vigenciaDesde: desde,
-        vigenciaHasta: hasta,
     };
 }
 /**
@@ -167,7 +136,7 @@ async function facturar(db, ventaId) {
             items: itemsDe(venta),
             fechaVenta: venta.fecha?.toDate?.() ?? new Date(),
         },
-        percepcionIIBB: percepcionDe(perfil, config),
+        percepcionIIBB: (0, percepcionPerfil_1.leerPercepcionDePerfil)(perfil, config.tributoIdPercepcionIIBB),
         leer: async () => (await db.doc((0, facturacionVenta_1.rutaFactura)(ventaId)).get()).data(),
         guardar: async (r) => { await persistir(db, r); },
     });

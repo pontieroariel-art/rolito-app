@@ -26,7 +26,8 @@ import type { PuertoArca } from '../services/arca/emision'
 import { resolverIncierto } from '../services/arca/emision'
 import { facturarVenta, rutaFactura, type RegistroFactura } from '../services/arca/facturacionVenta'
 import { documentoDeVenta } from '../services/arca/circuito'
-import type { ItemFacturable, PercepcionIIBB } from '../services/arca/comprobante'
+import { leerPercepcionDePerfil } from '../services/arca/percepcionPerfil'
+import type { ItemFacturable } from '../services/arca/comprobante'
 import type { DbLike } from '../services/arca/numeracion'
 
 const TZ = 'America/Argentina/Buenos_Aires'
@@ -67,42 +68,6 @@ async function puertoArca(db: Firestore, config: ConfigArca): Promise<PuertoArca
   return {
     solicitarCae: (ptoVta, cbteTipo, detalle) => feCaeSolicitar(cfg, ptoVta, cbteTipo, detalle),
     consultarComprobante: (ptoVta, cbteTipo, numero) => feCompConsultar(cfg, ptoVta, cbteTipo, numero),
-  }
-}
-
-/**
- * Percepción de IIBB del cliente.
- *
- * Se espera en `users/{uid}.percepcionIIBB` con la alícuota del padrón de AGIP y
- * su período de vigencia. Devuelve undefined si el cliente no está en el padrón:
- * eso significa "no corresponde percibirle", no "faltan datos".
- *
- * OJO: quien complete este campo (el sync desde Tango) **tiene que escribir la
- * vigencia**. Sin vigencia no se puede distinguir una alícuota del mes en curso
- * de una del mes pasado, y usar la vieja factura mal sin que nada falle.
- */
-function percepcionDe(perfil: Record<string, unknown>, config: ConfigArca): PercepcionIIBB | undefined {
-  const p = perfil.percepcionIIBB as Record<string, unknown> | undefined
-  if (!p) return undefined
-
-  const alicuota = Number(p.alicuota)
-  if (!Number.isFinite(alicuota) || alicuota <= 0) return undefined
-
-  const desde = (p.vigenciaDesde as { toDate?: () => Date } | undefined)?.toDate?.()
-  const hasta = (p.vigenciaHasta as { toDate?: () => Date } | undefined)?.toDate?.()
-  if (!desde || !hasta) {
-    throw new Error(
-      'El cliente tiene alícuota de percepción de IIBB pero sin período de vigencia. ' +
-      'No se puede saber si el padrón está al día, así que no se factura.',
-    )
-  }
-
-  return {
-    alicuota,
-    tributoId: config.tributoIdPercepcionIIBB,
-    descripcion: 'Percepción IIBB CABA',
-    vigenciaDesde: desde,
-    vigenciaHasta: hasta,
   }
 }
 
@@ -197,7 +162,7 @@ async function facturar(db: Firestore, ventaId: string): Promise<RegistroFactura
       items: itemsDe(venta),
       fechaVenta: (venta.fecha as { toDate?: () => Date } | undefined)?.toDate?.() ?? new Date(),
     },
-    percepcionIIBB: percepcionDe(perfil, config),
+    percepcionIIBB: leerPercepcionDePerfil(perfil, config.tributoIdPercepcionIIBB),
     leer: async () => (await db.doc(rutaFactura(ventaId)).get()).data(),
     guardar: async (r) => { await persistir(db, r) },
   })
