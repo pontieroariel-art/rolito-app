@@ -57,9 +57,19 @@ export function fireAndForget(op: Promise<unknown>, context?: Record<string, unk
 // pantallas de plata (una liquidación mostrada en $0 por un error de lectura
 // no debe parecer un día sin ventas). Ver auditoría 2026-08-29. FirestoreError
 // extiende Error, así que este handler encaja donde onSnapshot lo espera.
-export function onSnapshotError<T>(callback: (items: T[]) => void, origen: string): (err: Error) => void {
+// `alFallar` es opcional y sirve para que la pantalla pueda decir la verdad.
+// Sin él, un índice que falta se ve idéntico a "no hay nada": eso fue
+// exactamente lo que pasó con las facturas del chofer el 2026-09-02, con una
+// factura ya emitida y la pantalla diciendo "todavía no cargaste ninguna
+// venta". Reportar a Sentry no alcanza cuando el que mira es el usuario.
+export function onSnapshotError<T>(
+  callback: (items: T[]) => void,
+  origen: string,
+  alFallar?: (err: Error) => void,
+): (err: Error) => void {
   return (err) => {
     reportError(err, { subscription: origen })
     callback([])
+    alFallar?.(err)
   }
 }

@@ -30,12 +30,14 @@ export default function VentasChofer() {
   const [ventas, setVentas] = useState<VentaCamion[] | null>(null)
   const [ocupada, setOcupada] = useState<string | null>(null)
   const [aviso, setAviso] = useState('')
+  const [fallo, setFallo] = useState(false)
 
   const compartible = useMemo(() => puedeCompartirArchivos(), [])
 
   useEffect(() => {
     if (!user) return
-    return subscribeVentasRecientesChofer(user.uid, setVentas)
+    setFallo(false)
+    return subscribeVentasRecientesChofer(user.uid, setVentas, () => setFallo(true))
   }, [user])
 
   const clientePorId = useMemo(
@@ -88,7 +90,19 @@ export default function VentasChofer() {
         )}
 
         {ventas.length === 0 && (
-          <p className="mt-10 text-center text-sm text-gray-400">Todavía no cargaste ninguna venta.</p>
+          fallo ? (
+            // Decir 'no hay ventas' cuando en realidad no se pudieron leer es
+            // peor que no decir nada: el chofer se va sin entregar una factura
+            // que sí existe.
+            <div className="mt-10 rounded-lg border border-red-300 bg-red-50 p-3 text-center">
+              <p className="text-sm font-semibold text-red-800">No se pudieron cargar tus ventas</p>
+              <p className="mt-1 text-xs text-red-700">
+                Puede ser la conexión. Probá de nuevo en un momento; si sigue igual, avisá a la oficina.
+              </p>
+            </div>
+          ) : (
+            <p className="mt-10 text-center text-sm text-gray-400">Todavía no cargaste ninguna venta.</p>
+          )
         )}
 
         <div className="flex flex-col gap-2.5">

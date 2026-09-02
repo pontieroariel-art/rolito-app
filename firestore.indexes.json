@@ -89,6 +89,15 @@
       ]
     },
     {
+      "_comentario": "Las ventas recientes del chofer (pantalla Facturas) piden las ULTIMAS: choferId + fecha DESC. El indice de arriba, con fecha ASC, no sirve para eso.",
+      "collectionGroup": "ventasCamion",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "choferId", "order": "ASCENDING" },
+        { "fieldPath": "fecha",    "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "cambiosCamion",
       "queryScope": "COLLECTION",
       "fields": [

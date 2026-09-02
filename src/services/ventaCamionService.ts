@@ -112,9 +112,12 @@ export const subscribeVentasChoferEnRango = (
 export const subscribeVentasRecientesChofer = (
   choferId: string,
   callback: (ventas: VentaCamion[]) => void,
+  // La pantalla necesita distinguir "no hay ventas" de "no las pude leer": con
+  // una factura ya emitida, decir que no hay ninguna es peor que no decir nada.
+  alFallar?: (err: Error) => void,
 ): () => void =>
   onSnapshot(
     query(collection(db, VENTAS), where('choferId', '==', choferId), orderBy('fecha', 'desc'), limit(50)),
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as VentaCamion))),
-    onSnapshotError(callback, 'ventasCamion'),
+    onSnapshotError(callback, 'ventasCamion', alFallar),
   )
