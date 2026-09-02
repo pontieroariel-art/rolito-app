@@ -24,6 +24,7 @@ const wsaa_1 = require("../services/arca/wsaa");
 const wsfev1_1 = require("../services/arca/wsfev1");
 const emision_1 = require("../services/arca/emision");
 const facturacionVenta_1 = require("../services/arca/facturacionVenta");
+const circuito_1 = require("../services/arca/circuito");
 const TZ = 'America/Argentina/Buenos_Aires';
 // El certificado y su clave viven en secrets, nunca en el repo ni en Firestore:
 // con ellos se puede emitir comprobantes en nombre de la empresa.
@@ -129,8 +130,17 @@ async function facturar(db, ventaId) {
     const venta = ventaSnap.data();
     if (!venta)
         return null;
-    if (venta.canal !== 'contado')
-        return null; // Promo no se factura
+    const documento = (0, circuito_1.documentoDeVenta)(venta.canal, venta.formaPago);
+    if (documento !== 'factura_arca') {
+        // Promo (Rolito) y cuenta corriente no las factura la app. La de cuenta
+        // corriente sale por remito y la factura la oficina desde Tango: emitirla
+        // acá también sería facturar dos veces la misma venta.
+        if (documento === null) {
+            console.warn(`[arca] la venta ${ventaId} no dice cómo se cobró ` +
+                `(canal=${String(venta.canal)}, formaPago=${String(venta.formaPago)}); no se factura`);
+        }
+        return null;
+    }
     const clienteId = String(venta.clienteId ?? '');
     const perfil = clienteId ? (await db.doc(`users/${clienteId}`).get()).data() : undefined;
     if (!perfil)
@@ -167,7 +177,9 @@ async function facturar(db, ventaId) {
  */
 exports.onVentaContadoFacturar = (0, firestore_1.onDocumentCreated)({ document: 'ventasCamion/{ventaId}', secrets: [arcaCert, arcaKey] }, async (event) => {
     const venta = event.data?.data();
-    if (!venta || venta.canal !== 'contado')
+    // Filtro barato antes de tocar secrets y red; `facturar` vuelve a decidir
+    // sobre la venta releída, que es la palabra final.
+    if (!venta || (0, circuito_1.documentoDeVenta)(venta.canal, venta.formaPago) !== 'factura_arca')
         return;
     const db = (0, firestore_2.getFirestore)();
     const ventaId = event.params.ventaId;
@@ -229,8 +241,15 @@ exports.reconciliarFacturasArca = (0, scheduler_1.onSchedule)({ schedule: '15 * 
                     motivo: r.estado === 'rechazado' ? r.motivo : null,
                 });
             }
-            else {
-                await facturar(db, ventaId);
+            else if ((await facturar(db, ventaId)) === null) {
+                // La venta no la factura la app (promo, cuenta corriente) o ya no
+                // existe. Sin este cierre el registro quedaría 'pendiente' para
+                // siempre, reintentándose cada hora sin que nada cambie nunca.
+                await docSnap.ref.set({
+                    estado: 'no_corresponde',
+                    motivo: 'la app no factura esta venta: es promo, es de cuenta corriente (la factura la oficina desde el remito) o la venta ya no existe',
+                    actualizadoEn: firestore_2.FieldValue.serverTimestamp(),
+                }, { merge: true });
             }
         }
         catch (e) {

@@ -25,6 +25,7 @@ import { feCaeSolicitar, feCompConsultar, type ConfigWsfev1 } from '../services/
 import type { PuertoArca } from '../services/arca/emision'
 import { resolverIncierto } from '../services/arca/emision'
 import { facturarVenta, rutaFactura, type RegistroFactura } from '../services/arca/facturacionVenta'
+import { documentoDeVenta } from '../services/arca/circuito'
 import type { ItemFacturable, PercepcionIIBB } from '../services/arca/comprobante'
 import type { DbLike } from '../services/arca/numeracion'
 
@@ -154,7 +155,20 @@ async function facturar(db: Firestore, ventaId: string): Promise<RegistroFactura
   const ventaSnap = await db.doc(`ventasCamion/${ventaId}`).get()
   const venta = ventaSnap.data()
   if (!venta) return null
-  if (venta.canal !== 'contado') return null   // Promo no se factura
+
+  const documento = documentoDeVenta(venta.canal, venta.formaPago)
+  if (documento !== 'factura_arca') {
+    // Promo (Rolito) y cuenta corriente no las factura la app. La de cuenta
+    // corriente sale por remito y la factura la oficina desde Tango: emitirla
+    // acá también sería facturar dos veces la misma venta.
+    if (documento === null) {
+      console.warn(
+        `[arca] la venta ${ventaId} no dice cómo se cobró ` +
+        `(canal=${String(venta.canal)}, formaPago=${String(venta.formaPago)}); no se factura`,
+      )
+    }
+    return null
+  }
 
   const clienteId = String(venta.clienteId ?? '')
   const perfil = clienteId ? (await db.doc(`users/${clienteId}`).get()).data() : undefined
@@ -196,7 +210,9 @@ export const onVentaContadoFacturar = onDocumentCreated(
   { document: 'ventasCamion/{ventaId}', secrets: [arcaCert, arcaKey] },
   async (event) => {
     const venta = event.data?.data()
-    if (!venta || venta.canal !== 'contado') return
+    // Filtro barato antes de tocar secrets y red; `facturar` vuelve a decidir
+    // sobre la venta releída, que es la palabra final.
+    if (!venta || documentoDeVenta(venta.canal, venta.formaPago) !== 'factura_arca') return
 
     const db = getFirestore()
     const ventaId = event.params.ventaId
@@ -268,8 +284,18 @@ export const reconciliarFacturasArca = onSchedule(
             caeFchVto: r.estado === 'emitido' ? r.caeFchVto : null,
             motivo: r.estado === 'rechazado' ? r.motivo : null,
           })
-        } else {
-          await facturar(db, ventaId)
+        } else if ((await facturar(db, ventaId)) === null) {
+          // La venta no la factura la app (promo, cuenta corriente) o ya no
+          // existe. Sin este cierre el registro quedaría 'pendiente' para
+          // siempre, reintentándose cada hora sin que nada cambie nunca.
+          await docSnap.ref.set(
+            {
+              estado: 'no_corresponde',
+              motivo: 'la app no factura esta venta: es promo, es de cuenta corriente (la factura la oficina desde el remito) o la venta ya no existe',
+              actualizadoEn: FieldValue.serverTimestamp(),
+            },
+            { merge: true },
+          )
         }
       } catch (e) {
         // Un fallo acá no debe frenar al resto de la tanda.

@@ -85,6 +85,12 @@ export default function VentaCamion() {
     return r.facturable ? null : r.motivos
   }, [canal, cliente])
 
+  // En cuenta corriente la app no emite la factura: emite el remito, y la
+  // factura la hace la oficina desde Tango. Faltarle un dato fiscal al cliente
+  // es un problema para la oficina, no un motivo para frenar al chofer en la
+  // calle. Frenamos solo lo que esta app va a mandar a ARCA ahora mismo.
+  const bloqueaVenta = noFacturable !== null && formaPago !== 'cuenta_corriente'
+
   const precioDe = (productoId: string): number => {
     if (!cliente) return 0
     const base = lista?.items.find((i) => i.productoId === productoId)?.precio ?? 0
@@ -111,9 +117,9 @@ export default function VentaCamion() {
     setError('')
     if (!camionIdHoy)        { setError('No tenés un camión asignado. Avisá a logística.'); return }
     if (!cliente)            { setError('Elegí un cliente.'); return }
-    if (noFacturable)        { setError('A este cliente no se le puede facturar todavía. Mirá el aviso de arriba.'); return }
     if (items.length === 0)  { setError('Cargá al menos un producto.'); return }
     if (!formaPago)          { setError('Elegí la forma de pago.'); return }
+    if (bloqueaVenta)        { setError('A este cliente no se le puede facturar todavía. Mirá el aviso de arriba.'); return }
     if (!firmante.trim())    { setError('Poné el nombre de quien firma.'); return }
     const firma = firmaRef.current?.toDataURL()
     if (!firma)              { setError('Falta la firma del cliente.'); return }
@@ -241,18 +247,33 @@ export default function VentaCamion() {
             <p className="text-xs text-amber-600">Este cliente no tiene lista de precios asignada — los precios figuran en $0.</p>
           )}
           {noFacturable && (
-            <div className="rounded-lg border border-red-300 bg-red-50 p-3">
-              <p className="text-sm font-semibold text-red-800">
-                A este cliente no se le puede hacer una venta contado
-              </p>
-              <ul className="mt-1 list-disc pl-5 text-xs text-red-700">
-                {noFacturable.map((motivo) => <li key={motivo}>{motivo}</li>)}
-              </ul>
-              <p className="mt-2 text-xs text-red-700">
-                La venta contado emite factura y sin esos datos ARCA la rechaza. Pedí que se
-                completen desde la oficina, o hacé la entrega como <b>Promo</b>.
-              </p>
-            </div>
+            bloqueaVenta ? (
+              <div className="rounded-lg border border-red-300 bg-red-50 p-3">
+                <p className="text-sm font-semibold text-red-800">
+                  A este cliente no se le puede hacer una venta contado
+                </p>
+                <ul className="mt-1 list-disc pl-5 text-xs text-red-700">
+                  {noFacturable.map((motivo) => <li key={motivo}>{motivo}</li>)}
+                </ul>
+                <p className="mt-2 text-xs text-red-700">
+                  La venta contado emite factura y sin esos datos ARCA la rechaza. Pedí que se
+                  completen desde la oficina, o hacé la entrega como <b>Promo</b>.
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 p-3">
+                <p className="text-sm font-semibold text-amber-900">
+                  A este cliente le faltan datos fiscales
+                </p>
+                <ul className="mt-1 list-disc pl-5 text-xs text-amber-800">
+                  {noFacturable.map((motivo) => <li key={motivo}>{motivo}</li>)}
+                </ul>
+                <p className="mt-2 text-xs text-amber-800">
+                  En cuenta corriente la entrega sale igual, con remito. Avisá a la oficina: sin
+                  esos datos después no van a poder facturarlo.
+                </p>
+              </div>
+            )
           )}
         </section>
 
@@ -337,7 +358,7 @@ export default function VentaCamion() {
             <p className="text-[11px] uppercase tracking-wide text-gray-400">Total{unidades > 0 ? ` · ${unidades} u.` : ''}</p>
             <p className="text-2xl font-black tabular-nums leading-none">{money(total)}</p>
           </div>
-          <Button onClick={abrirResumen} disabled={items.length === 0 || !cliente || !!noFacturable} className="flex-1 flex items-center justify-center gap-1.5">
+          <Button onClick={abrirResumen} disabled={items.length === 0 || !cliente || bloqueaVenta} className="flex-1 flex items-center justify-center gap-1.5">
             Revisar y confirmar <ChevronRight size={18} />
           </Button>
         </div>

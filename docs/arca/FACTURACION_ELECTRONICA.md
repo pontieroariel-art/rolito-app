@@ -733,18 +733,32 @@ Cada artículo tiene su artículo "cambio" asociado (ej. *cambio bolsa de 2 kg*)
 registran como renglones y **aparecen en el remito, nunca en la factura**. Si una operación tiene
 cambios, se ven en un remito.
 
-### El hueco: hoy la app facturaría las ventas de cuenta corriente
+### Quién decide: `services/arca/circuito.ts`
 
-`onVentaContadoFacturar` mira **solo el canal**, no la forma de pago:
+La regla de la tabla vive en un solo lugar, `documentoDeVenta(canal, formaPago)`, con sus tests:
 
 ```ts
-if (venta.canal !== 'contado') return null   // Promo no se factura
+documentoDeVenta('contado', 'contado_efectivo')  // 'factura_arca'
+documentoDeVenta('contado', 'cuenta_corriente')  // 'remito_a_facturar'
+documentoDeVenta('promo',   cualquiera)          // 'no_oficial'
+documentoDeVenta('contado', 'cheque')            // null → no se emite nada
 ```
 
-Con la regla de arriba, una venta contado en **cuenta corriente** no debe facturarse en la app
-—le corresponde remito— y hoy se facturaría igual. Después la oficina la volvería a facturar desde
-el remito: **factura duplicada**. Está contenido porque `config/arca.habilitado` sigue en `false`,
-pero es lo primero a corregir antes de encender la facturación.
+`onVentaContadoFacturar` la consulta dos veces: al entrar el evento (filtro barato, antes de tocar
+secrets y red) y en `facturar()` sobre la venta releída, que es la palabra final. Solo
+`'factura_arca'` llega a ARCA.
+
+El `null` es deliberado: si una venta no dice cómo se cobró, no se factura y queda el `console.warn`.
+Emitir a ciegas es lo único que no se puede deshacer.
+
+La reconciliación cierra con estado **`no_corresponde`** todo registro `pendiente` cuyo `facturar()`
+devuelve `null` (promo, cuenta corriente, o venta borrada). Sin ese cierre el registro se
+reintentaría cada hora para siempre sin que nada cambie nunca.
+
+En la pantalla del chofer, el bloqueo por cliente no facturable se aplica **solo cuando la app va a
+emitir**: en cuenta corriente la entrega sale igual con un aviso ámbar para la oficina, porque
+faltarle un dato fiscal al cliente es un problema de ellos, no motivo para frenar a un chofer en la
+calle.
 
 ### Lo que bloquea el resto del circuito
 
