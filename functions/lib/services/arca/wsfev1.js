@@ -72,7 +72,9 @@ function envolver(operacion, cuerpoInterno) {
 // ── Parseo de respuestas ──────────────────────────────────────────────────────
 /** Devuelve el contenido de cada ocurrencia de un tag. */
 function extraerTodos(xml, tag) {
-    const re = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, 'g');
+    // Mismo criterio que `extraerTag`: el espacio antes de los atributos evita
+    // que un tag enganche a otro cuyo nombre empieza igual.
+    const re = new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)</${tag}>`, 'g');
     const out = [];
     let m;
     while ((m = re.exec(xml)) !== null)

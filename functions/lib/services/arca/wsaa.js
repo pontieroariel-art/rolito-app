@@ -198,9 +198,17 @@ function envolverEnSoap(cmsBase64) {
         '</soapenv:Envelope>',
     ].join('\n');
 }
-/** Saca el contenido de un tag simple. Alcanza para estas respuestas chicas. */
+/**
+ * Saca el contenido de un tag simple. Alcanza para estas respuestas chicas.
+ *
+ * El `(?:\s[^>]*)?` es para los atributos, y tiene que exigir un espacio: con
+ * `[^>]*` a secas, pedir `FchVto` engancha `<FchVtoPago>` y se traga todo el
+ * XML hasta el `</FchVto>` que viene mucho más abajo. Pasó de verdad al
+ * consultar la primera factura de producción (2026-09-02): el vencimiento del
+ * CAE volvió con medio comprobante adentro.
+ */
 function extraerTag(xml, tag) {
-    const m = xml.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`));
+    const m = xml.match(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)</${tag}>`));
     return m ? m[1].trim() : null;
 }
 /**

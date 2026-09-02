@@ -101,6 +101,28 @@ describe('feCompConsultar (idempotencia)', () => {
     expect(r.impTotal).toBe(12100)
   })
 
+  it('el vencimiento del CAE no se contamina con los tags vecinos', async () => {
+    // Recorte de la respuesta REAL de producción al consultar la primera
+    // factura (1104-00000001, 2026-09-02). `FchVtoPago` viene ANTES que
+    // `FchVto` y empieza igual: buscar `FchVto` sin exigir el espacio de los
+    // atributos enganchaba la de pago y devolvía medio comprobante como si
+    // fuera la fecha. Después eso se guardaba en la factura y el PDF del
+    // chofer se negaba a armarse.
+    const { cfg } = configCon(`<ResultGet>
+      <CbteFch>20260902</CbteFch><FchVtoPago></FchVtoPago><ImpTotal>1.27</ImpTotal>
+      <MonId>PES</MonId><MonCotiz>1</MonCotiz>
+      <Tributos><Tributo><Id>7</Id><Desc>Percepción IIBB CABA</Desc><Importe>0.06</Importe></Tributo></Tributos>
+      <Resultado>A</Resultado>
+      <CodAutorizacion>86351147350772</CodAutorizacion><EmisionTipo>CAE</EmisionTipo><FchVto>20260912</FchVto>
+    </ResultGet>`)
+
+    const r = await feCompConsultar(cfg, 1104, 1, 1)
+    expect(r.cae).toBe('86351147350772')
+    expect(r.caeFchVto).toBe('20260912')
+    expect(r.cbteFch).toBe('20260902')
+    expect(r.impTotal).toBe(1.27)
+  })
+
   it('el error 602 significa "no existe", no una falla', async () => {
     const { cfg } = configCon('<Errors><Err><Code>602</Code><Msg>No existen datos en nuestros registros</Msg></Err></Errors>')
     expect(await feCompConsultar(cfg, 5, 1, 999)).toEqual({ existe: false })

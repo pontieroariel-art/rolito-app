@@ -90,7 +90,9 @@ function envolver(operacion: string, cuerpoInterno: string): string {
 
 /** Devuelve el contenido de cada ocurrencia de un tag. */
 export function extraerTodos(xml: string, tag: string): string[] {
-  const re = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, 'g')
+  // Mismo criterio que `extraerTag`: el espacio antes de los atributos evita
+  // que un tag enganche a otro cuyo nombre empieza igual.
+  const re = new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)</${tag}>`, 'g')
   const out: string[] = []
   let m: RegExpExecArray | null
   while ((m = re.exec(xml)) !== null) out.push(m[1])
