@@ -68,15 +68,20 @@ export function facturaContraArca(canal: unknown, formaPago: unknown, total: unk
   return documentoDeVenta(canal, formaPago, total) === 'factura_arca'
 }
 
-/** Las dos empresas de Tango. El número sale de la URL: /company/{N}/. */
-export const COMPANY_TANGO = { redonhielo: 1, rolito: 3 } as const
+/**
+ * A qué empresa del negocio pertenece el comprobante.
+ *
+ * Es la empresa LÓGICA, no el número de `Company` de la API. El número lo
+ * resuelve el bridge contra `config/tango.companies` en el momento de mandar,
+ * para poder apuntar las dos a la empresa de pruebas (TestingRH) primero y a
+ * las reales después, sin tocar código ni redeployar nada.
+ */
+export type EmpresaTangoVenta = 'redonhielo' | 'rolito'
 
 export interface DestinoTango {
   /** Qué comprobante hay que crear del otro lado. */
   entidad: 'factura' | 'remito'
-  empresa: 'redonhielo' | 'rolito'
-  /** Header `Company` de la API de Tango. */
-  company: number
+  empresa: EmpresaTangoVenta
   /**
    * Si el comprobante ya viene con un CAE que pidió esta app. Tango tiene que
    * registrarlo **como ya emitido**: si le pidiera a ARCA un CAE propio, la
@@ -97,15 +102,15 @@ export function destinoTango(canal: unknown, formaPago: unknown, total: unknown)
   if (documento === null) return null
 
   if (documento === 'factura_arca') {
-    return { entidad: 'factura', empresa: 'redonhielo', company: COMPANY_TANGO.redonhielo, conCaePropio: true }
+    return { entidad: 'factura', empresa: 'redonhielo', conCaePropio: true }
   }
   if (documento === 'remito') {
-    return { entidad: 'remito', empresa: 'redonhielo', company: COMPANY_TANGO.redonhielo, conCaePropio: false }
+    return { entidad: 'remito', empresa: 'redonhielo', conCaePropio: false }
   }
 
   // Promo: mismo reparto por forma de pago, pero en Rolito y sin ARCA. La
   // numeración y el "CAE" son propios, así que nunca hay riesgo de duplicar
   // una autorización fiscal.
   const entidad = formaPago === 'cuenta_corriente' || Number(total) <= 0 ? 'remito' : 'factura'
-  return { entidad, empresa: 'rolito', company: COMPANY_TANGO.rolito, conCaePropio: false }
+  return { entidad, empresa: 'rolito', conCaePropio: false }
 }

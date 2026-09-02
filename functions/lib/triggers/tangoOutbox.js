@@ -87,7 +87,6 @@ exports.onVentaCamionCreada = (0, firestore_1.onDocumentCreated)('ventasCamion/{
     await encolarOutbox(`ventasCamion_${event.params.ventaId}`, {
         entidad: destino.entidad,
         empresa: destino.empresa,
-        company: destino.company,
         origenColeccion: 'ventasCamion',
         origenId: event.params.ventaId,
         payload: payloadDeVenta(venta),
@@ -120,7 +119,6 @@ exports.onVentaCamionFacturada = (0, firestore_1.onDocumentUpdated)('ventasCamio
     await encolarOutbox(`ventasCamion_${event.params.ventaId}`, {
         entidad: destino.entidad,
         empresa: destino.empresa,
-        company: destino.company,
         conCaePropio: true,
         origenColeccion: 'ventasCamion',
         origenId: event.params.ventaId,

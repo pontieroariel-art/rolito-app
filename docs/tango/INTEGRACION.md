@@ -704,16 +704,34 @@ Con la facturación contra ARCA ya en producción, el outbox pasó a decidir **q
 `destinoTango(canal, formaPago, total)` en `functions/src/services/arca/circuito.ts` — la **misma**
 que decide si se le pide un CAE a ARCA, para que no puedan divergir:
 
-| Venta | entidad | empresa | `Company` | `conCaePropio` |
-|---|---|---|---|---|
-| contado efectivo / transferencia | `factura` | Redonhielo | 1 | **sí** |
-| contado cuenta corriente | `remito` | Redonhielo | 1 | no |
-| promo efectivo / transferencia | `factura` | Rolito | 3 | no |
-| promo cuenta corriente | `remito` | Rolito | 3 | no |
-| solo cambios (total 0), cualquier canal | `remito` | según canal | | no |
+| Venta | entidad | empresa | `conCaePropio` |
+|---|---|---|---|
+| contado efectivo / transferencia | `factura` | Redonhielo | **sí** |
+| contado cuenta corriente | `remito` | Redonhielo | no |
+| promo efectivo / transferencia | `factura` | Rolito | no |
+| promo cuenta corriente | `remito` | Rolito | no |
+| solo cambios (total 0), cualquier canal | `remito` | según canal | no |
 
-Cada item de `tango-outbox` ahora lleva `empresa`, `company` y `conCaePropio`, y el writer recibe
-el item entero (`handler.enviar(payload, item)`), no solo el payload.
+Cada item de `tango-outbox` lleva `empresa` (la del NEGOCIO, no el número de la API) y
+`conCaePropio`, y el writer recibe el item entero (`handler.enviar(payload, item)`), no solo el
+payload.
+
+### El número de `Company` se resuelve al mandar, contra `config/tango.companies`
+
+El 2026-09-02 se creó en Tango la empresa **TestingRH** para probar contra ella antes de tocar las
+reales. Por eso el número NO está en el código: el bridge lo resuelve en el momento del envío.
+
+```
+config/tango.companies = { "redonhielo": N, "rolito": N }   ← las dos a TestingRH mientras se prueba
+config/tango.companies = { "redonhielo": 1, "rolito": 3 }   ← producción
+```
+
+Pasar de pruebas a producción es cambiar ese doc: sin tocar código, sin redeploy. **Si falta el
+número de una empresa, el item NO se manda** y queda con el error escrito — mandar un comprobante a
+la empresa equivocada se limpia a mano del otro lado.
+
+El número de cada empresa sale de la URL de Tango: `/company/{N}/`. Redonhielo = 1, Rolito = 3;
+el de TestingRH hay que mirarlo (el orden del selector NO es el de los números).
 
 ### La pregunta que hay que hacerle a Axoft ANTES de completar el writer
 

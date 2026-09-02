@@ -98,6 +98,39 @@ async function flagTango(db, campo) {
   }
 }
 
+/**
+ * El header `Company` de la API, resuelto en el momento de mandar.
+ *
+ * El item del outbox dice a qué empresa del NEGOCIO pertenece
+ * (`redonhielo` / `rolito`); el número sale de `config/tango.companies`:
+ *
+ *   { "redonhielo": 4, "rolito": 4 }   ← todo a TestingRH mientras se prueba
+ *   { "redonhielo": 1, "rolito": 3 }   ← producción
+ *
+ * Así el pase de pruebas a producción es cambiar un doc de Firestore, sin
+ * tocar código ni redeployar. Y si no está configurado NO se adivina: mandar
+ * un comprobante a la empresa equivocada se limpia a mano del otro lado.
+ */
+async function resolverCompany(db, empresa) {
+  if (!empresa) return { ok: false, error: 'El item no dice a qué empresa va (falta `empresa`)' }
+  let companies
+  try {
+    const snap = await getDoc(doc(db, 'config/tango'))
+    companies = snap.data()?.companies
+  } catch (e) {
+    return { ok: false, error: `No se pudo leer config/tango: ${e.message}` }
+  }
+  const company = companies?.[empresa]
+  if (!Number.isInteger(company)) {
+    return {
+      ok: false,
+      error: `config/tango.companies no tiene un número para "${empresa}". ` +
+             'Cargalo antes de mandar nada (ej. {"redonhielo":4,"rolito":4} para TestingRH).',
+    }
+  }
+  return { ok: true, company }
+}
+
 // ── Writers hacia Tango — STUBS pendientes de confirmar ─────────────────────
 // No sabemos todavía qué pantalla/proceso usa el administrativo en Tango para
 // cargar producción (¿ingreso de stock? ¿ajuste de stock? ¿orden de
@@ -198,9 +231,24 @@ async function procesarItem(db, docId, data) {
       actualizadoEn: serverTimestamp(),
     })
 
-    // Se le pasa el item entero, no solo el payload: el writer necesita la
-    // empresa (header Company) y si el comprobante ya trae CAE propio.
-    const resultado = await handler.enviar(data.payload, data)
+    // Las ventas dicen a qué empresa van; producción y recibos todavía no
+    // (siguen yendo a la empresa que tenga configurada el bridge).
+    let company
+    if (data.empresa) {
+      const r = await resolverCompany(db, data.empresa)
+      if (!r.ok) {
+        log(`  ${docId}: ${r.error}`)
+        await updateDoc(doc(db, 'tango-outbox', docId), {
+          ultimoError: r.error, actualizadoEn: serverTimestamp(),
+        })
+        return
+      }
+      company = r.company
+    }
+
+    // Se le pasa el item entero más la empresa ya resuelta: el writer necesita
+    // el header Company y saber si el comprobante ya trae CAE propio.
+    const resultado = await handler.enviar(data.payload, { ...data, company })
 
     if (resultado.ok) {
       await updateDoc(doc(db, 'tango-outbox', docId), {

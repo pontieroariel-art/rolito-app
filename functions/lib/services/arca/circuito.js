@@ -25,7 +25,6 @@
  * Ver docs/arca/FACTURACION_ELECTRONICA.md §11.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.COMPANY_TANGO = void 0;
 exports.documentoDeVenta = documentoDeVenta;
 exports.facturaContraArca = facturaContraArca;
 exports.destinoTango = destinoTango;
@@ -59,8 +58,6 @@ function documentoDeVenta(canal, formaPago, total) {
 function facturaContraArca(canal, formaPago, total) {
     return documentoDeVenta(canal, formaPago, total) === 'factura_arca';
 }
-/** Las dos empresas de Tango. El número sale de la URL: /company/{N}/. */
-exports.COMPANY_TANGO = { redonhielo: 1, rolito: 3 };
 /**
  * A dónde va esta venta dentro de Tango.
  *
@@ -73,15 +70,15 @@ function destinoTango(canal, formaPago, total) {
     if (documento === null)
         return null;
     if (documento === 'factura_arca') {
-        return { entidad: 'factura', empresa: 'redonhielo', company: exports.COMPANY_TANGO.redonhielo, conCaePropio: true };
+        return { entidad: 'factura', empresa: 'redonhielo', conCaePropio: true };
     }
     if (documento === 'remito') {
-        return { entidad: 'remito', empresa: 'redonhielo', company: exports.COMPANY_TANGO.redonhielo, conCaePropio: false };
+        return { entidad: 'remito', empresa: 'redonhielo', conCaePropio: false };
     }
     // Promo: mismo reparto por forma de pago, pero en Rolito y sin ARCA. La
     // numeración y el "CAE" son propios, así que nunca hay riesgo de duplicar
     // una autorización fiscal.
     const entidad = formaPago === 'cuenta_corriente' || Number(total) <= 0 ? 'remito' : 'factura';
-    return { entidad, empresa: 'rolito', company: exports.COMPANY_TANGO.rolito, conCaePropio: false };
+    return { entidad, empresa: 'rolito', conCaePropio: false };
 }
 //# sourceMappingURL=circuito.js.map

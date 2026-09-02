@@ -14,8 +14,6 @@ async function encolarOutbox(
     payload: unknown
     /** En cuál de las dos empresas de Tango va. Ver `destinoTango`. */
     empresa?: string
-    /** Header `Company` de la API. Sale de la URL de Tango: /company/{N}/. */
-    company?: number
     /** El comprobante ya trae CAE de ARCA: Tango tiene que registrarlo como emitido. */
     conCaePropio?: boolean
   },
@@ -107,7 +105,6 @@ export const onVentaCamionCreada = onDocumentCreated(
     await encolarOutbox(`ventasCamion_${event.params.ventaId}`, {
       entidad: destino.entidad,
       empresa: destino.empresa,
-      company: destino.company,
       origenColeccion: 'ventasCamion',
       origenId: event.params.ventaId,
       payload: payloadDeVenta(venta),
@@ -146,7 +143,6 @@ export const onVentaCamionFacturada = onDocumentUpdated(
     await encolarOutbox(`ventasCamion_${event.params.ventaId}`, {
       entidad: destino.entidad,
       empresa: destino.empresa,
-      company: destino.company,
       conCaePropio: true,
       origenColeccion: 'ventasCamion',
       origenId: event.params.ventaId,
