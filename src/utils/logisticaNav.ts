@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, CalendarDays, History, Activity, AlertTriangle, ClipboardList,
-  Truck, Cloud, Navigation, Users, Map, Tag, DollarSign, TrendingUp, Clock, BarChart2,
+  Truck, Cloud, Navigation, Users, Map, Tag, DollarSign, TrendingUp, Clock, BarChart2, FileText,
 } from 'lucide-react'
 import { NavGroup } from './navGroups'
 
@@ -52,6 +52,14 @@ export const LOGISTICA_NAV_GROUPS: NavGroup[] = [
     items: [
       { to: '/movimientos',       label: 'Movimientos', icon: BarChart2,  roles: ['super_admin', 'gerente_general', 'gerente_comercial', 'logistica', 'comercial', 'facturacion'] },
       { to: '/comercial/ventas',  label: 'Ventas',       icon: TrendingUp, roles: ['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'facturacion'] },
+    ],
+  },
+  // Campaña de recupero de las facturas viejas de Tango. Cuando termine, este
+  // grupo entero se borra junto con la pantalla y su ruta.
+  {
+    id: 'facturacion', label: 'Facturación',
+    items: [
+      { to: '/admin/recupero-facturas', label: 'Recupero', icon: FileText, roles: ['super_admin', 'facturacion'] },
     ],
   },
 ]

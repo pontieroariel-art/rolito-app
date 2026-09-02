@@ -4,7 +4,7 @@ import {
   LayoutDashboard, CalendarDays, Activity, AlertTriangle, ClipboardList,
   Truck, Users, Tag, Map, Cloud, Package, Navigation, BarChart2,
   DollarSign, TrendingUp, Clock, Home, Plus, History, UserCircle,
-  LogOut, Menu, X, Snowflake, Wrench, ArrowLeftRight, FileText,
+  LogOut, Menu, X, Snowflake, Wrench, ArrowLeftRight,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useOnline } from '../../hooks/useOnline'
@@ -73,8 +73,6 @@ const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
   ],
   facturacion: [
     { to: '/movimientos',                  label: 'Movimientos',    icon: BarChart2 },
-    // Campaña de recupero de facturas viejas: sacar de acá cuando termine.
-    { to: '/admin/recupero-facturas',      label: 'Recupero',       icon: FileText },
     { to: '/comercial/ventas',             label: 'Ventas',         icon: TrendingUp },
     { to: '/comercial/reporte-precios',    label: 'Rep. precios',   icon: DollarSign },
     { to: '/comercial/historial-precios',  label: 'Hist. precios',  icon: Clock },
