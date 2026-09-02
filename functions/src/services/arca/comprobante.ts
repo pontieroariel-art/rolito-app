@@ -335,6 +335,16 @@ export function calcularImportes(
   const Tributos: Tributo[] = []
   const p = opciones.percepcionIIBB
   if (p && p.alicuota > 0) {
+    // Sin código de tributo no se sigue. ARCA parsea ese campo como entero, así
+    // que un `undefined` no vuelve como "falta el Id": vuelve como un stack
+    // trace de .NET sobre un XML que no pudo deserializar, imposible de
+    // diagnosticar desde acá. Verificado contra homologación el 2026-09-02.
+    if (!Number.isInteger(p.tributoId) || p.tributoId <= 0) {
+      throw new Error(
+        `La percepción de IIBB no tiene un código de tributo válido (recibí ${JSON.stringify(p.tributoId)}). ` +
+        'Sale de config/arca.tributoIdPercepcionIIBB — 7 es "Percepción de IIBB".',
+      )
+    }
     Tributos.push({
       Id: p.tributoId,
       Desc: p.descripcion ?? 'Percepción IIBB CABA',

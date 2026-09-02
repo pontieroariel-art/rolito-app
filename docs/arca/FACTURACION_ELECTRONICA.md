@@ -293,6 +293,45 @@ compartido con el que usa Tango: ahí sí el problema sería de correlatividad.
 - **Ambiente.** Todo el desarrollo va contra homologación. El salto a producción exige el
   certificado productivo y una revisión aparte.
 
+## 7 bis. PRIMERA EMISIÓN REAL EN HOMOLOGACIÓN (2026-09-02)
+
+El circuito completo se ejecutó de punta a punta por primera vez. **Tres comprobantes
+emitidos y confirmados por ARCA**, punto de venta 1 de homologación:
+
+| Comprobante | Caso | CAE | Total |
+|---|---|---|---|
+| `00001-00000002` | Factura A a RI, sin percepción | 86350838141968 | 30.317,76 |
+| `00001-00000003` | Factura A **con percepción de IIBB** (tributo 7) | 86350838141971 | 30.818,88 |
+| `00001-00000002` | Factura B a Consumidor Final | 86350838142090 | 6.063,55 |
+
+Cada uno se volvió a consultar con `FECompConsultar` después de emitir: ARCA los
+reconoce con el mismo CAE e importe. La percepción calculó 501,12 = 2% sobre el neto
+de 25.056 (sobre el NETO, no sobre el total) y ARCA la aceptó.
+
+**El punto de venta 1 sirve en homologación** aunque `FEParamGetPtosVenta` devuelva
+"sin resultados": ese ambiente no trae puntos de venta dados de alta, pero el 1
+responde a `FECompUltimoAutorizado` y emite sin problema.
+
+`scripts/arca/emitir-prueba.mjs` es el que corre esto. Ejercita la **misma** cadena que
+la Cloud Function (`emitirComprobante`), no una copia: validación del receptor, cálculo,
+ventana de fechas, reserva de número y armado del `FECAEDetRequest` son los de
+producción. Lo único que reemplaza es Firestore, por un contador en memoria — la prueba
+no toca la base ni consume numeración real. Para correrlo contra producción exige
+`ARCA_CONFIRMO_PRODUCCION=si` además del ambiente, porque ahí cada comprobante es real.
+
+**Observación 10217 en las facturas A** (no es un error): *"El crédito fiscal
+discriminado en el presente comprobante solo podrá ser computado a efectos del
+Procedimiento permanente de transición al Régimen General"*. Es propia del CUIT de
+homologación, que es un monotributista.
+
+### Lo que enseñó la prueba
+
+Un `tributoId` faltante en la percepción **no vuelve como "falta el Id"**: ARCA responde
+un stack trace de .NET sobre un XML que no pudo deserializar
+(`Read6_Tributo` → `Int16.Parse` → `FormatException`), imposible de diagnosticar desde
+acá. Ahora `calcularImportes` valida el código de tributo antes de armar el XML y falla
+con un mensaje que dice de dónde sale el valor. Cubierto por test.
+
 ## 8. Estado de la implementación (2026-09-01)
 
 Construido y con tests (`npx vitest run functions/src/services/arca` → 50 tests). Todo del lado

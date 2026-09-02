@@ -165,6 +165,18 @@ describe('percepción de IIBB de CABA', () => {
     })
     expect(r.ImpTrib).toBe(1)   // 0,01% de 10000
   })
+
+  // Sin código de tributo, ARCA no responde "falta el Id": devuelve un stack
+  // trace de .NET sobre un XML que no pudo deserializar. Pasó en homologación
+  // el 2026-09-02 y costó un rato entender qué reclamaba.
+  it('exige el código de tributo antes de llegar a ARCA', () => {
+    for (const tributoId of [undefined, null, 0, -1, 7.5, '7']) {
+      expect(() => calcularImportes([item], {
+        preciosIncluyenIva: false,
+        percepcionIIBB: { ...percepcion, tributoId: tributoId as number },
+      })).toThrow(/código de tributo/)
+    }
+  })
 })
 
 describe('percepcionVigente', () => {
