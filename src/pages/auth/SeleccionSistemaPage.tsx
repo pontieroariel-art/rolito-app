@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, LayoutDashboard, Snowflake, Package, Truck } from 'lucide-react'
+import { ChevronRight, LayoutDashboard, Snowflake, Package, Truck, FileText } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useSistema } from '../../context/SistemaContext'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
@@ -85,6 +85,36 @@ export default function SeleccionSistemaPage() {
             )
           })}
         </div>
+
+        {/* Recupero de facturas: no es un sistema, es una campaña puntual — por eso
+            va separado y abajo. Cuando el recupero termine, se borra este bloque. */}
+        {(user.rol === 'super_admin' || user.rol === 'facturacion') && (
+          <div className="w-full max-w-sm pt-2">
+            <p className="text-gray-400 text-[11px] uppercase tracking-wide font-medium mb-2 px-1">
+              Herramientas
+            </p>
+            <button
+              onClick={() => navigate('/admin/recupero-facturas')}
+              className="w-full flex items-center gap-4 bg-white rounded-2xl border border-[#D3D1C7] shadow-sm hover:border-accent hover:shadow-md active:scale-[0.98] transition-all p-4 group text-left"
+            >
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 bg-gray-100 text-gray-500 group-hover:bg-accent/10 group-hover:text-accent transition-colors">
+                <FileText size={20} strokeWidth={1.75} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h2 className="text-base font-bold text-gray-900 group-hover:text-accent transition-colors leading-tight">
+                  Recupero de facturas
+                </h2>
+                <p className="text-gray-500 text-xs mt-0.5 leading-snug">
+                  Reimprime las facturas viejas de Tango con el formato de siempre
+                </p>
+              </div>
+              <ChevronRight
+                size={20}
+                className="shrink-0 transition-all group-hover:translate-x-0.5 text-gray-300 group-hover:text-accent"
+              />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
