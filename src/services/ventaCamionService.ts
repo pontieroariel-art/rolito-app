@@ -20,6 +20,9 @@ export function crearVentaCamion(
     canal:     CanalVenta
     cliente:   ClienteVenta
     items:     VentaCamionItem[]
+    /** Renglones de cambio, en $0. Van aparte de `items` para que no haya
+     *  forma de que se cuelen en el total ni en lo que se declara a ARCA. */
+    cambios?:  VentaCamionItem[]
     formaPago: FormaPago
     firmaCliente?:   string
     firmanteNombre?: string
@@ -46,6 +49,7 @@ export function crearVentaCamion(
     fecha,
     pedidoId:      args.pedidoId ?? null,
     tango:         { estado: 'pendiente' },
+    ...(args.cambios?.length ? { cambios: args.cambios } : {}),
     ...(args.cliente.codigoTango   ? { clienteCodigoTango:  args.cliente.codigoTango } : {}),
     ...(args.cliente.idGva14Tango != null ? { clienteIdGva14Tango: args.cliente.idGva14Tango } : {}),
     ...(args.firmaCliente   ? { firmaCliente: args.firmaCliente } : {}),

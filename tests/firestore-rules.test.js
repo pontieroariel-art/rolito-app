@@ -2052,6 +2052,26 @@ describe('ventasCamion', () => {
     await assertSucceeds(setDoc(doc(db('chof1'), 'ventasCamion/v1'), venta({ canal: 'promo' })))
   })
 
+  test('una venta puede llevar renglones de cambio', async () => {
+    await seedChofer()
+    await assertSucceeds(setDoc(doc(db('chof1'), 'ventasCamion/v1'), venta({
+      cambios: [{ productoId: 'cambio_bolsa_10kg', nombre: 'Cambio Hielo 10kg', cantidad: 2, precioUnitario: 0 }],
+    })))
+  })
+
+  test('los cambios tienen que ser una lista', async () => {
+    await seedChofer()
+    await assertFails(setDoc(doc(db('chof1'), 'ventasCamion/v1'), venta({ cambios: 'dos bolsas' })))
+  })
+
+  test('una venta de solo cambios (total 0) se puede registrar', async () => {
+    await seedChofer()
+    await assertSucceeds(setDoc(doc(db('chof1'), 'ventasCamion/v1'), venta({
+      items: [], total: 0,
+      cambios: [{ productoId: 'cambio_bolsa_10kg', nombre: 'Cambio Hielo 10kg', cantidad: 1, precioUnitario: 0 }],
+    })))
+  })
+
   test('una venta es inmutable tras crearse', async () => {
     await seedChofer()
     await seed((d) => setDoc(doc(d, 'ventasCamion/v1'), venta()))
@@ -2373,18 +2393,25 @@ describe('expedicion: muelle / cambios / descargas / liquidaciones', () => {
     }))
   })
 
-  // ── cambiosCamion ──
-  test('el chofer registra su propio cambio', async () => {
+  // ── cambiosCamion (histórico: hoy el cambio es un renglón de la venta) ──
+  test('el chofer lee sus cambios viejos', async () => {
     await seedChofer()
-    await assertSucceeds(setDoc(doc(db('chof1'), 'cambiosCamion/c1'), cambio()))
+    await seed((d) => setDoc(doc(d, 'cambiosCamion/c1'), cambio()))
+    await assertSucceeds(getDoc(doc(db('chof1'), 'cambiosCamion/c1')))
   })
 
-  test('el chofer NO registra cambios a nombre de otro', async () => {
+  test('el chofer NO lee cambios de otro chofer', async () => {
     await seedChofer()
-    await assertFails(setDoc(doc(db('chof1'), 'cambiosCamion/c1'), cambio({ choferId: 'otro' })))
+    await seed((d) => setDoc(doc(d, 'cambiosCamion/c1'), cambio({ choferId: 'otro' })))
+    await assertFails(getDoc(doc(db('chof1'), 'cambiosCamion/c1')))
   })
 
-  test('un cambio es inmutable', async () => {
+  test('ya nadie escribe en cambiosCamion: hoy el cambio es un renglón de la venta', async () => {
+    await seedChofer()
+    await assertFails(setDoc(doc(db('chof1'), 'cambiosCamion/c1'), cambio()))
+  })
+
+  test('un cambio viejo es inmutable', async () => {
     await seedChofer()
     await seed((d) => setDoc(doc(d, 'cambiosCamion/c1'), cambio()))
     await assertFails(updateDoc(doc(db('chof1'), 'cambiosCamion/c1'), { cantidad: 99 }))

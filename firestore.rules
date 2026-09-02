@@ -787,6 +787,9 @@ service cloud.firestore {
         && request.resource.data.canal in ['promo', 'contado']
         && request.resource.data.formaPago in ['contado_efectivo', 'contado_transferencia', 'cuenta_corriente']
         && request.resource.data.items is list
+        // Los cambios (renglones en $0) viajan aparte de `items` justamente
+        // para que no puedan sumar al total ni a lo que se declara a ARCA.
+        && (!('cambios' in request.resource.data) || request.resource.data.cambios is list)
         && request.resource.data.total is number;
 
       allow update, delete: if false;
@@ -845,22 +848,18 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // ── Expedición: cambios de producto defectuoso (chofer, en la calle) ───
-    // Bolsa rota del cliente por una nueva, sin venta ni plata. Inmutable —
-    // en la liquidación cuadra contra las rotas que recibe muelle.
+    // ── Expedición: cambios de producto defectuoso — HISTÓRICO ─────────────
+    // Bolsa rota del cliente por una nueva, sin venta ni plata. Hasta
+    // 2026-09-02 era una operación aparte y caía acá; hoy el cambio es un
+    // renglón en $0 de la venta (ventasCamion.cambios), para que salga en el
+    // mismo comprobante que firma el cliente. Solo lectura: la liquidación de
+    // los días anteriores a la migración sigue leyendo de acá.
     match /cambiosCamion/{cambioId} {
       allow read: if request.auth != null
         && (isCaja() || isMuelle() || isOperator() || isManager() || isGerenteGeneral()
             || (isChofer() && resource.data.choferId == request.auth.uid));
 
-      allow create: if request.auth != null && isChofer()
-        && request.resource.data.choferId == request.auth.uid
-        && request.resource.data.clienteId is string
-        && request.resource.data.camionId is string
-        && request.resource.data.productoId is string
-        && request.resource.data.cantidad is int && request.resource.data.cantidad > 0;
-
-      allow update, delete: if false;
+      allow write: if false;
     }
 
     // ── Expedición: descarga del camión (conteo físico de muelle) ──────────

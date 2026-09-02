@@ -43,7 +43,10 @@ export function armarFacturaDeVenta(venta: VentaCamion, cliente?: UserProfile): 
   const caeVto = deFechaArca(f.caeFchVto)
   if (!caeVto) return { ok: false, motivo: 'La factura no tiene vencimiento de CAE.' }
 
-  const renglones: RenglonArca[] = venta.items.map((i) => ({
+  // Los cambios van al final, después de lo vendido, y siempre en $0: no suman
+  // al total ni a lo declarado a ARCA. Están en el papel para que el cliente vea
+  // qué se le entregó y qué se retiró.
+  const renglones: RenglonArca[] = [...venta.items, ...(venta.cambios ?? [])].map((i) => ({
     descripcion:    i.nombre,
     cantidad:       i.cantidad,
     unidad:         'UNI',

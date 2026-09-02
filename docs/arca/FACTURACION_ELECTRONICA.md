@@ -701,12 +701,12 @@ Definir cuál antes de construir nada de esta parte.
 Explicado por Ariel. **Es la regla de negocio que manda sobre todo lo anterior**, y no coincide
 del todo con lo que estaba construido — ver el hueco al final.
 
-| Canal | Empresa en Tango | ARCA | Documento que se emite | Quién lo emite |
-|---|---|---|---|---|
-| **Contado** | REDONHIELO (`Company: 1`) | **Sí** | Factura electrónica | **La app**, en el momento |
-| **Contado** | REDONHIELO | **Sí** | Factura electrónica | **La app**, en el momento |
-| **Contado** | REDONHIELO | — | **Remito oficial** | La app lo emite; **Tango lo factura después**, desde la oficina |
-| **Promo** | **ROLITO** (`Company: 3`) | **No** | Factura y remito **no oficiales** | La app |
+| Canal | Forma de pago | Empresa en Tango | ARCA | Documento que se emite | Quién lo emite |
+|---|---|---|---|---|---|
+| **Contado** | Efectivo | REDONHIELO (`Company: 1`) | **Sí** | Factura electrónica | **La app**, en el momento |
+| **Contado** | Transferencia | REDONHIELO | **Sí** | Factura electrónica | **La app**, en el momento |
+| **Contado** | Cuenta corriente | REDONHIELO | — | **Remito oficial** | La app lo emite; **Tango lo factura después**, desde la oficina |
+| **Promo** | Cualquiera | **ROLITO** (`Company: 3`) | **No** | Factura y remito **no oficiales** | La app |
 
 La segunda columna se lee así: el canal decide **la empresa** (son dos bases distintas en Tango,
 con la misma cartera de clientes y el mismo `codigoTango`), y la **forma de pago** decide el
@@ -727,21 +727,42 @@ imprescindible en promo: **la firma del cliente, tanto en la factura como en el 
 > apócrifo. El papel de promo debería llevar numeración propia, el mismo diseño y la firma, pero
 > **sin QR de AFIP ni código de barras**, y con una leyenda que lo distinga.
 
-### Los cambios son artículos, y van en el remito
+### Los cambios son artículos
 
-Cada artículo tiene su artículo "cambio" asociado (ej. *cambio bolsa de 2 kg*). Los cambios se
-registran como renglones y **aparecen en el remito, nunca en la factura**. Si una operación tiene
-cambios, se ven en un remito.
+Un cambio es la bolsa rota del cliente por una nueva, sin cargo. Cada producto tiene su artículo de
+cambio asociado (*Cambio Hielo bolsa 2kg*), y los cambios se registran como **renglones del
+documento que salga de la operación**: la factura si se cobró en efectivo o transferencia, el
+remito si va a cuenta corriente. Igual para las dos empresas.
+
+Implementación (`src/utils/cambios.ts`, con tests):
+
+- **Derivados del catálogo**, no cargados a mano: `articulosDeCambio(catalogo)` produce un artículo
+  por producto, con id `cambio_{productoId}` y nombre `Cambio {nombre}`, conservando la foto para
+  que la botonera se vea igual. Un producto nuevo trae su cambio sin que nadie se acuerde de
+  crearlo.
+- **Siempre en $0.** Viven en `ventasCamion.cambios`, un array aparte de `items`, justamente para
+  que no haya forma de que se cuelen en el total ni en lo que se declara a ARCA. (WSFEv1 no lleva
+  renglones —solo importes—, así que un cambio es invisible para ARCA por construcción.)
+- **La liquidación los normaliza al producto**: `cambio_bolsa_2kg` cae en la fila de `bolsa_2kg`,
+  porque la carga y la descarga cuentan bolsas de hielo, no cambios.
+- **Una operación de solo cambios vale $0 y sale por remito**, nunca por factura: ARCA rechaza un
+  comprobante en cero, y no hay nada que facturar.
+
+Hasta el 2026-09-02 el cambio era una operación aparte, con su propia pantalla y su colección
+`cambiosCamion`. Esa colección quedó **cerrada a escritura** (`allow write: if false`) y se sigue
+leyendo solo para que los días anteriores liquiden igual.
 
 ### Quién decide: `services/arca/circuito.ts`
 
-La regla de la tabla vive en un solo lugar, `documentoDeVenta(canal, formaPago)`, con sus tests:
+La regla de la tabla vive en un solo lugar, `documentoDeVenta(canal, formaPago, total)`, con sus
+tests:
 
 ```ts
-documentoDeVenta('contado', 'contado_efectivo')  // 'factura_arca'
-documentoDeVenta('contado', 'cuenta_corriente')  // 'remito_a_facturar'
-documentoDeVenta('promo',   cualquiera)          // 'no_oficial'
-documentoDeVenta('contado', 'cheque')            // null → no se emite nada
+documentoDeVenta('contado', 'contado_efectivo', 20000)  // 'factura_arca'
+documentoDeVenta('contado', 'cuenta_corriente', 20000)  // 'remito'
+documentoDeVenta('contado', 'contado_efectivo', 0)      // 'remito' — solo cambios
+documentoDeVenta('promo',   cualquiera,         20000)  // 'no_oficial'
+documentoDeVenta('contado', 'cheque',           20000)  // null → no se emite nada
 ```
 
 `onVentaContadoFacturar` la consulta dos veces: al entrar el evento (filtro barato, antes de tocar
@@ -754,6 +775,10 @@ Emitir a ciegas es lo único que no se puede deshacer.
 La reconciliación cierra con estado **`no_corresponde`** todo registro `pendiente` cuyo `facturar()`
 devuelve `null` (promo, cuenta corriente, o venta borrada). Sin ese cierre el registro se
 reintentaría cada hora para siempre sin que nada cambie nunca.
+
+El front tiene su espejo en `src/utils/circuitoDocumento.ts` (mismo criterio que
+`utils/facturable.ts` con `validarReceptor`): sirve para decirle al chofer, en el resumen, qué
+papel le va a quedar al cliente. **El que manda es el del servidor.**
 
 En la pantalla del chofer, el bloqueo por cliente no facturable se aplica **solo cuando la app va a
 emitir**: en cuenta corriente la entrega sale igual con un aviso ámbar para la oficina, porque
@@ -772,3 +797,12 @@ hay vía:
 
 Lo único que la app resuelve hoy de punta a punta es la factura por ARCA de contado
 efectivo/transferencia.
+
+**El remito impreso tampoco existe todavía.** Los cambios de una venta de cuenta corriente ya se
+capturan y quedan guardados en la venta, listos para imprimirse; lo que falta es el documento en
+sí, que necesita decisiones propias: numeración (serie aparte de la de ARCA), diseño, y si lleva
+la firma como constancia. Es la pieza siguiente, y no depende de Tango: el remito se puede imprimir
+y firmar aunque todavía no haya forma de meterlo en el sistema.
+
+**Y falta crear los artículos de cambio en Tango.** La app los deriva sola de su catálogo, pero
+cuando el comprobante viaje a Tango cada cambio va a necesitar su código de artículo del otro lado.

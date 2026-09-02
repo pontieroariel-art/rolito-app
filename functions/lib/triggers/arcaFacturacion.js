@@ -91,6 +91,12 @@ function percepcionDe(perfil, config) {
         vigenciaHasta: hasta,
     };
 }
+/**
+ * Solo `venta.items`. Los cambios viven en `venta.cambios` y valen $0: son
+ * renglones del papel, no del comprobante fiscal. (WSFEv1 tampoco lleva
+ * renglones —solo importes—, así que un cambio es invisible para ARCA por
+ * construcción; esto es para que siga siéndolo si algún día eso cambia.)
+ */
 function itemsDe(venta) {
     const items = (venta.items ?? []);
     return items.map((i) => ({
@@ -130,14 +136,15 @@ async function facturar(db, ventaId) {
     const venta = ventaSnap.data();
     if (!venta)
         return null;
-    const documento = (0, circuito_1.documentoDeVenta)(venta.canal, venta.formaPago);
+    const documento = (0, circuito_1.documentoDeVenta)(venta.canal, venta.formaPago, venta.total);
     if (documento !== 'factura_arca') {
         // Promo (Rolito) y cuenta corriente no las factura la app. La de cuenta
         // corriente sale por remito y la factura la oficina desde Tango: emitirla
         // acá también sería facturar dos veces la misma venta.
         if (documento === null) {
             console.warn(`[arca] la venta ${ventaId} no dice cómo se cobró ` +
-                `(canal=${String(venta.canal)}, formaPago=${String(venta.formaPago)}); no se factura`);
+                `(canal=${String(venta.canal)}, formaPago=${String(venta.formaPago)}, ` +
+                `total=${String(venta.total)}); no se factura`);
         }
         return null;
     }
@@ -179,7 +186,7 @@ exports.onVentaContadoFacturar = (0, firestore_1.onDocumentCreated)({ document: 
     const venta = event.data?.data();
     // Filtro barato antes de tocar secrets y red; `facturar` vuelve a decidir
     // sobre la venta releída, que es la palabra final.
-    if (!venta || (0, circuito_1.documentoDeVenta)(venta.canal, venta.formaPago) !== 'factura_arca')
+    if (!venta || (0, circuito_1.documentoDeVenta)(venta.canal, venta.formaPago, venta.total) !== 'factura_arca')
         return;
     const db = (0, firestore_2.getFirestore)();
     const ventaId = event.params.ventaId;

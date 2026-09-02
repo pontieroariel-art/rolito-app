@@ -124,6 +124,12 @@ export interface VentaCamion {
   clienteCodigoTango?:  string     // COD_GVA14 (para el remito en Tango)
   clienteIdGva14Tango?: number
   items:                VentaCamionItem[]
+  // Bolsas rotas que el cliente devuelve y el chofer repone, sin cargo.
+  // Renglones del documento que salga de la operación (factura si se cobró en
+  // efectivo o transferencia, remito si va a cuenta corriente), SIEMPRE con
+  // precioUnitario 0: no suman al total ni a lo que se le declara a ARCA.
+  // Los ids llevan el prefijo `cambio_` — ver utils/cambios.ts.
+  cambios?:             VentaCamionItem[]
   total:                number
   formaPago:            FormaPago
   // Constancia de entrega: dataURL PNG de la firma, guardado en el propio doc

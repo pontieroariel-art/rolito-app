@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { HandCoins, Package, Repeat } from 'lucide-react'
+import { HandCoins, Package } from 'lucide-react'
 import ChoferHeader from '../../components/chofer/ChoferHeader'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
@@ -231,15 +231,12 @@ export default function ChoferDashboard() {
 
       {/* Acciones principales — grandes y a mano para operar en la calle */}
       <div className="max-w-2xl mx-auto px-4 pt-4 flex gap-3">
+        {/* Los cambios dejaron de ser una pantalla aparte: son renglones de la
+            venta, para que salgan en el mismo comprobante que firma el cliente. */}
         <Link to="/chofer/venta"
           className="flex-[2] flex items-center justify-center gap-2.5 rounded-2xl bg-accent text-white py-5 shadow-sm active:scale-[0.99] transition-transform">
           <Package size={26} />
           <span className="text-lg font-bold">Vender</span>
-        </Link>
-        <Link to="/chofer/cambio"
-          className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-white border border-[#D3D1C7] text-gray-700 py-5 shadow-sm active:scale-[0.99] transition-transform">
-          <Repeat size={22} className="text-accent" />
-          <span className="text-base font-bold">Cambio</span>
         </Link>
         <Link to="/chofer/cobrar"
           className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-white border border-[#D3D1C7] text-gray-700 py-5 shadow-sm active:scale-[0.99] transition-transform">

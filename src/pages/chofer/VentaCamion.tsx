@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import {
   PenLine, User, Banknote, Smartphone, Wallet,
   Trash2, CheckCircle2, ShoppingCart, ChevronRight, Clock, UserPlus,
-  FileText, Tag, ArrowLeft,
+  FileText, Tag, ArrowLeft, Repeat, ChevronDown,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import Button from '../../components/ui/Button'
@@ -19,6 +19,8 @@ import BotoneraProductos from '../../components/ventas/BotoneraProductos'
 import { crearVentaCamion } from '../../services/ventaCamionService'
 import { precioEfectivo } from '../../utils/helpers'
 import { esClienteFacturable } from '../../utils/facturable'
+import { articulosDeCambio, itemsDeCambio } from '../../utils/cambios'
+import { documentoDeVenta } from '../../utils/circuitoDocumento'
 import { FormaPago, CanalVenta, VentaCamionItem } from '../../types'
 
 const CANALES: { id: CanalVenta; titulo: string; empresa: string; color: string; icon: typeof Tag }[] = [
@@ -65,6 +67,8 @@ export default function VentaCamion() {
   const [canal, setCanal] = useState<CanalVenta | null>(null)
   const [clienteId, setClienteId] = useState('')
   const [cantidades, setCantidades] = useState<Record<string, number>>({})
+  const [cantidadesCambio, setCantidadesCambio] = useState<Record<string, number>>({})
+  const [cambiosAbierto, setCambiosAbierto] = useState(false)
   const [formaPago, setFormaPago] = useState<FormaPago | null>(null)
   const [firmante, setFirmante] = useState('')
   const [resumenOpen, setResumenOpen] = useState(false)
@@ -85,12 +89,6 @@ export default function VentaCamion() {
     return r.facturable ? null : r.motivos
   }, [canal, cliente])
 
-  // En cuenta corriente la app no emite la factura: emite el remito, y la
-  // factura la hace la oficina desde Tango. Faltarle un dato fiscal al cliente
-  // es un problema para la oficina, no un motivo para frenar al chofer en la
-  // calle. Frenamos solo lo que esta app va a mandar a ARCA ahora mismo.
-  const bloqueaVenta = noFacturable !== null && formaPago !== 'cuenta_corriente'
-
   const precioDe = (productoId: string): number => {
     if (!cliente) return 0
     const base = lista?.items.find((i) => i.productoId === productoId)?.precio ?? 0
@@ -101,12 +99,30 @@ export default function VentaCamion() {
     .map((p) => ({ productoId: p.id, nombre: p.nombre, cantidad: cantidades[p.id] ?? 0, precioUnitario: precioDe(p.id) }))
     .filter((i) => i.cantidad > 0)
 
+  // Cambios: la bolsa rota del cliente por una nueva. Un artículo por producto,
+  // derivado del catálogo, siempre en $0 — van como renglones del documento que
+  // salga (factura o remito), nunca en el total.
+  const articulosCambio = useMemo(() => articulosDeCambio(catalogo), [catalogo])
+  const cambios = itemsDeCambio(articulosCambio, cantidadesCambio)
+
   const total    = items.reduce((s, i) => s + i.precioUnitario * i.cantidad, 0)
   const unidades = items.reduce((s, i) => s + i.cantidad, 0)
+  const unidadesCambio = cambios.reduce((s, i) => s + i.cantidad, 0)
+
+  // Qué papel le va a quedar al cliente. Con la forma de pago sin elegir
+  // todavía asumimos la que factura: es justo el caso en el que hace falta
+  // avisar que a este cliente no se le puede facturar.
+  const documento = documentoDeVenta(canal, formaPago ?? 'contado_efectivo', total)
+  const bloqueaVenta = noFacturable !== null && documento === 'factura_arca'
+
+  // Una operación de solo cambios no cobra nada: preguntarle al chofer cómo
+  // cobró sobraría.
+  const seCobra = total > 0
 
   const reset = () => {
     setClienteId('')
     setCantidades({})
+    setCantidadesCambio({})
     setFormaPago(null)
     setFirmante('')
     setFirmaPreview(null)
@@ -117,8 +133,8 @@ export default function VentaCamion() {
     setError('')
     if (!camionIdHoy)        { setError('No tenés un camión asignado. Avisá a logística.'); return }
     if (!cliente)            { setError('Elegí un cliente.'); return }
-    if (items.length === 0)  { setError('Cargá al menos un producto.'); return }
-    if (!formaPago)          { setError('Elegí la forma de pago.'); return }
+    if (items.length === 0 && cambios.length === 0) { setError('Cargá al menos un producto o un cambio.'); return }
+    if (seCobra && !formaPago) { setError('Elegí la forma de pago.'); return }
     if (bloqueaVenta)        { setError('A este cliente no se le puede facturar todavía. Mirá el aviso de arriba.'); return }
     if (!firmante.trim())    { setError('Poné el nombre de quien firma.'); return }
     const firma = firmaRef.current?.toDataURL()
@@ -128,11 +144,14 @@ export default function VentaCamion() {
   }
 
   const confirmar = () => {
-    if (!user || !camionIdHoy || !cliente || !canal || !formaPago) return
+    if (!user || !camionIdHoy || !cliente || !canal) return
+    // Una operación de solo cambios no se cobra: la forma de pago no se le
+    // pregunta al chofer, y contra un total de $0 no mueve ninguna cuenta.
+    const formaPagoFinal = formaPago ?? 'contado_efectivo'
     setGuardando(true)
     try {
       crearVentaCamion(
-        { canal, cliente, items, formaPago, firmaCliente: firmaPreview ?? undefined, firmanteNombre: firmante },
+        { canal, cliente, items, cambios, formaPago: formaPagoFinal, firmaCliente: firmaPreview ?? undefined, firmanteNombre: firmante },
         { uid: user.uid, nombre: user.nombre, camionId: camionIdHoy },
       )
       setExito({ cliente: cliente.razonSocial || cliente.nombre, total })
@@ -302,27 +321,73 @@ export default function VentaCamion() {
           )}
         </section>
 
+        {/* Cambios — bolsa rota del cliente por una nueva, sin cargo. Van en el
+            mismo papel que la venta, en $0. Plegado por defecto: la mayoría de
+            las operaciones no lleva cambios. */}
+        {cliente && (
+          <section className="space-y-2 animate-in fade-in-0 duration-300">
+            <button
+              onClick={() => setCambiosAbierto((v) => !v)}
+              className="w-full flex items-center gap-2 text-left"
+            >
+              <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 flex items-center gap-1.5 cursor-pointer">
+                <Repeat size={13} /> Cambios
+              </label>
+              {unidadesCambio > 0 && (
+                <span className="rounded-full bg-accent/12 text-accent text-[11px] font-bold px-2 py-0.5">
+                  {unidadesCambio} u.
+                </span>
+              )}
+              <span className="ml-auto text-gray-300">
+                {cambiosAbierto ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+              </span>
+            </button>
+
+            {cambiosAbierto && (
+              <div className="space-y-2 animate-in fade-in-0 duration-200">
+                <p className="text-xs text-gray-400">
+                  Bolsa defectuosa por una nueva, sin cargo. Se lista en el mismo comprobante
+                  en $0. Acordate de guardar la rota: se entrega a muelle al volver.
+                </p>
+                <BotoneraProductos
+                  catalogo={articulosCambio}
+                  precioDe={() => 0}
+                  cantidades={cantidadesCambio}
+                  onChange={setCantidadesCambio}
+                />
+              </div>
+            )}
+          </section>
+        )}
+
         {cliente && (
           <>
-            {/* Forma de pago */}
-            <section className="space-y-2 animate-in fade-in-0 duration-300">
-              <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Forma de pago</label>
-              <div className="grid grid-cols-3 gap-2">
-                {FORMAS_PAGO.map((f) => {
-                  const Icon = f.icon
-                  const sel = formaPago === f.id
-                  return (
-                    <button key={f.id} onClick={() => setFormaPago(f.id)}
-                      className={`rounded-xl border p-3 flex flex-col items-center gap-1.5 transition-all ${
-                        sel ? 'border-accent bg-accent/10 text-accent shadow-sm' : 'border-[#D3D1C7] text-gray-500 hover:border-gray-300'
-                      }`}>
-                      <Icon size={20} />
-                      <span className="text-xs font-semibold text-center leading-tight">{f.label}</span>
-                    </button>
-                  )
-                })}
+            {/* Forma de pago — solo si hay algo que cobrar */}
+            {seCobra ? (
+              <section className="space-y-2 animate-in fade-in-0 duration-300">
+                <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Forma de pago</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {FORMAS_PAGO.map((f) => {
+                    const Icon = f.icon
+                    const sel = formaPago === f.id
+                    return (
+                      <button key={f.id} onClick={() => setFormaPago(f.id)}
+                        className={`rounded-xl border p-3 flex flex-col items-center gap-1.5 transition-all ${
+                          sel ? 'border-accent bg-accent/10 text-accent shadow-sm' : 'border-[#D3D1C7] text-gray-500 hover:border-gray-300'
+                        }`}>
+                        <Icon size={20} />
+                        <span className="text-xs font-semibold text-center leading-tight">{f.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </section>
+            ) : cambios.length > 0 && (
+              <div className="rounded-xl border border-[#D3D1C7] bg-white px-3.5 py-2.5 animate-in fade-in-0 duration-300">
+                <p className="text-sm font-semibold text-gray-700">Solo cambios — no se cobra nada</p>
+                <p className="text-xs text-gray-500 mt-0.5">Sale un remito con la mercadería que se movió.</p>
               </div>
-            </section>
+            )}
 
             {/* Firma + aclaración */}
             <section className="space-y-2 animate-in fade-in-0 duration-300">
@@ -355,10 +420,16 @@ export default function VentaCamion() {
       <div className="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur border-t border-[#D3D1C7] p-3">
         <div className="max-w-lg mx-auto flex items-center gap-3">
           <div className="flex-1">
-            <p className="text-[11px] uppercase tracking-wide text-gray-400">Total{unidades > 0 ? ` · ${unidades} u.` : ''}</p>
+            <p className="text-[11px] uppercase tracking-wide text-gray-400">
+              Total{unidades > 0 ? ` · ${unidades} u.` : ''}{unidadesCambio > 0 ? ` · ${unidadesCambio} cambio` : ''}
+            </p>
             <p className="text-2xl font-black tabular-nums leading-none">{money(total)}</p>
           </div>
-          <Button onClick={abrirResumen} disabled={items.length === 0 || !cliente || bloqueaVenta} className="flex-1 flex items-center justify-center gap-1.5">
+          <Button
+            onClick={abrirResumen}
+            disabled={(items.length === 0 && cambios.length === 0) || !cliente || bloqueaVenta}
+            className="flex-1 flex items-center justify-center gap-1.5"
+          >
             Revisar y confirmar <ChevronRight size={18} />
           </Button>
         </div>
@@ -395,19 +466,44 @@ export default function VentaCamion() {
                 <p className="text-sm font-semibold tabular-nums shrink-0">{money(i.precioUnitario * i.cantidad)}</p>
               </div>
             ))}
+            {/* Los cambios se listan con los productos, en $0: así los va a ver
+                el cliente en el papel. */}
+            {cambios.map((i) => (
+              <div key={i.productoId} className="flex items-center gap-3 px-3.5 py-2.5">
+                <Repeat size={13} className="text-gray-400 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-900 truncate">{i.nombre}</p>
+                  <p className="text-xs text-gray-400">{i.cantidad} × sin cargo</p>
+                </div>
+                <p className="text-sm font-semibold tabular-nums shrink-0 text-gray-400">{money(0)}</p>
+              </div>
+            ))}
             <div className="flex items-center justify-between px-3.5 py-3 bg-[#F8F7F2]">
               <span className="text-sm font-semibold text-gray-600">Total</span>
               <span className="text-xl font-black tabular-nums">{money(total)}</span>
             </div>
           </div>
 
+          {documento && (
+            <p className="text-xs text-gray-500 flex items-center gap-1.5">
+              <FileText size={13} className="text-gray-400 shrink-0" />
+              {documento === 'factura_arca'
+                ? 'Sale factura electrónica de Redonhielo.'
+                : documento === 'no_oficial'
+                  ? 'Sale comprobante de Rolito.'
+                  : 'Sale remito — la factura la hace la oficina.'}
+            </p>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-xl border border-[#D3D1C7] px-3.5 py-2.5">
               <p className="text-[11px] uppercase tracking-wide text-gray-400">Pago</p>
-              {formaPagoActual && (
+              {formaPagoActual ? (
                 <p className="text-sm font-semibold flex items-center gap-1.5 mt-0.5">
                   <formaPagoActual.icon size={15} className="text-accent" /> {formaPagoActual.label}
                 </p>
+              ) : (
+                <p className="text-sm font-semibold text-gray-400 mt-0.5">Sin cargo</p>
               )}
             </div>
             <div className="rounded-xl border border-[#D3D1C7] px-3.5 py-2.5 min-w-0">

@@ -102,7 +102,6 @@ const CobranzasPage     = lazy(() => import('./pages/expedicion/CobranzasPage'))
 const MuelleDashboard    = lazy(() => import('./pages/expedicion/MuelleDashboard'))
 const MuelleTvPage       = lazy(() => import('./pages/expedicion/MuelleTvPage'))
 const SeguridadDashboard = lazy(() => import('./pages/expedicion/SeguridadDashboard'))
-const CambioCamion       = lazy(() => import('./pages/chofer/CambioCamion'))
 const CobranzaCalle      = lazy(() => import('./pages/chofer/CobranzaCalle'))
 
 const SupervisorHome         = lazy(() => import('./pages/supervisor/SupervisorHome'))
@@ -318,7 +317,6 @@ function AppContent() {
           <Route path="/chofer/map"    element={<ChoferMap />} />
           <Route path="/chofer/venta"  element={<VentaCamion />} />
           <Route path="/chofer/ventas" element={<VentasChofer />} />
-          <Route path="/chofer/cambio" element={<CambioCamion />} />
           <Route path="/chofer/cobrar" element={<CobranzaCalle />} />
         </Route>
 

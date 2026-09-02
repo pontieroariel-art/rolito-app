@@ -2,6 +2,7 @@ import {
   CambioCamion, Cobranza, DescargaCamion, Liquidacion, LiquidacionResumenProducto,
   RemitoCarga, VentaCamion,
 } from '../types'
+import { nombreDelCambio, productoDelCambio } from './cambios'
 
 // Cálculo puro de la liquidación del repartidor — replica la hoja
 // "Liquidación de repartidores" del sistema viejo: por producto, carga −
@@ -39,6 +40,16 @@ export function calcularLiquidacion(
     if (v.canal === 'contado') f.ventaContado += i.cantidad
     else f.ventaPromo += i.cantidad
   }))
+  // Cambios: hoy viajan adentro de la venta (renglones en $0 del mismo papel).
+  // La colección `cambiosCamion` es el registro viejo, de cuando el cambio era
+  // una pantalla aparte — se sigue leyendo para que los días anteriores a la
+  // migración liquiden igual. El productoId de un cambio lleva el prefijo
+  // `cambio_`, así que se normaliza al del producto para que caiga en su misma
+  // fila (la carga y la descarga lo cuentan como el producto que es).
+  ventas.forEach((v) => (v.cambios ?? []).forEach((i) => {
+    const productoId = productoDelCambio(i.productoId)
+    fila(productoId, nombreDelCambio(i.nombre)).cambios += i.cantidad
+  }))
   cambios.forEach((c) => { fila(c.productoId, c.nombre).cambios += c.cantidad })
   descargas.forEach((d) => d.items.forEach((i) => { fila(i.productoId, i.nombre).descarga += i.cantidad }))
 
@@ -53,8 +64,11 @@ export function calcularLiquidacion(
   const parciales  = descargas.reduce((s, d) => s + d.palletsParciales, 0)
   const vacios     = descargas.reduce((s, d) => s + d.palletsVacios, 0)
 
-  // ── Cambios vs bolsas rotas recibidas ──
-  const registrados    = cambios.reduce((s, c) => s + c.cantidad, 0)
+  // ── Cambios vs bolsas rotas recibidas ── las dos fuentes: los renglones de
+  // cambio de cada venta y el registro viejo de `cambiosCamion`.
+  const registrados =
+    ventas.reduce((s, v) => s + (v.cambios ?? []).reduce((x, i) => x + i.cantidad, 0), 0) +
+    cambios.reduce((s, c) => s + c.cantidad, 0)
   const rotasRecibidas = descargas.reduce((s, d) => s + d.bolsasRotas.reduce((x, i) => x + i.cantidad, 0), 0)
 
   // ── Plata ──

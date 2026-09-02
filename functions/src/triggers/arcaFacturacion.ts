@@ -106,6 +106,12 @@ function percepcionDe(perfil: Record<string, unknown>, config: ConfigArca): Perc
   }
 }
 
+/**
+ * Solo `venta.items`. Los cambios viven en `venta.cambios` y valen $0: son
+ * renglones del papel, no del comprobante fiscal. (WSFEv1 tampoco lleva
+ * renglones —solo importes—, así que un cambio es invisible para ARCA por
+ * construcción; esto es para que siga siéndolo si algún día eso cambia.)
+ */
 function itemsDe(venta: Record<string, unknown>): ItemFacturable[] {
   const items = (venta.items ?? []) as Array<Record<string, unknown>>
   return items.map((i) => ({
@@ -156,7 +162,7 @@ async function facturar(db: Firestore, ventaId: string): Promise<RegistroFactura
   const venta = ventaSnap.data()
   if (!venta) return null
 
-  const documento = documentoDeVenta(venta.canal, venta.formaPago)
+  const documento = documentoDeVenta(venta.canal, venta.formaPago, venta.total)
   if (documento !== 'factura_arca') {
     // Promo (Rolito) y cuenta corriente no las factura la app. La de cuenta
     // corriente sale por remito y la factura la oficina desde Tango: emitirla
@@ -164,7 +170,8 @@ async function facturar(db: Firestore, ventaId: string): Promise<RegistroFactura
     if (documento === null) {
       console.warn(
         `[arca] la venta ${ventaId} no dice cómo se cobró ` +
-        `(canal=${String(venta.canal)}, formaPago=${String(venta.formaPago)}); no se factura`,
+        `(canal=${String(venta.canal)}, formaPago=${String(venta.formaPago)}, ` +
+        `total=${String(venta.total)}); no se factura`,
       )
     }
     return null
@@ -212,7 +219,7 @@ export const onVentaContadoFacturar = onDocumentCreated(
     const venta = event.data?.data()
     // Filtro barato antes de tocar secrets y red; `facturar` vuelve a decidir
     // sobre la venta releída, que es la palabra final.
-    if (!venta || documentoDeVenta(venta.canal, venta.formaPago) !== 'factura_arca') return
+    if (!venta || documentoDeVenta(venta.canal, venta.formaPago, venta.total) !== 'factura_arca') return
 
     const db = getFirestore()
     const ventaId = event.params.ventaId

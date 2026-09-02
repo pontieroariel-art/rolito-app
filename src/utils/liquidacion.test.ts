@@ -161,6 +161,51 @@ describe('calcularLiquidacion — cambios vs bolsas rotas', () => {
     expect(r.cambios.registrados).toBe(7)
     expect(r.cambios.rotasRecibidas).toBe(6)   // falta una rota → queda registrado
   })
+
+  it('cuenta los cambios que vienen adentro de la venta', () => {
+    // Desde que el cambio es un renglón del comprobante, viaja en la venta.
+    const v = venta('contado', 'contado_efectivo', [item('hielo10', 'Hielo 10kg', 20)], 2000)
+    v.cambios = [{ productoId: 'cambio_hielo10', nombre: 'Cambio Hielo 10kg', cantidad: 3, precioUnitario: 0 }]
+
+    const r = calcularLiquidacion(
+      [remito([item('hielo10', 'Hielo 10kg', 100)])],
+      [v],
+      [],
+      [descarga({ items: [di('hielo10', 'Hielo 10kg', 77)] })],
+    )
+
+    expect(r.cambios.registrados).toBe(3)
+    // Cae en la fila del producto, no en una fila "Cambio Hielo 10kg" aparte:
+    // la carga y la descarga cuentan bolsas de hielo, no cambios.
+    expect(r.productos).toHaveLength(1)
+    expect(r.productos[0]).toMatchObject({
+      productoId: 'hielo10', nombre: 'Hielo 10kg',
+      carga: 100, ventaContado: 20, cambios: 3, devolucionTeorica: 77, descarga: 77, diferencia: 0,
+    })
+  })
+
+  it('suma las dos fuentes: el renglón de la venta y el registro viejo', () => {
+    const v = venta('contado', 'contado_efectivo', [], 0)
+    v.cambios = [{ productoId: 'cambio_hielo10', nombre: 'Cambio Hielo 10kg', cantidad: 2, precioUnitario: 0 }]
+
+    const r = calcularLiquidacion(
+      [remito([item('hielo10', 'Hielo 10kg', 100)])],
+      [v],
+      [cambio('hielo10', 'Hielo 10kg', 5)],
+      [],
+    )
+    expect(r.cambios.registrados).toBe(7)
+    expect(r.productos[0].cambios).toBe(7)
+  })
+
+  it('un cambio no mueve plata', () => {
+    const v = venta('contado', 'contado_efectivo', [], 0)
+    v.cambios = [{ productoId: 'cambio_hielo10', nombre: 'Cambio Hielo 10kg', cantidad: 4, precioUnitario: 0 }]
+
+    const r = calcularLiquidacion([], [v], [], [])
+    expect(r.importes.total).toBe(0)
+    expect(r.efectivoARendir).toBe(0)
+  })
 })
 
 describe('calcularLiquidacion — plata', () => {

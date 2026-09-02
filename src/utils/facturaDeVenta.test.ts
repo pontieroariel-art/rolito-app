@@ -72,6 +72,20 @@ describe('armarFacturaDeVenta', () => {
     })
   })
 
+  it('lleva los cambios como renglones en $0, después de lo vendido', () => {
+    const r = armarFacturaDeVenta(venta({
+      cambios: [{ productoId: 'cambio_bolsa_2kg', nombre: 'Cambio Hielo bolsa 2kg', cantidad: 2, precioUnitario: 0 }],
+    }), cliente)
+    if (!r.ok) throw new Error('debería armar')
+
+    expect(r.datos.renglones).toHaveLength(3)
+    expect(r.datos.renglones[2]).toMatchObject({
+      descripcion: 'Cambio Hielo bolsa 2kg', cantidad: 2, precioUnitario: 0, total: 0,
+    })
+    // Y no tocan un solo importe: el papel sigue diciendo lo mismo que ARCA.
+    expect(r.datos.totales).toMatchObject({ subtotal: 20000, iva: 4200, percIibbCaba: 400, total: 24600 })
+  })
+
   it('una factura B sale con su letra', () => {
     const r = armarFacturaDeVenta(venta({
       factura: { ...venta().factura!, cbteTipo: 6 },
