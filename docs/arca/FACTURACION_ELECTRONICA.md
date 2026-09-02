@@ -553,6 +553,33 @@ delicado todavía porque el sync diario de clientes desde Tango **está caído d
 `docs/tango/INTEGRACION.md`): un dato que se actualiza solo, pero cuyo actualizador no está
 corriendo, es exactamente la forma en que esto sale mal.
 
+### RESUELTO (2026-09-02): el dato entra por el padrón, no por Tango
+
+**Decisión de Ariel:** la alícuota se importa **directamente del padrón de AGIP**, no del sync de
+clientes de Tango. Motivos: es la fuente original, trae la vigencia adentro del propio archivo, y
+no depende del sync que está caído. Tango sigue importando el padrón por su lado para lo suyo.
+
+`scripts/arca/importar-padron-iibb.mjs` completa `users/{uid}.percepcionIIBB` con
+`{ alicuota, vigenciaDesde, vigenciaHasta, origen, padron }`. Sin `--escribir` es un simulacro.
+Verificado contra producción el 2026-09-02: **945 clientes con CUIT y 0 con percepción cargada** —
+o sea que hasta ahora la app habría facturado sin percibirle a nadie.
+
+Dos decisiones del importador:
+
+- **Se planta si el padrón que le pasan ya venció**, en vez de importarlo igual. Cargarlo dejaría
+  a todos los clientes con una vigencia expirada y la app se negaría a facturarles.
+- **A los que dejaron de figurar en el padrón les BORRA el campo.** Quedarse con la alícuota del
+  mes pasado es justamente el error a evitar.
+
+**Y el aviso, para que no se olvide:** `avisarPadronIIBB` (`functions/src/triggers/padronIIBB.ts`)
+corre todos los días a las 9 y manda mail a `configuracion/notificaciones.emails` cuando faltan
+≤ 7 días, cuando ya venció, o cuando nunca se importó ninguno. *Por vencer* avisa una sola vez por
+padrón (para no volverse ruido); *vencido* avisa todos los días, porque mientras siga así no se le
+puede facturar a nadie con percepción. El importador deja el estado en `config/arcaPadronIIBB`,
+que es lo que lee el aviso — sin eso el vencimiento se descubría recién cuando rebotaba la primera
+factura. Ese documento entra en la excepción de escritura de `config` (`esConfigArca` pasó a
+matchear `arca.*`): ni un operador puede estirar la vigencia a mano.
+
 ## 9 bis. Triggers, reconciliación y seguridad
 
 ### `functions/src/triggers/arcaFacturacion.ts`
