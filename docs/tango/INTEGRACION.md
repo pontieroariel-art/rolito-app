@@ -179,7 +179,7 @@ Principios acordados:
 A diferencia de lo relevado en julio (Tango Tiendas, e-commerce), la API que **sí está licenciada y con token generado** es distinta:
 
 - **Base:** `http://rhielotg:17000/Api/{Accion}` (HTTP, host interno — solo alcanzable desde dentro de la red/VM, de ahí la necesidad del bridge). La empresa NO va en la URL, va como header (ver abajo).
-- **Auth (headers en cada request):** `ApiAuthorization` (el token de desarrollador) + `Company` (número de empresa, `1` para Redonhielo).
+- **Auth (headers en cada request):** `ApiAuthorization` (el token de desarrollador) + `Company` (número de empresa: **`1` = REDONHIELO SA, `3` = ROLITO**, confirmado 2026-09-02).
 - **Parámetros:** van como query string / data, no como segmentos de path pese a lo que sugiere la doc genérica (`{process}` etc.) — confirmado con un request real:
   `GET http://rhielotg:17000/Api/Get?process=2117&pageSize=10&pageIndex=0&view=`
 - **Endpoints:**
@@ -375,7 +375,12 @@ servicio de talonarios en el repo oficial, así que ese `process` hay que sacarl
 2. ¿El pedido creado por API entra al circuito que necesitan (pedido → facturador → remito que
    descarga del depósito-camión)? ¿`ID_STA22` por camión-depósito alcanza para la descarga?
 3. ¿Qué talonario (`ID_GVA43_TALON_PED`) usar para los pedidos que vienen de la app?
-4. ¿Las DOS empresas (Redonhielo/Rolito) = dos valores del header `Company`? ¿El token sirve para ambas?
+4. ~~¿Las DOS empresas (Redonhielo/Rolito) = dos valores del header `Company`?~~ **RESUELTO
+   (2026-09-02): sí — `Company: 1` = REDONHIELO SA, `Company: 3` = ROLITO.** El número sale de la
+   URL de la app web: al elegir la empresa en el selector de Tango queda en
+   `rhielotg:17000/company/{N}/…`. Ojo que no siguen el orden de la lista del selector ("Empresa
+   Ejemplo" aparece primera y Rolito es la 3). **Falta confirmar si el token de desarrollador sirve
+   para las dos** — se prueba repitiendo cualquier consulta con `Company: 3`.
 5. ¿`ESTADO: 2` (ingresa aprobado) o circuito de aprobación?
 6. ¿Hay fecha para la API de "Facturación de Ventas" (hoy "próximamente" en el repo oficial)?
 

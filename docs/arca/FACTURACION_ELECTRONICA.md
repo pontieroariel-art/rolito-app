@@ -695,3 +695,66 @@ Transacciones Ventas, ni el Facturador, ni eCommerce. Las vías posibles son:
 3. Escritura SQL directa, como hacía Bluesoft.
 
 Definir cuál antes de construir nada de esta parte.
+
+## 11. El circuito de documentos, según canal y forma de pago (2026-09-02)
+
+Explicado por Ariel. **Es la regla de negocio que manda sobre todo lo anterior**, y no coincide
+del todo con lo que estaba construido — ver el hueco al final.
+
+| Canal | Empresa en Tango | ARCA | Documento que se emite | Quién lo emite |
+|---|---|---|---|---|
+| **Contado** | REDONHIELO (`Company: 1`) | **Sí** | Factura electrónica | **La app**, en el momento |
+| **Contado** | REDONHIELO | **Sí** | Factura electrónica | **La app**, en el momento |
+| **Contado** | REDONHIELO | — | **Remito oficial** | La app lo emite; **Tango lo factura después**, desde la oficina |
+| **Promo** | **ROLITO** (`Company: 3`) | **No** | Factura y remito **no oficiales** | La app |
+
+La segunda columna se lee así: el canal decide **la empresa** (son dos bases distintas en Tango,
+con la misma cartera de clientes y el mismo `codigoTango`), y la **forma de pago** decide el
+documento dentro del canal contado:
+
+- **Efectivo** y **transferencia** → factura electrónica por ARCA, emitida por la app.
+- **Cuenta corriente** → **no factura la app**. Emite un remito oficial que viaja a Tango, y el
+  personal de la oficina lo factura desde ahí. Facturarlo también en la app sería duplicarlo.
+
+**Promo (Rolito) es no oficial pero NO es solo papel:** la factura y el remito **también viajan a
+Tango**, a la empresa Rolito. Lo que no lleva es autorización de ARCA. Lo que sí es
+imprescindible en promo: **la firma del cliente, tanto en la factura como en el remito**.
+
+> Sobre el "CAE ficticio" de promo, conviene separar dos cosas: **guardar un número propio en el
+> campo correspondiente de Tango** no tiene ningún problema y es lo que hace falta para que el
+> comprobante entre al sistema. **Imprimir un papel que imite un comprobante fiscal** (formato de
+> factura A, código de barras y un CAE inventado) sí es riesgoso: puede leerse como comprobante
+> apócrifo. El papel de promo debería llevar numeración propia, el mismo diseño y la firma, pero
+> **sin QR de AFIP ni código de barras**, y con una leyenda que lo distinga.
+
+### Los cambios son artículos, y van en el remito
+
+Cada artículo tiene su artículo "cambio" asociado (ej. *cambio bolsa de 2 kg*). Los cambios se
+registran como renglones y **aparecen en el remito, nunca en la factura**. Si una operación tiene
+cambios, se ven en un remito.
+
+### El hueco: hoy la app facturaría las ventas de cuenta corriente
+
+`onVentaContadoFacturar` mira **solo el canal**, no la forma de pago:
+
+```ts
+if (venta.canal !== 'contado') return null   // Promo no se factura
+```
+
+Con la regla de arriba, una venta contado en **cuenta corriente** no debe facturarse en la app
+—le corresponde remito— y hoy se facturaría igual. Después la oficina la volvería a facturar desde
+el remito: **factura duplicada**. Está contenido porque `config/arca.habilitado` sigue en `false`,
+pero es lo primero a corregir antes de encender la facturación.
+
+### Lo que bloquea el resto del circuito
+
+Tres de las cuatro filas de la tabla necesitan que la app **cree comprobantes en Tango**, y hoy no
+hay vía:
+
+- La licencia tiene **"Transacciones Tango Ventas: No"** (verificado 25/8 y 31/8): la API no crea
+  facturas ni pedidos.
+- **Ninguna API de Axoft crea remitos**, ni siquiera contratando ese módulo — ver
+  `docs/tango/INTEGRACION.md`.
+
+Lo único que la app resuelve hoy de punta a punta es la factura por ARCA de contado
+efectivo/transferencia.
