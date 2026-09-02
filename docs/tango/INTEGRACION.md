@@ -660,9 +660,32 @@ tocan Firestore ni Storage.
 También quedaron los scripts de línea de comandos, por si conviene hacerlo en lote:
 `parsear-facturas-tango.mjs` (PDF → JSON) y `generar-facturas-pdf.mjs` (JSON → PDF).
 
-### Lo que falta
+### Escalas distintas del mismo formulario (2026-09-02)
 
-1. Los CAE: se cargan a mano en la pantalla, o se exportan de Tango con la columna
-   `C.A.I. / C.A.E.` si se prefiere el camino por lote.
-2. Bajar los PDF de las facturas impagas y pasarlos por la pantalla.
-3. Confirmar el corte (se habló de 20/8 y de 28/8).
+La misma factura se leía con un usuario de Tango y fallaba con otro. Comparando dos
+PDF reales: el segundo viene **al 94% en vertical y al 83% en horizontal** — cada eje
+estirado distinto, lo típico de un formulario de papel continuo impreso "ajustado a
+la página" en A4. Depende de la configuración de impresión del usuario que lo baja.
+
+Como cada dato se ubicaba por su posición en mm, en ese PDF no se encontraba nada.
+La solución no fue ensanchar las bandas (con estiramientos distintos por eje no
+alcanza): `normalizarEscala` deduce la transformación con textos FIJOS del formulario
+(`PESOS`, `VENDEDOR:`, la leyenda de los cheques, el número de comprobante), ajusta
+por mínimos cuadrados la recta `real = a·referencia + b` de cada eje y lleva las
+coordenadas a la escala de referencia. El resto del parser no se entera, y un PDF que
+ya venga en esa escala queda igual (transformación identidad).
+
+Los dos PDF están como fixtures en `facturaTango.test.ts` con sus datos reales.
+
+### Estado: terminado (2026-09-02)
+
+En producción y en uso. **Decisión de Ariel: no se automatiza más.** Los CAE se cargan
+a mano, factura por factura, y se van mandando a los clientes a medida que se generan
+— no es un trabajo prioritario y no justifica más herramientas.
+
+Quedó **sin construir** a propósito (por si alguna vez cambia la prioridad): la carga
+masiva de CAE desde el Excel que exporta la consulta con la columna `C.A.I. / C.A.E.`,
+que evitaría tipear 100-200 números de 14 dígitos.
+
+El corte de fecha quedó sin definir (se habló de 20/8 y de 28/8); en la práctica no
+hizo falta, porque las facturas se procesan de a una a medida que se necesitan.
