@@ -18,6 +18,7 @@ import { useCatalogo } from '../../hooks/useCatalogo'
 import BotoneraProductos from '../../components/ventas/BotoneraProductos'
 import { crearVentaCamion } from '../../services/ventaCamionService'
 import { precioEfectivo } from '../../utils/helpers'
+import { esClienteFacturable } from '../../utils/facturable'
 import { FormaPago, CanalVenta, VentaCamionItem } from '../../types'
 
 const CANALES: { id: CanalVenta; titulo: string; empresa: string; color: string; icon: typeof Tag }[] = [
@@ -75,6 +76,15 @@ export default function VentaCamion() {
   const cliente = useMemo(() => clientes.find((c) => c.uid === clienteId), [clientes, clienteId])
   const lista   = useMemo(() => listas.find((l) => l.id === cliente?.listaPreciosId), [listas, cliente])
 
+  // Una venta contado factura electrónicamente; una promo no. Si al cliente le
+  // falta un dato fiscal, mejor frenar ACÁ que descubrirlo cuando la factura
+  // rebote, con la mercadería ya entregada y el chofer a diez cuadras.
+  const noFacturable = useMemo(() => {
+    if (canal !== 'contado' || !cliente) return null
+    const r = esClienteFacturable(cliente)
+    return r.facturable ? null : r.motivos
+  }, [canal, cliente])
+
   const precioDe = (productoId: string): number => {
     if (!cliente) return 0
     const base = lista?.items.find((i) => i.productoId === productoId)?.precio ?? 0
@@ -101,6 +111,7 @@ export default function VentaCamion() {
     setError('')
     if (!camionIdHoy)        { setError('No tenés un camión asignado. Avisá a logística.'); return }
     if (!cliente)            { setError('Elegí un cliente.'); return }
+    if (noFacturable)        { setError('A este cliente no se le puede facturar todavía. Mirá el aviso de arriba.'); return }
     if (items.length === 0)  { setError('Cargá al menos un producto.'); return }
     if (!formaPago)          { setError('Elegí la forma de pago.'); return }
     if (!firmante.trim())    { setError('Poné el nombre de quien firma.'); return }
@@ -229,6 +240,20 @@ export default function VentaCamion() {
           {cliente && !cliente.listaPreciosId && (
             <p className="text-xs text-amber-600">Este cliente no tiene lista de precios asignada — los precios figuran en $0.</p>
           )}
+          {noFacturable && (
+            <div className="rounded-lg border border-red-300 bg-red-50 p-3">
+              <p className="text-sm font-semibold text-red-800">
+                A este cliente no se le puede hacer una venta contado
+              </p>
+              <ul className="mt-1 list-disc pl-5 text-xs text-red-700">
+                {noFacturable.map((motivo) => <li key={motivo}>{motivo}</li>)}
+              </ul>
+              <p className="mt-2 text-xs text-red-700">
+                La venta contado emite factura y sin esos datos ARCA la rechaza. Pedí que se
+                completen desde la oficina, o hacé la entrega como <b>Promo</b>.
+              </p>
+            </div>
+          )}
         </section>
 
         {/* Productos */}
@@ -312,7 +337,7 @@ export default function VentaCamion() {
             <p className="text-[11px] uppercase tracking-wide text-gray-400">Total{unidades > 0 ? ` · ${unidades} u.` : ''}</p>
             <p className="text-2xl font-black tabular-nums leading-none">{money(total)}</p>
           </div>
-          <Button onClick={abrirResumen} disabled={items.length === 0 || !cliente} className="flex-1 flex items-center justify-center gap-1.5">
+          <Button onClick={abrirResumen} disabled={items.length === 0 || !cliente || !!noFacturable} className="flex-1 flex items-center justify-center gap-1.5">
             Revisar y confirmar <ChevronRight size={18} />
           </Button>
         </div>

@@ -176,6 +176,24 @@ async function main() {
   await db.collection('cuitIndex').doc(clienteCuit).set({ email: clienteEmail })
   console.log(`✓ Cliente — CUIT ${clienteCuit} / contraseña ${PASSWORD}`)
 
+  // Segundo cliente, este SÍ facturable: tiene condición frente al IVA. El de
+  // arriba no la tiene a propósito, así que entre los dos se prueban los dos
+  // caminos de la venta contado (la que emite factura y la que se bloquea).
+  const clienteFactCuit  = '30687310434'
+  const clienteFactEmail = 'cliente.facturable@rolito.test'
+  const clienteFactUid   = await upsertAuthUser(clienteFactEmail, PASSWORD)
+  await db.collection('users').doc(clienteFactUid).set(baseUserFields({
+    email: clienteFactEmail, razonSocial: 'Facturable SA', nombreContacto: 'Ana Facturable',
+    cuit: clienteFactCuit, telefono: '1133445566', phone: '1133445566',
+    addresses: [{ ...direccion, id: 'FC.200', nombre: 'Local' }],
+    address: direccion.address, lat: direccion.lat, lng: direccion.lng,
+    codigoCliente: 'CL-0002', rol: 'cliente',
+    listaPreciosId: 'lista-general', codigoTango: '099002', idGva14Tango: 99002,
+    categoriaIvaTango: 'RI', categoriaIvaTangoDesc: 'Responsable Inscripto',
+  }), { merge: true })
+  await db.collection('cuitIndex').doc(clienteFactCuit).set({ email: clienteFactEmail })
+  console.log(`✓ Cliente facturable (RI) — CUIT ${clienteFactCuit} / contraseña ${PASSWORD}`)
+
   // ── Flota (camiones activos) ────────────────────────────────────────────
   const camiones = [
     { id: 'camion-1', patente: 'AF313WU', modelo: 'Accelo 1016', marca: 'Mercedes-Benz', capacidadPallets: 14 },
