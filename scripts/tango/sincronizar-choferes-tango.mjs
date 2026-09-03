@@ -75,6 +75,26 @@ async function depositosTango() {
   return all
 }
 
+// Vendedores (GVA23, process 952): la factura lleva al chofer logueado como
+// vendedor, así que cada chofer necesita también su COD_GVA23. Se emparejan
+// por nombre igual que los depósitos; los que no existen se listan para
+// darlos de alta en Tango.
+async function vendedoresTango() {
+  if (ARCHIVO) {
+    const p = ARCHIVO.replace(/depositos/, 'vendedores')
+    return existsSync(p) ? JSON.parse(readFileSync(p, 'utf8')) : []
+  }
+  const t = token()
+  const all = []; let i = 0, pages = 1
+  do {
+    const r = await fetch(`${BASE}/Api/Get?process=952&pageSize=500&pageIndex=${i}&view=`, { headers: { ApiAuthorization: t, Company: COMPANY } })
+    const j = await r.json()
+    if (!j.succeeded) throw new Error(`Tango (vendedores): ${j.exceptionInfo?.messages?.join('; ') ?? j.message}`)
+    all.push(...j.resultData.list); pages = j.resultData.totalPages; i++
+  } while (i < pages)
+  return all.filter((v) => !v.INHABILITA)
+}
+
 // Depósitos que NO son repartidores (plantas, cuentas internas, clientes con
 // depósito propio, series numeradas de un mismo repartidor).
 const NO_PERSONA = [
@@ -199,12 +219,34 @@ async function main() {
     if (COMMIT && c.estado !== 'inactivo') await db.doc(`users/${c.id}`).update({ estado: 'inactivo', desactivadoPor: 'sync-tango-depositos', desactivadoEl: FieldValue.serverTimestamp() })
   }
 
+  // Vendedor por chofer (COD_GVA23), emparejado por nombre contra los vendedores de Tango.
+  console.log('\n== Vendedor de Tango por chofer (la factura lleva al chofer como vendedor)')
+  const vendedores = await vendedoresTango()
+  const vendedoresCfg = { ...(tangoCfg.vendedores ?? {}) }
+  const sinVendedor = []
+  const choferesFinal = pares.filter((x) => x.chofer).map((x) => ({ id: x.chofer.id, nombre: x.dep.NOMBRE_SUC }))
+  for (const p of pares.filter((x) => !x.chofer && !x.ambiguo)) choferesFinal.push({ id: null, nombre: p.dep.NOMBRE_SUC, cod: p.dep.COD_STA22 })
+  for (const c of choferesFinal) {
+    const pn = palabras(c.nombre)
+    const cand = vendedores
+      .map((v) => ({ v, score: palabras(v.NOMBRE_VEN).filter((w) => coincide(w, pn)).length }))
+      .filter((x) => x.score >= 2).sort((a, b) => b.score - a.score)
+    const uid = c.id ?? Object.entries(depositosCfg).find(([, cod]) => cod === c.cod)?.[0]
+    if (cand.length && (cand.length === 1 || cand[0].score > cand[1].score)) {
+      console.log(`  ${c.nombre.padEnd(24)} → vendedor ${String(cand[0].v.COD_GVA23).padEnd(4)} ${cand[0].v.NOMBRE_VEN}`)
+      if (uid) vendedoresCfg[uid] = String(cand[0].v.COD_GVA23)
+    } else {
+      sinVendedor.push(c.nombre)
+      console.log(`  ${c.nombre.padEnd(24)} → (no existe como vendedor en Tango: darlo de alta)`)
+    }
+  }
+
   if (COMMIT) {
-    await db.doc('config/tango').set({ depositos: depositosCfg, camiones: camionesCfg }, { merge: true })
+    await db.doc('config/tango').set({ depositos: depositosCfg, camiones: camionesCfg, vendedores: vendedoresCfg }, { merge: true })
     if (emailsNuevos.length) await db.doc('config/choferes').set({ emails: FieldValue.arrayUnion(...emailsNuevos) }, { merge: true })
   }
 
-  console.log(`\nResumen: ${vinculados} vinculados · ${creados} a crear · ${desactivados} a desactivar · ${ambiguos} ambiguos`)
+  console.log(`\nResumen: ${vinculados} vinculados · ${creados} a crear · ${desactivados} a desactivar · ${ambiguos} ambiguos · ${sinVendedor.length} sin vendedor en Tango${sinVendedor.length ? ` (${sinVendedor.join(', ')})` : ''}`)
   if (!COMMIT) console.log('DRY-RUN — no se escribió nada. Corré con --commit para aplicar.')
 }
 

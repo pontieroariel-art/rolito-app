@@ -73,6 +73,13 @@ for (const d of tomar('--deposito-chofer')) {
   ;(update.depositos ??= {})[cands[0].id] = v
   ;(update.camiones ??= {})[cands[0].id] = cands[0].nombre
 }
+// --vendedor-chofer <uid o apellido>=COD_GVA23 — la factura lleva al chofer como vendedor.
+for (const d of tomar('--vendedor-chofer')) {
+  const [k, v] = kv(d)
+  const cands = choferes.filter((c) => c.id === k || c.nombre.toUpperCase().includes(k.toUpperCase()))
+  if (cands.length !== 1) throw new Error(`"${k}" matchea ${cands.length} choferes (${cands.map((c) => c.nombre).join(', ') || 'ninguno'}): usá el uid`)
+  ;(update.vendedores ??= {})[cands[0].id] = v
+}
 for (const p of tomar('--pedido')) { const [k, v] = kv(p); (update.pedido ??= {})[k] = num(v) }
 const [remitos] = tomar('--remitos')
 if (remitos) update.remitosEnabled = remitos === 'on'
@@ -143,8 +150,10 @@ for (const p of catalogo) {
 console.log('\n== choferes activos (uid / nombre → COD_STA22 del depósito-repartidor)')
 for (const c of choferes.filter((c) => c.estado === 'activo')) {
   const cod = tango.depositos?.[c.id]
-  console.log(`  ${cod ? '✓' : '✗'} ${c.nombre.padEnd(30)} ${c.id}  ${cod ?? '(falta)'}`)
+  const ven = tango.vendedores?.[c.id]
+  console.log(`  ${cod && ven ? '✓' : '✗'} ${c.nombre.padEnd(30)} ${c.id}  depósito ${cod ?? '(falta)'}  vendedor ${ven ?? '(falta)'}`)
   if (!cod) faltas.push(`depósito de ${c.nombre}`)
+  if (!ven) faltas.push(`vendedor de ${c.nombre}`)
 }
 const camionesConDeposito = camiones.filter((c) => tango.depositos?.[c.id])
 if (camionesConDeposito.length) console.log('  (por camión, fallback):', camionesConDeposito.map((c) => `${c.patente}=${tango.depositos[c.id]}`).join(', '))

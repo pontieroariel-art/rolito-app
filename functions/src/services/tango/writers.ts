@@ -11,6 +11,8 @@ export interface ConfigTango {
   articulos?: Record<string, string>
   depositos?: Record<string, string>
   camiones?: Record<string, string>
+  /** choferId → COD_GVA23 (vendedor de Tango): la factura lleva al chofer logueado como vendedor. */
+  vendedores?: Record<string, string>
   pedido?: {
     talonarioId?: number | null
     vendedorId?: number | null
@@ -131,7 +133,38 @@ export async function enviarFactura(payload: PayloadVenta, ctx: ContextoWriter):
     return { ok: false, error: payload.camionId ? `Falta el depósito Tango del chofer ${payload.choferNombre ?? payload.choferId} (config/tango.depositos.${payload.choferId})` : `Falta config/tango.facturador.${empresa}.depositoVentanilla` }
   }
 
-  const armado = armarComprobanteFacturador(payload, item, cfgEmpresa, {
+  // Vendedor = el chofer logueado (decisión de Ariel 2026-09-03): mapeo
+  // chofer → COD_GVA23 en config/tango.vendedores (lo arma
+  // sincronizar-choferes-tango.mjs); cae al vendedor fijo de la empresa si hay.
+  const vendedor = cfg.vendedores?.[payload.choferId ?? ''] ?? cfgEmpresa.vendedor
+  if (vendedor === undefined || vendedor === null || vendedor === '') {
+    return { ok: false, error: `El chofer ${payload.choferNombre ?? payload.choferId} no tiene vendedor de Tango (config/tango.vendedores.${payload.choferId}) — hay que darlo de alta como vendedor en Tango y sincronizar` }
+  }
+
+  // Condición de venta: contado = la configurada (default 1 CONTADO); cuenta
+  // corriente = la que el CLIENTE tiene pactada en Tango (COND_VTA de su ficha),
+  // no un valor fijo para todos.
+  const condCfg = cfgEmpresa.condicionVenta
+  const condContado = (typeof condCfg === 'object' && condCfg !== null ? condCfg.contado : condCfg) ?? 1
+  let condCtaCte: number | string | undefined = typeof condCfg === 'object' && condCfg !== null ? condCfg.cuenta_corriente : undefined
+  if (payload.formaPago === 'cuenta_corriente') {
+    const idGva14 = Number(payload.clienteIdGva14Tango)
+    if (!Number.isInteger(idGva14) || idGva14 <= 0) return { ok: false, error: `La venta no trae clienteIdGva14Tango (cliente ${payload.clienteId} sin vincular a Tango)` }
+    try {
+      const ficha = await tango.getById(company, PROCESOS.clientes, idGva14)
+      const cond = prop(ficha, 'COND_VTA')
+      if (cond !== undefined && cond !== null && cond !== '') condCtaCte = cond as number | string
+    } catch (e) {
+      log(`aviso: no se pudo leer la condición de venta del cliente ${idGva14} (${(e as Error).message})`)
+    }
+    if (condCtaCte === undefined) return { ok: false, error: `El cliente ${payload.clienteNombre ?? idGva14} no tiene condición de venta en Tango y no hay config/tango.facturador.${empresa}.condicionVenta.cuenta_corriente` }
+  }
+
+  const armado = armarComprobanteFacturador(payload, item, {
+    ...cfgEmpresa,
+    vendedor,
+    condicionVenta: { contado: condContado, ...(condCtaCte !== undefined ? { cuenta_corriente: condCtaCte } : {}) },
+  }, {
     codigoArticulo: (id) => articulos[id] ?? null,
     codigoDeposito: codDeposito,
     etiquetaCamion: `${codDeposito} ${cfg.camiones?.[payload.choferId ?? ''] ?? ''}`.trim(),
