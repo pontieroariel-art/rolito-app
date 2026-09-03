@@ -4,9 +4,6 @@
 // ver facturaArcaPdf.ts). Rolito es la empresa de promo: sus comprobantes son
 // internos, no oficiales, y viajan a Tango a la empresa Rolito.
 //
-// ⚠️ Los datos de Rolito hay que completarlos con los reales (razón social
-// exacta, CUIT, domicilio, condición frente al IVA). Hasta entonces el papel
-// sale con lo que hay acá.
 import { EMISOR_ARCA } from './facturaArcaPdf'
 
 export interface Emisor {
@@ -31,13 +28,9 @@ export const EMISOR_REDONHIELO: Emisor = {
   inicioActividad: EMISOR_ARCA.inicioActividad,
 }
 
+// Rolito es la marca de promo de la misma empresa: mismos datos que Redonhielo
+// (confirmado por Ariel, 2026-09-03); cambia solo el nombre que encabeza el papel.
 export const EMISOR_ROLITO: Emisor = {
-  razonSocial:     'Rolito',
-  domicilio:       EMISOR_ARCA.domicilio,
-  telefono:        EMISOR_ARCA.telefono,
-  email:           EMISOR_ARCA.email,
-  condicionIva:    '',
-  cuit:            '',
-  ingresosBrutos:  '',
-  inicioActividad: '',
+  ...EMISOR_REDONHIELO,
+  razonSocial: 'Rolito',
 }

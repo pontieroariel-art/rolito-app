@@ -889,9 +889,9 @@ para numerar sin señal. **Opcional**: mientras el contador no esté inicializad
 número y el papel dice "SIN NÚMERO". Inicializar desde la consola de Firebase (o Backoffice) con
 `next: 1` y el `puntoVenta` elegido. Las reglas dejan al chofer solo avanzar `next`.
 
-**Emisor de Rolito** (`src/utils/emisores.ts`): faltan los datos reales (razón social exacta,
-CUIT, domicilio, condición frente al IVA). Hasta cargarlos el papel sale con el nombre "Rolito" y
-el domicilio de Redonhielo.
+**Emisor de Rolito** (`src/utils/emisores.ts`): mismos datos que Redonhielo (confirmado 2026-09-03);
+solo cambia el nombre que encabeza el papel.
+
 
 **Dónde**: `utils/comprobanteInterno.ts` decide y arma (con tests), `utils/comprobanteInternoPdf.ts`
 dibuja, `VentaCamion.tsx` consume el número al confirmar, `VentasChofer.tsx` lo entrega. El número
