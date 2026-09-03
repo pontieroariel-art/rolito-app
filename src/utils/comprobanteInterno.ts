@@ -67,6 +67,12 @@ export interface RemitoData {
     razonSocial:    string
     cuit:           string
     domicilio:      string
+    /** "1611, DON TORCUATO" — C.P. y localidad, como en el talonario. */
+    localidadCp:    string
+    condicionIva:   string
+    /** Código de cliente que se imprime (el de Tango si está vinculado, si no el de la app). */
+    codigoCliente:  string
+    vendedor:       string
     condicionVenta: string
   }
   entrega: {
@@ -133,6 +139,10 @@ export function armarRemito(venta: VentaCamion, cliente?: UserProfile, cai?: Cai
         razonSocial:    cliente?.razonSocial ?? venta.clienteNombre,
         cuit:           cliente?.cuit ?? '',
         domicilio:      cliente?.address ?? '',
+        localidadCp:    localidadCp(cliente),
+        condicionIva:   cliente?.categoriaIvaTangoDesc ?? '',
+        codigoCliente:  codigoClienteImpreso(cliente),
+        vendedor:       venta.choferNombre,
         condicionVenta: CONDICION_VENTA[venta.formaPago] ?? '',
       },
       entrega: {
@@ -158,6 +168,16 @@ function startOfDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate())
 }
 
+/** "1611, DON TORCUATO" con lo que haya (C.P. y localidad vienen del sync de Tango). */
+function localidadCp(cliente?: UserProfile): string {
+  return [cliente?.codigoPostalTango, cliente?.localidadTango].filter(Boolean).join(', ')
+}
+
+/** El código que se imprime: el de Tango si el cliente está vinculado, si no el de la app. */
+function codigoClienteImpreso(cliente?: UserProfile): string {
+  return cliente?.codigoTango ?? cliente?.codigoCliente ?? ''
+}
+
 // ── Factura X (promo cobrada) ────────────────────────────────────────────────
 
 export interface RenglonInterno {
@@ -165,10 +185,13 @@ export interface RenglonInterno {
   cantidad:       number
   precioUnitario: number
   total:          number
+  /** Bolsa rota repuesta sin cargo (precio 0). */
+  esCambio:       boolean
 }
 
 export interface ComprobanteInternoData {
-  titulo:        'FACTURA'
+  /** El talonario de promo decía "PROMOCIÓN", no "FACTURA". */
+  titulo:        'PROMOCIÓN'
   letra:         'X'
   empresa:       'rolito'
   emisor:        Emisor
@@ -179,6 +202,8 @@ export interface ComprobanteInternoData {
     cuit:           string
     condicionIva:   string
     domicilio:      string
+    localidadCp:    string
+    codigoCliente:  string
     condicionVenta: string
     vendedor:       string
   }
@@ -199,17 +224,22 @@ export function armarFacturaX(venta: VentaCamion, cliente?: UserProfile): Armado
   }
   const numero = venta.comprobanteInterno ? codigoComprobanteInterno(venta.comprobanteInterno) : null
 
-  const renglones: RenglonInterno[] = [...venta.items, ...(venta.cambios ?? [])].map((i) => ({
+  const renglon = (i: VentaCamion['items'][number], esCambio: boolean): RenglonInterno => ({
     descripcion:    i.nombre,
     cantidad:       i.cantidad,
-    precioUnitario: i.precioUnitario,
-    total:          i.cantidad * i.precioUnitario,
-  }))
+    precioUnitario: esCambio ? 0 : i.precioUnitario,
+    total:          esCambio ? 0 : i.cantidad * i.precioUnitario,
+    esCambio,
+  })
+  const renglones: RenglonInterno[] = [
+    ...venta.items.map((i) => renglon(i, false)),
+    ...(venta.cambios ?? []).map((i) => renglon(i, true)),
+  ]
 
   return {
     ok: true,
     datos: {
-      titulo: 'FACTURA',
+      titulo: 'PROMOCIÓN',
       letra: 'X',
       empresa: 'rolito',
       emisor: EMISOR_ROLITO,
@@ -220,6 +250,8 @@ export function armarFacturaX(venta: VentaCamion, cliente?: UserProfile): Armado
         cuit:           cliente?.cuit ?? '',
         condicionIva:   cliente?.categoriaIvaTangoDesc ?? '',
         domicilio:      cliente?.address ?? '',
+        localidadCp:    localidadCp(cliente),
+        codigoCliente:  codigoClienteImpreso(cliente),
         condicionVenta: CONDICION_VENTA[venta.formaPago] ?? '',
         vendedor:       venta.choferNombre,
       },
