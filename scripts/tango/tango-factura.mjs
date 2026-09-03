@@ -182,6 +182,10 @@ export function armarComprobanteFacturador(payload, item, cfg, mapeos) {
   }
   const listaPrecio = typeof cfg.listaPrecio === 'object' ? cfg.listaPrecio?.[payload.canal] : cfg.listaPrecio
   if (listaPrecio === undefined || listaPrecio === null) return { error: `Falta config/tango.facturador.${item.empresa}.listaPrecio (o .listaPrecio.${payload.canal})` }
+  // Condición de venta: un código, o uno por forma de pago ({ contado, cuenta_corriente }).
+  const claveCond = payload.formaPago === 'cuenta_corriente' ? 'cuenta_corriente' : 'contado'
+  const condicionVenta = typeof cfg.condicionVenta === 'object' && cfg.condicionVenta !== null ? cfg.condicionVenta[claveCond] : cfg.condicionVenta
+  if (condicionVenta === undefined || condicionVenta === null) return { error: `Falta config/tango.facturador.${item.empresa}.condicionVenta.${claveCond}` }
 
   // Totales: los de ARCA si es fiscal; si es factura X, se derivan de los ítems.
   let totales = docu.importes ? { neto: Number(docu.importes.neto), iva: Number(docu.importes.iva), tributos: Number(docu.importes.tributos ?? 0), total: Number(docu.importes.total) } : null
@@ -212,7 +216,7 @@ export function armarComprobanteFacturador(payload, item, cfg, mapeos) {
     codigoTalonario: talonario,
     ...(docu.cae ? { cAE: docu.cae, fechaVtoCAE: fechaArcaAIso(docu.caeFchVto) ?? undefined } : {}),
     codigoCliente,
-    codigoCondicionDeVenta: cfg.condicionVenta,
+    codigoCondicionDeVenta: condicionVenta,
     fechaComprobante: fecha,
     ...(cfg.fechaCierreTesoreria ? { fechaCierreTesoreria: cfg.fechaCierreTesoreria } : {}),
     codigoListaPrecio: listaPrecio,

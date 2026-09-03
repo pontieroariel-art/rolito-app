@@ -108,9 +108,12 @@ export function destinoTango(canal: unknown, formaPago: unknown, total: unknown)
     return { entidad: 'remito', empresa: 'redonhielo', conCaePropio: false }
   }
 
-  // Promo: mismo reparto por forma de pago, pero en Rolito y sin ARCA. La
-  // numeración y el "CAE" son propios, así que nunca hay riesgo de duplicar
-  // una autorización fiscal.
-  const entidad = formaPago === 'cuenta_corriente' || Number(total) <= 0 ? 'remito' : 'factura'
+  // Promo: SIEMPRE factura X de Rolito, cobrada o en cuenta corriente
+  // (decisión de Ariel 2026-09-03: la promo en cuenta corriente también es
+  // factura, y en Tango entra por el Facturador con cuota de cta. cte., no
+  // como pedido). Sin ARCA: numeración propia, nunca hay riesgo de duplicar
+  // una autorización fiscal. La única excepción es la operación en $0 (solo
+  // cambios): no hay factura de cero, va como remito.
+  const entidad = Number(total) <= 0 ? 'remito' : 'factura'
   return { entidad, empresa: 'rolito', conCaePropio: false }
 }

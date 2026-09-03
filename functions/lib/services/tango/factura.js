@@ -177,6 +177,14 @@ function armarComprobanteFacturador(payload, item, cfg, mapeos) {
         : cfg.listaPrecio;
     if (listaPrecio === undefined || listaPrecio === null)
         return { error: `Falta config/tango.facturador.${empresa}.listaPrecio (o .listaPrecio.${payload.canal})` };
+    // Condición de venta: un código para todo, o uno por forma de pago
+    // ({ contado, cuenta_corriente }) — la promo en cta. cte. va como factura
+    // con cuota y Tango necesita la condición de cuenta corriente.
+    const condicionVenta = typeof cfg.condicionVenta === 'object' && cfg.condicionVenta !== null
+        ? cfg.condicionVenta[formaPago === 'cuenta_corriente' ? 'cuenta_corriente' : 'contado']
+        : cfg.condicionVenta;
+    if (condicionVenta === undefined || condicionVenta === null)
+        return { error: `Falta config/tango.facturador.${empresa}.condicionVenta.${formaPago === 'cuenta_corriente' ? 'cuenta_corriente' : 'contado'}` };
     let totales = docu.importes
         ? { neto: Number(docu.importes.neto), iva: Number(docu.importes.iva), tributos: Number(docu.importes.tributos ?? 0), total: Number(docu.importes.total) }
         : null;
@@ -208,7 +216,7 @@ function armarComprobanteFacturador(payload, item, cfg, mapeos) {
         codigoTalonario: talonario,
         ...(docu.cae ? { cAE: docu.cae, fechaVtoCAE: fechaArcaAIso(docu.caeFchVto) ?? undefined } : {}),
         codigoCliente,
-        codigoCondicionDeVenta: cfg.condicionVenta,
+        codigoCondicionDeVenta: condicionVenta,
         fechaComprobante: fecha,
         ...(cfg.fechaCierreTesoreria ? { fechaCierreTesoreria: cfg.fechaCierreTesoreria } : {}),
         codigoListaPrecio: listaPrecio,

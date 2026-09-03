@@ -709,9 +709,14 @@ que decide si se le pide un CAE a ARCA, para que no puedan divergir:
 |---|---|---|---|
 | contado efectivo / transferencia | `factura` | Redonhielo | **sí** |
 | contado cuenta corriente | `remito` | Redonhielo | no |
-| promo efectivo / transferencia | `factura` | Rolito | no |
-| promo cuenta corriente | `remito` | Rolito | no |
+| promo efectivo / transferencia | `factura` (X) | Rolito | no |
+| promo cuenta corriente | `factura` (X, con `cuotasCuentaCorriente` en el Facturador) — **cambio 2026-09-03**, antes iba como remito/pedido | Rolito | no |
 | solo cambios (total 0), cualquier canal | `remito` | según canal | no |
+
+> **2026-09-03:** Ariel decidió que la promo en cuenta corriente también es factura X (no remito):
+> en Tango entra por el Facturador como FAC X con cuota de cta. cte. `config/tango.facturador.rolito.condicionVenta`
+> admite `{ contado, cuenta_corriente }` para mandar la condición de venta correcta. El pedido
+> (§14) queda para el remito de contado en cuenta corriente (Redonhielo) y las operaciones en $0.
 
 Cada item de `tango-outbox` lleva `empresa` (la del NEGOCIO, no el número de la API) y
 `conCaePropio`, y el writer recibe el item entero (`handler.enviar(payload, item)`), no solo el

@@ -28,8 +28,11 @@ export function tipoComprobanteInterno(
 ): TipoComprobanteInterno | null {
   const documento = documentoDeVenta(venta.canal, venta.formaPago, venta.total)
   if (documento === 'remito') return 'remito'
+  // Promo: siempre factura X, cobrada o en cuenta corriente (decisión de
+  // Ariel 2026-09-03 — espejo de destinoTango en functions). Solo la operación
+  // en $0 (solo cambios) sale por remito de Rolito.
   if (documento === 'no_oficial') {
-    return venta.formaPago === 'cuenta_corriente' || venta.total <= 0 ? 'remitoPromo' : 'facturaX'
+    return venta.total <= 0 ? 'remitoPromo' : 'facturaX'
   }
   return null
 }

@@ -18,7 +18,8 @@ const recortar = (s: unknown, n: number) => (s == null ? '' : String(s)).slice(0
 
 export interface ConfigFacturadorEmpresa {
   talonarios?: Record<string, number | string>
-  condicionVenta?: number | string
+  /** Un código, o { contado, cuenta_corriente } (la promo en cta. cte. factura con cuota). */
+  condicionVenta?: number | string | Record<string, number | string>
   listaPrecio?: number | string | Record<string, number | string>
   contracuenta?: number | string
   vendedor?: number | string
@@ -225,6 +226,13 @@ export function armarComprobanteFacturador(payload: PayloadVenta, item: ItemOutb
     ? (cfg.listaPrecio as Record<string, number | string>)[payload.canal ?? '']
     : cfg.listaPrecio
   if (listaPrecio === undefined || listaPrecio === null) return { error: `Falta config/tango.facturador.${empresa}.listaPrecio (o .listaPrecio.${payload.canal})` }
+  // Condición de venta: un código para todo, o uno por forma de pago
+  // ({ contado, cuenta_corriente }) — la promo en cta. cte. va como factura
+  // con cuota y Tango necesita la condición de cuenta corriente.
+  const condicionVenta = typeof cfg.condicionVenta === 'object' && cfg.condicionVenta !== null
+    ? (cfg.condicionVenta as Record<string, number | string>)[formaPago === 'cuenta_corriente' ? 'cuenta_corriente' : 'contado']
+    : cfg.condicionVenta
+  if (condicionVenta === undefined || condicionVenta === null) return { error: `Falta config/tango.facturador.${empresa}.condicionVenta.${formaPago === 'cuenta_corriente' ? 'cuenta_corriente' : 'contado'}` }
 
   let totales = docu.importes
     ? { neto: Number(docu.importes.neto), iva: Number(docu.importes.iva), tributos: Number(docu.importes.tributos ?? 0), total: Number(docu.importes.total) }
@@ -256,7 +264,7 @@ export function armarComprobanteFacturador(payload: PayloadVenta, item: ItemOutb
     codigoTalonario: talonario,
     ...(docu.cae ? { cAE: docu.cae, fechaVtoCAE: fechaArcaAIso(docu.caeFchVto) ?? undefined } : {}),
     codigoCliente,
-    codigoCondicionDeVenta: cfg.condicionVenta,
+    codigoCondicionDeVenta: condicionVenta,
     fechaComprobante: fecha,
     ...(cfg.fechaCierreTesoreria ? { fechaCierreTesoreria: cfg.fechaCierreTesoreria } : {}),
     codigoListaPrecio: listaPrecio,

@@ -57,12 +57,12 @@ describe('destinoTango', () => {
     })
   })
 
-  it('promo va a Rolito, con el mismo reparto por forma de pago', () => {
+  it('promo va a Rolito siempre como factura X, cobrada o en cuenta corriente', () => {
     expect(destinoTango('promo', 'contado_efectivo', 20000)).toEqual({
       entidad: 'factura', empresa: 'rolito', conCaePropio: false,
     })
-    expect(destinoTango('promo', 'cuenta_corriente', 20000)).toMatchObject({
-      entidad: 'remito', empresa: 'rolito',
+    expect(destinoTango('promo', 'cuenta_corriente', 20000)).toEqual({
+      entidad: 'factura', empresa: 'rolito', conCaePropio: false,
     })
   })
 

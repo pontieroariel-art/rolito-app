@@ -29,9 +29,9 @@ describe('tipoComprobanteInterno', () => {
     expect(tipoComprobanteInterno(base({ formaPago: 'contado_efectivo', total: 0, items: [] }))).toBe('remito')
   })
 
-  it('promo cobrada sale por factura X; promo en cuenta corriente o en $0, por remito de Rolito', () => {
+  it('promo sale por factura X cobrada o en cuenta corriente; solo la operación en $0 va por remito de Rolito', () => {
     expect(tipoComprobanteInterno(base({ canal: 'promo', formaPago: 'contado_efectivo' }))).toBe('facturaX')
-    expect(tipoComprobanteInterno(base({ canal: 'promo', formaPago: 'cuenta_corriente' }))).toBe('remitoPromo')
+    expect(tipoComprobanteInterno(base({ canal: 'promo', formaPago: 'cuenta_corriente' }))).toBe('facturaX')
     expect(tipoComprobanteInterno(base({ canal: 'promo', formaPago: 'contado_efectivo', total: 0, items: [] }))).toBe('remitoPromo')
   })
 })
@@ -77,9 +77,9 @@ describe('armarRemito', () => {
     expect(vencido.ok && vencido.datos.letra).toBe('X')
   })
 
-  it('Rolito: mismo papel, letra X y control interno aunque haya CAI cargado', () => {
+  it('Rolito (solo cambios, $0): mismo papel, letra X y control interno aunque haya CAI cargado', () => {
     const r = armarRemito(
-      base({ canal: 'promo', comprobanteInterno: { tipo: 'remitoPromo', puntoVenta: 3, numero: 4 } }),
+      base({ canal: 'promo', total: 0, items: [], cambios: [{ productoId: 'cambio_bolsa_3kg', nombre: 'Hielo bolsa 3kg', cantidad: 2, precioUnitario: 0 }], comprobanteInterno: { tipo: 'remitoPromo', puntoVenta: 3, numero: 4 } }),
       undefined,
       { cai: '12345678901234', vencimiento: new Date('2026-12-31') },
     )
