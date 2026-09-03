@@ -14,6 +14,7 @@ exports.tplComodatosPorVencer = tplComodatosPorVencer;
 exports.tplAdminNuevoCliente = tplAdminNuevoCliente;
 exports.tplAdminAccionAltoRiesgo = tplAdminAccionAltoRiesgo;
 exports.tplAdminResumenDiario = tplAdminResumenDiario;
+exports.tplArcaFacturasConProblemas = tplArcaFacturasConProblemas;
 // Escapa datos controlados por el usuario (razón social, notas, nombres de
 // producto, motivo, dirección, teléfono) antes de interpolarlos en el HTML del
 // email. Sin esto, p. ej. una razón social con markup podría inyectar contenido
@@ -435,6 +436,46 @@ function tplAdminResumenDiario(eventos, appUrl) {
       ${filas}
     </table>
     ${ctaButton('Ir al Backoffice →', `${appUrl}/admin`)}
+  `);
+}
+const ESTADO_FACTURA_LABEL = {
+    rechazada: 'ARCA la rechazó',
+    vencida: 'Venció la ventana de 5 días: ya no se puede facturar con su fecha',
+    pendiente: 'Sigue sin facturar desde hace más de 3 horas',
+};
+// Mail a la oficina cuando la reconciliación encuentra facturas que no van a
+// salir solas: rechazadas por ARCA, vencidas (pasó la ventana de 5 días) o
+// pendientes trabadas por una causa que no se arregla reintentando (cliente
+// sin CUIT, sin condición de IVA). Sin este mail la única persona que se
+// enteraba era el chofer, en su pantalla de ventas.
+function tplArcaFacturasConProblemas(facturas, appUrl) {
+    const filas = facturas.map((f) => `
+    <tr style="border-top:1px solid #e8ede9">
+      <td style="padding:9px 14px;font-size:13px;color:#111827;vertical-align:top">
+        <strong>${esc(f.clienteNombre || 'Cliente sin nombre')}</strong>
+        <span style="color:#6b7280"> — $${esc(f.total.toLocaleString('es-AR', { minimumFractionDigits: 2 }))} · venta del ${esc(formatDate(f.fechaVenta))}</span><br>
+        <span style="color:#DC2626;font-weight:600">${esc(ESTADO_FACTURA_LABEL[f.estado])}</span><br>
+        <span style="color:#6b7280">${esc(f.motivo)}</span><br>
+        <span style="color:#9ca3af;font-family:monospace;font-size:11px">venta ${esc(f.ventaId)}</span>
+      </td>
+    </tr>`).join('');
+    return layout('Facturas ARCA con problemas', {
+        emoji: '⚠️',
+        title: 'Facturas electrónicas que necesitan una mano',
+        subtitle: `${facturas.length} venta${facturas.length !== 1 ? 's' : ''} de contado sin factura válida`,
+        accentColor: '#DC2626',
+    }, `
+    <p style="margin:0 0 16px">
+      Estas ventas de contado del camión no tienen factura electrónica y no se van a resolver solas.
+      Las rechazadas y las trabadas suelen ser un dato del cliente (CUIT, condición de IVA): corregilo
+      en su ficha y la reconciliación las reintenta sola cada hora, mientras no pasen los 5 días.
+      Las vencidas hay que resolverlas desde Tango.
+    </p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+      style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;margin:0 0 20px">
+      ${filas}
+    </table>
+    ${ctaButton('Ir a Usuarios & Roles →', `${appUrl}/admin/usuarios`)}
   `);
 }
 //# sourceMappingURL=templates.js.map

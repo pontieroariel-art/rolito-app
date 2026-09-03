@@ -175,7 +175,7 @@ export default function VentasChofer() {
                       </div>
                     ) : f?.estado === 'incierta' ? (
                       <p className="flex items-center gap-1.5 text-xs text-amber-700">
-                        <Clock size={14} /> Factura en revisión — se resuelve sola en unos minutos.
+                        <Clock size={14} /> Factura en revisión — se resuelve sola dentro de la hora.
                       </p>
                     ) : f?.estado === 'rechazada' ? (
                       <p className="flex items-center gap-1.5 text-xs text-red-700">

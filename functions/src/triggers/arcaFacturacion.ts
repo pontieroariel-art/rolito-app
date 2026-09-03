@@ -28,9 +28,18 @@ import { facturarVenta, rutaFactura, type RegistroFactura } from '../services/ar
 import { documentoDeVenta } from '../services/arca/circuito'
 import { leerPercepcionDePerfil } from '../services/arca/percepcionPerfil'
 import type { ItemFacturable } from '../services/arca/comprobante'
+import { validarVentanaEmision } from '../services/arca/comprobante'
 import type { DbLike } from '../services/arca/numeracion'
+import { sendEmail, APP_URL, resendApiKey } from '../email'
+import { tplArcaFacturasConProblemas, type FacturaConProblema } from '../templates'
 
 const TZ = 'America/Argentina/Buenos_Aires'
+
+// Una venta de contado que lleva más de esto sin factura ya no es "ARCA
+// tardó": es un dato del cliente que falta o una configuración caída. Se
+// avisa a la oficina una sola vez (avisadoEn), para que lo arregle mientras
+// la ventana de 5 días sigue abierta.
+const HORAS_PENDIENTE_ANTES_DE_AVISAR = 3
 
 // El certificado y su clave viven en secrets, nunca en el repo ni en Firestore:
 // con ellos se puede emitir comprobantes en nombre de la empresa.
@@ -91,7 +100,14 @@ async function persistir(db: Firestore, registro: RegistroFactura): Promise<void
   const batch = db.batch()
   batch.set(
     db.doc(rutaFactura(registro.ventaId)),
-    { ...registro, actualizadoEn: FieldValue.serverTimestamp() },
+    {
+      ...registro,
+      actualizadoEn: FieldValue.serverTimestamp(),
+      // Una rechazada entra en la cola de aviso a la oficina (ver
+      // avisarFacturasConProblemas). El null explícito es lo que permite
+      // consultarla con where('avisadoEn', '==', null).
+      ...(registro.estado === 'rechazada' ? { avisadoEn: null } : {}),
+    },
     { merge: true },
   )
   // Espejo en la venta, para que la pantalla del chofer y los listados no
@@ -217,62 +233,171 @@ export const onVentaContadoFacturar = onDocumentCreated(
  * ARCA: pasada esa ventana la venta ya no se puede facturar con su fecha real.
  */
 export const reconciliarFacturasArca = onSchedule(
-  { schedule: '15 * * * *', timeZone: TZ, secrets: [arcaCert, arcaKey] },
+  { schedule: '15 * * * *', timeZone: TZ, secrets: [arcaCert, arcaKey, resendApiKey] },
   async () => {
     const db = getFirestore()
+    const ahora = new Date()
 
-    const pendientes = await db
-      .collection('facturasArca')
-      .where('estado', 'in', ['incierta', 'pendiente'])
-      .limit(50)
-      .get()
+    // Dos consultas y no una con `in`: las inciertas son las urgentes (hay un
+    // número reservado que ARCA pudo haber autorizado) y no pueden quedar
+    // detrás de una cola de pendientes que fallan siempre por lo mismo.
+    const [inciertas, pendientes] = await Promise.all([
+      db.collection('facturasArca').where('estado', '==', 'incierta').limit(50).get(),
+      db.collection('facturasArca').where('estado', '==', 'pendiente').limit(50).get(),
+    ])
 
-    if (pendientes.empty) return
+    // Las que van a la oficina en este ciclo (además de las rechazadas, que se
+    // buscan aparte al final).
+    const trabadas: FacturaConProblema[] = []
 
-    let config: ConfigArca
-    try {
-      config = await leerConfigParaEmitir(comoDb(db))
-    } catch (e) {
-      console.error(`[arca] reconciliación sin configuración utilizable: ${(e as Error).message}`)
-      return
-    }
-
-    const arca = await puertoArca(db, config)
-
-    for (const docSnap of pendientes.docs) {
-      const f = docSnap.data()
-      const ventaId = docSnap.id
-
+    if (!inciertas.empty || !pendientes.empty) {
+      let config: ConfigArca | null = null
+      let arca: PuertoArca | null = null
       try {
-        if (f.estado === 'incierta' && typeof f.numero === 'number' && typeof f.cbteTipo === 'number') {
-          const r = await resolverIncierto(comoDb(db), arca, config.puntoVenta, f.cbteTipo, f.numero)
-          await persistir(db, {
-            ventaId,
-            estado: r.estado === 'emitido' ? 'emitida' : 'rechazada',
-            puntoVenta: config.puntoVenta,
-            cbteTipo: r.cbteTipo,
-            numero: r.numero,
-            cae: r.estado === 'emitido' ? r.cae : null,
-            caeFchVto: r.estado === 'emitido' ? r.caeFchVto : null,
-            motivo: r.estado === 'rechazado' ? r.motivo : null,
-          })
-        } else if ((await facturar(db, ventaId)) === null) {
-          // La venta no la factura la app (promo, cuenta corriente) o ya no
-          // existe. Sin este cierre el registro quedaría 'pendiente' para
-          // siempre, reintentándose cada hora sin que nada cambie nunca.
-          await docSnap.ref.set(
-            {
-              estado: 'no_corresponde',
-              motivo: 'la app no factura esta venta: es promo, es de cuenta corriente (la factura la oficina desde el remito) o la venta ya no existe',
-              actualizadoEn: FieldValue.serverTimestamp(),
-            },
-            { merge: true },
-          )
-        }
+        config = await leerConfigParaEmitir(comoDb(db))
+        arca = await puertoArca(db, config)
       } catch (e) {
-        // Un fallo acá no debe frenar al resto de la tanda.
-        console.error(`[arca] reconciliación de ${ventaId} falló: ${(e as Error).message}`)
+        console.error(`[arca] reconciliación sin configuración utilizable: ${(e as Error).message}`)
+      }
+
+      if (config && arca) {
+        for (const docSnap of inciertas.docs) {
+          const f = docSnap.data()
+          const ventaId = docSnap.id
+          if (typeof f.numero !== 'number' || typeof f.cbteTipo !== 'number') continue
+          try {
+            const r = await resolverIncierto(comoDb(db), arca, config.puntoVenta, f.cbteTipo, f.numero)
+            await persistir(db, {
+              ventaId,
+              estado: r.estado === 'emitido' ? 'emitida' : 'rechazada',
+              puntoVenta: config.puntoVenta,
+              cbteTipo: r.cbteTipo,
+              numero: r.numero,
+              cae: r.estado === 'emitido' ? r.cae : null,
+              caeFchVto: r.estado === 'emitido' ? r.caeFchVto : null,
+              motivo: r.estado === 'rechazado' ? r.motivo : null,
+            })
+          } catch (e) {
+            // Un fallo acá no debe frenar al resto de la tanda.
+            console.error(`[arca] reconciliación de ${ventaId} (incierta) falló: ${(e as Error).message}`)
+          }
+        }
+
+        for (const docSnap of pendientes.docs) {
+          const f = docSnap.data()
+          const ventaId = docSnap.id
+          const venta = (await db.doc(`ventasCamion/${ventaId}`).get()).data()
+          const fechaVenta = (venta?.fecha as { toDate?: () => Date } | undefined)?.toDate?.()
+
+          try {
+            // Pasada la ventana de ARCA ya no hay nada que reintentar: se
+            // cierra como 'vencida' y se avisa. Sin esto quedaba 'pendiente'
+            // para siempre, ocupando la tanda de cada hora y sin que nadie
+            // en la oficina se enterara. (Solo si nunca se reservó número:
+            // con número, la palabra la tiene facturarVenta.)
+            if (venta && fechaVenta && typeof f.numero !== 'number') {
+              const ventana = validarVentanaEmision(fechaVenta, ahora)
+              if (!ventana.valida) {
+                const motivo = `No se pudo facturar a tiempo: ${ventana.motivo}. Último error: ${String(f.motivo ?? 'sin detalle')}`
+                await docSnap.ref.set(
+                  { estado: 'vencida', motivo, avisadoEn: null, actualizadoEn: FieldValue.serverTimestamp() },
+                  { merge: true },
+                )
+                continue
+              }
+            }
+
+            if ((await facturar(db, ventaId)) === null) {
+              // La venta no la factura la app (promo, cuenta corriente) o ya no
+              // existe. Sin este cierre el registro quedaría 'pendiente' para
+              // siempre, reintentándose cada hora sin que nada cambie nunca.
+              await docSnap.ref.set(
+                {
+                  estado: 'no_corresponde',
+                  motivo: 'la app no factura esta venta: es promo, es de cuenta corriente (la factura la oficina desde el remito) o la venta ya no existe',
+                  actualizadoEn: FieldValue.serverTimestamp(),
+                },
+                { merge: true },
+              )
+            }
+          } catch (e) {
+            const motivo = (e as Error).message
+            console.error(`[arca] reconciliación de ${ventaId} falló: ${motivo}`)
+            // Dejar el motivo actual en el doc: es lo que va a leer la oficina.
+            await docSnap.ref.set({ motivo, actualizadoEn: FieldValue.serverTimestamp() }, { merge: true })
+              .catch(() => { /* el log ya quedó */ })
+
+            const horas = fechaVenta ? (ahora.getTime() - fechaVenta.getTime()) / 3_600_000 : 0
+            if (venta && horas >= HORAS_PENDIENTE_ANTES_DE_AVISAR && !f.avisadoEn) {
+              trabadas.push({
+                ventaId,
+                estado: 'pendiente',
+                motivo,
+                clienteNombre: String(venta.clienteNombre ?? ''),
+                total: Number(venta.total ?? 0),
+                fechaVenta: venta.fecha,
+              })
+            }
+          }
+        }
       }
     }
+
+    await avisarFacturasConProblemas(db, trabadas)
   },
 )
+
+/**
+ * Manda a la oficina, UNA vez por factura, las que no se van a resolver solas:
+ * rechazadas y vencidas (se marcan con `avisadoEn: null` al escribirse) más
+ * las pendientes trabadas que detectó la tanda. Sin este aviso la única
+ * persona que se enteraba era el chofer, en su pantalla de ventas.
+ */
+async function avisarFacturasConProblemas(db: Firestore, trabadas: FacturaConProblema[]): Promise<void> {
+  // Dos igualdades por consulta (estado + avisadoEn): no necesitan índice
+  // compuesto, a diferencia de un `in` combinado con otro filtro.
+  const [rechazadas, vencidas] = await Promise.all(
+    (['rechazada', 'vencida'] as const).map((estado) =>
+      db.collection('facturasArca')
+        .where('estado', '==', estado)
+        .where('avisadoEn', '==', null)
+        .limit(50)
+        .get(),
+    ),
+  )
+
+  const problemas: FacturaConProblema[] = [...trabadas]
+  for (const docSnap of [...rechazadas.docs, ...vencidas.docs]) {
+    const f = docSnap.data()
+    const venta = (await db.doc(`ventasCamion/${docSnap.id}`).get()).data()
+    problemas.push({
+      ventaId: docSnap.id,
+      estado: f.estado === 'vencida' ? 'vencida' : 'rechazada',
+      motivo: String(f.motivo ?? 'sin detalle'),
+      clienteNombre: String(venta?.clienteNombre ?? ''),
+      total: Number(venta?.total ?? 0),
+      fechaVenta: venta?.fecha,
+    })
+  }
+  if (problemas.length === 0) return
+
+  const emails = ((await db.doc('configuracion/notificaciones').get()).data()?.emails ?? []) as string[]
+  if (emails.length === 0) {
+    console.warn(`[arca] ${problemas.length} factura(s) con problemas y nadie configurado en configuracion/notificaciones.emails`)
+    return
+  }
+
+  await sendEmail(
+    emails,
+    `ARCA: ${problemas.length} factura${problemas.length !== 1 ? 's' : ''} con problemas`,
+    tplArcaFacturasConProblemas(problemas, APP_URL),
+  )
+
+  // Recién después de mandar el mail se marcan como avisadas: si Resend falla,
+  // el próximo ciclo las vuelve a incluir en vez de perderlas.
+  const batch = db.batch()
+  for (const p of problemas) {
+    batch.set(db.doc(rutaFactura(p.ventaId)), { avisadoEn: FieldValue.serverTimestamp() }, { merge: true })
+  }
+  await batch.commit()
+}
