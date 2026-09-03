@@ -943,3 +943,48 @@ cuentas de tesorería, tasas/alícuotas). No están en las 8 tablas de `export-t
 **Orden sugerido de puesta en marcha:** primero `facturasEnabled` con TestingRH (una venta contado
 real de $1 → NC después, como el 2026-09-02); recién después Redonhielo real. Los remitos (§14)
 siguen su propio camino.
+
+## 16. Worker en Cloud Functions vía Tango Connect (2026-09-03) — reemplaza al bridge de la VM
+
+**Hallazgo que lo habilita:** la API de Tango está expuesta a internet por Tango Connect en
+`https://001174-003.connect.axoft.com` (llave 001174/003 con `/`→`-`), misma superficie que
+`rhielotg:17000`: headers `ApiAuthorization` + `Company`, `Api/Get|GetByFilter|GetById|Create` y
+`Api/FacturadorVenta/registrar`. Probado con el token de desarrollador desde la PC de Ariel y desde
+fuera de la red (2026-09-03): Clientes (6087), Pedidos (19845), Facturador, empresas 1/2/3. Con eso
+las Cloud Functions le pegan a Tango directo: **no hace falta el bridge en la VM, ni NSSM, ni acceso
+al servidor**.
+
+**Formas reales de la API** (difieren del readme en dos puntos): `GetByFilter` exige `filtroSql`
+con `WHERE ` adelante (`WHERE AXV_ARTICULO.COD_STA11 = 'X'`, `WHERE STA22.COD_STA22 = '03'`,
+`WHERE MONEDA.COD_MONEDA = 'PES'`, `WHERE AXV_PEDIDO.LEYENDA_1 = '…'`) y responde `{ list }` sin
+`succeeded`; `GetById?process=&view=&id=` responde `{ value: {...} }` (PedidoData con IDs y
+`RENGLON_DTO`). `Get` responde `{ resultData: { list, totalCount, totalPages }, succeeded }`.
+
+**Código** (`functions/src`): `services/tango/pedido.ts` y `factura.ts` (port de los `.mjs`, mismos
+tests), `client.ts` (`TangoClient`: request, `getByFilter`, `resolverId` con cache, `getById`,
+`create`, `registrarComprobantes`), `writers.ts` (`enviarRemito`, `enviarFactura`, misma config
+`config/tango`), `triggers/tangoWorker.ts`:
+- `onOutboxPendiente` — `onDocumentWritten('tango-outbox/{id}')`: cuando un item queda en
+  `pendiente` lo manda al toque.
+- `barridoOutboxTango` — cada 5 min reintenta `pendiente`/`enviado` (el barrido es el backoff),
+  hasta `MAX_INTENTOS=5` → `error`.
+- Claim atómico en transacción (pendiente/enviado → enviado, intentos+1, `worker: 'cloud'`) antes
+  de tocar Tango: trigger y barrido nunca mandan el mismo item dos veces.
+- Solo entidades `remito` y `factura`; `produccionPallet`/`recibo`/`transferenciaDeposito` se
+  dejan (siguen siendo del bridge/stubs).
+
+**Interruptores en `config/tango`:** `workerCloud: true` (sin esto la Function no toca nada —
+así nunca compite con el bridge de la VM si alguien lo prende), `remitosEnabled`,
+`facturasEnabled`, `companies`, y opcional `connectBaseUrl`. Secret de Functions:
+`TANGO_API_TOKEN` (token de desarrollador de Tango; al regenerarlo en Tango hay que volver a
+cargarlo: `firebase functions:secrets:set TANGO_API_TOKEN`).
+
+**Depósitos = repartidores.** En Tango cada chofer es un depósito (`03 SERGIO ALVAREZ`…):
+`config/tango.depositos` va keyed por **uid del chofer** (fallback camionId), lo carga
+`sincronizar-choferes-tango.mjs` (replica los depósitos-persona de Tango como choferes de la app:
+vincula/crea/desactiva; `--vincular COD=CUIT=PIN` para que un chofer creado pueda entrar).
+
+**Deploy:** `npm --prefix functions run build` → commitear `lib/` →
+`firebase deploy --only functions:onOutboxPendiente,functions:barridoOutboxTango` (el secret tiene
+que existir antes). Puesta en marcha: `companies` → TestingRH, `workerCloud: true`,
+`remitosEnabled: true`, una venta promo real; después `facturasEnabled`.
