@@ -9,6 +9,7 @@ import { useCatalogo } from '../../hooks/useCatalogo'
 import { useSucursales, SucursalItem } from '../../hooks/useSucursales'
 import { UserProfile, Order } from '../../types'
 import { formatShortDate, isSucursalCode, normalizeAddress, todayString as todayStr, addDaysStr, precioEfectivo } from '../../utils/helpers'
+import { preciosClienteTango } from '../../utils/precioTango'
 import { STATUS_LABELS } from '../../utils/constants'
 
 // ── ProductRow ────────────────────────────────────────────────────────────────
@@ -199,6 +200,14 @@ function StepProductos({
   const { catalogo } = useCatalogo()
 
   const displayProducts = useMemo(() => {
+    // Cliente vinculado a Tango: precios de su ficha (Redonhielo), solo los que tienen precio.
+    const preciosTango = preciosClienteTango(cliente)
+    if (preciosTango) {
+      const items = catalogo
+        .filter((p) => preciosTango[p.id] !== undefined)
+        .map((p) => ({ id: p.id, nombre: p.nombre, unidad: p.unidad, precio: preciosTango[p.id] as number | undefined }))
+      if (items.length > 0) return items
+    }
     if (lista) {
       const items = lista.items.filter((i) => i.activo).map((i) => ({
         id:     i.productoId,

@@ -31,6 +31,23 @@ export interface PreciosTango {
 // "barra" en la lista 1 de Rolito). Cero no es un precio: no se vende gratis.
 const esPrecioValido = (p: unknown): p is number => typeof p === 'number' && Number.isFinite(p) && p > 0
 
+/** Precios ya resueltos que la sync dejó en la ficha del cliente (users.preciosTango).
+ *  Es lo que usan las pantallas del cliente y el pedido manual, que no leen
+ *  preciosTango/* (trae los precios de todos los clientes). null = cliente sin
+ *  vínculo con Tango o sin lista en esa empresa. Los pedidos de la app son de
+ *  la operación oficial → Redonhielo. */
+export function preciosClienteTango(
+  cliente: { codigoTango?: string; preciosTango?: Partial<Record<EmpresaTango, Record<string, number>>> } | null | undefined,
+  empresa: EmpresaTango = 'redonhielo',
+): Record<string, number> | null {
+  if (!cliente?.codigoTango) return null
+  const precios = cliente.preciosTango?.[empresa]
+  if (!precios) return null
+  const out: Record<string, number> = {}
+  for (const [pid, p] of Object.entries(precios)) if (esPrecioValido(p)) out[pid] = p
+  return out
+}
+
 export function empresaDeCanal(canal: CanalVenta | null | undefined): EmpresaTango {
   return canal === 'promo' ? 'rolito' : 'redonhielo'
 }

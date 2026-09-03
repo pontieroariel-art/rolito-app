@@ -14,6 +14,7 @@ import {
 import { getCatalogo, saveCatalogo, subirFotoProducto } from '../../services/catalogoService'
 import ProductoThumb from '../../components/ventas/ProductoThumb'
 import SyncPreciosTangoPanel from '../../components/admin/SyncPreciosTangoPanel'
+import ListasTangoPanel from '../../components/admin/ListasTangoPanel'
 import { autoEtiqueta } from '../../utils/productoVisual'
 import { getAllUsers } from '../../services/userService'
 import { updateUserDocument } from '../../services/userService'
@@ -22,12 +23,13 @@ import { useAuth } from '../../context/AuthContext'
 import { CatalogProducto, ItemListaPrecios, ListaPrecios, UserProfile } from '../../types'
 import { reportError } from '@/services/observability'
 
-type Tab = 'listas' | 'catalogo'
+type Tab = 'tango' | 'listas' | 'catalogo'
+const TAB_LABEL: Record<Tab, string> = { tango: 'Listas de Tango', listas: 'Listas de la app', catalogo: 'Catálogo de productos' }
 
 // ── PriceListsPage ────────────────────────────────────────────────────────────
 
 export default function PriceListsPage() {
-  const [tab, setTab]             = useState<Tab>('listas')
+  const [tab, setTab]             = useState<Tab>('tango')
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const qc                        = useQueryClient()
@@ -76,7 +78,7 @@ export default function PriceListsPage() {
 
         {/* Tabs */}
         <div className="flex gap-1 bg-white border border-[#D3D1C7] rounded-xl p-1 w-full sm:w-fit overflow-x-auto">
-          {(['listas', 'catalogo'] as Tab[]).map((t) => (
+          {(['tango', 'listas', 'catalogo'] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -84,12 +86,14 @@ export default function PriceListsPage() {
                 tab === t ? 'bg-accent text-white' : 'text-gray-500 hover:text-gray-900'
               }`}
             >
-              {t === 'listas' ? 'Listas de precios' : 'Catálogo de productos'}
+              {TAB_LABEL[t]}
             </button>
           ))}
         </div>
 
-        {tab === 'listas' ? (
+        {tab === 'tango' ? (
+          <ListasTangoPanel />
+        ) : tab === 'listas' ? (
           isLoading ? <LoadingSpinner /> : (
             <div className="grid md:grid-cols-[220px_1fr] gap-4">
               {/* Sidebar */}

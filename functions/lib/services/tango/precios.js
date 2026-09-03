@@ -25,6 +25,7 @@ exports.claveCliente = exports.EMPRESAS = void 0;
 exports.leerPreciosEmpresa = leerPreciosEmpresa;
 exports.leerListasDeClientes = leerListasDeClientes;
 exports.sincronizarPreciosTango = sincronizarPreciosTango;
+exports.resolverPreciosCliente = resolverPreciosCliente;
 const firestore_1 = require("firebase-admin/firestore");
 const client_1 = require("./client");
 const pedido_1 = require("./pedido");
@@ -114,6 +115,7 @@ async function sincronizarPreciosTango(db, tango, cfg) {
     const articulos = cfg.articulos ?? {};
     const resumen = { empresas: {}, usuariosActualizados: 0 };
     const listasPorCliente = {};
+    const docsPorEmpresa = {};
     for (const empresa of exports.EMPRESAS) {
         const company = cfg.companies?.[empresa];
         if (!Number.isInteger(company)) {
@@ -121,11 +123,18 @@ async function sincronizarPreciosTango(db, tango, cfg) {
             continue;
         }
         const doc = await leerPreciosEmpresa(tango, company, articulos);
+        docsPorEmpresa[empresa] = doc;
         await db.doc(`preciosTango/${empresa}`).set({ ...doc, actualizadoEn: firestore_1.FieldValue.serverTimestamp() });
         listasPorCliente[empresa] = await leerListasDeClientes(tango, company);
         resumen.empresas[empresa] = { ...doc.resumen, clientesConLista: listasPorCliente[empresa].size };
     }
-    // users.listaTango = { redonhielo, rolito } para los clientes vinculados (codigoTango).
+    // Para cada cliente vinculado (codigoTango) se guarda en su ficha:
+    //   listaTango       = { redonhielo: nro, rolito: nro }
+    //   listaTangoNombre = { redonhielo: 'HABITUALES', ... }
+    //   preciosTango     = { redonhielo: { productoId: precio }, rolito: {...} }
+    // Los precios ya vienen resueltos (especial del cliente > su lista; 0 = sin
+    // precio, no se guarda) para que el propio cliente los vea en su perfil y en
+    // el pedido sin tener acceso a preciosTango/*, que trae los precios de todos.
     const clientes = await db.collection('users').where('rol', '==', 'cliente').get();
     let batch = db.batch(), ops = 0;
     for (const d of clientes.docs) {
@@ -133,17 +142,27 @@ async function sincronizarPreciosTango(db, tango, cfg) {
         if (!cod)
             continue;
         const listaTango = {};
+        const listaTangoNombre = {};
+        const preciosTango = {};
         for (const empresa of exports.EMPRESAS) {
             const n = listasPorCliente[empresa]?.get(cod);
-            if (n !== undefined)
-                listaTango[empresa] = n;
+            if (n === undefined)
+                continue;
+            listaTango[empresa] = n;
+            const doc = docsPorEmpresa[empresa];
+            const lista = doc?.listas[String(n)];
+            if (lista)
+                listaTangoNombre[empresa] = lista.nombre;
+            preciosTango[empresa] = resolverPreciosCliente(doc, cod, n);
         }
         if (!Object.keys(listaTango).length)
             continue;
-        const actual = d.data().listaTango;
-        if (actual && exports.EMPRESAS.every((e) => actual[e] === listaTango[e]))
+        const data = d.data();
+        const nuevo = { listaTango, listaTangoNombre, preciosTango };
+        const actual = { listaTango: data.listaTango, listaTangoNombre: data.listaTangoNombre, preciosTango: data.preciosTango };
+        if (JSON.stringify(actual) === JSON.stringify(nuevo))
             continue;
-        batch.update(d.ref, { listaTango });
+        batch.update(d.ref, nuevo);
         resumen.usuariosActualizados++;
         if (++ops >= 400) {
             await batch.commit();
@@ -154,5 +173,20 @@ async function sincronizarPreciosTango(db, tango, cfg) {
     if (ops)
         await batch.commit();
     return resumen;
+}
+/** Precio final de cada producto para un cliente: especial > lista; sin 0. */
+function resolverPreciosCliente(doc, codigoCliente, nroLista) {
+    const out = {};
+    if (!doc)
+        return out;
+    const especiales = doc.especiales[(0, exports.claveCliente)(codigoCliente)] ?? {};
+    const lista = doc.listas[String(nroLista)]?.precios ?? {};
+    for (const productoId of Object.keys(doc.productos)) {
+        const valido = (p) => typeof p === 'number' && Number.isFinite(p) && p > 0;
+        const precio = valido(especiales[productoId]) ? especiales[productoId] : lista[productoId];
+        if (valido(precio))
+            out[productoId] = precio;
+    }
+    return out;
 }
 //# sourceMappingURL=precios.js.map

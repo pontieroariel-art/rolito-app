@@ -1,3 +1,4 @@
+import { preciosClienteTango } from '@/utils/precioTango'
 import { useState, useMemo } from 'react'
 import { Download, RefreshCw } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
@@ -19,6 +20,12 @@ function precioEfectivo(
   productoId: string,
   listas: ListaPrecios[],
 ): { precio: number | null; esCustom: boolean } {
+  // Cliente vinculado a Tango: el precio es el que dejó la sync en su ficha
+  // (especial > lista de Redonhielo); las listas de la app no cuentan.
+  if (cliente.codigoTango) {
+    const t = preciosClienteTango(cliente, 'redonhielo')?.[productoId]
+    return { precio: t ?? null, esCustom: false }
+  }
   const custom = cliente.preciosCustom?.[productoId]
   // Un precio especial vencido (vigenciaCustom pasada) no debe seguir
   // reportándose como el precio efectivo del cliente — antes este reporte
@@ -57,7 +64,7 @@ async function exportarExcel(
 
   // Filas de clientes
   const rows = clientes.map((c) => {
-    const listaNombre = listas.find((l) => l.id === c.listaPreciosId)?.nombre ?? 'Sin lista'
+    const listaNombre = c.listaTangoNombre?.redonhielo ?? listas.find((l) => l.id === c.listaPreciosId)?.nombre ?? 'Sin lista'
     const precios = productosActivos.map((p) => {
       const { precio, esCustom } = precioEfectivo(c, p.id, listas)
       if (precio === null) return ''
@@ -130,9 +137,10 @@ export default function ReportePreciosPage() {
     [todosUsuarios],
   )
 
+  // Activo en alguna lista de la app, o con precio de Tango para algún cliente.
   const productosActivos = useMemo(
-    () => PRODUCTS.filter((p) => productoActivo(p.id, listas)),
-    [listas],
+    () => PRODUCTS.filter((p) => productoActivo(p.id, listas) || clientes.some((c) => preciosClienteTango(c)?.[p.id] !== undefined)),
+    [listas, clientes],
   )
 
   // Promedio por producto
@@ -221,7 +229,7 @@ export default function ReportePreciosPage() {
                 </thead>
                 <tbody>
                   {clientes.map((c, i) => {
-                    const listaNombre = listas.find((l) => l.id === c.listaPreciosId)?.nombre
+                    const listaNombre = c.listaTangoNombre?.redonhielo ?? listas.find((l) => l.id === c.listaPreciosId)?.nombre
                     return (
                       <tr
                         key={c.uid}

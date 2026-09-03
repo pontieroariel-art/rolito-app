@@ -8,6 +8,8 @@ import { AddressMapMini } from '../../components/ui/AddressPickerField'
 import { useProfile } from '../../hooks/useProfile'
 import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
 import { useListaPrecios } from '../../hooks/useListasPrecios'
+import { useCatalogo } from '../../hooks/useCatalogo'
+import { preciosClienteTango } from '../../utils/precioTango'
 import { auth } from '../../services/firebase'
 
 function Row({ label, value }: { label: string; value: string }) {
@@ -23,6 +25,9 @@ export default function ClientProfile() {
   const { user }    = useProfile()
   const { isLoaded } = useGoogleMapsLoader()
   const { lista, isLoading: loadingLista } = useListaPrecios(user?.listaPreciosId)
+  const { catalogo } = useCatalogo()
+  // Cliente vinculado a Tango: sus precios son los que dejó la sync en su ficha.
+  const preciosTango = preciosClienteTango(user)
 
   // ── Cambio de contraseña ──────────────────────────────────────────────────
   const [currentPass, setCurrentPass] = useState('')
@@ -200,8 +205,46 @@ export default function ClientProfile() {
           )}
         </div>
 
-        {/* ── Lista de precios (solo lectura) ──────────────────────────────── */}
-        {user.listaPreciosId && (
+        {/* ── Lista de precios de Tango (cliente vinculado, solo lectura) ─── */}
+        {preciosTango && (
+          <section className="space-y-3">
+            <h2 className="text-lg font-semibold">Mi lista de precios</h2>
+            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-200">
+                <p className="text-sm font-medium text-gray-900">{user.listaTangoNombre?.redonhielo ?? 'Lista asignada'}</p>
+                <p className="text-xs text-gray-500 mt-0.5">Precios vigentes para tu cuenta</p>
+              </div>
+              {Object.keys(preciosTango).length === 0 ? (
+                <p className="px-4 py-4 text-sm text-gray-500">Tu lista todavía no tiene precios cargados.</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100">
+                      <th className="text-left text-xs text-gray-500 font-medium px-4 py-2.5">Producto</th>
+                      <th className="text-right text-xs text-gray-500 font-medium px-4 py-2.5">Precio</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {catalogo.filter((p) => preciosTango[p.id] !== undefined).map((p) => (
+                      <tr key={p.id} className="border-b border-gray-100 last:border-0">
+                        <td className="px-4 py-3">
+                          <p className="font-medium text-gray-900">{p.nombre}</p>
+                          {p.unidad && <p className="text-xs text-gray-500">por {p.unidad}</p>}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <span className="font-bold text-accent">${preciosTango[p.id].toLocaleString('es-AR')}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* ── Lista de precios de la app (cliente sin vínculo con Tango) ──── */}
+        {!preciosTango && user.listaPreciosId && (
           <section className="space-y-3">
             <h2 className="text-lg font-semibold">Mi lista de precios</h2>
             {loadingLista ? (

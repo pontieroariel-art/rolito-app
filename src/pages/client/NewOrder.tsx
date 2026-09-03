@@ -5,6 +5,7 @@ import Navbar from '../../components/layout/Navbar'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import { summarizeProducts, formatShortDate, isSucursalCode, precioEfectivo } from '../../utils/helpers'
+import { preciosClienteTango } from '../../utils/precioTango'
 import { useAuth } from '../../context/AuthContext'
 import { Order } from '../../types'
 import { createOrder, cancelAndRecreateOrder, OrderNotEditableError } from '../../services/orderService'
@@ -52,16 +53,24 @@ export default function NewOrder() {
   const { lista }    = useListaPrecios(user?.listaPreciosId)
   const { catalogo } = useCatalogo()
 
-  const listaItems = lista
-    ? lista.items
-        .filter((i) => i.activo)
-        .map((i) => ({
-          id:     i.productoId,
-          nombre: i.nombre,
-          unidad: i.unidad,
-          precio: user ? precioEfectivo(user, i.productoId, i.precio) : i.precio,
-        }))
-    : []
+  // Cliente vinculado a Tango: sus precios son los que dejó la sync en su
+  // ficha (Redonhielo, oficial). Solo se ofrecen los productos con precio.
+  // Sin vínculo: lista de la app como siempre.
+  const preciosTango = preciosClienteTango(user)
+  const listaItems = preciosTango
+    ? catalogo
+        .filter((p) => preciosTango[p.id] !== undefined)
+        .map((p) => ({ id: p.id, nombre: p.nombre, unidad: p.unidad, precio: preciosTango[p.id] }))
+    : lista
+      ? lista.items
+          .filter((i) => i.activo)
+          .map((i) => ({
+            id:     i.productoId,
+            nombre: i.nombre,
+            unidad: i.unidad,
+            precio: user ? precioEfectivo(user, i.productoId, i.precio) : i.precio,
+          }))
+      : []
 
   const displayProducts: DisplayProduct[] = listaItems.length > 0
     ? listaItems
@@ -175,7 +184,12 @@ export default function NewOrder() {
           </div>
         )}
 
-        {!lista && user?.listaPreciosId === undefined && catalogo.length > 0 && (
+        {preciosTango && listaItems.length === 0 && catalogo.length > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-sm text-amber-700">
+            Tu lista de precios todavía no tiene precios cargados — los precios se confirmarán con el administrador.
+          </div>
+        )}
+        {!preciosTango && !lista && user?.listaPreciosId === undefined && catalogo.length > 0 && (
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-sm text-amber-700">
             Sin lista de precios asignada — los precios se confirmarán con el administrador.
           </div>

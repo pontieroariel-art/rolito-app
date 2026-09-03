@@ -520,6 +520,10 @@ export interface UserProfile {
    * de preciosTango/{empresa}. Tango es la fuente maestra (2026-09-03).
    */
   listaTango?: { redonhielo?: number; rolito?: number }
+  listaTangoNombre?: { redonhielo?: string; rolito?: string }
+  // Precios ya resueltos por la sync (especial del cliente > su lista; sin 0):
+  // lo que el cliente ve en su perfil y en el pedido. { empresa: { productoId: precio } }
+  preciosTango?: { redonhielo?: Record<string, number>; rolito?: Record<string, number> }
   preciosCustom?: Record<string, number>
   username?: string
   // Asignación de vehículo

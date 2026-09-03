@@ -128,34 +128,65 @@ export async function sincronizarPreciosTango(db: Firestore, tango: TangoClient,
   const articulos = cfg.articulos ?? {}
   const resumen: ResumenSync = { empresas: {}, usuariosActualizados: 0 }
   const listasPorCliente: Record<string, Map<string, number>> = {}
+  const docsPorEmpresa: Record<string, PreciosTangoDoc> = {}
 
   for (const empresa of EMPRESAS) {
     const company = cfg.companies?.[empresa]
     if (!Number.isInteger(company)) { resumen.empresas[empresa] = { listas: 0, productos: 0, especiales: 0, errores: [`config/tango.companies.${empresa} no está configurado`], clientesConLista: 0 }; continue }
     const doc = await leerPreciosEmpresa(tango, company as number, articulos)
+    docsPorEmpresa[empresa] = doc
     await db.doc(`preciosTango/${empresa}`).set({ ...doc, actualizadoEn: FieldValue.serverTimestamp() })
     listasPorCliente[empresa] = await leerListasDeClientes(tango, company as number)
     resumen.empresas[empresa] = { ...doc.resumen, clientesConLista: listasPorCliente[empresa].size }
   }
 
-  // users.listaTango = { redonhielo, rolito } para los clientes vinculados (codigoTango).
+  // Para cada cliente vinculado (codigoTango) se guarda en su ficha:
+  //   listaTango       = { redonhielo: nro, rolito: nro }
+  //   listaTangoNombre = { redonhielo: 'HABITUALES', ... }
+  //   preciosTango     = { redonhielo: { productoId: precio }, rolito: {...} }
+  // Los precios ya vienen resueltos (especial del cliente > su lista; 0 = sin
+  // precio, no se guarda) para que el propio cliente los vea en su perfil y en
+  // el pedido sin tener acceso a preciosTango/*, que trae los precios de todos.
   const clientes = await db.collection('users').where('rol', '==', 'cliente').get()
   let batch = db.batch(), ops = 0
   for (const d of clientes.docs) {
     const cod = String(d.data().codigoTango ?? '').trim()
     if (!cod) continue
     const listaTango: Record<string, number> = {}
+    const listaTangoNombre: Record<string, string> = {}
+    const preciosTango: Record<string, Record<string, number>> = {}
     for (const empresa of EMPRESAS) {
       const n = listasPorCliente[empresa]?.get(cod)
-      if (n !== undefined) listaTango[empresa] = n
+      if (n === undefined) continue
+      listaTango[empresa] = n
+      const doc = docsPorEmpresa[empresa]
+      const lista = doc?.listas[String(n)]
+      if (lista) listaTangoNombre[empresa] = lista.nombre
+      preciosTango[empresa] = resolverPreciosCliente(doc, cod, n)
     }
     if (!Object.keys(listaTango).length) continue
-    const actual = d.data().listaTango as Record<string, number> | undefined
-    if (actual && EMPRESAS.every((e) => actual[e] === listaTango[e])) continue
-    batch.update(d.ref, { listaTango })
+    const data = d.data()
+    const nuevo = { listaTango, listaTangoNombre, preciosTango }
+    const actual = { listaTango: data.listaTango, listaTangoNombre: data.listaTangoNombre, preciosTango: data.preciosTango }
+    if (JSON.stringify(actual) === JSON.stringify(nuevo)) continue
+    batch.update(d.ref, nuevo)
     resumen.usuariosActualizados++
     if (++ops >= 400) { await batch.commit(); batch = db.batch(); ops = 0 }
   }
   if (ops) await batch.commit()
   return resumen
+}
+
+/** Precio final de cada producto para un cliente: especial > lista; sin 0. */
+export function resolverPreciosCliente(doc: PreciosTangoDoc | undefined, codigoCliente: string, nroLista: number): Record<string, number> {
+  const out: Record<string, number> = {}
+  if (!doc) return out
+  const especiales = doc.especiales[claveCliente(codigoCliente)] ?? {}
+  const lista = doc.listas[String(nroLista)]?.precios ?? {}
+  for (const productoId of Object.keys(doc.productos)) {
+    const valido = (p: unknown): p is number => typeof p === 'number' && Number.isFinite(p) && p > 0
+    const precio = valido(especiales[productoId]) ? especiales[productoId] : lista[productoId]
+    if (valido(precio)) out[productoId] = precio
+  }
+  return out
 }

@@ -64,7 +64,8 @@ export default function ComercialDashboard() {
 
   const clientes   = useMemo(() => users.filter((u) => u.rol === 'cliente'), [users])
   const pendientes = useMemo(() => clientes.filter((u) => u.estado === 'pendiente'), [clientes])
-  const sinLista   = useMemo(() => clientes.filter((u) => u.estado === 'activo' && !u.listaPreciosId), [clientes])
+  // Vinculado a Tango: cuenta como "con lista" si Tango le asignó una en Redonhielo.
+  const sinLista   = useMemo(() => clientes.filter((u) => u.estado === 'activo' && !u.listaPreciosId && !u.listaTango?.redonhielo), [clientes])
 
   // Clientes inactivos: usa users.ultimoPedidoAt (lo mantiene el trigger
   // onOrderRollup), así el dato es exacto y no depende del stream de 30 días que
