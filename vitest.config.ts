@@ -17,6 +17,8 @@ export default defineConfig({
     // Incluye functions/: la lógica fiscal de ARCA vive del lado servidor (la
     // clave privada del certificado nunca baja al dispositivo) pero es código
     // puro y tiene que poder testearse sin desplegar nada.
-    include: ['src/**/*.test.{ts,tsx}', 'functions/src/**/*.test.ts'],
+    // scripts/tango: la lógica pura del bridge (armado del pedido de Tango) —
+    // corre en la VM sin build, por eso es .mjs, pero se testea acá igual.
+    include: ['src/**/*.test.{ts,tsx}', 'functions/src/**/*.test.ts', 'scripts/tango/*.test.mjs'],
   },
 })

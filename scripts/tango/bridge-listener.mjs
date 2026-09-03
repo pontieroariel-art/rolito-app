@@ -45,6 +45,7 @@ import {
   getFirestore, connectFirestoreEmulator, doc, getDoc, getDocs, updateDoc,
   collection, query, where, onSnapshot, serverTimestamp,
 } from 'firebase/firestore'
+import { armarPedido, renglonesDeVenta, referenciaPedido, prop, idDeFila } from './tango-pedido.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const CONFIG_PATH = path.join(__dirname, 'bridge-listener.config.json')
@@ -147,11 +148,177 @@ async function enviarProduccionATango(payload) {
   }
 }
 
-async function enviarRemitoATango(payload, item) {
-  log(`  [STUB] enviarRemitoATango — Company ${item?.company ?? '?'} (${item?.empresa ?? '?'}), payload: ${JSON.stringify(payload)}`)
+// ── API de Ventas (Pedidos, process 19845) — cliente HTTP ───────────────────
+// Misma superficie que la API de Plataforma (host interno, headers
+// ApiAuthorization + Company). Config en bridge-listener.config.json:
+//   "tangoVentas": { "baseUrl", "token", "procesos": {...}, "filtros": {...} }
+// baseUrl/token caen a tangoSaldos si no están. Ver INTEGRACION.md §6.2 y §14.
+function tangoVentasCfg() {
+  const v = cfg.tangoVentas ?? {}
+  const s = cfg.tangoSaldos ?? {}
   return {
-    ok: false,
-    error: 'API de transacciones de ventas no habilitada todavía — ver docs/tango/INTEGRACION.md §6.2',
+    baseUrl: (v.baseUrl ?? s.baseUrl ?? '').replace(/\/+$/, ''),
+    token:   v.token ?? s.token,
+    procesos: { pedidos: 19845, articulos: 87, depositos: 2941, monedas: 1660, ...(v.procesos ?? {}) },
+    // Plantillas de filtroSql (sintaxis de los ejemplos oficiales; ajustables
+    // sin tocar código si la vista real usa otro nombre de columna).
+    filtros: {
+      articulo:  "AXV_ARTICULO.COD_STA11 = '{cod}'",
+      deposito:  "STA22.COD_STA22 = '{cod}'",
+      moneda:    "MONEDA.COD_MONEDA = '{cod}'",
+      pedidoRef: "LEYENDA_1 = '{ref}'",
+      ...(v.filtros ?? {}),
+    },
+    monedaCodigo:    v.monedaCodigo ?? 'PES',
+    timeoutMs:       v.timeoutMs ?? 30_000,
+  }
+}
+
+async function tangoRequest(company, metodo, accion, params, body) {
+  const t = tangoVentasCfg()
+  if (!t.baseUrl || !t.token) throw new Error('tangoVentas.baseUrl/token no configurados en bridge-listener.config.json')
+  const qs = Object.entries(params ?? {}).map(([k, v]) => `${k}=${encodeURIComponent(v ?? '')}`).join('&')
+  const uri = `${t.baseUrl}/Api/${accion}${qs ? '?' + qs : ''}`
+  const resp = await fetch(uri, {
+    method: metodo,
+    headers: { ApiAuthorization: t.token, Company: String(company), 'Content-Type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+    signal: AbortSignal.timeout(t.timeoutMs),
+  })
+  const texto = await resp.text()
+  let data
+  try { data = texto ? JSON.parse(texto) : {} } catch { throw new Error(`Tango respondió ${resp.status} con cuerpo no JSON en ${accion}: ${texto.slice(0, 200)}`) }
+  if (!resp.ok) throw new Error(`Tango respondió ${resp.status} en ${accion}: ${prop(data, 'message') ?? texto.slice(0, 200)}`)
+  const ok = prop(data, 'succeeded')
+  if (ok === false) {
+    const info = prop(data, 'exceptionInfo')
+    const msgs = prop(info, 'messages')
+    throw new Error(`Tango succeeded=false en ${accion}: ${(Array.isArray(msgs) ? msgs.join('; ') : null) ?? prop(data, 'message') ?? JSON.stringify(data).slice(0, 300)}`)
+  }
+  return data
+}
+
+function filasDe(data) {
+  const rd = prop(data, 'resultData')
+  const lista = prop(rd, 'list') ?? (Array.isArray(rd) ? rd : null) ?? prop(data, 'list')
+  return Array.isArray(lista) ? lista : []
+}
+
+// Cache de IDs internos por empresa (artículos, depósitos, moneda): son datos
+// maestros, cambian casi nunca; se reinician al reiniciar el servicio.
+const cacheIds = new Map()
+async function resolverId(company, clave, proceso, filtroSql, campoId) {
+  const k = `${company}|${clave}`
+  if (cacheIds.has(k)) return cacheIds.get(k)
+  const data = await tangoRequest(company, 'GET', 'GetByFilter', { process: proceso, view: '', filtroSql })
+  const filas = filasDe(data)
+  if (filas.length === 0) return null
+  if (filas.length > 1) log(`  aviso: ${clave} devolvió ${filas.length} filas en Tango (filtro ${filtroSql}); se usa la primera`)
+  const id = idDeFila(filas[0], campoId)
+  if (id === undefined) return null
+  cacheIds.set(k, id)
+  return id
+}
+
+// Venta del camión (o de ventanilla) que NO factura ARCA: entra en Tango como
+// PEDIDO en la empresa que diga el item, con el depósito del camión y el
+// número del remito de la app como referencia. Ver tango-pedido.mjs.
+//
+// Idempotencia: LEYENDA_1 = 'ROLITO:VC:<ventaId>'. Antes de crear se busca un
+// pedido con esa referencia (cubre "Create OK → el bridge murió antes de
+// confirmar → el barrido reintenta"). Si la búsqueda falla (nombre de columna
+// distinto en AXV_PEDIDO) se loguea y se sigue: mismo riesgo que hoy.
+async function enviarRemitoATango(payload, item) {
+  const t = tangoVentasCfg()
+  const company = item.company
+  const db = item.db
+
+  // 1. Mapeos de la app (config/tango): productoId → COD_STA11, camionId → COD_STA22.
+  let tangoCfg
+  try { tangoCfg = (await getDoc(doc(db, 'config/tango'))).data() ?? {} } catch (e) { return { ok: false, error: `No se pudo leer config/tango: ${e.message}` } }
+  const articulos = tangoCfg.articulos ?? {}
+  const depositos = tangoCfg.depositos ?? {}
+  const pedidoCfg = tangoCfg.pedido ?? {}
+
+  const idGva14 = Number(payload.clienteIdGva14Tango)
+  if (!Number.isInteger(idGva14) || idGva14 <= 0) {
+    return { ok: false, error: `La venta no trae clienteIdGva14Tango (cliente ${payload.clienteId} sin vincular a Tango — corré el cruce por CUIT)` }
+  }
+
+  const { renglones, faltantes } = renglonesDeVenta(payload, (productoId) => articulos[productoId] ?? null)
+  if (faltantes.length) {
+    return { ok: false, error: `Falta el código de artículo Tango en config/tango.articulos para: ${faltantes.join(', ')}` }
+  }
+  if (renglones.length === 0) return { ok: false, error: 'La venta no tiene renglones con cantidad > 0' }
+
+  const codDeposito = payload.camionId ? depositos[payload.camionId] : null
+  if (payload.camionId && !codDeposito) {
+    return { ok: false, error: `Falta el depósito Tango del camión ${payload.camionId} en config/tango.depositos` }
+  }
+
+  try {
+    // 2. IDs internos de Tango.
+    const idMoneda = await resolverId(company, `moneda:${t.monedaCodigo}`, t.procesos.monedas, t.filtros.moneda.replace('{cod}', t.monedaCodigo), 'ID_MONEDA')
+    if (idMoneda == null) return { ok: false, error: `Tango no devolvió la moneda ${t.monedaCodigo} (process ${t.procesos.monedas})` }
+
+    let idDeposito = null
+    if (codDeposito) {
+      idDeposito = await resolverId(company, `deposito:${codDeposito}`, t.procesos.depositos, t.filtros.deposito.replace('{cod}', codDeposito), 'ID_STA22')
+      if (idDeposito == null) return { ok: false, error: `Tango no tiene el depósito ${codDeposito} (camión ${payload.camionId}) en la empresa ${company}` }
+    }
+
+    const idsArticulos = {}
+    for (const cod of new Set(renglones.map((r) => r.codigoArticulo))) {
+      const id = await resolverId(company, `articulo:${cod}`, t.procesos.articulos, t.filtros.articulo.replace('{cod}', cod), 'ID_STA11')
+      if (id == null) return { ok: false, error: `Tango no tiene el artículo ${cod} en la empresa ${company}` }
+      idsArticulos[cod] = id
+    }
+
+    // 3. Idempotencia: ¿ya existe un pedido con esta referencia?
+    const ref = referenciaPedido(item.origenColeccion, item.origenId)
+    try {
+      const previo = filasDe(await tangoRequest(company, 'GET', 'GetByFilter', {
+        process: t.procesos.pedidos, view: '', filtroSql: t.filtros.pedidoRef.replace('{ref}', ref),
+      }))
+      if (previo.length > 0) {
+        const savedId = idDeFila(previo[0], 'ID_GVA21')
+        const nro = prop(previo[0], 'NRO_PEDIDO', 'N_PEDIDO', 'NUMERO')
+        log(`  ${ref}: ya existía en Tango como pedido ${nro ?? savedId} — no se duplica`)
+        return { ok: true, resultado: { savedId, pedidoNumero: nro ?? null, remitoNumero: String(nro ?? savedId), yaExistia: true } }
+      }
+    } catch (e) {
+      log(`  aviso: no se pudo verificar duplicado (${e.message}); se crea igual`)
+    }
+
+    // 4. Crear el pedido.
+    const pedido = armarPedido(payload, item, {
+      idGva14, idMoneda, idDeposito, articulos: idsArticulos,
+      talonarioId: pedidoCfg.talonarioId ?? null,
+      vendedorId: pedidoCfg.vendedorId ?? null,
+      condicionVentaId: pedidoCfg.condicionVentaId ?? null,
+      listaPreciosId: pedidoCfg.listaPreciosId?.[payload.canal] ?? null,
+    }, renglones, {
+      estadoPedido: pedidoCfg.estado ?? 2,
+      comprometeStock: pedidoCfg.comprometeStock ?? true,
+      etiquetaCamion: `${codDeposito ?? ''} ${tangoCfg.camiones?.[payload.camionId] ?? ''}`.trim() || payload.camionId,
+    })
+    const creado = await tangoRequest(company, 'POST', 'Create', { process: t.procesos.pedidos }, pedido)
+    const savedId = prop(creado, 'savedId')
+    if (savedId == null) return { ok: false, error: `Tango no devolvió SavedId al crear el pedido: ${JSON.stringify(creado).slice(0, 300)}` }
+
+    // 5. Número de pedido para el write-back (best-effort: el Create solo da el ID).
+    let pedidoNumero = null
+    try {
+      const det = await tangoRequest(company, 'GET', 'GetById', { process: t.procesos.pedidos, id: savedId })
+      const fila = prop(det, 'resultData') ?? det
+      pedidoNumero = prop(fila, 'NRO_PEDIDO', 'N_PEDIDO', 'NUMERO') ?? null
+    } catch (e) {
+      log(`  aviso: no se pudo leer el número del pedido ${savedId} (${e.message})`)
+    }
+    log(`  ${ref}: pedido creado en Tango (Company ${company}) id=${savedId} nro=${pedidoNumero ?? '?'}`)
+    return { ok: true, resultado: { savedId, pedidoNumero, remitoNumero: String(pedidoNumero ?? savedId) } }
+  } catch (err) {
+    return { ok: false, error: err.message }
   }
 }
 
@@ -266,7 +433,7 @@ async function procesarItem(db, docId, data) {
 
     // Se le pasa el item entero más la empresa ya resuelta: el writer necesita
     // el header Company y saber si el comprobante ya trae CAE propio.
-    const resultado = await handler.enviar(data.payload, { ...data, company })
+    const resultado = await handler.enviar(data.payload, { ...data, company, db })
 
     if (resultado.ok) {
       await updateDoc(doc(db, 'tango-outbox', docId), {

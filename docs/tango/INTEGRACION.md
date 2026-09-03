@@ -757,7 +757,10 @@ comprobante en Tango: nunca un remito y una factura por la misma operación.
 
 ### Lo que queda por hacer cuando llegue la API
 
-Tres funciones en `scripts/tango/bridge-listener.mjs`, hoy stubs que solo loguean el payload:
+> **2026-09-03:** `enviarRemitoATango` ya es real (pedido en Tango, ver §14). Siguen como stubs
+> `enviarFacturaATango`, `enviarProduccionATango`, `enviarReciboATango` y `enviarTransferenciaATango`.
+
+Funciones en `scripts/tango/bridge-listener.mjs` que eran stubs que solo logueaban el payload:
 `enviarFacturaATango`, `enviarRemitoATango`, `enviarProduccionATango` (y `enviarReciboATango` para
 cobranzas). Cada una tiene su interruptor propio en `config/tango`
 (`facturasEnabled`, `remitosEnabled`, `produccionEnabled`, `recibosEnabled`), así se puede habilitar
@@ -789,3 +792,75 @@ Implementado:
 entre depósitos (transferencia STA22 → STA22)? ¿Está cubierto por "ABMs y Consultas Live" o es una
 transacción del módulo Stock que hay que licenciar aparte? ¿Y cómo se registra la merma (bolsas
 rotas que vuelven en la descarga)?
+
+## 14. Remito del camión → pedido en Tango: writer real del bridge (2026-09-03)
+
+**Qué hace.** `enviarRemitoATango` en `scripts/tango/bridge-listener.mjs` ya no es stub: cada
+item `entidad: 'remito'` de `tango-outbox` (venta de cuenta corriente, promo o solo cambios — ver
+§12) se crea en Tango como **PEDIDO** (`POST Api/Create?process=19845`) en la empresa que diga el
+item (`Company` resuelto contra `config/tango.companies`, §12). Ninguna API de Axoft crea remitos
+(§6.2): el remito firmado vive en la app y viaja como referencia del pedido; Tango lo factura y
+remita por su circuito. El depósito del pedido y de cada renglón es el **camión** (`ID_STA22`), así
+la facturación descarga el stock del camión.
+
+**Módulos.**
+- `scripts/tango/tango-pedido.mjs` — armado PURO del `PedidoData` (sin red): referencia idempotente,
+  fechas, renglones (ítems + cambios a precio 0), leyendas. Tests en `tango-pedido.test.mjs`
+  (corren con `npx vitest run`).
+- `bridge-listener.mjs` — cliente HTTP (`tangoRequest`, tolera respuestas Pascal/camelCase), cache
+  de IDs maestros por empresa (`resolverId`), y el writer.
+- `scripts/tango/mock-tango-server.mjs` — Tango simulado (GetByFilter/Create/GetById) para probar
+  el flujo entero sin licencia: `node scripts/tango/mock-tango-server.mjs` + apuntar
+  `tangoVentas.baseUrl` a `http://localhost:17000`. Verificado 2026-09-03 contra el emulador:
+  creación, error claro por mapeo faltante + reintento, y reintento sin duplicar.
+- `scripts/tango/configurar-ventas-tango.mjs` — muestra/escribe la config de abajo y lista lo que
+  falta (artículos sin código, camiones sin depósito, contadores de numeración).
+
+**Secuencia del writer** (todo por API, nada hardcodeado):
+1. Lee `config/tango`: `articulos` (productoId → `COD_STA11`), `depositos` (camionId →
+   `COD_STA22`), `camiones` (camionId → patente, solo para la leyenda), `pedido` (opcionales:
+   `talonarioId`, `vendedorId`, `condicionVentaId`, `listaPreciosId: {contado, promo}`, `estado`
+   (default 2 = ingresa aprobado), `comprometeStock` (default true)).
+2. Valida: `clienteIdGva14Tango` en la venta, código de artículo para cada renglón (los cambios
+   `cambio_X` usan `articulos.cambio_X` si existe, si no el artículo base a precio 0), depósito del
+   camión. Si falta algo → error legible en `ultimoError`, NO se manda nada.
+3. Resuelve IDs internos con `GetByFilter` (`filtroSql`): moneda (process 1660, `PES`), depósito
+   (2941), artículos (87). Plantillas de filtro en `bridge-listener.config.json →
+   tangoVentas.filtros` (default = sintaxis de los ejemplos oficiales; si la vista real usa otro
+   nombre de columna se ajusta ahí, sin código).
+4. Idempotencia: busca un pedido con `LEYENDA_1 = 'ROLITO:VC:<ventaId>'` (`VV` para ventanilla).
+   Si existe, confirma con ese número sin crear otro. Si la búsqueda falla, avisa en el log y crea
+   igual (mismo riesgo que antes).
+5. `Create` → `SavedId` (ID_GVA21) → `GetById` para leer `NRO_PEDIDO` (best-effort).
+6. Write-back: `resultado = { savedId, pedidoNumero, remitoNumero }`. `onOutboxConfirmado` copia
+   `remitoNumero` a `ventasCamion/{id}.tango` como hasta ahora (el número de pedido de Tango).
+
+**Leyendas del pedido** (60 chars c/u): `LEYENDA_1` referencia idempotente; `LEYENDA_2`
+"Remito app 00002-00000015 - Contado" (número del comprobante interno de la app, o SIN NUMERO);
+`LEYENDA_3` chofer + camión; `LEYENDA_4` quién firmó. `OBSERVACIONES` repite todo con el total.
+
+**Config del bridge** (`bridge-listener.config.json`, ver el `.example`): bloque `tangoVentas`
+(`baseUrl`, `token`, `procesos`, `filtros`, `monedaCodigo`, `timeoutMs`). `baseUrl`/`token` caen a
+`tangoSaldos` si no están.
+
+**Checklist para pasar a Tango real (TestingRH primero):**
+1. En Tango: Administrador general → Datos de licencia → API → "Transacciones Tango Ventas" debe
+   decir **Sí**. Si sigue en No, el `Create` va a fallar con 401/403 — el item queda `enviado` y el
+   barrido lo reintenta cada 5 min hasta 5 veces (`error` después; se repone a `pendiente` a mano).
+2. Número de TestingRH: URL `rhielotg:17000/company/{N}/` → `--companies N N`.
+3. Códigos de artículo: correr `export-tablas-tango.ps1` en el server (baja artículos y depósitos
+   a `Escritorio\tango-tablas`), copiar a `scripts/tango/tango-tablas/` y correr
+   `cruce-articulos.mjs` para ver candidatos; cargar con `--articulo productoId=COD_STA11`.
+4. Depósito de cada camión: `--deposito PATENTE=COD_STA22` (los camiones son depósitos STA22).
+5. `--numeracion remito=<pv> --numeracion remitoPromo=<pv> --numeracion facturaX=<pv>` para que
+   los remitos de la app salgan numerados (hoy salen SIN NÚMERO).
+6. Copiar a la VM `bridge-listener.mjs` + `tango-pedido.mjs` + config; correr a mano
+   `node bridge-listener.mjs`; luego `config/tango.remitosEnabled = true` (`--remitos on`).
+   Instalar como servicio con NSSM (cabecera del script).
+7. Verificar en Tango que el pedido entró con el depósito del camión, y que `ventasCamion/{id}.tango`
+   quedó `confirmado` con el número.
+
+**Sigue pendiente (no bloquea el remito):** `enviarFacturaATango` (necesita la respuesta de Axoft
+sobre CAE externo, §12), talonario de pedidos (`pedido.talonarioId`, si Tango lo exige el `Create`
+lo va a decir en `Message`), y las preguntas 2/5 de §6.2 (circuito de aprobación, descarga de stock
+al facturar).

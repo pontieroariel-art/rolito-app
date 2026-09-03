@@ -18,5 +18,18 @@
     "fromDate": "01/01/2015",
     "pageSize": 500
   },
+  "tangoVentas": {
+    "baseUrl": "http://rhielotg:17000",
+    "token": "TOKEN_DE_DESARROLLADOR_AQUI",
+    "procesos": { "pedidos": 19845, "articulos": 87, "depositos": 2941, "monedas": 1660 },
+    "filtros": {
+      "articulo":  "AXV_ARTICULO.COD_STA11 = '{cod}'",
+      "deposito":  "STA22.COD_STA22 = '{cod}'",
+      "moneda":    "MONEDA.COD_MONEDA = '{cod}'",
+      "pedidoRef": "LEYENDA_1 = '{ref}'"
+    },
+    "monedaCodigo": "PES",
+    "timeoutMs": 30000
+  },
   "logFile": "C:\\RolitoSync\\tango-listener-log.txt"
 }
