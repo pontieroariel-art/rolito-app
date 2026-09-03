@@ -13,6 +13,7 @@
     "lint:functions": "eslint functions/src",
     "format": "prettier --write .",
     "test:unit": "vitest run",
+    "test:e2e": "playwright test",
     "test": "npm run test:rules",
     "test:rules": "npx --yes firebase-tools emulators:exec --only firestore --project demo-rolito \"node --test tests/firestore-rules.test.js\"",
     "emulators": "npx --yes firebase-tools emulators:start --only auth,firestore,storage --project rolito-app --import=./emulator-data --export-on-exit=./emulator-data",
