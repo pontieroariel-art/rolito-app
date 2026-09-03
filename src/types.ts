@@ -40,19 +40,9 @@ export interface CatalogProducto {
   color?:            string   // color del badge/placeholder (hex); default: derivado del id
 }
 
-export interface ItemListaPrecios {
-  productoId: string
-  nombre:     string
-  unidad:     string
-  precio:     number
-  activo:     boolean
-}
-
-export interface ListaPrecios {
-  id:     string
-  nombre: string
-  items:  ItemListaPrecios[]
-}
+// Las listas de precios propias de la app (colección listas-precios) se
+// eliminaron el 2026-09-03: los precios vienen de Tango (preciosTango/* y
+// users.preciosTango). Ver docs/tango/INTEGRACION.md §17.
 
 // ── Reparto: depósitos y venta desde camión (integración Tango) ───────────────
 // Ver docs/tango/INTEGRACION.md y el plan de reparto. El stock/contabilidad es
@@ -512,7 +502,6 @@ export interface UserProfile {
   fechaCreacion: Timestamp | null
   fechaAprobacion: Timestamp | null
   aprobadoPor: string | null
-  listaPreciosId?: string
   /**
    * Lista de precios que el cliente tiene asignada en TANGO, por empresa
    * (nro de lista GVA10). La escribe la sync diaria de precios
@@ -524,7 +513,6 @@ export interface UserProfile {
   // Precios ya resueltos por la sync (especial del cliente > su lista; sin 0):
   // lo que el cliente ve en su perfil y en el pedido. { empresa: { productoId: precio } }
   preciosTango?: { redonhielo?: Record<string, number>; rolito?: Record<string, number> }
-  preciosCustom?: Record<string, number>
   username?: string
   // Asignación de vehículo
   camionId?:              string | null
@@ -541,9 +529,6 @@ export interface UserProfile {
   }
   esVisita?:          boolean
   frecuenciaVisita?:  'semanal' | 'quincenal' | 'mensual'
-  // Precios
-  vigenciaCustom?:    Record<string, string>    // productoId → ISO date
-  ultimoCambioPrecio?: Timestamp | null
   codigoCliente?:     string
   codigoTango?:       string   // COD_GVA14 de Tango (cruzado por CUIT, ver scripts/tango/) — numeración distinta de codigoCliente
   idGva14Tango?:      number   // ID_GVA14 de Tango — para GetById/Update/Delete contra la API de Plataforma

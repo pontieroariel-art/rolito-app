@@ -6,7 +6,8 @@ import { useGoogleMapsLoader } from '../../../hooks/useGoogleMapsLoader'
 import Button from '../../../components/ui/Button'
 import Modal from '../../../components/ui/Modal'
 import { updateUserDocument } from '../../../services/userService'
-import { UserProfile, ListaPrecios, DeliveryAddress } from '../../../types'
+import { UserProfile, DeliveryAddress } from '../../../types'
+import { listaTangoResumen } from './listaTango'
 import { CONDICIONES_VENTA } from '../../../utils/constants'
 import { STATUS_STYLES, STATUS_LABELS, Row } from './shared'
 import { GestionarDomiciliosModal } from './GestionarDomiciliosModal'
@@ -21,7 +22,6 @@ const FRECUENCIA_LABELS: Record<string, string> = {
 
 export function FichaClienteModal({
   user,
-  lista,
   currentUser,
   onClose,
   onAddressesChanged,
@@ -29,7 +29,6 @@ export function FichaClienteModal({
   onActivar,
 }: {
   user:                UserProfile
-  lista:               ListaPrecios | undefined
   currentUser:         UserProfile | null
   onClose:             () => void
   onAddressesChanged?: (addresses: DeliveryAddress[]) => void
@@ -246,22 +245,15 @@ export function FichaClienteModal({
           </div>
         </section>
 
-        {/* Canal de precios */}
-        {lista && (
+        {/* Lista de precios (Tango) */}
+        {user.rol === 'cliente' && (
           <section className="space-y-2">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
-              <Tag size={12} /> Canal / precios
+              <Tag size={12} /> Lista de precios
             </h3>
             <div className="bg-[#F8F7F2] rounded-xl p-3">
-              <Row label="Lista asignada" value={lista.nombre} />
-              {Object.keys(user.preciosCustom ?? {}).length > 0 && (
-                <p className="text-xs text-yellow-400 mt-1.5">
-                  {Object.keys(user.preciosCustom!).length} precio{Object.keys(user.preciosCustom!).length !== 1 ? 's' : ''} especial{Object.keys(user.preciosCustom!).length !== 1 ? 'es' : ''}
-                </p>
-              )}
-              {!canManagePrices && (
-                <p className="text-xs text-gray-400 mt-1.5">Solo el gerente comercial puede modificar precios.</p>
-              )}
+              <Row label="En Tango" value={listaTangoResumen(user)} />
+              <p className="text-xs text-gray-400 mt-1.5">Se edita en Tango y se sincroniza a la app todos los días a las 5:30 (o desde Precios → Sincronizar ahora).</p>
             </div>
           </section>
         )}
@@ -440,11 +432,7 @@ export function FichaClienteModal({
 
         {/* Historial de precios */}
         {user.rol === 'cliente' && (
-          <HistorialPreciosSection
-            uid={user.uid}
-            lista={lista}
-            preciosCustom={user.preciosCustom}
-          />
+          <HistorialPreciosSection uid={user.uid} />
         )}
 
         <Button variant="outline" onClick={onClose} className="w-full mt-1">Cerrar</Button>

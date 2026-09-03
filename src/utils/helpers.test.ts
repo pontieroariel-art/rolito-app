@@ -1,43 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { precioEfectivo, palletsInfo, calcPallets } from './helpers'
-import { CatalogProducto, OrderProduct, UserProfile } from '../types'
+import { palletsInfo, calcPallets } from './helpers'
+import { CatalogProducto, OrderProduct } from '../types'
 
-// precioEfectivo, palletsInfo y calcPallets tocan plata y envases; se testean
+// palletsInfo y calcPallets tocan envases; se testean
 // como funciones puras (helpers no arrastra la inicialización de Firebase).
-
-// precioEfectivo solo lee preciosCustom/vigenciaCustom del perfil; el resto de
-// UserProfile no interviene, así que se arma un perfil mínimo para el caso.
-function perfil(
-  preciosCustom?: Record<string, number>,
-  vigenciaCustom?: Record<string, string>,
-): UserProfile {
-  return { preciosCustom, vigenciaCustom } as unknown as UserProfile
-}
 
 const producto = (unidadesPorPallet?: number): CatalogProducto =>
   ({ id: 'hielo10', nombre: 'Hielo 10kg', unidad: 'bolsa', unidadesPorPallet })
-
-describe('precioEfectivo', () => {
-  it('sin precio especial devuelve el precio de lista', () => {
-    expect(precioEfectivo(perfil(), 'hielo10', 500)).toBe(500)
-  })
-
-  it('con precio especial vigente (sin fecha de vencimiento) devuelve el especial', () => {
-    expect(precioEfectivo(perfil({ hielo10: 420 }), 'hielo10', 500)).toBe(420)
-  })
-
-  it('con precio especial y vigencia futura devuelve el especial', () => {
-    expect(precioEfectivo(perfil({ hielo10: 420 }, { hielo10: '2999-12-31' }), 'hielo10', 500)).toBe(420)
-  })
-
-  it('con precio especial vencido vuelve al precio de lista', () => {
-    expect(precioEfectivo(perfil({ hielo10: 420 }, { hielo10: '2000-01-01' }), 'hielo10', 500)).toBe(500)
-  })
-
-  it('un precio especial de otro producto no afecta a este', () => {
-    expect(precioEfectivo(perfil({ hielo5: 200 }), 'hielo10', 500)).toBe(500)
-  })
-})
 
 describe('palletsInfo', () => {
   it('devuelve undefined si el producto no viaja en pallet', () => {

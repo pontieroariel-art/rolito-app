@@ -1,23 +1,18 @@
-import { useState, ChangeEvent } from 'react'
-import { deleteField, serverTimestamp } from 'firebase/firestore'
+import { useState } from 'react'
 import { ChevronRight, MapPin, Phone, CreditCard, Navigation } from 'lucide-react'
 import Button from '../../../components/ui/Button'
-import { registrarCambioLista } from '../../../services/historialPreciosService'
-import { updateUserDocument } from '../../../services/userService'
-import { UserProfile, ListaPrecios, DeliveryAddress } from '../../../types'
+import { UserProfile, DeliveryAddress } from '../../../types'
 import { SucursalFlat, STATUS_STYLES, STATUS_LABELS } from './shared'
 import { FichaClienteModal } from './FichaClienteModal'
-import { reportError } from '@/services/observability'
+import { listaTangoResumen } from './listaTango'
 
 export function SucursalClienteRow({
-  sucursal, currentUser, listas, onToggleStatus, onApprove, onListaChange, onAddressesChanged, onVisitaChanged,
+  sucursal, currentUser, onToggleStatus, onApprove, onAddressesChanged, onVisitaChanged,
 }: {
   sucursal:           SucursalFlat
   currentUser:        UserProfile | null
-  listas:             ListaPrecios[]
   onToggleStatus:     (u: UserProfile) => Promise<void>
   onApprove:          (u: UserProfile) => Promise<void>
-  onListaChange:      (uid: string, listaPreciosId: string | null) => void
   onAddressesChanged: (uid: string, addresses: DeliveryAddress[]) => void
   onVisitaChanged:    (uid: string, esVisita: boolean, frecuenciaVisita?: string) => void
 }) {
@@ -27,33 +22,10 @@ export function SucursalClienteRow({
 
   const canManagePrices = ['super_admin', 'gerente_comercial'].includes(currentUser?.rol ?? '')
   const canChangeStatus = ['super_admin', 'gerente_comercial'].includes(currentUser?.rol ?? '')
-  const listaAsignada   = listas.find((l) => l.id === user.listaPreciosId)
 
   const run = async (fn: () => Promise<void>) => {
     setBusy(true)
     try { await fn() } finally { setBusy(false) }
-  }
-
-  const handleListaChange = async (listaPreciosId: string) => {
-    const oldLista = listas.find((l) => l.id === user.listaPreciosId)
-    const newLista = listas.find((l) => l.id === listaPreciosId)
-    await run(() => updateUserDocument(user.uid, {
-      listaPreciosId:     listaPreciosId || deleteField(),
-      ultimoCambioPrecio: serverTimestamp(),
-    }))
-    onListaChange(user.uid, listaPreciosId || null)
-    if (currentUser) {
-      registrarCambioLista({
-        clientId:            user.uid,
-        clientName:          user.razonSocial || user.nombre || user.email,
-        listaAnteriorId:     user.listaPreciosId ?? null,
-        listaAnteriorNombre: oldLista?.nombre ?? null,
-        listaNuevaId:        listaPreciosId || null,
-        listaNuevaNombre:    newLista?.nombre ?? null,
-        modificadoPor:       currentUser.email,
-        modificadoPorNombre: currentUser.nombreContacto || currentUser.nombre || currentUser.email,
-      }).catch((err) => reportError(err, { origen: 'SucursalClienteRow' }))
-    }
   }
 
   return (
@@ -141,32 +113,17 @@ export function SucursalClienteRow({
 
       {canManagePrices && (
         <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-gray-100">
-          <span className="text-xs text-gray-500 whitespace-nowrap">Canal / lista:</span>
-          {user.codigoTango ? (
-            <div className="flex flex-col gap-0.5 min-w-0">
-              <span className="text-xs text-gray-900 truncate">{listaAsignada?.nombre ?? 'Sin lista asignada'}</span>
-              <span className="text-[10px] text-gray-400">Dato de Tango — se edita en Tango, se sincroniza acá</span>
-            </div>
-          ) : (
-            <select
-              value={user.listaPreciosId ?? ''}
-              disabled={busy}
-              onChange={(e: ChangeEvent<HTMLSelectElement>) => handleListaChange(e.target.value)}
-              className="bg-white border border-[#D3D1C7] rounded-lg px-2 py-1 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent flex-1 min-w-0 max-w-xs disabled:opacity-50"
-            >
-              <option value="">Sin lista asignada</option>
-              {listas.map((l) => (
-                <option key={l.id} value={l.id}>{l.nombre}</option>
-              ))}
-            </select>
-          )}
+          <span className="text-xs text-gray-500 whitespace-nowrap">Lista de precios:</span>
+          <div className="flex flex-col gap-0.5 min-w-0">
+            <span className="text-xs text-gray-900 truncate">{listaTangoResumen(user)}</span>
+            <span className="text-[10px] text-gray-400">Dato de Tango — se edita en Tango, se sincroniza acá</span>
+          </div>
         </div>
       )}
 
       {fichaModal && (
         <FichaClienteModal
           user={user}
-          lista={listaAsignada}
           currentUser={currentUser}
           onClose={() => setFichaModal(false)}
           onAddressesChanged={(addresses) => onAddressesChanged(user.uid, addresses)}

@@ -1034,3 +1034,25 @@ cliente sin código Tango, sin lista en esa empresa, lista inexistente). Aplica 
 
 **Orden de deploy:** functions → reglas → **correr la primera sync** → hosting. Si el
 frontend sale antes de que exista `preciosTango/*`, nadie puede vender.
+
+### 17.1 Se eliminaron las listas de precios propias de la app (2026-09-03, tarde)
+
+Decisión de Ariel: "la lista de la app borrala, usamos las listas de Tango". Se quitó
+todo el circuito de `listas-precios` / `users.listaPreciosId` / `preciosCustom` /
+`vigenciaCustom` (servicio, hook, editor en `/admin/precios`, selector en Gestión de
+usuarios, modal de precios especiales, `precioEfectivo`). Ahora:
+
+- **Clientes:** cada uno tiene en su ficha `listaTango`, `listaTangoNombre` y
+  `preciosTango` (resueltos por la sync). Pedido nuevo, pedido manual, perfil del
+  cliente, reporte de precios y tablero comercial leen eso. Sin vínculo con Tango, el
+  cliente ve el catálogo sin precios (los confirma el administrador).
+- **Validación server-side de pedidos** (`validarPreciosPedido`): la fuente autoritativa
+  es `users.preciosTango.redonhielo`; sin eso, solo clampea cantidades.
+- **Ventanilla, cliente ocasional:** caja elige una lista de Tango de la empresa del
+  canal (solo se ofrecen las que tienen algún precio cargado).
+- **`/admin/precios`:** pestañas "Listas de Tango" (solo lectura) y "Catálogo de
+  productos". El catálogo sigue siendo de la app (nombre, unidad, foto, badge); el
+  precio, de Tango.
+- Los documentos viejos de `listas-precios` y `historialPrecios` quedan en Firestore
+  sin que nada los escriba; las reglas se dejaron para no romper tests. Se pueden borrar
+  cuando se quiera.

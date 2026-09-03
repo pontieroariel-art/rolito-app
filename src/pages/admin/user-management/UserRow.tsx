@@ -1,43 +1,26 @@
 import { useState, ChangeEvent } from 'react'
-import { deleteField, serverTimestamp } from 'firebase/firestore'
-import { Tag, ChevronRight, MapPin, Phone, CreditCard, Navigation, Clock, Hash } from 'lucide-react'
+import { ChevronRight, MapPin, Phone, CreditCard, Navigation, Clock, Hash } from 'lucide-react'
 import Button from '../../../components/ui/Button'
-import { registrarCambioLista } from '../../../services/historialPreciosService'
-import { updateUserDocument } from '../../../services/userService'
-import { UserProfile, UserRole, ListaPrecios, DeliveryAddress } from '../../../types'
+import { UserProfile, UserRole, DeliveryAddress } from '../../../types'
 import { tsToDate } from '../../../utils/helpers'
 import { ALL_ROLES, ROLE_LABELS, STATUS_STYLES, STATUS_LABELS } from './shared'
 import { FichaClienteModal } from './FichaClienteModal'
-import { PreciosCustomModal } from './PreciosCustomModal'
 import { PermisosUsuarioModal } from './PermisosUsuarioModal'
-import { reportError } from '@/services/observability'
-import { usePreciosTango } from '@/hooks/usePreciosTango'
-import type { EmpresaTango, PreciosTango } from '@/utils/precioTango'
-
-// "301 · HABITUALES" o "sin lista" — lo que el cliente tiene asignado en Tango.
-const listaTangoLabel = (precios: PreciosTango | null, nro: number | undefined) => {
-  if (nro == null) return 'sin lista'
-  const nombre = precios?.listas[String(nro)]?.nombre
-  return nombre ? `${nro} · ${nombre}` : `lista ${nro}`
-}
-const EMPRESA_LABEL: Record<EmpresaTango, string> = { redonhielo: 'Redonhielo', rolito: 'Rolito' }
+import { listaTangoResumen } from './listaTango'
 
 export interface UserRowProps {
   user:                UserProfile
   currentUser:         UserProfile | null
-  listas:              ListaPrecios[]
   onRoleChange:        (uid: string, rol: UserRole) => Promise<void>
   onSubrolChange:      (uid: string, subrol: 'chofer' | 'ayudante') => Promise<void>
   onToggleStatus:      (u: UserProfile) => Promise<void>
   onApprove:           (u: UserProfile) => Promise<void>
-  onListaChange:       (uid: string, listaPreciosId: string | null) => void
   onAddressesChanged:  (uid: string, addresses: DeliveryAddress[]) => void
   onVisitaChanged:     (uid: string, esVisita: boolean, frecuenciaVisita?: string) => void
 }
 
-export function UserRow({ user, currentUser, listas, onRoleChange, onSubrolChange, onToggleStatus, onApprove, onListaChange, onAddressesChanged, onVisitaChanged }: UserRowProps) {
+export function UserRow({ user, currentUser, onRoleChange, onSubrolChange, onToggleStatus, onApprove, onAddressesChanged, onVisitaChanged }: UserRowProps) {
   const [busy, setBusy]               = useState(false)
-  const [preciosModal, setPreciosModal] = useState(false)
   const [fichaModal, setFichaModal]   = useState(false)
   const [permisosModal, setPermisosModal] = useState(false)
   const isSelf            = user.uid === currentUser?.uid
@@ -50,35 +33,6 @@ export function UserRow({ user, currentUser, listas, onRoleChange, onSubrolChang
     try { await fn() } finally { setBusy(false) }
   }
 
-  const handleListaChange = async (listaPreciosId: string) => {
-    const oldLista = listas.find((l) => l.id === user.listaPreciosId)
-    const newLista = listas.find((l) => l.id === listaPreciosId)
-    await run(() => updateUserDocument(user.uid, {
-      listaPreciosId:     listaPreciosId || deleteField(),
-      ultimoCambioPrecio: serverTimestamp(),
-    }))
-    onListaChange(user.uid, listaPreciosId || null)
-    if (currentUser) {
-      registrarCambioLista({
-        clientId:            user.uid,
-        clientName:          user.razonSocial || user.nombre || user.email,
-        listaAnteriorId:     user.listaPreciosId ?? null,
-        listaAnteriorNombre: oldLista?.nombre ?? null,
-        listaNuevaId:        listaPreciosId || null,
-        listaNuevaNombre:    newLista?.nombre ?? null,
-        modificadoPor:       currentUser.email,
-        modificadoPorNombre: currentUser.nombreContacto || currentUser.nombre || currentUser.email,
-      }).catch((err) => reportError(err, { origen: 'UserRow' }))
-    }
-  }
-
-  const listaAsignada = listas.find((l) => l.id === user.listaPreciosId)
-  const customCount   = Object.keys(user.preciosCustom ?? {}).length
-  // Cliente vinculado a Tango: la lista que vale es la de Tango (una por
-  // empresa: contado → Redonhielo, promo → Rolito), no la de la app.
-  const esTango = !!user.codigoTango && user.rol === 'cliente' && canManagePrices
-  const { precios: preciosRH } = usePreciosTango('redonhielo', { enabled: esTango })
-  const { precios: preciosRO } = usePreciosTango('rolito', { enabled: esTango })
 
   return (
     <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-3">
@@ -100,30 +54,12 @@ export function UserRow({ user, currentUser, listas, onRoleChange, onSubrolChang
               >
                 {STATUS_LABELS[user.estado] ?? user.estado}
               </span>
-              {customCount > 0 && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 border border-yellow-200 text-amber-700 font-medium flex items-center gap-1">
-                  <Tag size={10} />
-                  {customCount} precio{customCount !== 1 ? 's' : ''} especial{customCount !== 1 ? 'es' : ''}
-                </span>
-              )}
               {user.esVisita && (
                 <span className="text-xs px-2 py-0.5 rounded-full bg-violet-100 border border-violet-200 text-violet-700 font-medium flex items-center gap-1">
                   <Navigation size={10} />
                   visita
                 </span>
               )}
-              {(() => {
-                if (!user.ultimoCambioPrecio) return null
-                const d = tsToDate(user.ultimoCambioPrecio)
-                const diffDays = Math.floor((Date.now() - d.getTime()) / 86400000)
-                if (diffDays > 7) return null
-                return (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 border border-orange-200 text-orange-700 font-medium flex items-center gap-1">
-                    <Clock size={10} />
-                    precio actualizado
-                  </span>
-                )
-              })()}
             </div>
             {user.rol !== 'cliente'
               ? user.dni
@@ -226,58 +162,19 @@ export function UserRow({ user, currentUser, listas, onRoleChange, onSubrolChang
       {user.rol === 'cliente' && canManagePrices && (
         <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-gray-100">
           <div className="flex items-center gap-2 flex-1 min-w-0">
-            <span className="text-xs text-gray-500 whitespace-nowrap">Canal / lista:</span>
-            {user.codigoTango ? (
-              <div className="flex flex-col gap-0.5 min-w-0">
-                <span className="text-xs text-gray-900 truncate">
-                  {EMPRESA_LABEL.redonhielo}: {listaTangoLabel(preciosRH, user.listaTango?.redonhielo)}
-                  <span className="text-gray-300"> · </span>
-                  {EMPRESA_LABEL.rolito}: {listaTangoLabel(preciosRO, user.listaTango?.rolito)}
-                </span>
-                <span className="text-[10px] text-gray-400">Dato de Tango — se edita en Tango, se sincroniza acá (todos los días 5:30 o desde Precios)</span>
-              </div>
-            ) : (
-              <select
-                value={user.listaPreciosId ?? ''}
-                disabled={busy}
-                onChange={(e: ChangeEvent<HTMLSelectElement>) => handleListaChange(e.target.value)}
-                className="bg-white border border-[#D3D1C7] rounded-lg px-2 py-1 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent flex-1 min-w-0 max-w-xs disabled:opacity-50"
-              >
-                <option value="">Sin lista asignada</option>
-                {listas.map((l) => (
-                  <option key={l.id} value={l.id}>{l.nombre}</option>
-                ))}
-              </select>
-            )}
+            <span className="text-xs text-gray-500 whitespace-nowrap">Lista de precios:</span>
+            <div className="flex flex-col gap-0.5 min-w-0">
+              <span className="text-xs text-gray-900 truncate">{listaTangoResumen(user)}</span>
+              <span className="text-[10px] text-gray-400">Dato de Tango — se edita en Tango, se sincroniza acá (todos los días 5:30 o desde Precios)</span>
+            </div>
           </div>
-
-          {listaAsignada && (
-            <button
-              onClick={() => setPreciosModal(true)}
-              className="flex items-center gap-1.5 text-xs text-accent hover:bg-accent hover:text-gray-700 border border-accent/30 hover:border-accent rounded-lg px-3 py-1 transition-colors"
-            >
-              <Tag size={11} />
-              {customCount > 0 ? `${customCount} precio${customCount !== 1 ? 's' : ''} especial${customCount !== 1 ? 'es' : ''}` : 'Precios especiales'}
-            </button>
-          )}
         </div>
-      )}
-
-      {/* Modal de precios especiales */}
-      {preciosModal && listaAsignada && (
-        <PreciosCustomModal
-          user={user}
-          lista={listaAsignada}
-          currentUser={currentUser}
-          onClose={() => setPreciosModal(false)}
-        />
       )}
 
       {/* Ficha completa del cliente */}
       {fichaModal && (
         <FichaClienteModal
           user={user}
-          lista={listaAsignada}
           currentUser={currentUser}
           onClose={() => setFichaModal(false)}
           onAddressesChanged={(addresses) => onAddressesChanged(user.uid, addresses)}

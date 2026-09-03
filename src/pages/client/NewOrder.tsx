@@ -4,12 +4,11 @@ import { useBranch } from '../../context/BranchContext'
 import Navbar from '../../components/layout/Navbar'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
-import { summarizeProducts, formatShortDate, isSucursalCode, precioEfectivo } from '../../utils/helpers'
+import { summarizeProducts, formatShortDate, isSucursalCode } from '../../utils/helpers'
 import { preciosClienteTango } from '../../utils/precioTango'
 import { useAuth } from '../../context/AuthContext'
 import { Order } from '../../types'
 import { createOrder, cancelAndRecreateOrder, OrderNotEditableError } from '../../services/orderService'
-import { useListaPrecios } from '../../hooks/useListasPrecios'
 import { useOnline } from '../../hooks/useOnline'
 import { useCatalogo } from '../../hooks/useCatalogo'
 import { getPrimaryAddress } from '../../types'
@@ -50,27 +49,17 @@ export default function NewOrder() {
   const [error,     setError]     = useState('')
   const [esUrgente, setEsUrgente] = useState(false)
 
-  const { lista }    = useListaPrecios(user?.listaPreciosId)
   const { catalogo } = useCatalogo()
 
-  // Cliente vinculado a Tango: sus precios son los que dejó la sync en su
-  // ficha (Redonhielo, oficial). Solo se ofrecen los productos con precio.
-  // Sin vínculo: lista de la app como siempre.
+  // Los precios son los de Tango que la sync dejó en la ficha del cliente
+  // (Redonhielo, oficial). Solo se ofrecen los productos con precio; sin
+  // vínculo con Tango se muestra el catálogo sin precios y los confirma el admin.
   const preciosTango = preciosClienteTango(user)
   const listaItems = preciosTango
     ? catalogo
         .filter((p) => preciosTango[p.id] !== undefined)
         .map((p) => ({ id: p.id, nombre: p.nombre, unidad: p.unidad, precio: preciosTango[p.id] }))
-    : lista
-      ? lista.items
-          .filter((i) => i.activo)
-          .map((i) => ({
-            id:     i.productoId,
-            nombre: i.nombre,
-            unidad: i.unidad,
-            precio: user ? precioEfectivo(user, i.productoId, i.precio) : i.precio,
-          }))
-      : []
+    : []
 
   const displayProducts: DisplayProduct[] = listaItems.length > 0
     ? listaItems
@@ -184,12 +173,7 @@ export default function NewOrder() {
           </div>
         )}
 
-        {preciosTango && listaItems.length === 0 && catalogo.length > 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-sm text-amber-700">
-            Tu lista de precios todavía no tiene precios cargados — los precios se confirmarán con el administrador.
-          </div>
-        )}
-        {!preciosTango && !lista && user?.listaPreciosId === undefined && catalogo.length > 0 && (
+        {listaItems.length === 0 && catalogo.length > 0 && (
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-sm text-amber-700">
             Sin lista de precios asignada — los precios se confirmarán con el administrador.
           </div>

@@ -126,19 +126,6 @@ export function initials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
-// Precio especial de un cliente para un producto, respetando su vigencia. El
-// modal de precios especiales (PreciosCustomModal) solo usaba `vigenciaHasta`
-// para el texto informativo, pero nada revisaba esa fecha al calcular el
-// precio a cobrar — un precio "válido hasta el 30/06" se seguía aplicando
-// indefinidamente después de esa fecha. `preciosCustom` no se borra solo al
-// vencer, así que hay que chequear la vigencia en cada lectura.
-export function precioEfectivo(user: UserProfile, productoId: string, precioLista: number): number {
-  const custom = user.preciosCustom?.[productoId]
-  if (custom === undefined) return precioLista
-  const vigenciaHasta = user.vigenciaCustom?.[productoId]
-  if (vigenciaHasta && vigenciaHasta < todayString()) return precioLista
-  return custom
-}
 
 export const calcPallets = (
   products: OrderProduct[],

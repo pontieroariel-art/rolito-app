@@ -49,30 +49,26 @@ exports.validarPreciosPedido = (0, firestore_1.onDocumentCreated)('orders/{order
         return p;
     });
     const db = (0, firestore_2.getFirestore)();
+    // Fuente autoritativa: los precios de Tango que la sync dejó en la ficha del
+    // cliente (users.preciosTango.redonhielo — los pedidos de la app son de la
+    // operación oficial; ver services/tango/precios.ts). Las listas propias de
+    // la app se eliminaron el 2026-09-03.
     const userSnap = await db.doc(`users/${clientId}`).get();
     const user = userSnap.data();
-    const listaId = user?.listaPreciosId;
-    const preciosCustom = (user?.preciosCustom ?? {});
-    // Sin lista asignada no hay fuente autoritativa; el cliente sin lista tampoco
-    // envía precios (los "confirma el administrador"), así que no hay qué validar
-    // de precio — pero el clamp de cantidad de arriba ya corre igual.
-    if (!listaId) {
+    const preciosTango = user?.preciosTango?.redonhielo;
+    // Sin precios de Tango no hay fuente autoritativa; el cliente sin lista
+    // tampoco envía precios (los "confirma el administrador"), así que no hay
+    // qué validar de precio — pero el clamp de cantidad de arriba ya corre igual.
+    if (!preciosTango || Object.keys(preciosTango).length === 0) {
         if (cambiado) {
             await snap.ref.update({ products, preciosRevalidados: true });
-            console.warn(`[validarPreciosPedido] cantidad clampeada en pedido ${event.params.orderId} (cliente ${clientId}, sin lista de precios)`);
+            console.warn(`[validarPreciosPedido] cantidad clampeada en pedido ${event.params.orderId} (cliente ${clientId}, sin precios de Tango)`);
         }
         return;
     }
-    const listaSnap = await db.doc(`listas-precios/${listaId}`).get();
-    const items = (listaSnap.data()?.items ?? []);
-    const precioDeLista = {};
-    for (const it of items)
-        precioDeLista[it.productoId] = it.precio;
     let invalido = false;
     const corregidos = products.map((p) => {
-        const autoritativo = p.productoId
-            ? (preciosCustom[p.productoId] ?? precioDeLista[p.productoId])
-            : undefined;
+        const autoritativo = p.productoId ? preciosTango[p.productoId] : undefined;
         if (typeof autoritativo !== 'number') {
             // Sin productoId reconocido no hay con qué validar el precio: no se
             // puede confiar en lo que mandó el cliente. Antes esto se dejaba pasar

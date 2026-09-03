@@ -7,7 +7,6 @@ import ClienteCombobox, { toComboItems } from '../../components/ui/ClienteCombob
 import BotoneraProductos from '../../components/ventas/BotoneraProductos'
 import { useAuth } from '../../context/AuthContext'
 import { useClientesActivos } from '../../hooks/useClientesActivos'
-import { useAllListasPrecios } from '../../hooks/useListasPrecios'
 import { useCatalogo } from '../../hooks/useCatalogo'
 import { useFechaDelDia } from '../../hooks/useDiaActual'
 import {
@@ -61,7 +60,6 @@ const nroFactura = (v: VentaVentanilla) =>
 export default function VentanillaPage() {
   const { user } = useAuth()
   const { clientes } = useClientesActivos()
-  const { listas } = useAllListasPrecios()
   const { catalogo } = useCatalogo()
   const plantaId = user?.planta ?? 'torcuato'
   const fecha = useFechaDelDia()
@@ -93,18 +91,30 @@ export default function VentanillaPage() {
   // Cliente registrado: precios de Tango (contado → Redonhielo, promo →
   // Rolito; especial del cliente o su lista). Sin precio en Tango no se
   // vende. Ocasional: la lista de la app que elija caja.
+  // Precios de Tango de la empresa del canal (contado → Redonhielo, promo →
+  // Rolito). Registrado: especial del cliente o su lista. Ocasional: la lista
+  // de Tango que elija caja (solo las que tienen algún precio cargado).
   const empresa = empresaDeCanal(canal)
-  const { precios: preciosTango } = usePreciosTango(empresa, { enabled: tipoCliente === 'registrado' })
+  const { precios: preciosTango } = usePreciosTango(empresa)
   const registrado = tipoCliente === 'registrado'
-  const listaOcasional = registrado ? undefined : listas.find((l) => l.id === listaOcasionalId)
+  const listasOcasional = useMemo(
+    () => Object.entries(preciosTango?.listas ?? {})
+      .map(([nro, l]) => ({ nro, nombre: l.nombre, precios: l.precios }))
+      .filter((l) => Object.values(l.precios).some((p) => p > 0))
+      .sort((a, b) => Number(a.nro) - Number(b.nro)),
+    [preciosTango],
+  )
+  const listaOcasional = registrado ? undefined : listasOcasional.find((l) => l.nro === listaOcasionalId)
   const sinPrecioMotivo = registrado && cliente ? motivoSinPrecioTango(preciosTango, cliente, empresa) : null
 
   const precioDe = (productoId: string): number => {
     if (registrado) return cliente ? (precioTangoDe(preciosTango, cliente, empresa, productoId)?.precio ?? 0) : 0
-    return listaOcasional?.items.find((i) => i.productoId === productoId)?.precio ?? 0
+    return listaOcasional?.precios[productoId] ?? 0
   }
   const sinPrecio = (productoId: string): boolean =>
-    registrado && (!cliente || precioTangoDe(preciosTango, cliente, empresa, productoId) === null)
+    registrado
+      ? (!cliente || precioTangoDe(preciosTango, cliente, empresa, productoId) === null)
+      : !((listaOcasional?.precios[productoId] ?? 0) > 0)
 
   const items: VentaCamionItem[] = catalogo
     .filter((p) => (cantidades[p.id] ?? 0) > 0)
@@ -292,10 +302,10 @@ export default function VentanillaPage() {
               <input value={ocasionalDni} onChange={(e) => setOcasionalDni(e.target.value.replace(/\D/g, '').slice(0, 8))} inputMode="numeric" placeholder="36024287" className={selectClass} />
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Lista de precios</label>
+              <label className="text-xs text-gray-500 mb-1 block">Lista de precios (Tango)</label>
               <select value={listaOcasionalId} onChange={(e) => setListaOcasionalId(e.target.value)} className={selectClass}>
                 <option value="">Elegir lista…</option>
-                {listas.map((l) => <option key={l.id} value={l.id}>{l.nombre}</option>)}
+                {listasOcasional.map((l) => <option key={l.nro} value={l.nro}>{l.nro} · {l.nombre}</option>)}
               </select>
             </div>
           </div>

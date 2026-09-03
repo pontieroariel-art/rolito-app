@@ -7,7 +7,6 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { AddressMapMini } from '../../components/ui/AddressPickerField'
 import { useProfile } from '../../hooks/useProfile'
 import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
-import { useListaPrecios } from '../../hooks/useListasPrecios'
 import { useCatalogo } from '../../hooks/useCatalogo'
 import { preciosClienteTango } from '../../utils/precioTango'
 import { auth } from '../../services/firebase'
@@ -24,7 +23,6 @@ function Row({ label, value }: { label: string; value: string }) {
 export default function ClientProfile() {
   const { user }    = useProfile()
   const { isLoaded } = useGoogleMapsLoader()
-  const { lista, isLoading: loadingLista } = useListaPrecios(user?.listaPreciosId)
   const { catalogo } = useCatalogo()
   // Cliente vinculado a Tango: sus precios son los que dejó la sync en su ficha.
   const preciosTango = preciosClienteTango(user)
@@ -243,54 +241,6 @@ export default function ClientProfile() {
           </section>
         )}
 
-        {/* ── Lista de precios de la app (cliente sin vínculo con Tango) ──── */}
-        {!preciosTango && user.listaPreciosId && (
-          <section className="space-y-3">
-            <h2 className="text-lg font-semibold">Mi lista de precios</h2>
-            {loadingLista ? (
-              <LoadingSpinner />
-            ) : lista ? (
-              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                <div className="px-4 py-3 border-b border-gray-200">
-                  <p className="text-sm font-medium text-gray-900">{lista.nombre}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">Precios vigentes para tu cuenta</p>
-                </div>
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-100">
-                      <th className="text-left text-xs text-gray-500 font-medium px-4 py-2.5">Producto</th>
-                      <th className="text-right text-xs text-gray-500 font-medium px-4 py-2.5">Precio</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {lista.items.filter((i) => i.activo).map((item) => {
-                      const custom = user.preciosCustom?.[item.productoId]
-                      const precio = custom ?? item.precio
-                      return (
-                        <tr key={item.productoId} className="border-b border-gray-100 last:border-0">
-                          <td className="px-4 py-3">
-                            <p className="font-medium text-gray-900">{item.nombre}</p>
-                            {item.unidad && (
-                              <p className="text-xs text-gray-500">por {item.unidad}</p>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <span className="font-bold text-accent">
-                              ${precio.toLocaleString('es-AR')}
-                            </span>
-                            {custom !== undefined && (
-                              <p className="text-xs text-amber-600 mt-0.5">precio especial</p>
-                            )}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            ) : null}
-          </section>
-        )}
 
       </main>
     </div>

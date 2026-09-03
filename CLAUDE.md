@@ -87,7 +87,7 @@ PWA de gestión de una distribuidora de hielo, organizada en cuatro **sistemas/m
 
 - `users/{uid}` — Perfiles (rol, estado, sucursales, código de cliente)
 - `orders/{orderId}` — Pedidos
-- `listas-precios`, `catalogo`, `historialPrecios` — Precios y catálogo
+- `catalogo` — Catálogo de productos (nombre, unidad, foto). Los **precios vienen de Tango**: `preciosTango/{redonhielo|rolito}` (listas y especiales, los escribe la sync diaria `syncPreciosTango`) y `users.preciosTango` (precios resueltos por cliente). Las listas propias de la app (`listas-precios`) se eliminaron el 2026-09-03; `historialPrecios` queda solo como registro viejo
 - `programas-visita`, `visitas-puntuales` — Visitas comerciales
 - `despachos`, `asignacionesDia`, `flota` — Operación logística
 - `ubicaciones/{driverEmail}` — Posición GPS de choferes en tiempo real

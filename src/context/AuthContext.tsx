@@ -112,8 +112,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const d          = snap.data()
         const newRol     = (d.rol ?? d.role ?? 'cliente') as UserProfile['rol']
         const newEst     = (d.estado ?? 'activo') as UserProfile['estado']
-        const newListaId = d.listaPreciosId as string | undefined
-        const newPrecios = d.preciosCustom  as Record<string, number> | undefined
+        // Precios de Tango del cliente (los deja la sync): el perfil y el
+        // pedido nuevo los leen del usuario, así que un cambio tiene que
+        // reflejarse en vivo.
+        const newPreciosTango = d.preciosTango as UserProfile['preciosTango']
+        const newListaTango   = d.listaTango   as UserProfile['listaTango']
+        const newListaTangoNombre = d.listaTangoNombre as UserProfile['listaTangoNombre']
         const newAddrs   = d.addresses      as UserProfile['addresses'] | undefined
         const newSistemas = d.sistemasPermitidos as UserProfile['sistemasPermitidos']
         const newPestanas = d.pestanasPermitidas as UserProfile['pestanasPermitidas']
@@ -134,9 +138,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const changed =
           newRol     !== cur.rol    ||
           newEst     !== cur.estado ||
-          newListaId !== cur.listaPreciosId ||
           newPlanta  !== cur.planta ||
-          JSON.stringify(newPrecios)   !== JSON.stringify(cur.preciosCustom) ||
+          JSON.stringify(newPreciosTango) !== JSON.stringify(cur.preciosTango) ||
+          JSON.stringify(newListaTango)   !== JSON.stringify(cur.listaTango) ||
+          JSON.stringify(newListaTangoNombre) !== JSON.stringify(cur.listaTangoNombre) ||
           JSON.stringify(newAddrs)     !== JSON.stringify(cur.addresses) ||
           JSON.stringify(newSistemas)  !== JSON.stringify(cur.sistemasPermitidos) ||
           JSON.stringify(newPestanas)  !== JSON.stringify(cur.pestanasPermitidas) ||
@@ -147,8 +152,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           ...cur,
           rol:            newRol,
           estado:         newEst,
-          listaPreciosId: newListaId,
-          preciosCustom:  newPrecios,
+          preciosTango:   newPreciosTango,
+          listaTango:     newListaTango,
+          listaTangoNombre: newListaTangoNombre,
           planta:         newPlanta,
           ...(newAddrs !== undefined ? { addresses: newAddrs } : {}),
           sistemasPermitidos: newSistemas,

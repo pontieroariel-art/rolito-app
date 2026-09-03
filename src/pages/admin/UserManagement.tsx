@@ -16,7 +16,6 @@ import {
   approveUser,
 } from '../../services/userService'
 import { registrarAccionAlto } from '../../services/historialAdminService'
-import { useAllListasPrecios } from '../../hooks/useListasPrecios'
 import { UserProfile, UserRole, UserStatus, DeliveryAddress } from '../../types'
 import { SucursalFlat, ALL_STATUSES, STATUS_LABELS, ROLE_LABELS } from './user-management/shared'
 import { CrearStaffModal } from './user-management/CrearStaffModal'
@@ -54,7 +53,6 @@ export default function UserManagement() {
   // Ficha abierta desde "Ir a la ficha de..." en CrearClienteModal (CUIT
   // repetido) — independiente del fichaModal local de cada SucursalClienteRow.
   const [fichaModalTarget, setFichaModalTarget]   = useState<UserProfile | null>(null)
-  const { listas }                      = useAllListasPrecios()
 
   const loadEquipo = async () => {
     setLoadingEquipo(true)
@@ -189,13 +187,6 @@ export default function UserManagement() {
     }
   }
 
-  const handleListaChange = (uid: string, listaPreciosId: string | null) => {
-    setClientes((prev) =>
-      prev.map((u) =>
-        u.uid === uid ? { ...u, listaPreciosId: listaPreciosId ?? undefined } : u,
-      ),
-    )
-  }
 
   const handleAddressesChanged = (uid: string, addresses: DeliveryAddress[]) => {
     setClientes((prev) => prev.map((u) => u.uid === uid ? { ...u, addresses } : u))
@@ -382,10 +373,8 @@ export default function UserManagement() {
                     key={`${sf.user.uid}_${sf.address?.id ?? 'main'}`}
                     sucursal={sf}
                     currentUser={currentUser}
-                    listas={listas}
                     onToggleStatus={handleToggleStatus}
                     onApprove={handleApprove}
-                    onListaChange={handleListaChange}
                     onAddressesChanged={handleAddressesChanged}
                     onVisitaChanged={handleVisitaChanged}
                   />
@@ -412,12 +401,10 @@ export default function UserManagement() {
                     key={u.uid}
                     user={u}
                     currentUser={currentUser}
-                    listas={listas}
                     onRoleChange={handleRole}
                     onSubrolChange={handleSubrol}
                     onToggleStatus={handleToggleStatus}
                     onApprove={handleApprove}
-                    onListaChange={handleListaChange}
                     onAddressesChanged={handleAddressesChanged}
                     onVisitaChanged={handleVisitaChanged}
                   />
@@ -453,7 +440,6 @@ export default function UserManagement() {
       {fichaModalTarget && (
         <FichaClienteModal
           user={fichaModalTarget}
-          lista={listas.find((l) => l.id === fichaModalTarget.listaPreciosId)}
           currentUser={currentUser}
           onClose={() => setFichaModalTarget(null)}
           onAddressesChanged={(addresses) => handleAddressesChanged(fichaModalTarget.uid, addresses)}

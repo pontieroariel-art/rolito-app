@@ -5,38 +5,14 @@ import { useQuery } from '@tanstack/react-query'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import Button from '../../components/ui/Button'
 import { getAllUsers } from '../../services/userService'
-import { getAllListasPrecios } from '../../services/listaPreciosService'
 import { PRODUCTS } from '../../utils/constants'
-import { UserProfile, ListaPrecios } from '../../types'
-import { todayString } from '../../utils/helpers'
+import { UserProfile } from '../../types'
 
-// Solo productos activos en al menos una lista
-function productoActivo(productoId: string, listas: ListaPrecios[]): boolean {
-  return listas.some((l) => l.items.some((i) => i.productoId === productoId && i.activo))
-}
-
-function precioEfectivo(
-  cliente: UserProfile,
-  productoId: string,
-  listas: ListaPrecios[],
-): { precio: number | null; esCustom: boolean } {
-  // Cliente vinculado a Tango: el precio es el que dejó la sync en su ficha
-  // (especial > lista de Redonhielo); las listas de la app no cuentan.
-  if (cliente.codigoTango) {
-    const t = preciosClienteTango(cliente, 'redonhielo')?.[productoId]
-    return { precio: t ?? null, esCustom: false }
-  }
-  const custom = cliente.preciosCustom?.[productoId]
-  // Un precio especial vencido (vigenciaCustom pasada) no debe seguir
-  // reportándose como el precio efectivo del cliente — antes este reporte
-  // (y el cálculo real del pedido) ignoraban la vigencia por completo.
-  const vigenciaHasta = cliente.vigenciaCustom?.[productoId]
-  const vencido = !!vigenciaHasta && vigenciaHasta < todayString()
-  if (custom !== undefined && !vencido) return { precio: custom, esCustom: true }
-  const lista = listas.find((l) => l.id === cliente.listaPreciosId)
-  if (!lista) return { precio: null, esCustom: false }
-  const item = lista.items.find((i) => i.productoId === productoId && i.activo)
-  return { precio: item?.precio ?? null, esCustom: false }
+// Precio del cliente para un producto: el que dejó la sync de Tango en su
+// ficha (especial del cliente > su lista de Redonhielo). Las listas propias
+// de la app se eliminaron el 2026-09-03.
+function precioTango(cliente: UserProfile, productoId: string): number | null {
+  return preciosClienteTango(cliente, 'redonhielo')?.[productoId] ?? null
 }
 
 function formatPrecio(n: number): string {
@@ -48,7 +24,6 @@ function formatPrecio(n: number): string {
 // xlsx (484K) se carga recién acá, al exportar — no al abrir la pantalla
 async function exportarExcel(
   clientes: UserProfile[],
-  listas: ListaPrecios[],
   productosActivos: typeof PRODUCTS,
 ) {
   const XLSX = await import('xlsx')
@@ -64,19 +39,15 @@ async function exportarExcel(
 
   // Filas de clientes
   const rows = clientes.map((c) => {
-    const listaNombre = c.listaTangoNombre?.redonhielo ?? listas.find((l) => l.id === c.listaPreciosId)?.nombre ?? 'Sin lista'
-    const precios = productosActivos.map((p) => {
-      const { precio, esCustom } = precioEfectivo(c, p.id, listas)
-      if (precio === null) return ''
-      return esCustom ? `${precio} ★` : precio
-    })
+    const listaNombre = c.listaTangoNombre?.redonhielo ?? 'Sin lista'
+    const precios = productosActivos.map((p) => precioTango(c, p.id) ?? '')
     return [c.nombreContacto || c.nombre || c.email, c.razonSocial || '—', listaNombre, ...precios]
   })
 
   // Fila de promedio
   const promedios = productosActivos.map((p) => {
     const precios = clientes
-      .map((c) => precioEfectivo(c, p.id, listas).precio)
+      .map((c) => precioTango(c, p.id))
       .filter((v): v is number => v !== null)
     if (precios.length === 0) return ''
     const avg = precios.reduce((a, b) => a + b, 0) / precios.length
@@ -100,7 +71,7 @@ async function exportarExcel(
   // Hoja de leyenda
   const leyenda = XLSX.utils.aoa_to_sheet([
     ['Leyenda'],
-    ['★', 'Precio especial (sobreescribe el precio de lista)'],
+    ['Precios', 'De Tango: lista de Redonhielo del cliente, con su precio especial si lo tiene'],
     ['', ''],
     ['Exportado el', new Date().toLocaleString('es-AR')],
   ])
@@ -120,27 +91,17 @@ export default function ReportePreciosPage() {
     staleTime: 300_000,
   })
 
-  // Antes tenía staleTime: Infinity y el botón "Actualizar" solo refrescaba
-  // la query de usuarios — un cambio de precios hecho por gerencia comercial
-  // nunca se veía reflejado acá para un comercial con la pestaña abierta, ni
-  // siquiera tocando "Actualizar" (solo un F5 completo lo arreglaba).
-  const { data: listas = [], isLoading: loadingListas, refetch: refetchListas } = useQuery({
-    queryKey:  ['listas-precios'],
-    queryFn:   getAllListasPrecios,
-    staleTime: 300_000,
-  })
-
-  const refetch = () => { refetchUsuarios(); refetchListas() }
+  const refetch = () => { refetchUsuarios() }
 
   const clientes = useMemo(
     () => (todosUsuarios ?? []).filter((u) => u.rol === 'cliente' && u.estado === 'activo'),
     [todosUsuarios],
   )
 
-  // Activo en alguna lista de la app, o con precio de Tango para algún cliente.
+  // Productos con precio de Tango para al menos un cliente.
   const productosActivos = useMemo(
-    () => PRODUCTS.filter((p) => productoActivo(p.id, listas) || clientes.some((c) => preciosClienteTango(c)?.[p.id] !== undefined)),
-    [listas, clientes],
+    () => PRODUCTS.filter((p) => clientes.some((c) => precioTango(c, p.id) !== null)),
+    [clientes],
   )
 
   // Promedio por producto
@@ -148,22 +109,22 @@ export default function ReportePreciosPage() {
     const map: Record<string, number | null> = {}
     for (const p of productosActivos) {
       const precios = clientes
-        .map((c) => precioEfectivo(c, p.id, listas).precio)
+        .map((c) => precioTango(c, p.id))
         .filter((v): v is number => v !== null)
       map[p.id] = precios.length > 0
         ? Math.round(precios.reduce((a, b) => a + b, 0) / precios.length)
         : null
     }
     return map
-  }, [clientes, productosActivos, listas])
+  }, [clientes, productosActivos])
 
   const handleExportar = async () => {
     setExporting(true)
-    try { await exportarExcel(clientes, listas, productosActivos) }
+    try { await exportarExcel(clientes, productosActivos) }
     finally { setExporting(false) }
   }
 
-  const loading = loadingUsuarios || loadingListas
+  const loading = loadingUsuarios
 
   return (
     <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
@@ -204,9 +165,9 @@ export default function ReportePreciosPage() {
             {/* Stats rápidas */}
             <div className="max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-3">
               <StatCard label="Clientes activos"      value={clientes.length} />
-              <StatCard label="Con lista asignada"    value={clientes.filter((c) => c.listaPreciosId).length} />
-              <StatCard label="Con precios especiales" value={clientes.filter((c) => Object.keys(c.preciosCustom ?? {}).length > 0).length} />
-              <StatCard label="Listas de precios"     value={listas.length} />
+              <StatCard label="Con lista en Tango"    value={clientes.filter((c) => c.listaTango?.redonhielo).length} />
+              <StatCard label="Con precios cargados"  value={clientes.filter((c) => productosActivos.some((p) => precioTango(c, p.id) !== null)).length} />
+              <StatCard label="Listas distintas"      value={new Set(clientes.map((c) => c.listaTango?.redonhielo).filter(Boolean)).size} />
             </div>
 
             {/* Tabla */}
@@ -229,7 +190,7 @@ export default function ReportePreciosPage() {
                 </thead>
                 <tbody>
                   {clientes.map((c, i) => {
-                    const listaNombre = c.listaTangoNombre?.redonhielo ?? listas.find((l) => l.id === c.listaPreciosId)?.nombre
+                    const listaNombre = c.listaTangoNombre?.redonhielo
                     return (
                       <tr
                         key={c.uid}
@@ -255,22 +216,13 @@ export default function ReportePreciosPage() {
                           )}
                         </td>
                         {productosActivos.map((p) => {
-                          const { precio, esCustom } = precioEfectivo(c, p.id, listas)
+                          const precio = precioTango(c, p.id)
                           return (
                             <td
                               key={p.id}
-                              className={`px-4 py-2.5 text-right tabular-nums whitespace-nowrap ${
-                                esCustom
-                                  ? 'text-amber-600 font-semibold'
-                                  : precio !== null ? 'text-gray-900' : 'text-gray-200'
-                              }`}
+                              className={`px-4 py-2.5 text-right tabular-nums whitespace-nowrap ${precio !== null ? 'text-gray-900' : 'text-gray-200'}`}
                             >
-                              {precio !== null ? (
-                                <>
-                                  {formatPrecio(precio)}
-                                  {esCustom && <span className="ml-1 text-xs">★</span>}
-                                </>
-                              ) : '—'}
+                              {precio !== null ? formatPrecio(precio) : '—'}
                             </td>
                           )
                         })}
@@ -295,7 +247,7 @@ export default function ReportePreciosPage() {
             </div>
 
             <p className="text-xs text-gray-500 text-center">
-              ★ precio especial (sobreescribe el de lista)
+              Precios de Tango (lista de Redonhielo del cliente, con su precio especial si lo tiene). Se actualizan con la sincronización diaria.
             </p>
           </>
         )}

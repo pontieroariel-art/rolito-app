@@ -4,11 +4,10 @@ import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import MultiDatePicker from './MultiDatePicker'
 import { createOrderManual, findActiveOrdersSameDay, findActiveOrdersInRange } from '../../services/orderService'
-import { useListaPrecios } from '../../hooks/useListasPrecios'
 import { useCatalogo } from '../../hooks/useCatalogo'
 import { useSucursales, SucursalItem } from '../../hooks/useSucursales'
 import { UserProfile, Order } from '../../types'
-import { formatShortDate, isSucursalCode, normalizeAddress, todayString as todayStr, addDaysStr, precioEfectivo } from '../../utils/helpers'
+import { formatShortDate, isSucursalCode, normalizeAddress, todayString as todayStr, addDaysStr } from '../../utils/helpers'
 import { preciosClienteTango } from '../../utils/precioTango'
 import { STATUS_LABELS } from '../../utils/constants'
 
@@ -196,11 +195,11 @@ function StepProductos({
     queryClient.invalidateQueries({ queryKey: ['ordersActualizados'] })
   }
 
-  const { lista }    = useListaPrecios(cliente.listaPreciosId ?? undefined)
   const { catalogo } = useCatalogo()
 
   const displayProducts = useMemo(() => {
-    // Cliente vinculado a Tango: precios de su ficha (Redonhielo), solo los que tienen precio.
+    // Precios de Tango de la ficha del cliente (Redonhielo), solo los productos
+    // que tienen precio. Sin precios: catálogo sin precio (lo carga el admin).
     const preciosTango = preciosClienteTango(cliente)
     if (preciosTango) {
       const items = catalogo
@@ -208,17 +207,8 @@ function StepProductos({
         .map((p) => ({ id: p.id, nombre: p.nombre, unidad: p.unidad, precio: preciosTango[p.id] as number | undefined }))
       if (items.length > 0) return items
     }
-    if (lista) {
-      const items = lista.items.filter((i) => i.activo).map((i) => ({
-        id:     i.productoId,
-        nombre: i.nombre,
-        unidad: i.unidad,
-        precio: precioEfectivo(cliente, i.productoId, i.precio),
-      }))
-      if (items.length > 0) return items
-    }
     return catalogo.map((p) => ({ id: p.id, nombre: p.nombre, unidad: p.unidad, precio: undefined }))
-  }, [lista, catalogo, cliente])
+  }, [catalogo, cliente])
 
   const selected = displayProducts
     .filter((p) => (quantities[p.id] ?? 0) > 0)

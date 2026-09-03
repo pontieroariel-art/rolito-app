@@ -2,7 +2,15 @@ import { useMemo, useState } from 'react'
 import { Clock } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { useHistorialCliente } from '../../../hooks/useHistorialPrecios'
-import { HistorialPrecioEvento, ListaPrecios } from '../../../types'
+import { HistorialPrecioEvento } from '../../../types'
+
+// Las listas propias de la app se eliminaron (2026-09-03); el historial se
+// conserva solo como registro de los cambios viejos. La desviación contra la
+// lista base queda opcional por si algún día se vuelve a alimentar.
+interface ListaPrecios {
+  nombre?: string
+  items: { productoId: string; nombre: string; precio: number }[]
+}
 
 const CHART_COLORS = ['#00C2FF', '#FF6B6B', '#4ECDC4', '#FFE66D', '#C084FC', '#F97316', '#34D399']
 
