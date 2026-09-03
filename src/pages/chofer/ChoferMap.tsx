@@ -222,6 +222,7 @@ export default function ChoferMap() {
   })
 
   // Para evitar race condition en deactivateDriverLocation (ver ChoferDashboard.tsx)
+  const gpsEnVueloRef = useRef(false)
   const locationGenRef = useRef(0)
   // Para descartar una respuesta de ruta obsoleta si el usuario toca
   // "Calcular ruta" dos veces antes de que resuelva la primera llamada
@@ -256,8 +257,14 @@ export default function ChoferMap() {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           setCurrentPos({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+          // Una posición en vuelo a la vez (ver ChoferDashboard): sin señal no
+          // acumular una cola de writes que compita con las ventas al volver.
+          if (gpsEnVueloRef.current) return
+          gpsEnVueloRef.current = true
           updateDriverLocation(email, pos.coords.latitude, pos.coords.longitude,
             nombreRef.current, telefonoRef.current)
+            .catch(() => {})
+            .finally(() => { gpsEnVueloRef.current = false })
         },
         () => {},
         { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 },

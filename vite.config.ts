@@ -49,15 +49,16 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icons/icon-192.png', 'icons/icon-512.png', 'apple-touch-icon.png'],
       injectManifest: {
-        // Los chunks pesados de uso puntual (Excel, PDF, reportes, pañol) no
-        // se precachean en el install del SW — la mayoría de los roles nunca
+        // Los chunks pesados de uso puntual (Excel, lector de PDF, reportes,
+        // pañol) no se precachean en el install del SW. jspdf (chunk 'pdf') SÍ
+        // se precachea: el chofer arma la factura para el cliente en la calle
+        // y no puede depender de haberla generado antes con señal — la mayoría de los roles nunca
         // los visita, y precachearlos igual compite por ancho de banda con la
         // carga real en conexiones intermitentes. Se cachean en runtime
         // (StaleWhileRevalidate, ver src/sw.ts) recién cuando se usan.
         globIgnores: [
           '**/xlsx-*.js',
           '**/pdfjs-*.js',
-          '**/pdf-*.js',
           '**/PanolPage-*.js',
           '**/charts-*.js',
           '**/html2canvas*.js',

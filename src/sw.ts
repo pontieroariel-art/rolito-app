@@ -24,7 +24,7 @@ registerRoute(new NavigationRoute(createHandlerBoundToURL('/index.html')))
 // en adelante quedan disponibles offline sin haber competido por ancho de
 // banda durante el install del service worker.
 registerRoute(
-  ({ url }) => /\/(xlsx|pdfjs|pdf-|PanolPage|charts|html2canvas|BarcodeScanner)[\w.-]*\.js$/.test(url.pathname),
+  ({ url }) => /\/(xlsx|pdfjs|PanolPage|charts|html2canvas|BarcodeScanner)[\w.-]*\.js$/.test(url.pathname),
   new StaleWhileRevalidate({
     cacheName: 'rolito-heavy-chunks',
     plugins: [

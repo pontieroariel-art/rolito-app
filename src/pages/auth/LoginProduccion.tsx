@@ -62,6 +62,8 @@ export default function LoginProduccion({ planta }: Props) {
         const wrongCreds = ['auth/invalid-credential', 'auth/wrong-password', 'auth/user-not-found']
         if (wrongCreds.includes(err.code)) {
           setError('Legajo o PIN incorrecto')
+        } else if (err.code === 'auth/network-request-failed') {
+          setError('Sin conexión. Revisá la señal e intentá de nuevo.')
         } else if (err.code === 'auth/too-many-requests') {
           setError('Demasiados intentos. Esperá unos minutos.')
         } else {

@@ -85,3 +85,22 @@ export function onSnapshotError<T>(
     alFallar?.(err)
   }
 }
+
+// Espera la confirmación del servidor hasta `ms`. Si no llega (sin señal, red
+// muy lenta), resuelve 'encolado' y la pantalla puede seguir: el write ya está
+// persistido en el cache local de Firestore y se sube solo al reconectar. Un
+// rechazo del servidor (regla, revert) que llegue después queda reportado por
+// fireAndForget; uno que llegue antes del timeout rechaza acá y la pantalla
+// muestra el error. Sin esto, un `await updateDoc()` sin señal no resuelve
+// NUNCA y el chofer queda mirando un spinner con la entrega ya registrada.
+export function esperarOEncolar(
+  op: Promise<unknown>,
+  context?: Record<string, unknown>,
+  ms = 4000,
+): Promise<'confirmado' | 'encolado'> {
+  fireAndForget(op, context)
+  return Promise.race([
+    op.then(() => 'confirmado' as const),
+    new Promise<'encolado'>((resolve) => setTimeout(() => resolve('encolado'), ms)),
+  ])
+}

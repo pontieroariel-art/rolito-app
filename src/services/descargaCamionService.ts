@@ -2,7 +2,7 @@ import {
   collection, doc, onSnapshot, query, setDoc, updateDoc, where, Timestamp,
 } from 'firebase/firestore'
 import { db } from './firebase'
-import { onSnapshotError } from './observability'
+import { onSnapshotError, esperarOEncolar } from './observability'
 import { DescargaCamion, DescargaCamionItem, PlantaId, RemitoCarga } from '../types'
 
 const DESCARGAS = 'descargasCamion'
@@ -35,21 +35,29 @@ export async function crearDescargaCamion(
     registradoPor: { uid: actor.uid, nombre: actor.nombre },
     fecha:         Timestamp.now(),
   }
-  await setDoc(ref, descarga)
+  // Espera al servidor hasta 4 s; si el wifi se cayó, el doc ya quedó en el
+  // cache local y se sube solo. Dejar el spinner para siempre termina peor:
+  // muelle recarga, vuelve a cargar la descarga y la liquidación la cuenta
+  // dos veces.
+  await esperarOEncolar(setDoc(ref, descarga), { origen: 'crearDescargaCamion', descargaId: ref.id })
   return { id: ref.id, ...descarga }
 }
 
 // Muelle confirma que entregó la mercadería de un remito de carga (el camión
 // se cargó contra el papel). Solo toca estado + entregadoPor — reglas con
 // hasOnly, el resto del remito es inmutable.
-export const confirmarEntregaRemito = (
+export const confirmarEntregaRemito = async (
   remito: RemitoCarga,
   actor: ActorMuelle,
-): Promise<void> =>
-  updateDoc(doc(db, 'remitosCarga', remito.id), {
-    estado:       'entregado',
-    entregadoPor: { uid: actor.uid, nombre: actor.nombre, hora: Timestamp.now() },
-  })
+): Promise<void> => {
+  await esperarOEncolar(
+    updateDoc(doc(db, 'remitosCarga', remito.id), {
+      estado:       'entregado',
+      entregadoPor: { uid: actor.uid, nombre: actor.nombre, hora: Timestamp.now() },
+    }),
+    { origen: 'confirmarEntregaRemito', remitoId: remito.id },
+  )
+}
 
 const rangoDia = (dia: Date): [Timestamp, Timestamp] => {
   const desde = new Date(dia); desde.setHours(0, 0, 0, 0)

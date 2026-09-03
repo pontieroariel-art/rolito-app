@@ -1,6 +1,6 @@
 import { doc, getDoc, onSnapshot, setDoc, Timestamp } from 'firebase/firestore'
 import { db } from './firebase'
-import { reportError } from './observability'
+import { reportError, esperarOEncolar } from './observability'
 import { Liquidacion, PlantaId } from '../types'
 import { LiquidacionCalculada } from '../utils/liquidacion'
 import { todayString } from '../utils/helpers'
@@ -35,7 +35,10 @@ export async function cerrarLiquidacion(
     cerradaPor:   { uid: actor.uid, nombre: actor.nombre },
     createdAt:    Timestamp.now(),
   }
-  await setDoc(doc(db, LIQUIDACIONES, id), liquidacion)
+  // Hasta 4 s de espera al servidor. Sin red el cierre queda en el cache
+  // local y se sube solo; si mientras tanto alguien lo cierra desde otra
+  // terminal, las reglas (create-only) rechazan el segundo y queda reportado.
+  await esperarOEncolar(setDoc(doc(db, LIQUIDACIONES, id), liquidacion), { origen: 'cerrarLiquidacion', id })
   return { id, ...liquidacion }
 }
 

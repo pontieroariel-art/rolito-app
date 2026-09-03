@@ -29,7 +29,7 @@ import { Order, ProgramaVisita, VisitaPuntual, OrderProduct } from '../../types'
 import EntregaModal from '../../components/chofer/EntregaModal'
 import NoEntregadoModal from '../../components/chofer/NoEntregadoModal'
 import TicketsServicioSection from '../../components/chofer/TicketsServicioSection'
-import { reportError } from '@/services/observability'
+import { reportError, esperarOEncolar } from '@/services/observability'
 
 export default function ChoferDashboard() {
   const { user }              = useAuth()
@@ -48,6 +48,7 @@ export default function ChoferDashboard() {
   const today  = useFechaDelDia()
 
   // Para evitar race condition en deactivateDriverLocation
+  const gpsEnVueloRef = useRef(false)
   const locationGenRef = useRef(0)
 
   // Ayudante: buscar el/los despacho(s) del día donde ayudanteEmail === user.email
@@ -177,9 +178,15 @@ export default function ChoferDashboard() {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           setGpsStatus('ok')
-          // Offline: el write se encola y sincroniza al reconectar (no es error).
+          // Una posición en vuelo a la vez: sin señal el write anterior no
+          // resuelve, y encolar una cada 10 s acumula cientos de escrituras
+          // que al reconectar se suben antes que las ventas. Se pierde la
+          // posición de esos 10 s, que sin señal tampoco veía nadie.
+          if (gpsEnVueloRef.current) return
+          gpsEnVueloRef.current = true
           updateDriverLocation(email, pos.coords.latitude, pos.coords.longitude, nombreRef.current, telefonoRef.current)
             .catch(() => {})
+            .finally(() => { gpsEnVueloRef.current = false })
         },
         () => setGpsStatus('error'),
         { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 },
@@ -571,10 +578,13 @@ export default function ChoferDashboard() {
               onClick={async () => {
                 setSinContactoLoading(true)
                 try {
-                  await updateVisitaPuntual(sinContactoVisita.id, {
-                    status: 'sin_contacto',
-                    notas:  sinContactoMotivo.trim(),
-                  })
+                  await esperarOEncolar(
+                    updateVisitaPuntual(sinContactoVisita.id, {
+                      status: 'sin_contacto',
+                      notas:  sinContactoMotivo.trim(),
+                    }),
+                    { origen: 'ChoferDashboard', accion: 'visita sin contacto', visitaId: sinContactoVisita.id },
+                  )
                   setSinContactoVisita(null)
                 } finally {
                   setSinContactoLoading(false)
@@ -642,7 +652,7 @@ export default function ChoferDashboard() {
           user={user}
           onConfirm={async (products) => {
             if (!user) return
-            await createOrder({
+            await esperarOEncolar(createOrder({
               user: {
                 ...user,
                 razonSocial:    registrando.data.clientName,
@@ -653,9 +663,12 @@ export default function ChoferDashboard() {
               products,
               date: todayString(),
               notes: registrando.tipo === 'visita' ? (registrando.data.notas ?? '') : (registrando.data.notas ?? ''),
-            })
+            }), { origen: 'ChoferDashboard', accion: 'registrar entrega de visita' })
             if (registrando.tipo === 'visita') {
-              await updateVisitaPuntual(registrando.data.id, { status: 'visitado' })
+              await esperarOEncolar(
+                updateVisitaPuntual(registrando.data.id, { status: 'visitado' }),
+                { origen: 'ChoferDashboard', accion: 'visita visitada', visitaId: registrando.data.id },
+              )
             }
             setRegistrando(null)
           }}
@@ -750,12 +763,15 @@ function DeliveryCard({ order, index, isFirst, chofer }: { order: Order; index: 
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         try {
-          await proposeCoord(
-            order.clientId,
-            pos.coords.latitude,
-            pos.coords.longitude,
-            chofer.uid,
-            chofer.nombreContacto || chofer.nombre || chofer.email,
+          await esperarOEncolar(
+            proposeCoord(
+              order.clientId,
+              pos.coords.latitude,
+              pos.coords.longitude,
+              chofer.uid,
+              chofer.nombreContacto || chofer.nombre || chofer.email,
+            ),
+            { origen: 'ChoferDashboard', accion: 'proposeCoord', clientId: order.clientId },
           )
           setGeoStatus('ok')
         } catch {
@@ -845,10 +861,15 @@ function DeliveryCard({ order, index, isFirst, chofer }: { order: Order; index: 
         <EntregaModal
           order={order}
           onConfirm={async (entregados, parcial, nota) => {
-            await markDelivered(order.id, entregados, parcial, nota, {
-              uid: chofer.uid,
-              nombre: chofer.nombreContacto || chofer.nombre || chofer.email,
-            })
+            // Sin señal el write queda encolado y la entrega igual figura
+            // registrada: no dejar al chofer clavado en un spinner.
+            await esperarOEncolar(
+              markDelivered(order.id, entregados, parcial, nota, {
+                uid: chofer.uid,
+                nombre: chofer.nombreContacto || chofer.nombre || chofer.email,
+              }),
+              { origen: 'ChoferDashboard', accion: 'markDelivered', orderId: order.id },
+            )
             setModal(false)
           }}
           onClose={() => setModal(false)}

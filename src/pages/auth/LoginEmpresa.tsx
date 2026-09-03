@@ -39,6 +39,8 @@ export default function LoginEmpresa() {
         const wrongCreds = ['auth/invalid-credential', 'auth/wrong-password', 'auth/user-not-found']
         if (wrongCreds.includes(err.code)) {
           setError('Usuario o contraseña incorrectos')
+        } else if (err.code === 'auth/network-request-failed') {
+          setError('Sin conexión. Revisá la señal e intentá de nuevo.')
         } else if (err.code === 'auth/too-many-requests') {
           setError('Demasiados intentos. Esperá unos minutos.')
         } else {

@@ -3,6 +3,7 @@ import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import { rescheduleOrder } from '../../services/orderService'
 import { useNotifyReprogramado } from '../../hooks/useNotifications'
+import { esperarOEncolar } from '@/services/observability'
 import { Order, MOTIVOS_INCIDENCIA } from '../../types'
 import { todayString, addDaysStr } from '../../utils/helpers'
 
@@ -26,10 +27,14 @@ export default function NoEntregadoModal({ order, onDone, onClose }: Props) {
     setError('')
     setSaving(true)
     try {
-      await rescheduleOrder(order.id, tomorrow(), motivo, {
-        fechaOriginal:  order.date,
-        choferOriginal: order.driverId ?? undefined,
-      })
+      // Sin señal el write queda encolado; no clavar al chofer en el spinner.
+      await esperarOEncolar(
+        rescheduleOrder(order.id, tomorrow(), motivo, {
+          fechaOriginal:  order.date,
+          choferOriginal: order.driverId ?? undefined,
+        }),
+        { origen: 'NoEntregadoModal', accion: 'rescheduleOrder', orderId: order.id },
+      )
       if (order.clientEmail) {
         notifyReprogramadoMutation.mutate({ orderId: order.id })
       }

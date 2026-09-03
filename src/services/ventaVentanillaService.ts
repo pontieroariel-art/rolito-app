@@ -2,7 +2,7 @@ import {
   collection, doc, onSnapshot, query, runTransaction, setDoc, updateDoc, where, Timestamp,
 } from 'firebase/firestore'
 import { db } from './firebase'
-import { onSnapshotError } from './observability'
+import { onSnapshotError, esperarOEncolar } from './observability'
 import { todayString } from '../utils/helpers'
 import {
   CanalVenta, FormaPago, PlantaId, VentaCamionItem, VentaVentanilla,
@@ -89,24 +89,32 @@ export const marcarTurnoAusente = (venta: VentaVentanilla): Promise<void> =>
   updateDoc(doc(db, VENTAS, venta.id), { turnoEstado: 'ausente' })
 
 // Muelle confirma que entregó la mercadería de la ventanilla.
-export const confirmarEntregaVentanilla = (
+export const confirmarEntregaVentanilla = async (
   venta: VentaVentanilla,
   actor: { uid: string; nombre: string },
-): Promise<void> =>
-  updateDoc(doc(db, VENTAS, venta.id), {
-    estado:       'entregado',
-    entregadoPor: { uid: actor.uid, nombre: actor.nombre, hora: Timestamp.now() },
-  })
+): Promise<void> => {
+  await esperarOEncolar(
+    updateDoc(doc(db, VENTAS, venta.id), {
+      estado:       'entregado',
+      entregadoPor: { uid: actor.uid, nombre: actor.nombre, hora: Timestamp.now() },
+    }),
+    { origen: 'confirmarEntregaVentanilla', ventaId: venta.id },
+  )
+}
 
 // Seguridad marca en el portón que la mercadería de ventanilla salió de la
 // planta (terceros que retiran con vehículo). Solo estampa `salida`.
-export const marcarSalidaVentanilla = (
+export const marcarSalidaVentanilla = async (
   venta: VentaVentanilla,
   actor: { uid: string; nombre: string },
-): Promise<void> =>
-  updateDoc(doc(db, VENTAS, venta.id), {
-    salida: { uid: actor.uid, nombre: actor.nombre, hora: Timestamp.now() },
-  })
+): Promise<void> => {
+  await esperarOEncolar(
+    updateDoc(doc(db, VENTAS, venta.id), {
+      salida: { uid: actor.uid, nombre: actor.nombre, hora: Timestamp.now() },
+    }),
+    { origen: 'marcarSalidaVentanilla', ventaId: venta.id },
+  )
+}
 
 // Ventas de ventanilla del día de una planta (pantallas de caja y muelle).
 export const subscribeVentanillaDelDia = (

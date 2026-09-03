@@ -1,6 +1,6 @@
 import { collection, doc, onSnapshot, query, setDoc, where, Timestamp } from 'firebase/firestore'
 import { db } from './firebase'
-import { fireAndForget, onSnapshotError } from './observability'
+import { fireAndForget, onSnapshotError, esperarOEncolar } from './observability'
 import { aCentavos, sumaCentavos } from '../utils/money'
 import { Cobranza, EmpresaTango, ImputacionFactura, MediosPago, PlantaId } from '../types'
 
@@ -32,7 +32,9 @@ export async function crearCobranzaCaja(
     fecha:         Timestamp.now(),
     ...(args.referencia?.trim() ? { referencia: args.referencia.trim() } : {}),
   }
-  await setDoc(ref, cobranza)
+  // Hasta 4 s de espera al servidor; sin red el doc ya quedó en el cache
+  // local y se sube solo — mejor imprimir el recibo que dejar la caja colgada.
+  await esperarOEncolar(setDoc(ref, cobranza), { origen: 'crearCobranzaCaja', cobranzaId: ref.id })
   return { id: ref.id, ...cobranza }
 }
 

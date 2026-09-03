@@ -17,11 +17,27 @@ if ('serviceWorker' in navigator) {
   // Si es true  → actualización, recargamos.
   let hadController = !!navigator.serviceWorker.controller
 
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!hadController) { hadController = true; return }
+  // Con skipWaiting + clientsClaim el SW nuevo toma control apenas se
+  // instala, es decir: cada push a master llega a todos los dispositivos
+  // dentro de los 30 minutos. Recargar en ese instante tiraba a la basura el
+  // remito que caja estaba cargando o la venta que el chofer estaba firmando.
+  // Ahora se recarga recién cuando la app pasa a segundo plano (el usuario
+  // cambió de app o bloqueó el teléfono), que es cuando no hay nada a medias.
+  // Si antes de eso un chunk viejo falla al cargar, el ErrorBoundary ya
+  // recarga una vez por su cuenta.
+  const recargar = () => {
     if (reloading) return
     reloading = true
     window.location.reload()
+  }
+  let recargaPendiente = false
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController) { hadController = true; return }
+    if (document.visibilityState === 'hidden') { recargar(); return }
+    recargaPendiente = true
+  })
+  document.addEventListener('visibilitychange', () => {
+    if (recargaPendiente && document.visibilityState === 'hidden') recargar()
   })
 
   // Verificar si hay un SW nuevo cada 30 minutos.

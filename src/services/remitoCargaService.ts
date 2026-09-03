@@ -2,7 +2,7 @@ import {
   collection, doc, onSnapshot, query, runTransaction, updateDoc, where, Timestamp,
 } from 'firebase/firestore'
 import { db } from './firebase'
-import { onSnapshotError } from './observability'
+import { onSnapshotError, esperarOEncolar } from './observability'
 import { RemitoCarga, RemitoCargaItem, PlantaId } from '../types'
 import { PLANTA_INFO } from '../utils/constants'
 
@@ -75,14 +75,20 @@ export const asignarDarsena = (
 
 // Seguridad controla el camión cargado en el portón y libera la salida.
 // Solo la transición entregado → salido — reglas con hasOnly.
-export const marcarSalidaRemito = (
+export const marcarSalidaRemito = async (
   remito: RemitoCarga,
   actor: { uid: string; nombre: string },
-): Promise<void> =>
-  updateDoc(doc(db, REMITOS, remito.id), {
-    estado: 'salido',
-    salida: { uid: actor.uid, nombre: actor.nombre, hora: Timestamp.now() },
-  })
+): Promise<void> => {
+  // Sin señal el write queda encolado; el portón no puede quedar trabado en
+  // un spinner con el camión esperando.
+  await esperarOEncolar(
+    updateDoc(doc(db, REMITOS, remito.id), {
+      estado: 'salido',
+      salida: { uid: actor.uid, nombre: actor.nombre, hora: Timestamp.now() },
+    }),
+    { origen: 'marcarSalidaRemito', remitoId: remito.id },
+  )
+}
 
 const rangoDia = (dia: Date): [Timestamp, Timestamp] => {
   const desde = new Date(dia); desde.setHours(0, 0, 0, 0)
