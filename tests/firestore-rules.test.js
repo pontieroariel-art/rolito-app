@@ -2795,6 +2795,26 @@ describe('cobranzas de supervisor', () => {
   })
 })
 
+// Numeración de los comprobantes internos de la venta del camión (remito y
+// factura X): el chofer reserva lotes avanzando next; nada más.
+describe('numeracion interna de comprobantes del camion', () => {
+  test('el chofer solo avanza next; no retrocede, no toca puntoVenta, no crea', async () => {
+    await seed((d) => setDoc(doc(d, 'users/cho'), { rol: 'chofer', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'config/numeracionInterna_remito'), { next: 100, puntoVenta: 2 }))
+    await assertSucceeds(updateDoc(doc(db('cho'), 'config/numeracionInterna_remito'), { next: 120 }))
+    await assertFails(updateDoc(doc(db('cho'), 'config/numeracionInterna_remito'), { next: 50 }))
+    await assertFails(updateDoc(doc(db('cho'), 'config/numeracionInterna_remito'), { next: 140, puntoVenta: 9 }))
+    await assertFails(setDoc(doc(db('cho'), 'config/numeracionInterna_facturaX'), { next: 1, puntoVenta: 2 }))
+  })
+
+  test('super_admin lo inicializa; un cliente no lo toca', async () => {
+    await seed((d) => setDoc(doc(d, 'users/adm'), { rol: 'super_admin', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'users/cli'), { rol: 'cliente', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('adm'), 'config/numeracionInterna_facturaX'), { next: 1, puntoVenta: 2 }))
+    await assertFails(updateDoc(doc(db('cli'), 'config/numeracionInterna_facturaX'), { next: 5 }))
+  })
+})
+
 // Muelle asigna la dársena de carga (tablero de TV).
 describe('remitosCarga: asignacion de darsena', () => {
   const remito = (extra = {}) => ({

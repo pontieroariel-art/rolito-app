@@ -1,7 +1,7 @@
 import { collection, doc, getDoc, onSnapshot, query, where, orderBy, limit, setDoc, Timestamp } from 'firebase/firestore'
 import { db } from './firebase'
 import { fireAndForget, onSnapshotError } from './observability'
-import { VentaCamion, VentaCamionItem, FormaPago, CanalVenta, UserProfile } from '../types'
+import { VentaCamion, VentaCamionItem, FormaPago, CanalVenta, UserProfile, ComprobanteInternoVenta } from '../types'
 
 const VENTAS = 'ventasCamion'
 
@@ -31,6 +31,8 @@ export function crearVentaCamion(
     firmaCliente?:   string
     firmanteNombre?: string
     pedidoId?: string | null
+    /** Número propio del remito / factura X, ya consumido de la reserva local. */
+    comprobanteInterno?: ComprobanteInternoVenta
   },
   actor: ActorChofer,
 ): VentaCamion {
@@ -58,6 +60,7 @@ export function crearVentaCamion(
     ...(args.cliente.idGva14Tango != null ? { clienteIdGva14Tango: args.cliente.idGva14Tango } : {}),
     ...(args.firmaCliente   ? { firmaCliente: args.firmaCliente } : {}),
     ...(args.firmanteNombre ? { firmanteNombre: args.firmanteNombre.trim() } : {}),
+    ...(args.comprobanteInterno ? { comprobanteInterno: args.comprobanteInterno } : {}),
   }
 
   // fire-and-forget (offline-first); el .catch reporta un rechazo del servidor

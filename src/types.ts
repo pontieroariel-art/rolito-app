@@ -141,6 +141,21 @@ export interface VentaCamion {
   pedidoId?:            string | null   // pedido previo que la originó, si hubo
   tango?:               RemitoTangoEstado
   factura?:             FacturaArcaVenta   // solo en ventas contado
+  // Numeración propia del documento que sale cuando NO hay factura de ARCA:
+  // el remito (cuenta corriente Redonhielo / promo Rolito) o la factura "X" de
+  // promo. Punto de venta aparte del de ARCA. Ausente = venta sin numerar
+  // (contador no inicializado o sin lote reservado).
+  comprobanteInterno?:  ComprobanteInternoVenta
+}
+
+// Comprobantes internos de la venta del camión (los que no autoriza ARCA):
+// 'remito' para cuenta corriente y promo sin cobro; 'facturaX' para promo
+// cobrada (Rolito, no oficial). Decisión 2026-09-03.
+export type TipoComprobanteInterno = 'remito' | 'facturaX'
+export interface ComprobanteInternoVenta {
+  tipo:       TipoComprobanteInterno
+  puntoVenta: number
+  numero:     number
 }
 
 // ── Expedición: remito de carga del camión ────────────────────────────────────

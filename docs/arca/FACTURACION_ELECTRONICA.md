@@ -855,3 +855,44 @@ suscribe al doc hasta que el trigger escribe `factura`:
 Antes de cobrar, la pantalla avisa si la venta no va a poder facturarse (cliente registrado sin
 CUIT o sin condición de IVA; ocasional sin documento por encima del tope) — la autoridad sigue
 siendo el servidor.
+
+## 13. Los comprobantes internos: remito y factura "X" (2026-09-03)
+
+Hasta hoy la venta del camión que no facturaba por ARCA (cuenta corriente de Redonhielo, y todo
+promo/Rolito) no dejaba ningún papel: el cliente firmaba en la pantalla y no se llevaba nada.
+Decisiones de Ariel (2026-09-03):
+
+1. **Una sola serie por tipo** para toda la empresa: `remito` y `facturaX`. Van a viajar a Tango
+   (a la empresa Rolito los de promo) con este número como referencia; el correlativo que valga
+   allá lo pone Tango.
+2. **Punto de venta aparte** del 1104 de ARCA, para que nunca se confundan con la numeración
+   fiscal. Vive en el contador.
+3. **La firma del cliente va impresa** en remitos y facturas de promo.
+4. **No se imprime en la calle**: el chofer lo comparte por WhatsApp o mail desde "Mis ventas",
+   igual que la factura.
+
+| Venta | Documento | Empresa | Letra |
+|---|---|---|---|
+| Contado + cuenta corriente | REMITO | Redonhielo | X |
+| Contado, solo cambios ($0) | REMITO | Redonhielo | X |
+| Promo cobrada (efectivo/transferencia) | FACTURA | Rolito | X |
+| Promo cuenta corriente o $0 | REMITO | Rolito | X |
+
+Todos con letra **X** y la leyenda "DOCUMENTO NO VÁLIDO COMO FACTURA": no son comprobantes
+fiscales y no tienen que parecerlo (sin QR de AFIP, sin CAE, sin código de barras). Es la forma
+estándar de distinguir un documento interno; confirmar con el contador si prefiere otra letra.
+
+**Numeración** (`src/services/numeracionInternaService.ts`): contadores
+`config/numeracionInterna_remito` y `config/numeracionInterna_facturaX` = `{ next, puntoVenta }`,
+reserva de lotes de 20 en `localStorage` del chofer (mismo patrón que los recibos de supervisor)
+para numerar sin señal. **Opcional**: mientras el contador no esté inicializado, la venta sale sin
+número y el papel dice "SIN NÚMERO". Inicializar desde la consola de Firebase (o Backoffice) con
+`next: 1` y el `puntoVenta` elegido. Las reglas dejan al chofer solo avanzar `next`.
+
+**Emisor de Rolito** (`src/utils/emisores.ts`): faltan los datos reales (razón social exacta,
+CUIT, domicilio, condición frente al IVA). Hasta cargarlos el papel sale con el nombre "Rolito" y
+el domicilio de Redonhielo.
+
+**Dónde**: `utils/comprobanteInterno.ts` decide y arma (con tests), `utils/comprobanteInternoPdf.ts`
+dibuja, `VentaCamion.tsx` consume el número al confirmar, `VentasChofer.tsx` lo entrega. El número
+viaja en `ventasCamion.comprobanteInterno` y por lo tanto en el payload del outbox de Tango.

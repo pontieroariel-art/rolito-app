@@ -533,6 +533,15 @@ service cloud.firestore {
         && isSupervisor()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next'])
         && request.resource.data.next > resource.data.next;
+
+      // Numeración de los comprobantes internos de la venta del camión
+      // (config/numeracionInterna_remito, _facturaX = { next, puntoVenta }).
+      // Alta inicial solo por super_admin; el chofer solo avanza `next` al
+      // reservar un lote, nunca toca el punto de venta ni retrocede.
+      allow update: if request.auth != null && docId.matches('numeracionInterna_.*')
+        && isChofer()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next'])
+        && request.resource.data.next > resource.data.next;
     }
 
     // ── Emails de notificación admin ──────────────────────────────────────────

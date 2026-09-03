@@ -13,6 +13,9 @@ import { useClientesActivos } from '@/hooks/useClientesActivos'
 import { subscribeVentasRecientesChofer } from '@/services/ventaCamionService'
 import { generateFacturaArcaPdf } from '@/utils/facturaArcaPdf'
 import { armarFacturaDeVenta } from '@/utils/facturaDeVenta'
+import { armarComprobanteInterno, tipoComprobanteInterno } from '@/utils/comprobanteInterno'
+import { generateComprobanteInternoPdf } from '@/utils/comprobanteInternoPdf'
+import { codigoComprobanteInterno } from '@/services/numeracionInternaService'
 import { compartirArchivo, descargarArchivo, puedeCompartirArchivos } from '@/utils/compartir'
 import { VentaCamion } from '@/types'
 
@@ -46,20 +49,33 @@ export default function VentasChofer() {
     [clientes],
   )
 
-  const entregarFactura = async (venta: VentaCamion, compartir: boolean) => {
+  // Genera el comprobante de la venta —la factura de ARCA, o el remito /
+  // factura X interna cuando no factura ARCA— y lo comparte o descarga.
+  const entregarComprobante = async (venta: VentaCamion, compartir: boolean) => {
     setAviso('')
-    const armado = armarFacturaDeVenta(venta, clientePorId.get(venta.clienteId))
-    if (!armado.ok) { setAviso(armado.motivo); return }
+    const cliente = clientePorId.get(venta.clienteId)
+    const tipoInterno = tipoComprobanteInterno(venta)
 
+    let blob: Blob
+    let nombre: string
+    let titulo: string
     setOcupada(venta.id)
     try {
-      const blob = (await generateFacturaArcaPdf(armado.datos)) as Blob
-      const nombre = `factura-${nroFactura(venta)}.pdf`
+      if (tipoInterno) {
+        const armado = armarComprobanteInterno(venta, cliente)
+        if (!armado.ok) { setAviso(armado.motivo); return }
+        blob = (await generateComprobanteInternoPdf(armado.datos, { descargar: false })) as Blob
+        nombre = armado.datos.archivo
+        titulo = `${armado.datos.titulo === 'REMITO' ? 'Remito' : 'Factura X'} ${armado.datos.numero ?? 'sin número'}`
+      } else {
+        const armado = armarFacturaDeVenta(venta, cliente)
+        if (!armado.ok) { setAviso(armado.motivo); return }
+        blob = (await generateFacturaArcaPdf(armado.datos)) as Blob
+        nombre = `factura-${nroFactura(venta)}.pdf`
+        titulo = `Factura ${nroFactura(venta)}`
+      }
       if (compartir) {
-        const r = await compartirArchivo(blob, nombre, {
-          titulo: `Factura ${nroFactura(venta)}`,
-          texto: `Factura ${nroFactura(venta)} — ${venta.clienteNombre}`,
-        })
+        const r = await compartirArchivo(blob, nombre, { titulo, texto: `${titulo} — ${venta.clienteNombre}` })
         if (r === 'descargado') setAviso('Este dispositivo no puede compartir archivos: se descargó.')
       } else {
         descargarArchivo(blob, nombre)
@@ -81,7 +97,7 @@ export default function VentasChofer() {
         </Link>
         <div>
           <h1 className="text-lg font-bold leading-tight">Mis ventas</h1>
-          <p className="text-xs text-white/80">Entregá la factura al cliente</p>
+          <p className="text-xs text-white/80">Entregá el comprobante al cliente</p>
         </div>
       </header>
 
@@ -144,8 +160,10 @@ export default function VentasChofer() {
                   {v.items.length > 0 && ` · ${v.items.length} ${v.items.length === 1 ? 'producto' : 'productos'}`}
                 </p>
 
-                {/* Promo no factura: no hay nada que entregar. */}
-                {v.canal === 'contado' && (
+                {/* Contado efectivo/transferencia: factura de ARCA. El resto
+                    (cuenta corriente, promo, solo cambios): remito o factura X
+                    interna, que sale en el momento. */}
+                {tipoComprobanteInterno(v) === null ? (
                   <div className="mt-3 border-t border-[#F2F1EA] pt-3">
                     {emitida ? (
                       <div className="flex flex-wrap items-center gap-2">
@@ -155,7 +173,7 @@ export default function VentasChofer() {
                         <button
                           type="button"
                           disabled={ocupada === v.id}
-                          onClick={() => entregarFactura(v, true)}
+                          onClick={() => entregarComprobante(v,true)}
                           className="flex items-center gap-1.5 rounded-lg bg-[#1D9E75] px-3 py-2 text-sm font-semibold text-white hover:bg-[#178760] disabled:opacity-50"
                         >
                           <Share2 size={15} />
@@ -165,7 +183,7 @@ export default function VentasChofer() {
                           <button
                             type="button"
                             disabled={ocupada === v.id}
-                            onClick={() => entregarFactura(v, false)}
+                            onClick={() => entregarComprobante(v,false)}
                             className="flex items-center gap-1.5 rounded-lg border border-[#D3D1C7] px-3 py-2 text-sm text-gray-700 disabled:opacity-50"
                             aria-label="Descargar la factura"
                           >
@@ -186,6 +204,35 @@ export default function VentasChofer() {
                         <FileText size={14} /> Facturando…
                       </p>
                     )}
+                  </div>
+                ) : (
+                  <div className="mt-3 border-t border-[#F2F1EA] pt-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="mr-auto font-mono text-xs text-gray-600">
+                        {tipoComprobanteInterno(v) === 'remito' ? 'Remito' : 'Factura X'}{' '}
+                        {v.comprobanteInterno ? codigoComprobanteInterno(v.comprobanteInterno) : 'sin número'}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={ocupada === v.id}
+                        onClick={() => entregarComprobante(v, true)}
+                        className="flex items-center gap-1.5 rounded-lg bg-[#1D9E75] px-3 py-2 text-sm font-semibold text-white hover:bg-[#178760] disabled:opacity-50"
+                      >
+                        <Share2 size={15} />
+                        {ocupada === v.id ? 'Generando…' : compartible ? 'Enviar' : 'Descargar'}
+                      </button>
+                      {compartible && (
+                        <button
+                          type="button"
+                          disabled={ocupada === v.id}
+                          onClick={() => entregarComprobante(v, false)}
+                          className="flex items-center gap-1.5 rounded-lg border border-[#D3D1C7] px-3 py-2 text-sm text-gray-700 disabled:opacity-50"
+                          aria-label="Descargar el comprobante"
+                        >
+                          <Download size={15} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
               </article>

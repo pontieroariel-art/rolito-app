@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   PenLine, User, Banknote, Smartphone, Wallet,
   Trash2, CheckCircle2, ShoppingCart, ChevronRight, Clock, UserPlus,
@@ -21,7 +21,12 @@ import { precioEfectivo } from '../../utils/helpers'
 import { esClienteFacturable } from '../../utils/facturable'
 import { articulosDeCambio, itemsDeCambio } from '../../utils/cambios'
 import { documentoDeVenta } from '../../utils/circuitoDocumento'
-import { FormaPago, CanalVenta, VentaCamionItem } from '../../types'
+import { tipoComprobanteInterno } from '../../utils/comprobanteInterno'
+import {
+  asegurarReserva, consumirNumero, precargarSiSeAcerca, codigoComprobanteInterno,
+} from '../../services/numeracionInternaService'
+import { useOnline } from '../../hooks/useOnline'
+import { FormaPago, CanalVenta, VentaCamionItem, ComprobanteInternoVenta, TipoComprobanteInterno } from '../../types'
 
 const CANALES: { id: CanalVenta; titulo: string; empresa: string; color: string; icon: typeof Tag }[] = [
   { id: 'contado', titulo: 'Venta Contado', empresa: 'Redonhielo', color: '#1D9E75', icon: FileText },
@@ -80,8 +85,22 @@ export default function VentaCamion() {
   const [resumenOpen, setResumenOpen] = useState(false)
   const [firmaPreview, setFirmaPreview] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
-  const [exito, setExito] = useState<{ cliente: string; total: number } | null>(null)
+  const [exito, setExito] = useState<{ cliente: string; total: number; documento: string | null } | null>(null)
   const [error, setError] = useState('')
+
+  // Numeración propia del remito / factura X (lo que sale cuando no factura
+  // ARCA). Se reserva un lote por tipo al entrar, para numerar sin señal.
+  // Opcional: sin contador inicializado la venta sale igual, sin número.
+  const online = useOnline()
+  const [numeracionActiva, setNumeracionActiva] = useState<Record<TipoComprobanteInterno, boolean>>({ remito: false, facturaX: false })
+  useEffect(() => {
+    if (!user) return
+    ;(['remito', 'facturaX'] as const).forEach((tipo) => {
+      asegurarReserva(tipo, user.uid, online).then((activa) =>
+        setNumeracionActiva((prev) => (prev[tipo] === activa ? prev : { ...prev, [tipo]: activa })),
+      )
+    })
+  }, [user, online])
 
   const cliente = useMemo(() => clientes.find((c) => c.uid === clienteId), [clientes, clienteId])
   const lista   = useMemo(() => listas.find((l) => l.id === cliente?.listaPreciosId), [listas, cliente])
@@ -155,11 +174,30 @@ export default function VentaCamion() {
     const formaPagoFinal = formaPago ?? 'contado_efectivo'
     setGuardando(true)
     try {
+      // Si la venta sale por remito o factura X (no por ARCA), toma el número
+      // de la reserva local — síncrono, sin red. Sin reserva sale sin número.
+      const tipoInterno = tipoComprobanteInterno({ canal, formaPago: formaPagoFinal, total })
+      let comprobanteInterno: ComprobanteInternoVenta | undefined
+      if (tipoInterno && numeracionActiva[tipoInterno]) {
+        try {
+          comprobanteInterno = { tipo: tipoInterno, ...consumirNumero(tipoInterno, user.uid) }
+        } catch { /* reserva agotada: sin número */ }
+      }
       crearVentaCamion(
-        { canal, cliente, items, cambios, formaPago: formaPagoFinal, firmaCliente: firmaPreview ?? undefined, firmanteNombre: firmante },
+        {
+          canal, cliente, items, cambios, formaPago: formaPagoFinal,
+          firmaCliente: firmaPreview ?? undefined, firmanteNombre: firmante, comprobanteInterno,
+        },
         { uid: user.uid, nombre: user.nombre, camionId: camionIdHoy },
       )
-      setExito({ cliente: cliente.razonSocial || cliente.nombre, total })
+      if (tipoInterno) precargarSiSeAcerca(tipoInterno, user.uid, online)
+      setExito({
+        cliente: cliente.razonSocial || cliente.nombre,
+        total,
+        documento: tipoInterno
+          ? `${tipoInterno === 'remito' ? 'Remito' : 'Factura X'} ${comprobanteInterno ? codigoComprobanteInterno(comprobanteInterno) : 'sin número'}`
+          : null,
+      })
       reset()
       setResumenOpen(false)
     } catch {
@@ -190,7 +228,9 @@ export default function VentaCamion() {
           <p className="text-gray-500 mt-1 animate-in fade-in-0 duration-500">{exito.cliente}</p>
           <p className="text-4xl font-black tabular-nums mt-4 animate-in zoom-in-95 duration-300">{money(exito.total)}</p>
           <div className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-500/10 border border-amber-500/30 rounded-full px-3 py-1.5">
-            <Clock size={13} /> Remito en camino a Tango
+            {exito.documento
+              ? <><FileText size={13} /> {exito.documento} — entregalo desde Mis ventas</>
+              : <><Clock size={13} /> Factura en camino — la ves en Mis ventas</>}
           </div>
           <Button onClick={() => { setExito(null); setCanal(null) }} className="mt-8 w-full max-w-xs">Registrar otra venta</Button>
         </main>
