@@ -86,6 +86,15 @@ describe('armarComprobanteFacturador', () => {
     expect(r.comprobante).toMatchObject({ numeroComprobante: 'B0000300000009', codigoTalonario: 21, codigoListaPrecio: 3, total: 2420, totalSinImpuestos: 2000 })
     expect(r.comprobante).not.toHaveProperty('cAE')
   })
+  it('Rolito sin IVA: el precio de la app es el importe final, IVA 0 con tasa cero', () => {
+    const promo: PayloadVenta = { ...ventaReal, canal: 'promo', factura: undefined, comprobanteInterno: { tipo: 'facturaX', puntoVenta: 1104, numero: 1 },
+      items: [{ productoId: 'bolsa_10kg', nombre: 'Hielo bolsa 10kg', cantidad: 1, precioUnitario: 1 }] }
+    const r = armarComprobanteFacturador(promo, { ...item, empresa: 'rolito' }, { ...cfg, sinIva: true, codigoTasaIva21: undefined }, { ...mapeos, letraNoFiscal: 'A' })
+    if (r.error !== undefined) throw new Error(r.error)
+    expect(r.comprobante).toMatchObject({ numeroComprobante: 'A0110400000001', total: 1, totalSinImpuestos: 1, totalIva: 0, subtotal: 1 })
+    expect((r.comprobante.items as Record<string, unknown>[])[0]).toMatchObject({ codigoTasaIva: 10, precio: 1, importe: 1, importeSinImpuestos: 1, importeIva: 0 })
+    expect(r.comprobante.pagos).toEqual([{ tipo: 'Efectivo', codigoDeCuenta: '1', monto: 1 }])
+  })
   it('errores de config claros', () => {
     expect(armarComprobanteFacturador(ventaReal, item, { ...cfg, talonarios: {} }, mapeos).error).toMatch(/talonarios\.A/)
     expect(armarComprobanteFacturador(ventaReal, item, { ...cfg, cuentas: {} }, mapeos).error).toMatch(/cuentas\.contado_efectivo/)

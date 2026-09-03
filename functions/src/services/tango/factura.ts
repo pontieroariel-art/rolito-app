@@ -24,6 +24,13 @@ export interface ConfigFacturadorEmpresa {
   contracuenta?: number | string
   vendedor?: number | string
   codigoTasaIva21?: number | string
+  /**
+   * Empresa que factura SIN IVA (Rolito / promo, decisión Ariel 2026-09-03): el
+   * precio de la app es el importe final, IVA 0, alícuota "tasa cero"
+   * (`codigoTasaIvaCero`, default 10). Redonhielo sigue con 21%.
+   */
+  sinIva?: boolean
+  codigoTasaIvaCero?: number | string
   cuentas?: Record<string, number | string>
   tipoPago?: Record<string, string>
   codigoAlicuotaPercepcionIIBB?: number | string
@@ -120,6 +127,8 @@ interface OpcionesItems {
   codigoTasaIva: number | string
   codigoDeposito?: string | null
   totales?: { neto: number; iva: number } | null
+  /** Sin IVA: el precio de la app es el importe final (base = importe, IVA 0). */
+  sinIva?: boolean
 }
 
 /**
@@ -128,10 +137,12 @@ interface OpcionesItems {
  * precio 0 (descargan stock igual).
  */
 export function itemsDeVenta(payload: PayloadVenta, opciones: OpcionesItems): { items: ItemFacturador[]; faltantes: string[]; error?: string } {
-  const { codigoArticulo, preciosIncluyenIva = false, codigoTasaIva, codigoDeposito, totales } = opciones
+  const { codigoArticulo, preciosIncluyenIva = false, codigoTasaIva, codigoDeposito, totales, sinIva = false } = opciones
   const items: (ItemFacturador & { esCambio: boolean })[] = []
   const faltantes: string[] = []
-  const factor = 1 + IVA_21 / 100
+  // Sin IVA (Rolito): el precio es final, no hay factor.
+  const factor = sinIva ? 1 : 1 + IVA_21 / 100
+  const tasa = sinIva ? 0 : IVA_21
 
   const agregar = (it: { productoId: string; nombre?: string; cantidad: number; precioUnitario?: number }, esCambio: boolean) => {
     const cantidad = Number(it.cantidad)
@@ -143,7 +154,7 @@ export function itemsDeVenta(payload: PayloadVenta, opciones: OpcionesItems): { 
     const unitario = esCambio ? 0 : Number(it.precioUnitario ?? 0)
     const bruto = cantidad * unitario
     const base  = redondear2(preciosIncluyenIva ? bruto / factor : bruto)
-    const iva   = redondear2(base * (IVA_21 / 100))
+    const iva   = redondear2(base * (tasa / 100))
     items.push({
       codigo,
       descripcion: recortar(it.nombre ?? it.productoId, 30),
@@ -229,7 +240,9 @@ export function armarComprobanteFacturador(payload: PayloadVenta, item: ItemOutb
   const formaPago = payload.formaPago ?? ''
   const cuenta = cfg.cuentas?.[formaPago]
   if (!cuenta && formaPago !== 'cuenta_corriente') return { error: `Falta config/tango.facturador.${empresa}.cuentas.${formaPago} (cuenta de tesorería)` }
-  for (const k of ['condicionVenta', 'contracuenta', 'vendedor', 'codigoTasaIva21'] as const) {
+  const sinIva = cfg.sinIva === true
+  const codigoTasaIva = sinIva ? (cfg.codigoTasaIvaCero ?? 10) : cfg.codigoTasaIva21
+  for (const k of ['condicionVenta', 'contracuenta', 'vendedor', ...(sinIva ? [] : ['codigoTasaIva21' as const])] as const) {
     if (cfg[k] === undefined || cfg[k] === null || cfg[k] === '') return { error: `Falta config/tango.facturador.${empresa}.${k}` }
   }
   const listaPrecio = typeof cfg.listaPrecio === 'object' && cfg.listaPrecio !== null
@@ -249,7 +262,7 @@ export function armarComprobanteFacturador(payload: PayloadVenta, item: ItemOutb
     : null
   const r = itemsDeVenta(payload, {
     codigoArticulo: mapeos.codigoArticulo, preciosIncluyenIva: cfg.preciosIncluyenIva === true,
-    codigoTasaIva: cfg.codigoTasaIva21 as number | string, codigoDeposito: mapeos.codigoDeposito, totales,
+    codigoTasaIva: codigoTasaIva as number | string, codigoDeposito: mapeos.codigoDeposito, totales, sinIva,
   })
   if (r.error) return { error: r.error }
   if (r.faltantes.length) return { error: `Falta el código de artículo Tango en config/tango.articulos para: ${r.faltantes.join(', ')}`, faltantes: r.faltantes }

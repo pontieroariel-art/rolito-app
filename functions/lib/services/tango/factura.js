@@ -66,10 +66,12 @@ function documentoDeVenta(payload) {
  * precio 0 (descargan stock igual).
  */
 function itemsDeVenta(payload, opciones) {
-    const { codigoArticulo, preciosIncluyenIva = false, codigoTasaIva, codigoDeposito, totales } = opciones;
+    const { codigoArticulo, preciosIncluyenIva = false, codigoTasaIva, codigoDeposito, totales, sinIva = false } = opciones;
     const items = [];
     const faltantes = [];
-    const factor = 1 + IVA_21 / 100;
+    // Sin IVA (Rolito): el precio es final, no hay factor.
+    const factor = sinIva ? 1 : 1 + IVA_21 / 100;
+    const tasa = sinIva ? 0 : IVA_21;
     const agregar = (it, esCambio) => {
         const cantidad = Number(it.cantidad);
         if (!(cantidad > 0))
@@ -85,7 +87,7 @@ function itemsDeVenta(payload, opciones) {
         const unitario = esCambio ? 0 : Number(it.precioUnitario ?? 0);
         const bruto = cantidad * unitario;
         const base = (0, exports.redondear2)(preciosIncluyenIva ? bruto / factor : bruto);
-        const iva = (0, exports.redondear2)(base * (IVA_21 / 100));
+        const iva = (0, exports.redondear2)(base * (tasa / 100));
         items.push({
             codigo,
             descripcion: recortar(it.nombre ?? it.productoId, 30),
@@ -172,7 +174,9 @@ function armarComprobanteFacturador(payload, item, cfg, mapeos) {
     const cuenta = cfg.cuentas?.[formaPago];
     if (!cuenta && formaPago !== 'cuenta_corriente')
         return { error: `Falta config/tango.facturador.${empresa}.cuentas.${formaPago} (cuenta de tesorería)` };
-    for (const k of ['condicionVenta', 'contracuenta', 'vendedor', 'codigoTasaIva21']) {
+    const sinIva = cfg.sinIva === true;
+    const codigoTasaIva = sinIva ? (cfg.codigoTasaIvaCero ?? 10) : cfg.codigoTasaIva21;
+    for (const k of ['condicionVenta', 'contracuenta', 'vendedor', ...(sinIva ? [] : ['codigoTasaIva21'])]) {
         if (cfg[k] === undefined || cfg[k] === null || cfg[k] === '')
             return { error: `Falta config/tango.facturador.${empresa}.${k}` };
     }
@@ -194,7 +198,7 @@ function armarComprobanteFacturador(payload, item, cfg, mapeos) {
         : null;
     const r = itemsDeVenta(payload, {
         codigoArticulo: mapeos.codigoArticulo, preciosIncluyenIva: cfg.preciosIncluyenIva === true,
-        codigoTasaIva: cfg.codigoTasaIva21, codigoDeposito: mapeos.codigoDeposito, totales,
+        codigoTasaIva: codigoTasaIva, codigoDeposito: mapeos.codigoDeposito, totales, sinIva,
     });
     if (r.error)
         return { error: r.error };
