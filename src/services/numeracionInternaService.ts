@@ -26,12 +26,11 @@ const COUNTER_REF = (tipo: TipoComprobanteInterno) => doc(db, 'config', `numerac
 export class NumeracionNoInicializadaError extends Error {}
 export class ReservaAgotadaError extends Error {}
 
-export interface NumeroInterno { puntoVenta: number; numero: number }
-
-/** "00002-00000015", como el resto de los comprobantes. */
-export function codigoComprobanteInterno(n: NumeroInterno): string {
-  return `${String(n.puntoVenta).padStart(5, '0')}-${String(n.numero).padStart(8, '0')}`
-}
+// La parte pura (tipo + formato del número) vive en utils/numeracionInterna
+// para que los utils que arman comprobantes no importen Firebase.
+import { NumeroInterno, codigoComprobanteInterno } from '../utils/numeracionInterna'
+export type { NumeroInterno }
+export { codigoComprobanteInterno }
 
 interface RangoLocal { from: number; to: number; puntoVenta: number }
 interface RangoActivo extends RangoLocal { usedUpTo: number }

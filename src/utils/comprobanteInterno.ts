@@ -13,7 +13,7 @@
 
 import { UserProfile, VentaCamion, TipoComprobanteInterno } from '@/types'
 import { documentoDeVenta } from './circuitoDocumento'
-import { codigoComprobanteInterno } from '@/services/numeracionInternaService'
+import { codigoComprobanteInterno } from './numeracionInterna'
 import { EMISOR_REDONHIELO, EMISOR_ROLITO, Emisor } from './emisores'
 
 const CONDICION_VENTA: Record<VentaCamion['formaPago'], string> = {
