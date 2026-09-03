@@ -147,17 +147,27 @@ export async function enviarFactura(payload: PayloadVenta, ctx: ContextoWriter):
   const condCfg = cfgEmpresa.condicionVenta
   const condContado = (typeof condCfg === 'object' && condCfg !== null ? condCfg.contado : condCfg) ?? 1
   let condCtaCte: number | string | undefined = typeof condCfg === 'object' && condCfg !== null ? condCfg.cuenta_corriente : undefined
-  if (payload.formaPago === 'cuenta_corriente') {
+  const esPromo = !(payload.factura && payload.factura.estado === 'emitida')
+  let letraNoFiscal: 'A' | 'B' | undefined
+
+  // Ficha del cliente en Tango: la condición de venta pactada (cta. cte.) y
+  // la categoría de IVA (promo → letra A si es Responsable Inscripto, B si no).
+  if (payload.formaPago === 'cuenta_corriente' || esPromo) {
     const idGva14 = Number(payload.clienteIdGva14Tango)
     if (!Number.isInteger(idGva14) || idGva14 <= 0) return { ok: false, error: `La venta no trae clienteIdGva14Tango (cliente ${payload.clienteId} sin vincular a Tango)` }
     try {
       const ficha = await tango.getById(company, PROCESOS.clientes, idGva14)
       const cond = prop(ficha, 'COND_VTA')
       if (cond !== undefined && cond !== null && cond !== '') condCtaCte = cond as number | string
+      const catIva = Number(prop(ficha, 'ID_CATEGORIA_IVA'))
+      if (Number.isInteger(catIva) && catIva > 0) letraNoFiscal = catIva === 1 ? 'A' : 'B'   // 1 = Responsable Inscripto
     } catch (e) {
-      log(`aviso: no se pudo leer la condición de venta del cliente ${idGva14} (${(e as Error).message})`)
+      log(`aviso: no se pudo leer la ficha del cliente ${idGva14} en Tango (${(e as Error).message})`)
     }
-    if (condCtaCte === undefined) return { ok: false, error: `El cliente ${payload.clienteNombre ?? idGva14} no tiene condición de venta en Tango y no hay config/tango.facturador.${empresa}.condicionVenta.cuenta_corriente` }
+    if (payload.formaPago === 'cuenta_corriente' && condCtaCte === undefined) {
+      return { ok: false, error: `El cliente ${payload.clienteNombre ?? idGva14} no tiene condición de venta en Tango y no hay config/tango.facturador.${empresa}.condicionVenta.cuenta_corriente` }
+    }
+    if (esPromo && !letraNoFiscal) return { ok: false, error: `No se pudo leer la categoría de IVA del cliente ${payload.clienteNombre ?? idGva14} en Tango (define si la factura X entra como A o B)` }
   }
 
   const armado = armarComprobanteFacturador(payload, item, {
@@ -168,6 +178,7 @@ export async function enviarFactura(payload: PayloadVenta, ctx: ContextoWriter):
     codigoArticulo: (id) => articulos[id] ?? null,
     codigoDeposito: codDeposito,
     etiquetaCamion: `${codDeposito} ${cfg.camiones?.[payload.choferId ?? ''] ?? ''}`.trim(),
+    letraNoFiscal,
   })
   if (armado.error !== undefined) return { ok: false, error: armado.error }
   if (item.conCaePropio === true && !armado.comprobante.cAE) {

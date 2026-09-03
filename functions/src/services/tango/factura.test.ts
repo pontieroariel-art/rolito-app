@@ -78,9 +78,12 @@ describe('armarComprobanteFacturador', () => {
   it('factura X de promo sin CAE con totales derivados', () => {
     const promo: PayloadVenta = { ...ventaReal, canal: 'promo', factura: undefined, comprobanteInterno: { tipo: 'facturaX', puntoVenta: 3, numero: 9 },
       items: [{ productoId: 'barra', nombre: 'Barra', cantidad: 2, precioUnitario: 1000 }] }
-    const r = armarComprobanteFacturador(promo, { ...item, empresa: 'rolito' }, cfg, mapeos)
+    // Tango no tiene factura X: entra con la letra según la categoría de IVA del cliente.
+    expect(armarComprobanteFacturador(promo, { ...item, empresa: 'rolito' }, cfg, mapeos).error).toMatch(/letra/)
+    const r = armarComprobanteFacturador(promo, { ...item, empresa: 'rolito' }, cfg, { ...mapeos, letraNoFiscal: 'B' })
     if (r.error !== undefined) throw new Error(r.error)
-    expect(r.comprobante).toMatchObject({ numeroComprobante: 'X0000300000009', codigoTalonario: 30, codigoListaPrecio: 3, total: 2420, totalSinImpuestos: 2000 })
+    expect(r.fiscal).toBe(false)
+    expect(r.comprobante).toMatchObject({ numeroComprobante: 'B0000300000009', codigoTalonario: 21, codigoListaPrecio: 3, total: 2420, totalSinImpuestos: 2000 })
     expect(r.comprobante).not.toHaveProperty('cAE')
   })
   it('errores de config claros', () => {

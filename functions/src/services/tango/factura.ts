@@ -37,6 +37,13 @@ export interface MapeosFactura {
   codigoArticulo: (productoId: string) => string | null
   codigoDeposito?: string | null
   etiquetaCamion?: string
+  /**
+   * Letra con la que Tango registra la factura X de promo (Tango no tiene
+   * letra X para facturas): 'A' si el cliente es Responsable Inscripto, 'B'
+   * si no — decisión de Ariel 2026-09-03 (opción "factura manual en Rolito").
+   * El papel del cliente sigue siendo la factura X de la app.
+   */
+  letraNoFiscal?: 'A' | 'B'
 }
 
 /** 'AAAAMMDD' (formato ARCA) → 'yyyy-mm-dd'. Acepta también yyyy-mm-dd o Date. */
@@ -207,9 +214,12 @@ export type ArmadoFactura =
 
 /** Arma el comprobante completo para el Facturador. */
 export function armarComprobanteFacturador(payload: PayloadVenta, item: ItemOutbox, cfg: ConfigFacturadorEmpresa, mapeos: MapeosFactura): ArmadoFactura {
-  const docu = documentoDeVenta(payload)
-  if (!docu) return { error: 'La venta no tiene factura de ARCA emitida ni factura X interna: nada que registrar' }
-  if ('error' in docu) return { error: docu.error }
+  const docu0 = documentoDeVenta(payload)
+  if (!docu0) return { error: 'La venta no tiene factura de ARCA emitida ni factura X interna: nada que registrar' }
+  if ('error' in docu0) return { error: docu0.error }
+  // La factura X de la app entra en Tango con letra A/B (no existe X para facturas).
+  if (!docu0.fiscal && !mapeos.letraNoFiscal) return { error: 'Falta la letra (A/B) con la que Tango registra la factura X de promo (categoría de IVA del cliente)' }
+  const docu = docu0.fiscal ? docu0 : { ...docu0, letra: mapeos.letraNoFiscal as string }
 
   const empresa = item.empresa ?? '?'
   const talonario = cfg.talonarios?.[docu.letra]

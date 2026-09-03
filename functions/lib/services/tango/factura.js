@@ -152,11 +152,15 @@ function percepcionesPorItem(items, tributos, cfg) {
 }
 /** Arma el comprobante completo para el Facturador. */
 function armarComprobanteFacturador(payload, item, cfg, mapeos) {
-    const docu = documentoDeVenta(payload);
-    if (!docu)
+    const docu0 = documentoDeVenta(payload);
+    if (!docu0)
         return { error: 'La venta no tiene factura de ARCA emitida ni factura X interna: nada que registrar' };
-    if ('error' in docu)
-        return { error: docu.error };
+    if ('error' in docu0)
+        return { error: docu0.error };
+    // La factura X de la app entra en Tango con letra A/B (no existe X para facturas).
+    if (!docu0.fiscal && !mapeos.letraNoFiscal)
+        return { error: 'Falta la letra (A/B) con la que Tango registra la factura X de promo (categoría de IVA del cliente)' };
+    const docu = docu0.fiscal ? docu0 : { ...docu0, letra: mapeos.letraNoFiscal };
     const empresa = item.empresa ?? '?';
     const talonario = cfg.talonarios?.[docu.letra];
     if (!talonario)
