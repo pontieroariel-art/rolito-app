@@ -134,11 +134,12 @@ console.log('\n== facturador (config/tango.facturador.<empresa>) — facturasEna
 for (const empresa of ['redonhielo', 'rolito']) {
   const f = tango.facturador?.[empresa]
   if (!f) { console.log(`  ✗ ${empresa}: sin configurar`); faltas.push(`facturador.${empresa}`); continue }
-  const req = ['condicionVenta', 'listaPrecio', 'contracuenta', 'vendedor', 'codigoTasaIva21']
+  // listaPrecio y vendedor salen de la ficha del cliente / del chofer (config/tango.vendedores);
+  // la cuenta de transferencia queda vacía a propósito (nunca cobran por transferencia en la app).
+  const req = ['condicionVenta', 'contracuenta', 'codigoTasaIva21']
   const faltan = req.filter((k) => f[k] === undefined || f[k] === null || f[k] === '')
   if (!f.talonarios || !Object.keys(f.talonarios).length) faltan.push('talonarios')
   if (!f.cuentas?.contado_efectivo) faltan.push('cuentas.contado_efectivo')
-  if (!f.cuentas?.contado_transferencia) faltan.push('cuentas.contado_transferencia')
   if (empresa === 'redonhielo' && !f.codigoAlicuotaPercepcionIIBB) faltan.push('codigoAlicuotaPercepcionIIBB')
   console.log(`  ${faltan.length ? '✗' : '✓'} ${empresa}: ${JSON.stringify(f)}${faltan.length ? `\n      faltan: ${faltan.join(', ')}` : ''}`)
   if (faltan.length) faltas.push(`facturador.${empresa} (${faltan.join(', ')})`)
