@@ -14,6 +14,7 @@ import {
   Timestamp,
 } from 'firebase/firestore'
 import { db } from './firebase'
+import { onSnapshotError } from './observability'
 import { ProgramaVisita, VisitaPuntual } from '../types'
 
 const PROGRAMAS = 'programas-visita'
@@ -27,7 +28,7 @@ export const subscribeProgramas = (
   onSnapshot(
     query(collection(db, PROGRAMAS), orderBy('clientName')),
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as ProgramaVisita))),
-    () => callback([]),
+    onSnapshotError(callback, 'programas-visita'),
   )
 
 export const addPrograma = (
@@ -60,7 +61,7 @@ export const subscribeVisitasPuntuales = (
       limit(500),
     ),
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as VisitaPuntual))),
-    () => callback([]),
+    onSnapshotError(callback, 'visitas-puntuales'),
   )
 }
 

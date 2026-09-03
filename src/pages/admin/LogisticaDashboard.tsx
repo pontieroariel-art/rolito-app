@@ -22,6 +22,7 @@ import { moveOrderDate, moveOrderToBandeja, assignDriver } from '../../services/
 import { summarizeProducts, tsToDate, getCodigoCliente, buildCodigoByClientId, toDateStr as dateToStr } from '../../utils/helpers'
 import { resolveClientDisplay } from '../../utils/constants'
 import { Order, UserProfile } from '../../types'
+import { reportError } from '@/services/observability'
 
 // Lazy: cargan pdfjs-dist (448K) y xlsx (484K) respectivamente — pesan casi
 // 1MB entre las dos y son de uso puntual ("Importar"), no tiene sentido que
@@ -103,7 +104,7 @@ function OrderQuickView({ order, choferes, codigoCliente, columns, onClose, onEd
     try {
       await assignDriver(order.id, email)
     } catch (err) {
-      console.error(err)
+      reportError(err, { origen: 'LogisticaDashboard' })
     } finally {
       setLoadingDriver(null)
       setAssigning(false)
@@ -119,7 +120,7 @@ function OrderQuickView({ order, choferes, codigoCliente, columns, onClose, onEd
       else await moveOrderDate(order.id, targetCol)
       onClose()
     } catch (err) {
-      console.error(err)
+      reportError(err, { origen: 'LogisticaDashboard' })
     } finally {
       setMovingTo(null)
     }
@@ -670,7 +671,7 @@ export default function LogisticaDashboard() {
       }
     } catch (err) {
       // Si el write falla la tarjeta vuelve sola a su columna (onSnapshot manda).
-      console.error(err)
+      reportError(err, { origen: 'LogisticaDashboard' })
     }
   }, [orders, dayIds])
 

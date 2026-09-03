@@ -25,6 +25,7 @@ import { ImportarClientesModal } from './user-management/ImportarClientesModal'
 import { SucursalClienteRow } from './user-management/SucursalClienteRow'
 import { UserRow } from './user-management/UserRow'
 import { FichaClienteModal } from './user-management/FichaClienteModal'
+import { reportError } from '@/services/observability'
 
 const PAGE_SIZE = 50
 
@@ -161,7 +162,7 @@ export default function UserManagement() {
         accion:    'rol_cambiado',
         detalle:   `${anterior.nombreContacto || anterior.nombre} — ${ROLE_LABELS[anterior.rol]} → ${ROLE_LABELS[rol]}`,
         actor:     { uid: currentUser.uid, nombre: currentUser.nombre, rol: currentUser.rol },
-      }).catch((err) => console.error('[historialAdmin] no se pudo registrar rol_cambiado:', err))
+      }).catch((err) => reportError(err, { origen: 'UserManagement', accion: 'no se pudo registrar rol_cambiado' }))
     }
   }
 
@@ -184,7 +185,7 @@ export default function UserManagement() {
         accion:    'usuario_desactivado',
         detalle:   `${u.nombreContacto || u.nombre} (${ROLE_LABELS[u.rol]})`,
         actor:     { uid: currentUser.uid, nombre: currentUser.nombre, rol: currentUser.rol },
-      }).catch((err) => console.error('[historialAdmin] no se pudo registrar usuario_desactivado:', err))
+      }).catch((err) => reportError(err, { origen: 'UserManagement', accion: 'no se pudo registrar usuario_desactivado' }))
     }
   }
 

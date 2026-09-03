@@ -13,6 +13,7 @@ import {
   runTransaction,
 } from 'firebase/firestore'
 import { db } from './firebase'
+import { onSnapshotError } from './observability'
 import { AsignacionHeladera, Heladera, TipoOperacionIngreso } from '../types'
 import { CatalogoPasos, primerPasoActivo } from '../utils/heladeraPipeline'
 import { PipelineSinPasosError } from './heladeraService'
@@ -51,7 +52,7 @@ export const subscribeAsignacionesPorHeladera = (
   onSnapshot(
     query(collection(db, ASIGNACIONES), where('heladeraId', '==', heladeraId), orderBy('fecha', 'desc'), limit(50)),
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as AsignacionHeladera))),
-    () => callback([]),
+    onSnapshotError(callback, 'asignacionesHeladera'),
   )
 
 export const subscribeAsignacionesPorCliente = (
@@ -61,7 +62,7 @@ export const subscribeAsignacionesPorCliente = (
   onSnapshot(
     query(collection(db, ASIGNACIONES), where('clientId', '==', clientId), orderBy('fecha', 'desc'), limit(50)),
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as AsignacionHeladera))),
-    () => callback([]),
+    onSnapshotError(callback, 'asignacionesHeladera'),
   )
 
 // Asigna una heladera 'disponible' a un cliente: pasa a 'en_comodato', y

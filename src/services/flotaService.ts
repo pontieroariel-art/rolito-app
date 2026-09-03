@@ -11,6 +11,7 @@ import {
   FieldValue,
 } from 'firebase/firestore'
 import { db } from './firebase'
+import { onSnapshotError } from './observability'
 import { Camion, CanalCamion } from '../types'
 
 const FLOTA = 'flota'
@@ -22,7 +23,7 @@ export const subscribeCamiones = (
     query(collection(db, FLOTA), orderBy('patente'), limit(500)),
     (snap) =>
       callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Camion))),
-    () => callback([]),
+    onSnapshotError(callback, 'flota'),
   )
 
 export const addCamion = (data: {

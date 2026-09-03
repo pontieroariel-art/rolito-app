@@ -19,6 +19,7 @@ import { registrarAccionRutina } from '../../services/historialAdminService'
 import { generateListadoPdf } from '../../utils/pdf'
 import { PanolArticulo, PanolMovimientoArticulo } from '../../types'
 import { tsToDate } from '../../utils/helpers'
+import { reportError } from '@/services/observability'
 
 // ── Alta de artículo ─────────────────────────────────────────────────────────
 
@@ -46,7 +47,7 @@ function NuevoArticuloModal({ onClose }: { onClose: () => void }) {
         registrarAccionRutina({
           coleccion: 'panolArticulos', docId: codigoBarras.trim(), accion: 'creado', detalle: nombre.trim(),
           actor: { uid: currentUser.uid, nombre: currentUser.nombre, rol: currentUser.rol },
-        }).catch((err) => console.error('[historialAdmin] no se pudo registrar alta de artículo:', err))
+        }).catch((err) => reportError(err, { origen: 'PanolPage', accion: 'no se pudo registrar alta de artículo' }))
       }
       onClose()
     } catch {

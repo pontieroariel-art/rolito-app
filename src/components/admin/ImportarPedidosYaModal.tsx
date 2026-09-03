@@ -8,6 +8,7 @@ import { getUserDocument } from '../../services/userService'
 import { DELIVERY_HERO_CLIENT_ID } from '../../utils/constants'
 import { normalizeAddress, toDateStr } from '../../utils/helpers'
 import { DeliveryAddress, Order, UserProfile } from '../../types'
+import { reportError } from '@/services/observability'
 
 // Producto fijo: los pedidos de Pedidos Ya siempre son de este producto —
 // la planilla que baja el administrativo no trae columna de producto.
@@ -143,7 +144,7 @@ export default function ImportarPedidosYaModal({ open, onClose }: Props) {
       setRows(withBatchDuplicates(parsed.map((r) => buildReviewRow(r, cliente, existingOrders))))
       setStep('preview')
     } catch (err) {
-      console.error(err)
+      reportError(err, { origen: 'ImportarPedidosYaModal' })
       setLoadError('No se pudo leer el archivo. Verificá que sea un Excel válido (.xlsx).')
     }
     setLoading(false)

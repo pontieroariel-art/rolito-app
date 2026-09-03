@@ -16,6 +16,7 @@ import { precioEfectivo } from '../../utils/helpers'
 import {
   CanalVenta, FormaPago, PLANTAS, VentaCamionItem, VentaVentanilla,
 } from '../../types'
+import { reportError } from '@/services/observability'
 
 const money = (n: number) => `$${n.toLocaleString('es-AR')}`
 
@@ -103,7 +104,7 @@ export default function VentanillaPage() {
         qrDataUrl,
       })
     } catch (err) {
-      console.error('[ventanilla] error al generar el PDF:', err)
+      reportError(err, { origen: 'VentanillaPage', accion: 'error al generar el PDF' })
     }
   }
 
@@ -134,7 +135,7 @@ export default function VentanillaPage() {
       setFormaPago(null)
       imprimir(venta)
     } catch (err) {
-      console.error('[ventanilla] error al crear la venta:', err)
+      reportError(err, { origen: 'VentanillaPage', accion: 'error al crear la venta' })
       setError('No se pudo registrar la venta. Revisá la conexión e intentá de nuevo.')
       setConfirmando(false)
     } finally {

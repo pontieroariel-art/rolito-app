@@ -10,6 +10,7 @@ import { ALL_ROLES, ROLE_LABELS, STATUS_STYLES, STATUS_LABELS } from './shared'
 import { FichaClienteModal } from './FichaClienteModal'
 import { PreciosCustomModal } from './PreciosCustomModal'
 import { PermisosUsuarioModal } from './PermisosUsuarioModal'
+import { reportError } from '@/services/observability'
 
 export interface UserRowProps {
   user:                UserProfile
@@ -57,7 +58,7 @@ export function UserRow({ user, currentUser, listas, onRoleChange, onSubrolChang
         listaNuevaNombre:    newLista?.nombre ?? null,
         modificadoPor:       currentUser.email,
         modificadoPorNombre: currentUser.nombreContacto || currentUser.nombre || currentUser.email,
-      }).catch(console.error)
+      }).catch((err) => reportError(err, { origen: 'UserRow' }))
     }
   }
 

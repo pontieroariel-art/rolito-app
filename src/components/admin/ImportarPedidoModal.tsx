@@ -10,6 +10,7 @@ import { useSucursales, SucursalItem } from '../../hooks/useSucursales'
 import { getPrimaryAddress, Order } from '../../types'
 import { formatShortDate, isSucursalCode, normalizeAddress, todayString as todayStr, addDaysStr } from '../../utils/helpers'
 import { STATUS_LABELS } from '../../utils/constants'
+import { reportError } from '@/services/observability'
 
 interface Props {
   open:    boolean
@@ -148,7 +149,7 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
       setProducts(result?.products ?? [])
       setStep('review')
     } catch (err) {
-      console.error(err)
+      reportError(err, { origen: 'ImportarPedidoModal' })
       setError('Error al procesar el PDF. Intentá con otro archivo.')
     }
     setLoading(false)
@@ -207,7 +208,7 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
         }
         handleClose()
       } catch (err) {
-        console.error(err)
+        reportError(err, { origen: 'ImportarPedidoModal' })
         setError(`Se crearon ${ok} de ${total} pedidos. Las fechas creadas ya se sacaron de la selección — reintentá para el resto.`)
         setSaving(false)
         setProgressLabel('')
@@ -231,7 +232,7 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
       await createOrderExterno({ ...baseParams, date: deliveryDate })
       handleClose()
     } catch (err) {
-      console.error(err)
+      reportError(err, { origen: 'ImportarPedidoModal' })
       setError('Error al guardar el pedido')
     }
     setSaving(false)

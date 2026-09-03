@@ -1,5 +1,6 @@
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { db } from './firebase'
+import { reportError } from './observability'
 import { MotivoIngreso } from '../types'
 
 const motivosIngresoRef = () => doc(db, 'config', 'motivosIngreso')
@@ -20,7 +21,8 @@ export const getMotivosIngreso = async (): Promise<MotivoIngreso[]> => {
     if (snap.exists()) return (snap.data().items as MotivoIngreso[]) ?? []
     await setDoc(motivosIngresoRef(), { items: DEFAULTS })
     return DEFAULTS
-  } catch {
+  } catch (err) {
+    reportError(err, { config: 'motivosIngreso' })
     return []
   }
 }

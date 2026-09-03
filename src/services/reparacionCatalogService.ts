@@ -1,5 +1,6 @@
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { db } from './firebase'
+import { reportError } from './observability'
 import { MotivoReparacion, TipoReparacion } from '../types'
 
 const motivosRef = () => doc(db, 'config', 'motivosReparacion')
@@ -11,7 +12,8 @@ export const getMotivosReparacion = async (): Promise<MotivoReparacion[]> => {
     if (snap.exists()) return (snap.data().items as MotivoReparacion[]) ?? []
     await setDoc(motivosRef(), { items: [] })
     return []
-  } catch {
+  } catch (err) {
+    reportError(err, { config: 'motivosReparacion' })
     return []
   }
 }
@@ -25,7 +27,8 @@ export const getTiposReparacion = async (): Promise<TipoReparacion[]> => {
     if (snap.exists()) return (snap.data().items as TipoReparacion[]) ?? []
     await setDoc(tiposRef(), { items: [] })
     return []
-  } catch {
+  } catch (err) {
+    reportError(err, { config: 'tiposReparacion' })
     return []
   }
 }

@@ -8,6 +8,7 @@ import { registrarAccionAlto } from '../../../services/historialAdminService'
 import { AREAS_HELADERA, AreaHeladera, PLANTAS, PlantaId, UserRole } from '../../../types'
 import { AREA_HELADERA_LABELS as AREA_LABELS } from '../../../utils/heladeraLabels'
 import { ROLE_LABELS, STAFF_ROLES } from './shared'
+import { reportError } from '@/services/observability'
 
 export function CrearStaffModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const { user: currentUser } = useAuth()
@@ -46,7 +47,7 @@ export function CrearStaffModal({ onClose, onCreated }: { onClose: () => void; o
             accion:    'usuario_creado',
             detalle:   `${nombre} — ${ROLE_LABELS[rol]}`,
             actor:     { uid: currentUser.uid, nombre: currentUser.nombre, rol: currentUser.rol },
-          }).catch((err) => console.error('[historialAdmin] no se pudo registrar usuario_creado:', err))
+          }).catch((err) => reportError(err, { origen: 'CrearStaffModal', accion: 'no se pudo registrar usuario_creado' }))
         }
       }
       onCreated()

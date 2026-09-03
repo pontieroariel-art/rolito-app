@@ -16,6 +16,7 @@ import { useDiaActual, useFechaDelDia } from '../../hooks/useDiaActual'
 import {
   CambioCamion, Cobranza, DescargaCamion, Liquidacion, PLANTAS, RemitoCarga, VentaCamion,
 } from '../../types'
+import { reportError } from '@/services/observability'
 
 const money = (n: number) => `$${n.toLocaleString('es-AR')}`
 
@@ -90,7 +91,7 @@ export default function LiquidacionesPage() {
   const recibido = parseInt(efectivoRecibido.replace(/\D/g, ''), 10) || 0
 
   const imprimir = (liq: Liquidacion) =>
-    generateLiquidacion(liq).catch((err) => console.error('[liquidacion] error al generar el PDF:', err))
+    generateLiquidacion(liq).catch((err) => reportError(err, { origen: 'LiquidacionesPage', accion: 'error al generar el PDF' }))
 
   const cerrar = async () => {
     if (!user || !choferId) return
@@ -104,7 +105,7 @@ export default function LiquidacionesPage() {
       setConfirmando(false)
       imprimir(liq)
     } catch (err) {
-      console.error('[liquidacion] error al cerrar:', err)
+      reportError(err, { origen: 'LiquidacionesPage', accion: 'error al cerrar' })
       setError('No se pudo cerrar la liquidación. ¿Ya estaba cerrada? Revisá e intentá de nuevo.')
       setConfirmando(false)
     } finally {

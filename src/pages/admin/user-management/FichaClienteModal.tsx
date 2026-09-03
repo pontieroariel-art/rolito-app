@@ -11,6 +11,7 @@ import { CONDICIONES_VENTA } from '../../../utils/constants'
 import { STATUS_STYLES, STATUS_LABELS, Row } from './shared'
 import { GestionarDomiciliosModal } from './GestionarDomiciliosModal'
 import { HistorialPreciosSection } from './HistorialPreciosSection'
+import { reportError } from '@/services/observability'
 
 const FRECUENCIA_LABELS: Record<string, string> = {
   semanal:   'Semanal',
@@ -76,7 +77,7 @@ export function FichaClienteModal({
         codigoCliente: codigoCliente.trim() || deleteField(),
       })
     } catch (err) {
-      console.error(err)
+      reportError(err, { origen: 'FichaClienteModal' })
     } finally {
       setSavingCodigo(false)
     }
@@ -88,7 +89,7 @@ export function FichaClienteModal({
     try {
       await updateUserDocument(user.uid, { condicionVenta: val || deleteField() })
     } catch (err) {
-      console.error(err)
+      reportError(err, { origen: 'FichaClienteModal' })
     } finally {
       setSavingCondicionVenta(false)
     }
@@ -110,7 +111,7 @@ export function FichaClienteModal({
       await updateUserDocument(user.uid, update as any)
       onVisitaChanged?.(checked, checked ? frecuenciaVisita : undefined)
     } catch (err) {
-      console.error(err)
+      reportError(err, { origen: 'FichaClienteModal' })
       setEsVisita(!checked)
     } finally {
       setSavingVisita(false)

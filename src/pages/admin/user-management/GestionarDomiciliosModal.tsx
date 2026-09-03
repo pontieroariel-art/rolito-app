@@ -6,6 +6,7 @@ import Modal from '../../../components/ui/Modal'
 import { updateUserDocument } from '../../../services/userService'
 import { isSucursalCode, normalizeAddress } from '../../../utils/helpers'
 import { UserProfile, DeliveryAddress } from '../../../types'
+import { reportError } from '@/services/observability'
 
 export function GestionarDomiciliosModal({
   user,
@@ -52,7 +53,7 @@ export function GestionarDomiciliosModal({
       setAddresses(updated)
       onAddressesChanged?.(updated)
     } catch (err) {
-      console.error('GestionarDomiciliosModal save error:', err)
+      reportError(err, { origen: 'GestionarDomiciliosModal', accion: 'GestionarDomiciliosModal save error' })
       setSaveError('Error al guardar. Intentá de nuevo.')
     } finally {
       setSaving(false)

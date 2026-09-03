@@ -2,8 +2,23 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
+import { execSync } from 'child_process'
+
+// Identificador del build para Sentry (`release`): sin esto, un error en
+// producción no dice de qué versión vino y no se puede saber si un fix ya lo
+// tapó. En CI usa el SHA del commit que deploya (GITHUB_SHA); en local, el HEAD
+// de git; si no hay git, 'local'.
+function resolveRelease(): string {
+  const sha = process.env.GITHUB_SHA
+  if (sha) return sha.slice(0, 7)
+  try { return execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() }
+  catch { return 'local' }
+}
 
 export default defineConfig({
+  define: {
+    __APP_RELEASE__: JSON.stringify(resolveRelease()),
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

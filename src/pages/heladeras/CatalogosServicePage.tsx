@@ -15,6 +15,7 @@ import {
   TipoOperacionIngreso, TipoPipelineHeladera, TipoReparacion,
 } from '../../types'
 import { AREA_HELADERA_LABELS, SECTORES_REPARACION, TIPO_OPERACION_LABELS, TIPO_PIPELINE_LABELS } from '../../utils/heladeraLabels'
+import { reportError } from '@/services/observability'
 
 function nuevoId(nombre: string) {
   return `${nombre.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')}_${Date.now()}`
@@ -543,7 +544,7 @@ export default function CatalogosServicePage() {
     registrarAccionRutina({
       coleccion, docId: coleccion, accion: 'modificado', detalle,
       actor: { uid: user.uid, nombre: user.nombre, rol: user.rol } as ActorAdmin,
-    }).catch((err) => console.error('[historialAdmin] no se pudo registrar cambio de catálogo:', err))
+    }).catch((err) => reportError(err, { origen: 'CatalogosServicePage', accion: 'no se pudo registrar cambio de catálogo' }))
   }
 
   if (loadingMotivos || loadingTipos || loadingMotivosIngreso || loadingPasos) return <LoadingSpinner fullScreen />

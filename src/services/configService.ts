@@ -7,6 +7,7 @@ import {
   arrayRemove,
 } from 'firebase/firestore'
 import { db } from './firebase'
+import { reportError } from './observability'
 
 // ── Emails de notificación (admin) ────────────────────────────────────────────
 
@@ -19,7 +20,7 @@ export const getNotificationEmails = async (): Promise<string[]> => {
     await setDoc(notifRef(), { emails: [] })
     return []
   } catch (err) {
-    console.error('[configService] getNotificationEmails:', err)
+    reportError(err, { servicio: 'configService', op: 'getNotificationEmails' })
     return []
   }
 }

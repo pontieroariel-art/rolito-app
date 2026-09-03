@@ -7,6 +7,7 @@ import { editOrderBy } from '@/services/orderService'
 import { tsToDate } from '@/utils/helpers'
 import { PRODUCTS } from '@/utils/constants'
 import { Order, OrderProduct, AccionHistorial } from '@/types'
+import { reportError } from '@/services/observability'
 
 export default function EditOrderModal({ order, onClose, onSaved }: { order: Order; onClose: () => void; onSaved: () => void }) {
   const { user } = useAuth()
@@ -51,7 +52,7 @@ export default function EditOrderModal({ order, onClose, onSaved }: { order: Ord
       onSaved()
       onClose()
     } catch (err) {
-      console.error(err)
+      reportError(err, { origen: 'EditOrderModal' })
       setError('No se pudieron guardar los cambios. Verificá tu conexión y permisos e intentá de nuevo.')
     } finally {
       setSaving(false)

@@ -3,6 +3,7 @@ import Modal from '@/components/ui/Modal'
 import { useAuth } from '@/context/AuthContext'
 import { cancelOrderBy } from '@/services/orderService'
 import { Order } from '@/types'
+import { reportError } from '@/services/observability'
 
 export default function CancelOrderModal({ order, onClose, onCancelled }: { order: Order; onClose: () => void; onCancelled: () => void }) {
   const { user }   = useAuth()
@@ -20,7 +21,7 @@ export default function CancelOrderModal({ order, onClose, onCancelled }: { orde
       onCancelled()
       onClose()
     } catch (err) {
-      console.error(err)
+      reportError(err, { origen: 'CancelOrderModal' })
       setError('No se pudo cancelar el pedido. Verificá tu conexión y permisos e intentá de nuevo.')
     } finally {
       setSaving(false)

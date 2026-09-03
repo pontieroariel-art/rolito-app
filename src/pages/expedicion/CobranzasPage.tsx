@@ -12,6 +12,7 @@ import {
 } from '../../services/expedicionDeviceService'
 import { generateReciboCobranza } from '../../utils/pdf'
 import { Cobranza, PLANTAS } from '../../types'
+import { reportError } from '@/services/observability'
 
 const money = (n: number) => `$${n.toLocaleString('es-AR')}`
 
@@ -63,7 +64,7 @@ export default function CobranzasPage() {
       referencia:    c.referencia,
       registradoPor: c.registradoPor.nombre,
       fecha:         c.fecha.toDate(),
-    }).catch((err) => console.error('[cobranzas] error al generar el recibo:', err))
+    }).catch((err) => reportError(err, { origen: 'CobranzasPage', accion: 'error al generar el recibo' }))
 
   const confirmar = async () => {
     if (!user || !cliente || !formaPago) return
@@ -87,7 +88,7 @@ export default function CobranzasPage() {
       setReferencia('')
       imprimir(cobranza)
     } catch (err) {
-      console.error('[cobranzas] error al registrar:', err)
+      reportError(err, { origen: 'CobranzasPage', accion: 'error al registrar' })
       setError('No se pudo registrar la cobranza. Revisá la conexión e intentá de nuevo.')
       setConfirmando(false)
     } finally {

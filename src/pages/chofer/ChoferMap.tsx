@@ -22,6 +22,7 @@ import { summarizeProducts } from '../../utils/helpers'
 import { generateHojaDeRuta } from '../../utils/pdf'
 import type { Despacho, Order } from '../../types'
 import { PLANTAS } from '../../types'
+import { reportError } from '@/services/observability'
 
 const BA_CENTER = { lat: -34.6037, lng: -58.3816 }
 
@@ -271,7 +272,7 @@ export default function ChoferMap() {
       Promise.resolve().then(() => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
         if (locationGenRef.current === gen) {
-          deactivateDriverLocation(email).catch(console.error)
+          deactivateDriverLocation(email).catch((err) => reportError(err, { origen: 'ChoferMap' }))
         }
       })
     }

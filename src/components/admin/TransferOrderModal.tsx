@@ -5,6 +5,7 @@ import Modal from '../ui/Modal'
 import { Camion, UserProfile } from '../../types'
 import { DayItem } from '../../hooks/useDespachoBoard'
 import { choferColor } from '../../utils/choferColor'
+import { reportError } from '@/services/observability'
 
 export default function TransferOrderModal({ fromDriver, fromDriverName, fromCamionLabel, items, destinos, onClose, onTransfer }: {
   fromDriver:      string
@@ -40,7 +41,7 @@ export default function TransferOrderModal({ fromDriver, fromDriverName, fromCam
       // Antes, si esto fallaba, el modal quedaba trabado para siempre (el
       // "Cancelar" se deshabilita mientras loading es true, y loading nunca
       // volvía a false porque no había catch/finally).
-      console.error(err)
+      reportError(err, { origen: 'TransferOrderModal' })
       setError('No se pudo transferir. Revisá tu conexión e intentá de nuevo.')
     } finally {
       setLoading(false)

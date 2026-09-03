@@ -13,6 +13,7 @@ import {
   updateDoc,
 } from 'firebase/firestore'
 import { db } from './firebase'
+import { onSnapshotError } from './observability'
 import { getPushSubscription } from './userService'
 import { sendPush } from './notificationService'
 import { textoTrabajos } from '../utils/heladeraPipeline'
@@ -44,7 +45,7 @@ export const subscribeTicketsRecientes = (
   onSnapshot(
     query(collection(db, TICKETS), orderBy('createdAt', 'desc'), limit(300)),
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as TicketServicio))),
-    () => callback([]),
+    onSnapshotError(callback, 'ticketsServicio'),
   )
 
 export const subscribeTicketsPorHeladera = (
@@ -54,7 +55,7 @@ export const subscribeTicketsPorHeladera = (
   onSnapshot(
     query(collection(db, TICKETS), where('heladeraId', '==', heladeraId), orderBy('createdAt', 'desc'), limit(50)),
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as TicketServicio))),
-    () => callback([]),
+    onSnapshotError(callback, 'ticketsServicio'),
   )
 
 export const subscribeTicketsPorCliente = (
@@ -64,7 +65,7 @@ export const subscribeTicketsPorCliente = (
   onSnapshot(
     query(collection(db, TICKETS), where('clientId', '==', clientId), orderBy('createdAt', 'desc'), limit(50)),
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as TicketServicio))),
-    () => callback([]),
+    onSnapshotError(callback, 'ticketsServicio'),
   )
 
 // Para técnico/chofer: solo sus propios tickets asignados (las reglas ya lo
@@ -76,7 +77,7 @@ export const subscribeTicketsAsignadosA = (
   onSnapshot(
     query(collection(db, TICKETS), where('asignadoA.uid', '==', uid), orderBy('createdAt', 'desc'), limit(100)),
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as TicketServicio))),
-    () => callback([]),
+    onSnapshotError(callback, 'ticketsServicio'),
   )
 
 // ── Escrituras ───────────────────────────────────────────────────────────────

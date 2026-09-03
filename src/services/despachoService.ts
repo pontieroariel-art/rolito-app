@@ -4,6 +4,7 @@ import {
 } from 'firebase/firestore'
 
 import { db } from './firebase'
+import { onSnapshotError } from './observability'
 import { Despacho, Order } from '../types'
 import { haversineKm, nearestNeighborOrder, timeStrToUnix, unixToTimeStr } from '../utils/routeMath'
 import { fetchOrsDirections, OrsAvoidPolygons } from './orsService'
@@ -138,9 +139,11 @@ export const subscribeDespachosByFecha = (
   cb: (despachos: Despacho[]) => void,
 ): () => void => {
   const q = query(collection(db, 'despachos'), where('fecha', '==', fecha))
-  return onSnapshot(q, (snap) => {
-    cb(snap.docs.map((d) => ({ ...d.data(), id: d.id } as Despacho)))
-  })
+  return onSnapshot(
+    q,
+    (snap) => cb(snap.docs.map((d) => ({ ...d.data(), id: d.id } as Despacho))),
+    onSnapshotError(cb, 'despachos'),
+  )
 }
 
 // Todos los despachos de un chofer para un día (puede haber más de uno —
@@ -156,12 +159,16 @@ export const subscribeDespachosForDriver = (
     where('fecha', '==', fecha),
     where('driverId', '==', driverEmail),
   )
-  return onSnapshot(q, (snap) => {
-    const despachos = snap.docs
-      .map((d) => ({ ...d.data(), id: d.id } as Despacho))
-      .sort((a, b) => (a.vuelta ?? 1) - (b.vuelta ?? 1))
-    cb(despachos)
-  })
+  return onSnapshot(
+    q,
+    (snap) => {
+      const despachos = snap.docs
+        .map((d) => ({ ...d.data(), id: d.id } as Despacho))
+        .sort((a, b) => (a.vuelta ?? 1) - (b.vuelta ?? 1))
+      cb(despachos)
+    },
+    onSnapshotError(cb, 'despachos'),
+  )
 }
 
 // Igual que subscribeDespachosForDriver pero buscando por ayudanteEmail —
@@ -177,12 +184,16 @@ export const subscribeDespachosForAyudante = (
     where('fecha', '==', fecha),
     where('ayudanteEmail', '==', ayudanteEmail),
   )
-  return onSnapshot(q, (snap) => {
-    const despachos = snap.docs
-      .map((d) => ({ ...d.data(), id: d.id } as Despacho))
-      .sort((a, b) => (a.vuelta ?? 1) - (b.vuelta ?? 1))
-    cb(despachos)
-  })
+  return onSnapshot(
+    q,
+    (snap) => {
+      const despachos = snap.docs
+        .map((d) => ({ ...d.data(), id: d.id } as Despacho))
+        .sort((a, b) => (a.vuelta ?? 1) - (b.vuelta ?? 1))
+      cb(despachos)
+    },
+    onSnapshotError(cb, 'despachos'),
+  )
 }
 
 // El chofer puede tener más de un despacho el mismo día (varias vueltas). El

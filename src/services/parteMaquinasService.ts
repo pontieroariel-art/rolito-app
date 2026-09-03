@@ -1,5 +1,6 @@
 import { collection, doc, onSnapshot, orderBy, query, limit, setDoc, Timestamp } from 'firebase/firestore'
 import { db } from './firebase'
+import { onSnapshotError, reportError } from './observability'
 import { CicloRolitera, ParteMaquinas, PlantaId, TurnoProduccion } from '../types'
 import { toDateStr } from '../utils/helpers'
 
@@ -30,7 +31,7 @@ export const subscribeParteMaquinas = (
   return onSnapshot(
     doc(db, PARTES, id),
     (snap) => callback(snap.exists() ? normalizar(snap.id, snap.data()) : null),
-    () => callback(null),
+    (err) => { reportError(err, { subscription: 'partesMaquinas', id }); callback(null) },
   )
 }
 
@@ -105,5 +106,5 @@ export const subscribePartesRecientes = (
   onSnapshot(
     query(collection(db, PARTES), orderBy('createdAt', 'desc'), limit(90)),
     (snap) => callback(snap.docs.map((d) => normalizar(d.id, d.data()))),
-    () => callback([]),
+    onSnapshotError(callback, 'partesMaquinas'),
   )

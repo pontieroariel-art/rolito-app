@@ -29,6 +29,7 @@ import { Order, ProgramaVisita, VisitaPuntual, OrderProduct } from '../../types'
 import EntregaModal from '../../components/chofer/EntregaModal'
 import NoEntregadoModal from '../../components/chofer/NoEntregadoModal'
 import TicketsServicioSection from '../../components/chofer/TicketsServicioSection'
+import { reportError } from '@/services/observability'
 
 export default function ChoferDashboard() {
   const { user }              = useAuth()
@@ -200,7 +201,7 @@ export default function ChoferDashboard() {
       Promise.resolve().then(() => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
         if (locationGenRef.current === gen) {
-          deactivateDriverLocation(email).catch(console.error)
+          deactivateDriverLocation(email).catch((err) => reportError(err, { origen: 'ChoferDashboard' }))
         }
       })
     }

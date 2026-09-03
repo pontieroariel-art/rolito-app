@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext'
 import { crearModeloHeladera, actualizarModeloHeladera } from '../../services/modelosHeladeraService'
 import { registrarAccionRutina } from '../../services/historialAdminService'
 import { ModeloHeladera } from '../../types'
+import { reportError } from '@/services/observability'
 
 // ── Formulario de modelo ────────────────────────────────────────────────────
 
@@ -150,7 +151,7 @@ export default function ModelosHeladeraPage() {
     registrarAccionRutina({
       coleccion: 'modelosHeladera', docId, accion, detalle,
       actor: { uid: user.uid, nombre: user.nombre, rol: user.rol },
-    }).catch((err) => console.error('[historialAdmin] no se pudo registrar cambio de modelo:', err))
+    }).catch((err) => reportError(err, { origen: 'ModelosHeladeraPage', accion: 'no se pudo registrar cambio de modelo' }))
   }
 
   const handleToggle = async (m: ModeloHeladera) => {

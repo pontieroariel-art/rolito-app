@@ -9,6 +9,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from './firebase'
+import { onSnapshotError } from './observability'
 
 const LOCATIONS = 'ubicaciones'
 
@@ -64,5 +65,5 @@ export const subscribeAllActiveDrivers = (
           timestamp:      d.data().timestamp?.toMillis?.() ?? Date.now(),
         })),
       ),
-    () => callback([]),
+    onSnapshotError(callback, 'ubicaciones'),
   )

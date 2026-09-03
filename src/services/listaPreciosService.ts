@@ -8,6 +8,7 @@ import {
   deleteDoc,
 } from 'firebase/firestore'
 import { db } from './firebase'
+import { reportError } from './observability'
 import { ListaPrecios, ItemListaPrecios } from '../types'
 
 const COL = 'listas-precios'
@@ -17,7 +18,7 @@ export const getAllListasPrecios = async (): Promise<ListaPrecios[]> => {
     const snap = await getDocs(collection(db, COL))
     return snap.docs.map((d) => ({ id: d.id, ...d.data() } as ListaPrecios))
   } catch (err) {
-    console.error('[listaPreciosService] getAllListasPrecios:', err)
+    reportError(err, { servicio: 'listaPreciosService', op: 'getAllListasPrecios' })
     return []
   }
 }
@@ -28,7 +29,7 @@ export const getListaPrecios = async (id: string): Promise<ListaPrecios | null> 
     if (!snap.exists()) return null
     return { id: snap.id, ...snap.data() } as ListaPrecios
   } catch (err) {
-    console.error('[listaPreciosService] getListaPrecios:', err)
+    reportError(err, { servicio: 'listaPreciosService', op: 'getListaPrecios', id })
     return null
   }
 }

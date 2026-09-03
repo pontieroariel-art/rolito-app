@@ -12,6 +12,7 @@ import {
   Timestamp,
 } from 'firebase/firestore'
 import { db } from './firebase'
+import { onSnapshotError } from './observability'
 import { PanolArticulo, PanolMovimiento, PanolMovimientoArticulo, UserRole } from '../types'
 
 const ARTICULOS   = 'panolArticulos'
@@ -29,7 +30,7 @@ export const subscribeArticulos = (
   onSnapshot(
     query(collection(db, ARTICULOS), orderBy('nombre'), limit(500)),
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as PanolArticulo))),
-    () => callback([]),
+    onSnapshotError(callback, 'panolArticulos'),
   )
 
 export const crearArticulo = (data: {
@@ -63,7 +64,7 @@ export const subscribeMovimientosRecientes = (
   onSnapshot(
     query(collection(db, MOVIMIENTOS), orderBy('fecha', 'desc'), limit(100)),
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as PanolMovimiento))),
-    () => callback([]),
+    onSnapshotError(callback, 'panolMovimientos'),
   )
 
 export const subscribeMovimientosAsignadosA = (
@@ -73,7 +74,7 @@ export const subscribeMovimientosAsignadosA = (
   onSnapshot(
     query(collection(db, MOVIMIENTOS), where('destinatario.uid', '==', uid), orderBy('fecha', 'desc'), limit(50)),
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as PanolMovimiento))),
-    () => callback([]),
+    onSnapshotError(callback, 'panolMovimientos'),
   )
 
 // Entrega a un técnico: descuenta stock de cada artículo. La firma se

@@ -1,4 +1,5 @@
 import { getFunctions, httpsCallable } from 'firebase/functions'
+import { reportError } from './observability'
 
 // Todas las notificaciones corren en Cloud Functions del mismo proyecto:
 // - Emails de registro/aprobación/pedido creado/confirmado/en-camino → triggers
@@ -14,7 +15,7 @@ export const sendPush = async (data: {
   try {
     await httpsCallable(getFunctions(), 'sendPush')(data)
   } catch (err) {
-    console.error('sendPush error:', err)
+    reportError(err, { callable: 'sendPush' })
   }
 }
 
@@ -24,7 +25,7 @@ export const notifyCerca = async (data: { orderId: string }): Promise<void> => {
   try {
     await httpsCallable(getFunctions(), 'notifyCerca')(data)
   } catch (err) {
-    console.error('notifyCerca error:', err)
+    reportError(err, { callable: 'notifyCerca', orderId: data.orderId })
   }
 }
 
@@ -32,6 +33,6 @@ export const notifyReprogramado = async (data: { orderId: string }): Promise<voi
   try {
     await httpsCallable(getFunctions(), 'notifyReprogramado')(data)
   } catch (err) {
-    console.error('notifyReprogramado error:', err)
+    reportError(err, { callable: 'notifyReprogramado', orderId: data.orderId })
   }
 }

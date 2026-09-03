@@ -1,5 +1,6 @@
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { db } from './firebase'
+import { reportError } from './observability'
 import { PasoTaller, TipoPipelineHeladera } from '../types'
 
 const pasosTallerRef = () => doc(db, 'config', 'pasosTaller')
@@ -10,7 +11,8 @@ export const getPasosTaller = async (): Promise<Record<string, PasoTaller>> => {
     if (snap.exists()) return (snap.data().pasos as Record<string, PasoTaller>) ?? {}
     await setDoc(pasosTallerRef(), { pasos: {} })
     return {}
-  } catch {
+  } catch (err) {
+    reportError(err, { config: 'pasosTaller' })
     return {}
   }
 }

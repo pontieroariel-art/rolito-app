@@ -9,6 +9,7 @@ import { createTecnicoUser, updateUserStatus } from '../../services/userService'
 import { registrarAccionRutina } from '../../services/historialAdminService'
 import { AREA_HELADERA_LABELS, SECTORES_REPARACION } from '../../utils/heladeraLabels'
 import { AreaHeladera } from '../../types'
+import { reportError } from '@/services/observability'
 
 function CrearTecnicoModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const { user: currentUser } = useAuth()
@@ -33,7 +34,7 @@ function CrearTecnicoModal({ onClose, onCreated }: { onClose: () => void; onCrea
         registrarAccionRutina({
           coleccion: 'users', docId: dni, accion: 'creado', detalle: `${nombre.trim()} — Técnico (${AREA_HELADERA_LABELS[area]})`,
           actor: { uid: currentUser.uid, nombre: currentUser.nombre, rol: currentUser.rol },
-        }).catch((err) => console.error('[historialAdmin] no se pudo registrar alta de técnico:', err))
+        }).catch((err) => reportError(err, { origen: 'TecnicosPage', accion: 'no se pudo registrar alta de técnico' }))
       }
       onCreated()
       onClose()
@@ -137,7 +138,7 @@ export default function TecnicosPage() {
                         registrarAccionRutina({
                           coleccion: 'users', docId: t.uid, accion: nuevoEstado === 'activo' ? 'activado' : 'desactivado', detalle: t.nombre,
                           actor: { uid: currentUser.uid, nombre: currentUser.nombre, rol: currentUser.rol },
-                        }).catch((err) => console.error('[historialAdmin] no se pudo registrar cambio de estado de técnico:', err))
+                        }).catch((err) => reportError(err, { origen: 'TecnicosPage', accion: 'no se pudo registrar cambio de estado de técnico' }))
                       }
                     }}
                     className="text-xs text-gray-500 hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-4 py-2 transition-colors min-h-[36px]"

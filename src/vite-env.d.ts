@@ -13,3 +13,6 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+// Inyectado por vite.config.ts (define). SHA corto del commit del build.
+declare const __APP_RELEASE__: string

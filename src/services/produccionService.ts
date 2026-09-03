@@ -4,7 +4,7 @@ import { PalletProduccion, PlantaId, ProductoHieloId } from '../types'
 import { PLANTA_INFO } from '../utils/constants'
 import { PRODUCTOS_HIELO } from '../utils/produccionCatalogo'
 import { consumirNumero, precargarSiSeAcerca } from './produccionReservaService'
-import { fireAndForget } from './observability'
+import { fireAndForget, onSnapshotError } from './observability'
 
 const PALLETS = 'produccionPallets'
 
@@ -62,7 +62,7 @@ export const subscribePalletsRecientes = (
       ? query(collection(db, PALLETS), where('plantaId', '==', plantaId), orderBy('createdAt', 'desc'), limit(200))
       : query(collection(db, PALLETS), orderBy('createdAt', 'desc'), limit(500)),
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as PalletProduccion))),
-    () => callback([]),
+    onSnapshotError(callback, 'produccionPallets'),
   )
 
 // Último pallet realmente cargado de una planta (para la pantalla de Plantas:
@@ -95,5 +95,5 @@ export const subscribePalletsEnRango = (
       where('fechaFabricacion', '<',  Timestamp.fromDate(hasta)),
     ),
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as PalletProduccion))),
-    () => callback([]),
+    onSnapshotError(callback, 'produccionPallets'),
   )

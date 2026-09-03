@@ -10,6 +10,7 @@ import { useAuth } from '../../context/AuthContext'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import Badge from '../ui/Badge'
+import { reportError } from '@/services/observability'
 
 const MOTIVOS_CANCELACION = [
   'Solicitud del cliente',
@@ -48,7 +49,7 @@ export function AdminOrderCard({ order, choferes }: AdminOrderCardProps) {
       if (order.clientId) {
         getPushSubscription(order.clientId).then((sub) => {
           if (sub) sendPush({ subscription: sub, title: 'Tu pedido fue confirmado ✅', body: summarizeProducts(order.products) })
-        }).catch(console.error)
+        }).catch((err) => reportError(err, { origen: 'AdminOrderCard' }))
       }
     }
     if (newStatus === 'en_camino' && order.clientEmail) {
@@ -56,7 +57,7 @@ export function AdminOrderCard({ order, choferes }: AdminOrderCardProps) {
       if (order.clientId) {
         getPushSubscription(order.clientId).then((sub) => {
           if (sub) sendPush({ subscription: sub, title: 'Tu pedido está en camino 🚛', body: summarizeProducts(order.products) })
-        }).catch(console.error)
+        }).catch((err) => reportError(err, { origen: 'AdminOrderCard' }))
       }
     }
     setStatusLoading(false)
@@ -68,7 +69,7 @@ export function AdminOrderCard({ order, choferes }: AdminOrderCardProps) {
     if (driverId) {
       getPushSubscriptionByEmail(driverId).then((sub) => {
         if (sub) sendPush({ subscription: sub, title: 'Nuevo pedido asignado', body: `${order.clientName} — ${formatShortDate(order.date)}` })
-      }).catch(console.error)
+      }).catch((err) => reportError(err, { origen: 'AdminOrderCard' }))
     }
   }
 

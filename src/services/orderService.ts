@@ -16,6 +16,7 @@ import {
   runTransaction,
 } from 'firebase/firestore'
 import { db, auth } from './firebase'
+import { reportError } from './observability'
 import { Order, OrderProduct, UserProfile, getPrimaryAddress } from '../types'
 import { tsToDate, normalizeAddress } from '../utils/helpers'
 
@@ -433,7 +434,7 @@ export const subscribeClientOrders = (
         })
       callback(orders)
     },
-    (err) => { console.error('subscribeClientOrders error:', err); onError?.(err) },
+    (err) => { reportError(err, { subscription: 'orders', scope: 'cliente', clientId }); onError?.(err) },
   )
 }
 
@@ -457,7 +458,7 @@ export const subscribeAllOrders = (
   return onSnapshot(
     q,
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Order))),
-    onError,
+    (err) => { reportError(err, { subscription: 'orders', scope: 'all' }); onError?.(err) },
   )
 }
 
@@ -485,7 +486,7 @@ export const subscribeKanbanOrders = (
   return onSnapshot(
     q,
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Order))),
-    onError,
+    (err) => { reportError(err, { subscription: 'orders', scope: 'kanban' }); onError?.(err) },
   )
 }
 
@@ -618,6 +619,6 @@ export const subscribeDriverOrders = (
       })
       callback(filtered)
     },
-    onError,
+    (err) => { reportError(err, { subscription: 'orders', scope: 'chofer', driverEmail }); onError?.(err) },
   )
 }

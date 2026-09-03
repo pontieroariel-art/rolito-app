@@ -6,6 +6,7 @@ import { registrarCambiosCustom, CambioCustom } from '../../../services/historia
 import { updateUserDocument } from '../../../services/userService'
 import { UserProfile, ListaPrecios } from '../../../types'
 import { todayString } from '../../../utils/helpers'
+import { reportError } from '@/services/observability'
 
 export function PreciosCustomModal({
   user,
@@ -94,7 +95,7 @@ export function PreciosCustomModal({
         modificadoPor:       currentUser.email,
         modificadoPorNombre: currentUser.nombreContacto || currentUser.nombre || currentUser.email,
         motivo:              motivo || undefined,
-      }).catch(console.error)
+      }).catch((err) => reportError(err, { origen: 'PreciosCustomModal' }))
     }
 
     setSaving(false)

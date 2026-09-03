@@ -1,5 +1,6 @@
 import { addDoc, collection, doc, onSnapshot, orderBy, query, serverTimestamp, where } from 'firebase/firestore'
 import { db } from './firebase'
+import { onSnapshotError, reportError } from './observability'
 import { EmpresaTango, SaldoTango, TangoConsulta } from '../types'
 
 // Cache de composición de saldos de Tango (colección saldosTango/{uid}, uid del
@@ -10,9 +11,12 @@ export function subscribeSaldoCliente(
   uid: string,
   cb: (saldo: SaldoTango | null) => void,
 ): () => void {
-  return onSnapshot(doc(db, 'saldosTango', uid), (snap) => {
-    cb(snap.exists() ? ({ id: snap.id, ...snap.data() } as SaldoTango) : null)
-  })
+  return onSnapshot(
+    doc(db, 'saldosTango', uid),
+    (snap) => cb(snap.exists() ? ({ id: snap.id, ...snap.data() } as SaldoTango) : null),
+    // Un error acá se vería como "sin deuda": se reporta y se entrega null.
+    (err) => { reportError(err, { subscription: 'saldosTango', uid }); cb(null) },
+  )
 }
 
 export function subscribeClientesConDeuda(
@@ -23,9 +27,11 @@ export function subscribeClientesConDeuda(
     where('saldoTotal', '>', 0),
     orderBy('saldoTotal', 'desc'),
   )
-  return onSnapshot(q, (snap) => {
-    cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as SaldoTango))
-  })
+  return onSnapshot(
+    q,
+    (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as SaldoTango)),
+    onSnapshotError(cb, 'saldosTango'),
+  )
 }
 
 // Pide al bridge un refresh on-demand del saldo de un cliente (cola inversa
@@ -50,7 +56,9 @@ export function subscribeConsulta(
   id: string,
   cb: (consulta: TangoConsulta | null) => void,
 ): () => void {
-  return onSnapshot(doc(db, 'tango-consultas', id), (snap) => {
-    cb(snap.exists() ? ({ id: snap.id, ...snap.data() } as TangoConsulta) : null)
-  })
+  return onSnapshot(
+    doc(db, 'tango-consultas', id),
+    (snap) => cb(snap.exists() ? ({ id: snap.id, ...snap.data() } as TangoConsulta) : null),
+    (err) => { reportError(err, { subscription: 'tango-consultas', id }); cb(null) },
+  )
 }

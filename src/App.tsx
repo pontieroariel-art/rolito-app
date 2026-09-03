@@ -7,7 +7,7 @@ import { SistemaProvider } from './context/SistemaContext'
 import ProtectedRoute from './components/layout/ProtectedRoute'
 import { EXPEDICION_NAV_GROUPS } from './utils/expedicionNav'
 import LoadingSpinner from './components/ui/LoadingSpinner'
-import { reportError } from './services/observability'
+import { reportError, APP_RELEASE } from './services/observability'
 import { Component, ReactNode, ErrorInfo } from 'react'
 
 // Auth pages — carga inmediata (primera pantalla visible)
@@ -154,6 +154,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
             <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '20px' }}>
               {(this.state.error as Error).message}
             </p>
+            <p style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '20px' }}>build {APP_RELEASE}</p>
             <button
               onClick={() => { sessionStorage.removeItem('chunk-reload'); this.setState({ error: null }); window.location.href = '/' }}
               style={{ background: '#1D9E75', color: '#ffffff', fontWeight: 700, padding: '10px 24px', borderRadius: '8px', border: 'none', cursor: 'pointer' }}

@@ -13,6 +13,7 @@ import { getPushSubscriptionByEmail } from '../../services/userService'
 import { sendPush } from '../../services/notificationService'
 import { Order, UserProfile, MOTIVOS_INCIDENCIA } from '../../types'
 import { summarizeProducts, formatShortDate, toDateStr, todayString, addDaysStr } from '../../utils/helpers'
+import { reportError } from '@/services/observability'
 
 function tomorrow(): string {
   return addDaysStr(todayString(), 1)
@@ -146,7 +147,7 @@ function ReasignarModal({
       // Push al chofer nuevo
       getPushSubscriptionByEmail(email).then((sub) => {
         if (sub) sendPush({ subscription: sub, title: 'Pedido reasignado', body: `${order.clientName} — ${formatShortDate(order.date)}` })
-      }).catch(console.error)
+      }).catch((err) => reportError(err, { origen: 'MonitoreoPage' }))
       onDone()
     } finally {
       setSaving(false)
@@ -236,7 +237,7 @@ function FinJornadaModal({
       if (accion === 'reasignar' && email) {
         getPushSubscriptionByEmail(email).then((sub) => {
           if (sub) sendPush({ subscription: sub, title: `${pendingOrders.length} pedidos reasignados`, body: 'Revisá tus entregas' })
-        }).catch(console.error)
+        }).catch((err) => reportError(err, { origen: 'MonitoreoPage' }))
       }
       onDone()
     } finally {

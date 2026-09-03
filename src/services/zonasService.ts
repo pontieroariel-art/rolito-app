@@ -1,5 +1,6 @@
 import { doc, setDoc, onSnapshot } from 'firebase/firestore'
 import { db } from './firebase'
+import { onSnapshotError } from './observability'
 
 export interface ZonaProhibida {
   id:      string
@@ -9,9 +10,11 @@ export interface ZonaProhibida {
 }
 
 export function subscribeZonas(cb: (z: ZonaProhibida[]) => void) {
-  return onSnapshot(doc(db, 'config', 'zonasProhibidas'), (snap) => {
-    cb((snap.data()?.zonas ?? []) as ZonaProhibida[])
-  })
+  return onSnapshot(
+    doc(db, 'config', 'zonasProhibidas'),
+    (snap) => cb((snap.data()?.zonas ?? []) as ZonaProhibida[]),
+    onSnapshotError(cb, 'config/zonasProhibidas'),
+  )
 }
 
 export function saveZonas(zonas: ZonaProhibida[]): Promise<void> {

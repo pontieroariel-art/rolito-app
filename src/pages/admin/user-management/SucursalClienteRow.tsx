@@ -7,6 +7,7 @@ import { updateUserDocument } from '../../../services/userService'
 import { UserProfile, ListaPrecios, DeliveryAddress } from '../../../types'
 import { SucursalFlat, STATUS_STYLES, STATUS_LABELS } from './shared'
 import { FichaClienteModal } from './FichaClienteModal'
+import { reportError } from '@/services/observability'
 
 export function SucursalClienteRow({
   sucursal, currentUser, listas, onToggleStatus, onApprove, onListaChange, onAddressesChanged, onVisitaChanged,
@@ -51,7 +52,7 @@ export function SucursalClienteRow({
         listaNuevaNombre:    newLista?.nombre ?? null,
         modificadoPor:       currentUser.email,
         modificadoPorNombre: currentUser.nombreContacto || currentUser.nombre || currentUser.email,
-      }).catch(console.error)
+      }).catch((err) => reportError(err, { origen: 'SucursalClienteRow' }))
     }
   }
 

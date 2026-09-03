@@ -1,5 +1,6 @@
 import { doc, getDoc, onSnapshot, runTransaction } from 'firebase/firestore'
 import { db } from './firebase'
+import { reportError } from './observability'
 
 export interface AsignacionChofer {
   camionId:      string | null
@@ -22,9 +23,11 @@ export function subscribeAsignacionesDia(
   fecha:    string,
   callback: (asignaciones: AsignacionesDia) => void,
 ): () => void {
-  return onSnapshot(doc(db, 'asignacionesDia', fecha), (snap) => {
-    callback(snap.exists() ? (snap.data()?.choferes ?? {}) : {})
-  })
+  return onSnapshot(
+    doc(db, 'asignacionesDia', fecha),
+    (snap) => callback(snap.exists() ? (snap.data()?.choferes ?? {}) : {}),
+    (err) => { reportError(err, { subscription: 'asignacionesDia', fecha }); callback({}) },
+  )
 }
 
 // Actualiza solo los campos indicados (camionId y/o ayudanteEmail) de UN

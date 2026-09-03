@@ -10,6 +10,7 @@ import { useFechaDelDia } from '../../hooks/useDiaActual'
 import { crearRemitoCarga, palletsInfo, subscribeRemitosCargaDelDia } from '../../services/remitoCargaService'
 import { generateRemitoCarga } from '../../utils/pdf'
 import { PLANTAS, RemitoCarga, RemitoCargaEstado, RemitoCargaItem } from '../../types'
+import { reportError } from '@/services/observability'
 
 const ESTADO_LABELS: Record<RemitoCargaEstado, string> = {
   emitido:   'Emitido',
@@ -99,7 +100,7 @@ export default function RemitosCargaPage() {
       palletsCarga: r.palletsCarga,
       creadoPor:    r.creadoPor,
       fecha:        r.fecha.toDate(),
-    }).catch((err) => console.error('[remitoCarga] error al generar el PDF:', err))
+    }).catch((err) => reportError(err, { origen: 'RemitosCargaPage', accion: 'error al generar el PDF' }))
 
   const confirmar = async () => {
     if (!user || !camion || !chofer) return
@@ -124,7 +125,7 @@ export default function RemitosCargaPage() {
       setRestoEnPallet({})
       imprimir(remito)
     } catch (err) {
-      console.error('[remitoCarga] error al crear:', err)
+      reportError(err, { origen: 'RemitosCargaPage', accion: 'error al crear' })
       setError('No se pudo crear el remito. Revisá la conexión e intentá de nuevo.')
     } finally {
       setGuardando(false)

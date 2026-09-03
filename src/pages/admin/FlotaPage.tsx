@@ -8,6 +8,7 @@ import { useAuth } from '../../context/AuthContext'
 import { addCamion, updateCamion } from '../../services/flotaService'
 import { registrarAccionRutina } from '../../services/historialAdminService'
 import { Camion, CANALES_CAMION, CanalCamion } from '../../types'
+import { reportError } from '@/services/observability'
 
 // ── Formulario de camión ───────────────────────────────────────────────────────
 
@@ -145,7 +146,7 @@ export default function FlotaPage() {
     registrarAccionRutina({
       coleccion: 'flota', docId, accion, detalle,
       actor: { uid: user.uid, nombre: user.nombre, rol: user.rol },
-    }).catch((err) => console.error('[historialAdmin] no se pudo registrar cambio de flota:', err))
+    }).catch((err) => reportError(err, { origen: 'FlotaPage', accion: 'no se pudo registrar cambio de flota' }))
   }
 
   if (loadingCamiones) return <LoadingSpinner fullScreen />

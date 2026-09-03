@@ -14,6 +14,7 @@ import { fetchOrsDirections, OrsAvoidPolygons } from '../../services/orsService'
 import { subscribeDespachosByFecha, despachoId, updateDespacho } from '../../services/despachoService'
 import { setClienteOcultoMapa, restoreClientesOcultosMapa } from '../../services/userService'
 import { useAuth } from '../../context/AuthContext'
+import { reportError } from '@/services/observability'
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -1113,7 +1114,7 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
                                 setVisitaDone((prev) => new Set(prev).add(m.id))
                                 setTimeout(() => { setSelectedClientId(null); setVisitaDriverId(null) }, 1800)
                               } catch (err) {
-                                console.error('Error al guardar visita:', err)
+                                reportError(err, { origen: 'MapaPlanificacion', accion: 'Error al guardar visita' })
                               } finally {
                                 setVisitaSaving(false)
                               }

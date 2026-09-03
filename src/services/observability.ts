@@ -12,11 +12,23 @@ const dsn = import.meta.env.VITE_SENTRY_DSN as string | undefined
 
 let activo = false
 
+// SHA corto del commit del build (ver vite.config.ts). Se muestra en la
+// pantalla de error para que soporte sepa qué versión tiene el usuario.
+export const APP_RELEASE: string = typeof __APP_RELEASE__ === 'string' ? __APP_RELEASE__ : 'local'
+
 export function initObservability(): void {
   if (!dsn || import.meta.env.DEV) return
   Sentry.init({
     dsn,
     environment: import.meta.env.MODE,
+    // Qué build tiró el error. Sin esto no se distingue "bug nuevo" de "bug
+    // ya arreglado que sigue apareciendo desde una pestaña vieja".
+    release: `rolito-app@${APP_RELEASE}`,
+    // Ruido conocido del navegador que no es un error de la app.
+    ignoreErrors: [
+      'ResizeObserver loop limit exceeded',
+      'ResizeObserver loop completed with undelivered notifications',
+    ],
     // Foco en monitoreo de errores. Sin PII por defecto (no manda cookies,
     // headers ni cuerpos); sin session replay (privacidad + peso). Se puede
     // sumar tracing/replay a conciencia más adelante.

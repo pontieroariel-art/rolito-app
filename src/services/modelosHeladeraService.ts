@@ -11,6 +11,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from './firebase'
+import { onSnapshotError } from './observability'
 import { ModeloHeladera } from '../types'
 
 const MODELOS = 'modelosHeladera'
@@ -26,7 +27,7 @@ export const subscribeModelosHeladera = (
   onSnapshot(
     query(collection(db, MODELOS), orderBy('nombre'), limit(200)),
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as ModeloHeladera))),
-    () => callback([]),
+    onSnapshotError(callback, 'modelosHeladera'),
   )
 
 export const crearModeloHeladera = (data: {

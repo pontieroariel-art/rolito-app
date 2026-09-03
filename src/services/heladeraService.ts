@@ -16,6 +16,7 @@ import {
   runTransaction,
 } from 'firebase/firestore'
 import { db } from './firebase'
+import { onSnapshotError } from './observability'
 import { AreaHeladera, EstadoHeladera, Heladera, TipoOperacionIngreso, TipoPipelineHeladera, TrabajoRealizadoItem } from '../types'
 import {
   CatalogoPasos, pasoActual, primerPasoActivo, textoTrabajos,
@@ -72,7 +73,7 @@ export const subscribeHeladeras = (
   onSnapshot(
     query(collection(db, HELADERAS), orderBy('updatedAt', 'desc'), limit(5000)),
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Heladera))),
-    () => callback([]),
+    onSnapshotError(callback, 'heladeras'),
   )
 
 // Conteo agregado por estado — para paneles resumen (ej. tablero de
@@ -98,7 +99,7 @@ export const subscribeHeladerasPorCliente = (
   onSnapshot(
     query(collection(db, HELADERAS), where('clienteAsignadoId', '==', clientId), where('estado', '==', 'en_comodato')),
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Heladera))),
-    () => callback([]),
+    onSnapshotError(callback, 'heladeras'),
   )
 
 // El código interno de reacondicionamiento sigue sin autogenerarse (equipo

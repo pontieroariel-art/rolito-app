@@ -19,6 +19,7 @@ import { updateUserDocument } from '../../services/userService'
 import { registrarCambiosLista } from '../../services/historialPreciosService'
 import { useAuth } from '../../context/AuthContext'
 import { CatalogProducto, ItemListaPrecios, ListaPrecios, UserProfile } from '../../types'
+import { reportError } from '@/services/observability'
 
 type Tab = 'listas' | 'catalogo'
 
@@ -220,7 +221,7 @@ function ListaEditor({
           cambios,
           modificadoPor:       currentUser.email,
           modificadoPorNombre: currentUser.nombreContacto || currentUser.nombre || currentUser.email,
-        }).catch(console.error)
+        }).catch((err) => reportError(err, { origen: 'PriceListsPage' }))
       }
 
       onSaved()

@@ -1,5 +1,6 @@
 import { collection, doc, deleteDoc, setDoc, onSnapshot, query, where, serverTimestamp } from 'firebase/firestore'
 import { db } from './firebase'
+import { onSnapshotError } from './observability'
 import { Preventivo } from '../types'
 
 const PREVENTIVOS = 'preventivos'
@@ -17,7 +18,7 @@ export const subscribePreventivosDelAnio = (
   onSnapshot(
     query(collection(db, PREVENTIVOS), where('year', '==', year)),
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Preventivo))),
-    () => callback([]),
+    onSnapshotError(callback, 'preventivos'),
   )
 
 export const marcarPreventivoHecho = (clientId: string, year: number, actor: Actor): Promise<void> =>
