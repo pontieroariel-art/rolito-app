@@ -19,6 +19,22 @@ const ESTADO_TICKET_LABELS: Record<string, string> = {
   cerrado: 'Cerrado', anulado: 'Anulado',
 }
 
+// Sucursal del cliente donde está la heladera: el id de `addresses[]` es el
+// código de cliente de esa sucursal (YPF003, AL.129, …) y el nombre suele
+// repetir la razón social con la sucursal entre paréntesis
+// ("OPERADORA DE ... S.A.(ACA BERNAL)"), así que se muestra solo lo que
+// distingue a la sucursal.
+function sucursalDeHeladera(h: Heladera, cliente: UserProfile | null) {
+  const codigo = h.clienteAsignadoDireccionId ?? null
+  const ficha  = codigo ? cliente?.addresses?.find((a) => a.id === codigo) : undefined
+  let nombre = ficha?.nombre?.trim() ?? ''
+  const razon = cliente?.razonSocial?.trim() ?? ''
+  if (razon && nombre.toUpperCase().startsWith(razon.toUpperCase())) nombre = nombre.slice(razon.length).trim()
+  nombre = nombre.replace(/^\(\s*|\s*\)$/g, '').trim()
+  if (nombre.toUpperCase() === razon.toUpperCase()) nombre = ''
+  return { codigo, nombre: nombre || null }
+}
+
 export default function TomaServicePage() {
   const { user } = useAuth()
   const [params] = useSearchParams()
@@ -31,6 +47,7 @@ export default function TomaServicePage() {
 
   const [modo, setModo] = useState<'cliente' | 'heladera'>('cliente')
   const [busqueda, setBusqueda] = useState('')
+  const [filtroHeladera, setFiltroHeladera] = useState('')
   const [cliente, setCliente] = useState<UserProfile | null>(null)
   const [heladera, setHeladera] = useState<Heladera | null>(null)
   const [motivoId, setMotivoId] = useState('')
@@ -77,12 +94,23 @@ export default function TomaServicePage() {
   }, [heladerasEnComodato, busqueda, heladera])
 
   const heladerasDelCliente = useMemo(
-    () => (cliente ? heladerasEnComodato.filter((h) => h.clienteAsignadoId === cliente.uid) : []),
+    () => (cliente ? heladerasEnComodato.filter((h) => h.clienteAsignadoId === cliente.uid) : [])
+      .map((h) => ({ h, sucursal: sucursalDeHeladera(h, cliente) }))
+      .sort((a, b) => (a.sucursal.codigo ?? '').localeCompare(b.sucursal.codigo ?? '') || a.h.codigoInterno.localeCompare(b.h.codigoInterno)),
     [heladerasEnComodato, cliente],
   )
 
+  const heladerasFiltradas = useMemo(() => {
+    const q = filtroHeladera.trim().toLowerCase()
+    if (!q) return heladerasDelCliente
+    return heladerasDelCliente.filter(({ h, sucursal }) =>
+      [h.codigoInterno, h.numeroSerie, h.modelo, sucursal.codigo, sucursal.nombre, h.clienteAsignadoDireccion]
+        .some((v) => v?.toLowerCase().includes(q)),
+    )
+  }, [heladerasDelCliente, filtroHeladera])
+
   const reset = () => {
-    setCliente(null); setHeladera(null); setBusqueda(''); setMotivoId(''); setOk(false); setError('')
+    setCliente(null); setHeladera(null); setBusqueda(''); setFiltroHeladera(''); setMotivoId(''); setOk(false); setError('')
   }
 
   const handleCrear = async () => {
@@ -173,7 +201,10 @@ export default function TomaServicePage() {
                     className="w-full text-left px-3 py-2.5 hover:bg-gray-50"
                   >
                     <p className="text-sm font-medium text-gray-900">{h.codigoInterno}</p>
-                    <p className="text-xs text-gray-500">{h.modelo} · {h.clienteAsignadoNombre ?? 'sin cliente'}</p>
+                    <p className="text-xs text-gray-500">
+                      {h.modelo} · {h.clienteAsignadoNombre ?? 'sin cliente'}
+                      {h.clienteAsignadoDireccionId ? ` · suc. ${h.clienteAsignadoDireccionId}` : ''}
+                    </p>
                     {h.clienteAsignadoDireccion && (
                       <p className="text-xs text-accent">{h.clienteAsignadoDireccion}</p>
                     )}
@@ -196,20 +227,50 @@ export default function TomaServicePage() {
 
         {cliente && !heladera && (
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">¿Qué heladera?</label>
+            <label className="text-xs text-gray-500 mb-1 block">
+              ¿Qué heladera?{heladerasDelCliente.length > 0 ? ` (${heladerasDelCliente.length})` : ''}
+            </label>
             {heladerasDelCliente.length === 0 ? (
               <p className="text-gray-400 text-sm">Este cliente no tiene heladeras asignadas.</p>
             ) : (
-              <div className="bg-white border border-[#D3D1C7] rounded-lg divide-y divide-gray-100">
-                {heladerasDelCliente.map((h) => (
-                  <button key={h.id} onClick={() => setHeladera(h)} className="w-full text-left px-3 py-2.5 hover:bg-gray-50">
-                    <p className="text-sm font-medium text-gray-900">{h.codigoInterno}</p>
-                    <p className="text-xs text-gray-500">{h.modelo} · serie {h.numeroSerie}</p>
-                    {h.clienteAsignadoDireccion && (
-                      <p className="text-xs text-accent">{h.clienteAsignadoDireccion}</p>
-                    )}
-                  </button>
-                ))}
+              <div className="space-y-2">
+                {heladerasDelCliente.length > 3 && (
+                  <div className="relative">
+                    <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      value={filtroHeladera}
+                      onChange={(e) => setFiltroHeladera(e.target.value)}
+                      placeholder="Filtrar por código, serie, sucursal o dirección…"
+                      className="w-full bg-white border border-[#D3D1C7] rounded-lg pl-9 pr-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
+                    />
+                  </div>
+                )}
+                {heladerasFiltradas.length === 0 ? (
+                  <p className="text-gray-400 text-sm">Ninguna heladera coincide con la búsqueda.</p>
+                ) : (
+                  <div className="bg-white border border-[#D3D1C7] rounded-lg divide-y divide-gray-100">
+                    {heladerasFiltradas.map(({ h, sucursal }) => (
+                      <button key={h.id} onClick={() => setHeladera(h)} className="w-full text-left px-3 py-2.5 hover:bg-gray-50">
+                        <div className="flex items-baseline justify-between gap-3">
+                          <p className="text-sm font-medium text-gray-900">{h.codigoInterno}</p>
+                          {sucursal.codigo && (
+                            <span className="text-xs font-mono font-semibold text-gray-700 bg-gray-100 border border-gray-200 rounded px-1.5 py-0.5 shrink-0">
+                              {sucursal.codigo}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500">{h.modelo} · serie {h.numeroSerie}</p>
+                        {(sucursal.nombre || h.clienteAsignadoDireccion) && (
+                          <p className="text-xs text-accent">
+                            {sucursal.nombre && <span className="font-medium">{sucursal.nombre}</span>}
+                            {sucursal.nombre && h.clienteAsignadoDireccion ? ' · ' : ''}
+                            {h.clienteAsignadoDireccion}
+                          </p>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -219,11 +280,25 @@ export default function TomaServicePage() {
           <div className="space-y-4">
             <div className="bg-[#F8F7F2] border border-[#D3D1C7] rounded-xl p-4 flex justify-between items-center">
               <div>
-                <p className="text-sm font-medium text-gray-900">{heladera.codigoInterno}</p>
+                <p className="text-sm font-medium text-gray-900">
+                  {heladera.codigoInterno}
+                  {heladera.clienteAsignadoDireccionId && (
+                    <span className="ml-2 text-xs font-mono font-semibold text-gray-700 bg-white border border-gray-200 rounded px-1.5 py-0.5">
+                      {heladera.clienteAsignadoDireccionId}
+                    </span>
+                  )}
+                </p>
                 <p className="text-xs text-gray-500">{heladera.modelo} · serie {heladera.numeroSerie}</p>
-                {heladera.clienteAsignadoDireccion && (
-                  <p className="text-xs text-accent">{heladera.clienteAsignadoDireccion}</p>
-                )}
+                {(() => {
+                  const suc = sucursalDeHeladera(heladera, cliente)
+                  return (suc.nombre || heladera.clienteAsignadoDireccion) ? (
+                    <p className="text-xs text-accent">
+                      {suc.nombre && <span className="font-medium">{suc.nombre}</span>}
+                      {suc.nombre && heladera.clienteAsignadoDireccion ? ' · ' : ''}
+                      {heladera.clienteAsignadoDireccion}
+                    </p>
+                  ) : null
+                })()}
               </div>
               <button onClick={() => setHeladera(null)} className="text-xs text-gray-500 hover:text-accent">Cambiar</button>
             </div>
