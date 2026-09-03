@@ -61,6 +61,24 @@ for (const d of tomar('--deposito')) {
 for (const p of tomar('--pedido')) { const [k, v] = kv(p); (update.pedido ??= {})[k] = num(v) }
 const [remitos] = tomar('--remitos')
 if (remitos) update.remitosEnabled = remitos === 'on'
+const [facturas] = tomar('--facturas')
+if (facturas) update.facturasEnabled = facturas === 'on'
+// --facturador redonhielo talonarios.A=20 --facturador redonhielo cuentas.contado_efectivo=1 ...
+// (clave con puntos = anidado; el valor numérico se guarda como número)
+{
+  const fac = {}
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] !== '--facturador') continue
+    const empresa = args[++i]; const par = args[++i]
+    if (!['redonhielo', 'rolito'].includes(empresa) || !par) throw new Error('Uso: --facturador <redonhielo|rolito> clave=valor')
+    const [k, v] = kv(par)
+    let nodo = (fac[empresa] ??= {})
+    const partes = k.split('.')
+    for (const p of partes.slice(0, -1)) nodo = (nodo[p] ??= {})
+    nodo[partes.at(-1)] = num(v)
+  }
+  if (Object.keys(fac).length) update.facturador = fac
+}
 
 if (Object.keys(update).length) {
   await db.doc('config/tango').set(update, { merge: true })
@@ -85,6 +103,20 @@ console.log('  enabled:', tango.enabled === true, '| remitosEnabled:', tango.rem
 console.log('  companies:', JSON.stringify(tango.companies ?? null))
 if (!Number.isInteger(tango.companies?.redonhielo) || !Number.isInteger(tango.companies?.rolito)) faltas.push('companies (--companies N N)')
 console.log('  pedido:', JSON.stringify(tango.pedido ?? {}))
+
+console.log('\n== facturador (config/tango.facturador.<empresa>) — facturasEnabled:', tango.facturasEnabled === true)
+for (const empresa of ['redonhielo', 'rolito']) {
+  const f = tango.facturador?.[empresa]
+  if (!f) { console.log(`  ✗ ${empresa}: sin configurar`); faltas.push(`facturador.${empresa}`); continue }
+  const req = ['condicionVenta', 'listaPrecio', 'contracuenta', 'vendedor', 'codigoTasaIva21']
+  const faltan = req.filter((k) => f[k] === undefined || f[k] === null || f[k] === '')
+  if (!f.talonarios || !Object.keys(f.talonarios).length) faltan.push('talonarios')
+  if (!f.cuentas?.contado_efectivo) faltan.push('cuentas.contado_efectivo')
+  if (!f.cuentas?.contado_transferencia) faltan.push('cuentas.contado_transferencia')
+  if (empresa === 'redonhielo' && !f.codigoAlicuotaPercepcionIIBB) faltan.push('codigoAlicuotaPercepcionIIBB')
+  console.log(`  ${faltan.length ? '✗' : '✓'} ${empresa}: ${JSON.stringify(f)}${faltan.length ? `\n      faltan: ${faltan.join(', ')}` : ''}`)
+  if (faltan.length) faltas.push(`facturador.${empresa} (${faltan.join(', ')})`)
+}
 
 console.log('\n== artículos (productoId → COD_STA11)')
 for (const p of catalogo) {

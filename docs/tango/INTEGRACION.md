@@ -882,3 +882,64 @@ la facturación descarga el stock del camión.
 sobre CAE externo, §12), talonario de pedidos (`pedido.talonarioId`, si Tango lo exige el `Create`
 lo va a decir en `Message`), y las preguntas 2/5 de §6.2 (circuito de aprobación, descarga de stock
 al facturar).
+
+## 15. Facturas de la app → Tango por el Facturador (writer real, 2026-09-03)
+
+**Qué hace.** `enviarFacturaATango` (bridge) registra en Tango cada item `entidad: 'factura'`
+del outbox con `POST {baseUrl}/FacturadorVenta/registrar` (body = array de un comprobante),
+headers `ApiAuthorization` + `Company` (resuelto contra `config/tango.companies`). Es la
+"registración de comprobantes" de la API de Ventas (§12, ProcessId 20412 en el repo oficial).
+- **Ventas contado de Redonhielo** (`conCaePropio: true`): FAC letra A/B/C con el **CAE que ya
+  emitió la app** (`cAE`, `fechaVtoCAE`) — Tango NO le pide su propio CAE a ARCA. Los importes
+  (`total`, `totalSinImpuestos`, `totalIva`) son EXACTAMENTE los de `factura.importes` que se le
+  informaron a ARCA; los ítems se reconstruyen desde la venta y el redondeo se ajusta en el último
+  ítem para que cierren. La percepción de IIBB (`importes.tributos`) va como `percepciones[]` por
+  ítem, proporcional al neto, con la alícuota reconstruida (`tributos / neto`).
+- **Ventas promo cobradas de Rolito** (factura X interna, sin CAE): FAC letra X, talonario propio,
+  totales derivados de los ítems (IVA 21%). Requiere que el talonario X exista en Tango como no
+  electrónico — decisión pendiente con el contador (§12 de FACTURACION_ELECTRONICA).
+- Pago: `pagos[{ tipo: 'Efectivo', codigoDeCuenta, monto }]` con la cuenta de tesorería por forma
+  de pago (`cuentas.contado_efectivo` / `cuentas.contado_transferencia`; la transferencia también
+  va como tipo Efectivo contra la cuenta banco — el Facturador solo conoce Efectivo/Cheque/Tarjeta).
+  Cuenta corriente → `cuotasCuentaCorriente` (no aplica hoy: cta cte va como remito/pedido, §14).
+- **Idempotencia natural:** si el número ya está registrado Tango contesta `(51016) Ya existe el
+  número de comprobante` y el bridge lo toma como confirmado (`yaExistia: true`).
+- Write-back: `resultado.facturaNumero` (ej. `A0110400000001`) → `onOutboxConfirmado` lo copia a
+  `ventasCamion/{id}.tango`.
+
+**Módulos.** `scripts/tango/tango-factura.mjs` (puro: `documentoDeVenta`, `itemsDeVenta`,
+`percepcionesPorItem`, `armarComprobanteFacturador`, `interpretarRespuestaFacturador`; 17 tests en
+`tango-factura.test.mjs`) + writer en `bridge-listener.mjs` + endpoint `/FacturadorVenta/registrar`
+en `mock-tango-server.mjs` (valida requeridos, artículos, total vs ítems y devuelve el 51016 real).
+Verificado 2026-09-03 en el emulador con la factura A real del 2026-09-02 ($1 + IVA + 6% IIBB, CAE
+86351147350772): registrada; factura X de promo: registrada; transferencia sin cuenta: error
+legible → cuenta cargada → registrada; reintento de la A: 51016 → confirmada sin duplicar.
+
+**Config por empresa** (`config/tango.facturador.<redonhielo|rolito>`, se carga con
+`configurar-ventas-tango.mjs --facturador <empresa> clave=valor`, claves con punto = anidado):
+
+| Clave | Qué es | Ejemplo |
+|---|---|---|
+| `talonarios.A` / `.B` / `.C` / `.X` | código de talonario (GVA43) por letra | `talonarios.A=20` |
+| `condicionVenta` | código de condición de venta contado (GVA01) | `1` |
+| `listaPrecio` o `listaPrecio.contado` / `.promo` | código de lista (GVA10) | `2` |
+| `contracuenta` | código de contracuenta | `20` |
+| `vendedor` | código de vendedor (GVA23) | `'3'` |
+| `codigoTasaIva21` | código de la tasa IVA 21% en Tango | `1` |
+| `cuentas.contado_efectivo` / `.contado_transferencia` | cuentas de tesorería | `'1'`, `'5'` |
+| `codigoAlicuotaPercepcionIIBB` (+ `codigoPercepcionIIBB`) | código del impuesto "Percepción IIBB CABA" | `12` |
+| `preciosIncluyenIva` | igual a `config/arca.preciosIncluyenIva` (default false) | `false` |
+| `fechaCierreTesoreria`, `depositoVentanilla`, `tipoPago.<formaPago>` | opcionales | |
+
+Comparte con §14: `articulos` (COD_STA11), `depositos` (COD_STA22, **2 chars** en el Facturador),
+`camiones`. Interruptor: `config/tango.facturasEnabled` (`--facturas on`). Path del endpoint
+ajustable en `bridge-listener.config.json → tangoVentas.facturadorPath` (default
+`/FacturadorVenta/registrar`).
+
+**Todos esos códigos salen de Tango** (talonarios, condiciones de venta, listas, vendedores,
+cuentas de tesorería, tasas/alícuotas). No están en las 8 tablas de `export-tablas-tango.ps1`
+(salvo listas/vendedores/condiciones): pedirlos por pantalla en Tango o por Live.
+
+**Orden sugerido de puesta en marcha:** primero `facturasEnabled` con TestingRH (una venta contado
+real de $1 → NC después, como el 2026-09-02); recién después Redonhielo real. Los remitos (§14)
+siguen su propio camino.

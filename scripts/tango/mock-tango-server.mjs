@@ -32,6 +32,7 @@ const DEPOSITOS = [
 ]
 const MONEDAS = [{ ID_MONEDA: 1, COD_MONEDA: 'PES', DESCRIPCIO: 'PESOS' }]
 const pedidos = []   // { ID_GVA21, NRO_PEDIDO, ...body }
+const facturas = []  // comprobantes registrados por el Facturador
 let proximoId = 1000
 
 function json(res, status, body) {
@@ -89,6 +90,33 @@ const server = http.createServer(async (req, res) => {
       console.log(`[mock-tango]   → pedido ${pedido.NRO_PEDIDO} (id ${id}) cliente ${body.ID_GVA14} depósito ${body.ID_STA22 ?? '-'} renglones ${body.RENGLON_DTO.length} ref ${body.LEYENDA_1}`)
       return json(res, 200, { Succeeded: true, SavedId: id, Message: 'OK' })
     }
+    // Facturador: POST /FacturadorVenta/registrar (body = array de comprobantes).
+    // Valida lo básico y rechaza números repetidos con el (51016) real.
+    if (/FacturadorVenta\/registrar$/i.test(url.pathname) && req.method === 'POST') {
+      const lista = JSON.parse(await leerBody(req))
+      if (!Array.isArray(lista) || lista.length === 0) return json(res, 200, { Message: 'Hubo errores en la registración, verifique el resultado.', Comprobantes: [{ numeroComprobante: null, estado: 'Error', exceptionMessage: '(78000) El JSON debe ser un array con al menos un comprobante', mensaje: null }], Succeeded: false })
+      const resultados = []
+      for (const c of lista) {
+        const nro = `${c.codigoTipoComprobante} ${c.numeroComprobante}`
+        const falta = ['codigoTipoComprobante', 'numeroComprobante', 'codigoTalonario', 'codigoCliente', 'codigoCondicionDeVenta', 'fechaComprobante', 'codigoListaPrecio', 'codigoContracuenta', 'codigoDeposito', 'codigoVendedor', 'total', 'totalSinImpuestos', 'totalIva', 'subtotal', 'subtotalSinImpuestos'].filter((k) => c[k] === undefined || c[k] === '')
+        if (falta.length) { resultados.push({ numeroComprobante: nro, estado: 'Error', exceptionMessage: '', mensaje: `(10001) Faltan datos requeridos: ${falta.join(', ')}` }); continue }
+        if (!Array.isArray(c.items) || !c.items.length) { resultados.push({ numeroComprobante: nro, estado: 'Error', exceptionMessage: '', mensaje: '(10002) El comprobante no tiene ítems' }); continue }
+        const art = c.items.find((i) => !ARTICULOS.some((a) => a.COD_STA11 === i.codigo))
+        if (art) { resultados.push({ numeroComprobante: nro, estado: 'Error', exceptionMessage: '', mensaje: `(10003) Artículo inexistente: ${art.codigo}` }); continue }
+        if (!c.pagos && !c.cuotasCuentaCorriente) { resultados.push({ numeroComprobante: nro, estado: 'Error', exceptionMessage: '', mensaje: '(10004) Falta la sección pagos o cuotasCuentaCorriente' }); continue }
+        const suma = c.items.reduce((s, i) => s + Number(i.importe ?? 0), 0) + c.items.reduce((s, i) => s + (i.percepciones ?? []).reduce((t, p) => t + Number(p.importe), 0), 0)
+        if (Math.abs(suma - Number(c.total)) > 0.011) { resultados.push({ numeroComprobante: nro, estado: 'Error', exceptionMessage: '', mensaje: `(10005) El total ${c.total} no coincide con los ítems (${suma.toFixed(2)})` }); continue }
+        if (facturas.some((f) => f.numeroComprobante === c.numeroComprobante && f.COMPANY === company)) {
+          resultados.push({ numeroComprobante: nro, estado: 'Error', exceptionMessage: '', mensaje: `(51016) Ya existe el número de comprobante ${c.numeroComprobante.slice(0, 1)} ${c.numeroComprobante.slice(1, 6)}-${c.numeroComprobante.slice(6)}. Verifique el talonario utilizado.` }); continue
+        }
+        facturas.push({ COMPANY: company, ...c })
+        console.log(`[mock-tango]   → factura ${nro} cliente ${c.codigoCliente} CAE ${c.cAE ?? '-'} total ${c.total} items ${c.items.length} ref ${c.leyenda1}`)
+        resultados.push({ numeroComprobante: nro, estado: 'Ok', exceptionMessage: '', mensaje: '' })
+      }
+      const ok = resultados.every((r) => r.estado === 'Ok')
+      return json(res, 200, { Message: ok ? 'Los comprobantes se han registrado correctamente' : 'Hubo errores en la registración, verifique el resultado.', Comprobantes: resultados, Succeeded: ok })
+    }
+    if (accion === 'facturas' && req.method === 'GET') return json(res, 200, facturas)  // inspección
     if (accion === 'pedidos' && req.method === 'GET') return json(res, 200, pedidos)   // inspección
     return json(res, 404, { succeeded: false, message: `acción ${accion} no soportada por el mock` })
   } catch (e) {

@@ -46,6 +46,7 @@ import {
   collection, query, where, onSnapshot, serverTimestamp,
 } from 'firebase/firestore'
 import { armarPedido, renglonesDeVenta, referenciaPedido, prop, idDeFila } from './tango-pedido.mjs'
+import { armarComprobanteFacturador, interpretarRespuestaFacturador } from './tango-factura.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const CONFIG_PATH = path.join(__dirname, 'bridge-listener.config.json')
@@ -341,14 +342,63 @@ async function enviarRemitoATango(payload, item) {
 // `factura.cbteTipo` (1 = A, 6 = B), `factura.cae`, `factura.caeFchVto` y
 // `factura.importes` (neto, iva, tributos, total) TAL COMO se le informaron a
 // ARCA — no se recalculan de este lado.
+// RESPONDIDO por la doc oficial del Facturador (2026-09-03, INTEGRACION.md §12
+// y §15): el endpoint `POST /FacturadorVenta/registrar` acepta `cAE` +
+// `fechaVtoCAE` puestos por quien llama (ejemplo "05 - Comprobante
+// Electrónico") — Tango registra el comprobante YA autorizado, no pide CAE
+// propio. Los importes viajan tal como se informaron a ARCA; los ítems se
+// reconstruyen y se ajustan por redondeo para cerrar contra esos totales
+// (tango-factura.mjs). Idempotencia natural: si el número ya está registrado,
+// Tango responde (51016) y se toma como confirmado.
 async function enviarFacturaATango(payload, item) {
-  log(
-    `  [STUB] enviarFacturaATango — Company ${item?.company ?? '?'} (${item?.empresa ?? '?'}), ` +
-    `conCaePropio=${item?.conCaePropio === true}, payload: ${JSON.stringify(payload)}`,
-  )
-  return {
-    ok: false,
-    error: 'API de transacciones de ventas no habilitada todavía — y falta confirmar con Axoft que admite registrar un comprobante con CAE externo (ver docs/tango/INTEGRACION.md §6.2)',
+  const t = tangoVentasCfg()
+  const company = item.company
+  const db = item.db
+
+  let tangoCfg
+  try { tangoCfg = (await getDoc(doc(db, 'config/tango'))).data() ?? {} } catch (e) { return { ok: false, error: `No se pudo leer config/tango: ${e.message}` } }
+  const cfgEmpresa = tangoCfg.facturador?.[item.empresa]
+  if (!cfgEmpresa) return { ok: false, error: `Falta config/tango.facturador.${item.empresa} (talonarios, condicionVenta, listaPrecio, contracuenta, vendedor, codigoTasaIva21, cuentas, codigoAlicuotaPercepcionIIBB)` }
+
+  const articulos = tangoCfg.articulos ?? {}
+  const codigoDeposito = payload.camionId ? tangoCfg.depositos?.[payload.camionId] : (cfgEmpresa.depositoVentanilla ?? null)
+  if (!codigoDeposito) {
+    return { ok: false, error: payload.camionId ? `Falta el depósito Tango del camión ${payload.camionId} en config/tango.depositos` : `Falta config/tango.facturador.${item.empresa}.depositoVentanilla` }
+  }
+
+  const armado = armarComprobanteFacturador(payload, item, cfgEmpresa, {
+    codigoArticulo: (productoId) => articulos[productoId] ?? null,
+    codigoDeposito,
+    etiquetaCamion: `${codigoDeposito} ${tangoCfg.camiones?.[payload.camionId] ?? ''}`.trim(),
+  })
+  if (armado.error) return { ok: false, error: armado.error }
+
+  // Seguridad: una venta marcada conCaePropio TIENE que llevar el CAE. Si no
+  // lo trae, algo se desincronizó entre ARCA y el outbox — no se registra.
+  if (item.conCaePropio === true && !armado.comprobante.cAE) {
+    return { ok: false, error: 'El item dice conCaePropio pero la venta no trae factura.cae — no se registra sin CAE' }
+  }
+
+  const path = t.facturadorPath ?? '/FacturadorVenta/registrar'
+  try {
+    const uri = `${t.baseUrl}${path}`
+    const resp = await fetch(uri, {
+      method: 'POST',
+      headers: { ApiAuthorization: t.token, Company: String(company), 'Content-Type': 'application/json' },
+      body: JSON.stringify([armado.comprobante]),
+      signal: AbortSignal.timeout(t.timeoutMs),
+    })
+    const texto = await resp.text()
+    let data
+    try { data = texto ? JSON.parse(texto) : {} } catch { return { ok: false, error: `Facturador respondió ${resp.status} con cuerpo no JSON: ${texto.slice(0, 200)}` } }
+    if (!resp.ok && !data.Comprobantes && !data.comprobantes) return { ok: false, error: `Facturador respondió ${resp.status}: ${prop(data, 'message') ?? texto.slice(0, 200)}` }
+
+    const r = interpretarRespuestaFacturador(data, armado.comprobante.numeroComprobante)
+    if (!r.ok) return { ok: false, error: `Facturador rechazó ${armado.comprobante.numeroComprobante}: ${r.mensaje || JSON.stringify(data).slice(0, 300)}` }
+    log(`  ${armado.referencia}: factura ${armado.comprobante.numeroComprobante} ${r.yaExistia ? 'ya estaba registrada' : 'registrada'} en Tango (Company ${company})${armado.comprobante.cAE ? ' con CAE ' + armado.comprobante.cAE : ' sin CAE'}`)
+    return { ok: true, resultado: { facturaNumero: armado.comprobante.numeroComprobante, comprobanteNumero: r.numeroComprobante ?? armado.comprobante.numeroComprobante, yaExistia: r.yaExistia, fiscal: armado.fiscal } }
+  } catch (err) {
+    return { ok: false, error: err.message }
   }
 }
 
