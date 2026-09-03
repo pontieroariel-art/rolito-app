@@ -58,6 +58,17 @@ for (const d of tomar('--deposito')) {
   ;(update.depositos ??= {})[cam.id] = v
   ;(update.camiones ??= {})[cam.id] = cam.patente
 }
+// --deposito-chofer <uid o apellido>=COD_STA22 — en Tango los depósitos son por
+// repartidor (03 SERGIO ALVAREZ…), así que el mapeo principal es por chofer.
+const choferesSnap = await db.collection('users').where('rol', '==', 'chofer').get()
+const choferes = choferesSnap.docs.map((d) => ({ id: d.id, nombre: d.data().nombre ?? '', estado: d.data().estado }))
+for (const d of tomar('--deposito-chofer')) {
+  const [k, v] = kv(d)
+  const cands = choferes.filter((c) => c.id === k || c.nombre.toUpperCase().includes(k.toUpperCase()))
+  if (cands.length !== 1) throw new Error(`"${k}" matchea ${cands.length} choferes (${cands.map((c) => c.nombre).join(', ') || 'ninguno'}): usá el uid`)
+  ;(update.depositos ??= {})[cands[0].id] = v
+  ;(update.camiones ??= {})[cands[0].id] = cands[0].nombre
+}
 for (const p of tomar('--pedido')) { const [k, v] = kv(p); (update.pedido ??= {})[k] = num(v) }
 const [remitos] = tomar('--remitos')
 if (remitos) update.remitosEnabled = remitos === 'on'
@@ -125,12 +136,14 @@ for (const p of catalogo) {
   if (!cod) faltas.push(`artículo ${p.id}`)
 }
 
-console.log('\n== camiones activos (camionId / patente → COD_STA22)')
-for (const c of camiones.filter((c) => c.activo)) {
+console.log('\n== choferes activos (uid / nombre → COD_STA22 del depósito-repartidor)')
+for (const c of choferes.filter((c) => c.estado === 'activo')) {
   const cod = tango.depositos?.[c.id]
-  console.log(`  ${cod ? '✓' : '✗'} ${c.patente?.padEnd(10)} ${c.id}  ${cod ?? '(falta)'}`)
-  if (!cod) faltas.push(`depósito de ${c.patente}`)
+  console.log(`  ${cod ? '✓' : '✗'} ${c.nombre.padEnd(30)} ${c.id}  ${cod ?? '(falta)'}`)
+  if (!cod) faltas.push(`depósito de ${c.nombre}`)
 }
+const camionesConDeposito = camiones.filter((c) => tango.depositos?.[c.id])
+if (camionesConDeposito.length) console.log('  (por camión, fallback):', camionesConDeposito.map((c) => `${c.patente}=${tango.depositos[c.id]}`).join(', '))
 
 console.log('\n== numeración interna')
 for (const tipo of ['remito', 'remitoPromo', 'facturaX']) {

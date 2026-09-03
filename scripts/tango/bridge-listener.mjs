@@ -163,11 +163,13 @@ function tangoVentasCfg() {
     procesos: { pedidos: 19845, articulos: 87, depositos: 2941, monedas: 1660, ...(v.procesos ?? {}) },
     // Plantillas de filtroSql (sintaxis de los ejemplos oficiales; ajustables
     // sin tocar código si la vista real usa otro nombre de columna).
+    // Sintaxis confirmada contra el Tango real (2026-09-03): el filtroSql va
+    // con "WHERE " adelante y el nombre de la vista/tabla como prefijo.
     filtros: {
-      articulo:  "AXV_ARTICULO.COD_STA11 = '{cod}'",
-      deposito:  "STA22.COD_STA22 = '{cod}'",
-      moneda:    "MONEDA.COD_MONEDA = '{cod}'",
-      pedidoRef: "LEYENDA_1 = '{ref}'",
+      articulo:  "WHERE AXV_ARTICULO.COD_STA11 = '{cod}'",
+      deposito:  "WHERE STA22.COD_STA22 = '{cod}'",
+      moneda:    "WHERE MONEDA.COD_MONEDA = '{cod}'",
+      pedidoRef: "WHERE AXV_PEDIDO.LEYENDA_1 = '{ref}'",
       ...(v.filtros ?? {}),
     },
     monedaCodigo:    v.monedaCodigo ?? 'PES',
@@ -252,9 +254,11 @@ async function enviarRemitoATango(payload, item) {
   }
   if (renglones.length === 0) return { ok: false, error: 'La venta no tiene renglones con cantidad > 0' }
 
-  const codDeposito = payload.camionId ? depositos[payload.camionId] : null
-  if (payload.camionId && !codDeposito) {
-    return { ok: false, error: `Falta el depósito Tango del camión ${payload.camionId} en config/tango.depositos` }
+  // En Tango los depósitos son POR REPARTIDOR (03 SERGIO ALVAREZ, 04 BRIAN
+  // GALLO…), no por patente: se busca primero por chofer y después por camión.
+  const codDeposito = depositos[payload.choferId] ?? (payload.camionId ? depositos[payload.camionId] : null) ?? null
+  if (!codDeposito) {
+    return { ok: false, error: `Falta el depósito Tango del chofer ${payload.choferNombre ?? payload.choferId} (config/tango.depositos.${payload.choferId}) — los depósitos de Tango son por repartidor` }
   }
 
   try {
@@ -310,8 +314,9 @@ async function enviarRemitoATango(payload, item) {
     // 5. Número de pedido para el write-back (best-effort: el Create solo da el ID).
     let pedidoNumero = null
     try {
-      const det = await tangoRequest(company, 'GET', 'GetById', { process: t.procesos.pedidos, id: savedId })
-      const fila = prop(det, 'resultData') ?? det
+      // GetById devuelve { value: {...} } (confirmado 2026-09-03), no resultData.
+      const det = await tangoRequest(company, 'GET', 'GetById', { process: t.procesos.pedidos, view: '', id: savedId })
+      const fila = prop(det, 'value') ?? prop(det, 'resultData') ?? det
       pedidoNumero = prop(fila, 'NRO_PEDIDO', 'N_PEDIDO', 'NUMERO') ?? null
     } catch (e) {
       log(`  aviso: no se pudo leer el número del pedido ${savedId} (${e.message})`)
@@ -361,9 +366,13 @@ async function enviarFacturaATango(payload, item) {
   if (!cfgEmpresa) return { ok: false, error: `Falta config/tango.facturador.${item.empresa} (talonarios, condicionVenta, listaPrecio, contracuenta, vendedor, codigoTasaIva21, cuentas, codigoAlicuotaPercepcionIIBB)` }
 
   const articulos = tangoCfg.articulos ?? {}
-  const codigoDeposito = payload.camionId ? tangoCfg.depositos?.[payload.camionId] : (cfgEmpresa.depositoVentanilla ?? null)
+  // Depósito por repartidor (ver enviarRemitoATango); ventanilla usa el suyo.
+  const codigoDeposito = tangoCfg.depositos?.[payload.choferId]
+    ?? (payload.camionId ? tangoCfg.depositos?.[payload.camionId] : null)
+    ?? (!payload.camionId ? cfgEmpresa.depositoVentanilla : null)
+    ?? null
   if (!codigoDeposito) {
-    return { ok: false, error: payload.camionId ? `Falta el depósito Tango del camión ${payload.camionId} en config/tango.depositos` : `Falta config/tango.facturador.${item.empresa}.depositoVentanilla` }
+    return { ok: false, error: payload.camionId ? `Falta el depósito Tango del chofer ${payload.choferNombre ?? payload.choferId} (config/tango.depositos.${payload.choferId})` : `Falta config/tango.facturador.${item.empresa}.depositoVentanilla` }
   }
 
   const armado = armarComprobanteFacturador(payload, item, cfgEmpresa, {

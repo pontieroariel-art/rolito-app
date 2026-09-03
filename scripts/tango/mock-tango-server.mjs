@@ -43,8 +43,11 @@ function leerBody(req) {
   return new Promise((resolve) => { let s = ''; req.on('data', (c) => (s += c)); req.on('end', () => resolve(s)) })
 }
 // filtroSql: "TABLA.CAMPO = 'valor'" o "CAMPO = 'valor'" → { campo, valor }
+// Como el Tango real (2026-09-03): el filtroSql tiene que empezar con WHERE.
 function parseFiltro(f) {
-  const m = /^(?:\w+\.)?(\w+)\s*=\s*'?([^']*)'?$/.exec((f ?? '').trim())
+  const s = (f ?? '').trim()
+  if (!/^WHERE\s/i.test(s)) throw new Error(`filtroSql sin WHERE: "${s}" (Tango real: Incorrect syntax near '=')`)
+  const m = /^WHERE\s+(?:\w+\.)?(\w+)\s*=\s*'?([^']*)'?$/i.exec(s)
   return m ? { campo: m[1], valor: m[2] } : null
 }
 function filtrar(lista, filtroSql) {
@@ -67,14 +70,16 @@ const server = http.createServer(async (req, res) => {
       const filtro = url.searchParams.get('filtroSql')
       const tabla = { 87: ARTICULOS, 2941: DEPOSITOS, 1660: MONEDAS, 19845: pedidos }[process_]
       if (!tabla) return json(res, 400, { succeeded: false, exceptionInfo: { messages: [`process ${process_} desconocido`] } })
+      // El Tango real responde { list: [...] } pelado (sin succeeded/resultData).
       const list = filtrar(tabla, filtro)
-      return json(res, 200, { succeeded: true, resultData: { list, pageIndex: 0, pageSize: list.length, totalCount: list.length, totalPages: 1 } })
+      return json(res, 200, { list })
     }
     if (accion === 'GetById' && req.method === 'GET') {
       const id = Number(url.searchParams.get('id'))
       const p = pedidos.find((x) => x.ID_GVA21 === id)
       if (!p) return json(res, 200, { succeeded: false, exceptionInfo: { messages: ['pedido inexistente'] } })
-      return json(res, 200, { succeeded: true, resultData: p })
+      // El Tango real responde { value: {...} } (confirmado 2026-09-03).
+      return json(res, 200, { value: p, message: null, exceptionInfo: null, succeeded: true })
     }
     if (accion === 'Create' && req.method === 'POST') {
       if (process_ !== 19845) return json(res, 400, { Succeeded: false, Message: `Create no soportado para process ${process_}` })
