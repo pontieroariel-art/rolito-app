@@ -27,7 +27,7 @@ import { resolverIncierto } from '../services/arca/emision'
 import { facturarVenta, rutaFactura, type RegistroFactura } from '../services/arca/facturacionVenta'
 import { documentoDeVenta } from '../services/arca/circuito'
 import { leerPercepcionDePerfil } from '../services/arca/percepcionPerfil'
-import type { ItemFacturable } from '../services/arca/comprobante'
+import type { ItemFacturable, DatosReceptor } from '../services/arca/comprobante'
 import { validarVentanaEmision } from '../services/arca/comprobante'
 import type { DbLike } from '../services/arca/numeracion'
 import { sendEmail, APP_URL, resendApiKey } from '../email'
@@ -40,6 +40,17 @@ const TZ = 'America/Argentina/Buenos_Aires'
 // avisa a la oficina una sola vez (avisadoEn), para que lo arregle mientras
 // la ventana de 5 días sigue abierta.
 const HORAS_PENDIENTE_ANTES_DE_AVISAR = 3
+
+/**
+ * Las dos colecciones que la app factura: la venta del camión y la del
+ * mostrador (ventanilla). Misma regla de negocio (docs/arca §11), distinto
+ * origen. El registro en `facturasArca/{ventaId}` guarda de cuál vino para que
+ * la reconciliación y el aviso lean la venta del lugar correcto; los registros
+ * anteriores a esto no tienen el campo y son del camión.
+ */
+type ColeccionVenta = 'ventasCamion' | 'ventasVentanilla'
+const coleccionDe = (f: Record<string, unknown> | undefined): ColeccionVenta =>
+  f?.coleccion === 'ventasVentanilla' ? 'ventasVentanilla' : 'ventasCamion'
 
 // El certificado y su clave viven en secrets, nunca en el repo ni en Firestore:
 // con ellos se puede emitir comprobantes en nombre de la empresa.
@@ -96,12 +107,13 @@ function itemsDe(venta: Record<string, unknown>): ItemFacturable[] {
 }
 
 /** Guarda el estado de la factura y lo refleja en la venta. */
-async function persistir(db: Firestore, registro: RegistroFactura): Promise<void> {
+async function persistir(db: Firestore, registro: RegistroFactura, coleccion: ColeccionVenta): Promise<void> {
   const batch = db.batch()
   batch.set(
     db.doc(rutaFactura(registro.ventaId)),
     {
       ...registro,
+      coleccion,
       actualizadoEn: FieldValue.serverTimestamp(),
       // Una rechazada entra en la cola de aviso a la oficina (ver
       // avisarFacturasConProblemas). El null explícito es lo que permite
@@ -116,7 +128,7 @@ async function persistir(db: Firestore, registro: RegistroFactura): Promise<void
   // le informaron a ARCA. Recalcularlos en el front arriesgaría que el papel
   // no coincida con lo declarado.
   batch.set(
-    db.doc(`ventasCamion/${registro.ventaId}`),
+    db.doc(`${coleccion}/${registro.ventaId}`),
     {
       factura: {
         estado: registro.estado,
@@ -136,10 +148,10 @@ async function persistir(db: Firestore, registro: RegistroFactura): Promise<void
 /**
  * Factura una venta ya conocida. Compartido por el trigger y la reconciliación.
  */
-async function facturar(db: Firestore, ventaId: string): Promise<RegistroFactura | null> {
+async function facturar(db: Firestore, ventaId: string, coleccion: ColeccionVenta): Promise<RegistroFactura | null> {
   const config = await leerConfigParaEmitir(comoDb(db))
 
-  const ventaSnap = await db.doc(`ventasCamion/${ventaId}`).get()
+  const ventaSnap = await db.doc(`${coleccion}/${ventaId}`).get()
   const venta = ventaSnap.data()
   if (!venta) return null
 
@@ -158,9 +170,32 @@ async function facturar(db: Firestore, ventaId: string): Promise<RegistroFactura
     return null
   }
 
+  // Receptor: el cliente registrado sale de su perfil (datos de Tango). El
+  // ocasional del mostrador no tiene perfil: es consumidor final, con el CUIT
+  // o DNI que haya cargado caja, o sin identificar hasta el tope (ver
+  // validarReceptor). Al ocasional no se le percibe IIBB: no está en padrón.
   const clienteId = String(venta.clienteId ?? '')
   const perfil = clienteId ? (await db.doc(`users/${clienteId}`).get()).data() : undefined
-  if (!perfil) throw new Error(`La venta ${ventaId} no tiene un cliente resoluble`)
+  const ocasional = venta.clienteOcasional as { nombre?: string; cuit?: string; dni?: string } | undefined
+
+  let receptor: DatosReceptor
+  if (perfil) {
+    receptor = {
+      razonSocial: String(perfil.razonSocial ?? ''),
+      cuit: String(perfil.cuit ?? ''),
+      categoriaIvaTango: String(perfil.categoriaIvaTango ?? ''),
+    }
+  } else if (coleccion === 'ventasVentanilla' && ocasional) {
+    receptor = {
+      razonSocial: String(ocasional.nombre ?? ''),
+      cuit: String(ocasional.cuit ?? ''),
+      dni: String(ocasional.dni ?? ''),
+      categoriaIvaTango: 'CF',
+      mostrador: true,
+    }
+  } else {
+    throw new Error(`La venta ${ventaId} no tiene un cliente resoluble`)
+  }
 
   const arca = await puertoArca(db, config)
 
@@ -170,17 +205,13 @@ async function facturar(db: Firestore, ventaId: string): Promise<RegistroFactura
     config,
     ventaId,
     datos: {
-      receptor: {
-        razonSocial: String(perfil.razonSocial ?? ''),
-        cuit: String(perfil.cuit ?? ''),
-        categoriaIvaTango: String(perfil.categoriaIvaTango ?? ''),
-      },
+      receptor,
       items: itemsDe(venta),
       fechaVenta: (venta.fecha as { toDate?: () => Date } | undefined)?.toDate?.() ?? new Date(),
     },
-    percepcionIIBB: leerPercepcionDePerfil(perfil, config.tributoIdPercepcionIIBB),
+    percepcionIIBB: perfil ? leerPercepcionDePerfil(perfil, config.tributoIdPercepcionIIBB) : undefined,
     leer: async () => (await db.doc(rutaFactura(ventaId)).get()).data(),
-    guardar: async (r) => { await persistir(db, r) },
+    guardar: async (r) => { await persistir(db, r, coleccion) },
   })
 }
 
@@ -194,28 +225,37 @@ async function facturar(db: Firestore, ventaId: string): Promise<RegistroFactura
  * reintentando. Lo que sí reintenta es la reconciliación, que corre con
  * criterio.
  */
+async function facturarVentaNueva(
+  coleccion: ColeccionVenta,
+  ventaId: string,
+  venta: Record<string, unknown> | undefined,
+): Promise<void> {
+  // Filtro barato antes de tocar secrets y red; `facturar` vuelve a decidir
+  // sobre la venta releída, que es la palabra final.
+  if (!venta || documentoDeVenta(venta.canal, venta.formaPago, venta.total) !== 'factura_arca') return
+
+  const db = getFirestore()
+  try {
+    await facturar(db, ventaId, coleccion)
+  } catch (e) {
+    const motivo = (e as Error).message
+    console.error(`[arca] no se pudo facturar la venta ${ventaId} (${coleccion}): ${motivo}`)
+    await db.doc(rutaFactura(ventaId)).set(
+      { ventaId, coleccion, estado: 'pendiente', motivo, actualizadoEn: FieldValue.serverTimestamp() },
+      { merge: true },
+    )
+  }
+}
+
 export const onVentaContadoFacturar = onDocumentCreated(
   { document: 'ventasCamion/{ventaId}', secrets: [arcaCert, arcaKey] },
-  async (event) => {
-    const venta = event.data?.data()
-    // Filtro barato antes de tocar secrets y red; `facturar` vuelve a decidir
-    // sobre la venta releída, que es la palabra final.
-    if (!venta || documentoDeVenta(venta.canal, venta.formaPago, venta.total) !== 'factura_arca') return
+  (event) => facturarVentaNueva('ventasCamion', event.params.ventaId, event.data?.data()),
+)
 
-    const db = getFirestore()
-    const ventaId = event.params.ventaId
-
-    try {
-      await facturar(db, ventaId)
-    } catch (e) {
-      const motivo = (e as Error).message
-      console.error(`[arca] no se pudo facturar la venta ${ventaId}: ${motivo}`)
-      await db.doc(rutaFactura(ventaId)).set(
-        { ventaId, estado: 'pendiente', motivo, actualizadoEn: FieldValue.serverTimestamp() },
-        { merge: true },
-      )
-    }
-  },
+/** Venta de contado en el mostrador → misma factura electrónica que el camión. */
+export const onVentaVentanillaContadoFacturar = onDocumentCreated(
+  { document: 'ventasVentanilla/{ventaId}', secrets: [arcaCert, arcaKey] },
+  (event) => facturarVentaNueva('ventasVentanilla', event.params.ventaId, event.data?.data()),
 )
 
 /**
@@ -276,7 +316,7 @@ export const reconciliarFacturasArca = onSchedule(
               cae: r.estado === 'emitido' ? r.cae : null,
               caeFchVto: r.estado === 'emitido' ? r.caeFchVto : null,
               motivo: r.estado === 'rechazado' ? r.motivo : null,
-            })
+            }, coleccionDe(f))
           } catch (e) {
             // Un fallo acá no debe frenar al resto de la tanda.
             console.error(`[arca] reconciliación de ${ventaId} (incierta) falló: ${(e as Error).message}`)
@@ -286,7 +326,8 @@ export const reconciliarFacturasArca = onSchedule(
         for (const docSnap of pendientes.docs) {
           const f = docSnap.data()
           const ventaId = docSnap.id
-          const venta = (await db.doc(`ventasCamion/${ventaId}`).get()).data()
+          const coleccion = coleccionDe(f)
+          const venta = (await db.doc(`${coleccion}/${ventaId}`).get()).data()
           const fechaVenta = (venta?.fecha as { toDate?: () => Date } | undefined)?.toDate?.()
 
           try {
@@ -307,7 +348,7 @@ export const reconciliarFacturasArca = onSchedule(
               }
             }
 
-            if ((await facturar(db, ventaId)) === null) {
+            if ((await facturar(db, ventaId, coleccion)) === null) {
               // La venta no la factura la app (promo, cuenta corriente) o ya no
               // existe. Sin este cierre el registro quedaría 'pendiente' para
               // siempre, reintentándose cada hora sin que nada cambie nunca.
@@ -369,7 +410,7 @@ async function avisarFacturasConProblemas(db: Firestore, trabadas: FacturaConPro
   const problemas: FacturaConProblema[] = [...trabadas]
   for (const docSnap of [...rechazadas.docs, ...vencidas.docs]) {
     const f = docSnap.data()
-    const venta = (await db.doc(`ventasCamion/${docSnap.id}`).get()).data()
+    const venta = (await db.doc(`${coleccionDe(f)}/${docSnap.id}`).get()).data()
     problemas.push({
       ventaId: docSnap.id,
       estado: f.estado === 'vencida' ? 'vencida' : 'rechazada',

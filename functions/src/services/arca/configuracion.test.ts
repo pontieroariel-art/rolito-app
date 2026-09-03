@@ -36,8 +36,15 @@ describe('validarConfig', () => {
       puntoVenta: 1104,
       preciosIncluyenIva: false,
       tributoIdPercepcionIIBB: 7,
+      topeConsumidorFinalSinIdentificar: 0,
       habilitado: true,
     })
+  })
+
+  it('el tope del consumidor final sin identificar es opcional y no admite negativos', () => {
+    expect(validarConfig({ ...valida, topeConsumidorFinalSinIdentificar: 417288 }).topeConsumidorFinalSinIdentificar).toBe(417288)
+    expect(() => validarConfig({ ...valida, topeConsumidorFinalSinIdentificar: -1 })).toThrow(/tope/)
+    expect(() => validarConfig({ ...valida, topeConsumidorFinalSinIdentificar: 'mucho' })).toThrow(/tope/)
   })
 
   it('normaliza el CUIT con guiones', () => {

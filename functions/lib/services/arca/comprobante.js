@@ -17,6 +17,7 @@ exports.esCuitValido = esCuitValido;
 exports.redondear2 = redondear2;
 exports.percepcionVigente = percepcionVigente;
 exports.calcularImportes = calcularImportes;
+exports.esDniValido = esDniValido;
 exports.validarReceptor = validarReceptor;
 exports.diaCalendarioAr = diaCalendarioAr;
 exports.formatearFechaArca = formatearFechaArca;
@@ -250,6 +251,11 @@ function calcularImportes(items, opciones) {
         Tributos,
     };
 }
+/** DNI argentino: 7 u 8 dígitos. */
+function esDniValido(dni) {
+    const d = soloDigitos(dni);
+    return d.length === 7 || d.length === 8;
+}
 /**
  * Decide si a un cliente se le puede emitir factura, y con qué comprobante.
  *
@@ -278,14 +284,38 @@ function validarReceptor(datos) {
     else {
         condicion = exports.CONDICION_IVA_POR_CODIGO_TANGO[codigo];
     }
+    // Identificación del comprador. Un cliente registrado (viene de Tango) lleva
+    // CUIT sí o sí. El ocasional del mostrador es consumidor final: con CUIT va
+    // identificado por CUIT; sin CUIT pero con DNI, por DNI; sin nada, sin
+    // identificar (DocTipo 99) — y el tope de importe lo controla construirDetalle,
+    // que es quien conoce el total.
     const cuit = soloDigitos(datos.cuit);
-    if (!cuit) {
+    const dni = soloDigitos(datos.dni);
+    let docTipo = exports.TIPO_DOCUMENTO.CUIT;
+    let docNro = Number(cuit);
+    if (cuit) {
+        if (!esCuitValido(cuit)) {
+            motivos.push('CUIT_INVALIDO');
+            detalles.push(`el CUIT ${cuit} no supera la validación de dígito verificador`);
+        }
+    }
+    else if (datos.mostrador && condicion?.clase === 'B') {
+        if (dni) {
+            if (!esDniValido(dni)) {
+                motivos.push('DNI_INVALIDO');
+                detalles.push(`el DNI ${dni} no tiene 7 u 8 dígitos`);
+            }
+            docTipo = exports.TIPO_DOCUMENTO.DNI;
+            docNro = Number(dni);
+        }
+        else {
+            docTipo = exports.TIPO_DOCUMENTO.SIN_IDENTIFICAR;
+            docNro = 0;
+        }
+    }
+    else {
         motivos.push('SIN_CUIT');
         detalles.push('el cliente no tiene CUIT cargado');
-    }
-    else if (!esCuitValido(cuit)) {
-        motivos.push('CUIT_INVALIDO');
-        detalles.push(`el CUIT ${cuit} no supera la validación de dígito verificador`);
     }
     if (!String(datos.razonSocial ?? '').trim()) {
         motivos.push('SIN_RAZON_SOCIAL');
@@ -294,7 +324,7 @@ function validarReceptor(datos) {
     if (motivos.length > 0 || !condicion) {
         return { facturable: false, motivos, detalle: detalles.join('; ') };
     }
-    return { facturable: true, condicion, cuit, claseComprobante: condicion.clase };
+    return { facturable: true, condicion, cuit, claseComprobante: condicion.clase, docTipo, docNro };
 }
 /**
  * Descompone una fecha en su día calendario **de Argentina**.
@@ -370,13 +400,23 @@ function construirDetalle(datos, opciones) {
             throw new Error(`No se puede facturar: ${vig.motivo}`);
     }
     const importes = calcularImportes(datos.items, opciones);
+    // Consumidor final sin identificar: solo hasta el tope vigente. Pasado el
+    // tope no se emite con DocTipo 99 (ARCA lo rechaza o, peor, lo observa): caja
+    // tiene que cargar CUIT o DNI.
+    if (validacion.docTipo === exports.TIPO_DOCUMENTO.SIN_IDENTIFICAR) {
+        const tope = opciones.topeConsumidorFinalSinIdentificar ?? 0;
+        if (!(tope > 0) || importes.ImpTotal > tope) {
+            throw new Error(`Cliente no facturable: el total ${importes.ImpTotal} supera el tope de ${tope} para ` +
+                'facturar a un consumidor final sin identificar; hay que cargar CUIT o DNI');
+        }
+    }
     return {
         claseComprobante: validacion.claseComprobante,
         cbteTipo: exports.FACTURA_POR_CLASE[validacion.claseComprobante],
         detalle: {
             Concepto: exports.CONCEPTO.PRODUCTOS,
-            DocTipo: exports.TIPO_DOCUMENTO.CUIT,
-            DocNro: Number(validacion.cuit),
+            DocTipo: validacion.docTipo,
+            DocNro: validacion.docNro,
             CbteDesde: datos.numeroComprobante,
             CbteHasta: datos.numeroComprobante,
             CbteFch: formatearFechaArca(datos.fechaVenta),

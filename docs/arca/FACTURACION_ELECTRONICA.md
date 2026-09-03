@@ -806,3 +806,52 @@ y firmar aunque todavía no haya forma de meterlo en el sistema.
 
 **Y falta crear los artículos de cambio en Tango.** La app los deriva sola de su catálogo, pero
 cuando el comprobante viaje a Tango cada cambio va a necesitar su código de artículo del otro lado.
+
+## 12. El mostrador (ventanilla) factura igual que el camión (2026-09-03)
+
+Decidido con Ariel el 2026-09-03: la tabla del §11 aplica también a la venta por ventanilla.
+Hasta ese día `ventasVentanilla` no tenía trigger de ARCA ni de Tango: una venta de contado en el
+mostrador salía sin comprobante fiscal desde la app.
+
+- **`onVentaVentanillaContadoFacturar`** (`triggers/arcaFacturacion.ts`): mismo `facturar()` que
+  el camión, parametrizado por colección. El registro `facturasArca/{ventaId}` guarda `coleccion`
+  para que la reconciliación y el aviso por mail lean la venta del lugar correcto (los registros
+  viejos no tienen el campo y son del camión).
+- **`onVentaVentanillaCreada` / `onVentaVentanillaFacturada`** (`triggers/tangoOutbox.ts`): espejo
+  de los del camión; el item del outbox lleva `origenColeccion: 'ventasVentanilla'` y el write-back
+  acepta las dos colecciones.
+
+### El cliente ocasional es consumidor final
+
+No existe en Tango, así que no hay `categoriaIvaTango` de dónde sacarlo: el trigger arma el
+receptor como `CF` con `mostrador: true`. `validarReceptor` decide la identificación:
+
+| Caja cargó | DocTipo | Condición |
+|---|---|---|
+| CUIT válido | 80 | — |
+| DNI (7 u 8 dígitos) | 96 | — |
+| Nada | 99 (sin identificar), DocNro 0 | solo si el total ≤ `config/arca.topeConsumidorFinalSinIdentificar` |
+
+El tope lo fija ARCA (RG 5003 y actualizaciones) y cambia cada tanto: por eso vive en
+`config/arca` y no en el código. **Ausente o 0 = siempre hay que identificar** — es el estado al
+salir este cambio; hay que cargar el valor vigente antes de vender a ocasionales sin documento.
+`construirDetalle` es quien aplica el tope porque es quien conoce el total con IVA.
+
+Un cliente **registrado** nunca pasa por acá: se le sigue exigiendo CUIT aunque sea consumidor
+final, porque su dato viene de Tango y si falta, falta en Tango.
+
+### Qué imprime caja
+
+Decisión: **nada hasta tener el CAE.** `VentanillaPage` crea la venta y abre un modal que se
+suscribe al doc hasta que el trigger escribe `factura`:
+
+- `emitida` → imprime la factura (`facturaArcaPdf`, importes tal como se declararon) y el
+  comprobante de turno, una sola vez.
+- `rechazada` / `incierta` → lo dice, deja imprimir solo el turno (la venta ya se cobró; muelle
+  entrega contra el turno) y la oficina recibe el aviso por mail de la reconciliación.
+- Si ARCA tarda más de 45 s, ofrece imprimir el turno y seguir; la factura queda en el listado
+  del día con su botón cuando aparezca.
+
+Antes de cobrar, la pantalla avisa si la venta no va a poder facturarse (cliente registrado sin
+CUIT o sin condición de IVA; ocasional sin documento por encima del tope) — la autoridad sigue
+siendo el servidor.

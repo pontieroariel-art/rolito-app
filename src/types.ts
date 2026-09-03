@@ -217,7 +217,9 @@ export interface VentaVentanilla {
   clienteNombre:        string
   clienteCodigoTango?:  string
   clienteIdGva14Tango?: number
-  clienteOcasional?:    { nombre: string; cuit?: string }
+  // Ocasional: consumidor final. CUIT o DNI si los tiene; sin ninguno, la
+  // factura sale "sin identificar" hasta el tope de config/arca.
+  clienteOcasional?:    { nombre: string; cuit?: string; dni?: string }
   items:                VentaCamionItem[]   // misma shape que la venta del camión
   total:                number
   formaPago:            FormaPago   // cuenta_corriente solo para registrados
@@ -232,6 +234,9 @@ export interface VentaVentanilla {
   salida?:              { uid: string; nombre: string; hora: Timestamp }   // seguridad en el portón (Fase 4)
   fecha:                Timestamp
   tango?:               RemitoTangoEstado
+  // Espejo de la factura electrónica (contado efectivo/transferencia), que
+  // escribe onVentaVentanillaContadoFacturar — mismo circuito que el camión.
+  factura?:             FacturaArcaVenta
 }
 
 // ── Expedición: cobranza (mostrador, calle o supervisor) ──────────────────────

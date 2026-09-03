@@ -367,3 +367,90 @@ describe('formatearFechaArca', () => {
     expect(formatearFechaArca(new Date('2026-09-10T21:30:00-03:00'))).toBe('20260910')
   })
 })
+
+describe('receptor del mostrador (consumidor final ocasional)', () => {
+  const ocasional = { razonSocial: 'Juan Pérez', categoriaIvaTango: 'CF', mostrador: true }
+  const items = [{ descripcion: 'Hielo bolsa 3kg', cantidad: 2, precioUnitario: 1000 }]
+  const datos = (receptor: Record<string, unknown>) => ({
+    receptor,
+    items,
+    fechaVenta: new Date('2026-09-10T15:30:00-03:00'),
+    numeroComprobante: 7,
+  })
+
+  it('con CUIT va identificado por CUIT, factura B', () => {
+    const r = validarReceptor({ ...ocasional, cuit: '20-36024287-1' })
+    expect(r.facturable).toBe(true)
+    if (r.facturable) {
+      expect(r.claseComprobante).toBe('B')
+      expect(r.docTipo).toBe(80)
+      expect(r.docNro).toBe(20360242871)
+    }
+  })
+
+  it('sin CUIT pero con DNI va identificado por DNI', () => {
+    const r = validarReceptor({ ...ocasional, dni: '36.024.287' })
+    expect(r.facturable).toBe(true)
+    if (r.facturable) {
+      expect(r.docTipo).toBe(96)
+      expect(r.docNro).toBe(36024287)
+      expect(r.cuit).toBe('')
+    }
+  })
+
+  it('rechaza un DNI que no tiene 7 u 8 dígitos', () => {
+    const r = validarReceptor({ ...ocasional, dni: '123' })
+    expect(!r.facturable && r.motivos).toContain('DNI_INVALIDO')
+  })
+
+  it('sin CUIT ni DNI va sin identificar (99/0)', () => {
+    const r = validarReceptor(ocasional)
+    expect(r.facturable).toBe(true)
+    if (r.facturable) {
+      expect(r.docTipo).toBe(99)
+      expect(r.docNro).toBe(0)
+    }
+  })
+
+  it('un cliente registrado sin CUIT sigue bloqueado aunque sea consumidor final', () => {
+    const r = validarReceptor({ razonSocial: 'Kiosco', categoriaIvaTango: 'CF', cuit: '' })
+    expect(!r.facturable && r.motivos).toContain('SIN_CUIT')
+  })
+
+  it('un ocasional con categoría de clase A no puede ir sin CUIT', () => {
+    const r = validarReceptor({ ...ocasional, categoriaIvaTango: 'RI' })
+    expect(!r.facturable && r.motivos).toContain('SIN_CUIT')
+  })
+
+  it('sin identificar se emite solo hasta el tope configurado', () => {
+    // 2 × 1000 + IVA = 2420 con precios netos.
+    const { detalle } = construirDetalle(datos(ocasional), {
+      preciosIncluyenIva: false,
+      topeConsumidorFinalSinIdentificar: 5000,
+    })
+    expect(detalle.DocTipo).toBe(99)
+    expect(detalle.DocNro).toBe(0)
+    expect(detalle.CondicionIVAReceptorId).toBe(5)
+    expect(detalle.ImpTotal).toBe(2420)
+  })
+
+  it('sin identificar y por encima del tope, se niega y pide CUIT o DNI', () => {
+    expect(() =>
+      construirDetalle(datos(ocasional), { preciosIncluyenIva: false, topeConsumidorFinalSinIdentificar: 2000 }),
+    ).toThrow(/CUIT o DNI/)
+  })
+
+  it('sin tope configurado, nunca emite sin identificar', () => {
+    expect(() =>
+      construirDetalle(datos(ocasional), { preciosIncluyenIva: false }),
+    ).toThrow(/CUIT o DNI/)
+  })
+
+  it('el tope no aplica cuando el ocasional está identificado', () => {
+    const { detalle } = construirDetalle(datos({ ...ocasional, dni: '36024287' }), {
+      preciosIncluyenIva: false,
+      topeConsumidorFinalSinIdentificar: 0,
+    })
+    expect(detalle.DocTipo).toBe(96)
+  })
+})

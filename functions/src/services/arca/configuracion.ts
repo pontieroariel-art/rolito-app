@@ -35,6 +35,13 @@ export interface ConfigArca {
    * Sale de `FEParamGetTiposTributos` — ver `scripts/arca/verificar-conexion.mjs`.
    */
   tributoIdPercepcionIIBB: number
+  /**
+   * Tope (IVA incluido) hasta el cual un consumidor final del mostrador puede
+   * facturarse sin identificar (DocTipo 99). Lo fija ARCA (RG 5003 y sus
+   * actualizaciones) y cambia cada tanto, por eso vive acá. 0 = siempre pedir
+   * CUIT o DNI.
+   */
+  topeConsumidorFinalSinIdentificar: number
   /** Interruptor general: con esto en false no se emite nada. */
   habilitado: boolean
 }
@@ -87,6 +94,14 @@ export function validarConfig(data: Record<string, unknown> | undefined): Config
     )
   }
 
+  // Opcional: ausente = 0 = el consumidor final del mostrador siempre se
+  // identifica. Si viene, tiene que ser un número no negativo.
+  const tope = d.topeConsumidorFinalSinIdentificar
+  const topeNum = tope === undefined || tope === null ? 0 : Number(tope)
+  if (!Number.isFinite(topeNum) || topeNum < 0) {
+    problemas.push('`topeConsumidorFinalSinIdentificar` debe ser un número >= 0 (tope de la RG 5003)')
+  }
+
   if (problemas.length > 0) throw new ConfigArcaInvalida(problemas)
 
   return {
@@ -95,6 +110,7 @@ export function validarConfig(data: Record<string, unknown> | undefined): Config
     puntoVenta,
     preciosIncluyenIva: d.preciosIncluyenIva as boolean,
     tributoIdPercepcionIIBB: tributoId,
+    topeConsumidorFinalSinIdentificar: topeNum,
     // El default es NO emitir: una configuración a medio cargar no debe
     // empezar a facturar sola.
     habilitado: d.habilitado === true,

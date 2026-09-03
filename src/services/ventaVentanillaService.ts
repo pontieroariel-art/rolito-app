@@ -2,7 +2,7 @@ import {
   collection, doc, onSnapshot, query, runTransaction, setDoc, updateDoc, where, Timestamp,
 } from 'firebase/firestore'
 import { db } from './firebase'
-import { onSnapshotError, esperarOEncolar } from './observability'
+import { onSnapshotError, esperarOEncolar, reportError } from './observability'
 import { todayString } from '../utils/helpers'
 import {
   CanalVenta, FormaPago, PlantaId, VentaCamionItem, VentaVentanilla,
@@ -26,7 +26,7 @@ export async function crearVentaVentanilla(
   args: {
     canal:      CanalVenta
     cliente?:   { uid: string; nombre: string; codigoTango?: string; idGva14Tango?: number }
-    ocasional?: { nombre: string; cuit?: string }
+    ocasional?: { nombre: string; cuit?: string; dni?: string }
     items:      VentaCamionItem[]
     formaPago:  FormaPago
   },
@@ -139,3 +139,16 @@ export const subscribeVentanillaDelDia = (
     onSnapshotError(callback, 'ventasVentanilla'),
   )
 }
+
+// Una venta puntual, en vivo: caja espera acá a que el trigger de ARCA escriba
+// `factura` para imprimir el comprobante fiscal (decisión 2026-09-03: en el
+// mostrador no se imprime nada hasta tener el CAE).
+export const subscribeVentaVentanilla = (
+  id: string,
+  callback: (venta: VentaVentanilla | null) => void,
+): () => void =>
+  onSnapshot(
+    doc(db, VENTAS, id),
+    (snap) => callback(snap.exists() ? ({ id: snap.id, ...snap.data() } as VentaVentanilla) : null),
+    (err) => { reportError(err, { subscription: 'ventasVentanilla', id }); callback(null) },
+  )

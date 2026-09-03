@@ -55,6 +55,13 @@ function validarConfig(data) {
         problemas.push('`tributoIdPercepcionIIBB` debe ser el código de tributo de ARCA ' +
             '(se obtiene con FEParamGetTiposTributos)');
     }
+    // Opcional: ausente = 0 = el consumidor final del mostrador siempre se
+    // identifica. Si viene, tiene que ser un número no negativo.
+    const tope = d.topeConsumidorFinalSinIdentificar;
+    const topeNum = tope === undefined || tope === null ? 0 : Number(tope);
+    if (!Number.isFinite(topeNum) || topeNum < 0) {
+        problemas.push('`topeConsumidorFinalSinIdentificar` debe ser un número >= 0 (tope de la RG 5003)');
+    }
     if (problemas.length > 0)
         throw new ConfigArcaInvalida(problemas);
     return {
@@ -63,6 +70,7 @@ function validarConfig(data) {
         puntoVenta,
         preciosIncluyenIva: d.preciosIncluyenIva,
         tributoIdPercepcionIIBB: tributoId,
+        topeConsumidorFinalSinIdentificar: topeNum,
         // El default es NO emitir: una configuración a medio cargar no debe
         // empezar a facturar sola.
         habilitado: d.habilitado === true,

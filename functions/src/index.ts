@@ -25,7 +25,7 @@ export { onHistorialAdminAltoRiesgo, enviarResumenAdminDiario } from './triggers
 export { syncClientesTango }                    from './triggers/tangoSync'
 export { syncSaldosTango }                      from './triggers/tangoSaldos'
 export { onConsultaRespondida }                 from './triggers/tangoConsultas'
-export { onProduccionPalletCreado, onVentaCamionCreada, onVentaCamionFacturada, onCobranzaCreada, onOutboxConfirmado } from './triggers/tangoOutbox'
+export { onProduccionPalletCreado, onVentaCamionCreada, onVentaCamionFacturada, onVentaVentanillaCreada, onVentaVentanillaFacturada, onCobranzaCreada, onOutboxConfirmado } from './triggers/tangoOutbox'
 export { publicarTurnosVentanilla } from './triggers/turnosVentanilla'
 export { onOrderRollup } from './triggers/rollups'
 export { resetPinProduccion } from './triggers/produccionAuth'
@@ -35,7 +35,7 @@ export { resetPinProduccion } from './triggers/produccionAuth'
 // documento config/arca. Que estén desplegadas NO significa que emitan: el
 // interruptor real es `config/arca.habilitado`, que arranca en false.
 // Ver docs/arca/FACTURACION_ELECTRONICA.md.
-export { onVentaContadoFacturar, reconciliarFacturasArca } from './triggers/arcaFacturacion'
+export { onVentaContadoFacturar, onVentaVentanillaContadoFacturar, reconciliarFacturasArca } from './triggers/arcaFacturacion'
 // Aviso de vencimiento del padrón de IIBB. No declara los secrets de ARCA, así
 // que se puede desplegar suelta.
 export { avisarPadronIIBB } from './triggers/padronIIBB'

@@ -250,6 +250,13 @@ export interface OpcionesCalculo {
    */
   preciosIncluyenIva: boolean
   /**
+   * Hasta qué total (IVA incluido) un consumidor final del mostrador puede ir
+   * sin identificar (DocTipo 99). Por encima, ARCA exige CUIT o DNI (RG 5003 y
+   * sus actualizaciones). Vive en `config/arca` porque el monto lo actualiza
+   * ARCA cada tanto. Ausente o 0 = siempre hay que identificar.
+   */
+  topeConsumidorFinalSinIdentificar?: number
+  /**
    * Percepción de IIBB del cliente. Ausente = el cliente no está en el padrón y
    * no corresponde percibirle.
    */
@@ -377,6 +384,15 @@ export interface DatosReceptor {
   cuit?: string
   /** COD_CATEGORIA_IVA sincronizado de Tango (users/{uid}.categoriaIvaTango) */
   categoriaIvaTango?: string
+  /** DNI, para el consumidor final del mostrador que no tiene CUIT. */
+  dni?: string
+  /**
+   * Cliente ocasional del mostrador: no existe en Tango, es consumidor final
+   * por definición, y puede ir SIN identificar (DocTipo 99) mientras el total
+   * no supere el tope de la RG 5003 (`topeConsumidorFinalSinIdentificar`).
+   * Un cliente registrado nunca lleva esto: a él se le exige el CUIT.
+   */
+  mostrador?: boolean
 }
 
 export type MotivoNoFacturable =
@@ -385,11 +401,27 @@ export type MotivoNoFacturable =
   | 'CONDICION_IVA_NO_APLICA'
   | 'SIN_CUIT'
   | 'CUIT_INVALIDO'
+  | 'DNI_INVALIDO'
   | 'SIN_RAZON_SOCIAL'
 
 export type ResultadoValidacion =
-  | { facturable: true; condicion: CondicionIvaReceptor; cuit: string; claseComprobante: ClaseComprobante }
+  | {
+      facturable: true
+      condicion: CondicionIvaReceptor
+      /** CUIT sin guiones, o '' si el receptor se identifica por DNI o va sin identificar. */
+      cuit: string
+      claseComprobante: ClaseComprobante
+      /** Lo que viaja en <DocTipo>/<DocNro>. 99/0 = consumidor final sin identificar. */
+      docTipo: number
+      docNro: number
+    }
   | { facturable: false; motivos: MotivoNoFacturable[]; detalle: string }
+
+/** DNI argentino: 7 u 8 dígitos. */
+export function esDniValido(dni: string | number | null | undefined): boolean {
+  const d = soloDigitos(dni)
+  return d.length === 7 || d.length === 8
+}
 
 /**
  * Decide si a un cliente se le puede emitir factura, y con qué comprobante.
@@ -419,13 +451,35 @@ export function validarReceptor(datos: DatosReceptor): ResultadoValidacion {
     condicion = CONDICION_IVA_POR_CODIGO_TANGO[codigo]
   }
 
+  // Identificación del comprador. Un cliente registrado (viene de Tango) lleva
+  // CUIT sí o sí. El ocasional del mostrador es consumidor final: con CUIT va
+  // identificado por CUIT; sin CUIT pero con DNI, por DNI; sin nada, sin
+  // identificar (DocTipo 99) — y el tope de importe lo controla construirDetalle,
+  // que es quien conoce el total.
   const cuit = soloDigitos(datos.cuit)
-  if (!cuit) {
+  const dni = soloDigitos(datos.dni)
+  let docTipo: number = TIPO_DOCUMENTO.CUIT
+  let docNro = Number(cuit)
+  if (cuit) {
+    if (!esCuitValido(cuit)) {
+      motivos.push('CUIT_INVALIDO')
+      detalles.push(`el CUIT ${cuit} no supera la validación de dígito verificador`)
+    }
+  } else if (datos.mostrador && condicion?.clase === 'B') {
+    if (dni) {
+      if (!esDniValido(dni)) {
+        motivos.push('DNI_INVALIDO')
+        detalles.push(`el DNI ${dni} no tiene 7 u 8 dígitos`)
+      }
+      docTipo = TIPO_DOCUMENTO.DNI
+      docNro = Number(dni)
+    } else {
+      docTipo = TIPO_DOCUMENTO.SIN_IDENTIFICAR
+      docNro = 0
+    }
+  } else {
     motivos.push('SIN_CUIT')
     detalles.push('el cliente no tiene CUIT cargado')
-  } else if (!esCuitValido(cuit)) {
-    motivos.push('CUIT_INVALIDO')
-    detalles.push(`el CUIT ${cuit} no supera la validación de dígito verificador`)
   }
 
   if (!String(datos.razonSocial ?? '').trim()) {
@@ -437,7 +491,7 @@ export function validarReceptor(datos: DatosReceptor): ResultadoValidacion {
     return { facturable: false, motivos, detalle: detalles.join('; ') }
   }
 
-  return { facturable: true, condicion, cuit, claseComprobante: condicion.clase }
+  return { facturable: true, condicion, cuit, claseComprobante: condicion.clase, docTipo, docNro }
 }
 
 // ── Armado del detalle del comprobante ────────────────────────────────────────
@@ -558,13 +612,26 @@ export function construirDetalle(
 
   const importes = calcularImportes(datos.items, opciones)
 
+  // Consumidor final sin identificar: solo hasta el tope vigente. Pasado el
+  // tope no se emite con DocTipo 99 (ARCA lo rechaza o, peor, lo observa): caja
+  // tiene que cargar CUIT o DNI.
+  if (validacion.docTipo === TIPO_DOCUMENTO.SIN_IDENTIFICAR) {
+    const tope = opciones.topeConsumidorFinalSinIdentificar ?? 0
+    if (!(tope > 0) || importes.ImpTotal > tope) {
+      throw new Error(
+        `Cliente no facturable: el total ${importes.ImpTotal} supera el tope de ${tope} para ` +
+        'facturar a un consumidor final sin identificar; hay que cargar CUIT o DNI',
+      )
+    }
+  }
+
   return {
     claseComprobante: validacion.claseComprobante,
     cbteTipo: FACTURA_POR_CLASE[validacion.claseComprobante],
     detalle: {
       Concepto: CONCEPTO.PRODUCTOS,
-      DocTipo: TIPO_DOCUMENTO.CUIT,
-      DocNro: Number(validacion.cuit),
+      DocTipo: validacion.docTipo,
+      DocNro: validacion.docNro,
       CbteDesde: datos.numeroComprobante,
       CbteHasta: datos.numeroComprobante,
       CbteFch: formatearFechaArca(datos.fechaVenta),

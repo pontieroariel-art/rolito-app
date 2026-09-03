@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.avisarPadronIIBB = exports.reconciliarFacturasArca = exports.onVentaContadoFacturar = exports.resetPinProduccion = exports.onOrderRollup = exports.publicarTurnosVentanilla = exports.onOutboxConfirmado = exports.onCobranzaCreada = exports.onVentaCamionFacturada = exports.onVentaCamionCreada = exports.onProduccionPalletCreado = exports.onConsultaRespondida = exports.syncSaldosTango = exports.syncClientesTango = exports.enviarResumenAdminDiario = exports.onHistorialAdminAltoRiesgo = exports.backupAuthUsers = exports.avisarComodatosPorVencer = exports.onTicketCreado = exports.onStockBajo = exports.onTicketCerrado = exports.generarPedidosRecurrentes = exports.orsDirections = exports.mirrorDriverLocation = exports.validarPreciosPedido = exports.notifyReprogramado = exports.notifyCerca = exports.sendPush = exports.deleteAuthUsers = exports.onOrderEnCamino = exports.onOrderConfirmado = exports.onOrderCreated = exports.onClienteCreadoPorStaff = exports.onUserApproved = exports.onUserRegistered = void 0;
+exports.avisarPadronIIBB = exports.reconciliarFacturasArca = exports.onVentaVentanillaContadoFacturar = exports.onVentaContadoFacturar = exports.resetPinProduccion = exports.onOrderRollup = exports.publicarTurnosVentanilla = exports.onOutboxConfirmado = exports.onCobranzaCreada = exports.onVentaVentanillaFacturada = exports.onVentaVentanillaCreada = exports.onVentaCamionFacturada = exports.onVentaCamionCreada = exports.onProduccionPalletCreado = exports.onConsultaRespondida = exports.syncSaldosTango = exports.syncClientesTango = exports.enviarResumenAdminDiario = exports.onHistorialAdminAltoRiesgo = exports.backupAuthUsers = exports.avisarComodatosPorVencer = exports.onTicketCreado = exports.onStockBajo = exports.onTicketCerrado = exports.generarPedidosRecurrentes = exports.orsDirections = exports.mirrorDriverLocation = exports.validarPreciosPedido = exports.notifyReprogramado = exports.notifyCerca = exports.sendPush = exports.deleteAuthUsers = exports.onOrderEnCamino = exports.onOrderConfirmado = exports.onOrderCreated = exports.onClienteCreadoPorStaff = exports.onUserApproved = exports.onUserRegistered = void 0;
 const app_1 = require("firebase-admin/app");
 (0, app_1.initializeApp)();
 // Nota: cambio trivial para forzar un hash de fuente distinto y que
@@ -54,6 +54,8 @@ var tangoOutbox_1 = require("./triggers/tangoOutbox");
 Object.defineProperty(exports, "onProduccionPalletCreado", { enumerable: true, get: function () { return tangoOutbox_1.onProduccionPalletCreado; } });
 Object.defineProperty(exports, "onVentaCamionCreada", { enumerable: true, get: function () { return tangoOutbox_1.onVentaCamionCreada; } });
 Object.defineProperty(exports, "onVentaCamionFacturada", { enumerable: true, get: function () { return tangoOutbox_1.onVentaCamionFacturada; } });
+Object.defineProperty(exports, "onVentaVentanillaCreada", { enumerable: true, get: function () { return tangoOutbox_1.onVentaVentanillaCreada; } });
+Object.defineProperty(exports, "onVentaVentanillaFacturada", { enumerable: true, get: function () { return tangoOutbox_1.onVentaVentanillaFacturada; } });
 Object.defineProperty(exports, "onCobranzaCreada", { enumerable: true, get: function () { return tangoOutbox_1.onCobranzaCreada; } });
 Object.defineProperty(exports, "onOutboxConfirmado", { enumerable: true, get: function () { return tangoOutbox_1.onOutboxConfirmado; } });
 var turnosVentanilla_1 = require("./triggers/turnosVentanilla");
@@ -69,6 +71,7 @@ Object.defineProperty(exports, "resetPinProduccion", { enumerable: true, get: fu
 // Ver docs/arca/FACTURACION_ELECTRONICA.md.
 var arcaFacturacion_1 = require("./triggers/arcaFacturacion");
 Object.defineProperty(exports, "onVentaContadoFacturar", { enumerable: true, get: function () { return arcaFacturacion_1.onVentaContadoFacturar; } });
+Object.defineProperty(exports, "onVentaVentanillaContadoFacturar", { enumerable: true, get: function () { return arcaFacturacion_1.onVentaVentanillaContadoFacturar; } });
 Object.defineProperty(exports, "reconciliarFacturasArca", { enumerable: true, get: function () { return arcaFacturacion_1.reconciliarFacturasArca; } });
 // Aviso de vencimiento del padrón de IIBB. No declara los secrets de ARCA, así
 // que se puede desplegar suelta.

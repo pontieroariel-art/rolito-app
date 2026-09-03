@@ -79,6 +79,7 @@ async function facturarVenta(opts) {
     const calculo = {
         preciosIncluyenIva: config.preciosIncluyenIva,
         percepcionIIBB: opts.percepcionIIBB,
+        topeConsumidorFinalSinIdentificar: config.topeConsumidorFinalSinIdentificar,
     };
     const resultado = await (0, emision_1.emitirComprobante)({
         db,

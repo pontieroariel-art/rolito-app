@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onOutboxConfirmado = exports.onCobranzaCreada = exports.onVentaCamionFacturada = exports.onVentaCamionCreada = exports.onProduccionPalletCreado = void 0;
+exports.onOutboxConfirmado = exports.onCobranzaCreada = exports.onVentaVentanillaFacturada = exports.onVentaVentanillaCreada = exports.onVentaCamionFacturada = exports.onVentaCamionCreada = exports.onProduccionPalletCreado = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const firestore_2 = require("firebase-admin/firestore");
 const circuito_1 = require("../services/arca/circuito");
@@ -125,6 +125,52 @@ exports.onVentaCamionFacturada = (0, firestore_1.onDocumentUpdated)('ventasCamio
         payload: payloadDeVenta(ahora),
     });
 });
+// ── Ventanilla (mostrador): mismo circuito que el camión ─────────────────────
+// La venta de mostrador sigue la misma tabla (docs/arca §11): contado
+// efectivo/transferencia → factura ARCA (viaja recién con el CAE), cuenta
+// corriente → remito, promo → Rolito. El id del item lleva la colección para
+// no chocar con el del camión.
+exports.onVentaVentanillaCreada = (0, firestore_1.onDocumentCreated)('ventasVentanilla/{ventaId}', async (event) => {
+    const venta = event.data?.data();
+    if (!venta)
+        return;
+    const destino = (0, circuito_1.destinoTango)(venta.canal, venta.formaPago, venta.total);
+    if (!destino) {
+        console.warn(`[tango] la venta de ventanilla ${event.params.ventaId} no dice a dónde va ` +
+            `(canal=${String(venta.canal)}, formaPago=${String(venta.formaPago)}, ` +
+            `total=${String(venta.total)}); no se encola`);
+        return;
+    }
+    if (destino.conCaePropio)
+        return; // espera el CAE — ver onVentaVentanillaFacturada
+    await encolarOutbox(`ventasVentanilla_${event.params.ventaId}`, {
+        entidad: destino.entidad,
+        empresa: destino.empresa,
+        origenColeccion: 'ventasVentanilla',
+        origenId: event.params.ventaId,
+        payload: payloadDeVenta(venta),
+    });
+});
+exports.onVentaVentanillaFacturada = (0, firestore_1.onDocumentUpdated)('ventasVentanilla/{ventaId}', async (event) => {
+    const antes = event.data?.before.data();
+    const ahora = event.data?.after.data();
+    if (!ahora)
+        return;
+    const facturada = (v) => v?.factura?.estado === 'emitida';
+    if (facturada(antes) || !facturada(ahora))
+        return;
+    const destino = (0, circuito_1.destinoTango)(ahora.canal, ahora.formaPago, ahora.total);
+    if (!destino?.conCaePropio)
+        return;
+    await encolarOutbox(`ventasVentanilla_${event.params.ventaId}`, {
+        entidad: destino.entidad,
+        empresa: destino.empresa,
+        conCaePropio: true,
+        origenColeccion: 'ventasVentanilla',
+        origenId: event.params.ventaId,
+        payload: payloadDeVenta(ahora),
+    });
+});
 // Alta de una cobranza de supervisor → un item 'recibo' en tango-outbox (el
 // bridge genera el recibo de cobranza en Tango cuando la licencia habilite
 // transacciones — hasta entonces el writer es stub y el item queda pendiente)
@@ -201,7 +247,8 @@ exports.onCobranzaCreada = (0, firestore_1.onDocumentCreated)('cobranzas/{cobran
 // cobranzas en las reglas, a propósito).
 const WRITE_BACKS = {
     remito: {
-        coleccion: 'ventasCamion',
+        // Del camión o del mostrador: mismo comprobante en Tango, distinto origen.
+        colecciones: ['ventasCamion', 'ventasVentanilla'],
         buildUpdate: (resultado) => {
             const remitoNumero = resultado?.remitoNumero;
             if (!remitoNumero)
@@ -213,7 +260,7 @@ const WRITE_BACKS = {
     // que es el comprobante de ARCA con su propio número y CAE: son dos
     // identidades distintas de la misma operación.
     factura: {
-        coleccion: 'ventasCamion',
+        colecciones: ['ventasCamion', 'ventasVentanilla'],
         buildUpdate: (resultado) => {
             const facturaNumero = resultado?.facturaNumero ?? resultado?.comprobanteNumero;
             if (!facturaNumero)
@@ -222,7 +269,7 @@ const WRITE_BACKS = {
         },
     },
     recibo: {
-        coleccion: 'cobranzas',
+        colecciones: ['cobranzas'],
         buildUpdate: (resultado) => {
             const reciboNumero = resultado?.reciboNumero ?? resultado?.savedId;
             if (!reciboNumero)
@@ -239,11 +286,12 @@ exports.onOutboxConfirmado = (0, firestore_1.onDocumentUpdated)('tango-outbox/{d
     if (before?.estado === 'confirmado' || after.estado !== 'confirmado')
         return;
     const writeBack = WRITE_BACKS[after.entidad];
-    if (!writeBack || after.origenColeccion !== writeBack.coleccion)
+    const coleccion = String(after.origenColeccion ?? '');
+    if (!writeBack || !writeBack.colecciones.includes(coleccion))
         return;
     const update = writeBack.buildUpdate(after.resultado ?? {});
     if (!update)
         return;
-    await (0, firestore_2.getFirestore)().collection(writeBack.coleccion).doc(after.origenId).update(update);
+    await (0, firestore_2.getFirestore)().collection(coleccion).doc(after.origenId).update(update);
 });
 //# sourceMappingURL=tangoOutbox.js.map

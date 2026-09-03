@@ -129,6 +129,7 @@ export async function facturarVenta(opts: OpcionesFacturarVenta): Promise<Regist
   const calculo: OpcionesCalculo = {
     preciosIncluyenIva: config.preciosIncluyenIva,
     percepcionIIBB: opts.percepcionIIBB,
+    topeConsumidorFinalSinIdentificar: config.topeConsumidorFinalSinIdentificar,
   }
 
   const resultado = await emitirComprobante({

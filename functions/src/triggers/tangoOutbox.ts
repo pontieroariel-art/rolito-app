@@ -151,6 +151,63 @@ export const onVentaCamionFacturada = onDocumentUpdated(
   },
 )
 
+// ── Ventanilla (mostrador): mismo circuito que el camión ─────────────────────
+// La venta de mostrador sigue la misma tabla (docs/arca §11): contado
+// efectivo/transferencia → factura ARCA (viaja recién con el CAE), cuenta
+// corriente → remito, promo → Rolito. El id del item lleva la colección para
+// no chocar con el del camión.
+export const onVentaVentanillaCreada = onDocumentCreated(
+  'ventasVentanilla/{ventaId}',
+  async (event) => {
+    const venta = event.data?.data()
+    if (!venta) return
+
+    const destino = destinoTango(venta.canal, venta.formaPago, venta.total)
+    if (!destino) {
+      console.warn(
+        `[tango] la venta de ventanilla ${event.params.ventaId} no dice a dónde va ` +
+        `(canal=${String(venta.canal)}, formaPago=${String(venta.formaPago)}, ` +
+        `total=${String(venta.total)}); no se encola`,
+      )
+      return
+    }
+    if (destino.conCaePropio) return   // espera el CAE — ver onVentaVentanillaFacturada
+
+    await encolarOutbox(`ventasVentanilla_${event.params.ventaId}`, {
+      entidad: destino.entidad,
+      empresa: destino.empresa,
+      origenColeccion: 'ventasVentanilla',
+      origenId: event.params.ventaId,
+      payload: payloadDeVenta(venta),
+    })
+  },
+)
+
+export const onVentaVentanillaFacturada = onDocumentUpdated(
+  'ventasVentanilla/{ventaId}',
+  async (event) => {
+    const antes = event.data?.before.data()
+    const ahora = event.data?.after.data()
+    if (!ahora) return
+
+    const facturada = (v: Record<string, unknown> | undefined) =>
+      (v?.factura as { estado?: string } | undefined)?.estado === 'emitida'
+    if (facturada(antes) || !facturada(ahora)) return
+
+    const destino = destinoTango(ahora.canal, ahora.formaPago, ahora.total)
+    if (!destino?.conCaePropio) return
+
+    await encolarOutbox(`ventasVentanilla_${event.params.ventaId}`, {
+      entidad: destino.entidad,
+      empresa: destino.empresa,
+      conCaePropio: true,
+      origenColeccion: 'ventasVentanilla',
+      origenId: event.params.ventaId,
+      payload: payloadDeVenta(ahora),
+    })
+  },
+)
+
 // Alta de una cobranza de supervisor → un item 'recibo' en tango-outbox (el
 // bridge genera el recibo de cobranza en Tango cuando la licencia habilite
 // transacciones — hasta entonces el writer es stub y el item queda pendiente)
@@ -239,11 +296,13 @@ export const onCobranzaCreada = onDocumentCreated(
 // write-back va por Admin SDK, que además bypassa la inmutabilidad de
 // cobranzas en las reglas, a propósito).
 const WRITE_BACKS: Record<string, {
-  coleccion: string
+  /** Colecciones de origen válidas para esta entidad. */
+  colecciones: string[]
   buildUpdate: (resultado: Record<string, unknown>) => Record<string, unknown> | null
 }> = {
   remito: {
-    coleccion: 'ventasCamion',
+    // Del camión o del mostrador: mismo comprobante en Tango, distinto origen.
+    colecciones: ['ventasCamion', 'ventasVentanilla'],
     buildUpdate: (resultado) => {
       const remitoNumero = resultado?.remitoNumero
       if (!remitoNumero) return null
@@ -254,7 +313,7 @@ const WRITE_BACKS: Record<string, {
   // que es el comprobante de ARCA con su propio número y CAE: son dos
   // identidades distintas de la misma operación.
   factura: {
-    coleccion: 'ventasCamion',
+    colecciones: ['ventasCamion', 'ventasVentanilla'],
     buildUpdate: (resultado) => {
       const facturaNumero = resultado?.facturaNumero ?? resultado?.comprobanteNumero
       if (!facturaNumero) return null
@@ -262,7 +321,7 @@ const WRITE_BACKS: Record<string, {
     },
   },
   recibo: {
-    coleccion: 'cobranzas',
+    colecciones: ['cobranzas'],
     buildUpdate: (resultado) => {
       const reciboNumero = resultado?.reciboNumero ?? resultado?.savedId
       if (!reciboNumero) return null
@@ -280,11 +339,12 @@ export const onOutboxConfirmado = onDocumentUpdated(
     if (before?.estado === 'confirmado' || after.estado !== 'confirmado') return
 
     const writeBack = WRITE_BACKS[after.entidad]
-    if (!writeBack || after.origenColeccion !== writeBack.coleccion) return
+    const coleccion = String(after.origenColeccion ?? '')
+    if (!writeBack || !writeBack.colecciones.includes(coleccion)) return
 
     const update = writeBack.buildUpdate(after.resultado ?? {})
     if (!update) return
 
-    await getFirestore().collection(writeBack.coleccion).doc(after.origenId).update(update)
+    await getFirestore().collection(coleccion).doc(after.origenId).update(update)
   },
 )

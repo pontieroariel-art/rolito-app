@@ -13,7 +13,7 @@
  * Ver docs/arca/FACTURACION_ELECTRONICA.md.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.reconciliarFacturasArca = exports.onVentaContadoFacturar = void 0;
+exports.reconciliarFacturasArca = exports.onVentaVentanillaContadoFacturar = exports.onVentaContadoFacturar = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
 const params_1 = require("firebase-functions/params");
@@ -35,6 +35,7 @@ const TZ = 'America/Argentina/Buenos_Aires';
 // avisa a la oficina una sola vez (avisadoEn), para que lo arregle mientras
 // la ventana de 5 días sigue abierta.
 const HORAS_PENDIENTE_ANTES_DE_AVISAR = 3;
+const coleccionDe = (f) => f?.coleccion === 'ventasVentanilla' ? 'ventasVentanilla' : 'ventasCamion';
 // El certificado y su clave viven en secrets, nunca en el repo ni en Firestore:
 // con ellos se puede emitir comprobantes en nombre de la empresa.
 const arcaCert = (0, params_1.defineSecret)('ARCA_CERT_PEM');
@@ -83,10 +84,11 @@ function itemsDe(venta) {
     }));
 }
 /** Guarda el estado de la factura y lo refleja en la venta. */
-async function persistir(db, registro) {
+async function persistir(db, registro, coleccion) {
     const batch = db.batch();
     batch.set(db.doc((0, facturacionVenta_1.rutaFactura)(registro.ventaId)), {
         ...registro,
+        coleccion,
         actualizadoEn: firestore_2.FieldValue.serverTimestamp(),
         // Una rechazada entra en la cola de aviso a la oficina (ver
         // avisarFacturasConProblemas). El null explícito es lo que permite
@@ -98,7 +100,7 @@ async function persistir(db, registro) {
     // impreso: el tipo (define si es A o B), la fecha y los importes TAL COMO se
     // le informaron a ARCA. Recalcularlos en el front arriesgaría que el papel
     // no coincida con lo declarado.
-    batch.set(db.doc(`ventasCamion/${registro.ventaId}`), {
+    batch.set(db.doc(`${coleccion}/${registro.ventaId}`), {
         factura: {
             estado: registro.estado,
             numero: registro.numero,
@@ -114,9 +116,9 @@ async function persistir(db, registro) {
 /**
  * Factura una venta ya conocida. Compartido por el trigger y la reconciliación.
  */
-async function facturar(db, ventaId) {
+async function facturar(db, ventaId, coleccion) {
     const config = await (0, configuracion_1.leerConfigParaEmitir)(comoDb(db));
-    const ventaSnap = await db.doc(`ventasCamion/${ventaId}`).get();
+    const ventaSnap = await db.doc(`${coleccion}/${ventaId}`).get();
     const venta = ventaSnap.data();
     if (!venta)
         return null;
@@ -132,10 +134,33 @@ async function facturar(db, ventaId) {
         }
         return null;
     }
+    // Receptor: el cliente registrado sale de su perfil (datos de Tango). El
+    // ocasional del mostrador no tiene perfil: es consumidor final, con el CUIT
+    // o DNI que haya cargado caja, o sin identificar hasta el tope (ver
+    // validarReceptor). Al ocasional no se le percibe IIBB: no está en padrón.
     const clienteId = String(venta.clienteId ?? '');
     const perfil = clienteId ? (await db.doc(`users/${clienteId}`).get()).data() : undefined;
-    if (!perfil)
+    const ocasional = venta.clienteOcasional;
+    let receptor;
+    if (perfil) {
+        receptor = {
+            razonSocial: String(perfil.razonSocial ?? ''),
+            cuit: String(perfil.cuit ?? ''),
+            categoriaIvaTango: String(perfil.categoriaIvaTango ?? ''),
+        };
+    }
+    else if (coleccion === 'ventasVentanilla' && ocasional) {
+        receptor = {
+            razonSocial: String(ocasional.nombre ?? ''),
+            cuit: String(ocasional.cuit ?? ''),
+            dni: String(ocasional.dni ?? ''),
+            categoriaIvaTango: 'CF',
+            mostrador: true,
+        };
+    }
+    else {
         throw new Error(`La venta ${ventaId} no tiene un cliente resoluble`);
+    }
     const arca = await puertoArca(db, config);
     return (0, facturacionVenta_1.facturarVenta)({
         db: comoDb(db),
@@ -143,17 +168,13 @@ async function facturar(db, ventaId) {
         config,
         ventaId,
         datos: {
-            receptor: {
-                razonSocial: String(perfil.razonSocial ?? ''),
-                cuit: String(perfil.cuit ?? ''),
-                categoriaIvaTango: String(perfil.categoriaIvaTango ?? ''),
-            },
+            receptor,
             items: itemsDe(venta),
             fechaVenta: venta.fecha?.toDate?.() ?? new Date(),
         },
-        percepcionIIBB: (0, percepcionPerfil_1.leerPercepcionDePerfil)(perfil, config.tributoIdPercepcionIIBB),
+        percepcionIIBB: perfil ? (0, percepcionPerfil_1.leerPercepcionDePerfil)(perfil, config.tributoIdPercepcionIIBB) : undefined,
         leer: async () => (await db.doc((0, facturacionVenta_1.rutaFactura)(ventaId)).get()).data(),
-        guardar: async (r) => { await persistir(db, r); },
+        guardar: async (r) => { await persistir(db, r, coleccion); },
     });
 }
 /**
@@ -166,23 +187,24 @@ async function facturar(db, ventaId) {
  * reintentando. Lo que sí reintenta es la reconciliación, que corre con
  * criterio.
  */
-exports.onVentaContadoFacturar = (0, firestore_1.onDocumentCreated)({ document: 'ventasCamion/{ventaId}', secrets: [arcaCert, arcaKey] }, async (event) => {
-    const venta = event.data?.data();
+async function facturarVentaNueva(coleccion, ventaId, venta) {
     // Filtro barato antes de tocar secrets y red; `facturar` vuelve a decidir
     // sobre la venta releída, que es la palabra final.
     if (!venta || (0, circuito_1.documentoDeVenta)(venta.canal, venta.formaPago, venta.total) !== 'factura_arca')
         return;
     const db = (0, firestore_2.getFirestore)();
-    const ventaId = event.params.ventaId;
     try {
-        await facturar(db, ventaId);
+        await facturar(db, ventaId, coleccion);
     }
     catch (e) {
         const motivo = e.message;
-        console.error(`[arca] no se pudo facturar la venta ${ventaId}: ${motivo}`);
-        await db.doc((0, facturacionVenta_1.rutaFactura)(ventaId)).set({ ventaId, estado: 'pendiente', motivo, actualizadoEn: firestore_2.FieldValue.serverTimestamp() }, { merge: true });
+        console.error(`[arca] no se pudo facturar la venta ${ventaId} (${coleccion}): ${motivo}`);
+        await db.doc((0, facturacionVenta_1.rutaFactura)(ventaId)).set({ ventaId, coleccion, estado: 'pendiente', motivo, actualizadoEn: firestore_2.FieldValue.serverTimestamp() }, { merge: true });
     }
-});
+}
+exports.onVentaContadoFacturar = (0, firestore_1.onDocumentCreated)({ document: 'ventasCamion/{ventaId}', secrets: [arcaCert, arcaKey] }, (event) => facturarVentaNueva('ventasCamion', event.params.ventaId, event.data?.data()));
+/** Venta de contado en el mostrador → misma factura electrónica que el camión. */
+exports.onVentaVentanillaContadoFacturar = (0, firestore_1.onDocumentCreated)({ document: 'ventasVentanilla/{ventaId}', secrets: [arcaCert, arcaKey] }, (event) => facturarVentaNueva('ventasVentanilla', event.params.ventaId, event.data?.data()));
 /**
  * Reconciliación: resuelve lo que quedó a medias.
  *
@@ -237,7 +259,7 @@ exports.reconciliarFacturasArca = (0, scheduler_1.onSchedule)({ schedule: '15 * 
                         cae: r.estado === 'emitido' ? r.cae : null,
                         caeFchVto: r.estado === 'emitido' ? r.caeFchVto : null,
                         motivo: r.estado === 'rechazado' ? r.motivo : null,
-                    });
+                    }, coleccionDe(f));
                 }
                 catch (e) {
                     // Un fallo acá no debe frenar al resto de la tanda.
@@ -247,7 +269,8 @@ exports.reconciliarFacturasArca = (0, scheduler_1.onSchedule)({ schedule: '15 * 
             for (const docSnap of pendientes.docs) {
                 const f = docSnap.data();
                 const ventaId = docSnap.id;
-                const venta = (await db.doc(`ventasCamion/${ventaId}`).get()).data();
+                const coleccion = coleccionDe(f);
+                const venta = (await db.doc(`${coleccion}/${ventaId}`).get()).data();
                 const fechaVenta = venta?.fecha?.toDate?.();
                 try {
                     // Pasada la ventana de ARCA ya no hay nada que reintentar: se
@@ -263,7 +286,7 @@ exports.reconciliarFacturasArca = (0, scheduler_1.onSchedule)({ schedule: '15 * 
                             continue;
                         }
                     }
-                    if ((await facturar(db, ventaId)) === null) {
+                    if ((await facturar(db, ventaId, coleccion)) === null) {
                         // La venta no la factura la app (promo, cuenta corriente) o ya no
                         // existe. Sin este cierre el registro quedaría 'pendiente' para
                         // siempre, reintentándose cada hora sin que nada cambie nunca.
@@ -314,7 +337,7 @@ async function avisarFacturasConProblemas(db, trabadas) {
     const problemas = [...trabadas];
     for (const docSnap of [...rechazadas.docs, ...vencidas.docs]) {
         const f = docSnap.data();
-        const venta = (await db.doc(`ventasCamion/${docSnap.id}`).get()).data();
+        const venta = (await db.doc(`${coleccionDe(f)}/${docSnap.id}`).get()).data();
         problemas.push({
             ventaId: docSnap.id,
             estado: f.estado === 'vencida' ? 'vencida' : 'rechazada',

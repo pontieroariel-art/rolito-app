@@ -4,8 +4,23 @@
 // los datos del cliente. Los importes NO se recalculan — se usan los que
 // efectivamente se informaron, para que el papel coincida con lo declarado.
 
-import { FacturaArcaVenta, UserProfile, VentaCamion } from '@/types'
+import { FacturaArcaVenta, UserProfile, VentaCamion, VentaCamionItem } from '@/types'
 import { FacturaArcaData, RenglonArca } from './facturaArcaPdf'
+
+// Lo que el comprobante necesita de la venta. Lo cumplen tanto la venta del
+// camión (VentaCamion, con choferNombre) como la del mostrador
+// (VentaVentanilla, con cajaNombre y, si es ocasional, clienteOcasional).
+export interface VentaFacturable {
+  factura?:         FacturaArcaVenta
+  fecha:            VentaCamion['fecha']
+  items:            VentaCamionItem[]
+  cambios?:         VentaCamionItem[]
+  clienteNombre:    string
+  total:            number
+  choferNombre?:    string
+  cajaNombre?:      string
+  clienteOcasional?: { nombre: string; cuit?: string; dni?: string }
+}
 
 /** 1 = Factura A, 6 = B, 11 = C. Los demás no los emite la venta de calle. */
 const LETRA_POR_TIPO: Record<number, { letra: 'A' | 'B' | 'C'; codigo: string }> = {
@@ -24,7 +39,7 @@ export type ArmadoFactura =
   | { ok: true; datos: FacturaArcaData }
   | { ok: false; motivo: string }
 
-export function armarFacturaDeVenta(venta: VentaCamion, cliente?: UserProfile): ArmadoFactura {
+export function armarFacturaDeVenta(venta: VentaFacturable, cliente?: UserProfile): ArmadoFactura {
   const f: FacturaArcaVenta | undefined = venta.factura
   if (!f) return { ok: false, motivo: 'Esta venta todavía no tiene factura.' }
   if (f.estado !== 'emitida' || !f.cae) {
@@ -68,13 +83,18 @@ export function armarFacturaDeVenta(venta: VentaCamion, cliente?: UserProfile): 
       puntoVenta: f.puntoVenta,
       numero: f.numero,
       fechaEmision,
+      // Registrado: datos de su ficha (Tango). Ocasional del mostrador: es
+      // consumidor final, identificado por CUIT o DNI si los dio, y si no, sin
+      // identificar — el papel dice lo mismo que se declaró.
       cliente: {
         razonSocial:    cliente?.razonSocial ?? venta.clienteNombre,
-        cuit:           cliente?.cuit ?? '',
-        condicionIva:   cliente?.categoriaIvaTangoDesc ?? '',
+        cuit:           cliente?.cuit
+                          ?? venta.clienteOcasional?.cuit
+                          ?? (venta.clienteOcasional?.dni ? `DNI ${venta.clienteOcasional.dni}` : ''),
+        condicionIva:   cliente?.categoriaIvaTangoDesc ?? (venta.clienteOcasional ? 'Consumidor Final' : ''),
         domicilio:      cliente?.address ?? '',
         condicionVenta: 'Contado',
-        vendedor:       venta.choferNombre,
+        vendedor:       venta.choferNombre ?? venta.cajaNombre ?? '',
       },
       renglones,
       totales: {
