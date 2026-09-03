@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { Wrench } from 'lucide-react'
 import Navbar from '../../components/layout/Navbar'
 import Button from '../../components/ui/Button'
@@ -37,26 +38,28 @@ const ACCION_LABELS: Record<string, string> = {
 export default function FichaHeladeraPage() {
   const { heladeraId } = useParams<{ heladeraId: string }>()
   const { user } = useAuth()
-  const [heladera, setHeladera] = useState<Heladera | null | undefined>(undefined)
-  const [modelo,   setModelo]   = useState<ModeloHeladera | null>(null)
-  const [clienteCodigo, setClienteCodigo] = useState<string | undefined>(undefined)
   const { pasos: catalogoPasos } = usePasosTaller()
 
-  useEffect(() => {
-    if (!heladeraId) return
-    getHeladera(heladeraId).then(setHeladera)
-  }, [heladeraId])
-
-  useEffect(() => {
-    if (heladera?.modeloId) getModeloHeladera(heladera.modeloId).then(setModelo)
-  }, [heladera?.modeloId])
-
-  useEffect(() => {
-    setClienteCodigo(undefined)
-    if (heladera?.clienteAsignadoId) {
-      getUserDocument(heladera.clienteAsignadoId).then((c) => setClienteCodigo(c?.codigoCliente))
-    }
-  }, [heladera?.clienteAsignadoId])
+  // Lecturas puntuales por React Query: volver a abrir la misma ficha (o la
+  // misma heladera desde el QR) no vuelve a pegarle a Firestore dentro del
+  // staleTime; modelo y cliente se cachean por id entre fichas distintas.
+  const { data: heladera } = useQuery({
+    queryKey: ['heladera', heladeraId],
+    queryFn:  () => getHeladera(heladeraId!),
+    enabled:  !!heladeraId,
+  })
+  const { data: modelo = null } = useQuery({
+    queryKey: ['modeloHeladera', heladera?.modeloId],
+    queryFn:  () => getModeloHeladera(heladera!.modeloId!),
+    enabled:  !!heladera?.modeloId,
+    staleTime: 30 * 60_000,
+  })
+  const { data: clienteCodigo } = useQuery({
+    queryKey: ['clienteCodigo', heladera?.clienteAsignadoId],
+    queryFn:  async () => (await getUserDocument(heladera!.clienteAsignadoId!))?.codigoCliente ?? null,
+    enabled:  !!heladera?.clienteAsignadoId,
+    staleTime: 30 * 60_000,
+  })
 
   const historial = useMemo(
     () => (heladera ? [...historialConDuraciones(heladera)].reverse() : []),

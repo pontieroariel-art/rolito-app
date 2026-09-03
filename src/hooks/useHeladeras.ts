@@ -1,8 +1,12 @@
 import { subscribeHeladeras } from '../services/heladeraService'
 import { Heladera } from '../types'
-import { useFirestoreSubscription } from './useFirestoreSubscription'
+import { useSharedSubscription } from './useSharedSubscription'
 
-export function useHeladeras() {
-  const { data: heladeras, loading } = useFirestoreSubscription<Heladera[]>(subscribeHeladeras, [], [])
+const VACIO: Heladera[] = []
+
+// Colección entera (~1700 docs): compartida entre todos los consumidores del
+// módulo, ver useSharedSubscription. `enabled: false` no la baja.
+export function useHeladeras(opts: { enabled?: boolean } = {}) {
+  const { data: heladeras, loading } = useSharedSubscription<Heladera[]>('heladeras', subscribeHeladeras, VACIO, opts)
   return { heladeras, loading }
 }

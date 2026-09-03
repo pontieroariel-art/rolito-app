@@ -11,6 +11,7 @@ import {
 } from '../services/orderService'
 import { Order } from '../types'
 import { useFirestoreSubscription } from './useFirestoreSubscription'
+import { useSharedSubscription } from './useSharedSubscription'
 
 export function useClientOrders(): { orders: Order[]; loading: boolean; error: boolean; timedOut: boolean } {
   const { user } = useAuth()
@@ -22,8 +23,12 @@ export function useClientOrders(): { orders: Order[]; loading: boolean; error: b
   return { orders, loading, error, timedOut }
 }
 
+const SIN_PEDIDOS: Order[] = []
+
+// Stream de todos los pedidos (tope MAX_ALL_ORDERS): lo abren seis pantallas
+// de gerencia/comercial/monitoreo, así que se comparte (useSharedSubscription).
 export function useAllOrders(): { orders: Order[]; loading: boolean; error: boolean; truncado: boolean } {
-  const { data: orders, loading, error } = useFirestoreSubscription<Order[]>(subscribeAllOrders, [], [])
+  const { data: orders, loading, error } = useSharedSubscription<Order[]>('allOrders', subscribeAllOrders, SIN_PEDIDOS)
   // Si el stream llegó al tope, hay pedidos que no se están viendo. Los tableros
   // lo muestran con <AvisoDatosTruncados> en vez de mentir en silencio (H5).
   const truncado = orders.length >= MAX_ALL_ORDERS

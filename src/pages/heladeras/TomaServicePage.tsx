@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import Button from '../../components/ui/Button'
-import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useAuth } from '../../context/AuthContext'
 import { useClientesActivos } from '../../hooks/useClientesActivos'
 import { useHeladeras } from '../../hooks/useHeladeras'
+import { useHeladerasPorCliente } from '../../hooks/useHeladerasPorCliente'
 import { useMotivosReparacion } from '../../hooks/useReparacionCatalogos'
 import { useTicketsPorCliente } from '../../hooks/useTicketsPorCliente'
 import { crearTicket } from '../../services/ticketServicioService'
@@ -42,13 +42,17 @@ export default function TomaServicePage() {
   const clientIdPrefill   = params.get('clientId')
 
   const { clientes } = useClientesActivos()
-  const { heladeras, loading: loadingHeladeras } = useHeladeras()
+  // Búsqueda "Por heladera": es la única que necesita la colección entera, así
+  // que solo se baja cuando ese modo está activo. La lista del cliente elegido
+  // va por la suscripción acotada a ese cliente.
+  const [modo, setModo] = useState<'cliente' | 'heladera'>('cliente')
+  const [cliente, setCliente] = useState<UserProfile | null>(null)
+  const { heladeras, loading: loadingHeladeras } = useHeladeras({ enabled: modo === 'heladera' && !cliente })
+  const { heladeras: heladerasCliente, loading: loadingHeladerasCliente } = useHeladerasPorCliente(cliente?.uid ?? null)
   const { motivos } = useMotivosReparacion()
 
-  const [modo, setModo] = useState<'cliente' | 'heladera'>('cliente')
   const [busqueda, setBusqueda] = useState('')
   const [filtroHeladera, setFiltroHeladera] = useState('')
-  const [cliente, setCliente] = useState<UserProfile | null>(null)
   const [heladera, setHeladera] = useState<Heladera | null>(null)
   const [motivoId, setMotivoId] = useState('')
   const [saving, setSaving] = useState(false)
@@ -94,10 +98,10 @@ export default function TomaServicePage() {
   }, [heladerasEnComodato, busqueda, heladera])
 
   const heladerasDelCliente = useMemo(
-    () => (cliente ? heladerasEnComodato.filter((h) => h.clienteAsignadoId === cliente.uid) : [])
+    () => (cliente ? heladerasCliente : [])
       .map((h) => ({ h, sucursal: sucursalDeHeladera(h, cliente) }))
       .sort((a, b) => (a.sucursal.codigo ?? '').localeCompare(b.sucursal.codigo ?? '') || a.h.codigoInterno.localeCompare(b.h.codigoInterno)),
-    [heladerasEnComodato, cliente],
+    [heladerasCliente, cliente],
   )
 
   const heladerasFiltradas = useMemo(() => {
@@ -141,8 +145,6 @@ export default function TomaServicePage() {
       setSaving(false)
     }
   }
-
-  if (loadingHeladeras) return <LoadingSpinner fullScreen />
 
   return (
     <div className="min-h-screen bg-[#F8F7F2] text-gray-900">
@@ -188,6 +190,9 @@ export default function TomaServicePage() {
                 ))}
               </div>
             )}
+            {modo === 'heladera' && loadingHeladeras && (
+              <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">Cargando heladeras…</div>
+            )}
             {modo === 'heladera' && resultadosHeladera.length > 0 && (
               <div className="bg-white border border-[#D3D1C7] rounded-lg mt-1.5 divide-y divide-gray-100">
                 {resultadosHeladera.map((h) => (
@@ -230,7 +235,9 @@ export default function TomaServicePage() {
             <label className="text-xs text-gray-500 mb-1 block">
               ¿Qué heladera?{heladerasDelCliente.length > 0 ? ` (${heladerasDelCliente.length})` : ''}
             </label>
-            {heladerasDelCliente.length === 0 ? (
+            {loadingHeladerasCliente ? (
+              <div className="flex items-center gap-2 text-xs text-gray-400">Cargando heladeras…</div>
+            ) : heladerasDelCliente.length === 0 ? (
               <p className="text-gray-400 text-sm">Este cliente no tiene heladeras asignadas.</p>
             ) : (
               <div className="space-y-2">
