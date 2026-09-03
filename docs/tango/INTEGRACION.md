@@ -747,6 +747,24 @@ que después hay que anular con notas de crédito.
 
 Si la API no lo admite, **no completar el writer igual**: hay que replantear quién factura.
 
+> **RESPONDIDA por la doc oficial (2026-09-03):** el Facturador
+> (`src/CommonServices/ventas/comprobantesregistracion`, `ProcessId = 20412`, endpoint
+> `POST http://rhielotg:17000/FacturadorVenta/registrar`, body = array de comprobantes) tiene el
+> ejemplo **"05 - Factura - Comprobante Electrónico"**: el encabezado lleva `cAE` (obligatorio, 14
+> chars) y `fechaVtoCAE` **puestos por quien llama** — Tango registra el comprobante ya autorizado,
+> no pide CAE propio. Trabaja por **códigos** (no IDs): `codigoCliente` (COD_GVA14),
+> `codigoTalonario`, `codigoDeposito` (2 chars), `codigoVendedor`, `codigoCondicionDeVenta`,
+> `codigoListaPrecio`, `codigoContracuenta`, ítems con `codigo` (COD_STA11), `codigoTasaIva`,
+> `cantidad`, `precio`, `importe`, `importeSinImpuestos`, `importeIva`; totales
+> (`total`, `totalSinImpuestos`, `totalIva`, `subtotal`, `subtotalSinImpuestos`) y `pagos[]`
+> (`tipo: Efectivo|…`, `codigoDeCuenta`, `monto`). `numeroComprobante` = letra + pto vta (5) +
+> número (8), ej. `A1752800000106`. Respuesta `{ Message, Comprobantes[{numeroComprobante, estado,
+> mensaje}], Succeeded }`; el error `(51016) Ya existe el número de comprobante` sirve de
+> idempotencia natural. También expone acceso por **Tango Connect**
+> (`http://{llave}.connect.axoft.com/Api/FacturadorVenta/registrar`). Solo FAC/NC/ND — no remitos.
+> Esto habilita completar `enviarFacturaATango`; faltan los códigos de talonario, contracuenta,
+> cuenta de tesorería (efectivo/transferencia), lista y tasa de IVA de Redonhielo.
+
 ### Orden de emisión, que importa
 
 `onVentaCamionCreada` NO encola las facturas de Redonhielo: cuando la venta se crea, el CAE
