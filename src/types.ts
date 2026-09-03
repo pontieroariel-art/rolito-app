@@ -513,6 +513,13 @@ export interface UserProfile {
   fechaAprobacion: Timestamp | null
   aprobadoPor: string | null
   listaPreciosId?: string
+  /**
+   * Lista de precios que el cliente tiene asignada en TANGO, por empresa
+   * (nro de lista GVA10). La escribe la sync diaria de precios
+   * (functions/src/services/tango/precios.ts); el precio de cada producto sale
+   * de preciosTango/{empresa}. Tango es la fuente maestra (2026-09-03).
+   */
+  listaTango?: { redonhielo?: number; rolito?: number }
   preciosCustom?: Record<string, number>
   username?: string
   // Asignación de vehículo

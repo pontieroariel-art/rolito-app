@@ -993,3 +993,44 @@ vincula/crea/desactiva; `--vincular COD=CUIT=PIN` para que un chofer creado pued
 `firebase deploy --only functions:onOutboxPendiente,functions:barridoOutboxTango` (el secret tiene
 que existir antes). Puesta en marcha: `companies` → TestingRH, `workerCloud: true`,
 `remitosEnabled: true`, una venta promo real; después `facturasEnabled`.
+
+## 17. Tango como fuente maestra de precios (2026-09-03)
+
+Decisión: **los precios que ve la app son los de Tango**, no las listas de la app. La
+app ya no calcula `precioEfectivo` (lista + `preciosCustom`) para clientes vinculados
+a Tango; sólo el cliente ocasional de ventanilla sigue usando una lista de la app.
+
+**Qué empresa manda:** el canal de la venta. Contado → Redonhielo (Company 1),
+promo → Rolito (Company 3). Cada cliente puede tener una lista distinta en cada
+empresa (`users.listaTango = { redonhielo, rolito }`).
+
+**De dónde sale cada precio (API ABM):**
+- Listas: `Api/Get?process=984` (GVA10: NRO_DE_LIS, DESCRIPCIO, INC_IVA).
+- Precio por lista y especiales por cliente: ficha del artículo
+  `Api/GetById?process=87&view=...&id=<ID_GVA01>` → `GVA17[]` {NRO_DE_LIS, PRECIO} y
+  `GVA13[]` {COD_CLIENT, NRO_LISTA, PRECIO}. Se leen sólo los artículos mapeados en
+  `config/tango.articulos` (sin los `cambio_*`).
+- Lista del cliente: `Api/Get?process=2117` → COD_GVA14 → NRO_LISTA.
+
+**Dónde queda en Firestore:** `preciosTango/{redonhielo|rolito}` =
+`{ company, productos, listas: { [nro]: { nombre, incluyeIva, precios: { productoId } } },
+especiales: { [claveCliente]: { productoId } }, resumen, actualizadoEn }`. La clave del
+cliente es el código Tango con `.` → `_` (`FC.280` → `FC_280`; Firestore no admite
+puntos en claves). Lectura: chofer, caja, operadores, gerencia, facturación,
+supervisores. Escritura: sólo Admin SDK (`firestore.rules` + tests).
+
+**Cuándo:** `syncPreciosTango` (onSchedule, todos los días 5:30 ART) y el callable
+`sincronizarPreciosTangoAhora` (botón "Sincronizar ahora" en `/admin/precios`,
+roles super_admin / gerente_general / gerente_comercial / comercial / facturacion).
+Cada corrida guarda `config/tango.preciosSync` (última corrida, origen, duración,
+resumen por empresa).
+
+**Resolución en la app** (`src/utils/precioTango.ts`, `precioTangoDe`): precio
+especial del cliente en esa empresa → si no, precio en su lista de esa empresa → si
+no hay, **null**: el producto se muestra deshabilitado ("Sin precio en Tango") y la
+venta no se puede confirmar. `motivoSinPrecioTango` explica el porqué (sin sync,
+cliente sin código Tango, sin lista en esa empresa, lista inexistente). Aplica a
+`VentaCamion` (chofer) y `VentanillaPage` (cliente registrado).
+
+**Orden de deploy:** functions → reglas → **correr la primera sync** → hosting. Si el
+frontend sale antes de que exista `preciosTango/*`, nadie puede vender.

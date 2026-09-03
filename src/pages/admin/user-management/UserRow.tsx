@@ -11,6 +11,16 @@ import { FichaClienteModal } from './FichaClienteModal'
 import { PreciosCustomModal } from './PreciosCustomModal'
 import { PermisosUsuarioModal } from './PermisosUsuarioModal'
 import { reportError } from '@/services/observability'
+import { usePreciosTango } from '@/hooks/usePreciosTango'
+import type { EmpresaTango, PreciosTango } from '@/utils/precioTango'
+
+// "301 · HABITUALES" o "sin lista" — lo que el cliente tiene asignado en Tango.
+const listaTangoLabel = (precios: PreciosTango | null, nro: number | undefined) => {
+  if (nro == null) return 'sin lista'
+  const nombre = precios?.listas[String(nro)]?.nombre
+  return nombre ? `${nro} · ${nombre}` : `lista ${nro}`
+}
+const EMPRESA_LABEL: Record<EmpresaTango, string> = { redonhielo: 'Redonhielo', rolito: 'Rolito' }
 
 export interface UserRowProps {
   user:                UserProfile
@@ -64,6 +74,11 @@ export function UserRow({ user, currentUser, listas, onRoleChange, onSubrolChang
 
   const listaAsignada = listas.find((l) => l.id === user.listaPreciosId)
   const customCount   = Object.keys(user.preciosCustom ?? {}).length
+  // Cliente vinculado a Tango: la lista que vale es la de Tango (una por
+  // empresa: contado → Redonhielo, promo → Rolito), no la de la app.
+  const esTango = !!user.codigoTango && user.rol === 'cliente' && canManagePrices
+  const { precios: preciosRH } = usePreciosTango('redonhielo', { enabled: esTango })
+  const { precios: preciosRO } = usePreciosTango('rolito', { enabled: esTango })
 
   return (
     <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-3">
@@ -214,8 +229,12 @@ export function UserRow({ user, currentUser, listas, onRoleChange, onSubrolChang
             <span className="text-xs text-gray-500 whitespace-nowrap">Canal / lista:</span>
             {user.codigoTango ? (
               <div className="flex flex-col gap-0.5 min-w-0">
-                <span className="text-xs text-gray-900 truncate">{listaAsignada?.nombre ?? 'Sin lista asignada'}</span>
-                <span className="text-[10px] text-gray-400">Dato de Tango — se edita en Tango, se sincroniza acá</span>
+                <span className="text-xs text-gray-900 truncate">
+                  {EMPRESA_LABEL.redonhielo}: {listaTangoLabel(preciosRH, user.listaTango?.redonhielo)}
+                  <span className="text-gray-300"> · </span>
+                  {EMPRESA_LABEL.rolito}: {listaTangoLabel(preciosRO, user.listaTango?.rolito)}
+                </span>
+                <span className="text-[10px] text-gray-400">Dato de Tango — se edita en Tango, se sincroniza acá (todos los días 5:30 o desde Precios)</span>
               </div>
             ) : (
               <select

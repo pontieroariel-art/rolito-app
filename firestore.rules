@@ -1016,6 +1016,18 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── Precios y listas de Tango (Tango es la fuente maestra) ──────────────
+    // preciosTango/{empresa} lo escribe la Cloud Function syncPreciosTango
+    // (Admin SDK). Lo leen los que venden o miran precios: choferes (venta en
+    // la calle), caja (ventanilla), comercial/gerencia/facturación y
+    // logística. Los clientes NO: verían las listas de todos los demás.
+    match /preciosTango/{empresa} {
+      allow read: if request.auth != null
+        && (isChofer() || isCaja() || isOperator() || isManager()
+            || isGerenteGeneral() || isFacturacion() || isSupervisor());
+      allow write: if false;
+    }
+
     // ── Cola inversa de consultas a Tango (refresh on-demand de saldos) ────
     // El supervisor crea un doc pidiendo el saldo fresco de UN cliente; el
     // bridge (isTangoBridge()) lo responde escribiendo SOLO los campos de

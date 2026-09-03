@@ -11,12 +11,14 @@ interface Props {
   precioDe:   (productoId: string) => number
   cantidades: Record<string, number>
   onChange:   (next: Record<string, number>) => void
+  /** Producto sin precio en Tango para este cliente: se muestra deshabilitado, no se puede vender. */
+  sinPrecio?: (productoId: string) => boolean
 }
 
 /** Botonera de productos en grilla, con foto por producto. Tocar una tarjeta abre
  *  la calculadora para cargar la cantidad. Compartida por ventanilla y chofer.
  *  No guarda nada: mantiene el estado `cantidades` y lo emite por `onChange`. */
-export default function BotoneraProductos({ catalogo, precioDe, cantidades, onChange }: Props) {
+export default function BotoneraProductos({ catalogo, precioDe, cantidades, onChange, sinPrecio }: Props) {
   const [calcProd, setCalcProd] = useState<CatalogProducto | null>(null)
 
   const setCantidad = (id: string, n: number) => {
@@ -37,6 +39,7 @@ export default function BotoneraProductos({ catalogo, precioDe, cantidades, onCh
           producto={p}
           cantidad={cantidades[p.id] ?? 0}
           precio={precioDe(p.id)}
+          deshabilitado={sinPrecio?.(p.id) === true}
           onClick={() => setCalcProd(p)}
         />
       ))}
@@ -91,10 +94,11 @@ function EtiquetaBadge({ text, color }: { text: string; color: string }) {
   )
 }
 
-function ProductoCard({ producto, cantidad, precio, onClick }: {
+function ProductoCard({ producto, cantidad, precio, deshabilitado = false, onClick }: {
   producto: CatalogProducto
   cantidad: number
   precio:   number
+  deshabilitado?: boolean
   onClick:  () => void
 }) {
   const activo   = cantidad > 0
@@ -104,10 +108,11 @@ function ProductoCard({ producto, cantidad, precio, onClick }: {
     <button
       type="button"
       onClick={onClick}
+      disabled={deshabilitado}
       style={{ borderTopColor: color, borderTopWidth: '4px' }}
       className={`relative text-left bg-white rounded-xl border border-[#D3D1C7] p-2.5 flex flex-col gap-2 active:scale-[0.98] transition-transform ${
         activo ? 'ring-2 ring-accent shadow-sm' : ''
-      }`}
+      } ${deshabilitado ? 'opacity-50 grayscale cursor-not-allowed' : ''}`}
     >
       <div className="relative">
         <ProductoThumb producto={producto} fill />
@@ -122,9 +127,11 @@ function ProductoCard({ producto, cantidad, precio, onClick }: {
         <p className="text-sm font-semibold text-gray-900 leading-tight">{producto.nombre}</p>
         <p className="text-xs text-gray-400">{money(precio)} <span className="text-gray-300">/ {producto.unidad}</span></p>
       </div>
-      {activo
-        ? <p className="text-xs font-bold text-accent tabular-nums">{money(precio * cantidad)} · {cantidad} u.</p>
-        : <p className="text-[11px] text-gray-300">tocá para cantidad</p>}
+      {deshabilitado
+        ? <p className="text-[11px] font-semibold text-red-500">Sin precio en Tango</p>
+        : activo
+          ? <p className="text-xs font-bold text-accent tabular-nums">{money(precio * cantidad)} · {cantidad} u.</p>
+          : <p className="text-[11px] text-gray-300">tocá para cantidad</p>}
     </button>
   )
 }

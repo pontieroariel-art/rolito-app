@@ -17,7 +17,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TangoClient = exports.FILTROS = exports.PROCESOS = void 0;
 const pedido_1 = require("./pedido");
-exports.PROCESOS = { pedidos: 19845, articulos: 87, depositos: 2941, monedas: 1660, clientes: 2117 };
+exports.PROCESOS = { pedidos: 19845, articulos: 87, depositos: 2941, monedas: 1660, clientes: 2117, listas: 984 };
 exports.FILTROS = {
     articulo: (cod) => `WHERE AXV_ARTICULO.COD_STA11 = '${sql(cod)}'`,
     deposito: (cod) => `WHERE STA22.COD_STA22 = '${sql(cod)}'`,

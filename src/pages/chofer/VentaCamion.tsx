@@ -12,12 +12,12 @@ import ClienteCombobox, { toComboItems } from '../../components/ui/ClienteCombob
 import SignaturePad, { SignaturePadHandle } from '../../components/heladeras/SignaturePad'
 import { useAuth } from '../../context/AuthContext'
 import { useClientesActivos } from '../../hooks/useClientesActivos'
-import { useAllListasPrecios } from '../../hooks/useListasPrecios'
+import { usePreciosTango } from '../../hooks/usePreciosTango'
 import { useRemitosCargaChofer } from '../../hooks/useRemitosCargaChofer'
 import { useCatalogo } from '../../hooks/useCatalogo'
 import BotoneraProductos from '../../components/ventas/BotoneraProductos'
 import { crearVentaCamion } from '../../services/ventaCamionService'
-import { precioEfectivo } from '../../utils/helpers'
+import { empresaDeCanal, motivoSinPrecioTango, precioTangoDe } from '../../utils/precioTango'
 import { esClienteFacturable } from '../../utils/facturable'
 import { articulosDeCambio, itemsDeCambio } from '../../utils/cambios'
 import { documentoDeVenta } from '../../utils/circuitoDocumento'
@@ -59,7 +59,6 @@ const money = (n: number) => `$${n.toLocaleString('es-AR')}`
 export default function VentaCamion() {
   const { user } = useAuth()
   const { clientes, loading: loadingClientes } = useClientesActivos()
-  const { listas } = useAllListasPrecios()
   const { remitos: remitosCarga } = useRemitosCargaChofer()
   const { catalogo } = useCatalogo()
   const firmaRef = useRef<SignaturePadHandle>(null)
@@ -103,7 +102,17 @@ export default function VentaCamion() {
   }, [user, online])
 
   const cliente = useMemo(() => clientes.find((c) => c.uid === clienteId), [clientes, clienteId])
-  const lista   = useMemo(() => listas.find((l) => l.id === cliente?.listaPreciosId), [listas, cliente])
+
+  // Precios: Tango es la fuente maestra (2026-09-03). La empresa la decide el
+  // canal (contado → Redonhielo, promo → Rolito); el precio de cada producto
+  // sale del precio especial del cliente o de su lista en esa empresa. Sin
+  // precio en Tango, el producto no se vende.
+  const empresa = empresaDeCanal(canal)
+  const { precios: preciosTango } = usePreciosTango(empresa)
+  const sinPrecioMotivo = useMemo(
+    () => (cliente ? motivoSinPrecioTango(preciosTango, cliente, empresa) : null),
+    [preciosTango, cliente, empresa],
+  )
 
   // Una venta contado factura electrónicamente; una promo no. Si al cliente le
   // falta un dato fiscal, mejor frenar ACÁ que descubrirlo cuando la factura
@@ -114,11 +123,10 @@ export default function VentaCamion() {
     return r.facturable ? null : r.motivos
   }, [canal, cliente])
 
-  const precioDe = (productoId: string): number => {
-    if (!cliente) return 0
-    const base = lista?.items.find((i) => i.productoId === productoId)?.precio ?? 0
-    return precioEfectivo(cliente, productoId, base)
-  }
+  const precioDe = (productoId: string): number =>
+    cliente ? (precioTangoDe(preciosTango, cliente, empresa, productoId)?.precio ?? 0) : 0
+  const sinPrecio = (productoId: string): boolean =>
+    !cliente || precioTangoDe(preciosTango, cliente, empresa, productoId) === null
 
   const items: VentaCamionItem[] = catalogo
     .map((p) => ({ productoId: p.id, nombre: p.nombre, cantidad: cantidades[p.id] ?? 0, precioUnitario: precioDe(p.id) }))
@@ -138,7 +146,9 @@ export default function VentaCamion() {
   // todavía asumimos la que factura: es justo el caso en el que hace falta
   // avisar que a este cliente no se le puede facturar.
   const documento = documentoDeVenta(canal, formaPago ?? 'contado_efectivo', total)
-  const bloqueaVenta = noFacturable !== null && documento === 'factura_arca'
+  // Sin precio en Tango no hay venta: ni un ítem sin precio, ni un cliente sin lista.
+  const itemsSinPrecio = items.some((i) => sinPrecio(i.productoId))
+  const bloqueaVenta = (noFacturable !== null && documento === 'factura_arca') || itemsSinPrecio || (items.length > 0 && sinPrecioMotivo !== null)
 
   // Una operación de solo cambios no cobra nada: preguntarle al chofer cómo
   // cobró sobraría.
@@ -318,8 +328,8 @@ export default function VentaCamion() {
           {loadingClientes
             ? <p className="text-xs text-gray-400">Cargando clientes…</p>
             : <ClienteCombobox items={toComboItems(clientes)} value={clienteId} onChange={setClienteId} />}
-          {cliente && !cliente.listaPreciosId && (
-            <p className="text-xs text-amber-600">Este cliente no tiene lista de precios asignada — los precios figuran en $0.</p>
+          {sinPrecioMotivo && (
+            <p className="text-xs text-amber-600">{sinPrecioMotivo} No se puede vender hasta que se corrija en Tango y se sincronice.</p>
           )}
           {noFacturable && (
             bloqueaVenta ? (
@@ -371,6 +381,7 @@ export default function VentaCamion() {
             <BotoneraProductos
               catalogo={catalogo}
               precioDe={precioDe}
+              sinPrecio={sinPrecio}
               cantidades={cantidades}
               onChange={setCantidades}
             />

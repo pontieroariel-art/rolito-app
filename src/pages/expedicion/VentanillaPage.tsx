@@ -18,7 +18,8 @@ import { generateComprobanteVentanilla } from '../../utils/pdf'
 import { generateFacturaArcaPdf } from '../../utils/facturaArcaPdf'
 import { armarFacturaDeVenta } from '../../utils/facturaDeVenta'
 import { generateQrDataUrl } from '../../utils/qr'
-import { precioEfectivo } from '../../utils/helpers'
+import { usePreciosTango } from '../../hooks/usePreciosTango'
+import { empresaDeCanal, motivoSinPrecioTango, precioTangoDe } from '../../utils/precioTango'
 import { documentoDeVenta } from '../../utils/circuitoDocumento'
 import { esClienteFacturable, esCuitValido } from '../../utils/facturable'
 import {
@@ -89,14 +90,21 @@ export default function VentanillaPage() {
 
   const cliente = useMemo(() => clientes.find((c) => c.uid === clienteId), [clientes, clienteId])
   const clientePorId = useMemo(() => new Map(clientes.map((c) => [c.uid, c])), [clientes])
-  const lista = tipoCliente === 'registrado'
-    ? listas.find((l) => l.id === cliente?.listaPreciosId)
-    : listas.find((l) => l.id === listaOcasionalId)
+  // Cliente registrado: precios de Tango (contado → Redonhielo, promo →
+  // Rolito; especial del cliente o su lista). Sin precio en Tango no se
+  // vende. Ocasional: la lista de la app que elija caja.
+  const empresa = empresaDeCanal(canal)
+  const { precios: preciosTango } = usePreciosTango(empresa, { enabled: tipoCliente === 'registrado' })
+  const registrado = tipoCliente === 'registrado'
+  const listaOcasional = registrado ? undefined : listas.find((l) => l.id === listaOcasionalId)
+  const sinPrecioMotivo = registrado && cliente ? motivoSinPrecioTango(preciosTango, cliente, empresa) : null
 
   const precioDe = (productoId: string): number => {
-    const base = lista?.items.find((i) => i.productoId === productoId)?.precio ?? 0
-    return tipoCliente === 'registrado' && cliente ? precioEfectivo(cliente, productoId, base) : base
+    if (registrado) return cliente ? (precioTangoDe(preciosTango, cliente, empresa, productoId)?.precio ?? 0) : 0
+    return listaOcasional?.items.find((i) => i.productoId === productoId)?.precio ?? 0
   }
+  const sinPrecio = (productoId: string): boolean =>
+    registrado && (!cliente || precioTangoDe(preciosTango, cliente, empresa, productoId) === null)
 
   const items: VentaCamionItem[] = catalogo
     .filter((p) => (cantidades[p.id] ?? 0) > 0)
@@ -130,7 +138,8 @@ export default function VentanillaPage() {
     setError('')
     if (tipoCliente === 'registrado' && !cliente) { setError('Elegí el cliente.'); return }
     if (tipoCliente === 'ocasional' && !ocasionalNombre.trim()) { setError('Poné el nombre del cliente ocasional.'); return }
-    if (tipoCliente === 'ocasional' && !lista) { setError('Elegí la lista de precios para el ocasional.'); return }
+    if (tipoCliente === 'ocasional' && !listaOcasional) { setError('Elegí la lista de precios para el ocasional.'); return }
+    if (sinPrecioMotivo || items.some((i) => sinPrecio(i.productoId))) { setError('Hay productos sin precio en Tango para este cliente. Corregilo en Tango y sincronizá.'); return }
     if (items.length === 0) { setError('Cargá al menos un producto.'); return }
     if (!formaPago) { setError('Elegí la forma de pago.'); return }
     if (formaPago === 'cuenta_corriente' && tipoCliente === 'ocasional') { setError('Cuenta corriente solo para clientes registrados.'); return }
@@ -264,8 +273,8 @@ export default function VentanillaPage() {
           <div>
             <label className="text-xs text-gray-500 mb-1 block">Cliente</label>
             <ClienteCombobox items={toComboItems(clientes)} value={clienteId} onChange={setClienteId} placeholder="Buscar cliente…" />
-            {cliente && !lista && (
-              <p className="text-xs text-amber-600 mt-1">Este cliente no tiene lista de precios asignada — los precios salen en $0.</p>
+            {sinPrecioMotivo && (
+              <p className="text-xs text-amber-600 mt-1">{sinPrecioMotivo} No se puede vender hasta que se corrija en Tango y se sincronice.</p>
             )}
           </div>
         ) : (
@@ -308,6 +317,7 @@ export default function VentanillaPage() {
           <BotoneraProductos
             catalogo={catalogo}
             precioDe={precioDe}
+            sinPrecio={sinPrecio}
             cantidades={cantidades}
             onChange={setCantidades}
           />
@@ -343,7 +353,7 @@ export default function VentanillaPage() {
 
         <div className="flex items-center justify-between gap-3">
           <p className="text-lg font-bold text-gray-900">Total: {money(total)}</p>
-          <Button onClick={abrirConfirmacion} disabled={items.length === 0}>
+          <Button onClick={abrirConfirmacion} disabled={items.length === 0 || sinPrecioMotivo !== null || items.some((i) => sinPrecio(i.productoId))}>
             {vaAFacturar ? 'Cobrar y facturar' : 'Cobrar y emitir comprobante'}
           </Button>
         </div>

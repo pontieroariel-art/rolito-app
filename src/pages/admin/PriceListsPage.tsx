@@ -13,6 +13,7 @@ import {
 } from '../../services/listaPreciosService'
 import { getCatalogo, saveCatalogo, subirFotoProducto } from '../../services/catalogoService'
 import ProductoThumb from '../../components/ventas/ProductoThumb'
+import SyncPreciosTangoPanel from '../../components/admin/SyncPreciosTangoPanel'
 import { autoEtiqueta } from '../../utils/productoVisual'
 import { getAllUsers } from '../../services/userService'
 import { updateUserDocument } from '../../services/userService'
@@ -70,6 +71,8 @@ export default function PriceListsPage() {
           <h1 className="text-2xl font-bold">Precios</h1>
           <p className="text-gray-500 text-sm mt-1 break-words">Catálogo de productos y listas de precios por canal</p>
         </div>
+
+        <SyncPreciosTangoPanel />
 
         {/* Tabs */}
         <div className="flex gap-1 bg-white border border-[#D3D1C7] rounded-xl p-1 w-full sm:w-fit overflow-x-auto">

@@ -22,7 +22,7 @@ export interface TangoClientConfig {
   timeoutMs?: number
 }
 
-export const PROCESOS = { pedidos: 19845, articulos: 87, depositos: 2941, monedas: 1660, clientes: 2117 } as const
+export const PROCESOS = { pedidos: 19845, articulos: 87, depositos: 2941, monedas: 1660, clientes: 2117, listas: 984 } as const
 
 export const FILTROS = {
   articulo:  (cod: string) => `WHERE AXV_ARTICULO.COD_STA11 = '${sql(cod)}'`,

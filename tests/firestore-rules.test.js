@@ -3059,6 +3059,46 @@ describe('H11 — lectura acotada', () => {
   })
 })
 
+// ── preciosTango: precios y listas sincronizados desde Tango ─────────────────
+describe('preciosTango — precios de Tango (fuente maestra)', () => {
+  const precios = {
+    company: 1, productos: { bolsa_10kg: 'PTHIBOLROLI0010' },
+    listas: { 301: { nombre: 'HABITUALES', incluyeIva: false, precios: { bolsa_10kg: 2000 } } },
+    especiales: { FC_280: { bolsa_10kg: 1800 } },
+  }
+
+  test('chofer, caja, comercial y facturación leen los precios', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/ch'),  { rol: 'chofer', estado: 'activo' })
+      await setDoc(doc(d, 'users/caj'), { rol: 'caja', estado: 'activo', planta: 'torcuato' })
+      await setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' })
+      await setDoc(doc(d, 'users/fac'), { rol: 'facturacion', estado: 'activo' })
+      await setDoc(doc(d, 'preciosTango/redonhielo'), precios)
+    })
+    for (const uid of ['ch', 'caj', 'com', 'fac']) {
+      await assertSucceeds(getDoc(doc(db(uid), 'preciosTango/redonhielo')))
+    }
+  })
+
+  test('un cliente NO lee las listas (vería los precios de todos los demás)', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/cli'), cliente())
+      await setDoc(doc(d, 'preciosTango/redonhielo'), precios)
+    })
+    await assertFails(getDoc(doc(db('cli'), 'preciosTango/redonhielo')))
+  })
+
+  test('nadie escribe por reglas (solo la Cloud Function con Admin SDK)', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/adm'), { rol: 'super_admin', estado: 'activo' })
+      await setDoc(doc(d, 'preciosTango/redonhielo'), precios)
+    })
+    await assertFails(setDoc(doc(db('adm'), 'preciosTango/rolito'), precios))
+    await assertFails(updateDoc(doc(db('adm'), 'preciosTango/redonhielo'), { company: 9 }))
+    await assertFails(deleteDoc(doc(db('adm'), 'preciosTango/redonhielo')))
+  })
+})
+
 // ── saldosTango: cache de composición de saldos (cobranzas de supervisor) ─────
 describe('saldosTango — cache de saldos de Tango', () => {
   const saldo = {
