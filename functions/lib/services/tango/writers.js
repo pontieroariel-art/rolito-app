@@ -118,9 +118,12 @@ async function enviarFactura(payload, ctx) {
     let condCtaCte = typeof condCfg === 'object' && condCfg !== null ? condCfg.cuenta_corriente : undefined;
     const esPromo = !(payload.factura && payload.factura.estado === 'emitida');
     let letraNoFiscal;
-    // Ficha del cliente en Tango: la condición de venta pactada (cta. cte.) y
-    // la categoría de IVA (promo → letra A si es Responsable Inscripto, B si no).
-    if (payload.formaPago === 'cuenta_corriente' || esPromo) {
+    let listaPrecio;
+    // Ficha del cliente en Tango: la condición de venta pactada (cta. cte.), la
+    // lista de precios asignada (las listas de Tango son por cliente; la app manda
+    // los precios explícitos, la lista es referencia) y la categoría de IVA
+    // (promo → letra A si es Responsable Inscripto, B si no).
+    {
         const idGva14 = Number(payload.clienteIdGva14Tango);
         if (!Number.isInteger(idGva14) || idGva14 <= 0)
             return { ok: false, error: `La venta no trae clienteIdGva14Tango (cliente ${payload.clienteId} sin vincular a Tango)` };
@@ -129,6 +132,9 @@ async function enviarFactura(payload, ctx) {
             const cond = (0, pedido_1.prop)(ficha, 'COND_VTA');
             if (cond !== undefined && cond !== null && cond !== '')
                 condCtaCte = cond;
+            const lista = (0, pedido_1.prop)(ficha, 'NRO_LISTA');
+            if (lista !== undefined && lista !== null && lista !== '' && Number(lista) > 0)
+                listaPrecio = lista;
             const catIva = Number((0, pedido_1.prop)(ficha, 'ID_CATEGORIA_IVA'));
             if (Number.isInteger(catIva) && catIva > 0)
                 letraNoFiscal = catIva === 1 ? 'A' : 'B'; // 1 = Responsable Inscripto
@@ -146,6 +152,7 @@ async function enviarFactura(payload, ctx) {
         ...cfgEmpresa,
         vendedor,
         condicionVenta: { contado: condContado, ...(condCtaCte !== undefined ? { cuenta_corriente: condCtaCte } : {}) },
+        ...(listaPrecio !== undefined ? { listaPrecio } : {}),
     }, {
         codigoArticulo: (id) => articulos[id] ?? null,
         codigoDeposito: codDeposito,
