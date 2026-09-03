@@ -7,6 +7,7 @@ import { useFechaDelDia } from '../../hooks/useDiaActual'
 import { subscribeRemitosCargaDelDia, marcarSalidaRemito } from '../../services/remitoCargaService'
 import { subscribeVentanillaDelDia, marcarSalidaVentanilla } from '../../services/ventaVentanillaService'
 import { PLANTAS, RemitoCarga, VentaVentanilla } from '../../types'
+import { reportError } from '@/services/observability'
 
 const horaDe = (t: { toDate: () => Date }) =>
   t.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
@@ -23,6 +24,10 @@ export default function SeguridadDashboard() {
   const [remitos,     setRemitos]     = useState<RemitoCarga[]>([])
   const [ventanillas, setVentanillas] = useState<VentaVentanilla[]>([])
   const [error, setError] = useState('')
+  // Id del remito/retiro que se está liberando. Un doble toque mandaba dos
+  // updates: el segundo lo rechazan las reglas (ya no está 'entregado') y la
+  // pantalla mostraba "no se pudo registrar" con la salida ya hecha.
+  const [procesando, setProcesando] = useState<string | null>(null)
 
   useEffect(() => subscribeRemitosCargaDelDia(plantaId, fecha, setRemitos), [plantaId, fecha])
   useEffect(() => subscribeVentanillaDelDia(plantaId, fecha, setVentanillas), [plantaId, fecha])
@@ -32,24 +37,30 @@ export default function SeguridadDashboard() {
   const retirosPorSalir   = ventanillas.filter((v) => v.estado === 'entregado' && !v.salida)
 
   const liberarCamion = async (r: RemitoCarga) => {
-    if (!user) return
+    if (!user || procesando) return
     setError('')
+    setProcesando(r.id)
     try {
       await marcarSalidaRemito(r, { uid: user.uid, nombre: user.nombre })
     } catch (err) {
-      console.error('[seguridad] error al liberar camión:', err)
+      reportError(err, { origen: 'SeguridadDashboard', accion: 'error al liberar camión' })
       setError('No se pudo registrar la salida. Intentá de nuevo.')
+    } finally {
+      setProcesando(null)
     }
   }
 
   const liberarRetiro = async (v: VentaVentanilla) => {
-    if (!user) return
+    if (!user || procesando) return
     setError('')
+    setProcesando(v.id)
     try {
       await marcarSalidaVentanilla(v, { uid: user.uid, nombre: user.nombre })
     } catch (err) {
-      console.error('[seguridad] error al liberar retiro:', err)
+      reportError(err, { origen: 'SeguridadDashboard', accion: 'error al liberar retiro' })
       setError('No se pudo registrar la salida. Intentá de nuevo.')
+    } finally {
+      setProcesando(null)
     }
   }
 
@@ -97,7 +108,7 @@ export default function SeguridadDashboard() {
                   </div>
                 )}
               </div>
-              <Button onClick={() => liberarCamion(r)} className="w-full">Salió ✓</Button>
+              <Button onClick={() => liberarCamion(r)} loading={procesando === r.id} disabled={!!procesando} className="w-full">Salió ✓</Button>
             </div>
           ))}
         </section>
@@ -119,7 +130,7 @@ export default function SeguridadDashboard() {
                     </div>
                   ))}
                 </div>
-                <Button onClick={() => liberarRetiro(v)} variant="outline" className="w-full">Salió ✓</Button>
+                <Button onClick={() => liberarRetiro(v)} loading={procesando === v.id} disabled={!!procesando} variant="outline" className="w-full">Salió ✓</Button>
               </div>
             ))}
           </section>

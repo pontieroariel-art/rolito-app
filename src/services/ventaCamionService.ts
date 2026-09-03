@@ -115,9 +115,18 @@ export const subscribeVentasRecientesChofer = (
   // La pantalla necesita distinguir "no hay ventas" de "no las pude leer": con
   // una factura ya emitida, decir que no hay ninguna es peor que no decir nada.
   alFallar?: (err: Error) => void,
+  // Cuántas de estas ventas siguen solo en el teléfono (escritas offline y
+  // todavía no confirmadas por el servidor). Caja no las ve hasta que suban:
+  // si el chofer rinde antes, la liquidación sale sin ellas. Con este callback
+  // la pantalla puede avisarle que espere.
+  onPendientes?: (cantidad: number) => void,
 ): () => void =>
   onSnapshot(
     query(collection(db, VENTAS), where('choferId', '==', choferId), orderBy('fecha', 'desc'), limit(50)),
-    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as VentaCamion))),
+    { includeMetadataChanges: !!onPendientes },
+    (snap) => {
+      callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as VentaCamion)))
+      onPendientes?.(snap.docs.filter((d) => d.metadata.hasPendingWrites).length)
+    },
     onSnapshotError(callback, 'ventasCamion', alFallar),
   )

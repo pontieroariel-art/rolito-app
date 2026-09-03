@@ -36,12 +36,13 @@ export default function CobranzaCalle() {
   const [exito, setExito] = useState<{ cliente: string; monto: number } | null>(null)
   const [error, setError] = useState('')
   const [cobranzasHoy, setCobranzasHoy] = useState<Cobranza[]>([])
+  const [pendientes, setPendientes] = useState(0)
 
   useEffect(() => {
     if (!user) return
     const desde = new Date(fecha); desde.setHours(0, 0, 0, 0)
     const hasta = new Date(desde); hasta.setDate(hasta.getDate() + 1)
-    return subscribeCobranzasChoferEnRango(user.uid, desde, hasta, setCobranzasHoy)
+    return subscribeCobranzasChoferEnRango(user.uid, desde, hasta, setCobranzasHoy, setPendientes)
   }, [user, fecha])
 
   const cliente = useMemo(() => clientes.find((c) => c.uid === clienteId), [clientes, clienteId])
@@ -117,6 +118,19 @@ export default function CobranzaCalle() {
           <HandCoins size={18} className="text-accent" />
           <p className="text-sm">Cobranza de cuenta corriente en la calle.</p>
         </div>
+
+        {/* Cobranzas hechas sin señal que todavía no llegaron al servidor: caja
+            no las ve en la liquidación hasta que suban. */}
+        {pendientes > 0 && (
+          <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-amber-900">
+            <p className="text-sm">
+              <span className="font-semibold">
+                {pendientes === 1 ? '1 cobranza todavía no subió' : `${pendientes} cobranzas todavía no subieron`}
+              </span>
+              {' '}al servidor. Se suben solas cuando haya señal. No rindas en caja hasta que desaparezca este aviso.
+            </p>
+          </div>
+        )}
 
         <div>
           <label className="text-xs text-gray-500 mb-1 block">Cliente</label>

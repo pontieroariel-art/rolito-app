@@ -18,6 +18,7 @@ import {
   DARSENAS_POR_PLANTA, DARSENAS_VENTANILLA, DescargaCamion, DescargaCamionItem,
   PLANTAS, RemitoCarga, VentaVentanilla,
 } from '../../types'
+import { reportError } from '@/services/observability'
 
 // Pantalla del rol muelle (tablet en planta): confirma la entrega de la
 // mercadería contra el remito de carga, y cuenta la descarga física cuando el
@@ -46,6 +47,9 @@ export default function MuelleDashboard() {
   const [palletsVacios,    setPalletsVacios]    = useState(0)
   const [confirmando, setConfirmando] = useState(false)
   const [guardando,   setGuardando]   = useState(false)
+  // Id del remito/turno que se está entregando: evita el doble toque (el
+  // segundo update lo rechazan las reglas y se veía como error).
+  const [procesando,  setProcesando]  = useState<string | null>(null)
   const [error,       setError]       = useState('')
   const [okMsg,       setOkMsg]       = useState('')
 
@@ -75,24 +79,30 @@ export default function MuelleDashboard() {
   const num = (v: string) => Math.max(0, Math.min(99999, parseInt(v.replace(/\D/g, ''), 10) || 0))
 
   const entregar = async (r: RemitoCarga) => {
-    if (!user) return
+    if (!user || procesando) return
     setError('')
+    setProcesando(r.id)
     try {
       await confirmarEntregaRemito(r, { uid: user.uid, nombre: user.nombre, plantaId })
     } catch (err) {
-      console.error('[muelle] error al confirmar entrega:', err)
+      reportError(err, { origen: 'MuelleDashboard', accion: 'error al confirmar entrega' })
       setError('No se pudo confirmar la entrega. Intentá de nuevo.')
+    } finally {
+      setProcesando(null)
     }
   }
 
   const entregarVentanilla = async (v: VentaVentanilla) => {
-    if (!user) return
+    if (!user || procesando) return
     setError('')
+    setProcesando(v.id)
     try {
       await confirmarEntregaVentanilla(v, { uid: user.uid, nombre: user.nombre })
     } catch (err) {
-      console.error('[muelle] error al entregar ventanilla:', err)
+      reportError(err, { origen: 'MuelleDashboard', accion: 'error al entregar ventanilla' })
       setError('No se pudo confirmar la entrega. Intentá de nuevo.')
+    } finally {
+      setProcesando(null)
     }
   }
 
@@ -120,7 +130,7 @@ export default function MuelleDashboard() {
       setPalletsCompletos(0); setPalletsParciales(0); setPalletsVacios(0)
       setOkMsg(`Descarga de ${remitoDescarga.choferNombre} registrada.`)
     } catch (err) {
-      console.error('[muelle] error al registrar descarga:', err)
+      reportError(err, { origen: 'MuelleDashboard', accion: 'error al registrar descarga' })
       setError('No se pudo registrar la descarga. Revisá la conexión e intentá de nuevo.')
     } finally {
       setGuardando(false)
@@ -196,7 +206,7 @@ export default function MuelleDashboard() {
                       key={n}
                       type="button"
                       onClick={() => asignarDarsena(r, n).catch((err) => {
-                        console.error('[muelle] error al asignar dársena:', err)
+                        reportError(err, { origen: 'MuelleDashboard', accion: 'error al asignar dársena' })
                         setError('No se pudo asignar la dársena. Intentá de nuevo.')
                       })}
                       className={`w-9 h-9 rounded-lg border text-sm font-bold transition-colors ${
@@ -210,7 +220,7 @@ export default function MuelleDashboard() {
                   ))}
                 </div>
               </div>
-              <Button onClick={() => entregar(r)} className="w-full">Mercadería entregada</Button>
+              <Button onClick={() => entregar(r)} loading={procesando === r.id} disabled={!!procesando} className="w-full">Mercadería entregada</Button>
             </div>
           ))}
         </section>
@@ -268,7 +278,7 @@ export default function MuelleDashboard() {
                   ))}
                   {v.turnoEstado === 'llamado' && (
                     <>
-                      <Button onClick={() => entregarVentanilla(v)} className="flex-[2]">Mercadería entregada</Button>
+                      <Button onClick={() => entregarVentanilla(v)} loading={procesando === v.id} disabled={!!procesando} className="flex-[2]">Mercadería entregada</Button>
                       <Button variant="outline" onClick={() => marcarTurnoAusente(v).catch(() => setError('No se pudo marcar. Intentá de nuevo.'))} className="flex-1">
                         No se presentó
                       </Button>

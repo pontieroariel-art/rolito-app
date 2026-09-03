@@ -31,13 +31,14 @@ export default function VentasChofer() {
   const [ocupada, setOcupada] = useState<string | null>(null)
   const [aviso, setAviso] = useState('')
   const [fallo, setFallo] = useState(false)
+  const [pendientes, setPendientes] = useState(0)
 
   const compartible = useMemo(() => puedeCompartirArchivos(), [])
 
   useEffect(() => {
     if (!user) return
     setFallo(false)
-    return subscribeVentasRecientesChofer(user.uid, setVentas, () => setFallo(true))
+    return subscribeVentasRecientesChofer(user.uid, setVentas, () => setFallo(true), setPendientes)
   }, [user])
 
   const clientePorId = useMemo(
@@ -87,6 +88,21 @@ export default function VentasChofer() {
       <main className="mx-auto max-w-2xl p-4">
         {aviso && (
           <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{aviso}</p>
+        )}
+
+        {/* Ventas hechas sin señal que todavía no llegaron al servidor. Caja no
+            las ve: si el chofer rinde antes de que suban, la liquidación sale
+            sin ellas. Se suben solas al recuperar señal. */}
+        {pendientes > 0 && (
+          <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-amber-900">
+            <Clock size={16} className="mt-0.5 shrink-0" />
+            <p className="text-sm">
+              <span className="font-semibold">
+                {pendientes === 1 ? '1 venta todavía no subió' : `${pendientes} ventas todavía no subieron`}
+              </span>
+              {' '}al servidor. Se suben solas cuando haya señal. No rindas en caja hasta que desaparezca este aviso.
+            </p>
+          </div>
         )}
 
         {ventas.length === 0 && (

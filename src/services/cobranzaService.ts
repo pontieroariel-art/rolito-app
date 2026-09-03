@@ -127,6 +127,9 @@ export const subscribeCobranzasChoferEnRango = (
   choferId: string,
   desde: Date, hasta: Date,
   callback: (cobranzas: Cobranza[]) => void,
+  // Cuántas siguen solo en el teléfono (offline, sin confirmar por el
+  // servidor) — mismo criterio que subscribeVentasRecientesChofer.
+  onPendientes?: (cantidad: number) => void,
 ): () => void =>
   onSnapshot(
     query(
@@ -135,7 +138,11 @@ export const subscribeCobranzasChoferEnRango = (
       where('fecha', '>=', Timestamp.fromDate(desde)),
       where('fecha', '<', Timestamp.fromDate(hasta)),
     ),
-    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Cobranza))),
+    { includeMetadataChanges: !!onPendientes },
+    (snap) => {
+      callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Cobranza)))
+      onPendientes?.(snap.docs.filter((d) => d.metadata.hasPendingWrites).length)
+    },
     onSnapshotError(callback, 'cobranzas'),
   )
 
