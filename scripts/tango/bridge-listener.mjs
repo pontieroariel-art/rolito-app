@@ -199,6 +199,23 @@ async function enviarReciboATango(payload) {
   }
 }
 
+// Transferencia entre depósitos: remito de carga (planta → camión) y descarga
+// del camión (camión → planta). En Tango los camiones son depósitos (STA22).
+// Falta confirmar con Axoft/TC qué proceso de la API mueve stock entre
+// depósitos (¿está bajo 'ABMs y Consultas Live' o es transacción de Stock?) —
+// ver docs/tango/INTEGRACION.md §13. Hasta entonces, stub: loguea y falla
+// controlado; el item queda pendiente mientras transferenciasEnabled=false.
+async function enviarTransferenciaATango(payload, item) {
+  log(
+    `  [STUB] enviarTransferenciaATango — Company ${item?.company ?? '?'} (${item?.empresa ?? '?'}), ` +
+    `sentido=${payload?.sentido}, payload: ${JSON.stringify(payload)}`,
+  )
+  return {
+    ok: false,
+    error: 'Proceso Tango para transferencias entre depósitos todavía no confirmado — ver docs/tango/INTEGRACION.md §13',
+  }
+}
+
 // ── Dispatcher por entidad ──────────────────────────────────────────────────
 // Cada entidad del outbox tiene su writer y su interruptor propio en
 // config/tango — así se puede habilitar producción sin habilitar recibos, etc.
@@ -207,6 +224,7 @@ const HANDLERS = {
   remito:           { enviar: enviarRemitoATango,     flag: 'remitosEnabled' },
   factura:          { enviar: enviarFacturaATango,    flag: 'facturasEnabled' },
   recibo:           { enviar: enviarReciboATango,     flag: 'recibosEnabled' },
+  transferenciaDeposito: { enviar: enviarTransferenciaATango, flag: 'transferenciasEnabled' },
 }
 
 const enProceso = new Set()

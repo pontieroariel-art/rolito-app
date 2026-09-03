@@ -34,6 +34,8 @@ export async function crearDescargaCamion(
     ...args,
     registradoPor: { uid: actor.uid, nombre: actor.nombre },
     fecha:         Timestamp.now(),
+    // Transferencia camión → planta en Tango, que encola onDescargaCamionCreada.
+    tango:         { estado: 'pendiente' },
   }
   // Espera al servidor hasta 4 s; si el wifi se cayó, el doc ya quedó en el
   // cache local y se sube solo. Dejar el spinner para siempre termina peor:

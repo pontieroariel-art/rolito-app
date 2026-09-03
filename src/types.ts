@@ -400,6 +400,9 @@ export interface DescargaCamion {
   palletsVacios:    number   // solo base de metal + 4 puntales
   registradoPor:    { uid: string; nombre: string }
   fecha:            Timestamp
+  // Transferencia camión → planta en Tango (mismo mecanismo que el remito de
+  // carga: onDescargaCamionCreada la encola; el write-back la confirma).
+  tango?:           RemitoTangoEstado
 }
 
 // ── Expedición: liquidación del repartidor ────────────────────────────────────

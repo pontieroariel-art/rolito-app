@@ -208,6 +208,73 @@ export const onVentaVentanillaFacturada = onDocumentUpdated(
   },
 )
 
+// ── Transferencias de depósito: remito de carga y descarga del camión ────────
+// En Tango los camiones son depósitos (STA22) y la venta desde el camión
+// descarga stock de ESE depósito. Para que cierre, la mercadería tiene que
+// haber entrado antes: eso es el remito de carga (planta → camión). La descarga
+// contada al volver es el movimiento inverso (camión → planta); sin ella el
+// depósito-camión nunca vuelve a cero. Ninguna de las dos es un comprobante de
+// venta: van como entidad propia, con su writer e interruptor
+// (`transferenciasEnabled`) en el bridge. Decidido 2026-09-03; el proceso de
+// Tango para la transferencia está pendiente de confirmar con Axoft
+// (docs/tango/INTEGRACION.md §13).
+export const onRemitoCargaCreado = onDocumentCreated(
+  'remitosCarga/{remitoId}',
+  async (event) => {
+    const remito = event.data?.data()
+    if (!remito) return
+    await encolarOutbox(`remitosCarga_${event.params.remitoId}`, {
+      entidad: 'transferenciaDeposito',
+      empresa: 'redonhielo',
+      origenColeccion: 'remitosCarga',
+      origenId: event.params.remitoId,
+      payload: {
+        sentido:      'carga',   // planta → camión
+        codigo:       remito.codigo,
+        numero:       remito.numero,
+        plantaId:     remito.plantaId,
+        camionId:     remito.camionId,
+        camionLabel:  remito.camionLabel,
+        choferId:     remito.choferId,
+        choferNombre: remito.choferNombre,
+        items:        remito.items,
+        palletsCarga: remito.palletsCarga,
+        fecha:        remito.fecha,
+        creadoPor:    remito.creadoPor,
+      },
+    })
+  },
+)
+
+export const onDescargaCamionCreada = onDocumentCreated(
+  'descargasCamion/{descargaId}',
+  async (event) => {
+    const descarga = event.data?.data()
+    if (!descarga) return
+    await encolarOutbox(`descargasCamion_${event.params.descargaId}`, {
+      entidad: 'transferenciaDeposito',
+      empresa: 'redonhielo',
+      origenColeccion: 'descargasCamion',
+      origenId: event.params.descargaId,
+      payload: {
+        sentido:          'descarga',   // camión → planta
+        plantaId:         descarga.plantaId,
+        camionId:         descarga.camionId,
+        camionLabel:      descarga.camionLabel,
+        choferId:         descarga.choferId,
+        choferNombre:     descarga.choferNombre,
+        items:            descarga.items,        // sana que volvió
+        bolsasRotas:      descarga.bolsasRotas,  // rotas recibidas (contra los cambios)
+        palletsCompletos: descarga.palletsCompletos,
+        palletsParciales: descarga.palletsParciales,
+        palletsVacios:    descarga.palletsVacios,
+        fecha:            descarga.fecha,
+        registradoPor:    descarga.registradoPor,
+      },
+    })
+  },
+)
+
 // Alta de una cobranza de supervisor → un item 'recibo' en tango-outbox (el
 // bridge genera el recibo de cobranza en Tango cuando la licencia habilite
 // transacciones — hasta entonces el writer es stub y el item queda pendiente)
@@ -318,6 +385,16 @@ const WRITE_BACKS: Record<string, {
       const facturaNumero = resultado?.facturaNumero ?? resultado?.comprobanteNumero
       if (!facturaNumero) return null
       return { tango: { estado: 'confirmado', facturaNumero: String(facturaNumero) } }
+    },
+  },
+  // Remito de carga y descarga del camión: el número que Tango le dio al
+  // movimiento de stock.
+  transferenciaDeposito: {
+    colecciones: ['remitosCarga', 'descargasCamion'],
+    buildUpdate: (resultado) => {
+      const numero = resultado?.transferenciaNumero ?? resultado?.comprobanteNumero ?? resultado?.savedId
+      if (!numero) return null
+      return { tango: { estado: 'confirmado', transferenciaNumero: String(numero) } }
     },
   },
   recibo: {

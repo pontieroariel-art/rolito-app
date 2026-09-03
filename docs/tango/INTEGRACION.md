@@ -393,6 +393,7 @@ servicio de talonarios en el repo oficial, así que ese `process` hay que sacarl
 - [ ] Circuito contado por quien opera: cómo entra un pedido hoy, cómo se factura, qué pasa al cancelar.
 - [ ] Respuestas de Silvina (preguntas 1-2 de §6).
 - [ ] Manuales/PDFs que tenga el implementador sobre la extensión API.
+- [ ] Respuesta de Axoft sobre transferencias entre depósitos por API (§13) — bloquea el remito de carga y la descarga en Tango.
 
 > Dejá todo en `docs/tango/material/` (crear la carpeta al primer archivo) y avisá — se procesa y se vuelca acá.
 
@@ -762,3 +763,29 @@ cobranzas). Cada una tiene su interruptor propio en `config/tango`
 (`facturasEnabled`, `remitosEnabled`, `produccionEnabled`, `recibosEnabled`), así se puede habilitar
 una sin las otras. El resto de la máquina —cola idempotente, reintentos, barrido, write-back del
 número de comprobante al doc de origen— ya está y no se toca.
+
+## 13. Transferencias de depósito: remito de carga y descarga del camión (2026-09-03)
+
+Decidido con Ariel el 2026-09-03. El remito de carga (`remitosCarga`) nacía con
+`tango.estado = 'pendiente'` y ningún trigger lo mandaba: no es un remito de venta (ninguna API de
+ventas lo crea) sino una **transferencia de stock planta → camión**. En Tango los camiones son
+depósitos (`STA22`, §6.2) y la venta desde el camión descarga stock de ese depósito: para que
+cierre, la mercadería tiene que haber entrado antes. La **descarga contada** al volver
+(`descargasCamion`) es el movimiento inverso, camión → planta; sin ella el depósito-camión nunca
+vuelve a cero.
+
+Implementado:
+
+- `onRemitoCargaCreado` y `onDescargaCamionCreada` (`triggers/tangoOutbox.ts`) encolan un item
+  `entidad: 'transferenciaDeposito'`, `empresa: 'redonhielo'`, con `payload.sentido` = `'carga'` |
+  `'descarga'` y el detalle de ítems/pallets. Ids `remitosCarga_{id}` / `descargasCamion_{id}`.
+- Write-back al confirmarse: `tango: { estado: 'confirmado', transferenciaNumero }` en el doc de
+  origen (las dos colecciones).
+- Bridge: `enviarTransferenciaATango()` es **stub** bajo el interruptor `config/tango.transferenciasEnabled`
+  (apagado). Igual que los otros writers: no prenderlo hasta tener el writer real, porque con el
+  stub cada item quema 5 intentos y pasa a `error`.
+
+**Pregunta para Axoft / TC Servicios (bloquea el writer):** ¿qué proceso de la API mueve stock
+entre depósitos (transferencia STA22 → STA22)? ¿Está cubierto por "ABMs y Consultas Live" o es una
+transacción del módulo Stock que hay que licenciar aparte? ¿Y cómo se registra la merma (bolsas
+rotas que vuelven en la descarga)?
