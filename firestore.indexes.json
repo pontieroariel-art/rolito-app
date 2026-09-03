@@ -98,6 +98,14 @@
       ]
     },
     {
+      "collectionGroup": "ventasCamion",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "camionId", "order": "ASCENDING" },
+        { "fieldPath": "fecha",    "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "cambiosCamion",
       "queryScope": "COLLECTION",
       "fields": [
