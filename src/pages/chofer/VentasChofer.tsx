@@ -13,9 +13,13 @@ import { useClientesActivos } from '@/hooks/useClientesActivos'
 import { subscribeVentasRecientesChofer } from '@/services/ventaCamionService'
 import { generateFacturaArcaPdf } from '@/utils/facturaArcaPdf'
 import { armarFacturaDeVenta } from '@/utils/facturaDeVenta'
-import { armarComprobanteInterno, tipoComprobanteInterno } from '@/utils/comprobanteInterno'
+import {
+  armarFacturaX, armarRemito, tipoComprobanteInterno, ETIQUETA_COMPROBANTE, type CaiRemito,
+} from '@/utils/comprobanteInterno'
 import { generateComprobanteInternoPdf } from '@/utils/comprobanteInternoPdf'
+import { generateRemitoPdf } from '@/utils/remitoPdf'
 import { codigoComprobanteInterno } from '@/services/numeracionInternaService'
+import { caiRemitoOficialCacheado, getCaiRemitoOficial } from '@/services/remitoOficialConfigService'
 import { compartirArchivo, descargarArchivo, puedeCompartirArchivos } from '@/utils/compartir'
 import { VentaCamion } from '@/types'
 
@@ -35,6 +39,10 @@ export default function VentasChofer() {
   const [aviso, setAviso] = useState('')
   const [fallo, setFallo] = useState(false)
   const [pendientes, setPendientes] = useState(0)
+  // CAI del talonario de remitos oficiales (Redonhielo). Arranca con el último
+  // cacheado para que sirva sin señal; se refresca al montar.
+  const [caiRemito, setCaiRemito] = useState<CaiRemito | null>(() => caiRemitoOficialCacheado())
+  useEffect(() => { getCaiRemitoOficial().then(setCaiRemito) }, [])
 
   const compartible = useMemo(() => puedeCompartirArchivos(), [])
 
@@ -61,12 +69,18 @@ export default function VentasChofer() {
     let titulo: string
     setOcupada(venta.id)
     try {
-      if (tipoInterno) {
-        const armado = armarComprobanteInterno(venta, cliente)
+      if (tipoInterno === 'remito' || tipoInterno === 'remitoPromo') {
+        const armado = armarRemito(venta, cliente, caiRemito)
+        if (!armado.ok) { setAviso(armado.motivo); return }
+        blob = (await generateRemitoPdf(armado.datos, { descargar: false })) as Blob
+        nombre = armado.datos.archivo
+        titulo = `Remito ${armado.datos.numero ?? 'sin número'}`
+      } else if (tipoInterno === 'facturaX') {
+        const armado = armarFacturaX(venta, cliente)
         if (!armado.ok) { setAviso(armado.motivo); return }
         blob = (await generateComprobanteInternoPdf(armado.datos, { descargar: false })) as Blob
         nombre = armado.datos.archivo
-        titulo = `${armado.datos.titulo === 'REMITO' ? 'Remito' : 'Factura X'} ${armado.datos.numero ?? 'sin número'}`
+        titulo = `Factura X ${armado.datos.numero ?? 'sin número'}`
       } else {
         const armado = armarFacturaDeVenta(venta, cliente)
         if (!armado.ok) { setAviso(armado.motivo); return }
@@ -209,7 +223,7 @@ export default function VentasChofer() {
                   <div className="mt-3 border-t border-[#F2F1EA] pt-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="mr-auto font-mono text-xs text-gray-600">
-                        {tipoComprobanteInterno(v) === 'remito' ? 'Remito' : 'Factura X'}{' '}
+                        {ETIQUETA_COMPROBANTE[tipoComprobanteInterno(v)!]}{' '}
                         {v.comprobanteInterno ? codigoComprobanteInterno(v.comprobanteInterno) : 'sin número'}
                       </span>
                       <button

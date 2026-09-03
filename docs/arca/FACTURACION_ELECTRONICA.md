@@ -896,3 +896,22 @@ solo cambia el nombre que encabeza el papel.
 **Dónde**: `utils/comprobanteInterno.ts` decide y arma (con tests), `utils/comprobanteInternoPdf.ts`
 dibuja, `VentaCamion.tsx` consume el número al confirmar, `VentasChofer.tsx` lo entrega. El número
 viaja en `ventasCamion.comprobanteInterno` y por lo tanto en el payload del outbox de Tango.
+
+### 13 bis. El remito: oficial en Redonhielo, idéntico en Rolito (2026-09-03, tarde)
+
+Precisión de Ariel: el remito de Redonhielo es el **remito oficial** (letra R) con el CAI que ARCA
+le asigne al talonario, y el de Rolito tiene que ser **el mismo papel**. Con eso:
+
+- Tres series independientes: `remito` (Redonhielo), `remitoPromo` (Rolito), `facturaX`.
+- `config/remitoOficial = { cai, vencimiento: 'YYYY-MM-DD' }`: lo carga la oficina cuando ARCA
+  autorice el talonario (régimen de autoimpresor, RG 100) para el punto de venta de remitos. Con
+  eso cargado y vigente a la fecha de la venta, el remito de Redonhielo sale con **letra R, CAI y
+  vencimiento** en el pie. Sin eso (o vencido) sale **X**, con leyenda. El chofer lo cachea en
+  el teléfono para la calle.
+- Rolito: mismo diseño, letra X, y en el lugar del CAI un **Nº de control interno** (el propio
+  correlativo del remito). **No se imprime un CAI inventado**: un CAI es una autorización de ARCA
+  y uno ficticio convierte el papel en un comprobante apócrifo a nombre de Redonhielo. Decisión
+  técnica sostenida aunque se pidió; el papel queda igual en todo lo demás.
+- El remito **no lleva precios**: cantidad y descripción, los cambios marcados "sin cargo", un
+  bloque de entrega (chofer, camión, fecha) y un resumen de bultos en lugar de importes.
+  `utils/remitoPdf.ts`; la factura X sigue en `utils/comprobanteInternoPdf.ts`.

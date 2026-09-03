@@ -151,7 +151,10 @@ export interface VentaCamion {
 // Comprobantes internos de la venta del camión (los que no autoriza ARCA):
 // 'remito' para cuenta corriente y promo sin cobro; 'facturaX' para promo
 // cobrada (Rolito, no oficial). Decisión 2026-09-03.
-export type TipoComprobanteInterno = 'remito' | 'facturaX'
+// 'remito' = Redonhielo (oficial, con CAI del talonario cuando está cargado);
+// 'remitoPromo' = Rolito (mismo papel, número de control interno);
+// 'facturaX' = promo cobrada. Series independientes.
+export type TipoComprobanteInterno = 'remito' | 'remitoPromo' | 'facturaX'
 export interface ComprobanteInternoVenta {
   tipo:       TipoComprobanteInterno
   puntoVenta: number

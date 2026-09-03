@@ -21,7 +21,7 @@ import { precioEfectivo } from '../../utils/helpers'
 import { esClienteFacturable } from '../../utils/facturable'
 import { articulosDeCambio, itemsDeCambio } from '../../utils/cambios'
 import { documentoDeVenta } from '../../utils/circuitoDocumento'
-import { tipoComprobanteInterno } from '../../utils/comprobanteInterno'
+import { tipoComprobanteInterno, ETIQUETA_COMPROBANTE } from '../../utils/comprobanteInterno'
 import {
   asegurarReserva, consumirNumero, precargarSiSeAcerca, codigoComprobanteInterno,
 } from '../../services/numeracionInternaService'
@@ -92,10 +92,10 @@ export default function VentaCamion() {
   // ARCA). Se reserva un lote por tipo al entrar, para numerar sin señal.
   // Opcional: sin contador inicializado la venta sale igual, sin número.
   const online = useOnline()
-  const [numeracionActiva, setNumeracionActiva] = useState<Record<TipoComprobanteInterno, boolean>>({ remito: false, facturaX: false })
+  const [numeracionActiva, setNumeracionActiva] = useState<Record<TipoComprobanteInterno, boolean>>({ remito: false, remitoPromo: false, facturaX: false })
   useEffect(() => {
     if (!user) return
-    ;(['remito', 'facturaX'] as const).forEach((tipo) => {
+    ;(['remito', 'remitoPromo', 'facturaX'] as const).forEach((tipo) => {
       asegurarReserva(tipo, user.uid, online).then((activa) =>
         setNumeracionActiva((prev) => (prev[tipo] === activa ? prev : { ...prev, [tipo]: activa })),
       )
@@ -195,7 +195,7 @@ export default function VentaCamion() {
         cliente: cliente.razonSocial || cliente.nombre,
         total,
         documento: tipoInterno
-          ? `${tipoInterno === 'remito' ? 'Remito' : 'Factura X'} ${comprobanteInterno ? codigoComprobanteInterno(comprobanteInterno) : 'sin número'}`
+          ? `${ETIQUETA_COMPROBANTE[tipoInterno]} ${comprobanteInterno ? codigoComprobanteInterno(comprobanteInterno) : 'sin número'}`
           : null,
       })
       reset()
