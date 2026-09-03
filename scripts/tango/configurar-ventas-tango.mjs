@@ -45,10 +45,14 @@ const camiones = flota.docs.map((d) => ({ id: d.id, patente: d.data().patente, a
 const catalogo = (await db.doc('config/catalogo').get()).data()?.productos ?? []
 
 const update = {}
-const [c1, c2] = tomar('--companies')
-if (c1 !== undefined) {
-  if (c2 === undefined) throw new Error('--companies necesita dos números: redonhielo rolito')
-  update.companies = { redonhielo: Number(c1), rolito: Number(c2) }
+// --companies <redonhielo> <rolito>  (dos números seguidos)
+{
+  const i = args.indexOf('--companies')
+  if (i >= 0) {
+    const c1 = args[i + 1], c2 = args[i + 2]
+    if (!/^\d+$/.test(c1 ?? '') || !/^\d+$/.test(c2 ?? '')) throw new Error('--companies necesita dos números: redonhielo rolito (ej. --companies 5 5)')
+    update.companies = { redonhielo: Number(c1), rolito: Number(c2) }
+  }
 }
 for (const a of tomar('--articulo')) { const [k, v] = kv(a); (update.articulos ??= {})[k] = v }
 for (const d of tomar('--deposito')) {
