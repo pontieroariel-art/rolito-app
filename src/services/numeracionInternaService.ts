@@ -77,17 +77,31 @@ export async function reservarLote(tipo: TipoComprobanteInterno, size = BATCH_SI
         `El contador de ${tipo} está mal cargado: necesita next (entero) y puntoVenta (entero >= 1).`,
       )
     }
-    tx.set(COUNTER_REF(tipo), { next: next + size }, { merge: true })
-    return { from: next, to: next + size - 1, puntoVenta }
+    // Talonario con rango autorizado (remito de imprenta con CAI: "último
+    // número habilitado"): el lote nunca lo pasa, y agotado el rango se corta
+    // en vez de numerar fuera de lo autorizado. `ultimo` es opcional: sin él,
+    // la serie es infinita (factura X, remito promo).
+    const ultimo = data.ultimo == null ? null : Number(data.ultimo)
+    if (ultimo !== null && next > ultimo) {
+      throw new NumeracionAgotadaError(
+        `El talonario de ${tipo} se agotó (último número habilitado ${ultimo}). Hay que cargar el talonario nuevo en config/numeracionInterna_${tipo}.`,
+      )
+    }
+    const to = ultimo === null ? next + size - 1 : Math.min(next + size - 1, ultimo)
+    tx.set(COUNTER_REF(tipo), { next: to + 1 }, { merge: true })
+    return { from: next, to, puntoVenta }
   })
 }
 
-// Uso único (super_admin): fija punto de venta y número de arranque.
+export class NumeracionAgotadaError extends Error {}
+
+// Uso único (super_admin): fija punto de venta, número de arranque y,
+// opcionalmente, el último número habilitado del talonario.
 export async function inicializarContador(
   tipo: TipoComprobanteInterno,
-  args: { puntoVenta: number; primerNumero: number },
+  args: { puntoVenta: number; primerNumero: number; ultimo?: number | null },
 ): Promise<void> {
-  await setDoc(COUNTER_REF(tipo), { next: args.primerNumero, puntoVenta: args.puntoVenta })
+  await setDoc(COUNTER_REF(tipo), { next: args.primerNumero, puntoVenta: args.puntoVenta, ultimo: args.ultimo ?? null })
 }
 
 export async function getEstadoContador(

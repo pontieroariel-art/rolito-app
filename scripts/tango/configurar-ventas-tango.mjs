@@ -107,14 +107,18 @@ if (Object.keys(update).length) {
   console.log('config/tango actualizado:', JSON.stringify(update))
 }
 
+// --numeracion tipo=puntoVenta[:desde[:hasta]]  (ej. remito=1104:1:50000 para un
+// talonario de imprenta con rango autorizado; hasta = "último número habilitado").
 for (const n of tomar('--numeracion')) {
-  const [tipo, pv] = kv(n)
+  const [tipo, spec] = kv(n)
   if (!['remito', 'remitoPromo', 'facturaX'].includes(tipo)) throw new Error(`tipo de numeración inválido: ${tipo}`)
+  const [pv, desde = '1', hasta] = spec.split(':')
+  if (!/^\d+$/.test(pv) || !/^\d+$/.test(desde) || (hasta !== undefined && !/^\d+$/.test(hasta))) throw new Error(`--numeracion espera tipo=puntoVenta[:desde[:hasta]], recibí "${n}"`)
   const ref = db.doc(`config/numeracionInterna_${tipo}`)
   const snap = await ref.get()
-  if (snap.exists) { console.log(`config/numeracionInterna_${tipo} ya existe (next ${snap.data().next}, pto vta ${snap.data().puntoVenta}) — no se toca`); continue }
-  await ref.set({ next: 1, puntoVenta: Number(pv), creadoEl: admin.firestore.FieldValue.serverTimestamp() })
-  console.log(`config/numeracionInterna_${tipo} creado: next 1, puntoVenta ${pv}`)
+  if (snap.exists) { console.log(`config/numeracionInterna_${tipo} ya existe (next ${snap.data().next}, pto vta ${snap.data().puntoVenta}, último ${snap.data().ultimo ?? '∞'}) — no se toca; borralo a mano si es un talonario nuevo`); continue }
+  await ref.set({ next: Number(desde), puntoVenta: Number(pv), ultimo: hasta === undefined ? null : Number(hasta), creadoEl: admin.firestore.FieldValue.serverTimestamp() })
+  console.log(`config/numeracionInterna_${tipo} creado: next ${desde}, puntoVenta ${pv}, último ${hasta ?? '∞'}`)
 }
 
 // ── estado ──────────────────────────────────────────────────────────────────
@@ -161,7 +165,7 @@ if (camionesConDeposito.length) console.log('  (por camión, fallback):', camion
 console.log('\n== numeración interna')
 for (const tipo of ['remito', 'remitoPromo', 'facturaX']) {
   const s = await db.doc(`config/numeracionInterna_${tipo}`).get()
-  console.log(`  ${s.exists ? '✓' : '✗'} ${tipo.padEnd(12)} ${s.exists ? `next ${s.data().next}, pto vta ${s.data().puntoVenta}` : '(no existe → las ventas salen SIN NÚMERO)'}`)
+  console.log(`  ${s.exists ? '✓' : '✗'} ${tipo.padEnd(12)} ${s.exists ? `next ${s.data().next}, pto vta ${s.data().puntoVenta}, último ${s.data().ultimo ?? '∞'}` : '(no existe → las ventas salen SIN NÚMERO)'}`)
   if (!s.exists) faltas.push(`numeración ${tipo}`)
 }
 
