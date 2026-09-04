@@ -20,6 +20,8 @@ export interface PayloadVenta {
   canal?: string
   camionId?: string | null
   choferId?: string
+  /** Venta de ventanilla: planta donde se vendió. El depósito es el de la planta (config/tango.depositosPlanta). */
+  plantaId?: string | null
   choferNombre?: string
   clienteId?: string
   clienteNombre?: string

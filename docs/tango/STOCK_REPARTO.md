@@ -47,7 +47,7 @@ de merma no cuadran.
 | Descarga | `descargasCamion` (sano contado) | **DES** (TI) | camión → planta |
 | Rotas en exceso | `descargasCamion.bolsasRotas` − cambios del día, si es > 0 | **MER** (TI) | camión → 99 |
 | Faltantes | `liquidaciones` (diferencia final) | **AJU** (TI) | camión → **98 Diferencias de reparto** (depósito nuevo) |
-| Mostrador | `ventasVentanilla` | FAC / REM desde el depósito de ventanilla | ventanilla → cliente |
+| Mostrador | `ventasVentanilla` | FAC / REM desde el depósito de la **planta** (`config/tango.depositosPlanta`: torcuato 01, merlo 02); no hay depósito en tránsito | planta → cliente; cambio: planta → 99 |
 
 Por qué el cambio como transferencia camión → 99 con el artículo real: es exactamente lo que
 Ariel describe que pasa ("descuenta del camión y manda a merma"), usa un tipo nativo de Tango,

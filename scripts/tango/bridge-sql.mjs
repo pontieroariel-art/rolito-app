@@ -160,8 +160,10 @@ const HANDLERS = {
       if (!sqlCfg?.talonario || !sqlCfg?.puntoVenta) throw new Error('falta config/tango.sql.remito {talonario, puntoVenta, codigoTransporte, usuario, terminal}')
       const payload = data.payload ?? {}
       const dep = tcfg.depositos ?? {}
-      const codDeposito = (payload.choferId && dep[payload.choferId]) || (payload.camionId && dep[payload.camionId])
-      if (!codDeposito) throw new Error(`sin depósito de Tango para chofer ${payload.choferId} / camión ${payload.camionId} (config/tango.depositos)`)
+      const porPlanta = tcfg.depositosPlanta ?? {}
+      // Camión → depósito del chofer; ventanilla → depósito de la planta (la mercadería sale de la cámara).
+      const codDeposito = (payload.choferId && dep[payload.choferId]) || (payload.camionId && dep[payload.camionId]) || (payload.plantaId && porPlanta[payload.plantaId])
+      if (!codDeposito) throw new Error(`sin depósito de Tango para chofer ${payload.choferId} / camión ${payload.camionId} / planta ${payload.plantaId} (config/tango.depositos / depositosPlanta)`)
       const remito = remitoDeVenta(payload, data.origenId ?? docId, tcfg.articulos ?? {}, codDeposito, sqlCfg.puntoVenta)
       const r = await enTransaccion(baseDe(empresa), (db) => escribirRemito(db, remito, {
         talonario: sqlCfg.talonario, puntoVenta: sqlCfg.puntoVenta, codigoTransporte: sqlCfg.codigoTransporte ?? '01',

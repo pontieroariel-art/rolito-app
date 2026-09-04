@@ -10,6 +10,8 @@ export interface ConfigTango {
   companies?: Record<string, number>
   articulos?: Record<string, string>
   depositos?: Record<string, string>
+  /** Depósito de Tango por planta (ventanilla vende desde la cámara): { torcuato: '01', merlo: '02' }. */
+  depositosPlanta?: Record<string, string>
   camiones?: Record<string, string>
   /** choferId → COD_GVA23 (vendedor de Tango): la factura lleva al chofer logueado como vendedor. */
   vendedores?: Record<string, string>
@@ -38,10 +40,16 @@ export interface ContextoWriter {
   log: (msg: string) => void
 }
 
-/** Depósito del REPARTIDOR (en Tango los choferes son depósitos); cae al camión. */
+/**
+ * Depósito de Tango de la venta: el del REPARTIDOR (en Tango los choferes son depósitos; cae al
+ * camión) o, en ventanilla, el de la PLANTA donde se vendió (no hay depósito en tránsito: la
+ * mercadería sale de la cámara — decisión de Ariel 2026-09-04, STOCK_REPARTO.md).
+ */
 function codigoDeposito(cfg: ConfigTango, payload: PayloadVenta): string | null {
   const dep = cfg.depositos ?? {}
-  return (payload.choferId && dep[payload.choferId]) || (payload.camionId && dep[payload.camionId]) || null
+  const porPlanta = cfg.depositosPlanta ?? {}
+  return (payload.choferId && dep[payload.choferId]) || (payload.camionId && dep[payload.camionId])
+    || (payload.plantaId && porPlanta[payload.plantaId]) || null
 }
 
 /** Venta que NO factura ARCA → pedido en Tango (INTEGRACION.md §14). */
@@ -130,7 +138,7 @@ export async function enviarFactura(payload: PayloadVenta, ctx: ContextoWriter):
   const articulos = cfg.articulos ?? {}
   const codDeposito = codigoDeposito(cfg, payload) ?? (!payload.camionId ? cfgEmpresa.depositoVentanilla ?? null : null)
   if (!codDeposito) {
-    return { ok: false, error: payload.camionId ? `Falta el depósito Tango del chofer ${payload.choferNombre ?? payload.choferId} (config/tango.depositos.${payload.choferId})` : `Falta config/tango.facturador.${empresa}.depositoVentanilla` }
+    return { ok: false, error: payload.camionId ? `Falta el depósito Tango del chofer ${payload.choferNombre ?? payload.choferId} (config/tango.depositos.${payload.choferId})` : `Falta el depósito Tango de la planta ${payload.plantaId ?? '?'} (config/tango.depositosPlanta)` }
   }
 
   // Vendedor = el chofer logueado (decisión de Ariel 2026-09-03): mapeo
