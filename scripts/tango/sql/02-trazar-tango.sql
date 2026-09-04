@@ -1,19 +1,18 @@
 -- Traza de lo que Tango escribe en SQL Server cuando un operador carga un RECIBO y un
--- REMITO (docs/tango/INTEGRACION.md §20, fase 1). Usa Extended Events, que viene con
--- SQL Server y no frena nada. Correr en SSMS, conectado al servidor de las bases,
--- como un login con permiso ALTER ANY EVENT SESSION (sysadmin sirve).
+-- REMITO (docs/tango/INTEGRACION.md §20, fase 1). Extended Events, no frena nada.
+-- Correr en SSMS conectado a RHIELOTG como sa (o un login con ALTER ANY EVENT SESSION).
 --
--- Procedimiento (una sola vez, en TestingRH, no en las empresas reales):
---   1. Ejecutar el BLOQUE A (crea y arranca la sesión). Reemplazar TestingRH_DB por el
---      nombre real de la base de TestingRH (ver 01-relevar-esquema.sql, paso 0).
---   2. En Tango, en la empresa TestingRH, cargar A MANO:
---        - un recibo de cobranza a un cliente con deuda, imputando una factura, en efectivo;
---        - un remito de ventas de 1 bolsa a un cliente.
---      Anotar la hora, el cliente, los números que asigna Tango.
---   3. Ejecutar el BLOQUE B (vuelca lo capturado a una tabla y la exporta).
---   4. Ejecutar el BLOQUE C (borra la sesión).
---   5. Mandarme el resultado del BLOQUE B (Guardar resultados como CSV desde SSMS, o
---      copiar la grilla). Con eso armo los INSERT exactos que hace Tango.
+-- Lecciones de la primera corrida (2026-09-03): Tango ("Axoft Software") ejecuta casi todo
+-- como sentencias preparadas (sp_prepare / sp_execute), así que el texto del INSERT NO está
+-- en `sql_text` (que solo dice "exec sp_execute 12,...") sino en el campo `statement` del
+-- evento. Y el ring_buffer corta en 1000 eventos por defecto. Por eso: filtro sobre
+-- `statement`, evento sp_statement_completed para lo que corre dentro de procedimientos, y
+-- destino en ARCHIVO. Y OJO: la pantalla Cobranzas NO se identifica como 'Axoft Software' (el
+-- remito sí): no filtrar por client_app_name, solo por base.
+--
+-- Procedimiento (TestingRH, nunca en las empresas reales):
+--   A) crear y arrancar  →  B) cargar a mano UN recibo y UN remito en Tango (TestingRH)
+--   →  C) leer a una tabla y exportar CSV  →  D) borrar la sesión.
 
 -- ───────────────────────────── BLOQUE A: crear y arrancar ─────────────────────────────
 IF EXISTS (SELECT 1 FROM sys.server_event_sessions WHERE name = 'traza_tango_rolito')
@@ -21,45 +20,52 @@ IF EXISTS (SELECT 1 FROM sys.server_event_sessions WHERE name = 'traza_tango_rol
 GO
 CREATE EVENT SESSION traza_tango_rolito ON SERVER
 ADD EVENT sqlserver.sql_statement_completed (
-  ACTION (sqlserver.client_app_name, sqlserver.database_name, sqlserver.session_id, sqlserver.sql_text)
-  WHERE sqlserver.database_name = N'TestingRH_DB'   -- <── nombre real de la base de TestingRH
-    AND (sqlserver.like_i_sql_unicode_string(sqlserver.sql_text, N'%INSERT%')
-      OR sqlserver.like_i_sql_unicode_string(sqlserver.sql_text, N'%UPDATE%')
-      OR sqlserver.like_i_sql_unicode_string(sqlserver.sql_text, N'%DELETE%')
-      OR sqlserver.like_i_sql_unicode_string(sqlserver.sql_text, N'%EXEC%'))
+  ACTION (sqlserver.client_app_name, sqlserver.database_name, sqlserver.session_id)
+  WHERE sqlserver.database_name = N'TestingRH'
+    AND (sqlserver.like_i_sql_unicode_string([statement], N'%INSERT%')
+      OR sqlserver.like_i_sql_unicode_string([statement], N'%UPDATE%')
+      OR sqlserver.like_i_sql_unicode_string([statement], N'%DELETE%'))
+),
+ADD EVENT sqlserver.sp_statement_completed (
+  ACTION (sqlserver.client_app_name, sqlserver.database_name, sqlserver.session_id)
+  WHERE sqlserver.database_name = N'TestingRH'
+    AND (sqlserver.like_i_sql_unicode_string([statement], N'%INSERT%')
+      OR sqlserver.like_i_sql_unicode_string([statement], N'%UPDATE%')
+      OR sqlserver.like_i_sql_unicode_string([statement], N'%DELETE%'))
 ),
 ADD EVENT sqlserver.rpc_completed (
-  ACTION (sqlserver.client_app_name, sqlserver.database_name, sqlserver.session_id, sqlserver.sql_text)
-  WHERE sqlserver.database_name = N'TestingRH_DB'   -- <── idem
+  ACTION (sqlserver.client_app_name, sqlserver.database_name, sqlserver.session_id)
+  WHERE sqlserver.database_name = N'TestingRH'
+    AND (sqlserver.like_i_sql_unicode_string([statement], N'%INSERT%')
+      OR sqlserver.like_i_sql_unicode_string([statement], N'%UPDATE%')
+      OR sqlserver.like_i_sql_unicode_string([statement], N'%DELETE%')
+      OR sqlserver.like_i_sql_unicode_string([statement], N'%sp_prepare%')
+      OR sqlserver.like_i_sql_unicode_string([statement], N'%sp_prepexec%'))
 )
-ADD TARGET package0.ring_buffer (SET max_memory = 65536)   -- 64 MB, sobra para dos comprobantes
-WITH (MAX_DISPATCH_LATENCY = 5 SECONDS, STARTUP_STATE = OFF);
+ADD TARGET package0.event_file (SET filename = N'C:\Temp\traza_tango_rolito.xel', max_file_size = 100, max_rollover_files = 2)
+WITH (MAX_DISPATCH_LATENCY = 3 SECONDS, STARTUP_STATE = OFF);
 GO
 ALTER EVENT SESSION traza_tango_rolito ON SERVER STATE = START;
 GO
+-- (si falla por la carpeta: crear C:\Temp en el servidor, o cambiar la ruta)
 
--- ───────────────────────────── BLOQUE B: leer lo capturado ────────────────────────────
--- Devuelve una fila por sentencia, en orden, con el texto completo. Tango usa sentencias
--- parametrizadas: en rpc_completed el texto viene con los valores reales.
-;WITH datos AS (
-  SELECT CAST(t.target_data AS XML) AS x
-  FROM sys.dm_xe_sessions s
-  JOIN sys.dm_xe_session_targets t ON t.event_session_address = s.address
-  WHERE s.name = 'traza_tango_rolito'
-)
+-- ───────────────────────────── BLOQUE C: leer lo capturado ────────────────────────────
+IF OBJECT_ID('tempdb..#xe') IS NOT NULL DROP TABLE #xe;
+SELECT CAST(event_data AS XML) AS x
+INTO #xe
+FROM sys.fn_xe_file_target_read_file('C:\Temp\traza_tango_rolito*.xel', NULL, NULL, NULL);
+
 SELECT
-  e.value('@timestamp', 'datetime2')                                           AS momento,
-  e.value('@name', 'nvarchar(50)')                                             AS evento,
-  e.value('(action[@name="session_id"]/value)[1]', 'int')                      AS sesion,
-  e.value('(action[@name="client_app_name"]/value)[1]', 'nvarchar(200)')       AS aplicacion,
-  e.value('(data[@name="object_name"]/value)[1]', 'nvarchar(200)')             AS objeto,
-  e.value('(data[@name="statement"]/value)[1]', 'nvarchar(max)')               AS sentencia,
-  e.value('(action[@name="sql_text"]/value)[1]', 'nvarchar(max)')              AS sql_text
-FROM datos CROSS APPLY x.nodes('RingBufferTarget/event') AS n(e)
+  x.value('(event/@timestamp)[1]', 'datetime2')                                   AS momento,
+  x.value('(event/@name)[1]', 'nvarchar(50)')                                     AS evento,
+  x.value('(event/action[@name="session_id"]/value)[1]', 'int')                   AS sesion,
+  x.value('(event/data[@name="object_name"]/value)[1]', 'nvarchar(200)')          AS objeto,
+  x.value('(event/data[@name="statement"]/value)[1]', 'nvarchar(max)')            AS sentencia
+FROM #xe
 ORDER BY momento;
-GO
+-- Guardar la grilla como CSV (clic derecho → Guardar resultados como...).
 
--- ───────────────────────────── BLOQUE C: limpiar ──────────────────────────────────────
+-- ───────────────────────────── BLOQUE D: limpiar ──────────────────────────────────────
 ALTER EVENT SESSION traza_tango_rolito ON SERVER STATE = STOP;
 GO
 DROP EVENT SESSION traza_tango_rolito ON SERVER;
