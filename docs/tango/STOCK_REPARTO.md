@@ -80,6 +80,13 @@ clientes y bolsas rotas de más en el camión): merma física. Al 98 va lo que n
 sin evidencia, que se le cargan al chofer. Si la política cobra al chofer las rotas de más, eso lo
 resuelve la liquidación de la app (plata), no el depósito (stock).
 
+**Sobrantes (confirmado con Ariel):** si muelle cuenta más de lo esperado (pallet con bolsas de más,
+o un cliente que recibió de menos), se registra una transferencia **98 → camión** por la diferencia
+y la descarga mueve TODO lo contado a planta; el camión sigue cerrando en 0 y el 98 queda negativo
+para ese chofer (neto faltantes − sobrantes). Muelle no distingue la causa; la investiga la oficina
+después (producción o nota de crédito al cliente). La liquidación de la app debe mostrar el
+sobrante y permitir anotar la causa.
+
 Por qué dos movimientos: un renglón real a $0 en el remito se facturaría con precio de lista;
 un artículo CAMBIO con stock reproduce los negativos de hoy. El renglón CAMBIO resuelve papel y
 precio; la transferencia resuelve el stock. Los dos salen del mismo registro del chofer.
