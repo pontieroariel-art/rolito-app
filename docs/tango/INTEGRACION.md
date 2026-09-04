@@ -1094,3 +1094,23 @@ app, 241 sin cuenta, 5 saldados. Las Functions HTTP viejas (`syncClientesTango`,
 `syncSaldosTango`) quedan deployadas pero sin nadie que las llame; los scripts del
 bridge quedan en el repo marcados como reemplazados. **Pendiente en la VM:** apagar
 las tareas del Task Scheduler y el servicio del listener.
+
+## 19. Recibos de cobranza por API: NO existe en Delta 6 (relevado 2026-09-03 en el Tango real)
+
+Relevamiento hecho navegando Tango Delta por Connect (empresa TestingRH) con la sesión de Ariel:
+- La API "Apertura" se autodocumenta por proceso en `/company/{n}/api/{proceso}` (ABM:
+  Create/Delete/Update/Get/GetById/GetByFilter). El Facturador tiene ruta propia
+  `/company/{n}/facturador-venta` (POST `FacturadorVenta/registrar`). Son las únicas rutas de
+  API del frontend (router de Angular: `api/:actionNumber` y `facturador-venta`).
+- **Cobranzas** (Ventas → Cuentas Corrientes) es el proceso **1957**, `migrated: false`
+  (pantalla de escritorio). `/company/5/api/1957` → "Action not found". Lo mismo su importación
+  Excel (`importar-plantilla/excel/1957`). Imputación de comprobantes (2127), Composición inicial
+  (12306) y Débitos por mora (772) también `migrated: false`.
+- El repo oficial TangoDeltaApi no tiene cobranzas; ninguna ruta `*/registrar` de recibos existe
+  en Connect (25 nombres probados, y una ruta inexistente devuelve el mismo 500).
+
+Conclusión: **hoy el recibo no se puede registrar por API.** Caminos: (a) preguntar a Axoft si hay
+"Apertura de recibos" en roadmap / versión nueva; (b) SQL Server (mismo canal que los remitos R,
+proyecto pendiente) — recibo GVA12 + imputaciones + tesorería, el más delicado; (c) mientras
+tanto, la app sigue siendo el registro operativo (descuento optimista en saldosTango) y la
+oficina carga los recibos en Tango con el listado de cobranzas de la app.
