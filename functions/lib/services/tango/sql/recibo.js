@@ -362,7 +362,13 @@ async function leerDatosRecibo(db, r, cfg, identity) {
  */
 async function siguiente(db, tabla, campo) {
     const def = await db.query(`SELECT dc.definition AS D FROM sys.columns c JOIN sys.default_constraints dc ON dc.object_id = c.default_object_id WHERE c.object_id = OBJECT_ID(@T) AND c.name = @C`, [(0, tipos_1.varchar)('T', tabla, 128), (0, tipos_1.varchar)('C', campo, 128)]);
-    const seq = def[0]?.D ? /NEXT VALUE FOR \[?(?:dbo\]?\.\[?)?(\w+)\]?/i.exec(def[0].D)?.[1] : undefined;
+    let seq = def[0]?.D ? /NEXT VALUE FOR \[?(?:dbo\]?\.\[?)?(\w+)\]?/i.exec(def[0].D)?.[1] : undefined;
+    if (!seq) {
+        // El login del servicio puede no ver la definición del DEFAULT (visibilidad de metadata);
+        // Tango nombra las secuencias SEQUENCE_<tabla>, y con UPDATE sobre ellas sí aparecen en sys.sequences.
+        const porNombre = await db.query(`SELECT name FROM sys.sequences WHERE name = @S`, [(0, tipos_1.varchar)('S', `SEQUENCE_${tabla.toUpperCase()}`, 128)]);
+        seq = porNombre[0]?.name;
+    }
     if (seq) {
         const v = await db.query(`SELECT NEXT VALUE FOR [${seq}] AS V`);
         if (v[0]?.V == null)
