@@ -143,7 +143,8 @@ describe('sentenciasRecibo', () => {
   })
 })
 
-function fakeDb(opts: { existe?: boolean; identity?: string[] } = {}) {
+function fakeDb(opts: { existe?: boolean; identity?: string[]; secuencias?: string[] } = {}) {
+  const secuencias: Record<string, number> = {}
   const ejecutadas: string[] = []
   const contadores: Record<string, number> = { 'SBA04|N_INTERNO': 127986, 'HISTORIAL_CUENTAS_CORRIENTES|ID_HISTORIAL_CUENTAS_CORRIENTES': 233985, 'COMPROBANTE_COTIZACION_SB|ID_COMPROBANTE_COTIZACION_SB': 190076, 'ASIENTO_COMPROBANTE_SB|ID_ASIENTO_COMPROBANTE_SB': 199353, 'ASIENTO_SB|ID_ASIENTO_SB': 240045 }
   const db: EjecutorSql = {
@@ -156,6 +157,8 @@ function fakeDb(opts: { existe?: boolean; identity?: string[] } = {}) {
       if (sql.startsWith('SELECT ID_GVA12, IMPORTE, UNIDADES')) return r([{ ID_GVA12: param(params, 'N') === 'A0010100268582' ? 350532 : 360000, IMPORTE: 110700, UNIDADES: 110700, COD_CLIENT: 'FC.280' }])
       if (sql.startsWith('SELECT TOP 1 FECHA_VTO')) return r([{ FECHA_VTO: new Date(2026, 1, 4) }])
       if (sql.startsWith('SELECT ID_SBA01')) return r([{ ID_SBA01: Number(param(params, 'COD')) === 1111000 ? 1 : 223, SALDO_A_MO: -100, SALDO_A_UN: -100, SALDO_ACT: -100 }])
+      if (sql.startsWith('SELECT name FROM sys.sequences')) return r((opts.secuencias ?? []).includes(param(params, 'S') as string) ? [{ name: param(params, 'S') }] : [])
+      if (sql.startsWith('SELECT NEXT VALUE FOR')) { const n = sql.slice(sql.indexOf('[') + 1, sql.indexOf(']')); secuencias[n] = (secuencias[n] ?? 1000) + 1; return r([{ V: secuencias[n] }]) }
       if (sql.startsWith('SELECT UltimoValor')) { const k = `${param(params, 'T')}|${param(params, 'C')}`; return r(k in contadores ? [{ UltimoValor: contadores[k] }] : []) }
       if (sql.startsWith('UPDATE dbo.INCREMENTAL_VALUE')) { contadores[`${param(params, 'T')}|${param(params, 'C')}`] = Number(param(params, 'V')); return r([{ affected: 1 }]) }
       if (sql.startsWith('INSERT INTO "GVA12"')) return r([{ ID: 372480 }])
@@ -181,6 +184,12 @@ describe('escribirRecibo', () => {
   it('con tablas IDENTITY no reserva contadores para ellas y toma el id del asiento al insertarlo', async () => {
     const { db, ejecutadas } = fakeDb({ identity: ['HISTORIAL_CUENTAS_CORRIENTES', 'COMPROBANTE_COTIZACION_SB', 'ASIENTO_COMPROBANTE_SB', 'ASIENTO_SB'] })
     await escribirRecibo(db, r, cfg)
+    expect(ejecutadas.filter((e) => e.startsWith('UPDATE dbo.INCREMENTAL_VALUE'))).toHaveLength(1)   // solo SBA04.N_INTERNO
+  })
+  it('con SEQUENCE detrás (Delta 6) toma los ids con NEXT VALUE FOR y no toca INCREMENTAL_VALUE para esas tablas', async () => {
+    const { db, ejecutadas } = fakeDb({ secuencias: ['SEQUENCE_HISTORIAL_CUENTAS_CORRIENTES', 'SEQUENCE_COMPROBANTE_COTIZACION_SB', 'SEQUENCE_ASIENTO_COMPROBANTE_SB', 'SEQUENCE_ASIENTO_SB'] })
+    await escribirRecibo(db, r, cfg)
+    expect(ejecutadas.filter((e) => e.startsWith('SELECT NEXT VALUE FOR'))).toHaveLength(1 + 1 + 1 + 2)
     expect(ejecutadas.filter((e) => e.startsWith('UPDATE dbo.INCREMENTAL_VALUE'))).toHaveLength(1)   // solo SBA04.N_INTERNO
   })
   it('si ya existe no escribe', async () => {

@@ -351,8 +351,22 @@ async function leerDatosRecibo(db, r, cfg, identity) {
         ids.asientoRenglones.push(identity.has('ASIENTO_SB') ? null : await siguiente(db, 'ASIENTO_SB', 'ID_ASIENTO_SB'));
     return { cliente: { idGva14: c.ID_GVA14, saldoCc: Number(c.SALDO_CC), saldoDoc: Number(c.SALDO_DOC), saldoDUn: Number(c.SALDO_D_UN), saldoCcU: Number(c.SALDO_CC_U) }, facturas, cuentas, nInternoSba04, ids };
 }
-/** Próximo valor de un contador de Tango: dbo.INCREMENTAL_VALUE (como hace Tango con SBA04.N_INTERNO), si no MAX+1. */
+/**
+ * Próximo valor de un id/contador de Tango, en este orden:
+ *  1. SEQUENCE `SEQUENCE_<tabla>` (Delta 6: HISTORIAL_CUENTAS_CORRIENTES, COMPROBANTE_COTIZACION_SB,
+ *     ASIENTO_COMPROBANTE_SB y ASIENTO_SB tienen DEFAULT NEXT VALUE FOR — consulta (j) del script 04);
+ *  2. dbo.INCREMENTAL_VALUE (como hace Tango con SBA04.N_INTERNO);
+ *  3. MAX+1 (último recurso; con una SEQUENCE detrás chocaría con Tango, por eso va al final).
+ */
 async function siguiente(db, tabla, campo) {
+    const seqNombre = `SEQUENCE_${tabla.toUpperCase()}`;
+    const seq = await db.query(`SELECT name FROM sys.sequences WHERE name = @S`, [(0, tipos_1.varchar)('S', seqNombre, 128)]).catch(() => []);
+    if (seq.length) {
+        const v = await db.query(`SELECT NEXT VALUE FOR [${seqNombre}] AS V`);
+        if (v[0]?.V == null)
+            throw new Error(`la secuencia ${seqNombre} no devolvió valor`);
+        return Number(v[0].V);
+    }
     const inc = await db.query(`SELECT UltimoValor FROM dbo.INCREMENTAL_VALUE WHERE Tabla = @T AND Campo = @C`, [(0, tipos_1.varchar)('T', tabla, 50), (0, tipos_1.varchar)('C', campo, 50)]).catch(() => []);
     if (inc.length) {
         const ultimo = Number(inc[0].UltimoValor), sig = ultimo + 1;
