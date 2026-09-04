@@ -985,5 +985,101 @@
       "USUARIO": "SUPERVISOR",
       "OBSERVACIO": "PRODUCCION MERLO T.T"
     }
-  ]
+  ],
+  "STA13_tipos_de_comprobante_stock": "Ver INTEGRACION.md §22. T_MOVIM: E entrada, S salida, T transferencia, J ajuste. Relevantes: CAR 145 (T, talonario 13), DES 146 (T, 13), TRA 135 (T, 13), CAM \"MERMA EN CAMIONES\" 124 (T, 6), MER 132 (T, 4), CBS \"CAMBIOS EN CLIENTE\" 144 (E, 2), AJU 130 (J, 5), PRO 134 (E, 1), PDT 140 (E, 9), PME 139 (E, 8), INI 133 (E, 2).",
+  "STA17_talonarios_stock": {
+    "nota": "PROXIMO es un número PLANO (no codificado como GVA43.PROXIMO) → el writer puede incrementarlo con UPDATE optimista. N_COMP = SUCURSAL (4 dígitos) + número (8 dígitos).",
+    "filas": [
+      {
+        "ID_STA17": 1,
+        "DESCRIP": "PRODUCCION",
+        "SUCURSAL": 1,
+        "PROXIMO": 2878
+      },
+      {
+        "ID_STA17": 2,
+        "DESCRIP": "INGRESO STOCK",
+        "SUCURSAL": 1,
+        "PROXIMO": 93272
+      },
+      {
+        "ID_STA17": 3,
+        "DESCRIP": "TRASLADO DE MERC ENTRE DEP",
+        "SUCURSAL": 1,
+        "PROXIMO": 1,
+        "ID_TYPS": 62
+      },
+      {
+        "ID_STA17": 4,
+        "DESCRIP": "EGRESOS DE MERCADERIA",
+        "SUCURSAL": 1,
+        "PROXIMO": 1890
+      },
+      {
+        "ID_STA17": 5,
+        "DESCRIP": "AJUSTE DE STOCK",
+        "SUCURSAL": 1,
+        "PROXIMO": 16
+      },
+      {
+        "ID_STA17": 6,
+        "DESCRIP": "MERMAS",
+        "SUCURSAL": 1,
+        "PROXIMO": 111
+      },
+      {
+        "ID_STA17": 7,
+        "DESCRIP": "CONTROL DE PALLETS",
+        "SUCURSAL": 33,
+        "PROXIMO": 2
+      },
+      {
+        "ID_STA17": 8,
+        "DESCRIP": "PRODUCCION MERLO",
+        "SUCURSAL": 2,
+        "PROXIMO": 83
+      },
+      {
+        "ID_STA17": 9,
+        "DESCRIP": "PRODUCCION DT",
+        "SUCURSAL": 1,
+        "PROXIMO": 122763
+      },
+      {
+        "ID_STA17": 10,
+        "DESCRIP": "EGRESOS II DT",
+        "SUCURSAL": 101,
+        "PROXIMO": 39
+      },
+      {
+        "ID_STA17": 11,
+        "DESCRIP": "EGRESOS II MERLO",
+        "SUCURSAL": 102,
+        "PROXIMO": 3
+      },
+      {
+        "ID_STA17": 12,
+        "DESCRIP": "VTAS. CONT FISCAL MERLO",
+        "SUCURSAL": 133,
+        "PROXIMO": 1
+      },
+      {
+        "ID_STA17": 13,
+        "DESCRIP": "TRASLADO ENTRE DEPOSITOS",
+        "SUCURSAL": 25,
+        "PROXIMO": 67900
+      }
+    ]
+  },
+  "triggers_stock": [
+    "STA14 TR_CLOUD_STA14",
+    "STA20 TR_CLOUD_STA20",
+    "STA19 TR_CLOUD_STA19",
+    "STA19 TS_DSYNC_STA19"
+  ],
+  "depositos_especiales": {
+    "97": "PROMOCION (ID_STA22 138)",
+    "98": "NO EXISTE todavía (propuesto: DIFERENCIAS DE REPARTO)",
+    "99": "MERMAS (ID_STA22 71)"
+  }
 }
