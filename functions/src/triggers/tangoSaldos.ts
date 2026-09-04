@@ -12,7 +12,7 @@ const MAX_ROWS_POR_LOTE = 2000
 // composición de saldos de Tango (consulta Live / vista AXV_* — process a
 // relevar, ver docs/tango/INTEGRACION.md). Un row = un cliente con sus
 // comprobantes pendientes de cobro.
-interface ComprobanteSaldoRow {
+export interface ComprobanteSaldoRow {
   tipo:               string
   numero:             string
   fechaEmision?:      string
@@ -23,7 +23,7 @@ interface ComprobanteSaldoRow {
   diasAtraso?:        number
 }
 
-interface TangoSaldoRow {
+export interface TangoSaldoRow {
   idGva14:      number
   codGva14?:    string
   razonSocial?: string
@@ -31,7 +31,7 @@ interface TangoSaldoRow {
   comprobantes: ComprobanteSaldoRow[]
 }
 
-interface ResultadoSyncSaldos {
+export interface ResultadoSyncSaldos {
   succeeded: boolean
   dryRun: boolean
   reason?: string
@@ -105,7 +105,7 @@ async function descuentosPendientes(
   return porCliente
 }
 
-async function procesarLoteSaldos(
+export async function procesarLoteSaldos(
   db: FirebaseFirestore.Firestore,
   rows: TangoSaldoRow[],
   opts: { dryRun: boolean; runId: string | null; esUltimoLote: boolean },

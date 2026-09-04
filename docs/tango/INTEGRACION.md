@@ -1061,3 +1061,36 @@ usuarios, modal de precios especiales, `precioEfectivo`). Ahora:
 (`historialPrecios` ya estaba vacía) y eliminado el historial de precios de la app
 (página, sección en la ficha, hook, servicio, ruta y menú). Reglas: sin `match` para
 `listas-precios` ni `historialPrecios` (tests actualizados: nadie lee ni escribe ahí).
+
+## 18. Todo por Tango Connect: clientes, saldos y consultas sin la VM (2026-09-03)
+
+Decisión de Ariel: migrar lo que quedaba en el bridge de la VM (`C:\RolitoSync`) a
+Cloud Functions que hablan con Tango por Tango Connect, igual que precios y facturas.
+`functions/src/triggers/tangoConnectSync.ts`:
+
+| Qué | Function | Cuándo | Reemplaza a |
+|---|---|---|---|
+| Clientes (process 2117, Redonhielo) | `syncClientesTangoConnect` + callable `sincronizarClientesTangoAhora` | 5:00 y botón | `bridge-sync-clientes.mjs` → `syncClientesTango` (HTTP) |
+| Saldos (Live 17953 vencidas + 17955 a vencer) | `syncSaldosTangoConnect` + callable `sincronizarSaldosTangoAhora` | cada hora 6–22 y botón | `bridge-sync-saldos.mjs` → `syncSaldosTango` (HTTP) |
+| Consulta de saldo de un cliente (`tango-consultas`) | `onConsultaSaldoPendiente` (onDocumentCreated) | al crearse el doc | `bridge-listener.mjs` |
+
+La lógica de negocio no cambió: la lectura se hace con `TangoClient.getAll` /
+`TangoClient.live` (paginación ABM y Live) y las filas van a las mismas
+`procesarLoteClientesTango` y `procesarLoteSaldos` que usaban las Functions HTTP
+(matching por idGva14/CUIT, descuentos de cobranzas pendientes, vaciado por `runId`).
+`onConsultaRespondida` sigue copiando el resultado al cache `saldosTango`.
+La respuesta a consultas se escribe en transacción: si el bridge de la VM siguiera
+prendido y respondiera antes, no se pisa.
+
+Config: `config/tango.saldos {procesoDeudasVencidas, procesoDeudasAVencer, fromDate}`
+(opcional, defaults 17953 / 17955 / 01/01/2015) y `config/tango.syncCloud
+{clientes, saldos, consultas}` (llaves de apagado, default encendido). Cada corrida
+deja `config/tango.clientesSync` / `saldosSync` (última corrida, origen, resumen);
+se ven en **Ajustes generales → Sincronización con Tango**, con "Sincronizar ahora".
+
+Primera corrida (script `scripts/tango/sincronizar-tango-connect.mjs`, 2026-09-03):
+clientes OK; saldos 1823 comprobantes, 520 clientes con deuda, 279 con cuenta en la
+app, 241 sin cuenta, 5 saldados. Las Functions HTTP viejas (`syncClientesTango`,
+`syncSaldosTango`) quedan deployadas pero sin nadie que las llame; los scripts del
+bridge quedan en el repo marcados como reemplazados. **Pendiente en la VM:** apagar
+las tareas del Task Scheduler y el servicio del listener.

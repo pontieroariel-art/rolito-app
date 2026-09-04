@@ -1,4 +1,9 @@
 /**
+ * ⚠️ REEMPLAZADO el 2026-09-03 por Cloud Functions vía Tango Connect
+ * (functions/src/triggers/tangoConnectSync.ts: clientes, saldos y consultas de
+ * saldo; tangoWorker.ts: outbox). Apagar la tarea/servicio en la VM. Se conserva
+ * solo como respaldo; ver docs/tango/INTEGRACION.md §18.
+ *
  * bridge-listener.mjs
  *
  * Corre EN LA VM de Tango (misma red que bridge-sync-clientes.mjs), pero como

@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.syncSaldosTango = void 0;
+exports.procesarLoteSaldos = procesarLoteSaldos;
 const https_1 = require("firebase-functions/v2/https");
 const params_1 = require("firebase-functions/params");
 const firestore_1 = require("firebase-admin/firestore");

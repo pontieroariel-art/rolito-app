@@ -1,7 +1,9 @@
-// Placeholder — futuro home de configuración global del sistema y, cuando
-// esté el bridge Node hacia Tango Gestión, del estado de esa sincronización
-// (última corrida, errores, mapeos). Por ahora no hay ajustes globales que
-// mostrar acá; se agregan a medida que aparecen.
+import SyncPreciosTangoPanel from '../../components/admin/SyncPreciosTangoPanel'
+
+// Home de configuración global. Por ahora: estado de las sincronizaciones con
+// Tango (clientes, precios, saldos) y sus botones de "Sincronizar ahora".
+// Los mapeos (artículos, depósitos, vendedores, talonarios) siguen en
+// config/tango vía scripts/tango/configurar-ventas-tango.mjs.
 export default function AjustesGeneralesPage() {
   return (
     <div className="min-h-screen min-h-dvh bg-[#F1EFE8] text-gray-900">
@@ -10,9 +12,7 @@ export default function AjustesGeneralesPage() {
           <h1 className="text-2xl font-bold text-gray-900">Ajustes generales</h1>
           <p className="text-gray-500 text-sm">Configuración global del sistema.</p>
         </div>
-        <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center">
-          <p className="text-gray-500 text-sm">Todavía no hay ajustes generales configurables acá.</p>
-        </div>
+        <SyncPreciosTangoPanel />
       </main>
     </div>
   )

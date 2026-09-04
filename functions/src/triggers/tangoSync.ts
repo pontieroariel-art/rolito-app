@@ -12,7 +12,7 @@ const MAX_ROWS_POR_LOTE = 10000
 
 // Fila tal como la arma scripts/tango/bridge-sync-clientes.mjs a partir de la
 // respuesta de Tango (Api/Get, process=2117 = Clientes). Ver docs/tango/INTEGRACION.md §6.1.
-interface TangoClienteRow {
+export interface TangoClienteRow {
   idGva14:          number
   codGva14:         string
   cuit:             string
@@ -38,7 +38,7 @@ interface ResultadoFila {
   motivo:  string
 }
 
-interface ResultadoSync {
+export interface ResultadoSync {
   succeeded: boolean
   dryRun: boolean
   reason?: string
@@ -78,7 +78,7 @@ function pareceEmailValido(email: string | undefined | null): email is string {
   return !!email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
 }
 
-async function procesarLoteClientesTango(
+export async function procesarLoteClientesTango(
   db: FirebaseFirestore.Firestore,
   rows: TangoClienteRow[],
   opts: { dryRun: boolean },

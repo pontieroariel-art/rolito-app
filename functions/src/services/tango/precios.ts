@@ -48,24 +48,11 @@ export interface PreciosTangoDoc {
 
 const PAGE = 500
 
-async function todasLasFilas(tango: TangoClient, company: number, proceso: number): Promise<Record<string, unknown>[]> {
-  const out: Record<string, unknown>[] = []
-  let i = 0, pages = 1
-  do {
-    const data = await tango.request(company, 'GET', 'Get', { process: proceso, pageSize: PAGE, pageIndex: i, view: '' })
-    out.push(...TangoClient.filas(data))
-    const rd = prop(data, 'resultData') as Record<string, unknown> | undefined
-    pages = Number(prop(rd, 'totalPages') ?? 1)
-    i++
-  } while (i < pages)
-  return out
-}
-
 /** Precios de una empresa: listas + precio por producto en cada lista + especiales por cliente. */
 export async function leerPreciosEmpresa(tango: TangoClient, company: number, articulos: Record<string, string>): Promise<PreciosTangoDoc> {
   const errores: string[] = []
   const listas: Record<string, ListaTango> = {}
-  for (const l of await todasLasFilas(tango, company, PROCESOS.listas)) {
+  for (const l of await tango.getAll(company,PROCESOS.listas)) {
     const nro = String(prop(l, 'NRO_DE_LIS') ?? '')
     if (!nro) continue
     listas[nro] = { nombre: String(prop(l, 'NOMBRE_LIS') ?? '').trim(), incluyeIva: prop(l, 'INCLUY_IVA') === true, precios: {} }
@@ -107,7 +94,7 @@ export async function leerPreciosEmpresa(tango: TangoClient, company: number, ar
 /** Lista asignada a cada cliente (COD_GVA14 → NRO_LISTA) en una empresa. */
 export async function leerListasDeClientes(tango: TangoClient, company: number): Promise<Map<string, number>> {
   const out = new Map<string, number>()
-  for (const c of await todasLasFilas(tango, company, PROCESOS.clientes)) {
+  for (const c of await tango.getAll(company,PROCESOS.clientes)) {
     const cod = String(prop(c, 'COD_GVA14') ?? '').trim()
     const nro = Number(prop(c, 'GVA10_NRO_DE_LIS') ?? prop(c, 'NRO_LISTA'))
     if (cod && Number.isFinite(nro) && nro > 0) out.set(cod, nro)

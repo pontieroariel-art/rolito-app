@@ -57,6 +57,37 @@ class TangoClient {
         }
         return data;
     }
+    /** Todas las filas de un proceso ABM (Api/Get), paginando hasta el final. */
+    async getAll(company, proceso, pageSize = 500) {
+        const out = [];
+        let i = 0, pages = 1;
+        do {
+            const data = await this.request(company, 'GET', 'Get', { process: proceso, pageSize, pageIndex: i, view: '' });
+            out.push(...TangoClient.filas(data));
+            const rd = (0, pedido_1.prop)(data, 'resultData');
+            pages = Number((0, pedido_1.prop)(rd, 'totalPages') ?? 1);
+            i++;
+        } while (i < pages);
+        return out;
+    }
+    /** Todas las filas de una consulta Live (Api/GetApiLiveQueryData). Formato
+     *  confirmado 2026-08-31: customQuery=0 obligatorio y fechas dd/MM/yyyy (el
+     *  único formato que acepta). El filtro por cliente es del lado nuestro:
+     *  customQuery es un flag, no un filtro. */
+    async live(company, proceso, desde, hasta, pageSize = 500) {
+        const out = [];
+        let i = 0, pages = 1;
+        do {
+            const data = await this.request(company, 'GET', 'GetApiLiveQueryData', {
+                process: proceso, customQuery: 0, fromDate: desde, toDate: hasta, pageSize, pageIndex: i,
+            });
+            out.push(...TangoClient.filas(data));
+            const rd = (0, pedido_1.prop)(data, 'resultData');
+            pages = Number((0, pedido_1.prop)(rd, 'totalPages') ?? 1);
+            i++;
+        } while (i < pages);
+        return out;
+    }
     static filas(data) {
         const rd = (0, pedido_1.prop)(data, 'resultData');
         const lista = (0, pedido_1.prop)(rd, 'list') ?? (Array.isArray(rd) ? rd : null) ?? (0, pedido_1.prop)(data, 'list');

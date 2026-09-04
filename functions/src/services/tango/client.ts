@@ -60,6 +60,39 @@ export class TangoClient {
     return data
   }
 
+  /** Todas las filas de un proceso ABM (Api/Get), paginando hasta el final. */
+  async getAll(company: number | string, proceso: number, pageSize = 500): Promise<Record<string, unknown>[]> {
+    const out: Record<string, unknown>[] = []
+    let i = 0, pages = 1
+    do {
+      const data = await this.request(company, 'GET', 'Get', { process: proceso, pageSize, pageIndex: i, view: '' })
+      out.push(...TangoClient.filas(data))
+      const rd = prop(data, 'resultData') as Record<string, unknown> | undefined
+      pages = Number(prop(rd, 'totalPages') ?? 1)
+      i++
+    } while (i < pages)
+    return out
+  }
+
+  /** Todas las filas de una consulta Live (Api/GetApiLiveQueryData). Formato
+   *  confirmado 2026-08-31: customQuery=0 obligatorio y fechas dd/MM/yyyy (el
+   *  único formato que acepta). El filtro por cliente es del lado nuestro:
+   *  customQuery es un flag, no un filtro. */
+  async live(company: number | string, proceso: number, desde: string, hasta: string, pageSize = 500): Promise<Record<string, unknown>[]> {
+    const out: Record<string, unknown>[] = []
+    let i = 0, pages = 1
+    do {
+      const data = await this.request(company, 'GET', 'GetApiLiveQueryData', {
+        process: proceso, customQuery: 0, fromDate: desde, toDate: hasta, pageSize, pageIndex: i,
+      })
+      out.push(...TangoClient.filas(data))
+      const rd = prop(data, 'resultData') as Record<string, unknown> | undefined
+      pages = Number(prop(rd, 'totalPages') ?? 1)
+      i++
+    } while (i < pages)
+    return out
+  }
+
   static filas(data: Record<string, unknown>): Record<string, unknown>[] {
     const rd = prop(data, 'resultData')
     const lista = prop(rd, 'list') ?? (Array.isArray(rd) ? rd : null) ?? prop(data, 'list')

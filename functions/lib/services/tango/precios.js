@@ -34,24 +34,12 @@ exports.EMPRESAS = ['redonhielo', 'rolito'];
 const claveCliente = (codigoTango) => String(codigoTango).replace(/\./g, '_');
 exports.claveCliente = claveCliente;
 const PAGE = 500;
-async function todasLasFilas(tango, company, proceso) {
-    const out = [];
-    let i = 0, pages = 1;
-    do {
-        const data = await tango.request(company, 'GET', 'Get', { process: proceso, pageSize: PAGE, pageIndex: i, view: '' });
-        out.push(...client_1.TangoClient.filas(data));
-        const rd = (0, pedido_1.prop)(data, 'resultData');
-        pages = Number((0, pedido_1.prop)(rd, 'totalPages') ?? 1);
-        i++;
-    } while (i < pages);
-    return out;
-}
 /** Precios de una empresa: listas + precio por producto en cada lista + especiales por cliente. */
 async function leerPreciosEmpresa(tango, company, articulos) {
     var _a;
     const errores = [];
     const listas = {};
-    for (const l of await todasLasFilas(tango, company, client_1.PROCESOS.listas)) {
+    for (const l of await tango.getAll(company, client_1.PROCESOS.listas)) {
         const nro = String((0, pedido_1.prop)(l, 'NRO_DE_LIS') ?? '');
         if (!nro)
             continue;
@@ -99,7 +87,7 @@ async function leerPreciosEmpresa(tango, company, articulos) {
 /** Lista asignada a cada cliente (COD_GVA14 → NRO_LISTA) en una empresa. */
 async function leerListasDeClientes(tango, company) {
     const out = new Map();
-    for (const c of await todasLasFilas(tango, company, client_1.PROCESOS.clientes)) {
+    for (const c of await tango.getAll(company, client_1.PROCESOS.clientes)) {
         const cod = String((0, pedido_1.prop)(c, 'COD_GVA14') ?? '').trim();
         const nro = Number((0, pedido_1.prop)(c, 'GVA10_NRO_DE_LIS') ?? (0, pedido_1.prop)(c, 'NRO_LISTA'));
         if (cod && Number.isFinite(nro) && nro > 0)

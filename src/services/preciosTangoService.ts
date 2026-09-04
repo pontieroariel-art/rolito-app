@@ -26,3 +26,34 @@ export async function sincronizarPreciosTangoAhora(): Promise<ResumenSyncPrecios
   const fn = httpsCallable<void, ResumenSyncPrecios>(getFunctions(), 'sincronizarPreciosTangoAhora')
   return (await fn()).data
 }
+
+// Clientes y saldos por Tango Connect (functions/src/triggers/tangoConnectSync.ts).
+export interface ResumenSyncClientes {
+  recibidos: number
+  actualizados: number
+  matchedByIdGva14: number
+  matchedByCuit: number
+  newlyLinkedCodigoTango: number
+  skippedNoMatch: number
+  skippedAmbiguousCuit: number
+  emailsActualizados: number
+  emailsConError: number
+  errores: unknown[]
+}
+export interface ResumenSyncSaldos {
+  filas: number
+  clientesConDeuda: number
+  actualizados: number
+  skippedNoMatch: number
+  vaciados: number
+}
+
+export async function sincronizarClientesTangoAhora(): Promise<ResumenSyncClientes> {
+  const fn = httpsCallable<void, ResumenSyncClientes>(getFunctions(), 'sincronizarClientesTangoAhora')
+  return (await fn()).data
+}
+
+export async function sincronizarSaldosTangoAhora(): Promise<ResumenSyncSaldos> {
+  const fn = httpsCallable<void, ResumenSyncSaldos>(getFunctions(), 'sincronizarSaldosTangoAhora')
+  return (await fn()).data
+}
