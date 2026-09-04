@@ -97,15 +97,14 @@ precio; la transferencia resuelve el stock. Los dos salen del mismo registro del
 
 Decisiones de negocio (Ariel):
 1. ~~Aprobar el circuito de §3~~ — aprobado el 2026-09-04 con §3b.
-2. Crear el depósito **98 Diferencias de reparto** (o decidir que los faltantes van a 99).
-3. Los artículos `CAMBIO*` pasan a "no lleva stock" (obligatorio para §3b). Definir quién lo
-   configura en Tango y cómo se limpia su stock actual (99 y los negativos de camiones).
-4. Definir el **arranque**: (a) inventario físico de plantas y camiones el día del corte y un
-   ajuste inicial en Tango, y de ahí en adelante todo por la app; o (b) además, reconstruir desde
-   el 2026-08-20 con los datos que la app ya tiene. Recomendación: **(a)**, más simple y sin
-   riesgo de duplicar las facturas que ya entraron desde el 2026-09-02.
-5. Costeo: ¿Tango valoriza el stock (PPP)? Las filas de Bluesoft llevan PPP en 0. Si contaduría
-   usa costos, hay que ver qué espera Tango en las transferencias.
+2. ~~Crear el depósito 98~~ — creado el 2026-09-04 en TestingRH, REDONHIELO_SA y Rolito ("DIFERENCIA DE REPARTO", sucursal 1).
+3. ~~Artículos `CAMBIO*` sin stock~~ — hecho el 2026-09-04 en las 3 bases (destildar "Lleva stock"
+   en la ficha: Tango elimina los saldos STA19 solo). En Rolito hubo que completar antes
+   UNIDAD_MEDIDA_AFIP (tenía solo el 95) y cargar UM 7 UNIDAD en los artículos viejos.
+4. ~~Arranque~~ — decidido: (a) inventario físico de las plantas un día de corte + ajuste inicial
+   en Tango; Ariel confirmó el 2026-09-04 que es viable. Fecha a definir cuando la fase B esté lista.
+5. ~~Costeo~~ — contaduría NO valoriza el stock en Tango (solo cantidades); los writers dejan
+   PPP/precios en 0 como Bluesoft. Valorizar queda como mejora futura (Ariel, 2026-09-04).
 
 Datos técnicos que faltan:
 - `STA13` (talonarios de stock) y la numeración de CAR/DES/CBS/MER: consulta (aa) pendiente.
