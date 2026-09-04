@@ -1256,13 +1256,13 @@ pto vta propio) y login SQL para el servicio.
   ```json
   {
     "remito": { "talonario": 1105, "puntoVenta": 1105, "codigoTransporte": "01", "usuario": "ROLITO", "terminal": "APP" },
-    "recibo": { "talonario": 0, "puntoVenta": 0, "codVendedor": "AD", "concepto": "COBRANZAS POR VENTAS",
+    "recibo": { "talonario": 1106, "puntoVenta": 1106, "codVendedor": "AD", "concepto": "COBRANZAS POR VENTAS",
                 "cuentas": { "contracuenta": 1120001, "efectivo": 1111000, "transferencia": 1113003 },
                 "cuentasContables": { "1120001": 1062, "1111000": 601 }, "idSba02Recibo": 11,
                 "usuario": "ROLITO", "terminal": "APP" }
   }
   ```
-  `recibo.talonario/puntoVenta` = el talonario de recibos exclusivo de la app que crea Ariel;
+  `recibo.talonario/puntoVenta` = 1106 "Recibos App Rolito" (REC X, pto vta 01106) y `remito` = 1105 "Remitos App Rolito" (REM R, pto vta 01105), creados en TestingRH el 2026-09-04 (faltan en Redonhielo y Rolito);
   `cuentasContables` e `idSba02Recibo` se confirman con las consultas (d) y (e) de §21.3.
 - **Config local en la VM** (`bridge-sql.config.json`): credenciales de `tango-bridge`, SQL
   Server (`server`, `user`, `password`) y `sql.bases` = base por empresa; para la prueba las
