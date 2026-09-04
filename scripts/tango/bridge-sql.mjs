@@ -104,7 +104,9 @@ function ejecutorDe(tx) {
       const req = new mssql.Request(tx)
       for (const p of params) req.input(p.nombre, tipoMssql(p.tipo), p.valor)
       const res = await req.query(sql)
-      if (res.recordset && res.recordset.length) return res.recordset
+      // Un SELECT sin filas devuelve recordset = [] (y tiene que llegar vacío al writer:
+      // "no existe"); solo INSERT/UPDATE sin OUTPUT vienen sin recordset → [{affected}].
+      if (res.recordset) return res.recordset
       return [{ affected: res.rowsAffected?.[0] ?? 0 }]
     },
   }
