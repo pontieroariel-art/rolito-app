@@ -219,7 +219,7 @@ export default function ChoferDashboard() {
   // Ayudante sin turno asignado
   if (isAyudante && !pairedDespacho) {
     return (
-      <div className="min-h-screen bg-[#F8F7F2] text-gray-900">
+      <div className="min-h-screen min-h-dvh bg-[#F8F7F2] text-gray-900">
         <ChoferHeader />
         <main className="max-w-2xl mx-auto p-4 pt-12 text-center space-y-4">
           <p className="text-5xl">🚛</p>
@@ -234,7 +234,7 @@ export default function ChoferDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F7F2] text-gray-900">
+    <div className="min-h-screen min-h-dvh bg-[#F8F7F2] text-gray-900">
       <ChoferHeader />
 
       {/* Acciones principales — grandes y a mano para operar en la calle */}

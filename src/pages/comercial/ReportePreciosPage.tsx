@@ -127,7 +127,7 @@ export default function ReportePreciosPage() {
   const loading = loadingUsuarios
 
   return (
-    <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
+    <div className="min-h-screen min-h-dvh bg-[#F1EFE8] text-gray-900">
       <main className="max-w-full px-4 pb-10 space-y-6">
 
         {/* Header */}

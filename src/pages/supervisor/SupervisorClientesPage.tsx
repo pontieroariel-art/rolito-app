@@ -46,7 +46,7 @@ export default function SupervisorClientesPage() {
   const totalDeuda = useMemo(() => saldos.reduce((t, s) => t + s.saldoTotal, 0), [saldos])
 
   return (
-    <div className="min-h-screen bg-[#F8F7F2]">
+    <div className="min-h-screen min-h-dvh bg-[#F8F7F2]">
       <SupervisorHeader title="Clientes con deuda" back />
       <main className="max-w-md mx-auto p-4 space-y-3 pb-10">
         <div className="relative">

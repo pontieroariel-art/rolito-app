@@ -228,7 +228,7 @@ export default function UserManagement() {
   )
 
   return (
-    <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
+    <div className="min-h-screen min-h-dvh bg-[#F1EFE8] text-gray-900">
       <main className="max-w-5xl mx-auto p-4 space-y-6 pb-10">
         <div className="flex flex-wrap justify-between items-center gap-3">
           <div>

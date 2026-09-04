@@ -32,7 +32,7 @@ export default function Landing() {
   if (esDispositivoCobranza()) return <Navigate to="/empresa" replace />
 
   return (
-    <div className="min-h-screen bg-[#F8F7F2] flex flex-col">
+    <div className="min-h-screen min-h-dvh bg-[#F8F7F2] flex flex-col">
 
       {/* Cabecera */}
       <div

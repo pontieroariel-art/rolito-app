@@ -172,7 +172,7 @@ export default function MuelleTvPage() {
   )
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-gray-950 relative">
+    <div className="h-screen h-dvh w-screen overflow-hidden bg-gray-950 relative">
     <div
       className="bg-gray-950 text-white p-6 flex flex-col gap-[18px] absolute left-1/2 top-1/2"
       style={{ width: 1920, height: 1080, transform: `translate(-50%, -50%) scale(${escala})` }}

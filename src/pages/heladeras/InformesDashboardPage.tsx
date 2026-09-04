@@ -158,7 +158,7 @@ export default function InformesDashboardPage() {
   const catAbierta = abierta ? datosDe(abierta) : null
 
   return (
-    <div className="min-h-screen bg-[#F8F7F2] text-gray-900">
+    <div className="min-h-screen min-h-dvh bg-[#F8F7F2] text-gray-900">
       <main className="max-w-3xl mx-auto p-4 space-y-6 pb-10">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Informes</h1>

@@ -78,7 +78,7 @@ export default function OrderHistory() {
 
   if (loading && !timedOut) return <><Navbar /><LoadingSpinner fullScreen className="bg-white" /></>
   if (timedOut) return (
-    <div className="min-h-screen bg-white text-gray-900">
+    <div className="min-h-screen min-h-dvh bg-white text-gray-900">
       <Navbar />
       <main className="max-w-2xl mx-auto p-4 pt-10 text-center space-y-3">
         <p className="text-4xl">⚠️</p>
@@ -95,7 +95,7 @@ export default function OrderHistory() {
   )
 
   return (
-    <div className="min-h-screen bg-white text-gray-900">
+    <div className="min-h-screen min-h-dvh bg-white text-gray-900">
       <Navbar />
       <main className="max-w-2xl mx-auto p-4 space-y-4 pb-24 md:pb-10">
         <div>

@@ -8,7 +8,7 @@ interface AuthLayoutProps {
 
 export default function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
   return (
-    <div className="min-h-screen bg-[#F8F7F2] flex flex-col">
+    <div className="min-h-screen min-h-dvh bg-[#F8F7F2] flex flex-col">
 
       {/* Banda superior — gradiente con isotipo */}
       <div className="flex justify-center items-end pt-10 pb-0" style={{ background: 'linear-gradient(180deg, #1a6b52 0%, #1D9E75 100%)' }}>

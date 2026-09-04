@@ -121,7 +121,7 @@ export default function ProduccionListadoPage() {
     return <ProduccionLayout>{contenido}</ProduccionLayout>
   }
   return (
-    <div className="min-h-screen bg-[#F8F7F2] text-gray-900">
+    <div className="min-h-screen min-h-dvh bg-[#F8F7F2] text-gray-900">
       <Navbar />
       {contenido}
     </div>

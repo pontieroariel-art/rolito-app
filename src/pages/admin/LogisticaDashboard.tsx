@@ -692,7 +692,7 @@ export default function LogisticaDashboard() {
   }`
 
   return (
-    <div className="h-screen overflow-hidden flex flex-col bg-[#F1EFE8] text-gray-900">
+    <div className="h-screen h-dvh overflow-hidden flex flex-col bg-[#F1EFE8] text-gray-900">
 
       {/* Header + Tabs — compacto, altura fija: todo lo periférico cede el
           máximo de alto y ancho posible a la grilla de la pestaña Pedidos. */}

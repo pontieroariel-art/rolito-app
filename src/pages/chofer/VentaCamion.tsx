@@ -288,7 +288,7 @@ export default function VentaCamion() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F7F2] text-gray-900">
+    <div className="min-h-screen min-h-dvh bg-[#F8F7F2] text-gray-900">
       {/* Encabezado con acento + canal elegido */}
       <div className="bg-gradient-to-br from-[#1a6b52] to-[#1D9E75] text-white">
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center gap-3">

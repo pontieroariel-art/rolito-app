@@ -26,8 +26,43 @@
     --radius:              0.625rem;
   }
 
+  /* Layout móvil (2026-09-03):
+     - Sin scroll lateral involuntario: `overflow-x: clip` en html/body recorta
+       lo que se pase del ancho SIN convertir a body en contenedor de scroll
+       (a diferencia de `hidden`, que rompe `position: sticky` de la Navbar y
+       las sidebars). Los navegadores que no conocen `clip` lo ignoran.
+     - Sin rebote lateral ni "tirón" al fondo/tope que arrastre toda la página
+       (Safari iOS): overscroll-behavior. En Y, `contain` en el
+       elemento raíz anula el rubber-band y el pull-to-refresh (recargar la
+       app sin querer mientras se opera desde el celular era un problema real).
+     - Alto: 100dvh (barra de direcciones móvil) con 100vh de respaldo. */
+  html {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: clip;
+    overscroll-behavior-x: none;
+    overscroll-behavior-y: contain;
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
-    @apply bg-[#F8F7F2] text-gray-900 min-h-screen;
+    @apply bg-[#F8F7F2] text-gray-900 min-h-screen min-h-dvh;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: clip;
+    overscroll-behavior-x: none;
+  }
+
+  #root {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  /* Nada puede empujar el ancho: imágenes, videos, iframes y mapas se acotan
+     al contenedor. Las tablas anchas ya viven dentro de `overflow-x-auto`. */
+  img, video, canvas, iframe, svg {
+    max-width: 100%;
   }
 }
 

@@ -340,7 +340,7 @@ export default function ChoferMap() {
 
   if (loadError) {
     return (
-      <div className="min-h-screen bg-[#F8F7F2] text-gray-900">
+      <div className="min-h-screen min-h-dvh bg-[#F8F7F2] text-gray-900">
         <ChoferHeader title="Ruta" back />
         <div className="p-4 text-center text-red-500">
           Error cargando Google Maps. Verificá la API key.
@@ -350,7 +350,7 @@ export default function ChoferMap() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F7F2] text-gray-900">
+    <div className="min-h-screen min-h-dvh bg-[#F8F7F2] text-gray-900">
       <ChoferHeader title="Ruta" back />
       <div className="flex flex-col" style={{ height: 'calc(100dvh - 56px - 64px)' }}>
         {hasDespachoOrder && (

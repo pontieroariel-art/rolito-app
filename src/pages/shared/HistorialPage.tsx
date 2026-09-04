@@ -192,7 +192,7 @@ export default function HistorialPage() {
   const isLoading = ordersLoading || visitasLoading || usersLoading
 
   return (
-    <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
+    <div className="min-h-screen min-h-dvh bg-[#F1EFE8] text-gray-900">
       <main className="max-w-4xl mx-auto p-4 space-y-5 pb-10">
 
         <div>

@@ -62,7 +62,7 @@ export default function SupervisorHome() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F7F2]">
+    <div className="min-h-screen min-h-dvh bg-[#F8F7F2]">
       <SupervisorHeader />
       <main className="max-w-md mx-auto p-4 space-y-3 pb-10">
         <Link to="/supervisor/cobrar"

@@ -65,7 +65,7 @@ export default function SeguridadDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F7F2]">
+    <div className="min-h-screen min-h-dvh bg-[#F8F7F2]">
       <Navbar />
       <main className="max-w-2xl mx-auto p-4 space-y-6 pb-10">
         <div>

@@ -114,7 +114,7 @@ export default function SistemaLayout({ navGroups, children, subtitulo, filtrarI
   if (guard) return <>{guard}</>
 
   return (
-    <div className="min-h-screen bg-[#F8F7F2] text-gray-900">
+    <div className="min-h-screen min-h-dvh bg-[#F8F7F2] text-gray-900">
       {!online && (
         <div className="bg-amber-500 text-white text-xs font-medium text-center px-4 py-1.5">
           Sin conexión — los cambios se guardan y se sincronizan al reconectar.
@@ -164,7 +164,7 @@ export default function SistemaLayout({ navGroups, children, subtitulo, filtrarI
       )}
 
       {/* Sidebar — única navegación en desktop/tablet ancho, sin Navbar arriba */}
-      <aside className="hidden md:flex md:flex-col w-60 shrink-0 border-r border-[#D3D1C7] bg-white sticky top-0 h-screen">
+      <aside className="hidden md:flex md:flex-col w-60 shrink-0 border-r border-[#D3D1C7] bg-white sticky top-0 h-screen h-dvh">
         <Link to="/" className="flex items-center px-4 h-16 border-b border-[#D3D1C7] shrink-0">
           <img src="/logo-rolito.png" alt="Rolito" width={94} height={32} className="h-8 w-auto object-contain" />
         </Link>

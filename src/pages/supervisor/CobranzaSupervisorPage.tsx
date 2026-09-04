@@ -182,7 +182,7 @@ export default function CobranzaSupervisorPage() {
 
   if (exito) {
     return (
-      <div className="min-h-screen bg-[#F8F7F2]">
+      <div className="min-h-screen min-h-dvh bg-[#F8F7F2]">
         <SupervisorHeader title="Cobrar" back />
         <main className="max-w-md mx-auto p-4 pt-10 text-center space-y-4">
           <CheckCircle2 size={48} className="text-accent mx-auto" />
@@ -204,7 +204,7 @@ export default function CobranzaSupervisorPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F7F2]">
+    <div className="min-h-screen min-h-dvh bg-[#F8F7F2]">
       <SupervisorHeader title="Cobrar" back />
       <main className="max-w-md mx-auto p-4 space-y-4 pb-28">
         <div>

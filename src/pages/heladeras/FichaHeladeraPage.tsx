@@ -70,7 +70,7 @@ export default function FichaHeladeraPage() {
   const puedeReportar   = puedeGestionar
 
   return (
-    <div className="min-h-screen bg-[#F8F7F2] text-gray-900">
+    <div className="min-h-screen min-h-dvh bg-[#F8F7F2] text-gray-900">
       <Navbar />
       <main className="max-w-lg mx-auto p-4 space-y-5 pb-10">
         {heladera === undefined ? (

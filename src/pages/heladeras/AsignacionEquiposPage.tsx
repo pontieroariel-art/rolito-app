@@ -46,7 +46,7 @@ export default function AsignacionEquiposPage() {
   if (loadingClientes || loadingHeladeras) return <LoadingSpinner fullScreen />
 
   return (
-    <div className="min-h-screen bg-[#F8F7F2] text-gray-900">
+    <div className="min-h-screen min-h-dvh bg-[#F8F7F2] text-gray-900">
       <main className="max-w-2xl mx-auto p-4 space-y-6 pb-10">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Asignación de equipos</h1>

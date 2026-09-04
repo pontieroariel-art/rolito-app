@@ -141,7 +141,7 @@ export default function MuelleDashboard() {
   const selectClass = 'w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'
 
   return (
-    <div className="min-h-screen bg-[#F8F7F2]">
+    <div className="min-h-screen min-h-dvh bg-[#F8F7F2]">
       <Navbar />
       <main className="max-w-3xl mx-auto p-4 space-y-6 pb-10">
         <div className="flex items-start justify-between">

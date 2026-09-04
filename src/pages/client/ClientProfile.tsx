@@ -78,7 +78,7 @@ export default function ClientProfile() {
   }
 
   return (
-    <div className="min-h-screen bg-white text-gray-900">
+    <div className="min-h-screen min-h-dvh bg-white text-gray-900">
       <Navbar />
       <main className="max-w-xl mx-auto p-4 space-y-8 pb-24 md:pb-10">
 

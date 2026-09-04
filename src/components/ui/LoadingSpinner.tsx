@@ -11,7 +11,7 @@ export default function LoadingSpinner({ fullScreen, className }: LoadingSpinner
   )
   if (fullScreen) {
     return (
-      <div className={`min-h-screen flex items-center justify-center ${className ?? 'bg-[#F1EFE8]'}`}>
+      <div className={`min-h-screen min-h-dvh flex items-center justify-center ${className ?? 'bg-[#F1EFE8]'}`}>
         {spinner}
       </div>
     )

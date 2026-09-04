@@ -17,7 +17,7 @@ export default function SelectSucursal() {
   }
 
   return (
-    <div className="min-h-screen bg-white flex flex-col items-center justify-center px-4 py-10">
+    <div className="min-h-screen min-h-dvh bg-white flex flex-col items-center justify-center px-4 py-10">
 
       {/* Logo */}
       <div className="mb-8 flex flex-col items-center gap-3">

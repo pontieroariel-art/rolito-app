@@ -134,7 +134,7 @@ export default function RecuperoFacturasPage() {
   const cantidadListas = items.filter(listo).length
 
   return (
-    <div className="min-h-screen bg-[#F8F7F2] p-4 sm:p-8">
+    <div className="min-h-screen min-h-dvh bg-[#F8F7F2] p-4 sm:p-8">
       <div className="mx-auto max-w-5xl">
         <header className="mb-6">
           <h1 className="text-2xl font-bold text-gray-800">Recupero de facturas</h1>

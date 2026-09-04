@@ -104,7 +104,7 @@ export default function VentasChofer() {
   if (!user || ventas === null) return <LoadingSpinner fullScreen />
 
   return (
-    <div className="min-h-screen bg-[#F8F7F2]">
+    <div className="min-h-screen min-h-dvh bg-[#F8F7F2]">
       <header className="flex items-center gap-3 bg-gradient-to-b from-[#1a6b52] to-[#1D9E75] px-4 py-4 text-white">
         <Link to="/chofer" className="rounded-full bg-white/20 p-2" aria-label="Volver">
           <ArrowLeft size={18} />

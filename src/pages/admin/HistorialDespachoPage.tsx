@@ -179,7 +179,7 @@ export default function HistorialDespachoPage() {
   if (loading) return <LoadingSpinner fullScreen />
 
   return (
-    <div className="min-h-screen bg-[#F1EFE8] text-gray-900">
+    <div className="min-h-screen min-h-dvh bg-[#F1EFE8] text-gray-900">
       <main className="max-w-3xl mx-auto p-4 space-y-6 pb-10">
 
         <div className="flex flex-wrap justify-between items-end gap-3">

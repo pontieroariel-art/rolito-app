@@ -152,7 +152,7 @@ export default function FlotaPage() {
   if (loadingCamiones) return <LoadingSpinner fullScreen />
 
   return (
-    <div className="min-h-screen bg-[#F8F7F2] text-gray-900">
+    <div className="min-h-screen min-h-dvh bg-[#F8F7F2] text-gray-900">
       <main className="max-w-3xl mx-auto p-4 space-y-6 pb-10">
 
         <div className="flex flex-wrap justify-between items-center gap-3">
