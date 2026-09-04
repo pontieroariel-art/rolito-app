@@ -1276,3 +1276,30 @@ pto vta propio) y login SQL para el servicio.
   el log; después sin `--dry-run` y verificar en Tango (Cuentas Corrientes del cliente,
   Live 17953, stock del depósito, Tesorería). Comparar contra los cargados a mano
   (15-00480101 y X00001-00032798) columna por columna con `SELECT * FROM STA14/GVA12/...`.
+
+## 22. Stock del reparto: lo que escribía Bluesoft y el modelo propuesto (2026-09-04)
+
+Relevado en TestingRH (`docs/tango/sql/muestras-stock-2026-09-04.json`, consultas (q)–(z6)).
+**Bluesoft dejó de existir el 2026-08-20**; desde entonces nadie genera estos comprobantes.
+
+| T_COMP | TCOMP_IN_S | Qué es | Cabecera STA14 | Renglones STA20 |
+|---|---|---|---|---|
+| CAR | TI | carga planta → camión | COD_DEPOSI NULL, talonario 13 (ID_STA13 145), N_COMP `0025`+8 | por artículo: E en camión (DEPOSI_DDE=01) + S en 01 |
+| DES | TI | descarga camión → planta | ídem, ID_STA13 146, USUARIO=chofer, TERMINAL `TELEFONO` | E en 01 + S en camión; incluye PALLETMETA y RACKAG034 |
+| REM | RE | remito de venta | (writer hecho §21) | artículos reales, egreso del camión |
+| FAC / BOL | FR / AJ | factura / boleta contado | | hoy lo cubre ARCA + Tango Connect |
+| CBS | VE | cambio por cliente | COD_PRO_CL=cliente, talonario 2 (ID_STA13 144), USUARIO=chofer, N_COMP `0001`+8 | UN renglón: artículo `CAMBIOxxx` × cant, COD_DEPOSI **99**, TIPO_MOV E. Sin GVA12 |
+| MER | TI | "DESCARGA Y MERMA" | talonario 4 (ID_STA13 132) | artículo REAL: E en 99 (DEPOSI_DDE 01) + S en 01 |
+| PDT / PRO | VE | producción Torcuato / Merlo | USUARIO SUPERVISOR, a mano | (candidato a writer desde `produccionPallets`) |
+
+Hallazgos: (1) `STA14.TALONARIO` de stock apunta a **STA13**, no a GVA43. (2) Los artículos
+`CAMBIO*` **sí mueven stock**: 99 acumula 88.503 CAMBIOHIELO3KG / 94.738 CAMBIOHIELO4KG y los
+depósitos de camión tienen negativos (06: −138) por 78 REM + 1 FAC que los incluyeron. (3) El CBS
+no saca la bolsa buena del camión; la merma queda registrada dos veces (CAMBIO en CBS, real en MER).
+
+**Modelo propuesto** (pendiente de decisión de Ariel): CAR y DES iguales, con artículos reales;
+venta sin cambios; **cambio = transferencia camión → 99 con el artículo real**, cliente y chofer en
+cabecera (conserva la trazabilidad del CBS, elimina el artículo ficticio); DES solo con lo sano
+contado; faltantes de la liquidación camión → depósito nuevo "98 DIFERENCIAS DE REPARTO";
+artículos CAMBIO solo como renglón informativo a $0 en la factura, configurados para no mover
+stock. Cada camión cierra el día en 0. MER queda para merma originada en planta.
