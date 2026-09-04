@@ -76,7 +76,9 @@ async function pool(database) {
     const p = new mssql.ConnectionPool({
       server: cfg.sql.server, database, user: cfg.sql.user, password: cfg.sql.password,
       port: cfg.sql.port ?? 1433,
-      options: { encrypt: cfg.sql.encrypt ?? false, trustServerCertificate: true, enableArithAbort: true },
+      // useUTC:false → las fechas JS (medianoche local del servidor) se graban 00:00:00 como hace
+      // Tango; con el default (UTC) quedaban a las 03:00 (prueba real del 2026-09-04).
+      options: { encrypt: cfg.sql.encrypt ?? false, trustServerCertificate: true, enableArithAbort: true, useUTC: false },
       pool: { max: 4, min: 0, idleTimeoutMillis: 30000 },
     })
     await p.connect()
