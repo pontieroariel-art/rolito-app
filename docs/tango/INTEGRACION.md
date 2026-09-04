@@ -1238,3 +1238,37 @@ SELECT * FROM MEDIDA WHERE ID_MEDIDA = 17;
 ```
 Además, de Ariel: talonario de recibos exclusivo de la app en Redonhielo (REC, letra X,
 pto vta propio) y login SQL para el servicio.
+
+### 20.1 Implementado (2026-09-04, madrugada): writers + servicio, listos para probar en TestingRH
+
+- **Writers** (puros, testeados, 23 tests): `functions/src/services/tango/sql/{tipos,remito,recibo}.ts`.
+  Se compilan a `functions/lib/services/tango/sql/*.js` (solo dependen entre sí) y el
+  servicio los carga desde `C:\RolitoSync\sql\lib\`.
+- **Servicio**: `scripts/tango/bridge-sql.mjs` (+ `bridge-sql.config.example.json`). Usuario
+  `tango-bridge` (SDK cliente, mismas reglas que el listener viejo), `mssql` con una
+  transacción por comprobante, claim del outbox (`pendiente` → `enviado` → `confirmado` /
+  `error` tras 5 intentos, barrido cada 5 min), write-back `resultado` con
+  `remitoNumero` / `reciboNumero` (los lee `onOutboxConfirmado` como siempre), heartbeat
+  en `config/tango.bridgeListenerLastSeen`. Flags: `config/tango.remitosSqlEnabled` y
+  `recibosSqlEnabled`. **`--dry-run`**: ejecuta todo en TestingRH y revierte la transacción
+  sin tocar la cola — es la prueba de la fase 3. `--once`: una pasada y sale.
+- **Config en Firestore** (`config/tango.sql`, la carga `configurar-ventas-tango.mjs` o a mano):
+  ```json
+  {
+    "remito": { "talonario": 1105, "puntoVenta": 1105, "codigoTransporte": "01", "usuario": "ROLITO", "terminal": "APP" },
+    "recibo": { "talonario": 0, "puntoVenta": 0, "codVendedor": "AD", "concepto": "COBRANZAS POR VENTAS",
+                "cuentas": { "contracuenta": 1120001, "efectivo": 1111000, "transferencia": 1113003 },
+                "cuentasContables": { "1120001": 1062, "1111000": 601 }, "idSba02Recibo": 11,
+                "usuario": "ROLITO", "terminal": "APP" }
+  }
+  ```
+  `recibo.talonario/puntoVenta` = el talonario de recibos exclusivo de la app que crea Ariel;
+  `cuentasContables` e `idSba02Recibo` se confirman con las consultas (d) y (e) de §21.3.
+- **Config local en la VM** (`bridge-sql.config.json`): credenciales de `tango-bridge`, SQL
+  Server (`server`, `user`, `password`) y `sql.bases` = base por empresa; para la prueba las
+  dos apuntan a `TestingRH`.
+- **Prueba (fase 3)**: crear en TestingRH un cliente/venta de prueba desde la app (remito cta
+  cte y una cobranza de supervisor de $1), correr `node bridge-sql.mjs --dry-run` y mirar
+  el log; después sin `--dry-run` y verificar en Tango (Cuentas Corrientes del cliente,
+  Live 17953, stock del depósito, Tesorería). Comparar contra los cargados a mano
+  (15-00480101 y X00001-00032798) columna por columna con `SELECT * FROM STA14/GVA12/...`.

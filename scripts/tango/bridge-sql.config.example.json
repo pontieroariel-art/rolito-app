@@ -1,0 +1,24 @@
+{
+  "firebaseConfig": {
+    "apiKey": "AIzaSyCgrc4GNFWFTHsmChl6OubajklehPYWsZw",
+    "authDomain": "rolito-app.firebaseapp.com",
+    "projectId": "rolito-app",
+    "storageBucket": "rolito-app.firebasestorage.app",
+    "messagingSenderId": "889590488530",
+    "appId": "1:889590488530:web:b19695e1945f9e0922fc0b"
+  },
+  "tangoBridgeEmail": "tango-bridge@rolito.internal",
+  "tangoBridgePassword": "PASSWORD_AQUI",
+  "sql": {
+    "server": "RHIELOTG",
+    "port": 1433,
+    "user": "rolito_bridge",
+    "password": "PASSWORD_SQL_AQUI",
+    "encrypt": false,
+    "bases": {
+      "redonhielo": "TestingRH",
+      "rolito": "TestingRH"
+    }
+  },
+  "logFile": "C:\\RolitoSync\\sql\\bridge-sql.log"
+}
