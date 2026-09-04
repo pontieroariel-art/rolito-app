@@ -75,6 +75,11 @@ Ejemplo: camión con 100; el cliente compra 48 y recibe 2 de cambio; suben 2 rot
   48 − 2 = 50, que es lo físico. Al descargar, las rotas contadas se comparan con los cambios
   del día: solo el exceso va camión → 99.
 
+**Criterio 99 vs 98 (confirmado por Ariel):** al 99 va lo que volvió roto y se contó (cambios de
+clientes y bolsas rotas de más en el camión): merma física. Al 98 va lo que no volvió: diferencias
+sin evidencia, que se le cargan al chofer. Si la política cobra al chofer las rotas de más, eso lo
+resuelve la liquidación de la app (plata), no el depósito (stock).
+
 Por qué dos movimientos: un renglón real a $0 en el remito se facturaría con precio de lista;
 un artículo CAMBIO con stock reproduce los negativos de hoy. El renglón CAMBIO resuelve papel y
 precio; la transferencia resuelve el stock. Los dos salen del mismo registro del chofer.
