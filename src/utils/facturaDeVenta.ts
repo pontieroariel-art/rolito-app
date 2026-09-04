@@ -58,10 +58,10 @@ export function armarFacturaDeVenta(venta: VentaFacturable, cliente?: UserProfil
   const caeVto = deFechaArca(f.caeFchVto)
   if (!caeVto) return { ok: false, motivo: 'La factura no tiene vencimiento de CAE.' }
 
-  // Los cambios van al final, después de lo vendido, y siempre en $0: no suman
-  // al total ni a lo declarado a ARCA. Están en el papel para que el cliente vea
-  // qué se le entregó y qué se retiró.
-  const renglones: RenglonArca[] = [...venta.items, ...(venta.cambios ?? [])].map((i) => ({
+  // Solo lo vendido. Los cambios (bolsa rota repuesta sin cargo) NO van en la
+  // factura: un renglón a $0 confunde al cliente (decisión de Ariel 2026-09-04).
+  // Quedan en el remito de la app y en el movimiento de stock camión → merma.
+  const renglones: RenglonArca[] = venta.items.map((i) => ({
     descripcion:    i.nombre,
     cantidad:       i.cantidad,
     unidad:         'UNI',

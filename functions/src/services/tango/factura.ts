@@ -133,8 +133,10 @@ interface OpcionesItems {
 
 /**
  * Ítems del comprobante con importes que cierran contra los totales de ARCA.
- * Los precios de la app son NETOS salvo preciosIncluyenIva. Los cambios van a
- * precio 0 (descargan stock igual).
+ * Los precios de la app son NETOS salvo preciosIncluyenIva. Los cambios NO van:
+ * un renglón a $0 confunde al cliente y el artículo CAMBIO* movía stock ficticio
+ * (decisión de Ariel 2026-09-04, docs/tango/STOCK_REPARTO.md). El cambio se
+ * registra como transferencia camión → merma con el artículo real.
  */
 export function itemsDeVenta(payload: PayloadVenta, opciones: OpcionesItems): { items: ItemFacturador[]; faltantes: string[]; error?: string } {
   const { codigoArticulo, preciosIncluyenIva = false, codigoTasaIva, codigoDeposito, totales, sinIva = false } = opciones
@@ -171,7 +173,6 @@ export function itemsDeVenta(payload: PayloadVenta, opciones: OpcionesItems): { 
     })
   }
   for (const it of payload.items ?? []) agregar(it, false)
-  for (const it of payload.cambios ?? []) agregar(it, true)
 
   // Ajuste por redondeo: la suma de bases/IVAs tiene que dar EXACTO el neto/IVA
   // informado a ARCA. La diferencia (centavos) se carga al último ítem con importe.
