@@ -41,6 +41,9 @@ const mssql = require('mssql')
 
 const DRY_RUN = process.argv.includes('--dry-run')
 const UNA_VEZ = process.argv.includes('--once')
+// --solo=ID1,ID2 : procesa SOLO esos docs de tango-outbox (prueba controlada en TestingRH: no se
+// cuela ninguna venta real que esté pendiente). Implica --once y saltea los flags *SqlEnabled.
+const SOLO = (() => { const a = process.argv.find((x) => x.startsWith('--solo=')); return a ? new Set(a.slice(7).split(',').filter(Boolean)) : null })()
 const CONFIG_PATH = path.join(__dirname, 'bridge-sql.config.json')
 const MAX_INTENTOS = 5
 const SWEEP_INTERVAL_MS = 5 * 60 * 1000
@@ -190,10 +193,11 @@ const enProceso = new Set()
 async function procesarItem(db, docId, data) {
   if (enProceso.has(docId)) return
   if (!HANDLERS[data.entidad]) return
+  if (SOLO && !SOLO.has(docId)) { log(`  ${docId}: fuera de --solo; se deja como está`); return }
   enProceso.add(docId)
   try {
     const tcfg = await configTango(db)
-    if (tcfg[HANDLERS[data.entidad].flag] !== true && !DRY_RUN) {
+    if (tcfg[HANDLERS[data.entidad].flag] !== true && !DRY_RUN && !SOLO) {
       log(`  ${docId}: config/tango.${HANDLERS[data.entidad].flag} no está en true; se deja pendiente`)
       return
     }
@@ -233,12 +237,12 @@ async function main() {
   const app = initializeApp(cfg.firebaseConfig)
   const auth = getAuth(app)
   const db = getFirestore(app)
-  log(`Iniciando sesión como bridge (${DRY_RUN ? 'DRY-RUN: nada queda en Tango ni en la cola' : 'modo real'})...`)
+  log(`Iniciando sesión como bridge (${DRY_RUN ? 'DRY-RUN: nada queda en Tango ni en la cola' : 'modo real'}${SOLO ? `, solo ${[...SOLO].join(', ')}` : ''})...`)
   await signInWithEmailAndPassword(auth, cfg.tangoBridgeEmail, cfg.tangoBridgePassword)
   log(`Sesión OK. SQL Server ${cfg.sql.server}, bases ${JSON.stringify(cfg.sql.bases)}.`)
 
   await barrido(db)
-  if (UNA_VEZ || DRY_RUN) { log('Listo (una sola pasada).'); for (const p of pools.values()) await p.close(); process.exit(0) }
+  if (UNA_VEZ || DRY_RUN || SOLO) { log('Listo (una sola pasada).'); for (const p of pools.values()) await p.close(); process.exit(0) }
 
   const q = query(collection(db, 'tango-outbox'), where('estado', '==', 'pendiente'), where('entidad', 'in', ['remito', 'recibo']))
   onSnapshot(q, (snap) => {
