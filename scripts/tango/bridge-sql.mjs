@@ -138,18 +138,25 @@ function baseDe(empresa) {
   return b
 }
 
+/** Config SQL de una entidad: config/tango.sql.<entidad>, con override por empresa en sql.empresas.<empresa>.<entidad>
+ *  (los números de talonario son por empresa: en Rolito el 1105 ya es la factura B de ARCA). */
+function sqlConfigDe(tcfg, entidad, empresa) {
+  return { ...(tcfg.sql?.[entidad] ?? {}), ...(tcfg.sql?.empresas?.[empresa]?.[entidad] ?? {}) }
+}
+
 const HANDLERS = {
   remito: {
     flag: 'remitosSqlEnabled',
     async enviar(data, tcfg, docId) {
-      const sqlCfg = tcfg.sql?.remito
+      const empresa = data.empresa ?? 'redonhielo'
+      const sqlCfg = sqlConfigDe(tcfg, 'remito', empresa)
       if (!sqlCfg?.talonario || !sqlCfg?.puntoVenta) throw new Error('falta config/tango.sql.remito {talonario, puntoVenta, codigoTransporte, usuario, terminal}')
       const payload = data.payload ?? {}
       const dep = tcfg.depositos ?? {}
       const codDeposito = (payload.choferId && dep[payload.choferId]) || (payload.camionId && dep[payload.camionId])
       if (!codDeposito) throw new Error(`sin depósito de Tango para chofer ${payload.choferId} / camión ${payload.camionId} (config/tango.depositos)`)
       const remito = remitoDeVenta(payload, data.origenId ?? docId, tcfg.articulos ?? {}, codDeposito, sqlCfg.puntoVenta)
-      const r = await enTransaccion(baseDe(data.empresa ?? 'redonhielo'), (db) => escribirRemito(db, remito, {
+      const r = await enTransaccion(baseDe(empresa), (db) => escribirRemito(db, remito, {
         talonario: sqlCfg.talonario, puntoVenta: sqlCfg.puntoVenta, codigoTransporte: sqlCfg.codigoTransporte ?? '01',
         usuario: sqlCfg.usuario ?? 'ROLITO', terminal: sqlCfg.terminal ?? 'APP',
       }, (m) => log('    ' + m)))
@@ -159,7 +166,8 @@ const HANDLERS = {
   recibo: {
     flag: 'recibosSqlEnabled',
     async enviar(data, tcfg, docId) {
-      const sqlCfg = tcfg.sql?.recibo
+      const empresa = data.empresa ?? data.payload?.empresa ?? 'redonhielo'
+      const sqlCfg = sqlConfigDe(tcfg, 'recibo', empresa)
       if (!sqlCfg?.talonario || !sqlCfg?.puntoVenta || !sqlCfg?.cuentas || !sqlCfg?.cuentasContables || !sqlCfg?.idSba02Recibo) {
         throw new Error('falta config/tango.sql.recibo {talonario, puntoVenta, codVendedor, concepto, cuentas, cuentasContables, idSba02Recibo, usuario, terminal}')
       }
@@ -169,7 +177,7 @@ const HANDLERS = {
         idSba02Recibo: sqlCfg.idSba02Recibo, usuario: sqlCfg.usuario ?? 'ROLITO', terminal: sqlCfg.terminal ?? 'APP',
       }
       const recibo = reciboDeCobranza(data.payload ?? {}, data.origenId ?? docId, rcfg)
-      const r = await enTransaccion(baseDe(data.empresa ?? data.payload?.empresa ?? 'redonhielo'), (db) => escribirRecibo(db, recibo, rcfg, (m) => log('    ' + m)))
+      const r = await enTransaccion(baseDe(empresa), (db) => escribirRecibo(db, recibo, rcfg, (m) => log('    ' + m)))
       return { reciboNumero: r.nComp, idGva12: r.idGva12, nInternoSba04: r.nInternoSba04, yaExistia: r.yaExistia, via: 'sql' }
     },
   },
