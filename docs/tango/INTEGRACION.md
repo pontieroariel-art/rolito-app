@@ -1170,3 +1170,71 @@ SQL Server**, como hacía Bluesoft. El día que Axoft migre esos procesos y apar
 - Correr el script 02 mientras carga a mano UN recibo y UN remito en TestingRH y pasarme la
   salida del bloque B.
 - Confirmar el talonario de recibos que usará la app (¿18 "RECIBO DON TORCUATO" REC X?).
+
+## 21. Writer SQL: qué escribe Tango y qué replica la app (trazas del 2026-09-04)
+
+Relevado con Extended Events en TestingRH mientras Ariel cargaba a mano un remito
+(15-00480100) y un recibo (X00001-00032798). Trazas completas con valores:
+`docs/tango/sql/traza-remito-2026-09-04.txt` y `traza-recibo-2026-09-04.txt`.
+Lecciones de la herramienta: Tango usa sentencias preparadas (el texto está en
+`statement`, no en `sql_text`), Cobranzas se identifica como "Microsoft Windows Operating
+System" y Emisión de remitos como "Axoft Software"; el ring_buffer corta a 1000 eventos
+→ archivo. Script definitivo: `scripts/tango/sql/02-trazar-tango.sql`.
+
+### 21.1 Remito de ventas — implementado en `functions/src/services/tango/sql/remito.ts`
+| Paso | Tabla | Qué | Lo hace |
+|---|---|---|---|
+| 1 | STA14 | Cabecera (60 columnas): T_COMP 'REM', TCOMP_IN_S 'RE', NCOMP_IN_S (8 dígitos, nº interno de stock), N_COMP = N_REMITO = 'R'+pv(5)+nº(8), TALONARIO, COD_PRO_CL, COD_DEPOSI, COD_TRANSP, COND_VTA, ID_DIRECCION_ENTREGA, ESTADO_MOV 'P', MOTIVO_REM 'V', USUARIO/TERMINAL, HORA_COMP 'HHMMSS' | app |
+| — | STA14 | ID_STA13 (talonario) e ID_GVA14 (cliente) | **trigger de Tango** |
+| 2 | STA20 | Renglón por artículo (50 columnas): CANTIDAD = CANT_PEND = CAN_EQUI_V, TIPO_MOV 'S', ID_MEDIDA_STOCK/VENTAS del artículo (STA11), PRECIO 0 | app |
+| — | STA20 | ID_STA11, ID_STA14 | **trigger** |
+| 3 | STA19 | `CANT_STOCK = anterior − cantidad` con WHERE del valor anterior (optimista) | app |
+| 4 | STA14TY | Imagen del talonario para reimprimir | **no** (la app imprime; verificar) |
+| — | GVA43 | PROXIMO del talonario | **no** (talonario 1105 exclusivo de la app) |
+
+Idempotencia: `SELECT ID_STA14 FROM STA14 WHERE T_COMP='REM' AND N_COMP=@n` antes de
+escribir; referencia `ROLITO:VC:<ventaId>` en LEYENDA1. Tests: `remito.test.ts` (10).
+La ejecución real (transacción con `mssql`, claim del outbox, write-back) va en el
+servicio de la VM — pendiente de las respuestas de abajo.
+
+### 21.2 Recibo de cobranza — relevado, writer pendiente
+Cuenta corriente: INSERT **GVA12** (T_COMP 'REC', TCOMP_IN_V 'RC', ESTADO 'IMP', N_COMP
+'X'+pv+nº, TALONARIO, COD_CLIENT, COD_VENDED, IMPORTE = UNIDADES, REBAJA_DEB 1,
+NCOMP_IN_V: **un trigger lo pone = ID_GVA12 si va 0/NULL**); INSERT **gva07** por cada
+factura imputada (T_COMP/N_COMP de la factura, T_COMP_CAN/N_COMP_CAN del recibo,
+IMPORT_CAN, ID_GVA12_CAN = id del recibo, FECHA_VTO/IMPORTE_VT de la factura — **los
+triggers de gva07 recalculan solos ESTADO/ESTADO_UNI de factura y recibo (CTA/IMP/PAG/CAN)
+y GVA46 (vencimientos PEN/PAG)**); INSERT **HISTORIAL_CUENTAS_CORRIENTES** (mismos datos +
+ORIGEN 'Cobranzas', OPERACION 'A', id explícito); UPDATE **GVA14** SALDO_CC y SALDO_CC_U
+(−importe, optimista); UPDATE GVA16 COTIZ (no-op); UPDATE **GVA43** PROXIMO (**codificado**,
+no reproducible → talonario de recibos exclusivo de la app); INSERT gva12ty (imagen, no).
+Tesorería: INSERT **SBA04** (COD_COMP 'REC', N_COMP, N_INTERNO de `dbo.INCREMENTAL_VALUE`
+(Tabla 'SBA04', Campo 'N_INTERNO') — visto el UPDATE en la traza —, ID_SBA02 = 11 (tipo
+REC), CLASE 1, CONCEPTO 'COBRANZAS POR VENTAS', COD_GVA14, TIPO_COD_RELACIONADO 'C',
+GENERA_ASIENTO 'S', CN_ASTOR 'S', TOTAL_IMPORTE_CTE/EXT); 2× INSERT **SBA05** (renglón 0:
+contracuenta 1120001 'H'; renglón 1: caja 1111000 'D'; triggers completan ID_SBA01 e
+ID_SBA04); INSERT COMPROBANTE_COTIZACION_SB (id explícito, ID_MONEDA 2, ID_TIPO_COTIZACION
+1); UPDATE **SBA01** saldos de las dos cuentas (SALDO_A_MO/A_UN/ACT, optimista); INSERT
+ASIENTO_COMPROBANTE_SB + 2× ASIENTO_SB (ids explícitos; ID_CUENTA 1062 = deudores 'H',
+601 = caja 'D' → cuentas contables del plan, mapeo a relevar).
+
+### 21.3 Preguntas abiertas → consultas para correr en TestingRH (SSMS)
+```sql
+-- (a) ¿qué columnas son IDENTITY? (si lo son, no se pasa el id; si no, sale de INCREMENTAL_VALUE)
+SELECT OBJECT_NAME(object_id) tabla, name columna FROM sys.identity_columns
+WHERE OBJECT_NAME(object_id) IN ('STA14','STA20','GVA12','GVA07','HISTORIAL_CUENTAS_CORRIENTES','SBA04','SBA05','COMPROBANTE_COTIZACION_SB','ASIENTO_COMPROBANTE_SB','ASIENTO_SB');
+-- (b) contadores que usa Tango
+SELECT * FROM dbo.INCREMENTAL_VALUE ORDER BY Tabla, Campo;
+-- (c) dirección de entrega habitual del cliente (STA14.ID_DIRECCION_ENTREGA = 8470 en la traza)
+SELECT TOP 5 * FROM DIRECCION_ENTREGA WHERE ID_GVA14 = 8465;
+-- (d) cuentas contables del asiento (1062 / 601) ↔ cuentas de tesorería 1120001 / 1111000
+SELECT ID_SBA01, COD_CTA, DESCRIPCIO, * FROM SBA01 WHERE COD_CTA IN (1120001, 1111000);
+SELECT * FROM CUENTA WHERE ID_CUENTA IN (1062, 601);
+-- (e) tipo de comprobante de tesorería del recibo
+SELECT * FROM SBA02 WHERE ID_SBA02 = 11;
+-- (f) unidad de medida 17
+SELECT * FROM MEDIDA WHERE ID_MEDIDA = 17;
+-- (g) ¿el remito de la app necesita STA14TY? (probar reimprimir el 15-00480101 desde Tango con y sin fila)
+```
+Además, de Ariel: talonario de recibos exclusivo de la app en Redonhielo (REC, letra X,
+pto vta propio) y login SQL para el servicio.
