@@ -1,0 +1,545 @@
+# Traza SQL real de Tango al grabar el RECIBO X00001-00032798 en TestingRH (2026-09-04 00:20, SUPERVISOR, talonario 18, FC.280, imputa FAC A0010100268582 $1000, CAJA 1111000 / DEUDORES 1120001)
+# Fuente: Extended Events (scripts/tango/sql/02-trazar-tango.sql). Los sp_statement_completed con INSERTED/DELETED son TRIGGERS de Tango. client_app_name de Cobranzas = "Microsoft Windows Operating System".
+
+2026-09-04 03:21:17.3360000	sql_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	NULL
+INSERT INTO [##TMP_FILTRO_{F71D390B-C53C-47CC-930E-EDB5A537CF8B}] VALUES  (8465)
+
+================
+
+2026-09-04 03:21:18.3830000	sql_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	NULL
+insert into [#TMP_CUPONES_ACTUALIZAR_{EC036554-A69E-49CB-BCEB-D6C4AD30AFDC}] select ID_SBA20 from SBA20 where (ID_SBA20 = 0)
+
+================
+
+2026-09-04 03:21:20.8700000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+INSERT INTO [dbo].[Cambio_En_Tabla]  ( NombreTabla, FechaModificacion )  VALUES  ( UPPER(@p_TableName_IN), Getdate() )
+
+================
+
+2026-09-04 03:21:20.8700000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+EXEC P_InsertCambioTabla 'GVA43'
+
+================
+
+2026-09-04 03:21:20.8710000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+UPDATE "TestingRH".."GVA43" SET "PROXIMO"=@P1 WHERE "PROXIMO"=@P2 AND "ID_GVA43"=@P3
+
+================
+
+2026-09-04 03:21:20.8710000	rpc_completed	MicrosoftÂ® WindowsÂ® Operating System	sp_executesql
+exec sp_executesql N'UPDATE "TestingRH".."GVA43" SET "PROXIMO"=@P1 WHERE "PROXIMO"=@P2 AND "ID_GVA43"=@P3',N'@P1 varchar(16),@P2 varchar(16),@P3 int','7407437853790E6C','7407437853790E6D',128
+
+================
+
+2026-09-04 03:21:20.8810000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF EXISTS( SELECT 1 FROM INSERTED ) AND NOT EXISTS( SELECT 1 FROM DELETED )
+
+================
+
+2026-09-04 03:21:20.8810000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+SELECT TOP 1 @ANIOMES = CONVERT( VARCHAR( 6 ),INSERTED.FECHA_EMIS,112 )                FROM INSERTED
+
+================
+
+2026-09-04 03:21:20.8810000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF EXISTS( SELECT 1 FROM INSERTED ) AND EXISTS( SELECT 1 FROM DELETED )
+
+================
+
+2026-09-04 03:21:20.8810000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF EXISTS( SELECT 1 FROM INSERTED ) AND NOT EXISTS( SELECT 1 FROM DELETED )
+
+================
+
+2026-09-04 03:21:20.8810000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF EXISTS( SELECT 1 FROM INSERTED ) AND EXISTS( SELECT 1 FROM DELETED )
+
+================
+
+2026-09-04 03:21:20.8820000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+UPDATE GVA12  SET    NCOMP_IN_V = INSERTED.ID_GVA12  FROM INSERTED   WHERE  ISNULL(INSERTED.NCOMP_IN_V, 0) = 0  AND INSERTED.ID_GVA12 = GVA12.ID_GVA12
+
+================
+
+2026-09-04 03:21:20.8820000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+INSERT INTO "TestingRH".."GVA12" ("CANT_HOJAS","CENT_STK","CENT_COB","COD_CLIENT","COD_VENDED","CONTFISCAL","COTIZ","ESTADO","FECHA_EMIS","IMPORTE","MON_CTE","N_COMP","PROPINA","PROPINA_EX","TALONARIO","TCOMP_IN_V","TIPO_VEND","T_COMP","UNIDADES","ESTADO_UNI","HORA_COMP","AFEC_CIERR","REBAJA_DEB","NCOMP_IN_V","GENERA_ASIENTO","FECHA_INGRESO","HORA_INGRESO","USUARIO_INGRESO","TERMINAL_INGRESO","OBS_COMERC","OBSERVAC","LEYENDA_1","LEYENDA_2","LEYENDA_3","LEYENDA_4","LEYENDA_5","FECHA_DESCARGA_PDF","HORA_DESCARGA_PDF","USUARIO_DESCARGA_PDF") VALUES (@P1,@P2,@P3,@P4,@P5,@P6,@P7,@P8,@P9,@P10,@P11,@P12,@P13,@P14,@P15,@P16,@P17,@P18,@P19,@P20,@P21,@P22,@P23,@P24,@P25,@P26,@P27,@P28,@P29,@P30,@P31,@P32,@P33,@P34,@P35,@P36,@P37,@P38,@P39)
+
+================
+
+2026-09-04 03:21:20.8820000	rpc_completed	MicrosoftÂ® WindowsÂ® Operating System	sp_executesql
+exec sp_executesql N'SET NOCOUNT OFF; INSERT INTO "TestingRH".."GVA12" ("CANT_HOJAS","CENT_STK","CENT_COB","COD_CLIENT","COD_VENDED","CONTFISCAL","COTIZ","ESTADO","FECHA_EMIS","IMPORTE","MON_CTE","N_COMP","PROPINA","PROPINA_EX","TALONARIO","TCOMP_IN_V","TIPO_VEND","T_COMP","UNIDADES","ESTADO_UNI","HORA_COMP","AFEC_CIERR","REBAJA_DEB","NCOMP_IN_V","GENERA_ASIENTO","FECHA_INGRESO","HORA_INGRESO","USUARIO_INGRESO","TERMINAL_INGRESO","OBS_COMERC","OBSERVAC","LEYENDA_1","LEYENDA_2","LEYENDA_3","LEYENDA_4","LEYENDA_5","FECHA_DESCARGA_PDF","HORA_DESCARGA_PDF","USUARIO_DESCARGA_PDF") VALUES (@P1,@P2,@P3,@P4,@P5,@P6,@P7,@P8,@P9,@P10,@P11,@P12,@P13,@P14,@P15,@P16,@P17,@P18,@P19,@P20,@P21,@P22,@P23,@P24,@P25,@P26,@P27,@P28,@P29,@P30,@P31,@P32,@P33,@P34,@P35,@P36,@P37,@P38,@P39); SELECT SCOPE_IDENTITY() AS SCOPE_ID_COLUMN',N'@P1 smallint,@P2 varchar(1),@P3 varchar(1),@P4 varchar(6),@P5 varchar(10),@P6 bit,@P7 numeric(22,7),@P8 varchar(3),@P9 datetime,@P10 numeric(22,7),@P11 bit,@P12 varchar(14),@P13 numeric(22,7),@P14 numeric(22,7),@P15 smallint,@P16 varchar(2),@P17 varchar(1),@P18 varchar(3),@P19 numeric(22,7),@P20 varchar(3),@P21 varchar(6),@P22 varchar(1),@P23 bit,@P24 float,@P25 varchar(1),@P26 datetime,@P27 varchar(6),@P28 varchar(120),@P29 varchar(255),@P30 text,@P31 text,@P32 varchar(60),@P33 varchar(60),@P34 varchar(60),@P35 varchar(60),@P36 varchar(60),@P37 datetime,@P38 datetime,@P39 varchar(100)',1,'N','N','FC.280','AD',0,1.0000000,'IMP','2026-09-04 00:00:00',1000.0000000,1,'X0000100032798',0.0000000,0.0000000,18,'RC','V','REC',1000.0000000,'IMP','002118','N',1,372479,'N','2026-09-04 00:00:00','002118','SUPERVISOR','192.168.80.5',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL
+
+================
+
+2026-09-04 03:21:20.8890000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF ( EXISTS(SELECT * FROM DELETED) AND NOT EXISTS(SELECT * FROM INSERTED) ) OR        UPDATE(ID_GVA14) OR             UPDATE(COD_GVA14) OR             UPDATE(COD_CLIENT) OR             UPDATE(RAZON_SOCI) OR             UPDATE(NOM_COM) OR             UPDATE(FECHA_INHA) OR             UPDATE(CUIT) OR             UPDATE(C_POSTAL)
+
+================
+
+2026-09-04 03:21:20.8890000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+UPDATE "TestingRH".."GVA14" SET "SALDO_CC"=@P1,"SALDO_DOC"=@P2,"SALDO_D_UN"=@P3,"SALDO_CC_U"=@P4 WHERE "ID_GVA14"=@P5 AND "SALDO_CC"=@P6 AND "SALDO_DOC"=@P7 AND "SALDO_D_UN"=@P8 AND "SALDO_CC_U"=@P9
+
+================
+
+2026-09-04 03:21:20.8890000	rpc_completed	MicrosoftÂ® WindowsÂ® Operating System	sp_executesql
+exec sp_executesql N'UPDATE "TestingRH".."GVA14" SET "SALDO_CC"=@P1,"SALDO_DOC"=@P2,"SALDO_D_UN"=@P3,"SALDO_CC_U"=@P4 WHERE "ID_GVA14"=@P5 AND "SALDO_CC"=@P6 AND "SALDO_DOC"=@P7 AND "SALDO_D_UN"=@P8 AND "SALDO_CC_U"=@P9',N'@P1 numeric(22,7),@P2 numeric(22,7),@P3 numeric(22,7),@P4 numeric(22,7),@P5 int,@P6 numeric(22,7),@P7 numeric(22,7),@P8 numeric(22,7),@P9 numeric(22,7)',3872642.0000000,0.0000000,0.0000000,3872642.0000000,8465,3873642.0000000,0.0000000,0.0000000,3873642.0000000
+
+================
+
+2026-09-04 03:21:20.9010000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+INSERT INTO [dbo].[Cambio_En_Tabla]  ( NombreTabla, FechaModificacion )  VALUES  ( UPPER(@p_TableName_IN), Getdate() )
+
+================
+
+2026-09-04 03:21:20.9010000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+EXEC P_InsertCambioTabla 'GVA16'
+
+================
+
+2026-09-04 03:21:20.9010000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+UPDATE "TestingRH".."GVA16" SET "COTIZ"=@P1 WHERE "ID_GVA16"=@P2 AND "COTIZ"=@P3
+
+================
+
+2026-09-04 03:21:20.9010000	rpc_completed	MicrosoftÂ® WindowsÂ® Operating System	sp_executesql
+exec sp_executesql N'UPDATE "TestingRH".."GVA16" SET "COTIZ"=@P1 WHERE "ID_GVA16"=@P2 AND "COTIZ"=@P3',N'@P1 numeric(22,7),@P2 int,@P3 numeric(22,7)',1.0000000,1,1.0000000
+
+================
+
+2026-09-04 03:21:21.0810000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+INSERT INTO "TestingRH".."HISTORIAL_CUENTAS_CORRIENTES" ("ID_HISTORIAL_CUENTAS_CORRIENTES","FECHA_VTO","F_COMP_CAN","IMPORTE_VT","IMPORT_CAN","MISMO_CLIE","N_COMP","N_COMP_CAN","T_COMP","T_COMP_CAN","IMP_CAN_UN","IMP_VT_UNI","ID_GVA12_CAN","ORIGEN","OPERACION","FECHA","USUARIO","TERMINAL","MOTIVO","ESTADO","ESTADO_UNI","SALDO","SALDO_UNI") VALUES (@P1,@P2,@P3,@P4,@P5,@P6,@P7,@P8,@P9,@P10,@P11,@P12,@P13,@P14,@P15,@P16,@P17,@P18,@P19,@P20,@P21,@P22,@P23)
+
+================
+
+2026-09-04 03:21:21.0810000	rpc_completed	MicrosoftÂ® WindowsÂ® Operating System	sp_executesql
+exec sp_executesql N'INSERT INTO "TestingRH".."HISTORIAL_CUENTAS_CORRIENTES" ("ID_HISTORIAL_CUENTAS_CORRIENTES","FECHA_VTO","F_COMP_CAN","IMPORTE_VT","IMPORT_CAN","MISMO_CLIE","N_COMP","N_COMP_CAN","T_COMP","T_COMP_CAN","IMP_CAN_UN","IMP_VT_UNI","ID_GVA12_CAN","ORIGEN","OPERACION","FECHA","USUARIO","TERMINAL","MOTIVO","ESTADO","ESTADO_UNI","SALDO","SALDO_UNI") VALUES (@P1,@P2,@P3,@P4,@P5,@P6,@P7,@P8,@P9,@P10,@P11,@P12,@P13,@P14,@P15,@P16,@P17,@P18,@P19,@P20,@P21,@P22,@P23)',N'@P1 int,@P2 datetime,@P3 datetime,@P4 numeric(22,7),@P5 numeric(22,7),@P6 bit,@P7 varchar(14),@P8 varchar(14),@P9 varchar(3),@P10 varchar(3),@P11 numeric(22,7),@P12 numeric(22,7),@P13 int,@P14 varchar(100),@P15 varchar(1),@P16 datetime,@P17 varchar(120),@P18 varchar(255),@P19 text,@P20 varchar(3),@P21 varchar(3),@P22 numeric(22,7),@P23 numeric(22,7)',233985,'2026-02-04 00:00:00','2026-09-04 00:00:00',110700.0000000,1000.0000000,1,'A0010100268582','X0000100032798','FAC','REC',1000.0000000,110700.0000000,372479,'Cobranzas','A','2026-09-04 00:21:21','SUPERVISOR','192.168.80.5','','','',0.0000000,0.0000000
+
+================
+
+2026-09-04 03:21:21.0860000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+INSERT INTO "TestingRH".."gva07" ("FECHA_VTO","F_COMP_CAN","IMPORTE_VT","IMPORT_CAN","MISMO_CLIE","N_COMP","N_COMP_CAN","T_COMP","T_COMP_CAN","IMP_CAN_UN","IMP_VT_UNI","ID_GVA12_CAN") VALUES (@P1,@P2,@P3,@P4,@P5,@P6,@P7,@P8,@P9,@P10,@P11,@P12)
+
+================
+
+2026-09-04 03:21:21.0860000	rpc_completed	MicrosoftÂ® WindowsÂ® Operating System	sp_executesql
+exec sp_executesql N'SET NOCOUNT OFF; INSERT INTO "TestingRH".."gva07" ("FECHA_VTO","F_COMP_CAN","IMPORTE_VT","IMPORT_CAN","MISMO_CLIE","N_COMP","N_COMP_CAN","T_COMP","T_COMP_CAN","IMP_CAN_UN","IMP_VT_UNI","ID_GVA12_CAN") VALUES (@P1,@P2,@P3,@P4,@P5,@P6,@P7,@P8,@P9,@P10,@P11,@P12); SELECT SCOPE_IDENTITY() AS SCOPE_ID_COLUMN',N'@P1 datetime,@P2 datetime,@P3 numeric(22,7),@P4 numeric(22,7),@P5 bit,@P6 varchar(14),@P7 varchar(14),@P8 varchar(3),@P9 varchar(3),@P10 numeric(22,7),@P11 numeric(22,7),@P12 int','2026-02-04 00:00:00','2026-09-04 00:00:00',110700.0000000,1000.0000000,1,'A0010100268582','X0000100032798','FAC','REC',1000.0000000,110700.0000000,372479
+
+================
+
+2026-09-04 03:21:21.0930000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+INSERT INTO "TestingRH".."gva12ty" ("T_COMP","N_COMP","IMG_TYP","COMPRIMIDO") VALUES (@P1,@P2,@P3,@P4)
+
+================
+
+2026-09-04 03:21:21.0930000	rpc_completed	MicrosoftÂ® WindowsÂ® Operating System	sp_executesql
+exec sp_executesql N'SET NOCOUNT OFF; INSERT INTO "TestingRH".."gva12ty" ("T_COMP","N_COMP","IMG_TYP","COMPRIMIDO") VALUES (@P1,@P2,@P3,@P4); SELECT SCOPE_IDENTITY() AS SCOPE_ID_COLUMN',N'@P1 varchar(3),@P2 varchar(14),@P3 text,@P4 bit','REC','X0000100032798','789CED5DDD72EA3610BEEF4CDF41C37503C6607ECE24676A8442D401C931769AC96BF6AAF43C407B7A7A66FA46B51D9C403061B7166BC6D9BD48B02DB03E4BFBAD56DE95AE1F57CBCF3FFE20C475142EB4098549572AB6379D7EA7389D5D9036D215E7B32B4B6D54E595FC5BE12AB2C2D8D52C56379D8E88EC3A2F22A45D45F9B1518BF8A6636C47ACD3D9F6939C85DB4FE132B1C5C120F03A62A9CC22B9BBE9789DCFE245FEFAC7A9FC71DD2BAAFC8AAE57C03B86D6A745BB1187120B25A4D062266C7634CF8E44766CB3E3586415154FD9DF75C5F7F29F43A21D348FB68660D10E89D19A4DACA49E65ADF849BCADEA41057E36F1B60EFEB076251EBD4CFA57D99F813F9E4E4EDE7C7BE7C1D421FC43B955F22ECC3F401EC76DF938C693DA95F2863D6FDAF33D7F047D1293FA37C5F7CFE0ECFD73B0DF41E5522B9328608BE43FEBA483E6B5B84F756C17A1B84B1756FC9A9553F14E4F813653505F55F67AE883327335B731E8793C28773D349C83314F1C7214B6878E881954DAB95E58286548E98E416F65D79F7860E2F4CE4A9CA704DB8C63EA66ECA65DDD4DA0CD98BA6B46DFBBF207D3E9B03F1D5F05E0D61C37D39AD8669CD036E39F6E47E65F9068A70DFA21FF1E565FE8559426A1D4D68837972A4AA3FD90BED7E0D0FCE838BDF242D5496C57EE137B99599D131DD96EFE83DD1C80896DB7F8F938FBEAF398A844F63C6C7D48B2023B70B3E6B7F1B61C1E2EB59BB9DB15BF1FD3C8CA0B55277FC7C26DC2CF3C6D689272BCD01FD51F2F84126A5EFA8EBCAC8D80C134D2DD2825CCDCCAC2B1F4479360E243210F032790A1886F1F4AFFA0FE7D73DFD147F98E2337600BB4A7B1EA55E985B8F185FA9EE7753DF0C877E20A2C9652A82773E8290572C316500A02E660E07C60DE04A52010072EE6A1F6D192530A14EBD8B1DB85A694F3CFBF31A530A530A57C204AA19E30654A614A614A6935A5504FDE33A530A530A5B49A52885F2431A530A530A5B49B5288DFD632A530A530A5B49A52FC2622229852985298525A4B29F451474C294C294C292DA6942612C89852985298525A4B29ED8F9E654A614A614A21A414E2E8D9BDD4A1AFC7F20F2A2FB8C83FF08923FB6A08ACDB26FA43067DFBC4E15435A42A590E9BF1E613877A542DBD21E49DBA4FD5FA6D8EDB61C1B99559BD4D62CBA2E8A537A85F43E7395FCFF0B6B671161A69770ABC2E59B0D9C9F7DABC6684ED9DC6C2257E45F6ED04A9EE9EFC7EFA34968307D4D3F780A1DD7D795F9F7404EB883D6120670E93E21120FD33E45003D0DE9668DD649C81F3DB9C8D5D01187589312075BC02778BC3401A725E66D33979B4E081B9330A8234648971ECE4D182476F4ED8AE1AE4292340FDC2858D001B0136026C04D8085C9011A07E45C646808D001B0136026C042EC80850BFD46423C046808D001B013602176404A817716223C046808D001B013602176404A897DD6223C046808D001B0136021764048823FB76C3F32AC34E774E9E23188A38B20F2380FE99DC39259A5C30E1A7A3FA266483C3EB561FB178A7F5330FD0FA481C8B89915DDDFD72E434166E939B4BE4F2771507554A55496CA4ED903A1633FF2353659270E7442973B596B18E8A9D340EC4C56E0B43E2A8A36F6FDBE7E88E0B075255120D973E05F534854A5BDED951C642261E9C427D27A37E10D2F94BC258FD872CC35F4270C6983BEFF11D01A655451F323F65489FA949AE79E0C90CA77E3EB9E621900E1C6F4278499AD7584223E48900E437AC06D36F2BC21ACC1ADC460DC66A1EFDEE1BAC79AC79AC799D618373AF851C5D10E040AA4A7EC5C2BD80ACEA0A81CE00A1E77AC817F7D6ABA8BB084DF7D3298D8408BA33932F3CACCDA23B8BD3C4AEDF01BC11894DC2A598ABA58895D4330BD909397921A4FA33C0C50DFA9913EDFD8470A49DAD42836DC7807C8A52A63A79B7CB3E1783091A2EF11425702F67283363E7DB03E2294A20074305CBC141032B78A9954EF4DC0A65F25DD70164B32C974272B0D055A4D676DDE4C4A5B4897E2A36E706ED38FF54BE5974341C2D7816CCB263E70F004D3F4DECA6EA4ED0701BD8E9716D8D80F4C5A52A5F59D4AF416AC44A2FE1A1596E5760C3801D927A9D43C75E270268E0C4D903474A381A37BAD3BC263644C4B69103CD43B4919BF0CB7D61CD6BBFE6BD7F192BD8172501F12C0AD061810ADA61C1CCA2181BFF6FC4D87A61A63B08EB35C2B8EF94F5C2F8D994F5C238C494F5C278AE94F5C2382C94F5C27816E7AB5776D546FAF9E8BA17850B6DF283EBDEE36A99FDFF0FA99A0E6E',1
+
+================
+
+2026-09-04 03:21:21.1690000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+SET @SqlInsert = '      Insert Into #Tmp_comprobantes (ID_GVA12)      SELECT ID_GVA12    FROM   GVA12    WHERE  GVA12.ID_GVA12 in ' + @ListaIdGVA12
+
+================
+
+2026-09-04 03:21:21.1750000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+Insert Into #Tmp_comprobantes (ID_GVA12)      SELECT ID_GVA12    FROM   GVA12    WHERE  GVA12.ID_GVA12 in  (350532, 372479)
+
+================
+
+2026-09-04 03:21:21.1750000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+exec (@SqlInsert)
+
+================
+
+2026-09-04 03:21:21.1760000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+UPDATE gva46      SET    estado_vto = CASE                            WHEN gva46.importe_vt                                 + Totalimputaciones.importe <= 0 THEN 'PAG'                            ELSE 'PEN'                          END ,            estado_uni = CASE                            WHEN gva46.imp_vt_uni                                 + Totalimputaciones.unidades <= 0 THEN 'PAG'                            ELSE 'PEN'                          END       FROM   (SELECT fecha_vto,                     t_comp,                     n_comp,                     Sum(importe)AS Importe ,                    Sum(unidades)AS Unidades              FROM   (SELECT fecha_vto,                             t_comp,                             n_comp,                             Sum(import_can * -1)AS Importe ,                            Sum(imp_can_un * -1)AS Unidades                      FROM   gva07                             LEFT JOIN gva15                                    ON ( gva07.t_comp_can = gva15.ident_comp )                      WHERE  gva07.t_comp_can = 'REC'                              OR gva15.tipo_comp = 'C'                      GROUP  BY fecha_vto,                                t_comp,                                n_comp                      UNION                      SELECT fecha_vto,                             t_comp,                             n_comp,                             Sum(import_can) AS Importe ,                            Sum(imp_can_un) AS Unidades                      FROM   gva07                             LEFT JOIN gva15                                    ON ( gva07.t_comp_can = gva15.ident_comp )                      WHERE  NOT ( gva07.t_comp_can = 'REC'                                    OR gva15.tipo_comp = 'C' )                      GROUP  BY fecha_vto,                                t_comp,                                n_comp) Aux              GROUP  BY fecha_vto,                        t_comp,                        n_comp) Totalimputaciones             JOIN gva12               ON Totalimputaciones.t_comp = gva12.t_comp                  AND Totalimputaciones.n_comp = gva12.n_comp      WHERE  gva46.fecha_vto = Totalimputaciones.fecha_vto             AND gva46.t_comp = Totalimputaciones.t_comp             AND gva46.n_comp = Totalimputaciones.n_comp             AND gva12.id_gva12 IN (SELECT id_gva12                                    FROM   #Tmp_comprobantes)
+
+================
+
+2026-09-04 03:21:21.1770000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+UPDATE GVA46  SET  ESTADO_VTO = 'PEN', ESTADO_UNI = 'PEN'    FROM GVA46    JOIN GVA12 on (GVA46.T_COMP = GVA12.T_COMP AND GVA46.N_COMP = GVA12.N_COMP)  WHERE GVA12.ID_GVA12 In (SELECT id_gva12                                    FROM   #Tmp_comprobantes)     AND     NOT EXISTS ( SELECT *         FROM   GVA07          WHERE  GVA46.Fecha_vto = GVA07.Fecha_vto            AND GVA46.T_COMP = GVA07.T_COMP            AND GVA46.N_COMP = GVA07.N_COMP )
+
+================
+
+2026-09-04 03:21:21.1770000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF EXISTS( SELECT 1 FROM INSERTED ) AND NOT EXISTS( SELECT 1 FROM DELETED )
+
+================
+
+2026-09-04 03:21:21.1770000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF EXISTS( SELECT 1 FROM INSERTED ) AND EXISTS( SELECT 1 FROM DELETED )
+
+================
+
+2026-09-04 03:21:21.1770000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+UPDATE GVA12 SET  ESTADO = 'PAG'    WHERE EXISTS ( SELECT T_COMP        FROM  GVA46        WHERE GVA46.T_COMP = GVA12.T_COMP          AND GVA46.N_COMP = GVA12.N_COMP          AND GVA46.ESTADO_VTO = 'PAG')      AND EXISTS (SELECT *         FROM ( SELECT GVA46.T_COMP,GVA46.N_COMP,Sum( GVA46.IMPORTE_VT) Importecuota         FROM   GVA46           GROUP BY GVA46.T_COMP,GVA46.N_COMP ) Sumacuotas          JOIN ( SELECT Imp.T_COMP, Imp.N_COMP,  Sum( Imp.IMPORT_CAN ) Importeimputaciones          FROM   ( SELECT T_COMP, N_COMP ,Sum( IMPORT_CAN * -1 )As IMPORT_CAN               FROM   GVA07                LEFT JOIN GVA15 On ( GVA07.T_COMP_CAN = GVA15.IDENT_COMP )               WHERE  GVA07.T_COMP_CAN = 'REC'                 Or GVA15.Tipo_comp = 'C'               GROUP BY T_COMP,N_COMP               UNION               SELECT T_COMP,N_COMP,Sum( IMPORT_CAN ) As IMPORT_CAN              FROM GVA07                LEFT JOIN GVA15 On ( GVA07.T_COMP_CAN = GVA15.IDENT_COMP )               WHERE  Not ( GVA07.T_COMP_CAN = 'REC' Or GVA15.Tipo_comp = 'C' )               GROUP BY T_COMP ,N_COMP ) Imp            GROUP BY Imp.T_COMP ,Imp.N_COMP  ) Sumaimputaciones            On ( Sumacuotas.T_COMP = Sumaimputaciones.T_COMP AND Sumacuotas.N_COMP = Sumaimputaciones.N_COMP  )         WHERE  Sumacuotas.Importecuota + Sumaimputaciones.Importeimputaciones < 0           AND Sumacuotas.T_COMP = GVA12.T_COMP           AND Sumacuotas.N_COMP = GVA12.N_COMP )               AND gva12.ESTADO <> '***'              AND gva12.ESTADO <> 'ANU'             AND GVA12.ID_GVA12 In ( SELECT ID_GVA12 FROM  #Tmp_comprobantes )
+
+================
+
+2026-09-04 03:21:21.1780000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF EXISTS( SELECT 1 FROM INSERTED ) AND NOT EXISTS( SELECT 1 FROM DELETED )
+
+================
+
+2026-09-04 03:21:21.1780000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF EXISTS( SELECT 1 FROM INSERTED ) AND EXISTS( SELECT 1 FROM DELETED )
+
+================
+
+2026-09-04 03:21:21.1780000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+UPDATE GVA12  SET ESTADO_UNI = 'PAG'    WHERE  EXISTS ( SELECT T_COMP        FROM GVA46        WHERE GVA46.T_COMP = GVA12.T_COMP         AND GVA46.N_COMP = GVA12.N_COMP         AND GVA46.ESTADO_UNI = 'PAG'  )      AND EXISTS (SELECT *         FROM   (SELECT GVA46.T_COMP,GVA46.N_COMP,Sum( GVA46.Imp_vt_uni ) Importecuotauni           FROM GVA46           GROUP BY GVA46.T_COMP, GVA46.N_COMP ) Sumacuotas          JOIN ( SELECT Imp.T_COMP,Imp.N_COMP,Sum( Imp.Imp_can_un ) Importeimputacionesuni            FROM   (SELECT T_COMP,N_COMP,Sum( Imp_can_un * -1 )As Imp_can_un              FROM GVA07                LEFT JOIN GVA15 On ( GVA07.T_COMP_CAN = GVA15.IDENT_COMP )              WHERE GVA07.T_COMP_CAN = 'REC'               Or GVA15.Tipo_comp = 'C'              GROUP BY T_COMP,N_COMP              UNION              SELECT  T_COMP, N_COMP, Sum( Imp_can_un ) As Imp_can_un              FROM GVA07               LEFT JOIN GVA15 On ( GVA07.T_COMP_CAN = GVA15.IDENT_COMP )              WHERE  Not ( GVA07.T_COMP_CAN = 'REC' Or GVA15.Tipo_comp = 'C' )              GROUP BY T_COMP ,N_COMP ) Imp            GROUP BY Imp.T_COMP,Imp.N_COMP ) Sumaimputaciones           On ( Sumacuotas.T_COMP = Sumaimputaciones.T_COMP AND Sumacuotas.N_COMP = Sumaimputaciones.N_COMP )         WHERE  Sumacuotas.Importecuotauni + Sumaimputaciones.Importeimputacionesuni < 0          AND Sumacuotas.T_COMP = GVA12.T_COMP          AND Sumacuotas.N_COMP = GVA12.N_COMP )            AND gva12.ESTADO_UNI <> '***'             AND gva12.ESTADO_UNI <> 'ANU'         AND GVA12.ID_GVA12 In ( SELECT ID_GVA12 FROM #Tmp_comprobantes )
+
+================
+
+2026-09-04 03:21:21.1800000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF EXISTS( SELECT 1 FROM INSERTED ) AND NOT EXISTS( SELECT 1 FROM DELETED )
+
+================
+
+2026-09-04 03:21:21.1800000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF EXISTS( SELECT 1 FROM INSERTED ) AND EXISTS( SELECT 1 FROM DELETED )
+
+================
+
+2026-09-04 03:21:21.1800000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+UPDATE GVA12 SET  ESTADO = 'CAN'    WHERE EXISTS ( SELECT T_COMP        FROM  GVA46        WHERE GVA46.T_COMP = GVA12.T_COMP          AND GVA46.N_COMP = GVA12.N_COMP          AND GVA46.ESTADO_VTO = 'PAG'        GROUP BY GVA46.T_COMP, GVA46.N_COMP        Having Count ( * ) = ( SELECT Count ( * )              FROM GVA46 G46              WHERE G46.T_COMP = GVA12.T_COMP                AND G46.N_COMP = GVA12.N_COMP ) )      AND EXISTS (SELECT *         FROM ( SELECT GVA46.T_COMP,GVA46.N_COMP,Sum( GVA46.IMPORTE_VT) Importecuota         FROM   GVA46           GROUP BY GVA46.T_COMP,GVA46.N_COMP ) Sumacuotas          JOIN ( SELECT Imp.T_COMP, Imp.N_COMP, Sum( Imp.IMPORT_CAN ) Importeimputaciones          FROM   ( SELECT T_COMP, N_COMP ,Sum( IMPORT_CAN * -1 )As IMPORT_CAN               FROM   GVA07                LEFT JOIN GVA15 On ( GVA07.T_COMP_CAN = GVA15.IDENT_COMP )               WHERE  GVA07.T_COMP_CAN = 'REC'                 Or GVA15.Tipo_comp = 'C'               GROUP BY T_COMP,N_COMP               UNION               SELECT T_COMP,N_COMP,Sum( IMPORT_CAN ) As IMPORT_CAN              FROM GVA07                LEFT JOIN GVA15 On ( GVA07.T_COMP_CAN = GVA15.IDENT_COMP )               WHERE  Not ( GVA07.T_COMP_CAN = 'REC' Or GVA15.Tipo_comp = 'C' )               GROUP BY T_COMP ,N_COMP ) Imp            GROUP BY Imp.T_COMP ,Imp.N_COMP  ) Sumaimputaciones            On ( Sumacuotas.T_COMP = Sumaimputaciones.T_COMP AND Sumacuotas.N_COMP = Sumaimputaciones.N_COMP  )         WHERE  Sumacuotas.Importecuota + Sumaimputaciones.Importeimputaciones = 0           AND Sumacuotas.T_COMP = GVA12.T_COMP           AND Sumacuotas.N_COMP = GVA12.N_COMP )             AND gva12.estado <> '***'             AND gva12.estado <> 'ANU'        AND GVA12.ID_GVA12 In ( SELECT ID_GVA12 FROM  #Tmp_comprobantes )
+
+================
+
+2026-09-04 03:21:21.1810000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF EXISTS( SELECT 1 FROM INSERTED ) AND NOT EXISTS( SELECT 1 FROM DELETED )
+
+================
+
+2026-09-04 03:21:21.1810000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF EXISTS( SELECT 1 FROM INSERTED ) AND EXISTS( SELECT 1 FROM DELETED )
+
+================
+
+2026-09-04 03:21:21.1810000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+UPDATE GVA12  SET ESTADO_UNI = 'CAN'    WHERE  EXISTS ( SELECT T_COMP        FROM GVA46        WHERE GVA46.T_COMP = GVA12.T_COMP         AND GVA46.N_COMP = GVA12.N_COMP         AND GVA46.ESTADO_UNI = 'PAG'        GROUP BY GVA46.T_COMP ,GVA46.N_COMP        Having Count ( * ) = ( SELECT Count ( * )              FROM GVA46 G46              WHERE G46.T_COMP = GVA12.T_COMP               AND G46.N_COMP = GVA12.N_COMP ) )      AND EXISTS (SELECT *         FROM   (SELECT GVA46.T_COMP,GVA46.N_COMP,Sum( GVA46.Imp_vt_uni ) Importecuotauni           FROM GVA46           GROUP BY GVA46.T_COMP, GVA46.N_COMP ) Sumacuotas          JOIN ( SELECT Imp.T_COMP,Imp.N_COMP ,Sum( Imp.Imp_can_un ) Importeimputacionesuni            FROM   (SELECT T_COMP,N_COMP,Sum( Imp_can_un * -1 )As Imp_can_un              FROM GVA07                LEFT JOIN GVA15 On ( GVA07.T_COMP_CAN = GVA15.IDENT_COMP )              WHERE GVA07.T_COMP_CAN = 'REC'               Or GVA15.Tipo_comp = 'C'              GROUP BY T_COMP,N_COMP              UNION              SELECT  T_COMP, N_COMP, Sum( Imp_can_un ) As Imp_can_un              FROM GVA07               LEFT JOIN GVA15 On ( GVA07.T_COMP_CAN = GVA15.IDENT_COMP )              WHERE  Not ( GVA07.T_COMP_CAN = 'REC' Or GVA15.Tipo_comp = 'C' )              GROUP BY T_COMP ,N_COMP ) Imp            GROUP BY Imp.T_COMP,Imp.N_COMP ) Sumaimputaciones           On ( Sumacuotas.T_COMP = Sumaimputaciones.T_COMP AND Sumacuotas.N_COMP = Sumaimputaciones.N_COMP )         WHERE  Sumacuotas.Importecuotauni + Sumaimputaciones.Importeimputacionesuni = 0          AND Sumacuotas.T_COMP = GVA12.T_COMP          AND Sumacuotas.N_COMP = GVA12.N_COMP )              AND gva12.ESTADO_UNI <> '***'             AND gva12.ESTADO_UNI <> 'ANU'       AND GVA12.ID_GVA12 In ( SELECT ID_GVA12 FROM #Tmp_comprobantes )
+
+================
+
+2026-09-04 03:21:21.1830000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF EXISTS( SELECT 1 FROM INSERTED ) AND NOT EXISTS( SELECT 1 FROM DELETED )
+
+================
+
+2026-09-04 03:21:21.1830000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF EXISTS( SELECT 1 FROM INSERTED ) AND EXISTS( SELECT 1 FROM DELETED )
+
+================
+
+2026-09-04 03:21:21.1830000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+SELECT TOP 1 @ANIOMES = CONVERT( VARCHAR( 6 ),INSERTED.FECHA_EMIS,112 )                        FROM INSERTED
+
+================
+
+2026-09-04 03:21:21.1830000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF UPDATE( RG_3685_TIPO_OPERACION_VENTAS )              OR UPDATE( ESTADO )
+
+================
+
+2026-09-04 03:21:21.1840000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+UPDATE gva12      SET    gva12.estado = 'PEN'      WHERE  EXISTS (SELECT t_comp                     FROM   gva46                     WHERE  gva46.t_comp = gva12.t_comp                            AND gva46.n_comp = gva12.n_comp                            AND gva46.estado_vto = 'PEN')         AND (NOT EXISTS (SELECT 1 FROM GVA07 WHERE GVA07.T_COMP = GVA12.T_COMP AND GVA07.N_COMP = GVA12.N_COMP) OR             EXISTS (SELECT *                         FROM   (SELECT gva46.t_comp,                                        gva46.n_comp,                                       Sum(gva46.importe_vt) Importecuota                                 FROM   gva46                                 GROUP  BY gva46.t_comp,                                           gva46.n_comp) Sumacuotas                                JOIN (SELECT Imp.t_comp,                                             Imp.n_comp,                                             Sum(Imp.import_can)                                             Importeimputaciones                                      FROM   (SELECT t_comp,                                                     n_comp,                                                     Sum(import_can * -1)AS                                                     Import_can                                              FROM   gva07                                                     LEFT JOIN gva15                                                            ON ( gva07.t_comp_can                                                                 =                                                                 gva15.ident_comp                                                               )                                              WHERE  gva07.t_comp_can = 'REC'                                                      OR gva15.tipo_comp = 'C'                                              GROUP  BY t_comp,                                                        n_comp                                              UNION                                              SELECT t_comp,                                                     n_comp,                                                     Sum(import_can) AS Import_can                                              FROM   gva07                                                     LEFT JOIN gva15                                                            ON ( gva07.t_comp_can                                                                 =                                                                 gva15.ident_comp                                                               )                                              WHERE  NOT ( gva07.t_comp_can =                                                           'REC'                                                            OR gva15.tipo_comp =                                                               'C' )                                              GROUP  BY t_comp,                                                        n_comp) Imp                                      GROUP  BY Imp.t_comp,                                                Imp.n_comp) Sumaimputaciones                                  ON ( Sumacuotas.t_comp = Sumaimputaciones.t_comp                                       AND Sumacuotas.n_comp =                                           Sumaimputaciones.n_comp                                     )                         WHERE  Sumacuotas.importecuota                                + Sumaimputaciones.importeimputaciones > 0                                AND Sumacuotas.t_comp = gva12.t_comp                                AND Sumacuotas.n_comp = gva12.n_comp) )            AND gva12.estado <> '***'             AND gva12.estado <> 'ANU'             AND gva12.t_comp = 'FAC'             AND gva12.id_gva12 IN (SELECT id_gva12                                    FROM   #tmp_comprobantes)
+
+================
+
+2026-09-04 03:21:21.1860000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF UPDATE( RG_3685_TIPO_OPERACION_VENTAS )              OR UPDATE( ESTADO )
+
+================
+
+2026-09-04 03:21:21.1860000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+UPDATE gva12      SET    gva12.estado_uni = 'PEN'      WHERE  EXISTS (SELECT t_comp                     FROM   gva46                     WHERE  gva46.t_comp = gva12.t_comp                            AND gva46.n_comp = gva12.n_comp                            AND gva46.estado_uni = 'PEN')         AND (NOT EXISTS (SELECT 1 FROM GVA07 WHERE GVA07.T_COMP = GVA12.T_COMP AND GVA07.N_COMP = GVA12.N_COMP) OR             EXISTS (SELECT *                         FROM   (SELECT gva46.t_comp,                                        gva46.n_comp,                                        Sum(gva46.imp_vt_uni) Importecuotauni                                 FROM   gva46                                 GROUP  BY gva46.t_comp,                                           gva46.n_comp) Sumacuotas                                JOIN (SELECT Imp.t_comp,                                             Imp.n_comp,                                              Sum(Imp.imp_can_un)                                             Importeimputacionesuni                                      FROM   (SELECT t_comp,                                                     n_comp,                                                     Sum(imp_can_un * -1)AS                                                     Imp_can_un                                              FROM   gva07                                                     LEFT JOIN gva15                                                            ON ( gva07.t_comp_can                                                                 =                                                                 gva15.ident_comp                                                               )                                              WHERE  gva07.t_comp_can = 'REC'                                                      OR gva15.tipo_comp = 'C'                                              GROUP  BY t_comp,                                                        n_comp                                              UNION                                              SELECT t_comp,                                                     n_comp,                                                     Sum(imp_can_un) AS Imp_can_un                                              FROM   gva07                                                     LEFT JOIN gva15                                                            ON ( gva07.t_comp_can                                                                 =                                                                 gva15.ident_comp                                                               )                                              WHERE  NOT ( gva07.t_comp_can =                                                           'REC'                                                            OR gva15.tipo_comp =                                                               'C' )                                              GROUP  BY t_comp,                                                        n_comp) Imp                                      GROUP  BY Imp.t_comp,                                                Imp.n_comp) Sumaimputaciones                                  ON ( Sumacuotas.t_comp = Sumaimputaciones.t_comp                                       AND Sumacuotas.n_comp =                                           Sumaimputaciones.n_comp                                     )                         WHERE  Sumacuotas.importecuotauni                                + Sumaimputaciones.importeimputacionesuni > 0                                AND Sumacuotas.t_comp = gva12.t_comp                                AND Sumacuotas.n_comp = gva12.n_comp))            AND gva12.estado_uni <> '***'             AND gva12.estado_uni <> 'ANU'             AND gva12.t_comp = 'FAC'             AND gva12.id_gva12 IN (SELECT id_gva12                                    FROM   #tmp_comprobantes)
+
+================
+
+2026-09-04 03:21:21.1860000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF EXISTS( SELECT 1 FROM INSERTED ) AND NOT EXISTS( SELECT 1 FROM DELETED )
+
+================
+
+2026-09-04 03:21:21.1860000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF EXISTS( SELECT 1 FROM INSERTED ) AND EXISTS( SELECT 1 FROM DELETED )
+
+================
+
+2026-09-04 03:21:21.1870000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF EXISTS( SELECT 1 FROM INSERTED ) AND NOT EXISTS( SELECT 1 FROM DELETED )
+
+================
+
+2026-09-04 03:21:21.1870000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF EXISTS( SELECT 1 FROM INSERTED ) AND EXISTS( SELECT 1 FROM DELETED )
+
+================
+
+2026-09-04 03:21:21.1870000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF UPDATE( RG_3685_TIPO_OPERACION_VENTAS )              OR UPDATE( ESTADO )
+
+================
+
+2026-09-04 03:21:21.1870000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+SELECT TOP 1 @ANIOMES = CONVERT( VARCHAR( 6 ),INSERTED.FECHA_EMIS,112 )                        FROM INSERTED
+
+================
+
+2026-09-04 03:21:21.1870000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+UPDATE GVA12 Set ESTADO = Case            When GVA12.Importe + ISNULL(GVA12.Propina, 0) - ISNULL(GVA12.Propina_ex, 0) - Totalimputaciones.Importe > 0 Then 'CTA'            Else 'IMP'           End    FROM GVA12    JOIN  ( SELECT GVA07.T_COMP_CAN,N_COMP_CAN, Sum( Import_can ) Importe        FROM GVA07        GROUP BY GVA07.T_COMP_CAN,N_COMP_CAN ) Totalimputaciones       on (GVA12.T_COMP = Totalimputaciones.T_COMP_CAN  And GVA12.N_COMP = Totalimputaciones.N_COMP_CAN)   Where GVA12.ID_GVA12 In ( SELECT ID_GVA12 FROM #Tmp_comprobantes )
+
+================
+
+2026-09-04 03:21:21.1870000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF EXISTS( SELECT 1 FROM INSERTED ) AND NOT EXISTS( SELECT 1 FROM DELETED )
+
+================
+
+2026-09-04 03:21:21.1870000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF EXISTS( SELECT 1 FROM INSERTED ) AND EXISTS( SELECT 1 FROM DELETED )
+
+================
+
+2026-09-04 03:21:21.1870000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+UPDATE GVA12 Set ESTADO = 'CTA'    FROM   GVA15    Where  GVA12.T_COMP = GVA15.IDENT_COMP     And GVA12.T_COMP <> 'FAC'     And GVA15.Tipo_comp In ( 'C', 'D' )      And NOT EXISTS (SELECT *         FROM GVA07         Where GVA07.T_COMP_CAN = GVA12.T_COMP          And GVA07.N_COMP_CAN = GVA12.N_COMP )     And GVA12.ID_GVA12 In ( SELECT ID_GVA12 FROM #Tmp_comprobantes )
+
+================
+
+2026-09-04 03:21:21.1880000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF EXISTS( SELECT 1 FROM INSERTED ) AND NOT EXISTS( SELECT 1 FROM DELETED )
+
+================
+
+2026-09-04 03:21:21.1880000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF EXISTS( SELECT 1 FROM INSERTED ) AND EXISTS( SELECT 1 FROM DELETED )
+
+================
+
+2026-09-04 03:21:21.1880000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+UPDATE gva12          SET    estado = 'CTA'          WHERE  gva12.t_comp = 'REC'             AND gva12.estado <> 'ANU'             AND gva12.estado <> '***'             AND NOT EXISTS (SELECT *                             FROM   gva07                             WHERE  gva07.t_comp_can = gva12.t_comp                                    AND gva07.n_comp_can = gva12.n_comp)             AND gva12.id_gva12 IN (SELECT id_gva12                                    FROM   #Tmp_comprobantes)
+
+================
+
+2026-09-04 03:21:21.1880000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF EXISTS( SELECT 1 FROM INSERTED ) AND NOT EXISTS( SELECT 1 FROM DELETED )
+
+================
+
+2026-09-04 03:21:21.1880000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF EXISTS( SELECT 1 FROM INSERTED ) AND EXISTS( SELECT 1 FROM DELETED )
+
+================
+
+2026-09-04 03:21:21.1880000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF UPDATE( RG_3685_TIPO_OPERACION_VENTAS )              OR UPDATE( ESTADO )
+
+================
+
+2026-09-04 03:21:21.1880000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+UPDATE GVA12 SeT Estado_uni = Case             When GVA12.Unidades - Totalimputaciones.Importe > 0 Then 'CTA'             Else 'IMP'            End    FROM GVA12    JOIN ( SELECT GVA07.T_COMP_CAN, N_COMP_CAN , Sum( Imp_can_un ) Importe        FROM GVA07        GROUP BY GVA07.T_COMP_CAN, N_COMP_CAN ) Totalimputaciones       ON (GVA12.T_COMP = Totalimputaciones.T_COMP_CAN  And GVA12.N_COMP = Totalimputaciones.N_COMP_CAN)   WHERE GVA12.ID_GVA12 In (SELECT ID_GVA12 FROM #Tmp_comprobantes )
+
+================
+
+2026-09-04 03:21:21.1890000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF EXISTS( SELECT 1 FROM INSERTED ) AND NOT EXISTS( SELECT 1 FROM DELETED )
+
+================
+
+2026-09-04 03:21:21.1890000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF EXISTS( SELECT 1 FROM INSERTED ) AND EXISTS( SELECT 1 FROM DELETED )
+
+================
+
+2026-09-04 03:21:21.1890000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+UPDATE GVA12  Set Estado_uni = 'CTA'    FROM   GVA15    Where  GVA12.T_COMP = GVA15.IDENT_COMP      And GVA12.T_COMP <> 'FAC'      And GVA15.Tipo_comp In ( 'C', 'D' )      And NOT EXISTS (SELECT *          FROM GVA07          Where GVA07.T_COMP_CAN = GVA12.T_COMP           And GVA07.N_COMP_CAN = GVA12.N_COMP )    And GVA12.ID_GVA12 In ( SELECT ID_GVA12 FROM  #Tmp_comprobantes )
+
+================
+
+2026-09-04 03:21:21.1890000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF EXISTS( SELECT 1 FROM INSERTED ) AND NOT EXISTS( SELECT 1 FROM DELETED )
+
+================
+
+2026-09-04 03:21:21.1890000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF EXISTS( SELECT 1 FROM INSERTED ) AND EXISTS( SELECT 1 FROM DELETED )
+
+================
+
+2026-09-04 03:21:21.1900000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+UPDATE gva12         SET    estado_uni = 'CTA'         WHERE  gva12.t_comp = 'REC'             AND gva12.estado_uni <> 'ANU'             AND gva12.estado_uni <> '***'             AND NOT EXISTS (SELECT *                             FROM   gva07                             WHERE  gva07.t_comp_can = gva12.t_comp                                    AND gva07.n_comp_can = gva12.n_comp)             AND gva12.id_gva12 IN (SELECT id_gva12                                    FROM   #Tmp_comprobantes)
+
+================
+
+2026-09-04 03:21:21.3070000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+Set @SqlUpdate =     'UPDATE dbo.INCREMENTAL_VALUE SET UltimoValor = ' + Cast( @Id + @Increment As Varchar ) + ' FROM DBO.INCREMENTAL_VALUE WITH (INDEX(IX_0))      WHERE Tabla = ''' + @TableName +     ''' and Campo = ''' +     @FieldName + ''''
+
+================
+
+2026-09-04 03:21:21.3100000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+UPDATE dbo.INCREMENTAL_VALUE SET UltimoValor = 127986 FROM DBO.INCREMENTAL_VALUE WITH (INDEX(IX_0))      WHERE Tabla = 'SBA04' and Campo = 'N_INTERNO'
+
+================
+
+2026-09-04 03:21:21.3100000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+Exec Sp_executesql @SqlUpdate
+
+================
+
+2026-09-04 03:21:21.3730000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+INSERT INTO "TestingRH".."SBA04" ("FILLER","BARRA","CERRADO","CLASE","COD_COMP","CONCEPTO","COTIZACION","EXPORTADO","EXTERNO","FECHA","FECHA_ING","HORA_ING","N_COMP","N_INTERNO","PASE","SITUACION","TERMINAL","USUARIO","BARRA_ORI","FECHA_EMIS","GENERA_ASIENTO","ID_GVA81","ID_SBA02","COD_GVA14","COD_CPA01","ID_CODIGO_RELACION","ID_LEGAJO","TIPO_COD_RELACIONADO","CN_ASTOR","TOTAL_IMPORTE_CTE","TOTAL_IMPORTE_EXT","TRANSFERENCIA_DEVOLUCION_CUPONES") VALUES (@P1,@P2,@P3,@P4,@P5,@P6,@P7,@P8,@P9,@P10,@P11,@P12,@P13,@P14,@P15,@P16,@P17,@P18,@P19,@P20,@P21,@P22,@P23,@P24,@P25,@P26,@P27,@P28,@P29,@P30,@P31,@P32)
+
+================
+
+2026-09-04 03:21:21.3730000	rpc_completed	MicrosoftÂ® WindowsÂ® Operating System	sp_executesql
+exec sp_executesql N'SET NOCOUNT OFF; INSERT INTO "TestingRH".."SBA04" ("FILLER","BARRA","CERRADO","CLASE","COD_COMP","CONCEPTO","COTIZACION","EXPORTADO","EXTERNO","FECHA","FECHA_ING","HORA_ING","N_COMP","N_INTERNO","PASE","SITUACION","TERMINAL","USUARIO","BARRA_ORI","FECHA_EMIS","GENERA_ASIENTO","ID_GVA81","ID_SBA02","COD_GVA14","COD_CPA01","ID_CODIGO_RELACION","ID_LEGAJO","TIPO_COD_RELACIONADO","CN_ASTOR","TOTAL_IMPORTE_CTE","TOTAL_IMPORTE_EXT","TRANSFERENCIA_DEVOLUCION_CUPONES") VALUES (@P1,@P2,@P3,@P4,@P5,@P6,@P7,@P8,@P9,@P10,@P11,@P12,@P13,@P14,@P15,@P16,@P17,@P18,@P19,@P20,@P21,@P22,@P23,@P24,@P25,@P26,@P27,@P28,@P29,@P30,@P31,@P32); SELECT SCOPE_IDENTITY() AS SCOPE_ID_COLUMN',N'@P1 varchar(20),@P2 smallint,@P3 bit,@P4 smallint,@P5 varchar(3),@P6 varchar(20),@P7 numeric(22,7),@P8 bit,@P9 bit,@P10 datetime,@P11 datetime,@P12 varchar(6),@P13 varchar(14),@P14 float,@P15 bit,@P16 varchar(1),@P17 varchar(12),@P18 varchar(10),@P19 smallint,@P20 datetime,@P21 varchar(1),@P22 int,@P23 int,@P24 varchar(6),@P25 varchar(1),@P26 int,@P27 int,@P28 varchar(1),@P29 varchar(1),@P30 numeric(22,7),@P31 numeric(22,7),@P32 varchar(1)','                    ',0,0,1,'REC','COBRANZAS POR VENTAS',1.0000000,0,1,'2026-09-04 00:00:00','2026-09-04 00:00:00','002117','X0000100032798',127986,0,'N','192.168.80.5','SUPERVISOR',0,'2026-09-04 00:00:00','S',NULL,11,'FC.280',NULL,NULL,NULL,'C','S',1000.0000000,1000.0000000,'N'
+
+================
+
+2026-09-04 03:21:21.3750000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF (SELECT COUNT(*) FROM INSERTED) = 1
+
+================
+
+2026-09-04 03:21:21.3750000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF UPDATE(COD_COMP) OR UPDATE(N_COMP) OR UPDATE(BARRA)
+
+================
+
+2026-09-04 03:21:21.3750000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+SELECT @ID_SBA04 = SBA04.ID_SBA04             FROM INSERTED             JOIN SBA04 ON                  INSERTED.COD_COMP = SBA04.COD_COMP AND                 INSERTED.N_COMP = SBA04.N_COMP AND                 INSERTED.BARRA = SBA04.BARRA
+
+================
+
+2026-09-04 03:21:21.3760000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+UPDATE SBA05             SET ID_SBA04 = @ID_SBA04             FROM INSERTED             WHERE SBA05.ID_SBA05 = INSERTED.ID_SBA05
+
+================
+
+2026-09-04 03:21:21.3760000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF UPDATE(COD_CTA)
+
+================
+
+2026-09-04 03:21:21.3760000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+SELECT @ID_SBA01 = SBA01.ID_SBA01             FROM INSERTED             JOIN SBA01 ON                  INSERTED.COD_CTA = SBA01.COD_CTA
+
+================
+
+2026-09-04 03:21:21.3760000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+UPDATE SBA05             SET ID_SBA01 = @ID_SBA01             FROM INSERTED             WHERE SBA05.ID_SBA05 = INSERTED.ID_SBA05
+
+================
+
+2026-09-04 03:21:21.3760000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+INSERT INTO "TestingRH".."SBA05" ("BARRA","CANT_MONE","CLASE","COD_COMP","COD_CTA","COD_OPERAC","COTIZ_MONE","D_H","FECHA","LEYENDA","MONTO","N_COMP","RENGLON","UNIDADES","VA_DIRECTO","ID_SBA02","ID_GVA81","COMENTARIO","COMENTARIO_EFT","COD_GVA14","COD_CPA01","ID_CODIGO_RELACION","ID_LEGAJO","TIPO_COD_RELACIONADO","ID_SBA11") VALUES (@P1,@P2,@P3,@P4,@P5,@P6,@P7,@P8,@P9,@P10,@P11,@P12,@P13,@P14,@P15,@P16,@P17,@P18,@P19,@P20,@P21,@P22,@P23,@P24,@P25)
+
+================
+
+2026-09-04 03:21:21.3760000	rpc_completed	MicrosoftÂ® WindowsÂ® Operating System	sp_executesql
+exec sp_executesql N'SET NOCOUNT OFF; INSERT INTO "TestingRH".."SBA05" ("BARRA","CANT_MONE","CLASE","COD_COMP","COD_CTA","COD_OPERAC","COTIZ_MONE","D_H","FECHA","LEYENDA","MONTO","N_COMP","RENGLON","UNIDADES","VA_DIRECTO","ID_SBA02","ID_GVA81","COMENTARIO","COMENTARIO_EFT","COD_GVA14","COD_CPA01","ID_CODIGO_RELACION","ID_LEGAJO","TIPO_COD_RELACIONADO","ID_SBA11") VALUES (@P1,@P2,@P3,@P4,@P5,@P6,@P7,@P8,@P9,@P10,@P11,@P12,@P13,@P14,@P15,@P16,@P17,@P18,@P19,@P20,@P21,@P22,@P23,@P24,@P25); SELECT SCOPE_IDENTITY() AS SCOPE_ID_COLUMN',N'@P1 smallint,@P2 numeric(22,7),@P3 smallint,@P4 varchar(3),@P5 float,@P6 varchar(1),@P7 numeric(22,7),@P8 varchar(1),@P9 datetime,@P10 varchar(1),@P11 numeric(22,7),@P12 varchar(14),@P13 int,@P14 numeric(22,7),@P15 varchar(1),@P16 int,@P17 int,@P18 varchar(1),@P19 varchar(1),@P20 varchar(6),@P21 varchar(1),@P22 int,@P23 int,@P24 varchar(1),@P25 int',0,1000.0000000,1,'REC',1120001,'',1.0000000,'H','2026-09-04 00:00:00','',1000.0000000,'X0000100032798',0,1000.0000000,'N',11,NULL,'','','FC.280',NULL,NULL,NULL,'C',NULL
+
+================
+
+2026-09-04 03:21:21.3820000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF (SELECT COUNT(*) FROM INSERTED) = 1
+
+================
+
+2026-09-04 03:21:21.3820000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF UPDATE(COD_COMP) OR UPDATE(N_COMP) OR UPDATE(BARRA)
+
+================
+
+2026-09-04 03:21:21.3820000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+SELECT @ID_SBA04 = SBA04.ID_SBA04             FROM INSERTED             JOIN SBA04 ON                  INSERTED.COD_COMP = SBA04.COD_COMP AND                 INSERTED.N_COMP = SBA04.N_COMP AND                 INSERTED.BARRA = SBA04.BARRA
+
+================
+
+2026-09-04 03:21:21.3820000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+UPDATE SBA05             SET ID_SBA04 = @ID_SBA04             FROM INSERTED             WHERE SBA05.ID_SBA05 = INSERTED.ID_SBA05
+
+================
+
+2026-09-04 03:21:21.3820000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF UPDATE(COD_CTA)
+
+================
+
+2026-09-04 03:21:21.3820000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+SELECT @ID_SBA01 = SBA01.ID_SBA01             FROM INSERTED             JOIN SBA01 ON                  INSERTED.COD_CTA = SBA01.COD_CTA
+
+================
+
+2026-09-04 03:21:21.3820000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+UPDATE SBA05             SET ID_SBA01 = @ID_SBA01             FROM INSERTED             WHERE SBA05.ID_SBA05 = INSERTED.ID_SBA05
+
+================
+
+2026-09-04 03:21:21.3820000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+INSERT INTO "TestingRH".."SBA05" ("BARRA","CANT_MONE","CLASE","COD_COMP","COD_CTA","COD_OPERAC","COTIZ_MONE","D_H","FECHA","LEYENDA","MONTO","N_COMP","RENGLON","UNIDADES","VA_DIRECTO","ID_SBA02","ID_GVA81","COMENTARIO","COMENTARIO_EFT","COD_GVA14","COD_CPA01","ID_CODIGO_RELACION","ID_LEGAJO","TIPO_COD_RELACIONADO","ID_SBA11") VALUES (@P1,@P2,@P3,@P4,@P5,@P6,@P7,@P8,@P9,@P10,@P11,@P12,@P13,@P14,@P15,@P16,@P17,@P18,@P19,@P20,@P21,@P22,@P23,@P24,@P25)
+
+================
+
+2026-09-04 03:21:21.3820000	rpc_completed	MicrosoftÂ® WindowsÂ® Operating System	sp_executesql
+exec sp_executesql N'SET NOCOUNT OFF; INSERT INTO "TestingRH".."SBA05" ("BARRA","CANT_MONE","CLASE","COD_COMP","COD_CTA","COD_OPERAC","COTIZ_MONE","D_H","FECHA","LEYENDA","MONTO","N_COMP","RENGLON","UNIDADES","VA_DIRECTO","ID_SBA02","ID_GVA81","COMENTARIO","COMENTARIO_EFT","COD_GVA14","COD_CPA01","ID_CODIGO_RELACION","ID_LEGAJO","TIPO_COD_RELACIONADO","ID_SBA11") VALUES (@P1,@P2,@P3,@P4,@P5,@P6,@P7,@P8,@P9,@P10,@P11,@P12,@P13,@P14,@P15,@P16,@P17,@P18,@P19,@P20,@P21,@P22,@P23,@P24,@P25); SELECT SCOPE_IDENTITY() AS SCOPE_ID_COLUMN',N'@P1 smallint,@P2 numeric(22,7),@P3 smallint,@P4 varchar(3),@P5 float,@P6 varchar(1),@P7 numeric(22,7),@P8 varchar(1),@P9 datetime,@P10 varchar(1),@P11 numeric(22,7),@P12 varchar(14),@P13 int,@P14 numeric(22,7),@P15 varchar(1),@P16 int,@P17 int,@P18 varchar(1),@P19 varchar(1),@P20 varchar(6),@P21 varchar(1),@P22 int,@P23 int,@P24 varchar(1),@P25 int',0,1000.0000000,1,'REC',1111000,'',1.0000000,'D','2026-09-04 00:00:00','',1000.0000000,'X0000100032798',1,1000.0000000,'N',11,NULL,'','','FC.280',NULL,NULL,NULL,'C',NULL
+
+================
+
+2026-09-04 03:21:21.3870000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+INSERT INTO "TestingRH".."COMPROBANTE_COTIZACION_SB" ("ID_COMPROBANTE_COTIZACION_SB","ID_MONEDA","ID_TIPO_COTIZACION","COTIZACION","ID_SBA02","N_COMP","BARRA") VALUES (@P1,@P2,@P3,@P4,@P5,@P6,@P7)
+
+================
+
+2026-09-04 03:21:21.3870000	rpc_completed	MicrosoftÂ® WindowsÂ® Operating System	sp_executesql
+exec sp_executesql N'INSERT INTO "TestingRH".."COMPROBANTE_COTIZACION_SB" ("ID_COMPROBANTE_COTIZACION_SB","ID_MONEDA","ID_TIPO_COTIZACION","COTIZACION","ID_SBA02","N_COMP","BARRA") VALUES (@P1,@P2,@P3,@P4,@P5,@P6,@P7)',N'@P1 int,@P2 int,@P3 int,@P4 numeric(17,7),@P5 int,@P6 varchar(14),@P7 smallint',190076,2,1,1.0000000,11,'X0000100032798',0
+
+================
+
+2026-09-04 03:21:21.4080000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF ( EXISTS(SELECT * FROM DELETED) AND NOT EXISTS(SELECT * FROM INSERTED) ) OR    UPDATE (ID_SBA01) OR   UPDATE (COD_CTA) OR   UPDATE (DESCRIPCIO) OR   UPDATE (TIPO) OR      UPDATE (FONDO) OR    UPDATE (EXPORTA) OR    UPDATE (HABIL_FOND)OR    UPDATE (CONCILIABLE) OR     UPDATE (HABIL_VENT) OR   UPDATE (HABIL_COMP) OR   UPDATE (ASIGNA_CEN) OR   UPDATE (ID_SBA22) OR   UPDATE (REGISTRA_F) OR   UPDATE (ID_MONEDA) OR   UPDATE (FORMA_COBRO) OR   UPDATE (ID_SBA11) OR   UPDATE (ID_BANCO) OR   UPDATE (VINCULADA_BANKING) OR   UPDATE (TIPO_BANCO) OR   UPDATE (ID_CUENTA_BANKING)
+
+================
+
+2026-09-04 03:21:21.4080000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+UPDATE "TestingRH".."SBA01" SET "SALDO_A_MO"=@P1,"SALDO_A_UN"=@P2,"SALDO_ACT"=@P3 WHERE "SALDO_A_MO"=@P4 AND "SALDO_A_UN"=@P5 AND "SALDO_ACT"=@P6 AND "ID_SBA01"=@P7
+
+================
+
+2026-09-04 03:21:21.4080000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+IF ( EXISTS(SELECT * FROM DELETED) AND NOT EXISTS(SELECT * FROM INSERTED) ) OR    UPDATE (ID_SBA01) OR   UPDATE (COD_CTA) OR   UPDATE (DESCRIPCIO) OR   UPDATE (TIPO) OR      UPDATE (FONDO) OR    UPDATE (EXPORTA) OR    UPDATE (HABIL_FOND)OR    UPDATE (CONCILIABLE) OR     UPDATE (HABIL_VENT) OR   UPDATE (HABIL_COMP) OR   UPDATE (ASIGNA_CEN) OR   UPDATE (ID_SBA22) OR   UPDATE (REGISTRA_F) OR   UPDATE (ID_MONEDA) OR   UPDATE (FORMA_COBRO) OR   UPDATE (ID_SBA11) OR   UPDATE (ID_BANCO) OR   UPDATE (VINCULADA_BANKING) OR   UPDATE (TIPO_BANCO) OR   UPDATE (ID_CUENTA_BANKING)
+
+================
+
+2026-09-04 03:21:21.4080000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+UPDATE "TestingRH".."SBA01" SET "SALDO_A_MO"=@P8,"SALDO_A_UN"=@P9,"SALDO_ACT"=@P10 WHERE "SALDO_A_MO"=@P11 AND "SALDO_A_UN"=@P12 AND "SALDO_ACT"=@P13 AND "ID_SBA01"=@P14
+
+================
+
+2026-09-04 03:21:21.4080000	rpc_completed	MicrosoftÂ® WindowsÂ® Operating System	sp_executesql
+exec sp_executesql N'UPDATE "TestingRH".."SBA01" SET "SALDO_A_MO"=@P1,"SALDO_A_UN"=@P2,"SALDO_ACT"=@P3 WHERE "SALDO_A_MO"=@P4 AND "SALDO_A_UN"=@P5 AND "SALDO_ACT"=@P6 AND "ID_SBA01"=@P7; UPDATE "TestingRH".."SBA01" SET "SALDO_A_MO"=@P8,"SALDO_A_UN"=@P9,"SALDO_ACT"=@P10 WHERE "SALDO_A_MO"=@P11 AND "SALDO_A_UN"=@P12 AND "SALDO_ACT"=@P13 AND "ID_SBA01"=@P14',N'@P1 numeric(22,7),@P2 numeric(22,7),@P3 numeric(22,7),@P4 numeric(22,7),@P5 numeric(22,7),@P6 numeric(22,7),@P7 int,@P8 numeric(22,7),@P9 numeric(22,7),@P10 numeric(22,7),@P11 numeric(22,7),@P12 numeric(22,7),@P13 numeric(22,7),@P14 int',-2911496195.1500000,-2911496195.1500000,-2911496195.1500000,-2911497195.1500000,-2911497195.1500000,-2911497195.1500000,1,-16877317239.0800000,-16865036193.6800000,-16877317239.0800000,-16877316239.0800000,-16865035193.6800000,-16877316239.0800000,223
+
+================
+
+2026-09-04 03:21:21.4160000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+INSERT INTO "TestingRH".."ASIENTO_COMPROBANTE_SB" ("ID_ASIENTO_COMPROBANTE_SB","N_INTERNO","ASIENTO_ANULACION","CONTABILIZADO","USUARIO_CONTABILIZACION","FECHA_CONTABILIZACION","TERMINAL_CONTABILIZACION","TRANSFERIDO_CN") VALUES (@P1,@P2,@P3,@P4,@P5,@P6,@P7,@P8)
+
+================
+
+2026-09-04 03:21:21.4160000	rpc_completed	MicrosoftÂ® WindowsÂ® Operating System	sp_executesql
+exec sp_executesql N'INSERT INTO "TestingRH".."ASIENTO_COMPROBANTE_SB" ("ID_ASIENTO_COMPROBANTE_SB","N_INTERNO","ASIENTO_ANULACION","CONTABILIZADO","USUARIO_CONTABILIZACION","FECHA_CONTABILIZACION","TERMINAL_CONTABILIZACION","TRANSFERIDO_CN") VALUES (@P1,@P2,@P3,@P4,@P5,@P6,@P7,@P8)',N'@P1 int,@P2 float,@P3 varchar(1),@P4 varchar(1),@P5 varchar(10),@P6 datetime,@P7 varchar(12),@P8 varchar(1)',199353,127986,'N','S','SUPERVISOR','2026-09-04 00:21:18','192.168.80.5','N'
+
+================
+
+2026-09-04 03:21:21.4180000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+INSERT INTO "TestingRH".."ASIENTO_SB" ("ID_ASIENTO_SB","ID_ASIENTO_COMPROBANTE_SB","NRO_RENGLON_ASIENTO_SB","ID_CUENTA","D_H","IMPORTE_RENGLON_BASE_SB","IMPORTE_RENGLON_ALTER_SB","EDITA_CUENTA") VALUES (@P1,@P2,@P3,@P4,@P5,@P6,@P7,@P8)
+
+================
+
+2026-09-04 03:21:21.4180000	sp_statement_completed	MicrosoftÂ® WindowsÂ® Operating System	
+INSERT INTO "TestingRH".."ASIENTO_SB" ("ID_ASIENTO_SB","ID_ASIENTO_COMPROBANTE_SB","NRO_RENGLON_ASIENTO_SB","ID_CUENTA","D_H","IMPORTE_RENGLON_BASE_SB","IMPORTE_RENGLON_ALTER_SB","EDITA_CUENTA") VALUES (@P9,@P10,@P11,@P12,@P13,@P14,@P15,@P16)
+
+================
+
+2026-09-04 03:21:21.4180000	rpc_completed	MicrosoftÂ® WindowsÂ® Operating System	sp_executesql
+exec sp_executesql N'INSERT INTO "TestingRH".."ASIENTO_SB" ("ID_ASIENTO_SB","ID_ASIENTO_COMPROBANTE_SB","NRO_RENGLON_ASIENTO_SB","ID_CUENTA","D_H","IMPORTE_RENGLON_BASE_SB","IMPORTE_RENGLON_ALTER_SB","EDITA_CUENTA") VALUES (@P1,@P2,@P3,@P4,@P5,@P6,@P7,@P8); INSERT INTO "TestingRH".."ASIENTO_SB" ("ID_ASIENTO_SB","ID_ASIENTO_COMPROBANTE_SB","NRO_RENGLON_ASIENTO_SB","ID_CUENTA","D_H","IMPORTE_RENGLON_BASE_SB","IMPORTE_RENGLON_ALTER_SB","EDITA_CUENTA") VALUES (@P9,@P10,@P11,@P12,@P13,@P14,@P15,@P16)',N'@P1 int,@P2 int,@P3 int,@P4 int,@P5 varchar(1),@P6 money,@P7 money,@P8 varchar(1),@P9 int,@P10 int,@P11 int,@P12 int,@P13 varchar(1),@P14 money,@P15 money,@P16 varchar(1)',240044,199353,1,1062,'H',1000.0000,1000.0000,'N',240045,199353,2,601,'D',1000.0000,1000.0000,'S'
