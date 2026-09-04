@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, CalendarDays, History, Activity, AlertTriangle, ClipboardList,
-  Truck, Cloud, Navigation, Users, Map, Tag, DollarSign, TrendingUp, Clock, BarChart2, FileText,
+  Truck, Cloud, Navigation, Users, Map, Tag, DollarSign, TrendingUp, BarChart2, FileText,
 } from 'lucide-react'
 import { NavGroup } from './navGroups'
 
@@ -37,7 +37,6 @@ export const LOGISTICA_NAV_GROUPS: NavGroup[] = [
       { to: '/usuarios',                 label: 'Clientes',      icon: Users,      roles: ['super_admin', 'gerente_general', 'gerente_comercial', 'logistica', 'comercial', 'facturacion'] },
       { to: '/admin/mapa-clientes',      label: 'Mapa clientes', icon: Map,        roles: ['super_admin', 'gerente_general', 'gerente_comercial', 'logistica', 'comercial', 'facturacion'] },
       { to: '/comercial/reporte-precios', label: 'Rep. precios', icon: DollarSign, roles: ['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'facturacion'] },
-      { to: '/comercial/historial-precios', label: 'Hist. precios', icon: Clock,   roles: ['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'logistica', 'facturacion'] },
     ],
   },
   {

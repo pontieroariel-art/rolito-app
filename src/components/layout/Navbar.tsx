@@ -3,7 +3,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, CalendarDays, Activity, AlertTriangle, ClipboardList,
   Truck, Users, Tag, Map, Cloud, Package, Navigation, BarChart2,
-  DollarSign, TrendingUp, Clock, Home, Plus, History, UserCircle,
+  DollarSign, TrendingUp, Home, Plus, History, UserCircle,
   LogOut, Menu, X, Snowflake, Wrench, ArrowLeftRight, FileText,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
@@ -26,7 +26,6 @@ const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
     { to: '/usuarios',                      label: 'Clientes',       icon: Users },
     { to: '/admin/mapa-clientes',           label: 'Mapa clientes',  icon: Map },
     { to: '/comercial/ventas',              label: 'Ventas',         icon: TrendingUp },
-    { to: '/comercial/historial-precios',   label: 'Hist. precios',  icon: Clock },
   ],
   gerente_comercial: [
     { to: '/logistica',                    label: 'Planificación',   icon: CalendarDays },
@@ -75,7 +74,6 @@ const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
     { to: '/movimientos',                  label: 'Movimientos',    icon: BarChart2 },
     { to: '/comercial/ventas',             label: 'Ventas',         icon: TrendingUp },
     { to: '/comercial/reporte-precios',    label: 'Rep. precios',   icon: DollarSign },
-    { to: '/comercial/historial-precios',  label: 'Hist. precios',  icon: Clock },
     { to: '/usuarios',                     label: 'Clientes',       icon: Users },
     { to: '/admin/mapa-clientes',          label: 'Mapa clientes',  icon: Map },
   ],

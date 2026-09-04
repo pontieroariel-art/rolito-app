@@ -4,7 +4,7 @@ import { UserRole } from '../types'
 
 // Auditoría de cambios hechos desde el Backoffice (Usuarios & Roles, Flota,
 // Modelos, Catálogos de service, Técnicos, Pañol) — colección append-only,
-// mismo patrón que historialPreciosService.ts. Un trigger de Cloud Functions
+// mismo patrón que tenía historialPreciosService.ts (eliminado 2026-09-03). Un trigger de Cloud Functions
 // (functions/src/triggers/adminAudit.ts) escucha esta colección: si
 // `riesgo` es 'alto' manda un mail instantáneo, si es 'rutina' se junta en
 // el resumen diario. Ver plan de migración del Backoffice, Fase 4.

@@ -532,26 +532,22 @@ describe('cuitIndex — anti-poisoning', () => {
   })
 })
 
-// ── precios: edición de catálogo y listas por comercial / logística ───────────
+// ── precios: edición del catálogo por comercial ───────────────────────────────
+// Las listas de precios propias de la app (listas-precios) se eliminaron el
+// 2026-09-03: sin match en las reglas, nadie las lee ni las escribe.
 describe('precios — edición por comercial', () => {
-  test('comercial SÍ puede editar una lista de precios', async () => {
-    await seed((d) => setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' }))
-    await assertSucceeds(setDoc(doc(db('com'), 'listas-precios/l1'), { nombre: 'Mayoristas', items: [] }))
-  })
-
   test('comercial SÍ puede editar el catálogo (config/catalogo)', async () => {
     await seed((d) => setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' }))
     await assertSucceeds(setDoc(doc(db('com'), 'config/catalogo'), { productos: [] }))
   })
 
-  test('gerente_comercial SÍ puede editar una lista de precios', async () => {
-    await seed((d) => setDoc(doc(d, 'users/gc'), { rol: 'gerente_comercial', estado: 'activo' }))
-    await assertSucceeds(setDoc(doc(db('gc'), 'listas-precios/l1'), { nombre: 'Mayoristas', items: [] }))
-  })
-
-  test('un cliente NO puede editar listas de precios', async () => {
-    await seed((d) => setDoc(doc(d, 'users/cli'), cliente()))
-    await assertFails(setDoc(doc(db('cli'), 'listas-precios/l1'), { nombre: 'X', items: [] }))
+  test('listas-precios ya no existe: ni un gerente comercial puede escribir ni leer ahí', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/gc'), { rol: 'gerente_comercial', estado: 'activo' })
+      await setDoc(doc(d, 'listas-precios/l1'), { nombre: 'Mayoristas', items: [] })
+    })
+    await assertFails(setDoc(doc(db('gc'), 'listas-precios/l2'), { nombre: 'X', items: [] }))
+    await assertFails(getDoc(doc(db('gc'), 'listas-precios/l1')))
   })
 })
 
@@ -1556,27 +1552,15 @@ describe('pedidos-recurrentes', () => {
   })
 })
 
-// ── historialPrecios: inmutabilidad ───────────────────────────────────────
-describe('historialPrecios — inmutabilidad', () => {
-  test('manager SÍ puede crear un evento de historial', async () => {
-    await seed((d) => setDoc(doc(d, 'users/gc'), { rol: 'gerente_comercial', estado: 'activo' }))
-    await assertSucceeds(setDoc(doc(db('gc'), 'historialPrecios/ev1'), { clientId: 'cli', tipo: 'lista' }))
-  })
-
-  test('nadie puede actualizar un evento de historial (ni super_admin)', async () => {
+// ── historialPrecios: colección eliminada (2026-09-03) ───────────────────────
+describe('historialPrecios — eliminado', () => {
+  test('ni un gerente comercial puede crear o leer eventos de historial', async () => {
     await seed(async (d) => {
-      await setDoc(doc(d, 'users/adm'), { rol: 'super_admin', estado: 'activo' })
+      await setDoc(doc(d, 'users/gc'), { rol: 'gerente_comercial', estado: 'activo' })
       await setDoc(doc(d, 'historialPrecios/ev1'), { clientId: 'cli', tipo: 'lista' })
     })
-    await assertFails(updateDoc(doc(db('adm'), 'historialPrecios/ev1'), { tipo: 'custom' }))
-  })
-
-  test('nadie puede borrar un evento de historial (ni super_admin)', async () => {
-    await seed(async (d) => {
-      await setDoc(doc(d, 'users/adm'), { rol: 'super_admin', estado: 'activo' })
-      await setDoc(doc(d, 'historialPrecios/ev1'), { clientId: 'cli', tipo: 'lista' })
-    })
-    await assertFails(deleteDoc(doc(db('adm'), 'historialPrecios/ev1')))
+    await assertFails(setDoc(doc(db('gc'), 'historialPrecios/ev2'), { clientId: 'cli', tipo: 'lista' }))
+    await assertFails(getDoc(doc(db('gc'), 'historialPrecios/ev1')))
   })
 })
 
@@ -3024,26 +3008,6 @@ describe('H11 — lectura acotada', () => {
     await assertSucceeds(getDoc(doc(db('caja1'), 'users/cli')))
     await assertSucceeds(getDoc(doc(db('caja1'), 'users/ch')))
     await assertFails(getDoc(doc(db('caja1'), 'users/gg')))
-  })
-
-  test('listas-precios: un comercial lee cualquiera; un cliente solo la suya', async () => {
-    await seed(async (d) => {
-      await setDoc(doc(d, 'users/com'), { rol: 'comercial', estado: 'activo' })
-      await setDoc(doc(d, 'users/cli'), cliente({ listaPreciosId: 'lista-A' }))
-      await setDoc(doc(d, 'listas-precios/lista-A'), { nombre: 'Minorista', items: [] })
-      await setDoc(doc(d, 'listas-precios/lista-B'), { nombre: 'Mayorista', items: [] })
-    })
-    await assertSucceeds(getDoc(doc(db('com'), 'listas-precios/lista-B')))   // staff, cualquiera
-    await assertSucceeds(getDoc(doc(db('cli'), 'listas-precios/lista-A')))   // el cliente, la suya
-    await assertFails(getDoc(doc(db('cli'), 'listas-precios/lista-B')))      // no la de otro segmento
-  })
-
-  test('listas-precios: un cliente sin lista asignada no lee ninguna', async () => {
-    await seed(async (d) => {
-      await setDoc(doc(d, 'users/cli'), cliente())
-      await setDoc(doc(d, 'listas-precios/lista-A'), { nombre: 'Minorista', items: [] })
-    })
-    await assertFails(getDoc(doc(db('cli'), 'listas-precios/lista-A')))
   })
 
   test('supervisor lee un cliente, pero no choferes ni otro staff', async () => {

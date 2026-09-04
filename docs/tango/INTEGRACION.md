@@ -1056,3 +1056,8 @@ usuarios, modal de precios especiales, `precioEfectivo`). Ahora:
 - Los documentos viejos de `listas-precios` y `historialPrecios` quedan en Firestore
   sin que nada los escriba; las reglas se dejaron para no romper tests. Se pueden borrar
   cuando se quiera.
+
+**17.2 (2026-09-03, noche):** borrados los 9 documentos de `listas-precios` en prod
+(`historialPrecios` ya estaba vacía) y eliminado el historial de precios de la app
+(página, sección en la ficha, hook, servicio, ruta y menú). Reglas: sin `match` para
+`listas-precios` ni `historialPrecios` (tests actualizados: nadie lee ni escribe ahí).

@@ -51,7 +51,6 @@ const ComercialDashboard   = lazy(() => import('./pages/comercial/ComercialDashb
 const ComercialOrders      = lazy(() => import('./pages/comercial/ComercialOrders'))
 const ReportePreciosPage   = lazy(() => import('./pages/comercial/ReportePreciosPage'))
 const ReporteVentasPage    = lazy(() => import('./pages/comercial/ReporteVentasPage'))
-const HistorialPreciosPage = lazy(() => import('./pages/comercial/HistorialPreciosPage'))
 const MapaLivePage         = lazy(() => import('./pages/comercial/MapaLivePage'))
 const HistorialPage        = lazy(() => import('./pages/shared/HistorialPage'))
 
@@ -294,11 +293,6 @@ function AppContent() {
           <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'facturacion']} />}>
             <Route path="/comercial/reporte-precios"  element={<ReportePreciosPage />} />
             <Route path="/comercial/ventas"           element={<ReporteVentasPage />} />
-          </Route>
-
-          {/* Historial de precios */}
-          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'logistica', 'facturacion']} />}>
-            <Route path="/comercial/historial-precios" element={<HistorialPreciosPage />} />
           </Route>
 
           {/* Recupero de facturas viejas — campaña puntual, se saca cuando termine */}

@@ -553,20 +553,10 @@ service cloud.firestore {
       allow write: if request.auth != null && isOperator();
     }
 
-    // ── Listas de precios ─────────────────────────────────────────────────────
-    // Lectura: cualquier usuario autenticado (el cliente necesita su lista al pedir)
-    // Escritura: operadores (super_admin/logistica) y managers (comercial/gerente_comercial)
-    match /listas-precios/{listaId} {
-      // Todo el staff ve las listas (operan y consultan precios). Un cliente
-      // solo puede leer SU propia lista —la de su perfil—, no las de otros
-      // segmentos comerciales (auditoría 2026-08-29, H11). El get() del perfil
-      // no pasa por reglas, así que no depende de los permisos de arriba.
-      allow read:  if request.auth != null && (
-        isStaff()
-        || listaId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('listaPreciosId', '')
-      );
-      allow write: if request.auth != null && (isOperator() || isManager());
-    }
+    // Las listas de precios propias de la app (listas-precios) y su historial
+    // (historialPrecios) se eliminaron el 2026-09-03: los precios vienen de
+    // Tango (preciosTango/* más abajo y users.preciosTango). Sin match, nadie
+    // puede leer ni escribir esas colecciones.
 
     // ── Catálogo de productos ─────────────────────────────────────────────────
     match /catalogo/{productoId} {
@@ -1197,13 +1187,6 @@ service cloud.firestore {
       allow get:  if true;
       allow list: if request.auth != null && isStaff();
       allow write: if request.auth != null && isProduccionEncargado();
-    }
-
-    // ── Historial de precios ──────────────────────────────────────────────────
-    match /historialPrecios/{eventoId} {
-      allow read:   if request.auth != null && (isManager() || isOperator() || isFacturacion() || isGerenteGeneral());
-      allow create: if request.auth != null && (isManager() || isOperator());
-      allow update, delete: if false;
     }
 
     // ── Rollups de pedidos ─────────────────────────────────────────────────────

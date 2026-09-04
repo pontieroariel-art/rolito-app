@@ -11,7 +11,6 @@ import { listaTangoResumen } from './listaTango'
 import { CONDICIONES_VENTA } from '../../../utils/constants'
 import { STATUS_STYLES, STATUS_LABELS, Row } from './shared'
 import { GestionarDomiciliosModal } from './GestionarDomiciliosModal'
-import { HistorialPreciosSection } from './HistorialPreciosSection'
 import { reportError } from '@/services/observability'
 
 const FRECUENCIA_LABELS: Record<string, string> = {
@@ -429,11 +428,6 @@ export function FichaClienteModal({
             </button>
           )}
         </section>
-
-        {/* Historial de precios */}
-        {user.rol === 'cliente' && (
-          <HistorialPreciosSection uid={user.uid} />
-        )}
 
         <Button variant="outline" onClick={onClose} className="w-full mt-1">Cerrar</Button>
 

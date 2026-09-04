@@ -853,38 +853,6 @@ export const MOTIVOS_INCIDENCIA = [
 ] as const
 export type MotivoIncidencia = typeof MOTIVOS_INCIDENCIA[number]
 
-// ── Historial de precios ──────────────────────────────────────────────────────
-
-export interface HistorialPrecioEvento {
-  id:                  string
-  // Cambio de lista asignada / precio custom: por cliente puntual.
-  // Edición de una lista completa (tipo 'lista_editada'): no hay un cliente
-  // puntual, así que clientId/clientName quedan sin usar y se completan
-  // listaId/listaNombre en su lugar.
-  clientId?:           string
-  clientName?:         string
-  tipo:                'lista' | 'custom' | 'lista_editada'
-  // Cambio de lista asignada a un cliente
-  listaAnteriorId?:    string | null
-  listaAnteriorNombre?: string | null
-  listaNuevaId?:       string | null
-  listaNuevaNombre?:   string | null
-  // Edición de una lista completa (afecta a todos sus clientes asignados)
-  listaId?:            string
-  listaNombre?:        string
-  // Cambio de precio custom / de un producto dentro de una lista editada
-  productoId?:         string
-  productoNombre?:     string
-  precioAnterior?:     number | null
-  precioNuevo?:        number | null
-  accion?:             'agregado' | 'modificado' | 'eliminado'
-  vigenciaHasta?:      Timestamp | null
-  // Metadata
-  fecha:               Timestamp
-  modificadoPor:       string
-  modificadoPorNombre: string
-  motivo?:             string | null
-}
 
 // ── Pedidos recurrentes ───────────────────────────────────────────────────────
 
