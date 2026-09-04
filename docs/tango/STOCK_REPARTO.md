@@ -67,8 +67,10 @@ Ejemplo: camión con 100; el cliente compra 48 y recibe 2 de cambio; suben 2 rot
   **CAMBIO** (2 × `CAMBIOHIELO10KG`). Al facturar los remitos pendientes, la mercadería sale
   con precio de lista y el cambio a $0 (el artículo CAMBIO tiene precio 0 en todas las listas).
 - **Contado:** factura ARCA solo con lo vendido (sin renglón a $0). Si hubo cambio, además un
-  **remito de cambio** de la app, firmado, con los renglones CAMBIO; en Tango entra como REM
-  **cerrado** (nunca pendiente de facturar).
+  **remito de cambio** de la app, firmado, con los renglones CAMBIO. En Tango NO entra como REM
+  (esta versión de Tango no tiene "cierre de remitos": quedaría pendiente de facturar); entra
+  solo la transferencia de stock, que lleva cliente, chofer y el número del remito de cambio en
+  la cabecera. Verificado con Ariel el 2026-09-04.
 - **Stock, en los dos casos:** el REM/FAC saca del camión las 48 reales; el renglón CAMBIO no
   mueve stock (el artículo se configura "no lleva stock"); una **transferencia camión → 99 con
   el artículo real × 2** saca las 2 buenas entregadas y deja en 99 las 2 rotas. Camión: 100 −
@@ -111,15 +113,13 @@ Datos técnicos que faltan:
   TestingRH (mismo método que remito y recibo, script `02-trazar-tango.sql`), para confirmar
   que Tango no escribe nada más que STA14/STA20/STA19/STA13 en una transferencia.
 - Depósito de ventanilla y cómo se repone.
-- Valor de `STA14.ESTADO_MOV` para un remito **cerrado** (el remito de cambio de contado no debe
-  quedar pendiente de facturar).
 
 ## 5. Orden de implementación
 
 1. **Fase A (lista):** REM y REC por SQL. Falta la puesta en producción (talonarios en Redonhielo
    y Rolito, permisos del login en esas bases, servicio como tarea programada, interruptores).
 2. **Fase A+ (antes de producción del remito):** renglones CAMBIO en el REM de cta. cte.;
-   remito de cambio (cerrado) para contado con cambios, también en la app (papel firmado).
+   remito de cambio en la app (papel firmado) para contado con cambios.
 3. **Fase B, el ciclo del camión:** writer de transferencia (uno solo sirve para CAR, DES, CBS,
    MER y AJU: cambian el tipo, el talonario, origen/destino y la cabecera). Se conecta a los
    items `transferenciaDeposito` que la app ya encola, más dos items nuevos: `cambio` (por venta
