@@ -1,6 +1,6 @@
 # Stock del reparto en Tango: diseño propuesto (2026-09-04)
 
-Estado: **propuesta para decisión de Ariel**. Contexto en `INTEGRACION.md` §20–§22 y muestras
+Estado: **circuito APROBADO por Ariel el 2026-09-04** (con el ajuste de §3b). Quedan las decisiones de §4. Contexto en `INTEGRACION.md` §20–§22 y muestras
 reales en `sql/muestras-stock-2026-09-04.json`.
 
 ## 1. De dónde partimos
@@ -58,13 +58,34 @@ Los artículos `CAMBIO*` quedan **solo como renglón informativo a $0 en la fact
 si se los configura en Tango para no mover stock. Si no se puede, se dejan de incluir: el CBS
 nuevo ya documenta el cambio por cliente.
 
+## 3b. Cómo se documenta el cambio ante el cliente (definido con Ariel, 2026-09-04)
+
+Ejemplo: camión con 100; el cliente compra 48 y recibe 2 de cambio; suben 2 rotas.
+
+- **Cuenta corriente:** UN remito (papel de la app + REM en Tango) con los renglones reales
+  (48 × `PTHIBOLROLI0010`, sin precio: Tango lo valoriza al facturar) más los renglones
+  **CAMBIO** (2 × `CAMBIOHIELO10KG`). Al facturar los remitos pendientes, la mercadería sale
+  con precio de lista y el cambio a $0 (el artículo CAMBIO tiene precio 0 en todas las listas).
+- **Contado:** factura ARCA solo con lo vendido (sin renglón a $0). Si hubo cambio, además un
+  **remito de cambio** de la app, firmado, con los renglones CAMBIO; en Tango entra como REM
+  **cerrado** (nunca pendiente de facturar).
+- **Stock, en los dos casos:** el REM/FAC saca del camión las 48 reales; el renglón CAMBIO no
+  mueve stock (el artículo se configura "no lleva stock"); una **transferencia camión → 99 con
+  el artículo real × 2** saca las 2 buenas entregadas y deja en 99 las 2 rotas. Camión: 100 −
+  48 − 2 = 50, que es lo físico. Al descargar, las rotas contadas se comparan con los cambios
+  del día: solo el exceso va camión → 99.
+
+Por qué dos movimientos: un renglón real a $0 en el remito se facturaría con precio de lista;
+un artículo CAMBIO con stock reproduce los negativos de hoy. El renglón CAMBIO resuelve papel y
+precio; la transferencia resuelve el stock. Los dos salen del mismo registro del chofer.
+
 ## 4. Lo que hay que resolver antes de codear
 
 Decisiones de negocio (Ariel):
-1. Aprobar el circuito de §3, o marcar qué paso no cierra con la operación real.
+1. ~~Aprobar el circuito de §3~~ — aprobado el 2026-09-04 con §3b.
 2. Crear el depósito **98 Diferencias de reparto** (o decidir que los faltantes van a 99).
-3. Confirmar con quien mira los informes de stock que los artículos `CAMBIO*` pueden pasar a
-   "no lleva stock", y si hace falta limpiar su stock actual (99 y los negativos de camiones).
+3. Los artículos `CAMBIO*` pasan a "no lleva stock" (obligatorio para §3b). Definir quién lo
+   configura en Tango y cómo se limpia su stock actual (99 y los negativos de camiones).
 4. Definir el **arranque**: (a) inventario físico de plantas y camiones el día del corte y un
    ajuste inicial en Tango, y de ahí en adelante todo por la app; o (b) además, reconstruir desde
    el 2026-08-20 con los datos que la app ya tiene. Recomendación: **(a)**, más simple y sin
@@ -78,16 +99,20 @@ Datos técnicos que faltan:
   TestingRH (mismo método que remito y recibo, script `02-trazar-tango.sql`), para confirmar
   que Tango no escribe nada más que STA14/STA20/STA19/STA13 en una transferencia.
 - Depósito de ventanilla y cómo se repone.
+- Valor de `STA14.ESTADO_MOV` para un remito **cerrado** (el remito de cambio de contado no debe
+  quedar pendiente de facturar).
 
 ## 5. Orden de implementación
 
 1. **Fase A (lista):** REM y REC por SQL. Falta la puesta en producción (talonarios en Redonhielo
    y Rolito, permisos del login en esas bases, servicio como tarea programada, interruptores).
-2. **Fase B, el ciclo del camión:** writer de transferencia (uno solo sirve para CAR, DES, CBS,
+2. **Fase A+ (antes de producción del remito):** renglones CAMBIO en el REM de cta. cte.;
+   remito de cambio (cerrado) para contado con cambios, también en la app (papel firmado).
+3. **Fase B, el ciclo del camión:** writer de transferencia (uno solo sirve para CAR, DES, CBS,
    MER y AJU: cambian el tipo, el talonario, origen/destino y la cabecera). Se conecta a los
    items `transferenciaDeposito` que la app ya encola, más dos items nuevos: `cambio` (por venta
    con cambios) y `ajusteLiquidacion` (por liquidación). Prueba en TestingRH con `--dry-run` y
    luego real, verificando que un camión de prueba cierre en 0.
-3. **Fase C:** producción (PDT/PRO desde `produccionPallets`) y mostrador.
-4. **Control permanente:** un informe diario en la app que compare, por camión, el stock de
+4. **Fase C:** producción (PDT/PRO desde `produccionPallets`) y mostrador.
+5. **Control permanente:** un informe diario en la app que compare, por camión, el stock de
    Tango (STA19) con lo que la app espera (0 al cierre), y avise si hay diferencia.
