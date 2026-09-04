@@ -353,21 +353,23 @@ async function leerDatosRecibo(db, r, cfg, identity) {
 }
 /**
  * Próximo valor de un id/contador de Tango, en este orden:
- *  1. SEQUENCE `SEQUENCE_<tabla>` (Delta 6: HISTORIAL_CUENTAS_CORRIENTES, COMPROBANTE_COTIZACION_SB,
- *     ASIENTO_COMPROBANTE_SB y ASIENTO_SB tienen DEFAULT NEXT VALUE FOR — consulta (j) del script 04);
- *  2. dbo.INCREMENTAL_VALUE (como hace Tango con SBA04.N_INTERNO);
- *  3. MAX+1 (último recurso; con una SEQUENCE detrás chocaría con Tango, por eso va al final).
+ *  1. Si la columna tiene DEFAULT `NEXT VALUE FOR SEQUENCE_x` (Delta 6: HISTORIAL_CUENTAS_CORRIENTES,
+ *     COMPROBANTE_COTIZACION_SB, ASIENTO_COMPROBANTE_SB y ASIENTO_SB — script 04), se pide a esa
+ *     secuencia. Si el login no tiene UPDATE sobre la secuencia el error sale tal cual (nunca se
+ *     cae a MAX+1: chocaría con Tango más adelante).
+ *  2. dbo.INCREMENTAL_VALUE (como hace Tango con SBA04.N_INTERNO).
+ *  3. MAX+1 (último recurso, solo si no hay ni secuencia ni contador).
  */
 async function siguiente(db, tabla, campo) {
-    const seqNombre = `SEQUENCE_${tabla.toUpperCase()}`;
-    const seq = await db.query(`SELECT name FROM sys.sequences WHERE name = @S`, [(0, tipos_1.varchar)('S', seqNombre, 128)]).catch(() => []);
-    if (seq.length) {
-        const v = await db.query(`SELECT NEXT VALUE FOR [${seqNombre}] AS V`);
+    const def = await db.query(`SELECT dc.definition AS D FROM sys.columns c JOIN sys.default_constraints dc ON dc.object_id = c.default_object_id WHERE c.object_id = OBJECT_ID(@T) AND c.name = @C`, [(0, tipos_1.varchar)('T', tabla, 128), (0, tipos_1.varchar)('C', campo, 128)]);
+    const seq = def[0]?.D ? /NEXT VALUE FOR \[?(?:dbo\]?\.\[?)?(\w+)\]?/i.exec(def[0].D)?.[1] : undefined;
+    if (seq) {
+        const v = await db.query(`SELECT NEXT VALUE FOR [${seq}] AS V`);
         if (v[0]?.V == null)
-            throw new Error(`la secuencia ${seqNombre} no devolvió valor`);
+            throw new Error(`la secuencia ${seq} (${tabla}.${campo}) no devolvió valor`);
         return Number(v[0].V);
     }
-    const inc = await db.query(`SELECT UltimoValor FROM dbo.INCREMENTAL_VALUE WHERE Tabla = @T AND Campo = @C`, [(0, tipos_1.varchar)('T', tabla, 50), (0, tipos_1.varchar)('C', campo, 50)]).catch(() => []);
+    const inc = await db.query(`SELECT UltimoValor FROM dbo.INCREMENTAL_VALUE WHERE Tabla = @T AND Campo = @C`, [(0, tipos_1.varchar)('T', tabla, 50), (0, tipos_1.varchar)('C', campo, 50)]);
     if (inc.length) {
         const ultimo = Number(inc[0].UltimoValor), sig = ultimo + 1;
         const upd = await db.query(`UPDATE dbo.INCREMENTAL_VALUE SET UltimoValor = @V WHERE Tabla = @T AND Campo = @C AND UltimoValor = @ANT`, [(0, tipos_1.int)('V', sig), (0, tipos_1.varchar)('T', tabla, 50), (0, tipos_1.varchar)('C', campo, 50), (0, tipos_1.int)('ANT', ultimo)]);

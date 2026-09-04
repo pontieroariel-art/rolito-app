@@ -36,3 +36,12 @@ GRANT INSERT ON ASIENTO_SB TO rolito_bridge;
 -- Contadores
 GRANT UPDATE ON dbo.INCREMENTAL_VALUE TO rolito_bridge;
 GO
+
+-- Agregado 2026-09-04: las 4 tablas sin IDENTITY toman su id de una SEQUENCE (DEFAULT NEXT VALUE FOR,
+-- script 04). Para pedir el próximo valor el login necesita UPDATE sobre cada secuencia.
+USE TestingRH;
+GRANT UPDATE ON OBJECT::dbo.SEQUENCE_HISTORIAL_CUENTAS_CORRIENTES TO rolito_bridge;
+GRANT UPDATE ON OBJECT::dbo.SEQUENCE_COMPROBANTE_COTIZACION_SB TO rolito_bridge;
+GRANT UPDATE ON OBJECT::dbo.SEQUENCE_ASIENTO_COMPROBANTE_SB TO rolito_bridge;
+GRANT UPDATE ON OBJECT::dbo.SEQUENCE_ASIENTO_SB TO rolito_bridge;
+GO

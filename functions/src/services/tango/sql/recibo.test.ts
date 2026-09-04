@@ -157,7 +157,7 @@ function fakeDb(opts: { existe?: boolean; identity?: string[]; secuencias?: stri
       if (sql.startsWith('SELECT ID_GVA12, IMPORTE, UNIDADES')) return r([{ ID_GVA12: param(params, 'N') === 'A0010100268582' ? 350532 : 360000, IMPORTE: 110700, UNIDADES: 110700, COD_CLIENT: 'FC.280' }])
       if (sql.startsWith('SELECT TOP 1 FECHA_VTO')) return r([{ FECHA_VTO: new Date(2026, 1, 4) }])
       if (sql.startsWith('SELECT ID_SBA01')) return r([{ ID_SBA01: Number(param(params, 'COD')) === 1111000 ? 1 : 223, SALDO_A_MO: -100, SALDO_A_UN: -100, SALDO_ACT: -100 }])
-      if (sql.startsWith('SELECT name FROM sys.sequences')) return r((opts.secuencias ?? []).includes(param(params, 'S') as string) ? [{ name: param(params, 'S') }] : [])
+      if (sql.startsWith('SELECT dc.definition AS D')) { const sq = `SEQUENCE_${param(params, 'T')}`; return r((opts.secuencias ?? []).includes(sq) ? [{ D: `(NEXT VALUE FOR [${sq}])` }] : []) }
       if (sql.startsWith('SELECT NEXT VALUE FOR')) { const n = sql.slice(sql.indexOf('[') + 1, sql.indexOf(']')); secuencias[n] = (secuencias[n] ?? 1000) + 1; return r([{ V: secuencias[n] }]) }
       if (sql.startsWith('SELECT UltimoValor')) { const k = `${param(params, 'T')}|${param(params, 'C')}`; return r(k in contadores ? [{ UltimoValor: contadores[k] }] : []) }
       if (sql.startsWith('UPDATE dbo.INCREMENTAL_VALUE')) { contadores[`${param(params, 'T')}|${param(params, 'C')}`] = Number(param(params, 'V')); return r([{ affected: 1 }]) }
