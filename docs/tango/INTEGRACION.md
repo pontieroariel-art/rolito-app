@@ -1114,3 +1114,59 @@ Conclusión: **hoy el recibo no se puede registrar por API.** Caminos: (a) pregu
 proyecto pendiente) — recibo GVA12 + imputaciones + tesorería, el más delicado; (c) mientras
 tanto, la app sigue siendo el registro operativo (descuento optimista en saldosTango) y la
 oficina carga los recibos en Tango con el listado de cobranzas de la app.
+
+## 20. Proyecto "remitos y recibos por SQL Server" (decisión de Ariel, 2026-09-03)
+
+Como la API no expone ni el remito R de cuenta corriente (§14: entraría como pedido) ni el
+recibo de cobranza (§19: proceso 1957 sin API), ambos entran a Tango **escribiendo en la base
+SQL Server**, como hacía Bluesoft. El día que Axoft migre esos procesos y aparezca su
+"Apertura", se cambia el writer y el resto no se toca (el outbox ya encola `remito` y
+`recibo` con todo lo necesario — §9 y §14).
+
+### Arquitectura
+- **Un servicio Node en el servidor de Tango** (donde vive SQL Server, red interna), que
+  escucha `tango-outbox` con el usuario `tango-bridge` (igual que hacía `bridge-listener.mjs`,
+  que se reutiliza como base) y para `entidad in ('remito','recibo')` escribe en SQL dentro de
+  una transacción. SQL Server nunca se expone a internet; el servicio solo tiene salida HTTPS.
+- **Firestore sigue siendo la cola**: claim atómico, reintentos por barrido, write-back a
+  `ventasCamion.tango` / `cobranzas.tango`, mismo modelo que el worker de la nube (§16). El
+  worker de la nube ignora `remito`/`recibo` (sus flags quedan apagados); el servicio SQL solo
+  toma esas dos entidades.
+- **Idempotencia**: antes de insertar, `SELECT` por la referencia (`LEYENDA`/observación
+  `ROLITO:VC:<id>` en el remito, `ROLITO:<cobranzaId>` en el recibo). Un reintento nunca
+  duplica. Numeración: se toma y se incrementa el próximo número del talonario en la misma
+  transacción (remito R: talonario 1105 pto vta 01105 con CAI; recibo: talonario de recibos
+  a definir con Ariel), respetando el número que la app ya imprimió.
+
+### Fases
+1. **Relevamiento en TestingRH** (`scripts/tango/sql/01-relevar-esquema.sql` y
+   `02-trazar-tango.sql`): con una sesión de Extended Events se captura qué INSERT/UPDATE
+   hace Tango cuando un operador carga un recibo y un remito a mano. Salida: lista exacta de
+   tablas, columnas y valores (GVA12 cabecera, renglones, imputaciones de cta. cte.,
+   movimientos de tesorería, stock del remito, talonario). Sin esto no se escribe una línea.
+2. **Writer SQL** en el bridge (`mssql` de npm, Windows auth o login dedicado de solo esas
+   tablas): `enviarRemitoSql`, `enviarReciboSql`, transacción + idempotencia + write-back.
+   Tests unitarios del armado de sentencias (mismo estilo que `factura.test.ts`).
+3. **Prueba en TestingRH**: un remito y un recibo de $1 desde la app → verificar en Tango
+   (cuenta corriente del cliente, composición de saldos por Live 17953, stock del depósito,
+   informe de tesorería). Cotejar contra los cargados a mano en la fase 1.
+4. **Producción**: apuntar el servicio a Redonhielo (remito R + recibo) y Rolito si aplica,
+   con flags `config/tango.remitosSqlEnabled` / `recibosSqlEnabled`; primera semana con
+   control diario contra Tango.
+
+### Riesgos conocidos
+- Tango puede mantener saldos/stock por triggers o por la aplicación: la traza lo dice. Si
+  es la aplicación, hay que replicar cada UPDATE (saldo del cliente, stock por depósito).
+- Recibo con cheques y retenciones: cada medio es un movimiento de tesorería distinto;
+  arrancar con efectivo y sumar medios de a uno.
+- Cambios de versión de Tango pueden mover columnas: el writer valida el esquema al
+  arrancar (columnas esperadas) y se frena con error legible si algo no coincide.
+
+### Lo que hace falta de Ariel para arrancar la fase 1
+- Nombre del servidor SQL / instancia y de las bases (TestingRH, Redonhielo, Rolito):
+  paso 0 del script 01.
+- Un acceso a SSMS en el servidor (Windows auth del usuario de RDP suele alcanzar) y, para
+  el servicio, un login SQL dedicado con permisos solo sobre las tablas que salgan de la traza.
+- Correr el script 02 mientras carga a mano UN recibo y UN remito en TestingRH y pasarme la
+  salida del bloque B.
+- Confirmar el talonario de recibos que usará la app (¿18 "RECIBO DON TORCUATO" REC X?).
