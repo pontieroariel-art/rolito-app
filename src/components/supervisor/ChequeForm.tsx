@@ -13,7 +13,28 @@ export function diasEntre(emision: string, acreditacion: string): number {
   return Math.round((a.getTime() - e.getTime()) / 86_400_000)
 }
 
-const hoyISO = () => new Date().toISOString().slice(0, 10)
+// Fecha local (no UTC: a la noche toISOString ya está en el día siguiente).
+const hoyISO = () => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+// Ley de cheques (24.452): un cheque se puede presentar al cobro hasta 30 días
+// después de su fecha de pago (vencido = el banco lo rechaza), y un diferido
+// puede tener como máximo 360 días entre emisión y pago.
+export const DIAS_PRESENTACION_CHEQUE = 30
+export const DIAS_MAX_DIFERIDO = 360
+
+/** Motivo por el que un cheque no se puede recibir, o null si está bien. */
+export function validarFechasCheque(emision: string, acreditacion: string, hoy = hoyISO()): string | null {
+  const dias = diasEntre(emision, acreditacion)
+  if (dias < 0) return 'La acreditación no puede ser anterior a la emisión.'
+  if (diasEntre(hoy, emision) > 0) return 'La fecha de emisión no puede ser posterior a hoy.'
+  if (dias > DIAS_MAX_DIFERIDO) return `Un cheque diferido no puede tener más de ${DIAS_MAX_DIFERIDO} días.`
+  const vencidoHace = diasEntre(acreditacion, hoy)
+  if (vencidoHace > DIAS_PRESENTACION_CHEQUE) return `Cheque vencido: la fecha de cobro fue hace ${vencidoHace} días y el banco solo lo acepta hasta ${DIAS_PRESENTACION_CHEQUE} días después.`
+  return null
+}
 
 // Alta de un cheque ("valores a depositar"): número, banco emisor (catálogo
 // BCRA), fecha de emisión, fecha de acreditación, días entre ambas (calculado
@@ -39,7 +60,8 @@ export default function ChequeForm({ onAgregar, onCancelar }: {
     if (!bancoCodigo)            { setError('Elegí el banco emisor.'); return }
     if (!fechaEmision)           { setError('Poné la fecha de emisión.'); return }
     if (!fechaAcreditacion)      { setError('Poné la fecha de acreditación.'); return }
-    if (dias < 0)                { setError('La acreditación no puede ser anterior a la emisión.'); return }
+    const motivo = validarFechasCheque(fechaEmision, fechaAcreditacion)
+    if (motivo)                  { setError(motivo); return }
     if (importe <= 0)            { setError('Poné el importe del cheque.'); return }
     onAgregar({
       numero:            numero.trim(),
