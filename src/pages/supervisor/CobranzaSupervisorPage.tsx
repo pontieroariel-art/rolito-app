@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Banknote, CheckCircle2, FileDown, Landmark, Plus, ReceiptText, RefreshCw, Trash2 } from 'lucide-react'
+import { Banknote, CheckCircle2, FileDown, Landmark, Plus, ReceiptText, RefreshCw, Share2, Trash2 } from 'lucide-react'
 import SupervisorHeader from '@/components/supervisor/SupervisorHeader'
 import ChequeForm from '@/components/supervisor/ChequeForm'
 import RetencionForm, { RETENCION_LABELS } from '@/components/supervisor/RetencionForm'
@@ -16,7 +16,8 @@ import { crearCobranzaSupervisor } from '@/services/cobranzaService'
 import {
   asegurarReserva, codigoRecibo, consumirNumero, precargarSiSeAcerca,
 } from '@/services/reciboSupervisorService'
-import { generateReciboCobranzaSupervisor } from '@/utils/pdf'
+import { generateReciboCobranzaSupervisor, nombreArchivoReciboSupervisor } from '@/utils/pdf'
+import { compartirArchivo, puedeCompartirArchivos } from '@/utils/compartir'
 import { aCentavos, formatoARS, parseImporte, sumaCentavos } from '@/utils/money'
 import { haceCuanto } from './SupervisorClientesPage'
 import { ChequeRecibido, Cobranza, ComprobanteSaldoTango, ImputacionFactura, RetencionRecibida } from '@/types'
@@ -49,6 +50,7 @@ export default function CobranzaSupervisorPage() {
   const [retenciones, setRetenciones] = useState<RetencionRecibida[]>([])
   const [modal, setModal] = useState<'cheque' | 'retencion' | 'confirmar' | null>(null)
   const [exito, setExito] = useState<Cobranza | null>(null)
+  const [avisoRecibo, setAvisoRecibo] = useState('')
   const [error, setError] = useState('')
   const [numeracionActiva, setNumeracionActiva] = useState(false)
 
@@ -164,9 +166,13 @@ export default function CobranzaSupervisorPage() {
     }
   }
 
-  const descargarRecibo = (c: Cobranza) => {
+  // El recibo se puede descargar o compartir (WhatsApp, mail, lo que tenga el
+  // celular) sin pasar por la descarga — pedido de Ariel 2026-09-05, igual que
+  // los comprobantes del chofer en Mis ventas.
+  const entregarRecibo = async (c: Cobranza, compartir: boolean) => {
     if (!c.imputaciones || !c.medios) return
-    generateReciboCobranzaSupervisor({
+    setAvisoRecibo('')
+    const datos = {
       numeroRecibo:  c.numeroRecibo,
       clienteNombre: c.clienteNombre,
       empresa:       c.empresa ?? 'redonhielo',
@@ -175,7 +181,12 @@ export default function CobranzaSupervisorPage() {
       medios:        c.medios,
       registradoPor: c.registradoPor.nombre,
       fecha:         c.fecha.toDate(),
-    })
+    }
+    if (!compartir) { await generateReciboCobranzaSupervisor(datos); return }
+    const blob = (await generateReciboCobranzaSupervisor(datos, { descargar: false })) as Blob
+    const titulo = `Recibo ${c.numeroRecibo ?? 'de cobranza'}`
+    const r = await compartirArchivo(blob, nombreArchivoReciboSupervisor(datos), { titulo, texto: `${titulo} — ${c.clienteNombre} — ${formatoARS(c.importe)}` })
+    if (r === 'descargado') setAvisoRecibo('Este dispositivo no puede compartir archivos: se descargó el PDF.')
   }
 
   if (loadingClientes) return <LoadingSpinner fullScreen />
@@ -192,9 +203,13 @@ export default function CobranzaSupervisorPage() {
             <p className="text-xs text-gray-500 mt-2">Queda encolada para impactar en la cuenta corriente de Tango.</p>
           </div>
           <div className="flex flex-col gap-2 pt-2">
-            <Button onClick={() => descargarRecibo(exito)} className="w-full">
+            <Button onClick={() => entregarRecibo(exito, true)} className="w-full">
+              <Share2 size={16} className="mr-2" /> {puedeCompartirArchivos() ? 'Enviar recibo (WhatsApp, mail…)' : 'Enviar recibo'}
+            </Button>
+            <Button variant="outline" onClick={() => entregarRecibo(exito, false)} className="w-full">
               <FileDown size={16} className="mr-2" /> Descargar recibo PDF
             </Button>
+            {avisoRecibo && <p className="text-xs text-gray-500">{avisoRecibo}</p>}
             <Button variant="outline" onClick={() => setExito(null)} className="w-full">Registrar otra cobranza</Button>
             <Link to="/supervisor" className="text-sm text-gray-500 hover:text-accent">Volver al inicio</Link>
           </div>

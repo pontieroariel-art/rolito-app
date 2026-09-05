@@ -1182,7 +1182,7 @@ export async function generateReciboCobranzaSupervisor(cobranza: {
   }
   registradoPor: string
   fecha:         Date
-}) {
+}, opts: { descargar?: boolean } = {}): Promise<Blob | void> {
   const { default: jsPDF }     = await import('jspdf')
   const { default: autoTable } = await import('jspdf-autotable')
   const doc   = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
@@ -1283,5 +1283,12 @@ export async function generateReciboCobranzaSupervisor(cobranza: {
   doc.setTextColor(100)
   doc.text(`Firma y aclaración — Supervisor: ${cobranza.registradoPor}`, pageW - 88, y + 4)
 
-  doc.save(`recibo-${cobranza.numeroRecibo ?? `cobranza-${cobranza.fecha.getTime()}`}.pdf`)
+  const archivo = nombreArchivoReciboSupervisor(cobranza)
+  if (opts.descargar === false) return doc.output('blob')
+  doc.save(archivo)
+}
+
+/** Nombre del PDF del recibo de supervisor: 'recibo-RS-000123.pdf' (o por fecha si no tiene número). */
+export function nombreArchivoReciboSupervisor(c: { numeroRecibo?: string; fecha: Date }): string {
+  return `recibo-${c.numeroRecibo ?? `cobranza-${c.fecha.getTime()}`}.pdf`
 }
