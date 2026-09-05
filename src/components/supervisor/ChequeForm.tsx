@@ -38,6 +38,8 @@ export function validarFechasCheque(emision: string, acreditacion: string, hoy =
 
 // Alta de un cheque ("valores a depositar"): número, banco emisor (catálogo
 // BCRA), fecha de emisión, fecha de acreditación, días entre ambas (calculado
+// en vivo) e importe. Sin e-cheq: los supervisores no los reciben (Ariel, 2026-09-05);
+// el tipo y el writer de Tango lo siguen soportando por si vuelve.
 // en vivo) e importe. Devuelve el cheque armado por onAgregar.
 export default function ChequeForm({ onAgregar, onCancelar }: {
   onAgregar:  (cheque: ChequeRecibido) => void
@@ -48,7 +50,6 @@ export default function ChequeForm({ onAgregar, onCancelar }: {
   const [fechaEmision, setFechaEmision] = useState(hoyISO())
   const [fechaAcreditacion, setFechaAcreditacion] = useState(hoyISO())
   const [importeStr, setImporteStr] = useState('')
-  const [esEcheq, setEsEcheq] = useState(false)
   const [error, setError] = useState('')
 
   const dias = useMemo(() => diasEntre(fechaEmision, fechaAcreditacion), [fechaEmision, fechaAcreditacion])
@@ -71,7 +72,6 @@ export default function ChequeForm({ onAgregar, onCancelar }: {
       fechaAcreditacion,
       dias,
       importe,
-      ...(esEcheq ? { esEcheq: true } : {}),
     })
   }
 
@@ -115,11 +115,6 @@ export default function ChequeForm({ onAgregar, onCancelar }: {
         </p>
         {importe > 0 && <p className="text-sm font-semibold text-gray-900">{formatoARS(importe)}</p>}
       </div>
-
-      <label className="flex items-center gap-2 text-sm text-gray-700">
-        <input type="checkbox" checked={esEcheq} onChange={(e) => setEsEcheq(e.target.checked)} className="accent-[#1D9E75]" />
-        Es e-cheq
-      </label>
 
       {error && (
         <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
