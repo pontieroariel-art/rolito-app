@@ -190,10 +190,12 @@ const HANDLERS = {
         talonario: sqlCfg.talonario, puntoVenta: sqlCfg.puntoVenta, codVendedor: sqlCfg.codVendedor ?? 'AD',
         concepto: sqlCfg.concepto ?? 'COBRANZAS POR VENTAS', cuentas: sqlCfg.cuentas, cuentasContables: sqlCfg.cuentasContables,
         idSba02Recibo: sqlCfg.idSba02Recibo, usuario: sqlCfg.usuario ?? 'ROLITO', terminal: sqlCfg.terminal ?? 'APP',
+        // Cheques de terceros: cuentas.cheques / cuentas.echeq (cartera) + cheques {nroSucursal, tablaBancos, columnaCodigoBanco, bancos}
+        cheques: sqlCfg.cheques,
       }
       const recibo = reciboDeCobranza(data.payload ?? {}, data.origenId ?? docId, rcfg)
       const r = await enTransaccion(baseDe(empresa), (db) => escribirRecibo(db, recibo, rcfg, (m) => log('    ' + m)))
-      return { reciboNumero: r.nComp, idGva12: r.idGva12, nInternoSba04: r.nInternoSba04, yaExistia: r.yaExistia, via: 'sql' }
+      return { reciboNumero: r.nComp, idGva12: r.idGva12, nInternoSba04: r.nInternoSba04, yaExistia: r.yaExistia, via: 'sql', ...(r.cheques ? { cheques: r.cheques } : {}) }
     },
   },
 }

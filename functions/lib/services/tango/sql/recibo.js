@@ -29,8 +29,15 @@
 // reserva (INCREMENTAL_VALUE o MAX+1) antes de armar las sentencias — ver `IdsRecibo`.
 // Se decide con la consulta (a) de §21.3.
 //
-// Alcance v1: medios efectivo y transferencia (cuentas de tesorería por config).
-// Cheques y retenciones → error explícito hasta relevar sus tablas (SBA20/valores).
+// Cheques de terceros (relevado el 2026-09-05, docs/tango/sql/traza-recibo-cheque-2026-09-05.txt):
+//   el cheque es un medio más: un renglón SBA05 'D' sobre la cuenta de cartera (VALORES A
+//   DEPOSITAR 1112000; e-cheq 1112002) con la SUMA de los cheques de esa cuenta, y por cada
+//   cheque: INSERT SBA14 (el cheque en cartera: ESTADO 'C', TIPO_CHEQU 'D'/'C', fechas, banco,
+//   CUIT y razón social del librador — triggers completan ID_GVA14/ID_CPA01), INSERT SBA23
+//   (historial del cheque, estado 'C') e INSERT MOVIMIENTO_CHEQUE_TERCERO (ID_SBA14 ↔ ID_SBA05
+//   del renglón de cartera, 'INGR'). El asiento lleva la cuenta contable de la cartera (602).
+//   SBA90 (grilla temporal de la pantalla) no se replica. SBA14.N_INTERNO sale de `siguiente()`.
+// Retenciones → error explícito hasta relevarlas (TestingRH no tiene códigos de retención cargados).
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.reciboDeCobranza = reciboDeCobranza;
 exports.sentenciaExisteRecibo = sentenciaExisteRecibo;
@@ -58,8 +65,14 @@ function reciboDeCobranza(p, cobranzaId, cfg) {
             throw new Error('cobranza por transferencia sin cuenta de tesorería configurada (config/tango.sql.recibo.cuentas.transferencia)');
         medios.push({ cuenta: cfg.cuentas.transferencia, importe: r2(Number(m.transferencia)) });
     }
-    if ((m.cheques?.length ?? 0) > 0 || (m.retenciones?.length ?? 0) > 0)
-        throw new Error('cheques y retenciones todavía no se escriben en Tango por SQL (pendiente de relevar)');
+    if ((m.retenciones?.length ?? 0) > 0)
+        throw new Error('las retenciones todavía no se escriben en Tango por SQL (pendiente de relevar)');
+    // Cheques: uno o más por cuenta de cartera (papel / e-cheq). El renglón de tesorería de
+    // cada cartera lleva la SUMA; cada cheque va aparte a SBA14 (ver chequeDePayload).
+    const cheques = (m.cheques ?? []).map((c, i) => chequeDePayload(c, i, cfg));
+    for (const cuenta of [...new Set(cheques.map((c) => c.cuenta))]) {
+        medios.push({ cuenta, importe: r2(cheques.filter((c) => c.cuenta === cuenta).reduce((s, c) => s + c.importe, 0)) });
+    }
     const importe = r2(Number(p.importe ?? 0));
     const sumImp = r2(imputaciones.reduce((s, i) => s + i.importe, 0));
     const sumMed = r2(medios.reduce((s, x) => s + x.importe, 0));
@@ -68,9 +81,37 @@ function reciboDeCobranza(p, cobranzaId, cfg) {
     return {
         numero, puntoVenta: cfg.puntoVenta,
         nComp: (0, tipos_1.numeroComprobanteTango)('X', cfg.puntoVenta, numero),
-        codCliente: p.clienteCodigoTango, fecha: fechaDe(p.fecha), importe, imputaciones, medios,
+        codCliente: p.clienteCodigoTango, fecha: fechaDe(p.fecha), importe, imputaciones, medios, cheques,
         leyenda: p.referenciaIdempotente ?? `ROLITO:${cobranzaId}`,
     };
+}
+function chequeDePayload(c, i, cfg) {
+    const numero = Number(String(c.numero ?? '').replace(/\D/g, ''));
+    if (!numero)
+        throw new Error(`cheque ${i + 1}: número inválido "${c.numero}"`);
+    const importe = r2(Number(c.importe ?? 0));
+    if (!(importe > 0))
+        throw new Error(`cheque ${numero}: importe inválido`);
+    const bancoCodigo = String(c.bancoCodigo ?? '').trim();
+    if (!bancoCodigo)
+        throw new Error(`cheque ${numero}: sin código de banco`);
+    const fechaEmision = fechaDeIso(c.fechaEmision);
+    const fechaCobro = c.fechaAcreditacion ? fechaDeIso(c.fechaAcreditacion) : fechaEmision;
+    if (!fechaEmision || !fechaCobro)
+        throw new Error(`cheque ${numero}: fechas inválidas (${c.fechaEmision} / ${c.fechaAcreditacion})`);
+    const dias = c.dias != null ? Number(c.dias) : Math.round((fechaCobro.getTime() - fechaEmision.getTime()) / 86400000);
+    const esEcheq = c.esEcheq === true;
+    const cuenta = esEcheq ? cfg.cuentas.echeq : cfg.cuentas.cheques;
+    if (!cuenta)
+        throw new Error(`cobranza con ${esEcheq ? 'e-cheq' : 'cheque'} sin cuenta de cartera configurada (config/tango.sql.recibo.cuentas.${esEcheq ? 'echeq' : 'cheques'})`);
+    return { numero, bancoCodigo, fechaEmision, fechaCobro, dias: Math.max(0, dias), importe, cuenta, esEcheq };
+}
+/** 'yyyy-MM-dd' → Date local a las 00:00 (como guarda Tango F_EMISION / FECHA_CHEQ). */
+function fechaDeIso(s) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s ?? ''));
+    if (!m)
+        return null;
+    return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
 }
 function fechaDe(f) {
     if (f instanceof Date)
@@ -268,6 +309,55 @@ function sentenciasRecibo(r, d, cfg, ahora = new Date()) {
         (0, tipos_1.int)('ID_MONEDA', 2), (0, tipos_1.int)('ID_TIPO_COTIZACION', 1), (0, tipos_1.numeric)('COTIZACION', 1, 17, 7),
         (0, tipos_1.int)('ID_SBA02', cfg.idSba02Recibo), (0, tipos_1.varchar)('N_COMP', r.nComp, 14), (0, tipos_1.smallint)('BARRA', 0),
     ]));
+    // 7b. Cheques de terceros: SBA14 (cartera) + SBA23 (historial) + vínculo con el renglón de
+    //     tesorería de su cuenta (MOVIMIENTO_CHEQUE_TERCERO, resuelto al ejecutar). Traza del 2026-09-05.
+    r.cheques.forEach((ch, i) => {
+        const dc = d.cheques?.[i];
+        if (!dc)
+            throw new Error(`falta leer los datos del cheque ${ch.numero} (nº interno / banco)`);
+        const cuit = (d.cliente.cuit ?? '').slice(0, 13);
+        const razon = (d.cliente.razonSocial ?? '').slice(0, 60);
+        out.push(marcarIdSba14((0, tipos_1.insert)(`INSERT SBA14 cheque ${ch.numero}`, 'SBA14', [
+            (0, tipos_1.smallint)('BARRA_REC', 0), (0, tipos_1.smallint)('BARRA_RECH', 0), (0, tipos_1.smallint)('BARRA_SAL', 0),
+            (0, tipos_1.varchar)('CLIENTE', r.codCliente, 6),
+            (0, tipos_1.float)('CTA_CARTER', ch.cuenta), (0, tipos_1.float)('CTA_DESTIN', 0), (0, tipos_1.float)('CTA_RECEP', ch.cuenta),
+            (0, tipos_1.varchar)('CUENTA_TIP', 'C', 1),
+            (0, tipos_1.smallint)('DIAS', ch.dias),
+            (0, tipos_1.varchar)('ESTADO', 'C', 1), // C = en cartera
+            (0, tipos_1.datetime)('F_EMISION', (0, tipos_1.soloDia)(ch.fechaEmision)),
+            (0, tipos_1.datetime)('FECHA_CHEQ', (0, tipos_1.soloDia)(ch.fechaCobro)),
+            (0, tipos_1.datetime)('FECHA_REC', fecha),
+            (0, tipos_1.datetime)('FECHA_RECH', tipos_1.FECHA_NULA_TANGO), (0, tipos_1.datetime)('FECHA_SAL', tipos_1.FECHA_NULA_TANGO),
+            (0, tipos_1.numeric)('IMPORTE_CH', ch.importe),
+            (0, tipos_1.float)('N_CHEQUE', ch.numero),
+            (0, tipos_1.varchar)('N_COMP_REC', r.nComp, 14), (0, tipos_1.varchar)('N_COMP_RCH', '', 1), (0, tipos_1.varchar)('N_COMP_SAL', '', 1),
+            (0, tipos_1.varchar)('N_CUIT', cuit, 13),
+            (0, tipos_1.float)('N_INTERNO', dc.nInterno),
+            (0, tipos_1.varchar)('REGISTRADO', 'N', 1),
+            (0, tipos_1.varchar)('T_COMP_REC', 'REC', 3), (0, tipos_1.varchar)('T_COMP_RCH', '', 1), (0, tipos_1.varchar)('T_COMP_SAL', '', 1),
+            (0, tipos_1.varchar)('TIPO_CHEQU', ch.dias > 0 ? 'D' : 'C', 1), // D = diferido, C = común
+            (0, tipos_1.varchar)('TIPO_SAL', '', 1),
+            (0, tipos_1.smallint)('ULT_BARRA', 0), (0, tipos_1.varchar)('ULT_N_COMP', r.nComp, 14), (0, tipos_1.varchar)('ULT_T_COMP', 'REC', 3),
+            (0, tipos_1.bit)('EXPORTADO', false),
+            (0, tipos_1.smallint)('NRO_SUCURS', d.nroSucursalCheques ?? 0),
+            (0, tipos_1.float)('N_INT_ORI', dc.nInterno),
+            (0, tipos_1.int)('ID_BANCO', dc.idBanco),
+            (0, tipos_1.int)('ID_SBA02_REC', cfg.idSba02Recibo), (0, tipos_1.int)('ID_SBA02_ULT', cfg.idSba02Recibo),
+            (0, tipos_1.bit)('CONCILIADO_SAL', false), (0, tipos_1.varchar)('COMENTARIO_SAL', '', 1),
+            (0, tipos_1.bit)('CONCILIADO_RECH', false), (0, tipos_1.varchar)('COMENTARIO_RECH', '', 1),
+            (0, tipos_1.varchar)('COD_GVA14', r.codCliente, 6),
+            (0, tipos_1.varchar)('RAZON_EMIS', razon, 60),
+        ], true), i));
+        out.push((0, tipos_1.insert)(`INSERT SBA23 cheque ${ch.numero}`, 'SBA23', [
+            (0, tipos_1.smallint)('BARRA', 0), (0, tipos_1.varchar)('CLIENTE', r.codCliente, 6), (0, tipos_1.varchar)('ESTADO', 'C', 1),
+            (0, tipos_1.datetime)('FECHA_MOV', fecha), (0, tipos_1.varchar)('HORA_MOV', hora.slice(0, 4), 4),
+            (0, tipos_1.varchar)('N_COMP', r.nComp, 14), (0, tipos_1.float)('N_INTERNO', dc.nInterno), (0, tipos_1.varchar)('T_COMP', 'REC', 3),
+            (0, tipos_1.varchar)('USUARIO', usr, 10),
+        ], true));
+        out.push(marcarVinculoCheque((0, tipos_1.insert)(`INSERT MOVIMIENTO_CHEQUE_TERCERO cheque ${ch.numero}`, 'MOVIMIENTO_CHEQUE_TERCERO', [
+            (0, tipos_1.int)('ID_SBA14', -1), (0, tipos_1.int)('ID_SBA05', -1), (0, tipos_1.varchar)('TIPO_MOVIMIENTO', 'INGR', 4),
+        ], true), i, ch.cuenta));
+    });
     // 8. Saldos de las cuentas: 'D' suma, 'H' resta (así se movieron en la traza).
     for (const ren of renglones) {
         const c = d.cuentas[String(ren.cuenta)];
@@ -309,6 +399,8 @@ function sentenciasRecibo(r, d, cfg, ahora = new Date()) {
 }
 const marcarIdRecibo = (s) => ({ ...s, necesitaIdRecibo: true });
 const marcarIdAsiento = (s, si) => (si ? { ...s, necesitaIdAsiento: true } : s);
+const marcarIdSba14 = (s, chequeIdx) => ({ ...s, chequeIdx });
+const marcarVinculoCheque = (s, vinculaCheque, cuentaCartera) => ({ ...s, vinculaCheque, cuentaCartera });
 /** Lee de Tango lo que hace falta. Consultas marcadas (*) = hipótesis a confirmar (§21.3). */
 async function leerDatosRecibo(db, r, cfg, identity) {
     const cli = await db.query(`SELECT ID_GVA14, SALDO_CC, SALDO_DOC, SALDO_D_UN, SALDO_CC_U FROM GVA14 WHERE COD_GVA14 = @COD`, [(0, tipos_1.varchar)('COD', r.codCliente, 6)]);
@@ -340,6 +432,42 @@ async function leerDatosRecibo(db, r, cfg, identity) {
         cuentas[String(cod)] = { idSba01: q[0].ID_SBA01, saldoAMo: Number(q[0].SALDO_A_MO), saldoAUn: Number(q[0].SALDO_A_UN), saldoAct: Number(q[0].SALDO_ACT) };
     }
     const nInternoSba04 = await siguiente(db, 'SBA04', 'N_INTERNO');
+    // Cheques: CUIT y razón social del cliente (el librador, como lo precarga la pantalla),
+    // ID_BANCO por código BCRA, sucursal y nº interno de cada cheque.
+    let cliCheques = {};
+    let cheques;
+    let nroSucursalCheques;
+    if (r.cheques.length) {
+        for (const t of ['SBA14', 'SBA23', 'MOVIMIENTO_CHEQUE_TERCERO']) {
+            if (!identity.has(t))
+                throw new Error(`${t} no tiene columna IDENTITY: hay que relevar cómo asigna Tango su id antes de escribir cheques`);
+        }
+        try {
+            const q = await db.query(`SELECT CUIT, RAZON_SOCI FROM GVA14 WHERE COD_GVA14 = @COD`, [(0, tipos_1.varchar)('COD', r.codCliente, 6)]);
+            cliCheques = { cuit: (q[0]?.CUIT ?? '').trim(), razonSocial: (q[0]?.RAZON_SOCI ?? '').trim() };
+        }
+        catch {
+            cliCheques = {};
+        }
+        nroSucursalCheques = cfg.cheques?.nroSucursal;
+        if (nroSucursalCheques == null) {
+            const s = await db.query(`SELECT TOP 1 NRO_SUCURS AS N FROM SBA14 ORDER BY ID_SBA14 DESC`);
+            nroSucursalCheques = Number(s[0]?.N ?? 0) || 0;
+        }
+        const tabla = cfg.cheques?.tablaBancos ?? 'BANCO';
+        const col = cfg.cheques?.columnaCodigoBanco ?? 'COD_BANCO';
+        cheques = [];
+        for (const ch of r.cheques) {
+            let idBanco = cfg.cheques?.bancos?.[ch.bancoCodigo];
+            if (idBanco == null) {
+                const b = await db.query(`SELECT ID_BANCO FROM ${tabla} WHERE ${col} = @COD`, [(0, tipos_1.varchar)('COD', ch.bancoCodigo, 10)]);
+                if (!b.length)
+                    throw new Error(`el banco ${ch.bancoCodigo} del cheque ${ch.numero} no existe en Tango (${tabla}.${col}); cargarlo o mapearlo en config/tango.sql.recibo.cheques.bancos`);
+                idBanco = Number(b[0].ID_BANCO);
+            }
+            cheques.push({ nInterno: await siguiente(db, 'SBA14', 'N_INTERNO'), idBanco });
+        }
+    }
     const ids = {
         historial: await Promise.all(r.imputaciones.map(() => identity.has('HISTORIAL_CUENTAS_CORRIENTES') ? null : siguiente(db, 'HISTORIAL_CUENTAS_CORRIENTES', 'ID_HISTORIAL_CUENTAS_CORRIENTES'))),
         cotizacion: identity.has('COMPROBANTE_COTIZACION_SB') ? null : await siguiente(db, 'COMPROBANTE_COTIZACION_SB', 'ID_COMPROBANTE_COTIZACION_SB'),
@@ -349,7 +477,10 @@ async function leerDatosRecibo(db, r, cfg, identity) {
     const nRenglones = 1 + r.medios.length;
     for (let i = 0; i < nRenglones; i++)
         ids.asientoRenglones.push(identity.has('ASIENTO_SB') ? null : await siguiente(db, 'ASIENTO_SB', 'ID_ASIENTO_SB'));
-    return { cliente: { idGva14: c.ID_GVA14, saldoCc: Number(c.SALDO_CC), saldoDoc: Number(c.SALDO_DOC), saldoDUn: Number(c.SALDO_D_UN), saldoCcU: Number(c.SALDO_CC_U) }, facturas, cuentas, nInternoSba04, ids };
+    return {
+        cliente: { idGva14: c.ID_GVA14, saldoCc: Number(c.SALDO_CC), saldoDoc: Number(c.SALDO_DOC), saldoDUn: Number(c.SALDO_D_UN), saldoCcU: Number(c.SALDO_CC_U), ...cliCheques },
+        facturas, cuentas, nInternoSba04, ids, cheques, nroSucursalCheques,
+    };
 }
 /**
  * Próximo valor de un id/contador de Tango, en este orden:
@@ -388,7 +519,7 @@ async function siguiente(db, tabla, campo) {
 }
 /** Columnas IDENTITY de las tablas del recibo (consulta (a) §21.3), para no mandar ids explícitos donde SQL Server los asigna. */
 async function tablasConIdentity(db) {
-    const rows = await db.query(`SELECT OBJECT_NAME(object_id) AS tabla FROM sys.identity_columns WHERE OBJECT_NAME(object_id) IN ('GVA12','GVA07','HISTORIAL_CUENTAS_CORRIENTES','SBA04','SBA05','COMPROBANTE_COTIZACION_SB','ASIENTO_COMPROBANTE_SB','ASIENTO_SB')`);
+    const rows = await db.query(`SELECT OBJECT_NAME(object_id) AS tabla FROM sys.identity_columns WHERE OBJECT_NAME(object_id) IN ('GVA12','GVA07','HISTORIAL_CUENTAS_CORRIENTES','SBA04','SBA05','COMPROBANTE_COTIZACION_SB','ASIENTO_COMPROBANTE_SB','ASIENTO_SB','SBA14','SBA23','MOVIMIENTO_CHEQUE_TERCERO')`);
     return new Set(rows.map((x) => x.tabla.toUpperCase()));
 }
 async function escribirRecibo(db, r, cfg, log = () => undefined) {
@@ -402,25 +533,42 @@ async function escribirRecibo(db, r, cfg, log = () => undefined) {
     const datos = await leerDatosRecibo(db, r, cfg, identity);
     let idGva12 = null;
     let idAsiento = datos.ids.asientoComprobante;
+    const idSba05PorCuenta = new Map(); // renglón 'D' de cada cuenta de cartera
+    const idSba14PorCheque = new Map(); // índice del cheque → ID_SBA14
     for (const s of sentenciasRecibo(r, datos, cfg)) {
         const params = s.params.map((p) => {
             if (s.necesitaIdRecibo && p.nombre === 'ID_GVA12_CAN')
                 return { ...p, valor: idGva12 };
             if (s.necesitaIdAsiento && p.nombre === 'ID_ASIENTO_COMPROBANTE_SB')
                 return { ...p, valor: idAsiento };
+            if (s.vinculaCheque != null && p.nombre === 'ID_SBA14')
+                return { ...p, valor: idSba14PorCheque.get(s.vinculaCheque) ?? null };
+            if (s.cuentaCartera != null && p.nombre === 'ID_SBA05')
+                return { ...p, valor: idSba05PorCuenta.get(s.cuentaCartera) ?? null };
             return p;
         });
         if (s.necesitaIdRecibo && idGva12 == null)
             throw new Error('no se obtuvo el ID_GVA12 del recibo');
+        if (s.vinculaCheque != null && (params.find((p) => p.nombre === 'ID_SBA14')?.valor == null || params.find((p) => p.nombre === 'ID_SBA05')?.valor == null)) {
+            throw new Error(`${s.etiqueta}: no se obtuvo el ID_SBA14 del cheque o el ID_SBA05 del renglón de cartera ${s.cuentaCartera}`);
+        }
         const filas = await db.query(s.sql, params);
         log(s.etiqueta);
         if (s.etiqueta === 'INSERT GVA12' && filas[0]?.ID != null)
             idGva12 = Number(filas[0].ID);
         if (s.etiqueta === 'INSERT ASIENTO_COMPROBANTE_SB' && idAsiento == null && filas[0]?.ID != null)
             idAsiento = Number(filas[0].ID);
+        const renglonD = /^INSERT SBA05 (\d+) D$/.exec(s.etiqueta);
+        if (renglonD && filas[0]?.ID != null)
+            idSba05PorCuenta.set(Number(renglonD[1]), Number(filas[0].ID));
+        if (s.chequeIdx != null && filas[0]?.ID != null)
+            idSba14PorCheque.set(s.chequeIdx, Number(filas[0].ID));
         if (s.etiqueta.startsWith('UPDATE') && filas[0]?.affected === 0)
             throw new Error(`${s.etiqueta}: el saldo cambió mientras se grababa el recibo; se reintenta`);
     }
-    return { yaExistia: false, idGva12, nComp: r.nComp, nInternoSba04: datos.nInternoSba04 };
+    const res = { yaExistia: false, idGva12, nComp: r.nComp, nInternoSba04: datos.nInternoSba04 };
+    if (r.cheques.length)
+        res.cheques = r.cheques.map((c, i) => ({ numero: c.numero, idSba14: idSba14PorCheque.get(i) ?? null, nInterno: datos.cheques?.[i]?.nInterno ?? null }));
+    return res;
 }
 //# sourceMappingURL=recibo.js.map
