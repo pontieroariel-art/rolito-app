@@ -50,6 +50,10 @@ GRANT UPDATE ON SBA01 TO rolito_bridge;
 GRANT INSERT ON COMPROBANTE_COTIZACION_SB TO rolito_bridge;
 GRANT INSERT ON ASIENTO_COMPROBANTE_SB TO rolito_bridge;
 GRANT INSERT ON ASIENTO_SB TO rolito_bridge;
+-- Cheques de terceros en el recibo (relevado 2026-09-05): cartera, historial y vínculo con tesorería
+GRANT INSERT ON SBA14 TO rolito_bridge;
+GRANT INSERT ON SBA23 TO rolito_bridge;
+GRANT INSERT ON MOVIMIENTO_CHEQUE_TERCERO TO rolito_bridge;
 -- Contadores y secuencias (Delta 6: ids por SEQUENCE, script 04)
 GRANT UPDATE ON dbo.INCREMENTAL_VALUE TO rolito_bridge;
 GRANT UPDATE ON OBJECT::dbo.SEQUENCE_HISTORIAL_CUENTAS_CORRIENTES TO rolito_bridge;
@@ -82,6 +86,10 @@ GRANT UPDATE ON SBA01 TO rolito_bridge;
 GRANT INSERT ON COMPROBANTE_COTIZACION_SB TO rolito_bridge;
 GRANT INSERT ON ASIENTO_COMPROBANTE_SB TO rolito_bridge;
 GRANT INSERT ON ASIENTO_SB TO rolito_bridge;
+-- Cheques de terceros en el recibo (relevado 2026-09-05): cartera, historial y vínculo con tesorería
+GRANT INSERT ON SBA14 TO rolito_bridge;
+GRANT INSERT ON SBA23 TO rolito_bridge;
+GRANT INSERT ON MOVIMIENTO_CHEQUE_TERCERO TO rolito_bridge;
 GRANT UPDATE ON dbo.INCREMENTAL_VALUE TO rolito_bridge;
 GRANT UPDATE ON OBJECT::dbo.SEQUENCE_HISTORIAL_CUENTAS_CORRIENTES TO rolito_bridge;
 GRANT UPDATE ON OBJECT::dbo.SEQUENCE_COMPROBANTE_COTIZACION_SB TO rolito_bridge;

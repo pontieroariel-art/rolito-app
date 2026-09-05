@@ -1318,7 +1318,8 @@ al repo incluido el fix de fechas), nada instalado todavía en RHIELOTG.
 | Venta promo (Rolito) | Factura manual A/B | Facturador, Tango Connect (ya en prod) |
 | Venta camión/ventanilla **cta cte** (Redonhielo) | **Remito R 01105 / 01107** | `bridge-sql` (esta fase) |
 | Cobranza de **supervisor** (efectivo/transferencia con imputación) | **Recibo X 01106 / 01108** | `bridge-sql` (esta fase) |
-| Cobranza de supervisor con **cheques o retenciones** | queda en `error` en la cola | pendiente de relevar (§21.2) — la carga la oficina |
+| Cobranza de supervisor con **cheques** | **Recibo X + cheque en cartera** (SBA14/SBA23, VALORES A DEPOSITAR 1112000) | `bridge-sql` — en prod desde el 2026-09-05 17:00 (primer real: X 01106-00000041, cheque 87654321) |
+| Cobranza de supervisor con **retenciones** | queda en `error` en la cola | TestingRH no tiene códigos de retención cargados (F7 vacío): preguntar a la oficina cómo las registra |
 | Cobranza del **chofer en la calle** y de **caja/mostrador** | **no viaja** | `onCobranzaCreada` solo encola `origen:'supervisor'`; el writer exige imputaciones (no hay "recibo a cuenta"). Mejora siguiente: trazar un recibo a cuenta en TestingRH y extender el writer |
 | Remito de carga / descarga | no viaja | fase B (transferencias, STOCK_REPARTO.md) |
 
@@ -1346,6 +1347,24 @@ contraseña larga en Bitwarden, permisos en las dos bases), servicio actualizado
 depósito 21, pendiente de facturar) y write-back en `ventasCamion.tango`. Después se prendieron
 `remitosSqlEnabled` y `recibosSqlEnabled`. Nota para contaduría: los R 01105 nº 1 a 40 fueron
 pruebas borradas → registrarlos como anulados (talonario con CAI).
+
+**Cheques de terceros en el recibo (2026-09-05, tarde).** Traza XE del recibo X 01106-00000002 en
+TestingRH con un cheque diferido (`docs/tango/sql/traza-recibo-cheque-2026-09-05.txt`). Además de lo
+del recibo en efectivo, Tango escribe: renglón SBA05 'D' sobre la cartera **1112000 VALORES A
+DEPOSITAR** (e-cheq: 1112002) con la suma de los cheques; por cheque **SBA14** (43 columnas: ESTADO
+'C', TIPO_CHEQU 'D' si tiene días / 'C', F_EMISION, FECHA_CHEQ = cobro, FECHA_REC, IMPORTE_CH,
+N_CHEQUE, N_CUIT y RAZON_EMIS del cliente, N_INTERNO = MAX+1 —no hay INCREMENTAL_VALUE—, NRO_SUCURS
+3, ID_BANCO de `BANCO` por COD_BANCO = código BCRA; triggers completan ID_GVA14/ID_CPA01), **SBA23**
+(historial, ESTADO 'C', HORA_MOV HHMM) y **MOVIMIENTO_CHEQUE_TERCERO** (ID_SBA14 ↔ ID_SBA05 del
+renglón de cartera, 'INGR'); asiento con la contable 602 (CUENTA.COD_CUENTA = COD_CTA). SBA90 es
+temporal de la pantalla y no se replica. Writer: `recibo.ts` (23 tests); config en
+`config/tango.sql.recibo`: `cuentas.cheques/echeq`, `cuentasContables` 1112000/1112002 → 602,
+`cheques { nroSucursal: 3, tablaBancos: 'BANCO', columnaCodigoBanco: 'COD_BANCO' }`. Permisos nuevos
+del login: INSERT en SBA14, SBA23 y MOVIMIENTO_CHEQUE_TERCERO (scripts 05/06). Prueba real:
+cobranza RS-000041 de $23.602 a FC.280 imputando la FAC 282328 con cheque 87654321 Galicia a 30 días
+→ X 01106-00000041 (ID_GVA12 372527) en REDONHIELO_SA, cache de saldos descontado. Hallazgos del
+camino: las reglas no dejaban al super_admin crear cobranzas de supervisor (arreglado, con test) y
+`fireAndForget` tragaba el rechazo (ahora avisa en pantalla). Retenciones: siguen frenando.
 
 **Cobertura verificada en prod (2026-09-05):** 951/966 clientes activos con `codigoTango` (15 sin
 código: sucursales de cadenas y algún cliente nuevo → una venta cta cte a ellos queda en error);
