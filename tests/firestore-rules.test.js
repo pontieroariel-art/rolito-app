@@ -1964,9 +1964,11 @@ describe('tango-consultas', () => {
     await assertFails(setDoc(doc(db('sup'), 'tango-consultas/c3'), consulta({ estado: 'respondida' })))
   })
 
-  test('un chofer NO crea consultas', async () => {
+  test('un chofer SÍ crea consultas (cobra en la calle con la cobranza completa, 2026-09-05); un cliente no', async () => {
     await seed((d) => setDoc(doc(d, 'users/ch'), { rol: 'chofer', estado: 'activo' }))
-    await assertFails(setDoc(doc(db('ch'), 'tango-consultas/c1'), consulta({ solicitadoPor: { uid: 'ch', nombre: 'Chofer' } })))
+    await assertSucceeds(setDoc(doc(db('ch'), 'tango-consultas/c1'), consulta({ solicitadoPor: { uid: 'ch', nombre: 'Chofer' } })))
+    await seed((d) => setDoc(doc(d, 'users/cli9'), { rol: 'cliente', estado: 'activo' }))
+    await assertFails(setDoc(doc(db('cli9'), 'tango-consultas/c2'), consulta({ solicitadoPor: { uid: 'cli9', nombre: 'Cliente' } })))
   })
 
   test('el bridge responde tocando solo los campos de estado', async () => {
@@ -2740,6 +2742,32 @@ describe('cobranzas de supervisor', () => {
     await assertFails(setDoc(doc(db('admin1'), 'cobranzas/c2'), cobranzaSup()))   // a nombre de otro, no
   })
 
+  test('caja crea la cobranza completa en su planta (origen caja) y el chofer en la calle (origen cobrador); no cruzados', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' })
+      await setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' })
+    })
+    await assertSucceeds(setDoc(doc(db('caja1'), 'cobranzas/c1'), cobranzaSup({ origen: 'caja', plantaId: 'torcuato', registradoPor: { uid: 'caja1', nombre: 'Caja' } })))
+    await assertFails(setDoc(doc(db('caja1'), 'cobranzas/c2'), cobranzaSup({ origen: 'caja', plantaId: 'merlo', registradoPor: { uid: 'caja1', nombre: 'Caja' } })))
+    await assertFails(setDoc(doc(db('caja1'), 'cobranzas/c3'), cobranzaSup({ origen: 'supervisor', registradoPor: { uid: 'caja1', nombre: 'Caja' } })))
+    await assertSucceeds(setDoc(doc(db('chof1'), 'cobranzas/c4'), cobranzaSup({ origen: 'cobrador', registradoPor: { uid: 'chof1', nombre: 'Chofer' } })))
+    await assertFails(setDoc(doc(db('chof1'), 'cobranzas/c5'), cobranzaSup({ origen: 'caja', plantaId: 'torcuato', registradoPor: { uid: 'chof1', nombre: 'Chofer' } })))
+  })
+
+  test('caja y chofer leen saldosTango y avanzan el contador de recibos', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' })
+      await setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' })
+      await setDoc(doc(d, 'saldosTango/cli'), { idGva14: 1, codigoTango: 'FC.1', empresa: 'redonhielo', razonSocial: 'Cliente', comprobantes: [], saldoTotal: 0 })
+      await setDoc(doc(d, 'config/reciboSupervisorCounter'), { next: 41 })
+    })
+    await assertSucceeds(getDoc(doc(db('caja1'), 'saldosTango/cli')))
+    await assertSucceeds(getDoc(doc(db('chof1'), 'saldosTango/cli')))
+    await assertSucceeds(updateDoc(doc(db('caja1'), 'config/reciboSupervisorCounter'), { next: 61 }))
+    await assertSucceeds(updateDoc(doc(db('chof1'), 'config/reciboSupervisorCounter'), { next: 81 }))
+    await assertFails(updateDoc(doc(db('chof1'), 'config/reciboSupervisorCounter'), { next: 10 }))
+  })
+
   test('el supervisor crea SIN numeroRecibo (numeración opcional hasta conectar Tango)', async () => {
     await seedSupervisor()
     const { numeroRecibo: _omitido, ...sinNumero } = cobranzaSup()
@@ -3108,14 +3136,14 @@ describe('saldosTango — cache de saldos de Tango', () => {
     await assertSucceeds(getDoc(doc(db('fac'), 'saldosTango/cli')))
   })
 
-  test('un cliente NO lee su propio saldo (por ahora) ni un chofer el de nadie', async () => {
+  test('un cliente NO lee su propio saldo (por ahora); el chofer sí (cobranza completa en la calle, 2026-09-05)', async () => {
     await seed(async (d) => {
       await setDoc(doc(d, 'users/cli'), cliente())
       await setDoc(doc(d, 'users/ch'), { rol: 'chofer', estado: 'activo' })
       await setDoc(doc(d, 'saldosTango/cli'), saldo)
     })
     await assertFails(getDoc(doc(db('cli'), 'saldosTango/cli')))
-    await assertFails(getDoc(doc(db('ch'), 'saldosTango/cli')))
+    await assertSucceeds(getDoc(doc(db('ch'), 'saldosTango/cli')))
   })
 
   test('nadie escribe el cache por reglas (solo Admin SDK)', async () => {

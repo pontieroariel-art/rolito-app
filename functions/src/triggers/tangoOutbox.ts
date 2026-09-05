@@ -285,7 +285,10 @@ export const onCobranzaCreada = onDocumentCreated(
   'cobranzas/{cobranzaId}',
   async (event) => {
     const cobranza = event.data?.data()
-    if (!cobranza || cobranza.origen !== 'supervisor') return
+    // Viaja a Tango toda cobranza COMPLETA (con imputación a facturas), venga
+    // del supervisor, de caja o del chofer (2026-09-05). Las simples de
+    // mostrador/calle de antes (sin imputaciones) siguen sin encolarse.
+    if (!cobranza || !Array.isArray(cobranza.imputaciones) || cobranza.imputaciones.length === 0) return
 
     const db = getFirestore()
 

@@ -71,6 +71,62 @@ export function crearCobranzaCalle(
 
 export class CobranzaDescuadradaError extends Error {}
 
+export type OrigenCobranzaCompleta = 'supervisor' | 'caja' | 'cobrador'
+
+// Cobranza COMPLETA (imputación a facturas de Tango + medios + recibo numerado),
+// la misma para supervisor, ventanilla (caja) y chofer (decisión de Ariel
+// 2026-09-05). Solo cambia el origen y cómo se espera al servidor: caja está
+// en la PC e imprime contra un doc confirmado (esperarOEncolar, hasta 4 s);
+// supervisor y chofer cobran sin señal (fire-and-forget + numeración reservada).
+export async function crearCobranzaCompleta(
+  args: {
+    clienteId:     string
+    clienteNombre: string
+    empresa:       EmpresaTango
+    numeroRecibo?: string
+    imputaciones:  ImputacionFactura[]
+    medios:        MediosPago
+  },
+  actor: { uid: string; nombre: string },
+  destino: { origen: OrigenCobranzaCompleta; plantaId?: PlantaId },
+): Promise<Cobranza> {
+  const totalImputado = sumaCentavos(args.imputaciones.map((i) => i.importeImputado))
+  const totalMedios =
+    aCentavos(args.medios.efectivo) +
+    aCentavos(args.medios.transferencia) +
+    sumaCentavos(args.medios.cheques.map((c) => c.importe)) +
+    sumaCentavos(args.medios.retenciones.map((r) => r.importe))
+
+  if (totalImputado <= 0) throw new CobranzaDescuadradaError('No hay facturas imputadas.')
+  if (totalImputado !== totalMedios) {
+    throw new CobranzaDescuadradaError('La suma de los medios de pago no coincide con lo imputado a facturas.')
+  }
+  if (args.imputaciones.some((i) => aCentavos(i.importeImputado) <= 0 || aCentavos(i.importeImputado) > aCentavos(i.saldoAlMomento))) {
+    throw new CobranzaDescuadradaError('Hay una imputación en cero o mayor al saldo de la factura.')
+  }
+  if (destino.origen === 'caja' && !destino.plantaId) throw new CobranzaDescuadradaError('La cobranza de mostrador necesita la planta.')
+
+  const ref = doc(collection(db, COBRANZAS))
+  const cobranza: Omit<Cobranza, 'id'> = {
+    origen:        destino.origen,
+    ...(destino.origen === 'caja' ? { plantaId: destino.plantaId } : {}),
+    registradoPor: { uid: actor.uid, nombre: actor.nombre },
+    clienteId:     args.clienteId,
+    clienteNombre: args.clienteNombre,
+    importe:       totalImputado / 100,
+    formaPago:     'mixto',
+    fecha:         Timestamp.now(),
+    ...(args.numeroRecibo ? { numeroRecibo: args.numeroRecibo } : {}),
+    empresa:       args.empresa,
+    imputaciones:  args.imputaciones,
+    medios:        args.medios,
+  }
+  const ctx = { origen: `crearCobranzaCompleta:${destino.origen}`, cobranzaId: ref.id, uid: actor.uid }
+  if (destino.origen === 'caja') await esperarOEncolar(setDoc(ref, cobranza), ctx)
+  else fireAndForget(setDoc(ref, cobranza), ctx)
+  return { id: ref.id, ...cobranza }
+}
+
 // Cobranza completa del supervisor (origen 'supervisor'): imputación contra
 // facturas de la composición de saldos de Tango + recibo multi-medio
 // (efectivo / transferencia / cheques / retenciones). Mismo patrón

@@ -240,7 +240,10 @@ exports.onDescargaCamionCreada = (0, firestore_1.onDocumentCreated)('descargasCa
 // no muestra deuda vieja aunque Tango todavía no haya recibido el recibo.
 exports.onCobranzaCreada = (0, firestore_1.onDocumentCreated)('cobranzas/{cobranzaId}', async (event) => {
     const cobranza = event.data?.data();
-    if (!cobranza || cobranza.origen !== 'supervisor')
+    // Viaja a Tango toda cobranza COMPLETA (con imputación a facturas), venga
+    // del supervisor, de caja o del chofer (2026-09-05). Las simples de
+    // mostrador/calle de antes (sin imputaciones) siguen sin encolarse.
+    if (!cobranza || !Array.isArray(cobranza.imputaciones) || cobranza.imputaciones.length === 0)
         return;
     const db = (0, firestore_2.getFirestore)();
     // El bridge necesita el vínculo Tango del cliente para armar el recibo.

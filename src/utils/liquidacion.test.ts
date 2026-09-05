@@ -235,6 +235,18 @@ describe('calcularLiquidacion — plata', () => {
     // efectivo a rendir = venta contado efectivo (1000) + cobranza efectivo (400)
     expect(r.efectivoARendir).toBe(1400)
   })
+
+  it('la cobranza completa (con medios) rinde el efectivo de los medios; cheques y retenciones no son plata del chofer', () => {
+    const completa = {
+      ...cobranza('contado_efectivo', 0),
+      formaPago: 'mixto' as const, importe: 1500,
+      medios: { efectivo: 300, transferencia: 200, cheques: [{ numero: '1', bancoCodigo: '007', bancoNombre: 'Galicia', fechaEmision: '2026-09-05', fechaAcreditacion: '2026-10-05', dias: 30, importe: 900 }], retenciones: [{ tipo: 'iibb_pba' as const, nroCertificado: 'c', importe: 100 }] },
+    }
+    const r = calcularLiquidacion([], [], [], [], [completa])
+    expect(r.cobranzasCalle?.efectivo).toBe(300)
+    expect(r.cobranzasCalle?.transferencia).toBe(200)
+    expect(r.efectivoARendir).toBe(300)
+  })
 })
 
 describe('calcularLiquidacion — casos borde', () => {

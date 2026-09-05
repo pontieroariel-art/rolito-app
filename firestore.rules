@@ -530,7 +530,7 @@ service cloud.firestore {
       // super_admin (isOperator() write total, arriba); el supervisor solo
       // puede avanzar `next` al reservar un lote — mismo patrón que producción.
       allow update: if request.auth != null && docId == 'reciboSupervisorCounter'
-        && isSupervisor()
+        && (isSupervisor() || isCaja() || isChofer())
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next'])
         && request.resource.data.next > resource.data.next;
 
@@ -981,8 +981,12 @@ service cloud.firestore {
       // valida crearCobranzaSupervisor() en el cliente; el doc es inmutable.
       // El super_admin también puede (la pantalla /supervisor/cobrar lo deja
       // entrar; sin esto el guardado se rechazaba en silencio — 2026-09-05).
-      allow create: if request.auth != null && (isSupervisor() || myRole() == 'super_admin')
-        && request.resource.data.origen == 'supervisor'
+      // Desde el 2026-09-05 la misma cobranza completa la hacen también caja
+      // (origen 'caja', en su planta) y el chofer en la calle (origen 'cobrador').
+      allow create: if request.auth != null
+        && (((isSupervisor() || myRole() == 'super_admin') && request.resource.data.origen == 'supervisor')
+            || (isCaja() && request.resource.data.origen == 'caja' && request.resource.data.plantaId == myPlanta())
+            || (isChofer() && request.resource.data.origen == 'cobrador'))
         && request.resource.data.registradoPor.uid == request.auth.uid
         && request.resource.data.clienteId is string
         && request.resource.data.importe is number && request.resource.data.importe > 0
@@ -1005,7 +1009,7 @@ service cloud.firestore {
     // el cliente NO ve su propio saldo por ahora (decisión de producto).
     match /saldosTango/{clienteUid} {
       allow read: if request.auth != null
-        && (isSupervisor() || isCaja() || isOperator() || isManager()
+        && (isSupervisor() || isCaja() || isChofer() || isOperator() || isManager()
             || isGerenteGeneral() || isFacturacion());
       allow write: if false;
     }
@@ -1033,7 +1037,7 @@ service cloud.firestore {
         && (isTangoBridge() || isOperator()
             || resource.data.solicitadoPor.uid == request.auth.uid);
 
-      allow create: if request.auth != null && isSupervisor()
+      allow create: if request.auth != null && (isSupervisor() || isCaja() || isChofer() || myRole() == 'super_admin')
         && request.resource.data.tipo == 'saldoCliente'
         && request.resource.data.estado == 'pendiente'
         && request.resource.data.solicitadoPor.uid == request.auth.uid

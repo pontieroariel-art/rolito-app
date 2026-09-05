@@ -79,13 +79,13 @@ export function calcularLiquidacion(
   const cuentaCorriente      = porPago('cuenta_corriente')
 
   // ── Cobranzas de calle ── el efectivo cobrado se rinde junto con el de
-  // las ventas, en el mismo cierre (así rendían en el sistema viejo).
-  const cobranzasEfectivo = cobranzasCalle
-    .filter((c) => c.formaPago === 'contado_efectivo')
-    .reduce((s, c) => s + c.importe, 0)
-  const cobranzasTransferencia = cobranzasCalle
-    .filter((c) => c.formaPago === 'contado_transferencia')
-    .reduce((s, c) => s + c.importe, 0)
+  // las ventas, en el mismo cierre (así rendían en el sistema viejo). La
+  // cobranza completa (desde 2026-09-05) trae `medios`: se rinde el efectivo
+  // que dice ahí; cheques y retenciones no son plata que lleve el chofer.
+  const efectivoDe = (c: Cobranza) => (c.medios ? c.medios.efectivo : c.formaPago === 'contado_efectivo' ? c.importe : 0)
+  const transferenciaDe = (c: Cobranza) => (c.medios ? c.medios.transferencia : c.formaPago === 'contado_transferencia' ? c.importe : 0)
+  const cobranzasEfectivo = cobranzasCalle.reduce((s, c) => s + efectivoDe(c), 0)
+  const cobranzasTransferencia = cobranzasCalle.reduce((s, c) => s + transferenciaDe(c), 0)
 
   return {
     productos,

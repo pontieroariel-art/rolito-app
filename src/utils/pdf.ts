@@ -1281,7 +1281,7 @@ export async function generateReciboCobranzaSupervisor(cobranza: {
   doc.line(pageW - 88, y, pageW - 14, y)
   doc.setFontSize(8)
   doc.setTextColor(100)
-  doc.text(`Firma y aclaración — Supervisor: ${cobranza.registradoPor}`, pageW - 88, y + 4)
+  doc.text(`Firma y aclaración — Cobró: ${cobranza.registradoPor}`, pageW - 88, y + 4)
 
   const archivo = nombreArchivoReciboSupervisor(cobranza)
   if (opts.descargar === false) return doc.output('blob')

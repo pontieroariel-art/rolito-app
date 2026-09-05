@@ -20,7 +20,7 @@ const ESTADO: Record<CamionEnVivo['estado'], { label: string; clase: string }> =
 }
 
 const hora = (d: Date | null) => (d ? d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : '—')
-const PAGO: Record<string, string> = { contado_efectivo: 'Efectivo', contado_transferencia: 'Transferencia', cuenta_corriente: 'Cta. cte.' }
+const PAGO: Record<string, string> = { contado_efectivo: 'Efectivo', contado_transferencia: 'Transferencia', cuenta_corriente: 'Cta. cte.', mixto: 'Recibo' }
 
 export default function RepartoEnVivoPage() {
   const fecha = useFechaDelDia()
