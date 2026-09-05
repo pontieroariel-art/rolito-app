@@ -352,7 +352,7 @@ export default function ChoferMap() {
   return (
     <div className="min-h-screen min-h-dvh bg-[#F8F7F2] text-gray-900">
       <ChoferHeader title="Ruta" back />
-      <div className="flex flex-col" style={{ height: 'calc(100dvh - 56px - 64px)' }}>
+      <div className="flex flex-col" style={{ height: 'calc(100dvh - 56px - 64px - env(safe-area-inset-top) - env(safe-area-inset-bottom))' }}>
         {hasDespachoOrder && (
           <div className="px-4 py-2 bg-accent/10 border-b border-accent/20 flex items-center justify-between gap-3">
             <span className="text-accent text-xs font-medium">📋 Orden planificado por logística</span>

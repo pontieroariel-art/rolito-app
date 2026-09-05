@@ -5,12 +5,13 @@ import { logoutUser } from '../../services/authService'
 
 // Header compacto del chofer (reemplaza al Navbar genérico). En Inicio muestra
 // el saludo + camión + salir; en las tareas (Ruta, etc.) muestra una flecha
-// para volver al Inicio. Alto fijo 56px (igual que el Navbar viejo, para no
-// romper cálculos de alto como el del mapa).
+// para volver al Inicio. Alto 56px más la zona segura de arriba (en iPhone
+// instalado como app la barra de estado tapaba el saludo y el botón de salir);
+// el mapa descuenta los mismos 56px + env(safe-area-inset-top).
 export default function ChoferHeader({ title, back = false }: { title?: string; back?: boolean }) {
   const { user } = useAuth()
   return (
-    <header className="h-14 bg-white border-b border-[#D3D1C7] flex items-center gap-3 px-3 sticky top-0 z-30">
+    <header className="min-h-14 pt-[env(safe-area-inset-top)] bg-white border-b border-[#D3D1C7] flex items-center gap-3 px-3 sticky top-0 z-30">
       {back ? (
         <Link to="/chofer" aria-label="Volver al inicio"
           className="w-10 h-10 rounded-xl border border-[#D3D1C7] flex items-center justify-center active:scale-90 transition-transform">
