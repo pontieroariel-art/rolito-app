@@ -223,6 +223,19 @@ function sentenciasRecibo(r, d, cfg, ahora = new Date()) {
             (0, tipos_1.numeric)('SALDO_UNI', 0),
         ])));
     });
+    // 3b. Recalcular estados (factura PEN→CAN, vencimientos PEN→PAG, recibo CTA/IMP).
+    //     NO lo hace un trigger: la pantalla de Cobranzas llama al procedimiento
+    //     dbo.P_COBRANZAESTADOSVENTAS con la lista '(idFactura, ..., idRecibo)' después de
+    //     insertar las imputaciones (traza 2026-09-05; sin esto la factura queda PEN aunque
+    //     esté imputada al 100%, como pasó con la 282328 el 2026-09-05). Si la base no
+    //     tiene el procedimiento (Rolito, 2026-09-05) se saltea y se avisa.
+    if (d.spEstados) {
+        out.push(marcarListaIds({
+            etiqueta: `EXEC ${d.spEstados}`,
+            sql: `EXEC ${d.spEstados} @LISTAIDGVA12 = @LISTA`,
+            params: [(0, tipos_1.varchar)('LISTA', '', -1)], // -1 = varchar(max); el valor se arma al ejecutar con el ID del recibo
+        }));
+    }
     // 4. Saldo del cliente (optimista).
     out.push({
         etiqueta: 'UPDATE GVA14 saldo',
@@ -400,6 +413,7 @@ function sentenciasRecibo(r, d, cfg, ahora = new Date()) {
 const marcarIdRecibo = (s) => ({ ...s, necesitaIdRecibo: true });
 const marcarIdAsiento = (s, si) => (si ? { ...s, necesitaIdAsiento: true } : s);
 const marcarIdSba14 = (s, chequeIdx) => ({ ...s, chequeIdx });
+const marcarListaIds = (s) => ({ ...s, necesitaListaIds: true });
 const marcarVinculoCheque = (s, vinculaCheque, cuentaCartera) => ({ ...s, vinculaCheque, cuentaCartera });
 /** Lee de Tango lo que hace falta. Consultas marcadas (*) = hipótesis a confirmar (§21.3). */
 async function leerDatosRecibo(db, r, cfg, identity) {
@@ -432,6 +446,9 @@ async function leerDatosRecibo(db, r, cfg, identity) {
         cuentas[String(cod)] = { idSba01: q[0].ID_SBA01, saldoAMo: Number(q[0].SALDO_A_MO), saldoAUn: Number(q[0].SALDO_A_UN), saldoAct: Number(q[0].SALDO_ACT) };
     }
     const nInternoSba04 = await siguiente(db, 'SBA04', 'N_INTERNO');
+    // Recálculo de estados: existe en REDONHIELO_SA/TestingRH; en Rolito no apareció (2026-09-05).
+    const sp = await db.query(`SELECT OBJECT_ID('dbo.P_COBRANZAESTADOSVENTAS', 'P') AS ID`);
+    const spEstados = sp[0]?.ID != null ? 'dbo.P_COBRANZAESTADOSVENTAS' : null;
     // Cheques: CUIT y razón social del cliente (el librador, como lo precarga la pantalla),
     // ID_BANCO por código BCRA, sucursal y nº interno de cada cheque.
     let cliCheques = {};
@@ -479,7 +496,7 @@ async function leerDatosRecibo(db, r, cfg, identity) {
         ids.asientoRenglones.push(identity.has('ASIENTO_SB') ? null : await siguiente(db, 'ASIENTO_SB', 'ID_ASIENTO_SB'));
     return {
         cliente: { idGva14: c.ID_GVA14, saldoCc: Number(c.SALDO_CC), saldoDoc: Number(c.SALDO_DOC), saldoDUn: Number(c.SALDO_D_UN), saldoCcU: Number(c.SALDO_CC_U), ...cliCheques },
-        facturas, cuentas, nInternoSba04, ids, cheques, nroSucursalCheques,
+        facturas, cuentas, nInternoSba04, ids, cheques, nroSucursalCheques, spEstados,
     };
 }
 /**
@@ -541,13 +558,17 @@ async function escribirRecibo(db, r, cfg, log = () => undefined) {
                 return { ...p, valor: idGva12 };
             if (s.necesitaIdAsiento && p.nombre === 'ID_ASIENTO_COMPROBANTE_SB')
                 return { ...p, valor: idAsiento };
+            if (s.necesitaListaIds && p.nombre === 'LISTA') {
+                const ids = [...r.imputaciones.map((imp) => datos.facturas[clave(imp)]?.idGva12).filter((x) => x != null), ...(idGva12 != null ? [idGva12] : [])];
+                return { ...p, valor: `(${ids.join(', ')})` };
+            }
             if (s.vinculaCheque != null && p.nombre === 'ID_SBA14')
                 return { ...p, valor: idSba14PorCheque.get(s.vinculaCheque) ?? null };
             if (s.cuentaCartera != null && p.nombre === 'ID_SBA05')
                 return { ...p, valor: idSba05PorCuenta.get(s.cuentaCartera) ?? null };
             return p;
         });
-        if (s.necesitaIdRecibo && idGva12 == null)
+        if ((s.necesitaIdRecibo || s.necesitaListaIds) && idGva12 == null)
             throw new Error('no se obtuvo el ID_GVA12 del recibo');
         if (s.vinculaCheque != null && (params.find((p) => p.nombre === 'ID_SBA14')?.valor == null || params.find((p) => p.nombre === 'ID_SBA05')?.valor == null)) {
             throw new Error(`${s.etiqueta}: no se obtuvo el ID_SBA14 del cheque o el ID_SBA05 del renglón de cartera ${s.cuentaCartera}`);

@@ -37,6 +37,8 @@ GRANT INSERT ON ASIENTO_SB TO rolito_bridge;
 GRANT INSERT ON SBA14 TO rolito_bridge;
 GRANT INSERT ON SBA23 TO rolito_bridge;
 GRANT INSERT ON MOVIMIENTO_CHEQUE_TERCERO TO rolito_bridge;
+-- Recálculo de estados de cta. cte. tras imputar (lo llama la pantalla de Cobranzas; no es trigger). Rolito no lo tiene (2026-09-05).
+IF OBJECT_ID('dbo.P_COBRANZAESTADOSVENTAS', 'P') IS NOT NULL EXEC('GRANT EXECUTE ON dbo.P_COBRANZAESTADOSVENTAS TO rolito_bridge');
 -- Contadores
 GRANT UPDATE ON dbo.INCREMENTAL_VALUE TO rolito_bridge;
 GO

@@ -96,7 +96,7 @@ async function pool(database) {
 // Del tipo declarado en las sentencias (functions/src/services/tango/sql/tipos.ts) al tipo de mssql.
 function tipoMssql(t) {
   switch (t.kind) {
-    case 'varchar': return mssql.VarChar(t.length)
+    case 'varchar': return mssql.VarChar(t.length < 0 ? mssql.MAX : t.length)   // -1 = varchar(max)
     case 'numeric': return mssql.Numeric(t.precision, t.scale)
     case 'datetime': return mssql.DateTime
     case 'bit': return mssql.Bit

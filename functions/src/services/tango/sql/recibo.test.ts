@@ -148,10 +148,11 @@ describe('sentenciasRecibo', () => {
   })
 })
 
-function fakeDb(opts: { existe?: boolean; identity?: string[]; secuencias?: string[]; secuenciasPorNombre?: string[] } = {}) {
+function fakeDb(opts: { existe?: boolean; identity?: string[]; secuencias?: string[]; secuenciasPorNombre?: string[]; sinSpEstados?: boolean } = {}) {
   const secuencias: Record<string, number> = {}
   const ejecutadas: string[] = []
   const vinculos: { idSba14: number; idSba05: number }[] = []
+  const listas: string[] = []   // listas de ids con las que se llamó al recálculo de estados
   const contadores: Record<string, number> = { 'SBA04|N_INTERNO': 127986, 'HISTORIAL_CUENTAS_CORRIENTES|ID_HISTORIAL_CUENTAS_CORRIENTES': 233985, 'COMPROBANTE_COTIZACION_SB|ID_COMPROBANTE_COTIZACION_SB': 190076, 'ASIENTO_COMPROBANTE_SB|ID_ASIENTO_COMPROBANTE_SB': 199353, 'ASIENTO_SB|ID_ASIENTO_SB': 240045 }
   const db: EjecutorSql = {
     async query<T>(sql: string, params: ParametroSql[] = []): Promise<T[]> {
@@ -168,6 +169,8 @@ function fakeDb(opts: { existe?: boolean; identity?: string[]; secuencias?: stri
       if (sql.startsWith('SELECT NEXT VALUE FOR')) { const n = sql.slice(sql.indexOf('[') + 1, sql.indexOf(']')); secuencias[n] = (secuencias[n] ?? 1000) + 1; return r([{ V: secuencias[n] }]) }
       if (sql.startsWith('SELECT UltimoValor')) { const k = `${param(params, 'T')}|${param(params, 'C')}`; return r(k in contadores ? [{ UltimoValor: contadores[k] }] : []) }
       if (sql.startsWith('UPDATE dbo.INCREMENTAL_VALUE')) { contadores[`${param(params, 'T')}|${param(params, 'C')}`] = Number(param(params, 'V')); return r([{ affected: 1 }]) }
+      if (sql.startsWith('SELECT OBJECT_ID(\'dbo.P_COBRANZAESTADOSVENTAS\'')) return r([{ ID: opts.sinSpEstados ? null : 9001 }])
+      if (sql.startsWith('EXEC dbo.P_COBRANZAESTADOSVENTAS')) { listas.push(String(param(params, 'LISTA'))); return r([{ affected: 0 }]) }
       if (sql.startsWith('SELECT CUIT, RAZON_SOCI')) return r([{ CUIT: '20-23994197-5', RAZON_SOCI: 'QUIROGA HUGO WALTER' }])
       if (sql.startsWith('SELECT TOP 1 NRO_SUCURS')) return r([{ N: 3 }])
       if (sql.startsWith('SELECT ID_BANCO FROM')) return r(param(params, 'COD') === '007' ? [{ ID_BANCO: 209 }] : [])
@@ -182,8 +185,29 @@ function fakeDb(opts: { existe?: boolean; identity?: string[]; secuencias?: stri
       throw new Error('consulta inesperada: ' + sql)
     },
   }
-  return { db, ejecutadas, vinculos }
+  return { db, ejecutadas, vinculos, listas }
 }
+
+describe('recálculo de estados (dbo.P_COBRANZAESTADOSVENTAS, traza 2026-09-05)', () => {
+  const p1 = { ...payload, importe: 1000, imputaciones: [payload.imputaciones![0]], medios: { efectivo: 1000, transferencia: 0 } }
+  const r = reciboDeCobranza(p1, 'cob1', cfg)
+  it('va después de las imputaciones y antes del saldo del cliente, solo si la base tiene el procedimiento', () => {
+    const con = sentenciasRecibo(r, { ...datos, spEstados: 'dbo.P_COBRANZAESTADOSVENTAS' }, cfg).map((s) => s.etiqueta)
+    expect(con.slice(0, 5)).toEqual(['INSERT GVA12', 'INSERT gva07 A0010100268582', 'INSERT HISTORIAL_CUENTAS_CORRIENTES A0010100268582', 'EXEC dbo.P_COBRANZAESTADOSVENTAS', 'UPDATE GVA14 saldo'])
+    const sin = sentenciasRecibo(r, datos, cfg).map((s) => s.etiqueta)
+    expect(sin.some((e) => e.startsWith('EXEC'))).toBe(false)
+  })
+  it('al ejecutar le pasa los ids de las facturas imputadas y el del recibo recién insertado', async () => {
+    const { db, listas } = fakeDb()
+    await escribirRecibo(db, r, cfg)
+    expect(listas).toEqual(['(350532, 372480)'])
+  })
+  it('si la base no tiene el procedimiento (Rolito) no lo llama', async () => {
+    const { db, listas } = fakeDb({ sinSpEstados: true })
+    await escribirRecibo(db, r, cfg)
+    expect(listas).toEqual([])
+  })
+})
 
 describe('cheques de terceros (traza 2026-09-05: X0110600000002, cheque diferido a VALORES A DEPOSITAR)', () => {
   const pCheque: PayloadCobranza = {
