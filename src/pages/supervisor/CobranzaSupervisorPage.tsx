@@ -16,8 +16,8 @@ import { crearCobranzaSupervisor } from '@/services/cobranzaService'
 import {
   asegurarReserva, codigoRecibo, consumirNumero, precargarSiSeAcerca,
 } from '@/services/reciboSupervisorService'
-import { generateReciboCobranzaSupervisor, nombreArchivoReciboSupervisor } from '@/utils/pdf'
-import { compartirArchivo, puedeCompartirArchivos } from '@/utils/compartir'
+import { entregarReciboSupervisor } from '@/components/supervisor/CobranzaSupervisorCard'
+import { puedeCompartirArchivos } from '@/utils/compartir'
 import { aCentavos, formatoARS, parseImporte, sumaCentavos } from '@/utils/money'
 import { haceCuanto } from './SupervisorClientesPage'
 import { ChequeRecibido, Cobranza, ComprobanteSaldoTango, ImputacionFactura, RetencionRecibida } from '@/types'
@@ -170,23 +170,8 @@ export default function CobranzaSupervisorPage() {
   // celular) sin pasar por la descarga — pedido de Ariel 2026-09-05, igual que
   // los comprobantes del chofer en Mis ventas.
   const entregarRecibo = async (c: Cobranza, compartir: boolean) => {
-    if (!c.imputaciones || !c.medios) return
     setAvisoRecibo('')
-    const datos = {
-      numeroRecibo:  c.numeroRecibo,
-      clienteNombre: c.clienteNombre,
-      empresa:       c.empresa ?? 'redonhielo',
-      importe:       c.importe,
-      imputaciones:  c.imputaciones,
-      medios:        c.medios,
-      registradoPor: c.registradoPor.nombre,
-      fecha:         c.fecha.toDate(),
-    }
-    if (!compartir) { await generateReciboCobranzaSupervisor(datos); return }
-    const blob = (await generateReciboCobranzaSupervisor(datos, { descargar: false })) as Blob
-    const titulo = `Recibo ${c.numeroRecibo ?? 'de cobranza'}`
-    const r = await compartirArchivo(blob, nombreArchivoReciboSupervisor(datos), { titulo, texto: `${titulo} — ${c.clienteNombre} — ${formatoARS(c.importe)}` })
-    if (r === 'descargado') setAvisoRecibo('Este dispositivo no puede compartir archivos: se descargó el PDF.')
+    setAvisoRecibo(await entregarReciboSupervisor(c, compartir))
   }
 
   if (loadingClientes) return <LoadingSpinner fullScreen />
@@ -430,6 +415,11 @@ export default function CobranzaSupervisorPage() {
                 {retenciones.map((r, i) => <li key={i}>{RETENCION_LABELS[r.tipo]}: {formatoARS(r.importe)}</li>)}
               </ul>
               <p className="text-xs text-gray-500">El registro es definitivo e impacta en la cuenta corriente de Tango.</p>
+              {retenciones.length > 0 && (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
+                  Las retenciones todavía no entran solas a Tango: este recibo lo termina de cargar la oficina con el certificado. Guardá el papel.
+                </p>
+              )}
               <div className="flex gap-2 pt-1">
                 <Button variant="outline" type="button" onClick={() => setModal(null)} className="flex-1">Cancelar</Button>
                 <Button onClick={confirmar} className="flex-1">Confirmar</Button>

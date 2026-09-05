@@ -78,6 +78,10 @@ export interface VentaCamionItem {
 export interface RemitoTangoEstado {
   estado:       'pendiente' | 'enviado' | 'confirmado' | 'error'
   remitoNumero?: string
+  /** Write-back del recibo de cobranza (onOutboxConfirmado, entidad 'recibo'): 'X0110600000041'. */
+  reciboNumero?: string
+  /** Write-back de la factura de Tango (entidad 'factura'). */
+  facturaNumero?: string
   ultimoError?:  string
 }
 

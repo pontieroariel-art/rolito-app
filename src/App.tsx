@@ -106,6 +106,7 @@ const CobranzaCalle      = lazy(() => import('./pages/chofer/CobranzaCalle'))
 const SupervisorHome         = lazy(() => import('./pages/supervisor/SupervisorHome'))
 const SupervisorClientesPage = lazy(() => import('./pages/supervisor/SupervisorClientesPage'))
 const CobranzaSupervisorPage = lazy(() => import('./pages/supervisor/CobranzaSupervisorPage'))
+const SupervisorHistorialPage = lazy(() => import('./pages/supervisor/SupervisorHistorialPage'))
 
 // /caja aterriza en la primera pestaña PERMITIDA del usuario, no siempre en
 // Remitos: una tablet de mostrador con las pestañas recortadas a solo
@@ -437,6 +438,7 @@ function AppContent() {
           <Route path="/supervisor"          element={<SupervisorHome />} />
           <Route path="/supervisor/clientes" element={<SupervisorClientesPage />} />
           <Route path="/supervisor/cobrar"   element={<CobranzaSupervisorPage />} />
+          <Route path="/supervisor/historial" element={<SupervisorHistorialPage />} />
         </Route>
 
         {/* Backoffice — panel de administración centralizado, exclusivo

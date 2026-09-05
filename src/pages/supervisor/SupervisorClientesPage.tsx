@@ -26,6 +26,7 @@ export function haceCuanto(ts: { toDate(): Date } | undefined): string {
 export default function SupervisorClientesPage() {
   const [saldos, setSaldos] = useState<SaldoTango[]>([])
   const [busqueda, setBusqueda] = useState('')
+  const [soloVencidos, setSoloVencidos] = useState(false)
   const [cargando, setCargando] = useState(true)
 
   useEffect(() => {
@@ -36,12 +37,17 @@ export default function SupervisorClientesPage() {
     return unsub
   }, [])
 
-  const filtrados = useMemo(() => {
-    if (!normalizarBusqueda(busqueda)) return saldos
-    return saldos.filter((s) => coincideBusqueda(busqueda, s.razonSocial, s.codigoTango))
-  }, [saldos, busqueda])
+  // Días de atraso de la factura más vieja de cada cliente (0 si nada venció).
+  const atrasoDe = (s: SaldoTango) => Math.max(0, ...s.comprobantes.map((c) => c.diasAtraso ?? 0))
 
-  const totalDeuda = useMemo(() => saldos.reduce((t, s) => t + s.saldoTotal, 0), [saldos])
+  const filtrados = useMemo(() => {
+    const base = soloVencidos ? saldos.filter((s) => atrasoDe(s) > 0) : saldos
+    if (!normalizarBusqueda(busqueda)) return base
+    return base.filter((s) => coincideBusqueda(busqueda, s.razonSocial, s.codigoTango))
+  }, [saldos, busqueda, soloVencidos])
+
+  const totalDeuda = useMemo(() => filtrados.reduce((t, s) => t + s.saldoTotal, 0), [filtrados])
+  const vencidos = useMemo(() => saldos.filter((s) => atrasoDe(s) > 0).length, [saldos])
 
   return (
     <div className="min-h-screen min-h-dvh bg-[#F8F7F2]">
@@ -67,26 +73,43 @@ export default function SupervisorClientesPage() {
           </div>
         ) : (
           <>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setSoloVencidos(false)}
+                className={`flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium ${!soloVencidos ? 'bg-accent text-white border-accent' : 'bg-white text-gray-700 border-[#D3D1C7]'}`}>
+                Todos ({saldos.length})
+              </button>
+              <button type="button" onClick={() => setSoloVencidos(true)}
+                className={`flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium ${soloVencidos ? 'bg-accent text-white border-accent' : 'bg-white text-gray-700 border-[#D3D1C7]'}`}>
+                Solo vencidos ({vencidos})
+              </button>
+            </div>
             <div className="flex items-center justify-between px-1">
               <p className="text-xs text-gray-500">{filtrados.length} {filtrados.length === 1 ? 'cliente' : 'clientes'}</p>
-              <p className="text-xs text-gray-500">Deuda total: <span className="font-semibold text-gray-900">{formatoARS(totalDeuda)}</span></p>
+              <p className="text-xs text-gray-500">Deuda: <span className="font-semibold text-gray-900">{formatoARS(totalDeuda)}</span></p>
             </div>
+            {filtrados.length === 0 && (
+              <p className="text-sm text-gray-500 text-center py-6">Ningún cliente coincide.</p>
+            )}
             <div className="space-y-2">
-              {filtrados.map((s) => (
-                <Link key={s.id} to={`/supervisor/cobrar?cliente=${s.id}`}
-                  className="block bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-3 active:scale-[0.99] transition-transform">
-                  <div className="flex justify-between items-center gap-2">
-                    <p className="text-sm font-medium text-gray-900 truncate">{s.razonSocial}</p>
-                    <p className="text-sm font-semibold text-gray-900 shrink-0">{formatoARS(s.saldoTotal)}</p>
-                  </div>
-                  <div className="flex justify-between items-center mt-0.5">
-                    <p className="text-xs text-gray-500">
-                      {s.comprobantes.length} {s.comprobantes.length === 1 ? 'comprobante' : 'comprobantes'} · cód. {s.codigoTango}
-                    </p>
-                    <p className="text-xs text-gray-400">{haceCuanto(s.actualizadoEn)}</p>
-                  </div>
-                </Link>
-              ))}
+              {filtrados.map((s) => {
+                const atraso = atrasoDe(s)
+                return (
+                  <Link key={s.id} to={`/supervisor/cobrar?cliente=${s.id}`}
+                    className="block bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-3 active:scale-[0.99] transition-transform">
+                    <div className="flex justify-between items-center gap-2">
+                      <p className="text-sm font-medium text-gray-900 truncate">{s.razonSocial}</p>
+                      <p className="text-sm font-semibold text-gray-900 shrink-0">{formatoARS(s.saldoTotal)}</p>
+                    </div>
+                    <div className="flex justify-between items-center mt-0.5 gap-2">
+                      <p className="text-xs text-gray-500 truncate">
+                        {s.comprobantes.length} {s.comprobantes.length === 1 ? 'comprobante' : 'comprobantes'} · cód. {s.codigoTango}
+                        {atraso > 0 && <span className="text-red-500"> · {atraso} {atraso === 1 ? 'día' : 'días'} de atraso</span>}
+                      </p>
+                      <p className="text-xs text-gray-400 shrink-0">{haceCuanto(s.actualizadoEn)}</p>
+                    </div>
+                  </Link>
+                )
+              })}
             </div>
           </>
         )}
