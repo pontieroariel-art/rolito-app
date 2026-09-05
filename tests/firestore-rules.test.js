@@ -2469,6 +2469,26 @@ describe('ventasCamion: lectura de caja', () => {
   })
 })
 
+describe('supervisor: Reparto en vivo (lee expedición de todos los camiones)', () => {
+  test('el supervisor lee remitos de carga, ventas, cambios, descargas y cobranzas de calle; no escribe', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/sup'), { rol: 'supervisor', estado: 'activo' })
+      await setDoc(doc(d, 'remitosCarga/r1'), { numero: 1, codigo: 'RC-DT-000001', plantaId: 'torcuato', camionId: 'cam1', camionLabel: 'AA123BB', choferId: 'chof1', choferNombre: 'Chofer', items: [], palletsCarga: 0, estado: 'salido', creadoPor: { uid: 'caja1', nombre: 'Caja' }, fecha: new Date() })
+      await setDoc(doc(d, 'ventasCamion/v1'), { canal: 'contado', camionId: 'cam1', choferId: 'chof1', choferNombre: 'Chofer', clienteId: 'cli', clienteNombre: 'Cliente SA', items: [], total: 100, formaPago: 'contado_efectivo', fecha: new Date(), tango: { estado: 'pendiente' } })
+      await setDoc(doc(d, 'cambiosCamion/c1'), { camionId: 'cam1', choferId: 'chof1', choferNombre: 'Chofer', clienteId: 'cli', clienteNombre: 'Cliente SA', productoId: 'bolsa_10kg', nombre: 'Hielo 10kg', cantidad: 1, fecha: new Date() })
+      await setDoc(doc(d, 'descargasCamion/d1'), { plantaId: 'torcuato', camionId: 'cam1', camionLabel: 'AA123BB', choferId: 'chof1', choferNombre: 'Chofer', items: [], bolsasRotas: [], palletsCompletos: 0, palletsParciales: 0, palletsVacios: 0, registradoPor: { uid: 'mue1', nombre: 'Muelle' }, fecha: new Date() })
+      await setDoc(doc(d, 'cobranzas/cc1'), { origen: 'cobrador', registradoPor: { uid: 'chof1', nombre: 'Chofer' }, clienteId: 'cli', clienteNombre: 'Cliente SA', importe: 500, formaPago: 'contado_efectivo', fecha: new Date() })
+    })
+    await assertSucceeds(getDoc(doc(db('sup'), 'remitosCarga/r1')))
+    await assertSucceeds(getDoc(doc(db('sup'), 'ventasCamion/v1')))
+    await assertSucceeds(getDoc(doc(db('sup'), 'cambiosCamion/c1')))
+    await assertSucceeds(getDoc(doc(db('sup'), 'descargasCamion/d1')))
+    await assertSucceeds(getDoc(doc(db('sup'), 'cobranzas/cc1')))
+    await assertFails(updateDoc(doc(db('sup'), 'ventasCamion/v1'), { total: 1 }))
+    await assertFails(updateDoc(doc(db('sup'), 'remitosCarga/r1'), { estado: 'liquidado' }))
+  })
+})
+
 // ── Expedición Fase 3: ventanilla y cobranzas ─────────────────────────────────
 describe('expedicion: ventanilla y cobranzas', () => {
   const seedCaja   = (uid = 'caja1', planta = 'torcuato') =>
@@ -2759,14 +2779,14 @@ describe('cobranzas de supervisor', () => {
     }))
   })
 
-  test('el supervisor lee su cobranza pero no la de otro; sigue inmutable', async () => {
+  test('el supervisor lee su cobranza y también las de otros (Reparto en vivo, 2026-09-05); sigue inmutable', async () => {
     await seedSupervisor()
     await seed(async (d) => {
       await setDoc(doc(d, 'cobranzas/mia'), cobranzaSup())
       await setDoc(doc(d, 'cobranzas/ajena'), cobranzaSup({ registradoPor: { uid: 'otro', nombre: 'Otro' } }))
     })
     await assertSucceeds(getDoc(doc(db('sup'), 'cobranzas/mia')))
-    await assertFails(getDoc(doc(db('sup'), 'cobranzas/ajena')))
+    await assertSucceeds(getDoc(doc(db('sup'), 'cobranzas/ajena')))
     await assertFails(updateDoc(doc(db('sup'), 'cobranzas/mia'), { importe: 1 }))
     await assertFails(deleteDoc(doc(db('sup'), 'cobranzas/mia')))
   })

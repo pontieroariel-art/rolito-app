@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CloudOff, HandCoins, History, Users } from 'lucide-react'
+import { CloudOff, HandCoins, History, Truck, Users } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import SupervisorHeader from '@/components/supervisor/SupervisorHeader'
 import { CobranzaSupervisorCard } from '@/components/supervisor/CobranzaSupervisorCard'
@@ -34,6 +34,19 @@ export default function SupervisorHome() {
     <div className="min-h-screen min-h-dvh bg-[#F8F7F2]">
       <SupervisorHeader />
       <main className="max-w-md mx-auto p-4 space-y-3 pb-10">
+        <Link to="/supervisor/reparto"
+          className="block bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-4 active:scale-[0.99] transition-transform">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
+              <Truck size={22} className="text-accent" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-gray-900">Reparto en vivo</p>
+              <p className="text-xs text-gray-500">Qué cargó, qué bajó y qué le queda a cada camión, con sus ventas</p>
+            </div>
+          </div>
+        </Link>
+
         <Link to="/supervisor/cobrar"
           className="block bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-4 active:scale-[0.99] transition-transform">
           <div className="flex items-center gap-3">
