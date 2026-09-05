@@ -40,7 +40,6 @@ export function validarFechasCheque(emision: string, acreditacion: string, hoy =
 // BCRA), fecha de emisión, fecha de acreditación, días entre ambas (calculado
 // en vivo) e importe. Sin e-cheq: los supervisores no los reciben (Ariel, 2026-09-05);
 // el tipo y el writer de Tango lo siguen soportando por si vuelve.
-// en vivo) e importe. Devuelve el cheque armado por onAgregar.
 export default function ChequeForm({ onAgregar, onCancelar }: {
   onAgregar:  (cheque: ChequeRecibido) => void
   onCancelar: () => void

@@ -2714,6 +2714,12 @@ describe('cobranzas de supervisor', () => {
     await assertSucceeds(setDoc(doc(db('sup'), 'cobranzas/c1'), cobranzaSup()))
   })
 
+  test('el super_admin también crea una cobranza de supervisor a su nombre (la pantalla lo deja entrar)', async () => {
+    await seed((d) => setDoc(doc(d, 'users/admin1'), { rol: 'super_admin', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('admin1'), 'cobranzas/c1'), cobranzaSup({ registradoPor: { uid: 'admin1', nombre: 'Admin' } })))
+    await assertFails(setDoc(doc(db('admin1'), 'cobranzas/c2'), cobranzaSup()))   // a nombre de otro, no
+  })
+
   test('el supervisor crea SIN numeroRecibo (numeración opcional hasta conectar Tango)', async () => {
     await seedSupervisor()
     const { numeroRecibo: _omitido, ...sinNumero } = cobranzaSup()

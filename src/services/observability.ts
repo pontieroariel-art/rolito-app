@@ -60,7 +60,18 @@ export function reportError(error: unknown, context?: Record<string, unknown>): 
 // en vez de morir en silencio (la UI ya dijo "registrado") queda reportado.
 // Ver auditoría 2026-08-29: ventas/cobranzas que podían perderse sin aviso.
 export function fireAndForget(op: Promise<unknown>, context?: Record<string, unknown>): void {
-  op.catch((err) => reportError(err, { fireAndForget: true, ...context }))
+  op.catch((err) => {
+    reportError(err, { fireAndForget: true, ...context })
+    // Un rechazo DEFINITIVO (sin permiso, dato inválido) no se va a resolver
+    // con reintentos ni al volver la señal: la pantalla ya dijo "listo" y el
+    // dato se perdió. Hay que decírselo al usuario (2026-09-05: una cobranza
+    // de supervisor cargada por un super_admin se rechazó en silencio).
+    const code = String((err as { code?: string })?.code ?? '')
+    if (code === 'permission-denied' || code === 'invalid-argument' || code === 'failed-precondition') {
+      const origen = typeof context?.origen === 'string' ? ` (${context.origen})` : ''
+      try { window.alert(`No se pudo guardar${origen}: ${code === 'permission-denied' ? 'tu usuario no tiene permiso' : 'el dato fue rechazado'}. Avisá a la oficina para que lo cargue a mano.`) } catch { /* sin ventana */ }
+    }
+  })
 }
 
 // Handler de error para onSnapshot que reporta en vez de tragar en silencio.

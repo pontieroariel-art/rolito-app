@@ -977,7 +977,9 @@ service cloud.firestore {
       // facturas de Tango. La triple igualdad total == Σ(imputaciones) ==
       // Σ(medios) no se puede validar acá (las reglas no iteran arrays) — la
       // valida crearCobranzaSupervisor() en el cliente; el doc es inmutable.
-      allow create: if request.auth != null && isSupervisor()
+      // El super_admin también puede (la pantalla /supervisor/cobrar lo deja
+      // entrar; sin esto el guardado se rechazaba en silencio — 2026-09-05).
+      allow create: if request.auth != null && (isSupervisor() || myRole() == 'super_admin')
         && request.resource.data.origen == 'supervisor'
         && request.resource.data.registradoPor.uid == request.auth.uid
         && request.resource.data.clienteId is string
