@@ -1336,6 +1336,17 @@ y `sql.bases = { redonhielo: REDONHIELO_SA, rolito: Rolito }`; (4) `npm install`
 `remitosSqlEnabled` / `recibosSqlEnabled`. Primer comprobante real con `--dry-run --solo=<id>` y
 después `--solo=<id>` (§20.1), verificando en Tango.
 
+**EN PRODUCCIÓN desde el 2026-09-05 12:20.** Los 6 pasos hechos con Ariel por RDP: talonarios
+1106/1107/1108 creados en Tango Ventas (ojo: no en el de Stock), script 06 corrido (login con
+contraseña larga en Bitwarden, permisos en las dos bases), servicio actualizado en
+`C:\RolitoSync\sql` (config con bases REDONHIELO_SA/Rolito), `--probar-sql` OK en ambas bases, tarea
+`RolitoBridgeSql` (SYSTEM, al iniciar, vía `bridge-sql.cmd` con reinicio automático), latido en
+`config/tango.bridgeListenerLastSeen`. Primer comprobante real: venta cta cte de prueba a FC.280 →
+`--dry-run --solo` limpio → `--solo` real → **R 01105-00000041** visible en Tango (ID_STA14 890391,
+depósito 21, pendiente de facturar) y write-back en `ventasCamion.tango`. Después se prendieron
+`remitosSqlEnabled` y `recibosSqlEnabled`. Nota para contaduría: los R 01105 nº 1 a 40 fueron
+pruebas borradas → registrarlos como anulados (talonario con CAI).
+
 **Cobertura verificada en prod (2026-09-05):** 951/966 clientes activos con `codigoTango` (15 sin
 código: sucursales de cadenas y algún cliente nuevo → una venta cta cte a ellos queda en error);
 9/11 productos del catálogo con artículo (`anticorrosivo` y `agua_6l` sin código → remito en
