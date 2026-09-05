@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, ChangeEvent } from 'react'
+import { coincideBusqueda } from '@/utils/busqueda'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { MapPin } from 'lucide-react'
@@ -119,14 +120,7 @@ export default function UserManagement() {
     return sucursalesFlat.filter((sf) => {
       const u    = sf.user
       const addr = sf.address
-      const matchSearch = !q ||
-        u.razonSocial?.toLowerCase().includes(q) ||
-        u.nombre?.toLowerCase().includes(q) ||
-        u.cuit?.includes(q) ||
-        u.codigoCliente?.toLowerCase().includes(q) ||
-        addr?.id?.toLowerCase().includes(q) ||
-        addr?.nombre?.toLowerCase().includes(q) ||
-        addr?.address?.toLowerCase().includes(q)
+      const matchSearch = coincideBusqueda(q, u.razonSocial, u.nombre, u.cuit, u.codigoCliente, addr?.id, addr?.nombre, addr?.address)
       const matchStatus = statusFilter === 'all' || u.estado === statusFilter
       const matchSector = sectorFilter === 'all' || u.sector === sectorFilter
       return matchSearch && matchStatus && matchSector
@@ -138,10 +132,7 @@ export default function UserManagement() {
   // filtered sólo se usa para el tab equipo
   const filtered = equipo.filter((u) => {
     const q           = search.toLowerCase()
-    const matchSearch = !q ||
-      u.nombre?.toLowerCase().includes(q) ||
-      u.razonSocial?.toLowerCase().includes(q) ||
-      u.email?.toLowerCase().includes(q)
+    const matchSearch = coincideBusqueda(q, u.nombre, u.razonSocial, u.email)
     const matchStatus = statusFilter === 'all' || u.estado === statusFilter
     const matchSector = sectorFilter === 'all' || u.sector === sectorFilter
     const matchRol     = rolFilter === 'all' || u.rol === rolFilter

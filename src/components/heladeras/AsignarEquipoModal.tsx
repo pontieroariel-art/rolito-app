@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo } from 'react'
+import { coincideBusqueda, normalizarBusqueda } from '@/utils/busqueda'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import SignaturePad, { SignaturePadHandle } from './SignaturePad'
@@ -46,13 +47,9 @@ export default function AsignarEquipoModal({
 
   const resultadosCliente = useMemo(() => {
     if (clienteFijo) return []
-    const q = busqueda.trim().toLowerCase()
-    if (!q) return []
+    if (!normalizarBusqueda(busqueda)) return []
     return clientes
-      .filter((c) =>
-        c.razonSocial?.toLowerCase().includes(q) ||
-        c.nombreContacto?.toLowerCase().includes(q) ||
-        c.cuit?.includes(q))
+      .filter((c) => coincideBusqueda(busqueda, c.razonSocial, c.nombreContacto, c.cuit, c.codigoCliente))
       .slice(0, 8)
   }, [clientes, busqueda, clienteFijo])
 

@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { coincideBusqueda } from '@/utils/busqueda'
 import { useSearchParams } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import Button from '../../components/ui/Button'
@@ -52,13 +53,7 @@ export default function EquiposPage() {
       }
       if (!q) return true
       const codigoCliente = h.clienteAsignadoId ? codigoPorClienteId.get(h.clienteAsignadoId) : undefined
-      return (
-        h.codigoInterno?.toLowerCase().includes(q) ||
-        h.numeroSerie?.toLowerCase().includes(q) ||
-        h.clienteAsignadoNombre?.toLowerCase().includes(q) ||
-        h.clienteAsignadoDireccion?.toLowerCase().includes(q) ||
-        codigoCliente?.toLowerCase().includes(q)
-      )
+      return coincideBusqueda(q, h.codigoInterno, h.numeroSerie, h.clienteAsignadoNombre, h.clienteAsignadoDireccion, codigoCliente)
     })
   }, [heladeras, busqueda, estadoFiltro, codigoPorClienteId])
 

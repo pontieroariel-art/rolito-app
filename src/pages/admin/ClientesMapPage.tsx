@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { coincideBusqueda } from '@/utils/busqueda'
 import { useNavigate } from 'react-router-dom'
 import { GoogleMap, Marker } from '@react-google-maps/api'
 import { ArrowLeft, Search, MapPin, Users, AlertCircle, CheckCircle, Loader2, X } from 'lucide-react'
@@ -366,11 +367,7 @@ export default function ClientesMapPage() {
       const matchEstado   = estadoFilter === 'all' || s.user.estado === estadoFilter
       const matchVendedor = vendedorFilter === 'all' || s.user.codVendedor === vendedorFilter
       const matchSinGeo   = !soloSinGeo || !geoResults.get(s.key)
-      const matchSearch   = !q ||
-        s.user.razonSocial?.toLowerCase().includes(q) ||
-        s.user.nombre?.toLowerCase().includes(q) ||
-        s.codigoCliente.toLowerCase().includes(q) ||
-        s.address?.address?.toLowerCase().includes(q)
+      const matchSearch   = coincideBusqueda(q, s.user.razonSocial, s.user.nombre, s.codigoCliente, s.address?.address)
       return matchSector && matchEstado && matchVendedor && matchSinGeo && matchSearch
     })
   }, [allSucursales, search, sectorFilter, estadoFilter, vendedorFilter, soloSinGeo, geoResults])

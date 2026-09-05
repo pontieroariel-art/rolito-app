@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { coincideBusqueda, normalizarBusqueda } from '@/utils/busqueda'
 import { useSearchParams } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import Button from '../../components/ui/Button'
@@ -80,10 +81,9 @@ export default function TomaServicePage() {
   }, [clientIdPrefill, heladeraIdPrefill])
 
   const resultadosCliente = useMemo(() => {
-    const q = busqueda.trim().toLowerCase()
-    if (!q || cliente) return []
+    if (!normalizarBusqueda(busqueda) || cliente) return []
     return clientes
-      .filter((c) => c.razonSocial?.toLowerCase().includes(q) || c.nombreContacto?.toLowerCase().includes(q) || c.cuit?.includes(q))
+      .filter((c) => coincideBusqueda(busqueda, c.razonSocial, c.nombreContacto, c.cuit, c.codigoCliente))
       .slice(0, 8)
   }, [clientes, busqueda, cliente])
 

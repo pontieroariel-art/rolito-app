@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { coincideBusqueda, normalizarBusqueda, INPUT_BUSQUEDA_PROPS } from '@/utils/busqueda'
 import { Link } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import SupervisorHeader from '@/components/supervisor/SupervisorHeader'
@@ -36,11 +37,8 @@ export default function SupervisorClientesPage() {
   }, [])
 
   const filtrados = useMemo(() => {
-    const q = busqueda.trim().toLowerCase()
-    if (!q) return saldos
-    return saldos.filter((s) =>
-      s.razonSocial.toLowerCase().includes(q) || s.codigoTango.includes(q),
-    )
+    if (!normalizarBusqueda(busqueda)) return saldos
+    return saldos.filter((s) => coincideBusqueda(busqueda, s.razonSocial, s.codigoTango))
   }, [saldos, busqueda])
 
   const totalDeuda = useMemo(() => saldos.reduce((t, s) => t + s.saldoTotal, 0), [saldos])
@@ -52,6 +50,7 @@ export default function SupervisorClientesPage() {
         <div className="relative">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
+            {...INPUT_BUSQUEDA_PROPS}
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar por nombre o código…"

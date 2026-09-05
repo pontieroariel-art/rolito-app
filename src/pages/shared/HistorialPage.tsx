@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { coincideBusqueda, normalizarBusqueda } from '@/utils/busqueda'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
@@ -71,10 +72,9 @@ export default function HistorialPage() {
   // Clientes cuyo código coincide con la búsqueda — permite encontrar
   // pedidos/visitas por código de cliente aunque el registro no lo guarde.
   const codeMatchIds = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return new Set<string>()
+    if (!normalizarBusqueda(search)) return new Set<string>()
     return new Set(
-      clientes.filter((c) => c.codigoCliente?.toLowerCase().includes(q)).map((c) => c.uid),
+      clientes.filter((c) => coincideBusqueda(search, c.codigoCliente)).map((c) => c.uid),
     )
   }, [clientes, search])
 
@@ -96,13 +96,10 @@ export default function HistorialPage() {
       if (!enPeriodo(tsToDate(o.date))) return false
       if (clienteId !== 'todos' && o.clientId !== clienteId) return false
       if (statusFilter !== 'todos' && o.status !== statusFilter) return false
-      if (search.trim()) {
-        const q = search.toLowerCase()
+      if (normalizarBusqueda(search)) {
         if (
           !codeMatchIds.has(o.clientId) &&
-          !o.clientName.toLowerCase().includes(q) &&
-          !o.clientAddress.toLowerCase().includes(q) &&
-          !o.products.some((p) => p.name.toLowerCase().includes(q))
+          !coincideBusqueda(search, o.clientName, o.clientAddress, ...o.products.map((p) => p.name))
         ) return false
       }
       return true
@@ -116,12 +113,10 @@ export default function HistorialPage() {
       if (!v.fecha?.toDate) return false
       if (!enPeriodo(v.fecha.toDate())) return false
       if (clienteId !== 'todos' && v.clientId !== clienteId) return false
-      if (search.trim()) {
-        const q = search.toLowerCase()
+      if (normalizarBusqueda(search)) {
         if (
           !codeMatchIds.has(v.clientId) &&
-          !v.clientName.toLowerCase().includes(q) &&
-          !v.clientAddress.toLowerCase().includes(q)
+          !coincideBusqueda(search, v.clientName, v.clientAddress)
         ) return false
       }
       return true

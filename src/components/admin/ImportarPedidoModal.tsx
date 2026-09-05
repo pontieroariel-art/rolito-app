@@ -1,4 +1,5 @@
 import { useState, useRef, ChangeEvent, DragEvent } from 'react'
+import { coincideBusqueda, normalizarBusqueda } from '@/utils/busqueda'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import LoadingSpinner from '../ui/LoadingSpinner'
@@ -102,16 +103,8 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
     setExistingDates(new Set(dias))
   }
 
-  const flatFiltered = busqueda.trim()
-    ? sucursales.filter((s) => {
-        const q = busqueda.toLowerCase()
-        return (
-          s.label.toLowerCase().includes(q) ||
-          (s.user.cuit || '').toLowerCase().includes(q) ||
-          (s.user.codigoCliente || '').toLowerCase().includes(q) ||
-          s.address.toLowerCase().includes(q)
-        )
-      })
+  const flatFiltered = normalizarBusqueda(busqueda)
+    ? sucursales.filter((s) => coincideBusqueda(busqueda, s.label, s.user.cuit, s.user.codigoCliente, s.address))
     : sucursales
 
   const handleContinueToUpload = () => {

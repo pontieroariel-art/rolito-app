@@ -1,4 +1,5 @@
 import { useState, FormEvent } from 'react'
+import { coincideBusqueda, normalizarBusqueda } from '@/utils/busqueda'
 import { Plus, Trash2, Navigation } from 'lucide-react'
 import { AddressAutocomplete, AddressMapPicker, AddressMapMini } from '../../../components/ui/AddressPickerField'
 import Button from '../../../components/ui/Button'
@@ -126,12 +127,8 @@ export function GestionarDomiciliosModal({
   })
 
   const q = search.trim().toLowerCase()
-  const visibleAddresses = q
-    ? addresses.filter((a) =>
-        a.nombre?.toLowerCase().includes(q) ||
-        a.address?.toLowerCase().includes(q) ||
-        a.id?.toLowerCase().includes(q),
-      )
+  const visibleAddresses = normalizarBusqueda(q)
+    ? addresses.filter((a) => coincideBusqueda(q, a.nombre, a.address, a.id))
     : addresses
 
   return (

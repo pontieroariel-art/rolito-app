@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { coincideBusqueda, normalizarBusqueda } from '@/utils/busqueda'
 import { Search } from 'lucide-react'
 import Button from '../../components/ui/Button'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
@@ -25,15 +26,9 @@ export default function AsignacionEquiposPage() {
   const puedeGestionar = puedeGestionarHeladeras(user?.rol)
 
   const resultados = useMemo(() => {
-    const q = busqueda.trim().toLowerCase()
-    if (!q || cliente) return []
+    if (!normalizarBusqueda(busqueda) || cliente) return []
     return clientes
-      .filter((c) =>
-        c.razonSocial?.toLowerCase().includes(q) ||
-        c.nombreContacto?.toLowerCase().includes(q) ||
-        c.cuit?.includes(q) ||
-        c.codigoCliente?.toLowerCase().includes(q) ||
-        c.addresses?.some((a) => a.id?.toLowerCase().includes(q)))
+      .filter((c) => coincideBusqueda(busqueda, c.razonSocial, c.nombreContacto, c.cuit, c.codigoCliente, ...(c.addresses ?? []).map((a) => a.id)))
       .slice(0, 8)
   }, [clientes, busqueda, cliente])
 

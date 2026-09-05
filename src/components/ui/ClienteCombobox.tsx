@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { UserProfile } from '../../types'
+import { coincideBusqueda, normalizarBusqueda, INPUT_BUSQUEDA_PROPS } from '@/utils/busqueda'
 
 export interface ComboItem {
   uid:     string
@@ -40,14 +41,10 @@ export default function ClienteCombobox({
     ? null
     : items.find((i) => i.uid === value)
 
-  const filtered = query.trim()
-    ? items.filter((i) => {
-        const q = query.toLowerCase()
-        return (
-          i.label.toLowerCase().includes(q) ||
-          (i.codigo || '').toLowerCase().includes(q)
-        )
-      }).slice(0, 50)
+  // Se compara sin puntos, espacios, guiones ni acentos: el autocorrector del
+  // iPad convierte "FC." en "F.C." y "fc280" tiene que encontrar a "FC.280".
+  const filtered = normalizarBusqueda(query)
+    ? items.filter((i) => coincideBusqueda(query, i.label, i.codigo)).slice(0, 50)
     : items.slice(0, 50)
 
   useEffect(() => {
@@ -92,6 +89,7 @@ export default function ClienteCombobox({
           <div className="p-2 border-b border-[#D3D1C7]">
             <input
               autoFocus
+              {...INPUT_BUSQUEDA_PROPS}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Buscar por nombre o código..."

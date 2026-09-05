@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { coincideBusqueda, normalizarBusqueda } from '@/utils/busqueda'
 import { useNavigate } from 'react-router-dom'
 import { GoogleMap, Marker } from '@react-google-maps/api'
 import { Search } from 'lucide-react'
@@ -60,10 +61,9 @@ export default function MapaClientesHeladerasPage() {
   }, [conCoords, centro, centroPos, radioKm])
 
   const resultadosBusqueda = useMemo(() => {
-    const q = busquedaCentro.trim().toLowerCase()
-    if (!q || centro) return []
+    if (!normalizarBusqueda(busquedaCentro) || centro) return []
     return clientes
-      .filter((c) => c.razonSocial?.toLowerCase().includes(q) || c.nombreContacto?.toLowerCase().includes(q) || c.cuit?.includes(q))
+      .filter((c) => coincideBusqueda(busquedaCentro, c.razonSocial, c.nombreContacto, c.cuit, c.codigoCliente))
       .slice(0, 8)
   }, [clientes, busquedaCentro, centro])
 

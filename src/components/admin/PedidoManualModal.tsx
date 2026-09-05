@@ -1,5 +1,6 @@
 ﻿import { useState, ChangeEvent, useMemo, useCallback, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { coincideBusqueda, normalizarBusqueda } from '@/utils/busqueda'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import MultiDatePicker from './MultiDatePicker'
@@ -66,17 +67,10 @@ function StepCliente({
   const { sucursales, isLoading, isError } = useSucursales()
 
   const filtered = useMemo(() => {
-    const q = search.toLowerCase()
-    if (!q) return sucursales
-    return sucursales.filter((s) =>
-      s.label.toLowerCase().includes(q) ||
-      (s.user.cuit || '').toLowerCase().includes(q) ||
-      (s.user.codigoCliente || '').toLowerCase().includes(q) ||
-      // Código propio de esta sucursal (grupos empresarios: cada dirección
-      // tiene su propio código, distinto del codigoCliente del cliente).
-      s.addrId.toLowerCase().includes(q) ||
-      s.address.toLowerCase().includes(q),
-    )
+    if (!normalizarBusqueda(search)) return sucursales
+    // s.addrId: código propio de esta sucursal (grupos empresarios: cada
+    // dirección tiene su propio código, distinto del codigoCliente del cliente).
+    return sucursales.filter((s) => coincideBusqueda(search, s.label, s.user.cuit, s.user.codigoCliente, s.addrId, s.address))
   }, [sucursales, search])
 
   return (

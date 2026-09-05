@@ -1,4 +1,5 @@
 import { useState, ChangeEvent } from 'react'
+import { coincideBusqueda, normalizarBusqueda } from '@/utils/busqueda'
 import { deleteField } from 'firebase/firestore'
 import { MapPin, Phone, Mail, CreditCard, Building2, User, Calendar, CheckCircle, Plus, Navigation, Tag, Hash, Wallet } from 'lucide-react'
 import { AddressMapMini } from '../../../components/ui/AddressPickerField'
@@ -135,12 +136,8 @@ export function FichaClienteModal({
   // direcciones; para un cliente con 1-3 sucursales agregarlo es ruido.
   // Grupos empresarios como YPF pueden tener 80+.
   const q = domicilioSearch.trim().toLowerCase()
-  const domiciliosFiltrados = q
-    ? localAddresses.filter((a) =>
-        a.nombre?.toLowerCase().includes(q) ||
-        a.address?.toLowerCase().includes(q) ||
-        a.id?.toLowerCase().includes(q),
-      )
+  const domiciliosFiltrados = normalizarBusqueda(q)
+    ? localAddresses.filter((a) => coincideBusqueda(q, a.nombre, a.address, a.id))
     : localAddresses
 
   return (
