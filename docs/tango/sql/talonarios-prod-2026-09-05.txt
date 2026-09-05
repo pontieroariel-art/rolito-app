@@ -1,0 +1,13 @@
+base          TALONARIO DESCRIP                        COMPROB TIPO SUCURSAL TIPO_TALONARIO NRO_DESDE NRO_HASTA EDITA_NRO DOC_ELECTR NUMERACION_PREIMPRESA RENGLONES   FECHA_VTO               DESTINO_DE USA_TGIMPRE IMPRESION_COMPROBANTES
+------------- --------- ------------------------------ ------- ---- -------- -------------- --------- --------- --------- ---------- --------------------- ----------- ----------------------- ---------- ----------- ----------------------
+REDONHIELO_SA 1105      Remito R App Rolito            REM     R    01105    P              00000001  00200000  0         0          N                     15          2027-09-03 00:00:00.000 I          S           S
+REDONHIELO_SA 1106      Recibos App Rolito             REC     X    01106    P              00000001  99999999  0         0          N                     99          2050-01-01 00:00:00.000 I          S           S
+Rolito        1104      Factura A promo App Rolito     FAC     A    01104    M              00000001  99999999  1         0          N                     999         2100-09-03 00:00:00.000 I          S           S
+Rolito        1105      Factura B Promo App Rolito     FAC     B    01104    M              00000001  99999999  1         0          N                     999         2100-09-03 00:00:00.000 I          S           S
+Rolito        1107      Remitos App Rolito             REM     R    01107    P              00000001  99999999  0         0          N                     99          2050-01-01 00:00:00.000 I          S           S
+Rolito        1108      Recibos App Rolito             REC     X    01108    P              00000001  99999999  0         0          N                     99          2050-01-01 00:00:00.000 I          S           S
+TestingRH     1105      Remitos App Rolito             REM     R    01105    P              00000001  99999999  0         0          N                     99          2050-01-01 00:00:00.000 I          S           S
+TestingRH     1106      Recibos App Rolito             REC     X    01106    P              00000001  99999999  0         0          N                     99          2050-01-01 00:00:00.000 I          S           S
+
+
+Hora de finalización: 2026-09-05T10:16:52.7206254-03:00

@@ -1,0 +1,87 @@
+TALONARIO campo                             valor
+--------- --------------------------------- --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+1105      APLICA_RG5762                     0
+1105      CF_COPIAS                         0
+1105      COMPROB                           REM
+1105      COMPROBANTE_CREDITO               0
+1105      CON_CBU_INFORMADO                 N
+1105      CONT_FISCA                        0
+1105      DESCRIP                           Remitos App Rolito
+1105      DESTINO_DE                        I
+1105      DOC_ELECTR                        0
+1105      DUPLICA                           0
+1105      EDITA_NRO                         0
+1105      EXCLUSIVO                         0
+1105      EXPORTA                           0
+1105      FECH_AVISO                        Jan  1 1800 12:00AM
+1105      FECHA_VTO                         Jan  1 2050 12:00AM
+1105      GUARDA_COPIA_PDF                  N
+1105      ID_GVA43                          217
+1105      IMP_DE                            1
+1105      IMPRESION_COMPROBANTES            S
+1105      MAIL_DE                           0
+1105      MET_CON_DE                        L
+1105      NRO_DESDE                         00000001
+1105      NRO_HASTA                         99999999
+1105      NROAUTORIZ                        0
+1105      NUMERACION_PREIMPRESA             N
+1105      PROXIMO                           7407437B517E0764
+1105      PUBLICA_COMPROBANTE_TANGO_TIENDAS 0
+1105      RECIBO                            N
+1105      RENGLONES                         99
+1105      SUCURSAL                          01105
+1105      SUCURSAL_DESTINO                  0
+1105      TALONARIO                         1105
+1105      TIPO                              R
+1105      TIPO_TALONARIO                    P
+1105      USA_DESTINO_IMPRESION_EN_PDF      0
+1105      USA_TGIMPRE                       S
+1105      USA_USB                           0
+1105      UTILIZA_BONO_FISCAL               N
+1105      UTILIZA_FORMULARIO_GRAFICO        0
+1105      VAL_FECHA                         0
+1105      WA_DE                             0
+1106      APLICA_RG5762                     0
+1106      CF_COPIAS                         0
+1106      COMPROB                           REC
+1106      COMPROBANTE_CREDITO               0
+1106      CON_CBU_INFORMADO                 N
+1106      CONT_FISCA                        0
+1106      DESCRIP                           Recibos App Rolito
+1106      DESTINO_DE                        I
+1106      DOC_ELECTR                        0
+1106      DUPLICA                           0
+1106      EDITA_NRO                         0
+1106      EXCLUSIVO                         0
+1106      EXPORTA                           0
+1106      FECH_AVISO                        Jan  1 1800 12:00AM
+1106      FECHA_VTO                         Jan  1 2050 12:00AM
+1106      GUARDA_COPIA_PDF                  N
+1106      ID_GVA43                          218
+1106      IMP_DE                            1
+1106      IMPRESION_COMPROBANTES            S
+1106      MAIL_DE                           0
+1106      MET_CON_DE                        L
+1106      NRO_DESDE                         00000001
+1106      NRO_HASTA                         99999999
+1106      NROAUTORIZ                        0
+1106      NUMERACION_PREIMPRESA             N
+1106      PROXIMO                           7407437B517E0764
+1106      PUBLICA_COMPROBANTE_TANGO_TIENDAS 0
+1106      RECIBO                            N
+1106      RENGLONES                         99
+1106      SUCURSAL                          01106
+1106      SUCURSAL_DESTINO                  0
+1106      TALONARIO                         1106
+1106      TIPO                              X
+1106      TIPO_TALONARIO                    P
+1106      USA_DESTINO_IMPRESION_EN_PDF      0
+1106      USA_TGIMPRE                       S
+1106      USA_USB                           0
+1106      UTILIZA_BONO_FISCAL               N
+1106      UTILIZA_FORMULARIO_GRAFICO        0
+1106      VAL_FECHA                         0
+1106      WA_DE                             0
+
+
+Hora de finalización: 2026-09-05T09:53:32.5960788-03:00

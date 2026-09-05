@@ -14,7 +14,8 @@
  *      carpeta functions/lib/services/tango/sql/ del repo (tipos.js, remito.js, recibo.js)
  *      como C:\RolitoSync\sql\lib\.
  *   2. `npm init -y && npm i firebase mssql` en esa carpeta (Node 22).
- *   3. Probar: node bridge-sql.mjs --dry-run   (ejecuta todo y REVIERTE; no deja nada en Tango)
+ *   3. Probar: node bridge-sql.mjs --probar-sql (conexión, login y permisos en cada base; no toca nada)
+ *              node bridge-sql.mjs --dry-run    (ejecuta todo y REVIERTE; no deja nada en Tango)
  *   4. Servicio: Task Scheduler "al iniciar el equipo", node.exe C:\RolitoSync\sql\bridge-sql.mjs
  *
  * Flags en config/tango (Firestore): remitosSqlEnabled / recibosSqlEnabled (default false).
@@ -44,6 +45,11 @@ const UNA_VEZ = process.argv.includes('--once')
 // --solo=ID1,ID2 : procesa SOLO esos docs de tango-outbox (prueba controlada en TestingRH: no se
 // cuela ninguna venta real que esté pendiente). Implica --once y saltea los flags *SqlEnabled.
 const SOLO = (() => { const a = process.argv.find((x) => x.startsWith('--solo=')); return a ? new Set(a.slice(7).split(',').filter(Boolean)) : null })()
+// --probar-sql : solo abre la conexión a cada base de sql.bases con el login de la config y muestra
+// base, usuario, permisos clave y talonarios de la app. No toca Firestore ni escribe nada. Para
+// verificar contraseña/bases al instalar (el "Sesión OK" del arranque solo prueba Firebase: el pool
+// SQL se abre recién con el primer comprobante).
+const PROBAR_SQL = process.argv.includes('--probar-sql')
 const CONFIG_PATH = path.join(__dirname, 'bridge-sql.config.json')
 const MAX_INTENTOS = 5
 const SWEEP_INTERVAL_MS = 5 * 60 * 1000
@@ -237,7 +243,42 @@ async function barrido(db) {
   for (const d of res.docs) await procesarItem(db, d.id, d.data())
 }
 
+async function probarSql() {
+  let fallas = 0
+  for (const [empresa, database] of Object.entries(cfg.sql.bases ?? {})) {
+    log(`${empresa} → base "${database}" @ ${cfg.sql.server}:${cfg.sql.port ?? 1433} como ${cfg.sql.user}`)
+    try {
+      const p = await pool(database)
+      const r = await new mssql.Request(p).query(`
+        SELECT DB_NAME() AS base, SUSER_SNAME() AS login, USER_NAME() AS usuario,
+               HAS_PERMS_BY_NAME('dbo.STA14', 'OBJECT', 'INSERT') AS ins_sta14,
+               HAS_PERMS_BY_NAME('dbo.STA20', 'OBJECT', 'INSERT') AS ins_sta20,
+               HAS_PERMS_BY_NAME('dbo.STA19', 'OBJECT', 'UPDATE') AS upd_sta19,
+               HAS_PERMS_BY_NAME('dbo.GVA12', 'OBJECT', 'INSERT') AS ins_gva12,
+               HAS_PERMS_BY_NAME('dbo.GVA07', 'OBJECT', 'INSERT') AS ins_gva07,
+               HAS_PERMS_BY_NAME('dbo.GVA14', 'OBJECT', 'UPDATE') AS upd_gva14,
+               HAS_PERMS_BY_NAME('dbo.SBA04', 'OBJECT', 'INSERT') AS ins_sba04,
+               HAS_PERMS_BY_NAME('dbo.SBA01', 'OBJECT', 'UPDATE') AS upd_sba01,
+               HAS_PERMS_BY_NAME('dbo.SEQUENCE_ASIENTO_SB', 'OBJECT', 'UPDATE') AS upd_seq,
+               (SELECT COUNT(*) FROM GVA43 WHERE TALONARIO BETWEEN 1105 AND 1108) AS talonarios_app`)
+      const f = r.recordset[0]
+      const permisos = Object.entries(f).filter(([k]) => /^(ins|upd)_/.test(k))
+      const sinPermiso = permisos.filter(([, v]) => v !== 1).map(([k]) => k)
+      log(`  OK: base ${f.base}, login ${f.login}, usuario ${f.usuario}, talonarios de la app en GVA43: ${f.talonarios_app}`)
+      if (sinPermiso.length) { fallas++; log(`  FALTAN PERMISOS: ${sinPermiso.join(', ')} (correr el script 06 en esta base)`) }
+      else log(`  permisos OK (${permisos.length} comprobados)`)
+    } catch (e) {
+      fallas++
+      log(`  ERROR: ${e.message}`)
+    }
+  }
+  for (const p of pools.values()) await p.close()
+  log(fallas ? `Prueba SQL con ${fallas} problema(s).` : 'Prueba SQL OK en todas las bases.')
+  process.exit(fallas ? 1 : 0)
+}
+
 async function main() {
+  if (PROBAR_SQL) return probarSql()
   const app = initializeApp(cfg.firebaseConfig)
   const auth = getAuth(app)
   const db = getFirestore(app)

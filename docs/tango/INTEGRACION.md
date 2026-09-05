@@ -1303,3 +1303,43 @@ cabecera (conserva la trazabilidad del CBS, elimina el artículo ficticio); DES 
 contado; faltantes de la liquidación camión → depósito nuevo "98 DIFERENCIAS DE REPARTO";
 artículos CAMBIO solo como renglón informativo a $0 en la factura, configurados para no mover
 stock. Cada camión cierra el día en 0. MER queda para merma originada en planta.
+
+## 23. Fase A a producción: remitos y recibos por SQL en REDONHIELO_SA y Rolito (2026-09-05)
+
+Objetivo: que desde el lunes 2026-09-07 el remito R de cuenta corriente del camión y el recibo
+del supervisor entren solos a Tango. Estado al 2026-09-05: fase A probada real en TestingRH
+(§21), servicio y config listos en el Escritorio (`TXT SINCRONIZACION TANGO\bridge-sql`, idéntico
+al repo incluido el fix de fechas), nada instalado todavía en RHIELOTG.
+
+**Qué viaja y qué NO (importante para la oficina):**
+| Operación en la app | Tango | Cómo |
+|---|---|---|
+| Venta camión/ventanilla contado (Redonhielo) | Factura con CAE de la app | Facturador, Tango Connect (ya en prod) |
+| Venta promo (Rolito) | Factura manual A/B | Facturador, Tango Connect (ya en prod) |
+| Venta camión/ventanilla **cta cte** (Redonhielo) | **Remito R 01105 / 01107** | `bridge-sql` (esta fase) |
+| Cobranza de **supervisor** (efectivo/transferencia con imputación) | **Recibo X 01106 / 01108** | `bridge-sql` (esta fase) |
+| Cobranza de supervisor con **cheques o retenciones** | queda en `error` en la cola | pendiente de relevar (§21.2) — la carga la oficina |
+| Cobranza del **chofer en la calle** y de **caja/mostrador** | **no viaja** | `onCobranzaCreada` solo encola `origen:'supervisor'`; el writer exige imputaciones (no hay "recibo a cuenta"). Mejora siguiente: trazar un recibo a cuenta en TestingRH y extender el writer |
+| Remito de carga / descarga | no viaja | fase B (transferencias, STOCK_REPARTO.md) |
+
+**Hecho el 2026-09-05 desde acá:** `config/reciboSupervisorCounter = { next: 1 }` en prod (sin él
+el recibo sale sin número y el writer lo rechaza: "numeroRecibo inválido"); `scripts/tango/sql/06-produccion.sql`
+(login con contraseña larga + permisos del script 05 en las dos bases + bloque D de verificación);
+`INSTALAR-PRODUCCION.txt` en la carpeta del Escritorio con los 6 pasos para el servidor.
+
+**Pasos en RHIELOTG (Ariel, por RDP):** (1) talonarios 1106 REC X en REDONHIELO_SA y 1107 REM R +
+1108 REC X en Rolito, como los de TestingRH; (2) `06-produccion.sql` bloques A–C con la contraseña
+nueva, bloque D y pegar la salida; (3) copiar la carpeta a `C:\RolitoSync\sql`, poner la contraseña
+y `sql.bases = { redonhielo: REDONHIELO_SA, rolito: Rolito }`; (4) `npm install` y
+`node bridge-sql.mjs --dry-run --once`; (5) Task Scheduler `RolitoBridgeSql` al iniciar, como SYSTEM;
+(6) avisar: se verifica el latido `config/tango.bridgeListenerLastSeen` y recién ahí se prenden
+`remitosSqlEnabled` / `recibosSqlEnabled`. Primer comprobante real con `--dry-run --solo=<id>` y
+después `--solo=<id>` (§20.1), verificando en Tango.
+
+**Cobertura verificada en prod (2026-09-05):** 951/966 clientes activos con `codigoTango` (15 sin
+código: sucursales de cadenas y algún cliente nuevo → una venta cta cte a ellos queda en error);
+9/11 productos del catálogo con artículo (`anticorrosivo` y `agua_6l` sin código → remito en
+error si se venden); 8/11 choferes con depósito (Pereyra, Molina y Marsicano sin depósito → si
+venden cta cte, el remito queda en error hasta cargarlos en `config/tango.depositos`). Un item en
+error no se pierde: queda en `tango-outbox` con `ultimoError` y se reprocesa al corregir la config
+(volverlo a `pendiente`).
