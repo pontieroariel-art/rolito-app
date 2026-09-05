@@ -959,21 +959,8 @@ service cloud.firestore {
             // el supervisor ve las suyas y las de calle de los choferes (Reparto en vivo, 2026-09-05)
             || isSupervisor());
 
-      allow create: if request.auth != null && isCaja()
-        && request.resource.data.origen == 'caja'
-        && request.resource.data.plantaId == myPlanta()
-        && request.resource.data.registradoPor.uid == request.auth.uid
-        && request.resource.data.clienteId is string
-        && request.resource.data.importe is number && request.resource.data.importe > 0
-        && request.resource.data.formaPago in ['contado_efectivo', 'contado_transferencia'];
-
-      // Cobranza en la calle: los cobradores son choferes en la app (Fase 5).
-      allow create: if request.auth != null && isChofer()
-        && request.resource.data.origen == 'cobrador'
-        && request.resource.data.registradoPor.uid == request.auth.uid
-        && request.resource.data.clienteId is string
-        && request.resource.data.importe is number && request.resource.data.importe > 0
-        && request.resource.data.formaPago in ['contado_efectivo', 'contado_transferencia'];
+      // Las cobranzas simples (cliente + importe, sin factura) se dejaron de crear el
+      // 2026-09-05: no llegaban a Tango. Las ya registradas se siguen leyendo.
 
       // Cobranza completa del supervisor: recibo multi-medio con imputación a
       // facturas de Tango. La triple igualdad total == Σ(imputaciones) ==

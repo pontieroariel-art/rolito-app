@@ -2553,9 +2553,9 @@ describe('expedicion: ventanilla y cobranzas', () => {
     }))
   })
 
-  test('caja registra una cobranza de mostrador', async () => {
+  test('caja YA NO registra la cobranza simple de mostrador (desde 2026-09-05 solo la completa, con imputaciones)', async () => {
     await seedCaja()
-    await assertSucceeds(setDoc(doc(db('caja1'), 'cobranzas/c1'), cobranza()))
+    await assertFails(setDoc(doc(db('caja1'), 'cobranzas/c1'), cobranza()))
   })
 
   test('caja NO registra cobranzas con origen cobrador ni importe cero', async () => {
@@ -2685,9 +2685,9 @@ describe('expedicion: cobranzas de calle', () => {
     formaPago: 'contado_efectivo', fecha: new Date(), ...extra,
   })
 
-  test('el chofer/cobrador registra su propia cobranza en la calle', async () => {
+  test('el chofer YA NO registra la cobranza simple de calle (desde 2026-09-05 solo la completa, con imputaciones)', async () => {
     await seedChofer()
-    await assertSucceeds(setDoc(doc(db('chof1'), 'cobranzas/c1'), cobranzaCalle()))
+    await assertFails(setDoc(doc(db('chof1'), 'cobranzas/c1'), cobranzaCalle()))
   })
 
   test('el chofer NO registra con origen caja ni a nombre de otro', async () => {
