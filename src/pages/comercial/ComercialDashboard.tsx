@@ -64,15 +64,19 @@ export default function ComercialDashboard() {
 
   const clientes   = useMemo(() => users.filter((u) => u.rol === 'cliente'), [users])
   const pendientes = useMemo(() => clientes.filter((u) => u.estado === 'pendiente'), [clientes])
+  // Las cuentas que la sync de Tango dio de alta y todavía no pidieron nunca
+  // (padrón maestro, 2026-09-06) no cuentan como "sin lista" ni "inactivos":
+  // son miles y taparían a los clientes reales de la cartera.
+  const esCuentaTangoSinUso = (u: UserProfile) => u.aprobadoPor === 'tango' && !u.ultimoPedidoAt
   // Sin lista = Tango no le asignó lista en Redonhielo (o no está vinculado a Tango).
-  const sinLista   = useMemo(() => clientes.filter((u) => u.estado === 'activo' && !u.listaTango?.redonhielo), [clientes])
+  const sinLista   = useMemo(() => clientes.filter((u) => u.estado === 'activo' && !u.listaTango?.redonhielo && !esCuentaTangoSinUso(u)), [clientes])
 
   // Clientes inactivos: usa users.ultimoPedidoAt (lo mantiene el trigger
   // onOrderRollup), así el dato es exacto y no depende del stream de 30 días que
   // se truncaba a escala (auditoría H5).
   const inactivos = useMemo(() => {
     return clientes.filter((u) => {
-      if (u.estado !== 'activo' || daysSince(u.fechaCreacion) <= INACTIVE_DAYS) return false
+      if (u.estado !== 'activo' || daysSince(u.fechaCreacion) <= INACTIVE_DAYS || esCuentaTangoSinUso(u)) return false
       if (!u.ultimoPedidoAt) return true
       return Math.floor((Date.now() / 1000 - u.ultimoPedidoAt.seconds) / 86400) >= INACTIVE_DAYS
     })

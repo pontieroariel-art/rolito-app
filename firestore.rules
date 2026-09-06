@@ -1079,6 +1079,15 @@ service cloud.firestore {
       allow create, delete: if false;
     }
 
+    // ── Padrón maestro: cola de altas automáticas de clientes desde Tango ──
+    // tango-altas/{cuit}: la sync de clientes (Admin SDK) encola los CUIT de
+    // Tango sin cuenta en la app y tangoAltas.ts los crea. Solo lectura para
+    // quien gestiona clientes (panel de Ajustes); nadie escribe desde el cliente.
+    match /tango-altas/{cuit} {
+      allow read: if request.auth != null && (isOperator() || isManager() || isGerenteGeneral() || isFacturacion());
+      allow write: if false;
+    }
+
     // ── Facturación electrónica ARCA ──────────────────────────────────────────
     // Ver docs/arca/FACTURACION_ELECTRONICA.md.
 

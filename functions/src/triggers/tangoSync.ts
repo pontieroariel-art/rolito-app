@@ -60,6 +60,9 @@ export interface ResultadoSync {
   errores?: ResultadoFila[]
   // Filas de Tango sin cuenta en la app (candidatas a alta automática).
   sinCuenta?: TangoClienteRow[]
+  // Cuentas vinculadas que aparecieron en este lote, con si la fila estaba
+  // habilitada en Tango (para la baja automática de las que no aparecen).
+  vistos?: Array<{ uid: string; habilitado: boolean }>
 }
 
 export function soloDigitos(v: string | undefined | null): string {
@@ -154,6 +157,7 @@ export async function procesarLoteClientesTango(
   const errores: ResultadoFila[] = []
   const wouldUpdate: unknown[] = []
   const sinCuenta: TangoClienteRow[] = []
+  const vistos: Array<{ uid: string; habilitado: boolean }> = []
 
   const auth = getAuth()
   let batch = db.batch()
@@ -203,6 +207,7 @@ export async function procesarLoteClientesTango(
 
     const perfil = perfilPorUid.get(uid)!
     const ids = perfil.tangoIds as TangoIds
+    vistos.push({ uid, habilitado: row.habilitado !== false })
     const tienePrincipal = (ids[empresa]?.length ?? 0) > 0
     const esPrincipal = !tienePrincipal || ids[empresa]![0].idGva14 === row.idGva14
     const update: Record<string, unknown> = {}
@@ -319,6 +324,7 @@ export async function procesarLoteClientesTango(
     ...(opts.dryRun ? { wouldUpdate } : {}),
     errores,
     sinCuenta,
+    vistos,
   }
 }
 

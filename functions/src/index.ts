@@ -29,6 +29,7 @@ export { onProduccionPalletCreado, onVentaCamionCreada, onVentaCamionFacturada, 
 export { onOutboxPendiente, barridoOutboxTango }  from './triggers/tangoWorker'
 export { syncPreciosTango, sincronizarPreciosTangoAhora } from './triggers/tangoPrecios'
 export { syncClientesTangoConnect, syncSaldosTangoConnect, sincronizarClientesTangoAhora, sincronizarSaldosTangoAhora, onConsultaSaldoPendiente } from './triggers/tangoConnectSync'
+export { altasClientesTango, procesarAltasTangoAhora } from './triggers/tangoAltas'
 export { publicarTurnosVentanilla } from './triggers/turnosVentanilla'
 export { onOrderRollup } from './triggers/rollups'
 export { resetPinProduccion } from './triggers/produccionAuth'

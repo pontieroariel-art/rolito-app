@@ -363,9 +363,19 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
   useEffect(() => {
     if (!isLoaded || allClients.length === 0) return
     const visitClientIds = new Set(visitasDelDia.map((v) => v.clientId))
-    const toGeocode = showAllClients
+    const candidatos = showAllClients
       ? clientsWithoutOrder.filter((s) => !ocultosMapa.has(s.uid) || visitClientIds.has(s.uid))
       : clientsWithoutOrder.filter((s) => visitClientIds.has(s.uid))
+    // Con el padrón completo de Tango (miles de clientes, la mayoría sin
+    // coordenadas guardadas) "mostrar todos" no puede disparar miles de
+    // geocodificaciones: los que ya tienen coords van todos; de los que no,
+    // solo los primeros MAX_GEOCODE_SIN_COORDS por apertura (y siempre los de visita).
+    const MAX_GEOCODE_SIN_COORDS = 300
+    let sinCoords = 0
+    const toGeocode = candidatos.filter((s) => {
+      if ((s.lat && s.lng) || visitClientIds.has(s.uid)) return true
+      return ++sinCoords <= MAX_GEOCODE_SIN_COORDS
+    })
     if (toGeocode.length === 0) { setClientMarkers([]); return }
     Promise.all(
       toGeocode.map(async (s) => {

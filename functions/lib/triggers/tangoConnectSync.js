@@ -26,6 +26,8 @@ const pedido_1 = require("../services/tango/pedido");
 const tangoSync_1 = require("./tangoSync");
 const tangoSaldos_1 = require("./tangoSaldos");
 const empresas_1 = require("../services/tango/empresas");
+const clientes_1 = require("../services/tango/clientes");
+const auth_1 = require("firebase-admin/auth");
 const rateLimit_1 = require("../rateLimit");
 const tangoApiToken = (0, params_1.defineSecret)('TANGO_API_TOKEN');
 const CONNECT_BASE_URL_DEFAULT = 'https://001174-003.connect.axoft.com';
@@ -117,6 +119,10 @@ async function filasClientes(tango, company) {
 async function sincronizarClientes(db, tango, cfg) {
     const indice = await (0, tangoSync_1.indiceUsuariosClientes)(db);
     const resumen = { ...resumenClientesVacio(), empresas: {} };
+    const sinCuenta = [];
+    // Por empresa: uid → apareció habilitada (true) o solo inhabilitada (false).
+    const vistos = { redonhielo: new Map(), rolito: new Map() };
+    const corridaOk = {};
     for (const empresa of empresas_1.EMPRESAS) {
         const re = resumenClientesVacio();
         resumen.empresas[empresa] = re;
@@ -128,9 +134,15 @@ async function sincronizarClientes(db, tango, cfg) {
             for (const lote of chunk(rows, 300)) {
                 const r = await (0, tangoSync_1.procesarLoteClientesTango)(db, lote, { dryRun: false, empresa, indice });
                 sumarResumenClientes(re, r);
+                for (const f of r.sinCuenta ?? [])
+                    sinCuenta.push({ empresa, fila: f });
+                for (const v of r.vistos ?? [])
+                    vistos[empresa].set(v.uid, (vistos[empresa].get(v.uid) ?? false) || v.habilitado);
             }
+            corridaOk[empresa] = (0, clientes_1.corridaConfiable)(rows.length, cfg.clientesSync?.resumen?.empresas?.[empresa]?.recibidos);
         }
         catch (e) {
+            corridaOk[empresa] = false;
             re.errores.push({ empresa, motivo: e.message });
             v2_1.logger.error(`[tango] sync de clientes de ${empresa} falló: ${e.message}`);
         }
@@ -142,7 +154,92 @@ async function sincronizarClientes(db, tango, cfg) {
                 resumen[k] += re[k];
         }
     }
+    if (cfg.altas?.enabled === true)
+        resumen.altas = await encolarAltas(db, sinCuenta);
+    resumen.bajas = await aplicarBajas(db, cfg, indice.perfilPorUid, vistos, corridaOk);
     return resumen;
+}
+// ── Altas: encolar candidatos (los crea tangoAltas.ts) ──────────────────────
+async function encolarAltas(db, sinCuenta) {
+    const { candidatos, descartados } = (0, clientes_1.candidatosAlta)(sinCuenta);
+    const porMotivo = {};
+    for (const d of descartados)
+        porMotivo[d.motivo] = (porMotivo[d.motivo] ?? 0) + 1;
+    const out = { candidatos: candidatos.length, encolados: 0, yaEncolados: 0, descartados: descartados.length, porMotivo, ejemplosDescartados: descartados.filter((d) => d.motivo === 'cuit_invalido').slice(0, 30) };
+    let batch = db.batch(), ops = 0;
+    for (const c of candidatos) {
+        const ref = db.doc(`tango-altas/${c.cuit}`);
+        const actual = (await ref.get()).data();
+        if (actual && actual.estado !== 'pendiente') {
+            out.yaEncolados++;
+            continue;
+        } // creada / existia / error: no se re-encola sola
+        if (actual) {
+            out.yaEncolados++;
+        }
+        else
+            out.encolados++;
+        batch.set(ref, { cuit: c.cuit, filas: c.filas, estado: 'pendiente', razonSocial: c.filas[0].fila.razonSocial ?? '', actualizadoEn: firestore_2.FieldValue.serverTimestamp(), ...(actual ? {} : { creadoEn: firestore_2.FieldValue.serverTimestamp() }) }, { merge: true });
+        if (++ops >= 400) {
+            await batch.commit();
+            batch = db.batch();
+            ops = 0;
+        }
+    }
+    if (ops)
+        await batch.commit();
+    return out;
+}
+// ── Bajas / reactivaciones ──────────────────────────────────────────────────
+// Solo cuentas con identidad Tango. Baja = estado 'inactivo' + Auth
+// deshabilitado (la sesión muere); nunca se borra nada. Con circuit breaker
+// por empresa (corridaOk) y tope por corrida.
+async function aplicarBajas(db, cfg, perfilPorUid, vistos, corridaOk) {
+    const out = { enabled: cfg.bajas?.enabled === true, evaluadas: 0, bajas: 0, reactivadas: 0, corridaConfiable: corridaOk, topeAlcanzado: false, ejemplos: [] };
+    const tope = cfg.bajas?.maxPorCorrida ?? 500;
+    const auth = (0, auth_1.getAuth)();
+    for (const [uid, perfil] of perfilPorUid) {
+        const ids = (0, empresas_1.tangoIdsDe)(perfil);
+        const estado = { vinculada: {}, habilitada: {}, corridaOk };
+        for (const e of empresas_1.EMPRESAS) {
+            if (!ids[e]?.length)
+                continue;
+            estado.vinculada[e] = true;
+            if (vistos[e].has(uid))
+                estado.habilitada[e] = vistos[e].get(uid);
+        }
+        if (!Object.keys(estado.vinculada).length)
+            continue;
+        out.evaluadas++;
+        const decision = (0, clientes_1.decidirBaja)(estado, perfil);
+        if (decision.accion === 'nada')
+            continue;
+        if (out.ejemplos.length < 30)
+            out.ejemplos.push({ uid, razonSocial: String(perfil.razonSocial ?? perfil.nombre ?? ''), accion: decision.accion, ...(decision.accion === 'baja' ? { motivo: decision.motivo } : {}) });
+        if (!out.enabled) {
+            if (decision.accion === 'baja')
+                out.bajas++;
+            else
+                out.reactivadas++;
+            continue;
+        } // dry-run: solo contar
+        if (decision.accion === 'baja') {
+            if (out.bajas >= tope) {
+                out.topeAlcanzado = true;
+                continue;
+            }
+            await db.doc(`users/${uid}`).update({ estado: 'inactivo', bajaTango: { fecha: firestore_2.FieldValue.serverTimestamp(), motivo: decision.motivo } });
+            await auth.updateUser(uid, { disabled: true }).catch((e) => v2_1.logger.warn(`[tango] baja ${uid}: no se pudo deshabilitar en Auth (${e.message})`));
+            await auth.revokeRefreshTokens(uid).catch(() => undefined);
+            out.bajas++;
+        }
+        else {
+            await db.doc(`users/${uid}`).update({ estado: 'activo', bajaTango: firestore_2.FieldValue.delete() });
+            await auth.updateUser(uid, { disabled: false }).catch((e) => v2_1.logger.warn(`[tango] reactivar ${uid}: no se pudo habilitar en Auth (${e.message})`));
+            out.reactivadas++;
+        }
+    }
+    return out;
 }
 async function correrClientes(origen, uid) {
     const { db, cfg, tango } = await contexto();
@@ -153,7 +250,7 @@ async function correrClientes(origen, uid) {
     await db.doc('config/tango').set({
         clientesSync: { ultimaCorrida: firestore_2.FieldValue.serverTimestamp(), origen, uid: uid ?? null, duracionMs: Date.now() - inicio, resumen },
     }, { merge: true });
-    v2_1.logger.info(`[tango] clientes sincronizados (${origen}) en ${Date.now() - inicio}ms: ${JSON.stringify({ ...resumen, empresas: undefined, errores: resumen.errores.length })}`);
+    v2_1.logger.info(`[tango] clientes sincronizados (${origen}) en ${Date.now() - inicio}ms: ${JSON.stringify({ ...resumen, empresas: undefined, errores: resumen.errores.length, altas: resumen.altas && { ...resumen.altas, ejemplosDescartados: undefined }, bajas: resumen.bajas && { ...resumen.bajas, ejemplos: undefined } })}`);
     return resumen;
 }
 // ── Saldos (composición de deuda por cliente) ────────────────────────────────

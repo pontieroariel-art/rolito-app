@@ -142,6 +142,12 @@ export const getPushSubscriptionByEmail = async (email: string): Promise<PushSub
   return snap.docs[0].data().pushSubscription ?? null
 }
 
+// Tango tiene ~6100 clientes por empresa y la app los replica a todos
+// (padrón maestro, 2026-09-06): el tope tiene que quedar bien por encima.
+// Un limit() truncado no avisa — ordenado por fechaCreacion desc, los que
+// desaparecen son los clientes viejos y el staff.
+const LIMITE_USUARIOS = 25000
+
 let _usersCache: UserProfile[] | null = null
 let _usersCacheTime = 0
 const CACHE_TTL = 5 * 60 * 1000
@@ -153,7 +159,7 @@ export const getAllUsers = async (force = false): Promise<UserProfile[]> => {
     return _usersCache
   }
   const snap = await getDocs(
-    query(collection(db, 'users'), orderBy('fechaCreacion', 'desc'), limit(6000)),
+    query(collection(db, 'users'), orderBy('fechaCreacion', 'desc'), limit(LIMITE_USUARIOS)),
   )
   _usersCache = snap.docs.map((d) => ({ uid: d.id, ...d.data() } as UserProfile))
   _usersCacheTime = Date.now()
@@ -163,14 +169,14 @@ export const getAllUsers = async (force = false): Promise<UserProfile[]> => {
 export const getStaffUsers = async (): Promise<UserProfile[]> => {
   const roles: UserRole[] = ['super_admin', 'gerente_comercial', 'comercial', 'logistica', 'facturacion', 'chofer', 'heladeras', 'heladeras_encargado', 'tecnico', 'produccion_encargado', 'caja', 'muelle', 'seguridad']
   const snap = await getDocs(
-    query(collection(db, 'users'), where('rol', 'in', roles), limit(6000)),
+    query(collection(db, 'users'), where('rol', 'in', roles), limit(LIMITE_USUARIOS)),
   )
   return snap.docs.map((d) => ({ uid: d.id, ...d.data() } as UserProfile))
 }
 
 export const getClientesActivos = async (): Promise<UserProfile[]> => {
   const snap = await getDocs(
-    query(collection(db, 'users'), where('rol', '==', 'cliente'), where('estado', '==', 'activo'), limit(6000)),
+    query(collection(db, 'users'), where('rol', '==', 'cliente'), where('estado', '==', 'activo'), limit(LIMITE_USUARIOS)),
   )
   return snap.docs.map((d) => ({ uid: d.id, ...d.data() } as UserProfile))
 }
@@ -178,14 +184,14 @@ export const getClientesActivos = async (): Promise<UserProfile[]> => {
 // Todos los clientes sin filtrar por estado — mismo conjunto que UserManagement
 export const getTodosLosClientes = async (): Promise<UserProfile[]> => {
   const snap = await getDocs(
-    query(collection(db, 'users'), where('rol', '==', 'cliente'), limit(6000)),
+    query(collection(db, 'users'), where('rol', '==', 'cliente'), limit(LIMITE_USUARIOS)),
   )
   return snap.docs.map((d) => ({ uid: d.id, ...d.data() } as UserProfile))
 }
 
 export const getChoferes = async (): Promise<UserProfile[]> => {
   const snap = await getDocs(
-    query(collection(db, 'users'), where('rol', '==', 'chofer'), where('estado', '==', 'activo'), limit(6000)),
+    query(collection(db, 'users'), where('rol', '==', 'chofer'), where('estado', '==', 'activo'), limit(LIMITE_USUARIOS)),
   )
   return snap.docs.map((d) => ({ uid: d.id, ...d.data() } as UserProfile))
 }

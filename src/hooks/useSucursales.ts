@@ -16,7 +16,8 @@ export function useSucursales() {
   const { data: allUsers = [], isLoading, isError } = useQuery({
     queryKey:  ['users', 'todos-clientes'],
     queryFn:   () => getTodosLosClientes(),
-    staleTime: 0,
+    // Son miles de docs (padrón de Tango): no volver a bajarlos en cada apertura del modal.
+    staleTime: 5 * 60_000,
   })
 
   const sucursales = useMemo<SucursalItem[]>(() => {

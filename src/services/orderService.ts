@@ -548,18 +548,20 @@ export async function searchOrdersByClientCode(term: string): Promise<Order[]> {
   // los pedidos de esa sucursal (si no, un cliente con decenas de
   // sucursales/pedidos como un grupo empresario ahoga en la lista el
   // pedido puntual que se buscaba).
+  // Con miles de clientes (padrón de Tango) esto NO puede ser un getDocs por
+  // búsqueda: se usa el cache de getAllUsers (5 min) y se filtra en memoria.
   const addressesByClient = new Map<string, Set<string>>()
-  const allClientsSnap = await getDocs(query(collection(db, 'users'), where('rol', '==', 'cliente')))
-  allClientsSnap.docs.forEach((d) => {
-    const addresses = (d.data().addresses ?? []) as { id?: string; address?: string }[]
+  const { getAllUsers } = await import('./userService')
+  for (const u of (await getAllUsers()).filter((x) => x.rol === 'cliente')) {
+    const addresses = (u.addresses ?? []) as { id?: string; address?: string }[]
     for (const a of addresses) {
       if (a.address && (a.id || '').toLowerCase().includes(tLower)) {
-        clientIds.add(d.id)
-        if (!addressesByClient.has(d.id)) addressesByClient.set(d.id, new Set())
-        addressesByClient.get(d.id)!.add(normalizeAddress(a.address))
+        clientIds.add(u.uid)
+        if (!addressesByClient.has(u.uid)) addressesByClient.set(u.uid, new Set())
+        addressesByClient.get(u.uid)!.add(normalizeAddress(a.address))
       }
     }
-  })
+  }
 
   if (clientIds.size === 0) return []
 

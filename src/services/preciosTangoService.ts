@@ -43,9 +43,38 @@ export interface ResumenSyncClientesEmpresa {
   emailsConError: number
   errores: unknown[]
 }
+export interface ResumenAltasEncoladas {
+  candidatos: number
+  encolados: number
+  yaEncolados: number
+  descartados: number
+  porMotivo: Record<string, number>
+  ejemplosDescartados: Array<{ empresa: string; idGva14: number; codigo: string; cuit: string; nombre: string; motivo: string }>
+}
+export interface ResumenBajas {
+  enabled: boolean
+  evaluadas: number
+  bajas: number
+  reactivadas: number
+  corridaConfiable: Partial<Record<'redonhielo' | 'rolito', boolean>>
+  topeAlcanzado: boolean
+  ejemplos: Array<{ uid: string; razonSocial: string; accion: string; motivo?: string }>
+}
 export interface ResumenSyncClientes extends ResumenSyncClientesEmpresa {
   // Por empresa desde el 2026-09-06; las corridas anteriores no lo traen.
   empresas?: Partial<Record<'redonhielo' | 'rolito', ResumenSyncClientesEmpresa>>
+  altas?: ResumenAltasEncoladas
+  bajas?: ResumenBajas
+}
+// Padrón maestro: cuentas creadas desde la cola tango-altas (tangoAltas.ts).
+export interface ResumenAltas {
+  procesadas: number
+  creadas: number
+  existian: number
+  errores: number
+  pendientesRestantes: number
+  detalleErrores: Array<{ cuit: string; motivo: string }>
+  crear: boolean
 }
 export interface ResumenSyncSaldosEmpresa {
   company?: number
@@ -62,6 +91,11 @@ export interface ResumenSyncSaldos extends ResumenSyncSaldosEmpresa {
 
 export async function sincronizarClientesTangoAhora(): Promise<ResumenSyncClientes> {
   const fn = httpsCallable<void, ResumenSyncClientes>(getFunctions(), 'sincronizarClientesTangoAhora')
+  return (await fn()).data
+}
+
+export async function procesarAltasTangoAhora(): Promise<ResumenAltas> {
+  const fn = httpsCallable<void, ResumenAltas>(getFunctions(), 'procesarAltasTangoAhora')
   return (await fn()).data
 }
 

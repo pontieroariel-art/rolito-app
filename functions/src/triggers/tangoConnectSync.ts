@@ -19,7 +19,9 @@ import { prop } from '../services/tango/pedido'
 import type { ConfigTango } from '../services/tango/writers'
 import { indiceUsuariosClientes, procesarLoteClientesTango, type TangoClienteRow, type ResultadoSync } from './tangoSync'
 import { descuentosPendientes, indiceClientesTango, procesarLoteSaldos, type TangoSaldoRow, type ComprobanteSaldoRow } from './tangoSaldos'
-import { EMPRESAS, type Empresa } from '../services/tango/empresas'
+import { EMPRESAS, tangoIdsDe, type Empresa } from '../services/tango/empresas'
+import { candidatosAlta, corridaConfiable, decidirBaja, type EstadoVinculo, type MotivoSinAlta } from '../services/tango/clientes'
+import { getAuth } from 'firebase-admin/auth'
 import { assertRateLimit } from '../rateLimit'
 
 const tangoApiToken = defineSecret('TANGO_API_TOKEN')
@@ -44,6 +46,11 @@ type ConfigSync = ConfigTango & {
   }
   // Llaves de apagado por si hay que volver al bridge de la VM: default encendido.
   syncCloud?: { clientes?: boolean; saldos?: boolean; consultas?: boolean }
+  // Padrón maestro (2026-09-06): altas.enabled encola candidatos, altas.crear los crea
+  // (tangoAltas.ts); bajas.enabled desactiva cuentas que ya no están en Tango.
+  altas?: { enabled?: boolean; crear?: boolean }
+  bajas?: { enabled?: boolean; maxPorCorrida?: number }
+  clientesSync?: { resumen?: ResumenClientes }
 }
 
 async function contexto(): Promise<{ db: Firestore; cfg: ConfigSync; tango: TangoClient }> {
@@ -111,8 +118,29 @@ export interface ResumenClientesEmpresa {
   errores: unknown[]
 }
 
+export interface ResumenAltasEncoladas {
+  candidatos: number
+  encolados: number
+  yaEncolados: number
+  descartados: number
+  porMotivo: Record<string, number>
+  ejemplosDescartados: MotivoSinAlta[]
+}
+
+export interface ResumenBajas {
+  enabled: boolean
+  evaluadas: number
+  bajas: number
+  reactivadas: number
+  corridaConfiable: Partial<Record<Empresa, boolean>>
+  topeAlcanzado: boolean
+  ejemplos: Array<{ uid: string; razonSocial: string; accion: string; motivo?: string }>
+}
+
 export interface ResumenClientes extends ResumenClientesEmpresa {
   empresas: Partial<Record<Empresa, ResumenClientesEmpresa>>
+  altas?: ResumenAltasEncoladas
+  bajas?: ResumenBajas
 }
 
 function resumenClientesVacio(): ResumenClientesEmpresa {
@@ -151,6 +179,10 @@ export async function filasClientes(tango: TangoClient, company: number): Promis
 export async function sincronizarClientes(db: Firestore, tango: TangoClient, cfg: ConfigSync): Promise<ResumenClientes> {
   const indice = await indiceUsuariosClientes(db)
   const resumen: ResumenClientes = { ...resumenClientesVacio(), empresas: {} }
+  const sinCuenta: Array<{ empresa: Empresa; fila: TangoClienteRow }> = []
+  // Por empresa: uid → apareció habilitada (true) o solo inhabilitada (false).
+  const vistos: Record<Empresa, Map<string, boolean>> = { redonhielo: new Map(), rolito: new Map() }
+  const corridaOk: Partial<Record<Empresa, boolean>> = {}
   for (const empresa of EMPRESAS) {
     const re = resumenClientesVacio()
     resumen.empresas[empresa] = re
@@ -162,8 +194,12 @@ export async function sincronizarClientes(db: Firestore, tango: TangoClient, cfg
       for (const lote of chunk(rows, 300)) {
         const r: ResultadoSync = await procesarLoteClientesTango(db, lote, { dryRun: false, empresa, indice })
         sumarResumenClientes(re, r)
+        for (const f of r.sinCuenta ?? []) sinCuenta.push({ empresa, fila: f })
+        for (const v of r.vistos ?? []) vistos[empresa].set(v.uid, (vistos[empresa].get(v.uid) ?? false) || v.habilitado)
       }
+      corridaOk[empresa] = corridaConfiable(rows.length, cfg.clientesSync?.resumen?.empresas?.[empresa]?.recibidos)
     } catch (e) {
+      corridaOk[empresa] = false
       re.errores.push({ empresa, motivo: (e as Error).message })
       logger.error(`[tango] sync de clientes de ${empresa} falló: ${(e as Error).message}`)
     }
@@ -173,7 +209,71 @@ export async function sincronizarClientes(db: Firestore, tango: TangoClient, cfg
       else if (k !== 'company') (resumen[k] as number) += re[k] as number
     }
   }
+  if (cfg.altas?.enabled === true) resumen.altas = await encolarAltas(db, sinCuenta)
+  resumen.bajas = await aplicarBajas(db, cfg, indice.perfilPorUid, vistos, corridaOk)
   return resumen
+}
+
+// ── Altas: encolar candidatos (los crea tangoAltas.ts) ──────────────────────
+async function encolarAltas(db: Firestore, sinCuenta: Array<{ empresa: Empresa; fila: TangoClienteRow }>): Promise<ResumenAltasEncoladas> {
+  const { candidatos, descartados } = candidatosAlta(sinCuenta)
+  const porMotivo: Record<string, number> = {}
+  for (const d of descartados) porMotivo[d.motivo] = (porMotivo[d.motivo] ?? 0) + 1
+  const out: ResumenAltasEncoladas = { candidatos: candidatos.length, encolados: 0, yaEncolados: 0, descartados: descartados.length, porMotivo, ejemplosDescartados: descartados.filter((d) => d.motivo === 'cuit_invalido').slice(0, 30) }
+  let batch = db.batch(), ops = 0
+  for (const c of candidatos) {
+    const ref = db.doc(`tango-altas/${c.cuit}`)
+    const actual = (await ref.get()).data()
+    if (actual && actual.estado !== 'pendiente') { out.yaEncolados++; continue }   // creada / existia / error: no se re-encola sola
+    if (actual) { out.yaEncolados++ }
+    else out.encolados++
+    batch.set(ref, { cuit: c.cuit, filas: c.filas, estado: 'pendiente', razonSocial: c.filas[0].fila.razonSocial ?? '', actualizadoEn: FieldValue.serverTimestamp(), ...(actual ? {} : { creadoEn: FieldValue.serverTimestamp() }) }, { merge: true })
+    if (++ops >= 400) { await batch.commit(); batch = db.batch(); ops = 0 }
+  }
+  if (ops) await batch.commit()
+  return out
+}
+
+// ── Bajas / reactivaciones ──────────────────────────────────────────────────
+// Solo cuentas con identidad Tango. Baja = estado 'inactivo' + Auth
+// deshabilitado (la sesión muere); nunca se borra nada. Con circuit breaker
+// por empresa (corridaOk) y tope por corrida.
+async function aplicarBajas(
+  db: Firestore, cfg: ConfigSync,
+  perfilPorUid: Map<string, FirebaseFirestore.DocumentData>,
+  vistos: Record<Empresa, Map<string, boolean>>,
+  corridaOk: Partial<Record<Empresa, boolean>>,
+): Promise<ResumenBajas> {
+  const out: ResumenBajas = { enabled: cfg.bajas?.enabled === true, evaluadas: 0, bajas: 0, reactivadas: 0, corridaConfiable: corridaOk, topeAlcanzado: false, ejemplos: [] }
+  const tope = cfg.bajas?.maxPorCorrida ?? 500
+  const auth = getAuth()
+  for (const [uid, perfil] of perfilPorUid) {
+    const ids = tangoIdsDe(perfil)
+    const estado: EstadoVinculo = { vinculada: {}, habilitada: {}, corridaOk }
+    for (const e of EMPRESAS) {
+      if (!ids[e]?.length) continue
+      estado.vinculada[e] = true
+      if (vistos[e].has(uid)) estado.habilitada[e] = vistos[e].get(uid)
+    }
+    if (!Object.keys(estado.vinculada).length) continue
+    out.evaluadas++
+    const decision = decidirBaja(estado, perfil)
+    if (decision.accion === 'nada') continue
+    if (out.ejemplos.length < 30) out.ejemplos.push({ uid, razonSocial: String(perfil.razonSocial ?? perfil.nombre ?? ''), accion: decision.accion, ...(decision.accion === 'baja' ? { motivo: decision.motivo } : {}) })
+    if (!out.enabled) { if (decision.accion === 'baja') out.bajas++; else out.reactivadas++; continue }   // dry-run: solo contar
+    if (decision.accion === 'baja') {
+      if (out.bajas >= tope) { out.topeAlcanzado = true; continue }
+      await db.doc(`users/${uid}`).update({ estado: 'inactivo', bajaTango: { fecha: FieldValue.serverTimestamp(), motivo: decision.motivo } })
+      await auth.updateUser(uid, { disabled: true }).catch((e) => logger.warn(`[tango] baja ${uid}: no se pudo deshabilitar en Auth (${(e as Error).message})`))
+      await auth.revokeRefreshTokens(uid).catch(() => undefined)
+      out.bajas++
+    } else {
+      await db.doc(`users/${uid}`).update({ estado: 'activo', bajaTango: FieldValue.delete() })
+      await auth.updateUser(uid, { disabled: false }).catch((e) => logger.warn(`[tango] reactivar ${uid}: no se pudo habilitar en Auth (${(e as Error).message})`))
+      out.reactivadas++
+    }
+  }
+  return out
 }
 
 async function correrClientes(origen: string, uid?: string) {
@@ -184,7 +284,7 @@ async function correrClientes(origen: string, uid?: string) {
   await db.doc('config/tango').set({
     clientesSync: { ultimaCorrida: FieldValue.serverTimestamp(), origen, uid: uid ?? null, duracionMs: Date.now() - inicio, resumen },
   }, { merge: true })
-  logger.info(`[tango] clientes sincronizados (${origen}) en ${Date.now() - inicio}ms: ${JSON.stringify({ ...resumen, empresas: undefined, errores: resumen.errores.length })}`)
+  logger.info(`[tango] clientes sincronizados (${origen}) en ${Date.now() - inicio}ms: ${JSON.stringify({ ...resumen, empresas: undefined, errores: resumen.errores.length, altas: resumen.altas && { ...resumen.altas, ejemplosDescartados: undefined }, bajas: resumen.bajas && { ...resumen.bajas, ejemplos: undefined } })}`)
   return resumen
 }
 

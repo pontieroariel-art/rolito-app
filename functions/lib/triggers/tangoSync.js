@@ -91,6 +91,7 @@ async function procesarLoteClientesTango(db, rows, opts) {
     const errores = [];
     const wouldUpdate = [];
     const sinCuenta = [];
+    const vistos = [];
     const auth = (0, auth_1.getAuth)();
     let batch = db.batch();
     let enBatch = 0;
@@ -141,6 +142,7 @@ async function procesarLoteClientesTango(db, rows, opts) {
         }
         const perfil = perfilPorUid.get(uid);
         const ids = perfil.tangoIds;
+        vistos.push({ uid, habilitado: row.habilitado !== false });
         const tienePrincipal = (ids[empresa]?.length ?? 0) > 0;
         const esPrincipal = !tienePrincipal || ids[empresa][0].idGva14 === row.idGva14;
         const update = {};
@@ -268,6 +270,7 @@ async function procesarLoteClientesTango(db, rows, opts) {
         ...(opts.dryRun ? { wouldUpdate } : {}),
         errores,
         sinCuenta,
+        vistos,
     };
 }
 // ¿El doc en Firestore ya tiene `tangoIds.<empresa>` escrito? (tangoIdsDe lo

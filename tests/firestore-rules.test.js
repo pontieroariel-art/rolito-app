@@ -1869,6 +1869,31 @@ describe('partesMaquinas', () => {
 })
 
 // ── tango-outbox: cola de salida app → Tango ──────────────────────────────────
+// ── tango-altas: cola de altas automáticas de clientes desde Tango ──────────
+describe('tango-altas', () => {
+  const alta = { cuit: '30526047792', estado: 'pendiente', filas: [], creadoEn: new Date() }
+
+  test('staff que gestiona clientes lee la cola; el bridge y un cliente no', async () => {
+    await seed((d) => setDoc(doc(d, 'tango-altas/30526047792'), alta))
+    await seed((d) => setDoc(doc(d, 'users/sa'), { rol: 'super_admin', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'users/fac'), { rol: 'facturacion', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'users/bridge1'), { tangoBridge: true }))
+    await seed((d) => setDoc(doc(d, 'users/cli9'), { rol: 'cliente', estado: 'activo' }))
+    await assertSucceeds(getDoc(doc(db('sa'), 'tango-altas/30526047792')))
+    await assertSucceeds(getDoc(doc(db('fac'), 'tango-altas/30526047792')))
+    await assertFails(getDoc(doc(db('bridge1'), 'tango-altas/30526047792')))
+    await assertFails(getDoc(doc(db('cli9'), 'tango-altas/30526047792')))
+  })
+
+  test('nadie escribe la cola desde el cliente (solo el Admin SDK)', async () => {
+    await seed((d) => setDoc(doc(d, 'users/sa'), { rol: 'super_admin', estado: 'activo' }))
+    await assertFails(setDoc(doc(db('sa'), 'tango-altas/20104334955'), alta))
+    await seed((d) => setDoc(doc(d, 'tango-altas/30526047792'), alta))
+    await assertFails(updateDoc(doc(db('sa'), 'tango-altas/30526047792'), { estado: 'creada' }))
+    await assertFails(deleteDoc(doc(db('sa'), 'tango-altas/30526047792')))
+  })
+})
+
 describe('tango-outbox', () => {
   const seedBridge = (uid = 'bridge1') =>
     seed((d) => setDoc(doc(d, `users/${uid}`), { tangoBridge: true }))

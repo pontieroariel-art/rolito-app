@@ -5,8 +5,8 @@ import { RefreshCw } from 'lucide-react'
 import Button from '../ui/Button'
 import { db } from '../../services/firebase'
 import {
-  sincronizarPreciosTangoAhora, sincronizarClientesTangoAhora, sincronizarSaldosTangoAhora,
-  type ResumenSyncPrecios, type ResumenSyncClientes, type ResumenSyncSaldos,
+  sincronizarPreciosTangoAhora, sincronizarClientesTangoAhora, sincronizarSaldosTangoAhora, procesarAltasTangoAhora,
+  type ResumenSyncPrecios, type ResumenSyncClientes, type ResumenSyncSaldos, type ResumenAltas,
 } from '../../services/preciosTangoService'
 import { tsToDate } from '../../utils/helpers'
 import { reportError } from '@/services/observability'
@@ -22,9 +22,14 @@ interface ConfigTangoSync {
   clientesSync?: CorridaInfo<ResumenSyncClientes>
   preciosSync?:  CorridaInfo<ResumenSyncPrecios>
   saldosSync?:   CorridaInfo<ResumenSyncSaldos>
+  altasSync?:    CorridaInfo<ResumenAltas>
+  altas?:        { enabled?: boolean; crear?: boolean }
+  bajas?:        { enabled?: boolean }
 }
 
-type SyncId = 'clientes' | 'precios' | 'saldos'
+type SyncId = 'clientes' | 'precios' | 'saldos' | 'altas'
+
+const MOTIVO_DESCARTE: Record<string, string> = { cuit_invalido: 'CUIT inválido o de relleno', inhabilitado: 'inhabilitados en Tango' }
 
 const EMPRESAS: { id: 'redonhielo' | 'rolito'; label: string }[] = [
   { id: 'redonhielo', label: 'Redonhielo (contado)' },
@@ -53,7 +58,7 @@ export default function SyncPreciosTangoPanel({ solo }: { solo?: SyncId } = {}) 
     queryFn: async (): Promise<ConfigTangoSync> => {
       const snap = await getDoc(doc(db, 'config', 'tango'))
       const d = snap.data() ?? {}
-      return { clientesSync: d.clientesSync, preciosSync: d.preciosSync, saldosSync: d.saldosSync }
+      return { clientesSync: d.clientesSync, preciosSync: d.preciosSync, saldosSync: d.saldosSync, altasSync: d.altasSync, altas: d.altas, bajas: d.bajas }
     },
   })
 
@@ -63,6 +68,7 @@ export default function SyncPreciosTangoPanel({ solo }: { solo?: SyncId } = {}) 
     try {
       if (id === 'clientes') await sincronizarClientesTangoAhora()
       else if (id === 'precios') await sincronizarPreciosTangoAhora()
+      else if (id === 'altas') await procesarAltasTangoAhora()
       else await sincronizarSaldosTangoAhora()
       await qc.invalidateQueries({ queryKey: ['tango-sync-estado'] })
       await qc.invalidateQueries({ queryKey: ['users'] })
@@ -74,7 +80,9 @@ export default function SyncPreciosTangoPanel({ solo }: { solo?: SyncId } = {}) 
     }
   }
 
-  const filas: { id: SyncId; titulo: string; descripcion: string; info?: CorridaInfo<unknown>; detalle: ReactNode }[] = [
+  const altasRes = info?.clientesSync?.resumen?.altas
+  const bajasRes = info?.clientesSync?.resumen?.bajas
+  const filas: { id: SyncId; titulo: string; descripcion: string; info?: CorridaInfo<unknown>; detalle: ReactNode; boton?: string }[] = [
     {
       id: 'clientes',
       titulo: 'Clientes',
@@ -94,6 +102,42 @@ export default function SyncPreciosTangoPanel({ solo }: { solo?: SyncId } = {}) 
               </li>
             )
           })}
+          {bajasRes && (
+            <li>
+              <span className="text-gray-900">Bajas automáticas{bajasRes.enabled ? '' : ' (simulación)'}:</span> {bajasRes.evaluadas} cuentas vinculadas evaluadas · {bajasRes.bajas} {bajasRes.enabled ? 'dadas de baja' : 'se darían de baja'} · {bajasRes.reactivadas} {bajasRes.enabled ? 'reactivadas' : 'se reactivarían'}
+              {Object.entries(bajasRes.corridaConfiable ?? {}).filter(([, ok]) => !ok).map(([e]) => <span key={e} className="text-amber-600"> · {e}: corrida incompleta, sin bajas</span>)}
+              {bajasRes.topeAlcanzado && <span className="text-amber-600"> · tope por corrida alcanzado</span>}
+            </li>
+          )}
+        </ul>
+      ),
+    },
+    {
+      id: 'altas',
+      titulo: 'Altas automáticas (padrón maestro)',
+      descripcion: !info?.altas?.enabled
+        ? 'Apagado: la sync no encola clientes nuevos. Se prende con config/tango.altas.enabled.'
+        : info?.altas?.crear
+          ? 'Todo cliente habilitado de Tango con CUIT válido y sin cuenta se crea solo (contraseña inicial = CUIT). Cada 10 minutos y a pedido.'
+          : 'Simulación: la sync encola los clientes de Tango sin cuenta pero todavía no los crea (config/tango.altas.crear).',
+      info: info?.altasSync,
+      boton: 'Crear cuentas ahora',
+      detalle: (
+        <ul className="space-y-0.5">
+          {altasRes && (
+            <li>
+              <span className="text-gray-900">Última sync de clientes:</span> {altasRes.candidatos} CUIT sin cuenta (encolados {altasRes.encolados} nuevos, {altasRes.yaEncolados} ya estaban) · {altasRes.descartados} descartados
+              {Object.entries(altasRes.porMotivo ?? {}).map(([m, n]) => <span key={m}> · {n} {MOTIVO_DESCARTE[m] ?? m}</span>)}
+            </li>
+          )}
+          {info?.altasSync?.resumen && (
+            <li>
+              <span className="text-gray-900">Última corrida de altas{info.altasSync.resumen.crear ? '' : ' (simulación)'}:</span> {info.altasSync.resumen.procesadas} procesadas · {info.altasSync.resumen.creadas} creadas · {info.altasSync.resumen.existian} ya existían · {info.altasSync.resumen.errores} con error · quedan {info.altasSync.resumen.pendientesRestantes} pendientes
+            </li>
+          )}
+          {altasRes?.ejemplosDescartados?.length ? (
+            <li className="text-gray-400">Sin CUIT válido (no se crean): {altasRes.ejemplosDescartados.slice(0, 8).map((d) => `${d.codigo} ${d.nombre} (${d.cuit || 'sin CUIT'})`).join(' · ')}{altasRes.ejemplosDescartados.length > 8 ? ' …' : ''}</li>
+          ) : null}
         </ul>
       ),
     },
@@ -160,9 +204,9 @@ export default function SyncPreciosTangoPanel({ solo }: { solo?: SyncId } = {}) 
             </p>
             {f.detalle && <div className="text-xs text-gray-500">{f.detalle}</div>}
           </div>
-          <Button onClick={() => correr(f.id)} disabled={corriendo !== null} variant="outline" className="shrink-0">
+          <Button onClick={() => correr(f.id)} disabled={corriendo !== null || (f.id === 'altas' && !info?.altas?.enabled)} variant="outline" className="shrink-0">
             <RefreshCw size={14} className={corriendo === f.id ? 'animate-spin' : ''} />
-            {corriendo === f.id ? 'Sincronizando…' : 'Sincronizar ahora'}
+            {corriendo === f.id ? 'Procesando…' : (f.boton ?? 'Sincronizar ahora')}
           </Button>
         </div>
       ))}
