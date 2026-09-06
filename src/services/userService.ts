@@ -146,7 +146,11 @@ export const getPushSubscriptionByEmail = async (email: string): Promise<PushSub
 // (padrón maestro, 2026-09-06): el tope tiene que quedar bien por encima.
 // Un limit() truncado no avisa — ordenado por fechaCreacion desc, los que
 // desaparecen son los clientes viejos y el staff.
-const LIMITE_USUARIOS = 25000
+// OJO: Firestore rechaza limit() > 10000 por el canal del navegador
+// ("Limit value in the structured query is over the maximum value of 10000")
+// y la query falla ENTERA — con 25000 ninguna lista de usuarios cargaba
+// (2026-09-06). 10000 es el máximo; si el padrón lo supera, hay que paginar.
+const LIMITE_USUARIOS = 10000
 
 let _usersCache: UserProfile[] | null = null
 let _usersCacheTime = 0
