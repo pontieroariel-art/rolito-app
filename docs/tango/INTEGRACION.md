@@ -1458,3 +1458,15 @@ barridoOutboxTango`; (5) `--tipo ventaPromo …` con el ID_STA17 real; (6) prime
 `--dry-run --solo` / `--solo` y verificación STA14/STA20/STA19/STA17; (7) `--stock on`.
 Nota: el STA19 de la base Rolito ya no tiene significado (quedó con descuentos de pruebas y promos
 reales); si contaduría lo pide, AJU a 0 desde Tango.
+
+**Vendedores por chofer (2026-09-05, 23:50).** La factura de la venta de prueba quedó en reintento:
+"el chofer Primiterra no tiene vendedor de Tango". Solo Sergio tenía vendedor (AS, y solo en
+Rolito). Decisión de Ariel: **un vendedor por chofer con código = número de su depósito** (03
+Alvarez, 04 Gallo, 19 Morinigo, 21 Primiterra, 22 Jara, 31 González, 50 Diaz, 51 Gerez) — misma
+identidad que el camión, entra en los 2 caracteres de COD_GVA23 y no choca con los existentes (las
+iniciales chocaban: DA, GG, ME). Más el respaldo **AP - APP ROLITO** para choferes sin vendedor
+propio (`facturador.<empresa>.vendedor`). Creados por Tango Connect (`Api/Create?process=952`
+funciona con la licencia actual) en TestingRH, REDONHIELO_SA y Rolito con
+`scripts/tango/crear-vendedores-tango.mjs`; `--config` escribió `config/tango.vendedores`. AS queda
+en Tango solo para el historial. Pereyra, Molina y Marsicano siguen sin depósito ni vendedor
+(facturan con AP hasta que la oficina les asigne camión).
