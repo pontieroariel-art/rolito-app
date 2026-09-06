@@ -1566,3 +1566,36 @@ quedaron duplicados → `scripts/tango/limpiar-altas-duplicadas.mjs` los limpió
 `fechaCreacion desc`), la búsqueda de pedidos por código usa el caché de usuarios, `useSucursales` cachea 5 min,
 los KPIs comerciales excluyen cuentas de Tango sin pedidos y el mapa de planificación geocodifica como máximo
 300 clientes sin coordenadas por apertura.
+
+## 27. Expedición por DEPÓSITO de Tango: carga, descarga, venta y liquidación (2026-09-06)
+
+En Tango cada repartidor es un depósito en tránsito (03 SERGIO ALVAREZ … 55; tercerizados como NOAIN 01-06, ORONA,
+ALMIRON, GRUPO 2000; los supervisores 23/24/25 también). Ariel: "en la app anterior se veían todos los depósitos:
+si salía, se buscaba ese depósito y se liquidaba; en carga tienen que poder cargar todos los depósitos". Hasta acá
+la app fijaba "repartidor = usuario con rol chofer".
+
+**Catálogo `depositosTango/{codigo}`** — lo baja `syncDepositosTango` (5:40, process 2941 de Redonhielo; los
+códigos son los mismos en Rolito) + callable `sincronizarDepositosTangoAhora` (botón en Ajustes → Depósitos de
+reparto): `{ codigo, nombre, idSta22, inhabilitado, actualizadoEn }` con merge. Campos editables desde el panel
+(`src/components/admin/DepositosPanel.tsx`): `tipo` (repartidor / planta / interno; default 01-02 planta, 26 29 81
+97 98 99 interno), `activo`, `uid` + `usuarioNombre` + `usuarioRol` (chofer o supervisor vinculado). Al vincular se
+refleja `config/tango.depositos[uid] = codigo` (respaldo de los writers). Reglas: lectura `isStaff()`, update solo
+de esos campos por `isOperator() || isManager()`. Migración inicial: `scripts/tango/migrar-depositos.mjs`
+(62 depósitos, 8 choferes + Vinjoy y Vañek vinculados; "23 CRISTIAN GONZALEZ" ↔ "Cristian Gonzales" se vincula a
+mano).
+
+**Identidad en los docs** (`src/utils/depositos.ts`): `choferId` = uid del usuario vinculado o `dep:<código>` si
+el depósito no tiene usuario. Así las consultas por `choferId + fecha`, los índices y las reglas de lectura del
+chofer siguen iguales; el ID de liquidación sigue siendo `{fecha}_{choferId}`. Los docs de `remitosCarga`,
+`descargasCamion`, `ventasCamion`, `cobranzas` y `liquidaciones` suman `depositoTango` / `depositoTangoNombre`.
+
+**Pantallas**: carga (`RemitosCargaPage`) lista todos los depósitos de reparto activos ("21 · Primiterra
+Cristian" o "33 · NOAIN 01 · sin usuario en la app"), primero los que ya tienen remito hoy. Muelle puede descargar
+un remito del día o "otro depósito" sin remito (sin cuadre de pallets). Liquidación: selector de fecha (días
+anteriores) + depósito, con los que salieron ese día primero. Venta del camión y cobranza guardan el depósito del
+vendedor (el vinculado en el catálogo, o el del remito de carga de hoy). Supervisores con depósito ven "Vender" en
+su inicio (`/supervisor/vender`, misma pantalla del chofer; regla de `ventasCamion` admite `isSupervisor()`).
+
+**Writers**: `codigoDeposito()` (functions) y `depositoDe()` (bridge-sql) usan `payload.depositoTango` primero y
+el mapa uid/camión → código como respaldo. `onRemitoCargaCreado` / `onDescargaCamionCreada` mandan
+`depositoTango` en el payload (fase B de stock lo va a consumir). Pendiente: copiar `bridge-sql.mjs` al servidor.
