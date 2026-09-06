@@ -1964,6 +1964,17 @@ describe('tango-consultas', () => {
     await assertFails(setDoc(doc(db('sup'), 'tango-consultas/c3'), consulta({ estado: 'respondida' })))
   })
 
+  test('la consulta es de una empresa válida; idsGva14 (varios códigos por CUIT) es opcional y lista', async () => {
+    await seedSupervisor()
+    await assertSucceeds(setDoc(doc(db('sup'), 'tango-consultas/r1'), consulta({ empresa: 'rolito' })))
+    await assertSucceeds(setDoc(doc(db('sup'), 'tango-consultas/r2'), consulta({ empresa: 'rolito', idsGva14: [1234, 5678] })))
+    await assertFails(setDoc(doc(db('sup'), 'tango-consultas/r3'), consulta({ empresa: 'otra' })))
+    const sinEmpresa = consulta()
+    delete sinEmpresa.empresa
+    await assertFails(setDoc(doc(db('sup'), 'tango-consultas/r4'), sinEmpresa))
+    await assertFails(setDoc(doc(db('sup'), 'tango-consultas/r5'), consulta({ idsGva14: 'x' })))
+  })
+
   test('un chofer SÍ crea consultas (cobra en la calle con la cobranza completa, 2026-09-05); un cliente no', async () => {
     await seed((d) => setDoc(doc(d, 'users/ch'), { rol: 'chofer', estado: 'activo' }))
     await assertSucceeds(setDoc(doc(db('ch'), 'tango-consultas/c1'), consulta({ solicitadoPor: { uid: 'ch', nombre: 'Chofer' } })))

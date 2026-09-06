@@ -4,6 +4,8 @@ exports.onOutboxConfirmado = exports.onCobranzaCreada = exports.onDescargaCamion
 const firestore_1 = require("firebase-functions/v2/firestore");
 const firestore_2 = require("firebase-admin/firestore");
 const circuito_1 = require("../services/arca/circuito");
+const empresas_1 = require("../services/tango/empresas");
+const saldos_1 = require("../services/tango/saldos");
 // Helper: crea un item en tango-outbox con ID determinístico. Idempotente —
 // un reintento del trigger tira ALREADY_EXISTS (código 6) y se ignora, así el
 // mismo origen no se manda dos veces a Tango.
@@ -57,6 +59,26 @@ function payloadDeVenta(venta) {
     return payload;
 }
 /**
+ * El payload de la venta con la identidad del cliente EN LA EMPRESA destino.
+ * La app graba en la venta el id/código de Redonhielo (los legacy de la ficha);
+ * en Rolito el mismo cliente tiene otro ID_GVA14 (2026-09-06, users.tangoIds).
+ * Si el cliente no está vinculado en esa empresa, queda lo que trajo la venta
+ * y el writer lo reporta como siempre.
+ */
+async function payloadDeVentaEn(venta, empresa) {
+    const payload = payloadDeVenta(venta);
+    if (!(0, empresas_1.esEmpresa)(empresa) || typeof venta.clienteId !== 'string' || !venta.clienteId)
+        return payload;
+    const user = (await (0, firestore_2.getFirestore)().collection('users').doc(venta.clienteId).get()).data();
+    const idGva14 = (0, empresas_1.idGva14De)(user, empresa);
+    const codigo = (0, empresas_1.codigoTangoDe)(user, empresa);
+    if (idGva14)
+        payload.clienteIdGva14Tango = idGva14;
+    if (codigo)
+        payload.clienteCodigoTango = codigo;
+    return payload;
+}
+/**
  * Alta de una venta (camión o ventanilla) → los items que le corresponden en
  * tango-outbox:
  *
@@ -90,7 +112,7 @@ async function encolarVenta(coleccion, ventaId, venta) {
             empresa: destino.empresa,
             origenColeccion: coleccion,
             origenId: ventaId,
-            payload: payloadDeVenta(venta),
+            payload: await payloadDeVentaEn(venta, destino.empresa),
         });
     }
     const stock = (0, circuito_1.movimientoStockDeVenta)(venta.canal, venta.formaPago, venta.total);
@@ -100,7 +122,7 @@ async function encolarVenta(coleccion, ventaId, venta) {
             empresa: stock.empresa,
             origenColeccion: coleccion,
             origenId: ventaId,
-            payload: { movimiento: stock.movimiento, venta: payloadDeVenta(venta) },
+            payload: { movimiento: stock.movimiento, venta: await payloadDeVentaEn(venta, stock.empresa) },
         });
     }
 }
@@ -140,7 +162,7 @@ exports.onVentaCamionFacturada = (0, firestore_1.onDocumentUpdated)('ventasCamio
         conCaePropio: true,
         origenColeccion: 'ventasCamion',
         origenId: event.params.ventaId,
-        payload: payloadDeVenta(ahora),
+        payload: await payloadDeVentaEn(ahora, destino.empresa),
     });
 });
 // ── Ventanilla (mostrador): mismo circuito que el camión ─────────────────────
@@ -171,7 +193,7 @@ exports.onVentaVentanillaFacturada = (0, firestore_1.onDocumentUpdated)('ventasV
         conCaePropio: true,
         origenColeccion: 'ventasVentanilla',
         origenId: event.params.ventaId,
-        payload: payloadDeVenta(ahora),
+        payload: await payloadDeVentaEn(ahora, destino.empresa),
     });
 });
 // ── Transferencias de depósito: remito de carga y descarga del camión ────────
@@ -249,20 +271,28 @@ exports.onCobranzaCreada = (0, firestore_1.onDocumentCreated)('cobranzas/{cobran
     if (!cobranza || !Array.isArray(cobranza.imputaciones) || cobranza.imputaciones.length === 0)
         return;
     const db = (0, firestore_2.getFirestore)();
-    // El bridge necesita el vínculo Tango del cliente para armar el recibo.
+    // El bridge necesita el vínculo Tango del cliente EN LA EMPRESA del recibo
+    // (un recibo = una empresa = un código de cliente, 2026-09-06). El código lo
+    // trae la cobranza (el de las facturas imputadas); si no, el principal de
+    // la ficha en esa empresa.
+    const empresa = (0, empresas_1.esEmpresa)(cobranza.empresa) ? cobranza.empresa : 'redonhielo';
     const userSnap = await db.collection('users').doc(cobranza.clienteId).get();
     const user = userSnap.data();
+    const codigoCobranza = typeof cobranza.codigoTango === 'string' && cobranza.codigoTango ? cobranza.codigoTango : null;
+    const idsEmpresa = (user ? (0, empresas_1.tangoIdsDe)(user)[empresa] : undefined) ?? [];
+    const identidad = (codigoCobranza ? idsEmpresa.find((x) => x.codigo === codigoCobranza) : undefined) ?? idsEmpresa[0];
     await encolarOutbox(`cobranzas_${event.params.cobranzaId}`, {
         entidad: 'recibo',
+        empresa,
         origenColeccion: 'cobranzas',
         origenId: event.params.cobranzaId,
         payload: {
             numeroRecibo: cobranza.numeroRecibo,
-            empresa: cobranza.empresa,
+            empresa,
             clienteId: cobranza.clienteId,
             clienteNombre: cobranza.clienteNombre,
-            clienteIdGva14Tango: user?.idGva14Tango ?? null,
-            clienteCodigoTango: user?.codigoTango ?? null,
+            clienteIdGva14Tango: identidad?.idGva14 ?? (empresa === 'redonhielo' ? user?.idGva14Tango ?? null : null),
+            clienteCodigoTango: codigoCobranza ?? identidad?.codigo ?? (empresa === 'redonhielo' ? user?.codigoTango ?? null : null),
             importe: cobranza.importe,
             imputaciones: cobranza.imputaciones,
             medios: cobranza.medios,
@@ -280,27 +310,21 @@ exports.onCobranzaCreada = (0, firestore_1.onDocumentCreated)('cobranzas/{cobran
     const imputaciones = Array.isArray(cobranza.imputaciones) ? cobranza.imputaciones : [];
     if (imputaciones.length === 0)
         return;
+    // Solo se descuenta en la EMPRESA de la cobranza (la misma factura puede
+    // existir con igual tipo y número en la otra). Reintento del trigger (no es
+    // exactly-once): descontarCobranza devuelve null si ya se aplicó.
     const saldoRef = db.collection('saldosTango').doc(cobranza.clienteId);
     await db.runTransaction(async (tx) => {
         const snap = await tx.get(saldoRef);
         if (!snap.exists)
             return;
-        const data = snap.data();
-        const yaAplicadas = Array.isArray(data.cobranzasAplicadas) ? data.cobranzasAplicadas : [];
-        // Reintento del trigger (no es exactly-once): no descontar dos veces.
-        if (yaAplicadas.includes(event.params.cobranzaId))
+        const r = (0, saldos_1.descontarCobranza)(snap.data(), { id: event.params.cobranzaId, empresa, imputaciones });
+        if (!r)
             return;
-        const comprobantes = (Array.isArray(data.comprobantes) ? data.comprobantes : []).map((c) => {
-            const imp = imputaciones.find((i) => i.comprobanteTipo === c.tipo && i.comprobanteNumero === c.numero);
-            if (!imp)
-                return c;
-            const nuevoSaldo = Math.round((c.saldoPendiente - imp.importeImputado) * 100) / 100;
-            return { ...c, saldoPendiente: Math.max(0, nuevoSaldo) };
-        }).filter((c) => c.saldoPendiente > 0);
-        const saldoTotal = Math.round(comprobantes.reduce((s, c) => s + c.saldoPendiente, 0) * 100) / 100;
         tx.update(saldoRef, {
-            comprobantes,
-            saldoTotal,
+            comprobantes: r.comprobantes,
+            saldoTotal: r.saldoTotal,
+            porEmpresa: r.porEmpresa,
             cobranzasAplicadas: firestore_2.FieldValue.arrayUnion(event.params.cobranzaId),
             actualizadoEn: firestore_2.FieldValue.serverTimestamp(),
         });

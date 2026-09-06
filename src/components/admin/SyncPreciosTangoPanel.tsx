@@ -78,13 +78,23 @@ export default function SyncPreciosTangoPanel({ solo }: { solo?: SyncId } = {}) 
     {
       id: 'clientes',
       titulo: 'Clientes',
-      descripcion: 'Razón social, teléfono, email, condición de venta, categoría de IVA, vendedor y domicilio de cada cliente. Todos los días a las 5:00.',
+      descripcion: 'Razón social, teléfono, email, condición de venta, categoría de IVA, vendedor y domicilio de cada cliente, y su código en cada empresa. Todos los días a las 5:00.',
       info: info?.clientesSync,
       detalle: info?.clientesSync?.resumen && (
-        <>
-          {info.clientesSync.resumen.recibidos} clientes en Tango · {info.clientesSync.resumen.actualizados} actualizados · {info.clientesSync.resumen.newlyLinkedCodigoTango} vinculados nuevos · {info.clientesSync.resumen.skippedNoMatch} sin cuenta en la app
-          {info.clientesSync.resumen.skippedAmbiguousCuit > 0 && <span className="text-amber-600"> · {info.clientesSync.resumen.skippedAmbiguousCuit} con CUIT ambiguo</span>}
-        </>
+        <ul className="space-y-0.5">
+          {EMPRESAS.map(({ id, label }) => {
+            const e = info.clientesSync?.resumen?.empresas?.[id] ?? (id === 'redonhielo' ? info.clientesSync?.resumen : undefined)
+            if (!e) return null
+            return (
+              <li key={id}>
+                <span className="text-gray-900">{label}:</span> {e.recibidos} clientes en Tango · {e.actualizados} actualizados · {e.newlyLinkedCodigoTango} vinculados nuevos
+                {(e.codigosSecundarios ?? 0) > 0 && <> · {e.codigosSecundarios} códigos secundarios</>} · {e.skippedNoMatch} sin cuenta en la app
+                {e.skippedAmbiguousCuit > 0 && <span className="text-amber-600"> · {e.skippedAmbiguousCuit} con CUIT ambiguo</span>}
+                {e.errores.length > 0 && <span className="text-red-500"> · {e.errores.length} errores</span>}
+              </li>
+            )
+          })}
+        </ul>
       ),
     },
     {
@@ -111,12 +121,21 @@ export default function SyncPreciosTangoPanel({ solo }: { solo?: SyncId } = {}) 
     {
       id: 'saldos',
       titulo: 'Saldos de cuenta corriente',
-      descripcion: 'Composición de deuda (comprobantes pendientes) de cada cliente en Redonhielo. Cada hora de 6 a 22; la pantalla de cobro además pide el saldo fresco al abrir un cliente.',
+      descripcion: 'Composición de deuda (comprobantes pendientes) de cada cliente en Redonhielo y en Rolito. Cada hora de 6 a 22; la pantalla de cobro además pide el saldo fresco al abrir un cliente.',
       info: info?.saldosSync,
       detalle: info?.saldosSync?.resumen && (
-        <>
-          {info.saldosSync.resumen.clientesConDeuda} clientes con deuda en Tango · {info.saldosSync.resumen.actualizados} actualizados · {info.saldosSync.resumen.skippedNoMatch} sin cuenta en la app · {info.saldosSync.resumen.vaciados} saldados
-        </>
+        <ul className="space-y-0.5">
+          {EMPRESAS.map(({ id, label }) => {
+            const e = info.saldosSync?.resumen?.empresas?.[id] ?? (id === 'redonhielo' ? info.saldosSync?.resumen : undefined)
+            if (!e) return null
+            return (
+              <li key={id}>
+                <span className="text-gray-900">{label}:</span> {e.clientesConDeuda} clientes con deuda · {e.actualizados} actualizados · {e.skippedNoMatch} sin cuenta en la app · {e.vaciados} saldados
+                {e.error && <span className="text-red-500"> · falló: {e.error}</span>}
+              </li>
+            )
+          })}
+        </ul>
       ),
     },
   ]

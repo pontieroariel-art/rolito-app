@@ -11,6 +11,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.onConsultaSaldoPendiente = exports.sincronizarSaldosTangoAhora = exports.sincronizarClientesTangoAhora = exports.syncSaldosTangoConnect = exports.syncClientesTangoConnect = void 0;
 exports.recortarCliente = recortarCliente;
+exports.filasClientes = filasClientes;
 exports.sincronizarClientes = sincronizarClientes;
 exports.recortarComprobante = recortarComprobante;
 exports.sincronizarSaldos = sincronizarSaldos;
@@ -24,14 +25,16 @@ const client_1 = require("../services/tango/client");
 const pedido_1 = require("../services/tango/pedido");
 const tangoSync_1 = require("./tangoSync");
 const tangoSaldos_1 = require("./tangoSaldos");
+const empresas_1 = require("../services/tango/empresas");
 const rateLimit_1 = require("../rateLimit");
 const tangoApiToken = (0, params_1.defineSecret)('TANGO_API_TOKEN');
 const CONNECT_BASE_URL_DEFAULT = 'https://001174-003.connect.axoft.com';
 const TZ = 'America/Argentina/Buenos_Aires';
 const ROLES_QUE_SINCRONIZAN = new Set(['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'facturacion']);
 const ROLES_SALDOS = new Set([...ROLES_QUE_SINCRONIZAN, 'supervisor']);
-// Consultas Live de composición de saldos (Redonhielo). Mismos procesos que
-// usaba el bridge; se pueden pisar desde config/tango.saldos.
+// Consultas Live de composición de saldos. Mismos procesos que usaba el
+// bridge; se pueden pisar desde config/tango.saldos (y por empresa en
+// config/tango.saldos.porEmpresa.<empresa>).
 const PROCESO_DEUDAS_VENCIDAS_DEFAULT = 17953;
 const PROCESO_DEUDAS_A_VENCER_DEFAULT = 17955;
 const FROM_DATE_DEFAULT = '01/01/2015';
@@ -77,29 +80,67 @@ function recortarCliente(c) {
         provinciaDesc: str((0, pedido_1.prop)(c, 'GVA18_DESCRIPCION')),
         codigoPostal: str((0, pedido_1.prop)(c, 'C_POSTAL')),
         fechaAlta: str((0, pedido_1.prop)(c, 'FECHA_ALTA')),
+        ...(typeof (0, pedido_1.prop)(c, 'HABILITADO') === 'boolean' ? { habilitado: (0, pedido_1.prop)(c, 'HABILITADO') } : {}),
     };
 }
-async function sincronizarClientes(db, tango, cfg) {
-    const company = companyDe(cfg, 'redonhielo');
-    const filas = await tango.getAll(company, client_1.PROCESOS.clientes, 200);
-    const rows = filas.map(recortarCliente).filter((r) => Number.isInteger(r.idGva14) && r.codGva14);
-    const resumen = {
-        recibidos: rows.length, lotes: 0, actualizados: 0, matchedByIdGva14: 0, matchedByCuit: 0,
-        newlyLinkedCodigoTango: 0, skippedNoMatch: 0, skippedAmbiguousCuit: 0, emailsActualizados: 0, emailsConError: 0, errores: [],
+function resumenClientesVacio() {
+    return {
+        recibidos: 0, lotes: 0, actualizados: 0, matchedByIdGva14: 0, matchedByCuit: 0, matchedByCodigo: 0,
+        newlyLinkedCodigoTango: 0, codigosSecundarios: 0, skippedNoMatch: 0, skippedAmbiguousCuit: 0, emailsActualizados: 0, emailsConError: 0, errores: [],
     };
-    for (const lote of chunk(rows, 300)) {
-        const r = await (0, tangoSync_1.procesarLoteClientesTango)(db, lote, { dryRun: false });
-        resumen.lotes++;
-        resumen.actualizados += r.actualizados ?? 0;
-        resumen.matchedByIdGva14 += r.matchedByIdGva14 ?? 0;
-        resumen.matchedByCuit += r.matchedByCuit ?? 0;
-        resumen.newlyLinkedCodigoTango += r.newlyLinkedCodigoTango ?? 0;
-        resumen.skippedNoMatch += r.skippedNoMatch ?? 0;
-        resumen.skippedAmbiguousCuit += r.skippedAmbiguousCuit ?? 0;
-        resumen.emailsActualizados += r.emailsActualizados ?? 0;
-        resumen.emailsConError += r.emailsConError ?? 0;
-        if (r.errores?.length && resumen.errores.length < 50)
-            resumen.errores.push(...r.errores.slice(0, 50 - resumen.errores.length));
+}
+function sumarResumenClientes(into, r) {
+    into.lotes++;
+    into.actualizados += r.actualizados ?? 0;
+    into.matchedByIdGva14 += r.matchedByIdGva14 ?? 0;
+    into.matchedByCuit += r.matchedByCuit ?? 0;
+    into.matchedByCodigo += r.matchedByCodigo ?? 0;
+    into.newlyLinkedCodigoTango += r.newlyLinkedCodigoTango ?? 0;
+    into.codigosSecundarios += r.codigosSecundarios ?? 0;
+    into.skippedNoMatch += r.skippedNoMatch ?? 0;
+    into.skippedAmbiguousCuit += r.skippedAmbiguousCuit ?? 0;
+    into.emailsActualizados += r.emailsActualizados ?? 0;
+    into.emailsConError += r.emailsConError ?? 0;
+    if (r.errores?.length && into.errores.length < 50)
+        into.errores.push(...r.errores.slice(0, 50 - into.errores.length));
+}
+/** Filas de clientes de una empresa, ya recortadas. */
+async function filasClientes(tango, company) {
+    const filas = await tango.getAll(company, client_1.PROCESOS.clientes, 200);
+    return filas.map(recortarCliente).filter((r) => Number.isInteger(r.idGva14) && r.codGva14);
+}
+/**
+ * Padrón de las DOS empresas (2026-09-06). Redonhielo primero (manda la ficha),
+ * Rolito después (solo vincula identidad). Si una empresa falla, la otra sigue
+ * y el error queda en el resumen, como en la sync de precios.
+ */
+async function sincronizarClientes(db, tango, cfg) {
+    const indice = await (0, tangoSync_1.indiceUsuariosClientes)(db);
+    const resumen = { ...resumenClientesVacio(), empresas: {} };
+    for (const empresa of empresas_1.EMPRESAS) {
+        const re = resumenClientesVacio();
+        resumen.empresas[empresa] = re;
+        try {
+            const company = companyDe(cfg, empresa);
+            re.company = company;
+            const rows = await filasClientes(tango, company);
+            re.recibidos = rows.length;
+            for (const lote of chunk(rows, 300)) {
+                const r = await (0, tangoSync_1.procesarLoteClientesTango)(db, lote, { dryRun: false, empresa, indice });
+                sumarResumenClientes(re, r);
+            }
+        }
+        catch (e) {
+            re.errores.push({ empresa, motivo: e.message });
+            v2_1.logger.error(`[tango] sync de clientes de ${empresa} falló: ${e.message}`);
+        }
+        // Totales (compatibilidad con el panel viejo): suma de las dos empresas.
+        for (const k of Object.keys(re)) {
+            if (k === 'errores')
+                resumen.errores.push(...re.errores);
+            else if (k !== 'company')
+                resumen[k] += re[k];
+        }
     }
     return resumen;
 }
@@ -112,7 +153,7 @@ async function correrClientes(origen, uid) {
     await db.doc('config/tango').set({
         clientesSync: { ultimaCorrida: firestore_2.FieldValue.serverTimestamp(), origen, uid: uid ?? null, duracionMs: Date.now() - inicio, resumen },
     }, { merge: true });
-    v2_1.logger.info(`[tango] clientes sincronizados (${origen}) en ${Date.now() - inicio}ms: ${JSON.stringify({ ...resumen, errores: resumen.errores.length })}`);
+    v2_1.logger.info(`[tango] clientes sincronizados (${origen}) en ${Date.now() - inicio}ms: ${JSON.stringify({ ...resumen, empresas: undefined, errores: resumen.errores.length })}`);
     return resumen;
 }
 // ── Saldos (composición de deuda por cliente) ────────────────────────────────
@@ -144,45 +185,86 @@ function parseCliente(campo) {
     return idx === -1 ? { codigo: '', nombre: s } : { codigo: s.slice(0, idx).trim(), nombre: s.slice(idx + 3).trim() };
 }
 /** Todas las filas de deuda (vencidas + a vencer) de una empresa. */
-async function filasDeuda(tango, cfg, company) {
-    const desde = cfg.saldos?.fromDate ?? FROM_DATE_DEFAULT;
+async function filasDeuda(tango, cfg, company, empresa = 'redonhielo') {
+    const porEmpresa = cfg.saldos?.porEmpresa?.[empresa] ?? {};
+    const desde = porEmpresa.fromDate ?? cfg.saldos?.fromDate ?? FROM_DATE_DEFAULT;
     const hastaDate = new Date();
     hastaDate.setFullYear(hastaDate.getFullYear() + 5); // "a vencer" incluye vencimientos futuros
     const hasta = ddMMyyyy(hastaDate);
-    const vencidas = cfg.saldos?.procesoDeudasVencidas ?? PROCESO_DEUDAS_VENCIDAS_DEFAULT;
-    const aVencer = cfg.saldos?.procesoDeudasAVencer ?? PROCESO_DEUDAS_A_VENCER_DEFAULT;
+    const vencidas = porEmpresa.procesoDeudasVencidas ?? cfg.saldos?.procesoDeudasVencidas ?? PROCESO_DEUDAS_VENCIDAS_DEFAULT;
+    const aVencer = porEmpresa.procesoDeudasAVencer ?? cfg.saldos?.procesoDeudasAVencer ?? PROCESO_DEUDAS_A_VENCER_DEFAULT;
     const filas = await tango.live(company, vencidas, desde, hasta);
     filas.push(...await tango.live(company, aVencer, desde, hasta));
     return filas;
 }
+/**
+ * Deuda de las DOS empresas (2026-09-06): cada una se lee y se escribe por
+ * separado en su rama de saldosTango/{uid}, con su propio runId de vaciado. Los
+ * varios códigos de un mismo CUIT van juntos en el mismo lote (se agrupan por
+ * cuenta antes de partir), así ningún lote pisa lo que escribió el anterior.
+ */
 async function sincronizarSaldos(db, tango, cfg) {
-    const company = companyDe(cfg, 'redonhielo');
-    const filas = await filasDeuda(tango, cfg, company);
-    const porCliente = new Map();
-    for (const f of filas) {
-        const idGva14 = (0, pedido_1.prop)(f, 'ID_GVA14');
-        if (typeof idGva14 !== 'number')
-            continue;
-        if (!porCliente.has(idGva14)) {
-            const { codigo, nombre } = parseCliente((0, pedido_1.prop)(f, 'CLIENTE'));
-            porCliente.set(idGva14, { idGva14, codGva14: codigo || undefined, razonSocial: nombre || undefined, empresa: 'redonhielo', comprobantes: [] });
+    const indice = await (0, tangoSaldos_1.indiceClientesTango)(db);
+    const descuentos = await (0, tangoSaldos_1.descuentosPendientes)(db);
+    const resumen = { filas: 0, clientesConDeuda: 0, lotes: 0, actualizados: 0, skippedNoMatch: 0, vaciados: 0, empresas: {} };
+    for (const empresa of empresas_1.EMPRESAS) {
+        const re = { filas: 0, clientesConDeuda: 0, lotes: 0, actualizados: 0, skippedNoMatch: 0, vaciados: 0 };
+        resumen.empresas[empresa] = re;
+        try {
+            const company = companyDe(cfg, empresa);
+            re.company = company;
+            const filas = await filasDeuda(tango, cfg, company, empresa);
+            const porCliente = new Map();
+            for (const f of filas) {
+                const idGva14 = (0, pedido_1.prop)(f, 'ID_GVA14');
+                if (typeof idGva14 !== 'number')
+                    continue;
+                if (!porCliente.has(idGva14)) {
+                    const { codigo, nombre } = parseCliente((0, pedido_1.prop)(f, 'CLIENTE'));
+                    porCliente.set(idGva14, { idGva14, codGva14: codigo || undefined, razonSocial: nombre || undefined, empresa, comprobantes: [] });
+                }
+                porCliente.get(idGva14).comprobantes.push(recortarComprobante(f));
+            }
+            // Agrupar por cuenta de la app para que los códigos de un mismo CUIT
+            // caigan en el mismo lote; los no vinculados van al final (skippedNoMatch).
+            const grupos = new Map();
+            for (const row of porCliente.values()) {
+                const clave = indice[empresa].get(row.idGva14)?.uid ?? `?${row.idGva14}`;
+                if (!grupos.has(clave))
+                    grupos.set(clave, []);
+                grupos.get(clave).push(row);
+            }
+            const lotes = [...grupos.values()].reduce((acc, g) => {
+                if (!acc.length || acc[acc.length - 1].length >= 100)
+                    acc.push([]);
+                acc[acc.length - 1].push(...g);
+                return acc;
+            }, []);
+            // runId identifica la corrida completa de ESTA empresa: al llegar el
+            // último lote, toda rama de esta empresa que no fue tocada se vacía.
+            const runId = `${empresa}:${new Date().toISOString()}`;
+            re.filas = filas.length;
+            re.clientesConDeuda = porCliente.size;
+            if (lotes.length === 0)
+                lotes.push([]); // nadie debe nada: igual hay que vaciar el cache viejo
+            for (const [i, lote] of lotes.entries()) {
+                const r = await (0, tangoSaldos_1.procesarLoteSaldos)(db, lote, { dryRun: false, runId, esUltimoLote: i === lotes.length - 1, empresa, indice, descuentos });
+                re.lotes++;
+                re.actualizados += r.actualizados ?? 0;
+                re.skippedNoMatch += r.skippedNoMatch ?? 0;
+                re.vaciados += r.vaciados ?? 0;
+            }
         }
-        porCliente.get(idGva14).comprobantes.push(recortarComprobante(f));
-    }
-    const rows = [...porCliente.values()];
-    // runId identifica la corrida completa: al llegar el último lote, todo doc
-    // del cache que no fue tocado por este runId se vacía (cliente sin deuda).
-    const runId = new Date().toISOString();
-    const lotes = chunk(rows, 100);
-    const resumen = { filas: filas.length, clientesConDeuda: rows.length, lotes: 0, actualizados: 0, skippedNoMatch: 0, vaciados: 0 };
-    if (lotes.length === 0)
-        lotes.push([]); // nadie debe nada: igual hay que vaciar el cache viejo
-    for (const [i, lote] of lotes.entries()) {
-        const r = await (0, tangoSaldos_1.procesarLoteSaldos)(db, lote, { dryRun: false, runId, esUltimoLote: i === lotes.length - 1 });
-        resumen.lotes++;
-        resumen.actualizados += r.actualizados ?? 0;
-        resumen.skippedNoMatch += r.skippedNoMatch ?? 0;
-        resumen.vaciados += r.vaciados ?? 0;
+        catch (e) {
+            re.error = e.message;
+            v2_1.logger.error(`[tango] sync de saldos de ${empresa} falló: ${re.error}`);
+        }
+        resumen.filas += re.filas;
+        resumen.clientesConDeuda += re.clientesConDeuda;
+        resumen.lotes += re.lotes;
+        resumen.actualizados += re.actualizados;
+        resumen.skippedNoMatch += re.skippedNoMatch;
+        resumen.vaciados += re.vaciados;
     }
     return resumen;
 }
@@ -261,8 +343,10 @@ exports.onConsultaSaldoPendiente = (0, firestore_1.onDocumentCreated)({ document
             await marcarError('idGva14 inválido');
             return;
         }
-        const filas = (await filasDeuda(tango, cfg, companyDe(cfg, empresa))).filter((f) => (0, pedido_1.prop)(f, 'ID_GVA14') === idGva14);
-        const comprobantes = filas.map(recortarComprobante);
+        // Varios códigos del mismo CUIT: la consulta puede traer más de un ID_GVA14.
+        const ids = new Set([idGva14, ...(Array.isArray(data.idsGva14) ? data.idsGva14.map(Number).filter(Number.isInteger) : [])]);
+        const filas = (await filasDeuda(tango, cfg, companyDe(cfg, empresa), empresa)).filter((f) => ids.has((0, pedido_1.prop)(f, 'ID_GVA14')));
+        const comprobantes = filas.map((f) => ({ ...recortarComprobante(f), codigoTango: parseCliente((0, pedido_1.prop)(f, 'CLIENTE')).codigo }));
         const saldoTotal = Math.round(comprobantes.reduce((s, c) => s + c.saldoPendiente, 0) * 100) / 100;
         // Si mientras tanto la respondió otro (bridge todavía prendido), no pisar.
         await db.runTransaction(async (tx) => {

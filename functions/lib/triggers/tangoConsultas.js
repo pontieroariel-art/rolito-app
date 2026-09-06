@@ -3,14 +3,16 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.onConsultaRespondida = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const firestore_2 = require("firebase-admin/firestore");
-// Cuando el bridge responde una consulta on-demand de saldo (tango-consultas,
-// estado → 'respondida'), copia el resultado al cache saldosTango/{clienteUid}.
-// El bridge NUNCA escribe saldosTango directo (sus reglas solo lo dejan tocar
-// los campos de estado de la consulta) — esta Function es el único camino,
-// igual que onOutboxConfirmado con los write-backs del outbox.
-function redondear2(n) {
-    return Math.round(n * 100) / 100;
-}
+const empresas_1 = require("../services/tango/empresas");
+const saldos_1 = require("../services/tango/saldos");
+// Cuando se responde una consulta on-demand de saldo (tango-consultas, estado
+// → 'respondida'), copia el resultado al cache saldosTango/{clienteUid}.
+// Quien responde (onConsultaSaldoPendiente en la nube, o el bridge viejo)
+// NUNCA escribe saldosTango directo — esta Function es el único camino, igual
+// que onOutboxConfirmado con los write-backs del outbox.
+//
+// La consulta es de UNA empresa: se reemplaza solo esa rama del doc (la otra
+// queda como la dejó su último sync), ver services/tango/saldos.ts.
 exports.onConsultaRespondida = (0, firestore_1.onDocumentUpdated)('tango-consultas/{consultaId}', async (event) => {
     const before = event.data?.before.data();
     const after = event.data?.after.data();
@@ -29,67 +31,34 @@ exports.onConsultaRespondida = (0, firestore_1.onDocumentUpdated)('tango-consult
         console.warn(`[onConsultaRespondida] ${event.params.consultaId}: clienteUid ${after.clienteUid} no es un cliente — se ignora`);
         return;
     }
+    const empresa = (0, empresas_1.esEmpresa)(after.empresa) ? after.empresa : 'redonhielo';
+    const codigoPrincipal = (0, empresas_1.codigoTangoDe)(user, empresa) ?? String(user.codigoTango ?? '');
     const crudos = Array.isArray(after.resultado?.comprobantes) ? after.resultado.comprobantes : [];
-    let comprobantes = crudos.map((c) => ({
-        tipo: String(c.tipo ?? ''),
-        numero: String(c.numero ?? ''),
-        fechaEmision: String(c.fechaEmision ?? ''),
-        ...(c.fechaVencimiento ? { fechaVencimiento: String(c.fechaVencimiento) } : {}),
-        importeOriginal: redondear2(Number(c.importeOriginal ?? c.saldoPendiente ?? 0)),
-        saldoPendiente: redondear2(Number(c.saldoPendiente ?? 0)),
-        ...(typeof c.idComprobanteTango === 'number' ? { idComprobanteTango: c.idComprobanteTango } : {}),
-        ...(typeof c.diasAtraso === 'number' && c.diasAtraso > 0 ? { diasAtraso: c.diasAtraso } : {}),
-    }));
+    const frescos = crudos.map((c) => (0, saldos_1.normalizarComprobante)(c, empresa, codigoPrincipal));
     // Igual que el sync periódico (tangoSaldos.ts): re-aplicar los descuentos de
-    // cobranzas de supervisor que Tango todavía no vio (tango.estado !=
-    // 'confirmado') — si no, el refresh "resucitaría" deuda ya cobrada en la
-    // calle mientras el writer de recibos no esté habilitado.
+    // cobranzas de este cliente que Tango todavía no vio (tango.estado !=
+    // 'confirmado') — si no, el refresh "resucitaría" deuda ya cobrada en la calle.
     const desde = new Date();
     desde.setDate(desde.getDate() - 90);
     const cobranzasSnap = await db.collection('cobranzas')
-        .where('origen', '==', 'supervisor')
         .where('clienteId', '==', after.clienteUid)
         .where('fecha', '>=', desde)
         .get();
-    const cobranzasAplicadas = [];
-    const descuentoPorComp = new Map();
-    cobranzasSnap.forEach((docSnap) => {
-        const c = docSnap.data();
-        if (c.tango?.estado === 'confirmado' || !Array.isArray(c.imputaciones))
-            return;
-        cobranzasAplicadas.push(docSnap.id);
-        for (const imp of c.imputaciones) {
-            const clave = `${imp.comprobanteTipo}|${imp.comprobanteNumero}`;
-            const cent = Math.round(Number(imp.importeImputado ?? 0) * 100);
-            descuentoPorComp.set(clave, (descuentoPorComp.get(clave) ?? 0) + cent);
-        }
-    });
-    if (descuentoPorComp.size > 0) {
-        comprobantes = comprobantes
-            .map((c) => {
-            const cent = descuentoPorComp.get(`${c.tipo}|${c.numero}`);
-            if (!cent)
-                return c;
-            return { ...c, saldoPendiente: Math.max(0, Math.round(c.saldoPendiente * 100) - cent) / 100 };
-        })
-            .filter((c) => c.saldoPendiente > 0);
-    }
-    const saldoTotal = redondear2(comprobantes.reduce((s, c) => s + c.saldoPendiente, 0));
-    // runId 'consulta': el sync periódico vacía los docs cuyo runId no es el de
-    // su corrida — si este cliente sigue con deuda, el próximo sync lo re-escribe
-    // con el runId nuevo; si no aparece en el snapshot completo, es que ya no
-    // debe nada y el vaciado es correcto.
-    await db.collection('saldosTango').doc(after.clienteUid).set({
-        idGva14: typeof after.idGva14 === 'number' ? after.idGva14 : (user.idGva14Tango ?? 0),
-        codigoTango: user.codigoTango ?? '',
-        empresa: after.empresa === 'rolito' ? 'rolito' : 'redonhielo',
-        razonSocial: user.razonSocial ?? user.nombre ?? '',
-        comprobantes,
-        saldoTotal,
-        cobranzasAplicadas,
-        actualizadoEn: firestore_2.FieldValue.serverTimestamp(),
-        origen: 'consulta',
-        runId: 'consulta',
+    const descuento = (0, saldos_1.descuentosDeCobranzas)(cobranzasSnap.docs.map((d) => ({ id: d.id, ...d.data() }))).get(after.clienteUid);
+    const comprobantes = (0, saldos_1.aplicarDescuentos)(frescos, descuento);
+    // runId 'consulta': el sync periódico de esa empresa vacía las ramas cuyo
+    // runId no es el de su corrida — si este cliente sigue con deuda, el próximo
+    // sync la re-escribe con el runId nuevo; si no aparece en el snapshot
+    // completo, es que ya no debe nada ahí y el vaciado es correcto.
+    const ref = db.collection('saldosTango').doc(after.clienteUid);
+    await db.runTransaction(async (tx) => {
+        const actual = (await tx.get(ref)).data();
+        const nuevo = (0, saldos_1.fusionarRamaEmpresa)(actual, empresa, comprobantes, { runId: 'consulta', origen: 'consulta', ahora: firestore_2.FieldValue.serverTimestamp() }, {
+            idGva14: actual?.idGva14 ?? (typeof user.idGva14Tango === 'number' ? user.idGva14Tango : (typeof after.idGva14 === 'number' ? after.idGva14 : 0)),
+            codigoTango: actual?.codigoTango ?? String(user.codigoTango ?? codigoPrincipal),
+            razonSocial: actual?.razonSocial || String(user.razonSocial ?? user.nombre ?? ''),
+        }, descuento ? descuento.cobranzaIds : []);
+        tx.set(ref, { ...nuevo, actualizadoEn: firestore_2.FieldValue.serverTimestamp() });
     });
 });
 //# sourceMappingURL=tangoConsultas.js.map

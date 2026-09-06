@@ -1,77 +1,88 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.syncSaldosTango = void 0;
+exports.indiceClientesTango = indiceClientesTango;
+exports.descuentosPendientes = descuentosPendientes;
 exports.procesarLoteSaldos = procesarLoteSaldos;
 const https_1 = require("firebase-functions/v2/https");
 const params_1 = require("firebase-functions/params");
 const firestore_1 = require("firebase-admin/firestore");
+const empresas_1 = require("../services/tango/empresas");
+const saldos_1 = require("../services/tango/saldos");
 const tangoBridgeSecret = (0, params_1.defineSecret)('TANGO_BRIDGE_SECRET');
 // Mismo criterio que syncClientesTango: el bridge manda lotes chicos, esto solo
 // acota costo/DoS si el secret se filtrara.
 const MAX_ROWS_POR_LOTE = 2000;
-function redondear2(n) {
-    return Math.round(n * 100) / 100;
+async function indiceClientesTango(db) {
+    const usersSnap = await db.collection('users').where('rol', '==', 'cliente').get();
+    const indice = { redonhielo: new Map(), rolito: new Map() };
+    usersSnap.forEach((docSnap) => {
+        const data = docSnap.data();
+        const ids = (0, empresas_1.tangoIdsDe)(data);
+        for (const empresa of empresas_1.EMPRESAS) {
+            for (const id of ids[empresa] ?? []) {
+                indice[empresa].set(id.idGva14, {
+                    uid: docSnap.id, codigo: id.codigo, razonSocial: data.razonSocial, nombre: data.nombre,
+                    codigoTango: ids.redonhielo?.[0]?.codigo ?? data.codigoTango, idGva14Tango: ids.redonhielo?.[0]?.idGva14 ?? data.idGva14Tango,
+                });
+            }
+        }
+    });
+    return indice;
 }
-function normalizarComprobante(c) {
-    return {
-        tipo: String(c.tipo ?? ''),
-        numero: String(c.numero ?? ''),
-        fechaEmision: c.fechaEmision ?? '',
-        ...(c.fechaVencimiento ? { fechaVencimiento: c.fechaVencimiento } : {}),
-        importeOriginal: redondear2(Number(c.importeOriginal ?? c.saldoPendiente ?? 0)),
-        saldoPendiente: redondear2(Number(c.saldoPendiente ?? 0)),
-        ...(typeof c.idComprobanteTango === 'number' ? { idComprobanteTango: c.idComprobanteTango } : {}),
-        ...(typeof c.diasAtraso === 'number' && c.diasAtraso > 0 ? { diasAtraso: c.diasAtraso } : {}),
-    };
-}
+// Cobranzas completas de los últimos 90 días que Tango todavía no confirmó
+// (ver descuentosDeCobranzas): se restan del snapshot para no resucitar deuda
+// ya cobrada. Una cobranza que no llegó a Tango en 3 meses es un problema a
+// resolver a mano, no a seguir descontando en silencio.
 async function descuentosPendientes(db) {
     const desde = new Date();
     desde.setDate(desde.getDate() - 90);
-    const snap = await db.collection('cobranzas')
-        .where('origen', '==', 'supervisor')
-        .where('fecha', '>=', desde)
-        .get();
-    const porCliente = new Map();
-    snap.forEach((docSnap) => {
-        const c = docSnap.data();
-        if (c.tango?.estado === 'confirmado')
-            return;
-        if (!Array.isArray(c.imputaciones))
-            return;
-        if (!porCliente.has(c.clienteId)) {
-            porCliente.set(c.clienteId, { porComprobante: new Map(), cobranzaIds: [] });
-        }
-        const d = porCliente.get(c.clienteId);
-        d.cobranzaIds.push(docSnap.id);
-        for (const imp of c.imputaciones) {
-            const clave = `${imp.comprobanteTipo}|${imp.comprobanteNumero}`;
-            const cent = Math.round(Number(imp.importeImputado ?? 0) * 100);
-            d.porComprobante.set(clave, (d.porComprobante.get(clave) ?? 0) + cent);
-        }
-    });
-    return porCliente;
+    const snap = await db.collection('cobranzas').where('fecha', '>=', desde).get();
+    return (0, saldos_1.descuentosDeCobranzas)(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
 }
+/**
+ * Escribe en el cache los comprobantes de `opts.empresa` de los clientes de
+ * `rows` (el resto del doc — la otra empresa — queda como está). Con
+ * `esUltimoLote` vacía la rama de esa empresa en los docs que no tocó esta
+ * corrida (runId): son clientes que ya no deben nada ahí.
+ */
 async function procesarLoteSaldos(db, rows, opts) {
-    // Solo clientes ya vinculados a Tango (idGva14Tango lo puebla syncClientesTango).
-    const usersSnap = await db.collection('users').where('rol', '==', 'cliente').get();
-    const descuentos = await descuentosPendientes(db);
-    const porIdGva14 = new Map();
-    usersSnap.forEach((docSnap) => {
-        const data = docSnap.data();
-        if (typeof data.idGva14Tango === 'number') {
-            porIdGva14.set(data.idGva14Tango, {
-                uid: docSnap.id,
-                codigoTango: data.codigoTango,
-                razonSocial: data.razonSocial,
-                nombre: data.nombre,
-            });
-        }
-    });
+    const empresa = opts.empresa ?? ((0, empresas_1.esEmpresa)(rows[0]?.empresa) ? rows[0].empresa : 'redonhielo');
+    const indice = (opts.indice ?? await indiceClientesTango(db))[empresa];
+    const descuentos = opts.descuentos ?? await descuentosPendientes(db);
     let actualizados = 0;
     let skippedNoMatch = 0;
     let vaciados = 0;
     const wouldUpdate = [];
     const sinMatch = [];
+    // Varios ID_GVA14 (códigos) pueden ser la misma cuenta: se juntan por uid.
+    const porUid = new Map();
+    for (const row of rows) {
+        const cliente = indice.get(row.idGva14);
+        if (!cliente) {
+            skippedNoMatch++;
+            if (opts.dryRun && sinMatch.length < 300) {
+                const saldo = (0, saldos_1.redondear2)((row.comprobantes ?? []).reduce((s, c) => s + Number(c.saldoPendiente ?? 0), 0));
+                sinMatch.push({ idGva14: row.idGva14, codigo: row.codGva14 ?? '', nombre: row.razonSocial ?? '', saldo });
+            }
+            continue;
+        }
+        const codigo = row.codGva14 || cliente.codigo;
+        const comprobantes = (row.comprobantes ?? []).map((c) => (0, saldos_1.normalizarComprobante)(c, empresa, codigo));
+        if (!porUid.has(cliente.uid))
+            porUid.set(cliente.uid, { cliente, comprobantes: [] });
+        porUid.get(cliente.uid).comprobantes.push(...comprobantes);
+    }
+    const uids = [...porUid.keys()];
+    const refs = uids.map((uid) => db.collection('saldosTango').doc(uid));
+    const actuales = new Map();
+    if (refs.length && !opts.dryRun) {
+        for (let i = 0; i < refs.length; i += 300) {
+            const snaps = await db.getAll(...refs.slice(i, i + 300));
+            for (const s of snaps)
+                actuales.set(s.id, s.exists ? s.data() : undefined);
+        }
+    }
     let batch = db.batch();
     let enBatch = 0;
     const flush = async () => {
@@ -82,76 +93,48 @@ async function procesarLoteSaldos(db, rows, opts) {
         batch = db.batch();
         enBatch = 0;
     };
-    for (const row of rows) {
-        const user = porIdGva14.get(row.idGva14);
-        if (!user) {
-            // Cliente de Tango sin cuenta en la app — fuera de alcance del cache.
-            skippedNoMatch++;
-            if (opts.dryRun && sinMatch.length < 300) {
-                const saldo = redondear2((row.comprobantes ?? []).reduce((s, c) => s + Number(c.saldoPendiente ?? 0), 0));
-                sinMatch.push({ idGva14: row.idGva14, codigo: row.codGva14 ?? '', nombre: row.razonSocial ?? '', saldo });
-            }
-            continue;
-        }
-        let comprobantes = (row.comprobantes ?? []).map(normalizarComprobante);
-        // Re-aplicar descuentos de cobranzas que Tango todavía no vio (ver
-        // descuentosPendientes arriba).
-        const descuento = descuentos.get(user.uid);
-        if (descuento) {
-            comprobantes = comprobantes
-                .map((c) => {
-                const cent = descuento.porComprobante.get(`${c.tipo}|${c.numero}`);
-                if (!cent)
-                    return c;
-                const nuevoSaldo = Math.max(0, Math.round(c.saldoPendiente * 100) - cent) / 100;
-                return { ...c, saldoPendiente: nuevoSaldo };
-            })
-                .filter((c) => c.saldoPendiente > 0);
-        }
-        const saldoTotal = redondear2(comprobantes.reduce((s, c) => s + c.saldoPendiente, 0));
-        const docData = {
-            idGva14: row.idGva14,
-            codigoTango: row.codGva14 ?? user.codigoTango ?? '',
-            empresa: row.empresa ?? 'redonhielo',
-            razonSocial: row.razonSocial ?? user.razonSocial ?? user.nombre ?? '',
-            comprobantes,
-            saldoTotal,
-            // Deja constancia de qué cobranzas ya están descontadas en este cache —
-            // onCobranzaCreada lo usa para no descontar dos veces.
-            cobranzasAplicadas: descuento ? descuento.cobranzaIds : [],
-            actualizadoEn: firestore_1.FieldValue.serverTimestamp(),
-            origen: 'sync',
-            ...(opts.runId ? { runId: opts.runId } : {}),
-        };
+    for (const [uid, { cliente, comprobantes: crudos }] of porUid) {
+        const descuento = descuentos.get(uid);
+        const comprobantes = (0, saldos_1.aplicarDescuentos)(crudos, descuento);
+        const actual = actuales.get(uid);
+        const nuevo = (0, saldos_1.fusionarRamaEmpresa)(actual, empresa, comprobantes, { runId: opts.runId, origen: 'sync', ahora: firestore_1.FieldValue.serverTimestamp() }, {
+            // Identidad "principal" del doc (legacy): la de Redonhielo si la hay.
+            idGva14: cliente.idGva14Tango ?? actual?.idGva14 ?? 0,
+            codigoTango: cliente.codigoTango ?? actual?.codigoTango ?? cliente.codigo,
+            razonSocial: actual?.razonSocial || cliente.razonSocial || cliente.nombre || '',
+        }, descuento ? descuento.cobranzaIds : []);
         if (opts.dryRun) {
             if (wouldUpdate.length < 20)
-                wouldUpdate.push({ uid: user.uid, saldoTotal, comprobantes: comprobantes.length });
+                wouldUpdate.push({ uid, empresa, saldoEmpresa: nuevo.porEmpresa[empresa]?.saldoTotal, comprobantes: comprobantes.length });
             actualizados++;
             continue;
         }
-        batch.set(db.collection('saldosTango').doc(user.uid), docData);
+        batch.set(refs[uids.indexOf(uid)], { ...nuevo, actualizadoEn: firestore_1.FieldValue.serverTimestamp() });
         actualizados++;
         enBatch++;
         if (enBatch >= 400)
             await flush();
     }
     await flush();
-    // Cierre de corrida: el bridge manda el snapshot COMPLETO de la deuda en
-    // lotes con el mismo runId; al llegar el último lote, todo doc del cache que
-    // no fue tocado en esta corrida es un cliente que ya no debe nada → se vacía
-    // (no se borra: conserva identidad y "actualizado hace X" en la UI).
+    // Cierre de corrida: todo doc cuya rama de ESTA empresa no fue tocada por
+    // este runId es un cliente que ya no debe nada ahí → se vacía solo esa rama
+    // (no se borra: conserva la otra empresa, la identidad y el "actualizado hace X").
     if (opts.esUltimoLote && opts.runId && !opts.dryRun) {
-        const viejos = await db.collection('saldosTango').where('runId', '!=', opts.runId).get();
+        const runId = opts.runId;
+        const viejos = await db.collection('saldosTango').where(`porEmpresa.${empresa}.runId`, '!=', runId).get();
+        const aVaciar = new Map(viejos.docs.map((d) => [d.id, d]));
+        if (empresa === 'redonhielo') {
+            // Docs anteriores al formato por empresa (sin porEmpresa): eran solo de Redonhielo.
+            const legacy = await db.collection('saldosTango').where('runId', '!=', runId).get();
+            for (const d of legacy.docs)
+                if (!d.data().porEmpresa)
+                    aVaciar.set(d.id, d);
+        }
         let batchLimpieza = db.batch();
         let enLimpieza = 0;
-        for (const docSnap of viejos.docs) {
-            batchLimpieza.update(docSnap.ref, {
-                comprobantes: [],
-                saldoTotal: 0,
-                actualizadoEn: firestore_1.FieldValue.serverTimestamp(),
-                origen: 'sync',
-                runId: opts.runId,
-            });
+        for (const docSnap of aVaciar.values()) {
+            const vacio = (0, saldos_1.vaciarRamaEmpresa)(docSnap.data(), empresa, runId, firestore_1.FieldValue.serverTimestamp());
+            batchLimpieza.set(docSnap.ref, { ...vacio, actualizadoEn: firestore_1.FieldValue.serverTimestamp() });
             vaciados++;
             enLimpieza++;
             if (enLimpieza >= 400) {
@@ -174,8 +157,8 @@ async function procesarLoteSaldos(db, rows, opts) {
     };
 }
 // Recibe la composición de saldos de los clientes desde el script del bridge
-// (scripts/tango/bridge-sync-saldos.mjs) y actualiza el cache saldosTango/{uid}.
-// Mismo patrón de autorización que syncClientesTango: bearer secret angosto.
+// (scripts/tango/bridge-sync-saldos.mjs — reemplazado por syncSaldosTangoConnect
+// el 2026-09-03; queda por compatibilidad). Bearer secret angosto.
 exports.syncSaldosTango = (0, https_1.onRequest)({ secrets: [tangoBridgeSecret], invoker: 'public' }, async (req, res) => {
     if (req.method !== 'POST') {
         res.status(405).json({ succeeded: false, reason: 'method not allowed' });
@@ -208,7 +191,7 @@ exports.syncSaldosTango = (0, https_1.onRequest)({ secrets: [tangoBridgeSecret],
     const runId = typeof req.body?.runId === 'string' ? req.body.runId : null;
     const esUltimoLote = req.body?.esUltimoLote === true;
     try {
-        const resultado = await procesarLoteSaldos(db, rows, { dryRun, runId, esUltimoLote });
+        const resultado = await procesarLoteSaldos(db, rows, { dryRun, runId, esUltimoLote, empresa: 'redonhielo' });
         res.status(200).json(resultado);
     }
     catch (err) {

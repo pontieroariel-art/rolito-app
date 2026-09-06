@@ -5,6 +5,7 @@ import { Search } from 'lucide-react'
 import SupervisorHeader from '@/components/supervisor/SupervisorHeader'
 import { subscribeClientesConDeuda } from '@/services/saldosTangoService'
 import { formatoARS } from '@/utils/money'
+import { NOMBRE_EMPRESA_CORTO } from '@/utils/tangoEmpresas'
 import { SaldoTango } from '@/types'
 
 // "Hace 5 min" / "hace 3 h" / "hace 2 días" — el supervisor necesita saber qué
@@ -39,6 +40,15 @@ export default function SupervisorClientesPage() {
 
   // Días de atraso de la factura más vieja de cada cliente (0 si nada venció).
   const atrasoDe = (s: SaldoTango) => Math.max(0, ...s.comprobantes.map((c) => c.diasAtraso ?? 0))
+
+  // "Redonhielo $1.200 · Rolito $300" cuando debe en las dos empresas.
+  const desglose = (s: SaldoTango): string => {
+    const partes = (['redonhielo', 'rolito'] as const)
+      .map((e) => [e, s.porEmpresa?.[e]?.saldoTotal ?? 0] as const)
+      .filter(([, t]) => t > 0)
+    if (partes.length < 2) return ''
+    return partes.map(([e, t]) => `${NOMBRE_EMPRESA_CORTO[e]} ${formatoARS(t)}`).join(' · ')
+  }
 
   const filtrados = useMemo(() => {
     const base = soloVencidos ? saldos.filter((s) => atrasoDe(s) > 0) : saldos
@@ -107,6 +117,7 @@ export default function SupervisorClientesPage() {
                       </p>
                       <p className="text-xs text-gray-400 shrink-0">{haceCuanto(s.actualizadoEn)}</p>
                     </div>
+                    {desglose(s) && <p className="text-xs text-gray-500 mt-0.5">{desglose(s)}</p>}
                   </Link>
                 )
               })}

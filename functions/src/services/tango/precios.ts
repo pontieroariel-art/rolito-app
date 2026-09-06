@@ -26,8 +26,9 @@ import { TangoClient, PROCESOS, FILTROS } from './client'
 import { prop } from './pedido'
 import type { ConfigTango } from './writers'
 
-export const EMPRESAS = ['redonhielo', 'rolito'] as const
-export type Empresa = (typeof EMPRESAS)[number]
+import { EMPRESAS } from './empresas'
+export { EMPRESAS } from './empresas'
+export type { Empresa } from './empresas'
 
 /** Firestore no admite '.' en nombres de campo: 'FC.280' → 'FC_280'. */
 export const claveCliente = (codigoTango: string) => String(codigoTango).replace(/\./g, '_')

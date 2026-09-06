@@ -2,6 +2,8 @@ import { onRequest } from 'firebase-functions/v2/https'
 import { defineSecret } from 'firebase-functions/params'
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { getAuth } from 'firebase-admin/auth'
+import { agregarTangoId, EMPRESAS, tangoIdsDe, type Empresa, type TangoIds } from '../services/tango/empresas'
+import { cuitValido } from '../services/tango/cuit'
 
 const tangoBridgeSecret = defineSecret('TANGO_BRIDGE_SECRET')
 
@@ -10,8 +12,8 @@ const tangoBridgeSecret = defineSecret('TANGO_BRIDGE_SECRET')
 // el secret se filtrara o el bridge tuviera un bug que mande un array enorme.
 const MAX_ROWS_POR_LOTE = 10000
 
-// Fila tal como la arma scripts/tango/bridge-sync-clientes.mjs a partir de la
-// respuesta de Tango (Api/Get, process=2117 = Clientes). Ver docs/tango/INTEGRACION.md §6.1.
+// Fila recortada de la respuesta de Tango (Api/Get, process=2117 = Clientes)
+// de UNA empresa. Ver docs/tango/INTEGRACION.md §6.1.
 export interface TangoClienteRow {
   idGva14:          number
   codGva14:         string
@@ -30,6 +32,7 @@ export interface TangoClienteRow {
   provinciaDesc?:      string
   codigoPostal?:       string
   fechaAlta?:          string
+  habilitado?:         boolean
 }
 
 interface ResultadoFila {
@@ -45,7 +48,9 @@ export interface ResultadoSync {
   received?: number
   matchedByIdGva14?: number
   matchedByCuit?: number
+  matchedByCodigo?: number
   newlyLinkedCodigoTango?: number
+  codigosSecundarios?: number
   skippedNoMatch?: number
   skippedAmbiguousCuit?: number
   actualizados?: number
@@ -53,16 +58,18 @@ export interface ResultadoSync {
   emailsConError?: number
   wouldUpdate?: unknown[]
   errores?: ResultadoFila[]
+  // Filas de Tango sin cuenta en la app (candidatas a alta automática).
+  sinCuenta?: TangoClienteRow[]
 }
 
-function soloDigitos(v: string | undefined | null): string {
+export function soloDigitos(v: string | undefined | null): string {
   return v != null ? String(v).replace(/\D/g, '') : ''
 }
 
 // Tango mezcla texto libre en los teléfonos (ej. "0810-3216-2576 pagos") — solo
 // se acepta un candidato si, sacando espacios/guiones/paréntesis, queda algo que
 // parece un teléfono de verdad. Si ninguno pasa, se deja el que ya hay en la app.
-function sanitizarTelefono(candidatos: Array<string | undefined>): string | null {
+export function sanitizarTelefono(candidatos: Array<string | undefined>): string | null {
   for (const c of candidatos) {
     if (!c) continue
     const limpio = c.trim()
@@ -74,35 +81,71 @@ function sanitizarTelefono(candidatos: Array<string | undefined>): string | null
   return null
 }
 
-function pareceEmailValido(email: string | undefined | null): email is string {
+export function pareceEmailValido(email: string | undefined | null): email is string {
   return !!email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
 }
 
+// ── Índice de cuentas de cliente, UNA vez por corrida ────────────────────────
+// Antes se leía la colección entera por cada lote de 300 filas (≈20 escaneos
+// por corrida). Ahora se arma una vez y se comparte entre empresas y lotes; los
+// vínculos que se hacen en memoria (perfil.tangoIds) se ven en los lotes que
+// siguen, así otra fila con el mismo CUIT no reconquista al mismo cliente.
+export interface IndiceUsuarios {
+  perfilPorUid: Map<string, FirebaseFirestore.DocumentData>
+  porIdGva14:   Record<Empresa, Map<number, string>>
+  porCodigo:    Record<Empresa, Map<string, string>>
+  porCuit:      Map<string, string[]>
+}
+
+export async function indiceUsuariosClientes(db: FirebaseFirestore.Firestore): Promise<IndiceUsuarios> {
+  const usersSnap = await db.collection('users').where('rol', '==', 'cliente').get()
+  const indice: IndiceUsuarios = {
+    perfilPorUid: new Map(),
+    porIdGva14: { redonhielo: new Map(), rolito: new Map() },
+    porCodigo:  { redonhielo: new Map(), rolito: new Map() },
+    porCuit: new Map(),
+  }
+  usersSnap.forEach((doc) => {
+    const data = doc.data()
+    data.tangoIdsRaw = data.tangoIds ?? {}   // lo que hay escrito en Firestore
+    data.tangoIds = tangoIdsDe(data)         // normalizado, con los legacy absorbidos
+    indice.perfilPorUid.set(doc.id, data)
+    for (const empresa of EMPRESAS) {
+      for (const id of (data.tangoIds as TangoIds)[empresa] ?? []) {
+        indice.porIdGva14[empresa].set(id.idGva14, doc.id)
+        indice.porCodigo[empresa].set(id.codigo, doc.id)
+      }
+    }
+    const cuit = soloDigitos(data.cuit)
+    if (cuit.length >= 6) {
+      if (!indice.porCuit.has(cuit)) indice.porCuit.set(cuit, [])
+      indice.porCuit.get(cuit)!.push(doc.id)
+    }
+  })
+  return indice
+}
+
+/**
+ * Vincula y actualiza las cuentas de la app con las filas de Tango de UNA
+ * empresa. La ficha (razón social, IVA, domicilio, email…) la manda Redonhielo;
+ * de Rolito solo se toma la identidad (tangoIds.rolito), salvo que el cliente
+ * exista únicamente en Rolito. Varias filas con el mismo CUIT → una cuenta con
+ * varios códigos (la primera vinculada es la principal).
+ */
 export async function procesarLoteClientesTango(
   db: FirebaseFirestore.Firestore,
   rows: TangoClienteRow[],
-  opts: { dryRun: boolean },
+  opts: { dryRun: boolean; empresa?: Empresa; indice?: IndiceUsuarios },
 ): Promise<ResultadoSync> {
-  const usersSnap = await db.collection('users').where('rol', '==', 'cliente').get()
-
-  const porIdGva14 = new Map<number, string>()
-  const porCuit = new Map<string, string[]>()
-  const perfilPorUid = new Map<string, FirebaseFirestore.DocumentData>()
-
-  usersSnap.forEach((doc) => {
-    const data = doc.data()
-    perfilPorUid.set(doc.id, data)
-    if (typeof data.idGva14Tango === 'number') porIdGva14.set(data.idGva14Tango, doc.id)
-    const cuit = soloDigitos(data.cuit)
-    if (cuit.length >= 6) {
-      if (!porCuit.has(cuit)) porCuit.set(cuit, [])
-      porCuit.get(cuit)!.push(doc.id)
-    }
-  })
+  const empresa: Empresa = opts.empresa ?? 'redonhielo'
+  const indice = opts.indice ?? await indiceUsuariosClientes(db)
+  const { perfilPorUid, porIdGva14, porCodigo, porCuit } = indice
 
   let matchedByIdGva14 = 0
   let matchedByCuit = 0
+  let matchedByCodigo = 0
   let newlyLinkedCodigoTango = 0
+  let codigosSecundarios = 0
   let skippedNoMatch = 0
   let skippedAmbiguousCuit = 0
   let actualizados = 0
@@ -110,6 +153,7 @@ export async function procesarLoteClientesTango(
   let emailsConError = 0
   const errores: ResultadoFila[] = []
   const wouldUpdate: unknown[] = []
+  const sinCuenta: TangoClienteRow[] = []
 
   const auth = getAuth()
   let batch = db.batch()
@@ -123,90 +167,121 @@ export async function procesarLoteClientesTango(
   }
 
   for (const row of rows) {
-    let uid = porIdGva14.get(row.idGva14)
+    let uid = porIdGva14[empresa].get(row.idGva14)
     let esNuevoLink = false
 
-    if (!uid) {
+    if (uid) {
+      matchedByIdGva14++
+    } else {
+      // Misma cuenta por CUIT (una cuenta por CUIT en la app). Si el cliente ya
+      // tiene un código vinculado en esta empresa, esta fila es OTRO código del
+      // mismo CUIT (sucursal / grupo empresario) y se agrega como secundario.
+      // Solo con CUIT válido: los rellenos ("00000000000", consumidor final)
+      // colgarían cientos de códigos de una misma cuenta.
       const cuit = soloDigitos(row.cuit)
-      // Ojo con los "grupos empresarios": varias sucursales de Tango pueden compartir
-      // el mismo CUIT (ver docs/tango/INTEGRACION.md, caso Golden Car / Josimar). Si el
-      // cliente de la app ya tiene una sucursal de Tango vinculada (idGva14Tango seteado,
-      // ya sea de antes o recién en esta misma corrida), esta fila es OTRA sucursal de la
-      // misma empresa, no un match nuevo — hay que ignorarla, no pisarle el vínculo.
-      const candidatos = (porCuit.get(cuit) ?? []).filter((u) => !perfilPorUid.get(u)!.idGva14Tango)
-      if (candidatos.length === 0) {
-        skippedNoMatch++
-        continue
-      }
+      const candidatos = cuitValido(cuit) ? (porCuit.get(cuit) ?? []) : []
       if (candidatos.length > 1) {
         skippedAmbiguousCuit++
         errores.push({ idGva14: row.idGva14, cuit: row.cuit, motivo: 'CUIT ambiguo: más de un cliente de la app con ese CUIT' })
         continue
       }
-      uid = candidatos[0]
+      if (candidatos.length === 1) {
+        uid = candidatos[0]
+        matchedByCuit++
+      } else if (empresa !== 'redonhielo' && row.codGva14 && porCodigo.redonhielo.has(row.codGva14)) {
+        // Rolito comparte los códigos de cliente con Redonhielo: si el CUIT no
+        // alcanzó (vacío / distinto), el código sí identifica la cuenta.
+        uid = porCodigo.redonhielo.get(row.codGva14)!
+        matchedByCodigo++
+      } else {
+        skippedNoMatch++
+        if (sinCuenta.length < 10000) sinCuenta.push(row)
+        continue
+      }
       esNuevoLink = true
-      matchedByCuit++
-    } else {
-      matchedByIdGva14++
     }
 
     const perfil = perfilPorUid.get(uid)!
+    const ids = perfil.tangoIds as TangoIds
+    const tienePrincipal = (ids[empresa]?.length ?? 0) > 0
+    const esPrincipal = !tienePrincipal || ids[empresa]![0].idGva14 === row.idGva14
     const update: Record<string, unknown> = {}
 
     if (esNuevoLink) {
-      update.codigoTango = row.codGva14
-      update.idGva14Tango = row.idGva14
-      newlyLinkedCodigoTango++
-      // Se marca en memoria ya mismo (no solo al escribir en Firestore) para que otra
-      // fila de Tango con el mismo CUIT, procesada en esta misma tanda, no reconquiste
-      // a este mismo cliente.
-      perfil.idGva14Tango = row.idGva14
+      const lista = agregarTangoId(ids[empresa], { idGva14: row.idGva14, codigo: row.codGva14 }, { principal: !tienePrincipal })
+      ids[empresa] = lista
+      update[`tangoIds.${empresa}`] = lista
+      porIdGva14[empresa].set(row.idGva14, uid)
+      porCodigo[empresa].set(row.codGva14, uid)
+      if (tienePrincipal) codigosSecundarios++
+      else newlyLinkedCodigoTango++
+      if (empresa === 'redonhielo' && !tienePrincipal) {
+        // Alias legacy del principal de Redonhielo (los usan precios, writers, UI).
+        update.codigoTango = row.codGva14
+        update.idGva14Tango = row.idGva14
+        perfil.codigoTango = row.codGva14
+        perfil.idGva14Tango = row.idGva14
+      }
+    } else if (esPrincipal && !perfilTieneTangoIds(perfil, empresa)) {
+      // Cuenta vinculada por los campos legacy (idGva14Tango) pero sin
+      // `tangoIds` escrito todavía: se materializa una vez.
+      update[`tangoIds.${empresa}`] = ids[empresa]
     }
-    if (row.razonSocial) update.razonSocial = row.razonSocial
-    if (row.condicionVentaDesc) update.condicionVenta = row.condicionVentaDesc
-    if (row.categoriaIvaCodigo) update.categoriaIvaTango = row.categoriaIvaCodigo
-    if (row.categoriaIvaDesc) update.categoriaIvaTangoDesc = row.categoriaIvaDesc
-    if (row.vendedorCodigo) update.codVendedor = row.vendedorCodigo
-    if (row.domicilio) update.domicilioTango = row.domicilio
-    if (row.localidad) update.localidadTango = row.localidad
-    if (row.provinciaDesc) update.provinciaTango = row.provinciaDesc
-    if (row.codigoPostal) update.codigoPostalTango = row.codigoPostal
-    if (row.fechaAlta) {
-      const fecha = new Date(row.fechaAlta)
-      if (!isNaN(fecha.getTime())) update.fechaAlta = Timestamp.fromDate(fecha)
+    if (update[`tangoIds.${empresa}`]) perfil.tangoIdsRaw[empresa] = update[`tangoIds.${empresa}`]
+    if (esPrincipal && ids[empresa] && ids[empresa]![0].codigo !== row.codGva14) {
+      // El código cambió en Tango (raro): se refleja.
+      ids[empresa] = agregarTangoId(ids[empresa], { idGva14: row.idGva14, codigo: row.codGva14 }, { principal: true })
+      update[`tangoIds.${empresa}`] = ids[empresa]
+      if (empresa === 'redonhielo') update.codigoTango = row.codGva14
     }
 
-    const telefono = sanitizarTelefono([row.telefono1, row.telefono2, row.telefonoMovil])
-    if (telefono) update.telefono = telefono
+    // La ficha la manda Redonhielo. Rolito solo si el cliente NO existe en Redonhielo.
+    const escribeFicha = esPrincipal && (empresa === 'redonhielo' || !(ids.redonhielo?.length))
+    if (escribeFicha) {
+      if (row.razonSocial) update.razonSocial = row.razonSocial
+      if (row.condicionVentaDesc) update.condicionVenta = row.condicionVentaDesc
+      if (row.categoriaIvaCodigo) update.categoriaIvaTango = row.categoriaIvaCodigo
+      if (row.categoriaIvaDesc) update.categoriaIvaTangoDesc = row.categoriaIvaDesc
+      if (row.vendedorCodigo) update.codVendedor = row.vendedorCodigo
+      if (row.domicilio) update.domicilioTango = row.domicilio
+      if (row.localidad) update.localidadTango = row.localidad
+      if (row.provinciaDesc) update.provinciaTango = row.provinciaDesc
+      if (row.codigoPostal) update.codigoPostalTango = row.codigoPostal
+      if (row.fechaAlta) {
+        const fecha = new Date(row.fechaAlta)
+        if (!isNaN(fecha.getTime())) update.fechaAlta = Timestamp.fromDate(fecha)
+      }
 
-    // Email: hay 2 modelos de cuenta distintos en la base (visto en la ficha real de
-    // un cliente, no en el código de un solo flujo):
-    // - Clientes importados en bloque (scripts/import-clientes.mjs) tienen un campo
-    //   `emailAuth` separado ("{cuit}@rolito.app") que es la credencial real de
-    //   Firebase Auth — `email` ahí es puramente de contacto/exhibición, no afecta
-    //   el login. Para estos, alcanza con actualizar `email` sin tocar nada más.
-    // - Clientes que se autorregistraron (userService.ts createUserDocument) NO
-    //   tienen `emailAuth` — para esos, `email` ES la credencial real, y hay que
-    //   actualizar las 3 patas juntas (Auth + cuitIndex + perfil), nunca solo 2 de 3.
-    if (pareceEmailValido(row.email) && row.email !== perfil.email) {
-      if (perfil.emailAuth || opts.dryRun) {
-        update.email = row.email
-      } else {
-        try {
-          await auth.updateUser(uid, { email: row.email })
-          const cuitDigits = soloDigitos(perfil.cuit)
-          if (cuitDigits.length === 11) {
-            await db.doc(`cuitIndex/${cuitDigits}`).set({ email: row.email })
-          }
+      const telefono = sanitizarTelefono([row.telefono1, row.telefono2, row.telefonoMovil])
+      if (telefono) update.telefono = telefono
+
+      // Email: hay 2 modelos de cuenta distintos en la base:
+      // - Clientes importados / creados desde Tango tienen `emailAuth` separado
+      //   ("{cuit}@rolito.app") que es la credencial real de Firebase Auth — `email`
+      //   ahí es puramente de contacto. Alcanza con actualizar `email`.
+      // - Clientes que se autorregistraron NO tienen `emailAuth` — `email` ES la
+      //   credencial, y hay que actualizar las 3 patas juntas (Auth + cuitIndex +
+      //   perfil), nunca solo 2 de 3.
+      if (pareceEmailValido(row.email) && row.email !== perfil.email) {
+        if (perfil.emailAuth || opts.dryRun) {
           update.email = row.email
-          emailsActualizados++
-        } catch (err) {
-          emailsConError++
-          errores.push({
-            idGva14: row.idGva14,
-            cuit: row.cuit,
-            motivo: `No se pudo actualizar el email (¿ya está en uso por otra cuenta?): ${err instanceof Error ? err.message : String(err)}`,
-          })
+        } else {
+          try {
+            await auth.updateUser(uid, { email: row.email })
+            const cuitDigits = soloDigitos(perfil.cuit)
+            if (cuitDigits.length === 11) {
+              await db.doc(`cuitIndex/${cuitDigits}`).set({ email: row.email })
+            }
+            update.email = row.email
+            emailsActualizados++
+          } catch (err) {
+            emailsConError++
+            errores.push({
+              idGva14: row.idGva14,
+              cuit: row.cuit,
+              motivo: `No se pudo actualizar el email (¿ya está en uso por otra cuenta?): ${err instanceof Error ? err.message : String(err)}`,
+            })
+          }
         }
       }
     }
@@ -214,7 +289,7 @@ export async function procesarLoteClientesTango(
     update.tangoUltimaSync = FieldValue.serverTimestamp()
 
     if (opts.dryRun) {
-      if (wouldUpdate.length < 20) wouldUpdate.push({ uid, ...update })
+      if (wouldUpdate.length < 20) wouldUpdate.push({ uid, empresa, ...update })
       actualizados++
       continue
     }
@@ -233,7 +308,9 @@ export async function procesarLoteClientesTango(
     received: rows.length,
     matchedByIdGva14,
     matchedByCuit,
+    matchedByCodigo,
     newlyLinkedCodigoTango,
+    codigosSecundarios,
     skippedNoMatch,
     skippedAmbiguousCuit,
     actualizados,
@@ -241,13 +318,19 @@ export async function procesarLoteClientesTango(
     emailsConError,
     ...(opts.dryRun ? { wouldUpdate } : {}),
     errores,
+    sinCuenta,
   }
 }
 
-// Recibe lotes de clientes de Tango desde el script que corre en la VM (ver
-// scripts/tango/bridge-sync-clientes.mjs) y actualiza los campos "de Tango" en
-// users/{uid}. Es un onRequest (no onCall) porque quien llama es un script Node
-// suelto, sin el SDK de cliente de Firebase — la autorización es un bearer
+// ¿El doc en Firestore ya tiene `tangoIds.<empresa>` escrito? (tangoIdsDe lo
+// sintetiza en memoria desde los legacy, así que no alcanza con mirar perfil.tangoIds.)
+function perfilTieneTangoIds(perfil: FirebaseFirestore.DocumentData, empresa: Empresa): boolean {
+  return Array.isArray(perfil.tangoIdsRaw?.[empresa]) && perfil.tangoIdsRaw[empresa].length > 0
+}
+
+// Recibe lotes de clientes de Tango desde el script que corría en la VM (ver
+// scripts/tango/bridge-sync-clientes.mjs — reemplazado por
+// syncClientesTangoConnect el 2026-09-03; queda por compatibilidad). Bearer
 // secret angosto, no un usuario autenticado. Ver docs/tango/INTEGRACION.md §4/§6.
 export const syncClientesTango = onRequest(
   { secrets: [tangoBridgeSecret], invoker: 'public' },
@@ -285,7 +368,8 @@ export const syncClientesTango = onRequest(
     }
 
     try {
-      const resultado = await procesarLoteClientesTango(db, rows, { dryRun })
+      const resultado = await procesarLoteClientesTango(db, rows, { dryRun, empresa: 'redonhielo' })
+      delete resultado.sinCuenta
       res.status(200).json(resultado)
     } catch (err) {
       console.error('[syncClientesTango] error procesando lote:', err)

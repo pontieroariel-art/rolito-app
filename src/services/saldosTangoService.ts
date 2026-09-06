@@ -37,14 +37,15 @@ export function subscribeClientesConDeuda(
 // Pide al bridge un refresh on-demand del saldo de un cliente (cola inversa
 // tango-consultas). Devuelve el id del doc de consulta para seguirle el estado.
 export async function crearConsultaSaldo(
-  args: { clienteUid: string; idGva14: number; empresa?: EmpresaTango },
+  args: { clienteUid: string; idGva14: number; idsGva14?: number[]; empresa: EmpresaTango },
   actor: { uid: string; nombre: string },
 ): Promise<string> {
   const ref = await addDoc(collection(db, 'tango-consultas'), {
     tipo:          'saldoCliente',
     clienteUid:    args.clienteUid,
     idGva14:       args.idGva14,
-    empresa:       args.empresa ?? 'redonhielo',
+    ...(args.idsGva14 && args.idsGva14.length > 1 ? { idsGva14: args.idsGva14 } : {}),
+    empresa:       args.empresa,
     solicitadoPor: actor,
     estado:        'pendiente',
     creadoEn:      serverTimestamp(),

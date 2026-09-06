@@ -28,24 +28,36 @@ export async function sincronizarPreciosTangoAhora(): Promise<ResumenSyncPrecios
 }
 
 // Clientes y saldos por Tango Connect (functions/src/triggers/tangoConnectSync.ts).
-export interface ResumenSyncClientes {
+export interface ResumenSyncClientesEmpresa {
+  company?: number
   recibidos: number
   actualizados: number
   matchedByIdGva14: number
   matchedByCuit: number
+  matchedByCodigo?: number
   newlyLinkedCodigoTango: number
+  codigosSecundarios?: number
   skippedNoMatch: number
   skippedAmbiguousCuit: number
   emailsActualizados: number
   emailsConError: number
   errores: unknown[]
 }
-export interface ResumenSyncSaldos {
+export interface ResumenSyncClientes extends ResumenSyncClientesEmpresa {
+  // Por empresa desde el 2026-09-06; las corridas anteriores no lo traen.
+  empresas?: Partial<Record<'redonhielo' | 'rolito', ResumenSyncClientesEmpresa>>
+}
+export interface ResumenSyncSaldosEmpresa {
+  company?: number
   filas: number
   clientesConDeuda: number
   actualizados: number
   skippedNoMatch: number
   vaciados: number
+  error?: string
+}
+export interface ResumenSyncSaldos extends ResumenSyncSaldosEmpresa {
+  empresas?: Partial<Record<'redonhielo' | 'rolito', ResumenSyncSaldosEmpresa>>
 }
 
 export async function sincronizarClientesTangoAhora(): Promise<ResumenSyncClientes> {

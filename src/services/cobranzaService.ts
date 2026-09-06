@@ -24,6 +24,7 @@ export async function crearCobranzaCompleta(
     clienteId:     string
     clienteNombre: string
     empresa:       EmpresaTango
+    codigoTango?:  string   // código de cliente en esa empresa (varios códigos por CUIT)
     numeroRecibo?: string
     imputaciones:  ImputacionFactura[]
     medios:        MediosPago
@@ -59,6 +60,7 @@ export async function crearCobranzaCompleta(
     fecha:         Timestamp.now(),
     ...(args.numeroRecibo ? { numeroRecibo: args.numeroRecibo } : {}),
     empresa:       args.empresa,
+    ...(args.codigoTango ? { codigoTango: args.codigoTango } : {}),
     imputaciones:  args.imputaciones,
     medios:        args.medios,
   }

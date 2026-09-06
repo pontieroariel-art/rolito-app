@@ -17,8 +17,9 @@ import { getFirestore, FieldValue, type Firestore } from 'firebase-admin/firesto
 import { TangoClient, PROCESOS } from '../services/tango/client'
 import { prop } from '../services/tango/pedido'
 import type { ConfigTango } from '../services/tango/writers'
-import { procesarLoteClientesTango, type TangoClienteRow, type ResultadoSync } from './tangoSync'
-import { procesarLoteSaldos, type TangoSaldoRow, type ComprobanteSaldoRow } from './tangoSaldos'
+import { indiceUsuariosClientes, procesarLoteClientesTango, type TangoClienteRow, type ResultadoSync } from './tangoSync'
+import { descuentosPendientes, indiceClientesTango, procesarLoteSaldos, type TangoSaldoRow, type ComprobanteSaldoRow } from './tangoSaldos'
+import { EMPRESAS, type Empresa } from '../services/tango/empresas'
 import { assertRateLimit } from '../rateLimit'
 
 const tangoApiToken = defineSecret('TANGO_API_TOKEN')
@@ -27,8 +28,9 @@ const TZ = 'America/Argentina/Buenos_Aires'
 const ROLES_QUE_SINCRONIZAN = new Set(['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'facturacion'])
 const ROLES_SALDOS = new Set([...ROLES_QUE_SINCRONIZAN, 'supervisor'])
 
-// Consultas Live de composición de saldos (Redonhielo). Mismos procesos que
-// usaba el bridge; se pueden pisar desde config/tango.saldos.
+// Consultas Live de composición de saldos. Mismos procesos que usaba el
+// bridge; se pueden pisar desde config/tango.saldos (y por empresa en
+// config/tango.saldos.porEmpresa.<empresa>).
 const PROCESO_DEUDAS_VENCIDAS_DEFAULT = 17953
 const PROCESO_DEUDAS_A_VENCER_DEFAULT = 17955
 const FROM_DATE_DEFAULT = '01/01/2015'
@@ -36,7 +38,10 @@ const FROM_DATE_DEFAULT = '01/01/2015'
 type ConfigSync = ConfigTango & {
   enabled?: boolean
   connectBaseUrl?: string
-  saldos?: { procesoDeudasVencidas?: number; procesoDeudasAVencer?: number; fromDate?: string }
+  saldos?: {
+    procesoDeudasVencidas?: number; procesoDeudasAVencer?: number; fromDate?: string
+    porEmpresa?: Partial<Record<Empresa, { procesoDeudasVencidas?: number; procesoDeudasAVencer?: number; fromDate?: string }>>
+  }
   // Llaves de apagado por si hay que volver al bridge de la VM: default encendido.
   syncCloud?: { clientes?: boolean; saldos?: boolean; consultas?: boolean }
 }
@@ -49,7 +54,7 @@ async function contexto(): Promise<{ db: Firestore; cfg: ConfigSync; tango: Tang
   return { db, cfg, tango }
 }
 
-function companyDe(cfg: ConfigSync, empresa: 'redonhielo' | 'rolito'): number {
+function companyDe(cfg: ConfigSync, empresa: Empresa): number {
   const c = cfg.companies?.[empresa]
   if (!Number.isInteger(c)) throw new HttpsError('failed-precondition', `config/tango.companies.${empresa} no está configurado`)
   return c as number
@@ -85,16 +90,20 @@ export function recortarCliente(c: Record<string, unknown>): TangoClienteRow {
     provinciaDesc:      str(prop(c, 'GVA18_DESCRIPCION')),
     codigoPostal:       str(prop(c, 'C_POSTAL')),
     fechaAlta:          str(prop(c, 'FECHA_ALTA')),
+    ...(typeof prop(c, 'HABILITADO') === 'boolean' ? { habilitado: prop(c, 'HABILITADO') as boolean } : {}),
   }
 }
 
-export interface ResumenClientes {
+export interface ResumenClientesEmpresa {
+  company?: number
   recibidos: number
   lotes: number
   actualizados: number
   matchedByIdGva14: number
   matchedByCuit: number
+  matchedByCodigo: number
   newlyLinkedCodigoTango: number
+  codigosSecundarios: number
   skippedNoMatch: number
   skippedAmbiguousCuit: number
   emailsActualizados: number
@@ -102,26 +111,67 @@ export interface ResumenClientes {
   errores: unknown[]
 }
 
-export async function sincronizarClientes(db: Firestore, tango: TangoClient, cfg: ConfigSync): Promise<ResumenClientes> {
-  const company = companyDe(cfg, 'redonhielo')
-  const filas = await tango.getAll(company, PROCESOS.clientes, 200)
-  const rows = filas.map(recortarCliente).filter((r) => Number.isInteger(r.idGva14) && r.codGva14)
-  const resumen: ResumenClientes = {
-    recibidos: rows.length, lotes: 0, actualizados: 0, matchedByIdGva14: 0, matchedByCuit: 0,
-    newlyLinkedCodigoTango: 0, skippedNoMatch: 0, skippedAmbiguousCuit: 0, emailsActualizados: 0, emailsConError: 0, errores: [],
+export interface ResumenClientes extends ResumenClientesEmpresa {
+  empresas: Partial<Record<Empresa, ResumenClientesEmpresa>>
+}
+
+function resumenClientesVacio(): ResumenClientesEmpresa {
+  return {
+    recibidos: 0, lotes: 0, actualizados: 0, matchedByIdGva14: 0, matchedByCuit: 0, matchedByCodigo: 0,
+    newlyLinkedCodigoTango: 0, codigosSecundarios: 0, skippedNoMatch: 0, skippedAmbiguousCuit: 0, emailsActualizados: 0, emailsConError: 0, errores: [],
   }
-  for (const lote of chunk(rows, 300)) {
-    const r: ResultadoSync = await procesarLoteClientesTango(db, lote, { dryRun: false })
-    resumen.lotes++
-    resumen.actualizados           += r.actualizados ?? 0
-    resumen.matchedByIdGva14       += r.matchedByIdGva14 ?? 0
-    resumen.matchedByCuit          += r.matchedByCuit ?? 0
-    resumen.newlyLinkedCodigoTango += r.newlyLinkedCodigoTango ?? 0
-    resumen.skippedNoMatch         += r.skippedNoMatch ?? 0
-    resumen.skippedAmbiguousCuit   += r.skippedAmbiguousCuit ?? 0
-    resumen.emailsActualizados     += r.emailsActualizados ?? 0
-    resumen.emailsConError         += r.emailsConError ?? 0
-    if (r.errores?.length && resumen.errores.length < 50) resumen.errores.push(...r.errores.slice(0, 50 - resumen.errores.length))
+}
+
+function sumarResumenClientes(into: ResumenClientesEmpresa, r: ResultadoSync) {
+  into.lotes++
+  into.actualizados           += r.actualizados ?? 0
+  into.matchedByIdGva14       += r.matchedByIdGva14 ?? 0
+  into.matchedByCuit          += r.matchedByCuit ?? 0
+  into.matchedByCodigo        += r.matchedByCodigo ?? 0
+  into.newlyLinkedCodigoTango += r.newlyLinkedCodigoTango ?? 0
+  into.codigosSecundarios     += r.codigosSecundarios ?? 0
+  into.skippedNoMatch         += r.skippedNoMatch ?? 0
+  into.skippedAmbiguousCuit   += r.skippedAmbiguousCuit ?? 0
+  into.emailsActualizados     += r.emailsActualizados ?? 0
+  into.emailsConError         += r.emailsConError ?? 0
+  if (r.errores?.length && into.errores.length < 50) into.errores.push(...r.errores.slice(0, 50 - into.errores.length))
+}
+
+/** Filas de clientes de una empresa, ya recortadas. */
+export async function filasClientes(tango: TangoClient, company: number): Promise<TangoClienteRow[]> {
+  const filas = await tango.getAll(company, PROCESOS.clientes, 200)
+  return filas.map(recortarCliente).filter((r) => Number.isInteger(r.idGva14) && r.codGva14)
+}
+
+/**
+ * Padrón de las DOS empresas (2026-09-06). Redonhielo primero (manda la ficha),
+ * Rolito después (solo vincula identidad). Si una empresa falla, la otra sigue
+ * y el error queda en el resumen, como en la sync de precios.
+ */
+export async function sincronizarClientes(db: Firestore, tango: TangoClient, cfg: ConfigSync): Promise<ResumenClientes> {
+  const indice = await indiceUsuariosClientes(db)
+  const resumen: ResumenClientes = { ...resumenClientesVacio(), empresas: {} }
+  for (const empresa of EMPRESAS) {
+    const re = resumenClientesVacio()
+    resumen.empresas[empresa] = re
+    try {
+      const company = companyDe(cfg, empresa)
+      re.company = company
+      const rows = await filasClientes(tango, company)
+      re.recibidos = rows.length
+      for (const lote of chunk(rows, 300)) {
+        const r: ResultadoSync = await procesarLoteClientesTango(db, lote, { dryRun: false, empresa, indice })
+        sumarResumenClientes(re, r)
+      }
+    } catch (e) {
+      re.errores.push({ empresa, motivo: (e as Error).message })
+      logger.error(`[tango] sync de clientes de ${empresa} falló: ${(e as Error).message}`)
+    }
+    // Totales (compatibilidad con el panel viejo): suma de las dos empresas.
+    for (const k of Object.keys(re) as (keyof ResumenClientesEmpresa)[]) {
+      if (k === 'errores') resumen.errores.push(...re.errores)
+      else if (k !== 'company') (resumen[k] as number) += re[k] as number
+    }
   }
   return resumen
 }
@@ -134,7 +184,7 @@ async function correrClientes(origen: string, uid?: string) {
   await db.doc('config/tango').set({
     clientesSync: { ultimaCorrida: FieldValue.serverTimestamp(), origen, uid: uid ?? null, duracionMs: Date.now() - inicio, resumen },
   }, { merge: true })
-  logger.info(`[tango] clientes sincronizados (${origen}) en ${Date.now() - inicio}ms: ${JSON.stringify({ ...resumen, errores: resumen.errores.length })}`)
+  logger.info(`[tango] clientes sincronizados (${origen}) en ${Date.now() - inicio}ms: ${JSON.stringify({ ...resumen, empresas: undefined, errores: resumen.errores.length })}`)
   return resumen
 }
 
@@ -171,53 +221,93 @@ function parseCliente(campo: unknown): { codigo: string; nombre: string } {
 }
 
 /** Todas las filas de deuda (vencidas + a vencer) de una empresa. */
-async function filasDeuda(tango: TangoClient, cfg: ConfigSync, company: number): Promise<Record<string, unknown>[]> {
-  const desde = cfg.saldos?.fromDate ?? FROM_DATE_DEFAULT
+async function filasDeuda(tango: TangoClient, cfg: ConfigSync, company: number, empresa: Empresa = 'redonhielo'): Promise<Record<string, unknown>[]> {
+  const porEmpresa = cfg.saldos?.porEmpresa?.[empresa] ?? {}
+  const desde = porEmpresa.fromDate ?? cfg.saldos?.fromDate ?? FROM_DATE_DEFAULT
   const hastaDate = new Date()
   hastaDate.setFullYear(hastaDate.getFullYear() + 5)   // "a vencer" incluye vencimientos futuros
   const hasta = ddMMyyyy(hastaDate)
-  const vencidas = cfg.saldos?.procesoDeudasVencidas ?? PROCESO_DEUDAS_VENCIDAS_DEFAULT
-  const aVencer  = cfg.saldos?.procesoDeudasAVencer ?? PROCESO_DEUDAS_A_VENCER_DEFAULT
+  const vencidas = porEmpresa.procesoDeudasVencidas ?? cfg.saldos?.procesoDeudasVencidas ?? PROCESO_DEUDAS_VENCIDAS_DEFAULT
+  const aVencer  = porEmpresa.procesoDeudasAVencer ?? cfg.saldos?.procesoDeudasAVencer ?? PROCESO_DEUDAS_A_VENCER_DEFAULT
   const filas = await tango.live(company, vencidas, desde, hasta)
   filas.push(...await tango.live(company, aVencer, desde, hasta))
   return filas
 }
 
-export interface ResumenSaldos {
+export interface ResumenSaldosEmpresa {
+  company?: number
   filas: number
   clientesConDeuda: number
   lotes: number
   actualizados: number
   skippedNoMatch: number
   vaciados: number
+  error?: string
 }
 
+export interface ResumenSaldos extends ResumenSaldosEmpresa {
+  empresas: Partial<Record<Empresa, ResumenSaldosEmpresa>>
+}
+
+/**
+ * Deuda de las DOS empresas (2026-09-06): cada una se lee y se escribe por
+ * separado en su rama de saldosTango/{uid}, con su propio runId de vaciado. Los
+ * varios códigos de un mismo CUIT van juntos en el mismo lote (se agrupan por
+ * cuenta antes de partir), así ningún lote pisa lo que escribió el anterior.
+ */
 export async function sincronizarSaldos(db: Firestore, tango: TangoClient, cfg: ConfigSync): Promise<ResumenSaldos> {
-  const company = companyDe(cfg, 'redonhielo')
-  const filas = await filasDeuda(tango, cfg, company)
-  const porCliente = new Map<number, TangoSaldoRow>()
-  for (const f of filas) {
-    const idGva14 = prop(f, 'ID_GVA14')
-    if (typeof idGva14 !== 'number') continue
-    if (!porCliente.has(idGva14)) {
-      const { codigo, nombre } = parseCliente(prop(f, 'CLIENTE'))
-      porCliente.set(idGva14, { idGva14, codGva14: codigo || undefined, razonSocial: nombre || undefined, empresa: 'redonhielo', comprobantes: [] })
+  const indice = await indiceClientesTango(db)
+  const descuentos = await descuentosPendientes(db)
+  const resumen: ResumenSaldos = { filas: 0, clientesConDeuda: 0, lotes: 0, actualizados: 0, skippedNoMatch: 0, vaciados: 0, empresas: {} }
+  for (const empresa of EMPRESAS) {
+    const re: ResumenSaldosEmpresa = { filas: 0, clientesConDeuda: 0, lotes: 0, actualizados: 0, skippedNoMatch: 0, vaciados: 0 }
+    resumen.empresas[empresa] = re
+    try {
+      const company = companyDe(cfg, empresa)
+      re.company = company
+      const filas = await filasDeuda(tango, cfg, company, empresa)
+      const porCliente = new Map<number, TangoSaldoRow>()
+      for (const f of filas) {
+        const idGva14 = prop(f, 'ID_GVA14')
+        if (typeof idGva14 !== 'number') continue
+        if (!porCliente.has(idGva14)) {
+          const { codigo, nombre } = parseCliente(prop(f, 'CLIENTE'))
+          porCliente.set(idGva14, { idGva14, codGva14: codigo || undefined, razonSocial: nombre || undefined, empresa, comprobantes: [] })
+        }
+        porCliente.get(idGva14)!.comprobantes.push(recortarComprobante(f))
+      }
+      // Agrupar por cuenta de la app para que los códigos de un mismo CUIT
+      // caigan en el mismo lote; los no vinculados van al final (skippedNoMatch).
+      const grupos = new Map<string, TangoSaldoRow[]>()
+      for (const row of porCliente.values()) {
+        const clave = indice[empresa].get(row.idGva14)?.uid ?? `?${row.idGva14}`
+        if (!grupos.has(clave)) grupos.set(clave, [])
+        grupos.get(clave)!.push(row)
+      }
+      const lotes = [...grupos.values()].reduce<TangoSaldoRow[][]>((acc, g) => {
+        if (!acc.length || acc[acc.length - 1].length >= 100) acc.push([])
+        acc[acc.length - 1].push(...g)
+        return acc
+      }, [])
+      // runId identifica la corrida completa de ESTA empresa: al llegar el
+      // último lote, toda rama de esta empresa que no fue tocada se vacía.
+      const runId = `${empresa}:${new Date().toISOString()}`
+      re.filas = filas.length
+      re.clientesConDeuda = porCliente.size
+      if (lotes.length === 0) lotes.push([])   // nadie debe nada: igual hay que vaciar el cache viejo
+      for (const [i, lote] of lotes.entries()) {
+        const r = await procesarLoteSaldos(db, lote, { dryRun: false, runId, esUltimoLote: i === lotes.length - 1, empresa, indice, descuentos })
+        re.lotes++
+        re.actualizados   += r.actualizados ?? 0
+        re.skippedNoMatch += r.skippedNoMatch ?? 0
+        re.vaciados       += r.vaciados ?? 0
+      }
+    } catch (e) {
+      re.error = (e as Error).message
+      logger.error(`[tango] sync de saldos de ${empresa} falló: ${re.error}`)
     }
-    porCliente.get(idGva14)!.comprobantes.push(recortarComprobante(f))
-  }
-  const rows = [...porCliente.values()]
-  // runId identifica la corrida completa: al llegar el último lote, todo doc
-  // del cache que no fue tocado por este runId se vacía (cliente sin deuda).
-  const runId = new Date().toISOString()
-  const lotes = chunk(rows, 100)
-  const resumen: ResumenSaldos = { filas: filas.length, clientesConDeuda: rows.length, lotes: 0, actualizados: 0, skippedNoMatch: 0, vaciados: 0 }
-  if (lotes.length === 0) lotes.push([])   // nadie debe nada: igual hay que vaciar el cache viejo
-  for (const [i, lote] of lotes.entries()) {
-    const r = await procesarLoteSaldos(db, lote, { dryRun: false, runId, esUltimoLote: i === lotes.length - 1 })
-    resumen.lotes++
-    resumen.actualizados   += r.actualizados ?? 0
-    resumen.skippedNoMatch += r.skippedNoMatch ?? 0
-    resumen.vaciados       += r.vaciados ?? 0
+    resumen.filas += re.filas; resumen.clientesConDeuda += re.clientesConDeuda; resumen.lotes += re.lotes
+    resumen.actualizados += re.actualizados; resumen.skippedNoMatch += re.skippedNoMatch; resumen.vaciados += re.vaciados
   }
   return resumen
 }
@@ -294,11 +384,13 @@ export const onConsultaSaldoPendiente = onDocumentCreated(
       const cfg = ((await db.doc('config/tango').get()).data() ?? {}) as ConfigSync
       if (cfg.enabled !== true || cfg.syncCloud?.consultas === false) return   // la responde el bridge (o nadie)
       const tango = new TangoClient({ baseUrl: cfg.connectBaseUrl ?? CONNECT_BASE_URL_DEFAULT, token: tangoApiToken.value(), timeoutMs: 60_000 })
-      const empresa: 'redonhielo' | 'rolito' = data.empresa === 'rolito' ? 'rolito' : 'redonhielo'
+      const empresa: Empresa = data.empresa === 'rolito' ? 'rolito' : 'redonhielo'
       const idGva14 = Number(data.idGva14)
       if (!Number.isInteger(idGva14)) { await marcarError('idGva14 inválido'); return }
-      const filas = (await filasDeuda(tango, cfg, companyDe(cfg, empresa))).filter((f) => prop(f, 'ID_GVA14') === idGva14)
-      const comprobantes = filas.map(recortarComprobante)
+      // Varios códigos del mismo CUIT: la consulta puede traer más de un ID_GVA14.
+      const ids = new Set<number>([idGva14, ...(Array.isArray(data.idsGva14) ? (data.idsGva14 as unknown[]).map(Number).filter(Number.isInteger) : [])])
+      const filas = (await filasDeuda(tango, cfg, companyDe(cfg, empresa), empresa)).filter((f) => ids.has(prop(f, 'ID_GVA14') as number))
+      const comprobantes = filas.map((f) => ({ ...recortarComprobante(f), codigoTango: parseCliente(prop(f, 'CLIENTE')).codigo }))
       const saldoTotal = Math.round(comprobantes.reduce((s, c) => s + c.saldoPendiente, 0) * 100) / 100
       // Si mientras tanto la respondió otro (bridge todavía prendido), no pisar.
       await db.runTransaction(async (tx) => {

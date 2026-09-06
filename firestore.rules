@@ -1029,7 +1029,11 @@ service cloud.firestore {
         && request.resource.data.estado == 'pendiente'
         && request.resource.data.solicitadoPor.uid == request.auth.uid
         && request.resource.data.clienteUid is string
-        && request.resource.data.idGva14 is number;
+        && request.resource.data.idGva14 is number
+        // Una consulta = una empresa (2026-09-06: la pantalla de cobro dispara
+        // una por empresa en la que el cliente está vinculado).
+        && request.resource.data.empresa in ['redonhielo', 'rolito']
+        && (!('idsGva14' in request.resource.data) || request.resource.data.idsGva14 is list);
 
       allow update: if request.auth != null && isTangoBridge()
         && request.resource.data.diff(resource.data).affectedKeys()

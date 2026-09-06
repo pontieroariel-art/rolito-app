@@ -29,7 +29,9 @@ exports.resolverPreciosCliente = resolverPreciosCliente;
 const firestore_1 = require("firebase-admin/firestore");
 const client_1 = require("./client");
 const pedido_1 = require("./pedido");
-exports.EMPRESAS = ['redonhielo', 'rolito'];
+const empresas_1 = require("./empresas");
+var empresas_2 = require("./empresas");
+Object.defineProperty(exports, "EMPRESAS", { enumerable: true, get: function () { return empresas_2.EMPRESAS; } });
 /** Firestore no admite '.' en nombres de campo: 'FC.280' → 'FC_280'. */
 const claveCliente = (codigoTango) => String(codigoTango).replace(/\./g, '_');
 exports.claveCliente = claveCliente;
@@ -104,7 +106,7 @@ async function sincronizarPreciosTango(db, tango, cfg) {
     const resumen = { empresas: {}, usuariosActualizados: 0 };
     const listasPorCliente = {};
     const docsPorEmpresa = {};
-    for (const empresa of exports.EMPRESAS) {
+    for (const empresa of empresas_1.EMPRESAS) {
         const company = cfg.companies?.[empresa];
         if (!Number.isInteger(company)) {
             resumen.empresas[empresa] = { listas: 0, productos: 0, especiales: 0, errores: [`config/tango.companies.${empresa} no está configurado`], clientesConLista: 0 };
@@ -132,7 +134,7 @@ async function sincronizarPreciosTango(db, tango, cfg) {
         const listaTango = {};
         const listaTangoNombre = {};
         const preciosTango = {};
-        for (const empresa of exports.EMPRESAS) {
+        for (const empresa of empresas_1.EMPRESAS) {
             const n = listasPorCliente[empresa]?.get(cod);
             if (n === undefined)
                 continue;

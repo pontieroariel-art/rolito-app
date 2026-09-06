@@ -322,6 +322,7 @@ export interface Cobranza {
   // ── Solo origen 'supervisor' ──
   numeroRecibo?: string             // 'RS-000123' (interno; el fiscal lo asigna Tango)
   empresa?:      EmpresaTango
+  codigoTango?:  string             // código de cliente en esa empresa al que se imputa (varios códigos por CUIT)
   imputaciones?: ImputacionFactura[]
   medios?:       MediosPago
   tango?:        RemitoTangoEstado  // write-back del recibo en Tango (Fase 4)
@@ -344,16 +345,36 @@ export interface ComprobanteSaldoTango {
   saldoPendiente:     number   // saldo restante (facturas parciales incluidas)
   idComprobanteTango?: number  // ID_GVA12 — ID interno del comprobante, para imputar en el recibo
   diasAtraso?:        number   // días vencida (solo deudas vencidas)
+  // Empresa y código de cliente de Tango a los que pertenece la factura
+  // (2026-09-06: el doc trae las DOS empresas; un recibo imputa facturas de UNA
+  // sola empresa y UN solo código). Los docs anteriores no los traen → Redonhielo.
+  empresa?:           EmpresaTango
+  codigoTango?:       string
+}
+
+// Identidad del cliente en una empresa de Tango (ver utils/tangoEmpresas.ts).
+export interface TangoIdEmpresa {
+  idGva14: number
+  codigo:  string
+}
+
+export interface SaldoTangoRama {
+  saldoTotal:     number
+  comprobantes:   number
+  runId:          string | null
+  origen:         'sync' | 'consulta'
+  actualizadoEn?: Timestamp
 }
 
 export interface SaldoTango {
   id:            string   // == uid del cliente en la app
-  idGva14:       number
-  codigoTango:   string
-  empresa:       EmpresaTango
+  idGva14:       number   // principal de Redonhielo (legacy)
+  codigoTango:   string   // principal de Redonhielo (legacy)
+  empresa:       EmpresaTango   // legacy, siempre 'redonhielo'
   razonSocial:   string   // snapshot para listar sin join
-  comprobantes:  ComprobanteSaldoTango[]
-  saldoTotal:    number   // Σ saldoPendiente
+  comprobantes:  ComprobanteSaldoTango[]   // unión de las dos empresas
+  saldoTotal:    number   // Σ saldoPendiente de las dos empresas
+  porEmpresa?:   Partial<Record<EmpresaTango, SaldoTangoRama>>
   actualizadoEn: Timestamp
   origen:        'sync' | 'consulta'
 }
@@ -367,6 +388,7 @@ export interface TangoConsulta {
   tipo:          'saldoCliente'
   clienteUid:    string
   idGva14:       number
+  idsGva14?:     number[]   // todos los códigos del cliente en esa empresa
   empresa:       EmpresaTango
   solicitadoPor: { uid: string; nombre: string }
   estado:        'pendiente' | 'respondida' | 'error'
@@ -545,6 +567,10 @@ export interface UserProfile {
   codigoCliente?:     string
   codigoTango?:       string   // COD_GVA14 de Tango (cruzado por CUIT, ver scripts/tango/) — numeración distinta de codigoCliente
   idGva14Tango?:      number   // ID_GVA14 de Tango — para GetById/Update/Delete contra la API de Plataforma
+  // Identidad por empresa (2026-09-06): un CUIT = una cuenta; en cada empresa
+  // puede tener varios códigos (el primero es el principal). codigoTango /
+  // idGva14Tango quedan como alias del principal de Redonhielo.
+  tangoIds?:          { redonhielo?: TangoIdEmpresa[]; rolito?: TangoIdEmpresa[] }
   // Datos de Tango, namespaced para no pisar los operativos existentes (domicilio
   // fiscal, no necesariamente el punto real de entrega — no usar en logística,
   // ver orderService.ts que usa `address`/`addresses[]`). Los escribe la Cloud

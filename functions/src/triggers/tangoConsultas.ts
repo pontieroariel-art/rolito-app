@@ -1,26 +1,16 @@
 import { onDocumentUpdated } from 'firebase-functions/v2/firestore'
 import { getFirestore, FieldValue } from 'firebase-admin/firestore'
+import { codigoTangoDe, esEmpresa, type Empresa } from '../services/tango/empresas'
+import { aplicarDescuentos, descuentosDeCobranzas, fusionarRamaEmpresa, normalizarComprobante, type ComprobanteCrudo, type SaldoDoc } from '../services/tango/saldos'
 
-// Cuando el bridge responde una consulta on-demand de saldo (tango-consultas,
-// estado → 'respondida'), copia el resultado al cache saldosTango/{clienteUid}.
-// El bridge NUNCA escribe saldosTango directo (sus reglas solo lo dejan tocar
-// los campos de estado de la consulta) — esta Function es el único camino,
-// igual que onOutboxConfirmado con los write-backs del outbox.
-
-function redondear2(n: number): number {
-  return Math.round(n * 100) / 100
-}
-
-interface ComprobanteConsulta {
-  tipo?: string
-  numero?: string
-  fechaEmision?: string
-  fechaVencimiento?: string
-  importeOriginal?: number
-  saldoPendiente?: number
-  idComprobanteTango?: number
-  diasAtraso?: number
-}
+// Cuando se responde una consulta on-demand de saldo (tango-consultas, estado
+// → 'respondida'), copia el resultado al cache saldosTango/{clienteUid}.
+// Quien responde (onConsultaSaldoPendiente en la nube, o el bridge viejo)
+// NUNCA escribe saldosTango directo — esta Function es el único camino, igual
+// que onOutboxConfirmado con los write-backs del outbox.
+//
+// La consulta es de UNA empresa: se reemplaza solo esa rama del doc (la otra
+// queda como la dejó su último sync), ver services/tango/saldos.ts.
 
 export const onConsultaRespondida = onDocumentUpdated('tango-consultas/{consultaId}', async (event) => {
   const before = event.data?.before.data()
@@ -38,67 +28,40 @@ export const onConsultaRespondida = onDocumentUpdated('tango-consultas/{consulta
     return
   }
 
-  const crudos = Array.isArray(after.resultado?.comprobantes) ? (after.resultado.comprobantes as ComprobanteConsulta[]) : []
-  let comprobantes = crudos.map((c) => ({
-    tipo:            String(c.tipo ?? ''),
-    numero:          String(c.numero ?? ''),
-    fechaEmision:    String(c.fechaEmision ?? ''),
-    ...(c.fechaVencimiento ? { fechaVencimiento: String(c.fechaVencimiento) } : {}),
-    importeOriginal: redondear2(Number(c.importeOriginal ?? c.saldoPendiente ?? 0)),
-    saldoPendiente:  redondear2(Number(c.saldoPendiente ?? 0)),
-    ...(typeof c.idComprobanteTango === 'number' ? { idComprobanteTango: c.idComprobanteTango } : {}),
-    ...(typeof c.diasAtraso === 'number' && c.diasAtraso > 0 ? { diasAtraso: c.diasAtraso } : {}),
-  }))
+  const empresa: Empresa = esEmpresa(after.empresa) ? after.empresa : 'redonhielo'
+  const codigoPrincipal = codigoTangoDe(user, empresa) ?? String(user.codigoTango ?? '')
+  const crudos = Array.isArray(after.resultado?.comprobantes) ? (after.resultado.comprobantes as ComprobanteCrudo[]) : []
+  const frescos = crudos.map((c) => normalizarComprobante(c, empresa, codigoPrincipal))
 
   // Igual que el sync periódico (tangoSaldos.ts): re-aplicar los descuentos de
-  // cobranzas de supervisor que Tango todavía no vio (tango.estado !=
-  // 'confirmado') — si no, el refresh "resucitaría" deuda ya cobrada en la
-  // calle mientras el writer de recibos no esté habilitado.
+  // cobranzas de este cliente que Tango todavía no vio (tango.estado !=
+  // 'confirmado') — si no, el refresh "resucitaría" deuda ya cobrada en la calle.
   const desde = new Date()
   desde.setDate(desde.getDate() - 90)
   const cobranzasSnap = await db.collection('cobranzas')
-    .where('origen', '==', 'supervisor')
     .where('clienteId', '==', after.clienteUid)
     .where('fecha', '>=', desde)
     .get()
-  const cobranzasAplicadas: string[] = []
-  const descuentoPorComp = new Map<string, number>()
-  cobranzasSnap.forEach((docSnap) => {
-    const c = docSnap.data()
-    if (c.tango?.estado === 'confirmado' || !Array.isArray(c.imputaciones)) return
-    cobranzasAplicadas.push(docSnap.id)
-    for (const imp of c.imputaciones) {
-      const clave = `${imp.comprobanteTipo}|${imp.comprobanteNumero}`
-      const cent = Math.round(Number(imp.importeImputado ?? 0) * 100)
-      descuentoPorComp.set(clave, (descuentoPorComp.get(clave) ?? 0) + cent)
-    }
-  })
-  if (descuentoPorComp.size > 0) {
-    comprobantes = comprobantes
-      .map((c) => {
-        const cent = descuentoPorComp.get(`${c.tipo}|${c.numero}`)
-        if (!cent) return c
-        return { ...c, saldoPendiente: Math.max(0, Math.round(c.saldoPendiente * 100) - cent) / 100 }
-      })
-      .filter((c) => c.saldoPendiente > 0)
-  }
+  const descuento = descuentosDeCobranzas(cobranzasSnap.docs.map((d) => ({ id: d.id, ...(d.data() as { clienteId: string; empresa?: unknown; imputaciones?: unknown; tango?: { estado?: unknown } | null }) }))).get(after.clienteUid)
+  const comprobantes = aplicarDescuentos(frescos, descuento)
 
-  const saldoTotal = redondear2(comprobantes.reduce((s, c) => s + c.saldoPendiente, 0))
-
-  // runId 'consulta': el sync periódico vacía los docs cuyo runId no es el de
-  // su corrida — si este cliente sigue con deuda, el próximo sync lo re-escribe
-  // con el runId nuevo; si no aparece en el snapshot completo, es que ya no
-  // debe nada y el vaciado es correcto.
-  await db.collection('saldosTango').doc(after.clienteUid).set({
-    idGva14:       typeof after.idGva14 === 'number' ? after.idGva14 : (user.idGva14Tango ?? 0),
-    codigoTango:   user.codigoTango ?? '',
-    empresa:       after.empresa === 'rolito' ? 'rolito' : 'redonhielo',
-    razonSocial:   user.razonSocial ?? user.nombre ?? '',
-    comprobantes,
-    saldoTotal,
-    cobranzasAplicadas,
-    actualizadoEn: FieldValue.serverTimestamp(),
-    origen:        'consulta',
-    runId:         'consulta',
+  // runId 'consulta': el sync periódico de esa empresa vacía las ramas cuyo
+  // runId no es el de su corrida — si este cliente sigue con deuda, el próximo
+  // sync la re-escribe con el runId nuevo; si no aparece en el snapshot
+  // completo, es que ya no debe nada ahí y el vaciado es correcto.
+  const ref = db.collection('saldosTango').doc(after.clienteUid)
+  await db.runTransaction(async (tx) => {
+    const actual = (await tx.get(ref)).data() as Partial<SaldoDoc> | undefined
+    const nuevo = fusionarRamaEmpresa(
+      actual, empresa, comprobantes,
+      { runId: 'consulta', origen: 'consulta', ahora: FieldValue.serverTimestamp() },
+      {
+        idGva14:     actual?.idGva14 ?? (typeof user.idGva14Tango === 'number' ? user.idGva14Tango : (typeof after.idGva14 === 'number' ? after.idGva14 : 0)),
+        codigoTango: actual?.codigoTango ?? String(user.codigoTango ?? codigoPrincipal),
+        razonSocial: actual?.razonSocial || String(user.razonSocial ?? user.nombre ?? ''),
+      },
+      descuento ? descuento.cobranzaIds : [],
+    )
+    tx.set(ref, { ...nuevo, actualizadoEn: FieldValue.serverTimestamp() })
   })
 })

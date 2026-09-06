@@ -19,7 +19,8 @@ import {
 import { puedeCompartirArchivos } from '@/utils/compartir'
 import { aCentavos, formatoARS, parseImporte, sumaCentavos } from '@/utils/money'
 import { haceCuanto } from '@/pages/supervisor/SupervisorClientesPage'
-import { ChequeRecibido, Cobranza, ComprobanteSaldoTango, ImputacionFactura, PlantaId, RetencionRecibida } from '@/types'
+import { EMPRESAS_TANGO, NOMBRE_EMPRESA, estaVinculadoATango } from '@/utils/tangoEmpresas'
+import { ChequeRecibido, Cobranza, ComprobanteSaldoTango, EmpresaTango, ImputacionFactura, PlantaId, RetencionRecibida } from '@/types'
 
 const inputClass = 'w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'
 
@@ -30,7 +31,17 @@ interface FilaImputacion {
   importeStr:   string
 }
 
-const claveComp = (c: ComprobanteSaldoTango) => `${c.tipo}|${c.numero}`
+// La empresa y el código van en la clave: la misma factura (tipo+número) puede
+// existir en Redonhielo y en Rolito, y un CUIT puede tener varios códigos.
+const empresaDe = (c: ComprobanteSaldoTango): EmpresaTango => c.empresa ?? 'redonhielo'
+const claveComp = (c: ComprobanteSaldoTango) => `${empresaDe(c)}|${c.codigoTango ?? ''}|${c.tipo}|${c.numero}`
+
+// Un recibo = UNA empresa y UN código de cliente (en Tango es una base y un
+// talonario distintos; decisión de Ariel 2026-09-06: "si es de Rolito que sea
+// de Rolito, si no los saldos no quedan bien").
+interface GrupoRecibo { empresa: EmpresaTango; codigo: string }
+const grupoDe = (c: ComprobanteSaldoTango): GrupoRecibo => ({ empresa: empresaDe(c), codigo: c.codigoTango ?? '' })
+const mismoGrupo = (a: GrupoRecibo, b: GrupoRecibo) => a.empresa === b.empresa && a.codigo === b.codigo
 
 export interface CobranzaCompletaProps {
   /** Quién cobra: supervisor en la calle, caja en el mostrador o chofer en el camión. */
@@ -68,9 +79,9 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
   const [guardando, setGuardando] = useState(false)
   const [numeracionActiva, setNumeracionActiva] = useState(false)
 
-  // Solo clientes vinculados a Tango pueden cobrarse con imputación.
+  // Solo clientes vinculados a Tango (en cualquiera de las dos empresas) pueden cobrarse con imputación.
   const clientesTango = useMemo(
-    () => clientes.filter((c) => typeof c.idGva14Tango === 'number'),
+    () => clientes.filter((c) => estaVinculadoATango(c)),
     [clientes],
   )
   const cliente = useMemo(() => clientesTango.find((c) => c.uid === clienteId) ?? null, [clientesTango, clienteId])
@@ -79,7 +90,7 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
     () => (user ? { uid: user.uid, nombre: user.nombre } : null),
     [user],
   )
-  const { saldo, cargando: cargandoSaldo, refrescando, esCache } = useSaldoClienteEnVivo(cliente, actor)
+  const { saldo, cargando: cargandoSaldo, refrescando, esCache, frescas } = useSaldoClienteEnVivo(cliente, actor)
 
   // Reserva de números de recibo para poder emitir sin señal (chofer y
   // supervisor). Si el contador no está inicializado, los recibos salen sin
@@ -101,6 +112,27 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
   }, [clienteId])
 
   const comprobantes = useMemo(() => saldo?.comprobantes ?? [], [saldo])
+
+  // Bloques por empresa (y dentro por código si el CUIT tiene varios): cada
+  // bloque es un recibo posible; al tildar una factura, los demás se apagan.
+  const bloques = useMemo(() => {
+    const out: Array<{ grupo: GrupoRecibo; comprobantes: ComprobanteSaldoTango[]; subtotal: number }> = []
+    for (const empresa of EMPRESAS_TANGO) {
+      const deEmpresa = comprobantes.filter((c) => empresaDe(c) === empresa)
+      const codigos = [...new Set(deEmpresa.map((c) => c.codigoTango ?? ''))]
+      for (const codigo of codigos) {
+        const lista = deEmpresa.filter((c) => (c.codigoTango ?? '') === codigo)
+        out.push({ grupo: { empresa, codigo }, comprobantes: lista, subtotal: sumaCentavos(lista.map((c) => c.saldoPendiente)) / 100 })
+      }
+    }
+    return out
+  }, [comprobantes])
+  const variosCodigos = (empresa: EmpresaTango) => bloques.filter((b) => b.grupo.empresa === empresa).length > 1
+
+  const grupoSeleccionado: GrupoRecibo | null = useMemo(() => {
+    const c = comprobantes.find((x) => filas[claveComp(x)]?.seleccionada)
+    return c ? grupoDe(c) : null
+  }, [comprobantes, filas])
 
   const imputaciones: ImputacionFactura[] = useMemo(() => {
     return comprobantes
@@ -128,6 +160,11 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
 
   const toggleFila = (c: ComprobanteSaldoTango) => {
     const clave = claveComp(c)
+    if (grupoSeleccionado && !mismoGrupo(grupoSeleccionado, grupoDe(c))) {
+      setError(`Un recibo cobra facturas de una sola empresa${variosCodigos(empresaDe(c)) ? ' y un solo código de cliente' : ''}. Emití este recibo y después hacé otro para ${NOMBRE_EMPRESA[empresaDe(c)]}.`)
+      return
+    }
+    setError('')
     setFilas((prev) => {
       const actual = prev[clave]
       if (actual?.seleccionada) return { ...prev, [clave]: { ...actual, seleccionada: false } }
@@ -146,7 +183,7 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
   }
 
   const confirmar = async () => {
-    if (!user || !cliente || !saldo) return
+    if (!user || !cliente || !saldo || !grupoSeleccionado) return
     setGuardando(true)
     try {
       // Con numeración activa consume un número de la reserva local; si justo
@@ -159,7 +196,8 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
         {
           clienteId:     cliente.uid,
           clienteNombre: cliente.razonSocial || cliente.nombre,
-          empresa:       saldo.empresa,
+          empresa:       grupoSeleccionado.empresa,
+          ...(grupoSeleccionado.codigo ? { codigoTango: grupoSeleccionado.codigo } : {}),
           numeroRecibo,
           imputaciones,
           medios: {
@@ -245,8 +283,26 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
                 <p className="text-xs text-gray-400 mt-1">Si te está adelantando plata sin factura, hoy eso lo carga la oficina en Tango.</p>
               </div>
             ) : (
-              <div className="space-y-2">
-                {comprobantes.map((c) => {
+              <div className="space-y-4">
+                {bloques.map(({ grupo, comprobantes: lista, subtotal }) => {
+                  const apagado = !!grupoSeleccionado && !mismoGrupo(grupoSeleccionado, grupo)
+                  const rama = saldo?.porEmpresa?.[grupo.empresa]
+                  const frescaEmpresa = frescas.includes(grupo.empresa)
+                  return (
+                  <div key={`${grupo.empresa}|${grupo.codigo}`} className={apagado ? 'opacity-50' : ''}>
+                    <div className="flex items-baseline justify-between mb-1.5 px-0.5">
+                      <p className="text-sm font-semibold text-gray-900">
+                        {NOMBRE_EMPRESA[grupo.empresa]}
+                        {(variosCodigos(grupo.empresa) || grupo.codigo) && <span className="text-xs font-normal text-gray-500"> · cód. {grupo.codigo || '—'}</span>}
+                      </p>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold text-gray-900">{formatoARS(subtotal)}</p>
+                        {rama?.actualizadoEn && !frescaEmpresa && <p className="text-[10px] text-gray-400">{haceCuanto(rama.actualizadoEn)}</p>}
+                      </div>
+                    </div>
+                    {apagado && <p className="text-[11px] text-gray-500 mb-1.5 px-0.5">Se cobra en otro recibo: un recibo por empresa.</p>}
+                    <div className="space-y-2">
+                {lista.map((c) => {
                   const clave = claveComp(c)
                   const fila = filas[clave]
                   const seleccionada = fila?.seleccionada ?? false
@@ -255,7 +311,7 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
                   const parcial = seleccionada && !excedida && aCentavos(importeFila) > 0 && aCentavos(importeFila) < aCentavos(c.saldoPendiente)
                   return (
                     <div key={clave} className={`bg-white rounded-xl border shadow-sm p-3 ${seleccionada ? 'border-accent' : 'border-[#D3D1C7]'}`}>
-                      <button type="button" onClick={() => toggleFila(c)} className="w-full text-left">
+                      <button type="button" onClick={() => toggleFila(c)} className="w-full text-left" aria-disabled={apagado}>
                         <div className="flex items-center gap-2">
                           <input type="checkbox" readOnly checked={seleccionada} className="accent-[#1D9E75] pointer-events-none" />
                           <div className="flex-1 min-w-0">
@@ -292,6 +348,10 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
                         </div>
                       )}
                     </div>
+                  )
+                })}
+                    </div>
+                  </div>
                   )
                 })}
               </div>
@@ -419,7 +479,9 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
             <p className="text-sm text-gray-700">
               Cobrás <span className="font-semibold">{formatoARS(totalImputadoCent / 100)}</span> a{' '}
               <span className="font-semibold">{cliente.razonSocial || cliente.nombre}</span>, imputado a{' '}
-              {imputaciones.length} {imputaciones.length === 1 ? 'factura' : 'facturas'}.
+              {imputaciones.length} {imputaciones.length === 1 ? 'factura' : 'facturas'} de{' '}
+              <span className="font-semibold">{grupoSeleccionado ? NOMBRE_EMPRESA[grupoSeleccionado.empresa] : ''}</span>
+              {grupoSeleccionado?.codigo ? ` (cód. ${grupoSeleccionado.codigo})` : ''}.
             </p>
             <ul className="text-xs text-gray-600 space-y-1">
               {parseImporte(efectivoStr) > 0 && <li>Efectivo: {formatoARS(parseImporte(efectivoStr))}</li>}
