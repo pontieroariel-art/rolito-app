@@ -1470,3 +1470,13 @@ funciona con la licencia actual) en TestingRH, REDONHIELO_SA y Rolito con
 `scripts/tango/crear-vendedores-tango.mjs`; `--config` escribió `config/tango.vendedores`. AS queda
 en Tango solo para el historial. Pereyra, Molina y Marsicano siguen sin depósito ni vendedor
 (facturan con AP hasta que la oficina les asigne camión).
+
+**Cierre de la prueba punta a punta (2026-09-06, 00:10).** Venta promo ventasCamion/2tnXkglyQxUf07YzFplL
+(Primiterra, dep 21, 1 bolsa 3 kg, FC.280): egreso **VPR 00900-00000001** en REDONHIELO_SA (ID_STA14
+890393, visible en la ficha Live de Tango) + factura **A 01104-00000062** en Rolito **sin movimiento de
+stock** (el último STA14 de Rolito sigue siendo del 03/09). Hallazgo: el Facturador exige
+`codigoDeposito` aunque `descargaStock` sea false (sin él rechaza con `exceptionMessage: "*"`); la
+factura se manda con el depósito del chofer y `descargaStock: false` y no toca STA19. Además el
+cliente Tango ya no tira excepción cuando la respuesta trae `Comprobantes[]` (el "ya existe" 51016
+se interpreta como OK). Ambos comprobantes de prueba quedan para anular desde Tango.
+Script nuevo `scripts/tango/reintentar-outbox.mjs` para volver a 'pendiente' items en error.
