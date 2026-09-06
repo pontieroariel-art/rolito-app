@@ -9,7 +9,11 @@ const VENTAS = 'ventasCamion'
 // carga propio, y un chofer sin camión asignado igual sale a vender. La venta
 // queda sin camión (fuera del stock en vivo de ese camión) pero sigue contando
 // para la liquidación, que es por repartidor.
-export interface ActorChofer { uid: string; nombre: string; camionId: string }
+export interface ActorChofer {
+  uid: string; nombre: string; camionId: string
+  /** Depósito de Tango del vendedor (expedición por depósito, 2026-09-06). */
+  depositoTango?: string; depositoTangoNombre?: string
+}
 
 // Cliente mínimo necesario para armar el remito de la venta.
 export type ClienteVenta = Pick<UserProfile, 'uid' | 'razonSocial' | 'nombre' | 'codigoTango' | 'idGva14Tango'>
@@ -56,6 +60,7 @@ export function crearVentaCamion(
     pedidoId:      args.pedidoId ?? null,
     tango:         { estado: 'pendiente' },
     ...(args.cambios?.length ? { cambios: args.cambios } : {}),
+    ...(actor.depositoTango ? { depositoTango: actor.depositoTango, depositoTangoNombre: actor.depositoTangoNombre ?? '' } : {}),
     ...(args.cliente.codigoTango   ? { clienteCodigoTango:  args.cliente.codigoTango } : {}),
     ...(args.cliente.idGva14Tango != null ? { clienteIdGva14Tango: args.cliente.idGva14Tango } : {}),
     ...(args.firmaCliente   ? { firmaCliente: args.firmaCliente } : {}),

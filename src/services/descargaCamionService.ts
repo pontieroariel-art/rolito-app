@@ -20,6 +20,8 @@ export async function crearDescargaCamion(
     camionLabel:      string
     choferId:         string
     choferNombre:     string
+    depositoTango?:       string
+    depositoTangoNombre?: string
     items:            DescargaCamionItem[]
     bolsasRotas:      DescargaCamionItem[]
     palletsCompletos: number
@@ -29,9 +31,11 @@ export async function crearDescargaCamion(
   actor: ActorMuelle,
 ): Promise<DescargaCamion> {
   const ref = doc(collection(db, DESCARGAS))
+  const { depositoTango, depositoTangoNombre, ...resto } = args
   const descarga: Omit<DescargaCamion, 'id'> = {
     plantaId:      actor.plantaId,
-    ...args,
+    ...resto,
+    ...(depositoTango ? { depositoTango, depositoTangoNombre: depositoTangoNombre ?? '' } : {}),
     registradoPor: { uid: actor.uid, nombre: actor.nombre },
     fecha:         Timestamp.now(),
     // Transferencia camión → planta en Tango, que encola onDescargaCamionCreada.

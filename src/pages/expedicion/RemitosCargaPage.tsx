@@ -4,7 +4,8 @@ import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import { useAuth } from '../../context/AuthContext'
 import { useFlota } from '../../hooks/useFlota'
-import { useChoferes } from '../../hooks/useChoferes'
+import { useDepositosReparto } from '../../hooks/useDepositosReparto'
+import { etiquetaDeposito, identidadDeposito, nombreDeposito, ordenarDepositosReparto } from '../../utils/depositos'
 import { useCatalogo } from '../../hooks/useCatalogo'
 import { useFechaDelDia } from '../../hooks/useDiaActual'
 import { crearRemitoCarga, palletsInfo, subscribeRemitosCargaDelDia } from '../../services/remitoCargaService'
@@ -30,14 +31,16 @@ const ESTADO_COLORS: Record<RemitoCargaEstado, string> = {
 export default function RemitosCargaPage() {
   const { user } = useAuth()
   const { camiones } = useFlota()
-  const { choferes } = useChoferes()
+  const { depositos } = useDepositosReparto()
   const { catalogo } = useCatalogo()
 
   const plantaId = user?.planta ?? 'torcuato'
   const fecha = useFechaDelDia()
 
   const [camionId,   setCamionId]   = useState('')
-  const [choferId,   setChoferId]   = useState('')
+  // Código del depósito de Tango del repartidor (expedición por depósito,
+  // 2026-09-06): la carga se emite a un depósito, tenga o no usuario en la app.
+  const [depositoCod, setDepositoCod] = useState('')
   const [cantidades, setCantidades] = useState<Record<string, number>>({})
   // Cuando la cantidad no cierra en pallets justos, caja decide si el resto
   // viaja en un pallet propio (true) o suelto arriba del camión (default).
@@ -54,7 +57,12 @@ export default function RemitosCargaPage() {
 
   const camionesActivos = useMemo(() => camiones.filter((c) => c.activo), [camiones])
   const camion = camionesActivos.find((c) => c.id === camionId)
-  const chofer = choferes.find((c) => c.uid === choferId)
+  // Primero los depósitos que ya tienen remito hoy en esta planta.
+  const depositosReparto = useMemo(
+    () => ordenarDepositosReparto(depositos, new Set(remitos.map((r) => r.choferId))),
+    [depositos, remitos],
+  )
+  const deposito = depositosReparto.find((d) => d.codigo === depositoCod)
 
   // Los pallets NO se cargan a mano: los pallets justos se derivan de las
   // bolsas (floor por producto, con las unidades por pallet del catálogo) y el
@@ -88,7 +96,7 @@ export default function RemitosCargaPage() {
     setCantidades((prev) => ({ ...prev, [productoId]: n }))
   }
 
-  const puedeConfirmar = !!camion && !!chofer && items.length > 0
+  const puedeConfirmar = !!camion && !!deposito && items.length > 0
 
   const imprimir = (r: RemitoCarga) =>
     generateRemitoCarga({
@@ -103,7 +111,7 @@ export default function RemitosCargaPage() {
     }).catch((err) => reportError(err, { origen: 'RemitosCargaPage', accion: 'error al generar el PDF' }))
 
   const confirmar = async () => {
-    if (!user || !camion || !chofer) return
+    if (!user || !camion || !deposito) return
     setGuardando(true)
     setError('')
     try {
@@ -111,8 +119,10 @@ export default function RemitosCargaPage() {
         {
           camionId:     camion.id,
           camionLabel:  `${camion.patente} · ${camion.modelo}`,
-          choferId:     chofer.uid,
-          choferNombre: chofer.nombre || chofer.nombreContacto || '',
+          choferId:     identidadDeposito(deposito),
+          choferNombre: nombreDeposito(deposito),
+          depositoTango: deposito.codigo,
+          depositoTangoNombre: deposito.nombre,
           items,
           palletsCarga,
         },
@@ -120,7 +130,7 @@ export default function RemitosCargaPage() {
       )
       setConfirmando(false)
       setCamionId('')
-      setChoferId('')
+      setDepositoCod('')
       setCantidades({})
       setRestoEnPallet({})
       imprimir(remito)
@@ -156,13 +166,16 @@ export default function RemitosCargaPage() {
             </select>
           </div>
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Chofer</label>
-            <select value={choferId} onChange={(e) => setChoferId(e.target.value)} className={selectClass}>
-              <option value="">Elegir chofer…</option>
-              {choferes.map((c) => (
-                <option key={c.uid} value={c.uid}>{c.nombre || c.nombreContacto}</option>
+            <label className="text-xs text-gray-500 mb-1 block">Repartidor (depósito de Tango)</label>
+            <select value={depositoCod} onChange={(e) => setDepositoCod(e.target.value)} className={selectClass}>
+              <option value="">Elegir repartidor…</option>
+              {depositosReparto.map((d) => (
+                <option key={d.codigo} value={d.codigo}>{etiquetaDeposito(d)}{d.uid ? '' : ' · sin usuario en la app'}</option>
               ))}
             </select>
+            {depositosReparto.length === 0 && (
+              <p className="text-xs text-amber-600 mt-1">No hay depósitos de reparto cargados: sincronizalos desde Ajustes → Depósitos.</p>
+            )}
           </div>
         </div>
 
@@ -269,7 +282,7 @@ export default function RemitosCargaPage() {
           <div className="space-y-3">
             <div className="text-sm text-gray-700 space-y-1">
               <p><span className="text-gray-500">Camión:</span> {camion?.patente} · {camion?.modelo}</p>
-              <p><span className="text-gray-500">Chofer:</span> {chofer?.nombre || chofer?.nombreContacto}</p>
+              <p><span className="text-gray-500">Repartidor:</span> {deposito ? etiquetaDeposito(deposito) : ''}</p>
             </div>
             <div className="border border-[#D3D1C7] rounded-lg divide-y divide-gray-100">
               {items.map((i) => (

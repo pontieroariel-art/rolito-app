@@ -6,6 +6,8 @@ import Modal from '../../components/ui/Modal'
 import { useAuth } from '../../context/AuthContext'
 import { useCatalogo } from '../../hooks/useCatalogo'
 import { useFechaDelDia } from '../../hooks/useDiaActual'
+import { useDepositosReparto } from '../../hooks/useDepositosReparto'
+import { etiquetaDeposito, identidadDeposito, nombreDeposito } from '../../utils/depositos'
 import { asignarDarsena, subscribeRemitosCargaDelDia } from '../../services/remitoCargaService'
 import {
   confirmarEntregaRemito, crearDescargaCamion, subscribeDescargasDelDia,
@@ -27,6 +29,7 @@ import { reportError } from '@/services/observability'
 export default function MuelleDashboard() {
   const { user } = useAuth()
   const { catalogo } = useCatalogo()
+  const { reparto: depositosReparto } = useDepositosReparto()
   const plantaId = user?.planta ?? 'torcuato'
   const fecha = useFechaDelDia()
 
@@ -69,7 +72,16 @@ export default function MuelleDashboard() {
     Math.max(0, Math.round((Date.now() - v.fecha.toMillis()) / 60_000))
   // Para descargar: cualquier remito ya entregado (el camión salió y volvió).
   const entregados  = remitos.filter((r) => r.estado !== 'emitido')
-  const remitoDescarga = entregados.find((r) => r.id === remitoDescargaId)
+  // El combo mezcla remitos del día ('rem:<id>') y depósitos sueltos
+  // ('dep:<código>'): un tercerizado que cargó en otra planta, o sin remito
+  // digital, igual vuelve y hay que contarle la descarga.
+  const remitoDescarga = remitoDescargaId.startsWith('rem:') ? entregados.find((r) => r.id === remitoDescargaId.slice(4)) : undefined
+  const depositoDescarga = remitoDescargaId.startsWith('dep:') ? depositosReparto.find((d) => d.codigo === remitoDescargaId.slice(4)) : undefined
+  const descargaSeleccionada = remitoDescarga
+    ? { camionId: remitoDescarga.camionId, camionLabel: remitoDescarga.camionLabel, choferId: remitoDescarga.choferId, choferNombre: remitoDescarga.choferNombre, depositoTango: remitoDescarga.depositoTango, depositoTangoNombre: remitoDescarga.depositoTangoNombre }
+    : depositoDescarga
+      ? { camionId: '', camionLabel: '', choferId: identidadDeposito(depositoDescarga), choferNombre: nombreDeposito(depositoDescarga), depositoTango: depositoDescarga.codigo, depositoTangoNombre: depositoDescarga.nombre }
+      : undefined
 
   const toItems = (m: Record<string, number>): DescargaCamionItem[] =>
     catalogo
@@ -107,16 +119,13 @@ export default function MuelleDashboard() {
   }
 
   const registrarDescarga = async () => {
-    if (!user || !remitoDescarga) return
+    if (!user || !descargaSeleccionada) return
     setGuardando(true)
     setError('')
     try {
       await crearDescargaCamion(
         {
-          camionId:     remitoDescarga.camionId,
-          camionLabel:  remitoDescarga.camionLabel,
-          choferId:     remitoDescarga.choferId,
-          choferNombre: remitoDescarga.choferNombre,
+          ...descargaSeleccionada,
           items:        toItems(sanas),
           bolsasRotas:  toItems(rotas),
           palletsCompletos, palletsParciales, palletsVacios,
@@ -128,7 +137,7 @@ export default function MuelleDashboard() {
       setSanas({})
       setRotas({})
       setPalletsCompletos(0); setPalletsParciales(0); setPalletsVacios(0)
-      setOkMsg(`Descarga de ${remitoDescarga.choferNombre} registrada.`)
+      setOkMsg(`Descarga de ${descargaSeleccionada.choferNombre} registrada.`)
     } catch (err) {
       reportError(err, { origen: 'MuelleDashboard', accion: 'error al registrar descarga' })
       setError('No se pudo registrar la descarga. Revisá la conexión e intentá de nuevo.')
@@ -324,13 +333,22 @@ export default function MuelleDashboard() {
             <label className="text-xs text-gray-500 mb-1 block">Camión que volvió</label>
             <select value={remitoDescargaId} onChange={(e) => { setRemitoDescargaId(e.target.value); setOkMsg('') }} className={selectClass}>
               <option value="">Elegir remito del día…</option>
-              {entregados.map((r) => (
-                <option key={r.id} value={r.id}>{r.codigo} · {r.camionLabel} · {r.choferNombre}</option>
-              ))}
+              {entregados.length > 0 && (
+                <optgroup label="Remitos de carga de hoy">
+                  {entregados.map((r) => (
+                    <option key={r.id} value={`rem:${r.id}`}>{r.codigo} · {r.camionLabel} · {r.choferNombre}</option>
+                  ))}
+                </optgroup>
+              )}
+              <optgroup label="Otro depósito (sin remito de hoy en esta planta)">
+                {depositosReparto.map((d) => (
+                  <option key={d.codigo} value={`dep:${d.codigo}`}>{etiquetaDeposito(d)}</option>
+                ))}
+              </optgroup>
             </select>
           </div>
 
-          {remitoDescarga && (
+          {descargaSeleccionada && (
             <>
               <div>
                 <p className="text-xs text-gray-500 mb-2">Mercadería que volvió (contada)</p>
@@ -368,7 +386,9 @@ export default function MuelleDashboard() {
 
               <div>
                 <p className="text-xs text-gray-500 mb-2">
-                  Envases (salieron {remitoDescarga.palletsCarga} pallets — base + 4 puntales cada uno)
+                  {remitoDescarga
+                    ? `Envases (salieron ${remitoDescarga.palletsCarga} pallets — base + 4 puntales cada uno)`
+                    : 'Envases (sin remito de carga de hoy en esta planta: no hay contra qué cuadrar los pallets)'}
                 </p>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
@@ -384,7 +404,7 @@ export default function MuelleDashboard() {
                     <input value={palletsVacios} onChange={(e) => setPalletsVacios(num(e.target.value))} inputMode="numeric" className={selectClass} />
                   </div>
                 </div>
-                {(palletsCompletos + palletsParciales + palletsVacios) !== remitoDescarga.palletsCarga && (
+                {remitoDescarga && (palletsCompletos + palletsParciales + palletsVacios) !== remitoDescarga.palletsCarga && (
                   <p className="text-xs text-amber-600 mt-1.5">
                     Volvieron {palletsCompletos + palletsParciales + palletsVacios} de {remitoDescarga.palletsCarga} pallets — la diferencia queda registrada en la liquidación.
                   </p>

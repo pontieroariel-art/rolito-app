@@ -46,6 +46,9 @@ export interface ContextoWriter {
  * mercadería sale de la cámara — decisión de Ariel 2026-09-04, STOCK_REPARTO.md).
  */
 function codigoDeposito(cfg: ConfigTango, payload: PayloadVenta): string | null {
+  // El depósito explícito del doc (expedición por depósito, 2026-09-06) manda;
+  // el mapa uid/camión → código queda como respaldo para docs anteriores.
+  if (typeof payload.depositoTango === 'string' && payload.depositoTango.trim()) return payload.depositoTango.trim()
   const dep = cfg.depositos ?? {}
   const porPlanta = cfg.depositosPlanta ?? {}
   return (payload.choferId && dep[payload.choferId]) || (payload.camionId && dep[payload.camionId])

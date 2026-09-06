@@ -8,11 +8,12 @@ import { subscribeVentasChoferEnRango } from '../../services/ventaCamionService'
 import { subscribeCambiosChoferEnRango } from '../../services/cambioCamionService'
 import { subscribeDescargasChoferEnRango } from '../../services/descargaCamionService'
 import { subscribeCobranzasChoferEnRango } from '../../services/cobranzaService'
-import { useChoferes } from '../../hooks/useChoferes'
+import { useDepositosReparto } from '../../hooks/useDepositosReparto'
+import { etiquetaDeposito, identidadDeposito, nombreDeposito, ordenarDepositosReparto } from '../../utils/depositos'
 import { cerrarLiquidacion, subscribeLiquidacion } from '../../services/liquidacionService'
 import { calcularLiquidacion } from '../../utils/liquidacion'
 import { generateLiquidacion } from '../../utils/pdf'
-import { useDiaActual, useFechaDelDia } from '../../hooks/useDiaActual'
+import { useDiaActual } from '../../hooks/useDiaActual'
 import {
   CambioCamion, Cobranza, DescargaCamion, Liquidacion, PLANTAS, RemitoCarga, VentaCamion,
 } from '../../types'
@@ -27,15 +28,18 @@ const money = (n: number) => `$${n.toLocaleString('es-AR')}`
 export default function LiquidacionesPage() {
   const { user } = useAuth()
   const plantaId = user?.planta ?? 'torcuato'
-  // Un solo reloj reactivo para toda la pantalla. Antes convivían todayString()
-  // (recalculado en cada render) y varios new Date() sueltos: al cruzar la
-  // medianoche podían quedar en días distintos y la liquidación mezclaba datos
-  // del día viejo con los del nuevo. hoy (string) y fecha (Date) salen del mismo
-  // día y cambian juntos.
-  const hoy   = useDiaActual()
-  const fecha = useFechaDelDia()
+  // Día liquidado: por defecto hoy (reloj reactivo que cruza la medianoche),
+  // pero caja puede elegir un día anterior para liquidar o revisar
+  // (2026-09-06). `hoy` (yyyy-MM-dd) y `fecha` (Date) salen del mismo string.
+  const diaActual = useDiaActual()
+  const [diaElegido, setDiaElegido] = useState<string | null>(null)
+  const hoy   = diaElegido ?? diaActual
+  const fecha = useMemo(() => new Date(hoy + 'T12:00:00'), [hoy])
 
-  const { choferes: todosLosChoferes } = useChoferes()
+  // Expedición por depósito de Tango (2026-09-06): se liquida un DEPÓSITO
+  // (repartidor propio, tercerizado o supervisor), identificado en los docs
+  // por el uid de su usuario o por 'dep:<código>' — ver utils/depositos.ts.
+  const { depositos } = useDepositosReparto()
   const [remitosPlanta, setRemitosPlanta] = useState<RemitoCarga[]>([])
   const [choferId, setChoferId] = useState('')
   const [ventas,    setVentas]    = useState<VentaCamion[]>([])
@@ -50,24 +54,25 @@ export default function LiquidacionesPage() {
 
   useEffect(() => subscribeRemitosCargaDelDia(plantaId, fecha, setRemitosPlanta), [plantaId, fecha])
 
-  // Primero los que salieron hoy con remito de esta planta; abajo el resto de
-  // los choferes activos — un cobrador puede tener un día SOLO de cobranzas,
-  // sin remito de carga, y también se liquida.
-  const choferes = useMemo(() => {
+  // Primero los depósitos que salieron ese día con remito de esta planta;
+  // abajo el resto de los repartidores activos — un supervisor puede tener un
+  // día SOLO de cobranzas, sin remito de carga, y también se liquida.
+  const conRemito = useMemo(() => new Set(remitosPlanta.map((r) => r.choferId)), [remitosPlanta])
+  const depositosReparto = useMemo(() => ordenarDepositosReparto(depositos, conRemito), [depositos, conRemito])
+  const conSalida = depositosReparto.filter((d) => conRemito.has(identidadDeposito(d)))
+  const sinSalida = depositosReparto.filter((d) => !conRemito.has(identidadDeposito(d)))
+  // Remitos de identidades que ya no tienen depósito en el catálogo (días
+  // viejos, usuarios desvinculados): se listan igual para poder liquidarlos.
+  const huerfanos = useMemo(() => {
+    const ids = new Set(depositosReparto.map(identidadDeposito))
     const m = new Map<string, string>()
-    remitosPlanta.forEach((r) => m.set(r.choferId, r.choferNombre))
+    remitosPlanta.forEach((r) => { if (!ids.has(r.choferId)) m.set(r.choferId, r.choferNombre) })
     return [...m.entries()].map(([id, nombre]) => ({ id, nombre }))
-  }, [remitosPlanta])
-  const otrosChoferes = useMemo(
-    () => todosLosChoferes
-      .filter((c) => !choferes.some((x) => x.id === c.uid))
-      .map((c) => ({ id: c.uid, nombre: c.nombre || c.nombreContacto || '' })),
-    [todosLosChoferes, choferes],
-  )
+  }, [remitosPlanta, depositosReparto])
 
   const remitosChofer = remitosPlanta.filter((r) => r.choferId === choferId)
-  const choferNombre  = choferes.find((c) => c.id === choferId)?.nombre
-    ?? otrosChoferes.find((c) => c.id === choferId)?.nombre ?? ''
+  const depositoElegido = depositosReparto.find((d) => identidadDeposito(d) === choferId)
+  const choferNombre  = depositoElegido ? nombreDeposito(depositoElegido) : (huerfanos.find((h) => h.id === choferId)?.nombre ?? '')
 
   useEffect(() => {
     if (!choferId) { setVentas([]); setCambios([]); setDescargas([]); setCobranzas([]); setCerrada(null); return }
@@ -99,7 +104,10 @@ export default function LiquidacionesPage() {
     setError('')
     try {
       const liq = await cerrarLiquidacion(
-        { choferId, choferNombre, calculo: calc, efectivoRecibido: recibido },
+        {
+          fecha: hoy, choferId, choferNombre, calculo: calc, efectivoRecibido: recibido,
+          ...(depositoElegido ? { depositoTango: depositoElegido.codigo, depositoTangoNombre: depositoElegido.nombre } : {}),
+        },
         { uid: user.uid, nombre: user.nombre, plantaId },
       )
       setConfirmando(false)
@@ -125,25 +133,38 @@ export default function LiquidacionesPage() {
         <p className="text-gray-500 text-sm">{PLANTAS[plantaId].label} · {fecha.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
       </div>
 
-      <div className="max-w-sm">
-        <label className="text-xs text-gray-500 mb-1 block">Repartidor</label>
-        <select value={choferId} onChange={(e) => setChoferId(e.target.value)} className={selectClass}>
-          <option value="">Elegir repartidor…</option>
-          {choferes.length > 0 && (
-            <optgroup label="Con salida hoy">
-              {choferes.map((c) => (
-                <option key={c.id} value={c.id}>{c.nombre}</option>
-              ))}
-            </optgroup>
-          )}
-          {otrosChoferes.length > 0 && (
-            <optgroup label="Sin remito hoy (cobradores, etc.)">
-              {otrosChoferes.map((c) => (
-                <option key={c.id} value={c.id}>{c.nombre}</option>
-              ))}
-            </optgroup>
-          )}
-        </select>
+      <div className="grid sm:grid-cols-[200px_1fr] gap-3 max-w-2xl">
+        <div>
+          <label className="text-xs text-gray-500 mb-1 block">Fecha</label>
+          <input
+            type="date"
+            value={hoy}
+            max={diaActual}
+            onChange={(e) => { setDiaElegido(e.target.value && e.target.value !== diaActual ? e.target.value : null); setChoferId('') }}
+            className={selectClass}
+          />
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 mb-1 block">Repartidor (depósito de Tango)</label>
+          <select value={choferId} onChange={(e) => setChoferId(e.target.value)} className={selectClass}>
+            <option value="">Elegir repartidor…</option>
+            {conSalida.length > 0 && (
+              <optgroup label={hoy === diaActual ? 'Con salida hoy' : 'Con salida ese día'}>
+                {conSalida.map((d) => <option key={d.codigo} value={identidadDeposito(d)}>{etiquetaDeposito(d)}</option>)}
+              </optgroup>
+            )}
+            {huerfanos.length > 0 && (
+              <optgroup label="Con remito, sin depósito en el catálogo">
+                {huerfanos.map((h) => <option key={h.id} value={h.id}>{h.nombre}</option>)}
+              </optgroup>
+            )}
+            {sinSalida.length > 0 && (
+              <optgroup label="Sin remito (supervisores, cobradores, otros depósitos)">
+                {sinSalida.map((d) => <option key={d.codigo} value={identidadDeposito(d)}>{etiquetaDeposito(d)}</option>)}
+              </optgroup>
+            )}
+          </select>
+        </div>
       </div>
 
       {choferId && cerrada && (

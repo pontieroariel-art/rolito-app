@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CloudOff, HandCoins, History, Truck, Users } from 'lucide-react'
+import { CloudOff, HandCoins, History, Package, Truck, Users } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import SupervisorHeader from '@/components/supervisor/SupervisorHeader'
 import { CobranzaSupervisorCard } from '@/components/supervisor/CobranzaSupervisorCard'
 import { useAuth } from '@/context/AuthContext'
 import { useFechaDelDia } from '@/hooks/useDiaActual'
+import { useDepositoDelUsuario } from '@/hooks/useDepositosReparto'
 import { subscribeCobranzasChoferEnRango } from '@/services/cobranzaService'
 import { formatoARS } from '@/utils/money'
 import { Cobranza } from '@/types'
@@ -18,6 +19,9 @@ export default function SupervisorHome() {
   const fecha = useFechaDelDia()
   const [cobranzasHoy, setCobranzasHoy] = useState<Cobranza[]>([])
   const [sinSubir, setSinSubir] = useState(0)
+  // Un supervisor con depósito de Tango vinculado también entrega mercadería
+  // (Ajustes → Depósitos); sin depósito la tarjeta Vender no aparece.
+  const { deposito } = useDepositoDelUsuario(user?.uid)
 
   useEffect(() => {
     if (!user) return
@@ -46,6 +50,21 @@ export default function SupervisorHome() {
             </div>
           </div>
         </Link>
+
+        {deposito && (
+          <Link to="/supervisor/vender"
+            className="block bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-4 active:scale-[0.99] transition-transform">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
+                <Package size={22} className="text-accent" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-gray-900">Vender</p>
+                <p className="text-xs text-gray-500">Entregas a demanda desde tu depósito {deposito.codigo} · {deposito.nombre}</p>
+              </div>
+            </div>
+          </Link>
+        )}
 
         <Link to="/supervisor/cobrar"
           className="block bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-4 active:scale-[0.99] transition-transform">

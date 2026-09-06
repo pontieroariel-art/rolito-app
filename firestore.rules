@@ -781,7 +781,9 @@ service cloud.firestore {
             || isSupervisor()
             || (isChofer() && resource.data.choferId == request.auth.uid));
 
-      allow create: if request.auth != null && isChofer()
+      // isSupervisor: los supervisores también entregan (son depósitos en
+      // Tango, expedición por depósito 2026-09-06); venden con su propio uid.
+      allow create: if request.auth != null && (isChofer() || isSupervisor())
         && request.resource.data.choferId == request.auth.uid
         && request.resource.data.clienteId is string
         && request.resource.data.camionId is string
@@ -1076,6 +1078,21 @@ service cloud.firestore {
       allow update: if request.auth != null && isTangoBridge()
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['estado', 'intentos', 'ultimoError', 'actualizadoEn', 'resultado']);
+      allow create, delete: if false;
+    }
+
+    // ── Depósitos de Tango (expedición por depósito, 2026-09-06) ───────────
+    // depositosTango/{codigo}: catálogo que baja la sync (Admin SDK) más los
+    // campos editables desde Ajustes (tipo, activo, usuario vinculado). Lo lee
+    // todo el staff (caja arma la carga, muelle la descarga, el chofer y el
+    // supervisor necesitan saber su depósito al vender/cobrar).
+    match /depositosTango/{codigo} {
+      allow read: if request.auth != null && isStaff();
+      allow update: if request.auth != null && (isOperator() || isManager())
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['tipo', 'activo', 'uid', 'usuarioNombre', 'usuarioRol', 'editadoEn'])
+        && request.resource.data.tipo in ['repartidor', 'planta', 'interno']
+        && request.resource.data.activo is bool;
       allow create, delete: if false;
     }
 

@@ -27,8 +27,10 @@ export { palletsInfo, type PalletsInfo } from '../utils/helpers'
 export interface CrearRemitoCargaArgs {
   camionId:     string
   camionLabel:  string
-  choferId:     string
+  choferId:     string       // identidad del depósito (uid o 'dep:<código>')
   choferNombre: string
+  depositoTango?:       string
+  depositoTangoNombre?: string
   items:        RemitoCargaItem[]
   palletsCarga: number
 }
@@ -52,6 +54,7 @@ export async function crearRemitoCarga(args: CrearRemitoCargaArgs, actor: ActorC
       camionLabel:  args.camionLabel,
       choferId:     args.choferId,
       choferNombre: args.choferNombre,
+      ...(args.depositoTango ? { depositoTango: args.depositoTango, depositoTangoNombre: args.depositoTangoNombre ?? '' } : {}),
       items:        args.items,
       palletsCarga: args.palletsCarga,
       estado:       'emitido',

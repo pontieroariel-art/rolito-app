@@ -254,6 +254,7 @@ export const onRemitoCargaCreado = onDocumentCreated(
         codigo:       remito.codigo,
         numero:       remito.numero,
         plantaId:     remito.plantaId,
+        depositoTango: remito.depositoTango ?? null,
         camionId:     remito.camionId,
         camionLabel:  remito.camionLabel,
         choferId:     remito.choferId,
@@ -280,6 +281,7 @@ export const onDescargaCamionCreada = onDocumentCreated(
       payload: {
         sentido:          'descarga',   // camión → planta
         plantaId:         descarga.plantaId,
+        depositoTango:    descarga.depositoTango ?? null,
         camionId:         descarga.camionId,
         camionLabel:      descarga.camionLabel,
         choferId:         descarga.choferId,

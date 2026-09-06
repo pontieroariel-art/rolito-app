@@ -31,7 +31,7 @@ const nroFactura = (v: VentaCamion) =>
     ? `${String(v.factura.puntoVenta).padStart(5, '0')}-${String(v.factura.numero).padStart(8, '0')}`
     : ''
 
-export default function VentasChofer() {
+export default function VentasChofer({ volverA = '/chofer' }: { volverA?: string } = {}) {
   const { user } = useAuth()
   const { clientes } = useClientesActivos()
   const [ventas, setVentas] = useState<VentaCamion[] | null>(null)
@@ -106,7 +106,7 @@ export default function VentasChofer() {
   return (
     <div className="min-h-screen min-h-dvh bg-[#F8F7F2]">
       <header className="flex items-center gap-3 bg-gradient-to-b from-[#1a6b52] to-[#1D9E75] px-4 py-4 pt-[calc(1rem+env(safe-area-inset-top))] text-white">
-        <Link to="/chofer" className="rounded-full bg-white/20 p-2" aria-label="Volver">
+        <Link to={volverA} className="rounded-full bg-white/20 p-2" aria-label="Volver">
           <ArrowLeft size={18} />
         </Link>
         <div>

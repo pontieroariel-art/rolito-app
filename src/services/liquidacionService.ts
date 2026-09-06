@@ -17,6 +17,8 @@ export async function cerrarLiquidacion(
     fecha?:            string   // yyyy-MM-dd, default hoy
     choferId:          string
     choferNombre:      string
+    depositoTango?:       string
+    depositoTangoNombre?: string
     calculo:           LiquidacionCalculada
     efectivoRecibido:  number
   },
@@ -29,6 +31,7 @@ export async function cerrarLiquidacion(
     plantaId:     actor.plantaId,
     choferId:     args.choferId,
     choferNombre: args.choferNombre,
+    ...(args.depositoTango ? { depositoTango: args.depositoTango, depositoTangoNombre: args.depositoTangoNombre ?? '' } : {}),
     ...args.calculo,
     efectivoRecibido:   args.efectivoRecibido,
     diferenciaEfectivo: args.efectivoRecibido - args.calculo.efectivoARendir,

@@ -441,6 +441,10 @@ function AppContent() {
           <Route path="/supervisor/cobrar"   element={<CobranzaSupervisorPage />} />
           <Route path="/supervisor/historial" element={<SupervisorHistorialPage />} />
           <Route path="/supervisor/reparto"   element={<RepartoEnVivoPage />} />
+          {/* Los supervisores también entregan (son depósitos en Tango): venden
+              con las mismas pantallas del chofer, que vuelven a /supervisor. */}
+          <Route path="/supervisor/vender"    element={<VentaCamion volverA="/supervisor" />} />
+          <Route path="/supervisor/ventas"    element={<VentasChofer volverA="/supervisor" />} />
         </Route>
 
         {/* Backoffice — panel de administración centralizado, exclusivo

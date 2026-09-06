@@ -164,6 +164,8 @@ function sqlConfigDe(tcfg, entidad, empresa) {
 /** Depósito de Tango de una venta: camión → el del chofer (cae al camión); ventanilla → el de la
  *  planta (la mercadería sale de la cámara). Mismo criterio que writers.ts en la nube. */
 function depositoDe(payload, tcfg) {
+  // El depósito explícito del doc (expedición por depósito, 2026-09-06) manda; el mapa es respaldo.
+  if (typeof payload.depositoTango === 'string' && payload.depositoTango.trim()) return payload.depositoTango.trim()
   const dep = tcfg.depositos ?? {}
   const porPlanta = tcfg.depositosPlanta ?? {}
   const codDeposito = (payload.choferId && dep[payload.choferId]) || (payload.camionId && dep[payload.camionId]) || (payload.plantaId && porPlanta[payload.plantaId])

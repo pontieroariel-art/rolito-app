@@ -20,6 +20,9 @@ export interface PayloadVenta {
   canal?: string
   camionId?: string | null
   choferId?: string
+  /** Depósito de Tango del repartidor, ya resuelto por la app al crear el doc (2026-09-06:
+   *  expedición por depósito). Si viene, manda; si no, se resuelve por config/tango.depositos. */
+  depositoTango?: string | null
   /** Venta de ventanilla: planta donde se vendió. El depósito es el de la planta (config/tango.depositosPlanta). */
   plantaId?: string | null
   choferNombre?: string

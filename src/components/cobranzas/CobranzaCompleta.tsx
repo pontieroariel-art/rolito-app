@@ -12,6 +12,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useOnline } from '@/hooks/useOnline'
 import { useClientesActivos } from '@/hooks/useClientesActivos'
 import { useSaldoClienteEnVivo } from '@/hooks/useSaldoClienteEnVivo'
+import { useDepositoDelUsuario } from '@/hooks/useDepositosReparto'
 import { crearCobranzaCompleta, type OrigenCobranzaCompleta } from '@/services/cobranzaService'
 import {
   asegurarReserva, codigoRecibo, consumirNumero, precargarSiSeAcerca,
@@ -90,6 +91,7 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
     () => (user ? { uid: user.uid, nombre: user.nombre } : null),
     [user],
   )
+  const { deposito: depositoUsuario } = useDepositoDelUsuario(user?.uid)
   const { saldo, cargando: cargandoSaldo, refrescando, esCache, frescas } = useSaldoClienteEnVivo(cliente, actor)
 
   // Reserva de números de recibo para poder emitir sin señal (chofer y
@@ -207,7 +209,7 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
             retenciones,
           },
         },
-        { uid: user.uid, nombre: user.nombre },
+        { uid: user.uid, nombre: user.nombre, ...(depositoUsuario ? { depositoTango: depositoUsuario.codigo } : {}) },
         { origen, plantaId },
       )
       if (numeracionActiva) precargarSiSeAcerca(user.uid, online)

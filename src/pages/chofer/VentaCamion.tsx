@@ -14,6 +14,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useClientesActivos } from '../../hooks/useClientesActivos'
 import { usePreciosTango } from '../../hooks/usePreciosTango'
 import { useRemitosCargaChofer } from '../../hooks/useRemitosCargaChofer'
+import { useDepositoDelUsuario } from '../../hooks/useDepositosReparto'
 import { useCatalogo } from '../../hooks/useCatalogo'
 import BotoneraProductos from '../../components/ventas/BotoneraProductos'
 import { crearVentaCamion } from '../../services/ventaCamionService'
@@ -56,11 +57,21 @@ const colorDe = (id: string) => PRODUCT_COLORS[id] ?? '#6b7280'
 
 const money = (n: number) => `$${n.toLocaleString('es-AR')}`
 
-export default function VentaCamion() {
+// `volverA`: el supervisor usa esta misma pantalla desde /supervisor/vender.
+export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string } = {}) {
   const { user } = useAuth()
   const { clientes, loading: loadingClientes } = useClientesActivos()
   const { remitos: remitosCarga } = useRemitosCargaChofer()
   const { catalogo } = useCatalogo()
+  // Depósito de Tango del vendedor: el que le vinculó Ajustes → Depósitos, o el
+  // del remito de carga de hoy. Va en la venta para que Tango descargue del
+  // depósito correcto sin depender del mapa uid → código.
+  const { deposito: depositoUsuario } = useDepositoDelUsuario(user?.uid)
+  const depositoVenta = depositoUsuario
+    ? { depositoTango: depositoUsuario.codigo, depositoTangoNombre: depositoUsuario.nombre }
+    : remitosCarga[0]?.depositoTango
+      ? { depositoTango: remitosCarga[0].depositoTango, depositoTangoNombre: remitosCarga[0].depositoTangoNombre ?? '' }
+      : {}
   const firmaRef = useRef<SignaturePadHandle>(null)
 
   // Camión del día: el remito de carga emitido por caja es la fuente primaria
@@ -198,7 +209,7 @@ export default function VentaCamion() {
           canal, cliente, items, cambios, formaPago: formaPagoFinal,
           firmaCliente: firmaPreview ?? undefined, firmanteNombre: firmante, comprobanteInterno,
         },
-        { uid: user.uid, nombre: user.nombre, camionId: camionIdHoy },
+        { uid: user.uid, nombre: user.nombre, camionId: camionIdHoy, ...depositoVenta },
       )
       if (tipoInterno) precargarSiSeAcerca(tipoInterno, user.uid, online)
       setExito({
@@ -254,7 +265,7 @@ export default function VentaCamion() {
       <div className="min-h-dvh bg-[#F8F7F2] text-gray-900 flex flex-col">
         <div className="bg-gradient-to-br from-[#1a6b52] to-[#1D9E75] text-white">
           <div className="max-w-lg mx-auto px-4 py-5 flex items-center gap-3">
-            <Link to="/chofer" aria-label="Volver al inicio"
+            <Link to={volverA} aria-label="Volver al inicio"
               className="w-11 h-11 rounded-2xl bg-white/15 backdrop-blur flex items-center justify-center shrink-0 active:scale-90 transition-transform">
               <ArrowLeft size={20} />
             </Link>

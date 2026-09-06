@@ -49,13 +49,23 @@ export interface CatalogProducto {
 // fuente de verdad de Tango; Rolito registra la operación en tiempo real y le
 // manda los movimientos por la vía oficial (writers del bridge, por ahora stub).
 
-// Cámaras (Torcuato/Merlo) y camiones son depósitos en Tango.
-export interface Deposito {
-  id:                  string
-  nombre:              string
-  tipo:                'camara' | 'camion'
-  depositoTangoCodigo: string
-  camionId?:           string   // solo si tipo === 'camion'
+// Depósitos de Tango (depositosTango/{codigo}): en Tango cada repartidor es un
+// depósito en tránsito (03 SERGIO ALVAREZ … 55, tercerizados, supervisores);
+// 01/02 son las plantas y 26/29/81/97/98/99 depósitos internos. La expedición
+// de la app (carga, descarga, liquidación) trabaja por depósito; el usuario de
+// la app vinculado es opcional. Ver utils/depositos.ts (identidad en los docs).
+export type TipoDeposito = 'repartidor' | 'planta' | 'interno'
+export interface DepositoTango {
+  codigo:        string      // COD_STA22 ('03', '21', '33')
+  nombre:        string      // NOMBRE_SUC de Tango ('SERGIO ALVAREZ', 'NOAIN 01')
+  idSta22:       number
+  inhabilitado:  boolean     // INHABILITA en Tango
+  tipo:          TipoDeposito
+  activo:        boolean     // editable: esconderlo de los combos sin tocar Tango
+  uid?:          string | null   // usuario de la app vinculado (chofer o supervisor)
+  usuarioNombre?: string | null
+  usuarioRol?:   string | null
+  actualizadoEn?: Timestamp
 }
 
 export type FormaPago = 'contado_efectivo' | 'contado_transferencia' | 'cuenta_corriente'
@@ -122,6 +132,8 @@ export interface VentaCamion {
   camionId:             string
   choferId:             string
   choferNombre:         string
+  depositoTango?:       string     // depósito de Tango del vendedor al momento de vender
+  depositoTangoNombre?: string
   clienteId:            string     // uid del cliente registrado
   clienteNombre:        string
   clienteCodigoTango?:  string     // COD_GVA14 (para el remito en Tango)
@@ -191,8 +203,10 @@ export interface RemitoCarga {
   plantaId:     PlantaId
   camionId:     string
   camionLabel:  string       // patente + modelo al momento de emitir (snapshot)
-  choferId:     string       // uid del chofer
+  choferId:     string       // identidad del depósito: uid del usuario vinculado o 'dep:<código>' (utils/depositos.ts)
   choferNombre: string
+  depositoTango?:       string   // código del depósito de Tango (expedición por depósito, 2026-09-06)
+  depositoTangoNombre?: string
   items:        RemitoCargaItem[]
   // Total de pallets que salen en el camión, DERIVADO de las cantidades por
   // formato (suma de items[].pallets) — el camión carga pallets armados, nunca
@@ -313,6 +327,7 @@ export interface Cobranza {
   origen:        'caja' | 'cobrador' | 'supervisor'
   plantaId?:     PlantaId   // solo origen 'caja'
   registradoPor: { uid: string; nombre: string }
+  depositoTango?: string    // depósito de Tango de quien cobra (para su liquidación)
   clienteId:     string
   clienteNombre: string
   importe:       number     // total; en origen 'supervisor' admite 2 decimales
@@ -434,8 +449,10 @@ export interface DescargaCamion {
   plantaId:         PlantaId
   camionId:         string
   camionLabel:      string
-  choferId:         string
+  choferId:         string   // identidad del depósito (uid o 'dep:<código>')
   choferNombre:     string
+  depositoTango?:       string
+  depositoTangoNombre?: string
   items:            DescargaCamionItem[]   // mercadería sana que volvió
   bolsasRotas:      DescargaCamionItem[]   // rotas recibidas (contra los cambios)
   palletsCompletos: number   // pallets con hielo intactos (no vendidos)
@@ -470,8 +487,10 @@ export interface Liquidacion {
   id:            string     // {yyyy-MM-dd}_{choferId}
   fecha:         string     // yyyy-MM-dd (día liquidado)
   plantaId:      PlantaId
-  choferId:      string
+  choferId:      string     // identidad del depósito (uid o 'dep:<código>')
   choferNombre:  string
+  depositoTango?:       string
+  depositoTangoNombre?: string
   productos:     LiquidacionResumenProducto[]
   // Cuadre de envases: salieron (Σ palletsCarga de los remitos) vs volvieron.
   pallets: {

@@ -1869,6 +1869,33 @@ describe('partesMaquinas', () => {
 })
 
 // ── tango-outbox: cola de salida app → Tango ──────────────────────────────────
+// ── depositosTango: catálogo de depósitos de Tango (expedición por depósito) ──
+describe('depositosTango', () => {
+  const dep = { codigo: '21', nombre: 'CRISTIAN PRIMITERRA', idSta22: 94, inhabilitado: false, tipo: 'repartidor', activo: true, uid: null, usuarioNombre: null, usuarioRol: null }
+
+  test('todo el staff lo lee (caja, muelle, chofer, supervisor); un cliente no', async () => {
+    await seed((d) => setDoc(doc(d, 'depositosTango/21'), dep))
+    for (const [uid, rol] of [['caja1', 'caja'], ['mue1', 'muelle'], ['chof1', 'chofer'], ['sup1', 'supervisor']]) {
+      await seed((d) => setDoc(doc(d, `users/${uid}`), { rol, estado: 'activo', planta: 'torcuato' }))
+      await assertSucceeds(getDoc(doc(db(uid), 'depositosTango/21')))
+    }
+    await seed((d) => setDoc(doc(d, 'users/cli9'), { rol: 'cliente', estado: 'activo' }))
+    await assertFails(getDoc(doc(db('cli9'), 'depositosTango/21')))
+  })
+
+  test('super_admin edita tipo/activo/usuario; nadie crea, borra ni toca lo que viene de Tango', async () => {
+    await seed((d) => setDoc(doc(d, 'depositosTango/21'), dep))
+    await seed((d) => setDoc(doc(d, 'users/sa'), { rol: 'super_admin', estado: 'activo' }))
+    await assertSucceeds(updateDoc(doc(db('sa'), 'depositosTango/21'), { uid: 'chof1', usuarioNombre: 'Primiterra', usuarioRol: 'chofer', activo: true, tipo: 'repartidor', editadoEn: new Date() }))
+    await assertFails(updateDoc(doc(db('sa'), 'depositosTango/21'), { nombre: 'OTRO' }))
+    await assertFails(updateDoc(doc(db('sa'), 'depositosTango/21'), { tipo: 'camion', activo: true }))
+    await assertFails(setDoc(doc(db('sa'), 'depositosTango/99'), dep))
+    await assertFails(deleteDoc(doc(db('sa'), 'depositosTango/21')))
+    await seed((d) => setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' }))
+    await assertFails(updateDoc(doc(db('caja1'), 'depositosTango/21'), { activo: false, tipo: 'repartidor' }))
+  })
+})
+
 // ── tango-altas: cola de altas automáticas de clientes desde Tango ──────────
 describe('tango-altas', () => {
   const alta = { cuit: '30526047792', estado: 'pendiente', filas: [], creadoEn: new Date() }
@@ -2057,6 +2084,14 @@ describe('ventasCamion', () => {
   test('un chofer NO puede crear una venta a nombre de otro chofer', async () => {
     await seedChofer()
     await assertFails(setDoc(doc(db('chof1'), 'ventasCamion/v1'), venta({ choferId: 'otro' })))
+  })
+
+  test('un supervisor puede vender con su propio uid (entrega como depósito de Tango, 2026-09-06); caja no', async () => {
+    await seed((d) => setDoc(doc(d, 'users/sup1'), { rol: 'supervisor', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('sup1'), 'ventasCamion/v2'), venta({ choferId: 'sup1', depositoTango: '24', depositoTangoNombre: 'MATIAS VINJOY' })))
+    await assertFails(setDoc(doc(db('sup1'), 'ventasCamion/v3'), venta({ choferId: 'chof1' })))
+    await seed((d) => setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' }))
+    await assertFails(setDoc(doc(db('caja1'), 'ventasCamion/v4'), venta({ choferId: 'caja1' })))
   })
 
   test('un chofer NO puede crear con forma de pago inválida', async () => {

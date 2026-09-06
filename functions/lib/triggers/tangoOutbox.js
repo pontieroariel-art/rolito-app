@@ -220,6 +220,7 @@ exports.onRemitoCargaCreado = (0, firestore_1.onDocumentCreated)('remitosCarga/{
             codigo: remito.codigo,
             numero: remito.numero,
             plantaId: remito.plantaId,
+            depositoTango: remito.depositoTango ?? null,
             camionId: remito.camionId,
             camionLabel: remito.camionLabel,
             choferId: remito.choferId,
@@ -243,6 +244,7 @@ exports.onDescargaCamionCreada = (0, firestore_1.onDocumentCreated)('descargasCa
         payload: {
             sentido: 'descarga', // camión → planta
             plantaId: descarga.plantaId,
+            depositoTango: descarga.depositoTango ?? null,
             camionId: descarga.camionId,
             camionLabel: descarga.camionLabel,
             choferId: descarga.choferId,

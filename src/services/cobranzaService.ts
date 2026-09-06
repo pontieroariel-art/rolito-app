@@ -29,7 +29,7 @@ export async function crearCobranzaCompleta(
     imputaciones:  ImputacionFactura[]
     medios:        MediosPago
   },
-  actor: { uid: string; nombre: string },
+  actor: { uid: string; nombre: string; depositoTango?: string },
   destino: { origen: OrigenCobranzaCompleta; plantaId?: PlantaId },
 ): Promise<Cobranza> {
   const totalImputado = sumaCentavos(args.imputaciones.map((i) => i.importeImputado))
@@ -53,6 +53,7 @@ export async function crearCobranzaCompleta(
     origen:        destino.origen,
     ...(destino.origen === 'caja' ? { plantaId: destino.plantaId } : {}),
     registradoPor: { uid: actor.uid, nombre: actor.nombre },
+    ...(actor.depositoTango ? { depositoTango: actor.depositoTango } : {}),
     clienteId:     args.clienteId,
     clienteNombre: args.clienteNombre,
     importe:       totalImputado / 100,

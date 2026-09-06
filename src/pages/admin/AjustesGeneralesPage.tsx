@@ -1,9 +1,11 @@
 import SyncPreciosTangoPanel from '../../components/admin/SyncPreciosTangoPanel'
+import DepositosPanel from '../../components/admin/DepositosPanel'
 
 // Home de configuración global. Por ahora: estado de las sincronizaciones con
-// Tango (clientes, precios, saldos) y sus botones de "Sincronizar ahora".
-// Los mapeos (artículos, depósitos, vendedores, talonarios) siguen en
-// config/tango vía scripts/tango/configurar-ventas-tango.mjs.
+// Tango (clientes, precios, saldos) y sus botones de "Sincronizar ahora", y el
+// catálogo de depósitos de reparto (tipo, activo, usuario vinculado). Los
+// mapeos de artículos, vendedores y talonarios siguen en config/tango vía
+// scripts/tango/configurar-ventas-tango.mjs.
 export default function AjustesGeneralesPage() {
   return (
     <div className="min-h-screen min-h-dvh bg-[#F1EFE8] text-gray-900">
@@ -13,6 +15,7 @@ export default function AjustesGeneralesPage() {
           <p className="text-gray-500 text-sm">Configuración global del sistema.</p>
         </div>
         <SyncPreciosTangoPanel />
+        <DepositosPanel />
       </main>
     </div>
   )
