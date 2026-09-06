@@ -1480,3 +1480,54 @@ factura se manda con el depósito del chofer y `descargaStock: false` y no toca 
 cliente Tango ya no tira excepción cuando la respuesta trae `Comprobantes[]` (el "ya existe" 51016
 se interpreta como OK). Ambos comprobantes de prueba quedan para anular desde Tango.
 Script nuevo `scripts/tango/reintentar-outbox.mjs` para volver a 'pendiente' items en error.
+
+## 25. Multi-empresa: padrón y saldos de Redonhielo Y Rolito, un recibo por empresa (2026-09-06)
+
+Hasta acá la app leía el padrón y los saldos solo de Redonhielo (Company 1); la deuda de la promo en
+cta cte (facturada en Rolito, Company 3) no se veía ni se cobraba desde la app. Decisión de Ariel:
+"dos bloques separados; si el recibo es de Rolito que sea de Rolito, si no los saldos no quedan bien".
+
+**Identidad del cliente por empresa** — `users/{uid}.tangoIds = { redonhielo: [{ idGva14, codigo }], rolito: [...] }`
+(`functions/src/services/tango/empresas.ts`, espejo en `src/utils/tangoEmpresas.ts`). Un CUIT = una cuenta;
+en cada empresa puede tener varios códigos (sucursales / grupos), el primero es el principal. Los campos
+viejos `idGva14Tango` / `codigoTango` siguen como alias del principal de Redonhielo (`tangoIdsDe()` los
+absorbe cuando la ficha todavía no tiene `tangoIds`).
+
+**Sync de clientes** (`tangoConnectSync.ts` → `sincronizarClientes`, `tangoSync.ts` → `procesarLoteClientesTango`):
+recorre `EMPRESAS` con un índice de cuentas armado UNA vez por corrida (antes: un escaneo de `users` por lote).
+Redonhielo manda la ficha (razón social, IVA, domicilio, email…); Rolito solo vincula identidad, salvo que el
+cliente exista únicamente en Rolito. Match por `tangoIds[empresa].idGva14` → CUIT **válido** (dígito verificador,
+`cuit.ts`; los rellenos tipo 00000000000 no vinculan) → en Rolito, código igual al de Redonhielo. Otra fila con
+el mismo CUIT → código secundario (`codigosSecundarios` en el resumen). Resumen en `config/tango.clientesSync.resumen.empresas`.
+
+**Saldos** (`tangoSaldos.ts`, lógica pura en `services/tango/saldos.ts` con tests): `saldosTango/{uid}` guarda las
+DOS empresas en el mismo doc:
+
+```
+{ idGva14, codigoTango, razonSocial,             // legacy: principal de Redonhielo
+  comprobantes: [ {…, empresa, codigoTango} ],   // unión de las dos empresas
+  saldoTotal,                                    // Σ de las dos (la lista de deudores ordena por esto)
+  porEmpresa: { redonhielo: { saldoTotal, comprobantes, runId, origen, actualizadoEn }, rolito: {…} },
+  cobranzasAplicadas, actualizadoEn, origen, runId }
+```
+
+Cada sync/consulta/cobranza reemplaza **solo su rama** (`fusionarRamaEmpresa`, read-modify-write por lote con
+`getAll`). `runId` es por empresa (`"<empresa>:<iso>"`): al terminar la corrida de una empresa se vacía la rama de
+esa empresa en los docs cuyo `porEmpresa.<e>.runId` no es el de la corrida (más los docs anteriores al formato,
+sin `porEmpresa`, cuando corre Redonhielo). Los códigos de un mismo CUIT se agrupan antes de partir en lotes. Las
+consultas Live por empresa se pueden pisar en `config/tango.saldos.porEmpresa.<empresa>.{procesoDeudasVencidas,procesoDeudasAVencer,fromDate}`.
+El descuento optimista (`descuentosDeCobranzas`) lleva la empresa en la clave y ya no filtra por origen
+`supervisor` (caja y chofer también cobran desde el 2026-09-05).
+
+**Saldo en vivo** (`useSaldoClienteEnVivo`): una consulta `tango-consultas` por empresa vinculada, en paralelo,
+con `idsGva14` (todos los códigos). Regla: `empresa in ['redonhielo','rolito']` obligatoria.
+
+**Cobranza** (`CobranzaCompleta.tsx`): bloques por empresa (y por código si hay varios), subtotal y frescura por
+bloque; al tildar una factura los otros bloques se apagan ("un recibo por empresa"). La cobranza lleva `empresa` y
+`codigoTango` del bloque; `onCobranzaCreada` resuelve `clienteIdGva14Tango`/`clienteCodigoTango` en esa empresa y
+pone `empresa` también a nivel de item del outbox. Las ventas: `payloadDeVentaEn()` reemplaza el id/código del
+cliente por el de la empresa destino (la app graba los de Redonhielo).
+
+**Verificación** — `scripts/tango/verificar-live-empresas.mjs` (con `$env:TANGO_TOKEN`) lista filas y columnas de
+17953/17955 por Company y, con `--cliente=FC.280`, el ID_GVA14 del cliente en cada una. Pendiente en Rolito:
+`GRANT EXECUTE ON dbo.P_COBRANZAESTADOSVENTAS TO rolito_bridge` (sin eso el recibo deja la factura en PEN).
