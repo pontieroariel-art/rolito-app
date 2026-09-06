@@ -83,6 +83,15 @@ export interface RemitoTangoEstado {
   /** Write-back de la factura de Tango (entidad 'factura'). */
   facturaNumero?: string
   ultimoError?:  string
+  /**
+   * Movimiento de STOCK aparte del comprobante (entidad 'movimientoStock'):
+   * el egreso VPR en Redonhielo por una venta promo, cuya factura va a Rolito
+   * sin descargar stock (2026-09-05). Campos propios para no pisar los de la
+   * factura: un mismo doc tiene las dos confirmaciones.
+   */
+  stockEstado?:  'confirmado'
+  stockNumero?:  string
+  stockTipo?:    string
 }
 
 // Una venta/entrega hecha por el chofer desde el camión (flujo principal del

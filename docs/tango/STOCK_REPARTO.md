@@ -43,6 +43,7 @@ de merma no cuadran.
 | Carga | `remitosCarga` confirmado en muelle | **CAR** (TI) | planta → camión, bolsas + pallets + racks |
 | Venta contado | `ventasCamion` contado | FAC (ARCA + Tango Connect, ya funciona) | camión → cliente |
 | Venta cta. cte. | `ventasCamion` cuenta corriente | **REM** (SQL, hecho §21) | camión → cliente |
+| Venta promo (Rolito) | `ventasCamion` / `ventasVentanilla` promo | FAC en **Rolito sin stock** + **VPR** (egreso por SQL, INTEGRACION §24) | camión → cliente, en REDONHIELO |
 | Cambio | `ventasCamion.cambios` | **CBS nuevo** = transferencia (TI) con el **artículo real**, cliente y chofer en cabecera | camión → 99 |
 | Descarga | `descargasCamion` (sano contado) | **DES** (TI) | camión → planta |
 | Rotas en exceso | `descargasCamion.bolsasRotas` − cambios del día, si es > 0 | **MER** (TI) | camión → 99 |
@@ -112,6 +113,15 @@ Datos técnicos que faltan:
   TestingRH (mismo método que remito y recibo, script `02-trazar-tango.sql`), para confirmar
   que Tango no escribe nada más que STA14/STA20/STA19/STA13 en una transferencia.
 - Depósito de ventanilla y cómo se repone.
+
+## 4b. Decisión 2026-09-05: todo el stock en Redonhielo
+
+Rolito **no lleva stock**: la factura promo se registra allá con `descargaStock: false` y la
+mercadería sale de Redonhielo por un egreso puro (tipo nuevo `VPR`, talonario de stock propio,
+sucursal 900). La promo en $0 (solo cambios) también es factura en Rolito (en $0, con los renglones
+de cambio) + egreso en Redonhielo. Writer único `movimientoStock.ts` (egreso / transferencia) que
+en la fase B atiende también CAR y DES con el talonario 13 compartido. Detalle y pendientes en
+INTEGRACION.md §24.
 
 ## 5. Orden de implementación
 

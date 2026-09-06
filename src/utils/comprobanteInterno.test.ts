@@ -29,10 +29,10 @@ describe('tipoComprobanteInterno', () => {
     expect(tipoComprobanteInterno(base({ formaPago: 'contado_efectivo', total: 0, items: [] }))).toBe('remito')
   })
 
-  it('promo sale por factura X cobrada o en cuenta corriente; solo la operación en $0 va por remito de Rolito', () => {
+  it('promo sale siempre por factura X: cobrada, en cuenta corriente o en $0 (solo cambios, en Rolito no hay remitos)', () => {
     expect(tipoComprobanteInterno(base({ canal: 'promo', formaPago: 'contado_efectivo' }))).toBe('facturaX')
     expect(tipoComprobanteInterno(base({ canal: 'promo', formaPago: 'cuenta_corriente' }))).toBe('facturaX')
-    expect(tipoComprobanteInterno(base({ canal: 'promo', formaPago: 'contado_efectivo', total: 0, items: [] }))).toBe('remitoPromo')
+    expect(tipoComprobanteInterno(base({ canal: 'promo', formaPago: 'contado_efectivo', total: 0, items: [] }))).toBe('facturaX')
   })
 })
 

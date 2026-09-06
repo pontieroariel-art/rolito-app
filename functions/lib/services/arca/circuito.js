@@ -28,6 +28,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.documentoDeVenta = documentoDeVenta;
 exports.facturaContraArca = facturaContraArca;
 exports.destinoTango = destinoTango;
+exports.movimientoStockDeVenta = movimientoStockDeVenta;
 const FORMAS_QUE_FACTURAN = ['contado_efectivo', 'contado_transferencia'];
 /**
  * Devuelve `null` cuando los datos de la venta no alcanzan para decidir (un
@@ -79,9 +80,15 @@ function destinoTango(canal, formaPago, total) {
     // (decisión de Ariel 2026-09-03: la promo en cuenta corriente también es
     // factura, y en Tango entra por el Facturador con cuota de cta. cte., no
     // como pedido). Sin ARCA: numeración propia, nunca hay riesgo de duplicar
-    // una autorización fiscal. La única excepción es la operación en $0 (solo
-    // cambios): no hay factura de cero, va como remito.
-    const entidad = Number(total) <= 0 ? 'remito' : 'factura';
-    return { entidad, empresa: 'rolito', conCaePropio: false };
+    // una autorización fiscal. La operación en $0 (solo cambios) TAMBIÉN es
+    // factura: en Rolito no hay remitos, queda una factura en $0 con los
+    // renglones de cambio (decisión de Ariel 2026-09-05). El stock lo mueve el
+    // egreso en Redonhielo, ver movimientoStockDeVenta.
+    return { entidad: 'factura', empresa: 'rolito', conCaePropio: false };
+}
+function movimientoStockDeVenta(canal, _formaPago, _total) {
+    if (canal !== 'promo')
+        return null;
+    return { movimiento: 'ventaPromo', empresa: 'redonhielo' };
 }
 //# sourceMappingURL=circuito.js.map

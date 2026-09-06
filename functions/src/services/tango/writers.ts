@@ -137,7 +137,9 @@ export async function enviarFactura(payload: PayloadVenta, ctx: ContextoWriter):
 
   const articulos = cfg.articulos ?? {}
   const codDeposito = codigoDeposito(cfg, payload) ?? (!payload.camionId ? cfgEmpresa.depositoVentanilla ?? null : null)
-  if (!codDeposito) {
+  // Rolito factura sin descargar stock (descargaStock: false): el depósito no hace
+  // falta; la mercadería sale de Redonhielo por el egreso VPR (movimientoStock).
+  if (!codDeposito && cfgEmpresa.descargaStock !== false) {
     return { ok: false, error: payload.camionId ? `Falta el depósito Tango del chofer ${payload.choferNombre ?? payload.choferId} (config/tango.depositos.${payload.choferId})` : `Falta el depósito Tango de la planta ${payload.plantaId ?? '?'} (config/tango.depositosPlanta)` }
   }
 
@@ -191,7 +193,7 @@ export async function enviarFactura(payload: PayloadVenta, ctx: ContextoWriter):
   }, {
     codigoArticulo: (id) => articulos[id] ?? null,
     codigoDeposito: codDeposito,
-    etiquetaCamion: `${codDeposito} ${cfg.camiones?.[payload.choferId ?? ''] ?? ''}`.trim(),
+    etiquetaCamion: `${codDeposito ?? ''} ${cfg.camiones?.[payload.choferId ?? ''] ?? ''}`.trim(),
     letraNoFiscal,
   })
   if (armado.error !== undefined) return { ok: false, error: armado.error }

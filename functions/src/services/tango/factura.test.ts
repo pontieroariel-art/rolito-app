@@ -109,3 +109,46 @@ describe('interpretarRespuestaFacturador', () => {
     expect(interpretarRespuestaFacturador({ Comprobantes: [{ numeroComprobante: 'FAC A0110400000001', estado: 'Error', mensaje: '(12345) Talonario inexistente' }], Succeeded: false }, 'A0110400000001').ok).toBe(false)
   })
 })
+
+describe('Rolito sin stock y factura en $0 (decisión 2026-09-05)', () => {
+  const promo: PayloadVenta = { ...ventaReal, canal: 'promo', factura: undefined, comprobanteInterno: { tipo: 'facturaX', puntoVenta: 3, numero: 9 },
+    items: [{ productoId: 'barra', nombre: 'Barra', cantidad: 2, precioUnitario: 1000 }],
+    cambios: [{ productoId: 'cambio_bolsa_10kg', nombre: 'Cambio bolsa 10', cantidad: 1, precioUnitario: 0 }] }
+  const cfgRolito = { ...cfg, sinIva: true, codigoTasaIva21: undefined, descargaStock: false }
+
+  it('con descargaStock false los ítems no descargan ni llevan depósito, y la cabecera tampoco', () => {
+    const r = armarComprobanteFacturador(promo, { ...item, empresa: 'rolito' }, cfgRolito, { ...mapeos, letraNoFiscal: 'B' })
+    if (r.error !== undefined) throw new Error(r.error)
+    expect(r.comprobante).not.toHaveProperty('codigoDeposito')
+    const items = r.comprobante.items as Record<string, unknown>[]
+    expect(items).toHaveLength(1)                       // los cambios no van cuando hay renglones vendidos
+    expect(items[0]).toMatchObject({ codigo: 'PTHIBARRA', descargaStock: false })
+    expect(items[0]).not.toHaveProperty('codigoDeposito')
+    expect(r.comprobante.total).toBe(2000)
+  })
+  it('sin depósito no falla: Redonhielo lo sigue exigiendo, Rolito no', () => {
+    const sinDep = { ...mapeos, codigoDeposito: null, letraNoFiscal: 'B' as const }
+    expect(armarComprobanteFacturador(promo, { ...item, empresa: 'rolito' }, cfgRolito, sinDep).error).toBeUndefined()
+    const r = armarComprobanteFacturador(ventaReal, item, cfg, mapeos)
+    if (r.error !== undefined) throw new Error(r.error)
+    expect((r.comprobante.items as Record<string, unknown>[])[0]).toMatchObject({ descargaStock: true, codigoDeposito: '03' })
+  })
+  it('promo de solo cambios: factura en $0 con los renglones de cambio (artículo CAMBIO*), sin pagos', () => {
+    const soloCambio: PayloadVenta = { ...promo, total: 0, items: [], comprobanteInterno: { tipo: 'facturaX', puntoVenta: 3, numero: 10 } }
+    const conCambio = { ...mapeos, codigoArticulo: (id: string) => ({ bolsa_10kg: 'PTHIBOLROLI0010', cambio_bolsa_10kg: 'CAMBIOBOL10' } as Record<string, string>)[id] ?? null, letraNoFiscal: 'B' as const }
+    const r = armarComprobanteFacturador(soloCambio, { ...item, empresa: 'rolito' }, cfgRolito, conCambio)
+    if (r.error !== undefined) throw new Error(r.error)
+    const items = r.comprobante.items as Record<string, unknown>[]
+    expect(items).toHaveLength(1)
+    expect(items[0]).toMatchObject({ codigo: 'CAMBIOBOL10', cantidad: 1, precio: 0, importe: 0, descargaStock: false })
+    expect(r.comprobante).toMatchObject({ numeroComprobante: 'B0000300000010', total: 0, totalSinImpuestos: 0, totalIva: 0 })
+    expect(r.comprobante).not.toHaveProperty('pagos')
+    expect(r.comprobante).not.toHaveProperty('cuotasCuentaCorriente')
+  })
+  it('el cambio sin mapeo propio cae al artículo del producto', () => {
+    const soloCambio: PayloadVenta = { ...promo, total: 0, items: [] }
+    const r = armarComprobanteFacturador(soloCambio, { ...item, empresa: 'rolito' }, cfgRolito, { ...mapeos, letraNoFiscal: 'B' })
+    if (r.error !== undefined) throw new Error(r.error)
+    expect((r.comprobante.items as Record<string, unknown>[])[0]).toMatchObject({ codigo: 'PTHIBOLROLI0010', descargaStock: false })
+  })
+})

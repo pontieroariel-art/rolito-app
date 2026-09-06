@@ -23,6 +23,9 @@
 //
 // Idempotencia: antes de insertar se busca STA14 por T_COMP + N_COMP; si existe, se
 // devuelve sin escribir. Un reintento nunca duplica.
+//
+// La cabecera, el renglón y el update de stock se arman en comun.ts, compartidos
+// con el writer de movimientos de stock (movimientoStock.ts).
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.remitoDeVenta = remitoDeVenta;
 exports.sentenciaExiste = sentenciaExiste;
@@ -31,6 +34,7 @@ exports.leerDatosRemito = leerDatosRemito;
 exports.escribirRemito = escribirRemito;
 exports.resumenSentencias = resumenSentencias;
 const tipos_1 = require("./tipos");
+const comun_1 = require("./comun");
 /**
  * Del payload de la venta (tango-outbox) al remito de Tango. Los cambios (bolsas
  * repuestas sin cargo) también salen del depósito, así que van como renglones.
@@ -43,48 +47,19 @@ function remitoDeVenta(payload, origenId, articulos, codDeposito, puntoVenta) {
     if (!payload.clienteCodigoTango)
         throw new Error('la venta no tiene clienteCodigoTango');
     const pv = ci.puntoVenta ?? puntoVenta;
-    const renglones = new Map();
-    const sumar = (items) => {
-        for (const it of items ?? []) {
-            const cod = articulos[it.productoId];
-            if (!cod)
-                throw new Error(`producto ${it.productoId} sin artículo de Tango en config/tango.articulos`);
-            renglones.set(cod, (renglones.get(cod) ?? 0) + Number(it.cantidad));
-        }
-    };
-    sumar(payload.items);
-    sumar(payload.cambios);
-    if (renglones.size === 0)
+    const renglones = (0, comun_1.renglonesDeItems)([payload.items, payload.cambios], articulos);
+    if (renglones.length === 0)
         throw new Error('remito sin renglones');
-    const fecha = fechaDePayload(payload.fecha);
     return {
         numero: ci.numero,
         puntoVenta: pv,
         nComp: (0, tipos_1.numeroComprobanteTango)('R', pv, ci.numero),
         codCliente: payload.clienteCodigoTango,
         codDeposito,
-        fecha,
-        renglones: [...renglones.entries()].map(([codArticu, cantidad]) => ({ codArticu, cantidad })),
+        fecha: (0, comun_1.fechaDePayload)(payload.fecha),
+        renglones,
         observacion: `ROLITO:VC:${origenId}`,
     };
-}
-function fechaDePayload(f) {
-    if (f instanceof Date)
-        return f;
-    if (f && typeof f === 'object') {
-        const o = f;
-        if (typeof o.toDate === 'function')
-            return o.toDate();
-        const s = o.seconds ?? o._seconds;
-        if (typeof s === 'number')
-            return new Date(s * 1000);
-    }
-    if (typeof f === 'string' || typeof f === 'number') {
-        const d = new Date(f);
-        if (!isNaN(d.getTime()))
-            return d;
-    }
-    return new Date();
 }
 /** ¿Ya existe este remito en Tango? (idempotencia: T_COMP + N_COMP). */
 function sentenciaExiste(r) {
@@ -99,154 +74,40 @@ function sentenciaExiste(r) {
  * base. `datos` viene de leerDatosRemito (o del test).
  */
 function sentenciasRemito(r, datos, cfg, ahora = new Date()) {
-    const fechaMov = (0, tipos_1.soloDia)(r.fecha);
-    const hoy = (0, tipos_1.soloDia)(ahora);
-    const hora = (0, tipos_1.horaHHMMSS)(ahora);
     const out = [];
-    // 1. Cabecera — mismas 60 columnas y valores que la traza (los "vacíos" de Tango son '', 0 o 1800-01-01).
-    out.push((0, tipos_1.insert)('INSERT STA14', 'STA14', [
-        (0, tipos_1.varchar)('FILLER', '', 1),
-        (0, tipos_1.varchar)('COD_PRO_CL', r.codCliente, 6),
-        (0, tipos_1.numeric)('COTIZ', 1),
-        (0, tipos_1.varchar)('ESTADO_MOV', 'P', 1),
-        (0, tipos_1.bit)('EXPORTADO', false),
-        (0, tipos_1.bit)('EXP_STOCK', false),
-        (0, tipos_1.datetime)('FECHA_ANU', tipos_1.FECHA_NULA_TANGO),
-        (0, tipos_1.datetime)('FECHA_MOV', fechaMov),
-        (0, tipos_1.varchar)('HORA', '0000', 4),
-        (0, tipos_1.smallint)('LISTA_REM', 0),
-        (0, tipos_1.float)('LOTE', 0),
-        (0, tipos_1.float)('LOTE_ANU', 0),
-        (0, tipos_1.bit)('MON_CTE', true),
-        (0, tipos_1.varchar)('MOTIVO_REM', 'V', 1),
-        (0, tipos_1.varchar)('N_COMP', r.nComp, 14),
-        (0, tipos_1.varchar)('N_REMITO', r.nComp, 14),
-        (0, tipos_1.varchar)('NCOMP_IN_S', datos.ncompInS, 8),
-        (0, tipos_1.varchar)('NCOMP_ORIG', '', 1),
-        (0, tipos_1.smallint)('NRO_SUCURS', 0),
-        (0, tipos_1.varchar)('OBSERVACIO', '', 1),
-        (0, tipos_1.smallint)('SUC_ORIG', 0),
-        (0, tipos_1.varchar)('T_COMP', 'REM', 3),
-        (0, tipos_1.smallint)('TALONARIO', cfg.talonario),
-        (0, tipos_1.varchar)('TCOMP_IN_S', 'RE', 2),
-        (0, tipos_1.varchar)('TCOMP_ORIG', '', 1),
-        (0, tipos_1.varchar)('USUARIO', cfg.usuario.slice(0, 10), 10),
-        (0, tipos_1.varchar)('COD_TRANSP', cfg.codigoTransporte, 2),
-        (0, tipos_1.varchar)('HORA_COMP', hora, 6),
-        (0, tipos_1.float)('ID_A_RENTA', 0),
-        (0, tipos_1.bit)('DOC_ELECTR', false),
-        (0, tipos_1.varchar)('COD_CLASIF', '', 1),
-        (0, tipos_1.varchar)('AUDIT_IMP', '', 1),
-        (0, tipos_1.numeric)('IMP_IVA', 0),
-        (0, tipos_1.numeric)('IMP_OTIMP', 0),
-        (0, tipos_1.numeric)('IMPORTE_BO', 0),
-        (0, tipos_1.numeric)('IMPORTE_TO', 0),
-        (0, tipos_1.varchar)('DIFERENCIA', 'N', 1),
-        (0, tipos_1.smallint)('SUC_DESTIN', 0),
-        (0, tipos_1.varchar)('T_DOC_DTE', '', 1),
+    // 1. Cabecera — mismas 60 columnas y valores que la traza.
+    out.push((0, comun_1.cabeceraSta14)({
+        tComp: 'REM', tcompInS: 'RE', talonario: cfg.talonario,
+        nComp: r.nComp, nRemito: r.nComp, ncompInS: datos.ncompInS,
+        codCliente: r.codCliente, codDeposito: r.codDeposito,
+        estadoMov: 'P', motivoRem: 'V', codTransp: cfg.codigoTransporte,
+        fecha: r.fecha, ahora, usuario: cfg.usuario, terminal: cfg.terminal,
         // La referencia idempotente va en LEYENDA1 (varchar 60): se lee desde Tango y
         // sirve para cruzar contra ventasCamion sin depender solo del número.
-        (0, tipos_1.varchar)('LEYENDA1', r.observacion.slice(0, 60), 60),
-        (0, tipos_1.varchar)('LEYENDA2', '', 1),
-        (0, tipos_1.varchar)('LEYENDA3', '', 1),
-        (0, tipos_1.varchar)('LEYENDA4', '', 1),
-        (0, tipos_1.varchar)('LEYENDA5', '', 1),
-        (0, tipos_1.numeric)('DCTO_CLIEN', 0),
-        (0, tipos_1.varchar)('T_INT_ORI', '', 1),
-        (0, tipos_1.varchar)('N_INT_ORI', '', 1),
-        (0, tipos_1.datetime)('FECHA_INGRESO', hoy),
-        (0, tipos_1.varchar)('HORA_INGRESO', hora, 6),
-        (0, tipos_1.varchar)('USUARIO_INGRESO', cfg.usuario.slice(0, 10), 10),
-        (0, tipos_1.varchar)('TERMINAL_INGRESO', cfg.terminal.slice(0, 8), 8),
-        (0, tipos_1.numeric)('IMPORTE_TOTAL_CON_IMPUESTOS', 0),
-        (0, tipos_1.numeric)('CANTIDAD_KILOS', 0),
-        (0, tipos_1.int)('ID_DIRECCION_ENTREGA', datos.idDireccionEntrega),
-        (0, tipos_1.smallint)('NRO_SUCURSAL_DESTINO_REMITO', datos.nroSucursalDestino),
-        (0, tipos_1.varchar)('COD_DEPOSI', r.codDeposito, 2),
-        (0, tipos_1.smallint)('COND_VTA', datos.condVta),
-        // Tango deja en estos tres la hora/usuario/terminal de la sesión aunque el remito
-        // no esté anulado (dato residual de su pantalla). Acá van vacíos: es un remito vigente.
-        (0, tipos_1.varchar)('HORA_ANU', '', 6),
-        (0, tipos_1.varchar)('USUARIO_ANU', '', 10),
-        (0, tipos_1.varchar)('TERMINAL_ANU', '', 8),
-    ], true));
-    // 2. Renglones.
+        leyendas: [r.observacion],
+        idDireccionEntrega: datos.idDireccionEntrega, nroSucursalDestino: datos.nroSucursalDestino, condVta: datos.condVta,
+    }));
+    // 2. Renglones: salida del depósito, cantidad y pendiente de facturar iguales.
     r.renglones.forEach((ren, i) => {
         const art = datos.articulos[ren.codArticu];
         if (!art)
             throw new Error(`falta leer el artículo ${ren.codArticu} de Tango (unidades / stock)`);
-        out.push((0, tipos_1.insert)(`INSERT STA20 ${ren.codArticu}`, 'STA20', [
-            (0, tipos_1.varchar)('FILLER', '', 1),
-            (0, tipos_1.numeric)('CAN_EQUI_V', ren.cantidad),
-            (0, tipos_1.numeric)('CANT_DEV', 0),
-            (0, tipos_1.numeric)('CANT_OC', 0),
-            (0, tipos_1.numeric)('CANT_PEND', ren.cantidad),
-            (0, tipos_1.numeric)('CANT_SCRAP', 0),
-            (0, tipos_1.numeric)('CANTIDAD', ren.cantidad),
-            (0, tipos_1.numeric)('CANT_FACTU', 0),
-            (0, tipos_1.varchar)('COD_ARTICU', ren.codArticu, 15),
-            (0, tipos_1.varchar)('COD_DEPOSI', r.codDeposito, 2),
-            (0, tipos_1.varchar)('DEPOSI_DDE', '', 1),
-            (0, tipos_1.numeric)('EQUIVALENC', 1),
-            (0, tipos_1.datetime)('FECHA_MOV', fechaMov),
-            (0, tipos_1.varchar)('N_ORDEN_CO', '', 1),
-            (0, tipos_1.int)('N_RENGL_OC', 0),
-            (0, tipos_1.int)('N_RENGL_S', i + 1),
-            (0, tipos_1.varchar)('NCOMP_IN_S', datos.ncompInS, 8),
-            (0, tipos_1.numeric)('PLISTA_REM', 0),
-            (0, tipos_1.numeric)('PPP_EX', 0),
-            (0, tipos_1.numeric)('PPP_LO', 0),
-            (0, tipos_1.numeric)('PRECIO', 0),
-            (0, tipos_1.numeric)('PRECIO_REM', 0),
-            (0, tipos_1.varchar)('TCOMP_IN_S', 'RE', 2),
-            (0, tipos_1.varchar)('TIPO_MOV', 'S', 1),
-            (0, tipos_1.varchar)('COD_CLASIF', '', 1),
-            (0, tipos_1.numeric)('DCTO_FACTU', 0),
-            (0, tipos_1.numeric)('CANT_DEV_2', 0),
-            (0, tipos_1.numeric)('CANT_PEND_2', 0),
-            (0, tipos_1.numeric)('CANTIDAD_2', 0),
-            (0, tipos_1.numeric)('CANT_FACTU_2', 0),
-            (0, tipos_1.numeric)('CANT_OC_2', 0),
-            (0, tipos_1.int)('ID_MEDIDA_STOCK_2', null),
-            (0, tipos_1.int)('ID_MEDIDA_STOCK', art.idMedidaStock),
-            (0, tipos_1.int)('ID_MEDIDA_VENTAS', art.idMedidaVentas),
-            (0, tipos_1.int)('ID_MEDIDA_COMPRA', null),
-            (0, tipos_1.varchar)('UNIDAD_MEDIDA_SELECCIONADA', 'P', 1),
-            (0, tipos_1.numeric)('PRECIO_REMITO_VENTAS', 0),
-            (0, tipos_1.int)('RENGL_PADR', 0),
-            (0, tipos_1.varchar)('COD_ARTICU_KIT', '', 1),
-            (0, tipos_1.bit)('PROMOCION', false),
-            (0, tipos_1.smallint)('TALONARIO_OC', 0),
-            (0, tipos_1.varchar)('COD_DEPOSI_INGRESO', '', 1),
-            (0, tipos_1.varchar)('OBSERVACIONES', '', 1),
-            (0, tipos_1.numeric)('IMPUESTO_INTERNO_FIJO', 1), // así lo graba Tango en un remito sin precios
-            (0, tipos_1.numeric)('IMPORTE_SIN_IMPUESTOS', 0),
-            (0, tipos_1.numeric)('IMPORTE_CON_IMPUESTOS', 0),
-            (0, tipos_1.numeric)('BASE_CALCULO_II_VARIABLE', 0),
-            (0, tipos_1.numeric)('CANTIDAD_PARTIDAS', 0),
-            (0, tipos_1.numeric)('CANTIDAD_PARTIDAS_2', 0),
-            (0, tipos_1.varchar)('NRO_OC_COMP', '', 1),
-        ], true));
+        out.push((0, comun_1.renglonSta20)({
+            etiqueta: `INSERT STA20 ${ren.codArticu}`,
+            codArticu: ren.codArticu, cantidad: ren.cantidad, tipoMov: 'S', codDeposito: r.codDeposito,
+            nRenglon: i + 1, tcompInS: 'RE', ncompInS: datos.ncompInS, fecha: r.fecha,
+            idMedidaStock: art.idMedidaStock, idMedidaVentas: art.idMedidaVentas,
+            cantPendiente: ren.cantidad,
+            impuestoInternoFijo: 1, // así lo graba Tango en un remito sin precios
+        }));
     });
-    // 3. Stock del depósito, con la misma concurrencia optimista de Tango: si otro
-    //    movimiento cambió CANT_STOCK entre la lectura y el UPDATE, afecta 0 filas y el
-    //    writer aborta la transacción (el reintento vuelve a leer).
+    // 3. Stock del depósito, con la misma concurrencia optimista de Tango.
     for (const ren of r.renglones) {
         const art = datos.articulos[ren.codArticu];
-        out.push({
-            etiqueta: `UPDATE STA19 stock ${ren.codArticu}`,
-            sql: `UPDATE "STA19" SET "CANT_STOCK" = @CANT_NUEVA WHERE "COD_ARTICU" = @COD_ARTICU AND "COD_DEPOSI" = @COD_DEPOSI AND "CANT_STOCK" = @CANT_ANTERIOR AND "COD_UBIC1" = '' AND "COD_UBIC2" = '' AND "COD_UBIC3" = ''`,
-            params: [
-                (0, tipos_1.numeric)('CANT_NUEVA', redondear7(art.stockActual - ren.cantidad)),
-                (0, tipos_1.varchar)('COD_ARTICU', ren.codArticu, 15),
-                (0, tipos_1.varchar)('COD_DEPOSI', r.codDeposito, 2),
-                (0, tipos_1.numeric)('CANT_ANTERIOR', art.stockActual),
-            ],
-        });
+        out.push((0, comun_1.updateSta19)(`UPDATE STA19 stock ${ren.codArticu}`, ren.codArticu, r.codDeposito, art.stockActual, -ren.cantidad));
     }
     return out;
 }
-const redondear7 = (n) => Math.round(n * 1e7) / 1e7;
 /**
  * Lee de Tango lo que las sentencias necesitan. Las consultas marcadas (*) son la
  * mejor hipótesis sobre el esquema y se confirman en la prueba de TestingRH
@@ -268,31 +129,15 @@ async function leerDatosRemito(db, r) {
         }
     }
     catch { /* si la tabla se llama distinto, queda NULL y lo revisamos en la prueba */ }
-    // (*) Número interno de stock: contador de Tango si existe, si no MAX + 1.
-    let ncompInS = null;
-    try {
-        const inc = await db.query(`SELECT UltimoValor FROM dbo.INCREMENTAL_VALUE WHERE Tabla = 'STA14' AND Campo = 'NCOMP_IN_S'`);
-        if (inc.length) {
-            const siguiente = Number(inc[0].UltimoValor) + 1;
-            await db.query(`UPDATE dbo.INCREMENTAL_VALUE SET UltimoValor = @V WHERE Tabla = 'STA14' AND Campo = 'NCOMP_IN_S' AND UltimoValor = @ANT`, [(0, tipos_1.int)('V', siguiente), (0, tipos_1.int)('ANT', Number(inc[0].UltimoValor))]);
-            ncompInS = String(siguiente).padStart(8, '0');
-        }
-    }
-    catch { /* sin tabla de contadores → MAX+1 */ }
-    if (!ncompInS) {
-        const mx = await db.query(`SELECT MAX(NCOMP_IN_S) AS MAXN FROM STA14 WHERE TCOMP_IN_S = 'RE'`);
-        ncompInS = String((Number(mx[0]?.MAXN ?? '0') || 0) + 1).padStart(8, '0');
-    }
+    const ncompInS = await (0, comun_1.siguienteNcompInS)(db, 'RE');
     // Artículos: unidades de medida y stock actual en el depósito.
     const articulos = {};
     for (const ren of r.renglones) {
-        const art = await db.query(`SELECT ID_MEDIDA_STOCK, ID_MEDIDA_VENTAS FROM STA11 WHERE COD_ARTICU = @COD`, [(0, tipos_1.varchar)('COD', ren.codArticu, 15)]);
-        if (!art.length)
-            throw new Error(`artículo ${ren.codArticu} no existe en Tango`);
-        const stock = await db.query(`SELECT CANT_STOCK FROM STA19 WHERE COD_ARTICU = @COD AND COD_DEPOSI = @DEP AND COD_UBIC1 = '' AND COD_UBIC2 = '' AND COD_UBIC3 = ''`, [(0, tipos_1.varchar)('COD', ren.codArticu, 15), (0, tipos_1.varchar)('DEP', r.codDeposito, 2)]);
-        if (!stock.length)
+        const art = await (0, comun_1.leerArticulo)(db, ren.codArticu);
+        const stockActual = await (0, comun_1.leerStock)(db, ren.codArticu, r.codDeposito);
+        if (stockActual === null)
             throw new Error(`el artículo ${ren.codArticu} no tiene saldo de stock en el depósito ${r.codDeposito} (STA19)`);
-        articulos[ren.codArticu] = { idMedidaStock: art[0].ID_MEDIDA_STOCK, idMedidaVentas: art[0].ID_MEDIDA_VENTAS, stockActual: Number(stock[0].CANT_STOCK) };
+        articulos[ren.codArticu] = { ...art, stockActual };
     }
     return { ncompInS, condVta: Number(cli[0].COND_VTA ?? 0), idDireccionEntrega, nroSucursalDestino, articulos };
 }

@@ -57,40 +57,58 @@ function payloadDeVenta(venta) {
     return payload;
 }
 /**
- * Alta de una venta desde el camión → un item en tango-outbox.
+ * Alta de una venta (camión o ventanilla) → los items que le corresponden en
+ * tango-outbox:
  *
- * QUÉ comprobante y en QUÉ empresa lo decide `destinoTango`, que es la misma
- * regla que decide si se le pide un CAE a ARCA — así no pueden divergir. Ver
- * docs/arca/FACTURACION_ELECTRONICA.md §11.
- *
- * Las que van como **factura de Redonhielo** NO se encolan acá: primero tiene
- * que existir el CAE, que lo escribe `onVentaContadoFacturar` unos segundos
- * después. Esas las encola `onVentaCamionFacturada`. Mandarlas ahora sería
- * mandar una factura sin su autorización.
+ *  1. El COMPROBANTE de venta. QUÉ comprobante y en QUÉ empresa lo decide
+ *     `destinoTango`, que es la misma regla que decide si se le pide un CAE a
+ *     ARCA — así no pueden divergir (docs/arca/FACTURACION_ELECTRONICA.md §11).
+ *     Las que van como **factura de Redonhielo** NO se encolan acá: primero
+ *     tiene que existir el CAE, que lo escribe `onVentaContadoFacturar` unos
+ *     segundos después; esas las encola `onVenta*Facturada`. Mandarlas ahora
+ *     sería mandar una factura sin su autorización.
+ *  2. El MOVIMIENTO DE STOCK aparte, cuando el comprobante no lo hace: la
+ *     factura de promo va a Rolito sin descargar stock y la mercadería sale de
+ *     Redonhielo por un egreso VPR (`movimientoStockDeVenta`, decisión de Ariel
+ *     2026-09-05). Item propio (`<col>_<id>_stock`), entidad 'movimientoStock',
+ *     lo atiende el bridge SQL con su propio interruptor (stockSqlEnabled).
  */
-exports.onVentaCamionCreada = (0, firestore_1.onDocumentCreated)('ventasCamion/{ventaId}', async (event) => {
-    const venta = event.data?.data();
-    if (!venta)
-        return;
+async function encolarVenta(coleccion, ventaId, venta) {
     const destino = (0, circuito_1.destinoTango)(venta.canal, venta.formaPago, venta.total);
     if (!destino) {
         // Mismo criterio que la facturación: ante la duda, no mandar. Un
         // comprobante creado en la empresa equivocada se arregla a mano del otro
         // lado; mandarlo bien más tarde, no.
-        console.warn(`[tango] la venta ${event.params.ventaId} no dice a dónde va ` +
+        console.warn(`[tango] la venta ${coleccion}/${ventaId} no dice a dónde va ` +
             `(canal=${String(venta.canal)}, formaPago=${String(venta.formaPago)}, ` +
             `total=${String(venta.total)}); no se encola`);
         return;
     }
-    if (destino.conCaePropio)
-        return; // espera el CAE — ver onVentaCamionFacturada
-    await encolarOutbox(`ventasCamion_${event.params.ventaId}`, {
-        entidad: destino.entidad,
-        empresa: destino.empresa,
-        origenColeccion: 'ventasCamion',
-        origenId: event.params.ventaId,
-        payload: payloadDeVenta(venta),
-    });
+    if (!destino.conCaePropio) { // con CAE espera a la factura — ver onVenta*Facturada
+        await encolarOutbox(`${coleccion}_${ventaId}`, {
+            entidad: destino.entidad,
+            empresa: destino.empresa,
+            origenColeccion: coleccion,
+            origenId: ventaId,
+            payload: payloadDeVenta(venta),
+        });
+    }
+    const stock = (0, circuito_1.movimientoStockDeVenta)(venta.canal, venta.formaPago, venta.total);
+    if (stock) {
+        await encolarOutbox(`${coleccion}_${ventaId}_stock`, {
+            entidad: 'movimientoStock',
+            empresa: stock.empresa,
+            origenColeccion: coleccion,
+            origenId: ventaId,
+            payload: { movimiento: stock.movimiento, venta: payloadDeVenta(venta) },
+        });
+    }
+}
+exports.onVentaCamionCreada = (0, firestore_1.onDocumentCreated)('ventasCamion/{ventaId}', async (event) => {
+    const venta = event.data?.data();
+    if (!venta)
+        return;
+    await encolarVenta('ventasCamion', event.params.ventaId, venta);
 });
 /**
  * La factura de Redonhielo viaja recién cuando ARCA la autorizó.
@@ -134,22 +152,7 @@ exports.onVentaVentanillaCreada = (0, firestore_1.onDocumentCreated)('ventasVent
     const venta = event.data?.data();
     if (!venta)
         return;
-    const destino = (0, circuito_1.destinoTango)(venta.canal, venta.formaPago, venta.total);
-    if (!destino) {
-        console.warn(`[tango] la venta de ventanilla ${event.params.ventaId} no dice a dónde va ` +
-            `(canal=${String(venta.canal)}, formaPago=${String(venta.formaPago)}, ` +
-            `total=${String(venta.total)}); no se encola`);
-        return;
-    }
-    if (destino.conCaePropio)
-        return; // espera el CAE — ver onVentaVentanillaFacturada
-    await encolarOutbox(`ventasVentanilla_${event.params.ventaId}`, {
-        entidad: destino.entidad,
-        empresa: destino.empresa,
-        origenColeccion: 'ventasVentanilla',
-        origenId: event.params.ventaId,
-        payload: payloadDeVenta(venta),
-    });
+    await encolarVenta('ventasVentanilla', event.params.ventaId, venta);
 });
 exports.onVentaVentanillaFacturada = (0, firestore_1.onDocumentUpdated)('ventasVentanilla/{ventaId}', async (event) => {
     const antes = event.data?.before.data();
@@ -309,6 +312,11 @@ exports.onCobranzaCreada = (0, firestore_1.onDocumentCreated)('cobranzas/{cobran
 // escribir esas colecciones — solo los campos de estado del outbox; el
 // write-back va por Admin SDK, que además bypassa la inmutabilidad de
 // cobranzas en las reglas, a propósito).
+//
+// Los updates van con dot-paths ('tango.estado') y no con el objeto entero
+// ({ tango: {...} }): una venta promo recibe DOS confirmaciones (la factura de
+// Rolito y el egreso de stock de Redonhielo) y la segunda no debe pisar la
+// primera.
 const WRITE_BACKS = {
     remito: {
         // Del camión o del mostrador: mismo comprobante en Tango, distinto origen.
@@ -317,7 +325,7 @@ const WRITE_BACKS = {
             const remitoNumero = resultado?.remitoNumero;
             if (!remitoNumero)
                 return null;
-            return { tango: { estado: 'confirmado', remitoNumero } };
+            return { 'tango.estado': 'confirmado', 'tango.remitoNumero': remitoNumero };
         },
     },
     // El número que le puso TANGO al comprobante. No se toca `venta.factura`,
@@ -329,7 +337,7 @@ const WRITE_BACKS = {
             const facturaNumero = resultado?.facturaNumero ?? resultado?.comprobanteNumero;
             if (!facturaNumero)
                 return null;
-            return { tango: { estado: 'confirmado', facturaNumero: String(facturaNumero) } };
+            return { 'tango.estado': 'confirmado', 'tango.facturaNumero': String(facturaNumero) };
         },
     },
     // Remito de carga y descarga del camión: el número que Tango le dio al
@@ -340,7 +348,18 @@ const WRITE_BACKS = {
             const numero = resultado?.transferenciaNumero ?? resultado?.comprobanteNumero ?? resultado?.savedId;
             if (!numero)
                 return null;
-            return { tango: { estado: 'confirmado', transferenciaNumero: String(numero) } };
+            return { 'tango.estado': 'confirmado', 'tango.transferenciaNumero': String(numero) };
+        },
+    },
+    // Egreso de stock en Redonhielo por la venta promo (tipo VPR). Campos propios
+    // (stock*) porque el mismo doc ya tiene la confirmación de la factura de Rolito.
+    movimientoStock: {
+        colecciones: ['ventasCamion', 'ventasVentanilla'],
+        buildUpdate: (resultado) => {
+            const numero = resultado?.stockNumero;
+            if (!numero)
+                return null;
+            return { 'tango.stockEstado': 'confirmado', 'tango.stockNumero': String(numero), 'tango.stockTipo': String(resultado?.tComp ?? '') };
         },
     },
     recibo: {
@@ -349,7 +368,7 @@ const WRITE_BACKS = {
             const reciboNumero = resultado?.reciboNumero ?? resultado?.savedId;
             if (!reciboNumero)
                 return null;
-            return { tango: { estado: 'confirmado', reciboNumero: String(reciboNumero) } };
+            return { 'tango.estado': 'confirmado', 'tango.reciboNumero': String(reciboNumero) };
         },
     },
 };

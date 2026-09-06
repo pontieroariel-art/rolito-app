@@ -4,9 +4,11 @@
 //     Redonhielo. Es el remito OFICIAL: sale con letra R y el CAI del talonario
 //     autorizado por ARCA cuando la oficina lo cargó en config/remitoOficial;
 //     mientras no esté, sale con letra X y sin CAI (no se inventa uno).
-//   - Promo (Rolito) en cuenta corriente o $0 → REMITO de Rolito. Mismo papel,
-//     letra X, y en el lugar del CAI un número de control interno correlativo.
-//   - Promo cobrada → FACTURA X de Rolito: no oficial, con precios.
+//   - Promo (Rolito), cobrada, en cuenta corriente o en $0 (solo cambios) →
+//     FACTURA X de Rolito: no oficial, con precios; los cambios van como
+//     renglones sin cargo. En Rolito no hay remitos (decisión de Ariel
+//     2026-09-05): la factura en $0 es el papel del cambio. El tipo
+//     'remitoPromo' queda solo para leer/reimprimir las ventas anteriores.
 //
 // El remito no lleva precios: solo cantidades, el bloque de entrega y el resumen
 // de bultos. La firma del cliente va impresa en todos (decisión 2026-09-03).
@@ -22,18 +24,20 @@ const CONDICION_VENTA: Record<VentaCamion['formaPago'], string> = {
   cuenta_corriente:      'Cuenta corriente',
 }
 
-/** Qué comprobante interno le corresponde a la venta, o null si va por ARCA. */
+/**
+ * Qué comprobante interno le corresponde a la venta, o null si va por ARCA.
+ * Si la venta ya salió con un comprobante numerado, ese tipo manda (una promo
+ * en $0 anterior al 2026-09-05 salió como remito de Rolito y se reimprime así).
+ */
 export function tipoComprobanteInterno(
-  venta: Pick<VentaCamion, 'canal' | 'formaPago' | 'total'>,
+  venta: Pick<VentaCamion, 'canal' | 'formaPago' | 'total'> & { comprobanteInterno?: VentaCamion['comprobanteInterno'] },
 ): TipoComprobanteInterno | null {
+  if (venta.comprobanteInterno?.tipo) return venta.comprobanteInterno.tipo
   const documento = documentoDeVenta(venta.canal, venta.formaPago, venta.total)
   if (documento === 'remito') return 'remito'
-  // Promo: siempre factura X, cobrada o en cuenta corriente (decisión de
-  // Ariel 2026-09-03 — espejo de destinoTango en functions). Solo la operación
-  // en $0 (solo cambios) sale por remito de Rolito.
-  if (documento === 'no_oficial') {
-    return venta.total <= 0 ? 'remitoPromo' : 'facturaX'
-  }
+  // Promo: siempre factura X — cobrada, en cuenta corriente (2026-09-03) o en
+  // $0 con solo cambios (2026-09-05). Espejo de destinoTango en functions.
+  if (documento === 'no_oficial') return 'facturaX'
   return null
 }
 

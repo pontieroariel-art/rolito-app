@@ -112,8 +112,30 @@ export function destinoTango(canal: unknown, formaPago: unknown, total: unknown)
   // (decisión de Ariel 2026-09-03: la promo en cuenta corriente también es
   // factura, y en Tango entra por el Facturador con cuota de cta. cte., no
   // como pedido). Sin ARCA: numeración propia, nunca hay riesgo de duplicar
-  // una autorización fiscal. La única excepción es la operación en $0 (solo
-  // cambios): no hay factura de cero, va como remito.
-  const entidad = Number(total) <= 0 ? 'remito' : 'factura'
-  return { entidad, empresa: 'rolito', conCaePropio: false }
+  // una autorización fiscal. La operación en $0 (solo cambios) TAMBIÉN es
+  // factura: en Rolito no hay remitos, queda una factura en $0 con los
+  // renglones de cambio (decisión de Ariel 2026-09-05). El stock lo mueve el
+  // egreso en Redonhielo, ver movimientoStockDeVenta.
+  return { entidad: 'factura', empresa: 'rolito', conCaePropio: false }
+}
+
+/**
+ * Qué movimiento de STOCK genera la venta, aparte del comprobante.
+ *
+ * Todo el stock del reparto vive en REDONHIELO (decisión de Ariel 2026-09-05):
+ * la factura de contado y el remito de cuenta corriente ya descuentan ahí,
+ * pero la factura de promo se registra en ROLITO sin descargar stock, así que
+ * la mercadería que salió del camión tiene que salir de Redonhielo por un
+ * egreso puro (tipo de comprobante de stock VPR, writer movimientoStock).
+ * Devuelve `null` cuando el comprobante de venta ya mueve el stock.
+ */
+export interface MovimientoStockVenta {
+  /** Clave del tipo en config/tango.sql.stock.tipos. */
+  movimiento: 'ventaPromo'
+  empresa: EmpresaTangoVenta
+}
+
+export function movimientoStockDeVenta(canal: unknown, _formaPago: unknown, _total: unknown): MovimientoStockVenta | null {
+  if (canal !== 'promo') return null
+  return { movimiento: 'ventaPromo', empresa: 'redonhielo' }
 }

@@ -62,13 +62,15 @@ function documentoDeVenta(payload) {
 }
 /**
  * Ítems del comprobante con importes que cierran contra los totales de ARCA.
- * Los precios de la app son NETOS salvo preciosIncluyenIva. Los cambios NO van:
- * un renglón a $0 confunde al cliente y el artículo CAMBIO* movía stock ficticio
- * (decisión de Ariel 2026-09-04, docs/tango/STOCK_REPARTO.md). El cambio se
- * registra como transferencia camión → merma con el artículo real.
+ * Los precios de la app son NETOS salvo preciosIncluyenIva. Los cambios NO van
+ * (salvo `incluirCambios`): un renglón a $0 confunde al cliente y el artículo
+ * CAMBIO* movía stock ficticio (decisión de Ariel 2026-09-04,
+ * docs/tango/STOCK_REPARTO.md). El cambio sale del stock por otro comprobante.
  */
 function itemsDeVenta(payload, opciones) {
-    const { codigoArticulo, preciosIncluyenIva = false, codigoTasaIva, codigoDeposito, totales, sinIva = false } = opciones;
+    const { codigoArticulo, preciosIncluyenIva = false, codigoTasaIva, totales, sinIva = false, incluirCambios = false } = opciones;
+    const descargaStock = opciones.descargaStock !== false;
+    const codigoDeposito = descargaStock ? opciones.codigoDeposito : null;
     const items = [];
     const faltantes = [];
     // Sin IVA (Rolito): el precio es final, no hay factor.
@@ -100,13 +102,17 @@ function itemsDeVenta(payload, opciones) {
             importe: (0, exports.redondear2)(base + iva),
             importeSinImpuestos: base,
             importeIva: iva,
-            descargaStock: true,
+            // Un renglón de cambio nunca descarga: el artículo CAMBIO* es informativo.
+            descargaStock: descargaStock && !esCambio,
             _base: base,
             esCambio,
         });
     };
     for (const it of payload.items ?? [])
         agregar(it, false);
+    if (incluirCambios)
+        for (const it of payload.cambios ?? [])
+            agregar(it, true);
     // Ajuste por redondeo: la suma de bases/IVAs tiene que dar EXACTO el neto/IVA
     // informado a ARCA. La diferencia (centavos) se carga al último ítem con importe.
     if (totales && items.length) {
@@ -196,9 +202,14 @@ function armarComprobanteFacturador(payload, item, cfg, mapeos) {
     let totales = docu.importes
         ? { neto: Number(docu.importes.neto), iva: Number(docu.importes.iva), tributos: Number(docu.importes.tributos ?? 0), total: Number(docu.importes.total) }
         : null;
+    const descargaStock = cfg.descargaStock !== false;
+    // Factura X de promo sin nada vendido (solo cambios): en Rolito queda una
+    // factura en $0 con los renglones de cambio, que es el papel del cambio.
+    const soloCambios = !docu.fiscal && !(payload.items ?? []).some((i) => Number(i.cantidad) > 0) && (payload.cambios ?? []).some((i) => Number(i.cantidad) > 0);
     const r = itemsDeVenta(payload, {
         codigoArticulo: mapeos.codigoArticulo, preciosIncluyenIva: cfg.preciosIncluyenIva === true,
         codigoTasaIva: codigoTasaIva, codigoDeposito: mapeos.codigoDeposito, totales, sinIva,
+        descargaStock, incluirCambios: soloCambios,
     });
     if (r.error)
         return { error: r.error };
@@ -229,7 +240,7 @@ function armarComprobanteFacturador(payload, item, cfg, mapeos) {
         ...(cfg.fechaCierreTesoreria ? { fechaCierreTesoreria: cfg.fechaCierreTesoreria } : {}),
         codigoListaPrecio: listaPrecio,
         codigoContracuenta: cfg.contracuenta,
-        ...(mapeos.codigoDeposito ? { codigoDeposito: mapeos.codigoDeposito } : {}),
+        ...(descargaStock && mapeos.codigoDeposito ? { codigoDeposito: mapeos.codigoDeposito } : {}),
         codigoVendedor: String(cfg.vendedor),
         leyenda1: recortar(ref, 60),
         leyenda2: recortar(`Venta ${payload.canal === 'promo' ? 'Promo' : 'Contado'} app${numeroInterno ? ` ${numeroInterno}` : ''} - ${formaPago}`, 60),
@@ -248,7 +259,11 @@ function armarComprobanteFacturador(payload, item, cfg, mapeos) {
             return percepciones[k].length ? { ...it, percepciones: percepciones[k] } : it;
         }),
     };
-    if (formaPago === 'cuenta_corriente') {
+    if (totales.total <= 0) {
+        // Factura en $0 (solo cambios): no hay nada que cobrar ni que imputar. Si el
+        // Facturador exige un pago o una cuota igual, se ajusta con la prueba en TestingRH.
+    }
+    else if (formaPago === 'cuenta_corriente') {
         comprobante.cuotasCuentaCorriente = [{ fechaVencimiento: fecha, importe: totales.total }];
     }
     else {

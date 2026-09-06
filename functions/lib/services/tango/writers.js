@@ -106,7 +106,9 @@ async function enviarFactura(payload, ctx) {
         return { ok: false, error: `Falta config/tango.facturador.${empresa} (talonarios, condicionVenta, listaPrecio, contracuenta, vendedor, codigoTasaIva21, cuentas, codigoAlicuotaPercepcionIIBB)` };
     const articulos = cfg.articulos ?? {};
     const codDeposito = codigoDeposito(cfg, payload) ?? (!payload.camionId ? cfgEmpresa.depositoVentanilla ?? null : null);
-    if (!codDeposito) {
+    // Rolito factura sin descargar stock (descargaStock: false): el depósito no hace
+    // falta; la mercadería sale de Redonhielo por el egreso VPR (movimientoStock).
+    if (!codDeposito && cfgEmpresa.descargaStock !== false) {
         return { ok: false, error: payload.camionId ? `Falta el depósito Tango del chofer ${payload.choferNombre ?? payload.choferId} (config/tango.depositos.${payload.choferId})` : `Falta el depósito Tango de la planta ${payload.plantaId ?? '?'} (config/tango.depositosPlanta)` };
     }
     // Vendedor = el chofer logueado (decisión de Ariel 2026-09-03): mapeo
@@ -162,7 +164,7 @@ async function enviarFactura(payload, ctx) {
     }, {
         codigoArticulo: (id) => articulos[id] ?? null,
         codigoDeposito: codDeposito,
-        etiquetaCamion: `${codDeposito} ${cfg.camiones?.[payload.choferId ?? ''] ?? ''}`.trim(),
+        etiquetaCamion: `${codDeposito ?? ''} ${cfg.camiones?.[payload.choferId ?? ''] ?? ''}`.trim(),
         letraNoFiscal,
     });
     if (armado.error !== undefined)

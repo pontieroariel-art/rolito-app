@@ -1,8 +1,8 @@
 /**
- * bridge-sql.mjs — remitos y recibos de la app → base SQL Server de Tango.
+ * bridge-sql.mjs — remitos, recibos y movimientos de stock de la app → base SQL Server de Tango.
  *
  * Corre EN EL SERVIDOR DE TANGO (RHIELOTG), donde vive SQL Server. Escucha
- * `tango-outbox` (entidades 'remito' y 'recibo') con el usuario `tango-bridge`
+ * `tango-outbox` (entidades 'remito', 'recibo' y 'movimientoStock') con el usuario `tango-bridge`
  * (solo puede leer la cola y actualizar estado/resultado — ver firestore.rules) y
  * escribe cada comprobante en la base de la empresa dentro de UNA transacción,
  * copiando lo que hace Tango (docs/tango/INTEGRACION.md §20/§21, trazas en
@@ -11,14 +11,17 @@
  *
  * Instalación (una vez, en C:\RolitoSync\sql\):
  *   1. Copiar: bridge-sql.mjs, bridge-sql.config.json (desde el .example), y la
- *      carpeta functions/lib/services/tango/sql/ del repo (tipos.js, remito.js, recibo.js)
- *      como C:\RolitoSync\sql\lib\.
+ *      carpeta functions/lib/services/tango/sql/ del repo (tipos.js, comun.js, remito.js,
+ *      recibo.js, movimientoStock.js) como C:\RolitoSync\sql\lib\.
  *   2. `npm init -y && npm i firebase mssql` en esa carpeta (Node 22).
  *   3. Probar: node bridge-sql.mjs --probar-sql (conexión, login y permisos en cada base; no toca nada)
  *              node bridge-sql.mjs --dry-run    (ejecuta todo y REVIERTE; no deja nada en Tango)
  *   4. Servicio: Task Scheduler "al iniciar el equipo", node.exe C:\RolitoSync\sql\bridge-sql.mjs
  *
- * Flags en config/tango (Firestore): remitosSqlEnabled / recibosSqlEnabled (default false).
+ * Flags en config/tango (Firestore): remitosSqlEnabled / recibosSqlEnabled / stockSqlEnabled (default false).
+ * Movimientos de stock (2026-09-05): egreso VPR en REDONHIELO por cada venta promo (la factura
+ * de Rolito no descarga stock) — config/tango.sql.stock { usuario, terminal, tipos: { ventaPromo:
+ * { tipo:'egreso', tComp:'VPR', tcompInS, talonario: <ID_STA17> } } }; script sql/08-stock.sql.
  * El worker de la nube (tangoWorker) NO toca 'remito' ni 'recibo' mientras
  * config/tango.remitosEnabled siga en false (así fue decidido: §14/§20).
  */
@@ -38,6 +41,7 @@ const require = createRequire(import.meta.url)
 const sqlLib = (f) => require(path.join(__dirname, 'lib', f))
 const { escribirRemito, remitoDeVenta } = sqlLib('remito.js')
 const { escribirRecibo, reciboDeCobranza } = sqlLib('recibo.js')
+const { escribirMovimientoStock, egresoDeVentaPromo } = sqlLib('movimientoStock.js')
 const mssql = require('mssql')
 
 const DRY_RUN = process.argv.includes('--dry-run')
@@ -157,6 +161,16 @@ function sqlConfigDe(tcfg, entidad, empresa) {
   return { ...(tcfg.sql?.[entidad] ?? {}), ...(tcfg.sql?.empresas?.[empresa]?.[entidad] ?? {}) }
 }
 
+/** Depósito de Tango de una venta: camión → el del chofer (cae al camión); ventanilla → el de la
+ *  planta (la mercadería sale de la cámara). Mismo criterio que writers.ts en la nube. */
+function depositoDe(payload, tcfg) {
+  const dep = tcfg.depositos ?? {}
+  const porPlanta = tcfg.depositosPlanta ?? {}
+  const codDeposito = (payload.choferId && dep[payload.choferId]) || (payload.camionId && dep[payload.camionId]) || (payload.plantaId && porPlanta[payload.plantaId])
+  if (!codDeposito) throw new Error(`sin depósito de Tango para chofer ${payload.choferId} / camión ${payload.camionId} / planta ${payload.plantaId} (config/tango.depositos / depositosPlanta)`)
+  return codDeposito
+}
+
 const HANDLERS = {
   remito: {
     flag: 'remitosSqlEnabled',
@@ -165,11 +179,7 @@ const HANDLERS = {
       const sqlCfg = sqlConfigDe(tcfg, 'remito', empresa)
       if (!sqlCfg?.talonario || !sqlCfg?.puntoVenta) throw new Error('falta config/tango.sql.remito {talonario, puntoVenta, codigoTransporte, usuario, terminal}')
       const payload = data.payload ?? {}
-      const dep = tcfg.depositos ?? {}
-      const porPlanta = tcfg.depositosPlanta ?? {}
-      // Camión → depósito del chofer; ventanilla → depósito de la planta (la mercadería sale de la cámara).
-      const codDeposito = (payload.choferId && dep[payload.choferId]) || (payload.camionId && dep[payload.camionId]) || (payload.plantaId && porPlanta[payload.plantaId])
-      if (!codDeposito) throw new Error(`sin depósito de Tango para chofer ${payload.choferId} / camión ${payload.camionId} / planta ${payload.plantaId} (config/tango.depositos / depositosPlanta)`)
+      const codDeposito = depositoDe(payload, tcfg)
       const remito = remitoDeVenta(payload, data.origenId ?? docId, tcfg.articulos ?? {}, codDeposito, sqlCfg.puntoVenta)
       const r = await enTransaccion(baseDe(empresa), (db) => escribirRemito(db, remito, {
         talonario: sqlCfg.talonario, puntoVenta: sqlCfg.puntoVenta, codigoTransporte: sqlCfg.codigoTransporte ?? '01',
@@ -198,7 +208,29 @@ const HANDLERS = {
       return { reciboNumero: r.nComp, idGva12: r.idGva12, nInternoSba04: r.nInternoSba04, yaExistia: r.yaExistia, via: 'sql', ...(r.cheques ? { cheques: r.cheques } : {}) }
     },
   },
+  // Movimiento de STOCK aparte del comprobante de venta. Hoy: 'ventaPromo' = egreso VPR desde el
+  // depósito del camión en REDONHIELO (todo el stock vive ahí; la factura de Rolito no descarga).
+  // Fase B: 'carga' / 'descarga' / 'cambio' con el mismo writer (entidad transferenciaDeposito).
+  movimientoStock: {
+    flag: 'stockSqlEnabled',
+    async enviar(data, tcfg, docId) {
+      const empresa = data.empresa ?? 'redonhielo'
+      const stockCfg = tcfg.sql?.stock
+      const clave = data.payload?.movimiento
+      const cfgTipo = stockCfg?.tipos?.[clave]
+      if (!clave || !cfgTipo) throw new Error(`falta config/tango.sql.stock.tipos.${clave ?? '?'} {tipo, tComp, tcompInS, talonario}`)
+      if (clave !== 'ventaPromo') throw new Error(`movimiento "${clave}" todavía sin handler en el bridge (fase B)`)
+      const venta = data.payload?.venta ?? {}
+      const codDeposito = depositoDe(venta, tcfg)
+      const mov = egresoDeVentaPromo(venta, data.origenColeccion ?? 'ventasCamion', data.origenId ?? docId, tcfg.articulos ?? {}, codDeposito, cfgTipo, clave)
+      const r = await enTransaccion(baseDe(empresa), (db) => escribirMovimientoStock(db, mov, {
+        usuario: stockCfg.usuario ?? 'ROLITO', terminal: stockCfg.terminal ?? 'APP', sucursal: cfgTipo.sucursal,
+      }, (m) => log('    ' + m)))
+      return { stockNumero: r.nComp, tComp: r.tComp, numero: r.numero, idSta14: r.idSta14, ncompInS: r.ncompInS, deposito: codDeposito, yaExistia: r.yaExistia, via: 'sql' }
+    },
+  },
 }
+const ENTIDADES = Object.keys(HANDLERS)
 
 const enProceso = new Set()
 
@@ -239,9 +271,9 @@ async function procesarItem(db, docId, data) {
 }
 
 async function barrido(db) {
-  const q = query(collection(db, 'tango-outbox'), where('estado', 'in', ['pendiente', 'enviado']), where('entidad', 'in', ['remito', 'recibo']))
+  const q = query(collection(db, 'tango-outbox'), where('estado', 'in', ['pendiente', 'enviado']), where('entidad', 'in', ENTIDADES))
   const res = await getDocs(q)
-  if (!res.empty) log(`Barrido: ${res.size} item(s) remito/recibo pendientes o a reintentar`)
+  if (!res.empty) log(`Barrido: ${res.size} item(s) ${ENTIDADES.join('/')} pendientes o a reintentar`)
   for (const d of res.docs) await procesarItem(db, d.id, d.data())
 }
 
@@ -262,12 +294,19 @@ async function probarSql() {
                HAS_PERMS_BY_NAME('dbo.SBA04', 'OBJECT', 'INSERT') AS ins_sba04,
                HAS_PERMS_BY_NAME('dbo.SBA01', 'OBJECT', 'UPDATE') AS upd_sba01,
                HAS_PERMS_BY_NAME('dbo.SEQUENCE_ASIENTO_SB', 'OBJECT', 'UPDATE') AS upd_seq,
-               (SELECT COUNT(*) FROM GVA43 WHERE TALONARIO BETWEEN 1105 AND 1108) AS talonarios_app`)
+               HAS_PERMS_BY_NAME('dbo.STA17', 'OBJECT', 'UPDATE') AS upd_sta17,
+               (SELECT COUNT(*) FROM GVA43 WHERE TALONARIO BETWEEN 1105 AND 1108) AS talonarios_app,
+               (SELECT COUNT(*) FROM STA13 WHERE T_COMP = 'VPR') AS tipo_vpr`)
       const f = r.recordset[0]
-      const permisos = Object.entries(f).filter(([k]) => /^(ins|upd)_/.test(k))
+      // El stock vive solo en REDONHIELO (2026-09-05): en las otras bases no hace falta ni el
+      // permiso sobre el talonario de stock (STA17) ni el tipo VPR.
+      const llevaStock = empresa === 'redonhielo'
+      const permisos = Object.entries(f).filter(([k]) => /^(ins|upd)_/.test(k) && (llevaStock || k !== 'upd_sta17'))
       const sinPermiso = permisos.filter(([, v]) => v !== 1).map(([k]) => k)
-      log(`  OK: base ${f.base}, login ${f.login}, usuario ${f.usuario}, talonarios de la app en GVA43: ${f.talonarios_app}`)
-      if (sinPermiso.length) { fallas++; log(`  FALTAN PERMISOS: ${sinPermiso.join(', ')} (correr el script 06 en esta base)`) }
+      const vpr = llevaStock ? `, tipo de stock VPR: ${f.tipo_vpr ? 'sí' : 'NO (crearlo en Tango: Stock > Tipos de comprobante)'}` : ' (no lleva stock)'
+      log(`  OK: base ${f.base}, login ${f.login}, usuario ${f.usuario}, talonarios de la app en GVA43: ${f.talonarios_app}${vpr}`)
+      if (llevaStock && !f.tipo_vpr) fallas++
+      if (sinPermiso.length) { fallas++; log(`  FALTAN PERMISOS: ${sinPermiso.join(', ')} (correr el script 06 y, en Redonhielo, el 08 en esta base)`) }
       else log(`  permisos OK (${permisos.length} comprobados)`)
     } catch (e) {
       fallas++
@@ -291,14 +330,14 @@ async function main() {
   await barrido(db)
   if (UNA_VEZ || DRY_RUN || SOLO) { log('Listo (una sola pasada).'); for (const p of pools.values()) await p.close(); process.exit(0) }
 
-  const q = query(collection(db, 'tango-outbox'), where('estado', '==', 'pendiente'), where('entidad', 'in', ['remito', 'recibo']))
+  const q = query(collection(db, 'tango-outbox'), where('estado', '==', 'pendiente'), where('entidad', 'in', ENTIDADES))
   onSnapshot(q, (snap) => {
     for (const ch of snap.docChanges()) if (ch.type === 'added' || ch.type === 'modified') procesarItem(db, ch.doc.id, ch.doc.data())
   }, (err) => log(`ERROR en el listener (el SDK reintenta solo): ${err.message}`))
   setInterval(() => barrido(db).catch((e) => log(`ERROR en barrido: ${e.message}`)), SWEEP_INTERVAL_MS)
   // Mismo campo que usaba bridge-listener (es el único que las reglas le dejan tocar al bridge en config/tango).
   setInterval(() => updateDoc(doc(db, 'config/tango'), { bridgeListenerLastSeen: serverTimestamp() }).catch((e) => log(`ERROR heartbeat: ${e.message}`)), HEARTBEAT_INTERVAL_MS)
-  log('Escuchando tango-outbox (remito, recibo)...')
+  log(`Escuchando tango-outbox (${ENTIDADES.join(', ')})...`)
 }
 
 main().catch((err) => { log(`ERROR FATAL: ${err.stack ?? err.message}`); process.exit(1) })

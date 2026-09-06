@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { destinoTango, documentoDeVenta, facturaContraArca } from './circuito'
+import { destinoTango, documentoDeVenta, facturaContraArca, movimientoStockDeVenta } from './circuito'
 
 describe('documentoDeVenta', () => {
   it('contado en efectivo o transferencia lo factura la app', () => {
@@ -66,9 +66,11 @@ describe('destinoTango', () => {
     })
   })
 
-  it('una operación de solo cambios va como remito, en las dos empresas', () => {
+  it('una operación de solo cambios va como remito en Redonhielo y como factura en $0 en Rolito', () => {
+    // En Rolito no hay remitos: la factura en $0 lleva los renglones de cambio
+    // (decisión de Ariel 2026-09-05); el stock sale por el egreso en Redonhielo.
     expect(destinoTango('contado', 'contado_efectivo', 0)?.entidad).toBe('remito')
-    expect(destinoTango('promo', 'contado_efectivo', 0)?.entidad).toBe('remito')
+    expect(destinoTango('promo', 'contado_efectivo', 0)).toEqual({ entidad: 'factura', empresa: 'rolito', conCaePropio: false })
   })
 
   it('nunca manda un comprobante de Rolito con CAE de ARCA', () => {
@@ -80,5 +82,19 @@ describe('destinoTango', () => {
   it('no decide con datos que no reconoce', () => {
     expect(destinoTango('contado', 'cheque', 20000)).toBeNull()
     expect(destinoTango('mayorista', 'contado_efectivo', 20000)).toBeNull()
+  })
+})
+
+describe('movimientoStockDeVenta', () => {
+  it('la promo genera un egreso de stock en Redonhielo, pague como pague y aunque sea $0', () => {
+    for (const fp of ['contado_efectivo', 'contado_transferencia', 'cuenta_corriente']) {
+      expect(movimientoStockDeVenta('promo', fp, 20000)).toEqual({ movimiento: 'ventaPromo', empresa: 'redonhielo' })
+    }
+    expect(movimientoStockDeVenta('promo', 'contado_efectivo', 0)).toEqual({ movimiento: 'ventaPromo', empresa: 'redonhielo' })
+  })
+  it('el contado no: su factura o su remito ya descuentan en Redonhielo', () => {
+    expect(movimientoStockDeVenta('contado', 'contado_efectivo', 20000)).toBeNull()
+    expect(movimientoStockDeVenta('contado', 'cuenta_corriente', 20000)).toBeNull()
+    expect(movimientoStockDeVenta('mayorista', 'contado_efectivo', 20000)).toBeNull()
   })
 })

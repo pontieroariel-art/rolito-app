@@ -1373,3 +1373,88 @@ error si se venden); 8/11 choferes con depósito (Pereyra, Molina y Marsicano si
 venden cta cte, el remito queda en error hasta cargarlos en `config/tango.depositos`). Un item en
 error no se pierde: queda en `tango-outbox` con `ultimoError` y se reprocesa al corregir la config
 (volverlo a `pendiente`).
+
+## 24. Stock del reparto en Redonhielo: egreso VPR por venta promo y Rolito sin stock (2026-09-05)
+
+**Decisión de Ariel (2026-09-05, noche):** TODO el stock vive en la empresa REDONHIELO. Rolito solo
+recibe las facturas no oficiales (promo) y **no lleva stock**. Hasta hoy la factura promo se
+registraba en Rolito con `descargaStock: true` y el depósito del camión → descontaba en la base de
+Rolito (donde nunca entra nada: camiones en negativo) y no descontaba en Redonhielo (donde entra la
+carga: stock de más). La promo en $0 (solo cambios) entraba a Rolito como remito y también tocaba
+STA19 allá.
+
+**Modelo nuevo (código listo, pendiente de traza + deploy):**
+
+| Venta | Comprobante | Empresa | Stock |
+|---|---|---|---|
+| Contado efectivo/transferencia | FAC con CAE (Facturador) | Redonhielo | la factura descarga del depósito del camión (sin cambios) |
+| Contado cta. cte. | REM por SQL (§21) | Redonhielo | el remito descarga (items + cambios) |
+| Promo (cobrada, cta. cte. **o $0**) | FAC A/B sin CAE (Facturador), `descargaStock: false` | Rolito | **egreso VPR por SQL** desde el depósito del camión en **Redonhielo** (items + cambios) |
+
+- `destinoTango('promo', *, ≤0)` pasó de `remito` a `factura`: en Rolito queda una **factura en $0
+  con los renglones de cambio** (artículos `CAMBIO*`, que no mueven stock), sin `pagos` ni cuotas. La
+  app también emite factura X en ese caso (`tipoComprobanteInterno` → `facturaX`; las ventas viejas
+  con `remitoPromo` se siguen reimprimiendo por el tipo guardado). **Riesgo a probar en TestingRH:**
+  que el Facturador rechace total 0 → fallback: no mandar nada a Rolito para ese caso.
+- Nueva regla pura `movimientoStockDeVenta(canal, …)` en `circuito.ts`: promo → `{ movimiento:
+  'ventaPromo', empresa: 'redonhielo' }`. `onVentaCamionCreada` / `onVentaVentanillaCreada`
+  (helper `encolarVenta`) encolan, además del comprobante, un item `<col>_<id>_stock` con entidad
+  **`movimientoStock`** y payload `{ movimiento: 'ventaPromo', venta }`.
+- Writer único `functions/src/services/tango/sql/movimientoStock.ts` (egreso o transferencia;
+  sirve para CAR/DES/cambios en la fase B) sobre `comun.ts` (cabecera STA14 de 60 columnas, renglón
+  STA20 de 50, UPDATE STA19 optimista, `siguienteNcompInS`, compartidos con `remito.ts`). Orden:
+  `UPDATE STA17 PROXIMO` optimista (numera con el talonario de stock, PROXIMO es plano) → `INSERT
+  STA14` (T_COMP `VPR`, N_COMP = sucursal (5) + nº (8), COD_PRO_CL = cliente, COD_DEPOSI = camión,
+  LEYENDA1 = `ROLITO:VC:<id>` idempotente, LEYENDA2..4 = factura Rolito / chofer / cliente) →
+  `INSERT STA20` 'S' por artículo (transferencia: 'E' destino + 'S' origen como la muestra CAR) →
+  `UPDATE STA19` (−origen, +destino). 22 tests (`movimientoStock.test.ts`), con las hipótesis
+  pendientes de la traza concentradas en `HIPOTESIS_TRAZA` (TCOMP_IN_S del egreso, ancho de la
+  sucursal, CANT_PEND/IMPUESTO_INTERNO_FIJO 0, depósito en cabecera).
+- Bridge: `HANDLERS.movimientoStock` (flag **`stockSqlEnabled`**), `depositoDe()` compartido con
+  el remito, `--probar-sql` chequea `UPDATE STA17` y que exista VPR en STA13. Instalación: copiar
+  `bridge-sql.mjs` + `lib/{tipos,comun,remito,recibo,movimientoStock}.js`.
+- Write-backs (`onOutboxConfirmado`) ahora con dot-paths: la venta promo recibe dos confirmaciones
+  (factura Rolito → `tango.facturaNumero`; egreso → `tango.stockEstado/stockNumero/stockTipo`) y la
+  segunda no pisa la primera.
+- Config: `config/tango.facturador.rolito.descargaStock = false`; `config/tango.sql.stock = {
+  usuario, terminal, tipos: { ventaPromo: { tipo: 'egreso', tComp: 'VPR', tcompInS: <traza>,
+  talonario: <ID_STA17>, incluyeCambios: true } } }`; `stockSqlEnabled`. Script:
+  `scripts/tango/configurar-stock-tango.mjs`. Permisos: `scripts/tango/sql/08-stock.sql`
+  (SELECT STA13/STA17, UPDATE STA17 en REDONHIELO_SA y TestingRH).
+- Carga/descarga (fase B): siguen encolándose como `transferenciaDeposito`; usarán el mismo writer
+  con el talonario 13 compartido (decisión de Ariel: UPDATE optimista de PROXIMO). `incluyeCambios`
+  pasa a `false` cuando exista el writer de cambio camión → 99.
+
+**Traza hecha (2026-09-05, 22:42 y 22:49, TestingRH — `docs/tango/sql/traza-stock-2026-09-05.csv`).**
+Talonario de stock creado desde Tango: código **900**, sucursal 900, "cantidad máxima de
+iteraciones" = **999** (es el tope de renglones por comprobante: con 1 Tango tira "LIMITE EXCEDIDO"
+al cargar el primer artículo); en STA17 el código (TALONARIO 900) y el ID (ID_STA17 14) son
+distintos y **el código es el que vincula** (STA13.TALONARIO, STA14.TALONARIO). Tipo VPR: salida,
+sin valorizar, talonario 900. Egreso VPR 00900-00000001 (1 bolsa, depósito 01) y transferencia TRA
+00025-00067900 (01 → 03). Lo que graba Tango, confirmado y ya aplicado al writer:
+- Orden: INSERT STA14 → INSERT STA20 → UPDATE STA19 → UPDATE STA17 (PROXIMO 1 → 2, WHERE con el
+  PROXIMO leído: optimista). El writer hace el STA17 primero; da lo mismo dentro de la transacción.
+- Egreso: `TCOMP_IN_S = 'VS'`, `NCOMP_IN_S` = MAX+1 dentro de 'VS' (00001128; **no** usa
+  INCREMENTAL_VALUE — el writer de stock tampoco). Transferencia: 'TI', 00073673.
+- `N_COMP` = **' ' + sucursal (5) + número (8)** = 14 caracteres con espacio adelante
+  (`' 0090000000001'`, `' 0002500067900'`). El write-back lo guarda sin el espacio.
+- Cabecera: COD_PRO_CL '', **COD_DEPOSI ''** (el depósito va solo en el renglón), ESTADO_MOV '',
+  MOTIVO_REM '', N_REMITO '', COD_TRANSP '', OBSERVACIO = observaciones de la pantalla, LEYENDA1..5 =
+  las 5 leyendas, ID_DIRECCION_ENTREGA NULL, COND_VTA 0, **HORA_ANU/USUARIO_ANU/TERMINAL_ANU NULL**
+  (el remito los graba ''), USUARIO/USUARIO_INGRESO 'SUPERVISOR', TERMINAL_INGRESO 'RHIELOTG'.
+- Renglón STA20: CANT_PEND 0, IMPUESTO_INTERNO_FIJO 0, ID_MEDIDA_STOCK 17, **ID_MEDIDA_VENTAS NULL**,
+  DEPOSI_DDE '' en el egreso; transferencia: 'E' en destino (DEPOSI_DDE = origen, N_RENGL_S 1) y
+  'S' en origen (DEPOSI_DDE = destino, N_RENGL_S 2). STA19: UPDATE optimista, destino primero.
+- Ninguna otra tabla (no hay STA14TY, ni auditoría, ni partidas). Los triggers completan ID_STA13
+  (por T_COMP), ID_STA11, ID_STA14, ID_STA22; ID_GVA14 solo para tipos de ventas (RE/FR/CC/…), así
+  que el COD_PRO_CL que la app graba en el VPR queda como texto (igual que los CBS de Bluesoft).
+- Falta ver: qué hace Tango si el depósito destino no tiene fila en STA19 (los dos la tenían).
+
+**Pendiente antes de prender:** (1) crear en REDONHIELO_SA el talonario 900 (iteraciones 999) y
+el tipo VPR igual que en TestingRH; (3) script 08;
+(4) `configurar-stock-tango.mjs --rolito-sin-stock on` **antes** del deploy de
+`onVentaCamionCreada, onVentaVentanillaCreada, onOutboxConfirmado, onOutboxPendiente,
+barridoOutboxTango`; (5) `--tipo ventaPromo …` con el ID_STA17 real; (6) primera promo real con
+`--dry-run --solo` / `--solo` y verificación STA14/STA20/STA19/STA17; (7) `--stock on`.
+Nota: el STA19 de la base Rolito ya no tiene significado (quedó con descuentos de pruebas y promos
+reales); si contaduría lo pide, AJU a 0 desde Tango.
