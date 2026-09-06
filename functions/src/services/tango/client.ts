@@ -52,7 +52,11 @@ export class TangoClient {
     if (!resp.ok && !(data.Comprobantes || data.comprobantes)) {
       throw new Error(`Tango respondió ${resp.status} en ${accion}: ${(prop(data, 'message') as string) ?? texto.slice(0, 200)}`)
     }
-    if (prop(data, 'succeeded') === false) {
+    // El Facturador devuelve succeeded=false con el detalle POR COMPROBANTE en
+    // Comprobantes[].mensaje (duplicado 51016, talonario, depósito…): eso lo interpreta
+    // interpretarRespuestaFacturador. Si se tira acá, el motivo real se pierde
+    // ("Hubo errores en la registración, verifique el resultado", 2026-09-05).
+    if (prop(data, 'succeeded') === false && !(data.Comprobantes || data.comprobantes)) {
       const info = prop(data, 'exceptionInfo') as Record<string, unknown> | undefined
       const msgs = info?.messages
       throw new Error(`Tango succeeded=false en ${accion}: ${(Array.isArray(msgs) ? msgs.join('; ') : null) ?? (prop(data, 'message') as string) ?? JSON.stringify(data).slice(0, 300)}`)

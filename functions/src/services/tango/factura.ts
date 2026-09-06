@@ -136,7 +136,11 @@ interface OpcionesItems {
   totales?: { neto: number; iva: number } | null
   /** Sin IVA: el precio de la app es el importe final (base = importe, IVA 0). */
   sinIva?: boolean
-  /** false = los ítems no descargan stock (y no llevan depósito). */
+  /**
+   * false = los ítems no descargan stock. El depósito se manda igual: el Facturador
+   * lo exige aunque no descargue (rechaza con exceptionMessage "*" si falta —
+   * probado en Rolito el 2026-09-06, factura A 01104-00000062).
+   */
   descargaStock?: boolean
   /**
    * Incluir los cambios como renglones a $0 (artículos CAMBIO*, que en Tango no
@@ -154,9 +158,8 @@ interface OpcionesItems {
  * docs/tango/STOCK_REPARTO.md). El cambio sale del stock por otro comprobante.
  */
 export function itemsDeVenta(payload: PayloadVenta, opciones: OpcionesItems): { items: ItemFacturador[]; faltantes: string[]; error?: string } {
-  const { codigoArticulo, preciosIncluyenIva = false, codigoTasaIva, totales, sinIva = false, incluirCambios = false } = opciones
+  const { codigoArticulo, preciosIncluyenIva = false, codigoTasaIva, codigoDeposito, totales, sinIva = false, incluirCambios = false } = opciones
   const descargaStock = opciones.descargaStock !== false
-  const codigoDeposito = descargaStock ? opciones.codigoDeposito : null
   const items: (ItemFacturador & { esCambio: boolean })[] = []
   const faltantes: string[] = []
   // Sin IVA (Rolito): el precio es final, no hay factor.
@@ -317,7 +320,7 @@ export function armarComprobanteFacturador(payload: PayloadVenta, item: ItemOutb
     ...(cfg.fechaCierreTesoreria ? { fechaCierreTesoreria: cfg.fechaCierreTesoreria } : {}),
     codigoListaPrecio: listaPrecio,
     codigoContracuenta: cfg.contracuenta,
-    ...(descargaStock && mapeos.codigoDeposito ? { codigoDeposito: mapeos.codigoDeposito } : {}),
+    ...(mapeos.codigoDeposito ? { codigoDeposito: mapeos.codigoDeposito } : {}),   // obligatorio para el Facturador aunque no descargue
     codigoVendedor: String(cfg.vendedor),
     leyenda1: recortar(ref, 60),
     leyenda2: recortar(`Venta ${payload.canal === 'promo' ? 'Promo' : 'Contado'} app${numeroInterno ? ` ${numeroInterno}` : ''} - ${formaPago}`, 60),

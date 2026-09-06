@@ -137,9 +137,9 @@ export async function enviarFactura(payload: PayloadVenta, ctx: ContextoWriter):
 
   const articulos = cfg.articulos ?? {}
   const codDeposito = codigoDeposito(cfg, payload) ?? (!payload.camionId ? cfgEmpresa.depositoVentanilla ?? null : null)
-  // Rolito factura sin descargar stock (descargaStock: false): el depósito no hace
-  // falta; la mercadería sale de Redonhielo por el egreso VPR (movimientoStock).
-  if (!codDeposito && cfgEmpresa.descargaStock !== false) {
+  // El Facturador exige el depósito aunque la factura no descargue stock
+  // (Rolito, descargaStock: false — probado 2026-09-06).
+  if (!codDeposito) {
     return { ok: false, error: payload.camionId ? `Falta el depósito Tango del chofer ${payload.choferNombre ?? payload.choferId} (config/tango.depositos.${payload.choferId})` : `Falta el depósito Tango de la planta ${payload.plantaId ?? '?'} (config/tango.depositosPlanta)` }
   }
 

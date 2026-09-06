@@ -68,9 +68,8 @@ function documentoDeVenta(payload) {
  * docs/tango/STOCK_REPARTO.md). El cambio sale del stock por otro comprobante.
  */
 function itemsDeVenta(payload, opciones) {
-    const { codigoArticulo, preciosIncluyenIva = false, codigoTasaIva, totales, sinIva = false, incluirCambios = false } = opciones;
+    const { codigoArticulo, preciosIncluyenIva = false, codigoTasaIva, codigoDeposito, totales, sinIva = false, incluirCambios = false } = opciones;
     const descargaStock = opciones.descargaStock !== false;
-    const codigoDeposito = descargaStock ? opciones.codigoDeposito : null;
     const items = [];
     const faltantes = [];
     // Sin IVA (Rolito): el precio es final, no hay factor.
@@ -240,7 +239,7 @@ function armarComprobanteFacturador(payload, item, cfg, mapeos) {
         ...(cfg.fechaCierreTesoreria ? { fechaCierreTesoreria: cfg.fechaCierreTesoreria } : {}),
         codigoListaPrecio: listaPrecio,
         codigoContracuenta: cfg.contracuenta,
-        ...(descargaStock && mapeos.codigoDeposito ? { codigoDeposito: mapeos.codigoDeposito } : {}),
+        ...(mapeos.codigoDeposito ? { codigoDeposito: mapeos.codigoDeposito } : {}), // obligatorio para el Facturador aunque no descargue
         codigoVendedor: String(cfg.vendedor),
         leyenda1: recortar(ref, 60),
         leyenda2: recortar(`Venta ${payload.canal === 'promo' ? 'Promo' : 'Contado'} app${numeroInterno ? ` ${numeroInterno}` : ''} - ${formaPago}`, 60),

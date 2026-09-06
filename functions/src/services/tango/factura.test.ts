@@ -116,22 +116,17 @@ describe('Rolito sin stock y factura en $0 (decisión 2026-09-05)', () => {
     cambios: [{ productoId: 'cambio_bolsa_10kg', nombre: 'Cambio bolsa 10', cantidad: 1, precioUnitario: 0 }] }
   const cfgRolito = { ...cfg, sinIva: true, codigoTasaIva21: undefined, descargaStock: false }
 
-  it('con descargaStock false los ítems no descargan ni llevan depósito, y la cabecera tampoco', () => {
+  it('con descargaStock false los ítems no descargan pero SÍ llevan depósito (el Facturador lo exige)', () => {
     const r = armarComprobanteFacturador(promo, { ...item, empresa: 'rolito' }, cfgRolito, { ...mapeos, letraNoFiscal: 'B' })
     if (r.error !== undefined) throw new Error(r.error)
-    expect(r.comprobante).not.toHaveProperty('codigoDeposito')
+    expect(r.comprobante).toMatchObject({ codigoDeposito: '03' })
     const items = r.comprobante.items as Record<string, unknown>[]
     expect(items).toHaveLength(1)                       // los cambios no van cuando hay renglones vendidos
-    expect(items[0]).toMatchObject({ codigo: 'PTHIBARRA', descargaStock: false })
-    expect(items[0]).not.toHaveProperty('codigoDeposito')
+    expect(items[0]).toMatchObject({ codigo: 'PTHIBARRA', descargaStock: false, codigoDeposito: '03' })
     expect(r.comprobante.total).toBe(2000)
-  })
-  it('sin depósito no falla: Redonhielo lo sigue exigiendo, Rolito no', () => {
-    const sinDep = { ...mapeos, codigoDeposito: null, letraNoFiscal: 'B' as const }
-    expect(armarComprobanteFacturador(promo, { ...item, empresa: 'rolito' }, cfgRolito, sinDep).error).toBeUndefined()
-    const r = armarComprobanteFacturador(ventaReal, item, cfg, mapeos)
-    if (r.error !== undefined) throw new Error(r.error)
-    expect((r.comprobante.items as Record<string, unknown>[])[0]).toMatchObject({ descargaStock: true, codigoDeposito: '03' })
+    const rh = armarComprobanteFacturador(ventaReal, item, cfg, mapeos)
+    if (rh.error !== undefined) throw new Error(rh.error)
+    expect((rh.comprobante.items as Record<string, unknown>[])[0]).toMatchObject({ descargaStock: true, codigoDeposito: '03' })
   })
   it('promo de solo cambios: factura en $0 con los renglones de cambio (artículo CAMBIO*), sin pagos', () => {
     const soloCambio: PayloadVenta = { ...promo, total: 0, items: [], comprobanteInterno: { tipo: 'facturaX', puntoVenta: 3, numero: 10 } }
