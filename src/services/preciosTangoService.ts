@@ -4,6 +4,11 @@ import { db } from './firebase'
 import type { EmpresaTango, PreciosTango } from '../utils/precioTango'
 import { onSnapshotError } from './observability'
 
+// Las syncs manuales (clientes ~2 min, altas hasta 9 min) superan los 70 s
+// que espera httpsCallable por defecto: el navegador cortaba con
+// deadline-exceeded aunque la Function terminara bien.
+const TIMEOUT_SYNC_MS = 9 * 60_000
+
 // preciosTango/{empresa}: precios y listas sincronizados desde Tango (los
 // escribe la Cloud Function syncPreciosTango; ver utils/precioTango.ts).
 export const subscribePreciosTango = (
@@ -23,7 +28,7 @@ export interface ResumenSyncPrecios {
 
 /** Botón "Sincronizar ahora": corre la misma sync que la programada. */
 export async function sincronizarPreciosTangoAhora(): Promise<ResumenSyncPrecios> {
-  const fn = httpsCallable<void, ResumenSyncPrecios>(getFunctions(), 'sincronizarPreciosTangoAhora')
+  const fn = httpsCallable<void, ResumenSyncPrecios>(getFunctions(), 'sincronizarPreciosTangoAhora', { timeout: TIMEOUT_SYNC_MS })
   return (await fn()).data
 }
 
@@ -90,16 +95,16 @@ export interface ResumenSyncSaldos extends ResumenSyncSaldosEmpresa {
 }
 
 export async function sincronizarClientesTangoAhora(): Promise<ResumenSyncClientes> {
-  const fn = httpsCallable<void, ResumenSyncClientes>(getFunctions(), 'sincronizarClientesTangoAhora')
+  const fn = httpsCallable<void, ResumenSyncClientes>(getFunctions(), 'sincronizarClientesTangoAhora', { timeout: TIMEOUT_SYNC_MS })
   return (await fn()).data
 }
 
 export async function procesarAltasTangoAhora(): Promise<ResumenAltas> {
-  const fn = httpsCallable<void, ResumenAltas>(getFunctions(), 'procesarAltasTangoAhora')
+  const fn = httpsCallable<void, ResumenAltas>(getFunctions(), 'procesarAltasTangoAhora', { timeout: TIMEOUT_SYNC_MS })
   return (await fn()).data
 }
 
 export async function sincronizarSaldosTangoAhora(): Promise<ResumenSyncSaldos> {
-  const fn = httpsCallable<void, ResumenSyncSaldos>(getFunctions(), 'sincronizarSaldosTangoAhora')
+  const fn = httpsCallable<void, ResumenSyncSaldos>(getFunctions(), 'sincronizarSaldosTangoAhora', { timeout: TIMEOUT_SYNC_MS })
   return (await fn()).data
 }
