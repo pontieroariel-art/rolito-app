@@ -1049,7 +1049,7 @@ service cloud.firestore {
     // del mismo día falla en vez de pisar el snapshot.
     match /liquidaciones/{liquidacionId} {
       allow read: if request.auth != null
-        && (isCaja() || isOperator() || isManager() || isGerenteGeneral()
+        && (isCaja() || isOperator() || isManager() || isGerenteGeneral() || isSupervisor()
             || (isChofer() && resource.data.choferId == request.auth.uid));
 
       allow create: if request.auth != null && isCaja()

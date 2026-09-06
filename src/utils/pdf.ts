@@ -878,13 +878,25 @@ export async function generateRemitoCarga(remito: {
 // Espejo de la hoja del sistema viejo: detalle por producto (carga / venta /
 // promoción / cambios / devolución teórica / descarga / diferencia), cuadre de
 // envases, cambios vs rotas, importes y rendición de efectivo.
-export async function generateLiquidacion(liq: Liquidacion) {
+// Detalle del reparto para el PDF (2026-09-06): los mismos bloques de la
+// pantalla (contado / cta cte / promo / cobranzas / cambios), con hora,
+// cliente, artículos, comprobante y número de Tango, más el recorrido.
+export interface DetalleLiquidacionPdf {
+  reparto:   import('./liquidacion').RepartoClasificado
+  remitos:   Array<{ codigo: string; camionLabel: string; fecha: Date; salida?: Date | null; entregado?: Date | null; items: Array<{ nombre: string; cantidad: number }>; palletsCarga: number }>
+  descargas: Array<{ fecha: Date; registradoPor: string; items: Array<{ nombre: string; cantidad: number }>; rotas: number; pallets: { completos: number; parciales: number; vacios: number } }>
+}
+
+export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiquidacionPdf, opts: { descargar?: boolean } = {}): Promise<Blob | void> {
   const { default: jsPDF }     = await import('jspdf')
   const { default: autoTable } = await import('jspdf-autotable')
+  const { describirComprobante, estadoTangoVenta } = await import('./comprobanteDeVenta')
+  const { nombreDelCambio } = await import('./cambios')
   const doc   = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const pageW = doc.internal.pageSize.getWidth()
   const logo  = await fetchImageAsBase64('/logo-rolito.png')
-  const money = (n: number) => `$${n.toLocaleString('es-AR')}`
+  const money = (n: number) => `${n.toLocaleString('es-AR')}`
+  const hora = (d: Date | null | undefined) => d ? d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : '—'
 
   if (logo) doc.addImage(logo, 'PNG', 14, 8, 40, 13)
   doc.setFontSize(15)
@@ -894,7 +906,7 @@ export async function generateLiquidacion(liq: Liquidacion) {
   doc.setFontSize(10)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(80)
-  doc.text(`${liq.choferNombre}   ·   ${liq.fecha}`, pageW - 14, 20, { align: 'right' })
+  doc.text(`${liq.depositoTango ? `${liq.depositoTango} · ` : ''}${liq.choferNombre}   ·   ${liq.fecha}`, pageW - 14, 20, { align: 'right' })
   doc.setTextColor(0)
   doc.setDrawColor(45, 106, 79)
   doc.setLineWidth(0.6)
@@ -961,19 +973,96 @@ export async function generateLiquidacion(liq: Liquidacion) {
     margin: { left: 108, right: 14 },
   })
   // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-  y = Math.max(yEnvases, doc.lastAutoTable?.finalY ?? y + 40) + 26
+  y = Math.max(yEnvases, doc.lastAutoTable?.finalY ?? y + 40) + 6
 
+  if (liq.diferencia) {
+    const { MOTIVOS_DIFERENCIA_LIQUIDACION } = await import('../types')
+    doc.setFontSize(9)
+    doc.setTextColor(180, 0, 0)
+    doc.text(`Diferencia de efectivo ${money(liq.diferenciaEfectivo)} · ${MOTIVOS_DIFERENCIA_LIQUIDACION[liq.diferencia.motivo]}${liq.diferencia.nota ? ` · ${liq.diferencia.nota}` : ''}`, 14, y, { maxWidth: pageW - 28 })
+    doc.setTextColor(0)
+    y += 8
+  }
+
+  // ── Detalle del reparto (los mismos bloques de la pantalla) ──
+  const head = (t: string) => ({ fillColor: [45, 106, 79] as [number, number, number], textColor: 255, fontStyle: 'bold' as const, fontSize: 7.5, halign: 'left' as const, cellPadding: 2, text: t })
+  const tabla = (titulo: string, cabecera: string[], filas: (string | number)[][], cols: Record<number, object> = {}) => {
+    if (filas.length === 0) return
+    autoTable(doc, {
+      startY: y,
+      head: [[{ content: titulo, colSpan: cabecera.length, styles: head(titulo) }], cabecera],
+      body: filas,
+      styles: { fontSize: 7.5, cellPadding: 1.6, overflow: 'linebreak' },
+      headStyles: { fillColor: [235, 232, 222], textColor: 40, fontStyle: 'bold', fontSize: 7 },
+      columnStyles: cols,
+      margin: { left: 14, right: 14 },
+    })
+    // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
+    y = (doc.lastAutoTable?.finalY ?? y) + 5
+  }
+  if (detalle) {
+    const r = detalle.reparto
+    const filaVenta = (v: import('../types').VentaCamion) => {
+      const c = describirComprobante(v)
+      const t = estadoTangoVenta(v)
+      const arts = [
+        ...v.items.map((i) => `${i.cantidad} × ${i.nombre}`),
+        ...(v.cambios ?? []).map((i) => `${i.cantidad} × ${nombreDelCambio(i.nombre)} (cambio)`),
+      ].join('\n')
+      return [hora(v.fecha.toDate()), `${v.clienteNombre}${v.clienteCodigoTango ? ` · ${v.clienteCodigoTango}` : ''}`, arts, `${c.etiqueta} ${c.numero}${c.detalle ? ` · ${c.detalle}` : ''}`, t.estado === 'confirmado' ? t.texto.replace('Tango ✓ ', '') : t.estado === 'error' ? 'ERROR' : 'pendiente', money(v.total)]
+    }
+    const cabV = ['Hora', 'Cliente', 'Artículos', 'Comprobante', 'Tango', 'Importe']
+    const colsV = { 0: { cellWidth: 12 }, 2: { cellWidth: 48 }, 5: { halign: 'right', cellWidth: 22 } }
+    tabla(`Recorrido`, ['Salida', 'Carga', 'Vuelta', 'Descarga'], detalle.remitos.length + detalle.descargas.length === 0 ? [] : [[
+      detalle.remitos.map((rc) => `${rc.codigo} · ${rc.camionLabel}\nmuelle ${hora(rc.entregado)} · portón ${hora(rc.salida)}`).join('\n') || '—',
+      detalle.remitos.map((rc) => rc.items.map((i) => `${i.cantidad} × ${i.nombre}`).concat(rc.palletsCarga ? [`${rc.palletsCarga} pallets`] : []).join('\n')).join('\n') || '—',
+      detalle.descargas.map((d) => `${hora(d.fecha)} (${d.registradoPor})`).join('\n') || 'sin descarga',
+      detalle.descargas.map((d) => d.items.map((i) => `${i.cantidad} × ${i.nombre}`).concat(d.rotas ? [`${d.rotas} rotas`] : [], [`pallets ${d.pallets.completos} compl. · ${d.pallets.parciales} parc. · ${d.pallets.vacios} vacíos`]).join('\n')).join('\n') || '—',
+    ]])
+    tabla(`Ventas contado · Redonhielo — ${money(r.contado.total)} (efectivo ${money(r.contado.efectivo.total)} · transferencia ${money(r.contado.transferencia.total)})`, cabV,
+      [...r.contado.efectivo.ventas.map((v) => filaVenta(v)), ...r.contado.transferencia.ventas.map((v) => filaVenta(v))], colsV)
+    tabla(`Ventas cuenta corriente · Redonhielo — ${money(r.cuentaCorriente.total)} (no se rinde)`, cabV, r.cuentaCorriente.ventas.map((v) => filaVenta(v)), colsV)
+    tabla(`Promo · Rolito — ${money(r.promo.total)} (contado ${money(r.promo.contado.total)} · cta. cte. ${money(r.promo.cuentaCorriente.total)})`, cabV,
+      [...r.promo.contado.ventas.map((v) => filaVenta(v)), ...r.promo.cuentaCorriente.ventas.map((v) => filaVenta(v))], colsV)
+    const filaCob = (c: import('../types').Cobranza) => {
+      const medios = c.medios
+        ? [c.medios.efectivo > 0 ? `efectivo ${money(c.medios.efectivo)}` : '', c.medios.transferencia > 0 ? `transferencia ${money(c.medios.transferencia)}` : '', ...c.medios.cheques.map((ch) => `cheque ${ch.bancoNombre} ${ch.numero} ${money(ch.importe)}`), ...c.medios.retenciones.map((rt) => `retención ${money(rt.importe)}`)].filter(Boolean).join('\n')
+        : (c.formaPago === 'contado_transferencia' ? 'transferencia' : 'efectivo')
+      return [hora(c.fecha.toDate()), `${c.clienteNombre}${c.codigoTango ? ` · ${c.codigoTango}` : ''}`, medios, (c.imputaciones ?? []).map((i) => `${i.comprobanteTipo} ${i.comprobanteNumero}`).join('\n'), `${c.numeroRecibo ?? 'sin número'}${c.tango?.reciboNumero ? ` · ${c.tango.reciboNumero}` : ''}`, money(c.importe)]
+    }
+    const cabC = ['Hora', 'Cliente', 'Medios', 'Imputa', 'Recibo · Tango', 'Importe']
+    tabla(`Cobranzas — ${money(r.cobranzas.total)} (efectivo ${money(r.cobranzas.efectivo)} se rinde · cheques ${money(r.cobranzas.cheques.total)})`, cabC,
+      [...r.cobranzas.redonhielo.map((c) => [...filaCob(c)]), ...r.cobranzas.rolito.map((c) => { const f = filaCob(c); f[1] = `${f[1]} · Rolito`; return f })], { 0: { cellWidth: 12 }, 5: { halign: 'right', cellWidth: 22 } })
+    tabla(`Cambios — ${r.cambios.unidades} bolsas (rotas recibidas en muelle: ${r.cambios.rotasRecibidas})`, ['Hora', 'Cliente', 'Bolsas repuestas'],
+      r.cambios.lista.map((c) => [hora(c.fecha.toDate()), c.clienteNombre, c.items.map((i) => `${i.cantidad} × ${nombreDelCambio(i.nombre)}`).join('\n')]), { 0: { cellWidth: 12 } })
+    tabla('Resumen por cliente', ['Cliente', 'Código', 'Contado', 'Cta. cte.', 'Promo', 'Cobrado', 'Cambios'],
+      r.clientes.map((c) => [c.nombre, c.codigoTango, money(c.contado), money(c.cuentaCorriente), money(c.promo), money(c.cobrado), c.cambios]),
+      { 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' } })
+  }
+
+  // ── Firmas ──
+  const pageH = doc.internal.pageSize.getHeight()
+  if (y + 40 > pageH) { doc.addPage(); y = 20 }
+  y += 18
   doc.setDrawColor(150)
   doc.setLineWidth(0.2)
+  if (liq.firmaRepartidor) {
+    try { doc.addImage(liq.firmaRepartidor, 'PNG', 14, y - 18, 50, 16) } catch { /* firma ilegible: queda la línea */ }
+  }
   doc.line(14, y, 88, y)
   doc.line(pageW - 88, y, pageW - 14, y)
   doc.setFontSize(8)
   doc.setTextColor(100)
-  doc.text('Firma del repartidor', 14, y + 4)
+  doc.text(`Firma del repartidor${liq.firmanteRepartidor ? `: ${liq.firmanteRepartidor}` : ''}`, 14, y + 4)
   doc.text(`Caja: ${liq.cerradaPor.nombre}`, pageW - 88, y + 4)
 
-  doc.save(`liquidacion-${liq.fecha}-${liq.choferNombre.toLowerCase().replace(/\s+/g, '-')}.pdf`)
+  const nombre = `liquidacion-${liq.fecha}-${liq.choferNombre.toLowerCase().replace(/\s+/g, '-')}.pdf`
+  if (opts.descargar === false) return doc.output('blob')
+  doc.save(nombre)
 }
+
+export const nombreArchivoLiquidacion = (liq: Pick<Liquidacion, 'fecha' | 'choferNombre'>) =>
+  `liquidacion-${liq.fecha}-${liq.choferNombre.toLowerCase().replace(/\s+/g, '-')}.pdf`
 
 // ── Comprobante de venta por ventanilla (módulo expedición) ──────────────────
 // Papel contra el que muelle entrega la mercadería al tercero que compró en

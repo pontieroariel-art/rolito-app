@@ -521,8 +521,32 @@ export interface Liquidacion {
   efectivoARendir:  number   // = ventas en efectivo + cobranzas en efectivo
   efectivoRecibido: number   // lo que caja contó al recibir la plata
   diferenciaEfectivo: number // recibido − a rendir
+  // ── Cierre con control (2026-09-06) ──
+  // Motivo obligatorio cuando hay diferencia de efectivo, con nota libre.
+  diferencia?:   { motivo: MotivoDiferenciaLiquidacion; nota: string }
+  // Conformidad del repartidor: firma en la pantalla de caja (dataURL PNG).
+  firmaRepartidor?:    string
+  firmanteRepartidor?: string
+  // Caja marcó que el repartidor confirmó no tener movimientos sin subir en el teléfono.
+  confirmoSinPendientes?: boolean
+  // Qué documentos componen este cierre (para reconstruir el detalle al reimprimir).
+  remitosCargaIds?:  string[]
+  ventasIds?:        string[]
+  descargasIds?:     string[]
+  cobranzasIds?:     string[]
+  cantidadVentas?:    number
+  cantidadCobranzas?: number
+  clientesVisitados?: number
   cerradaPor:    { uid: string; nombre: string }
   createdAt:     Timestamp
+}
+
+export type MotivoDiferenciaLiquidacion = 'faltante_repartidor' | 'vuelto_mal_dado' | 'error_de_carga' | 'otro'
+export const MOTIVOS_DIFERENCIA_LIQUIDACION: Record<MotivoDiferenciaLiquidacion, string> = {
+  faltante_repartidor: 'Faltante del repartidor',
+  vuelto_mal_dado:     'Vuelto mal dado',
+  error_de_carga:      'Error de carga en la app',
+  otro:                'Otro',
 }
 
 export interface DeliveryAddress {

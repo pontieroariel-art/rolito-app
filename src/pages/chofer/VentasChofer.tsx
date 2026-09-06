@@ -11,16 +11,11 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { useAuth } from '@/context/AuthContext'
 import { useClientesActivos } from '@/hooks/useClientesActivos'
 import { subscribeVentasRecientesChofer } from '@/services/ventaCamionService'
-import { generateFacturaArcaPdf } from '@/utils/facturaArcaPdf'
-import { armarFacturaDeVenta } from '@/utils/facturaDeVenta'
-import {
-  armarFacturaX, armarRemito, tipoComprobanteInterno, ETIQUETA_COMPROBANTE, type CaiRemito,
-} from '@/utils/comprobanteInterno'
-import { generateComprobanteInternoPdf } from '@/utils/comprobanteInternoPdf'
-import { generateRemitoPdf } from '@/utils/remitoPdf'
+import { tipoComprobanteInterno, ETIQUETA_COMPROBANTE, type CaiRemito } from '@/utils/comprobanteInterno'
+import { entregarComprobanteVenta } from '@/utils/comprobanteDeVenta'
 import { codigoComprobanteInterno } from '@/services/numeracionInternaService'
 import { caiRemitoOficialCacheado, getCaiRemitoOficial } from '@/services/remitoOficialConfigService'
-import { compartirArchivo, descargarArchivo, puedeCompartirArchivos } from '@/utils/compartir'
+import { puedeCompartirArchivos } from '@/utils/compartir'
 import { VentaCamion } from '@/types'
 
 const money = (n: number) =>
@@ -58,44 +53,13 @@ export default function VentasChofer({ volverA = '/chofer' }: { volverA?: string
   )
 
   // Genera el comprobante de la venta —la factura de ARCA, o el remito /
-  // factura X interna cuando no factura ARCA— y lo comparte o descarga.
+  // factura X interna cuando no factura ARCA— y lo comparte o descarga
+  // (lógica compartida con la liquidación: utils/comprobanteDeVenta.ts).
   const entregarComprobante = async (venta: VentaCamion, compartir: boolean) => {
     setAviso('')
-    const cliente = clientePorId.get(venta.clienteId)
-    const tipoInterno = tipoComprobanteInterno(venta)
-
-    let blob: Blob
-    let nombre: string
-    let titulo: string
     setOcupada(venta.id)
     try {
-      if (tipoInterno === 'remito' || tipoInterno === 'remitoPromo') {
-        const armado = armarRemito(venta, cliente, caiRemito)
-        if (!armado.ok) { setAviso(armado.motivo); return }
-        blob = (await generateRemitoPdf(armado.datos, { descargar: false })) as Blob
-        nombre = armado.datos.archivo
-        titulo = `Remito ${armado.datos.numero ?? 'sin número'}`
-      } else if (tipoInterno === 'facturaX') {
-        const armado = armarFacturaX(venta, cliente)
-        if (!armado.ok) { setAviso(armado.motivo); return }
-        blob = (await generateComprobanteInternoPdf(armado.datos, { descargar: false })) as Blob
-        nombre = armado.datos.archivo
-        titulo = `Factura X ${armado.datos.numero ?? 'sin número'}`
-      } else {
-        const armado = armarFacturaDeVenta(venta, cliente)
-        if (!armado.ok) { setAviso(armado.motivo); return }
-        blob = (await generateFacturaArcaPdf(armado.datos)) as Blob
-        nombre = `factura-${nroFactura(venta)}.pdf`
-        titulo = `Factura ${nroFactura(venta)}`
-      }
-      if (compartir) {
-        const r = await compartirArchivo(blob, nombre, { titulo, texto: `${titulo} — ${venta.clienteNombre}` })
-        if (r === 'descargado') setAviso('Este dispositivo no puede compartir archivos: se descargó.')
-      } else {
-        descargarArchivo(blob, nombre)
-      }
-    } catch {
-      setAviso('No se pudo generar el comprobante. Probá de nuevo.')
+      setAviso(await entregarComprobanteVenta(venta, clientePorId.get(venta.clienteId), caiRemito, compartir ? 'enviar' : 'ver'))
     } finally {
       setOcupada(null)
     }

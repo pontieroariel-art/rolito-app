@@ -6,6 +6,7 @@ import { subscribeRepartoEnVivo, type FuentesRepartoEnVivo } from '@/services/re
 import { agruparRepartoEnVivo, type CamionEnVivo } from '@/utils/repartoEnVivo'
 import { formatoARS } from '@/utils/money'
 import { haceCuanto } from './SupervisorClientesPage'
+import DetalleReparto from '@/components/expedicion/liquidacion/DetalleReparto'
 
 // Reparto en vivo: la liquidación de cada repartidor calculada al momento
 // (misma cuenta que caja al cerrar el día), para que el supervisor vea qué
@@ -137,43 +138,11 @@ export default function RepartoEnVivoPage() {
                         <p className="flex justify-between col-span-2 border-t border-[#D3D1C7] pt-1 mt-1">Efectivo que lleva <span className="font-semibold text-gray-900">{formatoARS(c.efectivo)}</span></p>
                       </div>
 
-                      {/* Ventas del día */}
-                      <div>
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Ventas de hoy ({c.ventas})</p>
-                        {c.detalle.ventas.length === 0 ? (
-                          <p className="text-xs text-gray-400">Todavía no vendió.</p>
-                        ) : (
-                          <ul className="space-y-1.5">
-                            {c.detalle.ventas.map((v) => (
-                              <li key={v.id} className="text-xs">
-                                <div className="flex justify-between gap-2">
-                                  <span className="font-medium text-gray-900 truncate">{hora(v.fecha.toDate())} · {v.clienteNombre}</span>
-                                  <span className="shrink-0 font-semibold text-gray-900">{formatoARS(v.total)}</span>
-                                </div>
-                                <p className="text-gray-500 truncate">
-                                  {v.items.map((i) => `${i.cantidad} ${i.nombre}`).join(', ')}
-                                  {(v.cambios?.length ?? 0) > 0 ? ` · cambio ${v.cambios!.map((i) => `${i.cantidad} ${i.nombre}`).join(', ')}` : ''}
-                                  {' · '}{PAGO[v.formaPago] ?? v.formaPago}{v.canal === 'promo' ? ' · promo' : ''}
-                                </p>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-
-                      {c.detalle.cobranzas.length > 0 && (
-                        <div>
-                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Cobró en la calle ({c.detalle.cobranzas.length})</p>
-                          <ul className="space-y-1">
-                            {c.detalle.cobranzas.map((cb) => (
-                              <li key={cb.id} className="text-xs flex justify-between gap-2">
-                                <span className="text-gray-900 truncate">{hora(cb.fecha.toDate())} · {cb.clienteNombre} · {PAGO[cb.formaPago] ?? cb.formaPago}</span>
-                                <span className="shrink-0 font-semibold text-gray-900">{formatoARS(cb.importe)}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
+                      {/* Detalle clasificado (el mismo de la liquidación de caja):
+                          ventas por tipo con su comprobante y estado en Tango,
+                          cobranzas con su recibo, cambios, recorrido. */}
+                      <DetalleReparto remitos={c.detalle.remitos} ventas={c.detalle.ventas} cambios={c.detalle.cambios}
+                        descargas={c.detalle.descargas} cobranzas={c.detalle.cobranzas} />
                     </div>
                   )}
                 </div>

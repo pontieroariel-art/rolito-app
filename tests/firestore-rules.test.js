@@ -2518,6 +2518,19 @@ describe('expedicion: muelle / cambios / descargas / liquidaciones', () => {
     await assertFails(setDoc(doc(db('mue1'), 'liquidaciones/2026-08-29_chof1'), liquidacion({ cerradaPor: { uid: 'mue1', nombre: 'M' } })))
   })
 
+  test('el supervisor lee liquidaciones (Reparto en vivo muestra "cerrada", 2026-09-06) pero no cierra; el cierre admite firma, motivo y referencias', async () => {
+    await seedCaja()
+    await seed((d) => setDoc(doc(d, 'users/sup1'), { rol: 'supervisor', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'liquidaciones/2026-08-29_chof1'), liquidacion()))
+    await assertSucceeds(getDoc(doc(db('sup1'), 'liquidaciones/2026-08-29_chof1')))
+    await assertFails(setDoc(doc(db('sup1'), 'liquidaciones/2026-08-30_chof1'), liquidacion({ fecha: '2026-08-30', cerradaPor: { uid: 'sup1', nombre: 'S' } })))
+    await assertSucceeds(setDoc(doc(db('caja1'), 'liquidaciones/2026-08-30_chof1'), liquidacion({
+      fecha: '2026-08-30', depositoTango: '21', depositoTangoNombre: 'CRISTIAN PRIMITERRA',
+      diferencia: { motivo: 'faltante_repartidor', nota: 'faltaron $500' }, firmaRepartidor: 'data:image/png;base64,AAAA', firmanteRepartidor: 'Primiterra',
+      confirmoSinPendientes: true, ventasIds: ['v1'], cobranzasIds: [], remitosCargaIds: ['r1'], descargasIds: [], cantidadVentas: 1, cantidadCobranzas: 0, clientesVisitados: 1,
+    })))
+  })
+
   test('el chofer lee su liquidación pero no la de otro', async () => {
     await seedChofer()
     await seed((d) => setDoc(doc(d, 'liquidaciones/2026-08-29_chof1'), liquidacion()))

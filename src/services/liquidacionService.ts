@@ -1,8 +1,8 @@
-import { doc, getDoc, onSnapshot, setDoc, Timestamp } from 'firebase/firestore'
+import { collection, doc, getDoc, onSnapshot, query, setDoc, where, Timestamp } from 'firebase/firestore'
 import { db } from './firebase'
 import { reportError, esperarOEncolar } from './observability'
-import { Liquidacion, PlantaId } from '../types'
-import { LiquidacionCalculada } from '../utils/liquidacion'
+import { Liquidacion, MotivoDiferenciaLiquidacion, PlantaId } from '../types'
+import { LiquidacionCalculada, referenciasDelReparto } from '../utils/liquidacion'
 import { todayString } from '../utils/helpers'
 
 const LIQUIDACIONES = 'liquidaciones'
@@ -21,6 +21,12 @@ export async function cerrarLiquidacion(
     depositoTangoNombre?: string
     calculo:           LiquidacionCalculada
     efectivoRecibido:  number
+    // Cierre con control (2026-09-06)
+    diferencia?:           { motivo: MotivoDiferenciaLiquidacion; nota: string }
+    firmaRepartidor?:      string
+    firmanteRepartidor?:   string
+    confirmoSinPendientes?: boolean
+    referencias?:          ReturnType<typeof referenciasDelReparto>
   },
   actor: { uid: string; nombre: string; plantaId: PlantaId },
 ): Promise<Liquidacion> {
@@ -35,6 +41,10 @@ export async function cerrarLiquidacion(
     ...args.calculo,
     efectivoRecibido:   args.efectivoRecibido,
     diferenciaEfectivo: args.efectivoRecibido - args.calculo.efectivoARendir,
+    ...(args.diferencia ? { diferencia: args.diferencia } : {}),
+    ...(args.firmaRepartidor ? { firmaRepartidor: args.firmaRepartidor, firmanteRepartidor: args.firmanteRepartidor ?? '' } : {}),
+    ...(args.confirmoSinPendientes !== undefined ? { confirmoSinPendientes: args.confirmoSinPendientes } : {}),
+    ...(args.referencias ?? {}),
     cerradaPor:   { uid: actor.uid, nombre: actor.nombre },
     createdAt:    Timestamp.now(),
   }
@@ -44,6 +54,24 @@ export async function cerrarLiquidacion(
   await esperarOEncolar(setDoc(doc(db, LIQUIDACIONES, id), liquidacion), { origen: 'cerrarLiquidacion', id })
   return { id, ...liquidacion }
 }
+
+// Historial (2026-09-06): todos los cierres cuya fecha (yyyy-MM-dd) cae en
+// [desde, hasta). Rango sobre un solo campo → no necesita índice compuesto;
+// la planta se filtra del lado del cliente (son pocos docs por mes).
+export const subscribeLiquidacionesEnRango = (
+  desde: string,
+  hasta: string,
+  callback: (liquidaciones: Liquidacion[]) => void,
+  plantaId?: PlantaId,
+): () => void =>
+  onSnapshot(
+    query(collection(db, LIQUIDACIONES), where('fecha', '>=', desde), where('fecha', '<', hasta)),
+    (snap) => {
+      const todas = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Liquidacion)
+      callback(plantaId ? todas.filter((l) => l.plantaId === plantaId) : todas)
+    },
+    (err) => { reportError(err, { subscription: 'liquidaciones-rango', desde, hasta }); callback([]) },
+  )
 
 export const getLiquidacion = async (fecha: string, choferId: string): Promise<Liquidacion | null> => {
   const snap = await getDoc(doc(db, LIQUIDACIONES, liquidacionId(fecha, choferId)))

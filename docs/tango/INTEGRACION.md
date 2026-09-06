@@ -1599,3 +1599,35 @@ su inicio (`/supervisor/vender`, misma pantalla del chofer; regla de `ventasCami
 **Writers**: `codigoDeposito()` (functions) y `depositoDe()` (bridge-sql) usan `payload.depositoTango` primero y
 el mapa uid/camión → código como respaldo. `onRemitoCargaCreado` / `onDescargaCamionCreada` mandan
 `depositoTango` en el payload (fase B de stock lo va a consumir). Pendiente: copiar `bridge-sql.mjs` al servidor.
+
+## 28. Liquidación detallada como herramienta de control + historial (2026-09-06)
+
+Maqueta aprobada por Ariel (artifact `1bd0e922`): la liquidación del repartidor muestra TODO lo que se bajó a
+cada cliente, clasificado en bloques con subtotal — **Recorrido** (carga y descarga renglón por renglón), **Ventas
+contado Redonhielo** (efectivo / transferencia), **Cuenta corriente Redonhielo**, **Promo Rolito**, **Cobranzas**
+(Redonhielo / Rolito, por medio: efectivo, transferencia, cheques, retenciones) y **Cambios**. Cada venta lista los
+artículos uno por renglón, su comprobante (factura ARCA / remito interno / factura X) con **Ver** y **Enviar**, el chip
+de estado en Tango (nº de comprobante o error), el chip de stock (VPR) y la firma del cliente. Cada cobranza muestra
+el medio, la factura imputada, el recibo (Ver / Enviar) y el nº de recibo en Tango.
+
+- Clasificación pura: `clasificarReparto()` en `src/utils/liquidacion.ts` (tests en `clasificarReparto.test.ts`);
+  `efectivoARendir` = contado efectivo + promo efectivo + cobranzas en efectivo. `problemas[]` marca facturas
+  rechazadas/inciertas, Tango en error y ventas sin comprobante (chip en la barra de estado que filtra las filas).
+- Comprobante de una venta: `src/utils/comprobanteDeVenta.ts` (`entregarComprobanteVenta`, `describirComprobante`,
+  `estadoTangoVenta`), compartido por `VentasChofer`, la liquidación y Reparto en vivo del supervisor.
+- Componentes: `src/components/expedicion/liquidacion/{DetalleReparto,ResumenLiquidacion,CierreLiquidacionModal}.tsx`.
+- **Cierre con control**: si el efectivo recibido ≠ a rendir, motivo obligatorio (faltante del repartidor, vuelto
+  mal dado, error de carga, otro) + nota → `Liquidacion.diferencia`; firma del repartidor en pantalla
+  (`firmaRepartidor` dataURL + `firmanteRepartidor`, va al PDF); checkbox "el teléfono no muestra movimientos sin
+  subir" → `confirmoSinPendientes`. **Limitación**: `hasPendingWrites` es por dispositivo, caja no puede detectar
+  escrituras pendientes del teléfono del chofer, por eso es una confirmación y no un bloqueo duro. El cierre guarda
+  además los ids de los docs (`ventasIds`, `cobranzasIds`, `remitosCargaIds`, `descargasIds`) y contadores para
+  reconstruir el detalle al reimprimir.
+- PDF: `generateLiquidacion(liq, detalle, { descargar })` devuelve blob (Enviar por WhatsApp/mail) con las tablas
+  por bloque, motivo de la diferencia y firma.
+- **Historial** `/caja/liquidaciones/historial` (caja, super_admin, gerente_general): mes × repartidor con cierres,
+  a rendir, recibido, diferencia (rojo) y cantidad de cierres con diferencia; lista de cierres con motivo y quién
+  cerró; cada fila abre `/caja/liquidaciones?fecha=…&repartidor=…` en modo lectura. Query
+  `subscribeLiquidacionesEnRango` (rango sobre `fecha`, sin índice compuesto; planta filtrada en el cliente).
+- Reglas: `liquidaciones` lectura suma `isSupervisor()` (Reparto en vivo muestra "cerrada"); create admite los
+  campos nuevos. Tests en `tests/firestore-rules.test.js`.

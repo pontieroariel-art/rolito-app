@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, FileText, Printer } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { FileText, History, Printer, Share2 } from 'lucide-react'
 import Button from '../../components/ui/Button'
-import Modal from '../../components/ui/Modal'
 import { useAuth } from '../../context/AuthContext'
 import { subscribeRemitosCargaDelDia } from '../../services/remitoCargaService'
 import { subscribeVentasChoferEnRango } from '../../services/ventaCamionService'
@@ -11,37 +11,44 @@ import { subscribeCobranzasChoferEnRango } from '../../services/cobranzaService'
 import { useDepositosReparto } from '../../hooks/useDepositosReparto'
 import { etiquetaDeposito, identidadDeposito, nombreDeposito, ordenarDepositosReparto } from '../../utils/depositos'
 import { cerrarLiquidacion, subscribeLiquidacion } from '../../services/liquidacionService'
-import { calcularLiquidacion } from '../../utils/liquidacion'
-import { generateLiquidacion } from '../../utils/pdf'
+import { calcularLiquidacion, referenciasDelReparto } from '../../utils/liquidacion'
+import { generateLiquidacion, nombreArchivoLiquidacion, type DetalleLiquidacionPdf } from '../../utils/pdf'
+import { compartirArchivo, puedeCompartirArchivos } from '../../utils/compartir'
 import { useDiaActual } from '../../hooks/useDiaActual'
+import DetalleReparto, { useReparto } from '../../components/expedicion/liquidacion/DetalleReparto'
+import { BarraEstado, DetallePorProducto, Plegable, ResumenPorCliente, TarjetasPlata } from '../../components/expedicion/liquidacion/ResumenLiquidacion'
+import CierreLiquidacionModal, { type DatosCierre } from '../../components/expedicion/liquidacion/CierreLiquidacionModal'
 import {
   CambioCamion, Cobranza, DescargaCamion, Liquidacion, PLANTAS, RemitoCarga, VentaCamion,
 } from '../../types'
 import { reportError } from '@/services/observability'
 
-const money = (n: number) => `$${n.toLocaleString('es-AR')}`
-
-// Liquidación del repartidor (pantalla de caja) — espejo digital de la hoja
-// "Liquidación de repartidores" del sistema viejo. Todo se calcula EN VIVO
-// desde las fuentes del día (remitos, ventas, cambios, descargas); el doc
-// inmutable se crea recién al cerrar. Ver src/utils/liquidacion.ts.
+// Liquidación del repartidor (pantalla de caja) — herramienta de control del
+// día de un DEPÓSITO de Tango (2026-09-06): todo lo que bajó a cada cliente
+// con su comprobante, las cobranzas con su recibo, el cuadre de plata,
+// clasificado por tipo de operación (ver DetalleReparto). Se calcula EN VIVO
+// desde las fuentes del día; el doc inmutable se crea al cerrar y la pantalla
+// sigue mostrando todo en modo lectura. Ver src/utils/liquidacion.ts.
 export default function LiquidacionesPage() {
   const { user } = useAuth()
   const plantaId = user?.planta ?? 'torcuato'
   // Día liquidado: por defecto hoy (reloj reactivo que cruza la medianoche),
-  // pero caja puede elegir un día anterior para liquidar o revisar
-  // (2026-09-06). `hoy` (yyyy-MM-dd) y `fecha` (Date) salen del mismo string.
+  // pero caja puede elegir un día anterior para liquidar o revisar.
   const diaActual = useDiaActual()
-  const [diaElegido, setDiaElegido] = useState<string | null>(null)
+  // El historial abre un cierre puntual con ?fecha=yyyy-MM-dd&repartidor=<id>.
+  const [params] = useSearchParams()
+  const [diaElegido, setDiaElegido] = useState<string | null>(() => {
+    const f = params.get('fecha')
+    return f && /^\d{4}-\d{2}-\d{2}$/.test(f) && f !== diaActual ? f : null
+  })
   const hoy   = diaElegido ?? diaActual
   const fecha = useMemo(() => new Date(hoy + 'T12:00:00'), [hoy])
 
-  // Expedición por depósito de Tango (2026-09-06): se liquida un DEPÓSITO
-  // (repartidor propio, tercerizado o supervisor), identificado en los docs
-  // por el uid de su usuario o por 'dep:<código>' — ver utils/depositos.ts.
+  // Se liquida un DEPÓSITO (repartidor propio, tercerizado o supervisor),
+  // identificado en los docs por el uid de su usuario o 'dep:<código>'.
   const { depositos } = useDepositosReparto()
   const [remitosPlanta, setRemitosPlanta] = useState<RemitoCarga[]>([])
-  const [choferId, setChoferId] = useState('')
+  const [choferId, setChoferId] = useState(() => params.get('repartidor') ?? '')
   const [ventas,    setVentas]    = useState<VentaCamion[]>([])
   const [cambios,   setCambios]   = useState<CambioCamion[]>([])
   const [descargas, setDescargas] = useState<DescargaCamion[]>([])
@@ -51,12 +58,14 @@ export default function LiquidacionesPage() {
   const [confirmando, setConfirmando] = useState(false)
   const [guardando,   setGuardando]   = useState(false)
   const [error,       setError]       = useState('')
+  const [aviso,       setAviso]       = useState('')
+  const [soloProblemas, setSoloProblemas] = useState(false)
 
   useEffect(() => subscribeRemitosCargaDelDia(plantaId, fecha, setRemitosPlanta), [plantaId, fecha])
 
   // Primero los depósitos que salieron ese día con remito de esta planta;
-  // abajo el resto de los repartidores activos — un supervisor puede tener un
-  // día SOLO de cobranzas, sin remito de carga, y también se liquida.
+  // abajo el resto de los repartidores activos (un supervisor puede tener un
+  // día solo de cobranzas, sin remito, y también se liquida).
   const conRemito = useMemo(() => new Set(remitosPlanta.map((r) => r.choferId)), [remitosPlanta])
   const depositosReparto = useMemo(() => ordenarDepositosReparto(depositos, conRemito), [depositos, conRemito])
   const conSalida = depositosReparto.filter((d) => conRemito.has(identidadDeposito(d)))
@@ -70,7 +79,7 @@ export default function LiquidacionesPage() {
     return [...m.entries()].map(([id, nombre]) => ({ id, nombre }))
   }, [remitosPlanta, depositosReparto])
 
-  const remitosChofer = remitosPlanta.filter((r) => r.choferId === choferId)
+  const remitosChofer = useMemo(() => remitosPlanta.filter((r) => r.choferId === choferId), [remitosPlanta, choferId])
   const depositoElegido = depositosReparto.find((d) => identidadDeposito(d) === choferId)
   const choferNombre  = depositoElegido ? nombreDeposito(depositoElegido) : (huerfanos.find((h) => h.id === choferId)?.nombre ?? '')
 
@@ -88,17 +97,39 @@ export default function LiquidacionesPage() {
     return () => unsubs.forEach((u) => u())
   }, [choferId, hoy, fecha])
 
+  useEffect(() => { setEfectivoRecibido(''); setSoloProblemas(false); setAviso(''); setError('') }, [choferId, hoy])
+
   const calc = useMemo(
     () => calcularLiquidacion(remitosChofer, ventas, cambios, descargas, cobranzas),
     [remitosChofer, ventas, cambios, descargas, cobranzas],
   )
+  const reparto = useReparto({ remitos: remitosChofer, ventas, cambios, descargas, cobranzas })
 
-  const recibido = parseInt(efectivoRecibido.replace(/\D/g, ''), 10) || 0
+  const recibido = cerrada ? cerrada.efectivoRecibido : (parseInt(efectivoRecibido.replace(/\D/g, ''), 10) || 0)
+  const diferencia = cerrada ? cerrada.diferenciaEfectivo : (efectivoRecibido.trim() === '' ? null : recibido - calc.efectivoARendir)
+
+  const detallePdf = (): DetalleLiquidacionPdf => ({
+    reparto,
+    remitos: remitosChofer.map((r) => ({ codigo: r.codigo, camionLabel: r.camionLabel, fecha: r.fecha.toDate(), salida: r.salida?.hora.toDate() ?? null, entregado: r.entregadoPor?.hora.toDate() ?? null, items: r.items, palletsCarga: r.palletsCarga })),
+    descargas: descargas.map((d) => ({ fecha: d.fecha.toDate(), registradoPor: d.registradoPor.nombre, items: d.items, rotas: d.bolsasRotas.reduce((s, i) => s + i.cantidad, 0), pallets: { completos: d.palletsCompletos, parciales: d.palletsParciales, vacios: d.palletsVacios } })),
+  })
 
   const imprimir = (liq: Liquidacion) =>
-    generateLiquidacion(liq).catch((err) => reportError(err, { origen: 'LiquidacionesPage', accion: 'error al generar el PDF' }))
+    generateLiquidacion(liq, detallePdf()).catch((err) => reportError(err, { origen: 'LiquidacionesPage', accion: 'error al generar el PDF' }))
 
-  const cerrar = async () => {
+  const enviar = async (liq: Liquidacion) => {
+    setAviso('')
+    try {
+      const blob = (await generateLiquidacion(liq, detallePdf(), { descargar: false })) as Blob
+      const r = await compartirArchivo(blob, nombreArchivoLiquidacion(liq), { titulo: `Liquidación ${liq.fecha} · ${liq.choferNombre}`, texto: `Liquidación del ${liq.fecha} de ${liq.choferNombre}` })
+      if (r === 'descargado') setAviso('Este dispositivo no puede compartir archivos: se descargó el PDF.')
+    } catch (err) {
+      reportError(err, { origen: 'LiquidacionesPage', accion: 'error al enviar el PDF' })
+      setAviso('No se pudo generar el PDF.')
+    }
+  }
+
+  const cerrar = async (datos: DatosCierre) => {
     if (!user || !choferId) return
     setGuardando(true)
     setError('')
@@ -107,6 +138,8 @@ export default function LiquidacionesPage() {
         {
           fecha: hoy, choferId, choferNombre, calculo: calc, efectivoRecibido: recibido,
           ...(depositoElegido ? { depositoTango: depositoElegido.codigo, depositoTangoNombre: depositoElegido.nombre } : {}),
+          ...datos,
+          referencias: referenciasDelReparto(remitosChofer, ventas, descargas, cobranzas),
         },
         { uid: user.uid, nombre: user.nombre, plantaId },
       )
@@ -115,222 +148,114 @@ export default function LiquidacionesPage() {
     } catch (err) {
       reportError(err, { origen: 'LiquidacionesPage', accion: 'error al cerrar' })
       setError('No se pudo cerrar la liquidación. ¿Ya estaba cerrada? Revisá e intentá de nuevo.')
-      setConfirmando(false)
     } finally {
       setGuardando(false)
     }
   }
 
   const selectClass = 'w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'
-  const dif = (n: number) => n === 0
-    ? <span className="text-gray-500">0</span>
-    : <span className="font-semibold text-red-600">{n > 0 ? `+${n}` : n}</span>
+  const hayMovimientos = ventas.length + cobranzas.length + remitosChofer.length + descargas.length > 0
+  const compartible = puedeCompartirArchivos()
 
   return (
-    <main className="max-w-4xl mx-auto p-4 space-y-6 pb-10">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Liquidación de repartidores</h1>
-        <p className="text-gray-500 text-sm">{PLANTAS[plantaId].label} · {fecha.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
-      </div>
-
-      <div className="grid sm:grid-cols-[200px_1fr] gap-3 max-w-2xl">
+    <main className="max-w-5xl mx-auto p-4 space-y-4 pb-10">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Fecha</label>
-          <input
-            type="date"
-            value={hoy}
-            max={diaActual}
-            onChange={(e) => { setDiaElegido(e.target.value && e.target.value !== diaActual ? e.target.value : null); setChoferId('') }}
-            className={selectClass}
-          />
+          <h1 className="text-2xl font-bold text-gray-900">Liquidación</h1>
+          <p className="text-gray-500 text-sm">{PLANTAS[plantaId].label} · {fecha.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+          <Link to="/caja/liquidaciones/historial" className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-accent mt-1"><History size={13} /> Historial de cierres</Link>
         </div>
-        <div>
-          <label className="text-xs text-gray-500 mb-1 block">Repartidor (depósito de Tango)</label>
-          <select value={choferId} onChange={(e) => setChoferId(e.target.value)} className={selectClass}>
-            <option value="">Elegir repartidor…</option>
-            {conSalida.length > 0 && (
-              <optgroup label={hoy === diaActual ? 'Con salida hoy' : 'Con salida ese día'}>
-                {conSalida.map((d) => <option key={d.codigo} value={identidadDeposito(d)}>{etiquetaDeposito(d)}</option>)}
-              </optgroup>
-            )}
-            {huerfanos.length > 0 && (
-              <optgroup label="Con remito, sin depósito en el catálogo">
-                {huerfanos.map((h) => <option key={h.id} value={h.id}>{h.nombre}</option>)}
-              </optgroup>
-            )}
-            {sinSalida.length > 0 && (
-              <optgroup label="Sin remito (supervisores, cobradores, otros depósitos)">
-                {sinSalida.map((d) => <option key={d.codigo} value={identidadDeposito(d)}>{etiquetaDeposito(d)}</option>)}
-              </optgroup>
-            )}
-          </select>
-        </div>
-      </div>
-
-      {choferId && cerrada && (
-        <section className="bg-accent/5 border border-accent/30 rounded-2xl p-4 space-y-2">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 size={18} className="text-accent" />
-            <p className="font-semibold text-gray-900">Liquidación cerrada</p>
+        <div className="grid sm:grid-cols-[170px_minmax(260px,1fr)] gap-3 w-full sm:w-auto">
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Fecha</label>
+            <input type="date" value={hoy} max={diaActual}
+              onChange={(e) => { setDiaElegido(e.target.value && e.target.value !== diaActual ? e.target.value : null); setChoferId('') }}
+              className={selectClass} />
           </div>
-          <p className="text-sm text-gray-600">
-            Cerró {cerrada.cerradaPor.nombre} · Efectivo rendido {money(cerrada.efectivoRecibido)}
-            {cerrada.diferenciaEfectivo !== 0 && (
-              <span className="text-red-600 font-medium"> (diferencia {money(cerrada.diferenciaEfectivo)})</span>
-            )}
-          </p>
-          <Button variant="outline" onClick={() => imprimir(cerrada)}>
-            <Printer size={16} className="mr-1.5" /> Reimprimir liquidación
-          </Button>
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Repartidor (depósito de Tango)</label>
+            <select value={choferId} onChange={(e) => setChoferId(e.target.value)} className={selectClass}>
+              <option value="">Elegir repartidor…</option>
+              {conSalida.length > 0 && (
+                <optgroup label={hoy === diaActual ? 'Con salida hoy' : 'Con salida ese día'}>
+                  {conSalida.map((d) => <option key={d.codigo} value={identidadDeposito(d)}>{etiquetaDeposito(d)}</option>)}
+                </optgroup>
+              )}
+              {huerfanos.length > 0 && (
+                <optgroup label="Con remito, sin depósito en el catálogo">
+                  {huerfanos.map((h) => <option key={h.id} value={h.id}>{h.nombre}</option>)}
+                </optgroup>
+              )}
+              {sinSalida.length > 0 && (
+                <optgroup label="Sin remito (supervisores, cobradores, otros depósitos)">
+                  {sinSalida.map((d) => <option key={d.codigo} value={identidadDeposito(d)}>{etiquetaDeposito(d)}</option>)}
+                </optgroup>
+              )}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {!choferId && (
+        <section className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-6 text-center text-sm text-gray-500">
+          <FileText size={28} className="mx-auto mb-2 text-gray-300" />
+          Elegí el día y el repartidor para ver su liquidación.
         </section>
       )}
 
-      {choferId && !cerrada && (
+      {choferId && (
         <>
-          {/* ── Detalle por producto (espejo de la hoja vieja) ── */}
-          <section className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-4 overflow-x-auto">
-            <h2 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-              <FileText size={18} className="text-accent" /> Detalle por producto
-            </h2>
-            {calc.productos.length === 0 ? (
-              <p className="text-gray-400 text-sm">Sin movimientos todavía.</p>
-            ) : (
-              <table className="w-full text-sm min-w-[640px]">
-                <thead>
-                  <tr className="text-xs text-gray-500 border-b border-gray-200">
-                    <th className="text-left py-2 pr-2 font-medium">Producto</th>
-                    <th className="text-right py-2 px-2 font-medium">Carga</th>
-                    <th className="text-right py-2 px-2 font-medium">Venta Cdo.</th>
-                    <th className="text-right py-2 px-2 font-medium">Promoción</th>
-                    <th className="text-right py-2 px-2 font-medium">Cambios</th>
-                    <th className="text-right py-2 px-2 font-medium">Dev. teórica</th>
-                    <th className="text-right py-2 px-2 font-medium">Descarga</th>
-                    <th className="text-right py-2 pl-2 font-medium">Diferencia</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {calc.productos.map((p) => (
-                    <tr key={p.productoId} className="border-b border-gray-100 last:border-0">
-                      <td className="py-1.5 pr-2 text-gray-800">{p.nombre}</td>
-                      <td className="py-1.5 px-2 text-right">{p.carga}</td>
-                      <td className="py-1.5 px-2 text-right">{p.ventaContado}</td>
-                      <td className="py-1.5 px-2 text-right">{p.ventaPromo}</td>
-                      <td className="py-1.5 px-2 text-right">{p.cambios}</td>
-                      <td className="py-1.5 px-2 text-right text-gray-500">{p.devolucionTeorica}</td>
-                      <td className="py-1.5 px-2 text-right">{p.descarga}</td>
-                      <td className="py-1.5 pl-2 text-right">{dif(p.diferencia)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-            {descargas.length === 0 && calc.productos.length > 0 && (
-              <p className="text-xs text-amber-600 mt-2">Muelle todavía no registró la descarga — las diferencias van a quedar contra 0.</p>
-            )}
-          </section>
+          <BarraEstado remitos={remitosChofer} descargas={descargas} reparto={reparto} cerrada={cerrada}
+            soloProblemas={soloProblemas} onProblemas={() => setSoloProblemas((v) => !v)} />
 
-          {/* ── Envases y cambios ── */}
-          <div className="grid sm:grid-cols-2 gap-4">
-            <section className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-4">
-              <h2 className="font-semibold text-gray-800 mb-2">Envases (pallets)</h2>
-              <div className="text-sm space-y-1">
-                <div className="flex justify-between"><span className="text-gray-600">Salieron</span><span className="font-medium">{calc.pallets.salidos}</span></div>
-                <div className="flex justify-between"><span className="text-gray-600">Volvieron completos</span><span className="font-medium">{calc.pallets.completos}</span></div>
-                <div className="flex justify-between"><span className="text-gray-600">Volvieron parciales</span><span className="font-medium">{calc.pallets.parciales}</span></div>
-                <div className="flex justify-between"><span className="text-gray-600">Volvieron vacíos</span><span className="font-medium">{calc.pallets.vacios}</span></div>
-                <div className="flex justify-between border-t border-gray-100 pt-1 mt-1">
-                  <span className="text-gray-600">Diferencia</span>{dif(calc.pallets.diferencia)}
-                </div>
+          {cerrada && (
+            <section className="bg-accent/5 border border-accent/30 rounded-2xl px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-gray-700">
+                Cerrada por <b>{cerrada.cerradaPor.nombre}</b>{cerrada.firmanteRepartidor ? <> · firmó <b>{cerrada.firmanteRepartidor}</b></> : null}
+                {cerrada.diferenciaEfectivo !== 0 && <span className="text-red-600 font-medium"> · diferencia {cerrada.diferenciaEfectivo.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 })}{cerrada.diferencia ? ` (${cerrada.diferencia.nota || cerrada.diferencia.motivo})` : ''}</span>}
+              </p>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => imprimir(cerrada)}><Printer size={16} className="mr-1.5" /> Reimprimir</Button>
+                <Button variant="outline" onClick={() => enviar(cerrada)}><Share2 size={16} className="mr-1.5" /> {compartible ? 'Enviar' : 'Descargar PDF'}</Button>
               </div>
             </section>
-            <section className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-4">
-              <h2 className="font-semibold text-gray-800 mb-2">Cambios (bolsas rotas)</h2>
-              <div className="text-sm space-y-1">
-                <div className="flex justify-between"><span className="text-gray-600">Registrados por el chofer</span><span className="font-medium">{calc.cambios.registrados}</span></div>
-                <div className="flex justify-between"><span className="text-gray-600">Rotas recibidas en muelle</span><span className="font-medium">{calc.cambios.rotasRecibidas}</span></div>
-                <div className="flex justify-between border-t border-gray-100 pt-1 mt-1">
-                  <span className="text-gray-600">Diferencia</span>{dif(calc.cambios.rotasRecibidas - calc.cambios.registrados)}
-                </div>
-              </div>
-            </section>
-          </div>
-
-          {/* ── Plata ── */}
-          <section className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-4 space-y-3">
-            <h2 className="font-semibold text-gray-800">Importes y rendición</h2>
-            <div className="text-sm space-y-1">
-              <div className="flex justify-between"><span className="text-gray-600">Contado efectivo</span><span className="font-medium">{money(calc.importes.contadoEfectivo)}</span></div>
-              <div className="flex justify-between"><span className="text-gray-600">Contado transferencia</span><span className="font-medium">{money(calc.importes.contadoTransferencia)}</span></div>
-              <div className="flex justify-between"><span className="text-gray-600">Cuenta corriente</span><span className="font-medium">{money(calc.importes.cuentaCorriente)}</span></div>
-              <div className="flex justify-between border-t border-gray-100 pt-1 mt-1"><span className="text-gray-700 font-medium">Total vendido</span><span className="font-semibold">{money(calc.importes.total)}</span></div>
-              {calc.cobranzasCalle && calc.cobranzasCalle.cantidad > 0 && (
-                <>
-                  <div className="flex justify-between pt-1"><span className="text-gray-600">Cobranzas en efectivo ({calc.cobranzasCalle.cantidad})</span><span className="font-medium">{money(calc.cobranzasCalle.efectivo)}</span></div>
-                  <div className="flex justify-between"><span className="text-gray-600">Cobranzas por transferencia</span><span className="font-medium">{money(calc.cobranzasCalle.transferencia)}</span></div>
-                  <div className="flex justify-between border-t border-gray-100 pt-1 mt-1"><span className="text-gray-700 font-medium">Total cobrado</span><span className="font-semibold">{money(calc.cobranzasCalle.total)}</span></div>
-                </>
-              )}
-            </div>
-            <div className="grid sm:grid-cols-3 gap-3 items-end">
-              <div>
-                <p className="text-xs text-gray-500">Efectivo a rendir</p>
-                <p className="text-lg font-bold text-gray-900">{money(calc.efectivoARendir)}</p>
-              </div>
-              <div>
-                <label className="text-xs text-gray-500 mb-1 block">Efectivo recibido</label>
-                <input
-                  value={efectivoRecibido}
-                  onChange={(e) => setEfectivoRecibido(e.target.value.replace(/\D/g, ''))}
-                  inputMode="numeric"
-                  placeholder="0"
-                  className={selectClass}
-                />
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Diferencia</p>
-                <p className={`text-lg font-bold ${recibido - calc.efectivoARendir === 0 ? 'text-gray-900' : 'text-red-600'}`}>
-                  {money(recibido - calc.efectivoARendir)}
-                </p>
-              </div>
-            </div>
-          </section>
-
-          {error && (
-            <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
-              <p className="text-red-500 text-sm">{error}</p>
-            </div>
           )}
 
-          <Button
-            onClick={() => setConfirmando(true)}
-            disabled={calc.productos.length === 0 && cobranzas.length === 0}
-            className="w-full sm:w-auto"
-          >
-            Cerrar liquidación e imprimir
-          </Button>
+          {aviso && <p className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">{aviso}</p>}
 
-          {confirmando && (
-            <Modal open onClose={() => setConfirmando(false)} title={`Cerrar liquidación — ${choferNombre}`}>
-              <div className="space-y-3">
-                <p className="text-sm text-gray-700">
-                  Se cierra la liquidación de hoy de <span className="font-semibold">{choferNombre}</span> con
-                  efectivo recibido <span className="font-semibold">{money(recibido)}</span>
-                  {recibido - calc.efectivoARendir !== 0 && (
-                    <span className="text-red-600"> (diferencia {money(recibido - calc.efectivoARendir)})</span>
-                  )}.
-                </p>
-                {descargas.length === 0 && (
-                  <p className="text-xs text-amber-600">Ojo: muelle no registró descarga — todas las devoluciones quedan como diferencia.</p>
-                )}
-                <p className="text-xs text-gray-500">El cierre es definitivo: queda el snapshot del día y no se puede modificar.</p>
-                <div className="flex gap-2 pt-1">
-                  <Button variant="outline" type="button" onClick={() => setConfirmando(false)} className="flex-1">Cancelar</Button>
-                  <Button onClick={cerrar} loading={guardando} className="flex-1">Cerrar e imprimir</Button>
-                </div>
-              </div>
-            </Modal>
+          <TarjetasPlata reparto={reparto} calc={calc} efectivoRecibido={cerrada ? String(cerrada.efectivoRecibido) : efectivoRecibido}
+            onEfectivoRecibido={setEfectivoRecibido} soloLectura={!!cerrada} diferencia={diferencia} />
+
+          <DetalleReparto remitos={remitosChofer} ventas={ventas} cambios={cambios} descargas={descargas} cobranzas={cobranzas} soloProblemas={soloProblemas} />
+
+          <Plegable titulo="Resumen por cliente"><ResumenPorCliente reparto={reparto} /></Plegable>
+          <Plegable titulo="Detalle por producto, envases y cambios"><DetallePorProducto calc={calc} /></Plegable>
+
+          {!cerrada && (
+            <div className="flex flex-wrap justify-end gap-2">
+              {error && <p className="w-full text-sm text-red-600">{error}</p>}
+              <Button onClick={() => setConfirmando(true)} disabled={!hayMovimientos || efectivoRecibido.trim() === ''}>
+                <Printer size={16} className="mr-1.5" /> Cerrar liquidación e imprimir
+              </Button>
+            </div>
+          )}
+          {!cerrada && hayMovimientos && efectivoRecibido.trim() === '' && (
+            <p className="text-right text-xs text-gray-500">Cargá el efectivo recibido para poder cerrar.</p>
           )}
         </>
+      )}
+
+      {confirmando && choferId && (
+        <CierreLiquidacionModal
+          repartidor={choferNombre}
+          resumen={{ ventas: ventas.length, clientes: reparto.clientes.length, cobranzas: cobranzas.length }}
+          efectivoARendir={calc.efectivoARendir}
+          efectivoRecibido={recibido}
+          guardando={guardando}
+          error={error}
+          onCancelar={() => setConfirmando(false)}
+          onConfirmar={cerrar}
+        />
       )}
     </main>
   )

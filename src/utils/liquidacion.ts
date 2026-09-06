@@ -1,6 +1,6 @@
 import {
   CambioCamion, Cobranza, DescargaCamion, Liquidacion, LiquidacionResumenProducto,
-  RemitoCarga, VentaCamion,
+  RemitoCarga, VentaCamion, VentaCamionItem,
 } from '../types'
 import { nombreDelCambio, productoDelCambio } from './cambios'
 
@@ -102,5 +102,157 @@ export function calcularLiquidacion(
       total:         cobranzasEfectivo + cobranzasTransferencia,
     },
     efectivoARendir: contadoEfectivo + cobranzasEfectivo,
+  }
+}
+
+// ── Clasificación del reparto para la liquidación detallada (2026-09-06) ─────
+// Ariel: "que la información esté bien clasificada": contado / cuenta
+// corriente / promo / cobranzas / cambios, cada bloque con su subtotal, y un
+// resumen por cliente. Puro, sobre los mismos docs del día.
+
+export interface BloqueVentas { ventas: VentaCamion[]; total: number }
+
+export interface CobranzasClasificadas {
+  redonhielo: Cobranza[]
+  rolito:     Cobranza[]
+  efectivo:      number
+  transferencia: number
+  cheques:       { cantidad: number; total: number }
+  retenciones:   { cantidad: number; total: number }
+  total:         number
+}
+
+export interface CambioDelReparto {
+  ventaId:      string
+  fecha:        VentaCamion['fecha']
+  clienteId:    string
+  clienteNombre: string
+  clienteCodigoTango?: string
+  items:        VentaCamionItem[]
+  /** Comprobante de la venta en la que se registró el cambio (para citarlo). */
+  venta?:       VentaCamion
+}
+
+export interface ClienteDelReparto {
+  clienteId:    string
+  nombre:       string
+  codigoTango:  string
+  contado:      number
+  cuentaCorriente: number
+  promo:        number
+  cobrado:      number
+  cambios:      number
+  ventas:       number
+  cobranzas:    number
+  problemas:    number
+}
+
+export interface RepartoClasificado {
+  contado:         { efectivo: BloqueVentas; transferencia: BloqueVentas; total: number }
+  cuentaCorriente: BloqueVentas
+  promo:           { contado: BloqueVentas; cuentaCorriente: BloqueVentas; total: number }
+  cobranzas:       CobranzasClasificadas
+  cambios:         { lista: CambioDelReparto[]; unidades: number; rotasRecibidas: number }
+  clientes:        ClienteDelReparto[]
+  /** Ventas con algún problema de control (factura rechazada/incierta, sin número, Tango en error). */
+  problemas:       Array<{ venta: VentaCamion; motivos: string[] }>
+  totalVendido:    number
+  efectivoARendir: number
+}
+
+const porFecha = <T extends { fecha: { toMillis(): number } }>(a: T, b: T) => a.fecha.toMillis() - b.fecha.toMillis()
+const bloque = (ventas: VentaCamion[]): BloqueVentas => ({ ventas: ventas.slice().sort(porFecha), total: ventas.reduce((s, v) => s + v.total, 0) })
+
+export function clasificarReparto(
+  ventas: VentaCamion[],
+  cobranzas: Cobranza[],
+  cambiosLegacy: CambioCamion[] = [],
+  descargas: DescargaCamion[] = [],
+  problemasDe: (v: VentaCamion) => string[] = () => [],
+): RepartoClasificado {
+  const contadoV = ventas.filter((v) => v.canal !== 'promo')
+  const promoV = ventas.filter((v) => v.canal === 'promo')
+  const contado = {
+    efectivo:      bloque(contadoV.filter((v) => v.formaPago === 'contado_efectivo')),
+    transferencia: bloque(contadoV.filter((v) => v.formaPago === 'contado_transferencia')),
+    total: 0,
+  }
+  contado.total = contado.efectivo.total + contado.transferencia.total
+  const cuentaCorriente = bloque(contadoV.filter((v) => v.formaPago === 'cuenta_corriente'))
+  const promo = {
+    contado:         bloque(promoV.filter((v) => v.formaPago !== 'cuenta_corriente')),
+    cuentaCorriente: bloque(promoV.filter((v) => v.formaPago === 'cuenta_corriente')),
+    total: 0,
+  }
+  promo.total = promo.contado.total + promo.cuentaCorriente.total
+
+  const efectivoDe = (c: Cobranza) => (c.medios ? c.medios.efectivo : c.formaPago === 'contado_efectivo' ? c.importe : 0)
+  const transferenciaDe = (c: Cobranza) => (c.medios ? c.medios.transferencia : c.formaPago === 'contado_transferencia' ? c.importe : 0)
+  const cobOrdenadas = cobranzas.slice().sort(porFecha)
+  const cheques = cobOrdenadas.flatMap((c) => c.medios?.cheques ?? [])
+  const retenciones = cobOrdenadas.flatMap((c) => c.medios?.retenciones ?? [])
+  const cob: CobranzasClasificadas = {
+    redonhielo: cobOrdenadas.filter((c) => c.empresa !== 'rolito'),
+    rolito:     cobOrdenadas.filter((c) => c.empresa === 'rolito'),
+    efectivo:      cobOrdenadas.reduce((s, c) => s + efectivoDe(c), 0),
+    transferencia: cobOrdenadas.reduce((s, c) => s + transferenciaDe(c), 0),
+    cheques:     { cantidad: cheques.length, total: cheques.reduce((s, ch) => s + ch.importe, 0) },
+    retenciones: { cantidad: retenciones.length, total: retenciones.reduce((s, r) => s + r.importe, 0) },
+    total: cobOrdenadas.reduce((s, c) => s + c.importe, 0),
+  }
+
+  const cambiosLista: CambioDelReparto[] = ventas
+    .filter((v) => (v.cambios ?? []).length > 0)
+    .sort(porFecha)
+    .map((v) => ({ ventaId: v.id, fecha: v.fecha, clienteId: v.clienteId, clienteNombre: v.clienteNombre, clienteCodigoTango: v.clienteCodigoTango, items: v.cambios ?? [], venta: v }))
+  for (const c of cambiosLegacy.slice().sort(porFecha)) {
+    cambiosLista.push({ ventaId: c.id, fecha: c.fecha, clienteId: c.clienteId, clienteNombre: c.clienteNombre, items: [{ productoId: c.productoId, nombre: c.nombre, cantidad: c.cantidad, precioUnitario: 0 }] })
+  }
+  const unidades = cambiosLista.reduce((s, c) => s + c.items.reduce((x, i) => x + i.cantidad, 0), 0)
+  const rotasRecibidas = descargas.reduce((s, d) => s + d.bolsasRotas.reduce((x, i) => x + i.cantidad, 0), 0)
+
+  const problemas = ventas.slice().sort(porFecha).map((venta) => ({ venta, motivos: problemasDe(venta) })).filter((p) => p.motivos.length > 0)
+  const problemasPorVenta = new Map(problemas.map((p) => [p.venta.id, p.motivos.length]))
+
+  const clientes = new Map<string, ClienteDelReparto>()
+  const cli = (id: string, nombre: string, codigo?: string) => {
+    let c = clientes.get(id)
+    if (!c) { c = { clienteId: id, nombre, codigoTango: codigo ?? '', contado: 0, cuentaCorriente: 0, promo: 0, cobrado: 0, cambios: 0, ventas: 0, cobranzas: 0, problemas: 0 }; clientes.set(id, c) }
+    if (!c.codigoTango && codigo) c.codigoTango = codigo
+    return c
+  }
+  for (const v of ventas) {
+    const c = cli(v.clienteId, v.clienteNombre, v.clienteCodigoTango)
+    c.ventas++
+    if (v.canal === 'promo') c.promo += v.total
+    else if (v.formaPago === 'cuenta_corriente') c.cuentaCorriente += v.total
+    else c.contado += v.total
+    c.cambios += (v.cambios ?? []).reduce((s, i) => s + i.cantidad, 0)
+    c.problemas += problemasPorVenta.get(v.id) ?? 0
+  }
+  for (const cb of cobranzas) { const c = cli(cb.clienteId, cb.clienteNombre, cb.codigoTango); c.cobranzas++; c.cobrado += cb.importe }
+  for (const x of cambiosLegacy) cli(x.clienteId, x.clienteNombre).cambios += x.cantidad
+
+  const totalVendido = contado.total + cuentaCorriente.total + promo.total
+  return {
+    contado, cuentaCorriente, promo, cobranzas: cob,
+    cambios: { lista: cambiosLista, unidades, rotasRecibidas },
+    clientes: [...clientes.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')),
+    problemas,
+    totalVendido,
+    efectivoARendir: contado.efectivo.total + promo.contado.ventas.filter((v) => v.formaPago === 'contado_efectivo').reduce((s, v) => s + v.total, 0) + cob.efectivo,
+  }
+}
+
+/** Ids y contadores que la liquidación cerrada guarda para poder reconstruir su detalle. */
+export function referenciasDelReparto(remitos: RemitoCarga[], ventas: VentaCamion[], descargas: DescargaCamion[], cobranzas: Cobranza[]) {
+  return {
+    remitosCargaIds: remitos.map((r) => r.id),
+    ventasIds:       ventas.map((v) => v.id),
+    descargasIds:    descargas.map((d) => d.id),
+    cobranzasIds:    cobranzas.map((c) => c.id),
+    cantidadVentas:    ventas.length,
+    cantidadCobranzas: cobranzas.length,
+    clientesVisitados: new Set([...ventas.map((v) => v.clienteId), ...cobranzas.map((c) => c.clienteId)]).size,
   }
 }
