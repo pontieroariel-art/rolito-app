@@ -209,8 +209,20 @@ export async function sincronizarClientes(db: Firestore, tango: TangoClient, cfg
       else if (k !== 'company') (resumen[k] as number) += re[k] as number
     }
   }
-  if (cfg.altas?.enabled === true) resumen.altas = await encolarAltas(db, sinCuenta)
-  resumen.bajas = await aplicarBajas(db, cfg, indice.perfilPorUid, vistos, corridaOk)
+  // Altas y bajas no pueden tirar abajo la corrida: si fallan, queda el
+  // error en el resumen y el resto (fichas ya actualizadas) se registra igual.
+  try {
+    if (cfg.altas?.enabled === true) resumen.altas = await encolarAltas(db, sinCuenta)
+  } catch (e) {
+    resumen.errores.push({ paso: 'altas', motivo: (e as Error).message })
+    logger.error(`[tango] encolar altas falló: ${(e as Error).message}`)
+  }
+  try {
+    resumen.bajas = await aplicarBajas(db, cfg, indice.perfilPorUid, vistos, corridaOk)
+  } catch (e) {
+    resumen.errores.push({ paso: 'bajas', motivo: (e as Error).message })
+    logger.error(`[tango] bajas falló: ${(e as Error).message}`)
+  }
   return resumen
 }
 
@@ -231,7 +243,9 @@ async function encolarAltas(db: Firestore, sinCuenta: Array<{ empresa: Empresa; 
     if (estadoActual && estadoActual !== 'pendiente') { out.yaEncolados++; continue }
     if (estadoActual) out.yaEncolados++
     else out.encolados++
-    batch.set(db.doc(`tango-altas/${c.cuit}`), { cuit: c.cuit, filas: c.filas, estado: 'pendiente', razonSocial: c.filas[0].fila.razonSocial ?? '', actualizadoEn: FieldValue.serverTimestamp(), ...(estadoActual ? {} : { creadoEn: FieldValue.serverTimestamp() }) }, { merge: true })
+    // JSON round-trip: las filas recortadas traen campos undefined (str() de
+    // recortarCliente) y Firestore los rechaza.
+    batch.set(db.doc(`tango-altas/${c.cuit}`), { cuit: c.cuit, filas: JSON.parse(JSON.stringify(c.filas)), estado: 'pendiente', razonSocial: c.filas[0].fila.razonSocial ?? '', actualizadoEn: FieldValue.serverTimestamp(), ...(estadoActual ? {} : { creadoEn: FieldValue.serverTimestamp() }) }, { merge: true })
     if (++ops >= 400) { await batch.commit(); batch = db.batch(); ops = 0 }
   }
   if (ops) await batch.commit()
