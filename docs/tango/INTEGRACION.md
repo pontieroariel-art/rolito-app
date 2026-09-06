@@ -1531,3 +1531,38 @@ cliente por el de la empresa destino (la app graba los de Redonhielo).
 **Verificación** — `scripts/tango/verificar-live-empresas.mjs` (con `$env:TANGO_TOKEN`) lista filas y columnas de
 17953/17955 por Company y, con `--cliente=FC.280`, el ID_GVA14 del cliente en cada una. Pendiente en Rolito:
 `GRANT EXECUTE ON dbo.P_COBRANZAESTADOSVENTAS TO rolito_bridge` (sin eso el recibo deja la factura en PEN).
+
+## 26. Padrón maestro: altas y bajas automáticas de clientes desde Tango (2026-09-06)
+
+Decisión de Ariel: "mi base es Tango, todo lo que está en Tango tiene que estar en la app". Lógica pura en
+`functions/src/services/tango/clientes.ts` (tests), cola y creación en `triggers/tangoAltas.ts`, bajas en
+`sincronizarClientes` (`tangoConnectSync.ts`). Interruptores en `config/tango`:
+`altas.enabled` (la sync encola), `altas.crear` (se crean), `bajas.enabled` (se aplican; sin él solo se cuentan),
+`bajas.maxPorCorrida` (500).
+
+**Alta.** Fila de Tango (de cualquiera de las dos empresas) HABILITADA, con CUIT válido (dígito verificador;
+"00000000000" y consumidor final no) y sin cuenta en la app → doc `tango-altas/{cuit}` con todas sus filas (un
+CUIT = una cuenta, varios códigos). `altasClientesTango` (cada 10 min) / `procesarAltasTangoAhora` (botón
+"Crear cuentas ahora" en Ajustes) los procesa de a 400: reclamo atómico del doc (`pendiente` → `procesando`),
+Auth `<cuit>@rolito.app` con contraseña = CUIT (Ariel acepta el riesgo; el cliente la cambia si quiere),
+`users/{uid}` modelo `emailAuth` activo con `aprobadoPor: 'tango'` y SIN `creadoPor` (no dispara los emails de
+`triggers/users.ts`), `tangoIds` de las dos empresas, una dirección por código (`addresses[].id` = código),
+`cuitIndex/{cuit}`. Si el email de Auth ya existe se reusa el uid (mismo dominio que los choferes: si el uid es
+de otro rol, `error` y no se pisa). Estados de la cola: `pendiente | procesando | creada | existia | error`.
+
+**Baja / reactivación.** Solo cuentas con identidad Tango. Al terminar la corrida completa: cuenta cuyas filas
+no aparecieron en ninguna empresa o aparecieron todas inhabilitadas → `estado: 'inactivo'`, `bajaTango: {fecha,
+motivo}`, Auth `disabled` + tokens revocados. Nunca se borra el doc ni el `cuitIndex`. Vuelve habilitada → se
+reactiva (solo si la baja la hizo la sync: `bajaTango` presente). Circuit breaker: empresa que devolvió menos del
+80 % de filas que la corrida anterior, o que falló → no da de baja a nadie esa vez (`bajas.corridaConfiable`).
+
+**Primera corrida real (2026-09-06):** 1128 cuentas creadas (941 en las dos empresas, 63 solo Redonhielo, 124
+solo Rolito); 5689 filas inhabilitadas y 255 con CUIT inválido no se crean (el panel lista ejemplos). 33 cuentas
+existentes marcadas para baja por estar inhabilitadas en las dos empresas. Incidente: el barrido programado y el
+botón corrieron a la vez y, como Firebase Auth del proyecto admite varias cuentas con el mismo email, 140 CUIT
+quedaron duplicados → `scripts/tango/limpiar-altas-duplicadas.mjs` los limpió y el reclamo atómico lo evita.
+
+**Volumen en la app:** `userService` pasó de `limit(6000)` a 25000 (truncaba en silencio ordenado por
+`fechaCreacion desc`), la búsqueda de pedidos por código usa el caché de usuarios, `useSucursales` cachea 5 min,
+los KPIs comerciales excluyen cuentas de Tango sin pedidos y el mapa de planificación geocodifica como máximo
+300 clientes sin coordenadas por apertura.
