@@ -41,6 +41,11 @@ export interface ResumenAltas {
 export async function procesarAltasTango(db: Firestore, opts: { crear: boolean; max?: number }): Promise<ResumenAltas> {
   const auth = getAuth()
   const max = opts.max ?? MAX_POR_CORRIDA
+  // Docs que quedaron en 'procesando' porque una corrida murió a mitad de
+  // camino (timeout, crash): vuelven a 'pendiente' pasados 20 min.
+  const viejo = new Date(Date.now() - 20 * 60_000)
+  const colgados = await db.collection('tango-altas').where('estado', '==', 'procesando').where('actualizadoEn', '<', viejo).get()
+  for (const d of colgados.docs) await d.ref.update({ estado: 'pendiente', actualizadoEn: FieldValue.serverTimestamp() })
   const snap = await db.collection('tango-altas').where('estado', '==', 'pendiente').limit(max).get()
   const resumen: ResumenAltas = { procesadas: 0, creadas: 0, existian: 0, errores: 0, pendientesRestantes: 0, detalleErrores: [], crear: opts.crear }
 
@@ -51,6 +56,18 @@ export async function procesarAltasTango(db: Firestore, opts: { crear: boolean; 
     const cuit = candidato.cuit
     const emailAuth = emailAuthDe(cuit)
     try {
+      // Reclamo atómico: el barrido programado y el botón del panel pueden
+      // correr a la vez, y Firebase Auth del proyecto admite varias cuentas con
+      // el mismo email (2026-09-06: 140 CUIT quedaron duplicados por esto).
+      // Solo sigue quien pasó el doc de 'pendiente' a 'procesando'.
+      const reclamado = await db.runTransaction(async (tx) => {
+        const actual = (await tx.get(d.ref)).data()
+        if (!actual || actual.estado !== 'pendiente') return false
+        tx.update(d.ref, { estado: 'procesando', actualizadoEn: FieldValue.serverTimestamp() })
+        return true
+      })
+      if (!reclamado) { resumen.procesadas--; continue }
+
       // ¿Apareció una cuenta con ese CUIT mientras tanto (alta a mano, autorregistro)?
       const idx = await db.doc(`cuitIndex/${cuit}`).get()
       if (idx.exists) {
@@ -58,14 +75,18 @@ export async function procesarAltasTango(db: Firestore, opts: { crear: boolean; 
         resumen.existian++
         continue
       }
-      let uid: string
-      try {
-        uid = (await auth.createUser({ email: emailAuth, password: cuit, displayName: docCuentaDesdeTango(candidato, null).razonSocial as string })).uid
-      } catch (e) {
-        if ((e as { code?: string }).code !== 'auth/email-already-exists') throw e
+      // Nunca crear un segundo usuario de Auth con el mismo email: si ya existe, se reusa.
+      let uid: string | null = await auth.getUserByEmail(emailAuth).then((u) => u.uid).catch((e) => ((e as { code?: string }).code === 'auth/user-not-found' ? null : Promise.reject(e)))
+      if (!uid) {
+        try {
+          uid = (await auth.createUser({ email: emailAuth, password: cuit, displayName: docCuentaDesdeTango(candidato, null).razonSocial as string })).uid
+        } catch (e) {
+          if ((e as { code?: string }).code !== 'auth/email-already-exists') throw e
+          uid = (await auth.getUserByEmail(emailAuth)).uid
+        }
+      } else {
         // El mismo dominio lo usan los choferes (<cuit>@rolito.app): si el uid
         // existente no es un cliente, no se pisa.
-        uid = (await auth.getUserByEmail(emailAuth)).uid
         const existente = (await db.doc(`users/${uid}`).get()).data()
         if (existente && existente.rol !== 'cliente') {
           await d.ref.update({ estado: 'error', motivo: `el email ${emailAuth} ya es de un usuario con rol ${existente.rol}`, actualizadoEn: FieldValue.serverTimestamp() })
