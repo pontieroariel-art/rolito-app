@@ -220,14 +220,18 @@ async function encolarAltas(db: Firestore, sinCuenta: Array<{ empresa: Empresa; 
   const porMotivo: Record<string, number> = {}
   for (const d of descartados) porMotivo[d.motivo] = (porMotivo[d.motivo] ?? 0) + 1
   const out: ResumenAltasEncoladas = { candidatos: candidatos.length, encolados: 0, yaEncolados: 0, descartados: descartados.length, porMotivo, ejemplosDescartados: descartados.filter((d) => d.motivo === 'cuit_invalido').slice(0, 30) }
+  // Una sola lectura de la cola (son miles de CUIT: leerlos de a uno superaba
+  // el tope de 9 min de la function). Los que ya están en un estado final
+  // (creada / existia / error) no se re-encolan solos.
+  const enCola = new Map<string, string>()
+  for (const d of (await db.collection('tango-altas').select('estado').get()).docs) enCola.set(d.id, String(d.data().estado ?? ''))
   let batch = db.batch(), ops = 0
   for (const c of candidatos) {
-    const ref = db.doc(`tango-altas/${c.cuit}`)
-    const actual = (await ref.get()).data()
-    if (actual && actual.estado !== 'pendiente') { out.yaEncolados++; continue }   // creada / existia / error: no se re-encola sola
-    if (actual) { out.yaEncolados++ }
+    const estadoActual = enCola.get(c.cuit)
+    if (estadoActual && estadoActual !== 'pendiente') { out.yaEncolados++; continue }
+    if (estadoActual) out.yaEncolados++
     else out.encolados++
-    batch.set(ref, { cuit: c.cuit, filas: c.filas, estado: 'pendiente', razonSocial: c.filas[0].fila.razonSocial ?? '', actualizadoEn: FieldValue.serverTimestamp(), ...(actual ? {} : { creadoEn: FieldValue.serverTimestamp() }) }, { merge: true })
+    batch.set(db.doc(`tango-altas/${c.cuit}`), { cuit: c.cuit, filas: c.filas, estado: 'pendiente', razonSocial: c.filas[0].fila.razonSocial ?? '', actualizadoEn: FieldValue.serverTimestamp(), ...(estadoActual ? {} : { creadoEn: FieldValue.serverTimestamp() }) }, { merge: true })
     if (++ops >= 400) { await batch.commit(); batch = db.batch(); ops = 0 }
   }
   if (ops) await batch.commit()
