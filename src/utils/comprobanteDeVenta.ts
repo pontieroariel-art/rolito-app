@@ -1,7 +1,7 @@
 import type { UserProfile, VentaCamion } from '@/types'
 import { armarFacturaDeVenta } from './facturaDeVenta'
 import { armarFacturaX, armarRemito, tipoComprobanteInterno, type CaiRemito } from './comprobanteInterno'
-import { codigoComprobanteInterno } from '@/services/numeracionInternaService'
+import { codigoComprobanteInterno } from './numeracionInterna'
 import { compartirArchivo, descargarArchivo } from './compartir'
 
 // El comprobante de una venta del camión, en un solo lugar (2026-09-06; antes
