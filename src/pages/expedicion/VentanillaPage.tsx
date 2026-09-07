@@ -13,10 +13,10 @@ import {
   crearVentaVentanilla, subscribeVentaVentanilla, subscribeVentanillaDelDia,
 } from '../../services/ventaVentanillaService'
 import { getTopeConsumidorFinalSinIdentificar } from '../../services/arcaConfigService'
-import { generateComprobanteVentanilla } from '../../utils/pdf'
-import { generateFacturaArcaPdf } from '../../utils/facturaArcaPdf'
+import type { FacturaArcaData } from '../../utils/facturaArcaPdf'
 import { armarFacturaDeVenta } from '../../utils/facturaDeVenta'
-import { generateQrDataUrl } from '../../utils/qr'
+import { generateTicketsVentanilla, type TurnoTicketData } from '@/utils/ventanillaTicket'
+import { imprimirPdf } from '@/utils/ticketTermico'
 import { usePreciosTango } from '../../hooks/usePreciosTango'
 import { empresaDeCanal, motivoSinPrecioTango, precioTangoDe } from '../../utils/precioTango'
 import { documentoDeVenta } from '../../utils/circuitoDocumento'
@@ -157,45 +157,46 @@ export default function VentanillaPage() {
     setConfirmando(true)
   }
 
-  // Comprobante de turno: número grande + QR de seguimiento. Es contra lo que
-  // muelle entrega.
-  const imprimirTurno = async (v: VentaVentanilla) => {
-    try {
-      const qrDataUrl = await generateQrDataUrl(
-        `${window.location.origin}/turnos/${v.plantaId}?turno=${v.turno}`,
-      )
-      await generateComprobanteVentanilla({
-        id:            v.id,
-        plantaId:      v.plantaId,
-        canal:         v.canal,
-        clienteNombre: v.clienteNombre,
-        clienteCuit:   v.clienteOcasional?.cuit ?? clientePorId.get(v.clienteId ?? '')?.cuit,
-        items:         v.items,
-        total:         v.total,
-        formaPago:     v.formaPago,
-        cajaNombre:    v.cajaNombre,
-        fecha:         v.fecha.toDate(),
-        turno:         v.turno,
-        qrDataUrl,
-      })
-    } catch (err) {
-      reportError(err, { origen: 'VentanillaPage', accion: 'error al generar el comprobante de turno' })
+  // Los papeles del mostrador salen por la impresora térmica de 80 mm
+  // (Eliprinter RP-8060P) en un solo trabajo de impresión: la factura
+  // electrónica (si la hay) y el comprobante de turno, que es contra lo que
+  // muelle entrega. Devuelve true si se generó todo lo pedido.
+  const imprimir = async (v: VentaVentanilla, partes: { factura: boolean; turno: boolean }): Promise<boolean> => {
+    let facturaDatos: FacturaArcaData | undefined
+    let facturaOk = true
+    if (partes.factura) {
+      const armado = armarFacturaDeVenta(v, v.clienteId ? clientePorId.get(v.clienteId) : undefined)
+      if (armado.ok) facturaDatos = armado.datos
+      else { setError(armado.motivo); facturaOk = false }
     }
-  }
-
-  // Factura electrónica: con los importes tal como se declararon a ARCA.
-  const imprimirFactura = async (v: VentaVentanilla): Promise<boolean> => {
-    const armado = armarFacturaDeVenta(v, v.clienteId ? clientePorId.get(v.clienteId) : undefined)
-    if (!armado.ok) { setError(armado.motivo); return false }
+    const turnoDatos: TurnoTicketData | undefined = partes.turno ? {
+      plantaId:      v.plantaId,
+      canal:         v.canal,
+      clienteNombre: v.clienteNombre,
+      clienteCuit:   v.clienteOcasional?.cuit ?? clientePorId.get(v.clienteId ?? '')?.cuit,
+      items:         v.items,
+      total:         v.total,
+      formaPago:     v.formaPago,
+      cajaNombre:    v.cajaNombre,
+      fecha:         v.fecha.toDate(),
+      turno:         v.turno,
+      urlTurno:      `${window.location.origin}/turnos/${v.plantaId}?turno=${v.turno}`,
+      facturaNro:    v.factura?.estado === 'emitida' ? nroFactura(v) : undefined,
+    } : undefined
+    if (!facturaDatos && !turnoDatos) return false
     try {
-      await generateFacturaArcaPdf({ ...armado.datos, descargar: true })
-      return true
+      const blob = await generateTicketsVentanilla({ factura: facturaDatos, turno: turnoDatos })
+      await imprimirPdf(blob, `ventanilla-turno-${v.turno}.pdf`)
+      return facturaOk
     } catch (err) {
-      reportError(err, { origen: 'VentanillaPage', accion: 'error al generar la factura' })
-      setError('No se pudo generar el PDF de la factura. Reimprimila desde el listado.')
+      reportError(err, { origen: 'VentanillaPage', accion: 'error al generar los tickets de ventanilla' })
+      setError('No se pudo generar el ticket. Reimprimilo desde el listado.')
       return false
     }
   }
+  const imprimirTurno   = (v: VentaVentanilla) => imprimir(v, { factura: false, turno: true })
+  const imprimirFactura = (v: VentaVentanilla) => imprimir(v, { factura: true, turno: false })
+  const imprimirTodo    = (v: VentaVentanilla) => imprimir(v, { factura: true, turno: true })
 
   const limpiar = () => {
     setClienteId('')
@@ -442,7 +443,7 @@ export default function VentanillaPage() {
       {esperando && (
         <EsperaFacturaModal
           ventaId={esperando.id}
-          onImprimirFactura={imprimirFactura}
+          onImprimirTodo={imprimirTodo}
           onImprimirTurno={imprimirTurno}
           onClose={() => setEsperando(null)}
         />
@@ -456,10 +457,11 @@ export default function VentanillaPage() {
 // `factura`. Emitida → imprime factura y turno una sola vez. Rechazada o
 // incierta → lo dice y deja imprimir el turno igual (la mercadería ya se
 // cobró; la factura la resuelve la oficina, que recibe el aviso por mail).
-function EsperaFacturaModal({ ventaId, onImprimirFactura, onImprimirTurno, onClose }: {
+function EsperaFacturaModal({ ventaId, onImprimirTodo, onImprimirTurno, onClose }: {
   ventaId: string
-  onImprimirFactura: (v: VentaVentanilla) => Promise<boolean>
-  onImprimirTurno: (v: VentaVentanilla) => Promise<void>
+  /** Factura + turno en un solo trabajo de impresión. */
+  onImprimirTodo: (v: VentaVentanilla) => Promise<boolean>
+  onImprimirTurno: (v: VentaVentanilla) => Promise<boolean>
   onClose: () => void
 }) {
   const [venta, setVenta] = useState<VentaVentanilla | null>(null)
@@ -480,12 +482,8 @@ function EsperaFacturaModal({ ventaId, onImprimirFactura, onImprimirTurno, onClo
   useEffect(() => {
     if (!venta || !emitida || impresoRef.current) return
     impresoRef.current = true
-    ;(async () => {
-      const ok = await onImprimirFactura(venta)
-      await onImprimirTurno(venta)
-      setImpresa(ok)
-    })()
-  }, [venta, emitida, onImprimirFactura, onImprimirTurno])
+    onImprimirTodo(venta).then(setImpresa)
+  }, [venta, emitida, onImprimirTodo])
 
   const titulo = emitida ? 'Factura emitida'
     : f?.estado === 'rechazada' ? 'ARCA rechazó la factura'
@@ -515,7 +513,7 @@ function EsperaFacturaModal({ ventaId, onImprimirFactura, onImprimirTurno, onClo
             <CheckCircle2 size={18} className="text-accent mt-0.5 shrink-0" />
             <p className="text-sm text-gray-800">
               Factura {nroFactura(venta)} autorizada.{' '}
-              {impresa ? 'Se generaron la factura y el turno.' : 'Generando los comprobantes…'}
+              {impresa ? 'Salen la factura y el turno por la impresora de tickets.' : 'Generando los tickets…'}
             </p>
           </div>
         )}
@@ -542,7 +540,7 @@ function EsperaFacturaModal({ ventaId, onImprimirFactura, onImprimirTurno, onClo
 
         <div className="flex gap-2 pt-1">
           {venta && (emitida ? (
-            <Button variant="outline" onClick={() => { onImprimirFactura(venta); onImprimirTurno(venta) }} className="flex-1">
+            <Button variant="outline" onClick={() => onImprimirTodo(venta)} className="flex-1">
               Reimprimir
             </Button>
           ) : (

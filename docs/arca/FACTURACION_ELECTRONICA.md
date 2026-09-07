@@ -842,6 +842,8 @@ final, porque su dato viene de Tango y si falta, falta en Tango.
 
 ### Qué imprime caja
 
+**Impresora (2026-09-07):** todo lo que la ventanilla le entrega al público sale por la térmica Bluetooth/USB del mostrador, una **Eliprinter RP-8060P** (rollo de 80 mm, 72 mm imprimibles, 203 dpi). Los dos papeles se dibujan en formato ticket (`src/utils/ventanillaTicket.ts` sobre `ticketTermico.ts`: factura y turno como dos páginas de 80 mm en un solo PDF) y se mandan directo al diálogo de impresión del navegador desde un iframe oculto (`imprimirPdf`), sin descargar. En la PC de caja hay que dejar la Eliprinter como impresora predeterminada y con el papel en 80 mm; Chrome recuerda la última usada.
+
 Decisión: **nada hasta tener el CAE.** `VentanillaPage` crea la venta y abre un modal que se
 suscribe al doc hasta que el trigger escribe `factura`:
 
