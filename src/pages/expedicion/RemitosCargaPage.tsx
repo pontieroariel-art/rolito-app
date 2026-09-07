@@ -28,6 +28,8 @@ const ESTADO_COLORS: Record<RemitoCargaEstado, string> = {
 
 // Pantalla principal del rol caja (Fase 1 del módulo expedición): armar el
 // remito de carga del camión, imprimirlo para muelle y ver los del día.
+const OTRO_CAMION = '__otro__'
+
 export default function RemitosCargaPage() {
   const { user } = useAuth()
   const { camiones } = useFlota()
@@ -38,6 +40,10 @@ export default function RemitosCargaPage() {
   const fecha = useFechaDelDia()
 
   const [camionId,   setCamionId]   = useState('')
+  // "Otro camión": patente tipeada a mano (2026-09-06, pedido de Ariel). Como en
+  // Bluesoft: tercerizados y camiones de temporada que no están en la flota.
+  // Se guarda camionId = 'manual:<PATENTE>' y camionLabel = la patente.
+  const [patenteManual, setPatenteManual] = useState('')
   // Código del depósito de Tango del repartidor (expedición por depósito,
   // 2026-09-06): la carga se emite a un depósito, tenga o no usuario en la app.
   const [depositoCod, setDepositoCod] = useState('')
@@ -56,7 +62,11 @@ export default function RemitosCargaPage() {
   )
 
   const camionesActivos = useMemo(() => camiones.filter((c) => c.activo), [camiones])
-  const camion = camionesActivos.find((c) => c.id === camionId)
+  const camionFlota = camionesActivos.find((c) => c.id === camionId)
+  const patenteLimpia = patenteManual.toUpperCase().replace(/[^A-Z0-9]/g, '')
+  const camion = camionId === OTRO_CAMION
+    ? (patenteLimpia.length >= 6 ? { id: `manual:${patenteLimpia}`, patente: patenteLimpia, modelo: 'sin registrar' } : undefined)
+    : camionFlota
   // Primero los depósitos que ya tienen remito hoy en esta planta.
   const depositosReparto = useMemo(
     () => ordenarDepositosReparto(depositos, new Set(remitos.map((r) => r.choferId))),
@@ -130,6 +140,7 @@ export default function RemitosCargaPage() {
       )
       setConfirmando(false)
       setCamionId('')
+      setPatenteManual('')
       setDepositoCod('')
       setCantidades({})
       setRestoEnPallet({})
@@ -163,7 +174,18 @@ export default function RemitosCargaPage() {
               {camionesActivos.map((c) => (
                 <option key={c.id} value={c.id}>{c.patente} · {c.modelo}</option>
               ))}
+              <option value={OTRO_CAMION}>Otro camión (escribir la patente)…</option>
             </select>
+            {camionId === OTRO_CAMION && (
+              <input
+                value={patenteManual}
+                onChange={(e) => setPatenteManual(e.target.value)}
+                placeholder="Patente, ej. AB123CD"
+                maxLength={10}
+                autoFocus
+                className={`${selectClass} mt-2 uppercase`}
+              />
+            )}
           </div>
           <div>
             <label className="text-xs text-gray-500 mb-1 block">Repartidor (depósito de Tango)</label>
