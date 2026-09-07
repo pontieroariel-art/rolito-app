@@ -1,11 +1,13 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Wrench } from 'lucide-react'
 import Navbar from '../../components/layout/Navbar'
 import Button from '../../components/ui/Button'
+import Modal from '../../components/ui/Modal'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import TicketsServicioList from '../../components/heladeras/TicketsServicioList'
+import PedirServiceForm from '../../components/heladeras/PedirServiceForm'
 import { useAuth } from '../../context/AuthContext'
 import { usePasosTaller } from '../../hooks/usePasosTaller'
 import { getHeladera } from '../../services/heladeraService'
@@ -68,6 +70,11 @@ export default function FichaHeladeraPage() {
 
   const puedeGestionar = puedeGestionarHeladeras(user?.rol)
   const puedeReportar   = puedeGestionar
+  // Supervisor en la calle (QR de la etiqueta, 2026-09-07): pide el service
+  // acá mismo, con foto — no tiene Toma de service.
+  const esSupervisor = user?.rol === 'supervisor'
+  const [pedirService, setPedirService] = useState(false)
+  const [avisoService, setAvisoService] = useState('')
 
   return (
     <div className="min-h-screen min-h-dvh bg-[#F8F7F2] text-gray-900">
@@ -126,7 +133,25 @@ export default function FichaHeladeraPage() {
                   </Button>
                 </Link>
               )}
+              {esSupervisor && heladera.estado === 'en_comodato' && (
+                <Button size="sm" variant="outline" className="text-xs" onClick={() => setPedirService(true)}>
+                  <Wrench size={12} className="mr-1 inline" /> Pedir service
+                </Button>
+              )}
+              {esSupervisor && heladera.clienteAsignadoId && (
+                <Link to={`/supervisor/cliente/${heladera.clienteAsignadoId}`} className="text-xs text-accent hover:underline">
+                  Ficha del cliente →
+                </Link>
+              )}
             </div>
+            {avisoService && <p className="text-xs text-accent bg-accent/10 border border-accent/30 rounded-lg px-3 py-2">{avisoService}</p>}
+            {pedirService && user && (
+              <Modal open onClose={() => setPedirService(false)} title="Pedir service" variant="light">
+                <PedirServiceForm heladera={heladera} actor={{ uid: user.uid, nombre: user.nombre }} origen="supervisor"
+                  onCancel={() => setPedirService(false)}
+                  onCreado={(t) => { setPedirService(false); setAvisoService(`Pedido Nº ${t.numero} enviado al encargado de heladeras.`) }} />
+              </Modal>
+            )}
 
             <section className="space-y-2">
               <h2 className="text-sm font-semibold text-gray-900">Tickets de service</h2>

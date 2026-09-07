@@ -1214,11 +1214,19 @@ export interface TicketServicio {
   // Snapshot de MotivoReparacion.urgente al crear el ticket — un cambio
   // posterior al catálogo no reescribe tickets ya abiertos.
   urgente:         boolean
-  // Quién lo abrió: 'cliente' (autogestionado desde "Mis heladeras") o
-  // 'staff' (Toma de service). Determina si el trigger onTicketCreado avisa
-  // por push a los encargados — un ticket de staff ya lo conoce quien lo
-  // creó, uno de cliente no lo conoce nadie hasta que alguien se entera.
-  origen:          'cliente' | 'staff'
+  // Quién lo abrió: 'cliente' (autogestionado desde "Mis heladeras"),
+  // 'staff' (Toma de service) o 'supervisor' (desde la ficha del cliente en
+  // la calle, 2026-09-07). Determina si el trigger onTicketCreado avisa por
+  // push a los encargados — un ticket de staff ya lo conoce quien lo creó;
+  // uno de cliente o de supervisor no lo conoce nadie hasta que alguien se entera.
+  origen:          'cliente' | 'staff' | 'supervisor'
+  // Quién lo creó (las reglas del supervisor lo comparan con auth.uid).
+  // Los tickets anteriores al 2026-09-07 no lo traen: ver historialAcciones[0].
+  creadoPor?:      { uid: string; nombre: string }
+  // Texto libre y foto del problema (Storage ticketsServicio/{id}/foto.jpg),
+  // los carga el supervisor desde la calle.
+  observacion?:    string | null
+  fotoUrl?:        string | null
   estado:          EstadoTicketServicio
   asignadoA?: {
     tipo:   'tecnico' | 'chofer'

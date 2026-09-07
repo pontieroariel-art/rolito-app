@@ -12,8 +12,10 @@ import {
   runTransaction,
   updateDoc,
 } from 'firebase/firestore'
-import { db } from './firebase'
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
+import { db, storage } from './firebase'
 import { onSnapshotError } from './observability'
+import { resizeImage } from '../utils/imagen'
 import { getPushSubscription } from './userService'
 import { sendPush } from './notificationService'
 import { textoTrabajos } from '../utils/heladeraPipeline'
@@ -82,8 +84,20 @@ export const subscribeTicketsAsignadosA = (
 
 // ── Escrituras ───────────────────────────────────────────────────────────────
 
+/** Id para un ticket que todavía no existe: la foto se sube a Storage antes de crearlo. */
+export const nuevoTicketId = (): string => doc(collection(db, TICKETS)).id
+
+/** Sube la foto del problema (reducida en el cliente) y devuelve su URL. Se llama ANTES de crearTicket. */
+export const subirFotoTicket = async (ticketId: string, file: File): Promise<string> => {
+  const blob = await resizeImage(file, 1280, 0.8)
+  const fotoRef = ref(storage, `ticketsServicio/${ticketId}/foto.jpg`)
+  await uploadBytes(fotoRef, blob, { contentType: 'image/jpeg' })
+  return getDownloadURL(fotoRef)
+}
+
 export const crearTicket = (
   data: {
+    id?:            string   // de nuevoTicketId(), cuando ya se subió la foto
     heladeraId:     string
     heladeraCodigo: string
     clientId:       string
@@ -94,6 +108,11 @@ export const crearTicket = (
     motivoNombre:   string
     requiereChofer: boolean
     urgente:        boolean
+    observacion?:   string | null
+    fotoUrl?:       string | null
+    // Supervisor en la calle (ficha del cliente): las reglas exigen este
+    // origen para su rama de creación. Sin `origen` se deduce como siempre.
+    origen?:        'supervisor'
   },
   actor: Actor,
 ): Promise<TicketServicio> =>
@@ -103,7 +122,7 @@ export const crearTicket = (
     tx.set(COUNTER_REF(), { next: numero + 1 })
 
     const fechaPedido = Timestamp.now()
-    const ticketRef = doc(collection(db, TICKETS))
+    const ticketRef = data.id ? doc(db, TICKETS, data.id) : doc(collection(db, TICKETS))
     const ticket: Omit<TicketServicio, 'id'> = {
       numero,
       heladeraId:     data.heladeraId,
@@ -121,7 +140,10 @@ export const crearTicket = (
       // desde Toma de service, donde quien lo abre ya está al tanto. Lo usa
       // el trigger onTicketCreado para decidir si avisa por push a los
       // encargados.
-      origen:         actor.uid === data.clientId ? 'cliente' : 'staff',
+      origen:         data.origen ?? (actor.uid === data.clientId ? 'cliente' : 'staff'),
+      creadoPor:      { uid: actor.uid, nombre: actor.nombre },
+      observacion:    data.observacion?.trim() || null,
+      fotoUrl:        data.fotoUrl ?? null,
       estado:         'abierto',
       asignadoA:      null,
       historialAcciones: [accion(actor, 'creado', data.motivoNombre)],

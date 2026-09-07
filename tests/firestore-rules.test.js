@@ -3521,3 +3521,99 @@ describe('users — roles adicionales (rolesExtra)', () => {
     await assertSucceeds(updateDoc(doc(db('sa'), 'users/log1'), { rolesExtra: ['caja'], planta: 'torcuato' }))
   })
 })
+
+// ── supervisor: service y comodato desde la calle (2026-09-07) ───────────────
+describe('supervisor: service de heladera y comodato desde la ficha del cliente', () => {
+  const seedSupervisor = (uid = 'sup1') => seed((d) => setDoc(doc(d, `users/${uid}`), { rol: 'supervisor', estado: 'activo' }))
+  const heladeraEnComodato = (extra = {}) => ({
+    codigoInterno: 'HL-001', numeroSerie: 'S-1', modelo: 'Slim 300', estado: 'en_comodato',
+    clienteAsignadoId: 'cli', clienteAsignadoNombre: 'Cliente de Prueba SA', historialAcciones: [],
+    comodatoNumero: 10, comodatoFirmadoEl: new Date('2025-01-01'), comodatoVenceEl: new Date('2026-01-01'), ...extra,
+  })
+  const ticketSup = (extra = {}) => ({
+    numero: 1, heladeraId: 'h1', heladeraCodigo: 'HL-001', clientId: 'cli', clientName: 'Cliente de Prueba SA',
+    motivoId: 'm1', motivoNombre: 'No enfría', requiereChofer: false, urgente: false,
+    origen: 'supervisor', creadoPor: { uid: 'sup1', nombre: 'Super Uno' }, observacion: 'Hace ruido', fotoUrl: null,
+    estado: 'abierto', asignadoA: null, historialAcciones: [], fechaPedido: new Date(), createdAt: new Date(), updatedAt: new Date(), ...extra,
+  })
+  const renovacion = (extra = {}) => ({
+    heladeraId: 'h1', heladeraCodigo: 'HL-001', clientId: 'cli', clientName: 'Cliente de Prueba SA',
+    tipo: 'renovacion', numero: 11, firmaDataUrl: 'data:image/png;base64,xx', firmanteNombre: 'Juan', firmanteCargo: 'Dueño',
+    actor: { uid: 'sup1', nombre: 'Super Uno' }, fecha: new Date(), ...extra,
+  })
+
+  test('lee cualquier heladera (ficha del cliente y QR)', async () => {
+    await seedSupervisor()
+    await seed((d) => setDoc(doc(d, 'heladeras/h1'), heladeraEnComodato({ clienteAsignadoId: 'otro' })))
+    await assertSucceeds(getDoc(doc(db('sup1'), 'heladeras/h1')))
+  })
+
+  test('crea un ticket para una heladera del cliente, con origen supervisor y a su nombre; el contador avanza de a 1', async () => {
+    await seedSupervisor()
+    await seed(async (d) => {
+      await setDoc(doc(d, 'heladeras/h1'), heladeraEnComodato())
+      await setDoc(doc(d, 'config/ticketServicioCounter'), { next: 5 })
+    })
+    await assertSucceeds(setDoc(doc(db('sup1'), 'ticketsServicio/t1'), ticketSup()))
+    await assertSucceeds(updateDoc(doc(db('sup1'), 'config/ticketServicioCounter'), { next: 6 }))
+    await assertFails(updateDoc(doc(db('sup1'), 'config/ticketServicioCounter'), { next: 8 }))
+    // Línea de historial en la heladera (crearTicket) — nada más.
+    await assertSucceeds(updateDoc(doc(db('sup1'), 'heladeras/h1'), { historialAcciones: [{ accion: 'service_abierto' }], updatedAt: new Date() }))
+    // Lee el ticket que creó.
+    await assertSucceeds(getDoc(doc(db('sup1'), 'ticketsServicio/t1')))
+  })
+
+  test('NO crea tickets de heladeras ajenas al cliente, con otro origen, a nombre de otro, ni asignados', async () => {
+    await seedSupervisor()
+    await seed((d) => setDoc(doc(d, 'heladeras/h1'), heladeraEnComodato({ clienteAsignadoId: 'otro-cliente' })))
+    await assertFails(setDoc(doc(db('sup1'), 'ticketsServicio/t1'), ticketSup()))
+    await seed((d) => setDoc(doc(d, 'heladeras/h1'), heladeraEnComodato()))
+    await assertFails(setDoc(doc(db('sup1'), 'ticketsServicio/t2'), ticketSup({ origen: 'staff' })))
+    await assertFails(setDoc(doc(db('sup1'), 'ticketsServicio/t3'), ticketSup({ creadoPor: { uid: 'sup2', nombre: 'Otro' } })))
+    await assertFails(setDoc(doc(db('sup1'), 'ticketsServicio/t4'), ticketSup({ asignadoA: { tipo: 'tecnico', uid: 'tec', nombre: 'T' } })))
+    await assertFails(setDoc(doc(db('sup1'), 'ticketsServicio/t5'), ticketSup({ estado: 'cerrado' })))
+  })
+
+  test('NO lee tickets de otro supervisor ni los edita', async () => {
+    await seedSupervisor()
+    await seed((d) => setDoc(doc(d, 'ticketsServicio/t1'), ticketSup({ creadoPor: { uid: 'sup2', nombre: 'Otro' } })))
+    await assertFails(getDoc(doc(db('sup1'), 'ticketsServicio/t1')))
+    await seed((d) => setDoc(doc(d, 'ticketsServicio/t2'), ticketSup()))
+    await assertFails(updateDoc(doc(db('sup1'), 'ticketsServicio/t2'), { estado: 'cerrado' }))
+  })
+
+  test('renueva el comodato: vigencia nueva en la heladera, asignación tipo renovación firmada y contador +1', async () => {
+    await seedSupervisor()
+    await seed(async (d) => {
+      await setDoc(doc(d, 'heladeras/h1'), heladeraEnComodato())
+      await setDoc(doc(d, 'config/movimientoHeladeraCounter'), { next: 11 })
+    })
+    await assertSucceeds(updateDoc(doc(db('sup1'), 'heladeras/h1'), {
+      comodatoNumero: 11, comodatoFirmadoEl: new Date(), comodatoVenceEl: new Date('2027-09-07'), comodatoAvisoEnviado: false,
+      historialAcciones: [{ accion: 'comodato_renovado' }], updatedAt: new Date(),
+    }))
+    await assertSucceeds(setDoc(doc(db('sup1'), 'asignacionesHeladera/a1'), renovacion()))
+    await assertSucceeds(updateDoc(doc(db('sup1'), 'config/movimientoHeladeraCounter'), { next: 12 }))
+  })
+
+  test('NO toca estado/cliente de la heladera, ni heladeras fuera de comodato, ni crea asignaciones/retiros', async () => {
+    await seedSupervisor()
+    await seed((d) => setDoc(doc(d, 'heladeras/h1'), heladeraEnComodato()))
+    await assertFails(updateDoc(doc(db('sup1'), 'heladeras/h1'), { estado: 'disponible' }))
+    await assertFails(updateDoc(doc(db('sup1'), 'heladeras/h1'), { clienteAsignadoId: 'otro', updatedAt: new Date() }))
+    await assertFails(updateDoc(doc(db('sup1'), 'heladeras/h1'), { comodatoNumero: 11, comodatoFirmadoEl: new Date(), comodatoVenceEl: new Date(), estado: 'baja' }))
+    await seed((d) => setDoc(doc(d, 'heladeras/h2'), heladeraEnComodato({ estado: 'disponible', clienteAsignadoId: null })))
+    await assertFails(updateDoc(doc(db('sup1'), 'heladeras/h2'), { historialAcciones: [{ accion: 'x' }], updatedAt: new Date() }))
+    await assertFails(setDoc(doc(db('sup1'), 'asignacionesHeladera/a1'), renovacion({ tipo: 'asignacion' })))
+    await assertFails(setDoc(doc(db('sup1'), 'asignacionesHeladera/a2'), renovacion({ tipo: 'retiro' })))
+    await assertFails(setDoc(doc(db('sup1'), 'asignacionesHeladera/a3'), renovacion({ actor: { uid: 'sup2', nombre: 'Otro' } })))
+    await assertFails(setDoc(doc(db('sup1'), 'asignacionesHeladera/a4'), renovacion({ firmaDataUrl: '' })))
+  })
+
+  test('otros roles de calle (chofer, caja) no ganan nada con esto', async () => {
+    await seed((d) => setDoc(doc(d, 'users/ch1'), { rol: 'chofer', estado: 'activo', email: 'ch@x.com' }))
+    await seed((d) => setDoc(doc(d, 'heladeras/h1'), heladeraEnComodato()))
+    await assertFails(getDoc(doc(db('ch1', 'ch@x.com'), 'heladeras/h1')))
+    await assertFails(setDoc(doc(db('ch1', 'ch@x.com'), 'ticketsServicio/t1'), ticketSup({ creadoPor: { uid: 'ch1', nombre: 'Ch' } })))
+  })
+})

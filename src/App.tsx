@@ -375,7 +375,7 @@ function AppContent() {
           <Route path="/tecnico" element={<TecnicoDashboard />} />
         </Route>
         {/* Ficha pública (dentro de la app) de una heladera — destino del QR de la etiqueta */}
-        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'heladeras', 'heladeras_encargado', 'gerente_comercial', 'comercial', 'tecnico']} />}>
+        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'heladeras', 'heladeras_encargado', 'gerente_comercial', 'comercial', 'tecnico', 'supervisor']} />}>
           <Route path="/heladeras/ficha/:heladeraId" element={<FichaHeladeraPage />} />
         </Route>
 

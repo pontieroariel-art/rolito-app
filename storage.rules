@@ -1,9 +1,14 @@
 rules_version = '2';
 
-// Reglas de Firebase Storage. Hoy el único uso es la foto de cada producto del
-// catálogo (botonera de venta). Todo lo demás queda cerrado por defecto.
+// Reglas de Firebase Storage. Usos: la foto de cada producto del catálogo
+// (botonera de venta) y la foto del problema en un ticket de service pedido
+// desde la calle. Todo lo demás queda cerrado por defecto.
 service firebase.storage {
   match /b/{bucket}/o {
+
+    function miRol() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.rol;
+    }
 
     // Fotos del catálogo: catalogo/{productoId}
     // - Lectura abierta: en la práctica el downloadURL lleva su propio token y
@@ -15,9 +20,21 @@ service firebase.storage {
     match /catalogo/{productoId} {
       allow read: if true;
       allow write: if request.auth != null
-        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.rol
-             in ['super_admin', 'gerente_comercial', 'comercial']
+        && miRol() in ['super_admin', 'gerente_comercial', 'comercial']
         && request.resource.size < 2 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Foto del problema de un ticket de service: ticketsServicio/{ticketId}/foto.jpg
+    // (2026-09-07). La sube el supervisor desde la ficha del cliente (o el
+    // módulo heladeras); la ve cualquier usuario logueado (el encargado la
+    // abre desde Consulta de service con el downloadURL). Imagen y < 3 MB
+    // (se reduce en el celular antes de subir).
+    match /ticketsServicio/{ticketId}/{archivo} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && miRol() in ['supervisor', 'heladeras_encargado', 'super_admin', 'gerente_comercial']
+        && request.resource.size < 3 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
     }
 

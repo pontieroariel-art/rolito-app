@@ -237,6 +237,16 @@ export default function ConsultaServicePage() {
                     <p className="font-bold text-sm text-gray-900">{t.heladeraCodigo} — {t.clientName}</p>
                     {t.direccion && <p className="text-xs text-gray-600">{t.direccion}</p>}
                     <p className="text-xs text-gray-500">{t.motivoNombre} · {tsToDate(t.fechaPedido).toLocaleDateString('es-AR')}</p>
+                    {t.origen === 'supervisor' && (
+                      <p className="text-xs text-gray-500 mt-0.5">Pedido desde la calle por {t.creadoPor?.nombre ?? 'un supervisor'}</p>
+                    )}
+                    {t.origen === 'cliente' && <p className="text-xs text-gray-500 mt-0.5">Pedido por el cliente desde la app</p>}
+                    {t.observacion && <p className="text-xs text-gray-700 mt-0.5 whitespace-pre-wrap">“{t.observacion}”</p>}
+                    {t.fotoUrl && (
+                      <a href={t.fotoUrl} target="_blank" rel="noopener noreferrer" className="inline-block mt-1">
+                        <img src={t.fotoUrl} alt="Foto del problema" className="h-20 rounded-lg border border-[#D3D1C7] object-cover" />
+                      </a>
+                    )}
                     {t.asignadoA && <p className="text-xs text-gray-500 mt-0.5">Asignado a {t.asignadoA.nombre} ({t.asignadoA.tipo})</p>}
                     {t.trabajoRealizado && <p className="text-xs text-gray-500 mt-0.5">Trabajo: {t.trabajoRealizado}</p>}
                     {t.motivoAnulacion && <p className="text-xs text-red-500 mt-0.5">Anulado: {t.motivoAnulacion}</p>}

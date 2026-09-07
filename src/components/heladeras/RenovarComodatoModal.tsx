@@ -3,18 +3,22 @@ import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import SignaturePad, { SignaturePadHandle } from './SignaturePad'
 import { renovarComodato, Actor } from '../../services/asignacionHeladeraService'
-import { generateContratoComodato } from '../../utils/pdf'
+import { generateContratoComodato, nombreArchivoComodato } from '../../utils/pdf'
+import { compartirArchivo } from '../../utils/compartir'
 import { getUserDocument } from '../../services/userService'
 import { Heladera } from '../../types'
 
 // Re-firma el mismo contrato con fecha y número nuevos — no genera orden de
 // entrega (no hay traslado físico, el equipo sigue en el mismo lugar).
+// `compartir`: en el celular del supervisor el contrato se manda por WhatsApp
+// en vez de descargarse (2026-09-07). onClose recibe true si se renovó.
 export default function RenovarComodatoModal({
-  heladera, actor, onClose,
+  heladera, actor, onClose, compartir = false,
 }: {
-  heladera: Heladera
-  actor:    Actor
-  onClose:  () => void
+  heladera:   Heladera
+  actor:      Actor
+  onClose:    (renovado?: boolean) => void
+  compartir?: boolean
 }) {
   const [firmanteNombre, setFirmanteNombre] = useState('')
   const [firmanteCargo,  setFirmanteCargo]  = useState('')
@@ -32,9 +36,10 @@ export default function RenovarComodatoModal({
       const firmante = { nombre: firmanteNombre.trim(), cargo: firmanteCargo.trim() }
       const asignacion = await renovarComodato(heladera.id, actor, firma, firmante)
       const cliente = heladera.clienteAsignadoId ? await getUserDocument(heladera.clienteAsignadoId) : null
-      await generateContratoComodato({
+      const fecha = asignacion.fecha.toDate()
+      const params = {
         numero:   asignacion.numero,
-        fecha:    asignacion.fecha.toDate(),
+        fecha,
         heladera: { modelo: heladera.modelo, numeroSerie: heladera.numeroSerie },
         cliente:  {
           razonSocial: heladera.clienteAsignadoNombre ?? '—',
@@ -43,8 +48,17 @@ export default function RenovarComodatoModal({
         },
         firmante,
         firmaDataUrl: firma,
-      })
-      onClose()
+      }
+      if (compartir) {
+        const blob = (await generateContratoComodato(params, { descargar: false })) as Blob
+        await compartirArchivo(blob, nombreArchivoComodato(asignacion.numero, fecha), {
+          titulo: `Comodato Nº ${asignacion.numero} — ${params.cliente.razonSocial}`,
+          texto:  `Contrato de comodato Nº ${asignacion.numero} de la heladera ${heladera.codigoInterno}, firmado el ${fecha.toLocaleDateString('es-AR')}.`,
+        })
+      } else {
+        await generateContratoComodato(params)
+      }
+      onClose(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo renovar. Intentá de nuevo.')
     } finally {
@@ -53,7 +67,7 @@ export default function RenovarComodatoModal({
   }
 
   return (
-    <Modal open onClose={onClose} title={`Renovar comodato — ${heladera.codigoInterno}`} wide>
+    <Modal open onClose={() => onClose(false)} title={`Renovar comodato — ${heladera.codigoInterno}`} wide variant={compartir ? 'light' : 'dark'}>
       <div className="space-y-4">
         <p className="text-sm text-gray-500">
           Se vuelve a firmar el contrato de <span className="font-medium text-gray-900">{heladera.clienteAsignadoNombre}</span>
@@ -87,8 +101,8 @@ export default function RenovarComodatoModal({
 
         {error && <p className="text-red-500 text-xs">{error}</p>}
         <div className="flex gap-2 pt-1">
-          <Button variant="outline" onClick={onClose} className="flex-1">Cancelar</Button>
-          <Button onClick={handleSubmit} loading={saving} className="flex-1">Renovar y firmar</Button>
+          <Button variant="outline" onClick={() => onClose(false)} className="flex-1">Cancelar</Button>
+          <Button onClick={handleSubmit} loading={saving} className="flex-1">{compartir ? 'Firmar y enviar' : 'Renovar y firmar'}</Button>
         </div>
       </div>
     </Modal>

@@ -49,6 +49,7 @@ PWA de gestión de una distribuidora de hielo, organizada en cuatro **sistemas/m
 - **heladeras** — personal de taller (`/heladeras/*`)
 - **heladeras_encargado** — encargado del módulo (+ `super_admin` y `gerente_comercial` con acceso completo)
 - **tecnico** — técnico de calle, escanea el QR del equipo en el cliente
+- **supervisor** (de cobranzas, ver Expedición) — desde la ficha del cliente (`/supervisor/cliente/:uid`) o el QR (`/heladeras/ficha/:id`) pide service con foto (`ticketsServicio.origen = 'supervisor'`, foto en Storage `ticketsServicio/{id}/foto.jpg`, el trigger avisa al encargado) y firma renovaciones de comodato en el celular (`renovarComodato`, contrato compartido por WhatsApp). Solo lectura de `heladeras`; las reglas acotan cada escritura
 
 **Producción de hielo** (carga de pallets en planta Don Torcuato / Merlo desde tablet, con ticket Zebra):
 - **produccion_hielo** — operario (subrol `maquinista`: parte de máquinas en vez de carga de pallets)

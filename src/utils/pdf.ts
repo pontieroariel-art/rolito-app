@@ -443,7 +443,7 @@ export async function generateContratoComodato(params: {
   cliente:      { razonSocial: string; cuit: string; direccion: string }
   firmante:     { nombre: string; cargo: string }
   firmaDataUrl: string
-}) {
+}, opts: { descargar?: boolean } = {}): Promise<Blob | void> {
   const { numero, fecha, heladera, cliente, firmante, firmaDataUrl } = params
   const { default: jsPDF } = await import('jspdf')
   const doc   = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
@@ -557,8 +557,11 @@ export async function generateContratoComodato(params: {
   doc.text(`Doc.: ${cliente.cuit}`, marginL, y + 35)
   doc.text(`Cargo: ${firmante.cargo}`, marginL, y + 39)
 
-  doc.save(`comodato-${numero}-${toDateStr(fecha)}.pdf`)
+  if (opts.descargar === false) return doc.output('blob')
+  doc.save(nombreArchivoComodato(numero, fecha))
 }
+
+export const nombreArchivoComodato = (numero: number, fecha: Date) => `comodato-${numero}-${toDateStr(fecha)}.pdf`
 
 // "Orden de entrega" — segunda hoja del comodato real: ficha técnica del
 // equipo (con compresor, que el contrato no menciona), mapa de ubicación de

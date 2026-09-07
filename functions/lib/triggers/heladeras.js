@@ -39,9 +39,11 @@ exports.onTicketCreado = (0, firestore_1.onDocumentCreated)({ document: 'tickets
     const ticket = event.data?.data();
     if (!ticket)
         return;
-    const esDeCliente = ticket.origen === 'cliente';
+    // Un ticket de cliente o de supervisor en la calle (2026-09-07) no lo
+    // conoce ningún encargado hasta que alguien avisa; uno de staff sí.
+    const esDeAfuera = ticket.origen === 'cliente' || ticket.origen === 'supervisor';
     const urgente = ticket.urgente === true;
-    if (!esDeCliente && !urgente)
+    if (!esDeAfuera && !urgente)
         return;
     const encargados = await (0, firestore_2.getFirestore)().collection('users')
         .where('rol', '==', 'heladeras_encargado').where('estado', '==', 'activo').get();
@@ -49,7 +51,9 @@ exports.onTicketCreado = (0, firestore_1.onDocumentCreated)({ document: 'tickets
     if (conSubscripcion.length === 0)
         return;
     const titulo = urgente ? 'Service urgente' : 'Nuevo pedido de service';
-    const cuerpo = `${(ticket.heladeraCodigo || '')} — ${(ticket.clientName || '')}: ${(ticket.motivoNombre || '')}`;
+    const creador = ticket.creadoPor?.nombre;
+    const quien = ticket.origen === 'supervisor' && creador ? ` (pedido por ${creador})` : '';
+    const cuerpo = `${(ticket.heladeraCodigo || '')} — ${(ticket.clientName || '')}: ${(ticket.motivoNombre || '')}${quien}`;
     web_push_1.default.setVapidDetails('mailto:pedidos@rolito.com.ar', vapidPublicKey.value(), vapidPrivateKey.value());
     await Promise.all(conSubscripcion.map(async (d) => {
         try {
