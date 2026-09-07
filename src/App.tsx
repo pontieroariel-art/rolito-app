@@ -110,6 +110,8 @@ const SupervisorClientesPage = lazy(() => import('./pages/supervisor/SupervisorC
 const CobranzaSupervisorPage = lazy(() => import('./pages/supervisor/CobranzaSupervisorPage'))
 const SupervisorHistorialPage = lazy(() => import('./pages/supervisor/SupervisorHistorialPage'))
 const RepartoEnVivoPage       = lazy(() => import('./pages/supervisor/RepartoEnVivoPage'))
+const SupervisorBuscarPage    = lazy(() => import('./pages/supervisor/SupervisorBuscarPage'))
+const FichaClientePage        = lazy(() => import('./pages/supervisor/FichaClientePage'))
 
 // /caja aterriza en la primera pestaña PERMITIDA del usuario, no siempre en
 // Remitos: una tablet de mostrador con las pestañas recortadas a solo
@@ -447,6 +449,10 @@ function AppContent() {
           <Route path="/supervisor/cobrar"   element={<CobranzaSupervisorPage />} />
           <Route path="/supervisor/historial" element={<SupervisorHistorialPage />} />
           <Route path="/supervisor/reparto"   element={<RepartoEnVivoPage />} />
+          {/* Ficha del cliente en la calle: buscador + datos, contacto,
+              domicilios (ir con Maps) y saldo con composición para compartir. */}
+          <Route path="/supervisor/buscar"       element={<SupervisorBuscarPage />} />
+          <Route path="/supervisor/cliente/:uid" element={<FichaClientePage />} />
           {/* Los supervisores también entregan (son depósitos en Tango): venden
               con las mismas pantallas del chofer, que vuelven a /supervisor. */}
           <Route path="/supervisor/vender"    element={<VentaCamion volverA="/supervisor" />} />

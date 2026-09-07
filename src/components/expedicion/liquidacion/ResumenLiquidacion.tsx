@@ -1,5 +1,4 @@
-import { useState, type ReactNode } from 'react'
-import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight } from 'lucide-react'
+import { AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { formatoARS } from '@/utils/money'
 import { describirRacks } from '@/utils/envases'
 import type { LiquidacionCalculada, RepartoClasificado } from '@/utils/liquidacion'
@@ -85,18 +84,8 @@ export function TarjetasPlata({ reparto, calc, efectivoRecibido, onEfectivoRecib
   )
 }
 
-export function Plegable({ titulo, children, abiertoInicial = false }: { titulo: string; children: ReactNode; abiertoInicial?: boolean }) {
-  const [abierto, setAbierto] = useState(abiertoInicial)
-  return (
-    <section className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm">
-      <button type="button" onClick={() => setAbierto((a) => !a)} className="w-full flex items-center justify-between px-4 py-3 text-left">
-        <span className="font-semibold text-gray-900">{titulo}</span>
-        {abierto ? <ChevronDown size={16} className="text-gray-400" /> : <ChevronRight size={16} className="text-gray-400" />}
-      </button>
-      {abierto && <div className="px-4 pb-4 overflow-x-auto">{children}</div>}
-    </section>
-  )
-}
+// Plegable vive en components/ui/Plegable (lo comparte la ficha del supervisor).
+export { Plegable } from '@/components/ui/Plegable'
 
 const th = 'text-left text-[11px] uppercase tracking-wider text-gray-500 font-semibold px-2 py-1.5 border-b border-[#D3D1C7]'
 const td = 'px-2 py-1.5 border-b border-gray-100 text-sm'

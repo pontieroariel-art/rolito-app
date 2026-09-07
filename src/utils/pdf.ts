@@ -8,7 +8,7 @@ import { ROLITO_INFO, COMODATO_COMODANTE, PLANTA_INFO } from './constants'
 // final termina pesando decenas de MB para un logo que se imprime a 48x16mm).
 // Se reescala acá a un ancho de impresión razonable antes de convertir a
 // base64, así el PDF queda liviano sin perder nitidez en el encabezado.
-async function fetchImageAsBase64(url: string, maxWidth = 600): Promise<string | null> {
+export async function fetchImageAsBase64(url: string, maxWidth = 600): Promise<string | null> {
   try {
     const resp   = await fetch(url)
     const blob   = await resp.blob()

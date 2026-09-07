@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { coincideBusqueda, normalizarBusqueda, INPUT_BUSQUEDA_PROPS } from '@/utils/busqueda'
 import { Link } from 'react-router-dom'
-import { Search } from 'lucide-react'
+import { Search, UserRound } from 'lucide-react'
 import SupervisorHeader from '@/components/supervisor/SupervisorHeader'
 import { subscribeClientesConDeuda } from '@/services/saldosTangoService'
 import { formatoARS } from '@/utils/money'
@@ -104,21 +104,28 @@ export default function SupervisorClientesPage() {
               {filtrados.map((s) => {
                 const atraso = atrasoDe(s)
                 return (
-                  <Link key={s.id} to={`/supervisor/cobrar?cliente=${s.id}`}
-                    className="block bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-3 active:scale-[0.99] transition-transform">
-                    <div className="flex justify-between items-center gap-2">
-                      <p className="text-sm font-medium text-gray-900 truncate">{s.razonSocial}</p>
-                      <p className="text-sm font-semibold text-gray-900 shrink-0">{formatoARS(s.saldoTotal)}</p>
-                    </div>
-                    <div className="flex justify-between items-center mt-0.5 gap-2">
-                      <p className="text-xs text-gray-500 truncate">
-                        {s.comprobantes.length} {s.comprobantes.length === 1 ? 'comprobante' : 'comprobantes'} · cód. {s.codigoTango}
-                        {atraso > 0 && <span className="text-red-500"> · {atraso} {atraso === 1 ? 'día' : 'días'} de atraso</span>}
-                      </p>
-                      <p className="text-xs text-gray-400 shrink-0">{haceCuanto(s.actualizadoEn)}</p>
-                    </div>
-                    {desglose(s) && <p className="text-xs text-gray-500 mt-0.5">{desglose(s)}</p>}
-                  </Link>
+                  <div key={s.id} className="flex bg-white rounded-xl border border-[#D3D1C7] shadow-sm overflow-hidden">
+                    <Link to={`/supervisor/cobrar?cliente=${s.id}`} className="block flex-1 min-w-0 p-3 active:bg-gray-50">
+                      <div className="flex justify-between items-center gap-2">
+                        <p className="text-sm font-medium text-gray-900 truncate">{s.razonSocial}</p>
+                        <p className="text-sm font-semibold text-gray-900 shrink-0">{formatoARS(s.saldoTotal)}</p>
+                      </div>
+                      <div className="flex justify-between items-center mt-0.5 gap-2">
+                        <p className="text-xs text-gray-500 truncate">
+                          {s.comprobantes.length} {s.comprobantes.length === 1 ? 'comprobante' : 'comprobantes'} · cód. {s.codigoTango}
+                          {atraso > 0 && <span className="text-red-500"> · {atraso} {atraso === 1 ? 'día' : 'días'} de atraso</span>}
+                        </p>
+                        <p className="text-xs text-gray-400 shrink-0">{haceCuanto(s.actualizadoEn)}</p>
+                      </div>
+                      {desglose(s) && <p className="text-xs text-gray-500 mt-0.5">{desglose(s)}</p>}
+                    </Link>
+                    {/* Ficha: contacto, cómo llegar, composición de saldos. */}
+                    <Link to={`/supervisor/cliente/${s.id}`} aria-label={`Ficha de ${s.razonSocial}`}
+                      className="flex flex-col items-center justify-center gap-0.5 px-3 border-l border-[#D3D1C7] text-accent active:bg-accent/10">
+                      <UserRound size={18} />
+                      <span className="text-[10px] font-medium">Ficha</span>
+                    </Link>
+                  </div>
                 )
               })}
             </div>

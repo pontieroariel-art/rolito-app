@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CloudOff, HandCoins, History, Package, Truck, Users } from 'lucide-react'
+import { CloudOff, HandCoins, History, Package, Search, Truck, Users } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import SupervisorHeader from '@/components/supervisor/SupervisorHeader'
 import { CobranzaSupervisorCard } from '@/components/supervisor/CobranzaSupervisorCard'
@@ -75,6 +75,19 @@ export default function SupervisorHome() {
             <div className="min-w-0">
               <p className="text-sm font-semibold text-gray-900">Cobrar</p>
               <p className="text-xs text-gray-500">Composición de saldos, facturas, cheques y retenciones</p>
+            </div>
+          </div>
+        </Link>
+
+        <Link to="/supervisor/buscar"
+          className="block bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-4 active:scale-[0.99] transition-transform">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
+              <Search size={22} className="text-accent" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-gray-900">Buscar cliente</p>
+              <p className="text-xs text-gray-500">Ficha completa: contacto, cómo llegar, saldo y composición para enviar</p>
             </div>
           </div>
         </Link>

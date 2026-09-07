@@ -20,7 +20,8 @@ import {
 import { puedeCompartirArchivos } from '@/utils/compartir'
 import { aCentavos, formatoARS, parseImporte, sumaCentavos } from '@/utils/money'
 import { haceCuanto } from '@/pages/supervisor/SupervisorClientesPage'
-import { EMPRESAS_TANGO, NOMBRE_EMPRESA, estaVinculadoATango } from '@/utils/tangoEmpresas'
+import { NOMBRE_EMPRESA, estaVinculadoATango } from '@/utils/tangoEmpresas'
+import { agruparPorEmpresaYCodigo, claveComp, empresaDe, grupoDe, mismoGrupo, type GrupoRecibo } from '@/utils/composicionSaldos'
 import { ChequeRecibido, Cobranza, ComprobanteSaldoTango, EmpresaTango, ImputacionFactura, PlantaId, RetencionRecibida } from '@/types'
 
 const inputClass = 'w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'
@@ -32,17 +33,10 @@ interface FilaImputacion {
   importeStr:   string
 }
 
-// La empresa y el código van en la clave: la misma factura (tipo+número) puede
-// existir en Redonhielo y en Rolito, y un CUIT puede tener varios códigos.
-const empresaDe = (c: ComprobanteSaldoTango): EmpresaTango => c.empresa ?? 'redonhielo'
-const claveComp = (c: ComprobanteSaldoTango) => `${empresaDe(c)}|${c.codigoTango ?? ''}|${c.tipo}|${c.numero}`
-
 // Un recibo = UNA empresa y UN código de cliente (en Tango es una base y un
 // talonario distintos; decisión de Ariel 2026-09-06: "si es de Rolito que sea
-// de Rolito, si no los saldos no quedan bien").
-interface GrupoRecibo { empresa: EmpresaTango; codigo: string }
-const grupoDe = (c: ComprobanteSaldoTango): GrupoRecibo => ({ empresa: empresaDe(c), codigo: c.codigoTango ?? '' })
-const mismoGrupo = (a: GrupoRecibo, b: GrupoRecibo) => a.empresa === b.empresa && a.codigo === b.codigo
+// de Rolito, si no los saldos no quedan bien"). La agrupación por empresa y
+// código vive en utils/composicionSaldos.ts (la comparten la ficha y el PDF).
 
 export interface CobranzaCompletaProps {
   /** Quién cobra: supervisor en la calle, caja en el mostrador o chofer en el camión. */
@@ -117,18 +111,7 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
 
   // Bloques por empresa (y dentro por código si el CUIT tiene varios): cada
   // bloque es un recibo posible; al tildar una factura, los demás se apagan.
-  const bloques = useMemo(() => {
-    const out: Array<{ grupo: GrupoRecibo; comprobantes: ComprobanteSaldoTango[]; subtotal: number }> = []
-    for (const empresa of EMPRESAS_TANGO) {
-      const deEmpresa = comprobantes.filter((c) => empresaDe(c) === empresa)
-      const codigos = [...new Set(deEmpresa.map((c) => c.codigoTango ?? ''))]
-      for (const codigo of codigos) {
-        const lista = deEmpresa.filter((c) => (c.codigoTango ?? '') === codigo)
-        out.push({ grupo: { empresa, codigo }, comprobantes: lista, subtotal: sumaCentavos(lista.map((c) => c.saldoPendiente)) / 100 })
-      }
-    }
-    return out
-  }, [comprobantes])
+  const bloques = useMemo(() => agruparPorEmpresaYCodigo(comprobantes), [comprobantes])
   const variosCodigos = (empresa: EmpresaTango) => bloques.filter((b) => b.grupo.empresa === empresa).length > 1
 
   const grupoSeleccionado: GrupoRecibo | null = useMemo(() => {
