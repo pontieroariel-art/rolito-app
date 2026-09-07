@@ -1631,3 +1631,32 @@ el medio, la factura imputada, el recibo (Ver / Enviar) y el nº de recibo en Ta
   `subscribeLiquidacionesEnRango` (rango sobre `fecha`, sin índice compuesto; planta filtrada en el cliente).
 - Reglas: `liquidaciones` lectura suma `isSupervisor()` (Reparto en vivo muestra "cerrada"); create admite los
   campos nuevos. Tests en `tests/firestore-rules.test.js`.
+
+## 29. Fase B del stock: remito de carga y descarga como transferencias en Tango (2026-09-06)
+
+Pedido de Ariel ("tiene que estar sí o sí para mañana"): la carga al camión mueve el stock de la planta al
+depósito del camión en Tango en el momento, y la descarga lo devuelve. Hasta hoy los items
+`transferenciaDeposito` que encolan `onRemitoCargaCreado` / `onDescargaCamionCreada` quedaban en la cola sin
+handler (en producción todavía no hay ningún remito de carga ni descarga: cola vacía, sin backlog).
+
+- **Comprobantes**: carga = **CAR** (ID_STA13 145, transferencia 'T'), descarga = **DES** (146), los dos con el
+  talonario **13 "TRASLADO ENTRE DEPOSITOS"** (STA17, sucursal 25, PROXIMO plano) y `TCOMP_IN_S = 'TI'`: son los
+  mismos tipos que grababa Bluesoft (muestras `sql/muestras-stock-2026-09-04.json`) y la transferencia TRA de la
+  traza del 05/09 usó el mismo talonario, así que el writer `transferenciaDeCargaDescarga` ya estaba probado.
+- **Bridge** (`scripts/tango/bridge-sql.mjs`): handler `transferenciaDeposito`, flag `transferenciasSqlEnabled`.
+  Depósito de la planta = `config/tango.depositosPlanta[plantaId]` (torcuato 01, merlo 02); depósito del camión =
+  `payload.depositoTango` o `config/tango.depositos[uid|camionId]`, **nunca** el de la planta (error duro si falta
+  o si coincide con la planta). Resultado `{ transferenciaNumero, tComp, idSta14, origen, destino }` → write-back
+  `tango.transferenciaNumero` en el remito / la descarga (ya estaba en `onOutboxConfirmado`). `--probar-sql` chequea
+  además INSERT en STA19, tipos CAR/DES y talonario 13.
+- **Fila de saldo nueva**: si el depósito no tiene el artículo en STA19 (tercerizado en su primera carga), el writer
+  hace `INSERT STA19 (FILLER, CANT_STOCK, COD_ARTICU, COD_DEPOSI, COD_UBIC1..3, UBIC_TXT)` — columnas tomadas del
+  UPDATE de fila completa que hace Tango en la traza; los triggers completan ID_STA11 / ID_STA22. Vale para el
+  destino (con la cantidad) y para el origen (en negativo, con aviso en el log). Permiso nuevo: `GRANT INSERT ON
+  STA19` (`scripts/tango/sql/10-transferencias.sql`, que además lista los saldos por depósito para el inventario
+  inicial).
+- **Config**: `configurar-stock-tango.mjs --tipo carga tipo=transferencia tComp=CAR tcompInS=TI talonario=13`,
+  ídem `descarga` con `tComp=DES`, y `--transferencias on` recién después de un `--dry-run --solo=<id>` sobre el
+  primer remito real.
+- Sigue pendiente de la fase B: cambios (CBS camión → 99), rotas en exceso (MER), ajuste de liquidación (AJU →
+  98), producción (PDT/PRO) y el inventario inicial de plantas y camiones el día del corte.

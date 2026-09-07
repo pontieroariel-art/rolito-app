@@ -112,7 +112,8 @@ function egresoDeVentaPromo(payload, origenColeccion, origenId, articulos, codDe
 /**
  * Transferencia planta ↔ camión. Carga: planta → camión (CAR). Descarga: camión →
  * planta (DES). Solo la mercadería sana (`items`); las rotas de la descarga van
- * por otro comprobante (fase B). Fase B: el bridge todavía no la despacha.
+ * por otro comprobante (fase B). El bridge la despacha con `transferenciasSqlEnabled`
+ * (2026-09-06): tipos `carga` (CAR) y `descarga` (DES), talonario 13 de Tango.
  */
 function transferenciaDeCargaDescarga(payload, origenColeccion, origenId, articulos, depositoPlanta, depositoCamion, cfgTipo, clave = payload.sentido) {
     if (cfgTipo.tipo !== 'transferencia')
@@ -202,15 +203,18 @@ function sentenciasMovimiento(m, datos, cfg, ahora = new Date()) {
     for (const ren of m.renglones) {
         const art = datos.articulos[ren.codArticu];
         if (transferencia) {
-            if (art.stockDestino === null) {
-                // La traza no muestra qué hace Tango cuando el destino no tiene fila en STA19
-                // (los dos depósitos la tenían). Hasta verlo, error claro: la oficina crea la
-                // fila con el inventario inicial (STOCK_REPARTO.md §4.4).
-                throw new Error(`el artículo ${ren.codArticu} no tiene fila de stock en el depósito destino ${m.depositoDestino} (STA19)`);
-            }
-            out.push((0, comun_1.updateSta19)(`UPDATE STA19 destino ${ren.codArticu}`, ren.codArticu, m.depositoDestino, art.stockDestino, ren.cantidad));
+            // Depósito sin fila del artículo (camión tercerizado en su primera carga,
+            // depósito nuevo): se crea la fila con la cantidad que entra. Tango no la
+            // crea solo (la traza del 2026-09-05 solo muestra UPDATE de filas existentes).
+            out.push(art.stockDestino === null
+                ? (0, comun_1.insertSta19)(`INSERT STA19 destino ${ren.codArticu}`, ren.codArticu, m.depositoDestino, ren.cantidad)
+                : (0, comun_1.updateSta19)(`UPDATE STA19 destino ${ren.codArticu}`, ren.codArticu, m.depositoDestino, art.stockDestino, ren.cantidad));
         }
-        out.push((0, comun_1.updateSta19)(`UPDATE STA19 stock ${ren.codArticu}`, ren.codArticu, m.depositoOrigen, art.stockOrigen, -ren.cantidad));
+        // Origen sin fila: queda en negativo (igual que un camión sin inventario inicial
+        // del que ya salió mercadería); la conciliación diaria lo muestra.
+        out.push(art.stockOrigen === null
+            ? (0, comun_1.insertSta19)(`INSERT STA19 stock ${ren.codArticu}`, ren.codArticu, m.depositoOrigen, -ren.cantidad)
+            : (0, comun_1.updateSta19)(`UPDATE STA19 stock ${ren.codArticu}`, ren.codArticu, m.depositoOrigen, art.stockOrigen, -ren.cantidad));
     }
     return out;
 }
@@ -228,8 +232,6 @@ async function leerDatosMovimiento(db, m, sucursalCfg) {
     for (const ren of m.renglones) {
         const art = await (0, comun_1.leerArticulo)(db, ren.codArticu);
         const stockOrigen = await (0, comun_1.leerStock)(db, ren.codArticu, m.depositoOrigen);
-        if (stockOrigen === null)
-            throw new Error(`el artículo ${ren.codArticu} no tiene fila de stock en el depósito ${m.depositoOrigen} (STA19) — hace falta el inventario inicial de ese depósito`);
         const stockDestino = m.depositoDestino ? await (0, comun_1.leerStock)(db, ren.codArticu, m.depositoDestino) : null;
         articulos[ren.codArticu] = { ...art, stockOrigen, stockDestino };
     }
@@ -259,7 +261,9 @@ async function escribirMovimientoStock(db, m, cfg, log = () => undefined) {
     }
     for (const ren of m.renglones) {
         const art = datos.articulos[ren.codArticu];
-        if (art.stockOrigen - ren.cantidad < 0)
+        if (art.stockOrigen === null)
+            log(`aviso: ${ren.codArticu} no tenía fila de stock en el depósito ${m.depositoOrigen}; se creó con -${ren.cantidad}`);
+        else if (art.stockOrigen - ren.cantidad < 0)
             log(`aviso: ${ren.codArticu} queda en negativo en el depósito ${m.depositoOrigen} (${art.stockOrigen} - ${ren.cantidad})`);
     }
     return { yaExistia: false, idSta14, nComp: datos.nComp.trim(), numero: datos.numero, ncompInS: datos.ncompInS, tComp: m.tComp };

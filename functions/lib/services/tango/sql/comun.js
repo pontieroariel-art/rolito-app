@@ -18,6 +18,7 @@ exports.numeroComprobanteStock = numeroComprobanteStock;
 exports.cabeceraSta14 = cabeceraSta14;
 exports.renglonSta20 = renglonSta20;
 exports.updateSta19 = updateSta19;
+exports.insertSta19 = insertSta19;
 exports.leerArticulo = leerArticulo;
 exports.leerStock = leerStock;
 const tipos_1 = require("./tipos");
@@ -253,6 +254,25 @@ function updateSta19(etiqueta, codArticu, codDeposito, stockAnterior, delta) {
             (0, tipos_1.varchar)('COD_ARTICU', codArticu, 15),
             (0, tipos_1.varchar)('COD_DEPOSI', codDeposito, 2),
             (0, tipos_1.numeric)('CANT_ANTERIOR', stockAnterior),
+        ],
+    };
+}
+/**
+ * Fila nueva de saldo (STA19) para un artículo en un depósito que todavía no
+ * la tiene (camión tercerizado que carga por primera vez, depósito recién
+ * creado). Columnas = las que Tango escribe en su UPDATE de fila completa
+ * (traza 2026-09-05: FILLER, CANT_STOCK, COD_ARTICU, COD_DEPOSI, COD_UBIC1..3,
+ * UBIC_TXT); ID_STA19 es identity y los triggers completan ID_STA11 / ID_STA22.
+ * `cantidad` puede ser negativa (egreso de un camión sin inventario inicial).
+ */
+function insertSta19(etiqueta, codArticu, codDeposito, cantidad) {
+    return {
+        etiqueta,
+        sql: `INSERT INTO "STA19" ("FILLER", "CANT_STOCK", "COD_ARTICU", "COD_DEPOSI", "COD_UBIC1", "COD_UBIC2", "COD_UBIC3", "UBIC_TXT") VALUES ('', @CANT_STOCK, @COD_ARTICU, @COD_DEPOSI, '', '', '', '')`,
+        params: [
+            (0, tipos_1.numeric)('CANT_STOCK', (0, exports.redondear7)(cantidad)),
+            (0, tipos_1.varchar)('COD_ARTICU', codArticu, 15),
+            (0, tipos_1.varchar)('COD_DEPOSI', codDeposito, 2),
         ],
     };
 }

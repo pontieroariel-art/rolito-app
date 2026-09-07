@@ -10,6 +10,9 @@
  *   node scripts/tango/configurar-stock-tango.mjs --tipo ventaPromo tipo=egreso tComp=VPR tcompInS=EG talonario=900 incluyeCambios=true
  *        → sql.stock.tipos.ventaPromo (merge con lo que haya; talonario = CÓDIGO del talonario de stock, 900)
  *   node scripts/tango/configurar-stock-tango.mjs --stock on|off        → stockSqlEnabled (el interruptor del bridge)
+ *   node scripts/tango/configurar-stock-tango.mjs --tipo carga tipo=transferencia tComp=CAR tcompInS=TI talonario=13
+ *   node scripts/tango/configurar-stock-tango.mjs --tipo descarga tipo=transferencia tComp=DES tcompInS=TI talonario=13
+ *   node scripts/tango/configurar-stock-tango.mjs --transferencias on|off → transferenciasSqlEnabled (carga CAR / descarga DES, fase B)
  *
  * Orden recomendado: --rolito-sin-stock on ANTES de deployar las functions nuevas (así la
  * primera promo que pase ya no descuenta en Rolito); --tipo cuando exista VPR en Tango;
@@ -44,6 +47,7 @@ if (sinStock !== undefined) update['facturador.rolito.descargaStock'] = !onOff(s
 const usuario = valorDe('--usuario'); if (usuario) update['sql.stock.usuario'] = usuario
 const terminal = valorDe('--terminal'); if (terminal) update['sql.stock.terminal'] = terminal
 const stock = valorDe('--stock'); if (stock !== undefined) update['stockSqlEnabled'] = onOff(stock, '--stock')
+const transf = valorDe('--transferencias'); if (transf !== undefined) update['transferenciasSqlEnabled'] = onOff(transf, '--transferencias')
 
 const iTipo = args.indexOf('--tipo')
 if (iTipo >= 0) {
@@ -66,9 +70,14 @@ const t = (await ref.get()).data() ?? {}
 console.log('\nconfig/tango hoy:')
 console.log('  facturador.rolito.descargaStock =', t.facturador?.rolito?.descargaStock, '(false = Rolito no descarga stock)')
 console.log('  stockSqlEnabled                 =', t.stockSqlEnabled ?? false)
+console.log('  transferenciasSqlEnabled        =', t.transferenciasSqlEnabled ?? false)
+console.log('  depositosPlanta                 =', JSON.stringify(t.depositosPlanta ?? null))
 console.log('  sql.stock                       =', JSON.stringify(t.sql?.stock ?? null, null, 2))
 const faltan = []
 if (t.facturador?.rolito?.descargaStock !== false) faltan.push('--rolito-sin-stock on')
 if (!t.sql?.stock?.tipos?.ventaPromo?.talonario) faltan.push('--tipo ventaPromo tipo=egreso tComp=VPR tcompInS=<traza> talonario=900')
+if (t.sql?.stock?.tipos?.carga?.tipo !== 'transferencia') faltan.push('--tipo carga tipo=transferencia tComp=CAR tcompInS=TI talonario=13')
+if (t.sql?.stock?.tipos?.descarga?.tipo !== 'transferencia') faltan.push('--tipo descarga tipo=transferencia tComp=DES tcompInS=TI talonario=13')
+if (!t.depositosPlanta?.torcuato || !t.depositosPlanta?.merlo) faltan.push('depositosPlanta {torcuato, merlo} (a mano en config/tango)')
 console.log(faltan.length ? `\nFalta: ${faltan.join(' | ')}` : '\nConfig de stock completa.')
 process.exit(0)

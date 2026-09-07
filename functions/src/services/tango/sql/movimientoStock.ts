@@ -48,7 +48,7 @@ import type { PayloadVenta, ItemVenta } from '../pedido'
 import { type EjecutorSql, type SentenciaSql, varchar, int, smallint } from './tipos'
 import {
   fechaDePayload, renglonesDeItems, siguienteNcompInS, numeroComprobanteStock, referenciaVenta, numeroInternoDe,
-  cabeceraSta14, renglonSta20, updateSta19, leerArticulo, leerStock, type RenglonStock,
+  cabeceraSta14, renglonSta20, updateSta19, insertSta19, leerArticulo, leerStock, type RenglonStock,
 } from './comun'
 
 /** Valores confirmados por la traza del 2026-09-05. Los tests los importan. */
@@ -119,7 +119,8 @@ export interface DatosMovimiento {
   proximoLeido: number
   sucursal: number
   nComp: string
-  articulos: Record<string, { idMedidaStock: number; idMedidaVentas: number | null; stockOrigen: number; stockDestino: number | null }>
+  /** stockOrigen / stockDestino: `null` = el depósito no tiene fila del artículo en STA19 (se crea). */
+  articulos: Record<string, { idMedidaStock: number; idMedidaVentas: number | null; stockOrigen: number | null; stockDestino: number | null }>
 }
 
 export interface ResultadoMovimientoSql {
@@ -187,6 +188,8 @@ export interface PayloadTransferencia {
   codigo?: string
   numero?: number
   plantaId?: string
+  /** Código del depósito de Tango del camión (expedición por depósito, 2026-09-06). */
+  depositoTango?: string | null
   camionId?: string
   camionLabel?: string
   choferId?: string
@@ -198,7 +201,8 @@ export interface PayloadTransferencia {
 /**
  * Transferencia planta ↔ camión. Carga: planta → camión (CAR). Descarga: camión →
  * planta (DES). Solo la mercadería sana (`items`); las rotas de la descarga van
- * por otro comprobante (fase B). Fase B: el bridge todavía no la despacha.
+ * por otro comprobante (fase B). El bridge la despacha con `transferenciasSqlEnabled`
+ * (2026-09-06): tipos `carga` (CAR) y `descarga` (DES), talonario 13 de Tango.
  */
 export function transferenciaDeCargaDescarga(
   payload: PayloadTransferencia,
@@ -297,15 +301,18 @@ export function sentenciasMovimiento(m: MovimientoStockTango, datos: DatosMovimi
   for (const ren of m.renglones) {
     const art = datos.articulos[ren.codArticu]!
     if (transferencia) {
-      if (art.stockDestino === null) {
-        // La traza no muestra qué hace Tango cuando el destino no tiene fila en STA19
-        // (los dos depósitos la tenían). Hasta verlo, error claro: la oficina crea la
-        // fila con el inventario inicial (STOCK_REPARTO.md §4.4).
-        throw new Error(`el artículo ${ren.codArticu} no tiene fila de stock en el depósito destino ${m.depositoDestino} (STA19)`)
-      }
-      out.push(updateSta19(`UPDATE STA19 destino ${ren.codArticu}`, ren.codArticu, m.depositoDestino!, art.stockDestino, ren.cantidad))
+      // Depósito sin fila del artículo (camión tercerizado en su primera carga,
+      // depósito nuevo): se crea la fila con la cantidad que entra. Tango no la
+      // crea solo (la traza del 2026-09-05 solo muestra UPDATE de filas existentes).
+      out.push(art.stockDestino === null
+        ? insertSta19(`INSERT STA19 destino ${ren.codArticu}`, ren.codArticu, m.depositoDestino!, ren.cantidad)
+        : updateSta19(`UPDATE STA19 destino ${ren.codArticu}`, ren.codArticu, m.depositoDestino!, art.stockDestino, ren.cantidad))
     }
-    out.push(updateSta19(`UPDATE STA19 stock ${ren.codArticu}`, ren.codArticu, m.depositoOrigen, art.stockOrigen, -ren.cantidad))
+    // Origen sin fila: queda en negativo (igual que un camión sin inventario inicial
+    // del que ya salió mercadería); la conciliación diaria lo muestra.
+    out.push(art.stockOrigen === null
+      ? insertSta19(`INSERT STA19 stock ${ren.codArticu}`, ren.codArticu, m.depositoOrigen, -ren.cantidad)
+      : updateSta19(`UPDATE STA19 stock ${ren.codArticu}`, ren.codArticu, m.depositoOrigen, art.stockOrigen, -ren.cantidad))
   }
   return out
 }
@@ -325,7 +332,6 @@ export async function leerDatosMovimiento(db: EjecutorSql, m: MovimientoStockTan
   for (const ren of m.renglones) {
     const art = await leerArticulo(db, ren.codArticu)
     const stockOrigen = await leerStock(db, ren.codArticu, m.depositoOrigen)
-    if (stockOrigen === null) throw new Error(`el artículo ${ren.codArticu} no tiene fila de stock en el depósito ${m.depositoOrigen} (STA19) — hace falta el inventario inicial de ese depósito`)
     const stockDestino = m.depositoDestino ? await leerStock(db, ren.codArticu, m.depositoDestino) : null
     articulos[ren.codArticu] = { ...art, stockOrigen, stockDestino }
   }
@@ -360,7 +366,8 @@ export async function escribirMovimientoStock(
   }
   for (const ren of m.renglones) {
     const art = datos.articulos[ren.codArticu]!
-    if (art.stockOrigen - ren.cantidad < 0) log(`aviso: ${ren.codArticu} queda en negativo en el depósito ${m.depositoOrigen} (${art.stockOrigen} - ${ren.cantidad})`)
+    if (art.stockOrigen === null) log(`aviso: ${ren.codArticu} no tenía fila de stock en el depósito ${m.depositoOrigen}; se creó con -${ren.cantidad}`)
+    else if (art.stockOrigen - ren.cantidad < 0) log(`aviso: ${ren.codArticu} queda en negativo en el depósito ${m.depositoOrigen} (${art.stockOrigen} - ${ren.cantidad})`)
   }
   return { yaExistia: false, idSta14, nComp: datos.nComp.trim(), numero: datos.numero, ncompInS: datos.ncompInS, tComp: m.tComp }
 }

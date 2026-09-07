@@ -308,6 +308,26 @@ export function updateSta19(etiqueta: string, codArticu: string, codDeposito: st
   }
 }
 
+/**
+ * Fila nueva de saldo (STA19) para un artículo en un depósito que todavía no
+ * la tiene (camión tercerizado que carga por primera vez, depósito recién
+ * creado). Columnas = las que Tango escribe en su UPDATE de fila completa
+ * (traza 2026-09-05: FILLER, CANT_STOCK, COD_ARTICU, COD_DEPOSI, COD_UBIC1..3,
+ * UBIC_TXT); ID_STA19 es identity y los triggers completan ID_STA11 / ID_STA22.
+ * `cantidad` puede ser negativa (egreso de un camión sin inventario inicial).
+ */
+export function insertSta19(etiqueta: string, codArticu: string, codDeposito: string, cantidad: number): SentenciaSql {
+  return {
+    etiqueta,
+    sql: `INSERT INTO "STA19" ("FILLER", "CANT_STOCK", "COD_ARTICU", "COD_DEPOSI", "COD_UBIC1", "COD_UBIC2", "COD_UBIC3", "UBIC_TXT") VALUES ('', @CANT_STOCK, @COD_ARTICU, @COD_DEPOSI, '', '', '', '')`,
+    params: [
+      numeric('CANT_STOCK', redondear7(cantidad)),
+      varchar('COD_ARTICU', codArticu, 15),
+      varchar('COD_DEPOSI', codDeposito, 2),
+    ],
+  }
+}
+
 /** Unidades de medida de un artículo (STA11). Error claro si no existe. */
 export async function leerArticulo(db: EjecutorSql, codArticu: string): Promise<{ idMedidaStock: number; idMedidaVentas: number }> {
   const art = await db.query<{ ID_MEDIDA_STOCK: number; ID_MEDIDA_VENTAS: number }>(

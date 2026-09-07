@@ -2,7 +2,7 @@
  * bridge-sql.mjs — remitos, recibos y movimientos de stock de la app → base SQL Server de Tango.
  *
  * Corre EN EL SERVIDOR DE TANGO (RHIELOTG), donde vive SQL Server. Escucha
- * `tango-outbox` (entidades 'remito', 'recibo' y 'movimientoStock') con el usuario `tango-bridge`
+ * `tango-outbox` (entidades 'remito', 'recibo', 'movimientoStock' y 'transferenciaDeposito') con el usuario `tango-bridge`
  * (solo puede leer la cola y actualizar estado/resultado — ver firestore.rules) y
  * escribe cada comprobante en la base de la empresa dentro de UNA transacción,
  * copiando lo que hace Tango (docs/tango/INTEGRACION.md §20/§21, trazas en
@@ -18,7 +18,12 @@
  *              node bridge-sql.mjs --dry-run    (ejecuta todo y REVIERTE; no deja nada en Tango)
  *   4. Servicio: Task Scheduler "al iniciar el equipo", node.exe C:\RolitoSync\sql\bridge-sql.mjs
  *
- * Flags en config/tango (Firestore): remitosSqlEnabled / recibosSqlEnabled / stockSqlEnabled (default false).
+ * Flags en config/tango (Firestore): remitosSqlEnabled / recibosSqlEnabled / stockSqlEnabled /
+ * transferenciasSqlEnabled (default false).
+ * Transferencias (2026-09-06, fase B del stock): remito de carga = CAR planta → camión y
+ * descarga = DES camión → planta, en REDONHIELO, con el talonario 13 "TRASLADO ENTRE
+ * DEPOSITOS" de Tango — config/tango.sql.stock.tipos.{carga,descarga} { tipo:'transferencia',
+ * tComp, tcompInS:'TI', talonario:13 }; permisos en sql/10-transferencias.sql.
  * Movimientos de stock (2026-09-05): egreso VPR en REDONHIELO por cada venta promo (la factura
  * de Rolito no descarga stock) — config/tango.sql.stock { usuario, terminal, tipos: { ventaPromo:
  * { tipo:'egreso', tComp:'VPR', tcompInS, talonario: <ID_STA17> } } }; script sql/08-stock.sql.
@@ -41,7 +46,7 @@ const require = createRequire(import.meta.url)
 const sqlLib = (f) => require(path.join(__dirname, 'lib', f))
 const { escribirRemito, remitoDeVenta } = sqlLib('remito.js')
 const { escribirRecibo, reciboDeCobranza } = sqlLib('recibo.js')
-const { escribirMovimientoStock, egresoDeVentaPromo } = sqlLib('movimientoStock.js')
+const { escribirMovimientoStock, egresoDeVentaPromo, transferenciaDeCargaDescarga } = sqlLib('movimientoStock.js')
 const mssql = require('mssql')
 
 const DRY_RUN = process.argv.includes('--dry-run')
@@ -173,6 +178,17 @@ function depositoDe(payload, tcfg) {
   return codDeposito
 }
 
+// Depósito del CAMIÓN para una carga/descarga: el del doc (expedición por depósito) o el
+// mapa uid/camión → código. Nunca cae al depósito de la planta: una transferencia
+// planta → planta sería un movimiento en falso (riesgo D1 del plan).
+function depositoCamionDe(payload, tcfg) {
+  if (typeof payload.depositoTango === 'string' && payload.depositoTango.trim()) return payload.depositoTango.trim()
+  const dep = tcfg.depositos ?? {}
+  const cod = (payload.choferId && dep[payload.choferId]) || (payload.camionId && dep[payload.camionId])
+  if (!cod) throw new Error(`sin depósito de Tango del camión para chofer ${payload.choferId} / camión ${payload.camionId} (el doc no trae depositoTango ni hay mapeo en config/tango.depositos)`)
+  return cod
+}
+
 const HANDLERS = {
   remito: {
     flag: 'remitosSqlEnabled',
@@ -229,6 +245,27 @@ const HANDLERS = {
         usuario: stockCfg.usuario ?? 'ROLITO', terminal: stockCfg.terminal ?? 'APP', sucursal: cfgTipo.sucursal,
       }, (m) => log('    ' + m)))
       return { stockNumero: r.nComp, tComp: r.tComp, numero: r.numero, idSta14: r.idSta14, ncompInS: r.ncompInS, deposito: codDeposito, yaExistia: r.yaExistia, via: 'sql' }
+    },
+  },
+  // Remito de carga (CAR: planta → camión) y descarga (DES: camión → planta) en REDONHIELO.
+  transferenciaDeposito: {
+    flag: 'transferenciasSqlEnabled',
+    async enviar(data, tcfg, docId) {
+      const empresa = data.empresa ?? 'redonhielo'
+      const stockCfg = tcfg.sql?.stock
+      const payload = data.payload ?? {}
+      const clave = payload.sentido
+      const cfgTipo = stockCfg?.tipos?.[clave]
+      if (!clave || !cfgTipo) throw new Error(`falta config/tango.sql.stock.tipos.${clave ?? '?'} {tipo:'transferencia', tComp, tcompInS, talonario}`)
+      const depositoPlanta = (tcfg.depositosPlanta ?? {})[payload.plantaId]
+      if (!depositoPlanta) throw new Error(`sin depósito de Tango para la planta ${payload.plantaId} (config/tango.depositosPlanta)`)
+      const depositoCamion = depositoCamionDe(payload, tcfg)
+      if (depositoCamion === depositoPlanta) throw new Error(`el depósito del camión (${depositoCamion}) es el de la planta: no se transfiere`)
+      const mov = transferenciaDeCargaDescarga(payload, data.origenColeccion ?? 'remitosCarga', data.origenId ?? docId, tcfg.articulos ?? {}, depositoPlanta, depositoCamion, cfgTipo, clave)
+      const r = await enTransaccion(baseDe(empresa), (db) => escribirMovimientoStock(db, mov, {
+        usuario: stockCfg.usuario ?? 'ROLITO', terminal: stockCfg.terminal ?? 'APP', sucursal: cfgTipo.sucursal,
+      }, (m) => log('    ' + m)))
+      return { transferenciaNumero: r.nComp, tComp: r.tComp, numero: r.numero, idSta14: r.idSta14, ncompInS: r.ncompInS, origen: mov.depositoOrigen, destino: mov.depositoDestino, yaExistia: r.yaExistia, via: 'sql' }
     },
   },
 }
@@ -290,6 +327,7 @@ async function probarSql() {
                HAS_PERMS_BY_NAME('dbo.STA14', 'OBJECT', 'INSERT') AS ins_sta14,
                HAS_PERMS_BY_NAME('dbo.STA20', 'OBJECT', 'INSERT') AS ins_sta20,
                HAS_PERMS_BY_NAME('dbo.STA19', 'OBJECT', 'UPDATE') AS upd_sta19,
+               HAS_PERMS_BY_NAME('dbo.STA19', 'OBJECT', 'INSERT') AS ins_sta19,
                HAS_PERMS_BY_NAME('dbo.GVA12', 'OBJECT', 'INSERT') AS ins_gva12,
                HAS_PERMS_BY_NAME('dbo.GVA07', 'OBJECT', 'INSERT') AS ins_gva07,
                HAS_PERMS_BY_NAME('dbo.GVA14', 'OBJECT', 'UPDATE') AS upd_gva14,
@@ -298,16 +336,22 @@ async function probarSql() {
                HAS_PERMS_BY_NAME('dbo.SEQUENCE_ASIENTO_SB', 'OBJECT', 'UPDATE') AS upd_seq,
                HAS_PERMS_BY_NAME('dbo.STA17', 'OBJECT', 'UPDATE') AS upd_sta17,
                (SELECT COUNT(*) FROM GVA43 WHERE TALONARIO BETWEEN 1105 AND 1108) AS talonarios_app,
-               (SELECT COUNT(*) FROM STA13 WHERE T_COMP = 'VPR') AS tipo_vpr`)
+               (SELECT COUNT(*) FROM STA13 WHERE T_COMP = 'VPR') AS tipo_vpr,
+               (SELECT COUNT(*) FROM STA13 WHERE T_COMP IN ('CAR', 'DES')) AS tipos_car_des,
+               (SELECT COUNT(*) FROM STA17 WHERE TALONARIO = 13) AS talonario_13`)
       const f = r.recordset[0]
       // El stock vive solo en REDONHIELO (2026-09-05): en las otras bases no hace falta ni el
       // permiso sobre el talonario de stock (STA17) ni el tipo VPR.
       const llevaStock = empresa === 'redonhielo'
-      const permisos = Object.entries(f).filter(([k]) => /^(ins|upd)_/.test(k) && (llevaStock || k !== 'upd_sta17'))
+      const permisos = Object.entries(f).filter(([k]) => /^(ins|upd)_/.test(k) && (llevaStock || !['upd_sta17', 'ins_sta19'].includes(k)))
       const sinPermiso = permisos.filter(([, v]) => v !== 1).map(([k]) => k)
       const vpr = llevaStock ? `, tipo de stock VPR: ${f.tipo_vpr ? 'sí' : 'NO (crearlo en Tango: Stock > Tipos de comprobante)'}` : ' (no lleva stock)'
       log(`  OK: base ${f.base}, login ${f.login}, usuario ${f.usuario}, talonarios de la app en GVA43: ${f.talonarios_app}${vpr}`)
       if (llevaStock && !f.tipo_vpr) fallas++
+      if (llevaStock) {
+        log(`  transferencias: tipos CAR/DES en STA13: ${f.tipos_car_des}/2, talonario 13 en STA17: ${f.talonario_13 ? 'sí' : 'NO'}`)
+        if (f.tipos_car_des < 2 || !f.talonario_13) fallas++
+      }
       if (sinPermiso.length) { fallas++; log(`  FALTAN PERMISOS: ${sinPermiso.join(', ')} (correr el script 06 y, en Redonhielo, el 08 en esta base)`) }
       else log(`  permisos OK (${permisos.length} comprobados)`)
     } catch (e) {

@@ -163,9 +163,30 @@ describe('sentenciasMovimiento — transferencia', () => {
     expect(param(ss[4].params, 'CANT_NUEVA')).toBe(400)
     expect(param(ss[5].params, 'CANT_NUEVA')).toBe(4600)
   })
-  it('sin fila de stock en el destino falla claro (A CONFIRMAR con la traza)', () => {
+  it('sin fila de stock en el destino, la crea con lo que entra (camión tercerizado en su primera carga)', () => {
     const sinDestino = { ...d, articulos: { PTHIBOLROLI0010: { ...d.articulos.PTHIBOLROLI0010, stockDestino: null } } }
-    expect(() => sentenciasMovimiento(m, sinDestino, usuario)).toThrow(/destino 21/)
+    const s = sentenciasMovimiento(m, sinDestino, usuario)
+    expect(s.map((x) => x.etiqueta)).toContain('INSERT STA19 destino PTHIBOLROLI0010')
+    const ins = s.find((x) => x.etiqueta === 'INSERT STA19 destino PTHIBOLROLI0010')!
+    expect(ins.sql).toMatch(/INSERT INTO "STA19" \("FILLER", "CANT_STOCK", "COD_ARTICU", "COD_DEPOSI", "COD_UBIC1", "COD_UBIC2", "COD_UBIC3", "UBIC_TXT"\)/)
+    expect(param(ins.params, 'CANT_STOCK')).toBe(400)
+    expect(param(ins.params, 'COD_DEPOSI')).toBe('21')
+    expect(s.find((x) => x.etiqueta === 'UPDATE STA19 stock PTHIBOLROLI0010')).toBeTruthy()
+  })
+  it('descarga: camión → planta, con el depósito del payload', () => {
+    const des = transferenciaDeCargaDescarga(
+      { sentido: 'descarga', depositoTango: '33', items: [{ productoId: 'bolsa_3kg', cantidad: 12 }], fecha: new Date(2026, 8, 7) },
+      'descargasCamion', 'dc1', articulos, '01', '33', { ...cfgCar, tComp: 'DES' },
+    )
+    expect(des).toMatchObject({ tComp: 'DES', depositoOrigen: '33', depositoDestino: '01', referencia: 'ROLITO:DC:dc1' })
+    const dd: DatosMovimiento = { ...d, articulos: { PTHIBOLROLI0003: { idMedidaStock: 17, idMedidaVentas: 17, stockOrigen: null, stockDestino: 900 } } }
+    const s = sentenciasMovimiento(des, dd, usuario)
+    expect(s.map((x) => x.etiqueta)).toEqual([
+      'UPDATE STA17 proximo', 'INSERT STA14', 'INSERT STA20 PTHIBOLROLI0003 E', 'INSERT STA20 PTHIBOLROLI0003 S',
+      'UPDATE STA19 destino PTHIBOLROLI0003', 'INSERT STA19 stock PTHIBOLROLI0003',
+    ])
+    expect(param(s[4].params, 'CANT_NUEVA')).toBe(912)
+    expect(param(s[5].params, 'CANT_STOCK')).toBe(-12)
   })
 })
 
@@ -185,6 +206,7 @@ function fakeDb(opts: { existe?: boolean; talonarioCambia?: boolean; stockCambia
       if (sql.startsWith('INSERT INTO "STA14"')) return r([{ ID: 901 }])
       if (sql.startsWith('INSERT INTO "STA20"')) return r([{ ID: 1 }])
       if (sql.startsWith('UPDATE "STA19"')) return r([{ affected: opts.stockCambia ? 0 : 1 }])
+      if (sql.startsWith('INSERT INTO "STA19"')) return r([{ affected: 1 }])
       throw new Error('consulta inesperada: ' + sql + ' ' + JSON.stringify(params.map((p) => p.valor)))
     },
   }
@@ -217,8 +239,13 @@ describe('escribirMovimientoStock', () => {
     const { db } = fakeDb({ stockCambia: true })
     await expect(escribirMovimientoStock(db, m, usuario)).rejects.toThrow(/stock cambió/)
   })
-  it('sin fila de stock en el depósito del camión, falla claro', async () => {
-    const { db } = fakeDb({ sinStock: true })
-    await expect(escribirMovimientoStock(db, m, usuario)).rejects.toThrow(/inventario inicial/)
+  it('sin fila de stock en el depósito del camión, la crea en negativo y avisa', async () => {
+    const { db, ejecutadas } = fakeDb({ sinStock: true })
+    const avisos: string[] = []
+    const res = await escribirMovimientoStock(db, m, usuario, (x) => avisos.push(x))
+    expect(res.yaExistia).toBe(false)
+    expect(ejecutadas.filter((e) => e.startsWith('INSERT INTO "STA19"'))).toHaveLength(1)
+    expect(ejecutadas.filter((e) => e.startsWith('UPDATE "STA19"'))).toHaveLength(0)
+    expect(avisos.some((a) => /no tenía fila de stock/.test(a))).toBe(true)
   })
 })
