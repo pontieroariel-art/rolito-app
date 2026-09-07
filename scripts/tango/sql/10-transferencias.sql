@@ -13,7 +13,7 @@ GO
 
 -- 2. Verificaciones (solo lectura). Todo tiene que dar filas:
 --    a) tipos CAR y DES existen y son transferencias (T_MOVIM = 'T') con talonario 13
-SELECT ID_STA13, T_COMP, DESCRIP, T_MOVIM, TALONARIO FROM STA13 WHERE T_COMP IN ('CAR', 'DES', 'TRA');
+SELECT ID_STA13, T_COMP, T_MOVIM, TALONARIO FROM STA13 WHERE T_COMP IN ('CAR', 'DES', 'TRA');
 --    b) talonario 13 "TRASLADO ENTRE DEPOSITOS": sucursal y próximo número (el writer lo avanza)
 SELECT TALONARIO, DESCRIP, SUCURSAL, PROXIMO FROM STA17 WHERE TALONARIO = 13;
 --    c) permisos del login del bridge sobre las tablas de stock
