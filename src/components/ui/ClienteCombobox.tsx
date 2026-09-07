@@ -11,7 +11,8 @@ export interface ComboItem {
 export function toComboItems(clientes: UserProfile[]): ComboItem[] {
   return clientes.map((c) => ({
     uid:    c.uid,
-    label:  c.razonSocial || c.nombreContacto || c.nombre || c.email || '',
+    // Sin CUIT: se avisa en el nombre, porque solo se le puede vender en promo.
+    label:  (c.razonSocial || c.nombreContacto || c.nombre || c.email || '') + (c.sinCuit ? ' · sin CUIT (solo promo)' : ''),
     codigo: c.codigoCliente,
   }))
 }

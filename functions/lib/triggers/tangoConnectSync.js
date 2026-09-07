@@ -188,7 +188,7 @@ async function encolarAltas(db, sinCuenta) {
         enCola.set(d.id, String(d.data().estado ?? ''));
     let batch = db.batch(), ops = 0;
     for (const c of candidatos) {
-        const estadoActual = enCola.get(c.cuit);
+        const estadoActual = enCola.get(c.clave);
         if (estadoActual && estadoActual !== 'pendiente') {
             out.yaEncolados++;
             continue;
@@ -199,7 +199,7 @@ async function encolarAltas(db, sinCuenta) {
             out.encolados++;
         // JSON round-trip: las filas recortadas traen campos undefined (str() de
         // recortarCliente) y Firestore los rechaza.
-        batch.set(db.doc(`tango-altas/${c.cuit}`), { cuit: c.cuit, filas: JSON.parse(JSON.stringify(c.filas)), estado: 'pendiente', razonSocial: c.filas[0].fila.razonSocial ?? '', actualizadoEn: firestore_2.FieldValue.serverTimestamp(), ...(estadoActual ? {} : { creadoEn: firestore_2.FieldValue.serverTimestamp() }) }, { merge: true });
+        batch.set(db.doc(`tango-altas/${c.clave}`), { cuit: c.cuit, clave: c.clave, ...(c.sinCuit ? { sinCuit: true } : {}), filas: JSON.parse(JSON.stringify(c.filas)), estado: 'pendiente', razonSocial: c.filas[0].fila.razonSocial ?? '', actualizadoEn: firestore_2.FieldValue.serverTimestamp(), ...(estadoActual ? {} : { creadoEn: firestore_2.FieldValue.serverTimestamp() }) }, { merge: true });
         if (++ops >= 400) {
             await batch.commit();
             batch = db.batch();

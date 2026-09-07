@@ -268,7 +268,8 @@ export async function procesarLoteClientesTango(
       //   credencial, y hay que actualizar las 3 patas juntas (Auth + cuitIndex +
       //   perfil), nunca solo 2 de 3.
       if (pareceEmailValido(row.email) && row.email !== perfil.email) {
-        if (perfil.emailAuth || opts.dryRun) {
+        // Las cuentas sin CUIT no tienen usuario de Auth: solo el contacto.
+        if (perfil.emailAuth || perfil.sinCuit || opts.dryRun) {
           update.email = row.email
         } else {
           try {

@@ -10,8 +10,11 @@
 //    el riesgo de que el CUIT es público). Un CUIT = una cuenta: si el mismo
 //    CUIT aparece en las dos empresas (o varias veces en una), es UNA cuenta
 //    con todos los códigos en `tangoIds`.
-//  - Sin CUIT válido (consumidor final, "00000000000", CUIT mal cargado): no
-//    se crea — no habría cómo loguearse — y se lista en el resumen.
+//  - Sin CUIT válido (consumidor final, "00000000000", CUIT mal cargado): desde
+//    el 2026-09-07 (decisión de Ariel) se crea IGUAL una cuenta por código, sin
+//    login (sin Auth ni cuitIndex, `sinCuit: true`), para poder venderle en
+//    promo; el contado queda bloqueado hasta que le carguen el CUIT. Las fichas
+//    genéricas ("NO USAR", "ANULADOS", "CONSUMIDOR FINAL") se descartan.
 //  - BAJA: cuenta vinculada a Tango cuyas filas desaparecieron o están todas
 //    inhabilitadas → estado 'inactivo' + Auth deshabilitado (nunca se borra
 //    el doc ni el cuitIndex: conserva historial y bloquea el login). Vuelve a
@@ -19,7 +22,7 @@
 //  - Circuit breaker: si Tango devolvió muchas menos filas que la corrida
 //    anterior (< 80 %), esa corrida no da de baja a nadie.
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.emailAuthDe = exports.filaHabilitada = exports.UMBRAL_CIRCUIT_BREAKER = exports.APROBADO_POR_TANGO = exports.DOMINIO_EMAIL_AUTH = void 0;
+exports.claveSinCuit = exports.esFilaSinCuitAdmisible = exports.emailAuthDe = exports.filaHabilitada = exports.UMBRAL_CIRCUIT_BREAKER = exports.APROBADO_POR_TANGO = exports.DOMINIO_EMAIL_AUTH = void 0;
 exports.candidatosAlta = candidatosAlta;
 exports.docCuentaDesdeTango = docCuentaDesdeTango;
 exports.decidirBaja = decidirBaja;
@@ -34,6 +37,13 @@ const filaHabilitada = (f) => f.habilitado !== false;
 exports.filaHabilitada = filaHabilitada;
 const emailAuthDe = (cuitDigits) => `${cuitDigits}@${exports.DOMINIO_EMAIL_AUTH}`;
 exports.emailAuthDe = emailAuthDe;
+/** Cuentas genéricas de Tango que nunca deben aparecer como cliente en la app. */
+const NOMBRE_GENERICO = /NO USAR|NO-USAR|ANULAD|CONSUMIDOR FINAL/i;
+const esFilaSinCuitAdmisible = (f) => !NOMBRE_GENERICO.test(f.razonSocial ?? '') && !!(f.razonSocial ?? '').trim();
+exports.esFilaSinCuitAdmisible = esFilaSinCuitAdmisible;
+/** Id determinístico del doc de alta / de la cuenta de un cliente sin CUIT. */
+const claveSinCuit = (codigo) => `sincuit-${codigo.trim().toUpperCase().replace(/[^A-Z0-9]/g, '_')}`;
+exports.claveSinCuit = claveSinCuit;
 /**
  * Agrupa por CUIT las filas de Tango que NO tienen cuenta en la app. Devuelve
  * los candidatos (CUIT válido, al menos una fila habilitada) y los descartados
@@ -50,11 +60,20 @@ function candidatosAlta(sinCuenta) {
         }
         const cuit = (0, cuit_1.soloDigitos)(fila.cuit);
         if (!(0, cuit_1.cuitValido)(cuit)) {
-            descartados.push({ ...base, motivo: 'cuit_invalido' });
+            // Sin CUIT válido: cuenta sin login, una por CÓDIGO (el mismo código en
+            // las dos empresas es la misma persona). Las genéricas se descartan.
+            if (!(0, exports.esFilaSinCuitAdmisible)(fila)) {
+                descartados.push({ ...base, motivo: 'cuit_invalido' });
+                continue;
+            }
+            const clave = (0, exports.claveSinCuit)(fila.codGva14);
+            if (!porCuit.has(clave))
+                porCuit.set(clave, { cuit: '', clave, sinCuit: true, filas: [] });
+            porCuit.get(clave).filas.push({ empresa, fila });
             continue;
         }
         if (!porCuit.has(cuit))
-            porCuit.set(cuit, { cuit, filas: [] });
+            porCuit.set(cuit, { cuit, clave: cuit, filas: [] });
         porCuit.get(cuit).filas.push({ empresa, fila });
     }
     // Redonhielo primero: manda la ficha; sus códigos son los principales.
@@ -91,7 +110,8 @@ function direccionDe(f) {
  */
 function docCuentaDesdeTango(candidato, ahora) {
     const principal = candidato.filas[0].fila;
-    const emailAuth = (0, exports.emailAuthDe)(candidato.cuit);
+    // Sin CUIT no hay credencial: la cuenta existe para venderle (promo), no para que entre.
+    const emailAuth = candidato.sinCuit ? '' : (0, exports.emailAuthDe)(candidato.cuit);
     const razonSocial = (principal.razonSocial ?? '').trim() || `Cliente ${principal.codGva14}`;
     const telefono = telefonoDe(principal);
     const direccion = direccionDe(principal);
@@ -112,7 +132,7 @@ function docCuentaDesdeTango(candidato, ahora) {
     const doc = {
         rol: 'cliente',
         estado: 'activo',
-        emailAuth,
+        ...(candidato.sinCuit ? { sinCuit: true } : { emailAuth }),
         email: pareceEmail(principal.email) ? principal.email.trim() : emailAuth,
         cuit: candidato.cuit,
         razonSocial,

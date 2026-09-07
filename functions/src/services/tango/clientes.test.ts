@@ -82,3 +82,39 @@ describe('decidirBaja', () => {
     expect(corridaConfiable(10, undefined)).toBe(true)
   })
 })
+
+describe('cuentas sin CUIT (consumidor final de Tango, solo promo)', () => {
+  it('una fila habilitada sin CUIT válido es candidata por código, agrupando las dos empresas; las genéricas se descartan', () => {
+    const { candidatos, descartados } = candidatosAlta([
+      { empresa: 'redonhielo', fila: fila({ idGva14: 9023, codGva14: 'CF.38', cuit: '', razonSocial: 'VAZQUEZ' }) },
+      { empresa: 'rolito',     fila: fila({ idGva14: 8531, codGva14: 'CF.38', cuit: '', razonSocial: 'VAZQUEZ' }) },
+      { empresa: 'redonhielo', fila: fila({ idGva14: 1, codGva14: 'CF.000', cuit: '', razonSocial: 'CONSUMIDOR FINAL' }) },
+      { empresa: 'redonhielo', fila: fila({ idGva14: 2, codGva14: 'FLEX', cuit: '', razonSocial: 'NO-USAR - FLEXTIL S.A' }) },
+      { empresa: 'redonhielo', fila: fila({ idGva14: 3, codGva14: 'CF.99', cuit: '', razonSocial: 'ALGUIEN', habilitado: false }) },
+    ])
+    expect(candidatos).toHaveLength(1)
+    expect(candidatos[0]).toMatchObject({ cuit: '', clave: 'sincuit-CF_38', sinCuit: true })
+    expect(candidatos[0].filas.map((f) => `${f.empresa}:${f.fila.idGva14}`)).toEqual(['redonhielo:9023', 'rolito:8531'])
+    expect(descartados.map((d) => d.motivo)).toEqual(['cuit_invalido', 'cuit_invalido', 'inhabilitado'])
+  })
+
+  it('la ficha nace sin credencial (sin emailAuth), marcada sinCuit y con la identidad de las dos empresas', () => {
+    const { candidatos } = candidatosAlta([
+      { empresa: 'rolito',     fila: fila({ idGva14: 8531, codGva14: 'CF.38', cuit: '', razonSocial: 'VAZQUEZ', email: '' }) },
+      { empresa: 'redonhielo', fila: fila({ idGva14: 9023, codGva14: 'CF.38', cuit: '', razonSocial: 'VAZQUEZ', email: '' }) },
+    ])
+    const doc = docCuentaDesdeTango(candidatos[0], 'AHORA')
+    expect(doc.sinCuit).toBe(true)
+    expect(doc.emailAuth).toBeUndefined()
+    expect(doc.email).toBe('')
+    expect(doc.cuit).toBe('')
+    expect(doc).toMatchObject({ rol: 'cliente', estado: 'activo', codigoTango: 'CF.38', idGva14Tango: 9023, aprobadoPor: 'tango' })
+    expect(doc.tangoIds).toEqual({ redonhielo: [{ idGva14: 9023, codigo: 'CF.38' }], rolito: [{ idGva14: 8531, codigo: 'CF.38' }] })
+  })
+
+  it('los candidatos con CUIT siguen usando el CUIT como clave', () => {
+    const { candidatos } = candidatosAlta([{ empresa: 'redonhielo', fila: fila() }])
+    expect(candidatos[0]).toMatchObject({ cuit: '30526047792', clave: '30526047792' })
+    expect(candidatos[0].sinCuit).toBeUndefined()
+  })
+})

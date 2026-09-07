@@ -239,13 +239,13 @@ async function encolarAltas(db: Firestore, sinCuenta: Array<{ empresa: Empresa; 
   for (const d of (await db.collection('tango-altas').select('estado').get()).docs) enCola.set(d.id, String(d.data().estado ?? ''))
   let batch = db.batch(), ops = 0
   for (const c of candidatos) {
-    const estadoActual = enCola.get(c.cuit)
+    const estadoActual = enCola.get(c.clave)
     if (estadoActual && estadoActual !== 'pendiente') { out.yaEncolados++; continue }
     if (estadoActual) out.yaEncolados++
     else out.encolados++
     // JSON round-trip: las filas recortadas traen campos undefined (str() de
     // recortarCliente) y Firestore los rechaza.
-    batch.set(db.doc(`tango-altas/${c.cuit}`), { cuit: c.cuit, filas: JSON.parse(JSON.stringify(c.filas)), estado: 'pendiente', razonSocial: c.filas[0].fila.razonSocial ?? '', actualizadoEn: FieldValue.serverTimestamp(), ...(estadoActual ? {} : { creadoEn: FieldValue.serverTimestamp() }) }, { merge: true })
+    batch.set(db.doc(`tango-altas/${c.clave}`), { cuit: c.cuit, clave: c.clave, ...(c.sinCuit ? { sinCuit: true } : {}), filas: JSON.parse(JSON.stringify(c.filas)), estado: 'pendiente', razonSocial: c.filas[0].fila.razonSocial ?? '', actualizadoEn: FieldValue.serverTimestamp(), ...(estadoActual ? {} : { creadoEn: FieldValue.serverTimestamp() }) }, { merge: true })
     if (++ops >= 400) { await batch.commit(); batch = db.batch(); ops = 0 }
   }
   if (ops) await batch.commit()

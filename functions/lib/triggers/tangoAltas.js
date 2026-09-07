@@ -62,6 +62,25 @@ async function procesarAltasTango(db, opts) {
                 resumen.procesadas--;
                 continue;
             }
+            // Sin CUIT (decisión de Ariel 2026-09-07): ficha en users con id
+            // determinístico por código, SIN Auth ni cuitIndex. Solo para venderle en
+            // promo; cuando le carguen el CUIT en Tango, la sync la vincula por
+            // idGva14 y pasa a ser una cuenta normal (el login se crea aparte).
+            if (candidato.sinCuit) {
+                const uidSinCuit = (0, clientes_1.claveSinCuit)(candidato.filas[0].fila.codGva14);
+                const existente = (await db.doc(`users/${uidSinCuit}`).get()).data();
+                if (existente) {
+                    await d.ref.update({ estado: 'existia', uid: uidSinCuit, motivo: 'ya tenía ficha en users', actualizadoEn: firestore_1.FieldValue.serverTimestamp() });
+                    resumen.existian++;
+                    continue;
+                }
+                const batch = db.batch();
+                batch.set(db.doc(`users/${uidSinCuit}`), (0, clientes_1.docCuentaDesdeTango)(candidato, firestore_1.FieldValue.serverTimestamp()));
+                batch.update(d.ref, { estado: 'creada', uid: uidSinCuit, actualizadoEn: firestore_1.FieldValue.serverTimestamp() });
+                await batch.commit();
+                resumen.creadas++;
+                continue;
+            }
             // ¿Apareció una cuenta con ese CUIT mientras tanto (alta a mano, autorregistro)?
             const idx = await db.doc(`cuitIndex/${cuit}`).get();
             if (idx.exists) {
@@ -109,7 +128,7 @@ async function procesarAltasTango(db, opts) {
             resumen.errores++;
             const motivo = e.message;
             if (resumen.detalleErrores.length < 50)
-                resumen.detalleErrores.push({ cuit, motivo });
+                resumen.detalleErrores.push({ cuit: cuit || candidato.clave, motivo });
             await d.ref.update({ estado: 'error', motivo, actualizadoEn: firestore_1.FieldValue.serverTimestamp() }).catch(() => undefined);
         }
     }

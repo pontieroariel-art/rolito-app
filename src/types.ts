@@ -664,6 +664,12 @@ export interface UserProfile {
   // quien cubre el mostrador además de su puesto — ver src/utils/roles.ts.
   // Van con `planta`. Solo los asigna el super_admin.
   rolesExtra?: UserRole[]
+  // Cliente de Tango SIN CUIT (consumidor final del mostrador / promo), creado
+  // por el padrón automático sin usuario de Auth ni cuitIndex: no puede entrar
+  // a la app y solo se le vende en promo (Rolito). El contado (factura ARCA)
+  // queda bloqueado por `esClienteFacturable` hasta que le carguen el CUIT en
+  // Tango; ahí la sync lo convierte en cuenta normal. Decisión de Ariel 2026-09-07.
+  sinCuit?: boolean
   // Fecha del último pedido del cliente, que mantiene el trigger onOrderRollup
   // (monotónico). Sirve para detectar clientes "fríos" sin recorrer todos los
   // pedidos — ver auditoría H5.
