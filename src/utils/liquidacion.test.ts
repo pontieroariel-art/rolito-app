@@ -15,11 +15,11 @@ import {
 const TS = Timestamp.fromMillis(0)
 
 // ── Factories: completas por defecto, se sobreescribe solo lo que varía ──
-function remito(items: RemitoCarga['items'], palletsCarga = 0): RemitoCarga {
+function remito(items: RemitoCarga['items'], palletsCarga = 0, envases?: RemitoCarga['envases']): RemitoCarga {
   return {
     id: 'rc1', numero: 1, codigo: 'RC-DT-000001', plantaId: 'torcuato',
     camionId: 'cam1', camionLabel: 'AB123CD · Iveco', choferId: 'ch1', choferNombre: 'Juan',
-    items, palletsCarga, estado: 'emitido',
+    items, palletsCarga, ...(envases ? { envases } : {}), estado: 'emitido',
     creadoPor: { uid: 'caja1', nombre: 'Caja Torcuato' }, fecha: TS,
   }
 }
@@ -52,7 +52,7 @@ function descarga(over: Partial<DescargaCamion> = {}): DescargaCamion {
   return {
     id: 'd1', plantaId: 'torcuato', camionId: 'cam1', camionLabel: 'AB123CD · Iveco',
     choferId: 'ch1', choferNombre: 'Juan', items: [], bolsasRotas: [],
-    palletsCompletos: 0, palletsParciales: 0, palletsVacios: 0,
+    envases: { tarimasMadera: 0, palletsMetal: 0, puntales: 0, aros: 0, racks: [] },
     registradoPor: { uid: 'muelle1', nombre: 'Muelle' }, fecha: TS, ...over,
   }
 }
@@ -135,18 +135,28 @@ describe('calcularLiquidacion — por producto', () => {
   })
 })
 
-describe('calcularLiquidacion — envases (pallets)', () => {
-  it('cuadra bases salidas contra completos + parciales + vacíos', () => {
+describe('calcularLiquidacion — envases retornables', () => {
+  it('cuadra por tipo lo que salió (puntales y aros implícitos) contra lo que muelle contó, y los racks por número', () => {
+    const r = calcularLiquidacion(
+      [remito([item('hielo10', 'Hielo 10kg', 100)], 5, { tarimasMadera: 3, palletsMetal: 2, racks: [12, 15, 18] })],
+      [], [],
+      [descarga({ envases: { tarimasMadera: 3, palletsMetal: 2, puntales: 19, aros: 5, racks: [12, 18] } })],
+    )
+    expect(r.envases.salieron).toEqual({ tarimasMadera: 3, palletsMetal: 2, puntales: 20, aros: 5, racks: [12, 15, 18] })
+    expect(r.envases.diferencia).toEqual({ tarimasMadera: 0, palletsMetal: 0, puntales: -1, aros: 0 })
+    expect(r.envases.racksFaltantes).toEqual([15])
+  })
+
+  it('un día anterior al cambio (remito y descarga sin envases) sigue cuadrando como pallets de metal', () => {
     const r = calcularLiquidacion(
       [remito([item('hielo10', 'Hielo 10kg', 100)], 10)],
       [], [],
-      [descarga({ palletsCompletos: 3, palletsParciales: 2, palletsVacios: 4 })],
+      [descarga({ envases: undefined, palletsCompletos: 3, palletsParciales: 2, palletsVacios: 4 })],
     )
-    expect(r.pallets.salidos).toBe(10)
-    expect(r.pallets.completos).toBe(3)
-    expect(r.pallets.parciales).toBe(2)
-    expect(r.pallets.vacios).toBe(4)
-    expect(r.pallets.diferencia).toBe(-1)   // 9 volvieron, salieron 10
+    expect(r.envases.salieron.palletsMetal).toBe(10)
+    expect(r.envases.volvieron.palletsMetal).toBe(9)
+    expect(r.envases.diferencia).toEqual({ tarimasMadera: 0, palletsMetal: -1, puntales: -4, aros: -1 })
+    expect(r.envases.racksFaltantes).toEqual([])
   })
 })
 
@@ -254,7 +264,8 @@ describe('calcularLiquidacion — casos borde', () => {
     const r = calcularLiquidacion([], [], [], [])
     expect(r.productos).toEqual([])
     expect(r.importes.total).toBe(0)
-    expect(r.pallets.diferencia).toBe(0)
+    expect(r.envases.diferencia).toEqual({ tarimasMadera: 0, palletsMetal: 0, puntales: 0, aros: 0 })
+    expect(r.envases.racksFaltantes).toEqual([])
     expect(r.cambios.registrados).toBe(0)
     expect(r.cobranzasCalle?.total).toBe(0)
     expect(r.efectivoARendir).toBe(0)

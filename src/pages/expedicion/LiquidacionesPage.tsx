@@ -12,6 +12,7 @@ import { useDepositosReparto } from '../../hooks/useDepositosReparto'
 import { etiquetaDeposito, identidadDeposito, nombreDeposito, ordenarDepositosReparto } from '../../utils/depositos'
 import { cerrarLiquidacion, subscribeLiquidacion } from '../../services/liquidacionService'
 import { calcularLiquidacion, referenciasDelReparto } from '../../utils/liquidacion'
+import { envasesDeDescarga, envasesDeRemito } from '@/utils/envases'
 import { generateLiquidacion, nombreArchivoLiquidacion, type DetalleLiquidacionPdf } from '../../utils/pdf'
 import { compartirArchivo, puedeCompartirArchivos } from '../../utils/compartir'
 import { useDiaActual } from '../../hooks/useDiaActual'
@@ -110,8 +111,8 @@ export default function LiquidacionesPage() {
 
   const detallePdf = (): DetalleLiquidacionPdf => ({
     reparto,
-    remitos: remitosChofer.map((r) => ({ codigo: r.codigo, camionLabel: r.camionLabel, fecha: r.fecha.toDate(), salida: r.salida?.hora.toDate() ?? null, entregado: r.entregadoPor?.hora.toDate() ?? null, items: r.items, palletsCarga: r.palletsCarga })),
-    descargas: descargas.map((d) => ({ fecha: d.fecha.toDate(), registradoPor: d.registradoPor.nombre, items: d.items, rotas: d.bolsasRotas.reduce((s, i) => s + i.cantidad, 0), pallets: { completos: d.palletsCompletos, parciales: d.palletsParciales, vacios: d.palletsVacios } })),
+    remitos: remitosChofer.map((r) => ({ codigo: r.codigo, camionLabel: r.camionLabel, fecha: r.fecha.toDate(), salida: r.salida?.hora.toDate() ?? null, entregado: r.entregadoPor?.hora.toDate() ?? null, items: r.items, envases: envasesDeRemito(r) })),
+    descargas: descargas.map((d) => ({ fecha: d.fecha.toDate(), registradoPor: d.registradoPor.nombre, items: d.items, rotas: d.bolsasRotas.reduce((s, i) => s + i.cantidad, 0), envases: envasesDeDescarga(d) })),
   })
 
   const imprimir = (liq: Liquidacion) =>

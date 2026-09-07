@@ -3,14 +3,16 @@ import {
   RemitoCarga, VentaCamion, VentaCamionItem,
 } from '../types'
 import { nombreDelCambio, productoDelCambio } from './cambios'
+import { cuadrarEnvases } from './envases'
 
 // Cálculo puro de la liquidación del repartidor — replica la hoja
 // "Liquidación de repartidores" del sistema viejo: por producto, carga −
 // ventas − cambios = devolución teórica, contra la descarga contada por
-// muelle; más el cuadre de envases (pallets) y de plata. Ver el plan del
-// módulo expedición y la foto de la hoja (2026-08-29).
+// muelle; más el cuadre de envases (tarimas, pallets de metal, puntales, aros
+// y racks, desde 2026-09-07) y de plata. Ver el plan del módulo expedición y
+// la foto de la hoja (2026-08-29).
 
-export type LiquidacionCalculada = Omit<Liquidacion, 'id' | 'fecha' | 'plantaId' | 'choferId' | 'choferNombre' | 'efectivoRecibido' | 'diferenciaEfectivo' | 'cerradaPor' | 'createdAt'>
+export type LiquidacionCalculada = Omit<Liquidacion, 'id' | 'fecha' | 'plantaId' | 'choferId' | 'choferNombre' | 'efectivoRecibido' | 'diferenciaEfectivo' | 'cerradaPor' | 'createdAt' | 'pallets'> & { envases: NonNullable<Liquidacion['envases']> }
 
 export function calcularLiquidacion(
   remitos:   RemitoCarga[],
@@ -58,11 +60,10 @@ export function calcularLiquidacion(
     return { ...f, devolucionTeorica, diferencia: f.descarga - devolucionTeorica }
   }).sort((a, b) => a.nombre.localeCompare(b.nombre))
 
-  // ── Envases ── bases que salieron vs cómo volvieron.
-  const salidos    = remitos.reduce((s, r) => s + r.palletsCarga, 0)
-  const completos  = descargas.reduce((s, d) => s + d.palletsCompletos, 0)
-  const parciales  = descargas.reduce((s, d) => s + d.palletsParciales, 0)
-  const vacios     = descargas.reduce((s, d) => s + d.palletsVacios, 0)
+  // ── Envases ── lo que salió (remitos) vs lo que volvió (descargas), por
+  // tipo y por número de rack. Los docs anteriores al 2026-09-07 se normalizan
+  // en utils/envases.ts.
+  const envases = cuadrarEnvases(remitos, descargas)
 
   // ── Cambios vs bolsas rotas recibidas ── las dos fuentes: los renglones de
   // cambio de cada venta y el registro viejo de `cambiosCamion`.
@@ -89,7 +90,7 @@ export function calcularLiquidacion(
 
   return {
     productos,
-    pallets: { salidos, completos, parciales, vacios, diferencia: (completos + parciales + vacios) - salidos },
+    envases,
     cambios: { registrados, rotasRecibidas },
     importes: {
       contadoEfectivo, contadoTransferencia, cuentaCorriente,

@@ -12,6 +12,8 @@ import { crearRemitoCarga, palletsInfo, subscribeRemitosCargaDelDia } from '../.
 import { generateRemitoCarga } from '../../utils/pdf'
 import { PLANTAS, RemitoCarga, RemitoCargaEstado, RemitoCargaItem } from '../../types'
 import { reportError } from '@/services/observability'
+import RacksInput from '@/components/expedicion/RacksInput'
+import { AROS_POR_PALLET, PUNTALES_POR_PALLET, describirEnvases, envasesDeRemito } from '@/utils/envases'
 
 const ESTADO_LABELS: Record<RemitoCargaEstado, string> = {
   emitido:   'Emitido',
@@ -51,6 +53,14 @@ export default function RemitosCargaPage() {
   // Cuando la cantidad no cierra en pallets justos, caja decide si el resto
   // viaja en un pallet propio (true) o suelto arriba del camión (default).
   const [restoEnPallet, setRestoEnPallet] = useState<Record<string, boolean>>({})
+  // Envases que salen (2026-09-07): muelle le dicta a caja cuántos pallets son
+  // de madera y cuántos de metal, y qué racks de agua van. El total sugerido
+  // sigue saliendo de la mercadería; mientras caja no toque "metal", el
+  // sugerido menos la madera cae en metal solo.
+  const [tarimasMadera, setTarimasMadera] = useState(0)
+  const [palletsMetal,  setPalletsMetal]  = useState(0)
+  const [metalEditado,  setMetalEditado]  = useState(false)
+  const [racks,         setRacks]         = useState<number[]>([])
   const [confirmando, setConfirmando] = useState(false)
   const [guardando,   setGuardando]   = useState(false)
   const [error,       setError]       = useState('')
@@ -93,7 +103,14 @@ export default function RemitosCargaPage() {
     [catalogo, cantidades, restoEnPallet],
   )
 
-  const palletsCarga = items.reduce((s, i) => s + (i.pallets ?? 0), 0)
+  const palletsSugeridos = items.reduce((s, i) => s + (i.pallets ?? 0), 0)
+  useEffect(() => {
+    if (!metalEditado) setPalletsMetal(Math.max(0, palletsSugeridos - tarimasMadera))
+  }, [palletsSugeridos, tarimasMadera, metalEditado])
+  const palletsCarga = tarimasMadera + palletsMetal
+  const envases = { tarimasMadera, palletsMetal, racks }
+  const num = (v: string) => Math.max(0, Math.min(999, parseInt(v.replace(/\D/g, ''), 10) || 0))
+  const inputEnvase = 'w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'
 
   const setCantidad = (productoId: string, delta: number) =>
     setCantidades((prev) => {
@@ -116,6 +133,7 @@ export default function RemitosCargaPage() {
       choferNombre: r.choferNombre,
       items:        r.items,
       palletsCarga: r.palletsCarga,
+      envases:      r.envases,
       creadoPor:    r.creadoPor,
       fecha:        r.fecha.toDate(),
     }).catch((err) => reportError(err, { origen: 'RemitosCargaPage', accion: 'error al generar el PDF' }))
@@ -134,7 +152,7 @@ export default function RemitosCargaPage() {
           depositoTango: deposito.codigo,
           depositoTangoNombre: deposito.nombre,
           items,
-          palletsCarga,
+          envases,
         },
         { uid: user.uid, nombre: user.nombre, plantaId },
       )
@@ -144,6 +162,7 @@ export default function RemitosCargaPage() {
       setDepositoCod('')
       setCantidades({})
       setRestoEnPallet({})
+      setTarimasMadera(0); setPalletsMetal(0); setMetalEditado(false); setRacks([])
       imprimir(remito)
     } catch (err) {
       reportError(err, { origen: 'RemitosCargaPage', accion: 'error al crear' })
@@ -256,14 +275,40 @@ export default function RemitosCargaPage() {
           </div>
         </div>
 
-        {palletsCarga > 0 && (
-          <div className="bg-accent/5 border border-accent/20 rounded-lg px-3 py-2 flex justify-between items-center">
-            <span className="text-sm text-gray-700">Pallets de carga (automático)</span>
-            <span className="text-sm font-semibold text-gray-900">
-              {palletsCarga} <span className="text-xs text-gray-500 font-normal">({palletsCarga} base{palletsCarga > 1 ? 's' : ''} · {palletsCarga * 4} puntales)</span>
-            </span>
+        {/* ── Envases que salen ── muelle se lo dicta a caja al cargar. Cada
+            pallet lleva 4 puntales y 1 aro implícitos; los racks de agua van
+            por número. Solo avisa si no cierra con el sugerido, no bloquea. */}
+        <div className="bg-accent/5 border border-accent/20 rounded-lg px-3 py-3 space-y-3">
+          <div className="flex justify-between items-center">
+            <p className="text-sm font-medium text-gray-800">Envases que salen</p>
+            <p className="text-xs text-gray-500">Sugerido por la mercadería: <b className="text-gray-700">{palletsSugeridos}</b> pallet{palletsSugeridos === 1 ? '' : 's'}</p>
           </div>
-        )}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Pallets de madera (completos)</label>
+              <input value={tarimasMadera} onChange={(e) => setTarimasMadera(num(e.target.value))} inputMode="numeric" className={inputEnvase} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Pallets de metal</label>
+              <input value={palletsMetal} onChange={(e) => { setMetalEditado(true); setPalletsMetal(num(e.target.value)) }} inputMode="numeric" className={inputEnvase} />
+            </div>
+          </div>
+          <p className="text-xs text-gray-600">
+            = <b>{palletsCarga}</b> pallet{palletsCarga === 1 ? '' : 's'} · {palletsCarga * PUNTALES_POR_PALLET} puntales · {palletsCarga * AROS_POR_PALLET} aro{palletsCarga === 1 ? '' : 's'}
+            {metalEditado && (
+              <button type="button" onClick={() => setMetalEditado(false)} className="ml-2 text-accent hover:underline">Volver al sugerido</button>
+            )}
+          </p>
+          {palletsCarga !== palletsSugeridos && (
+            <p className="text-xs text-amber-600">
+              Salen {palletsCarga} pallets y la mercadería sugiere {palletsSugeridos}. Se emite igual; revisá con muelle.
+            </p>
+          )}
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Racks de agua (números)</label>
+            <RacksInput value={racks} onChange={setRacks} />
+          </div>
+        </div>
 
         <Button onClick={() => setConfirmando(true)} disabled={!puedeConfirmar} className="w-full">
           Revisar y emitir remito
@@ -282,6 +327,7 @@ export default function RemitosCargaPage() {
               <p className="text-sm font-semibold text-gray-900">{r.codigo}</p>
               <p className="text-xs text-gray-500 truncate">
                 {r.camionLabel} · {r.choferNombre} · {r.items.reduce((s, i) => s + i.cantidad, 0)} bolsas
+                {describirEnvases(envasesDeRemito(r)) && ` · ${describirEnvases(envasesDeRemito(r))}`}
               </p>
             </div>
             <span className={`text-xs px-2.5 py-1 rounded-full border font-medium whitespace-nowrap ${ESTADO_COLORS[r.estado]}`}>
@@ -316,12 +362,13 @@ export default function RemitosCargaPage() {
                   <span className="font-medium text-gray-900">{i.cantidad}</span>
                 </div>
               ))}
-              {palletsCarga > 0 && (
-                <div className="flex justify-between px-3 py-1.5 text-sm bg-gray-50">
-                  <span className="text-gray-700">Pallets de carga</span>
-                  <span className="font-medium text-gray-900">{palletsCarga}</span>
-                </div>
-              )}
+              <div className="flex justify-between px-3 py-1.5 text-sm bg-gray-50">
+                <span className="text-gray-700">Pallets de carga</span>
+                <span className="font-medium text-gray-900">{palletsCarga}</span>
+              </div>
+              <div className="px-3 py-1.5 text-xs text-gray-600 bg-gray-50">
+                Envases: {describirEnvases(envasesDeRemito({ palletsCarga, envases })) || 'ninguno'}
+              </div>
             </div>
             <p className="text-xs text-gray-500">
               Al confirmar se asigna el número correlativo y se imprime el remito para muelle.

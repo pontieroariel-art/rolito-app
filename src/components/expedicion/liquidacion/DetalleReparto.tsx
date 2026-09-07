@@ -8,6 +8,7 @@ import { generateRemitoCarga } from '@/utils/pdf'
 import { describirComprobante, entregarComprobanteVenta, estadoTangoVenta, problemasDeVenta } from '@/utils/comprobanteDeVenta'
 import { clasificarReparto, type BloqueVentas, type RepartoClasificado } from '@/utils/liquidacion'
 import { nombreDelCambio } from '@/utils/cambios'
+import { envasesDeDescarga, envasesDeRemito, filasDeEnvases } from '@/utils/envases'
 import { formatoARS } from '@/utils/money'
 import { puedeCompartirArchivos } from '@/utils/compartir'
 import { reportError } from '@/services/observability'
@@ -72,7 +73,7 @@ export default function DetalleReparto({ remitos, ventas, cambios, descargas, co
     finally { setOcupado(null) }
   }
   const verRemitoCarga = (r: RemitoCarga) =>
-    generateRemitoCarga({ codigo: r.codigo, plantaId: r.plantaId, camionLabel: r.camionLabel, choferNombre: r.choferNombre, items: r.items, palletsCarga: r.palletsCarga, creadoPor: r.creadoPor, fecha: r.fecha.toDate() })
+    generateRemitoCarga({ codigo: r.codigo, plantaId: r.plantaId, camionLabel: r.camionLabel, choferNombre: r.choferNombre, items: r.items, palletsCarga: r.palletsCarga, envases: r.envases, creadoPor: r.creadoPor, fecha: r.fecha.toDate() })
       .catch((err) => reportError(err, { origen: 'DetalleReparto', accion: 'remito de carga' }))
 
   const filaVenta = (v: VentaCamion) => (
@@ -106,7 +107,7 @@ export default function DetalleReparto({ remitos, ventas, cambios, descargas, co
                   {r.entregadoPor && <> · muelle {hora(r.entregadoPor.hora)} ({r.entregadoPor.nombre})</>}
                   {r.salida && <> · <b className="text-gray-900">salió {hora(r.salida.hora)}</b> ({r.salida.nombre})</>}
                 </p>
-                <Articulos items={r.items} extra={r.palletsCarga > 0 ? [{ q: r.palletsCarga, nombre: 'Pallets' }] : []} />
+                <Articulos items={r.items} extra={filasDeEnvases(envasesDeRemito(r))} />
                 <button type="button" onClick={() => verRemitoCarga(r)} className={btn}>Ver remito de carga</button>
               </div>
             ))}
@@ -121,7 +122,7 @@ export default function DetalleReparto({ remitos, ventas, cambios, descargas, co
                 <p className="text-sm text-gray-700">Descarga contada por muelle · <b className="text-gray-900">{hora(d.fecha)}</b> ({d.registradoPor.nombre})</p>
                 <Articulos items={d.items} extra={[
                   ...d.bolsasRotas.map((b) => ({ q: b.cantidad, nombre: `${b.nombre} · rotas recibidas`, cambio: true })),
-                  { q: d.palletsCompletos, nombre: 'Pallets completos' }, { q: d.palletsParciales, nombre: 'Pallets parciales' }, { q: d.palletsVacios, nombre: 'Pallets vacíos' },
+                  ...filasDeEnvases(envasesDeDescarga(d)),
                 ].filter((x) => x.q > 0)} />
               </div>
             ))}

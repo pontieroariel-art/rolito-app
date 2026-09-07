@@ -3,7 +3,7 @@ import {
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { onSnapshotError, esperarOEncolar } from './observability'
-import { RemitoCarga, RemitoCargaItem, PlantaId } from '../types'
+import { EnvasesCarga, RemitoCarga, RemitoCargaItem, PlantaId } from '../types'
 import { PLANTA_INFO } from '../utils/constants'
 
 const REMITOS = 'remitosCarga'
@@ -32,7 +32,9 @@ export interface CrearRemitoCargaArgs {
   depositoTango?:       string
   depositoTangoNombre?: string
   items:        RemitoCargaItem[]
-  palletsCarga: number
+  // Composición de envases que salen (caja la declara; muelle se la dicta).
+  // palletsCarga se deriva acá: tarimasMadera + palletsMetal.
+  envases:      EnvasesCarga
 }
 
 // Crea el remito con su número correlativo en una sola transacción (el
@@ -56,7 +58,8 @@ export async function crearRemitoCarga(args: CrearRemitoCargaArgs, actor: ActorC
       choferNombre: args.choferNombre,
       ...(args.depositoTango ? { depositoTango: args.depositoTango, depositoTangoNombre: args.depositoTangoNombre ?? '' } : {}),
       items:        args.items,
-      palletsCarga: args.palletsCarga,
+      palletsCarga: args.envases.tarimasMadera + args.envases.palletsMetal,
+      envases:      { tarimasMadera: args.envases.tarimasMadera, palletsMetal: args.envases.palletsMetal, racks: [...args.envases.racks] },
       estado:       'emitido',
       creadoPor:    { uid: actor.uid, nombre: actor.nombre },
       fecha:        Timestamp.now(),

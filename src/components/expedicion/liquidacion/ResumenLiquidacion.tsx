@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight } from 'lucide-react'
 import { formatoARS } from '@/utils/money'
+import { describirRacks } from '@/utils/envases'
 import type { LiquidacionCalculada, RepartoClasificado } from '@/utils/liquidacion'
 import type { DescargaCamion, Liquidacion, RemitoCarga } from '@/types'
 
@@ -147,15 +148,43 @@ export function DetallePorProducto({ calc }: { calc: LiquidacionCalculada }) {
         </tbody>
       </table>
       <div className="grid sm:grid-cols-2 gap-x-8 gap-y-1 text-sm text-gray-700 max-w-xl">
-        <p className="flex justify-between"><span>Pallets que salieron</span><b>{calc.pallets.salidos}</b></p>
         <p className="flex justify-between"><span>Cambios registrados por el repartidor</span><b>{calc.cambios.registrados}</b></p>
-        <p className="flex justify-between"><span>Volvieron completos</span><b>{calc.pallets.completos}</b></p>
         <p className="flex justify-between"><span>Rotas recibidas en muelle</span><b>{calc.cambios.rotasRecibidas}</b></p>
-        <p className="flex justify-between"><span>Volvieron parciales</span><b>{calc.pallets.parciales}</b></p>
-        <p className="flex justify-between"><span>Diferencia de cambios</span>{dif(calc.cambios.rotasRecibidas - calc.cambios.registrados)}</p>
-        <p className="flex justify-between"><span>Volvieron vacíos</span><b>{calc.pallets.vacios}</b></p>
-        <p className="flex justify-between"><span>Diferencia de pallets</span>{dif(calc.pallets.diferencia)}</p>
+        <p className="flex justify-between sm:col-start-2"><span>Diferencia de cambios</span>{dif(calc.cambios.rotasRecibidas - calc.cambios.registrados)}</p>
       </div>
+      {/* Envases retornables: lo que salió (remitos, puntales y aros
+          implícitos) contra lo que muelle contó al descargar, y los racks por
+          número. No bloquea el cierre: queda a la vista y en el PDF. */}
+      <table className="w-full max-w-xl">
+        <thead><tr>{['Envases', 'Salieron', 'Volvieron', 'Diferencia'].map((h, i) => <th key={h} className={`${th} ${i > 0 ? 'text-right' : ''}`}>{h}</th>)}</tr></thead>
+        <tbody>
+          {([
+            ['Pallets de madera', 'tarimasMadera'], ['Pallets de metal', 'palletsMetal'], ['Puntales', 'puntales'], ['Aros', 'aros'],
+          ] as const).map(([nombre, k]) => (
+            <tr key={k}>
+              <td className={td}>{nombre}</td>
+              <td className={`${td} text-right`}>{num(calc.envases.salieron[k])}</td>
+              <td className={`${td} text-right`}>{num(calc.envases.volvieron[k])}</td>
+              <td className={`${td} text-right`}>{dif(calc.envases.diferencia[k])}</td>
+            </tr>
+          ))}
+          <tr>
+            <td className={td}>Racks de agua</td>
+            <td className={`${td} text-right`}>{num(calc.envases.salieron.racks.length)}</td>
+            <td className={`${td} text-right`}>{num(calc.envases.volvieron.racks.length)}</td>
+            <td className={`${td} text-right`}>{dif(calc.envases.volvieron.racks.length - calc.envases.salieron.racks.length)}</td>
+          </tr>
+        </tbody>
+      </table>
+      {calc.envases.racksFaltantes.length > 0 && (
+        <p className="text-sm font-semibold text-red-600">Racks que no volvieron: {describirRacks(calc.envases.racksFaltantes)}</p>
+      )}
+      {calc.envases.racksSobrantes.length > 0 && (
+        <p className="text-sm text-amber-700">Racks que volvieron sin haber salido en el remito: {describirRacks(calc.envases.racksSobrantes)}</p>
+      )}
+      {calc.envases.salieron.racks.length > 0 && calc.envases.racksFaltantes.length === 0 && (
+        <p className="text-sm text-gray-500">Todos los racks volvieron ({describirRacks(calc.envases.salieron.racks)}).</p>
+      )}
     </div>
   )
 }

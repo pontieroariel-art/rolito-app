@@ -58,6 +58,7 @@ PWA de gestión de una distribuidora de hielo, organizada en cuatro **sistemas/m
 - **caja** — remitos de carga, ventanilla, cobranzas de mostrador, liquidación de repartidores
 - **muelle** — entrega la carga contra el remito y cuenta la descarga al volver el camión
 - **seguridad** — control de salida en el portón
+- **Envases retornables** (2026-09-07): el remito de carga lleva `envases` (tarimas de madera, pallets de metal, números de rack de agua; puntales y aros implícitos 4 y 1 por pallet) que caja declara al emitir; la descarga lleva `envases` contados sueltos por muelle (reemplaza a completos/parciales/vacíos, que quedan como legacy); la liquidación cuadra por tipo y racks por número. Toda la lógica pura y la compat con docs viejos en `src/utils/envases.ts`. Tango no los recibe todavía (viajan en el payload de la cola)
 
 ### Autenticación y roles
 

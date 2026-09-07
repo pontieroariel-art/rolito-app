@@ -100,10 +100,12 @@ async function main() {
     { cuit: '20111111112', nombre: 'Chofer Prueba Uno', camionId: 'camion-1', camionPatente: 'AF313WU', tipoChofer: 'fletero', comisionPorcentaje: 8 },
     { cuit: '20222222223', nombre: 'Chofer Prueba Dos', camionId: 'camion-2', camionPatente: 'AB222CC', tipoChofer: 'propio' },
   ]
+  const choferUids = []
   for (const c of choferesSeed) {
     const dni   = dniFromCuit(c.cuit)
     const email = `${c.cuit}@rolito.app`
     const uid   = await upsertAuthUser(email, padPin('1234'))
+    choferUids.push(uid)
     await db.collection('users').doc(uid).set(baseUserFields({
       email, nombre: c.nombre, nombreContacto: c.nombre, cuit: c.cuit,
       rol: 'chofer', username: dni,
@@ -207,6 +209,38 @@ async function main() {
     }, { merge: true })
   }
   console.log(`✓ ${camiones.length} camiones activos en Flota`)
+
+  // ── Expedición: remitos de carga y descarga (envases retornables) ─────────
+  // Hoy: un remito ya salido con composición de envases, para que muelle
+  // registre la descarga y caja liquide. Ayer: remito + descarga en el formato
+  // anterior al 2026-09-07 (solo pallets), para probar la compatibilidad.
+  const ahora = new Date()
+  const ayer  = new Date(ahora); ayer.setDate(ayer.getDate() - 1)
+  const choferSeed = { choferId: choferUids[0], choferNombre: choferesSeed[0].nombre, camionId: 'camion-1', camionLabel: 'AF313WU · Accelo 1016' }
+  await db.collection('config').doc('cargaCounter_torcuato').set({ next: 3 })
+  await db.collection('remitosCarga').doc('seed-rc-1').set({
+    numero: 1, codigo: 'RC-DT-000001', plantaId: 'torcuato', ...choferSeed,
+    items: [{ productoId: 'bolsa_10kg', nombre: 'Hielo bolsa 10kg', cantidad: 264, pallets: 3 }, { productoId: 'agua_6l', nombre: 'Agua de mesa x 6 litros', cantidad: 60 }],
+    palletsCarga: 3, envases: { tarimasMadera: 2, palletsMetal: 1, racks: [12, 15, 18] },
+    estado: 'salido', creadoPor: { uid: 'seed', nombre: 'Caja Torcuato Prueba' }, fecha: Timestamp.fromDate(ahora),
+    entregadoPor: { uid: 'seed', nombre: 'Muelle Torcuato Prueba', hora: Timestamp.fromDate(ahora) },
+    salida: { uid: 'seed', nombre: 'Seguridad Torcuato Prueba', hora: Timestamp.fromDate(ahora) },
+    tango: { estado: 'pendiente' },
+  })
+  await db.collection('remitosCarga').doc('seed-rc-legacy').set({
+    numero: 2, codigo: 'RC-DT-000002', plantaId: 'torcuato', ...choferSeed,
+    items: [{ productoId: 'bolsa_10kg', nombre: 'Hielo bolsa 10kg', cantidad: 176, pallets: 2 }],
+    palletsCarga: 2, estado: 'salido', creadoPor: { uid: 'seed', nombre: 'Caja Torcuato Prueba' }, fecha: Timestamp.fromDate(ayer),
+    tango: { estado: 'pendiente' },
+  })
+  await db.collection('descargasCamion').doc('seed-desc-legacy').set({
+    plantaId: 'torcuato', ...choferSeed,
+    items: [{ productoId: 'bolsa_10kg', nombre: 'Hielo bolsa 10kg', cantidad: 20 }], bolsasRotas: [],
+    palletsCompletos: 0, palletsParciales: 1, palletsVacios: 1,
+    registradoPor: { uid: 'seed', nombre: 'Muelle Torcuato Prueba' }, fecha: Timestamp.fromDate(new Date(ayer.getTime() + 6 * 3600_000)),
+    tango: { estado: 'pendiente' },
+  })
+  console.log('✓ Remito de carga de hoy (RC-DT-000001, envases 2 madera · 1 metal · racks 12, 15, 18) y día legacy de ayer')
 
   // ── Pedidos ──────────────────────────────────────────────────────────────
   const today    = new Date(); today.setHours(12, 0, 0, 0)

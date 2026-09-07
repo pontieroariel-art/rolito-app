@@ -182,6 +182,35 @@ export interface ComprobanteInternoVenta {
 // reemplaza el remito manuscrito del circuito viejo. Es el "debe" contra el
 // que después se liquida el día del repartidor (ventas + cambios + descarga).
 
+// ── Envases retornables del camión (2026-09-07) ──────────────────────────────
+// Un pallet armado es "completo" (tarima de madera + 4 puntales + 1 aro) o de
+// metal (pallet de metal + 4 puntales + 1 aro). A la ida puntales y aros van
+// implícitos (PUNTALES_POR_PALLET / AROS_POR_PALLET en utils/envases.ts); a la
+// vuelta muelle los cuenta sueltos, por si faltan. Los racks de agua están
+// numerados: se registra qué números salen y cuáles vuelven (no se vinculan a
+// los bidones, que son un producto más del remito). Tango no los recibe por
+// ahora (viajan en el payload de la cola para mapearlos más adelante).
+export interface EnvasesCarga {
+  tarimasMadera: number     // pallets "completos": tarima + 4 puntales + 1 aro
+  palletsMetal:  number     // pallet de metal + 4 puntales + 1 aro
+  racks:         number[]   // números de rack de agua (únicos, enteros > 0)
+}
+export interface EnvasesDescarga {
+  tarimasMadera: number
+  palletsMetal:  number
+  puntales:      number
+  aros:          number
+  racks:         number[]
+}
+export interface ConteoEnvases { tarimasMadera: number; palletsMetal: number; puntales: number; aros: number }
+export interface LiquidacionEnvases {
+  salieron:       ConteoEnvases & { racks: number[] }   // Σ remitos del día (puntales/aros implícitos)
+  volvieron:      ConteoEnvases & { racks: number[] }   // Σ descargas del día
+  diferencia:     ConteoEnvases                          // volvieron − salieron (negativo = faltan)
+  racksFaltantes: number[]                               // salieron y no volvieron
+  racksSobrantes: number[]                               // volvieron sin haber salido
+}
+
 export interface RemitoCargaItem {
   productoId: string   // id de config/catalogo
   nombre:     string
@@ -208,12 +237,16 @@ export interface RemitoCarga {
   depositoTango?:       string   // código del depósito de Tango (expedición por depósito, 2026-09-06)
   depositoTangoNombre?: string
   items:        RemitoCargaItem[]
-  // Total de pallets que salen en el camión, DERIVADO de las cantidades por
-  // formato (suma de items[].pallets) — el camión carga pallets armados, nunca
-  // bases sueltas. Cada pallet = 1 base de metal + 4 puntales; en la descarga
-  // las bases vuelven como pallets completos (con hielo), parciales o vacíos —
-  // la cuenta de envases cierra contra este número (ver liquidación, Fase 2).
+  // Total de pallets que salen en el camión = envases.tarimasMadera +
+  // envases.palletsMetal (lo leen el TV de muelle, seguridad, el chofer y el
+  // payload de Tango). El sugerido sale de las cantidades por formato (suma de
+  // items[].pallets) y caja lo reparte entre madera y metal.
   palletsCarga: number
+  // Composición de los envases retornables que salen (2026-09-07): la declara
+  // caja al emitir (muelle se la dicta; cuando tenga dispositivos podrá
+  // corregirla al entregar). Ausente en remitos anteriores — ver
+  // src/utils/envases.ts (envasesDeRemito) para la lectura compatible.
+  envases?:     EnvasesCarga
   estado:       RemitoCargaEstado
   // Dársena asignada por muelle cuando el camión entra a cargar (1..N según
   // la planta — ver DARSENAS_POR_PLANTA). Sin asignar = en espera. El
@@ -455,9 +488,13 @@ export interface DescargaCamion {
   depositoTangoNombre?: string
   items:            DescargaCamionItem[]   // mercadería sana que volvió
   bolsasRotas:      DescargaCamionItem[]   // rotas recibidas (contra los cambios)
-  palletsCompletos: number   // pallets con hielo intactos (no vendidos)
-  palletsParciales: number   // pallets con algo de hielo
-  palletsVacios:    number   // solo base de metal + 4 puntales
+  // Envases que volvieron, contados sueltos por muelle (desde 2026-09-07).
+  envases?:         EnvasesDescarga
+  // LEGACY (descargas anteriores al 2026-09-07): pallets completos (con hielo),
+  // parciales y vacíos. Solo lectura — utils/envases.ts los traduce a envases.
+  palletsCompletos?: number
+  palletsParciales?: number
+  palletsVacios?:    number
   registradoPor:    { uid: string; nombre: string }
   fecha:            Timestamp
   // Transferencia camión → planta en Tango (mismo mecanismo que el remito de
@@ -492,8 +529,11 @@ export interface Liquidacion {
   depositoTango?:       string
   depositoTangoNombre?: string
   productos:     LiquidacionResumenProducto[]
-  // Cuadre de envases: salieron (Σ palletsCarga de los remitos) vs volvieron.
-  pallets: {
+  // Cuadre de envases por tipo (tarimas, pallets de metal, puntales, aros y
+  // racks por número) — los cierres desde el 2026-09-07 lo escriben.
+  envases?:      LiquidacionEnvases
+  // LEGACY (cierres anteriores): salieron (Σ palletsCarga) vs volvieron.
+  pallets?: {
     salidos:    number
     completos:  number
     parciales:  number

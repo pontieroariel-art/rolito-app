@@ -41,6 +41,8 @@ de merma no cuadran.
 |---|---|---|---|
 | Producción | `produccionPallets` por turno | PDT / PRO (ingreso) | → planta 01 / 02 |
 | Carga | `remitosCarga` confirmado en muelle | **CAR** (TI) | planta → camión, bolsas + pallets + racks |
+
+> **Envases (2026-09-07):** la app ya registra la composición que sale (`remitosCarga.envases`: tarimas de madera, pallets de metal, números de rack; puntales y aros implícitos 4 y 1 por pallet) y lo que vuelve (`descargasCamion.envases`, contado suelto). Los dos viajan en el payload de la cola (`envases`), pero el writer `transferenciaDeCargaDescarga` sigue moviendo solo el hielo: mapear PALLETMETA / RACKAG0xx queda para cuando se decida llevar envases en Tango.
 | Venta contado | `ventasCamion` contado | FAC (ARCA + Tango Connect, ya funciona) | camión → cliente |
 | Venta cta. cte. | `ventasCamion` cuenta corriente | **REM** (SQL, hecho §21) | camión → cliente |
 | Venta promo (Rolito) | `ventasCamion` / `ventasVentanilla` promo | FAC en **Rolito sin stock** + **VPR** (egreso por SQL, INTEGRACION §24) | camión → cliente, en REDONHIELO |

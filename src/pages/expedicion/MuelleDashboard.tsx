@@ -17,15 +17,20 @@ import {
   subscribeVentanillaDelDia,
 } from '../../services/ventaVentanillaService'
 import {
-  DARSENAS_POR_PLANTA, DARSENAS_VENTANILLA, DescargaCamion, DescargaCamionItem,
+  DARSENAS_POR_PLANTA, DARSENAS_VENTANILLA, DescargaCamion, DescargaCamionItem, EnvasesDescarga,
   PLANTAS, RemitoCarga, VentaVentanilla,
 } from '../../types'
 import { reportError } from '@/services/observability'
+import RacksInput from '@/components/expedicion/RacksInput'
+import { describirEnvases, describirRacks, envasesDeDescarga, envasesDeRemito } from '@/utils/envases'
+
+const ENVASES_VACIOS: EnvasesDescarga = { tarimasMadera: 0, palletsMetal: 0, puntales: 0, aros: 0, racks: [] }
 
 // Pantalla del rol muelle (tablet en planta): confirma la entrega de la
 // mercadería contra el remito de carga, y cuenta la descarga física cuando el
-// camión vuelve (mercadería sana, bolsas rotas de los cambios, y envases:
-// pallets completos / parciales / vacíos — cada pallet = base + 4 puntales).
+// camión vuelve (mercadería sana, bolsas rotas de los cambios, y los envases
+// retornables sueltos: tarimas de madera, pallets de metal, puntales, aros y
+// números de rack de agua — ver src/utils/envases.ts).
 export default function MuelleDashboard() {
   const { user } = useAuth()
   const { catalogo } = useCatalogo()
@@ -45,9 +50,9 @@ export default function MuelleDashboard() {
   const [remitoDescargaId, setRemitoDescargaId] = useState('')
   const [sanas,  setSanas]  = useState<Record<string, number>>({})
   const [rotas,  setRotas]  = useState<Record<string, number>>({})
-  const [palletsCompletos, setPalletsCompletos] = useState(0)
-  const [palletsParciales, setPalletsParciales] = useState(0)
-  const [palletsVacios,    setPalletsVacios]    = useState(0)
+  const [envases, setEnvases] = useState<EnvasesDescarga>(ENVASES_VACIOS)
+  const setEnvase = (k: keyof Omit<EnvasesDescarga, 'racks'>, v: string) =>
+    setEnvases((prev) => ({ ...prev, [k]: Math.max(0, Math.min(999, parseInt(v.replace(/\D/g, ''), 10) || 0)) }))
   const [confirmando, setConfirmando] = useState(false)
   const [guardando,   setGuardando]   = useState(false)
   // Id del remito/turno que se está entregando: evita el doble toque (el
@@ -128,7 +133,7 @@ export default function MuelleDashboard() {
           ...descargaSeleccionada,
           items:        toItems(sanas),
           bolsasRotas:  toItems(rotas),
-          palletsCompletos, palletsParciales, palletsVacios,
+          envases,
         },
         { uid: user.uid, nombre: user.nombre, plantaId },
       )
@@ -136,7 +141,7 @@ export default function MuelleDashboard() {
       setRemitoDescargaId('')
       setSanas({})
       setRotas({})
-      setPalletsCompletos(0); setPalletsParciales(0); setPalletsVacios(0)
+      setEnvases(ENVASES_VACIOS)
       setOkMsg(`Descarga de ${descargaSeleccionada.choferNombre} registrada.`)
     } catch (err) {
       reportError(err, { origen: 'MuelleDashboard', accion: 'error al registrar descarga' })
@@ -200,6 +205,9 @@ export default function MuelleDashboard() {
                   <div className="flex justify-between text-gray-500">
                     <span>Pallets de carga</span><span className="font-medium">{r.palletsCarga}</span>
                   </div>
+                )}
+                {describirEnvases(envasesDeRemito(r)) && (
+                  <div className="text-gray-500">Envases: {describirEnvases(envasesDeRemito(r))}</div>
                 )}
               </div>
               {/* Dársena: alimenta el tablero de TV — sin asignar queda "en
@@ -385,30 +393,45 @@ export default function MuelleDashboard() {
               </div>
 
               <div>
-                <p className="text-xs text-gray-500 mb-2">
-                  {remitoDescarga
-                    ? `Envases (salieron ${remitoDescarga.palletsCarga} pallets — base + 4 puntales cada uno)`
-                    : 'Envases (sin remito de carga de hoy en esta planta: no hay contra qué cuadrar los pallets)'}
-                </p>
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="text-xs text-gray-500 mb-1 block">Completos</label>
-                    <input value={palletsCompletos} onChange={(e) => setPalletsCompletos(num(e.target.value))} inputMode="numeric" className={selectClass} />
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-500 mb-1 block">Parciales</label>
-                    <input value={palletsParciales} onChange={(e) => setPalletsParciales(num(e.target.value))} inputMode="numeric" className={selectClass} />
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-500 mb-1 block">Vacíos</label>
-                    <input value={palletsVacios} onChange={(e) => setPalletsVacios(num(e.target.value))} inputMode="numeric" className={selectClass} />
-                  </div>
-                </div>
-                {remitoDescarga && (palletsCompletos + palletsParciales + palletsVacios) !== remitoDescarga.palletsCarga && (
-                  <p className="text-xs text-amber-600 mt-1.5">
-                    Volvieron {palletsCompletos + palletsParciales + palletsVacios} de {remitoDescarga.palletsCarga} pallets — la diferencia queda registrada en la liquidación.
-                  </p>
-                )}
+                {(() => {
+                  const salieron = remitoDescarga ? envasesDeRemito(remitoDescarga) : null
+                  const faltan = salieron ? salieron.racks.filter((n) => !envases.racks.includes(n)) : []
+                  const difs = salieron ? ([
+                    ['tarimas de madera', salieron.tarimasMadera - envases.tarimasMadera],
+                    ['pallets de metal', salieron.palletsMetal - envases.palletsMetal],
+                    ['puntales', salieron.puntales - envases.puntales],
+                    ['aros', salieron.aros - envases.aros],
+                  ] as Array<[string, number]>).filter(([, d]) => d !== 0) : []
+                  return (
+                    <>
+                      <p className="text-xs text-gray-500 mb-2">
+                        Envases que volvieron
+                        {salieron
+                          ? ` (salieron: ${describirEnvases(salieron) || 'ninguno'})`
+                          : ' (sin remito de carga de hoy en esta planta: no hay contra qué cuadrar)'}
+                      </p>
+                      <div className="grid grid-cols-2 gap-3">
+                        {([['tarimasMadera', 'Tarimas de madera'], ['palletsMetal', 'Pallets de metal'], ['puntales', 'Puntales'], ['aros', 'Aros']] as const).map(([k, label]) => (
+                          <div key={k}>
+                            <label className="text-xs text-gray-500 mb-1 block">{label}</label>
+                            <input value={envases[k]} onChange={(e) => setEnvase(k, e.target.value)} inputMode="numeric" className={selectClass} />
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-3">
+                        <label className="text-xs text-gray-500 mb-1 block">Racks de agua que volvieron (números)</label>
+                        <RacksInput value={envases.racks} onChange={(racks) => setEnvases((prev) => ({ ...prev, racks }))} sugeridos={salieron?.racks ?? []} />
+                      </div>
+                      {(difs.length > 0 || faltan.length > 0) && (
+                        <p className="text-xs text-amber-600 mt-1.5">
+                          {difs.map(([nombre, d]) => (d > 0 ? `faltan ${d} ${nombre}` : `sobran ${-d} ${nombre}`)).join(' · ')}
+                          {faltan.length > 0 && `${difs.length ? ' · ' : ''}faltan racks ${describirRacks(faltan)}`}
+                          {' — queda registrado en la liquidación.'}
+                        </p>
+                      )}
+                    </>
+                  )
+                })()}
               </div>
 
               <Button onClick={() => setConfirmando(true)} className="w-full">Revisar y registrar descarga</Button>
@@ -429,8 +452,8 @@ export default function MuelleDashboard() {
                 <p className="text-xs text-gray-500">{d.camionLabel}</p>
               </div>
               <p className="text-xs text-gray-500 mt-0.5">
-                {d.items.reduce((s, i) => s + i.cantidad, 0)} bolsas ·
-                {' '}{d.palletsCompletos} completos · {d.palletsParciales} parciales · {d.palletsVacios} vacíos
+                {d.items.reduce((s, i) => s + i.cantidad, 0)} bolsas
+                {describirEnvases(envasesDeDescarga(d)) && ` · ${describirEnvases(envasesDeDescarga(d))}`}
                 {d.bolsasRotas.length > 0 && ` · ${d.bolsasRotas.reduce((s, i) => s + i.cantidad, 0)} rotas`}
               </p>
             </div>
@@ -457,9 +480,8 @@ export default function MuelleDashboard() {
                     <span className="font-medium text-gray-900">{i.cantidad}</span>
                   </div>
                 ))}
-                <div className="flex justify-between px-3 py-1.5 bg-gray-50">
-                  <span className="text-gray-700">Pallets: completos / parciales / vacíos</span>
-                  <span className="font-medium text-gray-900">{palletsCompletos} / {palletsParciales} / {palletsVacios}</span>
+                <div className="px-3 py-1.5 bg-gray-50 text-gray-700">
+                  Envases: <span className="font-medium text-gray-900">{describirEnvases(envases) || 'ninguno'}</span>
                 </div>
               </div>
               <p className="text-xs text-gray-500">La descarga es definitiva — es el conteo contra el que se liquida el día.</p>

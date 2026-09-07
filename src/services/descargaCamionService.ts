@@ -3,7 +3,7 @@ import {
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { onSnapshotError, esperarOEncolar } from './observability'
-import { DescargaCamion, DescargaCamionItem, PlantaId, RemitoCarga } from '../types'
+import { DescargaCamion, DescargaCamionItem, EnvasesCarga, EnvasesDescarga, PlantaId, RemitoCarga } from '../types'
 
 const DESCARGAS = 'descargasCamion'
 
@@ -24,9 +24,9 @@ export async function crearDescargaCamion(
     depositoTangoNombre?: string
     items:            DescargaCamionItem[]
     bolsasRotas:      DescargaCamionItem[]
-    palletsCompletos: number
-    palletsParciales: number
-    palletsVacios:    number
+    // Envases que volvieron, contados sueltos (desde 2026-09-07 reemplaza a
+    // pallets completos / parciales / vacíos).
+    envases:          EnvasesDescarga
   },
   actor: ActorMuelle,
 ): Promise<DescargaCamion> {
@@ -50,16 +50,19 @@ export async function crearDescargaCamion(
 }
 
 // Muelle confirma que entregó la mercadería de un remito de carga (el camión
-// se cargó contra el papel). Solo toca estado + entregadoPor — reglas con
-// hasOnly, el resto del remito es inmutable.
+// se cargó contra el papel). Toca estado + entregadoPor y, si muelle corrige
+// la composición de envases al cargar, `envases` + `palletsCarga` (reglas con
+// hasOnly; el resto del remito es inmutable).
 export const confirmarEntregaRemito = async (
   remito: RemitoCarga,
   actor: ActorMuelle,
+  envases?: EnvasesCarga,
 ): Promise<void> => {
   await esperarOEncolar(
     updateDoc(doc(db, 'remitosCarga', remito.id), {
       estado:       'entregado',
       entregadoPor: { uid: actor.uid, nombre: actor.nombre, hora: Timestamp.now() },
+      ...(envases ? { envases, palletsCarga: envases.tarimasMadera + envases.palletsMetal } : {}),
     }),
     { origen: 'confirmarEntregaRemito', remitoId: remito.id },
   )

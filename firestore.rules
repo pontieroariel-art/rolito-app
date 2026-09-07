@@ -139,6 +139,35 @@ service cloud.firestore {
     function isSupervisor() {
       return myRole() == 'supervisor';
     }
+    // ── Envases retornables del camión (2026-09-07) ──
+    // Remito: composición que sale (tarimas de madera, pallets de metal,
+    // números de rack). Descarga: lo que volvió, contado suelto. Las reglas no
+    // pueden iterar la lista de racks: se controla que sea lista, con tope y
+    // sin repetidos (la app garantiza enteros > 0). Tope espejado en
+    // src/utils/envases.ts (MAX_RACKS_POR_VIAJE).
+    function racksOk(r) {
+      return r is list && r.size() <= 60 && r.toSet().size() == r.size();
+    }
+    function envasesCargaOk(e) {
+      return e is map && e.keys().hasOnly(['tarimasMadera', 'palletsMetal', 'racks'])
+        && e.tarimasMadera is int && e.tarimasMadera >= 0
+        && e.palletsMetal is int && e.palletsMetal >= 0
+        && racksOk(e.racks);
+    }
+    function envasesDescargaOk(e) {
+      return e is map && e.keys().hasOnly(['tarimasMadera', 'palletsMetal', 'puntales', 'aros', 'racks'])
+        && e.tarimasMadera is int && e.tarimasMadera >= 0
+        && e.palletsMetal is int && e.palletsMetal >= 0
+        && e.puntales is int && e.puntales >= 0
+        && e.aros is int && e.aros >= 0
+        && racksOk(e.racks);
+    }
+    // palletsCarga del remito = tarimasMadera + palletsMetal (lo leen TV,
+    // seguridad, chofer y Tango).
+    function palletsCoherentes(d) {
+      return d.palletsCarga is int && d.palletsCarga >= 0
+        && d.palletsCarga == d.envases.tarimasMadera + d.envases.palletsMetal;
+    }
     // Planta asignada al usuario autenticado (roles 'produccion_hielo' y 'caja').
     function myPlanta() {
       let path = /databases/$(database)/documents/users/$(request.auth.uid);
@@ -847,17 +876,26 @@ service cloud.firestore {
         && request.resource.data.numero is int && request.resource.data.numero > 0
         && request.resource.data.codigo is string
         && request.resource.data.items is list && request.resource.data.items.size() > 0
+        && request.resource.data.palletsCarga is int && request.resource.data.palletsCarga >= 0
+        // Composición de envases (2026-09-07). Opcional para las tablets con
+        // la PWA anterior; cuando viene, tiene que cerrar con palletsCarga.
+        && (!('envases' in request.resource.data)
+            || (envasesCargaOk(request.resource.data.envases) && palletsCoherentes(request.resource.data)))
         && request.resource.data.estado == 'emitido';
 
       // Muelle confirma que entregó la mercadería: solo la transición
-      // emitido → entregado, solo esos dos campos, solo en su planta y a su
-      // propio nombre. Los items del remito siguen siendo inmutables.
+      // emitido → entregado, solo en su planta y a su propio nombre. Puede
+      // corregir la composición de envases que le dictó a caja (envases +
+      // palletsCarga, siempre juntos y coherentes); los items del remito
+      // siguen siendo inmutables.
       allow update: if request.auth != null && isMuelleDe(resource.data.plantaId)
         && resource.data.estado == 'emitido'
         && request.resource.data.estado == 'entregado'
         && request.resource.data.entregadoPor.uid == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['estado', 'entregadoPor']);
+             .hasOnly(['estado', 'entregadoPor', 'envases', 'palletsCarga'])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['envases', 'palletsCarga'])
+            || (envasesCargaOk(request.resource.data.envases) && palletsCoherentes(request.resource.data)));
 
       // Muelle asigna/cambia la dársena de carga (tablero de TV) mientras el
       // remito sigue emitido — solo ese campo.
@@ -908,9 +946,17 @@ service cloud.firestore {
         && request.resource.data.camionId is string
         && request.resource.data.items is list
         && request.resource.data.bolsasRotas is list
-        && request.resource.data.palletsCompletos is int && request.resource.data.palletsCompletos >= 0
-        && request.resource.data.palletsParciales is int && request.resource.data.palletsParciales >= 0
-        && request.resource.data.palletsVacios is int && request.resource.data.palletsVacios >= 0;
+        // Envases que volvieron (desde 2026-09-07), o el formato viejo de
+        // pallets completos / parciales / vacíos — LEGACY: solo para tablets
+        // con la PWA anterior; sacar cuando todas hayan actualizado.
+        && (envasesDescargaOk(request.resource.data.envases)
+            || (!('envases' in request.resource.data) && palletsLegacyOk(request.resource.data)));
+
+      function palletsLegacyOk(d) {
+        return d.palletsCompletos is int && d.palletsCompletos >= 0
+          && d.palletsParciales is int && d.palletsParciales >= 0
+          && d.palletsVacios is int && d.palletsVacios >= 0;
+      }
 
       allow update, delete: if false;
     }
@@ -1082,7 +1128,14 @@ service cloud.firestore {
         && liquidacionId == request.resource.data.fecha + '_' + request.resource.data.choferId
         && request.resource.data.productos is list
         && request.resource.data.efectivoARendir is number
-        && request.resource.data.efectivoRecibido is number;
+        && request.resource.data.efectivoRecibido is number
+        // Cuadre de envases (desde 2026-09-07); los cierres viejos traen `pallets`.
+        && (!('envases' in request.resource.data)
+            || (request.resource.data.envases is map
+                && request.resource.data.envases.salieron is map
+                && request.resource.data.envases.volvieron is map
+                && request.resource.data.envases.diferencia is map
+                && racksOk(request.resource.data.envases.racksFaltantes)));
 
       allow update, delete: if false;
     }

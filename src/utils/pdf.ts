@@ -1,5 +1,6 @@
-import { Liquidacion, Order, OrderProduct } from '../types'
+import { EnvasesCarga, Liquidacion, Order, OrderProduct } from '../types'
 import { toDateStr } from './helpers'
+import { describirEnvases, describirRacks, envasesDeRemito, type EnvasesNormalizados } from './envases'
 import { ROLITO_INFO, COMODATO_COMODANTE, PLANTA_INFO } from './constants'
 
 // El logo fuente (/logo-rolito.png) es un PNG de 8334x2836px — insertado tal
@@ -788,9 +789,11 @@ export async function generateRemitoCarga(remito: {
   choferNombre: string
   items:        { nombre: string; cantidad: number; pallets?: number }[]
   palletsCarga: number
+  // Composición de envases (desde 2026-09-07); ausente al reimprimir remitos viejos.
+  envases?:     EnvasesCarga
   creadoPor:    { nombre: string }
   fecha:        Date
-}) {
+}, opts: { descargar?: boolean } = {}): Promise<Blob | void> {
   const { default: jsPDF }     = await import('jspdf')
   const { default: autoTable } = await import('jspdf-autotable')
   const doc   = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
@@ -847,16 +850,49 @@ export async function generateRemitoCarga(remito: {
   // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
   y = (doc.lastAutoTable?.finalY ?? y + 30) + 8
 
-  if (remito.palletsCarga > 0) {
+  if (remito.envases) {
+    // Envases retornables (2026-09-07): composición que dictó muelle y lo que
+    // tiene que volver. Puntales y aros van implícitos, 4 y 1 por pallet.
+    const e = envasesDeRemito({ palletsCarga: remito.palletsCarga, envases: remito.envases })
+    const filas: string[][] = [
+      ['Pallets de madera (completos)', String(e.tarimasMadera), 'tarima + 4 puntales + 1 aro'],
+      ['Pallets de metal', String(e.palletsMetal), 'pallet de metal + 4 puntales + 1 aro'],
+      ['Puntales', String(e.puntales), ''],
+      ['Aros', String(e.aros), ''],
+      ['Racks de agua', String(e.racks.length), e.racks.length ? describirRacks(e.racks) : '—'],
+    ]
+    autoTable(doc, {
+      startY: y,
+      head: [['Envases retornables', 'Cant.', '']],
+      body: filas,
+      styles: { fontSize: 8.5, cellPadding: 1.8 },
+      headStyles: { fillColor: [45, 106, 79], textColor: 255, fontStyle: 'bold', fontSize: 8 },
+      columnStyles: { 0: { cellWidth: 58 }, 1: { halign: 'right', cellWidth: 16 }, 2: { textColor: 100 } },
+      margin: { left: 14, right: 60 },
+    })
+    // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
+    y = (doc.lastAutoTable?.finalY ?? y + 30) + 5
     doc.setFontSize(8.5)
-    doc.setTextColor(80)
-    doc.text(
-      `Envases: ${remito.palletsCarga} base(s) de metal · ${remito.palletsCarga * 4} puntales. ` +
-      'Deben regresar como pallets completos, parciales o vacíos (base + 4 puntales).',
-      14, y,
-    )
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(60)
+    const leyenda = `Deben regresar: ${e.tarimasMadera} tarima${e.tarimasMadera === 1 ? '' : 's'} de madera, ${e.palletsMetal} pallet${e.palletsMetal === 1 ? '' : 's'} de metal, ${e.puntales} puntales, ${e.aros} aro${e.aros === 1 ? '' : 's'}` +
+      (e.racks.length ? ` y los racks ${describirRacks(e.racks)}.` : '.') + ' Muelle los cuenta al descargar.'
+    const lineas: string[] = doc.splitTextToSize(leyenda, pageW - 28)
+    doc.text(lineas, 14, y)
+    doc.setFont('helvetica', 'normal')
+    y += lineas.length * 4 + 18
+  } else {
+    if (remito.palletsCarga > 0) {
+      doc.setFontSize(8.5)
+      doc.setTextColor(80)
+      doc.text(
+        `Envases: ${remito.palletsCarga} base(s) de metal · ${remito.palletsCarga * 4} puntales. ` +
+        'Deben regresar como pallets completos, parciales o vacíos (base + 4 puntales).',
+        14, y,
+      )
+    }
+    y += 22
   }
-  y += 22
 
   // Firmas en blanco: chofer y muelle firman el papel al cargar, como siempre.
   doc.setDrawColor(150)
@@ -871,6 +907,7 @@ export async function generateRemitoCarga(remito: {
   doc.setTextColor(60)
   doc.text(`Emitió: ${remito.creadoPor.nombre}`, 14, y + 14)
 
+  if (opts.descargar === false) return doc.output('blob')
   doc.save(`${remito.codigo}.pdf`)
 }
 
@@ -883,8 +920,8 @@ export async function generateRemitoCarga(remito: {
 // cliente, artículos, comprobante y número de Tango, más el recorrido.
 export interface DetalleLiquidacionPdf {
   reparto:   import('./liquidacion').RepartoClasificado
-  remitos:   Array<{ codigo: string; camionLabel: string; fecha: Date; salida?: Date | null; entregado?: Date | null; items: Array<{ nombre: string; cantidad: number }>; palletsCarga: number }>
-  descargas: Array<{ fecha: Date; registradoPor: string; items: Array<{ nombre: string; cantidad: number }>; rotas: number; pallets: { completos: number; parciales: number; vacios: number } }>
+  remitos:   Array<{ codigo: string; camionLabel: string; fecha: Date; salida?: Date | null; entregado?: Date | null; items: Array<{ nombre: string; cantidad: number }>; envases: EnvasesNormalizados }>
+  descargas: Array<{ fecha: Date; registradoPor: string; items: Array<{ nombre: string; cantidad: number }>; rotas: number; envases: EnvasesNormalizados }>
 }
 
 export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiquidacionPdf, opts: { descargar?: boolean } = {}): Promise<Blob | void> {
@@ -931,23 +968,50 @@ export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiq
   // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
   let y = (doc.lastAutoTable?.finalY ?? 60) + 6
 
-  autoTable(doc, {
-    startY: y,
-    head: [['Envases (pallets)', ''], ],
-    body: [
-      ['Salieron', String(liq.pallets.salidos)],
-      ['Volvieron completos (con hielo)', String(liq.pallets.completos)],
-      ['Volvieron parciales', String(liq.pallets.parciales)],
-      ['Volvieron vacíos (base + 4 puntales)', String(liq.pallets.vacios)],
-      ['Diferencia', liq.pallets.diferencia === 0 ? '0' : String(liq.pallets.diferencia)],
-      ['Cambios registrados por el chofer', String(liq.cambios.registrados)],
-      ['Bolsas rotas recibidas en muelle', String(liq.cambios.rotasRecibidas)],
-    ],
-    styles: { fontSize: 8.5, cellPadding: 2 },
-    headStyles: { fillColor: [45, 106, 79], textColor: 255, fontStyle: 'bold', fontSize: 7.5 },
-    columnStyles: { 1: { halign: 'right', cellWidth: 30 } },
-    margin: { left: 14, right: 108 },
-  })
+  const signo = (n: number) => (n === 0 ? '0' : n > 0 ? `+${n}` : String(n))
+  if (liq.envases) {
+    // Cuadre de envases por tipo (desde 2026-09-07) + cambios vs rotas.
+    const e = liq.envases
+    autoTable(doc, {
+      startY: y,
+      head: [['Envases', 'Salieron', 'Volvieron', 'Dif.']],
+      body: [
+        ['Pallets de madera', String(e.salieron.tarimasMadera), String(e.volvieron.tarimasMadera), signo(e.diferencia.tarimasMadera)],
+        ['Pallets de metal', String(e.salieron.palletsMetal), String(e.volvieron.palletsMetal), signo(e.diferencia.palletsMetal)],
+        ['Puntales', String(e.salieron.puntales), String(e.volvieron.puntales), signo(e.diferencia.puntales)],
+        ['Aros', String(e.salieron.aros), String(e.volvieron.aros), signo(e.diferencia.aros)],
+        ['Racks de agua', String(e.salieron.racks.length), String(e.volvieron.racks.length), signo(e.volvieron.racks.length - e.salieron.racks.length)],
+        [{ content: e.racksFaltantes.length ? `Racks que no volvieron: ${describirRacks(e.racksFaltantes)}` : (e.salieron.racks.length ? `Todos los racks volvieron (${describirRacks(e.salieron.racks)})` : 'Sin racks'), colSpan: 4, styles: { fontStyle: e.racksFaltantes.length ? 'bold' : 'normal' } }],
+        ['Cambios registrados por el chofer', '', '', String(liq.cambios.registrados)],
+        ['Bolsas rotas recibidas en muelle', '', '', String(liq.cambios.rotasRecibidas)],
+      ],
+      // Misma columna izquierda que la tabla vieja (74 mm): a la derecha va
+      // "Importes y rendición".
+      styles: { fontSize: 8, cellPadding: 1.8 },
+      headStyles: { fillColor: [45, 106, 79], textColor: 255, fontStyle: 'bold', fontSize: 7 },
+      columnStyles: { 0: { cellWidth: 32 }, 1: { halign: 'right', cellWidth: 14 }, 2: { halign: 'right', cellWidth: 17 }, 3: { halign: 'right', cellWidth: 11, fontStyle: 'bold' } },
+      margin: { left: 14, right: 108 },
+    })
+  } else {
+    const p = liq.pallets ?? { salidos: 0, completos: 0, parciales: 0, vacios: 0, diferencia: 0 }
+    autoTable(doc, {
+      startY: y,
+      head: [['Envases (pallets)', ''], ],
+      body: [
+        ['Salieron', String(p.salidos)],
+        ['Volvieron completos (con hielo)', String(p.completos)],
+        ['Volvieron parciales', String(p.parciales)],
+        ['Volvieron vacíos (base + 4 puntales)', String(p.vacios)],
+        ['Diferencia', p.diferencia === 0 ? '0' : String(p.diferencia)],
+        ['Cambios registrados por el chofer', String(liq.cambios.registrados)],
+        ['Bolsas rotas recibidas en muelle', String(liq.cambios.rotasRecibidas)],
+      ],
+      styles: { fontSize: 8.5, cellPadding: 2 },
+      headStyles: { fillColor: [45, 106, 79], textColor: 255, fontStyle: 'bold', fontSize: 7.5 },
+      columnStyles: { 1: { halign: 'right', cellWidth: 30 } },
+      margin: { left: 14, right: 108 },
+    })
+  }
   // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
   const yEnvases = doc.lastAutoTable?.finalY ?? y + 40
 
@@ -1015,9 +1079,9 @@ export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiq
     const colsV = { 0: { cellWidth: 12 }, 2: { cellWidth: 48 }, 5: { halign: 'right', cellWidth: 22 } }
     tabla(`Recorrido`, ['Salida', 'Carga', 'Vuelta', 'Descarga'], detalle.remitos.length + detalle.descargas.length === 0 ? [] : [[
       detalle.remitos.map((rc) => `${rc.codigo} · ${rc.camionLabel}\nmuelle ${hora(rc.entregado)} · portón ${hora(rc.salida)}`).join('\n') || '—',
-      detalle.remitos.map((rc) => rc.items.map((i) => `${i.cantidad} × ${i.nombre}`).concat(rc.palletsCarga ? [`${rc.palletsCarga} pallets`] : []).join('\n')).join('\n') || '—',
+      detalle.remitos.map((rc) => rc.items.map((i) => `${i.cantidad} × ${i.nombre}`).concat(describirEnvases(rc.envases) ? [`envases: ${describirEnvases(rc.envases)}`] : []).join('\n')).join('\n') || '—',
       detalle.descargas.map((d) => `${hora(d.fecha)} (${d.registradoPor})`).join('\n') || 'sin descarga',
-      detalle.descargas.map((d) => d.items.map((i) => `${i.cantidad} × ${i.nombre}`).concat(d.rotas ? [`${d.rotas} rotas`] : [], [`pallets ${d.pallets.completos} compl. · ${d.pallets.parciales} parc. · ${d.pallets.vacios} vacíos`]).join('\n')).join('\n') || '—',
+      detalle.descargas.map((d) => d.items.map((i) => `${i.cantidad} × ${i.nombre}`).concat(d.rotas ? [`${d.rotas} rotas`] : [], describirEnvases(d.envases) ? [`envases: ${describirEnvases(d.envases)}`] : []).join('\n')).join('\n') || '—',
     ]])
     tabla(`Ventas contado · Redonhielo — ${money(r.contado.total)} (efectivo ${money(r.contado.efectivo.total)} · transferencia ${money(r.contado.transferencia.total)})`, cabV,
       [...r.contado.efectivo.ventas.map((v) => filaVenta(v)), ...r.contado.transferencia.ventas.map((v) => filaVenta(v))], colsV)

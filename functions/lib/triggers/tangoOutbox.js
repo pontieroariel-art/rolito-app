@@ -226,7 +226,10 @@ exports.onRemitoCargaCreado = (0, firestore_1.onDocumentCreated)('remitosCarga/{
             choferId: remito.choferId,
             choferNombre: remito.choferNombre,
             items: remito.items,
-            palletsCarga: remito.palletsCarga,
+            palletsCarga: remito.palletsCarga ?? null,
+            // Envases retornables (2026-09-07): viajan para cuando se mapeen los
+            // artículos PALLETMETA / RACK en Tango; el writer hoy los ignora.
+            envases: remito.envases ?? null,
             fecha: remito.fecha,
             creadoPor: remito.creadoPor,
         },
@@ -251,9 +254,13 @@ exports.onDescargaCamionCreada = (0, firestore_1.onDocumentCreated)('descargasCa
             choferNombre: descarga.choferNombre,
             items: descarga.items, // sana que volvió
             bolsasRotas: descarga.bolsasRotas, // rotas recibidas (contra los cambios)
-            palletsCompletos: descarga.palletsCompletos,
-            palletsParciales: descarga.palletsParciales,
-            palletsVacios: descarga.palletsVacios,
+            // LEGACY (descargas anteriores al 2026-09-07); las nuevas traen `envases`.
+            // Sin el `?? null` el Admin SDK rechaza el undefined y la descarga no
+            // se encola.
+            palletsCompletos: descarga.palletsCompletos ?? null,
+            palletsParciales: descarga.palletsParciales ?? null,
+            palletsVacios: descarga.palletsVacios ?? null,
+            envases: descarga.envases ?? null,
             fecha: descarga.fecha,
             registradoPor: descarga.registradoPor,
         },

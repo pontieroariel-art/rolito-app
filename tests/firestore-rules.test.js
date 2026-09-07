@@ -2277,7 +2277,7 @@ describe('remitosCarga', () => {
     numero: 1, codigo: 'RC-DT-000001', plantaId: 'torcuato',
     camionId: 'cam1', camionLabel: 'AB123CD · Iveco', choferId: 'chof1', choferNombre: 'Chofer Uno',
     items: [{ productoId: 'bolsa_10kg', nombre: 'Hielo 10kg', cantidad: 100, pallets: 2 }],
-    palletsCarga: 2,
+    palletsCarga: 2, envases: { tarimasMadera: 1, palletsMetal: 1, racks: [12, 15] },
     estado: 'emitido', creadoPor: { uid: 'caja1', nombre: 'Caja Uno' },
     fecha: new Date(), tango: { estado: 'pendiente' }, ...extra,
   })
@@ -2287,6 +2287,27 @@ describe('remitosCarga', () => {
   test('caja puede emitir un remito de su planta', async () => {
     await seedCaja()
     await assertSucceeds(setDoc(doc(db('caja1'), 'remitosCarga/r1'), remito()))
+  })
+
+  // ── envases retornables (2026-09-07) ──
+  test('caja puede emitir sin envases (PWA anterior) pero palletsCarga tiene que ser un entero', async () => {
+    await seedCaja()
+    const { envases: _e, ...sinEnvases } = remito()
+    await assertSucceeds(setDoc(doc(db('caja1'), 'remitosCarga/r1'), sinEnvases))
+    await assertFails(setDoc(doc(db('caja1'), 'remitosCarga/r2'), { ...sinEnvases, palletsCarga: 'dos' }))
+  })
+
+  test('caja NO emite si palletsCarga no cierra con madera + metal', async () => {
+    await seedCaja()
+    await assertFails(setDoc(doc(db('caja1'), 'remitosCarga/r1'), remito({ palletsCarga: 3 })))
+  })
+
+  test('caja NO emite con envases inválidos (negativo, racks repetidos, campo extra, racks no lista)', async () => {
+    await seedCaja()
+    await assertFails(setDoc(doc(db('caja1'), 'remitosCarga/r1'), remito({ palletsCarga: 0, envases: { tarimasMadera: -1, palletsMetal: 1, racks: [] } })))
+    await assertFails(setDoc(doc(db('caja1'), 'remitosCarga/r2'), remito({ envases: { tarimasMadera: 1, palletsMetal: 1, racks: [12, 12] } })))
+    await assertFails(setDoc(doc(db('caja1'), 'remitosCarga/r3'), remito({ envases: { tarimasMadera: 1, palletsMetal: 1, racks: [], puntales: 8 } })))
+    await assertFails(setDoc(doc(db('caja1'), 'remitosCarga/r4'), remito({ envases: { tarimasMadera: 1, palletsMetal: 1, racks: '12' } })))
   })
 
   test('super_admin (sin planta) puede emitir un remito y avanzar el contador de cualquier planta', async () => {
@@ -2397,7 +2418,8 @@ describe('expedicion: muelle / cambios / descargas / liquidaciones', () => {
     numero: 1, codigo: 'RC-DT-000001', plantaId: 'torcuato',
     camionId: 'cam1', camionLabel: 'AB123CD', choferId: 'chof1', choferNombre: 'Chofer Uno',
     items: [{ productoId: 'bolsa_10kg', nombre: 'Hielo 10kg', cantidad: 100, pallets: 1 }],
-    palletsCarga: 1, estado: 'emitido', creadoPor: { uid: 'caja1', nombre: 'Caja' },
+    palletsCarga: 2, envases: { tarimasMadera: 1, palletsMetal: 1, racks: [12, 15] },
+    estado: 'emitido', creadoPor: { uid: 'caja1', nombre: 'Caja' },
     fecha: new Date(), ...extra,
   })
   const cambio = (extra = {}) => ({
@@ -2409,12 +2431,14 @@ describe('expedicion: muelle / cambios / descargas / liquidaciones', () => {
     plantaId: 'torcuato', camionId: 'cam1', camionLabel: 'AB123CD',
     choferId: 'chof1', choferNombre: 'Chofer Uno',
     items: [{ productoId: 'bolsa_10kg', nombre: 'Hielo 10kg', cantidad: 20 }],
-    bolsasRotas: [], palletsCompletos: 0, palletsParciales: 1, palletsVacios: 0,
+    bolsasRotas: [], envases: { tarimasMadera: 1, palletsMetal: 0, puntales: 4, aros: 1, racks: [12] },
     registradoPor: { uid: 'mue1', nombre: 'Muelle' }, fecha: new Date(), ...extra,
   })
+  const conteo = (tarimasMadera, palletsMetal, puntales, aros) => ({ tarimasMadera, palletsMetal, puntales, aros })
   const liquidacion = (extra = {}) => ({
     fecha: '2026-08-29', plantaId: 'torcuato', choferId: 'chof1', choferNombre: 'Chofer Uno',
-    productos: [], pallets: { salidos: 1, completos: 0, parciales: 1, vacios: 0, diferencia: 0 },
+    productos: [],
+    envases: { salieron: { ...conteo(1, 1, 8, 2), racks: [12, 15] }, volvieron: { ...conteo(1, 0, 4, 1), racks: [12] }, diferencia: conteo(0, -1, -4, -1), racksFaltantes: [15], racksSobrantes: [] },
     cambios: { registrados: 2, rotasRecibidas: 2 },
     importes: { contadoEfectivo: 1000, contadoTransferencia: 0, cuentaCorriente: 0, total: 1000 },
     efectivoARendir: 1000, efectivoRecibido: 1000, diferenciaEfectivo: 0,
@@ -2445,6 +2469,24 @@ describe('expedicion: muelle / cambios / descargas / liquidaciones', () => {
       estado: 'entregado', entregadoPor: { uid: 'mue1', nombre: 'Muelle', hora: new Date() },
       items: [],
     }))
+  })
+
+  test('muelle puede corregir la composición de envases al confirmar (envases + palletsCarga coherentes)', async () => {
+    await seedMuelle()
+    await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), remito()))
+    await assertSucceeds(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), {
+      estado: 'entregado', entregadoPor: { uid: 'mue1', nombre: 'Muelle', hora: new Date() },
+      envases: { tarimasMadera: 0, palletsMetal: 3, racks: [12] }, palletsCarga: 3,
+    }))
+  })
+
+  test('muelle NO cambia palletsCarga suelto ni envases incoherentes al confirmar', async () => {
+    await seedMuelle()
+    await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), remito()))
+    const entrega = { estado: 'entregado', entregadoPor: { uid: 'mue1', nombre: 'Muelle', hora: new Date() } }
+    await assertFails(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), { ...entrega, palletsCarga: 5 }))
+    await assertFails(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), { ...entrega, envases: { tarimasMadera: 0, palletsMetal: 3, racks: [] }, palletsCarga: 2 }))
+    await assertFails(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), { ...entrega, envases: { tarimasMadera: 0, palletsMetal: -3, racks: [] }, palletsCarga: -3 }))
   })
 
   test('muelle NO re-entrega un remito ya entregado', async () => {
@@ -2506,7 +2548,30 @@ describe('expedicion: muelle / cambios / descargas / liquidaciones', () => {
   test('una descarga es inmutable', async () => {
     await seedMuelle()
     await seed((d) => setDoc(doc(d, 'descargasCamion/d1'), descarga()))
-    await assertFails(updateDoc(doc(db('mue1'), 'descargasCamion/d1'), { palletsVacios: 5 }))
+    await assertFails(updateDoc(doc(db('mue1'), 'descargasCamion/d1'), { 'envases.aros': 5 }))
+  })
+
+  test('muelle todavía puede registrar la descarga con el formato viejo de pallets (PWA anterior)', async () => {
+    await seedMuelle()
+    const { envases: _e, ...vieja } = descarga()
+    await assertSucceeds(setDoc(doc(db('mue1'), 'descargasCamion/d1'), { ...vieja, palletsCompletos: 0, palletsParciales: 1, palletsVacios: 0 }))
+  })
+
+  test('muelle NO registra una descarga con envases inválidos, sin ningún formato, o mezclando los dos', async () => {
+    await seedMuelle()
+    await assertFails(setDoc(doc(db('mue1'), 'descargasCamion/d1'), descarga({ envases: { tarimasMadera: 1, palletsMetal: 0, puntales: -1, aros: 1, racks: [] } })))
+    await assertFails(setDoc(doc(db('mue1'), 'descargasCamion/d2'), descarga({ envases: { tarimasMadera: 1, palletsMetal: 0, puntales: 4, aros: 1, racks: [3, 3] } })))
+    await assertFails(setDoc(doc(db('mue1'), 'descargasCamion/d3'), descarga({ envases: { tarimasMadera: 1, palletsMetal: 0, puntales: 4, aros: 1, racks: [], extra: 1 } })))
+    const { envases: _e, ...sinNada } = descarga()
+    await assertFails(setDoc(doc(db('mue1'), 'descargasCamion/d4'), sinNada))
+    await assertFails(setDoc(doc(db('mue1'), 'descargasCamion/d5'), descarga({ envases: { tarimasMadera: 'uno', palletsMetal: 0, puntales: 4, aros: 1, racks: [] }, palletsCompletos: 0, palletsParciales: 1, palletsVacios: 0 })))
+  })
+
+  test('caja cierra con el cuadre de envases; NO con un cuadre mal formado', async () => {
+    await seed((d) => setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' }))
+    await assertSucceeds(setDoc(doc(db('caja1'), 'liquidaciones/2026-08-29_chof1'), liquidacion({ cerradaPor: { uid: 'caja1', nombre: 'Caja' } })))
+    await assertFails(setDoc(doc(db('caja1'), 'liquidaciones/2026-08-30_chof1'), liquidacion({ fecha: '2026-08-30', cerradaPor: { uid: 'caja1', nombre: 'Caja' }, envases: 'x' })))
+    await assertFails(setDoc(doc(db('caja1'), 'liquidaciones/2026-08-31_chof1'), liquidacion({ fecha: '2026-08-31', cerradaPor: { uid: 'caja1', nombre: 'Caja' }, envases: { salieron: {}, volvieron: {}, diferencia: {}, racksFaltantes: 'no' } })))
   })
 
   // ── liquidaciones ──
