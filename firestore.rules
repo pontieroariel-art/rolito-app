@@ -98,6 +98,19 @@ service cloud.firestore {
     function isCaja() {
       return myRole() == 'caja';
     }
+    // Expedición por planta (2026-09-06): caja / muelle / seguridad solo en SU
+    // planta; el super_admin (sin planta en el perfil) opera cualquiera, porque
+    // las rutas /caja, /muelle y /seguridad lo admiten y antes la base lo
+    // rechazaba (Ariel no podía emitir un remito de carga).
+    function isCajaDe(planta) {
+      return (isCaja() && planta == myPlanta()) || myRole() == 'super_admin';
+    }
+    function isMuelleDe(planta) {
+      return (isMuelle() && planta == myPlanta()) || myRole() == 'super_admin';
+    }
+    function isSeguridadDe(planta) {
+      return (isSeguridad() && planta == myPlanta()) || myRole() == 'super_admin';
+    }
     // Personal de muelle en planta (módulo expedición: entrega la carga
     // contra el remito y cuenta la descarga al volver el camión).
     function isMuelle() {
@@ -492,19 +505,19 @@ service cloud.firestore {
       // cargaCounter_merlo) — caja solo toca el de SU planta, y en updates
       // solo puede avanzar `next` (la transacción de crearRemitoCarga crea el
       // doc en el primer uso con next >= 2: número emitido + 1).
-      allow create: if request.auth != null && isCaja()
-        && docId == 'cargaCounter_' + myPlanta()
+      allow create: if request.auth != null
+        && docId in ['cargaCounter_torcuato', 'cargaCounter_merlo'] && isCajaDe(docId.split('_')[1])
         && request.resource.data.next is int && request.resource.data.next > 1;
-      allow update: if request.auth != null && isCaja()
-        && docId == 'cargaCounter_' + myPlanta()
+      allow update: if request.auth != null
+        && docId in ['cargaCounter_torcuato', 'cargaCounter_merlo'] && isCajaDe(docId.split('_')[1])
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next'])
         && request.resource.data.next > resource.data.next;
 
       // Contador de TURNOS de ventanilla por planta (se resetea por día:
       // { fecha, next }) — solo caja de esa planta, dentro de la transacción
       // de crearVentaVentanilla.
-      allow create, update: if request.auth != null && isCaja()
-        && docId == 'turnoVentanilla_' + myPlanta()
+      allow create, update: if request.auth != null
+        && docId in ['turnoVentanilla_torcuato', 'turnoVentanilla_merlo'] && isCajaDe(docId.split('_')[1])
         && request.resource.data.fecha is string
         && request.resource.data.next is int && request.resource.data.next > 1;
 
@@ -808,8 +821,7 @@ service cloud.firestore {
         && (isCaja() || isMuelle() || isSeguridad() || isOperator() || isManager() || isGerenteGeneral() || isSupervisor()
             || (isChofer() && resource.data.choferId == request.auth.uid));
 
-      allow create: if request.auth != null && isCaja()
-        && request.resource.data.plantaId == myPlanta()
+      allow create: if request.auth != null && isCajaDe(request.resource.data.plantaId)
         && request.resource.data.creadoPor.uid == request.auth.uid
         && request.resource.data.camionId is string
         && request.resource.data.choferId is string
@@ -821,8 +833,7 @@ service cloud.firestore {
       // Muelle confirma que entregó la mercadería: solo la transición
       // emitido → entregado, solo esos dos campos, solo en su planta y a su
       // propio nombre. Los items del remito siguen siendo inmutables.
-      allow update: if request.auth != null && isMuelle()
-        && resource.data.plantaId == myPlanta()
+      allow update: if request.auth != null && isMuelleDe(resource.data.plantaId)
         && resource.data.estado == 'emitido'
         && request.resource.data.estado == 'entregado'
         && request.resource.data.entregadoPor.uid == request.auth.uid
@@ -831,8 +842,7 @@ service cloud.firestore {
 
       // Muelle asigna/cambia la dársena de carga (tablero de TV) mientras el
       // remito sigue emitido — solo ese campo.
-      allow update: if request.auth != null && isMuelle()
-        && resource.data.plantaId == myPlanta()
+      allow update: if request.auth != null && isMuelleDe(resource.data.plantaId)
         && resource.data.estado == 'emitido'
         && request.resource.data.darsena is int
         && request.resource.data.darsena >= 1 && request.resource.data.darsena <= 20
@@ -840,8 +850,7 @@ service cloud.firestore {
 
       // Seguridad libera la salida en el portón: solo entregado → salido,
       // solo esos dos campos, solo en su planta y a su propio nombre.
-      allow update: if request.auth != null && isSeguridad()
-        && resource.data.plantaId == myPlanta()
+      allow update: if request.auth != null && isSeguridadDe(resource.data.plantaId)
         && resource.data.estado == 'entregado'
         && request.resource.data.estado == 'salido'
         && request.resource.data.salida.uid == request.auth.uid
@@ -874,8 +883,7 @@ service cloud.firestore {
         && (isCaja() || isMuelle() || isOperator() || isManager() || isGerenteGeneral() || isSupervisor()
             || (isChofer() && resource.data.choferId == request.auth.uid));
 
-      allow create: if request.auth != null && isMuelle()
-        && request.resource.data.plantaId == myPlanta()
+      allow create: if request.auth != null && isMuelleDe(request.resource.data.plantaId)
         && request.resource.data.registradoPor.uid == request.auth.uid
         && request.resource.data.choferId is string
         && request.resource.data.camionId is string
@@ -896,8 +904,7 @@ service cloud.firestore {
       allow read: if request.auth != null
         && (isCaja() || isMuelle() || isSeguridad() || isOperator() || isManager() || isGerenteGeneral());
 
-      allow create: if request.auth != null && isCaja()
-        && request.resource.data.plantaId == myPlanta()
+      allow create: if request.auth != null && isCajaDe(request.resource.data.plantaId)
         && request.resource.data.cajaId == request.auth.uid
         && request.resource.data.canal in ['promo', 'contado']
         && request.resource.data.formaPago in ['contado_efectivo', 'contado_transferencia', 'cuenta_corriente']
@@ -910,16 +917,14 @@ service cloud.firestore {
       // Muelle maneja la COLA de turnos (preparado / llamado a dársena /
       // ausente) mientras la venta sigue pendiente — solo esos campos, nunca
       // items ni importes.
-      allow update: if request.auth != null && isMuelle()
-        && resource.data.plantaId == myPlanta()
+      allow update: if request.auth != null && isMuelleDe(resource.data.plantaId)
         && resource.data.estado == 'pendiente_entrega'
         && request.resource.data.turnoEstado in ['en_espera', 'preparado', 'llamado', 'ausente']
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['turnoEstado', 'darsena', 'llamadoAt']);
 
       // Muelle confirma la entrega: solo la transición y solo esos campos.
-      allow update: if request.auth != null && isMuelle()
-        && resource.data.plantaId == myPlanta()
+      allow update: if request.auth != null && isMuelleDe(resource.data.plantaId)
         && resource.data.estado == 'pendiente_entrega'
         && request.resource.data.estado == 'entregado'
         && request.resource.data.entregadoPor.uid == request.auth.uid
@@ -928,8 +933,7 @@ service cloud.firestore {
 
       // Seguridad estampa la salida del retiro (una sola vez): solo el campo
       // salida, solo sobre ventas ya entregadas de su planta.
-      allow update: if request.auth != null && isSeguridad()
-        && resource.data.plantaId == myPlanta()
+      allow update: if request.auth != null && isSeguridadDe(resource.data.plantaId)
         && resource.data.estado == 'entregado'
         && resource.data.get('salida', null) == null
         && request.resource.data.salida.uid == request.auth.uid
@@ -974,7 +978,7 @@ service cloud.firestore {
       // (origen 'caja', en su planta) y el chofer en la calle (origen 'cobrador').
       allow create: if request.auth != null
         && (((isSupervisor() || myRole() == 'super_admin') && request.resource.data.origen == 'supervisor')
-            || (isCaja() && request.resource.data.origen == 'caja' && request.resource.data.plantaId == myPlanta())
+            || (isCajaDe(request.resource.data.plantaId) && request.resource.data.origen == 'caja')
             || (isChofer() && request.resource.data.origen == 'cobrador'))
         && request.resource.data.registradoPor.uid == request.auth.uid
         && request.resource.data.clienteId is string
@@ -1052,8 +1056,7 @@ service cloud.firestore {
         && (isCaja() || isOperator() || isManager() || isGerenteGeneral() || isSupervisor()
             || (isChofer() && resource.data.choferId == request.auth.uid));
 
-      allow create: if request.auth != null && isCaja()
-        && request.resource.data.plantaId == myPlanta()
+      allow create: if request.auth != null && isCajaDe(request.resource.data.plantaId)
         && request.resource.data.cerradaPor.uid == request.auth.uid
         && request.resource.data.choferId is string
         && request.resource.data.fecha is string

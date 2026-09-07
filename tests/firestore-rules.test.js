@@ -2289,6 +2289,19 @@ describe('remitosCarga', () => {
     await assertSucceeds(setDoc(doc(db('caja1'), 'remitosCarga/r1'), remito()))
   })
 
+  test('super_admin (sin planta) puede emitir un remito y avanzar el contador de cualquier planta', async () => {
+    await seed((d) => setDoc(doc(d, 'users/adm'), { rol: 'super_admin', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('adm'), 'config/cargaCounter_torcuato'), { next: 2 }))
+    await assertSucceeds(setDoc(doc(db('adm'), 'remitosCarga/r1'), remito({ creadoPor: { uid: 'adm', nombre: 'Ariel' } })))
+    await assertSucceeds(setDoc(doc(db('adm'), 'remitosCarga/r2'), remito({ plantaId: 'merlo', creadoPor: { uid: 'adm', nombre: 'Ariel' } })))
+  })
+
+  test('caja NO puede tocar el contador de OTRA planta', async () => {
+    await seedCaja()
+    await assertSucceeds(setDoc(doc(db('caja1'), 'config/cargaCounter_torcuato'), { next: 2 }))
+    await assertFails(setDoc(doc(db('caja1'), 'config/cargaCounter_merlo'), { next: 2 }))
+  })
+
   test('caja NO puede emitir un remito de OTRA planta', async () => {
     await seedCaja()
     await assertFails(setDoc(doc(db('caja1'), 'remitosCarga/r1'), remito({ plantaId: 'merlo' })))
