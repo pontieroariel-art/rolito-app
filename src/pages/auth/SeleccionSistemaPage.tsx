@@ -4,7 +4,7 @@ import { ChevronRight, LayoutDashboard, Snowflake, Package, Truck, FileText } fr
 import { useAuth } from '../../context/AuthContext'
 import { useSistema } from '../../context/SistemaContext'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
-import { MULTI_SISTEMA_HOME, SISTEMA_LABELS, Sistema } from '../../utils/sistemas'
+import { homesDeUsuario, SISTEMA_LABELS, Sistema } from '../../utils/sistemas'
 
 const DESCRIPCIONES: Record<Sistema, string> = {
   logistica:  'Pedidos, despacho, flota y monitoreo',
@@ -25,18 +25,18 @@ export default function SeleccionSistemaPage() {
   const { sistemasDisponibles, sistemaActual, elegirSistema } = useSistema()
   const navigate         = useNavigate()
 
-  const homes = user ? MULTI_SISTEMA_HOME[user.rol] : undefined
+  const homes = user ? homesDeUsuario(user) : undefined
 
   // Ya había una elección persistida (o solo hay un sistema) → saltear el picker.
   useEffect(() => {
-    if (sistemaActual && homes) navigate(homes[sistemaActual], { replace: true })
+    if (sistemaActual && homes?.[sistemaActual]) navigate(homes[sistemaActual]!, { replace: true })
   }, [sistemaActual, homes, navigate])
 
   if (!user || sistemaActual || !homes) return <LoadingSpinner fullScreen />
 
   const handlePick = (s: Sistema) => {
     elegirSistema(s)
-    navigate(homes[s], { replace: true })
+    navigate(homes[s] ?? '/', { replace: true })
   }
 
   return (

@@ -17,7 +17,7 @@ import {
   approveUser,
 } from '../../services/userService'
 import { registrarAccionAlto } from '../../services/historialAdminService'
-import { UserProfile, UserRole, UserStatus, DeliveryAddress } from '../../types'
+import { UserProfile, UserRole, UserStatus, DeliveryAddress, PlantaId } from '../../types'
 import { SucursalFlat, ALL_STATUSES, STATUS_LABELS, ROLE_LABELS } from './user-management/shared'
 import { CrearStaffModal } from './user-management/CrearStaffModal'
 import { CrearClienteModal } from './user-management/CrearClienteModal'
@@ -138,6 +138,14 @@ export default function UserManagement() {
     const matchRol     = rolFilter === 'all' || u.rol === rolFilter
     return matchSearch && matchStatus && matchSector && matchRol
   })
+
+  // Roles adicionales de expedición (ver utils/roles.ts): se guardan junto con
+  // la planta, porque caja / muelle / seguridad operan en la suya.
+  const handleRolesExtra = async (uid: string, rolesExtra: UserRole[], planta: PlantaId | undefined) => {
+    await updateUserDocument(uid, { rolesExtra, ...(planta ? { planta } : {}) })
+    const aplicar = (u: UserProfile) => u.uid === uid ? { ...u, rolesExtra, ...(planta ? { planta } : {}) } : u
+    setEquipo((prev) => prev.map(aplicar))
+  }
 
   const handleRole = async (uid: string, rol: UserRole) => {
     const anterior = equipo.find((u) => u.uid === uid)
@@ -394,6 +402,7 @@ export default function UserManagement() {
                     currentUser={currentUser}
                     onRoleChange={handleRole}
                     onSubrolChange={handleSubrol}
+                    onRolesExtraChange={handleRolesExtra}
                     onToggleStatus={handleToggleStatus}
                     onApprove={handleApprove}
                     onAddressesChanged={handleAddressesChanged}

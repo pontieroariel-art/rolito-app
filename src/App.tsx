@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
+import { tieneAlgunRol } from '@/utils/roles'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { BranchProvider, useBranch } from './context/BranchContext'
@@ -117,7 +118,7 @@ function CajaEntry() {
   const { user } = useAuth()
   const primera = EXPEDICION_NAV_GROUPS
     .flatMap((g) => g.items)
-    .find((i) => user && i.roles.includes(user.rol)
+    .find((i) => user && tieneAlgunRol(user, i.roles)
       && (!user.pestanasPermitidas || user.pestanasPermitidas.includes(i.to)))
   return <Navigate to={primera?.to ?? '/caja/remitos'} replace />
 }

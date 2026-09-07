@@ -4,7 +4,8 @@ import Button from '../../../components/ui/Button'
 import Modal from '../../../components/ui/Modal'
 import { updateUserDocument } from '../../../services/userService'
 import { UserProfile } from '../../../types'
-import { ROLE_SISTEMAS, SISTEMA_LABELS, Sistema } from '../../../utils/sistemas'
+import { techoSistemasDe, SISTEMA_LABELS, Sistema } from '../../../utils/sistemas'
+import { tieneAlgunRol } from '../../../utils/roles'
 import { LOGISTICA_NAV_GROUPS } from '../../../utils/logisticaNav'
 import { HELADERAS_NAV_GROUPS } from '../../../utils/heladerasNav'
 import { PRODUCCION_NAV_GROUPS } from '../../../utils/produccionNav'
@@ -22,9 +23,9 @@ const GRUPOS_POR_SISTEMA: Record<Sistema, NavGroup[]> = {
 // Ítems de nav que el rol de este usuario ya puede ver en un sistema dado —
 // el mismo filtro que aplican LogisticaLayout/HeladerasLayout, para que el
 // checklist nunca ofrezca algo que el rol no permite.
-function itemsVisiblesDelRol(rol: UserProfile['rol'], sistema: Sistema): NavGroup[] {
+function itemsVisiblesDelRol(user: Pick<UserProfile, 'rol' | 'rolesExtra'>, sistema: Sistema): NavGroup[] {
   return GRUPOS_POR_SISTEMA[sistema]
-    .map((g) => ({ ...g, items: g.items.filter((i) => i.roles.includes(rol)) }))
+    .map((g) => ({ ...g, items: g.items.filter((i) => tieneAlgunRol(user, i.roles)) }))
     .filter((g) => g.items.length > 0)
 }
 
@@ -35,12 +36,12 @@ export function PermisosUsuarioModal({
   onClose: () => void
   onSaved: () => void
 }) {
-  const techoSistemas = ROLE_SISTEMAS[user.rol]
+  const techoSistemas = techoSistemasDe(user)
   const [sistemas, setSistemas] = useState<Sistema[]>(user.sistemasPermitidos ?? techoSistemas)
 
   const defaultPestanas = SISTEMAS_ORDEN
     .filter((s) => techoSistemas.includes(s))
-    .flatMap((s) => itemsVisiblesDelRol(user.rol, s).flatMap((g) => g.items.map((i) => i.to)))
+    .flatMap((s) => itemsVisiblesDelRol(user, s).flatMap((g) => g.items.map((i) => i.to)))
   const [pestanas, setPestanas] = useState<string[]>(user.pestanasPermitidas ?? defaultPestanas)
 
   const [saving, setSaving] = useState(false)
@@ -100,7 +101,7 @@ export function PermisosUsuarioModal({
               {techoSistemas.length > 1 && (
                 <p className="text-xs font-medium text-accent">{SISTEMA_LABELS[s]}</p>
               )}
-              {itemsVisiblesDelRol(user.rol, s).map((g) => (
+              {itemsVisiblesDelRol(user, s).map((g) => (
                 <div key={g.id}>
                   <p className="text-[11px] uppercase tracking-wide text-gray-400 mb-1">{g.label}</p>
                   <div className="grid grid-cols-2 gap-1.5">

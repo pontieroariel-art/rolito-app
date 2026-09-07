@@ -9,6 +9,7 @@ import { ROLE_LABELS } from './Navbar'
 import { NavGroup } from '../../utils/navGroups'
 import { Sistema } from '../../utils/sistemas'
 import { UserProfile } from '../../types'
+import { tieneAlgunRol } from '@/utils/roles'
 
 // Shell común de los sistemas con sidebar-como-navegación (sin Navbar arriba):
 // logística, heladeras, producción y expedición. Antes eran cuatro archivos
@@ -50,7 +51,7 @@ export default function SistemaLayout({ navGroups, children, subtitulo, filtrarI
   const grupos = navGroups
     .map((g) => ({
       ...g,
-      items: g.items.filter((i) => user && i.roles.includes(user.rol)
+      items: g.items.filter((i) => user && tieneAlgunRol(user, i.roles)
         && (!filtrarItem || filtrarItem(i.to))
         && (!user.pestanasPermitidas || user.pestanasPermitidas.includes(i.to))),
     }))

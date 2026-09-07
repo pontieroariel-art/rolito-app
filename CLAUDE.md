@@ -69,6 +69,7 @@ PWA de gestión de una distribuidora de hielo, organizada en cuatro **sistemas/m
   - **técnicos** por DNI + PIN (`/tecnicos` → `tecnicoDniIndex`)
   - **operarios de producción** por legajo + PIN (`/produccion-torcuato`, `/produccion-merlo` → `produccionLegajoIndex`; el PIN es individual, ver `produccionAuthService.ts`)
 - Los clientes nuevos se registran con estado `pendiente` y deben ser aprobados.
+- **Roles adicionales** (`users.rolesExtra`, solo `caja`/`muelle`/`seguridad`, con `planta`): para staff que cubre el mostrador además de su puesto (ej. logística + caja). Las reglas preguntan `hasRol()` para esos tres roles; en el front todo pasa por `tieneRol`/`tieneAlgunRol` (`src/utils/roles.ts`), nunca por `user.rol === 'caja'`. Los asigna el super_admin desde Usuarios ("También hace").
 - Algunas pantallas se fijan a un dispositivo por `localStorage` (tablet de planta → login por legajo; tablet de mostrador → solo Cobranzas) — ver `Landing.tsx` y los `*DeviceService`.
 
 ### Directorios clave

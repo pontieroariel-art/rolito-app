@@ -660,6 +660,10 @@ export interface UserProfile {
   // lo amplía. Sin setear = sin recorte, se comporta como hoy.
   sistemasPermitidos?: Sistema[]
   pestanasPermitidas?: string[]
+  // Roles ADICIONALES al principal (solo caja / muelle / seguridad), para
+  // quien cubre el mostrador además de su puesto — ver src/utils/roles.ts.
+  // Van con `planta`. Solo los asigna el super_admin.
+  rolesExtra?: UserRole[]
   // Fecha del último pedido del cliente, que mantiene el trigger onOrderRollup
   // (monotónico). Sirve para detectar clientes "fríos" sin recorrer todos los
   // pedidos — ver auditoría H5.

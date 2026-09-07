@@ -1,7 +1,8 @@
 import { useState, ChangeEvent } from 'react'
 import { ChevronRight, MapPin, Phone, CreditCard, Navigation, Clock, Hash } from 'lucide-react'
 import Button from '../../../components/ui/Button'
-import { UserProfile, UserRole, DeliveryAddress } from '../../../types'
+import { UserProfile, UserRole, DeliveryAddress, PLANTAS, PlantaId } from '../../../types'
+import { ROLES_EXTRA_DISPONIBLES } from '../../../utils/roles'
 import { tsToDate } from '../../../utils/helpers'
 import { ALL_ROLES, ROLE_LABELS, STATUS_STYLES, STATUS_LABELS } from './shared'
 import { FichaClienteModal } from './FichaClienteModal'
@@ -13,13 +14,14 @@ export interface UserRowProps {
   currentUser:         UserProfile | null
   onRoleChange:        (uid: string, rol: UserRole) => Promise<void>
   onSubrolChange:      (uid: string, subrol: 'chofer' | 'ayudante') => Promise<void>
+  onRolesExtraChange:  (uid: string, rolesExtra: UserRole[], planta: PlantaId | undefined) => Promise<void>
   onToggleStatus:      (u: UserProfile) => Promise<void>
   onApprove:           (u: UserProfile) => Promise<void>
   onAddressesChanged:  (uid: string, addresses: DeliveryAddress[]) => void
   onVisitaChanged:     (uid: string, esVisita: boolean, frecuenciaVisita?: string) => void
 }
 
-export function UserRow({ user, currentUser, onRoleChange, onSubrolChange, onToggleStatus, onApprove, onAddressesChanged, onVisitaChanged }: UserRowProps) {
+export function UserRow({ user, currentUser, onRoleChange, onSubrolChange, onRolesExtraChange, onToggleStatus, onApprove, onAddressesChanged, onVisitaChanged }: UserRowProps) {
   const [busy, setBusy]               = useState(false)
   const [fichaModal, setFichaModal]   = useState(false)
   const [permisosModal, setPermisosModal] = useState(false)
@@ -155,6 +157,45 @@ export function UserRow({ user, currentUser, onRoleChange, onSubrolChange, onTog
             <option value="chofer">Chofer</option>
             <option value="ayudante">Ayudante</option>
           </select>
+        </div>
+      )}
+
+      {/* Roles adicionales de expedición (caja / muelle / seguridad) para
+          staff que cubre el mostrador además de su puesto — ver utils/roles.ts.
+          Solo super_admin; van con la planta. No aplica a quien ya es de
+          expedición ni a clientes. */}
+      {canChangeRole && !isSelf && !['cliente', 'super_admin', 'caja', 'muelle', 'seguridad'].includes(user.rol) && (
+        <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-gray-100">
+          <span className="text-xs text-gray-500">También hace:</span>
+          {ROLES_EXTRA_DISPONIBLES.map((r) => {
+            const activo = (user.rolesExtra ?? []).includes(r)
+            return (
+              <label key={r} className="flex items-center gap-1.5 text-xs text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={activo}
+                  disabled={busy}
+                  onChange={() => {
+                    const nuevos = activo ? (user.rolesExtra ?? []).filter((x) => x !== r) : [...(user.rolesExtra ?? []), r]
+                    run(() => onRolesExtraChange(user.uid, nuevos, user.planta ?? (nuevos.length ? 'torcuato' : undefined)))
+                  }}
+                />
+                {ROLE_LABELS[r]}
+              </label>
+            )
+          })}
+          {(user.rolesExtra?.length ?? 0) > 0 && (
+            <select
+              value={user.planta ?? 'torcuato'}
+              disabled={busy}
+              onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                run(() => onRolesExtraChange(user.uid, user.rolesExtra ?? [], e.target.value as PlantaId))
+              }
+              className="bg-white border border-[#D3D1C7] rounded-lg px-2 py-1 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
+            >
+              {(Object.keys(PLANTAS) as PlantaId[]).map((p) => <option key={p} value={p}>{PLANTAS[p].label}</option>)}
+            </select>
+          )}
         </div>
       )}
 

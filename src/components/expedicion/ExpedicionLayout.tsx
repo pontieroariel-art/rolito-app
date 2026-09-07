@@ -5,6 +5,7 @@ import SistemaLayout from '../layout/SistemaLayout'
 import { EXPEDICION_NAV_GROUPS } from '../../utils/expedicionNav'
 import { esDispositivoCobranza } from '../../services/expedicionDeviceService'
 import { PLANTAS } from '../../types'
+import { tieneRol } from '@/utils/roles'
 
 // Shell del módulo expedición (rol 'caja' + super_admin) — ver SistemaLayout
 // (chrome común). Muestra la planta del usuario en la tarjeta de cuenta, y
@@ -14,7 +15,7 @@ import { PLANTAS } from '../../types'
 export default function ExpedicionLayout({ children }: { children?: ReactNode }) {
   const { user }  = useAuth()
   const location  = useLocation()
-  const soloCobranza = esDispositivoCobranza() && user?.rol === 'caja'
+  const soloCobranza = esDispositivoCobranza() && tieneRol(user, 'caja')
 
   // Guard del puesto de cobranza: cualquier otra ruta de /caja redirige.
   const guard = soloCobranza && location.pathname.startsWith('/caja') && location.pathname !== '/caja/cobranzas'

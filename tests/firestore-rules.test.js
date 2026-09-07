@@ -3412,3 +3412,47 @@ describe('ARCA — estado de facturas', () => {
     )
   })
 })
+
+// ── users.rolesExtra: roles adicionales de expedición (2026-09-07) ───────────
+// Lucas es de logística y cubre caja: rol 'logistica' + rolesExtra ['caja'] +
+// planta. hasRol() en las reglas mira los dos; solo super_admin los asigna.
+describe('users — roles adicionales (rolesExtra)', () => {
+  const ventaVentanilla = (extra = {}) => ({
+    plantaId: 'torcuato', canal: 'contado', cajaId: 'luc', cajaNombre: 'Lucas',
+    clienteNombre: 'Ocasional', items: [{ productoId: 'bolsa_3kg', nombre: 'Hielo 3kg', cantidad: 1, precioUnitario: 100 }],
+    total: 100, formaPago: 'contado_efectivo', estado: 'pendiente_entrega', turno: 1, turnoEstado: 'en_espera',
+    fecha: new Date(), ...extra,
+  })
+  const seedLucas = (extra = {}) =>
+    seed((d) => setDoc(doc(d, 'users/luc'), { rol: 'logistica', estado: 'activo', rolesExtra: ['caja'], planta: 'torcuato', ...extra }))
+  // Sin planta: el doc se siembra sin el campo (deleteField no vale en un setDoc sin merge).
+  const seedLucasSinPlanta = () =>
+    seed((d) => setDoc(doc(d, 'users/luc'), { rol: 'logistica', estado: 'activo', rolesExtra: ['caja'] }))
+
+  test('logística con rolesExtra caja vende por ventanilla en SU planta, no en otra', async () => {
+    await seedLucas()
+    await assertSucceeds(setDoc(doc(db('luc'), 'ventasVentanilla/v1'), ventaVentanilla()))
+    await assertFails(setDoc(doc(db('luc'), 'ventasVentanilla/v2'), ventaVentanilla({ plantaId: 'merlo' })))
+    await assertSucceeds(getDoc(doc(db('luc'), 'ventasVentanilla/v1')))
+  })
+
+  test('logística SIN rolesExtra no vende por ventanilla', async () => {
+    await seed((d) => setDoc(doc(d, 'users/log1'), { rol: 'logistica', estado: 'activo', planta: 'torcuato' }))
+    await assertFails(setDoc(doc(db('log1'), 'ventasVentanilla/v1'), ventaVentanilla({ cajaId: 'log1' })))
+  })
+
+  test('rolesExtra sin planta no habilita nada', async () => {
+    await seedLucasSinPlanta()
+    await assertFails(setDoc(doc(db('luc'), 'ventasVentanilla/v1'), ventaVentanilla()))
+  })
+
+  test('nadie se auto-asigna rolesExtra ni planta; el super_admin sí', async () => {
+    await seed((d) => setDoc(doc(d, 'users/log1'), { rol: 'logistica', estado: 'activo', nombre: 'L' }))
+    await assertFails(updateDoc(doc(db('log1'), 'users/log1'), { rolesExtra: ['caja'], planta: 'torcuato' }))
+    await assertFails(updateDoc(doc(db('log1'), 'users/log1'), { rolesExtra: ['caja'] }))
+    await assertFails(updateDoc(doc(db('log1'), 'users/log1'), { planta: 'merlo' }))
+    await assertSucceeds(updateDoc(doc(db('log1'), 'users/log1'), { nombre: 'Lucas' }))
+    await seed((d) => setDoc(doc(d, 'users/sa'), { rol: 'super_admin', estado: 'activo' }))
+    await assertSucceeds(updateDoc(doc(db('sa'), 'users/log1'), { rolesExtra: ['caja'], planta: 'torcuato' }))
+  })
+})

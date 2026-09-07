@@ -1,4 +1,5 @@
 import { UserProfile, UserRole, Sistema } from '../types'
+import { rolesDe } from './roles'
 
 export type { Sistema }
 
@@ -83,7 +84,32 @@ export const SISTEMA_LABELS: Record<Sistema, string> = {
 // recortó desde Usuarios → Permisos) filtrado contra el techo real del rol —
 // nunca devuelve algo que el rol no permita, aunque el campo haya quedado
 // desactualizado por un cambio de rol posterior.
-export function sistemasDeUsuario(user: Pick<UserProfile, 'rol' | 'sistemasPermitidos'>): Sistema[] {
-  const techo = ROLE_SISTEMAS[user.rol]
+export function sistemasDeUsuario(user: Pick<UserProfile, 'rol' | 'sistemasPermitidos' | 'rolesExtra'>): Sistema[] {
+  const techo = techoSistemasDe(user)
   return (user.sistemasPermitidos ?? techo).filter((s) => techo.includes(s))
+}
+
+// Techo real: lo que permite el rol principal MÁS lo de los roles adicionales
+// (logística + caja → logística y expedición). Ver src/utils/roles.ts.
+export function techoSistemasDe(user: Pick<UserProfile, 'rol' | 'rolesExtra'>): Sistema[] {
+  const out: Sistema[] = []
+  for (const rol of rolesDe(user)) for (const s of ROLE_SISTEMAS[rol]) if (!out.includes(s)) out.push(s)
+  return out
+}
+
+// Adónde entra el usuario en cada sistema. Los roles multi-sistema tienen su
+// tabla (MULTI_SISTEMA_HOME); para un sistema que viene de un rol adicional se
+// usa el home de ese rol (caja → /caja). Solo tiene sentido con más de un
+// sistema disponible; con uno solo devuelve undefined y el picker no aplica.
+export function homesDeUsuario(user: Pick<UserProfile, 'rol' | 'sistemasPermitidos' | 'rolesExtra'>): Partial<Record<Sistema, string>> | undefined {
+  const sistemas = sistemasDeUsuario(user)
+  if (sistemas.length <= 1) return undefined
+  const homes: Partial<Record<Sistema, string>> = {}
+  for (const s of sistemas) {
+    const propio = MULTI_SISTEMA_HOME[user.rol]?.[s]
+    const rolExtra = rolesDe(user).find((r) => ROLE_SISTEMAS[r].includes(s))
+    const home = propio ?? (rolExtra ? ROLE_HOME[rolExtra] : undefined)
+    if (home) homes[s] = home
+  }
+  return homes
 }

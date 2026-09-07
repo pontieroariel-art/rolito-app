@@ -37,7 +37,7 @@ export function SistemaProvider({ children }: { children: ReactNode }) {
     // cambios de referencia) hace que esto se re-evalúe si un admin le
     // recorta los sistemas a este usuario mientras tiene la sesión abierta.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.uid, user?.rol, user?.sistemasPermitidos?.join(',')])
+  }, [user?.uid, user?.rol, user?.sistemasPermitidos?.join(','), user?.rolesExtra?.join(',')])
 
   const elegirSistema = (s: Sistema) => {
     setSistemaActual(s)

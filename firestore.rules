@@ -10,6 +10,19 @@ service cloud.firestore {
       let data = exists(path) ? get(path).data : {};
       return data.get('rol', data.get('role', 'none'));
     }
+    // Roles ADICIONALES al principal (2026-09-07): hoy solo los de expedición
+    // (caja / muelle / seguridad), para personal que cubre el mostrador además
+    // de su puesto (Lucas: logística + caja). Solo los escribe el super_admin
+    // (ver rolesExtraUnchanged en /users). hasRol() es la pregunta correcta
+    // para esos tres roles; el resto sigue mirando el rol principal.
+    function myRolesExtra() {
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      let data = exists(path) ? get(path).data : {};
+      return data.get('rolesExtra', []);
+    }
+    function hasRol(r) {
+      return myRole() == r || r in myRolesExtra();
+    }
 
     // Lee el estado ('activo'/'inactivo'/'pendiente') del usuario autenticado.
     function myEstado() {
@@ -96,7 +109,7 @@ service cloud.firestore {
     // Personal de caja en planta (módulo expedición: remitos de carga,
     // ventanilla, liquidaciones). Fijo por planta — ver myPlanta().
     function isCaja() {
-      return myRole() == 'caja';
+      return hasRol('caja');
     }
     // Expedición por planta (2026-09-06): caja / muelle / seguridad solo en SU
     // planta; el super_admin (sin planta en el perfil) opera cualquiera, porque
@@ -114,12 +127,12 @@ service cloud.firestore {
     // Personal de muelle en planta (módulo expedición: entrega la carga
     // contra el remito y cuenta la descarga al volver el camión).
     function isMuelle() {
-      return myRole() == 'muelle';
+      return hasRol('muelle');
     }
     // Personal de seguridad en el portón (módulo expedición: controla y
     // libera lo que sale cargado de la planta).
     function isSeguridad() {
-      return myRole() == 'seguridad';
+      return hasRol('seguridad');
     }
     // Supervisor de cobranzas en la calle: cobra cta. cte. con composición de
     // saldos de Tango, imputación de facturas, cheques y retenciones.
@@ -221,6 +234,12 @@ service cloud.firestore {
       // Campos privilegiados que un no-super_admin NO puede alterar sobre un
       // documento existente. Se comparan con get() para tolerar campos ausentes.
       function rolUnchanged()    { return request.resource.data.rol == resource.data.rol; }
+      // Roles adicionales y planta también son privilegio (dan acceso al
+      // módulo expedición de esa planta): solo el super_admin los toca.
+      function rolesExtraUnchanged() {
+        return request.resource.data.get('rolesExtra', []) == resource.data.get('rolesExtra', [])
+            && request.resource.data.get('planta', null) == resource.data.get('planta', null);
+      }
       function estadoUnchanged() { return request.resource.data.estado == resource.data.estado; }
       function preciosUnchanged() {
         return request.resource.data.get('listaPreciosId', '') == resource.data.get('listaPreciosId', '')
@@ -313,7 +332,7 @@ service cloud.firestore {
         && request.resource.data.rol == 'produccion_hielo';
 
       // ── Edición del propio perfil: NO puede tocar rol / estado / precios / identidad ──
-      allow update: if isSelf() && rolUnchanged() && estadoUnchanged()
+      allow update: if isSelf() && rolUnchanged() && rolesExtraUnchanged() && estadoUnchanged()
         && preciosUnchanged() && identidadUnchanged() && tangoBridgeUnchanged();
 
       // ── gerente_comercial / comercial / logistica: gestión de clientes ──
