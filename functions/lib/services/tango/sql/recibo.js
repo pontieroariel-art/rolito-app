@@ -38,18 +38,20 @@
 //   del renglón de cartera, 'INGR'). El asiento lleva la cuenta contable de la cartera (602).
 //   SBA90 (grilla temporal de la pantalla) no se replica. SBA14.N_INTERNO sale de `siguiente()`.
 //
-// Retenciones (Track R del plan de cobranzas, 2026-09-08): cada retención que entrega el
-//   cliente (Ganancias / IVA / IIBB CABA / IIBB PBA / SUSS) es un medio más del recibo: un
-//   renglón SBA05 'D' sobre la cuenta de tesorería de retenciones de ese tipo (config
-//   `retenciones[tipo].cuenta`, por empresa) con la SUMA de los certificados de ese tipo.
-//   El detalle del certificado (nº, fecha, código de retención de Tango) va a la tabla que
-//   muestre el relevamiento R0/R2 (Desktop/Retenciones-R0-relevamiento.sql): hasta tenerla,
-//   `sentenciasRecibo` frena ANTES de escribir nada si el recibo trae retenciones.
+// Retenciones (Track R, relevado el 2026-09-08 — docs/tango/sql/retenciones-relevamiento-2026-09-08.txt):
+//   la oficina NUNCA usó el módulo de retenciones de Tango en las cobranzas (la tabla de
+//   detalle CTA_COMPROBANTE_RETENCION_VENTAS está vacía en las tres bases). Cada retención
+//   es un medio más del recibo: un renglón SBA05 'D' sobre la cuenta de tesorería de
+//   retenciones de ese tipo (1132010 RETENCION IIBB BS. AS., 1132012 CABA, 1132018 IVA,
+//   1132004 GANANCIAS, 1131003 SUSS — config `retenciones[tipo].cuenta`, por empresa) con la
+//   SUMA de los certificados de ese tipo, saldo de SBA01 y renglón del asiento como cualquier
+//   otra cuenta. El nº y la fecha del certificado van en LEYENDA (40) y COMENTARIO del renglón.
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TIPOS_RETENCION = void 0;
 exports.reciboDeCobranza = reciboDeCobranza;
 exports.sentenciaExisteRecibo = sentenciaExisteRecibo;
 exports.sentenciasRecibo = sentenciasRecibo;
+exports.textoRetenciones = textoRetenciones;
 exports.leerDatosRecibo = leerDatosRecibo;
 exports.tablasConIdentity = tablasConIdentity;
 exports.escribirRecibo = escribirRecibo;
@@ -173,9 +175,6 @@ function sentenciaExisteRecibo(r) {
  *  obtiene al ejecutar el primer INSERT; las que lo necesitan usan el marcador
  *  `@ID_RECIBO`, que el ejecutor resuelve (ver escribirRecibo). */
 function sentenciasRecibo(r, d, cfg, ahora = new Date()) {
-    // Se frena acá, con las sentencias sin armar, para que no quede nada escrito a medias.
-    if (r.retenciones.length)
-        throw new Error('el detalle del certificado de retención todavía no se escribe en Tango (falta el relevamiento R2, Desktop/Retenciones-R0-relevamiento.sql); el recibo queda en la cola');
     const fecha = (0, tipos_1.soloDia)(r.fecha);
     const hoy = (0, tipos_1.soloDia)(ahora);
     const hora = (0, tipos_1.horaHHMMSS)(ahora);
@@ -319,10 +318,11 @@ function sentenciasRecibo(r, d, cfg, ahora = new Date()) {
         (0, tipos_1.numeric)('TOTAL_IMPORTE_EXT', r.importe),
         (0, tipos_1.varchar)('TRANSFERENCIA_DEVOLUCION_CUPONES', 'N', 1),
     ], true));
-    // 6. SBA05 — renglón 0 contracuenta 'H', luego un renglón 'D' por medio.
+    // 6. SBA05 — renglón 0 contracuenta 'H', luego un renglón 'D' por medio. El renglón de una
+    //    cuenta de retenciones lleva el certificado en LEYENDA/COMENTARIO (Tango los deja en blanco).
     const renglones = [
         { cuenta: cfg.cuentas.contracuenta, dh: 'H', importe: r.importe },
-        ...r.medios.map((m) => ({ cuenta: m.cuenta, dh: 'D', importe: m.importe })),
+        ...r.medios.map((m) => ({ cuenta: m.cuenta, dh: 'D', importe: m.importe, ...textoRetenciones(r.retenciones.filter((x) => x.cuenta === m.cuenta)) })),
     ];
     renglones.forEach((ren, i) => {
         out.push((0, tipos_1.insert)(`INSERT SBA05 ${ren.cuenta} ${ren.dh}`, 'SBA05', [
@@ -335,7 +335,7 @@ function sentenciasRecibo(r, d, cfg, ahora = new Date()) {
             (0, tipos_1.numeric)('COTIZ_MONE', 1),
             (0, tipos_1.varchar)('D_H', ren.dh, 1),
             (0, tipos_1.datetime)('FECHA', fecha),
-            (0, tipos_1.varchar)('LEYENDA', '', 1),
+            (0, tipos_1.varchar)('LEYENDA', ren.leyenda ?? '', ren.leyenda ? 40 : 1),
             (0, tipos_1.numeric)('MONTO', ren.importe),
             (0, tipos_1.varchar)('N_COMP', r.nComp, 14),
             (0, tipos_1.int)('RENGLON', i),
@@ -343,7 +343,7 @@ function sentenciasRecibo(r, d, cfg, ahora = new Date()) {
             (0, tipos_1.varchar)('VA_DIRECTO', 'N', 1),
             (0, tipos_1.int)('ID_SBA02', cfg.idSba02Recibo),
             (0, tipos_1.int)('ID_GVA81', null),
-            (0, tipos_1.varchar)('COMENTARIO', '', 1),
+            (0, tipos_1.varchar)('COMENTARIO', ren.comentario ?? '', ren.comentario ? 255 : 1),
             (0, tipos_1.varchar)('COMENTARIO_EFT', '', 1),
             (0, tipos_1.varchar)('COD_GVA14', r.codCliente, 6),
             (0, tipos_1.varchar)('COD_CPA01', null, 1),
@@ -446,6 +446,16 @@ function sentenciasRecibo(r, d, cfg, ahora = new Date()) {
         ]), idAc == null));
     });
     return out;
+}
+const ETIQUETA_RETENCION = { ganancias: 'RET GCIAS', iva: 'RET IVA', iibb_caba: 'RET IIBB CABA', iibb_pba: 'RET IIBB PBA', suss: 'RET SUSS' };
+const ddmmaa = (d) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getFullYear()).slice(2)}`;
+/** Texto del certificado para el renglón de tesorería: LEYENDA corta (40) y COMENTARIO completo (255). */
+function textoRetenciones(rets) {
+    if (!rets.length)
+        return {};
+    const partes = rets.map((x) => `${ETIQUETA_RETENCION[x.tipo]} CERT ${x.nroCertificado} ${ddmmaa(x.fecha)} $${x.importe.toFixed(2)}`);
+    const leyenda = (rets.length === 1 ? `${ETIQUETA_RETENCION[rets[0].tipo]} CERT ${rets[0].nroCertificado}` : `${ETIQUETA_RETENCION[rets[0].tipo]} ${rets.length} CERTIFICADOS`).slice(0, 40);
+    return { leyenda, comentario: partes.join(' | ').slice(0, 255) };
 }
 const marcarIdRecibo = (s) => ({ ...s, necesitaIdRecibo: true });
 const marcarIdAsiento = (s, si) => (si ? { ...s, necesitaIdAsiento: true } : s);

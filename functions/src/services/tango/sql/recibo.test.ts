@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { reciboDeCobranza, sentenciasRecibo, escribirRecibo, type ConfigReciboSql, type DatosRecibo, type PayloadCobranza } from './recibo'
+import { reciboDeCobranza, sentenciasRecibo, escribirRecibo, textoRetenciones, type ConfigReciboSql, type DatosRecibo, type PayloadCobranza } from './recibo'
 import type { EjecutorSql, ParametroSql } from './tipos'
 
 const cfg: ConfigReciboSql = {
@@ -337,9 +337,25 @@ describe('retenciones (Track R, 2026-09-08: medio sobre la cuenta de retenciones
     expect(() => reciboDeCobranza({ ...pRet, medios: { efectivo: 1000, transferencia: 0, cheques: [], retenciones: [{ ...ret, importe: 400 }] } }, 'c', cfgRet)).toThrow(/no cierra/)
     expect(() => reciboDeCobranza(pRet, 'c', cfg)).toThrow(/sin cuenta de tesorería configurada/)
   })
-  it('hasta tener la traza del certificado, sentenciasRecibo no arma nada (no queda un recibo a medias)', () => {
-    const r = reciboDeCobranza(pRet, 'c', cfgRet)
-    expect(() => sentenciasRecibo(r, datos, cfgRet)).toThrow(/relevamiento R2/)
+  it('en Tango es un renglón de tesorería más (como lo carga la oficina): SBA05 D con el certificado en leyenda, saldo SBA01 y asiento', () => {
+    const cfgR = { ...cfgRet, cuentasContables: { ...cfg.cuentasContables, '1130010': 640 } }
+    const datosR: DatosRecibo = { ...datos, cuentas: { ...datos.cuentas, '1130010': { idSba01: 28, saldoAMo: 1000, saldoAUn: 1000, saldoAct: 1000 } }, ids: { ...datos.ids, asientoRenglones: [1, 2, 3] } }
+    const r = reciboDeCobranza(pRet, 'c', cfgR)
+    const s = sentenciasRecibo(r, datosR, cfgR)
+    const ren = s.find((x) => x.etiqueta === 'INSERT SBA05 1130010 D')!
+    expect(param(ren.params, 'MONTO')).toBe(500)
+    expect(param(ren.params, 'LEYENDA')).toBe('RET IIBB CABA CERT 0001-00004567')
+    expect(String(param(ren.params, 'COMENTARIO'))).toContain('08/09/26 $500.00')
+    expect(param(s.find((x) => x.etiqueta === 'INSERT SBA05 1111000 D')!.params, 'LEYENDA')).toBe('')
+    expect(param(s.find((x) => x.etiqueta === 'UPDATE SBA01 saldo 1130010')!.params, 'ACT')).toBe(1500)
+    expect(param(s.find((x) => x.etiqueta === 'INSERT ASIENTO_SB 1130010')!.params, 'ID_CUENTA')).toBe(640)
+    expect(s.filter((x) => x.etiqueta.startsWith('INSERT SBA14'))).toHaveLength(0)
+  })
+  it('dos certificados en la misma cuenta → leyenda con la cantidad y comentario con ambos', () => {
+    expect(textoRetenciones([
+      { tipo: 'iibb_pba', cuenta: 1132010, nroCertificado: '000100001188', fecha: new Date(2026, 8, 8), importe: 10805.4 },
+      { tipo: 'iibb_pba', cuenta: 1132010, nroCertificado: '000100001190', fecha: new Date(2026, 8, 9), importe: 100 },
+    ])).toEqual({ leyenda: 'RET IIBB PBA 2 CERTIFICADOS', comentario: 'RET IIBB PBA CERT 000100001188 08/09/26 $10805.40 | RET IIBB PBA CERT 000100001190 09/09/26 $100.00' })
   })
 })
 
