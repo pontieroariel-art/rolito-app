@@ -1690,3 +1690,36 @@ cobranza cuando el item agota los reintentos (chip rojo "Error en Tango" en la a
 limpia el error. Puesta en producción: copiar `recibo.js` a `C:\RolitoSync\sql\lib`, reiniciar el
 bridge, `--dry-run --once --solo=cobranzas_XhCl5LDQbmSfRbIOwo1x` y reencolar con
 `reintentar-outbox.mjs` (Desktop `RolitoSync-recibo-retenciones/Recibos-con-retencion-VM.txt`).
+Resultado: X 01106-00000182 entró el 2026-09-08 17:52 con cheque + retención. De paso se arregló
+un bug previo: con más de una factura imputada, los ids de historial se pedían en paralelo sobre la
+transacción de mssql ("Can't acquire connection for the request").
+
+## 31. Pago a cuenta y saldo a favor aplicado (2026-09-08)
+
+Decisión de Ariel: el recibo de la app admite valores mayores a lo imputado (siempre, cualquier
+medio, también choferes); el sobrante queda **a cuenta** del cliente, y ese saldo a favor se aplica
+después desde la app o desde la oficina. Relevamiento
+(`docs/tango/sql/recibo-a-cuenta-relevamiento-2026-09-08.txt`, recibos reales de la oficina):
+
+- **Recibo con saldo a cuenta:** `GVA12.ESTADO = ESTADO_UNI = 'CTA'` (los imputados al 100% quedan
+  'IMP'); sin fila en GVA46 ni historial extra; tesorería igual que siempre; `GVA14.SALDO_CC` baja el
+  total y puede quedar negativo. Un recibo sin ninguna imputación es lo mismo con cero filas gva07.
+- **Aplicación posterior** (la pantalla "Imputación de comprobantes" de Tango): una fila `gva07`
+  `FAC ← REC` con `F_COMP_CAN` = fecha del recibo viejo e `ID_GVA12_CAN` = su id, y su
+  `HISTORIAL_CUENTAS_CORRIENTES` con `ORIGEN 'Imputación de Comprobantes'`, `OPERACION 'A'`; después
+  el recálculo de estados. No toca tesorería ni el saldo del cliente.
+
+**App:** `Cobranza.aCuenta` (importe = Σ imputado + aCuenta = Σ valores), `medios.aCuentaAplicado[]`
+(`reciboNumero` de Tango, `idReciboTango`, importe). La composición muestra los recibos a cuenta como
+saldo negativo (los de Tango vienen de la sync; los de la app, hasta que Tango confirme, los agrega
+`descuentosDeCobranzas`); solo los que ya están en Tango (traen `idComprobanteTango`) se pueden aplicar.
+No se puede aplicar saldo y dejar a cuenta en el mismo recibo.
+
+**Writer (`recibo.ts`):** `planificarImputaciones` reparte cada factura entre la plata nueva
+(primero) y los recibos a cuenta aplicados; `sentenciasImputaciones` graba ambas clases de filas. Con
+plata nueva: recibo normal (ESTADO CTA si sobra) + filas aplicadas. Sin plata nueva: **imputación
+pura** (solo gva07 + historial + `P_COBRANZAESTADOSVENTAS` con los ids de facturas y recibos viejos),
+idempotente por fila (`sentenciaExisteImputacion`), y el write-back devuelve `IMP <recibo viejo>` como
+número. `leerDatosRecibo` valida que el recibo viejo sea del cliente, no esté anulado y tenga
+disponible (`IMPORTE − Σ gva07.IMPORT_CAN`). Limitación conocida: en Rolito no existe el procedimiento
+de recálculo, así que los estados (factura CAN, recibo IMP) no se actualizan solos (igual que antes).
