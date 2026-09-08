@@ -534,11 +534,16 @@ async function leerDatosRecibo(db, r, cfg, identity) {
         }
     }
     const ids = {
-        historial: await Promise.all(r.imputaciones.map(() => identity.has('HISTORIAL_CUENTAS_CORRIENTES') ? null : siguiente(db, 'HISTORIAL_CUENTAS_CORRIENTES', 'ID_HISTORIAL_CUENTAS_CORRIENTES'))),
+        // Secuencial, no Promise.all: sobre una transacción de mssql no puede haber dos consultas a la
+        // vez ("Can't acquire connection for the request. There is another request in progress").
+        // Con una sola factura imputada no se notaba; el RS-000182 (3 facturas) lo destapó (2026-09-08).
+        historial: [],
         cotizacion: identity.has('COMPROBANTE_COTIZACION_SB') ? null : await siguiente(db, 'COMPROBANTE_COTIZACION_SB', 'ID_COMPROBANTE_COTIZACION_SB'),
         asientoComprobante: identity.has('ASIENTO_COMPROBANTE_SB') ? null : await siguiente(db, 'ASIENTO_COMPROBANTE_SB', 'ID_ASIENTO_COMPROBANTE_SB'),
         asientoRenglones: [],
     };
+    for (let i = 0; i < r.imputaciones.length; i++)
+        ids.historial.push(identity.has('HISTORIAL_CUENTAS_CORRIENTES') ? null : await siguiente(db, 'HISTORIAL_CUENTAS_CORRIENTES', 'ID_HISTORIAL_CUENTAS_CORRIENTES'));
     const nRenglones = 1 + r.medios.length;
     for (let i = 0; i < nRenglones; i++)
         ids.asientoRenglones.push(identity.has('ASIENTO_SB') ? null : await siguiente(db, 'ASIENTO_SB', 'ID_ASIENTO_SB'));

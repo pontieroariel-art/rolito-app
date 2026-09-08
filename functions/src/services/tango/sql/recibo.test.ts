@@ -154,10 +154,19 @@ function fakeDb(opts: { existe?: boolean; identity?: string[]; secuencias?: stri
   const vinculos: { idSba14: number; idSba05: number }[] = []
   const listas: string[] = []   // listas de ids con las que se llamó al recálculo de estados
   const contadores: Record<string, number> = { 'SBA04|N_INTERNO': 127986, 'HISTORIAL_CUENTAS_CORRIENTES|ID_HISTORIAL_CUENTAS_CORRIENTES': 233985, 'COMPROBANTE_COTIZACION_SB|ID_COMPROBANTE_COTIZACION_SB': 190076, 'ASIENTO_COMPROBANTE_SB|ID_ASIENTO_COMPROBANTE_SB': 199353, 'ASIENTO_SB|ID_ASIENTO_SB': 240045 }
+  // Como mssql: sobre una transacción no puede haber dos consultas en vuelo a la vez.
+  let enCurso = false
   const db: EjecutorSql = {
     async query<T>(sql: string, params: ParametroSql[] = []): Promise<T[]> {
-      ejecutadas.push(sql.slice(0, 40))
-      const r = (rows: unknown[]) => rows as T[]
+      if (enCurso) throw new Error("Can't acquire connection for the request. There is another request in progress.")
+      enCurso = true
+      try { return await consulta<T>(sql, params) } finally { enCurso = false }
+    },
+  }
+  async function consulta<T>(sql: string, params: ParametroSql[]): Promise<T[]> {
+    await Promise.resolve()   // un tick, como una consulta real, para que dos en paralelo choquen
+    ejecutadas.push(sql.slice(0, 40))
+    const r = (rows: unknown[]) => rows as T[]
       if (sql.startsWith('SELECT ID_GVA12 FROM GVA12 WHERE T_COMP = \'REC\'')) return r(opts.existe ? [{ ID_GVA12: 777 }] : [])
       if (sql.startsWith('SELECT OBJECT_NAME(object_id) AS tabla')) return r((opts.identity ?? []).map((t) => ({ tabla: t })))
       if (sql.startsWith('SELECT ID_GVA14, SALDO_CC')) return r([{ ID_GVA14: 8465, SALDO_CC: 3873642, SALDO_DOC: 0, SALDO_D_UN: 0, SALDO_CC_U: 3873642 }])
@@ -183,7 +192,6 @@ function fakeDb(opts: { existe?: boolean; identity?: string[]; secuencias?: stri
       if (sql.startsWith('INSERT')) return r([{ ID: 1 }])
       if (sql.startsWith('UPDATE')) return r([{ affected: 1 }])
       throw new Error('consulta inesperada: ' + sql)
-    },
   }
   return { db, ejecutadas, vinculos, listas }
 }
@@ -366,6 +374,16 @@ describe('retenciones (Track R, 2026-09-08: medio sobre la cuenta de retenciones
 describe('escribirRecibo', () => {
   const p1 = { ...payload, importe: 1000, imputaciones: [payload.imputaciones![0]], medios: { efectivo: 1000, transferencia: 0 } }
   const r = reciboDeCobranza(p1, 'cob1', cfg)
+  it('con varias facturas imputadas reserva los ids de historial uno por uno (mssql no admite consultas en paralelo en la transacción; RS-000182)', async () => {
+    const { db } = fakeDb()
+    const tres = reciboDeCobranza({ ...payload, importe: 1500, imputaciones: [
+      { comprobanteTipo: 'FAC', comprobanteNumero: 'A0010100268582', importeImputado: 500 },
+      { comprobanteTipo: 'FAC', comprobanteNumero: 'A0010100282315', importeImputado: 500 },
+      { comprobanteTipo: 'FAC', comprobanteNumero: 'A0010100282316', importeImputado: 500 },
+    ] }, 'cob3', cfg)
+    const res = await escribirRecibo(db, tres, cfg)
+    expect(res.yaExistia).toBe(false)
+  })
   it('reserva contadores, inserta el recibo y pasa su ID a las imputaciones', async () => {
     const { db, ejecutadas } = fakeDb()
     const res = await escribirRecibo(db, r, cfg)
