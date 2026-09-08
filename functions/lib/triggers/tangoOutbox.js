@@ -325,7 +325,8 @@ exports.onCobranzaCreada = (0, firestore_1.onDocumentCreated)('cobranzas/{cobran
     // que corregir.
     const imputaciones = Array.isArray(cobranza.imputaciones) ? cobranza.imputaciones : [];
     const aCuenta = Number(cobranza.aCuenta) > 0 ? Number(cobranza.aCuenta) : 0;
-    if (imputaciones.length === 0 && aCuenta === 0)
+    const aplicaciones = Array.isArray(cobranza.medios?.aCuentaAplicado) ? cobranza.medios.aCuentaAplicado : [];
+    if (imputaciones.length === 0 && aCuenta === 0 && aplicaciones.length === 0)
         return;
     // Solo se descuenta en la EMPRESA de la cobranza (la misma factura puede
     // existir con igual tipo y número en la otra). Reintento del trigger (no es
@@ -340,6 +341,7 @@ exports.onCobranzaCreada = (0, firestore_1.onDocumentCreated)('cobranzas/{cobran
             numeroRecibo: typeof cobranza.numeroRecibo === 'string' ? cobranza.numeroRecibo : undefined,
             codigoTango: codigoCobranza ?? identidad?.codigo ?? undefined,
             fecha: cobranza.fecha,
+            medios: cobranza.medios,
         });
         if (!r)
             return;

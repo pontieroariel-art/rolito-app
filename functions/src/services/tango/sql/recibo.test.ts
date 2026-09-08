@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { reciboDeCobranza, sentenciasRecibo, escribirRecibo, textoRetenciones, type ConfigReciboSql, type DatosRecibo, type PayloadCobranza } from './recibo'
+import { reciboDeCobranza, sentenciasRecibo, escribirRecibo, textoRetenciones, planificarImputaciones, type ConfigReciboSql, type DatosRecibo, type PayloadCobranza } from './recibo'
 import type { EjecutorSql, ParametroSql } from './tipos'
 
 const cfg: ConfigReciboSql = {
@@ -148,7 +148,7 @@ describe('sentenciasRecibo', () => {
   })
 })
 
-function fakeDb(opts: { existe?: boolean; identity?: string[]; secuencias?: string[]; secuenciasPorNombre?: string[]; sinSpEstados?: boolean } = {}) {
+function fakeDb(opts: { existe?: boolean; identity?: string[]; secuencias?: string[]; secuenciasPorNombre?: string[]; sinSpEstados?: boolean; disponibleViejo?: number; imputacionExiste?: boolean } = {}) {
   const secuencias: Record<string, number> = {}
   const ejecutadas: string[] = []
   const vinculos: { idSba14: number; idSba05: number }[] = []
@@ -168,6 +168,10 @@ function fakeDb(opts: { existe?: boolean; identity?: string[]; secuencias?: stri
     ejecutadas.push(sql.slice(0, 40))
     const r = (rows: unknown[]) => rows as T[]
       if (sql.startsWith('SELECT ID_GVA12 FROM GVA12 WHERE T_COMP = \'REC\'')) return r(opts.existe ? [{ ID_GVA12: 777 }] : [])
+      // Recibo a cuenta viejo (saldo a favor aplicado): X0000100032835 de FC.280, $48.400, con lo ya imputado según opts.
+      if (sql.startsWith('SELECT ID_GVA12, FECHA_EMIS, IMPORTE, COD_CLIENT, ESTADO FROM GVA12')) return r([{ ID_GVA12: 372542, FECHA_EMIS: new Date(2026, 8, 4), IMPORTE: 48400, COD_CLIENT: 'FC.280', ESTADO: 'CTA' }])
+      if (sql.startsWith('SELECT ISNULL(SUM(IMPORT_CAN), 0) AS S FROM gva07')) return r([{ S: 48400 - (opts.disponibleViejo ?? 48400) }])
+      if (sql.startsWith('SELECT ID_GVA07 FROM gva07 WHERE')) return r(opts.imputacionExiste ? [{ ID_GVA07: 1 }] : [])
       if (sql.startsWith('SELECT OBJECT_NAME(object_id) AS tabla')) return r((opts.identity ?? []).map((t) => ({ tabla: t })))
       if (sql.startsWith('SELECT ID_GVA14, SALDO_CC')) return r([{ ID_GVA14: 8465, SALDO_CC: 3873642, SALDO_DOC: 0, SALDO_D_UN: 0, SALDO_CC_U: 3873642 }])
       if (sql.startsWith('SELECT ID_GVA12, IMPORTE, UNIDADES')) return r([{ ID_GVA12: param(params, 'N') === 'A0010100268582' ? 350532 : 360000, IMPORTE: 110700, UNIDADES: 110700, COD_CLIENT: 'FC.280' }])
@@ -386,9 +390,81 @@ describe('pago a cuenta (2026-09-08: valores mayores a lo imputado; el sobrante 
     expect(() => reciboDeCobranza({ ...payload, aCuenta: -1 }, 'c', cfg)).toThrow(/aCuenta inválido/)
     expect(() => reciboDeCobranza({ ...payload, imputaciones: [], importe: 0, medios: { efectivo: 0, transferencia: 0, cheques: [], retenciones: [] } }, 'c', cfg)).toThrow(/ni deja nada a cuenta/)
   })
-  it('hasta tener el relevamiento R0c, sentenciasRecibo no arma nada si hay a cuenta', () => {
+  it('en Tango el recibo queda en estado CTA (relevamiento 2026-09-08), con las imputaciones de siempre y el saldo del cliente bajando el total', () => {
     const r = reciboDeCobranza({ ...payload, importe: 2000, aCuenta: 500, medios: { efectivo: 2000, transferencia: 0, cheques: [], retenciones: [] } }, 'c', cfg)
-    expect(() => sentenciasRecibo(r, datos, cfg)).toThrow(/relevamiento R0c/)
+    const s = sentenciasRecibo(r, { ...datos, cuentas: { ...datos.cuentas } }, cfg)
+    const gva12 = s.find((x) => x.etiqueta === 'INSERT GVA12')!
+    expect(param(gva12.params, 'ESTADO')).toBe('CTA')
+    expect(param(gva12.params, 'ESTADO_UNI')).toBe('CTA')
+    expect(param(gva12.params, 'IMPORTE')).toBe(2000)
+    expect(s.filter((x) => x.etiqueta.startsWith('INSERT gva07'))).toHaveLength(2)
+    expect(param(s.find((x) => x.etiqueta === 'UPDATE GVA14 saldo')!.params, 'SALDO_CC')).toBe(3873642 - 2000)
+    expect(param(s.find((x) => x.etiqueta === 'INSERT SBA05 1111000 D')!.params, 'MONTO')).toBe(2000)
+    // Sin a cuenta sigue siendo IMP.
+    expect(param(sentenciasRecibo(reciboDeCobranza(payload, 'c', cfg), datos, cfg)[0].params, 'ESTADO')).toBe('IMP')
+    // A cuenta puro: recibo sin imputaciones, con tesorería y saldo del cliente.
+    const puro = reciboDeCobranza({ ...payload, importe: 300, aCuenta: 300, imputaciones: [], medios: { efectivo: 300, transferencia: 0, cheques: [], retenciones: [] } }, 'c', cfg)
+    const sp = sentenciasRecibo(puro, { ...datos, spEstados: 'dbo.P_COBRANZAESTADOSVENTAS', ids: { ...datos.ids, historial: [], asientoRenglones: [1, 2] } }, cfg)
+    expect(sp.map((x) => x.etiqueta)).toEqual(['INSERT GVA12', 'EXEC dbo.P_COBRANZAESTADOSVENTAS', 'UPDATE GVA14 saldo', 'INSERT SBA04', 'INSERT SBA05 1120001 H', 'INSERT SBA05 1111000 D', 'INSERT COMPROBANTE_COTIZACION_SB', 'UPDATE SBA01 saldo 1120001', 'UPDATE SBA01 saldo 1111000', 'INSERT ASIENTO_COMPROBANTE_SB', 'INSERT ASIENTO_SB 1120001', 'INSERT ASIENTO_SB 1111000'])
+  })
+})
+
+describe('saldo a favor aplicado (etapa 2, relevamiento 2026-09-08: imputación pura del recibo a cuenta a la factura)', () => {
+  const viejo = { reciboNumero: 'X0000100032835', idReciboTango: 372542, importe: 300 }
+  const datosApl: DatosRecibo = { ...datos, spEstados: 'dbo.P_COBRANZAESTADOSVENTAS', recibosACuenta: { X0000100032835: { idGva12: 372542, fecha: new Date(2026, 8, 4), disponible: 48400 } }, ids: { ...datos.ids, historial: [1, 2, 3] } }
+
+  it('planificarImputaciones: la plata nueva cubre primero y el saldo a favor después, en centavos exactos', () => {
+    const r = reciboDeCobranza({ ...payload, importe: 1500, medios: { efectivo: 1200, transferencia: 0, cheques: [], retenciones: [], aCuentaAplicado: [viejo] } }, 'c', cfg)
+    expect(r.importe).toBe(1200)
+    expect(r.aplicaciones).toEqual([{ nComp: 'X0000100032835', idGva12: 372542, importe: 300 }])
+    expect(planificarImputaciones(r).map((p) => [p.imp.nComp, p.origen === 'nuevo' ? 'nuevo' : p.origen.nComp, p.importe]))
+      .toEqual([['A0010100268582', 'nuevo', 1000], ['A0010100282315', 'nuevo', 200], ['A0010100282315', 'X0000100032835', 300]])
+  })
+  it('rechaza mezclar saldo a favor con a cuenta, aplicaciones sin recibo o que no cierran', () => {
+    expect(() => reciboDeCobranza({ ...payload, importe: 1800, aCuenta: 300, medios: { efectivo: 1500, transferencia: 0, cheques: [], retenciones: [], aCuentaAplicado: [viejo] } }, 'c', cfg)).toThrow(/usa saldo a favor y a la vez deja plata a cuenta/)
+    expect(() => reciboDeCobranza({ ...payload, importe: 1500, medios: { efectivo: 1200, transferencia: 0, cheques: [], retenciones: [], aCuentaAplicado: [{ importe: 300 }] } }, 'c', cfg)).toThrow(/sin número de recibo/)
+    expect(() => reciboDeCobranza({ ...payload, importe: 1500, medios: { efectivo: 1300, transferencia: 0, cheques: [], retenciones: [], aCuentaAplicado: [viejo] } }, 'c', cfg)).toThrow(/no cierra/)
+  })
+  it('con plata nueva: el recibo se graba como siempre y la parte aplicada va con el id y la fecha del recibo viejo y origen "Imputación de Comprobantes"', () => {
+    const r = reciboDeCobranza({ ...payload, importe: 1500, medios: { efectivo: 1200, transferencia: 0, cheques: [], retenciones: [], aCuentaAplicado: [viejo] } }, 'c', cfg)
+    const s = sentenciasRecibo(r, datosApl, cfg)
+    const etiquetas = s.map((x) => x.etiqueta)
+    expect(etiquetas.slice(0, 7)).toEqual(['INSERT GVA12', 'INSERT gva07 A0010100268582', 'INSERT HISTORIAL_CUENTAS_CORRIENTES A0010100268582', 'INSERT gva07 A0010100282315', 'INSERT HISTORIAL_CUENTAS_CORRIENTES A0010100282315', 'INSERT gva07 A0010100282315 ← X0000100032835', 'INSERT HISTORIAL_CUENTAS_CORRIENTES A0010100282315 ← X0000100032835'])
+    const apl = s[5].params
+    expect(param(apl, 'N_COMP_CAN')).toBe('X0000100032835')
+    expect(param(apl, 'ID_GVA12_CAN')).toBe(372542)
+    expect(param(apl, 'F_COMP_CAN')).toEqual(new Date(2026, 8, 4))
+    expect(param(apl, 'IMPORT_CAN')).toBe(300)
+    expect(param(s[6].params, 'ORIGEN')).toBe('Imputación de Comprobantes')
+    expect(param(s[4].params, 'ORIGEN')).toBe('Cobranzas')
+    expect(param(s[3].params, 'IMPORT_CAN')).toBe(200)
+    expect(param(s.find((x) => x.etiqueta === 'INSERT GVA12')!.params, 'IMPORTE')).toBe(1200)
+    expect(param(s.find((x) => x.etiqueta === 'UPDATE GVA14 saldo')!.params, 'SALDO_CC')).toBe(3873642 - 1200)
+  })
+  it('sin plata nueva: imputación pura — solo gva07 + historial + recálculo, nada de tesorería ni saldo del cliente', () => {
+    const r = reciboDeCobranza({ ...payload, importe: 300, imputaciones: [{ comprobanteTipo: 'FAC', comprobanteNumero: 'A0010100268582', importeImputado: 300 }],
+      medios: { efectivo: 0, transferencia: 0, cheques: [], retenciones: [], aCuentaAplicado: [viejo] } }, 'c', cfg)
+    expect(r.importe).toBe(0)
+    const s = sentenciasRecibo(r, datosApl, cfg)
+    expect(s.map((x) => x.etiqueta)).toEqual(['INSERT gva07 A0010100268582 ← X0000100032835', 'INSERT HISTORIAL_CUENTAS_CORRIENTES A0010100268582 ← X0000100032835', 'EXEC dbo.P_COBRANZAESTADOSVENTAS'])
+  })
+  it('al ejecutar la imputación pura: lee el recibo viejo y su disponible, pasa los ids de factura y recibo viejo al recálculo, y devuelve la etiqueta IMP', async () => {
+    const { db, ejecutadas, listas } = fakeDb()
+    const r = reciboDeCobranza({ ...payload, importe: 300, imputaciones: [{ comprobanteTipo: 'FAC', comprobanteNumero: 'A0010100268582', importeImputado: 300 }],
+      medios: { efectivo: 0, transferencia: 0, cheques: [], retenciones: [], aCuentaAplicado: [viejo] } }, 'c', cfg)
+    const res = await escribirRecibo(db, r, cfg)
+    expect(res).toEqual({ yaExistia: false, idGva12: null, nComp: 'IMP X0000100032835', nInternoSba04: null })
+    expect(ejecutadas.some((e) => e.startsWith('SELECT ID_GVA12, FECHA_EMIS, IMPORTE'))).toBe(true)
+    expect(ejecutadas.some((e) => e.startsWith('INSERT INTO "GVA12"'))).toBe(false)
+    expect(ejecutadas.some((e) => e.startsWith('INSERT INTO "SBA04"'))).toBe(false)
+    expect(listas).toEqual(['(350532, 372542)'])
+  })
+  it('si le aplican más de lo que el recibo viejo tiene a favor, frena con error claro; si ya estaba imputado, no reescribe', async () => {
+    const r = reciboDeCobranza({ ...payload, importe: 300, imputaciones: [{ comprobanteTipo: 'FAC', comprobanteNumero: 'A0010100268582', importeImputado: 300 }],
+      medios: { efectivo: 0, transferencia: 0, cheques: [], retenciones: [], aCuentaAplicado: [{ ...viejo, importe: 300 }] } }, 'c', cfg)
+    await expect(escribirRecibo(fakeDb({ disponibleViejo: 100 }).db, r, cfg)).rejects.toThrow(/tiene 100 a favor/)
+    const res = await escribirRecibo(fakeDb({ imputacionExiste: true }).db, r, cfg)
+    expect(res.yaExistia).toBe(true)
   })
 })
 

@@ -1210,6 +1210,7 @@ export async function generateReciboCobranzaSupervisor(cobranza: {
     transferencia: number
     cheques:       Array<{ numero: string; bancoNombre: string; fechaEmision: string; fechaAcreditacion: string; dias: number; importe: number }>
     retenciones:   Array<{ tipo: string; nroCertificado: string; importe: number }>
+    aCuentaAplicado?: Array<{ reciboNumero: string; importe: number }>
   }
   /** Parte de los valores que queda a cuenta (saldo a favor del cliente). */
   aCuenta?:      number
@@ -1298,6 +1299,9 @@ export async function generateReciboCobranzaSupervisor(cobranza: {
       `Certificado Nº ${r.nroCertificado}`,
       money(r.importe),
     ])
+  }
+  for (const a of cobranza.medios.aCuentaAplicado ?? []) {
+    filasMedios.push(['Saldo a favor aplicado', `Recibo a cuenta ${a.reciboNumero}`, money(a.importe)])
   }
   autoTable(doc, {
     startY: y,

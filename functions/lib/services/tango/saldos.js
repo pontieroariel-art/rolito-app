@@ -94,7 +94,9 @@ function descuentosDeCobranzas(cobranzas) {
         const imputaciones = Array.isArray(c.imputaciones) ? c.imputaciones : [];
         const empresa = (0, empresas_1.esEmpresa)(c.empresa) ? c.empresa : 'redonhielo';
         const aCuenta = comprobanteACuenta(c, empresa);
-        if (imputaciones.length === 0 && !aCuenta)
+        const medios = (c.medios ?? {});
+        const aplicaciones = Array.isArray(medios.aCuentaAplicado) ? medios.aCuentaAplicado : [];
+        if (imputaciones.length === 0 && !aCuenta && aplicaciones.length === 0)
             continue;
         if (!porCliente.has(c.clienteId))
             porCliente.set(c.clienteId, { porComprobante: new Map(), cobranzaIds: [], aCuenta: [] });
@@ -105,14 +107,20 @@ function descuentosDeCobranzas(cobranzas) {
             const cent = Math.round(Number(imp.importeImputado ?? 0) * 100);
             d.porComprobante.set(clave, (d.porComprobante.get(clave) ?? 0) + cent);
         }
+        // Saldo a favor aplicado: el recibo a cuenta (saldo negativo) se acerca a cero.
+        for (const a of aplicaciones) {
+            const clave = (0, exports.claveComprobante)(empresa, 'REC', String(a.reciboNumero ?? ''));
+            const cent = Math.round(Number(a.importe ?? 0) * 100);
+            d.porComprobante.set(clave, (d.porComprobante.get(clave) ?? 0) + cent);
+        }
         if (aCuenta)
             d.aCuenta.push(aCuenta);
     }
     return porCliente;
 }
 /** Resta los descuentos a los comprobantes (por empresa+tipo+número), descarta los que quedan en 0
- *  y agrega los recibos a cuenta pendientes (saldo negativo). Los comprobantes que ya vienen de
- *  Tango con saldo negativo (recibos a cuenta confirmados) se conservan tal cual. */
+ *  y agrega los recibos a cuenta pendientes (saldo negativo). Un descuento sobre un comprobante
+ *  de saldo negativo (recibo a cuenta al que se le aplicó saldo) lo acerca a cero. */
 function aplicarDescuentos(comprobantes, descuento) {
     if (!descuento || (descuento.porComprobante.size === 0 && descuento.aCuenta.length === 0))
         return comprobantes;
@@ -121,7 +129,9 @@ function aplicarDescuentos(comprobantes, descuento) {
         const cent = descuento.porComprobante.get((0, exports.claveComprobante)(c.empresa, c.tipo, c.numero));
         if (!cent)
             return c;
-        return { ...c, saldoPendiente: Math.max(0, Math.round(c.saldoPendiente * 100) - cent) / 100 };
+        const actual = Math.round(c.saldoPendiente * 100);
+        const nuevo = actual < 0 ? Math.min(0, actual + cent) : Math.max(0, actual - cent);
+        return { ...c, saldoPendiente: nuevo / 100 };
     })
         .filter((c) => c.saldoPendiente !== 0);
     const yaEstan = new Set(restados.map((c) => (0, exports.claveComprobante)(c.empresa, c.tipo, c.numero)));

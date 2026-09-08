@@ -132,7 +132,54 @@ export interface ReciboTango {
   retenciones: RetencionTango[]
   /** Parte del importe que no se imputa: queda a cuenta del cliente (saldo a favor). */
   aCuenta: number
+  /** Saldo a favor (recibos a cuenta que YA están en Tango) aplicado a las facturas de esta
+   *  cobranza. No es plata nueva: en Tango es una imputación (gva07 + historial "Imputación de
+   *  Comprobantes") del recibo viejo a la factura. `importe` NO lo incluye. */
+  aplicaciones: AplicacionTango[]
   leyenda: string                // ROLITO:<cobranzaId>
+}
+
+export interface AplicacionTango {
+  nComp: string          // recibo a cuenta en Tango ('X0000100032835')
+  idGva12?: number       // ID_GVA12 del recibo, si la app lo trae
+  importe: number
+}
+
+/** Aplicación de saldo a favor tal como la guarda la app (src/types.ts → AplicacionACuenta). */
+export interface AplicacionPayload {
+  reciboNumero?: string
+  idReciboTango?: number
+  importe?: number
+}
+
+/** Quién cancela cada factura: el recibo nuevo (plata de hoy) o un recibo a cuenta viejo. */
+export interface ImputacionPlaneada {
+  imp: ImputacionTango
+  /** 'nuevo' = el recibo de esta cobranza; si no, el recibo a cuenta que se aplica. */
+  origen: 'nuevo' | AplicacionTango
+  importe: number
+}
+
+/** Reparte cada factura imputada entre la plata nueva (primero) y los recibos a cuenta aplicados
+ *  (en orden), en centavos para que cierre exacto. Una factura puede quedar partida en dos filas. */
+export function planificarImputaciones(r: ReciboTango): ImputacionPlaneada[] {
+  const cent = (n: number) => Math.round(n * 100)
+  let nuevo = cent(r.importe) - cent(r.aCuenta)
+  const restos = r.aplicaciones.map((a) => ({ a, resto: cent(a.importe) }))
+  const out: ImputacionPlaneada[] = []
+  for (const imp of r.imputaciones) {
+    let falta = cent(imp.importe)
+    if (nuevo > 0 && falta > 0) { const x = Math.min(nuevo, falta); out.push({ imp, origen: 'nuevo', importe: x / 100 }); nuevo -= x; falta -= x }
+    for (const rr of restos) {
+      if (falta === 0) break
+      if (rr.resto <= 0) continue
+      const x = Math.min(rr.resto, falta); out.push({ imp, origen: rr.a, importe: x / 100 }); rr.resto -= x; falta -= x
+    }
+    if (falta !== 0) throw new Error(`la factura ${imp.nComp} queda sin cubrir por ${falta / 100}: los valores más el saldo a favor no alcanzan`)
+  }
+  const sobra = restos.find((rr) => rr.resto > 0)
+  if (sobra) throw new Error(`el saldo a favor del recibo ${sobra.a.nComp} se aplica de más (${sobra.resto / 100} sin factura)`)
+  return out
 }
 
 /** Retención tal como la guarda la app en cobranzas.medios.retenciones (src/types.ts → RetencionRecibida). */
@@ -162,8 +209,9 @@ export interface PayloadCobranza {
   importe?: number
   fecha?: unknown
   imputaciones?: { comprobanteTipo: string; comprobanteNumero: string; importeImputado: number }[]
-  medios?: { efectivo?: number; transferencia?: number; cheques?: ChequePayload[]; retenciones?: RetencionPayload[] }
-  /** Parte de los valores sin factura: queda a cuenta del cliente (2026-09-08). importe = Σ imputado + aCuenta. */
+  medios?: { efectivo?: number; transferencia?: number; cheques?: ChequePayload[]; retenciones?: RetencionPayload[]; aCuentaAplicado?: AplicacionPayload[] }
+  /** Parte de los valores sin factura: queda a cuenta del cliente (2026-09-08).
+   *  importe = Σ imputado + aCuenta = Σ medios (incluido el saldo a favor aplicado). */
   aCuenta?: number
   referenciaIdempotente?: string
 }
@@ -200,16 +248,29 @@ export function reciboDeCobranza(p: PayloadCobranza, cobranzaId: string, cfg: Co
     else throw new Error(`la cuenta de retenciones ${cuenta} coincide con otra cuenta de tesorería del recibo; revisar config/tango.sql.recibo.retenciones`)
   }
 
-  const importe = r2(Number(p.importe ?? 0))
+  // Saldo a favor aplicado (etapa 2): no es plata nueva, no va a tesorería.
+  const aplicaciones: AplicacionTango[] = (m.aCuentaAplicado ?? []).map((a, i) => {
+    const nComp = String(a.reciboNumero ?? '').trim()
+    const imp = r2(Number(a.importe ?? 0))
+    if (!nComp) throw new Error(`saldo a favor ${i + 1}: sin número de recibo`)
+    if (!(imp > 0)) throw new Error(`saldo a favor ${nComp}: importe inválido`)
+    return { nComp, ...(Number.isInteger(a.idReciboTango) ? { idGva12: Number(a.idReciboTango) } : {}), importe: imp }
+  })
+  const sumApl = r2(aplicaciones.reduce((s, a) => s + a.importe, 0))
+  if (sumApl > 0 && aCuenta > 0) throw new Error('la cobranza usa saldo a favor y a la vez deja plata a cuenta: no cierra')
+
+  const total = r2(Number(p.importe ?? 0))             // lo que dice la app: valores + saldo aplicado
   const sumImp = r2(imputaciones.reduce((s, i) => s + i.importe, 0))
-  const sumMed = r2(medios.reduce((s, x) => s + x.importe, 0))
-  if (r2(sumImp + aCuenta) !== importe || sumMed !== importe) throw new Error(`el recibo no cierra: importe ${importe}, imputado ${sumImp}, a cuenta ${aCuenta}, medios ${sumMed}`)
-  return {
+  const sumMed = r2(medios.reduce((s, x) => s + x.importe, 0))   // plata nueva (tesorería)
+  if (r2(sumImp + aCuenta) !== total || r2(sumMed + sumApl) !== total) throw new Error(`el recibo no cierra: importe ${total}, imputado ${sumImp}, a cuenta ${aCuenta}, medios ${sumMed}, saldo aplicado ${sumApl}`)
+  const r: ReciboTango = {
     numero, puntoVenta: cfg.puntoVenta,
     nComp: numeroComprobanteTango('X', cfg.puntoVenta, numero),
-    codCliente: p.clienteCodigoTango, fecha: fechaDe(p.fecha), importe, imputaciones, medios, cheques, retenciones, aCuenta,
+    codCliente: p.clienteCodigoTango, fecha: fechaDe(p.fecha), importe: sumMed, imputaciones, medios, cheques, retenciones, aCuenta, aplicaciones,
     leyenda: p.referenciaIdempotente ?? `ROLITO:${cobranzaId}`,
   }
+  planificarImputaciones(r)   // valida que cierre por factura
+  return r
 }
 
 function retencionDePayload(x: RetencionPayload, i: number, cfg: ConfigReciboSql): RetencionTango {
@@ -281,6 +342,8 @@ export interface DatosRecibo {
   spEstados?: string | null
   /** Por factura imputada: id, importe original y vencimiento (para gva07 / historial). */
   facturas: Record<string, { idGva12: number; importe: number; unidades: number; fechaVto: Date }>
+  /** Por recibo a cuenta aplicado (clave = N_COMP): id, fecha y cuánto le queda a cuenta en Tango. */
+  recibosACuenta?: Record<string, { idGva12: number; fecha: Date; disponible: number }>
   /** Por cuenta de tesorería: id y saldos actuales (para el UPDATE optimista de SBA01). */
   cuentas: Record<string, { idSba01: number; saldoAMo: number; saldoAUn: number; saldoAct: number }>
   nInternoSba04: number
@@ -288,6 +351,62 @@ export interface DatosRecibo {
 }
 
 const clave = (i: ImputacionTango) => `${i.tComp}|${i.nComp}`
+
+/** gva07 + HISTORIAL por cada fila del plan. Las del recibo nuevo llevan el marcador del ID_GVA12
+ *  (recién existe al ejecutar) y ORIGEN 'Cobranzas'; las de un recibo a cuenta viejo llevan su id,
+ *  su fecha y ORIGEN 'Imputación de Comprobantes' (así las graba la pantalla de imputaciones). */
+function sentenciasImputaciones(plan: ImputacionPlaneada[], r: ReciboTango, d: DatosRecibo, t: { fecha: Date; ahora: Date; usr: string; term: string }): SentenciaSql[] {
+  const out: SentenciaSql[] = []
+  plan.forEach((p, i) => {
+    const f = d.facturas[clave(p.imp)]
+    if (!f) throw new Error(`falta leer la factura ${p.imp.tComp} ${p.imp.nComp} de Tango`)
+    const viejo = p.origen === 'nuevo' ? null : d.recibosACuenta?.[p.origen.nComp]
+    if (p.origen !== 'nuevo' && !viejo) throw new Error(`falta leer el recibo a cuenta ${p.origen.nComp} de Tango`)
+    const comunes = [
+      datetime('FECHA_VTO', f.fechaVto),
+      datetime('F_COMP_CAN', viejo ? soloDia(viejo.fecha) : t.fecha),
+      numeric('IMPORTE_VT', f.importe),
+      numeric('IMPORT_CAN', p.importe),
+      bit('MISMO_CLIE', true),
+      varchar('N_COMP', p.imp.nComp, 14),
+      varchar('N_COMP_CAN', viejo ? (p.origen as AplicacionTango).nComp : r.nComp, 14),
+      varchar('T_COMP', p.imp.tComp, 3),
+      varchar('T_COMP_CAN', 'REC', 3),
+      numeric('IMP_CAN_UN', p.importe),
+      numeric('IMP_VT_UNI', f.unidades),
+      int('ID_GVA12_CAN', viejo ? viejo.idGva12 : -1),   // -1 = marcador: el ID del recibo nuevo al ejecutar
+    ]
+    const marcar = (s: SentenciaSql) => (viejo ? s : marcarIdRecibo(s))
+    const sufijo = viejo ? ` ← ${(p.origen as AplicacionTango).nComp}` : ''
+    out.push(marcar(insert(`INSERT gva07 ${p.imp.nComp}${sufijo}`, 'gva07', comunes, true)))
+    const idHist = d.ids.historial[i]
+    out.push(marcar(insert(`INSERT HISTORIAL_CUENTAS_CORRIENTES ${p.imp.nComp}${sufijo}`, 'HISTORIAL_CUENTAS_CORRIENTES', [
+      ...(idHist != null ? [int('ID_HISTORIAL_CUENTAS_CORRIENTES', idHist)] : []),
+      ...comunes,
+      varchar('ORIGEN', viejo ? 'Imputación de Comprobantes' : 'Cobranzas', 100),
+      varchar('OPERACION', 'A', 1),
+      datetime('FECHA', t.ahora),
+      varchar('USUARIO', t.usr, 120),
+      varchar('TERMINAL', t.term, 255),
+      { nombre: 'MOTIVO', tipo: { kind: 'text' }, valor: '' },
+      varchar('ESTADO', '', 3),
+      varchar('ESTADO_UNI', '', 3),
+      numeric('SALDO', 0),
+      numeric('SALDO_UNI', 0),
+    ])))
+  })
+  return out
+}
+
+/** Para una imputación pura (sin recibo nuevo): existe si ya hay una fila gva07 igual (factura ← recibo viejo, importe). */
+export function sentenciaExisteImputacion(p: ImputacionPlaneada): SentenciaSql {
+  const viejo = p.origen as AplicacionTango
+  return {
+    etiqueta: `SELECT gva07 existe ${p.imp.nComp} ← ${viejo.nComp}`,
+    sql: `SELECT ID_GVA07 FROM gva07 WHERE T_COMP = @T AND N_COMP = @N AND T_COMP_CAN = 'REC' AND N_COMP_CAN = @NC AND IMPORT_CAN = @IMP`,
+    params: [varchar('T', p.imp.tComp, 3), varchar('N', p.imp.nComp, 14), varchar('NC', viejo.nComp, 14), numeric('IMP', p.importe)],
+  }
+}
 
 export function sentenciaExisteRecibo(r: ReciboTango): SentenciaSql {
   return { etiqueta: 'SELECT GVA12 existe', sql: `SELECT ID_GVA12 FROM GVA12 WHERE T_COMP = 'REC' AND N_COMP = @N_COMP`, params: [varchar('N_COMP', r.nComp, 14)] }
@@ -297,18 +416,27 @@ export function sentenciaExisteRecibo(r: ReciboTango): SentenciaSql {
  *  obtiene al ejecutar el primer INSERT; las que lo necesitan usan el marcador
  *  `@ID_RECIBO`, que el ejecutor resuelve (ver escribirRecibo). */
 export function sentenciasRecibo(r: ReciboTango, d: DatosRecibo, cfg: ConfigReciboSql, ahora = new Date()): SentenciaSql[] {
-  // Se frena acá, con las sentencias sin armar, para que no quede nada escrito a medias:
-  // falta relevar cómo deja Tango un recibo con saldo a cuenta (GVA12.ESTADO, GVA46, historial).
-  // Desktop/Retenciones-R0c-recibo-a-cuenta.sql.
-  if (r.aCuenta > 0) throw new Error('el pago a cuenta todavía no se escribe en Tango (falta el relevamiento R0c del recibo a cuenta); el recibo queda en la cola')
   const fecha = soloDia(r.fecha)
   const hoy = soloDia(ahora)
   const hora = horaHHMMSS(ahora)
   const term = cfg.terminal.slice(0, 12)
   const usr = cfg.usuario.slice(0, 10)
   const out: SentenciaSql[] = []
+  const plan = planificarImputaciones(r)
+
+  // Sin plata nueva (solo saldo a favor aplicado): no hay recibo ni tesorería en Tango, es una
+  // IMPUTACIÓN pura (relevamiento 2026-09-08: gva07 + historial "Imputación de Comprobantes"
+  // + recálculo de estados; el saldo del cliente no cambia porque el recibo a cuenta ya lo bajó).
+  if (r.importe <= 0) {
+    if (!plan.length) throw new Error('la cobranza no tiene plata nueva ni saldo a favor aplicado')
+    out.push(...sentenciasImputaciones(plan, r, d, { fecha, ahora, usr, term }))
+    if (d.spEstados) out.push(marcarListaIds({ etiqueta: `EXEC ${d.spEstados}`, sql: `EXEC ${d.spEstados} @LISTAIDGVA12 = @LISTA`, params: [varchar('LISTA', '', -1)] }))
+    return out
+  }
 
   // 1. GVA12 — 39 columnas, mismos valores que la traza. NCOMP_IN_V 0 → trigger = ID_GVA12.
+  //    ESTADO 'CTA' si queda saldo a cuenta (relevamiento 2026-09-08), 'IMP' si se imputó todo.
+  const estadoRecibo = r.aCuenta > 0 ? 'CTA' : 'IMP'
   out.push(insert('INSERT GVA12', 'GVA12', [
     smallint('CANT_HOJAS', 1),
     varchar('CENT_STK', 'N', 1),
@@ -317,7 +445,7 @@ export function sentenciasRecibo(r: ReciboTango, d: DatosRecibo, cfg: ConfigReci
     varchar('COD_VENDED', cfg.codVendedor, 10),
     bit('CONTFISCAL', false),
     numeric('COTIZ', 1),
-    varchar('ESTADO', 'IMP', 3),
+    varchar('ESTADO', estadoRecibo, 3),
     datetime('FECHA_EMIS', fecha),
     numeric('IMPORTE', r.importe),
     bit('MON_CTE', true),
@@ -329,7 +457,7 @@ export function sentenciasRecibo(r: ReciboTango, d: DatosRecibo, cfg: ConfigReci
     varchar('TIPO_VEND', 'V', 1),
     varchar('T_COMP', 'REC', 3),
     numeric('UNIDADES', r.importe),
-    varchar('ESTADO_UNI', 'IMP', 3),
+    varchar('ESTADO_UNI', estadoRecibo, 3),
     varchar('HORA_COMP', hora, 6),
     varchar('AFEC_CIERR', 'N', 1),
     bit('REBAJA_DEB', true),
@@ -351,41 +479,8 @@ export function sentenciasRecibo(r: ReciboTango, d: DatosRecibo, cfg: ConfigReci
     varchar('USUARIO_DESCARGA_PDF', null, 120),
   ], true))
 
-  // 2 y 3. Por factura: imputación + historial.
-  r.imputaciones.forEach((imp, i) => {
-    const f = d.facturas[clave(imp)]
-    if (!f) throw new Error(`falta leer la factura ${imp.tComp} ${imp.nComp} de Tango`)
-    const comunes = [
-      datetime('FECHA_VTO', f.fechaVto),
-      datetime('F_COMP_CAN', fecha),
-      numeric('IMPORTE_VT', f.importe),
-      numeric('IMPORT_CAN', imp.importe),
-      bit('MISMO_CLIE', true),
-      varchar('N_COMP', imp.nComp, 14),
-      varchar('N_COMP_CAN', r.nComp, 14),
-      varchar('T_COMP', imp.tComp, 3),
-      varchar('T_COMP_CAN', 'REC', 3),
-      numeric('IMP_CAN_UN', imp.importe),
-      numeric('IMP_VT_UNI', f.unidades),
-      int('ID_GVA12_CAN', -1),   // marcador: se reemplaza por el ID del recibo al ejecutar
-    ]
-    out.push(marcarIdRecibo(insert(`INSERT gva07 ${imp.nComp}`, 'gva07', comunes, true)))
-    const idHist = d.ids.historial[i]
-    out.push(marcarIdRecibo(insert(`INSERT HISTORIAL_CUENTAS_CORRIENTES ${imp.nComp}`, 'HISTORIAL_CUENTAS_CORRIENTES', [
-      ...(idHist != null ? [int('ID_HISTORIAL_CUENTAS_CORRIENTES', idHist)] : []),
-      ...comunes,
-      varchar('ORIGEN', 'Cobranzas', 100),
-      varchar('OPERACION', 'A', 1),
-      datetime('FECHA', ahora),
-      varchar('USUARIO', usr, 120),
-      varchar('TERMINAL', term, 255),
-      { nombre: 'MOTIVO', tipo: { kind: 'text' }, valor: '' },
-      varchar('ESTADO', '', 3),
-      varchar('ESTADO_UNI', '', 3),
-      numeric('SALDO', 0),
-      numeric('SALDO_UNI', 0),
-    ])))
-  })
+  // 2 y 3. Por factura: imputación + historial (del recibo nuevo y de los recibos a cuenta aplicados).
+  out.push(...sentenciasImputaciones(plan, r, d, { fecha, ahora, usr, term }))
 
   // 3b. Recalcular estados (factura PEN→CAN, vencimientos PEN→PAG, recibo CTA/IMP).
   //     NO lo hace un trigger: la pantalla de Cobranzas llama al procedimiento
@@ -634,6 +729,35 @@ export async function leerDatosRecibo(db: EjecutorSql, r: ReciboTango, cfg: Conf
     facturas[clave(imp)] = { idGva12: f[0].ID_GVA12, importe: Number(f[0].IMPORTE), unidades: Number(f[0].UNIDADES), fechaVto }
   }
 
+  // Recibos a cuenta aplicados: tienen que ser del mismo cliente y tener saldo a cuenta suficiente
+  // (IMPORTE menos lo que ya se les imputó en gva07).
+  const recibosACuenta: NonNullable<DatosRecibo['recibosACuenta']> = {}
+  for (const a of r.aplicaciones) {
+    const q = await db.query<{ ID_GVA12: number; FECHA_EMIS: Date; IMPORTE: number; COD_CLIENT: string; ESTADO: string }>(
+      `SELECT ID_GVA12, FECHA_EMIS, IMPORTE, COD_CLIENT, ESTADO FROM GVA12 WHERE T_COMP = 'REC' AND N_COMP = @N`, [varchar('N', a.nComp, 14)],
+    )
+    if (!q.length) throw new Error(`el recibo a cuenta ${a.nComp} no existe en Tango`)
+    if (q[0].COD_CLIENT.trim() !== r.codCliente) throw new Error(`el recibo a cuenta ${a.nComp} es del cliente ${q[0].COD_CLIENT}, no de ${r.codCliente}`)
+    if (String(q[0].ESTADO).trim() === 'ANU') throw new Error(`el recibo a cuenta ${a.nComp} está anulado en Tango`)
+    const s = await db.query<{ S: number | null }>(`SELECT ISNULL(SUM(IMPORT_CAN), 0) AS S FROM gva07 WHERE T_COMP_CAN = 'REC' AND N_COMP_CAN = @N`, [varchar('N', a.nComp, 14)])
+    const disponible = r2(Number(q[0].IMPORTE) - Number(s[0]?.S ?? 0))
+    if (a.importe > disponible + 0.005) throw new Error(`el recibo a cuenta ${a.nComp} tiene ${disponible} a favor y se le quieren aplicar ${a.importe}`)
+    recibosACuenta[a.nComp] = { idGva12: q[0].ID_GVA12, fecha: new Date(q[0].FECHA_EMIS), disponible }
+  }
+
+  const conRecibo = r.importe > 0
+  const nPlan = planificarImputaciones(r).length
+  if (!conRecibo) {
+    // Imputación pura: no hay tesorería ni contadores de recibo.
+    const ids: IdsRecibo = { historial: [], cotizacion: null, asientoComprobante: null, asientoRenglones: [] }
+    for (let i = 0; i < nPlan; i++) ids.historial.push(identity.has('HISTORIAL_CUENTAS_CORRIENTES') ? null : await siguiente(db, 'HISTORIAL_CUENTAS_CORRIENTES', 'ID_HISTORIAL_CUENTAS_CORRIENTES'))
+    const sp0 = await db.query<{ ID: number | null }>(`SELECT OBJECT_ID('dbo.P_COBRANZAESTADOSVENTAS', 'P') AS ID`)
+    return {
+      cliente: { idGva14: c.ID_GVA14, saldoCc: Number(c.SALDO_CC), saldoDoc: Number(c.SALDO_DOC), saldoDUn: Number(c.SALDO_D_UN), saldoCcU: Number(c.SALDO_CC_U) },
+      facturas, recibosACuenta, cuentas: {}, nInternoSba04: 0, ids, spEstados: sp0[0]?.ID != null ? 'dbo.P_COBRANZAESTADOSVENTAS' : null,
+    }
+  }
+
   const cuentas: DatosRecibo['cuentas'] = {}
   for (const cod of [cfg.cuentas.contracuenta, ...r.medios.map((m) => m.cuenta)]) {
     const q = await db.query<{ ID_SBA01: number; SALDO_A_MO: number; SALDO_A_UN: number; SALDO_ACT: number }>(
@@ -690,13 +814,13 @@ export async function leerDatosRecibo(db: EjecutorSql, r: ReciboTango, cfg: Conf
     asientoComprobante: identity.has('ASIENTO_COMPROBANTE_SB') ? null : await siguiente(db, 'ASIENTO_COMPROBANTE_SB', 'ID_ASIENTO_COMPROBANTE_SB'),
     asientoRenglones: [],
   }
-  for (let i = 0; i < r.imputaciones.length; i++) ids.historial.push(identity.has('HISTORIAL_CUENTAS_CORRIENTES') ? null : await siguiente(db, 'HISTORIAL_CUENTAS_CORRIENTES', 'ID_HISTORIAL_CUENTAS_CORRIENTES'))
+  for (let i = 0; i < nPlan; i++) ids.historial.push(identity.has('HISTORIAL_CUENTAS_CORRIENTES') ? null : await siguiente(db, 'HISTORIAL_CUENTAS_CORRIENTES', 'ID_HISTORIAL_CUENTAS_CORRIENTES'))
   const nRenglones = 1 + r.medios.length
   for (let i = 0; i < nRenglones; i++) ids.asientoRenglones.push(identity.has('ASIENTO_SB') ? null : await siguiente(db, 'ASIENTO_SB', 'ID_ASIENTO_SB'))
 
   return {
     cliente: { idGva14: c.ID_GVA14, saldoCc: Number(c.SALDO_CC), saldoDoc: Number(c.SALDO_DOC), saldoDUn: Number(c.SALDO_D_UN), saldoCcU: Number(c.SALDO_CC_U), ...cliCheques },
-    facturas, cuentas, nInternoSba04, ids, cheques, nroSucursalCheques, spEstados,
+    facturas, recibosACuenta, cuentas, nInternoSba04, ids, cheques, nroSucursalCheques, spEstados,
   }
 }
 
@@ -753,11 +877,28 @@ export interface ResultadoReciboSql {
 }
 
 export async function escribirRecibo(db: EjecutorSql, r: ReciboTango, cfg: ConfigReciboSql, log: (m: string) => void = () => undefined): Promise<ResultadoReciboSql> {
-  const ex = sentenciaExisteRecibo(r)
-  const existe = await db.query<{ ID_GVA12: number }>(ex.sql, ex.params)
-  if (existe.length) {
-    log(`recibo ${r.nComp} ya estaba en Tango (ID_GVA12 ${existe[0].ID_GVA12}); no se reescribe`)
-    return { yaExistia: true, idGva12: existe[0].ID_GVA12, nComp: r.nComp, nInternoSba04: null }
+  const conRecibo = r.importe > 0
+  // Etiqueta que vuelve a la app como "número en Tango": el recibo, o la imputación de los recibos a cuenta usados.
+  const etiqueta = conRecibo ? r.nComp : `IMP ${r.aplicaciones.map((a) => a.nComp).join('+')}`
+  if (conRecibo) {
+    const ex = sentenciaExisteRecibo(r)
+    const existe = await db.query<{ ID_GVA12: number }>(ex.sql, ex.params)
+    if (existe.length) {
+      log(`recibo ${r.nComp} ya estaba en Tango (ID_GVA12 ${existe[0].ID_GVA12}); no se reescribe`)
+      return { yaExistia: true, idGva12: existe[0].ID_GVA12, nComp: r.nComp, nInternoSba04: null }
+    }
+  } else {
+    // Imputación pura: ya existe si TODAS sus filas gva07 están (factura ← recibo viejo, mismo importe).
+    const plan = planificarImputaciones(r)
+    let todas = plan.length > 0
+    for (const p of plan) {
+      const ex = sentenciaExisteImputacion(p)
+      if (!(await db.query<{ ID_GVA07: number }>(ex.sql, ex.params)).length) { todas = false; break }
+    }
+    if (todas) {
+      log(`la imputación ${etiqueta} ya estaba en Tango; no se reescribe`)
+      return { yaExistia: true, idGva12: null, nComp: etiqueta, nInternoSba04: null }
+    }
   }
   const identity = await tablasConIdentity(db)
   const datos = await leerDatosRecibo(db, r, cfg, identity)
@@ -770,14 +911,18 @@ export async function escribirRecibo(db: EjecutorSql, r: ReciboTango, cfg: Confi
       if (s.necesitaIdRecibo && p.nombre === 'ID_GVA12_CAN') return { ...p, valor: idGva12 }
       if (s.necesitaIdAsiento && p.nombre === 'ID_ASIENTO_COMPROBANTE_SB') return { ...p, valor: idAsiento }
       if (s.necesitaListaIds && p.nombre === 'LISTA') {
-        const ids = [...r.imputaciones.map((imp) => datos.facturas[clave(imp)]?.idGva12).filter((x): x is number => x != null), ...(idGva12 != null ? [idGva12] : [])]
+        const ids = [
+          ...r.imputaciones.map((imp) => datos.facturas[clave(imp)]?.idGva12).filter((x): x is number => x != null),
+          ...(idGva12 != null ? [idGva12] : []),
+          ...r.aplicaciones.map((a) => datos.recibosACuenta?.[a.nComp]?.idGva12).filter((x): x is number => x != null),
+        ]
         return { ...p, valor: `(${ids.join(', ')})` }
       }
       if (s.vinculaCheque != null && p.nombre === 'ID_SBA14') return { ...p, valor: idSba14PorCheque.get(s.vinculaCheque) ?? null }
       if (s.cuentaCartera != null && p.nombre === 'ID_SBA05') return { ...p, valor: idSba05PorCuenta.get(s.cuentaCartera) ?? null }
       return p
     })
-    if ((s.necesitaIdRecibo || s.necesitaListaIds) && idGva12 == null) throw new Error('no se obtuvo el ID_GVA12 del recibo')
+    if ((s.necesitaIdRecibo || (s.necesitaListaIds && conRecibo)) && idGva12 == null) throw new Error('no se obtuvo el ID_GVA12 del recibo')
     if (s.vinculaCheque != null && (params.find((p) => p.nombre === 'ID_SBA14')?.valor == null || params.find((p) => p.nombre === 'ID_SBA05')?.valor == null)) {
       throw new Error(`${s.etiqueta}: no se obtuvo el ID_SBA14 del cheque o el ID_SBA05 del renglón de cartera ${s.cuentaCartera}`)
     }
@@ -790,7 +935,7 @@ export async function escribirRecibo(db: EjecutorSql, r: ReciboTango, cfg: Confi
     if (s.chequeIdx != null && filas[0]?.ID != null) idSba14PorCheque.set(s.chequeIdx, Number(filas[0].ID))
     if (s.etiqueta.startsWith('UPDATE') && filas[0]?.affected === 0) throw new Error(`${s.etiqueta}: el saldo cambió mientras se grababa el recibo; se reintenta`)
   }
-  const res: ResultadoReciboSql = { yaExistia: false, idGva12, nComp: r.nComp, nInternoSba04: datos.nInternoSba04 }
+  const res: ResultadoReciboSql = { yaExistia: false, idGva12, nComp: etiqueta, nInternoSba04: conRecibo ? datos.nInternoSba04 : null }
   if (r.cheques.length) res.cheques = r.cheques.map((c, i) => ({ numero: c.numero, idSba14: idSba14PorCheque.get(i) ?? null, nInterno: datos.cheques?.[i]?.nInterno ?? null }))
   return res
 }

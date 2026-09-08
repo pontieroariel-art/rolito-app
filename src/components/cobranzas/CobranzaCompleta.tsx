@@ -23,7 +23,7 @@ import { haceCuanto } from '@/pages/supervisor/SupervisorClientesPage'
 import { EMPRESAS_TANGO, NOMBRE_EMPRESA, estaVinculadoATango, tangoIdsDe } from '@/utils/tangoEmpresas'
 import { agruparPorEmpresaYCodigo, claveComp, empresaDe, grupoDe, mismoGrupo, type GrupoRecibo } from '@/utils/composicionSaldos'
 import { nombreSucursal } from '@/utils/sucursalesTango'
-import { ChequeRecibido, Cobranza, ComprobanteSaldoTango, EmpresaTango, ImputacionFactura, PlantaId, RetencionRecibida } from '@/types'
+import { AplicacionACuenta, ChequeRecibido, Cobranza, ComprobanteSaldoTango, EmpresaTango, ImputacionFactura, PlantaId, RetencionRecibida } from '@/types'
 
 const inputClass = 'w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'
 
@@ -135,9 +135,24 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
   // El grupo del recibo: el de las facturas marcadas o, sin facturas, el elegido para el a cuenta.
   const grupoRecibo: GrupoRecibo | null = grupoSeleccionado ?? grupoACuenta
 
+  // Saldo a favor (recibos a cuenta ya en Tango) que se aplica a las facturas de este recibo:
+  // se marca como una factura más, pero suma del lado de los valores (etapa 2, 2026-09-08).
+  const aplicaciones: AplicacionACuenta[] = useMemo(() => {
+    return comprobantes
+      .filter((c) => c.saldoPendiente < 0 && filas[claveComp(c)]?.seleccionada)
+      .map((c) => ({
+        reciboNumero: c.numero,
+        ...(typeof c.idComprobanteTango === 'number' ? { idReciboTango: c.idComprobanteTango } : {}),
+        importe: parseImporte(filas[claveComp(c)].importeStr),
+      }))
+  }, [comprobantes, filas])
+  const aplicadoCent = sumaCentavos(aplicaciones.map((a) => a.importe))
+  const aplicacionInvalida = comprobantes.some((c) => c.saldoPendiente < 0 && filas[claveComp(c)]?.seleccionada
+    && (aCentavos(parseImporte(filas[claveComp(c)].importeStr)) <= 0 || aCentavos(parseImporte(filas[claveComp(c)].importeStr)) > -aCentavos(c.saldoPendiente)))
+
   const imputaciones: ImputacionFactura[] = useMemo(() => {
     return comprobantes
-      .filter((c) => filas[claveComp(c)]?.seleccionada)
+      .filter((c) => c.saldoPendiente > 0 && filas[claveComp(c)]?.seleccionada)
       .map((c) => ({
         comprobanteTipo:   c.tipo,
         comprobanteNumero: c.numero,
@@ -152,12 +167,15 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
     aCentavos(parseImporte(efectivoStr)) +
     aCentavos(parseImporte(transferenciaStr)) +
     sumaCentavos(cheques.map((c) => c.importe)) +
-    sumaCentavos(retenciones.map((r) => r.importe))
+    sumaCentavos(retenciones.map((r) => r.importe)) +
+    aplicadoCent
   // Lo imputado nunca supera los valores; si sobran valores, la diferencia queda A CUENTA
   // del cliente (decisión de Ariel 2026-09-08: siempre, cualquier medio, también choferes).
   const faltanCent  = Math.max(0, totalImputadoCent - totalMediosCent)
   const aCuentaCent = Math.max(0, totalMediosCent - totalImputadoCent)
-  const seccionValores = imputaciones.length > 0 || !!grupoACuenta
+  // Usar saldo a favor y a la vez dejar plata a cuenta no tiene sentido (y en Tango no cierra).
+  const mezclaACuenta = aplicadoCent > 0 && aCuentaCent > 0
+  const seccionValores = imputaciones.length > 0 || aplicaciones.length > 0 || !!grupoACuenta
 
   // Facturas del mismo grupo que quedan sin marcar mientras sobra plata: se avisa, no se frena.
   const sinImputar = useMemo(() => {
@@ -171,7 +189,12 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
 
   const toggleFila = (c: ComprobanteSaldoTango) => {
     const clave = claveComp(c)
-    if (c.saldoPendiente <= 0) return   // saldo a favor (recibo a cuenta): no se imputa desde acá (etapa 2)
+    if (c.saldoPendiente === 0) return
+    // Saldo a favor: solo se puede aplicar si el recibo ya está en Tango (trae su ID).
+    if (c.saldoPendiente < 0 && typeof c.idComprobanteTango !== 'number') {
+      setError('Ese saldo a favor todavía no está confirmado en Tango: se puede usar cuando entre.')
+      return
+    }
     if (grupoSeleccionado && !mismoGrupo(grupoSeleccionado, grupoDe(c))) {
       setError(`Un recibo cobra facturas de una sola empresa${variosCodigos(empresaDe(c)) ? ' y un solo código de cliente' : ''}. Emití este recibo y después hacé otro para ${NOMBRE_EMPRESA[empresaDe(c)]}.`)
       return
@@ -180,7 +203,7 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
     setFilas((prev) => {
       const actual = prev[clave]
       if (actual?.seleccionada) return { ...prev, [clave]: { ...actual, seleccionada: false } }
-      return { ...prev, [clave]: { seleccionada: true, importeStr: actual?.importeStr || String(c.saldoPendiente).replace('.', ',') } }
+      return { ...prev, [clave]: { seleccionada: true, importeStr: actual?.importeStr || String(Math.abs(c.saldoPendiente)).replace('.', ',') } }
     })
   }
 
@@ -189,8 +212,10 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
     if (!cliente)                 { setError('Elegí el cliente que paga.'); return }
     if (!grupoRecibo)             { setError('Marcá al menos una factura a cobrar, o elegí en qué empresa queda a cuenta.'); return }
     if (imputacionInvalida)       { setError('Hay una imputación en cero o mayor al saldo de la factura.'); return }
+    if (aplicacionInvalida)       { setError('Hay un saldo a favor aplicado en cero o mayor al disponible.'); return }
     if (totalMediosCent === 0)    { setError('Cargá al menos un medio de pago.'); return }
     if (faltanCent > 0)           { setError(`Faltan ${formatoARS(faltanCent / 100)} en valores para cubrir lo imputado.`); return }
+    if (mezclaACuenta)            { setError('Estás usando saldo a favor y dejando plata a cuenta a la vez. Bajá el saldo aplicado o marcá más facturas.'); return }
     setModal('confirmar')
   }
 
@@ -218,6 +243,7 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
             transferencia: parseImporte(transferenciaStr),
             cheques,
             retenciones,
+            ...(aplicaciones.length ? { aCuentaAplicado: aplicaciones } : {}),
           },
         },
         { uid: user.uid, nombre: user.nombre, ...(depositoUsuario ? { depositoTango: depositoUsuario.codigo } : {}) },
@@ -329,15 +355,39 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
                   const importeFila = seleccionada ? parseImporte(fila.importeStr) : 0
                   const excedida = seleccionada && aCentavos(importeFila) > aCentavos(c.saldoPendiente)
                   const parcial = seleccionada && !excedida && aCentavos(importeFila) > 0 && aCentavos(importeFila) < aCentavos(c.saldoPendiente)
-                  // Saldo a favor (recibo a cuenta, propio o de Tango): se muestra, no se imputa desde acá.
+                  // Saldo a favor (recibo a cuenta): se puede APLICAR a las facturas de este recibo
+                  // si ya está en Tango; si todavía es de la app, se muestra y nada más.
                   if (c.saldoPendiente < 0) {
+                    const enTango = typeof c.idComprobanteTango === 'number'
+                    const disponible = -c.saldoPendiente
+                    const aplicado = seleccionada ? parseImporte(fila.importeStr) : 0
+                    const excedido = seleccionada && aCentavos(aplicado) > aCentavos(disponible)
                     return (
-                      <div key={clave} className="bg-amber-50 rounded-xl border border-amber-200 p-3 flex items-center justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-amber-800 truncate">A cuenta · {c.tipo} {c.numero}</p>
-                          <p className="text-xs text-amber-700">Saldo a favor del cliente{c.fechaEmision ? ` · ${c.fechaEmision}` : ''}. Lo imputa la oficina en Tango.</p>
-                        </div>
-                        <p className="text-sm font-semibold text-amber-800 shrink-0">{formatoARS(c.saldoPendiente)}</p>
+                      <div key={clave} className={`rounded-xl border p-3 ${seleccionada ? 'bg-amber-50 border-accent' : 'bg-amber-50 border-amber-200'}`}>
+                        <button type="button" onClick={() => toggleFila(c)} className="w-full text-left" aria-disabled={apagado || !enTango}>
+                          <div className="flex items-center gap-2">
+                            {enTango && <input type="checkbox" readOnly checked={seleccionada} className="accent-[#1D9E75] pointer-events-none" />}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-amber-800 truncate">Saldo a favor · {c.tipo} {c.numero}</p>
+                              <p className="text-xs text-amber-700">
+                                {c.fechaEmision ? `${c.fechaEmision} · ` : ''}{enTango ? 'Tocá para usarlo en este recibo.' : 'Todavía no está en Tango.'}
+                              </p>
+                            </div>
+                            <p className="text-sm font-semibold text-amber-800 shrink-0">{formatoARS(c.saldoPendiente)}</p>
+                          </div>
+                        </button>
+                        {seleccionada && (
+                          <div className="mt-2 pl-6">
+                            <label className="text-xs text-amber-800 mb-1 block">Importe a aplicar de este saldo a favor</label>
+                            <input
+                              value={fila.importeStr}
+                              onChange={(e) => setFilas((prev) => ({ ...prev, [clave]: { ...prev[clave], importeStr: e.target.value } }))}
+                              inputMode="decimal"
+                              className={`${inputClass} ${excedido ? 'border-red-400' : ''}`}
+                            />
+                            {excedido && <p className="text-xs text-red-500 mt-1">Mayor al saldo a favor disponible.</p>}
+                          </div>
+                        )}
                       </div>
                     )
                   }
@@ -391,7 +441,7 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
           </section>
 
           {/* ── Pago a cuenta sin factura (2026-09-08) ── */}
-          {imputaciones.length === 0 && !cargandoSaldo && gruposPosibles.length > 0 && (
+          {imputaciones.length === 0 && aplicaciones.length === 0 && !cargandoSaldo && gruposPosibles.length > 0 && (
             <section className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-3 space-y-2">
               <p className="text-sm font-medium text-gray-900">Cobrar a cuenta, sin imputar factura</p>
               <p className="text-xs text-gray-500">La plata queda como saldo a favor del cliente en Tango, para imputar a sus próximas facturas.</p>
@@ -482,10 +532,19 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
                   <span>Imputado a facturas</span>
                   <span className="font-semibold">{formatoARS(totalImputadoCent / 100)}</span>
                 </div>
+                {aplicadoCent > 0 && (
+                  <div className="flex justify-between text-sm text-gray-700 mt-1">
+                    <span>Saldo a favor aplicado</span>
+                    <span className="font-semibold">{formatoARS(aplicadoCent / 100)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm text-gray-700 mt-1">
-                  <span>Valores recibidos</span>
+                  <span>{aplicadoCent > 0 ? 'Valores recibidos + saldo aplicado' : 'Valores recibidos'}</span>
                   <span className="font-semibold">{formatoARS(totalMediosCent / 100)}</span>
                 </div>
+                {mezclaACuenta && (
+                  <p className="text-sm font-semibold mt-2 text-red-500">Estás usando saldo a favor y dejando plata a cuenta a la vez: bajá el saldo aplicado.</p>
+                )}
                 {faltanCent > 0 && (
                   <p className="text-sm font-semibold mt-2 text-red-500">Faltan {formatoARS(faltanCent / 100)} en valores</p>
                 )}
@@ -513,7 +572,7 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
       )}
 
       {cliente && seccionValores && (
-        <Button onClick={abrirConfirmacion} disabled={faltanCent > 0 || imputacionInvalida || totalMediosCent === 0} className="w-full">
+        <Button onClick={abrirConfirmacion} disabled={faltanCent > 0 || imputacionInvalida || aplicacionInvalida || mezclaACuenta || totalMediosCent === 0} className="w-full">
           <ReceiptText size={16} className="mr-2" /> Emitir recibo
         </Button>
       )}
@@ -560,6 +619,7 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
               {parseImporte(transferenciaStr) > 0 && <li>Transferencia: {formatoARS(parseImporte(transferenciaStr))}</li>}
               {cheques.map((ch, i) => <li key={i}>Cheque {ch.numero} ({ch.bancoNombre}): {formatoARS(ch.importe)}</li>)}
               {retenciones.map((r, i) => <li key={i}>{RETENCION_LABELS[r.tipo]}: {formatoARS(r.importe)}</li>)}
+              {aplicaciones.map((a, i) => <li key={`ac${i}`}>Saldo a favor aplicado (recibo {a.reciboNumero}): {formatoARS(a.importe)}</li>)}
             </ul>
             <p className="text-xs text-gray-500">El registro es definitivo e impacta en la cuenta corriente de Tango.</p>
             {retenciones.length > 0 && (

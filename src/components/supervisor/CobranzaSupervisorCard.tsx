@@ -131,6 +131,9 @@ export function CobranzaSupervisorCard({ c, sinSubir = false }: { c: Cobranza; s
                 {c.medios.retenciones.map((r, i) => (
                   <li key={i} className="flex justify-between gap-2"><span className="truncate">{RETENCION_LABELS[r.tipo]} · cert. {r.nroCertificado}</span><span className="shrink-0">{formatoARS(r.importe)}</span></li>
                 ))}
+                {(c.medios.aCuentaAplicado ?? []).map((a, i) => (
+                  <li key={`ac${i}`} className="flex justify-between gap-2"><span className="truncate">Saldo a favor aplicado · recibo {a.reciboNumero}</span><span className="shrink-0">{formatoARS(a.importe)}</span></li>
+                ))}
                 <li className="flex justify-between font-semibold text-gray-900 pt-1"><span>Total</span><span>{formatoARS(c.importe)}</span></li>
               </ul>
             )}

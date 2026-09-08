@@ -377,6 +377,14 @@ export interface MediosPago {
   transferencia: number
   cheques:       ChequeRecibido[]
   retenciones:   RetencionRecibida[]
+  /** Saldo a favor del cliente (recibos a cuenta ya en Tango) que se aplica a las facturas de este
+   *  recibo, sin plata nueva (2026-09-08, etapa 2 del pago a cuenta). En Tango es una imputación. */
+  aCuentaAplicado?: AplicacionACuenta[]
+}
+export interface AplicacionACuenta {
+  reciboNumero:    string   // nº del recibo en Tango ('X0000100032835')
+  idReciboTango?:  number   // ID_GVA12 del recibo
+  importe:         number
 }
 
 export interface Cobranza {

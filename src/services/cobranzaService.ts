@@ -33,11 +33,13 @@ export async function crearCobranzaCompleta(
   destino: { origen: OrigenCobranzaCompleta; plantaId?: PlantaId },
 ): Promise<Cobranza> {
   const totalImputado = sumaCentavos(args.imputaciones.map((i) => i.importeImputado))
+  const aplicado = sumaCentavos((args.medios.aCuentaAplicado ?? []).map((a) => a.importe))
   const totalMedios =
     aCentavos(args.medios.efectivo) +
     aCentavos(args.medios.transferencia) +
     sumaCentavos(args.medios.cheques.map((c) => c.importe)) +
-    sumaCentavos(args.medios.retenciones.map((r) => r.importe))
+    sumaCentavos(args.medios.retenciones.map((r) => r.importe)) +
+    aplicado
 
   // Los valores pueden superar lo imputado: la diferencia queda A CUENTA del cliente
   // (saldo a favor en Tango; decisión de Ariel 2026-09-08: siempre, cualquier medio,
@@ -47,6 +49,10 @@ export async function crearCobranzaCompleta(
     throw new CobranzaDescuadradaError('Lo imputado a facturas supera los valores recibidos.')
   }
   const aCuenta = totalMedios - totalImputado
+  if (aplicado > 0 && aCuenta > 0) throw new CobranzaDescuadradaError('No se puede usar saldo a favor y dejar plata a cuenta en el mismo recibo.')
+  if ((args.medios.aCuentaAplicado ?? []).some((a) => aCentavos(a.importe) <= 0 || !a.reciboNumero)) {
+    throw new CobranzaDescuadradaError('Hay un saldo a favor aplicado en cero o sin recibo.')
+  }
   if (args.imputaciones.some((i) => aCentavos(i.importeImputado) <= 0 || aCentavos(i.importeImputado) > aCentavos(i.saldoAlMomento))) {
     throw new CobranzaDescuadradaError('Hay una imputación en cero o mayor al saldo de la factura.')
   }

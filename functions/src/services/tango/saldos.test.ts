@@ -116,6 +116,18 @@ describe('descuentos de cobranzas pendientes', () => {
     expect(conRec.filter((c) => c.tipo === 'REC' && c.empresa === 'redonhielo')).toHaveLength(1)
   })
 
+  it('saldo a favor aplicado (etapa 2): el recibo a cuenta de Tango se acerca a cero y la factura baja', () => {
+    const d = descuentosDeCobranzas([{ id: 'c11', clienteId: 'u4', empresa: 'redonhielo',
+      imputaciones: [{ comprobanteTipo: 'FAC', comprobanteNumero: '9', importeImputado: 70 }],
+      medios: { efectivo: 20, transferencia: 0, cheques: [], retenciones: [], aCuentaAplicado: [{ reciboNumero: 'X0000100032835', idReciboTango: 372542, importe: 50 }] } }]).get('u4')!
+    const rec = { ...comp('redonhielo', 'X0000100032835', -80), tipo: 'REC' }
+    const res = aplicarDescuentos([comp('redonhielo', '9', 100), rec], d)
+    expect(res.map((c) => [c.tipo, c.numero, c.saldoPendiente])).toEqual([['FAC', '9', 30], ['REC', 'X0000100032835', -30]])
+    // Aplicado completo → el recibo a cuenta desaparece.
+    const d2 = descuentosDeCobranzas([{ id: 'c12', clienteId: 'u4', empresa: 'redonhielo', imputaciones: [], medios: { aCuentaAplicado: [{ reciboNumero: 'X0000100032835', importe: 80 }] } }]).get('u4')!
+    expect(aplicarDescuentos([rec], d2)).toEqual([])
+  })
+
   it('descontarCobranza con a cuenta suma el negativo al saldo de la empresa', () => {
     const doc = fusionarRamaEmpresa(undefined, 'redonhielo', [comp('redonhielo', '1', 100)], { runId: 'r1', origen: 'sync' })
     const r = descontarCobranza(doc, { id: 'c10', empresa: 'redonhielo', imputaciones: [{ comprobanteTipo: 'FAC', comprobanteNumero: '1', importeImputado: 100 }], aCuenta: 25, numeroRecibo: 'RS-000191' })!
