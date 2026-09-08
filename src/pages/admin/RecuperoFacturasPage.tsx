@@ -51,7 +51,17 @@ function caesGuardados(): Record<string, Guardado> {
   try { return JSON.parse(localStorage.getItem(CLAVE_CAES) ?? '{}') } catch { return {} }
 }
 
-const numero = (s: string) => Number(String(s ?? '').replace(/\./g, '').replace(',', '.')) || 0
+// Importes tipeados a mano: "14.644,04", "14644,04" y "14644.04" valen lo mismo.
+// Un solo punto con hasta 2 decimales es decimal; si no, el punto separa miles.
+export function numero(s: string | number): number {
+  const t = String(s ?? '').trim()
+  if (!t) return 0
+  if (t.includes(',')) return Number(t.replace(/\./g, '').replace(',', '.')) || 0
+  const puntos = (t.match(/\./g) ?? []).length
+  if (puntos === 1 && /\.\d{1,2}$/.test(t)) return Number(t) || 0
+  return Number(t.replace(/\./g, '')) || 0
+}
+const textoImporte = (n: number) => n.toFixed(2).replace('.', ',')
 
 /** Alícuota que corresponde a un importe de percepción sobre el neto, con 2 decimales. */
 const alicuotaDe = (perc: number, neto: number) => (neto > 0 && perc > 0 ? Math.round((perc / neto) * 10000) / 100 : 0)
@@ -154,8 +164,8 @@ export default function RecuperoFacturasPage() {
         const previo = guardados[claveDe(factura)]
         // Percepción CABA: lo guardado, o lo que le falta al total (el PDF de Tango no la imprime).
         const percDetectada = percepcionCabaFaltante(factura)
-        const percCaba = previo?.percCaba || (percDetectada ? String(percDetectada) : '')
-        const percCabaAlic = previo?.percCabaAlic || (percDetectada ? String(alicuotaDe(percDetectada, factura.totales.netoGravado)) : '')
+        const percCaba = previo?.percCaba || (percDetectada ? textoImporte(percDetectada) : '')
+        const percCabaAlic = previo?.percCabaAlic || (percDetectada ? String(alicuotaDe(percDetectada, factura.totales.netoGravado)).replace('.', ',') : '')
         const item: Item = {
           id: claveDe(factura),
           archivo: archivo.name,
@@ -193,7 +203,7 @@ export default function RecuperoFacturasPage() {
       if (i.id !== id) return i
       const actualizado: Item = { ...i, [campo]: campo === 'cae' ? valor.replace(/\D/g, '').slice(0, 14) : valor }
       // Al cambiar el importe de la percepción se recalcula la alícuota (se puede pisar a mano después).
-      if (campo === 'percCaba' && actualizado.factura) actualizado.percCabaAlic = String(alicuotaDe(numero(valor), actualizado.factura.totales.netoGravado) || '')
+      if (campo === 'percCaba' && actualizado.factura) actualizado.percCabaAlic = String(alicuotaDe(numero(valor), actualizado.factura.totales.netoGravado) || '').replace('.', ',')
       if (actualizado.factura) actualizado.avisos = verificarFactura(facturaCompleta(actualizado))
       if (caeValido(actualizado)) guardarCae(id, actualizado.cae, actualizado.caeVto, actualizado.percCaba, actualizado.percCabaAlic)
       return actualizado
