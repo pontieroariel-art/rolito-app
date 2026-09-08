@@ -12,7 +12,7 @@ import { useAuth } from '@/context/AuthContext'
 import { archivarFactura, getFacturaArchivada } from '@/services/facturasArchivadasService'
 import { reportError } from '@/services/observability'
 import { extractPdfItems } from '@/utils/parsePdf'
-import { parsearFacturaTango, verificarFactura } from '@/utils/facturaTango'
+import { parsearFacturaTango, percepcionCabaFaltante, verificarFactura } from '@/utils/facturaTango'
 import { generateFacturaPdf, FacturaPdfData } from '@/utils/facturaPdf'
 import { claveFactura } from '@/utils/facturaClave'
 import { NOMBRE_EMPRESA } from '@/utils/tangoEmpresas'
@@ -26,6 +26,11 @@ interface Item {
   error?:   string
   cae:      string
   caeVto:   string      // YYYY-MM-DD
+  // Percepción de IIBB CABA (2026-09-08): el PDF de Tango no imprime ese
+  // renglón, así que se precarga con lo que le falta al total y se puede
+  // corregir a mano. Importe en pesos y alícuota en %.
+  percCaba:     string
+  percCabaAlic: string
   generando?: boolean
   // "Guardar en la app" (2026-09-07): el PDF con CAE queda en Storage para que
   // el supervisor lo comparta con el cliente desde la composición de saldos.
@@ -41,16 +46,34 @@ const claveDe = (f: FacturaPdfData) =>
 
 const CLAVE_CAES = 'rolito-recupero-caes'
 
-function caesGuardados(): Record<string, { cae: string; caeVto: string }> {
+interface Guardado { cae: string; caeVto: string; percCaba?: string; percCabaAlic?: string }
+function caesGuardados(): Record<string, Guardado> {
   try { return JSON.parse(localStorage.getItem(CLAVE_CAES) ?? '{}') } catch { return {} }
+}
+
+const numero = (s: string) => Number(String(s ?? '').replace(/\./g, '').replace(',', '.')) || 0
+
+/** Alícuota que corresponde a un importe de percepción sobre el neto, con 2 decimales. */
+const alicuotaDe = (perc: number, neto: number) => (neto > 0 && perc > 0 ? Math.round((perc / neto) * 10000) / 100 : 0)
+
+/** La factura leída más lo que se cargó a mano: CAE, vencimiento y percepción de IIBB CABA. */
+function facturaCompleta(item: Item): FacturaPdfData {
+  const f = item.factura!
+  const perc = numero(item.percCaba)
+  return {
+    ...f,
+    cae: item.cae,
+    caeVto: new Date(Number(item.caeVto.slice(0, 4)), Number(item.caeVto.slice(5, 7)) - 1, Number(item.caeVto.slice(8, 10))),
+    totales: { ...f.totales, percIibbCaba: perc, percIibbCabaAlic: numero(item.percCabaAlic) || alicuotaDe(perc, f.totales.netoGravado) },
+  }
 }
 
 // Los CAE tipeados sobreviven a un refresh: son 100 y pico de números de 14
 // dígitos copiados a mano, perderlos a mitad de camino duele.
-function guardarCae(clave: string, cae: string, caeVto: string) {
+function guardarCae(clave: string, cae: string, caeVto: string, percCaba = '', percCabaAlic = '') {
   try {
     const todos = caesGuardados()
-    todos[clave] = { cae, caeVto }
+    todos[clave] = { cae, caeVto, percCaba, percCabaAlic }
     localStorage.setItem(CLAVE_CAES, JSON.stringify(todos))
   } catch { /* modo privado: se sigue trabajando sin recordar */ }
 }
@@ -88,12 +111,7 @@ export default function RecuperoFacturasPage() {
     if (!item.factura || !caeValido(item) || !user) return false
     setItems((p) => p.map((i) => (i.id === item.id ? { ...i, archivando: true } : i)))
     try {
-      const datos = {
-        ...item.factura,
-        cae: item.cae,
-        caeVto: new Date(Number(item.caeVto.slice(0, 4)), Number(item.caeVto.slice(5, 7)) - 1, Number(item.caeVto.slice(8, 10))),
-        descargar: false,
-      }
+      const datos = { ...facturaCompleta(item), descargar: false }
       const blob = (await generateFacturaPdf(datos)) as Blob
       await archivarFactura(empresa, datos, blob, { uid: user.uid, nombre: user.nombre })
       setItems((p) => p.map((i) => (i.id === item.id ? { ...i, archivada: true } : i)))
@@ -134,21 +152,29 @@ export default function RecuperoFacturasPage() {
       try {
         const factura = parsearFacturaTango(await extractPdfItems(archivo))
         const previo = guardados[claveDe(factura)]
-        nuevos.push({
+        // Percepción CABA: lo guardado, o lo que le falta al total (el PDF de Tango no la imprime).
+        const percDetectada = percepcionCabaFaltante(factura)
+        const percCaba = previo?.percCaba ?? (percDetectada ? String(percDetectada) : '')
+        const percCabaAlic = previo?.percCabaAlic ?? (percDetectada ? String(alicuotaDe(percDetectada, factura.totales.netoGravado)) : '')
+        const item: Item = {
           id: claveDe(factura),
           archivo: archivo.name,
           factura,
-          avisos: verificarFactura(factura),
+          avisos: [],
           cae: previo?.cae ?? '',
           caeVto: previo?.caeVto ?? '',
-        })
+          percCaba, percCabaAlic,
+        }
+        item.avisos = verificarFactura(facturaCompleta(item))
+        if (percDetectada && !previo?.percCaba) item.avisos.push(`Percepción IIBB CABA precargada con ${money(percDetectada)} (lo que faltaba para llegar al total): revisala.`)
+        nuevos.push(item)
       } catch (err) {
         nuevos.push({
           id: `error-${archivo.name}-${nuevos.length}`,
           archivo: archivo.name,
           avisos: [],
           error: err instanceof Error ? err.message : String(err),
-          cae: '', caeVto: '',
+          cae: '', caeVto: '', percCaba: '', percCabaAlic: '',
         })
       }
     }
@@ -162,11 +188,14 @@ export default function RecuperoFacturasPage() {
     void marcarArchivadas(nuevos, empresa)
   }, [empresa, marcarArchivadas])
 
-  const editar = (id: string, campo: 'cae' | 'caeVto', valor: string) => {
+  const editar = (id: string, campo: 'cae' | 'caeVto' | 'percCaba' | 'percCabaAlic', valor: string) => {
     setItems((previos) => previos.map((i) => {
       if (i.id !== id) return i
-      const actualizado = { ...i, [campo]: campo === 'cae' ? valor.replace(/\D/g, '').slice(0, 14) : valor }
-      if (caeValido(actualizado)) guardarCae(id, actualizado.cae, actualizado.caeVto)
+      const actualizado: Item = { ...i, [campo]: campo === 'cae' ? valor.replace(/\D/g, '').slice(0, 14) : valor }
+      // Al cambiar el importe de la percepción se recalcula la alícuota (se puede pisar a mano después).
+      if (campo === 'percCaba' && actualizado.factura) actualizado.percCabaAlic = String(alicuotaDe(numero(valor), actualizado.factura.totales.netoGravado) || '')
+      if (actualizado.factura) actualizado.avisos = verificarFactura(facturaCompleta(actualizado))
+      if (caeValido(actualizado)) guardarCae(id, actualizado.cae, actualizado.caeVto, actualizado.percCaba, actualizado.percCabaAlic)
       return actualizado
     }))
   }
@@ -175,15 +204,7 @@ export default function RecuperoFacturasPage() {
     if (!item.factura || !caeValido(item)) return
     setItems((p) => p.map((i) => (i.id === item.id ? { ...i, generando: true } : i)))
     try {
-      await generateFacturaPdf({
-        ...item.factura,
-        cae: item.cae,
-        caeVto: new Date(
-          Number(item.caeVto.slice(0, 4)),
-          Number(item.caeVto.slice(5, 7)) - 1,
-          Number(item.caeVto.slice(8, 10)),
-        ),
-      })
+      await generateFacturaPdf(facturaCompleta(item))
     } finally {
       setItems((p) => p.map((i) => (i.id === item.id ? { ...i, generando: false } : i)))
     }
@@ -345,6 +366,9 @@ export default function RecuperoFacturasPage() {
                   <div className="flex flex-wrap gap-4 text-xs text-gray-600">
                     <span>Neto <b className="font-mono tabular-nums text-gray-900">{money(f.totales.netoGravado)}</b></span>
                     <span>IVA {f.totales.ivaAlic}% <b className="font-mono tabular-nums text-gray-900">{money(f.totales.iva)}</b></span>
+                    {numero(item.percCaba) > 0 && (
+                      <span>Perc. IIBB CABA {item.percCabaAlic || '?'}% <b className="font-mono tabular-nums text-gray-900">{money(numero(item.percCaba))}</b></span>
+                    )}
                     <span>Total <b className="font-mono text-sm tabular-nums text-gray-900">{money(f.totales.total)}</b></span>
                   </div>
 
@@ -384,6 +408,29 @@ export default function RecuperoFacturasPage() {
                       className="rounded-lg border border-[#D3D1C7] px-3 py-2 text-sm text-gray-900 focus:border-[#1D9E75] focus:outline-none focus:ring-1 focus:ring-[#1D9E75]"
                     />
                   </label>
+
+                  <div className="grid grid-cols-[1fr_88px] gap-2">
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Perc. IIBB CABA ($)</span>
+                      <input
+                        value={item.percCaba}
+                        onChange={(e) => editar(item.id, 'percCaba', e.target.value)}
+                        inputMode="decimal"
+                        placeholder="0,00"
+                        className="rounded-lg border border-[#D3D1C7] px-3 py-2 font-mono text-sm text-gray-900 focus:border-[#1D9E75] focus:outline-none focus:ring-1 focus:ring-[#1D9E75]"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Alíc. %</span>
+                      <input
+                        value={item.percCabaAlic}
+                        onChange={(e) => editar(item.id, 'percCabaAlic', e.target.value)}
+                        inputMode="decimal"
+                        placeholder="0"
+                        className="rounded-lg border border-[#D3D1C7] px-3 py-2 font-mono text-sm text-gray-900 focus:border-[#1D9E75] focus:outline-none focus:ring-1 focus:ring-[#1D9E75]"
+                      />
+                    </label>
+                  </div>
 
                   <button
                     type="button"

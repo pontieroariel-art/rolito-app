@@ -248,9 +248,23 @@ export function verificarFactura(f: FacturaPdfData): string[] {
   if (Math.abs(cent(suma) - cent(f.totales.netoGravado)) > 1) {
     avisos.push(`Los renglones suman ${money(suma)} pero el neto dice ${money(f.totales.netoGravado)}`)
   }
-  const calculado = f.totales.netoGravado + f.totales.iva
+  const calculado = f.totales.netoGravado + f.totales.iva + (f.totales.percIibbCaba || 0) + (f.totales.percIibbBa || 0)
   if (Math.abs(cent(calculado) - cent(f.totales.total)) > 1) {
-    avisos.push(`Neto + IVA da ${money(calculado)} pero el total dice ${money(f.totales.total)}`)
+    const diff = f.totales.total - calculado
+    avisos.push(
+      `Neto + IVA${f.totales.percIibbCaba ? ' + percepción' : ''} da ${money(calculado)} pero el total dice ${money(f.totales.total)}`
+      + (diff > 0 && !f.totales.percIibbCaba ? `. La diferencia (${money(diff)}) suele ser la percepción de IIBB CABA, que el PDF de Tango no trae: cargala a mano.` : ''),
+    )
   }
   return avisos
+}
+
+/**
+ * Percepción de IIBB CABA que le falta a la factura leída de Tango: lo que
+ * sobra del total una vez restados neto e IVA (el PDF de Tango no imprime el
+ * renglón de la percepción, 2026-09-08). 0 si el total ya cierra.
+ */
+export function percepcionCabaFaltante(f: FacturaPdfData): number {
+  const diff = f.totales.total - f.totales.netoGravado - f.totales.iva - (f.totales.percIibbBa || 0)
+  return diff > 0.01 ? Math.round(diff * 100) / 100 : 0
 }
