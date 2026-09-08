@@ -105,7 +105,7 @@ describe('sentenciasRemito', () => {
 })
 
 // Fake de la base: responde a cada consulta según su texto y registra lo ejecutado.
-function fakeDb(opts: { existe?: boolean; stockCambia?: boolean } = {}) {
+function fakeDb(opts: { existe?: boolean; stockCambia?: boolean; sinDireccion?: boolean } = {}) {
   const ejecutadas: string[] = []
   const db: EjecutorSql = {
     async query<T>(sql: string, params: ParametroSql[] = []): Promise<T[]> {
@@ -113,7 +113,7 @@ function fakeDb(opts: { existe?: boolean; stockCambia?: boolean } = {}) {
       const r = (rows: unknown[]) => rows as T[]
       if (sql.startsWith('SELECT ID_STA14, NCOMP_IN_S')) return r(opts.existe ? [{ ID_STA14: 99, NCOMP_IN_S: '00407000' }] : [])
       if (sql.startsWith('SELECT ID_GVA14, COND_VTA')) return r([{ ID_GVA14: 8465, COND_VTA: 2 }])
-      if (sql.startsWith('SELECT TOP 1 ID_DIRECCION_ENTREGA')) return r([{ ID_DIRECCION_ENTREGA: 8470, NRO_SUCURSAL: 2 }])
+      if (sql.startsWith('SELECT TOP 1 ID_DIRECCION_ENTREGA')) return r(opts.sinDireccion ? [] : [{ ID_DIRECCION_ENTREGA: 8470 }])
       if (sql.includes('INCREMENTAL_VALUE') && sql.startsWith('SELECT')) return r([])
       if (sql.startsWith('SELECT MAX(NCOMP_IN_S)')) return r([{ MAXN: '00407669' }])
       if (sql.startsWith('SELECT ID_MEDIDA_STOCK')) return r([{ ID_MEDIDA_STOCK: 17, ID_MEDIDA_VENTAS: 17 }])

@@ -118,17 +118,17 @@ async function leerDatosRemito(db, r) {
     const cli = await db.query(`SELECT ID_GVA14, COND_VTA FROM GVA14 WHERE COD_GVA14 = @COD`, [(0, tipos_1.varchar)('COD', r.codCliente, 6)]);
     if (!cli.length)
         throw new Error(`cliente ${r.codCliente} no existe en Tango`);
-    // (*) Dirección de entrega habitual del cliente. Tango la graba en STA14 (8470 en la traza).
-    let idDireccionEntrega = null;
-    let nroSucursalDestino = 0;
-    try {
-        const dir = await db.query(`SELECT TOP 1 ID_DIRECCION_ENTREGA, NRO_SUCURSAL FROM DIRECCION_ENTREGA WHERE ID_GVA14 = @ID ORDER BY CASE WHEN HABITUAL = 'S' THEN 0 ELSE 1 END, ID_DIRECCION_ENTREGA`, [(0, tipos_1.int)('ID', cli[0].ID_GVA14)]);
-        if (dir.length) {
-            idDireccionEntrega = dir[0].ID_DIRECCION_ENTREGA;
-            nroSucursalDestino = Number(dir[0].NRO_SUCURSAL ?? 0);
-        }
-    }
-    catch { /* si la tabla se llama distinto, queda NULL y lo revisamos en la prueba */ }
+    // Dirección de entrega habitual del cliente (STA14.ID_DIRECCION_ENTREGA; 8470 en
+    // la traza). Tango la exige al facturar desde el remito: sin ella tira "No hay
+    // un domicilio de entrega con el id: 0" (2026-09-08). La tabla NO tiene
+    // NRO_SUCURSAL (la consulta anterior lo pedía, fallaba y el catch dejaba NULL
+    // en TODOS los remitos): se lee solo el id, y si el cliente no tiene ninguna
+    // dirección cargada el remito no se escribe, para que el error se vea en la cola.
+    const dir = await db.query(`SELECT TOP 1 ID_DIRECCION_ENTREGA FROM DIRECCION_ENTREGA WHERE ID_GVA14 = @ID ORDER BY CASE WHEN HABITUAL = 'S' THEN 0 ELSE 1 END, ID_DIRECCION_ENTREGA`, [(0, tipos_1.int)('ID', cli[0].ID_GVA14)]);
+    if (!dir.length)
+        throw new Error(`el cliente ${r.codCliente} no tiene dirección de entrega cargada en Tango (DIRECCION_ENTREGA): cargarla en la ficha y reintentar`);
+    const idDireccionEntrega = dir[0].ID_DIRECCION_ENTREGA;
+    const nroSucursalDestino = 0;
     const ncompInS = await (0, comun_1.siguienteNcompInS)(db, 'RE');
     // Artículos: unidades de medida y stock actual en el depósito.
     const articulos = {};

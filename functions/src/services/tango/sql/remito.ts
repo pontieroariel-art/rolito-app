@@ -165,16 +165,19 @@ export async function leerDatosRemito(db: EjecutorSql, r: RemitoTango): Promise<
   )
   if (!cli.length) throw new Error(`cliente ${r.codCliente} no existe en Tango`)
 
-  // (*) Dirección de entrega habitual del cliente. Tango la graba en STA14 (8470 en la traza).
-  let idDireccionEntrega: number | null = null
-  let nroSucursalDestino = 0
-  try {
-    const dir = await db.query<{ ID_DIRECCION_ENTREGA: number; NRO_SUCURSAL: number | null }>(
-      `SELECT TOP 1 ID_DIRECCION_ENTREGA, NRO_SUCURSAL FROM DIRECCION_ENTREGA WHERE ID_GVA14 = @ID ORDER BY CASE WHEN HABITUAL = 'S' THEN 0 ELSE 1 END, ID_DIRECCION_ENTREGA`,
-      [int('ID', cli[0].ID_GVA14)],
-    )
-    if (dir.length) { idDireccionEntrega = dir[0].ID_DIRECCION_ENTREGA; nroSucursalDestino = Number(dir[0].NRO_SUCURSAL ?? 0) }
-  } catch { /* si la tabla se llama distinto, queda NULL y lo revisamos en la prueba */ }
+  // Dirección de entrega habitual del cliente (STA14.ID_DIRECCION_ENTREGA; 8470 en
+  // la traza). Tango la exige al facturar desde el remito: sin ella tira "No hay
+  // un domicilio de entrega con el id: 0" (2026-09-08). La tabla NO tiene
+  // NRO_SUCURSAL (la consulta anterior lo pedía, fallaba y el catch dejaba NULL
+  // en TODOS los remitos): se lee solo el id, y si el cliente no tiene ninguna
+  // dirección cargada el remito no se escribe, para que el error se vea en la cola.
+  const dir = await db.query<{ ID_DIRECCION_ENTREGA: number }>(
+    `SELECT TOP 1 ID_DIRECCION_ENTREGA FROM DIRECCION_ENTREGA WHERE ID_GVA14 = @ID ORDER BY CASE WHEN HABITUAL = 'S' THEN 0 ELSE 1 END, ID_DIRECCION_ENTREGA`,
+    [int('ID', cli[0].ID_GVA14)],
+  )
+  if (!dir.length) throw new Error(`el cliente ${r.codCliente} no tiene dirección de entrega cargada en Tango (DIRECCION_ENTREGA): cargarla en la ficha y reintentar`)
+  const idDireccionEntrega = dir[0].ID_DIRECCION_ENTREGA
+  const nroSucursalDestino = 0
 
   const ncompInS = await siguienteNcompInS(db, 'RE')
 
