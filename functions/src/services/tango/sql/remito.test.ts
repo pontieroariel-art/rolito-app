@@ -149,3 +149,28 @@ describe('escribirRemito', () => {
     await expect(escribirRemito(db, r, cfg)).rejects.toThrow(/stock cambió/)
   })
 })
+
+describe('artículo sin fila de saldo en el depósito (cambio que el camión nunca cargó)', () => {
+  it('crea la fila STA19 con el egreso en vez de abortar el remito', () => {
+    const datos: DatosRemito = {
+      ncompInS: '00407670', condVta: 2, idDireccionEntrega: 8470, nroSucursalDestino: 0,
+      articulos: {
+        PTHIBOLROLI0003: { idMedidaStock: 17, idMedidaVentas: 17, stockActual: 120 },
+        CAMBIOHIELO3KG:  { idMedidaStock: 17, idMedidaVentas: 17, stockActual: null },
+      },
+    }
+    const remito = {
+      numero: 106, puntoVenta: 1105, nComp: 'R0110500000106', codCliente: 'FC.609', codDeposito: '21', fecha: new Date(2026, 8, 8),
+      renglones: [{ codArticu: 'PTHIBOLROLI0003', cantidad: 90 }, { codArticu: 'CAMBIOHIELO3KG', cantidad: 1 }],
+      observacion: 'ROLITO:VC:x',
+    }
+    const cfg: ConfigRemitoSql = { talonario: 1105, puntoVenta: 1105, codigoTransporte: '01', usuario: 'ROLITO', terminal: 'APP' }
+    const s = sentenciasRemito(remito, datos, cfg)
+    expect(s.map((x) => x.etiqueta)).toEqual([
+      'INSERT STA14', 'INSERT STA20 PTHIBOLROLI0003', 'INSERT STA20 CAMBIOHIELO3KG',
+      'UPDATE STA19 stock PTHIBOLROLI0003', 'INSERT STA19 stock CAMBIOHIELO3KG',
+    ])
+    const ins = s.find((x) => x.etiqueta === 'INSERT STA19 stock CAMBIOHIELO3KG')!
+    expect(ins.params.find((p) => p.nombre === 'CANT_STOCK')?.valor).toBe(-1)
+  })
+})

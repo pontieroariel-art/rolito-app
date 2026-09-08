@@ -104,7 +104,12 @@ function sentenciasRemito(r, datos, cfg, ahora = new Date()) {
     // 3. Stock del depósito, con la misma concurrencia optimista de Tango.
     for (const ren of r.renglones) {
         const art = datos.articulos[ren.codArticu];
-        out.push((0, comun_1.updateSta19)(`UPDATE STA19 stock ${ren.codArticu}`, ren.codArticu, r.codDeposito, art.stockActual, -ren.cantidad));
+        // Sin fila de saldo en el depósito (artículo de cambio que el camión nunca cargó,
+        // 2026-09-08 CAMBIOHIELO3KG en el depósito 21): se crea con el egreso, igual que
+        // hace el writer de transferencias. Antes esto abortaba el remito.
+        out.push(art.stockActual === null
+            ? (0, comun_1.insertSta19)(`INSERT STA19 stock ${ren.codArticu}`, ren.codArticu, r.codDeposito, -ren.cantidad)
+            : (0, comun_1.updateSta19)(`UPDATE STA19 stock ${ren.codArticu}`, ren.codArticu, r.codDeposito, art.stockActual, -ren.cantidad));
     }
     return out;
 }
@@ -135,8 +140,6 @@ async function leerDatosRemito(db, r) {
     for (const ren of r.renglones) {
         const art = await (0, comun_1.leerArticulo)(db, ren.codArticu);
         const stockActual = await (0, comun_1.leerStock)(db, ren.codArticu, r.codDeposito);
-        if (stockActual === null)
-            throw new Error(`el artículo ${ren.codArticu} no tiene saldo de stock en el depósito ${r.codDeposito} (STA19)`);
         articulos[ren.codArticu] = { ...art, stockActual };
     }
     return { ncompInS, condVta: Number(cli[0].COND_VTA ?? 0), idDireccionEntrega, nroSucursalDestino, articulos };

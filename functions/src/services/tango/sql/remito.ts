@@ -29,7 +29,7 @@
 import type { PayloadVenta } from '../pedido'
 import { type EjecutorSql, type SentenciaSql, type ParametroSql, varchar, int, numeroComprobanteTango } from './tipos'
 import {
-  fechaDePayload, renglonesDeItems, siguienteNcompInS, cabeceraSta14, renglonSta20, updateSta19,
+  fechaDePayload, renglonesDeItems, siguienteNcompInS, cabeceraSta14, renglonSta20, updateSta19, insertSta19,
   leerArticulo, leerStock, type RenglonStock,
 } from './comun'
 
@@ -56,7 +56,8 @@ export interface DatosRemito {
   idDireccionEntrega: number | null
   nroSucursalDestino: number
   /** Por artículo: unidades de medida y stock actual en el depósito (para el UPDATE optimista). */
-  articulos: Record<string, { idMedidaStock: number; idMedidaVentas: number; stockActual: number }>
+  /** stockActual null = el artículo no tiene fila de saldo en el depósito (se crea con el egreso, como en las transferencias). */
+  articulos: Record<string, { idMedidaStock: number; idMedidaVentas: number; stockActual: number | null }>
 }
 
 export type RenglonRemito = RenglonStock
@@ -148,7 +149,12 @@ export function sentenciasRemito(r: RemitoTango, datos: DatosRemito, cfg: Config
   // 3. Stock del depósito, con la misma concurrencia optimista de Tango.
   for (const ren of r.renglones) {
     const art = datos.articulos[ren.codArticu]!
-    out.push(updateSta19(`UPDATE STA19 stock ${ren.codArticu}`, ren.codArticu, r.codDeposito, art.stockActual, -ren.cantidad))
+    // Sin fila de saldo en el depósito (artículo de cambio que el camión nunca cargó,
+    // 2026-09-08 CAMBIOHIELO3KG en el depósito 21): se crea con el egreso, igual que
+    // hace el writer de transferencias. Antes esto abortaba el remito.
+    out.push(art.stockActual === null
+      ? insertSta19(`INSERT STA19 stock ${ren.codArticu}`, ren.codArticu, r.codDeposito, -ren.cantidad)
+      : updateSta19(`UPDATE STA19 stock ${ren.codArticu}`, ren.codArticu, r.codDeposito, art.stockActual, -ren.cantidad))
   }
   return out
 }
@@ -186,7 +192,6 @@ export async function leerDatosRemito(db: EjecutorSql, r: RemitoTango): Promise<
   for (const ren of r.renglones) {
     const art = await leerArticulo(db, ren.codArticu)
     const stockActual = await leerStock(db, ren.codArticu, r.codDeposito)
-    if (stockActual === null) throw new Error(`el artículo ${ren.codArticu} no tiene saldo de stock en el depósito ${r.codDeposito} (STA19)`)
     articulos[ren.codArticu] = { ...art, stockActual }
   }
 
