@@ -130,7 +130,7 @@ export default function RecuperoFacturasPage() {
     setAvisoArchivo('')
     let ok = 0
     try {
-      for (const item of items.filter((i) => listo(i) && !i.archivada)) if (await guardarEnApp(item)) ok++
+      for (const item of items.filter(listo)) if (await guardarEnApp(item)) ok++
       setAvisoArchivo((a) => a || `${ok} ${ok === 1 ? 'factura guardada' : 'facturas guardadas'} en la app (${NOMBRE_EMPRESA[empresa]}).`)
     } finally {
       setArchivandoTodas(false)
@@ -154,8 +154,8 @@ export default function RecuperoFacturasPage() {
         const previo = guardados[claveDe(factura)]
         // Percepción CABA: lo guardado, o lo que le falta al total (el PDF de Tango no la imprime).
         const percDetectada = percepcionCabaFaltante(factura)
-        const percCaba = previo?.percCaba ?? (percDetectada ? String(percDetectada) : '')
-        const percCabaAlic = previo?.percCabaAlic ?? (percDetectada ? String(alicuotaDe(percDetectada, factura.totales.netoGravado)) : '')
+        const percCaba = previo?.percCaba || (percDetectada ? String(percDetectada) : '')
+        const percCabaAlic = previo?.percCabaAlic || (percDetectada ? String(alicuotaDe(percDetectada, factura.totales.netoGravado)) : '')
         const item: Item = {
           id: claveDe(factura),
           archivo: archivo.name,
@@ -233,7 +233,9 @@ export default function RecuperoFacturasPage() {
           <p className="mt-2 text-xs text-gray-500">
             Los PDF se leen y se generan en esta computadora. Con <b>Guardar en la app</b> la factura
             regenerada (con CAE) queda guardada para que los supervisores se la manden al cliente
-            desde la composición de saldos.
+            desde la composición de saldos. Se puede volver a cargar una factura ya hecha (por ejemplo
+            para agregarle la percepción de IIBB CABA): el CAE queda recordado en esta computadora y
+            al guardarla de nuevo reemplaza a la anterior.
           </p>
           <label className="mt-3 inline-flex items-center gap-2 text-sm text-gray-700">
             Empresa que emitió estas facturas:
@@ -298,11 +300,11 @@ export default function RecuperoFacturasPage() {
               </button>
               <button
                 type="button"
-                disabled={items.filter((i) => listo(i) && !i.archivada).length === 0 || archivandoTodas}
+                disabled={cantidadListas === 0 || archivandoTodas}
                 onClick={guardarTodasEnApp}
                 className="flex items-center gap-1.5 rounded-lg border border-[#1D9E75] bg-white px-4 py-2 text-sm font-semibold text-[#146E51] hover:bg-[#F0F8F5] disabled:opacity-40"
               >
-                <CloudUpload className="h-4 w-4" /> {archivandoTodas ? 'Guardando…' : 'Guardar todas en la app'}
+                <CloudUpload className="h-4 w-4" /> {archivandoTodas ? 'Guardando…' : items.some((i) => i.archivada) ? 'Guardar todas en la app (reemplaza)' : 'Guardar todas en la app'}
               </button>
             </div>
           </div>
@@ -453,7 +455,7 @@ export default function RecuperoFacturasPage() {
                     {item.archivando
                       ? 'Guardando…'
                       : item.archivada
-                        ? <><Check className="h-4 w-4" /> Guardada en la app</>
+                        ? <><Check className="h-4 w-4" /> Guardada · volver a guardar</>
                         : <><CloudUpload className="h-4 w-4" /> Guardar en la app</>}
                   </button>
                 </div>
