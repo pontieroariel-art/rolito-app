@@ -1,13 +1,15 @@
-import { collection, getDocs, limit, orderBy, query, where } from 'firebase/firestore'
+import { collection, getDocs, limit, orderBy, query, Timestamp, where } from 'firebase/firestore'
 import { db } from './firebase'
 import type { Cobranza, VentaCamion, VentaVentanilla } from '@/types'
 
 // Últimos movimientos de UN cliente para la ficha del supervisor: ventas del
 // camión, ventas de mostrador y cobranzas (los pedidos van por
-// subscribeClientOrders). Lecturas puntuales, 20 por colección; requieren los
-// índices clienteId + fecha DESC (firestore.indexes.json).
+// subscribeClientOrders). Lecturas puntuales del ÚLTIMO AÑO (pedido de los
+// supervisores, 2026-09-08), con un tope de seguridad por colección; requieren
+// los índices clienteId + fecha DESC (firestore.indexes.json).
 
-const TOPE = 20
+const TOPE = 600
+const DIAS = 365
 
 export interface HistorialCliente {
   ventasCamion:     VentaCamion[]
@@ -16,7 +18,8 @@ export interface HistorialCliente {
 }
 
 async function ultimos<T>(coleccion: string, clienteId: string): Promise<T[]> {
-  const snap = await getDocs(query(collection(db, coleccion), where('clienteId', '==', clienteId), orderBy('fecha', 'desc'), limit(TOPE)))
+  const desde = new Date(); desde.setDate(desde.getDate() - DIAS); desde.setHours(0, 0, 0, 0)
+  const snap = await getDocs(query(collection(db, coleccion), where('clienteId', '==', clienteId), where('fecha', '>=', Timestamp.fromDate(desde)), orderBy('fecha', 'desc'), limit(TOPE)))
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as T)
 }
 

@@ -78,11 +78,13 @@ export default function SeccionHistorial({ c }: { c: UserProfile }) {
     for (const v of hist?.ventasCamion ?? []) out.push({ tipo: 'venta', fecha: v.fecha.toDate(), venta: v })
     for (const v of hist?.ventasVentanilla ?? []) out.push({ tipo: 'mostrador', fecha: v.fecha.toDate(), venta: v })
     for (const cb of hist?.cobranzas ?? []) out.push({ tipo: 'cobranza', fecha: cb.fecha.toDate(), cobranza: cb })
-    for (const p of pedidos.slice(0, 20)) out.push({ tipo: 'pedido', fecha: p.createdAt?.toDate?.() ?? p.date.toDate(), pedido: p })
-    return out.sort((a, b) => b.fecha.getTime() - a.fecha.getTime()).slice(0, 40)
+    for (const p of pedidos) out.push({ tipo: 'pedido', fecha: p.createdAt?.toDate?.() ?? p.date.toDate(), pedido: p })
+    return out.sort((a, b) => b.fecha.getTime() - a.fecha.getTime())
   }, [hist, pedidos])
 
-  const chip = hist ? <span className="text-xs text-gray-500">{items.length}</span> : null
+  // El último año puede ser largo: se muestra de a 30 con 'Ver más'.
+  const [visibles, setVisibles] = useState(30)
+  const chip = hist ? <span className="text-xs text-gray-500">{items.length} · último año</span> : null
 
   return (
     <Plegable titulo="Historial" extra={chip}>
@@ -90,7 +92,7 @@ export default function SeccionHistorial({ c }: { c: UserProfile }) {
       {!hist && !error && <p className="text-sm text-gray-500">Cargando historial…</p>}
       {hist && items.length === 0 && <p className="text-sm text-gray-500">Sin movimientos registrados en la app.</p>}
       <div className="divide-y divide-gray-100">
-        {items.map((it) => {
+        {items.slice(0, visibles).map((it) => {
           if (it.tipo === 'venta') return <VentaRow key={`v-${it.venta.id}`} venta={it.venta} cliente={c} caiRemito={caiRemito} />
           if (it.tipo === 'mostrador') {
             const v = it.venta
@@ -122,6 +124,12 @@ export default function SeccionHistorial({ c }: { c: UserProfile }) {
           )
         })}
       </div>
+      {items.length > visibles && (
+        <button type="button" onClick={() => setVisibles((v) => v + 30)}
+          className="mt-2 w-full rounded-lg border border-[#D3D1C7] bg-white px-3 py-2 text-sm text-gray-700 active:scale-[0.99]">
+          Ver más ({items.length - visibles} restantes)
+        </button>
+      )}
     </Plegable>
   )
 }
