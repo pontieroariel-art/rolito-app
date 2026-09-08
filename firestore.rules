@@ -614,12 +614,15 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next'])
         && request.resource.data.next > resource.data.next;
 
-      // Numeración de los comprobantes internos de la venta del camión
+      // Numeración de los comprobantes internos de la venta
       // (config/numeracionInterna_remito, _facturaX = { next, puntoVenta }).
-      // Alta inicial solo por super_admin; el chofer solo avanza `next` al
-      // reservar un lote, nunca toca el punto de venta ni retrocede.
+      // Alta inicial solo por super_admin; quien vende solo avanza `next` al
+      // reservar un lote, nunca toca el punto de venta ni retrocede. Vende el
+      // chofer, el supervisor (depósito propio, 2026-09-06) y caja en
+      // ventanilla (factura X de promo, 2026-09-08) — sin este permiso la
+      // venta salía "sin número" y Tango la rechazaba.
       allow update: if request.auth != null && docId.matches('numeracionInterna_.*')
-        && isChofer()
+        && (isChofer() || isSupervisor() || isCaja())
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next'])
         && request.resource.data.next > resource.data.next;
     }

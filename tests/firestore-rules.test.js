@@ -3013,6 +3013,22 @@ describe('numeracion interna de comprobantes del camion', () => {
     await assertSucceeds(setDoc(doc(db('adm'), 'config/numeracionInterna_facturaX'), { next: 1, puntoVenta: 2 }))
     await assertFails(updateDoc(doc(db('cli'), 'config/numeracionInterna_facturaX'), { next: 5 }))
   })
+
+  // 2026-09-08: el supervisor (vende desde su depósito) y caja (factura X de
+  // promo en ventanilla) también numeran; sin esto la venta salía sin número
+  // y Tango la rechazaba. Muelle/seguridad no venden.
+  test('supervisor y caja avanzan next igual que el chofer; muelle no', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/sup1'), { rol: 'supervisor', estado: 'activo' })
+      await setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' })
+      await setDoc(doc(d, 'users/mue1'), { rol: 'muelle', estado: 'activo', planta: 'torcuato' })
+      await setDoc(doc(d, 'config/numeracionInterna_facturaX'), { next: 162, puntoVenta: 1104 })
+    })
+    await assertSucceeds(updateDoc(doc(db('sup1'), 'config/numeracionInterna_facturaX'), { next: 182 }))
+    await assertSucceeds(updateDoc(doc(db('caja1'), 'config/numeracionInterna_facturaX'), { next: 183 }))
+    await assertFails(updateDoc(doc(db('caja1'), 'config/numeracionInterna_facturaX'), { next: 183, puntoVenta: 1 }))
+    await assertFails(updateDoc(doc(db('mue1'), 'config/numeracionInterna_facturaX'), { next: 184 }))
+  })
 })
 
 // Muelle asigna la dársena de carga (tablero de TV).

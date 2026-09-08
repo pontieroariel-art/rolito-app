@@ -325,6 +325,10 @@ export interface VentaVentanilla {
   // Espejo de la factura electrónica (contado efectivo/transferencia), que
   // escribe onVentaVentanillaContadoFacturar — mismo circuito que el camión.
   factura?:             FacturaArcaVenta
+  // Factura X de promo (Rolito), numerada en la misma transacción de la venta
+  // (config/numeracionInterna_facturaX, 2026-09-08). Sin ella Tango no tiene
+  // qué registrar. Ausente en las ventas anteriores y en las de contado.
+  comprobanteInterno?:  ComprobanteInternoVenta
 }
 
 // ── Expedición: cobranza (mostrador, calle o supervisor) ──────────────────────

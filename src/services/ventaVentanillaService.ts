@@ -4,8 +4,9 @@ import {
 import { db } from './firebase'
 import { onSnapshotError, esperarOEncolar, reportError } from './observability'
 import { todayString } from '../utils/helpers'
+import { documentoDeVenta } from '../utils/circuitoDocumento'
 import {
-  CanalVenta, FormaPago, PlantaId, VentaCamionItem, VentaVentanilla,
+  CanalVenta, ComprobanteInternoVenta, FormaPago, PlantaId, VentaCamionItem, VentaVentanilla,
 } from '../types'
 
 const VENTAS = 'ventasVentanilla'
@@ -16,6 +17,8 @@ export interface ActorCajaVentanilla { uid: string; nombre: string; plantaId: Pl
 // cada día (el turno es "número del día", como el de la fiambrería — doc
 // config/turnoVentanilla_{plantaId} con { fecha, next }).
 const TURNO_REF = (plantaId: PlantaId) => doc(db, 'config', `turnoVentanilla_${plantaId}`)
+// Misma serie de factura X que el camión (numeracionInternaService).
+const FACTURA_X_REF = () => doc(db, 'config', 'numeracionInterna_facturaX')
 
 // Venta en el mostrador de la planta. Espera al servidor (caja está en una PC
 // con red y el comprobante que se imprime debe corresponder a un doc ya
@@ -36,12 +39,29 @@ export async function crearVentaVentanilla(
   const total = args.items.reduce((s, i) => s + i.precioUnitario * i.cantidad, 0)
   const hoy   = todayString()
 
+  // Promo (Rolito) sale como factura X, numerada acá mismo desde el contador
+  // compartido con el camión (caja está online: no hace falta reserva local).
+  // Sin número Tango no tiene qué registrar (pasó el 2026-09-07). Si el
+  // contador no está inicializado, la venta sale igual, sin número.
+  const esFacturaX = documentoDeVenta(args.canal, args.formaPago, total) === 'no_oficial'
+
   const venta = await runTransaction(db, async (tx) => {
     const turnoSnap = await tx.get(TURNO_REF(actor.plantaId))
+    const facturaXSnap = esFacturaX ? await tx.get(FACTURA_X_REF()) : null
     const turno = (turnoSnap.exists() && turnoSnap.data().fecha === hoy)
       ? (turnoSnap.data().next as number)
       : 1
     tx.set(TURNO_REF(actor.plantaId), { fecha: hoy, next: turno + 1 })
+
+    let comprobanteInterno: ComprobanteInternoVenta | undefined
+    if (facturaXSnap?.exists()) {
+      const next = facturaXSnap.data().next as number
+      const puntoVenta = Number(facturaXSnap.data().puntoVenta)
+      if (Number.isInteger(next) && Number.isInteger(puntoVenta) && puntoVenta >= 1) {
+        comprobanteInterno = { tipo: 'facturaX', puntoVenta, numero: next }
+        tx.update(FACTURA_X_REF(), { next: next + 1 })
+      }
+    }
 
     const data: Omit<VentaVentanilla, 'id'> = {
       plantaId:      actor.plantaId,
@@ -61,6 +81,7 @@ export async function crearVentaVentanilla(
       ...(args.cliente?.codigoTango ? { clienteCodigoTango: args.cliente.codigoTango } : {}),
       ...(args.cliente?.idGva14Tango != null ? { clienteIdGva14Tango: args.cliente.idGva14Tango } : {}),
       ...(args.ocasional ? { clienteOcasional: args.ocasional } : {}),
+      ...(comprobanteInterno ? { comprobanteInterno } : {}),
     }
     tx.set(ref, data)
     return data
