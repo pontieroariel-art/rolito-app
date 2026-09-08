@@ -6,6 +6,7 @@ import { puedeCompartirArchivos } from '@/utils/compartir'
 import { useAlertasMora } from '@/hooks/useAlertasMora'
 import { CLASE_MORA } from '@/components/supervisor/ChipMora'
 import { ETIQUETA_MORA, nivelMora } from '@/utils/mora'
+import { nombreSucursal } from '@/utils/sucursalesTango'
 import { Plegable } from '@/components/ui/Plegable'
 import BotonesVerEnviar from '@/components/ui/BotonesVerEnviar'
 import { useAuth } from '@/context/AuthContext'
@@ -97,7 +98,10 @@ export default function SeccionSaldo({ c }: { c: UserProfile }) {
           {bloques.map((b) => (
             <div key={`${b.grupo.empresa}|${b.grupo.codigo}`} className="rounded-xl border border-[#D3D1C7] overflow-hidden">
               <div className="flex justify-between items-center px-3 py-2 bg-[#F8F7F2]">
-                <p className="text-xs font-semibold text-gray-700">{NOMBRE_EMPRESA[b.grupo.empresa]}{b.grupo.codigo ? ` · ${b.grupo.codigo}` : ''}</p>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-gray-700">{NOMBRE_EMPRESA[b.grupo.empresa]}{b.grupo.codigo ? ` · ${b.grupo.codigo}` : ''}</p>
+                  {nombreSucursal(c, b.grupo.empresa, b.grupo.codigo) && <p className="text-[11px] text-gray-500 truncate">{nombreSucursal(c, b.grupo.empresa, b.grupo.codigo)}</p>}
+                </div>
                 <p className="text-xs font-semibold text-gray-900">{formatoARS(b.subtotal)}</p>
               </div>
               <div className="divide-y divide-gray-100">

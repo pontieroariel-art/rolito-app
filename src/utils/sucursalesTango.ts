@@ -28,6 +28,19 @@ export function sucursalesDe(cliente: Pick<UserProfile, 'idGva14Tango' | 'codigo
 export const necesitaSucursal = (cliente: Parameters<typeof sucursalesDe>[0], empresa: EmpresaTango): boolean =>
   sucursalesDe(cliente, empresa).length > 1
 
+/**
+ * Nombre y dirección de la sucursal de un código, para mostrar al lado del
+ * código en cobranzas y en la ficha ('' si la cuenta tiene un solo código o
+ * no se conoce la sucursal).
+ */
+export function nombreSucursal(cliente: Parameters<typeof sucursalesDe>[0], empresa: EmpresaTango, codigo: string | null | undefined): string {
+  const lista = sucursalesDe(cliente, empresa)
+  if (lista.length <= 1 || !codigo) return ''
+  const s = lista.find((x) => x.codigo === codigo)
+  if (!s) return ''
+  return [s.nombre !== s.codigo ? s.nombre : '', s.address].filter(Boolean).join(' · ')
+}
+
 /** "RAP001 · GASTRONOMIA … (MONROE) · Monroe 1616" */
 export function etiquetaSucursal(s: SucursalTango): string {
   const partes = [s.codigo, s.nombre !== s.codigo ? s.nombre : '', s.address].filter(Boolean)

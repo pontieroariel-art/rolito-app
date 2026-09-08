@@ -22,6 +22,7 @@ import { aCentavos, formatoARS, parseImporte, sumaCentavos } from '@/utils/money
 import { haceCuanto } from '@/pages/supervisor/SupervisorClientesPage'
 import { NOMBRE_EMPRESA, estaVinculadoATango } from '@/utils/tangoEmpresas'
 import { agruparPorEmpresaYCodigo, claveComp, empresaDe, grupoDe, mismoGrupo, type GrupoRecibo } from '@/utils/composicionSaldos'
+import { nombreSucursal } from '@/utils/sucursalesTango'
 import { ChequeRecibido, Cobranza, ComprobanteSaldoTango, EmpresaTango, ImputacionFactura, PlantaId, RetencionRecibida } from '@/types'
 
 const inputClass = 'w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'
@@ -180,7 +181,8 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
       const cobranza = await crearCobranzaCompleta(
         {
           clienteId:     cliente.uid,
-          clienteNombre: cliente.razonSocial || cliente.nombre,
+          // Con varias sucursales, el recibo dice cuál ("RAZON SOCIAL — sucursal · dirección").
+          clienteNombre: (cliente.razonSocial || cliente.nombre) + (grupoSeleccionado && nombreSucursal(cliente, grupoSeleccionado.empresa, grupoSeleccionado.codigo) ? ` — ${nombreSucursal(cliente, grupoSeleccionado.empresa, grupoSeleccionado.codigo)}` : ''),
           empresa:       grupoSeleccionado.empresa,
           ...(grupoSeleccionado.codigo ? { codigoTango: grupoSeleccionado.codigo } : {}),
           numeroRecibo,
@@ -276,10 +278,16 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
                   return (
                   <div key={`${grupo.empresa}|${grupo.codigo}`} className={apagado ? 'opacity-50' : ''}>
                     <div className="flex items-baseline justify-between mb-1.5 px-0.5">
-                      <p className="text-sm font-semibold text-gray-900">
-                        {NOMBRE_EMPRESA[grupo.empresa]}
-                        {(variosCodigos(grupo.empresa) || grupo.codigo) && <span className="text-xs font-normal text-gray-500"> · cód. {grupo.codigo || '—'}</span>}
-                      </p>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">
+                          {NOMBRE_EMPRESA[grupo.empresa]}
+                          {(variosCodigos(grupo.empresa) || grupo.codigo) && <span className="text-xs font-normal text-gray-500"> · cód. {grupo.codigo || '—'}</span>}
+                        </p>
+                        {/* Sucursal del código (cuentas con varias: Rappi, Coto…), para saber a quién se le está cobrando. */}
+                        {nombreSucursal(cliente, grupo.empresa, grupo.codigo) && (
+                          <p className="text-xs text-gray-500">{nombreSucursal(cliente, grupo.empresa, grupo.codigo)}</p>
+                        )}
+                      </div>
                       <div className="text-right">
                         <p className="text-sm font-semibold text-gray-900">{formatoARS(subtotal)}</p>
                         {rama?.actualizadoEn && !frescaEmpresa && <p className="text-[10px] text-gray-400">{haceCuanto(rama.actualizadoEn)}</p>}
