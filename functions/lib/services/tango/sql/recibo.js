@@ -116,9 +116,10 @@ function retencionDePayload(x, i, cfg) {
     const nroCertificado = String(x.nroCertificado ?? '').trim();
     if (!nroCertificado)
         throw new Error(`retención ${tipo}: sin número de certificado`);
-    const fecha = fechaDeIso(x.fecha);
-    if (!fecha)
-        throw new Error(`retención ${tipo} ${nroCertificado}: sin fecha de certificado (Tango la exige)`);
+    // La fecha es obligatoria en la app desde el 2026-09-08; las cobranzas anteriores pueden no traerla.
+    const fecha = x.fecha ? fechaDeIso(x.fecha) : null;
+    if (x.fecha && !fecha)
+        throw new Error(`retención ${tipo} ${nroCertificado}: fecha de certificado inválida "${x.fecha}"`);
     return { tipo, cuenta: map.cuenta, codigoTango: map.codigoTango, nroCertificado, fecha, importe };
 }
 function chequeDePayload(c, i, cfg) {
@@ -453,7 +454,7 @@ const ddmmaa = (d) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMon
 function textoRetenciones(rets) {
     if (!rets.length)
         return {};
-    const partes = rets.map((x) => `${ETIQUETA_RETENCION[x.tipo]} CERT ${x.nroCertificado} ${ddmmaa(x.fecha)} $${x.importe.toFixed(2)}`);
+    const partes = rets.map((x) => `${ETIQUETA_RETENCION[x.tipo]} CERT ${x.nroCertificado}${x.fecha ? ' ' + ddmmaa(x.fecha) : ''} $${x.importe.toFixed(2)}`);
     const leyenda = (rets.length === 1 ? `${ETIQUETA_RETENCION[rets[0].tipo]} CERT ${rets[0].nroCertificado}` : `${ETIQUETA_RETENCION[rets[0].tipo]} ${rets.length} CERTIFICADOS`).slice(0, 40);
     return { leyenda, comentario: partes.join(' | ').slice(0, 255) };
 }

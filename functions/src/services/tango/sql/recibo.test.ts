@@ -332,7 +332,11 @@ describe('retenciones (Track R, 2026-09-08: medio sobre la cuenta de retenciones
   })
   it('frena con error legible si el tipo no está mapeado, no tiene fecha o certificado, o la suma no cierra', () => {
     expect(() => reciboDeCobranza({ ...pRet, medios: { efectivo: 1000, transferencia: 0, cheques: [], retenciones: [{ ...ret, tipo: 'suss' }] } }, 'c', cfgRet)).toThrow(/retenciones\.suss\.cuenta/)
-    expect(() => reciboDeCobranza({ ...pRet, medios: { efectivo: 1000, transferencia: 0, cheques: [], retenciones: [{ ...ret, fecha: undefined }] } }, 'c', cfgRet)).toThrow(/sin fecha de certificado/)
+    expect(() => reciboDeCobranza({ ...pRet, medios: { efectivo: 1000, transferencia: 0, cheques: [], retenciones: [{ ...ret, fecha: '08/09/2026' }] } }, 'c', cfgRet)).toThrow(/fecha de certificado inválida/)
+    // Sin fecha (cobranzas anteriores al 2026-09-08, como la RS-000182): pasa, y el comentario no la muestra.
+    const sinFecha = reciboDeCobranza({ ...pRet, medios: { efectivo: 1000, transferencia: 0, cheques: [], retenciones: [{ ...ret, fecha: undefined }] } }, 'c', cfgRet)
+    expect(sinFecha.retenciones[0].fecha).toBeNull()
+    expect(textoRetenciones(sinFecha.retenciones).comentario).toBe('RET IIBB CABA CERT 0001-00004567 $500.00')
     expect(() => reciboDeCobranza({ ...pRet, medios: { efectivo: 1000, transferencia: 0, cheques: [], retenciones: [{ ...ret, nroCertificado: ' ' }] } }, 'c', cfgRet)).toThrow(/sin número de certificado/)
     expect(() => reciboDeCobranza({ ...pRet, medios: { efectivo: 1000, transferencia: 0, cheques: [], retenciones: [{ ...ret, importe: 400 }] } }, 'c', cfgRet)).toThrow(/no cierra/)
     expect(() => reciboDeCobranza(pRet, 'c', cfg)).toThrow(/sin cuenta de tesorería configurada/)

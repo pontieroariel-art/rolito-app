@@ -1319,7 +1319,7 @@ al repo incluido el fix de fechas), nada instalado todavía en RHIELOTG.
 | Venta camión/ventanilla **cta cte** (Redonhielo) | **Remito R 01105 / 01107** | `bridge-sql` (esta fase) |
 | Cobranza de **supervisor** (efectivo/transferencia con imputación) | **Recibo X 01106 / 01108** | `bridge-sql` (esta fase) |
 | Cobranza de supervisor con **cheques** | **Recibo X + cheque en cartera** (SBA14/SBA23, VALORES A DEPOSITAR 1112000) | `bridge-sql` — en prod desde el 2026-09-05 17:00 (primer real: X 01106-00000041, cheque 87654321) |
-| Cobranza de supervisor con **retenciones** | queda en `error` en la cola | TestingRH no tiene códigos de retención cargados (F7 vacío): preguntar a la oficina cómo las registra |
+| Cobranza de supervisor con **retenciones** | **Recibo X + renglón de tesorería por cuenta de retención** (1132004 Ganancias, 1132018 IVA, 1132012 IIBB CABA, 1132010 IIBB PBA, 1131003 SUSS) | `bridge-sql` desde el 2026-09-08 — ver §30 |
 | Cobranza del **chofer en la calle** y de **caja/mostrador** | **no viaja** | `onCobranzaCreada` solo encola `origen:'supervisor'`; el writer exige imputaciones (no hay "recibo a cuenta"). Mejora siguiente: trazar un recibo a cuenta en TestingRH y extender el writer |
 | Remito de carga / descarga | no viaja | fase B (transferencias, STOCK_REPARTO.md) |
 
@@ -1660,3 +1660,33 @@ handler (en producción todavía no hay ningún remito de carga ni descarga: col
   primer remito real.
 - Sigue pendiente de la fase B: cambios (CBS camión → 99), rotas en exceso (MER), ajuste de liquidación (AJU →
   98), producción (PDT/PRO) y el inventario inicial de plantas y camiones el día del corte.
+
+## 30. Retenciones en el recibo: cómo las graba Tango y cómo las escribe el bridge (2026-09-08)
+
+Relevamiento en SSMS (`docs/tango/sql/retenciones-relevamiento-2026-09-08.txt` y
+`retenciones-recientes-2026-09-08.txt`): la oficina **nunca usó el módulo de retenciones de Tango**
+en Cobranzas — `CTA_COMPROBANTE_RETENCION_VENTAS` (detalle de certificados) está vacía en
+REDONHIELO_SA, Rolito y TestingRH, y `GVA41` (43 filas iguales en las tres) son alícuotas de
+IVA/percepciones, no retenciones. Los recibos reales del día (X 00001-00032880/84/87, usuario
+SUPERVISOR) muestran el patrón: la retención es **un renglón SBA05 'D' más**, sobre la cuenta de
+tesorería de retenciones del tipo (`SBA01` con FILLER 'R'), con su UPDATE de saldo y su renglón en
+`ASIENTO_SB` contra la cuenta contable de esa cuenta. No hay tabla de detalle: el nº y la fecha del
+certificado no quedan en Tango (solo en el papel). Uso por año en Redonhielo: ~1.300 Ganancias,
+~360 IIBB CABA, ~300 IVA, ~300 SUSS, 30-60 IIBB PBA.
+
+**Writer** (`functions/src/services/tango/sql/recibo.ts`): `ConfigReciboSql.retenciones[tipo].cuenta`
+(por empresa vía `config/tango.sql.empresas.<e>.recibo.retenciones`); `retencionDePayload` valida
+tipo mapeado, importe y nº de certificado (la fecha es obligatoria en la app desde hoy, opcional en
+el writer para las cobranzas viejas); un medio por cuenta con la SUMA de los certificados; el renglón
+SBA05 lleva `LEYENDA` (40) `RET IIBB PBA CERT <nº>` y `COMENTARIO` con nº, fecha e importe de cada
+certificado. Cuentas contables: Redonhielo 1131003→630, 1132004→634, 1132010→640, 1132012→1112,
+1132018→1193; Rolito iguales salvo **1132018 (IVA), que no tiene cuenta contable en Rolito** →
+Rolito no mapea `iva` hasta que administración la cree
+(`scripts/tango/configurar-retenciones-tango.mjs --aplicar --rolito-iva=<ID_CUENTA>`). Permisos del
+login del bridge: ya alcanzan (INSERT SBA05/ASIENTO_SB, UPDATE SBA01).
+
+**Cola:** `onOutboxConfirmado` ahora también escribe `tango.estado = 'error'` + `ultimoError` en la
+cobranza cuando el item agota los reintentos (chip rojo "Error en Tango" en la app); al confirmar
+limpia el error. Puesta en producción: copiar `recibo.js` a `C:\RolitoSync\sql\lib`, reiniciar el
+bridge, `--dry-run --once --solo=cobranzas_XhCl5LDQbmSfRbIOwo1x` y reencolar con
+`reintentar-outbox.mjs` (Desktop `RolitoSync-recibo-retenciones/Recibos-con-retencion-VM.txt`).
