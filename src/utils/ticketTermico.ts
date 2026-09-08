@@ -129,7 +129,52 @@ export type ResultadoImpresion = 'impreso' | 'descargado'
  * En un celular/tablet el navegador no puede imprimir un PDF embebido, así
  * que se descarga y se abre con la app de la impresora.
  */
-export async function imprimirPdf(blob: Blob, nombreArchivo: string): Promise<ResultadoImpresion> {
+// ── Modo de impresión del dispositivo (2026-09-08) ───────────────────────────
+// La tablet de caja imprime por Bluetooth con RawBT (app de Android de
+// impresión térmica): la app le pasa el PDF con el esquema rawbt: y RawBT lo
+// manda a la Eliprinter sin diálogo ni descarga. Se elige una vez por
+// dispositivo (localStorage). 'auto' es el comportamiento de siempre: diálogo
+// de impresión en una compu, descarga en celular/tablet.
+export type ModoImpresion = 'auto' | 'rawbt'
+const CLAVE_MODO = 'ventanilla_modoImpresion'
+export const MODOS_IMPRESION: { id: ModoImpresion; label: string }[] = [
+  { id: 'auto',  label: 'Automática (diálogo / descarga)' },
+  { id: 'rawbt', label: 'RawBT por Bluetooth (tablet Android)' },
+]
+
+export function leerModoImpresion(): ModoImpresion {
+  try { return localStorage.getItem(CLAVE_MODO) === 'rawbt' ? 'rawbt' : 'auto' } catch { return 'auto' }
+}
+export function guardarModoImpresion(modo: ModoImpresion): void {
+  try { localStorage.setItem(CLAVE_MODO, modo) } catch { /* sin storage: queda en auto */ }
+}
+
+const RAWBT_PACKAGE = 'ru.a402d.rawbtprinter'
+
+async function blobABase64(blob: Blob): Promise<string> {
+  const bytes = new Uint8Array(await blob.arrayBuffer())
+  let bin = ''
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
+  return btoa(bin)
+}
+
+/**
+ * Manda el PDF a RawBT. Chrome solo deja abrir otra app desde un toque del
+ * usuario: si esto corre fuera de un gesto (por ejemplo al llegar el CAE
+ * solo), la navegación se bloquea y no imprime — por eso en modo RawBT la
+ * factura se imprime con un botón. El `intent:` con package abre Play Store
+ * si RawBT no está instalado.
+ */
+export async function imprimirConRawBT(blob: Blob): Promise<void> {
+  const b64 = await blobABase64(blob)
+  window.location.href = `intent:data:application/pdf;base64,${b64}#Intent;scheme=rawbt;package=${RAWBT_PACKAGE};end;`
+}
+
+export async function imprimirPdf(blob: Blob, nombreArchivo: string, modo: ModoImpresion = leerModoImpresion()): Promise<ResultadoImpresion> {
+  if (modo === 'rawbt') {
+    await imprimirConRawBT(blob)
+    return 'impreso'
+  }
   if (esMovil()) {
     descargarArchivo(blob, nombreArchivo)
     return 'descargado'

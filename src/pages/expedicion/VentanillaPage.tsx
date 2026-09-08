@@ -16,7 +16,7 @@ import { getTopeConsumidorFinalSinIdentificar } from '../../services/arcaConfigS
 import type { FacturaArcaData } from '../../utils/facturaArcaPdf'
 import { armarFacturaDeVenta } from '../../utils/facturaDeVenta'
 import { generateTicketsVentanilla, type TurnoTicketData } from '@/utils/ventanillaTicket'
-import { imprimirPdf } from '@/utils/ticketTermico'
+import { imprimirPdf, leerModoImpresion, guardarModoImpresion, MODOS_IMPRESION, type ModoImpresion } from '@/utils/ticketTermico'
 import { usePreciosTango } from '../../hooks/usePreciosTango'
 import { empresaDeCanal, motivoSinPrecioTango, precioTangoDe } from '../../utils/precioTango'
 import { documentoDeVenta } from '../../utils/circuitoDocumento'
@@ -82,6 +82,10 @@ export default function VentanillaPage() {
   const [topeSinIdentificar, setTopeSinIdentificar] = useState(0)
   // Venta recién cobrada cuya factura se está esperando (modal).
   const [esperando, setEsperando] = useState<VentaVentanilla | null>(null)
+  // Cómo imprime ESTE dispositivo (tablet con RawBT por Bluetooth, o el
+  // diálogo/descarga de siempre). Se guarda en el aparato, no en la cuenta.
+  const [modoImpresion, setModoImpresion] = useState<ModoImpresion>(() => leerModoImpresion())
+  const cambiarModoImpresion = (m: ModoImpresion) => { guardarModoImpresion(m); setModoImpresion(m) }
 
   useEffect(() => subscribeVentanillaDelDia(plantaId, fecha, setVentas), [plantaId, fecha])
   useEffect(() => { getTopeConsumidorFinalSinIdentificar().then(setTopeSinIdentificar) }, [])
@@ -186,7 +190,7 @@ export default function VentanillaPage() {
     if (!facturaDatos && !turnoDatos) return false
     try {
       const blob = await generateTicketsVentanilla({ factura: facturaDatos, turno: turnoDatos })
-      await imprimirPdf(blob, `ventanilla-turno-${v.turno}.pdf`)
+      await imprimirPdf(blob, `ventanilla-turno-${v.turno}.pdf`, modoImpresion)
       return facturaOk
     } catch (err) {
       reportError(err, { origen: 'VentanillaPage', accion: 'error al generar los tickets de ventanilla' })
@@ -264,9 +268,18 @@ export default function VentanillaPage() {
 
   return (
     <main className="max-w-3xl mx-auto p-4 space-y-6 pb-10">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Ventanilla</h1>
-        <p className="text-gray-500 text-sm">{PLANTAS[plantaId].label}</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Ventanilla</h1>
+          <p className="text-gray-500 text-sm">{PLANTAS[plantaId].label}</p>
+        </div>
+        <label className="text-xs text-gray-500 flex items-center gap-2">
+          <Printer size={14} /> Impresión
+          <select value={modoImpresion} onChange={(e) => cambiarModoImpresion(e.target.value as ModoImpresion)}
+            className="bg-white border border-[#D3D1C7] rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent">
+            {MODOS_IMPRESION.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+          </select>
+        </label>
       </div>
 
       <section className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-4 space-y-4">
@@ -446,6 +459,7 @@ export default function VentanillaPage() {
           onImprimirTodo={imprimirTodo}
           onImprimirTurno={imprimirTurno}
           onClose={() => setEsperando(null)}
+          autoImprimir={modoImpresion !== 'rawbt'}
         />
       )}
     </main>
@@ -457,12 +471,18 @@ export default function VentanillaPage() {
 // `factura`. Emitida → imprime factura y turno una sola vez. Rechazada o
 // incierta → lo dice y deja imprimir el turno igual (la mercadería ya se
 // cobró; la factura la resuelve la oficina, que recibe el aviso por mail).
-function EsperaFacturaModal({ ventaId, onImprimirTodo, onImprimirTurno, onClose }: {
+function EsperaFacturaModal({ ventaId, onImprimirTodo, onImprimirTurno, onClose, autoImprimir }: {
   ventaId: string
   /** Factura + turno en un solo trabajo de impresión. */
   onImprimirTodo: (v: VentaVentanilla) => Promise<boolean>
   onImprimirTurno: (v: VentaVentanilla) => Promise<boolean>
   onClose: () => void
+  /**
+   * false en modo RawBT: Chrome no deja abrir otra app sin un toque del
+   * usuario, así que al llegar el CAE se muestra un botón grande en vez de
+   * imprimir solo (un toque, salen factura y turno).
+   */
+  autoImprimir: boolean
 }) {
   const [venta, setVenta] = useState<VentaVentanilla | null>(null)
   const [tardando, setTardando] = useState(false)
@@ -480,10 +500,16 @@ function EsperaFacturaModal({ ventaId, onImprimirTodo, onImprimirTurno, onClose 
 
   // Impresión automática, una sola vez, apenas llega el CAE.
   useEffect(() => {
-    if (!venta || !emitida || impresoRef.current) return
+    if (!venta || !emitida || impresoRef.current || !autoImprimir) return
     impresoRef.current = true
     onImprimirTodo(venta).then(setImpresa)
-  }, [venta, emitida, onImprimirTodo])
+  }, [venta, emitida, onImprimirTodo, autoImprimir])
+
+  const imprimirConToque = () => {
+    if (!venta) return
+    impresoRef.current = true
+    onImprimirTodo(venta).then(setImpresa)
+  }
 
   const titulo = emitida ? 'Factura emitida'
     : f?.estado === 'rechazada' ? 'ARCA rechazó la factura'
@@ -513,9 +539,14 @@ function EsperaFacturaModal({ ventaId, onImprimirTodo, onImprimirTurno, onClose 
             <CheckCircle2 size={18} className="text-accent mt-0.5 shrink-0" />
             <p className="text-sm text-gray-800">
               Factura {nroFactura(venta)} autorizada.{' '}
-              {impresa ? 'Salen la factura y el turno por la impresora de tickets.' : 'Generando los tickets…'}
+              {impresa ? 'Salen la factura y el turno por la impresora de tickets.' : autoImprimir ? 'Generando los tickets…' : 'Tocá el botón para imprimirlos.'}
             </p>
           </div>
+        )}
+        {emitida && venta && !autoImprimir && !impresa && (
+          <Button onClick={imprimirConToque} className="w-full h-14 text-base">
+            <Printer size={18} className="mr-2" /> Imprimir factura y turno
+          </Button>
         )}
 
         {f?.estado === 'rechazada' && (
