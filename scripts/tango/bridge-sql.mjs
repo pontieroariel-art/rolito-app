@@ -220,6 +220,8 @@ const HANDLERS = {
         idSba02Recibo: sqlCfg.idSba02Recibo, usuario: sqlCfg.usuario ?? 'ROLITO', terminal: sqlCfg.terminal ?? 'APP',
         // Cheques de terceros: cuentas.cheques / cuentas.echeq (cartera) + cheques {nroSucursal, tablaBancos, columnaCodigoBanco, bancos}
         cheques: sqlCfg.cheques,
+        // Retenciones: tipo de la app → cuenta de tesorería de retenciones (por empresa) — §30, 2026-09-08
+        retenciones: sqlCfg.retenciones,
       }
       const recibo = reciboDeCobranza(data.payload ?? {}, data.origenId ?? docId, rcfg)
       const r = await enTransaccion(baseDe(empresa), (db) => escribirRecibo(db, recibo, rcfg, (m) => log('    ' + m)))
@@ -310,7 +312,10 @@ async function procesarItem(db, docId, data) {
 }
 
 async function barrido(db) {
-  const q = query(collection(db, 'tango-outbox'), where('estado', 'in', ['pendiente', 'enviado']), where('entidad', 'in', ENTIDADES))
+  // Con --solo también se toman los que están en 'error': es la forma de probar en seco (--dry-run)
+  // un item que agotó los reintentos, sin tener que reencolarlo antes (2026-09-08).
+  const estados = SOLO ? ['pendiente', 'enviado', 'error'] : ['pendiente', 'enviado']
+  const q = query(collection(db, 'tango-outbox'), where('estado', 'in', estados), where('entidad', 'in', ENTIDADES))
   const res = await getDocs(q)
   if (!res.empty) log(`Barrido: ${res.size} item(s) ${ENTIDADES.join('/')} pendientes o a reintentar`)
   for (const d of res.docs) await procesarItem(db, d.id, d.data())
