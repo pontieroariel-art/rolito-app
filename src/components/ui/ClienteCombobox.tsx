@@ -8,6 +8,8 @@ export interface ComboItem {
   codigo?: string
   /** Texto extra solo para buscar (códigos y nombres de sucursales), no se muestra. */
   extra?:  string
+  /** Cantidad de códigos de Tango de la cuenta (chip "N suc." si hay más de uno). */
+  sucursales?: number
 }
 
 export function toComboItems(clientes: UserProfile[]): ComboItem[] {
@@ -19,9 +21,10 @@ export function toComboItems(clientes: UserProfile[]): ComboItem[] {
     return {
       uid:    c.uid,
       // Sin CUIT: se avisa en el nombre, porque solo se le puede vender en promo.
-      label:  (c.razonSocial || c.nombreContacto || c.nombre || c.email || '') + (c.sinCuit ? ' · sin CUIT (solo promo)' : '') + (sucursales > 1 ? ` · ${sucursales} sucursales` : ''),
+      label:  (c.razonSocial || c.nombreContacto || c.nombre || c.email || '') + (c.sinCuit ? ' · sin CUIT (solo promo)' : ''),
       codigo: c.codigoCliente,
       extra:  [...codigos, ...(c.addresses ?? []).map((a) => a.nombre)].filter(Boolean).join(' '),
+      sucursales,
     }
   })
 }
@@ -133,6 +136,10 @@ export default function ClienteCombobox({
                     <span className="text-gray-400 text-xs shrink-0">[{item.codigo}]</span>
                   )}
                   <span className="truncate">{item.label}</span>
+                  {/* Cuentas con varias sucursales en Tango: chip fijo, que no se corte con el nombre largo. */}
+                  {item.sucursales && item.sucursales > 1 ? (
+                    <span className="ml-auto shrink-0 text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-accent/10 text-accent border border-accent/30">{item.sucursales} suc.</span>
+                  ) : null}
                 </li>
               ))
             )}
