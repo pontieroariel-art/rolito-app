@@ -3617,3 +3617,51 @@ describe('supervisor: service de heladera y comodato desde la ficha del cliente'
     await assertFails(setDoc(doc(db('ch1', 'ch@x.com'), 'ticketsServicio/t1'), ticketSup({ creadoPor: { uid: 'ch1', nombre: 'Ch' } })))
   })
 })
+
+// ── facturasArchivadas (2026-09-07) ─────────────────────────────────────────
+describe('facturasArchivadas: facturas de Tango archivadas por administración', () => {
+  const factura = (extra = {}) => ({
+    clave: 'A0010100173697', empresa: 'redonhielo', letra: 'A', puntoVenta: 101, numero: 173697, fecha: '2026-07-14',
+    total: 1250000, cuitCliente: '30-71234567-8', razonSocial: 'Cliente de Prueba SA',
+    storagePath: 'facturas/redonhielo/A0010100173697.pdf', subidoPor: { uid: 'fac1', nombre: 'Facturación' }, subidoEn: new Date(), ...extra,
+  })
+  const ID = 'redonhielo-A0010100173697'
+
+  test('facturación y super_admin archivan con el id = empresa-clave; el supervisor y caja leen; el cliente no', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/fac1'), { rol: 'facturacion', estado: 'activo' })
+      await setDoc(doc(d, 'users/sa'), { rol: 'super_admin', estado: 'activo' })
+      await setDoc(doc(d, 'users/sup1'), { rol: 'supervisor', estado: 'activo' })
+      await setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' })
+      await setDoc(doc(d, 'users/cli'), cliente())
+    })
+    await assertSucceeds(setDoc(doc(db('fac1'), `facturasArchivadas/${ID}`), factura()))
+    await assertSucceeds(setDoc(doc(db('sa'), 'facturasArchivadas/rolito-A0000100000031'), factura({ empresa: 'rolito', clave: 'A0000100000031', subidoPor: { uid: 'sa', nombre: 'Ariel' } })))
+    await assertSucceeds(getDoc(doc(db('sup1'), `facturasArchivadas/${ID}`)))
+    await assertSucceeds(getDoc(doc(db('caja1'), `facturasArchivadas/${ID}`)))
+    await assertFails(getDoc(doc(db('cli', 'c@x.com'), `facturasArchivadas/${ID}`)))
+  })
+
+  test('NO archivan: supervisor/caja, id que no coincide, a nombre de otro, empresa inválida; nadie borra', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/fac1'), { rol: 'facturacion', estado: 'activo' })
+      await setDoc(doc(d, 'users/sup1'), { rol: 'supervisor', estado: 'activo' })
+      await setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' })
+      await setDoc(doc(d, `facturasArchivadas/${ID}`), factura())
+    })
+    await assertFails(setDoc(doc(db('sup1'), 'facturasArchivadas/redonhielo-B0010100000001'), factura({ clave: 'B0010100000001', subidoPor: { uid: 'sup1', nombre: 'S' } })))
+    await assertFails(setDoc(doc(db('caja1'), 'facturasArchivadas/redonhielo-B0010100000001'), factura({ clave: 'B0010100000001', subidoPor: { uid: 'caja1', nombre: 'C' } })))
+    await assertFails(setDoc(doc(db('fac1'), 'facturasArchivadas/otro-id'), factura()))
+    await assertFails(setDoc(doc(db('fac1'), 'facturasArchivadas/redonhielo-B0010100000001'), factura({ clave: 'B0010100000001', subidoPor: { uid: 'sa', nombre: 'X' } })))
+    await assertFails(setDoc(doc(db('fac1'), 'facturasArchivadas/otra-B0010100000001'), factura({ empresa: 'otra', clave: 'B0010100000001' })))
+    await assertFails(deleteDoc(doc(db('fac1'), `facturasArchivadas/${ID}`)))
+  })
+
+  test('el supervisor lee ventasVentanilla (regenera la factura del mostrador desde la ficha)', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/sup1'), { rol: 'supervisor', estado: 'activo' })
+      await setDoc(doc(d, 'ventasVentanilla/v1'), { plantaId: 'torcuato', canal: 'contado', total: 100, items: [], factura: { estado: 'emitida', puntoVenta: 1104, numero: 1 } })
+    })
+    await assertSucceeds(getDoc(doc(db('sup1'), 'ventasVentanilla/v1')))
+  })
+})

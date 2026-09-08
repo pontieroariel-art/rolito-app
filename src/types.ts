@@ -176,6 +176,26 @@ export interface ComprobanteInternoVenta {
   numero:     number
 }
 
+// Factura emitida por Tango (no por la app) cuyo PDF administración guardó
+// desde Recupero de facturas (2026-09-07), para que el supervisor la comparta
+// con el cliente desde la composición de saldos. Tango no las entrega por
+// API. Doc id: `${empresa}-${clave}`; el PDF vive en Storage `storagePath`.
+export interface FacturaArchivada {
+  id:          string
+  clave:       string        // 'A0010100173697' — ver utils/facturaClave.ts
+  empresa:     EmpresaTango
+  letra:       'A' | 'B' | 'C'
+  puntoVenta:  number
+  numero:      number
+  fecha:       string        // yyyy-MM-dd (emisión)
+  total:       number
+  cuitCliente: string
+  razonSocial: string
+  storagePath: string        // 'facturas/{empresa}/{clave}.pdf'
+  subidoPor:   { uid: string; nombre: string }
+  subidoEn:    Timestamp
+}
+
 // ── Expedición: remito de carga del camión ────────────────────────────────────
 // Caja (rol 'caja', fijo por planta) arma el remito de carga: qué mercadería
 // sube a qué camión con qué chofer. Se imprime y muelle entrega contra él —

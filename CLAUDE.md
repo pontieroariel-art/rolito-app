@@ -103,6 +103,7 @@ Por módulo:
 - **Heladeras:** `heladeras`, `ticketsServicio`, `asignacionesHeladera`, `modelosHeladera`, `config/pasosTaller`, `config/motivosReparacion`
 - **Producción:** `produccionPallets`, `partesMaquinas`, `config/produccionCounter_{planta}`
 - **Expedición:** `remitosCarga`, `ventasCamion`, `ventasVentanilla`, `cobranzas`, `cambiosCamion`, `descargasCamion`, `liquidaciones`, `turnosPublicos` (doc público sanitizado que lee la página del QR con sesión anónima), `config/turnoVentanilla_{planta}`, `config/cargaCounter_{planta}`
+- **Supervisor (calle):** `saldosTango` (cache de composición de saldos), `facturasArchivadas/{empresa}-{clave}` (índice de PDFs de facturas de Tango que administración guarda desde Recupero de facturas; el PDF va a Storage `facturas/{empresa}/{clave}.pdf`; Tango no entrega facturas por API). La clave es el número con formato Tango (`utils/facturaClave.ts`) y coincide con `factura.puntoVenta/numero` (ARCA) o `comprobanteInterno` (promo) de las ventas de la app, así la ficha del cliente regenera las de la app y baja las archivadas (`services/facturaAdeudadaService.ts`). El bucket tiene CORS GET para los orígenes de la app (necesario para `getBlob`)
 
 ### Variables de entorno
 

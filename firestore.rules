@@ -1013,8 +1013,10 @@ service cloud.firestore {
     // ese papel (única transición permitida). Los items/importes son
     // inmutables tras emitirse.
     match /ventasVentanilla/{ventaId} {
+      // isSupervisor: regenera la factura de una venta de mostrador para
+      // compartirla desde la composición de saldos del cliente (2026-09-07).
       allow read: if request.auth != null
-        && (isCaja() || isMuelle() || isSeguridad() || isOperator() || isManager() || isGerenteGeneral());
+        && (isCaja() || isMuelle() || isSeguridad() || isOperator() || isManager() || isGerenteGeneral() || isSupervisor());
 
       allow create: if request.auth != null && isCajaDe(request.resource.data.plantaId)
         && request.resource.data.cajaId == request.auth.uid
@@ -1105,6 +1107,23 @@ service cloud.firestore {
         && request.resource.data.medios is map;
 
       allow update, delete: if false;
+    }
+
+    // ── Facturas de Tango archivadas (2026-09-07) ────────────────────────
+    // facturasArchivadas/{empresa}-{clave}: índice del PDF que administración
+    // guardó desde Recupero de facturas (Storage facturas/{empresa}/{clave}.pdf)
+    // para que el supervisor lo comparta desde la composición de saldos. Solo
+    // super_admin y facturación escriben; todo el staff lee; el cliente no.
+    match /facturasArchivadas/{facturaId} {
+      allow read: if request.auth != null && isStaff();
+      allow create, update: if request.auth != null
+        && (myRole() == 'super_admin' || isFacturacion())
+        && facturaId == request.resource.data.empresa + '-' + request.resource.data.clave
+        && request.resource.data.empresa in ['redonhielo', 'rolito']
+        && request.resource.data.clave is string
+        && request.resource.data.storagePath is string
+        && request.resource.data.subidoPor.uid == request.auth.uid;
+      allow delete: if false;
     }
 
     // ── Cobranzas de supervisor: cache de composición de saldos de Tango ──

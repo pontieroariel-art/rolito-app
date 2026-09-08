@@ -7,10 +7,16 @@
 // Es una herramienta de una campaña puntual: cuando el recupero termine, esta
 // pantalla y su ruta se pueden borrar.
 import { useCallback, useRef, useState } from 'react'
-import { Upload, FileText, AlertTriangle, Check, Trash2 } from 'lucide-react'
+import { Upload, FileText, AlertTriangle, Check, CloudUpload, Trash2 } from 'lucide-react'
+import { useAuth } from '@/context/AuthContext'
+import { archivarFactura, getFacturaArchivada } from '@/services/facturasArchivadasService'
+import { reportError } from '@/services/observability'
 import { extractPdfItems } from '@/utils/parsePdf'
 import { parsearFacturaTango, verificarFactura } from '@/utils/facturaTango'
 import { generateFacturaPdf, FacturaPdfData } from '@/utils/facturaPdf'
+import { claveFactura } from '@/utils/facturaClave'
+import { NOMBRE_EMPRESA } from '@/utils/tangoEmpresas'
+import type { EmpresaTango } from '@/types'
 
 interface Item {
   id:       string
@@ -21,6 +27,10 @@ interface Item {
   cae:      string
   caeVto:   string      // YYYY-MM-DD
   generando?: boolean
+  // "Guardar en la app" (2026-09-07): el PDF con CAE queda en Storage para que
+  // el supervisor lo comparta con el cliente desde la composición de saldos.
+  archivada?:  boolean
+  archivando?: boolean
 }
 
 const money = (n: number) =>
@@ -49,9 +59,65 @@ const caeValido = (i: Item) => /^\d{14}$/.test(i.cae) && !!i.caeVto
 const listo = (i: Item) => !!i.factura && caeValido(i)
 
 export default function RecuperoFacturasPage() {
+  const { user } = useAuth()
   const [items, setItems] = useState<Item[]>([])
   const [arrastrando, setArrastrando] = useState(false)
   const [generandoTodas, setGenerandoTodas] = useState(false)
+  const [empresa, setEmpresa] = useState<EmpresaTango>('redonhielo')
+  const [archivandoTodas, setArchivandoTodas] = useState(false)
+  const [avisoArchivo, setAvisoArchivo] = useState('')
+
+  // Marca las que ya están guardadas en la app (para esta empresa).
+  const marcarArchivadas = useCallback(async (lista: Item[], emp: EmpresaTango) => {
+    const claves = await Promise.all(lista.map(async (i) => {
+      if (!i.factura) return [i.id, false] as const
+      try {
+        return [i.id, !!(await getFacturaArchivada(emp, claveFactura(i.factura.letra, i.factura.puntoVenta, i.factura.numero)))] as const
+      } catch { return [i.id, false] as const }
+    }))
+    const mapa = new Map<string, boolean>(claves)
+    setItems((p) => p.map((i) => (mapa.has(i.id) ? { ...i, archivada: mapa.get(i.id) } : i)))
+  }, [])
+
+  const cambiarEmpresa = (emp: EmpresaTango) => {
+    setEmpresa(emp)
+    void marcarArchivadas(items, emp)
+  }
+
+  const guardarEnApp = async (item: Item): Promise<boolean> => {
+    if (!item.factura || !caeValido(item) || !user) return false
+    setItems((p) => p.map((i) => (i.id === item.id ? { ...i, archivando: true } : i)))
+    try {
+      const datos = {
+        ...item.factura,
+        cae: item.cae,
+        caeVto: new Date(Number(item.caeVto.slice(0, 4)), Number(item.caeVto.slice(5, 7)) - 1, Number(item.caeVto.slice(8, 10))),
+        descargar: false,
+      }
+      const blob = (await generateFacturaPdf(datos)) as Blob
+      await archivarFactura(empresa, datos, blob, { uid: user.uid, nombre: user.nombre })
+      setItems((p) => p.map((i) => (i.id === item.id ? { ...i, archivada: true } : i)))
+      return true
+    } catch (err) {
+      reportError(err, { origen: 'RecuperoFacturasPage.guardarEnApp', id: item.id })
+      setAvisoArchivo(`No se pudo guardar ${item.id}: ${err instanceof Error ? err.message : 'error desconocido'}`)
+      return false
+    } finally {
+      setItems((p) => p.map((i) => (i.id === item.id ? { ...i, archivando: false } : i)))
+    }
+  }
+
+  const guardarTodasEnApp = async () => {
+    setArchivandoTodas(true)
+    setAvisoArchivo('')
+    let ok = 0
+    try {
+      for (const item of items.filter((i) => listo(i) && !i.archivada)) if (await guardarEnApp(item)) ok++
+      setAvisoArchivo((a) => a || `${ok} ${ok === 1 ? 'factura guardada' : 'facturas guardadas'} en la app (${NOMBRE_EMPRESA[empresa]}).`)
+    } finally {
+      setArchivandoTodas(false)
+    }
+  }
   const inputRef = useRef<HTMLInputElement>(null)
 
   const cargar = useCallback(async (archivos: FileList | File[] | null) => {
@@ -93,7 +159,8 @@ export default function RecuperoFacturasPage() {
       return [...previos.filter((p) => !ids.has(p.id)), ...nuevos]
         .sort((a, b) => Number(!!a.error) - Number(!!b.error) || a.id.localeCompare(b.id))
     })
-  }, [])
+    void marcarArchivadas(nuevos, empresa)
+  }, [empresa, marcarArchivadas])
 
   const editar = (id: string, campo: 'cae' | 'caeVto', valor: string) => {
     setItems((previos) => previos.map((i) => {
@@ -143,8 +210,18 @@ export default function RecuperoFacturasPage() {
             Cargá los PDF, completá el CAE de cada una y descargalas.
           </p>
           <p className="mt-2 text-xs text-gray-500">
-            Los PDF no se suben a ningún lado: se leen y se generan en esta computadora.
+            Los PDF se leen y se generan en esta computadora. Con <b>Guardar en la app</b> la factura
+            regenerada (con CAE) queda guardada para que los supervisores se la manden al cliente
+            desde la composición de saldos.
           </p>
+          <label className="mt-3 inline-flex items-center gap-2 text-sm text-gray-700">
+            Empresa que emitió estas facturas:
+            <select value={empresa} onChange={(e) => cambiarEmpresa(e.target.value as EmpresaTango)}
+              className="rounded-lg border border-[#D3D1C7] bg-white px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-[#1D9E75]">
+              <option value="redonhielo">{NOMBRE_EMPRESA.redonhielo}</option>
+              <option value="rolito">{NOMBRE_EMPRESA.rolito}</option>
+            </select>
+          </label>
         </header>
 
         {/* Zona de carga */}
@@ -198,9 +275,18 @@ export default function RecuperoFacturasPage() {
               >
                 {generandoTodas ? 'Generando…' : `Generar ${cantidadListas > 1 ? `las ${cantidadListas}` : 'todas'}`}
               </button>
+              <button
+                type="button"
+                disabled={items.filter((i) => listo(i) && !i.archivada).length === 0 || archivandoTodas}
+                onClick={guardarTodasEnApp}
+                className="flex items-center gap-1.5 rounded-lg border border-[#1D9E75] bg-white px-4 py-2 text-sm font-semibold text-[#146E51] hover:bg-[#F0F8F5] disabled:opacity-40"
+              >
+                <CloudUpload className="h-4 w-4" /> {archivandoTodas ? 'Guardando…' : 'Guardar todas en la app'}
+              </button>
             </div>
           </div>
         )}
+        {avisoArchivo && <p className="mt-2 text-sm text-gray-600">{avisoArchivo}</p>}
 
         {/* Lista */}
         <div className="mt-3 flex flex-col gap-2.5">
@@ -308,6 +394,20 @@ export default function RecuperoFacturasPage() {
                     {item.generando
                       ? 'Generando…'
                       : <><FileText className="h-4 w-4" /> Generar factura</>}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!ok || item.archivando}
+                    onClick={() => guardarEnApp(item)}
+                    className={`flex items-center justify-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-semibold disabled:opacity-40 ${
+                      item.archivada ? 'border-[#1D9E75] bg-[#E8F4EF] text-[#146E51]' : 'border-[#D3D1C7] bg-white text-gray-800 hover:border-gray-400'
+                    }`}
+                  >
+                    {item.archivando
+                      ? 'Guardando…'
+                      : item.archivada
+                        ? <><Check className="h-4 w-4" /> Guardada en la app</>
+                        : <><CloudUpload className="h-4 w-4" /> Guardar en la app</>}
                   </button>
                 </div>
               </div>

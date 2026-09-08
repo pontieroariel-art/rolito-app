@@ -1,6 +1,8 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { HandCoins, RefreshCw } from 'lucide-react'
+import { FileText, HandCoins, RefreshCw } from 'lucide-react'
+import { entregarFacturaAdeudada } from '@/services/facturaAdeudadaService'
+import { puedeCompartirArchivos } from '@/utils/compartir'
 import { Plegable } from '@/components/ui/Plegable'
 import BotonesVerEnviar from '@/components/ui/BotonesVerEnviar'
 import { useAuth } from '@/context/AuthContext'
@@ -11,7 +13,33 @@ import { agruparPorEmpresaYCodigo, atrasoMaximo, claveComp } from '@/utils/compo
 import { generateComposicionSaldosPdf, nombreArchivoComposicionSaldos, type DatosComposicionSaldos } from '@/utils/composicionSaldosPdf'
 import { formatoARS } from '@/utils/money'
 import { NOMBRE_EMPRESA, estaVinculadoATango } from '@/utils/tangoEmpresas'
-import type { UserProfile } from '@/types'
+import type { ComprobanteSaldoTango, EmpresaTango, UserProfile } from '@/types'
+
+// PDF de la factura adeudada (venta de la app o archivada por administración):
+// en el celular la comparte, en una compu la descarga. Si no está, lo dice.
+function BotonFactura({ comp, empresa, clienteNombre }: { comp: ComprobanteSaldoTango; empresa: EmpresaTango; clienteNombre: string }) {
+  const [ocupado, setOcupado] = useState(false)
+  const [aviso, setAviso] = useState('')
+  const correr = async () => {
+    setOcupado(true)
+    setAviso('')
+    try {
+      const modo = puedeCompartirArchivos() ? 'enviar' : 'ver'
+      setAviso(await entregarFacturaAdeudada(comp, empresa, modo, clienteNombre))
+    } finally {
+      setOcupado(false)
+    }
+  }
+  return (
+    <div className="shrink-0 flex flex-col items-end gap-0.5 max-w-[140px]">
+      <button type="button" onClick={correr} disabled={ocupado} aria-label="Enviar factura"
+        className="w-9 h-9 rounded-lg border border-[#D3D1C7] flex items-center justify-center text-accent active:scale-95 disabled:opacity-50">
+        {ocupado ? <RefreshCw size={15} className="animate-spin" /> : <FileText size={15} />}
+      </button>
+      {aviso && <p className="text-[10px] text-amber-700 text-right leading-tight">{aviso}</p>}
+    </div>
+  )
+}
 
 const fechaCorta = (iso: string | undefined) => {
   if (!iso) return ''
@@ -81,6 +109,7 @@ export default function SeccionSaldo({ c }: { c: UserProfile }) {
                       <p className="text-sm font-medium text-gray-900 tabular-nums">{formatoARS(comp.saldoPendiente)}</p>
                       {comp.saldoPendiente !== comp.importeOriginal && <p className="text-[11px] text-gray-400 tabular-nums">de {formatoARS(comp.importeOriginal)}</p>}
                     </div>
+                    {comp.tipo === 'FAC' && <BotonFactura comp={comp} empresa={b.grupo.empresa} clienteNombre={c.razonSocial} />}
                   </div>
                 ))}
               </div>
