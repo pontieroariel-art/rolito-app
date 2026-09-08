@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CheckCircle2, Clock, FileDown, Share2 } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Clock, FileDown, Share2 } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
 import { RETENCION_LABELS } from '@/components/supervisor/RetencionForm'
@@ -45,6 +45,14 @@ export function EstadoTangoChip({ c }: { c: Cobranza }) {
     return (
       <span className="inline-flex items-center gap-1 text-[11px] text-accent">
         <CheckCircle2 size={12} /> En Tango{c.tango.reciboNumero ? ` · ${c.tango.reciboNumero}` : ''}
+      </span>
+    )
+  }
+  if (c.tango?.estado === 'error') {
+    // La cola agotó los reintentos: lo mira la oficina (el motivo viene del bridge).
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] text-red-600" title={c.tango.ultimoError ?? undefined}>
+        <AlertTriangle size={12} /> Error en Tango{c.tango.ultimoError ? ` · ${c.tango.ultimoError.slice(0, 80)}` : ''}
       </span>
     )
   }

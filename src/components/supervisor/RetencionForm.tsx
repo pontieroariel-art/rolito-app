@@ -15,9 +15,15 @@ export const RETENCION_LABELS: Record<TipoRetencion, string> = {
 
 const TIPOS: TipoRetencion[] = ['ganancias', 'iva', 'iibb_caba', 'iibb_pba', 'suss']
 
+const hoyIso = () => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 // Alta de una retención impositiva que el cliente entrega junto con el pago:
 // tipo (Ganancias / IVA / IIBB CABA / IIBB PBA / SUSS), número de certificado
-// (obligatorio — sin él no se puede imputar el crédito fiscal) e importe.
+// (obligatorio — sin él no se puede imputar el crédito fiscal), fecha del
+// certificado (obligatoria: Tango la exige para registrar la retención) e importe.
 export default function RetencionForm({ onAgregar, onCancelar }: {
   onAgregar:  (retencion: RetencionRecibida) => void
   onCancelar: () => void
@@ -25,7 +31,7 @@ export default function RetencionForm({ onAgregar, onCancelar }: {
   const [tipo, setTipo] = useState<TipoRetencion | ''>('')
   const [nroCertificado, setNroCertificado] = useState('')
   const [importeStr, setImporteStr] = useState('')
-  const [fecha, setFecha] = useState('')
+  const [fecha, setFecha] = useState(hoyIso)
   const [error, setError] = useState('')
 
   const importe = parseImporte(importeStr)
@@ -34,12 +40,13 @@ export default function RetencionForm({ onAgregar, onCancelar }: {
     setError('')
     if (!tipo)                   { setError('Elegí el tipo de retención.'); return }
     if (!nroCertificado.trim())  { setError('Poné el número de certificado.'); return }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) { setError('Poné la fecha del certificado.'); return }
     if (importe <= 0)            { setError('Poné el importe de la retención.'); return }
     onAgregar({
       tipo,
       nroCertificado: nroCertificado.trim(),
       importe,
-      ...(fecha ? { fecha } : {}),
+      fecha,
     })
   }
 
@@ -71,7 +78,7 @@ export default function RetencionForm({ onAgregar, onCancelar }: {
       </div>
 
       <div>
-        <label className="text-xs text-gray-500 mb-1 block">Fecha del certificado (opcional)</label>
+        <label className="text-xs text-gray-500 mb-1 block">Fecha del certificado</label>
         <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className={inputClass} />
       </div>
 

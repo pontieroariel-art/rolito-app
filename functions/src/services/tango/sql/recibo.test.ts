@@ -52,7 +52,7 @@ describe('reciboDeCobranza', () => {
   })
   it('rechaza lo que no cierra o no se puede escribir todavía', () => {
     expect(() => reciboDeCobranza({ ...payload, importe: 1400 }, 'c', cfg)).toThrow(/no cierra/)
-    expect(() => reciboDeCobranza({ ...payload, medios: { efectivo: 1000, transferencia: 0, cheques: [], retenciones: [{}] }, importe: 1000, imputaciones: [payload.imputaciones![0]] }, 'c', cfg)).toThrow(/retenciones/)
+    expect(() => reciboDeCobranza({ ...payload, medios: { efectivo: 1000, transferencia: 0, cheques: [], retenciones: [{}] }, importe: 1000, imputaciones: [payload.imputaciones![0]] }, 'c', cfg)).toThrow(/tipo desconocido/)
     expect(() => reciboDeCobranza({ ...payload, medios: { efectivo: 0, transferencia: 0, cheques: [{ numero: '', importe: 1000 }], retenciones: [] }, importe: 1000, imputaciones: [payload.imputaciones![0]] }, 'c', cfg)).toThrow(/número inválido/)
     expect(() => reciboDeCobranza({ ...payload, medios: { efectivo: 0, transferencia: 0, cheques: [cheque], retenciones: [] }, importe: 1000, imputaciones: [payload.imputaciones![0]] }, 'c', { ...cfg, cuentas: { contracuenta: 1120001, efectivo: 1111000 } })).toThrow(/cuenta de cartera/)
     expect(() => reciboDeCobranza({ ...payload, clienteCodigoTango: null }, 'c', cfg)).toThrow(/clienteCodigoTango/)
@@ -311,6 +311,35 @@ describe('cheques de terceros (traza 2026-09-05: X0110600000002, cheque diferido
   it('si SBA14 no fuera IDENTITY frena antes de escribir', async () => {
     const { db } = fakeDb()
     await expect(escribirRecibo(db, r, cfg)).rejects.toThrow(/IDENTITY/)
+  })
+})
+
+describe('retenciones (Track R, 2026-09-08: medio sobre la cuenta de retenciones del tipo; detalle pendiente de traza)', () => {
+  const cfgRet: ConfigReciboSql = { ...cfg, retenciones: { iibb_caba: { cuenta: 1130010, codigoTango: 'RIBC' }, ganancias: { cuenta: 1130001 } } }
+  const ret = { tipo: 'iibb_caba', nroCertificado: '0001-00004567', importe: 500, fecha: '2026-09-08' }
+  const pRet: PayloadCobranza = { ...payload, importe: 1500, medios: { efectivo: 1000, transferencia: 0, cheques: [], retenciones: [ret] } }
+
+  it('la retención es un medio sobre la cuenta de su tipo y queda en la lista con fecha y certificado', () => {
+    const r = reciboDeCobranza(pRet, 'c', cfgRet)
+    expect(r.medios).toEqual([{ cuenta: 1111000, importe: 1000 }, { cuenta: 1130010, importe: 500 }])
+    expect(r.retenciones).toEqual([{ tipo: 'iibb_caba', cuenta: 1130010, codigoTango: 'RIBC', nroCertificado: '0001-00004567', fecha: new Date(2026, 8, 8), importe: 500 }])
+  })
+  it('dos certificados del mismo tipo → un solo renglón de tesorería con la suma; tipos distintos, uno cada uno', () => {
+    const r = reciboDeCobranza({ ...pRet, importe: 2000, imputaciones: [{ comprobanteTipo: 'FAC', comprobanteNumero: 'A0010100268582', importeImputado: 2000 }],
+      medios: { efectivo: 1000, transferencia: 0, cheques: [], retenciones: [ret, { ...ret, nroCertificado: '0001-00004568', importe: 300 }, { ...ret, tipo: 'ganancias', importe: 200 }] } }, 'c', cfgRet)
+    expect(r.medios).toEqual([{ cuenta: 1111000, importe: 1000 }, { cuenta: 1130010, importe: 800 }, { cuenta: 1130001, importe: 200 }])
+    expect(r.retenciones).toHaveLength(3)
+  })
+  it('frena con error legible si el tipo no está mapeado, no tiene fecha o certificado, o la suma no cierra', () => {
+    expect(() => reciboDeCobranza({ ...pRet, medios: { efectivo: 1000, transferencia: 0, cheques: [], retenciones: [{ ...ret, tipo: 'suss' }] } }, 'c', cfgRet)).toThrow(/retenciones\.suss\.cuenta/)
+    expect(() => reciboDeCobranza({ ...pRet, medios: { efectivo: 1000, transferencia: 0, cheques: [], retenciones: [{ ...ret, fecha: undefined }] } }, 'c', cfgRet)).toThrow(/sin fecha de certificado/)
+    expect(() => reciboDeCobranza({ ...pRet, medios: { efectivo: 1000, transferencia: 0, cheques: [], retenciones: [{ ...ret, nroCertificado: ' ' }] } }, 'c', cfgRet)).toThrow(/sin número de certificado/)
+    expect(() => reciboDeCobranza({ ...pRet, medios: { efectivo: 1000, transferencia: 0, cheques: [], retenciones: [{ ...ret, importe: 400 }] } }, 'c', cfgRet)).toThrow(/no cierra/)
+    expect(() => reciboDeCobranza(pRet, 'c', cfg)).toThrow(/sin cuenta de tesorería configurada/)
+  })
+  it('hasta tener la traza del certificado, sentenciasRecibo no arma nada (no queda un recibo a medias)', () => {
+    const r = reciboDeCobranza(pRet, 'c', cfgRet)
+    expect(() => sentenciasRecibo(r, datos, cfgRet)).toThrow(/relevamiento R2/)
   })
 })
 

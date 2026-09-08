@@ -406,8 +406,9 @@ const WRITE_BACKS = {
             const reciboNumero = resultado?.reciboNumero ?? resultado?.savedId;
             if (!reciboNumero)
                 return null;
-            return { 'tango.estado': 'confirmado', 'tango.reciboNumero': String(reciboNumero) };
+            return { 'tango.estado': 'confirmado', 'tango.reciboNumero': String(reciboNumero), 'tango.ultimoError': firestore_2.FieldValue.delete() };
         },
+        buildError: (ultimoError) => ({ 'tango.estado': 'error', 'tango.ultimoError': ultimoError }),
     },
 };
 exports.onOutboxConfirmado = (0, firestore_1.onDocumentUpdated)('tango-outbox/{docId}', async (event) => {
@@ -415,13 +416,17 @@ exports.onOutboxConfirmado = (0, firestore_1.onDocumentUpdated)('tango-outbox/{d
     const after = event.data?.after.data();
     if (!after)
         return;
-    if (before?.estado === 'confirmado' || after.estado !== 'confirmado')
+    if (before?.estado === after.estado)
         return;
     const writeBack = WRITE_BACKS[after.entidad];
     const coleccion = String(after.origenColeccion ?? '');
     if (!writeBack || !writeBack.colecciones.includes(coleccion))
         return;
-    const update = writeBack.buildUpdate(after.resultado ?? {});
+    let update = null;
+    if (after.estado === 'confirmado')
+        update = writeBack.buildUpdate(after.resultado ?? {});
+    else if (after.estado === 'error' && writeBack.buildError)
+        update = writeBack.buildError(String(after.ultimoError ?? 'error en el bridge de Tango').slice(0, 500));
     if (!update)
         return;
     await (0, firestore_2.getFirestore)().collection(coleccion).doc(after.origenId).update(update);

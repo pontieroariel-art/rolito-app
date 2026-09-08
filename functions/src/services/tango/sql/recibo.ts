@@ -36,7 +36,14 @@
 //   (historial del cheque, estado 'C') e INSERT MOVIMIENTO_CHEQUE_TERCERO (ID_SBA14 ↔ ID_SBA05
 //   del renglón de cartera, 'INGR'). El asiento lleva la cuenta contable de la cartera (602).
 //   SBA90 (grilla temporal de la pantalla) no se replica. SBA14.N_INTERNO sale de `siguiente()`.
-// Retenciones → error explícito hasta relevarlas (TestingRH no tiene códigos de retención cargados).
+//
+// Retenciones (Track R del plan de cobranzas, 2026-09-08): cada retención que entrega el
+//   cliente (Ganancias / IVA / IIBB CABA / IIBB PBA / SUSS) es un medio más del recibo: un
+//   renglón SBA05 'D' sobre la cuenta de tesorería de retenciones de ese tipo (config
+//   `retenciones[tipo].cuenta`, por empresa) con la SUMA de los certificados de ese tipo.
+//   El detalle del certificado (nº, fecha, código de retención de Tango) va a la tabla que
+//   muestre el relevamiento R0/R2 (Desktop/Retenciones-R0-relevamiento.sql): hasta tenerla,
+//   `sentenciasRecibo` frena ANTES de escribir nada si el recibo trae retenciones.
 
 import {
   type EjecutorSql, type SentenciaSql,
@@ -70,6 +77,23 @@ export interface ConfigReciboSql {
     /** Mapeo directo código BCRA → ID_BANCO, por si la tabla usa otros códigos. Gana sobre la consulta. */
     bancos?: Record<string, number>
   }
+  /** Retenciones que la app captura (tipo → cuenta de tesorería de "retenciones sufridas" de
+   *  ese tipo y código de retención del catálogo de Tango). Por empresa vía
+   *  `config/tango.sql.empresas.<e>.recibo.retenciones`. Un tipo sin entrada frena con error legible. */
+  retenciones?: Partial<Record<TipoRetencion, { cuenta: number; codigoTango?: string }>>
+}
+
+/** Tipos de retención que carga el supervisor (src/types.ts → TipoRetencion). */
+export type TipoRetencion = 'ganancias' | 'iva' | 'iibb_caba' | 'iibb_pba' | 'suss'
+export const TIPOS_RETENCION: TipoRetencion[] = ['ganancias', 'iva', 'iibb_caba', 'iibb_pba', 'suss']
+
+export interface RetencionTango {
+  tipo: TipoRetencion
+  cuenta: number             // cuenta de tesorería de retenciones de ese tipo
+  codigoTango?: string       // código de retención del catálogo de Tango (detalle del certificado)
+  nroCertificado: string
+  fecha: Date                // fecha del certificado
+  importe: number
 }
 
 export interface ChequeTango {
@@ -102,9 +126,18 @@ export interface ReciboTango {
   fecha: Date
   importe: number
   imputaciones: ImputacionTango[]
-  medios: MedioTango[]           // incluye un renglón por cuenta de cartera con la suma de sus cheques
+  medios: MedioTango[]           // incluye un renglón por cuenta de cartera (suma de cheques) y por cuenta de retención (suma de certificados)
   cheques: ChequeTango[]
+  retenciones: RetencionTango[]
   leyenda: string                // ROLITO:<cobranzaId>
+}
+
+/** Retención tal como la guarda la app en cobranzas.medios.retenciones (src/types.ts → RetencionRecibida). */
+export interface RetencionPayload {
+  tipo?: string
+  nroCertificado?: string
+  importe?: number
+  fecha?: string                 // yyyy-MM-dd (obligatoria desde el 2026-09-08; las viejas pueden no traerla)
 }
 
 /** Cheque tal como lo guarda la app en cobranzas.medios.cheques (src/types.ts → ChequeRecibido). */
@@ -126,7 +159,7 @@ export interface PayloadCobranza {
   importe?: number
   fecha?: unknown
   imputaciones?: { comprobanteTipo: string; comprobanteNumero: string; importeImputado: number }[]
-  medios?: { efectivo?: number; transferencia?: number; cheques?: ChequePayload[]; retenciones?: unknown[] }
+  medios?: { efectivo?: number; transferencia?: number; cheques?: ChequePayload[]; retenciones?: RetencionPayload[] }
   referenciaIdempotente?: string
 }
 
@@ -145,13 +178,19 @@ export function reciboDeCobranza(p: PayloadCobranza, cobranzaId: string, cfg: Co
     if (!cfg.cuentas.transferencia) throw new Error('cobranza por transferencia sin cuenta de tesorería configurada (config/tango.sql.recibo.cuentas.transferencia)')
     medios.push({ cuenta: cfg.cuentas.transferencia, importe: r2(Number(m.transferencia)) })
   }
-  if ((m.retenciones?.length ?? 0) > 0) throw new Error('las retenciones todavía no se escriben en Tango por SQL (pendiente de relevar)')
-
   // Cheques: uno o más por cuenta de cartera (papel / e-cheq). El renglón de tesorería de
   // cada cartera lleva la SUMA; cada cheque va aparte a SBA14 (ver chequeDePayload).
   const cheques = (m.cheques ?? []).map((c, i) => chequeDePayload(c, i, cfg))
   for (const cuenta of [...new Set(cheques.map((c) => c.cuenta))]) {
     medios.push({ cuenta, importe: r2(cheques.filter((c) => c.cuenta === cuenta).reduce((s, c) => s + c.importe, 0)) })
+  }
+
+  // Retenciones: mismo esquema que los cheques — un renglón de tesorería por cuenta de
+  // retención con la SUMA, y el detalle de cada certificado aparte (ver retencionDePayload).
+  const retenciones = (m.retenciones ?? []).map((x, i) => retencionDePayload(x, i, cfg))
+  for (const cuenta of [...new Set(retenciones.map((x) => x.cuenta))]) {
+    if (!medios.some((med) => med.cuenta === cuenta)) medios.push({ cuenta, importe: r2(retenciones.filter((x) => x.cuenta === cuenta).reduce((s, x) => s + x.importe, 0)) })
+    else throw new Error(`la cuenta de retenciones ${cuenta} coincide con otra cuenta de tesorería del recibo; revisar config/tango.sql.recibo.retenciones`)
   }
 
   const importe = r2(Number(p.importe ?? 0))
@@ -161,9 +200,23 @@ export function reciboDeCobranza(p: PayloadCobranza, cobranzaId: string, cfg: Co
   return {
     numero, puntoVenta: cfg.puntoVenta,
     nComp: numeroComprobanteTango('X', cfg.puntoVenta, numero),
-    codCliente: p.clienteCodigoTango, fecha: fechaDe(p.fecha), importe, imputaciones, medios, cheques,
+    codCliente: p.clienteCodigoTango, fecha: fechaDe(p.fecha), importe, imputaciones, medios, cheques, retenciones,
     leyenda: p.referenciaIdempotente ?? `ROLITO:${cobranzaId}`,
   }
+}
+
+function retencionDePayload(x: RetencionPayload, i: number, cfg: ConfigReciboSql): RetencionTango {
+  const tipo = String(x.tipo ?? '').trim() as TipoRetencion
+  if (!TIPOS_RETENCION.includes(tipo)) throw new Error(`retención ${i + 1}: tipo desconocido "${x.tipo}"`)
+  const map = cfg.retenciones?.[tipo]
+  if (!map?.cuenta) throw new Error(`retención ${tipo}: sin cuenta de tesorería configurada (config/tango.sql.recibo.retenciones.${tipo}.cuenta)`)
+  const importe = r2(Number(x.importe ?? 0))
+  if (!(importe > 0)) throw new Error(`retención ${tipo}: importe inválido`)
+  const nroCertificado = String(x.nroCertificado ?? '').trim()
+  if (!nroCertificado) throw new Error(`retención ${tipo}: sin número de certificado`)
+  const fecha = fechaDeIso(x.fecha)
+  if (!fecha) throw new Error(`retención ${tipo} ${nroCertificado}: sin fecha de certificado (Tango la exige)`)
+  return { tipo, cuenta: map.cuenta, codigoTango: map.codigoTango, nroCertificado, fecha, importe }
 }
 
 function chequeDePayload(c: ChequePayload, i: number, cfg: ConfigReciboSql): ChequeTango {
@@ -236,6 +289,8 @@ export function sentenciaExisteRecibo(r: ReciboTango): SentenciaSql {
  *  obtiene al ejecutar el primer INSERT; las que lo necesitan usan el marcador
  *  `@ID_RECIBO`, que el ejecutor resuelve (ver escribirRecibo). */
 export function sentenciasRecibo(r: ReciboTango, d: DatosRecibo, cfg: ConfigReciboSql, ahora = new Date()): SentenciaSql[] {
+  // Se frena acá, con las sentencias sin armar, para que no quede nada escrito a medias.
+  if (r.retenciones.length) throw new Error('el detalle del certificado de retención todavía no se escribe en Tango (falta el relevamiento R2, Desktop/Retenciones-R0-relevamiento.sql); el recibo queda en la cola')
   const fecha = soloDia(r.fecha)
   const hoy = soloDia(ahora)
   const hora = horaHHMMSS(ahora)

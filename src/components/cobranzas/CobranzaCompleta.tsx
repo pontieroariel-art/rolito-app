@@ -485,7 +485,7 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
             <p className="text-xs text-gray-500">El registro es definitivo e impacta en la cuenta corriente de Tango.</p>
             {retenciones.length > 0 && (
               <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
-                Las retenciones todavía no entran solas a Tango: este recibo lo termina de cargar la oficina con el certificado. Guardá el papel.
+                Guardá el certificado de retención en papel: administración lo necesita para el crédito fiscal. Si Tango no toma el recibo, queda marcado con error y lo revisa la oficina.
               </p>
             )}
             <div className="flex gap-2 pt-1">

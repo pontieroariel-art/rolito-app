@@ -402,6 +402,9 @@ const WRITE_BACKS: Record<string, {
   /** Colecciones de origen válidas para esta entidad. */
   colecciones: string[]
   buildUpdate: (resultado: Record<string, unknown>) => Record<string, unknown> | null
+  /** Cuando la cola agota los reintentos (estado 'error'): qué marcar en el doc de origen
+   *  para que la pantalla lo muestre (2026-09-08). Sin esto el doc queda "pendiente" para siempre. */
+  buildError?: (ultimoError: string) => Record<string, unknown>
 }> = {
   remito: {
     // Del camión o del mostrador: mismo comprobante en Tango, distinto origen.
@@ -448,8 +451,9 @@ const WRITE_BACKS: Record<string, {
     buildUpdate: (resultado) => {
       const reciboNumero = resultado?.reciboNumero ?? resultado?.savedId
       if (!reciboNumero) return null
-      return { 'tango.estado': 'confirmado', 'tango.reciboNumero': String(reciboNumero) }
+      return { 'tango.estado': 'confirmado', 'tango.reciboNumero': String(reciboNumero), 'tango.ultimoError': FieldValue.delete() }
     },
+    buildError: (ultimoError) => ({ 'tango.estado': 'error', 'tango.ultimoError': ultimoError }),
   },
 }
 
@@ -459,13 +463,14 @@ export const onOutboxConfirmado = onDocumentUpdated(
     const before = event.data?.before.data()
     const after  = event.data?.after.data()
     if (!after) return
-    if (before?.estado === 'confirmado' || after.estado !== 'confirmado') return
-
+    if (before?.estado === after.estado) return
     const writeBack = WRITE_BACKS[after.entidad]
     const coleccion = String(after.origenColeccion ?? '')
     if (!writeBack || !writeBack.colecciones.includes(coleccion)) return
 
-    const update = writeBack.buildUpdate(after.resultado ?? {})
+    let update: Record<string, unknown> | null = null
+    if (after.estado === 'confirmado') update = writeBack.buildUpdate(after.resultado ?? {})
+    else if (after.estado === 'error' && writeBack.buildError) update = writeBack.buildError(String(after.ultimoError ?? 'error en el bridge de Tango').slice(0, 500))
     if (!update) return
 
     await getFirestore().collection(coleccion).doc(after.origenId).update(update)
