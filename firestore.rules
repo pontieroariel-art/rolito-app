@@ -422,7 +422,17 @@ service cloud.firestore {
              ])
         ) ||
         isOperator() ||
-        isManager()
+        isManager() ||
+        // Supervisor en la calle (2026-09-07): toma un pedido de un cliente
+        // y se lo pasa a logística SIN chofer ni día (entra a la Bandeja).
+        // A su nombre, pendiente, y solo para un cliente real.
+        (
+          isSupervisor()
+          && request.resource.data.status == 'pendiente'
+          && request.resource.data.get('driverId', null) == null
+          && request.resource.data.origenSupervisor.uid == request.auth.uid
+          && get(/databases/$(database)/documents/users/$(request.resource.data.clientId)).data.rol == 'cliente'
+        )
       );
 
       // Lectura: el cliente dueño, el chofer asignado, operador, comercial, facturación,
@@ -435,7 +445,9 @@ service cloud.firestore {
         isManager() ||
         isFacturacion() ||
         isGerenteGeneral() ||
-        myRole() == 'heladeras_encargado'
+        myRole() == 'heladeras_encargado' ||
+        // Supervisor: historial de pedidos en la ficha del cliente (2026-09-07).
+        isSupervisor()
       );
 
       // Actualización del chofer asignado: solo para marcar la entrega. Nunca
@@ -640,6 +652,12 @@ service cloud.firestore {
     match /visitas-puntuales/{id} {
       allow read:  if esNoAnonimo();
       allow write: if request.auth != null && isOperator();
+      // Supervisor en la calle (2026-09-07): pide una visita sin chofer y a su
+      // nombre; logística la asigna desde Visitas.
+      allow create: if request.auth != null && isSupervisor()
+        && request.resource.data.get('driverId', null) == null
+        && request.resource.data.status == 'pendiente'
+        && request.resource.data.origenSupervisor.uid == request.auth.uid;
       // Chofer puede actualizar sus propias visitas, solo el estado/notas/orderId
       // (no reasignarse ni reescribir la visita).
       allow update: if request.auth != null

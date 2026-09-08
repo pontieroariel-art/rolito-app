@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom'
 import { FileText, HandCoins, RefreshCw } from 'lucide-react'
 import { entregarFacturaAdeudada } from '@/services/facturaAdeudadaService'
 import { puedeCompartirArchivos } from '@/utils/compartir'
+import { useAlertasMora } from '@/hooks/useAlertasMora'
+import { CLASE_MORA } from '@/components/supervisor/ChipMora'
+import { ETIQUETA_MORA, nivelMora } from '@/utils/mora'
 import { Plegable } from '@/components/ui/Plegable'
 import BotonesVerEnviar from '@/components/ui/BotonesVerEnviar'
 import { useAuth } from '@/context/AuthContext'
@@ -54,6 +57,7 @@ export default function SeccionSaldo({ c }: { c: UserProfile }) {
   const { user } = useAuth()
   const actor = useMemo(() => (user ? { uid: user.uid, nombre: user.nombre } : null), [user])
   const { saldo, cargando, refrescando, esCache } = useSaldoClienteEnVivo(c, actor)
+  const alertas = useAlertasMora()
   const comprobantes = useMemo(() => saldo?.comprobantes ?? [], [saldo])
   const bloques = useMemo(() => agruparPorEmpresaYCodigo(comprobantes), [comprobantes])
   const total = saldo?.saldoTotal ?? 0
@@ -69,8 +73,9 @@ export default function SeccionSaldo({ c }: { c: UserProfile }) {
     fecha: new Date(),
   })
 
+  const nivel = nivelMora(total, atraso, alertas)
   const chip = cargando ? null : total > 0
-    ? <span className={`text-xs font-semibold rounded-full px-2 py-0.5 border ${atraso > 0 ? 'text-red-600 bg-red-50 border-red-200' : 'text-amber-700 bg-amber-50 border-amber-200'}`}>{formatoARS(total)}</span>
+    ? <span className={`text-xs font-semibold rounded-full px-2 py-0.5 border ${CLASE_MORA[nivel]}`}>{formatoARS(total)}{nivel !== 'ok' ? ` · ${ETIQUETA_MORA[nivel]}` : ''}</span>
     : <span className="text-xs font-semibold rounded-full px-2 py-0.5 border text-accent bg-accent/10 border-accent/30">Sin deuda</span>
 
   return (

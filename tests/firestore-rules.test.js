@@ -3665,3 +3665,57 @@ describe('facturasArchivadas: facturas de Tango archivadas por administración',
     await assertSucceeds(getDoc(doc(db('sup1'), 'ventasVentanilla/v1')))
   })
 })
+
+// ── supervisor: pedido y visita a logística, historial (2026-09-07) ─────────
+describe('supervisor: pedido / visita a logística e historial del cliente', () => {
+  const seedSup = () => seed(async (d) => {
+    await setDoc(doc(d, 'users/sup1'), { rol: 'supervisor', estado: 'activo' })
+    await setDoc(doc(d, 'users/cli'), cliente())
+  })
+  const pedidoSup = (extra = {}) => ({
+    clientId: 'cli', clientEmail: 'c@x.com', clientName: 'Cliente de Prueba SA', clientAddress: 'Calle 1', clientPhone: '',
+    products: [{ name: 'Hielo 10kg', quantity: 5, productoId: 'bolsa_10kg' }], status: 'pendiente', date: new Date(), driverId: null,
+    notes: 'dejar en el fondo', origenSupervisor: { uid: 'sup1', nombre: 'Super Uno' }, createdAt: new Date(), updatedAt: new Date(), ...extra,
+  })
+  const visitaSup = (extra = {}) => ({
+    clientId: 'cli', clientName: 'Cliente de Prueba SA', clientAddress: 'Calle 1', clientPhone: '', fecha: new Date(),
+    driverId: null, status: 'pendiente', notas: 'quiere ver precios', origenSupervisor: { uid: 'sup1', nombre: 'Super Uno' }, createdAt: new Date(), ...extra,
+  })
+
+  test('crea un pedido pendiente sin chofer a su nombre para un cliente real; y lo lee', async () => {
+    await seedSup()
+    await assertSucceeds(setDoc(doc(db('sup1'), 'orders/o1'), pedidoSup()))
+    await assertSucceeds(getDoc(doc(db('sup1'), 'orders/o1')))
+  })
+
+  test('NO crea pedidos con chofer, confirmados, a nombre de otro, ni para un no-cliente; no edita', async () => {
+    await seedSup()
+    await seed((d) => setDoc(doc(d, 'users/ch1'), { rol: 'chofer', estado: 'activo', email: 'ch@x.com' }))
+    await assertFails(setDoc(doc(db('sup1'), 'orders/o1'), pedidoSup({ driverId: 'ch@x.com' })))
+    await assertFails(setDoc(doc(db('sup1'), 'orders/o2'), pedidoSup({ status: 'confirmado' })))
+    await assertFails(setDoc(doc(db('sup1'), 'orders/o3'), pedidoSup({ origenSupervisor: { uid: 'sup2', nombre: 'Otro' } })))
+    await assertFails(setDoc(doc(db('sup1'), 'orders/o4'), pedidoSup({ clientId: 'ch1' })))
+    await seed((d) => setDoc(doc(d, 'orders/o5'), pedidoSup()))
+    await assertFails(updateDoc(doc(db('sup1'), 'orders/o5'), { status: 'confirmado' }))
+  })
+
+  test('crea una visita pendiente sin chofer a su nombre; no con chofer, ni a nombre de otro, ni la edita', async () => {
+    await seedSup()
+    await assertSucceeds(setDoc(doc(db('sup1'), 'visitas-puntuales/v1'), visitaSup()))
+    await assertFails(setDoc(doc(db('sup1'), 'visitas-puntuales/v2'), visitaSup({ driverId: 'ch@x.com' })))
+    await assertFails(setDoc(doc(db('sup1'), 'visitas-puntuales/v3'), visitaSup({ status: 'visitado' })))
+    await assertFails(setDoc(doc(db('sup1'), 'visitas-puntuales/v4'), visitaSup({ origenSupervisor: { uid: 'sup2', nombre: 'Otro' } })))
+    await assertFails(updateDoc(doc(db('sup1'), 'visitas-puntuales/v1'), { driverId: 'ch@x.com' }))
+  })
+
+  test('config/cobranzas (alertas de mora): el supervisor lee, no escribe; super_admin escribe', async () => {
+    await seedSup()
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/sa'), { rol: 'super_admin', estado: 'activo' })
+      await setDoc(doc(d, 'config/cobranzas'), { alertasMora: { diasAmarillo: 30, diasRojo: 60, importeRojo: 500000 } })
+    })
+    await assertSucceeds(getDoc(doc(db('sup1'), 'config/cobranzas')))
+    await assertFails(setDoc(doc(db('sup1'), 'config/cobranzas'), { alertasMora: { diasAmarillo: 1, diasRojo: 2, importeRojo: 3 } }, { merge: true }))
+    await assertSucceeds(setDoc(doc(db('sa'), 'config/cobranzas'), { alertasMora: { diasAmarillo: 20, diasRojo: 45, importeRojo: 300000 } }, { merge: true }))
+  })
+})

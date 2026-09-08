@@ -3,6 +3,9 @@ import { coincideBusqueda, normalizarBusqueda, INPUT_BUSQUEDA_PROPS } from '@/ut
 import { Link } from 'react-router-dom'
 import { Search, UserRound } from 'lucide-react'
 import SupervisorHeader from '@/components/supervisor/SupervisorHeader'
+import ChipMora, { BORDE_MORA } from '@/components/supervisor/ChipMora'
+import { useAlertasMora } from '@/hooks/useAlertasMora'
+import { nivelMora } from '@/utils/mora'
 import { subscribeClientesConDeuda } from '@/services/saldosTangoService'
 import { formatoARS } from '@/utils/money'
 import { NOMBRE_EMPRESA_CORTO } from '@/utils/tangoEmpresas'
@@ -27,8 +30,11 @@ export function haceCuanto(ts: { toDate(): Date } | undefined): string {
 export default function SupervisorClientesPage() {
   const [saldos, setSaldos] = useState<SaldoTango[]>([])
   const [busqueda, setBusqueda] = useState('')
-  const [soloVencidos, setSoloVencidos] = useState(false)
+  const [filtro, setFiltro] = useState<'todos' | 'vencidos' | 'mora'>('todos')
+  const soloVencidos = filtro !== 'todos'
   const [cargando, setCargando] = useState(true)
+  const alertas = useAlertasMora()
+  const nivelDe = (s: SaldoTango) => nivelMora(s.saldoTotal, atrasoDe(s), alertas)
 
   useEffect(() => {
     const unsub = subscribeClientesConDeuda((s) => {
@@ -53,11 +59,14 @@ export default function SupervisorClientesPage() {
   const filtrados = useMemo(() => {
     const base = soloVencidos ? saldos.filter((s) => atrasoDe(s) > 0) : saldos
     if (!normalizarBusqueda(busqueda)) return base
-    return base.filter((s) => coincideBusqueda(busqueda, s.razonSocial, s.codigoTango))
-  }, [saldos, busqueda, soloVencidos])
+    const conMora = filtro === 'mora' ? base.filter((s) => nivelDe(s) !== 'ok') : base
+    return conMora.filter((s) => coincideBusqueda(busqueda, s.razonSocial, s.codigoTango))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- nivelDe depende solo de `alertas`, que sí está en la lista
+  }, [saldos, busqueda, soloVencidos, filtro, alertas])
 
   const totalDeuda = useMemo(() => filtrados.reduce((t, s) => t + s.saldoTotal, 0), [filtrados])
   const vencidos = useMemo(() => saldos.filter((s) => atrasoDe(s) > 0).length, [saldos])
+  const enMora = useMemo(() => saldos.filter((s) => nivelMora(s.saldoTotal, atrasoDe(s), alertas) !== 'ok').length, [saldos, alertas])
 
   return (
     <div className="min-h-screen min-h-dvh bg-[#F8F7F2]">
@@ -84,14 +93,12 @@ export default function SupervisorClientesPage() {
         ) : (
           <>
             <div className="flex gap-2">
-              <button type="button" onClick={() => setSoloVencidos(false)}
-                className={`flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium ${!soloVencidos ? 'bg-accent text-white border-accent' : 'bg-white text-gray-700 border-[#D3D1C7]'}`}>
-                Todos ({saldos.length})
-              </button>
-              <button type="button" onClick={() => setSoloVencidos(true)}
-                className={`flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium ${soloVencidos ? 'bg-accent text-white border-accent' : 'bg-white text-gray-700 border-[#D3D1C7]'}`}>
-                Solo vencidos ({vencidos})
-              </button>
+              {([['todos', `Todos (${saldos.length})`], ['vencidos', `Vencidos (${vencidos})`], ['mora', `En mora (${enMora})`]] as const).map(([id, label]) => (
+                <button key={id} type="button" onClick={() => setFiltro(id)}
+                  className={`flex-1 rounded-lg border px-2 py-1.5 text-xs font-medium ${filtro === id ? 'bg-accent text-white border-accent' : 'bg-white text-gray-700 border-[#D3D1C7]'}`}>
+                  {label}
+                </button>
+              ))}
             </div>
             <div className="flex items-center justify-between px-1">
               <p className="text-xs text-gray-500">{filtrados.length} {filtrados.length === 1 ? 'cliente' : 'clientes'}</p>
@@ -103,11 +110,12 @@ export default function SupervisorClientesPage() {
             <div className="space-y-2">
               {filtrados.map((s) => {
                 const atraso = atrasoDe(s)
+                const nivel = nivelDe(s)
                 return (
-                  <div key={s.id} className="flex bg-white rounded-xl border border-[#D3D1C7] shadow-sm overflow-hidden">
+                  <div key={s.id} className={`flex bg-white rounded-xl border shadow-sm overflow-hidden ${BORDE_MORA[nivel]}`}>
                     <Link to={`/supervisor/cobrar?cliente=${s.id}`} className="block flex-1 min-w-0 p-3 active:bg-gray-50">
                       <div className="flex justify-between items-center gap-2">
-                        <p className="text-sm font-medium text-gray-900 truncate">{s.razonSocial}</p>
+                        <p className="text-sm font-medium text-gray-900 truncate flex items-center gap-1.5 min-w-0"><span className="truncate">{s.razonSocial}</span><ChipMora nivel={nivel} /></p>
                         <p className="text-sm font-semibold text-gray-900 shrink-0">{formatoARS(s.saldoTotal)}</p>
                       </div>
                       <div className="flex justify-between items-center mt-0.5 gap-2">

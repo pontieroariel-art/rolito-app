@@ -766,6 +766,9 @@ export interface VisitaPuntual {
   status:        'pendiente' | 'visitado' | 'sin_contacto'
   notas?:        string
   orderId?:      string
+  // Visita pedida por un supervisor desde la calle (2026-09-07): sin chofer,
+  // logística le pone día y camión desde Visitas.
+  origenSupervisor?: { uid: string; nombre: string }
   createdAt:     Timestamp
 }
 
@@ -978,6 +981,10 @@ export interface Order {
   // Idempotencia del aviso "camión cerca" (Cloud Function notifyCerca) — se
   // resetea al reprogramar (nuevo intento de entrega).
   avisoCercaEnviado?: boolean
+  // Pedido que un supervisor tomó en la calle (ficha del cliente, 2026-09-07):
+  // entra a la Bandeja de logística (date = ayer) sin chofer ni día; logística
+  // lo programa. El trigger onPedidoSupervisorCreado avisa por push.
+  origenSupervisor?: { uid: string; nombre: string }
   // Auditoría
   historialAcciones?: AccionHistorial[]
   // Modificación (cancelar + recrear)

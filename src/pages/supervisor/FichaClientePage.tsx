@@ -4,6 +4,8 @@ import SeccionContacto from '@/components/supervisor/ficha/SeccionContacto'
 import SeccionDatos from '@/components/supervisor/ficha/SeccionDatos'
 import SeccionDomicilios from '@/components/supervisor/ficha/SeccionDomicilios'
 import SeccionHeladeras from '@/components/supervisor/ficha/SeccionHeladeras'
+import SeccionHistorial from '@/components/supervisor/ficha/SeccionHistorial'
+import SeccionPedido from '@/components/supervisor/ficha/SeccionPedido'
 import SeccionSaldo from '@/components/supervisor/ficha/SeccionSaldo'
 import { useClienteSupervisor } from '@/hooks/useClienteSupervisor'
 import { codigosTangoResumen } from '@/pages/admin/user-management/listaTango'
@@ -36,9 +38,11 @@ export default function FichaClientePage() {
               </p>
             </div>
             <SeccionSaldo c={cliente} />
-            <SeccionHeladeras c={cliente} />
             <SeccionContacto c={cliente} />
             <SeccionDomicilios c={cliente} />
+            <SeccionHeladeras c={cliente} />
+            <SeccionPedido c={cliente} />
+            <SeccionHistorial c={cliente} />
             <SeccionDatos c={cliente} />
           </>
         )}

@@ -177,6 +177,31 @@
         { "fieldPath": "clienteId", "order": "ASCENDING" },
         { "fieldPath": "fecha",     "order": "ASCENDING" }
       ]
+    },
+    {
+      "_comentario": "Historial del cliente en la ficha del supervisor (2026-09-07): ultimas ventas y cobranzas de UN cliente, mas nuevas primero.",
+      "collectionGroup": "ventasCamion",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "clienteId", "order": "ASCENDING" },
+        { "fieldPath": "fecha",     "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "ventasVentanilla",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "clienteId", "order": "ASCENDING" },
+        { "fieldPath": "fecha",     "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "cobranzas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "clienteId", "order": "ASCENDING" },
+        { "fieldPath": "fecha",     "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

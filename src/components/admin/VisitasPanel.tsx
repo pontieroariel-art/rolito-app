@@ -195,7 +195,7 @@ function VisitaPuntualForm({
 // ── VisitaCard ────────────────────────────────────────────────────────────────
 
 function VisitaCard({
-  clientName, clientAddress, clientPhone, driverId, notas, status, isRecurrente, choferes, onDelete, onSinContacto,
+  clientName, clientAddress, clientPhone, driverId, notas, status, isRecurrente, choferes, onDelete, onSinContacto, pedidaPor,
 }: {
   clientName:     string
   clientAddress:  string
@@ -204,6 +204,8 @@ function VisitaCard({
   notas?:         string
   status?:        string
   isRecurrente:   boolean
+  /** Nombre del supervisor que la pidió desde la calle (sin chofer: hay que asignarla). */
+  pedidaPor?:     string
   choferes:       UserProfile[]
   onDelete?:      () => void
   onSinContacto?: () => void
@@ -221,6 +223,7 @@ function VisitaCard({
           <div className="flex items-center gap-2 flex-wrap">
             <p className="font-semibold text-sm text-gray-900">{clientName}</p>
             {isRecurrente   && <span className="text-xs px-1.5 py-0.5 rounded bg-accent/15 text-accent border border-accent/20">recurrente</span>}
+            {pedidaPor      && <span className="text-xs px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">pedida por {pedidaPor.split(' ')[0]}{!driverId ? ' · sin chofer' : ''}</span>}
             {isVisitado     && <span className="text-xs text-green-600 font-medium">✓ Visitado</span>}
             {isSinContacto  && <span className="text-xs text-amber-600 font-medium">Sin contacto</span>}
           </div>
@@ -330,7 +333,7 @@ export default function VisitasPanel() {
               {visitasPuntuales.map((v) => (
                 <VisitaCard key={`punt-${v.id}`} clientName={v.clientName} clientAddress={v.clientAddress}
                   clientPhone={v.clientPhone} driverId={v.driverId} notas={v.notas} status={v.status}
-                  isRecurrente={false} choferes={choferes}
+                  isRecurrente={false} choferes={choferes} pedidaPor={v.origenSupervisor?.nombre}
                   onDelete={() => deleteVisitaPuntual(v.id)}
                   onSinContacto={() => updateVisitaPuntual(v.id, { status: 'sin_contacto' })} />
               ))}

@@ -102,6 +102,11 @@ export function AdminOrderCard({ order, choferes }: AdminOrderCardProps) {
               {order.origenRecurrente && (
                 <span className="text-xs px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 border border-purple-200 font-medium">↺ Recurrente</span>
               )}
+              {order.origenSupervisor && (
+                <span className="text-xs px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 font-medium" title={`Lo tomó ${order.origenSupervisor.nombre} en la calle: hay que ponerle día`}>
+                  A programar · {order.origenSupervisor.nombre.split(' ')[0]}
+                </span>
+              )}
               {ocVencida && (
                 <span className="text-xs px-1.5 py-0.5 rounded bg-red-50 text-red-600 border border-red-200 font-bold">⚠ OC vencida</span>
               )}
