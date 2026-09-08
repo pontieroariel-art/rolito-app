@@ -9,6 +9,8 @@ import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import ClienteCombobox, { toComboItems } from '../../components/ui/ClienteCombobox'
+import SelectorSucursal from '@/components/ventas/SelectorSucursal'
+import { clienteEnSucursal, necesitaSucursal } from '@/utils/sucursalesTango'
 import SignaturePad, { SignaturePadHandle } from '../../components/heladeras/SignaturePad'
 import { useAuth } from '../../context/AuthContext'
 import { useClientesActivos } from '../../hooks/useClientesActivos'
@@ -87,6 +89,8 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
 
   const [canal, setCanal] = useState<CanalVenta | null>(null)
   const [clienteId, setClienteId] = useState('')
+  // Sucursal (código de Tango) cuando la cuenta tiene varias en la empresa del canal.
+  const [sucursal, setSucursal] = useState('')
   const [cantidades, setCantidades] = useState<Record<string, number>>({})
   const [cantidadesCambio, setCantidadesCambio] = useState<Record<string, number>>({})
   const [cambiosAbierto, setCambiosAbierto] = useState(false)
@@ -119,6 +123,9 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
   // sale del precio especial del cliente o de su lista en esa empresa. Sin
   // precio en Tango, el producto no se vende.
   const empresa = empresaDeCanal(canal)
+  // Al cambiar de cliente o de canal la sucursal elegida deja de valer.
+  useEffect(() => { setSucursal('') }, [clienteId, canal])
+  const faltaSucursal = necesitaSucursal(cliente, empresa) && !sucursal
   const { precios: preciosTango } = usePreciosTango(empresa)
   const sinPrecioMotivo = useMemo(
     () => (cliente ? motivoSinPrecioTango(preciosTango, cliente, empresa) : null),
@@ -190,6 +197,10 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
 
   const confirmar = () => {
     if (!user || !cliente || !canal) return
+    if (faltaSucursal) { setError('Elegí la sucursal del cliente.'); return }
+    // La venta viaja con el código/id de Tango de la sucursal elegida (o el
+    // principal si la cuenta tiene uno solo en esta empresa).
+    const clienteVenta = clienteEnSucursal(cliente, empresa, sucursal)
     // Una operación de solo cambios no se cobra: la forma de pago no se le
     // pregunta al chofer, y contra un total de $0 no mueve ninguna cuenta.
     const formaPagoFinal = formaPago ?? 'contado_efectivo'
@@ -206,7 +217,7 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
       }
       crearVentaCamion(
         {
-          canal, cliente, items, cambios, formaPago: formaPagoFinal,
+          canal, cliente: clienteVenta, items, cambios, formaPago: formaPagoFinal,
           firmaCliente: firmaPreview ?? undefined, firmanteNombre: firmante, comprobanteInterno,
         },
         { uid: user.uid, nombre: user.nombre, camionId: camionIdHoy, ...depositoVenta },
@@ -339,6 +350,7 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
           {loadingClientes
             ? <p className="text-xs text-gray-400">Cargando clientes…</p>
             : <ClienteCombobox items={toComboItems(clientes)} value={clienteId} onChange={setClienteId} />}
+          <SelectorSucursal cliente={cliente} empresa={empresa} value={sucursal} onChange={setSucursal} />
           {sinPrecioMotivo && (
             <p className="text-xs text-amber-600">{sinPrecioMotivo} No se puede vender hasta que se corrija en Tango y se sincronice.</p>
           )}
@@ -505,7 +517,7 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
           </div>
           <Button
             onClick={abrirResumen}
-            disabled={(items.length === 0 && cambios.length === 0) || !cliente || bloqueaVenta}
+            disabled={(items.length === 0 && cambios.length === 0) || !cliente || bloqueaVenta || faltaSucursal}
             className="flex-1 flex items-center justify-center gap-1.5"
           >
             Revisar y confirmar <ChevronRight size={18} />

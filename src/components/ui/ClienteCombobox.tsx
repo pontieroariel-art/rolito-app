@@ -6,15 +6,24 @@ export interface ComboItem {
   uid:     string
   label:   string
   codigo?: string
+  /** Texto extra solo para buscar (códigos y nombres de sucursales), no se muestra. */
+  extra?:  string
 }
 
 export function toComboItems(clientes: UserProfile[]): ComboItem[] {
-  return clientes.map((c) => ({
-    uid:    c.uid,
-    // Sin CUIT: se avisa en el nombre, porque solo se le puede vender en promo.
-    label:  (c.razonSocial || c.nombreContacto || c.nombre || c.email || '') + (c.sinCuit ? ' · sin CUIT (solo promo)' : ''),
-    codigo: c.codigoCliente,
-  }))
+  return clientes.map((c) => {
+    // Cuentas con varias sucursales en Tango (Rappi, Coto…): se buscan también
+    // por el código o el nombre de cualquier sucursal (RAP001, "MONROE").
+    const codigos = [...(c.tangoIds?.redonhielo ?? []), ...(c.tangoIds?.rolito ?? [])].map((x) => x.codigo)
+    const sucursales = new Set(codigos).size
+    return {
+      uid:    c.uid,
+      // Sin CUIT: se avisa en el nombre, porque solo se le puede vender en promo.
+      label:  (c.razonSocial || c.nombreContacto || c.nombre || c.email || '') + (c.sinCuit ? ' · sin CUIT (solo promo)' : '') + (sucursales > 1 ? ` · ${sucursales} sucursales` : ''),
+      codigo: c.codigoCliente,
+      extra:  [...codigos, ...(c.addresses ?? []).map((a) => a.nombre)].filter(Boolean).join(' '),
+    }
+  })
 }
 
 interface Props {
@@ -45,7 +54,7 @@ export default function ClienteCombobox({
   // Se compara sin puntos, espacios, guiones ni acentos: el autocorrector del
   // iPad convierte "FC." en "F.C." y "fc280" tiene que encontrar a "FC.280".
   const filtered = normalizarBusqueda(query)
-    ? items.filter((i) => coincideBusqueda(query, i.label, i.codigo)).slice(0, 50)
+    ? items.filter((i) => coincideBusqueda(query, i.label, i.codigo, i.extra)).slice(0, 50)
     : items.slice(0, 50)
 
   useEffect(() => {

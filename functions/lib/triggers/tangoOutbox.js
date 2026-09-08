@@ -70,8 +70,13 @@ async function payloadDeVentaEn(venta, empresa) {
     if (!(0, empresas_1.esEmpresa)(empresa) || typeof venta.clienteId !== 'string' || !venta.clienteId)
         return payload;
     const user = (await (0, firestore_2.getFirestore)().collection('users').doc(venta.clienteId).get()).data();
-    const idGva14 = (0, empresas_1.idGva14De)(user, empresa);
-    const codigo = (0, empresas_1.codigoTangoDe)(user, empresa);
+    // Sucursal elegida al vender (2026-09-08): si la venta trae un código que es
+    // de ESTE cliente en ESTA empresa, se respeta (Rappi RAP007, no el principal
+    // MDP203). Si no, cae al principal de la empresa como antes.
+    const elegido = String(venta.clienteCodigoTango ?? '').trim();
+    const sucursal = elegido ? ((0, empresas_1.tangoIdsDe)(user)[empresa] ?? []).find((x) => x.codigo === elegido) : undefined;
+    const idGva14 = sucursal?.idGva14 ?? (0, empresas_1.idGva14De)(user, empresa);
+    const codigo = sucursal?.codigo ?? (0, empresas_1.codigoTangoDe)(user, empresa);
     if (idGva14)
         payload.clienteIdGva14Tango = idGva14;
     if (codigo)

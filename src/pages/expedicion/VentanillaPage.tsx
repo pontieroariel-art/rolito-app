@@ -4,6 +4,8 @@ import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import ClienteCombobox, { toComboItems } from '../../components/ui/ClienteCombobox'
+import SelectorSucursal from '@/components/ventas/SelectorSucursal'
+import { clienteEnSucursal, necesitaSucursal } from '@/utils/sucursalesTango'
 import BotoneraProductos from '../../components/ventas/BotoneraProductos'
 import { useAuth } from '../../context/AuthContext'
 import { useClientesActivos } from '../../hooks/useClientesActivos'
@@ -92,6 +94,10 @@ export default function VentanillaPage() {
 
   const cliente = useMemo(() => clientes.find((c) => c.uid === clienteId), [clientes, clienteId])
   const clientePorId = useMemo(() => new Map(clientes.map((c) => [c.uid, c])), [clientes])
+  // Sucursal (código de Tango) cuando la cuenta tiene varias en la empresa del canal.
+  const [sucursal, setSucursal] = useState('')
+  useEffect(() => { setSucursal('') }, [clienteId, canal])
+  const faltaSucursal = tipoCliente === 'registrado' && necesitaSucursal(cliente, empresaDeCanal(canal)) && !sucursal
   // Cliente registrado: precios de Tango (contado → Redonhielo, promo →
   // Rolito; especial del cliente o su lista). Sin precio en Tango no se
   // vende. Ocasional: la lista de la app que elija caja.
@@ -220,7 +226,7 @@ export default function VentanillaPage() {
         {
           canal,
           cliente: tipoCliente === 'registrado' && cliente
-            ? { uid: cliente.uid, nombre: cliente.razonSocial || cliente.nombre, codigoTango: cliente.codigoTango, idGva14Tango: cliente.idGva14Tango }
+            ? (() => { const c = clienteEnSucursal(cliente, empresaDeCanal(canal), sucursal); return { uid: c.uid, nombre: c.razonSocial || c.nombre, codigoTango: c.codigoTango, idGva14Tango: c.idGva14Tango } })()
             : undefined,
           ocasional: tipoCliente === 'ocasional'
             ? {
@@ -297,6 +303,9 @@ export default function VentanillaPage() {
           <div>
             <label className="text-xs text-gray-500 mb-1 block">Cliente</label>
             <ClienteCombobox items={toComboItems(clientes)} value={clienteId} onChange={setClienteId} placeholder="Buscar cliente…" />
+            <div className="mt-2">
+              <SelectorSucursal cliente={cliente} empresa={empresaDeCanal(canal)} value={sucursal} onChange={setSucursal} />
+            </div>
             {sinPrecioMotivo && (
               <p className="text-xs text-amber-600 mt-1">{sinPrecioMotivo} No se puede vender hasta que se corrija en Tango y se sincronice.</p>
             )}
@@ -377,7 +386,7 @@ export default function VentanillaPage() {
 
         <div className="flex items-center justify-between gap-3">
           <p className="text-lg font-bold text-gray-900">Total: {money(total)}</p>
-          <Button onClick={abrirConfirmacion} disabled={items.length === 0 || sinPrecioMotivo !== null || items.some((i) => sinPrecio(i.productoId))}>
+          <Button onClick={abrirConfirmacion} disabled={items.length === 0 || sinPrecioMotivo !== null || items.some((i) => sinPrecio(i.productoId)) || faltaSucursal}>
             {vaAFacturar ? 'Cobrar y facturar' : 'Cobrar y emitir comprobante'}
           </Button>
         </div>
