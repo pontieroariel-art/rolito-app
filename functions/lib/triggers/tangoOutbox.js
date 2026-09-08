@@ -282,7 +282,8 @@ exports.onCobranzaCreada = (0, firestore_1.onDocumentCreated)('cobranzas/{cobran
     // Viaja a Tango toda cobranza COMPLETA (con imputación a facturas), venga
     // del supervisor, de caja o del chofer (2026-09-05). Las simples de
     // mostrador/calle de antes (sin imputaciones) siguen sin encolarse.
-    if (!cobranza || !Array.isArray(cobranza.imputaciones) || cobranza.imputaciones.length === 0)
+    // Desde el 2026-09-08 también viaja la cobranza a cuenta pura (sin factura imputada).
+    if (!cobranza || !Array.isArray(cobranza.imputaciones) || (cobranza.imputaciones.length === 0 && !(Number(cobranza.aCuenta) > 0)))
         return;
     const db = (0, firestore_2.getFirestore)();
     // El bridge necesita el vínculo Tango del cliente EN LA EMPRESA del recibo
@@ -310,6 +311,7 @@ exports.onCobranzaCreada = (0, firestore_1.onDocumentCreated)('cobranzas/{cobran
             importe: cobranza.importe,
             imputaciones: cobranza.imputaciones,
             medios: cobranza.medios,
+            aCuenta: typeof cobranza.aCuenta === 'number' ? cobranza.aCuenta : 0,
             fecha: cobranza.fecha,
             registradoPor: cobranza.registradoPor,
             // Referencia idempotente: el writer del bridge la escribe en el recibo
@@ -322,7 +324,8 @@ exports.onCobranzaCreada = (0, firestore_1.onDocumentCreated)('cobranzas/{cobran
     // mismo cliente no se pisan). Si el doc de saldo no existe, no hay cache
     // que corregir.
     const imputaciones = Array.isArray(cobranza.imputaciones) ? cobranza.imputaciones : [];
-    if (imputaciones.length === 0)
+    const aCuenta = Number(cobranza.aCuenta) > 0 ? Number(cobranza.aCuenta) : 0;
+    if (imputaciones.length === 0 && aCuenta === 0)
         return;
     // Solo se descuenta en la EMPRESA de la cobranza (la misma factura puede
     // existir con igual tipo y número en la otra). Reintento del trigger (no es
@@ -332,7 +335,12 @@ exports.onCobranzaCreada = (0, firestore_1.onDocumentCreated)('cobranzas/{cobran
         const snap = await tx.get(saldoRef);
         if (!snap.exists)
             return;
-        const r = (0, saldos_1.descontarCobranza)(snap.data(), { id: event.params.cobranzaId, empresa, imputaciones });
+        const r = (0, saldos_1.descontarCobranza)(snap.data(), {
+            id: event.params.cobranzaId, empresa, imputaciones, aCuenta,
+            numeroRecibo: typeof cobranza.numeroRecibo === 'string' ? cobranza.numeroRecibo : undefined,
+            codigoTango: codigoCobranza ?? identidad?.codigo ?? undefined,
+            fecha: cobranza.fecha,
+        });
         if (!r)
             return;
         tx.update(saldoRef, {

@@ -371,6 +371,27 @@ describe('retenciones (Track R, 2026-09-08: medio sobre la cuenta de retenciones
   })
 })
 
+describe('pago a cuenta (2026-09-08: valores mayores a lo imputado; el sobrante queda a favor del cliente)', () => {
+  it('cierra con imputado + aCuenta = importe = medios, y admite el a cuenta puro sin facturas', () => {
+    const r = reciboDeCobranza({ ...payload, importe: 2000, aCuenta: 500, medios: { efectivo: 2000, transferencia: 0, cheques: [], retenciones: [] } }, 'c', cfg)
+    expect(r.aCuenta).toBe(500)
+    expect(r.imputaciones).toHaveLength(2)
+    const puro = reciboDeCobranza({ ...payload, importe: 300, aCuenta: 300, imputaciones: [], medios: { efectivo: 300, transferencia: 0, cheques: [], retenciones: [] } }, 'c', cfg)
+    expect(puro.imputaciones).toEqual([])
+    expect(puro.aCuenta).toBe(300)
+    expect(reciboDeCobranza(payload, 'c', cfg).aCuenta).toBe(0)
+  })
+  it('rechaza lo que no cierra o el a cuenta negativo', () => {
+    expect(() => reciboDeCobranza({ ...payload, importe: 2000, aCuenta: 400, medios: { efectivo: 2000, transferencia: 0, cheques: [], retenciones: [] } }, 'c', cfg)).toThrow(/no cierra/)
+    expect(() => reciboDeCobranza({ ...payload, aCuenta: -1 }, 'c', cfg)).toThrow(/aCuenta inválido/)
+    expect(() => reciboDeCobranza({ ...payload, imputaciones: [], importe: 0, medios: { efectivo: 0, transferencia: 0, cheques: [], retenciones: [] } }, 'c', cfg)).toThrow(/ni deja nada a cuenta/)
+  })
+  it('hasta tener el relevamiento R0c, sentenciasRecibo no arma nada si hay a cuenta', () => {
+    const r = reciboDeCobranza({ ...payload, importe: 2000, aCuenta: 500, medios: { efectivo: 2000, transferencia: 0, cheques: [], retenciones: [] } }, 'c', cfg)
+    expect(() => sentenciasRecibo(r, datos, cfg)).toThrow(/relevamiento R0c/)
+  })
+})
+
 describe('escribirRecibo', () => {
   const p1 = { ...payload, importe: 1000, imputaciones: [payload.imputaciones![0]], medios: { efectivo: 1000, transferencia: 0 } }
   const r = reciboDeCobranza(p1, 'cob1', cfg)

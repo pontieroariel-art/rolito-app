@@ -1211,6 +1211,8 @@ export async function generateReciboCobranzaSupervisor(cobranza: {
     cheques:       Array<{ numero: string; bancoNombre: string; fechaEmision: string; fechaAcreditacion: string; dias: number; importe: number }>
     retenciones:   Array<{ tipo: string; nroCertificado: string; importe: number }>
   }
+  /** Parte de los valores que queda a cuenta (saldo a favor del cliente). */
+  aCuenta?:      number
   registradoPor: string
   fecha:         Date
 }, opts: { descargar?: boolean } = {}): Promise<Blob | void> {
@@ -1258,15 +1260,19 @@ export async function generateReciboCobranzaSupervisor(cobranza: {
   // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
   let y = (doc.lastAutoTable?.finalY ?? 60) + 6
 
-  // Facturas imputadas
+  // Facturas imputadas (+ lo que queda a cuenta del cliente, si sobraron valores)
+  const aCuenta = cobranza.aCuenta ?? 0
   autoTable(doc, {
     startY: y,
     head: [['Imputado a', 'Saldo al cobro', 'Importe imputado']],
-    body: cobranza.imputaciones.map((i) => [
-      `${i.comprobanteTipo} ${i.comprobanteNumero}`,
-      money(i.saldoAlMomento),
-      money(i.importeImputado),
-    ]),
+    body: [
+      ...cobranza.imputaciones.map((i) => [
+        `${i.comprobanteTipo} ${i.comprobanteNumero}`,
+        money(i.saldoAlMomento),
+        money(i.importeImputado),
+      ]),
+      ...(aCuenta > 0 ? [['A CUENTA — queda a favor del cliente para imputar a próximas facturas', '', money(aCuenta)]] : []),
+    ],
     styles: { fontSize: 9, cellPadding: 2 },
     headStyles: { fillColor: [45, 106, 79], textColor: 255 },
     columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' } },

@@ -323,7 +323,8 @@ export const onCobranzaCreada = onDocumentCreated(
     // Viaja a Tango toda cobranza COMPLETA (con imputación a facturas), venga
     // del supervisor, de caja o del chofer (2026-09-05). Las simples de
     // mostrador/calle de antes (sin imputaciones) siguen sin encolarse.
-    if (!cobranza || !Array.isArray(cobranza.imputaciones) || cobranza.imputaciones.length === 0) return
+    // Desde el 2026-09-08 también viaja la cobranza a cuenta pura (sin factura imputada).
+    if (!cobranza || !Array.isArray(cobranza.imputaciones) || (cobranza.imputaciones.length === 0 && !(Number(cobranza.aCuenta) > 0))) return
 
     const db = getFirestore()
 
@@ -353,6 +354,7 @@ export const onCobranzaCreada = onDocumentCreated(
         importe:       cobranza.importe,
         imputaciones:  cobranza.imputaciones,
         medios:        cobranza.medios,
+        aCuenta:       typeof cobranza.aCuenta === 'number' ? cobranza.aCuenta : 0,
         fecha:         cobranza.fecha,
         registradoPor: cobranza.registradoPor,
         // Referencia idempotente: el writer del bridge la escribe en el recibo
@@ -366,7 +368,8 @@ export const onCobranzaCreada = onDocumentCreated(
     // mismo cliente no se pisan). Si el doc de saldo no existe, no hay cache
     // que corregir.
     const imputaciones = Array.isArray(cobranza.imputaciones) ? cobranza.imputaciones : []
-    if (imputaciones.length === 0) return
+    const aCuenta = Number(cobranza.aCuenta) > 0 ? Number(cobranza.aCuenta) : 0
+    if (imputaciones.length === 0 && aCuenta === 0) return
     // Solo se descuenta en la EMPRESA de la cobranza (la misma factura puede
     // existir con igual tipo y número en la otra). Reintento del trigger (no es
     // exactly-once): descontarCobranza devuelve null si ya se aplicó.
@@ -374,7 +377,12 @@ export const onCobranzaCreada = onDocumentCreated(
     await db.runTransaction(async (tx) => {
       const snap = await tx.get(saldoRef)
       if (!snap.exists) return
-      const r = descontarCobranza(snap.data() as Partial<SaldoDoc>, { id: event.params.cobranzaId, empresa, imputaciones })
+      const r = descontarCobranza(snap.data() as Partial<SaldoDoc>, {
+        id: event.params.cobranzaId, empresa, imputaciones, aCuenta,
+        numeroRecibo: typeof cobranza.numeroRecibo === 'string' ? cobranza.numeroRecibo : undefined,
+        codigoTango: codigoCobranza ?? identidad?.codigo ?? undefined,
+        fecha: cobranza.fecha,
+      })
       if (!r) return
       tx.update(saldoRef, {
         comprobantes: r.comprobantes,

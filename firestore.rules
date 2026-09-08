@@ -1124,7 +1124,10 @@ service cloud.firestore {
         && (!('numeroRecibo' in request.resource.data) || request.resource.data.numeroRecibo is string)
         && request.resource.data.empresa in ['redonhielo', 'rolito']
         && request.resource.data.imputaciones is list
-        && request.resource.data.imputaciones.size() > 0
+        // Sin factura imputada solo si algo queda a cuenta (pago adelantado, 2026-09-08).
+        && (request.resource.data.imputaciones.size() > 0
+            || (request.resource.data.aCuenta is number && request.resource.data.aCuenta > 0))
+        && (!('aCuenta' in request.resource.data) || (request.resource.data.aCuenta is number && request.resource.data.aCuenta > 0))
         && request.resource.data.medios is map;
 
       allow update, delete: if false;

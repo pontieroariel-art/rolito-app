@@ -39,10 +39,14 @@ export async function crearCobranzaCompleta(
     sumaCentavos(args.medios.cheques.map((c) => c.importe)) +
     sumaCentavos(args.medios.retenciones.map((r) => r.importe))
 
-  if (totalImputado <= 0) throw new CobranzaDescuadradaError('No hay facturas imputadas.')
-  if (totalImputado !== totalMedios) {
-    throw new CobranzaDescuadradaError('La suma de los medios de pago no coincide con lo imputado a facturas.')
+  // Los valores pueden superar lo imputado: la diferencia queda A CUENTA del cliente
+  // (saldo a favor en Tango; decisión de Ariel 2026-09-08: siempre, cualquier medio,
+  // también choferes). Lo que no puede pasar es imputar más de lo que se recibió.
+  if (totalMedios <= 0) throw new CobranzaDescuadradaError('No hay valores recibidos.')
+  if (totalImputado > totalMedios) {
+    throw new CobranzaDescuadradaError('Lo imputado a facturas supera los valores recibidos.')
   }
+  const aCuenta = totalMedios - totalImputado
   if (args.imputaciones.some((i) => aCentavos(i.importeImputado) <= 0 || aCentavos(i.importeImputado) > aCentavos(i.saldoAlMomento))) {
     throw new CobranzaDescuadradaError('Hay una imputación en cero o mayor al saldo de la factura.')
   }
@@ -56,7 +60,7 @@ export async function crearCobranzaCompleta(
     ...(actor.depositoTango ? { depositoTango: actor.depositoTango } : {}),
     clienteId:     args.clienteId,
     clienteNombre: args.clienteNombre,
-    importe:       totalImputado / 100,
+    importe:       totalMedios / 100,
     formaPago:     'mixto',
     fecha:         Timestamp.now(),
     ...(args.numeroRecibo ? { numeroRecibo: args.numeroRecibo } : {}),
@@ -64,6 +68,7 @@ export async function crearCobranzaCompleta(
     ...(args.codigoTango ? { codigoTango: args.codigoTango } : {}),
     imputaciones:  args.imputaciones,
     medios:        args.medios,
+    ...(aCuenta > 0 ? { aCuenta: aCuenta / 100 } : {}),
   }
   const ctx = { origen: `crearCobranzaCompleta:${destino.origen}`, cobranzaId: ref.id, uid: actor.uid }
   if (destino.origen === 'caja') await esperarOEncolar(setDoc(ref, cobranza), ctx)

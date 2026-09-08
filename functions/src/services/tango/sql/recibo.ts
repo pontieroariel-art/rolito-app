@@ -130,6 +130,8 @@ export interface ReciboTango {
   medios: MedioTango[]           // incluye un renglón por cuenta de cartera (suma de cheques) y por cuenta de retención (suma de certificados)
   cheques: ChequeTango[]
   retenciones: RetencionTango[]
+  /** Parte del importe que no se imputa: queda a cuenta del cliente (saldo a favor). */
+  aCuenta: number
   leyenda: string                // ROLITO:<cobranzaId>
 }
 
@@ -161,6 +163,8 @@ export interface PayloadCobranza {
   fecha?: unknown
   imputaciones?: { comprobanteTipo: string; comprobanteNumero: string; importeImputado: number }[]
   medios?: { efectivo?: number; transferencia?: number; cheques?: ChequePayload[]; retenciones?: RetencionPayload[] }
+  /** Parte de los valores sin factura: queda a cuenta del cliente (2026-09-08). importe = Σ imputado + aCuenta. */
+  aCuenta?: number
   referenciaIdempotente?: string
 }
 
@@ -171,7 +175,9 @@ export function reciboDeCobranza(p: PayloadCobranza, cobranzaId: string, cfg: Co
   const numero = Number(String(p.numeroRecibo ?? '').replace(/\D/g, ''))
   if (!numero) throw new Error(`numeroRecibo inválido: ${p.numeroRecibo}`)
   const imputaciones = (p.imputaciones ?? []).filter((i) => Number(i.importeImputado) > 0).map((i) => ({ tComp: i.comprobanteTipo, nComp: i.comprobanteNumero, importe: r2(Number(i.importeImputado)) }))
-  if (!imputaciones.length) throw new Error('la cobranza no imputa ninguna factura')
+  const aCuenta = r2(Number(p.aCuenta ?? 0))
+  if (aCuenta < 0) throw new Error(`aCuenta inválido: ${p.aCuenta}`)
+  if (!imputaciones.length && !(aCuenta > 0)) throw new Error('la cobranza no imputa ninguna factura ni deja nada a cuenta')
   const medios: MedioTango[] = []
   const m = p.medios ?? {}
   if (Number(m.efectivo) > 0) medios.push({ cuenta: cfg.cuentas.efectivo, importe: r2(Number(m.efectivo)) })
@@ -197,11 +203,11 @@ export function reciboDeCobranza(p: PayloadCobranza, cobranzaId: string, cfg: Co
   const importe = r2(Number(p.importe ?? 0))
   const sumImp = r2(imputaciones.reduce((s, i) => s + i.importe, 0))
   const sumMed = r2(medios.reduce((s, x) => s + x.importe, 0))
-  if (sumImp !== importe || sumMed !== importe) throw new Error(`el recibo no cierra: importe ${importe}, imputado ${sumImp}, medios ${sumMed}`)
+  if (r2(sumImp + aCuenta) !== importe || sumMed !== importe) throw new Error(`el recibo no cierra: importe ${importe}, imputado ${sumImp}, a cuenta ${aCuenta}, medios ${sumMed}`)
   return {
     numero, puntoVenta: cfg.puntoVenta,
     nComp: numeroComprobanteTango('X', cfg.puntoVenta, numero),
-    codCliente: p.clienteCodigoTango, fecha: fechaDe(p.fecha), importe, imputaciones, medios, cheques, retenciones,
+    codCliente: p.clienteCodigoTango, fecha: fechaDe(p.fecha), importe, imputaciones, medios, cheques, retenciones, aCuenta,
     leyenda: p.referenciaIdempotente ?? `ROLITO:${cobranzaId}`,
   }
 }
@@ -291,6 +297,10 @@ export function sentenciaExisteRecibo(r: ReciboTango): SentenciaSql {
  *  obtiene al ejecutar el primer INSERT; las que lo necesitan usan el marcador
  *  `@ID_RECIBO`, que el ejecutor resuelve (ver escribirRecibo). */
 export function sentenciasRecibo(r: ReciboTango, d: DatosRecibo, cfg: ConfigReciboSql, ahora = new Date()): SentenciaSql[] {
+  // Se frena acá, con las sentencias sin armar, para que no quede nada escrito a medias:
+  // falta relevar cómo deja Tango un recibo con saldo a cuenta (GVA12.ESTADO, GVA46, historial).
+  // Desktop/Retenciones-R0c-recibo-a-cuenta.sql.
+  if (r.aCuenta > 0) throw new Error('el pago a cuenta todavía no se escribe en Tango (falta el relevamiento R0c del recibo a cuenta); el recibo queda en la cola')
   const fecha = soloDia(r.fecha)
   const hoy = soloDia(ahora)
   const hora = horaHHMMSS(ahora)

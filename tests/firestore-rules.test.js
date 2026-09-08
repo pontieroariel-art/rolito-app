@@ -2898,6 +2898,16 @@ describe('cobranzas de supervisor', () => {
     await assertSucceeds(setDoc(doc(db('sup'), 'cobranzas/c1'), cobranzaSup()))
   })
 
+  test('pago a cuenta (2026-09-08): sin facturas imputadas solo si aCuenta > 0; aCuenta, si viene, es un número positivo', async () => {
+    await seedSupervisor()
+    await assertSucceeds(setDoc(doc(db('sup'), 'cobranzas/c1'), cobranzaSup({ aCuenta: 5000 })))
+    await assertSucceeds(setDoc(doc(db('sup'), 'cobranzas/c2'), cobranzaSup({ imputaciones: [], aCuenta: 45000.5 })))
+    await assertFails(setDoc(doc(db('sup'), 'cobranzas/c3'), cobranzaSup({ imputaciones: [] })))
+    await assertFails(setDoc(doc(db('sup'), 'cobranzas/c4'), cobranzaSup({ imputaciones: [], aCuenta: 0 })))
+    await assertFails(setDoc(doc(db('sup'), 'cobranzas/c5'), cobranzaSup({ aCuenta: '5000' })))
+    await assertFails(setDoc(doc(db('sup'), 'cobranzas/c6'), cobranzaSup({ aCuenta: -1 })))
+  })
+
   test('el super_admin también crea una cobranza de supervisor a su nombre (la pantalla lo deja entrar)', async () => {
     await seed((d) => setDoc(doc(d, 'users/admin1'), { rol: 'super_admin', estado: 'activo' }))
     await assertSucceeds(setDoc(doc(db('admin1'), 'cobranzas/c1'), cobranzaSup({ registradoPor: { uid: 'admin1', nombre: 'Admin' } })))

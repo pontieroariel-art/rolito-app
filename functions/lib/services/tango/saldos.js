@@ -22,6 +22,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.sumaSaldo = exports.claveComprobante = exports.redondear2 = void 0;
 exports.normalizarComprobante = normalizarComprobante;
 exports.comprobantesDe = comprobantesDe;
+exports.comprobanteACuenta = comprobanteACuenta;
 exports.descuentosDeCobranzas = descuentosDeCobranzas;
 exports.aplicarDescuentos = aplicarDescuentos;
 exports.fusionarRamaEmpresa = fusionarRamaEmpresa;
@@ -56,38 +57,75 @@ function comprobantesDe(doc) {
 }
 const sumaSaldo = (comprobantes) => (0, exports.redondear2)(comprobantes.reduce((s, c) => s + c.saldoPendiente, 0));
 exports.sumaSaldo = sumaSaldo;
+/** Timestamp de Firestore / Date / string → 'yyyy-MM-dd' (vacío si no se puede). */
+function fechaIso(f) {
+    let d = null;
+    if (f instanceof Date)
+        d = f;
+    else if (f && typeof f === 'object') {
+        const o = f;
+        if (typeof o.toDate === 'function')
+            d = o.toDate();
+        else if (typeof (o.seconds ?? o._seconds) === 'number')
+            d = new Date(Number(o.seconds ?? o._seconds) * 1000);
+    }
+    else if (typeof f === 'string' && /^\d{4}-\d{2}-\d{2}/.test(f))
+        return f.slice(0, 10);
+    if (!d || isNaN(d.getTime()))
+        return '';
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+/** El recibo a cuenta de una cobranza, como comprobante de saldo negativo (tipo 'REC', nº interno de la app). */
+function comprobanteACuenta(c, empresa) {
+    const aCuenta = (0, exports.redondear2)(Number(c.aCuenta ?? 0));
+    if (!(aCuenta > 0))
+        return null;
+    return {
+        tipo: 'REC', numero: typeof c.numeroRecibo === 'string' && c.numeroRecibo ? c.numeroRecibo : c.id,
+        fechaEmision: fechaIso(c.fecha), importeOriginal: -aCuenta, saldoPendiente: -aCuenta,
+        empresa, codigoTango: typeof c.codigoTango === 'string' ? c.codigoTango : '',
+    };
+}
 function descuentosDeCobranzas(cobranzas) {
     const porCliente = new Map();
     for (const c of cobranzas) {
         if (c.tango?.estado === 'confirmado')
             continue;
-        if (!Array.isArray(c.imputaciones) || c.imputaciones.length === 0)
-            continue;
+        const imputaciones = Array.isArray(c.imputaciones) ? c.imputaciones : [];
         const empresa = (0, empresas_1.esEmpresa)(c.empresa) ? c.empresa : 'redonhielo';
+        const aCuenta = comprobanteACuenta(c, empresa);
+        if (imputaciones.length === 0 && !aCuenta)
+            continue;
         if (!porCliente.has(c.clienteId))
-            porCliente.set(c.clienteId, { porComprobante: new Map(), cobranzaIds: [] });
+            porCliente.set(c.clienteId, { porComprobante: new Map(), cobranzaIds: [], aCuenta: [] });
         const d = porCliente.get(c.clienteId);
         d.cobranzaIds.push(c.id);
-        for (const imp of c.imputaciones) {
+        for (const imp of imputaciones) {
             const clave = (0, exports.claveComprobante)(empresa, String(imp.comprobanteTipo ?? ''), String(imp.comprobanteNumero ?? ''));
             const cent = Math.round(Number(imp.importeImputado ?? 0) * 100);
             d.porComprobante.set(clave, (d.porComprobante.get(clave) ?? 0) + cent);
         }
+        if (aCuenta)
+            d.aCuenta.push(aCuenta);
     }
     return porCliente;
 }
-/** Resta los descuentos a los comprobantes (por empresa+tipo+número) y descarta los que quedan en 0. */
+/** Resta los descuentos a los comprobantes (por empresa+tipo+número), descarta los que quedan en 0
+ *  y agrega los recibos a cuenta pendientes (saldo negativo). Los comprobantes que ya vienen de
+ *  Tango con saldo negativo (recibos a cuenta confirmados) se conservan tal cual. */
 function aplicarDescuentos(comprobantes, descuento) {
-    if (!descuento || descuento.porComprobante.size === 0)
+    if (!descuento || (descuento.porComprobante.size === 0 && descuento.aCuenta.length === 0))
         return comprobantes;
-    return comprobantes
+    const restados = comprobantes
         .map((c) => {
         const cent = descuento.porComprobante.get((0, exports.claveComprobante)(c.empresa, c.tipo, c.numero));
         if (!cent)
             return c;
         return { ...c, saldoPendiente: Math.max(0, Math.round(c.saldoPendiente * 100) - cent) / 100 };
     })
-        .filter((c) => c.saldoPendiente > 0);
+        .filter((c) => c.saldoPendiente !== 0);
+    const yaEstan = new Set(restados.map((c) => (0, exports.claveComprobante)(c.empresa, c.tipo, c.numero)));
+    return [...restados, ...descuento.aCuenta.filter((a) => !yaEstan.has((0, exports.claveComprobante)(a.empresa, a.tipo, a.numero)))];
 }
 /**
  * Doc nuevo con los comprobantes de `empresa` reemplazados por `nuevos` y las
@@ -133,7 +171,7 @@ function descontarCobranza(actual, cobranza) {
     const yaAplicadas = Array.isArray(actual.cobranzasAplicadas) ? actual.cobranzasAplicadas : [];
     if (yaAplicadas.includes(cobranza.id))
         return null;
-    const descuento = descuentosDeCobranzas([{ id: cobranza.id, clienteId: '-', empresa: cobranza.empresa, imputaciones: cobranza.imputaciones }]).get('-');
+    const descuento = descuentosDeCobranzas([{ clienteId: '-', ...cobranza }]).get('-');
     const comprobantes = aplicarDescuentos(comprobantesDe(actual), descuento);
     const porEmpresa = { ...(actual.porEmpresa ?? {}) };
     for (const e of empresas_1.EMPRESAS) {

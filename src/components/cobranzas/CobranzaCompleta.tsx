@@ -20,7 +20,7 @@ import {
 import { puedeCompartirArchivos } from '@/utils/compartir'
 import { aCentavos, formatoARS, parseImporte, sumaCentavos } from '@/utils/money'
 import { haceCuanto } from '@/pages/supervisor/SupervisorClientesPage'
-import { NOMBRE_EMPRESA, estaVinculadoATango } from '@/utils/tangoEmpresas'
+import { EMPRESAS_TANGO, NOMBRE_EMPRESA, estaVinculadoATango, tangoIdsDe } from '@/utils/tangoEmpresas'
 import { agruparPorEmpresaYCodigo, claveComp, empresaDe, grupoDe, mismoGrupo, type GrupoRecibo } from '@/utils/composicionSaldos'
 import { nombreSucursal } from '@/utils/sucursalesTango'
 import { ChequeRecibido, Cobranza, ComprobanteSaldoTango, EmpresaTango, ImputacionFactura, PlantaId, RetencionRecibida } from '@/types'
@@ -68,6 +68,8 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
   const [transferenciaStr, setTransferenciaStr] = useState('')
   const [cheques, setCheques] = useState<ChequeRecibido[]>([])
   const [retenciones, setRetenciones] = useState<RetencionRecibida[]>([])
+  // Pago a cuenta sin factura imputada (2026-09-08): en qué empresa y código queda el saldo a favor.
+  const [grupoACuenta, setGrupoACuenta] = useState<GrupoRecibo | null>(null)
   const [modal, setModal] = useState<'cheque' | 'retencion' | 'confirmar' | null>(null)
   const [exito, setExito] = useState<Cobranza | null>(null)
   const [avisoRecibo, setAvisoRecibo] = useState('')
@@ -105,6 +107,7 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
     setTransferenciaStr('')
     setCheques([])
     setRetenciones([])
+    setGrupoACuenta(null)
     setError('')
   }, [clienteId])
 
@@ -119,6 +122,18 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
     const c = comprobantes.find((x) => filas[claveComp(x)]?.seleccionada)
     return c ? grupoDe(c) : null
   }, [comprobantes, filas])
+
+  // Dónde puede quedar un pago a cuenta: cada código del cliente en cada empresa.
+  const gruposPosibles: GrupoRecibo[] = useMemo(() => {
+    const ids = tangoIdsDe(cliente)
+    return EMPRESAS_TANGO.flatMap((empresa) => (ids[empresa] ?? []).map((x) => ({ empresa, codigo: x.codigo })))
+  }, [cliente])
+  // Con un solo código no hay nada que elegir.
+  useEffect(() => {
+    if (!grupoACuenta && gruposPosibles.length === 1) setGrupoACuenta(gruposPosibles[0])
+  }, [gruposPosibles, grupoACuenta])
+  // El grupo del recibo: el de las facturas marcadas o, sin facturas, el elegido para el a cuenta.
+  const grupoRecibo: GrupoRecibo | null = grupoSeleccionado ?? grupoACuenta
 
   const imputaciones: ImputacionFactura[] = useMemo(() => {
     return comprobantes
@@ -138,7 +153,17 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
     aCentavos(parseImporte(transferenciaStr)) +
     sumaCentavos(cheques.map((c) => c.importe)) +
     sumaCentavos(retenciones.map((r) => r.importe))
-  const diferenciaCent = totalImputadoCent - totalMediosCent
+  // Lo imputado nunca supera los valores; si sobran valores, la diferencia queda A CUENTA
+  // del cliente (decisión de Ariel 2026-09-08: siempre, cualquier medio, también choferes).
+  const faltanCent  = Math.max(0, totalImputadoCent - totalMediosCent)
+  const aCuentaCent = Math.max(0, totalMediosCent - totalImputadoCent)
+  const seccionValores = imputaciones.length > 0 || !!grupoACuenta
+
+  // Facturas del mismo grupo que quedan sin marcar mientras sobra plata: se avisa, no se frena.
+  const sinImputar = useMemo(() => {
+    if (!grupoRecibo || aCuentaCent === 0) return []
+    return comprobantes.filter((c) => c.saldoPendiente > 0 && mismoGrupo(grupoDe(c), grupoRecibo) && !filas[claveComp(c)]?.seleccionada)
+  }, [comprobantes, filas, grupoRecibo, aCuentaCent])
 
   const imputacionInvalida = imputaciones.some(
     (i) => aCentavos(i.importeImputado) <= 0 || aCentavos(i.importeImputado) > aCentavos(i.saldoAlMomento),
@@ -146,6 +171,7 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
 
   const toggleFila = (c: ComprobanteSaldoTango) => {
     const clave = claveComp(c)
+    if (c.saldoPendiente <= 0) return   // saldo a favor (recibo a cuenta): no se imputa desde acá (etapa 2)
     if (grupoSeleccionado && !mismoGrupo(grupoSeleccionado, grupoDe(c))) {
       setError(`Un recibo cobra facturas de una sola empresa${variosCodigos(empresaDe(c)) ? ' y un solo código de cliente' : ''}. Emití este recibo y después hacé otro para ${NOMBRE_EMPRESA[empresaDe(c)]}.`)
       return
@@ -161,15 +187,15 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
   const abrirConfirmacion = () => {
     setError('')
     if (!cliente)                 { setError('Elegí el cliente que paga.'); return }
-    if (imputaciones.length === 0) { setError('Marcá al menos una factura a cobrar.'); return }
+    if (!grupoRecibo)             { setError('Marcá al menos una factura a cobrar, o elegí en qué empresa queda a cuenta.'); return }
     if (imputacionInvalida)       { setError('Hay una imputación en cero o mayor al saldo de la factura.'); return }
     if (totalMediosCent === 0)    { setError('Cargá al menos un medio de pago.'); return }
-    if (diferenciaCent !== 0)     { setError('La suma de los valores no coincide con lo imputado.'); return }
+    if (faltanCent > 0)           { setError(`Faltan ${formatoARS(faltanCent / 100)} en valores para cubrir lo imputado.`); return }
     setModal('confirmar')
   }
 
   const confirmar = async () => {
-    if (!user || !cliente || !saldo || !grupoSeleccionado) return
+    if (!user || !cliente || !saldo || !grupoRecibo) return
     setGuardando(true)
     try {
       // Con numeración activa consume un número de la reserva local; si justo
@@ -182,9 +208,9 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
         {
           clienteId:     cliente.uid,
           // Con varias sucursales, el recibo dice cuál ("RAZON SOCIAL — sucursal · dirección").
-          clienteNombre: (cliente.razonSocial || cliente.nombre) + (grupoSeleccionado && nombreSucursal(cliente, grupoSeleccionado.empresa, grupoSeleccionado.codigo) ? ` — ${nombreSucursal(cliente, grupoSeleccionado.empresa, grupoSeleccionado.codigo)}` : ''),
-          empresa:       grupoSeleccionado.empresa,
-          ...(grupoSeleccionado.codigo ? { codigoTango: grupoSeleccionado.codigo } : {}),
+          clienteNombre: (cliente.razonSocial || cliente.nombre) + (nombreSucursal(cliente, grupoRecibo.empresa, grupoRecibo.codigo) ? ` — ${nombreSucursal(cliente, grupoRecibo.empresa, grupoRecibo.codigo)}` : ''),
+          empresa:       grupoRecibo.empresa,
+          ...(grupoRecibo.codigo ? { codigoTango: grupoRecibo.codigo } : {}),
           numeroRecibo,
           imputaciones,
           medios: {
@@ -225,6 +251,7 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
         <div>
           <p className="text-lg font-semibold text-gray-900">Cobranza registrada</p>
           <p className="text-sm text-gray-600 mt-1">{exito.numeroRecibo ? `Recibo ${exito.numeroRecibo} — ` : ''}{formatoARS(exito.importe)} — {exito.clienteNombre}</p>
+          {exito.aCuenta ? <p className="text-sm text-amber-700 mt-1">{formatoARS(exito.aCuenta)} quedan a cuenta del cliente (saldo a favor).</p> : null}
           <p className="text-xs text-gray-500 mt-2">Queda encolada para impactar en la cuenta corriente de Tango.</p>
         </div>
         <div className="flex flex-col gap-2 pt-2 max-w-md mx-auto">
@@ -267,7 +294,7 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
             ) : comprobantes.length === 0 ? (
               <div className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-4 text-center">
                 <p className="text-sm text-gray-600">Este cliente no tiene facturas pendientes en el cache de Tango.</p>
-                <p className="text-xs text-gray-400 mt-1">Si te está adelantando plata sin factura, hoy eso lo carga la oficina en Tango.</p>
+                <p className="text-xs text-gray-400 mt-1">Si te adelanta plata sin factura, cobrala a cuenta acá abajo.</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -302,6 +329,18 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
                   const importeFila = seleccionada ? parseImporte(fila.importeStr) : 0
                   const excedida = seleccionada && aCentavos(importeFila) > aCentavos(c.saldoPendiente)
                   const parcial = seleccionada && !excedida && aCentavos(importeFila) > 0 && aCentavos(importeFila) < aCentavos(c.saldoPendiente)
+                  // Saldo a favor (recibo a cuenta, propio o de Tango): se muestra, no se imputa desde acá.
+                  if (c.saldoPendiente < 0) {
+                    return (
+                      <div key={clave} className="bg-amber-50 rounded-xl border border-amber-200 p-3 flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-amber-800 truncate">A cuenta · {c.tipo} {c.numero}</p>
+                          <p className="text-xs text-amber-700">Saldo a favor del cliente{c.fechaEmision ? ` · ${c.fechaEmision}` : ''}. Lo imputa la oficina en Tango.</p>
+                        </div>
+                        <p className="text-sm font-semibold text-amber-800 shrink-0">{formatoARS(c.saldoPendiente)}</p>
+                      </div>
+                    )
+                  }
                   return (
                     <div key={clave} className={`bg-white rounded-xl border shadow-sm p-3 ${seleccionada ? 'border-accent' : 'border-[#D3D1C7]'}`}>
                       <button type="button" onClick={() => toggleFila(c)} className="w-full text-left" aria-disabled={apagado}>
@@ -351,8 +390,32 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
             )}
           </section>
 
+          {/* ── Pago a cuenta sin factura (2026-09-08) ── */}
+          {imputaciones.length === 0 && !cargandoSaldo && gruposPosibles.length > 0 && (
+            <section className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-3 space-y-2">
+              <p className="text-sm font-medium text-gray-900">Cobrar a cuenta, sin imputar factura</p>
+              <p className="text-xs text-gray-500">La plata queda como saldo a favor del cliente en Tango, para imputar a sus próximas facturas.</p>
+              {gruposPosibles.length === 1 ? (
+                <p className="text-xs text-gray-700">En <span className="font-semibold">{NOMBRE_EMPRESA[gruposPosibles[0].empresa]}</span>{gruposPosibles[0].codigo ? ` · cód. ${gruposPosibles[0].codigo}` : ''}.</p>
+              ) : (
+                <select
+                  value={grupoACuenta ? `${grupoACuenta.empresa}|${grupoACuenta.codigo}` : ''}
+                  onChange={(e) => { const [empresa, codigo] = e.target.value.split('|'); setGrupoACuenta(empresa ? { empresa: empresa as EmpresaTango, codigo } : null) }}
+                  className={inputClass}
+                >
+                  <option value="">Elegí empresa y código…</option>
+                  {gruposPosibles.map((g) => (
+                    <option key={`${g.empresa}|${g.codigo}`} value={`${g.empresa}|${g.codigo}`}>
+                      {NOMBRE_EMPRESA[g.empresa]} · cód. {g.codigo}{nombreSucursal(cliente, g.empresa, g.codigo) ? ` · ${nombreSucursal(cliente, g.empresa, g.codigo)}` : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </section>
+          )}
+
           {/* ── Medios de pago ── */}
-          {imputaciones.length > 0 && (
+          {seccionValores && (
             <section className="space-y-3">
               <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Valores recibidos</h2>
 
@@ -414,7 +477,7 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
               </div>
 
               {/* ── Cuadre en vivo ── */}
-              <div className={`rounded-xl border p-3 ${diferenciaCent === 0 && totalImputadoCent > 0 ? 'bg-accent/10 border-accent' : 'bg-white border-[#D3D1C7]'}`}>
+              <div className={`rounded-xl border p-3 ${faltanCent === 0 && totalMediosCent > 0 && aCuentaCent === 0 ? 'bg-accent/10 border-accent' : aCuentaCent > 0 && faltanCent === 0 ? 'bg-amber-50 border-amber-300' : 'bg-white border-[#D3D1C7]'}`}>
                 <div className="flex justify-between text-sm text-gray-700">
                   <span>Imputado a facturas</span>
                   <span className="font-semibold">{formatoARS(totalImputadoCent / 100)}</span>
@@ -423,12 +486,19 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
                   <span>Valores recibidos</span>
                   <span className="font-semibold">{formatoARS(totalMediosCent / 100)}</span>
                 </div>
-                {diferenciaCent !== 0 && (
-                  <p className={`text-sm font-semibold mt-2 ${diferenciaCent > 0 ? 'text-red-500' : 'text-amber-600'}`}>
-                    {diferenciaCent > 0
-                      ? `Faltan ${formatoARS(diferenciaCent / 100)} en valores`
-                      : `Sobran ${formatoARS(-diferenciaCent / 100)} en valores`}
-                  </p>
+                {faltanCent > 0 && (
+                  <p className="text-sm font-semibold mt-2 text-red-500">Faltan {formatoARS(faltanCent / 100)} en valores</p>
+                )}
+                {aCuentaCent > 0 && (
+                  <div className="mt-2">
+                    <p className="text-sm font-semibold text-amber-700">Queda a cuenta del cliente: {formatoARS(aCuentaCent / 100)}</p>
+                    <p className="text-xs text-amber-700">Saldo a favor en {grupoRecibo ? NOMBRE_EMPRESA[grupoRecibo.empresa] : 'Tango'}, para imputar a sus próximas facturas.</p>
+                    {sinImputar.length > 0 && (
+                      <p className="text-xs text-amber-800 mt-1">
+                        Ojo: tiene {sinImputar.length} {sinImputar.length === 1 ? 'factura más pendiente' : 'facturas más pendientes'} por {formatoARS(sumaCentavos(sinImputar.map((c) => c.saldoPendiente)) / 100)}. Si esta plata es para pagarlas, marcalas arriba.
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
             </section>
@@ -442,8 +512,8 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
         </div>
       )}
 
-      {cliente && imputaciones.length > 0 && (
-        <Button onClick={abrirConfirmacion} disabled={diferenciaCent !== 0 || imputacionInvalida || totalMediosCent === 0} className="w-full">
+      {cliente && seccionValores && (
+        <Button onClick={abrirConfirmacion} disabled={faltanCent > 0 || imputacionInvalida || totalMediosCent === 0} className="w-full">
           <ReceiptText size={16} className="mr-2" /> Emitir recibo
         </Button>
       )}
@@ -470,12 +540,21 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
         <Modal open onClose={() => setModal(null)} title="Confirmar cobranza">
           <div className="space-y-3">
             <p className="text-sm text-gray-700">
-              Cobrás <span className="font-semibold">{formatoARS(totalImputadoCent / 100)}</span> a{' '}
-              <span className="font-semibold">{cliente.razonSocial || cliente.nombre}</span>, imputado a{' '}
-              {imputaciones.length} {imputaciones.length === 1 ? 'factura' : 'facturas'} de{' '}
-              <span className="font-semibold">{grupoSeleccionado ? NOMBRE_EMPRESA[grupoSeleccionado.empresa] : ''}</span>
-              {grupoSeleccionado?.codigo ? ` (cód. ${grupoSeleccionado.codigo})` : ''}.
+              Cobrás <span className="font-semibold">{formatoARS(totalMediosCent / 100)}</span> a{' '}
+              <span className="font-semibold">{cliente.razonSocial || cliente.nombre}</span>
+              {imputaciones.length > 0 ? (
+                <>, {formatoARS(totalImputadoCent / 100)} imputado a {imputaciones.length} {imputaciones.length === 1 ? 'factura' : 'facturas'} de{' '}</>
+              ) : (
+                <>, todo a cuenta en{' '}</>
+              )}
+              <span className="font-semibold">{grupoRecibo ? NOMBRE_EMPRESA[grupoRecibo.empresa] : ''}</span>
+              {grupoRecibo?.codigo ? ` (cód. ${grupoRecibo.codigo})` : ''}.
             </p>
+            {aCuentaCent > 0 && (
+              <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
+                <span className="font-semibold">{formatoARS(aCuentaCent / 100)}</span> quedan a cuenta: saldo a favor del cliente en Tango.
+              </p>
+            )}
             <ul className="text-xs text-gray-600 space-y-1">
               {parseImporte(efectivoStr) > 0 && <li>Efectivo: {formatoARS(parseImporte(efectivoStr))}</li>}
               {parseImporte(transferenciaStr) > 0 && <li>Transferencia: {formatoARS(parseImporte(transferenciaStr))}</li>}

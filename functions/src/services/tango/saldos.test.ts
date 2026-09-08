@@ -100,6 +100,30 @@ describe('descuentos de cobranzas pendientes', () => {
     expect(res.map((c) => [c.empresa, c.numero, c.saldoPendiente])).toEqual([['rolito', '1', 20], ['redonhielo', '2', 7]])
   })
 
+  it('pago a cuenta (2026-09-08): mientras Tango no confirme, el recibo aparece como saldo NEGATIVO en su empresa y código', () => {
+    const cob = { id: 'c7', clienteId: 'u3', empresa: 'redonhielo', codigoTango: 'BU.017', numeroRecibo: 'RS-000190', fecha: new Date(2026, 8, 8),
+      imputaciones: [{ comprobanteTipo: 'FAC', comprobanteNumero: '5', importeImputado: 100 }], aCuenta: 40.5 }
+    const d = descuentosDeCobranzas([cob, { id: 'c8', clienteId: 'u3', empresa: 'rolito', imputaciones: [], aCuenta: 10 }]).get('u3')!
+    expect(d.cobranzaIds).toEqual(['c7', 'c8'])
+    expect(d.aCuenta.map((a) => [a.empresa, a.tipo, a.numero, a.saldoPendiente, a.codigoTango, a.fechaEmision]))
+      .toEqual([['redonhielo', 'REC', 'RS-000190', -40.5, 'BU.017', '2026-09-08'], ['rolito', 'REC', 'c8', -10, '', '']])
+    const res = aplicarDescuentos([comp('redonhielo', '5', 100), comp('redonhielo', '6', 20)], d)
+    expect(res.map((c) => [c.empresa, c.tipo, c.numero, c.saldoPendiente])).toEqual([['redonhielo', 'FAC', '6', 20], ['redonhielo', 'REC', 'RS-000190', -40.5], ['rolito', 'REC', 'c8', -10]])
+    // Confirmada en Tango: ya no se inventa nada (la composición real la trae la sync).
+    expect(descuentosDeCobranzas([{ ...cob, tango: { estado: 'confirmado' } }]).has('u3')).toBe(false)
+    // Un recibo a cuenta que Tango ya trae con saldo negativo se conserva y no se duplica.
+    const conRec = aplicarDescuentos([{ ...comp('redonhielo', 'RS-000190', -40.5), tipo: 'REC' }], d)
+    expect(conRec.filter((c) => c.tipo === 'REC' && c.empresa === 'redonhielo')).toHaveLength(1)
+  })
+
+  it('descontarCobranza con a cuenta suma el negativo al saldo de la empresa', () => {
+    const doc = fusionarRamaEmpresa(undefined, 'redonhielo', [comp('redonhielo', '1', 100)], { runId: 'r1', origen: 'sync' })
+    const r = descontarCobranza(doc, { id: 'c10', empresa: 'redonhielo', imputaciones: [{ comprobanteTipo: 'FAC', comprobanteNumero: '1', importeImputado: 100 }], aCuenta: 25, numeroRecibo: 'RS-000191' })!
+    expect(r.comprobantes.map((c) => [c.tipo, c.numero, c.saldoPendiente])).toEqual([['REC', 'RS-000191', -25]])
+    expect(r.saldoTotal).toBe(-25)
+    expect(r.porEmpresa.redonhielo).toMatchObject({ saldoTotal: -25, comprobantes: 1 })
+  })
+
   it('descontarCobranza es idempotente y recalcula las ramas', () => {
     const doc = fusionarRamaEmpresa(
       fusionarRamaEmpresa(undefined, 'redonhielo', [comp('redonhielo', '1', 100)], { runId: 'r1', origen: 'sync' }),

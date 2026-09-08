@@ -113,41 +113,80 @@ export interface CobranzaParaDescuento {
   empresa?:      unknown
   imputaciones?: unknown
   tango?:        { estado?: unknown } | null
+  /** Pago a cuenta (2026-09-08): parte de los valores sin factura. Mientras Tango no lo
+   *  confirme, aparece en la composición como un recibo con saldo NEGATIVO (a favor). */
+  aCuenta?:      unknown
+  numeroRecibo?: unknown
+  codigoTango?:  unknown
+  fecha?:        unknown
 }
 
 export interface DescuentoCliente {
   porComprobante: Map<string, number>   // claveComprobante → Σ importeImputado (centavos)
   cobranzaIds:    string[]
+  /** Recibos a cuenta todavía no confirmados por Tango, como comprobantes con saldo negativo. */
+  aCuenta:        ComprobanteSaldo[]
+}
+
+/** Timestamp de Firestore / Date / string → 'yyyy-MM-dd' (vacío si no se puede). */
+function fechaIso(f: unknown): string {
+  let d: Date | null = null
+  if (f instanceof Date) d = f
+  else if (f && typeof f === 'object') {
+    const o = f as { toDate?: () => Date; seconds?: number; _seconds?: number }
+    if (typeof o.toDate === 'function') d = o.toDate()
+    else if (typeof (o.seconds ?? o._seconds) === 'number') d = new Date(Number(o.seconds ?? o._seconds) * 1000)
+  } else if (typeof f === 'string' && /^\d{4}-\d{2}-\d{2}/.test(f)) return f.slice(0, 10)
+  if (!d || isNaN(d.getTime())) return ''
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** El recibo a cuenta de una cobranza, como comprobante de saldo negativo (tipo 'REC', nº interno de la app). */
+export function comprobanteACuenta(c: CobranzaParaDescuento, empresa: Empresa): ComprobanteSaldo | null {
+  const aCuenta = redondear2(Number(c.aCuenta ?? 0))
+  if (!(aCuenta > 0)) return null
+  return {
+    tipo: 'REC', numero: typeof c.numeroRecibo === 'string' && c.numeroRecibo ? c.numeroRecibo : c.id,
+    fechaEmision: fechaIso(c.fecha), importeOriginal: -aCuenta, saldoPendiente: -aCuenta,
+    empresa, codigoTango: typeof c.codigoTango === 'string' ? c.codigoTango : '',
+  }
 }
 
 export function descuentosDeCobranzas(cobranzas: CobranzaParaDescuento[]): Map<string, DescuentoCliente> {
   const porCliente = new Map<string, DescuentoCliente>()
   for (const c of cobranzas) {
     if (c.tango?.estado === 'confirmado') continue
-    if (!Array.isArray(c.imputaciones) || c.imputaciones.length === 0) continue
+    const imputaciones = Array.isArray(c.imputaciones) ? c.imputaciones : []
     const empresa: Empresa = esEmpresa(c.empresa) ? c.empresa : 'redonhielo'
-    if (!porCliente.has(c.clienteId)) porCliente.set(c.clienteId, { porComprobante: new Map(), cobranzaIds: [] })
+    const aCuenta = comprobanteACuenta(c, empresa)
+    if (imputaciones.length === 0 && !aCuenta) continue
+    if (!porCliente.has(c.clienteId)) porCliente.set(c.clienteId, { porComprobante: new Map(), cobranzaIds: [], aCuenta: [] })
     const d = porCliente.get(c.clienteId)!
     d.cobranzaIds.push(c.id)
-    for (const imp of c.imputaciones as Array<{ comprobanteTipo?: unknown; comprobanteNumero?: unknown; importeImputado?: unknown }>) {
+    for (const imp of imputaciones as Array<{ comprobanteTipo?: unknown; comprobanteNumero?: unknown; importeImputado?: unknown }>) {
       const clave = claveComprobante(empresa, String(imp.comprobanteTipo ?? ''), String(imp.comprobanteNumero ?? ''))
       const cent = Math.round(Number(imp.importeImputado ?? 0) * 100)
       d.porComprobante.set(clave, (d.porComprobante.get(clave) ?? 0) + cent)
     }
+    if (aCuenta) d.aCuenta.push(aCuenta)
   }
   return porCliente
 }
 
-/** Resta los descuentos a los comprobantes (por empresa+tipo+número) y descarta los que quedan en 0. */
+/** Resta los descuentos a los comprobantes (por empresa+tipo+número), descarta los que quedan en 0
+ *  y agrega los recibos a cuenta pendientes (saldo negativo). Los comprobantes que ya vienen de
+ *  Tango con saldo negativo (recibos a cuenta confirmados) se conservan tal cual. */
 export function aplicarDescuentos(comprobantes: ComprobanteSaldo[], descuento: DescuentoCliente | undefined): ComprobanteSaldo[] {
-  if (!descuento || descuento.porComprobante.size === 0) return comprobantes
-  return comprobantes
+  if (!descuento || (descuento.porComprobante.size === 0 && descuento.aCuenta.length === 0)) return comprobantes
+  const restados = comprobantes
     .map((c) => {
       const cent = descuento.porComprobante.get(claveComprobante(c.empresa, c.tipo, c.numero))
       if (!cent) return c
       return { ...c, saldoPendiente: Math.max(0, Math.round(c.saldoPendiente * 100) - cent) / 100 }
     })
-    .filter((c) => c.saldoPendiente > 0)
+    .filter((c) => c.saldoPendiente !== 0)
+  const yaEstan = new Set(restados.map((c) => claveComprobante(c.empresa, c.tipo, c.numero)))
+  return [...restados, ...descuento.aCuenta.filter((a) => !yaEstan.has(claveComprobante(a.empresa, a.tipo, a.numero)))]
 }
 
 // ── Armado del doc: reemplazar la rama de UNA empresa ────────────────────────
@@ -216,11 +255,15 @@ export function vaciarRamaEmpresa(actual: Partial<SaldoDoc>, empresa: Empresa, r
 /** Descuento optimista de UNA cobranza sobre el doc (misma empresa y tipo|número). */
 export function descontarCobranza(
   actual: Partial<SaldoDoc>,
-  cobranza: { id: string; empresa: Empresa; imputaciones: Array<{ comprobanteTipo: string; comprobanteNumero: string; importeImputado: number }> },
+  cobranza: {
+    id: string; empresa: Empresa
+    imputaciones: Array<{ comprobanteTipo: string; comprobanteNumero: string; importeImputado: number }>
+    aCuenta?: number; numeroRecibo?: string; codigoTango?: string; fecha?: unknown
+  },
 ): { comprobantes: ComprobanteSaldo[]; saldoTotal: number; porEmpresa: Partial<Record<Empresa, RamaEmpresa>> } | null {
   const yaAplicadas = Array.isArray(actual.cobranzasAplicadas) ? actual.cobranzasAplicadas : []
   if (yaAplicadas.includes(cobranza.id)) return null
-  const descuento = descuentosDeCobranzas([{ id: cobranza.id, clienteId: '-', empresa: cobranza.empresa, imputaciones: cobranza.imputaciones }]).get('-')
+  const descuento = descuentosDeCobranzas([{ clienteId: '-', ...cobranza }]).get('-')
   const comprobantes = aplicarDescuentos(comprobantesDe(actual), descuento)
   const porEmpresa: Partial<Record<Empresa, RamaEmpresa>> = { ...(actual.porEmpresa ?? {}) }
   for (const e of EMPRESAS) {

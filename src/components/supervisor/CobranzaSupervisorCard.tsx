@@ -23,6 +23,7 @@ function datosPdf(c: Cobranza) {
     importe:       c.importe,
     imputaciones:  c.imputaciones,
     medios:        c.medios,
+    ...(c.aCuenta ? { aCuenta: c.aCuenta } : {}),
     registradoPor: c.registradoPor.nombre,
     fecha:         c.fecha.toDate(),
   }
@@ -85,7 +86,7 @@ export function CobranzaSupervisorCard({ c, sinSubir = false }: { c: Cobranza; s
         </div>
         <div className="flex justify-between items-center gap-2 mt-0.5">
           <p className="text-xs text-gray-500 truncate">
-            {c.numeroRecibo ?? 'Sin número'} · {facturas} {facturas === 1 ? 'factura' : 'facturas'} · {c.fecha.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+            {c.numeroRecibo ?? 'Sin número'} · {facturas} {facturas === 1 ? 'factura' : 'facturas'}{c.aCuenta ? ` · a cuenta ${formatoARS(c.aCuenta)}` : ''} · {c.fecha.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
           </p>
           {sinSubir
             ? <span className="text-[11px] text-amber-600 shrink-0">Sin subir</span>
@@ -114,6 +115,11 @@ export function CobranzaSupervisorCard({ c, sinSubir = false }: { c: Cobranza; s
                 ))}
               </ul>
             )}
+            {c.aCuenta ? (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
+                A cuenta (saldo a favor del cliente): <span className="font-semibold">{formatoARS(c.aCuenta)}</span>
+              </p>
+            ) : null}
 
             {c.medios && (
               <ul className="text-xs text-gray-600 space-y-0.5 border-t border-[#D3D1C7] pt-2">

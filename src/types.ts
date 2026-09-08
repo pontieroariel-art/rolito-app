@@ -397,6 +397,9 @@ export interface Cobranza {
   codigoTango?:  string             // código de cliente en esa empresa al que se imputa (varios códigos por CUIT)
   imputaciones?: ImputacionFactura[]
   medios?:       MediosPago
+  /** Parte de los valores que NO se imputó a ninguna factura: queda a cuenta (saldo a favor)
+   *  del cliente en Tango (2026-09-08). `importe` = Σ imputado + aCuenta = Σ valores recibidos. */
+  aCuenta?:      number
   tango?:        RemitoTangoEstado  // write-back del recibo en Tango (Fase 4)
 }
 
