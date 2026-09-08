@@ -6,7 +6,7 @@ import { getHistorialCliente, type HistorialCliente } from '@/services/historial
 import { subscribeClientOrders } from '@/services/orderService'
 import { caiRemitoOficialCacheado, getCaiRemitoOficial } from '@/services/remitoOficialConfigService'
 import { reportError } from '@/services/observability'
-import { entregarComprobanteVenta } from '@/utils/comprobanteDeVenta'
+import { describirComprobante, entregarComprobanteVenta } from '@/utils/comprobanteDeVenta'
 import { puedeCompartirArchivos } from '@/utils/compartir'
 import { formatoARS } from '@/utils/money'
 import { STATUS_LABELS } from '@/utils/constants'
@@ -30,15 +30,23 @@ function VentaRow({ venta, cliente, caiRemito }: { venta: VentaCamion; cliente: 
     try { setAviso(await entregarComprobanteVenta(venta, cliente, caiRemito, puedeCompartirArchivos() ? 'enviar' : 'ver')) }
     finally { setOcupado(false) }
   }
+  // Qué papel salió con esta venta: remito (cuenta corriente), factura X
+  // (promo) o factura electrónica (contado), con su número — es lo que el
+  // supervisor le muestra o le reenvía al cliente.
+  const comp = describirComprobante(venta)
+  const hayPapel = comp.estado === 'ok'
   return (
     <div className="flex items-start gap-2 py-2">
       <div className="min-w-0 flex-1">
         <p className="text-sm text-gray-900">{venta.canal === 'contado' ? 'Venta contado' : 'Promo'} <span className="text-gray-500">· {fechaHora(venta.fecha.toDate())}</span></p>
         <p className="text-xs text-gray-500 truncate">{venta.items.map((i) => `${i.cantidad} ${i.nombre}`).join(', ')}{venta.choferNombre ? ` · ${venta.choferNombre}` : ''}</p>
+        <p className={`text-xs ${hayPapel ? 'text-accent' : 'text-amber-700'}`}>
+          {comp.etiqueta}{comp.numero ? ` ${comp.numero}` : ''}{comp.detalle && comp.detalle !== 'CAE ok' ? ` · ${comp.detalle}` : ''}
+        </p>
         {aviso && <p className="text-[11px] text-amber-700">{aviso}</p>}
       </div>
       <p className="text-sm font-medium text-gray-900 tabular-nums shrink-0">{formatoARS(venta.total)}</p>
-      <button type="button" onClick={entregar} disabled={ocupado} aria-label="Enviar comprobante"
+      <button type="button" onClick={entregar} disabled={ocupado} aria-label={`Enviar ${comp.etiqueta}`} title={`Enviar ${comp.etiqueta}`}
         className="w-9 h-9 rounded-lg border border-[#D3D1C7] flex items-center justify-center text-accent shrink-0 active:scale-95 disabled:opacity-50">
         {ocupado ? <RefreshCw size={15} className="animate-spin" /> : <FileText size={15} />}
       </button>
