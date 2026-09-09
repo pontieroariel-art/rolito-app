@@ -1727,3 +1727,27 @@ idempotente por fila (`sentenciaExisteImputacion`), y el write-back devuelve `IM
 número. `leerDatosRecibo` valida que el recibo viejo sea del cliente, no esté anulado y tenga
 disponible (`IMPORTE − Σ gva07.IMPORT_CAN`). Limitación conocida: en Rolito no existe el procedimiento
 de recálculo, así que los estados (factura CAN, recibo IMP) no se actualizan solos (igual que antes).
+
+## 32. Vendedor = supervisor del cliente; quién vendió en leyenda y USUARIO (2026-09-09)
+
+**Decisión de Ariel:** la oficina filtra ventas y cobranzas por **supervisor** (el vendedor GVA23 que cada
+cliente tiene en su ficha: MV, ZA, GC, MS, FA…). Desde el 3/9 la factura de la app salía con el **chofer**
+como vendedor (`config/tango.vendedores`) y pisaba ese filtro. Ahora:
+
+- **Factura (API Facturador):** `writers.ts` toma `COD_VENDED` de la ficha del cliente (misma lectura que
+  `COND_VTA`/`NRO_LISTA`) y cae a `facturador.<empresa>.vendedor` (`AP`) si no tiene. `config/tango.vendedores`
+  queda sin uso para facturas. Leyenda 3 = quién vendió: `Caja Nicolas Diaz - Torcuato` (ventanilla) o
+  `Chofer X - 03 SERGIO ALVAREZ` (camión); observaciones idem (`pedido.ts` → `quienVende`).
+- **Remito cta. cte. (SQL):** referencia `ROLITO:VV:<id>` para ventanilla (antes salía `VC` para todo — el
+  bridge ahora pasa `origenColeccion`), LEYENDA2 papel de la app, LEYENDA3 quién vendió, `STA14.USUARIO`
+  = usuario corto de la persona (`NDIAZ`, `sql/comun.ts` → `usuarioCorto`; sin nombre, el fijo de config).
+- **Egreso VPR y transferencias (SQL):** leyenda 3 quién vendió; USUARIO = cajero/chofer (egreso) o quien
+  emitió la carga / contó la descarga (`creadoPor`/`registradoPor`).
+- **Recibo (SQL):** `GVA12.COD_VENDED` = vendedor del cliente (leído de GVA14 en `leerDatosRecibo`), `AD`
+  de respaldo; `LEYENDA_2` = `Cobro mostrador Torcuato por Nicolas Diaz` / `Cobro en calle por …` /
+  `Cobro supervisor por …`; `USUARIO_INGRESO` (120) con el nombre y USUARIO (10) corto en el resto.
+  `onCobranzaCreada` manda `origen` y `plantaId` en el payload.
+
+Deploy: `onOutboxPendiente`, `barridoOutboxTango`, `onCobranzaCreada` (hecho el 9/9); VM: copiar
+`lib/sql/{comun,remito,movimientoStock,recibo}.js` + `bridge-sql.mjs` (paquete
+`DesktopRolitoSync-usuario-vendedor`, LEEME-VM.txt) y reiniciar el bridge.

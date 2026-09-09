@@ -34,7 +34,7 @@ Deploy: push a `master` despliega automáticamente a Firebase Hosting via GitHub
 
 ## Arquitectura
 
-PWA de gestión de una distribuidora de hielo, organizada en cuatro **sistemas/módulos** (`src/types.ts` → `Sistema`: `logistica`, `heladeras`, `produccion`, `expedicion`) con **16 roles** (`UserRole`). El techo de sistemas y el home por rol viven en `src/utils/sistemas.ts` (`ROLE_SISTEMAS`, `ROLE_HOME`); el picker de sistema está en `/sistema`. El mapa completo de rutas por rol está en `src/App.tsx`.
+PWA de gestión de una distribuidora de hielo, organizada en cuatro **sistemas/módulos** (`src/types.ts` → `Sistema`: `logistica`, `heladeras`, `produccion`, `expedicion`) con **17 roles** (`UserRole`). El techo de sistemas y el home por rol viven en `src/utils/sistemas.ts` (`ROLE_SISTEMAS`, `ROLE_HOME`); el picker de sistema está en `/sistema`. El mapa completo de rutas por rol está en `src/App.tsx`.
 
 **Logística / pedidos** (el núcleo original):
 - **cliente** — crear pedidos, historial, perfil, multi-sucursal (`/dashboard`, `/nuevo-pedido`, `/historial`, `/perfil`, `/sucursal`)
@@ -59,6 +59,9 @@ PWA de gestión de una distribuidora de hielo, organizada en cuatro **sistemas/m
 - **caja** — remitos de carga, ventanilla, cobranzas de mostrador, liquidación de repartidores
 - **muelle** — entrega la carga contra el remito y cuenta la descarga al volver el camión
 - **seguridad** — control de salida en el portón
+- **tesoreria** (2026-09-09, rol propio, NO es facturación) — panel `/tesoreria` (`TesoreriaLayout`): tablero en vivo de calle por chofer, ventanillas por cajero y supervisores (`utils/tesoreriaLive.ts`), validación de las rendiciones y su historial. `gerente_general` entra en modo lectura
+- **Rendiciones / cierre de caja por persona y día** (2026-09-09): cada usuario de caja cierra SU caja (`/caja/rendiciones`, "Mi caja"): ventas, cobranzas de mostrador, valores en papel, bultos y el efectivo recibido al cerrar liquidaciones de repartidores → efectivo a rendir vs contado, diferencia con motivo, firma, PDF (`utils/rendicionPdf.ts`). Colección `rendiciones` (id `{fecha}_{uid}`, código `RD-DT-000012` con `config/rendicionCounter_{planta}`), inmutable salvo `validacion` (tesorería) y `entregaId` (entrega a tesorería, pendiente). Cálculo puro en `utils/rendicionMostrador.ts`; medios de una cobranza en `utils/medios.ts`. La ventanilla muestra "Mi día" del cajero. Ventanilla sigue vendiendo desde el depósito de la planta (01/02)
+- **Quién vendió en Tango** (2026-09-09): el **vendedor** de todo comprobante que manda la app es el **supervisor del cliente** (`COD_VENDED` de su ficha; antes iba el chofer y pisaba el filtro por supervisor de la oficina); quién vendió/cobró (cajero, chofer, supervisor) va en una leyenda y en el campo USUARIO de los comprobantes por SQL (`sql/comun.ts` → `leyendaQuienVende`, `usuarioCorto`)
 - **Envases retornables** (2026-09-07): el remito de carga lleva `envases` (tarimas de madera, pallets de metal, números de rack de agua; puntales y aros implícitos 4 y 1 por pallet) que caja declara al emitir; la descarga lleva `envases` contados sueltos por muelle (reemplaza a completos/parciales/vacíos, que quedan como legacy); la liquidación cuadra por tipo y racks por número. Toda la lógica pura y la compat con docs viejos en `src/utils/envases.ts`. Tango no los recibe todavía (viajan en el payload de la cola)
 
 ### Autenticación y roles
