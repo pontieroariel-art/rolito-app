@@ -98,6 +98,21 @@ export const subscribeVentasCamionEnRango = (
     onSnapshotError(callback, 'ventasCamion'),
   )
 
+// Todas las ventas del camión de un día (tablero en vivo de tesorería,
+// 2026-09-09). Rango sobre un solo campo: sin índice compuesto.
+export const subscribeVentasCamionDelDia = (
+  dia: Date,
+  callback: (ventas: VentaCamion[]) => void,
+): () => void => {
+  const desde = new Date(dia); desde.setHours(0, 0, 0, 0)
+  const hasta = new Date(desde); hasta.setDate(hasta.getDate() + 1)
+  return onSnapshot(
+    query(collection(db, VENTAS), where('fecha', '>=', Timestamp.fromDate(desde)), where('fecha', '<', Timestamp.fromDate(hasta))),
+    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as VentaCamion)).sort((a, b) => b.fecha.toMillis() - a.fecha.toMillis())),
+    onSnapshotError(callback, 'ventasCamion'),
+  )
+}
+
 // Ventas de un chofer en un rango (para la liquidación del día — la hoja
 // vieja liquida por repartidor, no por camión).
 export const subscribeVentasChoferEnRango = (

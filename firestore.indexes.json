@@ -146,6 +146,14 @@
       ]
     },
     {
+      "collectionGroup": "ventasVentanilla",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "cajaId", "order": "ASCENDING" },
+        { "fieldPath": "fecha",  "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "cobranzas",
       "queryScope": "COLLECTION",
       "fields": [

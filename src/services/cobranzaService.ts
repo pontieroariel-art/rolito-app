@@ -108,6 +108,25 @@ export const subscribeCobranzasChoferEnRango = (
     onSnapshotError(callback, 'cobranzas'),
   )
 
+// Alias: la misma consulta sirve para cualquier persona que cobre (cajero,
+// supervisor), no solo choferes — el índice es (registradoPor.uid, fecha).
+export const subscribeCobranzasDeUsuarioEnRango = subscribeCobranzasChoferEnRango
+
+// Todas las cobranzas de un día, de todos los orígenes (tablero en vivo de
+// tesorería, 2026-09-09). Rango sobre un solo campo: sin índice compuesto.
+export const subscribeCobranzasDelDia = (
+  dia: Date,
+  callback: (cobranzas: Cobranza[]) => void,
+): () => void => {
+  const desde = new Date(dia); desde.setHours(0, 0, 0, 0)
+  const hasta = new Date(desde); hasta.setDate(hasta.getDate() + 1)
+  return onSnapshot(
+    query(collection(db, COBRANZAS), where('fecha', '>=', Timestamp.fromDate(desde)), where('fecha', '<', Timestamp.fromDate(hasta))),
+    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Cobranza)).sort((a, b) => b.fecha.toMillis() - a.fecha.toMillis())),
+    onSnapshotError(callback, 'cobranzas'),
+  )
+}
+
 // Cobranzas de mostrador del día de una planta (pantalla de caja).
 export const subscribeCobranzasCajaDelDia = (
   plantaId: PlantaId,

@@ -10,7 +10,9 @@ import BotoneraProductos from '../../components/ventas/BotoneraProductos'
 import { useAuth } from '../../context/AuthContext'
 import { useClientesActivos } from '../../hooks/useClientesActivos'
 import { useCatalogo } from '../../hooks/useCatalogo'
-import { useFechaDelDia } from '../../hooks/useDiaActual'
+import { useDiaActual, useFechaDelDia } from '../../hooks/useDiaActual'
+import { useMiMostrador } from '@/hooks/useMiMostrador'
+import MiDiaMostrador from '@/components/expedicion/MiDiaMostrador'
 import {
   crearVentaVentanilla, subscribeVentaVentanilla, subscribeVentanillaDelDia,
 } from '../../services/ventaVentanillaService'
@@ -67,6 +69,7 @@ export default function VentanillaPage() {
   const { catalogo } = useCatalogo()
   const plantaId = user?.planta ?? 'torcuato'
   const fecha = useFechaDelDia()
+  const dia   = useDiaActual()
 
   const [tipoCliente, setTipoCliente] = useState<'registrado' | 'ocasional'>('registrado')
   const [clienteId,   setClienteId]   = useState('')
@@ -96,6 +99,10 @@ export default function VentanillaPage() {
   // Copias del comprobante de turno (original cliente / duplicado muelle /
   // triplicado seguridad) según config/ventanilla; aplica también a la reimpresión.
   const copiasTicket = useCopiasTicketVentanilla()
+  // Mi día: mis ventas (del stream de la planta), mis cobranzas y las
+  // liquidaciones que cerré (el efectivo recibido entra a mi caja).
+  const misVentas = useMemo(() => ventas.filter((v) => v.cajaId === user?.uid), [ventas, user?.uid])
+  const mio = useMiMostrador(user?.uid, dia, misVentas)
 
   const cliente = useMemo(() => clientes.find((c) => c.uid === clienteId), [clientes, clienteId])
   const clientePorId = useMemo(() => new Map(clientes.map((c) => [c.uid, c])), [clientes])
@@ -404,9 +411,12 @@ export default function VentanillaPage() {
         </div>
       </section>
 
+      {/* Mi día: lo que vendió, cobró y recibió este usuario (2026-09-09). */}
+      {user && <MiDiaMostrador calc={mio.calc} nombre={user.nombre} cerrarHref="/caja/rendiciones" />}
+
       {/* Ventas del día */}
       <section className="space-y-2">
-        <h2 className="font-semibold text-gray-800">Ventanilla de hoy</h2>
+        <h2 className="font-semibold text-gray-800">Ventanilla de hoy <span className="text-sm font-normal text-gray-500">· {ventas.length} ventas · {money(ventas.reduce((s, v) => s + v.total, 0))}</span></h2>
         {ventas.length === 0 && <p className="text-gray-400 text-sm">Todavía no hubo ventas por ventanilla hoy.</p>}
         {ventas.map((v) => {
           const fac = estadoFactura(v)
@@ -416,7 +426,10 @@ export default function VentanillaPage() {
                 {v.turno}
               </span>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900 truncate">{v.clienteNombre}</p>
+                <p className="text-sm font-semibold text-gray-900 truncate">
+                  {v.clienteNombre}
+                  {v.cajaId !== user?.uid && <span className="ml-2 text-[10px] font-medium text-gray-500 bg-gray-100 border border-gray-200 rounded-full px-1.5 py-0.5 align-middle">{v.cajaNombre}</span>}
+                </p>
                 <p className="text-xs text-gray-500">
                   {money(v.total)} · {FORMAS_PAGO.find((f) => f.id === v.formaPago)?.label} · {v.canal === 'contado' ? 'Contado' : 'Promo'}
                   {fac && <span className={`ml-1 ${fac.clase}`}>· {fac.texto}</span>}

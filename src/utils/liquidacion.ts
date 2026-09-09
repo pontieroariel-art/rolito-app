@@ -4,6 +4,7 @@ import {
 } from '../types'
 import { nombreDelCambio, productoDelCambio } from './cambios'
 import { cuadrarEnvases } from './envases'
+import { efectivoDe, transferenciaDe } from './medios'
 
 // Cálculo puro de la liquidación del repartidor — replica la hoja
 // "Liquidación de repartidores" del sistema viejo: por producto, carga −
@@ -82,9 +83,8 @@ export function calcularLiquidacion(
   // ── Cobranzas de calle ── el efectivo cobrado se rinde junto con el de
   // las ventas, en el mismo cierre (así rendían en el sistema viejo). La
   // cobranza completa (desde 2026-09-05) trae `medios`: se rinde el efectivo
-  // que dice ahí; cheques y retenciones no son plata que lleve el chofer.
-  const efectivoDe = (c: Cobranza) => (c.medios ? c.medios.efectivo : c.formaPago === 'contado_efectivo' ? c.importe : 0)
-  const transferenciaDe = (c: Cobranza) => (c.medios ? c.medios.transferencia : c.formaPago === 'contado_transferencia' ? c.importe : 0)
+  // que dice ahí; cheques y retenciones no son plata que lleve el chofer
+  // (efectivoDe / transferenciaDe viven en utils/medios.ts).
   const cobranzasEfectivo = cobranzasCalle.reduce((s, c) => s + efectivoDe(c), 0)
   const cobranzasTransferencia = cobranzasCalle.reduce((s, c) => s + transferenciaDe(c), 0)
 
@@ -187,8 +187,6 @@ export function clasificarReparto(
   }
   promo.total = promo.contado.total + promo.cuentaCorriente.total
 
-  const efectivoDe = (c: Cobranza) => (c.medios ? c.medios.efectivo : c.formaPago === 'contado_efectivo' ? c.importe : 0)
-  const transferenciaDe = (c: Cobranza) => (c.medios ? c.medios.transferencia : c.formaPago === 'contado_transferencia' ? c.importe : 0)
   const cobOrdenadas = cobranzas.slice().sort(porFecha)
   const cheques = cobOrdenadas.flatMap((c) => c.medios?.cheques ?? [])
   const retenciones = cobOrdenadas.flatMap((c) => c.medios?.retenciones ?? [])

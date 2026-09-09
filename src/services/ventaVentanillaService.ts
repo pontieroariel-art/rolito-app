@@ -168,6 +168,28 @@ export const subscribeVentanillaDelDia = (
   )
 }
 
+// Ventas de UN usuario de caja en un rango (su "Mi día" y su cierre de caja,
+// 2026-09-09). Índice (cajaId, fecha). Sin orden en la query: se ordena acá.
+export const subscribeVentasVentanillaDeUsuarioEnRango = (
+  cajaId: string,
+  desde: Date, hasta: Date,
+  callback: (ventas: VentaVentanilla[]) => void,
+): () => void =>
+  onSnapshot(
+    query(
+      collection(db, VENTAS),
+      where('cajaId', '==', cajaId),
+      where('fecha', '>=', Timestamp.fromDate(desde)),
+      where('fecha', '<', Timestamp.fromDate(hasta)),
+    ),
+    (snap) => callback(
+      snap.docs
+        .map((d) => ({ id: d.id, ...d.data() } as VentaVentanilla))
+        .sort((a, b) => b.fecha.toMillis() - a.fecha.toMillis()),
+    ),
+    onSnapshotError(callback, 'ventasVentanilla'),
+  )
+
 // Una venta puntual, en vivo: caja espera acá a que el trigger de ARCA escriba
 // `factura` para imprimir el comprobante fiscal (decisión 2026-09-03: en el
 // mostrador no se imprime nada hasta tener el CAE).
