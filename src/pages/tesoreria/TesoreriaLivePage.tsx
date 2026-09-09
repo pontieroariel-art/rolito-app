@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Activity, ShieldCheck } from 'lucide-react'
+import { Activity, ChevronDown, ChevronRight, ShieldCheck } from 'lucide-react'
 import { useDiaActual } from '@/hooks/useDiaActual'
 import { subscribeVentasCamionDelDia } from '@/services/ventaCamionService'
 import { subscribeVentanillaDelDia } from '@/services/ventaVentanillaService'
@@ -14,6 +14,7 @@ import { addDaysStr } from '@/utils/helpers'
 import { formatoARS } from '@/utils/money'
 import { resumenLive, type FilaCalle, type FilaVentanilla, type PlataCobranzas, type PlataVentas } from '@/utils/tesoreriaLive'
 import { Plegable } from '@/components/ui/Plegable'
+import { CobranzaSupervisorCard } from '@/components/supervisor/CobranzaSupervisorCard'
 import { PLANTAS, type Cobranza, type EntregaTesoreria, type Liquidacion, type PlantaId, type RemitoCarga, type Rendicion, type VentaCamion, type VentaVentanilla } from '@/types'
 
 // Tablero en vivo de tesorería (2026-09-09): lo que se está vendiendo en la
@@ -33,6 +34,8 @@ export default function TesoreriaLivePage() {
   const [rendiciones, setRendiciones] = useState<Rendicion[]>([])
   const [entregas, setEntregas] = useState<EntregaTesoreria[]>([])
   const [ultimoCambio, setUltimoCambio] = useState<Date | null>(null)
+  // Supervisor expandido en el bloque de abajo: sus recibos uno por uno (2026-09-09).
+  const [supAbierto, setSupAbierto] = useState<string | null>(null)
 
   useEffect(() => {
     const fecha = new Date(`${dia}T12:00:00`)
@@ -97,17 +100,33 @@ export default function TesoreriaLivePage() {
         <table className="w-full min-w-[640px]">
           <thead><tr>{['Supervisor', 'Recibos', 'Efectivo', 'Transferencia', 'Cheques', 'Retenciones', 'Total'].map((h, i) => <th key={h} className={`${TH} ${i > 0 ? 'text-right' : ''}`}>{h}</th>)}</tr></thead>
           <tbody>
-            {r.supervisores.map((s) => (
-              <tr key={s.uid}>
-                <td className={TD}>{s.nombre}</td>
-                <td className={`${TD} text-right tabular-nums`}>{s.cobranzas.cantidad}</td>
-                <td className={`${TD} text-right tabular-nums`}>{formatoARS(s.cobranzas.efectivo)}</td>
-                <td className={`${TD} text-right tabular-nums`}>{formatoARS(s.cobranzas.transferencia)}</td>
-                <td className={`${TD} text-right tabular-nums`}>{s.cobranzas.cheques.cantidad ? `${s.cobranzas.cheques.cantidad} · ${formatoARS(s.cobranzas.cheques.total)}` : '—'}</td>
-                <td className={`${TD} text-right tabular-nums`}>{s.cobranzas.retenciones.cantidad ? `${s.cobranzas.retenciones.cantidad} · ${formatoARS(s.cobranzas.retenciones.total)}` : '—'}</td>
-                <td className={`${TD} text-right tabular-nums font-semibold`}>{formatoARS(s.cobranzas.total)}</td>
-              </tr>
-            ))}
+            {r.supervisores.map((s) => {
+              const abierto = supAbierto === s.uid
+              const recibos = abierto ? cobranzas.filter((c) => c.origen === 'supervisor' && c.registradoPor.uid === s.uid).sort((a, b) => b.fecha.toMillis() - a.fecha.toMillis()) : []
+              return (
+                <Fragment key={s.uid}>
+                  <tr className="cursor-pointer hover:bg-gray-50" onClick={() => setSupAbierto(abierto ? null : s.uid)}>
+                    <td className={TD}><span className="inline-flex items-center gap-1.5">{abierto ? <ChevronDown size={14} className="text-gray-400" /> : <ChevronRight size={14} className="text-gray-400" />}{s.nombre}</span></td>
+                    <td className={`${TD} text-right tabular-nums`}>{s.cobranzas.cantidad}</td>
+                    <td className={`${TD} text-right tabular-nums`}>{formatoARS(s.cobranzas.efectivo)}</td>
+                    <td className={`${TD} text-right tabular-nums`}>{formatoARS(s.cobranzas.transferencia)}</td>
+                    <td className={`${TD} text-right tabular-nums`}>{s.cobranzas.cheques.cantidad ? `${s.cobranzas.cheques.cantidad} · ${formatoARS(s.cobranzas.cheques.total)}` : '—'}</td>
+                    <td className={`${TD} text-right tabular-nums`}>{s.cobranzas.retenciones.cantidad ? `${s.cobranzas.retenciones.cantidad} · ${formatoARS(s.cobranzas.retenciones.total)}` : '—'}</td>
+                    <td className={`${TD} text-right tabular-nums font-semibold`}>{formatoARS(s.cobranzas.total)}</td>
+                  </tr>
+                  {abierto && (
+                    <tr>
+                      <td colSpan={7} className="bg-[#F8F7F2] px-3 py-3 border-b border-gray-100">
+                        <p className="text-xs text-gray-500 mb-2">Recibos de {s.nombre} en el día. Cada uno se abre con su detalle y su PDF.</p>
+                        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                          {recibos.map((c) => <CobranzaSupervisorCard key={c.id} c={c} />)}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              )
+            })}
             {r.supervisores.length === 0 && <tr><td className={`${TD} text-gray-500`} colSpan={7}>Sin cobranzas de supervisores.</td></tr>}
           </tbody>
         </table>
