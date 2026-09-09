@@ -917,3 +917,45 @@ le asigne al talonario, y el de Rolito tiene que ser **el mismo papel**. Con eso
 - El remito **no lleva precios**: cantidad y descripción, los cambios marcados "sin cargo", un
   bloque de entrega (chofer, camión, fecha) y un resumen de bultos en lugar de importes.
   `utils/remitoPdf.ts`; la factura X sigue en `utils/comprobanteInternoPdf.ts`.
+
+## 14. Notas de crédito: anulación de una factura de ventanilla (2026-09-09)
+
+**Qué es.** El cajero de ventanilla emitió mal una factura (cliente, artículos, forma de pago,
+importe) y necesita dejarla anulada para hacerle la correcta al cliente. La app emite una **nota de
+crédito por el total** (misma clase que la factura: A→NC A tipo 3, B→NC B tipo 8) con el
+comprobante asociado (`CbtesAsoc`). Solo anulación total; solo mientras la caja del día del cajero
+no esté cerrada; y **nunca la emite el cajero solo**: la tiene que autorizar alguien con el permiso
+individual `users.autorizaAnulaciones` (o super_admin), que no sea el propio solicitante.
+
+**Circuito.** `anulacionesVentanilla/{ventaId}` (una por venta) → `pendiente` (cajero) →
+`aprobada` | `rechazada` (autorizante, desde `/anulaciones`) → `emitida` | `error` (server).
+Triggers en `functions/src/triggers/anulacionesVentanilla.ts`; orquestación en
+`services/arca/anulacionVentanilla.ts` (Firestore) y `services/arca/notaCredito.ts` (pura, espejo de
+`facturarVenta`). El reflejo en la venta es `ventasVentanilla.anulacion` (`anulada` + `notaCredito`),
+que es lo que miran Mi día, el cierre de caja y tesorería para dejar de contarla.
+
+**La NC es idéntica a la factura, no se recalcula.** El padrón de IIBB de hoy o un cambio de
+condición de IVA del cliente darían otro número. Por eso, desde esta fecha `facturasArca/{ventaId}`
+guarda `detalle` (el `FECAEDetRequest` que viajó) y la NC lo copia cambiando solo número, fecha
+(hoy: la NC no se retrotrae) y `CbtesAsoc`. Las facturas anteriores (sin `detalle`) se reconstruyen
+desde `importes` (todo al 21 %, una percepción con alícuota `tributos/neto`) y el receptor actual,
+verificando que la clase no haya cambiado; si cambió, error claro y la NC se carga desde Tango.
+Antes de reservar número se consulta la factura original con `FECompConsultar` (existe y el total
+coincide).
+
+**`CbtesAsoc` en el XML** va entre `CondicionIVAReceptorId` y `Tributos` (orden del XSD) con
+`Tipo`, `PtoVta`, `Nro`, `Cuit` (del emisor) y `CbteFch` (de la factura; la RG 4540 los exige para
+NC/ND). **No estaba verificado contra ARCA al escribir esto**: correr
+`scripts/arca/emitir-nc-prueba.mjs` en homologación (PV 1) antes del primer deploy a producción.
+
+**Numeración e idempotencia.** Contador propio por tipo: `config/arcaNumeracion_1104_3` y `_8`
+(sembrar con `scripts/arca/sembrar-numeracion.mjs`, que ahora incluye los tipos de NC; sin
+sembrar, la NC queda `pendiente` y la reconciliación reintenta cada hora). Registro en
+`facturasArca/nc_{ventaId}` con `tipo: 'nota_credito'`, `cbtesAsoc`, `anulacionId`: mismos estados
+y misma reconciliación que las facturas (`incierta` → `resolverIncierto`; `pendiente` → reintento
+sin ventana de 5 días). Una NC por venta. Si ARCA la rechaza, la solicitud queda en `error` con el
+motivo y se puede volver a aprobar (error → aprobada).
+
+**Tango.** La NC todavía no viaja a Tango (el facturador de Tango Connect dice aceptar FAC/NC/ND
+pero no hay evidencia del tipo ni del campo de asociado): la oficina la carga a mano con el número y
+CAE que muestra la bandeja; esa NC en Tango es la que devuelve el stock al depósito.

@@ -69,7 +69,9 @@ export default function AnulacionesPage() {
     try {
       const venta = await getVentaVentanilla(a.ventaId)
       if (!venta) { setAviso('No se encontró la venta.'); return }
-      const cliente = venta.clienteId ? (await getUserDocument(venta.clienteId)) ?? undefined : undefined
+      // El perfil del cliente completa el papel (CUIT, condición de IVA, domicilio);
+      // si este usuario no puede leerlo, el PDF sale con lo que trae la venta.
+      const cliente = venta.clienteId ? await getUserDocument(venta.clienteId).catch(() => null) ?? undefined : undefined
       const armado = armarNotaCreditoDeVenta(venta, cliente)
       if (!armado.ok) { setAviso(armado.motivo); return }
       const blob = (await generateFacturaArcaPdf({ ...armado.datos, descargar: false })) as Blob

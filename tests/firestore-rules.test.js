@@ -4140,6 +4140,14 @@ describe('anulacionesVentanilla (anulación de factura con nota de crédito)', (
     await assertFails(updateDoc(doc(db('aut1'), 'anulacionesVentanilla/v5'), resolucion('aprobada', 'aut1')))
   })
 
+  test('quien autoriza (y facturación) lee la venta de la solicitud para el PDF de la nota de crédito', async () => {
+    await seedTodos()
+    await seed((d) => setDoc(doc(d, 'users/autSup'), { rol: 'supervisor', estado: 'activo', autorizaAnulaciones: true }))
+    await assertSucceeds(getDoc(doc(db('aut1'), 'ventasVentanilla/v1')))
+    await assertSucceeds(getDoc(doc(db('autSup'), 'ventasVentanilla/v1')))
+    await assertFails(getDoc(doc(db('cli'), 'ventasVentanilla/v1')))
+  })
+
   test('el permiso autorizaAnulaciones solo lo da el super_admin: ni uno mismo ni logística', async () => {
     await seedTodos()
     await seed((d) => setDoc(doc(d, 'users/aut1'), { rol: 'facturacion', estado: 'activo', nombre: 'F' }))

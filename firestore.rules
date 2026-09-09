@@ -1068,8 +1068,11 @@ service cloud.firestore {
     match /ventasVentanilla/{ventaId} {
       // isSupervisor: regenera la factura de una venta de mostrador para
       // compartirla desde la composición de saldos del cliente (2026-09-07).
+      // isFacturacion / puedeAutorizarAnulaciones: la bandeja de anulaciones
+      // regenera la nota de crédito de la venta (2026-09-09).
       allow read: if request.auth != null
-        && (isCaja() || isMuelle() || isSeguridad() || isOperator() || isManager() || isGerenteGeneral() || isSupervisor() || isTesoreria());
+        && (isCaja() || isMuelle() || isSeguridad() || isOperator() || isManager() || isGerenteGeneral() || isSupervisor() || isTesoreria()
+            || isFacturacion() || puedeAutorizarAnulaciones());
 
       allow create: if request.auth != null && isCajaDe(request.resource.data.plantaId)
         && request.resource.data.cajaId == request.auth.uid

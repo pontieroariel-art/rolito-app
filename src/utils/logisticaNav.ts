@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, CalendarDays, History, Activity, AlertTriangle, ClipboardList,
-  Truck, Cloud, Navigation, Users, Map, Tag, DollarSign, TrendingUp, BarChart2, FileText,
+  Truck, Cloud, Navigation, Users, Map, Tag, DollarSign, TrendingUp, BarChart2, FileText, Ban,
 } from 'lucide-react'
 import { NavGroup } from './navGroups'
 
@@ -53,12 +53,16 @@ export const LOGISTICA_NAV_GROUPS: NavGroup[] = [
       { to: '/comercial/ventas',  label: 'Ventas',       icon: TrendingUp, roles: ['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'facturacion'] },
     ],
   },
-  // Campaña de recupero de las facturas viejas de Tango. Cuando termine, este
-  // grupo entero se borra junto con la pantalla y su ruta.
   {
     id: 'facturacion', label: 'Facturación',
     items: [
+      // Campaña de recupero de las facturas viejas de Tango. Cuando termine se
+      // borra junto con la pantalla y su ruta.
       { to: '/admin/recupero-facturas', label: 'Recupero', icon: FileText, roles: ['super_admin', 'facturacion'] },
+      // Bandeja de anulaciones de facturas de ventanilla (2026-09-09). Los roles
+      // son los de la ruta; LogisticaLayout la esconde a quien no tiene el
+      // permiso individual `autorizaAnulaciones` (salvo super_admin).
+      { to: '/anulaciones', label: 'Anulaciones', icon: Ban, roles: ['super_admin', 'gerente_general', 'gerente_comercial', 'logistica', 'comercial', 'facturacion', 'tesoreria', 'supervisor', 'heladeras_encargado', 'produccion_encargado'] },
     ],
   },
 ]
