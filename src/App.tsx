@@ -100,6 +100,7 @@ const LiquidacionesPage = lazy(() => import('./pages/expedicion/LiquidacionesPag
 const LiquidacionesHistorialPage = lazy(() => import('./pages/expedicion/LiquidacionesHistorialPage'))
 const VentanillaPage    = lazy(() => import('./pages/expedicion/VentanillaPage'))
 const CobranzasPage     = lazy(() => import('./pages/expedicion/CobranzasPage'))
+const RendicionesPage   = lazy(() => import('./pages/expedicion/RendicionesPage'))
 const MuelleDashboard    = lazy(() => import('./pages/expedicion/MuelleDashboard'))
 const MuelleTvPage       = lazy(() => import('./pages/expedicion/MuelleTvPage'))
 const SeguridadDashboard = lazy(() => import('./pages/expedicion/SeguridadDashboard'))
@@ -421,6 +422,8 @@ function AppContent() {
             <Route path="/caja/ventanilla"     element={<VentanillaPage />} />
             <Route path="/caja/cobranzas"      element={<CobranzasPage />} />
             <Route path="/caja/liquidaciones"  element={<LiquidacionesPage />} />
+            {/* Cierre de caja por persona y día (2026-09-09). */}
+            <Route path="/caja/rendiciones"    element={<RendicionesPage />} />
           </Route>
           {/* Historial de cierres: también gerencia (control de faltantes por repartidor). */}
           <Route element={<ProtectedRoute allowedRoles={['caja', 'super_admin', 'gerente_general']} />}>
