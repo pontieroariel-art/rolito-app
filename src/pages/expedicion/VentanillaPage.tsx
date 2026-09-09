@@ -23,6 +23,7 @@ import { usePreciosTango } from '../../hooks/usePreciosTango'
 import { empresaDeCanal, motivoSinPrecioTango, precioTangoDe } from '../../utils/precioTango'
 import { documentoDeVenta } from '../../utils/circuitoDocumento'
 import { esClienteFacturable, esCuitValido } from '../../utils/facturable'
+import { admiteCuentaCorriente } from '@/utils/condicionVenta'
 import {
   CanalVenta, FormaPago, PLANTAS, VentaCamionItem, VentaVentanilla,
 } from '../../types'
@@ -94,6 +95,10 @@ export default function VentanillaPage() {
 
   const cliente = useMemo(() => clientes.find((c) => c.uid === clienteId), [clientes, clienteId])
   const clientePorId = useMemo(() => new Map(clientes.map((c) => [c.uid, c])), [clientes])
+  // Cuenta corriente solo si Tango la tiene habilitada para el cliente (su
+  // condición de venta); a un CONTADO el Facturador le rechaza la cuota.
+  const ctaCte = tipoCliente === 'registrado' ? admiteCuentaCorriente(cliente) : { ok: false as const }
+  useEffect(() => { if (formaPago === 'cuenta_corriente' && !ctaCte.ok) setFormaPago(null) }, [formaPago, ctaCte.ok])
   // Sucursal (código de Tango) cuando la cuenta tiene varias en la empresa del canal.
   const [sucursal, setSucursal] = useState('')
   useEffect(() => { setSucursal('') }, [clienteId, canal])
@@ -162,7 +167,7 @@ export default function VentanillaPage() {
     if (sinPrecioMotivo || items.some((i) => sinPrecio(i.productoId))) { setError('Hay productos sin precio en Tango para este cliente. Corregilo en Tango y sincronizá.'); return }
     if (items.length === 0) { setError('Cargá al menos un producto.'); return }
     if (!formaPago) { setError('Elegí la forma de pago.'); return }
-    if (formaPago === 'cuenta_corriente' && tipoCliente === 'ocasional') { setError('Cuenta corriente solo para clientes registrados.'); return }
+    if (formaPago === 'cuenta_corriente' && !ctaCte.ok) { setError(ctaCte.motivo ?? 'Cuenta corriente solo para clientes registrados.'); return }
     if (avisoFiscal) { setError(avisoFiscal); return }
     setConfirmando(true)
   }
@@ -360,10 +365,13 @@ export default function VentanillaPage() {
         <div>
           <label className="text-xs text-gray-500 mb-1 block">Forma de pago</label>
           <div className="flex gap-2">
-            {FORMAS_PAGO.filter((f) => !f.soloRegistrado || tipoCliente === 'registrado').map((f) => (
+            {FORMAS_PAGO.filter((f) => !f.soloRegistrado || (tipoCliente === 'registrado' && ctaCte.ok)).map((f) => (
               <button key={f.id} type="button" onClick={() => setFormaPago(f.id)} className={toggleClass(formaPago === f.id)}>{f.label}</button>
             ))}
           </div>
+          {tipoCliente === 'registrado' && cliente && !ctaCte.ok && ctaCte.motivo && (
+            <p className="text-xs text-amber-700 mt-1.5">{ctaCte.motivo}</p>
+          )}
           {vaAFacturar && (
             <p className="text-xs text-gray-500 mt-1.5">
               Sale factura electrónica: se imprime cuando ARCA responde (unos segundos).

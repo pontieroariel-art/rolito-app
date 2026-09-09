@@ -22,6 +22,7 @@ import BotoneraProductos from '../../components/ventas/BotoneraProductos'
 import { crearVentaCamion } from '../../services/ventaCamionService'
 import { empresaDeCanal, motivoSinPrecioTango, precioTangoDe } from '../../utils/precioTango'
 import { esClienteFacturable } from '../../utils/facturable'
+import { admiteCuentaCorriente } from '@/utils/condicionVenta'
 import { articulosDeCambio, itemsDeCambio } from '../../utils/cambios'
 import { documentoDeVenta } from '../../utils/circuitoDocumento'
 import { tipoComprobanteInterno, ETIQUETA_COMPROBANTE } from '../../utils/comprobanteInterno'
@@ -117,6 +118,10 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
   }, [user, online])
 
   const cliente = useMemo(() => clientes.find((c) => c.uid === clienteId), [clientes, clienteId])
+  // Cuenta corriente solo si Tango la tiene habilitada para el cliente (su
+  // condición de venta); a un CONTADO el Facturador le rechaza la cuota.
+  const ctaCte = admiteCuentaCorriente(cliente)
+  useEffect(() => { if (formaPago === 'cuenta_corriente' && !ctaCte.ok) setFormaPago(null) }, [formaPago, ctaCte.ok])
 
   // Precios: Tango es la fuente maestra (2026-09-03). La empresa la decide el
   // canal (contado → Redonhielo, promo → Rolito); el precio de cada producto
@@ -187,6 +192,7 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
     if (!cliente)            { setError('Elegí un cliente.'); return }
     if (items.length === 0 && cambios.length === 0) { setError('Cargá al menos un producto o un cambio.'); return }
     if (seCobra && !formaPago) { setError('Elegí la forma de pago.'); return }
+    if (formaPago === 'cuenta_corriente' && !ctaCte.ok) { setError(ctaCte.motivo ?? 'Este cliente no compra en cuenta corriente.'); return }
     if (bloqueaVenta)        { setError('A este cliente no se le puede facturar todavía. Mirá el aviso de arriba.'); return }
     if (!firmante.trim())    { setError('Poné el nombre de quien firma.'); return }
     const firma = firmaRef.current?.toDataURL()
@@ -460,10 +466,13 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
                   {FORMAS_PAGO.map((f) => {
                     const Icon = f.icon
                     const sel = formaPago === f.id
+                    const deshabilitada = f.id === 'cuenta_corriente' && !ctaCte.ok
                     return (
-                      <button key={f.id} onClick={() => setFormaPago(f.id)}
+                      <button key={f.id} onClick={() => setFormaPago(f.id)} disabled={deshabilitada}
                         className={`rounded-xl border p-3 flex flex-col items-center gap-1.5 transition-all ${
-                          sel ? 'border-accent bg-accent/10 text-accent shadow-sm' : 'border-[#D3D1C7] text-gray-500 hover:border-gray-300'
+                          sel ? 'border-accent bg-accent/10 text-accent shadow-sm'
+                          : deshabilitada ? 'border-[#E5E3DA] text-gray-300 cursor-not-allowed'
+                          : 'border-[#D3D1C7] text-gray-500 hover:border-gray-300'
                         }`}>
                         <Icon size={20} />
                         <span className="text-xs font-semibold text-center leading-tight">{f.label}</span>
@@ -471,6 +480,9 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
                     )
                   })}
                 </div>
+                {cliente && !ctaCte.ok && ctaCte.motivo && (
+                  <p className="text-xs text-amber-700">{ctaCte.motivo}</p>
+                )}
               </section>
             ) : cambios.length > 0 && (
               <div className="rounded-xl border border-[#D3D1C7] bg-white px-3.5 py-2.5 animate-in fade-in-0 duration-300">
