@@ -452,7 +452,7 @@ function tplArcaFacturasConProblemas(facturas, appUrl) {
     const filas = facturas.map((f) => `
     <tr style="border-top:1px solid #e8ede9">
       <td style="padding:9px 14px;font-size:13px;color:#111827;vertical-align:top">
-        <strong>${esc(f.clienteNombre || 'Cliente sin nombre')}</strong>
+        ${f.tipo === 'nota_credito' ? '<span style="color:#7c3aed;font-weight:600">Nota de crédito (anulación) · </span>' : ''}<strong>${esc(f.clienteNombre || 'Cliente sin nombre')}</strong>
         <span style="color:#6b7280"> — $${esc(f.total.toLocaleString('es-AR', { minimumFractionDigits: 2 }))} · venta del ${esc(formatDate(f.fechaVenta))}</span><br>
         <span style="color:#DC2626;font-weight:600">${esc(ESTADO_FACTURA_LABEL[f.estado])}</span><br>
         <span style="color:#6b7280">${esc(f.motivo)}</span><br>

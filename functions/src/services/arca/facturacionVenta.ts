@@ -22,10 +22,11 @@
 import type { DbLike } from './numeracion'
 import type { ImportesInformados, PuertoArca } from './emision'
 import { emitirComprobante, resolverIncierto } from './emision'
-import type { DatosComprobante, OpcionesCalculo, PercepcionIIBB } from './comprobante'
+import type { CbteAsoc, DatosComprobante, FECAEDetRequest, OpcionesCalculo, PercepcionIIBB } from './comprobante'
 import type { ConfigArca } from './configuracion'
 
 export type EstadoFactura = 'emitida' | 'rechazada' | 'incierta'
+export type TipoRegistroArca = 'factura' | 'nota_credito'
 
 export interface FacturaGuardada {
   estado?: unknown
@@ -34,6 +35,11 @@ export interface FacturaGuardada {
   cae?: unknown
   caeFchVto?: unknown
   motivo?: unknown
+  puntoVenta?: unknown
+  importes?: unknown
+  detalle?: unknown
+  numeroLiberado?: unknown
+  tipo?: unknown
 }
 
 export interface RegistroFactura {
@@ -48,10 +54,25 @@ export interface RegistroFactura {
   observaciones?: Array<{ code: number; msg: string }>
   /** Lo que efectivamente se le informó a ARCA. Es lo que va en el papel. */
   importes?: ImportesInformados
+  /** Factura (ausente en registros anteriores al 2026-09-09) o nota de crédito que la anula. */
+  tipo?: TipoRegistroArca
+  /** El detalle completo que viajó a ARCA: es lo que copia la nota de crédito. */
+  detalle?: FECAEDetRequest
+  /** Solo NC: la factura que anula. */
+  cbtesAsoc?: CbteAsoc[]
+  /** Solo NC: id de la solicitud de anulación (= ventaId). */
+  anulacionId?: string
+  /** Rechazada: si el número volvió al pozo (se puede volver a emitir). */
+  numeroLiberado?: boolean
 }
 
 export function rutaFactura(ventaId: string): string {
   return `facturasArca/${ventaId}`
+}
+
+/** La nota de crédito que anula la factura de una venta: un registro aparte, una por venta. */
+export function rutaNotaCredito(ventaId: string): string {
+  return `facturasArca/nc_${ventaId}`
 }
 
 export interface OpcionesFacturarVenta {
@@ -157,6 +178,8 @@ export async function facturarVenta(opts: OpcionesFacturarVenta): Promise<Regist
           cae: resultado.cae, caeFchVto: resultado.caeFchVto,
           observaciones: resultado.observaciones,
           importes: resultado.importes,
+          tipo: 'factura',
+          ...(resultado.detalle ? { detalle: resultado.detalle } : {}),
         }
       : {
           ventaId,
@@ -164,6 +187,7 @@ export async function facturarVenta(opts: OpcionesFacturarVenta): Promise<Regist
           puntoVenta: config.puntoVenta,
           cbteTipo: resultado.cbteTipo, numero: resultado.numero,
           motivo: resultado.motivo,
+          ...(resultado.estado === 'rechazado' ? { numeroLiberado: resultado.numeroLiberado } : {}),
         }
 
   await opts.guardar(registro)

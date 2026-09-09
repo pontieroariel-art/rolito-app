@@ -42,6 +42,9 @@ export { resetPinProduccion } from './triggers/produccionAuth'
 // interruptor real es `config/arca.habilitado`, que arranca en false.
 // Ver docs/arca/FACTURACION_ELECTRONICA.md.
 export { onVentaContadoFacturar, onVentaVentanillaContadoFacturar, reconciliarFacturasArca } from './triggers/arcaFacturacion'
+// Anulación de facturas de ventanilla con nota de crédito (2026-09-09): el
+// cajero pide, un usuario con `autorizaAnulaciones` aprueba, el server emite.
+export { onAnulacionSolicitada, onAnulacionResuelta } from './triggers/anulacionesVentanilla'
 // Aviso de vencimiento del padrón de IIBB. No declara los secrets de ARCA, así
 // que se puede desplegar suelta.
 export { avisarPadronIIBB } from './triggers/padronIIBB'

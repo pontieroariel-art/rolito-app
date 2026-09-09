@@ -52,9 +52,13 @@ const PTO_VTA  = Number(process.env.ARCA_PTO_VTA ?? 1)
 
 // Los que emite la venta de calle: A para responsables inscriptos, B para
 // consumidor final. C no aplica — el emisor es responsable inscripto.
+// Desde 2026-09-09 también las notas de crédito (anulación de facturas de
+// ventanilla): misma clase que la factura que anulan.
 const TIPOS = [
   { cbteTipo: TIPO_COMPROBANTE.FACTURA_A, nombre: 'Factura A' },
   { cbteTipo: TIPO_COMPROBANTE.FACTURA_B, nombre: 'Factura B' },
+  { cbteTipo: TIPO_COMPROBANTE.NOTA_CREDITO_A, nombre: 'Nota de crédito A' },
+  { cbteTipo: TIPO_COMPROBANTE.NOTA_CREDITO_B, nombre: 'Nota de crédito B' },
 ]
 
 if (!CERT || !KEY || !CUIT) {

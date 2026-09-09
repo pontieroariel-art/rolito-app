@@ -70,6 +70,17 @@ export const TIPO_COMPROBANTE = {
   NOTA_CREDITO_C: 13,
 } as const
 
+/** La nota de crédito que anula cada tipo de factura: misma clase (A→NC A, …). */
+export const NOTA_CREDITO_POR_FACTURA: Record<number, number> = {
+  [TIPO_COMPROBANTE.FACTURA_A]: TIPO_COMPROBANTE.NOTA_CREDITO_A,
+  [TIPO_COMPROBANTE.FACTURA_B]: TIPO_COMPROBANTE.NOTA_CREDITO_B,
+  [TIPO_COMPROBANTE.FACTURA_C]: TIPO_COMPROBANTE.NOTA_CREDITO_C,
+}
+
+export function esNotaCredito(cbteTipo: number): boolean {
+  return Object.values(NOTA_CREDITO_POR_FACTURA).includes(cbteTipo)
+}
+
 export const FACTURA_POR_CLASE: Record<ClaseComprobante, number> = {
   A: TIPO_COMPROBANTE.FACTURA_A,
   B: TIPO_COMPROBANTE.FACTURA_B,
@@ -514,6 +525,23 @@ export interface FECAEDetRequest {
   CondicionIVAReceptorId: number
   Iva: SubtotalIva[]
   Tributos: Tributo[]
+  /**
+   * Comprobantes asociados: obligatorio en notas de crédito/débito (la NC
+   * referencia a la factura que anula). En el XML va entre
+   * CondicionIVAReceptorId y Tributos (orden del XSD).
+   */
+  CbtesAsoc?: CbteAsoc[]
+}
+
+/** Referencia a otro comprobante (la factura que anula una nota de crédito). */
+export interface CbteAsoc {
+  Tipo: number
+  PtoVta: number
+  Nro: number
+  /** CUIT del emisor del asociado, sin guiones. */
+  Cuit?: string
+  /** Fecha del asociado, AAAAMMDD. Exigida por la RG 4540 para NC/ND. */
+  CbteFch?: string
 }
 
 export interface DatosComprobante {
@@ -646,6 +674,122 @@ export function construirDetalle(
       CondicionIVAReceptorId: validacion.condicion.arcaId,
       Iva: importes.Iva,
       Tributos: importes.Tributos,
+    },
+  }
+}
+
+// ── Nota de crédito total (anulación de una factura) ─────────────────────────
+
+/** Lo que hace falta saber de la factura que se anula. */
+export interface FacturaOrigen {
+  puntoVenta: number
+  cbteTipo: number
+  numero: number
+  /** Los importes tal como se informaron a ARCA (`facturasArca.importes`). */
+  importes: { fecha: string; neto: number; iva: number; tributos: number; total: number }
+  /** El detalle que viajó a ARCA, si se guardó (facturas desde 2026-09-09). */
+  detalle?: FECAEDetRequest
+}
+
+export interface OpcionesNotaCreditoTotal {
+  numeroComprobante: number
+  /** Fecha de la NC (hoy): no se retrotrae a la de la factura. */
+  fechaEmision: Date
+  /** CUIT del emisor, para el comprobante asociado. */
+  cuitEmisor: string
+  tributoIdPercepcionIIBB: number
+  /** Solo para facturas sin `detalle` guardado: el receptor actual, para DocTipo/DocNro/CondicionIVAReceptorId. */
+  receptor?: DatosReceptor
+}
+
+/**
+ * Arma el detalle de una nota de crédito que anula TODA la factura.
+ *
+ * La regla es que la NC sea idéntica a la factura en importes, IVA y
+ * percepciones: no se recalcula nada (el padrón de IIBB de hoy o un cambio de
+ * condición de IVA del cliente darían otro número y ARCA la rechazaría o, peor,
+ * la aceptaría distinta). Si la factura guardó su `detalle`, se copia tal cual
+ * cambiando solo número, fecha y comprobante asociado. Si no (facturas
+ * anteriores), se reconstruye desde `importes` con las únicas reglas que hoy
+ * existen (todo al 21 %, una sola percepción) y con el receptor actual,
+ * verificando que la clase del comprobante no haya cambiado.
+ */
+export function construirDetalleNotaCreditoTotal(
+  origen: FacturaOrigen,
+  opciones: OpcionesNotaCreditoTotal,
+): { detalle: FECAEDetRequest; cbteTipo: number } {
+  const cbteTipo = NOTA_CREDITO_POR_FACTURA[origen.cbteTipo]
+  if (cbteTipo === undefined) {
+    throw new Error(`No hay nota de crédito para el tipo de comprobante ${origen.cbteTipo}`)
+  }
+
+  const asociado: CbteAsoc = {
+    Tipo: origen.cbteTipo,
+    PtoVta: origen.puntoVenta,
+    Nro: origen.numero,
+    Cuit: soloDigitos(opciones.cuitEmisor),
+    CbteFch: origen.importes.fecha,
+  }
+
+  let base: FECAEDetRequest
+  if (origen.detalle) {
+    const { CbtesAsoc: _ignorado, ...resto } = origen.detalle
+    base = resto as FECAEDetRequest
+  } else {
+    if (!opciones.receptor) {
+      throw new Error('La factura no guardó su detalle y no se conoce al receptor: no se puede armar la nota de crédito')
+    }
+    const validacion = validarReceptor(opciones.receptor)
+    if (!validacion.facturable) {
+      throw new Error(`Cliente no facturable: ${validacion.detalle}`)
+    }
+    if (FACTURA_POR_CLASE[validacion.claseComprobante] !== origen.cbteTipo) {
+      throw new Error(
+        `El cliente hoy es clase ${validacion.claseComprobante} y la factura fue tipo ${origen.cbteTipo}: ` +
+        'la nota de crédito hay que cargarla desde Tango',
+      )
+    }
+    const { neto, iva, tributos, total } = origen.importes
+    if (redondear2(neto + iva + tributos) !== redondear2(total)) {
+      throw new Error(`Los importes guardados de la factura no cierran (${neto} + ${iva} + ${tributos} ≠ ${total})`)
+    }
+    base = {
+      Concepto: CONCEPTO.PRODUCTOS,
+      DocTipo: validacion.docTipo,
+      DocNro: validacion.docNro,
+      CbteDesde: 0,
+      CbteHasta: 0,
+      CbteFch: origen.importes.fecha,
+      ImpTotal: redondear2(total),
+      ImpTotConc: 0,
+      ImpNeto: redondear2(neto),
+      ImpOpEx: 0,
+      ImpTrib: redondear2(tributos),
+      ImpIVA: redondear2(iva),
+      MonId: 'PES',
+      MonCotiz: 1,
+      CondicionIVAReceptorId: validacion.condicion.arcaId,
+      Iva: neto > 0 || iva > 0 ? [{ Id: ALICUOTA_IVA.VEINTIUNO.id, BaseImp: redondear2(neto), Importe: redondear2(iva) }] : [],
+      Tributos: tributos > 0
+        ? [{
+            Id: opciones.tributoIdPercepcionIIBB,
+            Desc: 'Percepción IIBB CABA',
+            BaseImp: redondear2(neto),
+            Alic: redondear2((tributos / neto) * 100),
+            Importe: redondear2(tributos),
+          }]
+        : [],
+    }
+  }
+
+  return {
+    cbteTipo,
+    detalle: {
+      ...base,
+      CbteDesde: opciones.numeroComprobante,
+      CbteHasta: opciones.numeroComprobante,
+      CbteFch: formatearFechaArca(opciones.fechaEmision),
+      CbtesAsoc: [asociado],
     },
   }
 }

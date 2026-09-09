@@ -325,6 +325,19 @@ function tagsDetalle(d: FECAEDetRequest): string {
      '</ar:Tributo>'].join(''),
   ).join('')
 
+  // Comprobantes asociados (notas de crédito/débito). Van ANTES de Tributos:
+  // el deserializador de ARCA respeta el orden del XSD y con un tag fuera de
+  // lugar devuelve errores que no dicen qué pasó (ver §7 bis de la doc).
+  const asociados = (d.CbtesAsoc ?? []).map((a) =>
+    ['<ar:CbteAsoc>',
+     `<ar:Tipo>${a.Tipo}</ar:Tipo>`,
+     `<ar:PtoVta>${a.PtoVta}</ar:PtoVta>`,
+     `<ar:Nro>${a.Nro}</ar:Nro>`,
+     a.Cuit ? `<ar:Cuit>${a.Cuit}</ar:Cuit>` : '',
+     a.CbteFch ? `<ar:CbteFch>${a.CbteFch}</ar:CbteFch>` : '',
+     '</ar:CbteAsoc>'].join(''),
+  ).join('')
+
   return [
     '<ar:FECAEDetRequest>',
     `<ar:Concepto>${d.Concepto}</ar:Concepto>`,
@@ -342,6 +355,7 @@ function tagsDetalle(d: FECAEDetRequest): string {
     `<ar:MonId>${d.MonId}</ar:MonId>`,
     `<ar:MonCotiz>${d.MonCotiz}</ar:MonCotiz>`,
     `<ar:CondicionIVAReceptorId>${d.CondicionIVAReceptorId}</ar:CondicionIVAReceptorId>`,
+    asociados ? `<ar:CbtesAsoc>${asociados}</ar:CbtesAsoc>` : '',
     tributos ? `<ar:Tributos>${tributos}</ar:Tributos>` : '',
     iva ? `<ar:Iva>${iva}</ar:Iva>` : '',
     '</ar:FECAEDetRequest>',

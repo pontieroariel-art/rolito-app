@@ -21,10 +21,15 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.rutaFactura = rutaFactura;
+exports.rutaNotaCredito = rutaNotaCredito;
 exports.facturarVenta = facturarVenta;
 const emision_1 = require("./emision");
 function rutaFactura(ventaId) {
     return `facturasArca/${ventaId}`;
+}
+/** La nota de crédito que anula la factura de una venta: un registro aparte, una por venta. */
+function rutaNotaCredito(ventaId) {
+    return `facturasArca/nc_${ventaId}`;
 }
 function leerNumero(f) {
     if (!f)
@@ -104,6 +109,8 @@ async function facturarVenta(opts) {
             cae: resultado.cae, caeFchVto: resultado.caeFchVto,
             observaciones: resultado.observaciones,
             importes: resultado.importes,
+            tipo: 'factura',
+            ...(resultado.detalle ? { detalle: resultado.detalle } : {}),
         }
         : {
             ventaId,
@@ -111,6 +118,7 @@ async function facturarVenta(opts) {
             puntoVenta: config.puntoVenta,
             cbteTipo: resultado.cbteTipo, numero: resultado.numero,
             motivo: resultado.motivo,
+            ...(resultado.estado === 'rechazado' ? { numeroLiberado: resultado.numeroLiberado } : {}),
         };
     await opts.guardar(registro);
     return registro;

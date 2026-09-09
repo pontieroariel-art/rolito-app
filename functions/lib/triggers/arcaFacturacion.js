@@ -16,17 +16,16 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.reconciliarFacturasArca = exports.onVentaVentanillaContadoFacturar = exports.onVentaContadoFacturar = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
-const params_1 = require("firebase-functions/params");
 const firestore_2 = require("firebase-admin/firestore");
 const configuracion_1 = require("../services/arca/configuracion");
-const ticketCache_1 = require("../services/arca/ticketCache");
-const wsaa_1 = require("../services/arca/wsaa");
-const wsfev1_1 = require("../services/arca/wsfev1");
 const emision_1 = require("../services/arca/emision");
 const facturacionVenta_1 = require("../services/arca/facturacionVenta");
 const circuito_1 = require("../services/arca/circuito");
 const percepcionPerfil_1 = require("../services/arca/percepcionPerfil");
 const comprobante_1 = require("../services/arca/comprobante");
+const puertoFirebase_1 = require("../services/arca/puertoFirebase");
+const receptorDeVenta_1 = require("../services/arca/receptorDeVenta");
+const anulacionVentanilla_1 = require("../services/arca/anulacionVentanilla");
 const email_1 = require("../email");
 const templates_1 = require("../templates");
 const TZ = 'America/Argentina/Buenos_Aires';
@@ -35,40 +34,21 @@ const TZ = 'America/Argentina/Buenos_Aires';
 // avisa a la oficina una sola vez (avisadoEn), para que lo arregle mientras
 // la ventana de 5 días sigue abierta.
 const HORAS_PENDIENTE_ANTES_DE_AVISAR = 3;
+/**
+ * Las dos colecciones que la app factura: la venta del camión y la del
+ * mostrador (ventanilla). Misma regla de negocio (docs/arca §11), distinto
+ * origen. El registro en `facturasArca/{ventaId}` guarda de cuál vino para que
+ * la reconciliación y el aviso lean la venta del lugar correcto; los registros
+ * anteriores a esto no tienen el campo y son del camión.
+ */
 const coleccionDe = (f) => f?.coleccion === 'ventasVentanilla' ? 'ventasVentanilla' : 'ventasCamion';
-// El certificado y su clave viven en secrets, nunca en el repo ni en Firestore:
-// con ellos se puede emitir comprobantes en nombre de la empresa.
-const arcaCert = (0, params_1.defineSecret)('ARCA_CERT_PEM');
-const arcaKey = (0, params_1.defineSecret)('ARCA_KEY_PEM');
-/** Firestore real, con la forma mínima que esperan los servicios. */
-function comoDb(db) {
-    return {
-        doc: (path) => db.doc(path),
-        runTransaction: (fn) => db.runTransaction(fn),
-    };
-}
-/** Arma el puerto hacia ARCA: autentica (con cache) y expone las dos operaciones. */
-async function puertoArca(db, config) {
-    // El certificado (secret) y el ambiente (config/arca) se cambian por
-    // separado, y el de homologación está a nombre de otro CUIT. Cruzados, ARCA
-    // devuelve un 601 que no dice cuál de las dos puntas está mal.
-    (0, wsaa_1.verificarCertificadoCoincide)(arcaCert.value(), config.cuit);
-    const ta = await (0, ticketCache_1.obtenerTicketAcceso)({
-        db: comoDb(db),
-        cuit: config.cuit,
-        ambiente: config.ambiente,
-        certificadoPem: arcaCert.value(),
-        clavePrivadaPem: arcaKey.value(),
-    });
-    const cfg = {
-        ambiente: config.ambiente,
-        credenciales: { token: ta.token, sign: ta.sign, cuit: config.cuit },
-    };
-    return {
-        solicitarCae: (ptoVta, cbteTipo, detalle) => (0, wsfev1_1.feCaeSolicitar)(cfg, ptoVta, cbteTipo, detalle),
-        consultarComprobante: (ptoVta, cbteTipo, numero) => (0, wsfev1_1.feCompConsultar)(cfg, ptoVta, cbteTipo, numero),
-    };
-}
+/**
+ * Los registros de `facturasArca` son facturas (id = ventaId) o, desde
+ * 2026-09-09, notas de crédito de anulación (id = nc_{ventaId}, `tipo`
+ * 'nota_credito', `ventaId` adentro). La reconciliación atiende a los dos.
+ */
+const esNotaCredito = (f) => f?.tipo === 'nota_credito';
+const ventaIdDe = (f, docId) => typeof f?.ventaId === 'string' && f.ventaId ? f.ventaId : docId;
 /**
  * Solo `venta.items`. Los cambios viven en `venta.cambios` y valen $0: son
  * renglones del papel, no del comprobante fiscal. (WSFEv1 tampoco lleva
@@ -117,7 +97,7 @@ async function persistir(db, registro, coleccion) {
  * Factura una venta ya conocida. Compartido por el trigger y la reconciliación.
  */
 async function facturar(db, ventaId, coleccion) {
-    const config = await (0, configuracion_1.leerConfigParaEmitir)(comoDb(db));
+    const config = await (0, configuracion_1.leerConfigParaEmitir)((0, puertoFirebase_1.comoDb)(db));
     const ventaSnap = await db.doc(`${coleccion}/${ventaId}`).get();
     const venta = ventaSnap.data();
     if (!venta)
@@ -134,36 +114,13 @@ async function facturar(db, ventaId, coleccion) {
         }
         return null;
     }
-    // Receptor: el cliente registrado sale de su perfil (datos de Tango). El
-    // ocasional del mostrador no tiene perfil: es consumidor final, con el CUIT
-    // o DNI que haya cargado caja, o sin identificar hasta el tope (ver
-    // validarReceptor). Al ocasional no se le percibe IIBB: no está en padrón.
-    const clienteId = String(venta.clienteId ?? '');
-    const perfil = clienteId ? (await db.doc(`users/${clienteId}`).get()).data() : undefined;
-    const ocasional = venta.clienteOcasional;
-    let receptor;
-    if (perfil) {
-        receptor = {
-            razonSocial: String(perfil.razonSocial ?? ''),
-            cuit: String(perfil.cuit ?? ''),
-            categoriaIvaTango: String(perfil.categoriaIvaTango ?? ''),
-        };
-    }
-    else if (coleccion === 'ventasVentanilla' && ocasional) {
-        receptor = {
-            razonSocial: String(ocasional.nombre ?? ''),
-            cuit: String(ocasional.cuit ?? ''),
-            dni: String(ocasional.dni ?? ''),
-            categoriaIvaTango: 'CF',
-            mostrador: true,
-        };
-    }
-    else {
-        throw new Error(`La venta ${ventaId} no tiene un cliente resoluble`);
-    }
-    const arca = await puertoArca(db, config);
+    // Receptor: el cliente registrado sale de su perfil (datos de Tango); el
+    // ocasional del mostrador es consumidor final (ver receptorDeVenta). Al
+    // ocasional no se le percibe IIBB: no está en padrón.
+    const { receptor, perfil } = await (0, receptorDeVenta_1.receptorDeVenta)(db, ventaId, venta, coleccion);
+    const arca = await (0, puertoFirebase_1.puertoArca)(db, config);
     return (0, facturacionVenta_1.facturarVenta)({
-        db: comoDb(db),
+        db: (0, puertoFirebase_1.comoDb)(db),
         arca,
         config,
         ventaId,
@@ -202,9 +159,9 @@ async function facturarVentaNueva(coleccion, ventaId, venta) {
         await db.doc((0, facturacionVenta_1.rutaFactura)(ventaId)).set({ ventaId, coleccion, estado: 'pendiente', motivo, actualizadoEn: firestore_2.FieldValue.serverTimestamp() }, { merge: true });
     }
 }
-exports.onVentaContadoFacturar = (0, firestore_1.onDocumentCreated)({ document: 'ventasCamion/{ventaId}', secrets: [arcaCert, arcaKey] }, (event) => facturarVentaNueva('ventasCamion', event.params.ventaId, event.data?.data()));
+exports.onVentaContadoFacturar = (0, firestore_1.onDocumentCreated)({ document: 'ventasCamion/{ventaId}', secrets: [puertoFirebase_1.arcaCert, puertoFirebase_1.arcaKey] }, (event) => facturarVentaNueva('ventasCamion', event.params.ventaId, event.data?.data()));
 /** Venta de contado en el mostrador → misma factura electrónica que el camión. */
-exports.onVentaVentanillaContadoFacturar = (0, firestore_1.onDocumentCreated)({ document: 'ventasVentanilla/{ventaId}', secrets: [arcaCert, arcaKey] }, (event) => facturarVentaNueva('ventasVentanilla', event.params.ventaId, event.data?.data()));
+exports.onVentaVentanillaContadoFacturar = (0, firestore_1.onDocumentCreated)({ document: 'ventasVentanilla/{ventaId}', secrets: [puertoFirebase_1.arcaCert, puertoFirebase_1.arcaKey] }, (event) => facturarVentaNueva('ventasVentanilla', event.params.ventaId, event.data?.data()));
 /**
  * Reconciliación: resuelve lo que quedó a medias.
  *
@@ -219,7 +176,7 @@ exports.onVentaVentanillaContadoFacturar = (0, firestore_1.onDocumentCreated)({ 
  * Corre seguido porque una factura sin resolver bloquea la ventana de 5 días de
  * ARCA: pasada esa ventana la venta ya no se puede facturar con su fecha real.
  */
-exports.reconciliarFacturasArca = (0, scheduler_1.onSchedule)({ schedule: '15 * * * *', timeZone: TZ, secrets: [arcaCert, arcaKey, email_1.resendApiKey] }, async () => {
+exports.reconciliarFacturasArca = (0, scheduler_1.onSchedule)({ schedule: '15 * * * *', timeZone: TZ, secrets: [puertoFirebase_1.arcaCert, puertoFirebase_1.arcaKey, email_1.resendApiKey] }, async () => {
     const db = (0, firestore_2.getFirestore)();
     const ahora = new Date();
     // Dos consultas y no una con `in`: las inciertas son las urgentes (hay un
@@ -236,8 +193,8 @@ exports.reconciliarFacturasArca = (0, scheduler_1.onSchedule)({ schedule: '15 * 
         let config = null;
         let arca = null;
         try {
-            config = await (0, configuracion_1.leerConfigParaEmitir)(comoDb(db));
-            arca = await puertoArca(db, config);
+            config = await (0, configuracion_1.leerConfigParaEmitir)((0, puertoFirebase_1.comoDb)(db));
+            arca = await (0, puertoFirebase_1.puertoArca)(db, config);
         }
         catch (e) {
             console.error(`[arca] reconciliación sin configuración utilizable: ${e.message}`);
@@ -245,21 +202,34 @@ exports.reconciliarFacturasArca = (0, scheduler_1.onSchedule)({ schedule: '15 * 
         if (config && arca) {
             for (const docSnap of inciertas.docs) {
                 const f = docSnap.data();
-                const ventaId = docSnap.id;
+                const ventaId = ventaIdDe(f, docSnap.id);
                 if (typeof f.numero !== 'number' || typeof f.cbteTipo !== 'number')
                     continue;
                 try {
-                    const r = await (0, emision_1.resolverIncierto)(comoDb(db), arca, config.puntoVenta, f.cbteTipo, f.numero);
-                    await persistir(db, {
+                    const puntoVenta = typeof f.puntoVenta === 'number' ? f.puntoVenta : config.puntoVenta;
+                    const r = await (0, emision_1.resolverIncierto)((0, puertoFirebase_1.comoDb)(db), arca, puntoVenta, f.cbteTipo, f.numero);
+                    const registro = {
                         ventaId,
                         estado: r.estado === 'emitido' ? 'emitida' : 'rechazada',
-                        puntoVenta: config.puntoVenta,
+                        puntoVenta,
                         cbteTipo: r.cbteTipo,
                         numero: r.numero,
                         cae: r.estado === 'emitido' ? r.cae : null,
                         caeFchVto: r.estado === 'emitido' ? r.caeFchVto : null,
                         motivo: r.estado === 'rechazado' ? r.motivo : null,
-                    }, coleccionDe(f));
+                        ...(r.estado === 'rechazado' ? { numeroLiberado: r.numeroLiberado } : {}),
+                    };
+                    if (esNotaCredito(f)) {
+                        await (0, anulacionVentanilla_1.persistirNotaCredito)(db, {
+                            ...registro, tipo: 'nota_credito',
+                            anulacionId: String(f.anulacionId ?? ventaId),
+                            cbtesAsoc: (f.cbtesAsoc ?? []),
+                            ...(f.importes ? { importes: f.importes } : {}),
+                        });
+                    }
+                    else {
+                        await persistir(db, registro, coleccionDe(f));
+                    }
                 }
                 catch (e) {
                     // Un fallo acá no debe frenar al resto de la tanda.
@@ -268,10 +238,31 @@ exports.reconciliarFacturasArca = (0, scheduler_1.onSchedule)({ schedule: '15 * 
             }
             for (const docSnap of pendientes.docs) {
                 const f = docSnap.data();
-                const ventaId = docSnap.id;
+                const ventaId = ventaIdDe(f, docSnap.id);
                 const coleccion = coleccionDe(f);
                 const venta = (await db.doc(`${coleccion}/${ventaId}`).get()).data();
                 const fechaVenta = venta?.fecha?.toDate?.();
+                // Nota de crédito de una anulación que no llegó a ARCA: se reintenta
+                // de cero. No tiene ventana de 5 días (lleva fecha de hoy).
+                if (esNotaCredito(f)) {
+                    try {
+                        if ((await (0, anulacionVentanilla_1.emitirNotaCreditoDeAnulacion)(db, ventaId)) === null) {
+                            await docSnap.ref.set({ estado: 'no_corresponde', motivo: 'la anulación ya no está aprobada, la factura original no está emitida o la venta no existe', actualizadoEn: firestore_2.FieldValue.serverTimestamp() }, { merge: true });
+                        }
+                    }
+                    catch (e) {
+                        const motivo = e.message;
+                        console.error(`[arca] reconciliación de la NC de ${ventaId} falló: ${motivo}`);
+                        await docSnap.ref.set({ motivo, actualizadoEn: firestore_2.FieldValue.serverTimestamp() }, { merge: true }).catch(() => { });
+                        await db.doc(`anulacionesVentanilla/${ventaId}`).set({ ultimoError: motivo }, { merge: true }).catch(() => { });
+                        const desde = f.actualizadoEn?.toDate?.();
+                        const horas = desde ? (ahora.getTime() - desde.getTime()) / 3600000 : 0;
+                        if (venta && horas >= HORAS_PENDIENTE_ANTES_DE_AVISAR && !f.avisadoEn) {
+                            trabadas.push({ ventaId: docSnap.id, estado: 'pendiente', motivo, clienteNombre: String(venta.clienteNombre ?? ''), total: Number(venta.total ?? 0), fechaVenta: venta.fecha, tipo: 'nota_credito' });
+                        }
+                    }
+                    continue;
+                }
                 try {
                     // Pasada la ventana de ARCA ya no hay nada que reintentar: se
                     // cierra como 'vencida' y se avisa. Sin esto quedaba 'pendiente'
@@ -337,14 +328,16 @@ async function avisarFacturasConProblemas(db, trabadas) {
     const problemas = [...trabadas];
     for (const docSnap of [...rechazadas.docs, ...vencidas.docs]) {
         const f = docSnap.data();
-        const venta = (await db.doc(`${coleccionDe(f)}/${docSnap.id}`).get()).data();
+        const venta = (await db.doc(`${coleccionDe(f)}/${ventaIdDe(f, docSnap.id)}`).get()).data();
         problemas.push({
+            // El id del registro (nc_… para una NC): es lo que se marca como avisado.
             ventaId: docSnap.id,
             estado: f.estado === 'vencida' ? 'vencida' : 'rechazada',
             motivo: String(f.motivo ?? 'sin detalle'),
             clienteNombre: String(venta?.clienteNombre ?? ''),
             total: Number(venta?.total ?? 0),
             fechaVenta: venta?.fecha,
+            ...(esNotaCredito(f) ? { tipo: 'nota_credito' } : {}),
         });
     }
     if (problemas.length === 0)

@@ -194,3 +194,41 @@ describe('feCaeSolicitar', () => {
     expect(fetchImpl).toHaveBeenCalled()
   })
 })
+
+describe('feCaeSolicitar — comprobantes asociados (nota de crédito)', () => {
+  const respuestaOk = `<FECAESolicitarResult>
+      <FeCabResp><Resultado>A</Resultado></FeCabResp>
+      <FeDetResp><FECAEDetResponse>
+        <CbteDesde>7</CbteDesde><Resultado>A</Resultado>
+        <CAE>75999999999999</CAE><CAEFchVto>20260920</CAEFchVto>
+      </FECAEDetResponse></FeDetResp>
+    </FECAESolicitarResult>`
+
+  it('serializa CbtesAsoc entre CondicionIVAReceptorId y Tributos, con los cinco campos', async () => {
+    const { cfg, fetchImpl } = configCon(respuestaOk)
+    await feCaeSolicitar(cfg, 5, 3, {
+      ...detalle, CbteDesde: 7, CbteHasta: 7, ImpTrib: 200, ImpTotal: 12300,
+      Tributos: [{ Id: 7, BaseImp: 10000, Alic: 2, Importe: 200 }],
+      CbtesAsoc: [{ Tipo: 1, PtoVta: 5, Nro: 42, Cuit: '30697668973', CbteFch: '20260909' }],
+    })
+    const body = (fetchImpl.mock.calls[0][1] as RequestInit).body as string
+    expect(body).toContain('<ar:CbtesAsoc><ar:CbteAsoc><ar:Tipo>1</ar:Tipo><ar:PtoVta>5</ar:PtoVta><ar:Nro>42</ar:Nro><ar:Cuit>30697668973</ar:Cuit><ar:CbteFch>20260909</ar:CbteFch></ar:CbteAsoc></ar:CbtesAsoc>')
+    const iCond = body.indexOf('<ar:CondicionIVAReceptorId>')
+    const iAsoc = body.indexOf('<ar:CbtesAsoc>')
+    const iTrib = body.indexOf('<ar:Tributos>')
+    const iIva = body.indexOf('<ar:Iva>')
+    expect(iCond).toBeLessThan(iAsoc); expect(iAsoc).toBeLessThan(iTrib); expect(iTrib).toBeLessThan(iIva)
+  })
+
+  it('sin CbtesAsoc el XML de la factura no cambia; sin Cuit/CbteFch se omiten esos tags', async () => {
+    const { cfg, fetchImpl } = configCon(respuestaOk)
+    await feCaeSolicitar(cfg, 5, 1, detalle)
+    expect((fetchImpl.mock.calls[0][1] as RequestInit).body as string).not.toContain('CbtesAsoc')
+
+    const { cfg: cfg2, fetchImpl: f2 } = configCon(respuestaOk)
+    await feCaeSolicitar(cfg2, 5, 3, { ...detalle, CbtesAsoc: [{ Tipo: 1, PtoVta: 5, Nro: 42 }] })
+    const body = (f2.mock.calls[0][1] as RequestInit).body as string
+    // (el <ar:Cuit> del sobre es el del Auth; dentro del asociado no va)
+    expect(body).toContain('<ar:CbteAsoc><ar:Tipo>1</ar:Tipo><ar:PtoVta>5</ar:PtoVta><ar:Nro>42</ar:Nro></ar:CbteAsoc>')
+  })
+})

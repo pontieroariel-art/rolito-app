@@ -59,6 +59,8 @@ export type ResultadoEmision =
       caeFchVto: string | null
       observaciones: ObservacionArca[]
       importes?: ImportesInformados
+      /** El detalle que viajó a ARCA. Se guarda para poder anularlo con una NC idéntica. */
+      detalle?: FECAEDetRequest
     }
   | {
       estado: 'rechazado'
@@ -122,6 +124,31 @@ export async function emitirComprobante(opts: OpcionesEmision): Promise<Resultad
   // construirDetalle valida al receptor y tira si no es facturable.
   // Se hace con un número provisorio para no reservar antes de saber si es viable.
   const { cbteTipo } = construirDetalle({ ...datos, numeroComprobante: 1 }, calculo)
+
+  return emitirDetalle({
+    db, arca, ptoVta, cbteTipo,
+    armarDetalle: (numero) => construirDetalle({ ...datos, numeroComprobante: numero }, calculo).detalle,
+    onNumeroReservado: opts.onNumeroReservado,
+  })
+}
+
+export interface OpcionesEmisionDetalle {
+  db: DbLike
+  arca: PuertoArca
+  ptoVta: number
+  cbteTipo: number
+  /** Arma el detalle con el número ya reservado. Se llama una vez, después de la reserva. */
+  armarDetalle: (numero: number) => FECAEDetRequest
+  onNumeroReservado?: (numero: number, cbteTipo: number) => Promise<void>
+}
+
+/**
+ * El núcleo de la emisión, para cualquier tipo de comprobante: reserva el
+ * número, deja rastro, pide el CAE y resuelve el resultado. `emitirComprobante`
+ * (facturas) y la nota de crédito (`notaCredito.ts`) pasan por acá.
+ */
+export async function emitirDetalle(opts: OpcionesEmisionDetalle): Promise<ResultadoEmision> {
+  const { db, arca, ptoVta, cbteTipo } = opts
   const clave: ClaveNumeracion = { ptoVta, cbteTipo }
 
   // 2. Recién ahora se toma un número.
@@ -142,7 +169,7 @@ export async function emitirComprobante(opts: OpcionesEmision): Promise<Resultad
     }
   }
 
-  const { detalle } = construirDetalle({ ...datos, numeroComprobante: numero }, calculo)
+  const detalle = opts.armarDetalle(numero)
 
   const importes: ImportesInformados = {
     fecha:    detalle.CbteFch,
@@ -163,6 +190,7 @@ export async function emitirComprobante(opts: OpcionesEmision): Promise<Resultad
       caeFchVto: r.caeFchVto,
       observaciones: r.observaciones,
       importes,
+      detalle,
     }
   } catch (e) {
     const esRechazoDeArca = e instanceof ArcaError
@@ -189,6 +217,7 @@ export async function emitirComprobante(opts: OpcionesEmision): Promise<Resultad
           caeFchVto: consulta.caeFchVto ?? null,
           observaciones: [],
           importes,
+          detalle,
         }
       }
       await marcarNumeroLibre(db, clave, numero)

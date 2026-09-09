@@ -267,3 +267,35 @@ describe('resolverIncierto', () => {
     expect(db.docs.get(RUTA)).toMatchObject({ ultimoAsignado: 101 })   // intacto
   })
 })
+
+const detalleBase = {
+  Concepto: 1, DocTipo: 80, DocNro: 30697668973, CbteDesde: 0, CbteHasta: 0, CbteFch: '20260910',
+  ImpTotal: 12100, ImpTotConc: 0, ImpNeto: 10000, ImpOpEx: 0, ImpTrib: 0, ImpIVA: 2100,
+  MonId: 'PES', MonCotiz: 1, CondicionIVAReceptorId: 1,
+  Iva: [{ Id: 5, BaseImp: 10000, Importe: 2100 }], Tributos: [],
+}
+
+describe('emitirDetalle (núcleo compartido con la nota de crédito)', () => {
+  it('reserva con el tipo pedido y arma el detalle con el número reservado; el resultado trae el detalle', async () => {
+    const { emitirDetalle } = await import('./emision')
+    const NC_A = 3
+    const db = dbFalsa({ [rutaContador({ ptoVta: PTO_VTA, cbteTipo: NC_A })]: { ultimoAsignado: 9, librados: [] } })
+    const arca = puerto()
+    const numeros: number[] = []
+    const r = await emitirDetalle({
+      db, arca, ptoVta: PTO_VTA, cbteTipo: NC_A,
+      armarDetalle: (numero) => { numeros.push(numero); return { ...detalleBase, CbteDesde: numero, CbteHasta: numero } },
+    })
+    expect(numeros).toEqual([10])
+    expect(r.estado).toBe('emitido')
+    if (r.estado === 'emitido') { expect(r.cbteTipo).toBe(NC_A); expect(r.numero).toBe(10); expect(r.detalle?.CbteDesde).toBe(10) }
+    expect((arca.solicitarCae as ReturnType<typeof vi.fn>).mock.calls[0][1]).toBe(NC_A)
+  })
+
+  it('emitirComprobante sigue emitiendo facturas igual que antes y ahora devuelve el detalle', async () => {
+    const db = dbFalsa({ [RUTA]: { ultimoAsignado: 0, librados: [] } })
+    const r = await emitirComprobante({ db, arca: puerto(), ptoVta: PTO_VTA, datos, calculo, ahora })
+    expect(r.estado).toBe('emitido')
+    if (r.estado === 'emitido') { expect(r.detalle?.CbteDesde).toBe(1); expect(r.detalle?.ImpNeto).toBe(10000); expect(r.detalle?.CbtesAsoc).toBeUndefined() }
+  })
+})

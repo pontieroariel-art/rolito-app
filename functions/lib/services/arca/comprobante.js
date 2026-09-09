@@ -11,7 +11,8 @@
  * Relevamiento y decisiones en docs/arca/FACTURACION_ELECTRONICA.md.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MAX_DIAS_DESFASE_EMISION = exports.CONCEPTO = exports.ALICUOTA_IVA = exports.TRIBUTO = exports.TIPO_DOCUMENTO = exports.FACTURA_POR_CLASE = exports.TIPO_COMPROBANTE = exports.CONDICION_IVA_NO_APLICA = exports.CONDICION_IVA_POR_CODIGO_TANGO = void 0;
+exports.MAX_DIAS_DESFASE_EMISION = exports.CONCEPTO = exports.ALICUOTA_IVA = exports.TRIBUTO = exports.TIPO_DOCUMENTO = exports.FACTURA_POR_CLASE = exports.NOTA_CREDITO_POR_FACTURA = exports.TIPO_COMPROBANTE = exports.CONDICION_IVA_NO_APLICA = exports.CONDICION_IVA_POR_CODIGO_TANGO = void 0;
+exports.esNotaCredito = esNotaCredito;
 exports.soloDigitos = soloDigitos;
 exports.esCuitValido = esCuitValido;
 exports.redondear2 = redondear2;
@@ -23,6 +24,7 @@ exports.diaCalendarioAr = diaCalendarioAr;
 exports.formatearFechaArca = formatearFechaArca;
 exports.validarVentanaEmision = validarVentanaEmision;
 exports.construirDetalle = construirDetalle;
+exports.construirDetalleNotaCreditoTotal = construirDetalleNotaCreditoTotal;
 /**
  * Los `arcaId` fueron verificados contra `FEParamGetCondicionIvaReceptor` en
  * PRODUCCIÓN el 2026-09-01 y coinciden.
@@ -64,6 +66,15 @@ exports.TIPO_COMPROBANTE = {
     NOTA_DEBITO_C: 12,
     NOTA_CREDITO_C: 13,
 };
+/** La nota de crédito que anula cada tipo de factura: misma clase (A→NC A, …). */
+exports.NOTA_CREDITO_POR_FACTURA = {
+    [exports.TIPO_COMPROBANTE.FACTURA_A]: exports.TIPO_COMPROBANTE.NOTA_CREDITO_A,
+    [exports.TIPO_COMPROBANTE.FACTURA_B]: exports.TIPO_COMPROBANTE.NOTA_CREDITO_B,
+    [exports.TIPO_COMPROBANTE.FACTURA_C]: exports.TIPO_COMPROBANTE.NOTA_CREDITO_C,
+};
+function esNotaCredito(cbteTipo) {
+    return Object.values(exports.NOTA_CREDITO_POR_FACTURA).includes(cbteTipo);
+}
 exports.FACTURA_POR_CLASE = {
     A: exports.TIPO_COMPROBANTE.FACTURA_A,
     B: exports.TIPO_COMPROBANTE.FACTURA_B,
@@ -431,6 +442,90 @@ function construirDetalle(datos, opciones) {
             CondicionIVAReceptorId: validacion.condicion.arcaId,
             Iva: importes.Iva,
             Tributos: importes.Tributos,
+        },
+    };
+}
+/**
+ * Arma el detalle de una nota de crédito que anula TODA la factura.
+ *
+ * La regla es que la NC sea idéntica a la factura en importes, IVA y
+ * percepciones: no se recalcula nada (el padrón de IIBB de hoy o un cambio de
+ * condición de IVA del cliente darían otro número y ARCA la rechazaría o, peor,
+ * la aceptaría distinta). Si la factura guardó su `detalle`, se copia tal cual
+ * cambiando solo número, fecha y comprobante asociado. Si no (facturas
+ * anteriores), se reconstruye desde `importes` con las únicas reglas que hoy
+ * existen (todo al 21 %, una sola percepción) y con el receptor actual,
+ * verificando que la clase del comprobante no haya cambiado.
+ */
+function construirDetalleNotaCreditoTotal(origen, opciones) {
+    const cbteTipo = exports.NOTA_CREDITO_POR_FACTURA[origen.cbteTipo];
+    if (cbteTipo === undefined) {
+        throw new Error(`No hay nota de crédito para el tipo de comprobante ${origen.cbteTipo}`);
+    }
+    const asociado = {
+        Tipo: origen.cbteTipo,
+        PtoVta: origen.puntoVenta,
+        Nro: origen.numero,
+        Cuit: soloDigitos(opciones.cuitEmisor),
+        CbteFch: origen.importes.fecha,
+    };
+    let base;
+    if (origen.detalle) {
+        const { CbtesAsoc: _ignorado, ...resto } = origen.detalle;
+        base = resto;
+    }
+    else {
+        if (!opciones.receptor) {
+            throw new Error('La factura no guardó su detalle y no se conoce al receptor: no se puede armar la nota de crédito');
+        }
+        const validacion = validarReceptor(opciones.receptor);
+        if (!validacion.facturable) {
+            throw new Error(`Cliente no facturable: ${validacion.detalle}`);
+        }
+        if (exports.FACTURA_POR_CLASE[validacion.claseComprobante] !== origen.cbteTipo) {
+            throw new Error(`El cliente hoy es clase ${validacion.claseComprobante} y la factura fue tipo ${origen.cbteTipo}: ` +
+                'la nota de crédito hay que cargarla desde Tango');
+        }
+        const { neto, iva, tributos, total } = origen.importes;
+        if (redondear2(neto + iva + tributos) !== redondear2(total)) {
+            throw new Error(`Los importes guardados de la factura no cierran (${neto} + ${iva} + ${tributos} ≠ ${total})`);
+        }
+        base = {
+            Concepto: exports.CONCEPTO.PRODUCTOS,
+            DocTipo: validacion.docTipo,
+            DocNro: validacion.docNro,
+            CbteDesde: 0,
+            CbteHasta: 0,
+            CbteFch: origen.importes.fecha,
+            ImpTotal: redondear2(total),
+            ImpTotConc: 0,
+            ImpNeto: redondear2(neto),
+            ImpOpEx: 0,
+            ImpTrib: redondear2(tributos),
+            ImpIVA: redondear2(iva),
+            MonId: 'PES',
+            MonCotiz: 1,
+            CondicionIVAReceptorId: validacion.condicion.arcaId,
+            Iva: neto > 0 || iva > 0 ? [{ Id: exports.ALICUOTA_IVA.VEINTIUNO.id, BaseImp: redondear2(neto), Importe: redondear2(iva) }] : [],
+            Tributos: tributos > 0
+                ? [{
+                        Id: opciones.tributoIdPercepcionIIBB,
+                        Desc: 'Percepción IIBB CABA',
+                        BaseImp: redondear2(neto),
+                        Alic: redondear2((tributos / neto) * 100),
+                        Importe: redondear2(tributos),
+                    }]
+                : [],
+        };
+    }
+    return {
+        cbteTipo,
+        detalle: {
+            ...base,
+            CbteDesde: opciones.numeroComprobante,
+            CbteHasta: opciones.numeroComprobante,
+            CbteFch: formatearFechaArca(opciones.fechaEmision),
+            CbtesAsoc: [asociado],
         },
     };
 }

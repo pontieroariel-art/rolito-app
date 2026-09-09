@@ -21,6 +21,7 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.emitirComprobante = emitirComprobante;
+exports.emitirDetalle = emitirDetalle;
 exports.resolverIncierto = resolverIncierto;
 const comprobante_1 = require("./comprobante");
 const wsfev1_1 = require("./wsfev1");
@@ -43,6 +44,19 @@ async function emitirComprobante(opts) {
     // construirDetalle valida al receptor y tira si no es facturable.
     // Se hace con un número provisorio para no reservar antes de saber si es viable.
     const { cbteTipo } = (0, comprobante_1.construirDetalle)({ ...datos, numeroComprobante: 1 }, calculo);
+    return emitirDetalle({
+        db, arca, ptoVta, cbteTipo,
+        armarDetalle: (numero) => (0, comprobante_1.construirDetalle)({ ...datos, numeroComprobante: numero }, calculo).detalle,
+        onNumeroReservado: opts.onNumeroReservado,
+    });
+}
+/**
+ * El núcleo de la emisión, para cualquier tipo de comprobante: reserva el
+ * número, deja rastro, pide el CAE y resuelve el resultado. `emitirComprobante`
+ * (facturas) y la nota de crédito (`notaCredito.ts`) pasan por acá.
+ */
+async function emitirDetalle(opts) {
+    const { db, arca, ptoVta, cbteTipo } = opts;
     const clave = { ptoVta, cbteTipo };
     // 2. Recién ahora se toma un número.
     const numero = await (0, numeracion_1.reservarNumero)(db, clave);
@@ -59,7 +73,7 @@ async function emitirComprobante(opts) {
                 `${e.message}`);
         }
     }
-    const { detalle } = (0, comprobante_1.construirDetalle)({ ...datos, numeroComprobante: numero }, calculo);
+    const detalle = opts.armarDetalle(numero);
     const importes = {
         fecha: detalle.CbteFch,
         neto: detalle.ImpNeto,
@@ -78,6 +92,7 @@ async function emitirComprobante(opts) {
             caeFchVto: r.caeFchVto,
             observaciones: r.observaciones,
             importes,
+            detalle,
         };
     }
     catch (e) {
@@ -103,6 +118,7 @@ async function emitirComprobante(opts) {
                     caeFchVto: consulta.caeFchVto ?? null,
                     observaciones: [],
                     importes,
+                    detalle,
                 };
             }
             await (0, numeracion_1.marcarNumeroLibre)(db, clave, numero);
