@@ -651,6 +651,8 @@ export const MOTIVOS_DIFERENCIA_LIQUIDACION: Record<MotivoDiferenciaLiquidacion,
 export const MOTIVOS_LIQUIDACION_REPARTIDOR: MotivoDiferenciaLiquidacion[] = ['faltante_repartidor', 'vuelto_mal_dado', 'error_de_carga', 'otro']
 // Cierre de caja de ventanilla (2026-09-09).
 export const MOTIVOS_CIERRE_MOSTRADOR: MotivoDiferenciaLiquidacion[] = ['faltante_caja', 'vuelto_mal_dado', 'error_de_carga', 'otro']
+// Entrega de caja a tesorería (2026-09-09): caja entrega distinto del teórico, o tesorería cuenta distinto de lo entregado.
+export const MOTIVOS_ENTREGA_TESORERIA: MotivoDiferenciaLiquidacion[] = ['faltante_entrega', 'faltante_caja', 'error_de_carga', 'otro']
 
 // ── Expedición: rendiciones (cierre de caja por persona y día, 2026-09-09) ────
 // Una sola colección `rendiciones` para los tres sujetos que manejan plata
@@ -741,6 +743,7 @@ export interface EntregaTesoreria {
   rendiciones:   { id: string; codigo: string; fecha: string; sujetoId: string; sujetoNombre: string; efectivoContado: number }[]
   efectivo: { cierresCaja: number; liquidacionesSueltas: number; teorico: number }
   efectivoEntregado: number          // lo que caja dice que manda
+  diferenciaEntrega?: { motivo: MotivoDiferenciaLiquidacion; nota: string }   // si entrega distinto del teórico
   // Valores en papel que viajan. Nacen SIN `recibido` (tesorería todavía no los
   // contó); al confirmar, cada uno queda con recibido true/false + motivo.
   cheques:     ChequeRendido[]

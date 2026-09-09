@@ -49,9 +49,11 @@ export const TEXTOS_CIERRE_REPARTIDOR: TextosCierre = {
 // Cierre con control (2026-09-06): resumen de lo que se cierra, motivo y nota
 // obligatorios si el efectivo no cuadra, confirmación de que no quedan
 // movimientos sin subir, y la firma de conformidad de quien rinde.
-export default function CierreLiquidacionModal({ repartidor, resumen, efectivoARendir, efectivoRecibido, guardando, error, onCancelar, onConfirmar, textos = TEXTOS_CIERRE_REPARTIDOR, motivos = MOTIVOS_LIQUIDACION_REPARTIDOR, valores, receptor }: {
+export default function CierreLiquidacionModal({ repartidor, resumen, resumenTexto, efectivoARendir, efectivoRecibido, guardando, error, onCancelar, onConfirmar, textos = TEXTOS_CIERRE_REPARTIDOR, motivos = MOTIVOS_LIQUIDACION_REPARTIDOR, valores, receptor }: {
   repartidor: string
   resumen: { ventas: number; clientes: number; cobranzas: number }
+  /** Reemplaza la línea "N ventas · N clientes · N cobranzas" (entrega a tesorería). */
+  resumenTexto?: React.ReactNode
   efectivoARendir: number
   efectivoRecibido: number
   guardando: boolean
@@ -113,7 +115,7 @@ export default function CierreLiquidacionModal({ repartidor, resumen, efectivoAR
     <Modal open onClose={onCancelar} title={textos.titulo}>
       <div className="space-y-3">
         <p className="text-sm text-gray-700">
-          <b>{repartidor}</b> · {resumen.ventas} {resumen.ventas === 1 ? 'venta' : 'ventas'} · {resumen.clientes} {resumen.clientes === 1 ? 'cliente' : 'clientes'} · {resumen.cobranzas} {resumen.cobranzas === 1 ? 'cobranza' : 'cobranzas'}
+          <b>{repartidor}</b> · {resumenTexto ?? <>{resumen.ventas} {resumen.ventas === 1 ? 'venta' : 'ventas'} · {resumen.clientes} {resumen.clientes === 1 ? 'cliente' : 'clientes'} · {resumen.cobranzas} {resumen.cobranzas === 1 ? 'cobranza' : 'cobranzas'}</>}
         </p>
         <div className="grid grid-cols-3 gap-2 text-sm">
           <div className="rounded-lg bg-gray-50 p-2"><p className="text-xs text-gray-500">{textos.aRendir}</p><p className="font-semibold tabular-nums">{formatoARS(efectivoARendir)}</p></div>
