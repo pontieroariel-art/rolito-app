@@ -158,7 +158,7 @@ function TablaCalle({ filas, dia }: { filas: FilaCalle[]; dia: string }) {
               <td className={`${TD} text-right tabular-nums font-semibold`}>{formatoARS(efectivo)}</td>
               <td className={`${TD} text-right tabular-nums`}>
                 {f.liquidacion
-                  ? <Link to={`/caja/liquidaciones?fecha=${dia}&repartidor=${encodeURIComponent(f.choferId)}`} className="text-accent underline underline-offset-2">{formatoARS(f.liquidacion.efectivoRecibido)}{f.liquidacion.diferenciaEfectivo !== 0 && <span className="text-red-600"> ({formatoARS(f.liquidacion.diferenciaEfectivo)})</span>}</Link>
+                  ? <Link to={`/tesoreria/liquidaciones?fecha=${dia}&repartidor=${encodeURIComponent(f.choferId)}`} className="text-accent underline underline-offset-2">{formatoARS(f.liquidacion.efectivoRecibido)}{f.liquidacion.diferenciaEfectivo !== 0 && <span className="text-red-600"> ({formatoARS(f.liquidacion.diferenciaEfectivo)})</span>}</Link>
                   : '—'}
               </td>
               <td className={TD}><span className={`text-xs px-2 py-0.5 rounded-full border font-medium whitespace-nowrap ${e.clase}`}>{e.texto}</span></td>

@@ -447,6 +447,9 @@ function AppContent() {
             <Route path="/tesoreria"                       element={<TesoreriaLivePage />} />
             <Route path="/tesoreria/rendiciones"           element={<RendicionesTesoreriaPage />} />
             <Route path="/tesoreria/rendiciones/historial" element={<RendicionesHistorialPage />} />
+            {/* La liquidación del repartidor con todo el detalle, en modo lectura (a tesorería le rinden). */}
+            <Route path="/tesoreria/liquidaciones"           element={<LiquidacionesPage />} />
+            <Route path="/tesoreria/liquidaciones/historial" element={<LiquidacionesHistorialPage />} />
           </Route>
         </Route>
 

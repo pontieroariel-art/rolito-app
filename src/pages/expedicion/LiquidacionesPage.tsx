@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { FileText, History, Printer, Share2 } from 'lucide-react'
 import Button from '../../components/ui/Button'
 import { useAuth } from '../../context/AuthContext'
@@ -20,9 +20,10 @@ import DetalleReparto, { useReparto } from '../../components/expedicion/liquidac
 import { BarraEstado, DetallePorProducto, Plegable, ResumenPorCliente, TarjetasPlata } from '../../components/expedicion/liquidacion/ResumenLiquidacion'
 import CierreLiquidacionModal, { type DatosCierre } from '../../components/expedicion/liquidacion/CierreLiquidacionModal'
 import {
-  CambioCamion, Cobranza, DescargaCamion, Liquidacion, PLANTAS, RemitoCarga, VentaCamion,
+  CambioCamion, Cobranza, DescargaCamion, Liquidacion, PLANTAS, RemitoCarga, VentaCamion, type PlantaId,
 } from '../../types'
 import { reportError } from '@/services/observability'
+import { tieneAlgunRol } from '@/utils/roles'
 
 // Liquidación del repartidor (pantalla de caja) — herramienta de control del
 // día de un DEPÓSITO de Tango (2026-09-06): todo lo que bajó a cada cliente
@@ -32,7 +33,13 @@ import { reportError } from '@/services/observability'
 // sigue mostrando todo en modo lectura. Ver src/utils/liquidacion.ts.
 export default function LiquidacionesPage() {
   const { user } = useAuth()
-  const plantaId = user?.planta ?? 'torcuato'
+  // Tesorería (2026-09-09) abre la misma pantalla en modo lectura desde su
+  // panel (/tesoreria/liquidaciones): sin planta fija, la elige; no cierra.
+  const { pathname } = useLocation()
+  const base = pathname.startsWith('/tesoreria') ? '/tesoreria' : '/caja'
+  const puedeCerrar = tieneAlgunRol(user, ['caja', 'super_admin'])
+  const [plantaSel, setPlantaSel] = useState<PlantaId>('torcuato')
+  const plantaId = user?.planta ?? plantaSel
   // Día liquidado: por defecto hoy (reloj reactivo que cruza la medianoche),
   // pero caja puede elegir un día anterior para liquidar o revisar.
   const diaActual = useDiaActual()
@@ -165,9 +172,17 @@ export default function LiquidacionesPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Liquidación</h1>
           <p className="text-gray-500 text-sm">{PLANTAS[plantaId].label} · {fecha.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
-          <Link to="/caja/liquidaciones/historial" className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-accent mt-1"><History size={13} /> Historial de cierres</Link>
+          <Link to={`${base}/liquidaciones/historial`} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-accent mt-1"><History size={13} /> Historial de cierres</Link>
         </div>
         <div className="grid sm:grid-cols-[170px_minmax(260px,1fr)] gap-3 w-full sm:w-auto">
+          {!user?.planta && (
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Planta</label>
+              <select value={plantaSel} onChange={(e) => { setPlantaSel(e.target.value as PlantaId); setChoferId('') }} className={selectClass}>
+                {(Object.keys(PLANTAS) as PlantaId[]).map((p) => <option key={p} value={p}>{PLANTAS[p].label}</option>)}
+              </select>
+            </div>
+          )}
           <div>
             <label className="text-xs text-gray-500 mb-1 block">Fecha</label>
             <input type="date" value={hoy} max={diaActual}
@@ -225,15 +240,18 @@ export default function LiquidacionesPage() {
 
           {aviso && <p className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">{aviso}</p>}
 
+          {!cerrada && !puedeCerrar && (
+            <p className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">Todavía no está cerrada por caja: lo de abajo es el cálculo en vivo del día.</p>
+          )}
           <TarjetasPlata reparto={reparto} calc={calc} efectivoRecibido={cerrada ? String(cerrada.efectivoRecibido) : efectivoRecibido}
-            onEfectivoRecibido={setEfectivoRecibido} soloLectura={!!cerrada} diferencia={diferencia} />
+            onEfectivoRecibido={setEfectivoRecibido} soloLectura={!!cerrada || !puedeCerrar} diferencia={diferencia} />
 
           <DetalleReparto remitos={remitosChofer} ventas={ventas} cambios={cambios} descargas={descargas} cobranzas={cobranzas} soloProblemas={soloProblemas} />
 
           <Plegable titulo="Resumen por cliente"><ResumenPorCliente reparto={reparto} /></Plegable>
           <Plegable titulo="Detalle por producto, envases y cambios"><DetallePorProducto calc={calc} /></Plegable>
 
-          {!cerrada && (
+          {!cerrada && puedeCerrar && (
             <div className="flex flex-wrap justify-end gap-2">
               {error && <p className="w-full text-sm text-red-600">{error}</p>}
               <Button onClick={() => setConfirmando(true)} disabled={!hayMovimientos || efectivoRecibido.trim() === ''}>
@@ -241,7 +259,7 @@ export default function LiquidacionesPage() {
               </Button>
             </div>
           )}
-          {!cerrada && hayMovimientos && efectivoRecibido.trim() === '' && (
+          {!cerrada && puedeCerrar && hayMovimientos && efectivoRecibido.trim() === '' && (
             <p className="text-right text-xs text-gray-500">Cargá el efectivo recibido para poder cerrar.</p>
           )}
         </>

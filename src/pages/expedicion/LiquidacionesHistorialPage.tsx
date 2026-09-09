@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { ArrowLeft, History } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { subscribeLiquidacionesEnRango } from '../../services/liquidacionService'
@@ -12,6 +12,8 @@ import { Liquidacion, MOTIVOS_DIFERENCIA_LIQUIDACION, PLANTAS } from '../../type
 // viene con faltantes repetidos. Cada fila abre el cierre en modo lectura.
 export default function LiquidacionesHistorialPage() {
   const { user } = useAuth()
+  const { pathname } = useLocation()
+  const base = pathname.startsWith('/tesoreria') ? '/tesoreria' : '/caja'
   const hoy = useDiaActual()
   const [mes, setMes] = useState(hoy.slice(0, 7))
   const [liquidaciones, setLiquidaciones] = useState<Liquidacion[]>([])
@@ -52,7 +54,7 @@ export default function LiquidacionesHistorialPage() {
     <main className="max-w-5xl mx-auto p-4 space-y-4 pb-10">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <Link to="/caja/liquidaciones" className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-accent mb-1"><ArrowLeft size={14} /> Liquidación del día</Link>
+          <Link to={`${base}/liquidaciones`} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-accent mb-1"><ArrowLeft size={14} /> Liquidación del día</Link>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><History size={22} className="text-accent" /> Historial de liquidaciones</h1>
           <p className="text-gray-500 text-sm">{user?.planta ? PLANTAS[user.planta].label : "Todas las plantas"} · todos los cierres del mes, con su diferencia de efectivo</p>
         </div>
@@ -95,7 +97,7 @@ export default function LiquidacionesHistorialPage() {
           <tbody>
             {filas.map((l) => (
               <tr key={l.id}>
-                <td className={td}><Link to={`/caja/liquidaciones?fecha=${l.fecha}&repartidor=${encodeURIComponent(l.choferId)}`} className="text-accent underline underline-offset-2">{l.fecha}</Link></td>
+                <td className={td}><Link to={`${base}/liquidaciones?fecha=${l.fecha}&repartidor=${encodeURIComponent(l.choferId)}`} className="text-accent underline underline-offset-2">{l.fecha}</Link></td>
                 <td className={td}>{l.depositoTango ? <span className="text-gray-500 mr-1.5">{l.depositoTango}</span> : null}{l.choferNombre}</td>
                 <td className={`${td} text-right tabular-nums`}>{l.cantidadVentas ?? '—'}</td>
                 <td className={`${td} text-right tabular-nums`}>{l.cantidadCobranzas ?? l.cobranzasCalle?.cantidad ?? '—'}</td>
