@@ -8,11 +8,13 @@
 // trazas y muestras reales (docs/tango/sql/traza-remito-2026-09-04.txt y
 // muestras-stock-2026-09-04.json).
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.redondear7 = void 0;
+exports.nombreDePlanta = exports.redondear7 = void 0;
 exports.fechaDePayload = fechaDePayload;
 exports.siguienteNcompInS = siguienteNcompInS;
 exports.referenciaVenta = referenciaVenta;
 exports.numeroInternoDe = numeroInternoDe;
+exports.leyendaQuienVende = leyendaQuienVende;
+exports.usuarioCorto = usuarioCorto;
 exports.renglonesDeItems = renglonesDeItems;
 exports.numeroComprobanteStock = numeroComprobanteStock;
 exports.cabeceraSta14 = cabeceraSta14;
@@ -78,6 +80,33 @@ function numeroInternoDe(ci) {
     if (!ci || typeof ci.numero !== 'number')
         return null;
     return `${String(ci.puntoVenta ?? 0).padStart(5, '0')}-${String(ci.numero).padStart(8, '0')}`;
+}
+// ── Quién vendió / cobró (2026-09-09) ────────────────────────────────────────
+// El VENDEDOR de los comprobantes es el supervisor del cliente (ficha de Tango).
+// La persona que hizo la operación (cajero de ventanilla, chofer, supervisor)
+// queda en una leyenda y en el USUARIO del comprobante. Mismos textos que
+// pedido.ts (quienVende); duplicados porque esta carpeta se copia sola a la VM.
+const NOMBRE_PLANTA = { torcuato: 'Torcuato', merlo: 'Merlo' };
+const nombreDePlanta = (plantaId) => NOMBRE_PLANTA[plantaId ?? ''] ?? (plantaId ?? '');
+exports.nombreDePlanta = nombreDePlanta;
+/** "Caja Nicolas Diaz - Torcuato" (ventanilla) | "Chofer Pedro - dep 21" (camión). */
+function leyendaQuienVende(p, sufijo) {
+    if (p.cajaId)
+        return `Caja ${p.cajaNombre ?? p.cajaId} - ${sufijo}`.trim();
+    return `Chofer ${p.choferNombre ?? p.choferId ?? ''} - ${sufijo}`.trim();
+}
+/**
+ * Usuario de Tango (STA14.USUARIO, varchar 10) a partir del nombre de una
+ * persona: inicial + apellido, mayúsculas, sin acentos ("Nicolas Diaz" → NDIAZ,
+ * "Juan Cruz Vañek" → JVANEK). Sin nombre → el fallback (el usuario fijo de config).
+ */
+function usuarioCorto(nombre, fallback = 'ROLITO') {
+    const limpio = String(nombre ?? '').normalize('NFD').replace(/\p{M}/gu, '').toUpperCase().replace(/[^A-Z0-9 ]/g, ' ').trim();
+    if (!limpio)
+        return fallback;
+    const partes = limpio.split(/\s+/);
+    const corto = partes.length >= 2 ? `${partes[0][0]}${partes[partes.length - 1]}` : partes[0];
+    return corto.slice(0, 10) || fallback;
 }
 /**
  * Renglones de stock a partir de listas de ítems de la app (items, cambios…),

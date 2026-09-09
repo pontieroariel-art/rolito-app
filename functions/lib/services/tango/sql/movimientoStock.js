@@ -102,11 +102,12 @@ function egresoDeVentaPromo(payload, origenColeccion, origenId, articulos, codDe
         referencia: (0, comun_1.referenciaVenta)(origenColeccion, origenId),
         leyendas: [
             `${tipoPapel} Rolito${numeroInterno ? ` ${numeroInterno}` : ''} - ${payload.formaPago ?? ''}`.trim(),
-            `Chofer ${payload.choferNombre ?? payload.choferId ?? ''} - dep ${codDeposito}`,
+            (0, comun_1.leyendaQuienVende)(payload, `dep ${codDeposito}`),
             `Cliente ${payload.clienteCodigoTango ?? ''} ${payload.clienteNombre ?? ''}`.trim(),
-            payload.plantaId ? `Ventanilla ${payload.plantaId}` : '',
+            payload.plantaId ? `Ventanilla ${(0, comun_1.nombreDePlanta)(payload.plantaId)}` : '',
         ],
         codCliente: payload.clienteCodigoTango,
+        usuario: (0, comun_1.usuarioCorto)(payload.cajaNombre ?? payload.choferNombre, ''),
     };
 }
 /**
@@ -137,8 +138,10 @@ function transferenciaDeCargaDescarga(payload, origenColeccion, origenId, articu
         leyendas: [
             `${carga ? 'Remito de carga' : 'Descarga'} app${payload.codigo ? ` ${payload.codigo}` : ''}`,
             `Chofer ${payload.choferNombre ?? payload.choferId ?? ''} - ${payload.camionLabel ?? payload.camionId ?? ''}`.trim(),
-            payload.plantaId ? `Planta ${payload.plantaId}` : '',
+            payload.plantaId ? `Planta ${(0, comun_1.nombreDePlanta)(payload.plantaId)}` : '',
         ],
+        // Caja que emitió la carga / muelle que contó la descarga.
+        usuario: (0, comun_1.usuarioCorto)(payload.creadoPor?.nombre ?? payload.registradoPor?.nombre, ''),
     };
 }
 // ── Sentencias ───────────────────────────────────────────────────────────────
@@ -173,7 +176,7 @@ function sentenciasMovimiento(m, datos, cfg, ahora = new Date()) {
         // Bluesoft lo grababan (41.732 comprobantes). Sirve para cruzar en consultas.
         codCliente: m.codCliente,
         codDeposito: !transferencia && exports.TRAZA.codDepositoEnCabeceraEgreso ? m.depositoOrigen : undefined,
-        fecha: m.fecha, ahora, usuario: cfg.usuario, terminal: cfg.terminal,
+        fecha: m.fecha, ahora, usuario: m.usuario || cfg.usuario, terminal: cfg.terminal,
         leyendas: [m.referencia, ...m.leyendas],
         observacion: m.observacion,
         anulacionNull: true,

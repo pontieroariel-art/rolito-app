@@ -51,12 +51,14 @@ import {
   varchar, numeric, datetime, bit, int, smallint, float,
   soloDia, horaHHMMSS, numeroComprobanteTango, insert, FECHA_NULA_TANGO,
 } from './tipos'
+import { usuarioCorto, nombreDePlanta } from './comun'
 
 export interface ConfigReciboSql {
   /** Talonario de recibos EXCLUSIVO de la app en Tango (REC, letra X) y su punto de venta. */
   talonario: number
   puntoVenta: number
-  /** Vendedor que queda en el recibo (GVA12.COD_VENDED). */
+  /** Vendedor de RESPALDO para el recibo (GVA12.COD_VENDED) cuando el cliente no tiene vendedor
+   *  en su ficha. Desde 2026-09-09 el recibo lleva el vendedor del cliente (su supervisor). */
   codVendedor: string
   concepto: string                      // 'COBRANZAS POR VENTAS'
   /** Cuentas de tesorería: contracuenta (deudores) y por medio de pago. `cheques` = cartera de
@@ -137,6 +139,8 @@ export interface ReciboTango {
    *  Comprobantes") del recibo viejo a la factura. `importe` NO lo incluye. */
   aplicaciones: AplicacionTango[]
   leyenda: string                // ROLITO:<cobranzaId>
+  /** Quién cobró (cajero, chofer o supervisor): LEYENDA_2 y USUARIO del recibo (2026-09-09). */
+  quienCobro?: { nombre: string; usuario: string; leyenda: string }
 }
 
 export interface AplicacionTango {
@@ -214,6 +218,18 @@ export interface PayloadCobranza {
    *  importe = Σ imputado + aCuenta = Σ medios (incluido el saldo a favor aplicado). */
   aCuenta?: number
   referenciaIdempotente?: string
+  /** Quién la registró en la app y desde dónde ('caja' | 'cobrador' | 'supervisor'; plantaId si es caja). */
+  registradoPor?: { uid?: string; nombre?: string } | null
+  origen?: string
+  plantaId?: string | null
+}
+
+/** "Cobro mostrador Torcuato por Nicolas Diaz" / "Cobro en calle por Pedro" / "Cobro supervisor por Matias". */
+export function quienCobroDe(p: Pick<PayloadCobranza, 'registradoPor' | 'origen' | 'plantaId'>): ReciboTango['quienCobro'] | undefined {
+  const nombre = String(p.registradoPor?.nombre ?? '').trim()
+  if (!nombre) return undefined
+  const donde = p.origen === 'caja' ? `mostrador ${nombreDePlanta(p.plantaId)}`.trim() : p.origen === 'supervisor' ? 'supervisor' : 'en calle'
+  return { nombre, usuario: usuarioCorto(nombre), leyenda: `Cobro ${donde} por ${nombre}` }
 }
 
 const r2 = (n: number) => Math.round(n * 100) / 100
@@ -268,6 +284,7 @@ export function reciboDeCobranza(p: PayloadCobranza, cobranzaId: string, cfg: Co
     nComp: numeroComprobanteTango('X', cfg.puntoVenta, numero),
     codCliente: p.clienteCodigoTango, fecha: fechaDe(p.fecha), importe: sumMed, imputaciones, medios, cheques, retenciones, aCuenta, aplicaciones,
     leyenda: p.referenciaIdempotente ?? `ROLITO:${cobranzaId}`,
+    ...(quienCobroDe(p) ? { quienCobro: quienCobroDe(p) } : {}),
   }
   planificarImputaciones(r)   // valida que cierre por factura
   return r
@@ -333,7 +350,7 @@ export interface IdsRecibo {
 }
 
 export interface DatosRecibo {
-  cliente: { idGva14: number; saldoCc: number; saldoDoc: number; saldoDUn: number; saldoCcU: number; cuit?: string; razonSocial?: string }
+  cliente: { idGva14: number; saldoCc: number; saldoDoc: number; saldoDUn: number; saldoCcU: number; cuit?: string; razonSocial?: string; codVendedor?: string | null }
   /** Por cheque (mismo orden que ReciboTango.cheques): nº interno de SBA14 e ID_BANCO de Tango. */
   cheques?: { nInterno: number; idBanco: number }[]
   /** SBA14.NRO_SUCURS a usar (config o el del último cheque cargado en Tango). */
@@ -420,7 +437,10 @@ export function sentenciasRecibo(r: ReciboTango, d: DatosRecibo, cfg: ConfigReci
   const hoy = soloDia(ahora)
   const hora = horaHHMMSS(ahora)
   const term = cfg.terminal.slice(0, 12)
-  const usr = cfg.usuario.slice(0, 10)
+  // USUARIO = quién cobró (corto, 10) o el fijo de config; el vendedor del recibo es el del
+  // cliente (su supervisor) y cae al de config si la ficha no tiene.
+  const usr = (r.quienCobro?.usuario || cfg.usuario).slice(0, 10)
+  const codVendedor = (d.cliente.codVendedor ?? '').trim() || cfg.codVendedor
   const out: SentenciaSql[] = []
   const plan = planificarImputaciones(r)
 
@@ -442,7 +462,7 @@ export function sentenciasRecibo(r: ReciboTango, d: DatosRecibo, cfg: ConfigReci
     varchar('CENT_STK', 'N', 1),
     varchar('CENT_COB', 'N', 1),
     varchar('COD_CLIENT', r.codCliente, 6),
-    varchar('COD_VENDED', cfg.codVendedor, 10),
+    varchar('COD_VENDED', codVendedor, 10),
     bit('CONTFISCAL', false),
     numeric('COTIZ', 1),
     varchar('ESTADO', estadoRecibo, 3),
@@ -465,12 +485,12 @@ export function sentenciasRecibo(r: ReciboTango, d: DatosRecibo, cfg: ConfigReci
     varchar('GENERA_ASIENTO', 'N', 1),
     datetime('FECHA_INGRESO', hoy),
     varchar('HORA_INGRESO', hora, 6),
-    varchar('USUARIO_INGRESO', usr, 120),
+    varchar('USUARIO_INGRESO', (r.quienCobro?.nombre || usr).slice(0, 120), 120),
     varchar('TERMINAL_INGRESO', term, 255),
     { nombre: 'OBS_COMERC', tipo: { kind: 'text' }, valor: null },
     { nombre: 'OBSERVAC', tipo: { kind: 'text' }, valor: null },
     varchar('LEYENDA_1', r.leyenda.slice(0, 60), 60),
-    varchar('LEYENDA_2', null, 60),
+    varchar('LEYENDA_2', r.quienCobro ? r.quienCobro.leyenda.slice(0, 60) : null, 60),
     varchar('LEYENDA_3', null, 60),
     varchar('LEYENDA_4', null, 60),
     varchar('LEYENDA_5', null, 60),
@@ -707,8 +727,8 @@ const marcarVinculoCheque = (s: SentenciaSql, vinculaCheque: number, cuentaCarte
 
 /** Lee de Tango lo que hace falta. Consultas marcadas (*) = hipótesis a confirmar (§21.3). */
 export async function leerDatosRecibo(db: EjecutorSql, r: ReciboTango, cfg: ConfigReciboSql, identity: Set<string>): Promise<DatosRecibo> {
-  const cli = await db.query<{ ID_GVA14: number; SALDO_CC: number; SALDO_DOC: number; SALDO_D_UN: number; SALDO_CC_U: number }>(
-    `SELECT ID_GVA14, SALDO_CC, SALDO_DOC, SALDO_D_UN, SALDO_CC_U FROM GVA14 WHERE COD_GVA14 = @COD`, [varchar('COD', r.codCliente, 6)],
+  const cli = await db.query<{ ID_GVA14: number; SALDO_CC: number; SALDO_DOC: number; SALDO_D_UN: number; SALDO_CC_U: number; COD_VENDED: string | null }>(
+    `SELECT ID_GVA14, SALDO_CC, SALDO_DOC, SALDO_D_UN, SALDO_CC_U, COD_VENDED FROM GVA14 WHERE COD_GVA14 = @COD`, [varchar('COD', r.codCliente, 6)],
   )
   if (!cli.length) throw new Error(`cliente ${r.codCliente} no existe en Tango`)
   const c = cli[0]
@@ -753,7 +773,7 @@ export async function leerDatosRecibo(db: EjecutorSql, r: ReciboTango, cfg: Conf
     for (let i = 0; i < nPlan; i++) ids.historial.push(identity.has('HISTORIAL_CUENTAS_CORRIENTES') ? null : await siguiente(db, 'HISTORIAL_CUENTAS_CORRIENTES', 'ID_HISTORIAL_CUENTAS_CORRIENTES'))
     const sp0 = await db.query<{ ID: number | null }>(`SELECT OBJECT_ID('dbo.P_COBRANZAESTADOSVENTAS', 'P') AS ID`)
     return {
-      cliente: { idGva14: c.ID_GVA14, saldoCc: Number(c.SALDO_CC), saldoDoc: Number(c.SALDO_DOC), saldoDUn: Number(c.SALDO_D_UN), saldoCcU: Number(c.SALDO_CC_U) },
+      cliente: { idGva14: c.ID_GVA14, saldoCc: Number(c.SALDO_CC), saldoDoc: Number(c.SALDO_DOC), saldoDUn: Number(c.SALDO_D_UN), saldoCcU: Number(c.SALDO_CC_U), codVendedor: c.COD_VENDED },
       facturas, recibosACuenta, cuentas: {}, nInternoSba04: 0, ids, spEstados: sp0[0]?.ID != null ? 'dbo.P_COBRANZAESTADOSVENTAS' : null,
     }
   }
@@ -819,7 +839,7 @@ export async function leerDatosRecibo(db: EjecutorSql, r: ReciboTango, cfg: Conf
   for (let i = 0; i < nRenglones; i++) ids.asientoRenglones.push(identity.has('ASIENTO_SB') ? null : await siguiente(db, 'ASIENTO_SB', 'ID_ASIENTO_SB'))
 
   return {
-    cliente: { idGva14: c.ID_GVA14, saldoCc: Number(c.SALDO_CC), saldoDoc: Number(c.SALDO_DOC), saldoDUn: Number(c.SALDO_D_UN), saldoCcU: Number(c.SALDO_CC_U), ...cliCheques },
+    cliente: { idGva14: c.ID_GVA14, saldoCc: Number(c.SALDO_CC), saldoDoc: Number(c.SALDO_DOC), saldoDUn: Number(c.SALDO_D_UN), saldoCcU: Number(c.SALDO_CC_U), codVendedor: c.COD_VENDED, ...cliCheques },
     facturas, recibosACuenta, cuentas, nInternoSba04, ids, cheques, nroSucursalCheques, spEstados,
   }
 }

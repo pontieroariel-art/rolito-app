@@ -357,6 +357,9 @@ export const onCobranzaCreada = onDocumentCreated(
         aCuenta:       typeof cobranza.aCuenta === 'number' ? cobranza.aCuenta : 0,
         fecha:         cobranza.fecha,
         registradoPor: cobranza.registradoPor,
+        // Quién cobró y desde dónde: LEYENDA_2 y USUARIO del recibo en Tango (2026-09-09).
+        origen:        cobranza.origen ?? null,
+        plantaId:      cobranza.plantaId ?? null,
         // Referencia idempotente: el writer del bridge la escribe en el recibo
         // de Tango y la busca ANTES de crear, para no duplicar recibos si se
         // muere entre el Create y la confirmación.

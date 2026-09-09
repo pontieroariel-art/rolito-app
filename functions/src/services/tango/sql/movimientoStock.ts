@@ -48,7 +48,8 @@ import type { PayloadVenta, ItemVenta } from '../pedido'
 import { type EjecutorSql, type SentenciaSql, varchar, int, smallint } from './tipos'
 import {
   fechaDePayload, renglonesDeItems, siguienteNcompInS, numeroComprobanteStock, referenciaVenta, numeroInternoDe,
-  cabeceraSta14, renglonSta20, updateSta19, insertSta19, leerArticulo, leerStock, type RenglonStock,
+  cabeceraSta14, renglonSta20, updateSta19, insertSta19, leerArticulo, leerStock, leyendaQuienVende, usuarioCorto, nombreDePlanta,
+  type RenglonStock,
 } from './comun'
 
 /** Valores confirmados por la traza del 2026-09-05. Los tests los importan. */
@@ -110,6 +111,8 @@ export interface MovimientoStockTango {
   leyendas: string[]
   codCliente?: string
   observacion?: string
+  /** STA14.USUARIO (10): quién hizo la operación (cajero, chofer, muelle), corto. Sin nombre → config. */
+  usuario?: string
 }
 
 export interface DatosMovimiento {
@@ -174,11 +177,12 @@ export function egresoDeVentaPromo(
     referencia: referenciaVenta(origenColeccion, origenId),
     leyendas: [
       `${tipoPapel} Rolito${numeroInterno ? ` ${numeroInterno}` : ''} - ${payload.formaPago ?? ''}`.trim(),
-      `Chofer ${payload.choferNombre ?? payload.choferId ?? ''} - dep ${codDeposito}`,
+      leyendaQuienVende(payload, `dep ${codDeposito}`),
       `Cliente ${payload.clienteCodigoTango ?? ''} ${payload.clienteNombre ?? ''}`.trim(),
-      payload.plantaId ? `Ventanilla ${payload.plantaId}` : '',
+      payload.plantaId ? `Ventanilla ${nombreDePlanta(payload.plantaId)}` : '',
     ],
     codCliente: payload.clienteCodigoTango,
+    usuario: usuarioCorto(payload.cajaNombre ?? payload.choferNombre, ''),
   }
 }
 
@@ -196,6 +200,9 @@ export interface PayloadTransferencia {
   choferNombre?: string
   items?: ItemVenta[]
   fecha?: unknown
+  /** Quién emitió el remito de carga (caja) / contó la descarga (muelle): va en STA14.USUARIO. */
+  creadoPor?: { uid?: string; nombre?: string } | null
+  registradoPor?: { uid?: string; nombre?: string } | null
 }
 
 /**
@@ -231,8 +238,10 @@ export function transferenciaDeCargaDescarga(
     leyendas: [
       `${carga ? 'Remito de carga' : 'Descarga'} app${payload.codigo ? ` ${payload.codigo}` : ''}`,
       `Chofer ${payload.choferNombre ?? payload.choferId ?? ''} - ${payload.camionLabel ?? payload.camionId ?? ''}`.trim(),
-      payload.plantaId ? `Planta ${payload.plantaId}` : '',
+      payload.plantaId ? `Planta ${nombreDePlanta(payload.plantaId)}` : '',
     ],
+    // Caja que emitió la carga / muelle que contó la descarga.
+    usuario: usuarioCorto(payload.creadoPor?.nombre ?? payload.registradoPor?.nombre, ''),
   }
 }
 
@@ -271,7 +280,7 @@ export function sentenciasMovimiento(m: MovimientoStockTango, datos: DatosMovimi
     // Bluesoft lo grababan (41.732 comprobantes). Sirve para cruzar en consultas.
     codCliente: m.codCliente,
     codDeposito: !transferencia && TRAZA.codDepositoEnCabeceraEgreso ? m.depositoOrigen : undefined,
-    fecha: m.fecha, ahora, usuario: cfg.usuario, terminal: cfg.terminal,
+    fecha: m.fecha, ahora, usuario: m.usuario || cfg.usuario, terminal: cfg.terminal,
     leyendas: [m.referencia, ...m.leyendas],
     observacion: m.observacion,
     anulacionNull: true,

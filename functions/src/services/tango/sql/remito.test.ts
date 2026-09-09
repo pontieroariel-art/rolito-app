@@ -174,3 +174,28 @@ describe('artículo sin fila de saldo en el depósito (cambio que el camión nun
     expect(ins.params.find((p) => p.nombre === 'CANT_STOCK')?.valor).toBe(-1)
   })
 })
+
+describe('quién vendió (2026-09-09): referencia VV, leyendas y USUARIO', () => {
+  const ventanilla: PayloadVenta = { ...venta, choferId: undefined, camionId: null, plantaId: 'torcuato', cajaId: 'caja1', cajaNombre: 'Nicolás Díaz' }
+  it('la venta de ventanilla lleva ROLITO:VV, la leyenda de la caja con su planta y el usuario corto', () => {
+    const r = remitoDeVenta(ventanilla, 'abc123', articulos, '01', 1105, 'ventasVentanilla')
+    expect(r.observacion).toBe('ROLITO:VV:abc123')
+    expect(r.leyendas).toEqual(['Remito app 01105-00000017 - cuenta_corriente', 'Caja Nicolás Díaz - Torcuato'])
+    expect(r.usuario).toBe('NDIAZ')
+    const p = sentenciasRemito(r, datos, cfg, new Date(2026, 8, 9, 9, 0, 0))[0].params
+    expect(param(p, 'LEYENDA1')).toBe('ROLITO:VV:abc123')
+    expect(param(p, 'LEYENDA2')).toBe('Remito app 01105-00000017 - cuenta_corriente')
+    expect(param(p, 'LEYENDA3')).toBe('Caja Nicolás Díaz - Torcuato')
+    expect(param(p, 'USUARIO')).toBe('NDIAZ')
+    expect(param(p, 'USUARIO_INGRESO')).toBe('NDIAZ')
+  })
+  it('el camión sigue con VC por defecto, leyenda del chofer con su depósito, y sin nombre cae al usuario de config', () => {
+    const r = remitoDeVenta({ ...venta, choferNombre: 'Pedro Gómez' }, 'abc123', articulos, '03', 1105)
+    expect(r.observacion).toBe('ROLITO:VC:abc123')
+    expect(r.leyendas[1]).toBe('Chofer Pedro Gómez - dep 03')
+    expect(r.usuario).toBe('PGOMEZ')
+    const sinNombre = remitoDeVenta(venta, 'abc123', articulos, '03', 1105)
+    expect(sinNombre.usuario).toBe('')
+    expect(param(sentenciasRemito(sinNombre, datos, cfg)[0].params, 'USUARIO')).toBe('ROLITO')
+  })
+})

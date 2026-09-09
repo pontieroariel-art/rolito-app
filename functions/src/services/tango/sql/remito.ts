@@ -30,7 +30,7 @@ import type { PayloadVenta } from '../pedido'
 import { type EjecutorSql, type SentenciaSql, type ParametroSql, varchar, int, numeroComprobanteTango } from './tipos'
 import {
   fechaDePayload, renglonesDeItems, siguienteNcompInS, cabeceraSta14, renglonSta20, updateSta19, insertSta19,
-  leerArticulo, leerStock, type RenglonStock,
+  leerArticulo, leerStock, referenciaVenta, numeroInternoDe, leyendaQuienVende, usuarioCorto, nombreDePlanta, type RenglonStock,
 } from './comun'
 
 /** Configuración del writer SQL de remitos (config/tango.sql.remito). */
@@ -70,7 +70,11 @@ export interface RemitoTango {
   codDeposito: string    // STA22.COD_STA22 del repartidor
   fecha: Date
   renglones: RenglonRemito[]
-  observacion: string    // referencia idempotente ROLITO:VC:<id> (OBSERVACIO, varchar 1? → LEYENDA1)
+  observacion: string    // referencia idempotente ROLITO:VC:<id> / ROLITO:VV:<id> (LEYENDA1)
+  /** LEYENDA2..5: papel de la app y quién vendió ("Caja Nicolas Diaz - Torcuato"). */
+  leyendas: string[]
+  /** STA14.USUARIO (10): quién vendió, corto ("NDIAZ"). Sin nombre → el usuario fijo de config. */
+  usuario?: string
 }
 
 /**
@@ -84,6 +88,7 @@ export function remitoDeVenta(
   articulos: Record<string, string>,
   codDeposito: string,
   puntoVenta: number,
+  origenColeccion = 'ventasCamion',
 ): RemitoTango {
   const ci = payload.comprobanteInterno
   if (!ci || ci.tipo !== 'remito' || !ci.numero) throw new Error('la venta no tiene remito interno numerado (comprobanteInterno.tipo=remito)')
@@ -91,6 +96,9 @@ export function remitoDeVenta(
   const pv = ci.puntoVenta ?? puntoVenta
   const renglones = renglonesDeItems([payload.items, payload.cambios], articulos)
   if (renglones.length === 0) throw new Error('remito sin renglones')
+  // Ventanilla: la referencia es ROLITO:VV:<id> (antes salía VC para todo) y quién
+  // vendió es el cajero con su planta; camión: el chofer con su depósito.
+  const sufijo = payload.cajaId ? nombreDePlanta(payload.plantaId) : `dep ${codDeposito}`
   return {
     numero: ci.numero,
     puntoVenta: pv,
@@ -99,7 +107,12 @@ export function remitoDeVenta(
     codDeposito,
     fecha: fechaDePayload(payload.fecha),
     renglones,
-    observacion: `ROLITO:VC:${origenId}`,
+    observacion: referenciaVenta(origenColeccion, origenId),
+    leyendas: [
+      `Remito app ${numeroInternoDe(ci) ?? ''} - ${payload.formaPago ?? ''}`.trim(),
+      leyendaQuienVende(payload, sufijo),
+    ],
+    usuario: usuarioCorto(payload.cajaNombre ?? payload.choferNombre, ''),
   }
 }
 
@@ -125,10 +138,12 @@ export function sentenciasRemito(r: RemitoTango, datos: DatosRemito, cfg: Config
     nComp: r.nComp, nRemito: r.nComp, ncompInS: datos.ncompInS,
     codCliente: r.codCliente, codDeposito: r.codDeposito,
     estadoMov: 'P', motivoRem: 'V', codTransp: cfg.codigoTransporte,
-    fecha: r.fecha, ahora, usuario: cfg.usuario, terminal: cfg.terminal,
+    // USUARIO = quién vendió (cajero/chofer, corto) o el fijo de config si no hay nombre.
+    fecha: r.fecha, ahora, usuario: r.usuario || cfg.usuario, terminal: cfg.terminal,
     // La referencia idempotente va en LEYENDA1 (varchar 60): se lee desde Tango y
-    // sirve para cruzar contra ventasCamion sin depender solo del número.
-    leyendas: [r.observacion],
+    // sirve para cruzar contra ventasCamion/ventasVentanilla sin depender solo del
+    // número. LEYENDA2..: papel de la app y quién vendió.
+    leyendas: [r.observacion, ...(r.leyendas ?? [])],
     idDireccionEntrega: datos.idDireccionEntrega, nroSucursalDestino: datos.nroSucursalDestino, condVta: datos.condVta,
   }))
 

@@ -67,6 +67,36 @@ export function numeroInternoDe(ci: { puntoVenta?: number; numero?: number } | n
   return `${String(ci.puntoVenta ?? 0).padStart(5, '0')}-${String(ci.numero).padStart(8, '0')}`
 }
 
+// ── Quién vendió / cobró (2026-09-09) ────────────────────────────────────────
+// El VENDEDOR de los comprobantes es el supervisor del cliente (ficha de Tango).
+// La persona que hizo la operación (cajero de ventanilla, chofer, supervisor)
+// queda en una leyenda y en el USUARIO del comprobante. Mismos textos que
+// pedido.ts (quienVende); duplicados porque esta carpeta se copia sola a la VM.
+
+const NOMBRE_PLANTA: Record<string, string> = { torcuato: 'Torcuato', merlo: 'Merlo' }
+export const nombreDePlanta = (plantaId: string | null | undefined): string => NOMBRE_PLANTA[plantaId ?? ''] ?? (plantaId ?? '')
+
+export interface QuienOpera { cajaId?: string; cajaNombre?: string; choferId?: string; choferNombre?: string; plantaId?: string | null }
+
+/** "Caja Nicolas Diaz - Torcuato" (ventanilla) | "Chofer Pedro - dep 21" (camión). */
+export function leyendaQuienVende(p: QuienOpera, sufijo: string): string {
+  if (p.cajaId) return `Caja ${p.cajaNombre ?? p.cajaId} - ${sufijo}`.trim()
+  return `Chofer ${p.choferNombre ?? p.choferId ?? ''} - ${sufijo}`.trim()
+}
+
+/**
+ * Usuario de Tango (STA14.USUARIO, varchar 10) a partir del nombre de una
+ * persona: inicial + apellido, mayúsculas, sin acentos ("Nicolas Diaz" → NDIAZ,
+ * "Juan Cruz Vañek" → JVANEK). Sin nombre → el fallback (el usuario fijo de config).
+ */
+export function usuarioCorto(nombre: string | null | undefined, fallback = 'ROLITO'): string {
+  const limpio = String(nombre ?? '').normalize('NFD').replace(/\p{M}/gu, '').toUpperCase().replace(/[^A-Z0-9 ]/g, ' ').trim()
+  if (!limpio) return fallback
+  const partes = limpio.split(/\s+/)
+  const corto = partes.length >= 2 ? `${partes[0][0]}${partes[partes.length - 1]}` : partes[0]
+  return corto.slice(0, 10) || fallback
+}
+
 export interface RenglonStock {
   codArticu: string
   cantidad: number

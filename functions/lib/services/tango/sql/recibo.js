@@ -49,6 +49,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TIPOS_RETENCION = void 0;
 exports.planificarImputaciones = planificarImputaciones;
+exports.quienCobroDe = quienCobroDe;
 exports.reciboDeCobranza = reciboDeCobranza;
 exports.sentenciaExisteImputacion = sentenciaExisteImputacion;
 exports.sentenciaExisteRecibo = sentenciaExisteRecibo;
@@ -58,6 +59,7 @@ exports.leerDatosRecibo = leerDatosRecibo;
 exports.tablasConIdentity = tablasConIdentity;
 exports.escribirRecibo = escribirRecibo;
 const tipos_1 = require("./tipos");
+const comun_1 = require("./comun");
 exports.TIPOS_RETENCION = ['ganancias', 'iva', 'iibb_caba', 'iibb_pba', 'suss'];
 /** Reparte cada factura imputada entre la plata nueva (primero) y los recibos a cuenta aplicados
  *  (en orden), en centavos para que cierre exacto. Una factura puede quedar partida en dos filas. */
@@ -91,6 +93,14 @@ function planificarImputaciones(r) {
     if (sobra)
         throw new Error(`el saldo a favor del recibo ${sobra.a.nComp} se aplica de más (${sobra.resto / 100} sin factura)`);
     return out;
+}
+/** "Cobro mostrador Torcuato por Nicolas Diaz" / "Cobro en calle por Pedro" / "Cobro supervisor por Matias". */
+function quienCobroDe(p) {
+    const nombre = String(p.registradoPor?.nombre ?? '').trim();
+    if (!nombre)
+        return undefined;
+    const donde = p.origen === 'caja' ? `mostrador ${(0, comun_1.nombreDePlanta)(p.plantaId)}`.trim() : p.origen === 'supervisor' ? 'supervisor' : 'en calle';
+    return { nombre, usuario: (0, comun_1.usuarioCorto)(nombre), leyenda: `Cobro ${donde} por ${nombre}` };
 }
 const r2 = (n) => Math.round(n * 100) / 100;
 function reciboDeCobranza(p, cobranzaId, cfg) {
@@ -152,6 +162,7 @@ function reciboDeCobranza(p, cobranzaId, cfg) {
         nComp: (0, tipos_1.numeroComprobanteTango)('X', cfg.puntoVenta, numero),
         codCliente: p.clienteCodigoTango, fecha: fechaDe(p.fecha), importe: sumMed, imputaciones, medios, cheques, retenciones, aCuenta, aplicaciones,
         leyenda: p.referenciaIdempotente ?? `ROLITO:${cobranzaId}`,
+        ...(quienCobroDe(p) ? { quienCobro: quienCobroDe(p) } : {}),
     };
     planificarImputaciones(r); // valida que cierre por factura
     return r;
@@ -289,7 +300,10 @@ function sentenciasRecibo(r, d, cfg, ahora = new Date()) {
     const hoy = (0, tipos_1.soloDia)(ahora);
     const hora = (0, tipos_1.horaHHMMSS)(ahora);
     const term = cfg.terminal.slice(0, 12);
-    const usr = cfg.usuario.slice(0, 10);
+    // USUARIO = quién cobró (corto, 10) o el fijo de config; el vendedor del recibo es el del
+    // cliente (su supervisor) y cae al de config si la ficha no tiene.
+    const usr = (r.quienCobro?.usuario || cfg.usuario).slice(0, 10);
+    const codVendedor = (d.cliente.codVendedor ?? '').trim() || cfg.codVendedor;
     const out = [];
     const plan = planificarImputaciones(r);
     // Sin plata nueva (solo saldo a favor aplicado): no hay recibo ni tesorería en Tango, es una
@@ -311,7 +325,7 @@ function sentenciasRecibo(r, d, cfg, ahora = new Date()) {
         (0, tipos_1.varchar)('CENT_STK', 'N', 1),
         (0, tipos_1.varchar)('CENT_COB', 'N', 1),
         (0, tipos_1.varchar)('COD_CLIENT', r.codCliente, 6),
-        (0, tipos_1.varchar)('COD_VENDED', cfg.codVendedor, 10),
+        (0, tipos_1.varchar)('COD_VENDED', codVendedor, 10),
         (0, tipos_1.bit)('CONTFISCAL', false),
         (0, tipos_1.numeric)('COTIZ', 1),
         (0, tipos_1.varchar)('ESTADO', estadoRecibo, 3),
@@ -334,12 +348,12 @@ function sentenciasRecibo(r, d, cfg, ahora = new Date()) {
         (0, tipos_1.varchar)('GENERA_ASIENTO', 'N', 1),
         (0, tipos_1.datetime)('FECHA_INGRESO', hoy),
         (0, tipos_1.varchar)('HORA_INGRESO', hora, 6),
-        (0, tipos_1.varchar)('USUARIO_INGRESO', usr, 120),
+        (0, tipos_1.varchar)('USUARIO_INGRESO', (r.quienCobro?.nombre || usr).slice(0, 120), 120),
         (0, tipos_1.varchar)('TERMINAL_INGRESO', term, 255),
         { nombre: 'OBS_COMERC', tipo: { kind: 'text' }, valor: null },
         { nombre: 'OBSERVAC', tipo: { kind: 'text' }, valor: null },
         (0, tipos_1.varchar)('LEYENDA_1', r.leyenda.slice(0, 60), 60),
-        (0, tipos_1.varchar)('LEYENDA_2', null, 60),
+        (0, tipos_1.varchar)('LEYENDA_2', r.quienCobro ? r.quienCobro.leyenda.slice(0, 60) : null, 60),
         (0, tipos_1.varchar)('LEYENDA_3', null, 60),
         (0, tipos_1.varchar)('LEYENDA_4', null, 60),
         (0, tipos_1.varchar)('LEYENDA_5', null, 60),
@@ -554,7 +568,7 @@ const marcarListaIds = (s) => ({ ...s, necesitaListaIds: true });
 const marcarVinculoCheque = (s, vinculaCheque, cuentaCartera) => ({ ...s, vinculaCheque, cuentaCartera });
 /** Lee de Tango lo que hace falta. Consultas marcadas (*) = hipótesis a confirmar (§21.3). */
 async function leerDatosRecibo(db, r, cfg, identity) {
-    const cli = await db.query(`SELECT ID_GVA14, SALDO_CC, SALDO_DOC, SALDO_D_UN, SALDO_CC_U FROM GVA14 WHERE COD_GVA14 = @COD`, [(0, tipos_1.varchar)('COD', r.codCliente, 6)]);
+    const cli = await db.query(`SELECT ID_GVA14, SALDO_CC, SALDO_DOC, SALDO_D_UN, SALDO_CC_U, COD_VENDED FROM GVA14 WHERE COD_GVA14 = @COD`, [(0, tipos_1.varchar)('COD', r.codCliente, 6)]);
     if (!cli.length)
         throw new Error(`cliente ${r.codCliente} no existe en Tango`);
     const c = cli[0];
@@ -601,7 +615,7 @@ async function leerDatosRecibo(db, r, cfg, identity) {
             ids.historial.push(identity.has('HISTORIAL_CUENTAS_CORRIENTES') ? null : await siguiente(db, 'HISTORIAL_CUENTAS_CORRIENTES', 'ID_HISTORIAL_CUENTAS_CORRIENTES'));
         const sp0 = await db.query(`SELECT OBJECT_ID('dbo.P_COBRANZAESTADOSVENTAS', 'P') AS ID`);
         return {
-            cliente: { idGva14: c.ID_GVA14, saldoCc: Number(c.SALDO_CC), saldoDoc: Number(c.SALDO_DOC), saldoDUn: Number(c.SALDO_D_UN), saldoCcU: Number(c.SALDO_CC_U) },
+            cliente: { idGva14: c.ID_GVA14, saldoCc: Number(c.SALDO_CC), saldoDoc: Number(c.SALDO_DOC), saldoDUn: Number(c.SALDO_D_UN), saldoCcU: Number(c.SALDO_CC_U), codVendedor: c.COD_VENDED },
             facturas, recibosACuenta, cuentas: {}, nInternoSba04: 0, ids, spEstados: sp0[0]?.ID != null ? 'dbo.P_COBRANZAESTADOSVENTAS' : null,
         };
     }
@@ -667,7 +681,7 @@ async function leerDatosRecibo(db, r, cfg, identity) {
     for (let i = 0; i < nRenglones; i++)
         ids.asientoRenglones.push(identity.has('ASIENTO_SB') ? null : await siguiente(db, 'ASIENTO_SB', 'ID_ASIENTO_SB'));
     return {
-        cliente: { idGva14: c.ID_GVA14, saldoCc: Number(c.SALDO_CC), saldoDoc: Number(c.SALDO_DOC), saldoDUn: Number(c.SALDO_D_UN), saldoCcU: Number(c.SALDO_CC_U), ...cliCheques },
+        cliente: { idGva14: c.ID_GVA14, saldoCc: Number(c.SALDO_CC), saldoDoc: Number(c.SALDO_DOC), saldoDUn: Number(c.SALDO_D_UN), saldoCcU: Number(c.SALDO_CC_U), codVendedor: c.COD_VENDED, ...cliCheques },
         facturas, recibosACuenta, cuentas, nInternoSba04, ids, cheques, nroSucursalCheques, spEstados,
     };
 }

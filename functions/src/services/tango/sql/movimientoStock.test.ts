@@ -249,3 +249,26 @@ describe('escribirMovimientoStock', () => {
     expect(avisos.some((a) => /no tenía fila de stock/.test(a))).toBe(true)
   })
 })
+
+describe('quién vendió (2026-09-09): leyenda 3 y USUARIO', () => {
+  it('egreso de una promo de ventanilla: "Caja … - dep 01", planta con nombre y usuario corto', () => {
+    const vv: PayloadVenta = { ...promo, choferId: undefined, choferNombre: undefined, camionId: null, plantaId: 'torcuato', cajaId: 'caja1', cajaNombre: 'Cristian Petti' }
+    const m = egresoDeVentaPromo(vv, 'ventasVentanilla', 'v9', articulos, '01', cfgVpr)
+    expect(m.referencia).toBe('ROLITO:VV:v9')
+    expect(m.leyendas[1]).toBe('Caja Cristian Petti - dep 01')
+    expect(m.leyendas[3]).toBe('Ventanilla Torcuato')
+    expect(m.usuario).toBe('CPETTI')
+    const p = sentenciasMovimiento(m, datos, usuario)[1].params
+    expect(param(p, 'LEYENDA3')).toBe('Caja Cristian Petti - dep 01')
+    expect(param(p, 'USUARIO')).toBe('CPETTI')
+  })
+  it('egreso del camión: usuario corto del chofer; transferencia: quien la emitió en la app', () => {
+    const m = egresoDeVentaPromo(promo, 'ventasCamion', 'v1', articulos, '21', cfgVpr)
+    expect(m.usuario).toBe('PEDRO')
+    const t = transferenciaDeCargaDescarga({ sentido: 'carga', plantaId: 'merlo', choferNombre: 'Pedro', camionLabel: 'AB123CD', items: promo.items, creadoPor: { uid: 'c1', nombre: 'Daniel Andrae' } }, 'remitosCarga', 'rc1', articulos, '02', '21', cfgCar)
+    expect(t.usuario).toBe('DANDRAE')
+    expect(t.leyendas[2]).toBe('Planta Merlo')
+    const sinNombre = transferenciaDeCargaDescarga({ sentido: 'carga', plantaId: 'merlo', items: promo.items }, 'remitosCarga', 'rc2', articulos, '02', '21', cfgCar)
+    expect(param(sentenciasMovimiento(sinNombre, datos, usuario)[1].params, 'USUARIO')).toBe('ROLITO')
+  })
+})

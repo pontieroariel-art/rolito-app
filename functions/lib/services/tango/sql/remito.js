@@ -40,7 +40,7 @@ const comun_1 = require("./comun");
  * repuestas sin cargo) también salen del depósito, así que van como renglones.
  * Los artículos se mapean con config/tango.articulos igual que en el pedido/factura.
  */
-function remitoDeVenta(payload, origenId, articulos, codDeposito, puntoVenta) {
+function remitoDeVenta(payload, origenId, articulos, codDeposito, puntoVenta, origenColeccion = 'ventasCamion') {
     const ci = payload.comprobanteInterno;
     if (!ci || ci.tipo !== 'remito' || !ci.numero)
         throw new Error('la venta no tiene remito interno numerado (comprobanteInterno.tipo=remito)');
@@ -50,6 +50,9 @@ function remitoDeVenta(payload, origenId, articulos, codDeposito, puntoVenta) {
     const renglones = (0, comun_1.renglonesDeItems)([payload.items, payload.cambios], articulos);
     if (renglones.length === 0)
         throw new Error('remito sin renglones');
+    // Ventanilla: la referencia es ROLITO:VV:<id> (antes salía VC para todo) y quién
+    // vendió es el cajero con su planta; camión: el chofer con su depósito.
+    const sufijo = payload.cajaId ? (0, comun_1.nombreDePlanta)(payload.plantaId) : `dep ${codDeposito}`;
     return {
         numero: ci.numero,
         puntoVenta: pv,
@@ -58,7 +61,12 @@ function remitoDeVenta(payload, origenId, articulos, codDeposito, puntoVenta) {
         codDeposito,
         fecha: (0, comun_1.fechaDePayload)(payload.fecha),
         renglones,
-        observacion: `ROLITO:VC:${origenId}`,
+        observacion: (0, comun_1.referenciaVenta)(origenColeccion, origenId),
+        leyendas: [
+            `Remito app ${(0, comun_1.numeroInternoDe)(ci) ?? ''} - ${payload.formaPago ?? ''}`.trim(),
+            (0, comun_1.leyendaQuienVende)(payload, sufijo),
+        ],
+        usuario: (0, comun_1.usuarioCorto)(payload.cajaNombre ?? payload.choferNombre, ''),
     };
 }
 /** ¿Ya existe este remito en Tango? (idempotencia: T_COMP + N_COMP). */
@@ -81,10 +89,12 @@ function sentenciasRemito(r, datos, cfg, ahora = new Date()) {
         nComp: r.nComp, nRemito: r.nComp, ncompInS: datos.ncompInS,
         codCliente: r.codCliente, codDeposito: r.codDeposito,
         estadoMov: 'P', motivoRem: 'V', codTransp: cfg.codigoTransporte,
-        fecha: r.fecha, ahora, usuario: cfg.usuario, terminal: cfg.terminal,
+        // USUARIO = quién vendió (cajero/chofer, corto) o el fijo de config si no hay nombre.
+        fecha: r.fecha, ahora, usuario: r.usuario || cfg.usuario, terminal: cfg.terminal,
         // La referencia idempotente va en LEYENDA1 (varchar 60): se lee desde Tango y
-        // sirve para cruzar contra ventasCamion sin depender solo del número.
-        leyendas: [r.observacion],
+        // sirve para cruzar contra ventasCamion/ventasVentanilla sin depender solo del
+        // número. LEYENDA2..: papel de la app y quién vendió.
+        leyendas: [r.observacion, ...(r.leyendas ?? [])],
         idDireccionEntrega: datos.idDireccionEntrega, nroSucursalDestino: datos.nroSucursalDestino, condVta: datos.condVta,
     }));
     // 2. Renglones: salida del depósito, cantidad y pendiente de facturar iguales.

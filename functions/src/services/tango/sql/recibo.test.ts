@@ -512,3 +512,29 @@ describe('escribirRecibo', () => {
     expect(ejecutadas).toHaveLength(1)
   })
 })
+
+describe('quién cobró (2026-09-09): vendedor del cliente, LEYENDA_2 y USUARIO', () => {
+  const caja: PayloadCobranza = { ...payload, origen: 'caja', plantaId: 'torcuato', registradoPor: { uid: 'u1', nombre: 'Nicolas Diaz' } }
+  it('el recibo lleva el vendedor de la ficha del cliente (supervisor) y a quien cobró en leyenda y usuario', () => {
+    const r = reciboDeCobranza(caja, 'cob1', cfg)
+    expect(r.quienCobro).toEqual({ nombre: 'Nicolas Diaz', usuario: 'NDIAZ', leyenda: 'Cobro mostrador Torcuato por Nicolas Diaz' })
+    const ss = sentenciasRecibo(r, { ...datos, cliente: { ...datos.cliente, codVendedor: 'MV' } }, cfg, new Date(2026, 8, 9, 11, 2, 3))
+    const p = ss[0].params
+    expect(param(p, 'COD_VENDED')).toBe('MV')
+    expect(param(p, 'LEYENDA_2')).toBe('Cobro mostrador Torcuato por Nicolas Diaz')
+    expect(param(p, 'USUARIO_INGRESO')).toBe('Nicolas Diaz')
+    expect(param(ss.find((s) => s.etiqueta === 'INSERT SBA04')!.params, 'USUARIO')).toBe('NDIAZ')
+  })
+  it('sin vendedor en la ficha cae al de config (AD); sin registradoPor queda como antes', () => {
+    const r = reciboDeCobranza({ ...caja, origen: 'supervisor', plantaId: null, registradoPor: { nombre: 'Matías Vinjoy' } }, 'cob1', cfg)
+    expect(r.quienCobro?.leyenda).toBe('Cobro supervisor por Matías Vinjoy')
+    expect(reciboDeCobranza({ ...caja, origen: 'cobrador' }, 'c', cfg).quienCobro?.leyenda).toBe('Cobro en calle por Nicolas Diaz')
+    const p = sentenciasRecibo(r, { ...datos, cliente: { ...datos.cliente, codVendedor: '  ' } }, cfg)[0].params
+    expect(param(p, 'COD_VENDED')).toBe('AD')
+    const viejo = reciboDeCobranza(payload, 'cob1', cfg)
+    expect(viejo.quienCobro).toBeUndefined()
+    const pv = sentenciasRecibo(viejo, datos, cfg)[0].params
+    expect(param(pv, 'LEYENDA_2')).toBeNull()
+    expect(param(pv, 'USUARIO_INGRESO')).toBe('ROLITO')
+  })
+})

@@ -198,7 +198,8 @@ const HANDLERS = {
       if (!sqlCfg?.talonario || !sqlCfg?.puntoVenta) throw new Error('falta config/tango.sql.remito {talonario, puntoVenta, codigoTransporte, usuario, terminal}')
       const payload = data.payload ?? {}
       const codDeposito = depositoDe(payload, tcfg)
-      const remito = remitoDeVenta(payload, data.origenId ?? docId, tcfg.articulos ?? {}, codDeposito, sqlCfg.puntoVenta)
+      // origenColeccion: ventasVentanilla → referencia ROLITO:VV:<id> y leyenda "Caja …" (2026-09-09)
+      const remito = remitoDeVenta(payload, data.origenId ?? docId, tcfg.articulos ?? {}, codDeposito, sqlCfg.puntoVenta, data.origenColeccion ?? 'ventasCamion')
       const r = await enTransaccion(baseDe(empresa), (db) => escribirRemito(db, remito, {
         talonario: sqlCfg.talonario, puntoVenta: sqlCfg.puntoVenta, codigoTransporte: sqlCfg.codigoTransporte ?? '01',
         usuario: sqlCfg.usuario ?? 'ROLITO', terminal: sqlCfg.terminal ?? 'APP',
