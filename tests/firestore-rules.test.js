@@ -3929,3 +3929,96 @@ describe('supervisor: pedido / visita a logística e historial del cliente', () 
     await assertSucceeds(setDoc(doc(db('sa'), 'config/ventanilla'), { copiasTicket: { torcuato: 2, merlo: 3 } }, { merge: true }))
   })
 })
+
+describe('entregasTesoreria (entrega de caja a tesorería)', () => {
+  const seedTodos = () => seed(async (d) => {
+    await setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' })
+    await setDoc(doc(d, 'users/caja2'), { rol: 'caja', estado: 'activo', planta: 'torcuato' })
+    await setDoc(doc(d, 'users/cajam'), { rol: 'caja', estado: 'activo', planta: 'merlo' })
+    await setDoc(doc(d, 'users/mue1'),  { rol: 'muelle', estado: 'activo', planta: 'torcuato' })
+    await setDoc(doc(d, 'users/tes1'),  { rol: 'tesoreria', estado: 'activo' })
+    await setDoc(doc(d, 'users/fac1'),  { rol: 'facturacion', estado: 'activo' })
+    await setDoc(doc(d, 'users/gg'),    { rol: 'gerente_general', estado: 'activo' })
+    await setDoc(doc(d, 'users/log'),   { rol: 'logistica', estado: 'activo' })
+    await setDoc(doc(d, 'users/cli'),   { rol: 'cliente', estado: 'activo' })
+    await setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' })
+  })
+  const cheque = (numero) => ({ numero, bancoCodigo: '', bancoNombre: 'Galicia', fechaEmision: '', fechaAcreditacion: '2026-09-20', dias: 0, importe: 100, cobranzaId: 'cob1', clienteNombre: 'Cli' })
+  const entrega = (extra = {}) => ({
+    numero: 1, codigo: 'ET-DT-000001', fecha: '2026-09-09', plantaId: 'torcuato', estado: 'entregada', destino: 'tesoreria',
+    liquidacionIds: ['2026-09-09_chof1'], rendicionIds: ['2026-09-09_caja1'],
+    liquidaciones: [{ id: '2026-09-09_chof1', codigo: 'LQ-21-000001', fecha: '2026-09-09', choferId: 'chof1', choferNombre: 'C', efectivoRecibido: 1000, incluidaEnCierre: true }],
+    rendiciones: [{ id: '2026-09-09_caja1', codigo: 'RD-DT-000001', fecha: '2026-09-09', sujetoId: 'caja1', sujetoNombre: 'N', efectivoContado: 5000 }],
+    efectivo: { cierresCaja: 5000, liquidacionesSueltas: 0, teorico: 5000 }, efectivoEntregado: 5000,
+    cheques: [cheque('11'), cheque('22')], retenciones: [],
+    entregadoPor: { uid: 'caja1', nombre: 'Nico' }, firmaEntrega: 'data:image/png;base64,AAAA', firmanteEntrega: 'Nico',
+    createdAt: new Date(), recibidoPor: null,
+    ...extra,
+  })
+  const ID = 'entregasTesoreria/2026-09-09_torcuato_1'
+  const confirmacion = (extra = {}) => ({
+    estado: 'confirmada', recibidoPor: { uid: 'tes1', nombre: 'Yanina' }, firmaRecibe: 'data:image/png;base64,BBBB', firmanteRecibe: 'Yanina',
+    efectivoContado: 4990, diferenciaEfectivo: -10, diferencia: { motivo: 'faltante_entrega', nota: '' }, valoresFaltantes: { cantidad: 1, total: 100 },
+    cheques: [{ ...cheque('11'), recibido: true }, { ...cheque('22'), recibido: false, motivoNoEntregado: 'no vino' }], retenciones: [], confirmadaEn: new Date(),
+    ...extra,
+  })
+
+  test('caja de la planta crea la entrega firmada con id determinístico y su uid; otra planta, muelle, tesorería, id inventado o sin firma no', async () => {
+    await seedTodos()
+    await assertFails(setDoc(doc(db('caja1'), ID), entrega({ entregadoPor: { uid: 'caja2', nombre: 'Otro' } })))
+    await assertFails(setDoc(doc(db('caja1'), 'entregasTesoreria/otro'), entrega()))
+    await assertFails(setDoc(doc(db('caja1'), ID), entrega({ firmaEntrega: '' })))
+    await assertFails(setDoc(doc(db('caja1'), ID), entrega({ estado: 'confirmada' })))
+    await assertFails(setDoc(doc(db('caja1'), ID), entrega({ recibidoPor: { uid: 'tes1', nombre: 'Y' } })))
+    await assertFails(setDoc(doc(db('caja1'), ID), entrega({ cheques: 'x' })))
+    await assertFails(setDoc(doc(db('cajam'), ID), entrega({ entregadoPor: { uid: 'cajam', nombre: 'M' } })))
+    await assertFails(setDoc(doc(db('mue1'), ID), entrega({ entregadoPor: { uid: 'mue1', nombre: 'M' } })))
+    await assertFails(setDoc(doc(db('tes1'), ID), entrega({ entregadoPor: { uid: 'tes1', nombre: 'Y' } })))
+    await assertSucceeds(setDoc(doc(db('caja1'), ID), entrega()))
+    await assertSucceeds(setDoc(doc(db('cajam'), 'entregasTesoreria/2026-09-09_merlo_1'), entrega({ plantaId: 'merlo', codigo: 'ET-ML-000001', entregadoPor: { uid: 'cajam', nombre: 'M' } })))
+  })
+
+  test('lectura: caja, tesorería, gerencia y logística leen; facturación, cliente y chofer no', async () => {
+    await seedTodos()
+    await seed((d) => setDoc(doc(d, ID), entrega()))
+    for (const u of ['caja2', 'cajam', 'tes1', 'gg', 'log']) await assertSucceeds(getDoc(doc(db(u), ID)))
+    for (const u of ['fac1', 'cli', 'chof1']) await assertFails(getDoc(doc(db(u), ID)))
+  })
+
+  test('tesorería confirma una vez (su uid, firma, efectivo contado, mismos valores tildados); caja no; no se toca lo entregado; nadie borra', async () => {
+    await seedTodos()
+    await seed((d) => setDoc(doc(d, ID), entrega()))
+    await assertFails(updateDoc(doc(db('caja1'), ID), confirmacion({ recibidoPor: { uid: 'caja1', nombre: 'N' } })))
+    await assertFails(updateDoc(doc(db('tes1'), ID), confirmacion({ recibidoPor: { uid: 'otro', nombre: 'X' } })))
+    await assertFails(updateDoc(doc(db('tes1'), ID), confirmacion({ firmaRecibe: '' })))
+    await assertFails(updateDoc(doc(db('tes1'), ID), confirmacion({ estado: 'entregada' })))
+    await assertFails(updateDoc(doc(db('tes1'), ID), confirmacion({ efectivoEntregado: 1 })))
+    await assertFails(updateDoc(doc(db('tes1'), ID), confirmacion({ cheques: [{ ...cheque('11'), recibido: true }] })))
+    await assertFails(updateDoc(doc(db('tes1'), ID), { estado: 'confirmada' }))
+    await assertSucceeds(updateDoc(doc(db('tes1'), ID), confirmacion()))
+    await assertFails(updateDoc(doc(db('tes1'), ID), confirmacion()))
+    await assertFails(deleteDoc(doc(db('tes1'), ID)))
+    await assertFails(deleteDoc(doc(db('caja1'), ID)))
+  })
+
+  test('el operador también confirma; super_admin y gerente general no la crean', async () => {
+    await seedTodos()
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/sa'), { rol: 'super_admin', estado: 'activo' })
+      await setDoc(doc(d, ID), entrega())
+    })
+    await assertFails(setDoc(doc(db('gg'), 'entregasTesoreria/2026-09-09_torcuato_2'), entrega({ numero: 2, entregadoPor: { uid: 'gg', nombre: 'G' } })))
+    await assertFails(updateDoc(doc(db('gg'), ID), confirmacion({ recibidoPor: { uid: 'gg', nombre: 'G' } })))
+    await assertSucceeds(updateDoc(doc(db('sa'), ID), confirmacion({ recibidoPor: { uid: 'sa', nombre: 'SA' } })))
+  })
+
+  test('contador entregaCounter_{planta}: solo caja de esa planta, y solo avanza', async () => {
+    await seedTodos()
+    await assertSucceeds(setDoc(doc(db('caja1'), 'config/entregaCounter_torcuato'), { next: 2 }))
+    await assertFails(setDoc(doc(db('cajam'), 'config/entregaCounter_torcuato'), { next: 3 }))
+    await assertSucceeds(updateDoc(doc(db('caja2'), 'config/entregaCounter_torcuato'), { next: 3 }))
+    await assertFails(updateDoc(doc(db('caja2'), 'config/entregaCounter_torcuato'), { next: 2 }))
+    await assertFails(setDoc(doc(db('tes1'), 'config/entregaCounter_merlo'), { next: 2 }))
+    await assertFails(setDoc(doc(db('mue1'), 'config/entregaCounter_torcuato'), { next: 4 }))
+  })
+})

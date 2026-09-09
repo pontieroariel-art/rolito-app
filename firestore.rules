@@ -579,12 +579,13 @@ service cloud.firestore {
       // solo puede avanzar `next` (la transacción de crearRemitoCarga crea el
       // doc en el primer uso con next >= 2: número emitido + 1).
       // Mismo esquema para el contador de rendiciones (cierre de caja por
-      // persona, rendicionCounter_{planta}, 2026-09-09).
+      // persona, rendicionCounter_{planta}) y el de entregas a tesorería
+      // (entregaCounter_{planta}), 2026-09-09.
       allow create: if request.auth != null
-        && docId.matches('(cargaCounter|rendicionCounter)_(torcuato|merlo)') && isCajaDe(docId.split('_')[1])
+        && docId.matches('(cargaCounter|rendicionCounter|entregaCounter)_(torcuato|merlo)') && isCajaDe(docId.split('_')[1])
         && request.resource.data.next is int && request.resource.data.next > 1;
       allow update: if request.auth != null
-        && docId.matches('(cargaCounter|rendicionCounter)_(torcuato|merlo)') && isCajaDe(docId.split('_')[1])
+        && docId.matches('(cargaCounter|rendicionCounter|entregaCounter)_(torcuato|merlo)') && isCajaDe(docId.split('_')[1])
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next'])
         && request.resource.data.next > resource.data.next;
       // Contador de LIQUIDACIONES por persona (liquidacionCounter_{serie},
@@ -1303,6 +1304,47 @@ service cloud.firestore {
         && resource.data.entregaId == null
         && request.resource.data.entregaId is string
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['entregaId']);
+
+      allow delete: if false;
+    }
+
+    // ── Entregas de caja a tesorería (2026-09-09) ─────────────────────────
+    // Caja de la planta la crea (firmada, con lo que manda) y la transacción
+    // marca entregaId en cada liquidación/cierre incluido. Tesorería (o el
+    // operador) la confirma una sola vez: entregada → confirmada con su uid,
+    // firma, efectivo contado y los mismos valores tildados. Nadie borra.
+    match /entregasTesoreria/{entregaId} {
+      allow read: if request.auth != null
+        && (isCaja() || isTesoreria() || isOperator() || isManager() || isGerenteGeneral());
+
+      allow create: if request.auth != null && isCajaDe(request.resource.data.plantaId)
+        && request.resource.data.entregadoPor.uid == request.auth.uid
+        && request.resource.data.estado == 'entregada'
+        && request.resource.data.destino == 'tesoreria'
+        && request.resource.data.fecha is string
+        && request.resource.data.numero is int && request.resource.data.numero > 0
+        && request.resource.data.codigo is string
+        && entregaId == request.resource.data.fecha + '_' + request.resource.data.plantaId + '_' + string(request.resource.data.numero)
+        && request.resource.data.liquidacionIds is list
+        && request.resource.data.rendicionIds is list
+        && request.resource.data.cheques is list
+        && request.resource.data.retenciones is list
+        && request.resource.data.efectivoEntregado is number
+        && request.resource.data.firmaEntrega is string && request.resource.data.firmaEntrega.size() > 0
+        && request.resource.data.recibidoPor == null;
+
+      allow update: if request.auth != null && (isTesoreria() || isOperator())
+        && resource.data.estado == 'entregada'
+        && request.resource.data.estado == 'confirmada'
+        && request.resource.data.recibidoPor is map
+        && request.resource.data.recibidoPor.uid == request.auth.uid
+        && request.resource.data.firmaRecibe is string && request.resource.data.firmaRecibe.size() > 0
+        && request.resource.data.efectivoContado is number
+        && request.resource.data.cheques is list && request.resource.data.cheques.size() == resource.data.cheques.size()
+        && request.resource.data.retenciones is list && request.resource.data.retenciones.size() == resource.data.retenciones.size()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+             ['estado', 'recibidoPor', 'firmaRecibe', 'firmanteRecibe', 'efectivoContado', 'diferenciaEfectivo',
+              'diferencia', 'valoresFaltantes', 'confirmadaEn', 'cheques', 'retenciones']);
 
       allow delete: if false;
     }

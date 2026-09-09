@@ -718,6 +718,48 @@ export interface Rendicion {
   entregaId:     string | null
 }
 
+// ── Entrega de caja a tesorería (2026-09-09) ────────────────────────────────
+// Caja junta el efectivo y los valores del día (liquidaciones de repartidores
+// que recibió + sus cierres de caja), firma y los manda; tesorería cuenta,
+// tilda cada valor y firma. Doble firma, acta PDF. Lógica pura en
+// utils/entregaTesoreria.ts (dedupe: el cierre de caja ya incluye el efectivo
+// de las liquidaciones que ese cajero cerró).
+export type EstadoEntregaTesoreria = 'entregada' | 'confirmada'
+
+export interface EntregaTesoreria {
+  id:        string                  // {fecha}_{plantaId}_{numero}
+  numero:    number                  // correlativo por planta (config/entregaCounter_{plantaId})
+  codigo:    string                  // "ET-DT-000045"
+  fecha:     string                  // yyyy-MM-dd (día de la entrega)
+  plantaId:  PlantaId
+  estado:    EstadoEntregaTesoreria
+  destino:   'tesoreria'
+  liquidacionIds: string[]
+  rendicionIds:   string[]
+  // Snapshots de lo incluido (para el acta y el historial sin releer)
+  liquidaciones: { id: string; codigo: string | null; fecha: string; choferId: string; choferNombre: string; efectivoRecibido: number; incluidaEnCierre: boolean }[]
+  rendiciones:   { id: string; codigo: string; fecha: string; sujetoId: string; sujetoNombre: string; efectivoContado: number }[]
+  efectivo: { cierresCaja: number; liquidacionesSueltas: number; teorico: number }
+  efectivoEntregado: number          // lo que caja dice que manda
+  // Valores en papel que viajan. Nacen SIN `recibido` (tesorería todavía no los
+  // contó); al confirmar, cada uno queda con recibido true/false + motivo.
+  cheques:     ChequeRendido[]
+  retenciones: RetencionRendida[]
+  entregadoPor:    { uid: string; nombre: string }
+  firmaEntrega:    string            // dataURL PNG de quien entrega (caja)
+  firmanteEntrega: string
+  createdAt:       Timestamp
+  // Confirmación de tesorería
+  recibidoPor:        { uid: string; nombre: string } | null
+  firmaRecibe?:       string
+  firmanteRecibe?:    string
+  efectivoContado?:   number
+  diferenciaEfectivo?: number        // contado − entregado
+  diferencia?:        { motivo: MotivoDiferenciaLiquidacion; nota: string }
+  valoresFaltantes?:  { cantidad: number; total: number }
+  confirmadaEn?:      Timestamp
+}
+
 export interface DeliveryAddress {
   id: string
   nombre: string
