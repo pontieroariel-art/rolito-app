@@ -4,6 +4,7 @@ import { ArrowLeft, History, ShieldCheck } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { subscribeRendicionesEnRango } from '@/services/rendicionService'
 import { formatoARS } from '@/utils/money'
+import { codigoDeEntregaId } from '@/utils/entregaTesoreria'
 import { useDiaActual } from '@/hooks/useDiaActual'
 import { MOTIVOS_DIFERENCIA_LIQUIDACION, PLANTAS, type Rendicion } from '@/types'
 
@@ -97,7 +98,7 @@ export default function RendicionesHistorialPage() {
       <section className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-4 overflow-x-auto">
         <p className="text-sm font-semibold text-gray-900 mb-2">Cierres</p>
         <table className="w-full min-w-[820px]">
-          <thead><tr>{['Fecha', 'Código', 'Cajero', 'Ventas', 'Cobranzas', 'A rendir', 'Contado', 'Diferencia', 'Motivo', 'Validada'].map((h, i) => <th key={h} className={`${th} ${i >= 3 && i <= 7 ? 'text-right' : ''}`}>{h}</th>)}</tr></thead>
+          <thead><tr>{['Fecha', 'Código', 'Cajero', 'Ventas', 'Cobranzas', 'A rendir', 'Contado', 'Diferencia', 'Motivo', 'Validada', 'Entrega'].map((h, i) => <th key={h} className={`${th} ${i >= 3 && i <= 7 ? 'text-right' : ''}`}>{h}</th>)}</tr></thead>
           <tbody>
             {filas.map((r) => (
               <tr key={r.id}>
@@ -111,9 +112,10 @@ export default function RendicionesHistorialPage() {
                 <td className={`${td} text-right`}>{dif(r.diferenciaEfectivo)}</td>
                 <td className={`${td} text-gray-600`}>{r.diferencia ? `${MOTIVOS_DIFERENCIA_LIQUIDACION[r.diferencia.motivo]}${r.diferencia.nota ? ` · ${r.diferencia.nota}` : ''}` : ''}</td>
                 <td className={td}>{r.validacion ? <span className="inline-flex items-center gap-1 text-xs text-[#0F6B4E]"><ShieldCheck size={13} /> {r.validacion.nombre}</span> : <span className="text-xs text-amber-700">Pendiente</span>}</td>
+                <td className={`${td} text-xs`}>{r.entregaId ? <span className="text-[#0F6B4E]">{codigoDeEntregaId(r.entregaId)}</span> : <span className="text-amber-700">en caja</span>}</td>
               </tr>
             ))}
-            {filas.length === 0 && <tr><td className={`${td} text-gray-500`} colSpan={10}>Sin cierres.</td></tr>}
+            {filas.length === 0 && <tr><td className={`${td} text-gray-500`} colSpan={11}>Sin cierres.</td></tr>}
           </tbody>
         </table>
       </section>

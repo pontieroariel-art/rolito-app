@@ -8,11 +8,13 @@ import { subscribeCobranzasDelDia } from '@/services/cobranzaService'
 import { subscribeRemitosCargaDelDia } from '@/services/remitoCargaService'
 import { subscribeLiquidacionesEnRango } from '@/services/liquidacionService'
 import { subscribeRendicionesEnRango } from '@/services/rendicionService'
+import { subscribeEntregasEnRango } from '@/services/entregaTesoreriaService'
+import { esperadoTesoreria } from '@/utils/entregaTesoreria'
 import { addDaysStr } from '@/utils/helpers'
 import { formatoARS } from '@/utils/money'
 import { resumenLive, type FilaCalle, type FilaVentanilla, type PlataCobranzas, type PlataVentas } from '@/utils/tesoreriaLive'
 import { Plegable } from '@/components/ui/Plegable'
-import { PLANTAS, type Cobranza, type Liquidacion, type PlantaId, type RemitoCarga, type Rendicion, type VentaCamion, type VentaVentanilla } from '@/types'
+import { PLANTAS, type Cobranza, type EntregaTesoreria, type Liquidacion, type PlantaId, type RemitoCarga, type Rendicion, type VentaCamion, type VentaVentanilla } from '@/types'
 
 // Tablero en vivo de tesorería (2026-09-09): lo que se está vendiendo en la
 // calle y en las ventanillas de Torcuato y Merlo, lo que cobran choferes y
@@ -29,6 +31,7 @@ export default function TesoreriaLivePage() {
   const [remM, setRemM] = useState<RemitoCarga[]>([])
   const [liquidaciones, setLiquidaciones] = useState<Liquidacion[]>([])
   const [rendiciones, setRendiciones] = useState<Rendicion[]>([])
+  const [entregas, setEntregas] = useState<EntregaTesoreria[]>([])
   const [ultimoCambio, setUltimoCambio] = useState<Date | null>(null)
 
   useEffect(() => {
@@ -44,6 +47,7 @@ export default function TesoreriaLivePage() {
       subscribeRemitosCargaDelDia('merlo', fecha, tick(setRemM)),
       subscribeLiquidacionesEnRango(dia, manana, tick(setLiquidaciones)),
       subscribeRendicionesEnRango(dia, manana, tick(setRendiciones)),
+      subscribeEntregasEnRango(dia, manana, tick(setEntregas)),
     ]
     return () => offs.forEach((off) => off())
   }, [dia])
@@ -53,6 +57,8 @@ export default function TesoreriaLivePage() {
     [ventasCamion, vvT, vvM, cobranzas, remT, remM, liquidaciones, rendiciones],
   )
   const t = r.totales
+  // Entregas de caja a tesorería del día (2026-09-09): esperado vs pendiente / entregado / confirmado.
+  const esp = useMemo(() => esperadoTesoreria(liquidaciones, rendiciones, entregas), [liquidaciones, rendiciones, entregas])
   const inputClass = 'bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'
 
   return (
@@ -68,12 +74,13 @@ export default function TesoreriaLivePage() {
         </div>
       </div>
 
-      <section className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <section className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
         <Tile color="#1D6FA8" titulo="Ventas calle" total={t.ventasCalle.contado.total + t.ventasCalle.promo.total} lineas={[['Contado efectivo', formatoARS(t.ventasCalle.contado.efectivo)], ['Promo efectivo', formatoARS(t.ventasCalle.promo.efectivo)], ['Cta. cte.', formatoARS(t.ventasCalle.contado.cuentaCorriente + t.ventasCalle.promo.cuentaCorriente)], ['Ventas', String(t.ventasCalle.contado.cantidad + t.ventasCalle.promo.cantidad)]]} />
         <Tile color="#1D6FA8" titulo="Ventas ventanilla" total={t.ventasVentanilla.contado.total + t.ventasVentanilla.promo.total} lineas={[['Contado efectivo', formatoARS(t.ventasVentanilla.contado.efectivo)], ['Promo efectivo', formatoARS(t.ventasVentanilla.promo.efectivo)], ['Cta. cte.', formatoARS(t.ventasVentanilla.contado.cuentaCorriente + t.ventasVentanilla.promo.cuentaCorriente)], ['Ventas', String(t.ventasVentanilla.contado.cantidad + t.ventasVentanilla.promo.cantidad)]]} />
         <Tile color="#0F6B4E" titulo="Cobranzas calle" total={t.cobranzas.calle.total} lineas={lineasCob(t.cobranzas.calle)} />
         <Tile color="#0F6B4E" titulo="Cobranzas supervisores" total={t.cobranzas.supervisores.total} lineas={lineasCob(t.cobranzas.supervisores)} />
         <Tile color="#B4531A" titulo="Efectivo del día" total={t.efectivoDelDia} lineas={[['Ventas + cobranzas', 'todos los puntos'], ['Cobranzas mostrador', formatoARS(t.cobranzas.ventanilla.efectivo)]]} />
+        <Tile color="#6B21A8" titulo="Tiene que llegarme" total={esp.esperado.efectivo} lineas={[['Todavía en caja', formatoARS(esp.pendiente.efectivo)], ['Entregado, sin confirmar', formatoARS(esp.entregado.efectivo)], ['Confirmado', formatoARS(esp.confirmado.efectivo)], [`Cheques (${esp.esperado.cheques.cantidad}) · Ret. (${esp.esperado.retenciones.cantidad})`, formatoARS(esp.esperado.cheques.total + esp.esperado.retenciones.total)]]} to="/tesoreria/entregas" />
       </section>
 
       <Plegable titulo={`Calle · ${r.calle.length} camiones`} abiertoInicial extra={<span className="text-xs text-gray-500">{r.calle.filter((f) => f.estado === 'liquidado').length} liquidados</span>}>
@@ -114,7 +121,7 @@ const TD = 'px-2 py-1.5 border-b border-gray-100 text-sm'
 
 const lineasCob = (c: PlataCobranzas): Array<[string, string]> => [['Efectivo', formatoARS(c.efectivo)], ['Transferencia', formatoARS(c.transferencia)], [`Cheques (${c.cheques.cantidad})`, formatoARS(c.cheques.total)], [`Retenciones (${c.retenciones.cantidad})`, formatoARS(c.retenciones.total)]]
 
-function Tile({ color, titulo, total, lineas }: { color: string; titulo: string; total: number; lineas: Array<[string, string]> }) {
+function Tile({ color, titulo, total, lineas, to }: { color: string; titulo: string; total: number; lineas: Array<[string, string]>; to?: string }) {
   return (
     <div className="rounded-xl border border-[#D3D1C7] bg-white p-3 space-y-1.5" style={{ borderTop: `4px solid ${color}` }}>
       <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color }}>{titulo}</p>
@@ -122,6 +129,7 @@ function Tile({ color, titulo, total, lineas }: { color: string; titulo: string;
       <div className="text-xs text-gray-600 space-y-0.5">
         {lineas.map(([k, v]) => <p key={k} className="flex justify-between gap-2"><span>{k}</span><b className="text-gray-800 tabular-nums">{v}</b></p>)}
       </div>
+      {to && <Link to={to} className="block text-xs text-accent underline underline-offset-2">Ver entregas</Link>}
     </div>
   )
 }

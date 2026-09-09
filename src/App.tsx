@@ -102,6 +102,7 @@ const VentanillaPage    = lazy(() => import('./pages/expedicion/VentanillaPage')
 const CobranzasPage     = lazy(() => import('./pages/expedicion/CobranzasPage'))
 const RendicionesPage   = lazy(() => import('./pages/expedicion/RendicionesPage'))
 const EntregasPage      = lazy(() => import('./pages/expedicion/EntregasPage'))
+const EntregasTesoreriaPage = lazy(() => import('./pages/tesoreria/EntregasTesoreriaPage'))
 const RendicionesHistorialPage = lazy(() => import('./pages/expedicion/RendicionesHistorialPage'))
 const TesoreriaLayout          = lazy(() => import('./components/tesoreria/TesoreriaLayout'))
 const TesoreriaLivePage        = lazy(() => import('./pages/tesoreria/TesoreriaLivePage'))
@@ -450,6 +451,8 @@ function AppContent() {
             <Route path="/tesoreria"                       element={<TesoreriaLivePage />} />
             <Route path="/tesoreria/rendiciones"           element={<RendicionesTesoreriaPage />} />
             <Route path="/tesoreria/rendiciones/historial" element={<RendicionesHistorialPage />} />
+            {/* Entregas de caja: tesorería cuenta, tilda los valores y firma (2026-09-09). */}
+            <Route path="/tesoreria/entregas"              element={<EntregasTesoreriaPage />} />
             {/* La liquidación del repartidor con todo el detalle, en modo lectura (a tesorería le rinden). */}
             <Route path="/tesoreria/liquidaciones"           element={<LiquidacionesPage />} />
             <Route path="/tesoreria/liquidaciones/historial" element={<LiquidacionesHistorialPage />} />

@@ -1,5 +1,6 @@
 import type { ChequeRendido, EntregaTesoreria, Liquidacion, PlantaId, Rendicion, RetencionRendida } from '@/types'
 import { sumaImportes } from './medios'
+import { PLANTA_INFO } from './constants'
 import { claveCheque, claveRetencion, esRecibido } from './valoresEnPapel'
 
 // Entrega de caja a tesorería (2026-09-09): lo que la ventanilla junta en el
@@ -9,6 +10,13 @@ import { claveCheque, claveRetencion, esRecibido } from './valoresEnPapel'
 // (`Rendicion.efectivoContado`) YA incluye el efectivo de las liquidaciones
 // que ese cajero cerró (`recibido.efectivo`), así que una liquidación cubierta
 // por un cierre (`rendicion.liquidacionesIds`) no vuelve a sumar.
+
+/** "ET-DT-000045" desde el id `{fecha}_{planta}_{numero}` (sin releer el doc). */
+export function codigoDeEntregaId(id: string): string {
+  const [, planta, n] = id.split('_')
+  const info = PLANTA_INFO[planta as PlantaId]
+  return info ? `ET-${info.prefijoCodigo}-${String(Number(n)).padStart(6, '0')}` : id
+}
 
 export interface Monto { efectivo: number; cheques: { cantidad: number; total: number }; retenciones: { cantidad: number; total: number } }
 export const MONTO_CERO: Monto = { efectivo: 0, cheques: { cantidad: 0, total: 0 }, retenciones: { cantidad: 0, total: 0 } }

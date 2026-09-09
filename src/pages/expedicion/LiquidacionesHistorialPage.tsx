@@ -4,6 +4,7 @@ import { ArrowLeft, History } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { subscribeLiquidacionesEnRango } from '../../services/liquidacionService'
 import { formatoARS } from '../../utils/money'
+import { codigoDeEntregaId } from '@/utils/entregaTesoreria'
 import { useDiaActual } from '../../hooks/useDiaActual'
 import { Liquidacion, MOTIVOS_DIFERENCIA_LIQUIDACION, PLANTAS } from '../../types'
 
@@ -95,7 +96,7 @@ export default function LiquidacionesHistorialPage() {
       <section className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-4 overflow-x-auto">
         <p className="text-sm font-semibold text-gray-900 mb-2">Cierres</p>
         <table className="w-full min-w-[760px]">
-          <thead><tr>{['Fecha', 'Código', 'Repartidor', 'Ventas', 'Cobranzas', 'A rendir', 'Recibido', 'Diferencia', 'Valores falt.', 'Motivo', 'Cerró'].map((h, i) => <th key={h} className={`${th} ${i >= 3 && i <= 8 ? 'text-right' : ''}`}>{h}</th>)}</tr></thead>
+          <thead><tr>{['Fecha', 'Código', 'Repartidor', 'Ventas', 'Cobranzas', 'A rendir', 'Recibido', 'Diferencia', 'Valores falt.', 'Motivo', 'Cerró', 'Entrega'].map((h, i) => <th key={h} className={`${th} ${i >= 3 && i <= 8 ? 'text-right' : ''}`}>{h}</th>)}</tr></thead>
           <tbody>
             {filas.map((l) => (
               <tr key={l.id}>
@@ -110,9 +111,10 @@ export default function LiquidacionesHistorialPage() {
                 <td className={`${td} text-right tabular-nums`}>{l.valoresFaltantes?.cantidad ? <span className="text-red-600 font-semibold">{l.valoresFaltantes.cantidad} · {formatoARS(l.valoresFaltantes.total)}</span> : '—'}</td>
                 <td className={`${td} text-gray-600`}>{l.diferencia ? `${MOTIVOS_DIFERENCIA_LIQUIDACION[l.diferencia.motivo]}${l.diferencia.nota ? ` · ${l.diferencia.nota}` : ''}` : ''}</td>
                 <td className={`${td} text-gray-600`}>{l.cerradaPor.nombre}{l.firmanteRepartidor ? ' · firmó' : ''}{l.firmaRecibe ? ' · recibió' : ''}</td>
+                <td className={`${td} text-xs`}>{l.entregaId ? <span className="text-[#0F6B4E]">{codigoDeEntregaId(l.entregaId)}</span> : l.entregaId === null ? <span className="text-amber-700">en caja</span> : '—'}</td>
               </tr>
             ))}
-            {filas.length === 0 && <tr><td className={`${td} text-gray-500`} colSpan={11}>Sin cierres.</td></tr>}
+            {filas.length === 0 && <tr><td className={`${td} text-gray-500`} colSpan={12}>Sin cierres.</td></tr>}
           </tbody>
         </table>
       </section>
