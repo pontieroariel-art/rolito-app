@@ -29,6 +29,7 @@ const pedido_1 = require("../services/tango/pedido");
 const tangoSync_1 = require("./tangoSync");
 const tangoSaldos_1 = require("./tangoSaldos");
 const empresas_1 = require("../services/tango/empresas");
+const emisiones_1 = require("../services/tango/emisiones");
 const clientes_1 = require("../services/tango/clientes");
 const auth_1 = require("firebase-admin/auth");
 const rateLimit_1 = require("../rateLimit");
@@ -347,6 +348,43 @@ function agruparDeudaPorCliente(filas, empresa, porCodigo) {
     }
     return { porCliente, sinCliente };
 }
+/**
+ * Completa la fecha de emisión de los comprobantes en deuda de una empresa
+ * (ver services/tango/emisiones.ts): lee el mapa guardado, pide a la Live de
+ * detalle solo los días nuevos (o una ventana más ancha si quedó alguno sin
+ * fecha), y guarda el mapa podado a lo que sigue en deuda. Nunca tira: si la
+ * Live falla, los comprobantes salen sin fecha como hasta ahora.
+ */
+async function completarFechasEmision(db, tango, cfg, company, empresa, comprobantes, hoy = new Date()) {
+    const ref = db.doc((0, emisiones_1.rutaEmisiones)(empresa));
+    let mapa;
+    try {
+        mapa = (await ref.get()).data();
+    }
+    catch {
+        mapa = undefined;
+    }
+    const fechas = { ...(mapa?.fechas ?? {}) };
+    let faltantes = (0, emisiones_1.completarEmision)(comprobantes, fechas);
+    let pedidas = 0;
+    const rango = (0, emisiones_1.rangoAPedir)(mapa, hoy, faltantes);
+    if (rango) {
+        try {
+            const proceso = cfg.saldos?.porEmpresa?.[empresa]?.procesoDetalleComprobantes ?? cfg.saldos?.procesoDetalleComprobantes ?? emisiones_1.PROCESO_DETALLE_COMPROBANTES_DEFAULT;
+            const filas = await tango.live(company, proceso, (0, emisiones_1.ddMMyyyy)(rango.desde), (0, emisiones_1.ddMMyyyy)(rango.hasta));
+            pedidas = filas.length;
+            Object.assign(fechas, (0, emisiones_1.fechasDeFilasDetalle)(filas));
+            faltantes = (0, emisiones_1.completarEmision)(comprobantes, fechas);
+        }
+        catch (e) {
+            v2_1.logger.warn(`[tango] fechas de emisión de ${empresa}: no se pudo leer el detalle de comprobantes (${e.message})`);
+            return { sinFecha: faltantes.length, pedidas };
+        }
+    }
+    const podado = (0, emisiones_1.podarMapa)(fechas, comprobantes.map((c) => c.idComprobanteTango));
+    await ref.set({ fechas: podado, hastaFecha: (0, emisiones_1.iso)(hoy), actualizadoEn: firestore_2.FieldValue.serverTimestamp() }).catch(() => undefined);
+    return { sinFecha: faltantes.length, pedidas };
+}
 /** Todas las filas de deuda (vencidas + a vencer) de una empresa. */
 async function filasDeuda(tango, cfg, company, empresa = 'redonhielo') {
     const porEmpresa = cfg.saldos?.porEmpresa?.[empresa] ?? {};
@@ -381,6 +419,11 @@ async function sincronizarSaldos(db, tango, cfg) {
             re.filasSinCliente = sinCliente;
             if (sinCliente)
                 v2_1.logger.warn(`[tango] saldos de ${empresa}: ${sinCliente} fila(s) de deuda sin ID_GVA14 ni código conocido (cliente sin vincular en la app)`);
+            // Fecha de emisión (las Live de deudas no la traen): del detalle de comprobantes, cacheada.
+            const emis = await completarFechasEmision(db, tango, cfg, company, empresa, [...porCliente.values()].flatMap((r) => r.comprobantes));
+            re.sinFechaEmision = emis.sinFecha;
+            if (emis.pedidas)
+                v2_1.logger.info(`[tango] fechas de emisión de ${empresa}: ${emis.pedidas} renglones leídos, ${emis.sinFecha} comprobante(s) siguen sin fecha`);
             // Agrupar por cuenta de la app para que los códigos de un mismo CUIT
             // caigan en el mismo lote; los no vinculados van al final (skippedNoMatch).
             const grupos = new Map();
@@ -512,6 +555,13 @@ exports.onConsultaSaldoPendiente = (0, firestore_1.onDocumentCreated)({ document
         }
         const filas = (await filasDeuda(tango, cfg, companyDe(cfg, empresa), empresa)).filter((f) => { const id = idGva14DeFila(f, porCodigo); return id !== null && ids.has(id); });
         const comprobantes = filas.map((f) => ({ ...recortarComprobante(f), codigoTango: parseCliente((0, pedido_1.prop)(f, 'CLIENTE')).codigo }));
+        // Fecha de emisión desde el mapa cacheado (sin pedirle nada más a Tango: la sync horaria lo mantiene).
+        try {
+            const mapa = (await db.doc((0, emisiones_1.rutaEmisiones)(empresa)).get()).data();
+            if (mapa?.fechas)
+                (0, emisiones_1.completarEmision)(comprobantes, mapa.fechas);
+        }
+        catch { /* sin fecha, como antes */ }
         const saldoTotal = Math.round(comprobantes.reduce((s, c) => s + c.saldoPendiente, 0) * 100) / 100;
         // Si mientras tanto la respondió otro (bridge todavía prendido), no pisar.
         await db.runTransaction(async (tx) => {

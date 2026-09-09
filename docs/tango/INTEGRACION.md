@@ -1783,3 +1783,27 @@ interruptor `facturasEnabled`) → write-back a `anulacionesVentanilla/{id}.tang
 El "(51016) ya existe" sigue valiendo como idempotencia.
 
 Para reintentar una NC que quedó en error: `scripts/tango/reintentar-outbox.mjs`.
+
+## 34. Fecha de emisión de los comprobantes en deuda (2026-09-09)
+
+Los cobradores pidieron ver la fecha de emisión junto al vencimiento. Las Live de deudas
+(17953 / 17955) **no la traen y la API devuelve siempre el diseño de fábrica** (agregar la
+columna desde Configurar → Columnas no cambia la respuesta; verificado con
+`scripts/tango/diagnosticar-deuda-cliente.mjs`). Se toma de la Live **17943 "Detalle de
+comprobantes"** (renglones, consultable por rango de fecha de emisión, comparte `ID_GVA12`):
+
+- `services/tango/emisiones.ts`: mapa `tangoEmisiones/{empresa}` = `{ fechas: { ID_GVA12 → yyyy-mm-dd }, hastaFecha }`.
+- En cada sync de saldos, `completarFechasEmision` completa `fechaEmision` por `ID_GVA12` desde
+  el mapa; pide a 17943 solo desde `hastaFecha − 3 días` hasta hoy (la primera vez, 400 días
+  hacia atrás); si algún comprobante en deuda sigue sin fecha, amplía la ventana desde 120 días
+  antes de su vencimiento. El mapa se poda a los comprobantes que siguen en deuda. Si la Live
+  falla, los comprobantes salen sin fecha como antes (nunca frena la sync).
+- La consulta on-demand (`onConsultaSaldoPendiente`) completa desde el mapa sin pedir nada.
+- Config opcional: `config/tango.saldos.procesoDetalleComprobantes` (y por empresa).
+- Front: la fila del comprobante muestra "Emitida dd/mm · Vto. dd/mm · N días de atraso"
+  (pantalla de cobro y ficha del cliente).
+
+**Fix del mismo día:** la Live 17955 (a vencer) no trae `ID_GVA14`; hasta el 2026-09-09 esas
+filas se descartaban y ningún cliente veía sus facturas no vencidas en la app. Ahora se
+atribuyen por el código de `CLIENTE` ("PA.003 - …") con el índice de vinculados
+(`idGva14DeFila`). Tras el fix: Redonhielo 545 → 686 clientes con deuda, Rolito 95 → 123.

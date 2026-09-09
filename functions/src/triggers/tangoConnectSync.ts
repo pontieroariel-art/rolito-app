@@ -20,6 +20,10 @@ import type { ConfigTango } from '../services/tango/writers'
 import { indiceUsuariosClientes, procesarLoteClientesTango, type TangoClienteRow, type ResultadoSync } from './tangoSync'
 import { descuentosPendientes, indiceClientesTango, procesarLoteSaldos, type TangoSaldoRow, type ComprobanteSaldoRow } from './tangoSaldos'
 import { EMPRESAS, tangoIdsDe, type Empresa } from '../services/tango/empresas'
+import {
+  PROCESO_DETALLE_COMPROBANTES_DEFAULT, completarEmision, ddMMyyyy as ddMMyyyyEmision, fechasDeFilasDetalle, iso as isoEmision,
+  podarMapa, rangoAPedir, rutaEmisiones, type MapaEmisiones,
+} from '../services/tango/emisiones'
 import { candidatosAlta, corridaConfiable, decidirBaja, type EstadoVinculo, type MotivoSinAlta } from '../services/tango/clientes'
 import { getAuth } from 'firebase-admin/auth'
 import { assertRateLimit } from '../rateLimit'
@@ -42,7 +46,9 @@ type ConfigSync = ConfigTango & {
   connectBaseUrl?: string
   saldos?: {
     procesoDeudasVencidas?: number; procesoDeudasAVencer?: number; fromDate?: string
-    porEmpresa?: Partial<Record<Empresa, { procesoDeudasVencidas?: number; procesoDeudasAVencer?: number; fromDate?: string }>>
+    /** Live "Detalle de comprobantes" (default 17943): de ahí sale la fecha de emisión. */
+    procesoDetalleComprobantes?: number
+    porEmpresa?: Partial<Record<Empresa, { procesoDeudasVencidas?: number; procesoDeudasAVencer?: number; fromDate?: string; procesoDetalleComprobantes?: number }>>
   }
   // Llaves de apagado por si hay que volver al bridge de la VM: default encendido.
   syncCloud?: { clientes?: boolean; saldos?: boolean; consultas?: boolean }
@@ -378,6 +384,41 @@ export function agruparDeudaPorCliente(filas: Record<string, unknown>[], empresa
   return { porCliente, sinCliente }
 }
 
+/**
+ * Completa la fecha de emisión de los comprobantes en deuda de una empresa
+ * (ver services/tango/emisiones.ts): lee el mapa guardado, pide a la Live de
+ * detalle solo los días nuevos (o una ventana más ancha si quedó alguno sin
+ * fecha), y guarda el mapa podado a lo que sigue en deuda. Nunca tira: si la
+ * Live falla, los comprobantes salen sin fecha como hasta ahora.
+ */
+async function completarFechasEmision(
+  db: Firestore, tango: TangoClient, cfg: ConfigSync, company: number, empresa: Empresa,
+  comprobantes: ComprobanteSaldoRow[], hoy = new Date(),
+): Promise<{ sinFecha: number; pedidas: number }> {
+  const ref = db.doc(rutaEmisiones(empresa))
+  let mapa: MapaEmisiones | undefined
+  try { mapa = (await ref.get()).data() as MapaEmisiones | undefined } catch { mapa = undefined }
+  const fechas: Record<string, string> = { ...(mapa?.fechas ?? {}) }
+  let faltantes = completarEmision(comprobantes, fechas)
+  let pedidas = 0
+  const rango = rangoAPedir(mapa, hoy, faltantes)
+  if (rango) {
+    try {
+      const proceso = cfg.saldos?.porEmpresa?.[empresa]?.procesoDetalleComprobantes ?? cfg.saldos?.procesoDetalleComprobantes ?? PROCESO_DETALLE_COMPROBANTES_DEFAULT
+      const filas = await tango.live(company, proceso, ddMMyyyyEmision(rango.desde), ddMMyyyyEmision(rango.hasta))
+      pedidas = filas.length
+      Object.assign(fechas, fechasDeFilasDetalle(filas))
+      faltantes = completarEmision(comprobantes, fechas)
+    } catch (e) {
+      logger.warn(`[tango] fechas de emisión de ${empresa}: no se pudo leer el detalle de comprobantes (${(e as Error).message})`)
+      return { sinFecha: faltantes.length, pedidas }
+    }
+  }
+  const podado = podarMapa(fechas, comprobantes.map((c) => c.idComprobanteTango))
+  await ref.set({ fechas: podado, hastaFecha: isoEmision(hoy), actualizadoEn: FieldValue.serverTimestamp() }).catch(() => undefined)
+  return { sinFecha: faltantes.length, pedidas }
+}
+
 /** Todas las filas de deuda (vencidas + a vencer) de una empresa. */
 async function filasDeuda(tango: TangoClient, cfg: ConfigSync, company: number, empresa: Empresa = 'redonhielo'): Promise<Record<string, unknown>[]> {
   const porEmpresa = cfg.saldos?.porEmpresa?.[empresa] ?? {}
@@ -402,6 +443,8 @@ export interface ResumenSaldosEmpresa {
   vaciados: number
   /** Filas de deuda que no se pudieron atribuir a un cliente (sin ID_GVA14 y código no vinculado). */
   filasSinCliente?: number
+  /** Comprobantes en deuda que quedaron sin fecha de emisión (no aparecieron en el detalle de comprobantes). */
+  sinFechaEmision?: number
   error?: string
 }
 
@@ -429,6 +472,10 @@ export async function sincronizarSaldos(db: Firestore, tango: TangoClient, cfg: 
       const { porCliente, sinCliente } = agruparDeudaPorCliente(filas, empresa, mapaPorCodigo(indice[empresa]))
       re.filasSinCliente = sinCliente
       if (sinCliente) logger.warn(`[tango] saldos de ${empresa}: ${sinCliente} fila(s) de deuda sin ID_GVA14 ni código conocido (cliente sin vincular en la app)`)
+      // Fecha de emisión (las Live de deudas no la traen): del detalle de comprobantes, cacheada.
+      const emis = await completarFechasEmision(db, tango, cfg, company, empresa, [...porCliente.values()].flatMap((r) => r.comprobantes))
+      re.sinFechaEmision = emis.sinFecha
+      if (emis.pedidas) logger.info(`[tango] fechas de emisión de ${empresa}: ${emis.pedidas} renglones leídos, ${emis.sinFecha} comprobante(s) siguen sin fecha`)
       // Agrupar por cuenta de la app para que los códigos de un mismo CUIT
       // caigan en el mismo lote; los no vinculados van al final (skippedNoMatch).
       const grupos = new Map<string, TangoSaldoRow[]>()
@@ -551,6 +598,11 @@ export const onConsultaSaldoPendiente = onDocumentCreated(
       }
       const filas = (await filasDeuda(tango, cfg, companyDe(cfg, empresa), empresa)).filter((f) => { const id = idGva14DeFila(f, porCodigo); return id !== null && ids.has(id) })
       const comprobantes = filas.map((f) => ({ ...recortarComprobante(f), codigoTango: parseCliente(prop(f, 'CLIENTE')).codigo }))
+      // Fecha de emisión desde el mapa cacheado (sin pedirle nada más a Tango: la sync horaria lo mantiene).
+      try {
+        const mapa = (await db.doc(rutaEmisiones(empresa)).get()).data() as MapaEmisiones | undefined
+        if (mapa?.fechas) completarEmision(comprobantes, mapa.fechas)
+      } catch { /* sin fecha, como antes */ }
       const saldoTotal = Math.round(comprobantes.reduce((s, c) => s + c.saldoPendiente, 0) * 100) / 100
       // Si mientras tanto la respondió otro (bridge todavía prendido), no pisar.
       await db.runTransaction(async (tx) => {
