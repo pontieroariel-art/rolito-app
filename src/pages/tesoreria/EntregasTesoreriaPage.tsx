@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Landmark, Printer, Share2, ShieldCheck } from 'lucide-react'
+import { Timestamp } from 'firebase/firestore'
 import Button from '@/components/ui/Button'
 import { useAuth } from '@/context/AuthContext'
 import { useDiaActual } from '@/hooks/useDiaActual'
@@ -74,7 +75,7 @@ export default function EntregasTesoreriaPage() {
         valoresFaltantes: datos.valoresFaltantes ?? { cantidad: 0, total: 0 },
       }, { uid: user.uid, nombre: user.nombre })
       setConfirmando(null)
-      imprimir({ ...e, estado: 'confirmada', firmaRecibe: datos.firma, firmanteRecibe: datos.firmante, efectivoContado: contado, diferenciaEfectivo: contado - e.efectivoEntregado, diferencia: datos.diferencia, cheques: datos.cheques ?? e.cheques, retenciones: datos.retenciones ?? e.retenciones, valoresFaltantes: datos.valoresFaltantes, recibidoPor: { uid: user.uid, nombre: user.nombre } })
+      imprimir({ ...e, estado: 'confirmada', firmaRecibe: datos.firma, firmanteRecibe: datos.firmante, efectivoContado: contado, diferenciaEfectivo: contado - e.efectivoEntregado, diferencia: datos.diferencia, cheques: datos.cheques ?? e.cheques, retenciones: datos.retenciones ?? e.retenciones, valoresFaltantes: datos.valoresFaltantes, recibidoPor: { uid: user.uid, nombre: user.nombre }, confirmadaEn: Timestamp.now() })
     } catch (err) {
       reportError(err, { origen: 'EntregasTesoreriaPage', accion: 'error al confirmar' })
       setError('No se pudo confirmar. ¿Ya estaba confirmada?')
