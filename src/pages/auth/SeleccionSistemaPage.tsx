@@ -1,10 +1,10 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronRight, LayoutDashboard, Snowflake, Package, Truck, FileText } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useSistema } from '../../context/SistemaContext'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
-import { homesDeUsuario, SISTEMA_LABELS, Sistema } from '../../utils/sistemas'
+import { homesDeUsuario, ROLE_HOME, SISTEMA_LABELS, Sistema } from '../../utils/sistemas'
 
 const DESCRIPCIONES: Record<Sistema, string> = {
   logistica:  'Pedidos, despacho, flota y monitoreo',
@@ -25,12 +25,17 @@ export default function SeleccionSistemaPage() {
   const { sistemasDisponibles, sistemaActual, elegirSistema } = useSistema()
   const navigate         = useNavigate()
 
-  const homes = user ? homesDeUsuario(user) : undefined
+  // Memoizado: es dependencia del efecto de redirección (un objeto nuevo por render lo dispararía siempre).
+  const homes = useMemo(() => (user ? homesDeUsuario(user) : undefined), [user])
 
-  // Ya había una elección persistida (o solo hay un sistema) → saltear el picker.
+  // Ya había una elección persistida → saltear el picker. Con un solo sistema
+  // (`homes` undefined) esta pantalla no aplica: a su home, sin quedarse en el
+  // spinner (la ruta ya no filtra por rol, ver App.tsx).
   useEffect(() => {
-    if (sistemaActual && homes?.[sistemaActual]) navigate(homes[sistemaActual]!, { replace: true })
-  }, [sistemaActual, homes, navigate])
+    if (!user) return
+    if (!homes) { navigate(ROLE_HOME[user.rol] ?? '/', { replace: true }); return }
+    if (sistemaActual && homes[sistemaActual]) navigate(homes[sistemaActual]!, { replace: true })
+  }, [user, sistemaActual, homes, navigate])
 
   if (!user || sistemaActual || !homes) return <LoadingSpinner fullScreen />
 

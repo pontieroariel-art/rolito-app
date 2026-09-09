@@ -326,10 +326,13 @@ function AppContent() {
           <Route path="/chofer/cobrar" element={<CobranzaCalle />} />
         </Route>
 
-        {/* Selección de sistema (roles con acceso a más de uno, ver src/utils/sistemas.ts).
-            super_admin no entra acá — no opera ningún sistema, administra
-            desde /admin sin picker. */}
-        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_comercial', 'comercial']} />}>
+        {/* Selección de sistema: cualquier usuario activo con acceso a más de un
+            sistema (por su rol o por roles adicionales — logística + caja, ver
+            src/utils/roles.ts). Sin lista de roles: con una lista fija, un
+            usuario con rol adicional caía en un loop / → /sistema → / y veía la
+            pantalla en blanco (Lucas, 2026-09-09). Quien tiene un solo sistema
+            es redirigido a su home por la propia página. */}
+        <Route element={<ProtectedRoute />}>
           <Route path="/sistema" element={<SeleccionSistemaPage />} />
         </Route>
 
