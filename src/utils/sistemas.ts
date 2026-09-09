@@ -32,6 +32,9 @@ export const ROLE_SISTEMAS: Record<UserRole, Sistema[]> = {
   muelle:              ['expedicion'],
   seguridad:           ['expedicion'],
   supervisor:          ['expedicion'],
+  // Tesorería (2026-09-09): panel propio (/tesoreria) sobre el circuito de
+  // expedición — ve en vivo ventas y cobranzas y valida las rendiciones.
+  tesoreria:           ['expedicion'],
 }
 
 // Home por rol: adónde va el usuario tras loguearse (los multi-sistema pasan
@@ -59,6 +62,7 @@ export const ROLE_HOME: Record<UserRole, string> = {
   muelle:               '/muelle',
   seguridad:            '/seguridad',
   supervisor:           '/supervisor',
+  tesoreria:            '/tesoreria',
 }
 
 // Home por sistema, solo para los roles con más de un sistema (los demás ya

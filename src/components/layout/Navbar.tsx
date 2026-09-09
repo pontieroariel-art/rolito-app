@@ -110,6 +110,8 @@ const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
   supervisor: [
     { to: '/supervisor', label: 'Inicio', icon: Home },
   ],
+  // Tesorería tiene su propio shell (TesoreriaLayout); no usa este Navbar.
+  tesoreria: [],
 }
 
 // Link set para el sistema "heladeras" de los roles con más de un sistema
@@ -125,6 +127,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   comercial:          'Comercial',
   logistica:          'Logística',
   facturacion:        'Facturación',
+  tesoreria:          'Tesorería',
   chofer:             'Chofer',
   cliente:            'Cliente',
   heladeras:          'Heladeras',

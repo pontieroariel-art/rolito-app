@@ -175,7 +175,7 @@ export const getStaffUsers = async (): Promise<UserProfile[]> => {
   // producción tienen su propia pantalla). Al agregar un rol nuevo al
   // sistema hay que sumarlo acá, si no no aparece en Usuarios ni en los
   // combos que vinculan personas (depósitos, etc.) — pasó con supervisor.
-  const roles: UserRole[] = ['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'logistica', 'facturacion', 'chofer', 'heladeras', 'heladeras_encargado', 'tecnico', 'produccion_encargado', 'caja', 'muelle', 'seguridad', 'supervisor']
+  const roles: UserRole[] = ['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'logistica', 'facturacion', 'tesoreria', 'chofer', 'heladeras', 'heladeras_encargado', 'tecnico', 'produccion_encargado', 'caja', 'muelle', 'seguridad', 'supervisor']
   const snap = await getDocs(
     query(collection(db, 'users'), where('rol', 'in', roles), limit(LIMITE_USUARIOS)),
   )

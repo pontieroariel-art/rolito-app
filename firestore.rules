@@ -76,6 +76,12 @@ service cloud.firestore {
       return myRole() == 'facturacion';
     }
 
+    // Tesorería (2026-09-09): ve en vivo ventas/cobranzas/liquidaciones y
+    // valida las rendiciones de ventanilla. No es facturación.
+    function isTesoreria() {
+      return myRole() == 'tesoreria';
+    }
+
     // Cualquier rol de staff (todo lo que no sea cliente).
     function isStaff() {
       return myRole() != 'cliente' && myRole() != 'none';
