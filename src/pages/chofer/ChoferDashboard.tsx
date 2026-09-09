@@ -28,6 +28,7 @@ import { generateHojaDeRuta } from '../../utils/pdf'
 import { Order, ProgramaVisita, VisitaPuntual, OrderProduct } from '../../types'
 import EntregaModal from '../../components/chofer/EntregaModal'
 import NoEntregadoModal from '../../components/chofer/NoEntregadoModal'
+import MiRendicionCard from '@/components/chofer/MiRendicionCard'
 import TicketsServicioSection from '../../components/chofer/TicketsServicioSection'
 import { reportError, esperarOEncolar } from '@/services/observability'
 
@@ -405,6 +406,8 @@ export default function ChoferDashboard() {
         )}
 
         {pending.length > 0 && <CargaDelDia orders={pending} catalogo={catalogo} />}
+
+        {user && <MiRendicionCard uid={user.uid} hoy={diaHoy} />}
 
         {orders.length === 0 && (
           <div className="bg-white border border-[#D3D1C7] rounded-2xl p-10 text-center shadow-sm">

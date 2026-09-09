@@ -3,8 +3,9 @@ import { CloudOff, HandCoins, History, Package, Search, Truck, Users } from 'luc
 import { Link } from 'react-router-dom'
 import SupervisorHeader from '@/components/supervisor/SupervisorHeader'
 import { CobranzaSupervisorCard } from '@/components/supervisor/CobranzaSupervisorCard'
+import MiRendicionCard from '@/components/chofer/MiRendicionCard'
 import { useAuth } from '@/context/AuthContext'
-import { useFechaDelDia } from '@/hooks/useDiaActual'
+import { useDiaActual, useFechaDelDia } from '@/hooks/useDiaActual'
 import { useDepositoDelUsuario } from '@/hooks/useDepositosReparto'
 import { subscribeCobranzasChoferEnRango } from '@/services/cobranzaService'
 import { formatoARS } from '@/utils/money'
@@ -17,6 +18,7 @@ import { resumenPorMedio } from './resumenCobranzas'
 export default function SupervisorHome() {
   const { user } = useAuth()
   const fecha = useFechaDelDia()
+  const hoy = useDiaActual()
   const [cobranzasHoy, setCobranzasHoy] = useState<Cobranza[]>([])
   const [sinSubir, setSinSubir] = useState(0)
   // Un supervisor con depósito de Tango vinculado también entrega mercadería
@@ -126,6 +128,8 @@ export default function SupervisorHome() {
             </p>
           </div>
         )}
+
+        {user && <MiRendicionCard uid={user.uid} hoy={hoy} />}
 
         {cobranzasHoy.length > 0 && (
           <section className="pt-2">
