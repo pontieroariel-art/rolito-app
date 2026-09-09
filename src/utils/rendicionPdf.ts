@@ -93,12 +93,12 @@ export async function generateRendicionMostrador(r: Rendicion, detalle: DetalleR
 
   if (r.cheques.length || r.retenciones.length) {
     autoTable(doc, {
-      startY: y, head: [['Valores en papel a entregar', 'Cliente', 'Recibo', 'Importe']],
+      startY: y, head: [['Valores en papel a entregar', 'Cliente', 'Recibo', 'Importe', 'En mano']],
       body: [
-        ...r.cheques.map((ch) => [`Cheque ${ch.esEcheq ? 'electrónico ' : ''}${ch.numero} · ${ch.bancoNombre} · acredita ${ch.fechaAcreditacion}`, ch.clienteNombre, ch.numeroRecibo ?? '', formatoARS(ch.importe)]),
-        ...r.retenciones.map((re) => [`Retención ${re.tipo.toUpperCase()} cert. ${re.nroCertificado}`, re.clienteNombre, re.numeroRecibo ?? '', formatoARS(re.importe)]),
+        ...r.cheques.map((ch) => [`Cheque ${ch.esEcheq ? 'electrónico ' : ''}${ch.numero} · ${ch.bancoNombre} · acredita ${ch.fechaAcreditacion}`, ch.clienteNombre, ch.numeroRecibo ?? '', formatoARS(ch.importe), ch.recibido === false ? `NO · ${ch.motivoNoEntregado ?? ''}` : 'Sí']),
+        ...r.retenciones.map((re) => [`Retención ${re.tipo.toUpperCase()} cert. ${re.nroCertificado}`, re.clienteNombre, re.numeroRecibo ?? '', formatoARS(re.importe), re.recibido === false ? `NO · ${re.motivoNoEntregado ?? ''}` : 'Sí']),
       ],
-      styles: { fontSize: 8, cellPadding: 1.8 }, headStyles: head, columnStyles: { 3: { halign: 'right' } }, margin: { left: 14, right: 14 },
+      styles: { fontSize: 8, cellPadding: 1.8 }, headStyles: head, columnStyles: { 3: { halign: 'right' }, 4: { cellWidth: 36 } }, margin: { left: 14, right: 14 },
     })
     // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
     y = (doc.lastAutoTable?.finalY ?? y) + 6

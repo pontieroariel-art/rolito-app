@@ -27,14 +27,15 @@ export default function LiquidacionesHistorialPage() {
   }, [mes, user?.planta])
 
   const porRepartidor = useMemo(() => {
-    const m = new Map<string, { id: string; nombre: string; deposito?: string; cierres: number; aRendir: number; recibido: number; diferencia: number; conDiferencia: number }>()
+    const m = new Map<string, { id: string; nombre: string; deposito?: string; cierres: number; aRendir: number; recibido: number; diferencia: number; conDiferencia: number; valoresFaltantes: number }>()
     for (const l of liquidaciones) {
       let r = m.get(l.choferId)
-      if (!r) { r = { id: l.choferId, nombre: l.choferNombre, deposito: l.depositoTango, cierres: 0, aRendir: 0, recibido: 0, diferencia: 0, conDiferencia: 0 }; m.set(l.choferId, r) }
+      if (!r) { r = { id: l.choferId, nombre: l.choferNombre, deposito: l.depositoTango, cierres: 0, aRendir: 0, recibido: 0, diferencia: 0, conDiferencia: 0, valoresFaltantes: 0 }; m.set(l.choferId, r) }
       r.cierres++
       r.aRendir += l.efectivoARendir
       r.recibido += l.efectivoRecibido
       r.diferencia += l.diferenciaEfectivo
+      r.valoresFaltantes += l.valoresFaltantes?.cantidad ?? 0
       if (l.diferenciaEfectivo !== 0) r.conDiferencia++
     }
     return [...m.values()].sort((a, b) => a.diferencia - b.diferencia || a.nombre.localeCompare(b.nombre, 'es'))
@@ -73,7 +74,7 @@ export default function LiquidacionesHistorialPage() {
           <p className="text-sm text-gray-600">{liquidaciones.length} cierres · diferencia del mes {dif(totalDiferencia)}</p>
         </div>
         <table className="w-full min-w-[640px]">
-          <thead><tr>{['Repartidor', 'Cierres', 'A rendir', 'Recibido', 'Diferencia', 'Con diferencia'].map((h, i) => <th key={h} className={`${th} ${i > 0 ? 'text-right' : ''}`}>{h}</th>)}</tr></thead>
+          <thead><tr>{['Repartidor', 'Cierres', 'A rendir', 'Recibido', 'Diferencia', 'Con diferencia', 'Valores faltantes'].map((h, i) => <th key={h} className={`${th} ${i > 0 ? 'text-right' : ''}`}>{h}</th>)}</tr></thead>
           <tbody>
             {porRepartidor.map((r) => (
               <tr key={r.id} className={filtroChofer === r.id ? 'bg-accent/5' : ''}>
@@ -83,9 +84,10 @@ export default function LiquidacionesHistorialPage() {
                 <td className={`${td} text-right tabular-nums`}>{formatoARS(r.recibido)}</td>
                 <td className={`${td} text-right`}>{dif(r.diferencia)}</td>
                 <td className={`${td} text-right tabular-nums`}>{r.conDiferencia ? <span className="text-red-600 font-semibold">{r.conDiferencia}</span> : '0'}</td>
+                <td className={`${td} text-right tabular-nums`}>{r.valoresFaltantes ? <span className="text-red-600 font-semibold">{r.valoresFaltantes}</span> : '0'}</td>
               </tr>
             ))}
-            {porRepartidor.length === 0 && <tr><td className={`${td} text-gray-500`} colSpan={6}>Sin liquidaciones cerradas en este mes.</td></tr>}
+            {porRepartidor.length === 0 && <tr><td className={`${td} text-gray-500`} colSpan={7}>Sin liquidaciones cerradas en este mes.</td></tr>}
           </tbody>
         </table>
       </section>
@@ -93,22 +95,24 @@ export default function LiquidacionesHistorialPage() {
       <section className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-4 overflow-x-auto">
         <p className="text-sm font-semibold text-gray-900 mb-2">Cierres</p>
         <table className="w-full min-w-[760px]">
-          <thead><tr>{['Fecha', 'Repartidor', 'Ventas', 'Cobranzas', 'A rendir', 'Recibido', 'Diferencia', 'Motivo', 'Cerró'].map((h, i) => <th key={h} className={`${th} ${i >= 2 && i <= 6 ? 'text-right' : ''}`}>{h}</th>)}</tr></thead>
+          <thead><tr>{['Fecha', 'Código', 'Repartidor', 'Ventas', 'Cobranzas', 'A rendir', 'Recibido', 'Diferencia', 'Valores falt.', 'Motivo', 'Cerró'].map((h, i) => <th key={h} className={`${th} ${i >= 3 && i <= 8 ? 'text-right' : ''}`}>{h}</th>)}</tr></thead>
           <tbody>
             {filas.map((l) => (
               <tr key={l.id}>
                 <td className={td}><Link to={`${base}/liquidaciones?fecha=${l.fecha}&repartidor=${encodeURIComponent(l.choferId)}`} className="text-accent underline underline-offset-2">{l.fecha}</Link></td>
+                <td className={`${td} text-gray-600`}>{l.codigo ?? '—'}</td>
                 <td className={td}>{l.depositoTango ? <span className="text-gray-500 mr-1.5">{l.depositoTango}</span> : null}{l.choferNombre}</td>
                 <td className={`${td} text-right tabular-nums`}>{l.cantidadVentas ?? '—'}</td>
                 <td className={`${td} text-right tabular-nums`}>{l.cantidadCobranzas ?? l.cobranzasCalle?.cantidad ?? '—'}</td>
                 <td className={`${td} text-right tabular-nums`}>{formatoARS(l.efectivoARendir)}</td>
                 <td className={`${td} text-right tabular-nums`}>{formatoARS(l.efectivoRecibido)}</td>
                 <td className={`${td} text-right`}>{dif(l.diferenciaEfectivo)}</td>
+                <td className={`${td} text-right tabular-nums`}>{l.valoresFaltantes?.cantidad ? <span className="text-red-600 font-semibold">{l.valoresFaltantes.cantidad} · {formatoARS(l.valoresFaltantes.total)}</span> : '—'}</td>
                 <td className={`${td} text-gray-600`}>{l.diferencia ? `${MOTIVOS_DIFERENCIA_LIQUIDACION[l.diferencia.motivo]}${l.diferencia.nota ? ` · ${l.diferencia.nota}` : ''}` : ''}</td>
-                <td className={`${td} text-gray-600`}>{l.cerradaPor.nombre}{l.firmanteRepartidor ? ' · firmó' : ''}</td>
+                <td className={`${td} text-gray-600`}>{l.cerradaPor.nombre}{l.firmanteRepartidor ? ' · firmó' : ''}{l.firmaRecibe ? ' · recibió' : ''}</td>
               </tr>
             ))}
-            {filas.length === 0 && <tr><td className={`${td} text-gray-500`} colSpan={9}>Sin cierres.</td></tr>}
+            {filas.length === 0 && <tr><td className={`${td} text-gray-500`} colSpan={11}>Sin cierres.</td></tr>}
           </tbody>
         </table>
       </section>

@@ -558,6 +558,10 @@ export interface LiquidacionResumenProducto {
 
 export interface Liquidacion {
   id:            string     // {yyyy-MM-dd}_{choferId}
+  // Correlativo POR PERSONA (serie del depósito de Tango, 2026-09-09):
+  // config/liquidacionCounter_{clave} → "LQ-21-000015". Los cierres anteriores no lo tienen.
+  numero?:       number
+  codigo?:       string
   fecha:         string     // yyyy-MM-dd (día liquidado)
   plantaId:      PlantaId
   choferId:      string     // identidad del depósito (uid o 'dep:<código>')
@@ -593,6 +597,9 @@ export interface Liquidacion {
     efectivo:      number
     transferencia: number
     total:         number
+    // Valores en papel (desde 2026-09-09): se rinden aparte del efectivo.
+    cheques?:      { cantidad: number; total: number }
+    retenciones?:  { cantidad: number; total: number }
   }
   efectivoARendir:  number   // = ventas en efectivo + cobranzas en efectivo
   efectivoRecibido: number   // lo que caja contó al recibir la plata
@@ -603,6 +610,19 @@ export interface Liquidacion {
   // Conformidad del repartidor: firma en la pantalla de caja (dataURL PNG).
   firmaRepartidor?:    string
   firmanteRepartidor?: string
+  // Firma de quien RECIBE la rendición (el cajero = cerradaPor), 2026-09-09:
+  // así el repartidor tiene constancia de que le recibieron.
+  firmaRecibe?:        string
+  firmanteRecibe?:     string
+  // Cheques y certificados de retención de sus cobranzas, tildados por caja
+  // al recibirlos (recibido / no entregado + motivo). `valoresFaltantes` es el
+  // resumen de los no entregados, para historial y tesorería.
+  cheques?:            ChequeRendido[]
+  retenciones?:        RetencionRendida[]
+  valoresFaltantes?:   { cantidad: number; total: number }
+  // Entrega a tesorería que la incluye (null = todavía en caja). Los cierres
+  // anteriores no lo tienen y no son candidatos a entrega.
+  entregaId?:          string | null
   // Caja marcó que el repartidor confirmó no tener movimientos sin subir en el teléfono.
   confirmoSinPendientes?: boolean
   // Qué documentos componen este cierre (para reconstruir el detalle al reimprimir).
@@ -617,12 +637,13 @@ export interface Liquidacion {
   createdAt:     Timestamp
 }
 
-export type MotivoDiferenciaLiquidacion = 'faltante_repartidor' | 'faltante_caja' | 'vuelto_mal_dado' | 'error_de_carga' | 'otro'
+export type MotivoDiferenciaLiquidacion = 'faltante_repartidor' | 'faltante_caja' | 'faltante_entrega' | 'vuelto_mal_dado' | 'error_de_carga' | 'otro'
 // Labels de todos los motivos (sirven para mostrar cualquier cierre); qué
 // motivos se OFRECEN en cada cierre lo dicen las listas de abajo.
 export const MOTIVOS_DIFERENCIA_LIQUIDACION: Record<MotivoDiferenciaLiquidacion, string> = {
   faltante_repartidor: 'Faltante del repartidor',
   faltante_caja:       'Faltante de caja',
+  faltante_entrega:    'Faltante en la entrega a tesorería',
   vuelto_mal_dado:     'Vuelto mal dado',
   error_de_carga:      'Error de carga en la app',
   otro:                'Otro',
@@ -640,8 +661,11 @@ export const MOTIVOS_CIERRE_MOSTRADOR: MotivoDiferenciaLiquidacion[] = ['faltant
 // (entrega a tesorería, fase siguiente).
 export type TipoRendicion = 'repartidor' | 'cobrador' | 'mostrador'
 
-export interface ChequeRendido extends ChequeRecibido { cobranzaId: string; numeroRecibo?: string; clienteNombre: string }
-export interface RetencionRendida extends RetencionRecibida { cobranzaId: string; numeroRecibo?: string; clienteNombre: string }
+// Valor en papel (cheque / certificado de retención) dentro de una rendición,
+// liquidación o entrega: de qué recibo salió y si quien recibe lo tildó.
+// `recibido` ausente (docs anteriores al 2026-09-09) = recibido.
+export interface ChequeRendido extends ChequeRecibido { cobranzaId: string; numeroRecibo?: string; clienteNombre: string; recibido?: boolean; motivoNoEntregado?: string }
+export interface RetencionRendida extends RetencionRecibida { cobranzaId: string; numeroRecibo?: string; clienteNombre: string; recibido?: boolean; motivoNoEntregado?: string }
 
 export interface Rendicion {
   id:            string            // {yyyy-MM-dd}_{sujetoId}

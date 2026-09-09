@@ -10,7 +10,9 @@ import { subscribeDescargasChoferEnRango } from '../../services/descargaCamionSe
 import { subscribeCobranzasChoferEnRango } from '../../services/cobranzaService'
 import { useDepositosReparto } from '../../hooks/useDepositosReparto'
 import { etiquetaDeposito, identidadDeposito, nombreDeposito, ordenarDepositosReparto } from '../../utils/depositos'
-import { cerrarLiquidacion, subscribeLiquidacion } from '../../services/liquidacionService'
+import { cerrarLiquidacion, LiquidacionYaCerradaError, subscribeLiquidacion } from '../../services/liquidacionService'
+import { valoresEnPapel } from '@/utils/valoresEnPapel'
+import ValoresEnPapel from '@/components/expedicion/ValoresEnPapel'
 import { calcularLiquidacion, referenciasDelReparto } from '../../utils/liquidacion'
 import { envasesDeDescarga, envasesDeRemito } from '@/utils/envases'
 import { generateLiquidacion, nombreArchivoLiquidacion, type DetalleLiquidacionPdf } from '../../utils/pdf'
@@ -112,6 +114,8 @@ export default function LiquidacionesPage() {
     [remitosChofer, ventas, cambios, descargas, cobranzas],
   )
   const reparto = useReparto({ remitos: remitosChofer, ventas, cambios, descargas, cobranzas })
+  // Cheques y certificados que trae el repartidor: caja los tilda al cerrar (2026-09-09).
+  const papel = useMemo(() => valoresEnPapel(cobranzas), [cobranzas])
 
   const recibido = cerrada ? cerrada.efectivoRecibido : (parseInt(efectivoRecibido.replace(/\D/g, ''), 10) || 0)
   const diferencia = cerrada ? cerrada.diferenciaEfectivo : (efectivoRecibido.trim() === '' ? null : recibido - calc.efectivoARendir)
@@ -148,6 +152,8 @@ export default function LiquidacionesPage() {
           ...(depositoElegido ? { depositoTango: depositoElegido.codigo, depositoTangoNombre: depositoElegido.nombre } : {}),
           ...(datos.diferencia ? { diferencia: datos.diferencia } : {}),
           firmaRepartidor: datos.firma, firmanteRepartidor: datos.firmante, confirmoSinPendientes: datos.confirmoSinPendientes,
+          firmaRecibe: datos.firmaRecibe ?? '', firmanteRecibe: datos.firmanteRecibe ?? user.nombre,
+          cheques: datos.cheques ?? [], retenciones: datos.retenciones ?? [], valoresFaltantes: datos.valoresFaltantes ?? { cantidad: 0, total: 0 },
           referencias: referenciasDelReparto(remitosChofer, ventas, descargas, cobranzas),
         },
         { uid: user.uid, nombre: user.nombre, plantaId },
@@ -155,6 +161,7 @@ export default function LiquidacionesPage() {
       setConfirmando(false)
       imprimir(liq)
     } catch (err) {
+      if (err instanceof LiquidacionYaCerradaError) { setError(err.message); return }
       reportError(err, { origen: 'LiquidacionesPage', accion: 'error al cerrar' })
       setError('No se pudo cerrar la liquidación. ¿Ya estaba cerrada? Revisá e intentá de nuevo.')
     } finally {
@@ -228,7 +235,9 @@ export default function LiquidacionesPage() {
           {cerrada && (
             <section className="bg-accent/5 border border-accent/30 rounded-2xl px-4 py-3 flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm text-gray-700">
-                Cerrada por <b>{cerrada.cerradaPor.nombre}</b>{cerrada.firmanteRepartidor ? <> · firmó <b>{cerrada.firmanteRepartidor}</b></> : null}
+                {cerrada.codigo && <b className="mr-1.5">{cerrada.codigo}</b>}
+                Cerrada por <b>{cerrada.cerradaPor.nombre}</b>{cerrada.firmanteRepartidor ? <> · firmó <b>{cerrada.firmanteRepartidor}</b></> : null}{cerrada.firmaRecibe ? <> · recibió <b>{cerrada.firmanteRecibe ?? cerrada.cerradaPor.nombre}</b> (firmó)</> : null}
+                {cerrada.valoresFaltantes && cerrada.valoresFaltantes.cantidad > 0 && <span className="ml-1.5 inline-block text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200 font-medium">{cerrada.valoresFaltantes.cantidad} valor(es) no entregado(s)</span>}
                 {cerrada.diferenciaEfectivo !== 0 && <span className="text-red-600 font-medium"> · diferencia {cerrada.diferenciaEfectivo.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 })}{cerrada.diferencia ? ` (${cerrada.diferencia.nota || cerrada.diferencia.motivo})` : ''}</span>}
               </p>
               <div className="flex gap-2">
@@ -245,6 +254,15 @@ export default function LiquidacionesPage() {
           )}
           <TarjetasPlata reparto={reparto} calc={calc} efectivoRecibido={cerrada ? String(cerrada.efectivoRecibido) : efectivoRecibido}
             onEfectivoRecibido={setEfectivoRecibido} soloLectura={!!cerrada || !puedeCerrar} diferencia={diferencia} />
+
+          {(cerrada ? (cerrada.cheques?.length ?? 0) + (cerrada.retenciones?.length ?? 0) : papel.cheques.length + papel.retenciones.length) > 0 && (
+            <Plegable titulo={`Valores en papel (${cerrada ? (cerrada.cheques?.length ?? 0) + (cerrada.retenciones?.length ?? 0) : papel.cheques.length + papel.retenciones.length})`} abiertoInicial
+              extra={cerrada?.valoresFaltantes?.cantidad ? <span className="text-xs text-red-600 font-semibold">{cerrada.valoresFaltantes.cantidad} no entregado(s)</span> : undefined}>
+              {cerrada
+                ? <ValoresEnPapel cheques={cerrada.cheques ?? []} retenciones={cerrada.retenciones ?? []} soloLectura />
+                : <><p className="text-xs text-gray-500 mb-2">Se tildan uno por uno al cerrar la liquidación.</p><ValoresEnPapel cheques={papel.cheques} retenciones={papel.retenciones} soloLectura /></>}
+            </Plegable>
+          )}
 
           <DetalleReparto remitos={remitosChofer} ventas={ventas} cambios={cambios} descargas={descargas} cobranzas={cobranzas} soloProblemas={soloProblemas} />
 
@@ -275,6 +293,8 @@ export default function LiquidacionesPage() {
           error={error}
           onCancelar={() => setConfirmando(false)}
           onConfirmar={cerrar}
+          valores={papel}
+          receptor={user ? { nombre: user.nombre } : undefined}
         />
       )}
     </main>

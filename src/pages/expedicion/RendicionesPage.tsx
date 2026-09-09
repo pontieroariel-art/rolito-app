@@ -11,7 +11,9 @@ import { crearRendicionMostrador, RendicionYaCerradaError, subscribeRendicion } 
 import { reportError } from '@/services/observability'
 import { addDaysStr } from '@/utils/helpers'
 import { formatoARS } from '@/utils/money'
-import { fueraDelCierre, valoresEnPapel } from '@/utils/rendicionMostrador'
+import { fueraDelCierre } from '@/utils/rendicionMostrador'
+import { valoresEnPapel } from '@/utils/valoresEnPapel'
+import ValoresEnPapel from '@/components/expedicion/ValoresEnPapel'
 import { generateRendicionMostrador, nombreArchivoRendicion, type DetalleRendicionPdf } from '@/utils/rendicionPdf'
 import { compartirArchivo, puedeCompartirArchivos } from '@/utils/compartir'
 import { chequesDe, efectivoDe, retencionesDe, sumaImportes, transferenciaDe } from '@/utils/medios'
@@ -96,8 +98,9 @@ export default function RendicionesPage() {
       const r = await crearRendicionMostrador({
         fecha: dia, plantaId: user.planta, sujetoId: user.uid, sujetoNombre: user.nombre,
         ventas: calc.ventas, cobranzas: calc.cobranzas, recibido: calc.recibido, bultos: calc.bultos,
-        cheques: papel.cheques.map((ch) => ({ numero: ch.numero, bancoCodigo: '', bancoNombre: ch.bancoNombre, fechaEmision: '', fechaAcreditacion: ch.fechaAcreditacion, dias: 0, importe: ch.importe, cobranzaId: ch.cobranzaId, clienteNombre: ch.clienteNombre, ...(ch.numeroRecibo ? { numeroRecibo: ch.numeroRecibo } : {}), ...(ch.esEcheq ? { esEcheq: true } : {}) })),
-        retenciones: papel.retenciones.map((re) => ({ tipo: re.tipo as Rendicion['retenciones'][number]['tipo'], nroCertificado: re.nroCertificado, importe: re.importe, cobranzaId: re.cobranzaId, clienteNombre: re.clienteNombre, ...(re.numeroRecibo ? { numeroRecibo: re.numeroRecibo } : {}) })),
+        // Tildados uno por uno en el modal (2026-09-09); sin valores, listas vacías.
+        cheques: datos.cheques ?? [],
+        retenciones: datos.retenciones ?? [],
         efectivoARendir: calc.efectivoARendir, efectivoContado: contado, diferenciaEfectivo: contado - calc.efectivoARendir,
         ...(datos.diferencia ? { diferencia: datos.diferencia } : {}),
         firma: datos.firma, firmante: datos.firmante, confirmoSinPendientes: datos.confirmoSinPendientes,
@@ -217,12 +220,11 @@ export default function RendicionesPage() {
         </table>
       </Plegable>
 
-      {(papel.cheques.length > 0 || papel.retenciones.length > 0) && (
-        <Plegable titulo={`Valores en papel a entregar (${papel.cheques.length + papel.retenciones.length})`} abiertoInicial>
-          <ul className="text-sm text-gray-700 space-y-1">
-            {papel.cheques.map((ch, i) => <li key={`c${i}`}>Cheque{ch.esEcheq ? ' electrónico' : ''} <b>{ch.numero}</b> · {ch.bancoNombre} · acredita {ch.fechaAcreditacion} · {ch.clienteNombre}{ch.numeroRecibo ? ` · ${ch.numeroRecibo}` : ''} · <b className="tabular-nums">{formatoARS(ch.importe)}</b></li>)}
-            {papel.retenciones.map((re, i) => <li key={`r${i}`}>Retención <b>{re.tipo.toUpperCase()}</b> cert. {re.nroCertificado} · {re.clienteNombre}{re.numeroRecibo ? ` · ${re.numeroRecibo}` : ''} · <b className="tabular-nums">{formatoARS(re.importe)}</b></li>)}
-          </ul>
+      {((cerrada ? cerrada.cheques.length + cerrada.retenciones.length : papel.cheques.length + papel.retenciones.length) > 0) && (
+        <Plegable titulo={`Valores en papel a entregar (${cerrada ? cerrada.cheques.length + cerrada.retenciones.length : papel.cheques.length + papel.retenciones.length})`} abiertoInicial>
+          {cerrada
+            ? <ValoresEnPapel cheques={cerrada.cheques} retenciones={cerrada.retenciones} soloLectura />
+            : <><p className="text-xs text-gray-500 mb-2">Se tildan uno por uno al cerrar la caja.</p><ValoresEnPapel cheques={papel.cheques} retenciones={papel.retenciones} soloLectura /></>}
         </Plegable>
       )}
 
@@ -260,8 +262,9 @@ export default function RendicionesPage() {
           error={error}
           onCancelar={() => setConfirmando(false)}
           onConfirmar={cerrar}
-          textos={TEXTOS_CAJA}
+          textos={{ ...TEXTOS_CAJA, valores: 'Cheques y retenciones de mis cobranzas: tildá cada uno que tenés en mano' }}
           motivos={MOTIVOS_CIERRE_MOSTRADOR}
+          valores={papel}
         />
       )}
     </main>

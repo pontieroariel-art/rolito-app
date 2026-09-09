@@ -1,5 +1,8 @@
 import type { Cobranza, Liquidacion, VentaVentanilla } from '@/types'
 import { chequesDe, efectivoDe, retencionesDe, sumaImportes, transferenciaDe } from './medios'
+// Valores en papel viven en utils/valoresEnPapel.ts (los comparten liquidación,
+// cierre de caja y entrega a tesorería); se re-exportan por compatibilidad.
+export { valoresEnPapel, type ChequeEnPapel, type RetencionEnPapel } from './valoresEnPapel'
 
 // Cálculo PURO del cierre de caja de un usuario de ventanilla, por persona y
 // día (decisión de Ariel 2026-09-09). Ventanilla es la caja que además recibe
@@ -102,20 +105,6 @@ export function calcularMostrador(
     bultos: [...porProducto.values()].sort((a, b) => b.cantidad - a.cantidad),
     efectivoARendir: vm.contadoEfectivo + vm.promoEfectivo + cm.efectivo + recibidoEfectivo,
   }
-}
-
-export interface ChequeEnPapel { cobranzaId: string; numeroRecibo?: string; clienteNombre: string; numero: string; bancoNombre: string; fechaAcreditacion: string; importe: number; esEcheq?: boolean }
-export interface RetencionEnPapel { cobranzaId: string; numeroRecibo?: string; clienteNombre: string; tipo: string; nroCertificado: string; importe: number }
-
-/** Cheques y certificados de retención que el cajero tiene que entregar en papel. */
-export function valoresEnPapel(cobranzas: Cobranza[]): { cheques: ChequeEnPapel[]; retenciones: RetencionEnPapel[] } {
-  const cheques: ChequeEnPapel[] = []
-  const retenciones: RetencionEnPapel[] = []
-  for (const c of cobranzas) {
-    for (const ch of chequesDe(c)) cheques.push({ cobranzaId: c.id, numeroRecibo: c.numeroRecibo, clienteNombre: c.clienteNombre, numero: ch.numero, bancoNombre: ch.bancoNombre, fechaAcreditacion: ch.fechaAcreditacion, importe: ch.importe, ...(ch.esEcheq ? { esEcheq: true } : {}) })
-    for (const r of retencionesDe(c)) retenciones.push({ cobranzaId: c.id, numeroRecibo: c.numeroRecibo, clienteNombre: c.clienteNombre, tipo: r.tipo, nroCertificado: r.nroCertificado, importe: r.importe })
-  }
-  return { cheques, retenciones }
 }
 
 /**

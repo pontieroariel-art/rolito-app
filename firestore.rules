@@ -587,6 +587,16 @@ service cloud.firestore {
         && docId.matches('(cargaCounter|rendicionCounter)_(torcuato|merlo)') && isCajaDe(docId.split('_')[1])
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next'])
         && request.resource.data.next > resource.data.next;
+      // Contador de LIQUIDACIONES por persona (liquidacionCounter_{serie},
+      // 2026-09-09): cualquier caja lo avanza (un repartidor puede liquidar en
+      // cualquier planta), solo hacia adelante.
+      allow create: if request.auth != null
+        && docId.matches('liquidacionCounter_[A-Za-z0-9-]+') && isCaja()
+        && request.resource.data.next is int && request.resource.data.next > 1;
+      allow update: if request.auth != null
+        && docId.matches('liquidacionCounter_[A-Za-z0-9-]+') && isCaja()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next'])
+        && request.resource.data.next > resource.data.next;
 
       // Contador de TURNOS de ventanilla por planta (se resetea por día:
       // { fecha, next }) — solo caja de esa planta, dentro de la transacción
@@ -1216,8 +1226,11 @@ service cloud.firestore {
     // del mismo día falla en vez de pisar el snapshot.
     match /liquidaciones/{liquidacionId} {
       allow read: if request.auth != null
+        // El chofer lee la suya por ID (el create exige id == fecha_choferId):
+        // así puede suscribirse aunque todavía no esté cerrada (sin doc no hay
+        // resource.data que comparar).
         && (isCaja() || isOperator() || isManager() || isGerenteGeneral() || isSupervisor() || isTesoreria()
-            || (isChofer() && resource.data.choferId == request.auth.uid));
+            || (isChofer() && liquidacionId.split('_')[1] == request.auth.uid));
 
       allow create: if request.auth != null && isCajaDe(request.resource.data.plantaId)
         && request.resource.data.cerradaPor.uid == request.auth.uid
@@ -1227,6 +1240,16 @@ service cloud.firestore {
         && request.resource.data.productos is list
         && request.resource.data.efectivoARendir is number
         && request.resource.data.efectivoRecibido is number
+        // Desde 2026-09-09: número por persona, firma de las DOS partes
+        // (repartidor y cajero que recibe), valores en papel tildados, y nace
+        // sin entrega a tesorería.
+        && request.resource.data.numero is int && request.resource.data.numero > 0
+        && request.resource.data.codigo is string
+        && request.resource.data.firmaRepartidor is string && request.resource.data.firmaRepartidor.size() > 0
+        && request.resource.data.firmaRecibe is string && request.resource.data.firmaRecibe.size() > 0
+        && request.resource.data.cheques is list
+        && request.resource.data.retenciones is list
+        && request.resource.data.entregaId == null
         // Cuadre de envases (desde 2026-09-07); los cierres viejos traen `pallets`.
         && (!('envases' in request.resource.data)
             || (request.resource.data.envases is map
@@ -1235,7 +1258,12 @@ service cloud.firestore {
                 && request.resource.data.envases.diferencia is map
                 && racksOk(request.resource.data.envases.racksFaltantes)));
 
-      allow update, delete: if false;
+      // Entrega a tesorería (2026-09-09): caja de la planta marca null → id, una vez.
+      allow update: if request.auth != null && isCajaDe(resource.data.plantaId)
+        && resource.data.entregaId == null
+        && request.resource.data.entregaId is string
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['entregaId']);
+      allow delete: if false;
     }
 
     // ── Rendiciones: cierre de caja por persona y día (2026-09-09) ────────
@@ -1270,8 +1298,8 @@ service cloud.firestore {
         && request.resource.data.validacion is map
         && request.resource.data.validacion.uid == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['validacion']);
-      // Entrega a tesorería (fase siguiente): solo el operador, null → id.
-      allow update: if request.auth != null && isOperator()
+      // Entrega a tesorería: caja de la planta (arma la entrega) o el operador, null → id.
+      allow update: if request.auth != null && (isOperator() || isCajaDe(resource.data.plantaId))
         && resource.data.entregaId == null
         && request.resource.data.entregaId is string
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['entregaId']);

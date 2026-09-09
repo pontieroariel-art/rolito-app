@@ -4,7 +4,7 @@ import {
 } from '../types'
 import { nombreDelCambio, productoDelCambio } from './cambios'
 import { cuadrarEnvases } from './envases'
-import { efectivoDe, transferenciaDe } from './medios'
+import { chequesDe, efectivoDe, retencionesDe, sumaImportes, transferenciaDe } from './medios'
 
 // Cálculo puro de la liquidación del repartidor — replica la hoja
 // "Liquidación de repartidores" del sistema viejo: por producto, carga −
@@ -13,7 +13,10 @@ import { efectivoDe, transferenciaDe } from './medios'
 // y racks, desde 2026-09-07) y de plata. Ver el plan del módulo expedición y
 // la foto de la hoja (2026-08-29).
 
-export type LiquidacionCalculada = Omit<Liquidacion, 'id' | 'fecha' | 'plantaId' | 'choferId' | 'choferNombre' | 'efectivoRecibido' | 'diferenciaEfectivo' | 'cerradaPor' | 'createdAt' | 'pallets'> & { envases: NonNullable<Liquidacion['envases']> }
+export type LiquidacionCalculada = Omit<Liquidacion,
+  'id' | 'numero' | 'codigo' | 'fecha' | 'plantaId' | 'choferId' | 'choferNombre' | 'efectivoRecibido' | 'diferenciaEfectivo' | 'cerradaPor' | 'createdAt' | 'pallets'
+  | 'diferencia' | 'firmaRepartidor' | 'firmanteRepartidor' | 'firmaRecibe' | 'firmanteRecibe' | 'confirmoSinPendientes' | 'cheques' | 'retenciones' | 'valoresFaltantes' | 'entregaId'
+> & { envases: NonNullable<Liquidacion['envases']> }
 
 export function calcularLiquidacion(
   remitos:   RemitoCarga[],
@@ -87,6 +90,8 @@ export function calcularLiquidacion(
   // (efectivoDe / transferenciaDe viven en utils/medios.ts).
   const cobranzasEfectivo = cobranzasCalle.reduce((s, c) => s + efectivoDe(c), 0)
   const cobranzasTransferencia = cobranzasCalle.reduce((s, c) => s + transferenciaDe(c), 0)
+  const chequesCalle = cobranzasCalle.flatMap(chequesDe)
+  const retencionesCalle = cobranzasCalle.flatMap(retencionesDe)
 
   return {
     productos,
@@ -101,6 +106,8 @@ export function calcularLiquidacion(
       efectivo:      cobranzasEfectivo,
       transferencia: cobranzasTransferencia,
       total:         cobranzasEfectivo + cobranzasTransferencia,
+      cheques:       { cantidad: chequesCalle.length, total: sumaImportes(chequesCalle) },
+      retenciones:   { cantidad: retencionesCalle.length, total: sumaImportes(retencionesCalle) },
     },
     efectivoARendir: contadoEfectivo + cobranzasEfectivo,
   }
@@ -255,3 +262,16 @@ export function referenciasDelReparto(remitos: RemitoCarga[], ventas: VentaCamio
     clientesVisitados: new Set([...ventas.map((v) => v.clienteId), ...cobranzas.map((c) => c.clienteId)]).size,
   }
 }
+
+// ── Numeración por persona (2026-09-09) ──────────────────────────────────────
+// Cada repartidor/cobrador/supervisor tiene su serie: la clave del contador es
+// su depósito de Tango (config/liquidacionCounter_dep21 → "LQ-21-000015"). Sin
+// depósito (identidad huérfana) la serie es por la identidad misma, con
+// prefijo SD y la clave saneada para el id del doc.
+export function serieLiquidacion(choferId: string, depositoTango?: string | null): { clave: string; prefijo: string } {
+  const dep = (depositoTango ?? '').trim()
+  if (dep) return { clave: `dep${dep}`, prefijo: dep }
+  return { clave: choferId.replace(/[^A-Za-z0-9-]/g, '-'), prefijo: 'SD' }
+}
+
+export const codigoLiquidacion = (prefijo: string, numero: number): string => `LQ-${prefijo}-${String(numero).padStart(6, '0')}`

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { Timestamp } from 'firebase/firestore'
-import { calcularLiquidacion } from './liquidacion'
+import { calcularLiquidacion, codigoLiquidacion, serieLiquidacion } from './liquidacion'
 import {
   CambioCamion, CanalVenta, Cobranza, DescargaCamion, DescargaCamionItem,
   FormaPago, RemitoCarga, VentaCamion, VentaCamionItem,
@@ -256,6 +256,18 @@ describe('calcularLiquidacion — plata', () => {
     expect(r.cobranzasCalle?.efectivo).toBe(300)
     expect(r.cobranzasCalle?.transferencia).toBe(200)
     expect(r.efectivoARendir).toBe(300)
+    // Los valores en papel se informan aparte (2026-09-09): se rinden tildados.
+    expect(r.cobranzasCalle?.cheques).toEqual({ cantidad: 1, total: 900 })
+    expect(r.cobranzasCalle?.retenciones).toEqual({ cantidad: 1, total: 100 })
+  })
+})
+
+describe('numeración por persona (2026-09-09)', () => {
+  it('la serie es del depósito de Tango; sin depósito, de la identidad saneada', () => {
+    expect(serieLiquidacion('uid123', '21')).toEqual({ clave: 'dep21', prefijo: '21' })
+    expect(serieLiquidacion('dep:33', null)).toEqual({ clave: 'dep-33', prefijo: 'SD' })
+    expect(serieLiquidacion('AbC-1', undefined)).toEqual({ clave: 'AbC-1', prefijo: 'SD' })
+    expect(codigoLiquidacion('21', 15)).toBe('LQ-21-000015')
   })
 })
 

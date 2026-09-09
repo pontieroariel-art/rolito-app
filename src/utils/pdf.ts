@@ -946,7 +946,7 @@ export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiq
   doc.setFontSize(10)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(80)
-  doc.text(`${liq.depositoTango ? `${liq.depositoTango} · ` : ''}${liq.choferNombre}   ·   ${liq.fecha}`, pageW - 14, 20, { align: 'right' })
+  doc.text(`${liq.codigo ? `${liq.codigo}   ·   ` : ''}${liq.depositoTango ? `${liq.depositoTango} · ` : ''}${liq.choferNombre}   ·   ${liq.fecha}`, pageW - 14, 20, { align: 'right' })
   doc.setTextColor(0)
   doc.setDrawColor(45, 106, 79)
   doc.setLineWidth(0.6)
@@ -1029,6 +1029,8 @@ export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiq
       ...(liq.cobranzasCalle && liq.cobranzasCalle.cantidad > 0 ? [
         [`Cobranzas en efectivo (${liq.cobranzasCalle.cantidad})`, money(liq.cobranzasCalle.efectivo)],
         ['Cobranzas por transferencia', money(liq.cobranzasCalle.transferencia)],
+        ...(liq.cobranzasCalle.cheques ? [[`Cheques (${liq.cobranzasCalle.cheques.cantidad})`, money(liq.cobranzasCalle.cheques.total)]] : []),
+        ...(liq.cobranzasCalle.retenciones ? [[`Retenciones (${liq.cobranzasCalle.retenciones.cantidad})`, money(liq.cobranzasCalle.retenciones.total)]] : []),
       ] : []),
       ['Efectivo a rendir', money(liq.efectivoARendir)],
       ['Efectivo recibido', money(liq.efectivoRecibido)],
@@ -1049,6 +1051,26 @@ export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiq
     doc.text(`Diferencia de efectivo ${money(liq.diferenciaEfectivo)} · ${MOTIVOS_DIFERENCIA_LIQUIDACION[liq.diferencia.motivo]}${liq.diferencia.nota ? ` · ${liq.diferencia.nota}` : ''}`, 14, y, { maxWidth: pageW - 28 })
     doc.setTextColor(0)
     y += 8
+  }
+
+  // ── Valores en papel tildados por caja al recibirlos (2026-09-09) ──
+  const valores = [...(liq.cheques ?? []), ...(liq.retenciones ?? [])]
+  if (valores.length) {
+    const { RETENCION_LABELS } = await import('../components/supervisor/RetencionForm')
+    autoTable(doc, {
+      startY: y,
+      head: [[{ content: `Valores en papel — ${valores.length} recibidos por caja${liq.valoresFaltantes?.cantidad ? ` · ${liq.valoresFaltantes.cantidad} NO entregados (${money(liq.valoresFaltantes.total)})` : ''}`, colSpan: 5, styles: { fillColor: [45, 106, 79] as [number, number, number], textColor: 255, fontStyle: 'bold' as const, fontSize: 7.5, halign: 'left' as const } }], ['Valor', 'Cliente', 'Recibo', 'Importe', 'Recibido']],
+      body: [
+        ...(liq.cheques ?? []).map((ch) => [`Cheque${ch.esEcheq ? ' electrónico' : ''} ${ch.numero} · ${ch.bancoNombre} · acredita ${ch.fechaAcreditacion || '—'}`, ch.clienteNombre, ch.numeroRecibo ?? '', money(ch.importe), ch.recibido === false ? `NO · ${ch.motivoNoEntregado ?? ''}` : 'Sí']),
+        ...(liq.retenciones ?? []).map((re) => [`Retención ${RETENCION_LABELS[re.tipo] ?? re.tipo} · cert. ${re.nroCertificado}`, re.clienteNombre, re.numeroRecibo ?? '', money(re.importe), re.recibido === false ? `NO · ${re.motivoNoEntregado ?? ''}` : 'Sí']),
+      ],
+      styles: { fontSize: 8, cellPadding: 1.8 },
+      headStyles: { fillColor: [45, 106, 79], textColor: 255, fontStyle: 'bold', fontSize: 7.5 },
+      columnStyles: { 3: { halign: 'right', cellWidth: 24 }, 4: { cellWidth: 40 } },
+      margin: { left: 14, right: 14 },
+    })
+    // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
+    y = (doc.lastAutoTable?.finalY ?? y) + 6
   }
 
   // ── Detalle del reparto (los mismos bloques de la pantalla) ──
@@ -1116,20 +1138,23 @@ export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiq
   if (liq.firmaRepartidor) {
     try { doc.addImage(liq.firmaRepartidor, 'PNG', 14, y - 18, 50, 16) } catch { /* firma ilegible: queda la línea */ }
   }
+  // Firma de quien recibe (el cajero), desde 2026-09-09: constancia para el repartidor.
+  if (liq.firmaRecibe) {
+    try { doc.addImage(liq.firmaRecibe, 'PNG', pageW - 88, y - 18, 50, 16) } catch { /* idem */ }
+  }
   doc.line(14, y, 88, y)
   doc.line(pageW - 88, y, pageW - 14, y)
   doc.setFontSize(8)
   doc.setTextColor(100)
   doc.text(`Firma del repartidor${liq.firmanteRepartidor ? `: ${liq.firmanteRepartidor}` : ''}`, 14, y + 4)
-  doc.text(`Caja: ${liq.cerradaPor.nombre}`, pageW - 88, y + 4)
+  doc.text(`Recibió (caja): ${liq.firmanteRecibe ?? liq.cerradaPor.nombre}`, pageW - 88, y + 4)
 
-  const nombre = `liquidacion-${liq.fecha}-${liq.choferNombre.toLowerCase().replace(/\s+/g, '-')}.pdf`
   if (opts.descargar === false) return doc.output('blob')
-  doc.save(nombre)
+  doc.save(nombreArchivoLiquidacion(liq))
 }
 
-export const nombreArchivoLiquidacion = (liq: Pick<Liquidacion, 'fecha' | 'choferNombre'>) =>
-  `liquidacion-${liq.fecha}-${liq.choferNombre.toLowerCase().replace(/\s+/g, '-')}.pdf`
+export const nombreArchivoLiquidacion = (liq: Pick<Liquidacion, 'fecha' | 'choferNombre' | 'codigo'>) =>
+  `liquidacion-${liq.fecha}-${liq.choferNombre.toLowerCase().replace(/\s+/g, '-')}${liq.codigo ? `-${liq.codigo}` : ''}.pdf`
 
 // ── Recibo de cobranza en mostrador (módulo expedición) ──────────────────────
 export async function generateReciboCobranza(cobranza: {

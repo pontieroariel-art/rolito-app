@@ -272,8 +272,8 @@ function FilaCobranza({ cobranza: c, ocupado, compartible, atenuada, onVer, onEn
   if (c.medios) {
     if (c.medios.efectivo > 0) medios.push(`Efectivo ${formatoARS(c.medios.efectivo)}`)
     if (c.medios.transferencia > 0) medios.push(`Transferencia ${formatoARS(c.medios.transferencia)}`)
-    c.medios.cheques.forEach((ch) => medios.push(`Cheque ${ch.bancoNombre} ${ch.numero} · ${ch.dias} días · ${formatoARS(ch.importe)}`))
-    c.medios.retenciones.forEach((r) => medios.push(`${RETENCION_LABELS[r.tipo]} ${formatoARS(r.importe)}`))
+    c.medios.cheques.forEach((ch) => medios.push(`Cheque ${ch.bancoNombre} ${ch.numero} · acredita ${ch.fechaAcreditacion || `${ch.dias} días`} · ${formatoARS(ch.importe)}`))
+    c.medios.retenciones.forEach((r) => medios.push(`${RETENCION_LABELS[r.tipo]} cert. ${r.nroCertificado} · ${formatoARS(r.importe)}`))
     ;(c.medios.aCuentaAplicado ?? []).forEach((a) => medios.push(`Saldo a favor aplicado (${a.reciboNumero}) ${formatoARS(a.importe)}`))
     if (c.aCuenta) medios.push(`A cuenta del cliente ${formatoARS(c.aCuenta)}`)
   } else {

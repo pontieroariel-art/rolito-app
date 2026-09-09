@@ -160,8 +160,8 @@ function RowRendicion({ r, abierta, onToggle, onValidar, onImprimir, td, dif }: 
               <div>
                 <p className="font-semibold mb-1">Cobranzas y valores en papel</p>
                 <p>Efectivo {formatoARS(r.cobranzas.efectivo)} · transf. {formatoARS(r.cobranzas.transferencia)} · cheques {r.cobranzas.cheques.cantidad} ({formatoARS(r.cobranzas.cheques.total)}) · retenciones {r.cobranzas.retenciones.cantidad} ({formatoARS(r.cobranzas.retenciones.total)})</p>
-                {r.cheques.map((ch, i) => <p key={`c${i}`} className="text-gray-500">Cheque {ch.numero} · {ch.bancoNombre} · {ch.clienteNombre} · {formatoARS(ch.importe)}</p>)}
-                {r.retenciones.map((re, i) => <p key={`r${i}`} className="text-gray-500">Ret. {re.tipo.toUpperCase()} cert. {re.nroCertificado} · {re.clienteNombre} · {formatoARS(re.importe)}</p>)}
+                {r.cheques.map((ch, i) => <p key={`c${i}`} className={ch.recibido === false ? 'text-red-700' : 'text-gray-500'}>{ch.recibido === false ? '✗' : '✓'} Cheque {ch.numero} · {ch.bancoNombre} · {ch.clienteNombre} · {formatoARS(ch.importe)}{ch.recibido === false ? ` · no entregado${ch.motivoNoEntregado ? `: ${ch.motivoNoEntregado}` : ''}` : ''}</p>)}
+                {r.retenciones.map((re, i) => <p key={`r${i}`} className={re.recibido === false ? 'text-red-700' : 'text-gray-500'}>{re.recibido === false ? '✗' : '✓'} Ret. {re.tipo.toUpperCase()} cert. {re.nroCertificado} · {re.clienteNombre} · {formatoARS(re.importe)}{re.recibido === false ? ` · no entregado${re.motivoNoEntregado ? `: ${re.motivoNoEntregado}` : ''}` : ''}</p>)}
               </div>
               <div>
                 <p className="font-semibold mb-1">Recibido de repartidores</p>

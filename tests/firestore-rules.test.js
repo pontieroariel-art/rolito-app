@@ -2442,7 +2442,60 @@ describe('expedicion: muelle / cambios / descargas / liquidaciones', () => {
     cambios: { registrados: 2, rotasRecibidas: 2 },
     importes: { contadoEfectivo: 1000, contadoTransferencia: 0, cuentaCorriente: 0, total: 1000 },
     efectivoARendir: 1000, efectivoRecibido: 1000, diferenciaEfectivo: 0,
+    // Desde 2026-09-09: número por persona, dos firmas, valores tildados, sin entrega.
+    numero: 1, codigo: 'LQ-21-000001',
+    firmaRepartidor: 'data:image/png;base64,AAAA', firmanteRepartidor: 'Chofer Uno',
+    firmaRecibe: 'data:image/png;base64,BBBB', firmanteRecibe: 'Caja',
+    cheques: [], retenciones: [], valoresFaltantes: { cantidad: 0, total: 0 }, entregaId: null,
     cerradaPor: { uid: 'caja1', nombre: 'Caja' }, createdAt: new Date(), ...extra,
+  })
+
+  // ── liquidación numerada por persona, doble firma, valores y entrega (2026-09-09) ──
+  test('el cierre exige número, las dos firmas, las listas de valores y nacer sin entrega', async () => {
+    await seedCaja()
+    const { numero: _n, ...sinNumero } = liquidacion()
+    await assertFails(setDoc(doc(db('caja1'), 'liquidaciones/2026-08-29_chof1'), sinNumero))
+    await assertFails(setDoc(doc(db('caja1'), 'liquidaciones/2026-08-29_chof1'), liquidacion({ firmaRecibe: '' })))
+    await assertFails(setDoc(doc(db('caja1'), 'liquidaciones/2026-08-29_chof1'), liquidacion({ firmaRepartidor: '' })))
+    await assertFails(setDoc(doc(db('caja1'), 'liquidaciones/2026-08-29_chof1'), liquidacion({ cheques: 'no' })))
+    await assertFails(setDoc(doc(db('caja1'), 'liquidaciones/2026-08-29_chof1'), liquidacion({ entregaId: 'ET-1' })))
+    await assertSucceeds(setDoc(doc(db('caja1'), 'liquidaciones/2026-08-29_chof1'), liquidacion({ cheques: [{ numero: '1', bancoNombre: 'G', importe: 100, cobranzaId: 'c1', clienteNombre: 'K', recibido: false, motivoNoEntregado: 'lo trae mañana' }], valoresFaltantes: { cantidad: 1, total: 100 } })))
+  })
+
+  test('contador de liquidaciones por persona: cualquier caja lo avanza; solo hacia adelante; nadie más', async () => {
+    await seedCaja()
+    await seedCaja('cajam', 'merlo')
+    await seedMuelle()
+    await seedChofer()
+    await seed((d) => setDoc(doc(d, 'users/tes1'), { rol: 'tesoreria', estado: 'activo' }))
+    await assertSucceeds(setDoc(doc(db('caja1'), 'config/liquidacionCounter_dep21'), { next: 2 }))
+    await assertSucceeds(updateDoc(doc(db('cajam'), 'config/liquidacionCounter_dep21'), { next: 3 }))
+    await assertFails(updateDoc(doc(db('cajam'), 'config/liquidacionCounter_dep21'), { next: 2 }))
+    await assertFails(updateDoc(doc(db('caja1'), 'config/liquidacionCounter_dep21'), { next: 4, otro: 1 }))
+    await assertFails(setDoc(doc(db('mue1'), 'config/liquidacionCounter_dep22'), { next: 2 }))
+    await assertFails(setDoc(doc(db('chof1'), 'config/liquidacionCounter_dep22'), { next: 2 }))
+    await assertFails(setDoc(doc(db('tes1'), 'config/liquidacionCounter_dep22'), { next: 2 }))
+    await assertSucceeds(setDoc(doc(db('caja1'), 'config/liquidacionCounter_dep-33'), { next: 2 }))
+  })
+
+  test('el chofer se suscribe a su liquidación del día aunque no exista todavía, y no a la de otro', async () => {
+    await seedChofer()
+    await assertSucceeds(getDoc(doc(db('chof1'), 'liquidaciones/2026-08-29_chof1')))
+    await assertFails(getDoc(doc(db('chof1'), 'liquidaciones/2026-08-29_otro')))
+  })
+
+  test('la entrega a tesorería la marca caja de la planta una vez (null → id); otra planta, tesorería y segundo intento fallan', async () => {
+    await seedCaja()
+    await seedCaja('cajam', 'merlo')
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/tes1'), { rol: 'tesoreria', estado: 'activo' })
+      await setDoc(doc(d, 'liquidaciones/2026-08-29_chof1'), liquidacion())
+    })
+    await assertFails(updateDoc(doc(db('cajam'), 'liquidaciones/2026-08-29_chof1'), { entregaId: 'ET-1' }))
+    await assertFails(updateDoc(doc(db('tes1'), 'liquidaciones/2026-08-29_chof1'), { entregaId: 'ET-1' }))
+    await assertFails(updateDoc(doc(db('caja1'), 'liquidaciones/2026-08-29_chof1'), { entregaId: 'ET-1', efectivoRecibido: 5 }))
+    await assertSucceeds(updateDoc(doc(db('caja1'), 'liquidaciones/2026-08-29_chof1'), { entregaId: 'ET-1' }))
+    await assertFails(updateDoc(doc(db('caja1'), 'liquidaciones/2026-08-29_chof1'), { entregaId: 'ET-2' }))
   })
 
   // ── remito: transición de entrega por muelle ──
