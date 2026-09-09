@@ -13,6 +13,7 @@
 import type { jsPDF } from 'jspdf'
 import { PLANTA_INFO } from './constants'
 import { EMISOR_ARCA, FacturaArcaData } from './facturaArcaPdf'
+import { EMISOR_ROLITO } from './emisores'
 import { urlQrArca } from './arcaQr'
 import { generateQrDataUrl } from './qr'
 import {
@@ -159,7 +160,9 @@ export function dibujoTurnoTicket(v: TurnoTicketData): DibujoTicket {
     const planta = PLANTA_INFO[v.plantaId]
     const pesos = (n: number) => `$${n.toLocaleString('es-AR')}`
 
-    y = texto(doc, planta.razonSocial.toUpperCase(), y + 3, { tam: 10, negrita: true, align: 'center' })
+    // La promo es de Rolito: el papel sale a su nombre (Ariel, 2026-09-09).
+    const encabezado = v.canal === 'promo' ? EMISOR_ROLITO.razonSocial : planta.razonSocial
+    y = texto(doc, encabezado.toUpperCase(), y + 3, { tam: 10, negrita: true, align: 'center' })
     y = texto(doc, `Planta ${planta.localidad}`, y, { tam: 7.5, align: 'center' })
     y = texto(doc, 'COMPROBANTE DE VENTANILLA', y + 1, { tam: 8.5, negrita: true, align: 'center' })
     y = texto(doc, fechaHora(v.fecha), y, { tam: 7.5, align: 'center' })

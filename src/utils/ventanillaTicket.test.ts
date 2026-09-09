@@ -86,6 +86,16 @@ describe('tickets de ventanilla (80 mm)', () => {
     }
   })
 
+  it('la promo sale a nombre de Rolito (una página, sin factura)', async () => {
+    const blob = await generateTicketsVentanilla({ turno: { ...TURNO, canal: 'promo', facturaNro: undefined } })
+    const pdf = Buffer.from(await blob.arrayBuffer()).toString('latin1')
+    expect(mediaBoxes(pdf)).toHaveLength(1)
+    if (process.env.TICKETS_OUT) {
+      mkdirSync(process.env.TICKETS_OUT, { recursive: true })
+      writeFileSync(`${process.env.TICKETS_OUT}/ticket-ventanilla-promo.pdf`, Buffer.from(await blob.arrayBuffer()))
+    }
+  })
+
   it('copias fuera de rango se acotan a 1..3 y la config se normaliza', () => {
     expect(normalizarCopiasTicket(3)).toBe(3)
     expect(normalizarCopiasTicket(1)).toBe(1)
