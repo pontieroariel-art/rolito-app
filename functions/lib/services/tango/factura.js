@@ -228,6 +228,9 @@ function armarComprobanteFacturador(payload, item, cfg, mapeos) {
     const ref = (0, pedido_1.referenciaPedido)(item.origenColeccion, item.origenId);
     const fecha = fechaArcaAIso(docu.importes?.fecha) ?? (0, pedido_1.fechaISO)((0, pedido_1.fechaDe)(payload.fecha));
     const numeroInterno = (0, pedido_1.numeroComprobanteInterno)(payload.comprobanteInterno);
+    // Quién vendió (cajero o chofer) va en la leyenda 3 y en las observaciones;
+    // el vendedor del comprobante (codigoVendedor) es el supervisor del cliente.
+    const vende = (0, pedido_1.quienVende)(payload, mapeos.etiquetaCamion ?? payload.camionId ?? '');
     const comprobante = {
         codigoTipoComprobante: 'FAC',
         numeroComprobante: numeroComprobanteTango(docu.letra, docu.puntoVenta, docu.numero),
@@ -243,7 +246,7 @@ function armarComprobanteFacturador(payload, item, cfg, mapeos) {
         codigoVendedor: String(cfg.vendedor),
         leyenda1: recortar(ref, 60),
         leyenda2: recortar(`Venta ${payload.canal === 'promo' ? 'Promo' : 'Contado'} app${numeroInterno ? ` ${numeroInterno}` : ''} - ${formaPago}`, 60),
-        leyenda3: recortar(`Chofer ${payload.choferNombre ?? ''} - ${mapeos.etiquetaCamion ?? payload.camionId ?? ''}`, 60),
+        leyenda3: recortar(vende.leyenda, 60),
         leyenda4: recortar(payload.firmanteNombre ? `Firmo: ${payload.firmanteNombre}` : '', 60),
         leyenda5: '',
         total: totales.total,
@@ -252,7 +255,7 @@ function armarComprobanteFacturador(payload, item, cfg, mapeos) {
         totalIva: totales.iva,
         subtotal: totales.total,
         subtotalSinImpuestos: totales.neto,
-        observaciones: recortar(`${ref}. Venta desde la app por ${payload.choferNombre ?? ''}; firmo ${payload.firmanteNombre ?? 'el cliente'}.`, 280),
+        observaciones: recortar(`${ref}. Venta desde ${vende.lugar} por ${vende.nombre}; firmo ${payload.firmanteNombre ?? 'el cliente'}.`, 280),
         items: r.items.map((i, k) => {
             const { _base, ...it } = i;
             return percepciones[k].length ? { ...it, percepciones: percepciones[k] } : it;

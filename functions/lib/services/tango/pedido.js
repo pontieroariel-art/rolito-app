@@ -10,7 +10,9 @@
 // del REPARTIDOR (los choferes son depósitos en Tango) y el número del remito
 // de la app como referencia.
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.nombrePlanta = void 0;
 exports.referenciaPedido = referenciaPedido;
+exports.quienVende = quienVende;
 exports.fechaDe = fechaDe;
 exports.fechaISO = fechaISO;
 exports.numeroComprobanteInterno = numeroComprobanteInterno;
@@ -21,6 +23,23 @@ exports.idDeFila = idDeFila;
 /** Referencia idempotente del pedido en Tango: LEYENDA_1 = 'ROLITO:VC:<id venta>'. */
 function referenciaPedido(origenColeccion, origenId) {
     return `ROLITO:${origenColeccion === 'ventasVentanilla' ? 'VV' : 'VC'}:${origenId}`;
+}
+const NOMBRE_PLANTA = { torcuato: 'Torcuato', merlo: 'Merlo' };
+const nombrePlanta = (plantaId) => NOMBRE_PLANTA[plantaId ?? ''] ?? (plantaId ?? '');
+exports.nombrePlanta = nombrePlanta;
+/**
+ * Quién vendió físicamente, para que quede en el comprobante de Tango (leyenda
+ * y, en los SQL, el campo USUARIO). El VENDEDOR del comprobante es otra cosa:
+ * el supervisor del cliente (su ficha en Tango), decisión de Ariel 2026-09-09.
+ */
+function quienVende(payload, etiquetaCamion) {
+    if (payload.cajaId) {
+        const nombre = payload.cajaNombre ?? payload.cajaId;
+        const planta = (0, exports.nombrePlanta)(payload.plantaId);
+        return { tipo: 'caja', nombre, leyenda: `Caja ${nombre} - ${planta}`, lugar: `la ventanilla de ${planta}` };
+    }
+    const nombre = payload.choferNombre ?? '';
+    return { tipo: 'chofer', nombre, leyenda: `Chofer ${nombre} - ${etiquetaCamion}`, lugar: `el camión ${etiquetaCamion}` };
 }
 /** Timestamp de Firestore (admin o cliente), Date o ISO → Date. */
 function fechaDe(valor, fallback = new Date()) {
@@ -93,6 +112,7 @@ function armarPedido(payload, item, ids, renglones, opciones = {}) {
     const numero = numeroComprobanteInterno(payload.comprobanteInterno);
     const canal = payload.canal === 'promo' ? 'Promo' : 'Contado';
     const camion = opciones.etiquetaCamion ?? payload.camionId ?? '';
+    const vende = quienVende(payload, camion);
     const tipoDoc = payload.comprobanteInterno?.tipo === 'facturaX' ? 'Factura X' : 'Remito';
     const pedido = {
         FECHA_PEDIDO: fecha,
@@ -108,9 +128,9 @@ function armarPedido(payload, item, ids, renglones, opciones = {}) {
         CALCULA_PROMOCIONES: false,
         LEYENDA_1: recortar(ref, 60),
         LEYENDA_2: recortar(`${tipoDoc} app ${numero ?? 'SIN NUMERO'} - ${canal}`, 60),
-        LEYENDA_3: recortar(`Chofer ${payload.choferNombre ?? ''} - ${camion}`, 60),
+        LEYENDA_3: recortar(vende.leyenda, 60),
         LEYENDA_4: recortar(payload.firmanteNombre ? `Firmo: ${payload.firmanteNombre}` : '', 60),
-        OBSERVACIONES: recortar(`Venta ${canal} desde el camión ${camion}. ${tipoDoc} ${numero ?? 'sin número'} firmado en la app por ` +
+        OBSERVACIONES: recortar(`Venta ${canal} desde ${vende.lugar} por ${vende.nombre}. ${tipoDoc} ${numero ?? 'sin número'} firmado en la app por ` +
             `${payload.firmanteNombre ?? 'el cliente'} (${payload.clienteNombre ?? ''}). Forma de pago: ${payload.formaPago ?? ''}. ` +
             `Total app: ${payload.total ?? 0}. Ref ${ref}.`, 8000),
         RENGLON_DTO: renglones.map((r) => ({

@@ -95,6 +95,22 @@ describe('armarComprobanteFacturador', () => {
     expect((r.comprobante.items as Record<string, unknown>[])[0]).toMatchObject({ codigoTasaIva: 10, precio: 1, importe: 1, importeSinImpuestos: 1, importeIva: 0 })
     expect(r.comprobante.pagos).toEqual([{ tipo: 'Efectivo', codigoDeCuenta: '1', monto: 1 }])
   })
+  it('quién vendió va en la leyenda 3 y en las observaciones: camión → chofer, ventanilla → caja y planta', () => {
+    const camion = armarComprobanteFacturador(ventaReal, item, cfg, mapeos)
+    if (camion.error !== undefined) throw new Error(camion.error)
+    expect(camion.comprobante.leyenda3).toBe('Chofer Pedro - 03 SERGIO ALVAREZ')
+    expect(camion.comprobante.observaciones).toContain('Venta desde el camión 03 SERGIO ALVAREZ por Pedro')
+    // El vendedor del comprobante es el que pasa el writer (supervisor del cliente), no el chofer.
+    expect(camion.comprobante.codigoVendedor).toBe('3')
+
+    const ventanilla: PayloadVenta = { ...ventaReal, camionId: null, choferId: undefined, choferNombre: undefined, plantaId: 'torcuato', cajaId: 'caja1', cajaNombre: 'Nicolas Diaz' }
+    const r = armarComprobanteFacturador(ventanilla, { ...item, origenColeccion: 'ventasVentanilla' }, { ...cfg, vendedor: 'MV' }, { ...mapeos, codigoDeposito: '01', etiquetaCamion: '01' })
+    if (r.error !== undefined) throw new Error(r.error)
+    expect(r.comprobante.leyenda1).toBe('ROLITO:VV:v1')
+    expect(r.comprobante.leyenda3).toBe('Caja Nicolas Diaz - Torcuato')
+    expect(r.comprobante.observaciones).toContain('Venta desde la ventanilla de Torcuato por Nicolas Diaz')
+    expect(r.comprobante.codigoVendedor).toBe('MV')
+  })
   it('errores de config claros', () => {
     expect(armarComprobanteFacturador(ventaReal, item, { ...cfg, talonarios: {} }, mapeos).error).toMatch(/talonarios\.A/)
     expect(armarComprobanteFacturador(ventaReal, item, { ...cfg, cuentas: {} }, mapeos).error).toMatch(/cuentas\.contado_efectivo/)

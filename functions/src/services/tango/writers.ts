@@ -13,7 +13,8 @@ export interface ConfigTango {
   /** Depósito de Tango por planta (ventanilla vende desde la cámara): { torcuato: '01', merlo: '02' }. */
   depositosPlanta?: Record<string, string>
   camiones?: Record<string, string>
-  /** choferId → COD_GVA23 (vendedor de Tango): la factura lleva al chofer logueado como vendedor. */
+  /** choferId → COD_GVA23. Desde 2026-09-09 la factura NO lo usa (el vendedor es el supervisor
+   *  del cliente, COD_VENDED de su ficha); queda para otros usos/scripts. */
   vendedores?: Record<string, string>
   pedido?: {
     talonarioId?: number | null
@@ -146,12 +147,14 @@ export async function enviarFactura(payload: PayloadVenta, ctx: ContextoWriter):
     return { ok: false, error: payload.camionId ? `Falta el depósito Tango del chofer ${payload.choferNombre ?? payload.choferId} (config/tango.depositos.${payload.choferId})` : `Falta el depósito Tango de la planta ${payload.plantaId ?? '?'} (config/tango.depositosPlanta)` }
   }
 
-  // Vendedor = el chofer logueado (decisión de Ariel 2026-09-03): mapeo
-  // chofer → COD_GVA23 en config/tango.vendedores (lo arma
-  // sincronizar-choferes-tango.mjs); cae al vendedor fijo de la empresa si hay.
-  const vendedor = cfg.vendedores?.[payload.choferId ?? ''] ?? cfgEmpresa.vendedor
+  // Vendedor del comprobante = el SUPERVISOR del cliente (COD_VENDED de su
+  // ficha en Tango: la oficina filtra ventas por supervisor; decisión de Ariel
+  // 2026-09-09, antes iba el chofer y pisaba ese filtro). Quién vendió
+  // físicamente (chofer o cajero) va en la leyenda 3. Sin vendedor en la ficha
+  // (ocasionales, clientes nuevos) cae al genérico de la empresa ('AP').
+  let vendedor: number | string | undefined = cfgEmpresa.vendedor
   if (vendedor === undefined || vendedor === null || vendedor === '') {
-    return { ok: false, error: `El chofer ${payload.choferNombre ?? payload.choferId} no tiene vendedor de Tango (config/tango.vendedores.${payload.choferId}) — hay que darlo de alta como vendedor en Tango y sincronizar` }
+    return { ok: false, error: `Falta config/tango.facturador.${empresa}.vendedor (vendedor genérico para clientes sin vendedor en su ficha)` }
   }
 
   // Condición de venta: contado = la configurada (default 1 CONTADO); cuenta
@@ -175,6 +178,8 @@ export async function enviarFactura(payload: PayloadVenta, ctx: ContextoWriter):
       const ficha = await tango.getById(company, PROCESOS.clientes, idGva14)
       const cond = prop(ficha, 'COND_VTA')
       if (cond !== undefined && cond !== null && cond !== '') condCtaCte = cond as number | string
+      const vend = prop(ficha, 'COD_VENDED')
+      if (typeof vend === 'string' && vend.trim() !== '') vendedor = vend.trim()
       const lista = prop(ficha, 'NRO_LISTA')
       if (lista !== undefined && lista !== null && lista !== '' && Number(lista) > 0) listaPrecio = lista as number | string
       const catIva = Number(prop(ficha, 'ID_CATEGORIA_IVA'))

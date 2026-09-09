@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   armarPedido, renglonesDeVenta, referenciaPedido, fechaDe, fechaISO,
-  numeroComprobanteInterno, prop, idDeFila, type PayloadVenta,
+  numeroComprobanteInterno, prop, idDeFila, quienVende, type PayloadVenta,
 } from './pedido'
 
 const venta: PayloadVenta = {
@@ -91,5 +91,20 @@ describe('armarPedido', () => {
   it('las leyendas se recortan a 60 caracteres', () => {
     const p = armarPedido({ ...venta, choferNombre: 'X'.repeat(80) }, item, ids, renglones)
     expect((p.LEYENDA_3 as string).length).toBe(60)
+  })
+  it('venta de ventanilla: leyenda 3 con la caja y la planta, observaciones de mostrador', () => {
+    const vv: PayloadVenta = { ...venta, camionId: null, choferId: undefined, choferNombre: undefined, plantaId: 'merlo', cajaId: 'caja1', cajaNombre: 'Nicolas Diaz' }
+    const p = armarPedido(vv, { ...item, origenColeccion: 'ventasVentanilla' }, ids, renglones, { etiquetaCamion: '02' })
+    expect(p.LEYENDA_1).toBe('ROLITO:VV:venta123')
+    expect(p.LEYENDA_3).toBe('Caja Nicolas Diaz - Merlo')
+    expect(p.OBSERVACIONES as string).toContain('desde la ventanilla de Merlo por Nicolas Diaz')
+  })
+})
+
+describe('quienVende', () => {
+  it('caja cuando la venta trae cajaId; chofer si no', () => {
+    expect(quienVende({ cajaId: 'u1', cajaNombre: 'Ana Perez', plantaId: 'torcuato' }, '')).toEqual({ tipo: 'caja', nombre: 'Ana Perez', leyenda: 'Caja Ana Perez - Torcuato', lugar: 'la ventanilla de Torcuato' })
+    expect(quienVende({ choferId: 'c1', choferNombre: 'Pedro', plantaId: null }, '03 ALVAREZ')).toEqual({ tipo: 'chofer', nombre: 'Pedro', leyenda: 'Chofer Pedro - 03 ALVAREZ', lugar: 'el camión 03 ALVAREZ' })
+    expect(quienVende({ cajaId: 'u1', plantaId: 'otra' }, '').leyenda).toBe('Caja u1 - otra')
   })
 })

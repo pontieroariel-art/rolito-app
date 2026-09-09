@@ -26,6 +26,9 @@ export interface PayloadVenta {
   /** Venta de ventanilla: planta donde se vendió. El depósito es el de la planta (config/tango.depositosPlanta). */
   plantaId?: string | null
   choferNombre?: string
+  /** Venta de ventanilla: usuario de caja que la hizo (quién vendió, para leyendas/usuario en Tango). */
+  cajaId?: string
+  cajaNombre?: string
   clienteId?: string
   clienteNombre?: string
   clienteCodigoTango?: string
@@ -77,6 +80,33 @@ export interface IdsPedido {
 /** Referencia idempotente del pedido en Tango: LEYENDA_1 = 'ROLITO:VC:<id venta>'. */
 export function referenciaPedido(origenColeccion: string, origenId: string): string {
   return `ROLITO:${origenColeccion === 'ventasVentanilla' ? 'VV' : 'VC'}:${origenId}`
+}
+
+const NOMBRE_PLANTA: Record<string, string> = { torcuato: 'Torcuato', merlo: 'Merlo' }
+export const nombrePlanta = (plantaId: string | null | undefined): string => NOMBRE_PLANTA[plantaId ?? ''] ?? (plantaId ?? '')
+
+export interface QuienVende {
+  tipo: 'caja' | 'chofer'
+  nombre: string
+  /** "Caja Nicolas Diaz - Torcuato" | "Chofer Pedro Gómez - 03 SERGIO ALVAREZ" (leyenda del comprobante). */
+  leyenda: string
+  /** "la ventanilla de Torcuato" | "el camión 03 SERGIO ALVAREZ" (para observaciones). */
+  lugar: string
+}
+
+/**
+ * Quién vendió físicamente, para que quede en el comprobante de Tango (leyenda
+ * y, en los SQL, el campo USUARIO). El VENDEDOR del comprobante es otra cosa:
+ * el supervisor del cliente (su ficha en Tango), decisión de Ariel 2026-09-09.
+ */
+export function quienVende(payload: Pick<PayloadVenta, 'cajaId' | 'cajaNombre' | 'choferId' | 'choferNombre' | 'plantaId'>, etiquetaCamion: string): QuienVende {
+  if (payload.cajaId) {
+    const nombre = payload.cajaNombre ?? payload.cajaId
+    const planta = nombrePlanta(payload.plantaId)
+    return { tipo: 'caja', nombre, leyenda: `Caja ${nombre} - ${planta}`, lugar: `la ventanilla de ${planta}` }
+  }
+  const nombre = payload.choferNombre ?? ''
+  return { tipo: 'chofer', nombre, leyenda: `Chofer ${nombre} - ${etiquetaCamion}`, lugar: `el camión ${etiquetaCamion}` }
 }
 
 /** Timestamp de Firestore (admin o cliente), Date o ISO → Date. */
@@ -158,6 +188,7 @@ export function armarPedido(
   const numero  = numeroComprobanteInterno(payload.comprobanteInterno)
   const canal   = payload.canal === 'promo' ? 'Promo' : 'Contado'
   const camion  = opciones.etiquetaCamion ?? payload.camionId ?? ''
+  const vende   = quienVende(payload, camion)
   const tipoDoc = payload.comprobanteInterno?.tipo === 'facturaX' ? 'Factura X' : 'Remito'
 
   const pedido: Record<string, unknown> = {
@@ -174,10 +205,10 @@ export function armarPedido(
     CALCULA_PROMOCIONES: false,
     LEYENDA_1: recortar(ref, 60),
     LEYENDA_2: recortar(`${tipoDoc} app ${numero ?? 'SIN NUMERO'} - ${canal}`, 60),
-    LEYENDA_3: recortar(`Chofer ${payload.choferNombre ?? ''} - ${camion}`, 60),
+    LEYENDA_3: recortar(vende.leyenda, 60),
     LEYENDA_4: recortar(payload.firmanteNombre ? `Firmo: ${payload.firmanteNombre}` : '', 60),
     OBSERVACIONES: recortar(
-      `Venta ${canal} desde el camión ${camion}. ${tipoDoc} ${numero ?? 'sin número'} firmado en la app por ` +
+      `Venta ${canal} desde ${vende.lugar} por ${vende.nombre}. ${tipoDoc} ${numero ?? 'sin número'} firmado en la app por ` +
       `${payload.firmanteNombre ?? 'el cliente'} (${payload.clienteNombre ?? ''}). Forma de pago: ${payload.formaPago ?? ''}. ` +
       `Total app: ${payload.total ?? 0}. Ref ${ref}.`,
       8000,

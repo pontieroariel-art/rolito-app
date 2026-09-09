@@ -8,7 +8,7 @@
 // tal cual (`cAE`, `fechaVtoCAE`): Tango registra el comprobante YA autorizado
 // (ejemplo 05 del readme oficial, INTEGRACION.md §12 y §15).
 
-import { referenciaPedido, fechaDe, fechaISO, numeroComprobanteInterno, type PayloadVenta, type ItemOutbox } from './pedido'
+import { referenciaPedido, fechaDe, fechaISO, numeroComprobanteInterno, quienVende, type PayloadVenta, type ItemOutbox } from './pedido'
 
 export const LETRA_POR_CBTE_TIPO: Record<number, string> = { 1: 'A', 6: 'B', 11: 'C' }
 const IVA_21 = 21
@@ -308,6 +308,9 @@ export function armarComprobanteFacturador(payload: PayloadVenta, item: ItemOutb
   const ref = referenciaPedido(item.origenColeccion, item.origenId)
   const fecha = fechaArcaAIso(docu.importes?.fecha) ?? fechaISO(fechaDe(payload.fecha))
   const numeroInterno = numeroComprobanteInterno(payload.comprobanteInterno)
+  // Quién vendió (cajero o chofer) va en la leyenda 3 y en las observaciones;
+  // el vendedor del comprobante (codigoVendedor) es el supervisor del cliente.
+  const vende = quienVende(payload, mapeos.etiquetaCamion ?? payload.camionId ?? '')
 
   const comprobante: Record<string, unknown> = {
     codigoTipoComprobante: 'FAC',
@@ -324,7 +327,7 @@ export function armarComprobanteFacturador(payload: PayloadVenta, item: ItemOutb
     codigoVendedor: String(cfg.vendedor),
     leyenda1: recortar(ref, 60),
     leyenda2: recortar(`Venta ${payload.canal === 'promo' ? 'Promo' : 'Contado'} app${numeroInterno ? ` ${numeroInterno}` : ''} - ${formaPago}`, 60),
-    leyenda3: recortar(`Chofer ${payload.choferNombre ?? ''} - ${mapeos.etiquetaCamion ?? payload.camionId ?? ''}`, 60),
+    leyenda3: recortar(vende.leyenda, 60),
     leyenda4: recortar(payload.firmanteNombre ? `Firmo: ${payload.firmanteNombre}` : '', 60),
     leyenda5: '',
     total: totales.total,
@@ -333,7 +336,7 @@ export function armarComprobanteFacturador(payload: PayloadVenta, item: ItemOutb
     totalIva: totales.iva,
     subtotal: totales.total,
     subtotalSinImpuestos: totales.neto,
-    observaciones: recortar(`${ref}. Venta desde la app por ${payload.choferNombre ?? ''}; firmo ${payload.firmanteNombre ?? 'el cliente'}.`, 280),
+    observaciones: recortar(`${ref}. Venta desde ${vende.lugar} por ${vende.nombre}; firmo ${payload.firmanteNombre ?? 'el cliente'}.`, 280),
     items: r.items.map((i, k) => {
       const { _base, ...it } = i
       return percepciones[k].length ? { ...it, percepciones: percepciones[k] } : it
