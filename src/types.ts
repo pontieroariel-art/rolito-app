@@ -617,12 +617,81 @@ export interface Liquidacion {
   createdAt:     Timestamp
 }
 
-export type MotivoDiferenciaLiquidacion = 'faltante_repartidor' | 'vuelto_mal_dado' | 'error_de_carga' | 'otro'
+export type MotivoDiferenciaLiquidacion = 'faltante_repartidor' | 'faltante_caja' | 'vuelto_mal_dado' | 'error_de_carga' | 'otro'
+// Labels de todos los motivos (sirven para mostrar cualquier cierre); qué
+// motivos se OFRECEN en cada cierre lo dicen las listas de abajo.
 export const MOTIVOS_DIFERENCIA_LIQUIDACION: Record<MotivoDiferenciaLiquidacion, string> = {
   faltante_repartidor: 'Faltante del repartidor',
+  faltante_caja:       'Faltante de caja',
   vuelto_mal_dado:     'Vuelto mal dado',
   error_de_carga:      'Error de carga en la app',
   otro:                'Otro',
+}
+export const MOTIVOS_LIQUIDACION_REPARTIDOR: MotivoDiferenciaLiquidacion[] = ['faltante_repartidor', 'vuelto_mal_dado', 'error_de_carga', 'otro']
+// Cierre de caja de ventanilla (2026-09-09).
+export const MOTIVOS_CIERRE_MOSTRADOR: MotivoDiferenciaLiquidacion[] = ['faltante_caja', 'vuelto_mal_dado', 'error_de_carga', 'otro']
+
+// ── Expedición: rendiciones (cierre de caja por persona y día, 2026-09-09) ────
+// Una sola colección `rendiciones` para los tres sujetos que manejan plata
+// (plan de rendiciones 2026-09-08): repartidor (mismo id que su liquidación),
+// cobrador/supervisor y mostrador. Hoy existe el tipo 'mostrador': el cierre
+// de caja de UN usuario de ventanilla en un día. Inmutable, id determinístico
+// `{fecha}_{sujetoId}`; solo cambian `validacion` (tesorería) y `entregaId`
+// (entrega a tesorería, fase siguiente).
+export type TipoRendicion = 'repartidor' | 'cobrador' | 'mostrador'
+
+export interface ChequeRendido extends ChequeRecibido { cobranzaId: string; numeroRecibo?: string; clienteNombre: string }
+export interface RetencionRendida extends RetencionRecibida { cobranzaId: string; numeroRecibo?: string; clienteNombre: string }
+
+export interface Rendicion {
+  id:            string            // {yyyy-MM-dd}_{sujetoId}
+  numero:        number            // correlativo por planta (config/rendicionCounter_{plantaId})
+  codigo:        string            // "RD-DT-000012"
+  tipo:          TipoRendicion
+  fecha:         string            // yyyy-MM-dd (día rendido)
+  plantaId:      PlantaId
+  sujetoId:      string            // mostrador: uid del cajero
+  sujetoNombre:  string
+  // Teórico (snapshot del cálculo de utils/rendicionMostrador al cerrar)
+  ventas: {
+    cantidad: number
+    contadoEfectivo: number; contadoTransferencia: number; cuentaCorriente: number
+    promoEfectivo: number; promoTransferencia: number; promoCuentaCorriente: number
+    total: number
+  }
+  cobranzas: {
+    cantidad: number; efectivo: number; transferencia: number
+    cheques: { cantidad: number; total: number }; retenciones: { cantidad: number; total: number }
+    total: number
+  }
+  // Liquidaciones de repartidores que este cajero cerró en el día: el efectivo
+  // recibido entró a su caja y se rinde con lo demás.
+  recibido: { liquidaciones: { id: string; choferId: string; choferNombre: string; efectivoARendir: number; efectivoRecibido: number; diferenciaEfectivo: number }[]; efectivo: number }
+  bultos:        { productoId: string; nombre: string; cantidad: number }[]
+  cheques:       ChequeRendido[]
+  retenciones:   RetencionRendida[]
+  efectivoARendir:    number
+  // Real
+  efectivoContado:    number
+  diferenciaEfectivo: number      // contado − a rendir
+  diferencia?:   { motivo: MotivoDiferenciaLiquidacion; nota: string }
+  firma:         string            // dataURL PNG de quien rinde
+  firmante:      string
+  confirmoSinPendientes?: boolean
+  // Referencias para reconstruir el detalle
+  ventasIds:         string[]
+  cobranzasIds:      string[]
+  liquidacionesIds:  string[]
+  cantidadVentas:    number
+  cantidadCobranzas: number
+  desde:         Timestamp         // ventana cubierta (00:00 del día)
+  hasta:         Timestamp         // momento del cierre
+  cerradaPor:    { uid: string; nombre: string }
+  createdAt:     Timestamp
+  // Tesorería la revisó (único campo que tesorería escribe).
+  validacion:    { uid: string; nombre: string; fecha: Timestamp; nota?: string } | null
+  // Entrega a tesorería que la incluye (fase siguiente del plan de rendiciones).
+  entregaId:     string | null
 }
 
 export interface DeliveryAddress {

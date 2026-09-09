@@ -578,11 +578,13 @@ service cloud.firestore {
       // cargaCounter_merlo) — caja solo toca el de SU planta, y en updates
       // solo puede avanzar `next` (la transacción de crearRemitoCarga crea el
       // doc en el primer uso con next >= 2: número emitido + 1).
+      // Mismo esquema para el contador de rendiciones (cierre de caja por
+      // persona, rendicionCounter_{planta}, 2026-09-09).
       allow create: if request.auth != null
-        && docId in ['cargaCounter_torcuato', 'cargaCounter_merlo'] && isCajaDe(docId.split('_')[1])
+        && docId.matches('(cargaCounter|rendicionCounter)_(torcuato|merlo)') && isCajaDe(docId.split('_')[1])
         && request.resource.data.next is int && request.resource.data.next > 1;
       allow update: if request.auth != null
-        && docId in ['cargaCounter_torcuato', 'cargaCounter_merlo'] && isCajaDe(docId.split('_')[1])
+        && docId.matches('(cargaCounter|rendicionCounter)_(torcuato|merlo)') && isCajaDe(docId.split('_')[1])
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next'])
         && request.resource.data.next > resource.data.next;
 
@@ -1234,6 +1236,47 @@ service cloud.firestore {
                 && racksOk(request.resource.data.envases.racksFaltantes)));
 
       allow update, delete: if false;
+    }
+
+    // ── Rendiciones: cierre de caja por persona y día (2026-09-09) ────────
+    // Hoy solo tipo 'mostrador' (usuario de ventanilla). Inmutable salvo:
+    // `validacion` (tesorería la revisa, una sola vez) y `entregaId` (la
+    // entrega a tesorería que la incluye, fase siguiente; solo operador).
+    match /rendiciones/{rendicionId} {
+      allow read: if request.auth != null
+        && (isCaja() || isOperator() || isManager() || isGerenteGeneral() || isTesoreria() || isSupervisor()
+            || (isChofer() && resource.data.sujetoId == request.auth.uid));
+
+      allow create: if request.auth != null && isCajaDe(request.resource.data.plantaId)
+        && request.resource.data.tipo == 'mostrador'
+        && request.resource.data.sujetoId == request.auth.uid
+        && request.resource.data.cerradaPor.uid == request.auth.uid
+        && request.resource.data.fecha is string
+        && rendicionId == request.resource.data.fecha + '_' + request.resource.data.sujetoId
+        && request.resource.data.numero is int && request.resource.data.numero > 0
+        && request.resource.data.codigo is string
+        && request.resource.data.efectivoARendir is number
+        && request.resource.data.efectivoContado is number
+        && request.resource.data.diferenciaEfectivo is number
+        && request.resource.data.firma is string && request.resource.data.firma.size() > 0
+        && request.resource.data.ventasIds is list
+        && request.resource.data.cobranzasIds is list
+        && request.resource.data.validacion == null
+        && request.resource.data.entregaId == null;
+
+      // Tesorería valida (null → map con su uid), una sola vez y nada más.
+      allow update: if request.auth != null && (isTesoreria() || isOperator())
+        && resource.data.validacion == null
+        && request.resource.data.validacion is map
+        && request.resource.data.validacion.uid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['validacion']);
+      // Entrega a tesorería (fase siguiente): solo el operador, null → id.
+      allow update: if request.auth != null && isOperator()
+        && resource.data.entregaId == null
+        && request.resource.data.entregaId is string
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['entregaId']);
+
+      allow delete: if false;
     }
 
     // ── Cola de salida hacia Tango (app → Tango, tiempo real) ──────────────

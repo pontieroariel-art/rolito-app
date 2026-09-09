@@ -2618,6 +2618,109 @@ describe('expedicion: muelle / cambios / descargas / liquidaciones', () => {
   })
 })
 
+// Rendiciones: cierre de caja por persona y día (2026-09-09).
+describe('rendiciones (cierre de caja de ventanilla)', () => {
+  const seedTodos = () => seed(async (d) => {
+    await setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' })
+    await setDoc(doc(d, 'users/caja2'), { rol: 'caja', estado: 'activo', planta: 'torcuato' })
+    await setDoc(doc(d, 'users/cajam'), { rol: 'caja', estado: 'activo', planta: 'merlo' })
+    await setDoc(doc(d, 'users/mue1'),  { rol: 'muelle', estado: 'activo', planta: 'torcuato' })
+    await setDoc(doc(d, 'users/tes1'),  { rol: 'tesoreria', estado: 'activo' })
+    await setDoc(doc(d, 'users/fac1'),  { rol: 'facturacion', estado: 'activo' })
+    await setDoc(doc(d, 'users/gg'),    { rol: 'gerente_general', estado: 'activo' })
+    await setDoc(doc(d, 'users/log'),   { rol: 'logistica', estado: 'activo' })
+    await setDoc(doc(d, 'users/cli'),   { rol: 'cliente', estado: 'activo' })
+    await setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' })
+  })
+  const rendicion = (extra = {}) => ({
+    numero: 1, codigo: 'RD-DT-000001', tipo: 'mostrador', fecha: '2026-09-09', plantaId: 'torcuato',
+    sujetoId: 'caja1', sujetoNombre: 'Nicolas Diaz',
+    ventas: { cantidad: 2, contadoEfectivo: 1000, contadoTransferencia: 0, cuentaCorriente: 0, promoEfectivo: 0, promoTransferencia: 0, promoCuentaCorriente: 0, total: 1000 },
+    cobranzas: { cantidad: 0, efectivo: 0, transferencia: 0, cheques: { cantidad: 0, total: 0 }, retenciones: { cantidad: 0, total: 0 }, total: 0 },
+    recibido: { liquidaciones: [], efectivo: 0 }, bultos: [], cheques: [], retenciones: [],
+    efectivoARendir: 1000, efectivoContado: 1000, diferenciaEfectivo: 0,
+    firma: 'data:image/png;base64,AAAA', firmante: 'Nicolas Diaz', confirmoSinPendientes: true,
+    ventasIds: ['v1', 'v2'], cobranzasIds: [], liquidacionesIds: [], cantidadVentas: 2, cantidadCobranzas: 0,
+    desde: new Date('2026-09-09T03:00:00Z'), hasta: new Date('2026-09-09T20:00:00Z'),
+    cerradaPor: { uid: 'caja1', nombre: 'Nicolas Diaz' }, createdAt: new Date(),
+    validacion: null, entregaId: null,
+    ...extra,
+  })
+  const ID = 'rendiciones/2026-09-09_caja1'
+
+  test('caja cierra SU caja del día con id determinístico; no la de otro, ni con id inventado, ni dos veces', async () => {
+    await seedTodos()
+    await assertSucceeds(setDoc(doc(db('caja1'), ID), rendicion()))
+    await assertFails(setDoc(doc(db('caja1'), 'rendiciones/2026-09-09_caja2'), rendicion({ sujetoId: 'caja2', cerradaPor: { uid: 'caja2', nombre: 'Otro' } })))
+    await assertFails(setDoc(doc(db('caja2'), 'rendiciones/2026-09-09_caja2'), rendicion({ sujetoId: 'caja2', cerradaPor: { uid: 'caja1', nombre: 'Nico' } })))
+    await assertFails(setDoc(doc(db('caja2'), 'rendiciones/otro-id'), rendicion({ sujetoId: 'caja2', cerradaPor: { uid: 'caja2', nombre: 'Otro' } })))
+    await assertFails(setDoc(doc(db('caja1'), ID), rendicion({ efectivoContado: 999 })))
+  })
+
+  test('el cierre nace sin validar y sin entrega, de tipo mostrador, con firma y referencias; muelle y caja de otra planta no cierran', async () => {
+    await seedTodos()
+    await assertFails(setDoc(doc(db('caja1'), ID), rendicion({ validacion: { uid: 'caja1', nombre: 'x', fecha: new Date() } })))
+    await assertFails(setDoc(doc(db('caja1'), ID), rendicion({ entregaId: 'ET-1' })))
+    await assertFails(setDoc(doc(db('caja1'), ID), rendicion({ tipo: 'repartidor' })))
+    await assertFails(setDoc(doc(db('caja1'), ID), rendicion({ firma: '' })))
+    await assertFails(setDoc(doc(db('caja1'), ID), rendicion({ ventasIds: 'v1' })))
+    await assertFails(setDoc(doc(db('mue1'), 'rendiciones/2026-09-09_mue1'), rendicion({ sujetoId: 'mue1', cerradaPor: { uid: 'mue1', nombre: 'M' } })))
+    await assertFails(setDoc(doc(db('cajam'), 'rendiciones/2026-09-09_cajam'), rendicion({ sujetoId: 'cajam', cerradaPor: { uid: 'cajam', nombre: 'M' } })))
+    await assertSucceeds(setDoc(doc(db('cajam'), 'rendiciones/2026-09-09_cajam'), rendicion({ plantaId: 'merlo', codigo: 'RD-ML-000001', sujetoId: 'cajam', cerradaPor: { uid: 'cajam', nombre: 'M' } })))
+  })
+
+  test('lectura: caja, tesorería, gerencia, logística y supervisor leen; facturación y cliente no; el chofer solo la suya', async () => {
+    await seedTodos()
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/sup1'), { rol: 'supervisor', estado: 'activo' })
+      await setDoc(doc(d, ID), rendicion())
+      await setDoc(doc(d, 'rendiciones/2026-09-09_chof1'), rendicion({ sujetoId: 'chof1', tipo: 'repartidor' }))
+    })
+    for (const u of ['caja2', 'tes1', 'gg', 'log', 'sup1']) await assertSucceeds(getDoc(doc(db(u), ID)))
+    await assertFails(getDoc(doc(db('fac1'), ID)))
+    await assertFails(getDoc(doc(db('cli'), ID)))
+    await assertFails(getDoc(doc(db('chof1'), ID)))
+    await assertSucceeds(getDoc(doc(db('chof1'), 'rendiciones/2026-09-09_chof1')))
+  })
+
+  test('tesorería valida una vez (solo ese campo, con su uid); caja no valida; nadie borra', async () => {
+    await seedTodos()
+    await seed((d) => setDoc(doc(d, ID), rendicion()))
+    await assertFails(updateDoc(doc(db('caja1'), ID), { validacion: { uid: 'caja1', nombre: 'Nico', fecha: new Date() } }))
+    await assertFails(updateDoc(doc(db('tes1'), ID), { validacion: { uid: 'otro', nombre: 'T', fecha: new Date() } }))
+    await assertFails(updateDoc(doc(db('tes1'), ID), { validacion: { uid: 'tes1', nombre: 'T', fecha: new Date() }, efectivoContado: 5 }))
+    await assertFails(updateDoc(doc(db('tes1'), ID), { efectivoContado: 5 }))
+    await assertSucceeds(updateDoc(doc(db('tes1'), ID), { validacion: { uid: 'tes1', nombre: 'T', fecha: new Date(), nota: 'ok' } }))
+    await assertFails(updateDoc(doc(db('tes1'), ID), { validacion: { uid: 'tes1', nombre: 'T', fecha: new Date() } }))
+    await assertFails(updateDoc(doc(db('gg'), ID), { entregaId: 'ET-1' }))
+    await assertFails(deleteDoc(doc(db('tes1'), ID)))
+    await assertFails(deleteDoc(doc(db('caja1'), ID)))
+  })
+
+  test('la entrega a tesorería la fija el operador (null → id) y nada más; super_admin también valida', async () => {
+    await seedTodos()
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/sa'), { rol: 'super_admin', estado: 'activo' })
+      await setDoc(doc(d, ID), rendicion())
+    })
+    await assertFails(updateDoc(doc(db('log'), ID), { entregaId: 'ET-1', efectivoContado: 1 }))
+    await assertFails(updateDoc(doc(db('tes1'), ID), { entregaId: 'ET-1' }))
+    await assertSucceeds(updateDoc(doc(db('sa'), ID), { validacion: { uid: 'sa', nombre: 'SA', fecha: new Date() } }))
+    await assertSucceeds(updateDoc(doc(db('log'), ID), { entregaId: 'ET-1' }))
+    await assertFails(updateDoc(doc(db('log'), ID), { entregaId: 'ET-2' }))
+  })
+
+  test('contador rendicionCounter_{planta}: solo caja de esa planta, y solo avanza', async () => {
+    await seedTodos()
+    await assertSucceeds(setDoc(doc(db('caja1'), 'config/rendicionCounter_torcuato'), { next: 2 }))
+    await assertFails(setDoc(doc(db('cajam'), 'config/rendicionCounter_torcuato'), { next: 3 }))
+    await assertSucceeds(updateDoc(doc(db('caja2'), 'config/rendicionCounter_torcuato'), { next: 3 }))
+    await assertFails(updateDoc(doc(db('caja2'), 'config/rendicionCounter_torcuato'), { next: 2 }))
+    await assertFails(updateDoc(doc(db('caja2'), 'config/rendicionCounter_torcuato'), { next: 4, otro: 1 }))
+    await assertFails(setDoc(doc(db('tes1'), 'config/rendicionCounter_merlo'), { next: 2 }))
+  })
+})
+
 // Caja lee ventas de camión (las necesita la liquidación del repartidor).
 describe('ventasCamion: lectura de caja', () => {
   test('caja puede leer una venta; muelle NO', async () => {

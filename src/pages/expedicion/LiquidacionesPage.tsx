@@ -139,7 +139,8 @@ export default function LiquidacionesPage() {
         {
           fecha: hoy, choferId, choferNombre, calculo: calc, efectivoRecibido: recibido,
           ...(depositoElegido ? { depositoTango: depositoElegido.codigo, depositoTangoNombre: depositoElegido.nombre } : {}),
-          ...datos,
+          ...(datos.diferencia ? { diferencia: datos.diferencia } : {}),
+          firmaRepartidor: datos.firma, firmanteRepartidor: datos.firmante, confirmoSinPendientes: datos.confirmoSinPendientes,
           referencias: referenciasDelReparto(remitosChofer, ventas, descargas, cobranzas),
         },
         { uid: user.uid, nombre: user.nombre, plantaId },
