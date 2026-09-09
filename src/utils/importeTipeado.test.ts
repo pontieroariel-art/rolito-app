@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { numero } from './RecuperoFacturasPage'
+import { numero } from './importeTipeado'
 
 describe('numero (importes tipeados en Recupero)', () => {
   it('acepta coma decimal, punto decimal y punto de miles', () => {

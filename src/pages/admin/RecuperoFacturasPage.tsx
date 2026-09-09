@@ -16,6 +16,7 @@ import { parsearFacturaTango, percepcionCabaFaltante, verificarFactura } from '@
 import { generateFacturaPdf, FacturaPdfData } from '@/utils/facturaPdf'
 import { claveFactura } from '@/utils/facturaClave'
 import { NOMBRE_EMPRESA } from '@/utils/tangoEmpresas'
+import { numero } from '@/utils/importeTipeado'
 import type { EmpresaTango } from '@/types'
 
 interface Item {
@@ -51,16 +52,6 @@ function caesGuardados(): Record<string, Guardado> {
   try { return JSON.parse(localStorage.getItem(CLAVE_CAES) ?? '{}') } catch { return {} }
 }
 
-// Importes tipeados a mano: "14.644,04", "14644,04" y "14644.04" valen lo mismo.
-// Un solo punto con hasta 2 decimales es decimal; si no, el punto separa miles.
-export function numero(s: string | number): number {
-  const t = String(s ?? '').trim()
-  if (!t) return 0
-  if (t.includes(',')) return Number(t.replace(/\./g, '').replace(',', '.')) || 0
-  const puntos = (t.match(/\./g) ?? []).length
-  if (puntos === 1 && /\.\d{1,2}$/.test(t)) return Number(t) || 0
-  return Number(t.replace(/\./g, '')) || 0
-}
 const textoImporte = (n: number) => n.toFixed(2).replace('.', ',')
 
 /** Alícuota que corresponde a un importe de percepción sobre el neto, con 2 decimales. */
