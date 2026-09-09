@@ -60,8 +60,10 @@ for (const [nombre, desde, hasta] of variantes) {
       const filas = await live(proceso, desde, hasta)
       const mias = filas.filter(esDelCliente)
       console.log(`  ${etiqueta}: ${filas.length} filas en total, ${mias.length} de ${codigo}`)
-      if (filas.length && !mias.length) console.log(`    (campos de una fila: ${Object.keys(filas[0]).join(', ')})`)
+      if (filas.length && (!mias.length || process.env.MOSTRAR_CAMPOS)) console.log(`    (campos de una fila: ${Object.keys(filas[0]).join(', ')})`)
       for (const f of mias) console.log(`    ${resumen(f)}`)
+      // MOSTRAR_CAMPOS=1: la primera fila del cliente completa, para ver qué más trae la Live.
+      if (process.env.MOSTRAR_CAMPOS && mias[0]) console.log('    fila completa:', JSON.stringify(mias[0]))
     } catch (e) {
       console.log(`  ${etiqueta}: ERROR ${e.message}`)
     }

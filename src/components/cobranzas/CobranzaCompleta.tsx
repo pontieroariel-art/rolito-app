@@ -399,7 +399,9 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-gray-900 truncate">{c.tipo} {c.numero}</p>
                             <p className="text-xs text-gray-500">
-                              {c.fechaEmision || (c.fechaVencimiento ? `Vto. ${c.fechaVencimiento}` : '')}
+                              {/* Emisión y vencimiento (pedido de los cobradores 2026-09-09). La emisión
+                                  solo viene si el diseño de la Live de deudas en Tango la incluye. */}
+                              {[c.fechaEmision ? `Emitida ${c.fechaEmision}` : '', c.fechaVencimiento ? `Vto. ${c.fechaVencimiento}` : ''].filter(Boolean).join(' · ')}
                               {c.diasAtraso ? (
                                 <span className="text-red-500"> · {c.diasAtraso} {c.diasAtraso === 1 ? 'día' : 'días'} de atraso</span>
                               ) : null}

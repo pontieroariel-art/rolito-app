@@ -110,7 +110,7 @@ export default function SeccionSaldo({ c }: { c: UserProfile }) {
                     <div className="min-w-0">
                       <p className="text-sm text-gray-900 truncate">{comp.tipo} {comp.numero}</p>
                       <p className="text-[11px] text-gray-500">
-                        {fechaCorta(comp.fechaEmision) && `Emitida ${fechaCorta(comp.fechaEmision)}`}
+                        {[fechaCorta(comp.fechaEmision) ? `Emitida ${fechaCorta(comp.fechaEmision)}` : '', fechaCorta(comp.fechaVencimiento) ? `Vto. ${fechaCorta(comp.fechaVencimiento)}` : ''].filter(Boolean).join(' · ')}
                         {comp.diasAtraso && comp.diasAtraso > 0 ? <span className="text-red-500"> · {comp.diasAtraso} d de atraso</span> : null}
                       </p>
                     </div>
