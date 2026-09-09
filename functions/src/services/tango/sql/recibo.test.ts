@@ -126,9 +126,13 @@ describe('sentenciasRecibo', () => {
     expect(param(ss[9].params, 'MONTO')).toBe(500)
   })
   it('los saldos de las cuentas se mueven como en la traza: debe suma, haber resta', () => {
-    expect(param(ss[11].params, 'MO')).toBeCloseTo(-16877317739.08, 2)   // deudores: −1500
-    expect(param(ss[12].params, 'MO')).toBeCloseTo(-2911496195.15, 2)    // caja: +1000
-    expect(param(ss[13].params, 'MO')).toBe(600)                          // banco: +500
+    // El saldo se mueve en el servidor (col + DELTA) con control optimista tolerante (2026-09-09).
+    expect(param(ss[11].params, 'DELTA')).toBe(-1500)                      // deudores: −1500
+    expect(param(ss[11].params, 'ANT_MO')).toBeCloseTo(-16877316239.08, 2)
+    expect(ss[11].sql).toContain('"SALDO_A_MO"="SALDO_A_MO"+@DELTA')
+    expect(ss[11].sql).toContain('ABS("SALDO_A_MO"-@ANT_MO)<0.01')
+    expect(param(ss[12].params, 'DELTA')).toBe(1000)                       // caja: +1000
+    expect(param(ss[13].params, 'DELTA')).toBe(500)                        // banco: +500
     expect(param(ss[12].params, 'ID')).toBe(1)
   })
   it('el asiento contable mapea cada cuenta de tesorería a su cuenta contable', () => {
@@ -292,7 +296,7 @@ describe('cheques de terceros (traza 2026-09-05: X0110600000002, cheque diferido
     expect(param(sba23, 'USUARIO')).toBe('ROLITO')
     expect(param(ss[10].params, 'TIPO_MOVIMIENTO')).toBe('INGR')
     expect(param(ss[15].params, 'ID_CUENTA')).toBe(602)   // contable de VALORES A DEPOSITAR
-    expect(param(ss[12].params, 'MO')).toBeCloseTo(88007507.63, 2)   // cartera: +35682, como la traza
+    expect(param(ss[12].params, 'DELTA')).toBe(35682)   // cartera: +35682, como la traza
   })
   it('un cheque al día es común (TIPO_CHEQU C, 0 días)', () => {
     const r0 = reciboDeCobranza({ ...pCheque, medios: { efectivo: 0, transferencia: 0, cheques: [{ ...cheque, fechaAcreditacion: '2026-09-05', dias: 0 }], retenciones: [] } }, 'c', cfg)
@@ -363,7 +367,7 @@ describe('retenciones (Track R, 2026-09-08: medio sobre la cuenta de retenciones
     expect(param(ren.params, 'LEYENDA')).toBe('RET IIBB CABA CERT 0001-00004567')
     expect(String(param(ren.params, 'COMENTARIO'))).toContain('08/09/26 $500.00')
     expect(param(s.find((x) => x.etiqueta === 'INSERT SBA05 1111000 D')!.params, 'LEYENDA')).toBe('')
-    expect(param(s.find((x) => x.etiqueta === 'UPDATE SBA01 saldo 1130010')!.params, 'ACT')).toBe(1500)
+    expect(param(s.find((x) => x.etiqueta === 'UPDATE SBA01 saldo 1130010')!.params, 'DELTA')).toBe(500)   // saldo 1000 + retención 500 (el servidor suma)
     expect(param(s.find((x) => x.etiqueta === 'INSERT ASIENTO_SB 1130010')!.params, 'ID_CUENTA')).toBe(640)
     expect(s.filter((x) => x.etiqueta.startsWith('INSERT SBA14'))).toHaveLength(0)
   })

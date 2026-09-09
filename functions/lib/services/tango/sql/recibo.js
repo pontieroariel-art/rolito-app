@@ -518,11 +518,16 @@ function sentenciasRecibo(r, d, cfg, ahora = new Date()) {
         if (!c)
             throw new Error(`falta leer la cuenta de tesorería ${ren.cuenta} (SBA01)`);
         const delta = ren.dh === 'D' ? ren.importe : -ren.importe;
+        // El saldo se mueve del lado del servidor (col + delta) y el control optimista
+        // tolera 1 centavo: SBA01 guarda numeric(22,7) y un saldo con más de 2
+        // decimales (los deja la propia oficina) no sobrevive el viaje por JS
+        // (double) → el "= @ANT" fallaba SIEMPRE ("el saldo cambió", 2026-09-09,
+        // recibo RS-000301) aunque nadie lo hubiera tocado.
         out.push({
             etiqueta: `UPDATE SBA01 saldo ${ren.cuenta}`,
-            sql: `UPDATE "SBA01" SET "SALDO_A_MO"=@MO,"SALDO_A_UN"=@UN,"SALDO_ACT"=@ACT WHERE "SALDO_A_MO"=@ANT_MO AND "SALDO_A_UN"=@ANT_UN AND "SALDO_ACT"=@ANT_ACT AND "ID_SBA01"=@ID`,
+            sql: `UPDATE "SBA01" SET "SALDO_A_MO"="SALDO_A_MO"+@DELTA,"SALDO_A_UN"="SALDO_A_UN"+@DELTA,"SALDO_ACT"="SALDO_ACT"+@DELTA WHERE ABS("SALDO_A_MO"-@ANT_MO)<0.01 AND ABS("SALDO_A_UN"-@ANT_UN)<0.01 AND ABS("SALDO_ACT"-@ANT_ACT)<0.01 AND "ID_SBA01"=@ID`,
             params: [
-                (0, tipos_1.numeric)('MO', r2(c.saldoAMo + delta)), (0, tipos_1.numeric)('UN', r2(c.saldoAUn + delta)), (0, tipos_1.numeric)('ACT', r2(c.saldoAct + delta)),
+                (0, tipos_1.numeric)('DELTA', r2(delta)),
                 (0, tipos_1.numeric)('ANT_MO', c.saldoAMo), (0, tipos_1.numeric)('ANT_UN', c.saldoAUn), (0, tipos_1.numeric)('ANT_ACT', c.saldoAct), (0, tipos_1.int)('ID', c.idSba01),
             ],
         });
