@@ -82,6 +82,15 @@ service cloud.firestore {
       return myRole() == 'tesoreria';
     }
 
+    // Puede autorizar anulaciones de facturas de ventanilla (nota de crédito,
+    // 2026-09-09): permiso INDIVIDUAL (users.autorizaAnulaciones), sea cual
+    // sea el rol; lo asigna solo el super_admin. super_admin siempre puede.
+    function puedeAutorizarAnulaciones() {
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      let data = exists(path) ? get(path).data : {};
+      return data.get('rol', 'none') == 'super_admin' || data.get('autorizaAnulaciones', false) == true;
+    }
+
     // Cualquier rol de staff (todo lo que no sea cliente).
     function isStaff() {
       return myRole() != 'cliente' && myRole() != 'none';
@@ -276,6 +285,10 @@ service cloud.firestore {
             && request.resource.data.get('planta', null) == resource.data.get('planta', null);
       }
       function estadoUnchanged() { return request.resource.data.estado == resource.data.estado; }
+      // El permiso de autorizar anulaciones también es privilegio: solo super_admin.
+      function autorizaAnulacionesUnchanged() {
+        return request.resource.data.get('autorizaAnulaciones', false) == resource.data.get('autorizaAnulaciones', false);
+      }
       function preciosUnchanged() {
         return request.resource.data.get('listaPreciosId', '') == resource.data.get('listaPreciosId', '')
             && request.resource.data.get('preciosCustom', {}) == resource.data.get('preciosCustom', {});
@@ -368,7 +381,7 @@ service cloud.firestore {
 
       // ── Edición del propio perfil: NO puede tocar rol / estado / precios / identidad ──
       allow update: if isSelf() && rolUnchanged() && rolesExtraUnchanged() && estadoUnchanged()
-        && preciosUnchanged() && identidadUnchanged() && tangoBridgeUnchanged();
+        && preciosUnchanged() && identidadUnchanged() && tangoBridgeUnchanged() && autorizaAnulacionesUnchanged();
 
       // ── gerente_comercial / comercial / logistica: gestión de clientes ──
       // Solo sobre documentos de CLIENTE y solo los campos de gestión (nunca
@@ -1345,6 +1358,51 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
              ['estado', 'recibidoPor', 'firmaRecibe', 'firmanteRecibe', 'efectivoContado', 'diferenciaEfectivo',
               'diferencia', 'valoresFaltantes', 'confirmadaEn', 'cheques', 'retenciones']);
+
+      allow delete: if false;
+    }
+
+    // ── Anulación de facturas de ventanilla con nota de crédito (2026-09-09) ──
+    // El cajero pide (create, id = ventaId, sobre SU venta facturada), un
+    // usuario con el permiso individual aprueba o rechaza (una vez, solo esos
+    // campos, nunca su propia solicitud). El resultado de ARCA (emitida/error,
+    // notaCredito) lo escribe el server. Nadie borra.
+    match /anulacionesVentanilla/{anulacionId} {
+      function ventaDeLaSolicitud() {
+        return get(/databases/$(database)/documents/ventasVentanilla/$(anulacionId)).data;
+      }
+      function ventaAnulable() {
+        // Facturada por ARCA, del propio cajero, y sin una anulación en curso o hecha.
+        let v = ventaDeLaSolicitud();
+        let a = v.get('anulacion', {});
+        return v.cajaId == request.auth.uid
+          && v.get('factura', {}).get('estado', '') == 'emitida'
+          && (a.get('estado', 'rechazada') in ['rechazada', 'error']);
+      }
+
+      allow read: if request.auth != null
+        && (isCaja() || isTesoreria() || isOperator() || isManager() || isGerenteGeneral() || isFacturacion()
+            || puedeAutorizarAnulaciones());
+
+      allow create: if request.auth != null && isCajaDe(request.resource.data.plantaId)
+        && request.resource.data.cajaId == request.auth.uid
+        && request.resource.data.solicitadoPor.uid == request.auth.uid
+        && request.resource.data.ventaId == anulacionId
+        && request.resource.data.estado == 'pendiente'
+        && request.resource.data.resueltaPor == null
+        && request.resource.data.motivo is string
+        && ventaAnulable();
+
+      allow update: if request.auth != null && puedeAutorizarAnulaciones()
+        && resource.data.estado == 'pendiente'
+        && request.resource.data.estado in ['aprobada', 'rechazada']
+        && request.resource.data.resueltaPor is map
+        && request.resource.data.resueltaPor.uid == request.auth.uid
+        && resource.data.solicitadoPor.uid != request.auth.uid
+        && (request.resource.data.estado == 'aprobada'
+            || (request.resource.data.notaResolucion is string && request.resource.data.notaResolucion.size() > 0))
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['estado', 'resueltaPor', 'resueltaEn', 'notaResolucion']);
 
       allow delete: if false;
     }

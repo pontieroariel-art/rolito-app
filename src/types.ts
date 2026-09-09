@@ -330,6 +330,65 @@ export interface VentaVentanilla {
   // desde config/numeracionInterna_{facturaX|remito}. Sin número Tango no
   // tiene qué registrar. Ausente en las ventas anteriores y en las de contado.
   comprobanteInterno?:  ComprobanteInternoVenta
+  // Anulación de la factura con nota de crédito (2026-09-09). Lo escribe el
+  // server (triggers de anulacionesVentanilla): 'pendiente' mientras espera
+  // autorización, 'aprobada' mientras se emite la NC, 'anulada' con la NC
+  // emitida (la venta deja de contar en Mi día / cierre de caja / tesorería),
+  // 'rechazada' o 'error' (ARCA rechazó la NC) → la venta sigue contando.
+  anulacion?:           AnulacionEnVenta
+}
+
+// ── Anulación de facturas de ventanilla con nota de crédito (2026-09-09) ─────
+// El cajero pide (anulacionesVentanilla/{ventaId}, id = venta → una por
+// venta), un usuario con `users.autorizaAnulaciones` aprueba o rechaza, y el
+// server emite la NC en ARCA (misma clase e importes que la factura) y la
+// refleja en la venta. Solo anulación TOTAL, solo mientras la caja del cajero
+// no esté cerrada.
+export type EstadoAnulacion = 'pendiente' | 'aprobada' | 'rechazada' | 'emitida' | 'error'
+export type EstadoAnulacionEnVenta = 'pendiente' | 'aprobada' | 'anulada' | 'rechazada' | 'error'
+
+export type MotivoAnulacion =
+  | 'cliente_equivocado' | 'articulos_equivocados' | 'forma_pago_equivocada' | 'importe_equivocado' | 'cliente_desistio' | 'otro'
+export const MOTIVOS_ANULACION: Record<MotivoAnulacion, string> = {
+  cliente_equivocado:    'Cliente equivocado',
+  articulos_equivocados: 'Artículos o cantidades equivocados',
+  forma_pago_equivocada: 'Forma de pago equivocada',
+  importe_equivocado:    'Importe o precio equivocado',
+  cliente_desistio:      'El cliente desistió de la compra',
+  otro:                  'Otro',
+}
+
+/** La nota de crédito emitida por ARCA, con la misma forma que la factura más el comprobante asociado. */
+export interface NotaCreditoArcaVenta extends FacturaArcaVenta {
+  cbtesAsoc: { Tipo: number; PtoVta: number; Nro: number; Cuit?: string; CbteFch?: string }[]
+}
+
+export interface AnulacionEnVenta {
+  estado:       EstadoAnulacionEnVenta
+  solicitudId:  string
+  notaCredito?: NotaCreditoArcaVenta
+}
+
+export interface AnulacionVentanilla {
+  id:            string          // = ventaId
+  ventaId:       string
+  coleccion:     'ventasVentanilla'
+  plantaId:      PlantaId
+  cajaId:        string
+  cajaNombre:    string
+  clienteNombre: string
+  fechaVenta:    string          // yyyy-MM-dd
+  facturaOriginal: { cbteTipo: number; puntoVenta: number; numero: number; cae: string | null; total: number }
+  motivo:        MotivoAnulacion
+  nota:          string
+  estado:        EstadoAnulacion
+  solicitadoPor: { uid: string; nombre: string }
+  solicitadaEn:  Timestamp
+  resueltaPor:   { uid: string; nombre: string } | null
+  resueltaEn?:   Timestamp
+  notaResolucion?: string
+  notaCredito?:  NotaCreditoArcaVenta
+  ultimoError?:  string | null
 }
 
 // ── Expedición: cobranza (mostrador, calle o supervisor) ──────────────────────
@@ -878,6 +937,9 @@ export interface UserProfile {
   // quien cubre el mostrador además de su puesto — ver src/utils/roles.ts.
   // Van con `planta`. Solo los asigna el super_admin.
   rolesExtra?: UserRole[]
+  // Puede aprobar o rechazar las anulaciones de facturas de ventanilla (nota
+  // de crédito), sea cual sea su rol. Solo lo asigna el super_admin (2026-09-09).
+  autorizaAnulaciones?: boolean
   // Cliente de Tango SIN CUIT (consumidor final del mostrador / promo), creado
   // por el padrón automático sin usuario de Auth ni cuitIndex: no puede entrar
   // a la app y solo se le vende en promo (Rolito). El contado (factura ARCA)

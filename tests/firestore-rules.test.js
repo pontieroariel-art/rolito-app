@@ -4022,3 +4022,107 @@ describe('entregasTesoreria (entrega de caja a tesorería)', () => {
     await assertFails(setDoc(doc(db('mue1'), 'config/entregaCounter_torcuato'), { next: 4 }))
   })
 })
+
+describe('anulacionesVentanilla (anulación de factura con nota de crédito)', () => {
+  const ventaFacturada = (cajaId, turno, numero, extra = {}) => ({
+    plantaId: 'torcuato', canal: 'contado', cajaId, cajaNombre: 'Caja', clienteNombre: 'Cliente SA', items: [], total: 20000,
+    formaPago: 'contado_efectivo', estado: 'entregado', turno, turnoEstado: 'en_espera', fecha: new Date(),
+    factura: { estado: 'emitida', numero, puntoVenta: 1104, cbteTipo: 1, cae: '75', caeFchVto: '20260920' }, ...extra,
+  })
+  const seedTodos = () => seed(async (d) => {
+    await setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' })
+    await setDoc(doc(d, 'users/caja2'), { rol: 'caja', estado: 'activo', planta: 'torcuato' })
+    await setDoc(doc(d, 'users/cajam'), { rol: 'caja', estado: 'activo', planta: 'merlo' })
+    await setDoc(doc(d, 'users/tes1'),  { rol: 'tesoreria', estado: 'activo' })
+    await setDoc(doc(d, 'users/aut1'),  { rol: 'facturacion', estado: 'activo', autorizaAnulaciones: true })
+    await setDoc(doc(d, 'users/aut2'),  { rol: 'tesoreria', estado: 'activo', autorizaAnulaciones: true })
+    await setDoc(doc(d, 'users/sa'),    { rol: 'super_admin', estado: 'activo' })
+    await setDoc(doc(d, 'users/log'),   { rol: 'logistica', estado: 'activo' })
+    await setDoc(doc(d, 'users/cli'),   { rol: 'cliente', estado: 'activo' })
+    await setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' })
+    await setDoc(doc(d, 'ventasVentanilla/v1'), ventaFacturada('caja1', 1, 116))
+    const { factura: _sinFactura, ...v2 } = ventaFacturada('caja1', 2, 0)
+    await setDoc(doc(d, 'ventasVentanilla/v2'), { ...v2, formaPago: 'cuenta_corriente' })
+    await setDoc(doc(d, 'ventasVentanilla/v3'), ventaFacturada('caja2', 3, 117))
+    await setDoc(doc(d, 'ventasVentanilla/v4'), ventaFacturada('caja1', 4, 118, { anulacion: { estado: 'anulada', solicitudId: 'v4' } }))
+    await setDoc(doc(d, 'ventasVentanilla/v5'), ventaFacturada('caja1', 5, 119, { anulacion: { estado: 'rechazada', solicitudId: 'v5' } }))
+  })
+  const solicitud = (extra = {}) => ({
+    ventaId: 'v1', coleccion: 'ventasVentanilla', plantaId: 'torcuato', cajaId: 'caja1', cajaNombre: 'Caja', clienteNombre: 'Cliente SA', fechaVenta: '2026-09-09',
+    facturaOriginal: { cbteTipo: 1, puntoVenta: 1104, numero: 116, cae: '75', total: 20000 },
+    motivo: 'cliente_equivocado', nota: 'era la sucursal 2', estado: 'pendiente',
+    solicitadoPor: { uid: 'caja1', nombre: 'Caja' }, solicitadaEn: new Date(), resueltaPor: null,
+    ...extra,
+  })
+  const ID = 'anulacionesVentanilla/v1'
+  const resolucion = (estado, uid, extra = {}) => ({ estado, resueltaPor: { uid, nombre: 'X' }, resueltaEn: new Date(), notaResolucion: estado === 'rechazada' ? 'no corresponde' : '', ...extra })
+
+  test('el cajero pide la anulación de SU venta facturada, con id = venta y estado pendiente', async () => {
+    await seedTodos()
+    await assertSucceeds(setDoc(doc(db('caja1'), ID), solicitud()))
+    // Puede volver a pedir sobre una venta cuya anulación fue rechazada.
+    await assertSucceeds(setDoc(doc(db('caja1'), 'anulacionesVentanilla/v5'), solicitud({ ventaId: 'v5', facturaOriginal: { cbteTipo: 1, puntoVenta: 1104, numero: 119, cae: '78', total: 1 } })))
+  })
+
+  test('no sobre la venta de otro cajero, ni sin factura, ni ya anulada, ni con id inventado, ni con estado distinto de pendiente', async () => {
+    await seedTodos()
+    await assertFails(setDoc(doc(db('caja1'), 'anulacionesVentanilla/v3'), solicitud({ ventaId: 'v3' })))
+    await assertFails(setDoc(doc(db('caja2'), 'anulacionesVentanilla/v3'), solicitud({ ventaId: 'v3', cajaId: 'caja2', solicitadoPor: { uid: 'caja1', nombre: 'Caja' } })))
+    await assertFails(setDoc(doc(db('caja1'), 'anulacionesVentanilla/v2'), solicitud({ ventaId: 'v2' })))
+    await assertFails(setDoc(doc(db('caja1'), 'anulacionesVentanilla/v4'), solicitud({ ventaId: 'v4' })))
+    await assertFails(setDoc(doc(db('caja1'), 'anulacionesVentanilla/otro'), solicitud()))
+    await assertFails(setDoc(doc(db('caja1'), ID), solicitud({ estado: 'aprobada' })))
+    await assertFails(setDoc(doc(db('caja1'), ID), solicitud({ resueltaPor: { uid: 'aut1', nombre: 'A' } })))
+    await assertFails(setDoc(doc(db('caja1'), ID), solicitud({ motivo: 7 })))
+    await assertFails(setDoc(doc(db('cajam'), ID), solicitud({ cajaId: 'cajam', solicitadoPor: { uid: 'cajam', nombre: 'M' } })))
+    await assertFails(setDoc(doc(db('tes1'), ID), solicitud({ cajaId: 'tes1', solicitadoPor: { uid: 'tes1', nombre: 'T' } })))
+    await assertFails(setDoc(doc(db('aut1'), ID), solicitud()))
+  })
+
+  test('lectura: caja, tesorería, logística, autorizantes y super_admin leen; cliente y chofer no', async () => {
+    await seedTodos()
+    await seed((d) => setDoc(doc(d, ID), solicitud()))
+    for (const u of ['caja1', 'caja2', 'cajam', 'tes1', 'log', 'aut1', 'sa']) await assertSucceeds(getDoc(doc(db(u), ID)))
+    for (const u of ['cli', 'chof1']) await assertFails(getDoc(doc(db(u), ID)))
+  })
+
+  test('aprueba o rechaza solo quien tiene el permiso (o super_admin), una vez, solo esos campos, nunca el propio solicitante', async () => {
+    await seedTodos()
+    await seed(async (d) => {
+      await setDoc(doc(d, ID), solicitud())
+      await setDoc(doc(d, 'anulacionesVentanilla/v5'), solicitud({ ventaId: 'v5' }))
+      await setDoc(doc(d, 'users/cajaAut'), { rol: 'caja', estado: 'activo', planta: 'torcuato', autorizaAnulaciones: true })
+      await setDoc(doc(d, 'anulacionesVentanilla/v3'), solicitud({ ventaId: 'v3', cajaId: 'cajaAut', solicitadoPor: { uid: 'cajaAut', nombre: 'CA' } }))
+    })
+    // Sin permiso: tesorería, logística, el cajero.
+    await assertFails(updateDoc(doc(db('tes1'), ID), resolucion('aprobada', 'tes1')))
+    await assertFails(updateDoc(doc(db('log'), ID), resolucion('aprobada', 'log')))
+    await assertFails(updateDoc(doc(db('caja1'), ID), resolucion('aprobada', 'caja1')))
+    // Con permiso pero con el uid de otro, con más campos, con un estado que no es resolución, o rechazo sin nota.
+    await assertFails(updateDoc(doc(db('aut1'), ID), resolucion('aprobada', 'aut2')))
+    await assertFails(updateDoc(doc(db('aut1'), ID), resolucion('aprobada', 'aut1', { motivo: 'otro' })))
+    await assertFails(updateDoc(doc(db('aut1'), ID), resolucion('emitida', 'aut1')))
+    await assertFails(updateDoc(doc(db('aut1'), ID), resolucion('rechazada', 'aut1', { notaResolucion: '' })))
+    // El que pidió no se aprueba a sí mismo aunque tenga el permiso.
+    await assertFails(updateDoc(doc(db('cajaAut'), 'anulacionesVentanilla/v3'), resolucion('aprobada', 'cajaAut')))
+    // OK: autorizante aprueba; otro rechaza con nota; super_admin aprueba. Una vez.
+    await assertSucceeds(updateDoc(doc(db('aut1'), ID), resolucion('aprobada', 'aut1')))
+    await assertFails(updateDoc(doc(db('aut2'), ID), resolucion('rechazada', 'aut2')))
+    await assertSucceeds(updateDoc(doc(db('aut2'), 'anulacionesVentanilla/v5'), resolucion('rechazada', 'aut2')))
+    await assertSucceeds(updateDoc(doc(db('sa'), 'anulacionesVentanilla/v3'), resolucion('aprobada', 'sa')))
+    // Nadie borra ni vuelve atrás desde el cliente.
+    await assertFails(deleteDoc(doc(db('sa'), ID)))
+    await assertFails(deleteDoc(doc(db('caja1'), ID)))
+    await assertFails(updateDoc(doc(db('aut1'), 'anulacionesVentanilla/v5'), { estado: 'pendiente' }))
+  })
+
+  test('el permiso autorizaAnulaciones solo lo da el super_admin: ni uno mismo ni logística', async () => {
+    await seedTodos()
+    await seed((d) => setDoc(doc(d, 'users/aut1'), { rol: 'facturacion', estado: 'activo', nombre: 'F' }))
+    await assertFails(updateDoc(doc(db('aut1'), 'users/aut1'), { autorizaAnulaciones: true }))
+    await assertFails(updateDoc(doc(db('tes1'), 'users/tes1'), { autorizaAnulaciones: true }))
+    await assertFails(updateDoc(doc(db('log'), 'users/aut1'), { autorizaAnulaciones: true }))
+    await assertSucceeds(updateDoc(doc(db('aut1'), 'users/aut1'), { nombre: 'Facturación' }))
+    await assertSucceeds(updateDoc(doc(db('sa'), 'users/aut1'), { autorizaAnulaciones: true }))
+  })
+})
