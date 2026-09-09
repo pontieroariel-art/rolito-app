@@ -1342,7 +1342,11 @@ después `--solo=<id>` (§20.1), verificando en Tango.
 contraseña larga en Bitwarden, permisos en las dos bases), servicio actualizado en
 `C:\RolitoSync\sql` (config con bases REDONHIELO_SA/Rolito), `--probar-sql` OK en ambas bases, tarea
 `RolitoBridgeSql` (SYSTEM, al iniciar, vía `bridge-sql.cmd` con reinicio automático), latido en
-`config/tango.bridgeListenerLastSeen`. Primer comprobante real: venta cta cte de prueba a FC.280 →
+`config/tango.bridgeListenerLastSeen`. **Ojo (2026-09-09):** `schtasks /Create` deja el límite por
+defecto de 72 h de ejecución y el Task Scheduler mató la tarea el 2026-09-08 a las 23:19 (resultado
+267014, sin `node.exe`, cola frenada hasta la mañana siguiente); se sacó con
+`ExecutionTimeLimit = 'PT0S'` (comando en el encabezado de `bridge-sql.cmd`). Si se recrea la
+tarea, repetirlo. Primer comprobante real: venta cta cte de prueba a FC.280 →
 `--dry-run --solo` limpio → `--solo` real → **R 01105-00000041** visible en Tango (ID_STA14 890391,
 depósito 21, pendiente de facturar) y write-back en `ventasCamion.tango`. Después se prendieron
 `remitosSqlEnabled` y `recibosSqlEnabled`. Nota para contaduría: los R 01105 nº 1 a 40 fueron
