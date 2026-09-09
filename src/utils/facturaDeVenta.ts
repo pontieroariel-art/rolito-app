@@ -4,7 +4,7 @@
 // los datos del cliente. Los importes NO se recalculan — se usan los que
 // efectivamente se informaron, para que el papel coincida con lo declarado.
 
-import { FacturaArcaVenta, UserProfile, VentaCamion, VentaCamionItem } from '@/types'
+import { AnulacionEnVenta, FacturaArcaVenta, UserProfile, VentaCamion, VentaCamionItem } from '@/types'
 import { FacturaArcaData, RenglonArca } from './facturaArcaPdf'
 
 // Lo que el comprobante necesita de la venta. Lo cumplen tanto la venta del
@@ -20,14 +20,21 @@ export interface VentaFacturable {
   choferNombre?:    string
   cajaNombre?:      string
   clienteOcasional?: { nombre: string; cuit?: string; dni?: string }
+  /** Anulación con nota de crédito (ventanilla, 2026-09-09). */
+  anulacion?:       AnulacionEnVenta
 }
 
-/** 1 = Factura A, 6 = B, 11 = C. Los demás no los emite la venta de calle. */
-const LETRA_POR_TIPO: Record<number, { letra: 'A' | 'B' | 'C'; codigo: string }> = {
-  1:  { letra: 'A', codigo: '01' },
-  6:  { letra: 'B', codigo: '06' },
-  11: { letra: 'C', codigo: '11' },
+/** 1 = Factura A, 6 = B, 11 = C; 3/8/13 = la nota de crédito de cada clase (anulación de ventanilla). */
+const LETRA_POR_TIPO: Record<number, { letra: 'A' | 'B' | 'C'; codigo: string; titulo: 'FACTURA' | 'NOTA DE CRÉDITO' }> = {
+  1:  { letra: 'A', codigo: '01', titulo: 'FACTURA' },
+  6:  { letra: 'B', codigo: '06', titulo: 'FACTURA' },
+  11: { letra: 'C', codigo: '11', titulo: 'FACTURA' },
+  3:  { letra: 'A', codigo: '03', titulo: 'NOTA DE CRÉDITO' },
+  8:  { letra: 'B', codigo: '08', titulo: 'NOTA DE CRÉDITO' },
+  13: { letra: 'C', codigo: '13', titulo: 'NOTA DE CRÉDITO' },
 }
+
+const nroComp = (pv: number, n: number) => `${String(pv).padStart(5, '0')}-${String(n).padStart(8, '0')}`
 
 /** 'AAAAMMDD' → Date local. */
 function deFechaArca(s: string | null | undefined): Date | null {
@@ -42,6 +49,22 @@ export type ArmadoFactura =
 export function armarFacturaDeVenta(venta: VentaFacturable, cliente?: UserProfile): ArmadoFactura {
   const f: FacturaArcaVenta | undefined = venta.factura
   if (!f) return { ok: false, motivo: 'Esta venta todavía no tiene factura.' }
+  return armarComprobante(venta, cliente, f)
+}
+
+/**
+ * La nota de crédito que anuló la factura de la venta (ventanilla, 2026-09-09):
+ * mismo papel que la factura, con el título de NC y el comprobante asociado.
+ */
+export function armarNotaCreditoDeVenta(venta: VentaFacturable, cliente?: UserProfile): ArmadoFactura {
+  const nc = venta.anulacion?.notaCredito
+  if (!nc) return { ok: false, motivo: 'Esta venta no tiene nota de crédito.' }
+  const a = nc.cbtesAsoc?.[0]
+  const asociado = a ? `${LETRA_POR_TIPO[a.Tipo]?.titulo ?? 'Comprobante'} ${LETRA_POR_TIPO[a.Tipo]?.letra ?? ''} ${nroComp(a.PtoVta, a.Nro)}`.replace(/\s+/g, ' ') : ''
+  return armarComprobante(venta, cliente, nc, asociado)
+}
+
+function armarComprobante(venta: VentaFacturable, cliente: UserProfile | undefined, f: FacturaArcaVenta, comprobanteAsociado = ''): ArmadoFactura {
   if (f.estado !== 'emitida' || !f.cae) {
     return {
       ok: false,
@@ -80,6 +103,8 @@ export function armarFacturaDeVenta(venta: VentaFacturable, cliente?: UserProfil
     datos: {
       letra: tipo.letra,
       codigoTipo: tipo.codigo,
+      ...(tipo.titulo !== 'FACTURA' ? { tituloDocumento: tipo.titulo } : {}),
+      ...(comprobanteAsociado ? { comprobanteAsociado } : {}),
       puntoVenta: f.puntoVenta,
       numero: f.numero,
       fechaEmision,

@@ -43,7 +43,7 @@ export function dibujoFacturaArcaTicket(d: FacturaArcaData): DibujoTicket {
     y = texto(doc, `IVA ${emisor.condicionIva}`, y, { tam: 7, align: 'center' })
     y = separador(doc, y + 1)
 
-    y = texto(doc, `FACTURA ${d.letra}`, y + 2, { tam: 14, negrita: true, align: 'center' })
+    y = texto(doc, `${d.tituloDocumento ?? 'FACTURA'} ${d.letra}`, y + 2, { tam: d.tituloDocumento ? 11 : 14, negrita: true, align: 'center' })
     y = texto(doc, `Cód. ${d.codigoTipo}`, y - 0.5, { tam: 6.5, align: 'center' })
     y = texto(doc, `N° ${nro}`, y + 0.5, { tam: 10, negrita: true, align: 'center' })
     y = texto(doc, `Fecha de emisión: ${fecha(d.fechaEmision)}`, y, { tam: 7.5, align: 'center' })
@@ -54,6 +54,7 @@ export function dibujoFacturaArcaTicket(d: FacturaArcaData): DibujoTicket {
     if (d.cliente.condicionIva) y = campo(doc, 'IVA:', d.cliente.condicionIva, y)
     if (d.cliente.domicilio) y = campo(doc, 'Domicilio:', d.cliente.domicilio, y)
     y = campo(doc, 'Cond. de venta:', d.cliente.condicionVenta, y)
+    if (d.comprobanteAsociado) y = campo(doc, 'Anula:', d.comprobanteAsociado, y)
     if (d.cliente.vendedor) y = campo(doc, 'Vendedor:', d.cliente.vendedor, y)
     y = separador(doc, y + 1)
 

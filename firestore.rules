@@ -1394,7 +1394,7 @@ service cloud.firestore {
         && ventaAnulable();
 
       allow update: if request.auth != null && puedeAutorizarAnulaciones()
-        && resource.data.estado == 'pendiente'
+        && resource.data.estado in ['pendiente', 'error']
         && request.resource.data.estado in ['aprobada', 'rechazada']
         && request.resource.data.resueltaPor is map
         && request.resource.data.resueltaPor.uid == request.auth.uid

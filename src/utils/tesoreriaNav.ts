@@ -1,4 +1,4 @@
-import { Activity, History, Landmark, Scale, ShieldCheck } from 'lucide-react'
+import { Activity, Ban, History, Landmark, Scale, ShieldCheck } from 'lucide-react'
 import { NavGroup } from './navGroups'
 
 // Roles de cada ítem = exactamente el allowedRoles de su <Route> en App.tsx
@@ -12,6 +12,7 @@ export const TESORERIA_NAV_GROUPS: NavGroup[] = [
       { to: '/tesoreria/liquidaciones',         label: 'Liquidaciones', icon: Scale,     roles: ['tesoreria', 'super_admin', 'gerente_general'] },
       { to: '/tesoreria/rendiciones',           label: 'Rendiciones', icon: ShieldCheck, roles: ['tesoreria', 'super_admin', 'gerente_general'] },
       { to: '/tesoreria/entregas',              label: 'Entregas',    icon: Landmark,    roles: ['tesoreria', 'super_admin', 'gerente_general'] },
+      { to: '/tesoreria/anulaciones',           label: 'Anulaciones', icon: Ban,         roles: ['tesoreria', 'super_admin', 'gerente_general'] },
       { to: '/tesoreria/rendiciones/historial', label: 'Historial',   icon: History,     roles: ['tesoreria', 'super_admin', 'gerente_general'] },
     ],
   },

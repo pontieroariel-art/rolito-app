@@ -50,13 +50,21 @@ export interface MostradorCalculado {
   recibido: { liquidaciones: LiquidacionRecibida[]; efectivo: number }
   bultos: BultoMostrador[]
   efectivoARendir: number
+  // Anulación de facturas (2026-09-09): las ventas con nota de crédito emitida
+  // no cuentan; las que esperan autorización bloquean el cierre de caja.
+  anuladas: number
+  anulacionesPendientes: number
 }
 
+export const ventaAnulada = (v: VentaVentanilla): boolean => v.anulacion?.estado === 'anulada'
+export const anulacionEnCurso = (v: VentaVentanilla): boolean => v.anulacion?.estado === 'pendiente' || v.anulacion?.estado === 'aprobada'
+
 export function calcularMostrador(
-  ventas: VentaVentanilla[],
+  todasLasVentas: VentaVentanilla[],
   cobranzas: Cobranza[],
   liquidacionesRecibidas: Liquidacion[] = [],
 ): MostradorCalculado {
+  const ventas = todasLasVentas.filter((v) => !ventaAnulada(v))
   const suma = (filtro: (v: VentaVentanilla) => boolean) => ventas.filter(filtro).reduce((s, v) => s + v.total, 0)
   const contado = (v: VentaVentanilla) => v.canal !== 'promo'
   const promo = (v: VentaVentanilla) => v.canal === 'promo'
@@ -104,6 +112,8 @@ export function calcularMostrador(
     recibido: { liquidaciones, efectivo: recibidoEfectivo },
     bultos: [...porProducto.values()].sort((a, b) => b.cantidad - a.cantidad),
     efectivoARendir: vm.contadoEfectivo + vm.promoEfectivo + cm.efectivo + recibidoEfectivo,
+    anuladas: todasLasVentas.length - ventas.length,
+    anulacionesPendientes: todasLasVentas.filter(anulacionEnCurso).length,
   }
 }
 

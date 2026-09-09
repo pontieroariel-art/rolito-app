@@ -15,13 +15,14 @@ export interface UserRowProps {
   onRoleChange:        (uid: string, rol: UserRole) => Promise<void>
   onSubrolChange:      (uid: string, subrol: 'chofer' | 'ayudante') => Promise<void>
   onRolesExtraChange:  (uid: string, rolesExtra: UserRole[], planta: PlantaId | undefined) => Promise<void>
+  onAutorizaAnulacionesChange: (uid: string, valor: boolean) => Promise<void>
   onToggleStatus:      (u: UserProfile) => Promise<void>
   onApprove:           (u: UserProfile) => Promise<void>
   onAddressesChanged:  (uid: string, addresses: DeliveryAddress[]) => void
   onVisitaChanged:     (uid: string, esVisita: boolean, frecuenciaVisita?: string) => void
 }
 
-export function UserRow({ user, currentUser, onRoleChange, onSubrolChange, onRolesExtraChange, onToggleStatus, onApprove, onAddressesChanged, onVisitaChanged }: UserRowProps) {
+export function UserRow({ user, currentUser, onRoleChange, onSubrolChange, onRolesExtraChange, onAutorizaAnulacionesChange, onToggleStatus, onApprove, onAddressesChanged, onVisitaChanged }: UserRowProps) {
   const [busy, setBusy]               = useState(false)
   const [fichaModal, setFichaModal]   = useState(false)
   const [permisosModal, setPermisosModal] = useState(false)
@@ -158,6 +159,21 @@ export function UserRow({ user, currentUser, onRoleChange, onSubrolChange, onRol
             <option value="ayudante">Ayudante</option>
           </select>
         </div>
+      )}
+
+      {/* Permiso individual para autorizar anulaciones de facturas de
+          ventanilla (nota de crédito, 2026-09-09): cualquier rol de staff;
+          solo lo da el super_admin. */}
+      {currentUser?.rol === 'super_admin' && !isSelf && !['cliente', 'chofer', 'tecnico', 'produccion_hielo'].includes(user.rol) && (
+        <label className="flex items-center gap-1.5 text-xs text-gray-700 pt-2 border-t border-gray-100 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={user.autorizaAnulaciones === true}
+            disabled={busy}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => run(() => onAutorizaAnulacionesChange(user.uid, e.target.checked))}
+          />
+          Puede autorizar anulaciones de facturas (nota de crédito)
+        </label>
       )}
 
       {/* Roles adicionales de expedición (caja / muelle / seguridad) para

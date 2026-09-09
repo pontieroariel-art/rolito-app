@@ -48,12 +48,33 @@ registerRoute(
 
 self.addEventListener('push', (event) => {
   if (!event.data) return
-  const { title, body } = event.data.json() as { title: string; body: string }
+  const { title, body, url } = event.data.json() as { title: string; body: string; url?: string }
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
       icon:  '/icons/icon-192.png',
       badge: '/icons/icon-192.png',
+      ...(url ? { data: { url } } : {}),
+    }),
+  )
+})
+
+// Tocar la notificación abre la pantalla que mandó el server (`url`, ej. la
+// bandeja de anulaciones). Las push sin url se comportan como antes.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const url = (event.notification.data as { url?: string } | undefined)?.url
+  if (!url) return
+  const destino = new URL(url, self.location.origin).href
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (ventanas) => {
+      const abierta = ventanas.find((w) => 'focus' in w)
+      if (abierta) {
+        await abierta.focus()
+        if ('navigate' in abierta) await abierta.navigate(destino).catch(() => undefined)
+        return
+      }
+      await self.clients.openWindow(destino)
     }),
   )
 })

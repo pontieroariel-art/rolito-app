@@ -42,6 +42,10 @@ export interface RenglonArca {
 export interface FacturaArcaData {
   /** 'A' | 'B' | 'C' — se imprime como "FACTURA A". */
   letra:        'A' | 'B' | 'C'
+  /** 'FACTURA' (default) o 'NOTA DE CRÉDITO' (anulación de ventanilla). */
+  tituloDocumento?: string
+  /** Solo NC: la factura que anula, ej. "Factura A 01104-00000116". */
+  comprobanteAsociado?: string
   /** Código de tipo de ARCA: '01' = Factura A, '06' = Factura B, '11' = C. */
   codigoTipo:   string
   puntoVenta:   number
@@ -152,8 +156,9 @@ export async function generateFacturaArcaPdf(d: FacturaArcaData): Promise<Blob |
   }
 
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(15)
-  doc.text(`FACTURA ${d.letra}`, XD + 42, 20, { align: 'center' })
+  const titulo = `${d.tituloDocumento ?? 'FACTURA'} ${d.letra}`
+  doc.setFontSize(titulo.length > 10 ? 11 : 15)
+  doc.text(titulo, XD + 42, 20, { align: 'center' })
 
   doc.setFontSize(7.5)
   const nro = `${String(d.puntoVenta).padStart(5, '0')}-${String(d.numero).padStart(8, '0')}`
@@ -173,7 +178,9 @@ export async function generateFacturaArcaPdf(d: FacturaArcaData): Promise<Blob |
   campo('Condición frente al IVA:', d.cliente.condicionIva, X0, 79)
   campo('Domicilio:', d.cliente.domicilio, XD, 79)
   campo('Condicion de venta:', d.cliente.condicionVenta, X0, 85)
-  campo('Vendedor:', d.cliente.vendedor, XD, 85)
+  // En la nota de crédito el lugar del vendedor lo ocupa la factura que anula.
+  if (d.comprobanteAsociado) campo('Comprobante asociado:', d.comprobanteAsociado, XD, 85)
+  else campo('Vendedor:', d.cliente.vendedor, XD, 85)
 
   linea(89)
 

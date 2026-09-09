@@ -59,3 +59,20 @@ describe('calcularMostrador', () => {
     expect(fueraDelCierre([venta({ id: 'x', fecha: ts(5000) }), venta({ id: 'y', fecha: ts(1000) })], 3000).map((v) => v.id)).toEqual(['x'])
   })
 })
+
+describe('calcularMostrador — anulaciones (nota de crédito)', () => {
+  it('una venta anulada no suma plata ni bultos; una anulación en curso solo se cuenta como pendiente', () => {
+    const r = calcularMostrador([
+      venta({ id: 'ok', total: 1000 }),
+      venta({ id: 'anulada', total: 5000, anulacion: { estado: 'anulada', solicitudId: 'anulada' } }),
+      venta({ id: 'pend', total: 300, anulacion: { estado: 'pendiente', solicitudId: 'pend' } }),
+      venta({ id: 'rech', total: 200, anulacion: { estado: 'rechazada', solicitudId: 'rech' } }),
+    ], [])
+    expect(r.ventas.cantidad).toBe(3)
+    expect(r.ventas.contadoEfectivo).toBe(1500)
+    expect(r.efectivoARendir).toBe(1500)
+    expect(r.bultos).toEqual([{ productoId: 'bolsa_10kg', nombre: 'Bolsa 10', cantidad: 30 }])
+    expect(r.anuladas).toBe(1)
+    expect(r.anulacionesPendientes).toBe(1)
+  })
+})

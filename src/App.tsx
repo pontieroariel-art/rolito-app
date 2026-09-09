@@ -103,6 +103,7 @@ const CobranzasPage     = lazy(() => import('./pages/expedicion/CobranzasPage'))
 const RendicionesPage   = lazy(() => import('./pages/expedicion/RendicionesPage'))
 const EntregasPage      = lazy(() => import('./pages/expedicion/EntregasPage'))
 const EntregasTesoreriaPage = lazy(() => import('./pages/tesoreria/EntregasTesoreriaPage'))
+const AnulacionesPage   = lazy(() => import('./pages/admin/AnulacionesPage'))
 const RendicionesHistorialPage = lazy(() => import('./pages/expedicion/RendicionesHistorialPage'))
 const TesoreriaLayout          = lazy(() => import('./components/tesoreria/TesoreriaLayout'))
 const TesoreriaLivePage        = lazy(() => import('./pages/tesoreria/TesoreriaLivePage'))
@@ -317,6 +318,12 @@ function AppContent() {
           <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_general', 'gerente_comercial', 'logistica', 'comercial', 'facturacion']} />}>
             <Route path="/movimientos" element={<HistorialPage />} />
           </Route>
+
+          {/* Anulaciones de facturas de ventanilla (2026-09-09): la bandeja la abre
+              cualquier staff de oficina; aprobar exige users.autorizaAnulaciones. */}
+          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_general', 'gerente_comercial', 'logistica', 'comercial', 'facturacion', 'tesoreria', 'supervisor', 'heladeras_encargado', 'produccion_encargado']} />}>
+            <Route path="/anulaciones" element={<AnulacionesPage />} />
+          </Route>
         </Route>
 
         {/* Chofer */}
@@ -453,6 +460,7 @@ function AppContent() {
             <Route path="/tesoreria/rendiciones/historial" element={<RendicionesHistorialPage />} />
             {/* Entregas de caja: tesorería cuenta, tilda los valores y firma (2026-09-09). */}
             <Route path="/tesoreria/entregas"              element={<EntregasTesoreriaPage />} />
+            <Route path="/tesoreria/anulaciones"           element={<AnulacionesPage />} />
             {/* La liquidación del repartidor con todo el detalle, en modo lectura (a tesorería le rinden). */}
             <Route path="/tesoreria/liquidaciones"           element={<LiquidacionesPage />} />
             <Route path="/tesoreria/liquidaciones/historial" element={<LiquidacionesHistorialPage />} />

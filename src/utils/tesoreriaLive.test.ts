@@ -57,3 +57,14 @@ describe('resumenLive', () => {
     expect(v.calle).toEqual([]); expect(v.supervisores).toEqual([]); expect(v.totales.efectivoDelDia).toBe(0)
   })
 })
+
+describe('resumenLive — ventas de ventanilla anuladas', () => {
+  it('una venta con nota de crédito emitida no suma en el cajero ni en los totales', () => {
+    const r = resumenLive({
+      ventasCamion: [], cobranzas: [], remitos: [], liquidaciones: [], rendiciones: [],
+      ventasVentanilla: [vv({ id: 'w1', total: 1500 }), vv({ id: 'w2', total: 9000, anulacion: { estado: 'anulada', solicitudId: 'w2' } }), vv({ id: 'w3', total: 100, anulacion: { estado: 'pendiente', solicitudId: 'w3' } })],
+    })
+    expect(r.totales.ventasVentanilla.contado.efectivo).toBe(1600)
+    expect(r.ventanilla.torcuato[0].contado).toMatchObject({ cantidad: 2, efectivo: 1600 })
+  })
+})

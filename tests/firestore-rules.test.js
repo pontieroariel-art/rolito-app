@@ -4116,6 +4116,30 @@ describe('anulacionesVentanilla (anulación de factura con nota de crédito)', (
     await assertFails(updateDoc(doc(db('aut1'), 'anulacionesVentanilla/v5'), { estado: 'pendiente' }))
   })
 
+  test('una anulación en error (ARCA rechazó la NC) se puede volver a aprobar; una emitida o rechazada no', async () => {
+    await seedTodos()
+    await seed(async (d) => {
+      await setDoc(doc(d, 'anulacionesVentanilla/v1'), solicitud({ estado: 'error', ultimoError: 'x' }))
+      await setDoc(doc(d, 'anulacionesVentanilla/v3'), solicitud({ ventaId: 'v3', estado: 'emitida' }))
+      await setDoc(doc(d, 'anulacionesVentanilla/v5'), solicitud({ ventaId: 'v5', estado: 'rechazada' }))
+    })
+    await assertSucceeds(updateDoc(doc(db('aut1'), 'anulacionesVentanilla/v1'), resolucion('aprobada', 'aut1')))
+    await assertFails(updateDoc(doc(db('aut1'), 'anulacionesVentanilla/v3'), resolucion('aprobada', 'aut1')))
+    await assertFails(updateDoc(doc(db('aut1'), 'anulacionesVentanilla/v5'), resolucion('aprobada', 'aut1')))
+  })
+
+  test('una anulación en error (ARCA rechazó la NC) se puede volver a aprobar; una emitida o rechazada no', async () => {
+    await seedTodos()
+    await seed(async (d) => {
+      await setDoc(doc(d, 'anulacionesVentanilla/v1'), solicitud({ estado: 'error', ultimoError: 'x' }))
+      await setDoc(doc(d, 'anulacionesVentanilla/v3'), solicitud({ ventaId: 'v3', estado: 'emitida' }))
+      await setDoc(doc(d, 'anulacionesVentanilla/v5'), solicitud({ ventaId: 'v5', estado: 'rechazada' }))
+    })
+    await assertSucceeds(updateDoc(doc(db('aut1'), 'anulacionesVentanilla/v1'), resolucion('aprobada', 'aut1')))
+    await assertFails(updateDoc(doc(db('aut1'), 'anulacionesVentanilla/v3'), resolucion('aprobada', 'aut1')))
+    await assertFails(updateDoc(doc(db('aut1'), 'anulacionesVentanilla/v5'), resolucion('aprobada', 'aut1')))
+  })
+
   test('el permiso autorizaAnulaciones solo lo da el super_admin: ni uno mismo ni logística', async () => {
     await seedTodos()
     await seed((d) => setDoc(doc(d, 'users/aut1'), { rol: 'facturacion', estado: 'activo', nombre: 'F' }))

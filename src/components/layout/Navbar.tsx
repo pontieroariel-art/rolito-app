@@ -5,6 +5,7 @@ import {
   Truck, Users, Tag, Map, Cloud, Package, Navigation, BarChart2,
   DollarSign, TrendingUp, Home, Plus, History, UserCircle,
   LogOut, Menu, X, Snowflake, Wrench, ArrowLeftRight, FileText,
+  Ban,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useOnline } from '../../hooks/useOnline'
@@ -149,9 +150,15 @@ export default function Navbar() {
   const { sistemasDisponibles, sistemaActual, cambiarSistema } = useSistema()
 
   const multiSistema = sistemasDisponibles.length > 1
-  const links = user?.rol
+  const linksBase = user?.rol
     ? (multiSistema && sistemaActual === 'heladeras' ? HELADERAS_LINKS : NAV_LINKS[user.rol])
     : []
+  // Bandeja de anulaciones de facturas (2026-09-09): la ve quien tiene el
+  // permiso individual, sea cual sea su rol.
+  const puedeAutorizarAnulaciones = !!user && (user.autorizaAnulaciones === true || user.rol === 'super_admin')
+  const links = puedeAutorizarAnulaciones && !linksBase.some((l) => l.to === '/anulaciones')
+    ? [...linksBase, { to: '/anulaciones', label: 'Anulaciones', icon: Ban }]
+    : linksBase
 
   const initials = user?.nombre
     ? user.nombre.split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase()

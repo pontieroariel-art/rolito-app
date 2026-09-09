@@ -155,6 +155,7 @@ export default function RendicionesPage() {
       )}
       {aviso && <p className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">{aviso}</p>}
       {mio.cobranzasPendientes > 0 && <p className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">Hay {mio.cobranzasPendientes} cobranza(s) que todavía no subieron al servidor. Esperá a que suban antes de cerrar.</p>}
+      {!cerrada && mio.calc.anulacionesPendientes > 0 && <p className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">Tenés {mio.calc.anulacionesPendientes} anulación(es) de factura esperando autorización. Hasta que se resuelvan no se puede cerrar la caja (la venta anulada deja de contar).</p>}
 
       <section className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-4 space-y-4">
         <TilesMostrador calc={mio.calc} />
@@ -185,13 +186,13 @@ export default function RendicionesPage() {
           <thead><tr>{['Turno', 'Hora', 'Cliente', 'Canal', 'Pago', 'Comprobante', 'Total'].map((h, i) => <th key={h} className={`${th} ${i === 6 ? 'text-right' : ''}`}>{h}</th>)}</tr></thead>
           <tbody>
             {ventas.map((v) => (
-              <tr key={v.id} className={ventasFuera.includes(v) ? 'opacity-60' : ''}>
+              <tr key={v.id} className={`${ventasFuera.includes(v) ? 'opacity-60' : ''} ${v.anulacion?.estado === 'anulada' ? 'line-through text-gray-400' : ''}`}>
                 <td className={td}>{v.turno}</td>
                 <td className={td}>{v.fecha.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</td>
                 <td className={td}>{v.clienteNombre}</td>
                 <td className={td}>{v.canal === 'promo' ? 'Promo' : 'Contado'}</td>
                 <td className={td}>{FORMA[v.formaPago] ?? v.formaPago}</td>
-                <td className={`${td} text-gray-600`}>{comprobanteDe(v)}</td>
+                <td className={`${td} text-gray-600`}>{comprobanteDe(v)}{v.anulacion?.estado === 'anulada' ? <span className="ml-1 no-underline text-red-600 font-semibold">ANULADA</span> : v.anulacion && (v.anulacion.estado === 'pendiente' || v.anulacion.estado === 'aprobada') ? <span className="ml-1 text-amber-700">anulación pendiente</span> : null}</td>
                 <td className={`${td} text-right tabular-nums`}>{formatoARS(v.total)}</td>
               </tr>
             ))}
@@ -245,7 +246,7 @@ export default function RendicionesPage() {
       {!cerrada && (
         <div className="flex flex-wrap justify-end gap-2">
           {error && <p className="w-full text-sm text-red-600">{error}</p>}
-          <Button onClick={() => setConfirmando(true)} disabled={!hayMovimientos || efectivoContado.trim() === '' || mio.cobranzasPendientes > 0}>
+          <Button onClick={() => setConfirmando(true)} disabled={!hayMovimientos || efectivoContado.trim() === '' || mio.cobranzasPendientes > 0 || mio.calc.anulacionesPendientes > 0}>
             <Printer size={16} className="mr-1.5" /> Cerrar mi caja e imprimir
           </Button>
           {hayMovimientos && efectivoContado.trim() === '' && <p className="w-full text-right text-xs text-gray-500">Cargá el efectivo contado para poder cerrar.</p>}

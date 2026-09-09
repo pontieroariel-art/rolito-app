@@ -1,5 +1,5 @@
 import {
-  collection, doc, onSnapshot, query, runTransaction, setDoc, updateDoc, where, Timestamp,
+  collection, doc, getDoc, onSnapshot, query, runTransaction, setDoc, updateDoc, where, Timestamp,
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { onSnapshotError, esperarOEncolar, reportError } from './observability'
@@ -10,6 +10,12 @@ import {
 } from '../types'
 
 const VENTAS = 'ventasVentanilla'
+
+/** Una venta por id (para reimprimir su nota de crédito desde la bandeja de anulaciones). */
+export async function getVentaVentanilla(id: string): Promise<VentaVentanilla | null> {
+  const s = await getDoc(doc(db, VENTAS, id))
+  return s.exists() ? ({ id: s.id, ...s.data() } as VentaVentanilla) : null
+}
 
 export interface ActorCajaVentanilla { uid: string; nombre: string; plantaId: PlantaId }
 

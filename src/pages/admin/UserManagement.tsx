@@ -147,6 +147,12 @@ export default function UserManagement() {
     setEquipo((prev) => prev.map(aplicar))
   }
 
+  // Permiso para autorizar anulaciones de facturas (2026-09-09), solo super_admin.
+  const handleAutorizaAnulaciones = async (uid: string, valor: boolean) => {
+    await updateUserDocument(uid, { autorizaAnulaciones: valor })
+    setEquipo((prev) => prev.map((u) => (u.uid === uid ? { ...u, autorizaAnulaciones: valor } : u)))
+  }
+
   const handleRole = async (uid: string, rol: UserRole) => {
     const anterior = equipo.find((u) => u.uid === uid)
     await updateUserRole(uid, rol)
@@ -403,6 +409,7 @@ export default function UserManagement() {
                     onRoleChange={handleRole}
                     onSubrolChange={handleSubrol}
                     onRolesExtraChange={handleRolesExtra}
+                    onAutorizaAnulacionesChange={handleAutorizaAnulaciones}
                     onToggleStatus={handleToggleStatus}
                     onApprove={handleApprove}
                     onAddressesChanged={handleAddressesChanged}

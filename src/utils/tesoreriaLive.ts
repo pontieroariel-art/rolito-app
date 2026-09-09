@@ -128,6 +128,7 @@ export function resumenLive(d: {
   }
   for (const v of d.ventasVentanilla) {
     const f = filaV(v.plantaId, v.cajaId, v.cajaNombre)
+    if (v.anulacion?.estado === 'anulada') continue   // factura anulada con NC (2026-09-09): no cuenta
     sumarVenta(v.canal === 'promo' ? f.promo : f.contado, v)
     const acum = bultosPorCaja.get(`${v.plantaId}|${v.cajaId}`) ?? new Map<string, Bulto>()
     bultosDe(v.items, acum)
@@ -159,7 +160,7 @@ export function resumenLive(d: {
     efectivoDelDia: 0,
   }
   for (const v of d.ventasCamion) sumarVenta(v.canal === 'promo' ? t.ventasCalle.promo : t.ventasCalle.contado, v)
-  for (const v of d.ventasVentanilla) sumarVenta(v.canal === 'promo' ? t.ventasVentanilla.promo : t.ventasVentanilla.contado, v)
+  for (const v of d.ventasVentanilla) if (v.anulacion?.estado !== 'anulada') sumarVenta(v.canal === 'promo' ? t.ventasVentanilla.promo : t.ventasVentanilla.contado, v)
   for (const c of d.cobranzas) sumarCobranza(c.origen === 'caja' ? t.cobranzas.ventanilla : c.origen === 'supervisor' ? t.cobranzas.supervisores : t.cobranzas.calle, c)
   t.efectivoDelDia = t.ventasCalle.contado.efectivo + t.ventasCalle.promo.efectivo + t.ventasVentanilla.contado.efectivo + t.ventasVentanilla.promo.efectivo
     + t.cobranzas.calle.efectivo + t.cobranzas.ventanilla.efectivo + t.cobranzas.supervisores.efectivo

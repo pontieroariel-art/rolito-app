@@ -379,6 +379,10 @@ export interface AnulacionVentanilla {
   clienteNombre: string
   fechaVenta:    string          // yyyy-MM-dd
   facturaOriginal: { cbteTipo: number; puntoVenta: number; numero: number; cae: string | null; total: number }
+  // Snapshot de la venta para la bandeja (sin releer la venta).
+  items:         { nombre: string; cantidad: number; precioUnitario: number }[]
+  total:         number
+  formaPago:     FormaPago
   motivo:        MotivoAnulacion
   nota:          string
   estado:        EstadoAnulacion

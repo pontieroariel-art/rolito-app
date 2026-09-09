@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, CheckCircle2, Clock, FileText, Printer, ShoppingCart } from 'lucide-react'
+import { AlertTriangle, Ban, CheckCircle2, Clock, FileText, Printer, ShoppingCart } from 'lucide-react'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
@@ -13,12 +13,14 @@ import { useCatalogo } from '../../hooks/useCatalogo'
 import { useDiaActual, useFechaDelDia } from '../../hooks/useDiaActual'
 import { useMiMostrador } from '@/hooks/useMiMostrador'
 import MiDiaMostrador from '@/components/expedicion/MiDiaMostrador'
+import SolicitarAnulacionModal from '@/components/expedicion/SolicitarAnulacionModal'
+import { subscribeRendicion } from '@/services/rendicionService'
 import {
   crearVentaVentanilla, subscribeVentaVentanilla, subscribeVentanillaDelDia,
 } from '../../services/ventaVentanillaService'
 import { getTopeConsumidorFinalSinIdentificar } from '../../services/arcaConfigService'
 import type { FacturaArcaData } from '../../utils/facturaArcaPdf'
-import { armarFacturaDeVenta } from '../../utils/facturaDeVenta'
+import { armarFacturaDeVenta, armarNotaCreditoDeVenta } from '../../utils/facturaDeVenta'
 import { generateTicketsVentanilla, type TurnoTicketData } from '@/utils/ventanillaTicket'
 import { imprimirPdf, leerModoImpresion, guardarModoImpresion, MODOS_IMPRESION, type ModoImpresion } from '@/utils/ticketTermico'
 import { usePreciosTango } from '../../hooks/usePreciosTango'
@@ -28,7 +30,7 @@ import { documentoDeVenta } from '../../utils/circuitoDocumento'
 import { esClienteFacturable, esCuitValido } from '../../utils/facturable'
 import { admiteCuentaCorriente } from '@/utils/condicionVenta'
 import {
-  CanalVenta, FormaPago, PLANTAS, VentaCamionItem, VentaVentanilla,
+  CanalVenta, FormaPago, PLANTAS, VentaCamionItem, VentaVentanilla, type AnulacionEnVenta, type Rendicion,
 } from '../../types'
 import { reportError } from '@/services/observability'
 
@@ -53,6 +55,19 @@ const nroFactura = (v: VentaVentanilla) =>
   v.factura
     ? `${String(v.factura.puntoVenta).padStart(5, '0')}-${String(v.factura.numero).padStart(8, '0')}`
     : ''
+
+// Estado de la anulación de la factura (nota de crédito, 2026-09-09), tal como
+// lo escribe el server en la venta.
+const textoAnulacion = (a: AnulacionEnVenta): { texto: string; clase: string } => {
+  const nc = a.notaCredito
+  switch (a.estado) {
+    case 'pendiente': return { texto: 'Anulación pendiente de autorizar', clase: 'text-amber-700' }
+    case 'aprobada':  return { texto: 'Anulación aprobada · emitiendo la nota de crédito…', clase: 'text-amber-700' }
+    case 'anulada':   return { texto: `ANULADA · Nota de crédito ${nc ? `${String(nc.puntoVenta).padStart(5, '0')}-${String(nc.numero).padStart(8, '0')}` : ''}`, clase: 'text-red-700 font-semibold' }
+    case 'rechazada': return { texto: 'Anulación rechazada: la factura sigue vigente', clase: 'text-gray-600' }
+    case 'error':     return { texto: 'No se pudo emitir la nota de crédito: avisá a administración', clase: 'text-red-700' }
+  }
+}
 
 // Venta por ventanilla (caja): terceros que compran en el mostrador. Cliente
 // registrado → su lista de precios; ocasional → la lista que elija caja.
@@ -84,6 +99,9 @@ export default function VentanillaPage() {
   const [guardando,   setGuardando]   = useState(false)
   const [error,       setError]       = useState('')
   const [ventas,      setVentas]      = useState<VentaVentanilla[]>([])
+  // Con la caja del día cerrada ya no se puede pedir anular (la venta ya se rindió).
+  const [cerrada,     setCerrada]     = useState<Rendicion | null>(null)
+  const [anulando,    setAnulando]    = useState<VentaVentanilla | null>(null)
   // Tope de ARCA para facturar a un consumidor final sin CUIT ni DNI. 0 =
   // siempre pedir documento (también mientras no se cargó en config/arca).
   const [topeSinIdentificar, setTopeSinIdentificar] = useState(0)
@@ -95,6 +113,7 @@ export default function VentanillaPage() {
   const cambiarModoImpresion = (m: ModoImpresion) => { guardarModoImpresion(m); setModoImpresion(m) }
 
   useEffect(() => subscribeVentanillaDelDia(plantaId, fecha, setVentas), [plantaId, fecha])
+  useEffect(() => { if (!user) return; return subscribeRendicion(dia, user.uid, setCerrada) }, [user, dia])
   useEffect(() => { getTopeConsumidorFinalSinIdentificar().then(setTopeSinIdentificar) }, [])
   // Copias del comprobante de turno (original cliente / duplicado muelle /
   // triplicado seguridad) según config/ventanilla; aplica también a la reimpresión.
@@ -223,6 +242,20 @@ export default function VentanillaPage() {
   const imprimirTurno   = (v: VentaVentanilla) => imprimir(v, { factura: false, turno: true })
   const imprimirFactura = (v: VentaVentanilla) => imprimir(v, { factura: true, turno: false })
   const imprimirTodo    = (v: VentaVentanilla) => imprimir(v, { factura: true, turno: true })
+  const imprimirNotaCredito = async (v: VentaVentanilla) => {
+    const armado = armarNotaCreditoDeVenta(v, v.clienteId ? clientePorId.get(v.clienteId) : undefined)
+    if (!armado.ok) { setError(armado.motivo); return }
+    try {
+      const blob = await generateTicketsVentanilla({ factura: armado.datos })
+      await imprimirPdf(blob, `nota-credito-turno-${v.turno}.pdf`, modoImpresion)
+    } catch (err) {
+      reportError(err, { origen: 'VentanillaPage', accion: 'error al imprimir la nota de crédito' })
+      setError('No se pudo generar la nota de crédito.')
+    }
+  }
+  const puedePedirAnulacion = (v: VentaVentanilla) =>
+    v.factura?.estado === 'emitida' && !!v.factura.cae && v.cajaId === user?.uid && !cerrada
+    && (!v.anulacion || v.anulacion.estado === 'rechazada' || v.anulacion.estado === 'error')
 
   const limpiar = () => {
     setClienteId('')
@@ -416,7 +449,7 @@ export default function VentanillaPage() {
 
       {/* Ventas del día */}
       <section className="space-y-2">
-        <h2 className="font-semibold text-gray-800">Ventanilla de hoy <span className="text-sm font-normal text-gray-500">· {ventas.length} ventas · {money(ventas.reduce((s, v) => s + v.total, 0))}</span></h2>
+        <h2 className="font-semibold text-gray-800">Ventanilla de hoy <span className="text-sm font-normal text-gray-500">· {ventas.length} ventas · {money(ventas.filter((v) => v.anulacion?.estado !== 'anulada').reduce((s, v) => s + v.total, 0))}</span></h2>
         {ventas.length === 0 && <p className="text-gray-400 text-sm">Todavía no hubo ventas por ventanilla hoy.</p>}
         {ventas.map((v) => {
           const fac = estadoFactura(v)
@@ -434,6 +467,7 @@ export default function VentanillaPage() {
                   {money(v.total)} · {FORMAS_PAGO.find((f) => f.id === v.formaPago)?.label} · {v.canal === 'contado' ? 'Contado' : 'Promo'}
                   {fac && <span className={`ml-1 ${fac.clase}`}>· {fac.texto}</span>}
                 </p>
+                {v.anulacion && (() => { const t = textoAnulacion(v.anulacion); return <p className={`text-xs ${t.clase}`}>{t.texto}</p> })()}
               </div>
               <span className={`text-xs px-2.5 py-1 rounded-full border font-medium whitespace-nowrap ${
                 v.estado === 'entregado' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-amber-100 text-amber-700 border-amber-200'
@@ -445,6 +479,16 @@ export default function VentanillaPage() {
                   <FileText size={16} />
                 </button>
               )}
+              {v.anulacion?.estado === 'anulada' && (
+                <button onClick={() => imprimirNotaCredito(v)} title="Reimprimir nota de crédito" className="text-red-500 hover:text-red-700 transition-colors p-2 rounded-lg hover:bg-red-50">
+                  <FileText size={16} />
+                </button>
+              )}
+              {puedePedirAnulacion(v) && (
+                <button onClick={() => setAnulando(v)} title="Anular factura (pide autorización)" className="text-gray-400 hover:text-red-600 transition-colors p-2 rounded-lg hover:bg-red-50">
+                  <Ban size={16} />
+                </button>
+              )}
               <button onClick={() => imprimirTurno(v)} title="Reimprimir turno" className="text-gray-400 hover:text-accent transition-colors p-2 rounded-lg hover:bg-accent/10">
                 <Printer size={16} />
               </button>
@@ -452,6 +496,10 @@ export default function VentanillaPage() {
           )
         })}
       </section>
+
+      {anulando && user && (
+        <SolicitarAnulacionModal venta={anulando} actor={{ uid: user.uid, nombre: user.nombre }} onCerrar={() => setAnulando(null)} />
+      )}
 
       {/* Confirmación */}
       {confirmando && (
