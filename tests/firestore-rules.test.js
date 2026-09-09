@@ -2618,6 +2618,23 @@ describe('expedicion: muelle / cambios / descargas / liquidaciones', () => {
   })
 })
 
+// Tesorería (2026-09-09): tablero en vivo — lee ventas, cobranzas, remitos y liquidaciones de todos; no escribe.
+describe('tesoreria: lectura del tablero en vivo', () => {
+  test('tesorería lee ventasCamion, ventasVentanilla, cobranzas, remitosCarga y liquidaciones; no crea ni edita', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/tes1'), { rol: 'tesoreria', estado: 'activo' })
+      await setDoc(doc(d, 'ventasCamion/v1'), { canal: 'promo', camionId: 'cam1', choferId: 'chof1', choferNombre: 'Chofer', clienteId: 'cli', clienteNombre: 'C', items: [], total: 100, formaPago: 'contado_efectivo', fecha: new Date(), tango: { estado: 'pendiente' } })
+      await setDoc(doc(d, 'ventasVentanilla/w1'), { plantaId: 'torcuato', canal: 'contado', cajaId: 'caja1', cajaNombre: 'Caja', clienteNombre: 'C', items: [], total: 100, formaPago: 'contado_efectivo', estado: 'pendiente_entrega', turno: 1, turnoEstado: 'en_espera', fecha: new Date(), tango: { estado: 'pendiente' } })
+      await setDoc(doc(d, 'cobranzas/c1'), { origen: 'supervisor', registradoPor: { uid: 'sup1', nombre: 'S' }, clienteId: 'cli', clienteNombre: 'C', importe: 100, formaPago: 'contado_efectivo', fecha: new Date() })
+      await setDoc(doc(d, 'remitosCarga/r1'), { numero: 1, codigo: 'RC-DT-000001', plantaId: 'torcuato', camionId: 'cam1', camionLabel: 'AA', choferId: 'chof1', choferNombre: 'Chofer', items: [], palletsCarga: 0, estado: 'emitido', creadoPor: { uid: 'caja1', nombre: 'Caja' }, fecha: new Date() })
+      await setDoc(doc(d, 'liquidaciones/2026-09-09_chof1'), { fecha: '2026-09-09', plantaId: 'torcuato', choferId: 'chof1', choferNombre: 'Chofer', productos: [], cambios: { registrados: 0, rotasRecibidas: 0 }, importes: { contadoEfectivo: 0, contadoTransferencia: 0, cuentaCorriente: 0, total: 0 }, efectivoARendir: 0, efectivoRecibido: 0, diferenciaEfectivo: 0, cerradaPor: { uid: 'caja1', nombre: 'Caja' }, createdAt: new Date() })
+    })
+    for (const p of ['ventasCamion/v1', 'ventasVentanilla/w1', 'cobranzas/c1', 'remitosCarga/r1', 'liquidaciones/2026-09-09_chof1']) await assertSucceeds(getDoc(doc(db('tes1'), p)))
+    await assertFails(setDoc(doc(db('tes1'), 'ventasVentanilla/w2'), { plantaId: 'torcuato', canal: 'contado', cajaId: 'tes1', cajaNombre: 'T', clienteNombre: 'C', items: [], total: 1, formaPago: 'contado_efectivo', estado: 'pendiente_entrega', turno: 2, turnoEstado: 'en_espera', fecha: new Date(), tango: { estado: 'pendiente' } }))
+    await assertFails(updateDoc(doc(db('tes1'), 'liquidaciones/2026-09-09_chof1'), { efectivoRecibido: 5 }))
+  })
+})
+
 // Rendiciones: cierre de caja por persona y día (2026-09-09).
 describe('rendiciones (cierre de caja de ventanilla)', () => {
   const seedTodos = () => seed(async (d) => {

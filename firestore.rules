@@ -913,7 +913,7 @@ service cloud.firestore {
     match /ventasCamion/{ventaId} {
       // isCaja: la liquidación del repartidor suma las ventas del día.
       allow read: if request.auth != null
-        && (isOperator() || isManager() || isGerenteGeneral() || isCaja()
+        && (isOperator() || isManager() || isGerenteGeneral() || isCaja() || isTesoreria()
             // isSupervisor: 'Reparto en vivo' (liquidación en vivo de todos los camiones, 2026-09-05)
             || isSupervisor()
             || (isChofer() && resource.data.choferId == request.auth.uid));
@@ -942,7 +942,7 @@ service cloud.firestore {
     // en fases siguientes con reglas propias por rol — por ahora update: false.
     match /remitosCarga/{remitoId} {
       allow read: if request.auth != null
-        && (isCaja() || isMuelle() || isSeguridad() || isOperator() || isManager() || isGerenteGeneral() || isSupervisor()
+        && (isCaja() || isMuelle() || isSeguridad() || isOperator() || isManager() || isGerenteGeneral() || isSupervisor() || isTesoreria()
             || (isChofer() && resource.data.choferId == request.auth.uid));
 
       allow create: if request.auth != null && isCajaDe(request.resource.data.plantaId)
@@ -1045,7 +1045,7 @@ service cloud.firestore {
       // isSupervisor: regenera la factura de una venta de mostrador para
       // compartirla desde la composición de saldos del cliente (2026-09-07).
       allow read: if request.auth != null
-        && (isCaja() || isMuelle() || isSeguridad() || isOperator() || isManager() || isGerenteGeneral() || isSupervisor());
+        && (isCaja() || isMuelle() || isSeguridad() || isOperator() || isManager() || isGerenteGeneral() || isSupervisor() || isTesoreria());
 
       allow create: if request.auth != null && isCajaDe(request.resource.data.plantaId)
         && request.resource.data.cajaId == request.auth.uid
@@ -1102,7 +1102,7 @@ service cloud.firestore {
     // origen 'cobrador' llega en la Fase 5 con su propia rama.
     match /cobranzas/{cobranzaId} {
       allow read: if request.auth != null
-        && (isCaja() || isOperator() || isManager() || isGerenteGeneral() || isFacturacion()
+        && (isCaja() || isOperator() || isManager() || isGerenteGeneral() || isFacturacion() || isTesoreria()
             // el chofer/cobrador ve sus propias cobranzas (resumen y liquidación)
             || (isChofer() && resource.data.registradoPor.uid == request.auth.uid)
             // el supervisor ve las suyas y las de calle de los choferes (Reparto en vivo, 2026-09-05)
@@ -1216,7 +1216,7 @@ service cloud.firestore {
     // del mismo día falla en vez de pisar el snapshot.
     match /liquidaciones/{liquidacionId} {
       allow read: if request.auth != null
-        && (isCaja() || isOperator() || isManager() || isGerenteGeneral() || isSupervisor()
+        && (isCaja() || isOperator() || isManager() || isGerenteGeneral() || isSupervisor() || isTesoreria()
             || (isChofer() && resource.data.choferId == request.auth.uid));
 
       allow create: if request.auth != null && isCajaDe(request.resource.data.plantaId)
