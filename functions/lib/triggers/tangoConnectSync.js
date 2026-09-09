@@ -14,6 +14,9 @@ exports.recortarCliente = recortarCliente;
 exports.filasClientes = filasClientes;
 exports.sincronizarClientes = sincronizarClientes;
 exports.recortarComprobante = recortarComprobante;
+exports.idGva14DeFila = idGva14DeFila;
+exports.mapaPorCodigo = mapaPorCodigo;
+exports.agruparDeudaPorCliente = agruparDeudaPorCliente;
 exports.sincronizarSaldos = sincronizarSaldos;
 const https_1 = require("firebase-functions/v2/https");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
@@ -301,6 +304,49 @@ function parseCliente(campo) {
     const idx = s.indexOf(' - ');
     return idx === -1 ? { codigo: '', nombre: s } : { codigo: s.slice(0, idx).trim(), nombre: s.slice(idx + 3).trim() };
 }
+/**
+ * Id de cliente (ID_GVA14) de una fila de deuda.
+ *
+ * La Live de deudas VENCIDAS trae ID_GVA14; la de deudas A VENCER (17955) NO:
+ * solo trae CLIENTE "PA.003 - ALGAR S.R.L.". Hasta el 2026-09-09 esas filas se
+ * descartaban en silencio y ningún cliente veía en la app sus facturas todavía
+ * no vencidas (visto con ALGAR: 3 facturas en Tango, 2 en la app). Se resuelve
+ * por código con el índice de clientes vinculados.
+ */
+function idGva14DeFila(f, porCodigo) {
+    const id = (0, pedido_1.prop)(f, 'ID_GVA14');
+    if (typeof id === 'number' && Number.isInteger(id) && id > 0)
+        return id;
+    const { codigo } = parseCliente((0, pedido_1.prop)(f, 'CLIENTE'));
+    const porCod = codigo ? porCodigo.get(codigo) : undefined;
+    return porCod ?? null;
+}
+/** código de Tango → ID_GVA14, a partir del índice de una empresa. */
+function mapaPorCodigo(indiceEmpresa) {
+    const m = new Map();
+    for (const [idGva14, cli] of indiceEmpresa)
+        if (cli.codigo)
+            m.set(cli.codigo, idGva14);
+    return m;
+}
+/** Filas de deuda agrupadas por cliente; `sinCliente` = filas que no se pudieron atribuir. */
+function agruparDeudaPorCliente(filas, empresa, porCodigo) {
+    const porCliente = new Map();
+    let sinCliente = 0;
+    for (const f of filas) {
+        const idGva14 = idGva14DeFila(f, porCodigo);
+        if (idGva14 === null) {
+            sinCliente++;
+            continue;
+        }
+        if (!porCliente.has(idGva14)) {
+            const { codigo, nombre } = parseCliente((0, pedido_1.prop)(f, 'CLIENTE'));
+            porCliente.set(idGva14, { idGva14, codGva14: codigo || undefined, razonSocial: nombre || undefined, empresa, comprobantes: [] });
+        }
+        porCliente.get(idGva14).comprobantes.push(recortarComprobante(f));
+    }
+    return { porCliente, sinCliente };
+}
 /** Todas las filas de deuda (vencidas + a vencer) de una empresa. */
 async function filasDeuda(tango, cfg, company, empresa = 'redonhielo') {
     const porEmpresa = cfg.saldos?.porEmpresa?.[empresa] ?? {};
@@ -331,17 +377,10 @@ async function sincronizarSaldos(db, tango, cfg) {
             const company = companyDe(cfg, empresa);
             re.company = company;
             const filas = await filasDeuda(tango, cfg, company, empresa);
-            const porCliente = new Map();
-            for (const f of filas) {
-                const idGva14 = (0, pedido_1.prop)(f, 'ID_GVA14');
-                if (typeof idGva14 !== 'number')
-                    continue;
-                if (!porCliente.has(idGva14)) {
-                    const { codigo, nombre } = parseCliente((0, pedido_1.prop)(f, 'CLIENTE'));
-                    porCliente.set(idGva14, { idGva14, codGva14: codigo || undefined, razonSocial: nombre || undefined, empresa, comprobantes: [] });
-                }
-                porCliente.get(idGva14).comprobantes.push(recortarComprobante(f));
-            }
+            const { porCliente, sinCliente } = agruparDeudaPorCliente(filas, empresa, mapaPorCodigo(indice[empresa]));
+            re.filasSinCliente = sinCliente;
+            if (sinCliente)
+                v2_1.logger.warn(`[tango] saldos de ${empresa}: ${sinCliente} fila(s) de deuda sin ID_GVA14 ni código conocido (cliente sin vincular en la app)`);
             // Agrupar por cuenta de la app para que los códigos de un mismo CUIT
             // caigan en el mismo lote; los no vinculados van al final (skippedNoMatch).
             const grupos = new Map();
@@ -462,7 +501,16 @@ exports.onConsultaSaldoPendiente = (0, firestore_1.onDocumentCreated)({ document
         }
         // Varios códigos del mismo CUIT: la consulta puede traer más de un ID_GVA14.
         const ids = new Set([idGva14, ...(Array.isArray(data.idsGva14) ? data.idsGva14.map(Number).filter(Number.isInteger) : [])]);
-        const filas = (await filasDeuda(tango, cfg, companyDe(cfg, empresa), empresa)).filter((f) => ids.has((0, pedido_1.prop)(f, 'ID_GVA14')));
+        // Las filas "a vencer" no traen ID_GVA14: se atribuyen por el código del
+        // cliente (sus códigos en esta empresa salen de su perfil).
+        const porCodigo = new Map();
+        if (typeof data.clienteUid === 'string' && data.clienteUid) {
+            const perfil = (await db.doc(`users/${data.clienteUid}`).get()).data();
+            for (const id of (0, empresas_1.tangoIdsDe)(perfil)[empresa] ?? [])
+                if (ids.has(id.idGva14))
+                    porCodigo.set(id.codigo, id.idGva14);
+        }
+        const filas = (await filasDeuda(tango, cfg, companyDe(cfg, empresa), empresa)).filter((f) => { const id = idGva14DeFila(f, porCodigo); return id !== null && ids.has(id); });
         const comprobantes = filas.map((f) => ({ ...recortarComprobante(f), codigoTango: parseCliente((0, pedido_1.prop)(f, 'CLIENTE')).codigo }));
         const saldoTotal = Math.round(comprobantes.reduce((s, c) => s + c.saldoPendiente, 0) * 100) / 100;
         // Si mientras tanto la respondió otro (bridge todavía prendido), no pisar.
