@@ -101,6 +101,10 @@ const LiquidacionesHistorialPage = lazy(() => import('./pages/expedicion/Liquida
 const VentanillaPage    = lazy(() => import('./pages/expedicion/VentanillaPage'))
 const CobranzasPage     = lazy(() => import('./pages/expedicion/CobranzasPage'))
 const RendicionesPage   = lazy(() => import('./pages/expedicion/RendicionesPage'))
+const RendicionesHistorialPage = lazy(() => import('./pages/expedicion/RendicionesHistorialPage'))
+const TesoreriaLayout          = lazy(() => import('./components/tesoreria/TesoreriaLayout'))
+const TesoreriaLivePage        = lazy(() => import('./pages/tesoreria/TesoreriaLivePage'))
+const RendicionesTesoreriaPage = lazy(() => import('./pages/tesoreria/RendicionesTesoreriaPage'))
 const MuelleDashboard    = lazy(() => import('./pages/expedicion/MuelleDashboard'))
 const MuelleTvPage       = lazy(() => import('./pages/expedicion/MuelleTvPage'))
 const SeguridadDashboard = lazy(() => import('./pages/expedicion/SeguridadDashboard'))
@@ -428,6 +432,18 @@ function AppContent() {
           {/* Historial de cierres: también gerencia (control de faltantes por repartidor). */}
           <Route element={<ProtectedRoute allowedRoles={['caja', 'super_admin', 'gerente_general']} />}>
             <Route path="/caja/liquidaciones/historial" element={<LiquidacionesHistorialPage />} />
+            <Route path="/caja/rendiciones/historial"   element={<RendicionesHistorialPage />} />
+          </Route>
+        </Route>
+
+        {/* Tesorería (rol propio, 2026-09-09): tablero en vivo de calle, ventanillas
+            y supervisores; validación de los cierres de caja; historial. Gerencia
+            general entra en modo lectura. */}
+        <Route element={<TesoreriaLayout />}>
+          <Route element={<ProtectedRoute allowedRoles={['tesoreria', 'super_admin', 'gerente_general']} />}>
+            <Route path="/tesoreria"                       element={<TesoreriaLivePage />} />
+            <Route path="/tesoreria/rendiciones"           element={<RendicionesTesoreriaPage />} />
+            <Route path="/tesoreria/rendiciones/historial" element={<RendicionesHistorialPage />} />
           </Route>
         </Route>
 
