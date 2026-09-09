@@ -71,8 +71,22 @@ export function problemasDeVenta(v: VentaCamion): string[] {
 
 export type ComprobanteGenerado = { ok: true; blob: Blob; nombre: string; titulo: string } | { ok: false; motivo: string }
 
+// Si la pantalla no tenía el perfil (la lista de clientes activos son 2.000+
+// docs y en el celular tarda o falla), se busca por id: sin perfil el remito
+// salía sin domicilio, C.P., código ni CUIT (visto 2026-09-09, R 01105-00000116).
+async function perfilDelCliente(venta: VentaCamion, cliente: UserProfile | undefined): Promise<UserProfile | undefined> {
+  if (cliente || !venta.clienteId) return cliente
+  try {
+    const { getUserDocument } = await import('@/services/userService')
+    return (await getUserDocument(venta.clienteId)) ?? undefined
+  } catch {
+    return undefined
+  }
+}
+
 /** Genera el PDF del comprobante que le corresponde a la venta (sin descargarlo). */
-export async function generarComprobanteVenta(venta: VentaCamion, cliente: UserProfile | undefined, caiRemito: CaiRemito | null): Promise<ComprobanteGenerado> {
+export async function generarComprobanteVenta(venta: VentaCamion, clienteEnPantalla: UserProfile | undefined, caiRemito: CaiRemito | null): Promise<ComprobanteGenerado> {
+  const cliente = await perfilDelCliente(venta, clienteEnPantalla)
   const tipoInterno = tipoComprobanteInterno(venta)
   if (tipoInterno === 'remito' || tipoInterno === 'remitoPromo') {
     const armado = armarRemito(venta, cliente, caiRemito)
