@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { generateTicketsVentanilla, type TurnoTicketData } from './ventanillaTicket'
+import { COPIAS_TICKET_DEFAULT, copiaTicket, generateTicketsVentanilla, normalizarCopiasTicket, type TurnoTicketData } from './ventanillaTicket'
 import type { FacturaArcaData } from './facturaArcaPdf'
 import { ANCHO_TICKET } from './ticketTermico'
 
@@ -70,6 +70,30 @@ describe('tickets de ventanilla (80 mm)', () => {
     const blob = await generateTicketsVentanilla({ turno: TURNO })
     const pdf = Buffer.from(await blob.arrayBuffer()).toString('latin1')
     expect(mediaBoxes(pdf)).toHaveLength(1)
+  })
+
+  it('por triplicado: la factura una vez y el turno tres veces; las copias con firma extra son más largas', async () => {
+    const blob = await generateTicketsVentanilla({ factura: FACTURA, turno: TURNO, copiasTurno: 3 })
+    const pdf = Buffer.from(await blob.arrayBuffer()).toString('latin1')
+    const cajas = mediaBoxes(pdf)
+    expect(cajas).toHaveLength(4)
+    const [, original, duplicado, triplicado] = cajas
+    expect(duplicado.h).toBeGreaterThan(original.h)   // renglón "Entregó (muelle)"
+    expect(triplicado.h).toBeCloseTo(duplicado.h, 0)
+    if (process.env.TICKETS_OUT) {
+      mkdirSync(process.env.TICKETS_OUT, { recursive: true })
+      writeFileSync(`${process.env.TICKETS_OUT}/tickets-ventanilla-triplicado.pdf`, Buffer.from(await blob.arrayBuffer()))
+    }
+  })
+
+  it('copias fuera de rango se acotan a 1..3 y la config se normaliza', () => {
+    expect(normalizarCopiasTicket(3)).toBe(3)
+    expect(normalizarCopiasTicket(1)).toBe(1)
+    expect(normalizarCopiasTicket(0)).toBe(COPIAS_TICKET_DEFAULT)
+    expect(normalizarCopiasTicket('x')).toBe(COPIAS_TICKET_DEFAULT)
+    expect(normalizarCopiasTicket(undefined)).toBe(COPIAS_TICKET_DEFAULT)
+    expect(copiaTicket(0, 1)).toBeUndefined()
+    expect(copiaTicket(1, 3)?.firmaExtra).toBe('Entregó (muelle)')
   })
 
   it('sin partes no arma nada', async () => {

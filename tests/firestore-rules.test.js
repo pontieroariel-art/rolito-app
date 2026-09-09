@@ -3744,4 +3744,15 @@ describe('supervisor: pedido / visita a logística e historial del cliente', () 
     await assertFails(setDoc(doc(db('sup1'), 'config/cobranzas'), { alertasMora: { diasAmarillo: 1, diasRojo: 2, importeRojo: 3 } }, { merge: true }))
     await assertSucceeds(setDoc(doc(db('sa'), 'config/cobranzas'), { alertasMora: { diasAmarillo: 20, diasRojo: 45, importeRojo: 300000 } }, { merge: true }))
   })
+
+  test('config/ventanilla (copias del comprobante de turno): caja lee, no escribe; super_admin escribe', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/sa'), { rol: 'super_admin', estado: 'activo' })
+      await setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' })
+      await setDoc(doc(d, 'config/ventanilla'), { copiasTicket: { torcuato: 3, merlo: 3 } })
+    })
+    await assertSucceeds(getDoc(doc(db('caja1'), 'config/ventanilla')))
+    await assertFails(setDoc(doc(db('caja1'), 'config/ventanilla'), { copiasTicket: { torcuato: 1, merlo: 1 } }, { merge: true }))
+    await assertSucceeds(setDoc(doc(db('sa'), 'config/ventanilla'), { copiasTicket: { torcuato: 2, merlo: 3 } }, { merge: true }))
+  })
 })

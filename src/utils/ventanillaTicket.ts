@@ -115,6 +115,39 @@ export interface TurnoTicketData {
   urlTurno:      string
   /** Número de factura ya emitida, si la hubo, para vincular los dos papeles. */
   facturaNro?:   string
+  /** Qué copia es este papel (original/duplicado/triplicado). Ausente = sin leyenda. */
+  copia?:        CopiaTicket
+}
+
+// ── Copias del comprobante de turno ──────────────────────────────────────────
+// Mientras muelle y seguridad no tengan sus pantallas (2026-09-09, decisión de
+// Ariel), el turno sale por triplicado: el original se lo queda el cliente, el
+// duplicado lo firma muelle al entregar y el triplicado lo retiene seguridad
+// en el portón. Cada copia lleva su leyenda y, salvo el original, un renglón
+// de firma propio. La cantidad se configura por planta (config/ventanilla).
+export interface CopiaTicket {
+  leyenda:     string
+  /** Renglón de firma adicional al del cliente ("Entregó (muelle)"…). */
+  firmaExtra?: string
+}
+
+export const COPIAS_TICKET: CopiaTicket[] = [
+  { leyenda: 'ORIGINAL · CLIENTE' },
+  { leyenda: 'DUPLICADO · MUELLE',     firmaExtra: 'Entregó (muelle)' },
+  { leyenda: 'TRIPLICADO · SEGURIDAD', firmaExtra: 'Salida (seguridad)' },
+]
+export const COPIAS_TICKET_DEFAULT = 3
+export const COPIAS_TICKET_MAX = COPIAS_TICKET.length
+
+/** Cantidad de copias válida: entero entre 1 y 3; cualquier otra cosa → default. */
+export function normalizarCopiasTicket(n: unknown): number {
+  const v = Number(n)
+  return Number.isInteger(v) && v >= 1 && v <= COPIAS_TICKET_MAX ? v : COPIAS_TICKET_DEFAULT
+}
+
+/** Con una sola copia no hace falta leyenda; con más, cada una dice cuál es. */
+export function copiaTicket(indice: number, total: number): CopiaTicket | undefined {
+  return total > 1 ? COPIAS_TICKET[indice] : undefined
 }
 
 const FORMA_PAGO: Record<string, string> = {
@@ -130,6 +163,7 @@ export function dibujoTurnoTicket(v: TurnoTicketData): DibujoTicket {
     y = texto(doc, `Planta ${planta.localidad}`, y, { tam: 7.5, align: 'center' })
     y = texto(doc, 'COMPROBANTE DE VENTANILLA', y + 1, { tam: 8.5, negrita: true, align: 'center' })
     y = texto(doc, fechaHora(v.fecha), y, { tam: 7.5, align: 'center' })
+    if (v.copia) y = texto(doc, v.copia.leyenda, y + 1, { tam: 8, negrita: true, align: 'center' })
     y = separador(doc, y + 1)
 
     y = texto(doc, 'TU TURNO', y + 3, { tam: 11, negrita: true, align: 'center' })
@@ -152,21 +186,31 @@ export function dibujoTurnoTicket(v: TurnoTicketData): DibujoTicket {
     y = separador(doc, y + 1)
 
     y = texto(doc, 'Presentá este comprobante en muelle para retirar la mercadería.', y + 1, { tam: 7, align: 'center' })
-    y += 10
-    doc.setDrawColor(0, 0, 0)
-    doc.setLineWidth(0.2)
-    doc.line(16, y, 64, y)
-    y = texto(doc, 'Firma del cliente', y + 3, { tam: 6.5, align: 'center' })
+    const renglonFirma = (etiqueta: string) => {
+      y += 10
+      doc.setDrawColor(0, 0, 0)
+      doc.setLineWidth(0.2)
+      doc.line(16, y, 64, y)
+      y = texto(doc, etiqueta, y + 3, { tam: 6.5, align: 'center' })
+    }
+    renglonFirma('Firma del cliente')
+    if (v.copia?.firmaExtra) renglonFirma(v.copia.firmaExtra)
     y = texto(doc, `Caja: ${v.cajaNombre}`, y + 1, { tam: 7, align: 'center' })
     return y
   }
 }
 
 // ── Armado ───────────────────────────────────────────────────────────────────
-/** PDF de 80 mm con la factura (si hay) y el turno, en ese orden. */
-export function generateTicketsVentanilla(partes: { factura?: FacturaArcaData; turno?: TurnoTicketData }): Promise<Blob> {
+/**
+ * PDF de 80 mm con la factura (si hay, una sola vez) y el turno, en ese orden.
+ * `copiasTurno` (1..3, default 1) repite el turno con la leyenda de cada copia.
+ */
+export function generateTicketsVentanilla(partes: { factura?: FacturaArcaData; turno?: TurnoTicketData; copiasTurno?: number }): Promise<Blob> {
   const dibujos: DibujoTicket[] = []
   if (partes.factura) dibujos.push(dibujoFacturaArcaTicket(partes.factura))
-  if (partes.turno) dibujos.push(dibujoTurnoTicket(partes.turno))
+  if (partes.turno) {
+    const total = Math.min(Math.max(partes.copiasTurno ?? 1, 1), COPIAS_TICKET_MAX)
+    for (let i = 0; i < total; i++) dibujos.push(dibujoTurnoTicket({ ...partes.turno, copia: copiaTicket(i, total) }))
+  }
   return armarPdfTickets(dibujos)
 }

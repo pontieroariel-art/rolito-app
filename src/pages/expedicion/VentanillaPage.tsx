@@ -20,6 +20,7 @@ import { armarFacturaDeVenta } from '../../utils/facturaDeVenta'
 import { generateTicketsVentanilla, type TurnoTicketData } from '@/utils/ventanillaTicket'
 import { imprimirPdf, leerModoImpresion, guardarModoImpresion, MODOS_IMPRESION, type ModoImpresion } from '@/utils/ticketTermico'
 import { usePreciosTango } from '../../hooks/usePreciosTango'
+import { useCopiasTicketVentanilla } from '@/hooks/useCopiasTicketVentanilla'
 import { empresaDeCanal, motivoSinPrecioTango, precioTangoDe } from '../../utils/precioTango'
 import { documentoDeVenta } from '../../utils/circuitoDocumento'
 import { esClienteFacturable, esCuitValido } from '../../utils/facturable'
@@ -92,6 +93,9 @@ export default function VentanillaPage() {
 
   useEffect(() => subscribeVentanillaDelDia(plantaId, fecha, setVentas), [plantaId, fecha])
   useEffect(() => { getTopeConsumidorFinalSinIdentificar().then(setTopeSinIdentificar) }, [])
+  // Copias del comprobante de turno (original cliente / duplicado muelle /
+  // triplicado seguridad) según config/ventanilla; aplica también a la reimpresión.
+  const copiasTicket = useCopiasTicketVentanilla()
 
   const cliente = useMemo(() => clientes.find((c) => c.uid === clienteId), [clientes, clienteId])
   const clientePorId = useMemo(() => new Map(clientes.map((c) => [c.uid, c])), [clientes])
@@ -200,7 +204,7 @@ export default function VentanillaPage() {
     } : undefined
     if (!facturaDatos && !turnoDatos) return false
     try {
-      const blob = await generateTicketsVentanilla({ factura: facturaDatos, turno: turnoDatos })
+      const blob = await generateTicketsVentanilla({ factura: facturaDatos, turno: turnoDatos, copiasTurno: copiasTicket[v.plantaId] })
       await imprimirPdf(blob, `ventanilla-turno-${v.turno}.pdf`, modoImpresion)
       return facturaOk
     } catch (err) {
