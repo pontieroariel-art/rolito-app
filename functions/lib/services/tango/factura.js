@@ -9,7 +9,7 @@
 // tal cual (`cAE`, `fechaVtoCAE`): Tango registra el comprobante YA autorizado
 // (ejemplo 05 del readme oficial, INTEGRACION.md §12 y §15).
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.redondear2 = exports.LETRA_POR_CBTE_TIPO = void 0;
+exports.redondear2 = exports.CODIGO_MOTIVO_NC_DEFAULT = exports.LETRA_NC_POR_CBTE_TIPO = exports.LETRA_POR_CBTE_TIPO = void 0;
 exports.fechaArcaAIso = fechaArcaAIso;
 exports.numeroComprobanteTango = numeroComprobanteTango;
 exports.documentoDeVenta = documentoDeVenta;
@@ -17,8 +17,13 @@ exports.itemsDeVenta = itemsDeVenta;
 exports.percepcionesPorItem = percepcionesPorItem;
 exports.armarComprobanteFacturador = armarComprobanteFacturador;
 exports.interpretarRespuestaFacturador = interpretarRespuestaFacturador;
+exports.armarNotaCreditoFacturador = armarNotaCreditoFacturador;
 const pedido_1 = require("./pedido");
 exports.LETRA_POR_CBTE_TIPO = { 1: 'A', 6: 'B', 11: 'C' };
+/** Notas de crédito de ARCA (3 = NC A, 8 = NC B, 13 = NC C). */
+exports.LETRA_NC_POR_CBTE_TIPO = { 3: 'A', 8: 'B', 13: 'C' };
+/** Motivo de NC de Tango por defecto: 4 = "Anulación de fact. electrónica" (tabla Motivos NC del Facturador). */
+exports.CODIGO_MOTIVO_NC_DEFAULT = 4;
 const IVA_21 = 21;
 const redondear2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 exports.redondear2 = redondear2;
@@ -283,5 +288,72 @@ function interpretarRespuestaFacturador(data, numeroEsperado) {
     const mensaje = [c?.mensaje, c?.exceptionMessage, d.Message ?? d.message].filter(Boolean).join(' | ');
     const yaExistia = /\(51016\)|ya existe el n(ú|u)mero de comprobante/i.test(mensaje);
     return { ok: ok || yaExistia, yaExistia, mensaje, numeroComprobante: c?.numeroComprobante ?? null };
+}
+// ── Nota de crédito (anulación de una factura de ventanilla, 2026-09-09) ─────
+/**
+ * Arma la NOTA DE CRÉDITO que anula la factura de la venta, para el Facturador
+ * (ejemplo 06 del readme oficial: `codigoTipoComprobante: 'CDE'` con
+ * `codigoTipoComprobanteDeReferencia`/`numeroDeComprobanteDeReferencia` y
+ * `comprobanteCanceladoCompletamente: true`).
+ *
+ * Se apoya en `armarComprobanteFacturador`: la NC es la factura entera
+ * (mismos ítems, importes, percepciones y pago, así el efectivo y el stock
+ * vuelven por donde salieron) con su propio número, talonario, CAE y fecha,
+ * más la referencia a la factura. Los importes de la NC son los que ARCA
+ * autorizó (`payload.notaCredito.importes`); si no coinciden con los de la
+ * factura, no se registra.
+ */
+function armarNotaCreditoFacturador(payload, item, cfg, mapeos) {
+    const nc = payload.notaCredito;
+    if (!nc || nc.estado !== 'emitida' || typeof nc.numero !== 'number' || !nc.cae) {
+        return { error: 'La anulación no tiene una nota de crédito emitida por ARCA (notaCredito.estado/numero/cae)' };
+    }
+    const letra = exports.LETRA_NC_POR_CBTE_TIPO[nc.cbteTipo ?? -1];
+    if (!letra)
+        return { error: `cbteTipo ${nc.cbteTipo} no es una nota de crédito conocida (3=A, 8=B, 13=C)` };
+    const asociado = nc.cbtesAsoc?.[0];
+    if (!asociado)
+        return { error: 'La nota de crédito no trae el comprobante asociado (cbtesAsoc)' };
+    const letraFactura = exports.LETRA_POR_CBTE_TIPO[asociado.Tipo];
+    if (!letraFactura)
+        return { error: `El comprobante asociado tiene tipo ${asociado.Tipo}, que no es una factura` };
+    const empresa = item.empresa ?? '?';
+    const talonario = cfg.talonariosNC?.[letra];
+    if (!talonario)
+        return { error: `Falta config/tango.facturador.${empresa}.talonariosNC.${letra} (talonario de nota de crédito ${letra})` };
+    const base = armarComprobanteFacturador(payload, item, cfg, mapeos);
+    if (base.error !== undefined)
+        return base;
+    if (!base.fiscal)
+        return { error: 'Solo se anulan por nota de crédito las facturas con CAE de ARCA' };
+    const totalFactura = Number(base.comprobante.total);
+    const totalNc = Number(nc.importes?.total ?? totalFactura);
+    if (Math.abs(totalFactura - totalNc) > 0.011) {
+        return { error: `El total de la nota de crédito (${totalNc}) no coincide con el de la factura (${totalFactura}); no se registra` };
+    }
+    const ref = `ROLITO:NC:${item.origenId}`;
+    const numeroFactura = numeroComprobanteTango(letraFactura, asociado.PtoVta, asociado.Nro);
+    const anulacion = payload.anulacion ?? {};
+    const motivo = anulacion.motivo ? `${anulacion.motivo}${anulacion.nota ? ` - ${anulacion.nota}` : ''}` : (anulacion.nota ?? '');
+    const comprobante = {
+        ...base.comprobante,
+        codigoTipoComprobante: 'CDE',
+        numeroComprobante: numeroComprobanteTango(letra, nc.puntoVenta, nc.numero),
+        codigoTalonario: talonario,
+        cAE: nc.cae,
+        fechaVtoCAE: fechaArcaAIso(nc.caeFchVto) ?? undefined,
+        fechaComprobante: fechaArcaAIso(nc.importes?.fecha) ?? String(base.comprobante.fechaComprobante),
+        codigoTipoComprobanteDeReferencia: 'FAC',
+        numeroDeComprobanteDeReferencia: numeroFactura,
+        comprobanteCanceladoCompletamente: true,
+        codigoMotivo: String(cfg.codigoMotivoNC ?? exports.CODIGO_MOTIVO_NC_DEFAULT),
+        leyenda1: recortar(ref, 60),
+        leyenda2: recortar(`Anula ${letraFactura} ${String(asociado.PtoVta).padStart(5, '0')}-${String(asociado.Nro).padStart(8, '0')} app`, 60),
+        leyenda3: recortar(motivo, 60),
+        leyenda4: recortar(anulacion.resueltaPor ? `Autorizo: ${anulacion.resueltaPor}` : '', 60),
+        leyenda5: recortar(anulacion.solicitadoPor ? `Pidio: ${anulacion.solicitadoPor}` : '', 60),
+        observaciones: recortar(`${ref}. Nota de credito por anulacion de la factura ${numeroFactura} (${base.referencia}). ${motivo}. Pidio ${anulacion.solicitadoPor ?? 'caja'}, autorizo ${anulacion.resueltaPor ?? '?'}.`, 280),
+    };
+    return { comprobante, fiscal: true, referencia: ref };
 }
 //# sourceMappingURL=factura.js.map

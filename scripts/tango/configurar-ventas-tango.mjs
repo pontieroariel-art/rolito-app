@@ -141,6 +141,8 @@ for (const empresa of ['redonhielo', 'rolito']) {
   if (!f.talonarios || !Object.keys(f.talonarios).length) faltan.push('talonarios')
   if (!f.cuentas?.contado_efectivo) faltan.push('cuentas.contado_efectivo')
   if (empresa === 'redonhielo' && !f.codigoAlicuotaPercepcionIIBB) faltan.push('codigoAlicuotaPercepcionIIBB')
+  // Notas de crédito de anulación de ventanilla (2026-09-09): talonarios propios por letra.
+  if (empresa === 'redonhielo' && (!f.talonariosNC?.A || !f.talonariosNC?.B)) faltan.push('talonariosNC.A / talonariosNC.B (nota de crédito)')
   console.log(`  ${faltan.length ? '✗' : '✓'} ${empresa}: ${JSON.stringify(f)}${faltan.length ? `\n      faltan: ${faltan.join(', ')}` : ''}`)
   if (faltan.length) faltas.push(`facturador.${empresa} (${faltan.join(', ')})`)
 }

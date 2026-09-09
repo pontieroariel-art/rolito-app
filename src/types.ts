@@ -393,6 +393,8 @@ export interface AnulacionVentanilla {
   notaResolucion?: string
   notaCredito?:  NotaCreditoArcaVenta
   ultimoError?:  string | null
+  // La NC en Tango (Facturador, tipo CDE): lo escribe el worker del outbox.
+  tango?:        { estado: 'pendiente' | 'confirmado' | 'error'; numero?: string; ultimoError?: string }
 }
 
 // ── Expedición: cobranza (mostrador, calle o supervisor) ──────────────────────

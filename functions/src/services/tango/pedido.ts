@@ -49,6 +49,23 @@ export interface PayloadVenta {
     caeFchVto?: string | null
     importes?: { fecha?: string; neto: number; iva: number; tributos?: number; total: number } | null
   } | null
+  /**
+   * Nota de crédito que anuló la factura (anulación de ventanilla, 2026-09-09):
+   * viaja en el item `notaCredito` del outbox junto con la venta. Misma forma
+   * que `factura` más el comprobante asociado.
+   */
+  notaCredito?: {
+    estado?: string
+    numero?: number
+    puntoVenta?: number
+    cbteTipo?: number
+    cae?: string | null
+    caeFchVto?: string | null
+    importes?: { fecha?: string; neto: number; iva: number; tributos?: number; total: number } | null
+    cbtesAsoc?: { Tipo: number; PtoVta: number; Nro: number; Cuit?: string; CbteFch?: string }[]
+  } | null
+  /** Solo NC: por qué se anuló y quiénes intervinieron (leyendas). */
+  anulacion?: { motivo?: string; nota?: string; solicitadoPor?: string; resueltaPor?: string } | null
 }
 
 export interface ItemOutbox {

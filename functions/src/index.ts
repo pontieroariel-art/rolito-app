@@ -26,7 +26,7 @@ export { onHistorialAdminAltoRiesgo, enviarResumenAdminDiario } from './triggers
 export { syncClientesTango }                    from './triggers/tangoSync'
 export { syncSaldosTango }                      from './triggers/tangoSaldos'
 export { onConsultaRespondida }                 from './triggers/tangoConsultas'
-export { onProduccionPalletCreado, onVentaCamionCreada, onVentaCamionFacturada, onVentaVentanillaCreada, onVentaVentanillaFacturada, onRemitoCargaCreado, onDescargaCamionCreada, onCobranzaCreada, onOutboxConfirmado } from './triggers/tangoOutbox'
+export { onProduccionPalletCreado, onVentaCamionCreada, onVentaCamionFacturada, onVentaVentanillaCreada, onVentaVentanillaFacturada, onAnulacionEmitida, onRemitoCargaCreado, onDescargaCamionCreada, onCobranzaCreada, onOutboxConfirmado } from './triggers/tangoOutbox'
 export { onOutboxPendiente, barridoOutboxTango }  from './triggers/tangoWorker'
 export { syncPreciosTango, sincronizarPreciosTangoAhora } from './triggers/tangoPrecios'
 export { syncClientesTangoConnect, syncSaldosTangoConnect, sincronizarClientesTangoAhora, sincronizarSaldosTangoAhora, onConsultaSaldoPendiente } from './triggers/tangoConnectSync'

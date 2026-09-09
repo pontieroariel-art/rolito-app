@@ -234,6 +234,51 @@ export const onVentaVentanillaFacturada = onDocumentUpdated(
   },
 )
 
+/**
+ * Nota de crédito de anulación de una factura de ventanilla (2026-09-09): cuando
+ * el server la emite en ARCA (`anulacionesVentanilla/{id}.estado → 'emitida'`),
+ * viaja al Facturador de Tango como 'CDE' referenciando a la factura. El item
+ * lleva la venta (ítems, cliente, forma de pago: la NC es la factura entera al
+ * revés) más la NC y el motivo. El write-back va a la solicitud (`tango`).
+ */
+export const onAnulacionEmitida = onDocumentUpdated(
+  'anulacionesVentanilla/{ventaId}',
+  async (event) => {
+    const antes = event.data?.before.data()
+    const ahora = event.data?.after.data()
+    if (!ahora) return
+    if (antes?.estado === 'emitida' || ahora.estado !== 'emitida') return
+    const nc = ahora.notaCredito as Record<string, unknown> | undefined
+    if (!nc || nc.estado !== 'emitida' || !nc.cae) return
+
+    const ventaId = event.params.ventaId
+    const db = getFirestore()
+    const venta = (await db.doc(`ventasVentanilla/${ventaId}`).get()).data()
+    if (!venta) return
+    const destino = destinoTango(venta.canal, venta.formaPago, venta.total)
+    if (!destino?.conCaePropio) return
+
+    await db.doc(`anulacionesVentanilla/${ventaId}`).set({ tango: { estado: 'pendiente' } }, { merge: true })
+    await encolarOutbox(`anulacionesVentanilla_${ventaId}`, {
+      entidad: 'notaCredito',
+      empresa: destino.empresa,
+      conCaePropio: true,
+      origenColeccion: 'anulacionesVentanilla',
+      origenId: ventaId,
+      payload: {
+        ...(await payloadDeVentaEn(venta, destino.empresa)),
+        notaCredito: nc,
+        anulacion: {
+          motivo: String(ahora.motivo ?? ''),
+          nota: String(ahora.nota ?? ''),
+          solicitadoPor: String((ahora.solicitadoPor as { nombre?: string } | undefined)?.nombre ?? ''),
+          resueltaPor: String((ahora.resueltaPor as { nombre?: string } | undefined)?.nombre ?? ''),
+        },
+      },
+    })
+  },
+)
+
 // ── Transferencias de depósito: remito de carga y descarga del camión ────────
 // En Tango los camiones son depósitos (STA22) y la venta desde el camión
 // descarga stock de ESE depósito. Para que cierre, la mercadería tiene que
@@ -458,6 +503,17 @@ const WRITE_BACKS: Record<string, {
       if (!numero) return null
       return { 'tango.stockEstado': 'confirmado', 'tango.stockNumero': String(numero), 'tango.stockTipo': String(resultado?.tComp ?? '') }
     },
+  },
+  // Nota de crédito de anulación (ventanilla): el número con el que Tango la
+  // registró queda en la solicitud, que es lo que mira la bandeja de anulaciones.
+  notaCredito: {
+    colecciones: ['anulacionesVentanilla'],
+    buildUpdate: (resultado) => {
+      const numero = resultado?.notaCreditoNumero ?? resultado?.comprobanteNumero
+      if (!numero) return null
+      return { 'tango.estado': 'confirmado', 'tango.numero': String(numero), 'tango.ultimoError': FieldValue.delete() }
+    },
+    buildError: (ultimoError) => ({ 'tango.estado': 'error', 'tango.ultimoError': ultimoError }),
   },
   recibo: {
     colecciones: ['cobranzas'],

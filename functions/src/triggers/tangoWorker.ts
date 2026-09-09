@@ -25,7 +25,7 @@ import { defineSecret } from 'firebase-functions/params'
 import { logger } from 'firebase-functions/v2'
 import { getFirestore, FieldValue, type Firestore, type DocumentReference } from 'firebase-admin/firestore'
 import { TangoClient } from '../services/tango/client'
-import { enviarRemito, enviarFactura, type ConfigTango, type ResultadoWriter, type ContextoWriter } from '../services/tango/writers'
+import { enviarRemito, enviarFactura, enviarNotaCredito, type ConfigTango, type ResultadoWriter, type ContextoWriter } from '../services/tango/writers'
 import type { PayloadVenta } from '../services/tango/pedido'
 
 const tangoApiToken = defineSecret('TANGO_API_TOKEN')
@@ -37,6 +37,8 @@ const TZ = 'America/Argentina/Buenos_Aires'
 const HANDLERS: Record<string, { enviar: (p: PayloadVenta, ctx: ContextoWriter) => Promise<ResultadoWriter>; flag: string }> = {
   remito:  { enviar: enviarRemito,  flag: 'remitosEnabled' },
   factura: { enviar: enviarFactura, flag: 'facturasEnabled' },
+  // Nota de crédito de anulación de ventanilla (2026-09-09): mismo interruptor que las facturas.
+  notaCredito: { enviar: enviarNotaCredito, flag: 'facturasEnabled' },
 }
 
 interface ItemOutboxDoc {

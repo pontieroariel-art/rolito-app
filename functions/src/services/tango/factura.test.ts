@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  armarComprobanteFacturador, documentoDeVenta, itemsDeVenta, percepcionesPorItem,
+  armarComprobanteFacturador, armarNotaCreditoFacturador, documentoDeVenta, itemsDeVenta, percepcionesPorItem,
   numeroComprobanteTango, fechaArcaAIso, interpretarRespuestaFacturador, type ConfigFacturadorEmpresa,
 } from './factura'
 import type { PayloadVenta } from './pedido'
@@ -161,5 +161,38 @@ describe('Rolito sin stock y factura en $0 (decisión 2026-09-05)', () => {
     const r = armarComprobanteFacturador(soloCambio, { ...item, empresa: 'rolito' }, cfgRolito, { ...mapeos, letraNoFiscal: 'B' })
     if (r.error !== undefined) throw new Error(r.error)
     expect((r.comprobante.items as Record<string, unknown>[])[0]).toMatchObject({ codigo: 'PTHIBOLROLI0010', descargaStock: false })
+  })
+})
+
+describe('armarNotaCreditoFacturador (anulación de ventanilla)', () => {
+  const cfgNC: ConfigFacturadorEmpresa = { ...cfg, talonariosNC: { A: 1001, B: 1003 } }
+  const ventaAnulada: PayloadVenta = {
+    ...ventaReal, cajaId: 'u1', cajaNombre: 'Nicolas Diaz', plantaId: 'torcuato', camionId: undefined, choferId: undefined,
+    notaCredito: { estado: 'emitida', cbteTipo: 3, puntoVenta: 1104, numero: 7, cae: '75999999999999', caeFchVto: '20260920',
+      importes: { fecha: '20260909', neto: 1, iva: 0.21, tributos: 0.06, total: 1.27 },
+      cbtesAsoc: [{ Tipo: 1, PtoVta: 1104, Nro: 1, Cuit: '30697668973', CbteFch: '20260902' }] },
+    anulacion: { motivo: 'Cliente equivocado', nota: 'era la sucursal 2', solicitadoPor: 'Nicolas Diaz', resueltaPor: 'Yanina' },
+  }
+  const itemNC = { origenColeccion: 'anulacionesVentanilla', origenId: 'v1', empresa: 'redonhielo' }
+
+  it('es la factura entera como CDE, con su número/talonario/CAE y la referencia a la factura', () => {
+    const r = armarNotaCreditoFacturador(ventaAnulada, itemNC, cfgNC, mapeos)
+    if (r.error !== undefined) throw new Error(r.error)
+    expect(r.comprobante).toMatchObject({
+      codigoTipoComprobante: 'CDE', numeroComprobante: 'A0110400000007', codigoTalonario: 1001,
+      cAE: '75999999999999', fechaVtoCAE: '2026-09-20', fechaComprobante: '2026-09-09',
+      codigoTipoComprobanteDeReferencia: 'FAC', numeroDeComprobanteDeReferencia: 'A0110400000001', comprobanteCanceladoCompletamente: true,
+      codigoMotivo: '4', codigoCliente: 'FC.280', total: 1.27, totalSinImpuestos: 1, totalIva: 0.21,
+      leyenda1: 'ROLITO:NC:v1', leyenda4: 'Autorizo: Yanina',
+    })
+    expect(r.comprobante.pagos).toEqual([{ tipo: 'Efectivo', codigoDeCuenta: '1', monto: 1.27 }])
+    expect((r.comprobante.items as unknown[]).length).toBe(1)
+    expect(r.referencia).toBe('ROLITO:NC:v1')
+  })
+
+  it('exige talonario de NC, NC emitida con CAE y total igual al de la factura', () => {
+    expect(armarNotaCreditoFacturador(ventaAnulada, itemNC, cfg, mapeos)).toMatchObject({ error: expect.stringMatching(/talonariosNC\.A/) })
+    expect(armarNotaCreditoFacturador({ ...ventaAnulada, notaCredito: { ...ventaAnulada.notaCredito, cae: null } }, itemNC, cfgNC, mapeos)).toMatchObject({ error: expect.stringMatching(/emitida/) })
+    expect(armarNotaCreditoFacturador({ ...ventaAnulada, notaCredito: { ...ventaAnulada.notaCredito, importes: { ...ventaAnulada.notaCredito!.importes!, total: 99 } } }, itemNC, cfgNC, mapeos)).toMatchObject({ error: expect.stringMatching(/no coincide/) })
   })
 })

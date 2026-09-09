@@ -4,7 +4,7 @@
 
 import { TangoClient, PROCESOS, FILTROS } from './client'
 import { armarPedido, renglonesDeVenta, referenciaPedido, prop, idDeFila, type PayloadVenta, type ItemOutbox } from './pedido'
-import { armarComprobanteFacturador, interpretarRespuestaFacturador, type ConfigFacturadorEmpresa } from './factura'
+import { armarComprobanteFacturador, armarNotaCreditoFacturador, interpretarRespuestaFacturador, type ConfigFacturadorEmpresa } from './factura'
 
 export interface ConfigTango {
   companies?: Record<string, number>
@@ -133,7 +133,18 @@ export async function enviarRemito(payload: PayloadVenta, ctx: ContextoWriter): 
 }
 
 /** Factura de la app → Facturador de Tango (INTEGRACION.md §15). */
-export async function enviarFactura(payload: PayloadVenta, ctx: ContextoWriter): Promise<ResultadoWriter> {
+export const enviarFactura = (payload: PayloadVenta, ctx: ContextoWriter): Promise<ResultadoWriter> =>
+  registrarEnFacturador(payload, ctx, 'factura')
+
+/**
+ * Nota de crédito que anula una factura de ventanilla (INTEGRACION.md §33):
+ * mismo camino que la factura (ficha del cliente, depósito, armado) con el
+ * comprobante 'CDE' referenciando a la factura.
+ */
+export const enviarNotaCredito = (payload: PayloadVenta, ctx: ContextoWriter): Promise<ResultadoWriter> =>
+  registrarEnFacturador(payload, ctx, 'notaCredito')
+
+async function registrarEnFacturador(payload: PayloadVenta, ctx: ContextoWriter, tipo: 'factura' | 'notaCredito'): Promise<ResultadoWriter> {
   const { tango, cfg, company, item, log } = ctx
   const empresa = item.empresa ?? '?'
   const cfgEmpresa = cfg.facturador?.[empresa]
@@ -193,7 +204,8 @@ export async function enviarFactura(payload: PayloadVenta, ctx: ContextoWriter):
     if (esPromo && !letraNoFiscal) return { ok: false, error: `No se pudo leer la categoría de IVA del cliente ${payload.clienteNombre ?? idGva14} en Tango (define si la factura X entra como A o B)` }
   }
 
-  const armado = armarComprobanteFacturador(payload, item, {
+  const armar = tipo === 'notaCredito' ? armarNotaCreditoFacturador : armarComprobanteFacturador
+  const armado = armar(payload, item, {
     ...cfgEmpresa,
     vendedor,
     condicionVenta: { contado: condContado, ...(condCtaCte !== undefined ? { cuenta_corriente: condCtaCte } : {}) },
@@ -206,7 +218,7 @@ export async function enviarFactura(payload: PayloadVenta, ctx: ContextoWriter):
   })
   if (armado.error !== undefined) return { ok: false, error: armado.error }
   if (item.conCaePropio === true && !armado.comprobante.cAE) {
-    return { ok: false, error: 'El item dice conCaePropio pero la venta no trae factura.cae — no se registra sin CAE' }
+    return { ok: false, error: `El item dice conCaePropio pero ${tipo === 'notaCredito' ? 'la nota de crédito' : 'la venta'} no trae CAE — no se registra sin CAE` }
   }
 
   try {
@@ -214,8 +226,11 @@ export async function enviarFactura(payload: PayloadVenta, ctx: ContextoWriter):
     const numero = armado.comprobante.numeroComprobante as string
     const r = interpretarRespuestaFacturador(data, numero)
     if (!r.ok) return { ok: false, error: `Facturador rechazó ${numero}: ${r.mensaje || JSON.stringify(data).slice(0, 300)}` }
-    log(`${armado.referencia}: factura ${numero} ${r.yaExistia ? 'ya estaba registrada' : 'registrada'} en Tango (Company ${company})${armado.comprobante.cAE ? ' con CAE' : ' sin CAE'}`)
-    return { ok: true, resultado: { facturaNumero: numero, comprobanteNumero: r.numeroComprobante ?? numero, yaExistia: r.yaExistia, fiscal: armado.fiscal } }
+    const que = tipo === 'notaCredito' ? 'nota de crédito' : 'factura'
+    log(`${armado.referencia}: ${que} ${numero} ${r.yaExistia ? 'ya estaba registrada' : 'registrada'} en Tango (Company ${company})${armado.comprobante.cAE ? ' con CAE' : ' sin CAE'}`)
+    return tipo === 'notaCredito'
+      ? { ok: true, resultado: { notaCreditoNumero: numero, comprobanteNumero: r.numeroComprobante ?? numero, yaExistia: r.yaExistia, fiscal: true } }
+      : { ok: true, resultado: { facturaNumero: numero, comprobanteNumero: r.numeroComprobante ?? numero, yaExistia: r.yaExistia, fiscal: armado.fiscal } }
   } catch (err) {
     return { ok: false, error: (err as Error).message }
   }

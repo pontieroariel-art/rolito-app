@@ -35,6 +35,8 @@ const TZ = 'America/Argentina/Buenos_Aires';
 const HANDLERS = {
     remito: { enviar: writers_1.enviarRemito, flag: 'remitosEnabled' },
     factura: { enviar: writers_1.enviarFactura, flag: 'facturasEnabled' },
+    // Nota de crédito de anulación de ventanilla (2026-09-09): mismo interruptor que las facturas.
+    notaCredito: { enviar: writers_1.enviarNotaCredito, flag: 'facturasEnabled' },
 };
 async function leerConfig(db) {
     return ((await db.doc('config/tango').get()).data() ?? {});

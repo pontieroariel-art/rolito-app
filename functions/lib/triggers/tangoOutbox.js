@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onOutboxConfirmado = exports.onCobranzaCreada = exports.onDescargaCamionCreada = exports.onRemitoCargaCreado = exports.onVentaVentanillaFacturada = exports.onVentaVentanillaCreada = exports.onVentaCamionFacturada = exports.onVentaCamionCreada = exports.onProduccionPalletCreado = void 0;
+exports.onOutboxConfirmado = exports.onCobranzaCreada = exports.onDescargaCamionCreada = exports.onRemitoCargaCreado = exports.onAnulacionEmitida = exports.onVentaVentanillaFacturada = exports.onVentaVentanillaCreada = exports.onVentaCamionFacturada = exports.onVentaCamionCreada = exports.onProduccionPalletCreado = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const firestore_2 = require("firebase-admin/firestore");
 const circuito_1 = require("../services/arca/circuito");
@@ -199,6 +199,50 @@ exports.onVentaVentanillaFacturada = (0, firestore_1.onDocumentUpdated)('ventasV
         origenColeccion: 'ventasVentanilla',
         origenId: event.params.ventaId,
         payload: await payloadDeVentaEn(ahora, destino.empresa),
+    });
+});
+/**
+ * Nota de crédito de anulación de una factura de ventanilla (2026-09-09): cuando
+ * el server la emite en ARCA (`anulacionesVentanilla/{id}.estado → 'emitida'`),
+ * viaja al Facturador de Tango como 'CDE' referenciando a la factura. El item
+ * lleva la venta (ítems, cliente, forma de pago: la NC es la factura entera al
+ * revés) más la NC y el motivo. El write-back va a la solicitud (`tango`).
+ */
+exports.onAnulacionEmitida = (0, firestore_1.onDocumentUpdated)('anulacionesVentanilla/{ventaId}', async (event) => {
+    const antes = event.data?.before.data();
+    const ahora = event.data?.after.data();
+    if (!ahora)
+        return;
+    if (antes?.estado === 'emitida' || ahora.estado !== 'emitida')
+        return;
+    const nc = ahora.notaCredito;
+    if (!nc || nc.estado !== 'emitida' || !nc.cae)
+        return;
+    const ventaId = event.params.ventaId;
+    const db = (0, firestore_2.getFirestore)();
+    const venta = (await db.doc(`ventasVentanilla/${ventaId}`).get()).data();
+    if (!venta)
+        return;
+    const destino = (0, circuito_1.destinoTango)(venta.canal, venta.formaPago, venta.total);
+    if (!destino?.conCaePropio)
+        return;
+    await db.doc(`anulacionesVentanilla/${ventaId}`).set({ tango: { estado: 'pendiente' } }, { merge: true });
+    await encolarOutbox(`anulacionesVentanilla_${ventaId}`, {
+        entidad: 'notaCredito',
+        empresa: destino.empresa,
+        conCaePropio: true,
+        origenColeccion: 'anulacionesVentanilla',
+        origenId: ventaId,
+        payload: {
+            ...(await payloadDeVentaEn(venta, destino.empresa)),
+            notaCredito: nc,
+            anulacion: {
+                motivo: String(ahora.motivo ?? ''),
+                nota: String(ahora.nota ?? ''),
+                solicitadoPor: String(ahora.solicitadoPor?.nombre ?? ''),
+                resueltaPor: String(ahora.resueltaPor?.nombre ?? ''),
+            },
+        },
     });
 });
 // ── Transferencias de depósito: remito de carga y descarga del camión ────────
@@ -412,6 +456,18 @@ const WRITE_BACKS = {
                 return null;
             return { 'tango.stockEstado': 'confirmado', 'tango.stockNumero': String(numero), 'tango.stockTipo': String(resultado?.tComp ?? '') };
         },
+    },
+    // Nota de crédito de anulación (ventanilla): el número con el que Tango la
+    // registró queda en la solicitud, que es lo que mira la bandeja de anulaciones.
+    notaCredito: {
+        colecciones: ['anulacionesVentanilla'],
+        buildUpdate: (resultado) => {
+            const numero = resultado?.notaCreditoNumero ?? resultado?.comprobanteNumero;
+            if (!numero)
+                return null;
+            return { 'tango.estado': 'confirmado', 'tango.numero': String(numero), 'tango.ultimoError': firestore_2.FieldValue.delete() };
+        },
+        buildError: (ultimoError) => ({ 'tango.estado': 'error', 'tango.ultimoError': ultimoError }),
     },
     recibo: {
         colecciones: ['cobranzas'],

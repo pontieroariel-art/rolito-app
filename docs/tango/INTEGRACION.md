@@ -1751,3 +1751,35 @@ como vendedor (`config/tango.vendedores`) y pisaba ese filtro. Ahora:
 Deploy: `onOutboxPendiente`, `barridoOutboxTango`, `onCobranzaCreada` (hecho el 9/9); VM: copiar
 `lib/sql/{comun,remito,movimientoStock,recibo}.js` + `bridge-sql.mjs` (paquete
 `DesktopRolitoSync-usuario-vendedor`, LEEME-VM.txt) y reiniciar el bridge.
+
+## 33. Nota de crédito de anulación de ventanilla → Facturador (2026-09-09)
+
+La NC que la app emite en ARCA al anular una factura de ventanilla (docs/arca §14) viaja a Tango por
+el mismo Facturador que las facturas, como **`codigoTipoComprobante: 'CDE'`** con referencia a la
+factura (ejemplo 06 del readme oficial `src/CommonServices/ventas/comprobantesregistracion`):
+
+- `codigoTipoComprobanteDeReferencia: 'FAC'`, `numeroDeComprobanteDeReferencia: 'A0110400000116'`
+  (letra + pto vta 5 + nro 8, el mismo formato de `numeroComprobante`), `comprobanteCanceladoCompletamente: true`.
+- `cAE` / `fechaVtoCAE` de la NC (Tango la registra ya autorizada, igual que la factura).
+- `codigoMotivo` (tabla "Motivos NC": 1 devolución de mercadería, 2 saldo a favor, 3 diferencia de
+  cambio, **4 anulación de fact. electrónica** = default; `config/tango.facturador.<empresa>.codigoMotivoNC`).
+- **Talonario propio**: en Tango el talonario es por tipo de comprobante, así que la NC no puede usar
+  el de la factura → `config/tango.facturador.redonhielo.talonariosNC.{A,B}`. Sin eso el item queda
+  en error con el mensaje claro.
+- El cuerpo es la **factura entera** (`armarComprobanteFacturador` + override, `factura.ts`
+  `armarNotaCreditoFacturador`): mismos ítems con `descargaStock` (la mercadería vuelve al depósito
+  de la planta), mismas percepciones, mismo `pagos` (el efectivo sale de la misma cuenta por la que
+  entró; la factura correcta que se hace después lo vuelve a ingresar). Si el total de la NC no
+  coincide con el de la factura no se registra.
+- Leyendas: `leyenda1 = ROLITO:NC:<ventaId>` (idempotencia), `leyenda2` "Anula A 01104-00000116 app",
+  `leyenda3` motivo + nota del cajero, `leyenda4` quién autorizó, `leyenda5` quién pidió.
+
+Circuito: `anulacionesVentanilla/{id}.estado → 'emitida'` → `onAnulacionEmitida` (tangoOutbox.ts)
+encola `entidad: 'notaCredito'` (id `anulacionesVentanilla_<ventaId>`, empresa Redonhielo, payload =
+venta + `notaCredito` + `anulacion`) y marca `tango: {estado: 'pendiente'}` en la solicitud →
+`onOutboxPendiente` / `barridoOutboxTango` con `HANDLERS.notaCredito` (`enviarNotaCredito`, mismo
+interruptor `facturasEnabled`) → write-back a `anulacionesVentanilla/{id}.tango`
+(`confirmado` + `numero`, o `error` + `ultimoError`), que la bandeja de anulaciones muestra.
+El "(51016) ya existe" sigue valiendo como idempotencia.
+
+Para reintentar una NC que quedó en error: `scripts/tango/reintentar-outbox.mjs`.

@@ -3,8 +3,8 @@
 // factura (→ Facturador). Port de scripts/tango/bridge-listener.mjs al worker
 // en Cloud Functions; misma lógica, misma config en `config/tango`.
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.enviarNotaCredito = exports.enviarFactura = void 0;
 exports.enviarRemito = enviarRemito;
-exports.enviarFactura = enviarFactura;
 const client_1 = require("./client");
 const pedido_1 = require("./pedido");
 const factura_1 = require("./factura");
@@ -102,7 +102,16 @@ async function enviarRemito(payload, ctx) {
     }
 }
 /** Factura de la app → Facturador de Tango (INTEGRACION.md §15). */
-async function enviarFactura(payload, ctx) {
+const enviarFactura = (payload, ctx) => registrarEnFacturador(payload, ctx, 'factura');
+exports.enviarFactura = enviarFactura;
+/**
+ * Nota de crédito que anula una factura de ventanilla (INTEGRACION.md §33):
+ * mismo camino que la factura (ficha del cliente, depósito, armado) con el
+ * comprobante 'CDE' referenciando a la factura.
+ */
+const enviarNotaCredito = (payload, ctx) => registrarEnFacturador(payload, ctx, 'notaCredito');
+exports.enviarNotaCredito = enviarNotaCredito;
+async function registrarEnFacturador(payload, ctx, tipo) {
     const { tango, cfg, company, item, log } = ctx;
     const empresa = item.empresa ?? '?';
     const cfgEmpresa = cfg.facturador?.[empresa];
@@ -165,7 +174,8 @@ async function enviarFactura(payload, ctx) {
         if (esPromo && !letraNoFiscal)
             return { ok: false, error: `No se pudo leer la categoría de IVA del cliente ${payload.clienteNombre ?? idGva14} en Tango (define si la factura X entra como A o B)` };
     }
-    const armado = (0, factura_1.armarComprobanteFacturador)(payload, item, {
+    const armar = tipo === 'notaCredito' ? factura_1.armarNotaCreditoFacturador : factura_1.armarComprobanteFacturador;
+    const armado = armar(payload, item, {
         ...cfgEmpresa,
         vendedor,
         condicionVenta: { contado: condContado, ...(condCtaCte !== undefined ? { cuenta_corriente: condCtaCte } : {}) },
@@ -179,7 +189,7 @@ async function enviarFactura(payload, ctx) {
     if (armado.error !== undefined)
         return { ok: false, error: armado.error };
     if (item.conCaePropio === true && !armado.comprobante.cAE) {
-        return { ok: false, error: 'El item dice conCaePropio pero la venta no trae factura.cae — no se registra sin CAE' };
+        return { ok: false, error: `El item dice conCaePropio pero ${tipo === 'notaCredito' ? 'la nota de crédito' : 'la venta'} no trae CAE — no se registra sin CAE` };
     }
     try {
         const data = await tango.registrarComprobantes(company, [armado.comprobante]);
@@ -187,8 +197,11 @@ async function enviarFactura(payload, ctx) {
         const r = (0, factura_1.interpretarRespuestaFacturador)(data, numero);
         if (!r.ok)
             return { ok: false, error: `Facturador rechazó ${numero}: ${r.mensaje || JSON.stringify(data).slice(0, 300)}` };
-        log(`${armado.referencia}: factura ${numero} ${r.yaExistia ? 'ya estaba registrada' : 'registrada'} en Tango (Company ${company})${armado.comprobante.cAE ? ' con CAE' : ' sin CAE'}`);
-        return { ok: true, resultado: { facturaNumero: numero, comprobanteNumero: r.numeroComprobante ?? numero, yaExistia: r.yaExistia, fiscal: armado.fiscal } };
+        const que = tipo === 'notaCredito' ? 'nota de crédito' : 'factura';
+        log(`${armado.referencia}: ${que} ${numero} ${r.yaExistia ? 'ya estaba registrada' : 'registrada'} en Tango (Company ${company})${armado.comprobante.cAE ? ' con CAE' : ' sin CAE'}`);
+        return tipo === 'notaCredito'
+            ? { ok: true, resultado: { notaCreditoNumero: numero, comprobanteNumero: r.numeroComprobante ?? numero, yaExistia: r.yaExistia, fiscal: true } }
+            : { ok: true, resultado: { facturaNumero: numero, comprobanteNumero: r.numeroComprobante ?? numero, yaExistia: r.yaExistia, fiscal: armado.fiscal } };
     }
     catch (err) {
         return { ok: false, error: err.message };
