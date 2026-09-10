@@ -58,14 +58,57 @@ export function nombreImpresoSucursal(
 ): string {
   const descartar = new Set([clave(razonSocialCuenta), clave(codigo), 'principal', ''])
   const candidatos = [dir?.nombreComercialTango, dir?.razonSocialTango, dir?.nombre]
-  const nombre = candidatos.map(limpio).find((n) => !descartar.has(clave(n)))
+  const nombre = candidatos.map((n) => sinBase(limpio(n), razonSocialCuenta)).find((n) => !descartar.has(clave(n)))
   return nombre ? `${nombre} (${codigo})` : codigo
+}
+
+/** "DELIVERY HERO E-COMMERCE SA (OLAZABAL)" con base "DELIVERY HERO E-COMMERCE SA" → "OLAZABAL". Sin la base, el nombre tal cual. */
+function sinBase(nombre: string, base: string): string {
+  const b = clave(base)
+  if (!b || !nombre) return nombre
+  // Recorre el nombre hasta cubrir la clave de la base; si coincide, lo que sigue es la sucursal.
+  let acumulado = ''
+  for (let i = 0; i < nombre.length; i++) {
+    acumulado += clave(nombre[i])
+    if (acumulado.length >= b.length) {
+      // Tiene que coincidir entera y terminar en un límite de palabra: "…S.A.EN FORM"
+      // no es la base de "…S.A.EN FORMACION - (ONIGLIA)".
+      if (acumulado !== b || /[a-z0-9]/i.test(nombre[i + 1] ?? '')) return nombre
+      const resto = nombre.slice(i + 1).replace(/^[\s\-–(]+/, '').replace(/[\s)]+$/, '').trim()
+      return resto || nombre
+    }
+  }
+  return nombre
+}
+
+/** Sufijo de sucursal al final de un nombre: " (NUÑEZ)", " - NUÑEZ", " ( SAN MARTIN )". */
+const SUFIJO_SUCURSAL = /^(.*?\S)\s*(?:\([^()]*\)|-\s*[^()-]+)\s*$/
+
+/**
+ * Razón social "de verdad" de la cuenta para SEÑOR(ES). La ficha toma la razón
+ * social del código principal de Tango, y en cadenas como Delivery Hero TODOS
+ * los códigos se llaman "DELIVERY HERO E-COMMERCE SA (barrio)", incluido el
+ * principal: el papel decía "(NUÑEZ)" en una entrega a Olazábal (Ariel,
+ * 2026-09-10). Si el nombre de la cuenta termina en un sufijo de sucursal y esa
+ * base es común a las demás sucursales de la cuenta, se imprime solo la base.
+ * Con un solo código, o si las otras sucursales no comparten la base, se deja
+ * el nombre como está (los paréntesis pueden ser parte del nombre real).
+ */
+export function razonSocialFiscal(cliente: Pick<UserProfile, 'razonSocial' | 'addresses'> | undefined): string {
+  const nombre = limpio(cliente?.razonSocial)
+  const m = SUFIJO_SUCURSAL.exec(nombre)
+  if (!m) return nombre
+  const base = m[1].trim()
+  const otras = (cliente?.addresses ?? []).map((a) => limpio(a.razonSocialTango)).filter((n) => n && clave(n) !== clave(nombre))
+  if (otras.length < 1) return nombre
+  const coinciden = otras.filter((n) => clave(n).startsWith(clave(base))).length
+  return coinciden * 2 >= otras.length ? base : nombre
 }
 
 export function clienteImpreso(venta: VentaParaImprimir, cliente: UserProfile | undefined): ClienteImpreso {
   // Lo de siempre: la ficha de la casa central.
   const base: ClienteImpreso = {
-    razonSocial:   cliente?.razonSocial ?? venta.clienteNombre,
+    razonSocial:   cliente ? razonSocialFiscal(cliente) || venta.clienteNombre : venta.clienteNombre,
     sucursal:      '',
     domicilio:     cliente?.address ?? '',
     localidadCp:   cpLocalidad(cliente?.codigoPostalTango, cliente?.localidadTango),

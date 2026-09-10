@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clienteImpreso, nombreImpresoSucursal } from './clienteImpreso'
+import { clienteImpreso, nombreImpresoSucursal, razonSocialFiscal } from './clienteImpreso'
 import type { DeliveryAddress, UserProfile } from '@/types'
 
 const dir = (id: string, nombre: string, address: string, tango: Partial<DeliveryAddress> = {}): DeliveryAddress => ({
@@ -98,6 +98,37 @@ describe('clienteImpreso', () => {
     expect(nombreImpresoSucursal(dir('MDP183', cuenta, '', { nombreComercialTango: cuenta, razonSocialTango: cuenta }), 'MDP183', cuenta)).toBe('MDP183')
     // Cuando el comercial sí distingue (YPF), gana aunque la razón social del código también sea distinta.
     expect(nombreImpresoSucursal(dir('YPF012', 'x', '', { nombreComercialTango: 'YPF RUTA 8 KM 40', razonSocialTango: 'OPESSA - RUTA 8' }), 'YPF012', 'OPERADORA DE ESTACIONES DE SERVICIO S.A.')).toBe('YPF RUTA 8 KM 40 (YPF012)')
+  })
+
+  it('caso real (Delivery Hero): todos los códigos llevan el barrio, incluido el principal → SEÑOR(ES) sin barrio y sucursal corta', () => {
+    const suc = (id: string, barrio: string, dom: string) => dir(id, `DELIVERY HERO E-COMMERCE SA (${barrio})`, '', {
+      razonSocialTango: `DELIVERY HERO E-COMMERCE SA (${barrio})`, nombreComercialTango: `DELIVERY HERO E-COMMERCE SA (${barrio})`, domicilioTango: dom, localidadTango: 'CAPITAL FEDERAL', codigoPostalTango: '1428',
+    })
+    const dh = {
+      uid: 'dh', razonSocial: 'DELIVERY HERO E-COMMERCE SA (NUÑEZ)', cuit: '30-71198576-6', address: 'AMENABAR 2935, CAPITAL FEDERAL',
+      codigoTango: 'AL.142', idGva14Tango: 8940, localidadTango: 'CAPITAL FEDERAL', codigoPostalTango: '1428',
+      tangoIds: { redonhielo: [{ idGva14: 8940, codigo: 'AL.142' }, { idGva14: 8787, codigo: 'NO.214' }, { idGva14: 9484, codigo: 'FC.530' }] },
+      addresses: [suc('AL.142', 'NUÑEZ', 'AMENABAR 2935'), suc('NO.214', 'OLAZABAL', 'MCAL ANTONIO J.DE SUCRE 1530 P'), suc('FC.530', 'RAMOS MEJIA II ', 'MARISCAL A. JOSE DE SUCRE')],
+    } as unknown as UserProfile
+    expect(razonSocialFiscal(dh)).toBe('DELIVERY HERO E-COMMERCE SA')
+    expect(clienteImpreso(venta({ clienteCodigoTango: 'NO.214' }), dh)).toMatchObject({
+      razonSocial: 'DELIVERY HERO E-COMMERCE SA', sucursal: 'OLAZABAL (NO.214)', domicilio: 'MCAL ANTONIO J.DE SUCRE 1530 P', localidadCp: '1428, CAPITAL FEDERAL', codigoCliente: 'NO.214',
+    })
+    // Al principal también le sale su barrio como sucursal (ya no es "la cuenta").
+    expect(clienteImpreso(venta({ clienteCodigoTango: 'AL.142' }), dh)).toMatchObject({ razonSocial: 'DELIVERY HERO E-COMMERCE SA', sucursal: 'NUÑEZ (AL.142)', domicilio: 'AMENABAR 2935' })
+    expect(clienteImpreso(venta({ clienteCodigoTango: 'FC.530' }), dh).sucursal).toBe('RAMOS MEJIA II (FC.530)')
+    // Sin código en la venta: el nombre limpio igual, el resto como siempre.
+    expect(clienteImpreso(venta(), dh)).toMatchObject({ razonSocial: 'DELIVERY HERO E-COMMERCE SA', sucursal: '', domicilio: 'AMENABAR 2935, CAPITAL FEDERAL' })
+  })
+
+  it('razón social con paréntesis que NO es sucursal se deja como está', () => {
+    // Un solo código: no hay con qué confirmar que el paréntesis sea una sucursal.
+    expect(razonSocialFiscal({ razonSocial: 'PLACOMGAS S.A.(31 Y 60)', addresses: [dir('X', 'Principal', '', { razonSocialTango: 'PLACOMGAS S.A.(31 Y 60)' })] } as unknown as UserProfile)).toBe('PLACOMGAS S.A.(31 Y 60)')
+    // Varias sucursales con otra base: tampoco.
+    expect(razonSocialFiscal({ razonSocial: 'GRUPO NORTE (CENTRAL)', addresses: [dir('A', 'x', '', { razonSocialTango: 'GRUPO NORTE (CENTRAL)' }), dir('B', 'x', '', { razonSocialTango: 'KIOSCO EL SOL' }), dir('C', 'x', '', { razonSocialTango: 'ALMACEN DON PEPE' })] } as unknown as UserProfile)).toBe('GRUPO NORTE (CENTRAL)')
+    // OPERADORA SAN JUAN: la cuenta no termina en sufijo de sucursal → igual.
+    expect(razonSocialFiscal({ razonSocial: 'OPERADORA SAN JUAN S.A.EN FORM', addresses: [] } as unknown as UserProfile)).toBe('OPERADORA SAN JUAN S.A.EN FORM')
+    expect(razonSocialFiscal(undefined)).toBe('')
   })
 
   it('nombre de la sucursal: comercial > razón social del código > nombre de la app > solo el código', () => {
