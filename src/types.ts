@@ -547,6 +547,96 @@ export interface TangoConsulta {
   actualizadoEn?: Timestamp
 }
 
+// ── Comprobantes de Tango: facturas y remitos de los últimos 13 meses ─────────
+// (2026-09-09) Los publica el lector de la VM (scripts/tango/bridge-sync-
+// comprobantes.mjs) leyendo SQL Server: un índice liviano por código de cliente
+// (tangoComprobantes/{empresa}_{codigo}) y un detalle por comprobante para
+// regenerar el PDF en la app (tangoComprobanteDetalle/{empresa}_{tipo}_{numero}).
+// La composición de saldos los usa para "ver todas", el remito de cada factura
+// y los remitos pendientes de facturar. Ver docs/tango/INTEGRACION.md §35.
+
+export interface FacturaTangoResumen {
+  tipo:      string      // 'FAC' | 'NC' | 'ND'
+  numero:    string      // 'A0010100282787'
+  fecha:     string      // yyyy-MM-dd (emisión)
+  importe:   number
+  estado:    string      // GVA12.ESTADO: 'PEN' (pendiente) | 'CAN' (cancelada) | 'ANU' (anulada) …
+  idGva12?:  number
+  remitos?:  string[]    // números de remito que absorbió ('R0000100482053')
+  h:         string      // huella de cambios (uso interno del lector)
+}
+
+export interface RemitoTangoResumen {
+  fecha:      string      // yyyy-MM-dd
+  estado:     string      // STA14.ESTADO_MOV: 'P' pendiente de facturar | 'F' facturado | 'A' anulado
+  bultos:     number
+  idSta14?:   number
+  facturas?:  string[]    // números de factura que lo absorbieron
+  h:          string
+}
+
+export interface TangoComprobantesDoc {
+  id:             string          // '{empresa}_{codigo}'
+  empresa:        EmpresaTango
+  codigo:         string          // código del cliente en Tango (sucursal)
+  razonSocial?:   string
+  desde?:         string          // yyyy-MM-dd de la última ventana leída
+  actualizadoEn?: Timestamp
+  facturas:       Record<string, FacturaTangoResumen>   // clave '{tipo}_{numero}'
+  remitos:        Record<string, RemitoTangoResumen>    // clave = número
+}
+
+export interface ClienteTangoImpreso {
+  codigo:         string
+  razonSocial:    string
+  cuit:           string
+  domicilio:      string
+  localidad:      string
+  cp:             string
+  provincia:      string
+  condicionIva:   string
+  condicionVenta: string
+  vendedor:       string
+}
+
+export interface FacturaTangoDetalle {
+  empresa:        EmpresaTango
+  tipo:           string          // 'FAC' | 'NC' | 'ND'
+  numero:         string
+  codigo:         string
+  fecha:          string
+  letra:          string          // 'A' | 'B' | 'C' | …
+  puntoVenta:     number
+  nro:            number
+  cbteTipo:       number | null   // código ARCA (1 = Factura A, …)
+  estado:         string
+  fechaAnulacion?: string
+  cliente:        ClienteTangoImpreso
+  renglones:      { codigo: string; descripcion: string; cantidad: number; precioUnitario: number; dtoPct: number; ivaPct: number; importe: number }[]
+  totales:        { gravado: number; exento: number; iva: number; ivaAlic: number; internos: number; otros: number; total: number }
+  cae:            string          // '' si no es electrónica
+  caeVto:         string          // yyyy-MM-dd
+  remitos:        string[]
+  actualizadoEn?: Timestamp
+}
+
+export interface RemitoTangoDetalle {
+  empresa:        EmpresaTango
+  tipo:           'REM'
+  numero:         string          // 'R0000100482053'
+  codigo:         string
+  fecha:          string
+  estado:         string          // 'P' | 'F' | 'A'
+  fechaAnulacion?: string
+  cliente:        ClienteTangoImpreso
+  renglones:      { codigo: string; descripcion: string; cantidad: number }[]
+  bultos:         number
+  talonario:      { numero: number; cai?: string; vencimiento?: string; descripcion?: string }
+  usuario:        string          // usuario de Tango que lo cargó
+  facturas:       string[]
+  actualizadoEn?: Timestamp
+}
+
 // ── Expedición: cambio de producto defectuoso (en la calle) ───────────────────
 // El cliente le entrega al chofer una bolsa defectuosa/rota y el chofer se la
 // cambia por una nueva: baja una unidad buena del stock del camión SIN generar

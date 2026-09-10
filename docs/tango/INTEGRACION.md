@@ -1807,3 +1807,91 @@ comprobantes"** (renglones, consultable por rango de fecha de emisión, comparte
 filas se descartaban y ningún cliente veía sus facturas no vencidas en la app. Ahora se
 atribuyen por el código de `CLIENTE` ("PA.003 - …") con el índice de vinculados
 (`idGva14DeFila`). Tras el fix: Redonhielo 545 → 686 clientes con deuda, Rolito 95 → 123.
+
+## 35. Facturas y remitos de Tango en la app: composición con historial, remito por factura y sucursales (2026-09-09)
+
+Pedido de Ariel: la composición de saldos tiene que mostrar **el remito de cada factura** (y
+poder ver/compartir su PDF), tener la opción **"Todas" (12 meses, pagas y pendientes)**, y en
+los clientes con sucursales **elegir Todas / cada sucursal** (el PDF sale de lo elegido). Además:
+traer a la app los remitos y facturas que hizo la oficina en Tango, como si los hubiera hecho la app.
+
+### 35.1 Qué NO sirve (relevado)
+
+- La Live **17965 "Consulta de remitos"** (Ventas → Consultas → Remitos → Consulta) devuelve 10
+  columnas fijas: `TIPO_COMPROBANTE, NRO_COMPROBANTE ('R0110500000322' = 01105-00000322 de la app),
+  COMPROBANTE, FECHA, COD_CLIENTE, RAZON_SOCIAL, ESTADO (P pendiente de facturar / A anulado /
+  Y facturado), ID_GVA14, ID_STA14, ID_GVA38`. **Sin la factura.** `scripts/tango/columnas-live.mjs`
+  lista columnas y filas de cualquier Live (`CONTAR=`, `PREFIJO=`, `FILAS=`).
+- Ninguna Live cruza factura ↔ remito; la API de Axoft no maneja remitos (§14/§20).
+
+### 35.2 Dónde está la relación (SQL, `scripts/tango/sql/11..15`)
+
+- **`GVA54`** = renglón de factura ↔ renglón de remito: `T_COMP_V` + `N_COMP` (factura) y
+  `TCOMP_IN_S` + `NCOMP_IN_S` (remito, → `STA14.N_COMP` = `R…`). Aparece para las facturas de
+  tipo interno `FR` y `FC` por igual. Confirmado con ALGAR (PA.003): 8 facturas ↔ 8 remitos.
+- `GVA21` es la cabecera de pedidos (2 filas), `GVA106`/`GVA107` pedido ↔ remito/factura (vacías),
+  `REFERENCIA_REMITO` tabla de trabajo. `STA20.CANT_FACTU` no apunta a la factura.
+- **CAE en SQL:** `GVA12.CAICAE` + `CAICAE_VTO` (+ `GVA12DE` con la respuesta completa de ARCA:
+  CbteTipo, PtoVta, DocNro). `GVA12.CAT_IVA` es la condición de IVA del cliente al facturar.
+- Renglones: `GVA53` (`COD_ARTICU, CANTIDAD, PRECIO_NET, PORC_DTO, PORC_IVA, IMP_NETO_P`) y
+  `STA20`; descripción en `STA11.DESCRIPCIO`. Talonarios de remito con CAI: `GVA43`
+  (`TALONARIO, CAI, FECHA_VTO, DESCRIP`, `COMPROB = 'REM'`). Condiciones de venta `GVA01`
+  (`COND_VTA, DESC_COND`), vendedores `GVA23` (`COD_GVA23, NOMBRE_VEN`).
+- Percepciones: la cabecera trae `IMPORTE_GR/EX/IV/IN`; lo que falta hasta `IMPORTE` se guarda
+  como `otros` (el PDF lo imprime en la línea de percepción). Falta relevar la tabla de
+  percepciones para desglosarlas por jurisdicción.
+- Volumen 12 meses (Redonhielo): ~30.000 facturas y ~32.000 remitos.
+
+### 35.3 Lector en la VM: `scripts/tango/bridge-sync-comprobantes.mjs` (solo lee)
+
+Corre en RHIELOTG junto a `bridge-sql.mjs`, con **su misma config** (`bridge-sql.config.json`:
+login `tango-bridge` de Firebase + `rolito_bridge` de SQL, que tiene `db_datareader`), en el
+Task Scheduler cada hora. Lógica pura y testeada en `comprobantes-tango.mjs`.
+
+- Lee GVA12/GVA53, STA14/STA20, GVA54, GVA43, GVA01, GVA23, GVA14 (columnas probadas con
+  `sys.columns`) de los últimos `diasVentana` (45) días; `--backfill` = 400 días (primera carga).
+- Publica con el usuario bridge (reglas: `isTangoBridge()` crea/actualiza; nadie borra):
+  - **`tangoComprobantes/{empresa}_{codigo}`** índice por código de cliente:
+    `facturas: { 'FAC_A0010100282787': { tipo, numero, fecha, importe, estado (PEN/CAN/ANU),
+    idGva12, remitos: ['R…'], h } }` y `remitos: { 'R0000100482053': { fecha, estado (P/F/A),
+    bultos, idSta14, facturas: ['A…'], h } }`, `razonSocial`, `desde`, `actualizadoEn`.
+  - **`tangoComprobanteDetalle/{empresa}_{tipo}_{numero}`** todo lo que hace falta para el PDF:
+    cliente (razón social, CUIT, domicilio, localidad, CP, condición de IVA, condición de venta,
+    vendedor), renglones, totales, `cae`/`caeVto`, `cbteTipo`, remitos; en remitos el talonario
+    (CAI y vencimiento), usuario de Tango, bultos y facturas.
+- Escribe **solo lo nuevo o cambiado**: huella `h` por comprobante y cache local
+  `comprobantes-cache.{empresa}.json`; el índice se actualiza con `merge` y se podan las entradas
+  de más de 13 meses (`deleteField`). Lotes de 400 escrituras.
+- Flags: `--dry-run` (no escribe, muestra conteos y ejemplos), `--backfill`, `--empresa=`,
+  `--cliente=PA.003` (sin cache, para probar un cliente).
+
+### 35.4 App
+
+- `utils/comprobantesTango.ts` (puro, test): `armarComposicion(pendientes, índices, modo)` une
+  el dato en vivo (`saldosTango`) con el índice: en "pendientes" agrega el remito y la emisión
+  de cada factura; en "todas" suma las pagadas/anuladas de 12 meses; siempre lista los
+  **remitos sin facturar** (estado P). `filtrarPorSucursal`, `opcionesSucursal` (Todas / cada
+  código del cliente en cada empresa), `armarFacturaTangoPdf` (→ `facturaPdf.ts`, el formato
+  histórico con QR; exige CAE) y `armarRemitoTangoPdf` (→ `remitoPdf.ts`, copia con el CAI del
+  talonario o letra X; leyenda "COPIA … del remito cargado en Tango").
+- `services/facturaAdeudadaService.ts`: la factura sale, en orden, de la venta de la app, del
+  detalle de Tango (nuevo, fuente `'tango'`) o del archivo de Recupero. `obtenerRemitoPdf` /
+  `entregarRemito`: el remito de la app (por `comprobanteInterno` pv+número, con firma y CAI
+  vigente) o la copia desde Tango.
+- `hooks/useTangoComprobantes.ts`: un índice por código del cliente (sucursales).
+- `SeccionSaldo` (ficha): selector Todas / sucursal (solo con más de un código), toggle
+  Pendientes / Todas (12 meses), chips de remito bajo cada factura y "Remitos sin facturar";
+  el PDF (`composicionSaldosPdf.ts`) toma los bloques filtrados, el modo y la sucursal, lista
+  los remitos de cada factura y los pendientes de facturar. "Cobrar" sigue con el total del cliente.
+- Remito de la app: encabezado con el **logo de Rolito** y los datos fiscales de Redonhielo
+  debajo (`papelInternoPdf.encabezado.logoDataUrl`; sin logo cargado sale como antes).
+
+### 35.5 Instalación en la VM
+
+1. Copiar `scripts/tango/bridge-sync-comprobantes.mjs` y `scripts/tango/comprobantes-tango.mjs`
+   a `C:\RolitoSync\sql\` (donde está `bridge-sql.mjs`; usa su `bridge-sql.config.json` y sus
+   `node_modules`).
+2. `node bridge-sync-comprobantes.mjs --dry-run --cliente=PA.003` → tiene que listar las
+   facturas y remitos de ALGAR con CAE.
+3. `node bridge-sync-comprobantes.mjs --backfill` (una vez; ~60.000 escrituras en Redonhielo).
+4. Task Scheduler: cada hora, `node.exe C:\RolitoSync\sql\bridge-sync-comprobantes.mjs`.

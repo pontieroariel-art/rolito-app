@@ -10,15 +10,22 @@
 
 import type { RemitoData } from './comprobanteInterno'
 import { dibujarPapelInterno, type PapelInternoSpec } from './papelInternoPdf'
+import { fetchImageAsBase64 } from './pdf'
+
+/** Logo de Rolito para el encabezado del remito; null si no se pudo cargar (sin señal). */
+export async function logoRemito(): Promise<string | null> {
+  try { return await fetchImageAsBase64('/logo-rolito.png', 400) } catch { return null }
+}
 
 const fecha = (d: Date) =>
   `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
 
-export function specRemito(d: RemitoData): PapelInternoSpec {
+export function specRemito(d: RemitoData, logoDataUrl?: string | null): PapelInternoSpec {
   const promo = d.empresa === 'rolito'
   const encabezado: PapelInternoSpec['encabezado'] = promo
-    ? { titulo: 'FÁBRICA DE HIELO', lineas: [] }
+    ? { titulo: 'FÁBRICA DE HIELO', lineas: [], ...(logoDataUrl ? { logoDataUrl } : {}) }
     : {
+        ...(logoDataUrl ? { logoDataUrl } : {}),
         titulo: d.emisor.razonSocial,
         lineas: [
           `Domicilio: ${d.emisor.domicilio}`,
@@ -69,7 +76,7 @@ export async function generateRemitoPdf(
 ): Promise<Blob | void> {
   const { jsPDF } = await import('jspdf')
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true })
-  dibujarPapelInterno(doc, specRemito(d))
+  dibujarPapelInterno(doc, specRemito(d, await logoRemito()))
   if (opts.descargar === false) return doc.output('blob')
   doc.save(d.archivo)
 }

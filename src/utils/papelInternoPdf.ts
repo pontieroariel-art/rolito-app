@@ -33,6 +33,13 @@ export interface PapelInternoSpec {
     titulo:    string
     subtitulo?: string
     lineas:    string[]
+    /**
+     * Logo de la marca (Rolito) ya en base64, arriba del título (2026-09-09,
+     * pedido de Ariel): la marca que el cliente conoce, con los datos fiscales
+     * del emisor debajo, como en las facturas históricas. Si no viene, el
+     * encabezado es solo texto (el chofer sin señal lo genera igual).
+     */
+    logoDataUrl?: string
   }
   letra:          string
   /** Lo que va debajo de la letra: "Código Nº: 00" / "Cód. 91". */
@@ -93,11 +100,27 @@ export function dibujarPapelInterno(doc: jsPDF, s: PapelInternoSpec): void {
   marco(10, 58)
   doc.setTextColor(...NEGRO)
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(15)
-  doc.text(s.encabezado.titulo, X0 + 4, 28)
+  let y = 34
+  if (s.encabezado.logoDataUrl) {
+    // Logo 12 mm de alto (ancho proporcional, tope 40 mm) y el título más chico debajo.
+    try {
+      const props = doc.getImageProperties(s.encabezado.logoDataUrl)
+      const h = 12
+      const w = Math.min(40, (props.width / props.height) * h)
+      doc.addImage(s.encabezado.logoDataUrl, 'PNG', X0 + 4, 12.5, w, h)
+      doc.setFontSize(9)
+      doc.text(s.encabezado.titulo, X0 + 4, 29.5)
+      y = 34
+    } catch {
+      doc.setFontSize(15)
+      doc.text(s.encabezado.titulo, X0 + 4, 28)
+    }
+  } else {
+    doc.setFontSize(15)
+    doc.text(s.encabezado.titulo, X0 + 4, 28)
+  }
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(7.5)
-  let y = 34
   if (s.encabezado.subtitulo) { doc.text(s.encabezado.subtitulo, X0 + 4, y); y += 4.5 }
   for (const l of s.encabezado.lineas) { doc.text(l, X0 + 4, y); y += 4.5 }
 

@@ -3518,6 +3518,43 @@ describe('saldosTango — cache de saldos de Tango', () => {
   })
 })
 
+// ── tangoComprobantes / tangoComprobanteDetalle: facturas y remitos de Tango (2026-09-09) ──
+describe('tangoComprobantes — facturas y remitos de Tango leídos por el bridge', () => {
+  const indice = { empresa: 'redonhielo', codigo: 'PA.003', razonSocial: 'ALGAR', facturas: { FAC_A0010100282787: { tipo: 'FAC', numero: 'A0010100282787', fecha: '2026-09-02', importe: 84216, estado: 'PEN', remitos: ['R0000100482053'], h: 'x' } }, remitos: {} }
+  const detalle = { empresa: 'redonhielo', tipo: 'FAC', numero: 'A0010100282787', codigo: 'PA.003', renglones: [], cae: '86351131069060' }
+  const seedTodos = () => seed(async (d) => {
+    await setDoc(doc(d, 'users/bridge1'), { tangoBridge: true })
+    await setDoc(doc(d, 'users/sup'), { rol: 'supervisor', estado: 'activo' })
+    await setDoc(doc(d, 'users/tes'), { rol: 'tesoreria', estado: 'activo' })
+    await setDoc(doc(d, 'users/ch'), { rol: 'chofer', estado: 'activo' })
+    await setDoc(doc(d, 'users/cli'), cliente())
+  })
+
+  test('el bridge crea y actualiza el índice y el detalle; nadie borra', async () => {
+    await seedTodos()
+    await assertSucceeds(setDoc(doc(db('bridge1'), 'tangoComprobantes/redonhielo_PA.003'), indice))
+    await assertSucceeds(setDoc(doc(db('bridge1'), 'tangoComprobantes/redonhielo_PA.003'), { facturas: { FAC_A0010100282787: { estado: 'CAN' } } }, { merge: true }))
+    await assertSucceeds(setDoc(doc(db('bridge1'), 'tangoComprobanteDetalle/redonhielo_FAC_A0010100282787'), detalle))
+    await assertFails(deleteDoc(doc(db('bridge1'), 'tangoComprobantes/redonhielo_PA.003')))
+    await assertFails(deleteDoc(doc(db('bridge1'), 'tangoComprobanteDetalle/redonhielo_FAC_A0010100282787')))
+  })
+
+  test('supervisor, tesorería y chofer leen; el cliente no; nadie más escribe', async () => {
+    await seedTodos()
+    await seed(async (d) => {
+      await setDoc(doc(d, 'tangoComprobantes/redonhielo_PA.003'), indice)
+      await setDoc(doc(d, 'tangoComprobanteDetalle/redonhielo_FAC_A0010100282787'), detalle)
+    })
+    await assertSucceeds(getDoc(doc(db('sup'), 'tangoComprobantes/redonhielo_PA.003')))
+    await assertSucceeds(getDoc(doc(db('tes'), 'tangoComprobanteDetalle/redonhielo_FAC_A0010100282787')))
+    await assertSucceeds(getDoc(doc(db('ch'), 'tangoComprobantes/redonhielo_PA.003')))
+    await assertFails(getDoc(doc(db('cli'), 'tangoComprobantes/redonhielo_PA.003')))
+    await assertFails(getDoc(doc(db('bridge1'), 'tangoComprobantes/redonhielo_PA.003')))
+    await assertFails(setDoc(doc(db('sup'), 'tangoComprobantes/redonhielo_X'), indice))
+    await assertFails(updateDoc(doc(db('tes'), 'tangoComprobanteDetalle/redonhielo_FAC_A0010100282787'), { cae: '1' }))
+  })
+})
+
 // ── rollupsPedidos: agregados de solo lectura para staff ──────────────────────
 describe('rollupsPedidos', () => {
   const rollup = { fecha: '2026-08-30', total: 5, bolsas: 20, porEstado: {}, porCliente: {} }

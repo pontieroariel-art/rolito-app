@@ -1197,6 +1197,29 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── Comprobantes de Tango: facturas y remitos de los últimos 13 meses ──
+    // (2026-09-09) tangoComprobantes/{empresa}_{codigo} es el índice liviano por
+    // código de cliente (facturas/NC/ND con estado y sus remitos; remitos con
+    // estado) y tangoComprobanteDetalle/{empresa}_{tipo}_{numero} el detalle
+    // para regenerar el PDF (renglones, CAE, cliente, CAI del talonario). Los
+    // escribe el lector de la VM (scripts/tango/bridge-sync-comprobantes.mjs)
+    // con el usuario bridge, leyendo SQL Server; nadie más escribe. Lectura
+    // para quien cobra/gestiona, igual que saldosTango (+ tesorería).
+    function leeComprobantesTango() {
+      return isSupervisor() || isCaja() || isChofer() || isOperator() || isManager()
+        || isGerenteGeneral() || isFacturacion() || isTesoreria();
+    }
+    match /tangoComprobantes/{docId} {
+      allow read: if request.auth != null && leeComprobantesTango();
+      allow create, update: if request.auth != null && isTangoBridge();
+      allow delete: if false;
+    }
+    match /tangoComprobanteDetalle/{docId} {
+      allow read: if request.auth != null && leeComprobantesTango();
+      allow create, update: if request.auth != null && isTangoBridge();
+      allow delete: if false;
+    }
+
     // ── Precios y listas de Tango (Tango es la fuente maestra) ──────────────
     // preciosTango/{empresa} lo escribe la Cloud Function syncPreciosTango
     // (Admin SDK). Lo leen los que venden o miran precios: choferes (venta en
