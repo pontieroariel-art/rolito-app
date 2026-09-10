@@ -30,6 +30,14 @@ export interface ConfigFacturadorEmpresa {
   talonariosNC?: Record<string, number | string>
   /** Motivo de NC de Tango (tabla Motivos NC). Ausente = 4 "Anulación de fact. electrónica". */
   codigoMotivoNC?: number | string
+  /**
+   * Código de tipo de comprobante de la nota de crédito en el Facturador.
+   * Ausente = 'N/C' (lo que Tango guarda en GVA12.T_COMP para las notas de
+   * crédito). El ejemplo del readme oficial usa 'CDE', pero en la instalación
+   * de Redonhielo el Facturador lo rechazó: "(78038) El código de tipo de
+   * comprobante CDE no existe" (primera NC real, 2026-09-10).
+   */
+  codigoTipoNC?: string
   /** Un código, o { contado, cuenta_corriente } (la promo en cta. cte. factura con cuota). */
   condicionVenta?: number | string | Record<string, number | string>
   listaPrecio?: number | string | Record<string, number | string>
@@ -422,7 +430,7 @@ export function armarNotaCreditoFacturador(payload: PayloadVenta, item: ItemOutb
   const motivo = anulacion.motivo ? `${anulacion.motivo}${anulacion.nota ? ` - ${anulacion.nota}` : ''}` : (anulacion.nota ?? '')
   const comprobante: Record<string, unknown> = {
     ...base.comprobante,
-    codigoTipoComprobante: 'CDE',
+    codigoTipoComprobante: String(cfg.codigoTipoNC ?? 'N/C'),
     numeroComprobante: numeroComprobanteTango(letra, nc.puntoVenta, nc.numero),
     codigoTalonario: talonario,
     cAE: nc.cae,

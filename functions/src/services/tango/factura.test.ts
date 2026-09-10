@@ -175,11 +175,11 @@ describe('armarNotaCreditoFacturador (anulación de ventanilla)', () => {
   }
   const itemNC = { origenColeccion: 'anulacionesVentanilla', origenId: 'v1', empresa: 'redonhielo' }
 
-  it('es la factura entera como CDE, con su número/talonario/CAE y la referencia a la factura', () => {
+  it('es la factura entera como N/C (código de Tango para nota de crédito), con su número/talonario/CAE y la referencia a la factura', () => {
     const r = armarNotaCreditoFacturador(ventaAnulada, itemNC, cfgNC, mapeos)
     if (r.error !== undefined) throw new Error(r.error)
     expect(r.comprobante).toMatchObject({
-      codigoTipoComprobante: 'CDE', numeroComprobante: 'A0110400000007', codigoTalonario: 1001,
+      codigoTipoComprobante: 'N/C', numeroComprobante: 'A0110400000007', codigoTalonario: 1001,
       cAE: '75999999999999', fechaVtoCAE: '2026-09-20', fechaComprobante: '2026-09-09',
       codigoTipoComprobanteDeReferencia: 'FAC', numeroDeComprobanteDeReferencia: 'A0110400000001', comprobanteCanceladoCompletamente: true,
       codigoMotivo: '4', codigoCliente: 'FC.280', total: 1.27, totalSinImpuestos: 1, totalIva: 0.21,

@@ -1766,8 +1766,11 @@ Deploy: `onOutboxPendiente`, `barridoOutboxTango`, `onCobranzaCreada` (hecho el 
 ## 33. Nota de crédito de anulación de ventanilla → Facturador (2026-09-09)
 
 La NC que la app emite en ARCA al anular una factura de ventanilla (docs/arca §14) viaja a Tango por
-el mismo Facturador que las facturas, como **`codigoTipoComprobante: 'CDE'`** con referencia a la
-factura (ejemplo 06 del readme oficial `src/CommonServices/ventas/comprobantesregistracion`):
+el mismo Facturador que las facturas, como **`codigoTipoComprobante: 'N/C'`** (configurable en
+`config/tango.facturador.<empresa>.codigoTipoNC`) con referencia a la factura (ejemplo 06 del readme
+oficial `src/CommonServices/ventas/comprobantesregistracion` usa `'CDE'`, pero en la instalación de
+Redonhielo el Facturador lo rechazó en la primera NC real, 2026-09-10: "(78038) El código de tipo de
+comprobante CDE no existe"; 'N/C' es lo que Tango guarda en GVA12.T_COMP):
 
 - `codigoTipoComprobanteDeReferencia: 'FAC'`, `numeroDeComprobanteDeReferencia: 'A0110400000116'`
   (letra + pto vta 5 + nro 8, el mismo formato de `numeroComprobante`), `comprobanteCanceladoCompletamente: true`.

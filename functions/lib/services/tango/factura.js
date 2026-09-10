@@ -337,7 +337,7 @@ function armarNotaCreditoFacturador(payload, item, cfg, mapeos) {
     const motivo = anulacion.motivo ? `${anulacion.motivo}${anulacion.nota ? ` - ${anulacion.nota}` : ''}` : (anulacion.nota ?? '');
     const comprobante = {
         ...base.comprobante,
-        codigoTipoComprobante: 'CDE',
+        codigoTipoComprobante: String(cfg.codigoTipoNC ?? 'N/C'),
         numeroComprobante: numeroComprobanteTango(letra, nc.puntoVenta, nc.numero),
         codigoTalonario: talonario,
         cAE: nc.cae,
