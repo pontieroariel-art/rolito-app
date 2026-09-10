@@ -158,15 +158,22 @@ export function dibujarPapelInterno(doc: jsPDF, s: PapelInternoSpec): void {
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(9)
   doc.text('SEÑOR(ES):', X0 + 4, 68)
-  doc.setFontSize(11)
-  doc.text(s.cliente.nombre, X0 + 4, 75, { maxWidth: XD - X0 - 8 })
+  // El nombre va en UN renglón: usa todo el ancho (la columna derecha recién
+  // arranca en y=84) y achica la letra si la razón social es larga ("PAN
+  // AMERICAN ENERGY S.L. SUCURSAL ARGENTINA - GARAY" partida en dos pisaba la
+  // línea de abajo, visto 2026-09-10).
+  const anchoNombre = X1 - X0 - 8
+  let tamNombre = 11
+  doc.setFontSize(tamNombre)
+  while (tamNombre > 7.5 && doc.getTextWidth(s.cliente.nombre) > anchoNombre) { tamNombre -= 0.5; doc.setFontSize(tamNombre) }
+  doc.text(s.cliente.nombre, X0 + 4, 75, { maxWidth: anchoNombre })
   // Sucursal donde se entregó (2026-09-10): un renglón entre el nombre y el
-  // domicilio, acotado a la columna izquierda para no pisar el código/CUIT.
+  // domicilio, a todo el ancho y cortado con "…" si no entra.
   if (s.cliente.sucursal) {
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(8)
     const xv = X0 + 4 + doc.getTextWidth('Sucursal:') + 2.5
-    etiqueta('Sucursal:', unaLinea(s.cliente.sucursal, XD - 4 - xv, 8), X0 + 4, 80, 8, xv, XD - 4)
+    etiqueta('Sucursal:', unaLinea(s.cliente.sucursal, X1 - 4 - xv, 8), X0 + 4, 80, 8, xv, X1 - 4)
   }
   etiqueta('Domicilio:', s.cliente.domicilio, X0 + 4, 84, 8)
   etiqueta('C.P.:', s.cliente.localidadCp, X0 + 4, 91, 8)
