@@ -198,6 +198,13 @@ describe('armarNotaCreditoFacturador (anulación de ventanilla)', () => {
     expect(r.comprobante.total).toBe(1.27)
   })
 
+  it('con ncSinReferencia: sin número de referencia, cancelado en falso y con ítems (ejemplo 07), aunque ncCanceladoCompletamente esté en true', () => {
+    const r = armarNotaCreditoFacturador(ventaAnulada, itemNC, { ...cfgNC, ncCanceladoCompletamente: true, ncSinReferencia: true }, mapeos)
+    if (r.error !== undefined) throw new Error(r.error)
+    expect(r.comprobante).toMatchObject({ codigoTipoComprobante: 'N/C', numeroDeComprobanteDeReferencia: '', comprobanteCanceladoCompletamente: false, cAE: '75999999999999' })
+    expect((r.comprobante.items as unknown[]).length).toBe(1)
+  })
+
   it('exige talonario de NC, NC emitida con CAE y total igual al de la factura', () => {
     expect(armarNotaCreditoFacturador(ventaAnulada, itemNC, cfg, mapeos)).toMatchObject({ error: expect.stringMatching(/talonariosNC\.A/) })
     expect(armarNotaCreditoFacturador({ ...ventaAnulada, notaCredito: { ...ventaAnulada.notaCredito, cae: null } }, itemNC, cfgNC, mapeos)).toMatchObject({ error: expect.stringMatching(/emitida/) })
