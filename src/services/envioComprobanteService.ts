@@ -44,10 +44,14 @@ export interface EnvioLote {
 }
 
 export const MAX_ADJUNTOS_MAIL = 40
+/** Mismo tope que el server (20 MB de PDF; en base64 queda bajo el límite de 32 MB de la request). */
+export const MAX_BYTES_MAIL = 20 * 1024 * 1024
 
 export async function enviarComprobantesPorMail(e: EnvioLote): Promise<void> {
   if (!e.adjuntos.length) throw new Error('No hay comprobantes para mandar')
   if (e.adjuntos.length > MAX_ADJUNTOS_MAIL) throw new Error(`Se pueden mandar hasta ${MAX_ADJUNTOS_MAIL} comprobantes por mail`)
+  const bytes = e.adjuntos.reduce((s, a) => s + a.pdf.size, 0)
+  if (bytes > MAX_BYTES_MAIL) throw new Error(`Los PDF pesan ${(bytes / 1024 / 1024).toFixed(1)} MB: el tope por mail es ${MAX_BYTES_MAIL / 1024 / 1024} MB. Mandalos en dos tandas.`)
   const adjuntos: { nombreArchivo: string; pdfBase64: string }[] = []
   for (const a of e.adjuntos) adjuntos.push({ nombreArchivo: a.nombreArchivo, pdfBase64: await aBase64(a.pdf) })
   const fn = httpsCallable<Record<string, unknown>, { ok: boolean; para: string }>(getFunctions(), 'enviarComprobantePorMail')

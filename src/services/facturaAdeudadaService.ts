@@ -32,34 +32,27 @@ export type FacturaObtenida =
 const SIN_ARCHIVO = 'Esta factura no está en la app: pedila a administración (Recupero de facturas → Guardar en la app).'
 const SIN_REMITO = 'Este remito todavía no está en la app: el lector de Tango lo trae en la próxima corrida.'
 
-// Si la consulta falla (sin permiso sobre la colección, sin red), se sigue con
-// la fuente siguiente en vez de frenar toda la cascada.
+// Sin try/catch a propósito: una falla acá (sin señal) tiene que llegar como
+// error ("revisá la señal"), no convertirse en "la factura no está en la app".
+// Los permisos de lectura para cada rol viven en firestore.rules.
 async function ventaCamionPor(campo: 'factura' | 'comprobanteInterno', puntoVenta: number, numero: number): Promise<VentaCamion | null> {
-  try {
-    const snap = await getDocs(query(
-      collection(db, 'ventasCamion'),
-      where(`${campo}.puntoVenta`, '==', puntoVenta),
-      where(`${campo}.numero`, '==', numero),
-      limit(1),
-    ))
-    return snap.empty ? null : ({ id: snap.docs[0].id, ...snap.docs[0].data() } as VentaCamion)
-  } catch {
-    return null
-  }
+  const snap = await getDocs(query(
+    collection(db, 'ventasCamion'),
+    where(`${campo}.puntoVenta`, '==', puntoVenta),
+    where(`${campo}.numero`, '==', numero),
+    limit(1),
+  ))
+  return snap.empty ? null : ({ id: snap.docs[0].id, ...snap.docs[0].data() } as VentaCamion)
 }
 
 async function ventaVentanillaPor(puntoVenta: number, numero: number): Promise<VentaVentanilla | null> {
-  try {
-    const snap = await getDocs(query(
-      collection(db, 'ventasVentanilla'),
-      where('factura.puntoVenta', '==', puntoVenta),
-      where('factura.numero', '==', numero),
-      limit(1),
-    ))
-    return snap.empty ? null : ({ id: snap.docs[0].id, ...snap.docs[0].data() } as VentaVentanilla)
-  } catch {
-    return null
-  }
+  const snap = await getDocs(query(
+    collection(db, 'ventasVentanilla'),
+    where('factura.puntoVenta', '==', puntoVenta),
+    where('factura.numero', '==', numero),
+    limit(1),
+  ))
+  return snap.empty ? null : ({ id: snap.docs[0].id, ...snap.docs[0].data() } as VentaVentanilla)
 }
 
 const TITULO_TIPO: Record<string, string> = { FAC: 'Factura', NC: 'Nota de crédito', ND: 'Nota de débito' }

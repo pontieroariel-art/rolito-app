@@ -251,7 +251,9 @@ function PanelCliente({ uid, onCerrar }: { uid: string; onCerrar: () => void }) 
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {visibles.map((i) => (
-                  <FilaItem key={i.clave} item={i} elegido={seleccion.has(i.clave)} onAlternar={() => alternar(i.clave)}
+                  // La clave incluye el mail: el menú de la fila lo toma al montarse
+                  // (MenuCompartirPdf) y el mail de Tango puede llegar o cambiar después.
+                  <FilaItem key={`${i.clave}|${email}`} item={i} elegido={seleccion.has(i.clave)} onAlternar={() => alternar(i.clave)}
                     cliente={cliente} email={email} conCuenta={opciones.length > 0} />
                 ))}
               </tbody>

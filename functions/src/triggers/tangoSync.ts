@@ -301,10 +301,27 @@ export async function procesarLoteClientesTango(
     // Solo escribe campos *Tango (nunca address/lat/lng/horarios de logística)
     // y solo cuando algo cambió. El perfil del índice es compartido entre las
     // filas del mismo uid, así las sucursales se acumulan en el mismo array.
+    // Como el array se escribe entero, va en una transacción que relee la ficha
+    // en ese momento: el índice se armó al empezar la corrida y logística (o el
+    // cliente desde /sucursal) puede haber editado direcciones mientras tanto.
     {
       const manda = empresa === 'redonhielo' || !(ids.redonhielo?.length)
-      const r = upsertDireccionTango(perfil.addresses, row, { principal: esPrincipal, manda })
-      if (r.cambio) { update.addresses = r.addresses; perfil.addresses = r.addresses }
+      const previo = upsertDireccionTango(perfil.addresses, row, { principal: esPrincipal, manda })
+      if (previo.cambio) {
+        if (opts.dryRun) {
+          update.addresses = previo.addresses
+          perfil.addresses = previo.addresses
+        } else {
+          const ref = db.collection('users').doc(uid)
+          const fresco = await db.runTransaction(async (tx) => {
+            const snap = await tx.get(ref)
+            const r = upsertDireccionTango(snap.data()?.addresses, row, { principal: esPrincipal, manda })
+            if (r.cambio) tx.update(ref, { addresses: r.addresses })
+            return r.addresses
+          })
+          perfil.addresses = fresco
+        }
+      }
     }
 
     update.tangoUltimaSync = FieldValue.serverTimestamp()

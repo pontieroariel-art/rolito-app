@@ -62,27 +62,33 @@ export function nombreImpresoSucursal(
   return nombre ? `${nombre} (${codigo})` : codigo
 }
 
-/** "DELIVERY HERO E-COMMERCE SA (OLAZABAL)" con base "DELIVERY HERO E-COMMERCE SA" → "OLAZABAL". Sin la base, el nombre tal cual. */
+/** Palabras de un nombre (separadas por espacios), sin puntuación, para comparar de a palabras enteras. */
+const palabras = (s: string) => s.split(/\s+/).map((p) => clave(p)).filter(Boolean)
+
+/**
+ * "DELIVERY HERO E-COMMERCE SA (OLAZABAL)" con base "DELIVERY HERO E-COMMERCE SA"
+ * → "OLAZABAL". Compara palabra por palabra (así "S.A." y "SA" coinciden y "S.A."
+ * no parte a "S.A.S."); sin la base al principio, el nombre tal cual.
+ */
 function sinBase(nombre: string, base: string): string {
-  const b = clave(base)
-  if (!b || !nombre) return nombre
-  // Recorre el nombre hasta cubrir la clave de la base; si coincide, lo que sigue es la sucursal.
-  let acumulado = ''
-  for (let i = 0; i < nombre.length; i++) {
-    acumulado += clave(nombre[i])
-    if (acumulado.length >= b.length) {
-      // Tiene que coincidir entera y terminar en un límite de palabra: "…S.A.EN FORM"
-      // no es la base de "…S.A.EN FORMACION - (ONIGLIA)".
-      if (acumulado !== b || /[a-z0-9]/i.test(nombre[i + 1] ?? '')) return nombre
-      const resto = nombre.slice(i + 1).replace(/^[\s\-–(]+/, '').replace(/[\s)]+$/, '').trim()
-      return resto || nombre
-    }
+  const pb = palabras(base)
+  if (!pb.length || !nombre) return nombre
+  const tokens = nombre.split(/\s+/).filter(Boolean)
+  let i = 0
+  for (const p of pb) {
+    // Salta tokens que son solo puntuación ("-", "(") y exige que la palabra coincida entera.
+    while (i < tokens.length && !clave(tokens[i])) i++
+    if (i >= tokens.length || clave(tokens[i]) !== p) return nombre
+    i++
   }
-  return nombre
+  const resto = tokens.slice(i).join(' ').replace(/^[\s\-–(]+/, '').replace(/[\s)]+$/, '').trim()
+  return resto || nombre
 }
 
-/** Sufijo de sucursal al final de un nombre: " (NUÑEZ)", " - NUÑEZ", " ( SAN MARTIN )". */
-const SUFIJO_SUCURSAL = /^(.*?\S)\s*(?:\([^()]*\)|-\s*[^()-]+)\s*$/
+/** Sufijo de sucursal al final de un nombre: " (NUÑEZ)", " - NUÑEZ", " ( SAN MARTIN )". El guion tiene que ir con espacios: "COCA-COLA" no es un sufijo. */
+const SUFIJO_SUCURSAL = /^(.*?\S)\s*(\([^()]*\)|\s-\s*[^()-]+)\s*$/
+/** Forma jurídica dentro del supuesto sufijo ("- LOGISTICA S.A."): entonces no es una sucursal, es parte del nombre. */
+const FORMA_JURIDICA = /\b(s\.?\s?a\.?\s?(s\.?)?|s\.?\s?r\.?\s?l\.?|s\.?\s?c\.?\s?a\.?|s\.?\s?h\.?|s\.?\s?e\.?|ltda\.?|s\.?a\.?i\.?c\.?)\s*\)?\s*$/i
 
 /**
  * Razón social "de verdad" de la cuenta para SEÑOR(ES). La ficha toma la razón
@@ -97,7 +103,7 @@ const SUFIJO_SUCURSAL = /^(.*?\S)\s*(?:\([^()]*\)|-\s*[^()-]+)\s*$/
 export function razonSocialFiscal(cliente: Pick<UserProfile, 'razonSocial' | 'addresses'> | undefined): string {
   const nombre = limpio(cliente?.razonSocial)
   const m = SUFIJO_SUCURSAL.exec(nombre)
-  if (!m) return nombre
+  if (!m || FORMA_JURIDICA.test(m[2])) return nombre
   const base = m[1].trim()
   const otras = (cliente?.addresses ?? []).map((a) => limpio(a.razonSocialTango)).filter((n) => n && clave(n) !== clave(nombre))
   if (otras.length < 1) return nombre
@@ -123,7 +129,12 @@ export function clienteImpreso(venta: VentaParaImprimir, cliente: UserProfile | 
   const empresa = empresaDeCanal(venta.canal)
   const lista = sucursalesDe(cliente, empresa)
   const dir = (cliente.addresses ?? []).find((a) => a.id === codigo)
-  const esPrincipal = lista.length > 0 ? lista[0].codigo === codigo : true
+  // "Principal" = el código cuya ficha es la de la cuenta (users.*Tango): el
+  // principal de Redonhielo o, si solo está en Rolito, el primero de esa lista.
+  // No el primero de la empresa de la venta: RAP001 puede ser el único código
+  // en Rolito y aun así ser una sucursal con su propio domicilio.
+  const principal = limpio(cliente.codigoTango) || lista[0]?.codigo || ''
+  const esPrincipal = codigo === principal
   const tieneTango = !!(limpio(dir?.domicilioTango) || limpio(dir?.localidadTango) || limpio(dir?.codigoPostalTango))
 
   let domicilio = base.domicilio

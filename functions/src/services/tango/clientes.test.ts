@@ -159,11 +159,11 @@ describe('upsertDireccionTango (direcciones por sucursal, 2026-09-10)', () => {
     expect(r3.addresses[0].domicilioTango).toBe('Otra calle (Rolito)')
   })
 
-  it('código secundario sin entrada: la crea con el nombre comercial y sin geo', () => {
+  it('código secundario sin entrada: la crea con la razón social del código como nombre (la que trae el barrio) y sin geo', () => {
     const r = upsertDireccionTango([existente({ id: 'FC.900', esPrincipal: true })], sucursal, { principal: false, manda: true })
     expect(r.cambio).toBe(true)
     expect(r.addresses).toHaveLength(2)
-    expect(r.addresses[1]).toMatchObject({ id: 'FC.901', nombre: 'YPF RUTA 8', address: 'Ruta 8 km 40, Tortuguitas, Buenos Aires', lat: null, lng: null, esPrincipal: false, nombreComercialTango: 'YPF RUTA 8' })
+    expect(r.addresses[1]).toMatchObject({ id: 'FC.901', nombre: 'SUCURSAL 2', address: 'Ruta 8 km 40, Tortuguitas, Buenos Aires', lat: null, lng: null, esPrincipal: false, nombreComercialTango: 'YPF RUTA 8', razonSocialTango: 'SUCURSAL 2' })
   })
 
   it('el principal sin entrada solo se crea cuando la cuenta no tiene ninguna dirección', () => {

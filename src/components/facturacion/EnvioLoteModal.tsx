@@ -69,8 +69,13 @@ export default function EnvioLoteModal({ abierto, onClose, items, cliente, email
     try {
       const enviados = generados.map((g) => g.item)
       const m = armarMailLote(enviados, cliente)
+      // Si se mandan menos comprobantes que los elegidos (algunos no se pudieron
+      // armar) y la persona no editó el asunto/mensaje por defecto, se rearman
+      // para el subconjunto real: que el texto no prometa más adjuntos de los que van.
+      const asuntoFinal = asunto.trim() === mail.asunto ? m.asunto : (asunto.trim() || m.asunto)
+      const mensajeFinal = mensaje.trim() === mail.mensaje ? m.mensaje : mensaje.trim()
       await enviarComprobantesPorMail({
-        para: destino, asunto: asunto.trim() || m.asunto, mensaje: mensaje.trim(),
+        para: destino, asunto: asuntoFinal, mensaje: mensajeFinal,
         adjuntos: generados.map((g) => ({ nombreArchivo: g.nombre, pdf: g.blob })),
         comprobante: m.comprobante, comprobantes: m.comprobantes,
         clienteUid: cliente.uid, clienteNombre: cliente.razonSocial, conCopia,

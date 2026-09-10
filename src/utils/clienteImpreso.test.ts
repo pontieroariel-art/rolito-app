@@ -68,12 +68,26 @@ describe('clienteImpreso', () => {
     })
   })
 
-  it('en promo mira los códigos de Rolito: con uno solo no hay línea Sucursal aunque en Redonhielo tenga tres', () => {
+  it('en promo, RAP001 es el único código de Rolito pero sigue siendo una sucursal: imprime SU dirección', () => {
     const r = clienteImpreso(venta({ canal: 'promo', clienteCodigoTango: 'RAP001' }), rappi)
-    expect(r.sucursal).toBe('')
-    expect(r.codigoCliente).toBe('RAP001')
-    // RAP001 no es el principal de Rolito... sí lo es (único código): datos de la central.
-    expect(r.domicilio).toBe('Belgrano 3434, Mar del Plata, Buenos Aires')
+    expect(r).toMatchObject({ sucursal: 'GASTRONOMIA (MONROE) (RAP001)', codigoCliente: 'RAP001', domicilio: 'Monroe 1616, CABA, Capital Federal', localidadCp: '' })
+  })
+
+  it('la razón social con "S.A." / "S.A.S." no rompe la línea Sucursal (comparación por palabras)', () => {
+    expect(nombreImpresoSucursal(dir('YPF02', 'x', '', { razonSocialTango: 'YPF S.A. (ESCOBAR)' }), 'YPF02', 'YPF S.A.')).toBe('ESCOBAR (YPF02)')
+    expect(nombreImpresoSucursal(dir('RAP001', 'x', '', { razonSocialTango: 'RAPPI ARG S.A.S. (MONROE)' }), 'RAP001', 'RAPPI ARG S.A.S.')).toBe('MONROE (RAP001)')
+    expect(nombreImpresoSucursal(dir('RAP001', 'x', '', { razonSocialTango: 'RAPPI ARG S.A.S.' }), 'RAP001', 'RAPPI ARG S.A.')).toBe('RAPPI ARG S.A.S. (RAP001)')
+    expect(nombreImpresoSucursal(dir('DH1', 'x', '', { razonSocialTango: 'DELIVERY HERO E-COMMERCE S.A. - PALERMO' }), 'DH1', 'DELIVERY HERO E-COMMERCE SA')).toBe('PALERMO (DH1)')
+  })
+
+  it('un guion pegado no es sufijo de sucursal (COCA-COLA) y la forma jurídica no se recorta', () => {
+    const cc = { razonSocial: 'COCA-COLA FEMSA', addresses: [dir('A', 'x', '', { razonSocialTango: 'COCA-COLA FEMSA (NORTE)' }), dir('B', 'x', '', { razonSocialTango: 'COCA-COLA FEMSA (SUR)' })] } as unknown as UserProfile
+    expect(razonSocialFiscal(cc)).toBe('COCA-COLA FEMSA')
+    const ts = { razonSocial: 'TRANSPORTES DEL SUR - LOGISTICA S.A.', addresses: [dir('A', 'x', '', { razonSocialTango: 'TRANSPORTES DEL SUR - LOGISTICA S.A. (PLANTA 2)' })] } as unknown as UserProfile
+    // " - LOGISTICA S.A." termina en forma jurídica: es parte del nombre, no una sucursal.
+    expect(razonSocialFiscal(ts)).toBe('TRANSPORTES DEL SUR - LOGISTICA S.A.')
+    const ypf = { razonSocial: 'YPF S.A. (PILAR)', addresses: [dir('A', 'x', '', { razonSocialTango: 'YPF S.A. (PILAR)' }), dir('B', 'x', '', { razonSocialTango: 'YPF S.A. (ESCOBAR)' })] } as unknown as UserProfile
+    expect(razonSocialFiscal(ypf)).toBe('YPF S.A.')
   })
 
   it('cuenta de un solo código: igual que hoy, con el código de la venta', () => {

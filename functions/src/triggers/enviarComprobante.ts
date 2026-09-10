@@ -88,6 +88,9 @@ export const enviarComprobantePorMail = onCall({ secrets: [resendApiKey], memory
   const adjuntos: { filename: string; content: Buffer }[] = []
   if (Array.isArray(d.adjuntos) && d.adjuntos.length) {
     if (d.adjuntos.length > MAX_ADJUNTOS) throw new HttpsError('invalid-argument', `Se pueden mandar hasta ${MAX_ADJUNTOS} comprobantes por mail`)
+    // Antes de decodificar nada: el total en base64 ya dice si el lote pasa.
+    const totalB64 = d.adjuntos.reduce((s, a) => s + String(a?.pdfBase64 ?? '').length, 0)
+    if (totalB64 > MAX_TOTAL_BYTES * 1.4) throw new HttpsError('invalid-argument', 'Los PDF pesan demasiado para un solo mail: mandalos en dos tandas')
     const usados = new Set<string>()
     for (const [i, a] of d.adjuntos.entries()) {
       let filename = nombrePdf(a?.nombreArchivo)

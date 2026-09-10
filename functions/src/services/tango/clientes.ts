@@ -180,7 +180,10 @@ export function camposTangoDeFila(f: FilaClienteTango): CamposTangoDireccion {
 
 /** Entrada nueva de addresses[] para un código: sin geo ni horarios, con la ficha de Tango. */
 export function direccionNuevaDeFila(f: FilaClienteTango, opts: { principal: boolean; addressFallback?: string }): DireccionDoc {
-  const nombreSucursal = (f.nombreComercial ?? '').trim() || (f.razonSocial ?? '').trim() || f.codGva14
+  // Nombre para los selectores de la app y el índice de búsqueda: la razón social
+  // del código (en Tango es la que suele traer el barrio: "… (ONIGLIA)"); el
+  // nombre comercial muchas veces repite el nombre de la cuenta truncado.
+  const nombreSucursal = (f.razonSocial ?? '').trim() || (f.nombreComercial ?? '').trim() || f.codGva14
   return {
     id: f.codGva14,
     nombre: opts.principal ? 'Principal' : nombreSucursal,
