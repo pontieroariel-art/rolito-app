@@ -147,12 +147,41 @@ function leerCache(empresa) {
 }
 
 // ── Firestore ────────────────────────────────────────────────────────────────
-const LOTE = 400
-async function escribir(db, empresa, porCodigo, podados, detalles, clientes, desdeIso) {
-  const ops = []
-  for (const d of detalles) ops.push((b) => b.set(doc(db, 'tangoComprobanteDetalle', d.id), { ...d.doc, actualizadoEn: serverTimestamp() }))
-  const codigos = new Set([...Object.keys(porCodigo), ...Object.keys(podados)])
+// Lotes chicos con pausa y reintento propio: en el backfill (66.000 escrituras) el
+// stream de Firestore cortó con RESOURCE_EXHAUSTED "maximum allowed queued writes"
+// (2026-09-10). El avance se guarda en el cache local por código a medida que cada
+// lote confirma, así una corrida cortada retoma sin repetir lo ya escrito.
+const LOTE = 200
+const PAUSA_MS = 300
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+async function commitConReintento(b, etiqueta) {
+  for (let intento = 1; ; intento++) {
+    try { await b.commit(); return } catch (e) {
+      if (intento >= 6) throw e
+      const espera = Math.min(60_000, 2_000 * 2 ** (intento - 1))
+      log(`  ${etiqueta}: falló (${e.code ?? e.message}); reintento ${intento} en ${espera / 1000} s`)
+      await sleep(espera)
+    }
+  }
+}
+
+/**
+ * Escribe detalles e índices por código de cliente: primero los detalles de un código y
+ * al final su índice, así cuando un lote confirma se puede marcar en el cache TODO lo de
+ * los códigos que quedaron completos. alConfirmar(codigosCompletos) recibe esa lista.
+ */
+async function escribir(db, empresa, porCodigo, podados, detalles, clientes, desdeIso, alConfirmar) {
+  const detallesPorCodigo = new Map()
+  for (const d of detalles) {
+    const codigo = d.doc.codigo
+    if (!detallesPorCodigo.has(codigo)) detallesPorCodigo.set(codigo, [])
+    detallesPorCodigo.get(codigo).push(d)
+  }
+  const codigos = [...new Set([...Object.keys(porCodigo), ...Object.keys(podados)])]
+  const ops = []   // { op, cierra?: codigo }
   for (const codigo of codigos) {
+    for (const d of detallesPorCodigo.get(codigo) ?? []) ops.push({ op: (b) => b.set(doc(db, 'tangoComprobanteDetalle', d.id), { ...d.doc, actualizadoEn: serverTimestamp() }) })
     const cambios = porCodigo[codigo] ?? { facturas: {}, remitos: {} }
     const poda = podados[codigo] ?? { facturas: [], remitos: [] }
     const facturas = { ...cambios.facturas }
@@ -169,13 +198,17 @@ async function escribir(db, empresa, porCodigo, podados, detalles, clientes, des
       actualizadoEn: serverTimestamp(),
       facturas, remitos,
     }
-    ops.push((b) => b.set(doc(db, 'tangoComprobantes', `${empresa}_${codigo}`), datos, { merge: true }))
+    ops.push({ op: (b) => b.set(doc(db, 'tangoComprobantes', `${empresa}_${codigo}`), datos, { merge: true }), cierra: codigo })
   }
   for (let i = 0; i < ops.length; i += LOTE) {
+    const tanda = ops.slice(i, i + LOTE)
     const b = writeBatch(db)
-    for (const op of ops.slice(i, i + LOTE)) op(b)
-    await b.commit()
+    for (const { op } of tanda) op(b)
+    await commitConReintento(b, `lote ${i / LOTE + 1}`)
+    const completos = tanda.filter((x) => x.cierra).map((x) => x.cierra)
+    if (completos.length && alConfirmar) alConfirmar(completos)
     log(`  escritos ${Math.min(i + LOTE, ops.length)}/${ops.length}`)
+    if (i + LOTE < ops.length) await sleep(PAUSA_MS)
   }
   return ops.length
 }
@@ -215,8 +248,23 @@ async function main() {
         log(`  facturas con CAE: ${conCae}, sin CAE: ${sinCae}; remitos: ${detallesAEscribir.filter((d) => d.doc.tipo === 'REM').length}`)
         continue
       }
-      const n = await escribir(db, empresa, porCodigo, podados, detallesAEscribir, clientes, iso(desde))
-      if (!SOLO_CLIENTE) writeFileSync(rutaCache(empresa), JSON.stringify(actualizarCache(cache, porCodigo, podados)), 'utf8')
+      // El cache avanza por código confirmado y se graba cada tanto: si la corrida se corta, la
+      // siguiente retoma desde ahí (los códigos no confirmados vuelven a escribirse, nada más).
+      let cacheActual = cache
+      let pendientesDeGrabar = 0
+      const grabarCache = () => { if (!SOLO_CLIENTE) writeFileSync(rutaCache(empresa), JSON.stringify(cacheActual), 'utf8'); pendientesDeGrabar = 0 }
+      const alConfirmar = (codigos) => {
+        const parcial = Object.fromEntries(codigos.filter((c) => porCodigo[c]).map((c) => [c, porCodigo[c]]))
+        const podaParcial = Object.fromEntries(codigos.filter((c) => podados[c]).map((c) => [c, podados[c]]))
+        cacheActual = actualizarCache(cacheActual, parcial, podaParcial)
+        if (++pendientesDeGrabar >= 10) grabarCache()
+      }
+      let n
+      try {
+        n = await escribir(db, empresa, porCodigo, podados, detallesAEscribir, clientes, iso(desde), alConfirmar)
+      } finally {
+        grabarCache()
+      }
       log(`  ${empresa}: ${n} escrituras OK`)
     } catch (e) {
       fallas++

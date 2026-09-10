@@ -125,7 +125,7 @@ Prefijo `VITE_FIREBASE_*`: `API_KEY`, `AUTH_DOMAIN`, `PROJECT_ID`, `STORAGE_BUCK
 Solo el **hosting** se despliega solo (push a `master`). Reglas y functions van a mano:
 
 - **Reglas:** `firebase deploy --only firestore:rules` (correr `npm run test:rules` antes). Índices: `--only firestore:indexes`.
-- **Functions — OJO, footgun:** `functions/lib/` (el JS compilado) está **commiteado al repo** y `firebase.json` **NO** tiene hook `predeploy`. Si editás `functions/src/*.ts` y corrés `firebase deploy --only functions` sin compilar antes, se sube el JS viejo (o tira "No function matches the filter" para triggers nuevos). Siempre: `npm --prefix functions run build` → verificar que `lib/` refleje el cambio → deployar → **commitear el `lib/` regenerado**. Si son muchas functions, deployar de a ≤6-8 (`--only functions:a,functions:b,...`) por la cuota de Cloud Run.
+- **Functions — OJO, footgun:** `functions/lib/` (el JS compilado) está **commiteado al repo** y `firebase.json` **NO** tiene hook `predeploy`. Si editás `functions/src/*.ts` y corrés `firebase deploy --only functions` sin compilar antes, se sube el JS viejo (o tira "No function matches the filter" para triggers nuevos). Siempre: `npm --prefix functions run build` → verificar que `lib/` refleje el cambio → deployar → **commitear el `lib/` regenerado**. Si son muchas functions, deployar de a ≤6-8 (`--only functions:a,functions:b,...`) por la cuota de Cloud Run. Y si son varias tandas seguidas, esperar unos minutos entre una y otra: el 2026-09-10 tres tandas de 6-7 al hilo terminaron en "Quota exceeded for total allowable CPU per project per region" (las revisiones viejas de Cloud Run todavía contaban) y hubo que redesplegar de a una.
 
 ### Optimización del build
 
