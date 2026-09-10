@@ -23,6 +23,8 @@
  *   node scripts/tango/sincronizar-choferes-tango.mjs --archivo scripts/tango/tango-tablas/depositos.company1.json
  *   node scripts/tango/sincronizar-choferes-tango.mjs --vincular 03=20360242871=1234 --commit
  *        → le pone CUIT/DNI/PIN al chofer del depósito 03 (dniIndex + password), ya puede entrar
+ *   node scripts/tango/sincronizar-choferes-tango.mjs --vincular 09=23694588=1234 --commit
+ *        → lo mismo con DNI (8 dígitos) cuando no se tiene el CUIT (2026-09-10); el CUIT queda vacío
  *
  * Token: env TANGO_TOKEN, o `tangoToken` de scripts/tango/bridge-sync-clientes.config.json.
  */
@@ -141,19 +143,22 @@ function emparejar(depositos, choferes) {
 
 // ── Vinculación CUIT/PIN de un chofer creado desde Tango ────────────────────
 async function vincular(spec) {
-  const [cod, cuitRaw, pin] = spec.split('=')
-  const cuit = (cuitRaw ?? '').replace(/\D/g, '')
-  if (!cod || cuit.length !== 11 || !pin) throw new Error(`--vincular espera COD=CUIT(11 dígitos)=PIN, recibí "${spec}"`)
-  const dni = cuit.slice(2, 10)
+  const [cod, docRaw, pin] = spec.split('=')
+  const digitos = (docRaw ?? '').replace(/\D/g, '')
+  if (!cod || !(digitos.length === 11 || digitos.length === 8) || !pin) throw new Error(`--vincular espera COD=CUIT(11 dígitos) o DNI(8 dígitos)=PIN, recibí "${spec}"`)
+  const cuit = digitos.length === 11 ? digitos : ''
+  const dni = digitos.length === 11 ? digitos.slice(2, 10) : digitos
   const snap = await db.collection('users').where('rol', '==', 'chofer').where('depositoTango', '==', cod.padStart(2, '0')).get()
   if (snap.size !== 1) throw new Error(`Hay ${snap.size} choferes con depositoTango=${cod}`)
   const ref = snap.docs[0].ref
   const u = snap.docs[0].data()
-  console.log(`  vincular ${cod} ${u.nombre}: CUIT ${cuit}, DNI ${dni}, PIN ****`)
+  const indice = await db.collection('dniIndex').doc(dni).get()
+  if (indice.exists && indice.data()?.email !== u.email) throw new Error(`el DNI ${dni} ya está tomado por ${indice.data()?.email} (otro chofer): revisar en Usuarios antes de vincular`)
+  console.log(`  vincular ${cod} ${u.nombre}: CUIT ${cuit || '(sin CUIT)'}, DNI ${dni}, PIN ****`)
   if (!COMMIT) return
   await auth.updateUser(ref.id, { password: `${pin}__ch` })      // padPin() de choferAuthService
-  await ref.update({ cuit, dni, username: cuit })
-  await db.collection('dniIndex').doc(dni).set({ email: u.email, cuit })
+  await ref.update({ ...(cuit ? { cuit, username: cuit } : {}), dni })
+  await db.collection('dniIndex').doc(dni).set({ email: u.email, cuit: cuit || (u.cuit ?? '') })
   console.log('    ✓ ya puede entrar con DNI + PIN')
 }
 
