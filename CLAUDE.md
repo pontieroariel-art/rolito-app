@@ -95,6 +95,7 @@ PWA de gestión de una distribuidora de hielo, organizada en cuatro **sistemas/m
 ### Colecciones de Firestore principales
 
 - `users/{uid}` — Perfiles (rol, estado, sucursales, código de cliente)
+- `clientesIndex/{uid}` — Índice liviano de clientes para BUSCAR (2026-09-10: razón social, CUIT, códigos de Tango, sucursales, dirección, localidad, estado, vinculadoTango). Lo mantiene el trigger `onClienteIndexado` (solo escribe si cambió algo de eso; la sync de precios no lo toca) y lo cargó `scripts/backfill-clientes-index.mjs`. Los buscadores (`useClientesIndex` + `indexAComboItems`: venta y cobro del chofer, Buscar cliente del supervisor) leen esto desde la caché del teléfono y piden la ficha completa por id al elegir (`useClienteSeleccionado`). `useClientesActivos` (ficha completa de los 2.000+ clientes) queda para las pantallas de escritorio que todavía la usan
 - `orders/{orderId}` — Pedidos
 - `catalogo` — Catálogo de productos (nombre, unidad, foto). Los **precios vienen de Tango**: `preciosTango/{redonhielo|rolito}` (listas y especiales, los escribe la sync diaria `syncPreciosTango`) y `users.preciosTango` (precios resueltos por cliente). Las listas propias de la app (`listas-precios`) se eliminaron el 2026-09-03; `historialPrecios` queda solo como registro viejo
 - `programas-visita`, `visitas-puntuales` — Visitas comerciales

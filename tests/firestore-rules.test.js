@@ -3539,6 +3539,27 @@ describe('saldosTango — cache de saldos de Tango', () => {
   })
 })
 
+// ── clientesIndex: búsqueda liviana de clientes (2026-09-10) ──────────────────
+describe('clientesIndex — índice liviano de clientes', () => {
+  const idx = { razonSocial: 'ALGAR', cuit: '30661788409', codigos: ['PA.003'], sucursales: [], direccion: 'Mitre 596', localidad: 'SAN MIGUEL', estado: 'activo', vinculadoTango: true }
+  test('chofer, caja y supervisor leen; el cliente no; nadie escribe por reglas', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/ch'), { rol: 'chofer', estado: 'activo' })
+      await setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'dt' })
+      await setDoc(doc(d, 'users/sup'), { rol: 'supervisor', estado: 'activo' })
+      await setDoc(doc(d, 'users/cli'), cliente())
+      await setDoc(doc(d, 'clientesIndex/cli'), idx)
+    })
+    await assertSucceeds(getDoc(doc(db('ch'), 'clientesIndex/cli')))
+    await assertSucceeds(getDoc(doc(db('caja1'), 'clientesIndex/cli')))
+    await assertSucceeds(getDoc(doc(db('sup'), 'clientesIndex/cli')))
+    await assertFails(getDoc(doc(db('cli'), 'clientesIndex/cli')))
+    await assertFails(setDoc(doc(db('sup'), 'clientesIndex/otro'), idx))
+    await assertFails(updateDoc(doc(db('ch'), 'clientesIndex/cli'), { estado: 'inactivo' }))
+    await assertFails(deleteDoc(doc(db('sup'), 'clientesIndex/cli')))
+  })
+})
+
 // ── tangoComprobantes / tangoComprobanteDetalle: facturas y remitos de Tango (2026-09-09) ──
 describe('tangoComprobantes — facturas y remitos de Tango leídos por el bridge', () => {
   const indice = { empresa: 'redonhielo', codigo: 'PA.003', razonSocial: 'ALGAR', facturas: { FAC_A0010100282787: { tipo: 'FAC', numero: 'A0010100282787', fecha: '2026-09-02', importe: 84216, estado: 'PEN', remitos: ['R0000100482053'], h: 'x' } }, remitos: {} }

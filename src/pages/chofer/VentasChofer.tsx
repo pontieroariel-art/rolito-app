@@ -9,7 +9,6 @@ import { Link } from 'react-router-dom'
 import { ArrowLeft, FileText, Share2, Download, Clock, AlertTriangle } from 'lucide-react'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { useAuth } from '@/context/AuthContext'
-import { useClientesActivos } from '@/hooks/useClientesActivos'
 import { subscribeVentasRecientesChofer } from '@/services/ventaCamionService'
 import { tipoComprobanteInterno, ETIQUETA_COMPROBANTE, type CaiRemito } from '@/utils/comprobanteInterno'
 import { entregarComprobanteVenta } from '@/utils/comprobanteDeVenta'
@@ -28,7 +27,6 @@ const nroFactura = (v: VentaCamion) =>
 
 export default function VentasChofer({ volverA = '/chofer' }: { volverA?: string } = {}) {
   const { user } = useAuth()
-  const { clientes } = useClientesActivos()
   const [ventas, setVentas] = useState<VentaCamion[] | null>(null)
   const [ocupada, setOcupada] = useState<string | null>(null)
   const [aviso, setAviso] = useState('')
@@ -47,11 +45,6 @@ export default function VentasChofer({ volverA = '/chofer' }: { volverA?: string
     return subscribeVentasRecientesChofer(user.uid, setVentas, () => setFallo(true), setPendientes)
   }, [user])
 
-  const clientePorId = useMemo(
-    () => new Map(clientes.map((c) => [c.uid, c])),
-    [clientes],
-  )
-
   // Genera el comprobante de la venta —la factura de ARCA, o el remito /
   // factura X interna cuando no factura ARCA— y lo comparte o descarga
   // (lógica compartida con la liquidación: utils/comprobanteDeVenta.ts).
@@ -59,7 +52,7 @@ export default function VentasChofer({ volverA = '/chofer' }: { volverA?: string
     setAviso('')
     setOcupada(venta.id)
     try {
-      setAviso(await entregarComprobanteVenta(venta, clientePorId.get(venta.clienteId), caiRemito, compartir ? 'enviar' : 'ver'))
+      setAviso(await entregarComprobanteVenta(venta, undefined, caiRemito, compartir ? 'enviar' : 'ver'))
     } finally {
       setOcupada(null)
     }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { UserProfile } from '../../types'
+import { ClienteIndex, UserProfile } from '../../types'
 import { coincideBusqueda, normalizarBusqueda, INPUT_BUSQUEDA_PROPS } from '@/utils/busqueda'
 
 export interface ComboItem {
@@ -27,6 +27,17 @@ export function toComboItems(clientes: UserProfile[]): ComboItem[] {
       sucursales,
     }
   })
+}
+
+/** Igual que toComboItems pero desde el índice liviano (clientesIndex, 2026-09-10). */
+export function indexAComboItems(clientes: ClienteIndex[]): ComboItem[] {
+  return clientes.map((c) => ({
+    uid:    c.uid,
+    label:  c.razonSocial + (c.sinCuit ? ' · sin CUIT (solo promo)' : ''),
+    codigo: c.codigoCliente,
+    extra:  [...c.codigos, ...c.sucursales, c.cuit].filter(Boolean).join(' '),
+    sucursales: new Set(c.codigos).size,
+  }))
 }
 
 interface Props {

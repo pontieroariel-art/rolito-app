@@ -10,6 +10,8 @@ initializeApp()
 // después por la cuota).
 
 export { onUserRegistered, onUserApproved, onClienteCreadoPorStaff } from './triggers/users'
+// Índice liviano de clientes para los buscadores (clientesIndex/{uid}, 2026-09-10).
+export { onClienteIndexado } from './triggers/clientesIndex'
 export { onOrderCreated, onOrderConfirmado, onOrderEnCamino } from './triggers/orders'
 export { deleteAuthUsers }                     from './triggers/cleanup'
 export { sendPush }                            from './triggers/push'

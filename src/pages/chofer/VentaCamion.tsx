@@ -8,12 +8,13 @@ import { Link } from 'react-router-dom'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
-import ClienteCombobox, { toComboItems } from '../../components/ui/ClienteCombobox'
+import ClienteCombobox, { indexAComboItems } from '../../components/ui/ClienteCombobox'
 import SelectorSucursal from '@/components/ventas/SelectorSucursal'
 import { clienteEnSucursal, necesitaSucursal } from '@/utils/sucursalesTango'
 import SignaturePad, { SignaturePadHandle } from '../../components/heladeras/SignaturePad'
 import { useAuth } from '../../context/AuthContext'
-import { useClientesActivos } from '../../hooks/useClientesActivos'
+import { useClientesIndex } from '../../hooks/useClientesIndex'
+import { useClienteSeleccionado } from '../../hooks/useClienteSeleccionado'
 import { usePreciosTango } from '../../hooks/usePreciosTango'
 import { useRemitosCargaChofer } from '../../hooks/useRemitosCargaChofer'
 import { useDepositoDelUsuario } from '../../hooks/useDepositosReparto'
@@ -63,7 +64,9 @@ const money = (n: number) => `$${n.toLocaleString('es-AR')}`
 // `volverA`: el supervisor usa esta misma pantalla desde /supervisor/vender.
 export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string } = {}) {
   const { user } = useAuth()
-  const { clientes, loading: loadingClientes } = useClientesActivos()
+  // Búsqueda con el índice liviano (2026-09-10); la ficha completa se baja al elegir.
+  const { clientes, loading: loadingClientes } = useClientesIndex()
+  const itemsClientes = useMemo(() => indexAComboItems(clientes), [clientes])
   const { remitos: remitosCarga } = useRemitosCargaChofer()
   const { catalogo } = useCatalogo()
   // Depósito de Tango del vendedor: el que le vinculó Ajustes → Depósitos, o el
@@ -117,7 +120,7 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
     })
   }, [user, online])
 
-  const cliente = useMemo(() => clientes.find((c) => c.uid === clienteId), [clientes, clienteId])
+  const { cliente, loading: cargandoCliente } = useClienteSeleccionado(clienteId || null)
   // Cuenta corriente solo si Tango la tiene habilitada para el cliente (su
   // condición de venta); a un CONTADO el Facturador le rechaza la cuota.
   const ctaCte = admiteCuentaCorriente(cliente)
@@ -355,7 +358,8 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
           </label>
           {loadingClientes
             ? <p className="text-xs text-gray-400">Cargando clientes…</p>
-            : <ClienteCombobox items={toComboItems(clientes)} value={clienteId} onChange={setClienteId} />}
+            : <ClienteCombobox items={itemsClientes} value={clienteId} onChange={setClienteId} />}
+          {clienteId && cargandoCliente && <p className="text-xs text-gray-400 mt-1">Cargando la ficha del cliente…</p>}
           <SelectorSucursal cliente={cliente} empresa={empresa} value={sucursal} onChange={setSucursal} />
           {sinPrecioMotivo && (
             <p className="text-xs text-amber-600">{sinPrecioMotivo} No se puede vender hasta que se corrija en Tango y se sincronice.</p>

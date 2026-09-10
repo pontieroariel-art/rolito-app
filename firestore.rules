@@ -1198,6 +1198,15 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── Índice liviano de clientes para buscar (2026-09-10) ────────────────
+    // clientesIndex/{uid}: nombre, CUIT, códigos de Tango, dirección. Lo escribe
+    // SOLO el trigger onClienteIndexado (Admin SDK). Lo lee todo el staff (es lo
+    // que usan los buscadores de cliente); un cliente no ve la lista de los demás.
+    match /clientesIndex/{uid} {
+      allow read: if request.auth != null && isStaff();
+      allow write: if false;
+    }
+
     // ── Comprobantes de Tango: facturas y remitos de los últimos 13 meses ──
     // (2026-09-09) tangoComprobantes/{empresa}_{codigo} es el índice liviano por
     // código de cliente (facturas/NC/ND con estado y sus remitos; remitos con

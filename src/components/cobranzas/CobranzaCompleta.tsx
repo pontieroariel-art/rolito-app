@@ -7,10 +7,11 @@ import { entregarReciboSupervisor } from '@/components/supervisor/CobranzaSuperv
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
-import ClienteCombobox, { toComboItems } from '@/components/ui/ClienteCombobox'
+import ClienteCombobox, { indexAComboItems } from '@/components/ui/ClienteCombobox'
 import { useAuth } from '@/context/AuthContext'
 import { useOnline } from '@/hooks/useOnline'
-import { useClientesActivos } from '@/hooks/useClientesActivos'
+import { useClientesIndex } from '@/hooks/useClientesIndex'
+import { useClienteSeleccionado } from '@/hooks/useClienteSeleccionado'
 import { useSaldoClienteEnVivo } from '@/hooks/useSaldoClienteEnVivo'
 import { useDepositoDelUsuario } from '@/hooks/useDepositosReparto'
 import { crearCobranzaCompleta, type OrigenCobranzaCompleta } from '@/services/cobranzaService'
@@ -60,7 +61,8 @@ export interface CobranzaCompletaProps {
 export default function CobranzaCompleta({ origen, plantaId, clienteInicial, volverA, ancho = 'md' }: CobranzaCompletaProps) {
   const { user } = useAuth()
   const online = useOnline()
-  const { clientes, loading: loadingClientes } = useClientesActivos()
+  // Búsqueda con el índice liviano (2026-09-10); la ficha completa se baja al elegir.
+  const { clientes, loading: loadingClientes } = useClientesIndex()
 
   const [clienteId, setClienteId] = useState(clienteInicial ?? '')
   const [filas, setFilas] = useState<Record<string, FilaImputacion>>({})
@@ -78,11 +80,9 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
   const [numeracionActiva, setNumeracionActiva] = useState(false)
 
   // Solo clientes vinculados a Tango (en cualquiera de las dos empresas) pueden cobrarse con imputación.
-  const clientesTango = useMemo(
-    () => clientes.filter((c) => estaVinculadoATango(c)),
-    [clientes],
-  )
-  const cliente = useMemo(() => clientesTango.find((c) => c.uid === clienteId) ?? null, [clientesTango, clienteId])
+  const itemsTango = useMemo(() => indexAComboItems(clientes.filter((c) => c.vinculadoTango)), [clientes])
+  const { cliente: clienteCargado, loading: cargandoCliente } = useClienteSeleccionado(clienteId || null)
+  const cliente = useMemo(() => (clienteCargado && estaVinculadoATango(clienteCargado) ? clienteCargado : null), [clienteCargado])
 
   const actor = useMemo(
     () => (user ? { uid: user.uid, nombre: user.nombre } : null),
@@ -299,7 +299,8 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
     <div className={`${anchoClase} mx-auto p-4 space-y-4 pb-8`}>
       <div>
         <label className="text-xs text-gray-500 mb-1 block">Cliente</label>
-        <ClienteCombobox items={toComboItems(clientesTango)} value={clienteId} onChange={setClienteId} placeholder="Buscar cliente…" />
+        <ClienteCombobox items={itemsTango} value={clienteId} onChange={setClienteId} placeholder="Buscar cliente…" />
+        {clienteId && cargandoCliente && <p className="text-xs text-gray-400 mt-1">Cargando la ficha del cliente…</p>}
       </div>
 
       {cliente && (

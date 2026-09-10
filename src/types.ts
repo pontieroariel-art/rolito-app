@@ -549,6 +549,29 @@ export interface TangoConsulta {
   actualizadoEn?: Timestamp
 }
 
+// ── Índice liviano de clientes para buscar (2026-09-10) ───────────────────────
+// clientesIndex/{uid}: solo lo que hace falta para buscar y listar. Lo mantiene
+// el trigger onClienteIndexado a partir de users; la ficha completa (precios,
+// condición de venta, domicilios) se pide por id al elegir el cliente. Espejo de
+// functions/src/services/clientesIndex.ts.
+export interface ClienteIndex {
+  uid:            string
+  razonSocial:    string
+  nombreContacto: string
+  cuit:           string
+  sinCuit?:       boolean
+  codigoCliente?: string
+  /** Códigos de Tango de la cuenta en las dos empresas, sin repetir. */
+  codigos:        string[]
+  /** Nombres de las sucursales (para buscar "MONROE"). */
+  sucursales:     string[]
+  direccion:      string
+  localidad:      string
+  estado:         string
+  vinculadoTango: boolean
+  actualizadoEn?: Timestamp
+}
+
 // ── Comprobantes de Tango: facturas y remitos de los últimos 13 meses ─────────
 // (2026-09-09) Los publica el lector de la VM (scripts/tango/bridge-sync-
 // comprobantes.mjs) leyendo SQL Server: un índice liviano por código de cliente

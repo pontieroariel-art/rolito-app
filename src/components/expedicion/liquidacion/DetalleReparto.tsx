@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { AlertTriangle, CheckCircle2, Clock, Download, Share2 } from 'lucide-react'
 import { RETENCION_LABELS } from '@/components/supervisor/RetencionForm'
 import { entregarReciboSupervisor, EstadoTangoChip } from '@/components/supervisor/CobranzaSupervisorCard'
-import { useClientesActivos } from '@/hooks/useClientesActivos'
 import { caiRemitoOficialCacheado, getCaiRemitoOficial } from '@/services/remitoOficialConfigService'
 import { generateRemitoCarga } from '@/utils/pdf'
 import { describirComprobante, entregarComprobanteVenta, estadoTangoVenta, problemasDeVenta } from '@/utils/comprobanteDeVenta'
@@ -50,8 +49,6 @@ export function useReparto(p: Omit<DetalleRepartoProps, 'soloProblemas'>): Repar
 
 export default function DetalleReparto({ remitos, ventas, cambios, descargas, cobranzas, soloProblemas = false }: DetalleRepartoProps) {
   const reparto = useReparto({ remitos, ventas, cambios, descargas, cobranzas })
-  const { clientes } = useClientesActivos()
-  const clientePorId = useMemo(() => new Map(clientes.map((c) => [c.uid, c])), [clientes])
   const [cai, setCai] = useState<CaiRemito | null>(() => caiRemitoOficialCacheado())
   useEffect(() => { getCaiRemitoOficial().then(setCai).catch(() => undefined) }, [])
   const [aviso, setAviso] = useState('')
@@ -62,7 +59,7 @@ export default function DetalleReparto({ remitos, ventas, cambios, descargas, co
   const entregar = async (v: VentaCamion, modo: 'ver' | 'enviar') => {
     setOcupado(v.id)
     setAviso('')
-    try { setAviso(await entregarComprobanteVenta(v, clientePorId.get(v.clienteId), cai, modo)) }
+    try { setAviso(await entregarComprobanteVenta(v, undefined, cai, modo)) }
     finally { setOcupado(null) }
   }
   const entregarRecibo = async (c: Cobranza, compartir: boolean) => {

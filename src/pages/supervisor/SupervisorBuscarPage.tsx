@@ -2,14 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronRight, Search } from 'lucide-react'
 import SupervisorHeader from '@/components/supervisor/SupervisorHeader'
-import { useClientesActivos } from '@/hooks/useClientesActivos'
+import { useClientesIndex } from '@/hooks/useClientesIndex'
 import { subscribeClientesConDeuda } from '@/services/saldosTangoService'
 import { coincideBusqueda, normalizarBusqueda, INPUT_BUSQUEDA_PROPS } from '@/utils/busqueda'
 import { formatoARS } from '@/utils/money'
-import { codigosTangoResumen } from '@/pages/admin/user-management/listaTango'
-import { direccionPrincipal } from '@/utils/contacto'
-import { tangoIdsDe } from '@/utils/tangoEmpresas'
-import type { UserProfile } from '@/types'
 
 const MAX_RESULTADOS = 50
 
@@ -17,7 +13,7 @@ const MAX_RESULTADOS = 50
 // ficha: datos, contacto, domicilios, saldo. Busca por razón social, contacto,
 // CUIT, código de Tango (de cualquier empresa) y dirección.
 export default function SupervisorBuscarPage() {
-  const { clientes, loading } = useClientesActivos()
+  const { clientes, loading } = useClientesIndex()
   const [busqueda, setBusqueda] = useState('')
   const [deudas, setDeudas] = useState<Map<string, number>>(new Map())
 
@@ -25,9 +21,8 @@ export default function SupervisorBuscarPage() {
 
   const resultados = useMemo(() => {
     const q = normalizarBusqueda(busqueda)
-    const codigos = (c: UserProfile) => Object.values(tangoIdsDe(c)).flat().map((x) => x.codigo).join(' ')
     const base = q
-      ? clientes.filter((c) => coincideBusqueda(q, c.razonSocial, c.nombreContacto, c.cuit, c.codigoTango, codigos(c), direccionPrincipal(c)?.address, c.localidadTango))
+      ? clientes.filter((c) => coincideBusqueda(q, c.razonSocial, c.nombreContacto, c.cuit, c.codigos.join(' '), c.sucursales.join(' '), c.direccion, c.localidad))
       : clientes
     return base
       .slice()
@@ -63,7 +58,7 @@ export default function SupervisorBuscarPage() {
             <div className="space-y-2">
               {resultados.map((c) => {
                 const deuda = deudas.get(c.uid) ?? 0
-                const dir = direccionPrincipal(c)
+                const dir = c.direccion ? { address: c.direccion } : null
                 return (
                   <Link key={c.uid} to={`/supervisor/cliente/${c.uid}`}
                     className="block bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-3 active:scale-[0.99] transition-transform">
@@ -71,7 +66,7 @@ export default function SupervisorBuscarPage() {
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-gray-900 truncate">{c.razonSocial}</p>
                         <p className="text-xs text-gray-500 truncate">
-                          {codigosTangoResumen(c) || 'Sin código de Tango'}{c.cuit ? ` · CUIT ${c.cuit}` : ''}
+                          {c.codigos.length ? `${c.codigos[0]}${c.codigos.length > 1 ? ` +${c.codigos.length - 1}` : ''}` : 'Sin código de Tango'}{c.cuit ? ` · CUIT ${c.cuit}` : ''}
                         </p>
                         {dir?.address && <p className="text-xs text-gray-400 truncate">{dir.address}</p>}
                       </div>
