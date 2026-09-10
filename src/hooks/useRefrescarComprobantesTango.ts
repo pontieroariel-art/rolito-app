@@ -5,10 +5,12 @@ import { tangoIdsDe } from '@/utils/tangoEmpresas'
 
 const TIMEOUT_MS = 30_000
 
-// "Actualizar desde Tango" en la ficha (2026-09-10): una consulta por empresa con los
-// códigos del cliente; el bridge corre el lector para esos códigos y responde por el
-// mismo doc. Los índices tangoComprobantes están suscriptos, así que la ficha se
-// actualiza sola cuando el bridge escribe. Si el bridge no contesta en 30 s, lo dice.
+// Facturas y remitos de Tango del cliente, al día al abrir la ficha (2026-09-10): una
+// consulta por empresa con los códigos del cliente; el bridge corre el lector para esos
+// códigos y responde por el mismo doc. Los índices tangoComprobantes están suscriptos,
+// así que la ficha se actualiza sola cuando el bridge escribe. Se dispara UNA vez por
+// cliente al montar (decisión de Ariel: sin botón, si no lo aprietan siempre); si el
+// bridge no contesta en 30 s, se queda con lo último sincronizado y lo dice.
 export function useRefrescarComprobantesTango(
   cliente: Pick<UserProfile, 'uid' | 'idGva14Tango' | 'codigoTango' | 'tangoIds'> | null,
   actor: { uid: string; nombre: string } | null,
@@ -16,6 +18,7 @@ export function useRefrescarComprobantesTango(
   const [refrescando, setRefrescando] = useState(false)
   const [aviso, setAviso] = useState('')
   const limpiezas = useRef<Array<() => void>>([])
+  const disparado = useRef<string | null>(null)
 
   useEffect(() => () => limpiezas.current.forEach((f) => f()), [])
 
@@ -60,6 +63,12 @@ export function useRefrescarComprobantesTango(
         .catch(() => cerrar(false))
     }
   }, [cliente, actor, refrescando])
+
+  useEffect(() => {
+    if (!cliente?.uid || !actor || disparado.current === cliente.uid) return
+    disparado.current = cliente.uid
+    refrescar()
+  }, [cliente?.uid, actor, refrescar])
 
   return { refrescar, refrescando, aviso }
 }

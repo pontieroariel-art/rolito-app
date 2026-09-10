@@ -1846,7 +1846,8 @@ traer a la app los remitos y facturas que hizo la oficina en Tango, como si los 
 
 Módulo que corre **adentro de `bridge-sql.mjs`** (2026-09-10; antes era una tarea aparte):
 cada `config/tango.comprobantes.intervaloMin` minutos (default 60, mínimo 2; `enabled: false`
-lo apaga) y **a pedido desde la app** (botón "Actualizar" en la ficha → `tango-consultas` tipo
+lo apaga) y **a pedido desde la app** (al abrir la ficha del cliente, una vez por cliente; sin botón, decisión
+de Ariel: "lo van a apretar siempre" → `tango-consultas` tipo
 `sincronizarComprobantes` con `empresa` + `codigos`; el bridge corre el lector solo para esos
 códigos, últimos 10 días, y responde por el mismo doc). Una corrida a la vez, en serie. El
 resumen de la última corrida periódica queda en `config/tango.comprobantesSync`
