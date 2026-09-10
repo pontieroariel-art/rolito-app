@@ -534,10 +534,12 @@ export interface SaldoTango {
 // cache saldosTango. Si el bridge está caído, la UI cae al cache por timeout.
 export interface TangoConsulta {
   id:            string
-  tipo:          'saldoCliente'
+  /** 'sincronizarComprobantes' (2026-09-10): el bridge corre el lector de facturas/remitos para `codigos`. */
+  tipo:          'saldoCliente' | 'sincronizarComprobantes'
   clienteUid:    string
   idGva14:       number
   idsGva14?:     number[]   // todos los códigos del cliente en esa empresa
+  codigos?:      string[]   // sincronizarComprobantes: códigos de Tango del cliente en esa empresa
   empresa:       EmpresaTango
   solicitadoPor: { uid: string; nombre: string }
   estado:        'pendiente' | 'respondida' | 'error'

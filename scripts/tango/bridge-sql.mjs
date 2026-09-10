@@ -48,6 +48,10 @@ const { escribirRemito, remitoDeVenta } = sqlLib('remito.js')
 const { escribirRecibo, reciboDeCobranza } = sqlLib('recibo.js')
 const { escribirMovimientoStock, egresoDeVentaPromo, transferenciaDeCargaDescarga } = sqlLib('movimientoStock.js')
 const mssql = require('mssql')
+// Lector de facturas y remitos de Tango → app (2026-09-10): corre acá adentro cada
+// config/tango.comprobantes.intervaloMin minutos (default 60) y a pedido desde la app
+// (tango-consultas tipo 'sincronizarComprobantes'). Ver docs/tango/INTEGRACION.md §35.
+import { sincronizarComprobantes } from './comprobantes-sync.mjs'
 
 const DRY_RUN = process.argv.includes('--dry-run')
 const UNA_VEZ = process.argv.includes('--once')
@@ -370,6 +374,65 @@ async function probarSql() {
   process.exit(fallas ? 1 : 0)
 }
 
+// ── Comprobantes de Tango → app ───────────────────────────────────────────────
+const COMPROBANTES_INTERVALO_DEFAULT_MIN = 60
+const COMPROBANTES_PRIMERA_CORRIDA_MS = 30 * 1000
+// Una sola corrida a la vez, en serie: la periódica y las pedidas desde la app se encolan.
+let colaComprobantes = Promise.resolve()
+function encolarComprobantes(fn) {
+  const p = colaComprobantes.then(fn, fn)
+  colaComprobantes = p.catch(() => {})
+  return p
+}
+
+/** Resumen corto para config/tango.comprobantesSync (lo muestra la app). */
+function resumenComprobantes(r, motivo, inicio) {
+  const empresas = {}
+  for (const [e, x] of Object.entries(r?.empresas ?? {})) empresas[e] = { facturas: x.facturas ?? 0, remitos: x.remitos ?? 0, codigos: x.codigos ?? 0, escrituras: x.escrituras ?? 0, ...(x.error ? { error: String(x.error).slice(0, 300) } : {}) }
+  return { ultimaCorrida: serverTimestamp(), motivo, duracionMs: Date.now() - inicio, ok: !!r?.ok, empresas }
+}
+
+async function correrComprobantes(db, motivo, opts = {}) {
+  return encolarComprobantes(async () => {
+    const inicio = Date.now()
+    const tcfg = await configTango(db)
+    if (tcfg.comprobantes?.enabled === false) { log(`comprobantes (${motivo}): deshabilitado en config/tango.comprobantes.enabled`); return null }
+    try {
+      const r = await sincronizarComprobantes({ cfg, db, log, ...opts })
+      if (!opts.codigos) await updateDoc(doc(db, 'config/tango'), { comprobantesSync: resumenComprobantes(r, motivo, inicio) }).catch((e) => log(`comprobantesSync: no se pudo grabar el resumen — ${e.message}`))
+      return r
+    } catch (e) {
+      log(`comprobantes (${motivo}): ERROR ${e.stack ?? e.message}`)
+      if (!opts.codigos) await updateDoc(doc(db, 'config/tango'), { comprobantesSync: { ultimaCorrida: serverTimestamp(), motivo, ok: false, error: String(e.message).slice(0, 300) } }).catch(() => {})
+      throw e
+    }
+  })
+}
+
+function programarComprobantes(db) {
+  const tick = async () => {
+    try { await correrComprobantes(db, 'periodica') } catch { /* ya logueado */ }
+    let minutos = COMPROBANTES_INTERVALO_DEFAULT_MIN
+    try { const m = Number((await configTango(db)).comprobantes?.intervaloMin); if (Number.isFinite(m) && m >= 2) minutos = m } catch { /* default */ }
+    setTimeout(tick, minutos * 60 * 1000)
+  }
+  setTimeout(tick, COMPROBANTES_PRIMERA_CORRIDA_MS)
+  // A pedido desde la app: la ficha del cliente pide refrescar SUS códigos (rápido, últimos días).
+  const q = query(collection(db, 'tango-consultas'), where('tipo', '==', 'sincronizarComprobantes'), where('estado', '==', 'pendiente'))
+  onSnapshot(q, (snap) => {
+    for (const ch of snap.docChanges()) {
+      if (ch.type !== 'added') continue
+      const id = ch.doc.id
+      const c = ch.doc.data()
+      const codigos = Array.isArray(c.codigos) ? c.codigos.map(String).slice(0, 50) : null
+      log(`comprobantes a pedido ${id}: ${c.empresa ?? 'todas'} ${codigos ? codigos.join(', ') : '(sin códigos: pasada normal)'}`)
+      correrComprobantes(db, `pedido:${id}`, { soloEmpresa: c.empresa ?? null, codigos, dias: codigos ? 10 : null })
+        .then((r) => updateDoc(doc(db, 'tango-consultas', id), { estado: 'respondida', resultado: r ? { empresas: r.empresas } : null, ultimoError: null, actualizadoEn: serverTimestamp() }))
+        .catch((e) => updateDoc(doc(db, 'tango-consultas', id), { estado: 'error', ultimoError: String(e.message).slice(0, 300), actualizadoEn: serverTimestamp() }).catch(() => {}))
+    }
+  }, (err) => log(`ERROR en el listener de comprobantes a pedido (el SDK reintenta solo): ${err.message}`))
+}
+
 async function main() {
   if (PROBAR_SQL) return probarSql()
   const app = initializeApp(cfg.firebaseConfig)
@@ -389,7 +452,8 @@ async function main() {
   setInterval(() => barrido(db).catch((e) => log(`ERROR en barrido: ${e.message}`)), SWEEP_INTERVAL_MS)
   // Mismo campo que usaba bridge-listener (es el único que las reglas le dejan tocar al bridge en config/tango).
   setInterval(() => updateDoc(doc(db, 'config/tango'), { bridgeListenerLastSeen: serverTimestamp() }).catch((e) => log(`ERROR heartbeat: ${e.message}`)), HEARTBEAT_INTERVAL_MS)
-  log(`Escuchando tango-outbox (${ENTIDADES.join(', ')})...`)
+  programarComprobantes(db)
+  log(`Escuchando tango-outbox (${ENTIDADES.join(', ')}) y comprobantes de Tango → app (cada config/tango.comprobantes.intervaloMin, default ${COMPROBANTES_INTERVALO_DEFAULT_MIN} min)...`)
 }
 
 main().catch((err) => { log(`ERROR FATAL: ${err.stack ?? err.message}`); process.exit(1) })

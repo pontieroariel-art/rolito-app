@@ -53,6 +53,25 @@ export async function crearConsultaSaldo(
   return ref.id
 }
 
+// Pide al bridge que refresque YA las facturas y remitos de Tango de un cliente
+// (2026-09-10): una consulta por empresa con los códigos del cliente; el bridge
+// corre el lector solo para esos códigos (últimos 10 días) y responde en segundos.
+export async function crearConsultaSincronizarComprobantes(
+  args: { clienteUid: string; empresa: EmpresaTango; codigos: string[] },
+  actor: { uid: string; nombre: string },
+): Promise<string> {
+  const ref = await addDoc(collection(db, 'tango-consultas'), {
+    tipo:          'sincronizarComprobantes',
+    clienteUid:    args.clienteUid,
+    empresa:       args.empresa,
+    codigos:       args.codigos.slice(0, 50),
+    solicitadoPor: actor,
+    estado:        'pendiente',
+    creadoEn:      serverTimestamp(),
+  })
+  return ref.id
+}
+
 export function subscribeConsulta(
   id: string,
   cb: (consulta: TangoConsulta | null) => void,

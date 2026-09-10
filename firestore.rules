@@ -564,8 +564,9 @@ service cloud.firestore {
       // Bridge de Tango: necesita leer config/tango (interruptor
       // produccionEnabled) y escribir su propio heartbeat, nada más.
       allow read: if request.auth != null && isTangoBridge() && docId == 'tango';
+      // + comprobantesSync: resumen de la última corrida del lector de comprobantes (2026-09-10).
       allow update: if request.auth != null && isTangoBridge() && docId == 'tango'
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['bridgeListenerLastSeen']);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['bridgeListenerLastSeen', 'comprobantesSync']);
       // Comercial y gerente_comercial pueden editar el catálogo (config/catalogo).
       allow write: if request.auth != null && docId == 'catalogo' && isManager();
       // Catálogos de motivos/tipos de reparación, pasos de taller y contador
@@ -1263,6 +1264,18 @@ service cloud.firestore {
         // una por empresa en la que el cliente está vinculado).
         && request.resource.data.empresa in ['redonhielo', 'rolito']
         && (!('idsGva14' in request.resource.data) || request.resource.data.idsGva14 is list);
+
+      // Refrescar los comprobantes de Tango (facturas/remitos) de un cliente a pedido
+      // (2026-09-10): la ficha manda los códigos del cliente en una empresa; el bridge
+      // corre el lector solo para esos códigos y responde por el mismo doc.
+      allow create: if request.auth != null
+        && (isSupervisor() || isCaja() || isChofer() || isOperator() || isFacturacion() || isTesoreria())
+        && request.resource.data.tipo == 'sincronizarComprobantes'
+        && request.resource.data.estado == 'pendiente'
+        && request.resource.data.solicitadoPor.uid == request.auth.uid
+        && request.resource.data.empresa in ['redonhielo', 'rolito']
+        && request.resource.data.codigos is list && request.resource.data.codigos.size() >= 1 && request.resource.data.codigos.size() <= 50
+        && (!('clienteUid' in request.resource.data) || request.resource.data.clienteUid is string);
 
       allow update: if request.auth != null && isTangoBridge()
         && request.resource.data.diff(resource.data).affectedKeys()

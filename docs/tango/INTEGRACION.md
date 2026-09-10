@@ -1842,11 +1842,19 @@ traer a la app los remitos y facturas que hizo la oficina en Tango, como si los 
   percepciones para desglosarlas por jurisdicción.
 - Volumen 12 meses (Redonhielo): ~30.000 facturas y ~32.000 remitos.
 
-### 35.3 Lector en la VM: `scripts/tango/bridge-sync-comprobantes.mjs` (solo lee)
+### 35.3 Lector en la VM: `scripts/tango/comprobantes-sync.mjs` (solo lee)
 
-Corre en RHIELOTG junto a `bridge-sql.mjs`, con **su misma config** (`bridge-sql.config.json`:
-login `tango-bridge` de Firebase + `rolito_bridge` de SQL, que tiene `db_datareader`), en el
-Task Scheduler cada hora. Lógica pura y testeada en `comprobantes-tango.mjs`.
+Módulo que corre **adentro de `bridge-sql.mjs`** (2026-09-10; antes era una tarea aparte):
+cada `config/tango.comprobantes.intervaloMin` minutos (default 60, mínimo 2; `enabled: false`
+lo apaga) y **a pedido desde la app** (botón "Actualizar" en la ficha → `tango-consultas` tipo
+`sincronizarComprobantes` con `empresa` + `codigos`; el bridge corre el lector solo para esos
+códigos, últimos 10 días, y responde por el mismo doc). Una corrida a la vez, en serie. El
+resumen de la última corrida periódica queda en `config/tango.comprobantesSync`
+(`ultimaCorrida, motivo, duracionMs, ok, empresas{facturas,remitos,codigos,escrituras,error}`).
+`bridge-sync-comprobantes.mjs` es el wrapper para correrlo a mano (`--dry-run`, `--backfill`,
+`--cliente=`). Misma config que el bridge (`bridge-sql.config.json`: login `tango-bridge` de
+Firebase + `rolito_bridge` de SQL, que tiene `db_datareader`). Lógica pura y testeada en
+`comprobantes-tango.mjs`.
 
 - Lee GVA12/GVA53, STA14/STA20, GVA54, GVA43, GVA01, GVA23, GVA14 (columnas probadas con
   `sys.columns`) de los últimos `diasVentana` (45) días; `--backfill` = 400 días (primera carga).
@@ -1861,7 +1869,12 @@ Task Scheduler cada hora. Lógica pura y testeada en `comprobantes-tango.mjs`.
     (CAI y vencimiento), usuario de Tango, bultos y facturas.
 - Escribe **solo lo nuevo o cambiado**: huella `h` por comprobante y cache local
   `comprobantes-cache.{empresa}.json`; el índice se actualiza con `merge` y se podan las entradas
-  de más de 13 meses (`deleteField`). Lotes de 400 escrituras.
+  de más de 13 meses (`deleteField`). Lotes de 200 con pausa y reintento con batch nuevo (el
+  backfill de 66.000 escrituras cortó el stream con RESOURCE_EXHAUSTED); el cache avanza por
+  código confirmado, así una corrida cortada retoma. **Exenciones de índice** en
+  `firestore.indexes.json` para `tangoComprobantes.facturas/remitos` y
+  `tangoComprobanteDetalle.renglones/cliente`: un cliente grande superaba las 40.000 entradas de
+  índice por documento ("too many index entries").
 - Flags: `--dry-run` (no escribe, muestra conteos y ejemplos), `--backfill`, `--empresa=`,
   `--cliente=PA.003` (sin cache, para probar un cliente).
 
@@ -1888,13 +1901,15 @@ Task Scheduler cada hora. Lógica pura y testeada en `comprobantes-tango.mjs`.
 
 ### 35.5 Instalación en la VM
 
-1. Copiar `scripts/tango/bridge-sync-comprobantes.mjs` y `scripts/tango/comprobantes-tango.mjs`
-   a `C:\RolitoSync\sql\` (donde está `bridge-sql.mjs`; usa su `bridge-sql.config.json` y sus
-   `node_modules`).
+1. Copiar `scripts/tango/comprobantes-sync.mjs`, `scripts/tango/comprobantes-tango.mjs`,
+   `scripts/tango/bridge-sync-comprobantes.mjs` y el `scripts/tango/bridge-sql.mjs` nuevo a
+   `C:\RolitoSync\sql\` (usa su `bridge-sql.config.json` y sus `node_modules`).
 2. `node bridge-sync-comprobantes.mjs --dry-run --cliente=PA.003` → tiene que listar las
    facturas y remitos de ALGAR con CAE.
-3. `node bridge-sync-comprobantes.mjs --backfill` (una vez; ~60.000 escrituras en Redonhielo).
-4. Task Scheduler: cada hora, `node.exe C:\RolitoSync\sql\bridge-sync-comprobantes.mjs`.
+3. `node bridge-sync-comprobantes.mjs --backfill` (una vez; hecho el 2026-09-10: Redonhielo
+   ~66.000 escrituras, Rolito ~28.000).
+4. Reiniciar el bridge (la tarea "al iniciar el equipo" de `bridge-sql.mjs`): a los 30 s hace
+   la primera pasada y después cada `intervaloMin`. No hace falta ninguna tarea programada aparte.
 
 ### 35.6 Envío por mail al cliente (2026-09-10)
 

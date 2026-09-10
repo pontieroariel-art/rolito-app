@@ -11,6 +11,7 @@ import MenuCompartirPdf, { type DatosMail, type PdfGenerado } from '@/components
 import { useAuth } from '@/context/AuthContext'
 import { useSaldoClienteEnVivo } from '@/hooks/useSaldoClienteEnVivo'
 import { useTangoComprobantes } from '@/hooks/useTangoComprobantes'
+import { useRefrescarComprobantesTango } from '@/hooks/useRefrescarComprobantesTango'
 import { haceCuanto } from '@/pages/supervisor/SupervisorClientesPage'
 import { codigosTangoResumen } from '@/pages/admin/user-management/listaTango'
 import { atrasoMaximo, type GrupoRecibo } from '@/utils/composicionSaldos'
@@ -104,6 +105,7 @@ export default function SeccionSaldo({ c }: { c: UserProfile }) {
   const actor = useMemo(() => (user ? { uid: user.uid, nombre: user.nombre } : null), [user])
   const { saldo, cargando, refrescando, esCache } = useSaldoClienteEnVivo(c, actor)
   const { indices } = useTangoComprobantes(c)
+  const { refrescar, refrescando: refrescandoTango, aviso: avisoTango } = useRefrescarComprobantesTango(c, actor)
   const alertas = useAlertasMora()
   const [modo, setModo] = useState<'pendientes' | 'todas'>('pendientes')
   const [sucursal, setSucursal] = useState<GrupoRecibo | null>(null)
@@ -163,11 +165,18 @@ export default function SeccionSaldo({ c }: { c: UserProfile }) {
         <p className="text-sm text-gray-500">Cargando saldo…</p>
       ) : (
         <div className="space-y-3">
-          <p className="text-xs text-gray-500 flex items-center gap-1.5">
-            {refrescando && <RefreshCw size={12} className="animate-spin" />}
-            {refrescando ? 'Consultando a Tango…' : esCache ? `Datos de Tango ${haceCuanto(saldo?.actualizadoEn) || 'en caché'}` : 'Datos de Tango en vivo'}
-            {atraso > 0 && <span className="text-red-500">· {atraso} {atraso === 1 ? 'día' : 'días'} de atraso</span>}
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs text-gray-500 flex items-center gap-1.5 min-w-0">
+              {refrescando && <RefreshCw size={12} className="animate-spin" />}
+              {refrescando ? 'Consultando a Tango…' : esCache ? `Datos de Tango ${haceCuanto(saldo?.actualizadoEn) || 'en caché'}` : 'Datos de Tango en vivo'}
+              {atraso > 0 && <span className="text-red-500">· {atraso} {atraso === 1 ? 'día' : 'días'} de atraso</span>}
+            </p>
+            <button type="button" onClick={refrescar} disabled={refrescandoTango} title="Traer de Tango las facturas y remitos más nuevos de este cliente"
+              className="shrink-0 inline-flex items-center gap-1 rounded-full border border-[#D3D1C7] bg-white px-2 py-0.5 text-[11px] text-gray-600 active:scale-95 disabled:opacity-50">
+              <RefreshCw size={11} className={refrescandoTango ? 'animate-spin' : ''} /> {refrescandoTango ? 'Actualizando…' : 'Actualizar'}
+            </button>
+          </div>
+          {avisoTango && <p className="text-[11px] text-gray-500 -mt-1">{avisoTango}</p>}
 
           {opciones.length > 0 && (
             <select value={sucursal ? claveGrupo(sucursal) : ''} onChange={(e) => setSucursal(opciones.find((o) => claveGrupo(o.grupo) === e.target.value)?.grupo ?? null)}

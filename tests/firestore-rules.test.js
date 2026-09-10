@@ -2016,6 +2016,27 @@ describe('tango-consultas', () => {
     await assertFails(setDoc(doc(db('sup'), 'tango-consultas/c3'), consulta({ estado: 'respondida' })))
   })
 
+  test('sincronizarComprobantes (2026-09-10): supervisor y tesorería piden con códigos; sin códigos, de más de 50 o a nombre de otro no; el bridge responde', async () => {
+    await seedSupervisor()
+    await seedBridge()
+    await seed((d) => setDoc(doc(d, 'users/tes'), { rol: 'tesoreria', estado: 'activo' }))
+    const pedido = (extra = {}) => ({ tipo: 'sincronizarComprobantes', empresa: 'redonhielo', codigos: ['PA.003'], clienteUid: 'cli', solicitadoPor: { uid: 'sup', nombre: 'Supervisor' }, estado: 'pendiente', creadoEn: new Date(), ...extra })
+    await assertSucceeds(setDoc(doc(db('sup'), 'tango-consultas/s1'), pedido()))
+    await assertSucceeds(setDoc(doc(db('tes'), 'tango-consultas/s2'), pedido({ solicitadoPor: { uid: 'tes', nombre: 'T' }, empresa: 'rolito' })))
+    await assertFails(setDoc(doc(db('sup'), 'tango-consultas/s3'), pedido({ codigos: [] })))
+    await assertFails(setDoc(doc(db('sup'), 'tango-consultas/s4'), pedido({ codigos: Array.from({ length: 51 }, (_, i) => `C${i}`) })))
+    await assertFails(setDoc(doc(db('sup'), 'tango-consultas/s5'), pedido({ solicitadoPor: { uid: 'otro', nombre: 'X' } })))
+    await assertFails(setDoc(doc(db('sup'), 'tango-consultas/s6'), pedido({ empresa: 'otra' })))
+    await assertSucceeds(updateDoc(doc(db('bridge1'), 'tango-consultas/s1'), { estado: 'respondida', resultado: { empresas: {} }, ultimoError: null, actualizadoEn: new Date() }))
+  })
+
+  test('el bridge graba comprobantesSync en config/tango, nada más', async () => {
+    await seedBridge()
+    await seed((d) => setDoc(doc(d, 'config/tango'), { bridgeListenerLastSeen: new Date() }))
+    await assertSucceeds(updateDoc(doc(db('bridge1'), 'config/tango'), { comprobantesSync: { ok: true, motivo: 'periodica' } }))
+    await assertFails(updateDoc(doc(db('bridge1'), 'config/tango'), { remitosSqlEnabled: true }))
+  })
+
   test('la consulta es de una empresa válida; idsGva14 (varios códigos por CUIT) es opcional y lista', async () => {
     await seedSupervisor()
     await assertSucceeds(setDoc(doc(db('sup'), 'tango-consultas/r1'), consulta({ empresa: 'rolito' })))
