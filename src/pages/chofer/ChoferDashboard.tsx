@@ -240,25 +240,28 @@ export default function ChoferDashboard() {
       <ChoferHeader />
 
       {/* Acciones principales — grandes y a mano para operar en la calle */}
-      <div className="max-w-2xl mx-auto px-4 pt-4 flex gap-3">
+      {/* En el celular Cobrar y Facturas no entraban en una sola fila (texto pegado
+          al ícono, 2026-09-10): Vender ocupa el ancho y los otros dos van abajo a
+          la par; desde tablet queda la fila de tres. */}
+      <div className="max-w-2xl mx-auto px-4 pt-4 grid grid-cols-2 gap-3 sm:flex">
         {/* Los cambios dejaron de ser una pantalla aparte: son renglones de la
             venta, para que salgan en el mismo comprobante que firma el cliente. */}
         <Link to="/chofer/venta"
-          className="flex-[2] flex items-center justify-center gap-2.5 rounded-2xl bg-accent text-white py-5 shadow-sm active:scale-[0.99] transition-transform">
+          className="col-span-2 sm:flex-[2] flex items-center justify-center gap-2.5 rounded-2xl bg-accent text-white py-5 shadow-sm active:scale-[0.99] transition-transform">
           <Package size={26} />
           <span className="text-lg font-bold">Vender</span>
         </Link>
         <Link to="/chofer/cobrar"
-          className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-white border border-[#D3D1C7] text-gray-700 py-5 shadow-sm active:scale-[0.99] transition-transform">
-          <HandCoins size={22} className="text-accent" />
+          className="sm:flex-1 flex items-center justify-center gap-2 rounded-2xl bg-white border border-[#D3D1C7] text-gray-700 py-4 sm:py-5 shadow-sm active:scale-[0.99] transition-transform">
+          <HandCoins size={22} className="text-accent shrink-0" />
           <span className="text-base font-bold">Cobrar</span>
         </Link>
         {/* Sin esto la pantalla de facturas existía pero no se llegaba desde
             ningún lado, y el chofer no tenía cómo darle el comprobante al
             cliente parado en la puerta. */}
         <Link to="/chofer/ventas"
-          className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-white border border-[#D3D1C7] text-gray-700 py-5 shadow-sm active:scale-[0.99] transition-transform">
-          <FileText size={22} className="text-accent" />
+          className="sm:flex-1 flex items-center justify-center gap-2 rounded-2xl bg-white border border-[#D3D1C7] text-gray-700 py-4 sm:py-5 shadow-sm active:scale-[0.99] transition-transform">
+          <FileText size={22} className="text-accent shrink-0" />
           <span className="text-base font-bold">Facturas</span>
         </Link>
       </div>
