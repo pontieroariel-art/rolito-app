@@ -2176,6 +2176,13 @@ describe('ventasCamion', () => {
     await assertFails(getDoc(doc(db('cli', 'c@x.com'), 'ventasCamion/v1')))
   })
 
+  test('facturación puede leer ventas de camión (regenera la factura para mandársela al cliente) pero no crearlas', async () => {
+    await seed((d) => setDoc(doc(d, 'users/fac'), { rol: 'facturacion', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'ventasCamion/v1'), venta()))
+    await assertSucceeds(getDoc(doc(db('fac'), 'ventasCamion/v1')))
+    await assertFails(setDoc(doc(db('fac'), 'ventasCamion/v2'), venta({ choferId: 'fac' })))
+  })
+
   test('el chofer puede leer un cliente registrado (para venderle desde el camión)', async () => {
     await seedChofer()
     await seed((d) => setDoc(doc(d, 'users/cli'), cliente()))

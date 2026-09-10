@@ -23,7 +23,7 @@ PWA de gestión de una distribuidora de hielo, organizada en cuatro **sistemas/m
 - **gerente_general** — tablero gerencial, monitoreo, reportes (`/gerente`, `/admin/monitoreo`)
 - **gerente_comercial** — planificación, monitoreo, precios, reportes
 - **comercial** — tablero comercial, pedidos, precios/catálogo, mapa live (`/comercial`, `/comercial/*`)
-- **facturacion** — gestión de usuarios (código de cliente), reportes, movimientos (`/movimientos`)
+- **facturacion** — gestión de usuarios (código de cliente), reportes, movimientos (`/movimientos`); **Comprobantes de clientes** (`/admin/comprobantes`, 2026-09-10): busca un cliente (`clientesIndex`), lista sus facturas/NC/ND y remitos de Tango de 12 meses (mismo dato que la ficha del supervisor: `tangoComprobantes` + `saldosTango` en caché, refresco vía `sincronizarComprobantes`), tilda varios y los manda en **un solo mail** con todos los PDF adjuntos (`enviarComprobantePorMail` acepta `adjuntos[]`, tope 40 / 20 MB; registro en `enviosComprobantes` con `comprobantes` y `cantidad`), los comparte por WhatsApp o los descarga. Lógica pura en `utils/comprobantesLote.ts`, generación secuencial en `services/comprobantesLoteService.ts`, modal `components/facturacion/EnvioLoteModal.tsx`
 - **chofer** (subrol opcional `ayudante`) — entregas del día, mapa de ruta, GPS (`/chofer`, `/chofer/map`); los choferes también registran cobranzas de cta. cte. en la calle (`/chofer/cobrar`) — no hay rol "cobrador" aparte
 
 **Heladeras** (taller propio: fabricación y reacondicionamiento de heladeras/freezers; pipeline de pasos configurable en `config/pasosTaller`):

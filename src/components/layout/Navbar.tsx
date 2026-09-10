@@ -73,6 +73,7 @@ const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
   ],
   facturacion: [
     { to: '/movimientos',                  label: 'Movimientos',    icon: BarChart2 },
+    { to: '/admin/comprobantes',           label: 'Comprobantes',   icon: FileText },
     { to: '/comercial/ventas',             label: 'Ventas',         icon: TrendingUp },
     { to: '/comercial/reporte-precios',    label: 'Rep. precios',   icon: DollarSign },
     { to: '/usuarios',                     label: 'Clientes',       icon: Users },

@@ -39,6 +39,7 @@ const SECTIONS: CardSection[] = [
       { to: '/usuarios',              label: 'Clientes (CRM)', description: 'Alta, edición y ficha de clientes.',      icon: Users },
       { to: '/admin/mapa-clientes',   label: 'Mapa de clientes', description: 'Ubicación geográfica de la cartera.',    icon: Map },
       { to: '/movimientos',           label: 'Movimientos',    description: 'Historial unificado de la operación.',    icon: BarChart2 },
+      { to: '/admin/comprobantes',      label: 'Comprobantes de clientes', description: 'Facturas y remitos de Tango por cliente, para mandarlos en bloque.', icon: FileText },
       { to: '/admin/recupero-facturas', label: 'Recupero de facturas', description: 'Reimprime las facturas viejas de Tango con el formato de siempre.', icon: FileText },
       { to: '/sistema',               label: 'Selección de sistema', description: 'Vista del selector que usan los roles con más de un sistema.', icon: ArrowLeftRight },
     ],

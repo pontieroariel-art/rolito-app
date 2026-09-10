@@ -941,6 +941,9 @@ service cloud.firestore {
         && (isOperator() || isManager() || isGerenteGeneral() || isCaja() || isTesoreria()
             // isSupervisor: 'Reparto en vivo' (liquidación en vivo de todos los camiones, 2026-09-05)
             || isSupervisor()
+            // isFacturacion: Comprobantes de clientes regenera la factura de una
+            // venta de camión para mandársela al cliente (2026-09-10).
+            || isFacturacion()
             || (isChofer() && resource.data.choferId == request.auth.uid));
 
       // isSupervisor: los supervisores también entregan (son depósitos en

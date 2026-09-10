@@ -482,17 +482,22 @@ function tplArcaFacturasConProblemas(facturas, appUrl) {
 function tplComprobanteEnviado(clienteNombre, comprobante, mensaje, remitente) {
     const parrafos = mensaje.split(/\n+/).map((p) => p.trim()).filter(Boolean)
         .map((p) => `<p style="margin:0 0 14px">${esc(p)}</p>`).join('');
+    const varios = (comprobante.adjuntos?.length ?? 0) > 1;
     const adjunto = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 22px">
     <tr>
       <td style="background:${GREEN_BG};border-left:3px solid ${GREEN};border-radius:0 8px 8px 0;padding:12px 16px">
-        <p style="margin:0;font-size:11px;color:${GREEN_DARK};font-weight:700;text-transform:uppercase;letter-spacing:.05em">Adjunto</p>
-        <p style="margin:4px 0 0;font-size:14px;color:#111827">${esc(comprobante.titulo)} en PDF. Si no lo ves, revisá la carpeta de adjuntos o pedinos que lo reenviemos.</p>
+        <p style="margin:0;font-size:11px;color:${GREEN_DARK};font-weight:700;text-transform:uppercase;letter-spacing:.05em">${varios ? `Adjuntos (${comprobante.adjuntos.length})` : 'Adjunto'}</p>
+        ${varios
+        ? `<p style="margin:4px 0 0;font-size:14px;color:#111827">Van ${comprobante.adjuntos.length} comprobantes en PDF:</p>
+        <ul style="margin:6px 0 0;padding-left:18px;font-size:13px;color:#374151">${comprobante.adjuntos.map((a) => `<li>${esc(a)}</li>`).join('')}</ul>
+        <p style="margin:6px 0 0;font-size:12px;color:#6b7280">Si no los ves, revisá la carpeta de adjuntos o pedinos que los reenviemos.</p>`
+        : `<p style="margin:4px 0 0;font-size:14px;color:#111827">${esc(comprobante.titulo)} en PDF. Si no lo ves, revisá la carpeta de adjuntos o pedinos que lo reenviemos.</p>`}
       </td>
     </tr>
   </table>`;
     const body = `
     ${greeting(clienteNombre)}
-    ${parrafos || `<p style="margin:0 0 14px">Te enviamos adjunto el comprobante <strong>${esc(comprobante.titulo)}</strong>.</p>`}
+    ${parrafos || (varios ? `<p style="margin:0 0 14px">Te enviamos adjuntos los comprobantes que figuran abajo.</p>` : `<p style="margin:0 0 14px">Te enviamos adjunto el comprobante <strong>${esc(comprobante.titulo)}</strong>.</p>`)}
     ${infoBox(comprobante.filas.map((f) => ({ label: esc(f.label), value: esc(f.value) })))}
     ${adjunto}
     <p style="margin:0;color:#6b7280;font-size:13px">Cualquier consulta, respondé este mail o comunicate con <strong>${esc(remitente)}</strong>.</p>

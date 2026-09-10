@@ -47,6 +47,7 @@ const HistorialDespachoPage  = lazy(() => import('./pages/admin/HistorialDespach
 const ClimaPage           = lazy(() => import('./pages/admin/ClimaPage'))
 // Lazy con doble motivo: además del peso normal, arrastra pdfjs-dist (448K).
 const RecuperoFacturasPage = lazy(() => import('./pages/admin/RecuperoFacturasPage'))
+const ComprobantesClientesPage = lazy(() => import('./pages/admin/ComprobantesClientesPage'))
 
 const ComercialDashboard   = lazy(() => import('./pages/comercial/ComercialDashboard'))
 const ComercialOrders      = lazy(() => import('./pages/comercial/ComercialOrders'))
@@ -312,6 +313,12 @@ function AppContent() {
           {/* Recupero de facturas viejas — campaña puntual, se saca cuando termine */}
           <Route element={<ProtectedRoute allowedRoles={['super_admin', 'facturacion']} />}>
             <Route path="/admin/recupero-facturas" element={<RecuperoFacturasPage />} />
+          </Route>
+
+          {/* Comprobantes de clientes (2026-09-10): facturas y remitos de Tango por
+              cliente, para mandarlos en bloque por mail / WhatsApp / descarga. */}
+          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'facturacion']} />}>
+            <Route path="/admin/comprobantes" element={<ComprobantesClientesPage />} />
           </Route>
 
           {/* Historial unificado */}

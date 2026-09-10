@@ -32,6 +32,38 @@ export async function compartirArchivo(
   return 'descargado'
 }
 
+/**
+ * Varios archivos en un solo menú del sistema (WhatsApp acepta varios PDF a la
+ * vez). Si el navegador no puede, se descargan uno por uno.
+ */
+export async function compartirArchivos(
+  archivos: { blob: Blob; nombre: string }[],
+  opciones: { titulo: string; texto?: string } = { titulo: '' },
+): Promise<ResultadoCompartir> {
+  const files = archivos.map((a) => new File([a.blob], a.nombre, { type: a.blob.type || 'application/pdf' }))
+  if (files.length && navigator.canShare?.({ files })) {
+    try {
+      await navigator.share({ files, title: opciones.titulo, text: opciones.texto })
+      return 'compartido'
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return 'cancelado'
+    }
+  }
+  await descargarArchivos(archivos)
+  return 'descargado'
+}
+
+/**
+ * Descarga varios PDF seguidos. Chrome pide permiso para "varias descargas"
+ * la primera vez; el espacio entre una y otra evita que se pierdan.
+ */
+export async function descargarArchivos(archivos: { blob: Blob; nombre: string }[]): Promise<void> {
+  for (const [i, a] of archivos.entries()) {
+    if (i > 0) await new Promise((r) => setTimeout(r, 350))
+    descargarArchivo(a.blob, a.nombre)
+  }
+}
+
 export function descargarArchivo(blob: Blob, nombreArchivo: string): void {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
