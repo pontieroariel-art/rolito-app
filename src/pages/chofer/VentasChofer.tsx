@@ -6,15 +6,14 @@
 // Tango envía por su cuenta.
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, FileText, Share2, Download, Clock, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, FileText, Clock, AlertTriangle } from 'lucide-react'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { useAuth } from '@/context/AuthContext'
 import { subscribeVentasRecientesChofer } from '@/services/ventaCamionService'
 import { tipoComprobanteInterno, ETIQUETA_COMPROBANTE, type CaiRemito } from '@/utils/comprobanteInterno'
-import { entregarComprobanteVenta } from '@/utils/comprobanteDeVenta'
 import { codigoComprobanteInterno } from '@/services/numeracionInternaService'
 import { caiRemitoOficialCacheado, getCaiRemitoOficial } from '@/services/remitoOficialConfigService'
-import { puedeCompartirArchivos } from '@/utils/compartir'
+import MenuComprobanteVenta from '@/components/ventas/MenuComprobanteVenta'
 import { VentaCamion } from '@/types'
 
 const money = (n: number) =>
@@ -28,8 +27,6 @@ const nroFactura = (v: VentaCamion) =>
 export default function VentasChofer({ volverA = '/chofer' }: { volverA?: string } = {}) {
   const { user } = useAuth()
   const [ventas, setVentas] = useState<VentaCamion[] | null>(null)
-  const [ocupada, setOcupada] = useState<string | null>(null)
-  const [aviso, setAviso] = useState('')
   const [fallo, setFallo] = useState(false)
   const [pendientes, setPendientes] = useState(0)
   // CAI del talonario de remitos oficiales (Redonhielo). Arranca con el último
@@ -37,26 +34,11 @@ export default function VentasChofer({ volverA = '/chofer' }: { volverA?: string
   const [caiRemito, setCaiRemito] = useState<CaiRemito | null>(() => caiRemitoOficialCacheado())
   useEffect(() => { getCaiRemitoOficial().then(setCaiRemito) }, [])
 
-  const compartible = useMemo(() => puedeCompartirArchivos(), [])
-
   useEffect(() => {
     if (!user) return
     setFallo(false)
     return subscribeVentasRecientesChofer(user.uid, setVentas, () => setFallo(true), setPendientes)
   }, [user])
-
-  // Genera el comprobante de la venta —la factura de ARCA, o el remito /
-  // factura X interna cuando no factura ARCA— y lo comparte o descarga
-  // (lógica compartida con la liquidación: utils/comprobanteDeVenta.ts).
-  const entregarComprobante = async (venta: VentaCamion, compartir: boolean) => {
-    setAviso('')
-    setOcupada(venta.id)
-    try {
-      setAviso(await entregarComprobanteVenta(venta, undefined, caiRemito, compartir ? 'enviar' : 'ver'))
-    } finally {
-      setOcupada(null)
-    }
-  }
 
   if (!user || ventas === null) return <LoadingSpinner fullScreen />
 
@@ -73,9 +55,6 @@ export default function VentasChofer({ volverA = '/chofer' }: { volverA?: string
       </header>
 
       <main className="mx-auto max-w-2xl p-4">
-        {aviso && (
-          <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{aviso}</p>
-        )}
 
         {/* Ventas hechas sin señal que todavía no llegaron al servidor. Caja no
             las ve: si el chofer rinde antes de que suban, la liquidación sale
@@ -141,26 +120,7 @@ export default function VentasChofer({ volverA = '/chofer' }: { volverA?: string
                         <span className="mr-auto font-mono text-xs text-gray-600">
                           Factura {nroFactura(v)}
                         </span>
-                        <button
-                          type="button"
-                          disabled={ocupada === v.id}
-                          onClick={() => entregarComprobante(v,true)}
-                          className="flex items-center gap-1.5 rounded-lg bg-[#1D9E75] px-3 py-2 text-sm font-semibold text-white hover:bg-[#178760] disabled:opacity-50"
-                        >
-                          <Share2 size={15} />
-                          {ocupada === v.id ? 'Generando…' : compartible ? 'Enviar' : 'Descargar'}
-                        </button>
-                        {compartible && (
-                          <button
-                            type="button"
-                            disabled={ocupada === v.id}
-                            onClick={() => entregarComprobante(v,false)}
-                            className="flex items-center gap-1.5 rounded-lg border border-[#D3D1C7] px-3 py-2 text-sm text-gray-700 disabled:opacity-50"
-                            aria-label="Descargar la factura"
-                          >
-                            <Download size={15} />
-                          </button>
-                        )}
+                        <MenuComprobanteVenta venta={v} cai={caiRemito} />
                       </div>
                     ) : f?.estado === 'incierta' ? (
                       <p className="flex items-center gap-1.5 text-xs text-amber-700">
@@ -183,26 +143,7 @@ export default function VentasChofer({ volverA = '/chofer' }: { volverA?: string
                         {ETIQUETA_COMPROBANTE[tipoComprobanteInterno(v)!]}{' '}
                         {v.comprobanteInterno ? codigoComprobanteInterno(v.comprobanteInterno) : 'sin número'}
                       </span>
-                      <button
-                        type="button"
-                        disabled={ocupada === v.id}
-                        onClick={() => entregarComprobante(v, true)}
-                        className="flex items-center gap-1.5 rounded-lg bg-[#1D9E75] px-3 py-2 text-sm font-semibold text-white hover:bg-[#178760] disabled:opacity-50"
-                      >
-                        <Share2 size={15} />
-                        {ocupada === v.id ? 'Generando…' : compartible ? 'Enviar' : 'Descargar'}
-                      </button>
-                      {compartible && (
-                        <button
-                          type="button"
-                          disabled={ocupada === v.id}
-                          onClick={() => entregarComprobante(v, false)}
-                          className="flex items-center gap-1.5 rounded-lg border border-[#D3D1C7] px-3 py-2 text-sm text-gray-700 disabled:opacity-50"
-                          aria-label="Descargar el comprobante"
-                        >
-                          <Download size={15} />
-                        </button>
-                      )}
+                      <MenuComprobanteVenta venta={v} cai={caiRemito} />
                     </div>
                   </div>
                 )}

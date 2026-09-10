@@ -17,6 +17,8 @@ export type PdfGenerado = { ok: true; blob: Blob; nombre: string } | { ok: false
 
 export interface DatosMail {
   para:          string
+  /** Si `para` viene vacío, se llama al abrir el mail para buscar el destinatario (mail de Tango del cliente). */
+  resolverPara?: () => Promise<string>
   asunto:        string
   mensaje?:      string
   comprobante:   { tipo: string; numero: string; empresa?: EmpresaTango }
@@ -43,6 +45,7 @@ export default function MenuCompartirPdf({ generar, titulo, texto, mail, trigger
   const [mensaje, setMensaje] = useState(mail.mensaje ?? '')
   const [conCopia, setConCopia] = useState(false)
   const [enviadoA, setEnviadoA] = useState('')
+  const [buscandoPara, setBuscandoPara] = useState(false)
 
   const cerrar = () => { setAbierto(false); setAviso('') }
 
@@ -64,7 +67,13 @@ export default function MenuCompartirPdf({ generar, titulo, texto, mail, trigger
     }
   }
 
-  const abrirMail = () => { setAbierto(false); setEnviadoA(''); setAviso(''); setMailAbierto(true) }
+  const abrirMail = () => {
+    setAbierto(false); setEnviadoA(''); setAviso(''); setMailAbierto(true)
+    if (!para.trim() && mail.resolverPara) {
+      setBuscandoPara(true)
+      mail.resolverPara().then((e) => { if (e) setPara((prev) => prev.trim() ? prev : e) }).catch(() => undefined).finally(() => setBuscandoPara(false))
+    }
+  }
 
   const enviarMail = async () => {
     const destino = para.trim().toLowerCase()
@@ -112,7 +121,7 @@ export default function MenuCompartirPdf({ generar, titulo, texto, mail, trigger
             <button type="button" onClick={abrirMail} disabled={ocupado !== null}
               className="w-full flex items-center gap-3 rounded-xl border border-[#D3D1C7] px-3 py-3 text-left text-sm text-gray-900 active:bg-[#F8F7F2] disabled:opacity-50">
               <Mail size={18} className="text-accent shrink-0" />
-              <span><span className="font-medium">Mail al cliente</span><br /><span className="text-xs text-gray-500">{mail.para ? `A ${mail.para}` : 'El cliente no tiene mail en Tango: lo escribís vos'}</span></span>
+              <span><span className="font-medium">Mail al cliente</span><br /><span className="text-xs text-gray-500">{mail.para ? `A ${mail.para}` : mail.resolverPara ? 'Con el mail de la ficha de Tango del cliente' : 'El cliente no tiene mail en Tango: lo escribís vos'}</span></span>
             </button>
             <button type="button" onClick={() => correr('descargar')} disabled={ocupado !== null}
               className="w-full flex items-center gap-3 rounded-xl border border-[#D3D1C7] px-3 py-3 text-left text-sm text-gray-900 active:bg-[#F8F7F2] disabled:opacity-50">
@@ -137,7 +146,8 @@ export default function MenuCompartirPdf({ generar, titulo, texto, mail, trigger
               <span className="text-xs text-gray-500">Para</span>
               <input type="email" value={para} onChange={(e) => setPara(e.target.value)} placeholder="cliente@empresa.com" autoComplete="off"
                 className="mt-1 w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent" />
-              {mail.para && para.trim().toLowerCase() === mail.para.toLowerCase() && <span className="text-[11px] text-gray-400">Mail de la ficha de Tango</span>}
+              {buscandoPara ? <span className="text-[11px] text-gray-400">Buscando el mail del cliente en Tango…</span>
+                : mail.para && para.trim().toLowerCase() === mail.para.toLowerCase() ? <span className="text-[11px] text-gray-400">Mail de la ficha de Tango</span> : null}
             </label>
             <label className="block">
               <span className="text-xs text-gray-500">Asunto</span>

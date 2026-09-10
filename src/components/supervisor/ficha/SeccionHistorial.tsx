@@ -6,8 +6,8 @@ import { getHistorialCliente, type HistorialCliente } from '@/services/historial
 import { subscribeClientOrders } from '@/services/orderService'
 import { caiRemitoOficialCacheado, getCaiRemitoOficial } from '@/services/remitoOficialConfigService'
 import { reportError } from '@/services/observability'
-import { describirComprobante, entregarComprobanteVenta } from '@/utils/comprobanteDeVenta'
-import { puedeCompartirArchivos } from '@/utils/compartir'
+import { describirComprobante } from '@/utils/comprobanteDeVenta'
+import MenuComprobanteVenta from '@/components/ventas/MenuComprobanteVenta'
 import { formatoARS } from '@/utils/money'
 import { STATUS_LABELS } from '@/utils/constants'
 import type { CaiRemito } from '@/utils/comprobanteInterno'
@@ -22,14 +22,7 @@ type Item =
 const fechaHora = (d: Date) => d.toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 const resumenProductos = (p: Array<{ name: string; quantity: number }>) => p.map((x) => `${x.quantity} ${x.name}`).join(', ')
 
-function VentaRow({ venta, cliente, caiRemito }: { venta: VentaCamion; cliente: UserProfile; caiRemito: CaiRemito | null }) {
-  const [ocupado, setOcupado] = useState(false)
-  const [aviso, setAviso] = useState('')
-  const entregar = async () => {
-    setOcupado(true)
-    try { setAviso(await entregarComprobanteVenta(venta, cliente, caiRemito, puedeCompartirArchivos() ? 'enviar' : 'ver')) }
-    finally { setOcupado(false) }
-  }
+function VentaRow({ venta, caiRemito }: { venta: VentaCamion; cliente?: UserProfile; caiRemito: CaiRemito | null }) {
   // Qué papel salió con esta venta: remito (cuenta corriente), factura X
   // (promo) o factura electrónica (contado), con su número — es lo que el
   // supervisor le muestra o le reenvía al cliente.
@@ -43,13 +36,9 @@ function VentaRow({ venta, cliente, caiRemito }: { venta: VentaCamion; cliente: 
         <p className={`text-xs ${hayPapel ? 'text-accent' : 'text-amber-700'}`}>
           {comp.etiqueta}{comp.numero ? ` ${comp.numero}` : ''}{comp.detalle && comp.detalle !== 'CAE ok' ? ` · ${comp.detalle}` : ''}
         </p>
-        {aviso && <p className="text-[11px] text-amber-700">{aviso}</p>}
       </div>
       <p className="text-sm font-medium text-gray-900 tabular-nums shrink-0">{formatoARS(venta.total)}</p>
-      <button type="button" onClick={entregar} disabled={ocupado} aria-label={`Enviar ${comp.etiqueta}`} title={`Enviar ${comp.etiqueta}`}
-        className="w-9 h-9 rounded-lg border border-[#D3D1C7] flex items-center justify-center text-accent shrink-0 active:scale-95 disabled:opacity-50">
-        {ocupado ? <RefreshCw size={15} className="animate-spin" /> : <FileText size={15} />}
-      </button>
+      <MenuComprobanteVenta venta={venta} cai={caiRemito} compacto />
     </div>
   )
 }
