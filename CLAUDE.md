@@ -4,7 +4,7 @@ Este archivo provee contexto a Claude Code (claude.ai/code) para trabajar con es
 
 ## Comandos
 
-- **Servidor de desarrollo:** `npm run dev` — conecta a los emuladores locales de Firestore/Auth (no a producción), ver abajo
+- **Servidor de desarrollo:** `npm run dev` — conecta a los emuladores locales de Firestore/Auth (no a producción); el flujo completo está en la skill `emuladores` (`.claude/skills/emuladores/SKILL.md`)
 - **Build de producción:** `npm run build`
 - **Preview del build:** `npm run preview`
 - **Typecheck:** `npm run typecheck` (app) / `npm run typecheck:functions` (functions)
@@ -12,25 +12,6 @@ Este archivo provee contexto a Claude Code (claude.ai/code) para trabajar con es
 - **Tests de reglas Firestore:** `npm run test:rules` (corre contra el emulador; requiere Java 21+)
 
 No hay tests unitarios de UI; la cobertura automatizada está en las reglas de seguridad.
-
-### Desarrollo local seguro (emuladores)
-
-`npm run dev` conecta a los emuladores de Firestore/Auth en vez de a producción (`src/services/firebase.ts`, gateado por `import.meta.env.DEV` — no afecta el build de producción). Flujo (requiere Java 21+, igual que `test:rules`):
-
-1. `npm run emulators` — levanta Firestore + Auth emulados (Emulator UI en `http://localhost:4000`; persiste datos entre reinicios en `emulator-data/`, gitignoreado)
-2. `npm run seed:emulator` — carga datos mínimos de prueba (staff, choferes, cliente, camiones activos, pedidos) e imprime las credenciales; solo hace falta una vez por sesión de emulador
-3. `npm run dev` — la app ya apunta al emulador
-
-**Ojo:** las Cloud Functions (`sendPush`, `notifyCerca`, `notifyReprogramado`, `orsDirections`) no están emuladas — siguen pegándole a las funciones reales desplegadas. En la práctica, confirmar un despacho en local todavía manda una push real a un chofer real.
-
-## Stack tecnológico
-
-- **Frontend:** React 18 + TypeScript, Vite 6, Tailwind CSS 3, Radix UI, Lucide, React Router 6, Zustand, TanStack React Query 5, dnd-kit (tablero de despacho), Recharts, jsPDF/xlsx (exportes). PWA via `vite-plugin-pwa` con service worker propio (push + offline).
-- **Backend (serverless):** Firebase — Auth, Firestore (tiempo real via `onSnapshot`), Cloud Functions (Node 22, TS, en `functions/`: emails con Resend, web push, pricing, rollups de gerencia, sync/outbox de Tango, turnos de ventanilla, triggers de heladeras, cleanup) y Hosting.
-- **Mapas:** Google Maps (`@react-google-maps/api`): planificación de rutas, tracking del camión, autocomplete de direcciones.
-- **Seguridad / observabilidad:** App Check (reCAPTCHA v3, `VITE_RECAPTCHA_SITE_KEY`) y Sentry (`@sentry/react`, gateado por `VITE_SENTRY_DSN` — ver `src/services/observability.ts`).
-
-Deploy: push a `master` despliega automáticamente a Firebase Hosting via GitHub Actions.
 
 ## Arquitectura
 
@@ -80,18 +61,6 @@ PWA de gestión de una distribuidora de hielo, organizada en cuatro **sistemas/m
 - **Roles adicionales** (`users.rolesExtra`, solo `caja`/`muelle`/`seguridad`, con `planta`): para staff que cubre el mostrador además de su puesto (ej. logística + caja). Las reglas preguntan `hasRol()` para esos tres roles; en el front todo pasa por `tieneRol`/`tieneAlgunRol` (`src/utils/roles.ts`), nunca por `user.rol === 'caja'`. Los asigna el super_admin desde Usuarios ("También hace").
 - Algunas pantallas se fijan a un dispositivo por `localStorage` (tablet de planta → login por legajo; tablet de mostrador → solo Cobranzas) — ver `Landing.tsx` y los `*DeviceService`.
 
-### Directorios clave
-
-- `src/services/` — Capa de acceso a Firebase (un servicio por dominio: pedidos, despachos, flota, visitas, precios, ubicaciones, etc.)
-- `src/hooks/` — Hooks que wrappean suscripciones a Firestore y React Query (`useOrders`, `useVisitas`, `useListasPrecios`, …)
-- `src/components/ui/` — Primitivos de UI reutilizables
-- `src/components/layout/` — AuthLayout, Navbar, ProtectedRoute (guard de rutas por rol)
-- `src/components/admin/` — Piezas grandes del panel (DespachoBoard, MapaPlanificacion, VisitasPanel)
-- `src/pages/` — Páginas por rol/módulo: `auth/`, `client/`, `admin/`, `chofer/`, `comercial/`, `gerente/`, `logistica/`, `shared/`, `produccion/`, `expedicion/`, `tecnico/`, `public/` (turnos de ventanilla, calculadora — sin login)
-- `src/utils/constants.ts` — Catálogo de productos, flujo de estados de pedido, labels
-- `functions/src/triggers/` — Triggers y callables (emails, push, pricing, `rollups`, `tangoSync`/`tangoOutbox`, `turnosVentanilla`, `heladeras`, `produccionAuth`, cleanup); todos se exportan en `functions/src/index.ts`
-- `tests/firestore-rules.test.js` — Tests de las reglas de seguridad (node:test + emulador)
-
 ### Colecciones de Firestore principales
 
 - `users/{uid}` — Perfiles (rol, estado, sucursales, código de cliente)
@@ -116,21 +85,12 @@ Por módulo:
 
 Prefijo `VITE_FIREBASE_*`: `API_KEY`, `AUTH_DOMAIN`, `PROJECT_ID`, `STORAGE_BUCKET`, `MESSAGING_SENDER_ID`, `APP_ID`. Además `VITE_GOOGLE_MAPS_API_KEY` (Google Maps), `VITE_VAPID_PUBLIC_KEY` (web push), `VITE_RECAPTCHA_SITE_KEY` (App Check, reCAPTCHA v3) y `VITE_SENTRY_DSN` (Sentry — opcional; la observabilidad se activa solo si está presente). En CI, todas se inyectan como GitHub Secrets en `deploy.yml`. Los secretos de Cloud Functions (`RESEND_API_KEY`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `ORS_KEY` para OpenRouteService, `TANGO_BRIDGE_SECRET` para el bridge de Tango) se configuran con `firebase functions:secrets:set`, no en `.env`. El remitente de todos los mails (`FROM_EMAIL`, hoy `Rolito <comprobantes@rolito.com.ar>`; el dominio `rolito.com.ar` está verificado en Resend) va en `functions/.env`, que sí se commitea: al cambiarlo hay que redesplegar las functions que mandan mails.
 
-### CI (GitHub Actions)
-
-- `ci.yml` — typecheck (app + functions), ESLint y tests de reglas contra el emulador (instala Java 21, requerido por firebase-tools).
-- `deploy.yml` — deploy a Firebase Hosting en cada push a `master`.
-
 ### Deploy manual (reglas y functions)
 
 Solo el **hosting** se despliega solo (push a `master`). Reglas y functions van a mano:
 
 - **Reglas:** `firebase deploy --only firestore:rules` (correr `npm run test:rules` antes). Índices: `--only firestore:indexes`.
 - **Functions — OJO, footgun:** `functions/lib/` (el JS compilado) está **commiteado al repo** y `firebase.json` **NO** tiene hook `predeploy`. Si editás `functions/src/*.ts` y corrés `firebase deploy --only functions` sin compilar antes, se sube el JS viejo (o tira "No function matches the filter" para triggers nuevos). Siempre: `npm --prefix functions run build` → verificar que `lib/` refleje el cambio → deployar → **commitear el `lib/` regenerado**. Si son muchas functions, deployar de a ≤6-8 (`--only functions:a,functions:b,...`) por la cuota de Cloud Run. Y si son varias tandas seguidas, esperar unos minutos entre una y otra: el 2026-09-10 tres tandas de 6-7 al hilo terminaron en "Quota exceeded for total allowable CPU per project per region" (las revisiones viejas de Cloud Run todavía contaban) y hubo que redesplegar de a una.
-
-### Optimización del build
-
-Vite divide chunks manualmente: `firebase`, `maps` (Google Maps), `router` (React Router).
 
 ## Convenciones
 
