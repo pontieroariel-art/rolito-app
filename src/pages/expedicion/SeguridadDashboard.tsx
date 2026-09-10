@@ -8,6 +8,7 @@ import { subscribeRemitosCargaDelDia, marcarSalidaRemito } from '../../services/
 import { subscribeVentanillaDelDia, marcarSalidaVentanilla } from '../../services/ventaVentanillaService'
 import { PLANTAS, RemitoCarga, VentaVentanilla } from '../../types'
 import { reportError } from '@/services/observability'
+import { useCotConfig } from '@/hooks/useCotConfig'
 
 const horaDe = (t: { toDate: () => Date }) =>
   t.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
@@ -32,6 +33,10 @@ export default function SeguridadDashboard() {
   useEffect(() => subscribeRemitosCargaDelDia(plantaId, fecha, setRemitos), [plantaId, fecha])
   useEffect(() => subscribeVentanillaDelDia(plantaId, fecha, setVentanillas), [plantaId, fecha])
 
+  // COT de ARBA (2026-09-10): un camión que lo requiere y no lo tiene se avisa,
+  // y si config/cot.bloqueaSalida está prendido no se libera hasta tenerlo.
+  const { cfg: cotCfg } = useCotConfig()
+  const cotPendiente = (r: RemitoCarga) => !!r.cotSolicitud && r.cot?.estado !== 'presentado'
   const camionesPorSalir  = remitos.filter((r) => r.estado === 'entregado')
   const camionesSalidos   = remitos.filter((r) => r.estado === 'salido')
   const retirosPorSalir   = ventanillas.filter((v) => v.estado === 'entregado' && !v.salida)
@@ -95,6 +100,11 @@ export default function SeguridadDashboard() {
                 <p className="text-sm font-semibold text-gray-900">{r.camionLabel}</p>
                 <p className="text-xs text-gray-500">{r.codigo} · {r.choferNombre}</p>
               </div>
+              {r.cotSolicitud && (
+                r.cot?.estado === 'presentado'
+                  ? <p className="text-xs font-semibold text-blue-700">COT ARBA {r.cot.numero}{r.kg ? ` · ${r.kg.toLocaleString('es-AR')} kg` : ''}</p>
+                  : <p className="text-xs font-semibold text-red-700">Sin COT de ARBA{r.cot?.estado === 'error' ? ' (error al presentar)' : ' (pendiente)'}: {cotCfg.bloqueaSalida ? 'no puede salir hasta que caja lo obtenga.' : 'avisá a caja.'}</p>
+              )}
               <div className="text-xs text-gray-600 space-y-0.5">
                 {r.items.map((i) => (
                   <div key={i.productoId} className="flex justify-between">
@@ -108,7 +118,7 @@ export default function SeguridadDashboard() {
                   </div>
                 )}
               </div>
-              <Button onClick={() => liberarCamion(r)} loading={procesando === r.id} disabled={!!procesando} className="w-full">Salió ✓</Button>
+              <Button onClick={() => liberarCamion(r)} loading={procesando === r.id} disabled={!!procesando || (cotCfg.bloqueaSalida && cotPendiente(r))} className="w-full">Salió ✓</Button>
             </div>
           ))}
         </section>

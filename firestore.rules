@@ -985,7 +985,17 @@ service cloud.firestore {
         // la PWA anterior; cuando viene, tiene que cerrar con palletsCarga.
         && (!('envases' in request.resource.data)
             || (envasesCargaOk(request.resource.data.envases) && palletsCoherentes(request.resource.data)))
-        && request.resource.data.estado == 'emitido';
+        && request.resource.data.estado == 'emitido'
+        // COT de ARBA (2026-09-10): caja puede mandar los kilos y la solicitud
+        // (destino, remito R, patente, recorrido); el resultado `cot` lo
+        // escribe SOLO el server, nunca nace con el doc.
+        && !('cot' in request.resource.data)
+        && (!('kg' in request.resource.data) || request.resource.data.kg is number)
+        && (!('cotSolicitud' in request.resource.data)
+            || (request.resource.data.cotSolicitud is map
+                && request.resource.data.cotSolicitud.destino is map
+                && request.resource.data.cotSolicitud.respaldo is map
+                && request.resource.data.cotSolicitud.patente is string));
 
       // Muelle confirma que entregó la mercadería: solo la transición
       // emitido → entregado, solo en su planta y a su propio nombre. Puede

@@ -3,7 +3,7 @@ import {
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { onSnapshotError, esperarOEncolar } from './observability'
-import { EnvasesCarga, RemitoCarga, RemitoCargaItem, PlantaId } from '../types'
+import { CotSolicitud, EnvasesCarga, RemitoCarga, RemitoCargaItem, PlantaId } from '../types'
 import { PLANTA_INFO } from '../utils/constants'
 
 const REMITOS = 'remitosCarga'
@@ -35,6 +35,9 @@ export interface CrearRemitoCargaArgs {
   // Composición de envases que salen (caja la declara; muelle se la dicta).
   // palletsCarga se deriva acá: tarimasMadera + palletsMetal.
   envases:      EnvasesCarga
+  /** COT de ARBA (2026-09-10): kilos de la carga y, si requiere COT, lo que caja declara. */
+  kg?:          number
+  cotSolicitud?: CotSolicitud
 }
 
 // Crea el remito con su número correlativo en una sola transacción (el
@@ -64,6 +67,10 @@ export async function crearRemitoCarga(args: CrearRemitoCargaArgs, actor: ActorC
       creadoPor:    { uid: actor.uid, nombre: actor.nombre },
       fecha:        Timestamp.now(),
       tango:        { estado: 'pendiente' },
+      // COT de ARBA: los kilos siempre (para saber si lo requería) y la
+      // solicitud solo cuando caja la completó; el resultado lo escribe el server.
+      ...(args.kg !== undefined ? { kg: args.kg } : {}),
+      ...(args.cotSolicitud ? { cotSolicitud: args.cotSolicitud } : {}),
     }
     tx.set(remitoRef, remito)
     return remito

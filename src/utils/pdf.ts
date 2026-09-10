@@ -796,6 +796,10 @@ export async function generateRemitoCarga(remito: {
   envases?:     EnvasesCarga
   creadoPor:    { nombre: string }
   fecha:        Date
+  /** COT de ARBA ya obtenido (2026-09-10): se imprime en el encabezado con su validez. */
+  cot?:         { numero: string; fechaValidez?: string } | null
+  /** Kilos de la carga (para dejar constancia en el papel de que requería COT). */
+  kg?:          number
 }, opts: { descargar?: boolean } = {}): Promise<Blob | void> {
   const { default: jsPDF }     = await import('jspdf')
   const { default: autoTable } = await import('jspdf-autotable')
@@ -817,6 +821,11 @@ export async function generateRemitoCarga(remito: {
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(80)
   doc.text(`${remito.codigo}   ·   ${fechaStr}`, pageW - 14, 20, { align: 'right' })
+  // COT de ARBA: el número que el chofer exhibe en un control de ruta (va como
+  // primera fila de la tabla de datos, no en el encabezado, que tiene la línea).
+  const filaCot: string[][] = remito.cot?.numero
+    ? [['COT ARBA', `${remito.cot.numero}${remito.cot.fechaValidez ? ` · válido hasta ${remito.cot.fechaValidez.split('-').reverse().join('/')}` : ''}${remito.kg ? ` · ${remito.kg.toLocaleString('es-AR')} kg` : ''}`]]
+    : []
   doc.setTextColor(0)
   doc.setDrawColor(45, 106, 79)
   doc.setLineWidth(0.6)
@@ -826,6 +835,7 @@ export async function generateRemitoCarga(remito: {
     startY: 32,
     theme: 'plain',
     body: [
+      ...filaCot,
       ['Planta', `${planta.razonSocial} — ${planta.direccion}, ${planta.localidad}`],
       ['Camión', remito.camionLabel],
       ['Chofer', remito.choferNombre],

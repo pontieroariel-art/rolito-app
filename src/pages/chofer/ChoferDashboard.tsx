@@ -389,6 +389,13 @@ export default function ChoferDashboard() {
               {remitosCarga.map((r) => (
                 <div key={r.id}>
                   <p className="text-xs text-gray-500 mb-1">{r.codigo} · {r.camionLabel}</p>
+                  {/* COT de ARBA: el número que se exhibe en un control de ruta. */}
+                  {r.cot?.estado === 'presentado' && r.cot.numero && (
+                    <p className="text-xs font-semibold text-blue-700 mb-1">COT ARBA {r.cot.numero}{r.cot.fechaValidez ? ` · válido hasta ${r.cot.fechaValidez.split('-').reverse().join('/')}` : ''}</p>
+                  )}
+                  {r.cotSolicitud && r.cot?.estado !== 'presentado' && (
+                    <p className="text-xs text-amber-700 mb-1">COT de ARBA pendiente: avisá a caja antes de salir.</p>
+                  )}
                   <div className="space-y-0.5">
                     {r.items.map((i) => (
                       <div key={i.productoId} className="flex justify-between text-sm">

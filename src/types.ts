@@ -277,6 +277,96 @@ export interface RemitoCarga {
   entregadoPor?: { uid: string; nombre: string; hora: Timestamp }   // muelle (Fase 2)
   salida?:       { uid: string; nombre: string; hora: Timestamp }   // seguridad (Fase 4)
   tango?:       RemitoTangoEstado
+  // COT de ARBA (2026-09-10): kilos totales de la carga (según config/cot.productos),
+  // lo que caja declara al emitir y lo que ARBA devolvió (solo lo escribe el server).
+  kg?:           number
+  cotSolicitud?: CotSolicitud
+  cot?:          CotResultado
+}
+
+// ── COT de ARBA: Código de Operación de Traslado del remito de carga ─────────
+// (2026-09-10) Obligatorio cuando la carga que sale de la planta supera
+// config/cot.umbralKg (4.500 kg) o umbralImporte ($9.529.691 en 2026). Caja lo
+// declara al emitir el remito de carga (destino, remito R que lo respalda,
+// patente, recorrido) y la Cloud Function presentarCotArba arma el TXT, lo
+// presenta al web service de ARBA y guarda el COT en `remitosCarga.cot`.
+// Ver docs/arba/COT.md.
+
+export interface CotDomicilio {
+  calle:        string
+  numero:       number      // 0 = S/N
+  complemento?: string      // '', 'S/N', '1/2', '1/4', 'BIS'
+  piso?:        string
+  dto?:         string
+  barrio?:      string
+  cp:           string
+  localidad:    string
+  provincia:    string      // tabla ARBA: 'B' = Buenos Aires, 'C' = CABA
+}
+
+export type CotTipoRecorrido = 'U' | 'R' | 'M' | ''
+
+export interface CotRecorrido {
+  tipo:      CotTipoRecorrido
+  localidad: string   // recorrido urbano
+  calle?:    string
+  ruta:      string   // recorrido rural: ruta/autopista principal
+}
+
+export interface CotPlantaConfig {
+  /** Planta y puerta con que se nombra el archivo (TB_cuit_plantapuerta_fecha_sec.txt), 3 dígitos cada uno. */
+  codigoPlanta: string
+  puerta:       string
+  domicilio:    CotDomicilio
+  recorrido:    CotRecorrido
+}
+
+export interface CotProductoConfig {
+  pesoKg:      number   // kg por unidad del catálogo (bolsa, barra, bidón)
+  codigoArba:  string   // Nomenclador COT / NCM 6 dígitos (hielo 220190)
+  descripcion: string   // PROPIO_DESCRIPCION_PRODUCTO (máx. 40)
+}
+
+export interface CotConfig {
+  habilitado:     boolean                     // presenta a ARBA al emitir el remito
+  ambiente:       'produccion' | 'prueba'
+  cuit:           string                      // CUIT_EMPRESA / ORIGEN_CUIT (sin guiones)
+  razonSocial:    string
+  umbralKg:       number
+  umbralImporte:  number
+  importePorKg:   number                      // sugiere el importe a declarar
+  bloqueaSalida:  boolean                     // seguridad no libera un camión que requiere COT y no lo tiene
+  respaldo:       { codigoComprobante: string; prefijo: number }   // '091' Remito R, talonario 25
+  transportista:  { cuit: string }            // propio = mismo CUIT
+  plantas:        Record<PlantaId, CotPlantaConfig>
+  productos:      Record<string, CotProductoConfig>
+}
+
+export type CotDestino =
+  | { tipo: 'planta'; plantaId: PlantaId }
+  | { tipo: 'cliente'; clienteUid: string; codigoTango?: string; razonSocial: string; cuit: string; consumidorFinal: boolean; domicilio: CotDomicilio }
+
+export interface CotSolicitud {
+  destino:     CotDestino
+  respaldo:    { codigoComprobante: string; prefijo: number; numero: number; importe: number }
+  patente:     string
+  recorrido:   CotRecorrido
+  fechaSalida: string   // yyyy-MM-dd
+  horaSalida:  string   // HH:MM
+}
+
+export type CotEstado = 'pendiente' | 'presentado' | 'error'
+
+export interface CotResultado {
+  estado:        CotEstado
+  numero?:       string   // el COT
+  numeroUnico?:  string
+  archivo?:      string
+  fechaValidez?: string   // yyyy-MM-dd
+  error?:        string
+  intentos?:     number
+  presentadoEn?: Timestamp
+  actualizadoEn?: Timestamp
 }
 
 // ── Expedición: venta por ventanilla (caja, en planta) ────────────────────────

@@ -2317,6 +2317,16 @@ describe('remitosCarga', () => {
     await assertSucceeds(setDoc(doc(db('caja1'), 'remitosCarga/r1'), remito()))
   })
 
+  // ── COT de ARBA (2026-09-10) ──
+  test('caja emite con kilos y solicitud de COT, pero nunca con el resultado `cot` (lo escribe el server)', async () => {
+    await seedCaja()
+    const solicitud = { destino: { tipo: 'planta', plantaId: 'merlo' }, respaldo: { codigoComprobante: '091', prefijo: 25, numero: 58680, importe: 0 }, patente: 'AG028YN', recorrido: { tipo: 'M', localidad: 'MERLO', ruta: 'RUTA 205' }, fechaSalida: '2026-09-10', horaSalida: '07:30' }
+    await assertSucceeds(setDoc(doc(db('caja1'), 'remitosCarga/r1'), remito({ kg: 9060, cotSolicitud: solicitud })))
+    await assertFails(setDoc(doc(db('caja1'), 'remitosCarga/r2'), remito({ kg: 'mucho' })))
+    await assertFails(setDoc(doc(db('caja1'), 'remitosCarga/r3'), remito({ cotSolicitud: { patente: 'AG028YN' } })))
+    await assertFails(setDoc(doc(db('caja1'), 'remitosCarga/r4'), remito({ cot: { estado: 'presentado', numero: '3163824478' } })))
+  })
+
   // ── envases retornables (2026-09-07) ──
   test('caja puede emitir sin envases (PWA anterior) pero palletsCarga tiene que ser un entero', async () => {
     await seedCaja()

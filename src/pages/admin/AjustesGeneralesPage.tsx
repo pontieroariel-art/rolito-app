@@ -2,6 +2,7 @@ import SyncPreciosTangoPanel from '../../components/admin/SyncPreciosTangoPanel'
 import DepositosPanel from '../../components/admin/DepositosPanel'
 import AlertasMoraPanel from '../../components/admin/AlertasMoraPanel'
 import VentanillaPanel from '../../components/admin/VentanillaPanel'
+import CotArbaPanel from '../../components/admin/CotArbaPanel'
 
 // Home de configuración global. Por ahora: estado de las sincronizaciones con
 // Tango (clientes, precios, saldos) y sus botones de "Sincronizar ahora", y el
@@ -20,6 +21,7 @@ export default function AjustesGeneralesPage() {
         <DepositosPanel />
         <AlertasMoraPanel />
         <VentanillaPanel />
+        <CotArbaPanel />
       </main>
     </div>
   )

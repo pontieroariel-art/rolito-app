@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sincronizarDepositosTangoAhora = exports.syncDepositosTango = exports.procesarAltasTangoAhora = exports.altasClientesTango = exports.onConsultaSaldoPendiente = exports.sincronizarSaldosTangoAhora = exports.sincronizarClientesTangoAhora = exports.syncSaldosTangoConnect = exports.syncClientesTangoConnect = exports.sincronizarPreciosTangoAhora = exports.syncPreciosTango = exports.barridoOutboxTango = exports.onOutboxPendiente = exports.onOutboxConfirmado = exports.onCobranzaCreada = exports.onDescargaCamionCreada = exports.onRemitoCargaCreado = exports.onAnulacionEmitida = exports.onVentaVentanillaFacturada = exports.onVentaVentanillaCreada = exports.onVentaCamionFacturada = exports.onVentaCamionCreada = exports.onProduccionPalletCreado = exports.onConsultaRespondida = exports.syncSaldosTango = exports.syncClientesTango = exports.enviarResumenAdminDiario = exports.onHistorialAdminAltoRiesgo = exports.backupAuthUsers = exports.onVisitaSupervisorCreada = exports.onPedidoSupervisorCreado = exports.avisarComodatosPorVencer = exports.onTicketCreado = exports.onStockBajo = exports.onTicketCerrado = exports.generarPedidosRecurrentes = exports.orsDirections = exports.mirrorDriverLocation = exports.validarPreciosPedido = exports.notifyReprogramado = exports.notifyCerca = exports.sendPush = exports.deleteAuthUsers = exports.onOrderEnCamino = exports.onOrderConfirmado = exports.onOrderCreated = exports.onClienteIndexado = exports.onClienteCreadoPorStaff = exports.onUserApproved = exports.onUserRegistered = void 0;
-exports.enviarComprobantePorMail = exports.avisarPadronIIBB = exports.onAnulacionResuelta = exports.onAnulacionSolicitada = exports.reconciliarFacturasArca = exports.onVentaVentanillaContadoFacturar = exports.onVentaContadoFacturar = exports.resetPinProduccion = exports.onOrderRollup = exports.publicarTurnosVentanilla = void 0;
+exports.presentarCotRemito = exports.onRemitoCargaCotSolicitado = exports.enviarComprobantePorMail = exports.avisarPadronIIBB = exports.onAnulacionResuelta = exports.onAnulacionSolicitada = exports.reconciliarFacturasArca = exports.onVentaVentanillaContadoFacturar = exports.onVentaContadoFacturar = exports.resetPinProduccion = exports.onOrderRollup = exports.publicarTurnosVentanilla = void 0;
 const app_1 = require("firebase-admin/app");
 (0, app_1.initializeApp)();
 // Nota: cambio trivial para forzar un hash de fuente distinto y que
@@ -113,4 +113,9 @@ Object.defineProperty(exports, "avisarPadronIIBB", { enumerable: true, get: func
 // Envío por mail de un comprobante generado en la app (factura, remito, composición) al cliente (2026-09-10).
 var enviarComprobante_1 = require("./triggers/enviarComprobante");
 Object.defineProperty(exports, "enviarComprobantePorMail", { enumerable: true, get: function () { return enviarComprobante_1.enviarComprobantePorMail; } });
+// COT de ARBA del remito de carga (2026-09-10): requiere el secret ARBA_CIT y
+// config/cot; el interruptor es config/cot.habilitado. Ver docs/arba/COT.md.
+var cotArba_1 = require("./triggers/cotArba");
+Object.defineProperty(exports, "onRemitoCargaCotSolicitado", { enumerable: true, get: function () { return cotArba_1.onRemitoCargaCotSolicitado; } });
+Object.defineProperty(exports, "presentarCotRemito", { enumerable: true, get: function () { return cotArba_1.presentarCotRemito; } });
 //# sourceMappingURL=index.js.map

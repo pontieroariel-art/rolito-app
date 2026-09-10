@@ -13,6 +13,11 @@ import { generateRemitoCarga } from '../../utils/pdf'
 import { PLANTAS, RemitoCarga, RemitoCargaEstado, RemitoCargaItem } from '../../types'
 import { reportError } from '@/services/observability'
 import RacksInput from '@/components/expedicion/RacksInput'
+import CotCargaForm from '@/components/expedicion/CotCargaForm'
+import { useCotConfig } from '@/hooks/useCotConfig'
+import { presentarCotRemito } from '@/services/cotConfigService'
+import { kgDeItems, requiereCot, validarSolicitudCot } from '@/utils/cot'
+import type { CotSolicitud } from '../../types'
 import { AROS_POR_PALLET, PUNTALES_POR_PALLET, describirEnvases, envasesDeRemito } from '@/utils/envases'
 
 const ESTADO_LABELS: Record<RemitoCargaEstado, string> = {
@@ -65,6 +70,11 @@ export default function RemitosCargaPage() {
   const [guardando,   setGuardando]   = useState(false)
   const [error,       setError]       = useState('')
   const [remitos,     setRemitos]     = useState<RemitoCarga[]>([])
+  // COT de ARBA (2026-09-10): lo que caja declara cuando la carga supera el umbral.
+  const { cfg: cotCfg } = useCotConfig()
+  const [cotSolicitud, setCotSolicitud] = useState<CotSolicitud | null>(null)
+  const [presentandoCot, setPresentandoCot] = useState<string | null>(null)
+  const [avisoCot, setAvisoCot] = useState('')
 
   useEffect(
     () => subscribeRemitosCargaDelDia(plantaId, fecha, setRemitos),
@@ -109,6 +119,10 @@ export default function RemitosCargaPage() {
   }, [palletsSugeridos, tarimasMadera, metalEditado])
   const palletsCarga = tarimasMadera + palletsMetal
   const envases = { tarimasMadera, palletsMetal, racks }
+  // Kilos de la carga según config/cot.productos; si supera el umbral, hace falta COT.
+  const { kg, sinPeso } = useMemo(() => kgDeItems(items, cotCfg.productos), [items, cotCfg.productos])
+  const requiereCotCarga = requiereCot(kg, cotSolicitud?.respaldo.importe ?? 0, cotCfg)
+  const pideCot = requiereCotCarga && cotCfg.habilitado
   const num = (v: string) => Math.max(0, Math.min(999, parseInt(v.replace(/\D/g, ''), 10) || 0))
   const inputEnvase = 'w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'
 
@@ -136,12 +150,34 @@ export default function RemitosCargaPage() {
       envases:      r.envases,
       creadoPor:    r.creadoPor,
       fecha:        r.fecha.toDate(),
+      ...(r.cot?.estado === 'presentado' && r.cot.numero ? { cot: { numero: r.cot.numero, fechaValidez: r.cot.fechaValidez } } : {}),
+      ...(r.kg ? { kg: r.kg } : {}),
     }).catch((err) => reportError(err, { origen: 'RemitosCargaPage', accion: 'error al generar el PDF' }))
+
+  // Reintento manual de la presentación a ARBA (quedó en error o se emitió con la presentación apagada).
+  const reintentarCot = async (r: RemitoCarga) => {
+    setPresentandoCot(r.id)
+    setAvisoCot('')
+    try {
+      const res = await presentarCotRemito(r.id)
+      setAvisoCot(res.ok ? `${r.codigo}: COT ${res.cot} obtenido.` : `${r.codigo}: ${res.error ?? 'ARBA no devolvió COT.'}`)
+    } catch (err) {
+      reportError(err, { origen: 'RemitosCargaPage', accion: 'reintentar COT' })
+      setAvisoCot(`${r.codigo}: no se pudo presentar a ARBA. Probá de nuevo.`)
+    } finally {
+      setPresentandoCot(null)
+    }
+  }
 
   const confirmar = async () => {
     if (!user || !camion || !deposito) return
     setGuardando(true)
     setError('')
+    // COT: si la carga lo requiere y la presentación está habilitada, la solicitud tiene que estar completa.
+    if (pideCot) {
+      const faltas = cotSolicitud ? validarSolicitudCot(cotSolicitud) : ['Completá los datos del COT de ARBA (destinatario, remito R, importe).']
+      if (faltas.length) { setError(faltas.join(' ')); setGuardando(false); return }
+    }
     try {
       const remito = await crearRemitoCarga(
         {
@@ -153,6 +189,8 @@ export default function RemitosCargaPage() {
           depositoTangoNombre: deposito.nombre,
           items,
           envases,
+          kg,
+          ...(pideCot && cotSolicitud ? { cotSolicitud } : {}),
         },
         { uid: user.uid, nombre: user.nombre, plantaId },
       )
@@ -163,6 +201,7 @@ export default function RemitosCargaPage() {
       setCantidades({})
       setRestoEnPallet({})
       setTarimasMadera(0); setPalletsMetal(0); setMetalEditado(false); setRacks([])
+      setCotSolicitud(null)
       imprimir(remito)
     } catch (err) {
       reportError(err, { origen: 'RemitosCargaPage', accion: 'error al crear' })
@@ -275,6 +314,19 @@ export default function RemitosCargaPage() {
           </div>
         </div>
 
+        {/* ── COT de ARBA ── solo cuando la carga supera el umbral (kilos / importe). */}
+        {sinPeso.length > 0 && items.length > 0 && (
+          <p className="text-xs text-amber-600">Sin peso por unidad en Ajustes → COT de ARBA: {sinPeso.join(', ')}. Los kilos de la carga no los cuentan.</p>
+        )}
+        {requiereCotCarga && !cotCfg.habilitado && (
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            La carga pesa {kg.toLocaleString('es-AR')} kg y necesita COT de ARBA, pero la presentación desde la app está apagada (Ajustes → COT de ARBA): hay que sacarlo a mano en la web de ARBA.
+          </p>
+        )}
+        {pideCot && (
+          <CotCargaForm plantaId={plantaId} cfg={cotCfg} kg={kg} patente={camion?.patente ?? ''} onChange={setCotSolicitud} />
+        )}
+
         {/* ── Envases que salen ── muelle se lo dicta a caja al cargar. Cada
             pallet lleva 4 puntales y 1 aro implícitos; los racks de agua van
             por número. Solo avisa si no cierra con el sugerido, no bloquea. */}
@@ -318,6 +370,7 @@ export default function RemitosCargaPage() {
       {/* ── Remitos del día ── */}
       <section className="space-y-2">
         <h2 className="font-semibold text-gray-800">Remitos de hoy</h2>
+        {avisoCot && <p className="text-xs text-gray-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">{avisoCot}</p>}
         {remitos.length === 0 && (
           <p className="text-gray-400 text-sm">Todavía no se emitió ningún remito hoy.</p>
         )}
@@ -330,6 +383,17 @@ export default function RemitosCargaPage() {
                 {describirEnvases(envasesDeRemito(r)) && ` · ${describirEnvases(envasesDeRemito(r))}`}
               </p>
             </div>
+            {r.cotSolicitud && (
+              r.cot?.estado === 'presentado'
+                ? <span className="text-xs px-2.5 py-1 rounded-full border font-medium whitespace-nowrap bg-blue-100 text-blue-700 border-blue-200" title={r.cot.fechaValidez ? `Válido hasta ${r.cot.fechaValidez}` : ''}>COT {r.cot.numero}</span>
+                : (
+                  <button type="button" onClick={() => reintentarCot(r)} disabled={presentandoCot === r.id}
+                    title={r.cot?.error ?? 'Todavía no se presentó a ARBA'}
+                    className={`text-xs px-2.5 py-1 rounded-full border font-medium whitespace-nowrap ${r.cot?.estado === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200'} disabled:opacity-50`}>
+                    {presentandoCot === r.id ? 'Presentando…' : r.cot?.estado === 'error' ? 'COT con error · reintentar' : 'COT pendiente · presentar'}
+                  </button>
+                )
+            )}
             <span className={`text-xs px-2.5 py-1 rounded-full border font-medium whitespace-nowrap ${ESTADO_COLORS[r.estado]}`}>
               {ESTADO_LABELS[r.estado]}
             </span>
@@ -369,6 +433,14 @@ export default function RemitosCargaPage() {
               <div className="px-3 py-1.5 text-xs text-gray-600 bg-gray-50">
                 Envases: {describirEnvases(envasesDeRemito({ palletsCarga, envases })) || 'ninguno'}
               </div>
+              {kg > 0 && (
+                <div className="px-3 py-1.5 text-xs text-gray-600 bg-gray-50">
+                  Peso: {kg.toLocaleString('es-AR')} kg
+                  {pideCot && cotSolicitud
+                    ? ` · COT de ARBA: ${cotSolicitud.destino.tipo === 'planta' ? `traslado a ${PLANTAS[cotSolicitud.destino.plantaId].label}` : `a ${cotSolicitud.destino.razonSocial}`}, remito R ${cotSolicitud.respaldo.numero}`
+                    : requiereCotCarga ? ' · requiere COT' : ''}
+                </div>
+              )}
             </div>
             <p className="text-xs text-gray-500">
               Al confirmar se asigna el número correlativo y se imprime el remito para muelle.

@@ -53,3 +53,7 @@ export { avisarPadronIIBB } from './triggers/padronIIBB'
 
 // Envío por mail de un comprobante generado en la app (factura, remito, composición) al cliente (2026-09-10).
 export { enviarComprobantePorMail } from './triggers/enviarComprobante'
+
+// COT de ARBA del remito de carga (2026-09-10): requiere el secret ARBA_CIT y
+// config/cot; el interruptor es config/cot.habilitado. Ver docs/arba/COT.md.
+export { onRemitoCargaCotSolicitado, presentarCotRemito } from './triggers/cotArba'
