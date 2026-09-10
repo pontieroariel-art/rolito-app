@@ -41,3 +41,31 @@ export function subscribeRepartoEnVivo(dia: Date, callback: (f: FuentesRepartoEn
   ]
   return () => unsubs.forEach((u) => u())
 }
+
+// "Mi camión hoy" del chofer (2026-09-10): las mismas cinco fuentes, pero solo
+// las suyas (las reglas le dejan leer su propio remito de carga, ventas,
+// cambios, descarga y cobranzas). Índices (choferId, fecha) y
+// (registradoPor.uid, fecha) ya existen (firestore.indexes.json).
+export function subscribeRepartoDelChofer(dia: Date, choferId: string, callback: (f: FuentesRepartoEnVivo) => void): () => void {
+  const desde = new Date(dia); desde.setHours(0, 0, 0, 0)
+  const hasta = new Date(desde); hasta.setDate(hasta.getDate() + 1)
+  const d = Timestamp.fromDate(desde), h = Timestamp.fromDate(hasta)
+
+  const f: FuentesRepartoEnVivo = { remitos: [], ventas: [], cambios: [], descargas: [], cobranzas: [] }
+  const emitir = () => callback({ ...f })
+  const mapear = <T>(snap: { docs: { id: string; data(): unknown }[] }) => snap.docs.map((x) => ({ id: x.id, ...(x.data() as object) }) as T)
+
+  const unsubs = [
+    onSnapshot(query(collection(db, 'remitosCarga'), where('choferId', '==', choferId), where('fecha', '>=', d), where('fecha', '<', h)),
+      (s) => { f.remitos = mapear<RemitoCarga>(s); emitir() }, onSnapshotError((x: RemitoCarga[]) => { f.remitos = x; emitir() }, 'miCamion.remitosCarga')),
+    onSnapshot(query(collection(db, 'ventasCamion'), where('choferId', '==', choferId), where('fecha', '>=', d), where('fecha', '<', h)),
+      (s) => { f.ventas = mapear<VentaCamion>(s); emitir() }, onSnapshotError((x: VentaCamion[]) => { f.ventas = x; emitir() }, 'miCamion.ventasCamion')),
+    onSnapshot(query(collection(db, 'cambiosCamion'), where('choferId', '==', choferId), where('fecha', '>=', d), where('fecha', '<', h)),
+      (s) => { f.cambios = mapear<CambioCamion>(s); emitir() }, onSnapshotError((x: CambioCamion[]) => { f.cambios = x; emitir() }, 'miCamion.cambiosCamion')),
+    onSnapshot(query(collection(db, 'descargasCamion'), where('choferId', '==', choferId), where('fecha', '>=', d), where('fecha', '<', h)),
+      (s) => { f.descargas = mapear<DescargaCamion>(s); emitir() }, onSnapshotError((x: DescargaCamion[]) => { f.descargas = x; emitir() }, 'miCamion.descargasCamion')),
+    onSnapshot(query(collection(db, 'cobranzas'), where('registradoPor.uid', '==', choferId), where('fecha', '>=', d), where('fecha', '<', h)),
+      (s) => { f.cobranzas = mapear<Cobranza>(s).filter((c) => c.origen === 'cobrador'); emitir() }, onSnapshotError((x: Cobranza[]) => { f.cobranzas = x; emitir() }, 'miCamion.cobranzas')),
+  ]
+  return () => unsubs.forEach((u) => u())
+}

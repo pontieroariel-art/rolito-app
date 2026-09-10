@@ -29,6 +29,7 @@ import { Order, ProgramaVisita, VisitaPuntual, OrderProduct } from '../../types'
 import EntregaModal from '../../components/chofer/EntregaModal'
 import NoEntregadoModal from '../../components/chofer/NoEntregadoModal'
 import MiRendicionCard from '@/components/chofer/MiRendicionCard'
+import MiCamionHoyCard from '@/components/chofer/MiCamionHoyCard'
 import TicketsServicioSection from '../../components/chofer/TicketsServicioSection'
 import { reportError, esperarOEncolar } from '@/services/observability'
 
@@ -407,6 +408,7 @@ export default function ChoferDashboard() {
 
         {pending.length > 0 && <CargaDelDia orders={pending} catalogo={catalogo} />}
 
+        {user && !isAyudante && <MiCamionHoyCard uid={user.uid} hoy={diaHoy} />}
         {user && <MiRendicionCard uid={user.uid} hoy={diaHoy} />}
 
         {orders.length === 0 && (
