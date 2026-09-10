@@ -113,7 +113,7 @@ Por módulo:
 
 ### Variables de entorno
 
-Prefijo `VITE_FIREBASE_*`: `API_KEY`, `AUTH_DOMAIN`, `PROJECT_ID`, `STORAGE_BUCKET`, `MESSAGING_SENDER_ID`, `APP_ID`. Además `VITE_GOOGLE_MAPS_API_KEY` (Google Maps), `VITE_VAPID_PUBLIC_KEY` (web push), `VITE_RECAPTCHA_SITE_KEY` (App Check, reCAPTCHA v3) y `VITE_SENTRY_DSN` (Sentry — opcional; la observabilidad se activa solo si está presente). En CI, todas se inyectan como GitHub Secrets en `deploy.yml`. Los secretos de Cloud Functions (`RESEND_API_KEY`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `ORS_KEY` para OpenRouteService, `TANGO_BRIDGE_SECRET` para el bridge de Tango) se configuran con `firebase functions:secrets:set`, no en `.env`.
+Prefijo `VITE_FIREBASE_*`: `API_KEY`, `AUTH_DOMAIN`, `PROJECT_ID`, `STORAGE_BUCKET`, `MESSAGING_SENDER_ID`, `APP_ID`. Además `VITE_GOOGLE_MAPS_API_KEY` (Google Maps), `VITE_VAPID_PUBLIC_KEY` (web push), `VITE_RECAPTCHA_SITE_KEY` (App Check, reCAPTCHA v3) y `VITE_SENTRY_DSN` (Sentry — opcional; la observabilidad se activa solo si está presente). En CI, todas se inyectan como GitHub Secrets en `deploy.yml`. Los secretos de Cloud Functions (`RESEND_API_KEY`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `ORS_KEY` para OpenRouteService, `TANGO_BRIDGE_SECRET` para el bridge de Tango) se configuran con `firebase functions:secrets:set`, no en `.env`. El remitente de todos los mails (`FROM_EMAIL`, hoy `Rolito <comprobantes@rolito.com.ar>`; el dominio `rolito.com.ar` está verificado en Resend) va en `functions/.env`, que sí se commitea: al cambiarlo hay que redesplegar las functions que mandan mails.
 
 ### CI (GitHub Actions)
 
