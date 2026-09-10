@@ -37,6 +37,17 @@ function BotonFactura({ fila, cliente, email }: { fila: FilaComposicion; cliente
     para: email, asunto: `${titulo} — ${cliente.razonSocial}`,
     mensaje: `Te enviamos adjunta la ${TITULO_TIPO[fila.tipo]?.toLowerCase() ?? 'factura'} ${fila.numero}.`,
     comprobante: { tipo: fila.tipo, numero: fila.numero, empresa: fila.empresa }, clienteUid: cliente.uid, clienteNombre: cliente.razonSocial,
+    presentacion: {
+      titulo, emoji: fila.tipo === 'FAC' ? '🧾' : '📄',
+      filas: [
+        ...(fila.fecha ? [{ label: 'Emisión', value: fechaLarga(fila.fecha) }] : []),
+        ...(fila.fechaVencimiento ? [{ label: 'Vencimiento', value: fechaLarga(fila.fechaVencimiento) }] : []),
+        { label: 'Importe', value: formatoARS(fila.importe) },
+        ...(fila.pendiente !== null && fila.pendiente !== fila.importe ? [{ label: 'Pendiente', value: formatoARS(fila.pendiente) }] : []),
+        ...(fila.estado !== 'pendiente' ? [{ label: 'Estado', value: ESTADO_FILA[fila.estado] }] : []),
+        ...(fila.remitos.length ? [{ label: fila.remitos.length > 1 ? 'Remitos' : 'Remito', value: fila.remitos.map(formatoRemito).join(', ') }] : []),
+      ],
+    },
   }
   return (
     <MenuCompartirPdf titulo={titulo} texto={`${titulo} — ${cliente.razonSocial}`} mail={mail}
@@ -58,6 +69,7 @@ function ChipRemito({ numero, empresa, cliente, email, fecha }: { numero: string
   const mail: DatosMail = {
     para: email, asunto: `${titulo} — ${cliente.razonSocial}`, mensaje: `Te enviamos adjunto el remito ${formatoRemito(numero)}.`,
     comprobante: { tipo: 'REM', numero, empresa }, clienteUid: cliente.uid, clienteNombre: cliente.razonSocial,
+    presentacion: { titulo, emoji: '🚚', filas: fecha ? [{ label: 'Fecha', value: fechaLarga(fecha) }] : [] },
   }
   return (
     <MenuCompartirPdf titulo={titulo} texto={`${titulo} — ${cliente.razonSocial}`} mail={mail}
@@ -73,6 +85,7 @@ function ChipRemito({ numero, empresa, cliente, email, fecha }: { numero: string
   )
 }
 
+const fechaLarga = (iso: string) => { const [y, m, d] = iso.split('-'); return y && m && d ? `${d}/${m}/${y}` : iso }
 const fechaCorta = (iso: string | undefined) => {
   if (!iso) return ''
   const [y, m, d] = iso.split('-')
@@ -127,6 +140,14 @@ export default function SeccionSaldo({ c }: { c: UserProfile }) {
     mensaje: `Te enviamos adjunta la ${tituloComposicion.toLowerCase()}${etiquetaSucursal ? ` (${etiquetaSucursal})` : ''} al ${new Date().toLocaleDateString('es-AR')}: ${formatoARS(total)} pendientes.`,
     comprobante: { tipo: modo === 'todas' ? 'CUENTA' : 'SALDOS', numero: new Date().toISOString().slice(0, 10) },
     clienteUid: c.uid, clienteNombre: c.razonSocial,
+    presentacion: {
+      titulo: tituloComposicion, emoji: '📊',
+      filas: [
+        { label: 'Al', value: new Date().toLocaleDateString('es-AR') },
+        ...(etiquetaSucursal ? [{ label: 'Sucursal', value: etiquetaSucursal }] : []),
+        { label: 'Pendiente', value: formatoARS(total) },
+      ],
+    },
   }
 
   const nivel = nivelMora(totalCliente, atraso, alertas)

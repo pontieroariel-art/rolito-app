@@ -16,6 +16,8 @@ export interface EnvioComprobante {
   clienteUid?:   string
   clienteNombre: string
   conCopia?:     boolean
+  /** Tarjeta del mail: título legible y filas ya formateadas. */
+  presentacion?: { titulo: string; emoji?: string; filas: { label: string; value: string }[] }
 }
 
 async function aBase64(blob: Blob): Promise<string> {
@@ -32,5 +34,6 @@ export async function enviarComprobantePorMail(e: EnvioComprobante): Promise<voi
   await fn({
     para: e.para, asunto: e.asunto, mensaje: e.mensaje ?? '', nombreArchivo: e.nombreArchivo, pdfBase64,
     comprobante: e.comprobante, clienteUid: e.clienteUid ?? null, clienteNombre: e.clienteNombre, conCopia: e.conCopia === true,
+    presentacion: e.presentacion ?? null,
   })
 }

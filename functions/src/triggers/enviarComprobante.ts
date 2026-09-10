@@ -3,6 +3,7 @@ import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 import { Resend } from 'resend'
 import { FROM_EMAIL, resendApiKey } from '../email'
 import { assertRateLimit } from '../rateLimit'
+import { tplComprobanteEnviado, type ComprobanteMail } from '../templates'
 
 // Envío por mail de un comprobante que la app generó (factura, remito,
 // composición de saldos, recibo) al cliente (2026-09-10, pedido de Ariel: "lo
@@ -31,18 +32,12 @@ interface Entrada {
   clienteUid?:   string
   clienteNombre: string
   conCopia?:     boolean
+  /** Tarjeta del mail: título legible y filas ya formateadas (fecha, importe, remitos…). */
+  presentacion?: ComprobanteMail
 }
 
 const texto = (v: unknown, max: number) => String(v ?? '').trim().slice(0, max)
 
-function armarHtml(mensaje: string, clienteNombre: string, comprobante: string): string {
-  const parrafos = mensaje.split(/\n+/).filter(Boolean).map((p) => `<p style="margin:0 0 12px">${p.replace(/</g, '&lt;')}</p>`).join('')
-  return `<div style="font-family:Inter,Arial,sans-serif;font-size:15px;color:#222;max-width:560px">
-    <p style="margin:0 0 12px">Hola ${clienteNombre.replace(/</g, '&lt;')},</p>
-    ${parrafos || `<p style="margin:0 0 12px">Te enviamos adjunto el comprobante ${comprobante.replace(/</g, '&lt;')}.</p>`}
-    <p style="margin:16px 0 0;color:#666;font-size:13px">Rolito · Redonhielo S.A. — este mail se generó desde la app.</p>
-  </div>`
-}
 
 export const enviarComprobantePorMail = onCall({ secrets: [resendApiKey], memory: '512MiB' }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Requiere autenticación')
@@ -69,6 +64,12 @@ export const enviarComprobantePorMail = onCall({ secrets: [resendApiKey], memory
   const comprobante = { tipo: texto(d.comprobante?.tipo, 20), numero: texto(d.comprobante?.numero, 40), ...(d.comprobante?.empresa ? { empresa: texto(d.comprobante.empresa, 20) } : {}) }
   const clienteNombre = texto(d.clienteNombre, 120) || 'cliente'
   const mensaje = texto(d.mensaje, 2000)
+  const presentacion: ComprobanteMail = {
+    titulo: texto(d.presentacion?.titulo, 80) || `${comprobante.tipo} ${comprobante.numero}`.trim(),
+    ...(d.presentacion?.emoji ? { emoji: texto(d.presentacion.emoji, 4) } : {}),
+    filas: (Array.isArray(d.presentacion?.filas) ? d.presentacion!.filas : []).slice(0, 8)
+      .map((f) => ({ label: texto(f?.label, 30), value: texto(f?.value, 200) })).filter((f) => f.label && f.value),
+  }
   const remitente = (perfil?.nombre as string | undefined)?.trim() || 'Rolito'
   const emailOperador = (perfil?.email as string | undefined) ?? ''
   const conCopia = d.conCopia === true && EMAIL_RE.test(emailOperador) && !emailOperador.endsWith('.internal') && !emailOperador.endsWith('@rolito.app')
@@ -91,7 +92,7 @@ export const enviarComprobantePorMail = onCall({ secrets: [resendApiKey], memory
     ...(conCopia ? { cc: emailOperador } : {}),
     ...(EMAIL_RE.test(emailOperador) && !emailOperador.endsWith('.internal') && !emailOperador.endsWith('@rolito.app') ? { replyTo: emailOperador } : {}),
     subject,
-    html: armarHtml(mensaje, clienteNombre, `${comprobante.tipo} ${comprobante.numero}`.trim()),
+    html: tplComprobanteEnviado(clienteNombre, presentacion, mensaje, remitente),
     attachments: [{ filename: nombreArchivo, content: pdf }],
   })
   const registro = {

@@ -22,6 +22,8 @@ export interface DatosMail {
   comprobante:   { tipo: string; numero: string; empresa?: EmpresaTango }
   clienteUid?:   string
   clienteNombre: string
+  /** Tarjeta del mail: título legible y filas ya formateadas (fecha, importe, remitos…). */
+  presentacion?: { titulo: string; emoji?: string; filas: { label: string; value: string }[] }
 }
 
 export default function MenuCompartirPdf({ generar, titulo, texto, mail, trigger }: {
@@ -75,6 +77,7 @@ export default function MenuCompartirPdf({ generar, titulo, texto, mail, trigger
       await enviarComprobantePorMail({
         para: destino, asunto: asunto.trim() || titulo, mensaje: mensaje.trim(), nombreArchivo: g.nombre, pdf: g.blob,
         comprobante: mail.comprobante, clienteUid: mail.clienteUid, clienteNombre: mail.clienteNombre, conCopia,
+        presentacion: mail.presentacion ?? { titulo, filas: [] },
       })
       setEnviadoA(destino)
     } catch (err) {

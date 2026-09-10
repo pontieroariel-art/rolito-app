@@ -555,3 +555,42 @@ export function tplArcaFacturasConProblemas(facturas: FacturaConProblema[], appU
     ${ctaButton('Ir a Usuarios & Roles →', `${appUrl}/admin/usuarios`)}
   `)
 }
+
+// ── Comprobante enviado desde la app (factura, remito, composición) ────────────
+// (2026-09-10) El PDF va adjunto; el cuerpo resume qué es, de qué fecha, por
+// cuánto, y quién lo manda. Los datos de la tarjeta los arma la app (ya
+// formateados); acá solo se escapan.
+
+export interface ComprobanteMail {
+  /** "Factura A 00101-00282612" */
+  titulo:     string
+  emoji?:     string
+  /** Filas de la tarjeta: [{ label: 'Fecha', value: '02/09/2026' }, …], ya formateadas. */
+  filas:      { label: string; value: string }[]
+}
+
+export function tplComprobanteEnviado(
+  clienteNombre: string,
+  comprobante: ComprobanteMail,
+  mensaje: string,
+  remitente: string,
+): string {
+  const parrafos = mensaje.split(/\n+/).map((p) => p.trim()).filter(Boolean)
+    .map((p) => `<p style="margin:0 0 14px">${esc(p)}</p>`).join('')
+  const adjunto = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 22px">
+    <tr>
+      <td style="background:${GREEN_BG};border-left:3px solid ${GREEN};border-radius:0 8px 8px 0;padding:12px 16px">
+        <p style="margin:0;font-size:11px;color:${GREEN_DARK};font-weight:700;text-transform:uppercase;letter-spacing:.05em">Adjunto</p>
+        <p style="margin:4px 0 0;font-size:14px;color:#111827">${esc(comprobante.titulo)} en PDF. Si no lo ves, revisá la carpeta de adjuntos o pedinos que lo reenviemos.</p>
+      </td>
+    </tr>
+  </table>`
+  const body = `
+    ${greeting(clienteNombre)}
+    ${parrafos || `<p style="margin:0 0 14px">Te enviamos adjunto el comprobante <strong>${esc(comprobante.titulo)}</strong>.</p>`}
+    ${infoBox(comprobante.filas.map((f) => ({ label: esc(f.label), value: esc(f.value) })))}
+    ${adjunto}
+    <p style="margin:0;color:#6b7280;font-size:13px">Cualquier consulta, respondé este mail o comunicate con <strong>${esc(remitente)}</strong>.</p>
+    <p style="margin:14px 0 0;color:#9ca3af;font-size:12px">Redonhielo S.A. &middot; Av. Panamericana Km 25,700, Don Torcuato &middot; (011) 4741-8000 &middot; ventas@redonhielo.com.ar</p>`
+  return layout(comprobante.titulo, { emoji: comprobante.emoji ?? '🧾', title: comprobante.titulo, subtitle: 'Enviado desde la app de Rolito' }, body)
+}
