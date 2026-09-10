@@ -155,9 +155,11 @@ const LOTE = 200
 const PAUSA_MS = 300
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-async function commitConReintento(b, etiqueta) {
+// Un writeBatch no se puede volver a enviar después de un commit fallido: se arma uno nuevo
+// por intento (`armar()` devuelve el batch cargado).
+async function commitConReintento(armar, etiqueta) {
   for (let intento = 1; ; intento++) {
-    try { await b.commit(); return } catch (e) {
+    try { await armar().commit(); return } catch (e) {
       if (intento >= 6) throw e
       const espera = Math.min(60_000, 2_000 * 2 ** (intento - 1))
       log(`  ${etiqueta}: falló (${e.code ?? e.message}); reintento ${intento} en ${espera / 1000} s`)
@@ -202,9 +204,7 @@ async function escribir(db, empresa, porCodigo, podados, detalles, clientes, des
   }
   for (let i = 0; i < ops.length; i += LOTE) {
     const tanda = ops.slice(i, i + LOTE)
-    const b = writeBatch(db)
-    for (const { op } of tanda) op(b)
-    await commitConReintento(b, `lote ${i / LOTE + 1}`)
+    await commitConReintento(() => { const b = writeBatch(db); for (const { op } of tanda) op(b); return b }, `lote ${i / LOTE + 1}`)
     const completos = tanda.filter((x) => x.cierra).map((x) => x.cierra)
     if (completos.length && alConfirmar) alConfirmar(completos)
     log(`  escritos ${Math.min(i + LOTE, ops.length)}/${ops.length}`)

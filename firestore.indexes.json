@@ -212,5 +212,26 @@
       ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "collectionGroup": "tangoComprobantes",
+      "fieldPath": "facturas",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "tangoComprobantes",
+      "fieldPath": "remitos",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "tangoComprobanteDetalle",
+      "fieldPath": "renglones",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "tangoComprobanteDetalle",
+      "fieldPath": "cliente",
+      "indexes": []
+    }
+  ]
 }
