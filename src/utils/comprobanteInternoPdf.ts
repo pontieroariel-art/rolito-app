@@ -19,6 +19,7 @@ export function specFacturaX(d: ComprobanteInternoData): PapelInternoSpec {
     fecha: fecha(d.fechaEmision),
     cliente: {
       nombre:         d.cliente.razonSocial,
+      ...(d.cliente.sucursal ? { sucursal: d.cliente.sucursal } : {}),
       domicilio:      d.cliente.domicilio,
       localidadCp:    d.cliente.localidadCp,
       condicionIva:   d.cliente.condicionIva,

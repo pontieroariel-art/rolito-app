@@ -6,6 +6,7 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import ClienteCombobox, { toComboItems } from '../../components/ui/ClienteCombobox'
 import SelectorSucursal from '@/components/ventas/SelectorSucursal'
 import { clienteEnSucursal, necesitaSucursal } from '@/utils/sucursalesTango'
+import { clienteImpreso } from '@/utils/clienteImpreso'
 import BotoneraProductos from '../../components/ventas/BotoneraProductos'
 import { useAuth } from '../../context/AuthContext'
 import { useClientesActivos } from '../../hooks/useClientesActivos'
@@ -219,6 +220,8 @@ export default function VentanillaPage() {
       canal:         v.canal,
       clienteNombre: v.clienteNombre,
       clienteCuit:   v.clienteOcasional?.cuit ?? clientePorId.get(v.clienteId ?? '')?.cuit,
+      // Sucursal a la que va la carga (cuentas con varias): muelle entrega contra este papel.
+      sucursal:      v.clienteId ? clienteImpreso(v, clientePorId.get(v.clienteId)).sucursal || undefined : undefined,
       items:         v.items,
       total:         v.total,
       formaPago:     v.formaPago,

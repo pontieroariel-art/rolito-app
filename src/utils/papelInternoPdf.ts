@@ -49,6 +49,8 @@ export interface PapelInternoSpec {
   fecha:          string
   cliente: {
     nombre:         string
+    /** Sucursal donde se entregó, debajo del nombre (solo cuentas con varias). */
+    sucursal?:      string
     domicilio:      string
     localidadCp:    string
     condicionIva:   string
@@ -87,13 +89,22 @@ export function dibujarPapelInterno(doc: jsPDF, s: PapelInternoSpec): void {
     doc.setLineWidth(0.35)
     doc.rect(X0, y0, X1 - X0, y1 - y0)
   }
-  const etiqueta = (texto: string, valor: string, x: number, y: number, tam = 8, xValor?: number) => {
+  const etiqueta = (texto: string, valor: string, x: number, y: number, tam = 8, xValor?: number, xMax = X1 - 2) => {
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(tam)
     doc.text(texto, x, y)
     doc.setFont('helvetica', 'normal')
     const xv = xValor ?? x + doc.getTextWidth(texto) + 2.5
-    doc.text(valor, xv, y, { maxWidth: X1 - 2 - xv })
+    doc.text(valor, xv, y, { maxWidth: xMax - xv })
+  }
+  /** Una sola línea: lo que no entra en `ancho` se corta con "…" (no debe pisar el renglón de abajo). */
+  const unaLinea = (valor: string, ancho: number, tam: number) => {
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(tam)
+    if (doc.getTextWidth(valor) <= ancho) return valor
+    let v = valor
+    while (v.length > 1 && doc.getTextWidth(`${v}…`) > ancho) v = v.slice(0, -1)
+    return `${v.trimEnd()}…`
   }
 
   // ── Encabezado ─────────────────────────────────────────────────────────────
@@ -149,6 +160,14 @@ export function dibujarPapelInterno(doc: jsPDF, s: PapelInternoSpec): void {
   doc.text('SEÑOR(ES):', X0 + 4, 68)
   doc.setFontSize(11)
   doc.text(s.cliente.nombre, X0 + 4, 75, { maxWidth: XD - X0 - 8 })
+  // Sucursal donde se entregó (2026-09-10): un renglón entre el nombre y el
+  // domicilio, acotado a la columna izquierda para no pisar el código/CUIT.
+  if (s.cliente.sucursal) {
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(8)
+    const xv = X0 + 4 + doc.getTextWidth('Sucursal:') + 2.5
+    etiqueta('Sucursal:', unaLinea(s.cliente.sucursal, XD - 4 - xv, 8), X0 + 4, 80, 8, xv, XD - 4)
+  }
   etiqueta('Domicilio:', s.cliente.domicilio, X0 + 4, 84, 8)
   etiqueta('C.P.:', s.cliente.localidadCp, X0 + 4, 91, 8)
   doc.setFont('helvetica', 'normal')

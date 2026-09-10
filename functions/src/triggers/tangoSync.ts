@@ -4,6 +4,7 @@ import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { getAuth } from 'firebase-admin/auth'
 import { agregarTangoId, EMPRESAS, tangoIdsDe, type Empresa, type TangoIds } from '../services/tango/empresas'
 import { cuitValido } from '../services/tango/cuit'
+import { upsertDireccionTango } from '../services/tango/clientes'
 
 const tangoBridgeSecret = defineSecret('TANGO_BRIDGE_SECRET')
 
@@ -19,6 +20,8 @@ export interface TangoClienteRow {
   codGva14:         string
   cuit:             string
   razonSocial?:     string
+  /** NOM_COM: nombre comercial (el nombre propio de la sucursal). */
+  nombreComercial?: string
   email?:           string
   telefono1?:       string
   telefono2?:       string
@@ -290,6 +293,18 @@ export async function procesarLoteClientesTango(
           }
         }
       }
+    }
+
+    // Ficha de Tango de ESTA sucursal en addresses[] (2026-09-10): domicilio,
+    // localidad, C.P. y nombre comercial del código, para que el remito y la
+    // factura de la app impriman la dirección donde se bajó la mercadería.
+    // Solo escribe campos *Tango (nunca address/lat/lng/horarios de logística)
+    // y solo cuando algo cambió. El perfil del índice es compartido entre las
+    // filas del mismo uid, así las sucursales se acumulan en el mismo array.
+    {
+      const manda = empresa === 'redonhielo' || !(ids.redonhielo?.length)
+      const r = upsertDireccionTango(perfil.addresses, row, { principal: esPrincipal, manda })
+      if (r.cambio) { update.addresses = r.addresses; perfil.addresses = r.addresses }
     }
 
     update.tangoUltimaSync = FieldValue.serverTimestamp()

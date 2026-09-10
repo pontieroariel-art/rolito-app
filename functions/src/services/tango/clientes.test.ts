@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { candidatosAlta, corridaConfiable, decidirBaja, docCuentaDesdeTango, emailAuthDe, type FilaClienteTango } from './clientes'
+import { candidatosAlta, corridaConfiable, decidirBaja, docCuentaDesdeTango, emailAuthDe, upsertDireccionTango, type DireccionDoc, type FilaClienteTango } from './clientes'
 
 const fila = (over: Partial<FilaClienteTango> = {}): FilaClienteTango => ({
   idGva14: 100, codGva14: 'FC.900', cuit: '30-52604779-2', razonSocial: 'CLIENTE PRUEBA', domicilio: 'Calle 1', localidad: 'Merlo', provinciaDesc: 'Buenos Aires',
@@ -45,6 +45,10 @@ describe('docCuentaDesdeTango', () => {
     expect(addrs.map((a) => a.id)).toEqual(['FC.900', 'FC.901'])
     expect(addrs[0]).toMatchObject({ esPrincipal: true, nombre: 'Principal', address: 'Calle 1, Merlo, Buenos Aires' })
     expect(addrs[1]).toMatchObject({ esPrincipal: false, nombre: 'SUCURSAL 2', address: 'Calle 2, Merlo, Buenos Aires' })
+    // Cada entrada lleva la ficha de Tango de su código (lo que imprime el remito de esa sucursal).
+    expect(addrs[0]).toMatchObject({ domicilioTango: 'Calle 1', localidadTango: 'Merlo', provinciaTango: 'Buenos Aires', razonSocialTango: 'CLIENTE PRUEBA' })
+    expect(addrs[1]).toMatchObject({ domicilioTango: 'Calle 2', razonSocialTango: 'SUCURSAL 2' })
+    expect((addrs[0] as DireccionDoc).codigoPostalTango).toBeUndefined()   // la fila de prueba no trae C.P.
     expect(doc.address).toBe('Calle 1, Merlo, Buenos Aires')
     expect(doc.telefono).toBe('011 4444-5555')
   })
@@ -116,5 +120,59 @@ describe('cuentas sin CUIT (consumidor final de Tango, solo promo)', () => {
     const { candidatos } = candidatosAlta([{ empresa: 'redonhielo', fila: fila() }])
     expect(candidatos[0]).toMatchObject({ cuit: '30526047792', clave: '30526047792' })
     expect(candidatos[0].sinCuit).toBeUndefined()
+  })
+})
+
+describe('upsertDireccionTango (direcciones por sucursal, 2026-09-10)', () => {
+  const existente = (over: Partial<DireccionDoc> = {}): DireccionDoc => ({
+    id: 'FC.901', nombre: 'Depósito norte', address: 'Calle corregida 123, Merlo', lat: -34.6, lng: -58.7,
+    horarioApertura: '08:00', horarioCierre: '17:00', contactoNombre: 'Ana', contactoTelefono: '11-5555', esPrincipal: false, ...over,
+  })
+  const sucursal = fila({ idGva14: 101, codGva14: 'FC.901', razonSocial: 'SUCURSAL 2', nombreComercial: 'YPF RUTA 8', domicilio: 'Ruta 8 km 40', localidad: 'Tortuguitas', codigoPostal: '1667' })
+
+  it('entrada existente: agrega solo los campos Tango, sin tocar address, geo, horarios, contacto ni nombre', () => {
+    const r = upsertDireccionTango([existente()], sucursal, { principal: false, manda: true })
+    expect(r.cambio).toBe(true)
+    expect(r.addresses[0]).toEqual({
+      ...existente(),
+      domicilioTango: 'Ruta 8 km 40', localidadTango: 'Tortuguitas', provinciaTango: 'Buenos Aires', codigoPostalTango: '1667',
+      razonSocialTango: 'SUCURSAL 2', nombreComercialTango: 'YPF RUTA 8',
+    })
+  })
+
+  it('es idempotente: la segunda pasada no marca cambio ni crea un array nuevo', () => {
+    const una = upsertDireccionTango([existente()], sucursal, { principal: false, manda: true }).addresses
+    const dos = upsertDireccionTango(una, sucursal, { principal: false, manda: true })
+    expect(dos.cambio).toBe(false)
+    expect(dos.addresses).toBe(una)
+  })
+
+  it('address vacía se completa con la dirección de Tango; con manda=false no pisa lo ya escrito', () => {
+    const r = upsertDireccionTango([existente({ address: '' })], sucursal, { principal: false, manda: true })
+    expect(r.addresses[0].address).toBe('Ruta 8 km 40, Tortuguitas, Buenos Aires')
+    const otra = fila({ codGva14: 'FC.901', domicilio: 'Otra calle (Rolito)', nombreComercial: '' })
+    const r2 = upsertDireccionTango(r.addresses, otra, { principal: false, manda: false })
+    expect(r2.cambio).toBe(false)
+    expect(r2.addresses[0].domicilioTango).toBe('Ruta 8 km 40')
+    // Sin nada escrito, manda=false sí completa.
+    const r3 = upsertDireccionTango([existente()], otra, { principal: false, manda: false })
+    expect(r3.addresses[0].domicilioTango).toBe('Otra calle (Rolito)')
+  })
+
+  it('código secundario sin entrada: la crea con el nombre comercial y sin geo', () => {
+    const r = upsertDireccionTango([existente({ id: 'FC.900', esPrincipal: true })], sucursal, { principal: false, manda: true })
+    expect(r.cambio).toBe(true)
+    expect(r.addresses).toHaveLength(2)
+    expect(r.addresses[1]).toMatchObject({ id: 'FC.901', nombre: 'YPF RUTA 8', address: 'Ruta 8 km 40, Tortuguitas, Buenos Aires', lat: null, lng: null, esPrincipal: false, nombreComercialTango: 'YPF RUTA 8' })
+  })
+
+  it('el principal sin entrada solo se crea cuando la cuenta no tiene ninguna dirección', () => {
+    const principal = fila({ codGva14: 'FC.900' })
+    const conManuales = upsertDireccionTango([existente({ id: 'a1b2-uuid' })], principal, { principal: true, manda: true })
+    expect(conManuales.cambio).toBe(false)
+    expect(conManuales.addresses).toHaveLength(1)
+    const vacia = upsertDireccionTango(undefined, principal, { principal: true, manda: true })
+    expect(vacia.cambio).toBe(true)
+    expect(vacia.addresses[0]).toMatchObject({ id: 'FC.900', nombre: 'Principal', esPrincipal: true, domicilioTango: 'Calle 1' })
   })
 })

@@ -1504,6 +1504,17 @@ cliente exista únicamente en Rolito. Match por `tangoIds[empresa].idGva14` → 
 `cuit.ts`; los rellenos tipo 00000000000 no vinculan) → en Rolito, código igual al de Redonhielo. Otra fila con
 el mismo CUIT → código secundario (`codigosSecundarios` en el resumen). Resumen en `config/tango.clientesSync.resumen.empresas`.
 
+**Direcciones por sucursal** (2026-09-10): cada código de Tango es una sucursal con su propio domicilio, y la app
+guarda una entrada en `users.addresses[]` por código (`id` = COD_GVA14). La sync escribe en esa entrada la ficha
+de Tango del código — `domicilioTango`, `localidadTango`, `codigoPostalTango`, `provinciaTango`, `razonSocialTango`
+y `nombreComercialTango` (NOM_COM, el nombre propio de la sucursal) — con `services/tango/clientes.upsertDireccionTango`:
+en el alta y en cada corrida de actualización, SIN tocar `address`/lat/lng/horarios/contacto/nombre (los corrige
+logística o el cliente), creando la entrada si el código secundario no la tenía, sin duplicar el principal cuando la
+cuenta ya tiene direcciones cargadas a mano, y sin reescribir el array si nada cambió. Con eso el remito, la factura X,
+la factura/NC de ARCA y los tickets de ventanilla imprimen la sucursal donde se bajó la mercadería
+(`src/utils/clienteImpreso.ts`, a partir de `clienteCodigoTango` de la venta). La primera corrida después del deploy
+completa los ~2.000 clientes existentes; no hace falta backfill.
+
 **Saldos** (`tangoSaldos.ts`, lógica pura en `services/tango/saldos.ts` con tests): `saldosTango/{uid}` guarda las
 DOS empresas en el mismo doc:
 

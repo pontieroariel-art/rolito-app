@@ -50,6 +50,7 @@ export function dibujoFacturaArcaTicket(d: FacturaArcaData): DibujoTicket {
     y = separador(doc, y + 1)
 
     y = campo(doc, 'Cliente:', d.cliente.razonSocial, y + 1)
+    if (d.cliente.sucursal) y = campo(doc, 'Sucursal:', d.cliente.sucursal, y)
     y = campo(doc, 'CUIT:', d.cliente.cuit || 'Consumidor final sin identificar', y)
     if (d.cliente.condicionIva) y = campo(doc, 'IVA:', d.cliente.condicionIva, y)
     if (d.cliente.domicilio) y = campo(doc, 'Domicilio:', d.cliente.domicilio, y)
@@ -107,6 +108,8 @@ export interface TurnoTicketData {
   canal:         'contado' | 'promo'
   clienteNombre: string
   clienteCuit?:  string
+  /** Sucursal a la que va la carga, si la cuenta tiene varias (2026-09-10). */
+  sucursal?:     string
   items:         { nombre: string; cantidad: number; precioUnitario: number }[]
   total:         number
   formaPago:     string
@@ -178,6 +181,7 @@ export function dibujoTurnoTicket(v: TurnoTicketData): DibujoTicket {
     y = separador(doc, y + 1)
 
     y = campo(doc, 'Cliente:', v.clienteCuit ? `${v.clienteNombre} - CUIT ${v.clienteCuit}` : v.clienteNombre, y + 1)
+    if (v.sucursal) y = campo(doc, 'Sucursal:', v.sucursal, y)
     y = campo(doc, 'Canal:', v.canal === 'contado' ? 'Venta Contado (Redonhielo)' : 'Promo (Rolito)', y)
     y = campo(doc, 'Pago:', FORMA_PAGO[v.formaPago] ?? v.formaPago, y)
     if (v.facturaNro) y = campo(doc, 'Factura:', v.facturaNro, y)

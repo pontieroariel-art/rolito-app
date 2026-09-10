@@ -73,6 +73,7 @@ function recortarCliente(c) {
         codGva14: String((0, pedido_1.prop)(c, 'COD_GVA14') ?? '').trim(),
         cuit: String((0, pedido_1.prop)(c, 'CUIT') ?? ''),
         razonSocial: str((0, pedido_1.prop)(c, 'RAZON_SOCI')),
+        nombreComercial: str((0, pedido_1.prop)(c, 'NOM_COM')),
         email: str((0, pedido_1.prop)(c, 'E_MAIL')),
         telefono1: str((0, pedido_1.prop)(c, 'TELEFONO_1')),
         telefono2: str((0, pedido_1.prop)(c, 'TELEFONO_2')),

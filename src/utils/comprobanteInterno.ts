@@ -15,6 +15,7 @@
 
 import { UserProfile, VentaCamion, TipoComprobanteInterno } from '@/types'
 import { documentoDeVenta } from './circuitoDocumento'
+import { clienteImpreso } from './clienteImpreso'
 import { codigoComprobanteInterno } from './numeracionInterna'
 import { EMISOR_REDONHIELO, EMISOR_ROLITO, Emisor } from './emisores'
 
@@ -72,12 +73,14 @@ export interface RemitoData {
   fechaEmision: Date
   cliente: {
     razonSocial:    string
+    /** "YPF RUTA 8 KM 40 (YPF012)": la sucursal donde se entregó, si la cuenta tiene varias (2026-09-10). */
+    sucursal?:      string
     cuit:           string
     domicilio:      string
     /** "1611, DON TORCUATO" — C.P. y localidad, como en el talonario. */
     localidadCp:    string
     condicionIva:   string
-    /** Código de cliente que se imprime (el de Tango si está vinculado, si no el de la app). */
+    /** Código de cliente que se imprime (el de la sucursal vendida; si no, el de Tango o el de la app). */
     codigoCliente:  string
     vendedor:       string
     condicionVenta: string
@@ -128,6 +131,7 @@ export function armarRemito(venta: VentaCamion, cliente?: UserProfile, cai?: Cai
     : { tipo: 'interno', codigo: numero ?? venta.id.slice(0, 8).toUpperCase() }
 
   const letra: RemitoData['letra'] = caiVigente ? 'R' : 'X'
+  const ci = clienteImpreso(venta, cliente)
   const leyenda = caiVigente
     ? 'Remito de entrega. La factura la emite la oficina.'
     : promo
@@ -143,12 +147,13 @@ export function armarRemito(venta: VentaCamion, cliente?: UserProfile, cai?: Cai
       numero,
       fechaEmision,
       cliente: {
-        razonSocial:    cliente?.razonSocial ?? venta.clienteNombre,
-        cuit:           cliente?.cuit ?? '',
-        domicilio:      cliente?.address ?? '',
-        localidadCp:    localidadCp(cliente),
-        condicionIva:   cliente?.categoriaIvaTangoDesc ?? '',
-        codigoCliente:  codigoClienteImpreso(cliente),
+        razonSocial:    ci.razonSocial,
+        ...(ci.sucursal ? { sucursal: ci.sucursal } : {}),
+        cuit:           ci.cuit,
+        domicilio:      ci.domicilio,
+        localidadCp:    ci.localidadCp,
+        condicionIva:   ci.condicionIva,
+        codigoCliente:  ci.codigoCliente,
         vendedor:       venta.choferNombre,
         condicionVenta: CONDICION_VENTA[venta.formaPago] ?? '',
       },
@@ -175,16 +180,6 @@ function startOfDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate())
 }
 
-/** "1611, DON TORCUATO" con lo que haya (C.P. y localidad vienen del sync de Tango). */
-function localidadCp(cliente?: UserProfile): string {
-  return [cliente?.codigoPostalTango, cliente?.localidadTango].filter(Boolean).join(', ')
-}
-
-/** El código que se imprime: el de Tango si el cliente está vinculado, si no el de la app. */
-function codigoClienteImpreso(cliente?: UserProfile): string {
-  return cliente?.codigoTango ?? cliente?.codigoCliente ?? ''
-}
-
 // ── Factura X (promo cobrada) ────────────────────────────────────────────────
 
 export interface RenglonInterno {
@@ -206,6 +201,7 @@ export interface ComprobanteInternoData {
   fechaEmision:  Date
   cliente: {
     razonSocial:    string
+    sucursal?:      string
     cuit:           string
     condicionIva:   string
     domicilio:      string
@@ -230,8 +226,9 @@ export function armarFacturaX(venta: VentaCamion, cliente?: UserProfile): Armado
     return { ok: false, motivo: 'Esta venta no sale por factura X.' }
   }
   const numero = venta.comprobanteInterno ? codigoComprobanteInterno(venta.comprobanteInterno) : null
+  const ci = clienteImpreso(venta, cliente)
 
-  const renglon = (i: VentaCamion['items'][number], esCambio: boolean): RenglonInterno => ({
+  const renglon = (i:VentaCamion['items'][number], esCambio: boolean): RenglonInterno => ({
     descripcion:    i.nombre,
     cantidad:       i.cantidad,
     precioUnitario: esCambio ? 0 : i.precioUnitario,
@@ -253,12 +250,13 @@ export function armarFacturaX(venta: VentaCamion, cliente?: UserProfile): Armado
       numero,
       fechaEmision: venta.fecha.toDate(),
       cliente: {
-        razonSocial:    cliente?.razonSocial ?? venta.clienteNombre,
-        cuit:           cliente?.cuit ?? '',
-        condicionIva:   cliente?.categoriaIvaTangoDesc ?? '',
-        domicilio:      cliente?.address ?? '',
-        localidadCp:    localidadCp(cliente),
-        codigoCliente:  codigoClienteImpreso(cliente),
+        razonSocial:    ci.razonSocial,
+        ...(ci.sucursal ? { sucursal: ci.sucursal } : {}),
+        cuit:           ci.cuit,
+        condicionIva:   ci.condicionIva,
+        domicilio:      ci.domicilio,
+        localidadCp:    ci.localidadCp,
+        codigoCliente:  ci.codigoCliente,
         condicionVenta: CONDICION_VENTA[venta.formaPago] ?? '',
         vendedor:       venta.choferNombre,
       },

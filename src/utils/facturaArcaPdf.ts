@@ -56,6 +56,8 @@ export interface FacturaArcaData {
 
   cliente: {
     razonSocial:    string
+    /** Sucursal donde se entregó ("YPF RUTA 8 KM 40 (YPF012)"), si la cuenta tiene varias (2026-09-10). */
+    sucursal?:      string
     cuit:           string
     condicionIva:   string
     domicilio:      string
@@ -173,14 +175,18 @@ export async function generateFacturaArcaPdf(d: FacturaArcaData): Promise<Blob |
   // ── Cliente ────────────────────────────────────────────────────────────────
   barra('Información del cliente', 61)
 
-  campo('Razón social:', d.cliente.razonSocial, X0, 73)
-  campo('CUIT:', d.cliente.cuit, 152, 73)
-  campo('Condición frente al IVA:', d.cliente.condicionIva, X0, 79)
-  campo('Domicilio:', d.cliente.domicilio, XD, 79)
-  campo('Condicion de venta:', d.cliente.condicionVenta, X0, 85)
+  // Con sucursal (cuenta con varias, 2026-09-10) entran cuatro filas en el
+  // mismo bloque, un poco más juntas; sin ella, la grilla de siempre.
+  const ys = d.cliente.sucursal ? { r1: 71, suc: 76, r2: 81, r3: 86 } : { r1: 73, suc: 0, r2: 79, r3: 85 }
+  campo('Razón social:', d.cliente.razonSocial, X0, ys.r1)
+  campo('CUIT:', d.cliente.cuit, 152, ys.r1)
+  if (d.cliente.sucursal) campo('Sucursal:', d.cliente.sucursal, X0, ys.suc)
+  campo('Condición frente al IVA:', d.cliente.condicionIva, X0, ys.r2)
+  campo('Domicilio:', d.cliente.domicilio, XD, ys.r2)
+  campo('Condicion de venta:', d.cliente.condicionVenta, X0, ys.r3)
   // En la nota de crédito el lugar del vendedor lo ocupa la factura que anula.
-  if (d.comprobanteAsociado) campo('Comprobante asociado:', d.comprobanteAsociado, XD, 85)
-  else campo('Vendedor:', d.cliente.vendedor, XD, 85)
+  if (d.comprobanteAsociado) campo('Comprobante asociado:', d.comprobanteAsociado, XD, ys.r3)
+  else campo('Vendedor:', d.cliente.vendedor, XD, ys.r3)
 
   linea(89)
 

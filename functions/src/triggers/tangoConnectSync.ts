@@ -90,6 +90,7 @@ export function recortarCliente(c: Record<string, unknown>): TangoClienteRow {
     codGva14:           String(prop(c, 'COD_GVA14') ?? '').trim(),
     cuit:               String(prop(c, 'CUIT') ?? ''),
     razonSocial:        str(prop(c, 'RAZON_SOCI')),
+    nombreComercial:    str(prop(c, 'NOM_COM')),
     email:              str(prop(c, 'E_MAIL')),
     telefono1:          str(prop(c, 'TELEFONO_1')),
     telefono2:          str(prop(c, 'TELEFONO_2')),

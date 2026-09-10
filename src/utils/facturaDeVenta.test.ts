@@ -138,3 +138,26 @@ describe('armarFacturaDeVenta', () => {
     expect(r.datos.cliente.cuit).toBe('')
   })
 })
+
+describe('sucursal donde se entregó (2026-09-10)', () => {
+  const rappi = {
+    ...cliente, razonSocial: 'RAPPI ARG S.A.S.', address: 'Belgrano 3434, Mar del Plata', codigoTango: 'MDP203', idGva14Tango: 10,
+    tangoIds: { redonhielo: [{ idGva14: 10, codigo: 'MDP203' }, { idGva14: 12, codigo: 'RAP002' }] },
+    addresses: [
+      { id: 'MDP203', nombre: 'Principal', address: 'Belgrano 3434, Mar del Plata', lat: null, lng: null, horarioApertura: '', horarioCierre: '', contactoNombre: '', contactoTelefono: '', esPrincipal: true },
+      { id: 'RAP002', nombre: 'GASTRONOMIA (HUMBOLDT)', address: 'Humboldt 1877, CABA', lat: null, lng: null, horarioApertura: '', horarioCierre: '', contactoNombre: '', contactoTelefono: '', esPrincipal: false,
+        domicilioTango: 'HUMBOLDT 1877', localidadTango: 'PALERMO', codigoPostalTango: '1414', nombreComercialTango: 'RAPPI HUMBOLDT' },
+    ],
+  } as unknown as UserProfile
+
+  it('la factura de ARCA lleva la sucursal y su domicilio; la razón social sigue siendo la del CUIT', () => {
+    const r = armarFacturaDeVenta(venta({ clienteCodigoTango: 'RAP002' }), rappi)
+    expect(r.ok && r.datos.cliente).toMatchObject({ razonSocial: 'RAPPI ARG S.A.S.', sucursal: 'RAPPI HUMBOLDT (RAP002)', domicilio: 'HUMBOLDT 1877', cuit: '30-68731043-4' })
+  })
+
+  it('sin código de sucursal en la venta, el domicilio de la ficha y sin línea Sucursal', () => {
+    const r = armarFacturaDeVenta(venta(), rappi)
+    expect(r.ok && r.datos.cliente.domicilio).toBe('Belgrano 3434, Mar del Plata')
+    expect(r.ok && r.datos.cliente.sucursal).toBeUndefined()
+  })
+})

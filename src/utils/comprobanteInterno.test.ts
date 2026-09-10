@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { Timestamp } from 'firebase/firestore'
 import { armarFacturaX, armarRemito, tipoComprobanteInterno } from './comprobanteInterno'
-import type { VentaCamion } from '@/types'
+import type { UserProfile, VentaCamion } from '@/types'
 
 const base = (extra: Partial<VentaCamion> = {}): VentaCamion => ({
   id: 'venta123456',
@@ -117,5 +117,37 @@ describe('armarFacturaX', () => {
     expect(r.datos.renglones[1].total).toBe(0)
     expect(r.datos.total).toBe(10000)
     expect(r.datos.archivo).toBe('factura-x-00002-00000007.pdf')
+  })
+})
+
+describe('sucursal donde se entregó (2026-09-10)', () => {
+  const dir = (id: string, nombre: string, address: string, tango: Record<string, string> = {}) =>
+    ({ id, nombre, address, lat: null, lng: null, horarioApertura: '', horarioCierre: '', contactoNombre: '', contactoTelefono: '', esPrincipal: id === 'MDP203', ...tango })
+  const rappi = {
+    uid: 'cli1', razonSocial: 'RAPPI ARG S.A.S.', cuit: '30-71234567-8', categoriaIvaTangoDesc: 'Responsable Inscripto',
+    address: 'Belgrano 3434, Mar del Plata', codigoTango: 'MDP203', idGva14Tango: 10, localidadTango: 'MAR DEL PLATA', codigoPostalTango: '7600',
+    tangoIds: { redonhielo: [{ idGva14: 10, codigo: 'MDP203' }, { idGva14: 12, codigo: 'RAP002' }], rolito: [{ idGva14: 21, codigo: 'RAP001' }, { idGva14: 22, codigo: 'RAP002' }] },
+    addresses: [
+      dir('MDP203', 'Principal', 'Belgrano 3434, Mar del Plata'),
+      dir('RAP002', 'GASTRONOMIA (HUMBOLDT)', 'Humboldt 1877, CABA', { domicilioTango: 'HUMBOLDT 1877', localidadTango: 'PALERMO', codigoPostalTango: '1414', nombreComercialTango: 'RAPPI HUMBOLDT' }),
+    ],
+  } as unknown as UserProfile
+
+  it('el remito imprime la sucursal, su domicilio, su C.P. y su código', () => {
+    const r = armarRemito(base({ comprobanteInterno: { tipo: 'remito', puntoVenta: 2, numero: 15 }, clienteCodigoTango: 'RAP002' }), rappi)
+    expect(r.ok && r.datos.cliente).toMatchObject({
+      razonSocial: 'RAPPI ARG S.A.S.', sucursal: 'RAPPI HUMBOLDT (RAP002)', domicilio: 'HUMBOLDT 1877', localidadCp: '1414, PALERMO', codigoCliente: 'RAP002', cuit: '30-71234567-8',
+    })
+  })
+
+  it('la factura X (promo) también, mirando los códigos de Rolito', () => {
+    const r = armarFacturaX(base({ canal: 'promo', formaPago: 'contado_efectivo', comprobanteInterno: { tipo: 'facturaX', puntoVenta: 3, numero: 9 }, clienteCodigoTango: 'RAP002' }), rappi)
+    expect(r.ok && r.datos.cliente).toMatchObject({ sucursal: 'RAPPI HUMBOLDT (RAP002)', domicilio: 'HUMBOLDT 1877', codigoCliente: 'RAP002' })
+  })
+
+  it('una venta sin código de sucursal sale como siempre: la casa central, sin línea Sucursal', () => {
+    const r = armarRemito(base({ comprobanteInterno: { tipo: 'remito', puntoVenta: 2, numero: 15 } }), rappi)
+    expect(r.ok && r.datos.cliente).toMatchObject({ domicilio: 'Belgrano 3434, Mar del Plata', localidadCp: '7600, MAR DEL PLATA', codigoCliente: 'MDP203' })
+    expect(r.ok && r.datos.cliente.sucursal).toBeUndefined()
   })
 })

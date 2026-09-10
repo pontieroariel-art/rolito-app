@@ -955,6 +955,18 @@ export interface DeliveryAddress {
   contactoNombre: string
   contactoTelefono: string
   esPrincipal: boolean
+  // Ficha de Tango del código de esta sucursal (addresses[].id = COD_GVA14,
+  // 2026-09-10). Los escribe SOLO la sync de clientes (functions/triggers/
+  // tangoSync.ts) sin tocar el resto de la entrada (address, lat/lng, horarios
+  // y contacto los corrige logística). Son lo que imprimen el remito y la
+  // factura de la app cuando la venta fue a esa sucursal (utils/clienteImpreso.ts).
+  domicilioTango?:       string
+  localidadTango?:       string
+  provinciaTango?:       string
+  codigoPostalTango?:    string
+  razonSocialTango?:     string
+  /** NOM_COM de Tango: el nombre propio de la sucursal ("YPF RUTA 8 KM 40"). */
+  nombreComercialTango?: string
 }
 
 export interface UserProfile {

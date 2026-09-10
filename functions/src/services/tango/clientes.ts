@@ -33,6 +33,8 @@ export interface FilaClienteTango {
   codGva14:           string
   cuit:               string
   razonSocial?:       string
+  /** NOM_COM: nombre comercial, el nombre propio de la sucursal ("YPF RUTA 8 KM 40"). */
+  nombreComercial?:   string
   email?:             string
   telefono1?:         string
   telefono2?:         string
@@ -134,6 +136,105 @@ function direccionDe(f: FilaClienteTango): string {
   return [f.domicilio, f.localidad, f.provinciaDesc].map((x) => (x ?? '').trim()).filter(Boolean).join(', ')
 }
 
+// ── Direcciones por sucursal (2026-09-10) ────────────────────────────────────
+// Cada código de Tango es una sucursal con su propio domicilio; la app guarda
+// una entrada en users.addresses[] por código (id = COD_GVA14). Los campos
+// *Tango de cada entrada son lo que imprimen el remito y la factura cuando la
+// venta fue a esa sucursal. Se escriben SIN tocar address/lat/lng/horarios/
+// contacto/nombre, que corrige logística o el propio cliente.
+
+export interface DireccionDoc {
+  id:               string
+  nombre:           string
+  address:          string
+  lat:              number | null
+  lng:              number | null
+  horarioApertura:  string
+  horarioCierre:    string
+  contactoNombre:   string
+  contactoTelefono: string
+  esPrincipal:      boolean
+  domicilioTango?:       string
+  localidadTango?:       string
+  provinciaTango?:       string
+  codigoPostalTango?:    string
+  razonSocialTango?:     string
+  nombreComercialTango?: string
+}
+
+export type CamposTangoDireccion = Pick<DireccionDoc, 'domicilioTango' | 'localidadTango' | 'provinciaTango' | 'codigoPostalTango' | 'razonSocialTango' | 'nombreComercialTango'>
+const CLAVES_TANGO: (keyof CamposTangoDireccion)[] = ['domicilioTango', 'localidadTango', 'provinciaTango', 'codigoPostalTango', 'razonSocialTango', 'nombreComercialTango']
+
+/** Solo los campos de Tango no vacíos de la fila, con trim. */
+export function camposTangoDeFila(f: FilaClienteTango): CamposTangoDireccion {
+  const t = (v?: string) => (v ?? '').trim()
+  const out: CamposTangoDireccion = {}
+  if (t(f.domicilio)) out.domicilioTango = t(f.domicilio)
+  if (t(f.localidad)) out.localidadTango = t(f.localidad)
+  if (t(f.provinciaDesc)) out.provinciaTango = t(f.provinciaDesc)
+  if (t(f.codigoPostal)) out.codigoPostalTango = t(f.codigoPostal)
+  if (t(f.razonSocial)) out.razonSocialTango = t(f.razonSocial)
+  if (t(f.nombreComercial)) out.nombreComercialTango = t(f.nombreComercial)
+  return out
+}
+
+/** Entrada nueva de addresses[] para un código: sin geo ni horarios, con la ficha de Tango. */
+export function direccionNuevaDeFila(f: FilaClienteTango, opts: { principal: boolean; addressFallback?: string }): DireccionDoc {
+  const nombreSucursal = (f.nombreComercial ?? '').trim() || (f.razonSocial ?? '').trim() || f.codGva14
+  return {
+    id: f.codGva14,
+    nombre: opts.principal ? 'Principal' : nombreSucursal,
+    address: direccionDe(f) || (opts.addressFallback ?? ''),
+    lat: null, lng: null, horarioApertura: '', horarioCierre: '', contactoNombre: '', contactoTelefono: '',
+    esPrincipal: opts.principal,
+    ...camposTangoDeFila(f),
+  }
+}
+
+/**
+ * Upsert de la entrada `id === fila.codGva14` en addresses[] de una cuenta
+ * existente (sync de actualización). Reglas:
+ *  - existe: escribe SOLO los campos *Tango (y `address` si estaba vacía);
+ *    nunca lat/lng, horarios, contacto, nombre ni esPrincipal;
+ *  - no existe y no es el principal: la crea;
+ *  - no existe y ES el principal: la crea solo si la cuenta no tiene ninguna
+ *    dirección (si ya cargaron direcciones a mano con ids propios, la ficha
+ *    del principal vive en users.*Tango y no se duplica);
+ *  - `manda = false` (fila de Rolito cuando la ficha la manda Redonhielo): no
+ *    pisa campos *Tango ya escritos por la otra empresa;
+ *  - `cambio = false` si no hubo nada que escribir (idempotente, para no
+ *    reescribir el array en cada corrida).
+ */
+export function upsertDireccionTango(
+  addresses: unknown,
+  fila: FilaClienteTango,
+  opts: { principal: boolean; manda: boolean },
+): { addresses: DireccionDoc[]; cambio: boolean } {
+  const lista: DireccionDoc[] = Array.isArray(addresses) ? (addresses as DireccionDoc[]) : []
+  const campos = camposTangoDeFila(fila)
+  const i = lista.findIndex((a) => a && a.id === fila.codGva14)
+  if (i < 0) {
+    if (opts.principal && lista.length > 0) return { addresses: lista, cambio: false }
+    return { addresses: [...lista, direccionNuevaDeFila(fila, { principal: opts.principal })], cambio: true }
+  }
+  const actual = lista[i]
+  const nueva: DireccionDoc = { ...actual }
+  let cambio = false
+  for (const k of CLAVES_TANGO) {
+    const v = campos[k]
+    if (!v) continue
+    if (actual[k] === v) continue
+    if (!opts.manda && actual[k]) continue
+    nueva[k] = v
+    cambio = true
+  }
+  if (!(actual.address ?? '').trim() && direccionDe(fila)) { nueva.address = direccionDe(fila); cambio = true }
+  if (!cambio) return { addresses: lista, cambio: false }
+  const out = [...lista]
+  out[i] = nueva
+  return { addresses: out, cambio: true }
+}
+
 /**
  * Ficha `users/{uid}` de una cuenta creada desde Tango. Modelo `emailAuth`
  * (como scripts/import-clientes.mjs): la credencial es <cuit>@rolito.app y
@@ -156,13 +257,9 @@ export function docCuentaDesdeTango(candidato: CandidatoAlta, ahora: unknown): R
   const rh = tangoIds.redonhielo?.[0]
   // Una dirección por código de Tango (addresses[].id = código, como en las
   // importaciones): la primera es la principal.
-  const addresses = candidato.filas.map(({ fila }, i) => ({
-    id: fila.codGva14,
-    nombre: i === 0 ? 'Principal' : (fila.razonSocial ?? '').trim() || fila.codGva14,
-    address: direccionDe(fila) || direccion,
-    lat: null, lng: null, horarioApertura: '', horarioCierre: '', contactoNombre: '', contactoTelefono: '',
-    esPrincipal: i === 0,
-  })).filter((a, i, arr) => arr.findIndex((b) => b.id === a.id) === i)
+  const addresses = candidato.filas
+    .map(({ fila }, i) => direccionNuevaDeFila(fila, { principal: i === 0, addressFallback: direccion }))
+    .filter((a, i, arr) => arr.findIndex((b) => b.id === a.id) === i)
   const doc: Record<string, unknown> = {
     rol: 'cliente',
     estado: 'activo',

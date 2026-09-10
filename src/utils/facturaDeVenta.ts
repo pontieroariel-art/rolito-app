@@ -4,8 +4,9 @@
 // los datos del cliente. Los importes NO se recalculan — se usan los que
 // efectivamente se informaron, para que el papel coincida con lo declarado.
 
-import { AnulacionEnVenta, FacturaArcaVenta, UserProfile, VentaCamion, VentaCamionItem } from '@/types'
+import { AnulacionEnVenta, CanalVenta, FacturaArcaVenta, UserProfile, VentaCamion, VentaCamionItem } from '@/types'
 import { FacturaArcaData, RenglonArca } from './facturaArcaPdf'
+import { clienteImpreso } from './clienteImpreso'
 
 // Lo que el comprobante necesita de la venta. Lo cumplen tanto la venta del
 // camión (VentaCamion, con choferNombre) como la del mostrador
@@ -16,6 +17,9 @@ export interface VentaFacturable {
   items:            VentaCamionItem[]
   cambios?:         VentaCamionItem[]
   clienteNombre:    string
+  /** Empresa de la venta y sucursal de Tango a la que fue (para imprimir SU domicilio, 2026-09-10). */
+  canal:            CanalVenta
+  clienteCodigoTango?: string
   total:            number
   choferNombre?:    string
   cajaNombre?:      string
@@ -97,6 +101,9 @@ function armarComprobante(venta: VentaFacturable, cliente: UserProfile | undefin
   // el IVA en cero visible que uno con números plausibles pero distintos de los
   // que tiene ARCA.
   const imp = f.importes
+  // Registrado: datos de su ficha (Tango), con la sucursal donde se entregó si
+  // la cuenta tiene varias. Ocasional del mostrador: sin ficha, queda lo declarado.
+  const ci = clienteImpreso(venta, cliente)
 
   return {
     ok: true,
@@ -112,12 +119,13 @@ function armarComprobante(venta: VentaFacturable, cliente: UserProfile | undefin
       // consumidor final, identificado por CUIT o DNI si los dio, y si no, sin
       // identificar — el papel dice lo mismo que se declaró.
       cliente: {
-        razonSocial:    cliente?.razonSocial ?? venta.clienteNombre,
+        razonSocial:    ci.razonSocial,
+        ...(ci.sucursal ? { sucursal: ci.sucursal } : {}),
         cuit:           cliente?.cuit
                           ?? venta.clienteOcasional?.cuit
                           ?? (venta.clienteOcasional?.dni ? `DNI ${venta.clienteOcasional.dni}` : ''),
         condicionIva:   cliente?.categoriaIvaTangoDesc ?? (venta.clienteOcasional ? 'Consumidor Final' : ''),
-        domicilio:      cliente?.address ?? '',
+        domicilio:      ci.domicilio,
         condicionVenta: 'Contado',
         vendedor:       venta.choferNombre ?? venta.cajaNombre ?? '',
       },
