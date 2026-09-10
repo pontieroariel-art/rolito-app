@@ -181,13 +181,21 @@ describe('armarNotaCreditoFacturador (anulación de ventanilla)', () => {
     expect(r.comprobante).toMatchObject({
       codigoTipoComprobante: 'N/C', numeroComprobante: 'A0110400000007', codigoTalonario: 1001,
       cAE: '75999999999999', fechaVtoCAE: '2026-09-20', fechaComprobante: '2026-09-09',
-      codigoTipoComprobanteDeReferencia: 'FAC', numeroDeComprobanteDeReferencia: 'A0110400000001', comprobanteCanceladoCompletamente: true,
+      codigoTipoComprobanteDeReferencia: 'FAC', numeroDeComprobanteDeReferencia: 'A0110400000001', comprobanteCanceladoCompletamente: false,
       codigoMotivo: '4', codigoCliente: 'FC.280', total: 1.27, totalSinImpuestos: 1, totalIva: 0.21,
       leyenda1: 'ROLITO:NC:v1', leyenda4: 'Autorizo: Yanina',
     })
     expect(r.comprobante.pagos).toEqual([{ tipo: 'Efectivo', codigoDeCuenta: '1', monto: 1.27 }])
     expect((r.comprobante.items as unknown[]).length).toBe(1)
     expect(r.referencia).toBe('ROLITO:NC:v1')
+  })
+
+  it('con ncCanceladoCompletamente y codigoTipoNC de config: cancela la factura entera SIN ítems (ejemplo 06 del readme) y con el código elegido', () => {
+    const r = armarNotaCreditoFacturador(ventaAnulada, itemNC, { ...cfgNC, ncCanceladoCompletamente: true, codigoTipoNC: 'CDE' }, mapeos)
+    if (r.error !== undefined) throw new Error(r.error)
+    expect(r.comprobante).toMatchObject({ codigoTipoComprobante: 'CDE', comprobanteCanceladoCompletamente: true, numeroDeComprobanteDeReferencia: 'A0110400000001' })
+    expect(r.comprobante.items).toBeUndefined()
+    expect(r.comprobante.total).toBe(1.27)
   })
 
   it('exige talonario de NC, NC emitida con CAE y total igual al de la factura', () => {

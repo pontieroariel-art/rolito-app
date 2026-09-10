@@ -345,7 +345,7 @@ function armarNotaCreditoFacturador(payload, item, cfg, mapeos) {
         fechaComprobante: fechaArcaAIso(nc.importes?.fecha) ?? String(base.comprobante.fechaComprobante),
         codigoTipoComprobanteDeReferencia: 'FAC',
         numeroDeComprobanteDeReferencia: numeroFactura,
-        comprobanteCanceladoCompletamente: true,
+        comprobanteCanceladoCompletamente: cfg.ncCanceladoCompletamente === true,
         codigoMotivo: String(cfg.codigoMotivoNC ?? exports.CODIGO_MOTIVO_NC_DEFAULT),
         leyenda1: recortar(ref, 60),
         leyenda2: recortar(`Anula ${letraFactura} ${String(asociado.PtoVta).padStart(5, '0')}-${String(asociado.Nro).padStart(8, '0')} app`, 60),
@@ -354,6 +354,9 @@ function armarNotaCreditoFacturador(payload, item, cfg, mapeos) {
         leyenda5: recortar(anulacion.solicitadoPor ? `Pidio: ${anulacion.solicitadoPor}` : '', 60),
         observaciones: recortar(`${ref}. Nota de credito por anulacion de la factura ${numeroFactura} (${base.referencia}). ${motivo}. Pidio ${anulacion.solicitadoPor ?? 'caja'}, autorizo ${anulacion.resueltaPor ?? '?'}.`, 280),
     };
+    // Ejemplo 06 del readme: cancelando la factura completa, los ítems no viajan.
+    if (cfg.ncCanceladoCompletamente === true)
+        delete comprobante.items;
     return { comprobante, fiscal: true, referencia: ref };
 }
 //# sourceMappingURL=factura.js.map

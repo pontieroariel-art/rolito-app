@@ -1773,7 +1773,11 @@ Redonhielo el Facturador lo rechazó en la primera NC real, 2026-09-10: "(78038)
 comprobante CDE no existe"; 'N/C' es lo que Tango guarda en GVA12.T_COMP):
 
 - `codigoTipoComprobanteDeReferencia: 'FAC'`, `numeroDeComprobanteDeReferencia: 'A0110400000116'`
-  (letra + pto vta 5 + nro 8, el mismo formato de `numeroComprobante`), `comprobanteCanceladoCompletamente: true`.
+  (letra + pto vta 5 + nro 8, el mismo formato de `numeroComprobante`), `comprobanteCanceladoCompletamente: false`
+  **con ítems** (variante "parcial" del readme, por el total de la factura). Con `true` el ejemplo 06 NO manda
+  ítems y Tango los toma de la factura; en Redonhielo esa variante rebotó "(78023) Items no puede ser vacío"
+  (2026-09-10). Se puede volver a probar con `config/tango.facturador.<empresa>.ncCanceladoCompletamente: true`
+  (entonces los ítems se omiten).
 - `cAE` / `fechaVtoCAE` de la NC (Tango la registra ya autorizada, igual que la factura).
 - `codigoMotivo` (tabla "Motivos NC": 1 devolución de mercadería, 2 saldo a favor, 3 diferencia de
   cambio, **4 anulación de fact. electrónica** = default; `config/tango.facturador.<empresa>.codigoMotivoNC`).

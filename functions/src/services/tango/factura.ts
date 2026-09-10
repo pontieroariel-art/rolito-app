@@ -38,6 +38,14 @@ export interface ConfigFacturadorEmpresa {
    * comprobante CDE no existe" (primera NC real, 2026-09-10).
    */
   codigoTipoNC?: string
+  /**
+   * Cómo referencia la NC a la factura (readme del Facturador): con
+   * `comprobanteCanceladoCompletamente: true` el ejemplo 06 NO manda ítems
+   * (Tango los toma de la factura); con `false` (ejemplo parcial) van los
+   * ítems y los importes. Ausente = false: la primera NC real (2026-09-10)
+   * con `true` + ítems rebotó "(78023) Items no puede ser vacío".
+   */
+  ncCanceladoCompletamente?: boolean
   /** Un código, o { contado, cuenta_corriente } (la promo en cta. cte. factura con cuota). */
   condicionVenta?: number | string | Record<string, number | string>
   listaPrecio?: number | string | Record<string, number | string>
@@ -438,7 +446,7 @@ export function armarNotaCreditoFacturador(payload: PayloadVenta, item: ItemOutb
     fechaComprobante: fechaArcaAIso(nc.importes?.fecha) ?? String(base.comprobante.fechaComprobante),
     codigoTipoComprobanteDeReferencia: 'FAC',
     numeroDeComprobanteDeReferencia: numeroFactura,
-    comprobanteCanceladoCompletamente: true,
+    comprobanteCanceladoCompletamente: cfg.ncCanceladoCompletamente === true,
     codigoMotivo: String(cfg.codigoMotivoNC ?? CODIGO_MOTIVO_NC_DEFAULT),
     leyenda1: recortar(ref, 60),
     leyenda2: recortar(`Anula ${letraFactura} ${String(asociado.PtoVta).padStart(5, '0')}-${String(asociado.Nro).padStart(8, '0')} app`, 60),
@@ -447,5 +455,7 @@ export function armarNotaCreditoFacturador(payload: PayloadVenta, item: ItemOutb
     leyenda5: recortar(anulacion.solicitadoPor ? `Pidio: ${anulacion.solicitadoPor}` : '', 60),
     observaciones: recortar(`${ref}. Nota de credito por anulacion de la factura ${numeroFactura} (${base.referencia}). ${motivo}. Pidio ${anulacion.solicitadoPor ?? 'caja'}, autorizo ${anulacion.resueltaPor ?? '?'}.`, 280),
   }
+  // Ejemplo 06 del readme: cancelando la factura completa, los ítems no viajan.
+  if (cfg.ncCanceladoCompletamente === true) delete comprobante.items
   return { comprobante, fiscal: true, referencia: ref }
 }
