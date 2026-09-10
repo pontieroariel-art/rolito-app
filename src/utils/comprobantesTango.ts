@@ -285,3 +285,22 @@ export function armarRemitoTangoPdf(d: RemitoTangoDetalle, hoy: Date = new Date(
     archivo:   `remito-${numero}.pdf`,
   }
 }
+
+// ── Mail del cliente ─────────────────────────────────────────────────────────
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+/** Dominios de login sintéticos: no son mails reales del cliente. */
+const DOMINIOS_INTERNOS = ['rolito.app', 'rolito.internal', 'staff.rolito.internal', 'produccion.rolito.internal', 'tecnico.rolito.internal']
+
+/**
+ * Mail al que se le mandan los comprobantes (decisión de Ariel 2026-09-10: el
+ * de la ficha de Tango). Se busca en los índices del cliente (primero el de la
+ * sucursal elegida, después cualquiera) y, si Tango no lo tiene, el de la app
+ * siempre que sea un mail real y no el de login.
+ */
+export function emailDelCliente(cliente: Pick<UserProfile, 'email'> | null | undefined, indices: TangoComprobantesDoc[], grupo?: GrupoRecibo | null): string {
+  const valido = (e: string | undefined) => !!e && EMAIL_RE.test(e) && !DOMINIOS_INTERNOS.some((d) => e.toLowerCase().endsWith(`@${d}`))
+  const ordenados = grupo ? [...indices].sort((a, b) => (mismoGrupo(a, grupo) ? -1 : 0) - (mismoGrupo(b, grupo) ? -1 : 0)) : indices
+  for (const i of ordenados) if (valido(i.email)) return i.email!.trim().toLowerCase()
+  return valido(cliente?.email) ? cliente!.email.trim().toLowerCase() : ''
+}

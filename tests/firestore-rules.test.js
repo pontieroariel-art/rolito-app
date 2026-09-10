@@ -3553,6 +3553,20 @@ describe('tangoComprobantes — facturas y remitos de Tango leídos por el bridg
     await assertFails(setDoc(doc(db('sup'), 'tangoComprobantes/redonhielo_X'), indice))
     await assertFails(updateDoc(doc(db('tes'), 'tangoComprobanteDetalle/redonhielo_FAC_A0010100282787'), { cae: '1' }))
   })
+
+  test('enviosComprobantes: lo lee facturación y quien lo mandó; nadie escribe por reglas', async () => {
+    await seedTodos()
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/fac'), { rol: 'facturacion', estado: 'activo' })
+      await setDoc(doc(d, 'enviosComprobantes/e1'), { para: 'x@y.com', comprobante: { tipo: 'FAC', numero: 'A1' }, enviadoPor: { uid: 'sup', nombre: 'S' }, estado: 'enviado' })
+    })
+    await assertSucceeds(getDoc(doc(db('fac'), 'enviosComprobantes/e1')))
+    await assertSucceeds(getDoc(doc(db('sup'), 'enviosComprobantes/e1')))
+    await assertFails(getDoc(doc(db('ch'), 'enviosComprobantes/e1')))
+    await assertFails(getDoc(doc(db('cli'), 'enviosComprobantes/e1')))
+    await assertFails(setDoc(doc(db('sup'), 'enviosComprobantes/e2'), { para: 'a@b.com', enviadoPor: { uid: 'sup' } }))
+    await assertFails(deleteDoc(doc(db('fac'), 'enviosComprobantes/e1')))
+  })
 })
 
 // ── rollupsPedidos: agregados de solo lectura para staff ──────────────────────

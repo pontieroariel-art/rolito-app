@@ -1220,6 +1220,16 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── Envíos de comprobantes por mail (2026-09-10) ──────────────────────
+    // Lo escribe SOLO la Cloud Function enviarComprobantePorMail (Admin SDK):
+    // quién mandó qué comprobante a qué mail y cuándo. Lo lee quien gestiona.
+    match /enviosComprobantes/{envioId} {
+      allow read: if request.auth != null
+        && (isOperator() || isManager() || isGerenteGeneral() || isFacturacion() || isTesoreria()
+            || resource.data.enviadoPor.uid == request.auth.uid);
+      allow write: if false;
+    }
+
     // ── Precios y listas de Tango (Tango es la fuente maestra) ──────────────
     // preciosTango/{empresa} lo escribe la Cloud Function syncPreciosTango
     // (Admin SDK). Lo leen los que venden o miran precios: choferes (venta en

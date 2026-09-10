@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.publicarTurnosVentanilla = exports.sincronizarDepositosTangoAhora = exports.syncDepositosTango = exports.procesarAltasTangoAhora = exports.altasClientesTango = exports.onConsultaSaldoPendiente = exports.sincronizarSaldosTangoAhora = exports.sincronizarClientesTangoAhora = exports.syncSaldosTangoConnect = exports.syncClientesTangoConnect = exports.sincronizarPreciosTangoAhora = exports.syncPreciosTango = exports.barridoOutboxTango = exports.onOutboxPendiente = exports.onOutboxConfirmado = exports.onCobranzaCreada = exports.onDescargaCamionCreada = exports.onRemitoCargaCreado = exports.onAnulacionEmitida = exports.onVentaVentanillaFacturada = exports.onVentaVentanillaCreada = exports.onVentaCamionFacturada = exports.onVentaCamionCreada = exports.onProduccionPalletCreado = exports.onConsultaRespondida = exports.syncSaldosTango = exports.syncClientesTango = exports.enviarResumenAdminDiario = exports.onHistorialAdminAltoRiesgo = exports.backupAuthUsers = exports.onVisitaSupervisorCreada = exports.onPedidoSupervisorCreado = exports.avisarComodatosPorVencer = exports.onTicketCreado = exports.onStockBajo = exports.onTicketCerrado = exports.generarPedidosRecurrentes = exports.orsDirections = exports.mirrorDriverLocation = exports.validarPreciosPedido = exports.notifyReprogramado = exports.notifyCerca = exports.sendPush = exports.deleteAuthUsers = exports.onOrderEnCamino = exports.onOrderConfirmado = exports.onOrderCreated = exports.onClienteCreadoPorStaff = exports.onUserApproved = exports.onUserRegistered = void 0;
-exports.avisarPadronIIBB = exports.onAnulacionResuelta = exports.onAnulacionSolicitada = exports.reconciliarFacturasArca = exports.onVentaVentanillaContadoFacturar = exports.onVentaContadoFacturar = exports.resetPinProduccion = exports.onOrderRollup = void 0;
+exports.enviarComprobantePorMail = exports.avisarPadronIIBB = exports.onAnulacionResuelta = exports.onAnulacionSolicitada = exports.reconciliarFacturasArca = exports.onVentaVentanillaContadoFacturar = exports.onVentaContadoFacturar = exports.resetPinProduccion = exports.onOrderRollup = void 0;
 const app_1 = require("firebase-admin/app");
 (0, app_1.initializeApp)();
 // Nota: cambio trivial para forzar un hash de fuente distinto y que
@@ -107,4 +107,7 @@ Object.defineProperty(exports, "onAnulacionResuelta", { enumerable: true, get: f
 // que se puede desplegar suelta.
 var padronIIBB_1 = require("./triggers/padronIIBB");
 Object.defineProperty(exports, "avisarPadronIIBB", { enumerable: true, get: function () { return padronIIBB_1.avisarPadronIIBB; } });
+// Envío por mail de un comprobante generado en la app (factura, remito, composición) al cliente (2026-09-10).
+var enviarComprobante_1 = require("./triggers/enviarComprobante");
+Object.defineProperty(exports, "enviarComprobantePorMail", { enumerable: true, get: function () { return enviarComprobante_1.enviarComprobantePorMail; } });
 //# sourceMappingURL=index.js.map

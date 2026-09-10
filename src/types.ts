@@ -580,6 +580,7 @@ export interface TangoComprobantesDoc {
   empresa:        EmpresaTango
   codigo:         string          // código del cliente en Tango (sucursal)
   razonSocial?:   string
+  email?:         string          // E_MAIL de la ficha de Tango (para enviarle comprobantes)
   desde?:         string          // yyyy-MM-dd de la última ventana leída
   actualizadoEn?: Timestamp
   facturas:       Record<string, FacturaTangoResumen>   // clave '{tipo}_{numero}'

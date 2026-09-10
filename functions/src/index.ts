@@ -48,3 +48,6 @@ export { onAnulacionSolicitada, onAnulacionResuelta } from './triggers/anulacion
 // Aviso de vencimiento del padrón de IIBB. No declara los secrets de ARCA, así
 // que se puede desplegar suelta.
 export { avisarPadronIIBB } from './triggers/padronIIBB'
+
+// Envío por mail de un comprobante generado en la app (factura, remito, composición) al cliente (2026-09-10).
+export { enviarComprobantePorMail } from './triggers/enviarComprobante'

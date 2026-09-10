@@ -1,0 +1,36 @@
+import { getFunctions, httpsCallable } from 'firebase/functions'
+import type { EmpresaTango } from '@/types'
+
+// Envío de un comprobante en PDF por mail al cliente, vía la Cloud Function
+// enviarComprobantePorMail (Resend con adjunto; un mailto: no puede adjuntar).
+// La función valida el rol, limita la frecuencia y registra el envío en
+// enviosComprobantes.
+
+export interface EnvioComprobante {
+  para:          string
+  asunto:        string
+  mensaje?:      string
+  nombreArchivo: string
+  pdf:           Blob
+  comprobante:   { tipo: string; numero: string; empresa?: EmpresaTango }
+  clienteUid?:   string
+  clienteNombre: string
+  conCopia?:     boolean
+}
+
+async function aBase64(blob: Blob): Promise<string> {
+  const buf = new Uint8Array(await blob.arrayBuffer())
+  let bin = ''
+  const paso = 0x8000
+  for (let i = 0; i < buf.length; i += paso) bin += String.fromCharCode(...buf.subarray(i, i + paso))
+  return btoa(bin)
+}
+
+export async function enviarComprobantePorMail(e: EnvioComprobante): Promise<void> {
+  const pdfBase64 = await aBase64(e.pdf)
+  const fn = httpsCallable<Record<string, unknown>, { ok: boolean; para: string }>(getFunctions(), 'enviarComprobantePorMail')
+  await fn({
+    para: e.para, asunto: e.asunto, mensaje: e.mensaje ?? '', nombreArchivo: e.nombreArchivo, pdfBase64,
+    comprobante: e.comprobante, clienteUid: e.clienteUid ?? null, clienteNombre: e.clienteNombre, conCopia: e.conCopia === true,
+  })
+}

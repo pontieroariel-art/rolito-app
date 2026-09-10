@@ -129,7 +129,7 @@ async function leerEmpresa(empresa, database, desde) {
   const vendedores = Object.fromEntries((await consulta(p, `SELECT COD_GVA23, NOMBRE_VEN FROM GVA23`)).map((v) => [String(v.COD_GVA23 ?? '').trim(), String(v.NOMBRE_VEN ?? '').trim()]))
 
   const colsCliente = await columnasDe(p, 'GVA14')
-  const pedir = ['COD_GVA14', 'RAZON_SOCI', 'CUIT', 'DOMICILIO', 'LOCALIDAD', 'C_POSTAL', 'COD_PROVIN', 'CAT_IVA', 'IVA'].filter((c) => colsCliente.has(c))
+  const pedir = ['COD_GVA14', 'RAZON_SOCI', 'CUIT', 'DOMICILIO', 'LOCALIDAD', 'C_POSTAL', 'COD_PROVIN', 'CAT_IVA', 'IVA', 'E_MAIL', 'EMAIL'].filter((c) => colsCliente.has(c))
   const clientes = Object.fromEntries((await consulta(p, `SELECT ${pedir.join(', ')} FROM GVA14`)).map((c) => [String(c.COD_GVA14 ?? '').trim(), c]))
 
   log(`  ${empresa}: ${facturas.length} facturas (${renglonesFac.length} renglones), ${remitos.length} remitos (${renglonesRem.length} renglones), ${relacion.length} cruces, ${Object.keys(clientes).length} clientes — ${((Date.now() - t0) / 1000).toFixed(1)} s`)
@@ -159,9 +159,12 @@ async function escribir(db, empresa, porCodigo, podados, detalles, clientes, des
     const remitos = { ...cambios.remitos }
     for (const k of poda.facturas) facturas[k] = deleteField()
     for (const k of poda.remitos) remitos[k] = deleteField()
+    // Mail de la ficha de Tango (2026-09-10): es el que usa la app para mandarle comprobantes al cliente.
+    const email = String(clientes[codigo]?.E_MAIL ?? clientes[codigo]?.EMAIL ?? '').trim().toLowerCase()
     const datos = {
       empresa, codigo,
       razonSocial: String(clientes[codigo]?.RAZON_SOCI ?? '').trim(),
+      email,
       desde: desdeIso,
       actualizadoEn: serverTimestamp(),
       facturas, remitos,
