@@ -282,6 +282,13 @@ export interface RemitoCarga {
   kg?:           number
   cotSolicitud?: CotSolicitud
   cot?:          CotResultado
+  /**
+   * Remito R oficial de la carga (2026-09-10): número del talonario 00025 que
+   * la app asigna al emitir (contador config/remitoCargaCounter) con el CAI
+   * vigente de ese momento. Se imprime como remito R "PARA REPARTO" y es el
+   * comprobante que respalda el COT.
+   */
+  remitoR?:      { puntoVenta: number; numero: number; cai: string; vencimiento: string }
 }
 
 // ── COT de ARBA: Código de Operación de Traslado del remito de carga ─────────
@@ -336,7 +343,13 @@ export interface CotConfig {
   umbralImporte:  number
   importePorKg:   number                      // sugiere el importe a declarar
   bloqueaSalida:  boolean                     // seguridad no libera un camión que requiere COT y no lo tiene
-  respaldo:       { codigoComprobante: string; prefijo: number }   // '091' Remito R, talonario 25
+  /**
+   * Remito R que respalda la carga: código ARBA ('091'), talonario (25) y, si
+   * la app lo numera e imprime como comprobante oficial ("PARA REPARTO", como
+   * el de Bluesoft), el CAI del talonario con su vencimiento. Sin CAI vigente
+   * o con numeraLaApp en false, caja tipea el número del talonario manual.
+   */
+  respaldo:       { codigoComprobante: string; prefijo: number; cai?: string; vencimiento?: string; numeraLaApp?: boolean }
   transportista:  { cuit: string }            // propio = mismo CUIT
   plantas:        Record<PlantaId, CotPlantaConfig>
   productos:      Record<string, CotProductoConfig>

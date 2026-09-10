@@ -388,7 +388,7 @@ export default function ChoferDashboard() {
             <div className="space-y-3">
               {remitosCarga.map((r) => (
                 <div key={r.id}>
-                  <p className="text-xs text-gray-500 mb-1">{r.codigo} · {r.camionLabel}</p>
+                  <p className="text-xs text-gray-500 mb-1">{r.codigo}{r.remitoR ? ` · Remito R ${String(r.remitoR.puntoVenta).padStart(5, '0')}-${String(r.remitoR.numero).padStart(8, '0')}` : ''} · {r.camionLabel}</p>
                   {/* COT de ARBA: el número que se exhibe en un control de ruta. */}
                   {r.cot?.estado === 'presentado' && r.cot.numero && (
                     <p className="text-xs font-semibold text-blue-700 mb-1">COT ARBA {r.cot.numero}{r.cot.fechaValidez ? ` · válido hasta ${r.cot.fechaValidez.split('-').reverse().join('/')}` : ''}</p>

@@ -95,6 +95,12 @@ export interface RemitoData {
     cambios:    number
   }
   firma?:       { dataUrl: string; aclaracion: string }
+  /** Sello grande translúcido sobre el detalle ("PARA REPARTO" en el remito de carga). */
+  marcaAgua?:   string
+  /** Líneas extra al pie, debajo del CAI (ej. el COT de ARBA). */
+  pieExtra?:    string[]
+  /** Sin firma digital: línea para firmar en el papel con este rótulo. */
+  firmaEnPapel?: string
   /** Lo que va donde la factura lleva el CAE. */
   control:
     | { tipo: 'cai'; cai: string; vencimiento: Date }

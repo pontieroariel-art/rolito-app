@@ -63,10 +63,21 @@ plantas Don Torcuato ↔ Merlo (depósitos propios).
    chofer lo ve en "Mi carga de hoy" y seguridad en el portón; con `bloqueaSalida` el botón "Salió"
    queda deshabilitado mientras falte.
 
+## Remito R oficial de la carga (2026-09-10, decisión de Ariel: talonario 00025)
+
+Antes de la app, la carga salía de Bluesoft como **Remito R** (Cód. 91) del talonario 00025 con el
+sello "PARA REPARTO": planta → repartidor, mercadería, patente, CAI. La app vuelve a eso: con
+`config/cot.respaldo.numeraLaApp` prendido y el CAI del talonario vigente (`cai`, `vencimiento`),
+`crearRemitoCarga` toma el número siguiente de `config/remitoCargaCounter` (inicializado desde Ajustes
+con el siguiente al último manual: 67891) en la misma transacción, lo guarda en `remitosCarga.remitoR`
+y lo usa como respaldo del COT sin que caja tipee nada. El papel es `utils/remitoCargaOficialPdf.ts`
+(mismo `remitoPdf` del chofer: letra R, CAI al pie, marca de agua "PARA REPARTO", envases como
+renglones, patente, y el COT en el pie cuando ya está). Sin CAI vigente la app no numera y caja
+tipea el número del talonario manual, como antes.
+
 ## Pendiente / decisiones
 
+- Cargar en Ajustes el CAI y vencimiento del talonario 00025 y fijar el próximo número (67891).
 - Modalidad "información parcial" (la legalmente prevista para reparto): hoy no la soporta el web
   service; si el contador la pide, es carga manual en ARBA con la lista de ventas del día por COT.
-- El remito R que respalda la carga hoy es el talonario manual 00025; la alternativa es que la app
-  numere la carga con su talonario 01105 e imprima el remito R oficial (fase siguiente).
 - Registro en el ambiente de prueba de ARBA para homologar sin COT reales.

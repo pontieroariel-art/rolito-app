@@ -23,6 +23,16 @@ export const subscribeCotConfig = (cb: (cfg: CotConfig) => void): (() => void) =
 export const guardarCotConfig = (cfg: CotConfig): Promise<void> =>
   setDoc(REF(), normalizarCotConfig(cfg), { merge: true })
 
+// Contador del remito R de carga (config/remitoCargaCounter = { next }): la app
+// numera el talonario 00025 al emitir; el super_admin lo inicializa desde
+// Ajustes con el número siguiente al último remito manual.
+const COUNTER_REF = () => doc(db, 'config', 'remitoCargaCounter')
+
+export const subscribeContadorRemitoCarga = (cb: (next: number | null) => void): (() => void) =>
+  onSnapshot(COUNTER_REF(), (snap) => cb(snap.exists() ? Number(snap.data().next) : null), (err) => { reportError(err, { subscription: 'config/remitoCargaCounter' }); cb(null) })
+
+export const inicializarContadorRemitoCarga = (next: number): Promise<void> => setDoc(COUNTER_REF(), { next })
+
 /** Reintento manual de la presentación a ARBA de un remito de carga (callable presentarCotRemito). */
 export async function presentarCotRemito(remitoId: string): Promise<{ ok: boolean; cot?: string; error?: string }> {
   const fn = httpsCallable<{ remitoId: string }, { ok: boolean; cot?: string; error?: string }>(getFunctions(), 'presentarCotRemito')

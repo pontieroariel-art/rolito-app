@@ -2327,6 +2327,16 @@ describe('remitosCarga', () => {
     await assertFails(setDoc(doc(db('caja1'), 'remitosCarga/r4'), remito({ cot: { estado: 'presentado', numero: '3163824478' } })))
   })
 
+  test('remito R oficial de la carga: nace con puntoVenta/numero/cai y caja avanza el contador global solo hacia adelante', async () => {
+    await seedCaja()
+    await assertSucceeds(setDoc(doc(db('caja1'), 'remitosCarga/r1'), remito({ remitoR: { puntoVenta: 25, numero: 67891, cai: '12345678901234', vencimiento: '2026-12-31' } })))
+    await assertFails(setDoc(doc(db('caja1'), 'remitosCarga/r2'), remito({ remitoR: { puntoVenta: 25, numero: 0, cai: '12345678901234', vencimiento: '2026-12-31' } })))
+    await seed((d) => setDoc(doc(d, 'config/remitoCargaCounter'), { next: 67891 }))
+    await assertSucceeds(updateDoc(doc(db('caja1'), 'config/remitoCargaCounter'), { next: 67892 }))
+    await assertFails(updateDoc(doc(db('caja1'), 'config/remitoCargaCounter'), { next: 67890 }))
+    await assertFails(updateDoc(doc(db('caja1'), 'config/remitoCargaCounter'), { next: 67893, cai: 'x' }))
+  })
+
   // ── envases retornables (2026-09-07) ──
   test('caja puede emitir sin envases (PWA anterior) pero palletsCarga tiene que ser un entero', async () => {
     await seedCaja()

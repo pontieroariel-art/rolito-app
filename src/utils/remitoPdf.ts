@@ -38,6 +38,7 @@ export function specRemito(d: RemitoData, logoDataUrl?: string | null): PapelInt
     ? [`CAI Nº: ${d.control.cai}`, `Fecha vto. CAI: ${fecha(d.control.vencimiento)}`]
     : [`Nº de control interno: ${d.control.codigo}`]
   pieLineas.push(`Entregado por: ${d.entrega.chofer}${d.entrega.camion ? ` - Camión ${d.entrega.camion}` : ''}`)
+  if (d.pieExtra?.length) pieLineas.push(...d.pieExtra)
 
   return {
     encabezado,
@@ -65,9 +66,10 @@ export function specRemito(d: RemitoData, logoDataUrl?: string | null): PapelInt
       ...(r.esCambio ? { nota: 'cambio sin cargo' } : {}),
     })),
     totalBultos: d.bultos,
-    marcaAgua: promo ? 'GRACIAS POR SU COMPRA' : undefined,
+    marcaAgua: d.marcaAgua ?? (promo ? 'GRACIAS POR SU COMPRA' : undefined),
     pie: { lineas: pieLineas, leyenda: d.leyenda },
     ...(d.firma ? { firma: d.firma } : {}),
+    ...(d.firmaEnPapel ? { firmaEnPapel: d.firmaEnPapel } : {}),
   }
 }
 

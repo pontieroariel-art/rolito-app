@@ -98,7 +98,7 @@ export default function SeguridadDashboard() {
             <div key={r.id} className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-3 space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-gray-900">{r.camionLabel}</p>
-                <p className="text-xs text-gray-500">{r.codigo} · {r.choferNombre}</p>
+                <p className="text-xs text-gray-500">{r.codigo}{r.remitoR ? ` · R ${String(r.remitoR.puntoVenta).padStart(5, '0')}-${String(r.remitoR.numero).padStart(8, '0')}` : ''} · {r.choferNombre}</p>
               </div>
               {r.cotSolicitud && (
                 r.cot?.estado === 'presentado'

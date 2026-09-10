@@ -72,6 +72,8 @@ export interface PapelInternoSpec {
     leyenda:  string
   }
   firma?:         { dataUrl: string; aclaracion: string }
+  /** Sin firma digital: línea para firmar en el papel, con este rótulo ("Firma del chofer"). */
+  firmaEnPapel?:  string
 }
 
 const X0 = 12
@@ -285,6 +287,12 @@ export function dibujarPapelInterno(doc: jsPDF, s: PapelInternoSpec): void {
     doc.line(126, 273, 194, 273)
     doc.setFontSize(7)
     doc.text(`Firma: ${s.firma.aclaracion || 'cliente'}`, 160, 277, { align: 'center' })
+  } else if (s.firmaEnPapel) {
+    // Se firma en el papel impreso (remito de carga: chofer y muelle).
+    doc.setLineWidth(0.2)
+    doc.line(126, 273, 194, 273)
+    doc.setFontSize(7)
+    doc.text(s.firmaEnPapel, 160, 277, { align: 'center' })
   } else {
     doc.setFontSize(7)
     doc.text('Sin firma registrada.', 160, 265, { align: 'center' })

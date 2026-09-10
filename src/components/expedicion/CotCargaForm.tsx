@@ -18,11 +18,13 @@ import { PLANTAS, type CotConfig, type CotDomicilio, type CotSolicitud, type Cot
 const input = 'w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'
 const label = 'text-xs text-gray-500 mb-1 block'
 
-export default function CotCargaForm({ plantaId, cfg, kg, patente, onChange }: {
+export default function CotCargaForm({ plantaId, cfg, kg, patente, respaldoAuto = false, onChange }: {
   plantaId: PlantaId
   cfg:      CotConfig
   kg:       number
   patente:  string
+  /** La app numera el remito R al emitir (talonario con CAI vigente): no se pide el número. */
+  respaldoAuto?: boolean
   onChange: (s: CotSolicitud | null) => void
 }) {
   const plantaCfg = cfg.plantas[plantaId]
@@ -158,8 +160,14 @@ export default function CotCargaForm({ plantaId, cfg, kg, patente, onChange }: {
       <div className="grid sm:grid-cols-3 gap-2">
         <div>
           <label className={label}>Remito R que respalda (talonario {String(cfg.respaldo.prefijo).padStart(5, '0')})</label>
-          <input value={numeroR} onChange={(e) => setNumeroR(e.target.value.replace(/\D/g, '').slice(0, 8))} inputMode="numeric" placeholder="Nº del talonario" className={input} />
-          {numeroR && <p className="text-[11px] text-gray-400 mt-0.5">{formatoRespaldo({ prefijo: cfg.respaldo.prefijo, numero: Number(numeroR) })}</p>}
+          {respaldoAuto ? (
+            <p className="text-sm text-gray-700 bg-white border border-[#D3D1C7] rounded-lg px-3 py-2">Lo numera la app al emitir (remito R "PARA REPARTO" con CAI).</p>
+          ) : (
+            <>
+              <input value={numeroR} onChange={(e) => setNumeroR(e.target.value.replace(/\D/g, '').slice(0, 8))} inputMode="numeric" placeholder="Nº del talonario" className={input} />
+              {numeroR && <p className="text-[11px] text-gray-400 mt-0.5">{formatoRespaldo({ prefijo: cfg.respaldo.prefijo, numero: Number(numeroR) })}</p>}
+            </>
+          )}
         </div>
         {tipo === 'cliente' && (
           <div>

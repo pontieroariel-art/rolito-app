@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   COT_DEFAULTS, domicilioDeCliente, formatoRespaldo, kgDeItems, letraProvincia, normalizarCotConfig, parsearCalleNumero, patenteValida,
-  pesoSugerido, requiereCot, salidaSugerida, validarSolicitudCot,
+  pesoSugerido, requiereCot, salidaSugerida, talonarioRemitoCarga, validarSolicitudCot,
 } from './cot'
 import type { CotSolicitud, UserProfile } from '@/types'
 
@@ -84,6 +84,19 @@ describe('COT: domicilios y validación', () => {
     expect(validarSolicitudCot({ ...base, patente: 'XX', respaldo: { ...base.respaldo, numero: 0 } })).toHaveLength(2)
     expect(validarSolicitudCot({ ...base, destino: { ...base.destino, cuit: '', consumidorFinal: false } as CotSolicitud['destino'] })).toContain('El destinatario no tiene un CUIT válido: marcalo como consumidor final o elegí otro.')
     expect(validarSolicitudCot({ ...base, destino: { tipo: 'planta', plantaId: 'merlo' }, respaldo: { ...base.respaldo, importe: 0 } })).toEqual([])
+  })
+
+  it('talonario del remito R de carga: solo con numeraLaApp, CAI de 14 dígitos y vencimiento vigente', () => {
+    const base = normalizarCotConfig({ respaldo: { codigoComprobante: '091', prefijo: 25, cai: '12345678901234', vencimiento: '2026-12-31', numeraLaApp: true } } as never)
+    expect(talonarioRemitoCarga(base, new Date(2026, 8, 10))).toEqual({ puntoVenta: 25, cai: '12345678901234', vencimiento: '2026-12-31' })
+    expect(talonarioRemitoCarga(base, new Date(2027, 0, 1))).toBeNull()                      // vencido
+    expect(talonarioRemitoCarga({ respaldo: { ...base.respaldo, numeraLaApp: false } })).toBeNull()
+    expect(talonarioRemitoCarga({ respaldo: { ...base.respaldo, cai: '123' } })).toBeNull()
+    expect(talonarioRemitoCarga(normalizarCotConfig(null))).toBeNull()
+    // Con la app numerando, la solicitud no exige el número del remito R.
+    const sol: CotSolicitud = { destino: { tipo: 'planta', plantaId: 'merlo' }, respaldo: { codigoComprobante: '091', prefijo: 25, numero: 0, importe: 0 }, patente: 'AG028YN', recorrido: { tipo: 'M', localidad: 'MERLO', ruta: 'RUTA 205' }, fechaSalida: '2026-09-10', horaSalida: '07:30' }
+    expect(validarSolicitudCot(sol)).toEqual(['Falta el número del remito R que respalda la carga.'])
+    expect(validarSolicitudCot(sol, { respaldoAuto: true })).toEqual([])
   })
 
   it('sugiere la salida en 30 minutos y formatea el remito R', () => {

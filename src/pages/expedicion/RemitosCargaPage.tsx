@@ -16,7 +16,9 @@ import RacksInput from '@/components/expedicion/RacksInput'
 import CotCargaForm from '@/components/expedicion/CotCargaForm'
 import { useCotConfig } from '@/hooks/useCotConfig'
 import { presentarCotRemito } from '@/services/cotConfigService'
-import { kgDeItems, requiereCot, validarSolicitudCot } from '@/utils/cot'
+import { formatoRespaldo, kgDeItems, requiereCot, talonarioRemitoCarga, validarSolicitudCot } from '@/utils/cot'
+import { generateRemitoCargaOficial } from '@/utils/remitoCargaOficialPdf'
+import { TalonarioRemitoCargaNoInicializadoError } from '../../services/remitoCargaService'
 import type { CotSolicitud } from '../../types'
 import { AROS_POR_PALLET, PUNTALES_POR_PALLET, describirEnvases, envasesDeRemito } from '@/utils/envases'
 
@@ -123,6 +125,8 @@ export default function RemitosCargaPage() {
   const { kg, sinPeso } = useMemo(() => kgDeItems(items, cotCfg.productos), [items, cotCfg.productos])
   const requiereCotCarga = requiereCot(kg, cotSolicitud?.respaldo.importe ?? 0, cotCfg)
   const pideCot = requiereCotCarga && cotCfg.habilitado
+  // Talonario del remito R oficial de la carga (00025 con CAI vigente): si está, la app numera e imprime el R.
+  const talonarioR = useMemo(() => talonarioRemitoCarga(cotCfg), [cotCfg])
   const num = (v: string) => Math.max(0, Math.min(999, parseInt(v.replace(/\D/g, ''), 10) || 0))
   const inputEnvase = 'w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'
 
@@ -139,8 +143,10 @@ export default function RemitosCargaPage() {
 
   const puedeConfirmar = !!camion && !!deposito && items.length > 0
 
-  const imprimir = (r: RemitoCarga) =>
-    generateRemitoCarga({
+  // Con remito R numerado por la app sale el papel oficial "PARA REPARTO"; si no, el interno.
+  const imprimir = (r: RemitoCarga) => r.remitoR
+    ? generateRemitoCargaOficial(r).catch((err) => reportError(err, { origen: 'RemitosCargaPage', accion: 'error al generar el remito R' }))
+    : generateRemitoCarga({
       codigo:       r.codigo,
       plantaId:     r.plantaId,
       camionLabel:  r.camionLabel,
@@ -175,7 +181,7 @@ export default function RemitosCargaPage() {
     setError('')
     // COT: si la carga lo requiere y la presentación está habilitada, la solicitud tiene que estar completa.
     if (pideCot) {
-      const faltas = cotSolicitud ? validarSolicitudCot(cotSolicitud) : ['Completá los datos del COT de ARBA (destinatario, remito R, importe).']
+      const faltas = cotSolicitud ? validarSolicitudCot(cotSolicitud, { respaldoAuto: !!talonarioR }) : ['Completá los datos del COT de ARBA (destinatario, remito R, importe).']
       if (faltas.length) { setError(faltas.join(' ')); setGuardando(false); return }
     }
     try {
@@ -191,6 +197,7 @@ export default function RemitosCargaPage() {
           envases,
           kg,
           ...(pideCot && cotSolicitud ? { cotSolicitud } : {}),
+          ...(talonarioR ? { remitoR: talonarioR } : {}),
         },
         { uid: user.uid, nombre: user.nombre, plantaId },
       )
@@ -205,7 +212,7 @@ export default function RemitosCargaPage() {
       imprimir(remito)
     } catch (err) {
       reportError(err, { origen: 'RemitosCargaPage', accion: 'error al crear' })
-      setError('No se pudo crear el remito. Revisá la conexión e intentá de nuevo.')
+      setError(err instanceof TalonarioRemitoCargaNoInicializadoError ? err.message : 'No se pudo crear el remito. Revisá la conexión e intentá de nuevo.')
     } finally {
       setGuardando(false)
     }
@@ -324,7 +331,7 @@ export default function RemitosCargaPage() {
           </p>
         )}
         {pideCot && (
-          <CotCargaForm plantaId={plantaId} cfg={cotCfg} kg={kg} patente={camion?.patente ?? ''} onChange={setCotSolicitud} />
+          <CotCargaForm plantaId={plantaId} cfg={cotCfg} kg={kg} patente={camion?.patente ?? ''} respaldoAuto={!!talonarioR} onChange={setCotSolicitud} />
         )}
 
         {/* ── Envases que salen ── muelle se lo dicta a caja al cargar. Cada
@@ -377,9 +384,12 @@ export default function RemitosCargaPage() {
         {remitos.map((r) => (
           <div key={r.id} className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-3 flex items-center gap-3">
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-900">{r.codigo}</p>
+              <p className="text-sm font-semibold text-gray-900">
+                {r.codigo}
+                {r.remitoR && <span className="ml-2 text-xs font-medium text-gray-500">Remito R {formatoRespaldo({ prefijo: r.remitoR.puntoVenta, numero: r.remitoR.numero })}</span>}
+              </p>
               <p className="text-xs text-gray-500 truncate">
-                {r.camionLabel} · {r.choferNombre} · {r.items.reduce((s, i) => s + i.cantidad, 0)} bolsas
+                {r.camionLabel} · {r.choferNombre} · {r.items.reduce((s, i) => s + i.cantidad, 0)} bolsas{r.kg ? ` · ${r.kg.toLocaleString('es-AR')} kg` : ''}
                 {describirEnvases(envasesDeRemito(r)) && ` · ${describirEnvases(envasesDeRemito(r))}`}
               </p>
             </div>

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Button from '../ui/Button'
 import { useCotConfig } from '@/hooks/useCotConfig'
 import { useCatalogo } from '@/hooks/useCatalogo'
-import { guardarCotConfig } from '@/services/cotConfigService'
+import { guardarCotConfig, inicializarContadorRemitoCarga, subscribeContadorRemitoCarga } from '@/services/cotConfigService'
 import { reportError } from '@/services/observability'
 import { CODIGO_ARBA_AGUA, CODIGO_ARBA_HIELO, pesoSugerido } from '@/utils/cot'
 import { formatoARS } from '@/utils/money'
@@ -23,6 +23,21 @@ export default function CotArbaPanel() {
   const [msg, setMsg] = useState('')
 
   useEffect(() => { if (cargado) setForm(cfg) }, [cfg, cargado])
+
+  // Contador del remito R de carga (talonario 00025): se inicializa una vez con el
+  // número siguiente al último remito manual y después lo avanza caja al emitir.
+  const [proximoR, setProximoR] = useState<number | null>(null)
+  const [proximoRInput, setProximoRInput] = useState('')
+  const [inicializando, setInicializando] = useState(false)
+  useEffect(() => subscribeContadorRemitoCarga(setProximoR), [])
+  const inicializarR = async () => {
+    const n = parseInt(proximoRInput.replace(/\D/g, ''), 10)
+    if (!(n > 0)) return
+    setInicializando(true)
+    try { await inicializarContadorRemitoCarga(n); setProximoRInput(''); setMsg(`Talonario del remito R: próximo número ${n}.`) }
+    catch (err) { reportError(err, { origen: 'CotArbaPanel.contador' }); setMsg('No se pudo inicializar el contador.') }
+    finally { setInicializando(false) }
+  }
 
   // Productos del catálogo con lo cargado (o el peso que sugiere el nombre y el código del hielo).
   const filasProductos = useMemo(() => catalogo.map((p) => {
@@ -94,6 +109,29 @@ export default function CotArbaPanel() {
         <label className="block"><span className={label}>Código ARBA del comprobante</span><input value={form.respaldo.codigoComprobante} onChange={(e) => setForm({ ...form, respaldo: { ...form.respaldo, codigoComprobante: e.target.value } })} className={input} placeholder="091 = Remito R" /></label>
         <label className="block"><span className={label}>Importe sugerido por kilo ($)</span><input type="number" value={form.importePorKg} onChange={(e) => setForm({ ...form, importePorKg: Number(e.target.value) })} className={input} /></label>
         <label className="block"><span className={label}>CUIT transportista (propio = el de la empresa)</span><input value={form.transportista.cuit} onChange={(e) => setForm({ ...form, transportista: { cuit: e.target.value.replace(/\D/g, '') } })} className={input} /></label>
+      </div>
+
+      {/* Remito R oficial de la carga: la app lo numera e imprime "PARA REPARTO" con el CAI del talonario. */}
+      <div className="border border-[#D3D1C7] rounded-xl p-3 space-y-3">
+        <div>
+          <p className="text-sm font-semibold text-gray-800">Remito R de la carga (talonario {String(form.respaldo.prefijo).padStart(5, '0')})</p>
+          <p className="text-xs text-gray-500">Con esto prendido y el CAI vigente, la app numera cada carga con el talonario y la imprime como remito R "PARA REPARTO", y el COT lo toma como respaldo sin tipear nada. Sin CAI vigente, caja sigue tipeando el número del talonario manual.</p>
+        </div>
+        <div className="grid sm:grid-cols-4 gap-3">
+          <label className="flex items-center gap-2 text-sm text-gray-800">
+            <input type="checkbox" checked={form.respaldo.numeraLaApp === true} onChange={(e) => setForm({ ...form, respaldo: { ...form.respaldo, numeraLaApp: e.target.checked } })} className="accent-[#1D9E75]" />
+            La app numera el remito R
+          </label>
+          <label className="block"><span className={label}>CAI del talonario (14 dígitos)</span><input value={form.respaldo.cai ?? ''} onChange={(e) => setForm({ ...form, respaldo: { ...form.respaldo, cai: e.target.value.replace(/\D/g, '').slice(0, 14) } })} className={input} /></label>
+          <label className="block"><span className={label}>Vencimiento del CAI</span><input type="date" value={form.respaldo.vencimiento ?? ''} onChange={(e) => setForm({ ...form, respaldo: { ...form.respaldo, vencimiento: e.target.value } })} className={input} /></label>
+          <div>
+            <span className={label}>Próximo número{proximoR !== null ? ` (hoy: ${proximoR})` : ' (sin inicializar)'}</span>
+            <div className="flex gap-2">
+              <input value={proximoRInput} onChange={(e) => setProximoRInput(e.target.value.replace(/\D/g, ''))} inputMode="numeric" placeholder={proximoR !== null ? String(proximoR) : 'ej. 67891'} className={input} />
+              <Button variant="outline" size="sm" onClick={inicializarR} loading={inicializando} disabled={!proximoRInput}>Fijar</Button>
+            </div>
+          </div>
+        </div>
       </div>
 
       {(Object.keys(form.plantas) as PlantaId[]).map((id) => {

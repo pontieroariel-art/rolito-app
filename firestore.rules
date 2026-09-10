@@ -602,6 +602,13 @@ service cloud.firestore {
         && docId.matches('(cargaCounter|rendicionCounter|entregaCounter)_(torcuato|merlo)') && isCajaDe(docId.split('_')[1])
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next'])
         && request.resource.data.next > resource.data.next;
+      // Contador del remito R de carga (remitoCargaCounter, talonario 00025,
+      // 2026-09-10): lo inicializa el super_admin desde Ajustes (regla de
+      // operador de arriba) y cualquier caja lo avanza, solo hacia adelante.
+      allow update: if request.auth != null
+        && docId == 'remitoCargaCounter' && isCaja()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next'])
+        && request.resource.data.next > resource.data.next;
       // Contador de LIQUIDACIONES por persona (liquidacionCounter_{serie},
       // 2026-09-09): cualquier caja lo avanza (un repartidor puede liquidar en
       // cualquier planta), solo hacia adelante.
@@ -995,7 +1002,14 @@ service cloud.firestore {
             || (request.resource.data.cotSolicitud is map
                 && request.resource.data.cotSolicitud.destino is map
                 && request.resource.data.cotSolicitud.respaldo is map
-                && request.resource.data.cotSolicitud.patente is string));
+                && request.resource.data.cotSolicitud.patente is string))
+        // Remito R oficial de la carga numerado por la app (talonario 00025,
+        // contador config/remitoCargaCounter en la misma transacción).
+        && (!('remitoR' in request.resource.data)
+            || (request.resource.data.remitoR is map
+                && request.resource.data.remitoR.puntoVenta is int
+                && request.resource.data.remitoR.numero is int && request.resource.data.remitoR.numero > 0
+                && request.resource.data.remitoR.cai is string));
 
       // Muelle confirma que entregó la mercadería: solo la transición
       // emitido → entregado, solo en su planta y a su propio nombre. Puede

@@ -88,7 +88,13 @@ export function normalizarCotConfig(raw: Partial<CotConfig> | null | undefined):
     umbralImporte: num(raw?.umbralImporte, d.umbralImporte),
     importePorKg:  num(raw?.importePorKg, d.importePorKg),
     bloqueaSalida: raw?.bloqueaSalida === true,
-    respaldo:      { codigoComprobante: str(raw?.respaldo?.codigoComprobante, d.respaldo.codigoComprobante), prefijo: num(raw?.respaldo?.prefijo, d.respaldo.prefijo) },
+    respaldo:      {
+      codigoComprobante: str(raw?.respaldo?.codigoComprobante, d.respaldo.codigoComprobante),
+      prefijo:           num(raw?.respaldo?.prefijo, d.respaldo.prefijo),
+      ...(str(raw?.respaldo?.cai, '') ? { cai: str(raw?.respaldo?.cai, '').replace(/\D/g, '') } : {}),
+      ...(str(raw?.respaldo?.vencimiento, '') ? { vencimiento: str(raw?.respaldo?.vencimiento, '') } : {}),
+      numeraLaApp:       raw?.respaldo?.numeraLaApp === true,
+    },
     transportista: { cuit: str(raw?.transportista?.cuit, d.transportista.cuit).replace(/\D/g, '') },
     plantas,
     productos,
@@ -161,10 +167,11 @@ const CUIT_RE = /^\d{11}$/
 export const cuitLimpio = (c: string | undefined | null): string => (c ?? '').replace(/\D/g, '')
 
 /** Errores de lo que caja declara antes de emitir; vacío = se puede presentar. */
-export function validarSolicitudCot(s: CotSolicitud): string[] {
+export function validarSolicitudCot(s: CotSolicitud, opts: { respaldoAuto?: boolean } = {}): string[] {
   const e: string[] = []
   if (!patenteValida(s.patente)) e.push('La patente del camión no tiene un formato válido (AAA999 o AA999AA).')
-  if (!(s.respaldo.numero > 0)) e.push('Falta el número del remito R que respalda la carga.')
+  // Con la app numerando el remito R, el número se asigna al emitir (transacción): no se pide antes.
+  if (!opts.respaldoAuto && !(s.respaldo.numero > 0)) e.push('Falta el número del remito R que respalda la carga.')
   if (!(s.respaldo.prefijo >= 0)) e.push('Falta el punto de venta del remito R.')
   if (s.destino.tipo === 'cliente') {
     if (!s.destino.razonSocial.trim()) e.push('Falta la razón social del destinatario.')
@@ -193,3 +200,18 @@ export const otraPlanta = (plantaId: PlantaId): PlantaId => (plantaId === 'torcu
 
 /** Número de remito R formateado "00025-00058680". */
 export const formatoRespaldo = (r: { prefijo: number; numero: number }): string => `${String(r.prefijo).padStart(5, '0')}-${String(r.numero).padStart(8, '0')}`
+
+/**
+ * Datos del talonario con que la app numera e imprime el remito R de la carga
+ * ("PARA REPARTO"): solo si está prendido `numeraLaApp` y el CAI está cargado
+ * y vigente a la fecha. Si no, null y caja tipea el número del talonario manual.
+ */
+export function talonarioRemitoCarga(cfg: Pick<CotConfig, 'respaldo'>, hoy: Date = new Date()): { puntoVenta: number; cai: string; vencimiento: string } | null {
+  const r = cfg.respaldo
+  if (!r.numeraLaApp || !r.cai || !/^\d{14}$/.test(r.cai) || !r.vencimiento) return null
+  const [y, m, d] = r.vencimiento.split('-').map(Number)
+  if (!y || !m || !d) return null
+  const vto = new Date(y, m - 1, d, 23, 59, 59)
+  if (vto.getTime() < hoy.getTime()) return null
+  return { puntoVenta: r.prefijo, cai: r.cai, vencimiento: r.vencimiento }
+}

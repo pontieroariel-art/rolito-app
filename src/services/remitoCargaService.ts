@@ -38,7 +38,14 @@ export interface CrearRemitoCargaArgs {
   /** COT de ARBA (2026-09-10): kilos de la carga y, si requiere COT, lo que caja declara. */
   kg?:          number
   cotSolicitud?: CotSolicitud
+  /** Talonario con que la app numera el remito R oficial de la carga (config/cot.respaldo con CAI vigente). */
+  remitoR?:     { puntoVenta: number; cai: string; vencimiento: string }
 }
+
+/** El remito R de carga se numera con un contador global (talonario 00025), no por planta. */
+const REMITO_R_COUNTER_REF = () => doc(db, 'config', 'remitoCargaCounter')
+
+export class TalonarioRemitoCargaNoInicializadoError extends Error {}
 
 // Crea el remito con su número correlativo en una sola transacción (el
 // contador se crea solo en el primer uso de cada planta). A diferencia de la
@@ -49,6 +56,18 @@ export async function crearRemitoCarga(args: CrearRemitoCargaArgs, actor: ActorC
   const data = await runTransaction(db, async (tx) => {
     const counterSnap = await tx.get(COUNTER_REF(actor.plantaId))
     const numero = counterSnap.exists() ? (counterSnap.data().next as number) : 1
+    // Remito R oficial (talonario 00025): el número sale del contador global en
+    // la misma transacción, y queda también como respaldo de la solicitud de COT.
+    let remitoR: RemitoCarga['remitoR'] | undefined
+    let cotSolicitud = args.cotSolicitud
+    if (args.remitoR) {
+      const rSnap = await tx.get(REMITO_R_COUNTER_REF())
+      if (!rSnap.exists()) throw new TalonarioRemitoCargaNoInicializadoError('El talonario del remito R de carga no está inicializado (Ajustes → COT de ARBA → próximo número).')
+      const numeroR = Number(rSnap.data().next)
+      tx.update(REMITO_R_COUNTER_REF(), { next: numeroR + 1 })
+      remitoR = { puntoVenta: args.remitoR.puntoVenta, numero: numeroR, cai: args.remitoR.cai, vencimiento: args.remitoR.vencimiento }
+      if (cotSolicitud) cotSolicitud = { ...cotSolicitud, respaldo: { ...cotSolicitud.respaldo, prefijo: args.remitoR.puntoVenta, numero: numeroR } }
+    }
     tx.set(COUNTER_REF(actor.plantaId), { next: numero + 1 })
 
     const remito: Omit<RemitoCarga, 'id'> = {
@@ -70,7 +89,8 @@ export async function crearRemitoCarga(args: CrearRemitoCargaArgs, actor: ActorC
       // COT de ARBA: los kilos siempre (para saber si lo requería) y la
       // solicitud solo cuando caja la completó; el resultado lo escribe el server.
       ...(args.kg !== undefined ? { kg: args.kg } : {}),
-      ...(args.cotSolicitud ? { cotSolicitud: args.cotSolicitud } : {}),
+      ...(cotSolicitud ? { cotSolicitud } : {}),
+      ...(remitoR ? { remitoR } : {}),
     }
     tx.set(remitoRef, remito)
     return remito
