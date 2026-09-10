@@ -38,11 +38,28 @@ const limpio = (s: string | undefined | null) => (s ?? '').trim()
 /** "1611, DON TORCUATO" con lo que haya. */
 const cpLocalidad = (cp: string | undefined, localidad: string | undefined) => [limpio(cp), limpio(localidad)].filter(Boolean).join(', ')
 
-/** Nombre con que se imprime una sucursal: nombre comercial de Tango, si no la razón social del código, si no el nombre de la app. */
-export function nombreImpresoSucursal(dir: Pick<DeliveryAddress, 'id' | 'nombre' | 'nombreComercialTango' | 'razonSocialTango'> | undefined, codigo: string): string {
-  const nombre = limpio(dir?.nombreComercialTango) || limpio(dir?.razonSocialTango) || limpio(dir?.nombre)
-  if (!nombre || nombre === codigo || nombre.toLowerCase() === 'principal') return codigo
-  return `${nombre} (${codigo})`
+/** Para comparar nombres: sin acentos, puntuación ni espacios, en minúsculas ("S.A.EN FORM" ≡ "S.A EN FORM"). */
+const clave = (s: string | undefined | null) => limpio(s).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^a-z0-9]+/g, '')
+
+/**
+ * Nombre con que se imprime una sucursal. En Tango cada código tiene nombre
+ * comercial (NOM_COM) y razón social propia, pero cualquiera de los dos puede
+ * ser la razón social de la cuenta repetida o truncada (visto en prod
+ * 2026-09-10: NOM_COM "OPERADORA SAN JUAN S.A.EN FORM" y razón social del
+ * código "… - (ONIGLIA)"). Se toma el primero que realmente distinga a la
+ * sucursal: nombre comercial → razón social del código → nombre en la app,
+ * descartando los que son iguales al nombre de la cuenta, al código o
+ * "Principal". Si ninguno la distingue, solo el código (la distingue el domicilio).
+ */
+export function nombreImpresoSucursal(
+  dir: Pick<DeliveryAddress, 'id' | 'nombre' | 'nombreComercialTango' | 'razonSocialTango'> | undefined,
+  codigo: string,
+  razonSocialCuenta = '',
+): string {
+  const descartar = new Set([clave(razonSocialCuenta), clave(codigo), 'principal', ''])
+  const candidatos = [dir?.nombreComercialTango, dir?.razonSocialTango, dir?.nombre]
+  const nombre = candidatos.map(limpio).find((n) => !descartar.has(clave(n)))
+  return nombre ? `${nombre} (${codigo})` : codigo
 }
 
 export function clienteImpreso(venta: VentaParaImprimir, cliente: UserProfile | undefined): ClienteImpreso {
@@ -83,7 +100,7 @@ export function clienteImpreso(venta: VentaParaImprimir, cliente: UserProfile | 
   const conSucursal = lista.length > 1 || (!!dir && !esPrincipal)
   return {
     ...base,
-    sucursal:      conSucursal ? nombreImpresoSucursal(dir, codigo) : '',
+    sucursal:      conSucursal ? nombreImpresoSucursal(dir, codigo, base.razonSocial) : '',
     domicilio,
     localidadCp,
     codigoCliente: codigo,

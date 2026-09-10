@@ -87,6 +87,19 @@ describe('clienteImpreso', () => {
     expect(clienteImpreso(venta(), app)).toMatchObject({ sucursal: '', domicilio: 'Alsina 5', localidadCp: '', codigoCliente: 'C-7' })
   })
 
+  it('caso real (OPERADORA SAN JUAN): el nombre comercial repite la cuenta, la razón social del código trae la sucursal', () => {
+    const cuenta = 'OPERADORA SAN JUAN S.A.EN FORM'
+    // NOM_COM igual a la cuenta (con un punto de diferencia) → se descarta; gana la razón social del código.
+    expect(nombreImpresoSucursal(dir('MDP202', 'OPERADORA SAN JUAN SA EN FORMA ( COLON)', '', { nombreComercialTango: 'OPERADORA SAN JUAN S.A EN FORM', razonSocialTango: 'OPERADORA SAN JUAN SA EN FORMA ( COLON)' }), 'MDP202', cuenta))
+      .toBe('OPERADORA SAN JUAN SA EN FORMA ( COLON) (MDP202)')
+    expect(nombreImpresoSucursal(dir('MDP198', 'x', '', { nombreComercialTango: cuenta, razonSocialTango: 'OPERADORA SAN JUAN S.A.EN FORMACION - (ONIGLIA)' }), 'MDP198', cuenta))
+      .toBe('OPERADORA SAN JUAN S.A.EN FORMACION - (ONIGLIA) (MDP198)')
+    // Los dos iguales a la cuenta y el nombre de la app también → solo el código (lo distingue el domicilio).
+    expect(nombreImpresoSucursal(dir('MDP183', cuenta, '', { nombreComercialTango: cuenta, razonSocialTango: cuenta }), 'MDP183', cuenta)).toBe('MDP183')
+    // Cuando el comercial sí distingue (YPF), gana aunque la razón social del código también sea distinta.
+    expect(nombreImpresoSucursal(dir('YPF012', 'x', '', { nombreComercialTango: 'YPF RUTA 8 KM 40', razonSocialTango: 'OPESSA - RUTA 8' }), 'YPF012', 'OPERADORA DE ESTACIONES DE SERVICIO S.A.')).toBe('YPF RUTA 8 KM 40 (YPF012)')
+  })
+
   it('nombre de la sucursal: comercial > razón social del código > nombre de la app > solo el código', () => {
     expect(nombreImpresoSucursal(dir('X1', 'Principal', '', { nombreComercialTango: 'YPF RUTA 8', razonSocialTango: 'OPESSA' }), 'X1')).toBe('YPF RUTA 8 (X1)')
     expect(nombreImpresoSucursal(dir('X1', 'Suc. Norte', '', { razonSocialTango: 'OPESSA' }), 'X1')).toBe('OPESSA (X1)')
