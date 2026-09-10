@@ -23,6 +23,8 @@
  *   node scripts/tango/sincronizar-choferes-tango.mjs --archivo scripts/tango/tango-tablas/depositos.company1.json
  *   node scripts/tango/sincronizar-choferes-tango.mjs --vincular 03=20360242871=1234 --commit
  *        → le pone CUIT/DNI/PIN al chofer del depósito 03 (dniIndex + password), ya puede entrar
+ *   node scripts/tango/sincronizar-choferes-tango.mjs --solo=06,09,12,13,15 --commit
+ *        → crea/vincula SOLO esos depósitos y NO desactiva a nadie (2026-09-10: alta de a tandas)
  *   node scripts/tango/sincronizar-choferes-tango.mjs --vincular 09=23694588=1234 --commit
  *        → lo mismo con DNI (8 dígitos) cuando no se tiene el CUIT (2026-09-10); el CUIT queda vacío
  *
@@ -40,6 +42,8 @@ const admin     = require('../../functions/node_modules/firebase-admin/lib/index
 
 const args    = process.argv.slice(2)
 const COMMIT  = args.includes('--commit')
+// --solo=06,09: acota la creación/vinculación a esos depósitos y saltea la desactivación.
+const SOLO = (() => { const a = args.find((x) => x.startsWith('--solo=')); return a ? new Set(a.slice(7).split(',').map((c) => c.trim().padStart(2, '0')).filter(Boolean)) : null })()
 const arg     = (f) => { const i = args.indexOf(f); return i >= 0 ? args[i + 1] : undefined }
 const COMPANY = arg('--company') ?? '1'
 const ARCHIVO = arg('--archivo')
@@ -180,8 +184,10 @@ async function main() {
   const emailsNuevos = []
   let vinculados = 0, creados = 0, desactivados = 0, ambiguos = 0
 
+  const enSolo = (p) => !SOLO || SOLO.has(String(p.dep.COD_STA22).padStart(2, '0'))
+  if (SOLO) console.log(`Solo depósitos: ${[...SOLO].join(', ')} (sin desactivaciones)\n`)
   console.log('== Vincular (depósito ↔ chofer existente)')
-  for (const p of pares.filter((x) => x.chofer)) {
+  for (const p of pares.filter((x) => x.chofer && enSolo(x))) {
     const c = p.chofer
     const cambia = c.depositoTango !== p.dep.COD_STA22 || c.estado !== 'activo'
     console.log(`  ${p.dep.COD_STA22} ${p.dep.NOMBRE_SUC.padEnd(24)} ← ${c.nombre.padEnd(30)} ${c.estado}${cambia ? '' : ' (ya estaba)'}`)
@@ -192,7 +198,7 @@ async function main() {
   }
 
   console.log('\n== Crear (depósito sin chofer en la app)')
-  for (const p of pares.filter((x) => !x.chofer)) {
+  for (const p of pares.filter((x) => !x.chofer && enSolo(x))) {
     if (p.ambiguo) { ambiguos++; console.log(`  ?? ${p.dep.COD_STA22} ${p.dep.NOMBRE_SUC}: matchea varios (${p.ambiguo.join(', ')}) — resolver a mano`); continue }
     const email = `deposito-${p.dep.COD_STA22}@rolito.app`
     const nombre = titulo(p.dep.NOMBRE_SUC)
@@ -218,7 +224,7 @@ async function main() {
   }
 
   console.log('\n== Desactivar (chofer sin depósito en Tango)')
-  for (const c of sobrantes) {
+  for (const c of SOLO ? [] : sobrantes) {
     console.log(`  - ${c.nombre.padEnd(30)} ${c.estado}${c.estado === 'inactivo' ? ' (ya estaba)' : ' → inactivo'}`)
     if (c.estado !== 'inactivo') desactivados++
     if (COMMIT && c.estado !== 'inactivo') await db.doc(`users/${c.id}`).update({ estado: 'inactivo', desactivadoPor: 'sync-tango-depositos', desactivadoEl: FieldValue.serverTimestamp() })
