@@ -26,7 +26,13 @@ export async function solicitarAnulacion(
 ): Promise<void> {
   const { venta } = objetivo
   const f = venta.factura
-  if (!f || f.estado !== 'emitida' || !f.cae) throw new Error('Esta venta no tiene una factura emitida para anular.')
+  const ci = venta.comprobanteInterno
+  // Promo (factura X, sin ARCA): la NC es interna y la numera el server (2026-09-11).
+  const esPromoX = venta.canal === 'promo' && ci?.tipo === 'facturaX' && (ci.numero ?? 0) > 0
+  if (!esPromoX && (!f || f.estado !== 'emitida' || !f.cae)) throw new Error('Esta venta no tiene una factura emitida para anular.')
+  const facturaOriginal = esPromoX && ci
+    ? { cbteTipo: 0, puntoVenta: ci.puntoVenta, numero: ci.numero, cae: null, total: venta.total }
+    : { cbteTipo: f!.cbteTipo, puntoVenta: f!.puntoVenta, numero: f!.numero, cae: f!.cae, total: f!.importes?.total ?? venta.total }
   const data: Omit<AnulacionVentanilla, 'id'> = {
     ventaId: venta.id,
     coleccion: objetivo.coleccion,
@@ -36,7 +42,7 @@ export async function solicitarAnulacion(
     ...(objetivo.coleccion === 'ventasCamion' ? { choferId: objetivo.venta.choferId, choferNombre: objetivo.venta.choferNombre } : {}),
     clienteNombre: venta.clienteNombre,
     fechaVenta: toDateStr(venta.fecha.toDate()),
-    facturaOriginal: { cbteTipo: f.cbteTipo, puntoVenta: f.puntoVenta, numero: f.numero, cae: f.cae, total: f.importes?.total ?? venta.total },
+    facturaOriginal,
     items: venta.items.map((i) => ({ nombre: i.nombre, cantidad: i.cantidad, precioUnitario: i.precioUnitario })),
     total: venta.total,
     formaPago: venta.formaPago,

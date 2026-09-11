@@ -111,7 +111,7 @@ if (Object.keys(update).length) {
 // talonario de imprenta con rango autorizado; hasta = "último número habilitado").
 for (const n of tomar('--numeracion')) {
   const [tipo, spec] = kv(n)
-  if (!['remito', 'remitoPromo', 'facturaX'].includes(tipo)) throw new Error(`tipo de numeración inválido: ${tipo}`)
+  if (!['remito', 'remitoPromo', 'facturaX', 'notaCreditoX'].includes(tipo)) throw new Error(`tipo de numeración inválido: ${tipo}`)
   const [pv, desde = '1', hasta] = spec.split(':')
   if (!/^\d+$/.test(pv) || !/^\d+$/.test(desde) || (hasta !== undefined && !/^\d+$/.test(hasta))) throw new Error(`--numeracion espera tipo=puntoVenta[:desde[:hasta]], recibí "${n}"`)
   const ref = db.doc(`config/numeracionInterna_${tipo}`)
@@ -166,7 +166,7 @@ const camionesConDeposito = camiones.filter((c) => tango.depositos?.[c.id])
 if (camionesConDeposito.length) console.log('  (por camión, fallback):', camionesConDeposito.map((c) => `${c.patente}=${tango.depositos[c.id]}`).join(', '))
 
 console.log('\n== numeración interna')
-for (const tipo of ['remito', 'remitoPromo', 'facturaX']) {
+for (const tipo of ['remito', 'remitoPromo', 'facturaX', 'notaCreditoX']) {
   const s = await db.doc(`config/numeracionInterna_${tipo}`).get()
   console.log(`  ${s.exists ? '✓' : '✗'} ${tipo.padEnd(12)} ${s.exists ? `next ${s.data().next}, pto vta ${s.data().puntoVenta}, último ${s.data().ultimo ?? '∞'}` : '(no existe → las ventas salen SIN NÚMERO)'}`)
   if (!s.exists) faltas.push(`numeración ${tipo}`)

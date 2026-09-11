@@ -18,6 +18,7 @@ exports.percepcionesPorItem = percepcionesPorItem;
 exports.armarComprobanteFacturador = armarComprobanteFacturador;
 exports.interpretarRespuestaFacturador = interpretarRespuestaFacturador;
 exports.armarNotaCreditoFacturador = armarNotaCreditoFacturador;
+exports.armarNotaCreditoInternaFacturador = armarNotaCreditoInternaFacturador;
 const pedido_1 = require("./pedido");
 exports.LETRA_POR_CBTE_TIPO = { 1: 'A', 6: 'B', 11: 'C' };
 /** Notas de crédito de ARCA (3 = NC A, 8 = NC B, 13 = NC C). */
@@ -305,6 +306,8 @@ function interpretarRespuestaFacturador(data, numeroEsperado) {
  * factura, no se registra.
  */
 function armarNotaCreditoFacturador(payload, item, cfg, mapeos) {
+    if (payload.notaCreditoInterna && !payload.notaCredito)
+        return armarNotaCreditoInternaFacturador(payload, item, cfg, mapeos);
     const nc = payload.notaCredito;
     if (!nc || nc.estado !== 'emitida' || typeof nc.numero !== 'number' || !nc.cae) {
         return { error: 'La anulación no tiene una nota de crédito emitida por ARCA (notaCredito.estado/numero/cae)' };
@@ -359,5 +362,59 @@ function armarNotaCreditoFacturador(payload, item, cfg, mapeos) {
     if (comprobante.comprobanteCanceladoCompletamente === true)
         delete comprobante.items;
     return { comprobante, fiscal: true, referencia: ref };
+}
+/**
+ * Nota de crédito de una PROMO anulada (2026-09-11): sin ARCA. La factura X
+ * entró en Tango con la letra A/B del cliente (`mapeos.letraNoFiscal`) y el
+ * número de la app; la NC va igual: misma letra, talonario de NC de esa letra
+ * (`config/tango.facturador.rolito.talonariosNC`), número propio de la app
+ * (`payload.notaCreditoInterna`) y referencia al N_COMP con el que Tango
+ * registró la factura (`payload.tango.facturaNumero`). Ítems completos, como la
+ * factura al revés, así el stock (si descarga) y la cuenta vuelven.
+ */
+function armarNotaCreditoInternaFacturador(payload, item, cfg, mapeos) {
+    const nci = payload.notaCreditoInterna;
+    if (!nci || typeof nci.numero !== 'number' || typeof nci.puntoVenta !== 'number')
+        return { error: 'La anulación no tiene una nota de crédito interna numerada (notaCreditoInterna.puntoVenta/numero)' };
+    const numeroFactura = String(payload.tango?.facturaNumero ?? '').trim();
+    if (!numeroFactura)
+        return { error: 'La factura de promo no está registrada en Tango (tango.facturaNumero): no hay a qué referenciar la NC' };
+    const base = armarComprobanteFacturador(payload, item, cfg, mapeos);
+    if (base.error !== undefined)
+        return base;
+    if (base.fiscal)
+        return { error: 'La venta tiene factura con CAE: su anulación va por nota de crédito de ARCA, no interna' };
+    const letra = String(mapeos.letraNoFiscal ?? '');
+    if (!letra)
+        return { error: 'Falta la letra (A/B) con la que Tango registra la promo (categoría de IVA del cliente)' };
+    const empresa = item.empresa ?? '?';
+    const talonario = cfg.talonariosNC?.[letra];
+    if (!talonario)
+        return { error: `Falta config/tango.facturador.${empresa}.talonariosNC.${letra} (talonario de nota de crédito ${letra})` };
+    const ref = `ROLITO:NC:${item.origenId}`;
+    const anulacion = payload.anulacion ?? {};
+    const motivo = anulacion.motivo ? `${anulacion.motivo}${anulacion.nota ? ` - ${anulacion.nota}` : ''}` : (anulacion.nota ?? '');
+    const comprobante = {
+        ...base.comprobante,
+        codigoTipoComprobante: String(cfg.codigoTipoNC ?? 'N/C'),
+        numeroComprobante: numeroComprobanteTango(letra, nci.puntoVenta, nci.numero),
+        codigoTalonario: talonario,
+        ...(nci.fecha ? { fechaComprobante: nci.fecha } : {}),
+        codigoTipoComprobanteDeReferencia: 'FAC',
+        numeroDeComprobanteDeReferencia: cfg.ncSinReferencia === true ? '' : numeroFactura,
+        comprobanteCanceladoCompletamente: cfg.ncSinReferencia !== true && cfg.ncCanceladoCompletamente === true,
+        codigoMotivo: String(cfg.codigoMotivoNC ?? exports.CODIGO_MOTIVO_NC_DEFAULT),
+        leyenda1: recortar(ref, 60),
+        leyenda2: recortar(`Anula promo ${numeroFactura} app`, 60),
+        leyenda3: recortar(motivo, 60),
+        leyenda4: recortar(anulacion.resueltaPor ? `Autorizo: ${anulacion.resueltaPor}` : '', 60),
+        leyenda5: recortar(anulacion.solicitadoPor ? `Pidio: ${anulacion.solicitadoPor}` : '', 60),
+        observaciones: recortar(`${ref}. Nota de credito interna por anulacion de la promo ${numeroFactura} (${base.referencia}). ${motivo}. Pidio ${anulacion.solicitadoPor ?? 'caja'}, autorizo ${anulacion.resueltaPor ?? '?'}.`, 280),
+    };
+    delete comprobante.cAE;
+    delete comprobante.fechaVtoCAE;
+    if (comprobante.comprobanteCanceladoCompletamente === true)
+        delete comprobante.items;
+    return { comprobante, fiscal: false, referencia: ref };
 }
 //# sourceMappingURL=factura.js.map

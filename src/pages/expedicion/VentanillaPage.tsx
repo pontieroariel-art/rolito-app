@@ -32,6 +32,10 @@ import { empresaDeCanal, motivoSinPrecioTango, precioTangoDe } from '../../utils
 import { documentoDeVenta } from '../../utils/circuitoDocumento'
 import { esClienteFacturable, esCuitValido } from '../../utils/facturable'
 import { inhabilitadoEnTango, motivoInhabilitado } from '@/utils/inhabilitadoTango'
+import { facturaAnulable } from '@/utils/anulacionVenta'
+import { armarNotaCreditoX } from '@/utils/comprobanteInterno'
+import { generateComprobanteInternoPdf } from '@/utils/comprobanteInternoPdf'
+import type { VentaCamion } from '@/types'
 import { admiteCuentaCorriente } from '@/utils/condicionVenta'
 import {
   CanalVenta, FormaPago, PLANTAS, VentaCamionItem, VentaVentanilla, type AnulacionEnVenta, type Rendicion,
@@ -63,11 +67,11 @@ const nroFactura = (v: VentaVentanilla) =>
 // Estado de la anulación de la factura (nota de crédito, 2026-09-09), tal como
 // lo escribe el server en la venta.
 const textoAnulacion = (a: AnulacionEnVenta): { texto: string; clase: string } => {
-  const nc = a.notaCredito
+  const nc = a.notaCredito ?? a.notaCreditoInterna
   switch (a.estado) {
     case 'pendiente': return { texto: 'Anulación pendiente de autorizar', clase: 'text-amber-700' }
     case 'aprobada':  return { texto: 'Anulación aprobada · emitiendo la nota de crédito…', clase: 'text-amber-700' }
-    case 'anulada':   return { texto: `ANULADA · Nota de crédito ${nc ? `${String(nc.puntoVenta).padStart(5, '0')}-${String(nc.numero).padStart(8, '0')}` : ''}`, clase: 'text-red-700 font-semibold' }
+    case 'anulada':   return { texto: `ANULADA · Nota de crédito${a.notaCreditoInterna && !a.notaCredito ? ' X' : ''} ${nc ? `${String(nc.puntoVenta).padStart(5, '0')}-${String(nc.numero).padStart(8, '0')}` : ''}`, clase: 'text-red-700 font-semibold' }
     case 'rechazada': return { texto: 'Anulación rechazada: la factura sigue vigente', clase: 'text-gray-600' }
     case 'error':     return { texto: 'No se pudo emitir la nota de crédito: avisá a administración', clase: 'text-red-700' }
   }
@@ -264,9 +268,17 @@ export default function VentanillaPage() {
   const imprimirFactura = (v: VentaVentanilla) => imprimir(v, { factura: true, turno: false })
   const imprimirTodo    = (v: VentaVentanilla) => imprimir(v, { factura: true, turno: true })
   const imprimirNotaCredito = async (v: VentaVentanilla) => {
-    const armado = armarNotaCreditoDeVenta(v, v.clienteId ? clientePorId.get(v.clienteId) : undefined)
-    if (!armado.ok) { setError(armado.motivo); return }
     try {
+      // Promo: nota de crédito X interna (papel A4 de Rolito, 2026-09-11).
+      if (v.anulacion?.notaCreditoInterna) {
+        const armadoX = armarNotaCreditoX(v as unknown as VentaCamion, v.clienteId ? clientePorId.get(v.clienteId) : undefined)
+        if (!armadoX.ok) { setError(armadoX.motivo); return }
+        const blobX = await generateComprobanteInternoPdf(armadoX.datos, { descargar: false })
+        if (blobX instanceof Blob) await imprimirPdf(blobX, armadoX.datos.archivo, modoImpresion)
+        return
+      }
+      const armado = armarNotaCreditoDeVenta(v, v.clienteId ? clientePorId.get(v.clienteId) : undefined)
+      if (!armado.ok) { setError(armado.motivo); return }
       const blob = await generateTicketsVentanilla({ factura: armado.datos })
       await imprimirPdf(blob, `nota-credito-turno-${v.turno}.pdf`, modoImpresion)
     } catch (err) {
@@ -274,9 +286,8 @@ export default function VentanillaPage() {
       setError('No se pudo generar la nota de crédito.')
     }
   }
-  const puedePedirAnulacion = (v: VentaVentanilla) =>
-    v.factura?.estado === 'emitida' && !!v.factura.cae && v.cajaId === user?.uid && !cerrada
-    && (!v.anulacion || v.anulacion.estado === 'rechazada' || v.anulacion.estado === 'error')
+  // Factura de ARCA o promo con factura X (NC interna, 2026-09-11), del propio cajero, con la caja abierta.
+  const puedePedirAnulacion = (v: VentaVentanilla) => facturaAnulable(v) && v.cajaId === user?.uid && !cerrada
 
   const limpiar = () => {
     setClienteId('')

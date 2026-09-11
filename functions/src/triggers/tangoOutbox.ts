@@ -249,7 +249,10 @@ export const onAnulacionEmitida = onDocumentUpdated(
     if (!ahora) return
     if (antes?.estado === 'emitida' || ahora.estado !== 'emitida') return
     const nc = ahora.notaCredito as Record<string, unknown> | undefined
-    if (!nc || nc.estado !== 'emitida' || !nc.cae) return
+    // NC de ARCA (factura con CAE) o NC interna de una promo (2026-09-11), sin ARCA.
+    const nci = ahora.notaCreditoInterna as Record<string, unknown> | undefined
+    const conArca = !!nc && nc.estado === 'emitida' && !!nc.cae
+    if (!conArca && !nci) return
 
     const ventaId = event.params.ventaId
     const db = getFirestore()
@@ -258,18 +261,19 @@ export const onAnulacionEmitida = onDocumentUpdated(
     const venta = (await db.doc(`${coleccionVenta}/${ventaId}`).get()).data()
     if (!venta) return
     const destino = destinoTango(venta.canal, venta.formaPago, venta.total)
-    if (!destino?.conCaePropio) return
+    if (!destino || destino.entidad !== 'factura') return
+    if (conArca ? !destino.conCaePropio : destino.conCaePropio) return
 
     await db.doc(`anulacionesVentanilla/${ventaId}`).set({ tango: { estado: 'pendiente' } }, { merge: true })
     await encolarOutbox(`anulacionesVentanilla_${ventaId}`, {
       entidad: 'notaCredito',
       empresa: destino.empresa,
-      conCaePropio: true,
+      conCaePropio: conArca,
       origenColeccion: 'anulacionesVentanilla',
       origenId: ventaId,
       payload: {
         ...(await payloadDeVentaEn(venta, destino.empresa)),
-        notaCredito: nc,
+        ...(conArca ? { notaCredito: nc } : { notaCreditoInterna: nci }),
         anulacion: {
           motivo: String(ahora.motivo ?? ''),
           nota: String(ahora.nota ?? ''),

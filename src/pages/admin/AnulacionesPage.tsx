@@ -8,6 +8,9 @@ import { useDiaActual } from '@/hooks/useDiaActual'
 import { resolverAnulacion, subscribeAnulacionesEnRango, subscribeAnulacionesPendientes } from '@/services/anulacionService'
 import { getVentaVentanilla } from '@/services/ventaVentanillaService'
 import { getVentaCamion } from '@/services/ventaCamionService'
+import { armarNotaCreditoX } from '@/utils/comprobanteInterno'
+import { generateComprobanteInternoPdf } from '@/utils/comprobanteInternoPdf'
+import type { VentaCamion } from '@/types'
 import { getUserDocument } from '@/services/userService'
 import { reportError } from '@/services/observability'
 import { addDaysStr } from '@/utils/helpers'
@@ -74,6 +77,14 @@ export default function AnulacionesPage() {
       // El perfil del cliente completa el papel (CUIT, condición de IVA, domicilio);
       // si este usuario no puede leerlo, el PDF sale con lo que trae la venta.
       const cliente = venta.clienteId ? await getUserDocument(venta.clienteId).catch(() => null) ?? undefined : undefined
+      // Promo: nota de crédito X interna (papel de Rolito, 2026-09-11).
+      if (a.notaCreditoInterna) {
+        const armadoX = armarNotaCreditoX(venta as unknown as VentaCamion, cliente)
+        if (!armadoX.ok) { setAviso(armadoX.motivo); return }
+        const blobX = await generateComprobanteInternoPdf(armadoX.datos, { descargar: false })
+        if (blobX instanceof Blob) descargarArchivo(blobX, armadoX.datos.archivo)
+        return
+      }
       const armado = armarNotaCreditoDeVenta(venta, cliente)
       if (!armado.ok) { setAviso(armado.motivo); return }
       const blob = (await generateFacturaArcaPdf({ ...armado.datos, descargar: false })) as Blob
@@ -108,7 +119,7 @@ export default function AnulacionesPage() {
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <p className="text-sm text-gray-800">
-                    Factura <b className="text-base">{LETRA[a.facturaOriginal.cbteTipo] ?? ''} {nro(a.facturaOriginal.puntoVenta, a.facturaOriginal.numero)}</b> · <b>{formatoARS(a.facturaOriginal.total)}</b> · {a.clienteNombre}
+                    Factura <b className="text-base">{(LETRA[a.facturaOriginal.cbteTipo] ?? (a.facturaOriginal.cbteTipo === 0 ? 'X' : ''))} {nro(a.facturaOriginal.puntoVenta, a.facturaOriginal.numero)}</b> · <b>{formatoARS(a.facturaOriginal.total)}</b> · {a.clienteNombre}
                   </p>
                   <p className="text-xs text-gray-500">{a.coleccion === 'ventasCamion' ? <span className="font-semibold text-gray-700">Camión · {a.choferNombre ?? 'chofer'} · </span> : 'Ventanilla · '}{PLANTAS[a.plantaId].label} · pidió <b>{a.solicitadoPor.nombre}</b> el {a.solicitadaEn.toDate().toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} · venta del {a.fechaVenta}</p>
                 </div>
@@ -136,13 +147,13 @@ export default function AnulacionesPage() {
           <tbody>
             {resueltas.map((a) => (
               <tr key={a.id}>
-                <td className={`${td} font-medium`}>{LETRA[a.facturaOriginal.cbteTipo] ?? ''} {nro(a.facturaOriginal.puntoVenta, a.facturaOriginal.numero)}</td>
+                <td className={`${td} font-medium`}>{(LETRA[a.facturaOriginal.cbteTipo] ?? (a.facturaOriginal.cbteTipo === 0 ? 'X' : ''))} {nro(a.facturaOriginal.puntoVenta, a.facturaOriginal.numero)}</td>
                 <td className={td}>{a.clienteNombre}</td>
                 <td className={`${td} text-right tabular-nums`}>{formatoARS(a.facturaOriginal.total)}</td>
                 <td className={td}>{a.cajaNombre} <span className="text-gray-400">· {PLANTAS[a.plantaId].label.replace('Planta ', '')}</span></td>
                 <td className={`${td} text-gray-600`}>{MOTIVOS_ANULACION[a.motivo] ?? a.motivo}</td>
                 <td className={`${td} text-xs ${ESTADO[a.estado].clase}`}>{ESTADO[a.estado].label}{a.estado === 'rechazada' && a.notaResolucion ? <span className="block text-gray-500">{a.notaResolucion}</span> : null}{a.estado === 'error' && a.ultimoError ? <span className="block text-gray-500">{a.ultimoError}</span> : null}</td>
-                <td className={`${td} text-xs`}>{a.notaCredito?.estado === 'emitida' ? <span>NC {LETRA[a.notaCredito.cbteTipo] ?? ''} {nro(a.notaCredito.puntoVenta, a.notaCredito.numero)}<span className="block text-gray-500">CAE {a.notaCredito.cae}</span>{a.tango?.estado === 'confirmado' ? <span className="block text-[#0F6B4E]">Tango ✓ {a.tango.numero}</span> : a.tango?.estado === 'error' ? <span className="block text-red-600" title={a.tango.ultimoError}>Tango: {a.tango.ultimoError ?? 'error'}</span> : a.tango?.estado === 'pendiente' ? <span className="block text-amber-700">Pendiente en Tango</span> : <span className="block text-gray-400">Sin registrar en Tango</span>}</span> : a.notaCredito?.estado === 'incierta' ? <span className="text-amber-700">en revisión en ARCA</span> : '—'}</td>
+                <td className={`${td} text-xs`}>{a.notaCreditoInterna && !a.notaCredito ? <span>NC X {nro(a.notaCreditoInterna.puntoVenta, a.notaCreditoInterna.numero)}<span className="block text-gray-500">interna (promo)</span>{a.tango?.estado === 'confirmado' ? <span className="block text-[#0F6B4E]">Tango ✓ {a.tango.numero}</span> : a.tango?.estado === 'error' ? <span className="block text-red-600" title={a.tango.ultimoError}>Tango: {a.tango.ultimoError ?? 'error'}</span> : a.tango?.estado === 'pendiente' ? <span className="block text-amber-700">Pendiente en Tango</span> : <span className="block text-gray-400">Sin registrar en Tango</span>}</span> : a.notaCredito?.estado === 'emitida' ? <span>NC {LETRA[a.notaCredito.cbteTipo] ?? ''} {nro(a.notaCredito.puntoVenta, a.notaCredito.numero)}<span className="block text-gray-500">CAE {a.notaCredito.cae}</span>{a.tango?.estado === 'confirmado' ? <span className="block text-[#0F6B4E]">Tango ✓ {a.tango.numero}</span> : a.tango?.estado === 'error' ? <span className="block text-red-600" title={a.tango.ultimoError}>Tango: {a.tango.ultimoError ?? 'error'}</span> : a.tango?.estado === 'pendiente' ? <span className="block text-amber-700">Pendiente en Tango</span> : <span className="block text-gray-400">Sin registrar en Tango</span>}</span> : a.notaCredito?.estado === 'incierta' ? <span className="text-amber-700">en revisión en ARCA</span> : '—'}</td>
                 <td className={`${td} text-xs`}>{a.resueltaPor ? <span className="inline-flex items-center gap-1"><ShieldCheck size={13} className="text-[#0F6B4E]" /> {a.resueltaPor.nombre}</span> : ''}</td>
                 <td className={td}>{a.estado === 'emitida' && <button type="button" onClick={() => verNotaCredito(a)} className={btn} title="PDF de la nota de crédito"><FileText size={12} /> PDF</button>}</td>
               </tr>
@@ -156,7 +167,7 @@ export default function AnulacionesPage() {
         <Modal open onClose={() => setResolviendo(null)} title={resolviendo.estado === 'aprobada' ? 'Aprobar anulación' : 'Rechazar anulación'}>
           <div className="space-y-3">
             <p className="text-sm text-gray-700">
-              Factura <b>{LETRA[resolviendo.a.facturaOriginal.cbteTipo] ?? ''} {nro(resolviendo.a.facturaOriginal.puntoVenta, resolviendo.a.facturaOriginal.numero)}</b> · {resolviendo.a.clienteNombre} · {formatoARS(resolviendo.a.facturaOriginal.total)}
+              Factura <b>{(LETRA[resolviendo.a.facturaOriginal.cbteTipo] ?? (resolviendo.a.facturaOriginal.cbteTipo === 0 ? 'X' : ''))} {nro(resolviendo.a.facturaOriginal.puntoVenta, resolviendo.a.facturaOriginal.numero)}</b> · {resolviendo.a.clienteNombre} · {formatoARS(resolviendo.a.facturaOriginal.total)}
             </p>
             <p className="text-sm text-gray-600">{MOTIVOS_ANULACION[resolviendo.a.motivo] ?? resolviendo.a.motivo}{resolviendo.a.nota ? ` · ${resolviendo.a.nota}` : ''} (pidió {resolviendo.a.solicitadoPor.nombre})</p>
             <textarea value={nota} onChange={(e) => setNota(e.target.value)} rows={2} placeholder={resolviendo.estado === 'aprobada' ? 'Nota (opcional)' : 'Por qué se rechaza (obligatorio)'} className={inputClass} />

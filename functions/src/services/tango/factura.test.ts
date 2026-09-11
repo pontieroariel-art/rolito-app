@@ -211,3 +211,32 @@ describe('armarNotaCreditoFacturador (anulación de ventanilla)', () => {
     expect(armarNotaCreditoFacturador({ ...ventaAnulada, notaCredito: { ...ventaAnulada.notaCredito, importes: { ...ventaAnulada.notaCredito!.importes!, total: 99 } } }, itemNC, cfgNC, mapeos)).toMatchObject({ error: expect.stringMatching(/no coincide/) })
   })
 })
+
+describe('armarNotaCreditoFacturador · promo (NC interna, 2026-09-11)', () => {
+  const promo: PayloadVenta = { ...ventaReal, canal: 'promo', factura: undefined, comprobanteInterno: { tipo: 'facturaX', puntoVenta: 1104, numero: 640 } }
+  const cfgRolito: ConfigFacturadorEmpresa = { ...cfg, sinIva: true, codigoTasaIva21: undefined, descargaStock: false }
+  it('sin ARCA: letra del cliente, talonario de NC de Rolito, número propio y referencia a la factura que registró Tango', () => {
+    const promoAnulada: PayloadVenta = {
+      ...promo,
+      tango: { estado: 'confirmado', facturaNumero: 'B0110400000640' },
+      notaCreditoInterna: { tipo: 'notaCreditoX', puntoVenta: 1104, numero: 3, fecha: '2026-09-11' },
+      anulacion: { motivo: 'Cliente equivocado', nota: '', solicitadoPor: 'Caja', resueltaPor: 'Yanina' },
+    }
+    const cfgNCRolito: ConfigFacturadorEmpresa = { ...cfgRolito, talonariosNC: { A: 1201, B: 1203 }, codigoTipoNC: 'NC' }
+    const r = armarNotaCreditoFacturador(promoAnulada, { origenColeccion: 'anulacionesVentanilla', origenId: 'p1', empresa: 'rolito' }, cfgNCRolito, { ...mapeos, letraNoFiscal: 'B' })
+    if (r.error !== undefined) throw new Error(r.error)
+    expect(r.fiscal).toBe(false)
+    expect(r.comprobante).toMatchObject({
+      codigoTipoComprobante: 'NC', numeroComprobante: 'B0110400000003', codigoTalonario: 1203, fechaComprobante: '2026-09-11',
+      codigoTipoComprobanteDeReferencia: 'FAC', numeroDeComprobanteDeReferencia: 'B0110400000640', codigoMotivo: '4',
+    })
+    expect(r.comprobante).not.toHaveProperty('cAE')
+    expect(r.comprobante).toHaveProperty('items')
+  })
+  it('sin factura registrada en Tango o sin talonario de NC, frena con un error claro', () => {
+    const sinTango: PayloadVenta = { ...promo, notaCreditoInterna: { tipo: 'notaCreditoX', puntoVenta: 1104, numero: 3 } }
+    expect(armarNotaCreditoFacturador(sinTango, { origenColeccion: 'anulacionesVentanilla', origenId: 'p1', empresa: 'rolito' }, cfgRolito, { ...mapeos, letraNoFiscal: 'B' }).error).toMatch(/registrada en Tango/)
+    const conTango: PayloadVenta = { ...sinTango, tango: { estado: 'confirmado', facturaNumero: 'B0110400000640' } }
+    expect(armarNotaCreditoFacturador(conTango, { origenColeccion: 'anulacionesVentanilla', origenId: 'p1', empresa: 'rolito' }, cfgRolito, { ...mapeos, letraNoFiscal: 'B' }).error).toMatch(/talonariosNC/)
+  })
+})

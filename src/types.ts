@@ -495,10 +495,14 @@ export interface NotaCreditoArcaVenta extends FacturaArcaVenta {
   cbtesAsoc: { Tipo: number; PtoVta: number; Nro: number; Cuit?: string; CbteFch?: string }[]
 }
 
+/** Nota de crédito INTERNA de una promo anulada (2026-09-11): número propio, sin ARCA. */
+export interface NotaCreditoInternaVenta { tipo: 'notaCreditoX'; puntoVenta: number; numero: number; fecha: string }
+
 export interface AnulacionEnVenta {
   estado:       EstadoAnulacionEnVenta
   solicitudId:  string
   notaCredito?: NotaCreditoArcaVenta
+  notaCreditoInterna?: NotaCreditoInternaVenta
 }
 
 export interface AnulacionVentanilla {
@@ -529,6 +533,8 @@ export interface AnulacionVentanilla {
   resueltaEn?:   Timestamp
   notaResolucion?: string
   notaCredito?:  NotaCreditoArcaVenta
+  /** Promo: NC interna numerada por la app (sin ARCA), 2026-09-11. */
+  notaCreditoInterna?: NotaCreditoInternaVenta
   ultimoError?:  string | null
   // La NC en Tango (Facturador, tipo CDE): lo escribe el worker del outbox.
   tango?:        { estado: 'pendiente' | 'confirmado' | 'error'; numero?: string; ultimoError?: string }

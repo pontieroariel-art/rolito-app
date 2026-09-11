@@ -42,6 +42,10 @@ export interface PayloadVenta {
   ordenCompra?:    string
   fecha?: unknown
   comprobanteInterno?: { tipo?: string; puntoVenta?: number; numero?: number } | null
+  /** Nota de crédito interna de una promo anulada (2026-09-11): número propio, sin ARCA. */
+  notaCreditoInterna?: { tipo?: string; puntoVenta?: number; numero?: number; fecha?: string } | null
+  /** Write-back de Tango en la venta (la NC de promo referencia `tango.facturaNumero`). */
+  tango?: { estado?: string; facturaNumero?: string; remitoNumero?: string } | null
   factura?: {
     estado?: string
     numero?: number

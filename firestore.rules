@@ -1471,9 +1471,11 @@ service cloud.firestore {
         return get(/databases/$(database)/documents/ventasVentanilla/$(anulacionId)).data;
       }
       function facturaEmitidaYSinAnulacion(v) {
-        // Facturada por ARCA y sin una anulación en curso o hecha.
+        // Facturada por ARCA (o promo con factura X numerada, 2026-09-11) y sin
+        // una anulación en curso o hecha.
         let a = v.get('anulacion', {});
-        return v.get('factura', {}).get('estado', '') == 'emitida'
+        return (v.get('factura', {}).get('estado', '') == 'emitida'
+                || (v.get('canal', '') == 'promo' && v.get('comprobanteInterno', {}).get('numero', 0) > 0))
           && (a.get('estado', 'rechazada') in ['rechazada', 'error']);
       }
       function ventaAnulable() {

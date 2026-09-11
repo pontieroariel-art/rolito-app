@@ -4395,3 +4395,20 @@ describe('anulación de facturas del camión desde la liquidación (2026-09-11)'
     await assertSucceeds(updateDoc(doc(db('aut1'), 'anulacionesVentanilla/c1'), { estado: 'aprobada', resueltaPor: { uid: 'aut1', nombre: 'A' }, resueltaEn: new Date(), notaResolucion: '' }))
   })
 })
+
+describe('anulación de una promo (factura X) con nota de crédito interna (2026-09-11)', () => {
+  const seedTodos = () => seed(async (d) => {
+    await setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' })
+    await setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' })
+    await setDoc(doc(d, 'ventasCamion/p1'), { canal: 'promo', camionId: '', choferId: 'chof1', choferNombre: 'C', clienteId: 'cli', clienteNombre: 'Cliente', items: [], total: 5000, formaPago: 'contado_efectivo', fecha: new Date(), pedidoId: null, comprobanteInterno: { tipo: 'facturaX', puntoVenta: 1104, numero: 640 }, tango: { estado: 'confirmado', facturaNumero: 'B0110400000640' } })
+    await setDoc(doc(d, 'ventasCamion/p2'), { canal: 'promo', camionId: '', choferId: 'chof1', choferNombre: 'C', clienteId: 'cli', clienteNombre: 'Cliente', items: [], total: 5000, formaPago: 'contado_efectivo', fecha: new Date(), pedidoId: null })
+    await setDoc(doc(d, 'ventasVentanilla/pv1'), { plantaId: 'torcuato', canal: 'promo', cajaId: 'caja1', cajaNombre: 'Caja', clienteNombre: 'Cliente', items: [], total: 5000, formaPago: 'contado_efectivo', estado: 'entregado', turno: 9, turnoEstado: 'en_espera', fecha: new Date(), comprobanteInterno: { tipo: 'facturaX', puntoVenta: 1104, numero: 641 } })
+  })
+  const base = { plantaId: 'torcuato', cajaId: 'caja1', cajaNombre: 'Caja', clienteNombre: 'Cliente', fechaVenta: '2026-09-11', motivo: 'cliente_equivocado', nota: '', estado: 'pendiente', solicitadoPor: { uid: 'caja1', nombre: 'Caja' }, solicitadaEn: new Date(), resueltaPor: null, facturaOriginal: { cbteTipo: 0, puntoVenta: 1104, numero: 640, cae: null, total: 5000 } }
+  test('caja pide anular una promo numerada del camión y de ventanilla; sin número de factura X no', async () => {
+    await seedTodos()
+    await assertSucceeds(setDoc(doc(db('caja1'), 'anulacionesVentanilla/p1'), { ...base, ventaId: 'p1', coleccion: 'ventasCamion', choferId: 'chof1', choferNombre: 'C' }))
+    await assertSucceeds(setDoc(doc(db('caja1'), 'anulacionesVentanilla/pv1'), { ...base, ventaId: 'pv1', coleccion: 'ventasVentanilla' }))
+    await assertFails(setDoc(doc(db('caja1'), 'anulacionesVentanilla/p2'), { ...base, ventaId: 'p2', coleccion: 'ventasCamion', choferId: 'chof1', choferNombre: 'C' }))
+  })
+})

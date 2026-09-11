@@ -36,9 +36,26 @@ export interface NotaCreditoVenta {
   cbtesAsoc: CbteAsoc[]
 }
 
+/**
+ * Nota de crédito INTERNA (2026-09-11): anula una factura X de promo. No pasa
+ * por ARCA (la promo no se factura); lleva número propio del contador
+ * `config/numeracionInterna_notaCreditoX` y en Tango entra como NC de Rolito
+ * por el Facturador, referenciando a la factura que Tango ya registró.
+ */
+export interface NotaCreditoInterna {
+  tipo: 'notaCreditoX'
+  puntoVenta: number
+  numero: number
+  /** yyyy-MM-dd (día argentino) de emisión. */
+  fecha: string
+}
+
+export type ResultadoEmisionNc = RegistroFactura | { estado: 'emitida'; interna: true; puntoVenta: number; numero: number }
+
 export interface AnulacionVentanilla {
   ventaId: string
   coleccion?: string
+  notaCreditoInterna?: NotaCreditoInterna
   estado: EstadoAnulacion
   motivo: string
   nota?: string
@@ -170,14 +187,17 @@ export async function reflejarRechazoEnVenta(db: Firestore, ventaId: string, col
  * después volver a aprobar. Los errores previos a la reserva de número se
  * relanzan: el que llama decide si deja el registro 'pendiente'.
  */
-export async function emitirNotaCreditoDeAnulacion(db: Firestore, ventaId: string): Promise<RegistroFactura | null> {
+export async function emitirNotaCreditoDeAnulacion(db: Firestore, ventaId: string): Promise<ResultadoEmisionNc | null> {
   const anulacion = (await db.doc(rutaAnulacion(ventaId)).get()).data() as AnulacionVentanilla | undefined
   if (!anulacion || anulacion.estado !== 'aprobada') return null
 
   const coleccion = coleccionDeAnulacion(anulacion)
   const venta = (await db.doc(`${coleccion}/${ventaId}`).get()).data()
   if (!venta) return null
-  if (documentoDeVenta(venta.canal, venta.formaPago, venta.total) !== 'factura_arca') return null
+  const documento = documentoDeVenta(venta.canal, venta.formaPago, venta.total)
+  // Promo (factura X, sin ARCA): nota de crédito interna numerada por la app (2026-09-11).
+  if (documento === 'no_oficial') return emitirNotaCreditoInterna(db, ventaId, coleccion, venta)
+  if (documento !== 'factura_arca') return null
 
   const espejo = venta.factura as { estado?: string; cae?: string | null; cbteTipo?: number; puntoVenta?: number; numero?: number; importes?: ImportesInformados } | undefined
   if (!espejo || espejo.estado !== 'emitida' || !espejo.cae) {
@@ -217,4 +237,47 @@ export async function emitirNotaCreditoDeAnulacion(db: Firestore, ventaId: strin
     leer: async () => (await db.doc(rutaNotaCredito(ventaId)).get()).data(),
     guardar: async (r) => { await persistirNotaCredito(db, r, coleccion) },
   })
+}
+
+/** yyyy-MM-dd del día calendario argentino. */
+const diaArgentino = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' })
+
+/**
+ * Nota de crédito interna para una factura X de promo (2026-09-11): sin ARCA.
+ * Exige que Tango ya tenga la factura (`venta.tango.facturaNumero`), porque la
+ * NC de Rolito la referencia; toma el número del contador
+ * `config/numeracionInterna_notaCreditoX` en una transacción y deja la
+ * solicitud 'emitida' y la venta 'anulada'. Sin contador → 'error' con el
+ * motivo (hay que crearlo con configurar-ventas-tango --numeracion notaCreditoX=PV).
+ */
+export async function emitirNotaCreditoInterna(
+  db: Firestore, ventaId: string, coleccion: ColeccionAnulable, venta: Record<string, unknown>,
+): Promise<ResultadoEmisionNc | null> {
+  const tango = venta.tango as { estado?: string; facturaNumero?: string } | undefined
+  const fallar = async (motivo: string) => {
+    await db.doc(rutaAnulacion(ventaId)).set({ estado: 'error', ultimoError: motivo, actualizadoEn: FieldValue.serverTimestamp() }, { merge: true })
+    await db.doc(`${coleccion}/${ventaId}`).set({ anulacion: { estado: 'error', solicitudId: ventaId } }, { merge: true })
+    return null
+  }
+  if (tango?.estado !== 'confirmado' || !tango.facturaNumero) {
+    return fallar(`La factura de promo todavía no está registrada en Tango (estado ${tango?.estado ?? 'sin enviar'}); cuando entre, volvé a aprobar la anulación`)
+  }
+  const counterRef = db.doc('config/numeracionInterna_notaCreditoX')
+  let nc: NotaCreditoInterna
+  try {
+    nc = await db.runTransaction(async (tx) => {
+      const c = (await tx.get(counterRef)).data()
+      if (!c || !Number.isInteger(c.next) || !Number.isInteger(Number(c.puntoVenta))) throw new Error('falta config/numeracionInterna_notaCreditoX { next, puntoVenta }')
+      if (c.ultimo != null && Number(c.next) > Number(c.ultimo)) throw new Error('el talonario de notas de crédito X se agotó')
+      tx.update(counterRef, { next: Number(c.next) + 1 })
+      return { tipo: 'notaCreditoX' as const, puntoVenta: Number(c.puntoVenta), numero: Number(c.next), fecha: diaArgentino(new Date()) }
+    })
+  } catch (e) {
+    return fallar(`No se pudo numerar la nota de crédito X: ${(e as Error).message}`)
+  }
+  const batch = db.batch()
+  batch.set(db.doc(rutaAnulacion(ventaId)), { estado: 'emitida', notaCreditoInterna: nc, ultimoError: null, actualizadoEn: FieldValue.serverTimestamp() }, { merge: true })
+  batch.set(db.doc(`${coleccion}/${ventaId}`), { anulacion: { estado: 'anulada', solicitudId: ventaId, notaCreditoInterna: nc } }, { merge: true })
+  await batch.commit()
+  return { estado: 'emitida', interna: true, puntoVenta: nc.puntoVenta, numero: nc.numero }
 }

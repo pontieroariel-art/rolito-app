@@ -203,8 +203,10 @@ export interface RenglonInterno {
 export interface ComprobanteInternoData {
   /** Orden de compra del cliente, impresa en el recuadro "Remitos - O/C" (2026-09-11). */
   ordenCompra?: string
-  /** El talonario de promo decía "PROMOCIÓN", no "FACTURA". */
-  titulo:        'PROMOCIÓN'
+  /** El talonario de promo decía "PROMOCIÓN", no "FACTURA". La NC X (2026-09-11) dice "NOTA DE CRÉDITO". */
+  titulo:        'PROMOCIÓN' | 'NOTA DE CRÉDITO'
+  /** NC X: la promo que anula ("Anula Promoción X 01104-00000640"). */
+  comprobanteAsociado?: string
   letra:         'X'
   empresa:       'rolito'
   emisor:        Emisor
@@ -279,6 +281,33 @@ export function armarFacturaX(venta: VentaCamion, cliente?: UserProfile): Armado
         : {}),
       leyenda: 'DOCUMENTO NO VÁLIDO COMO FACTURA — Comprobante interno de Rolito (promo). No autorizado por ARCA.',
       archivo: `factura-x-${numero ?? venta.id.slice(0, 8)}.pdf`,
+    },
+  }
+}
+
+/**
+ * Nota de crédito X de una promo anulada (2026-09-11): el mismo papel que la
+ * factura X, al revés, con el número interno que asignó el server
+ * (`anulacion.notaCreditoInterna`) y la promo que anula. Sin ARCA.
+ */
+export function armarNotaCreditoX(venta: VentaCamion, cliente?: UserProfile): ArmadoInterno {
+  const nc = venta.anulacion?.notaCreditoInterna
+  if (!nc) return { ok: false, motivo: 'Esta venta no tiene una nota de crédito X emitida.' }
+  const base = armarFacturaX({ ...venta, canal: 'promo' }, cliente)
+  if (!base.ok) return base
+  const numero = codigoComprobanteInterno({ puntoVenta: nc.puntoVenta, numero: nc.numero })
+  const promo = base.datos.numero ?? 'sin número'
+  return {
+    ok: true,
+    datos: {
+      ...base.datos,
+      titulo: 'NOTA DE CRÉDITO',
+      numero,
+      fechaEmision: new Date(`${nc.fecha}T12:00:00`),
+      comprobanteAsociado: `Anula Promoción X ${promo}`,
+      firma: undefined,
+      leyenda: `DOCUMENTO NO VÁLIDO COMO FACTURA — Nota de crédito interna de Rolito (promo) que anula la Promoción X ${promo}. No autorizada por ARCA.`,
+      archivo: `nota-credito-x-${numero}.pdf`,
     },
   }
 }

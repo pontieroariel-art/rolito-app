@@ -21,6 +21,7 @@ import { estadoEnvioLocal, pendienteDeEnvio } from '@/services/envioAutomaticoVe
 import MenuCompartirPdf, { type PdfGenerado } from '@/components/ui/MenuCompartirPdf'
 import { armarNotaCreditoDeVenta } from '@/utils/facturaDeVenta'
 import { textoAnulacion } from '@/utils/anulacionVenta'
+import { armarNotaCreditoX } from '@/utils/comprobanteInterno'
 
 const money = (n: number) =>
   n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -195,9 +196,19 @@ function EstadoAnulacion({ venta }: { venta: VentaCamion }) {
   const a = venta.anulacion
   const t = textoAnulacion(a)
   if (!a || !t) return null
-  const nc = a.notaCredito
-  const titulo = nc ? `Nota de crédito ${String(nc.puntoVenta).padStart(5, '0')}-${String(nc.numero).padStart(8, '0')}` : 'Nota de crédito'
+  // NC de ARCA (contado) o NC X interna (promo, 2026-09-11).
+  const nc = a.notaCredito ?? a.notaCreditoInterna
+  const interna = !a.notaCredito && !!a.notaCreditoInterna
+  const titulo = nc ? `Nota de crédito${interna ? ' X' : ''} ${String(nc.puntoVenta).padStart(5, '0')}-${String(nc.numero).padStart(8, '0')}` : 'Nota de crédito'
   const generar = async (): Promise<PdfGenerado> => {
+    if (interna) {
+      const armadoX = armarNotaCreditoX(venta, undefined)
+      if (!armadoX.ok) return { ok: false, motivo: armadoX.motivo }
+      const { generateComprobanteInternoPdf } = await import('@/utils/comprobanteInternoPdf')
+      const blobX = await generateComprobanteInternoPdf(armadoX.datos, { descargar: false })
+      if (!(blobX instanceof Blob)) return { ok: false, motivo: 'No se pudo generar la nota de crédito.' }
+      return { ok: true, blob: blobX, nombre: armadoX.datos.archivo }
+    }
     const armado = armarNotaCreditoDeVenta(venta, undefined)
     if (!armado.ok) return { ok: false, motivo: armado.motivo }
     const { generateFacturaArcaPdf } = await import('@/utils/facturaArcaPdf')

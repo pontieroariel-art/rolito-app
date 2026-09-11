@@ -7,8 +7,10 @@ import { reportError } from '@/services/observability'
 import { formatoARS } from '@/utils/money'
 import { MOTIVOS_ANULACION, type MotivoAnulacion } from '@/types'
 
+// Factura de ARCA, o la factura X de promo (NC interna, 2026-09-11).
 const nroFactura = (v: VentaAnulable['venta']) =>
-  v.factura ? `${String(v.factura.puntoVenta).padStart(5, '0')}-${String(v.factura.numero).padStart(8, '0')}` : ''
+  v.factura ? `${String(v.factura.puntoVenta).padStart(5, '0')}-${String(v.factura.numero).padStart(8, '0')}`
+    : v.comprobanteInterno ? `X ${String(v.comprobanteInterno.puntoVenta).padStart(5, '0')}-${String(v.comprobanteInterno.numero).padStart(8, '0')}` : ''
 
 // El cajero pide anular la factura de una venta (2026-09-09): elige el motivo,
 // explica, confirma que le va a hacer la factura correcta al cliente, y la

@@ -18,6 +18,7 @@ exports.persistirNotaCredito = persistirNotaCredito;
 exports.registrarErrorPrevio = registrarErrorPrevio;
 exports.reflejarRechazoEnVenta = reflejarRechazoEnVenta;
 exports.emitirNotaCreditoDeAnulacion = emitirNotaCreditoDeAnulacion;
+exports.emitirNotaCreditoInterna = emitirNotaCreditoInterna;
 const firestore_1 = require("firebase-admin/firestore");
 const configuracion_1 = require("./configuracion");
 const puertoFirebase_1 = require("./puertoFirebase");
@@ -133,7 +134,11 @@ async function emitirNotaCreditoDeAnulacion(db, ventaId) {
     const venta = (await db.doc(`${coleccion}/${ventaId}`).get()).data();
     if (!venta)
         return null;
-    if ((0, circuito_1.documentoDeVenta)(venta.canal, venta.formaPago, venta.total) !== 'factura_arca')
+    const documento = (0, circuito_1.documentoDeVenta)(venta.canal, venta.formaPago, venta.total);
+    // Promo (factura X, sin ARCA): nota de crédito interna numerada por la app (2026-09-11).
+    if (documento === 'no_oficial')
+        return emitirNotaCreditoInterna(db, ventaId, coleccion, venta);
+    if (documento !== 'factura_arca')
         return null;
     const espejo = venta.factura;
     if (!espejo || espejo.estado !== 'emitida' || !espejo.cae) {
@@ -167,5 +172,47 @@ async function emitirNotaCreditoDeAnulacion(db, ventaId) {
         leer: async () => (await db.doc((0, facturacionVenta_1.rutaNotaCredito)(ventaId)).get()).data(),
         guardar: async (r) => { await persistirNotaCredito(db, r, coleccion); },
     });
+}
+/** yyyy-MM-dd del día calendario argentino. */
+const diaArgentino = (d) => d.toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' });
+/**
+ * Nota de crédito interna para una factura X de promo (2026-09-11): sin ARCA.
+ * Exige que Tango ya tenga la factura (`venta.tango.facturaNumero`), porque la
+ * NC de Rolito la referencia; toma el número del contador
+ * `config/numeracionInterna_notaCreditoX` en una transacción y deja la
+ * solicitud 'emitida' y la venta 'anulada'. Sin contador → 'error' con el
+ * motivo (hay que crearlo con configurar-ventas-tango --numeracion notaCreditoX=PV).
+ */
+async function emitirNotaCreditoInterna(db, ventaId, coleccion, venta) {
+    const tango = venta.tango;
+    const fallar = async (motivo) => {
+        await db.doc((0, exports.rutaAnulacion)(ventaId)).set({ estado: 'error', ultimoError: motivo, actualizadoEn: firestore_1.FieldValue.serverTimestamp() }, { merge: true });
+        await db.doc(`${coleccion}/${ventaId}`).set({ anulacion: { estado: 'error', solicitudId: ventaId } }, { merge: true });
+        return null;
+    };
+    if (tango?.estado !== 'confirmado' || !tango.facturaNumero) {
+        return fallar(`La factura de promo todavía no está registrada en Tango (estado ${tango?.estado ?? 'sin enviar'}); cuando entre, volvé a aprobar la anulación`);
+    }
+    const counterRef = db.doc('config/numeracionInterna_notaCreditoX');
+    let nc;
+    try {
+        nc = await db.runTransaction(async (tx) => {
+            const c = (await tx.get(counterRef)).data();
+            if (!c || !Number.isInteger(c.next) || !Number.isInteger(Number(c.puntoVenta)))
+                throw new Error('falta config/numeracionInterna_notaCreditoX { next, puntoVenta }');
+            if (c.ultimo != null && Number(c.next) > Number(c.ultimo))
+                throw new Error('el talonario de notas de crédito X se agotó');
+            tx.update(counterRef, { next: Number(c.next) + 1 });
+            return { tipo: 'notaCreditoX', puntoVenta: Number(c.puntoVenta), numero: Number(c.next), fecha: diaArgentino(new Date()) };
+        });
+    }
+    catch (e) {
+        return fallar(`No se pudo numerar la nota de crédito X: ${e.message}`);
+    }
+    const batch = db.batch();
+    batch.set(db.doc((0, exports.rutaAnulacion)(ventaId)), { estado: 'emitida', notaCreditoInterna: nc, ultimoError: null, actualizadoEn: firestore_1.FieldValue.serverTimestamp() }, { merge: true });
+    batch.set(db.doc(`${coleccion}/${ventaId}`), { anulacion: { estado: 'anulada', solicitudId: ventaId, notaCreditoInterna: nc } }, { merge: true });
+    await batch.commit();
+    return { estado: 'emitida', interna: true, puntoVenta: nc.puntoVenta, numero: nc.numero };
 }
 //# sourceMappingURL=anulacionVentanilla.js.map
