@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { COPIAS_TICKET_DEFAULT, copiaTicket, generateTicketsVentanilla, normalizarCopiasTicket, type TurnoTicketData } from './ventanillaTicket'
 import type { FacturaArcaData } from './facturaArcaPdf'
-import { ANCHO_TICKET } from './ticketTermico'
+import { ANCHO_TICKET, ZONA_CORTE } from './ticketTermico'
 
 const FACTURA: FacturaArcaData = {
   letra: 'B',
@@ -84,6 +84,12 @@ describe('tickets de ventanilla (80 mm)', () => {
       mkdirSync(process.env.TICKETS_OUT, { recursive: true })
       writeFileSync(`${process.env.TICKETS_OUT}/tickets-ventanilla-triplicado.pdf`, Buffer.from(await blob.arrayBuffer()))
     }
+  })
+
+  it('cuando salen varios tickets juntos, cada uno termina con la zona de corte (la Eliprinter no tiene guillotina)', async () => {
+    const solo = mediaBoxes(Buffer.from(await (await generateTicketsVentanilla({ turno: TURNO })).arrayBuffer()).toString('latin1'))
+    const juntos = mediaBoxes(Buffer.from(await (await generateTicketsVentanilla({ factura: FACTURA, turno: TURNO })).arrayBuffer()).toString('latin1'))
+    expect(juntos[1].h - solo[0].h).toBeCloseTo(ZONA_CORTE - 6, 0)   // reemplaza al margen inferior de 6 mm
   })
 
   it('la promo sale a nombre de Rolito (una página, sin factura)', async () => {

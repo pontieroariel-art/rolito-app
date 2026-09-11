@@ -29,24 +29,51 @@ export type DibujoTicket = (doc: jsPDF, y: number) => number | Promise<number>
 const ALTO_MEDICION = 1500
 const MARGEN_SUPERIOR = 4
 const MARGEN_INFERIOR = 6
+/** Alto de la zona de corte que cierra cada ticket cuando salen varios juntos. */
+export const ZONA_CORTE = 16
+
+// La Eliprinter del mostrador no tiene guillotina: cuando la factura y las
+// copias del turno salen en la misma tira, caja las separa a mano. Cada ticket
+// termina entonces con una franja en blanco y una línea punteada de borde a
+// borde con "CORTAR", para que se vea dónde va el corte (pedido de Ariel,
+// 2026-09-11). Con un solo ticket no hace falta: se corta contra la barra.
+export function zonaCorte(doc: jsPDF, y: number): number {
+  const yl = y + ZONA_CORTE / 2
+  doc.setDrawColor(0, 0, 0)
+  doc.setLineWidth(0.3)
+  doc.setLineDashPattern([1.5, 1.2], 0)
+  doc.line(0, yl, ANCHO_TICKET, yl)
+  doc.setLineDashPattern([], 0)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(6)
+  doc.setTextColor(0, 0, 0)
+  const etiqueta = '- - CORTAR - -'
+  const ancho = doc.getTextWidth(etiqueta) + 3
+  doc.setFillColor(255, 255, 255)
+  doc.rect(XC - ancho / 2, yl - 2, ancho, 3.5, 'F')
+  doc.text(etiqueta, XC, yl + 0.8, { align: 'center' })
+  return y + ZONA_CORTE
+}
 
 export async function armarPdfTickets(dibujos: DibujoTicket[]): Promise<Blob> {
   const { jsPDF } = await import('jspdf')
   if (dibujos.length === 0) throw new Error('Sin tickets para armar')
+  const conCorte = dibujos.length > 1
 
   // Primera pasada: medir cada ticket en una página larga de prueba.
   const altos: number[] = []
   for (const dibujo of dibujos) {
     const prueba = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [ANCHO_TICKET, ALTO_MEDICION], compress: true })
     const fin = await dibujo(prueba, MARGEN_SUPERIOR)
-    altos.push(Math.ceil(fin + MARGEN_INFERIOR))
+    altos.push(Math.ceil(fin + (conCorte ? ZONA_CORTE : MARGEN_INFERIOR)))
   }
 
   // Segunda pasada: la página definitiva de cada uno con su alto justo.
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [ANCHO_TICKET, altos[0]], compress: true })
   for (let i = 0; i < dibujos.length; i++) {
     if (i > 0) doc.addPage([ANCHO_TICKET, altos[i]], 'portrait')
-    await dibujos[i](doc, MARGEN_SUPERIOR)
+    const fin = await dibujos[i](doc, MARGEN_SUPERIOR)
+    if (conCorte) zonaCorte(doc, fin)
   }
   return doc.output('blob')
 }
