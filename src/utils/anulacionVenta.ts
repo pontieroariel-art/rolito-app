@@ -24,6 +24,10 @@ export const facturaAnulable = (v: ConAnulacion & { canal?: string; factura?: { 
 /** Texto corto del estado para chips y listas. */
 export function textoAnulacion(a: AnulacionEnVenta | null | undefined): { texto: string; tono: 'warn' | 'bad' | 'neutral' } | null {
   if (!a) return null
+  // Remito de cta. cte. anulado por el chofer (sin NC): la oficina lo anula en Tango.
+  if (a.tipo === 'remito') {
+    return { texto: a.tango?.estado === 'confirmado' ? 'Remito anulado · anulado en Tango' : 'Remito anulado · la oficina lo anula en Tango', tono: 'bad' }
+  }
   const nc = a.notaCredito
   switch (a.estado) {
     case 'pendiente': return { texto: 'Anulación pendiente de autorizar', tono: 'warn' }

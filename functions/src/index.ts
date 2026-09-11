@@ -49,6 +49,9 @@ export { onVentaContadoFacturar, onVentaVentanillaContadoFacturar, reconciliarFa
 // Anulación de facturas de ventanilla con nota de crédito (2026-09-09): el
 // cajero pide, un usuario con `autorizaAnulaciones` aprueba, el server emite.
 export { onAnulacionSolicitada, onAnulacionResuelta } from './triggers/anulacionesVentanilla'
+// Remito de cta. cte. anulado por el chofer sin autorización (2026-09-11): aviso a
+// facturación para anularlo en Tango y confirmación por el lector de comprobantes.
+export { onRemitoAnuladoPorChofer, reconciliarRemitosAnulados } from './triggers/anulacionRemitoChofer'
 // Aviso de vencimiento del padrón de IIBB. No declara los secrets de ARCA, así
 // que se puede desplegar suelta.
 export { avisarPadronIIBB } from './triggers/padronIIBB'

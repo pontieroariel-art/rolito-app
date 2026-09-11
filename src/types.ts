@@ -503,6 +503,19 @@ export interface AnulacionEnVenta {
   solicitudId:  string
   notaCredito?: NotaCreditoArcaVenta
   notaCreditoInterna?: NotaCreditoInternaVenta
+  /**
+   * Remito de cuenta corriente anulado por el propio chofer, sin autorización
+   * (2026-09-11, decisión de Ariel): la app lo saca de la liquidación y la
+   * oficina lo anula en Tango; `tango.estado` pasa a 'confirmado' cuando el
+   * lector de comprobantes ve el remito anulado (ESTADO_MOV 'A').
+   */
+  tipo?:        'remito'
+  motivo?:      MotivoAnulacion
+  nota?:        string
+  anuladaPor?:  { uid: string; nombre: string }
+  anuladaEn?:   Timestamp
+  fechaVenta?:  string   // yyyy-MM-dd (las reglas cotejan que la liquidación de ese día no esté cerrada)
+  tango?:       { estado: 'pendiente_oficina' | 'confirmado'; en?: Timestamp }
 }
 
 export interface AnulacionVentanilla {

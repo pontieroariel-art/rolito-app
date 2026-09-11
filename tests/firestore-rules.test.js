@@ -4412,3 +4412,38 @@ describe('anulación de una promo (factura X) con nota de crédito interna (2026
     await assertFails(setDoc(doc(db('caja1'), 'anulacionesVentanilla/p2'), { ...base, ventaId: 'p2', coleccion: 'ventasCamion', choferId: 'chof1', choferNombre: 'C' }))
   })
 })
+
+describe('remito de cta. cte. anulado por el chofer sin autorización (2026-09-11)', () => {
+  const remito = (over = {}) => ({
+    canal: 'contado', camionId: '', choferId: 'chof1', choferNombre: 'C', clienteId: 'cli', clienteNombre: 'Cliente', items: [], total: 1000,
+    formaPago: 'cuenta_corriente', fecha: new Date(), pedidoId: null, comprobanteInterno: { tipo: 'remito', puntoVenta: 1105, numero: 700 }, ...over,
+  })
+  const seedTodos = () => seed(async (d) => {
+    await setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' })
+    await setDoc(doc(d, 'users/chof2'), { rol: 'chofer', estado: 'activo' })
+    await setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' })
+    await setDoc(doc(d, 'ventasCamion/r1'), remito())
+    await setDoc(doc(d, 'ventasCamion/r2'), remito())
+    const { comprobanteInterno: _ci, ...facturada } = remito({ formaPago: 'contado_efectivo', factura: { estado: 'emitida', numero: 5, puntoVenta: 1104, cbteTipo: 1, cae: '1' } })
+    await setDoc(doc(d, 'ventasCamion/r3'), facturada)
+    await setDoc(doc(d, 'ventasCamion/r4'), remito({ anulacion: { estado: 'anulada', tipo: 'remito', solicitudId: '' } }))
+    await setDoc(doc(d, 'liquidaciones/2026-09-10_chof1'), { fecha: '2026-09-10', choferId: 'chof1', plantaId: 'torcuato' })
+  })
+  const anulacion = (over = {}) => ({ anulacion: { estado: 'anulada', solicitudId: '', tipo: 'remito', motivo: 'cliente_equivocado', nota: '', anuladaPor: { uid: 'chof1', nombre: 'C' }, anuladaEn: new Date(), fechaVenta: '2026-09-11', ...over } })
+
+  test('el chofer anula SU remito de hoy; solo el campo anulacion', async () => {
+    await seedTodos()
+    await assertSucceeds(updateDoc(doc(db('chof1'), 'ventasCamion/r1'), anulacion()))
+    await assertFails(updateDoc(doc(db('chof1'), 'ventasCamion/r2'), { ...anulacion(), total: 5 }))
+  })
+  test('no otro chofer, ni caja, ni una factura, ni una ya anulada, ni con la liquidación de ese día cerrada, ni con otro estado', async () => {
+    await seedTodos()
+    await assertFails(updateDoc(doc(db('chof2'), 'ventasCamion/r2'), anulacion({ anuladaPor: { uid: 'chof2', nombre: 'X' } })))
+    await assertFails(updateDoc(doc(db('caja1'), 'ventasCamion/r2'), anulacion({ anuladaPor: { uid: 'caja1', nombre: 'X' } })))
+    await assertFails(updateDoc(doc(db('chof1'), 'ventasCamion/r3'), anulacion()))
+    await assertFails(updateDoc(doc(db('chof1'), 'ventasCamion/r4'), anulacion()))
+    await assertFails(updateDoc(doc(db('chof1'), 'ventasCamion/r2'), anulacion({ fechaVenta: '2026-09-10' })))
+    await assertFails(updateDoc(doc(db('chof1'), 'ventasCamion/r2'), anulacion({ estado: 'pendiente' })))
+    await assertFails(updateDoc(doc(db('chof1'), 'ventasCamion/r2'), anulacion({ tipo: 'factura' })))
+  })
+})

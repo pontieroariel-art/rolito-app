@@ -6,7 +6,7 @@
 // Tango envía por su cuenta.
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, FileText, Clock, AlertTriangle, Mail } from 'lucide-react'
+import { ArrowLeft, FileText, Clock, AlertTriangle, Mail, Ban } from 'lucide-react'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { useAuth } from '@/context/AuthContext'
 import { subscribeVentasRecientesChofer } from '@/services/ventaCamionService'
@@ -22,6 +22,7 @@ import MenuCompartirPdf, { type PdfGenerado } from '@/components/ui/MenuComparti
 import { armarNotaCreditoDeVenta } from '@/utils/facturaDeVenta'
 import { textoAnulacion } from '@/utils/anulacionVenta'
 import { armarNotaCreditoX } from '@/utils/comprobanteInterno'
+import AnularRemitoModal from '@/components/ventas/AnularRemitoModal'
 
 const money = (n: number) =>
   n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -39,6 +40,7 @@ export default function VentasChofer({ volverA = '/chofer' }: { volverA?: string
   // CAI del talonario de remitos oficiales (Redonhielo). Arranca con el último
   // cacheado para que sirva sin señal; se refresca al montar.
   const [caiRemito, setCaiRemito] = useState<CaiRemito | null>(() => caiRemitoOficialCacheado())
+  const [anulandoRemito, setAnulandoRemito] = useState<VentaCamion | null>(null)
   useEffect(() => { getCaiRemitoOficial().then(setCaiRemito) }, [])
 
   useEffect(() => {
@@ -156,6 +158,15 @@ export default function VentasChofer({ volverA = '/chofer' }: { volverA?: string
                       </span>
                       <MenuComprobanteVenta venta={v} cai={caiRemito} />
                     </div>
+                    {/* Remito de cta. cte.: el chofer lo anula solo, sin
+                        autorización (2026-09-11). Las reglas frenan si caja ya
+                        cerró la liquidación de ese día. */}
+                    {tipoComprobanteInterno(v) === 'remito' && v.formaPago === 'cuenta_corriente' && !v.anulacion && !verComo && (
+                      <button type="button" onClick={() => setAnulandoRemito(v)}
+                        className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-red-700">
+                        <Ban size={13} /> Anular remito
+                      </button>
+                    )}
                   </div>
                 )}
                 <EstadoAnulacion venta={v} />
@@ -165,6 +176,9 @@ export default function VentasChofer({ volverA = '/chofer' }: { volverA?: string
           })}
         </div>
       </main>
+      {anulandoRemito && (
+        <AnularRemitoModal venta={anulandoRemito} actor={{ uid: user.uid, nombre: user.nombre }} onCerrar={() => setAnulandoRemito(null)} />
+      )}
     </div>
   )
 }

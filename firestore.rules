@@ -981,7 +981,27 @@ service cloud.firestore {
         && (!('cambios' in request.resource.data) || request.resource.data.cambios is list)
         && request.resource.data.total is number;
 
-      allow update, delete: if false;
+      // Remito de cuenta corriente anulado por el propio chofer, sin autorización
+      // (2026-09-11, decisión de Ariel): solo el campo `anulacion`, solo sobre
+      // su venta, solo si salió por remito (sin factura de ARCA), sin anulación
+      // previa y con la liquidación de ese día todavía abierta. La oficina lo
+      // anula en Tango; el server anota el estado en Tango.
+      allow update: if request.auth != null && isChofer()
+        && resource.data.choferId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['anulacion'])
+        && !('anulacion' in resource.data)
+        && !('factura' in resource.data)
+        && resource.data.get('canal', '') == 'contado'
+        && resource.data.get('formaPago', '') == 'cuenta_corriente'
+        && resource.data.get('comprobanteInterno', {}).get('tipo', '') == 'remito'
+        && request.resource.data.anulacion.tipo == 'remito'
+        && request.resource.data.anulacion.estado == 'anulada'
+        && request.resource.data.anulacion.anuladaPor.uid == request.auth.uid
+        && request.resource.data.anulacion.motivo is string
+        && request.resource.data.anulacion.fechaVenta is string
+        && !exists(/databases/$(database)/documents/liquidaciones/$(request.resource.data.anulacion.fechaVenta + '_' + request.auth.uid));
+
+      allow delete: if false;
     }
 
     // ── Expedición: remitos de carga del camión ────────────────────────────

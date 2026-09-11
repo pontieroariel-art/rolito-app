@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, onSnapshot, query, where, orderBy, limit, setDoc, Timestamp } from 'firebase/firestore'
+import { collection, doc, getDoc, onSnapshot, query, where, orderBy, limit, setDoc, updateDoc, Timestamp } from 'firebase/firestore'
 import { db } from './firebase'
 import { fireAndForget, onSnapshotError } from './observability'
 import { VentaCamion, VentaCamionItem, FormaPago, CanalVenta, UserProfile, ComprobanteInternoVenta } from '../types'
@@ -162,3 +162,25 @@ export const subscribeVentasRecientesChofer = (
     },
     onSnapshotError(callback, 'ventasCamion', alFallar),
   )
+
+/**
+ * El chofer anula un remito de cuenta corriente sin autorización (2026-09-11,
+ * decisión de Ariel: ágil en la calle). Solo `anulacion` en la venta; las
+ * reglas exigen que sea su venta, que haya salido por remito y que la
+ * liquidación de ese día no esté cerrada. La app deja de contarla; la oficina
+ * anula el remito en Tango y el server lo confirma cuando lo ve anulado.
+ */
+export async function anularRemitoChofer(
+  venta: VentaCamion,
+  motivo: string,
+  nota: string,
+  actor: { uid: string; nombre: string },
+): Promise<void> {
+  const fechaVenta = venta.fecha.toDate().toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' })
+  await updateDoc(doc(db, VENTAS, venta.id), {
+    anulacion: {
+      estado: 'anulada', solicitudId: '', tipo: 'remito', motivo, nota: nota.trim(),
+      anuladaPor: actor, anuladaEn: Timestamp.now(), fechaVenta,
+    },
+  })
+}
