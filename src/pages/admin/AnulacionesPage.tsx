@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useDiaActual } from '@/hooks/useDiaActual'
 import { resolverAnulacion, subscribeAnulacionesEnRango, subscribeAnulacionesPendientes } from '@/services/anulacionService'
 import { getVentaVentanilla } from '@/services/ventaVentanillaService'
+import { getVentaCamion } from '@/services/ventaCamionService'
 import { getUserDocument } from '@/services/userService'
 import { reportError } from '@/services/observability'
 import { addDaysStr } from '@/utils/helpers'
@@ -67,7 +68,8 @@ export default function AnulacionesPage() {
   const verNotaCredito = async (a: AnulacionVentanilla) => {
     setAviso('')
     try {
-      const venta = await getVentaVentanilla(a.ventaId)
+      // La venta anulada vive en ventanilla o en el camión (2026-09-11).
+      const venta = a.coleccion === 'ventasCamion' ? await getVentaCamion(a.ventaId) : await getVentaVentanilla(a.ventaId)
       if (!venta) { setAviso('No se encontró la venta.'); return }
       // El perfil del cliente completa el papel (CUIT, condición de IVA, domicilio);
       // si este usuario no puede leerlo, el PDF sale con lo que trae la venta.
