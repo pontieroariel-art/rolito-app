@@ -7,7 +7,9 @@
  * la app igual:
  *
  *   - depósito con nombre de persona y chofer existente (match por nombre) →
- *     se vincula: users/{uid}.depositoTango + config/tango.depositos[uid].
+ *     se vincula: users/{uid}.depositoTango + config/tango.depositos[uid] +
+ *     depositosTango/{cod}.uid (catálogo que usan carga/descarga/liquidación
+ *     para la identidad del depósito; ver vincular-depositos-usuarios.mjs).
  *   - depósito con nombre de persona sin chofer → se CREA el chofer (cuenta de
  *     Auth con email deposito-{cod}@rolito.app, sin DNI ni PIN: no puede
  *     entrar hasta que se lo vincule con --vincular COD=CUIT=PIN).
@@ -185,6 +187,15 @@ async function main() {
   let vinculados = 0, creados = 0, desactivados = 0, ambiguos = 0
 
   const enSolo = (p) => !SOLO || SOLO.has(String(p.dep.COD_STA22).padStart(2, '0'))
+  // Catálogo depositosTango/{cod}: la identidad del depósito en los docs de
+  // expedición es este uid (utils/depositos.identidadDeposito). Sin esto caja
+  // emite con `dep:<cod>` y el chofer no ve nada (pasó el 2026-09-10).
+  const vincularCatalogo = async (cod, uid, nombre) => {
+    if (!COMMIT) return
+    const ref = db.doc(`depositosTango/${String(cod).padStart(2, '0')}`)
+    if (!(await ref.get()).exists) { console.log(`     (depositosTango/${cod} no existe: correr la sync de depósitos y repetir)`); return }
+    await ref.update({ uid, usuarioNombre: nombre, usuarioRol: 'chofer', editadoEn: FieldValue.serverTimestamp() })
+  }
   if (SOLO) console.log(`Solo depósitos: ${[...SOLO].join(', ')} (sin desactivaciones)\n`)
   console.log('== Vincular (depósito ↔ chofer existente)')
   for (const p of pares.filter((x) => x.chofer && enSolo(x))) {
@@ -195,6 +206,7 @@ async function main() {
     depositosCfg[c.id] = p.dep.COD_STA22
     camionesCfg[c.id]  = p.dep.NOMBRE_SUC
     if (COMMIT && cambia) await db.doc(`users/${c.id}`).update({ depositoTango: p.dep.COD_STA22, depositoTangoNombre: p.dep.NOMBRE_SUC, estado: 'activo' })
+    await vincularCatalogo(p.dep.COD_STA22, c.id, c.nombre)
   }
 
   console.log('\n== Crear (depósito sin chofer en la app)')
@@ -220,6 +232,7 @@ async function main() {
     }, { merge: true })
     depositosCfg[uid] = p.dep.COD_STA22
     camionesCfg[uid]  = p.dep.NOMBRE_SUC
+    await vincularCatalogo(p.dep.COD_STA22, uid, nombre)
     emailsNuevos.push(email)
   }
 
