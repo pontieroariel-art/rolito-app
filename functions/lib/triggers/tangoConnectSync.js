@@ -19,6 +19,7 @@ exports.mapaPorCodigo = mapaPorCodigo;
 exports.agruparDeudaPorCliente = agruparDeudaPorCliente;
 exports.sincronizarSaldos = sincronizarSaldos;
 const https_1 = require("firebase-functions/v2/https");
+const authz_1 = require("../authz");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
 const firestore_1 = require("firebase-functions/v2/firestore");
 const params_1 = require("firebase-functions/params");
@@ -505,6 +506,7 @@ async function rolDe(uid) {
 exports.sincronizarClientesTangoAhora = (0, https_1.onCall)({ secrets: [tangoApiToken], timeoutSeconds: 540, memory: '512MiB' }, async (request) => {
     if (!request.auth)
         throw new https_1.HttpsError('unauthenticated', 'No autenticado');
+    (0, authz_1.assertNoImpersonado)(request);
     if (!ROLES_QUE_SINCRONIZAN.has(await rolDe(request.auth.uid)))
         throw new https_1.HttpsError('permission-denied', 'No tenés permiso para sincronizar clientes');
     await (0, rateLimit_1.assertRateLimit)(request.auth.uid, 'sincronizarClientesTango', 3, 300);
@@ -513,6 +515,7 @@ exports.sincronizarClientesTangoAhora = (0, https_1.onCall)({ secrets: [tangoApi
 exports.sincronizarSaldosTangoAhora = (0, https_1.onCall)({ secrets: [tangoApiToken], timeoutSeconds: 540, memory: '512MiB' }, async (request) => {
     if (!request.auth)
         throw new https_1.HttpsError('unauthenticated', 'No autenticado');
+    (0, authz_1.assertNoImpersonado)(request);
     if (!ROLES_SALDOS.has(await rolDe(request.auth.uid)))
         throw new https_1.HttpsError('permission-denied', 'No tenés permiso para sincronizar saldos');
     await (0, rateLimit_1.assertRateLimit)(request.auth.uid, 'sincronizarSaldosTango', 6, 300);

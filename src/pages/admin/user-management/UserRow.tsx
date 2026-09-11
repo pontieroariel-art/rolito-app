@@ -1,9 +1,10 @@
 import { useState, ChangeEvent } from 'react'
-import { ChevronRight, MapPin, Phone, CreditCard, Navigation, Clock, Hash } from 'lucide-react'
+import { ChevronRight, MapPin, Phone, CreditCard, Navigation, Clock, Hash, Eye } from 'lucide-react'
 import Button from '../../../components/ui/Button'
 import { UserProfile, UserRole, DeliveryAddress, PLANTAS, PlantaId } from '../../../types'
 import { ROLES_EXTRA_DISPONIBLES } from '../../../utils/roles'
 import { tsToDate } from '../../../utils/helpers'
+import { abrirVistaComo } from '../../../services/impersonacionService'
 import { ALL_ROLES, ROLE_LABELS, STATUS_STYLES, STATUS_LABELS } from './shared'
 import { FichaClienteModal } from './FichaClienteModal'
 import { PermisosUsuarioModal } from './PermisosUsuarioModal'
@@ -26,15 +27,32 @@ export function UserRow({ user, currentUser, onRoleChange, onSubrolChange, onRol
   const [busy, setBusy]               = useState(false)
   const [fichaModal, setFichaModal]   = useState(false)
   const [permisosModal, setPermisosModal] = useState(false)
+  // "Ver como" (2026-09-10): si el navegador bloqueó la pestaña nueva, queda el link a mano.
+  const [verComoLink, setVerComoLink] = useState<string | null>(null)
+  const [verComoError, setVerComoError] = useState<string | null>(null)
   const isSelf            = user.uid === currentUser?.uid
   const canManagePrices   = ['super_admin', 'gerente_comercial'].includes(currentUser?.rol ?? '')
   const canChangeStatus   = ['super_admin', 'gerente_comercial'].includes(currentUser?.rol ?? '')
   const canChangeRole     = currentUser?.rol === 'super_admin'
+  // Ver la app con la sesión de esta persona, en otra pestaña y en solo
+  // lectura (ver impersonacionService). Nunca a uno mismo ni a otro super_admin.
+  const canVerComo        = canChangeRole && !isSelf && user.rol !== 'super_admin'
 
   const run = async (fn: () => Promise<void>) => {
     setBusy(true)
     try { await fn() } finally { setBusy(false) }
   }
+
+  const handleVerComo = () => run(async () => {
+    setVerComoError(null)
+    setVerComoLink(null)
+    try {
+      const r = await abrirVistaComo(user.uid)
+      if (!r.abierta) setVerComoLink(r.url)
+    } catch (err) {
+      setVerComoError((err as { message?: string })?.message ?? 'No se pudo abrir la vista')
+    }
+  })
 
 
   return (
@@ -140,8 +158,34 @@ export function UserRow({ user, currentUser, onRoleChange, onSubrolChange, onRol
               Permisos
             </Button>
           )}
+
+          {canVerComo && (
+            <Button
+              variant="outline"
+              onClick={handleVerComo}
+              loading={busy}
+              disabled={busy}
+              title="Abrir la app en otra pestaña con la sesión de esta persona (solo lectura)"
+              className="text-xs py-1.5 px-3 flex items-center gap-1.5"
+            >
+              <Eye size={13} /> Ver como
+            </Button>
+          )}
         </div>
       </div>
+
+      {(verComoLink || verComoError) && (
+        <div className="text-xs pt-2 border-t border-gray-100">
+          {verComoError
+            ? <span className="text-red-600">{verComoError}</span>
+            : <span className="text-gray-600">
+                El navegador bloqueó la pestaña nueva.{' '}
+                <a href={verComoLink!} target="_blank" rel="noreferrer" className="text-accent underline" onClick={() => setVerComoLink(null)}>
+                  Abrir la vista como {user.nombre || user.razonSocial}
+                </a>
+              </span>}
+        </div>
+      )}
 
       {/* Subrol chofer / ayudante */}
       {user.rol === 'chofer' && (

@@ -4278,3 +4278,67 @@ describe('anulacionesVentanilla (anulación de factura con nota de crédito)', (
     await assertSucceeds(updateDoc(doc(db('sa'), 'users/aut1'), { autorizaAnulaciones: true }))
   })
 })
+
+// ── "Ver como usuario" (2026-09-10): sesión impersonada = solo lectura ────────
+// El super_admin abre la app con un custom token del usuario observado que
+// trae el claim `impersonadoPor`. Lee lo mismo que esa persona; no escribe nada.
+describe('impersonación (Ver como) — solo lectura', () => {
+  const verComo = (uid, email) =>
+    testEnv.authenticatedContext(uid, { ...(email ? { email } : {}), impersonadoPor: 'sa' }).firestore()
+
+  const seedBase = () => seed(async (d) => {
+    await setDoc(doc(d, 'users/sa'),  { rol: 'super_admin', estado: 'activo', nombre: 'Ariel' })
+    await setDoc(doc(d, 'users/cli'), cliente())
+    await setDoc(doc(d, 'users/ch1'), { rol: 'chofer', estado: 'activo', email: 'ch@x.com', nombre: 'Chofer' })
+    await setDoc(doc(d, 'users/log'), { rol: 'logistica', estado: 'activo', email: 'l@x.com', nombre: 'Logi' })
+    await setDoc(doc(d, 'orders/o1'), pedido())
+    await setDoc(doc(d, 'liquidaciones/2026-09-10_ch1'), { choferId: 'ch1', fecha: '2026-09-10', plantaId: 'torcuato', productos: [] })
+    await setDoc(doc(d, 'flota/f1'), { patente: 'AA123BB' })
+  })
+
+  test('un cliente impersonado LEE su perfil y sus pedidos', async () => {
+    await seedBase()
+    await assertSucceeds(getDoc(doc(verComo('cli', 'c@x.com'), 'users/cli')))
+    await assertSucceeds(getDoc(doc(verComo('cli', 'c@x.com'), 'orders/o1')))
+  })
+
+  test('un cliente impersonado NO crea pedidos, NO cancela, NO edita su perfil ni sus recurrentes', async () => {
+    await seedBase()
+    const v = verComo('cli', 'c@x.com')
+    await assertFails(setDoc(doc(v, 'orders/o2'), pedido()))
+    await assertFails(updateDoc(doc(v, 'orders/o1'), { status: 'cancelado', motivoCancelacion: 'x', updatedAt: new Date() }))
+    await assertFails(updateDoc(doc(v, 'users/cli'), { phone: '111' }))
+    await assertFails(setDoc(doc(v, 'pedidos-recurrentes/cli'), { clientId: 'cli', items: [] }))
+    // Regresión: el mismo cliente SIN el claim sigue pudiendo.
+    await assertSucceeds(setDoc(doc(db('cli', 'c@x.com'), 'orders/o2'), pedido()))
+    await assertSucceeds(updateDoc(doc(db('cli', 'c@x.com'), 'users/cli'), { phone: '111' }))
+  })
+
+  test('un chofer impersonado LEE su liquidación pero NO escribe su GPS ni sus pedidos', async () => {
+    await seedBase()
+    await seed((d) => setDoc(doc(d, 'orders/o3'), pedido({ status: 'en_camino', driverId: 'ch@x.com' })))
+    const v = verComo('ch1', 'ch@x.com')
+    await assertSucceeds(getDoc(doc(v, 'liquidaciones/2026-09-10_ch1')))
+    await assertSucceeds(getDoc(doc(v, 'orders/o3')))
+    await assertFails(setDoc(doc(v, 'ubicaciones/ch@x.com'), { lat: 1, lng: 2, activo: true }))
+    await assertFails(updateDoc(doc(v, 'orders/o3'), { status: 'entregado', updatedAt: new Date() }))
+    await assertSucceeds(setDoc(doc(db('ch1', 'ch@x.com'), 'ubicaciones/ch@x.com'), { lat: 1, lng: 2, activo: true }))
+  })
+
+  test('staff impersonado (logística) LEE la flota pero NO la escribe', async () => {
+    await seedBase()
+    const v = verComo('log', 'l@x.com')
+    await assertSucceeds(getDoc(doc(v, 'flota/f1')))
+    await assertFails(updateDoc(doc(v, 'flota/f1'), { patente: 'ZZ999ZZ' }))
+    await assertFails(deleteDoc(doc(v, 'flota/f1')))
+    await assertSucceeds(updateDoc(doc(db('log', 'l@x.com'), 'flota/f1'), { patente: 'ZZ999ZZ' }))
+  })
+
+  test('el claim no agranda permisos: un impersonado sigue sin leer lo que su rol no lee', async () => {
+    await seedBase()
+    await seed((d) => setDoc(doc(d, 'historialAdmin/h1'), { coleccion: 'users', accion: 'creado', riesgo: 'alto', actor: { uid: 'sa' } }))
+    await assertFails(getDoc(doc(verComo('cli', 'c@x.com'), 'liquidaciones/2026-09-10_ch1')))
+    await assertFails(getDoc(doc(verComo('cli', 'c@x.com'), 'historialAdmin/h1')))
+    await assertFails(getDoc(doc(verComo('ch1', 'ch@x.com'), 'historialAdmin/h1')))
+  })
+})

@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, LayoutDashboard, Snowflake, Package, Truck, FileText } from 'lucide-react'
+import { ChevronRight, LayoutDashboard, Snowflake, Package, Truck, FileText, Shield } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useSistema } from '../../context/SistemaContext'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
@@ -63,6 +63,26 @@ export default function SeleccionSistemaPage() {
         <p className="text-gray-500 text-sm text-center">¿A qué sistema querés entrar?</p>
 
         <div className="w-full max-w-sm space-y-3">
+          {/* Administración (panel de control, usuarios, ajustes): solo super_admin.
+              No es un "sistema" (no entra en ROLE_SISTEMAS), por eso va aparte y
+              primero — es el home del administrador (2026-09-10). */}
+          {user.rol === 'super_admin' && (
+            <button
+              onClick={() => navigate('/admin')}
+              className="w-full flex items-center gap-4 bg-white rounded-2xl border border-[#D3D1C7] shadow-sm hover:border-accent hover:shadow-md active:scale-[0.98] transition-all p-4 group text-left"
+            >
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 bg-accent/10 text-accent">
+                <Shield size={20} strokeWidth={1.75} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h2 className="text-base font-bold text-gray-900 group-hover:text-accent transition-colors leading-tight">
+                  Administración
+                </h2>
+                <p className="text-gray-500 text-xs mt-0.5 leading-snug">Panel de control, usuarios, ver como otro usuario, ajustes</p>
+              </div>
+              <ChevronRight size={20} className="shrink-0 transition-all group-hover:translate-x-0.5 text-gray-300 group-hover:text-accent" />
+            </button>
+          )}
           {sistemasDisponibles.map((s) => {
             const Icon = ICONOS[s]
             return (
@@ -92,8 +112,9 @@ export default function SeleccionSistemaPage() {
         </div>
 
         {/* Recupero de facturas: no es un sistema, es una campaña puntual — por eso
-            va separado y abajo. Cuando el recupero termine, se borra este bloque. */}
-        {(user.rol === 'super_admin' || user.rol === 'facturacion') && (
+            va separado y abajo. Cuando el recupero termine, se borra este bloque.
+            super_admin lo tiene en los accesos del panel de control. */}
+        {user.rol === 'facturacion' && (
           <div className="w-full max-w-sm pt-2">
             <p className="text-gray-400 text-[11px] uppercase tracking-wide font-medium mb-2 px-1">
               Herramientas

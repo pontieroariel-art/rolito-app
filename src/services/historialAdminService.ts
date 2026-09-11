@@ -12,6 +12,7 @@ import { UserRole } from '../types'
 export type AccionAdmin =
   | 'creado' | 'modificado' | 'activado' | 'desactivado'
   | 'rol_cambiado' | 'usuario_creado' | 'usuario_desactivado'
+  | 'impersonacion'   // Ver como usuario (la escribe el server, crearTokenImpersonacion)
 
 export interface ActorAdmin {
   uid:    string

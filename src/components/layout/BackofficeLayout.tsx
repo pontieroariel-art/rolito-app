@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useOnline } from '../../hooks/useOnline'
 import { useSistema } from '../../context/SistemaContext'
 import { logoutUser } from '../../services/authService'
-import { ROLE_LABELS } from './Navbar'
+import { ROLE_LABELS, tieneAlgunRol } from '../../utils/roles'
 import { BACKOFFICE_NAV_GROUPS } from '../../utils/backofficeNav'
 import { SISTEMA_LABELS } from '../../utils/sistemas'
 
@@ -24,7 +24,7 @@ export default function BackofficeLayout() {
   const grupos = BACKOFFICE_NAV_GROUPS
     .map((g) => ({
       ...g,
-      items: g.items.filter((i) => user && i.roles.includes(user.rol)),
+      items: g.items.filter((i) => tieneAlgunRol(user, i.roles)),
     }))
     .filter((g) => g.items.length > 0)
 
@@ -111,6 +111,7 @@ export default function BackofficeLayout() {
           <p className="text-[11px] uppercase tracking-wide text-accent font-semibold px-1">Backoffice</p>
           {grupos.map((g) => (
             <div key={g.id}>
+              <p className="text-[11px] uppercase tracking-wide text-gray-400 font-semibold px-1 mb-1">{g.label}</p>
               <div className="space-y-0.5">
                 {g.items.map((item) => (
                   <NavLink key={item.to} to={item.to} end onClick={() => setOpen(false)} className={linkClass}>

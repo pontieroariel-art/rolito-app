@@ -17,7 +17,7 @@ import { RecurrenteCard } from '../../components/client/RecurrenteCard'
 import { OrderRow }      from '../../components/client/OrderRow'
 
 export default function ClientDashboard() {
-  const { user }                       = useAuth()
+  const { user, verComo }              = useAuth()
   const { orders, loading, timedOut }  = useClientOrders()
   const { selectedAddress }    = useBranch()
   const navigate               = useNavigate()
@@ -107,7 +107,7 @@ export default function ClientDashboard() {
           <StatCard label="Pedidos entregados" value={delivered.length} color="text-accent" />
         </div>
 
-        {permission === 'default' && (
+        {permission === 'default' && !verComo && (
           <div className="bg-[#E8F5F0] border border-[#B3DDD3] rounded-2xl px-4 py-3 flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-sm font-medium text-gray-900">Activar notificaciones</p>

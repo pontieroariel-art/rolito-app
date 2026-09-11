@@ -92,7 +92,7 @@ const MAP_OPTIONS: google.maps.MapOptions = {
 }
 
 export default function ChoferMap() {
-  const { user }                      = useAuth()
+  const { user, verComo }             = useAuth()
   const { isLoaded, loadError }       = useGoogleMapsLoader()
   const [directions, setDirections]   = useState<google.maps.DirectionsResult | null>(null)
   const [routeError, setRouteError]   = useState('')
@@ -250,7 +250,8 @@ export default function ChoferMap() {
     // reactivaba cuando volvía a resolver getCurrentPosition), así que el
     // chofer "desaparecía" del mapa en vivo después de cada entrega en vez de
     // solo al terminar la ruta.
-    if (!hasPending || !user?.email || !navigator.geolocation) return
+    // En una sesión "Ver como" (super_admin mirando, solo lectura) no se manda GPS.
+    if (!hasPending || !user?.email || !navigator.geolocation || verComo) return
     const email = user.email
     const gen   = ++locationGenRef.current
     const send  = () =>
@@ -283,7 +284,7 @@ export default function ChoferMap() {
         }
       })
     }
-  }, [hasPending, user?.email])
+  }, [hasPending, user?.email, verComo])
 
   const calculateRoute = async () => {
     if (orderedPending.length === 0) return

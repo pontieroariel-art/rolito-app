@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.enviarComprobantePorMail = void 0;
 const https_1 = require("firebase-functions/v2/https");
+const authz_1 = require("../authz");
 const firestore_1 = require("firebase-admin/firestore");
 const resend_1 = require("resend");
 const email_1 = require("../email");
@@ -46,6 +47,7 @@ function decodificarPdf(pdfBase64, que) {
 exports.enviarComprobantePorMail = (0, https_1.onCall)({ secrets: [email_1.resendApiKey], memory: '512MiB' }, async (request) => {
     if (!request.auth)
         throw new https_1.HttpsError('unauthenticated', 'Requiere autenticación');
+    (0, authz_1.assertNoImpersonado)(request);
     const uid = request.auth.uid;
     const db = (0, firestore_1.getFirestore)();
     const perfil = (await db.doc(`users/${uid}`).get()).data();

@@ -1,5 +1,6 @@
 import { ReactNode } from 'react'
 import { UserProfile, UserRole, UserStatus, DeliveryAddress } from '../../../types'
+import { ROLE_LABELS, ROLES, STAFF_ROLES } from '../../../utils/roles'
 
 // Constantes, tipos y helpers de UI compartidos entre las piezas de la página
 // de gestión de usuarios (extraído de UserManagement.tsx).
@@ -9,9 +10,9 @@ export interface SucursalFlat {
   address: DeliveryAddress | null
 }
 
-// ROLE_LABELS vive en Navbar (fuente única); se re-exporta acá porque la
-// gestión de usuarios lo importa desde este módulo (auditoría H12).
-export { ROLE_LABELS } from '../../../components/layout/Navbar'
+// Catálogo de roles: fuente única en utils/roles.ts (2026-09-10). Se re-exporta
+// acá porque la gestión de usuarios lo importa desde este módulo.
+export { ROLE_LABELS, STAFF_ROLES }
 
 export const STATUS_STYLES: Record<UserStatus, string> = {
   activo:    'bg-green-100 text-green-700 border-green-200',
@@ -25,8 +26,9 @@ export const STATUS_LABELS: Record<UserStatus, string> = {
   pendiente: 'Borrador',
 }
 
-export const ALL_ROLES: UserRole[]      = ['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'logistica', 'facturacion', 'tesoreria', 'chofer', 'cliente', 'heladeras', 'heladeras_encargado', 'tecnico', 'produccion_encargado', 'caja', 'muelle', 'seguridad', 'supervisor']
-export const STAFF_ROLES: UserRole[]    = ['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'logistica', 'facturacion', 'tesoreria', 'chofer', 'heladeras', 'heladeras_encargado', 'produccion_encargado', 'caja', 'muelle', 'seguridad', 'supervisor']
+// Roles asignables desde Usuarios: todos menos operario de producción (se
+// gestiona con legajo y PIN en /produccion/operarios).
+export const ALL_ROLES: readonly UserRole[] = ROLES.filter((r) => r !== 'produccion_hielo')
 export const ALL_STATUSES: UserStatus[] = ['activo', 'inactivo', 'pendiente']
 
 export function Row({ label, value, icon }: { label: string; value: string; icon?: ReactNode }) {

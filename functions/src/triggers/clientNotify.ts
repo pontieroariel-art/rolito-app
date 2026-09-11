@@ -1,4 +1,5 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
+import { assertNoImpersonado } from '../authz'
 import { getFirestore } from 'firebase-admin/firestore'
 import { sendEmail, APP_URL, resendApiKey } from '../email'
 import { tplPedidoCerca, tplPedidoReprogramado } from '../templates'
@@ -19,6 +20,7 @@ async function getRol(uid: string): Promise<string | undefined> {
 // servidor — el cliente solo pasa el orderId, nunca el email → sin relay.
 export const notifyCerca = onCall({ secrets: [resendApiKey] }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Requiere autenticación')
+  assertNoImpersonado(request)
   await assertRateLimit(request.auth.uid, 'notifyCerca', 5, 60)
 
   const orderId = (request.data?.orderId ?? '') as string
@@ -59,6 +61,7 @@ export const notifyCerca = onCall({ secrets: [resendApiKey] }, async (request) =
 export const notifyReprogramado = onCall({ secrets: [resendApiKey] }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Requiere autenticación')
 
+  assertNoImpersonado(request)
   const rol = await getRol(request.auth.uid)
   if (!rol || !STAFF_ROLES.has(rol)) {
     throw new HttpsError('permission-denied', 'Solo el staff puede reprogramar')

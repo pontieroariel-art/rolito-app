@@ -9,6 +9,8 @@ import ProtectedRoute from './components/layout/ProtectedRoute'
 import { EXPEDICION_NAV_GROUPS } from './utils/expedicionNav'
 import LoadingSpinner from './components/ui/LoadingSpinner'
 import { reportError, APP_RELEASE } from './services/observability'
+import { SESION_VER_COMO } from './services/firebase'
+import VerComoBanner, { VerComoTerminada } from './components/layout/VerComoBanner'
 import { Component, ReactNode, ErrorInfo } from 'react'
 
 // Auth pages — carga inmediata (primera pantalla visible)
@@ -32,7 +34,7 @@ const SelectSucursal   = lazy(() => import('./pages/client/SelectSucursal'))
 
 const LogisticaLayout     = lazy(() => import('./components/layout/LogisticaLayout'))
 const BackofficeLayout    = lazy(() => import('./components/layout/BackofficeLayout'))
-const BackofficeHome      = lazy(() => import('./pages/admin/BackofficeHome'))
+const PanelControlPage    = lazy(() => import('./pages/admin/PanelControlPage'))
 const AjustesGeneralesPage = lazy(() => import('./pages/admin/AjustesGeneralesPage'))
 const ResumenLogisticaPage = lazy(() => import('./pages/logistica/ResumenLogisticaPage'))
 const LogisticaDashboard  = lazy(() => import('./pages/admin/LogisticaDashboard'))
@@ -194,10 +196,14 @@ function ClientBranchGuard() {
 // ── AppContent ────────────────────────────────────────────────────────────────
 
 function AppContent() {
-  const { isInitializing } = useAuth()
+  const { isInitializing, user } = useAuth()
   if (isInitializing) return <LoadingSpinner fullScreen />
+  // Pestaña "Ver como usuario" sin sesión: el token venció o se cerró la vista.
+  if (SESION_VER_COMO && !user) return <VerComoTerminada />
   return (
     <Suspense fallback={<LoadingSpinner fullScreen />}>
+      {/* Banner de "Ver como": arriba de todos los layouts (ver VerComoBanner). */}
+      <VerComoBanner />
       <Routes>
         {/* Rutas públicas */}
         <Route path="/"                element={<Landing />} />
@@ -279,7 +285,7 @@ function AppContent() {
           </Route>
 
           {/* Gerente general — super_admin entra en solo lectura, mismo dato que ya
-              puede leer desde el Backoffice, solo que resumido (ver BackofficeHome). */}
+              puede leer desde el Backoffice, solo que resumido (ver PanelControlPage). */}
           <Route element={<ProtectedRoute allowedRoles={['gerente_general', 'super_admin']} />}>
             <Route path="/gerente" element={<GerenteDashboard />} />
           </Route>
@@ -511,10 +517,10 @@ function AppContent() {
             configuración que además usa un rol operativo a diario (Flota,
             Modelos, Catálogos, Técnicos, Precios, Operarios de producción)
             NO viven acá — se quedan en su layout de siempre y el Backoffice
-            solo linkea a ellas desde BackofficeHome. */}
+            solo linkea a ellas desde el panel de control (PanelControlPage). */}
         <Route element={<BackofficeLayout />}>
           <Route element={<ProtectedRoute allowedRoles={['super_admin']} />}>
-            <Route path="/admin"                  element={<BackofficeHome />} />
+            <Route path="/admin"                  element={<PanelControlPage />} />
             <Route path="/admin/usuarios"         element={<UserManagement />} />
             <Route path="/admin/general"          element={<AjustesGeneralesPage />} />
           </Route>

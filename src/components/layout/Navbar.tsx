@@ -13,6 +13,7 @@ import { useSistema } from '../../context/SistemaContext'
 import { logoutUser } from '../../services/authService'
 import { UserRole } from '../../types'
 import { SISTEMA_LABELS } from '../../utils/sistemas'
+import { ROLE_LABELS } from '../../utils/roles'
 
 interface NavLinkItem {
   to:    string
@@ -122,26 +123,9 @@ const HELADERAS_LINKS: NavLinkItem[] = [
   { to: '/heladeras', label: 'Heladeras', icon: Snowflake },
 ]
 
-export const ROLE_LABELS: Record<UserRole, string> = {
-  super_admin:        'Super Admin',
-  gerente_general:    'Gte. General',
-  gerente_comercial:  'Gte. Comercial',
-  comercial:          'Comercial',
-  logistica:          'Logística',
-  facturacion:        'Facturación',
-  tesoreria:          'Tesorería',
-  chofer:             'Chofer',
-  cliente:            'Cliente',
-  heladeras:          'Heladeras',
-  heladeras_encargado: 'Enc. Heladeras',
-  tecnico:            'Técnico',
-  produccion_hielo:   'Producción',
-  produccion_encargado: 'Enc. Producción',
-  caja:               'Caja',
-  muelle:             'Muelle',
-  seguridad:          'Seguridad',
-  supervisor:         'Supervisor',
-}
+// ROLE_LABELS vive en utils/roles.ts (fuente única de roles); se re-exporta acá
+// porque muchos layouts lo importan desde Navbar.
+export { ROLE_LABELS }
 
 export default function Navbar() {
   const { user }        = useAuth()

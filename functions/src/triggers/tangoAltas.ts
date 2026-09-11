@@ -14,6 +14,7 @@
 // emails de onUserRegistered / onClienteCreadoPorStaff (triggers/users.ts).
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
+import { assertNoImpersonado } from '../authz'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
 import { logger } from 'firebase-functions/v2'
 import { getFirestore, FieldValue, type Firestore } from 'firebase-admin/firestore'
@@ -170,6 +171,7 @@ export const procesarAltasTangoAhora = onCall(
   { timeoutSeconds: 540, memory: '512MiB' },
   async (request) => {
     if (!request.auth) throw new HttpsError('unauthenticated', 'No autenticado')
+    assertNoImpersonado(request)
     const rol = String((await getFirestore().collection('users').doc(request.auth.uid).get()).data()?.rol ?? '')
     if (!ROLES_ALTAS.has(rol)) throw new HttpsError('permission-denied', 'No tenés permiso para dar de alta clientes')
     await assertRateLimit(request.auth.uid, 'procesarAltasTango', 6, 300)

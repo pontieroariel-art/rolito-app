@@ -1,4 +1,5 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
+import { assertNoImpersonado } from '../authz'
 import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
 import { assertRateLimit } from '../rateLimit'
@@ -13,6 +14,7 @@ interface IndiceUsuario {
 export const deleteAuthUsers = onCall(async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'No autenticado')
 
+  assertNoImpersonado(request)
   const db = getFirestore()
   const callerDoc  = await db.collection('users').doc(request.auth.uid).get()
   const callerData = callerDoc.data()

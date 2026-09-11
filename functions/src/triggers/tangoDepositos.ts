@@ -3,6 +3,7 @@
 // Lógica en services/tango/depositos.ts; docs/tango/INTEGRACION.md §27.
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
+import { assertNoImpersonado } from '../authz'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
 import { defineSecret } from 'firebase-functions/params'
 import { logger } from 'firebase-functions/v2'
@@ -42,6 +43,7 @@ export const sincronizarDepositosTangoAhora = onCall(
   { secrets: [tangoApiToken], timeoutSeconds: 300, memory: '512MiB' },
   async (request) => {
     if (!request.auth) throw new HttpsError('unauthenticated', 'No autenticado')
+    assertNoImpersonado(request)
     const caller = (await getFirestore().collection('users').doc(request.auth.uid).get()).data()
     if (!caller || !ROLES_QUE_SINCRONIZAN.has(String(caller.rol))) throw new HttpsError('permission-denied', 'No tenés permiso para sincronizar depósitos')
     await assertRateLimit(request.auth.uid, 'sincronizarDepositosTango', 3, 300)

@@ -17,6 +17,7 @@ import { initializeApp, deleteApp } from 'firebase/app'
 import { getAuth, createUserWithEmailAndPassword, connectAuthEmulator } from 'firebase/auth'
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore'
 import { db, firebaseConfig } from './firebase'
+import { STAFF_ROLES } from '../utils/roles'
 import { UserProfile, UserRole, UserStatus, DeliveryAddress, AreaHeladera, PlantaId } from '../types'
 
 // Los roles de admin se asignan desde el panel /usuarios (por un super_admin existente).
@@ -172,12 +173,10 @@ export const getAllUsers = async (force = false): Promise<UserProfile[]> => {
 
 export const getStaffUsers = async (): Promise<UserProfile[]> => {
   // Todo el staff que se administra desde Usuarios (los operarios de
-  // producción tienen su propia pantalla). Al agregar un rol nuevo al
-  // sistema hay que sumarlo acá, si no no aparece en Usuarios ni en los
-  // combos que vinculan personas (depósitos, etc.) — pasó con supervisor.
-  const roles: UserRole[] = ['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'logistica', 'facturacion', 'tesoreria', 'chofer', 'heladeras', 'heladeras_encargado', 'tecnico', 'produccion_encargado', 'caja', 'muelle', 'seguridad', 'supervisor']
+  // producción tienen su propia pantalla). La lista es STAFF_ROLES
+  // (utils/roles.ts): un rol nuevo entra una sola vez ahí.
   const snap = await getDocs(
-    query(collection(db, 'users'), where('rol', 'in', roles), limit(LIMITE_USUARIOS)),
+    query(collection(db, 'users'), where('rol', 'in', [...STAFF_ROLES]), limit(LIMITE_USUARIOS)),
   )
   return snap.docs.map((d) => ({ uid: d.id, ...d.data() } as UserProfile))
 }

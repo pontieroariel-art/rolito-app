@@ -2,13 +2,25 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Sesión "Ver como" del super_admin (2026-09-10): la callable
+    // crearTokenImpersonacion emite un custom token del usuario observado con
+    // el claim `impersonadoPor`. Esa sesión lee exactamente lo que lee esa
+    // persona, pero NUNCA escribe: los helpers de rol devuelven "nada" en
+    // create/update/delete, y las escrituras que se autorizan solo por uid o
+    // email (sin rol) llevan `!esEscrituraImpersonada()` explícito.
+    function esEscrituraImpersonada() {
+      return request.auth != null
+        && 'impersonadoPor' in request.auth.token
+        && request.method in ['create', 'update', 'delete'];
+    }
+
     // Lee el rol del usuario autenticado desde su propio documento.
     // Usa exists() antes de get() para no fallar si el doc aún no existe.
     // Soporta campo nuevo 'rol' y campo viejo 'role' por compatibilidad.
     function myRole() {
       let path = /databases/$(database)/documents/users/$(request.auth.uid);
       let data = exists(path) ? get(path).data : {};
-      return data.get('rol', data.get('role', 'none'));
+      return esEscrituraImpersonada() ? 'none' : data.get('rol', data.get('role', 'none'));
     }
     // Roles ADICIONALES al principal (2026-09-07): hoy solo los de expedición
     // (caja / muelle / seguridad), para personal que cubre el mostrador además
@@ -18,7 +30,7 @@ service cloud.firestore {
     function myRolesExtra() {
       let path = /databases/$(database)/documents/users/$(request.auth.uid);
       let data = exists(path) ? get(path).data : {};
-      return data.get('rolesExtra', []);
+      return esEscrituraImpersonada() ? [] : data.get('rolesExtra', []);
     }
     function hasRol(r) {
       return myRole() == r || r in myRolesExtra();
@@ -28,7 +40,7 @@ service cloud.firestore {
     function myEstado() {
       let path = /databases/$(database)/documents/users/$(request.auth.uid);
       let data = exists(path) ? get(path).data : {};
-      return data.get('estado', 'none');
+      return esEscrituraImpersonada() ? 'none' : data.get('estado', 'none');
     }
 
     // Área de taller del usuario autenticado (solo aplica a rol 'heladeras').
@@ -88,7 +100,8 @@ service cloud.firestore {
     function puedeAutorizarAnulaciones() {
       let path = /databases/$(database)/documents/users/$(request.auth.uid);
       let data = exists(path) ? get(path).data : {};
-      return data.get('rol', 'none') == 'super_admin' || data.get('autorizaAnulaciones', false) == true;
+      return !esEscrituraImpersonada()
+        && (data.get('rol', 'none') == 'super_admin' || data.get('autorizaAnulaciones', false) == true);
     }
 
     // Cualquier rol de staff (todo lo que no sea cliente).
@@ -380,7 +393,8 @@ service cloud.firestore {
         && request.resource.data.rol == 'produccion_hielo';
 
       // ── Edición del propio perfil: NO puede tocar rol / estado / precios / identidad ──
-      allow update: if isSelf() && rolUnchanged() && rolesExtraUnchanged() && estadoUnchanged()
+      allow update: if isSelf() && !esEscrituraImpersonada()
+        && rolUnchanged() && rolesExtraUnchanged() && estadoUnchanged()
         && preciosUnchanged() && identidadUnchanged() && tangoBridgeUnchanged() && autorizaAnulacionesUnchanged();
 
       // ── gerente_comercial / comercial / logistica: gestión de clientes ──
@@ -526,7 +540,7 @@ service cloud.firestore {
 
       // El cliente puede cancelar su propio pedido solo si está pendiente, y esa
       // operación solo puede tocar el estado/motivo (no reescribir el pedido).
-      allow update: if request.auth != null &&
+      allow update: if request.auth != null && !esEscrituraImpersonada() &&
         request.auth.uid == resource.data.clientId &&
         resource.data.status == 'pendiente' &&
         request.resource.data.status == 'cancelado' &&
@@ -1574,6 +1588,7 @@ service cloud.firestore {
     // El documento ID es el clientId. El cliente gestiona el suyo; operadores leen todos.
     match /pedidos-recurrentes/{clientId} {
       allow read, write: if request.auth != null && request.auth.uid == clientId
+        && !esEscrituraImpersonada()
         && (!request.resource.data.keys().hasAny(['clientId']) || request.resource.data.clientId == request.auth.uid);
       allow read, write: if request.auth != null && isOperator();
     }
@@ -1684,7 +1699,7 @@ service cloud.firestore {
     // ── Ubicaciones en tiempo real (GPS del chofer) ────────────────────────
     // El documento ID es el email del chofer
     match /ubicaciones/{driverEmail} {
-      allow write: if request.auth != null && (
+      allow write: if request.auth != null && !esEscrituraImpersonada() && (
         request.auth.token.email == driverEmail || isOperator()
       );
       // Lectura: staff que ve el mapa en vivo (operadores, managers, gerente

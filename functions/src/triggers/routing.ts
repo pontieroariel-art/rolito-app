@@ -1,4 +1,5 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
+import { assertNoImpersonado } from '../authz'
 import { getFirestore } from 'firebase-admin/firestore'
 import { defineSecret } from 'firebase-functions/params'
 import { assertRateLimit } from '../rateLimit'
@@ -23,6 +24,7 @@ interface OrsDirectionsData {
 export const orsDirections = onCall({ secrets: [orsKey] }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Requiere autenticación')
 
+  assertNoImpersonado(request)
   const snap = await getFirestore().doc(`users/${request.auth.uid}`).get()
   const rol  = (snap.data()?.rol ?? snap.data()?.role) as string | undefined
   if (!rol || rol === 'cliente') {

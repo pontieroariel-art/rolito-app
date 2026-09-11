@@ -9,6 +9,7 @@
 // vaciado del cache de saldos no cambian. Ver docs/tango/INTEGRACION.md §18.
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
+import { assertNoImpersonado } from '../authz'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
 import { onDocumentCreated } from 'firebase-functions/v2/firestore'
 import { defineSecret } from 'firebase-functions/params'
@@ -551,6 +552,7 @@ export const sincronizarClientesTangoAhora = onCall(
   { secrets: [tangoApiToken], timeoutSeconds: 540, memory: '512MiB' },
   async (request) => {
     if (!request.auth) throw new HttpsError('unauthenticated', 'No autenticado')
+    assertNoImpersonado(request)
     if (!ROLES_QUE_SINCRONIZAN.has(await rolDe(request.auth.uid))) throw new HttpsError('permission-denied', 'No tenés permiso para sincronizar clientes')
     await assertRateLimit(request.auth.uid, 'sincronizarClientesTango', 3, 300)
     return correrClientes('manual', request.auth.uid)
@@ -561,6 +563,7 @@ export const sincronizarSaldosTangoAhora = onCall(
   { secrets: [tangoApiToken], timeoutSeconds: 540, memory: '512MiB' },
   async (request) => {
     if (!request.auth) throw new HttpsError('unauthenticated', 'No autenticado')
+    assertNoImpersonado(request)
     if (!ROLES_SALDOS.has(await rolDe(request.auth.uid))) throw new HttpsError('permission-denied', 'No tenés permiso para sincronizar saldos')
     await assertRateLimit(request.auth.uid, 'sincronizarSaldosTango', 6, 300)
     return correrSaldos('manual', request.auth.uid)

@@ -6,7 +6,8 @@ import {
   User,
 } from 'firebase/auth'
 import { deleteDoc, doc } from 'firebase/firestore'
-import { auth, db } from './firebase'
+import { auth, db, SESION_VER_COMO } from './firebase'
+import { cerrarVistaComo } from './impersonacionService'
 import { createUserDocument } from './userService'
 import { getEmailByCuit } from './cuitService'
 
@@ -104,7 +105,9 @@ export const loginWithStaffDni = async (dni: string, password: string) => {
   return signInWithEmailAndPassword(auth, email, password)
 }
 
-export const logoutUser = () => signOut(auth)
+// En una pestaña "Ver como" (impersonación del super_admin) salir es cerrar la
+// pestaña, no desloguear: la sesión vive en memoria y solo ahí.
+export const logoutUser = (): Promise<void> => (SESION_VER_COMO ? cerrarVistaComo() : signOut(auth))
 
 export const resetPassword = (email: string) =>
   sendPasswordResetEmail(auth, email)

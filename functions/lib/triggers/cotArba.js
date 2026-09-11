@@ -4,6 +4,7 @@ exports.presentarCotRemito = exports.onRemitoCargaCotSolicitado = exports.arbaCi
 exports.presentarCotDeRemito = presentarCotDeRemito;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const https_1 = require("firebase-functions/v2/https");
+const authz_1 = require("../authz");
 const params_1 = require("firebase-functions/params");
 const firestore_2 = require("firebase-admin/firestore");
 const rateLimit_1 = require("../rateLimit");
@@ -97,6 +98,7 @@ exports.onRemitoCargaCotSolicitado = (0, firestore_1.onDocumentCreated)({ docume
 exports.presentarCotRemito = (0, https_1.onCall)({ secrets: [exports.arbaCit], timeoutSeconds: 60 }, async (request) => {
     if (!request.auth)
         throw new https_1.HttpsError('unauthenticated', 'Requiere autenticación');
+    (0, authz_1.assertNoImpersonado)(request);
     const uid = request.auth.uid;
     const db = (0, firestore_2.getFirestore)();
     const perfil = (await db.doc(`users/${uid}`).get()).data();

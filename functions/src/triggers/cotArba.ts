@@ -1,5 +1,6 @@
 import { onDocumentCreated } from 'firebase-functions/v2/firestore'
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
+import { assertNoImpersonado } from '../authz'
 import { defineSecret } from 'firebase-functions/params'
 import { FieldValue, getFirestore, Timestamp, type Firestore } from 'firebase-admin/firestore'
 import { assertRateLimit } from '../rateLimit'
@@ -101,6 +102,7 @@ export const presentarCotRemito = onCall(
   { secrets: [arbaCit], timeoutSeconds: 60 },
   async (request) => {
     if (!request.auth) throw new HttpsError('unauthenticated', 'Requiere autenticación')
+    assertNoImpersonado(request)
     const uid = request.auth.uid
     const db = getFirestore()
     const perfil = (await db.doc(`users/${uid}`).get()).data()

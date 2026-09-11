@@ -5,6 +5,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sincronizarDepositosTangoAhora = exports.syncDepositosTango = void 0;
 const https_1 = require("firebase-functions/v2/https");
+const authz_1 = require("../authz");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
 const params_1 = require("firebase-functions/params");
 const v2_1 = require("firebase-functions/v2");
@@ -41,6 +42,7 @@ exports.syncDepositosTango = (0, scheduler_1.onSchedule)({ schedule: '40 5 * * *
 exports.sincronizarDepositosTangoAhora = (0, https_1.onCall)({ secrets: [tangoApiToken], timeoutSeconds: 300, memory: '512MiB' }, async (request) => {
     if (!request.auth)
         throw new https_1.HttpsError('unauthenticated', 'No autenticado');
+    (0, authz_1.assertNoImpersonado)(request);
     const caller = (await (0, firestore_1.getFirestore)().collection('users').doc(request.auth.uid).get()).data();
     if (!caller || !ROLES_QUE_SINCRONIZAN.has(String(caller.rol)))
         throw new https_1.HttpsError('permission-denied', 'No tenés permiso para sincronizar depósitos');

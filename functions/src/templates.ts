@@ -428,6 +428,7 @@ const ACCION_ADMIN_LABELS: Record<string, string> = {
   rol_cambiado:         'cambió el rol de',
   usuario_creado:       'creó el usuario',
   usuario_desactivado:  'desactivó al usuario',
+  impersonacion:        'entró a la app como (Ver como, solo lectura)',
 }
 
 const COLECCION_LABELS: Record<string, string> = {

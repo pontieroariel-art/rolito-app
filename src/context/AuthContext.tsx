@@ -10,10 +10,11 @@ import {
 } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 import { onSnapshot, doc } from 'firebase/firestore'
-import { auth } from '../services/firebase'
+import { auth, SESION_VER_COMO } from '../services/firebase'
 import { db } from '../services/firebase'
 import { getUserDocument, createUserDocument } from '../services/userService'
 import { reportError, setObservabilityUser } from '../services/observability'
+import { iniciarSesionVerComo } from '../services/impersonacionService'
 import { UserProfile } from '../types'
 
 // ── Reducer ───────────────────────────────────────────────────────────────────
@@ -21,13 +22,28 @@ import { UserProfile } from '../types'
 type State = {
   isInitializing: boolean   // true = todavía no corrió onAuthStateChanged + Firestore
   user: UserProfile | null
+  // Sesión "Ver como usuario" (2026-09-10): el super_admin que está mirando
+  // la app con la sesión de `user`. Viene del claim `impersonadoPor` del
+  // custom token; con esto puesto la sesión es de solo lectura.
+  verComo: VerComo | null
 }
 
-type Action = { type: 'RESOLVED'; user: UserProfile | null }
+export interface VerComo {
+  por:       string
+  porNombre: string
+}
 
-function authReducer(_: State, action: Action): State {
-  if (action.type === 'RESOLVED') return { isInitializing: false, user: action.user }
-  return { isInitializing: true, user: null }
+type Action = { type: 'RESOLVED'; user: UserProfile | null; verComo?: VerComo | null }
+
+function authReducer(state: State, action: Action): State {
+  if (action.type === 'RESOLVED') {
+    return {
+      isInitializing: false,
+      user:    action.user,
+      verComo: action.user ? (action.verComo === undefined ? state.verComo : action.verComo) : null,
+    }
+  }
+  return { isInitializing: true, user: null, verComo: null }
 }
 
 // ── Contexto ──────────────────────────────────────────────────────────────────
@@ -35,6 +51,8 @@ function authReducer(_: State, action: Action): State {
 interface AuthContextValue {
   isInitializing: boolean
   user: UserProfile | null
+  /** Quién está detrás de una sesión "Ver como" (null en una sesión normal). */
+  verComo: VerComo | null
   setUser: (user: UserProfile | null) => void
 }
 
@@ -43,13 +61,15 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 // ── Provider ──────────────────────────────────────────────────────────────────
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(authReducer, { isInitializing: true, user: null })
+  const [state, dispatch] = useReducer(authReducer, { isInitializing: true, user: null, verComo: null })
 
   // Evita reprocesar el mismo uid si Firebase llama dos veces
   const lastUidRef = useRef<string | null | undefined>(undefined)
   // Ref para acceder al usuario actual dentro de closures sin stale state
   const userRef = useRef<UserProfile | null>(null)
   userRef.current = state.user
+  // Pestaña "Ver como": el canje del custom token se intenta una sola vez.
+  const verComoIntentadoRef = useRef(false)
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -59,11 +79,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       lastUidRef.current = uid
 
       if (!firebaseUser || !firebaseUser.email) {
+        // Pestaña "Ver como" (sesión en memoria, arranca vacía): canjear el
+        // token antes de decidir que no hay sesión. Si falla (venció tras un
+        // F5 de más de una hora, revocado), AppContent muestra "la vista
+        // terminó" porque SESION_VER_COMO existe y user queda null.
+        if (SESION_VER_COMO && !verComoIntentadoRef.current) {
+          verComoIntentadoRef.current = true
+          iniciarSesionVerComo().catch((err) => {
+            reportError(err, { origen: 'AuthContext.verComo' })
+            dispatch({ type: 'RESOLVED', user: null })
+          })
+          return
+        }
         dispatch({ type: 'RESOLVED', user: null })
         return
       }
 
       try {
+        // Claims del token: en una sesión "Ver como" traen quién está mirando.
+        let verComo: VerComo | null = null
+        if (SESION_VER_COMO) {
+          const claims = (await firebaseUser.getIdTokenResult()).claims
+          if (typeof claims.impersonadoPor === 'string') {
+            verComo = { por: claims.impersonadoPor, porNombre: String(claims.impersonadoPorNombre ?? '') }
+          }
+        }
         let profile = await getUserDocument(firebaseUser.uid)
         if (!profile) {
           await createUserDocument(firebaseUser.uid, {
@@ -80,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // choferes con login por DNI+PIN en cambio de turno), esta respuesta
         // tardía del perfil anterior no debe pisar la sesión ya activa.
         if (uid !== lastUidRef.current) return
-        dispatch({ type: 'RESOLVED', user: profile })
+        dispatch({ type: 'RESOLVED', user: profile, verComo })
       } catch (err) {
         reportError(err, { origen: 'AuthContext.cargarPerfil', uid })
         if (uid !== lastUidRef.current) return
@@ -98,9 +138,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // para poder rastrear a qué operario/rol le pasó cada falla en producción.
   const observedUid = state.user?.uid
   const observedRol = state.user?.rol
+  const observedVerComoPor = state.verComo?.por ?? null
   useEffect(() => {
-    setObservabilityUser(observedUid ? { uid: observedUid, rol: observedRol } : null)
-  }, [observedUid, observedRol])
+    setObservabilityUser(observedUid ? { uid: observedUid, rol: observedRol, verComoPor: observedVerComoPor } : null)
+  }, [observedUid, observedRol, observedVerComoPor])
 
   // Detecta cambios de rol/estado en tiempo real para sesiones activas
   useEffect(() => {
@@ -133,12 +174,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Planta del operario de producción — reasignar a alguien de Don
         // Torcuato a Merlo tiene que reflejarse en la tablet sin relogin.
         const newPlanta = d.planta as UserProfile['planta']
+        // Roles adicionales (caja/muelle/seguridad) y permiso de autorizar
+        // anulaciones: los da el super_admin desde Usuarios y antes exigían
+        // volver a loguearse para verse (2026-09-10).
+        const newRolesExtra = d.rolesExtra as UserProfile['rolesExtra']
+        const newAutorizaAnulaciones = d.autorizaAnulaciones as UserProfile['autorizaAnulaciones']
         const cur        = userRef.current
         if (!cur) return
         const changed =
           newRol     !== cur.rol    ||
           newEst     !== cur.estado ||
           newPlanta  !== cur.planta ||
+          newAutorizaAnulaciones !== cur.autorizaAnulaciones ||
+          JSON.stringify(newRolesExtra) !== JSON.stringify(cur.rolesExtra) ||
           JSON.stringify(newPreciosTango) !== JSON.stringify(cur.preciosTango) ||
           JSON.stringify(newListaTango)   !== JSON.stringify(cur.listaTango) ||
           JSON.stringify(newListaTangoNombre) !== JSON.stringify(cur.listaTangoNombre) ||
@@ -156,6 +204,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           listaTango:     newListaTango,
           listaTangoNombre: newListaTangoNombre,
           planta:         newPlanta,
+          rolesExtra:     newRolesExtra,
+          autorizaAnulaciones: newAutorizaAnulaciones,
           ...(newAddrs !== undefined ? { addresses: newAddrs } : {}),
           sistemasPermitidos: newSistemas,
           pestanasPermitidas: newPestanas,
@@ -172,8 +222,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo<AuthContextValue>(
-    () => ({ isInitializing: state.isInitializing, user: state.user, setUser }),
-    [state.isInitializing, state.user, setUser],
+    () => ({ isInitializing: state.isInitializing, user: state.user, verComo: state.verComo, setUser }),
+    [state.isInitializing, state.user, state.verComo, setUser],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

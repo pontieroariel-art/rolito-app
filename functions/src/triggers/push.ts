@@ -1,4 +1,5 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
+import { assertNoImpersonado } from '../authz'
 import { getFirestore, FieldValue } from 'firebase-admin/firestore'
 import { defineSecret } from 'firebase-functions/params'
 import webpush from 'web-push'
@@ -32,6 +33,7 @@ export const sendPush = onCall(
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Requiere autenticación')
     }
+    assertNoImpersonado(request)
 
     // Solo el staff envía notificaciones (nunca un cliente)
     const snap = await getFirestore().doc(`users/${request.auth.uid}`).get()

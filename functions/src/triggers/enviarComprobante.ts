@@ -1,4 +1,5 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
+import { assertNoImpersonado } from '../authz'
 import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 import { Resend } from 'resend'
 import { FROM_EMAIL, resendApiKey } from '../email'
@@ -69,6 +70,8 @@ function decodificarPdf(pdfBase64: unknown, que: string): Buffer {
 
 export const enviarComprobantePorMail = onCall({ secrets: [resendApiKey], memory: '512MiB' }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Requiere autenticación')
+
+  assertNoImpersonado(request)
   const uid = request.auth.uid
   const db = getFirestore()
   const perfil = (await db.doc(`users/${uid}`).get()).data()

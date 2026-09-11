@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.resetPinProduccion = void 0;
 const https_1 = require("firebase-functions/v2/https");
+const authz_1 = require("../authz");
 const firestore_1 = require("firebase-admin/firestore");
 const auth_1 = require("firebase-admin/auth");
 const rateLimit_1 = require("../rateLimit");
@@ -29,6 +30,7 @@ exports.resetPinProduccion = (0, https_1.onCall)(async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Requiere autenticación');
     }
+    (0, authz_1.assertNoImpersonado)(request);
     const db = (0, firestore_1.getFirestore)();
     // Solo el encargado de producción (o super_admin) puede resetear PINs.
     const callerSnap = await db.doc(`users/${request.auth.uid}`).get();

@@ -1,4 +1,5 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
+import { assertNoImpersonado } from '../authz'
 import { getFirestore } from 'firebase-admin/firestore'
 import { getAuth } from 'firebase-admin/auth'
 import { assertRateLimit } from '../rateLimit'
@@ -29,6 +30,7 @@ export const resetPinProduccion = onCall(async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Requiere autenticación')
   }
+  assertNoImpersonado(request)
 
   const db = getFirestore()
 

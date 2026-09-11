@@ -17,6 +17,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.procesarAltasTangoAhora = exports.altasClientesTango = void 0;
 exports.procesarAltasTango = procesarAltasTango;
 const https_1 = require("firebase-functions/v2/https");
+const authz_1 = require("../authz");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
 const v2_1 = require("firebase-functions/v2");
 const firestore_1 = require("firebase-admin/firestore");
@@ -166,6 +167,7 @@ exports.altasClientesTango = (0, scheduler_1.onSchedule)({ schedule: 'every 10 m
 exports.procesarAltasTangoAhora = (0, https_1.onCall)({ timeoutSeconds: 540, memory: '512MiB' }, async (request) => {
     if (!request.auth)
         throw new https_1.HttpsError('unauthenticated', 'No autenticado');
+    (0, authz_1.assertNoImpersonado)(request);
     const rol = String((await (0, firestore_1.getFirestore)().collection('users').doc(request.auth.uid).get()).data()?.rol ?? '');
     if (!ROLES_ALTAS.has(rol))
         throw new https_1.HttpsError('permission-denied', 'No tenés permiso para dar de alta clientes');

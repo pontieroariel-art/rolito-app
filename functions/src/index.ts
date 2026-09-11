@@ -37,6 +37,8 @@ export { syncDepositosTango, sincronizarDepositosTangoAhora } from './triggers/t
 export { publicarTurnosVentanilla } from './triggers/turnosVentanilla'
 export { onOrderRollup } from './triggers/rollups'
 export { resetPinProduccion } from './triggers/produccionAuth'
+// "Ver como usuario" (2026-09-10): custom token de solo lectura para el super_admin.
+export { crearTokenImpersonacion } from './triggers/impersonacion'
 
 // ── Facturación electrónica ARCA ─────────────────────────────────────────────
 // Requieren los secrets ARCA_CERT_PEM y ARCA_KEY_PEM (creados 2026-09-01) y el

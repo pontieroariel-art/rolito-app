@@ -335,7 +335,6 @@ export default function GerenteDashboard() {
                 { to: '/admin/monitoreo',              label: 'GPS en tiempo real',     icon: Activity },
                 { to: '/admin/mapa-clientes',          label: 'Mapa de clientes',       icon: Map },
                 { to: '/comercial/ventas',             label: 'Reporte de ventas',      icon: TrendingUp },
-                { to: '/comercial/historial-precios',  label: 'Historial de precios',   icon: Clock },
                 { to: '/usuarios',                     label: 'Gestión de usuarios',    icon: Users },
               ].map((l) => (
                 <Link

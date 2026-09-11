@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.notifyReprogramado = exports.notifyCerca = void 0;
 const https_1 = require("firebase-functions/v2/https");
+const authz_1 = require("../authz");
 const firestore_1 = require("firebase-admin/firestore");
 const email_1 = require("../email");
 const templates_1 = require("../templates");
@@ -20,6 +21,7 @@ async function getRol(uid) {
 exports.notifyCerca = (0, https_1.onCall)({ secrets: [email_1.resendApiKey] }, async (request) => {
     if (!request.auth)
         throw new https_1.HttpsError('unauthenticated', 'Requiere autenticación');
+    (0, authz_1.assertNoImpersonado)(request);
     await (0, rateLimit_1.assertRateLimit)(request.auth.uid, 'notifyCerca', 5, 60);
     const orderId = (request.data?.orderId ?? '');
     if (!orderId)
@@ -60,6 +62,7 @@ exports.notifyCerca = (0, https_1.onCall)({ secrets: [email_1.resendApiKey] }, a
 exports.notifyReprogramado = (0, https_1.onCall)({ secrets: [email_1.resendApiKey] }, async (request) => {
     if (!request.auth)
         throw new https_1.HttpsError('unauthenticated', 'Requiere autenticación');
+    (0, authz_1.assertNoImpersonado)(request);
     const rol = await getRol(request.auth.uid);
     if (!rol || !STAFF_ROLES.has(rol)) {
         throw new https_1.HttpsError('permission-denied', 'Solo el staff puede reprogramar');

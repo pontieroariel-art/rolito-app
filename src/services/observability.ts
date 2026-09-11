@@ -11,6 +11,11 @@ import * as Sentry from '@sentry/react'
 const dsn = import.meta.env.VITE_SENTRY_DSN as string | undefined
 
 let activo = false
+// Pestaña "Ver como usuario" (impersonación del super_admin, 2026-09-10): las
+// escrituras las rechazan las reglas a propósito, así que el alert de
+// "avisá a la oficina" de fireAndForget no aplica — solo se loguea.
+let sesionVerComo = false
+export function marcarSesionVerComo(): void { sesionVerComo = true }
 
 // SHA corto del commit del build (ver vite.config.ts). Se muestra en la
 // pantalla de error para que soporte sepa qué versión tiene el usuario.
@@ -39,9 +44,11 @@ export function initObservability(): void {
 
 // Asocia (o limpia) el usuario logueado con los reportes, sin datos sensibles:
 // solo uid y rol, para poder rastrear a qué operario/rol le pasó el error.
-export function setObservabilityUser(user: { uid: string; rol?: string } | null): void {
+export function setObservabilityUser(user: { uid: string; rol?: string; verComoPor?: string | null } | null): void {
   if (!activo) return
   Sentry.setUser(user ? { id: user.uid, rol: user.rol } : null)
+  // Quién mira de verdad cuando la sesión es "Ver como" (el uid de arriba es el de la persona observada).
+  Sentry.setTag('verComoPor', user?.verComoPor ?? undefined)
 }
 
 // Reporta un error ya manejado (un catch que no queremos que pase en silencio).
@@ -68,6 +75,7 @@ export function fireAndForget(op: Promise<unknown>, context?: Record<string, unk
     // de supervisor cargada por un super_admin se rechazó en silencio).
     const code = String((err as { code?: string })?.code ?? '')
     if (code === 'permission-denied' || code === 'invalid-argument' || code === 'failed-precondition') {
+      if (sesionVerComo) { console.info('[ver-como] escritura rechazada (solo lectura)', context?.origen ?? ''); return }
       const origen = typeof context?.origen === 'string' ? ` (${context.origen})` : ''
       try { window.alert(`No se pudo guardar${origen}: ${code === 'permission-denied' ? 'tu usuario no tiene permiso' : 'el dato fue rechazado'}. Avisá a la oficina para que lo cargue a mano.`) } catch { /* sin ventana */ }
     }

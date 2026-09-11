@@ -2,12 +2,14 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteAuthUsers = void 0;
 const https_1 = require("firebase-functions/v2/https");
+const authz_1 = require("../authz");
 const auth_1 = require("firebase-admin/auth");
 const firestore_1 = require("firebase-admin/firestore");
 const rateLimit_1 = require("../rateLimit");
 exports.deleteAuthUsers = (0, https_1.onCall)(async (request) => {
     if (!request.auth)
         throw new https_1.HttpsError('unauthenticated', 'No autenticado');
+    (0, authz_1.assertNoImpersonado)(request);
     const db = (0, firestore_1.getFirestore)();
     const callerDoc = await db.collection('users').doc(request.auth.uid).get();
     const callerData = callerDoc.data();

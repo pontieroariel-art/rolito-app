@@ -96,3 +96,10 @@
     page: produccion-ticket;
   }
 }
+
+/* "Ver como usuario" (2026-09-10): el banner violeta es sticky arriba de todo
+   (VerComoBanner, h-9 = 2.25rem). Los headers/sidebars sticky de los layouts
+   bajan esa altura para no quedar tapados. */
+.ver-como .sticky:not([data-ver-como]) {
+  top: 2.25rem !important;
+}

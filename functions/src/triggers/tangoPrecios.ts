@@ -3,6 +3,7 @@
 // precios. Lógica en services/tango/precios.ts; docs/tango/INTEGRACION.md §17.
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
+import { assertNoImpersonado } from '../authz'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
 import { defineSecret } from 'firebase-functions/params'
 import { logger } from 'firebase-functions/v2'
@@ -42,6 +43,7 @@ export const sincronizarPreciosTangoAhora = onCall(
   { secrets: [tangoApiToken], timeoutSeconds: 540, memory: '512MiB' },
   async (request) => {
     if (!request.auth) throw new HttpsError('unauthenticated', 'No autenticado')
+    assertNoImpersonado(request)
     const caller = (await getFirestore().collection('users').doc(request.auth.uid).get()).data()
     if (!caller || !ROLES_QUE_SINCRONIZAN.has(String(caller.rol))) throw new HttpsError('permission-denied', 'No tenés permiso para sincronizar precios')
     await assertRateLimit(request.auth.uid, 'sincronizarPreciosTango', 3, 300)

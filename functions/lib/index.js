@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sincronizarDepositosTangoAhora = exports.syncDepositosTango = exports.procesarAltasTangoAhora = exports.altasClientesTango = exports.onConsultaSaldoPendiente = exports.sincronizarSaldosTangoAhora = exports.sincronizarClientesTangoAhora = exports.syncSaldosTangoConnect = exports.syncClientesTangoConnect = exports.sincronizarPreciosTangoAhora = exports.syncPreciosTango = exports.barridoOutboxTango = exports.onOutboxPendiente = exports.onOutboxConfirmado = exports.onCobranzaCreada = exports.onDescargaCamionCreada = exports.onRemitoCargaCreado = exports.onAnulacionEmitida = exports.onVentaVentanillaFacturada = exports.onVentaVentanillaCreada = exports.onVentaCamionFacturada = exports.onVentaCamionCreada = exports.onProduccionPalletCreado = exports.onConsultaRespondida = exports.syncSaldosTango = exports.syncClientesTango = exports.enviarResumenAdminDiario = exports.onHistorialAdminAltoRiesgo = exports.backupAuthUsers = exports.onVisitaSupervisorCreada = exports.onPedidoSupervisorCreado = exports.avisarComodatosPorVencer = exports.onTicketCreado = exports.onStockBajo = exports.onTicketCerrado = exports.generarPedidosRecurrentes = exports.orsDirections = exports.mirrorDriverLocation = exports.validarPreciosPedido = exports.notifyReprogramado = exports.notifyCerca = exports.sendPush = exports.deleteAuthUsers = exports.onOrderEnCamino = exports.onOrderConfirmado = exports.onOrderCreated = exports.onClienteIndexado = exports.onClienteCreadoPorStaff = exports.onUserApproved = exports.onUserRegistered = void 0;
-exports.presentarCotRemito = exports.onRemitoCargaCotSolicitado = exports.enviarComprobantePorMail = exports.avisarPadronIIBB = exports.onAnulacionResuelta = exports.onAnulacionSolicitada = exports.reconciliarFacturasArca = exports.onVentaVentanillaContadoFacturar = exports.onVentaContadoFacturar = exports.resetPinProduccion = exports.onOrderRollup = exports.publicarTurnosVentanilla = void 0;
+exports.presentarCotRemito = exports.onRemitoCargaCotSolicitado = exports.enviarComprobantePorMail = exports.avisarPadronIIBB = exports.onAnulacionResuelta = exports.onAnulacionSolicitada = exports.reconciliarFacturasArca = exports.onVentaVentanillaContadoFacturar = exports.onVentaContadoFacturar = exports.crearTokenImpersonacion = exports.resetPinProduccion = exports.onOrderRollup = exports.publicarTurnosVentanilla = void 0;
 const app_1 = require("firebase-admin/app");
 (0, app_1.initializeApp)();
 // Nota: cambio trivial para forzar un hash de fuente distinto y que
@@ -92,6 +92,9 @@ var rollups_1 = require("./triggers/rollups");
 Object.defineProperty(exports, "onOrderRollup", { enumerable: true, get: function () { return rollups_1.onOrderRollup; } });
 var produccionAuth_1 = require("./triggers/produccionAuth");
 Object.defineProperty(exports, "resetPinProduccion", { enumerable: true, get: function () { return produccionAuth_1.resetPinProduccion; } });
+// "Ver como usuario" (2026-09-10): custom token de solo lectura para el super_admin.
+var impersonacion_1 = require("./triggers/impersonacion");
+Object.defineProperty(exports, "crearTokenImpersonacion", { enumerable: true, get: function () { return impersonacion_1.crearTokenImpersonacion; } });
 // ── Facturación electrónica ARCA ─────────────────────────────────────────────
 // Requieren los secrets ARCA_CERT_PEM y ARCA_KEY_PEM (creados 2026-09-01) y el
 // documento config/arca. Que estén desplegadas NO significa que emitan: el

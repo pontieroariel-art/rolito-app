@@ -34,7 +34,7 @@ import TicketsServicioSection from '../../components/chofer/TicketsServicioSecti
 import { reportError, esperarOEncolar } from '@/services/observability'
 
 export default function ChoferDashboard() {
-  const { user }              = useAuth()
+  const { user, verComo }     = useAuth()
   const { permission, request } = usePushNotification()
   const { programas }         = useProgramasVisita()
   const { visitas }           = useVisitasPuntuales()
@@ -170,7 +170,8 @@ export default function ChoferDashboard() {
   })
 
   useEffect(() => {
-    if (!hasPending || !user?.email || !navigator.geolocation) return
+    // En una sesión "Ver como" (super_admin mirando, solo lectura) no se manda GPS.
+    if (!hasPending || !user?.email || !navigator.geolocation || verComo) return
 
     const email = user.email
     const gen   = ++locationGenRef.current
@@ -214,7 +215,7 @@ export default function ChoferDashboard() {
         }
       })
     }
-  }, [hasPending, user?.email])
+  }, [hasPending, user?.email, verComo])
 
   if (loading || pairedDespachoLoading) return <><ChoferHeader /><LoadingSpinner fullScreen /></>
 
@@ -266,7 +267,7 @@ export default function ChoferDashboard() {
         </Link>
       </div>
 
-      {permission === 'default' && (
+      {permission === 'default' && !verComo && (
         <div className="max-w-2xl mx-auto px-4 pt-3">
           <button
             onClick={() => request((sub) => { if (user?.uid) savePushSubscription(user.uid, sub) })}
