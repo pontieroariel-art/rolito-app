@@ -1802,6 +1802,19 @@ El "(51016) ya existe" sigue valiendo como idempotencia.
 
 Para reintentar una NC que quedó en error: `scripts/tango/reintentar-outbox.mjs`.
 
+**Diagnóstico por SQL (2026-09-10, noche; `scripts/tango/sql/16-nc-tipos-comprobante.sql` y `17-nc-tipos-gva45.sql`):**
+en Redonhielo los tipos de comprobante de ventas son propios y las NC electrónicas de la oficina son
+`T_COMP = 'C/E'` (3.424 en GVA12; talonarios 52 "CREDITO A CAE" / 53 "B", `GVA43.COMPROB = 'CRE'`, electrónicos,
+PV 00101). Los talonarios 1001/1003 de la app también son COMPROB `CRE`. O sea: el `codigoTipoComprobante` del
+Facturador es el código de tipo de comprobante de la empresa, y el "CDE" del readme se llama **`C/E`** acá; 'N/C'
+existe pero es un tipo residual (1 uso en 2024) y por eso rebotaba "Items no puede ser vacío". La NC manual de la
+oficina lleva renglones, así que la app manda ítems + referencia (`ncCanceladoCompletamente: false`). Config
+aplicada con `scripts/tango/configurar-nc-facturador.mjs` (`codigoTipoNC: 'C/E'`; `--reintentar` reencola las NC
+en error). GVA45 NO es el maestro de tipos (154k filas, leyendas por renglón); GVA86 son los comprobantes anulados.
+**Duplicado fiscal a resolver:** la oficina había cargado a mano la NC de LECHUGA como C/E A 00101-00009898 con
+CAE propio (86372474495481), además de la A 01104-00000001 de la app → la oficina emite una ND contra la 9898 y
+recién ahí se reencola la de la app.
+
 ## 34. Fecha de emisión de los comprobantes en deuda (2026-09-09)
 
 Los cobradores pidieron ver la fecha de emisión junto al vencimiento. Las Live de deudas
