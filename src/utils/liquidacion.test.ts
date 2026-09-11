@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { Timestamp } from 'firebase/firestore'
-import { calcularLiquidacion, codigoLiquidacion, serieLiquidacion } from './liquidacion'
+import { calcularLiquidacion, clasificarReparto, codigoLiquidacion, serieLiquidacion } from './liquidacion'
 import {
   CambioCamion, CanalVenta, Cobranza, DescargaCamion, DescargaCamionItem,
   FormaPago, RemitoCarga, VentaCamion, VentaCamionItem,
@@ -281,5 +281,29 @@ describe('calcularLiquidacion — casos borde', () => {
     expect(r.cambios.registrados).toBe(0)
     expect(r.cobranzasCalle?.total).toBe(0)
     expect(r.efectivoARendir).toBe(0)
+  })
+})
+
+describe('facturas anuladas con nota de crédito (2026-09-11)', () => {
+  const venta = (id: string, over: Record<string, unknown> = {}) => ({
+    id, canal: 'contado', camionId: '', choferId: 'ch', choferNombre: 'C', clienteId: 'c1', clienteNombre: 'Cliente',
+    items: [{ productoId: 'bolsa_2kg', nombre: 'Hielo bolsa 2kg', cantidad: 10, precioUnitario: 1000 }], total: 10000,
+    formaPago: 'contado_efectivo', fecha: Timestamp.fromDate(new Date(2026, 8, 11, 10, 0)), pedidoId: null, ...over,
+  }) as unknown as VentaCamion
+  const remito = { id: 'r', items: [{ productoId: 'bolsa_2kg', nombre: 'Hielo bolsa 2kg', cantidad: 50 }], envases: { tarimasMadera: 0, palletsMetal: 0, racks: [] } } as unknown as RemitoCarga
+  it('no cuenta en plata ni en productos; la pendiente sí sigue contando', () => {
+    const ventas = [
+      venta('a'),
+      venta('b', { anulacion: { estado: 'anulada', solicitudId: 'b' } }),
+      venta('c', { anulacion: { estado: 'pendiente', solicitudId: 'c' } }),
+    ]
+    const calc = calcularLiquidacion([remito], ventas, [], [])
+    expect(calc.importes.contadoEfectivo).toBe(20000)
+    expect(calc.efectivoARendir).toBe(20000)
+    expect(calc.productos.find((p) => p.productoId === 'bolsa_2kg')?.ventaContado).toBe(20)
+    const rep = clasificarReparto(ventas, [])
+    expect(rep.contado.efectivo.ventas.map((v) => v.id)).toEqual(['a', 'c'])
+    expect(rep.anuladas.map((v) => v.id)).toEqual(['b'])
+    expect(rep.totalVendido).toBe(20000)
   })
 })

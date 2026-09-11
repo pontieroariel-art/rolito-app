@@ -18,6 +18,9 @@ import { VentaCamion } from '@/types'
 import { nombreClienteVenta } from '@/utils/nombreClienteVenta'
 import { useEnvioAutomaticoVentas } from '@/hooks/useEnvioAutomaticoVentas'
 import { estadoEnvioLocal, pendienteDeEnvio } from '@/services/envioAutomaticoVentasService'
+import MenuCompartirPdf, { type PdfGenerado } from '@/components/ui/MenuCompartirPdf'
+import { armarNotaCreditoDeVenta } from '@/utils/facturaDeVenta'
+import { textoAnulacion } from '@/utils/anulacionVenta'
 
 const money = (n: number) =>
   n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -154,6 +157,7 @@ export default function VentasChofer({ volverA = '/chofer' }: { volverA?: string
                     </div>
                   </div>
                 )}
+                <EstadoAnulacion venta={v} />
                 <EstadoMail venta={v} />
               </article>
             )
@@ -182,4 +186,38 @@ function EstadoMail({ venta }: { venta: VentaCamion }) {
   }
   if (!texto) return null
   return <p className={`mt-2 flex items-center gap-1.5 text-xs ${tono}`}><Mail size={13} className="shrink-0" /> {texto}</p>
+}
+
+// Anulación de la factura con nota de crédito (2026-09-11): caja la pide desde
+// la liquidación; acá el chofer ve el estado y, cuando la NC salió, la entrega
+// al cliente igual que la factura (WhatsApp, mail, descarga).
+function EstadoAnulacion({ venta }: { venta: VentaCamion }) {
+  const a = venta.anulacion
+  const t = textoAnulacion(a)
+  if (!a || !t) return null
+  const nc = a.notaCredito
+  const titulo = nc ? `Nota de crédito ${String(nc.puntoVenta).padStart(5, '0')}-${String(nc.numero).padStart(8, '0')}` : 'Nota de crédito'
+  const generar = async (): Promise<PdfGenerado> => {
+    const armado = armarNotaCreditoDeVenta(venta, undefined)
+    if (!armado.ok) return { ok: false, motivo: armado.motivo }
+    const { generateFacturaArcaPdf } = await import('@/utils/facturaArcaPdf')
+    const blob = await generateFacturaArcaPdf(armado.datos)
+    if (!(blob instanceof Blob)) return { ok: false, motivo: 'No se pudo generar la nota de crédito.' }
+    return { ok: true, blob, nombre: `${titulo.replace(/\s+/g, '-').toLowerCase()}.pdf` }
+  }
+  const tono = t.tono === 'bad' ? 'text-red-700' : t.tono === 'warn' ? 'text-amber-700' : 'text-gray-600'
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+      <p className={`font-semibold ${tono}`}>{t.texto}</p>
+      {a.estado === 'anulada' && nc && (
+        <MenuCompartirPdf titulo={titulo} texto={`${titulo} — ${venta.clienteNombre}`} generar={generar}
+          mail={{ para: '', asunto: `${titulo} — ${venta.clienteNombre}`, mensaje: 'Te enviamos adjunta la nota de crédito que anula la factura.', comprobante: { tipo: 'NC', numero: `${nc.puntoVenta}-${nc.numero}` }, clienteUid: venta.clienteId || undefined, clienteNombre: venta.clienteNombre, presentacion: { titulo, emoji: '📄', filas: [] }, venta: { coleccion: 'ventasCamion', id: venta.id } }}
+          trigger={(abrir, ocupado) => (
+            <button type="button" onClick={abrir} disabled={ocupado} className="rounded-lg border border-[#D3D1C7] bg-white px-2.5 py-1 font-semibold text-accent disabled:opacity-50">
+              {ocupado ? 'Generando…' : 'Entregar la nota de crédito'}
+            </button>
+          )} />
+      )}
+    </div>
+  )
 }

@@ -174,6 +174,9 @@ export interface VentaCamion {
   pedidoId?:            string | null   // pedido previo que la originó, si hubo
   tango?:               RemitoTangoEstado
   factura?:             FacturaArcaVenta   // solo en ventas contado
+  /** Anulación de la factura con nota de crédito (2026-09-11): la pide caja desde la
+   *  liquidación abierta; el server la escribe (misma forma que en ventanilla). */
+  anulacion?:           AnulacionEnVenta
   /** Mail del comprobante al cliente (lo anota el server al mandarlo; automático desde 2026-09-11). */
   envioMail?:           EnvioMailVenta
   // Numeración propia del documento que sale cuando NO hay factura de ARCA:
@@ -498,10 +501,15 @@ export interface AnulacionEnVenta {
 export interface AnulacionVentanilla {
   id:            string          // = ventaId
   ventaId:       string
-  coleccion:     'ventasVentanilla'
+  /** Ventanilla, o factura del camión pedida por caja desde la liquidación abierta (2026-09-11). */
+  coleccion:     'ventasVentanilla' | 'ventasCamion'
   plantaId:      PlantaId
+  /** Quien pide: el cajero de la venta (ventanilla) o el cajero que liquida (camión). */
   cajaId:        string
   cajaNombre:    string
+  /** Solo camión: el chofer de la venta (las reglas lo cotejan y la bandeja lo muestra). */
+  choferId?:     string
+  choferNombre?: string
   clienteNombre: string
   fechaVenta:    string          // yyyy-MM-dd
   facturaOriginal: { cbteTipo: number; puntoVenta: number; numero: number; cae: string | null; total: number }

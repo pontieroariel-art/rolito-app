@@ -1470,13 +1470,27 @@ service cloud.firestore {
       function ventaDeLaSolicitud() {
         return get(/databases/$(database)/documents/ventasVentanilla/$(anulacionId)).data;
       }
-      function ventaAnulable() {
-        // Facturada por ARCA, del propio cajero, y sin una anulación en curso o hecha.
-        let v = ventaDeLaSolicitud();
+      function facturaEmitidaYSinAnulacion(v) {
+        // Facturada por ARCA y sin una anulación en curso o hecha.
         let a = v.get('anulacion', {});
-        return v.cajaId == request.auth.uid
-          && v.get('factura', {}).get('estado', '') == 'emitida'
+        return v.get('factura', {}).get('estado', '') == 'emitida'
           && (a.get('estado', 'rechazada') in ['rechazada', 'error']);
+      }
+      function ventaAnulable() {
+        // Ventanilla: del propio cajero.
+        let v = ventaDeLaSolicitud();
+        return v.cajaId == request.auth.uid && facturaEmitidaYSinAnulacion(v);
+      }
+      // Factura del camión (2026-09-11): la pide caja desde la liquidación del
+      // chofer mientras NO esté cerrada (liquidaciones/{fecha}_{chofer}); la
+      // solicitud lleva al chofer y la fecha para que la bandeja lo muestre.
+      function ventaCamionAnulable() {
+        let d = request.resource.data;
+        let v = get(/databases/$(database)/documents/ventasCamion/$(anulacionId)).data;
+        return facturaEmitidaYSinAnulacion(v)
+          && d.choferId == v.choferId
+          && d.fechaVenta is string
+          && !exists(/databases/$(database)/documents/liquidaciones/$(d.fechaVenta + '_' + v.choferId));
       }
 
       allow read: if request.auth != null
@@ -1490,7 +1504,10 @@ service cloud.firestore {
         && request.resource.data.estado == 'pendiente'
         && request.resource.data.resueltaPor == null
         && request.resource.data.motivo is string
-        && ventaAnulable();
+        && (
+          (request.resource.data.get('coleccion', 'ventasVentanilla') == 'ventasVentanilla' && ventaAnulable())
+          || (request.resource.data.get('coleccion', '') == 'ventasCamion' && ventaCamionAnulable())
+        );
 
       allow update: if request.auth != null && puedeAutorizarAnulaciones()
         && resource.data.estado in ['pendiente', 'error']

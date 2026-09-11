@@ -2,23 +2,25 @@ import { useState } from 'react'
 import { Ban } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
-import { solicitarAnulacion } from '@/services/anulacionService'
+import { solicitarAnulacion, type VentaAnulable } from '@/services/anulacionService'
 import { reportError } from '@/services/observability'
 import { formatoARS } from '@/utils/money'
-import { MOTIVOS_ANULACION, type MotivoAnulacion, type VentaVentanilla } from '@/types'
+import { MOTIVOS_ANULACION, type MotivoAnulacion } from '@/types'
 
-const nroFactura = (v: VentaVentanilla) =>
+const nroFactura = (v: VentaAnulable['venta']) =>
   v.factura ? `${String(v.factura.puntoVenta).padStart(5, '0')}-${String(v.factura.numero).padStart(8, '0')}` : ''
 
 // El cajero pide anular la factura de una venta (2026-09-09): elige el motivo,
 // explica, confirma que le va a hacer la factura correcta al cliente, y la
 // solicitud queda esperando a alguien con permiso para autorizar. Recién con
-// la aprobación el server emite la nota de crédito.
-export default function SolicitarAnulacionModal({ venta, actor, onCerrar }: {
-  venta: VentaVentanilla
+// la aprobación el server emite la nota de crédito. Desde el 2026-09-11 también
+// para la factura del camión, pedida desde la liquidación abierta del chofer.
+export default function SolicitarAnulacionModal({ objetivo, actor, onCerrar }: {
+  objetivo: VentaAnulable
   actor: { uid: string; nombre: string }
   onCerrar: (pedida: boolean) => void
 }) {
+  const venta = objetivo.venta
   const [motivo, setMotivo] = useState<MotivoAnulacion | ''>('')
   const [nota, setNota] = useState('')
   const [confirmo, setConfirmo] = useState(false)
@@ -32,7 +34,7 @@ export default function SolicitarAnulacionModal({ venta, actor, onCerrar }: {
     if (!confirmo) { setError('Confirmá que entendés lo que pasa con la factura.'); return }
     setGuardando(true)
     try {
-      await solicitarAnulacion(venta, motivo, nota, actor)
+      await solicitarAnulacion(objetivo, motivo, nota, actor)
       onCerrar(true)
     } catch (err) {
       reportError(err, { origen: 'SolicitarAnulacionModal', accion: 'error al pedir la anulación' })

@@ -108,7 +108,7 @@ export default function AnulacionesPage() {
                   <p className="text-sm text-gray-800">
                     Factura <b className="text-base">{LETRA[a.facturaOriginal.cbteTipo] ?? ''} {nro(a.facturaOriginal.puntoVenta, a.facturaOriginal.numero)}</b> · <b>{formatoARS(a.facturaOriginal.total)}</b> · {a.clienteNombre}
                   </p>
-                  <p className="text-xs text-gray-500">{PLANTAS[a.plantaId].label} · pidió <b>{a.solicitadoPor.nombre}</b> el {a.solicitadaEn.toDate().toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} · venta del {a.fechaVenta}</p>
+                  <p className="text-xs text-gray-500">{a.coleccion === 'ventasCamion' ? <span className="font-semibold text-gray-700">Camión · {a.choferNombre ?? 'chofer'} · </span> : 'Ventanilla · '}{PLANTAS[a.plantaId].label} · pidió <b>{a.solicitadoPor.nombre}</b> el {a.solicitadaEn.toDate().toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} · venta del {a.fechaVenta}</p>
                 </div>
                 <span className="text-xs px-2.5 py-1 rounded-full border font-medium bg-amber-100 text-amber-700 border-amber-200">Por autorizar</span>
               </div>

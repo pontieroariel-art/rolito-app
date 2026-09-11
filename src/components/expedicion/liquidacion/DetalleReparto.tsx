@@ -14,6 +14,7 @@ import { reportError } from '@/services/observability'
 import type { CaiRemito } from '@/utils/comprobanteInterno'
 import type { CambioCamion, Cobranza, DescargaCamion, RemitoCarga, VentaCamion, VentaCamionItem } from '@/types'
 import { nombreClienteVenta } from '@/utils/nombreClienteVenta'
+import { facturaAnulable, textoAnulacion } from '@/utils/anulacionVenta'
 
 // Detalle del reparto de un repartidor, CLASIFICADO por tipo de operación
 // (decisión de Ariel 2026-09-06, maqueta 1bd0e922): contado Redonhielo
@@ -31,6 +32,8 @@ export interface DetalleRepartoProps {
   cobranzas: Cobranza[]
   /** Solo resaltar las filas con problema (chip de la barra de estado). */
   soloProblemas?: boolean
+  /** Caja, con la liquidación abierta: pedir la anulación de una factura del camión (2026-09-11). */
+  onAnular?: (venta: VentaCamion) => void
 }
 
 const hora = (ts: { toDate(): Date } | undefined) => ts ? ts.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : ''
@@ -48,7 +51,7 @@ export function useReparto(p: Omit<DetalleRepartoProps, 'soloProblemas'>): Repar
   return useMemo(() => clasificarReparto(p.ventas, p.cobranzas, p.cambios, p.descargas, problemasDeVenta), [p.ventas, p.cobranzas, p.cambios, p.descargas])
 }
 
-export default function DetalleReparto({ remitos, ventas, cambios, descargas, cobranzas, soloProblemas = false }: DetalleRepartoProps) {
+export default function DetalleReparto({ remitos, ventas, cambios, descargas, cobranzas, soloProblemas = false, onAnular }: DetalleRepartoProps) {
   const reparto = useReparto({ remitos, ventas, cambios, descargas, cobranzas })
   const [cai, setCai] = useState<CaiRemito | null>(() => caiRemitoOficialCacheado())
   useEffect(() => { getCaiRemitoOficial().then(setCai).catch(() => undefined) }, [])
@@ -76,7 +79,8 @@ export default function DetalleReparto({ remitos, ventas, cambios, descargas, co
 
   const filaVenta = (v: VentaCamion) => (
     <FilaVenta key={v.id} venta={v} ocupado={ocupado === v.id} compartible={compartible} atenuada={soloProblemas && !problemas.has(v.id)}
-      onVer={() => entregar(v, 'ver')} onEnviar={() => entregar(v, 'enviar')} />
+      onVer={() => entregar(v, 'ver')} onEnviar={() => entregar(v, 'enviar')}
+      onAnular={onAnular && facturaAnulable(v) ? () => onAnular(v) : undefined} />
   )
   const filaCobranza = (c: Cobranza) => (
     <FilaCobranza key={c.id} cobranza={c} ocupado={ocupado === c.id} compartible={compartible} atenuada={soloProblemas}
@@ -154,6 +158,12 @@ export default function DetalleReparto({ remitos, ventas, cambios, descargas, co
         {cobranzas.length === 0 && <Vacio>Sin cobranzas.</Vacio>}
       </Bloque>
 
+      {reparto.anuladas.length > 0 && (
+        <Bloque estilo="redonhielo" titulo="Facturas anuladas" subtitulo="con nota de crédito · no suman" totalTexto={`${reparto.anuladas.length} ${reparto.anuladas.length === 1 ? 'factura' : 'facturas'}`}>
+          {reparto.anuladas.map(filaVenta)}
+        </Bloque>
+      )}
+
       <Bloque estilo="cambios" titulo="Cambios" subtitulo="bolsas rotas repuestas" totalTexto={`${reparto.cambios.unidades} ${reparto.cambios.unidades === 1 ? 'bolsa' : 'bolsas'}`}
         pie={`registradas por el repartidor ${reparto.cambios.unidades} · rotas recibidas en muelle ${reparto.cambios.rotasRecibidas}${reparto.cambios.unidades === reparto.cambios.rotasRecibidas ? ' · sin diferencia' : ` · diferencia ${reparto.cambios.rotasRecibidas - reparto.cambios.unidades}`}`}>
         {reparto.cambios.lista.length === 0 ? <Vacio>Sin cambios.</Vacio> : reparto.cambios.lista.map((c) => (
@@ -227,18 +237,25 @@ function Chip({ tono, children }: { tono: 'ok' | 'warn' | 'bad' | 'neutral'; chi
   return <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap ${c}`}>{children}</span>
 }
 
-function FilaVenta({ venta: v, ocupado, compartible, atenuada, onVer, onEnviar }: { venta: VentaCamion; ocupado: boolean; compartible: boolean; atenuada: boolean; onVer: () => void; onEnviar: () => void }) {
+function FilaVenta({ venta: v, ocupado, compartible, atenuada, onVer, onEnviar, onAnular }: { venta: VentaCamion; ocupado: boolean; compartible: boolean; atenuada: boolean; onVer: () => void; onEnviar: () => void; onAnular?: () => void }) {
   const comp = describirComprobante(v)
   const tango = estadoTangoVenta(v)
   const conProblema = problemasDeVenta(v).length > 0
+  const anul = textoAnulacion(v.anulacion)
+  const anulada = v.anulacion?.estado === 'anulada'
   return (
     <div className={`grid grid-cols-[52px_1fr_auto] gap-3 px-4 py-3 border-t border-gray-100 ${conProblema ? 'bg-[#FFF7F7]' : ''} ${atenuada ? 'opacity-40' : ''}`}>
       <span className="text-sm text-gray-500 tabular-nums pt-0.5">{hora(v.fecha)}</span>
       <div className="min-w-0">
-        <p className="text-sm font-semibold text-gray-900">
+        <p className={`text-sm font-semibold ${anulada ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
           {nombreClienteVenta(v)}
           {v.clienteCodigoTango && <span className="ml-1.5 text-xs font-normal text-gray-500">{v.clienteCodigoTango}</span>}
         </p>
+        {anul && (
+          <p className={`mt-0.5 text-xs font-semibold ${anul.tono === 'bad' ? 'text-red-700' : anul.tono === 'warn' ? 'text-amber-700' : 'text-gray-600'}`}>
+            {anul.texto}{anulada ? ' · no cuenta en la liquidación' : v.anulacion?.estado === 'pendiente' || v.anulacion?.estado === 'aprobada' ? ' · no se puede cerrar hasta que se resuelva' : ''}
+          </p>
+        )}
         <Articulos items={v.items} />
         {(v.cambios?.length ?? 0) > 0 && <Articulos items={(v.cambios ?? []).map((i) => ({ ...i, nombre: `${nombreDelCambio(i.nombre)} · cambio por rotas` }))} cambio />}
         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-gray-600">
@@ -248,6 +265,12 @@ function FilaVenta({ venta: v, ocupado, compartible, atenuada, onVer, onEnviar }
           {(comp.estado === 'sin_numero' || comp.estado === 'sin_comprobante') && <Chip tono="warn">{comp.detalle}</Chip>}
           <button type="button" onClick={onVer} disabled={ocupado} className={btn}><Download size={12} /> Ver</button>
           <button type="button" onClick={onEnviar} disabled={ocupado} className={btn}><Share2 size={12} /> {compartible ? 'Enviar' : 'Enviar'}</button>
+          {onAnular && (
+            <button type="button" onClick={onAnular} disabled={ocupado} title="Pide autorización; la nota de crédito sale al aprobarse"
+              className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50">
+              Anular factura
+            </button>
+          )}
           {tango.estado === 'confirmado' && <Chip tono="ok"><CheckCircle2 size={11} /> {tango.texto}</Chip>}
           {tango.estado === 'pendiente' && <Chip tono="neutral"><Clock size={11} /> {tango.texto}</Chip>}
           {tango.estado === 'error' && <Chip tono="bad"><AlertTriangle size={11} /> {tango.texto}</Chip>}

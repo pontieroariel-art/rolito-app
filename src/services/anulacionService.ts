@@ -2,30 +2,38 @@ import { collection, doc, onSnapshot, query, setDoc, updateDoc, where, Timestamp
 import { db } from './firebase'
 import { reportError } from './observability'
 import { toDateStr } from '../utils/helpers'
-import type { AnulacionVentanilla, MotivoAnulacion, VentaVentanilla } from '../types'
+import type { AnulacionVentanilla, MotivoAnulacion, PlantaId, VentaCamion, VentaVentanilla } from '../types'
 
-// Anulación de facturas de ventanilla con nota de crédito (2026-09-09).
+// Anulación de facturas con nota de crédito (2026-09-09; camión 2026-09-11).
 // El cajero crea la solicitud (id = id de la venta: una por venta); quien
 // tiene `users.autorizaAnulaciones` la aprueba o rechaza; el server emite la
 // NC en ARCA y refleja el resultado (ver functions/triggers/anulacionesVentanilla).
+// La factura del camión la pide el cajero desde la liquidación abierta del
+// chofer: la solicitud lleva `coleccion: 'ventasCamion'` y el chofer.
 
 const ANULACIONES = 'anulacionesVentanilla'
 
-/** El cajero pide anular la factura de SU venta. Falla si la venta no tiene factura emitida. */
+export type VentaAnulable =
+  | { coleccion: 'ventasVentanilla'; venta: VentaVentanilla }
+  | { coleccion: 'ventasCamion'; venta: VentaCamion; plantaId: PlantaId }
+
+/** El cajero pide anular la factura de una venta (la suya en ventanilla; la del chofer que liquida). Falla si no hay factura emitida. */
 export async function solicitarAnulacion(
-  venta: VentaVentanilla,
+  objetivo: VentaAnulable,
   motivo: MotivoAnulacion,
   nota: string,
   actor: { uid: string; nombre: string },
 ): Promise<void> {
+  const { venta } = objetivo
   const f = venta.factura
   if (!f || f.estado !== 'emitida' || !f.cae) throw new Error('Esta venta no tiene una factura emitida para anular.')
   const data: Omit<AnulacionVentanilla, 'id'> = {
     ventaId: venta.id,
-    coleccion: 'ventasVentanilla',
-    plantaId: venta.plantaId,
-    cajaId: venta.cajaId,
-    cajaNombre: venta.cajaNombre,
+    coleccion: objetivo.coleccion,
+    plantaId: objetivo.coleccion === 'ventasVentanilla' ? objetivo.venta.plantaId : objetivo.plantaId,
+    cajaId: actor.uid,
+    cajaNombre: actor.nombre,
+    ...(objetivo.coleccion === 'ventasCamion' ? { choferId: objetivo.venta.choferId, choferNombre: objetivo.venta.choferNombre } : {}),
     clienteNombre: venta.clienteNombre,
     fechaVenta: toDateStr(venta.fecha.toDate()),
     facturaOriginal: { cbteTipo: f.cbteTipo, puntoVenta: f.puntoVenta, numero: f.numero, cae: f.cae, total: f.importes?.total ?? venta.total },

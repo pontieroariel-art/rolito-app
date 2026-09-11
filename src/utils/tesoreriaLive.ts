@@ -107,6 +107,7 @@ export function resumenLive(d: {
     f.cargaBultos += r.items.reduce((s, i) => s + i.cantidad, 0)
   }
   for (const v of d.ventasCamion) {
+    if (v.anulacion?.estado === 'anulada') continue   // factura del camión anulada con NC (2026-09-11)
     const f = fila(v.choferId, v.choferNombre, v.depositoTango)
     sumarVenta(v.canal === 'promo' ? f.promo : f.contado, v)
     f.bultosVendidos += v.items.reduce((s, i) => s + i.cantidad, 0)
@@ -159,7 +160,7 @@ export function resumenLive(d: {
     cobranzas: { calle: cobVacia(), ventanilla: cobVacia(), supervisores: cobVacia() },
     efectivoDelDia: 0,
   }
-  for (const v of d.ventasCamion) sumarVenta(v.canal === 'promo' ? t.ventasCalle.promo : t.ventasCalle.contado, v)
+  for (const v of d.ventasCamion) if (v.anulacion?.estado !== 'anulada') sumarVenta(v.canal === 'promo' ? t.ventasCalle.promo : t.ventasCalle.contado, v)
   for (const v of d.ventasVentanilla) if (v.anulacion?.estado !== 'anulada') sumarVenta(v.canal === 'promo' ? t.ventasVentanilla.promo : t.ventasVentanilla.contado, v)
   for (const c of d.cobranzas) sumarCobranza(c.origen === 'caja' ? t.cobranzas.ventanilla : c.origen === 'supervisor' ? t.cobranzas.supervisores : t.cobranzas.calle, c)
   t.efectivoDelDia = t.ventasCalle.contado.efectivo + t.ventasCalle.promo.efectivo + t.ventasVentanilla.contado.efectivo + t.ventasVentanilla.promo.efectivo

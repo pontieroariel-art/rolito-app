@@ -532,7 +532,7 @@ export default function VentanillaPage() {
       </section>
 
       {anulando && user && (
-        <SolicitarAnulacionModal venta={anulando} actor={{ uid: user.uid, nombre: user.nombre }} onCerrar={() => setAnulando(null)} />
+        <SolicitarAnulacionModal objetivo={{ coleccion: 'ventasVentanilla', venta: anulando }} actor={{ uid: user.uid, nombre: user.nombre }} onCerrar={() => setAnulando(null)} />
       )}
 
       {/* Confirmación */}

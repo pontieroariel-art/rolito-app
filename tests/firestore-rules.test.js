@@ -4342,3 +4342,56 @@ describe('impersonación (Ver como) — solo lectura', () => {
     await assertFails(getDoc(doc(verComo('ch1', 'ch@x.com'), 'historialAdmin/h1')))
   })
 })
+
+describe('anulación de facturas del camión desde la liquidación (2026-09-11)', () => {
+  const ventaCamion = (choferId, numero, extra = {}) => ({
+    canal: 'contado', camionId: '', choferId, choferNombre: 'Chofer', clienteId: 'cli', clienteNombre: 'Cliente SA', items: [], total: 20000,
+    formaPago: 'contado_efectivo', fecha: new Date(), pedidoId: null, tango: { estado: 'confirmado' },
+    factura: { estado: 'emitida', numero, puntoVenta: 1104, cbteTipo: 1, cae: '75', caeFchVto: '20260920' }, ...extra,
+  })
+  const seedTodos = () => seed(async (d) => {
+    await setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' })
+    await setDoc(doc(d, 'users/cajam'), { rol: 'caja', estado: 'activo', planta: 'merlo' })
+    await setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' })
+    await setDoc(doc(d, 'users/aut1'),  { rol: 'facturacion', estado: 'activo', autorizaAnulaciones: true })
+    await setDoc(doc(d, 'ventasCamion/c1'), ventaCamion('chof1', 300))
+    await setDoc(doc(d, 'ventasCamion/c2'), ventaCamion('chof1', 301))
+    const { factura: _sinFactura, ...c3 } = ventaCamion('chof1', 0)
+    await setDoc(doc(d, 'ventasCamion/c3'), { ...c3, formaPago: 'cuenta_corriente', comprobanteInterno: { tipo: 'remito', puntoVenta: 1105, numero: 9 } })
+    await setDoc(doc(d, 'ventasCamion/c4'), ventaCamion('chof1', 302, { anulacion: { estado: 'pendiente', solicitudId: 'c4' } }))
+    // Liquidación ya cerrada del chofer para el día de c2.
+    await setDoc(doc(d, 'liquidaciones/2026-09-10_chof1'), { fecha: '2026-09-10', choferId: 'chof1', plantaId: 'torcuato' })
+  })
+  const solicitud = (ventaId, extra = {}) => ({
+    ventaId, coleccion: 'ventasCamion', plantaId: 'torcuato', cajaId: 'caja1', cajaNombre: 'Caja', choferId: 'chof1', choferNombre: 'Chofer',
+    clienteNombre: 'Cliente SA', fechaVenta: '2026-09-11',
+    facturaOriginal: { cbteTipo: 1, puntoVenta: 1104, numero: 300, cae: '75', total: 20000 },
+    motivo: 'cliente_equivocado', nota: '', estado: 'pendiente',
+    solicitadoPor: { uid: 'caja1', nombre: 'Caja' }, solicitadaEn: new Date(), resueltaPor: null,
+    ...extra,
+  })
+
+  test('caja de la planta pide anular una factura emitida del chofer con la liquidación del día abierta', async () => {
+    await seedTodos()
+    await assertSucceeds(setDoc(doc(db('caja1'), 'anulacionesVentanilla/c1'), solicitud('c1')))
+  })
+
+  test('no con la liquidación de ese día cerrada, ni un remito, ni con anulación en curso, ni con otro chofer, ni desde otra planta, ni el chofer', async () => {
+    await seedTodos()
+    await assertFails(setDoc(doc(db('caja1'), 'anulacionesVentanilla/c2'), solicitud('c2', { fechaVenta: '2026-09-10' })))
+    await assertFails(setDoc(doc(db('caja1'), 'anulacionesVentanilla/c3'), solicitud('c3')))
+    await assertFails(setDoc(doc(db('caja1'), 'anulacionesVentanilla/c4'), solicitud('c4')))
+    await assertFails(setDoc(doc(db('caja1'), 'anulacionesVentanilla/c1'), solicitud('c1', { choferId: 'otro' })))
+    // La caja de otra planta SÍ puede (la venta del camión no lleva planta; el control es la autorización).
+    await assertSucceeds(setDoc(doc(db('cajam'), 'anulacionesVentanilla/c1'), solicitud('c1', { cajaId: 'cajam', plantaId: 'merlo', solicitadoPor: { uid: 'cajam', nombre: 'M' } })))
+    await assertFails(setDoc(doc(db('chof1'), 'anulacionesVentanilla/c2'), solicitud('c2', { cajaId: 'chof1', solicitadoPor: { uid: 'chof1', nombre: 'C' } })))
+    // Con coleccion de ventanilla sobre una venta que no existe ahí, tampoco.
+    await assertFails(setDoc(doc(db('caja1'), 'anulacionesVentanilla/c2'), solicitud('c2', { coleccion: 'ventasVentanilla' })))
+  })
+
+  test('el autorizante aprueba la del camión igual que la de ventanilla', async () => {
+    await seedTodos()
+    await seed((d) => setDoc(doc(d, 'anulacionesVentanilla/c1'), solicitud('c1')))
+    await assertSucceeds(updateDoc(doc(db('aut1'), 'anulacionesVentanilla/c1'), { estado: 'aprobada', resueltaPor: { uid: 'aut1', nombre: 'A' }, resueltaEn: new Date(), notaResolucion: '' }))
+  })
+})

@@ -12,7 +12,7 @@
  * Lo puro (`transicionAnulacion`) está separado para testearlo sin Firestore.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.rutaAnulacion = void 0;
+exports.coleccionDeAnulacion = exports.rutaAnulacion = void 0;
 exports.transicionAnulacion = transicionAnulacion;
 exports.persistirNotaCredito = persistirNotaCredito;
 exports.registrarErrorPrevio = registrarErrorPrevio;
@@ -27,6 +27,8 @@ const notaCredito_1 = require("./notaCredito");
 const receptorDeVenta_1 = require("./receptorDeVenta");
 const rutaAnulacion = (ventaId) => `anulacionesVentanilla/${ventaId}`;
 exports.rutaAnulacion = rutaAnulacion;
+const coleccionDeAnulacion = (a) => a?.coleccion === 'ventasCamion' ? 'ventasCamion' : 'ventasVentanilla';
+exports.coleccionDeAnulacion = coleccionDeAnulacion;
 /**
  * Qué hacer ante un cambio de la solicitud. Pura.
  *
@@ -50,9 +52,8 @@ function transicionAnulacion(antes, despues) {
     return null;
 }
 /** Refleja el resultado de la NC en el registro, la solicitud y la venta (un solo batch). */
-async function persistirNotaCredito(db, registro) {
+async function persistirNotaCredito(db, registro, coleccion = 'ventasVentanilla') {
     const ventaId = registro.ventaId;
-    const coleccion = 'ventasVentanilla';
     const nc = {
         estado: registro.estado,
         cbteTipo: registro.cbteTipo,
@@ -101,18 +102,18 @@ async function persistirNotaCredito(db, registro) {
     await batch.commit();
 }
 /** La solicitud quedó en error antes de llegar a ARCA (sin número): que la reconciliación reintente. */
-async function registrarErrorPrevio(db, ventaId, motivo) {
+async function registrarErrorPrevio(db, ventaId, motivo, coleccion = 'ventasVentanilla') {
     const batch = db.batch();
     batch.set(db.doc((0, facturacionVenta_1.rutaNotaCredito)(ventaId)), {
-        ventaId, anulacionId: ventaId, tipo: 'nota_credito', coleccion: 'ventasVentanilla',
+        ventaId, anulacionId: ventaId, tipo: 'nota_credito', coleccion,
         estado: 'pendiente', motivo, actualizadoEn: firestore_1.FieldValue.serverTimestamp(),
     }, { merge: true });
     batch.set(db.doc((0, exports.rutaAnulacion)(ventaId)), { ultimoError: motivo, actualizadoEn: firestore_1.FieldValue.serverTimestamp() }, { merge: true });
     await batch.commit();
 }
 /** El autorizante rechazó: la venta vuelve a contar y el cajero puede volver a pedir. */
-async function reflejarRechazoEnVenta(db, ventaId) {
-    await db.doc(`ventasVentanilla/${ventaId}`).set({ anulacion: { estado: 'rechazada', solicitudId: ventaId } }, { merge: true });
+async function reflejarRechazoEnVenta(db, ventaId, coleccion = 'ventasVentanilla') {
+    await db.doc(`${coleccion}/${ventaId}`).set({ anulacion: { estado: 'rechazada', solicitudId: ventaId } }, { merge: true });
 }
 /**
  * Emite (o retoma) la nota de crédito de una anulación aprobada.
@@ -128,7 +129,7 @@ async function emitirNotaCreditoDeAnulacion(db, ventaId) {
     const anulacion = (await db.doc((0, exports.rutaAnulacion)(ventaId)).get()).data();
     if (!anulacion || anulacion.estado !== 'aprobada')
         return null;
-    const coleccion = 'ventasVentanilla';
+    const coleccion = (0, exports.coleccionDeAnulacion)(anulacion);
     const venta = (await db.doc(`${coleccion}/${ventaId}`).get()).data();
     if (!venta)
         return null;
@@ -164,7 +165,7 @@ async function emitirNotaCreditoDeAnulacion(db, ventaId) {
         factura,
         receptor,
         leer: async () => (await db.doc((0, facturacionVenta_1.rutaNotaCredito)(ventaId)).get()).data(),
-        guardar: async (r) => { await persistirNotaCredito(db, r); },
+        guardar: async (r) => { await persistirNotaCredito(db, r, coleccion); },
     });
 }
 //# sourceMappingURL=anulacionVentanilla.js.map

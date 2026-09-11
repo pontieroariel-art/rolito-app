@@ -220,7 +220,9 @@ exports.onAnulacionEmitida = (0, firestore_1.onDocumentUpdated)('anulacionesVent
         return;
     const ventaId = event.params.ventaId;
     const db = (0, firestore_2.getFirestore)();
-    const venta = (await db.doc(`ventasVentanilla/${ventaId}`).get()).data();
+    // La venta anulada puede ser de ventanilla o del camión (2026-09-11).
+    const coleccionVenta = ahora.coleccion === 'ventasCamion' ? 'ventasCamion' : 'ventasVentanilla';
+    const venta = (await db.doc(`${coleccionVenta}/${ventaId}`).get()).data();
     if (!venta)
         return;
     const destino = (0, circuito_1.destinoTango)(venta.canal, venta.formaPago, venta.total);

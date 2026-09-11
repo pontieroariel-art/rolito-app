@@ -1,5 +1,6 @@
 import { CambioCamion, Cobranza, DescargaCamion, RemitoCarga, VentaCamion } from '../types'
 import { calcularLiquidacion, LiquidacionCalculada } from './liquidacion'
+import { ventasVigentes } from './anulacionVenta'
 
 // "Reparto en vivo" del supervisor: la liquidación del repartidor calculada al
 // momento, camión por camión, con las mismas fuentes y la misma cuenta que usa
@@ -44,6 +45,8 @@ export function agruparRepartoEnVivo(
   descargas: DescargaCamion[],
   cobranzasCalle: Cobranza[],
 ): CamionEnVivo[] {
+  // Facturas anuladas con nota de crédito: fuera del reparto en vivo (2026-09-11).
+  ventas = ventasVigentes(ventas)
   const choferes = new Map<string, { nombre: string }>()
   const nombrar = (id: string, nombre: string) => { if (id && !choferes.has(id)) choferes.set(id, { nombre }) }
   remitos.forEach((r) => nombrar(r.choferId, r.choferNombre))

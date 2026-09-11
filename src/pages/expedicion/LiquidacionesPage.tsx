@@ -25,6 +25,8 @@ import {
   CambioCamion, Cobranza, DescargaCamion, Liquidacion, PLANTAS, RemitoCarga, VentaCamion, type PlantaId,
 } from '../../types'
 import { reportError } from '@/services/observability'
+import SolicitarAnulacionModal from '@/components/expedicion/SolicitarAnulacionModal'
+import { anulacionEnCurso } from '@/utils/anulacionVenta'
 import { tieneAlgunRol } from '@/utils/roles'
 
 // Liquidación del repartidor (pantalla de caja) — herramienta de control del
@@ -66,6 +68,11 @@ export default function LiquidacionesPage() {
   const [cerrada,   setCerrada]   = useState<Liquidacion | null>(null)
   const [efectivoRecibido, setEfectivoRecibido] = useState('')
   const [confirmando, setConfirmando] = useState(false)
+  // Anulación de una factura del camión con nota de crédito (2026-09-11): caja
+  // la pide desde acá mientras la liquidación esté abierta; con una pendiente
+  // no se cierra.
+  const [anulando, setAnulando] = useState<VentaCamion | null>(null)
+  const anulacionesEnCurso = ventas.filter(anulacionEnCurso).length
   const [guardando,   setGuardando]   = useState(false)
   const [error,       setError]       = useState('')
   const [aviso,       setAviso]       = useState('')
@@ -264,7 +271,11 @@ export default function LiquidacionesPage() {
             </Plegable>
           )}
 
-          <DetalleReparto remitos={remitosChofer} ventas={ventas} cambios={cambios} descargas={descargas} cobranzas={cobranzas} soloProblemas={soloProblemas} />
+          <DetalleReparto remitos={remitosChofer} ventas={ventas} cambios={cambios} descargas={descargas} cobranzas={cobranzas} soloProblemas={soloProblemas}
+            onAnular={!cerrada && puedeCerrar ? setAnulando : undefined} />
+          {anulando && user && (
+            <SolicitarAnulacionModal objetivo={{ coleccion: 'ventasCamion', venta: anulando, plantaId }} actor={{ uid: user.uid, nombre: user.nombre }} onCerrar={() => setAnulando(null)} />
+          )}
 
           <Plegable titulo="Resumen por cliente"><ResumenPorCliente reparto={reparto} /></Plegable>
           <Plegable titulo="Detalle por producto, envases y cambios"><DetallePorProducto calc={calc} /></Plegable>
@@ -272,7 +283,12 @@ export default function LiquidacionesPage() {
           {!cerrada && puedeCerrar && (
             <div className="flex flex-wrap justify-end gap-2">
               {error && <p className="w-full text-sm text-red-600">{error}</p>}
-              <Button onClick={() => setConfirmando(true)} disabled={!hayMovimientos || efectivoRecibido.trim() === ''}>
+              {anulacionesEnCurso > 0 && (
+                <p className="w-full text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  {anulacionesEnCurso === 1 ? 'Hay una anulación de factura esperando autorización' : `Hay ${anulacionesEnCurso} anulaciones de factura esperando autorización`}: no se puede cerrar la liquidación hasta que se resuelva.
+                </p>
+              )}
+              <Button onClick={() => setConfirmando(true)} disabled={!hayMovimientos || efectivoRecibido.trim() === '' || anulacionesEnCurso > 0}>
                 <Printer size={16} className="mr-1.5" /> Cerrar liquidación e imprimir
               </Button>
             </div>

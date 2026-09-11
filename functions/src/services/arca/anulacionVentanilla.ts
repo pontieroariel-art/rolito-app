@@ -53,6 +53,15 @@ export interface AnulacionVentanilla {
 
 export const rutaAnulacion = (ventaId: string) => `anulacionesVentanilla/${ventaId}`
 
+/**
+ * Colección de la venta anulada (2026-09-11): la factura de ventanilla o la
+ * del camión (pedida por caja desde la liquidación abierta). La solicitud lo
+ * dice en `coleccion`; sin el campo (solicitudes viejas) es ventanilla.
+ */
+export type ColeccionAnulable = 'ventasVentanilla' | 'ventasCamion'
+export const coleccionDeAnulacion = (a: { coleccion?: unknown } | undefined): ColeccionAnulable =>
+  a?.coleccion === 'ventasCamion' ? 'ventasCamion' : 'ventasVentanilla'
+
 export type TransicionAnulacion = 'emitir' | 'rechazar' | 'resolicitar' | null
 
 /**
@@ -78,9 +87,8 @@ export function transicionAnulacion(
 }
 
 /** Refleja el resultado de la NC en el registro, la solicitud y la venta (un solo batch). */
-export async function persistirNotaCredito(db: Firestore, registro: RegistroFactura): Promise<void> {
+export async function persistirNotaCredito(db: Firestore, registro: RegistroFactura, coleccion: ColeccionAnulable = 'ventasVentanilla'): Promise<void> {
   const ventaId = registro.ventaId
-  const coleccion = 'ventasVentanilla'
   const nc: NotaCreditoVenta = {
     estado: registro.estado,
     cbteTipo: registro.cbteTipo,
@@ -134,10 +142,10 @@ export async function persistirNotaCredito(db: Firestore, registro: RegistroFact
 }
 
 /** La solicitud quedó en error antes de llegar a ARCA (sin número): que la reconciliación reintente. */
-export async function registrarErrorPrevio(db: Firestore, ventaId: string, motivo: string): Promise<void> {
+export async function registrarErrorPrevio(db: Firestore, ventaId: string, motivo: string, coleccion: ColeccionAnulable = 'ventasVentanilla'): Promise<void> {
   const batch = db.batch()
   batch.set(db.doc(rutaNotaCredito(ventaId)), {
-    ventaId, anulacionId: ventaId, tipo: 'nota_credito', coleccion: 'ventasVentanilla',
+    ventaId, anulacionId: ventaId, tipo: 'nota_credito', coleccion,
     estado: 'pendiente', motivo, actualizadoEn: FieldValue.serverTimestamp(),
   }, { merge: true })
   batch.set(db.doc(rutaAnulacion(ventaId)), { ultimoError: motivo, actualizadoEn: FieldValue.serverTimestamp() }, { merge: true })
@@ -145,8 +153,8 @@ export async function registrarErrorPrevio(db: Firestore, ventaId: string, motiv
 }
 
 /** El autorizante rechazó: la venta vuelve a contar y el cajero puede volver a pedir. */
-export async function reflejarRechazoEnVenta(db: Firestore, ventaId: string): Promise<void> {
-  await db.doc(`ventasVentanilla/${ventaId}`).set(
+export async function reflejarRechazoEnVenta(db: Firestore, ventaId: string, coleccion: ColeccionAnulable = 'ventasVentanilla'): Promise<void> {
+  await db.doc(`${coleccion}/${ventaId}`).set(
     { anulacion: { estado: 'rechazada', solicitudId: ventaId } },
     { merge: true },
   )
@@ -166,7 +174,7 @@ export async function emitirNotaCreditoDeAnulacion(db: Firestore, ventaId: strin
   const anulacion = (await db.doc(rutaAnulacion(ventaId)).get()).data() as AnulacionVentanilla | undefined
   if (!anulacion || anulacion.estado !== 'aprobada') return null
 
-  const coleccion = 'ventasVentanilla'
+  const coleccion = coleccionDeAnulacion(anulacion)
   const venta = (await db.doc(`${coleccion}/${ventaId}`).get()).data()
   if (!venta) return null
   if (documentoDeVenta(venta.canal, venta.formaPago, venta.total) !== 'factura_arca') return null
@@ -207,6 +215,6 @@ export async function emitirNotaCreditoDeAnulacion(db: Firestore, ventaId: strin
     factura,
     receptor,
     leer: async () => (await db.doc(rutaNotaCredito(ventaId)).get()).data(),
-    guardar: async (r) => { await persistirNotaCredito(db, r) },
+    guardar: async (r) => { await persistirNotaCredito(db, r, coleccion) },
   })
 }

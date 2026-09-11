@@ -225,7 +225,7 @@ exports.reconciliarFacturasArca = (0, scheduler_1.onSchedule)({ schedule: '15 * 
                             anulacionId: String(f.anulacionId ?? ventaId),
                             cbtesAsoc: (f.cbtesAsoc ?? []),
                             ...(f.importes ? { importes: f.importes } : {}),
-                        });
+                        }, coleccionDe(f));
                     }
                     else {
                         await persistir(db, registro, coleccionDe(f));

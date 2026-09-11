@@ -6,6 +6,7 @@ import { nombreDelCambio, productoDelCambio } from './cambios'
 import { cuadrarEnvases } from './envases'
 import { chequesDe, efectivoDe, retencionesDe, sumaImportes, transferenciaDe } from './medios'
 import { nombreClienteVenta } from '@/utils/nombreClienteVenta'
+import { ventaAnulada, ventasVigentes } from './anulacionVenta'
 
 // Cálculo puro de la liquidación del repartidor — replica la hoja
 // "Liquidación de repartidores" del sistema viejo: por producto, carga −
@@ -28,6 +29,9 @@ export function calcularLiquidacion(
   // cobradores son choferes — "Detalle de cobranzas" de la hoja vieja).
   cobranzasCalle: Cobranza[] = [],
 ): LiquidacionCalculada {
+  // Una factura anulada con nota de crédito (2026-09-11) no cuenta: ni en
+  // plata ni en productos (la NC devolvió el stock al depósito en Tango).
+  ventas = ventasVigentes(ventas)
   // ── Por producto ── acumular cada fuente sobre el mismo mapa, indexado por
   // productoId, para que ningún producto quede afuera aunque aparezca en una
   // sola fuente (ej. vendió algo que no figura en la carga → diferencia).
@@ -165,6 +169,8 @@ export interface RepartoClasificado {
   clientes:        ClienteDelReparto[]
   /** Ventas con algún problema de control (factura rechazada/incierta, sin número, Tango en error). */
   problemas:       Array<{ venta: VentaCamion; motivos: string[] }>
+  /** Facturas anuladas con nota de crédito (2026-09-11): se muestran, no suman. */
+  anuladas:        VentaCamion[]
   totalVendido:    number
   efectivoARendir: number
 }
@@ -179,6 +185,10 @@ export function clasificarReparto(
   descargas: DescargaCamion[] = [],
   problemasDe: (v: VentaCamion) => string[] = () => [],
 ): RepartoClasificado {
+  // Las anuladas se listan aparte (`anuladas`) para que caja las vea; en los
+  // bloques y totales no entran.
+  const anuladas = ventas.filter(ventaAnulada)
+  ventas = ventasVigentes(ventas)
   const contadoV = ventas.filter((v) => v.canal !== 'promo')
   const promoV = ventas.filter((v) => v.canal === 'promo')
   const contado = {
@@ -250,6 +260,7 @@ export function clasificarReparto(
     cambios: { lista: cambiosLista, unidades, rotasRecibidas },
     clientes: [...clientes.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')),
     problemas,
+    anuladas,
     totalVendido,
     efectivoARendir: contado.efectivo.total + promo.contado.ventas.filter((v) => v.formaPago === 'contado_efectivo').reduce((s, v) => s + v.total, 0) + cob.efectivo,
   }

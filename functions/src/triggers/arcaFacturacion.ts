@@ -270,7 +270,7 @@ export const reconciliarFacturasArca = onSchedule(
                 anulacionId: String(f.anulacionId ?? ventaId),
                 cbtesAsoc: (f.cbtesAsoc ?? []) as RegistroFactura['cbtesAsoc'],
                 ...(f.importes ? { importes: f.importes as RegistroFactura['importes'] } : {}),
-              })
+              }, coleccionDe(f))
             } else {
               await persistir(db, registro, coleccionDe(f))
             }
