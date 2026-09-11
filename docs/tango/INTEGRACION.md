@@ -1571,6 +1571,16 @@ motivo}`, Auth `disabled` + tokens revocados. Nunca se borra el doc ni el `cuitI
 reactiva (solo si la baja la hizo la sync: `bajaTango` presente). Circuit breaker: empresa que devolvió menos del
 80 % de filas que la corrida anterior, o que falló → no da de baja a nadie esa vez (`bajas.corridaConfiable`).
 
+**Inhabilitado en UNA empresa (2026-09-11).** Reclamo de los vendedores: la app dejaba elegir clientes
+inhabilitados en Tango. Dos causas. (1) Un cliente inhabilitado en Redonhielo pero habilitado en Rolito sigue
+activo (por diseño: vende en promo), pero nada frenaba la venta contado / cta. cte. Ahora la sync escribe
+`users.habilitadoTango.{redonhielo,rolito}` por fila vista (con varios códigos alcanza uno habilitado), el índice
+`clientesIndex` lleva `inhabilitadoEn[]`, el buscador lo etiqueta y Venta del camión / Ventanilla bloquean la venta
+en la empresa del canal (`utils/inhabilitadoTango.ts`); la ficha del supervisor muestra "Estado en Tango". (2) 15
+cuentas de la importación de heladeras (sin CUIT, `codigoCliente` de Tango) nunca se vincularon (el match era
+idGva14 → CUIT → código solo para Rolito) y por eso nunca se evaluaban para la baja: `cuentaParaFila` (tangoSync.ts,
+con tests) suma el match por `codigoCliente` para cuentas sin vínculo en la empresa y sin CUIT (o con el mismo).
+
 **Primera corrida real (2026-09-06):** 1128 cuentas creadas (941 en las dos empresas, 63 solo Redonhielo, 124
 solo Rolito); 5689 filas inhabilitadas y 255 con CUIT inválido no se crean (el panel lista ejemplos). 33 cuentas
 existentes marcadas para baja por estar inhabilitadas en las dos empresas. Incidente: el barrido programado y el

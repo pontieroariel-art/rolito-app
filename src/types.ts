@@ -672,6 +672,8 @@ export interface ClienteIndex {
   localidad:      string
   estado:         string
   vinculadoTango: boolean
+  /** Empresas donde Tango lo tiene inhabilitado (ausente = habilitado en todas). */
+  inhabilitadoEn?: EmpresaTango[]
   actualizadoEn?: Timestamp
 }
 
@@ -1183,6 +1185,11 @@ export interface UserProfile {
   // queda bloqueado por `esClienteFacturable` hasta que le carguen el CUIT en
   // Tango; ahí la sync lo convierte en cuenta normal. Decisión de Ariel 2026-09-07.
   sinCuit?: boolean
+  // Habilitado en cada empresa de Tango (lo escribe la sync diaria, 2026-09-11).
+  // Inhabilitado en las dos → la sync lo da de baja; inhabilitado en UNA → sigue
+  // activo pero la app no le vende en esa empresa (contado/cta. cte. = Redonhielo,
+  // promo = Rolito). Ver utils/inhabilitadoTango.ts. Ausente = habilitado.
+  habilitadoTango?: Partial<Record<EmpresaTango, boolean>>
   // Fecha del último pedido del cliente, que mantiene el trigger onOrderRollup
   // (monotónico). Sirve para detectar clientes "fríos" sin recorrer todos los
   // pedidos — ver auditoría H5.

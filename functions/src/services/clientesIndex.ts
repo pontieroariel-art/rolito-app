@@ -24,6 +24,8 @@ export interface ClienteIndex {
   estado:        string
   /** true si tiene algún código de Tango (solo esos se pueden cobrar con imputación). */
   vinculadoTango: boolean
+  /** Empresas donde Tango lo tiene inhabilitado (users.habilitadoTango, lo escribe la sync). Ausente = habilitado en todas. */
+  inhabilitadoEn?: string[]
 }
 
 interface TangoId { idGva14?: number; codigo?: string }
@@ -43,6 +45,7 @@ interface Perfil {
   addresses?:      { nombre?: string; address?: string; esPrincipal?: boolean }[]
   address?:        string
   localidadTango?: string
+  habilitadoTango?: { redonhielo?: boolean; rolito?: boolean }
 }
 
 const txt = (v: unknown) => String(v ?? '').trim()
@@ -55,6 +58,7 @@ export function indiceDeCliente(uid: string, p: Perfil | undefined | null): Clie
   if (p.codigoTango && typeof p.idGva14Tango === 'number' && p.idGva14Tango > 0) codigos.add(txt(p.codigoTango))
   const principal = p.addresses?.find((a) => a?.esPrincipal) ?? p.addresses?.[0]
   const sucursales = [...new Set((p.addresses ?? []).map((a) => txt(a?.nombre)).filter((n) => n && n !== 'Principal'))]
+  const inhabilitadoEn = (['redonhielo', 'rolito'] as const).filter((e) => p.habilitadoTango?.[e] === false)
   return {
     uid,
     razonSocial:    txt(p.razonSocial) || txt(p.nombreContacto) || txt(p.nombre) || txt(p.email),
@@ -68,6 +72,7 @@ export function indiceDeCliente(uid: string, p: Perfil | undefined | null): Clie
     localidad:      txt(p.localidadTango),
     estado:         txt(p.estado) || 'pendiente',
     vinculadoTango: codigos.size > 0,
+    ...(inhabilitadoEn.length ? { inhabilitadoEn } : {}),
   }
 }
 
@@ -77,4 +82,5 @@ export function mismoIndice(a: ClienteIndex | null | undefined, b: ClienteIndex 
   const claves: (keyof ClienteIndex)[] = ['uid', 'razonSocial', 'nombreContacto', 'cuit', 'sinCuit', 'codigoCliente', 'direccion', 'localidad', 'estado', 'vinculadoTango']
   for (const k of claves) if ((a[k] ?? null) !== (b[k] ?? null)) return false
   return a.codigos.join('|') === b.codigos.join('|') && a.sucursales.join('|') === b.sucursales.join('|')
+    && (a.inhabilitadoEn ?? []).join('|') === (b.inhabilitadoEn ?? []).join('|')
 }

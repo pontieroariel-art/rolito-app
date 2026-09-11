@@ -36,3 +36,17 @@ describe('mismoIndice', () => {
     expect(mismoIndice(a, null)).toBe(false)
   })
 })
+
+describe('inhabilitado en Tango por empresa (2026-09-11)', () => {
+  it('lista las empresas donde habilitadoTango es false; ausente cuando está habilitado en todas', () => {
+    expect(indiceDeCliente('u', { ...perfil, habilitadoTango: { redonhielo: false, rolito: true } })!.inhabilitadoEn).toEqual(['redonhielo'])
+    expect(indiceDeCliente('u', { ...perfil, habilitadoTango: { redonhielo: true } })!.inhabilitadoEn).toBeUndefined()
+    expect(indiceDeCliente('u', perfil)!.inhabilitadoEn).toBeUndefined()
+  })
+  it('cambiar la habilitación cambia el índice', () => {
+    const a = indiceDeCliente('u', perfil)!
+    const b = indiceDeCliente('u', { ...perfil, habilitadoTango: { rolito: false } })!
+    expect(mismoIndice(a, b)).toBe(false)
+    expect(mismoIndice(b, indiceDeCliente('u', { ...perfil, habilitadoTango: { rolito: false } })!)).toBe(true)
+  })
+})

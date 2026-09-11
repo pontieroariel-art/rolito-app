@@ -23,6 +23,7 @@ function indiceDeCliente(uid, p) {
         codigos.add(txt(p.codigoTango));
     const principal = p.addresses?.find((a) => a?.esPrincipal) ?? p.addresses?.[0];
     const sucursales = [...new Set((p.addresses ?? []).map((a) => txt(a?.nombre)).filter((n) => n && n !== 'Principal'))];
+    const inhabilitadoEn = ['redonhielo', 'rolito'].filter((e) => p.habilitadoTango?.[e] === false);
     return {
         uid,
         razonSocial: txt(p.razonSocial) || txt(p.nombreContacto) || txt(p.nombre) || txt(p.email),
@@ -36,6 +37,7 @@ function indiceDeCliente(uid, p) {
         localidad: txt(p.localidadTango),
         estado: txt(p.estado) || 'pendiente',
         vinculadoTango: codigos.size > 0,
+        ...(inhabilitadoEn.length ? { inhabilitadoEn } : {}),
     };
 }
 /** ¿Cambió algo del índice? (para no reescribirlo cuando solo cambiaron precios u otros campos). */
@@ -46,6 +48,7 @@ function mismoIndice(a, b) {
     for (const k of claves)
         if ((a[k] ?? null) !== (b[k] ?? null))
             return false;
-    return a.codigos.join('|') === b.codigos.join('|') && a.sucursales.join('|') === b.sucursales.join('|');
+    return a.codigos.join('|') === b.codigos.join('|') && a.sucursales.join('|') === b.sucursales.join('|')
+        && (a.inhabilitadoEn ?? []).join('|') === (b.inhabilitadoEn ?? []).join('|');
 }
 //# sourceMappingURL=clientesIndex.js.map

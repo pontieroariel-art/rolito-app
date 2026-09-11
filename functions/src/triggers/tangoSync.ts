@@ -101,6 +101,8 @@ export interface IndiceUsuarios {
   porIdGva14:   Record<Empresa, Map<number, string>>
   porCodigo:    Record<Empresa, Map<string, string>>
   porCuit:      Map<string, string[]>
+  /** Cuentas por `codigoCliente` (el código que traían las importaciones viejas), para vincular las que quedaron sin `tangoIds`. */
+  porCodigoCliente: Map<string, string[]>
 }
 
 export async function indiceUsuariosClientes(db: FirebaseFirestore.Firestore): Promise<IndiceUsuarios> {
@@ -110,6 +112,7 @@ export async function indiceUsuariosClientes(db: FirebaseFirestore.Firestore): P
     porIdGva14: { redonhielo: new Map(), rolito: new Map() },
     porCodigo:  { redonhielo: new Map(), rolito: new Map() },
     porCuit: new Map(),
+    porCodigoCliente: new Map(),
   }
   usersSnap.forEach((doc) => {
     const data = doc.data()
@@ -127,8 +130,49 @@ export async function indiceUsuariosClientes(db: FirebaseFirestore.Firestore): P
       if (!indice.porCuit.has(cuit)) indice.porCuit.set(cuit, [])
       indice.porCuit.get(cuit)!.push(doc.id)
     }
+    const codigoCliente = String(data.codigoCliente ?? '').trim()
+    if (codigoCliente) {
+      if (!indice.porCodigoCliente.has(codigoCliente)) indice.porCodigoCliente.set(codigoCliente, [])
+      indice.porCodigoCliente.get(codigoCliente)!.push(doc.id)
+    }
   })
   return indice
+}
+
+export type CuentaParaFila =
+  | { uid: string; via: 'idGva14' | 'cuit' | 'codigo' | 'codigoCliente'; esNuevoLink: boolean }
+  | { motivo: 'cuitAmbiguo' | 'sinCuenta' }
+
+/**
+ * Qué cuenta de la app corresponde a una fila de Tango (pura, sobre el índice):
+ *   1. ya vinculada por idGva14 en esa empresa;
+ *   2. misma cuenta por CUIT válido (una cuenta por CUIT; otro código del mismo
+ *      CUIT es una sucursal). Más de una cuenta con ese CUIT → ambigua;
+ *   3. Rolito comparte los códigos con Redonhielo: el código ya vinculado allá;
+ *   4. cuenta importada (heladeras, clientes viejos) con ese `codigoCliente` y
+ *      todavía sin vínculo en la empresa, si no tiene CUIT o es el mismo. Sin
+ *      esto quedaban activas para siempre aunque en Tango estén inhabilitadas
+ *      (15 cuentas de la importación de heladeras, 2026-09-11).
+ */
+export function cuentaParaFila(row: Pick<TangoClienteRow, 'idGva14' | 'codGva14' | 'cuit'>, empresa: Empresa, indice: IndiceUsuarios): CuentaParaFila {
+  const { perfilPorUid, porIdGva14, porCodigo, porCuit, porCodigoCliente } = indice
+  const vinculada = porIdGva14[empresa].get(row.idGva14)
+  if (vinculada) return { uid: vinculada, via: 'idGva14', esNuevoLink: false }
+  const cuit = soloDigitos(row.cuit)
+  const candidatos = cuitValido(cuit) ? (porCuit.get(cuit) ?? []) : []
+  if (candidatos.length > 1) return { motivo: 'cuitAmbiguo' }
+  if (candidatos.length === 1) return { uid: candidatos[0], via: 'cuit', esNuevoLink: true }
+  if (empresa !== 'redonhielo' && row.codGva14 && porCodigo.redonhielo.has(row.codGva14)) {
+    return { uid: porCodigo.redonhielo.get(row.codGva14)!, via: 'codigo', esNuevoLink: true }
+  }
+  const legacy = (porCodigoCliente.get(row.codGva14) ?? []).filter((uid) => {
+    const p = perfilPorUid.get(uid)
+    if (!p || ((p.tangoIds as TangoIds)[empresa]?.length ?? 0) > 0) return false
+    const cuitCuenta = soloDigitos(p.cuit)
+    return !cuitValido(cuitCuenta) || cuitCuenta === cuit
+  })
+  if (legacy.length === 1) return { uid: legacy[0], via: 'codigoCliente', esNuevoLink: true }
+  return { motivo: 'sinCuenta' }
 }
 
 /**
@@ -145,7 +189,7 @@ export async function procesarLoteClientesTango(
 ): Promise<ResultadoSync> {
   const empresa: Empresa = opts.empresa ?? 'redonhielo'
   const indice = opts.indice ?? await indiceUsuariosClientes(db)
-  const { perfilPorUid, porIdGva14, porCodigo, porCuit } = indice
+  const { perfilPorUid, porIdGva14, porCodigo } = indice
 
   let matchedByIdGva14 = 0
   let matchedByCuit = 0
@@ -174,46 +218,43 @@ export async function procesarLoteClientesTango(
   }
 
   for (const row of rows) {
-    let uid = porIdGva14[empresa].get(row.idGva14)
-    let esNuevoLink = false
-
-    if (uid) {
-      matchedByIdGva14++
-    } else {
-      // Misma cuenta por CUIT (una cuenta por CUIT en la app). Si el cliente ya
-      // tiene un código vinculado en esta empresa, esta fila es OTRO código del
-      // mismo CUIT (sucursal / grupo empresario) y se agrega como secundario.
-      // Solo con CUIT válido: los rellenos ("00000000000", consumidor final)
-      // colgarían cientos de códigos de una misma cuenta.
-      const cuit = soloDigitos(row.cuit)
-      const candidatos = cuitValido(cuit) ? (porCuit.get(cuit) ?? []) : []
-      if (candidatos.length > 1) {
+    // Ver cuentaParaFila: idGva14 → CUIT (una cuenta por CUIT; los rellenos
+    // "00000000000" no cuentan) → código compartido Rolito/Redonhielo →
+    // codigoCliente de las importaciones viejas.
+    const cuenta = cuentaParaFila(row, empresa, indice)
+    if ('motivo' in cuenta) {
+      if (cuenta.motivo === 'cuitAmbiguo') {
         skippedAmbiguousCuit++
         errores.push({ idGva14: row.idGva14, cuit: row.cuit, motivo: 'CUIT ambiguo: más de un cliente de la app con ese CUIT' })
-        continue
-      }
-      if (candidatos.length === 1) {
-        uid = candidatos[0]
-        matchedByCuit++
-      } else if (empresa !== 'redonhielo' && row.codGva14 && porCodigo.redonhielo.has(row.codGva14)) {
-        // Rolito comparte los códigos de cliente con Redonhielo: si el CUIT no
-        // alcanzó (vacío / distinto), el código sí identifica la cuenta.
-        uid = porCodigo.redonhielo.get(row.codGva14)!
-        matchedByCodigo++
       } else {
         skippedNoMatch++
         if (sinCuenta.length < 10000) sinCuenta.push(row)
-        continue
       }
-      esNuevoLink = true
+      continue
     }
+    const { uid, esNuevoLink } = cuenta
+    if (cuenta.via === 'idGva14') matchedByIdGva14++
+    else if (cuenta.via === 'cuit') matchedByCuit++
+    else matchedByCodigo++
 
     const perfil = perfilPorUid.get(uid)!
     const ids = perfil.tangoIds as TangoIds
-    vistos.push({ uid, habilitado: row.habilitado !== false })
+    const habilitadoFila = row.habilitado !== false
+    vistos.push({ uid, habilitado: habilitadoFila })
     const tienePrincipal = (ids[empresa]?.length ?? 0) > 0
     const esPrincipal = !tienePrincipal || ids[empresa]![0].idGva14 === row.idGva14
     const update: Record<string, unknown> = {}
+
+    // Habilitado en ESTA empresa (2026-09-11): la app bloquea la venta contado /
+    // cta. cte. (Redonhielo) o promo (Rolito) a un cliente inhabilitado ahí,
+    // aunque siga activo por estar habilitado en la otra. Con varios códigos
+    // en la misma empresa alcanza con que uno esté habilitado (como `vistos`).
+    const habCorrida = (perfil.habilitadoTangoCorrida ??= {}) as Partial<Record<Empresa, boolean>>
+    habCorrida[empresa] = habCorrida[empresa] === true || habilitadoFila
+    if (perfil.habilitadoTango?.[empresa] !== habCorrida[empresa]) {
+      update[`habilitadoTango.${empresa}`] = habCorrida[empresa]
+      perfil.habilitadoTango = { ...(perfil.habilitadoTango ?? {}), [empresa]: habCorrida[empresa] }
+    }
 
     if (esNuevoLink) {
       const lista = agregarTangoId(ids[empresa], { idGva14: row.idGva14, codigo: row.codGva14 }, { principal: !tienePrincipal })

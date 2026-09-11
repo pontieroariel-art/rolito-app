@@ -1,6 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
 import { ClienteIndex, UserProfile } from '../../types'
 import { coincideBusqueda, normalizarBusqueda, INPUT_BUSQUEDA_PROPS } from '@/utils/busqueda'
+import { empresasInhabilitado, etiquetaInhabilitado } from '@/utils/inhabilitadoTango'
+import type { EmpresaTango } from '../../types'
+
+const sufijoInhabilitado = (empresas: EmpresaTango[] | undefined): string => {
+  const e = etiquetaInhabilitado(empresas)
+  return e ? ` · ${e.toLowerCase()}` : ''
+}
 
 export interface ComboItem {
   uid:     string
@@ -21,7 +28,8 @@ export function toComboItems(clientes: UserProfile[]): ComboItem[] {
     return {
       uid:    c.uid,
       // Sin CUIT: se avisa en el nombre, porque solo se le puede vender en promo.
-      label:  (c.razonSocial || c.nombreContacto || c.nombre || c.email || '') + (c.sinCuit ? ' · sin CUIT (solo promo)' : ''),
+      // Inhabilitado en Tango (en una empresa o las dos): también, para que no lo elijan.
+      label:  (c.razonSocial || c.nombreContacto || c.nombre || c.email || '') + (c.sinCuit ? ' · sin CUIT (solo promo)' : '') + sufijoInhabilitado(empresasInhabilitado(c)),
       codigo: c.codigoCliente,
       extra:  [...codigos, ...(c.addresses ?? []).map((a) => a.nombre)].filter(Boolean).join(' '),
       sucursales,
@@ -33,7 +41,7 @@ export function toComboItems(clientes: UserProfile[]): ComboItem[] {
 export function indexAComboItems(clientes: ClienteIndex[]): ComboItem[] {
   return clientes.map((c) => ({
     uid:    c.uid,
-    label:  c.razonSocial + (c.sinCuit ? ' · sin CUIT (solo promo)' : ''),
+    label:  c.razonSocial + (c.sinCuit ? ' · sin CUIT (solo promo)' : '') + sufijoInhabilitado(c.inhabilitadoEn),
     codigo: c.codigoCliente,
     extra:  [...c.codigos, ...c.sucursales, c.cuit].filter(Boolean).join(' '),
     sucursales: new Set(c.codigos).size,

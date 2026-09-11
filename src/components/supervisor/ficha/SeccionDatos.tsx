@@ -1,6 +1,7 @@
 import { Plegable } from '@/components/ui/Plegable'
 import { codigosTangoResumen, listaTangoResumen } from '@/pages/admin/user-management/listaTango'
 import type { UserProfile } from '@/types'
+import { empresasInhabilitado, etiquetaInhabilitado } from '@/utils/inhabilitadoTango'
 
 function Fila({ label, valor }: { label: string; valor?: string | null }) {
   if (!valor) return null
@@ -24,6 +25,7 @@ export default function SeccionDatos({ c }: { c: UserProfile }) {
       <Fila label="Condición IVA" valor={c.categoriaIvaTangoDesc ?? c.categoriaIvaTango} />
       <Fila label="Condición de venta" valor={c.condicionVenta} />
       <Fila label="Códigos Tango" valor={codigosTangoResumen(c) || 'Sin vínculo con Tango'} />
+      <Fila label="Estado en Tango" valor={etiquetaInhabilitado(empresasInhabilitado(c))} />
       <Fila label="Lista de precios" valor={listaTangoResumen(c)} />
       <Fila label="Domicilio fiscal" valor={fiscal} />
       <Fila label="Sector" valor={c.sector} />

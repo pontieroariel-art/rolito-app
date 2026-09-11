@@ -31,6 +31,7 @@ import {
   asegurarReserva, consumirNumero, precargarSiSeAcerca, codigoComprobanteInterno,
 } from '../../services/numeracionInternaService'
 import { useOnline } from '../../hooks/useOnline'
+import { inhabilitadoEnTango, motivoInhabilitado } from '@/utils/inhabilitadoTango'
 import { FormaPago, CanalVenta, VentaCamionItem, ComprobanteInternoVenta, TipoComprobanteInterno } from '../../types'
 
 const CANALES: { id: CanalVenta; titulo: string; empresa: string; color: string; icon: typeof Tag }[] = [
@@ -149,6 +150,10 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
     return r.facturable ? null : r.motivos
   }, [canal, cliente])
 
+  // Inhabilitado en Tango en la empresa de este canal: no se vende, sea el
+  // documento que sea (la cuenta sigue activa si en la otra empresa está bien).
+  const inhabilitado = !!cliente && inhabilitadoEnTango(cliente, empresa)
+
   const precioDe = (productoId: string): number =>
     cliente ? (precioTangoDe(preciosTango, cliente, empresa, productoId)?.precio ?? 0) : 0
   const sinPrecio = (productoId: string): boolean =>
@@ -174,7 +179,7 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
   const documento = documentoDeVenta(canal, formaPago ?? 'contado_efectivo', total)
   // Sin precio en Tango no hay venta: ni un ítem sin precio, ni un cliente sin lista.
   const itemsSinPrecio = items.some((i) => sinPrecio(i.productoId))
-  const bloqueaVenta = (noFacturable !== null && documento === 'factura_arca') || itemsSinPrecio || (items.length > 0 && sinPrecioMotivo !== null)
+  const bloqueaVenta = inhabilitado || (noFacturable !== null && documento === 'factura_arca') || itemsSinPrecio || (items.length > 0 && sinPrecioMotivo !== null)
 
   // Una operación de solo cambios no cobra nada: preguntarle al chofer cómo
   // cobró sobraría.
@@ -196,6 +201,7 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
     if (items.length === 0 && cambios.length === 0) { setError('Cargá al menos un producto o un cambio.'); return }
     if (seCobra && !formaPago) { setError('Elegí la forma de pago.'); return }
     if (formaPago === 'cuenta_corriente' && !ctaCte.ok) { setError(ctaCte.motivo ?? 'Este cliente no compra en cuenta corriente.'); return }
+    if (inhabilitado)        { setError(motivoInhabilitado(empresa)); return }
     if (bloqueaVenta)        { setError('A este cliente no se le puede facturar todavía. Mirá el aviso de arriba.'); return }
     if (!firmante.trim())    { setError('Poné el nombre de quien firma.'); return }
     const firma = firmaRef.current?.toDataURL()
@@ -364,7 +370,13 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
           {sinPrecioMotivo && (
             <p className="text-xs text-amber-600">{sinPrecioMotivo} No se puede vender hasta que se corrija en Tango y se sincronice.</p>
           )}
-          {noFacturable && (
+          {inhabilitado && (
+            <div className="rounded-lg border border-red-300 bg-red-50 p-3">
+              <p className="text-sm font-semibold text-red-800">Cliente inhabilitado en Tango</p>
+              <p className="mt-1 text-xs text-red-700">{motivoInhabilitado(empresa)}</p>
+            </div>
+          )}
+          {noFacturable && !inhabilitado && (
             bloqueaVenta ? (
               <div className="rounded-lg border border-red-300 bg-red-50 p-3">
                 <p className="text-sm font-semibold text-red-800">

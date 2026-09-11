@@ -29,6 +29,7 @@ import { useCopiasTicketVentanilla } from '@/hooks/useCopiasTicketVentanilla'
 import { empresaDeCanal, motivoSinPrecioTango, precioTangoDe } from '../../utils/precioTango'
 import { documentoDeVenta } from '../../utils/circuitoDocumento'
 import { esClienteFacturable, esCuitValido } from '../../utils/facturable'
+import { inhabilitadoEnTango, motivoInhabilitado } from '@/utils/inhabilitadoTango'
 import { admiteCuentaCorriente } from '@/utils/condicionVenta'
 import {
   CanalVenta, FormaPago, PLANTAS, VentaCamionItem, VentaVentanilla, type AnulacionEnVenta, type Rendicion,
@@ -190,6 +191,9 @@ export default function VentanillaPage() {
     return null
   }, [vaAFacturar, tipoCliente, cliente, ocasionalCuit, ocasionalDni, topeSinIdentificar, total])
 
+  // Inhabilitado en Tango en la empresa del canal: no se vende, con el documento que sea.
+  const avisoInhabilitado = tipoCliente === 'registrado' && cliente && inhabilitadoEnTango(cliente, empresa) ? motivoInhabilitado(empresa) : null
+
   const abrirConfirmacion = () => {
     setError('')
     if (tipoCliente === 'registrado' && !cliente) { setError('Elegí el cliente.'); return }
@@ -199,6 +203,7 @@ export default function VentanillaPage() {
     if (items.length === 0) { setError('Cargá al menos un producto.'); return }
     if (!formaPago) { setError('Elegí la forma de pago.'); return }
     if (formaPago === 'cuenta_corriente' && !ctaCte.ok) { setError(ctaCte.motivo ?? 'Cuenta corriente solo para clientes registrados.'); return }
+    if (avisoInhabilitado) { setError(avisoInhabilitado); return }
     if (avisoFiscal) { setError(avisoFiscal); return }
     setConfirmando(true)
   }
@@ -426,7 +431,13 @@ export default function VentanillaPage() {
           )}
         </div>
 
-        {avisoFiscal && (
+        {avisoInhabilitado && (
+          <div className="bg-red-50 border border-red-300 rounded-lg px-3 py-2 flex items-start gap-2">
+            <AlertTriangle size={16} className="text-red-700 mt-0.5 shrink-0" />
+            <p className="text-red-800 text-sm">{avisoInhabilitado}</p>
+          </div>
+        )}
+        {avisoFiscal && !avisoInhabilitado && (
           <div className="bg-amber-50 border border-amber-300 rounded-lg px-3 py-2 flex items-start gap-2">
             <AlertTriangle size={16} className="text-amber-700 mt-0.5 shrink-0" />
             <p className="text-amber-800 text-sm">{avisoFiscal}</p>
