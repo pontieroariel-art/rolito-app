@@ -14,6 +14,9 @@ export default function MenuComprobanteVenta({ venta, cai, compacto = false }: {
   const d = describirComprobante(venta)
   const titulo = `${d.etiqueta}${d.numero ? ` ${d.numero}` : ''}`
   const fecha = venta.fecha.toDate().toLocaleDateString('es-AR')
+  // El importe va solo en las facturas (ARCA o X): el remito es un documento
+  // de entrega y su mail no lleva plata (pedido de Ariel, 2026-09-11).
+  const esFactura = d.etiqueta.startsWith('Factura')
   const mail: DatosMail = {
     para: '',
     resolverPara: venta.clienteId ? () => getEmailClienteTango(venta.clienteId) : undefined,
@@ -26,7 +29,7 @@ export default function MenuComprobanteVenta({ venta, cai, compacto = false }: {
       titulo, emoji: d.etiqueta.startsWith('Factura') ? '🧾' : '🚚',
       filas: [
         { label: 'Fecha', value: fecha },
-        { label: 'Importe', value: formatoARS(venta.total) },
+        ...(esFactura ? [{ label: 'Importe', value: formatoARS(venta.total) }] : []),
         ...(venta.items.length ? [{ label: 'Detalle', value: venta.items.map((i) => `${i.cantidad} × ${i.nombre}`).join(', ').slice(0, 200) }] : []),
       ],
     },
