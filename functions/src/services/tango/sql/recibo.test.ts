@@ -313,6 +313,13 @@ describe('cheques de terceros (traza 2026-09-05: X0110600000002, cheque diferido
     expect(ejecutadas.some((e) => e.startsWith('SELECT ID_BANCO FROM BANCO'))).toBe(true)
     expect(ejecutadas.some((e) => e.startsWith('SELECT TOP 1 NRO_SUCURS'))).toBe(true)
   })
+  it('varios cheques en el mismo recibo reciben números internos distintos y consecutivos (RS-000184, IX_0)', async () => {
+    const { db } = fakeDb({ identity: ['SBA14', 'SBA23', 'MOVIMIENTO_CHEQUE_TERCERO'] })
+    const r3 = reciboDeCobranza({ ...pCheque, importe: 50000, imputaciones: [{ comprobanteTipo: 'FAC', comprobanteNumero: 'A0010100282315', importeImputado: 50000 }], medios: { efectivo: 0, transferencia: 0, retenciones: [],
+      cheques: [{ ...cheque, importe: 20000 }, { ...cheque, numero: '222', importe: 20000 }, { ...cheque, numero: '333', importe: 10000 }] } }, 'c', cfg)
+    const res = await escribirRecibo(db, r3, { ...cfg, cheques: { nroSucursal: 3, bancos: { '007': 209 } } })
+    expect(res.cheques.map((c) => c.nInterno)).toEqual([51097, 51098, 51099])
+  })
   it('con sucursal y banco en la config no consulta Tango por ellos', async () => {
     const { db, ejecutadas } = fakeDb({ identity: ['SBA14', 'SBA23', 'MOVIMIENTO_CHEQUE_TERCERO'] })
     await escribirRecibo(db, r, { ...cfg, cheques: { nroSucursal: 3, bancos: { '007': 209 } } })

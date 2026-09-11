@@ -1763,6 +1763,14 @@ Deploy: `onOutboxPendiente`, `barridoOutboxTango`, `onCobranzaCreada` (hecho el 
 `lib/sql/{comun,remito,movimientoStock,recibo}.js` + `bridge-sql.mjs` (paquete
 `DesktopRolitoSync-usuario-vendedor`, LEEME-VM.txt) y reiniciar el bridge.
 
+**Varios cheques en un recibo (2026-09-11).** RS-000184 (Melincue, 5 cheques) falló con `duplicate key`
+en `SBA14` (`IX_0` = `N_INTERNO`): el nº interno sale de MAX+1 y se pedía por cheque antes de insertar
+nada, así que los 5 recibían el mismo número; hasta ahí todos los recibos con cheque tenían uno solo.
+`escribirRecibo` ahora reserva números distintos y consecutivos dentro del mismo recibo (test). La
+transacción hizo rollback, en Tango no quedó nada a medias. Puesta en producción: copiar `recibo.js`
+a `C:\RolitoSync\sql\lib` (paquete Desktop `RolitoSync-cheques-multiples`, LEEME-VM.txt), reiniciar
+el bridge y reencolar con `reintentar-outbox.mjs cobranzas_NBuIM0WeFUKgzQV3bBLK`.
+
 ## 33. Nota de crédito de anulación de ventanilla → Facturador (2026-09-09)
 
 La NC que la app emite en ARCA al anular una factura de ventanilla (docs/arca §14) viaja a Tango por

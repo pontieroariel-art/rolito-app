@@ -660,6 +660,10 @@ async function leerDatosRecibo(db, r, cfg, identity) {
         const tabla = cfg.cheques?.tablaBancos ?? 'BANCO';
         const col = cfg.cheques?.columnaCodigoBanco ?? 'COD_BANCO';
         cheques = [];
+        // N_INTERNO sale de MAX+1 (SBA14 no tiene secuencia ni INCREMENTAL_VALUE) y los
+        // INSERT recién corren después: dos cheques del mismo recibo recibían el mismo
+        // número y SQL Server rechazaba el segundo (IX_0, RS-000184 con 5 cheques, 2026-09-11).
+        const reservados = new Set();
         for (const ch of r.cheques) {
             let idBanco = cfg.cheques?.bancos?.[ch.bancoCodigo];
             if (idBanco == null) {
@@ -668,7 +672,11 @@ async function leerDatosRecibo(db, r, cfg, identity) {
                     throw new Error(`el banco ${ch.bancoCodigo} del cheque ${ch.numero} no existe en Tango (${tabla}.${col}); cargarlo o mapearlo en config/tango.sql.recibo.cheques.bancos`);
                 idBanco = Number(b[0].ID_BANCO);
             }
-            cheques.push({ nInterno: await siguiente(db, 'SBA14', 'N_INTERNO'), idBanco });
+            let nInterno = await siguiente(db, 'SBA14', 'N_INTERNO');
+            while (reservados.has(nInterno))
+                nInterno++;
+            reservados.add(nInterno);
+            cheques.push({ nInterno, idBanco });
         }
     }
     const ids = {
