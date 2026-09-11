@@ -12,6 +12,7 @@ import {
   Timestamp,
   arrayUnion,
   limit,
+  limitToLast,
   writeBatch,
   runTransaction,
 } from 'firebase/firestore'
@@ -602,12 +603,15 @@ export const subscribeDriverOrders = (
   // Índice compuesto (driverId, date) ya existe en firestore.indexes.json
   const thirtyDaysAgo = Timestamp.fromDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
 
+  // Los 100 MÁS NUEVOS: con `limit(100)` un chofer con más de 100 pedidos en el
+  // mes veía los viejos y no el de hoy (Brian Gallo, 106 pedidos, 2026-09-11).
+  // `limitToLast` usa el mismo índice (driverId, date asc) y devuelve el final.
   const q = query(
     collection(db, ORDERS),
     where('driverId', '==', driverEmail),
     where('date', '>=', thirtyDaysAgo),
     orderBy('date', 'asc'),
-    limit(100),
+    limitToLast(100),
   )
   return onSnapshot(
     q,
