@@ -26,6 +26,7 @@ import {
 } from '../../types'
 import { reportError } from '@/services/observability'
 import SolicitarAnulacionModal from '@/components/expedicion/SolicitarAnulacionModal'
+import AnuladasDespuesDeCerrar from '@/components/expedicion/AnuladasDespuesDeCerrar'
 import { anulacionEnCurso } from '@/utils/anulacionVenta'
 import { tieneAlgunRol } from '@/utils/roles'
 
@@ -251,6 +252,8 @@ export default function LiquidacionesPage() {
                 <Button variant="outline" onClick={() => imprimir(cerrada)}><Printer size={16} className="mr-1.5" /> Reimprimir</Button>
                 <Button variant="outline" onClick={() => enviar(cerrada)}><Share2 size={16} className="mr-1.5" /> {compartible ? 'Enviar' : 'Descargar PDF'}</Button>
               </div>
+              {/* Ventas anuladas después del cierre (las pide la oficina, 2026-09-11): el cierre no se reabre. */}
+              {cerrada.anulacionesPosteriores?.length ? <div className="w-full"><AnuladasDespuesDeCerrar anulaciones={cerrada.anulacionesPosteriores} /></div> : null}
             </section>
           )}
 

@@ -7,6 +7,7 @@ import { formatoARS } from '@/utils/money'
 import { codigoDeEntregaId } from '@/utils/entregaTesoreria'
 import { useDiaActual } from '@/hooks/useDiaActual'
 import { MOTIVOS_DIFERENCIA_LIQUIDACION, PLANTAS, type Rendicion } from '@/types'
+import AnuladasDespuesDeCerrar from '@/components/expedicion/AnuladasDespuesDeCerrar'
 
 // Historial de cierres de caja (2026-09-09): mes × cajero, con la diferencia
 // de cada cierre y los totales por persona, para ver quién viene con
@@ -110,7 +111,7 @@ export default function RendicionesHistorialPage() {
                 <td className={`${td} text-right tabular-nums`}>{formatoARS(r.efectivoARendir)}</td>
                 <td className={`${td} text-right tabular-nums`}>{formatoARS(r.efectivoContado)}</td>
                 <td className={`${td} text-right`}>{dif(r.diferenciaEfectivo)}</td>
-                <td className={`${td} text-gray-600`}>{r.diferencia ? `${MOTIVOS_DIFERENCIA_LIQUIDACION[r.diferencia.motivo]}${r.diferencia.nota ? ` · ${r.diferencia.nota}` : ''}` : ''}</td>
+                <td className={`${td} text-gray-600`}>{r.diferencia ? `${MOTIVOS_DIFERENCIA_LIQUIDACION[r.diferencia.motivo]}${r.diferencia.nota ? ` · ${r.diferencia.nota}` : ''}` : ''}{r.anulacionesPosteriores?.length ? <span className="block"><AnuladasDespuesDeCerrar anulaciones={r.anulacionesPosteriores} compacto /></span> : null}</td>
                 <td className={td}>{r.validacion ? <span className="inline-flex items-center gap-1 text-xs text-[#0F6B4E]"><ShieldCheck size={13} /> {r.validacion.nombre}</span> : <span className="text-xs text-amber-700">Pendiente</span>}</td>
                 <td className={`${td} text-xs`}>{r.entregaId ? <span className="text-[#0F6B4E]">{codigoDeEntregaId(r.entregaId)}</span> : <span className="text-amber-700">en caja</span>}</td>
               </tr>

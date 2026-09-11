@@ -31,3 +31,16 @@ export async function getHistorialCliente(clienteId: string): Promise<HistorialC
   ])
   return { ventasCamion, ventasVentanilla, cobranzas }
 }
+
+/**
+ * Solo las ventas hechas con la app (camión y ventanilla) de un cliente, para
+ * Comprobantes de clientes (facturación anula ventas de días ya cerrados,
+ * 2026-09-11). Sin cobranzas: no hacen falta y facturación no las mira ahí.
+ */
+export async function getVentasCliente(clienteId: string): Promise<Pick<HistorialCliente, 'ventasCamion' | 'ventasVentanilla'>> {
+  const [ventasCamion, ventasVentanilla] = await Promise.all([
+    ultimos<VentaCamion>('ventasCamion', clienteId),
+    ultimos<VentaVentanilla>('ventasVentanilla', clienteId),
+  ])
+  return { ventasCamion, ventasVentanilla }
+}

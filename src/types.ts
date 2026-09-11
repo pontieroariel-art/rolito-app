@@ -516,6 +516,26 @@ export interface AnulacionEnVenta {
   anuladaEn?:   Timestamp
   fechaVenta?:  string   // yyyy-MM-dd (las reglas cotejan que la liquidación de ese día no esté cerrada)
   tango?:       { estado: 'pendiente_oficina' | 'confirmado'; en?: Timestamp }
+  /** Remito anulado por facturación sobre un día ya cerrado (sin control de liquidación). */
+  origen?:      'facturacion'
+}
+
+/**
+ * Anulación de una venta de un día YA CERRADO (2026-09-11): la liquidación del
+ * repartidor o el cierre de caja no se reabren; el server les anota esto en
+ * `anulacionesPosteriores` cuando la venta queda anulada.
+ */
+export interface AnulacionPosterior {
+  ventaId:       string
+  clienteNombre: string
+  total:         number
+  formaPago:     string
+  tipo:          'notaCredito' | 'notaCreditoX' | 'remito'
+  comprobante:   string   // "NC 01104-00000003", "NC X 01104-00000001", "Remito R0110500000700"
+  motivo:        string
+  nota:          string
+  pedidoPor:     string
+  en:            Timestamp
 }
 
 export interface AnulacionVentanilla {
@@ -523,6 +543,9 @@ export interface AnulacionVentanilla {
   ventaId:       string
   /** Ventanilla, o factura del camión pedida por caja desde la liquidación abierta (2026-09-11). */
   coleccion:     'ventasVentanilla' | 'ventasCamion'
+  /** Pedida por facturación desde Comprobantes de clientes sobre un día ya cerrado (2026-09-11). */
+  origen?:       'facturacion'
+  clienteId?:    string
   plantaId:      PlantaId
   /** Quien pide: el cajero de la venta (ventanilla) o el cajero que liquida (camión). */
   cajaId:        string
@@ -972,6 +995,8 @@ export interface Liquidacion {
   cantidadVentas?:    number
   cantidadCobranzas?: number
   clientesVisitados?: number
+  // Ventas de este cierre anuladas DESPUÉS de cerrar (lo escribe el server, 2026-09-11).
+  anulacionesPosteriores?: AnulacionPosterior[]
   cerradaPor:    { uid: string; nombre: string }
   createdAt:     Timestamp
 }
@@ -1057,6 +1082,8 @@ export interface Rendicion {
   validacion:    { uid: string; nombre: string; fecha: Timestamp; nota?: string } | null
   // Entrega a tesorería que la incluye (fase siguiente del plan de rendiciones).
   entregaId:     string | null
+  // Ventas de este cierre anuladas DESPUÉS de cerrar (lo escribe el server, 2026-09-11).
+  anulacionesPosteriores?: AnulacionPosterior[]
 }
 
 // ── Entrega de caja a tesorería (2026-09-09) ────────────────────────────────

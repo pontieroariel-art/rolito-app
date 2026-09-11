@@ -4,6 +4,7 @@ import { CheckSquare, FileDown, FileText, Files, Mail, RefreshCw, Search, Share2
 import Button from '@/components/ui/Button'
 import MenuCompartirPdf, { type DatosMail, type PdfGenerado } from '@/components/ui/MenuCompartirPdf'
 import EnvioLoteModal from '@/components/facturacion/EnvioLoteModal'
+import VentasAppCliente from '@/components/facturacion/VentasAppCliente'
 import { useAuth } from '@/context/AuthContext'
 import { useClientesIndex } from '@/hooks/useClientesIndex'
 import { useClienteSeleccionado } from '@/hooks/useClienteSeleccionado'
@@ -195,6 +196,7 @@ function PanelCliente({ uid, onCerrar }: { uid: string; onCerrar: () => void }) 
       <div className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-6 space-y-2">
         <Cabecera cliente={cliente} email="" onCerrar={onCerrar} />
         <p className="text-sm text-gray-600">Este cliente no está vinculado a Tango: no tiene facturas ni remitos para mostrar.</p>
+        <VentasAppCliente clienteUid={uid} />
       </div>
     )
   }
@@ -263,6 +265,9 @@ function PanelCliente({ uid, onCerrar }: { uid: string; onCerrar: () => void }) 
       </div>
 
       {aviso && <p className="text-xs text-amber-700 px-1">{aviso}</p>}
+
+      {/* Ventas hechas con la app: desde acá facturación anula las de días ya cerrados (2026-09-11). */}
+      <VentasAppCliente clienteUid={uid} />
 
       {(seleccion.size > 0 || ocupado) && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem)] max-w-3xl bg-white rounded-2xl border border-[#D3D1C7] shadow-xl p-3 flex flex-wrap items-center gap-2">

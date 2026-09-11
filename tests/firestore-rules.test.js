@@ -4447,3 +4447,63 @@ describe('remito de cta. cte. anulado por el chofer sin autorización (2026-09-1
     await assertFails(updateDoc(doc(db('chof1'), 'ventasCamion/r2'), anulacion({ tipo: 'factura' })))
   })
 })
+
+describe('anulación de ventas de días ya cerrados, pedida por facturación (2026-09-11)', () => {
+  const ventaCamion = (over = {}) => ({
+    canal: 'contado', camionId: '', choferId: 'chof1', choferNombre: 'C', clienteId: 'cli', clienteNombre: 'Cliente', items: [], total: 1000,
+    formaPago: 'contado_efectivo', fecha: new Date('2026-09-05T12:00:00-03:00'), pedidoId: null, factura: { estado: 'emitida', numero: 5, puntoVenta: 1104, cbteTipo: 1, cae: '1' }, ...over,
+  })
+  const ventaVentanilla = (over = {}) => ({
+    plantaId: 'torcuato', canal: 'contado', cajaId: 'caja1', cajaNombre: 'Caja', clienteId: 'cli', clienteNombre: 'Cliente', items: [], total: 1000, formaPago: 'contado_efectivo',
+    estado: 'entregado', turno: 1, turnoEstado: 'en_espera', fecha: new Date('2026-09-05T12:00:00-03:00'), factura: { estado: 'emitida', numero: 6, puntoVenta: 1104, cbteTipo: 1, cae: '1' }, ...over,
+  })
+  const seedTodos = () => seed(async (d) => {
+    await setDoc(doc(d, 'users/fac'), { rol: 'facturacion', estado: 'activo' })
+    await setDoc(doc(d, 'users/adm'), { rol: 'super_admin', estado: 'activo' })
+    await setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' })
+    await setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' })
+    await setDoc(doc(d, 'ventasCamion/fc1'), ventaCamion())
+    const { factura: _f, ...sinFactura } = ventaCamion()
+    await setDoc(doc(d, 'ventasCamion/fc2'), sinFactura)
+    await setDoc(doc(d, 'ventasCamion/fr1'), { ...sinFactura, formaPago: 'cuenta_corriente', comprobanteInterno: { tipo: 'remito', puntoVenta: 1105, numero: 700 } })
+    await setDoc(doc(d, 'ventasVentanilla/fv1'), ventaVentanilla())
+    // Cierres de ese día, ya hechos.
+    await setDoc(doc(d, 'liquidaciones/2026-09-05_chof1'), { fecha: '2026-09-05', choferId: 'chof1', plantaId: 'torcuato' })
+    await setDoc(doc(d, 'rendiciones/2026-09-05_caja1'), { fecha: '2026-09-05', sujetoId: 'caja1', plantaId: 'torcuato' })
+  })
+  const solicitud = (uid, ventaId, coleccion, over = {}) => ({
+    ventaId, coleccion, origen: 'facturacion', clienteId: 'cli', plantaId: 'torcuato', cajaId: uid, cajaNombre: 'F', clienteNombre: 'Cliente', fechaVenta: '2026-09-05',
+    ...(coleccion === 'ventasCamion' ? { choferId: 'chof1', choferNombre: 'C' } : {}),
+    facturaOriginal: { cbteTipo: 1, puntoVenta: 1104, numero: 5, cae: '1', total: 1000 }, items: [], total: 1000, formaPago: 'contado_efectivo',
+    motivo: 'cliente_equivocado', nota: '', estado: 'pendiente', solicitadoPor: { uid, nombre: 'F' }, solicitadaEn: new Date(), resueltaPor: null, ...over,
+  })
+
+  test('facturación (y el super_admin) piden anular una factura del camión o de ventanilla aunque el día esté cerrado', async () => {
+    await seedTodos()
+    await assertSucceeds(setDoc(doc(db('fac'), 'anulacionesVentanilla/fc1'), solicitud('fac', 'fc1', 'ventasCamion')))
+    await assertSucceeds(setDoc(doc(db('adm'), 'anulacionesVentanilla/fv1'), solicitud('adm', 'fv1', 'ventasVentanilla')))
+  })
+  test('sin origen facturación, con otro origen, por caja, sobre una venta sin factura, con otro chofer o con otro estado, no', async () => {
+    await seedTodos()
+    const { origen: _o, ...sinOrigen } = solicitud('fac', 'fc1', 'ventasCamion')
+    await assertFails(setDoc(doc(db('fac'), 'anulacionesVentanilla/fc1'), sinOrigen))
+    await assertFails(setDoc(doc(db('fac'), 'anulacionesVentanilla/fc1'), solicitud('fac', 'fc1', 'ventasCamion', { origen: 'caja' })))
+    // Caja no puede usar el atajo de facturación (su liquidación de ese día ya está cerrada).
+    await assertFails(setDoc(doc(db('caja1'), 'anulacionesVentanilla/fc1'), solicitud('caja1', 'fc1', 'ventasCamion')))
+    await assertFails(setDoc(doc(db('fac'), 'anulacionesVentanilla/fc2'), solicitud('fac', 'fc2', 'ventasCamion')))
+    await assertFails(setDoc(doc(db('fac'), 'anulacionesVentanilla/fc1'), solicitud('fac', 'fc1', 'ventasCamion', { choferId: 'otro' })))
+    await assertFails(setDoc(doc(db('fac'), 'anulacionesVentanilla/fc1'), solicitud('fac', 'fc1', 'ventasCamion', { estado: 'aprobada' })))
+    await assertFails(setDoc(doc(db('fac'), 'anulacionesVentanilla/fc1'), solicitud('fac', 'fc1', 'ventasCamion', { solicitadoPor: { uid: 'otro', nombre: 'X' } })))
+    await assertFails(setDoc(doc(db('chof1'), 'anulacionesVentanilla/fc1'), solicitud('chof1', 'fc1', 'ventasCamion')))
+  })
+  const anulacionRemito = (uid, over = {}) => ({ anulacion: { estado: 'anulada', solicitudId: '', tipo: 'remito', origen: 'facturacion', motivo: 'cliente_equivocado', nota: '', anuladaPor: { uid, nombre: 'F' }, anuladaEn: new Date(), fechaVenta: '2026-09-05', ...over } })
+  test('facturación anula un remito de cta. cte. de un día cerrado; el chofer no, y facturación tampoco sin origen ni sobre una factura', async () => {
+    await seedTodos()
+    await assertFails(updateDoc(doc(db('chof1'), 'ventasCamion/fr1'), anulacionRemito('chof1')))
+    const { anulacion: { origen: _o, ...sinOrigen } } = anulacionRemito('fac')
+    await assertFails(updateDoc(doc(db('fac'), 'ventasCamion/fr1'), { anulacion: sinOrigen }))
+    await assertFails(updateDoc(doc(db('fac'), 'ventasCamion/fc1'), anulacionRemito('fac')))
+    await assertFails(updateDoc(doc(db('caja1'), 'ventasCamion/fr1'), anulacionRemito('caja1')))
+    await assertSucceeds(updateDoc(doc(db('fac'), 'ventasCamion/fr1'), anulacionRemito('fac')))
+  })
+})

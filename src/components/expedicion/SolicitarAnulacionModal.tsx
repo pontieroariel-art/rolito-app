@@ -17,9 +17,12 @@ const nroFactura = (v: VentaAnulable['venta']) =>
 // solicitud queda esperando a alguien con permiso para autorizar. Recién con
 // la aprobación el server emite la nota de crédito. Desde el 2026-09-11 también
 // para la factura del camión, pedida desde la liquidación abierta del chofer.
-export default function SolicitarAnulacionModal({ objetivo, actor, onCerrar }: {
+// Con origen 'facturacion' (2026-09-11) la pide la oficina sobre una venta
+// de un día ya cerrado: el cierre no se reabre, el server le anota la anulación.
+export default function SolicitarAnulacionModal({ objetivo, actor, origen, onCerrar }: {
   objetivo: VentaAnulable
   actor: { uid: string; nombre: string }
+  origen?: 'facturacion'
   onCerrar: (pedida: boolean) => void
 }) {
   const venta = objetivo.venta
@@ -36,7 +39,7 @@ export default function SolicitarAnulacionModal({ objetivo, actor, onCerrar }: {
     if (!confirmo) { setError('Confirmá que entendés lo que pasa con la factura.'); return }
     setGuardando(true)
     try {
-      await solicitarAnulacion(objetivo, motivo, nota, actor)
+      await solicitarAnulacion(objetivo, motivo, nota, actor, { origen })
       onCerrar(true)
     } catch (err) {
       reportError(err, { origen: 'SolicitarAnulacionModal', accion: 'error al pedir la anulación' })
@@ -78,7 +81,9 @@ export default function SolicitarAnulacionModal({ objetivo, actor, onCerrar }: {
         </label>
 
         <p className="text-xs text-gray-500">
-          La anulación no sale sola: la tiene que autorizar alguien con permiso (recibe un aviso). Mientras esté pendiente, no vas a poder cerrar tu caja.
+          {origen
+            ? 'La anulación no sale sola: la tiene que autorizar alguien con permiso (recibe un aviso). La liquidación o la caja de ese día no se reabren: quedan con la anulación anotada.'
+            : 'La anulación no sale sola: la tiene que autorizar alguien con permiso (recibe un aviso). Mientras esté pendiente, no vas a poder cerrar tu caja.'}
         </p>
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div className="flex gap-2 pt-1">

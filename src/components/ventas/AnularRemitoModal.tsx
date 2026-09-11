@@ -11,9 +11,12 @@ import { MOTIVOS_ANULACION, type MotivoAnulacion, type VentaCamion } from '@/typ
 // autorización (2026-09-11, decisión de Ariel): elige el motivo y confirma. La
 // venta deja de contar en su liquidación y en el stock del camión; la oficina
 // recibe el aviso y anula el remito en Tango.
-export default function AnularRemitoModal({ venta, actor, onCerrar }: {
+// Con origen 'facturacion' lo usa la oficina sobre un día ya cerrado: la
+// liquidación no se reabre, el server le anota la anulación.
+export default function AnularRemitoModal({ venta, actor, origen, onCerrar }: {
   venta: VentaCamion
   actor: { uid: string; nombre: string }
+  origen?: 'facturacion'
   onCerrar: (anulada: boolean) => void
 }) {
   const [motivo, setMotivo] = useState<MotivoAnulacion | ''>('')
@@ -30,11 +33,11 @@ export default function AnularRemitoModal({ venta, actor, onCerrar }: {
     if (!confirmo) { setError('Confirmá que el remito queda sin efecto.'); return }
     setGuardando(true)
     try {
-      await anularRemitoChofer(venta, motivo, nota, actor)
+      await anularRemitoChofer(venta, motivo, nota, actor, { origen })
       onCerrar(true)
     } catch (err) {
       reportError(err, { origen: 'AnularRemitoModal', ventaId: venta.id })
-      setError('No se pudo anular. Si caja ya cerró tu liquidación de ese día, pedí la anulación a la oficina.')
+      setError(origen ? 'No se pudo anular. Probá de nuevo.' : 'No se pudo anular. Si caja ya cerró tu liquidación de ese día, pedí la anulación a la oficina.')
     } finally {
       setGuardando(false)
     }
@@ -57,7 +60,9 @@ export default function AnularRemitoModal({ venta, actor, onCerrar }: {
         <input value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Algo más que quieras aclarar (opcional)" className={inputClass} />
         <label className="flex items-start gap-2 text-sm text-gray-700">
           <input type="checkbox" checked={confirmo} onChange={(e) => setConfirmo(e.target.checked)} className="mt-1" />
-          <span>El remito queda sin efecto: no cuenta en mi liquidación y la mercadería vuelve a mi camión. Si el cliente se quedó con el hielo, hago la venta correcta.</span>
+          <span>{origen
+            ? <>El remito queda sin efecto en la app y hay que <b>anularlo en Tango</b>. La liquidación de <b>{venta.choferNombre}</b> de ese día ya está cerrada: no se reabre, queda anotada la anulación.</>
+            : 'El remito queda sin efecto: no cuenta en mi liquidación y la mercadería vuelve a mi camión. Si el cliente se quedó con el hielo, hago la venta correcta.'}</span>
         </label>
         {error && <p className="text-sm text-red-700">{error}</p>}
         <div className="flex gap-2 pt-1">

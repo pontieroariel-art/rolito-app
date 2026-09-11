@@ -175,12 +175,16 @@ export async function anularRemitoChofer(
   motivo: string,
   nota: string,
   actor: { uid: string; nombre: string },
+  // Días anteriores (2026-09-11): facturación anula desde Comprobantes de
+  // clientes aunque la liquidación esté cerrada; el server le anota al cierre.
+  opciones: { origen?: 'facturacion' } = {},
 ): Promise<void> {
   const fechaVenta = venta.fecha.toDate().toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' })
   await updateDoc(doc(db, VENTAS, venta.id), {
     anulacion: {
       estado: 'anulada', solicitudId: '', tipo: 'remito', motivo, nota: nota.trim(),
       anuladaPor: actor, anuladaEn: Timestamp.now(), fechaVenta,
+      ...(opciones.origen ? { origen: opciones.origen } : {}),
     },
   })
 }

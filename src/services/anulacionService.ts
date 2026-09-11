@@ -23,6 +23,10 @@ export async function solicitarAnulacion(
   motivo: MotivoAnulacion,
   nota: string,
   actor: { uid: string; nombre: string },
+  // Días anteriores (2026-09-11): facturación pide desde Comprobantes de
+  // clientes sobre una venta cuyo cierre ya se hizo; las reglas no controlan
+  // la liquidación ni la caja, y el server le anota la anulación al cierre.
+  opciones: { origen?: 'facturacion' } = {},
 ): Promise<void> {
   const { venta } = objetivo
   const f = venta.factura
@@ -40,6 +44,7 @@ export async function solicitarAnulacion(
     cajaId: actor.uid,
     cajaNombre: actor.nombre,
     ...(objetivo.coleccion === 'ventasCamion' ? { choferId: objetivo.venta.choferId, choferNombre: objetivo.venta.choferNombre } : {}),
+    ...(opciones.origen ? { origen: opciones.origen, ...(venta.clienteId ? { clienteId: venta.clienteId } : {}) } : {}),
     clienteNombre: venta.clienteNombre,
     fechaVenta: toDateStr(venta.fecha.toDate()),
     facturaOriginal,

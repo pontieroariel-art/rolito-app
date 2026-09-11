@@ -55,6 +55,9 @@ export type ResultadoEmisionNc = RegistroFactura | { estado: 'emitida'; interna:
 export interface AnulacionVentanilla {
   ventaId: string
   coleccion?: string
+  /** Pedida por facturación sobre una venta de un día ya cerrado (2026-09-11). */
+  origen?: 'facturacion'
+  clienteId?: string
   notaCreditoInterna?: NotaCreditoInterna
   estado: EstadoAnulacion
   motivo: string

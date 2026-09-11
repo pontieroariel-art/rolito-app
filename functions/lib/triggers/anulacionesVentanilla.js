@@ -36,12 +36,13 @@ function avisoSolicitud(a, venta) {
     const total = Number(venta?.total ?? 0);
     const camion = (0, anulacionVentanilla_1.coleccionDeAnulacion)(a) === 'ventasCamion';
     return {
-        titulo: camion ? 'Anulación de factura del camión por autorizar' : 'Anulación de factura por autorizar',
+        titulo: a.origen === 'facturacion' ? 'Anulación de una factura de un día ya cerrado por autorizar' : camion ? 'Anulación de factura del camión por autorizar' : 'Anulación de factura por autorizar',
         cuerpo: `${cliente} · ${pesos(total)}${camion && venta?.choferNombre ? ` · chofer ${String(venta.choferNombre)}` : ''} · ${a.motivo}${a.nota ? ` · ${a.nota}` : ''} (pidió ${a.solicitadoPor?.nombre ?? 'caja'})`,
     };
 }
-/** A dónde vuelve el que pidió: la ventanilla o la liquidación del chofer. */
-const urlDelSolicitante = (a) => ((0, anulacionVentanilla_1.coleccionDeAnulacion)(a) === 'ventasCamion' ? '/caja/liquidaciones' : '/caja/ventanilla');
+/** A dónde vuelve el que pidió: la ventanilla, la liquidación del chofer o, si pidió facturación, la ficha del cliente. */
+const urlDelSolicitante = (a) => a.origen === 'facturacion' ? `/admin/comprobantes${a.clienteId ? `?cliente=${a.clienteId}` : ''}`
+    : (0, anulacionVentanilla_1.coleccionDeAnulacion)(a) === 'ventasCamion' ? '/caja/liquidaciones' : '/caja/ventanilla';
 async function avisarAutorizantes(a, ventaId) {
     const db = (0, firestore_2.getFirestore)();
     const [autorizantes, venta] = await Promise.all([

@@ -7,6 +7,7 @@ import { formatoARS } from '../../utils/money'
 import { codigoDeEntregaId } from '@/utils/entregaTesoreria'
 import { useDiaActual } from '../../hooks/useDiaActual'
 import { Liquidacion, MOTIVOS_DIFERENCIA_LIQUIDACION, PLANTAS } from '../../types'
+import AnuladasDespuesDeCerrar from '@/components/expedicion/AnuladasDespuesDeCerrar'
 
 // Historial de liquidaciones (2026-09-06): mes × repartidor, con la diferencia
 // de efectivo de cada cierre y los totales por repartidor, para ver quién
@@ -109,7 +110,7 @@ export default function LiquidacionesHistorialPage() {
                 <td className={`${td} text-right tabular-nums`}>{formatoARS(l.efectivoRecibido)}</td>
                 <td className={`${td} text-right`}>{dif(l.diferenciaEfectivo)}</td>
                 <td className={`${td} text-right tabular-nums`}>{l.valoresFaltantes?.cantidad ? <span className="text-red-600 font-semibold">{l.valoresFaltantes.cantidad} · {formatoARS(l.valoresFaltantes.total)}</span> : '—'}</td>
-                <td className={`${td} text-gray-600`}>{l.diferencia ? `${MOTIVOS_DIFERENCIA_LIQUIDACION[l.diferencia.motivo]}${l.diferencia.nota ? ` · ${l.diferencia.nota}` : ''}` : ''}</td>
+                <td className={`${td} text-gray-600`}>{l.diferencia ? `${MOTIVOS_DIFERENCIA_LIQUIDACION[l.diferencia.motivo]}${l.diferencia.nota ? ` · ${l.diferencia.nota}` : ''}` : ''}{l.anulacionesPosteriores?.length ? <span className="block"><AnuladasDespuesDeCerrar anulaciones={l.anulacionesPosteriores} compacto /></span> : null}</td>
                 <td className={`${td} text-gray-600`}>{l.cerradaPor.nombre}{l.firmanteRepartidor ? ' · firmó' : ''}{l.firmaRecibe ? ' · recibió' : ''}</td>
                 <td className={`${td} text-xs`}>{l.entregaId ? <span className="text-[#0F6B4E]">{codigoDeEntregaId(l.entregaId)}</span> : l.entregaId === null ? <span className="text-amber-700">en caja</span> : '—'}</td>
               </tr>

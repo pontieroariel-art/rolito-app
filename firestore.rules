@@ -986,20 +986,30 @@ service cloud.firestore {
       // su venta, solo si salió por remito (sin factura de ARCA), sin anulación
       // previa y con la liquidación de ese día todavía abierta. La oficina lo
       // anula en Tango; el server anota el estado en Tango.
+      function remitoCtaCteAnulable() {
+        return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['anulacion'])
+          && !('anulacion' in resource.data)
+          && !('factura' in resource.data)
+          && resource.data.get('canal', '') == 'contado'
+          && resource.data.get('formaPago', '') == 'cuenta_corriente'
+          && resource.data.get('comprobanteInterno', {}).get('tipo', '') == 'remito'
+          && request.resource.data.anulacion.tipo == 'remito'
+          && request.resource.data.anulacion.estado == 'anulada'
+          && request.resource.data.anulacion.anuladaPor.uid == request.auth.uid
+          && request.resource.data.anulacion.motivo is string
+          && request.resource.data.anulacion.fechaVenta is string;
+      }
       allow update: if request.auth != null && isChofer()
         && resource.data.choferId == request.auth.uid
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['anulacion'])
-        && !('anulacion' in resource.data)
-        && !('factura' in resource.data)
-        && resource.data.get('canal', '') == 'contado'
-        && resource.data.get('formaPago', '') == 'cuenta_corriente'
-        && resource.data.get('comprobanteInterno', {}).get('tipo', '') == 'remito'
-        && request.resource.data.anulacion.tipo == 'remito'
-        && request.resource.data.anulacion.estado == 'anulada'
-        && request.resource.data.anulacion.anuladaPor.uid == request.auth.uid
-        && request.resource.data.anulacion.motivo is string
-        && request.resource.data.anulacion.fechaVenta is string
+        && remitoCtaCteAnulable()
+        && !('origen' in request.resource.data.anulacion)
         && !exists(/databases/$(database)/documents/liquidaciones/$(request.resource.data.anulacion.fechaVenta + '_' + request.auth.uid));
+      // Días anteriores (2026-09-11): facturación (o el super_admin) anula el
+      // remito de cualquier chofer aunque la liquidación ya esté cerrada; el
+      // server le anota la anulación al cierre, que no se reabre.
+      allow update: if request.auth != null && (isFacturacion() || isOperator())
+        && remitoCtaCteAnulable()
+        && request.resource.data.anulacion.get('origen', '') == 'facturacion';
 
       allow delete: if false;
     }
@@ -1519,17 +1529,40 @@ service cloud.firestore {
         && (isCaja() || isTesoreria() || isOperator() || isManager() || isGerenteGeneral() || isFacturacion()
             || puedeAutorizarAnulaciones());
 
+      // Días anteriores (2026-09-11, decisión de Ariel): la pide FACTURACIÓN (o
+      // el super_admin) desde Comprobantes de clientes, sobre cualquier venta
+      // facturada, aunque la liquidación o la caja de ese día ya estén
+      // cerradas. El cierre no se reabre: el server le anota la anulación.
+      function ventaDeDiaCerradoAnulable() {
+        let d = request.resource.data;
+        let col = d.get('coleccion', '');
+        let v = get(/databases/$(database)/documents/$(col)/$(anulacionId)).data;
+        return col in ['ventasVentanilla', 'ventasCamion']
+          && facturaEmitidaYSinAnulacion(v)
+          && d.fechaVenta is string
+          && (col == 'ventasVentanilla' || d.choferId == v.choferId);
+      }
+      function solicitudBienFormada() {
+        return request.resource.data.cajaId == request.auth.uid
+          && request.resource.data.solicitadoPor.uid == request.auth.uid
+          && request.resource.data.ventaId == anulacionId
+          && request.resource.data.estado == 'pendiente'
+          && request.resource.data.resueltaPor == null
+          && request.resource.data.motivo is string;
+      }
+
       allow create: if request.auth != null && isCajaDe(request.resource.data.plantaId)
-        && request.resource.data.cajaId == request.auth.uid
-        && request.resource.data.solicitadoPor.uid == request.auth.uid
-        && request.resource.data.ventaId == anulacionId
-        && request.resource.data.estado == 'pendiente'
-        && request.resource.data.resueltaPor == null
-        && request.resource.data.motivo is string
+        && solicitudBienFormada()
+        && !('origen' in request.resource.data)
         && (
           (request.resource.data.get('coleccion', 'ventasVentanilla') == 'ventasVentanilla' && ventaAnulable())
           || (request.resource.data.get('coleccion', '') == 'ventasCamion' && ventaCamionAnulable())
         );
+      allow create: if request.auth != null && (isFacturacion() || isOperator())
+        && solicitudBienFormada()
+        && request.resource.data.get('origen', '') == 'facturacion'
+        && request.resource.data.plantaId in ['torcuato', 'merlo']
+        && ventaDeDiaCerradoAnulable();
 
       allow update: if request.auth != null && puedeAutorizarAnulaciones()
         && resource.data.estado in ['pendiente', 'error']
