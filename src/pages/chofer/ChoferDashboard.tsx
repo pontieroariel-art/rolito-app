@@ -838,14 +838,33 @@ function DeliveryCard({ order, index, isFirst, chofer }: { order: Order; index: 
           <p className="text-xs text-gray-400 italic pl-10">"{order.notes}"</p>
         )}
 
-        <div className="flex gap-2 pt-1">
-          <Button variant="outline" onClick={openInMaps} className="flex-1 text-sm py-3">
-            📍 Abrir en Maps
-          </Button>
-          <Button onClick={() => setModal(true)} className="flex-1 text-sm py-3">
-            ✓ Entregado
-          </Button>
-        </div>
+        {order.numeroOC && (
+          <p className="pl-10"><span className="inline-block text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">Orden de compra {order.numeroOC}</span></p>
+        )}
+
+        {/* Cliente registrado: ENTREGAR arma la venta con el pedido (cantidades,
+            canal, pago, firma) y saca el remito o la factura en el mismo paso
+            (2026-09-11). Sin cliente en la app queda el "Entregado" de siempre. */}
+        {order.clientId && order.clientId !== 'externo' ? (
+          <>
+            <Link to={`/chofer/entregar/${order.id}`}
+              className="block w-full rounded-2xl bg-[#1D9E75] px-4 py-4 text-center text-lg font-black text-white shadow-sm active:scale-[.99] hover:bg-[#178760]">
+              ENTREGAR
+            </Link>
+            <Button variant="outline" onClick={openInMaps} className="w-full text-sm py-3">
+              📍 Abrir en Maps
+            </Button>
+          </>
+        ) : (
+          <div className="flex gap-2 pt-1">
+            <Button variant="outline" onClick={openInMaps} className="flex-1 text-sm py-3">
+              📍 Abrir en Maps
+            </Button>
+            <Button onClick={() => setModal(true)} className="flex-1 text-sm py-3">
+              ✓ Entregado
+            </Button>
+          </div>
+        )}
 
         <button
           onClick={() => setNoEntregadoModal(true)}
