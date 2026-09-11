@@ -2,7 +2,8 @@
  * configurar-nc-facturador.mjs — deja la nota de crédito del Facturador de Redonhielo con el
  * formato que usa la oficina (diagnóstico por SQL del 2026-09-10, ver docs/tango §33 y
  * scripts/tango/sql/16-17): tipo de comprobante **'C/E'** (el "CDE" del readme de Axoft
- * traducido a esta instalación; 'CDE' no existe y 'N/C' rebota "Items no puede ser vacío"),
+ * traducido a esta instalación; 'CDE' no existe y 'N/C' rebota "Items no puede ser vacío").
+ * 2026-09-11: Ariel pidió que sea 'NC' ("NC POR DEVOLUCION"); es el default ahora, --tipo X lo cambia,
  * con ítems y referencia a la factura (comprobanteCanceladoCompletamente: false).
  *
  * Después, opcionalmente, reencola los items de tango-outbox de notaCredito que quedaron en error.
@@ -31,6 +32,11 @@ const db = admin.firestore()
 const { FieldValue } = admin.firestore
 
 const REINTENTAR = process.argv.includes('--reintentar')
+// Tipo de comprobante de la NC en el Facturador. 2026-09-11, Ariel: tiene que ser 'NC'
+// ("NC POR DEVOLUCION"), no 'C/E' ("CRE P/ERROR FACT E/R"). --tipo X para cambiarlo.
+const tipoArg = process.argv.indexOf('--tipo')
+const TIPO_NC = tipoArg >= 0 ? String(process.argv[tipoArg + 1] ?? '').trim() : 'NC'
+if (!TIPO_NC) { console.error('Falta el valor de --tipo'); process.exit(1) }
 
 const ref = db.doc('config/tango')
 const antes = (await ref.get()).data()?.facturador?.redonhielo ?? {}
@@ -39,7 +45,7 @@ console.log('Antes :', JSON.stringify({ codigoTipoNC: antes.codigoTipoNC, ncCanc
 await ref.set({
   facturador: {
     redonhielo: {
-      codigoTipoNC:             'C/E',
+      codigoTipoNC:             TIPO_NC,
       ncCanceladoCompletamente: false,
       ncSinReferencia:          false,
     },
