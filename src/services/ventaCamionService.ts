@@ -37,6 +37,8 @@ export function crearVentaCamion(
     pedidoId?: string | null
     /** Número propio del remito / factura X, ya consumido de la reserva local. */
     comprobanteInterno?: ComprobanteInternoVenta
+    /** Nombre de la sucursal de Tango de la entrega (utils/sucursalesTango.nombreSucursalVenta). */
+    clienteSucursalNombre?: string
   },
   actor: ActorChofer,
 ): VentaCamion {
@@ -63,6 +65,7 @@ export function crearVentaCamion(
     ...(actor.depositoTango ? { depositoTango: actor.depositoTango, depositoTangoNombre: actor.depositoTangoNombre ?? '' } : {}),
     ...(args.cliente.codigoTango   ? { clienteCodigoTango:  args.cliente.codigoTango } : {}),
     ...(args.cliente.idGva14Tango != null ? { clienteIdGva14Tango: args.cliente.idGva14Tango } : {}),
+    ...(args.clienteSucursalNombre ? { clienteSucursalNombre: args.clienteSucursalNombre } : {}),
     ...(args.firmaCliente   ? { firmaCliente: args.firmaCliente } : {}),
     ...(args.firmanteNombre ? { firmanteNombre: args.firmanteNombre.trim() } : {}),
     ...(args.comprobanteInterno ? { comprobanteInterno: args.comprobanteInterno } : {}),

@@ -7,6 +7,7 @@ import { subscribeVentanillaDelDia } from '../../services/ventaVentanillaService
 import {
   DARSENAS_POR_PLANTA, DARSENAS_VENTANILLA, PLANTAS, RemitoCarga, VentaVentanilla,
 } from '../../types'
+import { nombreClienteVenta } from '@/utils/nombreClienteVenta'
 
 // Tablero de TV del muelle (/muelle/tv) — diseño "E1 Neón oscuro" elegido por
 // Ariel (2026-08-30) sobre la info de la variante E "Operativo": los
@@ -211,7 +212,7 @@ export default function MuelleTvPage() {
                 <div className="flex flex-col gap-2 mt-1.5 min-h-0 overflow-hidden">
                   {v.items.map((i) => filaProducto(i.productoId, corto(i.productoId, i.nombre), i.cantidad, 'rgba(34,197,94,0.3)'))}
                 </div>
-                <p className="mt-auto text-[26px] text-gray-400 truncate">{v.clienteNombre}</p>
+                <p className="mt-auto text-[26px] text-gray-400 truncate">{nombreClienteVenta(v)}</p>
               </div>
             ) : (
               <div key={n} className="rounded-[20px] p-[18px] flex flex-col border-[5px] border-gray-800 bg-[#0b1220]">

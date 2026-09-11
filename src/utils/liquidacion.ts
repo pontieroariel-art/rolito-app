@@ -5,6 +5,7 @@ import {
 import { nombreDelCambio, productoDelCambio } from './cambios'
 import { cuadrarEnvases } from './envases'
 import { chequesDe, efectivoDe, retencionesDe, sumaImportes, transferenciaDe } from './medios'
+import { nombreClienteVenta } from '@/utils/nombreClienteVenta'
 
 // Cálculo puro de la liquidación del repartidor — replica la hoja
 // "Liquidación de repartidores" del sistema viejo: por producto, carga −
@@ -210,7 +211,7 @@ export function clasificarReparto(
   const cambiosLista: CambioDelReparto[] = ventas
     .filter((v) => (v.cambios ?? []).length > 0)
     .sort(porFecha)
-    .map((v) => ({ ventaId: v.id, fecha: v.fecha, clienteId: v.clienteId, clienteNombre: v.clienteNombre, clienteCodigoTango: v.clienteCodigoTango, items: v.cambios ?? [], venta: v }))
+    .map((v) => ({ ventaId: v.id, fecha: v.fecha, clienteId: v.clienteId, clienteNombre: nombreClienteVenta(v), clienteCodigoTango: v.clienteCodigoTango, items: v.cambios ?? [], venta: v }))
   for (const c of cambiosLegacy.slice().sort(porFecha)) {
     cambiosLista.push({ ventaId: c.id, fecha: c.fecha, clienteId: c.clienteId, clienteNombre: c.clienteNombre, items: [{ productoId: c.productoId, nombre: c.nombre, cantidad: c.cantidad, precioUnitario: 0 }] })
   }
@@ -220,15 +221,19 @@ export function clasificarReparto(
   const problemas = ventas.slice().sort(porFecha).map((venta) => ({ venta, motivos: problemasDe(venta) })).filter((p) => p.motivos.length > 0)
   const problemasPorVenta = new Map(problemas.map((p) => [p.venta.id, p.motivos.length]))
 
+  // Una fila por cliente Y sucursal (código de Tango): dos entregas a distintas
+  // sucursales de la misma cuenta no se mezclan (2026-09-11). Sin código, por cliente.
   const clientes = new Map<string, ClienteDelReparto>()
   const cli = (id: string, nombre: string, codigo?: string) => {
-    let c = clientes.get(id)
-    if (!c) { c = { clienteId: id, nombre, codigoTango: codigo ?? '', contado: 0, cuentaCorriente: 0, promo: 0, cobrado: 0, cambios: 0, ventas: 0, cobranzas: 0, problemas: 0 }; clientes.set(id, c) }
+    // Sin código (cobranza simple, cambio legacy) cae en la fila que ya exista del cliente.
+    const clave = codigo ? `${id}|${codigo}` : ([...clientes.keys()].find((k) => k === id || k.startsWith(`${id}|`)) ?? id)
+    let c = clientes.get(clave)
+    if (!c) { c = { clienteId: id, nombre, codigoTango: codigo ?? '', contado: 0, cuentaCorriente: 0, promo: 0, cobrado: 0, cambios: 0, ventas: 0, cobranzas: 0, problemas: 0 }; clientes.set(clave, c) }
     if (!c.codigoTango && codigo) c.codigoTango = codigo
     return c
   }
   for (const v of ventas) {
-    const c = cli(v.clienteId, v.clienteNombre, v.clienteCodigoTango)
+    const c = cli(v.clienteId, nombreClienteVenta(v), v.clienteCodigoTango)
     c.ventas++
     if (v.canal === 'promo') c.promo += v.total
     else if (v.formaPago === 'cuenta_corriente') c.cuentaCorriente += v.total

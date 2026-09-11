@@ -138,6 +138,10 @@ export interface VentaCamion {
   clienteNombre:        string
   clienteCodigoTango?:  string     // COD_GVA14 (para el remito en Tango)
   clienteIdGva14Tango?: number
+  /** Nombre de la sucursal de Tango donde se entregó (razón social del código), cuando
+   *  la cuenta tiene varias y difiere del nombre de la cuenta. Los listados lo muestran
+   *  en vez de `clienteNombre` (utils/nombreClienteVenta.ts, 2026-09-11). */
+  clienteSucursalNombre?: string
   items:                VentaCamionItem[]
   // Bolsas rotas que el cliente devuelve y el chofer repone, sin cargo.
   // Renglones del documento que salga de la operación (factura si se cobró en
@@ -408,6 +412,7 @@ export interface VentaVentanilla {
   clienteNombre:        string
   clienteCodigoTango?:  string
   clienteIdGva14Tango?: number
+  clienteSucursalNombre?: string   // ver VentaCamion.clienteSucursalNombre
   // Ocasional: consumidor final. CUIT o DNI si los tiene; sin ninguno, la
   // factura sale "sin identificar" hasta el tope de config/arca.
   clienteOcasional?:    { nombre: string; cuit?: string; dni?: string }
@@ -1190,6 +1195,10 @@ export interface UserProfile {
   // activo pero la app no le vende en esa empresa (contado/cta. cte. = Redonhielo,
   // promo = Rolito). Ver utils/inhabilitadoTango.ts. Ausente = habilitado.
   habilitadoTango?: Partial<Record<EmpresaTango, boolean>>
+  // Percepción de IIBB CABA (padrón de AGIP, lo carga functions/triggers/padronIIBB):
+  // alícuota y mes de vigencia. La factura la aplica el server; la pantalla de
+  // venta la muestra en el total con IVA (utils/totalFacturado.ts).
+  percepcionIIBB?: { alicuota?: number; vigenciaDesde?: string | Timestamp; vigenciaHasta?: string | Timestamp } | null
   // Fecha del último pedido del cliente, que mantiene el trigger onOrderRollup
   // (monotónico). Sirve para detectar clientes "fríos" sin recorrer todos los
   // pedidos — ver auditoría H5.

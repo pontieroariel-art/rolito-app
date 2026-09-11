@@ -15,6 +15,7 @@ import { codigoComprobanteInterno } from '@/services/numeracionInternaService'
 import { caiRemitoOficialCacheado, getCaiRemitoOficial } from '@/services/remitoOficialConfigService'
 import MenuComprobanteVenta from '@/components/ventas/MenuComprobanteVenta'
 import { VentaCamion } from '@/types'
+import { nombreClienteVenta } from '@/utils/nombreClienteVenta'
 
 const money = (n: number) =>
   n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -95,7 +96,7 @@ export default function VentasChofer({ volverA = '/chofer' }: { volverA?: string
             return (
               <article key={v.id} className="rounded-xl border border-[#E4E2D9] bg-white p-4 shadow-sm">
                 <div className="flex items-baseline justify-between gap-3">
-                  <span className="font-semibold text-gray-800">{v.clienteNombre}</span>
+                  <span className="font-semibold text-gray-800">{nombreClienteVenta(v)}</span>
                   <span className="font-mono text-sm font-semibold tabular-nums text-gray-900">
                     ${money(v.total)}
                   </span>

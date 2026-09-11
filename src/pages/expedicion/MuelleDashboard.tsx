@@ -23,6 +23,7 @@ import {
 import { reportError } from '@/services/observability'
 import RacksInput from '@/components/expedicion/RacksInput'
 import { describirEnvases, describirRacks, envasesDeDescarga, envasesDeRemito } from '@/utils/envases'
+import { nombreClienteVenta } from '@/utils/nombreClienteVenta'
 
 const ENVASES_VACIOS: EnvasesDescarga = { tarimasMadera: 0, palletsMetal: 0, puntales: 0, aros: 0, racks: [] }
 
@@ -260,7 +261,7 @@ export default function MuelleDashboard() {
                     {v.turno}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 truncate">{v.clienteNombre}</p>
+                    <p className="text-sm font-semibold text-gray-900 truncate">{nombreClienteVenta(v)}</p>
                     <p className="text-xs text-gray-500">
                       {v.turnoEstado === 'llamado' && v.darsena
                         ? `Llamado a dársena ${v.darsena}`
@@ -313,7 +314,7 @@ export default function MuelleDashboard() {
                     <span className="shrink-0 w-10 h-10 rounded-lg bg-white border border-red-200 text-red-600 font-black flex items-center justify-center">
                       {v.turno}
                     </span>
-                    <p className="flex-1 text-sm text-gray-800 truncate">{v.clienteNombre}</p>
+                    <p className="flex-1 text-sm text-gray-800 truncate">{nombreClienteVenta(v)}</p>
                     {darsenasVentanilla.map((n) => (
                       <Button
                         key={n}

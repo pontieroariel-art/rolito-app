@@ -19,7 +19,9 @@ import { subscribeRendicion } from '@/services/rendicionService'
 import {
   crearVentaVentanilla, subscribeVentaVentanilla, subscribeVentanillaDelDia,
 } from '../../services/ventaVentanillaService'
-import { getTopeConsumidorFinalSinIdentificar } from '../../services/arcaConfigService'
+import { getPreciosIncluyenIva, getTopeConsumidorFinalSinIdentificar } from '../../services/arcaConfigService'
+import { desgloseFactura, percepcionVigenteDe } from '@/utils/totalFacturado'
+import { nombreSucursalVenta } from '@/utils/sucursalesTango'
 import type { FacturaArcaData } from '../../utils/facturaArcaPdf'
 import { armarFacturaDeVenta, armarNotaCreditoDeVenta } from '../../utils/facturaDeVenta'
 import { generateTicketsVentanilla, type TurnoTicketData } from '@/utils/ventanillaTicket'
@@ -117,6 +119,9 @@ export default function VentanillaPage() {
   useEffect(() => subscribeVentanillaDelDia(plantaId, fecha, setVentas), [plantaId, fecha])
   useEffect(() => { if (!user) return; return subscribeRendicion(dia, user.uid, setCerrada) }, [user, dia])
   useEffect(() => { getTopeConsumidorFinalSinIdentificar().then(setTopeSinIdentificar) }, [])
+  // Con precios netos la factura suma el IVA: se muestra el total que va a salir (2026-09-11).
+  const [preciosIncluyenIva, setPreciosIncluyenIva] = useState(false)
+  useEffect(() => { getPreciosIncluyenIva().then(setPreciosIncluyenIva) }, [])
   // Copias del comprobante de turno (original cliente / duplicado muelle /
   // triplicado seguridad) según config/ventanilla; aplica también a la reimpresión.
   const copiasTicket = useCopiasTicketVentanilla()
@@ -172,6 +177,10 @@ export default function VentanillaPage() {
   // que factura, que es justo cuando hace falta avisar.
   const documento = documentoDeVenta(canal, formaPago ?? 'contado_efectivo', total)
   const vaAFacturar = documento === 'factura_arca'
+  // Neto + IVA + percepción de IIBB (solo cliente registrado en el padrón): lo que va a facturar ARCA.
+  const conIva = vaAFacturar && items.length > 0
+    ? desgloseFactura(items, { preciosIncluyenIva, percepcionAlicuota: tipoCliente === 'registrado' ? percepcionVigenteDe(cliente) : 0 })
+    : null
 
   // Aviso fiscal ANTES de cobrar (la autoridad es el servidor; esto evita
   // cobrar una venta cuya factura va a rebotar).
@@ -283,7 +292,7 @@ export default function VentanillaPage() {
         {
           canal,
           cliente: tipoCliente === 'registrado' && cliente
-            ? (() => { const c = clienteEnSucursal(cliente, empresaDeCanal(canal), sucursal); return { uid: c.uid, nombre: c.razonSocial || c.nombre, codigoTango: c.codigoTango, idGva14Tango: c.idGva14Tango } })()
+            ? (() => { const c = clienteEnSucursal(cliente, empresaDeCanal(canal), sucursal); return { uid: c.uid, nombre: c.razonSocial || c.nombre, codigoTango: c.codigoTango, idGva14Tango: c.idGva14Tango, sucursalNombre: nombreSucursalVenta(cliente, empresaDeCanal(canal), c.codigoTango) } })()
             : undefined,
           ocasional: tipoCliente === 'ocasional'
             ? {
@@ -451,7 +460,10 @@ export default function VentanillaPage() {
         )}
 
         <div className="flex items-center justify-between gap-3">
-          <p className="text-lg font-bold text-gray-900">Total: {money(total)}</p>
+          <div>
+            <p className="text-lg font-bold text-gray-900">{conIva ? 'Total con IVA' : 'Total'}: {money(conIva ? conIva.total : total)}</p>
+            {conIva && <p className="text-xs text-gray-500 tabular-nums">Neto {money(conIva.neto)} · IVA {money(conIva.iva)}{conIva.percepcion > 0 ? ` · Perc. IIBB ${money(conIva.percepcion)}` : ''}</p>}
+          </div>
           <Button onClick={abrirConfirmacion} disabled={items.length === 0 || sinPrecioMotivo !== null || items.some((i) => sinPrecio(i.productoId)) || faltaSucursal}>
             {vaAFacturar ? 'Cobrar y facturar' : 'Cobrar y emitir comprobante'}
           </Button>
@@ -530,8 +542,15 @@ export default function VentanillaPage() {
                   <span className="font-medium text-gray-900">{money(i.precioUnitario * i.cantidad)}</span>
                 </div>
               ))}
+              {conIva && (
+                <div className="px-3 py-1.5 text-xs text-gray-500 tabular-nums space-y-0.5 border-t border-gray-100">
+                  <p className="flex justify-between"><span>Neto</span><span>{money(conIva.neto)}</span></p>
+                  <p className="flex justify-between"><span>IVA 21 %</span><span>{money(conIva.iva)}</span></p>
+                  {conIva.percepcion > 0 && <p className="flex justify-between"><span>Percepción IIBB</span><span>{money(conIva.percepcion)}</span></p>}
+                </div>
+              )}
               <div className="flex justify-between px-3 py-1.5 bg-gray-50 font-semibold">
-                <span>Total</span><span>{money(total)}</span>
+                <span>{conIva ? 'Total con IVA' : 'Total'}</span><span>{money(conIva ? conIva.total : total)}</span>
               </div>
             </div>
             <p className="text-xs text-gray-500">

@@ -32,6 +32,9 @@ import {
 } from '../../services/numeracionInternaService'
 import { useOnline } from '../../hooks/useOnline'
 import { inhabilitadoEnTango, motivoInhabilitado } from '@/utils/inhabilitadoTango'
+import { desgloseFactura, percepcionVigenteDe } from '@/utils/totalFacturado'
+import { nombreSucursalVenta } from '@/utils/sucursalesTango'
+import { getPreciosIncluyenIva } from '@/services/arcaConfigService'
 import { FormaPago, CanalVenta, VentaCamionItem, ComprobanteInternoVenta, TipoComprobanteInterno } from '../../types'
 
 const CANALES: { id: CanalVenta; titulo: string; empresa: string; color: string; icon: typeof Tag }[] = [
@@ -104,7 +107,12 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
   const [resumenOpen, setResumenOpen] = useState(false)
   const [firmaPreview, setFirmaPreview] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
-  const [exito, setExito] = useState<{ cliente: string; total: number; documento: string | null } | null>(null)
+  const [exito, setExito] = useState<{ cliente: string; total: number; conIva: boolean; documento: string | null } | null>(null)
+  // ¿Los precios de lista ya traen el IVA? (config/arca). Con precios netos, la
+  // factura suma el 21 %: la pantalla lo muestra para que el chofer le diga al
+  // cliente el importe que va a salir en la factura (pedido de Ariel, 2026-09-11).
+  const [preciosIncluyenIva, setPreciosIncluyenIva] = useState(false)
+  useEffect(() => { getPreciosIncluyenIva().then(setPreciosIncluyenIva) }, [])
   const [error, setError] = useState('')
 
   // Numeración propia del remito / factura X (lo que sale cuando no factura
@@ -177,6 +185,11 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
   // todavía asumimos la que factura: es justo el caso en el que hace falta
   // avisar que a este cliente no se le puede facturar.
   const documento = documentoDeVenta(canal, formaPago ?? 'contado_efectivo', total)
+  // Lo que va a facturar ARCA (neto + IVA + percepción de IIBB del cliente), solo
+  // cuando el papel es la factura electrónica. Réplica del cálculo del server.
+  const conIva = documento === 'factura_arca' && items.length > 0
+    ? desgloseFactura(items, { preciosIncluyenIva, percepcionAlicuota: percepcionVigenteDe(cliente) })
+    : null
   // Sin precio en Tango no hay venta: ni un ítem sin precio, ni un cliente sin lista.
   const itemsSinPrecio = items.some((i) => sinPrecio(i.productoId))
   const bloqueaVenta = inhabilitado || (noFacturable !== null && documento === 'factura_arca') || itemsSinPrecio || (items.length > 0 && sinPrecioMotivo !== null)
@@ -234,13 +247,15 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
         {
           canal, cliente: clienteVenta, items, cambios, formaPago: formaPagoFinal,
           firmaCliente: firmaPreview ?? undefined, firmanteNombre: firmante, comprobanteInterno,
+          clienteSucursalNombre: nombreSucursalVenta(cliente, empresa, clienteVenta.codigoTango),
         },
         { uid: user.uid, nombre: user.nombre, camionId: camionIdHoy, ...depositoVenta },
       )
       if (tipoInterno) precargarSiSeAcerca(tipoInterno, user.uid, online)
       setExito({
         cliente: cliente.razonSocial || cliente.nombre,
-        total,
+        total: conIva?.total ?? total,
+        conIva: conIva !== null,
         documento: tipoInterno
           ? `${ETIQUETA_COMPROBANTE[tipoInterno]} ${comprobanteInterno ? codigoComprobanteInterno(comprobanteInterno) : 'sin número'}`
           : null,
@@ -274,6 +289,7 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
           <h2 className="text-2xl font-black animate-in fade-in-0 slide-in-from-bottom-1 duration-300">¡Venta registrada!</h2>
           <p className="text-gray-500 mt-1 animate-in fade-in-0 duration-500">{exito.cliente}</p>
           <p className="text-4xl font-black tabular-nums mt-4 animate-in zoom-in-95 duration-300">{money(exito.total)}</p>
+          {exito.conIva && <p className="text-xs text-gray-500 mt-1">IVA incluido, como sale en la factura</p>}
           <div className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-500/10 border border-amber-500/30 rounded-full px-3 py-1.5">
             {exito.documento
               ? <><FileText size={13} /> {exito.documento} — entregalo desde Mis ventas</>
@@ -539,9 +555,14 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
         <div className="max-w-lg mx-auto flex items-center gap-3">
           <div className="flex-1">
             <p className="text-[11px] uppercase tracking-wide text-gray-400">
-              Total{unidades > 0 ? ` · ${unidades} u.` : ''}{unidadesCambio > 0 ? ` · ${unidadesCambio} cambio` : ''}
+              {conIva ? 'Total con IVA' : 'Total'}{unidades > 0 ? ` · ${unidades} u.` : ''}{unidadesCambio > 0 ? ` · ${unidadesCambio} cambio` : ''}
             </p>
-            <p className="text-2xl font-black tabular-nums leading-none">{money(total)}</p>
+            <p className="text-2xl font-black tabular-nums leading-none">{money(conIva ? conIva.total : total)}</p>
+            {conIva && (
+              <p className="text-[11px] text-gray-500 mt-0.5 tabular-nums">
+                Neto {money(conIva.neto)} · IVA {money(conIva.iva)}{conIva.percepcion > 0 ? ` · Perc. IIBB ${money(conIva.percepcion)}` : ''}
+              </p>
+            )}
           </div>
           <Button
             onClick={abrirResumen}
@@ -596,9 +617,16 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
                 <p className="text-sm font-semibold tabular-nums shrink-0 text-gray-400">{money(0)}</p>
               </div>
             ))}
+            {conIva && (
+              <div className="px-3.5 py-2 text-xs text-gray-500 tabular-nums space-y-0.5 border-t border-[#D3D1C7]">
+                <p className="flex justify-between"><span>Neto</span><span>{money(conIva.neto)}</span></p>
+                <p className="flex justify-between"><span>IVA 21 %</span><span>{money(conIva.iva)}</span></p>
+                {conIva.percepcion > 0 && <p className="flex justify-between"><span>Percepción IIBB</span><span>{money(conIva.percepcion)}</span></p>}
+              </div>
+            )}
             <div className="flex items-center justify-between px-3.5 py-3 bg-[#F8F7F2]">
-              <span className="text-sm font-semibold text-gray-600">Total</span>
-              <span className="text-xl font-black tabular-nums">{money(total)}</span>
+              <span className="text-sm font-semibold text-gray-600">{conIva ? 'Total con IVA' : 'Total'}</span>
+              <span className="text-xl font-black tabular-nums">{money(conIva ? conIva.total : total)}</span>
             </div>
           </div>
 

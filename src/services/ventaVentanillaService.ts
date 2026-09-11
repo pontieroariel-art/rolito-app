@@ -35,7 +35,7 @@ const COUNTER_REF = (tipo: TipoComprobanteInterno) => doc(db, 'config', `numerac
 export async function crearVentaVentanilla(
   args: {
     canal:      CanalVenta
-    cliente?:   { uid: string; nombre: string; codigoTango?: string; idGva14Tango?: number }
+    cliente?:   { uid: string; nombre: string; codigoTango?: string; idGva14Tango?: number; sucursalNombre?: string }
     ocasional?: { nombre: string; cuit?: string; dni?: string }
     items:      VentaCamionItem[]
     formaPago:  FormaPago
@@ -93,6 +93,7 @@ export async function crearVentaVentanilla(
       ...(args.cliente ? { clienteId: args.cliente.uid } : {}),
       ...(args.cliente?.codigoTango ? { clienteCodigoTango: args.cliente.codigoTango } : {}),
       ...(args.cliente?.idGva14Tango != null ? { clienteIdGva14Tango: args.cliente.idGva14Tango } : {}),
+      ...(args.cliente?.sucursalNombre ? { clienteSucursalNombre: args.cliente.sucursalNombre } : {}),
       ...(args.ocasional ? { clienteOcasional: args.ocasional } : {}),
       ...(comprobanteInterno ? { comprobanteInterno } : {}),
     }

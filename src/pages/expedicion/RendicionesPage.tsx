@@ -21,6 +21,7 @@ import { TilesMostrador } from '@/components/expedicion/MiDiaMostrador'
 import { Plegable } from '@/components/ui/Plegable'
 import CierreLiquidacionModal, { type DatosCierre, type TextosCierre } from '@/components/expedicion/liquidacion/CierreLiquidacionModal'
 import { MOTIVOS_CIERRE_MOSTRADOR, MOTIVOS_DIFERENCIA_LIQUIDACION, type Rendicion, type VentaVentanilla } from '@/types'
+import { nombreClienteVenta } from '@/utils/nombreClienteVenta'
 
 const TEXTOS_CAJA: TextosCierre = {
   titulo: 'Cerrar mi caja', sujeto: 'caja', aRendir: 'Efectivo en caja', recibido: 'Contado',
@@ -189,7 +190,7 @@ export default function RendicionesPage() {
               <tr key={v.id} className={`${ventasFuera.includes(v) ? 'opacity-60' : ''} ${v.anulacion?.estado === 'anulada' ? 'line-through text-gray-400' : ''}`}>
                 <td className={td}>{v.turno}</td>
                 <td className={td}>{v.fecha.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</td>
-                <td className={td}>{v.clienteNombre}</td>
+                <td className={td}>{nombreClienteVenta(v)}</td>
                 <td className={td}>{v.canal === 'promo' ? 'Promo' : 'Contado'}</td>
                 <td className={td}>{FORMA[v.formaPago] ?? v.formaPago}</td>
                 <td className={`${td} text-gray-600`}>{comprobanteDe(v)}{v.anulacion?.estado === 'anulada' ? <span className="ml-1 no-underline text-red-600 font-semibold">ANULADA</span> : v.anulacion && (v.anulacion.estado === 'pendiente' || v.anulacion.estado === 'aprobada') ? <span className="ml-1 text-amber-700">anulación pendiente</span> : null}</td>

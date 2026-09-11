@@ -9,6 +9,7 @@ import { subscribeVentanillaDelDia, marcarSalidaVentanilla } from '../../service
 import { PLANTAS, RemitoCarga, VentaVentanilla } from '../../types'
 import { reportError } from '@/services/observability'
 import { useCotConfig } from '@/hooks/useCotConfig'
+import { nombreClienteVenta } from '@/utils/nombreClienteVenta'
 
 const horaDe = (t: { toDate: () => Date }) =>
   t.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
@@ -130,7 +131,7 @@ export default function SeguridadDashboard() {
             {retirosPorSalir.map((v) => (
               <div key={v.id} className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-3 space-y-2">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold text-gray-900">{v.clienteNombre}</p>
+                  <p className="text-sm font-semibold text-gray-900">{nombreClienteVenta(v)}</p>
                   <p className="text-xs text-gray-500">{v.items.reduce((s, i) => s + i.cantidad, 0)} bultos</p>
                 </div>
                 <div className="text-xs text-gray-600 space-y-0.5">

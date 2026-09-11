@@ -48,6 +48,24 @@ export function etiquetaSucursal(s: SucursalTango): string {
 }
 
 /**
+ * Nombre de la sucursal para guardar en la venta (`clienteSucursalNombre`): la
+ * razón social o el nombre comercial que Tango le da a ESE código, o el nombre
+ * de la dirección en la app. Solo cuando la cuenta tiene más de una sucursal en
+ * la empresa y el nombre distingue algo (no es "Principal" ni el de la cuenta).
+ */
+export function nombreSucursalVenta(
+  cliente: Pick<UserProfile, 'razonSocial' | 'tangoIds' | 'codigoTango' | 'idGva14Tango' | 'addresses'>,
+  empresa: EmpresaTango,
+  codigo: string | null | undefined,
+): string | undefined {
+  if (!codigo || sucursalesDe(cliente, empresa).length < 2) return undefined
+  const dir = (cliente.addresses ?? []).find((a) => a.id === codigo)
+  const nombre = [dir?.razonSocialTango, dir?.nombreComercialTango, dir?.nombre].map((n) => (n ?? '').trim()).find(Boolean)
+  if (!nombre || nombre === 'Principal' || nombre === codigo || nombre === (cliente.razonSocial ?? '').trim()) return undefined
+  return nombre
+}
+
+/**
  * El cliente con la identidad de la sucursal elegida en los campos legacy que
  * leen crearVentaCamion / crearVentaVentanilla (codigoTango, idGva14Tango).
  * Sin sucursal elegida (cuenta de un solo código) deja el principal de la empresa.

@@ -13,6 +13,7 @@ import { puedeCompartirArchivos } from '@/utils/compartir'
 import { reportError } from '@/services/observability'
 import type { CaiRemito } from '@/utils/comprobanteInterno'
 import type { CambioCamion, Cobranza, DescargaCamion, RemitoCarga, VentaCamion, VentaCamionItem } from '@/types'
+import { nombreClienteVenta } from '@/utils/nombreClienteVenta'
 
 // Detalle del reparto de un repartidor, CLASIFICADO por tipo de operación
 // (decisión de Ariel 2026-09-06, maqueta 1bd0e922): contado Redonhielo
@@ -235,7 +236,7 @@ function FilaVenta({ venta: v, ocupado, compartible, atenuada, onVer, onEnviar }
       <span className="text-sm text-gray-500 tabular-nums pt-0.5">{hora(v.fecha)}</span>
       <div className="min-w-0">
         <p className="text-sm font-semibold text-gray-900">
-          {v.clienteNombre}
+          {nombreClienteVenta(v)}
           {v.clienteCodigoTango && <span className="ml-1.5 text-xs font-normal text-gray-500">{v.clienteCodigoTango}</span>}
         </p>
         <Articulos items={v.items} />
