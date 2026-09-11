@@ -18,6 +18,9 @@ export interface EnvioComprobante {
   conCopia?:     boolean
   /** Tarjeta del mail: título legible y filas ya formateadas. */
   presentacion?: { titulo: string; emoji?: string; filas: { label: string; value: string }[] }
+  /** Venta de la app: el server anota `envioMail` en el doc y, si es automático, no la manda dos veces. */
+  venta?:        { coleccion: 'ventasCamion' | 'ventasVentanilla'; id: string }
+  automatico?:   boolean
 }
 
 async function aBase64(blob: Blob): Promise<string> {
@@ -62,12 +65,15 @@ export async function enviarComprobantesPorMail(e: EnvioLote): Promise<void> {
   })
 }
 
-export async function enviarComprobantePorMail(e: EnvioComprobante): Promise<void> {
+export async function enviarComprobantePorMail(e: EnvioComprobante): Promise<{ para: string; yaEnviado: boolean }> {
   const pdfBase64 = await aBase64(e.pdf)
-  const fn = httpsCallable<Record<string, unknown>, { ok: boolean; para: string }>(getFunctions(), 'enviarComprobantePorMail')
-  await fn({
+  const fn = httpsCallable<Record<string, unknown>, { ok: boolean; para: string; yaEnviado?: boolean }>(getFunctions(), 'enviarComprobantePorMail')
+  const r = await fn({
     para: e.para, asunto: e.asunto, mensaje: e.mensaje ?? '', nombreArchivo: e.nombreArchivo, pdfBase64,
     comprobante: e.comprobante, clienteUid: e.clienteUid ?? null, clienteNombre: e.clienteNombre, conCopia: e.conCopia === true,
     presentacion: e.presentacion ?? null,
+    ...(e.venta ? { venta: e.venta } : {}),
+    ...(e.automatico ? { automatico: true } : {}),
   })
+  return { para: r.data.para, yaEnviado: r.data.yaEnviado === true }
 }

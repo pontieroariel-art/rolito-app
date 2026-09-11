@@ -31,6 +31,7 @@ const MAX_PDF_BYTES = 4 * 1024 * 1024;
 const MAX_ADJUNTOS = 40;
 const MAX_TOTAL_BYTES = 20 * 1024 * 1024;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const COLECCIONES_VENTA = new Set(['ventasCamion', 'ventasVentanilla']);
 const texto = (v, max) => String(v ?? '').trim().slice(0, max);
 const nombrePdf = (v) => texto(v, 120).replace(/[^\w.-]+/g, '-') || 'comprobante.pdf';
 const comprobanteRef = (c) => ({ tipo: texto(c?.tipo, 20), numero: texto(c?.numero, 40), ...(c?.empresa ? { empresa: texto(c.empresa, 20) } : {}) });
@@ -56,7 +57,7 @@ exports.enviarComprobantePorMail = (0, https_1.onCall)({ secrets: [email_1.resen
     if (perfil?.estado !== 'activo' || (!ROLES.has(rol) && !rolesExtra.some((r) => ROLES.has(r)))) {
         throw new https_1.HttpsError('permission-denied', 'No autorizado');
     }
-    await (0, rateLimit_1.assertRateLimit)(uid, 'enviarComprobantePorMail', 30, 3600);
+    await (0, rateLimit_1.assertRateLimit)(uid, 'enviarComprobantePorMail', 60, 3600);
     const d = (request.data ?? {});
     const para = texto(d.para, 120).toLowerCase();
     if (!EMAIL_RE.test(para))
@@ -64,6 +65,20 @@ exports.enviarComprobantePorMail = (0, https_1.onCall)({ secrets: [email_1.resen
     const asunto = texto(d.asunto, 150);
     if (!asunto)
         throw new https_1.HttpsError('invalid-argument', 'Falta el asunto');
+    // Venta de la app: constancia en el doc e idempotencia del envío automático.
+    const automatico = d.automatico === true;
+    let ventaRef = null;
+    if (d.venta && COLECCIONES_VENTA.has(String(d.venta.coleccion)) && texto(d.venta.id, 80)) {
+        ventaRef = db.doc(`${d.venta.coleccion}/${texto(d.venta.id, 80)}`);
+        const venta = (await ventaRef.get()).data();
+        if (!venta)
+            throw new https_1.HttpsError('not-found', 'La venta no existe');
+        // El automático lo manda el propio vendedor (chofer o cajero); el manual, cualquier rol autorizado.
+        if (automatico && venta.choferId !== uid && venta.cajaId !== uid)
+            throw new https_1.HttpsError('permission-denied', 'La venta no es tuya');
+        if (automatico && venta.envioMail?.estado === 'enviado')
+            return { ok: true, para: String(venta.envioMail.para ?? para), yaEnviado: true };
+    }
     // Adjuntos: la lista del envío en bloque o el PDF único del envío individual.
     const adjuntos = [];
     if (Array.isArray(d.adjuntos) && d.adjuntos.length) {
@@ -141,6 +156,15 @@ exports.enviarComprobantePorMail = (0, https_1.onCall)({ secrets: [email_1.resen
         ...(data?.id ? { resendId: data.id } : {}),
     };
     await db.collection('enviosComprobantes').add(registro);
+    if (ventaRef) {
+        await ventaRef.set({
+            envioMail: {
+                estado: error ? 'error' : 'enviado', para, automatico, enviadoEn: firestore_1.FieldValue.serverTimestamp(),
+                ...(error ? { error: String(error.message ?? error).slice(0, 200) } : {}),
+                ...(data?.id ? { resendId: data.id } : {}),
+            },
+        }, { merge: true }).catch((e) => console.warn('enviarComprobantePorMail: no se pudo anotar envioMail en la venta', e));
+    }
     if (error) {
         console.error('Resend error (comprobante):', error);
         throw new https_1.HttpsError('internal', 'No se pudo enviar el mail. Probá de nuevo en un rato.');

@@ -68,6 +68,18 @@ export interface DepositoTango {
   actualizadoEn?: Timestamp
 }
 
+// Constancia del mail con el comprobante de una venta al cliente. La escribe
+// SOLO el server (enviarComprobantePorMail) en ventasCamion / ventasVentanilla;
+// `automatico` = lo mandó la app sola al registrar la venta (2026-09-11).
+export interface EnvioMailVenta {
+  estado:      'enviado' | 'error'
+  para:        string
+  enviadoEn:   Timestamp
+  automatico?: boolean
+  error?:      string
+  resendId?:   string
+}
+
 export type FormaPago = 'contado_efectivo' | 'contado_transferencia' | 'cuenta_corriente'
 
 // Canal de la venta → decide la empresa de Tango donde entra el remito y el
@@ -160,6 +172,8 @@ export interface VentaCamion {
   pedidoId?:            string | null   // pedido previo que la originó, si hubo
   tango?:               RemitoTangoEstado
   factura?:             FacturaArcaVenta   // solo en ventas contado
+  /** Mail del comprobante al cliente (lo anota el server al mandarlo; automático desde 2026-09-11). */
+  envioMail?:           EnvioMailVenta
   // Numeración propia del documento que sale cuando NO hay factura de ARCA:
   // el remito (cuenta corriente Redonhielo / promo Rolito) o la factura "X" de
   // promo. Punto de venta aparte del de ARCA. Ausente = venta sin numerar
@@ -413,6 +427,7 @@ export interface VentaVentanilla {
   clienteCodigoTango?:  string
   clienteIdGva14Tango?: number
   clienteSucursalNombre?: string   // ver VentaCamion.clienteSucursalNombre
+  envioMail?:           EnvioMailVenta
   // Ocasional: consumidor final. CUIT o DNI si los tiene; sin ninguno, la
   // factura sale "sin identificar" hasta el tope de config/arca.
   clienteOcasional?:    { nombre: string; cuit?: string; dni?: string }

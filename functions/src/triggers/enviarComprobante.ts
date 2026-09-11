@@ -51,7 +51,17 @@ interface Entrada {
   conCopia?:     boolean
   /** Tarjeta del mail: título legible y filas ya formateadas (fecha, importe, remitos…). */
   presentacion?: ComprobanteMail
+  /**
+   * Venta de la app a la que pertenece el comprobante (2026-09-11, envío
+   * automático al cliente): el server deja constancia en `envioMail` del doc
+   * (las reglas no dejan al chofer escribir la venta) y, si es automático,
+   * no la manda dos veces aunque dos pestañas lo intenten.
+   */
+  venta?:        { coleccion: 'ventasCamion' | 'ventasVentanilla'; id: string }
+  automatico?:   boolean
 }
+
+const COLECCIONES_VENTA = new Set(['ventasCamion', 'ventasVentanilla'])
 
 const texto = (v: unknown, max: number) => String(v ?? '').trim().slice(0, max)
 const nombrePdf = (v: unknown) => texto(v, 120).replace(/[^\w.-]+/g, '-') || 'comprobante.pdf'
@@ -80,13 +90,25 @@ export const enviarComprobantePorMail = onCall({ secrets: [resendApiKey], memory
   if (perfil?.estado !== 'activo' || (!ROLES.has(rol) && !rolesExtra.some((r) => ROLES.has(r)))) {
     throw new HttpsError('permission-denied', 'No autorizado')
   }
-  await assertRateLimit(uid, 'enviarComprobantePorMail', 30, 3600)
+  await assertRateLimit(uid, 'enviarComprobantePorMail', 60, 3600)
 
   const d = (request.data ?? {}) as Partial<Entrada>
   const para = texto(d.para, 120).toLowerCase()
   if (!EMAIL_RE.test(para)) throw new HttpsError('invalid-argument', 'El mail del destinatario no es válido')
   const asunto = texto(d.asunto, 150)
   if (!asunto) throw new HttpsError('invalid-argument', 'Falta el asunto')
+
+  // Venta de la app: constancia en el doc e idempotencia del envío automático.
+  const automatico = d.automatico === true
+  let ventaRef: FirebaseFirestore.DocumentReference | null = null
+  if (d.venta && COLECCIONES_VENTA.has(String(d.venta.coleccion)) && texto(d.venta.id, 80)) {
+    ventaRef = db.doc(`${d.venta.coleccion}/${texto(d.venta.id, 80)}`)
+    const venta = (await ventaRef.get()).data()
+    if (!venta) throw new HttpsError('not-found', 'La venta no existe')
+    // El automático lo manda el propio vendedor (chofer o cajero); el manual, cualquier rol autorizado.
+    if (automatico && venta.choferId !== uid && venta.cajaId !== uid) throw new HttpsError('permission-denied', 'La venta no es tuya')
+    if (automatico && venta.envioMail?.estado === 'enviado') return { ok: true, para: String(venta.envioMail.para ?? para), yaEnviado: true }
+  }
   // Adjuntos: la lista del envío en bloque o el PDF único del envío individual.
   const adjuntos: { filename: string; content: Buffer }[] = []
   if (Array.isArray(d.adjuntos) && d.adjuntos.length) {
@@ -157,6 +179,15 @@ export const enviarComprobantePorMail = onCall({ secrets: [resendApiKey], memory
     ...(data?.id ? { resendId: data.id } : {}),
   }
   await db.collection('enviosComprobantes').add(registro)
+  if (ventaRef) {
+    await ventaRef.set({
+      envioMail: {
+        estado: error ? 'error' : 'enviado', para, automatico, enviadoEn: FieldValue.serverTimestamp(),
+        ...(error ? { error: String(error.message ?? error).slice(0, 200) } : {}),
+        ...(data?.id ? { resendId: data.id } : {}),
+      },
+    }, { merge: true }).catch((e) => console.warn('enviarComprobantePorMail: no se pudo anotar envioMail en la venta', e))
+  }
   if (error) {
     console.error('Resend error (comprobante):', error)
     throw new HttpsError('internal', 'No se pudo enviar el mail. Probá de nuevo en un rato.')

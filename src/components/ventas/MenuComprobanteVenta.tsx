@@ -1,9 +1,9 @@
 import { FileText, RefreshCw, Share2 } from 'lucide-react'
 import MenuCompartirPdf, { type DatosMail, type PdfGenerado } from '@/components/ui/MenuCompartirPdf'
-import { describirComprobante, generarComprobanteVenta } from '@/utils/comprobanteDeVenta'
+import { generarComprobanteVenta } from '@/utils/comprobanteDeVenta'
 import type { CaiRemito } from '@/utils/comprobanteInterno'
 import { getEmailClienteTango } from '@/services/tangoComprobantesService'
-import { formatoARS } from '@/utils/money'
+import { mailDeVenta } from '@/utils/mailDeVenta'
 import type { VentaCamion } from '@/types'
 
 // El comprobante de una venta del camión (factura ARCA, remito o factura X)
@@ -11,28 +11,16 @@ import type { VentaCamion } from '@/types'
 // elegir) y descarga (2026-09-10, pedido de un chofer: "la misma opción que
 // los supervisores"). Lo usan Mis ventas del chofer y la liquidación.
 export default function MenuComprobanteVenta({ venta, cai, compacto = false }: { venta: VentaCamion; cai: CaiRemito | null; compacto?: boolean }) {
-  const d = describirComprobante(venta)
-  const titulo = `${d.etiqueta}${d.numero ? ` ${d.numero}` : ''}`
-  const fecha = venta.fecha.toDate().toLocaleDateString('es-AR')
-  // El importe va solo en las facturas (ARCA o X): el remito es un documento
-  // de entrega y su mail no lleva plata (pedido de Ariel, 2026-09-11).
-  const esFactura = d.etiqueta.startsWith('Factura')
+  const m = mailDeVenta(venta)
+  const titulo = m.presentacion.titulo
+  // Mismo mail que el envío automático (utils/mailDeVenta.ts); acá el chofer
+  // puede cambiar el destinatario. El server anota el envío en la venta.
   const mail: DatosMail = {
     para: '',
     resolverPara: venta.clienteId ? () => getEmailClienteTango(venta.clienteId) : undefined,
-    asunto: `${titulo} — ${venta.clienteNombre}`,
-    mensaje: `Te enviamos adjunto el comprobante de la entrega del ${fecha}.`,
-    comprobante: { tipo: d.etiqueta, numero: d.numero || venta.id },
-    clienteUid: venta.clienteId || undefined,
-    clienteNombre: venta.clienteNombre,
-    presentacion: {
-      titulo, emoji: d.etiqueta.startsWith('Factura') ? '🧾' : '🚚',
-      filas: [
-        { label: 'Fecha', value: fecha },
-        ...(esFactura ? [{ label: 'Importe', value: formatoARS(venta.total) }] : []),
-        ...(venta.items.length ? [{ label: 'Detalle', value: venta.items.map((i) => `${i.cantidad} × ${i.nombre}`).join(', ').slice(0, 200) }] : []),
-      ],
-    },
+    asunto: m.asunto, mensaje: m.mensaje, comprobante: m.comprobante,
+    clienteUid: m.clienteUid, clienteNombre: m.clienteNombre, presentacion: m.presentacion,
+    venta: { coleccion: 'ventasCamion', id: venta.id },
   }
   return (
     <MenuCompartirPdf titulo={titulo} texto={`${titulo} — ${venta.clienteNombre}`} mail={mail}

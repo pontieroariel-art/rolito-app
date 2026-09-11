@@ -6,7 +6,7 @@
 // Tango envía por su cuenta.
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, FileText, Clock, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, FileText, Clock, AlertTriangle, Mail } from 'lucide-react'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { useAuth } from '@/context/AuthContext'
 import { subscribeVentasRecientesChofer } from '@/services/ventaCamionService'
@@ -16,6 +16,8 @@ import { caiRemitoOficialCacheado, getCaiRemitoOficial } from '@/services/remito
 import MenuComprobanteVenta from '@/components/ventas/MenuComprobanteVenta'
 import { VentaCamion } from '@/types'
 import { nombreClienteVenta } from '@/utils/nombreClienteVenta'
+import { useEnvioAutomaticoVentas } from '@/hooks/useEnvioAutomaticoVentas'
+import { estadoEnvioLocal, pendienteDeEnvio } from '@/services/envioAutomaticoVentasService'
 
 const money = (n: number) =>
   n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -26,7 +28,7 @@ const nroFactura = (v: VentaCamion) =>
     : ''
 
 export default function VentasChofer({ volverA = '/chofer' }: { volverA?: string } = {}) {
-  const { user } = useAuth()
+  const { user, verComo } = useAuth()
   const [ventas, setVentas] = useState<VentaCamion[] | null>(null)
   const [fallo, setFallo] = useState(false)
   const [pendientes, setPendientes] = useState(0)
@@ -40,6 +42,10 @@ export default function VentasChofer({ volverA = '/chofer' }: { volverA?: string
     setFallo(false)
     return subscribeVentasRecientesChofer(user.uid, setVentas, () => setFallo(true), setPendientes)
   }, [user])
+  // Mail automático al cliente de cada venta que todavía no salió (también
+  // corre desde el hub). En "Ver como" no se manda nada. Cada envío hecho
+  // re-renderiza la lista, así los chips de estado se refrescan.
+  useEnvioAutomaticoVentas(verComo ? null : ventas)
 
   if (!user || ventas === null) return <LoadingSpinner fullScreen />
 
@@ -148,6 +154,7 @@ export default function VentasChofer({ volverA = '/chofer' }: { volverA?: string
                     </div>
                   </div>
                 )}
+                <EstadoMail venta={v} />
               </article>
             )
           })}
@@ -155,4 +162,24 @@ export default function VentasChofer({ volverA = '/chofer' }: { volverA?: string
       </main>
     </div>
   )
+}
+
+// Estado del mail automático al cliente: lo que anotó el server en la venta
+// (envioMail) o, mientras tanto, lo que sabe el teléfono (sin mail en Tango,
+// mandando, error). Sin nada que decir, no muestra nada.
+function EstadoMail({ venta }: { venta: VentaCamion }) {
+  const e = venta.envioMail
+  let texto = ''
+  let tono = 'text-gray-500'
+  if (e?.estado === 'enviado') { texto = `Mail enviado a ${e.para}`; tono = 'text-emerald-700' }
+  else if (e?.estado === 'error') { texto = 'El mail no salió: mandalo desde "Enviar o descargar"'; tono = 'text-red-700' }
+  else {
+    const l = estadoEnvioLocal(venta.id)
+    if (l?.estado === 'sin_mail') texto = 'Cliente sin mail en Tango: no se manda solo'
+    else if (l?.estado === 'enviando') texto = 'Mandando el mail al cliente…'
+    else if (l?.estado === 'error') { texto = 'No se pudo mandar el mail (se reintenta)'; tono = 'text-amber-700' }
+    else if (pendienteDeEnvio(venta)) texto = 'Mail al cliente pendiente (sale con señal)'
+  }
+  if (!texto) return null
+  return <p className={`mt-2 flex items-center gap-1.5 text-xs ${tono}`}><Mail size={13} className="shrink-0" /> {texto}</p>
 }

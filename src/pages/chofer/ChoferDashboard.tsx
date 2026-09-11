@@ -30,6 +30,7 @@ import EntregaModal from '../../components/chofer/EntregaModal'
 import NoEntregadoModal from '../../components/chofer/NoEntregadoModal'
 import MiRendicionCard from '@/components/chofer/MiRendicionCard'
 import MiCamionHoyCard from '@/components/chofer/MiCamionHoyCard'
+import { useEnvioAutomaticoVentas, useVentasRecientesChofer } from '@/hooks/useEnvioAutomaticoVentas'
 import TicketsServicioSection from '../../components/chofer/TicketsServicioSection'
 import { reportError, esperarOEncolar } from '@/services/observability'
 
@@ -40,6 +41,10 @@ export default function ChoferDashboard() {
   const { visitas }           = useVisitasPuntuales()
   const { catalogo }          = useCatalogo()
   const { remitos: remitosCarga } = useRemitosCargaChofer()
+  // Mail automático del comprobante al cliente por cada venta reciente que
+  // todavía no salió (2026-09-11): corre desde el hub para no depender de que
+  // el chofer abra Mis ventas.
+  useEnvioAutomaticoVentas(useVentasRecientesChofer(verComo ? null : user?.uid))
   const [pdfLoading,  setPdfLoading]  = useState(false)
 
   const isAyudante = user?.subrol === 'ayudante'

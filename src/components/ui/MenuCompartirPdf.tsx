@@ -26,6 +26,8 @@ export interface DatosMail {
   clienteNombre: string
   /** Tarjeta del mail: título legible y filas ya formateadas (fecha, importe, remitos…). */
   presentacion?: { titulo: string; emoji?: string; filas: { label: string; value: string }[] }
+  /** Venta de la app a la que pertenece el comprobante: el server anota el envío en el doc. */
+  venta?:        { coleccion: 'ventasCamion' | 'ventasVentanilla'; id: string }
 }
 
 export default function MenuCompartirPdf({ generar, titulo, texto, mail, trigger }: {
@@ -87,6 +89,7 @@ export default function MenuCompartirPdf({ generar, titulo, texto, mail, trigger
         para: destino, asunto: asunto.trim() || titulo, mensaje: mensaje.trim(), nombreArchivo: g.nombre, pdf: g.blob,
         comprobante: mail.comprobante, clienteUid: mail.clienteUid, clienteNombre: mail.clienteNombre, conCopia,
         presentacion: mail.presentacion ?? { titulo, filas: [] },
+        ...(mail.venta ? { venta: mail.venta } : {}),
       })
       setEnviadoA(destino)
     } catch (err) {
