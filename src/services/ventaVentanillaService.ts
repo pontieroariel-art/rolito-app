@@ -36,6 +36,8 @@ export async function crearVentaVentanilla(
   args: {
     canal:      CanalVenta
     cliente?:   { uid: string; nombre: string; codigoTango?: string; idGva14Tango?: number; sucursalNombre?: string }
+    /** Orden de compra del cliente registrado (opcional). */
+    ordenCompra?: string
     ocasional?: { nombre: string; cuit?: string; dni?: string }
     items:      VentaCamionItem[]
     formaPago:  FormaPago
@@ -94,6 +96,7 @@ export async function crearVentaVentanilla(
       ...(args.cliente?.codigoTango ? { clienteCodigoTango: args.cliente.codigoTango } : {}),
       ...(args.cliente?.idGva14Tango != null ? { clienteIdGva14Tango: args.cliente.idGva14Tango } : {}),
       ...(args.cliente?.sucursalNombre ? { clienteSucursalNombre: args.cliente.sucursalNombre } : {}),
+      ...(args.cliente && args.ordenCompra?.trim() ? { ordenCompra: args.ordenCompra.trim().slice(0, 40) } : {}),
       ...(args.ocasional ? { clienteOcasional: args.ocasional } : {}),
       ...(comprobanteInterno ? { comprobanteInterno } : {}),
     }

@@ -26,6 +26,8 @@ export interface VentaFacturable {
   clienteOcasional?: { nombre: string; cuit?: string; dni?: string }
   /** Anulación con nota de crédito (ventanilla, 2026-09-09). */
   anulacion?:       AnulacionEnVenta
+  /** Orden de compra del cliente (2026-09-11). */
+  ordenCompra?:     string
 }
 
 /** 1 = Factura A, 6 = B, 11 = C; 3/8/13 = la nota de crédito de cada clase (anulación de ventanilla). */
@@ -129,7 +131,12 @@ function armarComprobante(venta: VentaFacturable, cliente: UserProfile | undefin
         condicionVenta: 'Contado',
         vendedor:       venta.choferNombre ?? venta.cajaNombre ?? '',
       },
-      renglones,
+      // La orden de compra del cliente va como nota bajo el primer renglón (el
+      // encabezado no tiene lugar) y en el ticket como campo propio.
+      ...(venta.ordenCompra ? { ordenCompra: venta.ordenCompra } : {}),
+      renglones: venta.ordenCompra && renglones.length
+        ? [{ ...renglones[0], notas: [...(renglones[0].notas ?? []), `Orden de compra: ${venta.ordenCompra}`] }, ...renglones.slice(1)]
+        : renglones,
       totales: {
         subtotal:       imp?.neto ?? venta.total,
         bonificaciones: 0,

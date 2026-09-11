@@ -53,6 +53,8 @@ export interface FacturaArcaData {
   fechaEmision: Date
 
   emisor?: typeof EMISOR_ARCA
+  /** Orden de compra del cliente (2026-09-11): va como nota bajo el primer renglón y en el ticket. */
+  ordenCompra?: string
 
   cliente: {
     razonSocial:    string

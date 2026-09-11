@@ -253,7 +253,8 @@ function armarComprobanteFacturador(payload, item, cfg, mapeos) {
         leyenda2: recortar(`Venta ${payload.canal === 'promo' ? 'Promo' : 'Contado'} app${numeroInterno ? ` ${numeroInterno}` : ''} - ${formaPago}`, 60),
         leyenda3: recortar(vende.leyenda, 60),
         leyenda4: recortar(payload.firmanteNombre ? `Firmo: ${payload.firmanteNombre}` : '', 60),
-        leyenda5: '',
+        // Orden de compra del cliente (2026-09-11).
+        leyenda5: recortar(payload.ordenCompra ? `O. compra: ${String(payload.ordenCompra).trim()}` : '', 60),
         total: totales.total,
         totalSinImpuestos: totales.neto,
         totalExento: 0,

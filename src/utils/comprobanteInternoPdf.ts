@@ -17,6 +17,7 @@ export function specFacturaX(d: ComprobanteInternoData): PapelInternoSpec {
     tituloDocumento: d.titulo,
     numero: d.numero ?? 'SIN NÚMERO',
     fecha: fecha(d.fechaEmision),
+    remitosOc: d.ordenCompra,
     cliente: {
       nombre:         d.cliente.razonSocial,
       ...(d.cliente.sucursal ? { sucursal: d.cliente.sucursal } : {}),

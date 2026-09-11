@@ -154,6 +154,8 @@ export interface VentaCamion {
    *  la cuenta tiene varias y difiere del nombre de la cuenta. Los listados lo muestran
    *  en vez de `clienteNombre` (utils/nombreClienteVenta.ts, 2026-09-11). */
   clienteSucursalNombre?: string
+  /** Orden de compra del cliente (2026-09-11): la carga el chofer o viene del pedido (orders.numeroOC); se imprime en remito/factura y va a Tango en una leyenda. */
+  ordenCompra?:         string
   items:                VentaCamionItem[]
   // Bolsas rotas que el cliente devuelve y el chofer repone, sin cargo.
   // Renglones del documento que salga de la operación (factura si se cobró en
@@ -427,6 +429,7 @@ export interface VentaVentanilla {
   clienteCodigoTango?:  string
   clienteIdGva14Tango?: number
   clienteSucursalNombre?: string   // ver VentaCamion.clienteSucursalNombre
+  ordenCompra?:         string     // ver VentaCamion.ordenCompra
   envioMail?:           EnvioMailVenta
   // Ocasional: consumidor final. CUIT o DNI si los tiene; sin ninguno, la
   // factura sale "sin identificar" hasta el tope de config/arca.

@@ -93,6 +93,8 @@ export default function VentanillaPage() {
   const [tipoCliente, setTipoCliente] = useState<'registrado' | 'ocasional'>('registrado')
   const [clienteId,   setClienteId]   = useState('')
   const [ocasionalNombre, setOcasionalNombre] = useState('')
+  // Orden de compra del cliente registrado (opcional, 2026-09-11): remito/factura y leyenda en Tango.
+  const [ordenCompra, setOrdenCompra] = useState('')
   const [ocasionalCuit,   setOcasionalCuit]   = useState('')
   const [ocasionalDni,    setOcasionalDni]    = useState('')
   const [listaOcasionalId, setListaOcasionalId] = useState('')
@@ -277,6 +279,7 @@ export default function VentanillaPage() {
   const limpiar = () => {
     setClienteId('')
     setOcasionalNombre('')
+    setOrdenCompra('')
     setOcasionalCuit('')
     setOcasionalDni('')
     setCantidades({})
@@ -303,6 +306,7 @@ export default function VentanillaPage() {
             : undefined,
           items,
           formaPago,
+          ...(tipoCliente === 'registrado' && ordenCompra.trim() ? { ordenCompra: ordenCompra.trim() } : {}),
         },
         { uid: user.uid, nombre: user.nombre, plantaId },
       )
@@ -371,6 +375,10 @@ export default function VentanillaPage() {
             <ClienteCombobox items={toComboItems(clientes)} value={clienteId} onChange={setClienteId} placeholder="Buscar cliente…" />
             <div className="mt-2">
               <SelectorSucursal cliente={cliente} empresa={empresaDeCanal(canal)} value={sucursal} onChange={setSucursal} />
+            </div>
+            <div className="mt-2">
+              <label className="text-xs text-gray-500 mb-1 block">Orden de compra del cliente (opcional)</label>
+              <input value={ordenCompra} onChange={(e) => setOrdenCompra(e.target.value)} maxLength={40} placeholder="Nº de OC si el cliente la pide" className={selectClass} />
             </div>
             {sinPrecioMotivo && (
               <p className="text-xs text-amber-600 mt-1">{sinPrecioMotivo} No se puede vender hasta que se corrija en Tango y se sincronice.</p>

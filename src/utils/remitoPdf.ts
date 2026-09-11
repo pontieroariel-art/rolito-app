@@ -47,6 +47,7 @@ export function specRemito(d: RemitoData, logoDataUrl?: string | null): PapelInt
     tituloDocumento: promo ? 'REMITO PROMOCIÓN' : 'REMITO',
     numero: d.numero ?? 'SIN NÚMERO',
     fecha: fecha(d.fechaEmision),
+    remitosOc: d.ordenCompra,
     cliente: {
       nombre:         d.cliente.razonSocial,
       ...(d.cliente.sucursal ? { sucursal: d.cliente.sucursal } : {}),

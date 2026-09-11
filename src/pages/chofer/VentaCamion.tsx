@@ -35,6 +35,8 @@ import { inhabilitadoEnTango, motivoInhabilitado } from '@/utils/inhabilitadoTan
 import { desgloseFactura, percepcionVigenteDe } from '@/utils/totalFacturado'
 import { nombreSucursalVenta } from '@/utils/sucursalesTango'
 import { getPreciosIncluyenIva } from '@/services/arcaConfigService'
+import { useDriverOrders } from '../../hooks/useOrders'
+import { normalizarOrdenCompra, pedidoParaVenta } from '@/utils/ordenCompraVenta'
 import { FormaPago, CanalVenta, VentaCamionItem, ComprobanteInternoVenta, TipoComprobanteInterno } from '../../types'
 
 const CANALES: { id: CanalVenta; titulo: string; empresa: string; color: string; icon: typeof Tag }[] = [
@@ -104,6 +106,10 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
   const [cambiosAbierto, setCambiosAbierto] = useState(false)
   const [formaPago, setFormaPago] = useState<FormaPago | null>(null)
   const [firmante, setFirmante] = useState('')
+  // Orden de compra del cliente (2026-09-11): se precarga desde su pedido de hoy
+  // (orders.numeroOC) y el chofer la puede cambiar o cargar a mano.
+  const [ordenCompra, setOrdenCompra] = useState('')
+  const { orders: pedidosDelChofer } = useDriverOrders()
   const [resumenOpen, setResumenOpen] = useState(false)
   const [firmaPreview, setFirmaPreview] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
@@ -162,6 +168,13 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
   // documento que sea (la cuenta sigue activa si en la otra empresa está bien).
   const inhabilitado = !!cliente && inhabilitadoEnTango(cliente, empresa)
 
+  // Pedido de hoy del cliente elegido (si administración lo cargó): trae la OC
+  // y la venta queda vinculada a él.
+  const pedidoDelCliente = useMemo(() => (cliente ? pedidoParaVenta(pedidosDelChofer, cliente.uid) : undefined), [pedidosDelChofer, cliente])
+  const pedidoDelClienteId = pedidoDelCliente?.id
+  const ocDelPedido = pedidoDelCliente?.numeroOC ?? ''
+  useEffect(() => { setOrdenCompra(ocDelPedido) }, [pedidoDelClienteId, ocDelPedido])
+
   const precioDe = (productoId: string): number =>
     cliente ? (precioTangoDe(preciosTango, cliente, empresa, productoId)?.precio ?? 0) : 0
   const sinPrecio = (productoId: string): boolean =>
@@ -204,6 +217,7 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
     setCantidadesCambio({})
     setFormaPago(null)
     setFirmante('')
+    setOrdenCompra('')
     setFirmaPreview(null)
     firmaRef.current?.clear()
   }
@@ -248,6 +262,7 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
           canal, cliente: clienteVenta, items, cambios, formaPago: formaPagoFinal,
           firmaCliente: firmaPreview ?? undefined, firmanteNombre: firmante, comprobanteInterno,
           clienteSucursalNombre: nombreSucursalVenta(cliente, empresa, clienteVenta.codigoTango),
+          ordenCompra: normalizarOrdenCompra(ordenCompra), pedidoId: pedidoDelCliente?.id ?? null,
         },
         { uid: user.uid, nombre: user.nombre, camionId: camionIdHoy, ...depositoVenta },
       )
@@ -522,6 +537,21 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
                 <p className="text-xs text-gray-500 mt-0.5">Sale un remito con la mercadería que se movió.</p>
               </div>
             )}
+
+            {/* Orden de compra del cliente (opcional): se imprime en el remito o la factura y va a Tango. */}
+            <section className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Orden de compra del cliente</label>
+              <input
+                value={ordenCompra}
+                onChange={(e) => setOrdenCompra(e.target.value)}
+                placeholder="Nº de OC (si el cliente la pide)"
+                maxLength={40}
+                className="w-full bg-white border border-[#D3D1C7] rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent placeholder-gray-400"
+              />
+              {pedidoDelCliente?.numeroOC && ordenCompra === pedidoDelCliente.numeroOC && (
+                <p className="text-xs text-gray-500">Tomada del pedido de hoy cargado por administración.</p>
+              )}
+            </section>
 
             {/* Firma + aclaración */}
             <section className="space-y-2 animate-in fade-in-0 duration-300">

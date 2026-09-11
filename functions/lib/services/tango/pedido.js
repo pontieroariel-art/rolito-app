@@ -130,6 +130,7 @@ function armarPedido(payload, item, ids, renglones, opciones = {}) {
         LEYENDA_2: recortar(`${tipoDoc} app ${numero ?? 'SIN NUMERO'} - ${canal}`, 60),
         LEYENDA_3: recortar(vende.leyenda, 60),
         LEYENDA_4: recortar(payload.firmanteNombre ? `Firmo: ${payload.firmanteNombre}` : '', 60),
+        LEYENDA_5: recortar(payload.ordenCompra ? `O. compra: ${String(payload.ordenCompra).trim()}` : '', 60),
         OBSERVACIONES: recortar(`Venta ${canal} desde ${vende.lugar} por ${vende.nombre}. ${tipoDoc} ${numero ?? 'sin número'} firmado en la app por ` +
             `${payload.firmanteNombre ?? 'el cliente'} (${payload.clienteNombre ?? ''}). Forma de pago: ${payload.formaPago ?? ''}. ` +
             `Total app: ${payload.total ?? 0}. Ref ${ref}.`, 8000),

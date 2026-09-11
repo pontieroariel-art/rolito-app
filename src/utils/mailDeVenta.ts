@@ -33,6 +33,7 @@ export function mailDeVenta(venta: VentaCamion): MailDeVenta {
       titulo, emoji: esFactura ? '🧾' : '🚚',
       filas: [
         { label: 'Fecha', value: fecha },
+        ...(venta.ordenCompra ? [{ label: 'Orden de compra', value: venta.ordenCompra }] : []),
         ...(esFactura ? [{ label: 'Importe', value: formatoARS(venta.total) }] : []),
         ...(venta.items.length ? [{ label: 'Detalle', value: venta.items.map((i) => `${i.cantidad} × ${i.nombre}`).join(', ').slice(0, 200) }] : []),
       ],

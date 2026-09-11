@@ -199,3 +199,14 @@ describe('quién vendió (2026-09-09): referencia VV, leyendas y USUARIO', () =>
     expect(param(sentenciasRemito(sinNombre, datos, cfg)[0].params, 'USUARIO')).toBe('ROLITO')
   })
 })
+
+describe('orden de compra del cliente (2026-09-11)', () => {
+  it('va en LEYENDA4 solo cuando la venta la trae', () => {
+    const con = remitoDeVenta({ ...venta, ordenCompra: ' 4500-123 ' }, 'abc123', articulos, '01', 1105)
+    expect(con.leyendas).toHaveLength(3)
+    expect(param(sentenciasRemito(con, datos, cfg, new Date(2026, 8, 11, 9, 0, 0))[0].params, 'LEYENDA4')).toBe('O. compra: 4500-123')
+    const sin = remitoDeVenta(venta, 'abc123', articulos, '01', 1105)
+    expect(sin.leyendas).toHaveLength(2)
+    expect(param(sentenciasRemito(sin, datos, cfg, new Date(2026, 8, 11, 9, 0, 0))[0].params, 'LEYENDA4')).toBe('')
+  })
+})

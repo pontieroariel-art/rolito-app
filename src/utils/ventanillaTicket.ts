@@ -55,6 +55,7 @@ export function dibujoFacturaArcaTicket(d: FacturaArcaData): DibujoTicket {
     if (d.cliente.condicionIva) y = campo(doc, 'IVA:', d.cliente.condicionIva, y)
     if (d.cliente.domicilio) y = campo(doc, 'Domicilio:', d.cliente.domicilio, y)
     y = campo(doc, 'Cond. de venta:', d.cliente.condicionVenta, y)
+    if (d.ordenCompra) y = campo(doc, 'O. compra:', d.ordenCompra, y)
     if (d.comprobanteAsociado) y = campo(doc, 'Anula:', d.comprobanteAsociado, y)
     if (d.cliente.vendedor) y = campo(doc, 'Vendedor:', d.cliente.vendedor, y)
     y = separador(doc, y + 1)

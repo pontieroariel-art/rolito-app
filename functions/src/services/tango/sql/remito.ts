@@ -111,6 +111,8 @@ export function remitoDeVenta(
     leyendas: [
       `Remito app ${numeroInternoDe(ci) ?? ''} - ${payload.formaPago ?? ''}`.trim(),
       leyendaQuienVende(payload, sufijo),
+      // LEYENDA4: orden de compra del cliente (2026-09-11), solo si trae.
+      ...(payload.ordenCompra ? [`O. compra: ${String(payload.ordenCompra).trim()}`] : []),
     ],
     usuario: usuarioCorto(payload.cajaNombre ?? payload.choferNombre, ''),
   }

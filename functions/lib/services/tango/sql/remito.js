@@ -65,6 +65,8 @@ function remitoDeVenta(payload, origenId, articulos, codDeposito, puntoVenta, or
         leyendas: [
             `Remito app ${(0, comun_1.numeroInternoDe)(ci) ?? ''} - ${payload.formaPago ?? ''}`.trim(),
             (0, comun_1.leyendaQuienVende)(payload, sufijo),
+            // LEYENDA4: orden de compra del cliente (2026-09-11), solo si trae.
+            ...(payload.ordenCompra ? [`O. compra: ${String(payload.ordenCompra).trim()}`] : []),
         ],
         usuario: (0, comun_1.usuarioCorto)(payload.cajaNombre ?? payload.choferNombre, ''),
     };

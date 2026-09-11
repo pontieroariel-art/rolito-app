@@ -89,6 +89,8 @@ export interface RemitoData {
     chofer:  string
     camion?: string
   }
+  /** Orden de compra del cliente, impresa en el recuadro "Remitos - O/C" (2026-09-11). */
+  ordenCompra?: string
   renglones:    RenglonRemito[]
   bultos: {
     entregados: number
@@ -152,6 +154,7 @@ export function armarRemito(venta: VentaCamion, cliente?: UserProfile, cai?: Cai
       letra,
       numero,
       fechaEmision,
+      ...(venta.ordenCompra ? { ordenCompra: venta.ordenCompra } : {}),
       cliente: {
         razonSocial:    ci.razonSocial,
         ...(ci.sucursal ? { sucursal: ci.sucursal } : {}),
@@ -198,6 +201,8 @@ export interface RenglonInterno {
 }
 
 export interface ComprobanteInternoData {
+  /** Orden de compra del cliente, impresa en el recuadro "Remitos - O/C" (2026-09-11). */
+  ordenCompra?: string
   /** El talonario de promo decía "PROMOCIÓN", no "FACTURA". */
   titulo:        'PROMOCIÓN'
   letra:         'X'
@@ -255,6 +260,7 @@ export function armarFacturaX(venta: VentaCamion, cliente?: UserProfile): Armado
       emisor: EMISOR_ROLITO,
       numero,
       fechaEmision: venta.fecha.toDate(),
+      ...(venta.ordenCompra ? { ordenCompra: venta.ordenCompra } : {}),
       cliente: {
         razonSocial:    ci.razonSocial,
         ...(ci.sucursal ? { sucursal: ci.sucursal } : {}),
