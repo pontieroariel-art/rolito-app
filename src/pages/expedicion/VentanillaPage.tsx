@@ -108,6 +108,8 @@ export default function VentanillaPage() {
   // Con la caja del día cerrada ya no se puede pedir anular (la venta ya se rindió).
   const [cerrada,     setCerrada]     = useState<Rendicion | null>(null)
   const [anulando,    setAnulando]    = useState<VentaVentanilla | null>(null)
+  // Reemisión asistida (2026-09-11): la venta anulada que esta nueva reemplaza.
+  const [reemiteDe,   setReemiteDe]   = useState<VentaVentanilla | null>(null)
   // Tope de ARCA para facturar a un consumidor final sin CUIT ni DNI. 0 =
   // siempre pedir documento (también mientras no se cargó en config/arca).
   const [topeSinIdentificar, setTopeSinIdentificar] = useState(0)
@@ -284,6 +286,24 @@ export default function VentanillaPage() {
     setOcasionalDni('')
     setCantidades({})
     setFormaPago(null)
+    setReemiteDe(null)
+  }
+
+  // Reemisión asistida: precarga el formulario con la venta anulada para que
+  // el cajero corrija lo que estaba mal y salga el comprobante correcto.
+  const reemitir = (v: VentaVentanilla) => {
+    limpiar()
+    setTipoCliente(v.clienteId ? 'registrado' : 'ocasional')
+    setClienteId(v.clienteId ?? '')
+    setOcasionalNombre(v.clienteOcasional?.nombre ?? '')
+    setOcasionalCuit(v.clienteOcasional?.cuit ?? '')
+    setOcasionalDni(v.clienteOcasional?.dni ?? '')
+    setCanal(v.canal)
+    setCantidades(Object.fromEntries(v.items.map((i) => [i.productoId, i.cantidad])))
+    setFormaPago(v.formaPago)
+    setOrdenCompra(v.ordenCompra ?? '')
+    setReemiteDe(v)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const confirmar = async () => {
@@ -307,6 +327,7 @@ export default function VentanillaPage() {
           items,
           formaPago,
           ...(tipoCliente === 'registrado' && ordenCompra.trim() ? { ordenCompra: ordenCompra.trim() } : {}),
+          ...(reemiteDe ? { reemiteDe: reemiteDe.id } : {}),
         },
         { uid: user.uid, nombre: user.nombre, plantaId },
       )
@@ -362,6 +383,15 @@ export default function VentanillaPage() {
         <h2 className="font-semibold text-gray-800 flex items-center gap-2">
           <ShoppingCart size={18} className="text-accent" /> Nueva venta
         </h2>
+        {reemiteDe && (
+          <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 flex items-start justify-between gap-3">
+            <div>
+              <p className="font-semibold">Reemisión de la venta anulada de {reemiteDe.clienteNombre}</p>
+              <p className="mt-0.5">Cargamos cliente, productos y forma de pago. Corregí lo que estaba mal y cobrá: sale un comprobante nuevo vinculado al anulado.</p>
+            </div>
+            <button type="button" onClick={limpiar} className="text-amber-800 underline shrink-0">Cancelar</button>
+          </div>
+        )}
 
         {/* Cliente */}
         <div className="flex gap-2">
@@ -516,6 +546,12 @@ export default function VentanillaPage() {
               {v.anulacion?.estado === 'anulada' && (
                 <button onClick={() => imprimirNotaCredito(v)} title="Reimprimir nota de crédito" className="text-red-500 hover:text-red-700 transition-colors p-2 rounded-lg hover:bg-red-50">
                   <FileText size={16} />
+                </button>
+              )}
+              {v.anulacion?.estado === 'anulada' && (
+                <button onClick={() => reemitir(v)} title="Precarga el formulario con esta venta para hacer la correcta"
+                  className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#1D9E75] text-white hover:bg-[#178760] whitespace-nowrap">
+                  Hacer la venta correcta
                 </button>
               )}
               {puedePedirAnulacion(v) && (

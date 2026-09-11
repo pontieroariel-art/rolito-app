@@ -4,7 +4,7 @@ import {
   Trash2, CheckCircle2, ShoppingCart, ChevronRight, Clock, UserPlus,
   FileText, Tag, ArrowLeft, Repeat, ChevronDown,
 } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
@@ -20,7 +20,7 @@ import { useRemitosCargaChofer } from '../../hooks/useRemitosCargaChofer'
 import { useDepositoDelUsuario } from '../../hooks/useDepositosReparto'
 import { useCatalogo } from '../../hooks/useCatalogo'
 import BotoneraProductos from '../../components/ventas/BotoneraProductos'
-import { crearVentaCamion } from '../../services/ventaCamionService'
+import { crearVentaCamion, getVentaCamion } from '../../services/ventaCamionService'
 import { empresaDeCanal, motivoSinPrecioTango, precioTangoDe } from '../../utils/precioTango'
 import { esClienteFacturable } from '../../utils/facturable'
 import { admiteCuentaCorriente } from '@/utils/condicionVenta'
@@ -37,7 +37,7 @@ import { nombreSucursalVenta } from '@/utils/sucursalesTango'
 import { getPreciosIncluyenIva } from '@/services/arcaConfigService'
 import { useDriverOrders } from '../../hooks/useOrders'
 import { normalizarOrdenCompra, pedidoParaVenta } from '@/utils/ordenCompraVenta'
-import { FormaPago, CanalVenta, VentaCamionItem, ComprobanteInternoVenta, TipoComprobanteInterno } from '../../types'
+import { FormaPago, CanalVenta, VentaCamionItem, ComprobanteInternoVenta, TipoComprobanteInterno, type VentaCamion as VentaCamionDoc } from '../../types'
 
 const CANALES: { id: CanalVenta; titulo: string; empresa: string; color: string; icon: typeof Tag }[] = [
   { id: 'contado', titulo: 'Venta Contado', empresa: 'Redonhielo', color: '#1D9E75', icon: FileText },
@@ -121,6 +121,26 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
   useEffect(() => { getPreciosIncluyenIva().then(setPreciosIncluyenIva) }, [])
   const [error, setError] = useState('')
 
+  // Reemisión asistida (2026-09-11): ?reemitir=<ventaId> llega desde Mis ventas
+  // cuando la factura fue anulada. Se precarga cliente, canal, productos, forma
+  // de pago y OC de la venta anulada; el chofer corrige lo que estaba mal y la
+  // venta nueva queda vinculada (`reemiteDe`).
+  const [searchParams] = useSearchParams()
+  const reemitirId = searchParams.get('reemitir')
+  const [reemision, setReemision] = useState<VentaCamionDoc | null>(null)
+  useEffect(() => {
+    if (!reemitirId) return
+    getVentaCamion(reemitirId).then((v) => {
+      if (!v || v.anulacion?.estado !== 'anulada') return
+      setReemision(v)
+      setCanal(v.canal)
+      setClienteId(v.clienteId)
+      setCantidades(Object.fromEntries(v.items.map((i) => [i.productoId, i.cantidad])))
+      setFormaPago(v.formaPago)
+      setOrdenCompra(v.ordenCompra ?? '')
+    }).catch(() => undefined)
+  }, [reemitirId])
+
   // Numeración propia del remito / factura X (lo que sale cuando no factura
   // ARCA). Se reserva un lote por tipo al entrar, para numerar sin señal.
   // Opcional: sin contador inicializado la venta sale igual, sin número.
@@ -148,6 +168,10 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
   const empresa = empresaDeCanal(canal)
   // Al cambiar de cliente o de canal la sucursal elegida deja de valer.
   useEffect(() => { setSucursal('') }, [clienteId, canal])
+  // Reemisión: la sucursal de la venta anulada, una vez que llegó la ficha del cliente.
+  useEffect(() => {
+    if (reemision && cliente && cliente.uid === reemision.clienteId && reemision.clienteCodigoTango) setSucursal(reemision.clienteCodigoTango)
+  }, [cliente, reemision])
   const faltaSucursal = necesitaSucursal(cliente, empresa) && !sucursal
   const { precios: preciosTango } = usePreciosTango(empresa)
   const sinPrecioMotivo = useMemo(
@@ -263,6 +287,7 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
           firmaCliente: firmaPreview ?? undefined, firmanteNombre: firmante, comprobanteInterno,
           clienteSucursalNombre: nombreSucursalVenta(cliente, empresa, clienteVenta.codigoTango),
           ordenCompra: normalizarOrdenCompra(ordenCompra), pedidoId: pedidoDelCliente?.id ?? null,
+          ...(reemision ? { reemiteDe: reemision.id } : {}),
         },
         { uid: user.uid, nombre: user.nombre, camionId: camionIdHoy, ...depositoVenta },
       )
@@ -398,6 +423,12 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
             : <ClienteCombobox items={itemsClientes} value={clienteId} onChange={setClienteId} />}
           {clienteId && cargandoCliente && <p className="text-xs text-gray-400 mt-1">Cargando la ficha del cliente…</p>}
           <SelectorSucursal cliente={cliente} empresa={empresa} value={sucursal} onChange={setSucursal} />
+          {reemision && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+              <p className="font-semibold">Reemisión de una venta anulada</p>
+              <p className="mt-0.5">Cargamos cliente, productos y forma de pago de la venta anulada de {reemision.clienteNombre}. Corregí lo que estaba mal y confirmá: sale un comprobante nuevo.</p>
+            </div>
+          )}
           {sinPrecioMotivo && (
             <p className="text-xs text-amber-600">{sinPrecioMotivo} No se puede vender hasta que se corrija en Tango y se sincronice.</p>
           )}

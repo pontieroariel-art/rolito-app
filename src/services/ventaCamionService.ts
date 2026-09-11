@@ -41,6 +41,8 @@ export function crearVentaCamion(
     clienteSucursalNombre?: string
     /** Orden de compra del cliente (la carga el chofer o viene del pedido). */
     ordenCompra?: string
+    /** Venta anulada que esta reemplaza (reemisión asistida). */
+    reemiteDe?: string
   },
   actor: ActorChofer,
 ): VentaCamion {
@@ -69,6 +71,7 @@ export function crearVentaCamion(
     ...(args.cliente.idGva14Tango != null ? { clienteIdGva14Tango: args.cliente.idGva14Tango } : {}),
     ...(args.clienteSucursalNombre ? { clienteSucursalNombre: args.clienteSucursalNombre } : {}),
     ...(args.ordenCompra?.trim() ? { ordenCompra: args.ordenCompra.trim().slice(0, 40) } : {}),
+    ...(args.reemiteDe ? { reemiteDe: args.reemiteDe } : {}),
     ...(args.firmaCliente   ? { firmaCliente: args.firmaCliente } : {}),
     ...(args.firmanteNombre ? { firmanteNombre: args.firmanteNombre.trim() } : {}),
     ...(args.comprobanteInterno ? { comprobanteInterno: args.comprobanteInterno } : {}),

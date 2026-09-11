@@ -209,6 +209,11 @@ function EstadoAnulacion({ venta }: { venta: VentaCamion }) {
   return (
     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
       <p className={`font-semibold ${tono}`}>{t.texto}</p>
+      {a.estado === 'anulada' && (
+        <Link to={`/chofer/venta?reemitir=${venta.id}`} className="rounded-lg bg-[#1D9E75] px-2.5 py-1 font-semibold text-white">
+          Hacer la venta correcta
+        </Link>
+      )}
       {a.estado === 'anulada' && nc && (
         <MenuCompartirPdf titulo={titulo} texto={`${titulo} — ${venta.clienteNombre}`} generar={generar}
           mail={{ para: '', asunto: `${titulo} — ${venta.clienteNombre}`, mensaje: 'Te enviamos adjunta la nota de crédito que anula la factura.', comprobante: { tipo: 'NC', numero: `${nc.puntoVenta}-${nc.numero}` }, clienteUid: venta.clienteId || undefined, clienteNombre: venta.clienteNombre, presentacion: { titulo, emoji: '📄', filas: [] }, venta: { coleccion: 'ventasCamion', id: venta.id } }}
