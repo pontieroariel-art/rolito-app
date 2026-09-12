@@ -169,7 +169,7 @@ export default function DominioLayout({ children }: { children?: ReactNode }) {
       )}
 
       {/* Cabecera de escritorio: logo, dominio, buscador, clima, cuenta */}
-      <header className="hidden md:flex items-center gap-3 h-14 px-4 bg-white border-b border-[#D3D1C7]">
+      <header className="hidden md:flex sticky top-0 z-40 items-center gap-3 h-14 px-4 bg-white border-b border-[#D3D1C7]">
         <Link to={homeActivo} className="flex items-center shrink-0">
           <img src="/logo-rolito.png" alt="Rolito" width={82} height={28} className="h-7 w-auto object-contain" />
         </Link>
@@ -229,7 +229,13 @@ export default function DominioLayout({ children }: { children?: ReactNode }) {
 
       <div className="md:flex">
         {/* Sidebar de escritorio: navegación del dominio activo, colapsable a íconos */}
-        <aside className={`hidden md:flex md:flex-col shrink-0 border-r border-[#D3D1C7] bg-white sticky top-0 h-screen h-dvh transition-[width] duration-150 ${colapsado ? 'w-14' : 'w-60'}`}>
+        {/* Pegado debajo de la cabecera (3.5rem); en "Ver como" el banner (2.25rem) corre a los dos:
+            la cabecera por la regla genérica de .ver-como .sticky, el sidebar por su propia variante
+            (data-ver-como lo excluye de la genérica, que le pondría 2.25rem y quedaría bajo la cabecera). */}
+        <aside
+          data-ver-como="sidebar"
+          className={`hidden md:flex md:flex-col shrink-0 border-r border-[#D3D1C7] bg-white sticky top-14 h-[calc(100dvh-3.5rem)] [.ver-como_&]:top-[5.75rem] [.ver-como_&]:h-[calc(100dvh-5.75rem)] transition-[width] duration-150 ${colapsado ? 'w-14' : 'w-60'}`}
+        >
           <nav className={`flex-1 overflow-y-auto overflow-x-hidden ${colapsado ? 'p-2 space-y-3' : 'p-4 space-y-6'}`}>
             {grupos.map((g) => (
               <div key={g.id}>
