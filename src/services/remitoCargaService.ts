@@ -64,6 +64,10 @@ export async function crearRemitoCarga(args: CrearRemitoCargaArgs, actor: ActorC
       const rSnap = await tx.get(REMITO_R_COUNTER_REF())
       if (!rSnap.exists()) throw new TalonarioRemitoCargaNoInicializadoError('El talonario del remito R de carga no está inicializado (Ajustes → COT de ARBA → próximo número).')
       const numeroR = Number(rSnap.data().next)
+      // El CAI autoriza un rango de números (2026-09-12: 251 a 1750). Pasado el
+      // último, el remito no valdría: hay que pedir un CAI nuevo y cargarlo.
+      const ultimoR = rSnap.data().ultimo != null ? Number(rSnap.data().ultimo) : null
+      if (ultimoR !== null && numeroR > ultimoR) throw new TalonarioRemitoCargaNoInicializadoError(`El talonario del remito R de carga se agotó (último número autorizado por el CAI: ${ultimoR}). Hay que pedir un CAI nuevo y cargarlo en Ajustes → COT de ARBA.`)
       tx.update(REMITO_R_COUNTER_REF(), { next: numeroR + 1 })
       remitoR = { puntoVenta: args.remitoR.puntoVenta, numero: numeroR, cai: args.remitoR.cai, vencimiento: args.remitoR.vencimiento }
       if (cotSolicitud) cotSolicitud = { ...cotSolicitud, respaldo: { ...cotSolicitud.respaldo, prefijo: args.remitoR.puntoVenta, numero: numeroR } }

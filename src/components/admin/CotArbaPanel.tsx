@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Button from '../ui/Button'
 import { useCotConfig } from '@/hooks/useCotConfig'
 import { useCatalogo } from '@/hooks/useCatalogo'
-import { guardarCotConfig, inicializarContadorRemitoCarga, subscribeContadorRemitoCarga } from '@/services/cotConfigService'
+import { guardarCotConfig, inicializarContadorRemitoCarga, subscribeContadorRemitoCarga, type ContadorRemitoCarga } from '@/services/cotConfigService'
 import { reportError } from '@/services/observability'
 import { CODIGO_ARBA_AGUA, CODIGO_ARBA_HIELO, pesoSugerido } from '@/utils/cot'
 import { formatoARS } from '@/utils/money'
@@ -26,15 +26,21 @@ export default function CotArbaPanel() {
 
   // Contador del remito R de carga (talonario 00025): se inicializa una vez con el
   // número siguiente al último remito manual y después lo avanza caja al emitir.
-  const [proximoR, setProximoR] = useState<number | null>(null)
+  // La constancia de CAI autoriza un rango (p. ej. 251 a 1750): se cargan el
+  // próximo y el último; pasado el último, caja no puede emitir hasta cargar un CAI nuevo.
+  const [contadorR, setContadorR] = useState<ContadorRemitoCarga | null>(null)
   const [proximoRInput, setProximoRInput] = useState('')
+  const [ultimoRInput, setUltimoRInput] = useState('')
   const [inicializando, setInicializando] = useState(false)
-  useEffect(() => subscribeContadorRemitoCarga(setProximoR), [])
+  useEffect(() => subscribeContadorRemitoCarga(setContadorR), [])
+  const quedanR = contadorR?.ultimo != null ? contadorR.ultimo - contadorR.next + 1 : null
   const inicializarR = async () => {
     const n = parseInt(proximoRInput.replace(/\D/g, ''), 10)
+    const u = ultimoRInput ? parseInt(ultimoRInput.replace(/\D/g, ''), 10) : (contadorR?.ultimo ?? null)
     if (!(n > 0)) return
+    if (u !== null && u < n) { setMsg('El último número autorizado tiene que ser mayor o igual al próximo.'); return }
     setInicializando(true)
-    try { await inicializarContadorRemitoCarga(n); setProximoRInput(''); setMsg(`Talonario del remito R: próximo número ${n}.`) }
+    try { await inicializarContadorRemitoCarga(n, u); setProximoRInput(''); setUltimoRInput(''); setMsg(`Talonario del remito R: próximo número ${n}${u !== null ? `, último autorizado ${u}` : ''}.`) }
     catch (err) { reportError(err, { origen: 'CotArbaPanel.contador' }); setMsg('No se pudo inicializar el contador.') }
     finally { setInicializando(false) }
   }
@@ -125,12 +131,21 @@ export default function CotArbaPanel() {
           <label className="block"><span className={label}>CAI del talonario (14 dígitos)</span><input value={form.respaldo.cai ?? ''} onChange={(e) => setForm({ ...form, respaldo: { ...form.respaldo, cai: e.target.value.replace(/\D/g, '').slice(0, 14) } })} className={input} /></label>
           <label className="block"><span className={label}>Vencimiento del CAI</span><input type="date" value={form.respaldo.vencimiento ?? ''} onChange={(e) => setForm({ ...form, respaldo: { ...form.respaldo, vencimiento: e.target.value } })} className={input} /></label>
           <div>
-            <span className={label}>Próximo número{proximoR !== null ? ` (hoy: ${proximoR})` : ' (sin inicializar)'}</span>
-            <div className="flex gap-2">
-              <input value={proximoRInput} onChange={(e) => setProximoRInput(e.target.value.replace(/\D/g, ''))} inputMode="numeric" placeholder={proximoR !== null ? String(proximoR) : 'ej. 67891'} className={input} />
-              <Button variant="outline" size="sm" onClick={inicializarR} loading={inicializando} disabled={!proximoRInput}>Fijar</Button>
-            </div>
+            <span className={label}>Próximo número{contadorR ? ` (hoy: ${contadorR.next})` : ' (sin inicializar)'}</span>
+            <input value={proximoRInput} onChange={(e) => setProximoRInput(e.target.value.replace(/\D/g, ''))} inputMode="numeric" placeholder={contadorR ? String(contadorR.next) : 'ej. 251'} className={input} />
           </div>
+        </div>
+        <div className="grid sm:grid-cols-4 gap-3 items-end">
+          <div>
+            <span className={label}>Último número autorizado por el CAI{contadorR?.ultimo != null ? ` (hoy: ${contadorR.ultimo})` : ''}</span>
+            <input value={ultimoRInput} onChange={(e) => setUltimoRInput(e.target.value.replace(/\D/g, ''))} inputMode="numeric" placeholder={contadorR?.ultimo != null ? String(contadorR.ultimo) : 'ej. 1750'} className={input} />
+          </div>
+          <Button variant="outline" size="sm" onClick={inicializarR} loading={inicializando} disabled={!proximoRInput}>Fijar numeración</Button>
+          {quedanR !== null && (
+            <p className={`sm:col-span-2 text-xs ${quedanR <= 0 ? 'text-red-700 font-semibold' : quedanR <= 100 ? 'text-amber-700 font-semibold' : 'text-gray-500'}`}>
+              {quedanR <= 0 ? 'El talonario se agotó: pedí un CAI nuevo y cargá su rango.' : `Quedan ${quedanR} remitos de este CAI${quedanR <= 100 ? ': pedí el CAI siguiente.' : '.'}`}
+            </p>
+          )}
         </div>
       </div>
 

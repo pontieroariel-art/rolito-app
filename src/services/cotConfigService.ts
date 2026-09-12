@@ -23,15 +23,24 @@ export const subscribeCotConfig = (cb: (cfg: CotConfig) => void): (() => void) =
 export const guardarCotConfig = (cfg: CotConfig): Promise<void> =>
   setDoc(REF(), normalizarCotConfig(cfg), { merge: true })
 
-// Contador del remito R de carga (config/remitoCargaCounter = { next }): la app
-// numera el talonario 00025 al emitir; el super_admin lo inicializa desde
-// Ajustes con el número siguiente al último remito manual.
+// Contador del remito R de carga (config/remitoCargaCounter = { next, ultimo }):
+// la app numera el talonario 00025 al emitir; el super_admin lo inicializa
+// desde Ajustes con el primer número que autoriza el CAI y el último (la
+// constancia de CAI autoriza un rango, p. ej. 251 a 1750; fuera de ese rango
+// el remito no vale y la app no numera).
 const COUNTER_REF = () => doc(db, 'config', 'remitoCargaCounter')
 
-export const subscribeContadorRemitoCarga = (cb: (next: number | null) => void): (() => void) =>
-  onSnapshot(COUNTER_REF(), (snap) => cb(snap.exists() ? Number(snap.data().next) : null), (err) => { reportError(err, { subscription: 'config/remitoCargaCounter' }); cb(null) })
+export interface ContadorRemitoCarga { next: number; ultimo: number | null }
 
-export const inicializarContadorRemitoCarga = (next: number): Promise<void> => setDoc(COUNTER_REF(), { next })
+export const subscribeContadorRemitoCarga = (cb: (c: ContadorRemitoCarga | null) => void): (() => void) =>
+  onSnapshot(
+    COUNTER_REF(),
+    (snap) => cb(snap.exists() ? { next: Number(snap.data().next), ultimo: snap.data().ultimo != null ? Number(snap.data().ultimo) : null } : null),
+    (err) => { reportError(err, { subscription: 'config/remitoCargaCounter' }); cb(null) },
+  )
+
+export const inicializarContadorRemitoCarga = (next: number, ultimo: number | null): Promise<void> =>
+  setDoc(COUNTER_REF(), { next, ultimo })
 
 /** Reintento manual de la presentación a ARBA de un remito de carga (callable presentarCotRemito). */
 export async function presentarCotRemito(remitoId: string): Promise<{ ok: boolean; cot?: string; error?: string }> {
