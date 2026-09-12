@@ -274,7 +274,8 @@ function AppContent() {
           {/* Tablero de despacho e historial — operativo, ya no super_admin */}
           <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica', 'gerente_comercial']} />}>
             <Route path="/logistica"              element={<LogisticaDashboard />} />
-            <Route path="/admin/planificacion"    element={<LogisticaDashboard />} />
+            {/* Alias viejo sin ningún link en el código (fase 0, 2026-09-12): redirige a la ruta canónica. */}
+            <Route path="/admin/planificacion"    element={<Navigate to="/logistica" replace />} />
             <Route path="/admin/historial-despacho" element={<HistorialDespachoPage />} />
           </Route>
           {/* Clima es solo lectura: comercial también entra (linkeado desde su tablero) */}

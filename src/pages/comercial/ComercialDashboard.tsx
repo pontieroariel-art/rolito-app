@@ -15,7 +15,7 @@ import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
 import { getAllUsers, approveUser, updateUserStatus } from '../../services/userService'
 import { subscribeAllActiveDrivers, ActiveDriver } from '../../services/locationService'
 import { Order, UserProfile } from '../../types'
-import MetricsDashboard from '../admin/MetricsDashboard'
+import MetricsDashboard from '@/components/admin/MetricsDashboard'
 import { ForecastStrip } from '../admin/ClimaPage'
 import { toDateStr, todayString, normalizeAddress } from '../../utils/helpers'
 
