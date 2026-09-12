@@ -104,7 +104,7 @@ export default function AnulacionesPage() {
     <main className="max-w-5xl mx-auto p-4 space-y-4 pb-10">
       <div>
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><Ban size={22} className="text-accent" /> Anulaciones de facturas</h1>
-        <p className="text-gray-500 text-sm">Lo que los cajeros de ventanilla piden anular. Con la aprobación sale la nota de crédito en ARCA por el total y la venta deja de contar.</p>
+        <p className="text-gray-500 text-sm">Lo que piden anular ventanilla, caja desde la liquidación del chofer y facturación desde Comprobantes de clientes. Con la aprobación sale la nota de crédito por el total (ARCA, o NC X interna si es promo) y la venta deja de contar.</p>
       </div>
       {!puedeAutorizar && <p className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">Estás en modo lectura: no tenés el permiso para autorizar anulaciones (lo asigna el administrador desde Usuarios).</p>}
       {aviso && <p className="text-xs text-amber-700">{aviso}</p>}
