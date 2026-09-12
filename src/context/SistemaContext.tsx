@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react'
 import { useAuth } from './AuthContext'
 import { Sistema, sistemasDeUsuario } from '../utils/sistemas'
 
@@ -16,7 +16,10 @@ export function SistemaProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const [sistemaActual, setSistemaActual] = useState<Sistema | null>(null)
 
-  const sistemasDisponibles = user ? sistemasDeUsuario(user) : []
+  // Memo por los campos que lo determinan: el array nuevo en cada render re-renderizaba a todos los consumidores.
+  const sistemasKey = user ? `${user.rol}|${user.sistemasPermitidos?.join(',') ?? ''}|${user.rolesExtra?.join(',') ?? ''}` : ''
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const sistemasDisponibles = useMemo(() => (user ? sistemasDeUsuario(user) : []), [sistemasKey])
 
   useEffect(() => {
     if (!user?.uid) {
@@ -39,24 +42,22 @@ export function SistemaProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.uid, user?.rol, user?.sistemasPermitidos?.join(','), user?.rolesExtra?.join(',')])
 
-  const elegirSistema = (s: Sistema) => {
+  const uid = user?.uid
+  const elegirSistema = useCallback((s: Sistema) => {
     setSistemaActual(s)
-    if (user?.uid) {
-      localStorage.setItem(`sistema_${user.uid}`, s)
-    }
-  }
+    if (uid) localStorage.setItem(`sistema_${uid}`, s)
+  }, [uid])
 
-  const cambiarSistema = () => {
+  const cambiarSistema = useCallback(() => {
     setSistemaActual(null)
-    if (user?.uid) {
-      localStorage.removeItem(`sistema_${user.uid}`)
-    }
-  }
+    if (uid) localStorage.removeItem(`sistema_${uid}`)
+  }, [uid])
 
   const necesitaEleccion = sistemasDisponibles.length > 1 && !sistemaActual
+  const value = useMemo(() => ({ sistemasDisponibles, sistemaActual, elegirSistema, cambiarSistema, necesitaEleccion }), [sistemasDisponibles, sistemaActual, elegirSistema, cambiarSistema, necesitaEleccion])
 
   return (
-    <SistemaContext.Provider value={{ sistemasDisponibles, sistemaActual, elegirSistema, cambiarSistema, necesitaEleccion }}>
+    <SistemaContext.Provider value={value}>
       {children}
     </SistemaContext.Provider>
   )

@@ -17,14 +17,21 @@ import { reportError } from './observability'
  * pantalla de venta lo usa para mostrar el total con IVA que va a facturar. Si
  * no se pudo leer, se asume false (netos), que es lo configurado en prod.
  */
-let cachePreciosIncluyenIva: boolean | null = null
+// config/arca se lee UNA vez por sesión y las dos consultas comparten la
+// promesa (2026-09-12): antes el tope se releía en cada apertura de ventanilla.
+// Un fallo de red no se cachea: la próxima llamada vuelve a intentar.
+let configArca: Promise<Record<string, unknown>> | null = null
+function leerConfigArca(): Promise<Record<string, unknown>> {
+  if (!configArca) {
+    configArca = getDoc(doc(db, 'config', 'arca')).then((snap) => snap.data() ?? {})
+    configArca.catch(() => { configArca = null })
+  }
+  return configArca
+}
+
 export async function getPreciosIncluyenIva(): Promise<boolean> {
-  if (cachePreciosIncluyenIva !== null) return cachePreciosIncluyenIva
   try {
-    const snap = await getDoc(doc(db, 'config', 'arca'))
-    const v = snap.data()?.preciosIncluyenIva
-    cachePreciosIncluyenIva = v === true
-    return cachePreciosIncluyenIva
+    return (await leerConfigArca()).preciosIncluyenIva === true
   } catch (err) {
     reportError(err, { servicio: 'arcaConfigService', op: 'getPreciosIncluyenIva' })
     return false
@@ -33,8 +40,7 @@ export async function getPreciosIncluyenIva(): Promise<boolean> {
 
 export async function getTopeConsumidorFinalSinIdentificar(): Promise<number> {
   try {
-    const snap = await getDoc(doc(db, 'config', 'arca'))
-    const v = Number(snap.data()?.topeConsumidorFinalSinIdentificar ?? 0)
+    const v = Number((await leerConfigArca()).topeConsumidorFinalSinIdentificar ?? 0)
     return Number.isFinite(v) && v > 0 ? v : 0
   } catch (err) {
     reportError(err, { servicio: 'arcaConfigService', op: 'getTopeConsumidorFinalSinIdentificar' })

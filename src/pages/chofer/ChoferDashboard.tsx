@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, ChangeEvent } from 'react'
+import { useState, useEffect, useRef, useMemo, memo, ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { HandCoins, Package, FileText } from 'lucide-react'
 import ChoferHeader from '../../components/chofer/ChoferHeader'
@@ -90,18 +90,20 @@ export default function ChoferDashboard() {
 
   const MOTIVOS_SIN_CONTACTO = ['Nadie en el local', 'Local cerrado', 'No atendió el teléfono', 'Dirección incorrecta']
 
-  const pending   = orders.filter((o) => o.status !== 'entregado')
-  const delivered = orders.filter((o) => o.status === 'entregado')
+  // Derivados memoizados (2026-09-12, auditoría de performance): el GPS
+  // re-renderiza esta pantalla cada 10 s y antes se recalculaba todo cada vez.
+  const pending   = useMemo(() => orders.filter((o) => o.status !== 'entregado'), [orders])
+  const delivered = useMemo(() => orders.filter((o) => o.status === 'entregado'), [orders])
   const hasPending = pending.length > 0
 
   // Ayudante filtra visitas por el email del chofer asignado, no el suyo propio
   const driverEmailForVisits = isAyudante ? (pairedDespacho?.driverId ?? user?.email) : user?.email
-  const visitasHoy = programasParaFecha(programas, today).filter((p) => !p.driverId || p.driverId === driverEmailForVisits)
-  const puntualHoy = visitasParaFecha(visitas, today).filter((v) => !v.driverId || v.driverId === driverEmailForVisits)
-  const entregadosHoyIds = new Set(orders.filter((o) => o.status === 'entregado').map((o) => o.clientId))
+  const visitasHoy = useMemo(() => programasParaFecha(programas, today).filter((p) => !p.driverId || p.driverId === driverEmailForVisits), [programas, today, driverEmailForVisits])
+  const puntualHoy = useMemo(() => visitasParaFecha(visitas, today).filter((v) => !v.driverId || v.driverId === driverEmailForVisits), [visitas, today, driverEmailForVisits])
+  const entregadosHoyIds = useMemo(() => new Set(delivered.map((o) => o.clientId)), [delivered])
 
   // Próximas visitas puntuales (días 1–6 desde hoy, asignadas a este chofer)
-  const proximasVisitas = (() => {
+  const proximasVisitas = useMemo(() => {
     const days: { label: string; fecha: string; items: VisitaPuntual[] }[] = []
     for (let i = 1; i <= 6; i++) {
       const d = new Date(today)
@@ -116,7 +118,7 @@ export default function ChoferDashboard() {
       }
     }
     return days
-  })()
+  }, [visitas, today, driverEmailForVisits])
 
   // El despacho "activo" del día: para el chofer el suyo (puede tener más de
   // uno — varias vueltas); para el ayudante el del chofer asignado.
@@ -131,7 +133,7 @@ export default function ChoferDashboard() {
   // Lista de entregas en el ORDEN de la ruta que armó logística
   // (despacho.orderIds), igual que el mapa — no por fecha (que daba un orden
   // arbitrario que no coincidía con el reorden manual del encargado).
-  const pendingOrdenado = ordenarPorRutaDespacho(pending, isAyudante ? pairedDespachos : misDespachos)
+  const pendingOrdenado = useMemo(() => ordenarPorRutaDespacho(pending, isAyudante ? pairedDespachos : misDespachos), [pending, isAyudante, pairedDespachos, misDespachos])
 
   // ── Cambiar PIN ──────────────────────────────────────────────────────────
   const [pinModal,     setPinModal]     = useState(false)
@@ -766,7 +768,9 @@ function RegistrarEntregaModal({
   )
 }
 
-function DeliveryCard({ order, index, isFirst, chofer }: { order: Order; index: number; isFirst?: boolean; chofer: import('../../types').UserProfile | null }) {
+// memo: la pantalla se re-renderiza cada 10 s por el GPS; las tarjetas solo
+// cuando cambia su pedido.
+const DeliveryCard = memo(function DeliveryCard({ order, index, isFirst, chofer }: { order: Order; index: number; isFirst?: boolean; chofer: import('../../types').UserProfile | null }) {
   const [modal,           setModal]           = useState(false)
   const [noEntregadoModal, setNoEntregadoModal] = useState(false)
   const [geoLoading,      setGeoLoading]       = useState(false)
@@ -925,7 +929,7 @@ function DeliveryCard({ order, index, isFirst, chofer }: { order: Order; index: 
       )}
     </>
   )
-}
+})
 
 function CargaDelDia({ orders, catalogo }: { orders: Order[]; catalogo: import('../../types').CatalogProducto[] }) {
   // Agrupa por productoId cuando está disponible; cae en nombre como fallback

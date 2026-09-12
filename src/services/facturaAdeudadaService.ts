@@ -64,14 +64,18 @@ export async function obtenerFacturaPdf(comp: Pick<ComprobanteSaldoTango, 'tipo'
   const titulo = `${TITULO_TIPO[tipo] ?? comp.tipo} ${formatoFactura(clave)}`
 
   // (1) Contado facturado por ARCA desde la app (Redonhielo): camión o mostrador.
+  // Las dos búsquedas van en paralelo (2026-09-12): antes eran viajes en serie
+  // y en Comprobantes de clientes cada fila tardaba lo que sumaban todos.
   if (empresa === 'redonhielo' && clave.letra !== 'X' && tipo === 'FAC') {
-    const venta = await ventaCamionPor('factura', clave.puntoVenta, clave.numero)
+    const [venta, mostrador] = await Promise.all([
+      ventaCamionPor('factura', clave.puntoVenta, clave.numero),
+      ventaVentanillaPor(clave.puntoVenta, clave.numero),
+    ])
     if (venta?.factura?.estado === 'emitida') {
       const cliente = venta.clienteId ? (await getUserDocument(venta.clienteId)) ?? undefined : undefined
       const g = await generarComprobanteVenta(venta, cliente, null)
       return g.ok ? { ...g, titulo, fuente: 'app' } : g
     }
-    const mostrador = await ventaVentanillaPor(clave.puntoVenta, clave.numero)
     if (mostrador?.factura?.estado === 'emitida') {
       const cliente = mostrador.clienteId ? (await getUserDocument(mostrador.clienteId)) ?? undefined : undefined
       const armado = armarFacturaDeVenta(mostrador, cliente)

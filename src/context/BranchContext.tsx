@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react'
 import { DeliveryAddress } from '../types'
 import { useAuth } from './AuthContext'
 
@@ -53,25 +53,23 @@ export function BranchProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.uid, addressesKey])
 
-  const setSelectedAddress = (addr: DeliveryAddress) => {
+  const uid = user?.uid
+  const setSelectedAddress = useCallback((addr: DeliveryAddress) => {
     setSelectedAddressState(addr)
-    if (user?.uid) {
-      localStorage.setItem(`branch_${user.uid}`, JSON.stringify(addr))
-    }
-  }
+    if (uid) localStorage.setItem(`branch_${uid}`, JSON.stringify(addr))
+  }, [uid])
 
-  const clearBranch = () => {
+  const clearBranch = useCallback(() => {
     setSelectedAddressState(null)
-    if (user?.uid) {
-      localStorage.removeItem(`branch_${user.uid}`)
-    }
-  }
+    if (uid) localStorage.removeItem(`branch_${uid}`)
+  }, [uid])
 
-  const addresses = user?.addresses ?? []
-  const needsSelection = addresses.length > 1 && !selectedAddress
+  const needsSelection = (user?.addresses?.length ?? 0) > 1 && !selectedAddress
+  // value memoizado (2026-09-12): el objeto nuevo en cada render re-renderizaba a todos los consumidores.
+  const value = useMemo(() => ({ selectedAddress, setSelectedAddress, clearBranch, needsSelection }), [selectedAddress, setSelectedAddress, clearBranch, needsSelection])
 
   return (
-    <BranchContext.Provider value={{ selectedAddress, setSelectedAddress, clearBranch, needsSelection }}>
+    <BranchContext.Provider value={value}>
       {children}
     </BranchContext.Provider>
   )

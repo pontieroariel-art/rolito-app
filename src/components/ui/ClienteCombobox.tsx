@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo, useDeferredValue } from 'react'
 import { ClienteIndex, UserProfile } from '../../types'
 import { coincideBusqueda, normalizarBusqueda, INPUT_BUSQUEDA_PROPS } from '@/utils/busqueda'
 import { empresasInhabilitado, etiquetaInhabilitado } from '@/utils/inhabilitadoTango'
@@ -17,10 +17,21 @@ export interface ComboItem {
   extra?:  string
   /** Cantidad de códigos de Tango de la cuenta (chip "N suc." si hay más de uno). */
   sucursales?: number
+  /** label + codigo + extra ya normalizados, calculados UNA vez (2026-09-12): con 2.000
+   *  clientes, normalizar cada campo en cada tecla congelaba el buscador. */
+  buscar?: string
 }
 
+const conBuscar = (i: ComboItem): ComboItem => ({ ...i, buscar: normalizarBusqueda([i.label, i.codigo, i.extra].filter(Boolean).join(' ')) })
+
+// Caché por identidad de la lista: las pantallas pasan `toComboItems(clientes)`
+// inline y re-mapeaban los 2.000 clientes en cada render.
+const cacheItems = new WeakMap<object, ComboItem[]>()
+
 export function toComboItems(clientes: UserProfile[]): ComboItem[] {
-  return clientes.map((c) => {
+  const cacheado = cacheItems.get(clientes)
+  if (cacheado) return cacheado
+  const items = clientes.map((c) => {
     // Cuentas con varias sucursales en Tango (Rappi, Coto…): se buscan también
     // por el código o el nombre de cualquier sucursal (RAP001, "MONROE").
     const codigos = [...(c.tangoIds?.redonhielo ?? []), ...(c.tangoIds?.rolito ?? [])].map((x) => x.codigo)
@@ -34,18 +45,24 @@ export function toComboItems(clientes: UserProfile[]): ComboItem[] {
       extra:  [...codigos, ...(c.addresses ?? []).map((a) => a.nombre)].filter(Boolean).join(' '),
       sucursales,
     }
-  })
+  }).map(conBuscar)
+  cacheItems.set(clientes, items)
+  return items
 }
 
 /** Igual que toComboItems pero desde el índice liviano (clientesIndex, 2026-09-10). */
 export function indexAComboItems(clientes: ClienteIndex[]): ComboItem[] {
-  return clientes.map((c) => ({
+  const cacheado = cacheItems.get(clientes)
+  if (cacheado) return cacheado
+  const items = clientes.map((c) => conBuscar({
     uid:    c.uid,
     label:  c.razonSocial + (c.sinCuit ? ' · sin CUIT (solo promo)' : '') + sufijoInhabilitado(c.inhabilitadoEn),
     codigo: c.codigoCliente,
     extra:  [...c.codigos, ...c.sucursales, c.cuit].filter(Boolean).join(' '),
     sucursales: new Set(c.codigos).size,
   }))
+  cacheItems.set(clientes, items)
+  return items
 }
 
 interface Props {
@@ -75,9 +92,18 @@ export default function ClienteCombobox({
 
   // Se compara sin puntos, espacios, guiones ni acentos: el autocorrector del
   // iPad convierte "FC." en "F.C." y "fc280" tiene que encontrar a "FC.280".
-  const filtered = normalizarBusqueda(query)
-    ? items.filter((i) => coincideBusqueda(query, i.label, i.codigo, i.extra)).slice(0, 50)
-    : items.slice(0, 50)
+  // Diferido: la tecla se pinta al instante y el filtrado corre después, sin
+  // bloquear el input en la tablet.
+  const queryDiferida = useDeferredValue(query)
+  const filtered = useMemo(() => {
+    const q = normalizarBusqueda(queryDiferida)
+    if (!q) return items.slice(0, 50)
+    const out: ComboItem[] = []
+    for (const i of items) {
+      if (i.buscar ? i.buscar.includes(q) : coincideBusqueda(q, i.label, i.codigo, i.extra)) { out.push(i); if (out.length === 50) break }
+    }
+    return out
+  }, [items, queryDiferida])
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
