@@ -222,12 +222,13 @@ export function UserRow({ user, currentUser, onRoleChange, onSubrolChange, onRol
 
       {/* Roles adicionales de expedición (caja / muelle / seguridad) para
           staff que cubre el mostrador además de su puesto — ver utils/roles.ts.
-          Solo super_admin; van con la planta. No aplica a quien ya es de
-          expedición ni a clientes. */}
-      {canChangeRole && !isSelf && !['cliente', 'super_admin', 'caja', 'muelle', 'seguridad'].includes(user.rol) && (
+          Solo super_admin; van con la planta. No aplica a clientes. Desde el
+          2026-09-12 también a los de expedición (caja carga la descarga
+          mientras muelle no tiene tablet), sin ofrecerles su propio rol. */}
+      {canChangeRole && !isSelf && !['cliente', 'super_admin'].includes(user.rol) && (
         <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-gray-100">
           <span className="text-xs text-gray-500">También hace:</span>
-          {ROLES_EXTRA_DISPONIBLES.map((r) => {
+          {ROLES_EXTRA_DISPONIBLES.filter((r) => r !== user.rol).map((r) => {
             const activo = (user.rolesExtra ?? []).includes(r)
             return (
               <label key={r} className="flex items-center gap-1.5 text-xs text-gray-700">
