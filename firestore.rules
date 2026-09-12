@@ -14,13 +14,24 @@ service cloud.firestore {
         && request.method in ['create', 'update', 'delete'];
     }
 
-    // Lee el rol del usuario autenticado desde su propio documento.
-    // Usa exists() antes de get() para no fallar si el doc aún no existe.
+    // Rol, estado, planta y permisos del usuario autenticado (2026-09-12,
+    // auditoría de performance): si el ID token trae los claims que mantiene
+    // el trigger onUserClaims, se usan y NO se lee users/{uid}; si no (token
+    // viejo, usuario sin backfill, custom token de "Ver como"), se lee el
+    // documento como siempre. Camino doble a propósito: nadie queda afuera.
+    function tokenConClaims() {
+      return 'rol' in request.auth.token;
+    }
+    function perfil() {
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(path) ? get(path).data : {};
+    }
+    // Lee el rol del usuario autenticado (token o documento).
     // Soporta campo nuevo 'rol' y campo viejo 'role' por compatibilidad.
     function myRole() {
-      let path = /databases/$(database)/documents/users/$(request.auth.uid);
-      let data = exists(path) ? get(path).data : {};
-      return esEscrituraImpersonada() ? 'none' : data.get('rol', data.get('role', 'none'));
+      return esEscrituraImpersonada() ? 'none'
+        : tokenConClaims() ? request.auth.token.rol
+        : perfil().get('rol', perfil().get('role', 'none'));
     }
     // Roles ADICIONALES al principal (2026-09-07): hoy solo los de expedición
     // (caja / muelle / seguridad), para personal que cubre el mostrador además
@@ -28,9 +39,9 @@ service cloud.firestore {
     // (ver rolesExtraUnchanged en /users). hasRol() es la pregunta correcta
     // para esos tres roles; el resto sigue mirando el rol principal.
     function myRolesExtra() {
-      let path = /databases/$(database)/documents/users/$(request.auth.uid);
-      let data = exists(path) ? get(path).data : {};
-      return esEscrituraImpersonada() ? [] : data.get('rolesExtra', []);
+      return esEscrituraImpersonada() ? []
+        : tokenConClaims() ? request.auth.token.get('rolesExtra', [])
+        : perfil().get('rolesExtra', []);
     }
     function hasRol(r) {
       return myRole() == r || r in myRolesExtra();
@@ -38,16 +49,14 @@ service cloud.firestore {
 
     // Lee el estado ('activo'/'inactivo'/'pendiente') del usuario autenticado.
     function myEstado() {
-      let path = /databases/$(database)/documents/users/$(request.auth.uid);
-      let data = exists(path) ? get(path).data : {};
-      return esEscrituraImpersonada() ? 'none' : data.get('estado', 'none');
+      return esEscrituraImpersonada() ? 'none'
+        : tokenConClaims() ? request.auth.token.get('estado', 'none')
+        : perfil().get('estado', 'none');
     }
 
     // Área de taller del usuario autenticado (solo aplica a rol 'heladeras').
     function myArea() {
-      let path = /databases/$(database)/documents/users/$(request.auth.uid);
-      let data = exists(path) ? get(path).data : {};
-      return data.get('area', null);
+      return tokenConClaims() ? request.auth.token.get('area', null) : perfil().get('area', null);
     }
 
     // Usuario autenticado que NO es una sesión anónima. La página pública de
@@ -98,10 +107,10 @@ service cloud.firestore {
     // 2026-09-09): permiso INDIVIDUAL (users.autorizaAnulaciones), sea cual
     // sea el rol; lo asigna solo el super_admin. super_admin siempre puede.
     function puedeAutorizarAnulaciones() {
-      let path = /databases/$(database)/documents/users/$(request.auth.uid);
-      let data = exists(path) ? get(path).data : {};
       return !esEscrituraImpersonada()
-        && (data.get('rol', 'none') == 'super_admin' || data.get('autorizaAnulaciones', false) == true);
+        && (tokenConClaims()
+          ? (request.auth.token.rol == 'super_admin' || request.auth.token.get('autorizaAnulaciones', false) == true)
+          : (perfil().get('rol', 'none') == 'super_admin' || perfil().get('autorizaAnulaciones', false) == true));
     }
 
     // Cualquier rol de staff (todo lo que no sea cliente).
@@ -200,9 +209,7 @@ service cloud.firestore {
     }
     // Planta asignada al usuario autenticado (roles 'produccion_hielo' y 'caja').
     function myPlanta() {
-      let path = /databases/$(database)/documents/users/$(request.auth.uid);
-      let data = exists(path) ? get(path).data : {};
-      return data.get('planta', null);
+      return tokenConClaims() ? request.auth.token.get('planta', null) : perfil().get('planta', null);
     }
     function isChofer() {
       return myRole() == 'chofer';

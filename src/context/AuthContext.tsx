@@ -179,13 +179,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // volver a loguearse para verse (2026-09-10).
         const newRolesExtra = d.rolesExtra as UserProfile['rolesExtra']
         const newAutorizaAnulaciones = d.autorizaAnulaciones as UserProfile['autorizaAnulaciones']
+        // Claims del token (rol/estado/planta/permisos) actualizados por el
+        // server (2026-09-12): se refresca el ID token en el momento para que
+        // las reglas vean el rol nuevo sin esperar a la hora de vida del token.
+        const newClaimsEn = d.claimsActualizadosEn as UserProfile['claimsActualizadosEn']
         const cur        = userRef.current
         if (!cur) return
+        if (newClaimsEn && newClaimsEn.toMillis() !== cur.claimsActualizadosEn?.toMillis()) {
+          auth.currentUser?.getIdToken(true).catch((err) => reportError(err, { origen: 'AuthContext', accion: 'refrescar token tras claims' }))
+        }
         const changed =
           newRol     !== cur.rol    ||
           newEst     !== cur.estado ||
           newPlanta  !== cur.planta ||
           newAutorizaAnulaciones !== cur.autorizaAnulaciones ||
+          newClaimsEn?.toMillis() !== cur.claimsActualizadosEn?.toMillis() ||
           JSON.stringify(newRolesExtra) !== JSON.stringify(cur.rolesExtra) ||
           JSON.stringify(newPreciosTango) !== JSON.stringify(cur.preciosTango) ||
           JSON.stringify(newListaTango)   !== JSON.stringify(cur.listaTango) ||
@@ -206,6 +214,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           planta:         newPlanta,
           rolesExtra:     newRolesExtra,
           autorizaAnulaciones: newAutorizaAnulaciones,
+          claimsActualizadosEn: newClaimsEn,
           ...(newAddrs !== undefined ? { addresses: newAddrs } : {}),
           sistemasPermitidos: newSistemas,
           pestanasPermitidas: newPestanas,

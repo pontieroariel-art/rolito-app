@@ -10,6 +10,8 @@ initializeApp()
 // después por la cuota).
 
 export { onUserRegistered, onUserApproved, onClienteCreadoPorStaff } from './triggers/users'
+// Rol/estado/planta/permisos en el token (custom claims): las reglas no leen users/{uid} (2026-09-12).
+export { onUserClaims } from './triggers/claims'
 // Índice liviano de clientes para los buscadores (clientesIndex/{uid}, 2026-09-10).
 export { onClienteIndexado } from './triggers/clientesIndex'
 export { onOrderCreated, onOrderConfirmado, onOrderEnCamino } from './triggers/orders'

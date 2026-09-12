@@ -1262,6 +1262,8 @@ export interface UserProfile {
   // Puede aprobar o rechazar las anulaciones de facturas de ventanilla (nota
   // de crédito), sea cual sea su rol. Solo lo asigna el super_admin (2026-09-09).
   autorizaAnulaciones?: boolean
+  /** Última vez que el server actualizó los claims del token (onUserClaims, 2026-09-12): AuthContext refresca el ID token cuando cambia. */
+  claimsActualizadosEn?: Timestamp
   // Cliente de Tango SIN CUIT (consumidor final del mostrador / promo), creado
   // por el padrón automático sin usuario de Auth ni cuitIndex: no puede entrar
   // a la app y solo se le vende en promo (Rolito). El contado (factura ARCA)

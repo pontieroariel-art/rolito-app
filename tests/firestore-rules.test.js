@@ -4513,3 +4513,41 @@ describe('anulación de ventas de días ya cerrados, pedida por facturación (20
     await assertSucceeds(updateDoc(doc(db('fac'), 'ventasCamion/fr1'), anulacionRemito('fac')))
   })
 })
+
+describe('rol en el token (custom claims, 2026-09-12): las reglas no leen users/{uid} si el token trae el rol', () => {
+  const conClaims = (uid, claims) => testEnv.authenticatedContext(uid, claims).firestore()
+  const venta = (choferId) => ({ canal: 'contado', camionId: '', choferId, choferNombre: 'C', clienteId: 'cli', clienteNombre: 'Cliente', items: [], total: 100, formaPago: 'cuenta_corriente', fecha: new Date(), pedidoId: null })
+  const seedTodos = () => seed(async (d) => {
+    await setDoc(doc(d, 'ventasCamion/vc1'), venta('chofTok'))
+    await setDoc(doc(d, 'ventasCamion/vc2'), venta('otroChofer'))
+    await setDoc(doc(d, 'ventasCamion/vc3'), venta('chofDoc'))
+    // Documento que dice INACTIVO: si el token dice activo, manda el token (lo mantiene el server).
+    await setDoc(doc(d, 'users/chofDoc'), { rol: 'chofer', estado: 'activo' })
+    await setDoc(doc(d, 'orders/o1'), pedido())
+  })
+  test('un chofer SIN documento pero con claims lee su venta y no la de otro', async () => {
+    await seedTodos()
+    const ch = conClaims('chofTok', { rol: 'chofer', estado: 'activo' })
+    await assertSucceeds(getDoc(doc(ch, 'ventasCamion/vc1')))
+    await assertFails(getDoc(doc(ch, 'ventasCamion/vc2')))
+  })
+  test('claims de super_admin y de caja con planta valen igual que el documento', async () => {
+    await seedTodos()
+    await assertSucceeds(getDoc(doc(conClaims('admTok', { rol: 'super_admin', estado: 'activo' }), 'ventasCamion/vc2')))
+    await assertSucceeds(getDoc(doc(conClaims('cajaTok', { rol: 'caja', estado: 'activo', planta: 'torcuato' }), 'ventasCamion/vc2')))
+    // Rol adicional por claims: un logístico que también hace caja lee remitos de carga como caja.
+    await assertSucceeds(getDoc(doc(conClaims('logTok', { rol: 'logistica', estado: 'activo', rolesExtra: ['caja'], planta: 'torcuato' }), 'ventasCamion/vc2')))
+  })
+  test('sin claims se sigue leyendo el documento (camino viejo), y un token sin rol ni doc no entra', async () => {
+    await seedTodos()
+    await assertSucceeds(getDoc(doc(db('chofDoc'), 'ventasCamion/vc3')))
+    await assertFails(getDoc(doc(db('chofDoc'), 'ventasCamion/vc2')))
+    await assertFails(getDoc(doc(db('nadie'), 'ventasCamion/vc1')))
+    await assertFails(getDoc(doc(conClaims('cliTok', { rol: 'cliente', estado: 'activo' }), 'ventasCamion/vc1')))
+  })
+  test('el token de "Ver como" sigue sin poder escribir aunque traiga rol', async () => {
+    await seedTodos()
+    const verComo = conClaims('admTok', { rol: 'super_admin', estado: 'activo', impersonadoPor: 'jefe', impersonadoPorNombre: 'Jefe' })
+    await assertFails(updateDoc(doc(verComo, 'orders/o1'), { status: 'confirmado' }))
+  })
+})

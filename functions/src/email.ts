@@ -1,4 +1,3 @@
-import { Resend } from 'resend'
 import { getFirestore } from 'firebase-admin/firestore'
 import { defineSecret } from 'firebase-functions/params'
 
@@ -17,6 +16,8 @@ export const sendEmail = async (
     console.warn('RESEND_API_KEY no configurada — email omitido:', subject)
     return
   }
+  // Import diferido (2026-09-12): la librería solo se carga cuando se manda un mail.
+  const { Resend } = await import('resend')
   const resend = new Resend(apiKey)
 
   // Modo test: redirige todos los emails a la dirección de prueba
