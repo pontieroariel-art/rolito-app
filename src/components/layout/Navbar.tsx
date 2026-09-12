@@ -1,127 +1,25 @@
 import { useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
-import {
-  LayoutDashboard, CalendarDays, Activity, AlertTriangle, ClipboardList,
-  Truck, Users, Tag, Map, Cloud, Package, Navigation, BarChart2,
-  DollarSign, TrendingUp, Home, Plus, History, UserCircle,
-  LogOut, Menu, X, Snowflake, Wrench, ArrowLeftRight, FileText,
-  Ban,
-} from 'lucide-react'
+import { LogOut, Menu, X, ArrowLeftRight } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useOnline } from '../../hooks/useOnline'
 import { useSistema } from '../../context/SistemaContext'
 import { logoutUser } from '../../services/authService'
 import { UserRole } from '../../types'
 import { SISTEMA_LABELS } from '../../utils/sistemas'
-import { ROLE_LABELS } from '../../utils/roles'
+import { ROLE_LABELS, ROLES } from '../../utils/roles'
+import { linksNavbarDe, linkDe } from '@/rutas/catalogo'
 
-interface NavLinkItem {
-  to:    string
-  label: string
-  icon:  React.ComponentType<{ size?: number; strokeWidth?: number }>
-}
+type NavLinkItem = ReturnType<typeof linksNavbarDe>[number]
 
-const NAV_LINKS: Record<UserRole, NavLinkItem[]> = {
-  gerente_general: [
-    { to: '/gerente',                       label: 'Tablero',        icon: LayoutDashboard },
-    { to: '/admin/monitoreo',               label: 'Monitoreo',      icon: Activity },
-    { to: '/usuarios',                      label: 'Clientes',       icon: Users },
-    { to: '/admin/mapa-clientes',           label: 'Mapa clientes',  icon: Map },
-    { to: '/comercial/ventas',              label: 'Ventas',         icon: TrendingUp },
-  ],
-  gerente_comercial: [
-    { to: '/logistica',                    label: 'Planificación',   icon: CalendarDays },
-    { to: '/admin/historial-despacho',     label: 'Hist. despacho',  icon: History },
-    { to: '/admin/monitoreo',              label: 'Monitoreo',       icon: Activity },
-    { to: '/admin/clima',                  label: 'Clima',           icon: Cloud },
-    { to: '/usuarios',                     label: 'Clientes',        icon: Users },
-    { to: '/admin/precios',                label: 'Precios',         icon: Tag },
-    { to: '/movimientos',                  label: 'Movimientos',     icon: BarChart2 },
-    { to: '/comercial/ventas',             label: 'Ventas',          icon: TrendingUp },
-  ],
-  cliente: [
-    { to: '/dashboard',      label: 'Inicio',         icon: Home },
-    { to: '/nuevo-pedido',   label: 'Nuevo pedido',   icon: Plus },
-    { to: '/historial',      label: 'Historial',      icon: History },
-    { to: '/mis-heladeras',  label: 'Mis heladeras',  icon: Snowflake },
-    { to: '/perfil',         label: 'Mi perfil',      icon: UserCircle },
-  ],
-  // super_admin ya no llega a ninguna pantalla que use este Navbar genérico
-  // (administra desde BackofficeLayout, y conserva Flota/Precios/Modelos/
-  // etc. dentro de LogisticaLayout/HeladerasLayout, que tienen su propio
-  // chrome) — ver plan de migración del Backoffice. Se deja vacío en vez de
-  // borrar la key porque UserRole exige que NAV_LINKS cubra los 12 roles.
-  super_admin: [],
-  logistica: [
-    { to: '/logistica',           label: 'Planificación',  icon: CalendarDays },
-    { to: '/admin/historial-despacho', label: 'Hist. despacho', icon: History },
-    { to: '/admin/monitoreo',     label: 'Monitoreo',      icon: Activity },
-    { to: '/admin/visitas',       label: 'Visitas',        icon: ClipboardList },
-    { to: '/admin/flota',         label: 'Flota',          icon: Truck },
-    { to: '/admin/precios',       label: 'Precios',        icon: Tag },
-    { to: '/admin/clima',         label: 'Clima',          icon: Cloud },
-    { to: '/usuarios',            label: 'Clientes',       icon: Users },
-    { to: '/admin/mapa-clientes', label: 'Mapa clientes',  icon: Map },
-  ],
-  comercial: [
-    { to: '/comercial',                   label: 'Tablero',        icon: LayoutDashboard },
-    { to: '/usuarios',                    label: 'Clientes',       icon: Users },
-    { to: '/admin/mapa-clientes',         label: 'Mapa clientes',  icon: Map },
-    { to: '/movimientos',                 label: 'Movimientos',    icon: BarChart2 },
-    { to: '/admin/precios',               label: 'Precios',        icon: Tag },
-    { to: '/comercial/reporte-precios',   label: 'Rep. precios',   icon: DollarSign },
-    { to: '/comercial/mapa',              label: 'Reparto',        icon: Navigation },
-  ],
-  facturacion: [
-    { to: '/movimientos',                  label: 'Movimientos',    icon: BarChart2 },
-    { to: '/admin/comprobantes',           label: 'Comprobantes',   icon: FileText },
-    { to: '/comercial/ventas',             label: 'Ventas',         icon: TrendingUp },
-    { to: '/comercial/reporte-precios',    label: 'Rep. precios',   icon: DollarSign },
-    { to: '/usuarios',                     label: 'Clientes',       icon: Users },
-    { to: '/admin/mapa-clientes',          label: 'Mapa clientes',  icon: Map },
-  ],
-  chofer: [
-    { to: '/chofer',        label: 'Inicio',   icon: Home },
-    { to: '/chofer/venta',  label: 'Vender',   icon: Package },
-    // Donde el chofer entrega la factura al cliente (WhatsApp / mail).
-    { to: '/chofer/ventas', label: 'Facturas', icon: FileText },
-    { to: '/chofer/map',    label: 'Ruta',     icon: Navigation },
-  ],
-  heladeras: [
-    { to: '/heladeras', label: 'Heladeras', icon: Snowflake },
-  ],
-  heladeras_encargado: [
-    { to: '/heladeras', label: 'Heladeras', icon: Snowflake },
-  ],
-  tecnico: [
-    { to: '/tecnico', label: 'Mis service', icon: Wrench },
-  ],
-  produccion_hielo: [
-    { to: '/produccion', label: 'Cargar producción', icon: Package },
-  ],
-  // produccion_encargado tiene su propio ProduccionLayout (con sidebar
-  // propio, igual que Logística/Heladeras) — no usa este Navbar genérico.
-  produccion_encargado: [],
-  // caja usa ExpedicionLayout (sidebar propio) — no usa este Navbar genérico.
-  caja: [],
-  muelle: [
-    { to: '/muelle', label: 'Muelle', icon: Package },
-  ],
-  seguridad: [
-    { to: '/seguridad', label: 'Salidas', icon: Truck },
-  ],
-  supervisor: [
-    { to: '/supervisor', label: 'Inicio', icon: Home },
-  ],
-  // Tesorería tiene su propio shell (TesoreriaLayout); no usa este Navbar.
-  tesoreria: [],
-}
+// Links por rol: salen del catálogo de rutas (src/rutas/catalogo.ts → NAVBAR).
+// Los roles con sidebar propio (super_admin, produccion_encargado, caja,
+// tesoreria) tienen la lista vacía: nunca llegan a una pantalla con Navbar.
+const NAV_LINKS = Object.fromEntries(ROLES.map((r) => [r, linksNavbarDe(r)])) as Record<UserRole, NavLinkItem[]>
 
 // Link set para el sistema "heladeras" de los roles con más de un sistema
 // (super_admin, gerente_comercial, comercial) — ver src/utils/sistemas.ts.
-const HELADERAS_LINKS: NavLinkItem[] = [
-  { to: '/heladeras', label: 'Heladeras', icon: Snowflake },
-]
+const HELADERAS_LINKS: NavLinkItem[] = linksNavbarDe('heladeras')
 
 // ROLE_LABELS vive en utils/roles.ts (fuente única de roles); se re-exporta acá
 // porque muchos layouts lo importan desde Navbar.
@@ -142,7 +40,7 @@ export default function Navbar() {
   // permiso individual, sea cual sea su rol.
   const puedeAutorizarAnulaciones = !!user && (user.autorizaAnulaciones === true || user.rol === 'super_admin')
   const links = puedeAutorizarAnulaciones && !linksBase.some((l) => l.to === '/anulaciones')
-    ? [...linksBase, { to: '/anulaciones', label: 'Anulaciones', icon: Ban }]
+    ? [...linksBase, linkDe('/anulaciones')]
     : linksBase
 
   const initials = user?.nombre

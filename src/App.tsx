@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { tieneAlgunRol } from '@/utils/roles'
+import { rolesDe } from '@/rutas/catalogo'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { BranchProvider, useBranch } from './context/BranchContext'
@@ -235,7 +236,7 @@ function AppContent() {
         <Route path="/turnos/:plantaId" element={<TurnosVentanillaPage />} />
 
         {/* Cliente */}
-        <Route element={<ProtectedRoute allowedRoles={['cliente']} />}>
+        <Route element={<ProtectedRoute allowedRoles={rolesDe('/sucursal')} />}>
           <Route path="/sucursal" element={<SelectSucursal />} />
           {/* Mis heladeras: no depende de sucursal (clienteAsignadoId es por
               cliente, no por dirección), por eso queda afuera de ClientBranchGuard. */}
@@ -254,41 +255,41 @@ function AppContent() {
           {/* Logística — el resumen de KPIs (ex /admin, ex AdminDashboard)
               ya no es cosa de super_admin: super_admin administra desde el
               Backoffice (ver bloque BackofficeLayout más abajo). */}
-          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica', 'gerente_comercial']} />}>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/logistica/resumen')} />}>
             <Route path="/logistica/resumen"    element={<ResumenLogisticaPage />} />
           </Route>
           {/* Flota es config compartida (ver plan de migración del
               Backoffice) — super_admin la conserva. Visitas e Incidencias
               son operativas del día a día: ya no. */}
-          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica']} />}>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/admin/flota')} />}>
             <Route path="/admin/flota"          element={<FlotaPage />} />
           </Route>
-          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica']} />}>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/admin/visitas')} />}>
             <Route path="/admin/visitas"        element={<VisitasPage />} />
             <Route path="/admin/incidencias"    element={<ReporteIncidenciasPage />} />
           </Route>
           {/* Precios (catálogo + listas): super_admin, logística, comercial y gerente comercial */}
-          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica', 'comercial', 'gerente_comercial']} />}>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/admin/precios')} />}>
             <Route path="/admin/precios"        element={<PriceListsPage />} />
           </Route>
           {/* Tablero de despacho e historial — operativo, ya no super_admin */}
-          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica', 'gerente_comercial']} />}>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/logistica')} />}>
             <Route path="/logistica"              element={<LogisticaDashboard />} />
             {/* Alias viejo sin ningún link en el código (fase 0, 2026-09-12): redirige a la ruta canónica. */}
             <Route path="/admin/planificacion"    element={<Navigate to="/logistica" replace />} />
             <Route path="/admin/historial-despacho" element={<HistorialDespachoPage />} />
           </Route>
           {/* Clima es solo lectura: comercial también entra (linkeado desde su tablero) */}
-          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica', 'gerente_comercial', 'comercial']} />}>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/admin/clima')} />}>
             <Route path="/admin/clima"         element={<ClimaPage />} />
           </Route>
-          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'logistica', 'gerente_general', 'gerente_comercial']} />}>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/admin/monitoreo')} />}>
             <Route path="/admin/monitoreo" element={<MonitoreoPage />} />
           </Route>
 
           {/* Gerente general — super_admin entra en solo lectura, mismo dato que ya
               puede leer desde el Backoffice, solo que resumido (ver PanelControlPage). */}
-          <Route element={<ProtectedRoute allowedRoles={['gerente_general', 'super_admin']} />}>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/gerente')} />}>
             <Route path="/gerente" element={<GerenteDashboard />} />
           </Route>
 
@@ -296,53 +297,53 @@ function AppContent() {
               de abajo) y Usuarios/equipo interno (ABM de staff + roles, ver
               /admin/usuarios en el Backoffice) son dos entradas separadas
               que renderizan el mismo componente. */}
-          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'facturacion', 'logistica']} />}>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/usuarios')} />}>
             <Route path="/usuarios" element={<UserManagement />} />
           </Route>
-          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'facturacion', 'logistica']} />}>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/admin/mapa-clientes')} />}>
             <Route path="/admin/mapa-clientes" element={<ClientesMapPage />} />
           </Route>
 
           {/* Comercial */}
-          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'comercial']} />}>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/comercial')} />}>
             <Route path="/comercial"         element={<ComercialDashboard />} />
             <Route path="/comercial/pedidos" element={<ComercialOrders />} />
           </Route>
-          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'comercial', 'logistica']} />}>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/comercial/mapa')} />}>
             <Route path="/comercial/mapa" element={<MapaLivePage />} />
           </Route>
 
           {/* Reportes */}
-          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_general', 'gerente_comercial', 'comercial', 'facturacion']} />}>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/comercial/reporte-precios')} />}>
             <Route path="/comercial/reporte-precios"  element={<ReportePreciosPage />} />
             <Route path="/comercial/ventas"           element={<ReporteVentasPage />} />
           </Route>
 
           {/* Recupero de facturas viejas — campaña puntual, se saca cuando termine */}
-          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'facturacion']} />}>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/admin/recupero-facturas')} />}>
             <Route path="/admin/recupero-facturas" element={<RecuperoFacturasPage />} />
           </Route>
 
           {/* Comprobantes de clientes (2026-09-10): facturas y remitos de Tango por
               cliente, para mandarlos en bloque por mail / WhatsApp / descarga. */}
-          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'facturacion']} />}>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/admin/comprobantes')} />}>
             <Route path="/admin/comprobantes" element={<ComprobantesClientesPage />} />
           </Route>
 
           {/* Historial unificado */}
-          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_general', 'gerente_comercial', 'logistica', 'comercial', 'facturacion']} />}>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/movimientos')} />}>
             <Route path="/movimientos" element={<HistorialPage />} />
           </Route>
 
           {/* Anulaciones de facturas de ventanilla (2026-09-09): la bandeja la abre
               cualquier staff de oficina; aprobar exige users.autorizaAnulaciones. */}
-          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'gerente_general', 'gerente_comercial', 'logistica', 'comercial', 'facturacion', 'tesoreria', 'supervisor', 'heladeras_encargado', 'produccion_encargado']} />}>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/anulaciones')} />}>
             <Route path="/anulaciones" element={<AnulacionesPage />} />
           </Route>
         </Route>
 
         {/* Chofer */}
-        <Route element={<ProtectedRoute allowedRoles={['chofer']} />}>
+        <Route element={<ProtectedRoute allowedRoles={rolesDe('/chofer')} />}>
           <Route path="/chofer"        element={<ChoferDashboard />} />
           <Route path="/chofer/map"    element={<ChoferMap />} />
           <Route path="/chofer/venta"  element={<VentaCamion />} />
@@ -366,16 +367,16 @@ function AppContent() {
             standalone/print) y /tecnico (vista simplificada, no forma parte
             del hub). */}
         <Route element={<HeladerasLayout />}>
-          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'heladeras', 'heladeras_encargado', 'gerente_comercial', 'comercial']} />}>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/heladeras')} />}>
             <Route path="/heladeras" element={<HeladerasEntryPage />} />
           </Route>
-          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'heladeras', 'heladeras_encargado', 'gerente_comercial']} />}>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/heladeras/taller')} />}>
             <Route path="/heladeras/taller" element={<HeladerasPage />} />
           </Route>
           {/* Modelos, Catálogos, Técnicos, Padrón de equipos y Pañol son
               config/maestro compartido (ver plan de migración del
               Backoffice) — super_admin los conserva. */}
-          <Route element={<ProtectedRoute allowedRoles={['heladeras_encargado', 'super_admin', 'gerente_comercial']} />}>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/heladeras/modelos')} />}>
             <Route path="/heladeras/modelos"   element={<ModelosHeladeraPage />} />
             <Route path="/heladeras/catalogos" element={<CatalogosServicePage />} />
             <Route path="/heladeras/tecnicos"  element={<TecnicosPage />} />
@@ -386,39 +387,39 @@ function AppContent() {
               super_admin (vive en Backoffice), pero sí alcanzable como drill-down de
               solo lectura desde el link "Ver informes →" del Panel de directores
               (/gerente, accesible por gerente_general y super_admin). */}
-          <Route element={<ProtectedRoute allowedRoles={['heladeras_encargado', 'gerente_comercial', 'gerente_general', 'super_admin']} />}>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/heladeras/informes')} />}>
             <Route path="/heladeras/informes"  element={<InformesDashboardPage />} />
             <Route path="/heladeras/mapa"      element={<MapaClientesHeladerasPage />} />
           </Route>
-          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'heladeras_encargado', 'gerente_comercial', 'comercial']} />}>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/heladeras/asignacion')} />}>
             <Route path="/heladeras/asignacion" element={<AsignacionEquiposPage />} />
             <Route path="/heladeras/ranking"    element={<RankingConsumoPage />} />
           </Route>
-          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'heladeras_encargado', 'gerente_comercial']} />}>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/heladeras/consulta-service')} />}>
             <Route path="/heladeras/consulta-service" element={<ConsultaServicePage />} />
           </Route>
-          <Route element={<ProtectedRoute allowedRoles={['super_admin', 'heladeras_encargado', 'gerente_comercial']} />}>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/heladeras/toma-service')} />}>
             <Route path="/heladeras/toma-service" element={<TomaServicePage />} />
           </Route>
         </Route>
-        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'heladeras_encargado', 'gerente_comercial']} />}>
+        <Route element={<ProtectedRoute allowedRoles={rolesDe('/heladeras/etiqueta/:heladeraId')} />}>
           <Route path="/heladeras/etiqueta/:heladeraId" element={<EtiquetaHeladeraPage />} />
         </Route>
-        <Route element={<ProtectedRoute allowedRoles={['tecnico']} />}>
+        <Route element={<ProtectedRoute allowedRoles={rolesDe('/tecnico')} />}>
           <Route path="/tecnico" element={<TecnicoDashboard />} />
         </Route>
         {/* Ficha pública (dentro de la app) de una heladera — destino del QR de la etiqueta */}
-        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'heladeras', 'heladeras_encargado', 'gerente_comercial', 'comercial', 'tecnico', 'supervisor']} />}>
+        <Route element={<ProtectedRoute allowedRoles={rolesDe('/heladeras/ficha/:heladeraId')} />}>
           <Route path="/heladeras/ficha/:heladeraId" element={<FichaHeladeraPage />} />
         </Route>
 
         {/* Producción de hielo — dashboard de carga (tablet en planta), fuera
             de cualquier layout, mismo criterio que /tecnico. */}
-        <Route element={<ProtectedRoute allowedRoles={['produccion_hielo']} />}>
+        <Route element={<ProtectedRoute allowedRoles={rolesDe('/produccion')} />}>
           <Route path="/produccion" element={<ProduccionEntry />} />
         </Route>
         {/* Ticket (impresión standalone) y ficha de consulta de un pallet */}
-        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'produccion_hielo', 'produccion_encargado', 'gerente_general', 'gerente_comercial', 'comercial', 'logistica']} />}>
+        <Route element={<ProtectedRoute allowedRoles={rolesDe('/produccion/ticket/:palletId')} />}>
           <Route path="/produccion/ticket/:palletId" element={<ProduccionTicketPage />} />
           <Route path="/produccion/ficha/:palletId"  element={<FichaPalletPage />} />
         </Route>
@@ -427,7 +428,7 @@ function AppContent() {
             (Configuración — Producción) que hasta ahora rebotaba. La página
             elige su shell por rol: sidebar de producción para encargado/
             super_admin, Navbar genérico para el resto (usaShellProduccion). */}
-        <Route element={<ProtectedRoute allowedRoles={['gerente_general', 'gerente_comercial', 'comercial', 'logistica', 'produccion_encargado', 'super_admin']} />}>
+        <Route element={<ProtectedRoute allowedRoles={rolesDe('/produccion/listado')} />}>
           <Route path="/produccion/listado" element={<ProduccionListadoPage />} />
         </Route>
 
@@ -436,7 +437,7 @@ function AppContent() {
             (ROLE_HOME en Landing.tsx); Listado también aparece en su sidebar
             pero la ruta vive arriba porque es compartida con gerencia. */}
         <Route element={<ProduccionLayout />}>
-          <Route element={<ProtectedRoute allowedRoles={['produccion_encargado', 'super_admin']} />}>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/produccion/resumen')} />}>
             <Route path="/produccion/resumen"   element={<ProduccionResumenPage />} />
             <Route path="/produccion/partes"    element={<PartesMaquinasPage />} />
             <Route path="/produccion/operarios" element={<OperariosProduccionPage />} />
@@ -448,7 +449,7 @@ function AppContent() {
             carga de camiones; ventanilla y liquidaciones llegan en fases
             siguientes (ver docs del módulo). Shell propio tipo producción. */}
         <Route element={<ExpedicionLayout />}>
-          <Route element={<ProtectedRoute allowedRoles={['caja', 'super_admin']} />}>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/caja')} />}>
             <Route path="/caja"                element={<CajaEntry />} />
             <Route path="/caja/remitos"        element={<RemitosCargaPage />} />
             <Route path="/caja/ventanilla"     element={<VentanillaPage />} />
@@ -460,7 +461,7 @@ function AppContent() {
             <Route path="/caja/entregas"       element={<EntregasPage />} />
           </Route>
           {/* Historial de cierres: también gerencia (control de faltantes por repartidor). */}
-          <Route element={<ProtectedRoute allowedRoles={['caja', 'super_admin', 'gerente_general']} />}>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/caja/liquidaciones/historial')} />}>
             <Route path="/caja/liquidaciones/historial" element={<LiquidacionesHistorialPage />} />
             <Route path="/caja/rendiciones/historial"   element={<RendicionesHistorialPage />} />
           </Route>
@@ -470,7 +471,7 @@ function AppContent() {
             y supervisores; validación de los cierres de caja; historial. Gerencia
             general entra en modo lectura. */}
         <Route element={<TesoreriaLayout />}>
-          <Route element={<ProtectedRoute allowedRoles={['tesoreria', 'super_admin', 'gerente_general']} />}>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/tesoreria')} />}>
             <Route path="/tesoreria"                       element={<TesoreriaLivePage />} />
             <Route path="/tesoreria/rendiciones"           element={<RendicionesTesoreriaPage />} />
             <Route path="/tesoreria/rendiciones/historial" element={<RendicionesHistorialPage />} />
@@ -485,20 +486,20 @@ function AppContent() {
 
         {/* Muelle — tablet en planta, Navbar genérico (una sola pantalla):
             entrega la carga contra el remito y cuenta la descarga al volver. */}
-        <Route element={<ProtectedRoute allowedRoles={['muelle', 'super_admin']} />}>
+        <Route element={<ProtectedRoute allowedRoles={rolesDe('/muelle')} />}>
           <Route path="/muelle"    element={<MuelleDashboard />} />
           {/* TV en kiosco del muelle: solo lectura, tipografía gigante. */}
           <Route path="/muelle/tv" element={<MuelleTvPage />} />
         </Route>
 
         {/* Seguridad — celular/tablet en el portón: control de salidas. */}
-        <Route element={<ProtectedRoute allowedRoles={['seguridad', 'super_admin']} />}>
+        <Route element={<ProtectedRoute allowedRoles={rolesDe('/seguridad')} />}>
           <Route path="/seguridad" element={<SeguridadDashboard />} />
         </Route>
 
         {/* Supervisor — cobranzas de cta. cte. en la calle (celular): saldos
             de Tango, imputación de facturas, cheques y retenciones. */}
-        <Route element={<ProtectedRoute allowedRoles={['supervisor', 'super_admin']} />}>
+        <Route element={<ProtectedRoute allowedRoles={rolesDe('/supervisor')} />}>
           <Route path="/supervisor"          element={<SupervisorHome />} />
           <Route path="/supervisor/clientes" element={<SupervisorClientesPage />} />
           <Route path="/supervisor/cobrar"   element={<CobranzaSupervisorPage />} />
@@ -522,7 +523,7 @@ function AppContent() {
             NO viven acá — se quedan en su layout de siempre y el Backoffice
             solo linkea a ellas desde el panel de control (PanelControlPage). */}
         <Route element={<BackofficeLayout />}>
-          <Route element={<ProtectedRoute allowedRoles={['super_admin']} />}>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/admin')} />}>
             <Route path="/admin"                  element={<PanelControlPage />} />
             <Route path="/admin/usuarios"         element={<UserManagement />} />
             <Route path="/admin/general"          element={<AjustesGeneralesPage />} />

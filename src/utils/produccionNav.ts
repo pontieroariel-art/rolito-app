@@ -1,30 +1,15 @@
-import { ClipboardList, Factory, Gauge, LayoutDashboard, Users } from 'lucide-react'
 import { NavGroup } from './navGroups'
 import { UserRole } from '../types'
+import { gruposDe } from '@/rutas/catalogo'
 
-// Roles de cada ítem = exactamente el allowedRoles de su <Route> en App.tsx.
+// Sidebar del encargado de producción: sale del catálogo de rutas
+// (src/rutas/catalogo.ts → SIDEBARS.produccion).
 //
 // "Listado" (/produccion/listado) es una pantalla compartida con gerencia/
 // logística/comercial: la MISMA ruta se renderiza dentro de este shell para
 // encargado/super_admin (usaShellProduccion) y con el Navbar genérico para el
 // resto — ver ProduccionListadoPage.
-export const PRODUCCION_NAV_GROUPS: NavGroup[] = [
-  {
-    id: 'produccion', label: 'Producción',
-    items: [
-      { to: '/produccion/resumen',   label: 'Resumen',           icon: LayoutDashboard, roles: ['produccion_encargado', 'super_admin'] },
-      { to: '/produccion/listado',   label: 'Listado',           icon: ClipboardList,   roles: ['produccion_encargado', 'super_admin'] },
-      { to: '/produccion/partes',    label: 'Partes de máquinas', icon: Gauge,          roles: ['produccion_encargado', 'super_admin'] },
-      { to: '/produccion/operarios', label: 'Operarios',         icon: Users,           roles: ['produccion_encargado', 'super_admin'] },
-    ],
-  },
-  {
-    id: 'configuracion', label: 'Configuración',
-    items: [
-      { to: '/produccion/plantas', label: 'Plantas', icon: Factory, roles: ['produccion_encargado', 'super_admin'] },
-    ],
-  },
-]
+export const PRODUCCION_NAV_GROUPS: NavGroup[] = gruposDe('produccion')
 
 // ¿Este rol ve las pantallas de producción dentro del shell del encargado
 // (sidebar de ProduccionLayout)? super_admin entra igual que el encargado —
