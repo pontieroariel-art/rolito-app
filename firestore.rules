@@ -999,10 +999,13 @@ service cloud.firestore {
           && request.resource.data.anulacion.motivo is string
           && request.resource.data.anulacion.fechaVenta is string;
       }
+      // Ventana de 60 minutos desde la venta (2026-09-12, decisión de Ariel: sin
+      // fricción para corregir en el momento; pasada la hora lo pide a la oficina).
       allow update: if request.auth != null && isChofer()
         && resource.data.choferId == request.auth.uid
         && remitoCtaCteAnulable()
         && !('origen' in request.resource.data.anulacion)
+        && request.time.toMillis() - resource.data.fecha.toMillis() <= 60 * 60 * 1000
         && !exists(/databases/$(database)/documents/liquidaciones/$(request.resource.data.anulacion.fechaVenta + '_' + request.auth.uid));
       // Días anteriores (2026-09-11): facturación (o el super_admin) anula el
       // remito de cualquier chofer aunque la liquidación ya esté cerrada; el

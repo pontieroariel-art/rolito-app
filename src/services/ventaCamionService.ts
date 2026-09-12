@@ -188,3 +188,22 @@ export async function anularRemitoChofer(
     },
   })
 }
+
+/**
+ * Remitos anulados en la app (por el chofer o por facturación) que la oficina
+ * todavía no anuló en Tango (2026-09-12): lista para Comprobantes de clientes.
+ * El server los pasa a `confirmado` cuando el lector de Tango ve el remito
+ * anulado. Índice: anulacion.tipo + anulacion.tango.estado + anulacion.anuladaEn.
+ */
+export const subscribeRemitosPendientesEnTango = (callback: (ventas: VentaCamion[]) => void): () => void =>
+  onSnapshot(
+    query(
+      collection(db, VENTAS),
+      where('anulacion.tipo', '==', 'remito'),
+      where('anulacion.tango.estado', '==', 'pendiente_oficina'),
+      orderBy('anulacion.anuladaEn', 'desc'),
+      limit(100),
+    ),
+    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as VentaCamion))),
+    onSnapshotError(callback, 'ventasCamion'),
+  )

@@ -5,6 +5,7 @@ import Button from '@/components/ui/Button'
 import MenuCompartirPdf, { type DatosMail, type PdfGenerado } from '@/components/ui/MenuCompartirPdf'
 import EnvioLoteModal from '@/components/facturacion/EnvioLoteModal'
 import VentasAppCliente from '@/components/facturacion/VentasAppCliente'
+import RemitosPendientesTango from '@/components/facturacion/RemitosPendientesTango'
 import { useAuth } from '@/context/AuthContext'
 import { useClientesIndex } from '@/hooks/useClientesIndex'
 import { useClienteSeleccionado } from '@/hooks/useClienteSeleccionado'
@@ -54,6 +55,8 @@ export default function ComprobantesClientesPage() {
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><Files size={22} className="text-accent" /> Comprobantes de clientes</h1>
         <p className="text-gray-500 text-sm">Buscá un cliente, elegí sus facturas y remitos de Tango y mandalos todos juntos por mail, WhatsApp o descarga.</p>
       </div>
+      {/* Remitos anulados en la app que la oficina tiene que anular en Tango (2026-09-12). */}
+      <RemitosPendientesTango />
       <div className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)] items-start">
         <BuscadorClientes seleccionado={clienteUid} onElegir={elegirCliente} />
         {clienteUid

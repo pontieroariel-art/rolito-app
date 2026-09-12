@@ -37,7 +37,7 @@ export default function AnularRemitoModal({ venta, actor, origen, onCerrar }: {
       onCerrar(true)
     } catch (err) {
       reportError(err, { origen: 'AnularRemitoModal', ventaId: venta.id })
-      setError(origen ? 'No se pudo anular. Probá de nuevo.' : 'No se pudo anular. Si caja ya cerró tu liquidación de ese día, pedí la anulación a la oficina.')
+      setError(origen ? 'No se pudo anular. Probá de nuevo.' : 'No se pudo anular. Si pasó más de una hora desde la venta, o caja ya cerró tu liquidación, pedí la anulación a la oficina.')
     } finally {
       setGuardando(false)
     }

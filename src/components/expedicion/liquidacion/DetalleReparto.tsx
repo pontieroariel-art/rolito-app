@@ -159,7 +159,7 @@ export default function DetalleReparto({ remitos, ventas, cambios, descargas, co
       </Bloque>
 
       {reparto.anuladas.length > 0 && (
-        <Bloque estilo="redonhielo" titulo="Facturas anuladas" subtitulo="con nota de crédito · no suman" totalTexto={`${reparto.anuladas.length} ${reparto.anuladas.length === 1 ? 'factura' : 'facturas'}`}>
+        <Bloque estilo="redonhielo" titulo="Comprobantes anulados" subtitulo="facturas con nota de crédito y remitos anulados · no suman" totalTexto={`${reparto.anuladas.length} ${reparto.anuladas.length === 1 ? 'comprobante' : 'comprobantes'}`}>
           {reparto.anuladas.map(filaVenta)}
         </Bloque>
       )}

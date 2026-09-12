@@ -21,6 +21,11 @@ export const facturaAnulable = (v: ConAnulacion & { canal?: string; factura?: { 
   ((v.factura?.estado === 'emitida' && !!v.factura.cae) || (v.canal === 'promo' && v.comprobanteInterno?.tipo === 'facturaX' && (v.comprobanteInterno.numero ?? 0) > 0))
   && !ventaAnulada(v) && !anulacionEnCurso(v)
 
+/** Ventana en la que el chofer anula su remito solo (2026-09-12, decisión de Ariel): una hora desde la venta. Las reglas la exigen igual. */
+export const VENTANA_ANULACION_REMITO_MS = 60 * 60 * 1000
+export const remitoAnulableAhora = (v: { fecha: { toMillis(): number } }, ahora: number = Date.now()): boolean =>
+  ahora - v.fecha.toMillis() <= VENTANA_ANULACION_REMITO_MS
+
 /** Texto corto del estado para chips y listas. */
 export function textoAnulacion(a: AnulacionEnVenta | null | undefined): { texto: string; tono: 'warn' | 'bad' | 'neutral' } | null {
   if (!a) return null

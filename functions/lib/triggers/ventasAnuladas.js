@@ -39,6 +39,20 @@ function avisoRemitoAnulado(venta, a) {
     };
 }
 const recienAnulada = (antes, ahora) => ahora?.estado === 'anulada' && antes?.estado !== 'anulada';
+/** Cuántos remitos anuló ese chofer en el día de la venta (índice choferId + fecha; el tipo se filtra en memoria). */
+async function anulacionesDeRemitoHoy(db, choferId, fecha) {
+    const dia = fecha?.toDate?.();
+    if (!choferId || !dia)
+        return 0;
+    const desde = new Date(dia);
+    desde.setUTCHours(3, 0, 0, 0); // 00:00 en Argentina (UTC-3)
+    if (desde > dia)
+        desde.setUTCDate(desde.getUTCDate() - 1);
+    const hasta = new Date(desde);
+    hasta.setUTCDate(hasta.getUTCDate() + 1);
+    const snap = await db.collection('ventasCamion').where('choferId', '==', choferId).where('fecha', '>=', desde).where('fecha', '<', hasta).get();
+    return snap.docs.filter((d) => d.data().anulacion?.tipo === 'remito' && d.data().anulacion?.estado === 'anulada').length;
+}
 exports.onVentaCamionAnulada = (0, firestore_1.onDocumentUpdated)({ document: 'ventasCamion/{ventaId}', secrets: [vapidPublicKey, vapidPrivateKey] }, async (event) => {
     const antes = event.data?.before.data()?.anulacion;
     const ahora = event.data?.after.data();
@@ -56,6 +70,23 @@ exports.onVentaCamionAnulada = (0, firestore_1.onDocumentUpdated)({ document: 'v
         }
         catch (e) {
             console.error(`[anuladas] push a facturación falló: ${e.message}`);
+        }
+        // Señal de control (2026-09-12, decisión de Ariel): a partir de la segunda
+        // anulación de remito del mismo chofer en el día, aviso al super_admin.
+        // No frena nada; es para que lo vea.
+        try {
+            const cantidad = await anulacionesDeRemitoHoy(db, String(ahora.choferId ?? ''), ahora.fecha);
+            if (cantidad >= 2) {
+                const admins = await db.collection('users').where('estado', '==', 'activo').where('rol', '==', 'super_admin').get();
+                await (0, push_1.enviarPushAUsuarios)(admins.docs, {
+                    titulo: `${String(ahora.choferNombre ?? 'Un chofer')}: ${cantidad} remitos anulados hoy`,
+                    cuerpo: `El último: ${String(ahora.clienteNombre ?? 'cliente')} · ${a.motivo ?? ''}${a.nota ? ` · ${a.nota}` : ''}. Vale la pena mirarlo en la liquidación.`,
+                    url: '/caja/liquidaciones',
+                }, { vapidPublicKey: vapidPublicKey.value(), vapidPrivateKey: vapidPrivateKey.value() });
+            }
+        }
+        catch (e) {
+            console.error(`[anuladas] aviso por cantidad falló: ${e.message}`);
         }
     }
     try {

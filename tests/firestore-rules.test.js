@@ -4427,6 +4427,7 @@ describe('remito de cta. cte. anulado por el chofer sin autorización (2026-09-1
     const { comprobanteInterno: _ci, ...facturada } = remito({ formaPago: 'contado_efectivo', factura: { estado: 'emitida', numero: 5, puntoVenta: 1104, cbteTipo: 1, cae: '1' } })
     await setDoc(doc(d, 'ventasCamion/r3'), facturada)
     await setDoc(doc(d, 'ventasCamion/r4'), remito({ anulacion: { estado: 'anulada', tipo: 'remito', solicitudId: '' } }))
+    await setDoc(doc(d, 'ventasCamion/r5'), remito({ fecha: new Date(Date.now() - 2 * 60 * 60 * 1000) }))
     await setDoc(doc(d, 'liquidaciones/2026-09-10_chof1'), { fecha: '2026-09-10', choferId: 'chof1', plantaId: 'torcuato' })
   })
   const anulacion = (over = {}) => ({ anulacion: { estado: 'anulada', solicitudId: '', tipo: 'remito', motivo: 'cliente_equivocado', nota: '', anuladaPor: { uid: 'chof1', nombre: 'C' }, anuladaEn: new Date(), fechaVenta: '2026-09-11', ...over } })
@@ -4445,6 +4446,8 @@ describe('remito de cta. cte. anulado por el chofer sin autorización (2026-09-1
     await assertFails(updateDoc(doc(db('chof1'), 'ventasCamion/r2'), anulacion({ fechaVenta: '2026-09-10' })))
     await assertFails(updateDoc(doc(db('chof1'), 'ventasCamion/r2'), anulacion({ estado: 'pendiente' })))
     await assertFails(updateDoc(doc(db('chof1'), 'ventasCamion/r2'), anulacion({ tipo: 'factura' })))
+    // Pasada la hora desde la venta (2026-09-12), el chofer ya no anula solo.
+    await assertFails(updateDoc(doc(db('chof1'), 'ventasCamion/r5'), anulacion()))
   })
 })
 

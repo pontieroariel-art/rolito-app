@@ -97,6 +97,16 @@
       ]
     },
     {
+      "_comentario": "Remitos anulados por el chofer que la oficina todavia no anulo en Tango (2026-09-12): lista en Comprobantes de clientes y reconciliacion horaria (reconciliarRemitosAnulados).",
+      "collectionGroup": "ventasCamion",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "anulacion.tipo",         "order": "ASCENDING" },
+        { "fieldPath": "anulacion.tango.estado", "order": "ASCENDING" },
+        { "fieldPath": "anulacion.anuladaEn",    "order": "DESCENDING" }
+      ]
+    },
+    {
       "_comentario": "Las ventas recientes del chofer (pantalla Facturas) piden las ULTIMAS: choferId + fecha DESC. El indice de arriba, con fecha ASC, no sirve para eso.",
       "collectionGroup": "ventasCamion",
       "queryScope": "COLLECTION",

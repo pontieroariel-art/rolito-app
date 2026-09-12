@@ -20,7 +20,7 @@ import { useEnvioAutomaticoVentas } from '@/hooks/useEnvioAutomaticoVentas'
 import { estadoEnvioLocal, pendienteDeEnvio } from '@/services/envioAutomaticoVentasService'
 import MenuCompartirPdf, { type PdfGenerado } from '@/components/ui/MenuCompartirPdf'
 import { armarNotaCreditoDeVenta } from '@/utils/facturaDeVenta'
-import { textoAnulacion } from '@/utils/anulacionVenta'
+import { remitoAnulableAhora, textoAnulacion } from '@/utils/anulacionVenta'
 import { armarNotaCreditoX } from '@/utils/comprobanteInterno'
 import AnularRemitoModal from '@/components/ventas/AnularRemitoModal'
 
@@ -41,6 +41,9 @@ export default function VentasChofer({ volverA = '/chofer' }: { volverA?: string
   // cacheado para que sirva sin señal; se refresca al montar.
   const [caiRemito, setCaiRemito] = useState<CaiRemito | null>(() => caiRemitoOficialCacheado())
   const [anulandoRemito, setAnulandoRemito] = useState<VentaCamion | null>(null)
+  // Reloj de a un minuto: el botón de anular el remito vence a la hora de la venta.
+  const [ahora, setAhora] = useState(() => Date.now())
+  useEffect(() => { const t = setInterval(() => setAhora(Date.now()), 60_000); return () => clearInterval(t) }, [])
   useEffect(() => { getCaiRemitoOficial().then(setCaiRemito) }, [])
 
   useEffect(() => {
@@ -162,10 +165,14 @@ export default function VentasChofer({ volverA = '/chofer' }: { volverA?: string
                         autorización (2026-09-11). Las reglas frenan si caja ya
                         cerró la liquidación de ese día. */}
                     {tipoComprobanteInterno(v) === 'remito' && v.formaPago === 'cuenta_corriente' && !v.anulacion && !verComo && (
-                      <button type="button" onClick={() => setAnulandoRemito(v)}
-                        className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-red-700">
-                        <Ban size={13} /> Anular remito
-                      </button>
+                      remitoAnulableAhora(v, ahora) ? (
+                        <button type="button" onClick={() => setAnulandoRemito(v)}
+                          className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-red-700">
+                          <Ban size={13} /> Anular remito
+                        </button>
+                      ) : (
+                        <p className="mt-2 text-xs text-gray-400">Pasó más de una hora: para anular este remito pedilo a la oficina.</p>
+                      )
                     )}
                   </div>
                 )}

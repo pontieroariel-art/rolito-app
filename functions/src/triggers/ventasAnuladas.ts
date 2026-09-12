@@ -43,6 +43,17 @@ export function avisoRemitoAnulado(venta: { clienteNombre?: unknown; choferNombr
 const recienAnulada = (antes: { estado?: string } | undefined, ahora: { estado?: string } | undefined): boolean =>
   ahora?.estado === 'anulada' && antes?.estado !== 'anulada'
 
+/** Cuántos remitos anuló ese chofer en el día de la venta (índice choferId + fecha; el tipo se filtra en memoria). */
+async function anulacionesDeRemitoHoy(db: FirebaseFirestore.Firestore, choferId: string, fecha: { toDate?: () => Date } | undefined): Promise<number> {
+  const dia = fecha?.toDate?.()
+  if (!choferId || !dia) return 0
+  const desde = new Date(dia); desde.setUTCHours(3, 0, 0, 0)          // 00:00 en Argentina (UTC-3)
+  if (desde > dia) desde.setUTCDate(desde.getUTCDate() - 1)
+  const hasta = new Date(desde); hasta.setUTCDate(hasta.getUTCDate() + 1)
+  const snap = await db.collection('ventasCamion').where('choferId', '==', choferId).where('fecha', '>=', desde).where('fecha', '<', hasta).get()
+  return snap.docs.filter((d) => (d.data().anulacion as { tipo?: string; estado?: string } | undefined)?.tipo === 'remito' && d.data().anulacion?.estado === 'anulada').length
+}
+
 export const onVentaCamionAnulada = onDocumentUpdated(
   { document: 'ventasCamion/{ventaId}', secrets: [vapidPublicKey, vapidPrivateKey] },
   async (event) => {
@@ -61,6 +72,22 @@ export const onVentaCamionAnulada = onDocumentUpdated(
         await enviarPushAUsuarios(destinatarios.docs, { titulo, cuerpo, url: '/admin/comprobantes' }, { vapidPublicKey: vapidPublicKey.value(), vapidPrivateKey: vapidPrivateKey.value() })
       } catch (e) {
         console.error(`[anuladas] push a facturación falló: ${(e as Error).message}`)
+      }
+      // Señal de control (2026-09-12, decisión de Ariel): a partir de la segunda
+      // anulación de remito del mismo chofer en el día, aviso al super_admin.
+      // No frena nada; es para que lo vea.
+      try {
+        const cantidad = await anulacionesDeRemitoHoy(db, String(ahora.choferId ?? ''), ahora.fecha as { toDate?: () => Date } | undefined)
+        if (cantidad >= 2) {
+          const admins = await db.collection('users').where('estado', '==', 'activo').where('rol', '==', 'super_admin').get()
+          await enviarPushAUsuarios(admins.docs, {
+            titulo: `${String(ahora.choferNombre ?? 'Un chofer')}: ${cantidad} remitos anulados hoy`,
+            cuerpo: `El último: ${String(ahora.clienteNombre ?? 'cliente')} · ${a.motivo ?? ''}${a.nota ? ` · ${a.nota}` : ''}. Vale la pena mirarlo en la liquidación.`,
+            url: '/caja/liquidaciones',
+          }, { vapidPublicKey: vapidPublicKey.value(), vapidPrivateKey: vapidPrivateKey.value() })
+        }
+      } catch (e) {
+        console.error(`[anuladas] aviso por cantidad falló: ${(e as Error).message}`)
       }
     }
 
