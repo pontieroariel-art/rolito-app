@@ -24,7 +24,7 @@ import { desgloseFactura, percepcionVigenteDe } from '@/utils/totalFacturado'
 import { nombreSucursalVenta } from '@/utils/sucursalesTango'
 import type { FacturaArcaData } from '../../utils/facturaArcaPdf'
 import { armarFacturaDeVenta, armarNotaCreditoDeVenta } from '../../utils/facturaDeVenta'
-import { generateTicketsVentanilla, type TurnoTicketData } from '@/utils/ventanillaTicket'
+import { generateTicketsVentanilla, generateTicketsVentanillaSeparados, type TurnoTicketData } from '@/utils/ventanillaTicket'
 import { imprimirPdf, leerModoImpresion, guardarModoImpresion, MODOS_IMPRESION, type ModoImpresion } from '@/utils/ticketTermico'
 import { usePreciosTango } from '../../hooks/usePreciosTango'
 import { useCopiasTicketVentanilla } from '@/hooks/useCopiasTicketVentanilla'
@@ -119,6 +119,16 @@ export default function VentanillaPage() {
   const [topeSinIdentificar, setTopeSinIdentificar] = useState(0)
   // Venta recién cobrada cuya factura se está esperando (modal).
   const [esperando, setEsperando] = useState<VentaVentanilla | null>(null)
+  // Cola de tickets pendientes en la tablet con RawBT: un toque por papel (2026-09-12).
+  const [colaImpresion, setColaImpresion] = useState<{ turno: number; tickets: Array<{ nombre: string; blob: Blob }>; siguiente: number } | null>(null)
+  const imprimirSiguiente = async () => {
+    if (!colaImpresion) return
+    const t = colaImpresion.tickets[colaImpresion.siguiente]
+    try { await imprimirPdf(t.blob, `ventanilla-turno-${colaImpresion.turno}-${colaImpresion.siguiente + 1}.pdf`, modoImpresion) }
+    catch (err) { reportError(err, { origen: 'VentanillaPage', accion: 'error al imprimir un ticket de la cola' }) }
+    const siguiente = colaImpresion.siguiente + 1
+    setColaImpresion(siguiente < colaImpresion.tickets.length ? { ...colaImpresion, siguiente } : null)
+  }
   // Cómo imprime ESTE dispositivo (tablet con RawBT por Bluetooth, o el
   // diálogo/descarga de siempre). Se guarda en el aparato, no en la cuenta.
   const [modoImpresion, setModoImpresion] = useState<ModoImpresion>(() => leerModoImpresion())
@@ -255,7 +265,18 @@ export default function VentanillaPage() {
     } : undefined
     if (!facturaDatos && !turnoDatos) return false
     try {
-      const blob = await generateTicketsVentanilla({ factura: facturaDatos, turno: turnoDatos, copiasTurno: copiasTicket[v.plantaId] })
+      const partes = { factura: facturaDatos, turno: turnoDatos, copiasTurno: copiasTicket[v.plantaId] }
+      if (modoImpresion === 'rawbt') {
+        // Tablet con RawBT (2026-09-12, pedido de caja): un trabajo por ticket.
+        // El primero sale con este mismo toque; los demás, con un toque cada
+        // uno desde la cola, así cada papel se corta con los dientes antes
+        // de mandar el siguiente.
+        const tickets = await generateTicketsVentanillaSeparados(partes)
+        await imprimirPdf(tickets[0].blob, `ventanilla-turno-${v.turno}-1.pdf`, modoImpresion)
+        if (tickets.length > 1) { setColaImpresion({ turno: v.turno, tickets, siguiente: 1 }); setEsperando(null) }
+        return facturaOk
+      }
+      const blob = await generateTicketsVentanilla(partes)
       await imprimirPdf(blob, `ventanilla-turno-${v.turno}.pdf`, modoImpresion)
       return facturaOk
     } catch (err) {
@@ -623,6 +644,17 @@ export default function VentanillaPage() {
         </Modal>
       )}
 
+      {colaImpresion && (
+        <Modal open onClose={() => setColaImpresion(null)} title={`Turno ${colaImpresion.turno}: tickets por imprimir`}>
+          <div className="space-y-3">
+            <p className="text-sm text-gray-700">Salió el ticket {colaImpresion.siguiente} de {colaImpresion.tickets.length}. Cortalo con los dientes de la impresora y tocá para el siguiente.</p>
+            <Button onClick={imprimirSiguiente} className="w-full h-14 text-base">
+              <Printer size={18} className="mr-2" /> Imprimir {colaImpresion.siguiente + 1} de {colaImpresion.tickets.length}: {colaImpresion.tickets[colaImpresion.siguiente].nombre}
+            </Button>
+            <button type="button" onClick={() => setColaImpresion(null)} className="w-full text-xs text-gray-500 hover:text-gray-800">No imprimir el resto</button>
+          </div>
+        </Modal>
+      )}
       {esperando && (
         <EsperaFacturaModal
           ventaId={esperando.id}

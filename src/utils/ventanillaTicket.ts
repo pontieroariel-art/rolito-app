@@ -215,11 +215,33 @@ export function dibujoTurnoTicket(v: TurnoTicketData): DibujoTicket {
  * `copiasTurno` (1..3, default 1) repite el turno con la leyenda de cada copia.
  */
 export function generateTicketsVentanilla(partes: { factura?: FacturaArcaData; turno?: TurnoTicketData; copiasTurno?: number }): Promise<Blob> {
-  const dibujos: DibujoTicket[] = []
-  if (partes.factura) dibujos.push(dibujoFacturaArcaTicket(partes.factura))
+  return armarPdfTickets(dibujosVentanilla(partes).map((d) => d.dibujo))
+}
+
+export interface TicketVentanilla { nombre: string; dibujo: DibujoTicket }
+
+/** Los tickets de una venta, uno por uno y con su nombre (factura, y cada copia del turno). */
+export function dibujosVentanilla(partes: { factura?: FacturaArcaData; turno?: TurnoTicketData; copiasTurno?: number }): TicketVentanilla[] {
+  const tickets: TicketVentanilla[] = []
+  if (partes.factura) tickets.push({ nombre: 'Factura', dibujo: dibujoFacturaArcaTicket(partes.factura) })
   if (partes.turno) {
     const total = Math.min(Math.max(partes.copiasTurno ?? 1, 1), COPIAS_TICKET_MAX)
-    for (let i = 0; i < total; i++) dibujos.push(dibujoTurnoTicket({ ...partes.turno, copia: copiaTicket(i, total) }))
+    for (let i = 0; i < total; i++) {
+      const copia = copiaTicket(i, total)
+      tickets.push({ nombre: copia ? `Turno · ${copia.leyenda.split(' · ')[1] ?? copia.leyenda}` : 'Turno', dibujo: dibujoTurnoTicket({ ...partes.turno, copia }) })
+    }
   }
-  return armarPdfTickets(dibujos)
+  return tickets
+}
+
+/**
+ * Un PDF por ticket (2026-09-12, pedido de caja): en la tablet con RawBT cada
+ * papel sale como un trabajo aparte, con un toque por ticket, así el anterior
+ * ya terminó de salir y se corta con los dientes de la impresora antes de
+ * mandar el siguiente. Sin línea de corte: cada PDF es un solo papel.
+ */
+export async function generateTicketsVentanillaSeparados(partes: { factura?: FacturaArcaData; turno?: TurnoTicketData; copiasTurno?: number }): Promise<Array<{ nombre: string; blob: Blob }>> {
+  const out: Array<{ nombre: string; blob: Blob }> = []
+  for (const t of dibujosVentanilla(partes)) out.push({ nombre: t.nombre, blob: await armarPdfTickets([t.dibujo]) })
+  return out
 }
