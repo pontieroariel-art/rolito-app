@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import {
-  CATALOGO, NAVBAR, PANEL, IR_A, SIDEBARS,
-  gruposDe, linksNavbarDe, accesosDelPanel, grupoIrA, pathsEnMenus, rutaDe,
+  CATALOGO, NAVBAR, PANEL, SIDEBARS,
+  gruposDe, gruposVisibles, linksNavbarDe, accesosDelPanel, pathsEnMenus, pathDe, rutaDe, homeDeSistema, sistemaDeRuta,
 } from './catalogo'
 import { ROLES } from '@/utils/roles'
+import { ROLE_SISTEMAS, ROLE_HOME, SISTEMAS } from '@/utils/sistemas'
+import type { Sistema, UserRole } from '@/types'
 
 // App.tsx leído como texto: cada <Route path> con el allowedRoles del
 // <ProtectedRoute> que lo envuelve (rolesDe('<path>'), o sin lista = requiereAuth).
@@ -33,7 +35,19 @@ function rutasDeApp(): RutaApp[] {
   return rutas
 }
 
-const pathDe = (e: string | { path: string }) => (typeof e === 'string' ? e : e.path)
+const usuario = (rol: UserRole) => ({ rol, rolesExtra: undefined })
+
+// Pantallas con ícono a las que un rol puede entrar pero que, a propósito, no
+// tiene en ningún menú (se abren por link contextual, QR o URL).
+const SIN_MENU: Partial<Record<UserRole, string[]>> = {
+  comercial:            ['/produccion/listado'],          // link contextual, no tiene dominio Logística
+  gerente_general:      ['/heladeras/informes', '/heladeras/mapa'], // "Ver informes" desde el panel de directores
+  heladeras_encargado:  ['/anulaciones'],                 // permiso individual: la bandeja llega por push
+  produccion_encargado: ['/anulaciones'],
+  tesoreria:            ['/anulaciones'],                 // tiene /tesoreria/anulaciones en su menú
+  supervisor:           ['/anulaciones'],
+  muelle:               ['/muelle/tv'],                   // kiosco: se abre por URL en la TV
+}
 
 describe('catálogo de rutas', () => {
   it('no repite paths y todos empiezan con /', () => {
@@ -84,22 +98,30 @@ describe('catálogo de rutas', () => {
 describe('menús derivados', () => {
   it('cada entrada de menú apunta a una ruta del catálogo con ícono', () => {
     for (const p of pathsEnMenus()) expect(rutaDe(p).icon, `${p} sin ícono`).toBeDefined()
-    expect(() => (Object.keys(SIDEBARS) as Array<keyof typeof SIDEBARS>).forEach((s) => gruposDe(s))).not.toThrow()
+    expect(() => SISTEMAS.forEach((s) => gruposDe(s))).not.toThrow()
     expect(() => ROLES.forEach((r) => linksNavbarDe(r))).not.toThrow()
     expect(() => accesosDelPanel()).not.toThrow()
-    expect(() => grupoIrA()).not.toThrow()
   })
 
   it('un menú no lista dos veces el mismo path', () => {
     for (const [s, grupos] of Object.entries(SIDEBARS)) {
-      const paths = grupos.flatMap((g) => g.paths)
+      const paths = grupos.flatMap((g) => g.entradas.map(pathDe))
       expect(new Set(paths).size, s).toBe(paths.length)
     }
     for (const [rol, paths] of Object.entries(NAVBAR)) expect(new Set(paths).size, rol).toBe(paths.length)
     const panel = PANEL.flatMap((g) => g.entradas.map(pathDe))
     expect(new Set(panel).size).toBe(panel.length)
-    const irA = IR_A.map(pathDe)
-    expect(new Set(irA).size).toBe(irA.length)
+  })
+
+  it('el menuGroup de cada ruta es un grupo que la lista, y toda entrada de sidebar tiene menuGroup', () => {
+    for (const r of CATALOGO) {
+      if (!r.menuGroup) continue
+      const listada = Object.values(SIDEBARS).some((gs) => gs.some((g) => g.id === r.menuGroup && g.entradas.some((e) => pathDe(e) === r.path)))
+      expect(listada, `${r.path}: menuGroup ${r.menuGroup} no lo lista`).toBe(true)
+    }
+    for (const gs of Object.values(SIDEBARS)) for (const g of gs) for (const e of g.entradas) {
+      expect(rutaDe(pathDe(e)).menuGroup, `${pathDe(e)} está en un sidebar sin menuGroup`).toBeDefined()
+    }
   })
 
   it('el Navbar de un rol solo lleva a rutas que ese rol puede abrir', () => {
@@ -117,5 +139,56 @@ describe('menús derivados', () => {
     const enMenus = new Set(pathsEnMenus())
     const sueltas = CATALOGO.filter((r) => r.icon && !enMenus.has(r.path)).map((r) => r.path)
     expect(sueltas).toEqual([])
+  })
+})
+
+describe('dominios por rol', () => {
+  it('ningún dominio de un rol queda vacío', () => {
+    for (const rol of ROLES) {
+      for (const s of ROLE_SISTEMAS[rol]) {
+        expect(gruposVisibles(usuario(rol), s).length, `${rol} en ${s}`).toBeGreaterThan(0)
+      }
+    }
+  })
+
+  it('cada rol llega por algún menú a todo lo que puede abrir (salvo las excepciones documentadas)', () => {
+    for (const rol of ROLES) {
+      const alcanzables = new Set<string>([
+        ...NAVBAR[rol],
+        ...ROLE_SISTEMAS[rol].flatMap((s) => SIDEBARS[s].flatMap((g) => g.entradas.map(pathDe))),
+        // El selector de dominio de la cabecera lleva al home de cada dominio (p. ej. /heladeras).
+        ...ROLE_SISTEMAS[rol].map((s) => homeDeSistema(s, usuario(rol))),
+        ...(rol === 'super_admin' ? PANEL.flatMap((g) => g.entradas.map(pathDe)) : []),
+        ...(SIN_MENU[rol] ?? []),
+      ])
+      const faltan = CATALOGO
+        .filter((r) => r.icon && r.roles.includes(rol) && !alcanzables.has(r.path))
+        .map((r) => r.path)
+      expect(faltan, `${rol} puede abrir estas pantallas pero no las tiene en ningún menú`).toEqual([])
+    }
+  })
+
+  it('el home de cada rol está en el catálogo y es suyo; el de cada dominio también', () => {
+    for (const rol of ROLES) {
+      const home = ROLE_HOME[rol]
+      if (home === '/sistema') continue
+      const r = rutaDe(home)
+      expect(r.roles, `${rol} → ${home}`).toContain(rol)
+      for (const s of ROLE_SISTEMAS[rol]) {
+        const h = homeDeSistema(s, usuario(rol))
+        expect(rutaDe(h).roles, `${rol} en ${s} → ${h}`).toContain(rol)
+      }
+    }
+  })
+
+  it('las rutas del sidebar resuelven a su dominio', () => {
+    for (const s of Object.keys(SIDEBARS) as Sistema[]) {
+      for (const e of SIDEBARS[s].flatMap((g) => g.entradas)) {
+        expect(SISTEMAS, `${pathDe(e)}`).toContain(sistemaDeRuta(pathDe(e)))
+      }
+    }
+    expect(sistemaDeRuta('/caja')).toBe('logistica')
+    expect(sistemaDeRuta('/comercial/pedidos')).toBe('comercial')
+    expect(sistemaDeRuta('/dashboard')).toBeNull()
   })
 })

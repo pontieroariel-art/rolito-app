@@ -1,13 +1,10 @@
 import { useMemo, useState, ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { Printer } from 'lucide-react'
-import Navbar from '../../components/layout/Navbar'
-import ProduccionLayout from '../../components/produccion/ProduccionLayout'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useAuth } from '../../context/AuthContext'
 import { useProduccionPallets } from '../../hooks/useProduccionPallets'
 import { ProduccionResumen } from '../../components/produccion/ProduccionResumen'
-import { usaShellProduccion } from '../../utils/produccionNav'
 import { PLANTAS, PlantaId } from '../../types'
 import { PRODUCTOS_HIELO_LIST } from '../../utils/produccionCatalogo'
 import { toDateStr } from '../../utils/helpers'
@@ -117,13 +114,5 @@ export default function ProduccionListadoPage() {
       </main>
   )
 
-  if (usaShellProduccion(user?.rol)) {
-    return <ProduccionLayout>{contenido}</ProduccionLayout>
-  }
-  return (
-    <div className="min-h-screen min-h-dvh bg-[#F8F7F2] text-gray-900">
-      <Navbar />
-      {contenido}
-    </div>
-  )
+  return contenido
 }

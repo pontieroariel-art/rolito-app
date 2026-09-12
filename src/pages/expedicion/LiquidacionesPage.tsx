@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useLocation, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { FileText, History, Printer, Share2 } from 'lucide-react'
 import Button from '../../components/ui/Button'
 import { useAuth } from '../../context/AuthContext'
@@ -36,12 +36,10 @@ import { tieneAlgunRol } from '@/utils/roles'
 // clasificado por tipo de operación (ver DetalleReparto). Se calcula EN VIVO
 // desde las fuentes del día; el doc inmutable se crea al cerrar y la pantalla
 // sigue mostrando todo en modo lectura. Ver src/utils/liquidacion.ts.
-export default function LiquidacionesPage() {
+export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreria' }) {
   const { user } = useAuth()
   // Tesorería (2026-09-09) abre la misma pantalla en modo lectura desde su
   // panel (/tesoreria/liquidaciones): sin planta fija, la elige; no cierra.
-  const { pathname } = useLocation()
-  const base = pathname.startsWith('/tesoreria') ? '/tesoreria' : '/caja'
   const puedeCerrar = tieneAlgunRol(user, ['caja', 'super_admin'])
   const [plantaSel, setPlantaSel] = useState<PlantaId>('torcuato')
   const plantaId = user?.planta ?? plantaSel

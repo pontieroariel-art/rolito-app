@@ -2,7 +2,7 @@ import { Navigate, Link } from 'react-router-dom'
 import { ShoppingBag, ChevronRight } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
-import { ROLE_HOME, sistemasDeUsuario } from '../../utils/sistemas'
+import { ROLE_HOME } from '../../utils/sistemas'
 import { getDispositivoProduccion } from '../../services/produccionAuthService'
 import { esDispositivoCobranza } from '../../services/expedicionDeviceService'
 
@@ -14,7 +14,6 @@ export default function Landing() {
   if (user) {
     if (user.estado === 'pendiente') return <Navigate to="/pendiente" replace />
     if (user.estado === 'inactivo')  return <Navigate to="/clientes"  replace />
-    if (sistemasDeUsuario(user).length > 1) return <Navigate to="/sistema" replace />
     return <Navigate to={ROLE_HOME[user.rol] ?? '/dashboard'} replace />
   }
 

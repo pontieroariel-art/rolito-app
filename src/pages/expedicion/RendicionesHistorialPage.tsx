@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { ArrowLeft, History, ShieldCheck } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { subscribeRendicionesEnRango } from '@/services/rendicionService'
@@ -13,10 +13,8 @@ import AnuladasDespuesDeCerrar from '@/components/expedicion/AnuladasDespuesDeCe
 // de cada cierre y los totales por persona, para ver quién viene con
 // faltantes repetidos y qué quedó sin validar. Lo usan caja (/caja/…),
 // tesorería y gerencia (/tesoreria/…): mismo componente, distinta ruta.
-export default function RendicionesHistorialPage() {
+export default function RendicionesHistorialPage({ enTesoreria }: { enTesoreria: boolean }) {
   const { user } = useAuth()
-  const { pathname } = useLocation()
-  const enTesoreria = pathname.startsWith('/tesoreria')
   const hoy = useDiaActual()
   const [mes, setMes] = useState(hoy.slice(0, 7))
   const [rendiciones, setRendiciones] = useState<Rendicion[]>([])

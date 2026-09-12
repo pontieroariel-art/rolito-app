@@ -1,5 +1,4 @@
-import type { NavGroup } from './navGroups'
-import { accesosDelPanel, grupoIrA } from '@/rutas/catalogo'
+import { accesosDelPanel } from '@/rutas/catalogo'
 
 // Accesos del panel de control del super_admin (`/admin`, 2026-09-10). Antes
 // eran 37 tarjetas con descripción (BackofficeHome); ahora van compactos y
@@ -22,7 +21,3 @@ export interface GrupoAccesos {
 
 export const ACCESOS: GrupoAccesos[] = accesosDelPanel()
 
-// Grupo "Ir a" del sidebar del Backoffice: la puerta a cada sistema y a los
-// puestos que no tienen entrada en ningún otro menú del super_admin
-// (src/rutas/catalogo.ts → IR_A).
-export const NAV_IR_A: NavGroup = grupoIrA()

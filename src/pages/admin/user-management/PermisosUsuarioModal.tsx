@@ -4,30 +4,15 @@ import Button from '../../../components/ui/Button'
 import Modal from '../../../components/ui/Modal'
 import { updateUserDocument } from '../../../services/userService'
 import { UserProfile } from '../../../types'
-import { techoSistemasDe, SISTEMA_LABELS, Sistema } from '../../../utils/sistemas'
-import { tieneAlgunRol } from '../../../utils/roles'
-import { LOGISTICA_NAV_GROUPS } from '../../../utils/logisticaNav'
-import { HELADERAS_NAV_GROUPS } from '../../../utils/heladerasNav'
-import { PRODUCCION_NAV_GROUPS } from '../../../utils/produccionNav'
-import { EXPEDICION_NAV_GROUPS } from '../../../utils/expedicionNav'
-import { NavGroup } from '../../../utils/navGroups'
+import { techoSistemasDe, SISTEMA_LABELS, SISTEMAS, Sistema } from '../../../utils/sistemas'
+import { gruposVisibles } from '@/rutas/catalogo'
 
-const SISTEMAS_ORDEN: Sistema[] = ['logistica', 'heladeras', 'produccion', 'expedicion']
-const GRUPOS_POR_SISTEMA: Record<Sistema, NavGroup[]> = {
-  logistica:  LOGISTICA_NAV_GROUPS,
-  heladeras:  HELADERAS_NAV_GROUPS,
-  produccion: PRODUCCION_NAV_GROUPS,
-  expedicion: EXPEDICION_NAV_GROUPS,
-}
+const SISTEMAS_ORDEN: Sistema[] = SISTEMAS
 
-// Ítems de nav que el rol de este usuario ya puede ver en un sistema dado —
-// el mismo filtro que aplican LogisticaLayout/HeladerasLayout, para que el
-// checklist nunca ofrezca algo que el rol no permite.
-function itemsVisiblesDelRol(user: Pick<UserProfile, 'rol' | 'rolesExtra'>, sistema: Sistema): NavGroup[] {
-  return GRUPOS_POR_SISTEMA[sistema]
-    .map((g) => ({ ...g, items: g.items.filter((i) => tieneAlgunRol(user, i.roles)) }))
-    .filter((g) => g.items.length > 0)
-}
+// Ítems de menú que el rol de este usuario ya puede ver en un dominio — el
+// mismo filtro que aplica DominioLayout, para que el checklist nunca ofrezca
+// algo que el rol no permite (src/rutas/catalogo.ts).
+const itemsVisiblesDelRol = (user: Pick<UserProfile, 'rol' | 'rolesExtra'>, sistema: Sistema) => gruposVisibles(user, sistema)
 
 export function PermisosUsuarioModal({
   user, onClose, onSaved,

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { ArrowLeft, History } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { subscribeLiquidacionesEnRango } from '../../services/liquidacionService'
@@ -12,10 +12,8 @@ import AnuladasDespuesDeCerrar from '@/components/expedicion/AnuladasDespuesDeCe
 // Historial de liquidaciones (2026-09-06): mes × repartidor, con la diferencia
 // de efectivo de cada cierre y los totales por repartidor, para ver quién
 // viene con faltantes repetidos. Cada fila abre el cierre en modo lectura.
-export default function LiquidacionesHistorialPage() {
+export default function LiquidacionesHistorialPage({ base }: { base: '/caja' | '/tesoreria' }) {
   const { user } = useAuth()
-  const { pathname } = useLocation()
-  const base = pathname.startsWith('/tesoreria') ? '/tesoreria' : '/caja'
   const hoy = useDiaActual()
   const [mes, setMes] = useState(hoy.slice(0, 7))
   const [liquidaciones, setLiquidaciones] = useState<Liquidacion[]>([])

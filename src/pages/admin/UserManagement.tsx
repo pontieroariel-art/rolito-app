@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, ChangeEvent } from 'react'
 import { coincideBusqueda } from '@/utils/busqueda'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { MapPin } from 'lucide-react'
 import Button from '../../components/ui/Button'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
@@ -29,14 +29,11 @@ import { reportError } from '@/services/observability'
 
 const PAGE_SIZE = 50
 
-export default function UserManagement() {
+export default function UserManagement({ tab }: { tab: 'clientes' | 'equipo' }) {
   const navigate = useNavigate()
-  const location = useLocation()
-  // Clientes y Usuarios son dos entradas de sidebar separadas (/usuarios,
-  // operativa, en LogisticaLayout; /admin/usuarios, Backoffice, solo
-  // super_admin) que renderizan este mismo componente — la vista activa
-  // se deriva de la ruta en vez de un estado de tab manejado con botones.
-  const tab: 'clientes' | 'equipo' = location.pathname === '/admin/usuarios' ? 'equipo' : 'clientes'
+  // Clientes (/usuarios, Comercial) y Usuarios & Roles (/admin/usuarios,
+  // Administración, solo super_admin) renderizan este mismo componente; la
+  // vista la fija la <Route> con la prop `tab` (fase 2, 2026-09-12).
   const { user: currentUser }           = useAuth()
   const [clientes, setClientes]         = useState<UserProfile[]>([])
   const [equipo, setEquipo]             = useState<UserProfile[]>([])

@@ -1,13 +1,12 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { tieneAlgunRol } from '@/utils/roles'
-import { rolesDe } from '@/rutas/catalogo'
+import { rolesDe, primerAccesoDe } from '@/rutas/catalogo'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { BranchProvider, useBranch } from './context/BranchContext'
 import { SistemaProvider } from './context/SistemaContext'
 import ProtectedRoute from './components/layout/ProtectedRoute'
-import { EXPEDICION_NAV_GROUPS } from './utils/expedicionNav'
 import LoadingSpinner from './components/ui/LoadingSpinner'
 import { reportError, APP_RELEASE } from './services/observability'
 import { SESION_VER_COMO } from './services/firebase'
@@ -33,8 +32,8 @@ const ClientProfile    = lazy(() => import('./pages/client/ClientProfile'))
 const MyFreezers       = lazy(() => import('./pages/client/MyFreezers'))
 const SelectSucursal   = lazy(() => import('./pages/client/SelectSucursal'))
 
-const LogisticaLayout     = lazy(() => import('./components/layout/LogisticaLayout'))
-const BackofficeLayout    = lazy(() => import('./components/layout/BackofficeLayout'))
+// Shell único de escritorio para los cuatro dominios (fase 2, 2026-09-12).
+const DominioLayout       = lazy(() => import('./components/layout/DominioLayout'))
 const PanelControlPage    = lazy(() => import('./pages/admin/PanelControlPage'))
 const AjustesGeneralesPage = lazy(() => import('./pages/admin/AjustesGeneralesPage'))
 const ResumenLogisticaPage = lazy(() => import('./pages/logistica/ResumenLogisticaPage'))
@@ -66,7 +65,6 @@ const EntregarPedidoPage = lazy(() => import('./pages/chofer/EntregarPedidoPage'
 const VentasChofer      = lazy(() => import('./pages/chofer/VentasChofer'))
 const GerenteDashboard  = lazy(() => import('./pages/gerente/GerenteDashboard'))
 
-const HeladerasLayout      = lazy(() => import('./components/heladeras/HeladerasLayout'))
 const HeladerasPage        = lazy(() => import('./pages/heladeras/HeladerasPage'))
 const HeladerasEntryPage   = lazy(() => import('./pages/heladeras/HeladerasEntryPage'))
 const ModelosHeladeraPage  = lazy(() => import('./pages/heladeras/ModelosHeladeraPage'))
@@ -88,7 +86,6 @@ const CalculadoraHielo  = lazy(() => import('./pages/public/CalculadoraHielo'))
 const TurnosVentanillaPage = lazy(() => import('./pages/public/TurnosVentanillaPage'))
 
 const LoginProduccion         = lazy(() => import('./pages/auth/LoginProduccion'))
-const ProduccionLayout        = lazy(() => import('./components/produccion/ProduccionLayout'))
 const ProduccionDashboard     = lazy(() => import('./pages/produccion/ProduccionDashboard'))
 const ProduccionTicketPage    = lazy(() => import('./pages/produccion/ProduccionTicketPage'))
 const FichaPalletPage         = lazy(() => import('./pages/produccion/FichaPalletPage'))
@@ -99,7 +96,6 @@ const PlantasProduccionPage   = lazy(() => import('./pages/produccion/PlantasPro
 const MaquinistaDashboard     = lazy(() => import('./pages/produccion/MaquinistaDashboard'))
 const PartesMaquinasPage      = lazy(() => import('./pages/produccion/PartesMaquinasPage'))
 
-const ExpedicionLayout  = lazy(() => import('./components/expedicion/ExpedicionLayout'))
 const RemitosCargaPage  = lazy(() => import('./pages/expedicion/RemitosCargaPage'))
 const LiquidacionesPage = lazy(() => import('./pages/expedicion/LiquidacionesPage'))
 const LiquidacionesHistorialPage = lazy(() => import('./pages/expedicion/LiquidacionesHistorialPage'))
@@ -110,7 +106,6 @@ const EntregasPage      = lazy(() => import('./pages/expedicion/EntregasPage'))
 const EntregasTesoreriaPage = lazy(() => import('./pages/tesoreria/EntregasTesoreriaPage'))
 const AnulacionesPage   = lazy(() => import('./pages/admin/AnulacionesPage'))
 const RendicionesHistorialPage = lazy(() => import('./pages/expedicion/RendicionesHistorialPage'))
-const TesoreriaLayout          = lazy(() => import('./components/tesoreria/TesoreriaLayout'))
 const TesoreriaLivePage        = lazy(() => import('./pages/tesoreria/TesoreriaLivePage'))
 const RendicionesTesoreriaPage = lazy(() => import('./pages/tesoreria/RendicionesTesoreriaPage'))
 const MuelleDashboard    = lazy(() => import('./pages/expedicion/MuelleDashboard'))
@@ -131,11 +126,7 @@ const FichaClientePage        = lazy(() => import('./pages/supervisor/FichaClien
 // Cobranzas (Usuarios → Permisos) tiene que caer directo ahí.
 function CajaEntry() {
   const { user } = useAuth()
-  const primera = EXPEDICION_NAV_GROUPS
-    .flatMap((g) => g.items)
-    .find((i) => user && tieneAlgunRol(user, i.roles)
-      && (!user.pestanasPermitidas || user.pestanasPermitidas.includes(i.to)))
-  return <Navigate to={primera?.to ?? '/caja/remitos'} replace />
+  return <Navigate to={primerAccesoDe('logistica', 'expedicion', user) ?? '/caja/remitos'} replace />
 }
 
 // /produccion es el home de todo rol produccion_hielo, pero el puesto define
@@ -249,59 +240,112 @@ function AppContent() {
           </Route>
         </Route>
 
-        {/* Sistema logística/oficina — LogisticaLayout agrega el sidebar del
-            sistema (sin Navbar arriba, ver src/components/layout/LogisticaLayout.tsx). */}
-        <Route element={<LogisticaLayout />}>
-          {/* Logística — el resumen de KPIs (ex /admin, ex AdminDashboard)
-              ya no es cosa de super_admin: super_admin administra desde el
-              Backoffice (ver bloque BackofficeLayout más abajo). */}
+        {/* ── Escritorio: un solo shell para los cuatro dominios (Logística,
+            Heladeras, Comercial, Administración). DominioLayout elige el
+            sidebar por el dominio activo y la ruta — ver src/rutas/catalogo.ts.
+            Los roles de cada bloque salen del catálogo (rolesDe); un bloque
+            toma los de su primera ruta. ── */}
+        <Route element={<DominioLayout />}>
+
+          {/* Logística: despacho y rutas */}
           <Route element={<ProtectedRoute allowedRoles={rolesDe('/logistica/resumen')} />}>
-            <Route path="/logistica/resumen"    element={<ResumenLogisticaPage />} />
-          </Route>
-          {/* Flota es config compartida (ver plan de migración del
-              Backoffice) — super_admin la conserva. Visitas e Incidencias
-              son operativas del día a día: ya no. */}
-          <Route element={<ProtectedRoute allowedRoles={rolesDe('/admin/flota')} />}>
-            <Route path="/admin/flota"          element={<FlotaPage />} />
-          </Route>
-          <Route element={<ProtectedRoute allowedRoles={rolesDe('/admin/visitas')} />}>
-            <Route path="/admin/visitas"        element={<VisitasPage />} />
-            <Route path="/admin/incidencias"    element={<ReporteIncidenciasPage />} />
-          </Route>
-          {/* Precios (catálogo + listas): super_admin, logística, comercial y gerente comercial */}
-          <Route element={<ProtectedRoute allowedRoles={rolesDe('/admin/precios')} />}>
-            <Route path="/admin/precios"        element={<PriceListsPage />} />
-          </Route>
-          {/* Tablero de despacho e historial — operativo, ya no super_admin */}
-          <Route element={<ProtectedRoute allowedRoles={rolesDe('/logistica')} />}>
-            <Route path="/logistica"              element={<LogisticaDashboard />} />
+            <Route path="/logistica/resumen"        element={<ResumenLogisticaPage />} />
+            <Route path="/logistica"                element={<LogisticaDashboard />} />
             {/* Alias viejo sin ningún link en el código (fase 0, 2026-09-12): redirige a la ruta canónica. */}
-            <Route path="/admin/planificacion"    element={<Navigate to="/logistica" replace />} />
+            <Route path="/admin/planificacion"      element={<Navigate to="/logistica" replace />} />
             <Route path="/admin/historial-despacho" element={<HistorialDespachoPage />} />
-          </Route>
-          {/* Clima es solo lectura: comercial también entra (linkeado desde su tablero) */}
-          <Route element={<ProtectedRoute allowedRoles={rolesDe('/admin/clima')} />}>
-            <Route path="/admin/clima"         element={<ClimaPage />} />
           </Route>
           <Route element={<ProtectedRoute allowedRoles={rolesDe('/admin/monitoreo')} />}>
             <Route path="/admin/monitoreo" element={<MonitoreoPage />} />
           </Route>
-
-          {/* Gerente general — super_admin entra en solo lectura, mismo dato que ya
-              puede leer desde el Backoffice, solo que resumido (ver PanelControlPage). */}
-          <Route element={<ProtectedRoute allowedRoles={rolesDe('/gerente')} />}>
-            <Route path="/gerente" element={<GerenteDashboard />} />
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/comercial/mapa')} />}>
+            <Route path="/comercial/mapa" element={<MapaLivePage />} />
           </Route>
 
-          {/* Gestión de usuarios — Clientes (CRM, operativo, todos los roles
-              de abajo) y Usuarios/equipo interno (ABM de staff + roles, ver
-              /admin/usuarios en el Backoffice) son dos entradas separadas
-              que renderizan el mismo componente. */}
-          <Route element={<ProtectedRoute allowedRoles={rolesDe('/usuarios')} />}>
-            <Route path="/usuarios" element={<UserManagement />} />
+          {/* Logística: operaciones y flota */}
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/admin/flota')} />}>
+            <Route path="/admin/flota"       element={<FlotaPage />} />
+            <Route path="/admin/incidencias" element={<ReporteIncidenciasPage />} />
           </Route>
-          <Route element={<ProtectedRoute allowedRoles={rolesDe('/admin/mapa-clientes')} />}>
-            <Route path="/admin/mapa-clientes" element={<ClientesMapPage />} />
+          {/* Historial unificado */}
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/movimientos')} />}>
+            <Route path="/movimientos" element={<HistorialPage />} />
+          </Route>
+          {/* Clima es solo lectura: comercial también entra (linkeado desde su tablero) */}
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/admin/clima')} />}>
+            <Route path="/admin/clima" element={<ClimaPage />} />
+          </Route>
+
+          {/* Logística: planta y expedición — rol 'caja' (fijo por planta) */}
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/caja')} />}>
+            <Route path="/caja"                element={<CajaEntry />} />
+            <Route path="/caja/remitos"        element={<RemitosCargaPage />} />
+            <Route path="/caja/ventanilla"     element={<VentanillaPage />} />
+            <Route path="/caja/cobranzas"      element={<CobranzasPage />} />
+            <Route path="/caja/liquidaciones"  element={<LiquidacionesPage base="/caja" />} />
+            {/* Cierre de caja por persona y día (2026-09-09). */}
+            <Route path="/caja/rendiciones"    element={<RendicionesPage />} />
+            {/* Entrega de caja a tesorería con acta y doble firma (2026-09-09). */}
+            <Route path="/caja/entregas"       element={<EntregasPage />} />
+          </Route>
+          {/* Historial de cierres: también gerencia (control de faltantes por repartidor). */}
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/caja/liquidaciones/historial')} />}>
+            <Route path="/caja/liquidaciones/historial" element={<LiquidacionesHistorialPage base="/caja" />} />
+            <Route path="/caja/rendiciones/historial"   element={<RendicionesHistorialPage enTesoreria={false} />} />
+          </Route>
+
+          {/* Logística: producción de hielo — panel del encargado; Listado es
+              compartido con gerencia / logística / comercial (mismo shell). */}
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/produccion/resumen')} />}>
+            <Route path="/produccion/resumen"   element={<ProduccionResumenPage />} />
+            <Route path="/produccion/partes"    element={<PartesMaquinasPage />} />
+            <Route path="/produccion/operarios" element={<OperariosProduccionPage />} />
+            <Route path="/produccion/plantas"   element={<PlantasProduccionPage />} />
+          </Route>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/produccion/listado')} />}>
+            <Route path="/produccion/listado" element={<ProduccionListadoPage />} />
+          </Route>
+
+          {/* Logística: tesorería (rol propio, 2026-09-09). Gerencia general entra en modo lectura. */}
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/tesoreria')} />}>
+            <Route path="/tesoreria"                       element={<TesoreriaLivePage />} />
+            <Route path="/tesoreria/rendiciones"           element={<RendicionesTesoreriaPage />} />
+            <Route path="/tesoreria/rendiciones/historial" element={<RendicionesHistorialPage enTesoreria />} />
+            {/* Entregas de caja: tesorería cuenta, tilda los valores y firma (2026-09-09). */}
+            <Route path="/tesoreria/entregas"              element={<EntregasTesoreriaPage />} />
+            <Route path="/tesoreria/anulaciones"           element={<AnulacionesPage />} />
+            {/* La liquidación del repartidor con todo el detalle, en modo lectura (a tesorería le rinden). */}
+            <Route path="/tesoreria/liquidaciones"           element={<LiquidacionesPage base="/tesoreria" />} />
+            <Route path="/tesoreria/liquidaciones/historial" element={<LiquidacionesHistorialPage base="/tesoreria" />} />
+          </Route>
+
+          {/* Heladeras (las vistas standalone — etiqueta, ficha, técnico — van más abajo) */}
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/heladeras')} />}>
+            <Route path="/heladeras" element={<HeladerasEntryPage />} />
+          </Route>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/heladeras/taller')} />}>
+            <Route path="/heladeras/taller" element={<HeladerasPage />} />
+          </Route>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/heladeras/modelos')} />}>
+            <Route path="/heladeras/modelos"   element={<ModelosHeladeraPage />} />
+            <Route path="/heladeras/catalogos" element={<CatalogosServicePage />} />
+            <Route path="/heladeras/tecnicos"  element={<TecnicosPage />} />
+            <Route path="/heladeras/equipos"   element={<EquiposPage />} />
+            <Route path="/heladeras/panol"     element={<PanolPage />} />
+          </Route>
+          {/* Informes y Mapa: también gerente_general, como drill-down de solo
+              lectura desde el link "Ver informes" del panel de directores. */}
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/heladeras/informes')} />}>
+            <Route path="/heladeras/informes" element={<InformesDashboardPage />} />
+            <Route path="/heladeras/mapa"     element={<MapaClientesHeladerasPage />} />
+          </Route>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/heladeras/asignacion')} />}>
+            <Route path="/heladeras/asignacion" element={<AsignacionEquiposPage />} />
+            <Route path="/heladeras/ranking"    element={<RankingConsumoPage />} />
+          </Route>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/heladeras/consulta-service')} />}>
+            <Route path="/heladeras/consulta-service" element={<ConsultaServicePage />} />
+            <Route path="/heladeras/toma-service"     element={<TomaServicePage />} />
           </Route>
 
           {/* Comercial */}
@@ -309,36 +353,44 @@ function AppContent() {
             <Route path="/comercial"         element={<ComercialDashboard />} />
             <Route path="/comercial/pedidos" element={<ComercialOrders />} />
           </Route>
-          <Route element={<ProtectedRoute allowedRoles={rolesDe('/comercial/mapa')} />}>
-            <Route path="/comercial/mapa" element={<MapaLivePage />} />
-          </Route>
-
           {/* Reportes */}
           <Route element={<ProtectedRoute allowedRoles={rolesDe('/comercial/reporte-precios')} />}>
-            <Route path="/comercial/reporte-precios"  element={<ReportePreciosPage />} />
-            <Route path="/comercial/ventas"           element={<ReporteVentasPage />} />
+            <Route path="/comercial/reporte-precios" element={<ReportePreciosPage />} />
+            <Route path="/comercial/ventas"          element={<ReporteVentasPage />} />
           </Route>
-
-          {/* Recupero de facturas viejas — campaña puntual, se saca cuando termine */}
-          <Route element={<ProtectedRoute allowedRoles={rolesDe('/admin/recupero-facturas')} />}>
+          {/* Clientes (CRM, operativo) y Usuarios / equipo interno (solo
+              super_admin, más abajo) son dos entradas que renderizan el mismo
+              componente; la vista la fija la prop `tab`. */}
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/usuarios')} />}>
+            <Route path="/usuarios"            element={<UserManagement tab="clientes" />} />
+            <Route path="/admin/mapa-clientes" element={<ClientesMapPage />} />
+          </Route>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/admin/visitas')} />}>
+            <Route path="/admin/visitas" element={<VisitasPage />} />
+          </Route>
+          {/* Precios (catálogo + listas): super_admin, logística, comercial y gerente comercial */}
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/admin/precios')} />}>
+            <Route path="/admin/precios" element={<PriceListsPage />} />
+          </Route>
+          {/* Comprobantes de clientes (2026-09-10) y recupero de facturas viejas (campaña puntual). */}
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/admin/comprobantes')} />}>
+            <Route path="/admin/comprobantes"      element={<ComprobantesClientesPage />} />
             <Route path="/admin/recupero-facturas" element={<RecuperoFacturasPage />} />
           </Route>
-
-          {/* Comprobantes de clientes (2026-09-10): facturas y remitos de Tango por
-              cliente, para mandarlos en bloque por mail / WhatsApp / descarga. */}
-          <Route element={<ProtectedRoute allowedRoles={rolesDe('/admin/comprobantes')} />}>
-            <Route path="/admin/comprobantes" element={<ComprobantesClientesPage />} />
-          </Route>
-
-          {/* Historial unificado */}
-          <Route element={<ProtectedRoute allowedRoles={rolesDe('/movimientos')} />}>
-            <Route path="/movimientos" element={<HistorialPage />} />
-          </Route>
-
-          {/* Anulaciones de facturas de ventanilla (2026-09-09): la bandeja la abre
-              cualquier staff de oficina; aprobar exige users.autorizaAnulaciones. */}
+          {/* Anulaciones de facturas (2026-09-09): la bandeja la abre cualquier
+              staff de oficina; aprobar exige users.autorizaAnulaciones. */}
           <Route element={<ProtectedRoute allowedRoles={rolesDe('/anulaciones')} />}>
             <Route path="/anulaciones" element={<AnulacionesPage />} />
+          </Route>
+
+          {/* Administración y gerencia */}
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/gerente')} />}>
+            <Route path="/gerente" element={<GerenteDashboard />} />
+          </Route>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/admin')} />}>
+            <Route path="/admin"          element={<PanelControlPage />} />
+            <Route path="/admin/usuarios" element={<UserManagement tab="equipo" />} />
+            <Route path="/admin/general"  element={<AjustesGeneralesPage />} />
           </Route>
         </Route>
 
@@ -352,56 +404,15 @@ function AppContent() {
           <Route path="/chofer/cobrar" element={<CobranzaCalle />} />
         </Route>
 
-        {/* Selección de sistema: cualquier usuario activo con acceso a más de un
-            sistema (por su rol o por roles adicionales — logística + caja, ver
-            src/utils/roles.ts). Sin lista de roles: con una lista fija, un
-            usuario con rol adicional caía en un loop / → /sistema → / y veía la
-            pantalla en blanco (Lucas, 2026-09-09). Quien tiene un solo sistema
-            es redirigido a su home por la propia página. */}
+        {/* Selección de dominio: cualquier usuario activo. Sin lista de roles:
+            con una lista fija, un usuario con rol adicional caía en un loop
+            / → /sistema → / y veía la pantalla en blanco (Lucas, 2026-09-09).
+            Quien tiene un solo dominio es redirigido a su home por la propia página. */}
         <Route element={<ProtectedRoute />}>
           <Route path="/sistema" element={<SeleccionSistemaPage />} />
         </Route>
 
-        {/* Heladeras — HeladerasLayout agrega Navbar + sidebar del módulo.
-            Quedan afuera /heladeras/etiqueta y /heladeras/ficha (vistas
-            standalone/print) y /tecnico (vista simplificada, no forma parte
-            del hub). */}
-        <Route element={<HeladerasLayout />}>
-          <Route element={<ProtectedRoute allowedRoles={rolesDe('/heladeras')} />}>
-            <Route path="/heladeras" element={<HeladerasEntryPage />} />
-          </Route>
-          <Route element={<ProtectedRoute allowedRoles={rolesDe('/heladeras/taller')} />}>
-            <Route path="/heladeras/taller" element={<HeladerasPage />} />
-          </Route>
-          {/* Modelos, Catálogos, Técnicos, Padrón de equipos y Pañol son
-              config/maestro compartido (ver plan de migración del
-              Backoffice) — super_admin los conserva. */}
-          <Route element={<ProtectedRoute allowedRoles={rolesDe('/heladeras/modelos')} />}>
-            <Route path="/heladeras/modelos"   element={<ModelosHeladeraPage />} />
-            <Route path="/heladeras/catalogos" element={<CatalogosServicePage />} />
-            <Route path="/heladeras/tecnicos"  element={<TecnicosPage />} />
-            <Route path="/heladeras/equipos"   element={<EquiposPage />} />
-            <Route path="/heladeras/panol"     element={<PanolPage />} />
-          </Route>
-          {/* Informes y Mapa son reporte/monitoreo, no config — sin nav propio para
-              super_admin (vive en Backoffice), pero sí alcanzable como drill-down de
-              solo lectura desde el link "Ver informes →" del Panel de directores
-              (/gerente, accesible por gerente_general y super_admin). */}
-          <Route element={<ProtectedRoute allowedRoles={rolesDe('/heladeras/informes')} />}>
-            <Route path="/heladeras/informes"  element={<InformesDashboardPage />} />
-            <Route path="/heladeras/mapa"      element={<MapaClientesHeladerasPage />} />
-          </Route>
-          <Route element={<ProtectedRoute allowedRoles={rolesDe('/heladeras/asignacion')} />}>
-            <Route path="/heladeras/asignacion" element={<AsignacionEquiposPage />} />
-            <Route path="/heladeras/ranking"    element={<RankingConsumoPage />} />
-          </Route>
-          <Route element={<ProtectedRoute allowedRoles={rolesDe('/heladeras/consulta-service')} />}>
-            <Route path="/heladeras/consulta-service" element={<ConsultaServicePage />} />
-          </Route>
-          <Route element={<ProtectedRoute allowedRoles={rolesDe('/heladeras/toma-service')} />}>
-            <Route path="/heladeras/toma-service" element={<TomaServicePage />} />
-          </Route>
-        </Route>
+        {/* Heladeras: vistas standalone / print y el técnico de calle */}
         <Route element={<ProtectedRoute allowedRoles={rolesDe('/heladeras/etiqueta/:heladeraId')} />}>
           <Route path="/heladeras/etiqueta/:heladeraId" element={<EtiquetaHeladeraPage />} />
         </Route>
@@ -422,66 +433,6 @@ function AppContent() {
         <Route element={<ProtectedRoute allowedRoles={rolesDe('/produccion/ticket/:palletId')} />}>
           <Route path="/produccion/ticket/:palletId" element={<ProduccionTicketPage />} />
           <Route path="/produccion/ficha/:palletId"  element={<FichaPalletPage />} />
-        </Route>
-        {/* Listado de producción para gerencia/logística/encargado. super_admin
-            entra también — tiene una card directa a esta ruta en el Backoffice
-            (Configuración — Producción) que hasta ahora rebotaba. La página
-            elige su shell por rol: sidebar de producción para encargado/
-            super_admin, Navbar genérico para el resto (usaShellProduccion). */}
-        <Route element={<ProtectedRoute allowedRoles={rolesDe('/produccion/listado')} />}>
-          <Route path="/produccion/listado" element={<ProduccionListadoPage />} />
-        </Route>
-
-        {/* Producción — panel del encargado (rol produccion_encargado), mismo
-            patrón que LogisticaLayout/HeladerasLayout. Resumen es su home
-            (ROLE_HOME en Landing.tsx); Listado también aparece en su sidebar
-            pero la ruta vive arriba porque es compartida con gerencia. */}
-        <Route element={<ProduccionLayout />}>
-          <Route element={<ProtectedRoute allowedRoles={rolesDe('/produccion/resumen')} />}>
-            <Route path="/produccion/resumen"   element={<ProduccionResumenPage />} />
-            <Route path="/produccion/partes"    element={<PartesMaquinasPage />} />
-            <Route path="/produccion/operarios" element={<OperariosProduccionPage />} />
-            <Route path="/produccion/plantas"   element={<PlantasProduccionPage />} />
-          </Route>
-        </Route>
-
-        {/* Expedición de planta — rol 'caja' (fijo por planta): remitos de
-            carga de camiones; ventanilla y liquidaciones llegan en fases
-            siguientes (ver docs del módulo). Shell propio tipo producción. */}
-        <Route element={<ExpedicionLayout />}>
-          <Route element={<ProtectedRoute allowedRoles={rolesDe('/caja')} />}>
-            <Route path="/caja"                element={<CajaEntry />} />
-            <Route path="/caja/remitos"        element={<RemitosCargaPage />} />
-            <Route path="/caja/ventanilla"     element={<VentanillaPage />} />
-            <Route path="/caja/cobranzas"      element={<CobranzasPage />} />
-            <Route path="/caja/liquidaciones"  element={<LiquidacionesPage />} />
-            {/* Cierre de caja por persona y día (2026-09-09). */}
-            <Route path="/caja/rendiciones"    element={<RendicionesPage />} />
-            {/* Entrega de caja a tesorería con acta y doble firma (2026-09-09). */}
-            <Route path="/caja/entregas"       element={<EntregasPage />} />
-          </Route>
-          {/* Historial de cierres: también gerencia (control de faltantes por repartidor). */}
-          <Route element={<ProtectedRoute allowedRoles={rolesDe('/caja/liquidaciones/historial')} />}>
-            <Route path="/caja/liquidaciones/historial" element={<LiquidacionesHistorialPage />} />
-            <Route path="/caja/rendiciones/historial"   element={<RendicionesHistorialPage />} />
-          </Route>
-        </Route>
-
-        {/* Tesorería (rol propio, 2026-09-09): tablero en vivo de calle, ventanillas
-            y supervisores; validación de los cierres de caja; historial. Gerencia
-            general entra en modo lectura. */}
-        <Route element={<TesoreriaLayout />}>
-          <Route element={<ProtectedRoute allowedRoles={rolesDe('/tesoreria')} />}>
-            <Route path="/tesoreria"                       element={<TesoreriaLivePage />} />
-            <Route path="/tesoreria/rendiciones"           element={<RendicionesTesoreriaPage />} />
-            <Route path="/tesoreria/rendiciones/historial" element={<RendicionesHistorialPage />} />
-            {/* Entregas de caja: tesorería cuenta, tilda los valores y firma (2026-09-09). */}
-            <Route path="/tesoreria/entregas"              element={<EntregasTesoreriaPage />} />
-            <Route path="/tesoreria/anulaciones"           element={<AnulacionesPage />} />
-            {/* La liquidación del repartidor con todo el detalle, en modo lectura (a tesorería le rinden). */}
-            <Route path="/tesoreria/liquidaciones"           element={<LiquidacionesPage />} />
-            <Route path="/tesoreria/liquidaciones/historial" element={<LiquidacionesHistorialPage />} />
-          </Route>
         </Route>
 
         {/* Muelle — tablet en planta, Navbar genérico (una sola pantalla):
@@ -513,21 +464,6 @@ function AppContent() {
               con las mismas pantallas del chofer, que vuelven a /supervisor. */}
           <Route path="/supervisor/vender"    element={<VentaCamion volverA="/supervisor" />} />
           <Route path="/supervisor/ventas"    element={<VentasChofer volverA="/supervisor" />} />
-        </Route>
-
-        {/* Backoffice — panel de administración centralizado, exclusivo
-            super_admin. BackofficeLayout agrega su propio sidebar (ver
-            src/components/layout/BackofficeLayout.tsx). Las pantallas de
-            configuración que además usa un rol operativo a diario (Flota,
-            Modelos, Catálogos, Técnicos, Precios, Operarios de producción)
-            NO viven acá — se quedan en su layout de siempre y el Backoffice
-            solo linkea a ellas desde el panel de control (PanelControlPage). */}
-        <Route element={<BackofficeLayout />}>
-          <Route element={<ProtectedRoute allowedRoles={rolesDe('/admin')} />}>
-            <Route path="/admin"                  element={<PanelControlPage />} />
-            <Route path="/admin/usuarios"         element={<UserManagement />} />
-            <Route path="/admin/general"          element={<AjustesGeneralesPage />} />
-          </Route>
         </Route>
 
         {/* Cualquier otra ruta */}

@@ -1,36 +1,32 @@
 import { useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, LayoutDashboard, Snowflake, Package, Truck, FileText, Shield } from 'lucide-react'
+import { ChevronRight, LayoutDashboard, Snowflake, Briefcase, Shield } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useSistema } from '../../context/SistemaContext'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
-import { homesDeUsuario, ROLE_HOME, SISTEMA_LABELS, Sistema } from '../../utils/sistemas'
-
-const DESCRIPCIONES: Record<Sistema, string> = {
-  logistica:  'Pedidos, despacho, flota y monitoreo',
-  heladeras:  'Equipos, service y pañol',
-  produccion: 'Producción de hielo en planta',
-  expedicion: 'Remitos de carga y liquidación de repartidores',
-}
+import { homesDeUsuario, ROLE_HOME, SISTEMA_LABELS, SISTEMA_DESCRIPCIONES, Sistema } from '../../utils/sistemas'
 
 const ICONOS: Record<Sistema, typeof LayoutDashboard> = {
-  logistica:  LayoutDashboard,
-  heladeras:  Snowflake,
-  produccion: Package,
-  expedicion: Truck,
+  logistica: LayoutDashboard,
+  heladeras: Snowflake,
+  comercial: Briefcase,
+  admin:     Shield,
 }
 
+// Picker de dominio (Logística / Heladeras / Comercial / Administración).
+// Es el home del super_admin y adonde vuelve quien toca "cambiar de dominio";
+// el resto de los roles entra directo a su home y cambia de dominio desde la
+// cabecera del shell (DominioLayout).
 export default function SeleccionSistemaPage() {
-  const { user }        = useAuth()
+  const { user } = useAuth()
   const { sistemasDisponibles, sistemaActual, elegirSistema } = useSistema()
-  const navigate         = useNavigate()
+  const navigate = useNavigate()
 
   // Memoizado: es dependencia del efecto de redirección (un objeto nuevo por render lo dispararía siempre).
   const homes = useMemo(() => (user ? homesDeUsuario(user) : undefined), [user])
 
-  // Ya había una elección persistida → saltear el picker. Con un solo sistema
-  // (`homes` undefined) esta pantalla no aplica: a su home, sin quedarse en el
-  // spinner (la ruta ya no filtra por rol, ver App.tsx).
+  // Ya había una elección persistida → saltear el picker. Con un solo dominio
+  // (`homes` undefined) esta pantalla no aplica: a su home.
   useEffect(() => {
     if (!user) return
     if (!homes) { navigate(ROLE_HOME[user.rol] ?? '/', { replace: true }); return }
@@ -60,29 +56,9 @@ export default function SeleccionSistemaPage() {
       </div>
 
       <div className="flex-1 flex flex-col items-center px-4 pt-7 pb-8 gap-4">
-        <p className="text-gray-500 text-sm text-center">¿A qué sistema querés entrar?</p>
+        <p className="text-gray-500 text-sm text-center">¿Por dónde querés entrar?</p>
 
         <div className="w-full max-w-sm space-y-3">
-          {/* Administración (panel de control, usuarios, ajustes): solo super_admin.
-              No es un "sistema" (no entra en ROLE_SISTEMAS), por eso va aparte y
-              primero — es el home del administrador (2026-09-10). */}
-          {user.rol === 'super_admin' && (
-            <button
-              onClick={() => navigate('/admin')}
-              className="w-full flex items-center gap-4 bg-white rounded-2xl border border-[#D3D1C7] shadow-sm hover:border-accent hover:shadow-md active:scale-[0.98] transition-all p-4 group text-left"
-            >
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 bg-accent/10 text-accent">
-                <Shield size={20} strokeWidth={1.75} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h2 className="text-base font-bold text-gray-900 group-hover:text-accent transition-colors leading-tight">
-                  Administración
-                </h2>
-                <p className="text-gray-500 text-xs mt-0.5 leading-snug">Panel de control, usuarios, ver como otro usuario, ajustes</p>
-              </div>
-              <ChevronRight size={20} className="shrink-0 transition-all group-hover:translate-x-0.5 text-gray-300 group-hover:text-accent" />
-            </button>
-          )}
           {sistemasDisponibles.map((s) => {
             const Icon = ICONOS[s]
             return (
@@ -94,53 +70,17 @@ export default function SeleccionSistemaPage() {
                 <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 bg-gray-100 text-gray-500 group-hover:bg-accent/10 group-hover:text-accent transition-colors">
                   <Icon size={20} strokeWidth={1.75} />
                 </div>
-
                 <div className="flex-1 min-w-0">
                   <h2 className="text-base font-bold text-gray-900 group-hover:text-accent transition-colors leading-tight">
                     {SISTEMA_LABELS[s]}
                   </h2>
-                  <p className="text-gray-500 text-xs mt-0.5 leading-snug">{DESCRIPCIONES[s]}</p>
+                  <p className="text-gray-500 text-xs mt-0.5 leading-snug">{SISTEMA_DESCRIPCIONES[s]}</p>
                 </div>
-
-                <ChevronRight
-                  size={20}
-                  className="shrink-0 transition-all group-hover:translate-x-0.5 text-gray-300 group-hover:text-accent"
-                />
+                <ChevronRight size={20} className="shrink-0 transition-all group-hover:translate-x-0.5 text-gray-300 group-hover:text-accent" />
               </button>
             )
           })}
         </div>
-
-        {/* Recupero de facturas: no es un sistema, es una campaña puntual — por eso
-            va separado y abajo. Cuando el recupero termine, se borra este bloque.
-            super_admin lo tiene en los accesos del panel de control. */}
-        {user.rol === 'facturacion' && (
-          <div className="w-full max-w-sm pt-2">
-            <p className="text-gray-400 text-[11px] uppercase tracking-wide font-medium mb-2 px-1">
-              Herramientas
-            </p>
-            <button
-              onClick={() => navigate('/admin/recupero-facturas')}
-              className="w-full flex items-center gap-4 bg-white rounded-2xl border border-[#D3D1C7] shadow-sm hover:border-accent hover:shadow-md active:scale-[0.98] transition-all p-4 group text-left"
-            >
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 bg-gray-100 text-gray-500 group-hover:bg-accent/10 group-hover:text-accent transition-colors">
-                <FileText size={20} strokeWidth={1.75} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h2 className="text-base font-bold text-gray-900 group-hover:text-accent transition-colors leading-tight">
-                  Recupero de facturas
-                </h2>
-                <p className="text-gray-500 text-xs mt-0.5 leading-snug">
-                  Reimprime las facturas viejas de Tango con el formato de siempre
-                </p>
-              </div>
-              <ChevronRight
-                size={20}
-                className="shrink-0 transition-all group-hover:translate-x-0.5 text-gray-300 group-hover:text-accent"
-              />
-            </button>
-          </div>
-        )}
       </div>
     </div>
   )

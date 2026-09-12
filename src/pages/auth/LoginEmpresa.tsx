@@ -7,7 +7,7 @@ import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 import { useAuth } from '../../context/AuthContext'
 import { loginWithStaffDni } from '../../services/authService'
-import { ROLE_HOME, sistemasDeUsuario } from '../../utils/sistemas'
+import { ROLE_HOME } from '../../utils/sistemas'
 
 export default function LoginEmpresa() {
   const navigate = useNavigate()
@@ -17,7 +17,6 @@ export default function LoginEmpresa() {
     if (!user) return
     if (user.estado === 'pendiente') { navigate('/pendiente', { replace: true }); return }
     if (user.estado === 'inactivo')  { navigate('/',          { replace: true }); return }
-    if (sistemasDeUsuario(user).length > 1) { navigate('/sistema', { replace: true }); return }
     navigate(ROLE_HOME[user.rol] ?? '/', { replace: true })
   }, [user, navigate])
 
