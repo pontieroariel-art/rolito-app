@@ -1,4 +1,7 @@
-import * as Sentry from '@sentry/react'
+// Sentry se carga por import() recién cuando hay DSN (2026-09-12, auditoría de
+// performance): antes entraba al chunk inicial de todos, login incluido.
+type SentryModulo = typeof import('@sentry/react')
+let Sentry: SentryModulo | null = null
 
 // Observabilidad de errores en producción. Gateada por VITE_SENTRY_DSN, igual
 // que App Check por su key: sin DSN no inicializa nada (ni en dev, ni en un
@@ -23,6 +26,13 @@ export const APP_RELEASE: string = typeof __APP_RELEASE__ === 'string' ? __APP_R
 
 export function initObservability(): void {
   if (!dsn || import.meta.env.DEV) return
+  import('@sentry/react').then((mod) => {
+    Sentry = mod
+    iniciarSentry(mod)
+  }).catch((err) => console.error('[observability] no se pudo cargar Sentry', err))
+}
+
+function iniciarSentry(Sentry: SentryModulo): void {
   Sentry.init({
     dsn,
     environment: import.meta.env.MODE,
@@ -40,12 +50,19 @@ export function initObservability(): void {
     sendDefaultPii: false,
   })
   activo = true
+  // Lo que pasó mientras Sentry todavía se bajaba.
+  if (usuarioPendiente !== undefined) { setObservabilityUser(usuarioPendiente); usuarioPendiente = undefined }
+  for (const [error, context] of erroresPendientes.splice(0)) Sentry.captureException(error, context ? { extra: context } : undefined)
 }
+
+type UsuarioObs = { uid: string; rol?: string; verComoPor?: string | null } | null
+let usuarioPendiente: UsuarioObs | undefined
+const erroresPendientes: Array<[unknown, Record<string, unknown> | undefined]> = []
 
 // Asocia (o limpia) el usuario logueado con los reportes, sin datos sensibles:
 // solo uid y rol, para poder rastrear a qué operario/rol le pasó el error.
-export function setObservabilityUser(user: { uid: string; rol?: string; verComoPor?: string | null } | null): void {
-  if (!activo) return
+export function setObservabilityUser(user: UsuarioObs): void {
+  if (!activo || !Sentry) { if (dsn) usuarioPendiente = user; return }
   Sentry.setUser(user ? { id: user.uid, rol: user.rol } : null)
   // Quién mira de verdad cuando la sesión es "Ver como" (el uid de arriba es el de la persona observada).
   Sentry.setTag('verComoPor', user?.verComoPor ?? undefined)
@@ -56,7 +73,7 @@ export function setObservabilityUser(user: { uid: string; rol?: string; verComoP
 // si está activo.
 export function reportError(error: unknown, context?: Record<string, unknown>): void {
   console.error('[observability]', error, context ?? '')
-  if (!activo) return
+  if (!activo || !Sentry) { if (dsn && !import.meta.env.DEV && erroresPendientes.length < 20) erroresPendientes.push([error, context]); return }
   Sentry.captureException(error, context ? { extra: context } : undefined)
 }
 

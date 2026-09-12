@@ -27,14 +27,31 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore'],
-          maps:     ['@react-google-maps/api'],
-          router:   ['react-router-dom'],
-          charts:   ['recharts'],
-          pdf:      ['jspdf', 'jspdf-autotable'],
-          pdfjs:    ['pdfjs-dist'],
-          dnd:      ['@dnd-kit/core', '@dnd-kit/utilities'],
+        // En forma de FUNCIÓN a propósito (2026-09-12, auditoría de performance):
+        // con el objeto `{ pdf: ['jspdf'], … }` Rollup metía en esos chunks
+        // también los helpers que jspdf/recharts/maps comparten con el resto,
+        // y el chunk inicial terminaba importando pdf (412 KB), charts (374 KB)
+        // y maps (150 KB) de forma estática en el login de todos. Acá solo va
+        // al chunk el código de la librería misma; lo compartido queda en el
+        // chunk que corresponda por uso.
+        manualChunks(id: string) {
+          const ruta = id.replace(/\\/g, '/')
+          // Lo que TODA la app usa (React, el helper de precarga de Vite, clsx…)
+          // va a un chunk propio: si no, Rollup lo deja en el primer chunk manual
+          // que lo pide (pdf, maps, charts) y el arranque los importa a todos.
+          if (ruta.includes('vite/preload-helper') || ruta.includes('commonjsHelpers')) return 'vendor'
+          if (!ruta.includes('node_modules')) return undefined
+          const es = (...pkgs: string[]) => pkgs.some((p) => ruta.includes(`/node_modules/${p}/`))
+          if (es('react', 'react-dom', 'scheduler', 'react-is', 'clsx', 'class-variance-authority', 'tailwind-merge', 'tslib', '@babel/runtime', 'use-sync-external-store')) return 'vendor'
+          if (es('@react-google-maps/api')) return 'maps'
+          if (es('react-router', 'react-router-dom')) return 'router'
+          if (es('recharts')) return 'charts'
+          if (es('jspdf', 'jspdf-autotable')) return 'pdf'
+          if (es('pdfjs-dist')) return 'pdfjs'
+          if (es('@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities')) return 'dnd'
+          if (es('@firebase/app', '@firebase/auth', '@firebase/firestore', '@firebase/util', '@firebase/component', '@firebase/logger', '@firebase/webchannel-wrapper')
+            || ruta.includes('/node_modules/firebase/app/') || ruta.includes('/node_modules/firebase/auth/') || ruta.includes('/node_modules/firebase/firestore/')) return 'firebase'
+          return undefined
         },
       },
     },
