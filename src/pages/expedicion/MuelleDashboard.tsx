@@ -25,7 +25,7 @@ import RacksInput from '@/components/expedicion/RacksInput'
 import { describirEnvases, describirRacks, envasesDeDescarga, envasesDeRemito } from '@/utils/envases'
 import { nombreClienteVenta } from '@/utils/nombreClienteVenta'
 
-const ENVASES_VACIOS: EnvasesDescarga = { tarimasMadera: 0, palletsMetal: 0, puntales: 0, aros: 0, racks: [] }
+const ENVASES_VACIOS: EnvasesDescarga = { tarimasMadera: 0, palletsMetal: 0, puntales: 0, aros: 0, sombreros: 0, racks: [] }
 
 // Pantalla del rol muelle (tablet en planta): confirma la entrega de la
 // mercadería contra el remito de carga, y cuenta la descarga física cuando el
@@ -402,6 +402,7 @@ export default function MuelleDashboard() {
                     ['pallets de metal', salieron.palletsMetal - envases.palletsMetal],
                     ['puntales', salieron.puntales - envases.puntales],
                     ['aros', salieron.aros - envases.aros],
+                    ['sombreros', salieron.sombreros - (envases.sombreros ?? 0)],
                   ] as Array<[string, number]>).filter(([, d]) => d !== 0) : []
                   return (
                     <>
@@ -412,7 +413,7 @@ export default function MuelleDashboard() {
                           : ' (sin remito de carga de hoy en esta planta: no hay contra qué cuadrar)'}
                       </p>
                       <div className="grid grid-cols-2 gap-3">
-                        {([['tarimasMadera', 'Tarimas de madera'], ['palletsMetal', 'Pallets de metal'], ['puntales', 'Puntales'], ['aros', 'Aros']] as const).map(([k, label]) => (
+                        {([['tarimasMadera', 'Tarimas de madera'], ['palletsMetal', 'Pallets de metal'], ['puntales', 'Puntales'], ['aros', 'Aros'], ['sombreros', 'Sombreros']] as const).map(([k, label]) => (
                           <div key={k}>
                             <label className="text-xs text-gray-500 mb-1 block">{label}</label>
                             <input value={envases[k]} onChange={(e) => setEnvase(k, e.target.value)} inputMode="numeric" className={selectClass} />

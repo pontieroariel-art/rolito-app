@@ -229,15 +229,16 @@ export interface FacturaArchivada {
 
 // ── Envases retornables del camión (2026-09-07) ──────────────────────────────
 // Un pallet armado es "completo" (tarima de madera + 4 puntales + 1 aro) o de
-// metal (pallet de metal + 4 puntales, SIN aro — 2026-09-12). A la ida puntales y
-// aros van implícitos (PUNTALES_POR_PALLET / AROS_POR_TARIMA_MADERA en utils/envases.ts); a la
+// metal (pallet de metal + 4 puntales, SIN aro — 2026-09-12). Los dos llevan además
+// 1 sombrero. A la ida puntales, aros y sombreros van implícitos (PUNTALES_POR_PALLET /
+// AROS_POR_TARIMA_MADERA / SOMBREROS_POR_PALLET en utils/envases.ts); a la
 // vuelta muelle los cuenta sueltos, por si faltan. Los racks de agua están
 // numerados: se registra qué números salen y cuáles vuelven (no se vinculan a
 // los bidones, que son un producto más del remito). Tango no los recibe por
 // ahora (viajan en el payload de la cola para mapearlos más adelante).
 export interface EnvasesCarga {
   tarimasMadera: number     // pallets "completos": tarima + 4 puntales + 1 aro
-  palletsMetal:  number     // pallet de metal + 4 puntales + 1 aro
+  palletsMetal:  number     // pallet de metal + 4 puntales + 1 sombrero (sin aro)
   racks:         number[]   // números de rack de agua (únicos, enteros > 0)
 }
 export interface EnvasesDescarga {
@@ -245,9 +246,11 @@ export interface EnvasesDescarga {
   palletsMetal:  number
   puntales:      number
   aros:          number
+  /** Sombreros (1 por pallet de cualquier tipo, 2026-09-12). Las descargas anteriores no lo tienen. */
+  sombreros?:    number
   racks:         number[]
 }
-export interface ConteoEnvases { tarimasMadera: number; palletsMetal: number; puntales: number; aros: number }
+export interface ConteoEnvases { tarimasMadera: number; palletsMetal: number; puntales: number; aros: number; sombreros: number }
 export interface LiquidacionEnvases {
   salieron:       ConteoEnvases & { racks: number[] }   // Σ remitos del día (puntales/aros implícitos)
   volvieron:      ConteoEnvases & { racks: number[] }   // Σ descargas del día

@@ -2663,6 +2663,9 @@ describe('expedicion: muelle / cambios / descargas / liquidaciones', () => {
     await assertFails(setDoc(doc(db('mue1'), 'descargasCamion/d1'), descarga({ envases: { tarimasMadera: 1, palletsMetal: 0, puntales: -1, aros: 1, racks: [] } })))
     await assertFails(setDoc(doc(db('mue1'), 'descargasCamion/d2'), descarga({ envases: { tarimasMadera: 1, palletsMetal: 0, puntales: 4, aros: 1, racks: [3, 3] } })))
     await assertFails(setDoc(doc(db('mue1'), 'descargasCamion/d3'), descarga({ envases: { tarimasMadera: 1, palletsMetal: 0, puntales: 4, aros: 1, racks: [], extra: 1 } })))
+    // Sombreros (2026-09-12): opcional, entero >= 0.
+    await assertSucceeds(setDoc(doc(db('mue1'), 'descargasCamion/d6'), descarga({ envases: { tarimasMadera: 1, palletsMetal: 0, puntales: 4, aros: 1, sombreros: 1, racks: [] } })))
+    await assertFails(setDoc(doc(db('mue1'), 'descargasCamion/d7'), descarga({ envases: { tarimasMadera: 1, palletsMetal: 0, puntales: 4, aros: 1, sombreros: -1, racks: [] } })))
     const { envases: _e, ...sinNada } = descarga()
     await assertFails(setDoc(doc(db('mue1'), 'descargasCamion/d4'), sinNada))
     await assertFails(setDoc(doc(db('mue1'), 'descargasCamion/d5'), descarga({ envases: { tarimasMadera: 'uno', palletsMetal: 0, puntales: 4, aros: 1, racks: [] }, palletsCompletos: 0, palletsParciales: 1, palletsVacios: 0 })))

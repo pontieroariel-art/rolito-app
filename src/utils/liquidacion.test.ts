@@ -52,7 +52,7 @@ function descarga(over: Partial<DescargaCamion> = {}): DescargaCamion {
   return {
     id: 'd1', plantaId: 'torcuato', camionId: 'cam1', camionLabel: 'AB123CD · Iveco',
     choferId: 'ch1', choferNombre: 'Juan', items: [], bolsasRotas: [],
-    envases: { tarimasMadera: 0, palletsMetal: 0, puntales: 0, aros: 0, racks: [] },
+    envases: { tarimasMadera: 0, palletsMetal: 0, puntales: 0, aros: 0, sombreros: 0, racks: [] },
     registradoPor: { uid: 'muelle1', nombre: 'Muelle' }, fecha: TS, ...over,
   }
 }
@@ -140,10 +140,10 @@ describe('calcularLiquidacion — envases retornables', () => {
     const r = calcularLiquidacion(
       [remito([item('hielo10', 'Hielo 10kg', 100)], 5, { tarimasMadera: 3, palletsMetal: 2, racks: [12, 15, 18] })],
       [], [],
-      [descarga({ envases: { tarimasMadera: 3, palletsMetal: 2, puntales: 19, aros: 5, racks: [12, 18] } })],
+      [descarga({ envases: { tarimasMadera: 3, palletsMetal: 2, puntales: 19, aros: 3, sombreros: 5, racks: [12, 18] } })],
     )
-    expect(r.envases.salieron).toEqual({ tarimasMadera: 3, palletsMetal: 2, puntales: 20, aros: 5, racks: [12, 15, 18] })
-    expect(r.envases.diferencia).toEqual({ tarimasMadera: 0, palletsMetal: 0, puntales: -1, aros: 0 })
+    expect(r.envases.salieron).toEqual({ tarimasMadera: 3, palletsMetal: 2, puntales: 20, aros: 3, sombreros: 5, racks: [12, 15, 18] })
+    expect(r.envases.diferencia).toEqual({ tarimasMadera: 0, palletsMetal: 0, puntales: -1, aros: 0, sombreros: 0 })
     expect(r.envases.racksFaltantes).toEqual([15])
   })
 
@@ -155,7 +155,7 @@ describe('calcularLiquidacion — envases retornables', () => {
     )
     expect(r.envases.salieron.palletsMetal).toBe(10)
     expect(r.envases.volvieron.palletsMetal).toBe(9)
-    expect(r.envases.diferencia).toEqual({ tarimasMadera: 0, palletsMetal: -1, puntales: -4, aros: -1 })
+    expect(r.envases.diferencia).toEqual({ tarimasMadera: 0, palletsMetal: -1, puntales: -4, aros: 0, sombreros: -1 })
     expect(r.envases.racksFaltantes).toEqual([])
   })
 })
@@ -276,7 +276,7 @@ describe('calcularLiquidacion — casos borde', () => {
     const r = calcularLiquidacion([], [], [], [])
     expect(r.productos).toEqual([])
     expect(r.importes.total).toBe(0)
-    expect(r.envases.diferencia).toEqual({ tarimasMadera: 0, palletsMetal: 0, puntales: 0, aros: 0 })
+    expect(r.envases.diferencia).toEqual({ tarimasMadera: 0, palletsMetal: 0, puntales: 0, aros: 0, sombreros: 0 })
     expect(r.envases.racksFaltantes).toEqual([])
     expect(r.cambios.registrados).toBe(0)
     expect(r.cobranzasCalle?.total).toBe(0)

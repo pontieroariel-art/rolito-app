@@ -183,11 +183,13 @@ service cloud.firestore {
         && racksOk(e.racks);
     }
     function envasesDescargaOk(e) {
-      return e is map && e.keys().hasOnly(['tarimasMadera', 'palletsMetal', 'puntales', 'aros', 'racks'])
+      // sombreros (1 por pallet, 2026-09-12) es opcional: las tablets viejas no lo mandan.
+      return e is map && e.keys().hasOnly(['tarimasMadera', 'palletsMetal', 'puntales', 'aros', 'sombreros', 'racks'])
         && e.tarimasMadera is int && e.tarimasMadera >= 0
         && e.palletsMetal is int && e.palletsMetal >= 0
         && e.puntales is int && e.puntales >= 0
         && e.aros is int && e.aros >= 0
+        && (!('sombreros' in e) || (e.sombreros is int && e.sombreros >= 0))
         && racksOk(e.racks);
     }
     // palletsCarga del remito = tarimasMadera + palletsMetal (lo leen TV,

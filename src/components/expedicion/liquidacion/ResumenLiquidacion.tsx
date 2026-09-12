@@ -148,7 +148,7 @@ export function DetallePorProducto({ calc }: { calc: LiquidacionCalculada }) {
         <thead><tr>{['Envases', 'Salieron', 'Volvieron', 'Diferencia'].map((h, i) => <th key={h} className={`${th} ${i > 0 ? 'text-right' : ''}`}>{h}</th>)}</tr></thead>
         <tbody>
           {([
-            ['Pallets de madera', 'tarimasMadera'], ['Pallets de metal', 'palletsMetal'], ['Puntales', 'puntales'], ['Aros', 'aros'],
+            ['Pallets de madera', 'tarimasMadera'], ['Pallets de metal', 'palletsMetal'], ['Puntales', 'puntales'], ['Aros', 'aros'], ['Sombreros', 'sombreros'],
           ] as const).map(([nombre, k]) => (
             <tr key={k}>
               <td className={td}>{nombre}</td>

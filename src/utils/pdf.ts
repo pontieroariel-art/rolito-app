@@ -865,13 +865,14 @@ export async function generateRemitoCarga(remito: {
 
   if (remito.envases) {
     // Envases retornables (2026-09-07): composición que dictó muelle y lo que
-    // tiene que volver. Puntales y aros van implícitos, 4 y 1 por pallet.
+    // tiene que volver. Puntales (4) y sombrero (1) van implícitos por pallet; el aro (1) solo por tarima de madera.
     const e = envasesDeRemito({ palletsCarga: remito.palletsCarga, envases: remito.envases })
     const filas: string[][] = [
-      ['Pallets de madera (completos)', String(e.tarimasMadera), 'tarima + 4 puntales + 1 aro'],
-      ['Pallets de metal', String(e.palletsMetal), 'pallet de metal + 4 puntales + 1 aro'],
+      ['Pallets de madera (completos)', String(e.tarimasMadera), 'tarima + 4 puntales + 1 aro + 1 sombrero'],
+      ['Pallets de metal', String(e.palletsMetal), 'pallet de metal + 4 puntales + 1 sombrero'],
       ['Puntales', String(e.puntales), ''],
       ['Aros', String(e.aros), ''],
+      ['Sombreros', String(e.sombreros), ''],
       ['Racks de agua', String(e.racks.length), e.racks.length ? describirRacks(e.racks) : '—'],
     ]
     autoTable(doc, {
@@ -888,7 +889,7 @@ export async function generateRemitoCarga(remito: {
     doc.setFontSize(8.5)
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(60)
-    const leyenda = `Deben regresar: ${e.tarimasMadera} tarima${e.tarimasMadera === 1 ? '' : 's'} de madera, ${e.palletsMetal} pallet${e.palletsMetal === 1 ? '' : 's'} de metal, ${e.puntales} puntales, ${e.aros} aro${e.aros === 1 ? '' : 's'}` +
+    const leyenda = `Deben regresar: ${e.tarimasMadera} tarima${e.tarimasMadera === 1 ? '' : 's'} de madera, ${e.palletsMetal} pallet${e.palletsMetal === 1 ? '' : 's'} de metal, ${e.puntales} puntales, ${e.aros} aro${e.aros === 1 ? '' : 's'}, ${e.sombreros} sombrero${e.sombreros === 1 ? '' : 's'}` +
       (e.racks.length ? ` y los racks ${describirRacks(e.racks)}.` : '.') + ' Muelle los cuenta al descargar.'
     const lineas: string[] = doc.splitTextToSize(leyenda, pageW - 28)
     doc.text(lineas, 14, y)
@@ -993,6 +994,7 @@ export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiq
         ['Pallets de metal', String(e.salieron.palletsMetal), String(e.volvieron.palletsMetal), signo(e.diferencia.palletsMetal)],
         ['Puntales', String(e.salieron.puntales), String(e.volvieron.puntales), signo(e.diferencia.puntales)],
         ['Aros', String(e.salieron.aros), String(e.volvieron.aros), signo(e.diferencia.aros)],
+        ['Sombreros', String(e.salieron.sombreros), String(e.volvieron.sombreros), signo(e.diferencia.sombreros)],
         ['Racks de agua', String(e.salieron.racks.length), String(e.volvieron.racks.length), signo(e.volvieron.racks.length - e.salieron.racks.length)],
         [{ content: e.racksFaltantes.length ? `Racks que no volvieron: ${describirRacks(e.racksFaltantes)}` : (e.salieron.racks.length ? `Todos los racks volvieron (${describirRacks(e.salieron.racks)})` : 'Sin racks'), colSpan: 4, styles: { fontStyle: e.racksFaltantes.length ? 'bold' : 'normal' } }],
         ['Cambios registrados por el chofer', '', '', String(liq.cambios.registrados)],
