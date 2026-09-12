@@ -3,13 +3,15 @@ import type { ConteoEnvases, DescargaCamion, EnvasesCarga, LiquidacionEnvases, R
 // Envases retornables del camión (2026-09-07): lógica pura, sin Firebase.
 //
 // Lo que sale lo declara caja en el remito (`envases`: tarimas de madera,
-// pallets de metal y números de rack); puntales y aros van implícitos, 4 y 1
-// por pallet. Lo que vuelve lo cuenta muelle suelto en la descarga. Acá se
+// pallets de metal y números de rack); puntales y aros van implícitos: 4
+// puntales por pallet de cualquier tipo y 1 aro solo por tarima de madera (el
+// pallet de metal no lleva aro, 2026-09-12). Lo que vuelve lo cuenta muelle suelto en la descarga. Acá se
 // normalizan las dos puntas (incluidos los docs anteriores al cambio, que solo
 // tenían un número de pallets) y se cuadran por tipo para la liquidación.
 
 export const PUNTALES_POR_PALLET = 4
-export const AROS_POR_PALLET = 1
+/** Solo las tarimas de madera llevan aro; el pallet de metal no. */
+export const AROS_POR_TARIMA_MADERA = 1
 /** Tope de racks por viaje — espejado en firestore.rules (racksOk). */
 export const MAX_RACKS_POR_VIAJE = 60
 
@@ -20,8 +22,8 @@ export const conteoVacio = (): ConteoEnvases => ({ tarimasMadera: 0, palletsMeta
 
 export const envasesCargaVacio = (): EnvasesCarga => ({ tarimasMadera: 0, palletsMetal: 0, racks: [] })
 
-/** Puntales y aros implícitos de N pallets armados (madera o metal). */
-export const implicitosDe = (pallets: number) => ({ puntales: pallets * PUNTALES_POR_PALLET, aros: pallets * AROS_POR_PALLET })
+/** Puntales y aros implícitos: 4 puntales por pallet (madera o metal), 1 aro por tarima de madera. */
+export const implicitosDe = (tarimasMadera: number, palletsMetal: number) => ({ puntales: (tarimasMadera + palletsMetal) * PUNTALES_POR_PALLET, aros: tarimasMadera * AROS_POR_TARIMA_MADERA })
 
 /**
  * Lo que salió según el remito. Un remito anterior al cambio (sin `envases`)
@@ -30,11 +32,10 @@ export const implicitosDe = (pallets: number) => ({ puntales: pallets * PUNTALES
  */
 export function envasesDeRemito(r: Pick<RemitoCarga, 'palletsCarga' | 'envases'>): EnvasesNormalizados {
   if (r.envases) {
-    const pallets = r.envases.tarimasMadera + r.envases.palletsMetal
-    return { tarimasMadera: r.envases.tarimasMadera, palletsMetal: r.envases.palletsMetal, ...implicitosDe(pallets), racks: [...r.envases.racks], origen: 'envases' }
+    return { tarimasMadera: r.envases.tarimasMadera, palletsMetal: r.envases.palletsMetal, ...implicitosDe(r.envases.tarimasMadera, r.envases.palletsMetal), racks: [...r.envases.racks], origen: 'envases' }
   }
   const pallets = r.palletsCarga ?? 0
-  return { tarimasMadera: 0, palletsMetal: pallets, ...implicitosDe(pallets), racks: [], origen: 'legacy' }
+  return { tarimasMadera: 0, palletsMetal: pallets, ...implicitosDe(0, pallets), racks: [], origen: 'legacy' }
 }
 
 /**
@@ -45,7 +46,7 @@ export function envasesDeRemito(r: Pick<RemitoCarga, 'palletsCarga' | 'envases'>
 export function envasesDeDescarga(d: Pick<DescargaCamion, 'envases' | 'palletsCompletos' | 'palletsParciales' | 'palletsVacios'>): EnvasesNormalizados {
   if (d.envases) return { tarimasMadera: d.envases.tarimasMadera, palletsMetal: d.envases.palletsMetal, puntales: d.envases.puntales, aros: d.envases.aros, racks: [...d.envases.racks], origen: 'envases' }
   const pallets = (d.palletsCompletos ?? 0) + (d.palletsParciales ?? 0) + (d.palletsVacios ?? 0)
-  return { tarimasMadera: 0, palletsMetal: pallets, ...implicitosDe(pallets), racks: [], origen: 'legacy' }
+  return { tarimasMadera: 0, palletsMetal: pallets, ...implicitosDe(0, pallets), racks: [], origen: 'legacy' }
 }
 
 export const sumarConteos = (a: ConteoEnvases, b: ConteoEnvases): ConteoEnvases => ({

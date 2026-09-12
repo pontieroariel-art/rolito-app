@@ -20,7 +20,7 @@ import { formatoRespaldo, kgDeItems, requiereCot, talonarioRemitoCarga, validarS
 import { generateRemitoCargaOficial } from '@/utils/remitoCargaOficialPdf'
 import { TalonarioRemitoCargaNoInicializadoError } from '../../services/remitoCargaService'
 import type { CotSolicitud } from '../../types'
-import { AROS_POR_PALLET, PUNTALES_POR_PALLET, describirEnvases, envasesDeRemito } from '@/utils/envases'
+import { AROS_POR_TARIMA_MADERA, PUNTALES_POR_PALLET, describirEnvases, envasesDeRemito } from '@/utils/envases'
 
 const ESTADO_LABELS: Record<RemitoCargaEstado, string> = {
   emitido:   'Emitido',
@@ -353,7 +353,7 @@ export default function RemitosCargaPage() {
             </div>
           </div>
           <p className="text-xs text-gray-600">
-            = <b>{palletsCarga}</b> pallet{palletsCarga === 1 ? '' : 's'} · {palletsCarga * PUNTALES_POR_PALLET} puntales · {palletsCarga * AROS_POR_PALLET} aro{palletsCarga === 1 ? '' : 's'}
+            = <b>{palletsCarga}</b> pallet{palletsCarga === 1 ? '' : 's'} · {palletsCarga * PUNTALES_POR_PALLET} puntales · {tarimasMadera * AROS_POR_TARIMA_MADERA} aro{tarimasMadera === 1 ? '' : 's'} (solo las tarimas de madera)
             {metalEditado && (
               <button type="button" onClick={() => setMetalEditado(false)} className="ml-2 text-accent hover:underline">Volver al sugerido</button>
             )}

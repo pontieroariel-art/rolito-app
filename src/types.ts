@@ -229,8 +229,8 @@ export interface FacturaArchivada {
 
 // ── Envases retornables del camión (2026-09-07) ──────────────────────────────
 // Un pallet armado es "completo" (tarima de madera + 4 puntales + 1 aro) o de
-// metal (pallet de metal + 4 puntales + 1 aro). A la ida puntales y aros van
-// implícitos (PUNTALES_POR_PALLET / AROS_POR_PALLET en utils/envases.ts); a la
+// metal (pallet de metal + 4 puntales, SIN aro — 2026-09-12). A la ida puntales y
+// aros van implícitos (PUNTALES_POR_PALLET / AROS_POR_TARIMA_MADERA en utils/envases.ts); a la
 // vuelta muelle los cuenta sueltos, por si faltan. Los racks de agua están
 // numerados: se registra qué números salen y cuáles vuelven (no se vinculan a
 // los bidones, que son un producto más del remito). Tango no los recibe por
