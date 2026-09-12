@@ -83,9 +83,28 @@ async function tocarUltimoPedido(clientId: string, date: Timestamp): Promise<voi
   })
 }
 
+type PedidoConFecha = PedidoRollup & { date?: Timestamp }
+
+/**
+ * ¿La escritura toca algo que entra en el rollup? Solo estado, fecha, cliente
+ * y cantidades. La mayoría de las escrituras de un pedido NO (posición del
+ * camión espejada cada 10 s por mirrorDriverLocation, chofer asignado, notas,
+ * hora estimada) y antes recontaban el día entero igual: con 200 pedidos por
+ * día eran miles de lecturas diarias sin cambiar un número. Pura.
+ */
+export function cambiaRollup(before: PedidoConFecha | undefined, after: PedidoConFecha | undefined): boolean {
+  if (!before || !after) return true   // alta o baja
+  if ((before.status ?? 'pendiente') !== (after.status ?? 'pendiente')) return true
+  if ((before.date?.toMillis() ?? 0) !== (after.date?.toMillis() ?? 0)) return true
+  if ((before.clientId ?? '') !== (after.clientId ?? '') || (before.clientName ?? '') !== (after.clientName ?? '')) return true
+  const cant = (o: PedidoRollup) => (o.products ?? []).map((p) => p.quantity ?? 0).join(',')
+  return cant(before) !== cant(after)
+}
+
 export const onOrderRollup = onDocumentWritten('orders/{orderId}', async (event) => {
-  const before = event.data?.before?.data() as (PedidoRollup & { date?: Timestamp }) | undefined
-  const after  = event.data?.after?.data()  as (PedidoRollup & { date?: Timestamp }) | undefined
+  const before = event.data?.before?.data() as PedidoConFecha | undefined
+  const after  = event.data?.after?.data()  as PedidoConFecha | undefined
+  if (!cambiaRollup(before, after)) return
 
   // Recalcular todos los días tocados (before y after pueden diferir si el
   // pedido cambió de fecha; en una baja solo hay before).
@@ -94,8 +113,11 @@ export const onOrderRollup = onDocumentWritten('orders/{orderId}', async (event)
   if (after?.date)  dias.add(diaArg(after.date))
   for (const dia of dias) await recalcularDia(dia)
 
-  const vigente = after ?? before
-  if (after && vigente?.clientId && vigente.date) {
-    await tocarUltimoPedido(vigente.clientId, vigente.date)
+  // ultimoPedidoAt: solo cuando aparece el pedido o cambia de fecha. Escribir
+  // users/{uid} dispara los triggers de usuarios y del índice de clientes, así
+  // que no se toca en cada cambio de estado.
+  const fechaCambio = !before || (before.date?.toMillis() ?? 0) !== (after?.date?.toMillis() ?? 0)
+  if (after?.clientId && after.date && fechaCambio) {
+    await tocarUltimoPedido(after.clientId, after.date)
   }
 })

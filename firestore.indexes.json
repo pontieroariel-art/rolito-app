@@ -97,6 +97,42 @@
       ]
     },
     {
+      "_comentario": "Faltaban en prod (auditoria 2026-09-12): estas cuatro consultas fallaban con FAILED_PRECONDITION y las pantallas mostraban listas vacias en silencio. Pallets recientes por planta (produccionService.subscribePalletsRecientes / getUltimoPallet).",
+      "collectionGroup": "produccionPallets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "plantaId",  "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "_comentario": "Historial de asignaciones de una heladera (asignacionHeladeraService.subscribeAsignacionesPorHeladera).",
+      "collectionGroup": "asignacionesHeladera",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "heladeraId", "order": "ASCENDING" },
+        { "fieldPath": "fecha",      "order": "DESCENDING" }
+      ]
+    },
+    {
+      "_comentario": "Historial de asignaciones de heladeras de un cliente (asignacionHeladeraService.subscribeAsignacionesPorCliente).",
+      "collectionGroup": "asignacionesHeladera",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "clientId", "order": "ASCENDING" },
+        { "fieldPath": "fecha",    "order": "DESCENDING" }
+      ]
+    },
+    {
+      "_comentario": "Movimientos de panol de un destinatario (panolService).",
+      "collectionGroup": "panolMovimientos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "destinatario.uid", "order": "ASCENDING" },
+        { "fieldPath": "fecha",            "order": "DESCENDING" }
+      ]
+    },
+    {
       "_comentario": "Remitos anulados por el chofer que la oficina todavia no anulo en Tango (2026-09-12): lista en Comprobantes de clientes y reconciliacion horaria (reconciliarRemitosAnulados).",
       "collectionGroup": "ventasCamion",
       "queryScope": "COLLECTION",

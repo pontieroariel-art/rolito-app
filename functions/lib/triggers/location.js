@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.mirrorDriverLocation = void 0;
+exports.valeLaPenaEspejar = valeLaPenaEspejar;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const firestore_2 = require("firebase-admin/firestore");
 // Espeja la posición del chofer (colección `ubicaciones`, que el cliente ya NO
@@ -33,8 +34,37 @@ exports.mirrorDriverLocation = (0, firestore_1.onDocumentWritten)('ubicaciones/{
         telefonoChofer: loc.telefonoChofer ?? '',
         updatedAt: loc.timestamp ?? firestore_2.FieldValue.serverTimestamp(),
     };
+    // El teléfono manda un ping cada 10 s; el cliente que mira el camión no
+    // distingue 20 m. Solo se espeja si se movió más de ~40 m o pasó más de
+    // un minuto (auditoría 2026-09-12): cada escritura en el pedido dispara
+    // además el trigger de rollups.
     const batch = db.batch();
-    snap.docs.forEach((d) => batch.update(d.ref, { driverLocation }));
-    await batch.commit();
+    let cambios = 0;
+    snap.docs.forEach((d) => {
+        if (!valeLaPenaEspejar(d.data().driverLocation, loc))
+            return;
+        batch.update(d.ref, { driverLocation });
+        cambios++;
+    });
+    if (cambios > 0)
+        await batch.commit();
 });
+const METROS_MINIMOS = 40;
+const SEGUNDOS_MAXIMOS = 60;
+/** Pura: ¿la posición nueva cambia algo para el que la mira? */
+function valeLaPenaEspejar(previa, nueva) {
+    if (!previa || typeof previa.lat !== 'number' || typeof previa.lng !== 'number')
+        return true;
+    const ahora = nueva.timestamp?.toMillis() ?? Date.now();
+    const antes = previa.updatedAt?.toMillis?.() ?? 0;
+    if (ahora - antes >= SEGUNDOS_MAXIMOS * 1000)
+        return true;
+    return distanciaMetros(previa.lat, previa.lng, nueva.lat, nueva.lng) >= METROS_MINIMOS;
+}
+function distanciaMetros(lat1, lng1, lat2, lng2) {
+    const r = 6371000, rad = Math.PI / 180;
+    const dLat = (lat2 - lat1) * rad, dLng = (lng2 - lng1) * rad;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLng / 2) ** 2;
+    return 2 * r * Math.asin(Math.sqrt(a));
+}
 //# sourceMappingURL=location.js.map

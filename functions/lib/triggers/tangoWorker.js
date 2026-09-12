@@ -104,7 +104,10 @@ exports.onOutboxPendiente = (0, firestore_1.onDocumentWritten)({ document: 'tang
     const msg = await procesarItem(db, despues.ref, cfg, clienteTango(cfg));
     v2_1.logger.info(`[tango] ${msg}`);
 });
-exports.barridoOutboxTango = (0, scheduler_1.onSchedule)({ schedule: 'every 5 minutes', timeZone: TZ, secrets: [tangoApiToken], timeoutSeconds: 300 }, async () => {
+exports.barridoOutboxTango = (0, scheduler_1.onSchedule)(
+// Cada 15 min (2026-09-12): es la red de seguridad de reintentos; el envío
+// normal lo hace onOutboxPendiente al instante y el bridge de la VM barre aparte.
+{ schedule: 'every 15 minutes', timeZone: TZ, secrets: [tangoApiToken], timeoutSeconds: 300 }, async () => {
     const db = (0, firestore_2.getFirestore)();
     const cfg = await leerConfig(db);
     if (cfg.workerCloud !== true)

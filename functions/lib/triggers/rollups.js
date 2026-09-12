@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.onOrderRollup = void 0;
+exports.cambiaRollup = cambiaRollup;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const firestore_2 = require("firebase-admin/firestore");
 // ── Rollups de pedidos ────────────────────────────────────────────────────────
@@ -77,9 +78,30 @@ async function tocarUltimoPedido(clientId, date) {
         tx.update(ref, { ultimoPedidoAt: date });
     });
 }
+/**
+ * ¿La escritura toca algo que entra en el rollup? Solo estado, fecha, cliente
+ * y cantidades. La mayoría de las escrituras de un pedido NO (posición del
+ * camión espejada cada 10 s por mirrorDriverLocation, chofer asignado, notas,
+ * hora estimada) y antes recontaban el día entero igual: con 200 pedidos por
+ * día eran miles de lecturas diarias sin cambiar un número. Pura.
+ */
+function cambiaRollup(before, after) {
+    if (!before || !after)
+        return true; // alta o baja
+    if ((before.status ?? 'pendiente') !== (after.status ?? 'pendiente'))
+        return true;
+    if ((before.date?.toMillis() ?? 0) !== (after.date?.toMillis() ?? 0))
+        return true;
+    if ((before.clientId ?? '') !== (after.clientId ?? '') || (before.clientName ?? '') !== (after.clientName ?? ''))
+        return true;
+    const cant = (o) => (o.products ?? []).map((p) => p.quantity ?? 0).join(',');
+    return cant(before) !== cant(after);
+}
 exports.onOrderRollup = (0, firestore_1.onDocumentWritten)('orders/{orderId}', async (event) => {
     const before = event.data?.before?.data();
     const after = event.data?.after?.data();
+    if (!cambiaRollup(before, after))
+        return;
     // Recalcular todos los días tocados (before y after pueden diferir si el
     // pedido cambió de fecha; en una baja solo hay before).
     const dias = new Set();
@@ -89,9 +111,12 @@ exports.onOrderRollup = (0, firestore_1.onDocumentWritten)('orders/{orderId}', a
         dias.add(diaArg(after.date));
     for (const dia of dias)
         await recalcularDia(dia);
-    const vigente = after ?? before;
-    if (after && vigente?.clientId && vigente.date) {
-        await tocarUltimoPedido(vigente.clientId, vigente.date);
+    // ultimoPedidoAt: solo cuando aparece el pedido o cambia de fecha. Escribir
+    // users/{uid} dispara los triggers de usuarios y del índice de clientes, así
+    // que no se toca en cada cambio de estado.
+    const fechaCambio = !before || (before.date?.toMillis() ?? 0) !== (after?.date?.toMillis() ?? 0);
+    if (after?.clientId && after.date && fechaCambio) {
+        await tocarUltimoPedido(after.clientId, after.date);
     }
 });
 //# sourceMappingURL=rollups.js.map

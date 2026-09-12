@@ -119,7 +119,9 @@ export const onOutboxPendiente = onDocumentWritten(
 )
 
 export const barridoOutboxTango = onSchedule(
-  { schedule: 'every 5 minutes', timeZone: TZ, secrets: [tangoApiToken], timeoutSeconds: 300 },
+  // Cada 15 min (2026-09-12): es la red de seguridad de reintentos; el envío
+  // normal lo hace onOutboxPendiente al instante y el bridge de la VM barre aparte.
+  { schedule: 'every 15 minutes', timeZone: TZ, secrets: [tangoApiToken], timeoutSeconds: 300 },
   async () => {
     const db = getFirestore()
     const cfg = await leerConfig(db)
