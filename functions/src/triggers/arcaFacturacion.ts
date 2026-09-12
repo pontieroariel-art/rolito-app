@@ -389,9 +389,12 @@ async function avisarFacturasConProblemas(db: Firestore, trabadas: FacturaConPro
   )
 
   const problemas: FacturaConProblema[] = [...trabadas]
-  for (const docSnap of [...rechazadas.docs, ...vencidas.docs]) {
+  const conProblema = [...rechazadas.docs, ...vencidas.docs]
+  // Las ventas de todas en un solo getAll en vez de una lectura por fila.
+  const ventasSnap = conProblema.length ? await db.getAll(...conProblema.map((s) => { const f = s.data(); return db.doc(`${coleccionDe(f)}/${ventaIdDe(f, s.id)}`) })) : []
+  for (const [i, docSnap] of conProblema.entries()) {
     const f = docSnap.data()
-    const venta = (await db.doc(`${coleccionDe(f)}/${ventaIdDe(f, docSnap.id)}`).get()).data()
+    const venta = ventasSnap[i]?.data()
     problemas.push({
       // El id del registro (nc_… para una NC): es lo que se marca como avisado.
       ventaId: docSnap.id,

@@ -3,7 +3,8 @@ import { coincideBusqueda, normalizarBusqueda } from '@/utils/busqueda'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import SignaturePad, { SignaturePadHandle } from './SignaturePad'
-import { useClientesActivos } from '../../hooks/useClientesActivos'
+import { useClientesIndex } from '@/hooks/useClientesIndex'
+import { getUserDocument } from '../../services/userService'
 import { asignarHeladera, Actor } from '../../services/asignacionHeladeraService'
 import { generateContratoComodato, generateOrdenEntrega } from '../../utils/pdf'
 import { DeliveryAddress, Heladera, UserProfile, getPrimaryAddress } from '../../types'
@@ -26,7 +27,7 @@ export default function AsignarEquipoModal({
   actor:    Actor
   onClose:  () => void
 }) {
-  const { clientes } = useClientesActivos()
+  const { clientes } = useClientesIndex({ enabled: !clienteFijo })
   const [busqueda,          setBusqueda]          = useState('')
   const [clienteElegido,    setClienteElegido]    = useState<UserProfile | null>(clienteFijo ?? null)
   const [heladeraElegida,   setHeladeraElegida]   = useState<Heladera | null>(heladeraFija ?? null)
@@ -161,7 +162,7 @@ export default function AsignarEquipoModal({
                     <button
                       key={c.uid}
                       type="button"
-                      onClick={() => { setClienteElegido(c); setBusqueda('') }}
+                      onClick={async () => { setBusqueda(''); const ficha = await getUserDocument(c.uid); if (ficha) setClienteElegido(ficha); else setError('No se pudo abrir la ficha del cliente.') }}
                       className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors"
                     >
                       <p className="text-sm font-medium text-gray-900">{c.razonSocial}</p>

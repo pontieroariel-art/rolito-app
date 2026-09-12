@@ -4,8 +4,9 @@ import Navbar from '../../components/layout/Navbar'
 import Button from '../../components/ui/Button'
 import { useAuth } from '../../context/AuthContext'
 import { useFechaDelDia } from '../../hooks/useDiaActual'
-import { subscribeRemitosCargaDelDia, marcarSalidaRemito } from '../../services/remitoCargaService'
-import { subscribeVentanillaDelDia, marcarSalidaVentanilla } from '../../services/ventaVentanillaService'
+import { marcarSalidaRemito } from '../../services/remitoCargaService'
+import { marcarSalidaVentanilla } from '../../services/ventaVentanillaService'
+import { useRemitosCargaDelDia, useVentanillaDelDia } from '@/hooks/useExpedicionDia'
 import { PLANTAS, RemitoCarga, VentaVentanilla } from '../../types'
 import { reportError } from '@/services/observability'
 import { useCotConfig } from '@/hooks/useCotConfig'
@@ -23,16 +24,14 @@ export default function SeguridadDashboard() {
   const plantaId = user?.planta ?? 'torcuato'
   const fecha = useFechaDelDia()
 
-  const [remitos,     setRemitos]     = useState<RemitoCarga[]>([])
-  const [ventanillas, setVentanillas] = useState<VentaVentanilla[]>([])
+  const remitos = useRemitosCargaDelDia(plantaId, fecha)
+  const ventanillas = useVentanillaDelDia(plantaId, fecha)
   const [error, setError] = useState('')
   // Id del remito/retiro que se está liberando. Un doble toque mandaba dos
   // updates: el segundo lo rechazan las reglas (ya no está 'entregado') y la
   // pantalla mostraba "no se pudo registrar" con la salida ya hecha.
   const [procesando, setProcesando] = useState<string | null>(null)
 
-  useEffect(() => subscribeRemitosCargaDelDia(plantaId, fecha, setRemitos), [plantaId, fecha])
-  useEffect(() => subscribeVentanillaDelDia(plantaId, fecha, setVentanillas), [plantaId, fecha])
 
   // COT de ARBA (2026-09-10): un camión que lo requiere y no lo tiene se avisa,
   // y si config/cot.bloqueaSalida está prendido no se libera hasta tenerlo.

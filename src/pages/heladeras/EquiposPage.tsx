@@ -5,7 +5,7 @@ import { Search } from 'lucide-react'
 import Button from '../../components/ui/Button'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useAuth } from '../../context/AuthContext'
-import { useClientesActivos } from '../../hooks/useClientesActivos'
+import { useClientesIndex } from '@/hooks/useClientesIndex'
 import { useHeladeras } from '../../hooks/useHeladeras'
 import { usePasosTaller } from '../../hooks/usePasosTaller'
 import { crearHeladera } from '../../services/heladeraService'
@@ -25,7 +25,7 @@ const ESTADO_STYLES: Record<EstadoHeladera, string> = {
 export default function EquiposPage() {
   const { user } = useAuth()
   const { heladeras, loading } = useHeladeras()
-  const { clientes } = useClientesActivos()
+  const { clientes } = useClientesIndex()
   const { pasos: catalogo } = usePasosTaller()
 
   const codigoPorClienteId = useMemo(() => {

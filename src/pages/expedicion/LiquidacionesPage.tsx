@@ -3,7 +3,7 @@ import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { FileText, History, Printer, Share2 } from 'lucide-react'
 import Button from '../../components/ui/Button'
 import { useAuth } from '../../context/AuthContext'
-import { subscribeRemitosCargaDelDia } from '../../services/remitoCargaService'
+import { useRemitosCargaDelDia } from '@/hooks/useExpedicionDia'
 import { subscribeVentasChoferEnRango } from '../../services/ventaCamionService'
 import { subscribeCambiosChoferEnRango } from '../../services/cambioCamionService'
 import { subscribeDescargasChoferEnRango } from '../../services/descargaCamionService'
@@ -60,7 +60,7 @@ export default function LiquidacionesPage() {
   // Se liquida un DEPÓSITO (repartidor propio, tercerizado o supervisor),
   // identificado en los docs por el uid de su usuario o 'dep:<código>'.
   const { depositos } = useDepositosReparto()
-  const [remitosPlanta, setRemitosPlanta] = useState<RemitoCarga[]>([])
+  const remitosPlanta = useRemitosCargaDelDia(plantaId, fecha)
   const [choferId, setChoferId] = useState(() => params.get('repartidor') ?? '')
   const [ventas,    setVentas]    = useState<VentaCamion[]>([])
   const [cambios,   setCambios]   = useState<CambioCamion[]>([])
@@ -78,8 +78,6 @@ export default function LiquidacionesPage() {
   const [error,       setError]       = useState('')
   const [aviso,       setAviso]       = useState('')
   const [soloProblemas, setSoloProblemas] = useState(false)
-
-  useEffect(() => subscribeRemitosCargaDelDia(plantaId, fecha, setRemitosPlanta), [plantaId, fecha])
 
   // Primero los depósitos que salieron ese día con remito de esta planta;
   // abajo el resto de los repartidores activos (un supervisor puede tener un

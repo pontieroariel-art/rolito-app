@@ -126,12 +126,19 @@ export const reconciliarRemitosAnulados = onSchedule(
       .where('anulacion.tango.estado', '==', 'pendiente_oficina')
       .limit(200).get()
     let confirmados = 0
+    // Un solo getAll de los índices de Tango (un cliente puede tener varios remitos pendientes).
+    const codigos = [...new Set(pendientes.docs.map((d) => String(d.data().clienteCodigoTango ?? '').trim()).filter(Boolean))]
+    const indices = new Map<string, FirebaseFirestore.DocumentData | undefined>()
+    if (codigos.length) {
+      const snaps = await db.getAll(...codigos.map((c) => db.doc(`tangoComprobantes/redonhielo_${c}`)))
+      snaps.forEach((s, i) => indices.set(codigos[i], s.data()))
+    }
     for (const d of pendientes.docs) {
       const v = d.data()
       const codigo = String(v.clienteCodigoTango ?? '').trim()
       const numero = String((v.tango as { remitoNumero?: string } | undefined)?.remitoNumero ?? '').trim()
       if (!codigo || !numero) continue
-      const idx = (await db.doc(`tangoComprobantes/redonhielo_${codigo}`).get()).data()
+      const idx = indices.get(codigo)
       const estado = (idx?.remitos as Record<string, { estado?: string }> | undefined)?.[numero]?.estado
       if (estado === 'A') {
         await d.ref.set({ anulacion: { tango: { estado: 'confirmado', en: FieldValue.serverTimestamp() } } }, { merge: true })

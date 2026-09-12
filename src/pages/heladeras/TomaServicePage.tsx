@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import Button from '../../components/ui/Button'
 import { useAuth } from '../../context/AuthContext'
-import { useClientesActivos } from '../../hooks/useClientesActivos'
+import { useClientesIndex } from '@/hooks/useClientesIndex'
 import { useHeladeras } from '../../hooks/useHeladeras'
 import { useHeladerasPorCliente } from '../../hooks/useHeladerasPorCliente'
 import { useMotivosReparacion } from '../../hooks/useReparacionCatalogos'
@@ -42,12 +42,13 @@ export default function TomaServicePage() {
   const heladeraIdPrefill = params.get('heladeraId')
   const clientIdPrefill   = params.get('clientId')
 
-  const { clientes } = useClientesActivos()
   // Búsqueda "Por heladera": es la única que necesita la colección entera, así
   // que solo se baja cuando ese modo está activo. La lista del cliente elegido
   // va por la suscripción acotada a ese cliente.
   const [modo, setModo] = useState<'cliente' | 'heladera'>('cliente')
   const [cliente, setCliente] = useState<UserProfile | null>(null)
+  // Índice liviano solo mientras se busca por cliente (2026-09-12).
+  const { clientes } = useClientesIndex({ enabled: modo === 'cliente' && !cliente })
   const { heladeras, loading: loadingHeladeras } = useHeladeras({ enabled: modo === 'heladera' && !cliente })
   const { heladeras: heladerasCliente, loading: loadingHeladerasCliente } = useHeladerasPorCliente(cliente?.uid ?? null)
   const { motivos } = useMotivosReparacion()
@@ -183,7 +184,7 @@ export default function TomaServicePage() {
             {modo === 'cliente' && resultadosCliente.length > 0 && (
               <div className="bg-white border border-[#D3D1C7] rounded-lg mt-1.5 divide-y divide-gray-100">
                 {resultadosCliente.map((c) => (
-                  <button key={c.uid} onClick={() => { setCliente(c); setBusqueda('') }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50">
+                  <button key={c.uid} onClick={async () => { setBusqueda(''); const ficha = await getUserDocument(c.uid); if (ficha) setCliente(ficha) }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50">
                     <p className="text-sm font-medium text-gray-900">{c.razonSocial}</p>
                     <p className="text-xs text-gray-500">CUIT {c.cuit}{c.nombreContacto ? ` · ${c.nombreContacto}` : ''}</p>
                   </button>

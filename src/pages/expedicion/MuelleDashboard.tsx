@@ -8,13 +8,13 @@ import { useCatalogo } from '../../hooks/useCatalogo'
 import { useFechaDelDia } from '../../hooks/useDiaActual'
 import { useDepositosReparto } from '../../hooks/useDepositosReparto'
 import { etiquetaDeposito, identidadDeposito, nombreDeposito } from '../../utils/depositos'
-import { asignarDarsena, subscribeRemitosCargaDelDia } from '../../services/remitoCargaService'
+import { asignarDarsena } from '../../services/remitoCargaService'
+import { useRemitosCargaDelDia, useVentanillaDelDia } from '@/hooks/useExpedicionDia'
 import {
   confirmarEntregaRemito, crearDescargaCamion, subscribeDescargasDelDia,
 } from '../../services/descargaCamionService'
 import {
   confirmarEntregaVentanilla, llamarTurno, marcarTurnoAusente, marcarTurnoPreparado,
-  subscribeVentanillaDelDia,
 } from '../../services/ventaVentanillaService'
 import {
   DARSENAS_POR_PLANTA, DARSENAS_VENTANILLA, DescargaCamion, DescargaCamionItem, EnvasesDescarga,
@@ -39,13 +39,11 @@ export default function MuelleDashboard() {
   const plantaId = user?.planta ?? 'torcuato'
   const fecha = useFechaDelDia()
 
-  const [remitos,     setRemitos]     = useState<RemitoCarga[]>([])
+  const remitos = useRemitosCargaDelDia(plantaId, fecha)
   const [descargas,   setDescargas]   = useState<DescargaCamion[]>([])
-  const [ventanillas, setVentanillas] = useState<VentaVentanilla[]>([])
+  const ventanillas = useVentanillaDelDia(plantaId, fecha)
 
-  useEffect(() => subscribeRemitosCargaDelDia(plantaId, fecha, setRemitos), [plantaId, fecha])
   useEffect(() => subscribeDescargasDelDia(plantaId, fecha, setDescargas), [plantaId, fecha])
-  useEffect(() => subscribeVentanillaDelDia(plantaId, fecha, setVentanillas), [plantaId, fecha])
 
   // ── Descarga: formulario ──
   const [remitoDescargaId, setRemitoDescargaId] = useState('')

@@ -6,7 +6,8 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import AsignarEquipoModal from '../../components/heladeras/AsignarEquipoModal'
 import RetirarEquipoModal from '../../components/heladeras/RetirarEquipoModal'
 import { useAuth } from '../../context/AuthContext'
-import { useClientesActivos } from '../../hooks/useClientesActivos'
+import { useClientesIndex } from '@/hooks/useClientesIndex'
+import { getUserDocument } from '../../services/userService'
 import { useHeladeras } from '../../hooks/useHeladeras'
 import { usePasosTaller } from '../../hooks/usePasosTaller'
 import { puedeGestionarHeladeras } from '../../utils/heladeraLabels'
@@ -14,7 +15,7 @@ import { Heladera, UserProfile } from '../../types'
 
 export default function AsignacionEquiposPage() {
   const { user } = useAuth()
-  const { clientes, loading: loadingClientes } = useClientesActivos()
+  const { clientes, loading: loadingClientes } = useClientesIndex()
   const { heladeras, loading: loadingHeladeras } = useHeladeras()
   const { pasos: catalogoPasos } = usePasosTaller()
 
@@ -28,7 +29,7 @@ export default function AsignacionEquiposPage() {
   const resultados = useMemo(() => {
     if (!normalizarBusqueda(busqueda) || cliente) return []
     return clientes
-      .filter((c) => coincideBusqueda(busqueda, c.razonSocial, c.nombreContacto, c.cuit, c.codigoCliente, ...(c.addresses ?? []).map((a) => a.id)))
+      .filter((c) => coincideBusqueda(busqueda, c.razonSocial, c.nombreContacto, c.cuit, c.codigoCliente, ...c.codigos, ...c.sucursales))
       .slice(0, 8)
   }, [clientes, busqueda, cliente])
 
@@ -64,7 +65,7 @@ export default function AsignacionEquiposPage() {
                 {resultados.map((c) => (
                   <button
                     key={c.uid}
-                    onClick={() => { setCliente(c); setBusqueda('') }}
+                    onClick={async () => { setBusqueda(''); const ficha = await getUserDocument(c.uid); if (ficha) setCliente(ficha) }}
                     className="w-full text-left px-3 py-2.5 hover:bg-gray-50 transition-colors"
                   >
                     <p className="text-sm font-medium text-gray-900">{c.razonSocial}</p>

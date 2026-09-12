@@ -3,13 +3,16 @@ import { AlertTriangle, Ban, CheckCircle2, Clock, FileText, Printer, ShoppingCar
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
-import ClienteCombobox, { toComboItems } from '../../components/ui/ClienteCombobox'
+import ClienteCombobox, { indexAComboItems } from '../../components/ui/ClienteCombobox'
 import SelectorSucursal from '@/components/ventas/SelectorSucursal'
 import { clienteEnSucursal, necesitaSucursal } from '@/utils/sucursalesTango'
 import { clienteImpreso } from '@/utils/clienteImpreso'
 import BotoneraProductos from '../../components/ventas/BotoneraProductos'
 import { useAuth } from '../../context/AuthContext'
-import { useClientesActivos } from '../../hooks/useClientesActivos'
+import { useClientesIndex } from '@/hooks/useClientesIndex'
+import { useClienteSeleccionado } from '@/hooks/useClienteSeleccionado'
+import { usePerfilesClientes } from '@/hooks/usePerfilesClientes'
+import { useVentanillaDelDia } from '@/hooks/useExpedicionDia'
 import { useCatalogo } from '../../hooks/useCatalogo'
 import { useDiaActual, useFechaDelDia } from '../../hooks/useDiaActual'
 import { useMiMostrador } from '@/hooks/useMiMostrador'
@@ -17,7 +20,7 @@ import MiDiaMostrador from '@/components/expedicion/MiDiaMostrador'
 import SolicitarAnulacionModal from '@/components/expedicion/SolicitarAnulacionModal'
 import { subscribeRendicion } from '@/services/rendicionService'
 import {
-  crearVentaVentanilla, subscribeVentaVentanilla, subscribeVentanillaDelDia,
+  crearVentaVentanilla, subscribeVentaVentanilla,
 } from '../../services/ventaVentanillaService'
 import { getPreciosIncluyenIva, getTopeConsumidorFinalSinIdentificar } from '../../services/arcaConfigService'
 import { desgloseFactura, percepcionVigenteDe } from '@/utils/totalFacturado'
@@ -88,7 +91,8 @@ const textoAnulacion = (a: AnulacionEnVenta): { texto: string; clase: string } =
 // factura junto con el turno. Muelle entrega contra el turno.
 export default function VentanillaPage() {
   const { user } = useAuth()
-  const { clientes } = useClientesActivos()
+  // Índice liviano para buscar (2026-09-12): antes bajaba las 2.000+ fichas completas.
+  const { clientes } = useClientesIndex()
   const { catalogo } = useCatalogo()
   const plantaId = user?.planta ?? 'torcuato'
   const fecha = useFechaDelDia()
@@ -108,7 +112,6 @@ export default function VentanillaPage() {
   const [confirmando, setConfirmando] = useState(false)
   const [guardando,   setGuardando]   = useState(false)
   const [error,       setError]       = useState('')
-  const [ventas,      setVentas]      = useState<VentaVentanilla[]>([])
   // Con la caja del día cerrada ya no se puede pedir anular (la venta ya se rindió).
   const [cerrada,     setCerrada]     = useState<Rendicion | null>(null)
   const [anulando,    setAnulando]    = useState<VentaVentanilla | null>(null)
@@ -134,7 +137,7 @@ export default function VentanillaPage() {
   const [modoImpresion, setModoImpresion] = useState<ModoImpresion>(() => leerModoImpresion())
   const cambiarModoImpresion = (m: ModoImpresion) => { guardarModoImpresion(m); setModoImpresion(m) }
 
-  useEffect(() => subscribeVentanillaDelDia(plantaId, fecha, setVentas), [plantaId, fecha])
+  const ventas = useVentanillaDelDia(plantaId, fecha)
   useEffect(() => { if (!user) return; return subscribeRendicion(dia, user.uid, setCerrada) }, [user, dia])
   useEffect(() => { getTopeConsumidorFinalSinIdentificar().then(setTopeSinIdentificar) }, [])
   // Con precios netos la factura suma el IVA: se muestra el total que va a salir (2026-09-11).
@@ -148,8 +151,11 @@ export default function VentanillaPage() {
   const misVentas = useMemo(() => ventas.filter((v) => v.cajaId === user?.uid), [ventas, user?.uid])
   const mio = useMiMostrador(user?.uid, dia, misVentas)
 
-  const cliente = useMemo(() => clientes.find((c) => c.uid === clienteId), [clientes, clienteId])
-  const clientePorId = useMemo(() => new Map(clientes.map((c) => [c.uid, c])), [clientes])
+  // Ficha completa del elegido (precios, condición de venta, sucursales) y de los
+  // clientes de las ventas del día (reimpresión): una lectura por id, con caché.
+  const { cliente } = useClienteSeleccionado(tipoCliente === 'registrado' ? clienteId : null)
+  const uidsDelDia = useMemo(() => ventas.map((v) => v.clienteId), [ventas])
+  const clientePorId = usePerfilesClientes(uidsDelDia)
   // Cuenta corriente solo si Tango la tiene habilitada para el cliente (su
   // condición de venta); a un CONTADO el Facturador le rechaza la cuota.
   const ctaCte = tipoCliente === 'registrado' ? admiteCuentaCorriente(cliente) : { ok: false as const }
@@ -434,7 +440,7 @@ export default function VentanillaPage() {
         {tipoCliente === 'registrado' ? (
           <div>
             <label className="text-xs text-gray-500 mb-1 block">Cliente</label>
-            <ClienteCombobox items={toComboItems(clientes)} value={clienteId} onChange={setClienteId} placeholder="Buscar cliente…" />
+            <ClienteCombobox items={indexAComboItems(clientes)} value={clienteId} onChange={setClienteId} placeholder="Buscar cliente…" />
             <div className="mt-2">
               <SelectorSucursal cliente={cliente} empresa={empresaDeCanal(canal)} value={sucursal} onChange={setSucursal} />
             </div>

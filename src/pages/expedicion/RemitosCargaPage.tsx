@@ -8,7 +8,8 @@ import { useDepositosReparto } from '../../hooks/useDepositosReparto'
 import { etiquetaDeposito, identidadDeposito, nombreDeposito, ordenarDepositosReparto } from '../../utils/depositos'
 import { useCatalogo } from '../../hooks/useCatalogo'
 import { useFechaDelDia } from '../../hooks/useDiaActual'
-import { crearRemitoCarga, palletsInfo, subscribeRemitosCargaDelDia } from '../../services/remitoCargaService'
+import { crearRemitoCarga, palletsInfo } from '../../services/remitoCargaService'
+import { useRemitosCargaDelDia } from '@/hooks/useExpedicionDia'
 import { generateRemitoCarga } from '../../utils/pdf'
 import { PLANTAS, RemitoCarga, RemitoCargaEstado, RemitoCargaItem } from '../../types'
 import { reportError } from '@/services/observability'
@@ -71,17 +72,12 @@ export default function RemitosCargaPage() {
   const [confirmando, setConfirmando] = useState(false)
   const [guardando,   setGuardando]   = useState(false)
   const [error,       setError]       = useState('')
-  const [remitos,     setRemitos]     = useState<RemitoCarga[]>([])
+  const remitos = useRemitosCargaDelDia(plantaId, fecha)
   // COT de ARBA (2026-09-10): lo que caja declara cuando la carga supera el umbral.
   const { cfg: cotCfg } = useCotConfig()
   const [cotSolicitud, setCotSolicitud] = useState<CotSolicitud | null>(null)
   const [presentandoCot, setPresentandoCot] = useState<string | null>(null)
   const [avisoCot, setAvisoCot] = useState('')
-
-  useEffect(
-    () => subscribeRemitosCargaDelDia(plantaId, fecha, setRemitos),
-    [plantaId, fecha],
-  )
 
   const camionesActivos = useMemo(() => camiones.filter((c) => c.activo), [camiones])
   const camionFlota = camionesActivos.find((c) => c.id === camionId)
