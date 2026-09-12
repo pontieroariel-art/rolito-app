@@ -12,7 +12,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useSaldoClienteEnVivo } from '@/hooks/useSaldoClienteEnVivo'
 import { useTangoComprobantes } from '@/hooks/useTangoComprobantes'
 import { useRefrescarComprobantesTango } from '@/hooks/useRefrescarComprobantesTango'
-import { haceCuanto } from '@/pages/supervisor/SupervisorClientesPage'
+import { haceCuanto } from '@/pages/comercial/supervisor/SupervisorClientesPage'
 import { codigosTangoResumen } from '@/pages/admin/user-management/listaTango'
 import { atrasoMaximo, type GrupoRecibo } from '@/utils/composicionSaldos'
 import {

@@ -1,0 +1,630 @@
+﻿import { useState, useEffect, useMemo } from 'react'
+import { Timestamp } from 'firebase/firestore'
+import LoadingSpinner from '@/components/ui/LoadingSpinner'
+import Modal from '@/components/ui/Modal'
+import Button from '@/components/ui/Button'
+import { LiveMap, driverColor, gpsAge } from '@/components/admin/LiveMap'
+import { useAllOrders } from '@/hooks/useOrders'
+import { useChoferes } from '@/hooks/useChoferes'
+import { useNotifyReprogramado } from '@/hooks/useNotifications'
+import { subscribeAllActiveDrivers, ActiveDriver } from '@/services/locationService'
+import { rescheduleOrder, reassignOrder, assignDriver } from '@/services/orderService'
+import { getPushSubscriptionByEmail } from '@/services/userService'
+import { sendPush } from '@/services/notificationService'
+import { Order, UserProfile, MOTIVOS_INCIDENCIA } from '@/types'
+import { summarizeProducts, formatShortDate, toDateStr, todayString, addDaysStr } from '@/utils/helpers'
+import { reportError } from '@/services/observability'
+
+function tomorrow(): string {
+  return addDaysStr(todayString(), 1)
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function orderDateStr(o: Order): string {
+  if (!o.date?.toDate) return ''
+  return toDateStr(o.date.toDate())
+}
+
+function alertLevel(pendingCount: number): 'red' | 'yellow' | null {
+  if (pendingCount === 0) return null
+  const hour = new Date().getHours()
+  if (hour >= 16) return 'red'
+  if (hour >= 14 && pendingCount >= 3) return 'yellow'
+  return null
+}
+
+// ── ReprogramarModal ──────────────────────────────────────────────────────────
+
+function ReprogramarModal({
+  order,
+  onClose,
+  onDone,
+}: {
+  order:   Order
+  onClose: () => void
+  onDone:  () => void
+}) {
+  const [fecha,  setFecha]  = useState(tomorrow())
+  const [motivo, setMotivo] = useState<string>(MOTIVOS_INCIDENCIA[0])
+  const [saving, setSaving] = useState(false)
+  const notifyReprogramadoMutation = useNotifyReprogramado()
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      await rescheduleOrder(order.id, fecha, motivo, {
+        fechaOriginal:  order.date,
+        choferOriginal: order.driverId ?? undefined,
+      })
+      // Notificar al cliente (fire-and-forget)
+      if (order.clientEmail) {
+        notifyReprogramadoMutation.mutate({ orderId: order.id })
+      }
+      onDone()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title="Reprogramar entrega">
+      <div className="space-y-4 text-sm">
+        <div className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2.5">
+          <p className="font-medium">{order.clientName}</p>
+          <p className="text-gray-500 text-xs mt-0.5">{summarizeProducts(order.products)}</p>
+          <p className="text-gray-500 text-xs">Fecha original: {formatShortDate(order.date)}</p>
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-gray-500">Nueva fecha de entrega</label>
+          <div className="flex gap-2 items-center">
+            <input
+              type="date"
+              value={fecha}
+              min={todayString()}
+              onChange={(e) => setFecha(e.target.value)}
+              className="flex-1 bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+            <button
+              onClick={() => setFecha(tomorrow())}
+              className="text-xs text-accent border border-accent/30 rounded-lg px-3 py-2 hover:bg-accent/10 transition-colors shrink-0"
+            >
+              Mañana
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-gray-500">Motivo</label>
+          <select
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+            className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+          >
+            {MOTIVOS_INCIDENCIA.map((m) => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="bg-accent/5 border border-accent/20 rounded-lg px-3 py-2 text-xs text-gray-500">
+          El cliente recibirá un email con la nueva fecha y el motivo.
+        </div>
+      </div>
+
+      <div className="flex gap-3 mt-5">
+        <Button variant="outline" onClick={onClose} className="flex-1">Cancelar</Button>
+        <Button onClick={handleSave} loading={saving} className="flex-1">Reprogramar</Button>
+      </div>
+    </Modal>
+  )
+}
+
+// ── ReasignarModal ────────────────────────────────────────────────────────────
+
+function ReasignarModal({
+  order,
+  choferes,
+  onClose,
+  onDone,
+}: {
+  order:    Order
+  choferes: UserProfile[]
+  onClose:  () => void
+  onDone:   () => void
+}) {
+  const otrosChoferes = choferes.filter((c) => c.email !== order.driverId)
+  const [email,  setEmail]  = useState(otrosChoferes[0]?.email ?? '')
+  const [motivo, setMotivo] = useState<string>(MOTIVOS_INCIDENCIA[0])
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = async () => {
+    if (!email) return
+    setSaving(true)
+    try {
+      await reassignOrder(order.id, email, motivo, order.driverId ?? '')
+      // Push al chofer nuevo
+      getPushSubscriptionByEmail(email).then((sub) => {
+        if (sub) sendPush({ subscription: sub, title: 'Pedido reasignado', body: `${order.clientName} — ${formatShortDate(order.date)}` })
+      }).catch((err) => reportError(err, { origen: 'MonitoreoPage' }))
+      onDone()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title="Reasignar a otro chofer">
+      <div className="space-y-4 text-sm">
+        <div className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2.5">
+          <p className="font-medium">{order.clientName}</p>
+          <p className="text-gray-500 text-xs mt-0.5">{summarizeProducts(order.products)}</p>
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-gray-500">Asignar a</label>
+          <select
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+          >
+            {otrosChoferes.map((c) => (
+              <option key={c.email} value={c.email}>{c.nombreContacto || c.nombre}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-gray-500">Motivo</label>
+          <select
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+            className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+          >
+            {MOTIVOS_INCIDENCIA.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div className="flex gap-3 mt-5">
+        <Button variant="outline" onClick={onClose} className="flex-1">Cancelar</Button>
+        <Button onClick={handleSave} loading={saving} disabled={!email} className="flex-1">Reasignar</Button>
+      </div>
+    </Modal>
+  )
+}
+
+// ── FinJornadaModal ───────────────────────────────────────────────────────────
+
+function FinJornadaModal({
+  driverEmail,
+  pendingOrders,
+  choferes,
+  onClose,
+  onDone,
+}: {
+  driverEmail:   string
+  pendingOrders: Order[]
+  choferes:      UserProfile[]
+  onClose:       () => void
+  onDone:        () => void
+}) {
+  const [accion, setAccion]  = useState<'reprogramar' | 'reasignar'>('reprogramar')
+  const [fecha,  setFecha]   = useState(tomorrow())
+  const [email,  setEmail]   = useState('')
+  const [motivo, setMotivo]  = useState<string>(MOTIVOS_INCIDENCIA[0])
+  const [saving, setSaving]  = useState(false)
+  const notifyReprogramadoMutation = useNotifyReprogramado()
+  const otrosChoferes = choferes.filter((c) => c.email !== driverEmail)
+
+  const handleConfirm = async () => {
+    setSaving(true)
+    try {
+      await Promise.all(
+        pendingOrders.map(async (o) => {
+          if (accion === 'reprogramar') {
+            await rescheduleOrder(o.id, fecha, motivo, { fechaOriginal: o.date, choferOriginal: driverEmail })
+            if (o.clientEmail) {
+              notifyReprogramadoMutation.mutate({ orderId: o.id })
+            }
+          } else {
+            if (!email) return
+            await reassignOrder(o.id, email, motivo, driverEmail)
+          }
+        }),
+      )
+      if (accion === 'reasignar' && email) {
+        getPushSubscriptionByEmail(email).then((sub) => {
+          if (sub) sendPush({ subscription: sub, title: `${pendingOrders.length} pedidos reasignados`, body: 'Revisá tus entregas' })
+        }).catch((err) => reportError(err, { origen: 'MonitoreoPage' }))
+      }
+      onDone()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const chofer = choferes.find((c) => c.email === driverEmail)
+  const nombre = chofer?.nombreContacto || chofer?.nombre || driverEmail
+
+  return (
+    <Modal open onClose={onClose} title="Fin de jornada">
+      <div className="space-y-4 text-sm">
+        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-4 py-3">
+          <p className="font-semibold text-yellow-400">{nombre}</p>
+          <p className="text-yellow-400/70 text-xs mt-0.5">
+            Quedan <strong>{pendingOrders.length}</strong> entrega{pendingOrders.length !== 1 ? 's' : ''} sin completar
+          </p>
+        </div>
+
+        {/* Lista de pendientes */}
+        <div className="space-y-1.5 max-h-36 overflow-y-auto">
+          {pendingOrders.map((o) => (
+            <div key={o.id} className="flex items-center gap-2 text-xs text-gray-500">
+              <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 shrink-0" />
+              <span className="font-medium text-white truncate">{o.clientName}</span>
+              <span className="truncate">{summarizeProducts(o.products)}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Acción */}
+        <div className="flex rounded-xl border border-[#D3D1C7] overflow-hidden text-xs">
+          <button
+            onClick={() => setAccion('reprogramar')}
+            className={`flex-1 py-2.5 font-medium transition-colors ${accion === 'reprogramar' ? 'bg-accent text-bg' : 'text-gray-500 hover:text-white'}`}
+          >
+            📅 Reprogramar todos
+          </button>
+          <button
+            onClick={() => setAccion('reasignar')}
+            className={`flex-1 py-2.5 font-medium transition-colors ${accion === 'reasignar' ? 'bg-accent text-bg' : 'text-gray-500 hover:text-white'}`}
+          >
+            🔄 Reasignar todos
+          </button>
+        </div>
+
+        {accion === 'reprogramar' && (
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-gray-500">Nueva fecha</label>
+            <div className="flex gap-2">
+              <input
+                type="date"
+                value={fecha}
+                min={todayString()}
+                onChange={(e) => setFecha(e.target.value)}
+                className="flex-1 bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+              <button
+                onClick={() => setFecha(tomorrow())}
+                className="text-xs text-accent border border-accent/30 rounded-lg px-3 py-2 hover:bg-accent/10 transition-colors shrink-0"
+              >
+                Mañana
+              </button>
+            </div>
+          </div>
+        )}
+
+        {accion === 'reasignar' && (
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-gray-500">Asignar a</label>
+            <select
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+            >
+              <option value="">Seleccioná un chofer…</option>
+              {otrosChoferes.map((c) => (
+                <option key={c.email} value={c.email}>{c.nombreContacto || c.nombre}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-gray-500">Motivo</label>
+          <select
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+            className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+          >
+            {MOTIVOS_INCIDENCIA.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </div>
+
+        {accion === 'reprogramar' && (
+          <p className="text-xs text-gray-400">Los clientes recibirán un email con la nueva fecha.</p>
+        )}
+      </div>
+
+      <div className="flex gap-3 mt-5">
+        <Button variant="outline" onClick={onClose} className="flex-1">Cancelar</Button>
+        <Button
+          onClick={handleConfirm}
+          loading={saving}
+          disabled={accion === 'reasignar' && !email}
+          className="flex-1"
+        >
+          Confirmar
+        </Button>
+      </div>
+    </Modal>
+  )
+}
+
+// ── DriverSideCard ────────────────────────────────────────────────────────────
+
+function DriverSideCard({
+  chofer, driver, orders, color, isSelected, onSelect,
+  onReprogramar, onReasignar, onFinJornada,
+}: {
+  chofer:        UserProfile | null
+  driver:        ActiveDriver | null
+  orders:        Order[]
+  color:         string
+  isSelected:    boolean
+  onSelect:      () => void
+  onReprogramar: (order: Order) => void
+  onReasignar:   (order: Order) => void
+  onFinJornada:  () => void
+}) {
+  const nombre    = chofer?.nombreContacto || chofer?.nombre || driver?.nombreChofer || 'Sin nombre'
+  const active    = orders.filter((o) => o.status !== 'cancelado')
+  const delivered = active.filter((o) => o.status === 'entregado').length
+  const total     = active.length
+  const pending   = active.filter((o) => o.status !== 'entregado')
+  const pct       = total > 0 ? Math.round((delivered / total) * 100) : 0
+  const alert     = alertLevel(pending.length)
+
+  return (
+    <div
+      className={`rounded-xl border transition-all ${
+        isSelected ? 'border-accent bg-accent/10' : 'border-[#D3D1C7] bg-white'
+      }`}
+    >
+      {/* Header clickeable */}
+      <button onClick={onSelect} className="w-full text-left p-4">
+        <div className="flex items-start gap-3 mb-3">
+          <div
+            className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-white text-xs font-bold mt-0.5"
+            style={{ backgroundColor: color }}
+          >
+            {nombre.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-sm truncate text-gray-900">{nombre}</p>
+          </div>
+          <div className="text-right shrink-0">
+            <p className="font-bold text-lg leading-none" style={{ color }}>{delivered}</p>
+            <p className="text-xs text-gray-500">/ {total}</p>
+          </div>
+        </div>
+
+        {/* Barra de progreso */}
+        <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden mb-1.5">
+          <div
+            className="h-full rounded-full transition-all"
+            style={{ width: `${pct}%`, backgroundColor: pct === 100 ? '#10b981' : color }}
+          />
+        </div>
+
+        {/* Alerta temprana */}
+        {alert === 'red' && (
+          <p className="text-xs font-semibold text-red-400 mt-1">
+            🚨 {pending.length} pendiente{pending.length !== 1 ? 's' : ''} — fuera de horario
+          </p>
+        )}
+        {alert === 'yellow' && (
+          <p className="text-xs font-semibold text-yellow-400 mt-1">
+            ⚠ {pending.length} pendientes — quedan pocas horas
+          </p>
+        )}
+        {!alert && (
+          <p className="text-xs text-gray-500">{pct}% completado</p>
+        )}
+
+        <p className={`text-xs mt-1 ${driver ? 'text-gray-400' : 'text-amber-500'}`}>
+          {driver ? `📍 ${gpsAge(driver.timestamp)}` : '📍 GPS no activo aún'}
+        </p>
+      </button>
+
+      {/* Detalle expandido cuando está seleccionado */}
+      {isSelected && pending.length > 0 && (
+        <div className="border-t border-gray-200 px-4 pb-4 pt-3 space-y-2">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+            Pendientes ({pending.length})
+          </p>
+
+          {pending.map((o) => (
+            <div key={o.id} className="flex items-center gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium truncate text-gray-900">{o.clientName}</p>
+                <p className="text-xs text-gray-500 truncate">{summarizeProducts(o.products)}</p>
+              </div>
+              <div className="flex gap-1 shrink-0">
+                <button
+                  onClick={() => onReprogramar(o)}
+                  className="text-xs text-accent border border-accent/30 rounded-lg px-2 py-1 hover:bg-accent/10 transition-colors"
+                  title="Reprogramar"
+                >
+                  📅
+                </button>
+                <button
+                  onClick={() => onReasignar(o)}
+                  className="text-xs text-gray-500 border border-[#D3D1C7] rounded-lg px-2 py-1 hover:border-accent/40 hover:text-gray-900 transition-colors"
+                  title="Reasignar"
+                >
+                  🔄
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {/* Fin de jornada bulk */}
+          <button
+            onClick={onFinJornada}
+            className="w-full mt-1 text-xs font-medium text-amber-600 border border-amber-300 rounded-xl py-2 hover:bg-amber-50 transition-colors"
+          >
+            Fin de jornada — gestionar todos
+          </button>
+        </div>
+      )}
+
+      {isSelected && pending.length === 0 && total > 0 && (
+        <div className="border-t border-gray-200 px-4 py-3">
+          <p className="text-xs text-success font-medium text-center">Todas las entregas completadas</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Página principal ───────────────────────────────────────────────────────────
+
+export default function MonitoreoPage() {
+  const { orders,   loading: loadO } = useAllOrders()
+  const { choferes, loading: loadC } = useChoferes()
+  const [activeDrivers, setActiveDrivers]   = useState<ActiveDriver[]>([])
+  const [selectedDriver, setSelectedDriver] = useState<string | null>(null)
+  const [reprogramarOrder, setReprogramarOrder] = useState<Order | null>(null)
+  const [reasignarOrder,   setReasignarOrder]   = useState<Order | null>(null)
+  const [finJornadaEmail,  setFinJornadaEmail]  = useState<string | null>(null)
+
+  useEffect(() => subscribeAllActiveDrivers(setActiveDrivers), [])
+
+  const today = useMemo(() => todayString(), [])
+
+  const ordersToday = useMemo(
+    () => orders.filter((o) => orderDateStr(o) === today),
+    [orders, today],
+  )
+
+  const driversToday = useMemo(() => {
+    const emails = [...new Set(ordersToday.filter((o) => o.driverId).map((o) => o.driverId!))]
+    return emails.map((email) => ({
+      email,
+      chofer:  choferes.find((c) => c.email === email) ?? null,
+      driver:  activeDrivers.find((d) => d.email === email) ?? null,
+      orders:  ordersToday.filter((o) => o.driverId === email),
+      color:   driverColor(email, choferes),
+    }))
+  }, [ordersToday, choferes, activeDrivers])
+
+  const handleSelect = (email: string) =>
+    setSelectedDriver((prev) => (prev === email ? null : email))
+
+  const finJornadaOrders = finJornadaEmail
+    ? ordersToday.filter((o) => o.driverId === finJornadaEmail && !['entregado', 'cancelado'].includes(o.status))
+    : []
+
+  if (loadO || loadC) return <LoadingSpinner fullScreen />
+
+  const totalEntregados = ordersToday.filter((o) => o.status === 'entregado').length
+  const totalPendientes = ordersToday.filter((o) => o.driverId && !['entregado', 'cancelado'].includes(o.status)).length
+
+  return (
+    <>
+      <div className="flex flex-col md:flex-row h-[calc(100dvh-48px)] md:h-dvh">
+
+        {/* ── Sidebar ───────────────────────────────────────────────────────── */}
+        <aside className="w-full md:w-72 md:shrink-0 bg-white border-b md:border-b-0 md:border-r border-[#D3D1C7] flex flex-col overflow-hidden max-h-[45%] md:max-h-none">
+
+          <div className="p-4 border-b border-[#D3D1C7]">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
+              <h1 className="text-base font-bold text-gray-900">Monitoreo en vivo</h1>
+            </div>
+            <p className="text-xs text-gray-500">
+              {totalEntregados} entregados · {totalPendientes} pendientes · {activeDrivers.length} con GPS
+            </p>
+          </div>
+
+          <div className="px-4 py-2.5 border-b border-[#D3D1C7] flex gap-3 text-xs text-gray-500 flex-wrap">
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#4b5563]" />Pendiente</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-accent" />En camino</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-success" />Entregado</span>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            {driversToday.length === 0 && (
+              <p className="text-xs text-gray-500 text-center mt-10">No hay choferes con pedidos asignados hoy</p>
+            )}
+
+            {selectedDriver && (
+              <button
+                onClick={() => setSelectedDriver(null)}
+                className="w-full text-xs text-accent border border-accent/30 rounded-xl py-2 hover:bg-accent/10 transition-colors mb-1"
+              >
+                ← Ver todos
+              </button>
+            )}
+
+            {driversToday.map(({ email, chofer, driver, orders, color }) => (
+              <DriverSideCard
+                key={email}
+                chofer={chofer}
+                driver={driver}
+                orders={orders}
+                color={color}
+                isSelected={selectedDriver === email}
+                onSelect={() => handleSelect(email)}
+                onReprogramar={(o) => setReprogramarOrder(o)}
+                onReasignar={(o) => setReasignarOrder(o)}
+                onFinJornada={() => setFinJornadaEmail(email)}
+              />
+            ))}
+          </div>
+        </aside>
+
+        {/* ── Mapa ──────────────────────────────────────────────────────────── */}
+        <div className="flex-1 relative min-h-[300px]">
+          {activeDrivers.length === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+              <div className="bg-white/95 border border-[#D3D1C7] rounded-xl px-6 py-5 text-center shadow-xl">
+                <p className="text-3xl mb-3">📡</p>
+                <p className="text-sm font-semibold text-gray-900">Sin choferes activos</p>
+                <p className="text-xs text-gray-500 mt-1 max-w-[200px]">El GPS se activa cuando el chofer comienza el reparto</p>
+              </div>
+            </div>
+          )}
+          <LiveMap
+            activeDrivers={activeDrivers}
+            ordersToday={ordersToday}
+            choferes={choferes}
+            selectedDriver={selectedDriver}
+            onSelectDriver={handleSelect}
+          />
+        </div>
+      </div>
+
+      {/* ── Modales ───────────────────────────────────────────────────────────── */}
+      {reprogramarOrder && (
+        <ReprogramarModal
+          order={reprogramarOrder}
+          onClose={() => setReprogramarOrder(null)}
+          onDone={() => setReprogramarOrder(null)}
+        />
+      )}
+
+      {reasignarOrder && (
+        <ReasignarModal
+          order={reasignarOrder}
+          choferes={choferes}
+          onClose={() => setReasignarOrder(null)}
+          onDone={() => setReasignarOrder(null)}
+        />
+      )}
+
+      {finJornadaEmail && (
+        <FinJornadaModal
+          driverEmail={finJornadaEmail}
+          pendingOrders={finJornadaOrders}
+          choferes={choferes}
+          onClose={() => setFinJornadaEmail(null)}
+          onDone={() => setFinJornadaEmail(null)}
+        />
+      )}
+    </>
+  )
+}

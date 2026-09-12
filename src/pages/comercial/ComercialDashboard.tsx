@@ -16,7 +16,7 @@ import { getAllUsers, approveUser, updateUserStatus } from '../../services/userS
 import { subscribeAllActiveDrivers, ActiveDriver } from '../../services/locationService'
 import { Order, UserProfile } from '../../types'
 import MetricsDashboard from '@/components/admin/MetricsDashboard'
-import { ForecastStrip } from '../admin/ClimaPage'
+import { ForecastStrip } from '@/pages/logistica/flota/ClimaPage'
 import { toDateStr, todayString, normalizeAddress } from '../../utils/helpers'
 
 const MAP_CONTAINER: React.CSSProperties = { width: '100%', height: '100%' }
