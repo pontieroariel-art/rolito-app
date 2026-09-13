@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CloudOff, HandCoins, History, Package, Search, Truck, Users } from 'lucide-react'
+import { CloudOff, HandCoins, History, Package, Truck, Users } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import SupervisorHeader from '@/components/supervisor/SupervisorHeader'
-import { CobranzaSupervisorCard } from '@/components/supervisor/CobranzaSupervisorCard'
 import MiRendicionCard from '@/components/chofer/MiRendicionCard'
+import Plata from '@/components/supervisor/Plata'
 import { useAuth } from '@/context/AuthContext'
 import { useDiaActual, useFechaDelDia } from '@/hooks/useDiaActual'
 import { useDepositoDelUsuario } from '@/hooks/useDepositosReparto'
@@ -12,9 +12,16 @@ import { formatoARS } from '@/utils/money'
 import { Cobranza } from '@/types'
 import { resumenPorMedio } from '@/pages/comercial/supervisor/resumenCobranzas'
 
-// Home del supervisor de cobranzas — hub mobile tipo chofer: accesos a las
-// tareas + resumen de lo cobrado hoy desglosado por medio de pago. Cada
-// cobranza abre su detalle (enviar / descargar el recibo, estado en Tango).
+// Home del supervisor de cobranzas (rediseño 2026-09-13): tres accesos —cuatro
+// si además entrega desde un depósito— y el pulso del día.
+//
+// Tenía SEIS tarjetas y cuatro arrancaban buscando un cliente con tres
+// buscadores distintos. Ahora "Clientes" es la única puerta al cliente y se
+// cobra desde su ficha, que es donde está el saldo completo: en la calle el
+// orden natural es cliente → qué le hago, no acción → cliente.
+//
+// El detalle de los recibos del día NO está acá: es idéntico al primer grupo de
+// "Mis cobranzas" (misma consulta, misma tarjeta) y se veía dos veces en la app.
 export default function SupervisorHome() {
   const { user } = useAuth()
   const fecha = useFechaDelDia()
@@ -34,91 +41,45 @@ export default function SupervisorHome() {
   }, [user, fecha])
 
   const resumen = useMemo(() => resumenPorMedio(cobranzasHoy), [cobranzasHoy])
-  const ordenadas = useMemo(() => cobranzasHoy.slice().sort((a, b) => b.fecha.toMillis() - a.fecha.toMillis()), [cobranzasHoy])
+  const recibos = cobranzasHoy.length
 
   return (
     <div className="min-h-screen min-h-dvh bg-[#F8F7F2]">
       <SupervisorHeader />
       <main className="max-w-md mx-auto p-4 space-y-3 pb-10">
-        <Link to="/supervisor/reparto"
-          className="block bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-4 active:scale-[0.99] transition-transform">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
-              <Truck size={22} className="text-accent" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-gray-900">Reparto en vivo</p>
-              <p className="text-xs text-secundario">Qué cargó, qué bajó y qué le queda a cada camión, con sus ventas</p>
-            </div>
-          </div>
-        </Link>
+        <Tarjeta to="/supervisor/clientes" icono={<Users size={22} className="text-accent" />}
+          titulo="Clientes" bajada="Buscá cualquier cliente, mirá quién debe y cobrá desde su ficha" />
+
+        <Tarjeta to="/supervisor/reparto" icono={<Truck size={22} className="text-accent" />}
+          titulo="Reparto en vivo" bajada="Qué cargó, qué bajó y qué le queda a cada camión, con sus ventas" />
+
+        <Tarjeta to="/supervisor/historial" icono={<History size={22} className="text-accent" />}
+          titulo="Mis cobranzas"
+          bajada={recibos
+            ? `Hoy ${formatoARS(resumen.total)} · ${recibos} ${recibos === 1 ? 'recibo' : 'recibos'} · últimos 30 días`
+            : 'Últimos 30 días, por día, con reimpresión de recibos'} />
 
         {deposito && (
-          <Link to="/supervisor/vender"
-            className="block bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-4 active:scale-[0.99] transition-transform">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
-                <Package size={22} className="text-accent" />
+          <div className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm">
+            <Link to="/supervisor/vender" className="block p-4 active:scale-[0.99] transition-transform">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
+                  <Package size={22} className="text-accent" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-gray-900">Vender</p>
+                  <p className="text-xs text-secundario">Entregas a demanda desde tu depósito {deposito.codigo} · {deposito.nombre}</p>
+                </div>
               </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-gray-900">Vender</p>
-                <p className="text-xs text-secundario">Entregas a demanda desde tu depósito {deposito.codigo} · {deposito.nombre}</p>
-              </div>
-            </div>
-          </Link>
+            </Link>
+            {/* Mis ventas no tenía ningún link: el que vendía no podía entregar el
+                comprobante ni anular un remito (la venta le dice "entregalo desde
+                Mis ventas" y no había forma de llegar). */}
+            <Link to="/supervisor/ventas" className="flex items-center border-t border-[#E7E5DC] px-4 h-11 text-xs font-medium text-accent">
+              Mis ventas — entregá el comprobante →
+            </Link>
+          </div>
         )}
-
-        <Link to="/supervisor/cobrar"
-          className="block bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-4 active:scale-[0.99] transition-transform">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
-              <HandCoins size={22} className="text-accent" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-gray-900">Cobrar</p>
-              <p className="text-xs text-secundario">Composición de saldos, facturas, cheques y retenciones</p>
-            </div>
-          </div>
-        </Link>
-
-        <Link to="/supervisor/buscar"
-          className="block bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-4 active:scale-[0.99] transition-transform">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
-              <Search size={22} className="text-accent" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-gray-900">Buscar cliente</p>
-              <p className="text-xs text-secundario">Ficha completa: contacto, cómo llegar, saldo y composición para enviar</p>
-            </div>
-          </div>
-        </Link>
-
-        <Link to="/supervisor/clientes"
-          className="block bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-4 active:scale-[0.99] transition-transform">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
-              <Users size={22} className="text-accent" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-gray-900">Clientes con deuda</p>
-              <p className="text-xs text-secundario">Saldos de cuenta corriente traídos de Tango</p>
-            </div>
-          </div>
-        </Link>
-
-        <Link to="/supervisor/historial"
-          className="block bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-4 active:scale-[0.99] transition-transform">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
-              <History size={22} className="text-accent" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-gray-900">Cobranzas anteriores</p>
-              <p className="text-xs text-secundario">Últimos 30 días, por día, con reimpresión de recibos</p>
-            </div>
-          </div>
-        </Link>
 
         {sinSubir > 0 && (
           <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
@@ -129,28 +90,59 @@ export default function SupervisorHome() {
           </div>
         )}
 
+        {recibos > 0 && <CobradoHoy resumen={resumen} />}
+
         {user && <MiRendicionCard uid={user.uid} hoy={hoy} />}
-
-        {cobranzasHoy.length > 0 && (
-          <section className="pt-2">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-sm font-semibold text-secundario uppercase tracking-wide">Cobrado hoy</h2>
-              <p className="text-sm font-semibold text-gray-900">{formatoARS(resumen.total)}</p>
-            </div>
-
-            <div className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-3 mb-2 grid grid-cols-2 gap-x-4 gap-y-1">
-              <p className="text-xs text-secundario flex justify-between">Efectivo <span className="font-medium text-gray-900">{formatoARS(resumen.efectivo)}</span></p>
-              <p className="text-xs text-secundario flex justify-between">Transferencia <span className="font-medium text-gray-900">{formatoARS(resumen.transferencia)}</span></p>
-              <p className="text-xs text-secundario flex justify-between">Cheques <span className="font-medium text-gray-900">{formatoARS(resumen.cheques)}</span></p>
-              <p className="text-xs text-secundario flex justify-between">Retenciones <span className="font-medium text-gray-900">{formatoARS(resumen.retenciones)}</span></p>
-            </div>
-
-            <div className="space-y-2">
-              {ordenadas.map((c) => <CobranzaSupervisorCard key={c.id} c={c} />)}
-            </div>
-          </section>
-        )}
       </main>
     </div>
+  )
+}
+
+function Tarjeta({ to, icono, titulo, bajada }: { to: string; icono: React.ReactNode; titulo: string; bajada: string }) {
+  return (
+    <Link to={to} className="block bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-4 active:scale-[0.99] transition-transform">
+      <div className="flex items-center gap-3">
+        <div className="w-11 h-11 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">{icono}</div>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-gray-900">{titulo}</p>
+          <p className="text-xs text-secundario">{bajada}</p>
+        </div>
+      </div>
+    </Link>
+  )
+}
+
+/**
+ * Lo cobrado hoy, con el EFECTIVO adelante y aparte: es lo único que el
+ * supervisor lleva encima y lo que arriesga en la calle; el resto ya está en el
+ * banco o en papel. Antes era un número más entre cuatro iguales.
+ */
+function CobradoHoy({ resumen }: { resumen: ReturnType<typeof resumenPorMedio> }) {
+  return (
+    <section>
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-secundario mb-1.5">Cobrado hoy</h2>
+      <div className="bg-white border border-[#D3D1C7] rounded-xl overflow-hidden">
+        <div className="px-3.5 py-3 bg-[#F1F9F6] border-b border-[#E7E5DC]">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <HandCoins size={14} className="text-[#0F6E56]" />
+            <p className="text-xs font-medium text-[#0F6E56]">Llevás en efectivo</p>
+          </div>
+          <Plata n={resumen.efectivo} className="block text-2xl font-bold leading-none text-[#0F6E56]" />
+        </div>
+        <div className="grid grid-cols-3 divide-x divide-[#E7E5DC]">
+          {([['Transferencia', resumen.transferencia], ['Cheques', resumen.cheques],
+            ['Retenciones', resumen.retenciones]] as const).map(([k, v]) => (
+            <div key={k} className="px-3 py-2 min-w-0">
+              <p className="text-xs text-secundario truncate" title={k}>{k}</p>
+              <Plata n={v} className="block text-sm font-semibold text-gray-900" />
+            </div>
+          ))}
+        </div>
+        <div className="px-3.5 py-2 border-t border-[#E7E5DC] flex items-baseline justify-between">
+          <p className="text-xs text-secundario">Total cobrado hoy</p>
+          <Plata n={resumen.total} className="text-base font-bold text-gray-900" />
+        </div>
+      </div>
+    </section>
   )
 }

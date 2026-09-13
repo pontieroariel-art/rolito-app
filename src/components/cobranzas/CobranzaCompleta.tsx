@@ -278,6 +278,14 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
           <p className="text-lg font-semibold text-gray-900">Cobranza registrada</p>
           <p className="text-sm text-gray-600 mt-1">{exito.numeroRecibo ? `Recibo ${exito.numeroRecibo} — ` : ''}{formatoARS(exito.importe)} — {exito.clienteNombre}</p>
           {exito.aCuenta ? <p className="text-sm text-amber-700 mt-1">{formatoARS(exito.aCuenta)} quedan a cuenta del cliente (saldo a favor).</p> : null}
+          {/* Sin señal, el recibo ya está hecho y numerado pero vive en el teléfono:
+              decirlo con todas las letras acá, que es el momento exacto en que el
+              que cobró se pregunta si se guardó o no. */}
+          {!online && (
+            <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">
+              Sin señal: la cobranza quedó <strong>guardada en el teléfono</strong> y se sube sola al volver la conexión. El recibo se puede entregar igual.
+            </p>
+          )}
           <p className="text-xs text-secundario mt-2">Queda encolada para impactar en la cuenta corriente de Tango.</p>
         </div>
         <div className="flex flex-col gap-2 pt-2 max-w-md mx-auto">

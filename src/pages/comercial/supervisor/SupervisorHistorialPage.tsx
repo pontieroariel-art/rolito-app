@@ -37,9 +37,17 @@ export default function SupervisorHistorialPage() {
 
   const totalPeriodo = useMemo(() => resumenPorMedio(cobranzas), [cobranzas])
 
+  // "Hoy" y "Ayer" en vez de la fecha: desde el rediseño (2026-09-13) esta es la
+  // ÚNICA vista de los recibos del día —el inicio ya no los repite—, así que el
+  // primer grupo tiene que leerse como lo que es sin hacer la cuenta mental.
   const tituloDia = (dia: string) => {
     const [y, m, d] = dia.split('-').map(Number)
-    return new Date(y, m - 1, d).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
+    const fecha = new Date(y, m - 1, d)
+    const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
+    const dias = Math.round((hoy.getTime() - fecha.getTime()) / 86_400_000)
+    if (dias === 0) return 'Hoy'
+    if (dias === 1) return 'Ayer'
+    return fecha.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
   }
 
   return (

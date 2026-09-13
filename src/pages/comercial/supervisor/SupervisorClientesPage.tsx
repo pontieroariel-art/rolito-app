@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { HandCoins } from 'lucide-react'
 import SupervisorHeader from '@/components/supervisor/SupervisorHeader'
 import ChipMora, { BORDE_MORA } from '@/components/supervisor/ChipMora'
+import Plata from '@/components/supervisor/Plata'
 import ClienteCombobox from '@/components/common/ClienteCombobox'
 import { useClientesConDeuda } from '@/hooks/useClientesConDeuda'
 import { coincideBusqueda, normalizarBusqueda } from '@/utils/busqueda'
@@ -106,7 +107,7 @@ export default function SupervisorClientesPage() {
 
             <div className="flex items-center justify-between px-1">
               <p className="text-xs text-secundario">{lista.length} {lista.length === 1 ? 'cliente' : 'clientes'}</p>
-              <p className="text-xs text-secundario">Deuda: <span className="font-semibold text-gray-900 tabular-nums">{formatoARS(totalDeuda)}</span></p>
+              <p className="text-xs text-secundario">Deuda: <Plata n={totalDeuda} className="font-semibold text-gray-900" /></p>
             </div>
 
             {lista.length === 0 && <p className="text-sm text-secundario text-center py-6">Ningún cliente coincide.</p>}
@@ -140,9 +141,7 @@ function FilaCliente({ f }: { f: FilaDeuda }) {
       <Link to={`/supervisor/cliente/${f.uid}`} className="block flex-1 min-w-0 p-3 active:bg-gray-50">
         <p className="text-sm font-medium text-gray-900 truncate" title={f.razonSocial}>{f.razonSocial}</p>
         <div className="flex items-center gap-2 mt-1 flex-wrap">
-          <span className={`text-base font-bold tabular-nums ${f.cobradoHoy ? 'text-secundario' : 'text-gray-900'}`}>
-            {formatoARS(f.saldoTotal)}
-          </span>
+          <Plata n={f.saldoTotal} className={`text-base font-bold ${f.cobradoHoy ? 'text-secundario' : 'text-gray-900'}`} />
           <ChipMora nivel={f.nivel} />
           {f.cobradoHoy && (
             <span className="text-[11px] font-semibold rounded-full px-2 py-0.5 border text-accent bg-accent/10 border-accent/30">
