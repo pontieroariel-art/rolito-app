@@ -936,6 +936,25 @@ export interface DescargaCamion {
   // Transferencia camión → planta en Tango (mismo mecanismo que el remito de
   // carga: onDescargaCamionCreada la encola; el write-back la confirma).
   tango?:           RemitoTangoEstado
+  // Faltante calculado por el SERVIDOR al crearse la descarga (2026-09-13,
+  // control de fugas). La tablet no lo calcula ni lo muestra: el conteo es
+  // ciego y muelle no puede leer las ventas. Es la foto del momento del
+  // conteo — si el chofer sube ventas más tarde queda desactualizada, así que
+  // lo que TRABA el cierre es el recálculo en vivo de caja (utils/liquidacion
+  // + config/liquidacion.faltantes); esto es la marca de auditoría y lo que
+  // dispara el aviso.
+  revision?:        RevisionDescarga
+}
+
+export interface RevisionDescarga {
+  /** Pasó el umbral de config/liquidacion.faltantes al momento del conteo. */
+  requiere:        boolean
+  bolsasFaltantes: number
+  bolsasSobrantes: number
+  productos:       { productoId: string; nombre: string; faltan: number }[]
+  /** El umbral con el que se evaluó, para poder leer la marca vieja después. */
+  umbral:          number
+  calculadoEn:     Timestamp
 }
 
 // ── Expedición: liquidación del repartidor ────────────────────────────────────

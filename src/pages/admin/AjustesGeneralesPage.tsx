@@ -1,6 +1,7 @@
 import SyncPreciosTangoPanel from '../../components/admin/SyncPreciosTangoPanel'
 import DepositosPanel from '../../components/admin/DepositosPanel'
 import AlertasMoraPanel from '../../components/admin/AlertasMoraPanel'
+import FaltantesLiquidacionPanel from '../../components/admin/FaltantesLiquidacionPanel'
 import VentanillaPanel from '../../components/admin/VentanillaPanel'
 import CotArbaPanel from '../../components/admin/CotArbaPanel'
 
@@ -20,6 +21,7 @@ export default function AjustesGeneralesPage() {
         <SyncPreciosTangoPanel />
         <DepositosPanel />
         <AlertasMoraPanel />
+        <FaltantesLiquidacionPanel />
         <VentanillaPanel />
         <CotArbaPanel />
       </main>

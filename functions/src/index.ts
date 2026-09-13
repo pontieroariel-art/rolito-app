@@ -54,6 +54,7 @@ export { onAnulacionSolicitada, onAnulacionResuelta } from './triggers/anulacion
 // Remito de cta. cte. anulado por el chofer sin autorización (2026-09-11): aviso a
 // facturación para anularlo en Tango y confirmación por el lector de comprobantes.
 export { onVentaCamionAnulada, onVentaVentanillaAnulada, reconciliarRemitosAnulados } from './triggers/ventasAnuladas'
+export { onDescargaContada } from './triggers/descargaRevision'
 // Aviso de vencimiento del padrón de IIBB. No declara los secrets de ARCA, así
 // que se puede desplegar suelta.
 export { avisarPadronIIBB } from './triggers/padronIIBB'
