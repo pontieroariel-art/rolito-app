@@ -215,6 +215,10 @@ export const CATALOGO: RutaConfig[] = [
   R('/supervisor/cliente/:uid', 'Ficha del cliente', 'comercial', SUPERVISOR, { deepLink: true, externa: true }),
   R('/supervisor/vender',       'Vender',            'comercial', SUPERVISOR, { deepLink: true }),
   R('/supervisor/ventas',       'Mis ventas',        'comercial', SUPERVISOR, { deepLink: true }),
+  // MAQUETA DESCARTABLE del rediseño del supervisor (2026-09-13): pública y con
+  // datos inventados, para probarla en el celular por red local sin emuladores ni
+  // login. Se borra —esta línea, el archivo y su <Route>— al aprobar el rediseño.
+  R('/mockup-supervisor-mobile', 'Maqueta del supervisor', 'comercial', [], { deepLink: true }),
 
   // ── Administración y gerencia ─────────────────────────────────────────────
   R('/admin',           'Panel de control',    'administracion', ['super_admin'], { icon: LayoutDashboard, menuGroup: 'sistema' }),

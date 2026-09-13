@@ -119,6 +119,8 @@ const CobranzaSupervisorPage = lazy(() => import('@/pages/comercial/supervisor/C
 const SupervisorHistorialPage = lazy(() => import('@/pages/comercial/supervisor/SupervisorHistorialPage'))
 const RepartoEnVivoPage       = lazy(() => import('@/pages/comercial/supervisor/RepartoEnVivoPage'))
 const SupervisorBuscarPage    = lazy(() => import('@/pages/comercial/supervisor/SupervisorBuscarPage'))
+// Maqueta descartable del rediseño del supervisor (2026-09-13): se borra al aprobarlo.
+const MockupSupervisorMobile  = lazy(() => import('@/pages/comercial/supervisor/MockupSupervisorMobile'))
 const FichaClientePage        = lazy(() => import('@/pages/comercial/supervisor/FichaClientePage'))
 
 // /caja aterriza en la primera pestaña PERMITIDA del usuario, no siempre en
@@ -232,6 +234,10 @@ function AppContent() {
         {/* Turnos de ventanilla — pública, la abre el QR del comprobante
             (sesión anónima; solo lee el tablero sanitizado turnosPublicos). */}
         <Route path="/turnos/:plantaId" element={<TurnosVentanillaPage />} />
+        {/* MAQUETA DESCARTABLE del rediseño del supervisor (2026-09-13): pública
+            y con datos inventados, para abrirla desde el celular por red local
+            sin emuladores ni login. Se borra al aprobar el rediseño. */}
+        <Route path="/mockup-supervisor-mobile" element={<MockupSupervisorMobile />} />
 
         {/* Cliente */}
         <Route element={<ProtectedRoute allowedRoles={rolesDe('/sucursal')} />}>
