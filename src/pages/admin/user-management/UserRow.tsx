@@ -2,7 +2,7 @@ import { useState, ChangeEvent } from 'react'
 import { ChevronRight, MapPin, Phone, CreditCard, Navigation, Clock, Hash, Eye } from 'lucide-react'
 import Button from '../../../components/ui/Button'
 import { UserProfile, UserRole, DeliveryAddress, PLANTAS, PlantaId } from '../../../types'
-import { ROLES_EXTRA_DISPONIBLES } from '../../../utils/roles'
+import { GRUPOS_ROLES_EXTRA, pidePlanta } from '../../../utils/roles'
 import { tsToDate } from '../../../utils/helpers'
 import { abrirVistaComo } from '../../../services/impersonacionService'
 import { ALL_ROLES, ROLE_LABELS, STATUS_STYLES, STATUS_LABELS } from './shared'
@@ -220,43 +220,67 @@ export function UserRow({ user, currentUser, onRoleChange, onSubrolChange, onRol
         </label>
       )}
 
-      {/* Roles adicionales de expedición (caja / muelle / seguridad) para
-          staff que cubre el mostrador además de su puesto — ver utils/roles.ts.
-          Solo super_admin; van con la planta. No aplica a clientes. Desde el
-          2026-09-12 también a los de expedición (caja carga la descarga
-          mientras muelle no tiene tablet), sin ofrecerles su propio rol. */}
+      {/* Roles ADICIONALES (ver utils/roles.ts). El rol principal decide dónde
+          aterriza la persona; los adicionales suman lo que puede hacer, en el
+          menú y en las reglas de Firestore por igual. Solo el super_admin los
+          asigna. Desde el 2026-09-13 son los dieciséis combinables, agrupados
+          por área: con dieciséis casilleros sueltos no se encontraba ninguno.
+          La planta se pide solo si hay un rol de mostrador o de planta. */}
       {canChangeRole && !isSelf && !['cliente', 'super_admin'].includes(user.rol) && (
-        <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-[#E7E5DC]">
-          <span className="text-xs text-secundario">También hace:</span>
-          {ROLES_EXTRA_DISPONIBLES.filter((r) => r !== user.rol).map((r) => {
-            const activo = (user.rolesExtra ?? []).includes(r)
-            return (
-              <label key={r} className="flex items-center gap-1.5 text-xs text-gray-700">
-                <input
-                  type="checkbox"
-                  checked={activo}
-                  disabled={busy}
-                  onChange={() => {
-                    const nuevos = activo ? (user.rolesExtra ?? []).filter((x) => x !== r) : [...(user.rolesExtra ?? []), r]
-                    run(() => onRolesExtraChange(user.uid, nuevos, user.planta ?? (nuevos.length ? 'torcuato' : undefined)))
-                  }}
-                />
-                {ROLE_LABELS[r]}
-              </label>
-            )
-          })}
-          {(user.rolesExtra?.length ?? 0) > 0 && (
-            <select
-              value={user.planta ?? 'torcuato'}
-              disabled={busy}
-              onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                run(() => onRolesExtraChange(user.uid, user.rolesExtra ?? [], e.target.value as PlantaId))
-              }
-              className="bg-white border border-[#D3D1C7] rounded-lg px-2 py-1 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
-            >
-              {(Object.keys(PLANTAS) as PlantaId[]).map((p) => <option key={p} value={p}>{PLANTAS[p].label}</option>)}
-            </select>
-          )}
+        <div className="pt-2 border-t border-[#E7E5DC] space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-secundario">También hace:</span>
+            {(user.rolesExtra?.length ?? 0) === 0 && <span className="text-xs text-inerte">nada más que su rol</span>}
+            {pidePlanta(user.rolesExtra) && (
+              <select
+                value={user.planta ?? 'torcuato'}
+                disabled={busy}
+                aria-label="Planta de los roles de mostrador"
+                onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                  run(() => onRolesExtraChange(user.uid, user.rolesExtra ?? [], e.target.value as PlantaId))
+                }
+                className="bg-white border border-[#D3D1C7] rounded-lg px-2 py-1 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
+              >
+                {(Object.keys(PLANTAS) as PlantaId[]).map((p) => <option key={p} value={p}>{PLANTAS[p].label}</option>)}
+              </select>
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+            {GRUPOS_ROLES_EXTRA.map((g) => {
+              const roles = g.roles.filter((r) => r !== user.rol)
+              if (roles.length === 0) return null
+              return (
+                <div key={g.area} className="min-w-0">
+                  <p className="text-[11px] text-secundario leading-tight">{g.area}</p>
+                  <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                    {roles.map((r) => {
+                      const activo = (user.rolesExtra ?? []).includes(r)
+                      return (
+                        <label key={r} className="flex items-center gap-1 text-xs text-gray-900 whitespace-nowrap">
+                          <input
+                            type="checkbox"
+                            checked={activo}
+                            disabled={busy}
+                            onChange={() => {
+                              const nuevos = activo
+                                ? (user.rolesExtra ?? []).filter((x) => x !== r)
+                                : [...(user.rolesExtra ?? []), r]
+                              // La planta solo acompaña a los roles de planta; a
+                              // los de oficina no se les inventa una.
+                              const planta = pidePlanta(nuevos) ? (user.planta ?? 'torcuato') : user.planta
+                              run(() => onRolesExtraChange(user.uid, nuevos, planta))
+                            }}
+                          />
+                          {ROLE_LABELS[r]}
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 

@@ -3844,6 +3844,84 @@ describe('users — roles adicionales (rolesExtra)', () => {
   })
 })
 
+// ── rolesExtra de OFICINA (2026-09-13) ───────────────────────────────────────
+// Hasta el 12/09 solo caja / muelle / seguridad preguntaban por el conjunto de
+// roles; el resto miraba solo el principal, así que un rol adicional abría el
+// menú pero no los datos. Ahora todo permiso funcional va por hasRol/hasAlguno.
+// Caso que lo motivó: Lucas es de logística y además hace facturación.
+describe('users — roles adicionales de oficina', () => {
+  const facturaArchivada = (extra = {}) => ({
+    empresa: 'redonhielo', clave: '0001-00000001', storagePath: 'facturas/redonhielo/x.pdf',
+    subidoPor: { uid: 'luc', nombre: 'Lucas' }, ...extra,
+  })
+  const seedLucas = (rolesExtra) =>
+    seed((d) => setDoc(doc(d, 'users/luc'), { rol: 'logistica', estado: 'activo', nombre: 'Lucas', ...(rolesExtra ? { rolesExtra } : {}) }))
+  const seedSuperAdmin = () => seed((d) => setDoc(doc(d, 'users/sa'), { rol: 'super_admin', estado: 'activo' }))
+
+  test('logística SIN el rol adicional no archiva una factura (Recupero de facturas)', async () => {
+    await seedLucas()
+    await assertFails(setDoc(doc(db('luc'), 'facturasArchivadas/redonhielo-0001-00000001'), facturaArchivada()))
+  })
+
+  test('logística CON facturación como rol adicional sí archiva la factura', async () => {
+    await seedLucas(['facturacion'])
+    await assertSucceeds(setDoc(doc(db('luc'), 'facturasArchivadas/redonhielo-0001-00000001'), facturaArchivada()))
+  })
+
+  test('facturación como rol adicional deja asignar el código de cliente', async () => {
+    await seedLucas(['facturacion'])
+    await seed((d) => setDoc(doc(d, 'users/cli'), cliente()))
+    await assertSucceeds(updateDoc(doc(db('luc'), 'users/cli'), { codigoCliente: 'C-42' }))
+  })
+
+  // Lo importante no es lo que el rol adicional concede, sino lo que NO.
+  test('el rol adicional concede SOLO lo suyo: ni ventanilla ni lo del super_admin', async () => {
+    await seedLucas(['facturacion'])
+    // Ventanilla es de caja, y Lucas no la tiene en este escenario.
+    await assertFails(setDoc(doc(db('luc'), 'ventasVentanilla/v1'), {
+      plantaId: 'torcuato', canal: 'contado', cajaId: 'luc', cajaNombre: 'Lucas',
+      clienteNombre: 'Ocasional', items: [{ productoId: 'b', nombre: 'Hielo', cantidad: 1, precioUnitario: 100 }],
+      total: 100, formaPago: 'contado_efectivo', estado: 'pendiente_entrega', turno: 1,
+      turnoEstado: 'en_espera', fecha: new Date(),
+    }))
+    // El índice de login del staff lo escribe solo el super_admin.
+    await assertFails(setDoc(doc(db('luc'), 'staffDniIndex/30111222'), { uid: 'luc' }))
+  })
+
+  test('un rol adicional NUNCA convierte a nadie en super_admin', async () => {
+    // Aunque alguien lograra escribirlo en el documento, esSuperAdmin() mira el
+    // rol principal: el índice de login del staff le sigue estando vedado.
+    await seed((d) => setDoc(doc(d, 'users/luc'), { rol: 'logistica', estado: 'activo', rolesExtra: ['super_admin'] }))
+    await assertFails(setDoc(doc(db('luc'), 'staffDniIndex/30111222'), { uid: 'luc' }))
+  })
+
+  test('el super_admin NO puede otorgar super_admin ni cliente como rol adicional', async () => {
+    await seedSuperAdmin()
+    await seedLucas()
+    await assertFails(updateDoc(doc(db('sa'), 'users/luc'), { rolesExtra: ['super_admin'] }))
+    await assertFails(updateDoc(doc(db('sa'), 'users/luc'), { rolesExtra: ['cliente'] }))
+    await assertFails(updateDoc(doc(db('sa'), 'users/luc'), { rolesExtra: ['facturacion', 'super_admin'] }))
+    await assertFails(updateDoc(doc(db('sa'), 'users/luc'), { rolesExtra: ['inventado'] }))
+  })
+
+  test('los roles de planta exigen planta; los de oficina no', async () => {
+    await seedSuperAdmin()
+    await seedLucas()
+    // caja / muelle / seguridad operan en UNA planta: sin ella las reglas de
+    // expedición rechazan todo y el usuario vería pantallas que no funcionan.
+    await assertFails(updateDoc(doc(db('sa'), 'users/luc'), { rolesExtra: ['caja'] }))
+    await assertSucceeds(updateDoc(doc(db('sa'), 'users/luc'), { rolesExtra: ['caja'], planta: 'torcuato' }))
+    // Facturación no tiene planta.
+    await seed((d) => setDoc(doc(d, 'users/luc2'), { rol: 'logistica', estado: 'activo', nombre: 'L2' }))
+    await assertSucceeds(updateDoc(doc(db('sa'), 'users/luc2'), { rolesExtra: ['facturacion'] }))
+  })
+
+  test('el usuario sigue sin poder auto-asignarse un rol adicional de oficina', async () => {
+    await seedLucas()
+    await assertFails(updateDoc(doc(db('luc'), 'users/luc'), { rolesExtra: ['facturacion'] }))
+  })
+})
+
 // ── supervisor: service y comodato desde la calle (2026-09-07) ───────────────
 describe('supervisor: service de heladera y comodato desde la ficha del cliente', () => {
   const seedSupervisor = (uid = 'sup1') => seed((d) => setDoc(doc(d, `users/${uid}`), { rol: 'supervisor', estado: 'activo' }))

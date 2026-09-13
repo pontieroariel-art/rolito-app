@@ -38,19 +38,42 @@ export const ROLES: readonly UserRole[] = Object.keys(ROLE_LABELS) as UserRole[]
 export const STAFF_ROLES: readonly UserRole[] = ROLES.filter((r) => r !== 'cliente' && r !== 'produccion_hielo')
 
 // ── Roles adicionales ─────────────────────────────────────────────────────────
-// (2026-09-07) Un usuario tiene UN rol (`rol`, que define su sistema y su
-// home) y puede tener además roles de expedición para cubrir el mostrador:
-// Lucas es de logística y muchos días hace caja. Solo el super_admin los
-// asigna (Usuarios → fila del staff), y van con la planta, porque caja /
-// muelle / seguridad operan en SU planta.
+// (2026-09-07, ampliado el 2026-09-13) Un usuario tiene UN rol (`rol`, que
+// define su home) y puede tener además otros roles para cubrir otro puesto:
+// Lucas es de logística, muchos días hace caja y además factura. Solo el
+// super_admin los asigna, desde Usuarios → fila del staff.
 //
-// Las reglas de Firestore hacen la misma pregunta con hasRol(); acá está la
-// versión para las rutas, la nav y el picker de sistema. Todo lo que decide
-// por rol en el módulo expedición tiene que pasar por tieneRol / tieneAlgunRol
-// y no por `user.rol === 'caja'`.
+// Las reglas de Firestore hacen la misma pregunta con hasRol() / hasAlguno();
+// acá está la versión para las rutas, la nav y el picker de dominio. Todo lo
+// que decide por rol tiene que pasar por tieneRol / tieneAlgunRol y nunca por
+// `user.rol === 'caja'`.
 
-export const ROLES_EXTRA_DISPONIBLES = ['caja', 'muelle', 'seguridad'] as const
-export type RolExtra = (typeof ROLES_EXTRA_DISPONIBLES)[number]
+/**
+ * Roles FÍSICOS: se ejercen en una planta concreta, así que exigen `planta`.
+ * Sin ella las reglas de expedición rechazan todo y la persona vería pantallas
+ * que no funcionan. Espejado en firestore.rules → rolesExtraOk().
+ */
+export const ROLES_EXTRA_DE_PLANTA: readonly UserRole[] = ['caja', 'muelle', 'seguridad']
+
+/**
+ * Qué se puede otorgar como rol adicional, agrupado por área para que elegir
+ * sea leer y no buscar entre dieciséis casilleros sueltos.
+ *
+ * Quedan afuera dos: `super_admin`, que no se regala, y `cliente`, que es otra
+ * población con su propio registro y su propio login. La misma lista está en
+ * firestore.rules → rolesExtraOk(); si se toca una, se toca la otra.
+ */
+export const GRUPOS_ROLES_EXTRA: ReadonlyArray<{ area: string; roles: readonly UserRole[] }> = [
+  { area: 'Mostrador y planta', roles: ['caja', 'muelle', 'seguridad'] },
+  { area: 'Logística',          roles: ['logistica', 'chofer'] },
+  { area: 'Producción',         roles: ['produccion_encargado', 'produccion_hielo'] },
+  { area: 'Tesorería',          roles: ['tesoreria'] },
+  { area: 'Comercial',          roles: ['comercial', 'facturacion', 'supervisor'] },
+  { area: 'Heladeras',          roles: ['heladeras', 'heladeras_encargado', 'tecnico'] },
+  { area: 'Gerencia',           roles: ['gerente_general', 'gerente_comercial'] },
+]
+
+export const ROLES_EXTRA_DISPONIBLES: readonly UserRole[] = GRUPOS_ROLES_EXTRA.flatMap((g) => [...g.roles])
 
 type ConRoles = Pick<UserProfile, 'rol'> & { rolesExtra?: UserRole[] }
 
@@ -68,7 +91,16 @@ export function tieneAlgunRol(user: ConRoles | null | undefined, roles: readonly
   return !!user && rolesDe(user).some((r) => roles.includes(r))
 }
 
-/** Los roles adicionales necesitan planta: sin ella las reglas rechazan todo. */
+/** ¿Alguno de los roles adicionales se ejerce en una planta? */
+export function pidePlanta(rolesExtra: UserRole[] | undefined): boolean {
+  return (rolesExtra ?? []).some((r) => ROLES_EXTRA_DE_PLANTA.includes(r))
+}
+
+/**
+ * La planta es obligatoria SOLO para los roles físicos (caja / muelle /
+ * seguridad): sin ella las reglas de expedición rechazan todo. Los de oficina
+ * (facturación, comercial, tesorería…) no tienen planta y no deben pedirla.
+ */
 export function rolesExtraValidos(rolesExtra: UserRole[] | undefined, planta: PlantaId | undefined): boolean {
-  return !rolesExtra || rolesExtra.length === 0 || !!planta
+  return !pidePlanta(rolesExtra) || !!planta
 }

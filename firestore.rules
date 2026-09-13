@@ -33,18 +33,41 @@ service cloud.firestore {
         : tokenConClaims() ? request.auth.token.rol
         : perfil().get('rol', perfil().get('role', 'none'));
     }
-    // Roles ADICIONALES al principal (2026-09-07): hoy solo los de expedición
-    // (caja / muelle / seguridad), para personal que cubre el mostrador además
-    // de su puesto (Lucas: logística + caja). Solo los escribe el super_admin
-    // (ver rolesExtraUnchanged en /users). hasRol() es la pregunta correcta
-    // para esos tres roles; el resto sigue mirando el rol principal.
-    function myRolesExtra() {
+    // Roles ADICIONALES al principal (2026-09-07, ampliado el 2026-09-13):
+    // personal que cubre otro puesto además del suyo (Lucas: logística + caja
+    // + facturación). Solo los escribe el super_admin (ver rolesExtraUnchanged
+    // y rolesExtraOk en /users).
+    //
+    // hasRol() es la pregunta correcta para TODO permiso funcional: qué puede
+    // hacer el usuario. myRole() queda solo para la identidad del puesto, que
+    // son dos casos y no se combinan: 'cliente' (otra población, con su propio
+    // registro) y 'super_admin' (no se otorga como adicional).
+    // TODOS los roles del usuario: el principal más los adicionales. Se arma
+    // una sola vez por pregunta porque Firestore corta a las 1000 expresiones
+    // por request, y una cadena de ocho predicados con `||` llega rápido.
+    function misRoles() {
       return esEscrituraImpersonada() ? []
-        : tokenConClaims() ? request.auth.token.get('rolesExtra', [])
-        : perfil().get('rolesExtra', []);
+        : tokenConClaims()
+          ? request.auth.token.get('rolesExtra', []).concat([request.auth.token.rol])
+          : perfil().get('rolesExtra', []).concat([perfil().get('rol', perfil().get('role', 'none'))]);
     }
+
     function hasRol(r) {
-      return myRole() == r || r in myRolesExtra();
+      return r in misRoles();
+    }
+
+    // Varias preguntas en UNA evaluación. Preferilo a encadenar hasRol() con
+    // `||`: es lo que mantiene las reglas por debajo del tope.
+    function hasAlguno(rs) {
+      return misRoles().hasAny(rs);
+    }
+
+    // super_admin NO es combinable: nunca se otorga como rol adicional (lo
+    // impide rolesExtraOk en /users), así que se pregunta por el rol principal.
+    // Tener la pregunta en un solo lugar evita que alguien la escriba con
+    // hasRol() por costumbre y abra la puerta sin querer.
+    function esSuperAdmin() {
+      return myRole() == 'super_admin';
     }
 
     // Lee el estado ('activo'/'inactivo'/'pendiente') del usuario autenticado.
@@ -74,33 +97,33 @@ service cloud.firestore {
 
     // Gerente comercial: acuerdos de precios y activación de clientes
     function isGerenteComercial() {
-      return myRole() == 'gerente_comercial';
+      return hasRol('gerente_comercial');
     }
 
     // Gerente general: visibilidad total + aprobación de clientes (sin operación)
     function isGerenteGeneral() {
-      return myRole() == 'gerente_general';
+      return hasRol('gerente_general');
     }
 
     // Usuarios con acceso de gestión
     function isManager() {
-      return myRole() in ['super_admin', 'gerente_comercial', 'comercial'];
+      return hasAlguno(['super_admin', 'gerente_comercial', 'comercial']);
     }
 
     // Usuarios con acceso operativo (pedidos y logística)
     function isOperator() {
-      return myRole() in ['super_admin', 'logistica'];
+      return hasAlguno(['super_admin', 'logistica']);
     }
 
     // Facturación: solo lectura sobre pedidos y clientes
     function isFacturacion() {
-      return myRole() == 'facturacion';
+      return hasRol('facturacion');
     }
 
     // Tesorería (2026-09-09): ve en vivo ventas/cobranzas/liquidaciones y
     // valida las rendiciones de ventanilla. No es facturación.
     function isTesoreria() {
-      return myRole() == 'tesoreria';
+      return hasRol('tesoreria');
     }
 
     // Puede autorizar anulaciones de facturas de ventanilla (nota de crédito,
@@ -113,17 +136,18 @@ service cloud.firestore {
           : (perfil().get('rol', 'none') == 'super_admin' || perfil().get('autorizaAnulaciones', false) == true));
     }
 
-    // Cualquier rol de staff (todo lo que no sea cliente).
+    // Cualquier rol de staff (todo lo que no sea cliente). Va por myRole()
+    // a propósito: ser cliente es IDENTIDAD, no un permiso que se suma.
     function isStaff() {
       return myRole() != 'cliente' && myRole() != 'none';
     }
 
     // Sector heladeras: personal de taller y su encargado
     function isHeladeras() {
-      return myRole() == 'heladeras';
+      return hasRol('heladeras');
     }
     function isHeladerasEncargado() {
-      return myRole() == 'heladeras_encargado' || myRole() == 'super_admin';
+      return hasAlguno(['heladeras_encargado', 'super_admin']);
     }
     // Acceso completo al módulo heladeras (más allá del taller): encargado,
     // super_admin y gerente_comercial (por pedido explícito del negocio,
@@ -133,15 +157,15 @@ service cloud.firestore {
     }
     // Técnico de campo (rol nuevo, distinto del personal de taller).
     function isTecnico() {
-      return myRole() == 'tecnico';
+      return hasRol('tecnico');
     }
     // Operario de producción de hielo en planta.
     function isProduccion() {
-      return myRole() == 'produccion_hielo';
+      return hasRol('produccion_hielo');
     }
     // Encargado de producción — mismo criterio que isHeladerasEncargado().
     function isProduccionEncargado() {
-      return myRole() == 'produccion_encargado' || myRole() == 'super_admin';
+      return hasAlguno(['produccion_encargado', 'super_admin']);
     }
     // Personal de caja en planta (módulo expedición: remitos de carga,
     // ventanilla, liquidaciones). Fijo por planta — ver myPlanta().
@@ -153,13 +177,13 @@ service cloud.firestore {
     // las rutas /caja, /muelle y /seguridad lo admiten y antes la base lo
     // rechazaba (Ariel no podía emitir un remito de carga).
     function isCajaDe(planta) {
-      return (isCaja() && planta == myPlanta()) || myRole() == 'super_admin';
+      return (isCaja() && planta == myPlanta()) || esSuperAdmin();
     }
     function isMuelleDe(planta) {
-      return (isMuelle() && planta == myPlanta()) || myRole() == 'super_admin';
+      return (isMuelle() && planta == myPlanta()) || esSuperAdmin();
     }
     function isSeguridadDe(planta) {
-      return (isSeguridad() && planta == myPlanta()) || myRole() == 'super_admin';
+      return (isSeguridad() && planta == myPlanta()) || esSuperAdmin();
     }
     // Personal de muelle en planta (módulo expedición: entrega la carga
     // contra el remito y cuenta la descarga al volver el camión).
@@ -174,7 +198,7 @@ service cloud.firestore {
     // Supervisor de cobranzas en la calle: cobra cta. cte. con composición de
     // saldos de Tango, imputación de facturas, cheques y retenciones.
     function isSupervisor() {
-      return myRole() == 'supervisor';
+      return hasRol('supervisor');
     }
     // ── Envases retornables del camión (2026-09-07) ──
     // Remito: composición que sale (tarimas de madera, pallets de metal,
@@ -212,8 +236,9 @@ service cloud.firestore {
       return tokenConClaims() ? request.auth.token.get('planta', null) : perfil().get('planta', null);
     }
     function isChofer() {
-      return myRole() == 'chofer';
+      return hasRol('chofer');
     }
+    // Identidad, no permiso: 'cliente' no puede ir como rol adicional.
     function isCliente() {
       return myRole() == 'cliente';
     }
@@ -300,6 +325,25 @@ service cloud.firestore {
       // Campos privilegiados que un no-super_admin NO puede alterar sobre un
       // documento existente. Se comparan con get() para tolerar campos ausentes.
       function rolUnchanged()    { return request.resource.data.rol == resource.data.rol; }
+      // Qué se puede otorgar como rol ADICIONAL (2026-09-13). Quedan afuera
+      // 'super_admin' (no se regala) y 'cliente' (es otra población, con su
+      // propio registro y su propio login). Los tres roles FÍSICOS operan en
+      // una planta concreta, así que exigen `planta`: sin ella las reglas de
+      // expedición rechazan todo y el usuario ve pantallas que no funcionan.
+      function rolesExtraOk() {
+        return request.resource.data.get('rolesExtra', []) is list
+          && request.resource.data.get('rolesExtra', []).hasOnly([
+               'gerente_general', 'gerente_comercial', 'comercial', 'logistica',
+               'facturacion', 'tesoreria', 'chofer', 'supervisor',
+               'heladeras', 'heladeras_encargado', 'tecnico',
+               'produccion_hielo', 'produccion_encargado',
+               'caja', 'muelle', 'seguridad',
+             ])
+          && (request.resource.data.get('rolesExtra', []).hasAny(['caja', 'muelle', 'seguridad'])
+                ? request.resource.data.get('planta', null) != null
+                : true);
+      }
+
       // Roles adicionales y planta también son privilegio (dan acceso al
       // módulo expedición de esa planta): solo el super_admin los toca.
       function rolesExtraUnchanged() {
@@ -360,18 +404,18 @@ service cloud.firestore {
       // Gestión y operación con acceso amplio legítimo (ven/administran todo el
       // personal). gerente_comercial/super_admin entran por isManager().
       allow read: if request.auth != null
-        && (isManager() || myRole() == 'logistica' || isFacturacion() || isGerenteGeneral()
-            // heladeras_encargado necesita buscar clientes (asignación de equipos)
-            // y ver la lista de técnicos.
-            || myRole() == 'heladeras_encargado'
-            // produccion_encargado necesita ver la lista de operarios de planta.
-            || myRole() == 'produccion_encargado');
+        // heladeras_encargado necesita buscar clientes (asignación de equipos)
+        // y ver la lista de técnicos; produccion_encargado, la lista de
+        // operarios de planta. Van todos juntos en una sola evaluación.
+        && hasAlguno(['super_admin', 'gerente_comercial', 'comercial', 'logistica',
+                      'facturacion', 'gerente_general', 'heladeras_encargado',
+                      'produccion_encargado']);
       // Chofer (vende en la calle → remito) y caja (remitos de carga +
       // ventanilla) solo necesitan CLIENTES y CHOFERES, no el resto del personal
       // ni sus datos. Acotado por rol del target (auditoría 2026-08-29, H11): sus
       // queries ya filtran where rol=='cliente' / where rol=='chofer', así que
       // esto no cambia lo que ven, solo cierra el acceso al resto de la colección.
-      allow read: if request.auth != null && (myRole() == 'chofer' || isCaja())
+      allow read: if request.auth != null && (isChofer() || isCaja())
         && resource.data.get('rol', 'cliente') in ['cliente', 'chofer'];
       // Supervisor de cobranzas: solo necesita el padrón de CLIENTES (a quién
       // cobra); mismo criterio de acotamiento por rol del target que chofer/caja.
@@ -379,7 +423,11 @@ service cloud.firestore {
         && resource.data.get('rol', 'cliente') == 'cliente';
 
       // ── super_admin: control total (asigna roles, crea staff, limpia datos) ──
-      allow read, write: if request.auth != null && myRole() == 'super_admin';
+      // Lectura y borrado sin más; al escribir se valida QUÉ roles adicionales
+      // se otorgan, porque un rol adicional ahora concede permisos de verdad
+      // (antes solo abría el menú).
+      allow read, delete: if request.auth != null && esSuperAdmin();
+      allow create, update: if request.auth != null && esSuperAdmin() && rolesExtraOk();
 
       // ── Alta del propio documento ──
       // Registro público: el usuario SOLO puede crearse como 'cliente'.
@@ -411,7 +459,7 @@ service cloud.firestore {
       // identidad, login ni rol). Antes estas ramas permitían editar cualquier
       // documento —incluido el de un super_admin— con cualquier campo salvo rol.
       allow update: if request.auth != null
-        && myRole() in ['gerente_comercial', 'comercial', 'logistica']
+        && (hasRol('gerente_comercial') || hasRol('comercial') || hasRol('logistica'))
         && targetEsCliente()
         && camposGestionClienteOk();
 
@@ -487,7 +535,7 @@ service cloud.firestore {
         isManager() ||
         isFacturacion() ||
         isGerenteGeneral() ||
-        myRole() == 'heladeras_encargado' ||
+        hasRol('heladeras_encargado') ||
         // Supervisor: historial de pedidos en la ficha del cliente (2026-09-07).
         isSupervisor()
       );
@@ -727,7 +775,7 @@ service cloud.firestore {
       // Chofer puede actualizar sus propias visitas, solo el estado/notas/orderId
       // (no reasignarse ni reescribir la visita).
       allow update: if request.auth != null
-        && myRole() == 'chofer'
+        && isChofer()
         && resource.data.driverId == request.auth.token.email
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['status', 'notas', 'orderId']);
@@ -747,7 +795,7 @@ service cloud.firestore {
       // técnico (escanea el QR de la etiqueta en el equipo del cliente) y gerente_general
       // en solo-lectura (panorama cross-sector del panel de directores, /gerente — nunca
       // opera el módulo, solo mira el resumen).
-      allow read:   if request.auth != null && (isHeladeras() || isHeladerasFullAccess() || myRole() == 'comercial' || isTecnico() || myRole() == 'gerente_general');
+      allow read:   if request.auth != null && (isHeladeras() || isHeladerasFullAccess() || hasRol('comercial') || isTecnico() || isGerenteGeneral());
       // Cliente: solo lee SU PROPIA heladera asignada (comodato vigente) —
       // pantalla "Mis heladeras".
       allow read:   if request.auth != null && isCliente() && resource.data.get('clienteAsignadoId', null) == request.auth.uid;
@@ -807,7 +855,7 @@ service cloud.firestore {
       // Cliente: solo su propio historial de comodatos (asignaciones y
       // retiros) — pantalla "Mis heladeras".
       allow read:   if request.auth != null && (
-        isHeladerasFullAccess() || myRole() == 'comercial' ||
+        isHeladerasFullAccess() || hasRol('comercial') ||
         (isCliente() && resource.data.get('clientId', null) == request.auth.uid)
       );
       allow create: if request.auth != null && isHeladerasFullAccess();
@@ -884,7 +932,7 @@ service cloud.firestore {
 
     // ── Preventivos (mantenimiento anual) ──────────────────────────────────
     match /preventivos/{preventivoId} {
-      allow read:  if request.auth != null && (isHeladerasFullAccess() || myRole() == 'comercial');
+      allow read:  if request.auth != null && (isHeladerasFullAccess() || hasRol('comercial'));
       allow write: if request.auth != null && isHeladerasFullAccess();
     }
 
@@ -917,8 +965,8 @@ service cloud.firestore {
     // ticket físico ya está pegado al pallet) — nunca se edita ni se borra.
     match /produccionPallets/{palletId} {
       allow read: if request.auth != null
-        && (isProduccion() || isManager() || isGerenteGeneral() || myRole() == 'logistica'
-            || myRole() == 'produccion_encargado');
+        && (isProduccion() || isManager() || isGerenteGeneral() || hasRol('logistica')
+            || hasRol('produccion_encargado'));
 
       allow create: if request.auth != null && isProduccion()
         && request.resource.data.plantaId == myPlanta()
@@ -941,8 +989,8 @@ service cloud.firestore {
     // decide qué pantalla ve cada puesto). El encargado puede corregir.
     match /partesMaquinas/{parteId} {
       allow read: if request.auth != null
-        && (isProduccion() || isManager() || isGerenteGeneral() || myRole() == 'logistica'
-            || myRole() == 'produccion_encargado');
+        && (isProduccion() || isManager() || isGerenteGeneral() || hasRol('logistica')
+            || hasRol('produccion_encargado'));
 
       // El operario/maquinista solo crea y edita partes de SU planta, y nunca
       // puede reasignar el doc a otra planta.
@@ -968,7 +1016,7 @@ service cloud.firestore {
     match /ventasCamion/{ventaId} {
       // isCaja: la liquidación del repartidor suma las ventas del día.
       allow read: if request.auth != null
-        && (isOperator() || isManager() || isGerenteGeneral() || isCaja() || isTesoreria()
+        && (hasAlguno(['super_admin', 'logistica', 'gerente_comercial', 'comercial', 'gerente_general', 'caja', 'tesoreria'])
             // isSupervisor: 'Reparto en vivo' (liquidación en vivo de todos los camiones, 2026-09-05)
             || isSupervisor()
             // isFacturacion: Comprobantes de clientes regenera la factura de una
@@ -1155,8 +1203,10 @@ service cloud.firestore {
       // isFacturacion / puedeAutorizarAnulaciones: la bandeja de anulaciones
       // regenera la nota de crédito de la venta (2026-09-09).
       allow read: if request.auth != null
-        && (isCaja() || isMuelle() || isSeguridad() || isOperator() || isManager() || isGerenteGeneral() || isSupervisor() || isTesoreria()
-            || isFacturacion() || puedeAutorizarAnulaciones());
+        && (hasAlguno(['caja', 'muelle', 'seguridad', 'super_admin', 'logistica',
+                       'gerente_comercial', 'comercial', 'gerente_general', 'supervisor',
+                       'tesoreria', 'facturacion'])
+            || puedeAutorizarAnulaciones());
 
       allow create: if request.auth != null && isCajaDe(request.resource.data.plantaId)
         && request.resource.data.cajaId == request.auth.uid
@@ -1231,7 +1281,7 @@ service cloud.firestore {
       // Desde el 2026-09-05 la misma cobranza completa la hacen también caja
       // (origen 'caja', en su planta) y el chofer en la calle (origen 'cobrador').
       allow create: if request.auth != null
-        && (((isSupervisor() || myRole() == 'super_admin') && request.resource.data.origen == 'supervisor')
+        && (((isSupervisor() || esSuperAdmin()) && request.resource.data.origen == 'supervisor')
             || (isCajaDe(request.resource.data.plantaId) && request.resource.data.origen == 'caja')
             || (isChofer() && request.resource.data.origen == 'cobrador'))
         && request.resource.data.registradoPor.uid == request.auth.uid
@@ -1260,7 +1310,7 @@ service cloud.firestore {
     match /facturasArchivadas/{facturaId} {
       allow read: if request.auth != null && isStaff();
       allow create, update: if request.auth != null
-        && (myRole() == 'super_admin' || isFacturacion())
+        && (esSuperAdmin() || isFacturacion())
         && facturaId == request.resource.data.empresa + '-' + request.resource.data.clave
         && request.resource.data.empresa in ['redonhielo', 'rolito']
         && request.resource.data.clave is string
@@ -1346,7 +1396,7 @@ service cloud.firestore {
         && (isTangoBridge() || isOperator()
             || resource.data.solicitadoPor.uid == request.auth.uid);
 
-      allow create: if request.auth != null && (isSupervisor() || isCaja() || isChofer() || myRole() == 'super_admin')
+      allow create: if request.auth != null && hasAlguno(['supervisor', 'caja', 'chofer', 'super_admin'])
         && request.resource.data.tipo == 'saldoCliente'
         && request.resource.data.estado == 'pendiente'
         && request.resource.data.solicitadoPor.uid == request.auth.uid
@@ -1361,7 +1411,7 @@ service cloud.firestore {
       // (2026-09-10): la ficha manda los códigos del cliente en una empresa; el bridge
       // corre el lector solo para esos códigos y responde por el mismo doc.
       allow create: if request.auth != null
-        && (isSupervisor() || isCaja() || isChofer() || isOperator() || isFacturacion() || isTesoreria())
+        && hasAlguno(['supervisor', 'caja', 'chofer', 'super_admin', 'logistica', 'facturacion', 'tesoreria'])
         && request.resource.data.tipo == 'sincronizarComprobantes'
         && request.resource.data.estado == 'pendiente'
         && request.resource.data.solicitadoPor.uid == request.auth.uid
@@ -1713,7 +1763,7 @@ service cloud.firestore {
     match /staffIndex/{username} {
       allow get:  if true;
       allow list: if request.auth != null && isStaff();
-      allow write: if request.auth != null && myRole() == 'super_admin';
+      allow write: if request.auth != null && esSuperAdmin();
     }
 
     match /dniIndex/{dni} {
@@ -1725,7 +1775,7 @@ service cloud.firestore {
     match /staffDniIndex/{dni} {
       allow get:  if true;
       allow list: if request.auth != null && isStaff();
-      allow write: if request.auth != null && myRole() == 'super_admin';
+      allow write: if request.auth != null && esSuperAdmin();
     }
 
     match /tecnicoDniIndex/{dni} {
@@ -1756,7 +1806,7 @@ service cloud.firestore {
     // nombre de otro — el actor.uid tiene que ser quien escribe), pero solo
     // super_admin lo lee. Ver plan de migración del Backoffice, Fase 4.
     match /historialAdmin/{eventoId} {
-      allow read:   if request.auth != null && myRole() == 'super_admin';
+      allow read:   if request.auth != null && esSuperAdmin();
       allow create: if request.auth != null && isStaff()
         && request.resource.data.actor.uid == request.auth.uid;
       allow update, delete: if false;

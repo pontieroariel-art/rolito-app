@@ -6,8 +6,22 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
+    // Perfil del usuario autenticado. Storage no tiene custom claims propios,
+    // así que se lee el documento (una lectura por operación, igual que antes).
+    function perfil() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+    }
+
     function miRol() {
-      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.rol;
+      return perfil().rol;
+    }
+
+    // Mismo criterio que firestore.rules (2026-09-13): un permiso funcional se
+    // pregunta sobre el CONJUNTO de roles, no solo sobre el principal. Lucas es
+    // de logística y además hace facturación: tiene que poder archivar el PDF
+    // de una factura desde Recupero de facturas.
+    function tieneAlguno(rs) {
+      return miRol() in rs || perfil().get('rolesExtra', []).hasAny(rs);
     }
 
     // Fotos del catálogo: catalogo/{productoId}
@@ -20,7 +34,7 @@ service firebase.storage {
     match /catalogo/{productoId} {
       allow read: if true;
       allow write: if request.auth != null
-        && miRol() in ['super_admin', 'gerente_comercial', 'comercial']
+        && tieneAlguno(['super_admin', 'gerente_comercial', 'comercial'])
         && request.resource.size < 2 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
     }
@@ -33,7 +47,7 @@ service firebase.storage {
     match /ticketsServicio/{ticketId}/{archivo} {
       allow read: if request.auth != null;
       allow write: if request.auth != null
-        && miRol() in ['supervisor', 'heladeras_encargado', 'super_admin', 'gerente_comercial']
+        && tieneAlguno(['supervisor', 'heladeras_encargado', 'super_admin', 'gerente_comercial'])
         && request.resource.size < 3 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
     }
@@ -45,7 +59,7 @@ service firebase.storage {
     match /facturas/{empresa}/{archivo} {
       allow read: if request.auth != null && miRol() != 'cliente';
       allow write: if request.auth != null
-        && miRol() in ['super_admin', 'facturacion']
+        && tieneAlguno(['super_admin', 'facturacion'])
         && request.resource.size < 3 * 1024 * 1024
         && request.resource.contentType == 'application/pdf';
     }
