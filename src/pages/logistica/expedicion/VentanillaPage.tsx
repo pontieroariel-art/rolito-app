@@ -3,7 +3,7 @@ import { AlertTriangle, Ban, CheckCircle2, Clock, FileText, Printer, ShoppingCar
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
-import ClienteCombobox, { indexAComboItems } from '@/components/ui/ClienteCombobox'
+import ClienteCombobox from '@/components/common/ClienteCombobox'
 import SelectorSucursal from '@/components/ventas/SelectorSucursal'
 import { clienteEnSucursal, necesitaSucursal } from '@/utils/sucursalesTango'
 import { clienteImpreso } from '@/utils/clienteImpreso'
@@ -92,7 +92,6 @@ const textoAnulacion = (a: AnulacionEnVenta): { texto: string; clase: string } =
 export default function VentanillaPage() {
   const { user } = useAuth()
   // Índice liviano para buscar (2026-09-12): antes bajaba las 2.000+ fichas completas.
-  const { clientes } = useClientesIndex()
   const { catalogo } = useCatalogo()
   const plantaId = user?.planta ?? 'torcuato'
   const fecha = useFechaDelDia()
@@ -440,7 +439,7 @@ export default function VentanillaPage() {
         {tipoCliente === 'registrado' ? (
           <div>
             <label className="text-xs text-gray-500 mb-1 block">Cliente</label>
-            <ClienteCombobox items={indexAComboItems(clientes)} value={clienteId} onChange={setClienteId} placeholder="Buscar cliente…" />
+            <ClienteCombobox value={clienteId} onChange={setClienteId} placeholder="Buscar cliente…" />
             <div className="mt-2">
               <SelectorSucursal cliente={cliente} empresa={empresaDeCanal(canal)} value={sucursal} onChange={setSucursal} />
             </div>

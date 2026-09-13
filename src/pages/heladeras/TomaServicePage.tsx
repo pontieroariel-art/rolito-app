@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { coincideBusqueda, normalizarBusqueda } from '@/utils/busqueda'
 import { useSearchParams } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import Button from '../../components/ui/Button'
 import { useAuth } from '../../context/AuthContext'
-import { useClientesIndex } from '@/hooks/useClientesIndex'
+import ClienteCombobox from '@/components/common/ClienteCombobox'
 import { useHeladeras } from '../../hooks/useHeladeras'
 import { useHeladerasPorCliente } from '../../hooks/useHeladerasPorCliente'
 import { useMotivosReparacion } from '../../hooks/useReparacionCatalogos'
@@ -47,8 +46,6 @@ export default function TomaServicePage() {
   // va por la suscripción acotada a ese cliente.
   const [modo, setModo] = useState<'cliente' | 'heladera'>('cliente')
   const [cliente, setCliente] = useState<UserProfile | null>(null)
-  // Índice liviano solo mientras se busca por cliente (2026-09-12).
-  const { clientes } = useClientesIndex({ enabled: modo === 'cliente' && !cliente })
   const { heladeras, loading: loadingHeladeras } = useHeladeras({ enabled: modo === 'heladera' && !cliente })
   const { heladeras: heladerasCliente, loading: loadingHeladerasCliente } = useHeladerasPorCliente(cliente?.uid ?? null)
   const { motivos } = useMotivosReparacion()
@@ -80,13 +77,6 @@ export default function TomaServicePage() {
     setModo('cliente')
     getUserDocument(clientIdPrefill).then((c) => { if (c) setCliente(c) })
   }, [clientIdPrefill, heladeraIdPrefill])
-
-  const resultadosCliente = useMemo(() => {
-    if (!normalizarBusqueda(busqueda) || cliente) return []
-    return clientes
-      .filter((c) => coincideBusqueda(busqueda, c.razonSocial, c.nombreContacto, c.cuit, c.codigoCliente))
-      .slice(0, 8)
-  }, [clientes, busqueda, cliente])
 
   const heladerasEnComodato = useMemo(() => heladeras.filter((h) => h.estado === 'en_comodato'), [heladeras])
 
@@ -172,29 +162,28 @@ export default function TomaServicePage() {
           </div>
         )}
 
-        {!cliente && !heladera && (
+        {!cliente && !heladera && modo === 'cliente' && (
+          <ClienteCombobox
+            modo="busqueda"
+            autoFocus
+            value=""
+            placeholder="Buscar por razón social, contacto o CUIT…"
+            onChange={async (uid) => { const ficha = await getUserDocument(uid); if (ficha) setCliente(ficha) }}
+          />
+        )}
+        {!cliente && !heladera && modo === 'heladera' && (
           <div className="relative">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
-              placeholder={modo === 'cliente' ? 'Buscar por razón social, contacto o CUIT…' : 'Buscar por código o número de serie…'}
+              placeholder="Buscar por código o número de serie…"
               className="w-full bg-white border border-[#D3D1C7] rounded-lg pl-9 pr-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
             />
-            {modo === 'cliente' && resultadosCliente.length > 0 && (
-              <div className="bg-white border border-[#D3D1C7] rounded-lg mt-1.5 divide-y divide-gray-100">
-                {resultadosCliente.map((c) => (
-                  <button key={c.uid} onClick={async () => { setBusqueda(''); const ficha = await getUserDocument(c.uid); if (ficha) setCliente(ficha) }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50">
-                    <p className="text-sm font-medium text-gray-900">{c.razonSocial}</p>
-                    <p className="text-xs text-gray-500">CUIT {c.cuit}{c.nombreContacto ? ` · ${c.nombreContacto}` : ''}</p>
-                  </button>
-                ))}
-              </div>
-            )}
-            {modo === 'heladera' && loadingHeladeras && (
+            {loadingHeladeras && (
               <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">Cargando heladeras…</div>
             )}
-            {modo === 'heladera' && resultadosHeladera.length > 0 && (
+            {resultadosHeladera.length > 0 && (
               <div className="bg-white border border-[#D3D1C7] rounded-lg mt-1.5 divide-y divide-gray-100">
                 {resultadosHeladera.map((h) => (
                   <button

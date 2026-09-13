@@ -8,7 +8,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
-import ClienteCombobox, { indexAComboItems } from '@/components/ui/ClienteCombobox'
+import ClienteCombobox from '@/components/common/ClienteCombobox'
 import SelectorSucursal from '@/components/ventas/SelectorSucursal'
 import { clienteEnSucursal, necesitaSucursal } from '@/utils/sucursalesTango'
 import SignaturePad, { SignaturePadHandle } from '@/components/heladeras/SignaturePad'
@@ -71,8 +71,6 @@ const money = (n: number) => `$${n.toLocaleString('es-AR')}`
 export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string } = {}) {
   const { user } = useAuth()
   // Búsqueda con el índice liviano (2026-09-10); la ficha completa se baja al elegir.
-  const { clientes, loading: loadingClientes } = useClientesIndex()
-  const itemsClientes = useMemo(() => indexAComboItems(clientes), [clientes])
   const { remitos: remitosCarga } = useRemitosCargaChofer()
   const { catalogo } = useCatalogo()
   // Depósito de Tango del vendedor: el que le vinculó Ajustes → Depósitos, o el
@@ -418,9 +416,7 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
           <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 flex items-center gap-1.5">
             <User size={13} /> Cliente
           </label>
-          {loadingClientes
-            ? <p className="text-xs text-gray-400">Cargando clientes…</p>
-            : <ClienteCombobox items={itemsClientes} value={clienteId} onChange={setClienteId} />}
+          <ClienteCombobox value={clienteId} onChange={setClienteId} />
           {clienteId && cargandoCliente && <p className="text-xs text-gray-400 mt-1">Cargando la ficha del cliente…</p>}
           <SelectorSucursal cliente={cliente} empresa={empresa} value={sucursal} onChange={setSucursal} />
           {reemision && (

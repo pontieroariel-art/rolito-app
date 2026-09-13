@@ -7,7 +7,7 @@ import { entregarReciboSupervisor } from '@/components/supervisor/CobranzaSuperv
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
-import ClienteCombobox, { indexAComboItems } from '@/components/ui/ClienteCombobox'
+import ClienteCombobox, { indexAComboItems } from '@/components/common/ClienteCombobox'
 import { useAuth } from '@/context/AuthContext'
 import { useOnline } from '@/hooks/useOnline'
 import { useClientesIndex } from '@/hooks/useClientesIndex'

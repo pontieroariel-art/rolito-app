@@ -7,7 +7,7 @@ import EnvioLoteModal from '@/components/facturacion/EnvioLoteModal'
 import VentasAppCliente from '@/components/facturacion/VentasAppCliente'
 import RemitosPendientesTango from '@/components/facturacion/RemitosPendientesTango'
 import { useAuth } from '@/context/AuthContext'
-import { useClientesIndex } from '@/hooks/useClientesIndex'
+import ClienteCombobox from '@/components/common/ClienteCombobox'
 import { useClienteSeleccionado } from '@/hooks/useClienteSeleccionado'
 import { useTangoComprobantes } from '@/hooks/useTangoComprobantes'
 import { useRefrescarComprobantesTango } from '@/hooks/useRefrescarComprobantesTango'
@@ -15,7 +15,7 @@ import { generarPdfsLote, type ProgresoLote } from '@/services/comprobantesLoteS
 import { obtenerFacturaPdf, obtenerRemitoPdf } from '@/services/facturaAdeudadaService'
 import { subscribeSaldoCliente } from '@/services/saldosTangoService'
 import { reportError } from '@/services/observability'
-import { coincideBusqueda, normalizarBusqueda, INPUT_BUSQUEDA_PROPS } from '@/utils/busqueda'
+import { INPUT_BUSQUEDA_PROPS } from '@/utils/busqueda'
 import { compartirArchivos, descargarArchivos, puedeCompartirArchivos } from '@/utils/compartir'
 import { armarComposicion, emailDelCliente, opcionesSucursal, type OpcionSucursal } from '@/utils/comprobantesTango'
 import {
@@ -37,7 +37,6 @@ import type { GrupoRecibo as Grupo } from '@/utils/composicionSaldos'
 // también se entrega de a una. Al elegir un cliente se pide al bridge que
 // refresque sus comprobantes desde Tango (una vez por cliente).
 
-const MAX_RESULTADOS = 50
 const INPUT = 'w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'
 const TONO: Record<ReturnType<typeof etiquetaEstado>['tono'], string> = {
   pendiente: 'text-red-600', ok: 'text-accent', neutro: 'text-gray-500', anulado: 'text-gray-400',
@@ -74,49 +73,17 @@ export default function ComprobantesClientesPage() {
 // ── Buscador ──────────────────────────────────────────────────────────────────
 
 function BuscadorClientes({ seleccionado, onElegir }: { seleccionado: string; onElegir: (uid: string) => void }) {
-  const { clientes, loading } = useClientesIndex()
-  const [busqueda, setBusqueda] = useState('')
-  const resultados = useMemo(() => {
-    const q = normalizarBusqueda(busqueda)
-    const base = q
-      ? clientes.filter((c) => coincideBusqueda(q, c.razonSocial, c.nombreContacto, c.cuit, c.codigos.join(' '), c.sucursales.join(' '), c.direccion, c.localidad))
-      : clientes
-    return base.slice(0, MAX_RESULTADOS)
-  }, [clientes, busqueda])
-
   return (
-    <aside className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-3 space-y-2 lg:sticky lg:top-4">
-      <div className="relative">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-        <input {...INPUT_BUSQUEDA_PROPS} autoFocus value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
-          placeholder="Nombre, código de Tango, CUIT o dirección…" aria-label="Buscar cliente"
-          className={`${INPUT} pl-9`} />
-      </div>
-      {loading ? (
-        <p className="text-sm text-gray-500 text-center py-6">Cargando clientes…</p>
-      ) : resultados.length === 0 ? (
-        <p className="text-sm text-gray-500 text-center py-6">Ningún cliente coincide.</p>
-      ) : (
-        <>
-          <p className="text-[11px] text-gray-500 px-1">
-            {resultados.length === MAX_RESULTADOS ? `Primeros ${MAX_RESULTADOS} de ${clientes.length}: afiná la búsqueda` : `${resultados.length} ${resultados.length === 1 ? 'cliente' : 'clientes'}`}
-          </p>
-          <ul className="max-h-[60vh] overflow-y-auto divide-y divide-gray-100 -mx-1">
-            {resultados.map((c) => (
-              <li key={c.uid}>
-                <button type="button" onClick={() => onElegir(c.uid)}
-                  className={`w-full text-left px-2 py-2 rounded-lg transition-colors ${c.uid === seleccionado ? 'bg-accent/10' : 'hover:bg-[#F8F7F2]'}`}>
-                  <p className="text-sm font-medium text-gray-900 truncate">{c.razonSocial}</p>
-                  <p className="text-xs text-gray-500 truncate">
-                    {c.codigos.length ? `${c.codigos[0]}${c.codigos.length > 1 ? ` +${c.codigos.length - 1}` : ''}` : 'Sin código de Tango'}{c.cuit ? ` · CUIT ${c.cuit}` : ''}
-                  </p>
-                  {c.localidad && <p className="text-[11px] text-gray-400 truncate">{c.localidad}</p>}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
+    <aside className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-3 lg:sticky lg:top-4">
+      <ClienteCombobox
+        modo="busqueda"
+        listaSiempre
+        autoFocus
+        value={seleccionado}
+        onChange={onElegir}
+        placeholder="Nombre, código de Tango, CUIT o dirección…"
+        listaClassName="max-h-[60vh]"
+      />
     </aside>
   )
 }

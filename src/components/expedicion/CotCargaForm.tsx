@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { FileCheck2 } from 'lucide-react'
-import ClienteCombobox, { indexAComboItems } from '@/components/ui/ClienteCombobox'
+import ClienteCombobox from '@/components/common/ClienteCombobox'
+import type { ClienteIndex } from '@/types'
 import { useClientesIndex } from '@/hooks/useClientesIndex'
 import { useClienteSeleccionado } from '@/hooks/useClienteSeleccionado'
 import { sucursalesDe, etiquetaSucursal } from '@/utils/sucursalesTango'
@@ -40,8 +41,8 @@ export default function CotCargaForm({ plantaId, cfg, kg, patente, respaldoAuto 
   const [salida, setSalida] = useState(() => salidaSugerida())
   const [domicilioEditado, setDomicilioEditado] = useState<CotDomicilio | null>(null)
 
-  const { clientes } = useClientesIndex()
-  const items = useMemo(() => indexAComboItems(clientes.filter((c) => c.vinculadoTango)), [clientes])
+  // Solo clientes que Tango conoce: el COT necesita el código de la cuenta.
+  const soloVinculados = useCallback((c: ClienteIndex) => c.vinculadoTango, [])
   const { cliente } = useClienteSeleccionado(clienteUid || null)
   const sucursales = useMemo(() => (cliente ? sucursalesDe(cliente, 'redonhielo') : []), [cliente])
 
@@ -110,7 +111,7 @@ export default function CotCargaForm({ plantaId, cfg, kg, patente, respaldoAuto 
         <div className="space-y-2">
           <div>
             <label className={label}>Cliente destinatario (uno de la zona de reparto)</label>
-            <ClienteCombobox items={items} value={clienteUid} onChange={setClienteUid} placeholder="Buscar cliente…" />
+            <ClienteCombobox filtro={soloVinculados} value={clienteUid} onChange={setClienteUid} placeholder="Buscar cliente…" />
           </div>
           {sucursales.length > 1 && (
             <div>

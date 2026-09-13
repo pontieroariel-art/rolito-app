@@ -1,12 +1,10 @@
 import { useMemo, useState } from 'react'
-import { coincideBusqueda, normalizarBusqueda } from '@/utils/busqueda'
-import { Search } from 'lucide-react'
 import Button from '../../components/ui/Button'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
+import ClienteCombobox from '@/components/common/ClienteCombobox'
 import AsignarEquipoModal from '../../components/heladeras/AsignarEquipoModal'
 import RetirarEquipoModal from '../../components/heladeras/RetirarEquipoModal'
 import { useAuth } from '../../context/AuthContext'
-import { useClientesIndex } from '@/hooks/useClientesIndex'
 import { getUserDocument } from '../../services/userService'
 import { useHeladeras } from '../../hooks/useHeladeras'
 import { usePasosTaller } from '../../hooks/usePasosTaller'
@@ -15,23 +13,14 @@ import { Heladera, UserProfile } from '../../types'
 
 export default function AsignacionEquiposPage() {
   const { user } = useAuth()
-  const { clientes, loading: loadingClientes } = useClientesIndex()
   const { heladeras, loading: loadingHeladeras } = useHeladeras()
   const { pasos: catalogoPasos } = usePasosTaller()
 
-  const [busqueda,   setBusqueda]   = useState('')
   const [cliente,    setCliente]    = useState<UserProfile | null>(null)
   const [asignarAbierto, setAsignarAbierto] = useState(false)
   const [retirarObjetivo, setRetirarObjetivo] = useState<Heladera | null>(null)
 
   const puedeGestionar = puedeGestionarHeladeras(user?.rol)
-
-  const resultados = useMemo(() => {
-    if (!normalizarBusqueda(busqueda) || cliente) return []
-    return clientes
-      .filter((c) => coincideBusqueda(busqueda, c.razonSocial, c.nombreContacto, c.cuit, c.codigoCliente, ...c.codigos, ...c.sucursales))
-      .slice(0, 8)
-  }, [clientes, busqueda, cliente])
 
   const heladerasDelCliente = useMemo(
     () => (cliente ? heladeras.filter((h) => h.clienteAsignadoId === cliente.uid) : []),
@@ -39,7 +28,7 @@ export default function AsignacionEquiposPage() {
   )
   const heladerasDisponibles = useMemo(() => heladeras.filter((h) => h.estado === 'disponible'), [heladeras])
 
-  if (loadingClientes || loadingHeladeras) return <LoadingSpinner fullScreen />
+  if (loadingHeladeras) return <LoadingSpinner fullScreen />
 
   return (
     <div className="min-h-screen min-h-dvh bg-[#F8F7F2] text-gray-900">
@@ -50,33 +39,13 @@ export default function AsignacionEquiposPage() {
         </div>
 
         {!cliente ? (
-          <div>
-            <div className="relative">
-              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-                placeholder="Buscar por razón social, contacto, CUIT o código de cliente…"
-                className="w-full bg-white border border-[#D3D1C7] rounded-lg pl-9 pr-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
-              />
-            </div>
-            {resultados.length > 0 && (
-              <div className="bg-white border border-[#D3D1C7] rounded-lg mt-1.5 divide-y divide-gray-100">
-                {resultados.map((c) => (
-                  <button
-                    key={c.uid}
-                    onClick={async () => { setBusqueda(''); const ficha = await getUserDocument(c.uid); if (ficha) setCliente(ficha) }}
-                    className="w-full text-left px-3 py-2.5 hover:bg-gray-50 transition-colors"
-                  >
-                    <p className="text-sm font-medium text-gray-900">{c.razonSocial}</p>
-                    <p className="text-xs text-gray-500">
-                      {c.codigoCliente ? `Código ${c.codigoCliente} · ` : ''}CUIT {c.cuit}{c.nombreContacto ? ` · ${c.nombreContacto}` : ''}
-                    </p>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <ClienteCombobox
+            modo="busqueda"
+            autoFocus
+            value=""
+            placeholder="Buscar por razón social, contacto, CUIT o código de cliente…"
+            onChange={async (uid) => { const ficha = await getUserDocument(uid); if (ficha) setCliente(ficha) }}
+          />
         ) : (
           <div className="space-y-4">
             <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 flex justify-between items-center">

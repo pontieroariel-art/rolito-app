@@ -1,9 +1,8 @@
-import { useState, useRef, useMemo } from 'react'
-import { coincideBusqueda, normalizarBusqueda } from '@/utils/busqueda'
+import { useState, useRef } from 'react'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import SignaturePad, { SignaturePadHandle } from './SignaturePad'
-import { useClientesIndex } from '@/hooks/useClientesIndex'
+import ClienteCombobox from '@/components/common/ClienteCombobox'
 import { getUserDocument } from '../../services/userService'
 import { asignarHeladera, Actor } from '../../services/asignacionHeladeraService'
 import { generateContratoComodato, generateOrdenEntrega } from '../../utils/pdf'
@@ -27,8 +26,6 @@ export default function AsignarEquipoModal({
   actor:    Actor
   onClose:  () => void
 }) {
-  const { clientes } = useClientesIndex({ enabled: !clienteFijo })
-  const [busqueda,          setBusqueda]          = useState('')
   const [clienteElegido,    setClienteElegido]    = useState<UserProfile | null>(clienteFijo ?? null)
   const [heladeraElegida,   setHeladeraElegida]   = useState<Heladera | null>(heladeraFija ?? null)
   const [direccionElegida,  setDireccionElegida]  = useState<DeliveryAddress | null>(null)
@@ -45,14 +42,6 @@ export default function AsignarEquipoModal({
   const direcciones = clienteElegido?.addresses ?? []
   const necesitaElegirDireccion = direcciones.length > 1 && !direccionElegida
   const direccionResuelta = direccionElegida ?? (direcciones.length === 1 ? direcciones[0] : null)
-
-  const resultadosCliente = useMemo(() => {
-    if (clienteFijo) return []
-    if (!normalizarBusqueda(busqueda)) return []
-    return clientes
-      .filter((c) => coincideBusqueda(busqueda, c.razonSocial, c.nombreContacto, c.cuit, c.codigoCliente))
-      .slice(0, 8)
-  }, [clientes, busqueda, clienteFijo])
 
   const handleSubmit = async () => {
     if (!clienteElegido)  { setError('Elegí un cliente'); return }
@@ -150,27 +139,13 @@ export default function AsignarEquipoModal({
           !clienteElegido ? (
             <div>
               <label className="text-xs text-gray-500 mb-1 block">Cliente</label>
-              <input
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
+              <ClienteCombobox
+                modo="busqueda"
+                autoFocus
+                value=""
                 placeholder="Buscar por razón social, contacto o CUIT…"
-                className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
+                onChange={async (uid) => { const ficha = await getUserDocument(uid); if (ficha) setClienteElegido(ficha); else setError('No se pudo abrir la ficha del cliente.') }}
               />
-              {resultadosCliente.length > 0 && (
-                <div className="border border-[#D3D1C7] rounded-lg mt-1.5 divide-y divide-gray-100 max-h-56 overflow-y-auto">
-                  {resultadosCliente.map((c) => (
-                    <button
-                      key={c.uid}
-                      type="button"
-                      onClick={async () => { setBusqueda(''); const ficha = await getUserDocument(c.uid); if (ficha) setClienteElegido(ficha); else setError('No se pudo abrir la ficha del cliente.') }}
-                      className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors"
-                    >
-                      <p className="text-sm font-medium text-gray-900">{c.razonSocial}</p>
-                      <p className="text-xs text-gray-500">CUIT {c.cuit}{c.nombreContacto ? ` · ${c.nombreContacto}` : ''}</p>
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
           ) : (
             <div className="bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg p-3 flex justify-between items-center">

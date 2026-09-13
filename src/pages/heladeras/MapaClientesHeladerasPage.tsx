@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { coincideBusqueda, normalizarBusqueda } from '@/utils/busqueda'
 import { useNavigate } from 'react-router-dom'
 import { GoogleMap, Marker } from '@react-google-maps/api'
-import { Search } from 'lucide-react'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useAuth } from '../../context/AuthContext'
 import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
 import { useClientesActivos } from '../../hooks/useClientesActivos'
+import ClienteCombobox from '@/components/common/ClienteCombobox'
 import { subscribePreventivosDelAnio, marcarPreventivoHecho, desmarcarPreventivo } from '../../services/preventivoService'
 import { makePin } from '../../utils/mapPins'
 import { haversineKm, LatLng } from '../../utils/routeMath'
@@ -40,7 +39,6 @@ export default function MapaClientesHeladerasPage() {
 
   const hechoSet = useMemo(() => new Set(preventivos.filter((p) => p.hecho).map((p) => p.clientId)), [preventivos])
 
-  const [busquedaCentro, setBusquedaCentro] = useState('')
   const [centro, setCentro] = useState<UserProfile | null>(null)
   const [radioKm, setRadioKm] = useState(10)
   const [seleccionado, setSeleccionado] = useState<string | null>(null)
@@ -59,13 +57,6 @@ export default function MapaClientesHeladerasPage() {
     if (!centro || !centroPos) return conCoords
     return conCoords.filter((c) => c.user.uid === centro.uid || haversineKm(centroPos, c.pos) <= radioKm)
   }, [conCoords, centro, centroPos, radioKm])
-
-  const resultadosBusqueda = useMemo(() => {
-    if (!normalizarBusqueda(busquedaCentro) || centro) return []
-    return clientes
-      .filter((c) => coincideBusqueda(busquedaCentro, c.razonSocial, c.nombreContacto, c.cuit, c.codigoCliente))
-      .slice(0, 8)
-  }, [clientes, busquedaCentro, centro])
 
   const mapRef = useRef<google.maps.Map | null>(null)
   const pinCache = useRef<Map<string, google.maps.Icon>>(new Map())
@@ -104,23 +95,15 @@ export default function MapaClientesHeladerasPage() {
         <div className="p-3 border-b border-[#D3D1C7] bg-white flex flex-wrap items-center gap-2">
           <h1 className="text-base font-bold text-gray-900 mr-2">Mapa de clientes</h1>
           {!centro ? (
-            <div className="relative flex-1 min-w-[220px] max-w-xs">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                value={busquedaCentro}
-                onChange={(e) => setBusquedaCentro(e.target.value)}
+            <div className="flex-1 min-w-[220px] max-w-xs">
+              <ClienteCombobox
+                modo="busqueda"
+                listaFlotante
+                compacto
+                value=""
                 placeholder="Centrar en un cliente…"
-                className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg pl-8 pr-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
+                onChange={(uid) => setCentro(clientes.find((c) => c.uid === uid) ?? null)}
               />
-              {resultadosBusqueda.length > 0 && (
-                <div className="absolute z-30 top-full left-0 right-0 bg-white border border-[#D3D1C7] rounded-lg mt-1 divide-y divide-gray-100 shadow-lg">
-                  {resultadosBusqueda.map((c) => (
-                    <button key={c.uid} onClick={() => { setCentro(c); setBusquedaCentro('') }} className="w-full text-left px-3 py-2 hover:bg-gray-50 text-sm">
-                      {c.razonSocial}
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
           ) : (
             <div className="flex items-center gap-2 bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-1.5">
