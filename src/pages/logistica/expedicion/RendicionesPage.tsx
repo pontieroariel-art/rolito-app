@@ -22,6 +22,7 @@ import { Plegable } from '@/components/ui/Plegable'
 import CierreLiquidacionModal, { type DatosCierre, type TextosCierre } from '@/components/expedicion/liquidacion/CierreLiquidacionModal'
 import { MOTIVOS_CIERRE_MOSTRADOR, MOTIVOS_DIFERENCIA_LIQUIDACION, type Rendicion, type VentaVentanilla } from '@/types'
 import { nombreClienteVenta } from '@/utils/nombreClienteVenta'
+import { TH as th, TD as td } from '@/components/common/tabla'
 
 const TEXTOS_CAJA: TextosCierre = {
   titulo: 'Cerrar mi caja', sujeto: 'caja', aRendir: 'Efectivo en caja', recibido: 'Contado',
@@ -120,8 +121,6 @@ export default function RendicionesPage() {
   }
 
   const inputClass = 'bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'
-  const th = 'text-left text-[11px] uppercase tracking-wider text-gray-500 font-semibold px-2 py-1.5 border-b border-[#D3D1C7]'
-  const td = 'px-2 py-1.5 border-b border-gray-100 text-sm'
   const compartible = puedeCompartirArchivos()
 
   return (

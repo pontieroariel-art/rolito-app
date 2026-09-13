@@ -15,6 +15,7 @@ import ValoresEnPapel from '@/components/expedicion/ValoresEnPapel'
 import { Plegable } from '@/components/ui/Plegable'
 import CierreLiquidacionModal, { type DatosCierre, type TextosCierre } from '@/components/expedicion/liquidacion/CierreLiquidacionModal'
 import { MOTIVOS_DIFERENCIA_LIQUIDACION, MOTIVOS_ENTREGA_TESORERIA, PLANTAS, type EntregaTesoreria } from '@/types'
+import { TH as th, TD as td } from '@/components/common/tabla'
 
 const TEXTOS_CONFIRMAR: TextosCierre = {
   titulo: 'Confirmar entrega', sujeto: 'tesorería', aRendir: 'Entregado por caja', recibido: 'Contado en tesorería',
@@ -85,8 +86,6 @@ export default function EntregasTesoreriaPage() {
   }
 
   const inputClass = 'bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'
-  const th = 'text-left text-[11px] uppercase tracking-wider text-gray-500 font-semibold px-2 py-1.5 border-b border-[#D3D1C7]'
-  const td = 'px-2 py-1.5 border-b border-gray-100 text-sm'
   const btn = 'inline-flex items-center gap-1 rounded-lg border border-[#D3D1C7] bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:border-accent hover:text-accent'
   const dif = (n: number) => <span className={`tabular-nums font-semibold ${n === 0 ? 'text-gray-500' : n < 0 ? 'text-red-600' : 'text-amber-700'}`}>{formatoARS(n)}</span>
   const compartible = puedeCompartirArchivos()

@@ -3,6 +3,7 @@ import { formatoARS } from '@/utils/money'
 import { describirRacks } from '@/utils/envases'
 import type { LiquidacionCalculada, RepartoClasificado } from '@/utils/liquidacion'
 import type { DescargaCamion, Liquidacion, RemitoCarga } from '@/types'
+import { TH as th, TD as td } from '@/components/common/tabla'
 
 // Barra de estado, tarjetas de plata con el cuadre, y los plegables de resumen
 // por cliente / por producto / envases de la liquidación detallada.
@@ -86,9 +87,6 @@ export function TarjetasPlata({ reparto, calc, efectivoRecibido, onEfectivoRecib
 
 // Plegable vive en components/ui/Plegable (lo comparte la ficha del supervisor).
 export { Plegable } from '@/components/ui/Plegable'
-
-const th = 'text-left text-[11px] uppercase tracking-wider text-gray-500 font-semibold px-2 py-1.5 border-b border-[#D3D1C7]'
-const td = 'px-2 py-1.5 border-b border-gray-100 text-sm'
 const num = (n: number) => <span className="tabular-nums">{n}</span>
 
 export function ResumenPorCliente({ reparto }: { reparto: RepartoClasificado }) {

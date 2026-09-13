@@ -11,6 +11,7 @@ import { addDaysStr } from '@/utils/helpers'
 import { formatoARS } from '@/utils/money'
 import { generateRendicionMostrador } from '@/utils/rendicionPdf'
 import { MOTIVOS_DIFERENCIA_LIQUIDACION, PLANTAS, type PlantaId, type Rendicion } from '@/types'
+import { TH as th, TD as td } from '@/components/common/tabla'
 
 // Rendiciones para tesorería (2026-09-09): todos los cierres de caja del día
 // (por ahora los de mostrador; después repartidores y supervisores), con su
@@ -57,8 +58,6 @@ export default function RendicionesTesoreriaPage() {
 
   const dif = (n: number) => <span className={`tabular-nums font-semibold ${n === 0 ? 'text-gray-500' : n < 0 ? 'text-red-600' : 'text-amber-700'}`}>{formatoARS(n)}</span>
   const inputClass = 'bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'
-  const th = 'text-left text-[11px] uppercase tracking-wider text-gray-500 font-semibold px-2 py-1.5 border-b border-[#D3D1C7]'
-  const td = 'px-2 py-1.5 border-b border-gray-100 text-sm'
   const puedeValidar = user?.rol === 'tesoreria' || user?.rol === 'super_admin' || user?.rol === 'logistica'
 
   return (

@@ -19,6 +19,7 @@ import { armarNotaCreditoDeVenta } from '@/utils/facturaDeVenta'
 import { generateFacturaArcaPdf } from '@/utils/facturaArcaPdf'
 import { descargarArchivo } from '@/utils/compartir'
 import { MOTIVOS_ANULACION, PLANTAS, type AnulacionVentanilla, type EstadoAnulacion } from '@/types'
+import { TH as th, TD as td } from '@/components/common/tabla'
 
 const LETRA: Record<number, string> = { 1: 'A', 6: 'B', 11: 'C', 3: 'A', 8: 'B', 13: 'C' }
 const nro = (pv: number, n: number) => `${String(pv).padStart(5, '0')}-${String(n).padStart(8, '0')}`
@@ -96,8 +97,6 @@ export default function AnulacionesPage() {
   }
 
   const inputClass = 'w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'
-  const th = 'text-left text-[11px] uppercase tracking-wider text-gray-500 font-semibold px-2 py-1.5 border-b border-[#D3D1C7]'
-  const td = 'px-2 py-1.5 border-b border-gray-100 text-sm'
   const btn = 'inline-flex items-center gap-1 rounded-lg border border-[#D3D1C7] bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:border-accent hover:text-accent'
 
   return (

@@ -16,6 +16,7 @@ import { resumenLive, type FilaCalle, type FilaVentanilla, type PlataCobranzas, 
 import { Plegable } from '@/components/ui/Plegable'
 import { CobranzaSupervisorCard } from '@/components/supervisor/CobranzaSupervisorCard'
 import { PLANTAS, type Cobranza, type EntregaTesoreria, type Liquidacion, type PlantaId, type RemitoCarga, type Rendicion, type VentaCamion, type VentaVentanilla } from '@/types'
+import { TH, TD } from '@/components/common/tabla'
 
 // Tablero en vivo de tesorería (2026-09-09): lo que se está vendiendo en la
 // calle y en las ventanillas de Torcuato y Merlo, lo que cobran choferes y
@@ -135,8 +136,6 @@ export default function TesoreriaLivePage() {
   )
 }
 
-const TH = 'text-left text-[11px] uppercase tracking-wider text-gray-500 font-semibold px-2 py-1.5 border-b border-[#D3D1C7]'
-const TD = 'px-2 py-1.5 border-b border-gray-100 text-sm'
 
 const lineasCob = (c: PlataCobranzas): Array<[string, string]> => [['Efectivo', formatoARS(c.efectivo)], ['Transferencia', formatoARS(c.transferencia)], [`Cheques (${c.cheques.cantidad})`, formatoARS(c.cheques.total)], [`Retenciones (${c.retenciones.cantidad})`, formatoARS(c.retenciones.total)]]
 
