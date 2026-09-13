@@ -64,6 +64,19 @@ async function empresa(nombre, database, desde) {
 
   // (a) Cada tipo: cuántos, desde/hasta, signo del importe, cuántos tienen renglones y CAE.
   //     El signo es lo que dice si el comprobante SUMA o RESTA en la cuenta del cliente.
+  // TCOMP_IN_V es la CLASE interna del comprobante en Tango — FC factura, CC crédito,
+  // DC débito, RC recibo — y es lo que distingue un crédito de un débito, porque los
+  // importes de GVA12 son todos positivos. Se agrupa sin parámetros a propósito: comparar
+  // texto con un parámetro choca con la collation Latin1_General_BIN de las columnas.
+  const clases = await intentar('clase por tipo', () => consulta(p, `
+    SELECT T_COMP, TCOMP_IN_V, COUNT(*) AS N FROM GVA12 GROUP BY T_COMP, TCOMP_IN_V`)) ?? []
+  const clasePorTipo = {}
+  for (const c of clases) {
+    const k = String(c.T_COMP ?? '').trim()
+    const v = String(c.TCOMP_IN_V ?? '').trim() || '(vacío)'
+    clasePorTipo[k] = clasePorTipo[k] ? `${clasePorTipo[k]}+${v}` : v
+  }
+
   const tipos = await intentar('conteo por tipo', () => consulta(p, `
     SELECT f.T_COMP,
            COUNT(*)                                            AS CANTIDAD,
@@ -93,34 +106,43 @@ async function empresa(nombre, database, desde) {
   if (!colDesc || !colTipo) log(`  (GVA43: no encontré tipo/descripción. Columnas: ${[...cols].join(', ')})`)
   const desc = Object.fromEntries(talonarios.map((t) => [String(t.TIPO ?? '').trim(), t]))
 
-  log(`\nTIPO  CANT.    DESDE       HASTA       IMPORTE     CAE      RENGL.   EJEMPLO           NOMBRE EN TANGO (talonarios)`)
+  log(`\nTIPO  CLASE   CANT.    DESDE       HASTA       CAE      RENGL.   EJEMPLO           NOMBRE EN TANGO (talonarios)`)
   log('─'.repeat(110))
   for (const t of tipos) {
     const cod = String(t.T_COMP ?? '').trim()
     const signo = t.NEGATIVOS && !t.POSITIVOS ? 'negativo' : t.POSITIVOS && !t.NEGATIVOS ? 'positivo' : 'mezcla'
     const cae = t.CON_CAE === t.CANTIDAD ? 'todos' : t.CON_CAE ? `${t.CON_CAE}/${t.CANTIDAD}` : 'ninguno'
     const ren = t.CON_RENGLONES === t.CANTIDAD ? 'todos' : t.CON_RENGLONES ? `${t.CON_RENGLONES}/${t.CANTIDAD}` : 'ninguno'
-    log(`${txt(cod, 5)} ${nro(t.CANTIDAD, 7)}  ${fecha(t.DESDE)}  ${fecha(t.HASTA)}  ${txt(signo, 10)}  ${txt(cae, 8)} ${txt(ren, 8)} ${txt(t.EJEMPLO, 17)} ${txt(desc[cod]?.DESCRIPCION ?? '(sin talonario)', 34)}`)
+    log(`${txt(cod, 5)} ${txt(clasePorTipo[cod] ?? signo.slice(0,0), 7)} ${nro(t.CANTIDAD, 7)}  ${fecha(t.DESDE)}  ${fecha(t.HASTA)}  ${txt(cae, 8)} ${txt(ren, 8)} ${txt(t.EJEMPLO, 17)} ${txt(desc[cod]?.DESCRIPCION ?? '(sin talonario)', 34)}`)
   }
 
   // (c) Un ejemplo entero de cada tipo que NO sea factura: para ver de qué se trata.
   log(`\nEJEMPLO DE CADA TIPO (el más reciente que no sea FAC)`)
   log('─'.repeat(110))
+  // El más reciente de cada tipo en UNA consulta con ROW_NUMBER, sin comparar texto contra un
+  // parámetro: esa comparación choca con la collation de las columnas de Tango (Latin1_General_BIN)
+  // y en la base de Rolito ni COLLATE DATABASE_DEFAULT alcanza. El único parámetro es la fecha.
+  const ejemplos = await intentar('ejemplos por tipo', () => consulta(p, `
+    SELECT * FROM (
+      SELECT *, ROW_NUMBER() OVER (PARTITION BY T_COMP ORDER BY FECHA_EMIS DESC) AS RN
+      FROM GVA12 WHERE FECHA_EMIS >= @desde
+    ) x WHERE RN = 1`, { desde })) ?? []
+  const renglonesTodos = await intentar('renglones de los ejemplos', () => consulta(p, `
+    SELECT r.T_COMP, r.N_COMP, r.COD_ARTICU, a.DESCRIPCIO, r.CANTIDAD
+    FROM GVA53 r
+    LEFT JOIN STA11 a ON a.COD_ARTICU = r.COD_ARTICU
+    WHERE r.N_COMP IN (SELECT N_COMP FROM (
+      SELECT N_COMP, ROW_NUMBER() OVER (PARTITION BY T_COMP ORDER BY FECHA_EMIS DESC) AS RN
+      FROM GVA12 WHERE FECHA_EMIS >= @desde) y WHERE RN = 1)`, { desde })) ?? []
+
   for (const t of tipos) {
     const cod = String(t.T_COMP ?? '').trim()
     if (cod === 'FAC') continue
-    // COLLATE DATABASE_DEFAULT en las comparaciones de texto: las columnas de Tango tienen
-    // collation Latin1_General_BIN y los parámetros vienen con la del server (choque al comparar).
-    const [e] = await intentar(`ejemplo de ${cod}`, () => consulta(p, `
-      SELECT TOP 1 * FROM GVA12 f
-      WHERE f.T_COMP COLLATE DATABASE_DEFAULT = @t AND f.FECHA_EMIS >= @desde
-      ORDER BY f.FECHA_EMIS DESC`, { t: cod, desde })) ?? []
+    const e = ejemplos.find((x) => String(x.T_COMP ?? '').trim() === cod)
     if (!e) continue
-    const renglones = await intentar(`renglones de ${cod}`, () => consulta(p, `
-      SELECT TOP 3 r.COD_ARTICU, a.DESCRIPCIO, r.CANTIDAD, r.PRECIO_NET
-      FROM GVA53 r LEFT JOIN STA11 a ON a.COD_ARTICU COLLATE DATABASE_DEFAULT = r.COD_ARTICU COLLATE DATABASE_DEFAULT
-      WHERE r.T_COMP COLLATE DATABASE_DEFAULT = @t AND r.N_COMP COLLATE DATABASE_DEFAULT = @n`,
-    { t: cod, n: String(e.N_COMP ?? '').trim() })) ?? []
+    const renglones = renglonesTodos
+      .filter((r) => String(r.N_COMP ?? '').trim() === String(e.N_COMP ?? '').trim())
+      .slice(0, 3)
     log(`${txt(cod, 5)} ${txt(e.N_COMP, 17)} ${fecha(e.FECHA_EMIS)}  ${nro(Number(e.IMPORTE ?? 0).toFixed(2), 14)}  estado ${txt(e.ESTADO, 4)} cliente ${txt(e.COD_CLIENT, 10)}`)
     // Las columnas que dicen QUÉ es el comprobante: el tipo de ARCA (1 = Factura A, 2 = ND A,
     // 3 = NC A, 6/7/8 = B…), la letra, el talonario y cualquier marca de clase o signo.
@@ -148,9 +170,9 @@ async function empresa(nombre, database, desde) {
     ORDER BY t.TABLE_NAME`)) ?? []
   for (const t of candidatas) {
     const tabla = t.TABLE_NAME
-    const [{ N } = { N: 0 }] = await intentar(`filas de ${tabla}`, () => consulta(p, `SELECT COUNT(*) AS N FROM ${tabla}`)) ?? []
+    const [{ N } = { N: 0 }] = await intentar(`filas de ${tabla}`, () => consulta(p, `SELECT COUNT(*) AS N FROM [${tabla}]`)) ?? []
     if (!N || N > 200) continue   // miles de filas = tabla de movimientos, no el maestro
-    const filas = await intentar(`contenido de ${tabla}`, () => consulta(p, `SELECT TOP 200 * FROM ${tabla}`)) ?? []
+    const filas = await intentar(`contenido de ${tabla}`, () => consulta(p, `SELECT TOP 200 * FROM [${tabla}]`)) ?? []
     log(`\n${tabla} (${N} filas):`)
     for (const f of filas) {
       const cod = f.T_COMP ?? f.COMPROB ?? f.COD_COMPROB ?? f.TIPO_COMP
