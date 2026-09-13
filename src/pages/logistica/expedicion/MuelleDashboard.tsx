@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, PackageCheck, Truck } from 'lucide-react'
+import { CheckCircle2, MonitorPlay, PackageCheck, Truck } from 'lucide-react'
 import Navbar from '@/components/layout/Navbar'
+import PageHeader from '@/components/common/PageHeader'
+import Badge from '@/components/common/Badge'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
 import { useAuth } from '@/context/AuthContext'
@@ -150,22 +152,33 @@ export default function MuelleDashboard() {
     }
   }
 
-  const inputClass = 'w-16 text-center bg-white border border-[#D3D1C7] rounded-lg py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-accent'
-  const selectClass = 'w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'
+  // 44 px de alto: la tablet del muelle se usa de parado y con guantes, y es el
+  // mínimo que se acierta sin mirar. Los números en 16 px y con tabular-nums.
+  const inputClass = 'w-20 h-11 text-center text-base tabular-nums bg-white border border-[#D3D1C7] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent'
+  const selectClass = 'w-full h-11 bg-white border border-[#D3D1C7] rounded-lg px-3 text-base text-gray-900 focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent'
+  const inputEnvaseClass = `${selectClass} text-right tabular-nums`
 
   return (
     <div className="min-h-screen min-h-dvh bg-[#F8F7F2]">
       <Navbar />
       <main className="max-w-3xl mx-auto p-4 space-y-6 pb-10">
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Muelle</h1>
-            <p className="text-gray-500 text-sm">{PLANTAS[plantaId].label}</p>
-          </div>
-          <a href="/muelle/tv" target="_blank" rel="noreferrer" className="text-xs text-gray-400 underline hover:text-accent mt-1">
-            Pantalla TV →
-          </a>
-        </div>
+        <PageHeader
+          titulo="Muelle"
+          contexto={PLANTAS[plantaId].label}
+          chips={porEntregar.length > 0
+            ? <Badge tono="pendiente">{porEntregar.length} para entregar</Badge>
+            : <Badge tono="entregado">Sin cargas pendientes</Badge>}
+          acciones={
+            <a
+              href="/muelle/tv"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 h-11 px-3 rounded-lg border border-[#D3D1C7] bg-white text-sm font-medium text-gray-900 hover:border-accent hover:text-accent transition-colors"
+            >
+              <MonitorPlay size={16} /> Pantalla TV
+            </a>
+          }
+        />
 
         {error && (
           <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
@@ -185,35 +198,40 @@ export default function MuelleDashboard() {
             <Truck size={18} className="text-accent" /> Cargas para entregar
           </h2>
           {porEntregar.length === 0 && (
-            <p className="text-gray-400 text-sm">No hay remitos pendientes de entrega.</p>
+            <p className="text-secundario text-sm">No hay remitos pendientes de entrega.</p>
           )}
           {porEntregar.map((r) => (
             <div key={r.id} className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-gray-900">{r.codigo}</p>
-                <p className="text-xs text-gray-500">{r.camionLabel} · {r.choferNombre}</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-gray-900 tabular-nums truncate" title={r.codigo}>{r.codigo}</p>
+                <div className="flex items-center gap-2 shrink-0">
+                  {r.darsena
+                    ? <Badge tono="enCamino">Dársena {r.darsena}</Badge>
+                    : <Badge tono="neutro">En espera</Badge>}
+                </div>
               </div>
-              <div className="text-xs text-gray-600 space-y-0.5">
+              <p className="text-xs text-secundario truncate" title={`${r.camionLabel} · ${r.choferNombre}`}>{r.camionLabel} · {r.choferNombre}</p>
+              <div className="text-sm text-gray-900 space-y-0.5">
                 {r.items.map((i) => (
-                  <div key={i.productoId} className="flex justify-between">
-                    <span>{i.nombre}{i.pallets ? ` · ${i.pallets} pallet${i.pallets > 1 ? 's' : ''}` : ''}</span>
-                    <span className="font-medium">{i.cantidad}</span>
+                  <div key={i.productoId} className="flex justify-between gap-3">
+                    <span className="truncate" title={i.nombre}>{i.nombre}{i.pallets ? ` · ${i.pallets} pallet${i.pallets > 1 ? 's' : ''}` : ''}</span>
+                    <span className="font-semibold tabular-nums shrink-0">{i.cantidad}</span>
                   </div>
                 ))}
                 {r.palletsCarga > 0 && (
-                  <div className="flex justify-between text-gray-500">
-                    <span>Pallets de carga</span><span className="font-medium">{r.palletsCarga}</span>
+                  <div className="flex justify-between gap-3 text-secundario">
+                    <span>Pallets de carga</span><span className="font-semibold tabular-nums shrink-0">{r.palletsCarga}</span>
                   </div>
                 )}
                 {describirEnvases(envasesDeRemito(r)) && (
-                  <div className="text-gray-500">Envases: {describirEnvases(envasesDeRemito(r))}</div>
+                  <div className="text-xs text-secundario">Envases: {describirEnvases(envasesDeRemito(r))}</div>
                 )}
               </div>
               {/* Dársena: alimenta el tablero de TV — sin asignar queda "en
                   espera". Los camiones usan SOLO sus dársenas (las de
                   ventanilla quedan para los turnos de clientes). */}
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500 shrink-0">Dársena</span>
+                <span className="text-sm text-secundario shrink-0">Dársena</span>
                 <div className="flex gap-1.5 flex-wrap">
                   {Array.from({ length: DARSENAS_POR_PLANTA[plantaId] }, (_, i) => i + 1)
                     .filter((n) => !DARSENAS_VENTANILLA[plantaId].includes(n))
@@ -225,7 +243,7 @@ export default function MuelleDashboard() {
                         reportError(err, { origen: 'MuelleDashboard', accion: 'error al asignar dársena' })
                         setError('No se pudo asignar la dársena. Intentá de nuevo.')
                       })}
-                      className={`w-9 h-9 rounded-lg border text-sm font-bold transition-colors ${
+                      className={`w-11 h-11 rounded-lg border text-base font-bold tabular-nums transition-colors ${
                         r.darsena === n
                           ? 'bg-accent text-white border-accent'
                           : 'bg-white text-gray-600 border-[#D3D1C7] hover:bg-gray-50'
@@ -337,7 +355,7 @@ export default function MuelleDashboard() {
           </h2>
 
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Camión que volvió</label>
+            <label className="text-sm font-medium text-secundario mb-1 block">Camión que volvió</label>
             <select value={remitoDescargaId} onChange={(e) => { setRemitoDescargaId(e.target.value); setOkMsg('') }} className={selectClass}>
               <option value="">Elegir remito del día…</option>
               {entregados.length > 0 && (
@@ -358,11 +376,11 @@ export default function MuelleDashboard() {
           {descargaSeleccionada && (
             <>
               <div>
-                <p className="text-xs text-gray-500 mb-2">Mercadería que volvió (contada)</p>
-                <div className="space-y-2">
+                <p className="text-sm font-medium text-secundario mb-2">Mercadería que volvió (contada)</p>
+                <div className="space-y-1.5">
                   {catalogo.map((p) => (
                     <div key={p.id} className="flex items-center gap-3">
-                      <span className="flex-1 text-sm text-gray-800">{p.nombre}</span>
+                      <span className="flex-1 min-w-0 truncate text-base text-gray-900" title={p.nombre}>{p.nombre}</span>
                       <input
                         value={sanas[p.id] ?? 0}
                         onChange={(e) => setSanas((prev) => ({ ...prev, [p.id]: num(e.target.value) }))}
@@ -375,11 +393,11 @@ export default function MuelleDashboard() {
               </div>
 
               <div>
-                <p className="text-xs text-gray-500 mb-2">Bolsas rotas recibidas (de los cambios)</p>
-                <div className="space-y-2">
+                <p className="text-sm font-medium text-secundario mb-2">Bolsas rotas recibidas (de los cambios)</p>
+                <div className="space-y-1.5">
                   {catalogo.map((p) => (
                     <div key={p.id} className="flex items-center gap-3">
-                      <span className="flex-1 text-sm text-gray-800">{p.nombre}</span>
+                      <span className="flex-1 min-w-0 truncate text-base text-gray-900" title={p.nombre}>{p.nombre}</span>
                       <input
                         value={rotas[p.id] ?? 0}
                         onChange={(e) => setRotas((prev) => ({ ...prev, [p.id]: num(e.target.value) }))}
@@ -404,7 +422,7 @@ export default function MuelleDashboard() {
                   ] as Array<[string, number]>).filter(([, d]) => d !== 0) : []
                   return (
                     <>
-                      <p className="text-xs text-gray-500 mb-2">
+                      <p className="text-sm font-medium text-secundario mb-2">
                         Envases que volvieron
                         {salieron
                           ? ` (salieron: ${describirEnvases(salieron) || 'ninguno'})`
@@ -413,17 +431,17 @@ export default function MuelleDashboard() {
                       <div className="grid grid-cols-2 gap-3">
                         {([['tarimasMadera', 'Tarimas de madera'], ['palletsMetal', 'Pallets de metal'], ['puntales', 'Puntales'], ['aros', 'Aros'], ['sombreros', 'Sombreros']] as const).map(([k, label]) => (
                           <div key={k}>
-                            <label className="text-xs text-gray-500 mb-1 block">{label}</label>
-                            <input value={envases[k]} onChange={(e) => setEnvase(k, e.target.value)} inputMode="numeric" className={selectClass} />
+                            <label className="text-sm text-secundario mb-1 block">{label}</label>
+                            <input value={envases[k]} onChange={(e) => setEnvase(k, e.target.value)} inputMode="numeric" className={inputEnvaseClass} />
                           </div>
                         ))}
                       </div>
                       <div className="mt-3">
-                        <label className="text-xs text-gray-500 mb-1 block">Racks de agua que volvieron (números)</label>
+                        <label className="text-sm text-secundario mb-1 block">Racks de agua que volvieron (números)</label>
                         <RacksInput value={envases.racks} onChange={(racks) => setEnvases((prev) => ({ ...prev, racks }))} sugeridos={salieron?.racks ?? []} />
                       </div>
                       {(difs.length > 0 || faltan.length > 0) && (
-                        <p className="text-xs text-amber-600 mt-1.5">
+                        <p className="text-sm text-[#8A5203] mt-1.5">
                           {difs.map(([nombre, d]) => (d > 0 ? `faltan ${d} ${nombre}` : `sobran ${-d} ${nombre}`)).join(' · ')}
                           {faltan.length > 0 && `${difs.length ? ' · ' : ''}faltan racks ${describirRacks(faltan)}`}
                           {' — queda registrado en la liquidación.'}
@@ -443,15 +461,15 @@ export default function MuelleDashboard() {
         <section className="space-y-2">
           <h2 className="font-semibold text-gray-800">Descargas de hoy</h2>
           {descargas.length === 0 && (
-            <p className="text-gray-400 text-sm">Todavía no se registró ninguna descarga hoy.</p>
+            <p className="text-secundario text-sm">Todavía no se registró ninguna descarga hoy.</p>
           )}
           {descargas.map((d) => (
             <div key={d.id} className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-3">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-gray-900">{d.choferNombre}</p>
-                <p className="text-xs text-gray-500">{d.camionLabel}</p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-gray-900 truncate" title={d.choferNombre}>{d.choferNombre}</p>
+                <p className="text-xs text-secundario shrink-0">{d.camionLabel}</p>
               </div>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <p className="text-xs text-secundario mt-0.5 tabular-nums">
                 {d.items.reduce((s, i) => s + i.cantidad, 0)} bolsas
                 {describirEnvases(envasesDeDescarga(d)) && ` · ${describirEnvases(envasesDeDescarga(d))}`}
                 {d.bolsasRotas.length > 0 && ` · ${d.bolsasRotas.reduce((s, i) => s + i.cantidad, 0)} rotas`}
@@ -467,24 +485,24 @@ export default function MuelleDashboard() {
               <p className="text-sm text-gray-700">
                 {remitoDescarga.camionLabel} · <span className="font-medium">{remitoDescarga.choferNombre}</span>
               </p>
-              <div className="border border-[#D3D1C7] rounded-lg divide-y divide-gray-100 text-sm">
+              <div className="border border-[#D3D1C7] rounded-lg divide-y divide-[#E7E5DC] text-sm">
                 {toItems(sanas).map((i) => (
-                  <div key={i.productoId} className="flex justify-between px-3 py-1.5">
-                    <span className="text-gray-700">{i.nombre}</span>
-                    <span className="font-medium text-gray-900">{i.cantidad}</span>
+                  <div key={i.productoId} className="flex justify-between gap-3 px-3 py-1.5">
+                    <span className="text-gray-900 truncate" title={i.nombre}>{i.nombre}</span>
+                    <span className="font-semibold text-gray-900 tabular-nums shrink-0">{i.cantidad}</span>
                   </div>
                 ))}
                 {toItems(rotas).map((i) => (
-                  <div key={`rota-${i.productoId}`} className="flex justify-between px-3 py-1.5">
-                    <span className="text-gray-700">{i.nombre} <span className="text-red-500 text-xs">(rotas)</span></span>
-                    <span className="font-medium text-gray-900">{i.cantidad}</span>
+                  <div key={`rota-${i.productoId}`} className="flex justify-between gap-3 px-3 py-1.5">
+                    <span className="text-gray-900 truncate" title={i.nombre}>{i.nombre} <span className="text-[#97241F] text-xs">(rotas)</span></span>
+                    <span className="font-semibold text-gray-900 tabular-nums shrink-0">{i.cantidad}</span>
                   </div>
                 ))}
-                <div className="px-3 py-1.5 bg-gray-50 text-gray-700">
+                <div className="px-3 py-1.5 bg-[#F8F7F2] text-gray-900">
                   Envases: <span className="font-medium text-gray-900">{describirEnvases(envases) || 'ninguno'}</span>
                 </div>
               </div>
-              <p className="text-xs text-gray-500">La descarga es definitiva — es el conteo contra el que se liquida el día.</p>
+              <p className="text-xs text-secundario">La descarga es definitiva — es el conteo contra el que se liquida el día.</p>
               <div className="flex gap-2 pt-1">
                 <Button variant="outline" type="button" onClick={() => setConfirmando(false)} className="flex-1">Cancelar</Button>
                 <Button onClick={registrarDescarga} loading={guardando} className="flex-1">Registrar</Button>

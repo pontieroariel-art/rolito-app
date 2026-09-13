@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
+import PageHeader from '@/components/common/PageHeader'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAllOrders } from '@/hooks/useOrders'
@@ -59,30 +60,24 @@ export default function ResumenLogisticaPage() {
 
   return (
     <div className="min-h-screen min-h-dvh bg-[#F1EFE8] text-gray-900">
-      <main className="max-w-5xl mx-auto p-4 space-y-6 pb-10 overflow-x-hidden">
+      <main className="max-w-5xl mx-auto p-4 space-y-4 pb-10 overflow-x-hidden">
 
-        {/* Header */}
-        <div className="flex flex-wrap justify-between items-center gap-3">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Resumen</h1>
-            <p className="text-gray-500 text-sm">
-              {new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }).replace(/^./, (c) => c.toUpperCase())}
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link to="/produccion/listado" className="text-sm text-accent hover:underline">Producción →</Link>
-            <NotificationEmailManager notifEmails={notifEmails} />
-          </div>
-        </div>
+        {/* El link suelto "Producción →" salió: en el encabezado van acciones,
+            no destinos. Esa pantalla está en su menú y en el buscador Ctrl+K. */}
+        <PageHeader
+          titulo="Resumen"
+          contexto={new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }).replace(/^./, (c) => c.toUpperCase())}
+          acciones={<NotificationEmailManager notifEmails={notifEmails} />}
+        />
 
         {/* KPIs y métricas */}
         {truncado && <AvisoDatosTruncados />}
         <MetricsDashboard orders={orders} />
 
         {/* Clima */}
-        <section className="space-y-2">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-medium text-gray-500 uppercase tracking-wide">Clima — próximos 7 días</h2>
+        <section>
+          <div className="flex items-center justify-between gap-3 mb-1.5">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-secundario">Clima — próximos 7 días</h2>
             <Link to="/admin/clima" className="text-xs text-accent hover:underline">Historial →</Link>
           </div>
           <ForecastStrip />

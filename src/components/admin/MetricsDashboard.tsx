@@ -8,6 +8,7 @@ import {
   XCircle, TrendingUp, Users, BarChart2,
   AlertTriangle, Weight, Trophy,
 } from 'lucide-react'
+import StatusStrip from '@/components/common/StatusStrip'
 import type { Order } from '../../types'
 import { toDateStr, todayString } from '../../utils/helpers'
 import { useRollupsUltimosDias } from '../../hooks/useRollups'
@@ -123,30 +124,34 @@ export default function MetricsDashboard({ orders }: { orders: Order[] }) {
   return (
     <section className="space-y-5">
 
-      <div>
-        <SectionTitle icon={<Clock size={15} />} title="Hoy" />
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <MetricCard label="Total pedidos"   value={todayOrders.length}        color="text-gray-900"          icon={<Package      size={14} />} />
-          <MetricCard label="Pendientes"      value={todayByStatus.pendiente}   color="text-[#BA7517]"         icon={<Clock        size={14} />} />
-          <MetricCard label="Confirmados"     value={todayByStatus.confirmado}  color="text-[#185FA5]"         icon={<CheckCircle2 size={14} />} />
-          <MetricCard label="En camino"       value={todayByStatus.en_camino}   color="text-[#0F6E56]"         icon={<Truck        size={14} />} />
-          <MetricCard label="Entregados"      value={todayByStatus.entregado}   color="text-[#085041]"         icon={<CheckCircle2 size={14} />} />
-          <MetricCard label="Cancelados"      value={todayByStatus.cancelado}   color="text-[#A32D2D]"         icon={<XCircle      size={14} />} />
-        </div>
-        {todayKg > 0 && (
-          <div className="mt-3 bg-[#E8F5F0] border border-[#B3DDD3] rounded-xl px-4 py-3 flex items-center gap-3">
-            <Weight size={16} className="text-accent shrink-0" />
+      {/* El pulso del día va en una tira: seis cajas para seis números de dos
+          cifras gastan alto y no dejan compararlos de un vistazo. Ver las
+          convenciones de diseño en CLAUDE.md. */}
+      <StatusStrip
+        titulo="Hoy"
+        segmentos={[
+          { id: 'total',      etiqueta: 'Pedidos',     valor: todayOrders.length,      icono: <Package      size={14} /> },
+          { id: 'pendiente',  etiqueta: 'Pendientes',  valor: todayByStatus.pendiente,  icono: <Clock        size={14} />, tono: 'pendiente' },
+          { id: 'confirmado', etiqueta: 'Confirmados', valor: todayByStatus.confirmado, icono: <CheckCircle2 size={14} />, tono: 'confirmado' },
+          { id: 'en_camino',  etiqueta: 'En camino',   valor: todayByStatus.en_camino,  icono: <Truck        size={14} />, tono: 'enCamino' },
+          { id: 'entregado',  etiqueta: 'Entregados',  valor: todayByStatus.entregado,  icono: <CheckCircle2 size={14} />, tono: 'entregado' },
+          // Cancelados en cero no es noticia; con uno solo, sí: se realza.
+          { id: 'cancelado',  etiqueta: 'Cancelados',  valor: todayByStatus.cancelado,  icono: <XCircle      size={14} />, tono: 'cancelado', alerta: true },
+        ]}
+        pie={todayKg > 0 ? (
+          <div className="flex items-center gap-2">
+            <Weight size={14} className="text-accent shrink-0" />
             <p className="text-sm text-gray-900">
-              <span className="text-accent font-bold text-lg">{todayKg.toLocaleString('es-AR')}</span>
-              <span className="text-gray-500 ml-1.5">kg entregados hoy</span>
+              <span className="text-accent font-bold tabular-nums">{todayKg.toLocaleString('es-AR')}</span>
+              <span className="text-secundario ml-1.5">kg entregados hoy</span>
             </p>
           </div>
-        )}
-      </div>
+        ) : undefined}
+      />
 
       <div>
         <SectionTitle icon={<BarChart2 size={15} />} title={`Mes actual — ${now.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}`} />
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
           <MetricCard label="Pedidos del mes"     value={monthTotal}         color="text-gray-900"  icon={<Package    size={14} />} />
           <MetricCard label="Kg del mes"          value={monthKg}            color="text-accent"    icon={<Weight     size={14} />} suffix="kg" />
           <MetricCard label="Clientes activos"    value={monthActiveClients} color="text-accent"    icon={<Users      size={14} />} />
@@ -193,29 +198,29 @@ export default function MetricsDashboard({ orders }: { orders: Order[] }) {
         </div>
 
         <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 min-w-0 overflow-hidden">
-          <p className="text-sm font-medium mb-4 flex items-center gap-2 text-gray-900">
-            <Trophy size={14} className="text-accent" />
+          <p className="text-sm font-semibold mb-3 flex items-center gap-2 text-gray-900">
+            <Trophy size={14} className="text-[#C98A16]" />
             Top clientes del mes
           </p>
           {topClients.length === 0 ? (
-            <p className="text-gray-400 text-sm text-center py-10">Sin pedidos este mes</p>
+            <p className="text-secundario text-sm text-center py-10">Sin pedidos este mes</p>
           ) : (
             <div className="space-y-3">
               {topClients.map((c, i) => (
                 <div key={c.clientId} className="flex items-center gap-3">
-                  <span className={`w-5 text-xs font-bold shrink-0 text-center ${
-                    i === 0 ? 'text-amber-500' :
-                    i === 1 ? 'text-gray-400'  :
-                    i === 2 ? 'text-amber-600'  : 'text-gray-400'
+                  <span className={`w-4 text-xs font-bold shrink-0 text-center tabular-nums ${
+                    i === 0 ? 'text-[#C98A16]' : 'text-secundario'
                   }`}>
                     {i + 1}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate leading-tight">{c.name}</p>
-                    <p className="text-xs text-gray-500">{c.count} pedido{c.count !== 1 ? 's' : ''}</p>
+                    {/* Las razones sociales de Tango son largas: una línea y el
+                        nombre entero en el tooltip nativo. */}
+                    <p className="text-sm font-medium text-gray-900 truncate leading-tight" title={c.name}>{c.name}</p>
+                    <p className="text-xs text-secundario tabular-nums">{c.count} pedido{c.count !== 1 ? 's' : ''}</p>
                   </div>
-                  <span className="text-accent font-bold text-sm shrink-0">
-                    {c.kg.toLocaleString('es-AR')} kg
+                  <span className="text-gray-900 font-bold text-sm shrink-0 tabular-nums">
+                    {c.kg.toLocaleString('es-AR')}<span className="text-xs font-medium text-secundario ml-1">kg</span>
                   </span>
                 </div>
               ))}
@@ -225,24 +230,26 @@ export default function MetricsDashboard({ orders }: { orders: Order[] }) {
       </div>
 
       {inactiveClients.length > 0 && (
-        <div className="bg-white border border-amber-200 rounded-xl p-4">
-          <p className="text-sm font-medium mb-3 flex items-center gap-2 text-gray-900">
-            <AlertTriangle size={14} className="text-amber-500" />
-            <span className="text-amber-600">Sin pedir hace más de 7 días</span>
-            <span className="ml-auto text-xs text-gray-400 font-normal">
+        // Filas compactas y sin scroll propio: la lista ya está topeada en 10 y
+        // entra entera, así no queda un scroll anidado adentro de la página.
+        <div className="bg-white border border-[#E9CE92] rounded-xl px-4 py-3">
+          <p className="text-sm font-semibold mb-2 flex items-center gap-2 text-gray-900">
+            <AlertTriangle size={14} className="text-[#E0A020]" />
+            <span className="text-[#8A5203]">Sin pedir hace más de 7 días</span>
+            <span className="ml-auto text-xs text-secundario font-normal tabular-nums">
               {inactiveClients.length} cliente{inactiveClients.length !== 1 ? 's' : ''}
             </span>
           </p>
-          <div className="space-y-1 max-h-48 overflow-y-auto">
+          <div>
             {inactiveClients.map((c) => (
               <div
                 key={c.clientId}
-                className="flex justify-between items-center py-1.5 border-b border-gray-100 last:border-0 gap-3"
+                className="flex justify-between items-baseline py-1 border-b border-[#E7E5DC] last:border-0 gap-3"
               >
-                <p className="text-sm text-gray-900 truncate flex-1">{c.name}</p>
-                <p className="text-xs text-gray-400 shrink-0">
+                <p className="text-sm text-gray-900 truncate flex-1 leading-snug" title={c.name}>{c.name}</p>
+                <p className="text-xs text-secundario shrink-0 tabular-nums">
                   {c.lastDate.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}
-                  <span className="ml-1.5 text-amber-600 font-medium">
+                  <span className="ml-1.5 text-[#8A5203] font-semibold">
                     {c.daysSince}d
                   </span>
                 </p>
@@ -257,13 +264,20 @@ export default function MetricsDashboard({ orders }: { orders: Order[] }) {
 
 function SectionTitle({ icon, title }: { icon: React.ReactNode; title: string }) {
   return (
-    <p className="text-sm font-medium mb-3 flex items-center gap-2 text-gray-900">
+    <h2 className="text-xs font-semibold uppercase tracking-wide mb-1.5 flex items-center gap-1.5 text-secundario">
       <span className="text-accent">{icon}</span>
       {title}
-    </p>
+    </h2>
   )
 }
 
+/**
+ * Acumulado con unidad. Para etiqueta + número pelado está `StatusStrip`: una
+ * caja con borde solo se gana cuando el número trae unidad o comparación.
+ *
+ * Un valor en cero pierde el color del estado y queda en el gris secundario,
+ * que se lee igual. No se lava: un cero es un dato, no un campo apagado.
+ */
 function MetricCard({
   label, value, icon, color, suffix = '',
 }: {
@@ -273,15 +287,17 @@ function MetricCard({
   color:   string
   suffix?: string
 }) {
+  const enCero = value === 0
+  const tono   = enCero ? 'text-secundario' : color
   return (
-    <div className="bg-white border border-[#D3D1C7] rounded-xl p-3">
+    <div className="bg-white border border-[#D3D1C7] rounded-xl px-3.5 py-3">
       <div className="flex items-center gap-1.5 mb-1">
-        <span className={color}>{icon}</span>
-        <p className="text-xs text-gray-500 truncate">{label}</p>
+        <span className={tono}>{icon}</span>
+        <p className="text-xs font-medium text-secundario truncate" title={label}>{label}</p>
       </div>
-      <p className={`text-2xl font-bold ${color}`}>
+      <p className={`text-2xl font-bold leading-none tabular-nums ${tono}`}>
         {value.toLocaleString('es-AR')}
-        {suffix && <span className="text-xs font-normal ml-1 text-gray-400">{suffix}</span>}
+        {suffix && <span className="text-xs font-medium ml-1 text-secundario">{suffix}</span>}
       </p>
     </div>
   )

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, History } from 'lucide-react'
+import { History } from 'lucide-react'
+import PageHeader from '@/components/common/PageHeader'
 import { useAuth } from '@/context/AuthContext'
 import { subscribeLiquidacionesEnRango } from '@/services/liquidacionService'
 import { formatoARS } from '@/utils/money'
@@ -21,10 +22,12 @@ interface PorRepartidor {
   aRendir: number; recibido: number; diferencia: number; conDiferencia: number; valoresFaltantes: number
 }
 
+// Una diferencia en cero no es noticia: pierde el color y queda en el gris
+// secundario, que igual se lee. `tabular-nums` lo pone la columna (alinear 'der').
 const dif = (n: number) => (
-  <span className={`tabular-nums font-semibold ${n === 0 ? 'text-gray-500' : n < 0 ? 'text-red-600' : 'text-amber-700'}`}>{formatoARS(n)}</span>
+  <span className={`font-semibold ${n === 0 ? 'text-secundario' : n < 0 ? 'text-red-600' : 'text-amber-700'}`}>{formatoARS(n)}</span>
 )
-const plata = (n: number) => <span className="tabular-nums">{formatoARS(n)}</span>
+const plata = (n: number) => <span>{formatoARS(n)}</span>
 
 export default function LiquidacionesHistorialPage({ base }: { base: '/caja' | '/tesoreria' }) {
   const { user } = useAuth()
@@ -68,56 +71,56 @@ export default function LiquidacionesHistorialPage({ base }: { base: '/caja' | '
   const totalDiferencia = liquidaciones.reduce((s, l) => s + l.diferenciaEfectivo, 0)
 
   const columnasResumen: ColumnaHistorial<PorRepartidor>[] = [
-    { titulo: 'Repartidor', csv: (r) => `${r.deposito ? `${r.deposito} · ` : ''}${r.nombre}`, celda: (r) => (
-      <button type="button" onClick={() => setFiltroChofer(filtroChofer === r.id ? '' : r.id)} className="text-left hover:text-accent">
-        {r.deposito ? <span className="text-gray-500 mr-1.5">{r.deposito}</span> : null}{r.nombre}
+    { titulo: 'Repartidor', truncar: true, anchoMax: 260, csv: (r) => `${r.deposito ? `${r.deposito} · ` : ''}${r.nombre}`, celda: (r) => (
+      <button type="button" onClick={() => setFiltroChofer(filtroChofer === r.id ? '' : r.id)} className="block max-w-full truncate text-left hover:text-accent">
+        {r.deposito ? <span className="text-secundario mr-1.5">{r.deposito}</span> : null}{r.nombre}
       </button>
     ) },
-    { titulo: 'Cierres',   alinear: 'der', csv: (r) => r.cierres,   celda: (r) => <span className="tabular-nums">{r.cierres}</span> },
+    { titulo: 'Cierres',   alinear: 'der', csv: (r) => r.cierres,   celda: (r) => r.cierres },
     { titulo: 'A rendir',  alinear: 'der', csv: (r) => r.aRendir,   celda: (r) => plata(r.aRendir) },
     { titulo: 'Recibido',  alinear: 'der', csv: (r) => r.recibido,  celda: (r) => plata(r.recibido) },
     { titulo: 'Diferencia', alinear: 'der', csv: (r) => r.diferencia, celda: (r) => dif(r.diferencia) },
     { titulo: 'Con diferencia', alinear: 'der', csv: (r) => r.conDiferencia, celda: (r) => (
-      <span className="tabular-nums">{r.conDiferencia ? <span className="text-red-600 font-semibold">{r.conDiferencia}</span> : '0'}</span>
+      r.conDiferencia ? <span className="text-red-600 font-semibold">{r.conDiferencia}</span> : <span className="text-secundario">0</span>
     ) },
     { titulo: 'Valores faltantes', alinear: 'der', csv: (r) => r.valoresFaltantes, celda: (r) => (
-      <span className="tabular-nums">{r.valoresFaltantes ? <span className="text-red-600 font-semibold">{r.valoresFaltantes}</span> : '0'}</span>
+      r.valoresFaltantes ? <span className="text-red-600 font-semibold">{r.valoresFaltantes}</span> : <span className="text-secundario">0</span>
     ) },
   ]
 
   const columnasCierres: ColumnaHistorial<Liquidacion>[] = [
     { titulo: 'Fecha', csv: (l) => l.fecha, celda: (l) => (
-      <Link to={`${base}/liquidaciones?fecha=${l.fecha}&repartidor=${encodeURIComponent(l.choferId)}`} className="text-accent underline underline-offset-2">{l.fecha}</Link>
+      <Link to={`${base}/liquidaciones?fecha=${l.fecha}&repartidor=${encodeURIComponent(l.choferId)}`} className="text-accent underline underline-offset-2 whitespace-nowrap tabular-nums">{l.fecha}</Link>
     ) },
-    { titulo: 'Código', csv: (l) => l.codigo ?? '', celda: (l) => <span className="text-gray-600">{l.codigo ?? '—'}</span> },
-    { titulo: 'Repartidor', csv: (l) => `${l.depositoTango ? `${l.depositoTango} · ` : ''}${l.choferNombre}`, celda: (l) => (
-      <>{l.depositoTango ? <span className="text-gray-500 mr-1.5">{l.depositoTango}</span> : null}{l.choferNombre}</>
+    { titulo: 'Código', csv: (l) => l.codigo ?? '', celda: (l) => <span className="text-secundario tabular-nums whitespace-nowrap">{l.codigo ?? '—'}</span> },
+    { titulo: 'Repartidor', truncar: true, anchoMax: 220, csv: (l) => `${l.depositoTango ? `${l.depositoTango} · ` : ''}${l.choferNombre}`, celda: (l) => (
+      <>{l.depositoTango ? <span className="text-secundario mr-1.5">{l.depositoTango}</span> : null}{l.choferNombre}</>
     ) },
-    { titulo: 'Ventas',    alinear: 'der', csv: (l) => l.cantidadVentas ?? '', celda: (l) => <span className="tabular-nums">{l.cantidadVentas ?? '—'}</span> },
+    { titulo: 'Ventas',    alinear: 'der', csv: (l) => l.cantidadVentas ?? '', celda: (l) => l.cantidadVentas ?? <span className="text-secundario">—</span> },
     { titulo: 'Cobranzas', alinear: 'der', csv: (l) => l.cantidadCobranzas ?? l.cobranzasCalle?.cantidad ?? '', celda: (l) => (
-      <span className="tabular-nums">{l.cantidadCobranzas ?? l.cobranzasCalle?.cantidad ?? '—'}</span>
+      l.cantidadCobranzas ?? l.cobranzasCalle?.cantidad ?? <span className="text-secundario">—</span>
     ) },
     { titulo: 'A rendir',  alinear: 'der', csv: (l) => l.efectivoARendir,  celda: (l) => plata(l.efectivoARendir) },
     { titulo: 'Recibido',  alinear: 'der', csv: (l) => l.efectivoRecibido, celda: (l) => plata(l.efectivoRecibido) },
     { titulo: 'Diferencia', alinear: 'der', csv: (l) => l.diferenciaEfectivo, celda: (l) => dif(l.diferenciaEfectivo) },
     { titulo: 'Valores falt.', alinear: 'der', csv: (l) => l.valoresFaltantes?.cantidad ?? '', celda: (l) => (
-      <span className="tabular-nums">{l.valoresFaltantes?.cantidad
+      l.valoresFaltantes?.cantidad
         ? <span className="text-red-600 font-semibold">{l.valoresFaltantes.cantidad} · {formatoARS(l.valoresFaltantes.total)}</span>
-        : '—'}</span>
+        : <span className="text-secundario">—</span>
     ) },
     { titulo: 'Motivo', csv: (l) => (l.diferencia ? `${MOTIVOS_DIFERENCIA_LIQUIDACION[l.diferencia.motivo]}${l.diferencia.nota ? ` · ${l.diferencia.nota}` : ''}` : ''), celda: (l) => (
-      <span className="text-gray-600">
+      <span className="text-secundario">
         {l.diferencia ? `${MOTIVOS_DIFERENCIA_LIQUIDACION[l.diferencia.motivo]}${l.diferencia.nota ? ` · ${l.diferencia.nota}` : ''}` : ''}
         {l.anulacionesPosteriores?.length ? <span className="block"><AnuladasDespuesDeCerrar anulaciones={l.anulacionesPosteriores} compacto /></span> : null}
       </span>
     ) },
-    { titulo: 'Cerró', csv: (l) => `${l.cerradaPor.nombre}${l.firmanteRepartidor ? ' · firmó' : ''}${l.firmaRecibe ? ' · recibió' : ''}`, celda: (l) => (
-      <span className="text-gray-600">{l.cerradaPor.nombre}{l.firmanteRepartidor ? ' · firmó' : ''}{l.firmaRecibe ? ' · recibió' : ''}</span>
+    { titulo: 'Cerró', truncar: true, anchoMax: 200, csv: (l) => `${l.cerradaPor.nombre}${l.firmanteRepartidor ? ' · firmó' : ''}${l.firmaRecibe ? ' · recibió' : ''}`, celda: (l) => (
+      <span className="text-secundario">{l.cerradaPor.nombre}{l.firmanteRepartidor ? ' · firmó' : ''}{l.firmaRecibe ? ' · recibió' : ''}</span>
     ) },
     { titulo: 'Entrega', csv: (l) => (l.entregaId ? codigoDeEntregaId(l.entregaId) : l.entregaId === null ? 'en caja' : ''), celda: (l) => (
       <span className="text-xs">{l.entregaId
-        ? <span className="text-[#0F6B4E]">{codigoDeEntregaId(l.entregaId)}</span>
-        : l.entregaId === null ? <span className="text-amber-700">en caja</span> : '—'}</span>
+        ? <span className="text-[#0F6B4E] tabular-nums">{codigoDeEntregaId(l.entregaId)}</span>
+        : l.entregaId === null ? <span className="text-amber-700">en caja</span> : <span className="text-secundario">—</span>}</span>
     ) },
   ]
 
@@ -125,27 +128,28 @@ export default function LiquidacionesHistorialPage({ base }: { base: '/caja' | '
 
   return (
     <main className="max-w-5xl mx-auto p-4 space-y-4 pb-10">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <Link to={`${base}/liquidaciones`} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-accent mb-1"><ArrowLeft size={14} /> Liquidación del día</Link>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><History size={22} className="text-accent" /> Historial de liquidaciones</h1>
-          <p className="text-gray-500 text-sm">{planta} · todos los cierres del mes, con su diferencia de efectivo</p>
-        </div>
-        <BarraHistorial
-          mes={{ valor: mes, max: hoy.slice(0, 7), onChange: (m) => { setMes(m); setFiltroChofer('') } }}
-          selects={[{
-            valor: filtroChofer,
-            onChange: setFiltroChofer,
-            etiqueta: 'Repartidor',
-            opciones: [{ value: '', label: 'Todos los repartidores' }, ...porRepartidor.map((r) => ({ value: r.id, label: `${r.deposito ? `${r.deposito} · ` : ''}${r.nombre}` }))],
-          }]}
-          buscador={{ valor: busqueda, onChange: setBusqueda, placeholder: 'Repartidor, código, fecha…' }}
-        />
-      </div>
+      <PageHeader
+        titulo="Historial de liquidaciones"
+        icono={<History size={22} />}
+        volver={{ to: `${base}/liquidaciones`, etiqueta: 'Liquidación del día' }}
+        contexto={`${planta} · todos los cierres del mes, con su diferencia de efectivo`}
+        acciones={
+          <BarraHistorial
+            mes={{ valor: mes, max: hoy.slice(0, 7), onChange: (m) => { setMes(m); setFiltroChofer('') } }}
+            selects={[{
+              valor: filtroChofer,
+              onChange: setFiltroChofer,
+              etiqueta: 'Repartidor',
+              opciones: [{ value: '', label: 'Todos los repartidores' }, ...porRepartidor.map((r) => ({ value: r.id, label: `${r.deposito ? `${r.deposito} · ` : ''}${r.nombre}` }))],
+            }]}
+            buscador={{ valor: busqueda, onChange: setBusqueda, placeholder: 'Repartidor, código, fecha…' }}
+          />
+        }
+      />
 
       <HistorialTable
         titulo="Por repartidor"
-        resumen={<span className="text-sm text-gray-600">{liquidaciones.length} cierres · diferencia del mes {dif(totalDiferencia)}</span>}
+        resumen={<span className="text-sm text-secundario tabular-nums">{liquidaciones.length} cierres · diferencia del mes {dif(totalDiferencia)}</span>}
         columnas={columnasResumen}
         filas={porRepartidor}
         claveDe={(r) => r.id}

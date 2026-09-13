@@ -119,7 +119,7 @@ export default function Navbar() {
             <button
               onClick={handleCambiarSistema}
               title="Cambiar de sistema"
-              className="text-gray-400 hover:text-accent transition-colors p-2 rounded-lg hover:bg-accent/10"
+              className="text-secundario hover:text-accent transition-colors p-2 rounded-lg hover:bg-accent/10"
             >
               <ArrowLeftRight size={17} />
             </button>
@@ -127,7 +127,7 @@ export default function Navbar() {
           <button
             onClick={handleLogout}
             title="Cerrar sesión"
-            className="text-gray-400 hover:text-red-500 transition-colors p-2 rounded-lg hover:bg-red-50"
+            className="text-secundario hover:text-red-500 transition-colors p-2 rounded-lg hover:bg-red-50"
           >
             <LogOut size={17} />
           </button>
@@ -225,7 +225,7 @@ export default function Navbar() {
             to={l.to}
             className={({ isActive }) =>
               `flex-1 flex flex-col items-center justify-center py-2.5 gap-0.5 text-[11px] font-medium transition-colors ${
-                isActive ? 'text-accent' : 'text-gray-400 hover:text-gray-700'
+                isActive ? 'text-accent' : 'text-secundario hover:text-gray-900'
               }`
             }
           >

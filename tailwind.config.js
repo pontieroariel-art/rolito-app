@@ -13,6 +13,12 @@ export default {
         muted:        '#888780',
         'warm-bg':    '#F1EFE8',
         'warm-border':'#D3D1C7',
+        // Gris secundario ÚNICO de la app (2026-09-13). 5,4:1 sobre blanco:
+        // se lee de parado en la tablet del muelle. Reemplaza la mezcla de
+        // text-gray-400 / text-gray-500 / text-stone-*. Ver CLAUDE.md.
+        secundario:   '#6B6A62',
+        // Solo para controles realmente deshabilitados y adornos. NUNCA datos.
+        inerte:       '#A8A69C',
         // shadcn/ui tokens
         background:  'hsl(var(--background))',
         foreground:  'hsl(var(--foreground))',

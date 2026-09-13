@@ -18,7 +18,10 @@ export default function VerComoBanner() {
       role="status"
     >
       <Eye size={15} className="shrink-0" />
-      <p className="flex-1 min-w-0 truncate">
+      <p
+        className="flex-1 min-w-0 truncate"
+        title={`Estás viendo la app como ${nombre} (${ROLE_LABELS[user.rol] ?? user.rol}) · Solo lectura`}
+      >
         Estás viendo la app como <strong>{nombre}</strong> ({ROLE_LABELS[user.rol] ?? user.rol}) · Solo lectura
       </p>
       <button

@@ -149,11 +149,11 @@ export default function DominioLayout({ children }: { children?: ReactNode }) {
         <p className="text-[11px] text-gray-500 truncate leading-tight">{subtitulo}</p>
       </div>
       {user?.rol === 'super_admin' && (
-        <Link to="/admin/usuarios" title="Usuarios & Roles" className="text-gray-400 hover:text-accent transition-colors p-1.5 rounded-lg hover:bg-accent/10 shrink-0">
+        <Link to="/admin/usuarios" title="Usuarios & Roles" className="text-secundario hover:text-accent transition-colors p-1.5 rounded-lg hover:bg-accent/10 shrink-0">
           <UserCog size={16} />
         </Link>
       )}
-      <button onClick={handleLogout} title="Cerrar sesión" className="text-gray-400 hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-red-50 shrink-0">
+      <button onClick={handleLogout} title="Cerrar sesión" className="text-secundario hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-red-50 shrink-0">
         <LogOut size={16} />
       </button>
     </div>
@@ -184,7 +184,7 @@ export default function DominioLayout({ children }: { children?: ReactNode }) {
         >
           <Search size={14} />
           <span className="hidden xl:inline">Buscar…</span>
-          <kbd className="hidden xl:inline text-[10px] text-gray-400 border border-gray-200 rounded px-1">Ctrl K</kbd>
+          <kbd className="hidden xl:inline text-[10px] text-secundario border border-[#D3D1C7] rounded px-1">Ctrl K</kbd>
         </button>
         {clima}
         {cuenta}
@@ -205,7 +205,7 @@ export default function DominioLayout({ children }: { children?: ReactNode }) {
           {dominios.length > 1 && selectorDominios}
           {grupos.map((g) => (
             <div key={g.id}>
-              <p className="text-[11px] uppercase tracking-wide text-gray-400 font-semibold mb-1 px-1">{g.label}</p>
+              <p className="text-xs uppercase tracking-wide text-secundario font-semibold mb-1 px-1">{g.label}</p>
               <div className="space-y-0.5">
                 {g.items.map((item) => (
                   <NavLink key={item.to} to={item.to} end onClick={() => setOpen(false)} className={({ isActive }) => `flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm ${isActive ? 'bg-accent/10 text-accent font-medium' : 'text-gray-600'}`}>
@@ -240,7 +240,7 @@ export default function DominioLayout({ children }: { children?: ReactNode }) {
               <div key={g.id}>
                 {colapsado
                   ? <div className="border-t border-gray-100 mb-2" aria-hidden />
-                  : <p className="text-[11px] uppercase tracking-wide text-gray-400 font-semibold mb-2 px-2.5">{g.label}</p>}
+                  : <p className="text-xs uppercase tracking-wide text-secundario font-semibold mb-2 px-2.5">{g.label}</p>}
                 <div className="space-y-0.5">
                   {g.items.map((item) => (
                     <NavLink key={item.to} to={item.to} end className={linkClass} title={colapsado ? `${item.label} · ${g.label}` : undefined}>

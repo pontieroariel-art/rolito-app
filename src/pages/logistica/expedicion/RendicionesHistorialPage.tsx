@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { ArrowLeft, History, ShieldCheck } from 'lucide-react'
+import { History, ShieldCheck } from 'lucide-react'
+import PageHeader from '@/components/common/PageHeader'
+import Badge from '@/components/common/Badge'
 import { useAuth } from '@/context/AuthContext'
 import { subscribeRendicionesEnRango } from '@/services/rendicionService'
 import { formatoARS } from '@/utils/money'
@@ -22,10 +23,12 @@ interface PorCajero {
   aRendir: number; contado: number; diferencia: number; conDiferencia: number; sinValidar: number
 }
 
+// Una diferencia en cero no es noticia: pierde el color y queda en el gris
+// secundario, que igual se lee. `tabular-nums` lo pone la columna (alinear 'der').
 const dif = (n: number) => (
-  <span className={`tabular-nums font-semibold ${n === 0 ? 'text-gray-500' : n < 0 ? 'text-red-600' : 'text-amber-700'}`}>{formatoARS(n)}</span>
+  <span className={`font-semibold ${n === 0 ? 'text-secundario' : n < 0 ? 'text-red-600' : 'text-amber-700'}`}>{formatoARS(n)}</span>
 )
-const plata = (n: number) => <span className="tabular-nums">{formatoARS(n)}</span>
+const plata = (n: number) => <span>{formatoARS(n)}</span>
 const sinPrefijo = (p: Rendicion['plantaId']) => PLANTAS[p].label.replace('Planta ', '')
 
 export default function RendicionesHistorialPage({ enTesoreria }: { enTesoreria: boolean }) {
@@ -70,47 +73,47 @@ export default function RendicionesHistorialPage({ enTesoreria }: { enTesoreria:
   const totalDiferencia = visibles.reduce((s, r) => s + r.diferenciaEfectivo, 0)
 
   const columnasResumen: ColumnaHistorial<PorCajero>[] = [
-    { titulo: 'Cajero', csv: (c) => c.nombre, celda: (c) => (
-      <button type="button" onClick={() => setFiltro(filtro === c.id ? '' : c.id)} className="text-left hover:text-accent">{c.nombre}</button>
+    { titulo: 'Cajero', truncar: true, anchoMax: 220, csv: (c) => c.nombre, celda: (c) => (
+      <button type="button" onClick={() => setFiltro(filtro === c.id ? '' : c.id)} className="block max-w-full truncate text-left hover:text-accent">{c.nombre}</button>
     ) },
     { titulo: 'Planta',  csv: (c) => c.planta,  celda: (c) => c.planta },
-    { titulo: 'Cierres', alinear: 'der', csv: (c) => c.cierres, celda: (c) => <span className="tabular-nums">{c.cierres}</span> },
+    { titulo: 'Cierres', alinear: 'der', csv: (c) => c.cierres, celda: (c) => c.cierres },
     { titulo: 'A rendir', alinear: 'der', csv: (c) => c.aRendir, celda: (c) => plata(c.aRendir) },
     { titulo: 'Contado',  alinear: 'der', csv: (c) => c.contado, celda: (c) => plata(c.contado) },
     { titulo: 'Diferencia', alinear: 'der', csv: (c) => c.diferencia, celda: (c) => dif(c.diferencia) },
     { titulo: 'Con diferencia', alinear: 'der', csv: (c) => c.conDiferencia, celda: (c) => (
-      <span className="tabular-nums">{c.conDiferencia ? <span className="text-red-600 font-semibold">{c.conDiferencia}</span> : '0'}</span>
+      c.conDiferencia ? <span className="text-red-600 font-semibold">{c.conDiferencia}</span> : <span className="text-secundario">0</span>
     ) },
     { titulo: 'Sin validar', alinear: 'der', csv: (c) => c.sinValidar, celda: (c) => (
-      <span className="tabular-nums">{c.sinValidar ? <span className="text-amber-700 font-semibold">{c.sinValidar}</span> : '0'}</span>
+      c.sinValidar ? <span className="text-amber-700 font-semibold">{c.sinValidar}</span> : <span className="text-secundario">0</span>
     ) },
   ]
 
   const columnasCierres: ColumnaHistorial<Rendicion>[] = [
-    { titulo: 'Fecha',  csv: (r) => r.fecha,  celda: (r) => r.fecha },
-    { titulo: 'Código', csv: (r) => r.codigo, celda: (r) => r.codigo },
-    { titulo: 'Cajero', csv: (r) => `${r.sujetoNombre} · ${sinPrefijo(r.plantaId)}`, celda: (r) => (
-      <>{r.sujetoNombre} <span className="text-gray-400">· {sinPrefijo(r.plantaId)}</span></>
+    { titulo: 'Fecha',  csv: (r) => r.fecha,  celda: (r) => <span className="tabular-nums whitespace-nowrap">{r.fecha}</span> },
+    { titulo: 'Código', csv: (r) => r.codigo, celda: (r) => <span className="tabular-nums whitespace-nowrap">{r.codigo}</span> },
+    { titulo: 'Cajero', truncar: true, anchoMax: 220, csv: (r) => `${r.sujetoNombre} · ${sinPrefijo(r.plantaId)}`, celda: (r) => (
+      <>{r.sujetoNombre} <span className="text-secundario">· {sinPrefijo(r.plantaId)}</span></>
     ) },
-    { titulo: 'Ventas',    alinear: 'der', csv: (r) => r.cantidadVentas,    celda: (r) => <span className="tabular-nums">{r.cantidadVentas}</span> },
-    { titulo: 'Cobranzas', alinear: 'der', csv: (r) => r.cantidadCobranzas, celda: (r) => <span className="tabular-nums">{r.cantidadCobranzas}</span> },
+    { titulo: 'Ventas',    alinear: 'der', csv: (r) => r.cantidadVentas,    celda: (r) => (r.cantidadVentas ? r.cantidadVentas : <span className="text-secundario">0</span>) },
+    { titulo: 'Cobranzas', alinear: 'der', csv: (r) => r.cantidadCobranzas, celda: (r) => (r.cantidadCobranzas ? r.cantidadCobranzas : <span className="text-secundario">0</span>) },
     { titulo: 'A rendir',  alinear: 'der', csv: (r) => r.efectivoARendir,   celda: (r) => plata(r.efectivoARendir) },
     { titulo: 'Contado',   alinear: 'der', csv: (r) => r.efectivoContado,   celda: (r) => plata(r.efectivoContado) },
     { titulo: 'Diferencia', alinear: 'der', csv: (r) => r.diferenciaEfectivo, celda: (r) => dif(r.diferenciaEfectivo) },
     { titulo: 'Motivo', csv: (r) => (r.diferencia ? `${MOTIVOS_DIFERENCIA_LIQUIDACION[r.diferencia.motivo]}${r.diferencia.nota ? ` · ${r.diferencia.nota}` : ''}` : ''), celda: (r) => (
-      <span className="text-gray-600">
+      <span className="text-secundario">
         {r.diferencia ? `${MOTIVOS_DIFERENCIA_LIQUIDACION[r.diferencia.motivo]}${r.diferencia.nota ? ` · ${r.diferencia.nota}` : ''}` : ''}
         {r.anulacionesPosteriores?.length ? <span className="block"><AnuladasDespuesDeCerrar anulaciones={r.anulacionesPosteriores} compacto /></span> : null}
       </span>
     ) },
-    { titulo: 'Validada', csv: (r) => (r.validacion ? r.validacion.nombre : 'Pendiente'), celda: (r) => (
+    { titulo: 'Validada', truncar: true, anchoMax: 170, csv: (r) => (r.validacion ? r.validacion.nombre : 'Pendiente'), celda: (r) => (
       r.validacion
-        ? <span className="inline-flex items-center gap-1 text-xs text-[#0F6B4E]"><ShieldCheck size={13} /> {r.validacion.nombre}</span>
-        : <span className="text-xs text-amber-700">Pendiente</span>
+        ? <Badge tono="entregado" icono={<ShieldCheck />} title={`Validada por ${r.validacion.nombre}`}>{r.validacion.nombre}</Badge>
+        : <Badge tono="pendiente">Pendiente</Badge>
     ) },
     { titulo: 'Entrega', csv: (r) => (r.entregaId ? codigoDeEntregaId(r.entregaId) : 'en caja'), celda: (r) => (
       <span className="text-xs">{r.entregaId
-        ? <span className="text-[#0F6B4E]">{codigoDeEntregaId(r.entregaId)}</span>
+        ? <span className="text-[#0F6B4E] tabular-nums">{codigoDeEntregaId(r.entregaId)}</span>
         : <span className="text-amber-700">en caja</span>}</span>
     ) },
   ]
@@ -119,27 +122,28 @@ export default function RendicionesHistorialPage({ enTesoreria }: { enTesoreria:
 
   return (
     <main className="max-w-5xl mx-auto p-4 space-y-4 pb-10">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <Link to={enTesoreria ? '/tesoreria/rendiciones' : '/caja/rendiciones'} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-accent mb-1"><ArrowLeft size={14} /> {enTesoreria ? 'Rendiciones del día' : 'Mi caja'}</Link>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><History size={22} className="text-accent" /> Historial de cierres de caja</h1>
-          <p className="text-gray-500 text-sm">{alcance} · todos los cierres del mes, con su diferencia y su validación</p>
-        </div>
-        <BarraHistorial
-          mes={{ valor: mes, max: hoy.slice(0, 7), onChange: (m) => { setMes(m); setFiltro('') } }}
-          selects={[{
-            valor: filtro,
-            onChange: setFiltro,
-            etiqueta: 'Cajero',
-            opciones: [{ value: '', label: 'Todos los cajeros' }, ...porCajero.map((c) => ({ value: c.id, label: `${c.nombre} · ${c.planta}` }))],
-          }]}
-          buscador={{ valor: busqueda, onChange: setBusqueda, placeholder: 'Cajero, código, fecha…' }}
-        />
-      </div>
+      <PageHeader
+        titulo="Historial de cierres de caja"
+        icono={<History size={22} />}
+        volver={{ to: enTesoreria ? '/tesoreria/rendiciones' : '/caja/rendiciones', etiqueta: enTesoreria ? 'Rendiciones del día' : 'Mi caja' }}
+        contexto={`${alcance} · todos los cierres del mes, con su diferencia y su validación`}
+        acciones={
+          <BarraHistorial
+            mes={{ valor: mes, max: hoy.slice(0, 7), onChange: (m) => { setMes(m); setFiltro('') } }}
+            selects={[{
+              valor: filtro,
+              onChange: setFiltro,
+              etiqueta: 'Cajero',
+              opciones: [{ value: '', label: 'Todos los cajeros' }, ...porCajero.map((c) => ({ value: c.id, label: `${c.nombre} · ${c.planta}` }))],
+            }]}
+            buscador={{ valor: busqueda, onChange: setBusqueda, placeholder: 'Cajero, código, fecha…' }}
+          />
+        }
+      />
 
       <HistorialTable
         titulo="Por cajero"
-        resumen={<span className="text-sm text-gray-600">{visibles.length} cierres · diferencia del mes {dif(totalDiferencia)}</span>}
+        resumen={<span className="text-sm text-secundario tabular-nums">{visibles.length} cierres · diferencia del mes {dif(totalDiferencia)}</span>}
         columnas={columnasResumen}
         filas={porCajero}
         claveDe={(c) => c.id}

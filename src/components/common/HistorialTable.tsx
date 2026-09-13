@@ -2,7 +2,7 @@ import { ReactNode, useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight, Download, Inbox, RotateCw, Search, TriangleAlert } from 'lucide-react'
 import { INPUT_BUSQUEDA_PROPS } from '@/utils/busqueda'
 import { descargarCSV } from '@/utils/csv'
-import { CAMPO_FILTRO, TD, TH } from './tabla'
+import { CAMPO_FILTRO, NUMERO, TD, TH } from './tabla'
 
 /**
  * TABLA DE HISTORIAL canónica (fase 3.2 del reordenamiento, 2026-09-12).
@@ -17,6 +17,16 @@ import { CAMPO_FILTRO, TD, TH } from './tabla'
  *
  * Las pantallas que ya tienen su tabla armada a mano pueden usar solo las
  * clases (`TH`, `TD`) para no repetirlas.
+ *
+ * CONVENCIONES DE DISEÑO (2026-09-13) que aplica sola, para no repetirlas en
+ * cada pantalla:
+ *  · `alinear: 'der'` ya trae `tabular-nums`: toda columna de importes, kilos o
+ *    cantidades se lee en vertical sin que bailen las cifras.
+ *  · `truncar` corta el texto de la celda en una línea y deja el valor entero
+ *    en el `title`; el tooltip sale del `csv` de la columna. Las razones
+ *    sociales de Tango son largas y antes rompían la fila.
+ *  · Los grises secundarios (vacío, paginador, esqueleto) salen de
+ *    `text-secundario`, que es el piso de contraste de la app.
  */
 
 
@@ -25,11 +35,16 @@ export interface ColumnaHistorial<T> {
   /** Título de la columna; también el encabezado en el CSV. */
   titulo: string
   celda: (fila: T) => ReactNode
+  /** Números. Alinea a la derecha y aplica `tabular-nums`. */
   alinear?: 'der'
   /** Valor plano para el CSV. Sin esto, exporta la celda solo si es texto o número. */
   csv?: (fila: T) => string | number | null | undefined
   /** Fuera del CSV (columnas de botones). */
   sinCsv?: boolean
+  /** Texto largo: una sola línea, con el valor completo en el tooltip. */
+  truncar?: boolean
+  /** Ancho máximo de la celda, en px. Solo tiene sentido con `truncar`. */
+  anchoMax?: number
 }
 
 interface Props<T> {
@@ -60,7 +75,14 @@ const valorCSV = <T,>(c: ColumnaHistorial<T>, fila: T): string | number | null |
   return typeof v === 'string' || typeof v === 'number' ? v : ''
 }
 
-export { TH, TD, CAMPO_FILTRO }
+export { TH, TD, CAMPO_FILTRO, NUMERO }
+
+/** Tooltip de una celda truncada: el mismo valor plano que va al CSV. */
+const tituloDe = <T,>(c: ColumnaHistorial<T>, fila: T): string | undefined => {
+  if (!c.truncar) return undefined
+  const v = valorCSV(c, fila)
+  return v === null || v === undefined || v === '' ? undefined : String(v)
+}
 
 export default function HistorialTable<T>({
   columnas, filas, claveDe, titulo, resumen, cargando = false, error = false, onReintentar,
@@ -88,7 +110,7 @@ export default function HistorialTable<T>({
         <tr>
           <td colSpan={columnas.length} className="px-3 py-10 text-center">
             <TriangleAlert size={22} className="mx-auto text-amber-500 mb-2" />
-            <p className="text-sm text-gray-700">No pudimos cargar estos datos.</p>
+            <p className="text-sm text-gray-900">No pudimos cargar estos datos.</p>
             {onReintentar && (
               <button type="button" onClick={onReintentar}
                 className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-accent border border-accent/40 rounded-lg px-3 py-1.5 hover:bg-accent/10 transition-colors">
@@ -104,7 +126,7 @@ export default function HistorialTable<T>({
         <tr key={`esqueleto-${i}`} aria-hidden>
           {columnas.map((c, j) => (
             <td key={c.titulo + j} className={TD}>
-              <span className="block h-3.5 rounded bg-gray-100 animate-pulse" style={{ width: j === 0 ? '70%' : '45%' }} />
+              <span className="block h-3.5 rounded bg-[#EDEBE3] animate-pulse" style={{ width: j === 0 ? '70%' : '45%' }} />
             </td>
           ))}
         </tr>
@@ -114,8 +136,8 @@ export default function HistorialTable<T>({
       return (
         <tr>
           <td colSpan={columnas.length} className="px-3 py-10 text-center">
-            <Inbox size={22} className="mx-auto text-gray-300 mb-2" />
-            <p className="text-sm text-gray-500">{vacio}</p>
+            <Inbox size={22} className="mx-auto text-inerte mb-2" />
+            <p className="text-sm text-secundario">{vacio}</p>
           </td>
         </tr>
       )
@@ -123,7 +145,19 @@ export default function HistorialTable<T>({
     return visibles.map((fila) => (
       <tr key={claveDe(fila)} className={filaResaltada?.(fila) ? 'bg-accent/5' : ''}>
         {columnas.map((c, i) => (
-          <td key={c.titulo + i} className={`${TD} ${c.alinear === 'der' ? 'text-right' : ''}`}>{c.celda(fila)}</td>
+          <td
+            key={c.titulo + i}
+            // `max-w-0` es el truco para que `truncate` funcione en una celda sin
+            // ancho propio, pero deja a la columna sin peso y el navegador le
+            // roba el espacio a las vecinas (las fechas y los códigos quedaban
+            // partidos en tres renglones). Con `anchoMax` no hace falta.
+            className={`${TD} ${c.alinear === 'der' ? NUMERO : ''} ${c.truncar && !c.anchoMax ? 'max-w-0' : ''}`}
+            style={c.anchoMax ? { maxWidth: c.anchoMax } : undefined}
+          >
+            {c.truncar
+              ? <span className="block truncate" title={tituloDe(c, fila)}>{c.celda(fila)}</span>
+              : c.celda(fila)}
+          </td>
         ))}
       </tr>
     ))
@@ -139,7 +173,7 @@ export default function HistorialTable<T>({
             {resumen}
             {exportar && filas.length > 0 && !cargando && !error && (
               <button type="button" onClick={bajarCSV} title="Bajar esta tabla en CSV (se abre con Excel)"
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 border border-[#D3D1C7] rounded-lg px-2.5 py-1.5 hover:text-accent hover:border-accent transition-colors">
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-secundario border border-[#D3D1C7] rounded-lg px-2.5 py-1.5 hover:text-accent hover:border-accent transition-colors">
                 <Download size={13} /> Exportar
               </button>
             )}
@@ -150,25 +184,25 @@ export default function HistorialTable<T>({
       <div className="overflow-x-auto">
         <table className="w-full" style={anchoMinimo ? { minWidth: anchoMinimo } : undefined}>
           <thead>
-            <tr>{columnas.map((c, i) => <th key={c.titulo + i} className={`${TH} ${c.alinear === 'der' ? 'text-right' : ''}`}>{c.titulo}</th>)}</tr>
+            <tr>{columnas.map((c, i) => <th key={c.titulo + i} className={`${TH} ${c.alinear === 'der' ? 'text-right' : ''}`} style={c.anchoMax ? { maxWidth: c.anchoMax } : undefined}>{c.titulo}</th>)}</tr>
           </thead>
           <tbody>{cuerpo()}</tbody>
         </table>
       </div>
 
       {paginas > 1 && !cargando && !error && (
-        <div className="flex items-center justify-between gap-3 pt-3 mt-1 border-t border-gray-100">
-          <p className="text-xs text-gray-500 tabular-nums">
+        <div className="flex items-center justify-between gap-3 pt-3 mt-1 border-t border-[#E7E5DC]">
+          <p className="text-xs text-secundario tabular-nums">
             {paginaActual * porPagina! + 1}–{Math.min((paginaActual + 1) * porPagina!, filas.length)} de {filas.length}
           </p>
           <div className="flex items-center gap-1">
             <button type="button" onClick={() => setPagina(paginaActual - 1)} disabled={paginaActual === 0} aria-label="Página anterior"
-              className="w-8 h-8 rounded-lg border border-[#D3D1C7] flex items-center justify-center text-gray-600 hover:border-accent hover:text-accent disabled:opacity-40 disabled:hover:border-[#D3D1C7] disabled:hover:text-gray-600 transition-colors">
+              className="w-8 h-8 rounded-lg border border-[#D3D1C7] flex items-center justify-center text-secundario hover:border-accent hover:text-accent disabled:text-inerte disabled:hover:border-[#D3D1C7] disabled:hover:text-inerte transition-colors">
               <ChevronLeft size={15} />
             </button>
-            <span className="text-xs text-gray-500 px-1 tabular-nums">{paginaActual + 1} / {paginas}</span>
+            <span className="text-xs text-secundario px-1 tabular-nums">{paginaActual + 1} / {paginas}</span>
             <button type="button" onClick={() => setPagina(paginaActual + 1)} disabled={paginaActual >= paginas - 1} aria-label="Página siguiente"
-              className="w-8 h-8 rounded-lg border border-[#D3D1C7] flex items-center justify-center text-gray-600 hover:border-accent hover:text-accent disabled:opacity-40 disabled:hover:border-[#D3D1C7] disabled:hover:text-gray-600 transition-colors">
+              className="w-8 h-8 rounded-lg border border-[#D3D1C7] flex items-center justify-center text-secundario hover:border-accent hover:text-accent disabled:text-inerte disabled:hover:border-[#D3D1C7] disabled:hover:text-inerte transition-colors">
               <ChevronRight size={15} />
             </button>
           </div>
@@ -214,7 +248,7 @@ export function BarraHistorial({
       ))}
       {buscador && (
         <div className="relative flex-1 min-w-[180px]">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-secundario pointer-events-none" />
           <input {...INPUT_BUSQUEDA_PROPS} value={buscador.valor} onChange={(e) => buscador.onChange(e.target.value)}
             placeholder={buscador.placeholder ?? 'Buscar…'} aria-label={buscador.placeholder ?? 'Buscar'}
             className={`${CAMPO_FILTRO} w-full pl-8`} />
