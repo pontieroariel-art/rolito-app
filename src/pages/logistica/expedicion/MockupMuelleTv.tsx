@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { SONIDOS, tocarSonido } from '@/utils/bocinaMuelle'
 
 /**
  * MAQUETA DESCARTABLE del televisor del muelle (2026-09-13) — NO ES PRODUCCIÓN.
@@ -84,6 +85,17 @@ export default function MockupMuelleTv() {
   const [escenario, setEscenario] = useState<Escenario>('normal')
   const [llamando, setLlamando] = useState(false)
   const [escala, setEscala] = useState(1)
+  // Probador de sonidos: los navegadores solo dejan sonar tras un gesto humano,
+  // así que el AudioContext se arma con el primer toque del botón.
+  const [sonidos, setSonidos] = useState(false)
+  const audioRef = useRef<AudioContext | null>(null)
+  const probarSonidos = () => {
+    try {
+      if (!audioRef.current) audioRef.current = new AudioContext()
+      audioRef.current.resume()
+    } catch { /* sin soporte de audio */ }
+    setSonidos((v) => !v)
+  }
   const [ahora, setAhora] = useState(() => new Date())
 
   useEffect(() => {
@@ -193,8 +205,39 @@ export default function MockupMuelleTv() {
           className={`rounded px-3 py-1.5 font-semibold ${llamando ? 'bg-green-600' : 'bg-white/10 text-gray-300'}`}>
           Llamando turno
         </button>
+        <button onClick={probarSonidos}
+          className={`rounded px-3 py-1.5 font-semibold ${sonidos ? 'bg-accent' : 'bg-white/10 text-gray-300'}`}>
+          🔊 Probar sonidos
+        </button>
         <span className="ml-auto text-gray-500">datos inventados · no toca Firestore · se borra al aprobar</span>
       </div>
+
+      {/* Probador de sonidos: hay que escucharlos por los parlantes del TV, con
+          el ruido de la planta. Los cuatro primeros están pensados uno por
+          EVENTO, para que el muelle sepa qué pasó sin levantar la vista. */}
+      {sonidos && (
+        <div className="absolute bottom-14 left-4 right-4 bg-gray-900 border border-gray-700 rounded-xl p-4">
+          <div className="flex items-baseline justify-between mb-3">
+            <p className="text-sm font-bold text-gray-200">Probá cada sonido por los parlantes del televisor</p>
+            <button onClick={() => setSonidos(false)} className="text-xs text-gray-500 hover:text-gray-300">Cerrar</button>
+          </div>
+          <div className="grid grid-cols-4 gap-2">
+            {SONIDOS.map((s) => (
+              <button key={s.id} onClick={() => tocarSonido(audioRef.current, s.id)}
+                className={`text-left rounded-lg px-3 py-2 border transition-colors ${
+                  s.para ? 'bg-accent/10 border-accent/40 hover:bg-accent/20' : 'bg-gray-800 border-gray-700 hover:bg-gray-700'
+                }`}>
+                <p className="text-sm font-semibold text-gray-100">{s.nombre}</p>
+                {s.para && <p className="text-[11px] text-accent font-medium">{s.para}</p>}
+                <p className="text-[11px] text-gray-400 leading-tight mt-0.5">{s.detalle}</p>
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-gray-600 mt-2">
+            Los cuatro de arriba están pensados uno por evento; los cinco de abajo son los "fuertes", para cortar el ruido de las máquinas.
+          </p>
+        </div>
+      )}
     </div>
   )
 }

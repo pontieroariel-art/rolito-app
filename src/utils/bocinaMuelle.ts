@@ -19,16 +19,31 @@
  *    aparato a media asta.
  */
 
-export type SonidoMuelle = 'industrial' | 'timbre' | 'campana' | 'sirena' | 'chicharra'
+export type SonidoMuelle =
+  | 'industrial' | 'timbre' | 'campana' | 'sirena' | 'chicharra'
+  | 'anden' | 'ping' | 'retorno' | 'demora'
 
 export interface OpcionSonido {
   id:     SonidoMuelle
   nombre: string
   /** Para qué sirve / cuándo conviene, en criollo. */
   detalle: string
+  /** El evento para el que fue pensado (los "fuertes" sirven para cualquiera). */
+  para?:  string
 }
 
 export const SONIDOS: OpcionSonido[] = [
+  // Pensados por EVENTO (2026-09-13): que el muelle sepa QUÉ pasó sin mirar la
+  // pantalla. Un tablero con un solo sonido obliga a levantar la vista siempre.
+  { id: 'anden',   nombre: 'Campana de andén', para: 'Llamado a dársena o ventanilla',
+    detalle: 'Acorde de tres notas que se apaga solo, como el de una estación o un aeropuerto.' },
+  { id: 'ping',    nombre: 'Ping de logística', para: 'Confirmación o asignación',
+    detalle: 'Doble pulso agudo y rápido. Dice "listo" sin interrumpir a nadie.' },
+  { id: 'retorno', nombre: 'Retorno de camión', para: 'Volvió y falta contarlo',
+    detalle: 'Dos tonos graves y secos. Avisa sin sobresaltar: el camión ya está en casa.' },
+  { id: 'demora',  nombre: 'Demora en dársena', para: 'Se pasó del tiempo',
+    detalle: 'Advertencia suave de tres pulsos. Marca que algo se está estirando, sin gritar.' },
+  // Los fuertes: para cuando hay que cortar el ruido de las máquinas.
   { id: 'industrial', nombre: 'Industrial', detalle: 'Tres ráfagas duras. La más penetrante, corta cualquier ruido de máquina.' },
   { id: 'timbre',     nombre: 'Timbre de fábrica', detalle: 'Dos tonos alternados, más grave. Se escucha fuerte sin ser molesto.' },
   { id: 'campana',    nombre: 'Campana', detalle: 'Un gong que se apaga solo. Elegante, pero se pierde con mucho ruido.' },
@@ -108,6 +123,41 @@ export function tocarSonido(ctx: AudioContext | null, id: SonidoMuelle): void {
       for (let r = 0; r < 2; r++) {
         pulso(ctx, { tipo: 'sawtooth', desde: 220, inicio: t + r * 0.45, dur: 0.3, vol: 0.9 })
         pulso(ctx, { tipo: 'square',   desde: 110, inicio: t + r * 0.45, dur: 0.3, vol: 0.5 })
+      }
+      break
+
+    // ── Por evento ──
+    // Campana de andén: acorde de Fa mayor (F5-A5-C6) con las notas entrando
+    // escalonadas y una cola larga, como el aviso de una estación. Limpio a
+    // propósito: es un llamado a una persona, no una alarma.
+    case 'anden':
+      [698.46, 880, 1046.5].forEach((f, i) => {
+        pulso(ctx, { tipo: 'sine', desde: f, inicio: t + i * 0.06, dur: 2.2 - i * 0.3, vol: 0.85 - i * 0.12 })
+      })
+      // Segundo golpe del acorde, más flojo: el "din-don" de andén.
+      ;[698.46, 1046.5].forEach((f, i) => {
+        pulso(ctx, { tipo: 'sine', desde: f, inicio: t + 0.55 + i * 0.05, dur: 1.6, vol: 0.55 - i * 0.1 })
+      })
+      break
+    // Ping de logística: dos pulsos cortos que suben una octava (880 → 1760).
+    // Dice "hecho" y se va; no interrumpe una conversación.
+    case 'ping':
+      pulso(ctx, { tipo: 'triangle', desde: 880,  inicio: t,        dur: 0.09, vol: 0.75 })
+      pulso(ctx, { tipo: 'triangle', desde: 1760, inicio: t + 0.11, dur: 0.14, vol: 0.8 })
+      break
+    // Retorno de camión: dos tonos que BAJAN (440 → 330), secos y sin brillo.
+    // Un sonido descendente se lee como "algo llegó y se detuvo", que es
+    // exactamente lo que pasó; no sobresalta a nadie.
+    case 'retorno':
+      pulso(ctx, { tipo: 'triangle', desde: 440, inicio: t,        dur: 0.2, vol: 0.85 })
+      pulso(ctx, { tipo: 'triangle', desde: 330, inicio: t + 0.24, dur: 0.28, vol: 0.85 })
+      break
+    // Demora en dársena: tres pulsos iguales, medios y suaves. Repetir sin
+    // subir de tono marca insistencia sin sonar a emergencia — es un recordatorio,
+    // y si suena a alarma la gente lo termina apagando.
+    case 'demora':
+      for (let r = 0; r < 3; r++) {
+        pulso(ctx, { tipo: 'sine', desde: 587.33, inicio: t + r * 0.22, dur: 0.13, vol: 0.6 })
       }
       break
   }
