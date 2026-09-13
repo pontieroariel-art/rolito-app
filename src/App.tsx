@@ -84,6 +84,8 @@ const PanolPage             = lazy(() => import('./pages/heladeras/PanolPage'))
 
 const CalculadoraHielo  = lazy(() => import('./pages/public/CalculadoraHielo'))
 const TurnosVentanillaPage = lazy(() => import('./pages/public/TurnosVentanillaPage'))
+// Maqueta descartable del TV del muelle (2026-09-13): se borra al aprobar el diseño.
+const MockupMuelleTv       = lazy(() => import('@/pages/logistica/expedicion/MockupMuelleTv'))
 
 const LoginProduccion         = lazy(() => import('./pages/auth/LoginProduccion'))
 const ProduccionDashboard     = lazy(() => import('@/pages/logistica/produccion/ProduccionDashboard'))
@@ -231,6 +233,9 @@ function AppContent() {
         {/* Turnos de ventanilla — pública, la abre el QR del comprobante
             (sesión anónima; solo lee el tablero sanitizado turnosPublicos). */}
         <Route path="/turnos/:plantaId" element={<TurnosVentanillaPage />} />
+        {/* MAQUETA DESCARTABLE del TV del muelle (2026-09-13): pública y con datos
+            inventados, para verla en el televisor real antes de tocar MuelleTvPage. */}
+        <Route path="/mockup-muelle-tv" element={<MockupMuelleTv />} />
 
         {/* Cliente */}
         <Route element={<ProtectedRoute allowedRoles={rolesDe('/sucursal')} />}>

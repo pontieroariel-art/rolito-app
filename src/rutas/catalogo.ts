@@ -143,6 +143,9 @@ export const CATALOGO: RutaConfig[] = [
   R('/caja/rendiciones/historial',   'Historial de cierres', 'tesoreria', CAJA_HISTORIAL, { deepLink: true }),
   R('/muelle',                       'Muelle',               'logistica', ['muelle', 'super_admin'], { icon: Warehouse, menuGroup: 'expedicion', rolesMenu: ['muelle'] }),
   R('/muelle/tv',                    'Muelle · pantalla',    'logistica', ['muelle', 'super_admin'], { icon: Tv }),
+  // MAQUETA DESCARTABLE del TV del muelle (2026-09-13): pública, con datos
+  // inventados, para verla en el televisor real. Se borra al aprobar el diseño.
+  R('/mockup-muelle-tv',             'Maqueta del TV de muelle', 'logistica', [], { deepLink: true }),
   R('/seguridad',                    'Seguridad (salidas)',  'logistica', ['seguridad', 'super_admin'], { icon: Truck, menuGroup: 'expedicion', rolesMenu: ['seguridad'] }),
 
   // ── Logística: producción de hielo ────────────────────────────────────────
