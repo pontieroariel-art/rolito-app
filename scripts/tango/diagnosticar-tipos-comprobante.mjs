@@ -77,10 +77,14 @@ async function empresa(nombre, database, desde) {
     GROUP BY f.T_COMP
     ORDER BY COUNT(*) DESC`, { desde })
 
-  // (b) Cómo llama Tango a cada tipo en sus talonarios.
-  const talonarios = await consulta(p, `
-    SELECT T_COMP, COUNT(*) AS TALONARIOS, MIN(DESCRIPCIO) AS DESCRIPCION
-    FROM GVA43 GROUP BY T_COMP`)
+  // (b) Cómo llama Tango a cada tipo en sus talonarios. La columna de la descripción cambia
+  //     de nombre entre versiones (DESCRIP / DESCRIPCIO / DESCRIPCION): se busca cuál existe.
+  const cols = new Set((await consulta(p, `SELECT name FROM sys.columns WHERE object_id = OBJECT_ID('GVA43')`)).map((c) => c.name))
+  const colDesc = ['DESCRIP', 'DESCRIPCIO', 'DESCRIPCION', 'DESCRIPCIO_'].find((c) => cols.has(c))
+  const talonarios = colDesc
+    ? await consulta(p, `SELECT T_COMP, COUNT(*) AS TALONARIOS, MIN(${colDesc}) AS DESCRIPCION FROM GVA43 GROUP BY T_COMP`)
+    : []
+  if (!colDesc) log(`  (GVA43 no tiene columna de descripción; columnas: ${[...cols].join(', ')})`)
   const desc = Object.fromEntries(talonarios.map((t) => [String(t.T_COMP ?? '').trim(), t]))
 
   log(`\nTIPO  CANT.    DESDE       HASTA       IMPORTE     CAE      RENGL.   EJEMPLO           NOMBRE EN TANGO (talonarios)`)
@@ -111,6 +115,30 @@ async function empresa(nombre, database, desde) {
     log(`${txt(cod, 5)} ${txt(e.N_COMP, 17)} ${fecha(e.FECHA_EMIS)}  ${nro(Number(e.IMPORTE ?? 0).toFixed(2), 14)}  estado ${txt(e.ESTADO, 4)} ${txt(e.RAZON_SOCI, 30)}`)
     for (const r of renglones) log(`        · ${txt(r.DESCRIPCIO ?? r.COD_ARTICU, 40)} x${r.CANTIDAD}`)
     if (!renglones.length) log('        · (sin renglones: es un comprobante por importe, no por artículos)')
+  }
+
+  // (d) Tabla maestra de tipos de comprobante: se busca por su forma (una columna T_COMP y
+  //     alguna DESCRIP*), porque el nombre cambia entre versiones de Tango. Si es chica, se
+  //     lista entera: ahí está el nombre oficial de cada código.
+  log(`\nTABLAS QUE DEFINEN TIPOS DE COMPROBANTE (nombre oficial de cada código)`)
+  log('─'.repeat(110))
+  const candidatas = await consulta(p, `
+    SELECT c1.TABLE_NAME, MIN(c2.COLUMN_NAME) AS COL_DESC
+    FROM INFORMATION_SCHEMA.COLUMNS c1
+    JOIN INFORMATION_SCHEMA.COLUMNS c2 ON c2.TABLE_NAME = c1.TABLE_NAME AND c2.COLUMN_NAME LIKE 'DESCRIP%'
+    WHERE c1.COLUMN_NAME IN ('T_COMP', 'COD_COMPROB', 'TIPO_COMP')
+    GROUP BY c1.TABLE_NAME`)
+  for (const t of candidatas) {
+    const tabla = t.TABLE_NAME
+    const [{ N } = { N: 0 }] = await consulta(p, `SELECT COUNT(*) AS N FROM ${tabla}`)
+    if (!N || N > 120) { log(`${txt(tabla, 16)} ${N} filas (muy grande: no es la tabla de tipos)`); continue }
+    const filas = await consulta(p, `SELECT TOP 120 * FROM ${tabla}`)
+    log(`\n${tabla} (${N} filas):`)
+    for (const f of filas) {
+      const cod = f.T_COMP ?? f.COD_COMPROB ?? f.TIPO_COMP
+      const d = Object.entries(f).find(([k]) => k.startsWith('DESCRIP'))?.[1]
+      log(`   ${txt(cod, 6)} ${txt(d, 50)}`)
+    }
   }
 
   await p.close()
