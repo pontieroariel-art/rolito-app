@@ -107,12 +107,18 @@ export function techoSistemasDe(user: Pick<UserProfile, 'rol' | 'rolesExtra'>): 
   return SISTEMAS.filter((s) => set.has(s))
 }
 
-// Dominios efectivos de un usuario: su `sistemasPermitidos` (si el admin lo
-// recortó desde Usuarios → Permisos) filtrado contra el techo real del rol —
-// nunca devuelve algo que el rol no permita, aunque el campo haya quedado
-// desactualizado por un cambio de rol posterior.
-export function sistemasDeUsuario(user: Pick<UserProfile, 'rol' | 'sistemasPermitidos' | 'rolesExtra'>): Sistema[] {
+export type UsuarioRecorteDominios = Pick<UserProfile, 'rol' | 'rolesExtra' | 'dominiosOcultos' | 'sistemasPermitidos'>
+
+// Dominios efectivos de un usuario: el techo de su rol menos lo que el admin
+// le escondió desde Usuarios → Permisos. Nunca devuelve algo que el rol no
+// permita, aunque el recorte haya quedado viejo por un cambio de rol.
+export function sistemasDeUsuario(user: UsuarioRecorteDominios): Sistema[] {
   const techo = techoSistemasDe(user)
+  if (user.dominiosOcultos) {
+    const ocultos = new Set(user.dominiosOcultos.map(compat).filter((s): s is Sistema => s !== null))
+    return techo.filter((s) => !ocultos.has(s))
+  }
+  // Modelo viejo, de inclusión (migrado el 2026-09-12; se lee por las dudas).
   if (!user.sistemasPermitidos) return techo
   const permitidos = new Set(user.sistemasPermitidos.map(compat).filter((s): s is Sistema => s !== null))
   return techo.filter((s) => permitidos.has(s))

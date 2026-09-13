@@ -8,7 +8,7 @@ import { logoutUser } from '@/services/authService'
 import { esDispositivoCobranza } from '@/services/expedicionDeviceService'
 import { ROLE_LABELS, tieneAlgunRol, tieneRol } from '@/utils/roles'
 import { SISTEMA_LABELS, homeDeSistema } from '@/utils/sistemas'
-import { gruposDe, sistemaDeRuta, estaEnSidebar } from '@/rutas/catalogo'
+import { gruposDe, sistemaDeRuta, estaEnSidebar, pantallaVisible } from '@/rutas/catalogo'
 import { PLANTAS, Sistema } from '@/types'
 import ClimaWidget from './ClimaWidget'
 import BuscadorRapido, { ItemBuscable } from './BuscadorRapido'
@@ -68,7 +68,7 @@ export default function DominioLayout({ children }: { children?: ReactNode }) {
   const visible = (to: string) =>
     (!soloCobranza || to === '/caja/cobranzas')
     && (to !== '/anulaciones' || puedeAutorizarAnulaciones)
-    && (!user?.pestanasPermitidas || user.pestanasPermitidas.includes(to))
+    && pantallaVisible(user, to)
 
   const grupos = useMemo(() => gruposDe(activo)
     .map((g) => ({ ...g, items: g.items.filter((i) => user && tieneAlgunRol(user, i.roles) && visible(i.to)) }))

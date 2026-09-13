@@ -162,6 +162,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const newAddrs   = d.addresses      as UserProfile['addresses'] | undefined
         const newSistemas = d.sistemasPermitidos as UserProfile['sistemasPermitidos']
         const newPestanas = d.pestanasPermitidas as UserProfile['pestanasPermitidas']
+        const newDominiosOcultos = d.dominiosOcultos as UserProfile['dominiosOcultos']
+        const newPestanasOcultas = d.pestanasOcultas as UserProfile['pestanasOcultas']
         // Favoritos del checklist de tipos de reparación (técnico de calle) —
         // se tildan/destildan en vivo desde el modal de Registrar trabajo, sin
         // recargar la página.
@@ -201,6 +203,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           JSON.stringify(newAddrs)     !== JSON.stringify(cur.addresses) ||
           JSON.stringify(newSistemas)  !== JSON.stringify(cur.sistemasPermitidos) ||
           JSON.stringify(newPestanas)  !== JSON.stringify(cur.pestanasPermitidas) ||
+          JSON.stringify(newDominiosOcultos) !== JSON.stringify(cur.dominiosOcultos) ||
+          JSON.stringify(newPestanasOcultas) !== JSON.stringify(cur.pestanasOcultas) ||
           JSON.stringify(newFavoritos) !== JSON.stringify(cur.tiposFavoritos) ||
           JSON.stringify(newOcultosMapa) !== JSON.stringify(cur.clientesOcultosMapa)
         if (!changed) return
@@ -218,6 +222,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           ...(newAddrs !== undefined ? { addresses: newAddrs } : {}),
           sistemasPermitidos: newSistemas,
           pestanasPermitidas: newPestanas,
+          dominiosOcultos:    newDominiosOcultos,
+          pestanasOcultas:    newPestanasOcultas,
           tiposFavoritos: newFavoritos,
           clientesOcultosMapa: newOcultosMapa,
         }})

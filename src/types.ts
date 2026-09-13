@@ -1255,10 +1255,18 @@ export interface UserProfile {
   // Alta rápida de cliente por staff (CrearClienteModal) — ausente en
   // clientes autorregistrados o importados por Excel.
   creadoPor?: { uid: string; nombre: string; rol: UserRole }
-  // Recorte de acceso por usuario (solo lo edita super_admin, desde
-  // Usuarios → Permisos) — subconjunto de lo que su rol ya permite, nunca
-  // lo amplía. Sin setear = sin recorte, se comporta como hoy.
+  // Recorte del MENÚ por usuario (solo lo edita super_admin, desde Usuarios →
+  // Permisos). Ordena lo que ve; no da ni quita acceso: el permiso real es el
+  // rol, y lo verifica <ProtectedRoute> con las reglas de Firestore detrás.
+  //
+  // Son listas de lo que se ESCONDE (2026-09-12). Antes se guardaba lo que se
+  // mostraba, y eso dejaba a esa persona sin ver ninguna pantalla nueva de la
+  // app hasta que alguien volviera a abrir el modal y guardar.
+  dominiosOcultos?: Sistema[]
+  pestanasOcultas?:  string[]
+  /** @deprecated listas de inclusión, migradas a las de arriba el 2026-09-12. Se leen por si quedó alguna. */
   sistemasPermitidos?: Sistema[]
+  /** @deprecated ídem. */
   pestanasPermitidas?: string[]
   // Roles ADICIONALES al principal (solo caja / muelle / seguridad), para
   // quien cubre el mostrador además de su puesto — ver src/utils/roles.ts.

@@ -398,12 +398,28 @@ export function homeDeSistema(sistema: Sistema, user: UsuarioRoles): string {
   return primero?.to ?? '/'
 }
 
-/** Primer ítem de un grupo que el usuario puede abrir (respeta pestañas permitidas). */
-export function primerAccesoDe(sistema: Sistema, grupo: MenuGroup, user: (UsuarioRoles & Pick<UserProfile, 'pestanasPermitidas'>) | null): string | undefined {
+type UsuarioRecorte = Pick<UserProfile, 'pestanasOcultas' | 'pestanasPermitidas'>
+
+/**
+ * ¿Esta pantalla le aparece en el menú? El recorte esconde, no cierra: el
+ * acceso real lo decide el rol en <ProtectedRoute>. Se guarda lo que se
+ * esconde, así una pantalla nueva de la app le aparece a todos sin tener que
+ * volver a guardar cada recorte (`pestanasPermitidas` es el modelo viejo, de
+ * inclusión, que se lee por si quedó alguno sin migrar).
+ */
+export function pantallaVisible(user: UsuarioRecorte | null | undefined, path: string): boolean {
+  if (!user) return true
+  if (user.pestanasOcultas) return !user.pestanasOcultas.includes(path)
+  if (user.pestanasPermitidas) return user.pestanasPermitidas.includes(path)
+  return true
+}
+
+/** Primer ítem de un grupo que el usuario puede abrir y tiene en el menú. */
+export function primerAccesoDe(sistema: Sistema, grupo: MenuGroup, user: (UsuarioRoles & UsuarioRecorte) | null): string | undefined {
   if (!user) return undefined
   return gruposVisibles(user, sistema)
     .find((g) => g.id === grupo)?.items
-    .find((i) => !user.pestanasPermitidas || user.pestanasPermitidas.includes(i.to))?.to
+    .find((i) => pantallaVisible(user, i.to))?.to
 }
 
 /** Links del Navbar clásico para un rol. */

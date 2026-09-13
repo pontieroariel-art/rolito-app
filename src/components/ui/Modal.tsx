@@ -7,9 +7,11 @@ interface ModalProps {
   children: ReactNode
   variant?: 'dark' | 'light'
   wide?: boolean
+  /** Ancho para paneles de dos columnas (el recorte del menú por usuario). */
+  extraAncho?: boolean
 }
 
-export default function Modal({ open, onClose, title, children, variant = 'dark', wide = false }: ModalProps) {
+export default function Modal({ open, onClose, title, children, variant = 'dark', wide = false, extraAncho = false }: ModalProps) {
   const titleId    = useId()
   const panelRef   = useRef<HTMLDivElement>(null)
 
@@ -41,7 +43,7 @@ export default function Modal({ open, onClose, title, children, variant = 'dark'
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className={`rounded-2xl w-full ${wide ? 'max-w-2xl' : 'max-w-md'} shadow-2xl outline-none flex flex-col max-h-[90dvh] animate-in fade-in-0 zoom-in-95 duration-200 ${
+        className={`rounded-2xl w-full ${extraAncho ? 'max-w-5xl' : wide ? 'max-w-2xl' : 'max-w-md'} shadow-2xl outline-none flex flex-col max-h-[90dvh] animate-in fade-in-0 zoom-in-95 duration-200 ${
           variant === 'light'
             ? 'bg-white border border-[#D3D1C7]'
             : 'bg-white border border-[#D3D1C7]'
