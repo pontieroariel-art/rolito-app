@@ -18,8 +18,12 @@ export function parsearNumeroTango(n) {
   return m ? { letra: m[1], puntoVenta: Number(m[2]), nro: Number(m[3]) } : null
 }
 
-/** T_COMP de Tango → tipo corto de la app ('N/C' → 'NC'). */
-export const tipoCorto = (tComp) => String(tComp ?? '').replace('/', '').trim().toUpperCase()
+/**
+ * T_COMP de Tango → tipo corto de la app ('N/C' → 'NC', 'C/E' → 'CE'). Se queda solo con
+ * letras y números: el tipo es parte del id del detalle (`{empresa}_{tipo}_{numero}`) y una
+ * barra ahí partiría el path de Firestore.
+ */
+export const tipoCorto = (tComp) => String(tComp ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
 
 export const claveFactura = (tipo, numero) => `${tipoCorto(tipo)}_${String(numero).trim().toUpperCase()}`
 

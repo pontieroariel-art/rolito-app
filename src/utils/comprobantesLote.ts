@@ -13,14 +13,29 @@ import { NOMBRE_EMPRESA_CORTO } from './tangoEmpresas'
 // tiene una clave estable para tildarlo y el título con que se nombra en el
 // mail. Puro, sin Firebase.
 
+/**
+ * Tipos de comprobante de venta de Tango (GVA12) que la app sabe nombrar. El lector trae
+ * TODOS los tipos de la empresa (2026-09-13), así que el que no esté acá igual se lista:
+ * se rotula "Comprobante XXX" y se ve en el log de la sincronización, que desglosa por tipo.
+ */
 export const TITULO_TIPO: Record<string, string> = { FAC: 'Factura', NC: 'Nota de crédito', ND: 'Nota de débito' }
+
+/** Nombre del tipo, con rótulo genérico para el que todavía no conocemos. */
+export const tituloTipo = (tipo: string): string => TITULO_TIPO[tipo] ?? `Comprobante ${tipo}`
+
+/** Tipos que RESTAN del total (crédito al cliente). Si aparece otro, sumarlo acá. */
+const CREDITOS = new Set(['NC'])
+export const esCredito = (tipo: string): boolean => CREDITOS.has(tipo)
+
+/** Una factura propiamente dicha; el resto de los comprobantes de GVA12 son "notas". */
+export const esNota = (i: ItemLote): i is ItemFactura => i.clase === 'factura' && i.tipo !== 'FAC'
 
 export interface ItemFactura {
   clase:      'factura'
   clave:      string   // 'F|{empresa}|{codigo}|{tipo}|{numero}'
   empresa:    EmpresaTango
   codigo:     string
-  tipo:       string   // 'FAC' | 'NC' | 'ND'
+  tipo:       string   // 'FAC' | 'NC' | 'ND' | el que use la empresa en Tango
   numero:     string   // 'A0010100282787'
   titulo:     string   // 'Factura A 00101-00282787'
   fecha:      string   // yyyy-MM-dd ('' si no se conoce)
@@ -53,7 +68,7 @@ export const esRemito = (i: ItemLote): i is ItemRemito => i.clase === 'remito'
 
 export const tituloFactura = (tipo: string, numero: string): string => {
   const clave = parsearClaveTango(numero)
-  return `${TITULO_TIPO[tipo] ?? tipo} ${clave ? formatoFactura(clave) : numero}`
+  return `${tituloTipo(tipo)} ${clave ? formatoFactura(clave) : numero}`
 }
 export const tituloRemito = (numero: string): string => `Remito ${formatoRemito(numero)}`
 
@@ -117,7 +132,8 @@ export function armarItemsLote(bloques: BloqueComposicion[], indices: TangoCompr
 }
 
 export interface FiltroLote {
-  clase?:     'todos' | 'facturas' | 'remitos'
+  /** 'notas' = notas de crédito y de débito (y cualquier otro comprobante que no sea factura). */
+  clase?:     'todos' | 'facturas' | 'notas' | 'remitos'
   /** Solo facturas con saldo y remitos pendientes de facturar. */
   pendientes?: boolean
   sucursal?:  GrupoRecibo | null
@@ -134,7 +150,8 @@ export function filtrarItems(items: ItemLote[], f: FiltroLote): ItemLote[] {
   const q = (f.texto ?? '').trim().toLowerCase()
   const qDigitos = soloDigitos(q)
   return items.filter((i) => {
-    if (clase === 'facturas' && i.clase !== 'factura') return false
+    if (clase === 'facturas' && !(i.clase === 'factura' && i.tipo === 'FAC')) return false
+    if (clase === 'notas' && !esNota(i)) return false
     if (clase === 'remitos' && i.clase !== 'remito') return false
     if (f.pendientes && (i.clase === 'factura' ? i.estado !== 'pendiente' : i.estado !== 'P')) return false
     if (f.sucursal && !mismoGrupo(i, f.sucursal)) return false
@@ -150,33 +167,59 @@ export function filtrarItems(items: ItemLote[], f: FiltroLote): ItemLote[] {
 }
 
 export interface ResumenLote {
+  /** Solo facturas (tipo FAC). */
   facturas: number
+  /** Notas de crédito, de débito y cualquier otro comprobante de venta que no sea factura. */
+  notas:    number
+  notasPorTipo: { tipo: string; cantidad: number }[]
   remitos:  number
   total:    number
-  /** Suma de importes de las facturas (NC restan). */
+  /** Suma de importes de facturas y notas (las de crédito restan). */
   importeFacturas: number
   desde:    string
   hasta:    string
 }
 
 export function resumenLote(items: ItemLote[]): ResumenLote {
-  const facturas = items.filter(esFactura)
+  const deVenta = items.filter(esFactura)
+  const facturas = deVenta.filter((f) => f.tipo === 'FAC')
+  const notas = deVenta.filter((f) => f.tipo !== 'FAC')
   const remitos = items.filter(esRemito)
   const fechas = items.map((i) => i.fecha).filter(Boolean).sort()
-  const importe = facturas.reduce((s, f) => s + (f.tipo === 'NC' ? -f.importe : f.importe), 0)
+  const importe = deVenta.reduce((s, f) => s + (esCredito(f.tipo) ? -f.importe : f.importe), 0)
+  const porTipo = new Map<string, number>()
+  for (const n of notas) porTipo.set(n.tipo, (porTipo.get(n.tipo) ?? 0) + 1)
   return {
-    facturas: facturas.length, remitos: remitos.length, total: items.length,
+    facturas: facturas.length,
+    notas: notas.length,
+    notasPorTipo: [...porTipo].map(([tipo, cantidad]) => ({ tipo, cantidad })),
+    remitos: remitos.length,
+    total: items.length,
     importeFacturas: Math.round(importe * 100) / 100,
     desde: fechas[0] ?? '', hasta: fechas[fechas.length - 1] ?? '',
   }
 }
 
-/** "3 facturas y 2 remitos" / "1 factura" / "4 remitos". */
-export function describirLote(r: Pick<ResumenLote, 'facturas' | 'remitos'>): string {
+/** "1 nota de crédito" / "2 notas de crédito": pluraliza el sustantivo, no la última palabra. */
+const plural = (n: number, nombre: string): string => {
+  if (n === 1) return `1 ${nombre}`
+  const [sustantivo, ...resto] = nombre.split(' ')
+  return `${n} ${sustantivo}s${resto.length ? ` ${resto.join(' ')}` : ''}`
+}
+
+/** "3 facturas, 1 nota de crédito y 2 remitos" / "1 factura" / "4 remitos". */
+export function describirLote(r: Pick<ResumenLote, 'facturas' | 'remitos' | 'notasPorTipo'>): string {
   const partes: string[] = []
-  if (r.facturas) partes.push(`${r.facturas} ${r.facturas === 1 ? 'factura' : 'facturas'}`)
-  if (r.remitos) partes.push(`${r.remitos} ${r.remitos === 1 ? 'remito' : 'remitos'}`)
-  return partes.join(' y ') || 'ningún comprobante'
+  if (r.facturas) partes.push(plural(r.facturas, 'factura'))
+  // Los tipos que la app conoce se nombran ("2 notas de crédito"); el resto va por su
+  // código, que es como lo llama Tango ("2 comprobantes CDE").
+  for (const { tipo, cantidad } of r.notasPorTipo ?? []) {
+    partes.push(plural(cantidad, TITULO_TIPO[tipo] ? TITULO_TIPO[tipo].toLowerCase() : `comprobante ${tipo}`))
+  }
+  if (r.remitos) partes.push(plural(r.remitos, 'remito'))
+  if (!partes.length) return 'ningún comprobante'
+  if (partes.length === 1) return partes[0]
+  return `${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]}`
 }
 
 export interface MailLote {
@@ -195,7 +238,13 @@ export interface MailLote {
  */
 export function armarMailLote(items: ItemLote[], cliente: Pick<UserProfile, 'uid' | 'razonSocial'>, hoy: Date = new Date()): MailLote {
   const r = resumenLote(items)
-  const que = r.facturas && r.remitos ? 'Comprobantes' : r.facturas ? (r.facturas === 1 ? 'Factura' : 'Facturas') : (r.remitos === 1 ? 'Remito' : 'Remitos')
+  // Asunto: solo se especializa cuando el lote es de una sola cosa; si mezcla facturas,
+  // notas y remitos, "Comprobantes".
+  const clases = [r.facturas > 0, r.notas > 0, r.remitos > 0].filter(Boolean).length
+  const que = clases > 1 ? 'Comprobantes'
+    : r.facturas ? (r.facturas === 1 ? 'Factura' : 'Facturas')
+      : r.notas ? (r.notas === 1 ? tituloTipo(r.notasPorTipo[0].tipo) : 'Comprobantes')
+        : (r.remitos === 1 ? 'Remito' : 'Remitos')
   const descripcion = describirLote(r)
   const facturas = items.filter(esFactura)
   const remitos = items.filter(esRemito)
@@ -215,12 +264,12 @@ export function armarMailLote(items: ItemLote[], cliente: Pick<UserProfile, 'uid
     clienteNombre: cliente.razonSocial,
     presentacion: {
       titulo: items.length === 1 ? items[0].titulo : `${items.length} comprobantes`,
-      emoji: r.facturas && !r.remitos ? '🧾' : r.remitos && !r.facturas ? '🚚' : '📎',
+      emoji: facturas.length && !r.remitos ? '🧾' : r.remitos && !facturas.length ? '🚚' : '📎',
       filas: [
-        ...(r.facturas ? [{ label: r.facturas === 1 ? 'Factura' : 'Facturas', value: listaFacturas }] : []),
+        ...(facturas.length ? [{ label: r.notas ? 'Comprobantes' : r.facturas === 1 ? 'Factura' : 'Facturas', value: listaFacturas }] : []),
         ...(r.remitos ? [{ label: r.remitos === 1 ? 'Remito' : 'Remitos', value: listaRemitos }] : []),
         ...(r.desde ? [{ label: 'Período', value: r.hasta !== r.desde ? `${fechaLarga(r.desde)} al ${fechaLarga(r.hasta)}` : fechaLarga(r.desde) }] : []),
-        ...(r.facturas > 1 ? [{ label: 'Total facturado', value: formatoARS(r.importeFacturas) }] : []),
+        ...(facturas.length > 1 ? [{ label: r.notas ? 'Total' : 'Total facturado', value: formatoARS(r.importeFacturas) }] : []),
         ...(empresas.length === 1 ? [{ label: 'Empresa', value: NOMBRE_EMPRESA_CORTO[empresas[0]] }] : []),
       ],
     },
@@ -231,7 +280,8 @@ export function armarMailLote(items: ItemLote[], cliente: Pick<UserProfile, 'uid
 export function etiquetaEstado(i: ItemLote): { texto: string; tono: 'ok' | 'pendiente' | 'neutro' | 'anulado' } {
   if (i.clase === 'factura') {
     if (i.estado === 'pendiente') return { texto: i.diasAtraso && i.diasAtraso > 0 ? `Debe · ${i.diasAtraso} d de atraso` : 'Debe', tono: 'pendiente' }
-    if (i.estado === 'pagada') return { texto: 'Pagada', tono: 'ok' }
+    // Una nota de crédito no se "paga": se aplica contra la cuenta del cliente.
+    if (i.estado === 'pagada') return { texto: esCredito(i.tipo) ? 'Aplicada' : 'Pagada', tono: 'ok' }
     return { texto: 'Anulada', tono: 'anulado' }
   }
   if (i.estado === 'P') return { texto: ESTADO_REMITO.P, tono: 'pendiente' }

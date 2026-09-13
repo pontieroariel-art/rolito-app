@@ -92,14 +92,19 @@ async function leerEmpresa({ cfg, log }, empresa, database, desde, codigos) {
   const params = { desde, ...fc('x').params }
   const t0 = Date.now()
 
+  // SIN filtro por T_COMP (2026-09-13): hasta hoy pedía IN ('FAC','N/C','N/D') y las notas de
+  // crédito no llegaban nunca, porque en estas empresas el tipo es 'NC' (el talonario 1109/1110
+  // que se creó para la app) y no 'N/C'. GVA12 es la tabla de comprobantes de VENTA, así que
+  // traerla entera es traer lo que el cliente tiene: facturas, NC, ND y cualquier tipo propio de
+  // la empresa. El tipo se normaliza en tipoCorto() y la app rotula el que no conoce.
   const facturas = await consulta(p, `
     SELECT ID_GVA12, T_COMP, N_COMP, FECHA_EMIS, IMPORTE, IMPORTE_GR, IMPORTE_EX, IMPORTE_IV, IMPORTE_IN, ESTADO, COD_CLIENT,
            CAT_IVA, COND_VTA, COD_VENDED, CAICAE, CAICAE_VTO, FECHA_ANU
-    FROM GVA12 WHERE T_COMP IN ('FAC','N/C','N/D') AND FECHA_EMIS >= @desde${fc('COD_CLIENT').sql}`, params)
+    FROM GVA12 WHERE FECHA_EMIS >= @desde${fc('COD_CLIENT').sql}`, params)
   const renglonesFac = await consulta(p, `
     SELECT r.T_COMP, r.N_COMP, r.N_RENGL_V, r.COD_ARTICU, a.DESCRIPCIO, r.CANTIDAD, r.PRECIO_NET, r.PORC_DTO, r.PORC_IVA, r.IMP_NETO_P
     FROM GVA53 r JOIN GVA12 f ON f.T_COMP = r.T_COMP AND f.N_COMP = r.N_COMP LEFT JOIN STA11 a ON a.COD_ARTICU = r.COD_ARTICU
-    WHERE f.T_COMP IN ('FAC','N/C','N/D') AND f.FECHA_EMIS >= @desde${fc('f.COD_CLIENT').sql}`, params)
+    WHERE f.FECHA_EMIS >= @desde${fc('f.COD_CLIENT').sql}`, params)
   const remitos = await consulta(p, `
     SELECT ID_STA14, N_COMP, FECHA_MOV, ESTADO_MOV, COD_PRO_CL, TALONARIO, USUARIO, FECHA_ANU
     FROM STA14 WHERE T_COMP = 'REM' AND FECHA_MOV >= @desde${fc('COD_PRO_CL').sql}`, params)
@@ -123,7 +128,12 @@ async function leerEmpresa({ cfg, log }, empresa, database, desde, codigos) {
   const pedir = ['COD_GVA14', 'RAZON_SOCI', 'CUIT', 'DOMICILIO', 'LOCALIDAD', 'C_POSTAL', 'COD_PROVIN', 'CAT_IVA', 'IVA', 'E_MAIL', 'EMAIL'].filter((c) => colsCliente.has(c))
   const clientes = Object.fromEntries((await consulta(p, `SELECT ${pedir.join(', ')} FROM GVA14`)).map((c) => [String(c.COD_GVA14 ?? '').trim(), c]))
 
-  log(`  ${empresa}: ${facturas.length} facturas (${renglonesFac.length} renglones), ${remitos.length} remitos (${renglonesRem.length} renglones), ${relacion.length} cruces, ${Object.keys(clientes).length} clientes — ${((Date.now() - t0) / 1000).toFixed(1)} s`)
+  // Desglose por tipo: es la forma de enterarse de que la empresa usa un tipo de comprobante
+  // que la app todavía no rotula (aparece como "Comprobante XXX" en la pantalla).
+  const porTipo = {}
+  for (const f of facturas) { const t = String(f.T_COMP ?? '?').trim(); porTipo[t] = (porTipo[t] ?? 0) + 1 }
+  const detalleTipos = Object.entries(porTipo).sort((a, b) => b[1] - a[1]).map(([t, n]) => `${t}:${n}`).join(', ')
+  log(`  ${empresa}: ${facturas.length} comprobantes de venta [${detalleTipos}] (${renglonesFac.length} renglones), ${remitos.length} remitos (${renglonesRem.length} renglones), ${relacion.length} cruces, ${Object.keys(clientes).length} clientes — ${((Date.now() - t0) / 1000).toFixed(1)} s`)
 
   const { porFactura, porRemito } = relacionDeFilas(relacion)
   const f = mapearFacturas({ empresa, facturas, renglones: renglonesFac, remitosPorFactura: porFactura, clientes, condiciones, vendedores })

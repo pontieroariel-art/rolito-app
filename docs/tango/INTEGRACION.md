@@ -1908,6 +1908,17 @@ Firebase + `rolito_bridge` de SQL, que tiene `db_datareader`). Lógica pura y te
 
 - Lee GVA12/GVA53, STA14/STA20, GVA54, GVA43, GVA01, GVA23, GVA14 (columnas probadas con
   `sys.columns`) de los últimos `diasVentana` (45) días; `--backfill` = 400 días (primera carga).
+- **GVA12 se lee ENTERA, sin filtrar por `T_COMP` (2026-09-13).** Hasta ese día pedía
+  `T_COMP IN ('FAC','N/C','N/D')` y **las notas de crédito no llegaban nunca**: el tipo de NC de
+  estas empresas es `'NC'` (el de los talonarios 1109/1110 que usa la app), no `'N/C'` — en 13
+  meses de índice había 34.780 FAC, 23 ND y **cero NC**. GVA12 es la tabla de comprobantes de
+  VENTA, así que traerla entera es traer lo que el cliente realmente tiene. El tipo se normaliza
+  en `tipoCorto()` (solo letras y números: `'N/C'` y `'NC'` son la misma clave) y la app rotula
+  "Comprobante XXX" el que no conoce. El log de cada corrida **desglosa por tipo**
+  (`redonhielo: 12.345 comprobantes de venta [FAC:12000, N/D:23, NC:322]`): así se ve si la
+  empresa usa un tipo que convenga rotular en `TITULO_TIPO` (`src/utils/comprobantesLote.ts`).
+  Para que aparezcan las NC/ND viejas hay que correr una vez `--backfill` (la pasada normal solo
+  mira 45 días).
 - Publica con el usuario bridge (reglas: `isTangoBridge()` crea/actualiza; nadie borra):
   - **`tangoComprobantes/{empresa}_{codigo}`** índice por código de cliente:
     `facturas: { 'FAC_A0010100282787': { tipo, numero, fecha, importe, estado (PEN/CAN/ANU),

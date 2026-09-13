@@ -19,7 +19,7 @@ import { INPUT_BUSQUEDA_PROPS } from '@/utils/busqueda'
 import { compartirArchivos, descargarArchivos, puedeCompartirArchivos } from '@/utils/compartir'
 import { armarComposicion, emailDelCliente, opcionesSucursal, type OpcionSucursal } from '@/utils/comprobantesTango'
 import {
-  armarItemsLote, armarMailLote, describirLote, etiquetaEstado, fechaCorta, fechaLarga, filtrarItems, resumenLote,
+  armarItemsLote, armarMailLote, describirLote, esCredito, etiquetaEstado, fechaCorta, fechaLarga, filtrarItems, resumenLote,
   type FiltroLote, type ItemLote,
 } from '@/utils/comprobantesLote'
 import { formatoARS } from '@/utils/money'
@@ -52,7 +52,7 @@ export default function ComprobantesClientesPage() {
     <main className="max-w-7xl mx-auto p-4 space-y-4 pb-28">
       <div>
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><Files size={22} className="text-accent" /> Comprobantes de clientes</h1>
-        <p className="text-secundario text-sm">Buscá un cliente, elegí sus facturas y remitos de Tango y mandalos todos juntos por mail, WhatsApp o descarga.</p>
+        <p className="text-secundario text-sm">Buscá un cliente, elegí sus comprobantes de Tango (facturas, notas de crédito y débito, remitos) y mandalos todos juntos por mail, WhatsApp o descarga.</p>
       </div>
       {/* Remitos anulados en la app que la oficina tiene que anular en Tango (2026-09-12). */}
       <RemitosPendientesTango />
@@ -181,7 +181,7 @@ function PanelCliente({ uid, onCerrar }: { uid: string; onCerrar: () => void }) 
         <Cabecera cliente={cliente} email={email} onCerrar={onCerrar} />
         <p className="text-xs text-secundario flex flex-wrap items-center gap-x-2 gap-y-1">
           {(refrescando || cargandoIndices) && <RefreshCw size={12} className="animate-spin" />}
-          {refrescando ? 'Actualizando facturas y remitos desde Tango…' : cargandoIndices ? 'Cargando…' : `Facturas y remitos de los últimos 12 meses${saldoAl ? ` · saldo de Tango ${haceCuanto(saldoAl) || 'en caché'}` : ''}`}
+          {refrescando ? 'Actualizando comprobantes desde Tango…' : cargandoIndices ? 'Cargando…' : `Todos los comprobantes de los últimos 12 meses${saldoAl ? ` · saldo de Tango ${haceCuanto(saldoAl) || 'en caché'}` : ''}`}
           {avisoTango && !refrescando && <span className={avisoTango.startsWith('Actualizado') ? 'text-accent' : 'text-amber-700'}>· {avisoTango}</span>}
           {!refrescando && (
             <button type="button" onClick={refrescar} className="text-accent font-medium hover:underline">Actualizar desde Tango</button>
@@ -294,10 +294,11 @@ function Filtros({ filtro, onChange, opciones }: { filtro: FiltroLote; onChange:
   return (
     <div className="flex flex-wrap items-end gap-2">
       <div className="flex gap-1">
-        {(['todos', 'facturas', 'remitos'] as const).map((c) => (
+        {/* 'Notas' junta NC, ND y cualquier otro comprobante de venta que no sea factura. */}
+        {([['todos', 'Todo'], ['facturas', 'Facturas'], ['notas', 'Notas de crédito y débito'], ['remitos', 'Remitos']] as const).map(([c, label]) => (
           <button key={c} type="button" onClick={() => set({ clase: c })}
             className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${(filtro.clase ?? 'todos') === c ? 'bg-accent text-white border-accent' : 'bg-white text-gray-700 border-[#D3D1C7]'}`}>
-            {c === 'todos' ? 'Todo' : c === 'facturas' ? 'Facturas' : 'Remitos'}
+            {label}
           </button>
         ))}
       </div>
@@ -387,7 +388,8 @@ function FilaItem({ item, elegido, onAlternar, cliente, email, conCuenta }: {
       <td className="px-2 py-2 text-right tabular-nums whitespace-nowrap">
         {item.clase === 'factura' ? (
           <>
-            <span className={anulado ? 'text-secundario' : 'text-gray-900'}>{formatoARS(item.importe)}</span>
+            {/* Una nota de crédito resta: se muestra en negativo para leer la columna de un vistazo. */}
+            <span className={anulado ? 'text-secundario' : 'text-gray-900'}>{formatoARS(esCredito(item.tipo) ? -item.importe : item.importe)}</span>
             {item.pendiente !== null && item.pendiente !== item.importe && <span className="block text-[11px] text-red-600">debe {formatoARS(item.pendiente)}</span>}
           </>
         ) : <span className="text-secundario">—</span>}

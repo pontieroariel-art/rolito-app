@@ -59,7 +59,9 @@ export interface BloqueComposicion {
 
 export const restarMeses = (d: Date, meses: number): Date => new Date(d.getFullYear(), d.getMonth() - meses, d.getDate())
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-const tipoCorto = (t: string) => t.replace('/', '').trim().toUpperCase()
+// Mismo criterio que el lector (scripts/tango/comprobantes-tango.mjs): solo letras y
+// números, así 'N/C' y 'NC' son la misma clave del índice.
+const tipoCorto = (t: string) => (t ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
 const claveIndice = (tipo: string, numero: string) => `${tipoCorto(tipo)}_${numero.trim().toUpperCase()}`
 const redondear = (n: number) => Math.round(n * 100) / 100
 
@@ -194,7 +196,7 @@ const TITULO: Record<string, FacturaPdfData['titulo']> = { FAC: 'FACTURA', NC: '
  * electrónica (tiene CAE): sin CAE no se puede regenerar un comprobante válido.
  */
 export function armarFacturaTangoPdf(d: FacturaTangoDetalle): { ok: true; datos: FacturaPdfData } | { ok: false; motivo: string } {
-  if (!d.cae || !d.caeVto) return { ok: false, motivo: `La ${d.tipo === 'FAC' ? 'factura' : 'nota'} ${d.numero} no tiene CAE en Tango: pedila a administración.` }
+  if (!d.cae || !d.caeVto) return { ok: false, motivo: `El comprobante ${d.numero} no tiene CAE en Tango: pedilo a administración.` }
   if (d.letra !== 'A' && d.letra !== 'B' && d.letra !== 'C') return { ok: false, motivo: `No se puede imprimir un comprobante letra ${d.letra}.` }
   if (d.empresa !== 'redonhielo') return { ok: false, motivo: 'Las facturas de Rolito se imprimen desde la venta de la app.' }
   const c = d.cliente
@@ -203,7 +205,7 @@ export function armarFacturaTangoPdf(d: FacturaTangoDetalle): { ok: true; datos:
     datos: {
       letra:        d.letra,
       codigoTipo:   String(d.cbteTipo ?? '').padStart(2, '0'),
-      titulo:       TITULO[d.tipo] ?? 'FACTURA',
+      titulo:       TITULO[d.tipo] ?? `COMPROBANTE ${d.tipo}`,
       puntoVenta:   d.puntoVenta,
       numero:       d.nro,
       fechaEmision: fechaDe(d.fecha),
