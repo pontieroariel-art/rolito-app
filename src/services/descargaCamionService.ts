@@ -22,6 +22,9 @@ export async function crearDescargaCamion(
     choferNombre:     string
     depositoTango?:       string
     depositoTangoNombre?: string
+    // Remito de carga del viaje (cuando hay: un fletero vuelve sin remito).
+    remitoId?:        string
+    remitoCodigo?:    string
     items:            DescargaCamionItem[]
     bolsasRotas:      DescargaCamionItem[]
     // Envases que volvieron, contados sueltos (desde 2026-09-07 reemplaza a
@@ -31,11 +34,12 @@ export async function crearDescargaCamion(
   actor: ActorMuelle,
 ): Promise<DescargaCamion> {
   const ref = doc(collection(db, DESCARGAS))
-  const { depositoTango, depositoTangoNombre, ...resto } = args
+  const { depositoTango, depositoTangoNombre, remitoId, remitoCodigo, ...resto } = args
   const descarga: Omit<DescargaCamion, 'id'> = {
     plantaId:      actor.plantaId,
     ...resto,
     ...(depositoTango ? { depositoTango, depositoTangoNombre: depositoTangoNombre ?? '' } : {}),
+    ...(remitoId ? { remitoId, remitoCodigo: remitoCodigo ?? '' } : {}),
     registradoPor: { uid: actor.uid, nombre: actor.nombre },
     fecha:         Timestamp.now(),
     // Transferencia camión → planta en Tango, que encola onDescargaCamionCreada.
@@ -68,6 +72,12 @@ export const confirmarEntregaRemito = async (
   )
 }
 
+// Firestore devuelve los docs sin orden garantizado cuando no hay orderBy, y
+// la liquidación toma la ÚLTIMA descarga como hora de vuelta del camión
+// (ResumenLiquidacion): sin esto podía mostrar la hora de la primera vuelta.
+const porFecha = (ds: DescargaCamion[]): DescargaCamion[] =>
+  [...ds].sort((a, b) => a.fecha.toMillis() - b.fecha.toMillis())
+
 const rangoDia = (dia: Date): [Timestamp, Timestamp] => {
   const desde = new Date(dia); desde.setHours(0, 0, 0, 0)
   const hasta = new Date(desde); hasta.setDate(hasta.getDate() + 1)
@@ -88,7 +98,7 @@ export const subscribeDescargasDelDia = (
       where('fecha', '>=', desde),
       where('fecha', '<', hasta),
     ),
-    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as DescargaCamion))),
+    (snap) => callback(porFecha(snap.docs.map((d) => ({ id: d.id, ...d.data() } as DescargaCamion)))),
     onSnapshotError(callback, 'descargasCamion'),
   )
 }
@@ -106,6 +116,6 @@ export const subscribeDescargasChoferEnRango = (
       where('fecha', '>=', Timestamp.fromDate(desde)),
       where('fecha', '<', Timestamp.fromDate(hasta)),
     ),
-    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as DescargaCamion))),
+    (snap) => callback(porFecha(snap.docs.map((d) => ({ id: d.id, ...d.data() } as DescargaCamion)))),
     onSnapshotError(callback, 'descargasCamion'),
   )

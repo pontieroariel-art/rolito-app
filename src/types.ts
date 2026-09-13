@@ -918,6 +918,12 @@ export interface DescargaCamion {
   depositoTangoNombre?: string
   items:            DescargaCamionItem[]   // mercadería sana que volvió
   bolsasRotas:      DescargaCamionItem[]   // rotas recibidas (contra los cambios)
+  // Remito de carga del viaje que se contó (2026-09-13). Sin esto "Descargas de
+  // hoy" no decía a qué salida corresponde cada conteo: no se distinguía la
+  // segunda vuelta legítima de un conteo cargado dos veces por error. Opcional:
+  // una descarga de un depósito sin remito digital (fletero) no lo tiene.
+  remitoId?:        string
+  remitoCodigo?:    string
   // Envases que volvieron, contados sueltos por muelle (desde 2026-09-07).
   envases?:         EnvasesDescarga
   // LEGACY (descargas anteriores al 2026-09-07): pallets completos (con hielo),

@@ -42,6 +42,10 @@ export default function MuelleDashboard() {
   const fecha = useFechaDelDia()
 
   const remitos = useRemitosCargaDelDia(plantaId, fecha)
+  // Ayer también: el camión que vuelve pasada la medianoche trae un remito del
+  // día anterior y hasta ahora desaparecía del combo de descarga.
+  const ayer = useMemo(() => { const d = new Date(fecha); d.setDate(d.getDate() - 1); return d }, [fecha])
+  const remitosAyer = useRemitosCargaDelDia(plantaId, ayer)
   const [descargas,   setDescargas]   = useState<DescargaCamion[]>([])
   const ventanillas = useVentanillaDelDia(plantaId, fecha)
 
@@ -77,14 +81,30 @@ export default function MuelleDashboard() {
   const minutosEsperando = (v: VentaVentanilla) =>
     Math.max(0, Math.round((Date.now() - v.fecha.toMillis()) / 60_000))
   // Para descargar: cualquier remito ya entregado (el camión salió y volvió).
-  const entregados  = remitos.filter((r) => r.estado !== 'emitido')
+  // Incluye los de AYER: un camión que vuelve pasada la medianoche tenía su
+  // remito fuera de la ventana del día y desaparecía del combo, así que no había
+  // forma de contarle la descarga (y la liquidación la comparaba contra cero).
+  const entregados = useMemo(
+    () => [...remitos, ...remitosAyer].filter((r) => r.estado !== 'emitido'),
+    [remitos, remitosAyer],
+  )
+  const idsDeAyer = useMemo(() => new Set(remitosAyer.map((r) => r.id)), [remitosAyer])
+  // Los que ya tienen descarga registrada hoy: sirven para avisar "a este ya lo
+  // contaste" en vez de dejar que se cuente dos veces sin que nadie lo note.
+  const yaDescargados = useMemo(() => new Set(descargas.map((d) => d.choferId)), [descargas])
+  // La última contada arriba: es la que se acaba de registrar y la que hay que
+  // poder revisar de un vistazo.
+  const descargasRecientes = useMemo(
+    () => [...descargas].sort((a, b) => b.fecha.toMillis() - a.fecha.toMillis()),
+    [descargas],
+  )
   // El combo mezcla remitos del día ('rem:<id>') y depósitos sueltos
   // ('dep:<código>'): un tercerizado que cargó en otra planta, o sin remito
   // digital, igual vuelve y hay que contarle la descarga.
   const remitoDescarga = remitoDescargaId.startsWith('rem:') ? entregados.find((r) => r.id === remitoDescargaId.slice(4)) : undefined
   const depositoDescarga = remitoDescargaId.startsWith('dep:') ? depositosReparto.find((d) => d.codigo === remitoDescargaId.slice(4)) : undefined
   const descargaSeleccionada = remitoDescarga
-    ? { camionId: remitoDescarga.camionId, camionLabel: remitoDescarga.camionLabel, choferId: remitoDescarga.choferId, choferNombre: remitoDescarga.choferNombre, depositoTango: remitoDescarga.depositoTango, depositoTangoNombre: remitoDescarga.depositoTangoNombre }
+    ? { camionId: remitoDescarga.camionId, camionLabel: remitoDescarga.camionLabel, choferId: remitoDescarga.choferId, choferNombre: remitoDescarga.choferNombre, depositoTango: remitoDescarga.depositoTango, depositoTangoNombre: remitoDescarga.depositoTangoNombre, remitoId: remitoDescarga.id, remitoCodigo: remitoDescarga.codigo }
     : depositoDescarga
       ? { camionId: '', camionLabel: '', choferId: identidadDeposito(depositoDescarga), choferNombre: nombreDeposito(depositoDescarga), depositoTango: depositoDescarga.codigo, depositoTangoNombre: depositoDescarga.nombre }
       : undefined
@@ -93,6 +113,32 @@ export default function MuelleDashboard() {
     catalogo
       .filter((p) => (m[p.id] ?? 0) > 0)
       .map((p) => ({ productoId: p.id, nombre: p.nombre, cantidad: m[p.id] }))
+
+  /**
+   * Qué productos pide contar. Hasta el 2026-09-13 eran los OCHO del catálogo
+   * (más otros ocho de bolsas rotas), llevara el camión lo que llevara: 21
+   * casilleros en cero para recorrer de parado, con guantes y con el chofer
+   * esperando. Ahora pide solo lo que salió en el remito de ese viaje.
+   *
+   * Esto NO rompe el conteo ciego: saber QUÉ productos llevó no es saber CUÁNTO
+   * tiene que devolver. Las cantidades siguen arrancando en cero y el teórico no
+   * se muestra nunca.
+   *
+   * Sin remito (un fletero, o carga de otra planta) no hay lista de la que
+   * partir: ahí se muestra el catálogo entero, como antes.
+   */
+  const [extras, setExtras] = useState<string[]>([])
+  const productosAContar = useMemo(() => {
+    const delRemito = remitoDescarga?.items.map((i) => i.productoId) ?? []
+    const ids = new Set([...delRemito, ...extras])
+    return delRemito.length > 0 ? catalogo.filter((p) => ids.has(p.id)) : catalogo
+  }, [catalogo, remitoDescarga, extras])
+  // Lo que se puede sumar a mano: vuelve algo que no salió en este remito (un
+  // cambio de otro producto, mercadería de otro viaje).
+  const productosExtra = useMemo(
+    () => catalogo.filter((p) => !productosAContar.some((x) => x.id === p.id)),
+    [catalogo, productosAContar],
+  )
 
   const num = (v: string) => Math.max(0, Math.min(99999, parseInt(v.replace(/\D/g, ''), 10) || 0))
 
@@ -142,6 +188,7 @@ export default function MuelleDashboard() {
       setRemitoDescargaId('')
       setSanas({})
       setRotas({})
+      setExtras([])
       setEnvases(ENVASES_VACIOS)
       setOkMsg(`Descarga de ${descargaSeleccionada.choferNombre} registrada.`)
     } catch (err) {
@@ -356,12 +403,24 @@ export default function MuelleDashboard() {
 
           <div>
             <label className="text-sm font-medium text-secundario mb-1 block">Camión que volvió</label>
-            <select value={remitoDescargaId} onChange={(e) => { setRemitoDescargaId(e.target.value); setOkMsg('') }} className={selectClass}>
-              <option value="">Elegir remito del día…</option>
+            <select
+              value={remitoDescargaId}
+              onChange={(e) => {
+                setRemitoDescargaId(e.target.value)
+                setOkMsg('')
+                setSanas({}); setRotas({}); setExtras([]); setEnvases(ENVASES_VACIOS)
+              }}
+              className={selectClass}
+            >
+              <option value="">Elegir el camión…</option>
               {entregados.length > 0 && (
-                <optgroup label="Remitos de carga de hoy">
+                <optgroup label="Camiones que salieron (hoy y ayer)">
                   {entregados.map((r) => (
-                    <option key={r.id} value={`rem:${r.id}`}>{r.codigo} · {r.camionLabel} · {r.choferNombre}</option>
+                    <option key={r.id} value={`rem:${r.id}`}>
+                      {r.codigo} · {r.camionLabel} · {r.choferNombre}
+                      {idsDeAyer.has(r.id) ? ' · salió ayer' : ''}
+                      {yaDescargados.has(r.choferId) ? ' · ya contado' : ''}
+                    </option>
                   ))}
                 </optgroup>
               )}
@@ -375,10 +434,23 @@ export default function MuelleDashboard() {
 
           {descargaSeleccionada && (
             <>
+              {/* Ya se le contó una descarga hoy: puede ser la segunda vuelta
+                  (legítima) o un conteo repetido. Se avisa, no se bloquea. */}
+              {yaDescargados.has(descargaSeleccionada.choferId) && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  <p className="text-sm text-amber-800">
+                    A {descargaSeleccionada.choferNombre} ya se le contó una descarga hoy. Si es la segunda vuelta, seguí; si no, avisá a caja antes de registrar otra.
+                  </p>
+                </div>
+              )}
+
               <div>
-                <p className="text-sm font-medium text-secundario mb-2">Mercadería que volvió (contada)</p>
+                <p className="text-sm font-medium text-secundario mb-2">
+                  Mercadería que volvió (contada)
+                  {remitoDescarga && <span className="text-secundario font-normal"> · lo que salió en {remitoDescarga.codigo}</span>}
+                </p>
                 <div className="space-y-1.5">
-                  {catalogo.map((p) => (
+                  {productosAContar.map((p) => (
                     <div key={p.id} className="flex items-center gap-3">
                       <span className="flex-1 min-w-0 truncate text-base text-gray-900" title={p.nombre}>{p.nombre}</span>
                       <input
@@ -390,12 +462,25 @@ export default function MuelleDashboard() {
                     </div>
                   ))}
                 </div>
+                {/* Volvió algo que no salió en este remito: un cambio de otro
+                    producto, o mercadería de otro viaje. */}
+                {productosExtra.length > 0 && (
+                  <select
+                    value=""
+                    onChange={(e) => { if (e.target.value) setExtras((prev) => [...prev, e.target.value]) }}
+                    className={`${selectClass} mt-2`}
+                    aria-label="Agregar otro producto al conteo"
+                  >
+                    <option value="">+ Otro producto…</option>
+                    {productosExtra.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                  </select>
+                )}
               </div>
 
               <div>
                 <p className="text-sm font-medium text-secundario mb-2">Bolsas rotas recibidas (de los cambios)</p>
                 <div className="space-y-1.5">
-                  {catalogo.map((p) => (
+                  {productosAContar.map((p) => (
                     <div key={p.id} className="flex items-center gap-3">
                       <span className="flex-1 min-w-0 truncate text-base text-gray-900" title={p.nombre}>{p.nombre}</span>
                       <input
@@ -463,12 +548,18 @@ export default function MuelleDashboard() {
           {descargas.length === 0 && (
             <p className="text-secundario text-sm">Todavía no se registró ninguna descarga hoy.</p>
           )}
-          {descargas.map((d) => (
+          {descargasRecientes.map((d) => (
             <div key={d.id} className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-3">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-semibold text-gray-900 truncate" title={d.choferNombre}>{d.choferNombre}</p>
-                <p className="text-xs text-secundario shrink-0">{d.camionLabel}</p>
+                <p className="text-xs text-secundario shrink-0 tabular-nums">
+                  {d.fecha.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                </p>
               </div>
+              <p className="text-xs text-secundario mt-0.5">
+                {d.remitoCodigo || d.depositoTangoNombre || 'sin remito'}
+                {d.camionLabel && ` · ${d.camionLabel}`}
+              </p>
               <p className="text-xs text-secundario mt-0.5 tabular-nums">
                 {d.items.reduce((s, i) => s + i.cantidad, 0)} bolsas
                 {describirEnvases(envasesDeDescarga(d)) && ` · ${describirEnvases(envasesDeDescarga(d))}`}
@@ -479,11 +570,11 @@ export default function MuelleDashboard() {
         </section>
 
         {/* ── Confirmación de descarga ── */}
-        {confirmando && remitoDescarga && (
+        {confirmando && descargaSeleccionada && (
           <Modal open onClose={() => setConfirmando(false)} title="Confirmar descarga">
             <div className="space-y-3">
               <p className="text-sm text-gray-700">
-                {remitoDescarga.camionLabel} · <span className="font-medium">{remitoDescarga.choferNombre}</span>
+                {descargaSeleccionada.camionLabel || descargaSeleccionada.depositoTangoNombre} · <span className="font-medium">{descargaSeleccionada.choferNombre}</span>
               </p>
               <div className="border border-[#D3D1C7] rounded-lg divide-y divide-[#E7E5DC] text-sm">
                 {toItems(sanas).map((i) => (
