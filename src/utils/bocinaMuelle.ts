@@ -56,18 +56,51 @@ export const SONIDOS: OpcionSonido[] = [
   { id: 'chicharra',  nombre: 'Chicharra', detalle: 'Zumbido grave y seco, dos toques. El más corto de todos.' },
 ]
 
-const DEFECTO: SonidoMuelle = 'industrial'
-const CLAVE = 'muelleTvSonido'
+/**
+ * UN SONIDO POR EVENTO (2026-09-13): que el muelle sepa QUÉ pasó sin levantar la
+ * vista. Con un único aviso para todo hay que mirar la pantalla siempre, y en un
+ * galpón eso significa dejar lo que estás haciendo.
+ *
+ * Los valores por defecto salen de escucharlos con Ariel:
+ *  - el llamado de turno habla, porque tiene que decir un número y una dársena
+ *    que no se pueden deducir de un tono;
+ *  - el resto son tonos: un aviso hablado cada cinco minutos, ocho horas por
+ *    día, termina con alguien bajándole el volumen al televisor.
+ */
+export type EventoMuelle = 'llamado' | 'entra' | 'retorno' | 'demora'
 
-export const leerSonidoElegido = (): SonidoMuelle => {
+export interface OpcionEvento { id: EventoMuelle; nombre: string; cuando: string; defecto: SonidoMuelle }
+
+export const EVENTOS: OpcionEvento[] = [
+  { id: 'llamado', nombre: 'Llamado de turno', cuando: 'Se llama un turno a una dársena', defecto: 'vozAviso' },
+  { id: 'entra',   nombre: 'Trabajo nuevo',    cuando: 'Entra una carga o un turno nuevo', defecto: 'ping' },
+  { id: 'retorno', nombre: 'Volvió un camión', cuando: 'Llegó a planta y falta contarlo',  defecto: 'retorno' },
+  { id: 'demora',  nombre: 'Demora en dársena', cuando: 'Un camión se pasó del tiempo',    defecto: 'demora' },
+]
+
+const CLAVE = 'muelleTvSonidos'
+
+export type SonidosPorEvento = Record<EventoMuelle, SonidoMuelle>
+
+const DEFECTOS = (): SonidosPorEvento =>
+  Object.fromEntries(EVENTOS.map((e) => [e.id, e.defecto])) as SonidosPorEvento
+
+export const leerSonidos = (): SonidosPorEvento => {
+  const base = DEFECTOS()
   try {
-    const v = localStorage.getItem(CLAVE) as SonidoMuelle | null
-    return v && SONIDOS.some((s) => s.id === v) ? v : DEFECTO
-  } catch { return DEFECTO }
+    const raw = localStorage.getItem(CLAVE)
+    if (!raw) return base
+    const guardado = JSON.parse(raw) as Partial<SonidosPorEvento>
+    for (const e of EVENTOS) {
+      const v = guardado[e.id]
+      if (v && SONIDOS.some((s) => s.id === v)) base[e.id] = v
+    }
+    return base
+  } catch { return base }
 }
 
-export const guardarSonidoElegido = (id: SonidoMuelle): void => {
-  try { localStorage.setItem(CLAVE, id) } catch { /* el TV puede tener el storage bloqueado: vale para esta sesión */ }
+export const guardarSonidos = (mapa: SonidosPorEvento): void => {
+  try { localStorage.setItem(CLAVE, JSON.stringify(mapa)) } catch { /* storage bloqueado: vale para esta sesión */ }
 }
 
 /** Un pulso: tipo de onda, frecuencia (o barrido), cuándo empieza y cuánto dura. */

@@ -10,7 +10,8 @@ import {
 } from '@/types'
 import { nombreClienteVenta } from '@/utils/nombreClienteVenta'
 import {
-  SONIDOS, guardarSonidoElegido, leerSonidoElegido, tocarSonido, type SonidoMuelle,
+  EVENTOS, SONIDOS, guardarSonidos, leerSonidos, tocarSonido,
+  type EventoMuelle, type SonidoMuelle, type SonidosPorEvento,
 } from '@/utils/bocinaMuelle'
 
 // Tablero de TV del muelle (/muelle/tv) — diseño "E1 Neón oscuro" elegido por
@@ -76,65 +77,80 @@ export default function MuelleTvPage() {
     }
   }, [])
 
-  // ── Aviso de llegada ── el muelle tiene MUCHO ruido ambiente (dato de
-  // Ariel): esto no es una campanita de escritorio, tiene que cortar el ruido
-  // de las máquinas y escucharse a diez metros. Hay CINCO sonidos para elegir
-  // (utils/bocinaMuelle.ts) porque lo que funciona en una planta molesta en
-  // otra: se prueban desde el propio TV, con el ruido real, y la elección queda
-  // guardada en el aparato. Va con un destello de toda la pantalla como baliza,
-  // por si igual no se escucha.
+  // ── Avisos ── el muelle tiene MUCHO ruido ambiente (dato de Ariel): esto no
+  // es una campanita de escritorio, tiene que cortar el ruido de las máquinas y
+  // escucharse a diez metros. Va con un destello de toda la pantalla como
+  // baliza, por si igual no se escucha.
+  //
+  // UN SONIDO POR EVENTO (2026-09-13): así el muelle sabe QUÉ pasó sin levantar
+  // la vista. El llamado de turno HABLA —dice un número y una dársena que de un
+  // tono no se deducen— y el resto son tonos, porque un aviso hablado cada cinco
+  // minutos termina con alguien bajándole el volumen al televisor. Se eligen y
+  // se escuchan desde el propio TV, con el ruido real, y quedan guardados en el
+  // aparato (utils/bocinaMuelle.ts).
   //
   // Los navegadores solo dejan sonar tras un gesto humano: el botón de abajo a
   // la derecha arma el audio una vez al instalar el TV.
   const audioRef = useRef<AudioContext | null>(null)
   const [flash, setFlash] = useState(false)
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // Cuál de los sonidos suena, elegido en el propio TV y guardado en el
-  // aparato: lo que corta el ruido de una planta molesta en otra, así que se
-  // prueba ahí con el ruido real (SONIDOS en utils/bocinaMuelle.ts).
-  const [sonidoElegido, setSonidoElegido] = useState<SonidoMuelle>(leerSonidoElegido)
+  const [sonidos, setSonidos] = useState<SonidosPorEvento>(leerSonidos)
   const [eligiendo, setEligiendo] = useState(false)
-  const bocina = useCallback(() => tocarSonido(audioRef.current, sonidoElegido), [sonidoElegido])
-  // Baliza visual: toda la pantalla destella unos segundos junto con la bocina.
+  // Baliza visual: toda la pantalla destella unos segundos junto con el aviso.
   const balizar = useCallback(() => {
     if (flashTimer.current) clearTimeout(flashTimer.current)
     setFlash(true)
     flashTimer.current = setTimeout(() => setFlash(false), 5_000)
   }, [])
-  const alarmaLlegada = useCallback(() => { bocina(); balizar() }, [bocina, balizar])
+  // Cada evento con su aviso: el muelle sabe QUÉ pasó sin levantar la vista.
+  const avisar = useCallback((evento: EventoMuelle, texto?: string) => {
+    tocarSonido(audioRef.current, sonidos[evento], texto)
+    balizar()
+  }, [sonidos, balizar])
   useEffect(() => () => { if (flashTimer.current) clearTimeout(flashTimer.current) }, [])
   const activarSonido = () => {
     try {
       if (!audioRef.current) audioRef.current = new AudioContext()
       audioRef.current.resume()
       setSonido(true)
-      alarmaLlegada()   // ráfaga de prueba, para calibrar el volumen del TV
+      avisar('entra')   // ráfaga de prueba, para calibrar el volumen del TV
     } catch { /* sin soporte de audio */ }
   }
   const apagarSonido = () => setSonido(false)
 
   // Suena cuando aparece un id NUEVO (nunca en la carga inicial de la página).
-  const idsVistos = useRef<{ remitos: Set<string> | null; ventanillas: Set<string> | null; regresos: Set<string> | null }>(
-    { remitos: null, ventanillas: null, regresos: null },
-  )
+  const idsVistos = useRef<{
+    remitos: Set<string> | null; ventanillas: Set<string> | null
+    regresos: Set<string> | null; llamados: Set<string> | null; demorados: Set<string>
+  }>({ remitos: null, ventanillas: null, regresos: null, llamados: null, demorados: new Set() })
+
   useEffect(() => {
     const previos = idsVistos.current.remitos
-    if (previos && sonido && remitos.some((r) => !previos.has(r.id))) alarmaLlegada()
+    if (previos && sonido && remitos.some((r) => !previos.has(r.id))) avisar('entra')
     idsVistos.current.remitos = new Set(remitos.map((r) => r.id))
-  }, [remitos, sonido, alarmaLlegada])
+  }, [remitos, sonido, avisar])
   useEffect(() => {
     const previos = idsVistos.current.ventanillas
-    if (previos && sonido && ventanillas.some((v) => !previos.has(v.id))) alarmaLlegada()
+    if (previos && sonido && ventanillas.some((v) => !previos.has(v.id))) avisar('entra')
     idsVistos.current.ventanillas = new Set(ventanillas.map((v) => v.id))
-  }, [ventanillas, sonido, alarmaLlegada])
-  // Un camión que vuelve también es trabajo nuevo para el muelle: hay que ir a
+  }, [ventanillas, sonido, avisar])
+  // Un camión que vuelve también es trabajo para el muelle: hay que ir a
   // contarle la descarga.
   useEffect(() => {
     const conRegreso = remitos.filter((r) => r.regreso).map((r) => r.id)
     const previos = idsVistos.current.regresos
-    if (previos && sonido && conRegreso.some((id) => !previos.has(id))) alarmaLlegada()
+    if (previos && sonido && conRegreso.some((id) => !previos.has(id))) avisar('retorno')
     idsVistos.current.regresos = new Set(conRegreso)
-  }, [remitos, sonido, alarmaLlegada])
+  }, [remitos, sonido, avisar])
+  // Llamado de turno: el único aviso que HABLA, porque tiene que decir un número
+  // y una dársena que de un tono no se deducen.
+  useEffect(() => {
+    const llamados = ventanillas.filter((v) => v.turnoEstado === 'llamado' && v.darsena)
+    const previos = idsVistos.current.llamados
+    const nuevo = previos && llamados.find((v) => !previos.has(`${v.id}_${v.darsena}`))
+    if (nuevo && sonido) avisar('llamado', `Turno ${nuevo.turno}, dársena ${nuevo.darsena}`)
+    idsVistos.current.llamados = new Set(llamados.map((v) => `${v.id}_${v.darsena}`))
+  }, [ventanillas, sonido, avisar])
 
   // ── Datos derivados ──
   const camionEnDarsena = (n: number) => remitos.find((r) => r.estado === 'emitido' && r.darsena === n)
@@ -142,6 +158,20 @@ export default function MuelleTvPage() {
     ventanillas.find((v) => v.estado === 'pendiente_entrega' && v.turnoEstado === 'llamado' && v.darsena === n)
 
   const camionesEnEspera = remitos.filter((r) => r.estado === 'emitido' && !r.darsena)
+
+  // Demora en dársena: suena UNA vez por camión al pasarse del tiempo. Repetirlo
+  // cada refresco sería una alarma cada 10 segundos y terminaría en alguien
+  // apagándole el sonido al televisor.
+  useEffect(() => {
+    if (!sonido) return
+    const pasados = remitos.filter((r) =>
+      r.estado === 'emitido' && r.darsena && (ahora - r.fecha.toMillis()) / 60_000 >= TOPE_DARSENA_MIN)
+    const nuevo = pasados.find((r) => !idsVistos.current.demorados.has(r.id))
+    if (nuevo) {
+      idsVistos.current.demorados.add(nuevo.id)
+      avisar('demora')
+    }
+  }, [remitos, ahora, sonido, avisar])
   const listosParaSalir  = remitos.filter((r) => r.estado === 'entregado')
   const colaTurnos = ventanillas
     .filter((v) => v.estado === 'pendiente_entrega' && ['en_espera', 'preparado'].includes(v.turnoEstado))
@@ -282,18 +312,36 @@ export default function MuelleTvPage() {
         forma de saber si se escucha. */}
     <div className="absolute bottom-3 right-3 flex items-end gap-2">
       {eligiendo && sonido && (
-        <div className="bg-gray-900 border border-gray-700 rounded-xl p-3 w-[420px] space-y-1.5">
-          <p className="text-xs text-gray-500 uppercase tracking-widest mb-2">Sonido del aviso</p>
-          {SONIDOS.map((s) => (
-            <button key={s.id} onClick={() => { setSonidoElegido(s.id); guardarSonidoElegido(s.id); tocarSonido(audioRef.current, s.id) }}
-              className={`w-full text-left rounded-lg px-3 py-2 transition-colors ${
-                sonidoElegido === s.id ? 'bg-accent/20 border border-accent' : 'bg-gray-800 border border-transparent hover:bg-gray-700'
-              }`}>
-              <p className="text-sm font-semibold text-gray-100">{s.nombre}{sonidoElegido === s.id ? ' ✓' : ''}</p>
-              <p className="text-xs text-gray-400">{s.detalle}</p>
-            </button>
+        <div className="bg-gray-900 border border-gray-700 rounded-xl p-3 w-[560px] space-y-2">
+          <p className="text-xs text-gray-500 uppercase tracking-widest">Un sonido por evento</p>
+          {EVENTOS.map((e) => (
+            <div key={e.id} className="flex items-center gap-2">
+              <div className="w-[190px] shrink-0">
+                <p className="text-sm font-semibold text-gray-100 leading-tight">{e.nombre}</p>
+                <p className="text-[11px] text-gray-500 leading-tight">{e.cuando}</p>
+              </div>
+              <select
+                value={sonidos[e.id]}
+                onChange={(ev) => {
+                  const id = ev.target.value as SonidoMuelle
+                  const nuevo = { ...sonidos, [e.id]: id }
+                  setSonidos(nuevo); guardarSonidos(nuevo)
+                  tocarSonido(audioRef.current, id, e.id === 'llamado' ? 'Turno 14, dársena 5' : undefined)
+                }}
+                className="flex-1 min-w-0 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-sm text-gray-100"
+              >
+                {SONIDOS.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+              </select>
+              <button type="button" aria-label={`Probar ${e.nombre}`}
+                onClick={() => tocarSonido(audioRef.current, sonidos[e.id], e.id === 'llamado' ? 'Turno 14, dársena 5' : undefined)}
+                className="shrink-0 rounded-lg bg-gray-800 border border-gray-700 px-3 py-1.5 text-sm hover:bg-gray-700">
+                ▶
+              </button>
+            </div>
           ))}
-          <p className="text-[11px] text-gray-600 pt-1">Tocá cualquiera para escucharla. Queda guardada en este televisor.</p>
+          <p className="text-[11px] text-gray-600 pt-1">
+            Elegí y escuchá con el ruido de la planta. Queda guardado en este televisor.
+          </p>
         </div>
       )}
       <div className="flex flex-col items-end gap-1">
