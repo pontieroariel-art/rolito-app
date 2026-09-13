@@ -22,6 +22,7 @@
 export type SonidoMuelle =
   | 'industrial' | 'timbre' | 'campana' | 'sirena' | 'chicharra'
   | 'anden' | 'ping' | 'retorno' | 'demora'
+  | 'vozAviso' | 'vozSola'
 
 export interface OpcionSonido {
   id:     SonidoMuelle
@@ -35,6 +36,10 @@ export interface OpcionSonido {
 export const SONIDOS: OpcionSonido[] = [
   // Pensados por EVENTO (2026-09-13): que el muelle sepa QUÉ pasó sin mirar la
   // pantalla. Un tablero con un solo sonido obliga a levantar la vista siempre.
+  { id: 'vozAviso', nombre: 'Aviso + voz', para: 'Llamado a dársena o ventanilla',
+    detalle: 'Dos notas cortas y después la voz: "Turno 14, dársena 5". Como en un aeropuerto — el tono corta el ruido y prepara el oído, la voz da el dato.' },
+  { id: 'vozSola',  nombre: 'Solo voz', para: 'Llamado, sin campanilla',
+    detalle: 'La voz sola. Más corto, pero con ruido de máquinas se pierde: escuchalo parado donde trabajan.' },
   { id: 'anden',   nombre: 'Campana de andén', para: 'Llamado a dársena o ventanilla',
     detalle: 'Acorde de tres notas que se apaga solo, como el de una estación o un aeropuerto.' },
   { id: 'ping',    nombre: 'Ping de logística', para: 'Confirmación o asignación',
@@ -86,8 +91,55 @@ function pulso(
   osc.stop(inicio + dur + 0.05)
 }
 
-/** Toca el sonido elegido. Sin AudioContext armado no hace nada. */
-export function tocarSonido(ctx: AudioContext | null, id: SonidoMuelle): void {
+/**
+ * Voz del tablero (Web Speech API, sin archivos ni servicios). Habla despacio y
+ * sin relleno: "Turno 14, dársena 5" y nada más. En un muelle ruidoso la voz es
+ * lo primero que se pierde, así que SIEMPRE va después de un tono que corte el
+ * ruido y prepare el oído — igual que en un aeropuerto.
+ *
+ * La voz depende del aparato: un televisor sin voz en español no dice nada. Por
+ * eso el aviso sonoro nunca puede depender solo de esto.
+ */
+export function hablar(texto: string): void {
+  try {
+    const s = window.speechSynthesis
+    if (!s) return
+    s.cancel()
+    const u = new SpeechSynthesisUtterance(texto)
+    u.lang = 'es-AR'
+    u.rate = 0.95   // apenas más lento: con eco de galpón, rápido no se entiende
+    u.volume = 1
+    const voz = s.getVoices().find((v) => v.lang?.toLowerCase().startsWith('es'))
+    if (voz) u.voice = voz
+    s.speak(u)
+  } catch { /* sin soporte de voz en este aparato */ }
+}
+
+/** Hay voz en español en ESTE aparato (para avisar si el TV no la tiene). */
+export const hayVozEnEspanol = (): boolean => {
+  try {
+    return !!window.speechSynthesis?.getVoices().some((v) => v.lang?.toLowerCase().startsWith('es'))
+  } catch { return false }
+}
+
+/**
+ * Toca el sonido elegido. Sin AudioContext armado no hace nada.
+ * `texto` solo lo usan los avisos hablados (con un ejemplo por defecto).
+ */
+export function tocarSonido(ctx: AudioContext | null, id: SonidoMuelle, texto = 'Turno 14, dársena 5'): void {
+  // Los hablados no necesitan AudioContext para la voz, solo para la campanilla.
+  if (id === 'vozSola') { hablar(texto); return }
+  if (id === 'vozAviso') {
+    if (ctx) {
+      const t0 = ctx.currentTime
+      // Dos notas cortas y limpias (La-Do), como el "din-don" previo al mensaje.
+      pulso(ctx, { tipo: 'sine', desde: 880,   inicio: t0,        dur: 0.18, vol: 0.8 })
+      pulso(ctx, { tipo: 'sine', desde: 1046.5, inicio: t0 + 0.2, dur: 0.35, vol: 0.8 })
+    }
+    // La voz arranca cuando la campanilla ya terminó: encimadas no se entiende.
+    setTimeout(() => hablar(texto), 700)
+    return
+  }
   if (!ctx) return
   const t = ctx.currentTime
   switch (id) {

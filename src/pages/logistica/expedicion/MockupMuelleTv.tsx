@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { SONIDOS, tocarSonido } from '@/utils/bocinaMuelle'
+import { SONIDOS, hayVozEnEspanol, tocarSonido } from '@/utils/bocinaMuelle'
 
 /**
  * MAQUETA DESCARTABLE del televisor del muelle (2026-09-13) — NO ES PRODUCCIÓN.
@@ -88,12 +88,15 @@ export default function MockupMuelleTv() {
   // Probador de sonidos: los navegadores solo dejan sonar tras un gesto humano,
   // así que el AudioContext se arma con el primer toque del botón.
   const [sonidos, setSonidos] = useState(false)
+  // Las voces del navegador cargan asincrónicamente: se relee al abrir el panel.
+  const [hayVoz, setHayVoz] = useState(true)
   const audioRef = useRef<AudioContext | null>(null)
   const probarSonidos = () => {
     try {
       if (!audioRef.current) audioRef.current = new AudioContext()
       audioRef.current.resume()
     } catch { /* sin soporte de audio */ }
+    setHayVoz(hayVozEnEspanol())
     setSonidos((v) => !v)
   }
   const [ahora, setAhora] = useState(() => new Date())
@@ -234,8 +237,16 @@ export default function MockupMuelleTv() {
             ))}
           </div>
           <p className="text-[11px] text-gray-600 mt-2">
-            Los cuatro de arriba están pensados uno por evento; los cinco de abajo son los "fuertes", para cortar el ruido de las máquinas.
+            Los de arriba están pensados uno por evento; los de abajo son los "fuertes", para cortar el ruido de las máquinas.
           </p>
+          {/* La voz depende del aparato: si este televisor no trae voz en
+              español, los avisos hablados no dicen nada. Mejor saberlo acá que
+              el día que esté colgado. */}
+          {!hayVoz && (
+            <p className="text-[11px] text-amber-400 mt-1">
+              Ojo: este aparato no tiene voz en español instalada, así que los dos avisos hablados no se van a escuchar. Probalos en el televisor antes de elegirlos.
+            </p>
+          )}
         </div>
       )}
     </div>
