@@ -19,7 +19,7 @@ import { INPUT_BUSQUEDA_PROPS } from '@/utils/busqueda'
 import { compartirArchivos, descargarArchivos, puedeCompartirArchivos } from '@/utils/compartir'
 import { armarComposicion, emailDelCliente, opcionesSucursal, type OpcionSucursal } from '@/utils/comprobantesTango'
 import {
-  armarItemsLote, armarMailLote, describirLote, esCredito, etiquetaEstado, fechaCorta, fechaLarga, filtrarItems, resumenLote,
+  armarItemsLote, armarMailLote, describirLote, etiquetaEstado, fechaCorta, fechaLarga, filtrarItems, restaEnCuenta, resumenLote,
   type FiltroLote, type ItemLote,
 } from '@/utils/comprobantesLote'
 import { formatoARS } from '@/utils/money'
@@ -294,8 +294,10 @@ function Filtros({ filtro, onChange, opciones }: { filtro: FiltroLote; onChange:
   return (
     <div className="flex flex-wrap items-end gap-2">
       <div className="flex gap-1">
-        {/* 'Notas' junta NC, ND y cualquier otro comprobante de venta que no sea factura. */}
-        {([['todos', 'Todo'], ['facturas', 'Facturas'], ['notas', 'Notas de crédito y débito'], ['remitos', 'Remitos']] as const).map(([c, label]) => (
+        {/* Cada botón es una familia de Tango (GVA12.TCOMP_IN_V): 'Notas' junta crédito,
+            débito y ajustes; 'Recibos' es la cobranza. */}
+        {([['todos', 'Todo'], ['facturas', 'Facturas'], ['notas', 'Notas de crédito y débito'],
+          ['recibos', 'Recibos'], ['remitos', 'Remitos']] as const).map(([c, label]) => (
           <button key={c} type="button" onClick={() => set({ clase: c })}
             className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${(filtro.clase ?? 'todos') === c ? 'bg-accent text-white border-accent' : 'bg-white text-gray-700 border-[#D3D1C7]'}`}>
             {label}
@@ -389,7 +391,7 @@ function FilaItem({ item, elegido, onAlternar, cliente, email, conCuenta }: {
         {item.clase === 'factura' ? (
           <>
             {/* Una nota de crédito resta: se muestra en negativo para leer la columna de un vistazo. */}
-            <span className={anulado ? 'text-secundario' : 'text-gray-900'}>{formatoARS(esCredito(item.tipo) ? -item.importe : item.importe)}</span>
+            <span className={anulado ? 'text-secundario' : 'text-gray-900'}>{formatoARS(restaEnCuenta(item) ? -item.importe : item.importe)}</span>
             {item.pendiente !== null && item.pendiente !== item.importe && <span className="block text-[11px] text-red-600">debe {formatoARS(item.pendiente)}</span>}
           </>
         ) : <span className="text-secundario">—</span>}

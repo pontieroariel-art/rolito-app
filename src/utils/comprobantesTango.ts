@@ -1,5 +1,6 @@
 import type {
-  ComprobanteSaldoTango, EmpresaTango, FacturaTangoDetalle, RemitoTangoDetalle, TangoComprobantesDoc, UserProfile,
+  ComprobanteSaldoTango, EmpresaTango, FacturaTangoDetalle, FamiliaComprobante, RemitoTangoDetalle,
+  TangoComprobantesDoc, UserProfile,
 } from '@/types'
 import type { FacturaPdfData } from './facturaPdf'
 import { EMISOR_REDONHIELO as EMISOR_FACTURA } from './facturaPdf'
@@ -26,7 +27,9 @@ export interface FilaComposicion {
   clave:             string   // '{empresa}|{codigo}|{tipo}|{numero}'
   empresa:           EmpresaTango
   codigo:            string
-  tipo:              string   // 'FAC' | 'NC' | 'ND' | …
+  tipo:              string   // código de Tango: 'FAC' | 'NC' | 'NCB' | 'C/E' | 'REC' | …
+  /** Qué es, según la clase que le pone Tango (la escribe el lector). */
+  familia:           FamiliaComprobante
   numero:            string
   fecha:             string   // emisión yyyy-MM-dd ('' si no se conoce)
   fechaVencimiento?: string
@@ -63,6 +66,15 @@ const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart
 // números, así 'N/C' y 'NC' son la misma clave del índice.
 const tipoCorto = (t: string) => (t ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
 const claveIndice = (tipo: string, numero: string) => `${tipoCorto(tipo)}_${numero.trim().toUpperCase()}`
+
+/**
+ * La clase la escribe el lector leyendo GVA12.TCOMP_IN_V. Este respaldo es para los
+ * comprobantes que ya estaban en el índice antes del 2026-09-13 y para los pendientes que
+ * llegan por `saldosTango` (la consulta en vivo no trae la clase): ahí solo se conocen los
+ * códigos clásicos, y lo que no se reconoce queda 'otro' antes que arriesgar un rótulo.
+ */
+export const familiaDe = (familia: FamiliaComprobante | undefined, tipo: string): FamiliaComprobante =>
+  familia ?? ({ FAC: 'factura', NC: 'credito', ND: 'debito', REC: 'recibo' } as const)[tipoCorto(tipo)] ?? 'otro'
 const redondear = (n: number) => Math.round(n * 100) / 100
 
 /**
@@ -97,6 +109,7 @@ export function armarComposicion(
     b.filas.push({
       clave: `${empresa}|${codigo}|${tipo}|${numero}`,
       empresa, codigo, tipo, numero,
+      familia: familiaDe(enIndice?.familia, tipo),
       fecha: c.fechaEmision || enIndice?.fecha || '',
       ...(c.fechaVencimiento ? { fechaVencimiento: c.fechaVencimiento } : {}),
       importe: c.importeOriginal,
@@ -120,6 +133,7 @@ export function armarComposicion(
         b.filas.push({
           clave: `${idx.empresa}|${idx.codigo}|${f.tipo}|${f.numero}`,
           empresa: idx.empresa, codigo: idx.codigo, tipo: f.tipo, numero: f.numero,
+          familia: familiaDe(f.familia, f.tipo),
           fecha: f.fecha, importe: f.importe, pendiente: null,
           estado: anulada ? 'anulada' : 'pagada',
           remitos: f.remitos ?? [],

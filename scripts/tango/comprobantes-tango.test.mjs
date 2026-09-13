@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  aPodar, actualizarCache, cbteTipoDe, claveFactura, diferencias, huella, mapearFacturas, mapearRemitos,
+  aPodar, actualizarCache, cbteTipoDe, claveFactura, diferencias, familiaDe, huella, mapearFacturas, mapearRemitos,
   parsearNumeroTango, relacionDeFilas, tipoCorto,
 } from './comprobantes-tango.mjs'
 
@@ -19,6 +19,25 @@ describe('números y tipos', () => {
     expect(claveFactura('N/C', 'a0010100000001')).toBe('NC_A0010100000001')
     expect(cbteTipoDe('FAC', 'A')).toBe(1); expect(cbteTipoDe('N/C', 'B')).toBe(8); expect(cbteTipoDe('FAC', 'R')).toBeNull()
   })
+  // Los códigos son los que se relevaron en las dos empresas el 2026-09-13: cada una
+  // inventó los suyos, y lo único que los clasifica es TCOMP_IN_V.
+  it('clasifica por la clase interna de Tango, no por el código del comprobante', () => {
+    expect(familiaDe('FC', 'FAC')).toBe('factura')
+    expect(familiaDe('CC', 'NCB')).toBe('credito')
+    expect(familiaDe('CC', 'C/E')).toBe('credito')
+    expect(familiaDe('CC', 'CAR')).toBe('credito')
+    expect(familiaDe('DC', 'D/B')).toBe('debito')
+    expect(familiaDe('DC', 'DEB')).toBe('debito')
+    expect(familiaDe('RC', 'REC')).toBe('recibo')
+    expect(familiaDe(' cc ', 'NCT')).toBe('credito')
+  })
+  it('sin clase interna cae al código conocido, y si tampoco lo conoce dice "otro"', () => {
+    expect(familiaDe(null, 'FAC')).toBe('factura')
+    expect(familiaDe('', 'N/C')).toBe('credito')
+    expect(familiaDe(undefined, 'N/D')).toBe('debito')
+    expect(familiaDe(null, 'REC')).toBe('recibo')
+    expect(familiaDe(null, 'CDP')).toBe('otro')
+  })
   it('la huella es estable ante el orden de las claves', () => {
     expect(huella({ a: 1, b: { c: 2, d: 3 } })).toBe(huella({ b: { d: 3, c: 2 }, a: 1 }))
     expect(huella({ a: 1 })).not.toBe(huella({ a: 2 }))
@@ -28,7 +47,7 @@ describe('números y tipos', () => {
 describe('mapearFacturas', () => {
   const facturas = [{
     ID_GVA12: 372383, T_COMP: 'FAC', N_COMP: 'A0010100282787', FECHA_EMIS: f(2026, 9, 2), IMPORTE: 84216, IMPORTE_GR: 69600, IMPORTE_EX: 0, IMPORTE_IV: 14616, IMPORTE_IN: 0,
-    ESTADO: 'PEN', COD_CLIENT: 'PA.003', CAT_IVA: 'RI', COND_VTA: 2, COD_VENDED: 'MS', CAICAE: '86351131069060', CAICAE_VTO: f(2026, 9, 12), FECHA_ANU: f(1800, 1, 1),
+    TCOMP_IN_V: 'FC', ESTADO: 'PEN', COD_CLIENT: 'PA.003', CAT_IVA: 'RI', COND_VTA: 2, COD_VENDED: 'MS', CAICAE: '86351131069060', CAICAE_VTO: f(2026, 9, 12), FECHA_ANU: f(1800, 1, 1),
   }]
   const renglones = [
     { T_COMP: 'FAC', N_COMP: 'A0010100282787', N_RENGL_V: 2, COD_ARTICU: 'CAMBIOHIELO3KG', DESCRIPCIO: 'CAMBIO', CANTIDAD: 1, PRECIO_NET: 0, PORC_DTO: 0, PORC_IVA: 0, IMP_NETO_P: 0 },
@@ -40,7 +59,7 @@ describe('mapearFacturas', () => {
     const { resumen, detalles } = mapearFacturas({ empresa: 'redonhielo', facturas, renglones, remitosPorFactura: porFactura, clientes, condiciones, vendedores })
     expect(Object.keys(resumen)).toEqual(['PA.003'])
     const r = resumen['PA.003'].FAC_A0010100282787
-    expect(r).toMatchObject({ tipo: 'FAC', numero: 'A0010100282787', fecha: '2026-09-02', importe: 84216, estado: 'PEN', idGva12: 372383, remitos: ['R0000100482053'] })
+    expect(r).toMatchObject({ tipo: 'FAC', familia: 'factura', numero: 'A0010100282787', fecha: '2026-09-02', importe: 84216, estado: 'PEN', idGva12: 372383, remitos: ['R0000100482053'] })
     expect(typeof r.h).toBe('string')
     expect(detalles).toHaveLength(1)
     const d = detalles[0]

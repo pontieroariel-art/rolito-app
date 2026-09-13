@@ -1908,6 +1908,22 @@ Firebase + `rolito_bridge` de SQL, que tiene `db_datareader`). Lógica pura y te
 
 - Lee GVA12/GVA53, STA14/STA20, GVA54, GVA43, GVA01, GVA23, GVA14 (columnas probadas con
   `sys.columns`) de los últimos `diasVentana` (45) días; `--backfill` = 400 días (primera carga).
+- **La CLASE la dice Tango, no el código (2026-09-13).** `GVA12.TCOMP_IN_V` clasifica cada
+  comprobante — `FC` factura, `CC` crédito, `DC` débito, `RC` recibo — y el lector la publica
+  como `familia` (`'factura' | 'credito' | 'debito' | 'recibo' | 'otro'`) en el índice y en el
+  detalle. Es la única fuente confiable: **los importes de GVA12 son todos positivos** (no hay
+  signo que distinga un crédito de un débito) y cada empresa inventa sus propios `T_COMP`.
+  Relevamiento del 2026-09-13 (`scripts/tango/diagnosticar-tipos-comprobante.mjs`, 400 días):
+  - Redonhielo, 43.302: FAC 31.398 · REC 10.727 · C/E 715 · CDP 163 · NCB 83 · DEB 59 · CFC 41
+    · N/D 39 · CDV 25 · CIN 21 · DIN 14 · D/B 7 · NC 5 · NCT 2 · CEF 2 · CAR 1
+  - Rolito, 29.272: FAC 27.089 · REC 1.941 · C/E 71 · CIN 52 · CDP 32 · DIN 31 · NCB 15 · CEF 12
+    · NC 8 · N/D 7 · CDV 5 · NCR 3 · NCT 3 · DEB 2 · D/B 1
+  - Créditos (CC): C/E, CDP, NCB, CFC, CDV, CIN, NC, NCT, CEF, CAR, NCR. Débitos (DC): DEB,
+    N/D, DIN, D/B. Recibos (RC): REC. Los ejemplos lo confirman: los CC son bonificaciones,
+    devoluciones y ajustes de precio; los DC, cheques rechazados y gastos administrativos.
+  - `GVA15` (26 filas) es el maestro de motivos, también marcado C/D; `GVA43` nombra los
+    talonarios ("NC A PROMO APP ROLITO", "DEBITO \"A\" CAE").
+  - Ninguna de estas tablas se consulta en caliente: alcanza con `TCOMP_IN_V` en el SELECT.
 - **GVA12 se lee ENTERA, sin filtrar por `T_COMP` (2026-09-13).** Hasta ese día pedía
   `T_COMP IN ('FAC','N/C','N/D')` y **las notas de crédito no llegaban nunca**: el tipo de NC de
   estas empresas es `'NC'` (el de los talonarios 1109/1110 que usa la app), no `'N/C'` — en 13

@@ -27,6 +27,22 @@ export const tipoCorto = (tComp) => String(tComp ?? '').toUpperCase().replace(/[
 
 export const claveFactura = (tipo, numero) => `${tipoCorto(tipo)}_${String(numero).trim().toUpperCase()}`
 
+/**
+ * Qué ES el comprobante, según la clase interna que le pone Tango (GVA12.TCOMP_IN_V):
+ * FC factura, CC crédito, DC débito, RC recibo. Es la única fuente confiable — los importes
+ * de GVA12 son todos positivos y cada empresa inventa sus propios T_COMP (Redonhielo usa 16:
+ * C/E, CDP, NCB, CFC, CDV, CIN, NC, NCT, CEF y CAR son todos créditos; DEB, N/D, DIN y D/B,
+ * débitos). Leyéndola, un código nuevo queda bien clasificado sin tocar la app.
+ * El fallback por T_COMP es para los comprobantes viejos del índice, que se escribieron
+ * antes de que el lector trajera esta columna.
+ */
+const CLASE_TANGO = { FC: 'factura', CC: 'credito', DC: 'debito', RC: 'recibo' }
+const FAMILIA_POR_TIPO = { FAC: 'factura', NC: 'credito', ND: 'debito', REC: 'recibo' }
+export function familiaDe(tcompIn, tipo) {
+  const clase = CLASE_TANGO[String(tcompIn ?? '').trim().toUpperCase()]
+  return clase ?? FAMILIA_POR_TIPO[tipoCorto(tipo)] ?? 'otro'
+}
+
 // Código de tipo de comprobante de ARCA según letra y tipo (para el QR).
 const CBTE_TIPO = {
   FAC: { A: 1, B: 6, C: 11 },
@@ -116,8 +132,9 @@ export function mapearFacturas({ empresa, facturas, renglones, remitosPorFactura
     const ivaAlic = rens.find((r) => r.ivaPct > 0)?.ivaPct ?? (gravado > 0 ? num((iva / gravado) * 100) : 0)
     const cliente = clienteDe(clientes[codigo], f.CAT_IVA, condiciones[String(f.COND_VTA)], vendedores[txt(f.COD_VENDED)] ?? txt(f.COD_VENDED))
     const cae = txt(f.CAICAE)
+    const familia = familiaDe(f.TCOMP_IN_V, tipo)
     const detalle = {
-      empresa, tipo, numero, codigo, fecha,
+      empresa, tipo, familia, numero, codigo, fecha,
       letra:      p?.letra ?? numero.charAt(0),
       puntoVenta: p?.puntoVenta ?? 0,
       nro:        p?.nro ?? 0,
@@ -134,7 +151,7 @@ export function mapearFacturas({ empresa, facturas, renglones, remitosPorFactura
     const h = huella(detalle)
     if (!resumen[codigo]) resumen[codigo] = {}
     resumen[codigo][clave] = {
-      tipo, numero, fecha, importe: total, estado: detalle.estado,
+      tipo, familia, numero, fecha, importe: total, estado: detalle.estado,
       ...(typeof f.ID_GVA12 === 'number' ? { idGva12: f.ID_GVA12 } : {}),
       ...(remitos.length ? { remitos } : {}),
       h,

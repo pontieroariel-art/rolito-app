@@ -19,8 +19,12 @@ const indice: TangoComprobantesDoc = {
     FAC_A0010100200000: { tipo: 'FAC', numero: 'A0010100200000', fecha: '2025-08-01', importe: 10, estado: 'CAN', h: '4' },   // más de 12 meses: afuera
     NC_A0010100000005:  { tipo: 'NC', numero: 'A0010100000005', fecha: '2026-06-01', importe: 500, estado: 'ANU', h: '5' },
     ND_A0010100001619:  { tipo: 'ND', numero: 'A0010100001619', fecha: '2026-07-01', importe: 1000, estado: 'CAN', h: '6' },
-    // Tipo propio de la empresa que la app todavía no rotula: se lista igual (2026-09-13).
-    CDE_A0010100000077: { tipo: 'CDE', numero: 'A0010100000077', fecha: '2026-07-02', importe: 300, estado: 'CAN', h: '7' },
+    // Códigos propios de la empresa (2026-09-13): los clasifica la familia que manda el
+    // lector leyendo Tango, no su código. NCB es crédito y REC es un recibo de cobranza.
+    NCB_B0010100000179: { tipo: 'NCB', familia: 'credito', numero: 'B0010100000179', fecha: '2026-07-03', importe: 400, estado: 'IMP', h: '7' },
+    REC_X0110600000307: { tipo: 'REC', familia: 'recibo', numero: 'X0110600000307', fecha: '2026-07-04', importe: 2000, estado: 'IMP', h: '8' },
+    // Sin familia y con un código que la app no conoce: se lista igual, sin inventarle nombre.
+    CDE_A0010100000077: { tipo: 'CDE', numero: 'A0010100000077', fecha: '2026-07-02', importe: 300, estado: 'CAN', h: '9' },
   },
   remitos: {
     R0000100482053: { fecha: '2026-08-27', estado: 'F', bultos: 20, facturas: ['A0010100282787'], h: 'a' },
@@ -37,10 +41,12 @@ describe('lote de comprobantes', () => {
     const l = items()
     expect(l.map((i) => `${i.clase[0]}:${i.numero}`)).toEqual([
       'r:R0110500000322', 'r:R0110500000201', 'f:A0010100282787', 'r:R0000100482053', 'f:A0010100281724', 'f:A0010100281321',
-      'f:A0010100000077', 'f:A0010100001619', 'f:A0010100000005',
+      'f:X0110600000307', 'f:B0010100000179', 'f:A0010100000077', 'f:A0010100001619', 'f:A0010100000005',
     ])
     expect(l.find((i) => i.numero === 'A0010100001619')?.titulo).toBe('Nota de débito A 00101-00001619')
     expect(l.find((i) => i.numero === 'A0010100000077')?.titulo).toBe('Comprobante CDE A 00101-00000077')
+    expect(l.find((i) => i.numero === 'B0010100000179')?.titulo).toBe('Nota de crédito NCB B 00101-00000179')
+    expect(l.find((i) => i.numero === 'X0110600000307')?.titulo).toBe('Recibo X 01106-00000307')
     const f = l.find((i) => i.numero === 'A0010100282787')
     expect(f?.titulo).toBe('Factura A 00101-00282787')
     expect(f?.clase === 'factura' && f.pendiente).toBe(84216)
@@ -52,26 +58,27 @@ describe('lote de comprobantes', () => {
   it('filtra por clase, pendientes, sucursal, fechas y número (con o sin guiones)', () => {
     const l = items()
     expect(filtrarItems(l, { clase: 'facturas' }).map((i) => i.numero)).toEqual(['A0010100282787', 'A0010100281724', 'A0010100281321'])
-    expect(filtrarItems(l, { clase: 'notas' }).map((i) => i.numero)).toEqual(['A0010100000077', 'A0010100001619', 'A0010100000005'])
+    expect(filtrarItems(l, { clase: 'notas' }).map((i) => i.numero)).toEqual(['B0010100000179', 'A0010100000077', 'A0010100001619', 'A0010100000005'])
+    expect(filtrarItems(l, { clase: 'recibos' }).map((i) => i.numero)).toEqual(['X0110600000307'])
     expect(filtrarItems(l, { clase: 'remitos' }).length).toBe(3)
     expect(filtrarItems(l, { pendientes: true }).map((i) => i.numero)).toEqual(['R0110500000322', 'A0010100282787', 'A0010100281724'])
     expect(filtrarItems(l, { sucursal: { empresa: 'rolito', codigo: 'PA.003' } }).length).toBe(0)
     expect(filtrarItems(l, { desde: '2026-09-01', hasta: '2026-09-08' }).map((i) => i.numero)).toEqual(['R0110500000201', 'A0010100282787'])
     expect(filtrarItems(l, { texto: '00101-00282787' }).map((i) => i.numero)).toEqual(['A0010100282787'])
     expect(filtrarItems(l, { texto: '282787' }).map((i) => i.numero)).toEqual(['A0010100282787'])
-    expect(filtrarItems(l, { texto: 'nota' }).map((i) => i.numero)).toEqual(['A0010100001619', 'A0010100000005'])
+    expect(filtrarItems(l, { texto: 'nota' }).map((i) => i.numero)).toEqual(['B0010100000179', 'A0010100001619', 'A0010100000005'])
     expect(filtrarItems(l, { texto: '01105' }).length).toBe(2)
   })
 
   it('resume y describe lo elegido', () => {
     const l = items()
     const r = resumenLote(l)
-    expect(r).toMatchObject({ facturas: 3, notas: 3, remitos: 3, total: 9, desde: '2026-06-01', hasta: '2026-09-09' })
-    // 3 facturas de 84216 + ND 1000 + CDE 300 menos la NC de 500
-    expect(r.importeFacturas).toBe(253448)
-    expect(describirLote(r)).toBe('3 facturas, 1 comprobante CDE, 1 nota de débito, 1 nota de crédito y 3 remitos')
+    expect(r).toMatchObject({ facturas: 3, notas: 4, recibos: 1, remitos: 3, total: 11, desde: '2026-06-01', hasta: '2026-09-09' })
+    // 3 facturas de 84216 + ND 1000 + CDE 300, menos la NC de 500, la NCB de 400 y el recibo de 2000
+    expect(r.importeFacturas).toBe(251048)
+    expect(describirLote(r)).toBe('3 facturas, 2 notas de crédito, 1 nota de débito, 1 comprobante CDE, 1 recibo y 3 remitos')
     expect(describirLote({ facturas: 1, remitos: 0, notasPorTipo: [] })).toBe('1 factura')
-    expect(describirLote({ facturas: 0, remitos: 0, notasPorTipo: [{ tipo: 'NC', cantidad: 2 }] })).toBe('2 notas de crédito')
+    expect(describirLote({ facturas: 0, remitos: 0, notasPorTipo: [{ tipo: 'NC', familia: 'credito', cantidad: 2 }] })).toBe('2 notas de crédito')
     expect(describirLote({ facturas: 0, remitos: 0, notasPorTipo: [] })).toBe('ningún comprobante')
   })
 

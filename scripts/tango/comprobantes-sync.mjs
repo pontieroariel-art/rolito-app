@@ -98,7 +98,7 @@ async function leerEmpresa({ cfg, log }, empresa, database, desde, codigos) {
   // traerla entera es traer lo que el cliente tiene: facturas, NC, ND y cualquier tipo propio de
   // la empresa. El tipo se normaliza en tipoCorto() y la app rotula el que no conoce.
   const facturas = await consulta(p, `
-    SELECT ID_GVA12, T_COMP, N_COMP, FECHA_EMIS, IMPORTE, IMPORTE_GR, IMPORTE_EX, IMPORTE_IV, IMPORTE_IN, ESTADO, COD_CLIENT,
+    SELECT ID_GVA12, T_COMP, TCOMP_IN_V, N_COMP, FECHA_EMIS, IMPORTE, IMPORTE_GR, IMPORTE_EX, IMPORTE_IV, IMPORTE_IN, ESTADO, COD_CLIENT,
            CAT_IVA, COND_VTA, COD_VENDED, CAICAE, CAICAE_VTO, FECHA_ANU
     FROM GVA12 WHERE FECHA_EMIS >= @desde${fc('COD_CLIENT').sql}`, params)
   const renglonesFac = await consulta(p, `

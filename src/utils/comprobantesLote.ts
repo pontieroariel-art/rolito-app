@@ -1,4 +1,4 @@
-import type { EmpresaTango, TangoComprobantesDoc, UserProfile } from '@/types'
+import type { EmpresaTango, FamiliaComprobante, TangoComprobantesDoc, UserProfile } from '@/types'
 import type { GrupoRecibo } from './composicionSaldos'
 import { mismoGrupo } from './composicionSaldos'
 import { ESTADO_REMITO, formatoRemito, restarMeses, MESES_VISIBLES, type BloqueComposicion, type EstadoFila } from './comprobantesTango'
@@ -14,28 +14,43 @@ import { NOMBRE_EMPRESA_CORTO } from './tangoEmpresas'
 // mail. Puro, sin Firebase.
 
 /**
- * Tipos de comprobante de venta de Tango (GVA12) que la app sabe nombrar. El lector trae
- * TODOS los tipos de la empresa (2026-09-13), así que el que no esté acá igual se lista:
- * se rotula "Comprobante XXX" y se ve en el log de la sincronización, que desglosa por tipo.
+ * Cómo se llama cada familia en pantalla. La familia la decide TANGO (GVA12.TCOMP_IN_V) y la
+ * publica el lector: no hay lista de códigos que mantener acá, porque cada empresa inventa
+ * los suyos (Redonhielo usa 16). 'otro' es el comprobante que el lector no pudo clasificar:
+ * se muestra con su código de Tango antes que arriesgar un nombre equivocado.
  */
-export const TITULO_TIPO: Record<string, string> = { FAC: 'Factura', NC: 'Nota de crédito', ND: 'Nota de débito' }
+export const NOMBRE_FAMILIA: Record<FamiliaComprobante, string> = {
+  factura: 'Factura', credito: 'Nota de crédito', debito: 'Nota de débito', recibo: 'Recibo', otro: 'Comprobante',
+}
 
-/** Nombre del tipo, con rótulo genérico para el que todavía no conocemos. */
-export const tituloTipo = (tipo: string): string => TITULO_TIPO[tipo] ?? `Comprobante ${tipo}`
+/** Nombre del comprobante: el de su familia, más el código de Tango cuando no es el clásico. */
+export const tituloTipo = (tipo: string, familia: FamiliaComprobante = 'otro'): string => {
+  const nombre = NOMBRE_FAMILIA[familia] ?? 'Comprobante'
+  const clasico = { factura: 'FAC', credito: 'NC', debito: 'ND', recibo: 'REC', otro: '' }[familia]
+  return tipo && tipo !== clasico ? `${nombre} ${tipo}` : nombre
+}
 
-/** Tipos que RESTAN del total (crédito al cliente). Si aparece otro, sumarlo acá. */
-const CREDITOS = new Set(['NC'])
-export const esCredito = (tipo: string): boolean => CREDITOS.has(tipo)
+/** Resta en la cuenta del cliente (crédito a su favor). */
+export const esCredito = (familia: FamiliaComprobante): boolean => familia === 'credito'
 
-/** Una factura propiamente dicha; el resto de los comprobantes de GVA12 son "notas". */
-export const esNota = (i: ItemLote): i is ItemFactura => i.clase === 'factura' && i.tipo !== 'FAC'
+/** Le BAJA la deuda al cliente: una nota de crédito o un recibo. Se muestra en negativo. */
+export const restaEnCuenta = (i: ItemLote): boolean =>
+  i.clase === 'factura' && (i.familia === 'credito' || i.familia === 'recibo')
+
+/** Todo lo que no es factura ni recibo: notas de crédito, de débito y ajustes. */
+export const esNota = (i: ItemLote): i is ItemFactura =>
+  i.clase === 'factura' && i.familia !== 'factura' && i.familia !== 'recibo'
+
+export const esRecibo = (i: ItemLote): i is ItemFactura => i.clase === 'factura' && i.familia === 'recibo'
 
 export interface ItemFactura {
   clase:      'factura'
   clave:      string   // 'F|{empresa}|{codigo}|{tipo}|{numero}'
   empresa:    EmpresaTango
   codigo:     string
-  tipo:       string   // 'FAC' | 'NC' | 'ND' | el que use la empresa en Tango
+  tipo:       string   // código de Tango: 'FAC' | 'NCB' | 'C/E' | 'REC' | el que use la empresa
+  /** Qué es: lo dice Tango, no el código. */
+  familia:    FamiliaComprobante
   numero:     string   // 'A0010100282787'
   titulo:     string   // 'Factura A 00101-00282787'
   fecha:      string   // yyyy-MM-dd ('' si no se conoce)
@@ -66,9 +81,9 @@ export type ItemLote = ItemFactura | ItemRemito
 export const esFactura = (i: ItemLote): i is ItemFactura => i.clase === 'factura'
 export const esRemito = (i: ItemLote): i is ItemRemito => i.clase === 'remito'
 
-export const tituloFactura = (tipo: string, numero: string): string => {
+export const tituloFactura = (tipo: string, numero: string, familia: FamiliaComprobante = 'otro'): string => {
   const clave = parsearClaveTango(numero)
-  return `${tituloTipo(tipo)} ${clave ? formatoFactura(clave) : numero}`
+  return `${tituloTipo(tipo, familia)} ${clave ? formatoFactura(clave) : numero}`
 }
 export const tituloRemito = (numero: string): string => `Remito ${formatoRemito(numero)}`
 
@@ -100,8 +115,8 @@ export function armarItemsLote(bloques: BloqueComposicion[], indices: TangoCompr
       items.push({
         clase: 'factura',
         clave: `F|${f.empresa}|${f.codigo}|${f.tipo}|${f.numero}`,
-        empresa: f.empresa, codigo: f.codigo, tipo: f.tipo, numero: f.numero,
-        titulo: tituloFactura(f.tipo, f.numero),
+        empresa: f.empresa, codigo: f.codigo, tipo: f.tipo, familia: f.familia, numero: f.numero,
+        titulo: tituloFactura(f.tipo, f.numero, f.familia),
         fecha: f.fecha,
         ...(f.fechaVencimiento ? { fechaVencimiento: f.fechaVencimiento } : {}),
         importe: f.importe, pendiente: f.pendiente, estado: f.estado,
@@ -132,8 +147,8 @@ export function armarItemsLote(bloques: BloqueComposicion[], indices: TangoCompr
 }
 
 export interface FiltroLote {
-  /** 'notas' = notas de crédito y de débito (y cualquier otro comprobante que no sea factura). */
-  clase?:     'todos' | 'facturas' | 'notas' | 'remitos'
+  /** 'notas' = crédito, débito y ajustes; 'recibos' = la cobranza (REC). */
+  clase?:     'todos' | 'facturas' | 'notas' | 'recibos' | 'remitos'
   /** Solo facturas con saldo y remitos pendientes de facturar. */
   pendientes?: boolean
   sucursal?:  GrupoRecibo | null
@@ -150,8 +165,9 @@ export function filtrarItems(items: ItemLote[], f: FiltroLote): ItemLote[] {
   const q = (f.texto ?? '').trim().toLowerCase()
   const qDigitos = soloDigitos(q)
   return items.filter((i) => {
-    if (clase === 'facturas' && !(i.clase === 'factura' && i.tipo === 'FAC')) return false
+    if (clase === 'facturas' && !(i.clase === 'factura' && i.familia === 'factura')) return false
     if (clase === 'notas' && !esNota(i)) return false
+    if (clase === 'recibos' && !esRecibo(i)) return false
     if (clase === 'remitos' && i.clase !== 'remito') return false
     if (f.pendientes && (i.clase === 'factura' ? i.estado !== 'pendiente' : i.estado !== 'P')) return false
     if (f.sucursal && !mismoGrupo(i, f.sucursal)) return false
@@ -167,32 +183,44 @@ export function filtrarItems(items: ItemLote[], f: FiltroLote): ItemLote[] {
 }
 
 export interface ResumenLote {
-  /** Solo facturas (tipo FAC). */
   facturas: number
-  /** Notas de crédito, de débito y cualquier otro comprobante de venta que no sea factura. */
+  /** Notas de crédito, de débito y ajustes. */
   notas:    number
-  notasPorTipo: { tipo: string; cantidad: number }[]
+  recibos:  number
+  /** Cuántos hay de cada cosa que no sea factura ni remito, para nombrarlas en el mail. */
+  notasPorTipo: { tipo: string; familia: FamiliaComprobante; cantidad: number }[]
   remitos:  number
   total:    number
-  /** Suma de importes de facturas y notas (las de crédito restan). */
+  /** Facturas, notas y recibos: los créditos y los recibos restan (le bajan la deuda). */
   importeFacturas: number
   desde:    string
   hasta:    string
 }
 
+const ORDEN_FAMILIA: FamiliaComprobante[] = ['factura', 'credito', 'debito', 'otro', 'recibo']
+
 export function resumenLote(items: ItemLote[]): ResumenLote {
-  const deVenta = items.filter(esFactura)
-  const facturas = deVenta.filter((f) => f.tipo === 'FAC')
-  const notas = deVenta.filter((f) => f.tipo !== 'FAC')
+  const deTango = items.filter(esFactura)
+  const facturas = deTango.filter((f) => f.familia === 'factura')
+  const recibos = deTango.filter((f) => f.familia === 'recibo')
+  const notas = deTango.filter(esNota)
   const remitos = items.filter(esRemito)
   const fechas = items.map((i) => i.fecha).filter(Boolean).sort()
-  const importe = deVenta.reduce((s, f) => s + (esCredito(f.tipo) ? -f.importe : f.importe), 0)
-  const porTipo = new Map<string, number>()
-  for (const n of notas) porTipo.set(n.tipo, (porTipo.get(n.tipo) ?? 0) + 1)
+  const importe = deTango.reduce((s, f) => s + (esCredito(f.familia) || f.familia === 'recibo' ? -f.importe : f.importe), 0)
+  const porTipo = new Map<string, { familia: FamiliaComprobante; cantidad: number }>()
+  for (const n of [...notas, ...recibos]) {
+    const prev = porTipo.get(n.tipo)
+    porTipo.set(n.tipo, { familia: n.familia, cantidad: (prev?.cantidad ?? 0) + 1 })
+  }
   return {
     facturas: facturas.length,
     notas: notas.length,
-    notasPorTipo: [...porTipo].map(([tipo, cantidad]) => ({ tipo, cantidad })),
+    recibos: recibos.length,
+    // Orden fijo (crédito, débito, sin clasificar, recibo) para que la frase del mail no
+    // dependa de en qué orden vinieron los comprobantes.
+    notasPorTipo: [...porTipo]
+      .map(([tipo, x]) => ({ tipo, familia: x.familia, cantidad: x.cantidad }))
+      .sort((a, b) => ORDEN_FAMILIA.indexOf(a.familia) - ORDEN_FAMILIA.indexOf(b.familia) || a.tipo.localeCompare(b.tipo)),
     remitos: remitos.length,
     total: items.length,
     importeFacturas: Math.round(importe * 100) / 100,
@@ -211,10 +239,17 @@ const plural = (n: number, nombre: string): string => {
 export function describirLote(r: Pick<ResumenLote, 'facturas' | 'remitos' | 'notasPorTipo'>): string {
   const partes: string[] = []
   if (r.facturas) partes.push(plural(r.facturas, 'factura'))
-  // Los tipos que la app conoce se nombran ("2 notas de crédito"); el resto va por su
-  // código, que es como lo llama Tango ("2 comprobantes CDE").
-  for (const { tipo, cantidad } of r.notasPorTipo ?? []) {
-    partes.push(plural(cantidad, TITULO_TIPO[tipo] ? TITULO_TIPO[tipo].toLowerCase() : `comprobante ${tipo}`))
+  // Se agrupa por FAMILIA, no por código: NC y NCB son las dos notas de crédito y al cliente
+  // le decimos "3 notas de crédito", no "1 nota de crédito y 2 notas de crédito". Los que no
+  // se pudieron clasificar van por su código de Tango ("2 comprobantes CDE").
+  const porFamilia = new Map<string, { familia: FamiliaComprobante; tipo: string; cantidad: number }>()
+  for (const { tipo, familia, cantidad } of r.notasPorTipo ?? []) {
+    const k = familia === 'otro' ? `otro|${tipo}` : familia
+    const prev = porFamilia.get(k)
+    porFamilia.set(k, { familia, tipo, cantidad: (prev?.cantidad ?? 0) + cantidad })
+  }
+  for (const { tipo, familia, cantidad } of porFamilia.values()) {
+    partes.push(plural(cantidad, familia === 'otro' ? `comprobante ${tipo}` : NOMBRE_FAMILIA[familia].toLowerCase()))
   }
   if (r.remitos) partes.push(plural(r.remitos, 'remito'))
   if (!partes.length) return 'ningún comprobante'
@@ -280,8 +315,8 @@ export function armarMailLote(items: ItemLote[], cliente: Pick<UserProfile, 'uid
 export function etiquetaEstado(i: ItemLote): { texto: string; tono: 'ok' | 'pendiente' | 'neutro' | 'anulado' } {
   if (i.clase === 'factura') {
     if (i.estado === 'pendiente') return { texto: i.diasAtraso && i.diasAtraso > 0 ? `Debe · ${i.diasAtraso} d de atraso` : 'Debe', tono: 'pendiente' }
-    // Una nota de crédito no se "paga": se aplica contra la cuenta del cliente.
-    if (i.estado === 'pagada') return { texto: esCredito(i.tipo) ? 'Aplicada' : 'Pagada', tono: 'ok' }
+    // Una nota de crédito no se "paga": se aplica contra la cuenta del cliente; un recibo ES el pago.
+    if (i.estado === 'pagada') return { texto: esCredito(i.familia) ? 'Aplicada' : i.familia === 'recibo' ? 'Cobrado' : 'Pagada', tono: 'ok' }
     return { texto: 'Anulada', tono: 'anulado' }
   }
   if (i.estado === 'P') return { texto: ESTADO_REMITO.P, tono: 'pendiente' }

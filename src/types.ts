@@ -769,8 +769,18 @@ export interface ClienteIndex {
 // La composición de saldos los usa para "ver todas", el remito de cada factura
 // y los remitos pendientes de facturar. Ver docs/tango/INTEGRACION.md §35.
 
+/**
+ * Qué ES el comprobante, según la clase interna de Tango (GVA12.TCOMP_IN_V), no según su
+ * código: cada empresa inventa los suyos (Redonhielo usa 16 — C/E, CDP, NCB, CFC, CDV, CIN,
+ * NC, NCT, CEF y CAR son créditos; DEB, N/D, DIN y D/B, débitos) y los importes son todos
+ * positivos, así que el código no alcanza para saber si suma o resta. 'otro' = el lector no
+ * pudo clasificarlo (comprobante viejo del índice, anterior al 2026-09-13).
+ */
+export type FamiliaComprobante = 'factura' | 'credito' | 'debito' | 'recibo' | 'otro'
+
 export interface FacturaTangoResumen {
-  tipo:      string      // 'FAC' | 'NC' | 'ND'
+  tipo:      string      // código de Tango: 'FAC' | 'NC' | 'NCB' | 'C/E' | 'REC' | …
+  familia?:  FamiliaComprobante
   numero:    string      // 'A0010100282787'
   fecha:     string      // yyyy-MM-dd (emisión)
   importe:   number
@@ -816,7 +826,8 @@ export interface ClienteTangoImpreso {
 
 export interface FacturaTangoDetalle {
   empresa:        EmpresaTango
-  tipo:           string          // 'FAC' | 'NC' | 'ND'
+  tipo:           string          // código de Tango: 'FAC' | 'NC' | 'NCB' | 'C/E' | …
+  familia?:       FamiliaComprobante
   numero:         string
   codigo:         string
   fecha:          string
