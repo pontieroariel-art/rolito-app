@@ -22,6 +22,7 @@ import { updateVisitaPuntual } from '@/services/visitasService'
 import { useProgramasVisita, useVisitasPuntuales, programasParaFecha, visitasParaFecha } from '@/hooks/useVisitas'
 import { useCatalogo } from '@/hooks/useCatalogo'
 import { useRemitosCargaChofer } from '@/hooks/useRemitosCargaChofer'
+import AvisarRegreso from '@/components/chofer/AvisarRegreso'
 import { useDiaActual, useFechaDelDia } from '@/hooks/useDiaActual'
 import { summarizeProducts, toDateStr, todayString } from '@/utils/helpers'
 import { generateHojaDeRuta } from '@/utils/pdf'
@@ -427,6 +428,11 @@ export default function ChoferDashboard() {
         )}
 
         {pending.length > 0 && <CargaDelDia orders={pending} catalogo={catalogo} />}
+
+        {/* Volver a planta: el muelle necesita saberlo para contar la descarga.
+            Lo marca el primero que toque —acá o seguridad en el portón—, y
+            desaparece cuando ya está marcado. */}
+        {user && <AvisarRegreso remitos={remitosCarga} actor={{ uid: user.uid, nombre: user.nombre }} />}
 
         {user && !isAyudante && <MiCamionHoyCard uid={user.uid} hoy={diaHoy} />}
         {user && <MiRendicionCard uid={user.uid} hoy={diaHoy} />}

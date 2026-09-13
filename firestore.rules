@@ -1146,6 +1146,27 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['estado', 'salida']);
 
+      // El camión volvió a planta (2026-09-13). Lo marcan DOS roles, el primero
+      // que toque: seguridad, que lo ve entrar por el portón, y el propio chofer
+      // desde su teléfono. No toca `estado` (sigue 'salido' hasta que caja
+      // liquide), solo agrega el sello de hora que enciende "VOLVIERON — FALTA
+      // CONTAR" en el TV del muelle.
+      //
+      // `!('regreso' in resource.data)` hace que sea IRREPETIBLE: el segundo que
+      // toque rebota, así la hora de llegada no se puede correr después.
+      function marcaRegreso() {
+        return resource.data.estado == 'salido'
+          && !('regreso' in resource.data)
+          && request.resource.data.regreso.uid == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['regreso']);
+      }
+      allow update: if request.auth != null && isSeguridadDe(resource.data.plantaId) && marcaRegreso();
+      // El chofer solo en SU remito: es la única escritura que tiene en la
+      // colección, y no puede marcar el regreso del camión de otro.
+      allow update: if request.auth != null && isChofer()
+        && resource.data.choferId == request.auth.uid
+        && marcaRegreso();
+
       allow delete: if false;
     }
 

@@ -3046,6 +3046,62 @@ describe('expedicion: seguridad (control de salidas)', () => {
     }))
   })
 
+  // ── Regreso del camión a planta (2026-09-13) ──
+  // Lo marcan seguridad (lo ve entrar) o el propio chofer, el primero que toque.
+  const regreso = (uid, nombre) => ({ regreso: { uid, nombre, hora: new Date() } })
+  const salido = (extra = {}) => remito({ estado: 'salido', salida: { uid: 'seg1', nombre: 'Seguridad', hora: new Date() }, ...extra })
+
+  test('seguridad marca el regreso de un camión que salió', async () => {
+    await seedSeguridad()
+    await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), salido()))
+    await assertSucceeds(updateDoc(doc(db('seg1'), 'remitosCarga/r1'), regreso('seg1', 'Seguridad')))
+  })
+
+  test('el chofer marca el regreso de SU camión, no el de otro', async () => {
+    await seed((d) => setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'users/chof2'), { rol: 'chofer', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), salido()))
+    await assertFails(updateDoc(doc(db('chof2'), 'remitosCarga/r1'), regreso('chof2', 'Otro')))
+    await assertSucceeds(updateDoc(doc(db('chof1'), 'remitosCarga/r1'), regreso('chof1', 'Chofer Uno')))
+  })
+
+  test('el regreso no se puede marcar dos veces: la hora de llegada no se corre', async () => {
+    await seedSeguridad()
+    await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), salido(regreso('chof1', 'Chofer Uno'))))
+    await assertFails(updateDoc(doc(db('seg1'), 'remitosCarga/r1'), regreso('seg1', 'Seguridad')))
+  })
+
+  test('el regreso no se marca antes de que el camión salga', async () => {
+    await seedSeguridad()
+    await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), remito({ estado: 'entregado' })))
+    await assertFails(updateDoc(doc(db('seg1'), 'remitosCarga/r1'), regreso('seg1', 'Seguridad')))
+  })
+
+  test('marcar el regreso no deja tocar nada más del remito ni firmarlo a nombre de otro', async () => {
+    await seed((d) => setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), salido()))
+    // De paso items (el chofer no puede cambiar lo que dice que cargó).
+    await assertFails(updateDoc(doc(db('chof1'), 'remitosCarga/r1'), { ...regreso('chof1', 'Chofer Uno'), items: [] }))
+    // Ni cambiar el estado aprovechando el viaje.
+    await assertFails(updateDoc(doc(db('chof1'), 'remitosCarga/r1'), { ...regreso('chof1', 'Chofer Uno'), estado: 'liquidado' }))
+    // Ni marcarlo a nombre de otro.
+    await assertFails(updateDoc(doc(db('chof1'), 'remitosCarga/r1'), regreso('seg1', 'Seguridad')))
+  })
+
+  test('muelle y caja NO marcan el regreso (es de seguridad o del chofer)', async () => {
+    await seed((d) => setDoc(doc(d, 'users/mue1'), { rol: 'muelle', estado: 'activo', planta: 'torcuato' }))
+    await seed((d) => setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' }))
+    await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), salido()))
+    await assertFails(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), regreso('mue1', 'Muelle')))
+    await assertFails(updateDoc(doc(db('caja1'), 'remitosCarga/r1'), regreso('caja1', 'Caja')))
+  })
+
+  test('seguridad de otra planta NO marca el regreso', async () => {
+    await seedSeguridad('seg9', 'merlo')
+    await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), salido()))
+    await assertFails(updateDoc(doc(db('seg9'), 'remitosCarga/r1'), regreso('seg9', 'Seguridad Merlo')))
+  })
+
   test('seguridad lee remitos y ventanillas pero NO crea nada', async () => {
     await seedSeguridad()
     await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), remito()))

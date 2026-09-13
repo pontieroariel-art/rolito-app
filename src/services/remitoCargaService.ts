@@ -127,6 +127,28 @@ export const marcarSalidaRemito = async (
   )
 }
 
+/**
+ * El camión volvió a planta. Lo marca seguridad en el portón (ve entrar el
+ * camión) o el propio chofer desde su teléfono: el primero que toque gana, y el
+ * segundo no puede pisarlo (las reglas exigen que `regreso` no exista todavía).
+ *
+ * No toca `estado`: el remito sigue 'salido' hasta que caja liquide. Es solo el
+ * sello de hora que enciende "VOLVIERON — FALTA CONTAR" en el TV del muelle.
+ */
+export const marcarRegresoRemito = async (
+  remito: RemitoCarga,
+  actor: { uid: string; nombre: string },
+): Promise<void> => {
+  // El camión llega a planta con señal mala y el portón no puede quedar trabado
+  // en un spinner: si no sube en 4 s, queda encolado y se manda solo.
+  await esperarOEncolar(
+    updateDoc(doc(db, REMITOS, remito.id), {
+      regreso: { uid: actor.uid, nombre: actor.nombre, hora: Timestamp.now() },
+    }),
+    { origen: 'marcarRegresoRemito', remitoId: remito.id },
+  )
+}
+
 const rangoDia = (dia: Date): [Timestamp, Timestamp] => {
   const desde = new Date(dia); desde.setHours(0, 0, 0, 0)
   const hasta = new Date(desde); hasta.setDate(hasta.getDate() + 1)

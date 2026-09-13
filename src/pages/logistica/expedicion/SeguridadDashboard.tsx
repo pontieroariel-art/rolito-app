@@ -4,7 +4,7 @@ import Navbar from '@/components/layout/Navbar'
 import Button from '@/components/ui/Button'
 import { useAuth } from '@/context/AuthContext'
 import { useFechaDelDia } from '@/hooks/useDiaActual'
-import { marcarSalidaRemito } from '@/services/remitoCargaService'
+import { marcarRegresoRemito, marcarSalidaRemito } from '@/services/remitoCargaService'
 import { marcarSalidaVentanilla } from '@/services/ventaVentanillaService'
 import { useRemitosCargaDelDia, useVentanillaDelDia } from '@/hooks/useExpedicionDia'
 import { PLANTAS, RemitoCarga, VentaVentanilla } from '@/types'
@@ -17,8 +17,13 @@ const horaDe = (t: { toDate: () => Date }) =>
 
 // Pantalla del rol seguridad (portón de la planta): controla lo que sale
 // cargado — camiones con remito de carga ya entregado por muelle, y terceros
-// de ventanilla que retiran con vehículo. Tocar "Salió" estampa quién
-// controló y a qué hora. Solo salida — el regreso no se controla acá.
+// de ventanilla que retiran con vehículo. Tocar "Salió" estampa quién controló
+// y a qué hora.
+//
+// Desde el 2026-09-13 también marca el REGRESO del camión ("Volvió", en Salidas
+// de hoy): es quien lo ve entrar por el portón, así que el dato es verdadero por
+// construcción. Eso enciende "VOLVIERON — FALTA CONTAR" en el TV del muelle. El
+// chofer puede marcarlo también desde su teléfono; el primero que toque gana.
 export default function SeguridadDashboard() {
   const { user } = useAuth()
   const plantaId = user?.planta ?? 'torcuato'
@@ -50,6 +55,23 @@ export default function SeguridadDashboard() {
     } catch (err) {
       reportError(err, { origen: 'SeguridadDashboard', accion: 'error al liberar camión' })
       setError('No se pudo registrar la salida. Intentá de nuevo.')
+    } finally {
+      setProcesando(null)
+    }
+  }
+
+  // El camión volvió a planta. No cambia el estado del remito (sigue 'salido'
+  // hasta que caja liquide): solo estampa la hora, que es lo que el TV del
+  // muelle necesita para cantar que hay un camión esperando conteo.
+  const marcarRegreso = async (r: RemitoCarga) => {
+    if (!user || procesando) return
+    setError('')
+    setProcesando(r.id)
+    try {
+      await marcarRegresoRemito(r, { uid: user.uid, nombre: user.nombre })
+    } catch (err) {
+      reportError(err, { origen: 'SeguridadDashboard', accion: 'error al marcar el regreso' })
+      setError('No se pudo registrar el regreso. Si el chofer ya lo marcó desde su teléfono, actualizá la pantalla.')
     } finally {
       setProcesando(null)
     }
@@ -154,13 +176,28 @@ export default function SeguridadDashboard() {
           )}
           {camionesSalidos.map((r) => (
             <div key={r.id} className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-3 flex items-center gap-3">
-              <CheckCircle2 size={16} className="text-accent shrink-0" />
+              <CheckCircle2 size={16} className={r.regreso ? 'text-inerte shrink-0' : 'text-accent shrink-0'} />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900">{r.camionLabel} · {r.choferNombre}</p>
                 <p className="text-xs text-secundario">
                   {r.codigo}{r.salida ? ` · salió ${horaDe(r.salida.hora)} · controló ${r.salida.nombre}` : ''}
                 </p>
+                {r.regreso && (
+                  <p className="text-xs text-accent font-medium">
+                    Volvió {horaDe(r.regreso.hora)} · marcó {r.regreso.nombre}
+                  </p>
+                )}
               </div>
+              {/* El camión que vuelve entra por acá: seguridad lo ve y lo marca de
+                  un toque. Es lo que enciende "VOLVIERON — FALTA CONTAR" en el TV
+                  del muelle. El chofer también puede marcarlo desde su teléfono;
+                  el primero que toque gana y el otro ya no lo ve. */}
+              {!r.regreso && (
+                <button type="button" onClick={() => marcarRegreso(r)} disabled={procesando === r.id}
+                  className="h-11 px-4 shrink-0 rounded-lg bg-accent text-white text-sm font-semibold active:scale-95 transition-transform disabled:opacity-50">
+                  {procesando === r.id ? 'Guardando…' : 'Volvió'}
+                </button>
+              )}
             </div>
           ))}
         </section>

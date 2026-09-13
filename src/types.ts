@@ -309,6 +309,19 @@ export interface RemitoCarga {
   fecha:        Timestamp
   entregadoPor?: { uid: string; nombre: string; hora: Timestamp }   // muelle (Fase 2)
   salida?:       { uid: string; nombre: string; hora: Timestamp }   // seguridad (Fase 4)
+  /**
+   * El camión volvió a planta (2026-09-13). Lo marca seguridad en el portón o el
+   * propio chofer desde su teléfono — el primero que toque; `nombre` deja dicho
+   * quién fue. NO cambia `estado` (sigue 'salido' hasta que caja liquide): es un
+   * sello de hora más en la línea de tiempo del viaje.
+   *
+   * Para qué: hasta acá el sistema no tenía forma de saber que un camión
+   * regresó. Lo que el reparto en vivo llama 'volvio' es en realidad "ya le
+   * contamos la descarga", así que el camión que volvió y espera conteo era
+   * indistinguible de uno que sigue vendiendo a 40 km. Con esto, el TV del
+   * muelle puede cantar "VOLVIERON — FALTA CONTAR".
+   */
+  regreso?:      { uid: string; nombre: string; hora: Timestamp }
   tango?:       RemitoTangoEstado
   // COT de ARBA (2026-09-10): kilos totales de la carga (según config/cot.productos),
   // lo que caja declara al emitir y lo que ARBA devolvió (solo lo escribe el server).
