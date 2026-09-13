@@ -48,7 +48,7 @@ function AsignarModal({ ticket, actor, onClose }: { ticket: TicketServicio; acto
   return (
     <Modal open onClose={onClose} title={`Asignar ${ticket.heladeraCodigo}`}>
       <div className="space-y-3">
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-secundario">
           {ticket.requiereChofer ? 'Este motivo requiere un chofer (traslado de equipo).' : 'Elegí un técnico para este service.'}
         </p>
         {opciones.length === 0 ? (
@@ -94,7 +94,7 @@ function CerrarModal({ ticket, actor, onClose }: { ticket: TicketServicio; actor
     <Modal open onClose={onClose} title={`Cerrar ${ticket.heladeraCodigo}`}>
       <div className="space-y-4">
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Nombre de quien confirma</label>
+          <label className="text-xs text-secundario mb-1 block">Nombre de quien confirma</label>
           <input
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
@@ -102,7 +102,7 @@ function CerrarModal({ ticket, actor, onClose }: { ticket: TicketServicio; actor
           />
         </div>
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Firma</label>
+          <label className="text-xs text-secundario mb-1 block">Firma</label>
           <SignaturePad ref={padRef} />
         </div>
         {error && <p className="text-red-500 text-xs">{error}</p>}
@@ -207,7 +207,7 @@ export default function ConsultaServicePage() {
         <div className="flex flex-wrap justify-between items-center gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Consulta de service</h1>
-            <p className="text-gray-500 text-sm">Asignar, cerrar y anular tickets</p>
+            <p className="text-secundario text-sm">Asignar, cerrar y anular tickets</p>
           </div>
           <Link to="/heladeras/toma-service">
             <Button className="text-sm flex items-center gap-1.5"><Plus size={15} /> Nuevo ticket</Button>
@@ -219,7 +219,7 @@ export default function ConsultaServicePage() {
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`text-xs px-3 py-1.5 rounded-full border font-medium ${tab === t ? 'bg-accent/10 text-accent border-accent/40' : 'border-[#D3D1C7] text-gray-500'}`}
+              className={`text-xs px-3 py-1.5 rounded-full border font-medium ${tab === t ? 'bg-accent/10 text-accent border-accent/40' : 'border-[#D3D1C7] text-secundario'}`}
             >
               {t === 'abiertos' ? 'Abiertos' : t === 'curso' ? 'En curso' : 'Cerrados/Anulados'}
             </button>
@@ -236,19 +236,19 @@ export default function ConsultaServicePage() {
                   <div>
                     <p className="font-bold text-sm text-gray-900">{t.heladeraCodigo} — {t.clientName}</p>
                     {t.direccion && <p className="text-xs text-gray-600">{t.direccion}</p>}
-                    <p className="text-xs text-gray-500">{t.motivoNombre} · {tsToDate(t.fechaPedido).toLocaleDateString('es-AR')}</p>
+                    <p className="text-xs text-secundario">{t.motivoNombre} · {tsToDate(t.fechaPedido).toLocaleDateString('es-AR')}</p>
                     {t.origen === 'supervisor' && (
-                      <p className="text-xs text-gray-500 mt-0.5">Pedido desde la calle por {t.creadoPor?.nombre ?? 'un supervisor'}</p>
+                      <p className="text-xs text-secundario mt-0.5">Pedido desde la calle por {t.creadoPor?.nombre ?? 'un supervisor'}</p>
                     )}
-                    {t.origen === 'cliente' && <p className="text-xs text-gray-500 mt-0.5">Pedido por el cliente desde la app</p>}
+                    {t.origen === 'cliente' && <p className="text-xs text-secundario mt-0.5">Pedido por el cliente desde la app</p>}
                     {t.observacion && <p className="text-xs text-gray-700 mt-0.5 whitespace-pre-wrap">“{t.observacion}”</p>}
                     {t.fotoUrl && (
                       <a href={t.fotoUrl} target="_blank" rel="noopener noreferrer" className="inline-block mt-1">
                         <img src={t.fotoUrl} alt="Foto del problema" className="h-20 rounded-lg border border-[#D3D1C7] object-cover" />
                       </a>
                     )}
-                    {t.asignadoA && <p className="text-xs text-gray-500 mt-0.5">Asignado a {t.asignadoA.nombre} ({t.asignadoA.tipo})</p>}
-                    {t.trabajoRealizado && <p className="text-xs text-gray-500 mt-0.5">Trabajo: {t.trabajoRealizado}</p>}
+                    {t.asignadoA && <p className="text-xs text-secundario mt-0.5">Asignado a {t.asignadoA.nombre} ({t.asignadoA.tipo})</p>}
+                    {t.trabajoRealizado && <p className="text-xs text-secundario mt-0.5">Trabajo: {t.trabajoRealizado}</p>}
                     {t.motivoAnulacion && <p className="text-xs text-red-500 mt-0.5">Anulado: {t.motivoAnulacion}</p>}
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">

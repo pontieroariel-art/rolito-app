@@ -51,7 +51,7 @@ export default function Landing() {
       {/* Contenido */}
       <div className="flex-1 flex flex-col items-center px-4 pt-7 pb-8 gap-4">
 
-        <p className="text-gray-500 text-sm text-center">Ingresá para hacer tu pedido</p>
+        <p className="text-secundario text-sm text-center">Ingresá para hacer tu pedido</p>
 
         <div className="w-full max-w-sm">
           <Link
@@ -71,7 +71,7 @@ export default function Landing() {
               <h2 className="text-base font-bold text-gray-900 group-hover:text-accent transition-colors leading-tight">
                 Ingreso Clientes
               </h2>
-              <p className="text-gray-500 text-xs mt-0.5 leading-snug">Pedidos con CUIT y contraseña</p>
+              <p className="text-secundario text-xs mt-0.5 leading-snug">Pedidos con CUIT y contraseña</p>
             </div>
 
             {/* Flecha */}

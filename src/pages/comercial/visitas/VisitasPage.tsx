@@ -89,12 +89,12 @@ function ProgramaForm({
   return (
     <div className="space-y-4">
       <div>
-        <label className="text-xs text-gray-500 mb-1 block">Cliente *</label>
+        <label className="text-xs text-secundario mb-1 block">Cliente *</label>
         <ClienteCombobox items={toComboItems(clientes)} value={clientId} onChange={setClientId} />
       </div>
 
       <div>
-        <label className="text-xs text-gray-500 mb-2 block">Días de visita *</label>
+        <label className="text-xs text-secundario mb-2 block">Días de visita *</label>
         <div className="flex gap-2 flex-wrap">
           {DOW_LABELS.map((label, i) => (
             <button
@@ -104,7 +104,7 @@ function ProgramaForm({
               className={`w-10 h-10 rounded-full text-sm font-bold border transition-colors ${
                 dias.includes(i)
                   ? 'bg-accent text-white border-accent'
-                  : 'bg-white border-[#D3D1C7] text-gray-500 hover:border-accent hover:text-gray-900'
+                  : 'bg-white border-[#D3D1C7] text-secundario hover:border-accent hover:text-gray-900'
               }`}
             >
               {label}
@@ -114,7 +114,7 @@ function ProgramaForm({
       </div>
 
       <div>
-        <label className="text-xs text-gray-500 mb-1 block">Chofer asignado</label>
+        <label className="text-xs text-secundario mb-1 block">Chofer asignado</label>
         <select
           value={driverId}
           onChange={(e: ChangeEvent<HTMLSelectElement>) => setDriverId(e.target.value)}
@@ -128,7 +128,7 @@ function ProgramaForm({
       </div>
 
       <div>
-        <label className="text-xs text-gray-500 mb-1 block">Notas internas</label>
+        <label className="text-xs text-secundario mb-1 block">Notas internas</label>
         <textarea
           value={notas}
           onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setNotas(e.target.value)}
@@ -191,13 +191,13 @@ function VisitaPuntualForm({
   return (
     <div className="space-y-4">
       <div>
-        <label className="text-xs text-gray-500 mb-1 block">Cliente *</label>
+        <label className="text-xs text-secundario mb-1 block">Cliente *</label>
         <ClienteCombobox items={toComboItems(clientes)} value={clientId} onChange={setClientId} />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Fecha *</label>
+          <label className="text-xs text-secundario mb-1 block">Fecha *</label>
           <input
             type="date"
             value={fecha}
@@ -206,7 +206,7 @@ function VisitaPuntualForm({
           />
         </div>
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Chofer</label>
+          <label className="text-xs text-secundario mb-1 block">Chofer</label>
           <select
             value={driverId}
             onChange={(e: ChangeEvent<HTMLSelectElement>) => setDriverId(e.target.value)}
@@ -221,7 +221,7 @@ function VisitaPuntualForm({
       </div>
 
       <div>
-        <label className="text-xs text-gray-500 mb-1 block">Notas</label>
+        <label className="text-xs text-secundario mb-1 block">Notas</label>
         <textarea
           value={notas}
           onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setNotas(e.target.value)}
@@ -280,11 +280,11 @@ function VisitaCard({
             {isVisitado && <span className="text-xs text-success font-medium">✓ Visitado</span>}
             {isSinContacto && <span className="text-xs text-amber-600 font-medium">Sin contacto</span>}
           </div>
-          <p className="text-gray-500 text-xs mt-0.5 truncate">{clientAddress}</p>
+          <p className="text-secundario text-xs mt-0.5 truncate">{clientAddress}</p>
           {clientPhone && <p className="text-xs text-accent mt-0.5">{clientPhone}</p>}
           {notas && <p className="text-xs text-secundario italic mt-1">"{notas}"</p>}
           {chofer && (
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-secundario mt-1">
               Chofer: <span className="text-gray-900">{choferLabel(chofer)}</span>
             </p>
           )}
@@ -367,7 +367,7 @@ export default function VisitasPage() {
         <div className="flex flex-wrap justify-between items-center gap-3">
           <div>
             <h1 className="text-2xl font-bold">Visitas</h1>
-            <p className="text-gray-500 text-sm">Recorridos programados y visitas puntuales</p>
+            <p className="text-secundario text-sm">Recorridos programados y visitas puntuales</p>
           </div>
         </div>
 
@@ -380,7 +380,7 @@ export default function VisitasPage() {
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
                 tab === t
                   ? 'border-accent text-accent'
-                  : 'border-transparent text-gray-500 hover:text-gray-900'
+                  : 'border-transparent text-secundario hover:text-gray-900'
               }`}
             >
               {t === 'agenda' ? (
@@ -407,7 +407,7 @@ export default function VisitasPage() {
 
             {programasHoy.length === 0 && visitasPuntuales.length === 0 ? (
               <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center">
-                <p className="text-gray-500 text-sm">No hay visitas programadas para este día</p>
+                <p className="text-secundario text-sm">No hay visitas programadas para este día</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -456,7 +456,7 @@ export default function VisitasPage() {
             {programas.length === 0 ? (
               <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center">
                 <p className="text-4xl mb-3">📅</p>
-                <p className="text-gray-500 text-sm">Todavía no configuraste programas de visita</p>
+                <p className="text-secundario text-sm">Todavía no configuraste programas de visita</p>
                 <p className="text-secundario text-xs mt-1">
                   Agregá un programa para que las visitas aparezcan automáticamente cada semana
                 </p>
@@ -477,7 +477,7 @@ export default function VisitasPage() {
                           <p className="font-semibold text-sm text-gray-900">{p.clientName}</p>
                           {!p.activo && <span className="text-xs text-secundario">(inactivo)</span>}
                         </div>
-                        <p className="text-gray-500 text-xs truncate mt-0.5">{p.clientAddress}</p>
+                        <p className="text-secundario text-xs truncate mt-0.5">{p.clientAddress}</p>
 
                         {/* Días */}
                         <div className="flex gap-1 mt-2">
@@ -496,7 +496,7 @@ export default function VisitasPage() {
                         </div>
 
                         {chofer && (
-                          <p className="text-xs text-gray-500 mt-1.5">
+                          <p className="text-xs text-secundario mt-1.5">
                             Chofer: <span className="text-gray-900">{choferLabel(chofer)}</span>
                           </p>
                         )}
@@ -508,19 +508,19 @@ export default function VisitasPage() {
                       <div className="flex gap-2 shrink-0">
                         <button
                           onClick={() => openEditPrograma(p)}
-                          className="text-xs text-gray-500 hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-3 py-1.5 transition-colors"
+                          className="text-xs text-secundario hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-3 py-1.5 transition-colors"
                         >
                           Editar
                         </button>
                         <button
                           onClick={() => updatePrograma(p.id, { activo: !p.activo })}
-                          className="text-xs text-gray-500 hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-3 py-1.5 transition-colors"
+                          className="text-xs text-secundario hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-3 py-1.5 transition-colors"
                         >
                           {p.activo ? 'Pausar' : 'Activar'}
                         </button>
                         <button
                           onClick={() => deletePrograma(p.id)}
-                          className="text-xs text-gray-500 hover:text-red-500 border border-[#D3D1C7] hover:border-red-300 rounded-lg px-3 py-1.5 transition-colors"
+                          className="text-xs text-secundario hover:text-red-500 border border-[#D3D1C7] hover:border-red-300 rounded-lg px-3 py-1.5 transition-colors"
                         >
                           ✕
                         </button>
@@ -553,7 +553,7 @@ export default function VisitasPage() {
                 return (
                   <div className="bg-white border border-[#D3D1C7] rounded-xl p-10 text-center">
                     <p className="text-3xl mb-3">🗺</p>
-                    <p className="text-gray-500 text-sm">No hay clientes marcados como visita</p>
+                    <p className="text-secundario text-sm">No hay clientes marcados como visita</p>
                     <p className="text-secundario text-xs mt-1">
                       Marcá un cliente como visita desde Usuarios → Ficha del cliente
                     </p>
@@ -571,7 +571,7 @@ export default function VisitasPage() {
                         <p className="text-sm font-medium text-amber-700">
                           {sinProgramar.length} cliente{sinProgramar.length !== 1 ? 's' : ''} sin visita según su frecuencia
                         </p>
-                        <p className="text-xs text-gray-500 mt-0.5">
+                        <p className="text-xs text-secundario mt-0.5">
                           Revisá si faltan en la planificación o creá una visita puntual
                         </p>
                       </div>
@@ -608,7 +608,7 @@ export default function VisitasPage() {
                                   )}
                                 </div>
                                 {primaryAddr?.address && (
-                                  <p className="text-xs text-gray-500 mt-0.5 truncate">{primaryAddr.address}</p>
+                                  <p className="text-xs text-secundario mt-0.5 truncate">{primaryAddr.address}</p>
                                 )}
                                 {prog ? (
                                   <div className="flex gap-1 mt-2">
@@ -624,7 +624,7 @@ export default function VisitasPage() {
                                     ))}
                                   </div>
                                 ) : (
-                                  <p className="text-xs text-gray-500 mt-1">Sin programa recurrente</p>
+                                  <p className="text-xs text-secundario mt-1">Sin programa recurrente</p>
                                 )}
                               </div>
                               <div className="shrink-0 text-right">

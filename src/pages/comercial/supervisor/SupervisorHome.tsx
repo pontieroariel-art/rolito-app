@@ -48,7 +48,7 @@ export default function SupervisorHome() {
             </div>
             <div className="min-w-0">
               <p className="text-sm font-semibold text-gray-900">Reparto en vivo</p>
-              <p className="text-xs text-gray-500">Qué cargó, qué bajó y qué le queda a cada camión, con sus ventas</p>
+              <p className="text-xs text-secundario">Qué cargó, qué bajó y qué le queda a cada camión, con sus ventas</p>
             </div>
           </div>
         </Link>
@@ -62,7 +62,7 @@ export default function SupervisorHome() {
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-gray-900">Vender</p>
-                <p className="text-xs text-gray-500">Entregas a demanda desde tu depósito {deposito.codigo} · {deposito.nombre}</p>
+                <p className="text-xs text-secundario">Entregas a demanda desde tu depósito {deposito.codigo} · {deposito.nombre}</p>
               </div>
             </div>
           </Link>
@@ -76,7 +76,7 @@ export default function SupervisorHome() {
             </div>
             <div className="min-w-0">
               <p className="text-sm font-semibold text-gray-900">Cobrar</p>
-              <p className="text-xs text-gray-500">Composición de saldos, facturas, cheques y retenciones</p>
+              <p className="text-xs text-secundario">Composición de saldos, facturas, cheques y retenciones</p>
             </div>
           </div>
         </Link>
@@ -89,7 +89,7 @@ export default function SupervisorHome() {
             </div>
             <div className="min-w-0">
               <p className="text-sm font-semibold text-gray-900">Buscar cliente</p>
-              <p className="text-xs text-gray-500">Ficha completa: contacto, cómo llegar, saldo y composición para enviar</p>
+              <p className="text-xs text-secundario">Ficha completa: contacto, cómo llegar, saldo y composición para enviar</p>
             </div>
           </div>
         </Link>
@@ -102,7 +102,7 @@ export default function SupervisorHome() {
             </div>
             <div className="min-w-0">
               <p className="text-sm font-semibold text-gray-900">Clientes con deuda</p>
-              <p className="text-xs text-gray-500">Saldos de cuenta corriente traídos de Tango</p>
+              <p className="text-xs text-secundario">Saldos de cuenta corriente traídos de Tango</p>
             </div>
           </div>
         </Link>
@@ -115,7 +115,7 @@ export default function SupervisorHome() {
             </div>
             <div className="min-w-0">
               <p className="text-sm font-semibold text-gray-900">Cobranzas anteriores</p>
-              <p className="text-xs text-gray-500">Últimos 30 días, por día, con reimpresión de recibos</p>
+              <p className="text-xs text-secundario">Últimos 30 días, por día, con reimpresión de recibos</p>
             </div>
           </div>
         </Link>
@@ -134,15 +134,15 @@ export default function SupervisorHome() {
         {cobranzasHoy.length > 0 && (
           <section className="pt-2">
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Cobrado hoy</h2>
+              <h2 className="text-sm font-semibold text-secundario uppercase tracking-wide">Cobrado hoy</h2>
               <p className="text-sm font-semibold text-gray-900">{formatoARS(resumen.total)}</p>
             </div>
 
             <div className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-3 mb-2 grid grid-cols-2 gap-x-4 gap-y-1">
-              <p className="text-xs text-gray-500 flex justify-between">Efectivo <span className="font-medium text-gray-900">{formatoARS(resumen.efectivo)}</span></p>
-              <p className="text-xs text-gray-500 flex justify-between">Transferencia <span className="font-medium text-gray-900">{formatoARS(resumen.transferencia)}</span></p>
-              <p className="text-xs text-gray-500 flex justify-between">Cheques <span className="font-medium text-gray-900">{formatoARS(resumen.cheques)}</span></p>
-              <p className="text-xs text-gray-500 flex justify-between">Retenciones <span className="font-medium text-gray-900">{formatoARS(resumen.retenciones)}</span></p>
+              <p className="text-xs text-secundario flex justify-between">Efectivo <span className="font-medium text-gray-900">{formatoARS(resumen.efectivo)}</span></p>
+              <p className="text-xs text-secundario flex justify-between">Transferencia <span className="font-medium text-gray-900">{formatoARS(resumen.transferencia)}</span></p>
+              <p className="text-xs text-secundario flex justify-between">Cheques <span className="font-medium text-gray-900">{formatoARS(resumen.cheques)}</span></p>
+              <p className="text-xs text-secundario flex justify-between">Retenciones <span className="font-medium text-gray-900">{formatoARS(resumen.retenciones)}</span></p>
             </div>
 
             <div className="space-y-2">

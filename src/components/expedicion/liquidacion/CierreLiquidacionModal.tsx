@@ -118,9 +118,9 @@ export default function CierreLiquidacionModal({ repartidor, resumen, resumenTex
           <b>{repartidor}</b> · {resumenTexto ?? <>{resumen.ventas} {resumen.ventas === 1 ? 'venta' : 'ventas'} · {resumen.clientes} {resumen.clientes === 1 ? 'cliente' : 'clientes'} · {resumen.cobranzas} {resumen.cobranzas === 1 ? 'cobranza' : 'cobranzas'}</>}
         </p>
         <div className="grid grid-cols-3 gap-2 text-sm">
-          <div className="rounded-lg bg-gray-50 p-2"><p className="text-xs text-gray-500">{textos.aRendir}</p><p className="font-semibold tabular-nums">{formatoARS(efectivoARendir)}</p></div>
-          <div className="rounded-lg bg-gray-50 p-2"><p className="text-xs text-gray-500">{textos.recibido}</p><p className="font-semibold tabular-nums">{formatoARS(efectivoRecibido)}</p></div>
-          <div className={`rounded-lg p-2 ${diferencia === 0 ? 'bg-[#E6F5EF]' : 'bg-red-50'}`}><p className="text-xs text-gray-500">Diferencia</p><p className={`font-semibold tabular-nums ${diferencia === 0 ? 'text-[#0F6B4E]' : 'text-red-600'}`}>{formatoARS(diferencia)}</p></div>
+          <div className="rounded-lg bg-gray-50 p-2"><p className="text-xs text-secundario">{textos.aRendir}</p><p className="font-semibold tabular-nums">{formatoARS(efectivoARendir)}</p></div>
+          <div className="rounded-lg bg-gray-50 p-2"><p className="text-xs text-secundario">{textos.recibido}</p><p className="font-semibold tabular-nums">{formatoARS(efectivoRecibido)}</p></div>
+          <div className={`rounded-lg p-2 ${diferencia === 0 ? 'bg-[#E6F5EF]' : 'bg-red-50'}`}><p className="text-xs text-secundario">Diferencia</p><p className={`font-semibold tabular-nums ${diferencia === 0 ? 'text-[#0F6B4E]' : 'text-red-600'}`}>{formatoARS(diferencia)}</p></div>
         </div>
 
         {diferencia !== 0 && (
@@ -147,30 +147,30 @@ export default function CierreLiquidacionModal({ repartidor, resumen, resumenTex
         </label>
 
         <div>
-          <p className="text-xs text-gray-500 mb-1">{textos.firma}</p>
+          <p className="text-xs text-secundario mb-1">{textos.firma}</p>
           <div className="rounded-lg border border-[#D3D1C7] bg-white">
             <SignaturePad ref={firmaRef} />
           </div>
           <div className="mt-2 flex gap-2 items-center">
             <input value={firmante} onChange={(e) => setFirmante(e.target.value)} placeholder="Nombre de quien firma" className={inputClass} />
-            <button type="button" onClick={() => firmaRef.current?.clear()} className="text-xs text-gray-500 hover:text-gray-800 whitespace-nowrap">Borrar firma</button>
+            <button type="button" onClick={() => firmaRef.current?.clear()} className="text-xs text-secundario hover:text-gray-800 whitespace-nowrap">Borrar firma</button>
           </div>
         </div>
 
         {receptor && (
           <div>
-            <p className="text-xs text-gray-500 mb-1">{textos.firmaRecibe ?? 'Firma de quien recibe la rendición'}</p>
+            <p className="text-xs text-secundario mb-1">{textos.firmaRecibe ?? 'Firma de quien recibe la rendición'}</p>
             <div className="rounded-lg border border-[#D3D1C7] bg-white">
               <SignaturePad ref={firmaRecibeRef} />
             </div>
             <div className="mt-2 flex gap-2 items-center">
               <input value={firmanteRecibe} onChange={(e) => setFirmanteRecibe(e.target.value)} placeholder="Nombre de quien recibe" className={inputClass} />
-              <button type="button" onClick={() => firmaRecibeRef.current?.clear()} className="text-xs text-gray-500 hover:text-gray-800 whitespace-nowrap">Borrar firma</button>
+              <button type="button" onClick={() => firmaRecibeRef.current?.clear()} className="text-xs text-secundario hover:text-gray-800 whitespace-nowrap">Borrar firma</button>
             </div>
           </div>
         )}
 
-        <p className="text-xs text-gray-500">{textos.pie}</p>
+        <p className="text-xs text-secundario">{textos.pie}</p>
         {(falta || error) && (
           <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2"><p className="text-red-600 text-sm">{falta || error}</p></div>
         )}

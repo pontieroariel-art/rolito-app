@@ -77,14 +77,14 @@ export function ResumenCargaPorChofer({ orders, choferes }: ResumenCargaPorChofe
                     <div className="flex justify-between items-start">
                       <div>
                         <p className="font-medium text-sm text-gray-900">{nombre}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{paradas} parada{paradas !== 1 ? 's' : ''}</p>
+                        <p className="text-xs text-secundario mt-0.5">{paradas} parada{paradas !== 1 ? 's' : ''}</p>
                       </div>
                       <span className="text-accent font-bold text-lg leading-none">{totalUnidades}</span>
                     </div>
                     <div className="space-y-1.5 pt-2 border-t border-[#E7E5DC]">
                       {items.map(([nombre, qty]) => (
                         <div key={nombre} className="flex justify-between items-center text-sm">
-                          <span className="text-gray-500 truncate flex-1 mr-2">{nombre}</span>
+                          <span className="text-secundario truncate flex-1 mr-2">{nombre}</span>
                           <span className="font-medium text-gray-900 shrink-0">{qty} u</span>
                         </div>
                       ))}

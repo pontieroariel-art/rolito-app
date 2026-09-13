@@ -28,7 +28,7 @@ export default function SelectSucursal() {
           <p className="text-gray-900 font-semibold text-lg">
             Hola{nombre ? `, ${nombre}` : ''} 👋
           </p>
-          <p className="text-gray-500 text-sm mt-1">¿Desde qué sucursal vas a pedir?</p>
+          <p className="text-secundario text-sm mt-1">¿Desde qué sucursal vas a pedir?</p>
         </div>
       </div>
 
@@ -45,7 +45,7 @@ export default function SelectSucursal() {
                 <p className="font-semibold text-gray-900 group-hover:text-accent transition-colors">
                   {addr.nombre}
                 </p>
-                <p className="text-xs text-gray-500 mt-0.5 truncate">{addr.address}</p>
+                <p className="text-xs text-secundario mt-0.5 truncate">{addr.address}</p>
                 {addr.horarioApertura && addr.horarioCierre && (
                   <p className="text-xs text-secundario mt-0.5">
                     {addr.horarioApertura} – {addr.horarioCierre}
@@ -62,7 +62,7 @@ export default function SelectSucursal() {
 
       {addresses.length === 0 && (
         <div className="w-full max-w-sm text-center mt-4">
-          <p className="text-gray-500 text-sm">No tenés sucursales registradas.</p>
+          <p className="text-secundario text-sm">No tenés sucursales registradas.</p>
           <p className="text-secundario text-xs mt-1">Pedile al administrador que agregue tu dirección.</p>
         </div>
       )}

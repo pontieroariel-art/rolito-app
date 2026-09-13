@@ -46,11 +46,11 @@ export default function MiDiaMostrador({ calc, nombre, cerrarHref }: { calc: Mos
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h2 className="font-semibold text-gray-800">Mi día · {nombre}</h2>
-          <p className="text-xs text-gray-500">{calc.ventas.cantidad} ventas · {calc.cobranzas.cantidad} cobranzas · {calc.recibido.liquidaciones.length} liquidaciones recibidas{calc.anuladas > 0 ? <span className="text-red-600"> · {calc.anuladas} anulada(s)</span> : null}{calc.anulacionesPendientes > 0 ? <span className="text-amber-700"> · {calc.anulacionesPendientes} anulación(es) esperando autorización</span> : null}</p>
+          <p className="text-xs text-secundario">{calc.ventas.cantidad} ventas · {calc.cobranzas.cantidad} cobranzas · {calc.recibido.liquidaciones.length} liquidaciones recibidas{calc.anuladas > 0 ? <span className="text-red-600"> · {calc.anuladas} anulada(s)</span> : null}{calc.anulacionesPendientes > 0 ? <span className="text-amber-700"> · {calc.anulacionesPendientes} anulación(es) esperando autorización</span> : null}</p>
         </div>
         <div className="flex items-center gap-4">
           <div className="text-right">
-            <p className="text-xs uppercase tracking-wider text-gray-500 font-semibold">Efectivo en mi caja</p>
+            <p className="text-xs uppercase tracking-wider text-secundario font-semibold">Efectivo en mi caja</p>
             <p className={`text-2xl font-bold tabular-nums ${calc.efectivoARendir === 0 ? 'text-secundario' : 'text-gray-900'}`}>{formatoARS(calc.efectivoARendir)}</p>
           </div>
           {cerrarHref && (

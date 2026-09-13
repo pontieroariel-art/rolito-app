@@ -70,7 +70,7 @@ export default function TesoreriaLivePage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><Activity size={22} className="text-accent" /> Tesorería · en vivo</h1>
-          <p className="text-gray-500 text-sm">Calle, ventanillas y supervisores del día, a medida que venden y cobran.</p>
+          <p className="text-secundario text-sm">Calle, ventanillas y supervisores del día, a medida que venden y cobran.</p>
         </div>
         <div className="flex items-center gap-3">
           {ultimoCambio && dia === hoy && <span className="inline-flex items-center gap-1.5 text-xs text-[#0F6B4E]"><span className="w-2 h-2 rounded-full bg-[#1D9E75] animate-pulse" /> en vivo · {ultimoCambio.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>}
@@ -87,7 +87,7 @@ export default function TesoreriaLivePage() {
         <Tile color="#6B21A8" titulo="Tiene que llegarme" total={esp.esperado.efectivo} lineas={[['Todavía en caja', formatoARS(esp.pendiente.efectivo)], ['Entregado, sin confirmar', formatoARS(esp.entregado.efectivo)], ['Confirmado', formatoARS(esp.confirmado.efectivo)], [`Cheques (${esp.esperado.cheques.cantidad}) · Ret. (${esp.esperado.retenciones.cantidad})`, formatoARS(esp.esperado.cheques.total + esp.esperado.retenciones.total)]]} to="/tesoreria/entregas" />
       </section>
 
-      <Plegable titulo={`Calle · ${r.calle.length} camiones`} abiertoInicial extra={<span className="text-xs text-gray-500">{r.calle.filter((f) => f.estado === 'liquidado').length} liquidados</span>}>
+      <Plegable titulo={`Calle · ${r.calle.length} camiones`} abiertoInicial extra={<span className="text-xs text-secundario">{r.calle.filter((f) => f.estado === 'liquidado').length} liquidados</span>}>
         <TablaCalle filas={r.calle} dia={dia} />
       </Plegable>
 
@@ -118,7 +118,7 @@ export default function TesoreriaLivePage() {
                   {abierto && (
                     <tr>
                       <td colSpan={7} className="bg-[#F8F7F2] px-3 py-3 border-b border-[#E7E5DC]">
-                        <p className="text-xs text-gray-500 mb-2">Recibos de {s.nombre} en el día. Cada uno se abre con su detalle y su PDF.</p>
+                        <p className="text-xs text-secundario mb-2">Recibos de {s.nombre} en el día. Cada uno se abre con su detalle y su PDF.</p>
                         <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
                           {recibos.map((c) => <CobranzaSupervisorCard key={c.id} c={c} />)}
                         </div>
@@ -128,7 +128,7 @@ export default function TesoreriaLivePage() {
                 </Fragment>
               )
             })}
-            {r.supervisores.length === 0 && <tr><td className={`${TD} text-gray-500`} colSpan={7}>Sin cobranzas de supervisores.</td></tr>}
+            {r.supervisores.length === 0 && <tr><td className={`${TD} text-secundario`} colSpan={7}>Sin cobranzas de supervisores.</td></tr>}
           </tbody>
         </table>
       </Plegable>
@@ -175,7 +175,7 @@ function TablaCalle({ filas, dia }: { filas: FilaCalle[]; dia: string }) {
           const e = ESTADO_CALLE[f.estado]
           return (
             <tr key={f.choferId}>
-              <td className={TD}>{f.deposito ? <span className="text-gray-500 mr-1.5">{f.deposito}</span> : null}{f.nombre || f.choferId}</td>
+              <td className={TD}>{f.deposito ? <span className="text-secundario mr-1.5">{f.deposito}</span> : null}{f.nombre || f.choferId}</td>
               <td className={`${TD} text-right tabular-nums`}>{f.remitos ? `${f.remitos} rem · ${f.cargaBultos} b.` : '—'}</td>
               <td className={`${TD} text-right tabular-nums`}>{ventasTxt(f.contado)}</td>
               <td className={`${TD} text-right tabular-nums`}>{ventasTxt(f.promo)}</td>
@@ -191,7 +191,7 @@ function TablaCalle({ filas, dia }: { filas: FilaCalle[]; dia: string }) {
             </tr>
           )
         })}
-        {filas.length === 0 && <tr><td className={`${TD} text-gray-500`} colSpan={9}>Sin movimientos en la calle.</td></tr>}
+        {filas.length === 0 && <tr><td className={`${TD} text-secundario`} colSpan={9}>Sin movimientos en la calle.</td></tr>}
       </tbody>
     </table>
   )
@@ -222,7 +222,7 @@ function TablaVentanilla({ filas }: { filas: FilaVentanilla[] }) {
             </tr>
           )
         })}
-        {filas.length === 0 && <tr><td className={`${TD} text-gray-500`} colSpan={8}>Sin ventas ni cobranzas de mostrador.</td></tr>}
+        {filas.length === 0 && <tr><td className={`${TD} text-secundario`} colSpan={8}>Sin ventas ni cobranzas de mostrador.</td></tr>}
       </tbody>
     </table>
   )

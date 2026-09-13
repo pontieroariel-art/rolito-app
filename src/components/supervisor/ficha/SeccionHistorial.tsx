@@ -31,8 +31,8 @@ function VentaRow({ venta, caiRemito }: { venta: VentaCamion; cliente?: UserProf
   return (
     <div className="flex items-start gap-2 py-2">
       <div className="min-w-0 flex-1">
-        <p className="text-sm text-gray-900">{venta.canal === 'contado' ? 'Venta contado' : 'Promo'} <span className="text-gray-500">· {fechaHora(venta.fecha.toDate())}</span></p>
-        <p className="text-xs text-gray-500 truncate">{venta.items.map((i) => `${i.cantidad} ${i.nombre}`).join(', ')}{venta.choferNombre ? ` · ${venta.choferNombre}` : ''}</p>
+        <p className="text-sm text-gray-900">{venta.canal === 'contado' ? 'Venta contado' : 'Promo'} <span className="text-secundario">· {fechaHora(venta.fecha.toDate())}</span></p>
+        <p className="text-xs text-secundario truncate">{venta.items.map((i) => `${i.cantidad} ${i.nombre}`).join(', ')}{venta.choferNombre ? ` · ${venta.choferNombre}` : ''}</p>
         <p className={`text-xs ${hayPapel ? 'text-accent' : 'text-amber-700'}`}>
           {comp.etiqueta}{comp.numero ? ` ${comp.numero}` : ''}{comp.detalle && comp.detalle !== 'CAE ok' ? ` · ${comp.detalle}` : ''}
         </p>
@@ -73,13 +73,13 @@ export default function SeccionHistorial({ c }: { c: UserProfile }) {
 
   // El último año puede ser largo: se muestra de a 30 con 'Ver más'.
   const [visibles, setVisibles] = useState(30)
-  const chip = hist ? <span className="text-xs text-gray-500">{items.length} · último año</span> : null
+  const chip = hist ? <span className="text-xs text-secundario">{items.length} · último año</span> : null
 
   return (
     <Plegable titulo="Historial" extra={chip}>
       {error && <p className="text-sm text-red-600">{error}</p>}
-      {!hist && !error && <p className="text-sm text-gray-500">Cargando historial…</p>}
-      {hist && items.length === 0 && <p className="text-sm text-gray-500">Sin movimientos registrados en la app.</p>}
+      {!hist && !error && <p className="text-sm text-secundario">Cargando historial…</p>}
+      {hist && items.length === 0 && <p className="text-sm text-secundario">Sin movimientos registrados en la app.</p>}
       <div className="divide-y divide-[#E7E5DC]">
         {items.slice(0, visibles).map((it) => {
           if (it.tipo === 'venta') return <VentaRow key={`v-${it.venta.id}`} venta={it.venta} cliente={c} caiRemito={caiRemito} />
@@ -88,8 +88,8 @@ export default function SeccionHistorial({ c }: { c: UserProfile }) {
             return (
               <div key={`m-${v.id}`} className="flex items-start gap-2 py-2">
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm text-gray-900">Mostrador <span className="text-gray-500">· {fechaHora(it.fecha)}</span></p>
-                  <p className="text-xs text-gray-500 truncate">{v.items.map((i) => `${i.cantidad} ${i.nombre}`).join(', ')}</p>
+                  <p className="text-sm text-gray-900">Mostrador <span className="text-secundario">· {fechaHora(it.fecha)}</span></p>
+                  <p className="text-xs text-secundario truncate">{v.items.map((i) => `${i.cantidad} ${i.nombre}`).join(', ')}</p>
                 </div>
                 <p className="text-sm font-medium text-gray-900 tabular-nums shrink-0">{formatoARS(v.total)}</p>
               </div>
@@ -101,12 +101,12 @@ export default function SeccionHistorial({ c }: { c: UserProfile }) {
             <div key={`p-${p.id}`} className="flex items-start gap-2 py-2">
               <div className="min-w-0 flex-1">
                 <p className="text-sm text-gray-900">
-                  Pedido <span className="text-gray-500">· {fechaHora(it.fecha)}</span>
+                  Pedido <span className="text-secundario">· {fechaHora(it.fecha)}</span>
                   {p.origenSupervisor && <span className="text-amber-700"> · a programar</span>}
                 </p>
-                <p className="text-xs text-gray-500 truncate">{resumenProductos(p.products)}</p>
+                <p className="text-xs text-secundario truncate">{resumenProductos(p.products)}</p>
               </div>
-              <span className={`text-[11px] font-medium rounded-full px-2 py-0.5 border shrink-0 ${p.status === 'entregado' ? 'text-accent border-accent/30 bg-accent/10' : p.status === 'cancelado' ? 'text-gray-500 border-[#D3D1C7]' : 'text-amber-700 border-amber-200 bg-amber-50'}`}>
+              <span className={`text-[11px] font-medium rounded-full px-2 py-0.5 border shrink-0 ${p.status === 'entregado' ? 'text-accent border-accent/30 bg-accent/10' : p.status === 'cancelado' ? 'text-secundario border-[#D3D1C7]' : 'text-amber-700 border-amber-200 bg-amber-50'}`}>
                 {STATUS_LABELS[p.status] ?? p.status}
               </span>
             </div>

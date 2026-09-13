@@ -79,7 +79,7 @@ export default function PlantasProduccionPage() {
     <main className="max-w-2xl mx-auto p-4 space-y-6 pb-10">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Plantas</h1>
-        <p className="text-gray-500 text-sm">Correlativo de pallets por planta</p>
+        <p className="text-secundario text-sm">Correlativo de pallets por planta</p>
       </div>
 
       <div className="grid sm:grid-cols-2 gap-3">

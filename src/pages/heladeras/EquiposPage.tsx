@@ -69,13 +69,13 @@ export default function EquiposPage() {
         <div className="flex flex-wrap justify-between items-center gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Equipos</h1>
-            <p className="text-gray-500 text-sm">{heladeras.length} heladeras cargadas</p>
+            <p className="text-secundario text-sm">{heladeras.length} heladeras cargadas</p>
           </div>
           <div className="flex flex-col items-end gap-1">
             <Button onClick={() => setCrearModal('fabricacion')} className="text-sm">+ Fabricar heladera nueva</Button>
             <button
               onClick={() => setCrearModal('reacondicionamiento')}
-              className="text-xs text-gray-500 hover:text-accent underline-offset-2 hover:underline"
+              className="text-xs text-secundario hover:text-accent underline-offset-2 hover:underline"
             >
               Registrar equipo usado no cargado
             </button>
@@ -127,7 +127,7 @@ export default function EquiposPage() {
               >
                 <div>
                   <p className="font-bold text-sm text-gray-900">{h.codigoInterno}</p>
-                  <p className="text-gray-500 text-xs">{h.modelo} · serie {h.numeroSerie}</p>
+                  <p className="text-secundario text-xs">{h.modelo} · serie {h.numeroSerie}</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className={`text-xs text-right ${h.clienteAsignadoNombre ? 'text-gray-600' : 'text-secundario'}`}>

@@ -55,7 +55,7 @@ function DetalleParte({ parte }: { parte: ParteMaquinas }) {
       </div>
 
       <div>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Maquinarias encendidas</p>
+        <p className="text-xs font-semibold text-secundario uppercase tracking-wide mb-1.5">Maquinarias encendidas</p>
         <div className="flex flex-wrap gap-1.5">
           {MAQUINARIAS.map((m) => {
             const nums = parte.maquinarias?.[m.id] ?? []
@@ -74,7 +74,7 @@ function DetalleParte({ parte }: { parte: ParteMaquinas }) {
 
       {parte.observaciones && (
         <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Observaciones</p>
+          <p className="text-xs font-semibold text-secundario uppercase tracking-wide mb-1">Observaciones</p>
           <p className="text-sm text-gray-700 whitespace-pre-wrap">{parte.observaciones}</p>
         </div>
       )}
@@ -100,7 +100,7 @@ export default function PartesMaquinasPage() {
     <main className="max-w-3xl mx-auto p-4 space-y-4 pb-10">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Partes de máquinas</h1>
-        <p className="text-gray-500 text-sm">Planilla del maquinista por turno — ciclos de roliteras y maquinarias</p>
+        <p className="text-secundario text-sm">Planilla del maquinista por turno — ciclos de roliteras y maquinarias</p>
       </div>
 
       <div className="flex flex-wrap gap-3">
@@ -124,7 +124,7 @@ export default function PartesMaquinasPage() {
         <LoadingSpinner />
       ) : filtrados.length === 0 ? (
         <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center">
-          <p className="text-gray-500 text-sm">No hay partes cargados{planta || fecha ? ' con ese filtro' : ' todavía'}.</p>
+          <p className="text-secundario text-sm">No hay partes cargados{planta || fecha ? ' con ese filtro' : ' todavía'}.</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -139,7 +139,7 @@ export default function PartesMaquinasPage() {
                     {new Date(p.fecha + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })}
                     {' · '}{TURNO_LABELS[p.turno]} · {PLANTAS[p.plantaId].label}
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-secundario">
                     {p.maquinista.nombre} · {p.ciclos.length} ciclos
                     {p.observaciones ? ' · con observaciones' : ''}
                   </p>

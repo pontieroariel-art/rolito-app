@@ -46,7 +46,7 @@ export default function ListasTangoPanel() {
               key={e.id}
               onClick={() => setEmpresa(e.id)}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                empresa === e.id ? 'bg-accent text-white' : 'text-gray-500 hover:text-gray-900'
+                empresa === e.id ? 'bg-accent text-white' : 'text-secundario hover:text-gray-900'
               }`}
             >
               {e.label}
@@ -68,7 +68,7 @@ export default function ListasTangoPanel() {
         <p className="text-sm text-amber-600">Todavía no se sincronizaron los precios de esta empresa. Usá "Sincronizar ahora".</p>
       ) : (
         <>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-secundario">
             {listas.length} listas en Tango ({conPrecios} con algún precio cargado para los productos de la app) · {especiales} clientes con precio especial.
             Los precios se editan en Tango; acá solo se ven. Las listas sin ningún precio no sirven para vender por la app.
           </p>

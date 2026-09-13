@@ -45,7 +45,7 @@ export default function HeladeraDetailModal({ heladera, clienteCodigo, onClose }
 
   const vencimiento = heladera.comodatoVenceEl ? tsToDate(heladera.comodatoVenceEl) : null
   const diasParaVencer = vencimiento ? Math.ceil((vencimiento.getTime() - Date.now()) / 86400000) : null
-  const vencimientoColor = diasParaVencer == null ? 'text-gray-500' : diasParaVencer <= 0 ? 'text-red-600' : diasParaVencer <= 30 ? 'text-amber-600' : 'text-gray-500'
+  const vencimientoColor = diasParaVencer == null ? 'text-secundario' : diasParaVencer <= 0 ? 'text-red-600' : diasParaVencer <= 30 ? 'text-amber-600' : 'text-secundario'
 
   const historial = useMemo(
     () => [...heladera.historialAcciones].sort((a, b) => tsToDate(b.timestamp).getTime() - tsToDate(a.timestamp).getTime()),
@@ -78,13 +78,13 @@ export default function HeladeraDetailModal({ heladera, clienteCodigo, onClose }
           )}
           <div className="flex-1 min-w-[180px] space-y-1">
             <p className="text-sm font-semibold text-gray-900">{heladera.modelo}</p>
-            <p className="text-xs text-gray-500">Serie {heladera.numeroSerie}</p>
+            <p className="text-xs text-secundario">Serie {heladera.numeroSerie}</p>
             {modelo && (
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-secundario">
                 {modelo.medidas.ancho}×{modelo.medidas.alto}×{modelo.medidas.profundo} cm · {modelo.capacidadBolsas} bolsas
               </p>
             )}
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-secundario mt-1">
               Cliente asignado: <span className={heladera.clienteAsignadoNombre ? 'text-gray-900 font-medium' : 'text-secundario'}>
                 {heladera.clienteAsignadoNombre ?? 'sin asignar'}{heladera.clienteAsignadoNombre && clienteCodigo ? ` (${clienteCodigo})` : ''}
               </span>
@@ -97,7 +97,7 @@ export default function HeladeraDetailModal({ heladera, clienteCodigo, onClose }
                 Comodato {diasParaVencer != null && diasParaVencer <= 0 ? 'vencido el' : 'vence el'} {vencimiento.toLocaleDateString('es-AR')}
               </p>
             )}
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-secundario">
               Ingreso: <span className="text-gray-700">
                 {heladera.motivoIngresoNombre && heladera.tipoOperacion
                   ? `${heladera.motivoIngresoNombre} · ${TIPO_OPERACION_LABELS[heladera.tipoOperacion]}`
@@ -142,7 +142,7 @@ export default function HeladeraDetailModal({ heladera, clienteCodigo, onClose }
 
         {bajaAbierta && (
           <div className="bg-red-500/5 border border-red-200 rounded-xl p-4 space-y-3">
-            <label className="text-xs text-gray-500 block">Motivo de la baja (destrucción del equipo, irreparable, etc.)</label>
+            <label className="text-xs text-secundario block">Motivo de la baja (destrucción del equipo, irreparable, etc.)</label>
             <textarea
               value={motivoBaja}
               onChange={(e) => setMotivoBaja(e.target.value)}
@@ -174,7 +174,7 @@ export default function HeladeraDetailModal({ heladera, clienteCodigo, onClose }
                 <div key={i} className="flex items-start justify-between gap-3 border-b border-[#E7E5DC] pb-1.5 last:border-0">
                   <div>
                     <p className="text-xs font-medium text-gray-900">{ACCION_LABELS[a.accion] ?? a.accion}</p>
-                    <p className="text-xs text-gray-500">{a.usuarioNombre}{a.detalle ? ` · ${a.detalle}` : ''}</p>
+                    <p className="text-xs text-secundario">{a.usuarioNombre}{a.detalle ? ` · ${a.detalle}` : ''}</p>
                   </div>
                   <span className="text-xs text-secundario whitespace-nowrap">{tsToDate(a.timestamp).toLocaleString('es-AR')}</span>
                 </div>

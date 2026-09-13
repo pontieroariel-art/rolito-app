@@ -39,7 +39,7 @@ export default function TileEstado({ titulo, tono, valor, sufijo, lineas = [], t
       <p className="text-xs font-bold uppercase tracking-wider" style={{ color }}>{titulo}</p>
       <p className="text-2xl font-bold text-gray-900 tabular-nums leading-tight">
         {valor === null ? <span className="text-inerte">—</span> : valor}
-        {sufijo && valor !== null && <span className="text-sm font-medium text-gray-500 ml-1">{sufijo}</span>}
+        {sufijo && valor !== null && <span className="text-sm font-medium text-secundario ml-1">{sufijo}</span>}
       </p>
       {lineas.length > 0 && (
         <div className="text-xs text-gray-600 space-y-0.5">

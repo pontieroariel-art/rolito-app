@@ -231,7 +231,7 @@ export default function RecuperoFacturasPage() {
             Convierte las facturas que salen de Tango sin diseño al formato de siempre.
             Cargá los PDF, completá el CAE de cada una y descargalas.
           </p>
-          <p className="mt-2 text-xs text-gray-500">
+          <p className="mt-2 text-xs text-secundario">
             Los PDF se leen y se generan en esta computadora. Con <b>Guardar en la app</b> la factura
             regenerada (con CAE) queda guardada para que los supervisores se la manden al cliente
             desde la composición de saldos. Se puede volver a cargar una factura ya hecha (por ejemplo
@@ -282,7 +282,7 @@ export default function RecuperoFacturasPage() {
             <h2 className="text-sm font-semibold text-gray-800">
               {items.length} {items.length === 1 ? 'factura' : 'facturas'}
             </h2>
-            <span className="text-sm text-gray-500">{cantidadListas} con CAE</span>
+            <span className="text-sm text-secundario">{cantidadListas} con CAE</span>
             <div className="ml-auto flex gap-2">
               <button
                 type="button"
@@ -339,7 +339,7 @@ export default function RecuperoFacturasPage() {
                 <div className="flex min-w-0 flex-col gap-2">
                   <div className="flex flex-wrap items-baseline gap-3">
                     <span className="font-mono text-[15px] font-semibold text-gray-900">{item.id}</span>
-                    <span className="text-sm text-gray-500">
+                    <span className="text-sm text-secundario">
                       {f.fechaEmision.toLocaleDateString('es-AR')}
                     </span>
                     <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
@@ -351,7 +351,7 @@ export default function RecuperoFacturasPage() {
 
                   <div className="font-semibold text-gray-800">
                     {f.cliente.razonSocial}
-                    <span className="ml-2 font-mono text-xs font-normal text-gray-500">{f.cliente.cuit}</span>
+                    <span className="ml-2 font-mono text-xs font-normal text-secundario">{f.cliente.cuit}</span>
                   </div>
 
                   <div className="rounded-lg bg-[#F2F1EA] p-2.5 text-xs text-gray-600">
@@ -384,7 +384,7 @@ export default function RecuperoFacturasPage() {
 
                 <div className="flex flex-col gap-3 md:border-l md:border-[#E4E2D9] md:pl-5">
                   <label className="flex flex-col gap-1">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">CAE</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-secundario">CAE</span>
                     <input
                       value={item.cae}
                       onChange={(e) => editar(item.id, 'cae', e.target.value)}
@@ -401,7 +401,7 @@ export default function RecuperoFacturasPage() {
                   </label>
 
                   <label className="flex flex-col gap-1">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-secundario">
                       Vencimiento del CAE
                     </span>
                     <input
@@ -414,7 +414,7 @@ export default function RecuperoFacturasPage() {
 
                   <div className="grid grid-cols-[1fr_88px] gap-2">
                     <label className="flex flex-col gap-1">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Perc. IIBB CABA ($)</span>
+                      <span className="text-xs font-semibold uppercase tracking-wide text-secundario">Perc. IIBB CABA ($)</span>
                       <input
                         value={item.percCaba}
                         onChange={(e) => editar(item.id, 'percCaba', e.target.value)}
@@ -424,7 +424,7 @@ export default function RecuperoFacturasPage() {
                       />
                     </label>
                     <label className="flex flex-col gap-1">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Alíc. %</span>
+                      <span className="text-xs font-semibold uppercase tracking-wide text-secundario">Alíc. %</span>
                       <input
                         value={item.percCabaAlic}
                         onChange={(e) => editar(item.id, 'percCabaAlic', e.target.value)}
@@ -471,7 +471,7 @@ export default function RecuperoFacturasPage() {
           </p>
         )}
 
-        <footer className="mt-10 flex flex-col gap-1.5 border-t border-[#E4E2D9] pt-5 text-xs text-gray-500">
+        <footer className="mt-10 flex flex-col gap-1.5 border-t border-[#E4E2D9] pt-5 text-xs text-secundario">
           <span>
             <b className="text-gray-700">El CAE se escribe tal cual figura en Tango</b>, sin espacios ni
             guiones: son 14 dígitos. Alimenta el código de barras y el QR del pie, así que un dígito

@@ -98,14 +98,14 @@ export default function ReporteIncidenciasPage() {
         <div className="flex flex-wrap justify-between items-end gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Reporte de incidencias</h1>
-            <p className="text-gray-500 text-sm mt-1">Pedidos reprogramados y reasignados</p>
+            <p className="text-secundario text-sm mt-1">Pedidos reprogramados y reasignados</p>
           </div>
           <div className="flex rounded-lg border border-[#D3D1C7] overflow-hidden text-xs">
             {(['7d', '30d', '90d'] as Periodo[]).map((p) => (
               <button
                 key={p}
                 onClick={() => setPeriodo(p)}
-                className={`px-3 py-1.5 transition-colors ${periodo === p ? 'bg-accent text-white font-semibold' : 'text-gray-500 hover:text-gray-900'}`}
+                className={`px-3 py-1.5 transition-colors ${periodo === p ? 'bg-accent text-white font-semibold' : 'text-secundario hover:text-gray-900'}`}
               >
                 {p === '7d' ? '7 días' : p === '30d' ? '30 días' : '90 días'}
               </button>
@@ -116,24 +116,24 @@ export default function ReporteIncidenciasPage() {
         {/* KPIs */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-1">
-            <p className="text-xs text-gray-500">Total incidencias</p>
+            <p className="text-xs text-secundario">Total incidencias</p>
             <p className="text-3xl font-bold text-amber-600">{stats.total}</p>
-            <p className="text-xs text-gray-500">{periodLabel(periodo)}</p>
+            <p className="text-xs text-secundario">{periodLabel(periodo)}</p>
           </div>
           <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-1">
-            <p className="text-xs text-gray-500">% del total</p>
+            <p className="text-xs text-secundario">% del total</p>
             <p className="text-3xl font-bold text-gray-900">{stats.pct}%</p>
-            <p className="text-xs text-gray-500">de {stats.totalOrders} pedidos</p>
+            <p className="text-xs text-secundario">de {stats.totalOrders} pedidos</p>
           </div>
           <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-1">
-            <p className="text-xs text-gray-500">Reprogramadas</p>
+            <p className="text-xs text-secundario">Reprogramadas</p>
             <p className="text-3xl font-bold text-accent">{stats.reprogramadas}</p>
-            <p className="text-xs text-gray-500">cambiaron de fecha</p>
+            <p className="text-xs text-secundario">cambiaron de fecha</p>
           </div>
           <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-1">
-            <p className="text-xs text-gray-500">Reasignadas</p>
+            <p className="text-xs text-secundario">Reasignadas</p>
             <p className="text-3xl font-bold text-purple-600">{stats.reasignadas}</p>
-            <p className="text-xs text-gray-500">cambiaron de chofer</p>
+            <p className="text-xs text-secundario">cambiaron de chofer</p>
           </div>
         </div>
 
@@ -151,7 +151,7 @@ export default function ReporteIncidenciasPage() {
                   return (
                     <div key={motivo} className="space-y-1">
                       <div className="flex justify-between text-xs">
-                        <span className="text-gray-500 truncate">{motivo}</span>
+                        <span className="text-secundario truncate">{motivo}</span>
                         <span className="font-medium text-gray-900 shrink-0 ml-2">{count} ({pct}%)</span>
                       </div>
                       <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
@@ -169,9 +169,9 @@ export default function ReporteIncidenciasPage() {
                 <div className="flex items-start gap-3">
                   <span className="text-xl shrink-0">⚠</span>
                   <div>
-                    <p className="text-xs text-gray-500">Motivo más frecuente</p>
+                    <p className="text-xs text-secundario">Motivo más frecuente</p>
                     <p className="text-sm font-medium text-gray-900">{stats.topMotivo[0]}</p>
-                    <p className="text-xs text-gray-500">{stats.topMotivo[1]} incidencia{stats.topMotivo[1] !== 1 ? 's' : ''}</p>
+                    <p className="text-xs text-secundario">{stats.topMotivo[1]} incidencia{stats.topMotivo[1] !== 1 ? 's' : ''}</p>
                   </div>
                 </div>
               )}
@@ -179,9 +179,9 @@ export default function ReporteIncidenciasPage() {
                 <div className="flex items-start gap-3">
                   <span className="text-xl shrink-0">🚛</span>
                   <div>
-                    <p className="text-xs text-gray-500">Chofer con más incidencias</p>
+                    <p className="text-xs text-secundario">Chofer con más incidencias</p>
                     <p className="text-sm font-medium text-gray-900">{stats.topChofer.nombre}</p>
-                    <p className="text-xs text-gray-500">{stats.topChofer.count} incidencia{stats.topChofer.count !== 1 ? 's' : ''}</p>
+                    <p className="text-xs text-secundario">{stats.topChofer.count} incidencia{stats.topChofer.count !== 1 ? 's' : ''}</p>
                   </div>
                 </div>
               )}
@@ -190,7 +190,7 @@ export default function ReporteIncidenciasPage() {
                   <span className="text-xl shrink-0">📊</span>
                   <div>
                     <p className="text-xs text-red-600 font-medium">Tasa alta de incidencias</p>
-                    <p className="text-xs text-gray-500">Más del 10% de los pedidos tuvieron problemas</p>
+                    <p className="text-xs text-secundario">Más del 10% de los pedidos tuvieron problemas</p>
                   </div>
                 </div>
               )}
@@ -200,14 +200,14 @@ export default function ReporteIncidenciasPage() {
 
         {/* Listado detallado */}
         <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
+          <h2 className="text-sm font-semibold text-secundario uppercase tracking-wide">
             Detalle — {incidencias.length} incidencia{incidencias.length !== 1 ? 's' : ''}
           </h2>
 
           {incidencias.length === 0 ? (
             <div className="bg-white border border-[#D3D1C7] rounded-xl p-10 text-center">
               <p className="text-3xl mb-3">✅</p>
-              <p className="text-gray-500 text-sm">Sin incidencias en este período</p>
+              <p className="text-secundario text-sm">Sin incidencias en este período</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -236,19 +236,19 @@ function IncidenciaRow({ order, choferNombre }: { order: Order; choferNombre: (e
           <p className="font-medium text-sm text-gray-900">{order.clientName}</p>
           <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${color}`}>{tipo}</span>
         </div>
-        <p className="text-xs text-gray-500">{order.clientAddress}</p>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-secundario">{order.clientAddress}</p>
+        <p className="text-xs text-secundario">
           Chofer: <span className="text-gray-900">{choferNombre(order.choferOriginal)}</span>
           {order.reprogramado && order.fechaOriginal && (
             <> · Fecha original: <span className="text-gray-900">{formatShortDate(order.fechaOriginal)}</span></>
           )}
         </p>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-secundario">
           Motivo: <span className="text-gray-900">{motivo}</span>
         </p>
       </div>
       <div className="text-right shrink-0">
-        <p className="text-xs text-gray-500">{formatShortDate(order.updatedAt)}</p>
+        <p className="text-xs text-secundario">{formatShortDate(order.updatedAt)}</p>
         {order.reprogramado && (
           <p className="text-xs text-accent mt-1">→ {formatShortDate(order.date)}</p>
         )}

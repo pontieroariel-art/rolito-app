@@ -104,7 +104,7 @@ export default function TipoReparacionChecklist({
         <>
           {favoritosVisibles.length > 0 && (
             <div className="space-y-1.5">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Favoritos</p>
+              <p className="text-xs font-semibold text-secundario uppercase tracking-wide">Favoritos</p>
               {favoritosVisibles.map((t) => (
                 <Fila
                   key={t.id} tipo={t} marcado={seleccionados.includes(t.id)} onToggle={() => onToggle(t.id)}
@@ -115,7 +115,7 @@ export default function TipoReparacionChecklist({
           )}
           <div className="space-y-1.5">
             {favoritosVisibles.length > 0 && (
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Todos</p>
+              <p className="text-xs font-semibold text-secundario uppercase tracking-wide">Todos</p>
             )}
             {restantes.map((t) => (
               <Fila

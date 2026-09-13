@@ -63,7 +63,7 @@ function ModeloForm({
   return (
     <div className="space-y-3">
       <div>
-        <label className="text-xs text-gray-500 mb-1 block">Nombre del modelo *</label>
+        <label className="text-xs text-secundario mb-1 block">Nombre del modelo *</label>
         <input
           value={nombre}
           onChange={(e: ChangeEvent<HTMLInputElement>) => setNombre(e.target.value)}
@@ -73,7 +73,7 @@ function ModeloForm({
       </div>
       <div className="grid grid-cols-3 gap-3">
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Ancho (cm)</label>
+          <label className="text-xs text-secundario mb-1 block">Ancho (cm)</label>
           <input
             type="number" min={0} value={ancho}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setAncho(e.target.value)}
@@ -81,7 +81,7 @@ function ModeloForm({
           />
         </div>
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Alto (cm)</label>
+          <label className="text-xs text-secundario mb-1 block">Alto (cm)</label>
           <input
             type="number" min={0} value={alto}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setAlto(e.target.value)}
@@ -89,7 +89,7 @@ function ModeloForm({
           />
         </div>
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Profundo (cm)</label>
+          <label className="text-xs text-secundario mb-1 block">Profundo (cm)</label>
           <input
             type="number" min={0} value={profundo}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setProfundo(e.target.value)}
@@ -98,7 +98,7 @@ function ModeloForm({
         </div>
       </div>
       <div>
-        <label className="text-xs text-gray-500 mb-1 block">Capacidad (bolsas de hielo)</label>
+        <label className="text-xs text-secundario mb-1 block">Capacidad (bolsas de hielo)</label>
         <input
           type="number" min={0} value={bolsas}
           onChange={(e: ChangeEvent<HTMLInputElement>) => setBolsas(e.target.value)}
@@ -106,7 +106,7 @@ function ModeloForm({
         />
       </div>
       <div>
-        <label className="text-xs text-gray-500 mb-1 block">Foto ilustrativa (URL)</label>
+        <label className="text-xs text-secundario mb-1 block">Foto ilustrativa (URL)</label>
         <input
           value={fotoUrl}
           onChange={(e: ChangeEvent<HTMLInputElement>) => setFotoUrl(e.target.value)}
@@ -115,7 +115,7 @@ function ModeloForm({
         />
       </div>
       <div>
-        <label className="text-xs text-gray-500 mb-1 block">Prefijo de código (opcional)</label>
+        <label className="text-xs text-secundario mb-1 block">Prefijo de código (opcional)</label>
         <input
           value={prefijoCodigo}
           onChange={(e: ChangeEvent<HTMLInputElement>) => setPrefijoCodigo(e.target.value)}
@@ -176,7 +176,7 @@ export default function ModelosHeladeraPage() {
         <div className="flex flex-wrap justify-between items-center gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Modelos de heladera</h1>
-            <p className="text-gray-500 text-sm">Ficha técnica: medidas, capacidad y foto</p>
+            <p className="text-secundario text-sm">Ficha técnica: medidas, capacidad y foto</p>
           </div>
           <Button onClick={() => setAddModal(true)} className="text-sm">+ Agregar</Button>
         </div>
@@ -186,7 +186,7 @@ export default function ModelosHeladeraPage() {
         {modelos.length === 0 ? (
           <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center">
             <p className="text-4xl mb-3">🧊</p>
-            <p className="text-gray-500 text-sm">Todavía no cargaste ningún modelo</p>
+            <p className="text-secundario text-sm">Todavía no cargaste ningún modelo</p>
             <p className="text-secundario text-xs mt-1">Usá el botón "Agregar" para empezar</p>
           </div>
         ) : (
@@ -204,14 +204,14 @@ export default function ModelosHeladeraPage() {
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <p className="font-bold text-sm text-gray-900">{m.nombre}</p>
-                    <p className="text-gray-500 text-xs">
+                    <p className="text-secundario text-xs">
                       {m.medidas.ancho}×{m.medidas.alto}×{m.medidas.profundo} cm · {m.capacidadBolsas} bolsas
                     </p>
                   </div>
                   <span className={`text-xs px-2 py-1 rounded-full border font-medium shrink-0 ${
                     m.activo
                       ? 'bg-green-100 text-green-700 border-green-200'
-                      : 'bg-gray-100 text-gray-500 border-gray-200'
+                      : 'bg-gray-100 text-secundario border-gray-200'
                   }`}>
                     {m.activo ? 'Activo' : 'Inactivo'}
                   </span>
@@ -219,14 +219,14 @@ export default function ModelosHeladeraPage() {
                 <div className="flex items-center gap-2 flex-wrap pt-1">
                   <button
                     onClick={() => setEditModelo(m)}
-                    className="text-xs text-gray-500 hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-4 py-2 transition-colors min-h-[36px]"
+                    className="text-xs text-secundario hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-4 py-2 transition-colors min-h-[36px]"
                   >
                     Editar
                   </button>
                   <button
                     onClick={() => handleToggle(m)}
                     disabled={togglingId === m.id}
-                    className="text-xs text-gray-500 hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-4 py-2 transition-colors min-h-[36px] disabled:opacity-40"
+                    className="text-xs text-secundario hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-4 py-2 transition-colors min-h-[36px] disabled:opacity-40"
                   >
                     {togglingId === m.id ? 'Guardando…' : m.activo ? 'Desactivar' : 'Activar'}
                   </button>

@@ -106,7 +106,7 @@ export default function ComercialDashboard() {
       <main className="max-w-4xl mx-auto p-4 space-y-6 pb-10">
         <div>
           <h1 className="text-2xl font-bold">Tablero</h1>
-          <p className="text-gray-500 text-sm capitalize mt-0.5">
+          <p className="text-secundario text-sm capitalize mt-0.5">
             {new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}
           </p>
         </div>
@@ -116,7 +116,7 @@ export default function ComercialDashboard() {
             {/* ── Alertas comerciales ──────────────────────────────────── */}
             {(pendientes.length > 0 || sinLista.length > 0 || inactivos.length > 0) && (
               <section className="space-y-3">
-                <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                <h2 className="text-xs font-semibold text-secundario uppercase tracking-wide">
                   Requieren atención
                 </h2>
 
@@ -130,7 +130,7 @@ export default function ComercialDashboard() {
                       <div key={u.uid} className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
                           <p className="text-sm font-medium truncate">{u.razonSocial || u.nombre}</p>
-                          <p className="text-xs text-gray-500 truncate">{u.email}</p>
+                          <p className="text-xs text-secundario truncate">{u.email}</p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <button
@@ -162,12 +162,12 @@ export default function ComercialDashboard() {
                     </div>
                     <div className="space-y-1">
                       {sinLista.slice(0, 3).map((u) => (
-                        <p key={u.uid} className="text-xs text-gray-500 truncate">
+                        <p key={u.uid} className="text-xs text-secundario truncate">
                           {u.razonSocial || u.nombre} — {u.email}
                         </p>
                       ))}
                       {sinLista.length > 3 && (
-                        <p className="text-xs text-gray-500">+{sinLista.length - 3} más</p>
+                        <p className="text-xs text-secundario">+{sinLista.length - 3} más</p>
                       )}
                     </div>
                   </div>
@@ -187,12 +187,12 @@ export default function ComercialDashboard() {
                     </div>
                     <div className="space-y-1">
                       {inactivos.slice(0, 3).map((u) => (
-                        <p key={u.uid} className="text-xs text-gray-500 truncate">
+                        <p key={u.uid} className="text-xs text-secundario truncate">
                           {u.razonSocial || u.nombre}
                         </p>
                       ))}
                       {inactivos.length > 3 && (
-                        <p className="text-xs text-gray-500">+{inactivos.length - 3} más</p>
+                        <p className="text-xs text-secundario">+{inactivos.length - 3} más</p>
                       )}
                     </div>
                   </div>
@@ -202,7 +202,7 @@ export default function ComercialDashboard() {
 
             {/* ── Métricas del día ─────────────────────────────────────── */}
             <section className="space-y-2">
-              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              <h2 className="text-xs font-semibold text-secundario uppercase tracking-wide">
                 Pedidos de hoy — {todayOrders.length} en total
               </h2>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -220,7 +220,7 @@ export default function ComercialDashboard() {
             {/* ── Pronóstico del tiempo ────────────────────────────────── */}
             <section className="space-y-2">
               <div className="flex items-center justify-between">
-                <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Clima — próximos 7 días</h2>
+                <h2 className="text-xs font-semibold text-secundario uppercase tracking-wide">Clima — próximos 7 días</h2>
                 <Link to="/admin/clima" className="text-xs text-accent hover:underline">Historial →</Link>
               </div>
               <ForecastStrip />
@@ -231,17 +231,17 @@ export default function ComercialDashboard() {
 
             {/* ── Resumen de clientes ──────────────────────────────────── */}
             <section className="space-y-2">
-              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Clientes</h2>
+              <h2 className="text-xs font-semibold text-secundario uppercase tracking-wide">Clientes</h2>
               <div className="grid grid-cols-3 gap-3">
                 <StatCard icon={<Users size={16} />}     label="Activos"   value={clientes.filter(u => u.estado === 'activo').length}   color="text-accent"      border="border-[#D3D1C7]" />
                 <StatCard icon={<UserCheck size={16} />} label="Pendientes" value={pendientes.length} color="text-amber-600" border={pendientes.length > 0 ? 'border-amber-300' : 'border-[#D3D1C7]'} />
-                <StatCard icon={<Tag size={16} />}       label="Sin lista"  value={sinLista.length}   color="text-gray-500"  border="border-[#D3D1C7]" />
+                <StatCard icon={<Tag size={16} />}       label="Sin lista"  value={sinLista.length}   color="text-secundario"  border="border-[#D3D1C7]" />
               </div>
             </section>
 
             {/* ── Acceso rápido ────────────────────────────────────────── */}
             <section className="space-y-2">
-              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Acciones</h2>
+              <h2 className="text-xs font-semibold text-secundario uppercase tracking-wide">Acciones</h2>
               <Link
                 to="/comercial/pedidos"
                 className="bg-white border border-[#D3D1C7] rounded-xl p-4 flex items-center justify-between hover:border-accent transition-colors group"
@@ -250,7 +250,7 @@ export default function ComercialDashboard() {
                   <History size={18} className="text-accent" />
                   <div>
                     <p className="font-medium text-sm group-hover:text-accent transition-colors">Historial de pedidos</p>
-                    <p className="text-gray-500 text-xs mt-0.5">Filtrá por cliente, día, mes o año</p>
+                    <p className="text-secundario text-xs mt-0.5">Filtrá por cliente, día, mes o año</p>
                   </div>
                 </div>
                 <ArrowRight size={16} className="text-inerte group-hover:text-accent transition-colors" />
@@ -263,7 +263,7 @@ export default function ComercialDashboard() {
                   <Users size={18} className="text-accent" />
                   <div>
                     <p className="font-medium text-sm group-hover:text-accent transition-colors">Gestión de usuarios</p>
-                    <p className="text-gray-500 text-xs mt-0.5">Aprobar clientes, asignar listas y precios especiales</p>
+                    <p className="text-secundario text-xs mt-0.5">Aprobar clientes, asignar listas y precios especiales</p>
                   </div>
                 </div>
                 <ArrowRight size={16} className="text-inerte group-hover:text-accent transition-colors" />
@@ -276,7 +276,7 @@ export default function ComercialDashboard() {
                   <BarChart2 size={18} className="text-accent" />
                   <div>
                     <p className="font-medium text-sm group-hover:text-accent transition-colors">Reporte de ventas</p>
-                    <p className="text-gray-500 text-xs mt-0.5">Entregas, volumen por producto y ranking de clientes</p>
+                    <p className="text-secundario text-xs mt-0.5">Entregas, volumen por producto y ranking de clientes</p>
                   </div>
                 </div>
                 <ArrowRight size={16} className="text-inerte group-hover:text-accent transition-colors" />
@@ -289,7 +289,7 @@ export default function ComercialDashboard() {
                   <CloudSun size={18} className="text-accent" />
                   <div>
                     <p className="font-medium text-sm group-hover:text-accent transition-colors">Historial de clima</p>
-                    <p className="text-gray-500 text-xs mt-0.5">Temperatura e historial de ventas por día</p>
+                    <p className="text-secundario text-xs mt-0.5">Temperatura e historial de ventas por día</p>
                   </div>
                 </div>
                 <ArrowRight size={16} className="text-inerte group-hover:text-accent transition-colors" />
@@ -353,10 +353,10 @@ function TrackingMap({ orders, clientes }: { orders: Order[]; clientes: UserProf
             <span className="text-xs text-accent">· {drivers.length} chofer{drivers.length !== 1 ? 'es' : ''} activo{drivers.length !== 1 ? 's' : ''}</span>
           )}
           {activeOrders.length > 0 && (
-            <span className="text-xs text-gray-500">· {activeOrders.length} pedido{activeOrders.length !== 1 ? 's' : ''} en curso</span>
+            <span className="text-xs text-secundario">· {activeOrders.length} pedido{activeOrders.length !== 1 ? 's' : ''} en curso</span>
           )}
         </div>
-        <span className="text-gray-500 text-xs">{open ? '▲ Cerrar' : '▼ Ver mapa'}</span>
+        <span className="text-secundario text-xs">{open ? '▲ Cerrar' : '▼ Ver mapa'}</span>
       </button>
 
       {open && (

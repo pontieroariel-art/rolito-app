@@ -39,7 +39,7 @@ import type { GrupoRecibo as Grupo } from '@/utils/composicionSaldos'
 
 const INPUT = 'w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'
 const TONO: Record<ReturnType<typeof etiquetaEstado>['tono'], string> = {
-  pendiente: 'text-red-600', ok: 'text-accent', neutro: 'text-gray-500', anulado: 'text-secundario',
+  pendiente: 'text-red-600', ok: 'text-accent', neutro: 'text-secundario', anulado: 'text-secundario',
 }
 const claveGrupo = (g: Grupo) => `${g.empresa}|${g.codigo}`
 
@@ -52,7 +52,7 @@ export default function ComprobantesClientesPage() {
     <main className="max-w-7xl mx-auto p-4 space-y-4 pb-28">
       <div>
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><Files size={22} className="text-accent" /> Comprobantes de clientes</h1>
-        <p className="text-gray-500 text-sm">Buscá un cliente, elegí sus facturas y remitos de Tango y mandalos todos juntos por mail, WhatsApp o descarga.</p>
+        <p className="text-secundario text-sm">Buscá un cliente, elegí sus facturas y remitos de Tango y mandalos todos juntos por mail, WhatsApp o descarga.</p>
       </div>
       {/* Remitos anulados en la app que la oficina tiene que anular en Tango (2026-09-12). */}
       <RemitosPendientesTango />
@@ -61,7 +61,7 @@ export default function ComprobantesClientesPage() {
         {clienteUid
           ? <PanelCliente key={clienteUid} uid={clienteUid} onCerrar={() => elegirCliente('')} />
           : (
-            <div className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-8 text-center text-sm text-gray-500">
+            <div className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-8 text-center text-sm text-secundario">
               Elegí un cliente de la lista para ver sus comprobantes.
             </div>
           )}
@@ -159,7 +159,7 @@ function PanelCliente({ uid, onCerrar }: { uid: string; onCerrar: () => void }) 
   }, [elegidos, clienteMail])
 
   if (loading || !cliente) {
-    return <div className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-8 text-center text-sm text-gray-500">{loading ? 'Cargando la ficha…' : 'No se encontró el cliente.'}</div>
+    return <div className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-8 text-center text-sm text-secundario">{loading ? 'Cargando la ficha…' : 'No se encontró el cliente.'}</div>
   }
   if (!estaVinculadoATango(cliente)) {
     return (
@@ -179,7 +179,7 @@ function PanelCliente({ uid, onCerrar }: { uid: string; onCerrar: () => void }) 
     <div className="space-y-3">
       <div className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-4 space-y-3">
         <Cabecera cliente={cliente} email={email} onCerrar={onCerrar} />
-        <p className="text-xs text-gray-500 flex flex-wrap items-center gap-x-2 gap-y-1">
+        <p className="text-xs text-secundario flex flex-wrap items-center gap-x-2 gap-y-1">
           {(refrescando || cargandoIndices) && <RefreshCw size={12} className="animate-spin" />}
           {refrescando ? 'Actualizando facturas y remitos desde Tango…' : cargandoIndices ? 'Cargando…' : `Facturas y remitos de los últimos 12 meses${saldoAl ? ` · saldo de Tango ${haceCuanto(saldoAl) || 'en caché'}` : ''}`}
           {avisoTango && !refrescando && <span className={avisoTango.startsWith('Actualizado') ? 'text-accent' : 'text-amber-700'}>· {avisoTango}</span>}
@@ -197,20 +197,20 @@ function PanelCliente({ uid, onCerrar }: { uid: string; onCerrar: () => void }) 
             {todosVisiblesElegidos ? <CheckSquare size={18} className="text-accent" /> : <Square size={18} className="text-inerte" />}
             {todosVisiblesElegidos ? 'Ninguno' : `Elegir ${visibles.length === items.length ? 'todos' : 'los visibles'}`}
           </button>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-secundario">
             {visibles.length === items.length ? `${items.length} comprobantes` : `${visibles.length} de ${items.length} comprobantes`}
             {seleccion.size > 0 && <span className="text-gray-900 font-medium"> · {seleccion.size} {seleccion.size === 1 ? 'elegido' : 'elegidos'}</span>}
           </p>
         </div>
 
         {items.length === 0 ? (
-          <p className="text-sm text-gray-500 px-4 py-6 text-center">{cargandoIndices || refrescando ? 'Buscando comprobantes…' : 'No hay facturas ni remitos en los últimos 12 meses.'}</p>
+          <p className="text-sm text-secundario px-4 py-6 text-center">{cargandoIndices || refrescando ? 'Buscando comprobantes…' : 'No hay facturas ni remitos en los últimos 12 meses.'}</p>
         ) : visibles.length === 0 ? (
-          <p className="text-sm text-gray-500 px-4 py-6 text-center">Ningún comprobante coincide con el filtro.</p>
+          <p className="text-sm text-secundario px-4 py-6 text-center">Ningún comprobante coincide con el filtro.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="text-xs uppercase tracking-wide text-gray-500">
+              <thead className="text-xs uppercase tracking-wide text-secundario">
                 <tr className="border-b border-[#E7E5DC]">
                   <th className="w-10" />
                   <th className="text-left px-2 py-2 font-semibold">Comprobante</th>
@@ -251,9 +251,9 @@ function PanelCliente({ uid, onCerrar }: { uid: string; onCerrar: () => void }) 
             <>
               <p className="text-sm text-gray-900 flex-1 min-w-[10rem]">
                 <span className="font-semibold">{describirLote(resumen)}</span>
-                {resumen.facturas > 1 && <span className="text-gray-500"> · {formatoARS(resumen.importeFacturas)}</span>}
+                {resumen.facturas > 1 && <span className="text-secundario"> · {formatoARS(resumen.importeFacturas)}</span>}
               </p>
-              <button type="button" onClick={() => setSeleccion(new Set())} className="text-xs text-gray-500 hover:text-gray-900 flex items-center gap-1"><X size={14} /> Limpiar</button>
+              <button type="button" onClick={() => setSeleccion(new Set())} className="text-xs text-secundario hover:text-gray-900 flex items-center gap-1"><X size={14} /> Limpiar</button>
               <Button variant="outline" size="sm" onClick={() => entregarLote('descargar')} disabled={ocupado}><FileDown size={16} className="mr-1" /> Descargar</Button>
               {puedeCompartir && <Button variant="outline" size="sm" onClick={() => entregarLote('compartir')} disabled={ocupado}><Share2 size={16} className="mr-1" /> WhatsApp</Button>}
               <Button size="sm" onClick={() => setMailAbierto(true)} disabled={ocupado}><Mail size={16} className="mr-1" /> Enviar por mail</Button>
@@ -275,10 +275,10 @@ function Cabecera({ cliente, email, onCerrar }: { cliente: UserProfile; email: s
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0">
         <h2 className="text-lg font-bold text-gray-900 truncate">{cliente.razonSocial}</h2>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-secundario">
           {[cliente.cuit ? `CUIT ${cliente.cuit}` : '', cliente.codigoCliente ? `Cód. ${cliente.codigoCliente}` : ''].filter(Boolean).join(' · ')}
         </p>
-        <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+        <p className="text-xs text-secundario flex items-center gap-1 mt-0.5">
           <Mail size={12} className="text-inerte" />
           {email ? <span>{email} <span className="text-secundario">(ficha de Tango)</span></span> : <span className="text-amber-700">Sin mail en Tango: al enviar vas a tener que escribirlo.</span>}
         </p>
@@ -312,11 +312,11 @@ function Filtros({ filtro, onChange, opciones }: { filtro: FiltroLote; onChange:
           {opciones.map((o) => <option key={claveGrupo(o.grupo)} value={claveGrupo(o.grupo)}>{o.etiqueta}</option>)}
         </select>
       )}
-      <label className="text-xs text-gray-500">
+      <label className="text-xs text-secundario">
         Desde
         <input type="date" value={filtro.desde ?? ''} onChange={(e) => set({ desde: e.target.value })} className={`${INPUT} py-1 text-xs mt-0.5`} />
       </label>
-      <label className="text-xs text-gray-500">
+      <label className="text-xs text-secundario">
         Hasta
         <input type="date" value={filtro.hasta ?? ''} onChange={(e) => set({ hasta: e.target.value })} className={`${INPUT} py-1 text-xs mt-0.5`} />
       </label>
@@ -368,9 +368,9 @@ function FilaItem({ item, elegido, onAlternar, cliente, email, conCuenta }: {
           <div className="min-w-0">
             <p className={`font-medium truncate ${anulado ? 'text-secundario line-through' : 'text-gray-900'}`}>{item.titulo}</p>
             {item.clase === 'factura' && item.remitos.length > 0 && (
-              <p className="text-[11px] text-gray-500 truncate">{item.remitos.length === 1 ? 'Remito' : 'Remitos'} {item.remitos.map((r) => r.replace(/^R(\d{5})(\d{8})$/, '$1-$2')).join(', ')}</p>
+              <p className="text-[11px] text-secundario truncate">{item.remitos.length === 1 ? 'Remito' : 'Remitos'} {item.remitos.map((r) => r.replace(/^R(\d{5})(\d{8})$/, '$1-$2')).join(', ')}</p>
             )}
-            {item.clase === 'remito' && item.bultos > 0 && <p className="text-[11px] text-gray-500">{item.bultos} bultos</p>}
+            {item.clase === 'remito' && item.bultos > 0 && <p className="text-[11px] text-secundario">{item.bultos} bultos</p>}
           </div>
         </div>
       </td>
@@ -379,7 +379,7 @@ function FilaItem({ item, elegido, onAlternar, cliente, email, conCuenta }: {
         {item.clase === 'factura' && item.fechaVencimiento && <span className="block text-[11px] text-secundario">Vto. {fechaCorta(item.fechaVencimiento)}</span>}
       </td>
       {conCuenta && (
-        <td className="px-2 py-2 text-xs text-gray-500 whitespace-nowrap">
+        <td className="px-2 py-2 text-xs text-secundario whitespace-nowrap">
           {NOMBRE_EMPRESA_CORTO[item.empresa]} · {item.codigo}
           {nombreSucursal(cliente, grupo.empresa, grupo.codigo) && <span className="block text-[11px] text-secundario truncate max-w-[12rem]">{nombreSucursal(cliente, grupo.empresa, grupo.codigo)}</span>}
         </td>

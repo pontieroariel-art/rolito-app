@@ -315,7 +315,7 @@ const VueltaSection = memo(function VueltaSection({
         {(orderCount > 0 || capacidad !== null) && items.length > 0 && (
           <div className="space-y-0.5">
             <div className="flex items-center justify-between text-[10px]">
-              <span className={overloaded ? 'text-red-600 font-bold' : 'text-gray-500'}>
+              <span className={overloaded ? 'text-red-600 font-bold' : 'text-secundario'}>
                 {overloaded && '⚠️ '}
                 📦 {totalPallets % 1 === 0 ? totalPallets : totalPallets.toFixed(1)} pallets
               </span>
@@ -377,7 +377,7 @@ const VueltaSection = memo(function VueltaSection({
             orsStatus.ok ? (
               <><CheckCircle size={11} className="text-accent shrink-0" /><span className="text-[10px] text-accent font-medium">Ruta optimizada (ORS)</span></>
             ) : (
-              <><CheckCircle size={11} className="text-inerte shrink-0" /><span className="text-[10px] text-gray-500 font-medium">Ruta estimada (local)</span></>
+              <><CheckCircle size={11} className="text-inerte shrink-0" /><span className="text-[10px] text-secundario font-medium">Ruta estimada (local)</span></>
             )
           ) : items.length > 0 ? (
             <span className="text-[10px] text-secundario">Sin optimizar aún...</span>
@@ -916,7 +916,7 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
                   {label && <p className="text-xs text-secundario">🚛 {label}</p>}
                   {ayud  && <p className="text-xs text-secundario">👤 Ayudante: {ayud.nombreContacto || ayud.nombre || ayud.email}</p>}
                   {pallets > 0 && (
-                    <p className={`text-xs font-semibold ${over ? 'text-red-600' : 'text-gray-500'}`}>
+                    <p className={`text-xs font-semibold ${over ? 'text-red-600' : 'text-secundario'}`}>
                       📦 {pallets % 1 === 0 ? pallets : pallets.toFixed(1)} pallets{cap ? ` / ${cap}` : ''}{over ? ' — ⚠️ SOBRECARGA' : ''}
                     </p>
                   )}

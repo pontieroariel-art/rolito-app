@@ -261,13 +261,13 @@ export default function ClienteCombobox({
               className={`px-3 py-2 cursor-pointer ${i === activo ? 'bg-[#F0EEE7]' : ''} ${elegido ? 'bg-[#E8F5F0]' : ''}`}
             >
               <div className="flex items-center gap-2">
-                <span className={`text-sm truncate ${elegido ? 'text-accent font-medium' : esTodos ? 'text-gray-500' : 'text-gray-900'}`}>{item.label}</span>
+                <span className={`text-sm truncate ${elegido ? 'text-accent font-medium' : esTodos ? 'text-secundario' : 'text-gray-900'}`}>{item.label}</span>
                 {/* Cuentas con varias sucursales en Tango: chip fijo, que no se corte con el nombre largo. */}
                 {item.sucursales && item.sucursales > 1 ? (
                   <span className="ml-auto shrink-0 text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-accent/10 text-accent border border-accent/30">{item.sucursales} suc.</span>
                 ) : null}
               </div>
-              {secundario && <p className="text-xs text-gray-500 truncate">{secundario}</p>}
+              {secundario && <p className="text-xs text-secundario truncate">{secundario}</p>}
             </li>
           )
         })}

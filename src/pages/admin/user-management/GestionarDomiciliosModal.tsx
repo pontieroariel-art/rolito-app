@@ -144,7 +144,7 @@ export function GestionarDomiciliosModal({
           />
         )}
         {q && visibleAddresses.length === 0 && (
-          <p className="text-xs text-gray-500 text-center py-2">Sin resultados para "{search}"</p>
+          <p className="text-xs text-secundario text-center py-2">Sin resultados para "{search}"</p>
         )}
 
         {/* Lista de domicilios existentes */}
@@ -171,7 +171,7 @@ export function GestionarDomiciliosModal({
                     : <span className="text-xs text-yellow-400">⚠ sin mapa</span>
                   }
                 </div>
-                <p className="text-xs text-gray-500 mt-0.5">{addr.address}</p>
+                <p className="text-xs text-secundario mt-0.5">{addr.address}</p>
                 {dupCount > 1 && (
                   <p className="text-xs text-amber-600 mt-1">
                     ⚠ Esta dirección se repite en {dupCount} sucursales — puede estar incompleta
@@ -221,7 +221,7 @@ export function GestionarDomiciliosModal({
                   </button>
                   <button
                     onClick={() => setEditingLocId(null)}
-                    className="text-xs text-gray-500 hover:text-gray-700 border border-[#D3D1C7] rounded-lg px-3 py-1.5"
+                    className="text-xs text-secundario hover:text-gray-700 border border-[#D3D1C7] rounded-lg px-3 py-1.5"
                   >
                     Cancelar
                   </button>
@@ -233,7 +233,7 @@ export function GestionarDomiciliosModal({
               <div className="space-y-2 pt-1">
                 <div className="grid grid-cols-2 gap-2">
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs text-gray-500">Apertura</label>
+                    <label className="text-xs text-secundario">Apertura</label>
                     <input
                       type="time"
                       value={editHorario.apertura}
@@ -242,7 +242,7 @@ export function GestionarDomiciliosModal({
                     />
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs text-gray-500">Cierre</label>
+                    <label className="text-xs text-secundario">Cierre</label>
                     <input
                       type="time"
                       value={editHorario.cierre}
@@ -261,17 +261,17 @@ export function GestionarDomiciliosModal({
                   </button>
                   <button
                     onClick={() => setEditingHorarioId(null)}
-                    className="text-xs text-gray-500 hover:text-gray-700 border border-[#D3D1C7] rounded-lg px-3 py-1.5"
+                    className="text-xs text-secundario hover:text-gray-700 border border-[#D3D1C7] rounded-lg px-3 py-1.5"
                   >
                     Cancelar
                   </button>
                 </div>
               </div>
             ) : addr.horarioApertura && (
-              <p className="text-xs text-gray-500">Horario: {addr.horarioApertura} – {addr.horarioCierre}</p>
+              <p className="text-xs text-secundario">Horario: {addr.horarioApertura} – {addr.horarioCierre}</p>
             )}
             {addr.contactoNombre && (
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-secundario">
                 Contacto: {addr.contactoNombre}{addr.contactoTelefono && ` · ${addr.contactoTelefono}`}
               </p>
             )}
@@ -297,7 +297,7 @@ export function GestionarDomiciliosModal({
               <button
                 onClick={() => handleUnsetPrincipal(addr.id)}
                 disabled={saving}
-                className="text-xs text-gray-500 hover:underline disabled:opacity-40"
+                className="text-xs text-secundario hover:underline disabled:opacity-40"
               >
                 Quitar principal
               </button>
@@ -316,7 +316,7 @@ export function GestionarDomiciliosModal({
         })}
 
         {addresses.length === 0 && !showForm && (
-          <p className="text-xs text-gray-500 text-center py-2">Sin domicilios registrados</p>
+          <p className="text-xs text-secundario text-center py-2">Sin domicilios registrados</p>
         )}
 
         {saveError && (
@@ -329,7 +329,7 @@ export function GestionarDomiciliosModal({
             <p className="text-sm font-semibold text-accent">Nuevo domicilio</p>
 
             <div className="flex flex-col gap-1">
-              <label className="text-xs text-gray-500">Nombre de la sucursal</label>
+              <label className="text-xs text-secundario">Nombre de la sucursal</label>
               <input
                 value={newAddr.nombre}
                 onChange={(e) => setNewAddr((f) => ({ ...f, nombre: e.target.value }))}
@@ -340,7 +340,7 @@ export function GestionarDomiciliosModal({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-gray-500">Dirección</label>
+              <label className="text-xs text-secundario">Dirección</label>
               <AddressAutocomplete
                 onSelect={(address, lat, lng) => {
                   setAddrError('')
@@ -367,7 +367,7 @@ export function GestionarDomiciliosModal({
             <div className="grid grid-cols-2 gap-2">
               {(['horarioApertura', 'horarioCierre'] as const).map((field, i) => (
                 <div key={field} className="flex flex-col gap-1">
-                  <label className="text-xs text-gray-500">{i === 0 ? 'Apertura' : 'Cierre'}</label>
+                  <label className="text-xs text-secundario">{i === 0 ? 'Apertura' : 'Cierre'}</label>
                   <input
                     type="time"
                     value={newAddr[field]}
@@ -381,7 +381,7 @@ export function GestionarDomiciliosModal({
             <div className="grid grid-cols-2 gap-2">
               {([['contactoNombre', 'Nombre contacto', 'Juan García'], ['contactoTelefono', 'Teléfono', '+54 11...']] as const).map(([field, label, placeholder]) => (
                 <div key={field} className="flex flex-col gap-1">
-                  <label className="text-xs text-gray-500">{label}</label>
+                  <label className="text-xs text-secundario">{label}</label>
                   <input
                     value={newAddr[field]}
                     onChange={(e) => setNewAddr((f) => ({ ...f, [field]: e.target.value }))}

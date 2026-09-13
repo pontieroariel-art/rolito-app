@@ -47,14 +47,14 @@ function KpiCard({
   const delta = pct(value, prev)
   return (
     <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-1">
-      <p className="text-xs text-gray-500 uppercase tracking-wide">{label}</p>
+      <p className="text-xs text-secundario uppercase tracking-wide">{label}</p>
       <p className="text-3xl font-bold text-gray-900">{value.toLocaleString('es-AR')}{unit}</p>
       {delta !== null && (
         <p className={`text-xs font-medium ${delta >= 0 ? 'text-green-600' : 'text-red-600'}`}>
           {delta >= 0 ? '▲' : '▼'} {Math.abs(delta)}% vs mes anterior
         </p>
       )}
-      {delta === null && <p className="text-xs text-gray-500">Sin datos del mes anterior</p>}
+      {delta === null && <p className="text-xs text-secundario">Sin datos del mes anterior</p>}
     </div>
   )
 }
@@ -189,7 +189,7 @@ export default function ReporteVentasPage() {
         <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold">Reporte de ventas</h1>
-            <p className="text-gray-500 text-sm mt-0.5">{monthLabel}</p>
+            <p className="text-secundario text-sm mt-0.5">{monthLabel}</p>
           </div>
           <div className="flex items-center gap-1">
             <button
@@ -225,14 +225,14 @@ export default function ReporteVentasPage() {
             </section>
 
             {delivered.length === 0 ? (
-              <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center text-gray-500 text-sm">
+              <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center text-secundario text-sm">
                 No hay entregas registradas en {monthLabel}
               </div>
             ) : (
               <>
                 {/* Daily trend chart */}
                 <section className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-3">
-                  <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  <h2 className="text-xs font-semibold text-secundario uppercase tracking-wide">
                     Tendencia diaria — unidades entregadas
                   </h2>
                   <ResponsiveContainer width="100%" height={200}>
@@ -265,16 +265,16 @@ export default function ReporteVentasPage() {
                 {/* By product */}
                 {byProduct.length > 0 && (
                   <section className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-3">
-                    <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    <h2 className="text-xs font-semibold text-secundario uppercase tracking-wide">
                       Unidades por producto
                     </h2>
                     <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-gray-200">
-                          <th className="text-left text-gray-500 text-xs py-2 font-medium">Producto</th>
-                          <th className="text-right text-gray-500 text-xs py-2 font-medium">Unidades</th>
-                          <th className="text-right text-gray-500 text-xs py-2 font-medium">%</th>
+                          <th className="text-left text-secundario text-xs py-2 font-medium">Producto</th>
+                          <th className="text-right text-secundario text-xs py-2 font-medium">Unidades</th>
+                          <th className="text-right text-secundario text-xs py-2 font-medium">%</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -282,7 +282,7 @@ export default function ReporteVentasPage() {
                           <tr key={p.id} className="border-b border-[#E7E5DC] last:border-0">
                             <td className="py-2">{p.name}</td>
                             <td className="py-2 text-right font-medium">{p.qty.toLocaleString('es-AR')}</td>
-                            <td className="py-2 text-right text-gray-500">
+                            <td className="py-2 text-right text-secundario">
                               {totalKg > 0 ? Math.round((p.qty / totalKg) * 100) : 0}%
                             </td>
                           </tr>
@@ -296,25 +296,25 @@ export default function ReporteVentasPage() {
                 {/* Top clients */}
                 {topClients.length > 0 && (
                   <section className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-3">
-                    <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    <h2 className="text-xs font-semibold text-secundario uppercase tracking-wide">
                       Clientes — mayor volumen
                     </h2>
                     <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-gray-200">
-                          <th className="text-left text-gray-500 text-xs py-2 font-medium">#</th>
-                          <th className="text-left text-gray-500 text-xs py-2 font-medium">Cliente</th>
-                          <th className="text-right text-gray-500 text-xs py-2 font-medium">Pedidos</th>
-                          <th className="text-right text-gray-500 text-xs py-2 font-medium">Unidades</th>
+                          <th className="text-left text-secundario text-xs py-2 font-medium">#</th>
+                          <th className="text-left text-secundario text-xs py-2 font-medium">Cliente</th>
+                          <th className="text-right text-secundario text-xs py-2 font-medium">Pedidos</th>
+                          <th className="text-right text-secundario text-xs py-2 font-medium">Unidades</th>
                         </tr>
                       </thead>
                       <tbody>
                         {topClients.map((c, i) => (
                           <tr key={i} className="border-b border-[#E7E5DC] last:border-0">
-                            <td className="py-2 text-gray-500">{i + 1}</td>
+                            <td className="py-2 text-secundario">{i + 1}</td>
                             <td className="py-2 font-medium">{c.name}</td>
-                            <td className="py-2 text-right text-gray-500">{c.orders}</td>
+                            <td className="py-2 text-right text-secundario">{c.orders}</td>
                             <td className="py-2 text-right font-medium">{c.qty.toLocaleString('es-AR')}</td>
                           </tr>
                         ))}

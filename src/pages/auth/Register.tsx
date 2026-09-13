@@ -151,7 +151,7 @@ export default function Register() {
               type="button"
               tabIndex={-1}
               onClick={() => setShowPassword((v) => !v)}
-              className="text-gray-500 hover:text-gray-700 transition-colors"
+              className="text-secundario hover:text-gray-700 transition-colors"
             >
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
@@ -171,7 +171,7 @@ export default function Register() {
               type="button"
               tabIndex={-1}
               onClick={() => setShowConfirm((v) => !v)}
-              className="text-gray-500 hover:text-gray-700 transition-colors"
+              className="text-secundario hover:text-gray-700 transition-colors"
             >
               {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
@@ -188,7 +188,7 @@ export default function Register() {
           Crear cuenta
         </Button>
 
-        <p className="text-center text-sm text-gray-500 mt-2">
+        <p className="text-center text-sm text-secundario mt-2">
           ¿Ya tenés cuenta?{' '}
           <Link to="/clientes" className="text-accent hover:underline">
             Iniciar sesión

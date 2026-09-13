@@ -62,7 +62,7 @@ export default function MultiDatePicker({ selected, onChange, existingDates, min
           type="button"
           onClick={() => setVisibleMonth(new Date(year, month - 1, 1, 12))}
           disabled={isAtMinMonth}
-          className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-500 hover:bg-white disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+          className="w-7 h-7 rounded-lg flex items-center justify-center text-secundario hover:bg-white disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
         >
           <ChevronLeft size={16} />
         </button>
@@ -70,7 +70,7 @@ export default function MultiDatePicker({ selected, onChange, existingDates, min
         <button
           type="button"
           onClick={() => setVisibleMonth(new Date(year, month + 1, 1, 12))}
-          className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-500 hover:bg-white transition-colors"
+          className="w-7 h-7 rounded-lg flex items-center justify-center text-secundario hover:bg-white transition-colors"
         >
           <ChevronRight size={16} />
         </button>
@@ -113,7 +113,7 @@ export default function MultiDatePicker({ selected, onChange, existingDates, min
         })}
       </div>
 
-      <p className="text-xs text-gray-500 mt-2">
+      <p className="text-xs text-secundario mt-2">
         {selected.size === 0 ? 'Ningún día seleccionado' : `${selected.size} día${selected.size === 1 ? '' : 's'} seleccionado${selected.size === 1 ? '' : 's'}`}
       </p>
     </div>

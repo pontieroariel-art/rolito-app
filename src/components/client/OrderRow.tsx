@@ -39,7 +39,7 @@ export function OrderRow({ order }: { order: Order }) {
       <div className="bg-white border border-gray-200 rounded-2xl p-4 flex justify-between items-start gap-3">
         <div className="min-w-0 flex-1">
           <p className="font-medium text-sm text-gray-900 truncate">{summarizeProducts(order.products)}</p>
-          <p className="text-gray-500 text-xs mt-1">Entrega: {formatShortDate(order.date)}</p>
+          <p className="text-secundario text-xs mt-1">Entrega: {formatShortDate(order.date)}</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {canModify && (
@@ -64,7 +64,7 @@ export function OrderRow({ order }: { order: Order }) {
 
       <Modal open={modal} onClose={() => setModal(false)} title="Cancelar pedido">
         <div className="space-y-4">
-          <p className="text-sm text-gray-500">¿Por qué querés cancelar este pedido?</p>
+          <p className="text-sm text-secundario">¿Por qué querés cancelar este pedido?</p>
           <div className="space-y-2">
             {MOTIVOS_CANCEL.map((m) => (
               <button

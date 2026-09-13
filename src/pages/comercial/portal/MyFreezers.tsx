@@ -22,7 +22,7 @@ function FreezerCard({ heladera, onPedirService }: { heladera: Heladera; onPedir
       </div>
       <div className="min-w-0 flex-1">
         <p className="font-semibold text-gray-900">{heladera.modelo}</p>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-secundario">
           Código {heladera.codigoInterno} · Serie {heladera.numeroSerie}
         </p>
         {heladera.fechaAsignacion && (
@@ -45,14 +45,14 @@ function TicketCard({ ticket }: { ticket: TicketServicio }) {
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="font-semibold text-gray-900 text-sm">{ticket.heladeraCodigo} — {ticket.motivoNombre}</p>
-          <p className="text-xs text-gray-500">Pedido el {formatShortDate(ticket.fechaPedido)}</p>
+          <p className="text-xs text-secundario">Pedido el {formatShortDate(ticket.fechaPedido)}</p>
         </div>
         <span className={`text-xs px-2.5 py-1 rounded-full border font-medium whitespace-nowrap ${ESTADO_TICKET_STYLES[ticket.estado]}`}>
           {ESTADO_TICKET_LABELS[ticket.estado]}
         </span>
       </div>
       {ticket.trabajoRealizado && (
-        <p className="text-xs text-gray-500 pt-1 border-t border-[#E7E5DC]">{ticket.trabajoRealizado}</p>
+        <p className="text-xs text-secundario pt-1 border-t border-[#E7E5DC]">{ticket.trabajoRealizado}</p>
       )}
       {ticket.fechaCierre && (
         <p className="text-xs text-secundario">Cerrado el {formatShortDate(ticket.fechaCierre)}</p>
@@ -67,7 +67,7 @@ function AsignacionCard({ asignacion }: { asignacion: AsignacionHeladera }) {
     <div className="bg-white border border-gray-200 rounded-2xl p-4 flex items-start justify-between gap-2">
       <div className="min-w-0">
         <p className="font-semibold text-gray-900 text-sm">{asignacion.heladeraCodigo}</p>
-        <p className="text-xs text-gray-500">{formatShortDate(asignacion.fecha)}</p>
+        <p className="text-xs text-secundario">{formatShortDate(asignacion.fecha)}</p>
         {esRetiro && asignacion.motivo && (
           <p className="text-xs text-secundario mt-0.5">{asignacion.motivo}</p>
         )}
@@ -129,7 +129,7 @@ export default function MyFreezers() {
       <main className="max-w-2xl mx-auto p-4 pt-10 text-center space-y-3">
         <p className="text-4xl">⚠️</p>
         <p className="text-red-600 font-semibold">No se pudo conectar</p>
-        <p className="text-gray-500 text-sm">Revisá tu conexión a internet e intentá de nuevo.</p>
+        <p className="text-secundario text-sm">Revisá tu conexión a internet e intentá de nuevo.</p>
         <button
           onClick={() => window.location.reload()}
           className="mt-4 text-sm border border-accent text-accent rounded-lg px-4 py-2 hover:bg-accent/10 transition-colors"
@@ -146,11 +146,11 @@ export default function MyFreezers() {
       <main className="max-w-2xl mx-auto p-4 space-y-6 pb-24 md:pb-10">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Mis heladeras</h1>
-          <p className="text-gray-500 text-sm mt-1">Equipos en comodato y estado de tus pedidos de service</p>
+          <p className="text-secundario text-sm mt-1">Equipos en comodato y estado de tus pedidos de service</p>
         </div>
 
         <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+          <h2 className="text-sm font-semibold text-secundario uppercase tracking-wide flex items-center gap-1.5">
             <Snowflake size={14} /> Equipos en comodato
           </h2>
           {heladeras.length === 0 ? (
@@ -165,7 +165,7 @@ export default function MyFreezers() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+          <h2 className="text-sm font-semibold text-secundario uppercase tracking-wide flex items-center gap-1.5">
             <Wrench size={14} /> Historial de service
           </h2>
           {tickets.length === 0 ? (
@@ -180,7 +180,7 @@ export default function MyFreezers() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+          <h2 className="text-sm font-semibold text-secundario uppercase tracking-wide flex items-center gap-1.5">
             <History size={14} /> Historial de comodatos
           </h2>
           {asignaciones.length === 0 ? (
@@ -200,11 +200,11 @@ export default function MyFreezers() {
           <div className="space-y-4">
             <div className="bg-[#F8F7F2] border border-gray-200 rounded-xl p-3">
               <p className="text-sm font-medium text-gray-900">{heladeraParaService.codigoInterno}</p>
-              <p className="text-xs text-gray-500">{heladeraParaService.modelo} · serie {heladeraParaService.numeroSerie}</p>
+              <p className="text-xs text-secundario">{heladeraParaService.modelo} · serie {heladeraParaService.numeroSerie}</p>
             </div>
 
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">¿Qué le pasa?</label>
+              <label className="text-xs text-secundario mb-1 block">¿Qué le pasa?</label>
               <select
                 value={motivoId}
                 onChange={(e) => setMotivoId(e.target.value)}

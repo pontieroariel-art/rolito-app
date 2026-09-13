@@ -271,7 +271,7 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
                     <span className="flex-1 min-w-0">
                       <span className="block truncate">{s.label}</span>
                       {s.address && (
-                        <span className="block text-xs text-gray-500 truncate">{s.address}</span>
+                        <span className="block text-xs text-secundario truncate">{s.address}</span>
                       )}
                     </span>
                     {isActive && <span className="text-accent shrink-0 mt-0.5">✓</span>}
@@ -310,7 +310,7 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
           >
             <p className="text-4xl mb-3">📄</p>
             <p className="text-sm font-medium text-gray-700">Arrastrá el PDF acá o hacé click para seleccionar</p>
-            <p className="text-xs text-gray-500 mt-1">Formatos: Carrefour · Josimar · Coto (Planexware) · Jumbo / Cencosud</p>
+            <p className="text-xs text-secundario mt-1">Formatos: Carrefour · Josimar · Coto (Planexware) · Jumbo / Cencosud</p>
             <input
               ref={fileRef}
               type="file"
@@ -325,7 +325,7 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
           </div>
 
           {loading && (
-            <div className="flex items-center justify-center gap-3 text-gray-500 text-sm py-2">
+            <div className="flex items-center justify-center gap-3 text-secundario text-sm py-2">
               <LoadingSpinner />
               <span>Procesando PDF…</span>
             </div>
@@ -334,7 +334,7 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
 
           <button
             onClick={() => { setError(''); setStep('client') }}
-            className="text-sm text-gray-500 hover:text-gray-700 underline"
+            className="text-sm text-secundario hover:text-gray-700 underline"
           >
             ← Cambiar cliente
           </button>
@@ -350,12 +350,12 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
 
           <div className="space-y-3">
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Número de OC</label>
+              <label className="text-xs text-secundario mb-1 block">Número de OC</label>
               <input value={numeroOC} onChange={(e) => setNumeroOC(e.target.value)} className={inputClass} />
             </div>
 
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Cliente</label>
+              <label className="text-xs text-secundario mb-1 block">Cliente</label>
               <div className="w-full bg-[#F1EFE8] border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-700">
                 {clientName}
                 {selectedCliente && (
@@ -365,7 +365,7 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
             </div>
 
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Dirección de entrega *</label>
+              <label className="text-xs text-secundario mb-1 block">Dirección de entrega *</label>
               {(selectedCliente?.addresses?.length ?? 0) > 1 && (
                 <select
                   value={selectedItem?.addrId ?? ''}
@@ -390,7 +390,7 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-xs text-gray-500">{modoMulti ? 'Días de entrega' : 'Fecha de entrega *'}</label>
+                <label className="text-xs text-secundario">{modoMulti ? 'Días de entrega' : 'Fecha de entrega *'}</label>
                 <button
                   type="button"
                   onClick={() => (modoMulti ? setModoMulti(false) : activarModoMulti())}
@@ -403,7 +403,7 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
                 <>
                   <MultiDatePicker selected={multiDates} onChange={setMultiDates} existingDates={existingDates} />
                   <div className="mt-3">
-                    <label className="text-xs text-gray-500 mb-1 block">Hora de entrega</label>
+                    <label className="text-xs text-secundario mb-1 block">Hora de entrega</label>
                     <input type="time" value={horaEntrega} onChange={(e) => setHoraEntrega(e.target.value)} className={inputClass} />
                   </div>
                 </>
@@ -417,12 +417,12 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Fecha de emisión de la OC</label>
+                <label className="text-xs text-secundario mb-1 block">Fecha de emisión de la OC</label>
                 <input type="date" value={fechaEmision} onChange={(e) => setFechaEmision(e.target.value)} className={inputClass} />
               </div>
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Vigencia (fecha tope)</label>
-                <div className="w-full bg-[#F1EFE8] border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-500">
+                <label className="text-xs text-secundario mb-1 block">Vigencia (fecha tope)</label>
+                <div className="w-full bg-[#F1EFE8] border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-secundario">
                   {fechaTope || (deliveryDate ? addDaysStr(deliveryDate, 1) : '—')}
                   {!fechaTope && deliveryDate && <span className="text-xs text-secundario ml-1">(calculada)</span>}
                 </div>
@@ -430,7 +430,7 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
             </div>
 
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Productos *</label>
+              <label className="text-xs text-secundario mb-1 block">Productos *</label>
               <div className="space-y-2">
                 {products.map((p, i) => {
                   const enCatalogo = PRODUCTS.some((c) => c.name === p.name)
@@ -473,7 +473,7 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
             </div>
 
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Notas internas</label>
+              <label className="text-xs text-secundario mb-1 block">Notas internas</label>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}

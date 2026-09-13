@@ -46,9 +46,9 @@ export default function SeccionHeladeras({ c }: { c: UserProfile }) {
   return (
     <Plegable titulo="Heladeras" abiertoInicial extra={chip}>
       {heladeras === null ? (
-        <p className="text-sm text-gray-500">Cargando heladeras…</p>
+        <p className="text-sm text-secundario">Cargando heladeras…</p>
       ) : ordenadas.length === 0 ? (
-        <p className="text-sm text-gray-500">Este cliente no tiene heladeras en comodato.</p>
+        <p className="text-sm text-secundario">Este cliente no tiene heladeras en comodato.</p>
       ) : (
         <div className="space-y-3">
           {aviso && <p className="text-xs text-accent bg-accent/10 border border-accent/30 rounded-lg px-3 py-2">{aviso}</p>}
@@ -59,9 +59,9 @@ export default function SeccionHeladeras({ c }: { c: UserProfile }) {
                 <div className="flex items-start gap-2">
                   <Refrigerator size={18} className="text-inerte mt-0.5 shrink-0" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-gray-900">{h.codigoInterno} <span className="font-normal text-gray-500">· {h.modelo}</span></p>
-                    {h.clienteAsignadoDireccion && <p className="text-xs text-gray-500 truncate">{h.clienteAsignadoDireccion}</p>}
-                    <p className={`text-xs ${est.alerta ? 'text-amber-700 font-medium' : 'text-gray-500'}`}>
+                    <p className="text-sm font-semibold text-gray-900">{h.codigoInterno} <span className="font-normal text-secundario">· {h.modelo}</span></p>
+                    {h.clienteAsignadoDireccion && <p className="text-xs text-secundario truncate">{h.clienteAsignadoDireccion}</p>}
+                    <p className={`text-xs ${est.alerta ? 'text-amber-700 font-medium' : 'text-secundario'}`}>
                       {est.etiqueta}{h.comodatoNumero ? ` · contrato Nº ${h.comodatoNumero}` : ''}
                     </p>
                   </div>

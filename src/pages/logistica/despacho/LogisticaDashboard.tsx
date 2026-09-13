@@ -130,7 +130,7 @@ function OrderQuickView({ order, choferes, codigoCliente, columns, onClose, onEd
     <Modal open onClose={onClose} title={order.clientName}>
       <div className="space-y-3">
         {codigoCliente && <p className="text-xs text-secundario font-mono -mt-1">{codigoCliente}</p>}
-        {order.clientAddress && <p className="text-sm text-gray-500">{order.clientAddress}</p>}
+        {order.clientAddress && <p className="text-sm text-secundario">{order.clientAddress}</p>}
         <p className="text-sm text-gray-700">{summarizeProducts(order.products)}</p>
 
         <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -703,19 +703,21 @@ export default function LogisticaDashboard() {
             <h1 className="text-base font-bold text-gray-900 shrink-0">Planificación</h1>
             <div className="flex items-center gap-3 text-xs">
               <span className="flex items-baseline gap-1">
-                <b className="text-sm font-bold text-gray-900 tabular-nums">{kpis.total}</b>
+                {/* Un cero pierde el color y queda en gris secundario: se lee
+                    igual, pero no compite con los números que sí son noticia. */}
+                <b className={`text-sm font-bold tabular-nums ${kpis.total === 0 ? 'text-secundario' : 'text-gray-900'}`}>{kpis.total}</b>
                 <span className="text-secundario">hoy</span>
               </span>
               <span className="flex items-baseline gap-1">
-                <b className={`text-sm font-bold tabular-nums ${kpis.sinAsignar > 0 ? 'text-amber-600' : 'text-gray-900'}`}>{kpis.sinAsignar}</b>
+                <b className={`text-sm font-bold tabular-nums ${kpis.sinAsignar > 0 ? 'text-amber-600' : 'text-secundario'}`}>{kpis.sinAsignar}</b>
                 <span className={kpis.sinAsignar > 0 ? 'text-amber-500' : 'text-secundario'}>sin asignar</span>
               </span>
               <span className="flex items-baseline gap-1">
-                <b className="text-sm font-bold tabular-nums text-accent">{kpis.enCamino}</b>
+                <b className={`text-sm font-bold tabular-nums ${kpis.enCamino === 0 ? 'text-secundario' : 'text-accent'}`}>{kpis.enCamino}</b>
                 <span className="text-secundario">en camino</span>
               </span>
               <span className="flex items-baseline gap-1">
-                <b className="text-sm font-bold tabular-nums text-green-600">{kpis.entregados}</b>
+                <b className={`text-sm font-bold tabular-nums ${kpis.entregados === 0 ? 'text-secundario' : 'text-green-600'}`}>{kpis.entregados}</b>
                 <span className="text-secundario">entregados</span>
               </span>
             </div>
@@ -753,7 +755,7 @@ export default function LogisticaDashboard() {
             {tabs.map((t) => (
               <button key={t} onClick={() => setMainTab(t)}
                 className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors -mb-px whitespace-nowrap ${
-                  mainTab === t ? 'border-accent text-accent' : 'border-transparent text-gray-500 hover:text-gray-900'
+                  mainTab === t ? 'border-accent text-accent' : 'border-transparent text-secundario hover:text-gray-900'
                 }`}>
                 {t === 'despacho' ? 'Despacho' : t === 'pedidos' ? 'Pedidos' : 'Mapa'}
               </button>
@@ -801,7 +803,7 @@ export default function LogisticaDashboard() {
             <div ref={calendarRef} className="relative flex items-center gap-2 mb-2 flex-wrap">
               <button
                 onClick={goToPrevWeek}
-                className="p-1.5 rounded-lg border border-[#D3D1C7] bg-white hover:border-accent text-gray-500 hover:text-accent transition-colors"
+                className="p-1.5 rounded-lg border border-[#D3D1C7] bg-white hover:border-accent text-secundario hover:text-accent transition-colors"
               >
                 <ChevronLeft size={15} />
               </button>
@@ -814,18 +816,18 @@ export default function LogisticaDashboard() {
               <button
                 onClick={() => setCalendarOpen((v) => !v)}
                 className={`hidden md:flex flex-1 items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs transition-colors ${
-                  calendarOpen ? 'text-accent bg-white' : 'text-gray-500 hover:text-accent hover:bg-white'
+                  calendarOpen ? 'text-accent bg-white' : 'text-secundario hover:text-accent hover:bg-white'
                 }`}
               >
                 <CalendarDays size={13} />
                 {weekRangeLabel}
               </button>
-              <span className="md:hidden flex-1 text-center text-xs font-medium text-gray-500">
+              <span className="md:hidden flex-1 text-center text-xs font-medium text-secundario">
                 {weekRangeLabel}
               </span>
               <button
                 onClick={goToNextWeek}
-                className="p-1.5 rounded-lg border border-[#D3D1C7] bg-white hover:border-accent text-gray-500 hover:text-accent transition-colors"
+                className="p-1.5 rounded-lg border border-[#D3D1C7] bg-white hover:border-accent text-secundario hover:text-accent transition-colors"
               >
                 <ChevronRight size={15} />
               </button>
@@ -935,7 +937,7 @@ export default function LogisticaDashboard() {
                 {activeOrder && (
                   <div className="bg-white border-2 border-accent rounded-xl p-3 shadow-2xl rotate-1 w-52 space-y-1.5">
                     <p className="text-sm font-semibold text-gray-900 leading-tight">{activeOrder.clientName}</p>
-                    <p className="text-xs text-gray-500 truncate">{activeOrder.clientAddress}</p>
+                    <p className="text-xs text-secundario truncate">{activeOrder.clientAddress}</p>
                     <p className="text-xs text-gray-600">{summarizeProducts(activeOrder.products)}</p>
                   </div>
                 )}

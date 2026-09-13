@@ -278,7 +278,7 @@ export default function MuelleDashboard() {
                   </span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-gray-900 truncate">{nombreClienteVenta(v)}</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-secundario">
                       {v.turnoEstado === 'llamado' && v.darsena
                         ? `Llamado a dársena ${v.darsena}`
                         : v.turnoEstado === 'preparado' ? 'Preparado — listo para llamar' : 'En espera'}

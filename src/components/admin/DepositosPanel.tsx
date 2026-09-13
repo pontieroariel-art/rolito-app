@@ -77,11 +77,11 @@ export default function DepositosPanel() {
       <div className="p-4 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-gray-900">Depósitos de reparto (Tango)</p>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-secundario">
             Cada repartidor es un depósito en tránsito de Tango. Carga, descarga y liquidación se hacen por depósito;
             el usuario vinculado es quien vende y cobra con ese depósito.
           </p>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-secundario mt-1">
             {depositos.length} depósitos · {repartidores.length} de reparto · {vinculados} con usuario vinculado
           </p>
         </div>
@@ -104,13 +104,13 @@ export default function DepositosPanel() {
 
       <div className="overflow-x-auto border-t border-[#E7E5DC]">
         {loading ? (
-          <p className="p-4 text-sm text-gray-500">Cargando depósitos…</p>
+          <p className="p-4 text-sm text-secundario">Cargando depósitos…</p>
         ) : depositos.length === 0 ? (
-          <p className="p-4 text-sm text-gray-500">Todavía no hay depósitos. Sincronizá con Tango para traerlos.</p>
+          <p className="p-4 text-sm text-secundario">Todavía no hay depósitos. Sincronizá con Tango para traerlos.</p>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-xs uppercase tracking-wide text-gray-500">
+              <tr className="text-xs uppercase tracking-wide text-secundario">
                 <th className="text-left px-4 py-2 font-semibold">Código</th>
                 <th className="text-left px-2 py-2 font-semibold">Nombre en Tango</th>
                 <th className="text-left px-2 py-2 font-semibold">Tipo</th>

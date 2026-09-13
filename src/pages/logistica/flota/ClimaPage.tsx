@@ -105,12 +105,12 @@ export function ForecastStrip({ lat, lng }: { lat?: number; lng?: number } = {})
               isToday ? 'bg-accent/10 border-accent/40' : 'bg-white border-[#D3D1C7]'
             }`}
           >
-            <p className="text-xs text-gray-500 font-medium">
+            <p className="text-xs text-secundario font-medium">
               {isToday ? 'Hoy' : date.toLocaleDateString('es-AR', { weekday: 'short' })}
             </p>
             <p className="text-2xl leading-none">{d.emoji}</p>
             <p className="font-bold text-sm" style={{ color: tempColor(d.tempMax) }}>{d.tempMax}°</p>
-            <p className="text-xs text-gray-500">{d.tempMin}°</p>
+            <p className="text-xs text-secundario">{d.tempMin}°</p>
             {d.rain > 0 && (
               <p className="text-xs text-blue-500">{d.rain}mm</p>
             )}
@@ -189,7 +189,7 @@ export default function ClimaPage() {
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Clima — {ciudad.label}</h1>
-            <p className="text-gray-500 text-sm mt-0.5">Pronóstico e historial para planificar la temporada</p>
+            <p className="text-secundario text-sm mt-0.5">Pronóstico e historial para planificar la temporada</p>
           </div>
           {/* Selector de ciudad */}
           <div className="flex gap-1.5 flex-wrap">
@@ -211,14 +211,14 @@ export default function ClimaPage() {
 
         {/* Pronóstico 7 días */}
         <section className="space-y-2">
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Próximos 7 días</h2>
+          <h2 className="text-xs font-semibold text-secundario uppercase tracking-wide">Próximos 7 días</h2>
           <ForecastStrip lat={ciudad.lat} lng={ciudad.lng} />
         </section>
 
         {/* Historial mensual */}
         <section className="space-y-4">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide capitalize">
+            <h2 className="text-xs font-semibold text-secundario uppercase tracking-wide capitalize">
               Historial — {monthLabel}
             </h2>
             <div className="flex items-center gap-1">
@@ -235,30 +235,30 @@ export default function ClimaPage() {
           {!isLoading && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-1">
-                <div className="flex items-center gap-1.5 text-gray-500">
+                <div className="flex items-center gap-1.5 text-secundario">
                   <Thermometer size={14} />
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">Temp. máx. pico</p>
+                  <p className="text-xs text-secundario uppercase tracking-wide">Temp. máx. pico</p>
                 </div>
                 <p className="text-2xl font-bold" style={{ color: tempColor(maxTemp) }}>{maxTemp}°C</p>
               </div>
               <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-1">
-                <div className="flex items-center gap-1.5 text-gray-500">
+                <div className="flex items-center gap-1.5 text-secundario">
                   <Thermometer size={14} />
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">Temp. media</p>
+                  <p className="text-xs text-secundario uppercase tracking-wide">Temp. media</p>
                 </div>
                 <p className="text-2xl font-bold" style={{ color: tempColor(avgTemp) }}>{avgTemp}°C</p>
               </div>
               <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-1">
-                <div className="flex items-center gap-1.5 text-gray-500">
+                <div className="flex items-center gap-1.5 text-secundario">
                   <Droplets size={14} />
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">Días de lluvia</p>
+                  <p className="text-xs text-secundario uppercase tracking-wide">Días de lluvia</p>
                 </div>
                 <p className="text-2xl font-bold text-blue-400">{rainDays}</p>
               </div>
               <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-1">
-                <div className="flex items-center gap-1.5 text-gray-500">
+                <div className="flex items-center gap-1.5 text-secundario">
                   <CloudSun size={14} />
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">Kg de hielo entregados</p>
+                  <p className="text-xs text-secundario uppercase tracking-wide">Kg de hielo entregados</p>
                 </div>
                 <p className="text-2xl font-bold text-accent">{totalKgHielo.toLocaleString('es-AR')}</p>
               </div>
@@ -267,7 +267,7 @@ export default function ClimaPage() {
 
           {/* Gráfico correlación */}
           <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-3">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+            <p className="text-xs font-semibold text-secundario uppercase tracking-wide">
               Temperatura máxima vs. kg de hielo entregados
             </p>
             {isLoading ? <div className="flex items-center justify-center h-56"><LoadingSpinner /></div> : errorW ? (
@@ -276,7 +276,7 @@ export default function ClimaPage() {
               </p>
             ) : (
               chartData.length === 0 ? (
-                <p className="text-center text-gray-500 text-sm py-10">Sin datos para este período</p>
+                <p className="text-center text-secundario text-sm py-10">Sin datos para este período</p>
               ) : (
                 <ResponsiveContainer width="100%" height={260}>
                   <ComposedChart data={chartData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
@@ -344,12 +344,12 @@ export default function ClimaPage() {
               <table className="w-full text-sm min-w-[560px]">
                 <thead>
                   <tr className="border-b border-[#D3D1C7]">
-                    <th className="text-left text-gray-500 text-xs py-3 px-4 font-medium">Fecha</th>
-                    <th className="text-center text-gray-500 text-xs py-3 px-2 font-medium">Clima</th>
-                    <th className="text-right text-gray-500 text-xs py-3 px-4 font-medium">Máx</th>
-                    <th className="text-right text-gray-500 text-xs py-3 px-4 font-medium">Mín</th>
-                    <th className="text-right text-gray-500 text-xs py-3 px-4 font-medium">Lluvia</th>
-                    <th className="text-right text-gray-500 text-xs py-3 px-4 font-medium">Kg hielo</th>
+                    <th className="text-left text-secundario text-xs py-3 px-4 font-medium">Fecha</th>
+                    <th className="text-center text-secundario text-xs py-3 px-2 font-medium">Clima</th>
+                    <th className="text-right text-secundario text-xs py-3 px-4 font-medium">Máx</th>
+                    <th className="text-right text-secundario text-xs py-3 px-4 font-medium">Mín</th>
+                    <th className="text-right text-secundario text-xs py-3 px-4 font-medium">Lluvia</th>
+                    <th className="text-right text-secundario text-xs py-3 px-4 font-medium">Kg hielo</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -357,12 +357,12 @@ export default function ClimaPage() {
                     const kg = kgByDay[d.date] ?? 0
                     return (
                       <tr key={d.date} className="border-b border-[#E7E5DC] last:border-0 hover:bg-gray-50 transition-colors">
-                        <td className="py-2.5 px-4 text-gray-500">{shortDay(d.date)}</td>
+                        <td className="py-2.5 px-4 text-secundario">{shortDay(d.date)}</td>
                         <td className="py-2.5 px-2 text-center" title={d.label}>{d.emoji}</td>
                         <td className="py-2.5 px-4 text-right font-medium" style={{ color: tempColor(d.tempMax) }}>
                           {d.tempMax}°
                         </td>
-                        <td className="py-2.5 px-4 text-right text-gray-500">{d.tempMin}°</td>
+                        <td className="py-2.5 px-4 text-right text-secundario">{d.tempMin}°</td>
                         <td className="py-2.5 px-4 text-right text-blue-500">
                           {d.rain > 0 ? `${d.rain}mm` : '—'}
                         </td>

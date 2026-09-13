@@ -719,7 +719,7 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
             className={`w-full text-xs px-3 py-1.5 rounded-lg border transition-colors ${
               showAllClients
                 ? 'bg-accent/10 border-accent/30 text-accent'
-                : 'bg-white border-[#D3D1C7] text-gray-500 hover:border-accent'
+                : 'bg-white border-[#D3D1C7] text-secundario hover:border-accent'
             }`}
           >
             {showAllClients ? 'Ocultar clientes sin pedido' : 'Mostrar clientes sin pedido'}
@@ -737,7 +737,7 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
         {/* Zonas prohibidas */}
         <div className="p-3 border-b border-[#D3D1C7] space-y-2">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Zonas prohibidas</p>
+            <p className="text-xs font-semibold text-secundario uppercase tracking-wide">Zonas prohibidas</p>
             {!drawingMode && (
               <button
                 onClick={() => setDrawingMode(true)}
@@ -812,7 +812,7 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
                 )}
                 <button
                   onClick={() => { setDrawingMode(false); setDrawingVertices([]) }}
-                  className="text-xs border border-[#D3D1C7] rounded-lg px-2 py-1.5 text-gray-500 hover:text-gray-700 transition-colors"
+                  className="text-xs border border-[#D3D1C7] rounded-lg px-2 py-1.5 text-secundario hover:text-gray-700 transition-colors"
                 >Cancelar</button>
               </div>
               {drawingVertices.length > 0 && (
@@ -829,8 +829,8 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
         {activeDrivers.length > 0 && isLoaded && (
           <div className="p-3 border-b border-[#D3D1C7] space-y-3">
             <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Rutas del día</p>
-              <label className="flex items-center gap-1.5 text-xs text-gray-500 shrink-0">
+              <p className="text-xs font-semibold text-secundario uppercase tracking-wide">Rutas del día</p>
+              <label className="flex items-center gap-1.5 text-xs text-secundario shrink-0">
                 <span>Serv.</span>
                 <input
                   type="number" min={5} max={120} value={tiempoServicio}
@@ -857,7 +857,7 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
                     {c.nombreContacto || c.nombre}
                   </span>
                   <div className="flex gap-2 items-center">
-                    <label className="text-xs text-gray-500 shrink-0">Salida</label>
+                    <label className="text-xs text-secundario shrink-0">Salida</label>
                     <input
                       type="time"
                       value={horasSalida[c.email] ?? '07:00'}
@@ -885,7 +885,7 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
                     {hasRoute && !calculating && (
                       <button
                         onClick={() => clearRoute(c.email)}
-                        className="text-xs px-2.5 py-1.5 rounded-lg border border-[#D3D1C7] text-gray-500 hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                        className="text-xs px-2.5 py-1.5 rounded-lg border border-[#D3D1C7] text-secundario hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-colors"
                         title="Limpiar ruta del mapa"
                       >
                         ✕

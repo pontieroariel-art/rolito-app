@@ -193,7 +193,7 @@ export default function CalculadoraHielo() {
                     className={`rounded-xl border px-2 py-2.5 text-center transition-colors ${
                       activo
                         ? 'border-accent bg-accent/10 text-accent'
-                        : 'border-[#D3D1C7] text-gray-500 hover:border-accent/50'
+                        : 'border-[#D3D1C7] text-secundario hover:border-accent/50'
                     }`}
                   >
                     <Icon size={16} className="mx-auto mb-1" strokeWidth={1.75} />
@@ -219,7 +219,7 @@ export default function CalculadoraHielo() {
                   className={`rounded-xl border px-2 py-2.5 text-center transition-colors ${
                     duracion === opt.value
                       ? 'border-accent bg-accent/10 text-accent'
-                      : 'border-[#D3D1C7] text-gray-500 hover:border-accent/50'
+                      : 'border-[#D3D1C7] text-secundario hover:border-accent/50'
                   }`}
                 >
                   <p className="text-xs font-bold leading-tight">{opt.label}</p>

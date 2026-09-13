@@ -9,7 +9,7 @@ import { formatoARS } from '@/utils/money'
 import { PLANTAS, type CotConfig, type CotDomicilio, type PlantaId } from '@/types'
 
 const input = 'w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'
-const label = 'text-xs text-gray-500 mb-1 block'
+const label = 'text-xs text-secundario mb-1 block'
 
 // Configuración del COT de ARBA (config/cot): interruptor y ambiente, umbrales,
 // talonario del remito R que respalda la carga, domicilio y recorrido de cada
@@ -82,7 +82,7 @@ export default function CotArbaPanel() {
     <section className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-5 space-y-5">
       <div>
         <h2 className="text-lg font-semibold text-gray-900">COT de ARBA (remito de carga)</h2>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-secundario">
           Código de Operación de Traslado. Obligatorio cuando la carga que sale de la planta supera los {form.umbralKg.toLocaleString('es-AR')} kg o {formatoARS(form.umbralImporte)}.
           Caja lo declara al emitir el remito de carga y el sistema lo presenta a ARBA. La clave CIT vive en el servidor (secret ARBA_CIT).
         </p>
@@ -121,7 +121,7 @@ export default function CotArbaPanel() {
       <div className="border border-[#D3D1C7] rounded-xl p-3 space-y-3">
         <div>
           <p className="text-sm font-semibold text-gray-800">Remito R de la carga (talonario {String(form.respaldo.prefijo).padStart(5, '0')})</p>
-          <p className="text-xs text-gray-500">Con esto prendido y el CAI vigente, la app numera cada carga con el talonario y la imprime como remito R "PARA REPARTO", y el COT lo toma como respaldo sin tipear nada. Sin CAI vigente, caja sigue tipeando el número del talonario manual.</p>
+          <p className="text-xs text-secundario">Con esto prendido y el CAI vigente, la app numera cada carga con el talonario y la imprime como remito R "PARA REPARTO", y el COT lo toma como respaldo sin tipear nada. Sin CAI vigente, caja sigue tipeando el número del talonario manual.</p>
         </div>
         <div className="grid sm:grid-cols-4 gap-3">
           <label className="flex items-center gap-2 text-sm text-gray-800">
@@ -142,7 +142,7 @@ export default function CotArbaPanel() {
           </div>
           <Button variant="outline" size="sm" onClick={inicializarR} loading={inicializando} disabled={!proximoRInput}>Fijar numeración</Button>
           {quedanR !== null && (
-            <p className={`sm:col-span-2 text-xs ${quedanR <= 0 ? 'text-red-700 font-semibold' : quedanR <= 100 ? 'text-amber-700 font-semibold' : 'text-gray-500'}`}>
+            <p className={`sm:col-span-2 text-xs ${quedanR <= 0 ? 'text-red-700 font-semibold' : quedanR <= 100 ? 'text-amber-700 font-semibold' : 'text-secundario'}`}>
               {quedanR <= 0 ? 'El talonario se agotó: pedí un CAI nuevo y cargá su rango.' : `Quedan ${quedanR} remitos de este CAI${quedanR <= 100 ? ': pedí el CAI siguiente.' : '.'}`}
             </p>
           )}
@@ -170,15 +170,15 @@ export default function CotArbaPanel() {
 
       <div>
         <p className="text-sm font-semibold text-gray-800 mb-1">Productos: peso por unidad y código de ARBA</p>
-        <p className="text-xs text-gray-500 mb-2">Los kilos de la carga se calculan con esto. Código del nomenclador COT (NCM de 6 dígitos): hielo {CODIGO_ARBA_HIELO}, agua de mesa {CODIGO_ARBA_AGUA}.</p>
+        <p className="text-xs text-secundario mb-2">Los kilos de la carga se calculan con esto. Código del nomenclador COT (NCM de 6 dígitos): hielo {CODIGO_ARBA_HIELO}, agua de mesa {CODIGO_ARBA_AGUA}.</p>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="text-xs uppercase tracking-wide text-gray-500">
+            <thead className="text-xs uppercase tracking-wide text-secundario">
               <tr className="border-b border-[#E7E5DC]"><th className="text-left py-1.5">Producto</th><th className="text-left py-1.5">kg por unidad</th><th className="text-left py-1.5">Código ARBA</th><th className="text-left py-1.5">Descripción (máx. 40)</th></tr>
             </thead>
             <tbody className="divide-y divide-[#E7E5DC]">
               {filasProductos.map((f) => (
-                <tr key={f.id} className={f.cargado ? '' : 'text-gray-500'}>
+                <tr key={f.id} className={f.cargado ? '' : 'text-secundario'}>
                   <td className="py-1.5 pr-2">{f.nombre}{!f.cargado && <span className="ml-1 text-[11px] text-amber-600">(sugerido)</span>}</td>
                   <td className="py-1.5 pr-2"><input type="number" step="0.5" value={f.pesoKg} onChange={(e) => setProducto(f.id, { pesoKg: Number(e.target.value) })} className={`${input} w-24`} /></td>
                   <td className="py-1.5 pr-2"><input value={f.codigoArba} onChange={(e) => setProducto(f.id, { codigoArba: e.target.value.replace(/\D/g, '').slice(0, 6) })} className={`${input} w-28`} /></td>
@@ -192,7 +192,7 @@ export default function CotArbaPanel() {
 
       <div className="flex items-center gap-3">
         <Button onClick={guardar} loading={guardando}>Guardar</Button>
-        {msg && <span className="text-sm text-gray-500">{msg}</span>}
+        {msg && <span className="text-sm text-secundario">{msg}</span>}
       </div>
     </section>
   )

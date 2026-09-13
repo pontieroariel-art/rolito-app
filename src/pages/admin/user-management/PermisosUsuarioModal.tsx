@@ -235,7 +235,7 @@ export function PermisosUsuarioModal({
                         <span className={`text-[11px] rounded-full px-2 py-0.5 border ${
                           estado === 'todo' ? 'bg-[#E8F5F0] text-[#0F6B4E] border-[#B3DDD3]'
                           : estado === 'parcial' ? 'bg-amber-50 text-amber-700 border-amber-200'
-                          : 'bg-gray-100 text-gray-500 border-gray-200'
+                          : 'bg-gray-100 text-secundario border-gray-200'
                         }`}>
                           {estado === 'nada' ? 'oculto' : `${visibles} de ${items.length}`}
                         </span>
@@ -282,13 +282,13 @@ export function PermisosUsuarioModal({
               <Monitor size={13} /> Así lo va a ver
             </p>
             {dominiosVisibles.length === 0 ? (
-              <p className="text-xs text-gray-500 py-6 text-center">Sin dominios: no le va a quedar menú.</p>
+              <p className="text-xs text-secundario py-6 text-center">Sin dominios: no le va a quedar menú.</p>
             ) : (
               <div className="rounded-xl border border-[#D3D1C7] bg-white overflow-hidden">
                 <div className="flex flex-wrap gap-1 p-2 border-b border-[#D3D1C7] bg-[#F8F7F2]">
                   {dominiosVisibles.map((s) => (
                     <button key={s} type="button" onClick={() => setVistaPrevia(s)}
-                      className={`px-2 py-0.5 rounded-md text-[11px] font-medium ${s === dominioPrevia ? 'bg-white text-accent shadow-sm' : 'text-gray-500'}`}>
+                      className={`px-2 py-0.5 rounded-md text-[11px] font-medium ${s === dominioPrevia ? 'bg-white text-accent shadow-sm' : 'text-secundario'}`}>
                       {SISTEMA_LABELS[s]}
                     </button>
                   ))}

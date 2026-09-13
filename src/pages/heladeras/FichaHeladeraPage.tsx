@@ -83,13 +83,13 @@ export default function FichaHeladeraPage() {
         {heladera === undefined ? (
           <LoadingSpinner fullScreen />
         ) : heladera === null ? (
-          <p className="text-gray-500 text-sm">No se encontró esta heladera.</p>
+          <p className="text-secundario text-sm">No se encontró esta heladera.</p>
         ) : (
           <>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">{heladera.codigoInterno}</h1>
-                <p className="text-gray-500 text-sm">Serie {heladera.numeroSerie}</p>
+                <p className="text-secundario text-sm">Serie {heladera.numeroSerie}</p>
               </div>
               <span className="text-xs px-2 py-1 rounded-full bg-accent/10 text-accent border border-accent/25 font-medium">
                 {ESTADO_HELADERA_LABELS[heladera.estado]}
@@ -103,12 +103,12 @@ export default function FichaHeladeraPage() {
               <div className="flex-1 min-w-[180px] space-y-1">
                 <p className="text-sm font-semibold text-gray-900">{heladera.modelo}</p>
                 {modelo && (
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-secundario">
                     {modelo.medidas.ancho}×{modelo.medidas.alto}×{modelo.medidas.profundo} cm · {modelo.capacidadBolsas} bolsas
                   </p>
                 )}
-                <p className="text-xs text-gray-500">Alta: {tsToDate(heladera.createdAt).toLocaleDateString('es-AR')}</p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-secundario">Alta: {tsToDate(heladera.createdAt).toLocaleDateString('es-AR')}</p>
+                <p className="text-xs text-secundario">
                   Cliente asignado: <span className={heladera.clienteAsignadoNombre ? 'text-gray-900 font-medium' : 'text-secundario'}>
                     {heladera.clienteAsignadoNombre ?? 'sin asignar'}{heladera.clienteAsignadoNombre && clienteCodigo ? ` (${clienteCodigo})` : ''}
                   </span>
@@ -170,7 +170,7 @@ export default function FichaHeladeraPage() {
                       <div key={i} className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 flex items-start justify-between gap-3">
                         <div>
                           <p className="text-xs font-medium text-gray-900">{ACCION_LABELS[a.accion] ?? a.accion}</p>
-                          <p className="text-xs text-gray-500">{a.usuarioNombre}{a.detalle ? ` · ${a.detalle}` : ''}</p>
+                          <p className="text-xs text-secundario">{a.usuarioNombre}{a.detalle ? ` · ${a.detalle}` : ''}</p>
                           {a.duracionMs !== undefined && (
                             <p className="text-xs text-accent">
                               Tardó {formatDuracion(a.duracionMs)}{pasoNombre ? ` en ${pasoNombre.toLowerCase()}` : ''}

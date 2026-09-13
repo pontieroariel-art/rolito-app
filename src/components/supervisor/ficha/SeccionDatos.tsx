@@ -7,7 +7,7 @@ function Fila({ label, valor }: { label: string; valor?: string | null }) {
   if (!valor) return null
   return (
     <div className="flex justify-between gap-3 py-1.5 border-b border-[#E7E5DC] last:border-0">
-      <span className="text-xs text-gray-500 shrink-0">{label}</span>
+      <span className="text-xs text-secundario shrink-0">{label}</span>
       <span className="text-sm text-gray-900 text-right break-words min-w-0">{valor}</span>
     </div>
   )

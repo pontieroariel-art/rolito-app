@@ -100,7 +100,7 @@ export default function PedidoSearchBar({ onJumpAndHighlight, onOpenDetail, codi
               className={`px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                 mode === m.id
                   ? 'bg-accent/10 border-accent text-accent'
-                  : 'bg-white border-[#D3D1C7] text-gray-500 hover:border-accent/50'
+                  : 'bg-white border-[#D3D1C7] text-secundario hover:border-accent/50'
               }`}
             >
               {m.label}
@@ -159,7 +159,7 @@ export default function PedidoSearchBar({ onJumpAndHighlight, onOpenDetail, codi
                       <span className="text-[10px] text-secundario shrink-0">{STATUS_LABELS[o.status]}</span>
                     </div>
                     <p className="text-xs text-secundario truncate">{o.clientAddress || 'Sin dirección'}</p>
-                    <p className="text-xs text-gray-500 truncate">
+                    <p className="text-xs text-secundario truncate">
                       {formatShortDate(o.date)}
                       {o.numeroOC ? ` · OC #${o.numeroOC}` : ''}
                       {' · '}{summarizeProducts(o.products)}

@@ -107,7 +107,7 @@ export default function CrearHeladeraModal({
   return (
     <Modal open onClose={onClose} title={copy.titulo}>
       <form onSubmit={handleSubmit} className="space-y-4">
-        {copy.ayuda && <p className="text-xs text-gray-500 -mt-2">{copy.ayuda}</p>}
+        {copy.ayuda && <p className="text-xs text-secundario -mt-2">{copy.ayuda}</p>}
         {sinPasos && (
           <p className="text-xs text-amber-600">
             Todavía no hay pasos configurados para {TIPO_PIPELINE_LABELS[tipoPipeline].toLowerCase()} — agregá uno primero en "Catálogos de service".
@@ -115,7 +115,7 @@ export default function CrearHeladeraModal({
         )}
         <Input label="Número de serie" value={numeroSerie} onChange={(e) => setNumeroSerie(e.target.value)} required placeholder="HL-0042" />
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Modelo</label>
+          <label className="text-xs text-secundario mb-1 block">Modelo</label>
           <select
             value={modeloId}
             onChange={(e) => setModeloId(e.target.value)}
@@ -133,7 +133,7 @@ export default function CrearHeladeraModal({
         </div>
         {esFabricacion ? (
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Código interno</label>
+            <label className="text-xs text-secundario mb-1 block">Código interno</label>
             <div className="w-full bg-gray-100 border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-700">
               {modeloElegido ? codigoPreview : 'Elegí un modelo para ver el código'}
             </div>
@@ -146,7 +146,7 @@ export default function CrearHeladeraModal({
         )}
         {esReacondicionamiento && (
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Motivo de ingreso</label>
+            <label className="text-xs text-secundario mb-1 block">Motivo de ingreso</label>
             <select
               value={motivoId}
               onChange={(e) => setMotivoId(e.target.value)}
@@ -162,12 +162,12 @@ export default function CrearHeladeraModal({
               <p className="text-xs text-amber-600 mt-1">Todavía no hay motivos cargados — agregá uno primero en "Catálogos de service".</p>
             )}
             {motivoElegido && (
-              <p className="text-xs text-gray-500 mt-1">Tipo de operación: <span className="font-medium text-gray-700">{TIPO_OPERACION_LABELS[motivoElegido.tipoOperacion]}</span></p>
+              <p className="text-xs text-secundario mt-1">Tipo de operación: <span className="font-medium text-gray-700">{TIPO_OPERACION_LABELS[motivoElegido.tipoOperacion]}</span></p>
             )}
           </div>
         )}
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Observaciones (opcional)</label>
+          <label className="text-xs text-secundario mb-1 block">Observaciones (opcional)</label>
           <textarea
             value={observaciones}
             onChange={(e) => setObservaciones(e.target.value)}

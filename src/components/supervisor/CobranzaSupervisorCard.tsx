@@ -85,7 +85,7 @@ export function CobranzaSupervisorCard({ c, sinSubir = false }: { c: Cobranza; s
           <p className="text-sm font-semibold text-gray-900 shrink-0">{formatoARS(c.importe)}</p>
         </div>
         <div className="flex justify-between items-center gap-2 mt-0.5">
-          <p className="text-xs text-gray-500 truncate">
+          <p className="text-xs text-secundario truncate">
             {c.numeroRecibo ?? 'Sin número'} · {facturas} {facturas === 1 ? 'factura' : 'facturas'}{c.aCuenta ? ` · a cuenta ${formatoARS(c.aCuenta)}` : ''} · {c.fecha.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
           </p>
           {sinSubir
@@ -99,7 +99,7 @@ export function CobranzaSupervisorCard({ c, sinSubir = false }: { c: Cobranza; s
           <div className="space-y-3">
             <div>
               <p className="text-sm font-semibold text-gray-900">{c.clienteNombre}</p>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-secundario">
                 {c.fecha.toDate().toLocaleString('es-AR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })} · {c.registradoPor.nombre}
               </p>
               <div className="mt-1">{sinSubir ? <span className="text-[11px] text-amber-600">Todavía no se subió (sin señal); se envía solo al volver la conexión.</span> : <EstadoTangoChip c={c} />}</div>
@@ -145,7 +145,7 @@ export function CobranzaSupervisorCard({ c, sinSubir = false }: { c: Cobranza; s
               <Button variant="outline" onClick={() => entregar(false)} disabled={ocupada} className="w-full">
                 <FileDown size={16} className="mr-2" /> Descargar PDF
               </Button>
-              {aviso && <p className="text-xs text-gray-500">{aviso}</p>}
+              {aviso && <p className="text-xs text-secundario">{aviso}</p>}
             </div>
           </div>
         </Modal>

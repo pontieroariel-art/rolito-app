@@ -53,7 +53,7 @@ export default function RetencionForm({ onAgregar, onCancelar }: {
   return (
     <div className="space-y-3">
       <div>
-        <label className="text-xs text-gray-500 mb-1 block">Tipo de retención</label>
+        <label className="text-xs text-secundario mb-1 block">Tipo de retención</label>
         <div className="grid grid-cols-2 gap-2">
           {TIPOS.map((t) => (
             <button key={t} type="button" onClick={() => setTipo(t)}
@@ -68,17 +68,17 @@ export default function RetencionForm({ onAgregar, onCancelar }: {
 
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Nº de certificado</label>
+          <label className="text-xs text-secundario mb-1 block">Nº de certificado</label>
           <input value={nroCertificado} onChange={(e) => setNroCertificado(e.target.value)} placeholder="0000-00000000" className={inputClass} />
         </div>
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Importe</label>
+          <label className="text-xs text-secundario mb-1 block">Importe</label>
           <input value={importeStr} onChange={(e) => setImporteStr(e.target.value)} inputMode="decimal" placeholder="0,00" className={inputClass} />
         </div>
       </div>
 
       <div>
-        <label className="text-xs text-gray-500 mb-1 block">Fecha del certificado</label>
+        <label className="text-xs text-secundario mb-1 block">Fecha del certificado</label>
         <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className={inputClass} />
       </div>
 

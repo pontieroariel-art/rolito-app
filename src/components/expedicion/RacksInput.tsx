@@ -54,7 +54,7 @@ export default function RacksInput({ value, onChange, sugeridos = [], disabled }
         />
       </div>
       {pendientes.length > 0 && !disabled && (
-        <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-500">
+        <div className="flex flex-wrap items-center gap-1.5 text-xs text-secundario">
           <span>Salieron:</span>
           {pendientes.map((n) => (
             <button

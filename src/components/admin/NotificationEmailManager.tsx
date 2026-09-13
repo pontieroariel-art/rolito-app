@@ -38,15 +38,15 @@ export function NotificationEmailManager({ notifEmails }: NotificationEmailManag
           className="absolute right-0 top-10 bg-white border border-[#D3D1C7] rounded-xl p-4 z-50 w-80 shadow-2xl"
         >
           <h3 className="font-semibold mb-1 text-sm">Emails de notificación</h3>
-          <p className="text-gray-500 text-xs mb-3">Reciben un email cuando llega un pedido nuevo.</p>
+          <p className="text-secundario text-xs mb-3">Reciben un email cuando llega un pedido nuevo.</p>
 
           {emails.length === 0 ? (
-            <p className="text-gray-500 text-xs mb-3">Sin emails configurados</p>
+            <p className="text-secundario text-xs mb-3">Sin emails configurados</p>
           ) : (
             <div className="space-y-1 mb-3 max-h-40 overflow-y-auto">
               {emails.map((e) => (
                 <div key={e} className="flex justify-between items-center py-1.5 border-b border-gray-200 last:border-0">
-                  <span className="text-sm text-gray-500 truncate flex-1">{e}</span>
+                  <span className="text-sm text-secundario truncate flex-1">{e}</span>
                   <button
                     onClick={() => removeEmail(e)}
                     aria-label={`Quitar ${e}`}

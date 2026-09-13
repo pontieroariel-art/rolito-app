@@ -195,7 +195,7 @@ export default function GerenteDashboard() {
         <div className="flex items-end justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Tablero de control</h1>
-            <p className="text-gray-500 text-sm capitalize mt-0.5">{fechaHoy}</p>
+            <p className="text-secundario text-sm capitalize mt-0.5">{fechaHoy}</p>
           </div>
           {pendientes.length > 0 && (
             <span className="flex items-center gap-1.5 text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200 px-3 py-1.5 rounded-full">
@@ -234,7 +234,7 @@ export default function GerenteDashboard() {
               return (
                 <div key={d.str} className="flex-1 flex flex-col items-center gap-1.5">
                   {d.count > 0 && (
-                    <span className={`text-xs font-medium ${isToday ? 'text-accent' : 'text-gray-500'}`}>
+                    <span className={`text-xs font-medium ${isToday ? 'text-accent' : 'text-secundario'}`}>
                       {d.count}
                     </span>
                   )}
@@ -393,7 +393,7 @@ export default function GerenteDashboard() {
                     <MiniStat label="Pallets — 7 días" value={palletsSemana.length} />
                   </div>
                   {palletsHoy.length > 0 && (
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-secundario">
                       {(Object.keys(PLANTAS) as PlantaId[])
                         .filter((id) => porPlantaHoy[id])
                         .map((id) => `${PLANTAS[id].label.replace('Planta ', '')}: ${porPlantaHoy[id]}`)

@@ -220,7 +220,7 @@ export default function RemitosCargaPage() {
     <main className="max-w-3xl mx-auto p-4 space-y-6 pb-10">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Remitos de carga</h1>
-        <p className="text-gray-500 text-sm">{PLANTAS[plantaId].label}</p>
+        <p className="text-secundario text-sm">{PLANTAS[plantaId].label}</p>
       </div>
 
       {/* ── Nuevo remito ── */}
@@ -229,7 +229,7 @@ export default function RemitosCargaPage() {
 
         <div className="grid sm:grid-cols-2 gap-3">
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Camión</label>
+            <label className="text-xs text-secundario mb-1 block">Camión</label>
             <select value={camionId} onChange={(e) => setCamionId(e.target.value)} className={selectClass}>
               <option value="">Elegir camión…</option>
               {camionesActivos.map((c) => (
@@ -249,7 +249,7 @@ export default function RemitosCargaPage() {
             )}
           </div>
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Repartidor (depósito de Tango)</label>
+            <label className="text-xs text-secundario mb-1 block">Repartidor (depósito de Tango)</label>
             <select value={depositoCod} onChange={(e) => setDepositoCod(e.target.value)} className={selectClass}>
               <option value="">Elegir repartidor…</option>
               {depositosReparto.map((d) => (
@@ -263,7 +263,7 @@ export default function RemitosCargaPage() {
         </div>
 
         <div>
-          <p className="text-xs text-gray-500 mb-2">Mercadería</p>
+          <p className="text-xs text-secundario mb-2">Mercadería</p>
           <div className="space-y-2">
             {catalogo.map((p) => {
               const info = palletsInfo(p, cantidades[p.id] ?? 0)
@@ -301,7 +301,7 @@ export default function RemitosCargaPage() {
                     </div>
                   </div>
                   {info && info.resto > 0 && (
-                    <label className="flex items-center gap-2 mt-1 ml-3 text-xs text-gray-500 cursor-pointer select-none">
+                    <label className="flex items-center gap-2 mt-1 ml-3 text-xs text-secundario cursor-pointer select-none">
                       <input
                         type="checkbox"
                         checked={restoEnPallet[p.id] ?? false}
@@ -336,15 +336,15 @@ export default function RemitosCargaPage() {
         <div className="bg-accent/5 border border-accent/20 rounded-lg px-3 py-3 space-y-3">
           <div className="flex justify-between items-center">
             <p className="text-sm font-medium text-gray-800">Envases que salen</p>
-            <p className="text-xs text-gray-500">Sugerido por la mercadería: <b className="text-gray-700">{palletsSugeridos}</b> pallet{palletsSugeridos === 1 ? '' : 's'}</p>
+            <p className="text-xs text-secundario">Sugerido por la mercadería: <b className="text-gray-700">{palletsSugeridos}</b> pallet{palletsSugeridos === 1 ? '' : 's'}</p>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Pallets de madera (completos)</label>
+              <label className="text-xs text-secundario mb-1 block">Pallets de madera (completos)</label>
               <input value={tarimasMadera} onChange={(e) => setTarimasMadera(num(e.target.value))} inputMode="numeric" className={inputEnvase} />
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Pallets de metal</label>
+              <label className="text-xs text-secundario mb-1 block">Pallets de metal</label>
               <input value={palletsMetal} onChange={(e) => { setMetalEditado(true); setPalletsMetal(num(e.target.value)) }} inputMode="numeric" className={inputEnvase} />
             </div>
           </div>
@@ -360,7 +360,7 @@ export default function RemitosCargaPage() {
             </p>
           )}
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Racks de agua (números)</label>
+            <label className="text-xs text-secundario mb-1 block">Racks de agua (números)</label>
             <RacksInput value={racks} onChange={setRacks} />
           </div>
         </div>
@@ -382,9 +382,9 @@ export default function RemitosCargaPage() {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-gray-900">
                 {r.codigo}
-                {r.remitoR && <span className="ml-2 text-xs font-medium text-gray-500">Remito R {formatoRespaldo({ prefijo: r.remitoR.puntoVenta, numero: r.remitoR.numero })}</span>}
+                {r.remitoR && <span className="ml-2 text-xs font-medium text-secundario">Remito R {formatoRespaldo({ prefijo: r.remitoR.puntoVenta, numero: r.remitoR.numero })}</span>}
               </p>
-              <p className="text-xs text-gray-500 truncate">
+              <p className="text-xs text-secundario truncate">
                 {r.camionLabel} · {r.choferNombre} · {r.items.reduce((s, i) => s + i.cantidad, 0)} bolsas{r.kg ? ` · ${r.kg.toLocaleString('es-AR')} kg` : ''}
                 {describirEnvases(envasesDeRemito(r)) && ` · ${describirEnvases(envasesDeRemito(r))}`}
               </p>
@@ -419,8 +419,8 @@ export default function RemitosCargaPage() {
         <Modal open onClose={() => setConfirmando(false)} title="Confirmar remito de carga">
           <div className="space-y-3">
             <div className="text-sm text-gray-700 space-y-1">
-              <p><span className="text-gray-500">Camión:</span> {camion?.patente} · {camion?.modelo}</p>
-              <p><span className="text-gray-500">Repartidor:</span> {deposito ? etiquetaDeposito(deposito) : ''}</p>
+              <p><span className="text-secundario">Camión:</span> {camion?.patente} · {camion?.modelo}</p>
+              <p><span className="text-secundario">Repartidor:</span> {deposito ? etiquetaDeposito(deposito) : ''}</p>
             </div>
             <div className="border border-[#D3D1C7] rounded-lg divide-y divide-[#E7E5DC]">
               {items.map((i) => (
@@ -448,7 +448,7 @@ export default function RemitosCargaPage() {
                 </div>
               )}
             </div>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-secundario">
               Al confirmar se asigna el número correlativo y se imprime el remito para muelle.
             </p>
             {error && (

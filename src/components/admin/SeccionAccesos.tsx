@@ -16,7 +16,7 @@ export default function SeccionAccesos() {
                 to={a.to}
                 className="flex items-center gap-2 rounded-lg border border-[#D3D1C7] bg-[#F8F7F2] px-3 py-2 text-sm text-gray-800 hover:border-accent/50 hover:text-accent transition-colors"
               >
-                <a.icon size={15} className="shrink-0 text-gray-500" />
+                <a.icon size={15} className="shrink-0 text-secundario" />
                 <span className="min-w-0 truncate">{a.label}</span>
               </Link>
             ))}

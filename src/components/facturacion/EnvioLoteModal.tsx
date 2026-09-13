@@ -119,7 +119,7 @@ export default function EnvioLoteModal({ abierto, onClose, items, cliente, email
       ) : fase.tipo === 'generando' ? (
         <div className="space-y-3">
           <p className="text-sm text-gray-900">Generando los PDF… {fase.progreso.hecho} de {fase.progreso.total}</p>
-          {fase.progreso.actual && <p className="text-xs text-gray-500 truncate">{fase.progreso.actual.titulo}</p>}
+          {fase.progreso.actual && <p className="text-xs text-secundario truncate">{fase.progreso.actual.titulo}</p>}
           <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
             <div className="h-full bg-accent transition-all" style={{ width: `${fase.progreso.total ? Math.round((fase.progreso.hecho / fase.progreso.total) * 100) : 0}%` }} />
           </div>
@@ -144,20 +144,20 @@ export default function EnvioLoteModal({ abierto, onClose, items, cliente, email
         </div>
       ) : (
         <div className="space-y-3">
-          <p className="text-xs text-gray-500">Va un solo mail con {items.length === 1 ? 'el PDF adjunto' : `${items.length} PDF adjuntos`}: {describirLote(resumen)}.</p>
+          <p className="text-xs text-secundario">Va un solo mail con {items.length === 1 ? 'el PDF adjunto' : `${items.length} PDF adjuntos`}: {describirLote(resumen)}.</p>
           <label className="block">
-            <span className="text-xs text-gray-500">Para</span>
+            <span className="text-xs text-secundario">Para</span>
             <input type="email" value={para} onChange={(e) => setPara(e.target.value)} placeholder="cliente@empresa.com" autoComplete="off" className={INPUT} />
             {email && para.trim().toLowerCase() === email.toLowerCase()
               ? <span className="text-[11px] text-secundario">Mail de la ficha de Tango</span>
               : !email ? <span className="text-[11px] text-amber-700">Este cliente no tiene mail en Tango: escribilo vos.</span> : null}
           </label>
           <label className="block">
-            <span className="text-xs text-gray-500">Asunto</span>
+            <span className="text-xs text-secundario">Asunto</span>
             <input type="text" value={asunto} onChange={(e) => setAsunto(e.target.value)} className={INPUT} />
           </label>
           <label className="block">
-            <span className="text-xs text-gray-500">Mensaje</span>
+            <span className="text-xs text-secundario">Mensaje</span>
             <textarea value={mensaje} onChange={(e) => setMensaje(e.target.value)} rows={3} className={INPUT} />
           </label>
           <label className="flex items-center gap-2 text-xs text-gray-600">

@@ -156,7 +156,7 @@ export function AddressAutocomplete({
                 {s.structured_formatting.main_text}
               </p>
               {s.structured_formatting.secondary_text && (
-                <p className="text-xs text-gray-500 mt-0.5">
+                <p className="text-xs text-secundario mt-0.5">
                   {s.structured_formatting.secondary_text}
                 </p>
               )}
@@ -220,7 +220,7 @@ export function AddressMapPicker({
           />
         </GoogleMap>
       </div>
-      <p className="text-xs text-gray-500 flex items-center gap-1">
+      <p className="text-xs text-secundario flex items-center gap-1">
         <MapPin size={10} className="shrink-0" />
         Arrastrá el pin para ajustar la ubicación exacta
       </p>

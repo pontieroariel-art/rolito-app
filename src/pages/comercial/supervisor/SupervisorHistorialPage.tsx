@@ -47,7 +47,7 @@ export default function SupervisorHistorialPage() {
       <SupervisorHeader title="Cobranzas anteriores" back />
       <main className="max-w-md mx-auto p-4 space-y-4 pb-10">
         {cargando ? (
-          <p className="text-sm text-gray-500 text-center pt-8">Cargando cobranzas…</p>
+          <p className="text-sm text-secundario text-center pt-8">Cargando cobranzas…</p>
         ) : cobranzas.length === 0 ? (
           <div className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-4 text-center">
             <p className="text-sm text-gray-600">No registraste cobranzas en los últimos {DIAS} días.</p>
@@ -56,14 +56,14 @@ export default function SupervisorHistorialPage() {
           <>
             <div className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-3">
               <div className="flex items-center justify-between mb-1">
-                <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Últimos {DIAS} días</p>
+                <p className="text-xs text-secundario uppercase tracking-wide font-semibold">Últimos {DIAS} días</p>
                 <p className="text-sm font-semibold text-gray-900">{formatoARS(totalPeriodo.total)}</p>
               </div>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                <p className="text-xs text-gray-500 flex justify-between">Efectivo <span className="font-medium text-gray-900">{formatoARS(totalPeriodo.efectivo)}</span></p>
-                <p className="text-xs text-gray-500 flex justify-between">Transferencia <span className="font-medium text-gray-900">{formatoARS(totalPeriodo.transferencia)}</span></p>
-                <p className="text-xs text-gray-500 flex justify-between">Cheques <span className="font-medium text-gray-900">{formatoARS(totalPeriodo.cheques)}</span></p>
-                <p className="text-xs text-gray-500 flex justify-between">Retenciones <span className="font-medium text-gray-900">{formatoARS(totalPeriodo.retenciones)}</span></p>
+                <p className="text-xs text-secundario flex justify-between">Efectivo <span className="font-medium text-gray-900">{formatoARS(totalPeriodo.efectivo)}</span></p>
+                <p className="text-xs text-secundario flex justify-between">Transferencia <span className="font-medium text-gray-900">{formatoARS(totalPeriodo.transferencia)}</span></p>
+                <p className="text-xs text-secundario flex justify-between">Cheques <span className="font-medium text-gray-900">{formatoARS(totalPeriodo.cheques)}</span></p>
+                <p className="text-xs text-secundario flex justify-between">Retenciones <span className="font-medium text-gray-900">{formatoARS(totalPeriodo.retenciones)}</span></p>
               </div>
               <p className="text-xs text-secundario mt-1">{cobranzas.length} {cobranzas.length === 1 ? 'recibo' : 'recibos'}</p>
             </div>
@@ -71,7 +71,7 @@ export default function SupervisorHistorialPage() {
             {porDia.map(({ dia, items, resumen }) => (
               <section key={dia}>
                 <div className="flex items-center justify-between mb-2">
-                  <h2 className="text-sm font-semibold text-gray-500 capitalize">{tituloDia(dia)}</h2>
+                  <h2 className="text-sm font-semibold text-secundario capitalize">{tituloDia(dia)}</h2>
                   <p className="text-sm font-semibold text-gray-900">{formatoARS(resumen.total)}</p>
                 </div>
                 <div className="space-y-2">

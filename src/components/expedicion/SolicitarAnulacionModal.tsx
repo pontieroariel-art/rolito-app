@@ -67,7 +67,7 @@ export default function SolicitarAnulacionModal({ objetivo, actor, origen, onCer
         </div>
 
         <div>
-          <label className="text-xs text-gray-500">¿Qué pasó?</label>
+          <label className="text-xs text-secundario">¿Qué pasó?</label>
           <select value={motivo} onChange={(e) => setMotivo(e.target.value as MotivoAnulacion | '')} className={inputClass}>
             <option value="">Elegir motivo…</option>
             {(Object.keys(MOTIVOS_ANULACION) as MotivoAnulacion[]).map((m) => <option key={m} value={m}>{MOTIVOS_ANULACION[m]}</option>)}
@@ -80,7 +80,7 @@ export default function SolicitarAnulacionModal({ objetivo, actor, origen, onCer
           <span>Entiendo que la factura queda <b>anulada con una nota de crédito por el total</b> cuando la autoricen, y que le voy a hacer la factura correcta al cliente.</span>
         </label>
 
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-secundario">
           {origen
             ? 'La anulación no sale sola: la tiene que autorizar alguien con permiso (recibe un aviso). La liquidación o la caja de ese día no se reabren: quedan con la anulación anotada.'
             : 'La anulación no sale sola: la tiene que autorizar alguien con permiso (recibe un aviso). Mientras esté pendiente, no vas a poder cerrar tu caja.'}

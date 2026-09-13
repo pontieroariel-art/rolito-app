@@ -64,7 +64,7 @@ export function RecurrenteCard({ user }: RecurrenteCardProps) {
                 <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
                   recurrente.activo
                     ? 'bg-[#E8F5F0] text-[#0F6E56] border-[#B3DDD3]'
-                    : 'bg-gray-100 text-gray-500 border-gray-200'
+                    : 'bg-gray-100 text-secundario border-gray-200'
                 }`}>
                   {recurrente.activo ? 'Activo' : 'Pausado'}
                 </span>
@@ -72,11 +72,11 @@ export function RecurrenteCard({ user }: RecurrenteCardProps) {
             </div>
             {recurrente ? (
               <>
-                <p className="text-xs text-gray-500">{diasLabels.join(' · ')}</p>
+                <p className="text-xs text-secundario">{diasLabels.join(' · ')}</p>
                 <p className="text-xs text-gray-700 mt-0.5 truncate">{summarizeProducts(recurrente.products)}</p>
               </>
             ) : (
-              <p className="text-xs text-gray-500">Recibí tus productos los mismos días sin tener que pedir cada vez</p>
+              <p className="text-xs text-secundario">Recibí tus productos los mismos días sin tener que pedir cada vez</p>
             )}
           </div>
           <button onClick={openModal} className="shrink-0 text-xs text-accent hover:underline font-medium">
@@ -88,7 +88,7 @@ export function RecurrenteCard({ user }: RecurrenteCardProps) {
       <Modal open={modal} onClose={() => setModal(false)} title="Pedido automático">
         <div className="space-y-5">
           <div>
-            <p className="text-xs text-gray-500 mb-2">Días de entrega</p>
+            <p className="text-xs text-secundario mb-2">Días de entrega</p>
             <div className="flex gap-2 flex-wrap">
               {DIAS_SEMANA.map((dia, i) => (
                 <button
@@ -99,7 +99,7 @@ export function RecurrenteCard({ user }: RecurrenteCardProps) {
                   className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
                     diasSel.includes(i)
                       ? 'bg-accent/15 border-accent text-accent'
-                      : 'border-gray-200 text-gray-500 hover:border-accent/50'
+                      : 'border-gray-200 text-secundario hover:border-accent/50'
                   }`}
                 >
                   {dia}
@@ -109,7 +109,7 @@ export function RecurrenteCard({ user }: RecurrenteCardProps) {
           </div>
 
           <div>
-            <p className="text-xs text-gray-500 mb-2">Productos</p>
+            <p className="text-xs text-secundario mb-2">Productos</p>
             <div className="space-y-2 max-h-52 overflow-y-auto">
               {catalogo.map((p) => {
                 const qty = quantities[p.id] ?? 0

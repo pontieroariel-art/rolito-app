@@ -60,11 +60,11 @@ function NuevoArticuloModal({ onClose }: { onClose: () => void }) {
     <Modal open onClose={onClose} title="Nuevo artículo">
       <div className="space-y-3">
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Nombre</label>
+          <label className="text-xs text-secundario mb-1 block">Nombre</label>
           <input value={nombre} onChange={(e) => setNombre(e.target.value)} className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent" />
         </div>
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Código de barra</label>
+          <label className="text-xs text-secundario mb-1 block">Código de barra</label>
           <div className="flex gap-2">
             <input value={codigoBarras} onChange={(e) => setCodigoBarras(e.target.value)} className="flex-1 bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent" />
             <button type="button" onClick={() => setScanning(true)} className="px-3 rounded-lg border border-[#D3D1C7] hover:border-accent transition-colors">
@@ -74,15 +74,15 @@ function NuevoArticuloModal({ onClose }: { onClose: () => void }) {
         </div>
         <div className="grid grid-cols-3 gap-2">
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Unidad</label>
+            <label className="text-xs text-secundario mb-1 block">Unidad</label>
             <input value={unidad} onChange={(e) => setUnidad(e.target.value)} className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-2 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent" />
           </div>
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Mínimo</label>
+            <label className="text-xs text-secundario mb-1 block">Mínimo</label>
             <input type="number" min={0} value={stockMinimo} onChange={(e) => setStockMinimo(e.target.value)} className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-2 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent" />
           </div>
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Máximo</label>
+            <label className="text-xs text-secundario mb-1 block">Máximo</label>
             <input type="number" min={0} value={stockMaximo} onChange={(e) => setStockMaximo(e.target.value)} className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-2 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent" />
           </div>
         </div>
@@ -216,7 +216,7 @@ function EntregaModal({ articulos, actor, onClose }: { articulos: PanolArticulo[
     <Modal open onClose={onClose} title="Nueva entrega" wide>
       <div className="space-y-4">
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Técnico</label>
+          <label className="text-xs text-secundario mb-1 block">Técnico</label>
           <select value={tecnicoId} onChange={(e) => setTecnicoId(e.target.value)} className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent">
             <option value="">Elegí un técnico…</option>
             {activos.map((t) => <option key={t.uid} value={t.uid}>{t.nombre}</option>)}
@@ -296,7 +296,7 @@ export default function PanolPage() {
         <div className="flex flex-wrap justify-between items-center gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Pañol</h1>
-            <p className="text-gray-500 text-sm">{articulos.length} artículos</p>
+            <p className="text-secundario text-sm">{articulos.length} artículos</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" className="text-sm" onClick={() => setRecepcion(true)}>Recepción</Button>
@@ -325,9 +325,9 @@ export default function PanolPage() {
             <table className="w-full text-sm min-w-[480px]">
               <thead>
                 <tr className="border-b border-[#D3D1C7] bg-[#F8F7F2]">
-                  <th className="text-left text-gray-500 text-xs py-2.5 px-4 font-medium">Artículo</th>
-                  <th className="text-right text-gray-500 text-xs py-2.5 px-4 font-medium">Stock</th>
-                  <th className="text-right text-gray-500 text-xs py-2.5 px-4 font-medium">Mín / Máx</th>
+                  <th className="text-left text-secundario text-xs py-2.5 px-4 font-medium">Artículo</th>
+                  <th className="text-right text-secundario text-xs py-2.5 px-4 font-medium">Stock</th>
+                  <th className="text-right text-secundario text-xs py-2.5 px-4 font-medium">Mín / Máx</th>
                 </tr>
               </thead>
               <tbody>
@@ -360,7 +360,7 @@ export default function PanolPage() {
                     <p className="text-xs font-medium text-gray-900">
                       {m.tipo === 'entrega' ? `Entrega a ${m.destinatario?.nombre ?? '—'}` : 'Recepción'}
                     </p>
-                    <p className="text-xs text-gray-500">{m.articulos.map((a) => `${a.cantidad}x ${a.nombre}`).join(', ')}</p>
+                    <p className="text-xs text-secundario">{m.articulos.map((a) => `${a.cantidad}x ${a.nombre}`).join(', ')}</p>
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-xs text-secundario">{tsToDate(m.fecha).toLocaleDateString('es-AR')}</p>

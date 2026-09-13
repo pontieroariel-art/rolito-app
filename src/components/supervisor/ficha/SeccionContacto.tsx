@@ -31,16 +31,16 @@ export default function SeccionContacto({ c }: { c: UserProfile }) {
   const vacio = !principal && !c.email && sucursales.length === 0
   return (
     <Plegable titulo="Contacto" abiertoInicial>
-      {vacio && <p className="text-sm text-gray-500">Sin teléfono ni mail cargados.</p>}
+      {vacio && <p className="text-sm text-secundario">Sin teléfono ni mail cargados.</p>}
       {principal && (
         <div className="space-y-2">
-          <p className="text-sm text-gray-900">{principal}{c.nombreContacto ? <span className="text-gray-500"> · {c.nombreContacto}</span> : null}</p>
+          <p className="text-sm text-gray-900">{principal}{c.nombreContacto ? <span className="text-secundario"> · {c.nombreContacto}</span> : null}</p>
           <BotonesTelefono telefono={principal} textoWhatsApp={saludo} />
         </div>
       )}
       {sucursales.map((a) => (
         <div key={a.id} className="mt-3 pt-3 border-t border-[#E7E5DC] space-y-2">
-          <p className="text-sm text-gray-900">{a.contactoTelefono}<span className="text-gray-500"> · {a.contactoNombre || a.nombre || 'sucursal'}</span></p>
+          <p className="text-sm text-gray-900">{a.contactoTelefono}<span className="text-secundario"> · {a.contactoNombre || a.nombre || 'sucursal'}</span></p>
           <BotonesTelefono telefono={a.contactoTelefono} textoWhatsApp={saludo} />
         </div>
       ))}

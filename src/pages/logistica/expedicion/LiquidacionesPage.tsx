@@ -182,26 +182,26 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Liquidación</h1>
-          <p className="text-gray-500 text-sm">{PLANTAS[plantaId].label} · {fecha.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
-          <Link to={`${base}/liquidaciones/historial`} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-accent mt-1"><History size={13} /> Historial de cierres</Link>
+          <p className="text-secundario text-sm">{PLANTAS[plantaId].label} · {fecha.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+          <Link to={`${base}/liquidaciones/historial`} className="inline-flex items-center gap-1 text-xs text-secundario hover:text-accent mt-1"><History size={13} /> Historial de cierres</Link>
         </div>
         <div className="grid sm:grid-cols-[170px_minmax(260px,1fr)] gap-3 w-full sm:w-auto">
           {!user?.planta && (
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Planta</label>
+              <label className="text-xs text-secundario mb-1 block">Planta</label>
               <select value={plantaSel} onChange={(e) => { setPlantaSel(e.target.value as PlantaId); setChoferId('') }} className={selectClass}>
                 {(Object.keys(PLANTAS) as PlantaId[]).map((p) => <option key={p} value={p}>{PLANTAS[p].label}</option>)}
               </select>
             </div>
           )}
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Fecha</label>
+            <label className="text-xs text-secundario mb-1 block">Fecha</label>
             <input type="date" value={hoy} max={diaActual}
               onChange={(e) => { setDiaElegido(e.target.value && e.target.value !== diaActual ? e.target.value : null); setChoferId('') }}
               className={selectClass} />
           </div>
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Repartidor (depósito de Tango)</label>
+            <label className="text-xs text-secundario mb-1 block">Repartidor (depósito de Tango)</label>
             <select value={choferId} onChange={(e) => setChoferId(e.target.value)} className={selectClass}>
               <option value="">Elegir repartidor…</option>
               {conSalida.length > 0 && (
@@ -225,7 +225,7 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
       </div>
 
       {!choferId && (
-        <section className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-6 text-center text-sm text-gray-500">
+        <section className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-6 text-center text-sm text-secundario">
           <FileText size={28} className="mx-auto mb-2 text-inerte" />
           Elegí el día y el repartidor para ver su liquidación.
         </section>
@@ -266,7 +266,7 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
               extra={cerrada?.valoresFaltantes?.cantidad ? <span className="text-xs text-red-600 font-semibold">{cerrada.valoresFaltantes.cantidad} no entregado(s)</span> : undefined}>
               {cerrada
                 ? <ValoresEnPapel cheques={cerrada.cheques ?? []} retenciones={cerrada.retenciones ?? []} soloLectura />
-                : <><p className="text-xs text-gray-500 mb-2">Se tildan uno por uno al cerrar la liquidación.</p><ValoresEnPapel cheques={papel.cheques} retenciones={papel.retenciones} soloLectura /></>}
+                : <><p className="text-xs text-secundario mb-2">Se tildan uno por uno al cerrar la liquidación.</p><ValoresEnPapel cheques={papel.cheques} retenciones={papel.retenciones} soloLectura /></>}
             </Plegable>
           )}
 
@@ -293,7 +293,7 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
             </div>
           )}
           {!cerrada && puedeCerrar && hayMovimientos && efectivoRecibido.trim() === '' && (
-            <p className="text-right text-xs text-gray-500">Cargá el efectivo recibido para poder cerrar.</p>
+            <p className="text-right text-xs text-secundario">Cargá el efectivo recibido para poder cerrar.</p>
           )}
         </>
       )}

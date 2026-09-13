@@ -91,7 +91,7 @@ export default function TurnosVentanillaPage() {
       return (
         <div className="bg-white rounded-2xl border border-[#D3D1C7] p-6 text-center">
           <p className="text-lg font-semibold text-gray-800">Turno {miTurno} no encontrado</p>
-          <p className="text-sm text-gray-500 mt-1">Puede ser de otro día — consultá en caja con tu comprobante.</p>
+          <p className="text-sm text-secundario mt-1">Puede ser de otro día — consultá en caja con tu comprobante.</p>
         </div>
       )
     }
@@ -125,7 +125,7 @@ export default function TurnosVentanillaPage() {
           <div className="bg-white rounded-2xl border border-[#D3D1C7] p-6 text-center">
             <CheckCircle2 size={40} className="text-accent mx-auto mb-2" />
             <p className="text-lg font-bold text-gray-800">Turno {mio.n} — ¡Entregado!</p>
-            <p className="text-sm text-gray-500 mt-1">Gracias por tu compra.</p>
+            <p className="text-sm text-secundario mt-1">Gracias por tu compra.</p>
           </div>
         )
       default:
@@ -144,7 +144,7 @@ export default function TurnosVentanillaPage() {
     <div className="min-h-screen min-h-dvh bg-[#F8F7F2]">
       <div className="bg-white border-b border-[#D3D1C7] px-4 py-3 flex items-center justify-between">
         <img src="/logo-rolito.png" alt="Rolito" className="h-8 w-auto" />
-        <p className="text-sm text-gray-500">{PLANTAS[plantaId].label}</p>
+        <p className="text-sm text-secundario">{PLANTAS[plantaId].label}</p>
       </div>
 
       <main className="max-w-md mx-auto p-4 space-y-4 pb-10">
@@ -168,7 +168,7 @@ export default function TurnosVentanillaPage() {
               </button>
             )}
             {avisar && mio && !['llamado', 'entregado'].includes(mio.estado) && (
-              <p className="text-center text-xs text-gray-500">
+              <p className="text-center text-xs text-secundario">
                 🔔 Aviso activado — dejá esta página abierta para recibirlo.
               </p>
             )}

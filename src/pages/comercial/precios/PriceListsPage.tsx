@@ -37,7 +37,7 @@ export default function PriceListsPage() {
       <main className="max-w-[1600px] mx-auto p-4 pb-10 space-y-4">
         <div>
           <h1 className="text-2xl font-bold">Precios</h1>
-          <p className="text-gray-500 text-sm mt-1 break-words">Listas y precios de Tango (solo lectura) y catálogo de productos de la app</p>
+          <p className="text-secundario text-sm mt-1 break-words">Listas y precios de Tango (solo lectura) y catálogo de productos de la app</p>
         </div>
 
         <SyncPreciosTangoPanel solo="precios" />
@@ -49,7 +49,7 @@ export default function PriceListsPage() {
               key={t}
               onClick={() => setTab(t)}
               className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap flex-1 sm:flex-none ${
-                tab === t ? 'bg-accent text-white' : 'text-gray-500 hover:text-gray-900'
+                tab === t ? 'bg-accent text-white' : 'text-secundario hover:text-gray-900'
               }`}
             >
               {TAB_LABEL[t]}
@@ -127,7 +127,7 @@ function CatalogoEditor({
 
   return (
     <div className="bg-white border border-[#D3D1C7] rounded-xl p-5 space-y-4">
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-secundario">
         El catálogo define los productos disponibles en el sistema (nombre, unidad, foto, badge).
         El precio de cada producto viene de Tango: el producto se vende cuando está mapeado a un
         artículo de Tango (config/tango.articulos) y la lista del cliente tiene precio cargado.
@@ -160,14 +160,14 @@ function CatalogoEditor({
 
             <div className="flex-1 min-w-0">
               <span className="text-sm text-gray-900">{p.nombre}</span>
-              <span className="text-xs text-gray-500 ml-2">{p.unidad}</span>
+              <span className="text-xs text-secundario ml-2">{p.unidad}</span>
             </div>
 
             {/* Frecuente: aparece arriba en la botonera de venta */}
             <button
               onClick={() => handleToggleDestacado(p)}
               title={p.destacado ? 'Frecuente (aparece arriba en la venta)' : 'Marcar como frecuente'}
-              className={`p-1.5 rounded-lg transition-colors shrink-0 ${p.destacado ? 'text-amber-500' : 'text-inerte hover:text-gray-500'}`}
+              className={`p-1.5 rounded-lg transition-colors shrink-0 ${p.destacado ? 'text-amber-500' : 'text-inerte hover:text-secundario'}`}
             >
               <Star size={16} fill={p.destacado ? 'currentColor' : 'none'} />
             </button>
@@ -212,7 +212,7 @@ function CatalogoEditor({
                 }}
                 className="w-24 bg-white border border-[#D3D1C7] rounded px-2 py-1 text-xs text-gray-900 text-right focus:outline-none focus:ring-1 focus:ring-accent placeholder-gray-300"
               />
-              <span className="text-xs text-gray-500 whitespace-nowrap">u/pallet</span>
+              <span className="text-xs text-secundario whitespace-nowrap">u/pallet</span>
             </div>
             <button
               onClick={() => handleRemove(p.id)}
@@ -227,7 +227,7 @@ function CatalogoEditor({
       {/* Agregar producto */}
       <div className="border-t border-gray-200 pt-4 flex flex-wrap gap-2 items-end">
         <div className="flex-1 min-w-[160px]">
-          <label className="text-xs text-gray-500 uppercase tracking-wide">Nombre</label>
+          <label className="text-xs text-secundario uppercase tracking-wide">Nombre</label>
           <input
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
@@ -237,7 +237,7 @@ function CatalogoEditor({
           />
         </div>
         <div className="w-28">
-          <label className="text-xs text-gray-500 uppercase tracking-wide">Unidad</label>
+          <label className="text-xs text-secundario uppercase tracking-wide">Unidad</label>
           <select
             value={unidad}
             onChange={(e) => setUnidad(e.target.value)}

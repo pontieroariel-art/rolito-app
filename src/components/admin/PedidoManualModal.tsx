@@ -29,7 +29,7 @@ function ProductRow({
       <div>
         <p className="font-medium text-sm text-gray-900">{nombre}</p>
         {precio !== undefined && precio > 0 && (
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-xs text-secundario mt-0.5">
             ${precio.toLocaleString('es-AR')} / {unidad}
             {qty > 0 && <span className="text-accent ml-2 font-medium">= ${(precio * qty).toLocaleString('es-AR')}</span>}
           </p>
@@ -83,11 +83,11 @@ function StepCliente({
         className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent placeholder-gray-400"
       />
       {isLoading ? (
-        <p className="text-gray-500 text-sm text-center py-4">Cargando clientes…</p>
+        <p className="text-secundario text-sm text-center py-4">Cargando clientes…</p>
       ) : isError ? (
         <p className="text-red-600 text-sm text-center py-4">Error al cargar clientes. Verificá la conexión.</p>
       ) : filtered.length === 0 ? (
-        <p className="text-gray-500 text-sm text-center py-4">
+        <p className="text-secundario text-sm text-center py-4">
           {search ? 'Sin resultados para esa búsqueda' : 'No hay clientes activos'}
         </p>
       ) : (
@@ -99,7 +99,7 @@ function StepCliente({
               className="w-full text-left bg-[#F1EFE8] border border-[#D3D1C7] hover:border-accent/60 hover:bg-white rounded-xl px-4 py-3 transition-colors"
             >
               <p className="font-medium text-sm text-gray-900">{s.label}</p>
-              <p className="text-xs text-gray-500 mt-0.5 truncate">
+              <p className="text-xs text-secundario mt-0.5 truncate">
                 {s.user.cuit && <span className="mr-2">CUIT {s.user.cuit}</span>}
                 {s.address && <span>{s.address}</span>}
               </p>
@@ -302,14 +302,14 @@ function StepProductos({
           <p className="text-xs text-accent font-medium">Cliente</p>
           <p className="text-sm font-semibold text-white">{nombreCliente}</p>
         </div>
-        <button onClick={onBack} className="text-xs text-gray-500 hover:text-gray-700 transition-colors">
+        <button onClick={onBack} className="text-xs text-secundario hover:text-gray-700 transition-colors">
           Cambiar
         </button>
       </div>
 
       {/* Dirección */}
       <div>
-        <label className="text-xs text-gray-500 mb-1 block">Dirección de entrega</label>
+        <label className="text-xs text-secundario mb-1 block">Dirección de entrega</label>
         <input
           value={address}
           onChange={(e) => setAddress(e.target.value)}
@@ -335,7 +335,7 @@ function StepProductos({
       {/* Total */}
       {hasPrecios && total > 0 && (
         <div className="flex justify-between items-center bg-accent/5 border border-accent/20 rounded-xl px-4 py-2.5 text-sm">
-          <span className="text-gray-500">Total estimado</span>
+          <span className="text-secundario">Total estimado</span>
           <span className="font-bold text-white">${total.toLocaleString('es-AR')}</span>
         </div>
       )}
@@ -343,7 +343,7 @@ function StepProductos({
       {/* Fecha */}
       <div>
         <div className="flex items-center justify-between mb-1">
-          <label className="text-xs text-gray-500">{modoMulti ? 'Días de entrega' : 'Fecha de entrega'}</label>
+          <label className="text-xs text-secundario">{modoMulti ? 'Días de entrega' : 'Fecha de entrega'}</label>
           <button
             type="button"
             onClick={() => (modoMulti ? setModoMulti(false) : activarModoMulti())}
@@ -367,7 +367,7 @@ function StepProductos({
       {/* Orden de compra */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Orden de compra (opcional)</label>
+          <label className="text-xs text-secundario mb-1 block">Orden de compra (opcional)</label>
           <input
             value={ordenCompra}
             onChange={(e) => setOrdenCompra(e.target.value)}
@@ -376,7 +376,7 @@ function StepProductos({
           />
         </div>
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Fecha de emisión de la OC (opcional)</label>
+          <label className="text-xs text-secundario mb-1 block">Fecha de emisión de la OC (opcional)</label>
           <input
             type="date"
             value={fechaEmision}
@@ -388,7 +388,7 @@ function StepProductos({
 
       {/* Rango horario */}
       <div>
-        <label className="text-xs text-gray-500 mb-1 block">Rango horario del cliente (opcional)</label>
+        <label className="text-xs text-secundario mb-1 block">Rango horario del cliente (opcional)</label>
         <div className="flex items-center gap-2">
           <input
             type="time"
@@ -408,7 +408,7 @@ function StepProductos({
 
       {/* Notas */}
       <div>
-        <label className="text-xs text-gray-500 mb-1 block">Notas (opcional)</label>
+        <label className="text-xs text-secundario mb-1 block">Notas (opcional)</label>
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
@@ -493,7 +493,7 @@ export default function PedidoManualModal({
           <p className="text-gray-900 font-semibold">
             {doneCount > 1 ? `${doneCount} pedidos creados correctamente` : 'Pedido creado correctamente'}
           </p>
-          <p className="text-gray-500 text-sm">
+          <p className="text-secundario text-sm">
             {doneCount > 1
               ? `Entregas: ${doneFechas.map(fmtFecha).join(', ')}. Aparecen como pendientes en el panel de pedidos.`
               : `Entrega: ${doneFechas.map(fmtFecha).join(', ')}. Aparece como pendiente en el panel de pedidos.`}

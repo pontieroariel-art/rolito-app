@@ -58,7 +58,7 @@ function CrearOperarioModal({ onClose, onCreated }: { onClose: () => void; onCre
         />
         <p className="text-xs text-secundario -mt-2">El operario ingresa a /produccion-{planta} con su legajo y este PIN. Anotá el PIN y comunicáselo; se puede cambiar después.</p>
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Puesto</label>
+          <label className="text-xs text-secundario mb-1 block">Puesto</label>
           <div className="grid grid-cols-2 gap-2">
             {([
               { id: 'operario',   label: 'Operario',   desc: 'Carga pallets' },
@@ -77,7 +77,7 @@ function CrearOperarioModal({ onClose, onCreated }: { onClose: () => void; onCre
           </div>
         </div>
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Planta</label>
+          <label className="text-xs text-secundario mb-1 block">Planta</label>
           <select
             value={planta}
             onChange={(e: ChangeEvent<HTMLSelectElement>) => setPlanta(e.target.value as PlantaId)}
@@ -159,14 +159,14 @@ export default function OperariosProduccionPage() {
         <div className="flex flex-wrap justify-between items-center gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Operarios de producción</h1>
-            <p className="text-gray-500 text-sm">Personal de planta — login por legajo y PIN en /produccion-torcuato o /produccion-merlo</p>
+            <p className="text-secundario text-sm">Personal de planta — login por legajo y PIN en /produccion-torcuato o /produccion-merlo</p>
           </div>
           <Button onClick={() => setCrearModal(true)} className="text-sm">+ Nuevo operario</Button>
         </div>
 
         {operarios.length === 0 ? (
           <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center">
-            <p className="text-gray-500 text-sm">Todavía no cargaste ningún operario</p>
+            <p className="text-secundario text-sm">Todavía no cargaste ningún operario</p>
             <p className="text-secundario text-xs mt-1">Usá el botón "Nuevo operario" para empezar</p>
           </div>
         ) : (
@@ -180,7 +180,7 @@ export default function OperariosProduccionPage() {
               >
                 <div>
                   <p className="font-bold text-sm text-gray-900">{o.nombre}</p>
-                  <p className="text-gray-500 text-xs">
+                  <p className="text-secundario text-xs">
                     {o.subrol === 'maquinista' ? 'Maquinista' : 'Operario'} · Legajo {o.legajo}{o.planta ? ` · ${PLANTAS[o.planta].label}` : ''}
                   </p>
                 </div>
@@ -188,13 +188,13 @@ export default function OperariosProduccionPage() {
                   <span className={`text-xs px-2 py-1 rounded-full border font-medium ${
                     o.estado === 'activo'
                       ? 'bg-green-100 text-green-700 border-green-200'
-                      : 'bg-gray-100 text-gray-500 border-gray-200'
+                      : 'bg-gray-100 text-secundario border-gray-200'
                   }`}>
                     {o.estado === 'activo' ? 'Activo' : 'Inactivo'}
                   </span>
                   <button
                     onClick={() => setResetTarget(o)}
-                    className="text-xs text-gray-500 hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-4 py-2 transition-colors min-h-[36px]"
+                    className="text-xs text-secundario hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-4 py-2 transition-colors min-h-[36px]"
                   >
                     Resetear PIN
                   </button>
@@ -203,7 +203,7 @@ export default function OperariosProduccionPage() {
                       await updateUserStatus(o.uid, o.estado === 'activo' ? 'inactivo' : 'activo')
                       refetch()
                     }}
-                    className="text-xs text-gray-500 hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-4 py-2 transition-colors min-h-[36px]"
+                    className="text-xs text-secundario hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-4 py-2 transition-colors min-h-[36px]"
                   >
                     {o.estado === 'activo' ? 'Desactivar' : 'Activar'}
                   </button>

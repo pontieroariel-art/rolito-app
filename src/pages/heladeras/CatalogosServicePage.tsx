@@ -70,7 +70,7 @@ function MotivosIngresoEditor({ motivos, onSaved }: { motivos: MotivoIngreso[]; 
     <section className="bg-white border border-[#D3D1C7] rounded-xl p-5 space-y-4">
       <div>
         <h2 className="text-sm font-semibold text-gray-900">Motivos de ingreso a depósito</h2>
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-xs text-secundario mt-1">
           Por qué entra una heladera al taller. Es obligatorio al cargarla. El tipo de operación
           (retiro o cambio) queda fijo por motivo.
         </p>
@@ -80,10 +80,10 @@ function MotivosIngresoEditor({ motivos, onSaved }: { motivos: MotivoIngreso[]; 
         {motivos.map((m) => (
           <div key={m.id} className="flex items-center gap-3 bg-gray-50 border border-[#D3D1C7] rounded-lg px-3 py-2.5">
             <span className={`flex-1 text-sm ${m.activo ? 'text-gray-900' : 'text-secundario line-through'}`}>{m.nombre}</span>
-            <span className="text-xs text-gray-500 shrink-0">{TIPO_OPERACION_LABELS[m.tipoOperacion]}</span>
+            <span className="text-xs text-secundario shrink-0">{TIPO_OPERACION_LABELS[m.tipoOperacion]}</span>
             <button
               onClick={() => toggle(m.id, { activo: !m.activo })}
-              className="text-xs text-gray-500 hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-3 py-1.5 transition-colors shrink-0"
+              className="text-xs text-secundario hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-3 py-1.5 transition-colors shrink-0"
             >
               {m.activo ? 'Desactivar' : 'Activar'}
             </button>
@@ -99,7 +99,7 @@ function MotivosIngresoEditor({ motivos, onSaved }: { motivos: MotivoIngreso[]; 
 
       <div className="border-t border-gray-200 pt-4 flex gap-2 items-end flex-wrap">
         <div className="flex-1 min-w-[160px]">
-          <label className="text-xs text-gray-500 uppercase tracking-wide">Nuevo motivo</label>
+          <label className="text-xs text-secundario uppercase tracking-wide">Nuevo motivo</label>
           <input
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
@@ -108,7 +108,7 @@ function MotivosIngresoEditor({ motivos, onSaved }: { motivos: MotivoIngreso[]; 
           />
         </div>
         <div>
-          <label className="text-xs text-gray-500 uppercase tracking-wide">Tipo</label>
+          <label className="text-xs text-secundario uppercase tracking-wide">Tipo</label>
           <select
             value={tipoOperacion}
             onChange={(e) => setTipoOperacion(e.target.value as TipoOperacionIngreso)}
@@ -178,7 +178,7 @@ function MotivosEditor({ motivos, onSaved }: { motivos: MotivoReparacion[]; onSa
     <section className="bg-white border border-[#D3D1C7] rounded-xl p-5 space-y-4">
       <div>
         <h2 className="text-sm font-semibold text-gray-900">Motivos de reparación</h2>
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-xs text-secundario mt-1">
           Qué le pasa a la heladera. Se elige al tomar un service. Marcá "requiere chofer" para los
           motivos que son retiro, cambio o entrega de equipo (van a un chofer, no a un técnico).
         </p>
@@ -188,17 +188,17 @@ function MotivosEditor({ motivos, onSaved }: { motivos: MotivoReparacion[]; onSa
         {motivos.map((m) => (
           <div key={m.id} className="flex items-center gap-3 bg-gray-50 border border-[#D3D1C7] rounded-lg px-3 py-2.5">
             <span className={`flex-1 text-sm ${m.activo ? 'text-gray-900' : 'text-secundario line-through'}`}>{m.nombre}</span>
-            <label className="flex items-center gap-1.5 text-xs text-gray-500 shrink-0">
+            <label className="flex items-center gap-1.5 text-xs text-secundario shrink-0">
               <input type="checkbox" checked={!!m.requiereChofer} onChange={(e) => toggle(m.id, { requiereChofer: e.target.checked })} />
               Requiere chofer
             </label>
-            <label className="flex items-center gap-1.5 text-xs text-gray-500 shrink-0">
+            <label className="flex items-center gap-1.5 text-xs text-secundario shrink-0">
               <input type="checkbox" checked={!!m.urgente} onChange={(e) => toggle(m.id, { urgente: e.target.checked })} />
               Urgente
             </label>
             <button
               onClick={() => toggle(m.id, { activo: !m.activo })}
-              className="text-xs text-gray-500 hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-3 py-1.5 transition-colors shrink-0"
+              className="text-xs text-secundario hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-3 py-1.5 transition-colors shrink-0"
             >
               {m.activo ? 'Desactivar' : 'Activar'}
             </button>
@@ -214,7 +214,7 @@ function MotivosEditor({ motivos, onSaved }: { motivos: MotivoReparacion[]; onSa
 
       <div className="border-t border-gray-200 pt-4 flex gap-2 items-end">
         <div className="flex-1">
-          <label className="text-xs text-gray-500 uppercase tracking-wide">Nuevo motivo</label>
+          <label className="text-xs text-secundario uppercase tracking-wide">Nuevo motivo</label>
           <input
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
@@ -283,7 +283,7 @@ function TiposEditor({ tipos, onSaved }: { tipos: TipoReparacion[]; onSaved: () 
     <section className="bg-white border border-[#D3D1C7] rounded-xl p-5 space-y-4">
       <div>
         <h2 className="text-sm font-semibold text-gray-900">Tipos de reparación</h2>
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-xs text-secundario mt-1">
           Qué trabajo se le hizo al equipo — sectorizado por pintura/lijado/refrigeración. Cada
           técnico y cada integrante de taller solo ve los tipos de su propio sector.
         </p>
@@ -302,7 +302,7 @@ function TiposEditor({ tipos, onSaved }: { tipos: TipoReparacion[]; onSaved: () 
             </select>
             <button
               onClick={() => toggle(t.id, { activo: !t.activo })}
-              className="text-xs text-gray-500 hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-3 py-1.5 transition-colors shrink-0"
+              className="text-xs text-secundario hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-3 py-1.5 transition-colors shrink-0"
             >
               {t.activo ? 'Desactivar' : 'Activar'}
             </button>
@@ -318,7 +318,7 @@ function TiposEditor({ tipos, onSaved }: { tipos: TipoReparacion[]; onSaved: () 
 
       <div className="border-t border-gray-200 pt-4 flex gap-2 items-end flex-wrap">
         <div className="flex-1 min-w-[160px]">
-          <label className="text-xs text-gray-500 uppercase tracking-wide">Nuevo tipo</label>
+          <label className="text-xs text-secundario uppercase tracking-wide">Nuevo tipo</label>
           <input
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
@@ -327,7 +327,7 @@ function TiposEditor({ tipos, onSaved }: { tipos: TipoReparacion[]; onSaved: () 
           />
         </div>
         <div>
-          <label className="text-xs text-gray-500 uppercase tracking-wide">Sector</label>
+          <label className="text-xs text-secundario uppercase tracking-wide">Sector</label>
           <select
             value={area}
             onChange={(e) => setArea(e.target.value as AreaHeladera)}
@@ -429,7 +429,7 @@ function PasosTallerEditor({ pasos, onSaved }: { pasos: Record<string, PasoTalle
     <section className="bg-white border border-[#D3D1C7] rounded-xl p-5 space-y-5">
       <div>
         <h2 className="text-sm font-semibold text-gray-900">Pasos de taller</h2>
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-xs text-secundario mt-1">
           Los pasos del pipeline de fabricación (heladeras nuevas) y de reacondicionamiento
           (heladeras usadas). El orden define la secuencia; "requiere aprobación" agrega un control
           con aprobar/rechazar (como control de calidad) en vez de una única salida.
@@ -457,13 +457,13 @@ function PasosTallerEditor({ pasos, onSaved }: { pasos: Record<string, PasoTalle
                   ><ChevronDown size={14} /></button>
                 </div>
                 <span className={`flex-1 text-sm ${p.activo ? 'text-gray-900' : 'text-secundario line-through'}`}>{p.nombre}</span>
-                <span className="text-xs text-gray-500 shrink-0">{AREA_HELADERA_LABELS[p.area]}</span>
+                <span className="text-xs text-secundario shrink-0">{AREA_HELADERA_LABELS[p.area]}</span>
                 {p.requiereAprobacion && (
                   <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 shrink-0">requiere aprobación</span>
                 )}
                 <button
                   onClick={() => patch(p.id, { activo: !p.activo })}
-                  className="text-xs text-gray-500 hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-3 py-1.5 transition-colors shrink-0"
+                  className="text-xs text-secundario hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-3 py-1.5 transition-colors shrink-0"
                 >
                   {p.activo ? 'Desactivar' : 'Activar'}
                 </button>
@@ -480,7 +480,7 @@ function PasosTallerEditor({ pasos, onSaved }: { pasos: Record<string, PasoTalle
 
       <div className="border-t border-gray-200 pt-4 flex gap-2 items-end flex-wrap">
         <div className="flex-1 min-w-[160px]">
-          <label className="text-xs text-gray-500 uppercase tracking-wide">Nuevo paso</label>
+          <label className="text-xs text-secundario uppercase tracking-wide">Nuevo paso</label>
           <input
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
@@ -489,7 +489,7 @@ function PasosTallerEditor({ pasos, onSaved }: { pasos: Record<string, PasoTalle
           />
         </div>
         <div>
-          <label className="text-xs text-gray-500 uppercase tracking-wide">Pipeline</label>
+          <label className="text-xs text-secundario uppercase tracking-wide">Pipeline</label>
           <select
             value={tipoPipeline}
             onChange={(e) => setTipoPipeline(e.target.value as TipoPipelineHeladera)}
@@ -500,7 +500,7 @@ function PasosTallerEditor({ pasos, onSaved }: { pasos: Record<string, PasoTalle
           </select>
         </div>
         <div>
-          <label className="text-xs text-gray-500 uppercase tracking-wide">Sector</label>
+          <label className="text-xs text-secundario uppercase tracking-wide">Sector</label>
           <select
             value={area}
             onChange={(e) => setArea(e.target.value as AreaHeladera)}
@@ -509,7 +509,7 @@ function PasosTallerEditor({ pasos, onSaved }: { pasos: Record<string, PasoTalle
             {AREAS_HELADERA.map((a) => <option key={a} value={a}>{AREA_HELADERA_LABELS[a]}</option>)}
           </select>
         </div>
-        <label className="flex items-center gap-1.5 text-xs text-gray-500 pb-2">
+        <label className="flex items-center gap-1.5 text-xs text-secundario pb-2">
           <input type="checkbox" checked={requiereAprobacion} onChange={(e) => setRequiereAprobacion(e.target.checked)} />
           Requiere aprobación
         </label>
@@ -554,7 +554,7 @@ export default function CatalogosServicePage() {
       <main className="max-w-2xl mx-auto p-4 space-y-6 pb-10">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Catálogos de service</h1>
-          <p className="text-gray-500 text-sm">Pasos de taller, motivos de ingreso, motivos y tipos de reparación</p>
+          <p className="text-secundario text-sm">Pasos de taller, motivos de ingreso, motivos y tipos de reparación</p>
         </div>
 
         <PasosTallerEditor pasos={pasos} onSaved={() => { qc.invalidateQueries({ queryKey: ['pasosTaller'] }); logCatalogo('pasosTaller', 'Pasos de taller') }} />

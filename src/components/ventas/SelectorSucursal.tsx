@@ -15,7 +15,7 @@ export default function SelectorSucursal({ cliente, empresa, value, onChange }: 
   if (lista.length <= 1) return null
   return (
     <div>
-      <label className="text-xs text-gray-500 mb-1 flex items-center gap-1">
+      <label className="text-xs text-secundario mb-1 flex items-center gap-1">
         <MapPin size={12} /> Sucursal ({lista.length} códigos en Tango)
       </label>
       <select value={value} onChange={(e) => onChange(e.target.value)}

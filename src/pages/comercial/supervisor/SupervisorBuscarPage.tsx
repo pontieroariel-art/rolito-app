@@ -47,12 +47,12 @@ export default function SupervisorBuscarPage() {
         </div>
 
         {loading ? (
-          <p className="text-sm text-gray-500 text-center pt-8">Cargando clientes…</p>
+          <p className="text-sm text-secundario text-center pt-8">Cargando clientes…</p>
         ) : resultados.length === 0 ? (
-          <p className="text-sm text-gray-500 text-center py-6">Ningún cliente coincide.</p>
+          <p className="text-sm text-secundario text-center py-6">Ningún cliente coincide.</p>
         ) : (
           <>
-            <p className="text-xs text-gray-500 px-1">
+            <p className="text-xs text-secundario px-1">
               {resultados.length === MAX_RESULTADOS ? `Primeros ${MAX_RESULTADOS} de ${clientes.length} clientes: afiná la búsqueda` : `${resultados.length} ${resultados.length === 1 ? 'cliente' : 'clientes'}`}
             </p>
             <div className="space-y-2">
@@ -65,7 +65,7 @@ export default function SupervisorBuscarPage() {
                     <div className="flex items-center gap-2">
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-gray-900 truncate">{c.razonSocial}</p>
-                        <p className="text-xs text-gray-500 truncate">
+                        <p className="text-xs text-secundario truncate">
                           {c.codigos.length ? `${c.codigos[0]}${c.codigos.length > 1 ? ` +${c.codigos.length - 1}` : ''}` : 'Sin código de Tango'}{c.cuit ? ` · CUIT ${c.cuit}` : ''}
                         </p>
                         {dir?.address && <p className="text-xs text-secundario truncate">{dir.address}</p>}

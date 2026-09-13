@@ -37,7 +37,7 @@ export default function CalculadoraCantidad({
   return (
     <Modal open={open} onClose={onClose} title={producto.nombre} variant="light">
       <div className="space-y-4">
-        <p className="text-sm text-gray-500 -mt-2">{money(precioUnitario)} / {producto.unidad}</p>
+        <p className="text-sm text-secundario -mt-2">{money(precioUnitario)} / {producto.unidad}</p>
 
         <div className="bg-[#F8F7F2] border border-[#D3D1C7] rounded-xl px-4 py-3 text-right">
           <span className="text-4xl font-black tabular-nums text-gray-900">{buf || '0'}</span>
@@ -54,7 +54,7 @@ export default function CalculadoraCantidad({
             </button>
           ))}
           <button onClick={clear}
-            className="h-14 rounded-xl border border-[#D3D1C7] bg-white text-lg font-semibold text-gray-500 active:scale-95 transition-transform">
+            className="h-14 rounded-xl border border-[#D3D1C7] bg-white text-lg font-semibold text-secundario active:scale-95 transition-transform">
             C
           </button>
           <button onClick={() => push('0')}
@@ -62,7 +62,7 @@ export default function CalculadoraCantidad({
             0
           </button>
           <button onClick={back} aria-label="Borrar"
-            className="h-14 rounded-xl border border-[#D3D1C7] bg-white text-gray-500 flex items-center justify-center active:scale-95 transition-transform">
+            className="h-14 rounded-xl border border-[#D3D1C7] bg-white text-secundario flex items-center justify-center active:scale-95 transition-transform">
             <Delete size={22} />
           </button>
         </div>

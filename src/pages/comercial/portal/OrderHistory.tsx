@@ -83,7 +83,7 @@ export default function OrderHistory() {
       <main className="max-w-2xl mx-auto p-4 pt-10 text-center space-y-3">
         <p className="text-4xl">⚠️</p>
         <p className="text-red-600 font-semibold">No se pudo conectar</p>
-        <p className="text-gray-500 text-sm">Revisá tu conexión a internet e intentá de nuevo.</p>
+        <p className="text-secundario text-sm">Revisá tu conexión a internet e intentá de nuevo.</p>
         <button
           onClick={() => window.location.reload()}
           className="mt-4 text-sm border border-accent text-accent rounded-lg px-4 py-2 hover:bg-accent/10 transition-colors"
@@ -108,7 +108,7 @@ export default function OrderHistory() {
               </Link>
             </div>
           ) : (
-            <p className="text-gray-500 text-sm mt-1">
+            <p className="text-secundario text-sm mt-1">
               {branchOrders.length} pedido{branchOrders.length !== 1 ? 's' : ''} en total
             </p>
           )}
@@ -116,18 +116,18 @@ export default function OrderHistory() {
 
         {stats.thisMonth > 0 || stats.lastMonth > 0 ? (
           <div className="bg-white border border-gray-200 rounded-2xl p-4 space-y-4">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+            <p className="text-xs font-medium text-secundario uppercase tracking-wide">
               Mi consumo — últimos 6 meses
             </p>
 
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-0.5">
-                <p className="text-xs text-gray-500">Este mes</p>
+                <p className="text-xs text-secundario">Este mes</p>
                 <p className="text-2xl font-bold text-accent">{stats.thisMonth}</p>
-                <p className="text-xs text-gray-500">unidades</p>
+                <p className="text-xs text-secundario">unidades</p>
               </div>
               <div className="space-y-0.5">
-                <p className="text-xs text-gray-500">Mes anterior</p>
+                <p className="text-xs text-secundario">Mes anterior</p>
                 <p className="text-2xl font-bold text-gray-900">{stats.lastMonth}</p>
                 {stats.delta !== null && (
                   <p className={`text-xs font-medium ${stats.delta >= 0 ? 'text-accent' : 'text-red-500'}`}>
@@ -137,9 +137,9 @@ export default function OrderHistory() {
               </div>
               {stats.topProd && (
                 <div className="space-y-0.5">
-                  <p className="text-xs text-gray-500">Más pedido</p>
+                  <p className="text-xs text-secundario">Más pedido</p>
                   <p className="text-sm font-semibold text-gray-900 leading-tight">{stats.topProd.nombre}</p>
-                  <p className="text-xs text-gray-500">{stats.topProd.qty} u.</p>
+                  <p className="text-xs text-secundario">{stats.topProd.qty} u.</p>
                 </div>
               )}
             </div>
@@ -184,7 +184,7 @@ export default function OrderHistory() {
               className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                 filter === s
                   ? 'bg-accent text-white border-accent'
-                  : 'border-gray-200 text-gray-500 hover:border-accent/50 hover:text-gray-900'
+                  : 'border-gray-200 text-secundario hover:border-accent/50 hover:text-gray-900'
               }`}
             >
               {s === 'all' ? 'Todos' : STATUS_LABELS[s]}
@@ -244,7 +244,7 @@ function OrderCard({ order }: { order: Order }) {
       <div className="flex justify-between items-start gap-3">
         <div className="min-w-0">
           <p className="font-medium text-sm text-gray-900">{summarizeProducts(order.products)}</p>
-          <p className="text-gray-500 text-xs mt-1">Entrega: {formatDate(order.date)}</p>
+          <p className="text-secundario text-xs mt-1">Entrega: {formatDate(order.date)}</p>
           <p className="text-secundario text-xs">Pedido el: {formatShortDate(order.createdAt)}</p>
         </div>
         <Badge status={order.status} variant="light" />
@@ -254,16 +254,16 @@ function OrderCard({ order }: { order: Order }) {
         <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs space-y-0.5">
           <p className="text-amber-700 font-medium">Pedido reprogramado</p>
           {order.fechaOriginal && (
-            <p className="text-gray-500">Fecha original: {formatShortDate(order.fechaOriginal)}</p>
+            <p className="text-secundario">Fecha original: {formatShortDate(order.fechaOriginal)}</p>
           )}
           {order.motivoReprogramacion && (
-            <p className="text-gray-500">Motivo: {order.motivoReprogramacion}</p>
+            <p className="text-secundario">Motivo: {order.motivoReprogramacion}</p>
           )}
         </div>
       )}
 
       {order.notes && (
-        <p className="text-xs text-gray-500 italic border-t border-[#E7E5DC] pt-2">"{order.notes}"</p>
+        <p className="text-xs text-secundario italic border-t border-[#E7E5DC] pt-2">"{order.notes}"</p>
       )}
 
       {user?.address && (

@@ -36,7 +36,7 @@ export default function ForgotPassword() {
             <span className="text-3xl">✉️</span>
           </div>
           <p className="text-success font-medium">Email enviado correctamente</p>
-          <p className="text-gray-500 text-sm">
+          <p className="text-secundario text-sm">
             Revisá tu bandeja de entrada y seguí las instrucciones para restablecer tu contraseña.
           </p>
           <Link
@@ -71,7 +71,7 @@ export default function ForgotPassword() {
 
           <Link
             to="/login"
-            className="text-center text-sm text-gray-500 hover:text-accent transition-colors"
+            className="text-center text-sm text-secundario hover:text-accent transition-colors"
           >
             ← Volver al login
           </Link>

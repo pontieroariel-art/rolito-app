@@ -191,18 +191,18 @@ export default function SyncPreciosTangoPanel({ solo }: { solo?: SyncId } = {}) 
       {!solo && (
         <div className="p-4 pb-3">
           <p className="text-sm font-semibold text-gray-900">Sincronización con Tango</p>
-          <p className="text-xs text-gray-500">Tango es la fuente maestra. Estos datos se editan en Tango y bajan a la app por Tango Connect.</p>
+          <p className="text-xs text-secundario">Tango es la fuente maestra. Estos datos se editan en Tango y bajan a la app por Tango Connect.</p>
         </div>
       )}
       {visibles.map((f) => (
         <div key={f.id} className="p-4 flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 space-y-1 flex-1">
             <p className="text-sm font-semibold text-gray-900">{solo ? 'Precios de Tango' : f.titulo}</p>
-            <p className="text-xs text-gray-500">{f.descripcion}</p>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-secundario">{f.descripcion}</p>
+            <p className="text-xs text-secundario">
               Última sincronización: <span className="text-gray-900">{fecha(f.info)}</span>
             </p>
-            {f.detalle && <div className="text-xs text-gray-500">{f.detalle}</div>}
+            {f.detalle && <div className="text-xs text-secundario">{f.detalle}</div>}
           </div>
           <Button onClick={() => correr(f.id)} disabled={corriendo !== null || (f.id === 'altas' && !info?.altas?.enabled)} variant="outline" className="shrink-0">
             <RefreshCw size={14} className={corriendo === f.id ? 'animate-spin' : ''} />

@@ -148,13 +148,13 @@ function PendingCoordPanel({
   return (
     <div className="border-t border-orange-100 pt-3">
       <p className="text-xs font-semibold text-orange-600 mb-1">📍 Punto propuesto por chofer</p>
-      <p className="text-xs text-gray-500 mb-1">{coord.choferNombre} · {fecha}</p>
+      <p className="text-xs text-secundario mb-1">{coord.choferNombre} · {fecha}</p>
       <p className="text-xs text-secundario mb-3">{coord.lat.toFixed(6)}, {coord.lng.toFixed(6)}</p>
       <div className="flex gap-2">
         <button
           onClick={() => handle('reject')}
           disabled={loading !== null}
-          className="flex-1 text-xs py-2 rounded-lg border border-gray-200 text-gray-500 hover:border-red-300 hover:text-red-500 transition-colors disabled:opacity-50"
+          className="flex-1 text-xs py-2 rounded-lg border border-gray-200 text-secundario hover:border-red-300 hover:text-red-500 transition-colors disabled:opacity-50"
         >
           {loading === 'reject' ? '...' : 'Rechazar'}
         </button>
@@ -458,7 +458,7 @@ export default function ClientesMapPage() {
               </button>
               <h1 className="text-base font-bold text-gray-900">Mapa de clientes</h1>
             </div>
-            <p className="text-xs text-gray-500 pl-6">
+            <p className="text-xs text-secundario pl-6">
               {withCoords.length} en mapa · {withoutCoords.length} sin geocodificar
             </p>
           </div>
@@ -483,12 +483,12 @@ export default function ClientesMapPage() {
 
           {/* Filtro sector */}
           <div className="px-3 pb-3 border-b border-[#D3D1C7]">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Sector</p>
+            <p className="text-xs font-semibold text-secundario uppercase tracking-wide mb-2">Sector</p>
             <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1">
               <button
                 onClick={() => setSectorFilter('all')}
                 className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
-                  sectorFilter === 'all' ? 'bg-gray-900 text-white border-gray-900' : 'border-[#D3D1C7] text-gray-500 hover:border-gray-400'
+                  sectorFilter === 'all' ? 'bg-gray-900 text-white border-gray-900' : 'border-[#D3D1C7] text-secundario hover:border-gray-400'
                 }`}
               >
                 Todos ({allSucursales.length})
@@ -501,7 +501,7 @@ export default function ClientesMapPage() {
                     key={s}
                     onClick={() => setSectorFilter(active ? 'all' : s)}
                     className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
-                      active ? 'bg-gray-900 text-white border-gray-900' : 'border-[#D3D1C7] text-gray-500 hover:border-gray-400'
+                      active ? 'bg-gray-900 text-white border-gray-900' : 'border-[#D3D1C7] text-secundario hover:border-gray-400'
                     }`}
                   >
                     {s} ({count})
@@ -513,7 +513,7 @@ export default function ClientesMapPage() {
 
           {/* Filtro estado */}
           <div className="px-3 pb-3 border-b border-[#D3D1C7]">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Estado</p>
+            <p className="text-xs font-semibold text-secundario uppercase tracking-wide mb-2">Estado</p>
             <div className="flex flex-wrap gap-1.5">
               {(['all', 'activo', 'pendiente', 'inactivo'] as const).map((e) => {
                 const label  = e === 'all' ? 'Todos' : e === 'activo' ? 'Activo' : e === 'pendiente' ? 'Pendiente' : 'Inactivo'
@@ -527,7 +527,7 @@ export default function ClientesMapPage() {
                     key={e}
                     onClick={() => setEstadoFilter(e)}
                     className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
-                      active ? colors : 'border-[#D3D1C7] text-gray-500 hover:border-gray-400'
+                      active ? colors : 'border-[#D3D1C7] text-secundario hover:border-gray-400'
                     }`}
                   >
                     {label}
@@ -545,12 +545,12 @@ export default function ClientesMapPage() {
           {/* Filtro vendedor */}
           {vendedores.length > 0 && (
             <div className="px-3 pb-3 border-b border-[#D3D1C7]">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Vendedor</p>
+              <p className="text-xs font-semibold text-secundario uppercase tracking-wide mb-2">Vendedor</p>
               <div className="flex flex-wrap gap-1.5">
                 <button
                   onClick={() => setVendedorFilter('all')}
                   className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
-                    vendedorFilter === 'all' ? 'bg-gray-900 text-white border-gray-900' : 'border-[#D3D1C7] text-gray-500 hover:border-gray-400'
+                    vendedorFilter === 'all' ? 'bg-gray-900 text-white border-gray-900' : 'border-[#D3D1C7] text-secundario hover:border-gray-400'
                   }`}
                 >
                   Todos
@@ -581,7 +581,7 @@ export default function ClientesMapPage() {
               className={`w-full flex items-center justify-between px-3 py-2 rounded-xl border text-xs font-medium transition-colors ${
                 soloSinGeo
                   ? 'bg-amber-50 border-amber-300 text-amber-700'
-                  : 'border-[#D3D1C7] text-gray-500 hover:border-gray-400 hover:text-gray-700'
+                  : 'border-[#D3D1C7] text-secundario hover:border-gray-400 hover:text-gray-700'
               }`}
             >
               <span className="flex items-center gap-1.5">
@@ -619,7 +619,7 @@ export default function ClientesMapPage() {
             <div className="p-3 border-b border-[#D3D1C7]">
               {geocoding ? (
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs text-gray-500">
+                  <div className="flex items-center justify-between text-xs text-secundario">
                     <span className="flex items-center gap-1.5">
                       <Loader2 size={12} className="animate-spin text-accent" />
                       Geocodificando... {geoProgress.done}/{geoProgress.total}
@@ -648,7 +648,7 @@ export default function ClientesMapPage() {
           {/* Leyenda */}
           <div className="flex-1 overflow-y-auto p-3 space-y-3">
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Color → Vendedor</p>
+              <p className="text-xs font-semibold text-secundario uppercase tracking-wide mb-1.5">Color → Vendedor</p>
               <div className="space-y-1">
                 {vendedores.map((v) => {
                   const color  = getVendedorColor(v)
@@ -670,7 +670,7 @@ export default function ClientesMapPage() {
                 })}
                 <div className="flex items-center gap-2.5 px-2.5 py-1.5">
                   <span className="w-3 h-3 rounded-full shrink-0 bg-gray-400" />
-                  <span className="text-sm text-gray-500 flex-1">Sin vendedor</span>
+                  <span className="text-sm text-secundario flex-1">Sin vendedor</span>
                   <span className="text-xs text-secundario">
                     {filtered.filter((s) => !s.user.codVendedor && geoResults.get(s.key)).length}/
                     {filtered.filter((s) => !s.user.codVendedor).length}
@@ -680,7 +680,7 @@ export default function ClientesMapPage() {
             </div>
 
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Anillo → Estado</p>
+              <p className="text-xs font-semibold text-secundario uppercase tracking-wide mb-1.5">Anillo → Estado</p>
               <div className="space-y-1">
                 {[
                   { key: 'activo',    label: 'Activo',    color: '#10B981' },
@@ -699,7 +699,7 @@ export default function ClientesMapPage() {
 
           {/* Total footer */}
           <div className="p-3 border-t border-[#D3D1C7]">
-            <div className="flex items-center gap-2 text-xs text-gray-500">
+            <div className="flex items-center gap-2 text-xs text-secundario">
               <Users size={12} />
               <span>{filtered.length} sucursales · {withCoords.length} en mapa</span>
             </div>
@@ -746,7 +746,7 @@ export default function ClientesMapPage() {
               <div className="bg-white/95 border border-[#D3D1C7] rounded-2xl px-8 py-6 text-center shadow-xl pointer-events-auto max-w-xs">
                 <MapPin size={36} className="text-inerte mx-auto mb-3" />
                 <p className="text-base font-semibold text-gray-900 mb-1">Sin ubicaciones</p>
-                <p className="text-sm text-gray-500 mb-4">
+                <p className="text-sm text-secundario mb-4">
                   Geocodificá las sucursales para verlas en el mapa
                 </p>
                 <button

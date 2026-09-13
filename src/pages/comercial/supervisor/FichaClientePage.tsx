@@ -22,7 +22,7 @@ export default function FichaClientePage() {
     <div className="min-h-screen min-h-dvh bg-[#F8F7F2]">
       <SupervisorHeader title={cliente?.razonSocial ?? 'Ficha del cliente'} back />
       <main className="max-w-md mx-auto p-4 space-y-3 pb-10">
-        {cargando && <p className="text-sm text-gray-500 text-center pt-8">Cargando ficha…</p>}
+        {cargando && <p className="text-sm text-secundario text-center pt-8">Cargando ficha…</p>}
         {!cargando && error && (
           <div className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-4 text-center">
             <p className="text-sm text-gray-600">{error}</p>
@@ -32,7 +32,7 @@ export default function FichaClientePage() {
           <>
             <div className="px-1">
               <h1 className="text-lg font-bold text-gray-900 leading-tight">{cliente.razonSocial}</h1>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-secundario">
                 {codigosTangoResumen(cliente) || 'Sin código de Tango'}
                 {cliente.estado !== 'activo' && <span className="text-amber-600"> · {cliente.estado}</span>}
               </p>

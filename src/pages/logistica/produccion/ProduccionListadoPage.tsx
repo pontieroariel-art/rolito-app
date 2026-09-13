@@ -32,7 +32,7 @@ export default function ProduccionListadoPage() {
       <main className="max-w-3xl mx-auto p-4 space-y-4 pb-10">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Producción de hielo</h1>
-          <p className="text-gray-500 text-sm">Últimos pallets cargados</p>
+          <p className="text-secundario text-sm">Últimos pallets cargados</p>
         </div>
 
         <ProduccionResumen />
@@ -66,13 +66,13 @@ export default function ProduccionListadoPage() {
           <LoadingSpinner />
         ) : filtrados.length === 0 ? (
           <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center">
-            <p className="text-gray-500 text-sm">No hay pallets que coincidan con el filtro.</p>
+            <p className="text-secundario text-sm">No hay pallets que coincidan con el filtro.</p>
           </div>
         ) : (
           <div className="overflow-x-auto bg-white border border-[#D3D1C7] rounded-xl">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-xs text-gray-500 border-b border-[#D3D1C7]">
+                <tr className="text-left text-xs text-secundario border-b border-[#D3D1C7]">
                   <th className="px-4 py-2">Código</th>
                   <th className="px-4 py-2">Planta</th>
                   <th className="px-4 py-2">Producto</th>
@@ -92,7 +92,7 @@ export default function ProduccionListadoPage() {
                     <td className="px-4 py-2">{p.productoNombre}</td>
                     <td className="px-4 py-2">{p.unidades}</td>
                     <td className="px-4 py-2">{p.operador.nombre}</td>
-                    <td className="px-4 py-2 text-gray-500">
+                    <td className="px-4 py-2 text-secundario">
                       {p.fechaFabricacion.toDate().toLocaleString('es-AR')}
                     </td>
                     <td className="px-4 py-2">

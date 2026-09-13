@@ -70,7 +70,7 @@ export default function RankingConsumoPage() {
         <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Ranking de consumo</h1>
-            <p className="text-gray-500 text-sm mt-0.5">{monthLabel}</p>
+            <p className="text-secundario text-sm mt-0.5">{monthLabel}</p>
           </div>
           <div className="flex items-center gap-1">
             <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-white border border-transparent hover:border-gray-200 transition-colors">
@@ -102,10 +102,10 @@ export default function RankingConsumoPage() {
             <table className="w-full text-sm min-w-[560px]">
               <thead>
                 <tr className="border-b border-[#D3D1C7] bg-[#F8F7F2]">
-                  <th className="text-left text-gray-500 text-xs py-3 px-4 font-medium">Cliente</th>
-                  <th className="text-right text-gray-500 text-xs py-3 px-4 font-medium">Kg de hielo</th>
-                  <th className="text-right text-gray-500 text-xs py-3 px-4 font-medium">Pedidos</th>
-                  <th className="text-center text-gray-500 text-xs py-3 px-4 font-medium">Heladera asignada</th>
+                  <th className="text-left text-secundario text-xs py-3 px-4 font-medium">Cliente</th>
+                  <th className="text-right text-secundario text-xs py-3 px-4 font-medium">Kg de hielo</th>
+                  <th className="text-right text-secundario text-xs py-3 px-4 font-medium">Pedidos</th>
+                  <th className="text-center text-secundario text-xs py-3 px-4 font-medium">Heladera asignada</th>
                 </tr>
               </thead>
               <tbody>
@@ -113,7 +113,7 @@ export default function RankingConsumoPage() {
                   <tr key={r.clientId} className="border-b border-[#E7E5DC] last:border-0 hover:bg-gray-50 transition-colors">
                     <td className="py-2.5 px-4 text-gray-900">{r.nombre}</td>
                     <td className="py-2.5 px-4 text-right font-medium text-accent">{r.kg.toLocaleString('es-AR')}</td>
-                    <td className="py-2.5 px-4 text-right text-gray-500">{r.pedidos}</td>
+                    <td className="py-2.5 px-4 text-right text-secundario">{r.pedidos}</td>
                     <td className="py-2.5 px-4 text-center">
                       {clientesConHeladera.has(r.clientId) ? (
                         <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 border border-green-200">Sí</span>

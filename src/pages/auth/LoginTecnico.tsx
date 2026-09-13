@@ -91,13 +91,13 @@ export default function LoginTecnico() {
 
         <div className="flex items-center gap-3 my-1">
           <div className="flex-1 h-px bg-border" />
-          <span className="text-xs text-gray-500">o</span>
+          <span className="text-xs text-secundario">o</span>
           <div className="flex-1 h-px bg-border" />
         </div>
 
         <p className="text-center text-xs text-secundario">
           ¿Sos del equipo Rolito?{' '}
-          <Link to="/empresa" className="text-gray-500 hover:text-accent transition-colors">
+          <Link to="/empresa" className="text-secundario hover:text-accent transition-colors">
             Ingresá acá
           </Link>
         </p>

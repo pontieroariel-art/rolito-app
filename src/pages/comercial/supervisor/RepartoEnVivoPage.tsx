@@ -47,7 +47,7 @@ export default function RepartoEnVivoPage() {
       <SupervisorHeader title="Reparto en vivo" back />
       <main className="max-w-md mx-auto p-4 space-y-3 pb-10">
         {!fuentes ? (
-          <p className="text-sm text-gray-500 text-center pt-8">Cargando el reparto de hoy…</p>
+          <p className="text-sm text-secundario text-center pt-8">Cargando el reparto de hoy…</p>
         ) : camiones.length === 0 ? (
           <div className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-4 text-center">
             <p className="text-sm text-gray-600">Todavía no salió ningún camión hoy.</p>
@@ -56,10 +56,10 @@ export default function RepartoEnVivoPage() {
         ) : (
           <>
             <div className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-3 grid grid-cols-2 gap-x-4 gap-y-1">
-              <p className="text-xs text-gray-500 flex justify-between">Camiones en calle <span className="font-medium text-gray-900">{totales.enCalle} de {camiones.length}</span></p>
-              <p className="text-xs text-gray-500 flex justify-between">Bajado <span className="font-medium text-gray-900">{totales.bajado} de {totales.cargado}</span></p>
-              <p className="text-xs text-gray-500 flex justify-between">Vendido <span className="font-medium text-gray-900">{formatoARS(totales.ventas)}</span></p>
-              <p className="text-xs text-gray-500 flex justify-between">Efectivo en calle <span className="font-medium text-gray-900">{formatoARS(totales.efectivo)}</span></p>
+              <p className="text-xs text-secundario flex justify-between">Camiones en calle <span className="font-medium text-gray-900">{totales.enCalle} de {camiones.length}</span></p>
+              <p className="text-xs text-secundario flex justify-between">Bajado <span className="font-medium text-gray-900">{totales.bajado} de {totales.cargado}</span></p>
+              <p className="text-xs text-secundario flex justify-between">Vendido <span className="font-medium text-gray-900">{formatoARS(totales.ventas)}</span></p>
+              <p className="text-xs text-secundario flex justify-between">Efectivo en calle <span className="font-medium text-gray-900">{formatoARS(totales.efectivo)}</span></p>
             </div>
 
             {camiones.map((c) => {
@@ -77,7 +77,7 @@ export default function RepartoEnVivoPage() {
                           <p className="text-sm font-semibold text-gray-900 truncate">{c.choferNombre}</p>
                           <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0 ${ESTADO[c.estado].clase}`}>{ESTADO[c.estado].label}</span>
                         </div>
-                        <p className="text-xs text-gray-500 truncate">
+                        <p className="text-xs text-secundario truncate">
                           {c.camionLabel || 'Sin camión asignado'}{c.salida ? ` · salió ${hora(c.salida)}` : ''}{c.vuelta ? ` · volvió ${hora(c.vuelta)}` : ''}
                         </p>
                       </div>
@@ -106,7 +106,7 @@ export default function RepartoEnVivoPage() {
                     <div className="border-t border-[#D3D1C7] p-3 space-y-3">
                       {/* Por producto */}
                       <div>
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Por producto</p>
+                        <p className="text-xs font-semibold text-secundario uppercase tracking-wide mb-1">Por producto</p>
                         <table className="w-full text-xs">
                           <thead>
                             <tr className="text-secundario">

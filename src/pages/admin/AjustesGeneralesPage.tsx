@@ -15,7 +15,7 @@ export default function AjustesGeneralesPage() {
       <main className="max-w-5xl mx-auto p-4 space-y-6 pb-10">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Ajustes generales</h1>
-          <p className="text-gray-500 text-sm">Configuración global del sistema.</p>
+          <p className="text-secundario text-sm">Configuración global del sistema.</p>
         </div>
         <SyncPreciosTangoPanel />
         <DepositosPanel />

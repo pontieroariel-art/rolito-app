@@ -37,7 +37,7 @@ export default function ProduccionTicketPage() {
   }, [pallet, qrDataUrl, barcodeDataUrl])
 
   if (pallet === undefined) return <LoadingSpinner fullScreen />
-  if (pallet === null) return <p className="p-6 text-sm text-gray-500">No se encontró el pallet.</p>
+  if (pallet === null) return <p className="p-6 text-sm text-secundario">No se encontró el pallet.</p>
 
   return <ProduccionTicket pallet={pallet} qrDataUrl={qrDataUrl} barcodeDataUrl={barcodeDataUrl} />
 }

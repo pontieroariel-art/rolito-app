@@ -102,7 +102,7 @@ export default function AsignarEquipoModal({
         {!heladeraFija && (
           !heladeraElegida ? (
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Heladera disponible</label>
+              <label className="text-xs text-secundario mb-1 block">Heladera disponible</label>
               {heladerasDisponibles.length === 0 ? (
                 <p className="text-xs text-amber-600">No hay heladeras disponibles para asignar en este momento.</p>
               ) : (
@@ -115,7 +115,7 @@ export default function AsignarEquipoModal({
                       className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors"
                     >
                       <p className="text-sm font-medium text-gray-900">{h.codigoInterno}</p>
-                      <p className="text-xs text-gray-500">{h.modelo} · serie {h.numeroSerie}</p>
+                      <p className="text-xs text-secundario">{h.modelo} · serie {h.numeroSerie}</p>
                     </button>
                   ))}
                 </div>
@@ -125,9 +125,9 @@ export default function AsignarEquipoModal({
             <div className="bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg p-3 flex justify-between items-center">
               <div>
                 <p className="text-sm font-medium text-gray-900">{heladeraElegida.codigoInterno}</p>
-                <p className="text-xs text-gray-500">{heladeraElegida.modelo} · serie {heladeraElegida.numeroSerie}</p>
+                <p className="text-xs text-secundario">{heladeraElegida.modelo} · serie {heladeraElegida.numeroSerie}</p>
               </div>
-              <button type="button" onClick={() => setHeladeraElegida(null)} className="text-xs text-gray-500 hover:text-accent">
+              <button type="button" onClick={() => setHeladeraElegida(null)} className="text-xs text-secundario hover:text-accent">
                 Cambiar
               </button>
             </div>
@@ -138,7 +138,7 @@ export default function AsignarEquipoModal({
         {!clienteFijo && (
           !clienteElegido ? (
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Cliente</label>
+              <label className="text-xs text-secundario mb-1 block">Cliente</label>
               <ClienteCombobox
                 modo="busqueda"
                 autoFocus
@@ -151,12 +151,12 @@ export default function AsignarEquipoModal({
             <div className="bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg p-3 flex justify-between items-center">
               <div>
                 <p className="text-sm font-medium text-gray-900">{clienteElegido.razonSocial}</p>
-                <p className="text-xs text-gray-500">CUIT {clienteElegido.cuit}</p>
+                <p className="text-xs text-secundario">CUIT {clienteElegido.cuit}</p>
               </div>
               <button
                 type="button"
                 onClick={() => { setClienteElegido(null); setDireccionElegida(null) }}
-                className="text-xs text-gray-500 hover:text-accent"
+                className="text-xs text-secundario hover:text-accent"
               >
                 Cambiar
               </button>
@@ -168,7 +168,7 @@ export default function AsignarEquipoModal({
         {clienteElegido && direcciones.length > 1 && (
           !direccionElegida ? (
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">¿A qué sucursal va?</label>
+              <label className="text-xs text-secundario mb-1 block">¿A qué sucursal va?</label>
               <div className="border border-[#D3D1C7] rounded-lg divide-y divide-[#E7E5DC] max-h-56 overflow-y-auto">
                 {direcciones.map((a) => (
                   <button
@@ -178,7 +178,7 @@ export default function AsignarEquipoModal({
                     className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors"
                   >
                     <p className="text-sm font-medium text-gray-900">{a.nombre || a.id}</p>
-                    <p className="text-xs text-gray-500">{a.address}</p>
+                    <p className="text-xs text-secundario">{a.address}</p>
                   </button>
                 ))}
               </div>
@@ -187,9 +187,9 @@ export default function AsignarEquipoModal({
             <div className="bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg p-3 flex justify-between items-center">
               <div>
                 <p className="text-sm font-medium text-gray-900">{direccionElegida.nombre || direccionElegida.id}</p>
-                <p className="text-xs text-gray-500">{direccionElegida.address}</p>
+                <p className="text-xs text-secundario">{direccionElegida.address}</p>
               </div>
-              <button type="button" onClick={() => setDireccionElegida(null)} className="text-xs text-gray-500 hover:text-accent">
+              <button type="button" onClick={() => setDireccionElegida(null)} className="text-xs text-secundario hover:text-accent">
                 Cambiar
               </button>
             </div>
@@ -198,7 +198,7 @@ export default function AsignarEquipoModal({
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Nombre de quien firma</label>
+            <label className="text-xs text-secundario mb-1 block">Nombre de quien firma</label>
             <input
               value={firmanteNombre}
               onChange={(e) => setFirmanteNombre(e.target.value)}
@@ -206,7 +206,7 @@ export default function AsignarEquipoModal({
             />
           </div>
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Cargo</label>
+            <label className="text-xs text-secundario mb-1 block">Cargo</label>
             <input
               value={firmanteCargo}
               onChange={(e) => setFirmanteCargo(e.target.value)}
@@ -217,7 +217,7 @@ export default function AsignarEquipoModal({
         </div>
 
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">N° de compresor (opcional)</label>
+          <label className="text-xs text-secundario mb-1 block">N° de compresor (opcional)</label>
           <input
             value={compresor}
             onChange={(e) => setCompresor(e.target.value)}
@@ -226,7 +226,7 @@ export default function AsignarEquipoModal({
         </div>
 
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Firma del cliente</label>
+          <label className="text-xs text-secundario mb-1 block">Firma del cliente</label>
           <SignaturePad ref={padRef} />
         </div>
 

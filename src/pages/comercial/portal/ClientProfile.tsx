@@ -14,7 +14,7 @@ import { auth } from '@/services/firebase'
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between items-start gap-3 py-2 border-b border-[#E7E5DC] last:border-0">
-      <span className="text-xs text-gray-500 shrink-0">{label}</span>
+      <span className="text-xs text-secundario shrink-0">{label}</span>
       <span className="text-sm text-gray-900 text-right">{value || '—'}</span>
     </div>
   )
@@ -84,7 +84,7 @@ export default function ClientProfile() {
 
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Mi perfil</h1>
-          <p className="text-gray-500 text-sm mt-1">{user.email}</p>
+          <p className="text-secundario text-sm mt-1">{user.email}</p>
         </div>
 
         {/* ── Datos del cliente (solo lectura) ────────────────────────────── */}
@@ -119,17 +119,17 @@ export default function ClientProfile() {
                       </span>
                     )}
                   </div>
-                  <p className="text-gray-500 text-xs">{addr.address}</p>
+                  <p className="text-secundario text-xs">{addr.address}</p>
                   {isLoaded && addr.lat && addr.lng && (
                     <AddressMapMini lat={addr.lat} lng={addr.lng} />
                   )}
                   {addr.horarioApertura && addr.horarioCierre && (
-                    <p className="text-gray-500 text-xs">
+                    <p className="text-secundario text-xs">
                       Horario: {addr.horarioApertura} – {addr.horarioCierre}
                     </p>
                   )}
                   {addr.contactoNombre && (
-                    <p className="text-gray-500 text-xs">
+                    <p className="text-secundario text-xs">
                       Contacto: {addr.contactoNombre}
                       {addr.contactoTelefono && ` · ${addr.contactoTelefono}`}
                     </p>
@@ -210,16 +210,16 @@ export default function ClientProfile() {
             <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-200">
                 <p className="text-sm font-medium text-gray-900">{user.listaTangoNombre?.redonhielo ?? 'Lista asignada'}</p>
-                <p className="text-xs text-gray-500 mt-0.5">Precios vigentes para tu cuenta</p>
+                <p className="text-xs text-secundario mt-0.5">Precios vigentes para tu cuenta</p>
               </div>
               {Object.keys(preciosTango).length === 0 ? (
-                <p className="px-4 py-4 text-sm text-gray-500">Tu lista todavía no tiene precios cargados.</p>
+                <p className="px-4 py-4 text-sm text-secundario">Tu lista todavía no tiene precios cargados.</p>
               ) : (
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-[#E7E5DC]">
-                      <th className="text-left text-xs text-gray-500 font-medium px-4 py-2.5">Producto</th>
-                      <th className="text-right text-xs text-gray-500 font-medium px-4 py-2.5">Precio</th>
+                      <th className="text-left text-xs text-secundario font-medium px-4 py-2.5">Producto</th>
+                      <th className="text-right text-xs text-secundario font-medium px-4 py-2.5">Precio</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -227,7 +227,7 @@ export default function ClientProfile() {
                       <tr key={p.id} className="border-b border-[#E7E5DC] last:border-0">
                         <td className="px-4 py-3">
                           <p className="font-medium text-gray-900">{p.nombre}</p>
-                          {p.unidad && <p className="text-xs text-gray-500">por {p.unidad}</p>}
+                          {p.unidad && <p className="text-xs text-secundario">por {p.unidad}</p>}
                         </td>
                         <td className="px-4 py-3 text-right">
                           <span className="font-bold text-accent">${preciosTango[p.id].toLocaleString('es-AR')}</span>

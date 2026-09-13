@@ -20,7 +20,7 @@ const ACCION: Record<string, string> = {
 }
 
 export default function AuditoriaReciente({ eventos, ahora }: { eventos: HistorialAdminEvento[]; ahora: Date }) {
-  if (eventos.length === 0) return <p className="text-sm text-gray-500">Sin acciones registradas.</p>
+  if (eventos.length === 0) return <p className="text-sm text-secundario">Sin acciones registradas.</p>
   return (
     <ul className="divide-y divide-[#E7E5DC]">
       {eventos.map((e) => {

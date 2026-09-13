@@ -23,7 +23,7 @@ const RESULTADO_STYLE: Record<Resultado, string> = {
   entregado:    'text-accent border-accent/20 bg-accent/5',
   reprogramado: 'text-amber-600 border-amber-200 bg-amber-50',
   cancelado:    'text-red-600 border-red-200 bg-red-50',
-  pendiente:    'text-gray-500 border-gray-200 bg-gray-50',
+  pendiente:    'text-secundario border-gray-200 bg-gray-50',
 }
 
 interface HistorialItem {
@@ -185,7 +185,7 @@ export default function HistorialDespachoPage() {
         <div className="flex flex-wrap justify-between items-end gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Historial de despacho</h1>
-            <p className="text-gray-500 text-sm mt-1">Qué chofer salió cada día y qué terminó entregando</p>
+            <p className="text-secundario text-sm mt-1">Qué chofer salió cada día y qué terminó entregando</p>
           </div>
           <button
             onClick={handlePdf}
@@ -203,7 +203,7 @@ export default function HistorialDespachoPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setFecha((f) => addDaysStr(f, -1))}
-            className="p-1.5 rounded-lg border border-[#D3D1C7] bg-white hover:border-accent text-gray-500 hover:text-accent transition-colors"
+            className="p-1.5 rounded-lg border border-[#D3D1C7] bg-white hover:border-accent text-secundario hover:text-accent transition-colors"
           >
             <ChevronLeft size={15} />
           </button>
@@ -226,7 +226,7 @@ export default function HistorialDespachoPage() {
           <button
             onClick={() => setFecha((f) => addDaysStr(f, 1))}
             disabled={fecha >= todayString()}
-            className="p-1.5 rounded-lg border border-[#D3D1C7] bg-white hover:border-accent text-gray-500 hover:text-accent transition-colors disabled:opacity-30 disabled:hover:border-[#D3D1C7] disabled:hover:text-gray-500"
+            className="p-1.5 rounded-lg border border-[#D3D1C7] bg-white hover:border-accent text-secundario hover:text-accent transition-colors disabled:opacity-30 disabled:hover:border-[#D3D1C7] disabled:hover:text-secundario"
           >
             <ChevronRight size={15} />
           </button>
@@ -235,16 +235,16 @@ export default function HistorialDespachoPage() {
         {/* KPIs */}
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-1">
-            <p className="text-xs text-gray-500">Total pedidos</p>
+            <p className="text-xs text-secundario">Total pedidos</p>
             <p className="text-3xl font-bold text-gray-900">{stats.total}</p>
           </div>
           <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-1">
-            <p className="text-xs text-gray-500">Entregados</p>
+            <p className="text-xs text-secundario">Entregados</p>
             <p className="text-3xl font-bold text-accent">{stats.entregados}</p>
-            <p className="text-xs text-gray-500">{pctCumplimiento}% cumplimiento</p>
+            <p className="text-xs text-secundario">{pctCumplimiento}% cumplimiento</p>
           </div>
           <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-1">
-            <p className="text-xs text-gray-500">No entregados</p>
+            <p className="text-xs text-secundario">No entregados</p>
             <p className="text-3xl font-bold text-amber-600">{stats.noEntregados}</p>
           </div>
         </div>
@@ -253,7 +253,7 @@ export default function HistorialDespachoPage() {
         {grupos.length === 0 ? (
           <div className="bg-white border border-[#D3D1C7] rounded-xl p-10 text-center">
             <Truck className="mx-auto mb-3 text-inerte" size={32} />
-            <p className="text-gray-500 text-sm">Sin despachos registrados este día</p>
+            <p className="text-secundario text-sm">Sin despachos registrados este día</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -291,7 +291,7 @@ function ChoferCard({ grupo, open, onToggle, onDownloadPdf, pdfLoading }: {
       <div className="w-full flex items-center gap-3 p-4">
         <button onClick={onToggle} className="flex items-center gap-3 flex-1 min-w-0 text-left">
           {grupo.key === 'sin_asignar' ? (
-            <div className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center shrink-0 text-gray-500">
+            <div className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center shrink-0 text-secundario">
               <Truck size={16} />
             </div>
           ) : (
@@ -306,12 +306,12 @@ function ChoferCard({ grupo, open, onToggle, onDownloadPdf, pdfLoading }: {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <p className="font-medium text-sm text-gray-900">{grupo.nombre}</p>
-              {grupo.camion && <span className="text-xs text-gray-500">{grupo.camion}</span>}
+              {grupo.camion && <span className="text-xs text-secundario">{grupo.camion}</span>}
               {grupo.status === 'confirmado' && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded-full border text-accent border-accent/20 bg-accent/5 font-medium">Confirmado</span>
               )}
               {grupo.status === 'borrador' && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full border text-gray-500 border-gray-200 bg-gray-50 font-medium">Borrador</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full border text-secundario border-gray-200 bg-gray-50 font-medium">Borrador</span>
               )}
               {grupo.status === null && grupo.key !== 'sin_asignar' && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded-full border text-red-600 border-red-200 bg-red-50 font-medium">Sin confirmar</span>
@@ -321,10 +321,10 @@ function ChoferCard({ grupo, open, onToggle, onDownloadPdf, pdfLoading }: {
               <div className="h-1 w-24 bg-gray-200 rounded-full overflow-hidden shrink-0">
                 <div className="h-full bg-accent rounded-full" style={{ width: `${pct}%` }} />
               </div>
-              <span className="text-xs text-gray-500">{entregados}/{total} entregados{grupo.horaSalida ? ` · salió ${grupo.horaSalida}` : ''}</span>
+              <span className="text-xs text-secundario">{entregados}/{total} entregados{grupo.horaSalida ? ` · salió ${grupo.horaSalida}` : ''}</span>
             </div>
             {descargado && (
-              <p className="text-xs text-gray-500 mt-0.5">Total entregado: <span className="text-gray-900">{descargado}</span></p>
+              <p className="text-xs text-secundario mt-0.5">Total entregado: <span className="text-gray-900">{descargado}</span></p>
             )}
           </div>
         </button>
@@ -357,10 +357,10 @@ function ChoferCard({ grupo, open, onToggle, onDownloadPdf, pdfLoading }: {
                       {RESULTADO_LABEL[resultado]}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-500">{order.clientAddress}</p>
+                  <p className="text-xs text-secundario">{order.clientAddress}</p>
                   {resultado === 'entregado' && order.productosEntregados ? (
                     <>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-secundario">
                         Descargado: <span className="text-gray-900">{summarizeProducts(order.productosEntregados)}</span>
                       </p>
                       {order.entregaParcial && (
@@ -368,17 +368,17 @@ function ChoferCard({ grupo, open, onToggle, onDownloadPdf, pdfLoading }: {
                       )}
                     </>
                   ) : (
-                    <p className="text-xs text-gray-500">{summarizeProducts(order.products)}</p>
+                    <p className="text-xs text-secundario">{summarizeProducts(order.products)}</p>
                   )}
                   {resultado === 'reprogramado' && order.motivoReprogramacion && (
-                    <p className="text-xs text-gray-500">Motivo: <span className="text-gray-900">{order.motivoReprogramacion}</span></p>
+                    <p className="text-xs text-secundario">Motivo: <span className="text-gray-900">{order.motivoReprogramacion}</span></p>
                   )}
                   {resultado === 'cancelado' && order.motivoCancelacion && (
-                    <p className="text-xs text-gray-500">Motivo: <span className="text-gray-900">{order.motivoCancelacion}</span></p>
+                    <p className="text-xs text-secundario">Motivo: <span className="text-gray-900">{order.motivoCancelacion}</span></p>
                   )}
                 </div>
                 {order.horaEntrega && resultado === 'entregado' && (
-                  <span className="text-xs text-gray-500 shrink-0">{order.horaEntrega}</span>
+                  <span className="text-xs text-secundario shrink-0">{order.horaEntrega}</span>
                 )}
               </div>
             ))

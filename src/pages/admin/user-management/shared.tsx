@@ -34,7 +34,7 @@ export const ALL_STATUSES: UserStatus[] = ['activo', 'inactivo', 'pendiente']
 export function Row({ label, value, icon }: { label: string; value: string; icon?: ReactNode }) {
   return (
     <div className="flex justify-between items-start gap-3">
-      <span className="text-xs text-gray-500 shrink-0">{label}</span>
+      <span className="text-xs text-secundario shrink-0">{label}</span>
       <span className="text-xs text-gray-600 text-right flex items-center gap-1">
         {icon}
         {value}

@@ -100,8 +100,8 @@ export default function DetalleReparto({ remitos, ventas, cambios, descargas, co
       <Bloque estilo="recorrido" titulo="Recorrido" subtitulo="carga y descarga">
         <div className="grid sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-[#E7E5DC]">
           <div className="p-4 space-y-2">
-            <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Salida</p>
-            {remitos.length === 0 && <p className="text-sm text-gray-500">Sin remito de carga de esta planta.</p>}
+            <p className="text-xs font-bold uppercase tracking-wider text-secundario">Salida</p>
+            {remitos.length === 0 && <p className="text-sm text-secundario">Sin remito de carga de esta planta.</p>}
             {remitos.map((r) => (
               <div key={r.id} className="space-y-1">
                 <p className="text-sm text-gray-700">
@@ -115,7 +115,7 @@ export default function DetalleReparto({ remitos, ventas, cambios, descargas, co
             ))}
           </div>
           <div className="p-4 space-y-2">
-            <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Vuelta</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-secundario">Vuelta</p>
             {descargas.length === 0 && (
               <p className="text-sm text-amber-700">Muelle todavía no registró la descarga: la devolución se compara contra 0.</p>
             )}
@@ -168,11 +168,11 @@ export default function DetalleReparto({ remitos, ventas, cambios, descargas, co
         pie={`registradas por el repartidor ${reparto.cambios.unidades} · rotas recibidas en muelle ${reparto.cambios.rotasRecibidas}${reparto.cambios.unidades === reparto.cambios.rotasRecibidas ? ' · sin diferencia' : ` · diferencia ${reparto.cambios.rotasRecibidas - reparto.cambios.unidades}`}`}>
         {reparto.cambios.lista.length === 0 ? <Vacio>Sin cambios.</Vacio> : reparto.cambios.lista.map((c) => (
           <div key={c.ventaId} className="grid grid-cols-[52px_1fr] gap-3 px-4 py-3 border-t border-[#E7E5DC]">
-            <span className="text-sm text-gray-500 tabular-nums pt-0.5">{hora(c.fecha)}</span>
+            <span className="text-sm text-secundario tabular-nums pt-0.5">{hora(c.fecha)}</span>
             <div>
-              <p className="text-sm font-semibold text-gray-900">{c.clienteNombre}{c.clienteCodigoTango && <span className="ml-1.5 text-xs font-normal text-gray-500">{c.clienteCodigoTango}</span>}</p>
+              <p className="text-sm font-semibold text-gray-900">{c.clienteNombre}{c.clienteCodigoTango && <span className="ml-1.5 text-xs font-normal text-secundario">{c.clienteCodigoTango}</span>}</p>
               <Articulos items={c.items.map((i) => ({ ...i, nombre: nombreDelCambio(i.nombre) }))} cambio sinImporte />
-              {c.venta && <p className="text-xs text-gray-500 mt-1">En la venta {describirComprobante(c.venta).etiqueta} {describirComprobante(c.venta).numero}</p>}
+              {c.venta && <p className="text-xs text-secundario mt-1">En la venta {describirComprobante(c.venta).etiqueta} {describirComprobante(c.venta).numero}</p>}
             </div>
           </div>
         ))}
@@ -191,7 +191,7 @@ function Bloque({ estilo, titulo, subtitulo, total, totalTexto, pie, children }:
   return (
     <section className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm overflow-hidden">
       <div className={`flex items-center justify-between gap-3 px-4 py-3 border-l-4 ${ESTILO[estilo].borde} ${ESTILO[estilo].fondo}`}>
-        <p className="font-bold text-gray-900">{titulo}{subtitulo && <span className="ml-2 text-xs font-medium text-gray-500">{subtitulo}</span>}</p>
+        <p className="font-bold text-gray-900">{titulo}{subtitulo && <span className="ml-2 text-xs font-medium text-secundario">{subtitulo}</span>}</p>
         {total !== undefined && <p className="font-bold text-gray-900 tabular-nums">{formatoARS(total)}</p>}
         {totalTexto && <p className="font-bold text-gray-900">{totalTexto}</p>}
       </div>
@@ -202,12 +202,12 @@ function Bloque({ estilo, titulo, subtitulo, total, totalTexto, pie, children }:
 }
 
 const SubHeader = ({ titulo, total }: { titulo: string; total: number }) => (
-  <div className="flex justify-between px-4 pt-3 pb-1 text-xs font-bold uppercase tracking-wider text-gray-500">
+  <div className="flex justify-between px-4 pt-3 pb-1 text-xs font-bold uppercase tracking-wider text-secundario">
     <span>{titulo}</span><span className="tabular-nums normal-case tracking-normal text-xs font-semibold text-gray-700">{formatoARS(total)}</span>
   </div>
 )
 
-const Vacio = ({ children }: { children: ReactNode }) => <p className="px-4 py-3 text-sm text-gray-500">{children}</p>
+const Vacio = ({ children }: { children: ReactNode }) => <p className="px-4 py-3 text-sm text-secundario">{children}</p>
 
 function Articulos({ items, extra = [], cambio = false, sinImporte = false }: {
   items: Array<Pick<VentaCamionItem, 'nombre' | 'cantidad'> & { precioUnitario?: number }>
@@ -245,11 +245,11 @@ function FilaVenta({ venta: v, ocupado, compartible, atenuada, onVer, onEnviar, 
   const anulada = v.anulacion?.estado === 'anulada'
   return (
     <div className={`grid grid-cols-[52px_1fr_auto] gap-3 px-4 py-3 border-t border-[#E7E5DC] ${conProblema ? 'bg-[#FFF7F7]' : ''} ${atenuada ? 'opacity-40' : ''}`}>
-      <span className="text-sm text-gray-500 tabular-nums pt-0.5">{hora(v.fecha)}</span>
+      <span className="text-sm text-secundario tabular-nums pt-0.5">{hora(v.fecha)}</span>
       <div className="min-w-0">
-        <p className={`text-sm font-semibold ${anulada ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
+        <p className={`text-sm font-semibold ${anulada ? 'text-secundario line-through' : 'text-gray-900'}`}>
           {nombreClienteVenta(v)}
-          {v.clienteCodigoTango && <span className="ml-1.5 text-xs font-normal text-gray-500">{v.clienteCodigoTango}</span>}
+          {v.clienteCodigoTango && <span className="ml-1.5 text-xs font-normal text-secundario">{v.clienteCodigoTango}</span>}
         </p>
         {anul && (
           <p className={`mt-0.5 text-xs font-semibold ${anul.tono === 'bad' ? 'text-red-700' : anul.tono === 'warn' ? 'text-amber-700' : 'text-gray-600'}`}>
@@ -303,9 +303,9 @@ function FilaCobranza({ cobranza: c, ocupado, compartible, atenuada, onVer, onEn
   const imputa = (c.imputaciones ?? []).map((i) => `${i.comprobanteTipo} ${i.comprobanteNumero}${i.importeImputado < i.saldoAlMomento ? ` (parcial, quedan ${formatoARS(i.saldoAlMomento - i.importeImputado)})` : ''}`)
   return (
     <div className={`grid grid-cols-[52px_1fr_auto] gap-3 px-4 py-3 border-t border-[#E7E5DC] ${atenuada ? 'opacity-40' : ''}`}>
-      <span className="text-sm text-gray-500 tabular-nums pt-0.5">{hora(c.fecha)}</span>
+      <span className="text-sm text-secundario tabular-nums pt-0.5">{hora(c.fecha)}</span>
       <div className="min-w-0">
-        <p className="text-sm font-semibold text-gray-900">{c.clienteNombre}{c.codigoTango && <span className="ml-1.5 text-xs font-normal text-gray-500">{c.codigoTango}</span>}</p>
+        <p className="text-sm font-semibold text-gray-900">{c.clienteNombre}{c.codigoTango && <span className="ml-1.5 text-xs font-normal text-secundario">{c.codigoTango}</span>}</p>
         <p className="text-sm text-gray-700">{medios.join(' · ')}{imputa.length ? ` · imputa ${imputa.join(', ')}` : ''}</p>
         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-gray-600">
           <span className="font-semibold text-gray-900">Recibo {c.numeroRecibo ?? 'sin número'}</span>

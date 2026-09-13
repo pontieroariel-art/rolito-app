@@ -133,7 +133,7 @@ export default function DominioLayout({ children }: { children?: ReactNode }) {
           type="button"
           onClick={() => irADominio(s)}
           aria-current={s === activo ? 'page' : undefined}
-          className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${s === activo ? 'bg-white text-accent shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
+          className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${s === activo ? 'bg-white text-accent shadow-sm' : 'text-secundario hover:text-gray-800'}`}
         >
           {SISTEMA_LABELS[s]}
         </button>
@@ -146,7 +146,7 @@ export default function DominioLayout({ children }: { children?: ReactNode }) {
       <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-white text-xs font-bold shrink-0">{initials}</div>
       <div className="min-w-0 hidden xl:block">
         <p className="text-sm font-semibold text-gray-800 truncate leading-tight">{user?.nombre?.split(' ')[0]}</p>
-        <p className="text-[11px] text-gray-500 truncate leading-tight">{subtitulo}</p>
+        <p className="text-[11px] text-secundario truncate leading-tight">{subtitulo}</p>
       </div>
       {user?.rol === 'super_admin' && (
         <Link to="/admin/usuarios" title="Usuarios & Roles" className="text-secundario hover:text-accent transition-colors p-1.5 rounded-lg hover:bg-accent/10 shrink-0">
@@ -174,12 +174,12 @@ export default function DominioLayout({ children }: { children?: ReactNode }) {
         </Link>
         {dominios.length > 1
           ? selectorDominios
-          : <span className="text-xs font-medium text-gray-500 px-1">{SISTEMA_LABELS[activo]}</span>}
+          : <span className="text-xs font-medium text-secundario px-1">{SISTEMA_LABELS[activo]}</span>}
         <div className="flex-1" />
         <button
           type="button"
           onClick={() => setBuscando(true)}
-          className="inline-flex items-center gap-2 text-xs text-gray-500 border border-[#D3D1C7] rounded-lg px-2.5 py-1.5 hover:border-accent hover:text-accent transition-colors"
+          className="inline-flex items-center gap-2 text-xs text-secundario border border-[#D3D1C7] rounded-lg px-2.5 py-1.5 hover:border-accent hover:text-accent transition-colors"
           title="Buscar una pantalla (Ctrl + K)"
         >
           <Search size={14} />
@@ -219,7 +219,7 @@ export default function DominioLayout({ children }: { children?: ReactNode }) {
           <div className="border-t border-[#E7E5DC] pt-3 flex items-center justify-between gap-2">
             <div className="min-w-0">
               <p className="text-sm font-semibold text-gray-800 truncate">{user?.nombre?.split(' ')[0]}</p>
-              <p className="text-xs text-gray-500 truncate">{subtitulo}</p>
+              <p className="text-xs text-secundario truncate">{subtitulo}</p>
             </div>
             {cuenta}
           </div>
@@ -258,7 +258,7 @@ export default function DominioLayout({ children }: { children?: ReactNode }) {
             type="button"
             onClick={toggleColapsado}
             title={colapsado ? 'Expandir menú' : 'Colapsar menú'}
-            className="border-t border-[#D3D1C7] h-11 flex items-center justify-center gap-2 text-xs text-gray-500 hover:text-accent hover:bg-accent/5 transition-colors shrink-0"
+            className="border-t border-[#D3D1C7] h-11 flex items-center justify-center gap-2 text-xs text-secundario hover:text-accent hover:bg-accent/5 transition-colors shrink-0"
           >
             {colapsado ? <ChevronsRight size={16} /> : <><ChevronsLeft size={16} /> Colapsar</>}
           </button>

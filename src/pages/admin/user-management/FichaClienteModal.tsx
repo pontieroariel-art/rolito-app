@@ -146,13 +146,13 @@ export function FichaClienteModal({
 
         {/* Empresa */}
         <section className="space-y-2">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+          <h3 className="text-xs font-semibold text-secundario uppercase tracking-wider flex items-center gap-1.5">
             <Building2 size={12} /> Empresa
           </h3>
           <div className="bg-[#F8F7F2] rounded-xl p-3 space-y-2">
             {canEditInfoBasica && !user.codigoTango ? (
               <div className="flex flex-col gap-1">
-                <label className="text-xs text-gray-500">Razón social</label>
+                <label className="text-xs text-secundario">Razón social</label>
                 <input
                   value={localRazonSocial}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setLocalRazonSocial(e.target.value)}
@@ -169,7 +169,7 @@ export function FichaClienteModal({
             )}
             {canEditInfoBasica ? (
               <div className="flex flex-col gap-1">
-                <label className="text-xs text-gray-500">Nombre contacto</label>
+                <label className="text-xs text-secundario">Nombre contacto</label>
                 <input
                   value={localNombreContacto}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setLocalNombreContacto(e.target.value)}
@@ -179,20 +179,20 @@ export function FichaClienteModal({
             ) : (
               <Row label="Nombre contacto" value={user.nombreContacto || user.nombre || '—'} />
             )}
-            {user.cuit && <Row label="CUIT" value={formatCuit(user.cuit)} icon={<CreditCard size={13} className="text-gray-500 shrink-0" />} />}
+            {user.cuit && <Row label="CUIT" value={formatCuit(user.cuit)} icon={<CreditCard size={13} className="text-inerte shrink-0" />} />}
           </div>
         </section>
 
         {/* Contacto */}
         <section className="space-y-2">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+          <h3 className="text-xs font-semibold text-secundario uppercase tracking-wider flex items-center gap-1.5">
             <User size={12} /> Contacto
           </h3>
           <div className="bg-[#F8F7F2] rounded-xl p-3 space-y-2">
-            <Row label="Email" value={user.email || '—'} icon={<Mail size={13} className="text-gray-500 shrink-0" />} />
+            <Row label="Email" value={user.email || '—'} icon={<Mail size={13} className="text-inerte shrink-0" />} />
             {canEditInfoBasica ? (
               <div className="flex flex-col gap-1">
-                <label className="text-xs text-gray-500">Teléfono</label>
+                <label className="text-xs text-secundario">Teléfono</label>
                 <input
                   value={localTelefono}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setLocalTelefono(e.target.value)}
@@ -201,7 +201,7 @@ export function FichaClienteModal({
                 />
               </div>
             ) : (
-              tel ? <Row label="Teléfono" value={tel} icon={<Phone size={13} className="text-gray-500 shrink-0" />} /> : null
+              tel ? <Row label="Teléfono" value={tel} icon={<Phone size={13} className="text-inerte shrink-0" />} /> : null
             )}
             {canEditInfoBasica && (
               <Button onClick={handleSaveInfo} loading={savingInfo} className="w-full text-xs mt-1">
@@ -213,12 +213,12 @@ export function FichaClienteModal({
 
         {/* Cuenta */}
         <section className="space-y-2">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+          <h3 className="text-xs font-semibold text-secundario uppercase tracking-wider flex items-center gap-1.5">
             <Calendar size={12} /> Cuenta
           </h3>
           <div className="bg-[#F8F7F2] rounded-xl p-3 space-y-2">
             <div className="flex justify-between items-center">
-              <span className="text-xs text-gray-500">Estado</span>
+              <span className="text-xs text-secundario">Estado</span>
               <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${STATUS_STYLES[user.estado]}`}>
                 {STATUS_LABELS[user.estado]}
               </span>
@@ -244,7 +244,7 @@ export function FichaClienteModal({
         {/* Lista de precios (Tango) */}
         {user.rol === 'cliente' && (
           <section className="space-y-2">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+            <h3 className="text-xs font-semibold text-secundario uppercase tracking-wider flex items-center gap-1.5">
               <Tag size={12} /> Lista de precios
             </h3>
             <div className="bg-[#F8F7F2] rounded-xl p-3">
@@ -257,7 +257,7 @@ export function FichaClienteModal({
         {/* Condición de venta */}
         {user.rol === 'cliente' && (canEditInfoBasica || user.condicionVenta) && (
           <section className="space-y-2">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+            <h3 className="text-xs font-semibold text-secundario uppercase tracking-wider flex items-center gap-1.5">
               <Wallet size={12} /> Condición de venta
             </h3>
             <div className="bg-[#F8F7F2] rounded-xl p-3">
@@ -281,7 +281,7 @@ export function FichaClienteModal({
                   )}
                 </div>
               )}
-              {savingCondicionVenta && <p className="text-xs text-gray-500 mt-1.5">Guardando…</p>}
+              {savingCondicionVenta && <p className="text-xs text-secundario mt-1.5">Guardando…</p>}
             </div>
           </section>
         )}
@@ -289,7 +289,7 @@ export function FichaClienteModal({
         {/* Código de cliente — gestión compartida (facturación y comercial/logística) */}
         {user.rol === 'cliente' && (canAssignCode || user.codigoCliente) && (
           <section className="space-y-2">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+            <h3 className="text-xs font-semibold text-secundario uppercase tracking-wider flex items-center gap-1.5">
               <Hash size={12} /> Código de cliente
             </h3>
             <div className="bg-[#F8F7F2] rounded-xl p-3">
@@ -318,7 +318,7 @@ export function FichaClienteModal({
         {/* Visita */}
         {user.rol === 'cliente' && (
           <section className="space-y-2">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+            <h3 className="text-xs font-semibold text-secundario uppercase tracking-wider flex items-center gap-1.5">
               <Navigation size={12} /> Seguimiento de visita
             </h3>
             <div className="bg-[#F8F7F2] rounded-xl p-3 space-y-3">
@@ -334,7 +334,7 @@ export function FichaClienteModal({
               </label>
               {esVisita && (
                 <div>
-                  <label className="text-xs text-gray-500 mb-1 block">Frecuencia</label>
+                  <label className="text-xs text-secundario mb-1 block">Frecuencia</label>
                   <select
                     value={frecuenciaVisita}
                     disabled={savingVisita || !canEditInfoBasica}
@@ -347,7 +347,7 @@ export function FichaClienteModal({
                   </select>
                 </div>
               )}
-              {savingVisita && <p className="text-xs text-gray-500">Guardando…</p>}
+              {savingVisita && <p className="text-xs text-secundario">Guardando…</p>}
             </div>
           </section>
         )}
@@ -355,7 +355,7 @@ export function FichaClienteModal({
         {/* Domicilios */}
         <section className="space-y-2">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+            <h3 className="text-xs font-semibold text-secundario uppercase tracking-wider flex items-center gap-1.5">
               <MapPin size={12} /> Domicilios ({localAddresses.length})
             </h3>
             <button
@@ -397,18 +397,18 @@ export function FichaClienteModal({
                       : <span className="text-xs text-yellow-400">⚠ sin ubicación</span>
                     }
                   </div>
-                  <p className="text-xs text-gray-500">{addr.address}</p>
+                  <p className="text-xs text-secundario">{addr.address}</p>
                   {isLoaded && addr.lat && addr.lng && (
                     <AddressMapMini lat={addr.lat} lng={addr.lng} />
                   )}
                   {addr.contactoNombre && (
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-secundario">
                       Contacto: {addr.contactoNombre}
                       {addr.contactoTelefono && ` · ${addr.contactoTelefono}`}
                     </p>
                   )}
                   {addr.horarioApertura && addr.horarioCierre && (
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-secundario">
                       Horario: {addr.horarioApertura} – {addr.horarioCierre}
                     </p>
                   )}
@@ -419,7 +419,7 @@ export function FichaClienteModal({
           ) : (
             <button
               onClick={() => setDomiciliosModal(true)}
-              className="w-full bg-[#F8F7F2] border border-dashed border-[#D3D1C7] rounded-xl p-4 text-center text-xs text-gray-500 hover:text-accent hover:border-accent transition-colors"
+              className="w-full bg-[#F8F7F2] border border-dashed border-[#D3D1C7] rounded-xl p-4 text-center text-xs text-secundario hover:text-accent hover:border-accent transition-colors"
             >
               Sin domicilios registrados — clic para agregar
             </button>

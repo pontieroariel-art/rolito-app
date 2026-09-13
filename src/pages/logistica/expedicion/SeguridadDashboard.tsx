@@ -77,7 +77,7 @@ export default function SeguridadDashboard() {
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <ShieldCheck size={24} className="text-accent" /> Control de salidas
           </h1>
-          <p className="text-gray-500 text-sm">{PLANTAS[plantaId].label}</p>
+          <p className="text-secundario text-sm">{PLANTAS[plantaId].label}</p>
         </div>
 
         {error && (
@@ -98,7 +98,7 @@ export default function SeguridadDashboard() {
             <div key={r.id} className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-3 space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-gray-900">{r.camionLabel}</p>
-                <p className="text-xs text-gray-500">{r.codigo}{r.remitoR ? ` · R ${String(r.remitoR.puntoVenta).padStart(5, '0')}-${String(r.remitoR.numero).padStart(8, '0')}` : ''} · {r.choferNombre}</p>
+                <p className="text-xs text-secundario">{r.codigo}{r.remitoR ? ` · R ${String(r.remitoR.puntoVenta).padStart(5, '0')}-${String(r.remitoR.numero).padStart(8, '0')}` : ''} · {r.choferNombre}</p>
               </div>
               {r.cotSolicitud && (
                 r.cot?.estado === 'presentado'
@@ -113,7 +113,7 @@ export default function SeguridadDashboard() {
                   </div>
                 ))}
                 {r.palletsCarga > 0 && (
-                  <div className="flex justify-between text-gray-500">
+                  <div className="flex justify-between text-secundario">
                     <span>Pallets de carga</span><span className="font-medium">{r.palletsCarga}</span>
                   </div>
                 )}
@@ -131,7 +131,7 @@ export default function SeguridadDashboard() {
               <div key={v.id} className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold text-gray-900">{nombreClienteVenta(v)}</p>
-                  <p className="text-xs text-gray-500">{v.items.reduce((s, i) => s + i.cantidad, 0)} bultos</p>
+                  <p className="text-xs text-secundario">{v.items.reduce((s, i) => s + i.cantidad, 0)} bultos</p>
                 </div>
                 <div className="text-xs text-gray-600 space-y-0.5">
                   {v.items.map((i) => (
@@ -157,7 +157,7 @@ export default function SeguridadDashboard() {
               <CheckCircle2 size={16} className="text-accent shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900">{r.camionLabel} · {r.choferNombre}</p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-secundario">
                   {r.codigo}{r.salida ? ` · salió ${horaDe(r.salida.hora)} · controló ${r.salida.nombre}` : ''}
                 </p>
               </div>

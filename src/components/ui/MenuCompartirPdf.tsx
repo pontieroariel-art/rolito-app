@@ -118,20 +118,20 @@ export default function MenuCompartirPdf({ generar, titulo, texto, mail, trigger
               <button type="button" onClick={() => correr('compartir')} disabled={ocupado !== null}
                 className="w-full flex items-center gap-3 rounded-xl border border-[#D3D1C7] px-3 py-3 text-left text-sm text-gray-900 active:bg-[#F8F7F2] disabled:opacity-50">
                 <Share2 size={18} className="text-accent shrink-0" />
-                <span><span className="font-medium">WhatsApp u otra app</span><br /><span className="text-xs text-gray-500">Se abre el menú del celular con el PDF adjunto</span></span>
+                <span><span className="font-medium">WhatsApp u otra app</span><br /><span className="text-xs text-secundario">Se abre el menú del celular con el PDF adjunto</span></span>
               </button>
             )}
             <button type="button" onClick={abrirMail} disabled={ocupado !== null}
               className="w-full flex items-center gap-3 rounded-xl border border-[#D3D1C7] px-3 py-3 text-left text-sm text-gray-900 active:bg-[#F8F7F2] disabled:opacity-50">
               <Mail size={18} className="text-accent shrink-0" />
-              <span><span className="font-medium">Mail al cliente</span><br /><span className="text-xs text-gray-500">{mail.para ? `A ${mail.para}` : mail.resolverPara ? 'Con el mail de la ficha de Tango del cliente' : 'El cliente no tiene mail en Tango: lo escribís vos'}</span></span>
+              <span><span className="font-medium">Mail al cliente</span><br /><span className="text-xs text-secundario">{mail.para ? `A ${mail.para}` : mail.resolverPara ? 'Con el mail de la ficha de Tango del cliente' : 'El cliente no tiene mail en Tango: lo escribís vos'}</span></span>
             </button>
             <button type="button" onClick={() => correr('descargar')} disabled={ocupado !== null}
               className="w-full flex items-center gap-3 rounded-xl border border-[#D3D1C7] px-3 py-3 text-left text-sm text-gray-900 active:bg-[#F8F7F2] disabled:opacity-50">
               <FileDown size={18} className="text-accent shrink-0" />
-              <span><span className="font-medium">Descargar</span><br /><span className="text-xs text-gray-500">Guarda el PDF en este dispositivo</span></span>
+              <span><span className="font-medium">Descargar</span><br /><span className="text-xs text-secundario">Guarda el PDF en este dispositivo</span></span>
             </button>
-            {ocupado && ocupado !== 'mail' && <p className="text-xs text-gray-500">Generando el PDF…</p>}
+            {ocupado && ocupado !== 'mail' && <p className="text-xs text-secundario">Generando el PDF…</p>}
             {aviso && <p className="text-xs text-amber-700">{aviso}</p>}
           </div>
         </div>
@@ -146,19 +146,19 @@ export default function MenuCompartirPdf({ generar, titulo, texto, mail, trigger
         ) : (
           <div className="space-y-3">
             <label className="block">
-              <span className="text-xs text-gray-500">Para</span>
+              <span className="text-xs text-secundario">Para</span>
               <input type="email" value={para} onChange={(e) => setPara(e.target.value)} placeholder="cliente@empresa.com" autoComplete="off"
                 className="mt-1 w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent" />
               {buscandoPara ? <span className="text-[11px] text-secundario">Buscando el mail del cliente en Tango…</span>
                 : mail.para && para.trim().toLowerCase() === mail.para.toLowerCase() ? <span className="text-[11px] text-secundario">Mail de la ficha de Tango</span> : null}
             </label>
             <label className="block">
-              <span className="text-xs text-gray-500">Asunto</span>
+              <span className="text-xs text-secundario">Asunto</span>
               <input type="text" value={asunto} onChange={(e) => setAsunto(e.target.value)}
                 className="mt-1 w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent" />
             </label>
             <label className="block">
-              <span className="text-xs text-gray-500">Mensaje</span>
+              <span className="text-xs text-secundario">Mensaje</span>
               <textarea value={mensaje} onChange={(e) => setMensaje(e.target.value)} rows={3}
                 className="mt-1 w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent" />
             </label>

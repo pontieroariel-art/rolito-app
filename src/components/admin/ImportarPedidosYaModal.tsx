@@ -257,19 +257,19 @@ export default function ImportarPedidosYaModal({ open, onClose }: Props) {
           <div className="grid grid-cols-4 gap-2">
             <div className="bg-white border border-[#D3D1C7] rounded-xl p-3 text-center">
               <p className="text-xl font-bold text-gray-900">{rows.length}</p>
-              <p className="text-xs text-gray-500">Filas</p>
+              <p className="text-xs text-secundario">Filas</p>
             </div>
             <div className="bg-white border border-[#D3D1C7] rounded-xl p-3 text-center">
               <p className="text-xl font-bold text-accent">{matchedCount}</p>
-              <p className="text-xs text-gray-500">Matcheadas</p>
+              <p className="text-xs text-secundario">Matcheadas</p>
             </div>
             <div className="bg-white border border-amber-200 rounded-xl p-3 text-center">
               <p className="text-xl font-bold text-amber-600">{warningCount}</p>
-              <p className="text-xs text-gray-500">Con advertencia</p>
+              <p className="text-xs text-secundario">Con advertencia</p>
             </div>
             <div className="bg-white border border-red-200 rounded-xl p-3 text-center">
               <p className="text-xl font-bold text-red-600">{errorCount}</p>
-              <p className="text-xs text-gray-500">Con error</p>
+              <p className="text-xs text-secundario">Con error</p>
             </div>
           </div>
 
@@ -277,13 +277,13 @@ export default function ImportarPedidosYaModal({ open, onClose }: Props) {
             <table className="w-full text-xs min-w-[640px]">
               <thead className="sticky top-0 bg-white border-b border-[#D3D1C7]">
                 <tr>
-                  <th className="text-center px-2 py-2 text-gray-500 font-medium">Cargar</th>
-                  <th className="text-left px-2 py-2 text-gray-500 font-medium">OC</th>
-                  <th className="text-left px-2 py-2 text-gray-500 font-medium">Tienda</th>
-                  <th className="text-left px-2 py-2 text-gray-500 font-medium">Sucursal</th>
-                  <th className="text-center px-2 py-2 text-gray-500 font-medium">Cant.</th>
-                  <th className="text-center px-2 py-2 text-gray-500 font-medium">Fecha</th>
-                  <th className="text-left px-2 py-2 text-gray-500 font-medium">Estado</th>
+                  <th className="text-center px-2 py-2 text-secundario font-medium">Cargar</th>
+                  <th className="text-left px-2 py-2 text-secundario font-medium">OC</th>
+                  <th className="text-left px-2 py-2 text-secundario font-medium">Tienda</th>
+                  <th className="text-left px-2 py-2 text-secundario font-medium">Sucursal</th>
+                  <th className="text-center px-2 py-2 text-secundario font-medium">Cant.</th>
+                  <th className="text-center px-2 py-2 text-secundario font-medium">Fecha</th>
+                  <th className="text-left px-2 py-2 text-secundario font-medium">Estado</th>
                 </tr>
               </thead>
               <tbody>
@@ -396,7 +396,7 @@ export default function ImportarPedidosYaModal({ open, onClose }: Props) {
 
       {step === 'importing' && (
         <div className="space-y-5 py-2">
-          <p className="text-sm text-gray-500 text-center">Creando pedidos… no cierres esta ventana.</p>
+          <p className="text-sm text-secundario text-center">Creando pedidos… no cierres esta ventana.</p>
           <div className="w-full bg-[#F1EFE8] rounded-full h-3 overflow-hidden border border-[#D3D1C7]">
             <div
               className="bg-accent h-full transition-all duration-200"
@@ -417,11 +417,11 @@ export default function ImportarPedidosYaModal({ open, onClose }: Props) {
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 text-center">
               <p className="text-2xl font-bold text-accent">{created}</p>
-              <p className="text-xs text-gray-500 mt-1">Pedidos creados</p>
+              <p className="text-xs text-secundario mt-1">Pedidos creados</p>
             </div>
             <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 text-center">
               <p className="text-2xl font-bold text-red-600">{errors.length}</p>
-              <p className="text-xs text-gray-500 mt-1">Errores</p>
+              <p className="text-xs text-secundario mt-1">Errores</p>
             </div>
           </div>
 

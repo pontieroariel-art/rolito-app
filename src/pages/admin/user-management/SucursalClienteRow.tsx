@@ -58,7 +58,7 @@ export function SucursalClienteRow({
                   ? address.nombre
                   : (user.razonSocial || user.nombre || address?.nombre || '(sin nombre)')}
               </p>
-              <span className={`text-xs px-2 py-0.5 rounded-full border font-medium whitespace-nowrap ${STATUS_STYLES[user.estado] ?? 'bg-gray-100 text-gray-500 border-gray-200'}`}>
+              <span className={`text-xs px-2 py-0.5 rounded-full border font-medium whitespace-nowrap ${STATUS_STYLES[user.estado] ?? 'bg-gray-100 text-secundario border-gray-200'}`}>
                 {STATUS_LABELS[user.estado] ?? user.estado}
               </span>
               {user.esVisita && (
@@ -75,7 +75,7 @@ export function SucursalClienteRow({
               </p>
             )}
             {address?.address && (
-              <p className="text-gray-500 text-xs mt-0.5 truncate flex items-center gap-1">
+              <p className="text-secundario text-xs mt-0.5 truncate flex items-center gap-1">
                 <MapPin size={10} className="shrink-0" />
                 {address.address}
               </p>
@@ -87,11 +87,11 @@ export function SucursalClienteRow({
               </p>
             )}
           </div>
-          <ChevronRight size={14} className="text-gray-500 group-hover:text-accent transition-colors shrink-0" />
+          <ChevronRight size={14} className="text-inerte group-hover:text-accent transition-colors shrink-0" />
         </button>
 
         <div className="flex flex-wrap gap-2 items-center shrink-0">
-          <span className="bg-gray-100 border border-[#D3D1C7] rounded-lg px-2 py-1.5 text-sm text-gray-500">Cliente</span>
+          <span className="bg-gray-100 border border-[#D3D1C7] rounded-lg px-2 py-1.5 text-sm text-secundario">Cliente</span>
           {user.estado === 'pendiente' && canChangeStatus && (
             <Button onClick={() => run(() => onApprove(user))} loading={busy} className="text-xs py-1.5 px-3">
               ✓ Activar
@@ -113,7 +113,7 @@ export function SucursalClienteRow({
 
       {canManagePrices && (
         <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-[#E7E5DC]">
-          <span className="text-xs text-gray-500 whitespace-nowrap">Lista de precios:</span>
+          <span className="text-xs text-secundario whitespace-nowrap">Lista de precios:</span>
           <div className="flex flex-col gap-0.5 min-w-0">
             <span className="text-xs text-gray-900 truncate">{listaTangoResumen(user)}</span>
             <span className="text-[10px] text-secundario">Dato de Tango — se edita en Tango, se sincroniza acá</span>

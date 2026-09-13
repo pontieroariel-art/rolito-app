@@ -35,7 +35,7 @@ function ConfirmarPalletModal({
         >
           <span className="text-4xl font-black leading-none" style={{ color: producto.color }}>{producto.etiquetaGrilla}</span>
           <span className="text-lg font-bold text-gray-900 text-center px-3">{producto.nombre}</span>
-          <span className="text-sm text-gray-500 font-medium">{producto.unidadesPorPallet} {producto.unidadLabel}/pallet</span>
+          <span className="text-sm text-secundario font-medium">{producto.unidadesPorPallet} {producto.unidadLabel}/pallet</span>
         </div>
         <p className="text-xs text-secundario text-center">Esta acción imprime el ticket y no se puede deshacer.</p>
         <div className="flex gap-2">
@@ -145,7 +145,7 @@ export default function ProduccionDashboard() {
           <div className="flex items-center justify-between shrink-0">
             <div>
               <h1 className="text-lg font-bold text-gray-900 leading-tight">Hola, {user.nombre?.split(' ')[0] ?? 'operario'}</h1>
-              <p className="text-gray-500 text-xs">{PLANTAS[user.planta].label}</p>
+              <p className="text-secundario text-xs">{PLANTAS[user.planta].label}</p>
             </div>
             {/* Indicador de sin conexión — el flujo es offline-first (reserva de
                 números offline), pero el operario tiene que saber de un vistazo
@@ -191,7 +191,7 @@ export default function ProduccionDashboard() {
                 <span className="text-[clamp(0.7rem,2.1vh,1.05rem)] font-bold text-gray-900 text-center leading-tight px-1">
                   {p.nombre}
                 </span>
-                <span className="text-[clamp(0.55rem,1.5vh,0.8rem)] text-gray-500 font-medium">
+                <span className="text-[clamp(0.55rem,1.5vh,0.8rem)] text-secundario font-medium">
                   {p.unidadesPorPallet} {p.unidadLabel}/pallet
                 </span>
               </button>

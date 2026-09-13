@@ -61,7 +61,7 @@ export default function SeccionPedido({ c }: { c: UserProfile }) {
 
   return (
     <Plegable titulo="Pasar a logística" abiertoInicial>
-      <p className="text-xs text-gray-500 mb-2">Logística elige el día y el camión. El cliente recibe los avisos de siempre.</p>
+      <p className="text-xs text-secundario mb-2">Logística elige el día y el camión. El cliente recibe los avisos de siempre.</p>
       {aviso && <p className="text-xs text-accent bg-accent/10 border border-accent/30 rounded-lg px-3 py-2 mb-2">{aviso}</p>}
       <div className="flex gap-2">
         <button type="button" onClick={() => setModo('pedido')}
@@ -79,7 +79,7 @@ export default function SeccionPedido({ c }: { c: UserProfile }) {
           <div className="space-y-4">
             {modo === 'pedido' && (
               <div className="space-y-1.5">
-                {catalogo.length === 0 && <p className="text-sm text-gray-500">Cargando catálogo…</p>}
+                {catalogo.length === 0 && <p className="text-sm text-secundario">Cargando catálogo…</p>}
                 {catalogo.map((p) => {
                   const n = cantidades[p.id] ?? 0
                   return (
@@ -98,7 +98,7 @@ export default function SeccionPedido({ c }: { c: UserProfile }) {
               </div>
             )}
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">{modo === 'pedido' ? 'Notas para logística (opcional)' : 'Para qué es la visita'}</label>
+              <label className="text-xs text-secundario mb-1 block">{modo === 'pedido' ? 'Notas para logística (opcional)' : 'Para qué es la visita'}</label>
               <textarea value={notas} onChange={(e) => setNotas(e.target.value)} rows={3} maxLength={500} className={inputClass}
                 placeholder={modo === 'pedido' ? 'Horario, referencia, quién recibe…' : 'Quiere precios, reclamo, ver heladera…'} />
             </div>

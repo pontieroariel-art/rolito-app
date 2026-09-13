@@ -84,7 +84,7 @@ export default function SupervisorClientesPage() {
         </div>
 
         {cargando ? (
-          <p className="text-sm text-gray-500 text-center pt-8">Cargando saldos…</p>
+          <p className="text-sm text-secundario text-center pt-8">Cargando saldos…</p>
         ) : saldos.length === 0 ? (
           <div className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-4 text-center">
             <p className="text-sm text-gray-600">No hay saldos de Tango cargados todavía.</p>
@@ -101,11 +101,11 @@ export default function SupervisorClientesPage() {
               ))}
             </div>
             <div className="flex items-center justify-between px-1">
-              <p className="text-xs text-gray-500">{filtrados.length} {filtrados.length === 1 ? 'cliente' : 'clientes'}</p>
-              <p className="text-xs text-gray-500">Deuda: <span className="font-semibold text-gray-900">{formatoARS(totalDeuda)}</span></p>
+              <p className="text-xs text-secundario">{filtrados.length} {filtrados.length === 1 ? 'cliente' : 'clientes'}</p>
+              <p className="text-xs text-secundario">Deuda: <span className="font-semibold text-gray-900">{formatoARS(totalDeuda)}</span></p>
             </div>
             {filtrados.length === 0 && (
-              <p className="text-sm text-gray-500 text-center py-6">Ningún cliente coincide.</p>
+              <p className="text-sm text-secundario text-center py-6">Ningún cliente coincide.</p>
             )}
             <div className="space-y-2">
               {filtrados.map((s) => {
@@ -119,13 +119,13 @@ export default function SupervisorClientesPage() {
                         <p className="text-sm font-semibold text-gray-900 shrink-0">{formatoARS(s.saldoTotal)}</p>
                       </div>
                       <div className="flex justify-between items-center mt-0.5 gap-2">
-                        <p className="text-xs text-gray-500 truncate">
+                        <p className="text-xs text-secundario truncate">
                           {s.comprobantes.length} {s.comprobantes.length === 1 ? 'comprobante' : 'comprobantes'} · cód. {s.codigoTango}
                           {atraso > 0 && <span className="text-red-500"> · {atraso} {atraso === 1 ? 'día' : 'días'} de atraso</span>}
                         </p>
                         <p className="text-xs text-secundario shrink-0">{haceCuanto(s.actualizadoEn)}</p>
                       </div>
-                      {desglose(s) && <p className="text-xs text-gray-500 mt-0.5">{desglose(s)}</p>}
+                      {desglose(s) && <p className="text-xs text-secundario mt-0.5">{desglose(s)}</p>}
                     </Link>
                     {/* Ficha: contacto, cómo llegar, composición de saldos. */}
                     <Link to={`/supervisor/cliente/${s.id}`} aria-label={`Ficha de ${s.razonSocial}`}

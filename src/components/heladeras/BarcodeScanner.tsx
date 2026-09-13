@@ -43,7 +43,7 @@ export default function BarcodeScanner({ onDetected, onClose }: { onDetected: (c
         {error ? (
           <p className="text-red-500 text-xs">{error}</p>
         ) : (
-          <p className="text-xs text-gray-500">Apuntá la cámara al código de barra del artículo.</p>
+          <p className="text-xs text-secundario">Apuntá la cámara al código de barra del artículo.</p>
         )}
         <button
           onClick={onClose}

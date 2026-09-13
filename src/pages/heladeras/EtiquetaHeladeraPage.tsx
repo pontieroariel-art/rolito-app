@@ -36,7 +36,7 @@ export default function EtiquetaHeladeraPage() {
   }, [heladera, qrDataUrl, barcodeDataUrl])
 
   if (heladera === undefined) return <LoadingSpinner fullScreen />
-  if (heladera === null) return <p className="p-6 text-sm text-gray-500">No se encontró la heladera.</p>
+  if (heladera === null) return <p className="p-6 text-sm text-secundario">No se encontró la heladera.</p>
 
   return <ZebraLabel heladera={heladera} qrDataUrl={qrDataUrl} barcodeDataUrl={barcodeDataUrl} />
 }

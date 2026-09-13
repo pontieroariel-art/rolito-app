@@ -142,20 +142,20 @@ export default function TomaServicePage() {
       <main className="max-w-2xl mx-auto p-4 space-y-6 pb-10">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Toma de service</h1>
-          <p className="text-gray-500 text-sm">Buscá un cliente o una heladera para abrir un ticket</p>
+          <p className="text-secundario text-sm">Buscá un cliente o una heladera para abrir un ticket</p>
         </div>
 
         {!cliente && !heladera && (
           <div className="flex gap-2">
             <button
               onClick={() => { setModo('cliente'); setBusqueda('') }}
-              className={`text-xs px-3 py-1.5 rounded-full border font-medium ${modo === 'cliente' ? 'bg-accent/10 text-accent border-accent/40' : 'border-[#D3D1C7] text-gray-500'}`}
+              className={`text-xs px-3 py-1.5 rounded-full border font-medium ${modo === 'cliente' ? 'bg-accent/10 text-accent border-accent/40' : 'border-[#D3D1C7] text-secundario'}`}
             >
               Por cliente
             </button>
             <button
               onClick={() => { setModo('heladera'); setBusqueda('') }}
-              className={`text-xs px-3 py-1.5 rounded-full border font-medium ${modo === 'heladera' ? 'bg-accent/10 text-accent border-accent/40' : 'border-[#D3D1C7] text-gray-500'}`}
+              className={`text-xs px-3 py-1.5 rounded-full border font-medium ${modo === 'heladera' ? 'bg-accent/10 text-accent border-accent/40' : 'border-[#D3D1C7] text-secundario'}`}
             >
               Por heladera
             </button>
@@ -196,7 +196,7 @@ export default function TomaServicePage() {
                     className="w-full text-left px-3 py-2.5 hover:bg-gray-50"
                   >
                     <p className="text-sm font-medium text-gray-900">{h.codigoInterno}</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-secundario">
                       {h.modelo} · {h.clienteAsignadoNombre ?? 'sin cliente'}
                       {h.clienteAsignadoDireccionId ? ` · suc. ${h.clienteAsignadoDireccionId}` : ''}
                     </p>
@@ -214,15 +214,15 @@ export default function TomaServicePage() {
           <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 flex justify-between items-center">
             <div>
               <p className="text-sm font-semibold text-gray-900">{cliente.razonSocial}</p>
-              {cliente.cuit && <p className="text-xs text-gray-500">CUIT {cliente.cuit}</p>}
+              {cliente.cuit && <p className="text-xs text-secundario">CUIT {cliente.cuit}</p>}
             </div>
-            <button onClick={reset} className="text-xs text-gray-500 hover:text-accent">Empezar de nuevo</button>
+            <button onClick={reset} className="text-xs text-secundario hover:text-accent">Empezar de nuevo</button>
           </div>
         )}
 
         {cliente && !heladera && (
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">
+            <label className="text-xs text-secundario mb-1 block">
               ¿Qué heladera?{heladerasDelCliente.length > 0 ? ` (${heladerasDelCliente.length})` : ''}
             </label>
             {loadingHeladerasCliente ? (
@@ -256,7 +256,7 @@ export default function TomaServicePage() {
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-gray-500">{h.modelo} · serie {h.numeroSerie}</p>
+                        <p className="text-xs text-secundario">{h.modelo} · serie {h.numeroSerie}</p>
                         {(sucursal.nombre || h.clienteAsignadoDireccion) && (
                           <p className="text-xs text-accent">
                             {sucursal.nombre && <span className="font-medium">{sucursal.nombre}</span>}
@@ -285,7 +285,7 @@ export default function TomaServicePage() {
                     </span>
                   )}
                 </p>
-                <p className="text-xs text-gray-500">{heladera.modelo} · serie {heladera.numeroSerie}</p>
+                <p className="text-xs text-secundario">{heladera.modelo} · serie {heladera.numeroSerie}</p>
                 {(() => {
                   const suc = sucursalDeHeladera(heladera, cliente)
                   return (suc.nombre || heladera.clienteAsignadoDireccion) ? (
@@ -297,11 +297,11 @@ export default function TomaServicePage() {
                   ) : null
                 })()}
               </div>
-              <button onClick={() => setHeladera(null)} className="text-xs text-gray-500 hover:text-accent">Cambiar</button>
+              <button onClick={() => setHeladera(null)} className="text-xs text-secundario hover:text-accent">Cambiar</button>
             </div>
 
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Motivo de reparación</label>
+              <label className="text-xs text-secundario mb-1 block">Motivo de reparación</label>
               <select
                 value={motivoId}
                 onChange={(e) => setMotivoId(e.target.value)}
@@ -331,7 +331,7 @@ export default function TomaServicePage() {
                   <div key={t.id} className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 flex items-center justify-between gap-3">
                     <div>
                       <p className="text-xs font-medium text-gray-900">{t.heladeraCodigo} — {t.motivoNombre}</p>
-                      <p className="text-xs text-gray-500">{tsToDate(t.fechaPedido).toLocaleDateString('es-AR')}</p>
+                      <p className="text-xs text-secundario">{tsToDate(t.fechaPedido).toLocaleDateString('es-AR')}</p>
                     </div>
                     <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200">
                       {ESTADO_TICKET_LABELS[t.estado] ?? t.estado}

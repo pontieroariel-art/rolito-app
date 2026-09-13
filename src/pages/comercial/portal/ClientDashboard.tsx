@@ -71,7 +71,7 @@ export default function ClientDashboard() {
       <main className="max-w-2xl mx-auto p-4 pt-10 text-center space-y-3">
         <p className="text-4xl">⚠️</p>
         <p className="text-red-600 font-semibold">No se pudo conectar</p>
-        <p className="text-gray-500 text-sm">Revisá tu conexión a internet e intentá de nuevo.</p>
+        <p className="text-secundario text-sm">Revisá tu conexión a internet e intentá de nuevo.</p>
         <button
           onClick={() => window.location.reload()}
           className="mt-4 text-sm border border-accent text-accent rounded-lg px-4 py-2 hover:bg-accent/10 transition-colors"
@@ -98,7 +98,7 @@ export default function ClientDashboard() {
               </Link>
             </div>
           ) : (
-            <p className="text-gray-500 text-sm mt-1">Gestión de pedidos de hielo</p>
+            <p className="text-secundario text-sm mt-1">Gestión de pedidos de hielo</p>
           )}
         </div>
 
@@ -111,7 +111,7 @@ export default function ClientDashboard() {
           <div className="bg-[#E8F5F0] border border-[#B3DDD3] rounded-2xl px-4 py-3 flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-sm font-medium text-gray-900">Activar notificaciones</p>
-              <p className="text-xs text-gray-500 mt-0.5">Avisamos cuando tu pedido sale y cuando el camión está cerca</p>
+              <p className="text-xs text-secundario mt-0.5">Avisamos cuando tu pedido sale y cuando el camión está cerca</p>
             </div>
             <button
               onClick={() => request(user?.uid ? (sub) => savePushSubscription(user.uid, sub) : undefined)}

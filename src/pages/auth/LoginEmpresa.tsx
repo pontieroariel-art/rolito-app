@@ -80,7 +80,7 @@ export default function LoginEmpresa() {
               type="button"
               tabIndex={-1}
               onClick={() => setShowPass((v) => !v)}
-              className="text-gray-500 hover:text-gray-700 transition-colors"
+              className="text-secundario hover:text-gray-700 transition-colors"
             >
               {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
@@ -102,7 +102,7 @@ export default function LoginEmpresa() {
         </p>
 
         <p className="text-center text-xs text-secundario mt-1">
-          <Link to="/" className="text-gray-500 hover:text-accent transition-colors">
+          <Link to="/" className="text-secundario hover:text-accent transition-colors">
             ← Volver al inicio
           </Link>
         </p>

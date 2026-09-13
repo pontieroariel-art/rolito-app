@@ -35,7 +35,7 @@ export default function CancelOrderModal({ order, onClose, onCancelled }: { orde
           ¿Cancelar el pedido de <span className="font-semibold text-gray-900">{order.clientName}</span>?
         </p>
         <div>
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Motivo (opcional)</label>
+          <label className="text-xs font-semibold text-secundario uppercase tracking-wide block mb-1">Motivo (opcional)</label>
           <textarea
             value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={2}
             placeholder="Ej: cliente canceló, error de carga..."
@@ -46,7 +46,7 @@ export default function CancelOrderModal({ order, onClose, onCancelled }: { orde
           <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
         )}
         <div className="flex gap-2">
-          <button onClick={onClose} className="flex-1 py-2 rounded-xl border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 transition-colors">
+          <button onClick={onClose} className="flex-1 py-2 rounded-xl border border-gray-200 text-sm text-secundario hover:bg-gray-50 transition-colors">
             Volver
           </button>
           <button onClick={handleCancel} disabled={saving}

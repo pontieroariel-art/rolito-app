@@ -17,7 +17,7 @@ import { PLANTAS, type CotConfig, type CotDomicilio, type CotSolicitud, type Cot
 // a ARBA al emitir. Ver docs/arba/COT.md.
 
 const input = 'w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'
-const label = 'text-xs text-gray-500 mb-1 block'
+const label = 'text-xs text-secundario mb-1 block'
 
 export default function CotCargaForm({ plantaId, cfg, kg, patente, respaldoAuto = false, onChange }: {
   plantaId: PlantaId
@@ -94,7 +94,7 @@ export default function CotCargaForm({ plantaId, cfg, kg, patente, respaldoAuto 
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-sm font-medium text-gray-800 flex items-center gap-1.5"><FileCheck2 size={16} className="text-blue-600" /> COT de ARBA</p>
-          <p className="text-xs text-gray-500">La carga pesa <b>{kg.toLocaleString('es-AR')} kg</b>: supera el umbral y necesita Código de Operación de Traslado. Se pide a ARBA al emitir el remito.</p>
+          <p className="text-xs text-secundario">La carga pesa <b>{kg.toLocaleString('es-AR')} kg</b>: supera el umbral y necesita Código de Operación de Traslado. Se pide a ARBA al emitir el remito.</p>
         </div>
       </div>
 

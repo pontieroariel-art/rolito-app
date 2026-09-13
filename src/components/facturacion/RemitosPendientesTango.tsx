@@ -30,9 +30,9 @@ export default function RemitosPendientesTango() {
             <li key={v.id} className="py-2 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
               <span className="font-mono font-semibold text-gray-900">{numeroRemito(v)}</span>
               <span className="text-gray-800">{nombreClienteVenta(v)}</span>
-              <span className="text-gray-500 tabular-nums">{formatoARS(v.total)}</span>
-              <span className="text-gray-500">{v.choferNombre}</span>
-              <span className="text-xs text-gray-500">
+              <span className="text-secundario tabular-nums">{formatoARS(v.total)}</span>
+              <span className="text-secundario">{v.choferNombre}</span>
+              <span className="text-xs text-secundario">
                 anulado {a?.anuladaEn?.toDate ? a.anuladaEn.toDate().toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}
                 {a?.anuladaPor?.nombre ? ` por ${a.anuladaPor.nombre}` : ''}
                 {a?.motivo ? ` · ${MOTIVOS_ANULACION[a.motivo] ?? a.motivo}` : ''}{a?.nota ? ` · ${a.nota}` : ''}

@@ -134,14 +134,14 @@ export default function ReportePreciosPage() {
         <div className="max-w-5xl mx-auto pt-6 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold">Reporte de precios</h1>
-            <p className="text-gray-500 text-sm mt-1">
+            <p className="text-secundario text-sm mt-1">
               {clientes.length} clientes activos · {productosActivos.length} productos
             </p>
           </div>
           <div className="flex items-center gap-3">
             <button
               onClick={() => refetch()}
-              className="text-gray-500 hover:text-gray-900 transition-colors"
+              className="text-secundario hover:text-gray-900 transition-colors"
               title="Actualizar"
             >
               <RefreshCw size={16} />
@@ -178,11 +178,11 @@ export default function ReportePreciosPage() {
                     <th className="sticky left-0 z-10 bg-gray-50 px-4 py-3 text-left font-semibold text-gray-900 whitespace-nowrap border-r border-gray-200">
                       Cliente
                     </th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-500 whitespace-nowrap border-r border-gray-200">
+                    <th className="px-4 py-3 text-left font-semibold text-secundario whitespace-nowrap border-r border-gray-200">
                       Lista
                     </th>
                     {productosActivos.map((p) => (
-                      <th key={p.id} className="px-4 py-3 text-right font-semibold text-gray-500 whitespace-nowrap">
+                      <th key={p.id} className="px-4 py-3 text-right font-semibold text-secundario whitespace-nowrap">
                         {p.name}
                       </th>
                     ))}
@@ -202,7 +202,7 @@ export default function ReportePreciosPage() {
                           <div>
                             <p className="text-sm">{c.razonSocial || c.nombreContacto || c.email}</p>
                             {c.razonSocial && c.nombreContacto && (
-                              <p className="text-xs text-gray-500">{c.nombreContacto}</p>
+                              <p className="text-xs text-secundario">{c.nombreContacto}</p>
                             )}
                           </div>
                         </td>
@@ -246,7 +246,7 @@ export default function ReportePreciosPage() {
               </table>
             </div>
 
-            <p className="text-xs text-gray-500 text-center">
+            <p className="text-xs text-secundario text-center">
               Precios de Tango (lista de Redonhielo del cliente, con su precio especial si lo tiene). Se actualizan con la sincronización diaria.
             </p>
           </>
@@ -260,7 +260,7 @@ function StatCard({ label, value }: { label: string; value: number }) {
   return (
     <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 text-center">
       <p className="text-2xl font-bold text-gray-900">{value}</p>
-      <p className="text-xs text-gray-500 mt-1">{label}</p>
+      <p className="text-xs text-secundario mt-1">{label}</p>
     </div>
   )
 }

@@ -35,7 +35,7 @@ export default function AsignacionEquiposPage() {
       <main className="max-w-2xl mx-auto p-4 space-y-6 pb-10">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Asignación de equipos</h1>
-          <p className="text-gray-500 text-sm">Buscá un cliente para ver o gestionar sus heladeras</p>
+          <p className="text-secundario text-sm">Buscá un cliente para ver o gestionar sus heladeras</p>
         </div>
 
         {!cliente ? (
@@ -51,11 +51,11 @@ export default function AsignacionEquiposPage() {
             <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 flex justify-between items-center">
               <div>
                 <p className="text-sm font-semibold text-gray-900">{cliente.razonSocial}</p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-secundario">
                   {cliente.codigoCliente ? `Código ${cliente.codigoCliente} · ` : ''}CUIT {cliente.cuit}
                 </p>
               </div>
-              <button onClick={() => setCliente(null)} className="text-xs text-gray-500 hover:text-accent">
+              <button onClick={() => setCliente(null)} className="text-xs text-secundario hover:text-accent">
                 Buscar otro
               </button>
             </div>
@@ -75,7 +75,7 @@ export default function AsignacionEquiposPage() {
                   <div key={h.id} className="bg-white border border-[#D3D1C7] rounded-xl p-4 flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="font-bold text-sm text-gray-900">{h.codigoInterno}</p>
-                      <p className="text-gray-500 text-xs">{h.modelo} · serie {h.numeroSerie}</p>
+                      <p className="text-secundario text-xs">{h.modelo} · serie {h.numeroSerie}</p>
                       {h.clienteAsignadoDireccion && (
                         <p className="text-accent text-xs">{h.clienteAsignadoDireccion}</p>
                       )}

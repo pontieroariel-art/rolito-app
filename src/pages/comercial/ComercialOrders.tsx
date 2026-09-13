@@ -162,7 +162,7 @@ export default function ComercialOrders() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold">Historial de pedidos</h1>
-            <p className="text-gray-500 text-sm mt-0.5">Consultá y filtrá todas las compras</p>
+            <p className="text-secundario text-sm mt-0.5">Consultá y filtrá todas las compras</p>
           </div>
         </div>
 
@@ -176,7 +176,7 @@ export default function ComercialOrders() {
                 key={p}
                 onClick={() => setPeriodo(p)}
                 className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                  periodo === p ? 'bg-accent text-white' : 'text-gray-500 hover:text-gray-900'
+                  periodo === p ? 'bg-accent text-white' : 'text-secundario hover:text-gray-900'
                 }`}
               >
                 {p === 'dia' ? 'Día' : p === 'mes' ? 'Mes' : 'Año'}
@@ -256,7 +256,7 @@ export default function ComercialOrders() {
         {isLoading ? (
           <LoadingSpinner />
         ) : filtered.length === 0 ? (
-          <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center text-gray-500 text-sm">
+          <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center text-secundario text-sm">
             No hay pedidos para el período y filtros seleccionados
           </div>
         ) : (
@@ -286,14 +286,14 @@ function OrderCard({ order, users }: { order: Order; users: UserProfile[] }) {
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-medium text-sm">{client?.razonSocial || order.clientName}</span>
             {client?.razonSocial && client.razonSocial !== order.clientName && (
-              <span className="text-xs text-gray-500">({order.clientName})</span>
+              <span className="text-xs text-secundario">({order.clientName})</span>
             )}
           </div>
-          <p className="text-xs text-gray-500 mt-0.5 truncate">{order.clientAddress}</p>
+          <p className="text-xs text-secundario mt-0.5 truncate">{order.clientAddress}</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <Badge status={order.status} variant="light" />
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-secundario">
             {date.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
           </span>
         </div>
@@ -301,12 +301,12 @@ function OrderCard({ order, users }: { order: Order; users: UserProfile[] }) {
 
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <div className="space-y-1">
-          <p className="text-xs text-gray-500">{summarizeProducts(order.products)}</p>
+          <p className="text-xs text-secundario">{summarizeProducts(order.products)}</p>
           {order.driverId && (
-            <p className="text-xs text-gray-500">Chofer: {order.driverId}</p>
+            <p className="text-xs text-secundario">Chofer: {order.driverId}</p>
           )}
           {order.notes && (
-            <p className="text-xs text-gray-500 italic">"{order.notes}"</p>
+            <p className="text-xs text-secundario italic">"{order.notes}"</p>
           )}
         </div>
         {total > 0 && (
@@ -325,7 +325,7 @@ function SummaryCard({ label, value, accent = false }: { label: string; value: s
   return (
     <div className="bg-white border border-[#D3D1C7] rounded-xl p-4">
       <p className={`text-lg font-bold ${accent ? 'text-accent' : 'text-gray-900'}`}>{value}</p>
-      <p className="text-gray-500 text-xs mt-1">{label}</p>
+      <p className="text-secundario text-xs mt-1">{label}</p>
     </div>
   )
 }

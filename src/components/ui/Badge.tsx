@@ -34,7 +34,7 @@ export default function Badge({ status, variant = 'dark' }: BadgeProps) {
   return (
     <span
       className={`text-xs px-2.5 py-1 rounded-full border font-medium whitespace-nowrap
-        ${styles[status] ?? (variant === 'dark' ? 'bg-white text-gray-500 border-[#D3D1C7]' : 'bg-gray-100 text-gray-600 border-gray-200')}`}
+        ${styles[status] ?? (variant === 'dark' ? 'bg-white text-secundario border-[#D3D1C7]' : 'bg-gray-100 text-gray-600 border-gray-200')}`}
     >
       {STATUS_LABELS[status] ?? status}
     </span>

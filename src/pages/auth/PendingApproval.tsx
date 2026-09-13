@@ -18,7 +18,7 @@ export default function PendingApproval() {
         <p className="text-gray-900 text-sm leading-relaxed">
           Tu cuenta está siendo verificada. Te avisaremos cuando esté activa.
         </p>
-        <p className="text-gray-500 text-xs">
+        <p className="text-secundario text-xs">
           Si tenés alguna consulta, contactá a nuestro equipo.
         </p>
         <Button variant="outline" onClick={handleLogout} className="w-full mt-2">

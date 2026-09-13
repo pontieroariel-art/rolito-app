@@ -75,7 +75,7 @@ export function CrearStaffModal({ onClose, onCreated }: { onClose: () => void; o
           placeholder="Juan García"
         />
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Rol</label>
+          <label className="text-xs text-secundario mb-1 block">Rol</label>
           <select
             value={rol}
             onChange={(e: ChangeEvent<HTMLSelectElement>) => setRol(e.target.value as UserRole)}
@@ -89,7 +89,7 @@ export function CrearStaffModal({ onClose, onCreated }: { onClose: () => void; o
 
         {conPlanta && (
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Planta</label>
+            <label className="text-xs text-secundario mb-1 block">Planta</label>
             <select
               value={planta}
               onChange={(e: ChangeEvent<HTMLSelectElement>) => setPlanta(e.target.value as PlantaId)}
@@ -104,7 +104,7 @@ export function CrearStaffModal({ onClose, onCreated }: { onClose: () => void; o
 
         {isHeladeras && (
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Área</label>
+            <label className="text-xs text-secundario mb-1 block">Área</label>
             <select
               value={area}
               onChange={(e: ChangeEvent<HTMLSelectElement>) => setArea(e.target.value as AreaHeladera)}
@@ -127,7 +127,7 @@ export function CrearStaffModal({ onClose, onCreated }: { onClose: () => void; o
           inputMode="numeric"
           maxLength={isChofer ? 11 : 8}
         />
-        <p className="text-xs text-gray-500 -mt-2">
+        <p className="text-xs text-secundario -mt-2">
           {isChofer ? 'El chofer ingresa con su DNI (8 dígitos del medio del CUIT) y PIN.' : 'El usuario ingresa con su DNI y contraseña.'}
         </p>
 
@@ -145,13 +145,13 @@ export function CrearStaffModal({ onClose, onCreated }: { onClose: () => void; o
               type="button"
               tabIndex={-1}
               onClick={() => setShowPass((v) => !v)}
-              className="text-lg leading-none text-gray-500 hover:text-gray-700"
+              className="text-lg leading-none text-secundario hover:text-gray-700"
             >
               {showPass ? '🙈' : '👁️'}
             </button>
           }
         />
-        <p className="text-xs text-gray-500 -mt-2">
+        <p className="text-xs text-secundario -mt-2">
           {isChofer
             ? 'PIN de 4 dígitos. El chofer ingresa desde "Ingreso Choferes" en la app.'
             : 'El usuario podrá cambiar su contraseña desde "¿Olvidaste tu contraseña?" en Ingreso Empresa.'}

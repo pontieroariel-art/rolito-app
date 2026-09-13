@@ -51,7 +51,7 @@ export default function AnularRemitoModal({ venta, actor, origen, onCerrar }: {
           Remito <b>{numero}</b> · <b>{venta.clienteNombre}</b>
         </p>
         <div>
-          <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1 block">¿Qué pasó?</label>
+          <label className="text-xs font-semibold uppercase tracking-wide text-secundario mb-1 block">¿Qué pasó?</label>
           <select value={motivo} onChange={(e) => setMotivo(e.target.value as MotivoAnulacion)} className={inputClass}>
             <option value="">Elegí el motivo</option>
             {(Object.keys(MOTIVOS_ANULACION) as MotivoAnulacion[]).map((m) => <option key={m} value={m}>{MOTIVOS_ANULACION[m]}</option>)}

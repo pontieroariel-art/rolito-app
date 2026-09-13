@@ -47,7 +47,7 @@ export default function CobranzasPage() {
     <main className="max-w-3xl mx-auto pb-10">
       <div className="p-4 pb-0">
         <h1 className="text-2xl font-bold text-gray-900">Cobranzas</h1>
-        <p className="text-gray-500 text-sm">{PLANTAS[plantaId].label} · pagos de cuenta corriente en mostrador</p>
+        <p className="text-secundario text-sm">{PLANTAS[plantaId].label} · pagos de cuenta corriente en mostrador</p>
       </div>
 
       <CobranzaCompleta origen="caja" plantaId={plantaId} volverA="/caja" ancho="3xl" />
@@ -64,7 +64,7 @@ export default function CobranzasPage() {
           <div key={c.id} className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-3 flex items-center gap-3">
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-gray-900 truncate">{c.clienteNombre}</p>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-secundario">
                 {formatoARS(c.importe)} · {c.formaPago === 'contado_efectivo' ? 'Efectivo' : 'Transferencia'}
                 {c.referencia ? ` · ${c.referencia}` : ''} · cobranza simple (no viaja a Tango)
               </p>

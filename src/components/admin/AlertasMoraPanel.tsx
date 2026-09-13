@@ -34,10 +34,10 @@ export default function AlertasMoraPanel() {
 
   const campo = (k: keyof AlertasMoraConfig, label: string, sufijo: string) => (
     <label className="block">
-      <span className="text-xs text-gray-500 mb-1 block">{label}</span>
+      <span className="text-xs text-secundario mb-1 block">{label}</span>
       <div className="flex items-center gap-2">
         <input type="number" min={1} value={form[k]} onChange={(e) => setForm({ ...form, [k]: Number(e.target.value) })} className={inputClass} />
-        <span className="text-xs text-gray-500 shrink-0">{sufijo}</span>
+        <span className="text-xs text-secundario shrink-0">{sufijo}</span>
       </div>
     </label>
   )
@@ -47,7 +47,7 @@ export default function AlertasMoraPanel() {
     <section className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-5 space-y-4">
       <div>
         <h2 className="text-lg font-semibold text-gray-900">Alertas de mora (supervisores)</h2>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-secundario">
           Con cuántos días de atraso un cliente pasa a amarillo y a rojo en "Clientes con deuda" y en la ficha.
           Un cliente vencido con un saldo grande es rojo aunque no llegue a los días de rojo.
         </p>
@@ -57,12 +57,12 @@ export default function AlertasMoraPanel() {
         {campo('diasRojo', 'Rojo desde', 'días de atraso')}
         {campo('importeRojo', 'Rojo por importe', '$ de saldo vencido')}
       </div>
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-secundario">
         Ejemplo: {form.diasAmarillo} días de atraso con {formatoARS(form.importeRojo)} de saldo → <b>{ejemplo === 'rojo' ? 'rojo' : ejemplo === 'amarillo' ? 'amarillo' : 'al día'}</b>.
       </p>
       <div className="flex items-center gap-3">
         <Button onClick={guardar} loading={guardando}>Guardar</Button>
-        {msg && <span className="text-sm text-gray-500">{msg}</span>}
+        {msg && <span className="text-sm text-secundario">{msg}</span>}
       </div>
     </section>
   )

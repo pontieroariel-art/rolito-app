@@ -54,7 +54,7 @@ export default function VerComoUsuario() {
 
   return (
     <div className="space-y-3">
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-secundario">
         Abre la app en otra pestaña con la sesión de esa persona, en <b>solo lectura</b>, para ver exactamente lo que ve.
         Cada entrada queda registrada en la auditoría.
       </p>
@@ -75,7 +75,7 @@ export default function VerComoUsuario() {
             <li key={u.uid} className="px-3 py-2 flex items-center gap-3">
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-gray-900 truncate">{u.razonSocial || u.nombre || u.email}</p>
-                <p className="text-xs text-gray-500 truncate">
+                <p className="text-xs text-secundario truncate">
                   {ROLE_LABELS[u.rol] ?? u.rol}
                   {u.dni ? ` · DNI ${u.dni}` : u.cuit ? ` · CUIT ${u.cuit}` : ''}
                   {u.estado !== 'activo' ? ` · ${u.estado}` : ''}

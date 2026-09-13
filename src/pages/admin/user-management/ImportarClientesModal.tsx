@@ -101,7 +101,7 @@ export function ImportarClientesModal({ onClose, onDone }: { onClose: () => void
     <Modal open wide onClose={step === 'importing' ? () => {} : onClose} title="Importar clientes desde Excel">
       {step === 'pick' && (
         <div className="space-y-4">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-secundario">
             Seleccioná el archivo Excel con la nómina de clientes. Se crearán cuentas agrupadas por CUIT.
           </p>
           {parseError && <p className="text-sm text-red-400">{parseError}</p>}
@@ -119,7 +119,7 @@ export function ImportarClientesModal({ onClose, onDone }: { onClose: () => void
             onClick={() => fileRef.current?.click()}
             className="border-2 border-dashed border-[#D3D1C7] rounded-xl p-10 text-center cursor-pointer hover:border-accent transition-colors"
           >
-            <p className="text-gray-500 text-sm">Hacé clic para seleccionar el archivo .xlsx</p>
+            <p className="text-secundario text-sm">Hacé clic para seleccionar el archivo .xlsx</p>
           </div>
           <div className="flex justify-end">
             <Button variant="outline" onClick={onClose}>Cancelar</Button>
@@ -132,19 +132,19 @@ export function ImportarClientesModal({ onClose, onDone }: { onClose: () => void
           <div className="grid grid-cols-3 gap-3">
             <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 text-center">
               <p className="text-2xl font-bold text-accent">{clientes.length.toLocaleString('es-AR')}</p>
-              <p className="text-xs text-gray-500 mt-1">Cuentas a crear</p>
+              <p className="text-xs text-secundario mt-1">Cuentas a crear</p>
             </div>
             <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 text-center">
               <p className="text-2xl font-bold text-white">{branchCount.toLocaleString('es-AR')}</p>
-              <p className="text-xs text-gray-500 mt-1">Sucursales totales</p>
+              <p className="text-xs text-secundario mt-1">Sucursales totales</p>
             </div>
             <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 text-center">
               <p className="text-2xl font-bold text-amber-400">{synCount.toLocaleString('es-AR')}</p>
-              <p className="text-xs text-gray-500 mt-1">Sin email real</p>
+              <p className="text-xs text-secundario mt-1">Sin email real</p>
             </div>
           </div>
 
-          <div className="bg-white border border-[#D3D1C7] rounded-xl p-3 text-xs text-gray-500 space-y-1">
+          <div className="bg-white border border-[#D3D1C7] rounded-xl p-3 text-xs text-secundario space-y-1">
             <p>• Todos los clientes ingresan con <span className="text-gray-900">CUIT + contraseña</span> (CUIT sin guiones)</p>
             <p>• El email del Excel se guarda solo como dato de contacto</p>
             <p>• {synCount.toLocaleString('es-AR')} clientes sin email de contacto registrado</p>
@@ -168,10 +168,10 @@ export function ImportarClientesModal({ onClose, onDone }: { onClose: () => void
             <table className="w-full text-xs min-w-[480px]">
               <thead className="sticky top-0 bg-white">
                 <tr className="border-b border-[#D3D1C7]">
-                  <th className="text-left px-3 py-2 text-gray-500 font-medium">Razón social</th>
-                  <th className="text-left px-3 py-2 text-gray-500 font-medium">CUIT</th>
-                  <th className="text-center px-3 py-2 text-gray-500 font-medium">Suc.</th>
-                  <th className="text-left px-3 py-2 text-gray-500 font-medium">Email contacto</th>
+                  <th className="text-left px-3 py-2 text-secundario font-medium">Razón social</th>
+                  <th className="text-left px-3 py-2 text-secundario font-medium">CUIT</th>
+                  <th className="text-center px-3 py-2 text-secundario font-medium">Suc.</th>
+                  <th className="text-left px-3 py-2 text-secundario font-medium">Email contacto</th>
                 </tr>
               </thead>
               <tbody>
@@ -183,13 +183,13 @@ export function ImportarClientesModal({ onClose, onDone }: { onClose: () => void
                     <td className="px-3 py-1.5 font-mono truncate max-w-[160px]">
                       {c.emailContacto
                         ? <span className="text-gray-900">{c.emailContacto}</span>
-                        : <span className="text-gray-500 italic">sin email</span>}
+                        : <span className="text-secundario italic">sin email</span>}
                     </td>
                   </tr>
                 ))}
                 {clientes.length > 200 && (
                   <tr>
-                    <td colSpan={4} className="px-3 py-2 text-center text-gray-500 italic">
+                    <td colSpan={4} className="px-3 py-2 text-center text-secundario italic">
                       … y {(clientes.length - 200).toLocaleString('es-AR')} más
                     </td>
                   </tr>
@@ -209,7 +209,7 @@ export function ImportarClientesModal({ onClose, onDone }: { onClose: () => void
 
       {step === 'importing' && (
         <div className="space-y-5 py-2">
-          <p className="text-sm text-gray-500 text-center">
+          <p className="text-sm text-secundario text-center">
             Creando cuentas… no cierres esta ventana.
           </p>
           <div className="w-full bg-white rounded-full h-3 overflow-hidden border border-[#D3D1C7]">
@@ -233,15 +233,15 @@ export function ImportarClientesModal({ onClose, onDone }: { onClose: () => void
           <div className="grid grid-cols-3 gap-3">
             <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 text-center">
               <p className="text-2xl font-bold text-green-400">{created.toLocaleString('es-AR')}</p>
-              <p className="text-xs text-gray-500 mt-1">Creadas</p>
+              <p className="text-xs text-secundario mt-1">Creadas</p>
             </div>
             <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 text-center">
               <p className="text-2xl font-bold text-amber-400">{skipped.toLocaleString('es-AR')}</p>
-              <p className="text-xs text-gray-500 mt-1">Ya existían</p>
+              <p className="text-xs text-secundario mt-1">Ya existían</p>
             </div>
             <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 text-center">
               <p className="text-2xl font-bold text-red-400">{errors.length.toLocaleString('es-AR')}</p>
-              <p className="text-xs text-gray-500 mt-1">Errores</p>
+              <p className="text-xs text-secundario mt-1">Errores</p>
             </div>
           </div>
 

@@ -278,7 +278,7 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
           <p className="text-lg font-semibold text-gray-900">Cobranza registrada</p>
           <p className="text-sm text-gray-600 mt-1">{exito.numeroRecibo ? `Recibo ${exito.numeroRecibo} — ` : ''}{formatoARS(exito.importe)} — {exito.clienteNombre}</p>
           {exito.aCuenta ? <p className="text-sm text-amber-700 mt-1">{formatoARS(exito.aCuenta)} quedan a cuenta del cliente (saldo a favor).</p> : null}
-          <p className="text-xs text-gray-500 mt-2">Queda encolada para impactar en la cuenta corriente de Tango.</p>
+          <p className="text-xs text-secundario mt-2">Queda encolada para impactar en la cuenta corriente de Tango.</p>
         </div>
         <div className="flex flex-col gap-2 pt-2 max-w-md mx-auto">
           <Button onClick={() => entregarRecibo(exito, true)} className="w-full">
@@ -287,9 +287,9 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
           <Button variant="outline" onClick={() => entregarRecibo(exito, false)} className="w-full">
             <FileDown size={16} className="mr-2" /> {origen === 'caja' ? 'Descargar / imprimir recibo' : 'Descargar recibo PDF'}
           </Button>
-          {avisoRecibo && <p className="text-xs text-gray-500">{avisoRecibo}</p>}
+          {avisoRecibo && <p className="text-xs text-secundario">{avisoRecibo}</p>}
           <Button variant="outline" onClick={() => setExito(null)} className="w-full">Registrar otra cobranza</Button>
-          <Link to={volverA} className="text-sm text-gray-500 hover:text-accent">Volver al inicio</Link>
+          <Link to={volverA} className="text-sm text-secundario hover:text-accent">Volver al inicio</Link>
         </div>
       </div>
     )
@@ -298,7 +298,7 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
   return (
     <div className={`${anchoClase} mx-auto p-4 space-y-4 pb-8`}>
       <div>
-        <label className="text-xs text-gray-500 mb-1 block">Cliente</label>
+        <label className="text-xs text-secundario mb-1 block">Cliente</label>
         <ClienteCombobox items={itemsTango} value={clienteId} onChange={setClienteId} placeholder="Buscar cliente…" />
         {clienteId && cargandoCliente && <p className="text-xs text-secundario mt-1">Cargando la ficha del cliente…</p>}
       </div>
@@ -308,7 +308,7 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
           {/* ── Composición de saldos ── */}
           <section>
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Facturas pendientes</h2>
+              <h2 className="text-sm font-semibold text-secundario uppercase tracking-wide">Facturas pendientes</h2>
               {refrescando ? (
                 <span className="flex items-center gap-1 text-xs text-secundario"><RefreshCw size={12} className="animate-spin" /> Consultando Tango…</span>
               ) : saldo ? (
@@ -317,7 +317,7 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
             </div>
 
             {cargandoSaldo ? (
-              <p className="text-sm text-gray-500 text-center py-4">Cargando saldo…</p>
+              <p className="text-sm text-secundario text-center py-4">Cargando saldo…</p>
             ) : comprobantes.length === 0 ? (
               <div className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-4 text-center">
                 <p className="text-sm text-gray-600">Este cliente no tiene facturas pendientes en el cache de Tango.</p>
@@ -335,11 +335,11 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
                       <div>
                         <p className="text-sm font-semibold text-gray-900">
                           {NOMBRE_EMPRESA[grupo.empresa]}
-                          {(variosCodigos(grupo.empresa) || grupo.codigo) && <span className="text-xs font-normal text-gray-500"> · cód. {grupo.codigo || '—'}</span>}
+                          {(variosCodigos(grupo.empresa) || grupo.codigo) && <span className="text-xs font-normal text-secundario"> · cód. {grupo.codigo || '—'}</span>}
                         </p>
                         {/* Sucursal del código (cuentas con varias: Rappi, Coto…), para saber a quién se le está cobrando. */}
                         {nombreSucursal(cliente, grupo.empresa, grupo.codigo) && (
-                          <p className="text-xs text-gray-500">{nombreSucursal(cliente, grupo.empresa, grupo.codigo)}</p>
+                          <p className="text-xs text-secundario">{nombreSucursal(cliente, grupo.empresa, grupo.codigo)}</p>
                         )}
                       </div>
                       <div className="text-right">
@@ -347,7 +347,7 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
                         {rama?.actualizadoEn && !frescaEmpresa && <p className="text-[10px] text-secundario">{haceCuanto(rama.actualizadoEn)}</p>}
                       </div>
                     </div>
-                    {apagado && <p className="text-[11px] text-gray-500 mb-1.5 px-0.5">Se cobra en otro recibo: un recibo por empresa.</p>}
+                    {apagado && <p className="text-[11px] text-secundario mb-1.5 px-0.5">Se cobra en otro recibo: un recibo por empresa.</p>}
                     <div className="space-y-2">
                 {lista.map((c) => {
                   const clave = claveComp(c)
@@ -399,7 +399,7 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
                           <input type="checkbox" readOnly checked={seleccionada} className="accent-[#1D9E75] pointer-events-none" />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-gray-900 truncate">{c.tipo} {c.numero}</p>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-secundario">
                               {/* Emisión y vencimiento (pedido de los cobradores 2026-09-09). La emisión
                                   solo viene si el diseño de la Live de deudas en Tango la incluye. */}
                               {[c.fechaEmision ? `Emitida ${c.fechaEmision}` : '', c.fechaVencimiento ? `Vto. ${c.fechaVencimiento}` : ''].filter(Boolean).join(' · ')}
@@ -421,7 +421,7 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
                       </button>
                       {seleccionada && (
                         <div className="mt-2 pl-6">
-                          <label className="text-xs text-gray-500 mb-1 block">Importe a cobrar de esta factura</label>
+                          <label className="text-xs text-secundario mb-1 block">Importe a cobrar de esta factura</label>
                           <input
                             value={fila.importeStr}
                             onChange={(e) => setFilas((prev) => ({ ...prev, [clave]: { ...prev[clave], importeStr: e.target.value } }))}
@@ -447,7 +447,7 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
           {imputaciones.length === 0 && aplicaciones.length === 0 && !cargandoSaldo && gruposPosibles.length > 0 && (
             <section className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-3 space-y-2">
               <p className="text-sm font-medium text-gray-900">Cobrar a cuenta, sin imputar factura</p>
-              <p className="text-xs text-gray-500">La plata queda como saldo a favor del cliente en Tango, para imputar a sus próximas facturas.</p>
+              <p className="text-xs text-secundario">La plata queda como saldo a favor del cliente en Tango, para imputar a sus próximas facturas.</p>
               {gruposPosibles.length === 1 ? (
                 <p className="text-xs text-gray-700">En <span className="font-semibold">{NOMBRE_EMPRESA[gruposPosibles[0].empresa]}</span>{gruposPosibles[0].codigo ? ` · cód. ${gruposPosibles[0].codigo}` : ''}.</p>
               ) : (
@@ -470,15 +470,15 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
           {/* ── Medios de pago ── */}
           {seccionValores && (
             <section className="space-y-3">
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Valores recibidos</h2>
+              <h2 className="text-sm font-semibold text-secundario uppercase tracking-wide">Valores recibidos</h2>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-xs text-gray-500 mb-1 flex items-center gap-1"><Banknote size={12} /> Efectivo</label>
+                  <label className="text-xs text-secundario mb-1 flex items-center gap-1"><Banknote size={12} /> Efectivo</label>
                   <input value={efectivoStr} onChange={(e) => setEfectivoStr(e.target.value)} inputMode="decimal" placeholder="0,00" className={inputClass} />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 mb-1 flex items-center gap-1"><Landmark size={12} /> Transferencia</label>
+                  <label className="text-xs text-secundario mb-1 flex items-center gap-1"><Landmark size={12} /> Transferencia</label>
                   <input value={transferenciaStr} onChange={(e) => setTransferenciaStr(e.target.value)} inputMode="decimal" placeholder="0,00" className={inputClass} />
                 </div>
               </div>
@@ -488,8 +488,8 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
                   <div className="flex justify-between items-start gap-2">
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-gray-900">Cheque Nº {ch.numero}{ch.esEcheq ? ' (e-cheq)' : ''}</p>
-                      <p className="text-xs text-gray-500">{ch.bancoNombre}</p>
-                      <p className="text-xs text-gray-500">Emisión {ch.fechaEmision} · Acred. {ch.fechaAcreditacion} · {ch.dias} {ch.dias === 1 ? 'día' : 'días'}</p>
+                      <p className="text-xs text-secundario">{ch.bancoNombre}</p>
+                      <p className="text-xs text-secundario">Emisión {ch.fechaEmision} · Acred. {ch.fechaAcreditacion} · {ch.dias} {ch.dias === 1 ? 'día' : 'días'}</p>
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-sm font-semibold text-gray-900">{formatoARS(ch.importe)}</p>
@@ -507,7 +507,7 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
                   <div className="flex justify-between items-start gap-2">
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-gray-900">{RETENCION_LABELS[r.tipo]}</p>
-                      <p className="text-xs text-gray-500">Certificado Nº {r.nroCertificado}{r.fecha ? ` · ${r.fecha}` : ''}</p>
+                      <p className="text-xs text-secundario">Certificado Nº {r.nroCertificado}{r.fecha ? ` · ${r.fecha}` : ''}</p>
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-sm font-semibold text-gray-900">{formatoARS(r.importe)}</p>
@@ -624,7 +624,7 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
               {retenciones.map((r, i) => <li key={i}>{RETENCION_LABELS[r.tipo]}: {formatoARS(r.importe)}</li>)}
               {aplicaciones.map((a, i) => <li key={`ac${i}`}>Saldo a favor aplicado (recibo {a.reciboNumero}): {formatoARS(a.importe)}</li>)}
             </ul>
-            <p className="text-xs text-gray-500">El registro es definitivo e impacta en la cuenta corriente de Tango.</p>
+            <p className="text-xs text-secundario">El registro es definitivo e impacta en la cuenta corriente de Tango.</p>
             {retenciones.length > 0 && (
               <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
                 Guardá el certificado de retención en papel: administración lo necesita para el crédito fiscal. Si Tango no toma el recibo, queda marcado con error y lo revisa la oficina.

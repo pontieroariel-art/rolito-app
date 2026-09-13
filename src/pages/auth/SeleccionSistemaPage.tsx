@@ -58,7 +58,7 @@ export default function SeleccionSistemaPage() {
       </div>
 
       <div className="flex-1 flex flex-col items-center px-4 pt-7 pb-8 gap-4">
-        <p className="text-gray-500 text-sm text-center">¿Por dónde querés entrar?</p>
+        <p className="text-secundario text-sm text-center">¿Por dónde querés entrar?</p>
 
         <div className="w-full max-w-sm space-y-3">
           {sistemasDisponibles.map((s) => {
@@ -69,14 +69,14 @@ export default function SeleccionSistemaPage() {
                 onClick={() => handlePick(s)}
                 className="w-full flex items-center gap-4 bg-white rounded-2xl border border-[#D3D1C7] shadow-sm hover:border-accent hover:shadow-md active:scale-[0.98] transition-all p-4 group text-left"
               >
-                <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 bg-gray-100 text-gray-500 group-hover:bg-accent/10 group-hover:text-accent transition-colors">
+                <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 bg-gray-100 text-secundario group-hover:bg-accent/10 group-hover:text-accent transition-colors">
                   <Icon size={20} strokeWidth={1.75} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <h2 className="text-base font-bold text-gray-900 group-hover:text-accent transition-colors leading-tight">
                     {SISTEMA_LABELS[s]}
                   </h2>
-                  <p className="text-gray-500 text-xs mt-0.5 leading-snug">{SISTEMA_DESCRIPCIONES[s]}</p>
+                  <p className="text-secundario text-xs mt-0.5 leading-snug">{SISTEMA_DESCRIPCIONES[s]}</p>
                 </div>
                 <ChevronRight size={20} className="shrink-0 transition-all group-hover:translate-x-0.5 text-inerte group-hover:text-accent" />
               </button>

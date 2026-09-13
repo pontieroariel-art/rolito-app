@@ -192,7 +192,7 @@ export default function HistorialPage() {
 
         <div>
           <h1 className="text-2xl font-bold">Movimientos</h1>
-          <p className="text-gray-500 text-sm mt-0.5">Pedidos y visitas del período</p>
+          <p className="text-secundario text-sm mt-0.5">Pedidos y visitas del período</p>
         </div>
 
         {/* ── Filtros ─────────────────────────────────────────────────── */}
@@ -205,7 +205,7 @@ export default function HistorialPage() {
                 key={p}
                 onClick={() => setPeriodo(p)}
                 className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                  periodo === p ? 'bg-accent text-white' : 'text-gray-500 hover:text-gray-900'
+                  periodo === p ? 'bg-accent text-white' : 'text-secundario hover:text-gray-900'
                 }`}
               >
                 {p === 'dia' ? 'Día' : p === 'mes' ? 'Mes' : 'Año'}
@@ -311,7 +311,7 @@ export default function HistorialPage() {
         {isLoading ? (
           <LoadingSpinner />
         ) : items.length === 0 ? (
-          <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center text-gray-500 text-sm">
+          <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center text-secundario text-sm">
             No hay registros para el período y filtros seleccionados
           </div>
         ) : (
@@ -354,7 +354,7 @@ function PedidoCard({ order, users }: { order: Order; users: UserProfile[] }) {
             </span>
           )}
           <Badge status={order.status} variant="light" />
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-secundario">
             {date.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
           </span>
         </div>
@@ -362,19 +362,19 @@ function PedidoCard({ order, users }: { order: Order; users: UserProfile[] }) {
 
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <div className="space-y-0.5 min-w-0">
-          <p className="text-xs text-gray-500 truncate">📍 {order.clientAddress}</p>
+          <p className="text-xs text-secundario truncate">📍 {order.clientAddress}</p>
           {order.productosEntregados ? (
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-secundario">
               Entregado: {summarizeProducts(order.productosEntregados)}
             </p>
           ) : (
-            <p className="text-xs text-gray-500">{summarizeProducts(order.products)}</p>
+            <p className="text-xs text-secundario">{summarizeProducts(order.products)}</p>
           )}
           {order.driverId && (
-            <p className="text-xs text-gray-500">Chofer: {order.driverId}</p>
+            <p className="text-xs text-secundario">Chofer: {order.driverId}</p>
           )}
           {order.notes && (
-            <p className="text-xs text-gray-500 italic">"{order.notes}"</p>
+            <p className="text-xs text-secundario italic">"{order.notes}"</p>
           )}
           {order.notaEntrega && (
             <p className="text-xs text-amber-600 italic">⚠ {order.notaEntrega}</p>
@@ -397,7 +397,7 @@ function PedidoCard({ order, users }: { order: Order; users: UserProfile[] }) {
 
 function VisitaCard({ visita }: { visita: VisitaPuntual }) {
   const date    = tsToDate(visita.fecha)
-  const statusClass = VISITA_STATUS_COLORS[visita.status] ?? 'bg-white text-gray-500'
+  const statusClass = VISITA_STATUS_COLORS[visita.status] ?? 'bg-white text-secundario'
 
   return (
     <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-2">
@@ -412,19 +412,19 @@ function VisitaCard({ visita }: { visita: VisitaPuntual }) {
           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusClass}`}>
             {VISITA_STATUS_LABELS[visita.status] ?? visita.status}
           </span>
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-secundario">
             {date.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
           </span>
         </div>
       </div>
 
       <div className="space-y-0.5">
-        <p className="text-xs text-gray-500 truncate">📍 {visita.clientAddress}</p>
+        <p className="text-xs text-secundario truncate">📍 {visita.clientAddress}</p>
         {visita.clientPhone && (
           <p className="text-xs text-accent">{visita.clientPhone}</p>
         )}
         {visita.notas && (
-          <p className="text-xs text-gray-500 italic">"{visita.notas}"</p>
+          <p className="text-xs text-secundario italic">"{visita.notas}"</p>
         )}
       </div>
     </div>
@@ -437,7 +437,7 @@ function SummaryCard({ label, value, accent = false }: { label: string; value: s
   return (
     <div className="bg-white border border-[#D3D1C7] rounded-xl p-4">
       <p className={`text-lg font-bold ${accent ? 'text-accent' : 'text-gray-900'}`}>{value}</p>
-      <p className="text-gray-500 text-xs mt-1">{label}</p>
+      <p className="text-secundario text-xs mt-1">{label}</p>
     </div>
   )
 }

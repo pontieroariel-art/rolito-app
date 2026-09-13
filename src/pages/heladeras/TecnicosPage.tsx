@@ -61,7 +61,7 @@ function CrearTecnicoModal({ onClose, onCreated }: { onClose: () => void; onCrea
         />
         <Input label="Teléfono (opcional)" value={telefono} onChange={(e) => setTelefono(e.target.value)} placeholder="11-xxxx-xxxx" />
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Sector</label>
+          <label className="text-xs text-secundario mb-1 block">Sector</label>
           <select
             value={area}
             onChange={(e: ChangeEvent<HTMLSelectElement>) => setArea(e.target.value as AreaHeladera)}
@@ -94,7 +94,7 @@ export default function TecnicosPage() {
         <div className="flex flex-wrap justify-between items-center gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Técnicos</h1>
-            <p className="text-gray-500 text-sm">Personal de campo — login por DNI y PIN</p>
+            <p className="text-secundario text-sm">Personal de campo — login por DNI y PIN</p>
           </div>
           <Button onClick={() => setCrearModal(true)} className="text-sm">+ Nuevo técnico</Button>
         </div>
@@ -102,7 +102,7 @@ export default function TecnicosPage() {
         {tecnicos.length === 0 ? (
           <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center">
             <p className="text-4xl mb-3">🔧</p>
-            <p className="text-gray-500 text-sm">Todavía no cargaste ningún técnico</p>
+            <p className="text-secundario text-sm">Todavía no cargaste ningún técnico</p>
             <p className="text-secundario text-xs mt-1">Usá el botón "Nuevo técnico" para empezar</p>
           </div>
         ) : (
@@ -116,7 +116,7 @@ export default function TecnicosPage() {
               >
                 <div>
                   <p className="font-bold text-sm text-gray-900">{t.nombre}</p>
-                  <p className="text-gray-500 text-xs">
+                  <p className="text-secundario text-xs">
                     DNI {t.dni}{t.telefono ? ` · ${t.telefono}` : ''}
                     {t.area ? ` · ${AREA_HELADERA_LABELS[t.area]}` : ''}
                   </p>
@@ -125,7 +125,7 @@ export default function TecnicosPage() {
                   <span className={`text-xs px-2 py-1 rounded-full border font-medium ${
                     t.estado === 'activo'
                       ? 'bg-green-100 text-green-700 border-green-200'
-                      : 'bg-gray-100 text-gray-500 border-gray-200'
+                      : 'bg-gray-100 text-secundario border-gray-200'
                   }`}>
                     {t.estado === 'activo' ? 'Activo' : 'Inactivo'}
                   </span>
@@ -141,7 +141,7 @@ export default function TecnicosPage() {
                         }).catch((err) => reportError(err, { origen: 'TecnicosPage', accion: 'no se pudo registrar cambio de estado de técnico' }))
                       }
                     }}
-                    className="text-xs text-gray-500 hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-4 py-2 transition-colors min-h-[36px]"
+                    className="text-xs text-secundario hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-4 py-2 transition-colors min-h-[36px]"
                   >
                     {t.estado === 'activo' ? 'Desactivar' : 'Activar'}
                   </button>

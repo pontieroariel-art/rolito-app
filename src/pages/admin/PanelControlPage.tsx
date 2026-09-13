@@ -63,7 +63,7 @@ export default function PanelControlPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><Activity size={22} className="text-accent" /> Panel de control</h1>
-          <p className="text-gray-500 text-sm">Qué hay pendiente, qué está roto y cómo van las integraciones. Los accesos a cada pantalla, abajo.</p>
+          <p className="text-secundario text-sm">Qué hay pendiente, qué está roto y cómo van las integraciones. Los accesos a cada pantalla, abajo.</p>
         </div>
         <div className="flex items-center gap-3">
           {ultimoRefresco && (
@@ -83,7 +83,7 @@ export default function PanelControlPage() {
 
       {/* A. Requiere acción */}
       <section className="space-y-2">
-        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Requiere acción</h2>
+        <h2 className="text-xs font-semibold text-secundario uppercase tracking-wide">Requiere acción</h2>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <TileEstado
             titulo="Usuarios por aprobar"
@@ -122,7 +122,7 @@ export default function PanelControlPage() {
 
       {/* B. Integraciones */}
       <section className="space-y-2">
-        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Integraciones</h2>
+        <h2 className="text-xs font-semibold text-secundario uppercase tracking-wide">Integraciones</h2>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <TileEstado
             titulo="Tango · cola"
@@ -146,7 +146,7 @@ export default function PanelControlPage() {
                     {outboxErrores.map((e) => (
                       <li key={e.id} className="border-l-2 border-red-300 pl-2">
                         <b>{e.entidad}</b> · {e.empresa} · {e.origenId.slice(0, 12)} · {e.intentos} intentos
-                        <p className="text-gray-500 break-words">{e.ultimoError || 'sin detalle'}</p>
+                        <p className="text-secundario break-words">{e.ultimoError || 'sin detalle'}</p>
                       </li>
                     ))}
                   </ul>
@@ -188,7 +188,7 @@ export default function PanelControlPage() {
                     {arcaProblemas.map((f) => (
                       <li key={f.id} className="border-l-2 border-red-300 pl-2">
                         <b>{f.estado}</b> · venta {f.ventaId.slice(0, 12)}{f.tipo ? ` · ${f.tipo}` : ''}
-                        <p className="text-gray-500 break-words">{f.motivo || 'sin motivo'}</p>
+                        <p className="text-secundario break-words">{f.motivo || 'sin motivo'}</p>
                       </li>
                     ))}
                   </ul>
@@ -212,7 +212,7 @@ export default function PanelControlPage() {
 
       {/* C. Operación de hoy */}
       <section className="space-y-2">
-        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Operación de hoy · {estado.hoy}</h2>
+        <h2 className="text-xs font-semibold text-secundario uppercase tracking-wide">Operación de hoy · {estado.hoy}</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <TileEstado
             titulo="Pedidos de hoy"
@@ -234,7 +234,7 @@ export default function PanelControlPage() {
             to="/usuarios" toLabel="Ver clientes"
           />
           <div className="rounded-xl border border-[#D3D1C7] bg-white p-3 md:row-span-1" style={{ borderTop: `4px solid ${COLOR_TONO.neutro}` }}>
-            <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">Últimas acciones</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-secundario mb-1">Últimas acciones</p>
             {loading && estado.historial.length === 0
               ? <p className="text-xs text-secundario">Cargando…</p>
               : <AuditoriaReciente eventos={estado.historial} ahora={ahora} />}
@@ -250,7 +250,7 @@ export default function PanelControlPage() {
 
       {/* E. Accesos */}
       <section className="space-y-2">
-        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Accesos</h2>
+        <h2 className="text-xs font-semibold text-secundario uppercase tracking-wide">Accesos</h2>
         <SeccionAccesos />
       </section>
 

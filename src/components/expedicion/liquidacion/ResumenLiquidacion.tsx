@@ -61,12 +61,12 @@ export function TarjetasPlata({ reparto, calc, efectivoRecibido, onEfectivoRecib
       </div>
       <div className="grid sm:grid-cols-[1fr_1.3fr_1fr] gap-4 items-end pt-3 border-t border-[#E7E5DC]">
         <div>
-          <p className="text-xs text-gray-500">Efectivo a rendir</p>
+          <p className="text-xs text-secundario">Efectivo a rendir</p>
           <p className="text-2xl font-bold text-gray-900 tabular-nums">{formatoARS(calc.efectivoARendir)}</p>
-          <p className="text-[11px] text-gray-500">Contado efectivo {formatoARS(reparto.contado.efectivo.total)} + promo efectivo {formatoARS(promoEfectivo)} + cobranzas efectivo {formatoARS(reparto.cobranzas.efectivo)}</p>
+          <p className="text-[11px] text-secundario">Contado efectivo {formatoARS(reparto.contado.efectivo.total)} + promo efectivo {formatoARS(promoEfectivo)} + cobranzas efectivo {formatoARS(reparto.cobranzas.efectivo)}</p>
         </div>
         <div>
-          <p className="text-xs text-gray-500 mb-1">Efectivo recibido</p>
+          <p className="text-xs text-secundario mb-1">Efectivo recibido</p>
           {soloLectura ? (
             <p className="text-2xl font-bold text-gray-900 tabular-nums">{formatoARS(Number(efectivoRecibido) || 0)}</p>
           ) : (
@@ -75,7 +75,7 @@ export function TarjetasPlata({ reparto, calc, efectivoRecibido, onEfectivoRecib
           )}
         </div>
         <div>
-          <p className="text-xs text-gray-500">Diferencia</p>
+          <p className="text-xs text-secundario">Diferencia</p>
           {diferencia === null ? <p className="text-2xl font-bold text-secundario">—</p> : (
             <p className={`text-2xl font-bold tabular-nums ${diferencia === 0 ? 'text-[#0F6B4E]' : 'text-red-600'}`}>{formatoARS(diferencia)}{diferencia === 0 ? ' ✓' : ''}</p>
           )}
@@ -97,7 +97,7 @@ export function ResumenPorCliente({ reparto }: { reparto: RepartoClasificado }) 
         {reparto.clientes.map((c) => (
           <tr key={c.clienteId}>
             <td className={td}>{c.nombre}</td>
-            <td className={`${td} text-gray-500`}>{c.codigoTango}</td>
+            <td className={`${td} text-secundario`}>{c.codigoTango}</td>
             <td className={`${td} text-right tabular-nums`}>{formatoARS(c.contado)}</td>
             <td className={`${td} text-right tabular-nums`}>{formatoARS(c.cuentaCorriente)}</td>
             <td className={`${td} text-right tabular-nums`}>{formatoARS(c.promo)}</td>
@@ -106,14 +106,14 @@ export function ResumenPorCliente({ reparto }: { reparto: RepartoClasificado }) 
             <td className={`${td} text-gray-600`}>{c.ventas} {c.ventas === 1 ? 'venta' : 'ventas'}{c.cobranzas ? ` · ${c.cobranzas} ${c.cobranzas === 1 ? 'recibo' : 'recibos'}` : ''}{c.problemas ? <span className="text-red-600 font-semibold"> · {c.problemas} con problema</span> : null}</td>
           </tr>
         ))}
-        {reparto.clientes.length === 0 && <tr><td className={`${td} text-gray-500`} colSpan={8}>Sin movimientos.</td></tr>}
+        {reparto.clientes.length === 0 && <tr><td className={`${td} text-secundario`} colSpan={8}>Sin movimientos.</td></tr>}
       </tbody>
     </table>
   )
 }
 
 export function DetallePorProducto({ calc }: { calc: LiquidacionCalculada }) {
-  const dif = (n: number) => n === 0 ? <span className="text-gray-500">0</span> : <span className="font-semibold text-red-600">{n > 0 ? `+${n}` : n}</span>
+  const dif = (n: number) => n === 0 ? <span className="text-secundario">0</span> : <span className="font-semibold text-red-600">{n > 0 ? `+${n}` : n}</span>
   return (
     <div className="space-y-4">
       <table className="w-full min-w-[640px]">
@@ -131,7 +131,7 @@ export function DetallePorProducto({ calc }: { calc: LiquidacionCalculada }) {
               <td className={`${td} text-right`}>{dif(p.diferencia)}</td>
             </tr>
           ))}
-          {calc.productos.length === 0 && <tr><td className={`${td} text-gray-500`} colSpan={8}>Sin movimientos.</td></tr>}
+          {calc.productos.length === 0 && <tr><td className={`${td} text-secundario`} colSpan={8}>Sin movimientos.</td></tr>}
         </tbody>
       </table>
       <div className="grid sm:grid-cols-2 gap-x-8 gap-y-1 text-sm text-gray-700 max-w-xl">
@@ -170,7 +170,7 @@ export function DetallePorProducto({ calc }: { calc: LiquidacionCalculada }) {
         <p className="text-sm text-amber-700">Racks que volvieron sin haber salido en el remito: {describirRacks(calc.envases.racksSobrantes)}</p>
       )}
       {calc.envases.salieron.racks.length > 0 && calc.envases.racksFaltantes.length === 0 && (
-        <p className="text-sm text-gray-500">Todos los racks volvieron ({describirRacks(calc.envases.salieron.racks)}).</p>
+        <p className="text-sm text-secundario">Todos los racks volvieron ({describirRacks(calc.envases.salieron.racks)}).</p>
       )}
     </div>
   )

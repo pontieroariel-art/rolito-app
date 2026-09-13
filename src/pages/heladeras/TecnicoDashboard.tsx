@@ -45,7 +45,7 @@ function ConfirmarMaterialesModal({ movimiento, onClose }: { movimiento: PanolMo
           ))}
         </div>
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Firma</label>
+          <label className="text-xs text-secundario mb-1 block">Firma</label>
           <SignaturePad ref={padRef} />
         </div>
         {error && <p className="text-red-500 text-xs">{error}</p>}
@@ -93,7 +93,7 @@ function RegistrarTrabajoModal({ ticket, onClose }: { ticket: TicketServicio; on
           </p>
         ) : (
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Qué le hiciste · {AREA_HELADERA_LABELS[user.area]}</label>
+            <label className="text-xs text-secundario mb-1 block">Qué le hiciste · {AREA_HELADERA_LABELS[user.area]}</label>
             <TipoReparacionChecklist
               tipos={tiposDeMiSector}
               seleccionados={seleccionados}
@@ -105,7 +105,7 @@ function RegistrarTrabajoModal({ ticket, onClose }: { ticket: TicketServicio; on
           </div>
         )}
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Notas adicionales (opcional)</label>
+          <label className="text-xs text-secundario mb-1 block">Notas adicionales (opcional)</label>
           <textarea
             value={notas}
             onChange={(e) => setNotas(e.target.value)}
@@ -144,13 +144,13 @@ export default function TecnicoDashboard() {
       <main className="max-w-lg mx-auto p-4 space-y-6 pb-10">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Hola, {user?.nombre?.split(' ')[0] ?? 'técnico'}</h1>
-          <p className="text-gray-500 text-sm">Tus service asignados</p>
+          <p className="text-secundario text-sm">Tus service asignados</p>
         </div>
 
         {pendientes.length === 0 ? (
           <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center">
             <Wrench className="mx-auto text-inerte mb-3" size={32} />
-            <p className="text-gray-500 text-sm">Todavía no tenés service asignados.</p>
+            <p className="text-secundario text-sm">Todavía no tenés service asignados.</p>
             <p className="text-secundario text-xs mt-1">Cuando el encargado te asigne uno, va a aparecer acá.</p>
           </div>
         ) : (
@@ -160,7 +160,7 @@ export default function TecnicoDashboard() {
                 <div>
                   <p className="font-bold text-sm text-gray-900">{t.heladeraCodigo} — {t.clientName}</p>
                   {t.direccion && <p className="text-xs text-gray-600">{t.direccion}</p>}
-                  <p className="text-xs text-gray-500">{t.motivoNombre} · {tsToDate(t.fechaPedido).toLocaleDateString('es-AR')}</p>
+                  <p className="text-xs text-secundario">{t.motivoNombre} · {tsToDate(t.fechaPedido).toLocaleDateString('es-AR')}</p>
                   {t.trabajoRealizado && <p className="text-xs text-accent mt-1">Ya registraste: {t.trabajoRealizado}</p>}
                 </div>
                 <Button size="sm" onClick={() => setSeleccionado(t)}>Registrar trabajo</Button>
@@ -181,7 +181,7 @@ export default function TecnicoDashboard() {
                       {m.articulos.map((a) => (
                         <p key={a.articuloId} className="text-sm text-gray-900">{a.cantidad}x {a.nombre}</p>
                       ))}
-                      <p className="text-xs text-gray-500 mt-1">{tsToDate(m.fecha).toLocaleDateString('es-AR')}</p>
+                      <p className="text-xs text-secundario mt-1">{tsToDate(m.fecha).toLocaleDateString('es-AR')}</p>
                     </div>
                   </div>
                   <Button size="sm" onClick={() => setConfirmando(m)}>Firmar y confirmar</Button>

@@ -91,7 +91,7 @@ export default function LoginClientes() {
               <span className="text-3xl">✉️</span>
             </div>
             <p className="text-success font-medium">Email enviado</p>
-            <p className="text-gray-500 text-sm">
+            <p className="text-secundario text-sm">
               Revisá tu bandeja de entrada para restablecer tu contraseña.
             </p>
             <button
@@ -103,7 +103,7 @@ export default function LoginClientes() {
           </div>
         ) : (
           <form onSubmit={handleReset} className="flex flex-col gap-4">
-            <p className="text-gray-500 text-sm text-center">
+            <p className="text-secundario text-sm text-center">
               Ingresá tu CUIT y te enviamos el link al email registrado
             </p>
             <Input
@@ -126,7 +126,7 @@ export default function LoginClientes() {
             <button
               type="button"
               onClick={() => setShowReset(false)}
-              className="text-center text-sm text-gray-500 hover:text-accent transition-colors"
+              className="text-center text-sm text-secundario hover:text-accent transition-colors"
             >
               ← Volver al ingreso
             </button>
@@ -157,7 +157,7 @@ export default function LoginClientes() {
                 type="button"
                 tabIndex={-1}
                 onClick={() => setShowPass((v) => !v)}
-                className="text-gray-500 hover:text-gray-700 transition-colors"
+                className="text-secundario hover:text-gray-700 transition-colors"
               >
                 {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -177,27 +177,27 @@ export default function LoginClientes() {
           <button
             type="button"
             onClick={() => setShowReset(true)}
-            className="text-center text-sm text-gray-500 hover:text-accent transition-colors"
+            className="text-center text-sm text-secundario hover:text-accent transition-colors"
           >
             ¿Olvidaste tu contraseña?
           </button>
 
           <div className="flex items-center gap-3 my-1">
             <div className="flex-1 h-px bg-border" />
-            <span className="text-xs text-gray-500">o</span>
+            <span className="text-xs text-secundario">o</span>
             <div className="flex-1 h-px bg-border" />
           </div>
 
           <Link
             to="/register"
-            className="block text-center text-sm border border-[#D3D1C7] hover:border-accent rounded-xl py-2.5 text-gray-500 hover:text-gray-700 transition-colors"
+            className="block text-center text-sm border border-[#D3D1C7] hover:border-accent rounded-xl py-2.5 text-secundario hover:text-gray-700 transition-colors"
           >
             Crear cuenta nueva
           </Link>
 
           <p className="text-center text-xs text-secundario mt-1">
             ¿Sos del equipo Rolito?{' '}
-            <Link to="/empresa" className="text-gray-500 hover:text-accent transition-colors">
+            <Link to="/empresa" className="text-secundario hover:text-accent transition-colors">
               Ingresá acá
             </Link>
           </p>

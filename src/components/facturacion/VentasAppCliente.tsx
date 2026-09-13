@@ -83,19 +83,19 @@ export default function VentasAppCliente({ clienteUid }: { clienteUid: string })
     <div className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 bg-[#F8F7F2] border-b border-[#D3D1C7]">
         <p className="text-sm font-semibold text-gray-900 flex items-center gap-2"><Smartphone size={15} className="text-accent" /> Ventas hechas con la app</p>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-secundario">
           {filas === null ? 'Cargando…' : `${filas.length} ${filas.length === 1 ? 'venta' : 'ventas'} en el último año`}
           {' · '}desde acá se anulan las de días ya cerrados
         </p>
       </div>
       {error && <p className="text-xs text-red-700 px-4 py-2">{error}</p>}
       {filas !== null && filas.length === 0 && !error && (
-        <p className="text-sm text-gray-500 px-4 py-4 text-center">Este cliente no tiene ventas hechas con la app en el último año.</p>
+        <p className="text-sm text-secundario px-4 py-4 text-center">Este cliente no tiene ventas hechas con la app en el último año.</p>
       )}
       {filas !== null && filas.length > 0 && (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="text-xs uppercase tracking-wide text-gray-500">
+            <thead className="text-xs uppercase tracking-wide text-secundario">
               <tr className="border-b border-[#E7E5DC]">
                 <th className="text-left px-3 py-2 font-semibold">Fecha</th>
                 <th className="text-left px-2 py-2 font-semibold">Quién vendió</th>
@@ -109,7 +109,7 @@ export default function VentasAppCliente({ clienteUid }: { clienteUid: string })
               {filas.map((f) => {
                 const v = f.venta
                 const estado = textoAnulacion(v.anulacion)
-                const tono = estado?.tono === 'bad' ? 'text-red-700' : estado?.tono === 'warn' ? 'text-amber-700' : 'text-gray-500'
+                const tono = estado?.tono === 'bad' ? 'text-red-700' : estado?.tono === 'warn' ? 'text-amber-700' : 'text-secundario'
                 const anulada = v.anulacion?.estado === 'anulada'
                 return (
                   <tr key={`${f.coleccion}/${v.id}`} className="hover:bg-[#F8F7F2]">

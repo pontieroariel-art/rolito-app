@@ -69,14 +69,14 @@ export default function RenovarComodatoModal({
   return (
     <Modal open onClose={() => onClose(false)} title={`Renovar comodato — ${heladera.codigoInterno}`} wide variant={compartir ? 'light' : 'dark'}>
       <div className="space-y-4">
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-secundario">
           Se vuelve a firmar el contrato de <span className="font-medium text-gray-900">{heladera.clienteAsignadoNombre}</span>
           {heladera.clienteAsignadoDireccion ? <> — {heladera.clienteAsignadoDireccion}</> : null}, por 12 meses más.
         </p>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Nombre de quien firma</label>
+            <label className="text-xs text-secundario mb-1 block">Nombre de quien firma</label>
             <input
               value={firmanteNombre}
               onChange={(e) => setFirmanteNombre(e.target.value)}
@@ -84,7 +84,7 @@ export default function RenovarComodatoModal({
             />
           </div>
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Cargo</label>
+            <label className="text-xs text-secundario mb-1 block">Cargo</label>
             <input
               value={firmanteCargo}
               onChange={(e) => setFirmanteCargo(e.target.value)}
@@ -95,7 +95,7 @@ export default function RenovarComodatoModal({
         </div>
 
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Firma del cliente</label>
+          <label className="text-xs text-secundario mb-1 block">Firma del cliente</label>
           <SignaturePad ref={padRef} />
         </div>
 

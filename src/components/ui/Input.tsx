@@ -56,7 +56,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           </p>
         )}
         {hint && !error && (
-          <p id={`${inputId}-hint`} className="text-xs text-gray-500">
+          <p id={`${inputId}-hint`} className="text-xs text-secundario">
             {hint}
           </p>
         )}

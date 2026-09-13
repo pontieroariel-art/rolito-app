@@ -87,20 +87,20 @@ export default function EntregasTesoreriaPage() {
 
   const inputClass = 'bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'
   const btn = 'inline-flex items-center gap-1 rounded-lg border border-[#D3D1C7] bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:border-accent hover:text-accent'
-  const dif = (n: number) => <span className={`tabular-nums font-semibold ${n === 0 ? 'text-gray-500' : n < 0 ? 'text-red-600' : 'text-amber-700'}`}>{formatoARS(n)}</span>
+  const dif = (n: number) => <span className={`tabular-nums font-semibold ${n === 0 ? 'text-secundario' : n < 0 ? 'text-red-600' : 'text-amber-700'}`}>{formatoARS(n)}</span>
   const compartible = puedeCompartirArchivos()
 
   return (
     <main className="max-w-6xl mx-auto p-4 space-y-4 pb-10">
       <div>
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><Landmark size={22} className="text-accent" /> Entregas de caja</h1>
-        <p className="text-gray-500 text-sm">Lo que las ventanillas entregan a tesorería. Se cuenta, se tilda cada valor y se firma: el acta queda con las dos firmas.</p>
+        <p className="text-secundario text-sm">Lo que las ventanillas entregan a tesorería. Se cuenta, se tilda cada valor y se firma: el acta queda con las dos firmas.</p>
       </div>
       {aviso && <p className="text-xs text-amber-700">{aviso}</p>}
 
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Por confirmar ({pendientes.length})</h2>
-        {pendientes.length === 0 && <p className="text-sm text-gray-500 bg-white rounded-2xl border border-[#D3D1C7] shadow-sm px-4 py-3">No hay entregas esperando.</p>}
+        <h2 className="text-sm font-semibold text-secundario uppercase tracking-wide">Por confirmar ({pendientes.length})</h2>
+        {pendientes.length === 0 && <p className="text-sm text-secundario bg-white rounded-2xl border border-[#D3D1C7] shadow-sm px-4 py-3">No hay entregas esperando.</p>}
         {pendientes.map((e) => {
           const nValores = e.cheques.length + e.retenciones.length
           const contadoStr = contados[e.id] ?? ''
@@ -116,14 +116,14 @@ export default function EntregasTesoreriaPage() {
               </div>
 
               <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 text-sm">
-                <div className="rounded-lg bg-gray-50 p-2"><p className="text-xs text-gray-500">Teórico (caja)</p><p className="font-semibold tabular-nums">{formatoARS(e.efectivo.teorico)}</p><p className="text-[11px] text-gray-500">{formatoARS(e.efectivo.cierresCaja)} cierres · {formatoARS(e.efectivo.liquidacionesSueltas)} sueltas</p></div>
-                <div className="rounded-lg bg-gray-50 p-2"><p className="text-xs text-gray-500">Entregado por caja</p><p className="font-semibold tabular-nums">{formatoARS(e.efectivoEntregado)}</p>{e.diferenciaEntrega && <p className="text-[11px] text-red-700">{MOTIVOS_DIFERENCIA_LIQUIDACION[e.diferenciaEntrega.motivo]}{e.diferenciaEntrega.nota ? ` · ${e.diferenciaEntrega.nota}` : ''}</p>}</div>
-                <div className="rounded-lg bg-gray-50 p-2"><p className="text-xs text-gray-500">Valores en papel</p><p className="font-semibold tabular-nums">{nValores}</p><p className="text-[11px] text-gray-500">{e.cheques.length} cheques · {e.retenciones.length} retenciones</p></div>
+                <div className="rounded-lg bg-gray-50 p-2"><p className="text-xs text-secundario">Teórico (caja)</p><p className="font-semibold tabular-nums">{formatoARS(e.efectivo.teorico)}</p><p className="text-[11px] text-secundario">{formatoARS(e.efectivo.cierresCaja)} cierres · {formatoARS(e.efectivo.liquidacionesSueltas)} sueltas</p></div>
+                <div className="rounded-lg bg-gray-50 p-2"><p className="text-xs text-secundario">Entregado por caja</p><p className="font-semibold tabular-nums">{formatoARS(e.efectivoEntregado)}</p>{e.diferenciaEntrega && <p className="text-[11px] text-red-700">{MOTIVOS_DIFERENCIA_LIQUIDACION[e.diferenciaEntrega.motivo]}{e.diferenciaEntrega.nota ? ` · ${e.diferenciaEntrega.nota}` : ''}</p>}</div>
+                <div className="rounded-lg bg-gray-50 p-2"><p className="text-xs text-secundario">Valores en papel</p><p className="font-semibold tabular-nums">{nValores}</p><p className="text-[11px] text-secundario">{e.cheques.length} cheques · {e.retenciones.length} retenciones</p></div>
                 <div className="rounded-lg bg-gray-50 p-2">
-                  <p className="text-xs text-gray-500">Efectivo contado</p>
+                  <p className="text-xs text-secundario">Efectivo contado</p>
                   <input inputMode="numeric" value={contadoStr} onChange={(ev) => setContados((prev) => ({ ...prev, [e.id]: ev.target.value }))} placeholder="$" className={`${inputClass} w-full mt-1 font-semibold tabular-nums`} disabled={!puedeConfirmar} />
                 </div>
-                <div className={`rounded-lg p-2 ${d === null ? 'bg-gray-50' : d === 0 ? 'bg-[#E6F5EF]' : 'bg-red-50'}`}><p className="text-xs text-gray-500">Diferencia</p><p className={`font-semibold tabular-nums ${d === null ? 'text-secundario' : d === 0 ? 'text-[#0F6B4E]' : 'text-red-600'}`}>{d === null ? '—' : `${formatoARS(d)}${d === 0 ? ' ✓' : ''}`}</p></div>
+                <div className={`rounded-lg p-2 ${d === null ? 'bg-gray-50' : d === 0 ? 'bg-[#E6F5EF]' : 'bg-red-50'}`}><p className="text-xs text-secundario">Diferencia</p><p className={`font-semibold tabular-nums ${d === null ? 'text-secundario' : d === 0 ? 'text-[#0F6B4E]' : 'text-red-600'}`}>{d === null ? '—' : `${formatoARS(d)}${d === 0 ? ' ✓' : ''}`}</p></div>
               </div>
 
               <Plegable titulo={`De dónde sale (${e.rendiciones.length} cierres · ${e.liquidaciones.length} liquidaciones)`}>
@@ -135,7 +135,7 @@ export default function EntregasTesoreriaPage() {
 
               {nValores > 0 && (
                 <Plegable titulo={`Valores en papel (${nValores})`}>
-                  <p className="text-xs text-gray-500 mb-2">Se tildan uno por uno al confirmar.</p>
+                  <p className="text-xs text-secundario mb-2">Se tildan uno por uno al confirmar.</p>
                   <ValoresEnPapel cheques={e.cheques} retenciones={e.retenciones} soloLectura />
                 </Plegable>
               )}
@@ -144,7 +144,7 @@ export default function EntregasTesoreriaPage() {
                 <div className="flex flex-wrap justify-end gap-2">
                   {error && confirmando?.id === e.id && <p className="w-full text-sm text-red-600">{error}</p>}
                   <Button onClick={() => { setError(''); setConfirmando(e) }} disabled={contadoStr.trim() === ''}><ShieldCheck size={16} className="mr-1.5" /> Confirmar y firmar</Button>
-                  {contadoStr.trim() === '' && <p className="w-full text-right text-xs text-gray-500">Cargá el efectivo contado para poder confirmar.</p>}
+                  {contadoStr.trim() === '' && <p className="w-full text-right text-xs text-secundario">Cargá el efectivo contado para poder confirmar.</p>}
                 </div>
               )}
             </div>
@@ -164,13 +164,13 @@ export default function EntregasTesoreriaPage() {
                 <td className={td}>{e.firmanteEntrega}</td>
                 <td className={`${td} text-right tabular-nums`}>{formatoARS(e.efectivoEntregado)}</td>
                 <td className={`${td} text-right tabular-nums`}>{formatoARS(e.efectivoContado ?? 0)}</td>
-                <td className={`${td} text-right`}>{dif(e.diferenciaEfectivo ?? 0)}{e.diferencia ? <span className="block text-[11px] text-gray-500">{MOTIVOS_DIFERENCIA_LIQUIDACION[e.diferencia.motivo]}</span> : null}</td>
+                <td className={`${td} text-right`}>{dif(e.diferenciaEfectivo ?? 0)}{e.diferencia ? <span className="block text-[11px] text-secundario">{MOTIVOS_DIFERENCIA_LIQUIDACION[e.diferencia.motivo]}</span> : null}</td>
                 <td className={`${td} text-right tabular-nums`}>{e.valoresFaltantes?.cantidad ? <span className="text-red-600 font-semibold">{e.valoresFaltantes.cantidad} · {formatoARS(e.valoresFaltantes.total)}</span> : '—'}</td>
-                <td className={`${td} text-xs text-[#0F6B4E]`}><span className="inline-flex items-center gap-1"><ShieldCheck size={13} /> {e.firmanteRecibe ?? e.recibidoPor?.nombre}</span>{e.confirmadaEn ? <span className="block text-gray-500">{e.confirmadaEn.toDate().toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span> : null}</td>
+                <td className={`${td} text-xs text-[#0F6B4E]`}><span className="inline-flex items-center gap-1"><ShieldCheck size={13} /> {e.firmanteRecibe ?? e.recibidoPor?.nombre}</span>{e.confirmadaEn ? <span className="block text-secundario">{e.confirmadaEn.toDate().toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span> : null}</td>
                 <td className={td}><span className="flex gap-1"><button type="button" onClick={() => imprimir(e)} className={btn} title="Ver acta"><Printer size={12} /></button><button type="button" onClick={() => enviar(e)} className={btn} title="Enviar acta"><Share2 size={12} /></button></span></td>
               </tr>
             ))}
-            {confirmadas.length === 0 && <tr><td className={`${td} text-gray-500`} colSpan={10}>Sin entregas confirmadas este mes.</td></tr>}
+            {confirmadas.length === 0 && <tr><td className={`${td} text-secundario`} colSpan={10}>Sin entregas confirmadas este mes.</td></tr>}
           </tbody>
         </table>
       </Plegable>

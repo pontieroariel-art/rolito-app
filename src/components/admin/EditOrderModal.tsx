@@ -65,7 +65,7 @@ export default function EditOrderModal({ order, onClose, onSaved }: { order: Ord
 
         {/* Productos */}
         <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Productos</p>
+          <p className="text-xs font-semibold text-secundario uppercase tracking-wide mb-2">Productos</p>
           <div className="space-y-2">
             {products.map((p) => (
               <div key={p.name} className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-3 py-2">
@@ -92,7 +92,7 @@ export default function EditOrderModal({ order, onClose, onSaved }: { order: Ord
           {/* Agregar producto */}
           <div className="mt-2 flex flex-wrap gap-1.5">
             {disponibles.filter((p) => !products.find((pp) => pp.name === p.nombre)).map((p) => (
-              <button key={p.id} onClick={() => addProduct(p.id)} className="text-xs px-2.5 py-1 rounded-full border border-dashed border-gray-300 text-gray-500 hover:border-accent hover:text-accent transition-colors">
+              <button key={p.id} onClick={() => addProduct(p.id)} className="text-xs px-2.5 py-1 rounded-full border border-dashed border-gray-300 text-secundario hover:border-accent hover:text-accent transition-colors">
                 + {p.nombre}
               </button>
             ))}
@@ -102,12 +102,12 @@ export default function EditOrderModal({ order, onClose, onSaved }: { order: Ord
         {/* Fecha y hora */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Fecha</label>
+            <label className="text-xs font-semibold text-secundario uppercase tracking-wide block mb-1">Fecha</label>
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
           </div>
           <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Hora entrega</label>
+            <label className="text-xs font-semibold text-secundario uppercase tracking-wide block mb-1">Hora entrega</label>
             <input type="time" value={horaEntrega} onChange={(e) => setHoraEntrega(e.target.value)}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
           </div>
@@ -115,7 +115,7 @@ export default function EditOrderModal({ order, onClose, onSaved }: { order: Ord
 
         {/* Orden de compra */}
         <div>
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Orden de compra</label>
+          <label className="text-xs font-semibold text-secundario uppercase tracking-wide block mb-1">Orden de compra</label>
           <input type="text" value={numeroOC} onChange={(e) => setNumeroOC(e.target.value)}
             placeholder="N° OC (opcional)"
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
@@ -123,7 +123,7 @@ export default function EditOrderModal({ order, onClose, onSaved }: { order: Ord
 
         {/* Notas */}
         <div>
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Notas</label>
+          <label className="text-xs font-semibold text-secundario uppercase tracking-wide block mb-1">Notas</label>
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent resize-none" />
         </div>
@@ -133,7 +133,7 @@ export default function EditOrderModal({ order, onClose, onSaved }: { order: Ord
         )}
 
         <div className="flex gap-2 pt-1">
-          <button onClick={onClose} className="flex-1 py-2 rounded-xl border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 transition-colors">
+          <button onClick={onClose} className="flex-1 py-2 rounded-xl border border-gray-200 text-sm text-secundario hover:bg-gray-50 transition-colors">
             Cancelar
           </button>
           <button onClick={handleSave} disabled={saving || products.length === 0 || !date}
@@ -154,7 +154,7 @@ export default function EditOrderModal({ order, onClose, onSaved }: { order: Ord
                 <div key={i} className="flex items-start gap-2 text-xs bg-gray-50 rounded-lg px-2.5 py-1.5">
                   <span className="text-secundario shrink-0 tabular-nums">{fecha} {hora}</span>
                   <span className="text-accent font-semibold shrink-0">{h.usuarioNombre}</span>
-                  <span className="text-gray-500">{label}{h.detalle && h.detalle !== 'null' ? ` — ${h.detalle}` : ''}</span>
+                  <span className="text-secundario">{label}{h.detalle && h.detalle !== 'null' ? ` — ${h.detalle}` : ''}</span>
                 </div>
               )
             })}

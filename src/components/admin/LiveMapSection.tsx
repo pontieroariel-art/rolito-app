@@ -88,7 +88,7 @@ export function LiveMapSection({ orders }: LiveMapSectionProps) {
             )}
           </span>
         </div>
-        <span className="text-gray-500 text-xs">{open ? '▲' : '▼'}</span>
+        <span className="text-secundario text-xs">{open ? '▲' : '▼'}</span>
       </button>
 
       {open && (
@@ -145,7 +145,7 @@ export function LiveMapSection({ orders }: LiveMapSectionProps) {
           </div>
 
           {drivers.length === 0 ? (
-            <p className="text-gray-500 text-sm text-center py-2">No hay choferes activos en este momento</p>
+            <p className="text-secundario text-sm text-center py-2">No hay choferes activos en este momento</p>
           ) : (
             <div className="grid gap-2">
               {drivers.map((driver) => {
@@ -168,7 +168,7 @@ export function LiveMapSection({ orders }: LiveMapSectionProps) {
                     </div>
                     <div className="text-right">
                       <p className="text-accent font-bold text-lg leading-none">{pending}</p>
-                      <p className="text-gray-500 text-xs mt-0.5">pendientes</p>
+                      <p className="text-secundario text-xs mt-0.5">pendientes</p>
                       {isStale && <p className="text-amber-600 text-xs mt-1">⚠ &gt;20 min</p>}
                     </div>
                   </div>

@@ -78,17 +78,17 @@ export default function ChequeForm({ onAgregar, onCancelar }: {
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Nº de cheque</label>
+          <label className="text-xs text-secundario mb-1 block">Nº de cheque</label>
           <input value={numero} onChange={(e) => setNumero(e.target.value)} inputMode="numeric" placeholder="00000000" className={inputClass} />
         </div>
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Importe</label>
+          <label className="text-xs text-secundario mb-1 block">Importe</label>
           <input value={importeStr} onChange={(e) => setImporteStr(e.target.value)} inputMode="decimal" placeholder="0,00" className={inputClass} />
         </div>
       </div>
 
       <div>
-        <label className="text-xs text-gray-500 mb-1 block">Banco emisor</label>
+        <label className="text-xs text-secundario mb-1 block">Banco emisor</label>
         <select value={bancoCodigo} onChange={(e) => setBancoCodigo(e.target.value)} className={inputClass}>
           <option value="">Elegir banco…</option>
           {BANCOS.map((b) => (
@@ -99,11 +99,11 @@ export default function ChequeForm({ onAgregar, onCancelar }: {
 
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Fecha de emisión</label>
+          <label className="text-xs text-secundario mb-1 block">Fecha de emisión</label>
           <input type="date" value={fechaEmision} onChange={(e) => setFechaEmision(e.target.value)} className={inputClass} />
         </div>
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Fecha de acreditación</label>
+          <label className="text-xs text-secundario mb-1 block">Fecha de acreditación</label>
           <input type="date" value={fechaAcreditacion} onChange={(e) => setFechaAcreditacion(e.target.value)} min={fechaEmision} className={inputClass} />
         </div>
       </div>

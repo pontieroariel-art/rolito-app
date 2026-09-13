@@ -56,7 +56,7 @@ export default function RendicionesTesoreriaPage() {
   }
   const imprimir = (r: Rendicion) => generateRendicionMostrador(r).catch((err) => reportError(err, { origen: 'RendicionesTesoreriaPage', accion: 'error al generar el PDF' }))
 
-  const dif = (n: number) => <span className={`tabular-nums font-semibold ${n === 0 ? 'text-gray-500' : n < 0 ? 'text-red-600' : 'text-amber-700'}`}>{formatoARS(n)}</span>
+  const dif = (n: number) => <span className={`tabular-nums font-semibold ${n === 0 ? 'text-secundario' : n < 0 ? 'text-red-600' : 'text-amber-700'}`}>{formatoARS(n)}</span>
   const inputClass = 'bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'
   const puedeValidar = user?.rol === 'tesoreria' || user?.rol === 'super_admin' || user?.rol === 'logistica'
 
@@ -65,7 +65,7 @@ export default function RendicionesTesoreriaPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><ShieldCheck size={22} className="text-accent" /> Rendiciones</h1>
-          <p className="text-gray-500 text-sm">Cierres de caja de ventanilla del día. Tesorería los revisa y valida.</p>
+          <p className="text-secundario text-sm">Cierres de caja de ventanilla del día. Tesorería los revisa y valida.</p>
         </div>
         <div className="flex items-center gap-2">
           <input type="date" value={dia} max={hoy} onChange={(e) => setDia(e.target.value)} className={inputClass} />
@@ -92,7 +92,7 @@ export default function RendicionesTesoreriaPage() {
             {filas.map((r) => (
               <RowRendicion key={r.id} r={r} abierta={abierta === r.id} onToggle={() => setAbierta(abierta === r.id ? null : r.id)} onValidar={puedeValidar ? () => { setValidando(r); setNota('') } : undefined} onImprimir={() => imprimir(r)} td={td} dif={dif} />
             ))}
-            {filas.length === 0 && <tr><td className={`${td} text-gray-500`} colSpan={12}>Sin cierres de caja en este día.</td></tr>}
+            {filas.length === 0 && <tr><td className={`${td} text-secundario`} colSpan={12}>Sin cierres de caja en este día.</td></tr>}
           </tbody>
         </table>
       </section>
@@ -102,13 +102,13 @@ export default function RendicionesTesoreriaPage() {
           <div className="space-y-3">
             <p className="text-sm text-gray-700"><b>{validando.sujetoNombre}</b> · {PLANTAS[validando.plantaId].label} · {validando.fecha}</p>
             <div className="grid grid-cols-3 gap-2 text-sm">
-              <div className="rounded-lg bg-gray-50 p-2"><p className="text-xs text-gray-500">A rendir</p><p className="font-semibold tabular-nums">{formatoARS(validando.efectivoARendir)}</p></div>
-              <div className="rounded-lg bg-gray-50 p-2"><p className="text-xs text-gray-500">Contado</p><p className="font-semibold tabular-nums">{formatoARS(validando.efectivoContado)}</p></div>
-              <div className={`rounded-lg p-2 ${validando.diferenciaEfectivo === 0 ? 'bg-[#E6F5EF]' : 'bg-red-50'}`}><p className="text-xs text-gray-500">Diferencia</p><p className="font-semibold tabular-nums">{formatoARS(validando.diferenciaEfectivo)}</p></div>
+              <div className="rounded-lg bg-gray-50 p-2"><p className="text-xs text-secundario">A rendir</p><p className="font-semibold tabular-nums">{formatoARS(validando.efectivoARendir)}</p></div>
+              <div className="rounded-lg bg-gray-50 p-2"><p className="text-xs text-secundario">Contado</p><p className="font-semibold tabular-nums">{formatoARS(validando.efectivoContado)}</p></div>
+              <div className={`rounded-lg p-2 ${validando.diferenciaEfectivo === 0 ? 'bg-[#E6F5EF]' : 'bg-red-50'}`}><p className="text-xs text-secundario">Diferencia</p><p className="font-semibold tabular-nums">{formatoARS(validando.diferenciaEfectivo)}</p></div>
             </div>
             {validando.diferencia && <p className="text-sm text-red-700">Motivo declarado: {MOTIVOS_DIFERENCIA_LIQUIDACION[validando.diferencia.motivo]}{validando.diferencia.nota ? ` · ${validando.diferencia.nota}` : ''}</p>}
             <textarea value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Nota de tesorería (opcional)" rows={2} className={`${inputClass} w-full`} />
-            <p className="text-xs text-gray-500">La validación queda registrada con tu nombre y hora y no se puede deshacer.</p>
+            <p className="text-xs text-secundario">La validación queda registrada con tu nombre y hora y no se puede deshacer.</p>
             {error && <p className="text-sm text-red-600">{error}</p>}
             <div className="flex gap-2 pt-1">
               <Button variant="outline" type="button" onClick={() => setValidando(null)} className="flex-1" disabled={guardando}>Cancelar</Button>
@@ -154,17 +154,17 @@ function RowRendicion({ r, abierta, onToggle, onValidar, onImprimir, td, dif }: 
                 <p className="font-semibold mb-1">Ventas</p>
                 <p>Contado: efectivo {formatoARS(r.ventas.contadoEfectivo)} · transf. {formatoARS(r.ventas.contadoTransferencia)} · cta. cte. {formatoARS(r.ventas.cuentaCorriente)}</p>
                 <p>Promo: efectivo {formatoARS(r.ventas.promoEfectivo)} · transf. {formatoARS(r.ventas.promoTransferencia)} · cta. cte. {formatoARS(r.ventas.promoCuentaCorriente)}</p>
-                {r.bultos.length > 0 && <p className="mt-1 text-gray-500">Bultos: {r.bultos.map((b) => `${b.cantidad} × ${b.nombre}`).join(' · ')}</p>}
+                {r.bultos.length > 0 && <p className="mt-1 text-secundario">Bultos: {r.bultos.map((b) => `${b.cantidad} × ${b.nombre}`).join(' · ')}</p>}
               </div>
               <div>
                 <p className="font-semibold mb-1">Cobranzas y valores en papel</p>
                 <p>Efectivo {formatoARS(r.cobranzas.efectivo)} · transf. {formatoARS(r.cobranzas.transferencia)} · cheques {r.cobranzas.cheques.cantidad} ({formatoARS(r.cobranzas.cheques.total)}) · retenciones {r.cobranzas.retenciones.cantidad} ({formatoARS(r.cobranzas.retenciones.total)})</p>
-                {r.cheques.map((ch, i) => <p key={`c${i}`} className={ch.recibido === false ? 'text-red-700' : 'text-gray-500'}>{ch.recibido === false ? '✗' : '✓'} Cheque {ch.numero} · {ch.bancoNombre} · {ch.clienteNombre} · {formatoARS(ch.importe)}{ch.recibido === false ? ` · no entregado${ch.motivoNoEntregado ? `: ${ch.motivoNoEntregado}` : ''}` : ''}</p>)}
-                {r.retenciones.map((re, i) => <p key={`r${i}`} className={re.recibido === false ? 'text-red-700' : 'text-gray-500'}>{re.recibido === false ? '✗' : '✓'} Ret. {re.tipo.toUpperCase()} cert. {re.nroCertificado} · {re.clienteNombre} · {formatoARS(re.importe)}{re.recibido === false ? ` · no entregado${re.motivoNoEntregado ? `: ${re.motivoNoEntregado}` : ''}` : ''}</p>)}
+                {r.cheques.map((ch, i) => <p key={`c${i}`} className={ch.recibido === false ? 'text-red-700' : 'text-secundario'}>{ch.recibido === false ? '✗' : '✓'} Cheque {ch.numero} · {ch.bancoNombre} · {ch.clienteNombre} · {formatoARS(ch.importe)}{ch.recibido === false ? ` · no entregado${ch.motivoNoEntregado ? `: ${ch.motivoNoEntregado}` : ''}` : ''}</p>)}
+                {r.retenciones.map((re, i) => <p key={`r${i}`} className={re.recibido === false ? 'text-red-700' : 'text-secundario'}>{re.recibido === false ? '✗' : '✓'} Ret. {re.tipo.toUpperCase()} cert. {re.nroCertificado} · {re.clienteNombre} · {formatoARS(re.importe)}{re.recibido === false ? ` · no entregado${re.motivoNoEntregado ? `: ${re.motivoNoEntregado}` : ''}` : ''}</p>)}
               </div>
               <div>
                 <p className="font-semibold mb-1">Recibido de repartidores</p>
-                {r.recibido.liquidaciones.length === 0 && <p className="text-gray-500">Ninguna liquidación.</p>}
+                {r.recibido.liquidaciones.length === 0 && <p className="text-secundario">Ninguna liquidación.</p>}
                 {r.recibido.liquidaciones.map((l) => <p key={l.id}>{l.choferNombre}: {formatoARS(l.efectivoRecibido)}{l.diferenciaEfectivo !== 0 ? ` (dif. ${formatoARS(l.diferenciaEfectivo)})` : ''}</p>)}
                 {r.diferencia && <p className="mt-1 text-red-700">Diferencia: {MOTIVOS_DIFERENCIA_LIQUIDACION[r.diferencia.motivo]}{r.diferencia.nota ? ` · ${r.diferencia.nota}` : ''}</p>}
                 {r.validacion?.nota && <p className="mt-1 text-[#0F6B4E]">Nota de tesorería: {r.validacion.nota}</p>}

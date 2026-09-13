@@ -194,7 +194,7 @@ export default function MuelleTvPage() {
           const esVentanilla = dVentanilla.includes(n)
           const tag = (
             <div className="flex justify-between items-baseline">
-              <span className="text-5xl font-black text-gray-500">{n}</span>
+              <span className="text-5xl font-black text-secundario">{n}</span>
               <span className={`text-lg font-bold tracking-[3px] ${esVentanilla ? 'text-sky-400' : 'text-amber-500'}`}>
                 {esVentanilla ? 'VENTANILLA' : 'CAMIÓN'}
               </span>

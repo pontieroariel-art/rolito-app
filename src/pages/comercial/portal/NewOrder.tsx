@@ -133,7 +133,7 @@ export default function NewOrder() {
           {deliveryNombre ? (
             <p className="text-accent text-sm mt-1 font-medium">📍 {deliveryNombre}</p>
           ) : (
-            <p className="text-gray-500 text-sm mt-1">Seleccioná los productos que necesitás</p>
+            <p className="text-secundario text-sm mt-1">Seleccioná los productos que necesitás</p>
           )}
         </div>
 
@@ -141,7 +141,7 @@ export default function NewOrder() {
           <div className="bg-[#E8F5F0] border border-[#B3DDD3] rounded-2xl px-4 py-3">
             <p className="text-xs text-accent font-medium">Modificando pedido del {formatShortDate(modifyOrder.date)}</p>
             <p className="text-sm text-gray-900 truncate mt-0.5">{summarizeProducts(modifyOrder.products)}</p>
-            <p className="text-xs text-gray-500 mt-1">Al confirmar, este pedido se cancela y se crea uno nuevo con los cambios.</p>
+            <p className="text-xs text-secundario mt-1">Al confirmar, este pedido se cancela y se crea uno nuevo con los cambios.</p>
           </div>
         )}
 
@@ -180,7 +180,7 @@ export default function NewOrder() {
         )}
 
         <section className="space-y-2">
-          <h2 className="text-sm font-medium text-gray-500 mb-3 uppercase tracking-wide">Productos</h2>
+          <h2 className="text-sm font-medium text-secundario mb-3 uppercase tracking-wide">Productos</h2>
           {displayProducts.map((p) => (
             <ProductRow
               key={p.id}
@@ -199,7 +199,7 @@ export default function NewOrder() {
             <p className="text-gray-900">{summarizeProducts(selected)}</p>
             {hasPrecios && total > 0 && (
               <div className="flex justify-between items-center pt-2 border-t border-[#B3DDD3]">
-                <span className="text-gray-500">Total estimado</span>
+                <span className="text-secundario">Total estimado</span>
                 <span className="text-gray-900 font-bold text-base">
                   ${total.toLocaleString('es-AR')}
                 </span>
@@ -305,18 +305,18 @@ export default function NewOrder() {
                 </div>
               )}
               <div className="flex justify-between text-gray-900">
-                <span className="text-gray-500">Dirección</span>
+                <span className="text-secundario">Dirección</span>
                 <span className="text-right max-w-[60%]">{deliveryAddress}</span>
               </div>
               <div className="flex justify-between text-gray-900">
-                <span className="text-gray-500">Fecha</span>
+                <span className="text-secundario">Fecha</span>
                 <span>{new Date(date + 'T12:00:00').toLocaleDateString('es-AR', {
                   weekday: 'long', day: 'numeric', month: 'long',
                 })}</span>
               </div>
               {notes && (
                 <div className="flex justify-between text-gray-900">
-                  <span className="text-gray-500">Notas</span>
+                  <span className="text-secundario">Notas</span>
                   <span className="text-right max-w-[60%] italic">{notes}</span>
                 </div>
               )}
@@ -368,7 +368,7 @@ function ProductRow({
       <div>
         <p className="font-medium text-sm text-gray-900">{nombre}</p>
         {precio !== undefined && precio > 0 && (
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-xs text-secundario mt-0.5">
             ${precio.toLocaleString('es-AR')} / {unidad}
             {qty > 0 && (
               <span className="text-accent ml-2 font-medium">

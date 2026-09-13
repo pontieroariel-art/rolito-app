@@ -160,12 +160,12 @@ export default function SeccionSaldo({ c }: { c: UserProfile }) {
   return (
     <Plegable titulo="Saldo" abiertoInicial extra={chip}>
       {!vinculado ? (
-        <p className="text-sm text-gray-500">Este cliente no está vinculado a Tango: no tiene cuenta corriente.</p>
+        <p className="text-sm text-secundario">Este cliente no está vinculado a Tango: no tiene cuenta corriente.</p>
       ) : cargando ? (
-        <p className="text-sm text-gray-500">Cargando saldo…</p>
+        <p className="text-sm text-secundario">Cargando saldo…</p>
       ) : (
         <div className="space-y-3">
-          <p className="text-xs text-gray-500 flex items-center gap-1.5">
+          <p className="text-xs text-secundario flex items-center gap-1.5">
             {(refrescando || refrescandoTango) && <RefreshCw size={12} className="animate-spin" />}
             {refrescando ? 'Consultando a Tango…' : refrescandoTango ? 'Actualizando facturas y remitos desde Tango…' : esCache ? `Datos de Tango ${haceCuanto(saldo?.actualizadoEn) || 'en caché'}` : 'Datos de Tango en vivo'}
             {atraso > 0 && <span className="text-red-500">· {atraso} {atraso === 1 ? 'día' : 'días'} de atraso</span>}
@@ -199,7 +199,7 @@ export default function SeccionSaldo({ c }: { c: UserProfile }) {
               <div className="flex justify-between items-center px-3 py-2 bg-[#F8F7F2]">
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-gray-700">{NOMBRE_EMPRESA[b.grupo.empresa]}{b.grupo.codigo ? ` · ${b.grupo.codigo}` : ''}</p>
-                  {nombreSucursal(c, b.grupo.empresa, b.grupo.codigo) && <p className="text-[11px] text-gray-500 truncate">{nombreSucursal(c, b.grupo.empresa, b.grupo.codigo)}</p>}
+                  {nombreSucursal(c, b.grupo.empresa, b.grupo.codigo) && <p className="text-[11px] text-secundario truncate">{nombreSucursal(c, b.grupo.empresa, b.grupo.codigo)}</p>}
                 </div>
                 <p className="text-xs font-semibold text-gray-900">{formatoARS(b.subtotalPendiente)}</p>
               </div>
@@ -209,14 +209,14 @@ export default function SeccionSaldo({ c }: { c: UserProfile }) {
                     <div className="flex justify-between items-center gap-2">
                       <div className="min-w-0">
                         <p className={`text-sm truncate ${f.estado === 'anulada' ? 'text-secundario line-through' : 'text-gray-900'}`}>{f.tipo} {f.numero}</p>
-                        <p className="text-[11px] text-gray-500">
+                        <p className="text-[11px] text-secundario">
                           {[fechaCorta(f.fecha) ? `Emitida ${fechaCorta(f.fecha)}` : '', fechaCorta(f.fechaVencimiento) ? `Vto. ${fechaCorta(f.fechaVencimiento)}` : ''].filter(Boolean).join(' · ')}
                           {f.diasAtraso && f.diasAtraso > 0 ? <span className="text-red-500"> · {f.diasAtraso} d de atraso</span> : null}
                           {f.estado !== 'pendiente' && <span className={f.estado === 'pagada' ? 'text-accent' : 'text-secundario'}> · {ESTADO_FILA[f.estado]}</span>}
                         </p>
                       </div>
                       <div className="text-right shrink-0">
-                        <p className={`text-sm font-medium tabular-nums ${f.estado === 'pendiente' ? 'text-gray-900' : 'text-gray-500'}`}>{formatoARS(f.pendiente ?? f.importe)}</p>
+                        <p className={`text-sm font-medium tabular-nums ${f.estado === 'pendiente' ? 'text-gray-900' : 'text-secundario'}`}>{formatoARS(f.pendiente ?? f.importe)}</p>
                         {f.pendiente !== null && f.pendiente !== f.importe && <p className="text-[11px] text-secundario tabular-nums">de {formatoARS(f.importe)}</p>}
                       </div>
                       <BotonFactura fila={f} cliente={c} email={email} />
@@ -230,7 +230,7 @@ export default function SeccionSaldo({ c }: { c: UserProfile }) {
                 ))}
                 {b.remitosSinFacturar.length > 0 && (
                   <div className="px-3 py-2">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Remitos sin facturar</p>
+                    <p className="text-xs font-semibold text-secundario uppercase tracking-wide mb-1">Remitos sin facturar</p>
                     <div className="flex flex-wrap gap-1">
                       {b.remitosSinFacturar.map((r) => <ChipRemito key={r.numero} numero={r.numero} empresa={r.empresa} cliente={c} email={email} fecha={r.fecha} />)}
                     </div>
@@ -248,7 +248,7 @@ export default function SeccionSaldo({ c }: { c: UserProfile }) {
           )}
 
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+            <p className="text-xs font-semibold text-secundario uppercase tracking-wide mb-1.5">
               {tituloComposicion}{etiquetaSucursal ? ` · ${etiquetaSucursal}` : ''}
             </p>
             <MenuCompartirPdf titulo={`${tituloComposicion} — ${c.razonSocial}`} texto={mailComposicion.mensaje} mail={mailComposicion} generar={generarComposicion}

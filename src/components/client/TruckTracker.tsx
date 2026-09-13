@@ -141,7 +141,7 @@ export function TruckTracker({ order, clientEmail, clientNombre, onNearby }: Tru
 
       {(driverData?.nombreChofer || eta) && (
         <div className="bg-white border border-gray-200 rounded-2xl p-4 space-y-3">
-          <p className="text-xs text-gray-500 uppercase tracking-widest">Tu pedido lo entrega</p>
+          <p className="text-xs text-secundario uppercase tracking-widest">Tu pedido lo entrega</p>
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-white font-bold text-sm shrink-0">
@@ -173,11 +173,11 @@ export function TruckTracker({ order, clientEmail, clientNombre, onNearby }: Tru
           </div>
           <div className="grid grid-cols-2 gap-2 pt-1 border-t border-[#E7E5DC]">
             <div className="text-center">
-              <p className="text-xs text-gray-500">Tiempo estimado</p>
+              <p className="text-xs text-secundario">Tiempo estimado</p>
               <p className="text-lg font-bold text-gray-900 mt-0.5">{eta ?? '—'}</p>
             </div>
             <div className="text-center border-l border-[#E7E5DC]">
-              <p className="text-xs text-gray-500">Distancia</p>
+              <p className="text-xs text-secundario">Distancia</p>
               <p className="text-lg font-bold text-gray-900 mt-0.5">
                 {distance !== null
                   ? distance < 1000 ? `${Math.round(distance)} m` : `${(distance / 1000).toFixed(1)} km`
@@ -200,7 +200,7 @@ export function TruckTracker({ order, clientEmail, clientNombre, onNearby }: Tru
         <button
           onClick={() => setExpanded((v) => !v)}
           aria-label={expanded ? 'Reducir mapa' : 'Expandir mapa'}
-          className="absolute top-2 right-2 z-10 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg px-2 py-1 text-xs text-gray-500 hover:text-gray-900 transition-colors"
+          className="absolute top-2 right-2 z-10 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg px-2 py-1 text-xs text-secundario hover:text-gray-900 transition-colors"
         >
           {expanded ? '⊠ Reducir' : '⊞ Expandir'}
         </button>

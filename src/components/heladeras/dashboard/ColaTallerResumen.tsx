@@ -35,7 +35,7 @@ export default function ColaTallerResumen() {
 
           return (
             <div key={tipo}>
-              <p className="text-xs font-medium text-gray-500 mb-1.5">
+              <p className="text-xs font-medium text-secundario mb-1.5">
                 {TIPO_PIPELINE_LABELS[tipo]} · esperando {primerPaso.nombre.toLowerCase()} ({esperando.length})
               </p>
               {esperando.length === 0 ? (

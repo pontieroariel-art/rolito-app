@@ -68,10 +68,10 @@ export function UserRow({ user, currentUser, onRoleChange, onSubrolChange, onRol
               <p className="font-semibold text-sm text-gray-900 group-hover:text-accent transition-colors">
                 {user.razonSocial || user.nombre || '(sin nombre)'}
               </p>
-              {isSelf && <span className="text-xs text-gray-500">(vos)</span>}
+              {isSelf && <span className="text-xs text-secundario">(vos)</span>}
               <span
                 className={`text-xs px-2 py-0.5 rounded-full border font-medium whitespace-nowrap
-                  ${STATUS_STYLES[user.estado] ?? 'bg-gray-100 text-gray-500 border-gray-200'}`}
+                  ${STATUS_STYLES[user.estado] ?? 'bg-gray-100 text-secundario border-gray-200'}`}
               >
                 {STATUS_LABELS[user.estado] ?? user.estado}
               </span>
@@ -84,15 +84,15 @@ export function UserRow({ user, currentUser, onRoleChange, onSubrolChange, onRol
             </div>
             {user.rol !== 'cliente'
               ? user.dni
-                ? <p className="text-gray-500 text-xs mt-0.5">DNI: {user.dni}</p>
-                : <p className="text-gray-500 text-xs mt-0.5 truncate">{user.email}</p>
+                ? <p className="text-secundario text-xs mt-0.5">DNI: {user.dni}</p>
+                : <p className="text-secundario text-xs mt-0.5 truncate">{user.email}</p>
               : <>
-                  {user.email && <p className="text-gray-500 text-xs mt-0.5 truncate">{user.email}</p>}
-                  {user.cuit && <p className="text-gray-500 text-xs mt-0.5">CUIT: {user.cuit}</p>}
+                  {user.email && <p className="text-secundario text-xs mt-0.5 truncate">{user.email}</p>}
+                  {user.cuit && <p className="text-secundario text-xs mt-0.5">CUIT: {user.cuit}</p>}
                 </>
             }
             {user.codigoCliente && (
-              <p className="text-gray-500 text-xs mt-0.5 flex items-center gap-1">
+              <p className="text-secundario text-xs mt-0.5 flex items-center gap-1">
                 <Hash size={9} className="shrink-0" />
                 {user.codigoCliente}
               </p>
@@ -100,20 +100,20 @@ export function UserRow({ user, currentUser, onRoleChange, onSubrolChange, onRol
             {(() => {
               const primary = user.addresses?.find((a) => a.esPrincipal) ?? user.addresses?.[0]
               return primary ? (
-                <p className="text-gray-500 text-xs mt-0.5 truncate flex items-center gap-1">
+                <p className="text-secundario text-xs mt-0.5 truncate flex items-center gap-1">
                   <MapPin size={10} className="shrink-0" />
                   {primary.address}
                 </p>
               ) : null
             })()}
           </div>
-          <ChevronRight size={14} className="text-gray-500 group-hover:text-accent transition-colors shrink-0" />
+          <ChevronRight size={14} className="text-inerte group-hover:text-accent transition-colors shrink-0" />
         </button>
 
         {/* Acciones */}
         <div className="flex flex-wrap gap-2 items-center shrink-0">
           {user.rol === 'cliente' ? (
-            <span className="bg-gray-100 border border-[#D3D1C7] rounded-lg px-2 py-1.5 text-sm text-gray-500">
+            <span className="bg-gray-100 border border-[#D3D1C7] rounded-lg px-2 py-1.5 text-sm text-secundario">
               Cliente
             </span>
           ) : canChangeRole ? (
@@ -130,7 +130,7 @@ export function UserRow({ user, currentUser, onRoleChange, onSubrolChange, onRol
               ))}
             </select>
           ) : (
-            <span className="bg-gray-100 border border-[#D3D1C7] rounded-lg px-2 py-1.5 text-sm text-gray-500">
+            <span className="bg-gray-100 border border-[#D3D1C7] rounded-lg px-2 py-1.5 text-sm text-secundario">
               {ROLE_LABELS[user.rol]}
             </span>
           )}
@@ -190,7 +190,7 @@ export function UserRow({ user, currentUser, onRoleChange, onSubrolChange, onRol
       {/* Subrol chofer / ayudante */}
       {user.rol === 'chofer' && (
         <div className="flex items-center gap-2 pt-2 border-t border-[#E7E5DC]">
-          <span className="text-xs text-gray-500">Función:</span>
+          <span className="text-xs text-secundario">Función:</span>
           <select
             value={user.subrol ?? 'chofer'}
             disabled={busy}
@@ -227,7 +227,7 @@ export function UserRow({ user, currentUser, onRoleChange, onSubrolChange, onRol
           mientras muelle no tiene tablet), sin ofrecerles su propio rol. */}
       {canChangeRole && !isSelf && !['cliente', 'super_admin'].includes(user.rol) && (
         <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-[#E7E5DC]">
-          <span className="text-xs text-gray-500">También hace:</span>
+          <span className="text-xs text-secundario">También hace:</span>
           {ROLES_EXTRA_DISPONIBLES.filter((r) => r !== user.rol).map((r) => {
             const activo = (user.rolesExtra ?? []).includes(r)
             return (
@@ -264,7 +264,7 @@ export function UserRow({ user, currentUser, onRoleChange, onSubrolChange, onRol
       {user.rol === 'cliente' && canManagePrices && (
         <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-[#E7E5DC]">
           <div className="flex items-center gap-2 flex-1 min-w-0">
-            <span className="text-xs text-gray-500 whitespace-nowrap">Lista de precios:</span>
+            <span className="text-xs text-secundario whitespace-nowrap">Lista de precios:</span>
             <div className="flex flex-col gap-0.5 min-w-0">
               <span className="text-xs text-gray-900 truncate">{listaTangoResumen(user)}</span>
               <span className="text-[10px] text-secundario">Dato de Tango — se edita en Tango, se sincroniza acá (todos los días 5:30 o desde Precios)</span>

@@ -36,11 +36,11 @@ export default function ValoresEnPapel({ cheques, retenciones, decisiones, onDec
       importe: re.importe, recibido: re.recibido, motivo: re.motivoNoEntregado,
     })),
   ]
-  if (filas.length === 0) return <p className="text-sm text-gray-500">Sin cheques ni retenciones.</p>
+  if (filas.length === 0) return <p className="text-sm text-secundario">Sin cheques ni retenciones.</p>
 
   return (
     <div className="space-y-1.5">
-      {titulo && <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{titulo}</p>}
+      {titulo && <p className="text-xs font-semibold uppercase tracking-wide text-secundario">{titulo}</p>}
       {filas.map((f) => (
         soloLectura
           ? <FilaLectura key={f.clave} f={f} />
@@ -57,7 +57,7 @@ function FilaLectura({ f }: { f: { texto: string; detalle: string; importe: numb
       <span className={`mt-0.5 shrink-0 rounded-full p-0.5 ${ok ? 'bg-[#E6F5EF] text-[#0F6B4E]' : 'bg-red-100 text-red-600'}`}>{ok ? <Check size={14} /> : <X size={14} />}</span>
       <div className="flex-1 min-w-0">
         <p className="text-sm text-gray-900">{f.texto}</p>
-        <p className="text-xs text-gray-500">{f.detalle}{!ok && f.motivo ? <span className="text-red-700"> · No entregado: {f.motivo}</span> : !ok ? <span className="text-red-700"> · No entregado</span> : null}</p>
+        <p className="text-xs text-secundario">{f.detalle}{!ok && f.motivo ? <span className="text-red-700"> · No entregado: {f.motivo}</span> : !ok ? <span className="text-red-700"> · No entregado</span> : null}</p>
       </div>
       <b className="text-sm tabular-nums text-gray-900">{formatoARS(f.importe)}</b>
     </div>
@@ -73,7 +73,7 @@ function FilaEditable({ f, decision, onDecision }: { f: { texto: string; detalle
       <div className="flex items-start gap-3">
         <div className="flex-1 min-w-0">
           <p className="text-sm text-gray-900">{f.texto}</p>
-          <p className="text-xs text-gray-500">{f.detalle}</p>
+          <p className="text-xs text-secundario">{f.detalle}</p>
         </div>
         <b className="text-sm tabular-nums text-gray-900">{formatoARS(f.importe)}</b>
       </div>

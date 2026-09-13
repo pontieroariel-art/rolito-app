@@ -61,7 +61,7 @@ export default function TransferOrderModal({ fromDriver, fromDriverName, fromCam
         {/* Lista de ítems */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Seleccionar paradas</p>
+            <p className="text-xs font-semibold text-secundario uppercase tracking-wide">Seleccionar paradas</p>
             <button onClick={toggleAll} className="text-xs text-accent hover:underline">
               {selected.size === items.length ? 'Deseleccionar todo' : 'Seleccionar todo'}
             </button>
@@ -90,7 +90,7 @@ export default function TransferOrderModal({ fromDriver, fromDriverName, fromCam
 
         {/* Destino */}
         <div>
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Camión destino</label>
+          <label className="text-xs font-semibold text-secundario uppercase tracking-wide block mb-1.5">Camión destino</label>
           {destinosFiltrados.length === 0 ? (
             <p className="text-xs text-secundario">No hay otros camiones con chofer asignado hoy.</p>
           ) : (
@@ -117,7 +117,7 @@ export default function TransferOrderModal({ fromDriver, fromDriverName, fromCam
 
         {/* Motivo */}
         <div>
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Motivo (opcional)</label>
+          <label className="text-xs font-semibold text-secundario uppercase tracking-wide block mb-1.5">Motivo (opcional)</label>
           <textarea
             value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={2}
             placeholder="Ej: problema mecánico, tiempo insuficiente..."
@@ -127,7 +127,7 @@ export default function TransferOrderModal({ fromDriver, fromDriverName, fromCam
 
         {/* Resumen */}
         {selected.size > 0 && toDriver && (
-          <div className="flex items-center gap-2 text-xs text-gray-500 bg-gray-50 rounded-xl px-3 py-2">
+          <div className="flex items-center gap-2 text-xs text-secundario bg-gray-50 rounded-xl px-3 py-2">
             <ArrowRightLeft size={12} className="text-accent shrink-0" />
             Transferir <span className="font-semibold text-gray-900">{selected.size} parada{selected.size !== 1 ? 's' : ''}</span> a{' '}
             <span className="font-semibold text-gray-900">

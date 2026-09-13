@@ -168,7 +168,7 @@ export function CrearClienteModal({
               type="button"
               tabIndex={-1}
               onClick={() => setShowPass((v) => !v)}
-              className="text-lg leading-none text-gray-500 hover:text-gray-700"
+              className="text-lg leading-none text-secundario hover:text-gray-700"
             >
               {showPass ? '🙈' : '👁️'}
             </button>
@@ -185,7 +185,7 @@ export function CrearClienteModal({
             placeholder="Depósito, Sede central..."
           />
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-gray-500">Dirección</label>
+            <label className="text-xs text-secundario">Dirección</label>
             <AddressAutocomplete
               onSelect={(address, lat, lng) => { setAddrError(''); setAddr((f) => ({ ...f, address, lat, lng })) }}
             />
@@ -203,7 +203,7 @@ export function CrearClienteModal({
           <div className="grid grid-cols-2 gap-2">
             {(['horarioApertura', 'horarioCierre'] as const).map((field, i) => (
               <div key={field} className="flex flex-col gap-1">
-                <label className="text-xs text-gray-500">{i === 0 ? 'Apertura' : 'Cierre'}</label>
+                <label className="text-xs text-secundario">{i === 0 ? 'Apertura' : 'Cierre'}</label>
                 <input
                   type="time"
                   value={addr[field]}
@@ -229,7 +229,7 @@ export function CrearClienteModal({
           </div>
         </div>
 
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-secundario">
           La cuenta queda activa de inmediato. El cliente puede ingresar con su CUIT y contraseña.
         </p>
 

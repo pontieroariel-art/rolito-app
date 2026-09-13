@@ -85,7 +85,7 @@ export default function PedirServiceForm({ heladera, actor, origen, onCreado, on
       </p>
 
       <div>
-        <label className="text-xs text-gray-500 mb-1 block">Motivo</label>
+        <label className="text-xs text-secundario mb-1 block">Motivo</label>
         <select value={motivoId} onChange={(e) => setMotivoId(e.target.value)} className={inputClass} disabled={isLoading}>
           <option value="">{isLoading ? 'Cargando motivos…' : 'Elegí un motivo…'}</option>
           {activos.map((m) => (
@@ -95,13 +95,13 @@ export default function PedirServiceForm({ heladera, actor, origen, onCreado, on
       </div>
 
       <div>
-        <label className="text-xs text-gray-500 mb-1 block">Observación (opcional)</label>
+        <label className="text-xs text-secundario mb-1 block">Observación (opcional)</label>
         <textarea value={observacion} onChange={(e) => setObservacion(e.target.value)} rows={3} maxLength={500}
           placeholder="Qué pasa, desde cuándo, a quién preguntar…" className={inputClass} />
       </div>
 
       <div>
-        <label className="text-xs text-gray-500 mb-1 block">Foto del problema (opcional)</label>
+        <label className="text-xs text-secundario mb-1 block">Foto del problema (opcional)</label>
         {fotoPreview ? (
           <div className="relative inline-block">
             <img src={fotoPreview} alt="Foto del problema" className="h-32 rounded-lg border border-[#D3D1C7] object-cover" />

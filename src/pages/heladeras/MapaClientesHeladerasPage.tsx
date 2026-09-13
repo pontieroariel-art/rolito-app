@@ -114,11 +114,11 @@ export default function MapaClientesHeladerasPage() {
                 onChange={(e) => setRadioKm(Number(e.target.value) || 1)}
                 className="w-14 bg-white border border-[#D3D1C7] rounded px-1.5 py-0.5 text-xs text-right"
               />
-              <span className="text-xs text-gray-500">km</span>
-              <button onClick={() => setCentro(null)} className="text-xs text-gray-500 hover:text-accent ml-1">Ver todos</button>
+              <span className="text-xs text-secundario">km</span>
+              <button onClick={() => setCentro(null)} className="text-xs text-secundario hover:text-accent ml-1">Ver todos</button>
             </div>
           )}
-          <div className="flex items-center gap-3 ml-auto text-xs text-gray-500">
+          <div className="flex items-center gap-3 ml-auto text-xs text-secundario">
             <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-green-500" /> Preventivo {YEAR} hecho</span>
             <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-red-500" /> Pendiente</span>
             <span>{visibles.length} clientes</span>
@@ -132,8 +132,8 @@ export default function MapaClientesHeladerasPage() {
                 <p className="font-bold text-sm text-gray-900">{clienteSel.razonSocial}</p>
                 <button onClick={() => setSeleccionado(null)} className="text-secundario hover:text-gray-700">✕</button>
               </div>
-              {clienteSel.cuit && <p className="text-xs text-gray-500">CUIT {clienteSel.cuit}</p>}
-              {getPrimaryAddress(clienteSel)?.address && <p className="text-xs text-gray-500">{getPrimaryAddress(clienteSel)?.address}</p>}
+              {clienteSel.cuit && <p className="text-xs text-secundario">CUIT {clienteSel.cuit}</p>}
+              {getPrimaryAddress(clienteSel)?.address && <p className="text-xs text-secundario">{getPrimaryAddress(clienteSel)?.address}</p>}
               <span className={`inline-block text-xs px-2 py-1 rounded-full border font-medium ${
                 hechoSet.has(clienteSel.uid) ? 'bg-green-100 text-green-700 border-green-200' : 'bg-red-100 text-red-700 border-red-200'
               }`}>

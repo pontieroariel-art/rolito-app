@@ -55,7 +55,7 @@ function DriverCard({
         </div>
         <div className="text-right shrink-0">
           <p className="font-bold text-lg leading-none" style={{ color }}>{delivered}</p>
-          <p className="text-xs text-gray-500">/ {total}</p>
+          <p className="text-xs text-secundario">/ {total}</p>
         </div>
       </div>
 
@@ -66,7 +66,7 @@ function DriverCard({
           style={{ width: `${pct}%`, backgroundColor: pct === 100 ? '#10b981' : color }}
         />
       </div>
-      <p className="text-xs text-gray-500">{pct}% completado · {pending.length} pendiente{pending.length !== 1 ? 's' : ''}</p>
+      <p className="text-xs text-secundario">{pct}% completado · {pending.length} pendiente{pending.length !== 1 ? 's' : ''}</p>
     </button>
   )
 }
@@ -119,20 +119,20 @@ export default function MapaLivePage() {
               <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
               <h1 className="text-base font-bold text-gray-900">Reparto en vivo</h1>
             </div>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-secundario">
               {totalEntregados} entregados · {totalPendientes} pendientes
             </p>
           </div>
 
           {/* Leyenda */}
-          <div className="px-4 py-2.5 border-b border-[#D3D1C7] flex gap-3 text-xs text-gray-500 flex-wrap">
+          <div className="px-4 py-2.5 border-b border-[#D3D1C7] flex gap-3 text-xs text-secundario flex-wrap">
             <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#10b981]" />Entregado</span>
             <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-accent" />Pendiente</span>
           </div>
 
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
             {driversToday.length === 0 && (
-              <p className="text-xs text-gray-500 text-center mt-10">No hay repartos asignados hoy</p>
+              <p className="text-xs text-secundario text-center mt-10">No hay repartos asignados hoy</p>
             )}
 
             {selectedDriver && (
@@ -165,7 +165,7 @@ export default function MapaLivePage() {
               <div className="bg-white/95 border border-[#D3D1C7] rounded-xl px-6 py-5 text-center shadow-xl">
                 <p className="text-3xl mb-3">📡</p>
                 <p className="text-sm font-semibold text-gray-900">Sin choferes activos</p>
-                <p className="text-xs text-gray-500 mt-1 max-w-[200px]">El GPS se activa cuando el chofer comienza el reparto</p>
+                <p className="text-xs text-secundario mt-1 max-w-[200px]">El GPS se activa cuando el chofer comienza el reparto</p>
               </div>
             </div>
           )}

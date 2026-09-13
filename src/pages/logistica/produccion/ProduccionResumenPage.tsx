@@ -18,7 +18,7 @@ export default function ProduccionResumenPage() {
     <main className="max-w-3xl mx-auto p-4 space-y-6 pb-10">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Producción</h1>
-        <p className="text-gray-500 text-sm">Resumen de planta</p>
+        <p className="text-secundario text-sm">Resumen de planta</p>
       </div>
 
       <ProduccionResumen />
@@ -43,7 +43,7 @@ export default function ProduccionResumenPage() {
                   <Link to={`/produccion/ficha/${p.id}`} className="text-sm font-medium text-accent hover:underline">
                     {p.codigo}
                   </Link>
-                  <p className="text-xs text-gray-500 truncate">
+                  <p className="text-xs text-secundario truncate">
                     {p.productoNombre} · {p.unidades} u. · {p.operador.nombre}
                   </p>
                 </div>

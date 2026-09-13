@@ -26,7 +26,7 @@ export default function FichaPalletPage() {
       <Navbar />
       <main className="max-w-md mx-auto p-4 pb-10">
         {pallet === null ? (
-          <p className="text-sm text-gray-500">No se encontró el pallet.</p>
+          <p className="text-sm text-secundario">No se encontró el pallet.</p>
         ) : (
           <div className="bg-white border border-[#D3D1C7] rounded-xl p-5 space-y-3">
             <div>

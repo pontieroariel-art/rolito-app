@@ -108,11 +108,11 @@ export default function ResumenLogisticaPage() {
                 <div className="space-y-4">
                   <div className="bg-[#E8F5F0] border border-[#B3DDD3] rounded-xl p-4 space-y-1 text-sm">
                     <p className="font-medium text-accent mb-2">Limpieza completada</p>
-                    <p className="text-gray-500">Usuarios eliminados: <span className="text-gray-900 font-medium">{cleanupResult.users}</span></p>
-                    <p className="text-gray-500">Pedidos eliminados: <span className="text-gray-900 font-medium">{cleanupResult.orders}</span></p>
-                    <p className="text-gray-500">Ubicaciones eliminadas: <span className="text-gray-900 font-medium">{cleanupResult.ubicaciones}</span></p>
+                    <p className="text-secundario">Usuarios eliminados: <span className="text-gray-900 font-medium">{cleanupResult.users}</span></p>
+                    <p className="text-secundario">Pedidos eliminados: <span className="text-gray-900 font-medium">{cleanupResult.orders}</span></p>
+                    <p className="text-secundario">Ubicaciones eliminadas: <span className="text-gray-900 font-medium">{cleanupResult.ubicaciones}</span></p>
                     {cleanupResult.clientes > 0 && (
-                      <p className="text-gray-500">Clientes eliminados: <span className="text-gray-900 font-medium">{cleanupResult.clientes}</span></p>
+                      <p className="text-secundario">Clientes eliminados: <span className="text-gray-900 font-medium">{cleanupResult.clientes}</span></p>
                     )}
                   </div>
                   <Button className="w-full" onClick={() => setCleanupModal(false)}>Cerrar</Button>
@@ -121,7 +121,7 @@ export default function ResumenLogisticaPage() {
                 <div className="space-y-4">
                   <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm space-y-2">
                     <p className="text-red-600 font-medium">Esta acción no se puede deshacer.</p>
-                    <p className="text-gray-500">Se borrarán todos los usuarios de prueba (excepto tu cuenta), todos los pedidos, y todas las ubicaciones.</p>
+                    <p className="text-secundario">Se borrarán todos los usuarios de prueba (excepto tu cuenta), todos los pedidos, y todas las ubicaciones.</p>
                   </div>
                   <div className="flex gap-2">
                     <Button variant="outline" onClick={() => setCleanupModal(false)} className="flex-1" disabled={cleanupLoading}>Cancelar</Button>

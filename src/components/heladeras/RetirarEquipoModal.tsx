@@ -58,12 +58,12 @@ export default function RetirarEquipoModal({
   return (
     <Modal open onClose={onClose} title={`Retirar ${heladera.codigoInterno}`} wide>
       <div className="space-y-4">
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-secundario">
           Se retira de <span className="font-medium text-gray-900">{heladera.clienteAsignadoNombre}</span> y entra al taller para reacondicionamiento.
         </p>
 
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Motivo de ingreso</label>
+          <label className="text-xs text-secundario mb-1 block">Motivo de ingreso</label>
           <select
             value={motivoId}
             onChange={(e) => setMotivoId(e.target.value)}
@@ -80,7 +80,7 @@ export default function RetirarEquipoModal({
         </div>
 
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Firma del cliente</label>
+          <label className="text-xs text-secundario mb-1 block">Firma del cliente</label>
           <SignaturePad ref={padRef} />
         </div>
 

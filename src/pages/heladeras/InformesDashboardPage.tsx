@@ -162,7 +162,7 @@ export default function InformesDashboardPage() {
       <main className="max-w-3xl mx-auto p-4 space-y-6 pb-10">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Informes</h1>
-          <p className="text-gray-500 text-sm">Tocá una tarjeta para ver el listado completo</p>
+          <p className="text-secundario text-sm">Tocá una tarjeta para ver el listado completo</p>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
@@ -179,7 +179,7 @@ export default function InformesDashboardPage() {
         </div>
 
         <section className="space-y-2.5">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Tiempos y SLA</h2>
+          <h2 className="text-sm font-semibold text-secundario uppercase tracking-wide">Tiempos y SLA</h2>
           <div className="grid grid-cols-2 gap-2.5">
             <KpiTile
               value={metricas.slaDias !== null ? Math.round(metricas.slaDias * 10) / 10 : 0}
@@ -197,7 +197,7 @@ export default function InformesDashboardPage() {
 
           {metricas.cerradosCount > 0 && (
             <div className="bg-white border border-[#D3D1C7] rounded-xl p-4">
-              <p className="text-xs font-medium text-gray-500 mb-2">Tickets de service cerrados por semana</p>
+              <p className="text-xs font-medium text-secundario mb-2">Tickets de service cerrados por semana</p>
               <ResponsiveContainer width="100%" height={160}>
                 <BarChart data={metricas.semanas} margin={{ top: 4, right: 12, bottom: 0, left: -20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
@@ -215,7 +215,7 @@ export default function InformesDashboardPage() {
           )}
 
           <div className="bg-white border border-[#D3D1C7] rounded-xl p-4">
-            <p className="text-xs font-medium text-gray-500 mb-2">Tiempo promedio por paso del taller (días)</p>
+            <p className="text-xs font-medium text-secundario mb-2">Tiempo promedio por paso del taller (días)</p>
             {tiemposPorPaso.length === 0 ? (
               <p className="text-secundario text-sm">
                 Sin datos todavía — se completa a medida que se sueltan/aprueban pasos.
@@ -250,7 +250,7 @@ export default function InformesDashboardPage() {
           </div>
 
           <div className="bg-white border border-[#D3D1C7] rounded-xl p-4">
-            <p className="text-xs font-medium text-gray-500 mb-2">Arreglos más comunes</p>
+            <p className="text-xs font-medium text-secundario mb-2">Arreglos más comunes</p>
             {arreglosMasComunes.length === 0 ? (
               <p className="text-secundario text-sm">
                 Sin datos todavía — se completa cuando se registra trabajo con el checklist
@@ -311,7 +311,7 @@ export default function InformesDashboardPage() {
                   <thead>
                     <tr className="border-b border-[#D3D1C7] bg-[#F8F7F2]">
                       {catAbierta.cols.map((c) => (
-                        <th key={c} className="text-left text-gray-500 text-xs py-2.5 px-4 font-medium whitespace-nowrap">{c}</th>
+                        <th key={c} className="text-left text-secundario text-xs py-2.5 px-4 font-medium whitespace-nowrap">{c}</th>
                       ))}
                     </tr>
                   </thead>

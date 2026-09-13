@@ -73,7 +73,7 @@ export function ClientWeather({ address, isLoaded }: ClientWeatherProps) {
                     <span className="text-blue-500 text-xs ml-2">🌧️ {today.rain}mm</span>
                   )}
                 </p>
-                <p className="text-xs text-gray-500">{today.label}</p>
+                <p className="text-xs text-secundario">{today.label}</p>
               </div>
             </>
           ) : null}
@@ -93,7 +93,7 @@ export function ClientWeather({ address, isLoaded }: ClientWeatherProps) {
                     i === 0 ? 'bg-[#E8F5F0] border-[#B3DDD3]' : 'bg-gray-50 border-gray-200'
                   }`}
                 >
-                  <p className="text-xs text-gray-500 font-medium">
+                  <p className="text-xs text-secundario font-medium">
                     {i === 0 ? 'Hoy' : date.toLocaleDateString('es-AR', { weekday: 'short' })}
                   </p>
                   <p className="text-xl leading-none">{d.emoji}</p>

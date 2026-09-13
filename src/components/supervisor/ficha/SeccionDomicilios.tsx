@@ -16,9 +16,9 @@ function Domicilio({ a, principal }: { a: Pick<DeliveryAddress, 'nombre' | 'addr
             {a.nombre || 'Domicilio'}{principal && <span className="ml-1.5 text-[10px] font-semibold uppercase text-accent">principal</span>}
           </p>
           <p className="text-sm text-gray-700 break-words">{a.address || 'Sin dirección'}</p>
-          {horario && <p className="text-xs text-gray-500">Horario: {horario}</p>}
+          {horario && <p className="text-xs text-secundario">Horario: {horario}</p>}
           {(a.contactoNombre || a.contactoTelefono) && (
-            <p className="text-xs text-gray-500">{[a.contactoNombre, a.contactoTelefono].filter(Boolean).join(' · ')}</p>
+            <p className="text-xs text-secundario">{[a.contactoNombre, a.contactoTelefono].filter(Boolean).join(' · ')}</p>
           )}
           <p className={`text-[11px] ${verificada ? 'text-accent' : 'text-amber-600'}`}>
             {verificada ? 'Ubicación verificada' : 'Sin ubicación en el mapa: se busca por la dirección'}
@@ -44,8 +44,8 @@ export default function SeccionDomicilios({ c }: { c: UserProfile }) {
       ? [{ id: 'legacy', nombre: 'Domicilio', address: c.address, lat: c.lat ?? null, lng: c.lng ?? null, horarioApertura: '', horarioCierre: '', contactoNombre: '', contactoTelefono: '', esPrincipal: true }]
       : []
   return (
-    <Plegable titulo="Domicilios" abiertoInicial extra={lista.length > 1 ? <span className="text-xs text-gray-500">{lista.length}</span> : undefined}>
-      {lista.length === 0 && <p className="text-sm text-gray-500">Sin domicilios cargados.</p>}
+    <Plegable titulo="Domicilios" abiertoInicial extra={lista.length > 1 ? <span className="text-xs text-secundario">{lista.length}</span> : undefined}>
+      {lista.length === 0 && <p className="text-sm text-secundario">Sin domicilios cargados.</p>}
       {lista.map((a, i) => <Domicilio key={a.id || i} a={a} principal={a.esPrincipal || (lista.length === 1)} />)}
     </Plegable>
   )

@@ -108,7 +108,7 @@ export default function MaquinistaDashboard() {
 
   if (!user) return <LoadingSpinner fullScreen />
   if (!planta) {
-    return <p className="p-6 text-sm text-gray-500">Tu cuenta no tiene planta asignada. Avisá al encargado.</p>
+    return <p className="p-6 text-sm text-secundario">Tu cuenta no tiene planta asignada. Avisá al encargado.</p>
   }
 
   const elegirTurno = (t: TurnoProduccion) => {
@@ -127,7 +127,7 @@ export default function MaquinistaDashboard() {
         <main className="max-w-md mx-auto p-4 pt-10 space-y-5">
           <div className="text-center">
             <h1 className="text-xl font-bold">Parte de máquinas</h1>
-            <p className="text-gray-500 text-sm">{PLANTAS[planta].label} · ¿Qué turno arranca?</p>
+            <p className="text-secundario text-sm">{PLANTAS[planta].label} · ¿Qué turno arranca?</p>
           </div>
           <div className="space-y-3">
             {TURNOS.map((t) => (
@@ -161,7 +161,7 @@ export default function MaquinistaDashboard() {
             <h1 className="text-lg font-bold leading-tight flex items-center gap-2">
               <Snowflake size={16} className="text-accent" /> Parte de máquinas — {TURNO_LABELS[turno]}
             </h1>
-            <p className="text-gray-500 text-xs">{PLANTAS[planta].label} · {user.nombre?.split(' ')[0]}</p>
+            <p className="text-secundario text-xs">{PLANTAS[planta].label} · {user.nombre?.split(' ')[0]}</p>
           </div>
           <div className="flex items-center gap-2">
             {!online && (
@@ -171,7 +171,7 @@ export default function MaquinistaDashboard() {
             )}
             <button
               onClick={() => { guardarTurno(null); setTurno(null) }}
-              className="text-xs text-gray-500 border border-[#D3D1C7] rounded-lg px-3 py-1.5 hover:border-accent hover:text-accent transition-colors"
+              className="text-xs text-secundario border border-[#D3D1C7] rounded-lg px-3 py-1.5 hover:border-accent hover:text-accent transition-colors"
             >
               Cambiar turno
             </button>
@@ -206,7 +206,7 @@ export default function MaquinistaDashboard() {
                             className={`w-10 h-10 rounded-lg border text-sm font-bold transition-colors ${
                               activa
                                 ? 'bg-accent text-white border-accent'
-                                : 'bg-[#F8F7F2] text-gray-500 border-[#D3D1C7]'
+                                : 'bg-[#F8F7F2] text-secundario border-[#D3D1C7]'
                             }`}
                           >
                             {n}

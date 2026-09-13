@@ -72,12 +72,12 @@ function ReprogramarModal({
       <div className="space-y-4 text-sm">
         <div className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2.5">
           <p className="font-medium">{order.clientName}</p>
-          <p className="text-gray-500 text-xs mt-0.5">{summarizeProducts(order.products)}</p>
-          <p className="text-gray-500 text-xs">Fecha original: {formatShortDate(order.date)}</p>
+          <p className="text-secundario text-xs mt-0.5">{summarizeProducts(order.products)}</p>
+          <p className="text-secundario text-xs">Fecha original: {formatShortDate(order.date)}</p>
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs font-medium text-gray-500">Nueva fecha de entrega</label>
+          <label className="text-xs font-medium text-secundario">Nueva fecha de entrega</label>
           <div className="flex gap-2 items-center">
             <input
               type="date"
@@ -96,7 +96,7 @@ function ReprogramarModal({
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs font-medium text-gray-500">Motivo</label>
+          <label className="text-xs font-medium text-secundario">Motivo</label>
           <select
             value={motivo}
             onChange={(e) => setMotivo(e.target.value)}
@@ -108,7 +108,7 @@ function ReprogramarModal({
           </select>
         </div>
 
-        <div className="bg-accent/5 border border-accent/20 rounded-lg px-3 py-2 text-xs text-gray-500">
+        <div className="bg-accent/5 border border-accent/20 rounded-lg px-3 py-2 text-xs text-secundario">
           El cliente recibirá un email con la nueva fecha y el motivo.
         </div>
       </div>
@@ -159,11 +159,11 @@ function ReasignarModal({
       <div className="space-y-4 text-sm">
         <div className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2.5">
           <p className="font-medium">{order.clientName}</p>
-          <p className="text-gray-500 text-xs mt-0.5">{summarizeProducts(order.products)}</p>
+          <p className="text-secundario text-xs mt-0.5">{summarizeProducts(order.products)}</p>
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs font-medium text-gray-500">Asignar a</label>
+          <label className="text-xs font-medium text-secundario">Asignar a</label>
           <select
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -176,7 +176,7 @@ function ReasignarModal({
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs font-medium text-gray-500">Motivo</label>
+          <label className="text-xs font-medium text-secundario">Motivo</label>
           <select
             value={motivo}
             onChange={(e) => setMotivo(e.target.value)}
@@ -261,7 +261,7 @@ function FinJornadaModal({
         {/* Lista de pendientes */}
         <div className="space-y-1.5 max-h-36 overflow-y-auto">
           {pendingOrders.map((o) => (
-            <div key={o.id} className="flex items-center gap-2 text-xs text-gray-500">
+            <div key={o.id} className="flex items-center gap-2 text-xs text-secundario">
               <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 shrink-0" />
               <span className="font-medium text-white truncate">{o.clientName}</span>
               <span className="truncate">{summarizeProducts(o.products)}</span>
@@ -273,13 +273,13 @@ function FinJornadaModal({
         <div className="flex rounded-xl border border-[#D3D1C7] overflow-hidden text-xs">
           <button
             onClick={() => setAccion('reprogramar')}
-            className={`flex-1 py-2.5 font-medium transition-colors ${accion === 'reprogramar' ? 'bg-accent text-bg' : 'text-gray-500 hover:text-white'}`}
+            className={`flex-1 py-2.5 font-medium transition-colors ${accion === 'reprogramar' ? 'bg-accent text-bg' : 'text-secundario hover:text-white'}`}
           >
             📅 Reprogramar todos
           </button>
           <button
             onClick={() => setAccion('reasignar')}
-            className={`flex-1 py-2.5 font-medium transition-colors ${accion === 'reasignar' ? 'bg-accent text-bg' : 'text-gray-500 hover:text-white'}`}
+            className={`flex-1 py-2.5 font-medium transition-colors ${accion === 'reasignar' ? 'bg-accent text-bg' : 'text-secundario hover:text-white'}`}
           >
             🔄 Reasignar todos
           </button>
@@ -287,7 +287,7 @@ function FinJornadaModal({
 
         {accion === 'reprogramar' && (
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-500">Nueva fecha</label>
+            <label className="text-xs font-medium text-secundario">Nueva fecha</label>
             <div className="flex gap-2">
               <input
                 type="date"
@@ -308,7 +308,7 @@ function FinJornadaModal({
 
         {accion === 'reasignar' && (
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-500">Asignar a</label>
+            <label className="text-xs font-medium text-secundario">Asignar a</label>
             <select
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -323,7 +323,7 @@ function FinJornadaModal({
         )}
 
         <div className="space-y-1">
-          <label className="text-xs font-medium text-gray-500">Motivo</label>
+          <label className="text-xs font-medium text-secundario">Motivo</label>
           <select
             value={motivo}
             onChange={(e) => setMotivo(e.target.value)}
@@ -397,7 +397,7 @@ function DriverSideCard({
           </div>
           <div className="text-right shrink-0">
             <p className="font-bold text-lg leading-none" style={{ color }}>{delivered}</p>
-            <p className="text-xs text-gray-500">/ {total}</p>
+            <p className="text-xs text-secundario">/ {total}</p>
           </div>
         </div>
 
@@ -421,7 +421,7 @@ function DriverSideCard({
           </p>
         )}
         {!alert && (
-          <p className="text-xs text-gray-500">{pct}% completado</p>
+          <p className="text-xs text-secundario">{pct}% completado</p>
         )}
 
         <p className={`text-xs mt-1 ${driver ? 'text-secundario' : 'text-amber-500'}`}>
@@ -432,7 +432,7 @@ function DriverSideCard({
       {/* Detalle expandido cuando está seleccionado */}
       {isSelected && pending.length > 0 && (
         <div className="border-t border-gray-200 px-4 pb-4 pt-3 space-y-2">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+          <p className="text-xs font-semibold text-secundario uppercase tracking-wide mb-2">
             Pendientes ({pending.length})
           </p>
 
@@ -440,7 +440,7 @@ function DriverSideCard({
             <div key={o.id} className="flex items-center gap-2">
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-medium truncate text-gray-900">{o.clientName}</p>
-                <p className="text-xs text-gray-500 truncate">{summarizeProducts(o.products)}</p>
+                <p className="text-xs text-secundario truncate">{summarizeProducts(o.products)}</p>
               </div>
               <div className="flex gap-1 shrink-0">
                 <button
@@ -452,7 +452,7 @@ function DriverSideCard({
                 </button>
                 <button
                   onClick={() => onReasignar(o)}
-                  className="text-xs text-gray-500 border border-[#D3D1C7] rounded-lg px-2 py-1 hover:border-accent/40 hover:text-gray-900 transition-colors"
+                  className="text-xs text-secundario border border-[#D3D1C7] rounded-lg px-2 py-1 hover:border-accent/40 hover:text-gray-900 transition-colors"
                   title="Reasignar"
                 >
                   🔄
@@ -535,12 +535,12 @@ export default function MonitoreoPage() {
               <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
               <h1 className="text-base font-bold text-gray-900">Monitoreo en vivo</h1>
             </div>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-secundario">
               {totalEntregados} entregados · {totalPendientes} pendientes · {activeDrivers.length} con GPS
             </p>
           </div>
 
-          <div className="px-4 py-2.5 border-b border-[#D3D1C7] flex gap-3 text-xs text-gray-500 flex-wrap">
+          <div className="px-4 py-2.5 border-b border-[#D3D1C7] flex gap-3 text-xs text-secundario flex-wrap">
             <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#4b5563]" />Pendiente</span>
             <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-accent" />En camino</span>
             <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-success" />Entregado</span>
@@ -548,7 +548,7 @@ export default function MonitoreoPage() {
 
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
             {driversToday.length === 0 && (
-              <p className="text-xs text-gray-500 text-center mt-10">No hay choferes con pedidos asignados hoy</p>
+              <p className="text-xs text-secundario text-center mt-10">No hay choferes con pedidos asignados hoy</p>
             )}
 
             {selectedDriver && (
@@ -584,7 +584,7 @@ export default function MonitoreoPage() {
               <div className="bg-white/95 border border-[#D3D1C7] rounded-xl px-6 py-5 text-center shadow-xl">
                 <p className="text-3xl mb-3">📡</p>
                 <p className="text-sm font-semibold text-gray-900">Sin choferes activos</p>
-                <p className="text-xs text-gray-500 mt-1 max-w-[200px]">El GPS se activa cuando el chofer comienza el reparto</p>
+                <p className="text-xs text-secundario mt-1 max-w-[200px]">El GPS se activa cuando el chofer comienza el reparto</p>
               </div>
             </div>
           )}

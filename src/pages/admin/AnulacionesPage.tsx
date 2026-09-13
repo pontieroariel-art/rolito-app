@@ -103,14 +103,14 @@ export default function AnulacionesPage() {
     <main className="max-w-5xl mx-auto p-4 space-y-4 pb-10">
       <div>
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><Ban size={22} className="text-accent" /> Anulaciones de facturas</h1>
-        <p className="text-gray-500 text-sm">Lo que piden anular ventanilla, caja desde la liquidación del chofer y facturación desde Comprobantes de clientes. Con la aprobación sale la nota de crédito por el total (ARCA, o NC X interna si es promo) y la venta deja de contar.</p>
+        <p className="text-secundario text-sm">Lo que piden anular ventanilla, caja desde la liquidación del chofer y facturación desde Comprobantes de clientes. Con la aprobación sale la nota de crédito por el total (ARCA, o NC X interna si es promo) y la venta deja de contar.</p>
       </div>
       {!puedeAutorizar && <p className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">Estás en modo lectura: no tenés el permiso para autorizar anulaciones (lo asigna el administrador desde Usuarios).</p>}
       {aviso && <p className="text-xs text-amber-700">{aviso}</p>}
 
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Por autorizar ({ordenadas.length})</h2>
-        {ordenadas.length === 0 && <p className="text-sm text-gray-500 bg-white rounded-2xl border border-[#D3D1C7] shadow-sm px-4 py-3">No hay anulaciones esperando.</p>}
+        <h2 className="text-sm font-semibold text-secundario uppercase tracking-wide">Por autorizar ({ordenadas.length})</h2>
+        {ordenadas.length === 0 && <p className="text-sm text-secundario bg-white rounded-2xl border border-[#D3D1C7] shadow-sm px-4 py-3">No hay anulaciones esperando.</p>}
         {ordenadas.map((a) => {
           const propia = a.solicitadoPor.uid === user?.uid
           return (
@@ -120,13 +120,13 @@ export default function AnulacionesPage() {
                   <p className="text-sm text-gray-800">
                     Factura <b className="text-base">{(LETRA[a.facturaOriginal.cbteTipo] ?? (a.facturaOriginal.cbteTipo === 0 ? 'X' : ''))} {nro(a.facturaOriginal.puntoVenta, a.facturaOriginal.numero)}</b> · <b>{formatoARS(a.facturaOriginal.total)}</b> · {a.clienteNombre}
                   </p>
-                  <p className="text-xs text-gray-500">{a.coleccion === 'ventasCamion' ? <span className="font-semibold text-gray-700">Camión · {a.choferNombre ?? 'chofer'} · </span> : 'Ventanilla · '}{a.origen === 'facturacion' ? <span className="font-semibold text-amber-700">día ya cerrado, pide la oficina</span> : PLANTAS[a.plantaId].label} · pidió <b>{a.solicitadoPor.nombre}</b> el {a.solicitadaEn.toDate().toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} · venta del {a.fechaVenta}</p>
+                  <p className="text-xs text-secundario">{a.coleccion === 'ventasCamion' ? <span className="font-semibold text-gray-700">Camión · {a.choferNombre ?? 'chofer'} · </span> : 'Ventanilla · '}{a.origen === 'facturacion' ? <span className="font-semibold text-amber-700">día ya cerrado, pide la oficina</span> : PLANTAS[a.plantaId].label} · pidió <b>{a.solicitadoPor.nombre}</b> el {a.solicitadaEn.toDate().toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} · venta del {a.fechaVenta}</p>
                 </div>
                 <span className="text-xs px-2.5 py-1 rounded-full border font-medium bg-amber-100 text-amber-700 border-amber-200">Por autorizar</span>
               </div>
               <div className="rounded-lg bg-gray-50 p-3 text-sm">
                 <p className="text-gray-900"><b>{MOTIVOS_ANULACION[a.motivo] ?? a.motivo}</b>{a.nota ? <span className="text-gray-700"> · {a.nota}</span> : null}</p>
-                {a.items?.length ? <p className="text-xs text-gray-500 mt-1">{a.items.map((i) => `${i.cantidad} × ${i.nombre}`).join(' · ')}</p> : null}
+                {a.items?.length ? <p className="text-xs text-secundario mt-1">{a.items.map((i) => `${i.cantidad} × ${i.nombre}`).join(' · ')}</p> : null}
               </div>
               {puedeAutorizar && (
                 <div className="flex flex-wrap justify-end gap-2">
@@ -151,13 +151,13 @@ export default function AnulacionesPage() {
                 <td className={`${td} text-right tabular-nums`}>{formatoARS(a.facturaOriginal.total)}</td>
                 <td className={td}>{a.cajaNombre} <span className="text-secundario">· {PLANTAS[a.plantaId].label.replace('Planta ', '')}</span></td>
                 <td className={`${td} text-gray-600`}>{MOTIVOS_ANULACION[a.motivo] ?? a.motivo}</td>
-                <td className={`${td} text-xs ${ESTADO[a.estado].clase}`}>{ESTADO[a.estado].label}{a.estado === 'rechazada' && a.notaResolucion ? <span className="block text-gray-500">{a.notaResolucion}</span> : null}{a.estado === 'error' && a.ultimoError ? <span className="block text-gray-500">{a.ultimoError}</span> : null}</td>
-                <td className={`${td} text-xs`}>{a.notaCreditoInterna && !a.notaCredito ? <span>NC X {nro(a.notaCreditoInterna.puntoVenta, a.notaCreditoInterna.numero)}<span className="block text-gray-500">interna (promo)</span>{a.tango?.estado === 'confirmado' ? <span className="block text-[#0F6B4E]">Tango ✓ {a.tango.numero}</span> : a.tango?.estado === 'error' ? <span className="block text-red-600" title={a.tango.ultimoError}>Tango: {a.tango.ultimoError ?? 'error'}</span> : a.tango?.estado === 'pendiente' ? <span className="block text-amber-700">Pendiente en Tango</span> : <span className="block text-secundario">Sin registrar en Tango</span>}</span> : a.notaCredito?.estado === 'emitida' ? <span>NC {LETRA[a.notaCredito.cbteTipo] ?? ''} {nro(a.notaCredito.puntoVenta, a.notaCredito.numero)}<span className="block text-gray-500">CAE {a.notaCredito.cae}</span>{a.tango?.estado === 'confirmado' ? <span className="block text-[#0F6B4E]">Tango ✓ {a.tango.numero}</span> : a.tango?.estado === 'error' ? <span className="block text-red-600" title={a.tango.ultimoError}>Tango: {a.tango.ultimoError ?? 'error'}</span> : a.tango?.estado === 'pendiente' ? <span className="block text-amber-700">Pendiente en Tango</span> : <span className="block text-secundario">Sin registrar en Tango</span>}</span> : a.notaCredito?.estado === 'incierta' ? <span className="text-amber-700">en revisión en ARCA</span> : '—'}</td>
+                <td className={`${td} text-xs ${ESTADO[a.estado].clase}`}>{ESTADO[a.estado].label}{a.estado === 'rechazada' && a.notaResolucion ? <span className="block text-secundario">{a.notaResolucion}</span> : null}{a.estado === 'error' && a.ultimoError ? <span className="block text-secundario">{a.ultimoError}</span> : null}</td>
+                <td className={`${td} text-xs`}>{a.notaCreditoInterna && !a.notaCredito ? <span>NC X {nro(a.notaCreditoInterna.puntoVenta, a.notaCreditoInterna.numero)}<span className="block text-secundario">interna (promo)</span>{a.tango?.estado === 'confirmado' ? <span className="block text-[#0F6B4E]">Tango ✓ {a.tango.numero}</span> : a.tango?.estado === 'error' ? <span className="block text-red-600" title={a.tango.ultimoError}>Tango: {a.tango.ultimoError ?? 'error'}</span> : a.tango?.estado === 'pendiente' ? <span className="block text-amber-700">Pendiente en Tango</span> : <span className="block text-secundario">Sin registrar en Tango</span>}</span> : a.notaCredito?.estado === 'emitida' ? <span>NC {LETRA[a.notaCredito.cbteTipo] ?? ''} {nro(a.notaCredito.puntoVenta, a.notaCredito.numero)}<span className="block text-secundario">CAE {a.notaCredito.cae}</span>{a.tango?.estado === 'confirmado' ? <span className="block text-[#0F6B4E]">Tango ✓ {a.tango.numero}</span> : a.tango?.estado === 'error' ? <span className="block text-red-600" title={a.tango.ultimoError}>Tango: {a.tango.ultimoError ?? 'error'}</span> : a.tango?.estado === 'pendiente' ? <span className="block text-amber-700">Pendiente en Tango</span> : <span className="block text-secundario">Sin registrar en Tango</span>}</span> : a.notaCredito?.estado === 'incierta' ? <span className="text-amber-700">en revisión en ARCA</span> : '—'}</td>
                 <td className={`${td} text-xs`}>{a.resueltaPor ? <span className="inline-flex items-center gap-1"><ShieldCheck size={13} className="text-[#0F6B4E]" /> {a.resueltaPor.nombre}</span> : ''}</td>
                 <td className={td}>{a.estado === 'emitida' && <button type="button" onClick={() => verNotaCredito(a)} className={btn} title="PDF de la nota de crédito"><FileText size={12} /> PDF</button>}</td>
               </tr>
             ))}
-            {resueltas.length === 0 && <tr><td className={`${td} text-gray-500`} colSpan={9}>Sin anulaciones resueltas este mes.</td></tr>}
+            {resueltas.length === 0 && <tr><td className={`${td} text-secundario`} colSpan={9}>Sin anulaciones resueltas este mes.</td></tr>}
           </tbody>
         </table>
       </Plegable>
@@ -170,7 +170,7 @@ export default function AnulacionesPage() {
             </p>
             <p className="text-sm text-gray-600">{MOTIVOS_ANULACION[resolviendo.a.motivo] ?? resolviendo.a.motivo}{resolviendo.a.nota ? ` · ${resolviendo.a.nota}` : ''} (pidió {resolviendo.a.solicitadoPor.nombre})</p>
             <textarea value={nota} onChange={(e) => setNota(e.target.value)} rows={2} placeholder={resolviendo.estado === 'aprobada' ? 'Nota (opcional)' : 'Por qué se rechaza (obligatorio)'} className={inputClass} />
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-secundario">
               {resolviendo.estado === 'aprobada'
                 ? 'Al aprobar, la app emite la nota de crédito en ARCA por el total de la factura. Queda registrado con tu nombre y hora y no se puede deshacer.'
                 : 'La factura sigue vigente y el cajero recibe el aviso con tu motivo. Puede volver a pedir la anulación.'}

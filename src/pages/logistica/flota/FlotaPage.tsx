@@ -59,7 +59,7 @@ function CamionForm({
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Patente *</label>
+          <label className="text-xs text-secundario mb-1 block">Patente *</label>
           <input
             value={patente}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setPatente(e.target.value)}
@@ -68,7 +68,7 @@ function CamionForm({
           />
         </div>
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Marca</label>
+          <label className="text-xs text-secundario mb-1 block">Marca</label>
           <input
             value={marca}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setMarca(e.target.value)}
@@ -79,7 +79,7 @@ function CamionForm({
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Modelo *</label>
+          <label className="text-xs text-secundario mb-1 block">Modelo *</label>
           <input
             value={modelo}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setModelo(e.target.value)}
@@ -88,7 +88,7 @@ function CamionForm({
           />
         </div>
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Capacidad (pallets)</label>
+          <label className="text-xs text-secundario mb-1 block">Capacidad (pallets)</label>
           <input
             type="number"
             min={1}
@@ -102,7 +102,7 @@ function CamionForm({
 
       {/* Canales */}
       <div>
-        <label className="text-xs text-gray-500 mb-2 block">Canales de distribución</label>
+        <label className="text-xs text-secundario mb-2 block">Canales de distribución</label>
         <div className="flex flex-wrap gap-2">
           {CANALES_CAMION.map((canal) => {
             const active = canales.includes(canal)
@@ -114,7 +114,7 @@ function CamionForm({
                 className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
                   active
                     ? 'bg-accent/20 text-accent border-accent/50'
-                    : 'bg-[#F8F7F2] text-gray-500 border-[#D3D1C7] hover:border-accent/50 hover:text-gray-700'
+                    : 'bg-[#F8F7F2] text-secundario border-[#D3D1C7] hover:border-accent/50 hover:text-gray-700'
                 }`}
               >
                 {active ? '✓ ' : ''}{canal}
@@ -158,7 +158,7 @@ export default function FlotaPage() {
         <div className="flex flex-wrap justify-between items-center gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Flota de camiones</h1>
-            <p className="text-gray-500 text-sm">
+            <p className="text-secundario text-sm">
               {camiones.filter((c) => c.activo).length} vehículos activos
               {' · '}
               <span className="text-secundario">La asignación diaria se gestiona en Planificación</span>
@@ -176,7 +176,7 @@ export default function FlotaPage() {
           {camiones.length === 0 ? (
             <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center">
               <p className="text-4xl mb-3">🚛</p>
-              <p className="text-gray-500 text-sm">Todavía no cargaste ningún vehículo</p>
+              <p className="text-secundario text-sm">Todavía no cargaste ningún vehículo</p>
               <p className="text-secundario text-xs mt-1">Usá el botón "Agregar" para empezar</p>
             </div>
           ) : (
@@ -192,11 +192,11 @@ export default function FlotaPage() {
                       <span className="text-2xl">🚛</span>
                       <div>
                         <p className="font-bold text-sm tracking-wide text-gray-900">{c.patente}</p>
-                        <p className="text-gray-500 text-xs">
+                        <p className="text-secundario text-xs">
                           {c.marca ? `${c.marca} · ` : ''}{c.modelo}
                         </p>
                         {c.capacidadPallets && (
-                          <p className="text-xs text-gray-500 mt-0.5">{c.capacidadPallets} pallets cap.</p>
+                          <p className="text-xs text-secundario mt-0.5">{c.capacidadPallets} pallets cap.</p>
                         )}
                         {c.canales && c.canales.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-1.5">
@@ -216,19 +216,19 @@ export default function FlotaPage() {
                       <span className={`text-xs px-2 py-1 rounded-full border font-medium ${
                         c.activo
                           ? 'bg-green-100 text-green-700 border-green-200'
-                          : 'bg-gray-100 text-gray-500 border-gray-200'
+                          : 'bg-gray-100 text-secundario border-gray-200'
                       }`}>
                         {c.activo ? 'Activo' : 'Inactivo'}
                       </span>
                       <button
                         onClick={() => setEditCamion(c)}
-                        className="text-xs text-gray-500 hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-4 py-2 transition-colors min-h-[36px]"
+                        className="text-xs text-secundario hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-4 py-2 transition-colors min-h-[36px]"
                       >
                         Editar
                       </button>
                       <button
                         onClick={() => { updateCamion(c.id, { activo: !c.activo }); logFlota(c.id, c.activo ? 'desactivado' : 'activado', c.patente) }}
-                        className="text-xs text-gray-500 hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-4 py-2 transition-colors min-h-[36px]"
+                        className="text-xs text-secundario hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-4 py-2 transition-colors min-h-[36px]"
                       >
                         {c.activo ? 'Desactivar' : 'Activar'}
                       </button>

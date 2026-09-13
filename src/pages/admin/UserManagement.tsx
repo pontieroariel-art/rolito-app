@@ -235,7 +235,7 @@ export default function UserManagement({ tab }: { tab: 'clientes' | 'equipo' }) 
         <div className="flex flex-wrap justify-between items-center gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{tab === 'clientes' ? 'Clientes' : 'Usuarios'}</h1>
-            <p className="text-gray-500 text-sm">
+            <p className="text-secundario text-sm">
               {tab === 'clientes' ? `${sucursalesFlat.length} sucursales` : `${equipo.length} personas del equipo`}
             </p>
           </div>
@@ -342,7 +342,7 @@ export default function UserManagement({ tab }: { tab: 'clientes' | 'equipo' }) 
               className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                 statusFilter === s
                   ? 'bg-accent text-white border-accent'
-                  : 'border-[#D3D1C7] text-gray-500 hover:border-accent/50 hover:text-gray-900'
+                  : 'border-[#D3D1C7] text-secundario hover:border-accent/50 hover:text-gray-900'
               }`}
             >
               {s === 'all'
@@ -366,7 +366,7 @@ export default function UserManagement({ tab }: { tab: 'clientes' | 'equipo' }) 
           ) : tab === 'clientes' ? (
             filteredSucursales.length === 0 ? (
               <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center">
-                <p className="text-gray-500 text-sm">No hay clientes con estos filtros</p>
+                <p className="text-secundario text-sm">No hay clientes con estos filtros</p>
               </div>
             ) : (
               <>
@@ -384,7 +384,7 @@ export default function UserManagement({ tab }: { tab: 'clientes' | 'equipo' }) 
                 {visibleCount < filteredSucursales.length && (
                   <button
                     onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
-                    className="w-full bg-white border border-[#D3D1C7] rounded-xl py-3 text-sm text-gray-500 hover:text-gray-900 hover:bg-[#F8F7F2] transition-colors"
+                    className="w-full bg-white border border-[#D3D1C7] rounded-xl py-3 text-sm text-secundario hover:text-gray-900 hover:bg-[#F8F7F2] transition-colors"
                   >
                     Ver más ({filteredSucursales.length - visibleCount} restantes)
                   </button>
@@ -394,7 +394,7 @@ export default function UserManagement({ tab }: { tab: 'clientes' | 'equipo' }) 
           ) : (
             filtered.length === 0 ? (
               <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center">
-                <p className="text-gray-500 text-sm">No hay usuarios con estos filtros</p>
+                <p className="text-secundario text-sm">No hay usuarios con estos filtros</p>
               </div>
             ) : (
               <>
@@ -416,7 +416,7 @@ export default function UserManagement({ tab }: { tab: 'clientes' | 'equipo' }) 
                 {visibleCount < filtered.length && (
                   <button
                     onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
-                    className="w-full bg-white border border-[#D3D1C7] rounded-xl py-3 text-sm text-gray-500 hover:text-gray-900 hover:bg-[#F8F7F2] transition-colors"
+                    className="w-full bg-white border border-[#D3D1C7] rounded-xl py-3 text-sm text-secundario hover:text-gray-900 hover:bg-[#F8F7F2] transition-colors"
                   >
                     Ver más ({filtered.length - visibleCount} restantes)
                   </button>

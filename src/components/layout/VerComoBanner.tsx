@@ -44,7 +44,7 @@ export function VerComoTerminada() {
           <Eye size={20} />
         </div>
         <h1 className="text-base font-bold text-gray-900">La vista &quot;Ver como&quot; terminó</h1>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-secundario">
           El enlace venció o la sesión se cerró. Cerrá esta pestaña y, si querés seguir mirando,
           volvé a abrir &quot;Ver como&quot; desde Usuarios.
         </p>

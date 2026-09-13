@@ -107,7 +107,7 @@ export default function Navbar() {
               {user?.nombre?.split(' ')[0]}
             </p>
             {user?.rol && (
-              <p className="text-xs text-gray-500 leading-tight">
+              <p className="text-xs text-secundario leading-tight">
                 {ROLE_LABELS[user.rol]}{multiSistema && sistemaActual ? ` · ${SISTEMA_LABELS[sistemaActual]}` : ''}
               </p>
             )}
@@ -185,7 +185,7 @@ export default function Navbar() {
               </div>
               <div>
                 <p className="text-sm font-semibold text-gray-800">{user?.nombre?.split(' ')[0]}</p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-secundario">
                   {user?.rol && ROLE_LABELS[user.rol]}{multiSistema && sistemaActual ? ` · ${SISTEMA_LABELS[sistemaActual]}` : ''}
                 </p>
               </div>
@@ -194,7 +194,7 @@ export default function Navbar() {
               {multiSistema && (
                 <button
                   onClick={() => { setOpen(false); handleCambiarSistema() }}
-                  className="flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-accent transition-colors"
+                  className="flex items-center gap-1.5 text-sm font-medium text-secundario hover:text-accent transition-colors"
                 >
                   <ArrowLeftRight size={16} />
                   Sistema
@@ -202,7 +202,7 @@ export default function Navbar() {
               )}
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-red-500 transition-colors"
+                className="flex items-center gap-1.5 text-sm font-medium text-secundario hover:text-red-500 transition-colors"
               >
                 <LogOut size={16} />
                 Salir

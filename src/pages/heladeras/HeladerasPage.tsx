@@ -27,7 +27,7 @@ function StatTile({ value, label, tone }: { value: number; label: string; tone?:
       <span className={`text-2xl font-bold tabular-nums ${
         tone === 'warn' ? 'text-amber-600' : tone === 'good' ? 'text-accent' : 'text-gray-900'
       }`}>{value}</span>
-      <span className="text-xs uppercase tracking-wide text-gray-500">{label}</span>
+      <span className="text-xs uppercase tracking-wide text-secundario">{label}</span>
     </div>
   )
 }
@@ -77,7 +77,7 @@ function SoltarModal({
       <form onSubmit={handleSubmit} className="space-y-4">
         <TipoReparacionChecklist tipos={opciones} seleccionados={seleccionados} onToggle={toggle} showSearch={opciones.length > 6} />
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Notas adicionales (opcional)</label>
+          <label className="text-xs text-secundario mb-1 block">Notas adicionales (opcional)</label>
           <textarea
             value={notas}
             onChange={(e) => setNotas(e.target.value)}
@@ -86,7 +86,7 @@ function SoltarModal({
             className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
           />
         </div>
-        <p className="text-xs text-gray-500 -mt-2">Pasa al siguiente paso del pipeline.</p>
+        <p className="text-xs text-secundario -mt-2">Pasa al siguiente paso del pipeline.</p>
         {error && <p className="text-red-500 text-xs">{error}</p>}
         <div className="flex gap-2 pt-1">
           <Button variant="outline" type="button" onClick={onClose} className="flex-1">Cancelar</Button>
@@ -140,7 +140,7 @@ function AprobacionModal({
           <p className="text-sm text-gray-600">¿La heladera pasa este control?</p>
           <TipoReparacionChecklist tipos={opciones} seleccionados={seleccionados} onToggle={toggle} showSearch={opciones.length > 6} />
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Notas adicionales (opcional)</label>
+            <label className="text-xs text-secundario mb-1 block">Notas adicionales (opcional)</label>
             <textarea
               value={notas}
               onChange={(e) => setNotas(e.target.value)}
@@ -158,7 +158,7 @@ function AprobacionModal({
       ) : (
         <form onSubmit={handleRechazar} className="space-y-4">
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Motivo del rechazo</label>
+            <label className="text-xs text-secundario mb-1 block">Motivo del rechazo</label>
             <textarea
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}
@@ -167,7 +167,7 @@ function AprobacionModal({
               className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
             />
           </div>
-          <p className="text-xs text-gray-500 -mt-2">Vuelve al primer paso para reprocesarse desde cero (nuevo ciclo).</p>
+          <p className="text-xs text-secundario -mt-2">Vuelve al primer paso para reprocesarse desde cero (nuevo ciclo).</p>
           {error && <p className="text-red-500 text-xs">{error}</p>}
           <div className="flex gap-2 pt-1">
             <Button variant="outline" type="button" className="flex-1" onClick={() => setRechazando(false)}>Volver</Button>
@@ -197,7 +197,7 @@ function HeladeraCard({
     <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 flex flex-wrap items-center justify-between gap-3">
       <div>
         <p className="font-bold text-sm text-gray-900">{heladera.codigoInterno}</p>
-        <p className="text-gray-500 text-xs">{heladera.modelo} · serie {heladera.numeroSerie}</p>
+        <p className="text-secundario text-xs">{heladera.modelo} · serie {heladera.numeroSerie}</p>
         <p className="text-xs text-secundario mt-1">
           {heladera.motivoIngresoNombre ?? TIPO_PIPELINE_LABELS[heladera.tipoPipeline]}
           {heladera.cicloActual > 1 ? ` · ciclo ${heladera.cicloActual}` : ''}
@@ -267,14 +267,14 @@ export default function HeladerasPage() {
         <div className="flex flex-wrap justify-between items-center gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Heladeras</h1>
-            <p className="text-gray-500 text-sm">Taller: fabricación y reacondicionamiento</p>
+            <p className="text-secundario text-sm">Taller: fabricación y reacondicionamiento</p>
           </div>
           {isEncargado && (
             <div className="flex flex-col items-end gap-1">
               <Button onClick={() => setCrearModal('fabricacion')}>+ Fabricar heladera nueva</Button>
               <button
                 onClick={() => setCrearModal('reacondicionamiento')}
-                className="text-xs text-gray-500 hover:text-accent underline-offset-2 hover:underline"
+                className="text-xs text-secundario hover:text-accent underline-offset-2 hover:underline"
               >
                 Registrar equipo usado no cargado
               </button>

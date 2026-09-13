@@ -114,7 +114,7 @@ export default function EntregasPage() {
     <main className="max-w-5xl mx-auto p-4 space-y-4 pb-10">
       <div>
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><Landmark size={22} className="text-accent" /> Entrega a tesorería · {PLANTAS[planta].label}</h1>
-        <p className="text-gray-500 text-sm">Lo que caja recibió de repartidores y cerró en sus cajas, y todavía no salió hacia tesorería. Se entrega con acta y firma; tesorería la cuenta y confirma.</p>
+        <p className="text-secundario text-sm">Lo que caja recibió de repartidores y cerró en sus cajas, y todavía no salió hacia tesorería. Se entrega con acta y firma; tesorería la cuenta y confirma.</p>
       </div>
 
       {ultima && (
@@ -129,9 +129,9 @@ export default function EntregasPage() {
       {aviso && <p className="text-xs text-amber-700">{aviso}</p>}
 
       <section className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-4 space-y-4 overflow-x-auto">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Pendiente de entregar (últimos 7 días)</h2>
+        <h2 className="text-sm font-semibold text-secundario uppercase tracking-wide">Pendiente de entregar (últimos 7 días)</h2>
         {pend.liquidaciones.length + pend.rendiciones.length === 0 ? (
-          <p className="text-sm text-gray-500">No hay nada pendiente de entregar.</p>
+          <p className="text-sm text-secundario">No hay nada pendiente de entregar.</p>
         ) : (
           <>
             {pend.rendiciones.length > 0 && (
@@ -162,7 +162,7 @@ export default function EntregasPage() {
                       <td className={td}>{l.fecha}</td>
                       <td className={td}>{l.choferNombre}</td>
                       <td className={`${td} text-right tabular-nums`}>{formatoARS(l.efectivoRecibido)}{l.diferenciaEfectivo !== 0 && <span className="text-red-600 text-xs"> ({formatoARS(l.diferenciaEfectivo)})</span>}</td>
-                      <td className={`${td} text-xs text-gray-500`}>{cubiertaPor.has(l.id) ? `ya está en el cierre de ${cubiertaPor.get(l.id)}` : 'suelto (no está en ningún cierre)'}</td>
+                      <td className={`${td} text-xs text-secundario`}>{cubiertaPor.has(l.id) ? `ya está en el cierre de ${cubiertaPor.get(l.id)}` : 'suelto (no está en ningún cierre)'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -173,22 +173,22 @@ export default function EntregasPage() {
       </section>
 
       <section className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <div className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-4"><p className="text-xs text-gray-500">Cierres de caja</p><p className="text-2xl font-bold tabular-nums text-gray-900">{formatoARS(armada.efectivo.cierresCaja)}</p><p className="text-xs text-gray-500">{sel.rendiciones.length} cierre(s)</p></div>
-        <div className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-4"><p className="text-xs text-gray-500">Liquidaciones sueltas</p><p className="text-2xl font-bold tabular-nums text-gray-900">{formatoARS(armada.efectivo.liquidacionesSueltas)}</p><p className="text-xs text-gray-500">{armada.liquidaciones.filter((l) => !l.incluidaEnCierre).length} de {sel.liquidaciones.length}</p></div>
-        <div className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-4"><p className="text-xs text-gray-500">Teórico a entregar</p><p className="text-2xl font-bold tabular-nums text-gray-900">{formatoARS(armada.efectivo.teorico)}</p><p className="text-xs text-gray-500">{nValores} valor(es) en papel</p></div>
+        <div className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-4"><p className="text-xs text-secundario">Cierres de caja</p><p className="text-2xl font-bold tabular-nums text-gray-900">{formatoARS(armada.efectivo.cierresCaja)}</p><p className="text-xs text-secundario">{sel.rendiciones.length} cierre(s)</p></div>
+        <div className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-4"><p className="text-xs text-secundario">Liquidaciones sueltas</p><p className="text-2xl font-bold tabular-nums text-gray-900">{formatoARS(armada.efectivo.liquidacionesSueltas)}</p><p className="text-xs text-secundario">{armada.liquidaciones.filter((l) => !l.incluidaEnCierre).length} de {sel.liquidaciones.length}</p></div>
+        <div className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-4"><p className="text-xs text-secundario">Teórico a entregar</p><p className="text-2xl font-bold tabular-nums text-gray-900">{formatoARS(armada.efectivo.teorico)}</p><p className="text-xs text-secundario">{nValores} valor(es) en papel</p></div>
         <div className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-4">
-          <p className="text-xs text-gray-500">Efectivo que entrego</p>
+          <p className="text-xs text-secundario">Efectivo que entrego</p>
           <input inputMode="numeric" value={efectivoEntregado} onChange={(e) => setEfectivoEntregado(e.target.value)} placeholder="$" className={`${inputClass} w-full mt-1 text-lg font-semibold tabular-nums`} disabled={!haySeleccion} />
         </div>
         <div className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-4">
-          <p className="text-xs text-gray-500">Diferencia</p>
+          <p className="text-xs text-secundario">Diferencia</p>
           {diferencia === null ? <p className="text-2xl font-bold text-secundario">—</p> : <p className={`text-2xl font-bold tabular-nums ${diferencia === 0 ? 'text-[#0F6B4E]' : 'text-red-600'}`}>{formatoARS(diferencia)}{diferencia === 0 ? ' ✓' : ''}</p>}
         </div>
       </section>
 
       {nValores > 0 && (
         <Plegable titulo={`Valores en papel que viajan (${nValores})`} abiertoInicial>
-          <p className="text-xs text-gray-500 mb-2">Los tildó caja al recibirlos; tesorería los vuelve a tildar al confirmar la entrega.</p>
+          <p className="text-xs text-secundario mb-2">Los tildó caja al recibirlos; tesorería los vuelve a tildar al confirmar la entrega.</p>
           <ValoresEnPapel cheques={armada.cheques} retenciones={armada.retenciones} soloLectura />
         </Plegable>
       )}
@@ -198,7 +198,7 @@ export default function EntregasPage() {
         <Button onClick={() => setConfirmando(true)} disabled={!haySeleccion || efectivoEntregado.trim() === ''}>
           <Landmark size={16} className="mr-1.5" /> Entregar y firmar el acta
         </Button>
-        {haySeleccion && efectivoEntregado.trim() === '' && <p className="w-full text-right text-xs text-gray-500">Cargá el efectivo que entregás para poder firmar.</p>}
+        {haySeleccion && efectivoEntregado.trim() === '' && <p className="w-full text-right text-xs text-secundario">Cargá el efectivo que entregás para poder firmar.</p>}
       </div>
 
       <Plegable titulo={`Entregas del mes (${misEntregas.length})`}>
@@ -214,13 +214,13 @@ export default function EntregasPage() {
                 <td className={td}>{e.cheques.length + e.retenciones.length}</td>
                 <td className={`${td} text-xs`}>
                   {e.estado === 'confirmada'
-                    ? <span className="text-[#0F6B4E]">Confirmada por {e.firmanteRecibe ?? e.recibidoPor?.nombre}{e.diferenciaEfectivo ? <span className="text-red-600"> · dif. {formatoARS(e.diferenciaEfectivo)}</span> : ''}{e.valoresFaltantes?.cantidad ? <span className="text-red-600"> · {e.valoresFaltantes.cantidad} valor(es) no recibido(s)</span> : ''}{e.diferencia ? <span className="text-gray-500"> · {MOTIVOS_DIFERENCIA_LIQUIDACION[e.diferencia.motivo]}</span> : ''}</span>
+                    ? <span className="text-[#0F6B4E]">Confirmada por {e.firmanteRecibe ?? e.recibidoPor?.nombre}{e.diferenciaEfectivo ? <span className="text-red-600"> · dif. {formatoARS(e.diferenciaEfectivo)}</span> : ''}{e.valoresFaltantes?.cantidad ? <span className="text-red-600"> · {e.valoresFaltantes.cantidad} valor(es) no recibido(s)</span> : ''}{e.diferencia ? <span className="text-secundario"> · {MOTIVOS_DIFERENCIA_LIQUIDACION[e.diferencia.motivo]}</span> : ''}</span>
                     : <span className="text-amber-700">Entregada · esperando a tesorería</span>}
                 </td>
                 <td className={td}><span className="flex gap-1"><button type="button" onClick={() => imprimir(e)} className={btn} title="Ver acta"><Printer size={12} /></button><button type="button" onClick={() => enviar(e)} className={btn} title="Enviar acta"><Share2 size={12} /></button></span></td>
               </tr>
             ))}
-            {misEntregas.length === 0 && <tr><td className={`${td} text-gray-500`} colSpan={7}>Sin entregas este mes.</td></tr>}
+            {misEntregas.length === 0 && <tr><td className={`${td} text-secundario`} colSpan={7}>Sin entregas este mes.</td></tr>}
           </tbody>
         </table>
       </Plegable>

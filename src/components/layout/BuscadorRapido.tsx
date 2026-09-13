@@ -58,7 +58,7 @@ export default function BuscadorRapido({ items, onCerrar }: { items: ItemBuscabl
           <kbd className="text-[10px] text-secundario border border-gray-200 rounded px-1">Esc</kbd>
         </div>
         <ul className="max-h-80 overflow-y-auto py-1">
-          {visibles.length === 0 && <li className="px-4 py-3 text-sm text-gray-500">Nada con ese nombre.</li>}
+          {visibles.length === 0 && <li className="px-4 py-3 text-sm text-secundario">Nada con ese nombre.</li>}
           {visibles.map((i, idx) => (
             <li key={`${i.sistema}${i.to}`}>
               <button
