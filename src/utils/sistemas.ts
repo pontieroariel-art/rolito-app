@@ -4,34 +4,42 @@ import { homeDeSistema as homeDeSistemaCatalogo } from '@/rutas/catalogo'
 
 export type { Sistema }
 
-/** Los cuatro dominios de escritorio, en el orden del selector y del picker. */
-export const SISTEMAS: Sistema[] = ['logistica', 'heladeras', 'comercial', 'admin']
+/** Los seis dominios, en el orden del selector de la cabecera y del picker. */
+export const SISTEMAS: Sistema[] = ['logistica', 'produccion', 'tesoreria', 'comercial', 'heladeras', 'administracion']
 
+/** Nombres cortos: entran los seis en la cabecera hasta 1024 px de ancho. */
 export const SISTEMA_LABELS: Record<Sistema, string> = {
-  logistica: 'Logística',
-  heladeras: 'Heladeras',
-  comercial: 'Comercial',
-  admin:     'Administración',
+  logistica:      'Logística',
+  produccion:     'Producción',
+  tesoreria:      'Tesorería',
+  comercial:      'Comercial',
+  heladeras:      'Heladeras',
+  administracion: 'Admin',
 }
 
 export const SISTEMA_DESCRIPCIONES: Record<Sistema, string> = {
-  logistica: 'Despacho, monitoreo, flota, planta, producción y tesorería',
-  heladeras: 'Taller, service, equipos y pañol',
-  comercial: 'Clientes, precios, visitas, comprobantes y supervisores',
-  admin:     'Panel de control, usuarios y permisos, ajustes, gerencia',
+  logistica:      'Despacho, ruteo, flota, muelle y salida de camiones',
+  produccion:     'Hielo en planta, máquinas, operarios y stock',
+  tesoreria:      'Ventanilla, cobranzas, liquidaciones, cierres y arqueos',
+  comercial:      'Clientes, precios, visitas, comprobantes y supervisores',
+  heladeras:      'Taller, service, equipos y pañol',
+  administracion: 'Panel de control, usuarios y permisos, ajustes, gerencia',
 }
 
-// Dominios de escritorio de cada rol (fase 2 del reordenamiento, 2026-09-12:
-// Logística absorbe expedición, producción y tesorería; Comercial y
-// Administración son dominios nuevos). Record completo para que TS obligue a
-// cubrir roles nuevos. Vacío = rol de calle / planta sin shell de escritorio
-// (usa el Navbar o su pantalla propia). Qué ve cada rol dentro de un dominio
-// lo decide el catálogo de rutas (src/rutas/catalogo.ts → SIDEBARS, por rol de
-// cada ruta); `catalogo.test.ts` verifica que ningún dominio quede vacío para
-// un rol que lo tiene y que cada rol llegue por algún menú a lo que puede abrir.
+// Dominios de cada rol. Record completo para que TS obligue a cubrir roles
+// nuevos. Vacío = rol de calle o de planta sin shell de escritorio (usa el
+// Navbar o su pantalla propia: chofer, técnico, supervisor, muelle, seguridad,
+// operario, cliente). Qué ve cada rol DENTRO de un dominio lo decide el
+// catálogo de rutas (src/rutas/catalogo.ts → SIDEBARS, por los roles de cada
+// ruta); `catalogo.test.ts` verifica que ningún dominio quede vacío para un rol
+// que lo tiene y que cada rol llegue por algún menú a todo lo que puede abrir.
+//
+// El cajero tiene dos dominios porque hace dos circuitos distintos: la salida
+// del camión (remito de carga, en Logística) y la plata (ventanilla, cobranzas
+// y su cierre, en Tesorería). Cambia de uno a otro desde la cabecera.
 export const ROLE_SISTEMAS: Record<UserRole, Sistema[]> = {
-  super_admin:          ['logistica', 'heladeras', 'comercial', 'admin'],
-  gerente_general:      ['admin', 'logistica', 'comercial'],
+  super_admin:          ['logistica', 'produccion', 'tesoreria', 'comercial', 'heladeras', 'administracion'],
+  gerente_general:      ['administracion', 'logistica', 'tesoreria', 'comercial'],
   gerente_comercial:    ['logistica', 'comercial', 'heladeras'],
   comercial:            ['comercial', 'heladeras'],
   logistica:            ['logistica', 'comercial'],
@@ -42,12 +50,12 @@ export const ROLE_SISTEMAS: Record<UserRole, Sistema[]> = {
   heladeras_encargado:  ['heladeras'],
   tecnico:              [],
   produccion_hielo:     [],
-  produccion_encargado: ['logistica'],
-  caja:                 ['logistica'],
+  produccion_encargado: ['produccion'],
+  caja:                 ['logistica', 'tesoreria'],
   muelle:               [],
   seguridad:            [],
   supervisor:           [],
-  tesoreria:            ['logistica'],
+  tesoreria:            ['tesoreria'],
 }
 
 // Home por rol: adónde va el usuario tras loguearse. Fuente ÚNICA (antes
@@ -76,10 +84,18 @@ export const ROLE_HOME: Record<UserRole, string> = {
   tesoreria:            '/tesoreria',
 }
 
-// `sistemasPermitidos` guardado antes de la fase 2 puede traer los sistemas
-// viejos: 'produccion' y 'expedicion' hoy viven dentro de Logística.
+/**
+ * `sistemasPermitidos` guardado antes de un cambio de dominios puede traer
+ * nombres viejos. Se traducen en lectura, así nadie pierde accesos ni hay que
+ * migrar documentos:
+ *   · antes de la fase 2 existían 'produccion' y 'expedicion' sueltos;
+ *   · la fase 2 los metió en 'logistica' y llamó 'admin' a Administración;
+ *   · el corte a seis dominios (2026-09-12) devolvió 'produccion' como dominio
+ *     propio, mandó la plata de 'expedicion' a 'tesoreria' y renombró 'admin'.
+ */
 function compat(s: string): Sistema | null {
-  if (s === 'produccion' || s === 'expedicion') return 'logistica'
+  if (s === 'expedicion') return 'tesoreria'
+  if (s === 'admin')      return 'administracion'
   return (SISTEMAS as string[]).includes(s) ? (s as Sistema) : null
 }
 

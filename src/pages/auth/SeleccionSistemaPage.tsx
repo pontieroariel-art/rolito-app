@@ -1,22 +1,24 @@
 import { useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, LayoutDashboard, Snowflake, Briefcase, Shield } from 'lucide-react'
+import { ChevronRight, Truck, Factory, Wallet, Briefcase, Snowflake, ShieldCheck } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useSistema } from '../../context/SistemaContext'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { homesDeUsuario, ROLE_HOME, SISTEMA_LABELS, SISTEMA_DESCRIPCIONES, Sistema } from '../../utils/sistemas'
 
-const ICONOS: Record<Sistema, typeof LayoutDashboard> = {
-  logistica: LayoutDashboard,
-  heladeras: Snowflake,
-  comercial: Briefcase,
-  admin:     Shield,
+const ICONOS: Record<Sistema, typeof Truck> = {
+  logistica:      Truck,
+  produccion:     Factory,
+  tesoreria:      Wallet,
+  comercial:      Briefcase,
+  heladeras:      Snowflake,
+  administracion: ShieldCheck,
 }
 
-// Picker de dominio (Logística / Heladeras / Comercial / Administración).
-// Es el home del super_admin y adonde vuelve quien toca "cambiar de dominio";
-// el resto de los roles entra directo a su home y cambia de dominio desde la
-// cabecera del shell (DominioLayout).
+// Picker de dominio (Logística, Producción, Tesorería, Comercial, Heladeras y
+// Admin). Es el home del super_admin y adonde vuelve quien toca "cambiar de
+// dominio"; el resto de los roles entra directo a su home y cambia de dominio
+// desde la cabecera del shell (DominioLayout).
 export default function SeleccionSistemaPage() {
   const { user } = useAuth()
   const { sistemasDisponibles, sistemaActual, elegirSistema } = useSistema()

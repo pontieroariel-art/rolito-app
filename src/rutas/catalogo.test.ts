@@ -40,7 +40,7 @@ const usuario = (rol: UserRole) => ({ rol, rolesExtra: undefined })
 // Pantallas con ícono a las que un rol puede entrar pero que, a propósito, no
 // tiene en ningún menú (se abren por link contextual, QR o URL).
 const SIN_MENU: Partial<Record<UserRole, string[]>> = {
-  comercial:            ['/produccion/listado'],          // link contextual, no tiene dominio Logística
+  comercial:            ['/admin/clima'],                 // Clima vive en Logística; comercial lo abre desde su tablero
   gerente_general:      ['/heladeras/informes', '/heladeras/mapa'], // "Ver informes" desde el panel de directores
   heladeras_encargado:  ['/anulaciones'],                 // permiso individual: la bandeja llega por push
   produccion_encargado: ['/anulaciones'],
@@ -187,7 +187,10 @@ describe('dominios por rol', () => {
         expect(SISTEMAS, `${pathDe(e)}`).toContain(sistemaDeRuta(pathDe(e)))
       }
     }
-    expect(sistemaDeRuta('/caja')).toBe('logistica')
+    // La caja del cajero es plata: su dominio es Tesorería, no Logística.
+    expect(sistemaDeRuta('/caja')).toBe('tesoreria')
+    expect(sistemaDeRuta('/caja/remitos')).toBe('logistica')
+    expect(sistemaDeRuta('/produccion/resumen')).toBe('produccion')
     expect(sistemaDeRuta('/comercial/pedidos')).toBe('comercial')
     expect(sistemaDeRuta('/dashboard')).toBeNull()
   })

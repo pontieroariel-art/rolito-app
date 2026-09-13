@@ -3,10 +3,14 @@ import { Timestamp } from 'firebase/firestore'
 export type UserRole = 'super_admin' | 'gerente_general' | 'gerente_comercial' | 'comercial' | 'logistica' | 'chofer' | 'cliente' | 'facturacion' | 'heladeras' | 'heladeras_encargado' | 'tecnico' | 'produccion_hielo' | 'produccion_encargado' | 'caja' | 'muelle' | 'seguridad' | 'supervisor' | 'tesoreria'
 export type UserStatus = 'activo' | 'inactivo' | 'pendiente'
 
-// Dominio de escritorio (Logística / Heladeras / Comercial / Administración,
-// fase 2 del reordenamiento 2026-09-12; producción y expedición viven dentro de
-// Logística) — ver src/utils/sistemas.ts para rol→dominios y el recorte por usuario.
-export type Sistema = 'logistica' | 'heladeras' | 'comercial' | 'admin'
+// Dominio de escritorio. Seis unidades de negocio (2026-09-12): producción y
+// tesorería se separaron de Logística, donde convivían circuitos distintos —
+// la mercadería, el hielo y la plata — y donde el rótulo "Logística" era falso
+// para el cajero, para tesorería y para el encargado de planta, que veían un
+// solo grupo. Producción absorbe las líneas que vienen (agua, plástico) y el
+// mantenimiento de máquinas y cámaras; Tesorería, todo el circuito de valores.
+// Ver src/utils/sistemas.ts para rol→dominios y el recorte por usuario.
+export type Sistema = 'logistica' | 'produccion' | 'tesoreria' | 'comercial' | 'heladeras' | 'administracion'
 
 export type OrderStatus =
   | 'pendiente'

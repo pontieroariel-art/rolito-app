@@ -13,10 +13,9 @@ import { PLANTAS, Sistema } from '@/types'
 import ClimaWidget from './ClimaWidget'
 import BuscadorRapido, { ItemBuscable } from './BuscadorRapido'
 
-// Shell único de escritorio (fase 2 del reordenamiento, 2026-09-12): un solo
-// marco para los cuatro dominios — Logística, Heladeras, Comercial y
-// Administración. Reemplaza a SistemaLayout + Logistica/Heladeras/Produccion/
-// Expedicion/Tesoreria/BackofficeLayout.
+// Shell único de escritorio: un solo marco para los SEIS dominios de negocio
+// (Logística, Producción, Tesorería, Comercial, Heladeras y Admin). Reemplazó a
+// SistemaLayout y a los seis layouts por sistema que había antes.
 //
 //  - El sidebar muestra los grupos del dominio ACTIVO (src/rutas/catalogo.ts →
 //    SIDEBARS), filtrados por rol, roles adicionales y pestañas permitidas.
@@ -145,7 +144,7 @@ export default function DominioLayout({ children }: { children?: ReactNode }) {
   const cuenta = (
     <div className="flex items-center gap-2 min-w-0">
       <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-white text-xs font-bold shrink-0">{initials}</div>
-      <div className="min-w-0 hidden lg:block">
+      <div className="min-w-0 hidden xl:block">
         <p className="text-sm font-semibold text-gray-800 truncate leading-tight">{user?.nombre?.split(' ')[0]}</p>
         <p className="text-[11px] text-gray-500 truncate leading-tight">{subtitulo}</p>
       </div>
@@ -184,8 +183,8 @@ export default function DominioLayout({ children }: { children?: ReactNode }) {
           title="Buscar una pantalla (Ctrl + K)"
         >
           <Search size={14} />
-          <span className="hidden lg:inline">Buscar…</span>
-          <kbd className="hidden lg:inline text-[10px] text-gray-400 border border-gray-200 rounded px-1">Ctrl K</kbd>
+          <span className="hidden xl:inline">Buscar…</span>
+          <kbd className="hidden xl:inline text-[10px] text-gray-400 border border-gray-200 rounded px-1">Ctrl K</kbd>
         </button>
         {clima}
         {cuenta}

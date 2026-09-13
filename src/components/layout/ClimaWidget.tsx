@@ -23,7 +23,7 @@ export default function ClimaWidget({ planta, linkAClima }: { planta?: PlantaId;
     </>
   )
   const titulo = `${hoy.label} · máx ${Math.round(hoy.tempMax)}° / mín ${Math.round(hoy.tempMin)}°${p ? ` · ${p.label}` : ''}`
-  const clase = 'hidden sm:inline-flex items-center gap-1.5 text-xs text-gray-600 px-2 py-1 rounded-lg'
+  const clase = 'hidden xl:inline-flex items-center gap-1.5 text-xs text-gray-600 px-2 py-1 rounded-lg'
   return linkAClima
     ? <Link to="/admin/clima" title={titulo} className={`${clase} hover:bg-gray-50 hover:text-accent`}>{contenido}</Link>
     : <span title={titulo} className={clase}>{contenido}</span>

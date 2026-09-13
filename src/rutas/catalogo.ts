@@ -35,11 +35,20 @@ import { tieneAlgunRol } from '@/utils/roles'
  * puede abrir, y que ningún dominio quede vacío para un rol que lo tiene.
  */
 
-export type Dominio = 'logistica' | 'heladeras' | 'comercial' | 'admin' | 'operativo' | 'portal'
+/**
+ * A qué unidad de negocio pertenece la pantalla. Son los seis dominios más
+ * `portal`, que es lo del cliente y lo público (no tiene shell). El dominio
+ * manda cuando se llega a una pantalla que no está en ningún menú: es el que
+ * queda marcado en la cabecera.
+ */
+export type Dominio = Sistema | 'portal'
+
 export type MenuGroup =
-  | 'despacho' | 'flota' | 'expedicion' | 'produccion' | 'tesoreria'
-  | 'taller' | 'service' | 'stock' | 'reportes' | 'configuracion'
+  | 'despacho' | 'flota' | 'expedicion'
+  | 'produccion' | 'configuracion'
+  | 'caja' | 'tesoreria'
   | 'tablero' | 'clientes' | 'precios' | 'facturacion' | 'supervisores'
+  | 'taller' | 'service' | 'stock' | 'reportes'
   | 'sistema' | 'gerencia'
 
 export interface RutaConfig {
@@ -87,19 +96,19 @@ export const CATALOGO: RutaConfig[] = [
   // ── Público / accesos ─────────────────────────────────────────────────────
   R('/',                     'Inicio',                        'portal',    []),
   R('/clientes',             'Ingreso de clientes',           'portal',    []),
-  R('/empresa',              'Ingreso del equipo',            'admin',     []),
-  R('/choferes',             'Ingreso de choferes',           'operativo', []),
+  R('/empresa',              'Ingreso del equipo',            'administracion',     []),
+  R('/choferes',             'Ingreso de choferes',           'logistica', []),
   R('/tecnicos',             'Ingreso de técnicos',           'heladeras', []),
-  R('/produccion-torcuato',  'Ingreso producción Don Torcuato', 'operativo', []),
-  R('/produccion-merlo',     'Ingreso producción Merlo',      'operativo', []),
-  R('/planta',               'Ingreso de planta (alias viejo)', 'operativo', [], { deepLink: true }),
+  R('/produccion-torcuato',  'Ingreso producción Don Torcuato', 'produccion', []),
+  R('/produccion-merlo',     'Ingreso producción Merlo',      'produccion', []),
+  R('/planta',               'Ingreso de planta (alias viejo)', 'produccion', [], { deepLink: true }),
   R('/login',                'Ingreso (alias viejo)',         'portal',    [], { deepLink: true }),
   R('/register',             'Registro de cliente',           'portal',    []),
   R('/forgot-password',      'Recuperar contraseña',          'portal',    []),
   R('/pendiente',            'Cuenta pendiente de aprobación', 'portal',   []),
   R('/calculadora-rolito',   'Calculadora de hielo',          'comercial', []),
-  R('/turnos/:plantaId',     'Turnos de ventanilla',          'operativo', [], { deepLink: true, externa: true }),
-  R('/sistema',              'Elegir dominio',                'admin',     [], { requiereAuth: true, deepLink: true }),
+  R('/turnos/:plantaId',     'Turnos de ventanilla',          'tesoreria', [], { deepLink: true, externa: true }),
+  R('/sistema',              'Elegir dominio',                'administracion',     [], { requiereAuth: true, deepLink: true }),
 
   // ── Portal del cliente ────────────────────────────────────────────────────
   R('/sucursal',       'Elegir sucursal', 'portal', ['cliente'], { deepLink: true }),
@@ -119,49 +128,49 @@ export const CATALOGO: RutaConfig[] = [
   // ── Logística: operaciones y flota ────────────────────────────────────────
   R('/admin/flota',              'Flota',            'logistica', ['super_admin', 'logistica'], { icon: Truck, menuGroup: 'flota' }),
   R('/admin/incidencias',        'Incidencias',      'logistica', ['super_admin', 'logistica'], { icon: AlertTriangle, menuGroup: 'flota' }),
-  R('/movimientos',              'Movimientos',      'logistica', ['super_admin', 'gerente_general', 'gerente_comercial', 'logistica', 'comercial', 'facturacion'], { icon: BarChart2, menuGroup: 'flota' }),
+  R('/movimientos',              'Movimientos',      'comercial', ['super_admin', 'gerente_general', 'gerente_comercial', 'logistica', 'comercial', 'facturacion'], { icon: BarChart2, menuGroup: 'facturacion' }),
   R('/admin/clima',              'Clima',            'logistica', ['super_admin', 'logistica', 'gerente_comercial', 'comercial'], { icon: Cloud, menuGroup: 'flota' }),
 
   // ── Logística: planta y expedición (caja / muelle / seguridad) ────────────
-  R('/caja',                         'Caja',                 'operativo', CAJA, { deepLink: true }),
-  R('/caja/remitos',                 'Remitos de carga',     'operativo', CAJA, { icon: ClipboardList, menuGroup: 'expedicion' }),
-  R('/caja/ventanilla',              'Ventanilla',           'operativo', CAJA, { icon: ShoppingCart, menuGroup: 'expedicion', externa: true }),
-  R('/caja/cobranzas',               'Cobranzas',            'operativo', CAJA, { icon: HandCoins, menuGroup: 'expedicion' }),
-  R('/caja/liquidaciones',           'Liquidaciones',        'operativo', CAJA, { icon: Scale, menuGroup: 'expedicion', externa: true }),
-  R('/caja/rendiciones',             'Mi caja',              'operativo', CAJA, { icon: Wallet, menuGroup: 'expedicion' }),
-  R('/caja/entregas',                'Entrega a tesorería',  'operativo', CAJA, { icon: Landmark, menuGroup: 'expedicion' }),
-  R('/caja/liquidaciones/historial', 'Historial',            'operativo', CAJA_HISTORIAL, { icon: History, menuGroup: 'expedicion' }),
-  R('/caja/rendiciones/historial',   'Historial de cierres', 'operativo', CAJA_HISTORIAL, { deepLink: true }),
-  R('/muelle',                       'Muelle',               'operativo', ['muelle', 'super_admin'], { icon: Warehouse, menuGroup: 'expedicion', rolesMenu: ['muelle'] }),
-  R('/muelle/tv',                    'Muelle · pantalla',    'operativo', ['muelle', 'super_admin'], { icon: Tv }),
-  R('/seguridad',                    'Seguridad (salidas)',  'operativo', ['seguridad', 'super_admin'], { icon: Truck, menuGroup: 'expedicion', rolesMenu: ['seguridad'] }),
+  R('/caja',                         'Caja',                 'tesoreria', CAJA, { deepLink: true }),
+  R('/caja/remitos',                 'Remitos de carga',     'logistica', CAJA, { icon: ClipboardList, menuGroup: 'expedicion' }),
+  R('/caja/ventanilla',              'Ventanilla',           'tesoreria', CAJA, { icon: ShoppingCart, menuGroup: 'caja', externa: true }),
+  R('/caja/cobranzas',               'Cobranzas',            'tesoreria', CAJA, { icon: HandCoins, menuGroup: 'caja' }),
+  R('/caja/liquidaciones',           'Liquidaciones',        'tesoreria', CAJA, { icon: Scale, menuGroup: 'caja', externa: true }),
+  R('/caja/rendiciones',             'Mi caja',              'tesoreria', CAJA, { icon: Wallet, menuGroup: 'caja' }),
+  R('/caja/entregas',                'Entrega a tesorería',  'tesoreria', CAJA, { icon: Landmark, menuGroup: 'caja' }),
+  R('/caja/liquidaciones/historial', 'Historial',            'tesoreria', CAJA_HISTORIAL, { icon: History, menuGroup: 'caja' }),
+  R('/caja/rendiciones/historial',   'Historial de cierres', 'tesoreria', CAJA_HISTORIAL, { deepLink: true }),
+  R('/muelle',                       'Muelle',               'logistica', ['muelle', 'super_admin'], { icon: Warehouse, menuGroup: 'expedicion', rolesMenu: ['muelle'] }),
+  R('/muelle/tv',                    'Muelle · pantalla',    'logistica', ['muelle', 'super_admin'], { icon: Tv }),
+  R('/seguridad',                    'Seguridad (salidas)',  'logistica', ['seguridad', 'super_admin'], { icon: Truck, menuGroup: 'expedicion', rolesMenu: ['seguridad'] }),
 
   // ── Logística: producción de hielo ────────────────────────────────────────
-  R('/produccion',                  'Cargar producción',  'operativo', ['produccion_hielo'], { icon: Package }),
-  R('/produccion/resumen',          'Resumen',            'operativo', PRODUCCION_ENCARGADO, { icon: LayoutDashboard, menuGroup: 'produccion' }),
-  R('/produccion/listado',          'Listado',            'operativo', ['gerente_general', 'gerente_comercial', 'comercial', 'logistica', 'produccion_encargado', 'super_admin'], { icon: ClipboardList, menuGroup: 'produccion' }),
-  R('/produccion/partes',           'Partes de máquinas', 'operativo', PRODUCCION_ENCARGADO, { icon: Gauge, menuGroup: 'produccion' }),
-  R('/produccion/operarios',        'Operarios',          'operativo', PRODUCCION_ENCARGADO, { icon: Users, menuGroup: 'produccion' }),
-  R('/produccion/plantas',          'Plantas',            'operativo', PRODUCCION_ENCARGADO, { icon: Factory, menuGroup: 'produccion' }),
-  R('/produccion/ticket/:palletId', 'Ticket de pallet',   'operativo', PALLET, { deepLink: true, externa: true }),
-  R('/produccion/ficha/:palletId',  'Ficha de pallet',    'operativo', PALLET, { deepLink: true, externa: true }),
+  R('/produccion',                  'Cargar producción',  'produccion', ['produccion_hielo'], { icon: Package }),
+  R('/produccion/resumen',          'Resumen',            'produccion', PRODUCCION_ENCARGADO, { icon: LayoutDashboard, menuGroup: 'produccion' }),
+  R('/produccion/listado',          'Listado',            'produccion', ['gerente_general', 'gerente_comercial', 'comercial', 'logistica', 'produccion_encargado', 'super_admin'], { icon: ClipboardList, menuGroup: 'produccion' }),
+  R('/produccion/partes',           'Partes de máquinas', 'produccion', PRODUCCION_ENCARGADO, { icon: Gauge, menuGroup: 'produccion' }),
+  R('/produccion/operarios',        'Operarios',          'produccion', PRODUCCION_ENCARGADO, { icon: Users, menuGroup: 'configuracion' }),
+  R('/produccion/plantas',          'Plantas',            'produccion', PRODUCCION_ENCARGADO, { icon: Factory, menuGroup: 'configuracion' }),
+  R('/produccion/ticket/:palletId', 'Ticket de pallet',   'produccion', PALLET, { deepLink: true, externa: true }),
+  R('/produccion/ficha/:palletId',  'Ficha de pallet',    'produccion', PALLET, { deepLink: true, externa: true }),
 
   // ── Logística: tesorería ──────────────────────────────────────────────────
-  R('/tesoreria',                         'Tesorería en vivo',  'operativo', TESORERIA, { icon: Activity, menuGroup: 'tesoreria' }),
-  R('/tesoreria/liquidaciones',           'Liquidaciones',      'operativo', TESORERIA, { icon: Scale, menuGroup: 'tesoreria' }),
-  R('/tesoreria/rendiciones',             'Rendiciones',        'operativo', TESORERIA, { icon: ShieldCheck, menuGroup: 'tesoreria' }),
-  R('/tesoreria/entregas',                'Entregas de caja',   'operativo', TESORERIA, { icon: Landmark, menuGroup: 'tesoreria' }),
-  R('/tesoreria/anulaciones',             'Anulaciones',        'operativo', TESORERIA, { icon: Ban, menuGroup: 'tesoreria' }),
-  R('/tesoreria/rendiciones/historial',   'Historial',          'operativo', TESORERIA, { icon: History, menuGroup: 'tesoreria' }),
-  R('/tesoreria/liquidaciones/historial', 'Historial de liquidaciones', 'operativo', TESORERIA, { deepLink: true }),
+  R('/tesoreria',                         'Tesorería en vivo',  'tesoreria', TESORERIA, { icon: Activity, menuGroup: 'tesoreria' }),
+  R('/tesoreria/liquidaciones',           'Liquidaciones',      'tesoreria', TESORERIA, { icon: Scale, menuGroup: 'tesoreria' }),
+  R('/tesoreria/rendiciones',             'Rendiciones',        'tesoreria', TESORERIA, { icon: ShieldCheck, menuGroup: 'tesoreria' }),
+  R('/tesoreria/entregas',                'Entregas de caja',   'tesoreria', TESORERIA, { icon: Landmark, menuGroup: 'tesoreria' }),
+  R('/tesoreria/anulaciones',             'Anulaciones',        'tesoreria', TESORERIA, { icon: Ban, menuGroup: 'tesoreria' }),
+  R('/tesoreria/rendiciones/historial',   'Historial',          'tesoreria', TESORERIA, { icon: History, menuGroup: 'tesoreria' }),
+  R('/tesoreria/liquidaciones/historial', 'Historial de liquidaciones', 'tesoreria', TESORERIA, { deepLink: true }),
 
   // ── Chofer (calle) ────────────────────────────────────────────────────────
-  R('/chofer',                   'Inicio',          'operativo', ['chofer'], { icon: Home }),
-  R('/chofer/venta',             'Vender',          'operativo', ['chofer'], { icon: Package }),
-  R('/chofer/ventas',            'Facturas',        'operativo', ['chofer'], { icon: FileText, externa: true }),
-  R('/chofer/map',               'Ruta',            'operativo', ['chofer'], { icon: Navigation }),
-  R('/chofer/cobrar',            'Cobrar',          'operativo', ['chofer'], { deepLink: true }),
-  R('/chofer/entregar/:orderId', 'Entregar pedido', 'operativo', ['chofer'], { deepLink: true }),
+  R('/chofer',                   'Inicio',          'logistica', ['chofer'], { icon: Home }),
+  R('/chofer/venta',             'Vender',          'logistica', ['chofer'], { icon: Package }),
+  R('/chofer/ventas',            'Facturas',        'logistica', ['chofer'], { icon: FileText, externa: true }),
+  R('/chofer/map',               'Ruta',            'logistica', ['chofer'], { icon: Navigation }),
+  R('/chofer/cobrar',            'Cobrar',          'logistica', ['chofer'], { deepLink: true }),
+  R('/chofer/entregar/:orderId', 'Entregar pedido', 'logistica', ['chofer'], { deepLink: true }),
 
   // ── Heladeras y taller ────────────────────────────────────────────────────
   R('/heladeras',                  'Heladeras',             'heladeras', ['super_admin', 'heladeras', 'heladeras_encargado', 'gerente_comercial', 'comercial'], { icon: Snowflake }),
@@ -208,10 +217,10 @@ export const CATALOGO: RutaConfig[] = [
   R('/supervisor/ventas',       'Mis ventas',        'comercial', SUPERVISOR, { deepLink: true }),
 
   // ── Administración y gerencia ─────────────────────────────────────────────
-  R('/admin',           'Panel de control',    'admin', ['super_admin'], { icon: LayoutDashboard, menuGroup: 'sistema' }),
-  R('/admin/usuarios',  'Usuarios & Roles',    'admin', ['super_admin'], { icon: UserCog, menuGroup: 'sistema' }),
-  R('/admin/general',   'Ajustes generales',   'admin', ['super_admin'], { icon: Settings, menuGroup: 'sistema' }),
-  R('/gerente',         'Panel de directores', 'admin', ['gerente_general', 'super_admin'], { icon: LayoutDashboard, menuGroup: 'gerencia' }),
+  R('/admin',           'Panel de control',    'administracion', ['super_admin'], { icon: LayoutDashboard, menuGroup: 'sistema' }),
+  R('/admin/usuarios',  'Usuarios & Roles',    'administracion', ['super_admin'], { icon: UserCog, menuGroup: 'sistema' }),
+  R('/admin/general',   'Ajustes generales',   'administracion', ['super_admin'], { icon: Settings, menuGroup: 'sistema' }),
+  R('/gerente',         'Panel de directores', 'administracion', ['gerente_general', 'super_admin'], { icon: LayoutDashboard, menuGroup: 'gerencia' }),
 ]
 
 // ── Menús ───────────────────────────────────────────────────────────────────
@@ -227,14 +236,37 @@ export interface GrupoSidebar { id: MenuGroup; label: string; entradas: EntradaM
  * cada rol lo dice `ROLE_SISTEMAS` en utils/sistemas.ts.
  */
 export const SIDEBARS: Record<Sistema, GrupoSidebar[]> = {
+  // Logística: la mercadería. Termina cuando el camión sale por el portón.
   logistica: [
     { id: 'despacho',   label: 'Despacho & Rutas',    entradas: ['/logistica/resumen', '/logistica', '/admin/monitoreo', '/admin/historial-despacho', '/comercial/mapa'] },
-    { id: 'flota',      label: 'Operaciones & Flota', entradas: ['/admin/flota', '/admin/incidencias', '/movimientos', '/admin/clima'] },
-    // Un cajero con el rol adicional muelle/seguridad (2026-09-12: caja carga la
-    // descarga mientras muelle no tiene tablet) llega a esos paneles desde acá.
-    { id: 'expedicion', label: 'Planta & Expedición', entradas: ['/caja/remitos', '/caja/ventanilla', '/caja/cobranzas', '/caja/liquidaciones', '/caja/rendiciones', '/caja/entregas', '/caja/liquidaciones/historial', '/muelle', '/seguridad'] },
-    { id: 'produccion', label: 'Producción',          entradas: ['/produccion/resumen', '/produccion/listado', '/produccion/partes', '/produccion/operarios', '/produccion/plantas'] },
-    { id: 'tesoreria',  label: 'Tesorería',           entradas: ['/tesoreria', '/tesoreria/liquidaciones', '/tesoreria/rendiciones', '/tesoreria/entregas', '/tesoreria/anulaciones', '/tesoreria/rendiciones/historial'] },
+    { id: 'flota',      label: 'Operaciones & Flota', entradas: ['/admin/flota', '/admin/incidencias', '/admin/clima'] },
+    // La carga del camión: el remito lo emite caja, el muelle lo entrega y
+    // seguridad controla la salida. Un cajero con el rol adicional muelle o
+    // seguridad (2026-09-12: caja carga la descarga mientras muelle no tiene
+    // tablet) llega a esos paneles desde acá.
+    { id: 'expedicion', label: 'Muelle & Expedición', entradas: ['/caja/remitos', '/muelle', '/seguridad'] },
+  ],
+  // Producción & Stock: lo que se fabrica. Las líneas que vienen (agua,
+  // plástico y bobinas) y el mantenimiento electromecánico de planta entran
+  // como grupos nuevos acá, sin tocar el resto de la navegación.
+  produccion: [
+    { id: 'produccion',    label: 'Hielo',         entradas: ['/produccion/resumen', '/produccion/listado', '/produccion/partes'] },
+    { id: 'configuracion', label: 'Configuración', entradas: ['/produccion/operarios', '/produccion/plantas'] },
+  ],
+  // Tesorería & Cajas: la plata y los valores, de la ventanilla al arqueo.
+  tesoreria: [
+    { id: 'caja',      label: 'Caja & Ventanilla', entradas: ['/caja/ventanilla', '/caja/cobranzas', '/caja/liquidaciones', '/caja/rendiciones', '/caja/entregas', '/caja/liquidaciones/historial'] },
+    { id: 'tesoreria', label: 'Tesorería',         entradas: ['/tesoreria', '/tesoreria/liquidaciones', '/tesoreria/rendiciones', '/tesoreria/entregas', '/tesoreria/anulaciones', '/tesoreria/rendiciones/historial'] },
+  ],
+  comercial: [
+    // El listado de producción es consulta de stock para gerencia, comercial y
+    // logística, que no tienen el dominio Producción.
+    { id: 'tablero',      label: 'Tablero',      entradas: ['/comercial', '/comercial/ventas', '/comercial/mapa', '/produccion/listado'] },
+    { id: 'clientes',     label: 'Clientes',     entradas: ['/usuarios', '/admin/mapa-clientes', '/admin/visitas'] },
+    { id: 'precios',      label: 'Precios',      entradas: ['/admin/precios', '/comercial/reporte-precios'] },
+    // /anulaciones: DominioLayout la esconde a quien no tiene el permiso individual `autorizaAnulaciones` (salvo super_admin).
+    { id: 'facturacion',  label: 'Facturación',  entradas: ['/movimientos', '/admin/comprobantes', '/admin/recupero-facturas', '/anulaciones'] },
+    { id: 'supervisores', label: 'Supervisores', entradas: [{ path: '/supervisor', label: 'Supervisores (calle)', icon: UserCheck }] },
   ],
   heladeras: [
     { id: 'taller',        label: 'Taller',            entradas: ['/heladeras/taller', '/heladeras/asignacion'] },
@@ -243,17 +275,10 @@ export const SIDEBARS: Record<Sistema, GrupoSidebar[]> = {
     { id: 'reportes',      label: 'Reportes',          entradas: ['/heladeras/informes', '/heladeras/ranking'] },
     { id: 'configuracion', label: 'Configuración',     entradas: ['/heladeras/modelos', '/heladeras/tecnicos', '/heladeras/catalogos'] },
   ],
-  comercial: [
-    { id: 'tablero',      label: 'Tablero',      entradas: ['/comercial', '/comercial/ventas', '/comercial/mapa', '/admin/clima'] },
-    { id: 'clientes',     label: 'Clientes',     entradas: ['/usuarios', '/admin/mapa-clientes', '/admin/visitas'] },
-    { id: 'precios',      label: 'Precios',      entradas: ['/admin/precios', '/comercial/reporte-precios'] },
-    // /anulaciones: DominioLayout la esconde a quien no tiene el permiso individual `autorizaAnulaciones` (salvo super_admin).
-    { id: 'facturacion',  label: 'Facturación',  entradas: ['/movimientos', '/admin/comprobantes', '/admin/recupero-facturas', '/anulaciones'] },
-    { id: 'supervisores', label: 'Supervisores', entradas: [{ path: '/supervisor', label: 'Supervisores (calle)', icon: UserCheck }] },
-  ],
-  admin: [
+  administracion: [
     { id: 'sistema',  label: 'Administración', entradas: ['/admin', '/admin/usuarios', '/admin/general'] },
-    { id: 'gerencia', label: 'Gerencia',       entradas: ['/gerente', '/anulaciones'] },
+    // La bandeja de anulaciones vive en Comercial y en Tesorería; acá sobraba.
+    { id: 'gerencia', label: 'Gerencia',       entradas: ['/gerente'] },
   ],
 }
 
@@ -262,10 +287,12 @@ export const SIDEBARS: Record<Sistema, GrupoSidebar[]> = {
  * puede abrir. Si ninguno aplica, el primer ítem visible de su sidebar.
  */
 const HOME_SISTEMA: Record<Sistema, string[]> = {
-  logistica: ['/logistica', '/logistica/resumen', '/admin/monitoreo', '/caja', '/tesoreria', '/produccion/resumen', '/produccion/listado'],
-  heladeras: ['/heladeras', '/heladeras/taller'],
-  comercial: ['/comercial', '/usuarios', '/movimientos', '/supervisor'],
-  admin:     ['/admin', '/gerente', '/anulaciones'],
+  logistica:      ['/logistica', '/logistica/resumen', '/admin/monitoreo', '/caja/remitos', '/muelle', '/seguridad'],
+  produccion:     ['/produccion/resumen', '/produccion/listado'],
+  tesoreria:      ['/tesoreria', '/caja/ventanilla', '/caja/rendiciones', '/caja/liquidaciones/historial'],
+  comercial:      ['/comercial', '/usuarios', '/movimientos', '/supervisor'],
+  heladeras:      ['/heladeras', '/heladeras/taller'],
+  administracion: ['/admin', '/gerente'],
 }
 
 /**
@@ -354,15 +381,13 @@ export const gruposVisibles = (user: UsuarioRoles | null | undefined, sistema: S
 export const estaEnSidebar = (sistema: Sistema, path: string): boolean =>
   SIDEBARS[sistema].some((g) => g.entradas.some((e) => pathDe(e) === path))
 
-const DOMINIO_A_SISTEMA: Record<Dominio, Sistema | null> = {
-  logistica: 'logistica', heladeras: 'heladeras', comercial: 'comercial', admin: 'admin', operativo: 'logistica', portal: null,
-}
+const DOMINIO_A_SISTEMA = (d: Dominio): Sistema | null => (d === 'portal' ? null : d)
 
 /** Dominio de escritorio de una ruta: el primer sidebar que la lista; si ninguno, por su `dominio`. */
 export function sistemaDeRuta(path: string): Sistema | null {
   for (const s of Object.keys(SIDEBARS) as Sistema[]) if (estaEnSidebar(s, path)) return s
   const r = porPath.get(path)
-  return r ? DOMINIO_A_SISTEMA[r.dominio] : null
+  return r ? DOMINIO_A_SISTEMA(r.dominio) : null
 }
 
 /** Adónde entra este usuario en un dominio (ver HOME_SISTEMA). */

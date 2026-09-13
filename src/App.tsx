@@ -126,7 +126,14 @@ const FichaClientePage        = lazy(() => import('@/pages/comercial/supervisor/
 // Cobranzas (Usuarios → Permisos) tiene que caer directo ahí.
 function CajaEntry() {
   const { user } = useAuth()
-  return <Navigate to={primerAccesoDe('logistica', 'expedicion', user) ?? '/caja/remitos'} replace />
+  // El puesto de caja quedó repartido en dos dominios (2026-09-12): el remito
+  // de carga es Logística y la plata es Tesorería. Se busca primero la salida
+  // del camión, que es donde arrancaba el día, y si esa tablet la tiene
+  // recortada (la de solo Cobranzas, por ejemplo) se cae al circuito de plata.
+  const destino = primerAccesoDe('logistica', 'expedicion', user)
+    ?? primerAccesoDe('tesoreria', 'caja', user)
+    ?? '/caja/remitos'
+  return <Navigate to={destino} replace />
 }
 
 // /produccion es el home de todo rol produccion_hielo, pero el puesto define
