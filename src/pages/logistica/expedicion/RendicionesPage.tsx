@@ -128,7 +128,7 @@ export default function RendicionesPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><Wallet size={22} className="text-accent" /> Mi caja · {user?.nombre}</h1>
-          <p className="text-gray-500 text-sm">Lo que vendí, cobré y recibí de repartidores en el día. Al cerrar, queda a la vista de tesorería.</p>
+          <p className="text-secundario text-sm">Lo que vendí, cobré y recibí de repartidores en el día. Al cerrar, queda a la vista de tesorería.</p>
         </div>
         <div className="flex items-center gap-2">
           <input type="date" value={dia} max={hoyStr} onChange={(e) => setDia(e.target.value)} className={inputClass} />
@@ -159,22 +159,22 @@ export default function RendicionesPage() {
 
       <section className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-4 space-y-4">
         <TilesMostrador calc={mio.calc} />
-        <div className="grid sm:grid-cols-[1fr_1.3fr_1fr] gap-4 items-end pt-3 border-t border-gray-100">
+        <div className="grid sm:grid-cols-[1fr_1.3fr_1fr] gap-4 items-end pt-3 border-t border-[#E7E5DC]">
           <div>
-            <p className="text-xs text-gray-500">Efectivo a rendir</p>
-            <p className="text-2xl font-bold text-gray-900 tabular-nums">{formatoARS(mio.calc.efectivoARendir)}</p>
-            <p className="text-[11px] text-gray-500">Ventas efectivo {formatoARS(mio.calc.ventas.contadoEfectivo + mio.calc.ventas.promoEfectivo)} + cobranzas efectivo {formatoARS(mio.calc.cobranzas.efectivo)} + recibido {formatoARS(mio.calc.recibido.efectivo)}</p>
+            <p className="text-xs text-secundario">Efectivo a rendir</p>
+            <p className={`text-2xl font-bold tabular-nums ${mio.calc.efectivoARendir === 0 ? 'text-secundario' : 'text-gray-900'}`}>{formatoARS(mio.calc.efectivoARendir)}</p>
+            <p className="text-[11px] text-secundario">Ventas efectivo {formatoARS(mio.calc.ventas.contadoEfectivo + mio.calc.ventas.promoEfectivo)} + cobranzas efectivo {formatoARS(mio.calc.cobranzas.efectivo)} + recibido {formatoARS(mio.calc.recibido.efectivo)}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-500 mb-1">Efectivo contado</p>
-            {cerrada ? <p className="text-2xl font-bold text-gray-900 tabular-nums">{formatoARS(cerrada.efectivoContado)}</p> : (
+            <p className="text-xs text-secundario mb-1">Efectivo contado</p>
+            {cerrada ? <p className={`text-2xl font-bold tabular-nums ${cerrada.efectivoContado === 0 ? 'text-secundario' : 'text-gray-900'}`}>{formatoARS(cerrada.efectivoContado)}</p> : (
               <input value={efectivoContado} onChange={(e) => setEfectivoContado(e.target.value)} inputMode="numeric" placeholder="0"
                 className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-lg text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent tabular-nums" />
             )}
           </div>
           <div>
-            <p className="text-xs text-gray-500">Diferencia</p>
-            {diferencia === null ? <p className="text-2xl font-bold text-gray-400">—</p> : (
+            <p className="text-xs text-secundario">Diferencia</p>
+            {diferencia === null ? <p className="text-2xl font-bold text-secundario">—</p> : (
               <p className={`text-2xl font-bold tabular-nums ${diferencia === 0 ? 'text-[#0F6B4E]' : 'text-red-600'}`}>{formatoARS(diferencia)}{diferencia === 0 ? ' ✓' : ''}</p>
             )}
           </div>
@@ -186,7 +186,7 @@ export default function RendicionesPage() {
           <thead><tr>{['Turno', 'Hora', 'Cliente', 'Canal', 'Pago', 'Comprobante', 'Total'].map((h, i) => <th key={h} className={`${th} ${i === 6 ? 'text-right' : ''}`}>{h}</th>)}</tr></thead>
           <tbody>
             {ventas.map((v) => (
-              <tr key={v.id} className={`${ventasFuera.includes(v) ? 'opacity-60' : ''} ${v.anulacion?.estado === 'anulada' ? 'line-through text-gray-400' : ''}`}>
+              <tr key={v.id} className={`${ventasFuera.includes(v) ? 'opacity-60' : ''} ${v.anulacion?.estado === 'anulada' ? 'line-through text-secundario' : ''}`}>
                 <td className={td}>{v.turno}</td>
                 <td className={td}>{v.fecha.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</td>
                 <td className={td}>{nombreClienteVenta(v)}</td>
@@ -196,7 +196,7 @@ export default function RendicionesPage() {
                 <td className={`${td} text-right tabular-nums`}>{formatoARS(v.total)}</td>
               </tr>
             ))}
-            {ventas.length === 0 && <tr><td className={`${td} text-gray-500`} colSpan={7}>Sin ventas.</td></tr>}
+            {ventas.length === 0 && <tr><td className={`${td} text-secundario`} colSpan={7}>Sin ventas.</td></tr>}
           </tbody>
         </table>
       </Plegable>
@@ -216,7 +216,7 @@ export default function RendicionesPage() {
                 <td className={`${td} text-right tabular-nums`}>{formatoARS(sumaImportes(retencionesDe(c)))}</td>
               </tr>
             ))}
-            {mio.cobranzas.length === 0 && <tr><td className={`${td} text-gray-500`} colSpan={7}>Sin cobranzas.</td></tr>}
+            {mio.cobranzas.length === 0 && <tr><td className={`${td} text-secundario`} colSpan={7}>Sin cobranzas.</td></tr>}
           </tbody>
         </table>
       </Plegable>
@@ -225,14 +225,14 @@ export default function RendicionesPage() {
         <Plegable titulo={`Valores en papel a entregar (${cerrada ? cerrada.cheques.length + cerrada.retenciones.length : papel.cheques.length + papel.retenciones.length})`} abiertoInicial>
           {cerrada
             ? <ValoresEnPapel cheques={cerrada.cheques} retenciones={cerrada.retenciones} soloLectura />
-            : <><p className="text-xs text-gray-500 mb-2">Se tildan uno por uno al cerrar la caja.</p><ValoresEnPapel cheques={papel.cheques} retenciones={papel.retenciones} soloLectura /></>}
+            : <><p className="text-xs text-secundario mb-2">Se tildan uno por uno al cerrar la caja.</p><ValoresEnPapel cheques={papel.cheques} retenciones={papel.retenciones} soloLectura /></>}
         </Plegable>
       )}
 
       {mio.calc.bultos.length > 0 && (
         <Plegable titulo="Mercadería que saqué del depósito">
           <ul className="text-sm text-gray-700 grid sm:grid-cols-2 gap-x-6">
-            {mio.calc.bultos.map((b) => <li key={b.productoId} className="flex justify-between border-b border-gray-100 py-1"><span>{b.nombre}</span><b className="tabular-nums">{b.cantidad}</b></li>)}
+            {mio.calc.bultos.map((b) => <li key={b.productoId} className="flex justify-between border-b border-[#E7E5DC] py-1"><span>{b.nombre}</span><b className="tabular-nums">{b.cantidad}</b></li>)}
           </ul>
         </Plegable>
       )}
@@ -249,7 +249,7 @@ export default function RendicionesPage() {
           <Button onClick={() => setConfirmando(true)} disabled={!hayMovimientos || efectivoContado.trim() === '' || mio.cobranzasPendientes > 0 || mio.calc.anulacionesPendientes > 0}>
             <Printer size={16} className="mr-1.5" /> Cerrar mi caja e imprimir
           </Button>
-          {hayMovimientos && efectivoContado.trim() === '' && <p className="w-full text-right text-xs text-gray-500">Cargá el efectivo contado para poder cerrar.</p>}
+          {hayMovimientos && efectivoContado.trim() === '' && <p className="w-full text-right text-xs text-secundario">Cargá el efectivo contado para poder cerrar.</p>}
         </div>
       )}
 

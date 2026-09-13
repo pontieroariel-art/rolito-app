@@ -3,6 +3,9 @@ import { Wallet } from 'lucide-react'
 import type { MostradorCalculado } from '@/utils/rendicionMostrador'
 import { formatoARS } from '@/utils/money'
 
+/** '$0,00' con cualquier formato: un importe en cero. */
+const esCero = (importe: string) => /^[^0-9]*0([.,]0+)?$/.test(importe.trim())
+
 // Tarjetas de "Mi día" de un usuario de caja (2026-09-09): lo que vendió por
 // forma de pago, lo que cobró en mostrador, lo que recibió de repartidores y el
 // efectivo que tiene en su caja. Las usan la ventanilla (resumen) y el cierre
@@ -12,10 +15,13 @@ export function TilesMostrador({ calc, compacto = false }: { calc: MostradorCalc
   const Tile = ({ color, titulo, total, lineas }: { color: string; titulo: string; total: number; lineas: Array<[string, string]> }) => (
     <div className="rounded-xl border border-[#D3D1C7] bg-white p-3 space-y-1.5" style={{ borderTop: `4px solid ${color}` }}>
       <p className="text-xs font-bold uppercase tracking-wider" style={{ color }}>{titulo}</p>
-      <p className="text-xl font-bold text-gray-900 tabular-nums">{formatoARS(total)}</p>
+      {/* Al abrir la caja está todo en cero: un cero pierde el peso y queda en
+          gris secundario, así se distingue de un vistazo lo que ya se movió.
+          Ver convenciones de diseño en CLAUDE.md. */}
+      <p className={`text-xl font-bold tabular-nums ${total === 0 ? 'text-secundario' : 'text-gray-900'}`}>{formatoARS(total)}</p>
       {!compacto && (
-        <div className="text-xs text-gray-600 space-y-0.5">
-          {lineas.map(([k, val]) => <p key={k} className="flex justify-between gap-2"><span>{k}</span><b className="text-gray-800 tabular-nums">{val}</b></p>)}
+        <div className="text-xs text-secundario space-y-0.5">
+          {lineas.map(([k, val]) => <p key={k} className="flex justify-between gap-2"><span>{k}</span><b className={`tabular-nums ${esCero(val) ? 'text-secundario' : 'text-gray-900'}`}>{val}</b></p>)}
         </div>
       )}
     </div>
@@ -45,7 +51,7 @@ export default function MiDiaMostrador({ calc, nombre, cerrarHref }: { calc: Mos
         <div className="flex items-center gap-4">
           <div className="text-right">
             <p className="text-xs uppercase tracking-wider text-gray-500 font-semibold">Efectivo en mi caja</p>
-            <p className="text-2xl font-bold text-gray-900 tabular-nums">{formatoARS(calc.efectivoARendir)}</p>
+            <p className={`text-2xl font-bold tabular-nums ${calc.efectivoARendir === 0 ? 'text-secundario' : 'text-gray-900'}`}>{formatoARS(calc.efectivoARendir)}</p>
           </div>
           {cerrarHref && (
             <Link to={cerrarHref} className="inline-flex items-center gap-2 rounded-lg bg-accent text-white text-sm font-medium px-3 py-2 hover:opacity-90">

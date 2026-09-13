@@ -397,7 +397,7 @@ export default function VentanillaPage() {
     if (f?.estado === 'emitida' && f.cae) return { texto: `Factura ${nroFactura(v)}`, clase: 'text-gray-600', imprimible: true }
     if (f?.estado === 'rechazada') return { texto: 'ARCA rechazó la factura', clase: 'text-red-700', imprimible: false }
     if (f?.estado === 'incierta') return { texto: 'Factura en revisión', clase: 'text-amber-700', imprimible: false }
-    return { texto: 'Facturando…', clase: 'text-gray-400', imprimible: false }
+    return { texto: 'Facturando…', clase: 'text-secundario', imprimible: false }
   }
 
   return (
@@ -405,9 +405,9 @@ export default function VentanillaPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Ventanilla</h1>
-          <p className="text-gray-500 text-sm">{PLANTAS[plantaId].label}</p>
+          <p className="text-secundario text-sm">{PLANTAS[plantaId].label}</p>
         </div>
-        <label className="text-xs text-gray-500 flex items-center gap-2">
+        <label className="text-xs text-secundario flex items-center gap-2">
           <Printer size={14} /> Impresión
           <select value={modoImpresion} onChange={(e) => cambiarModoImpresion(e.target.value as ModoImpresion)}
             className="bg-white border border-[#D3D1C7] rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent">
@@ -438,13 +438,13 @@ export default function VentanillaPage() {
 
         {tipoCliente === 'registrado' ? (
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Cliente</label>
+            <label className="text-xs text-secundario mb-1 block">Cliente</label>
             <ClienteCombobox value={clienteId} onChange={setClienteId} placeholder="Buscar cliente…" />
             <div className="mt-2">
               <SelectorSucursal cliente={cliente} empresa={empresaDeCanal(canal)} value={sucursal} onChange={setSucursal} />
             </div>
             <div className="mt-2">
-              <label className="text-xs text-gray-500 mb-1 block">Orden de compra del cliente (opcional)</label>
+              <label className="text-xs text-secundario mb-1 block">Orden de compra del cliente (opcional)</label>
               <input value={ordenCompra} onChange={(e) => setOrdenCompra(e.target.value)} maxLength={40} placeholder="Nº de OC si el cliente la pide" className={selectClass} />
             </div>
             {sinPrecioMotivo && (
@@ -454,19 +454,19 @@ export default function VentanillaPage() {
         ) : (
           <div className="grid sm:grid-cols-4 gap-3">
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Nombre</label>
+              <label className="text-xs text-secundario mb-1 block">Nombre</label>
               <input value={ocasionalNombre} onChange={(e) => setOcasionalNombre(e.target.value)} placeholder="Juan Pérez" className={selectClass} />
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">CUIT (opcional)</label>
+              <label className="text-xs text-secundario mb-1 block">CUIT (opcional)</label>
               <input value={ocasionalCuit} onChange={(e) => setOcasionalCuit(e.target.value.replace(/\D/g, '').slice(0, 11))} inputMode="numeric" placeholder="20360242871" className={selectClass} />
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">DNI (si no tiene CUIT)</label>
+              <label className="text-xs text-secundario mb-1 block">DNI (si no tiene CUIT)</label>
               <input value={ocasionalDni} onChange={(e) => setOcasionalDni(e.target.value.replace(/\D/g, '').slice(0, 8))} inputMode="numeric" placeholder="36024287" className={selectClass} />
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Lista de precios (Tango)</label>
+              <label className="text-xs text-secundario mb-1 block">Lista de precios (Tango)</label>
               <select value={listaOcasionalId} onChange={(e) => setListaOcasionalId(e.target.value)} className={selectClass}>
                 <option value="">Elegir lista…</option>
                 {listasOcasional.map((l) => <option key={l.nro} value={l.nro}>{l.nro} · {l.nombre}</option>)}
@@ -477,7 +477,7 @@ export default function VentanillaPage() {
 
         {/* Canal */}
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Canal</label>
+          <label className="text-xs text-secundario mb-1 block">Canal</label>
           <div className="flex gap-2">
             {CANALES.map((c) => (
               <button key={c.id} type="button" onClick={() => setCanal(c.id)} className={toggleClass(canal === c.id)}>{c.label}</button>
@@ -487,7 +487,7 @@ export default function VentanillaPage() {
 
         {/* Productos */}
         <div>
-          <p className="text-xs text-gray-500 mb-2">Mercadería</p>
+          <p className="text-xs text-secundario mb-2">Mercadería</p>
           <BotoneraProductos
             catalogo={catalogo}
             precioDe={precioDe}
@@ -499,7 +499,7 @@ export default function VentanillaPage() {
 
         {/* Forma de pago */}
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Forma de pago</label>
+          <label className="text-xs text-secundario mb-1 block">Forma de pago</label>
           <div className="flex gap-2">
             {FORMAS_PAGO.filter((f) => !f.soloRegistrado || (tipoCliente === 'registrado' && ctaCte.ok)).map((f) => (
               <button key={f.id} type="button" onClick={() => setFormaPago(f.id)} className={toggleClass(formaPago === f.id)}>{f.label}</button>
@@ -509,7 +509,7 @@ export default function VentanillaPage() {
             <p className="text-xs text-amber-700 mt-1.5">{ctaCte.motivo}</p>
           )}
           {vaAFacturar && (
-            <p className="text-xs text-gray-500 mt-1.5">
+            <p className="text-xs text-secundario mt-1.5">
               Sale factura electrónica: se imprime cuando ARCA responde (unos segundos).
             </p>
           )}
@@ -536,8 +536,13 @@ export default function VentanillaPage() {
 
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-lg font-bold text-gray-900">{conIva ? 'Total con IVA' : 'Total'}: {money(conIva ? conIva.total : total)}</p>
-            {conIva && <p className="text-xs text-gray-500 tabular-nums">Neto {money(conIva.neto)} · IVA {money(conIva.iva)}{conIva.percepcion > 0 ? ` · Perc. IIBB ${money(conIva.percepcion)}` : ''}</p>}
+            {/* En gris mientras no haya nada cargado y en negro apenas hay algo
+                que cobrar: de un vistazo se sabe si la venta está armada.
+                Ver convenciones de diseño en CLAUDE.md. */}
+            <p className={`text-lg font-bold tabular-nums ${total === 0 ? 'text-secundario' : 'text-gray-900'}`}>
+              {conIva ? 'Total con IVA' : 'Total'}: {money(conIva ? conIva.total : total)}
+            </p>
+            {conIva && <p className="text-xs text-secundario tabular-nums">Neto {money(conIva.neto)} · IVA {money(conIva.iva)}{conIva.percepcion > 0 ? ` · Perc. IIBB ${money(conIva.percepcion)}` : ''}</p>}
           </div>
           <Button onClick={abrirConfirmacion} disabled={items.length === 0 || sinPrecioMotivo !== null || items.some((i) => sinPrecio(i.productoId)) || faltaSucursal}>
             {vaAFacturar ? 'Cobrar y facturar' : 'Cobrar y emitir comprobante'}
@@ -550,8 +555,8 @@ export default function VentanillaPage() {
 
       {/* Ventas del día */}
       <section className="space-y-2">
-        <h2 className="font-semibold text-gray-800">Ventanilla de hoy <span className="text-sm font-normal text-gray-500">· {ventas.length} ventas · {money(ventas.filter((v) => v.anulacion?.estado !== 'anulada').reduce((s, v) => s + v.total, 0))}</span></h2>
-        {ventas.length === 0 && <p className="text-gray-400 text-sm">Todavía no hubo ventas por ventanilla hoy.</p>}
+        <h2 className="font-semibold text-gray-800">Ventanilla de hoy <span className="text-sm font-normal text-secundario">· {ventas.length} ventas · {money(ventas.filter((v) => v.anulacion?.estado !== 'anulada').reduce((s, v) => s + v.total, 0))}</span></h2>
+        {ventas.length === 0 && <p className="text-secundario text-sm">Todavía no hubo ventas por ventanilla hoy.</p>}
         {ventas.map((v) => {
           const fac = estadoFactura(v)
           return (
@@ -562,9 +567,9 @@ export default function VentanillaPage() {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-gray-900 truncate">
                   {v.clienteNombre}
-                  {v.cajaId !== user?.uid && <span className="ml-2 text-[10px] font-medium text-gray-500 bg-gray-100 border border-gray-200 rounded-full px-1.5 py-0.5 align-middle">{v.cajaNombre}</span>}
+                  {v.cajaId !== user?.uid && <span className="ml-2 text-[10px] font-medium text-secundario bg-gray-100 border border-gray-200 rounded-full px-1.5 py-0.5 align-middle">{v.cajaNombre}</span>}
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-secundario">
                   {money(v.total)} · {FORMAS_PAGO.find((f) => f.id === v.formaPago)?.label} · {v.canal === 'contado' ? 'Contado' : 'Promo'}
                   {fac && <span className={`ml-1 ${fac.clase}`}>· {fac.texto}</span>}
                 </p>
@@ -576,7 +581,7 @@ export default function VentanillaPage() {
                 {v.estado === 'entregado' ? 'Entregado' : 'Para entregar'}
               </span>
               {fac?.imprimible && (
-                <button onClick={() => imprimirFactura(v)} title="Reimprimir factura" className="text-gray-400 hover:text-accent transition-colors p-2 rounded-lg hover:bg-accent/10">
+                <button onClick={() => imprimirFactura(v)} title="Reimprimir factura" className="text-secundario hover:text-accent transition-colors p-2 rounded-lg hover:bg-accent/10">
                   <FileText size={16} />
                 </button>
               )}
@@ -592,11 +597,11 @@ export default function VentanillaPage() {
                 </button>
               )}
               {puedePedirAnulacion(v) && (
-                <button onClick={() => setAnulando(v)} title="Anular factura (pide autorización)" className="text-gray-400 hover:text-red-600 transition-colors p-2 rounded-lg hover:bg-red-50">
+                <button onClick={() => setAnulando(v)} title="Anular factura (pide autorización)" className="text-secundario hover:text-red-600 transition-colors p-2 rounded-lg hover:bg-red-50">
                   <Ban size={16} />
                 </button>
               )}
-              <button onClick={() => imprimirTurno(v)} title="Reimprimir turno" className="text-gray-400 hover:text-accent transition-colors p-2 rounded-lg hover:bg-accent/10">
+              <button onClick={() => imprimirTurno(v)} title="Reimprimir turno" className="text-secundario hover:text-accent transition-colors p-2 rounded-lg hover:bg-accent/10">
                 <Printer size={16} />
               </button>
             </div>
@@ -616,7 +621,7 @@ export default function VentanillaPage() {
               <span className="font-semibold">{tipoCliente === 'registrado' ? (cliente?.razonSocial || cliente?.nombre) : ocasionalNombre}</span>
               {' '}· {CANALES.find((c) => c.id === canal)?.label} · {FORMAS_PAGO.find((f) => f.id === formaPago)?.label}
             </p>
-            <div className="border border-[#D3D1C7] rounded-lg divide-y divide-gray-100 text-sm">
+            <div className="border border-[#D3D1C7] rounded-lg divide-y divide-[#E7E5DC] text-sm">
               {items.map((i) => (
                 <div key={i.productoId} className="flex justify-between px-3 py-1.5">
                   <span className="text-gray-700">{i.cantidad} × {i.nombre}</span>
@@ -624,7 +629,7 @@ export default function VentanillaPage() {
                 </div>
               ))}
               {conIva && (
-                <div className="px-3 py-1.5 text-xs text-gray-500 tabular-nums space-y-0.5 border-t border-gray-100">
+                <div className="px-3 py-1.5 text-xs text-secundario tabular-nums space-y-0.5 border-t border-[#E7E5DC]">
                   <p className="flex justify-between"><span>Neto</span><span>{money(conIva.neto)}</span></p>
                   <p className="flex justify-between"><span>IVA 21 %</span><span>{money(conIva.iva)}</span></p>
                   {conIva.percepcion > 0 && <p className="flex justify-between"><span>Percepción IIBB</span><span>{money(conIva.percepcion)}</span></p>}
@@ -634,7 +639,7 @@ export default function VentanillaPage() {
                 <span>{conIva ? 'Total con IVA' : 'Total'}</span><span>{money(conIva ? conIva.total : total)}</span>
               </div>
             </div>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-secundario">
               {vaAFacturar
                 ? 'Se pide el CAE a ARCA y se imprimen la factura y el turno. Muelle entrega contra el turno.'
                 : 'Se imprime el comprobante — muelle entrega la mercadería contra ese papel.'}
@@ -656,7 +661,7 @@ export default function VentanillaPage() {
             <Button onClick={imprimirSiguiente} className="w-full h-14 text-base">
               <Printer size={18} className="mr-2" /> Imprimir {colaImpresion.siguiente + 1} de {colaImpresion.tickets.length}: {colaImpresion.tickets[colaImpresion.siguiente].nombre}
             </Button>
-            <button type="button" onClick={() => setColaImpresion(null)} className="w-full text-xs text-gray-500 hover:text-gray-800">No imprimir el resto</button>
+            <button type="button" onClick={() => setColaImpresion(null)} className="w-full text-xs text-secundario hover:text-gray-800">No imprimir el resto</button>
           </div>
         </Modal>
       )}
