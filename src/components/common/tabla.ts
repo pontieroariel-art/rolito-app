@@ -10,11 +10,22 @@
 // `text-secundario` y el separador de filas dejó de ser `gray-100`, que es
 // azulado y cortaba la paleta cálida.
 
+// El padding horizontal va aparte para que una tabla con muchas columnas pueda
+// apretarlo (`compacta` en HistorialTable) sin duplicar el resto de las clases.
+// Las dos variantes tienen que aparecer literales en el código: Tailwind
+// escanea el texto y no genera una clase armada con template strings.
+const TH_RESTO = 'text-left text-xs uppercase tracking-wide text-secundario font-semibold py-1.5 border-b border-[#D3D1C7]'
+const TD_RESTO = 'py-1.5 border-b border-[#E7E5DC] text-sm'
+
 /** Encabezado de columna. */
-export const TH = 'text-left text-xs uppercase tracking-wide text-secundario font-semibold px-2 py-1.5 border-b border-[#D3D1C7]'
+export const TH = `px-2 ${TH_RESTO}`
 
 /** Celda. */
-export const TD = 'px-2 py-1.5 border-b border-[#E7E5DC] text-sm'
+export const TD = `px-2 ${TD_RESTO}`
+
+/** Variantes apretadas, para tablas de diez o más columnas. */
+export const TH_COMPACTA = `px-1.5 ${TH_RESTO}`
+export const TD_COMPACTA = `px-1.5 ${TD_RESTO}`
 
 /** Campo de filtro (mes, select) de una barra de historial. */
 export const CAMPO_FILTRO = 'bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'

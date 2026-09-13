@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { History } from 'lucide-react'
 import PageHeader from '@/components/common/PageHeader'
+import Badge from '@/components/common/Badge'
 import { useAuth } from '@/context/AuthContext'
 import { subscribeLiquidacionesEnRango } from '@/services/liquidacionService'
 import { formatoARS } from '@/utils/money'
@@ -28,6 +29,12 @@ const dif = (n: number) => (
   <span className={`font-semibold ${n === 0 ? 'text-secundario' : n < 0 ? 'text-red-600' : 'text-amber-700'}`}>{formatoARS(n)}</span>
 )
 const plata = (n: number) => <span>{formatoARS(n)}</span>
+/** '2026-09-12' → '12/09'. El mes ya lo eligió el filtro. */
+const diaMes = (fecha: string) => `${fecha.slice(8, 10)}/${fecha.slice(5, 7)}`
+const cerroDe = (l: Liquidacion) =>
+  `${l.cerradaPor.nombre}${l.firmanteRepartidor ? ' · firmó' : ''}${l.firmaRecibe ? ' · recibió' : ''}`
+const motivoDe = (l: Liquidacion) =>
+  (l.diferencia ? `${MOTIVOS_DIFERENCIA_LIQUIDACION[l.diferencia.motivo]}${l.diferencia.nota ? ` · ${l.diferencia.nota}` : ''}` : '')
 
 export default function LiquidacionesHistorialPage({ base }: { base: '/caja' | '/tesoreria' }) {
   const { user } = useAuth()
@@ -90,14 +97,14 @@ export default function LiquidacionesHistorialPage({ base }: { base: '/caja' | '
 
   const columnasCierres: ColumnaHistorial<Liquidacion>[] = [
     { titulo: 'Fecha', csv: (l) => l.fecha, celda: (l) => (
-      <Link to={`${base}/liquidaciones?fecha=${l.fecha}&repartidor=${encodeURIComponent(l.choferId)}`} className="text-accent underline underline-offset-2 whitespace-nowrap tabular-nums">{l.fecha}</Link>
+      <Link to={`${base}/liquidaciones?fecha=${l.fecha}&repartidor=${encodeURIComponent(l.choferId)}`} className="text-accent underline underline-offset-2 whitespace-nowrap tabular-nums">{diaMes(l.fecha)}</Link>
     ) },
     { titulo: 'Código', csv: (l) => l.codigo ?? '', celda: (l) => <span className="text-secundario tabular-nums whitespace-nowrap">{l.codigo ?? '—'}</span> },
-    { titulo: 'Repartidor', truncar: true, anchoMax: 220, csv: (l) => `${l.depositoTango ? `${l.depositoTango} · ` : ''}${l.choferNombre}`, celda: (l) => (
+    { titulo: 'Repartidor', truncar: true, anchoMax: 155, csv: (l) => `${l.depositoTango ? `${l.depositoTango} · ` : ''}${l.choferNombre}`, celda: (l) => (
       <>{l.depositoTango ? <span className="text-secundario mr-1.5">{l.depositoTango}</span> : null}{l.choferNombre}</>
     ) },
     { titulo: 'Ventas',    alinear: 'der', csv: (l) => l.cantidadVentas ?? '', celda: (l) => l.cantidadVentas ?? <span className="text-secundario">—</span> },
-    { titulo: 'Cobranzas', alinear: 'der', csv: (l) => l.cantidadCobranzas ?? l.cobranzasCalle?.cantidad ?? '', celda: (l) => (
+    { titulo: 'Cobros', alinear: 'der', csv: (l) => l.cantidadCobranzas ?? l.cobranzasCalle?.cantidad ?? '', celda: (l) => (
       l.cantidadCobranzas ?? l.cobranzasCalle?.cantidad ?? <span className="text-secundario">—</span>
     ) },
     { titulo: 'A rendir',  alinear: 'der', csv: (l) => l.efectivoARendir,  celda: (l) => plata(l.efectivoARendir) },
@@ -108,26 +115,40 @@ export default function LiquidacionesHistorialPage({ base }: { base: '/caja' | '
         ? <span className="text-red-600 font-semibold">{l.valoresFaltantes.cantidad} · {formatoARS(l.valoresFaltantes.total)}</span>
         : <span className="text-secundario">—</span>
     ) },
-    { titulo: 'Motivo', csv: (l) => (l.diferencia ? `${MOTIVOS_DIFERENCIA_LIQUIDACION[l.diferencia.motivo]}${l.diferencia.nota ? ` · ${l.diferencia.nota}` : ''}` : ''), celda: (l) => (
-      <span className="text-secundario">
-        {l.diferencia ? `${MOTIVOS_DIFERENCIA_LIQUIDACION[l.diferencia.motivo]}${l.diferencia.nota ? ` · ${l.diferencia.nota}` : ''}` : ''}
-        {l.anulacionesPosteriores?.length ? <span className="block"><AnuladasDespuesDeCerrar anulaciones={l.anulacionesPosteriores} compacto /></span> : null}
-      </span>
+    // Una nota larga partía la fila en varios renglones y dejaba un hueco en
+    // la tabla. Ahora va en una línea, con el texto completo en el tooltip, y
+    // la marca de anuladas después manda: no se achica.
+    { titulo: 'Motivo', anchoMax: 185, csv: (l) => motivoDe(l), celda: (l) => (
+      <div className="flex items-center gap-1.5 min-w-0">
+        {motivoDe(l) && <span className="truncate text-secundario" title={motivoDe(l)}>{motivoDe(l)}</span>}
+        {l.anulacionesPosteriores?.length
+          ? <span className="shrink-0"><AnuladasDespuesDeCerrar anulaciones={l.anulacionesPosteriores} compacto /></span>
+          : null}
+      </div>
     ) },
-    { titulo: 'Cerró', truncar: true, anchoMax: 200, csv: (l) => `${l.cerradaPor.nombre}${l.firmanteRepartidor ? ' · firmó' : ''}${l.firmaRecibe ? ' · recibió' : ''}`, celda: (l) => (
-      <span className="text-secundario">{l.cerradaPor.nombre}{l.firmanteRepartidor ? ' · firmó' : ''}{l.firmaRecibe ? ' · recibió' : ''}</span>
-    ) },
-    { titulo: 'Entrega', csv: (l) => (l.entregaId ? codigoDeEntregaId(l.entregaId) : l.entregaId === null ? 'en caja' : ''), celda: (l) => (
-      <span className="text-xs">{l.entregaId
-        ? <span className="text-[#0F6B4E] tabular-nums">{codigoDeEntregaId(l.entregaId)}</span>
-        : l.entregaId === null ? <span className="text-amber-700">en caja</span> : <span className="text-secundario">—</span>}</span>
-    ) },
+    // Quién cerró y dónde quedó la plata son el mismo momento del cierre: van
+    // juntos en una columna y se ahorra un ancho que hacía scrollear la tabla.
+    { titulo: 'Cerró y entregó', anchoMax: 205,
+      csv: (l) => `${cerroDe(l)} · ${l.entregaId ? codigoDeEntregaId(l.entregaId) : l.entregaId === null ? 'en caja' : ''}`,
+      celda: (l) => (
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="truncate text-secundario" title={cerroDe(l)}>{cerroDe(l)}</span>
+          {l.entregaId
+            ? <span className="shrink-0"><Badge tono="neutro" punto={false} title={`Entregada a tesorería en ${codigoDeEntregaId(l.entregaId)}`}>{codigoDeEntregaId(l.entregaId)}</Badge></span>
+            : l.entregaId === null
+              ? <span className="shrink-0"><Badge tono="aviso" punto={false} title="Todavía está en caja, sin entregar a tesorería">en caja</Badge></span>
+              : null}
+        </div>
+      ) },
   ]
 
   const planta = user?.planta ? PLANTAS[user.planta].label : 'Todas las plantas'
 
+  // Una pantalla que ES una tabla usa todo el ancho que le deja el shell:
+  // 1024 px es una medida de lectura y con doce columnas obligaba a scrollear
+  // al costado. Las pantallas de formulario siguen en max-w-5xl.
   return (
-    <main className="max-w-5xl mx-auto p-4 space-y-4 pb-10">
+    <main className="max-w-[1600px] mx-auto p-4 space-y-4 pb-10">
       <PageHeader
         titulo="Historial de liquidaciones"
         icono={<History size={22} />}
@@ -148,6 +169,7 @@ export default function LiquidacionesHistorialPage({ base }: { base: '/caja' | '
       />
 
       <HistorialTable
+        className="max-w-5xl"
         titulo="Por repartidor"
         resumen={<span className="text-sm text-secundario tabular-nums">{liquidaciones.length} cierres · diferencia del mes {dif(totalDiferencia)}</span>}
         columnas={columnasResumen}
@@ -168,6 +190,7 @@ export default function LiquidacionesHistorialPage({ base }: { base: '/caja' | '
         cargando={cargando}
         vacio="Sin cierres."
         anchoMinimo={760}
+        compacta
         porPagina={50}
         exportar={`Liquidaciones ${mes}`}
       />

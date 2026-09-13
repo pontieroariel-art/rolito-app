@@ -2,7 +2,7 @@ import { ReactNode, useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight, Download, Inbox, RotateCw, Search, TriangleAlert } from 'lucide-react'
 import { INPUT_BUSQUEDA_PROPS } from '@/utils/busqueda'
 import { descargarCSV } from '@/utils/csv'
-import { CAMPO_FILTRO, NUMERO, TD, TH } from './tabla'
+import { CAMPO_FILTRO, NUMERO, TD, TD_COMPACTA, TH, TH_COMPACTA } from './tabla'
 
 /**
  * TABLA DE HISTORIAL canónica (fase 3.2 del reordenamiento, 2026-09-12).
@@ -66,6 +66,8 @@ interface Props<T> {
   porPagina?: number
   /** Nombre base del archivo; sin esto no hay botón de exportar. */
   exportar?: string
+  /** Celdas más apretadas. Para tablas de diez o más columnas. */
+  compacta?: boolean
   className?: string
 }
 
@@ -86,8 +88,11 @@ const tituloDe = <T,>(c: ColumnaHistorial<T>, fila: T): string | undefined => {
 
 export default function HistorialTable<T>({
   columnas, filas, claveDe, titulo, resumen, cargando = false, error = false, onReintentar,
-  vacio = 'No hay registros en este período.', anchoMinimo, filaResaltada, porPagina, exportar, className = '',
+  vacio = 'No hay registros en este período.', anchoMinimo, filaResaltada, porPagina, exportar, compacta = false, className = '',
 }: Props<T>) {
+  const th = compacta ? TH_COMPACTA : TH
+  const td = compacta ? TD_COMPACTA : TD
+
   const [pagina, setPagina] = useState(0)
 
   const paginas = porPagina ? Math.ceil(filas.length / porPagina) : 1
@@ -125,7 +130,7 @@ export default function HistorialTable<T>({
       return [0, 1, 2, 3, 4].map((i) => (
         <tr key={`esqueleto-${i}`} aria-hidden>
           {columnas.map((c, j) => (
-            <td key={c.titulo + j} className={TD}>
+            <td key={c.titulo + j} className={td}>
               <span className="block h-3.5 rounded bg-[#EDEBE3] animate-pulse" style={{ width: j === 0 ? '70%' : '45%' }} />
             </td>
           ))}
@@ -147,11 +152,12 @@ export default function HistorialTable<T>({
         {columnas.map((c, i) => (
           <td
             key={c.titulo + i}
-            // `max-w-0` es el truco para que `truncate` funcione en una celda sin
-            // ancho propio, pero deja a la columna sin peso y el navegador le
-            // roba el espacio a las vecinas (las fechas y los códigos quedaban
-            // partidos en tres renglones). Con `anchoMax` no hace falta.
-            className={`${TD} ${c.alinear === 'der' ? NUMERO : ''} ${c.truncar && !c.anchoMax ? 'max-w-0' : ''}`}
+            // Para que `truncate` funcione, la celda necesita `max-w-0`: sin eso
+            // el ancho máximo de un <td> lo ignora el layout automático de la
+            // tabla y la columna crece con el contenido. Pero `max-w-0` sola
+            // deja a la columna sin peso y el navegador le roba el espacio a
+            // las vecinas, así que el ancho preferido va en el <th> (ver abajo).
+            className={`${td} ${c.alinear === 'der' ? NUMERO : ''} ${c.truncar || c.anchoMax ? 'max-w-0' : ''}`}
             style={c.anchoMax ? { maxWidth: c.anchoMax } : undefined}
           >
             {c.truncar
@@ -184,7 +190,17 @@ export default function HistorialTable<T>({
       <div className="overflow-x-auto">
         <table className="w-full" style={anchoMinimo ? { minWidth: anchoMinimo } : undefined}>
           <thead>
-            <tr>{columnas.map((c, i) => <th key={c.titulo + i} className={`${TH} ${c.alinear === 'der' ? 'text-right' : ''}`} style={c.anchoMax ? { maxWidth: c.anchoMax } : undefined}>{c.titulo}</th>)}</tr>
+            {/* El ancho preferido de una columna acotada va en el <th>: es lo
+                que devuelve el peso que le saca `max-w-0` a la celda. */}
+            <tr>{columnas.map((c, i) => (
+              <th
+                key={c.titulo + i}
+                className={`${th} ${c.alinear === 'der' ? 'text-right' : ''} whitespace-nowrap`}
+                style={c.anchoMax ? { width: c.anchoMax, maxWidth: c.anchoMax } : undefined}
+              >
+                {c.titulo}
+              </th>
+            ))}</tr>
           </thead>
           <tbody>{cuerpo()}</tbody>
         </table>

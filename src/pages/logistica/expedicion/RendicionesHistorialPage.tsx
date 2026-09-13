@@ -30,6 +30,10 @@ const dif = (n: number) => (
 )
 const plata = (n: number) => <span>{formatoARS(n)}</span>
 const sinPrefijo = (p: Rendicion['plantaId']) => PLANTAS[p].label.replace('Planta ', '')
+/** '2026-09-12' → '12/09'. */
+const diaMes = (fecha: string) => `${fecha.slice(8, 10)}/${fecha.slice(5, 7)}`
+const motivoDe = (r: Rendicion) =>
+  (r.diferencia ? `${MOTIVOS_DIFERENCIA_LIQUIDACION[r.diferencia.motivo]}${r.diferencia.nota ? ` · ${r.diferencia.nota}` : ''}` : '')
 
 export default function RendicionesHistorialPage({ enTesoreria }: { enTesoreria: boolean }) {
   const { user } = useAuth()
@@ -73,7 +77,7 @@ export default function RendicionesHistorialPage({ enTesoreria }: { enTesoreria:
   const totalDiferencia = visibles.reduce((s, r) => s + r.diferenciaEfectivo, 0)
 
   const columnasResumen: ColumnaHistorial<PorCajero>[] = [
-    { titulo: 'Cajero', truncar: true, anchoMax: 220, csv: (c) => c.nombre, celda: (c) => (
+    { titulo: 'Cajero', truncar: true, anchoMax: 180, csv: (c) => c.nombre, celda: (c) => (
       <button type="button" onClick={() => setFiltro(filtro === c.id ? '' : c.id)} className="block max-w-full truncate text-left hover:text-accent">{c.nombre}</button>
     ) },
     { titulo: 'Planta',  csv: (c) => c.planta,  celda: (c) => c.planta },
@@ -90,38 +94,52 @@ export default function RendicionesHistorialPage({ enTesoreria }: { enTesoreria:
   ]
 
   const columnasCierres: ColumnaHistorial<Rendicion>[] = [
-    { titulo: 'Fecha',  csv: (r) => r.fecha,  celda: (r) => <span className="tabular-nums whitespace-nowrap">{r.fecha}</span> },
+    // La fecha va corta: el mes ya lo eligió el filtro, repetir el año en
+    // cada fila es ancho gastado. El CSV se lleva la fecha completa.
+    { titulo: 'Fecha',  csv: (r) => r.fecha,  celda: (r) => <span className="tabular-nums whitespace-nowrap">{diaMes(r.fecha)}</span> },
     { titulo: 'Código', csv: (r) => r.codigo, celda: (r) => <span className="tabular-nums whitespace-nowrap">{r.codigo}</span> },
-    { titulo: 'Cajero', truncar: true, anchoMax: 220, csv: (r) => `${r.sujetoNombre} · ${sinPrefijo(r.plantaId)}`, celda: (r) => (
-      <>{r.sujetoNombre} <span className="text-secundario">· {sinPrefijo(r.plantaId)}</span></>
-    ) },
+    // La planta ya está en el código del cierre (RD-DT-000007): repetirla acá
+    // era ancho gastado. El CSV se la sigue llevando.
+    { titulo: 'Cajero', truncar: true, anchoMax: 150, csv: (r) => `${r.sujetoNombre} · ${sinPrefijo(r.plantaId)}`, celda: (r) => r.sujetoNombre },
     { titulo: 'Ventas',    alinear: 'der', csv: (r) => r.cantidadVentas,    celda: (r) => (r.cantidadVentas ? r.cantidadVentas : <span className="text-secundario">0</span>) },
-    { titulo: 'Cobranzas', alinear: 'der', csv: (r) => r.cantidadCobranzas, celda: (r) => (r.cantidadCobranzas ? r.cantidadCobranzas : <span className="text-secundario">0</span>) },
+    { titulo: 'Cobros', alinear: 'der', csv: (r) => r.cantidadCobranzas, celda: (r) => (r.cantidadCobranzas ? r.cantidadCobranzas : <span className="text-secundario">0</span>) },
     { titulo: 'A rendir',  alinear: 'der', csv: (r) => r.efectivoARendir,   celda: (r) => plata(r.efectivoARendir) },
     { titulo: 'Contado',   alinear: 'der', csv: (r) => r.efectivoContado,   celda: (r) => plata(r.efectivoContado) },
     { titulo: 'Diferencia', alinear: 'der', csv: (r) => r.diferenciaEfectivo, celda: (r) => dif(r.diferenciaEfectivo) },
-    { titulo: 'Motivo', csv: (r) => (r.diferencia ? `${MOTIVOS_DIFERENCIA_LIQUIDACION[r.diferencia.motivo]}${r.diferencia.nota ? ` · ${r.diferencia.nota}` : ''}` : ''), celda: (r) => (
-      <span className="text-secundario">
-        {r.diferencia ? `${MOTIVOS_DIFERENCIA_LIQUIDACION[r.diferencia.motivo]}${r.diferencia.nota ? ` · ${r.diferencia.nota}` : ''}` : ''}
-        {r.anulacionesPosteriores?.length ? <span className="block"><AnuladasDespuesDeCerrar anulaciones={r.anulacionesPosteriores} compacto /></span> : null}
-      </span>
+    // Una nota larga partía la fila en cuatro renglones y dejaba un hueco en
+    // la tabla. Ahora va en una línea, con el texto completo en el tooltip, y
+    // la marca de anuladas después manda: no se achica.
+    { titulo: 'Motivo', anchoMax: 185, csv: (r) => motivoDe(r), celda: (r) => (
+      <div className="flex items-center gap-1.5 min-w-0">
+        {motivoDe(r) && <span className="truncate text-secundario" title={motivoDe(r)}>{motivoDe(r)}</span>}
+        {r.anulacionesPosteriores?.length
+          ? <span className="shrink-0"><AnuladasDespuesDeCerrar anulaciones={r.anulacionesPosteriores} compacto /></span>
+          : null}
+      </div>
     ) },
-    { titulo: 'Validada', truncar: true, anchoMax: 170, csv: (r) => (r.validacion ? r.validacion.nombre : 'Pendiente'), celda: (r) => (
-      r.validacion
-        ? <Badge tono="entregado" icono={<ShieldCheck />} title={`Validada por ${r.validacion.nombre}`}>{r.validacion.nombre}</Badge>
-        : <Badge tono="pendiente">Pendiente</Badge>
-    ) },
-    { titulo: 'Entrega', csv: (r) => (r.entregaId ? codigoDeEntregaId(r.entregaId) : 'en caja'), celda: (r) => (
-      <span className="text-xs">{r.entregaId
-        ? <span className="text-[#0F6B4E] tabular-nums">{codigoDeEntregaId(r.entregaId)}</span>
-        : <span className="text-amber-700">en caja</span>}</span>
-    ) },
+    // Validación y entrega a tesorería son los dos estados del mismo cierre:
+    // en una sola columna con dos badges se leen juntos y se ahorra un ancho.
+    { titulo: 'Estado', anchoMax: 205,
+      csv: (r) => `${r.validacion ? `validada por ${r.validacion.nombre}` : 'sin validar'} · ${r.entregaId ? codigoDeEntregaId(r.entregaId) : 'en caja'}`,
+      celda: (r) => (
+        <div className="flex items-center gap-1 min-w-0">
+          {r.validacion
+            ? <Badge tono="entregado" icono={<ShieldCheck />} title={`Validada por ${r.validacion.nombre}`}>Validada</Badge>
+            : <Badge tono="pendiente">Sin validar</Badge>}
+          {r.entregaId
+            ? <Badge tono="neutro" punto={false} title={`Entregada a tesorería en ${codigoDeEntregaId(r.entregaId)}`}>{codigoDeEntregaId(r.entregaId)}</Badge>
+            : <Badge tono="aviso" punto={false} title="Todavía está en caja, sin entregar a tesorería">en caja</Badge>}
+        </div>
+      ) },
   ]
 
   const alcance = enTesoreria || !user?.planta ? 'Las dos plantas' : PLANTAS[user.planta].label
 
+  // Una pantalla que ES una tabla usa todo el ancho que le deja el shell:
+  // 1024 px es una medida de lectura y con once columnas obligaba a scrollear
+  // al costado. Las pantallas de formulario siguen en max-w-5xl.
   return (
-    <main className="max-w-5xl mx-auto p-4 space-y-4 pb-10">
+    <main className="max-w-[1600px] mx-auto p-4 space-y-4 pb-10">
       <PageHeader
         titulo="Historial de cierres de caja"
         icono={<History size={22} />}
@@ -142,6 +160,7 @@ export default function RendicionesHistorialPage({ enTesoreria }: { enTesoreria:
       />
 
       <HistorialTable
+        className="max-w-5xl"
         titulo="Por cajero"
         resumen={<span className="text-sm text-secundario tabular-nums">{visibles.length} cierres · diferencia del mes {dif(totalDiferencia)}</span>}
         columnas={columnasResumen}
@@ -162,6 +181,7 @@ export default function RendicionesHistorialPage({ enTesoreria }: { enTesoreria:
         cargando={cargando}
         vacio="Sin cierres."
         anchoMinimo={820}
+        compacta
         porPagina={50}
         exportar={`Cierres de caja ${mes}`}
       />
