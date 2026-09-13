@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowLeft, CloudOff, Eye, EyeOff, HandCoins, History, LogOut, MapPin, MessageCircle, Package,
-  Phone, Truck, Users, X,
+  Phone, Send, Truck, Users, X,
 } from 'lucide-react'
 import ClienteCombobox, { type ComboItem } from '@/components/common/ClienteCombobox'
 import ChipMora, { BORDE_MORA, CLASE_MORA } from '@/components/supervisor/ChipMora'
@@ -114,7 +114,7 @@ const TOTAL_HOY = COBRADO_HOY.efectivo + COBRADO_HOY.transferencia + COBRADO_HOY
 
 type Escenario = 'completo' | 'sinTelefono' | 'sinDomicilio' | 'sinDeuda' | 'cargando'
 type Conexion = 'ok' | 'sinSenal' | 'cola'
-type Variante = 'arriba' | 'abajo'
+type Variante = 'arriba' | 'abajo' | 'hibrido'
 type Pantalla = 'home' | 'clientes' | 'ficha'
 
 // "hace 5 min" / "hace 3 días" — copia local de utils (la maqueta no importa de
@@ -181,8 +181,9 @@ function BarraMaqueta({
         <label className="flex flex-col gap-0.5">
           <span className="text-[10px] text-gray-400">Acciones</span>
           <select value={variante} onChange={(e) => setVariante(e.target.value as Variante)} className={sel}>
-            <option value="arriba">Arriba</option>
-            <option value="abajo">Barra abajo</option>
+            <option value="abajo">Todo abajo</option>
+            <option value="hibrido">Cobrar arriba</option>
+            <option value="arriba">Todo arriba</option>
           </select>
         </label>
         <label className="flex flex-col gap-0.5">
@@ -551,7 +552,7 @@ function FichaMock({
 
   return (
     <>
-      <main className={`max-w-md mx-auto p-4 space-y-3 ${variante === 'abajo' ? 'pb-40' : 'pb-16'}`}>
+      <main className={`max-w-md mx-auto p-4 space-y-3 ${variante === 'arriba' ? 'pb-16' : variante === 'abajo' ? 'pb-40' : 'pb-28'}`}>
         <div className="px-1">
           <h1 className="text-lg font-bold text-gray-900 leading-tight">{cliente.razonSocial}</h1>
           <p className="text-xs text-secundario">
@@ -559,27 +560,55 @@ function FichaMock({
           </p>
         </div>
 
-        {/* Variante A: las acciones arriba (se ven al entrar, lejos del pulgar). */}
-        {variante === 'arriba' && (
+        {/* El estado de la deuda (atraso + qué tan viejo es el saldo de Tango) va
+            SIEMPRE arriba, en las tres variantes: es lo que el supervisor tiene que
+            leer antes de decidir, y con las acciones abajo se perdía de la vista. */}
+        {!sinDeuda && !cargando && (
+          <div className="flex items-center justify-between px-1">
+            <span className={`text-[11px] font-semibold rounded-full px-2 py-0.5 border ${CLASE_MORA[cliente.nivel]}`}>
+              {cliente.diasAtraso > 0 ? `${cliente.diasAtraso} días de atraso` : 'Al día'}
+            </span>
+            <span className={`text-xs ${cliente.cacheMin >= 1440 ? 'text-amber-700 font-medium' : 'text-secundario'}`}>
+              Saldo de Tango {haceCuanto(cliente.cacheMin)}
+            </span>
+          </div>
+        )}
+
+        {/* Variantes: 'arriba' todo en una card; 'hibrido' Cobrar arriba (se ve al
+            entrar) y contacto abajo (donde cae el pulgar); 'abajo' todo en la barra. */}
+        {variante !== 'abajo' && (
           <section className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-3 space-y-2">
-            {!sinDeuda && !cargando && (
-              <div className="flex items-center justify-between">
-                <span className={`text-[11px] font-semibold rounded-full px-2 py-0.5 border ${CLASE_MORA[cliente.nivel]}`}>
-                  {cliente.diasAtraso > 0 ? `${cliente.diasAtraso} días de atraso` : 'Al día'}
-                </span>
-                <span className={`text-xs ${cliente.cacheMin >= 1440 ? 'text-amber-700 font-medium' : 'text-secundario'}`}>
-                  Saldo de Tango {haceCuanto(cliente.cacheMin)}
-                </span>
-              </div>
-            )}
             {cobrar}
-            {acciones}
+            {variante === 'arriba' && acciones}
           </section>
         )}
 
+        {/* La sección Saldo NO se toca en el rediseño: sigue con su composición,
+            el PDF para enviar y los botones por comprobante. Lo único que se le
+            saca es el botón "Cobrar" del final, que ahora está en la barra. */}
         <Plegable titulo="Saldo y composición" abiertoInicial={false}
           extra={!cargando && saldo > 0 ? <Plata n={saldo} privado={privado} className="text-sm font-semibold text-gray-900" /> : undefined}>
-          <p className="text-sm text-secundario">Facturas pendientes, remitos y el PDF para enviar. (Maqueta: contenido real en producción.)</p>
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-secundario uppercase tracking-wide">Redonhielo · {cliente.codigo}</p>
+            {[{ n: 'Factura A 00101-00282787', f: '02/09', i: 84216 },
+              { n: 'Factura A 00101-00281724', f: '10/08', i: 40000 },
+              { n: 'Nota de crédito NCB B 00101-00000179', f: '14/08', i: -77440 }].map((f) => (
+              <div key={f.n} className="flex items-center gap-2 border-b border-[#E7E5DC] pb-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-gray-900 truncate" title={f.n}>{f.n}</p>
+                  <p className="text-xs text-secundario">Emisión {f.f}</p>
+                </div>
+                <Plata n={f.i} privado={privado} className="text-sm font-medium text-gray-900 shrink-0" />
+                <span className="w-9 h-9 shrink-0 rounded-lg border border-[#D3D1C7] flex items-center justify-center text-accent">
+                  <MessageCircle size={15} />
+                </span>
+              </div>
+            ))}
+            <button type="button" className="flex items-center justify-center gap-2 w-full h-11 rounded-lg border border-accent text-accent bg-white text-sm font-semibold">
+              <Send size={15} /> Enviar o descargar PDF
+            </button>
+            <p className="text-[11px] text-secundario">Composición de saldos · igual que hoy: WhatsApp, mail al cliente o descarga.</p>
+          </div>
         </Plegable>
         <Plegable titulo="Contacto"><p className="text-sm text-secundario">Teléfonos por sucursal y mail.</p></Plegable>
         <Plegable titulo="Domicilios"><p className="text-sm text-secundario">Direcciones con horario y "Ir" a Maps.</p></Plegable>
@@ -589,11 +618,12 @@ function FichaMock({
         <Plegable titulo="Datos"><p className="text-sm text-secundario">CUIT, condición de IVA, vendedor, notas.</p></Plegable>
       </main>
 
-      {/* Variante B: barra fija abajo, donde caen los pulgares. */}
-      {variante === 'abajo' && (
+      {/* Barra fija abajo, donde caen los pulgares. En 'hibrido' lleva solo el
+          contacto: Cobrar ya se vio arriba al entrar. */}
+      {variante !== 'arriba' && (
         <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-[#D3D1C7] pb-[env(safe-area-inset-bottom)]">
           <div className="max-w-md mx-auto p-3 space-y-2">
-            {cobrar}
+            {variante === 'abajo' && cobrar}
             {acciones}
           </div>
         </div>
@@ -609,7 +639,7 @@ function FichaMock({
 
 export default function MockupSupervisorMobile() {
   const [pantalla, setPantalla] = useState<Pantalla>('home')
-  const [variante, setVariante] = useState<Variante>('arriba')
+  const [variante, setVariante] = useState<Variante>('abajo')
   const [escenario, setEscenario] = useState<Escenario>('completo')
   const [conexion, setConexion] = useState<Conexion>('ok')
   const [privado, setPrivado] = useState(false)
