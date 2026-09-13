@@ -57,7 +57,7 @@ export default function CobranzasPage() {
           <h2 className="font-semibold text-gray-800">Cobranzas de hoy</h2>
           {cobranzas.length > 0 && <p className="text-sm font-semibold text-gray-900">{formatoARS(totalDia)}</p>}
         </div>
-        {cobranzas.length === 0 && <p className="text-gray-400 text-sm">Todavía no se registraron cobranzas hoy.</p>}
+        {cobranzas.length === 0 && <p className="text-secundario text-sm">Todavía no se registraron cobranzas hoy.</p>}
         {ordenadas.map((c) => c.medios ? (
           <CobranzaSupervisorCard key={c.id} c={c} />
         ) : (
@@ -69,7 +69,7 @@ export default function CobranzasPage() {
                 {c.referencia ? ` · ${c.referencia}` : ''} · cobranza simple (no viaja a Tango)
               </p>
             </div>
-            <button onClick={() => imprimirSimple(c)} title="Reimprimir recibo" className="text-gray-400 hover:text-accent transition-colors p-2 rounded-lg hover:bg-accent/10">
+            <button onClick={() => imprimirSimple(c)} title="Reimprimir recibo" className="text-secundario hover:text-accent transition-colors p-2 rounded-lg hover:bg-accent/10">
               <Printer size={16} />
             </button>
           </div>
@@ -80,7 +80,7 @@ export default function CobranzasPage() {
           los turnos rotan en la misma tablet, cada persona con su login. */}
       <p className="text-center pt-6">
         {tabletFija ? (
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-secundario">
             Este dispositivo está fijo en Cobranzas ·{' '}
             <button
               onClick={() => { desmarcarDispositivoCobranza(); setTabletFija(false) }}
@@ -92,7 +92,7 @@ export default function CobranzasPage() {
         ) : (
           <button
             onClick={() => { marcarDispositivoCobranza(); setTabletFija(true) }}
-            className="text-xs text-gray-400 underline hover:text-accent"
+            className="text-xs text-secundario underline hover:text-accent"
           >
             Fijar este dispositivo solo para cobranzas (tablet de mostrador)
           </button>

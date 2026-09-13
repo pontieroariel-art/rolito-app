@@ -46,16 +46,16 @@ export default function BuscadorRapido({ items, onCerrar }: { items: ItemBuscabl
         onKeyDown={onKey}
       >
         <div className="flex items-center gap-2 px-4 h-12 border-b border-[#D3D1C7]">
-          <Search size={16} className="text-gray-400 shrink-0" />
+          <Search size={16} className="text-inerte shrink-0" />
           <input
             ref={input}
             id="buscador-rapido"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Ir a una pantalla…"
-            className="flex-1 text-sm outline-none bg-transparent placeholder:text-gray-400"
+            className="flex-1 text-sm outline-none bg-transparent placeholder:text-secundario"
           />
-          <kbd className="text-[10px] text-gray-400 border border-gray-200 rounded px-1">Esc</kbd>
+          <kbd className="text-[10px] text-secundario border border-gray-200 rounded px-1">Esc</kbd>
         </div>
         <ul className="max-h-80 overflow-y-auto py-1">
           {visibles.length === 0 && <li className="px-4 py-3 text-sm text-gray-500">Nada con ese nombre.</li>}
@@ -69,7 +69,7 @@ export default function BuscadorRapido({ items, onCerrar }: { items: ItemBuscabl
               >
                 <i.icon size={16} className="shrink-0" />
                 <span className="flex-1 truncate">{i.label}</span>
-                <span className="text-[11px] text-gray-400 truncate">{SISTEMA_LABELS[i.sistema]} · {i.grupo}</span>
+                <span className="text-[11px] text-secundario truncate">{SISTEMA_LABELS[i.sistema]} · {i.grupo}</span>
               </button>
             </li>
           ))}

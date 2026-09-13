@@ -83,7 +83,7 @@ const DraggableCard = memo(function DraggableCard({ item, routeNum, arrival, col
           {routeNum}
         </span>
       ) : (
-        <span className={`shrink-0 ${isVisit ? 'text-violet-400' : 'text-gray-300'}`}>
+        <span className={`shrink-0 ${isVisit ? 'text-violet-400' : 'text-inerte'}`}>
           {isVisit ? <Eye size={12} /> : <Package size={12} />}
         </span>
       )}
@@ -96,15 +96,15 @@ const DraggableCard = memo(function DraggableCard({ item, routeNum, arrival, col
           )}
           <p className="text-xs font-semibold text-gray-900 truncate">
             {!clientLogo && empresa && (
-              <span className="text-gray-400 font-normal">{empresa} · </span>
+              <span className="text-secundario font-normal">{empresa} · </span>
             )}
             {sucursal}
           </p>
           {codigoCliente && (
-            <span className="text-[9px] text-gray-400 font-mono shrink-0">{codigoCliente}</span>
+            <span className="text-[9px] text-secundario font-mono shrink-0">{codigoCliente}</span>
           )}
           {item.numeroOC && (
-            <span className="text-[9px] text-gray-400 font-mono shrink-0">OC {item.numeroOC}</span>
+            <span className="text-[9px] text-secundario font-mono shrink-0">OC {item.numeroOC}</span>
           )}
           {locked && <Lock size={9} className="text-green-500 shrink-0" />}
           {item.kind === 'programa' && (
@@ -114,11 +114,11 @@ const DraggableCard = memo(function DraggableCard({ item, routeNum, arrival, col
             <span className="text-amber-500 shrink-0" title={`Reprogramado${item.motivoReprogramacion ? `: ${item.motivoReprogramacion}` : ''}`}>↻</span>
           )}
           {!!totalUnits && (
-            <span className="ml-auto text-[9px] text-gray-400 font-mono tabular-nums shrink-0">{totalUnits}u</span>
+            <span className="ml-auto text-[9px] text-secundario font-mono tabular-nums shrink-0">{totalUnits}u</span>
           )}
         </div>
         <div className="flex items-center gap-2">
-          <p className="text-[10px] text-gray-400 truncate leading-tight flex-1">{item.sublabel}</p>
+          <p className="text-[10px] text-secundario truncate leading-tight flex-1">{item.sublabel}</p>
           {arrival && <span className="text-[9px] text-accent font-medium shrink-0">⏱{arrival}</span>}
         </div>
       </div>
@@ -129,7 +129,7 @@ const DraggableCard = memo(function DraggableCard({ item, routeNum, arrival, col
             onClick={onMoveUp}
             disabled={!onMoveUp}
             title="Subir"
-            className="p-0.5 rounded text-gray-300 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-0 disabled:pointer-events-none transition-colors"
+            className="p-0.5 rounded text-inerte hover:text-gray-700 hover:bg-gray-100 disabled:opacity-0 disabled:pointer-events-none transition-colors"
           >
             <ChevronUp size={12} />
           </button>
@@ -138,7 +138,7 @@ const DraggableCard = memo(function DraggableCard({ item, routeNum, arrival, col
             onClick={onMoveDown}
             disabled={!onMoveDown}
             title="Bajar"
-            className="p-0.5 rounded text-gray-300 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-0 disabled:pointer-events-none transition-colors"
+            className="p-0.5 rounded text-inerte hover:text-gray-700 hover:bg-gray-100 disabled:opacity-0 disabled:pointer-events-none transition-colors"
           >
             <ChevronDown size={12} />
           </button>
@@ -162,14 +162,14 @@ function GhostCard({ item }: { item: DayItem }) {
             <img src={clientLogo.src} alt="" title={clientLogo.alt} className="w-full h-full object-contain" />
           </span>
         ) : (
-          item.kind !== 'order' ? <Eye size={13} className="text-violet-400" /> : <Package size={13} className="text-gray-400" />
+          item.kind !== 'order' ? <Eye size={13} className="text-violet-400" /> : <Package size={13} className="text-inerte" />
         )}
         <p className="text-sm font-semibold text-gray-900 leading-tight truncate">
-          {!clientLogo && empresa && <span className="text-gray-400 font-normal">{empresa} · </span>}
+          {!clientLogo && empresa && <span className="text-secundario font-normal">{empresa} · </span>}
           {sucursal}
         </p>
       </div>
-      <p className="text-xs text-gray-400 truncate">{item.sublabel}</p>
+      <p className="text-xs text-secundario truncate">{item.sublabel}</p>
     </div>
   )
 }
@@ -203,7 +203,7 @@ function SinAsignarColumn({ items, codigoByClientId, fullWidth }: { items: DayIt
       </div>
       <DroppableZone id="sin_asignar" className="bg-[#F8F7F2] border border-t-0 border-[#D3D1C7] rounded-b-xl p-2 space-y-1 overflow-y-auto flex-1">
         {items.length === 0 ? (
-          <p className="text-xs text-gray-400 text-center py-6">Todo asignado ✓</p>
+          <p className="text-xs text-secundario text-center py-6">Todo asignado ✓</p>
         ) : (
           <>
             {orders.length > 0 && orders.map((i) => <DraggableCard key={i.dndId} item={i} codigoByClientId={codigoByClientId} />)}
@@ -320,11 +320,11 @@ const VueltaSection = memo(function VueltaSection({
                 📦 {totalPallets % 1 === 0 ? totalPallets : totalPallets.toFixed(1)} pallets
               </span>
               {capacidad ? (
-                <span className={overloaded ? 'text-red-500 font-bold' : 'text-gray-400'}>
+                <span className={overloaded ? 'text-red-500 font-bold' : 'text-secundario'}>
                   / {capacidad}
                 </span>
               ) : (
-                <span className="text-gray-300">sin límite</span>
+                <span className="text-inerte">sin límite</span>
               )}
             </div>
             {capacidad && (
@@ -350,7 +350,7 @@ const VueltaSection = memo(function VueltaSection({
             onChange={(e) => onPlantaChange(slot, e.target.value as PlantaId)}
             onPointerDown={(e) => e.stopPropagation()}
             disabled={confirmed}
-            className="flex-1 text-[10px] border border-gray-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-gray-400 truncate"
+            className="flex-1 text-[10px] border border-gray-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-secundario truncate"
           >
             {(Object.entries(PLANTAS) as [PlantaId, typeof PLANTAS[PlantaId]][]).map(([id, p]) => (
               <option key={id} value={id}>{p.label}</option>
@@ -361,14 +361,14 @@ const VueltaSection = memo(function VueltaSection({
             onChange={(e) => onHoraSalidaChange(slot, e.target.value)}
             onPointerDown={(e) => e.stopPropagation()}
             disabled={confirmed}
-            className="w-16 text-[10px] border border-gray-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-gray-400"
+            className="w-16 text-[10px] border border-gray-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-secundario"
           />
         </div>
 
         {/* Estado ruta */}
         <div className="mt-1.5 flex items-center gap-1.5">
           {recalculating ? (
-            <><div className="w-3 h-3 border border-accent border-t-transparent rounded-full animate-spin shrink-0" /><span className="text-[10px] text-gray-400">Calculando ruta...</span></>
+            <><div className="w-3 h-3 border border-accent border-t-transparent rounded-full animate-spin shrink-0" /><span className="text-[10px] text-secundario">Calculando ruta...</span></>
           ) : confirmed ? (
             <><CheckCircle size={11} className="text-green-500 shrink-0" /><span className="text-[10px] text-green-600 font-medium">DESPACHADO{despacho?.modifiedAfterConfirm ? ' (+cambios)' : ''}</span></>
           ) : manualOrder ? (
@@ -377,17 +377,17 @@ const VueltaSection = memo(function VueltaSection({
             orsStatus.ok ? (
               <><CheckCircle size={11} className="text-accent shrink-0" /><span className="text-[10px] text-accent font-medium">Ruta optimizada (ORS)</span></>
             ) : (
-              <><CheckCircle size={11} className="text-gray-400 shrink-0" /><span className="text-[10px] text-gray-500 font-medium">Ruta estimada (local)</span></>
+              <><CheckCircle size={11} className="text-inerte shrink-0" /><span className="text-[10px] text-gray-500 font-medium">Ruta estimada (local)</span></>
             )
           ) : items.length > 0 ? (
-            <span className="text-[10px] text-gray-400">Sin optimizar aún...</span>
+            <span className="text-[10px] text-secundario">Sin optimizar aún...</span>
           ) : null}
         </div>
         {manualOrder && !confirmed && (
           <button
             onClick={() => onRecalculate(slot)}
             onPointerDown={(e) => e.stopPropagation()}
-            className="mt-1 flex items-center gap-1 text-[10px] text-gray-400 hover:text-accent transition-colors"
+            className="mt-1 flex items-center gap-1 text-[10px] text-secundario hover:text-accent transition-colors"
           >
             <RotateCcw size={10} /> Recalcular ruta automática
           </button>
@@ -400,7 +400,7 @@ const VueltaSection = memo(function VueltaSection({
         className={`border border-t-0 p-2 space-y-1 overflow-y-auto ${showLabel ? 'max-h-72' : 'flex-1'} ${confirmed ? 'bg-green-50/40 border-green-200' : 'bg-white border-[#D3D1C7]'}`}
       >
         {sortedItems.length === 0 ? (
-          <p className="text-xs text-gray-400 text-center py-6">Arrastrar pedidos o visitas acá</p>
+          <p className="text-xs text-secundario text-center py-6">Arrastrar pedidos o visitas acá</p>
         ) : (
           sortedItems.map((item, i) => (
             <DraggableCard
@@ -421,7 +421,7 @@ const VueltaSection = memo(function VueltaSection({
       {/* Footer */}
       <div className={`border border-t-0 px-2 py-2 space-y-1.5 ${showLabel ? '' : 'rounded-b-xl'} ${confirmed ? 'bg-green-50 border-green-200' : 'bg-white border-[#D3D1C7]'}`}>
         {confirmed ? (
-          <button onClick={() => onReopen(slot)} className="w-full flex items-center justify-center gap-1.5 text-xs text-gray-400 hover:text-gray-700 py-1 transition-colors">
+          <button onClick={() => onReopen(slot)} className="w-full flex items-center justify-center gap-1.5 text-xs text-secundario hover:text-gray-700 py-1 transition-colors">
             <RotateCcw size={11} /> Reabrir despacho
           </button>
         ) : (
@@ -508,7 +508,7 @@ const CamionColumn = memo(function CamionColumn({
               modelo entero con nombres largos). */}
           <div className="min-w-0 flex-1">
             <p className="text-sm font-bold text-gray-900 truncate leading-tight">{camion.patente}</p>
-            <p className="text-[10px] text-gray-400 truncate leading-tight">{camion.modelo}</p>
+            <p className="text-[10px] text-secundario truncate leading-tight">{camion.modelo}</p>
           </div>
           <div className="flex items-center gap-1 shrink-0">
             {totalOrderCount > 0 && (
@@ -542,7 +542,7 @@ const CamionColumn = memo(function CamionColumn({
             onChange={(e) => onChoferChange(camion.id, e.target.value)}
             onPointerDown={(e) => e.stopPropagation()}
             disabled={anyConfirmed}
-            className="flex-1 min-w-0 text-[10px] border border-gray-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-gray-400 truncate"
+            className="flex-1 min-w-0 text-[10px] border border-gray-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-secundario truncate"
           >
             <option value="">Sin chofer</option>
             {choferesDisponibles.map((c) => (
@@ -561,7 +561,7 @@ const CamionColumn = memo(function CamionColumn({
             onChange={(e) => onAsignacionChange(chofer.email, { ayudanteEmail: e.target.value || null })}
             onPointerDown={(e) => e.stopPropagation()}
             disabled={anyConfirmed}
-            className="mt-1 w-full text-[10px] border border-gray-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-gray-400 truncate"
+            className="mt-1 w-full text-[10px] border border-gray-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-secundario truncate"
           >
             <option value="">Sin ayudante</option>
             {ayudantes.filter((a) => a.email !== chofer.email).map((a) => (
@@ -595,7 +595,7 @@ const CamionColumn = memo(function CamionColumn({
             onClick={() => onAddVuelta(chofer.email)}
             disabled={!canAddVuelta}
             title={canAddVuelta ? undefined : 'Confirmá la vuelta actual para poder agregar otra'}
-            className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs text-gray-400 border border-dashed border-[#D3D1C7] rounded-xl py-2 hover:text-accent hover:border-accent/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs text-secundario border border-dashed border-[#D3D1C7] rounded-xl py-2 hover:text-accent hover:border-accent/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             + Agregar vuelta
           </button>
@@ -753,7 +753,7 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
     <div className="flex flex-col h-full">
 
       {/* Selector de fecha */}
-      <div className="flex items-center gap-2 px-4 pt-3 pb-2 border-b border-gray-100 bg-white">
+      <div className="flex items-center gap-2 px-4 pt-3 pb-2 border-b border-[#E7E5DC] bg-white">
         <button
           onClick={() => { const d = new Date(fecha + 'T12:00:00'); d.setDate(d.getDate() - 1); setFecha(dateStr(d)) }}
           className="w-8 h-8 rounded-lg border border-[#D3D1C7] flex items-center justify-center hover:border-accent transition-colors shrink-0"
@@ -775,7 +775,7 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
               >
                 {label}
                 {(oCount + vCount) > 0 && (
-                  <span className={`ml-1 text-[10px] font-bold ${d === fecha ? 'text-white/80' : 'text-gray-400'}`}>
+                  <span className={`ml-1 text-[10px] font-bold ${d === fecha ? 'text-white/80' : 'text-secundario'}`}>
                     {oCount + vCount}
                   </span>
                 )}
@@ -793,7 +793,7 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
       </div>
 
       {/* Leyenda */}
-      <div className="flex items-center gap-4 px-4 py-1.5 bg-white border-b border-gray-100 text-[10px] text-gray-400">
+      <div className="flex items-center gap-4 px-4 py-1.5 bg-white border-b border-[#E7E5DC] text-[10px] text-secundario">
         <span className="flex items-center gap-1"><Package size={10} /> Pedido</span>
         <span className="flex items-center gap-1"><Eye size={10} className="text-violet-400" /> <span className="text-violet-400">Visita</span></span>
         <span className="flex items-center gap-1 text-violet-300">↺ Recurrente</span>
@@ -826,7 +826,7 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
                 >
                   Sin asignar
                   {(itemsByDriver['sin_asignar']?.length ?? 0) > 0 && (
-                    <span className={`ml-1 text-[10px] font-bold ${mobileBucket === 'sin_asignar' ? 'text-white/80' : 'text-gray-400'}`}>
+                    <span className={`ml-1 text-[10px] font-bold ${mobileBucket === 'sin_asignar' ? 'text-white/80' : 'text-secundario'}`}>
                       {itemsByDriver['sin_asignar']!.length}
                     </span>
                   )}
@@ -848,10 +848,10 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
                       <span className="flex items-center gap-1">
                         {camion.patente}
                         {count > 0 && (
-                          <span className={`text-[10px] font-bold ${selected ? 'text-white/80' : 'text-gray-400'}`}>{count}</span>
+                          <span className={`text-[10px] font-bold ${selected ? 'text-white/80' : 'text-secundario'}`}>{count}</span>
                         )}
                       </span>
-                      <span className={`text-[9px] ${selected ? 'text-white/70' : chofer ? 'text-gray-400' : 'text-amber-500'}`}>
+                      <span className={`text-[9px] ${selected ? 'text-white/70' : chofer ? 'text-secundario' : 'text-amber-500'}`}>
                         {chofer ? (chofer.nombreContacto || chofer.nombre || chofer.email) : 'Sin chofer'}
                       </span>
                     </button>
@@ -913,8 +913,8 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
                 const cap = camion?.capacidadPallets ?? null
                 const over = cap !== null && pallets > cap
                 return (<>
-                  {label && <p className="text-xs text-gray-400">🚛 {label}</p>}
-                  {ayud  && <p className="text-xs text-gray-400">👤 Ayudante: {ayud.nombreContacto || ayud.nombre || ayud.email}</p>}
+                  {label && <p className="text-xs text-secundario">🚛 {label}</p>}
+                  {ayud  && <p className="text-xs text-secundario">👤 Ayudante: {ayud.nombreContacto || ayud.nombre || ayud.email}</p>}
                   {pallets > 0 && (
                     <p className={`text-xs font-semibold ${over ? 'text-red-600' : 'text-gray-500'}`}>
                       📦 {pallets % 1 === 0 ? pallets : pallets.toFixed(1)} pallets{cap ? ` / ${cap}` : ''}{over ? ' — ⚠️ SOBRECARGA' : ''}
@@ -938,7 +938,7 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
                       style={{ backgroundColor: choferColor(camionIdx) }}>
                       {i + 1}
                     </span>
-                    {item.kind !== 'order' ? <Eye size={11} className="text-violet-400 shrink-0" /> : <Package size={11} className="text-gray-400 shrink-0" />}
+                    {item.kind !== 'order' ? <Eye size={11} className="text-violet-400 shrink-0" /> : <Package size={11} className="text-inerte shrink-0" />}
                     <span className="text-gray-700 truncate">{item.label}</span>
                   </li>
                 )

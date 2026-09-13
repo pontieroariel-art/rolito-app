@@ -112,7 +112,7 @@ export default function LoginProduccion({ planta }: Props) {
           Ingresar
         </Button>
 
-        <p className="text-center text-xs text-gray-400 mt-1">
+        <p className="text-center text-xs text-secundario mt-1">
           ¿No tenés legajo cargado? Contactá al encargado de producción.
         </p>
       </form>

@@ -37,7 +37,7 @@ function ConfirmarPalletModal({
           <span className="text-lg font-bold text-gray-900 text-center px-3">{producto.nombre}</span>
           <span className="text-sm text-gray-500 font-medium">{producto.unidadesPorPallet} {producto.unidadLabel}/pallet</span>
         </div>
-        <p className="text-xs text-gray-400 text-center">Esta acción imprime el ticket y no se puede deshacer.</p>
+        <p className="text-xs text-secundario text-center">Esta acción imprime el ticket y no se puede deshacer.</p>
         <div className="flex gap-2">
           <Button variant="outline" onClick={onCancel} className="flex-1" disabled={loading}>Cancelar</Button>
           <Button onClick={onConfirm} loading={loading} className="flex-1">Confirmar e imprimir</Button>
@@ -202,15 +202,15 @@ export default function ProduccionDashboard() {
               lista (eso obligaría a scrollear si hay muchos pallets hoy). */}
           <div className="shrink-0 bg-white border border-[#D3D1C7] rounded-lg px-3 py-1.5 flex items-center justify-between gap-2">
             {loading ? (
-              <span className="text-xs text-gray-400">Cargando...</span>
+              <span className="text-xs text-secundario">Cargando...</span>
             ) : pallettsHoy.length === 0 ? (
-              <span className="text-xs text-gray-400 flex items-center gap-1.5"><Package size={14} className="text-gray-300" /> Todavía no cargaste ningún pallet hoy.</span>
+              <span className="text-xs text-secundario flex items-center gap-1.5"><Package size={14} className="text-inerte" /> Todavía no cargaste ningún pallet hoy.</span>
             ) : (
               <>
                 <span className="text-xs text-gray-600 font-medium">
                   Hoy: <span className="text-gray-900 font-bold">{pallettsHoy.length}</span> pallet{pallettsHoy.length !== 1 ? 's' : ''} cargado{pallettsHoy.length !== 1 ? 's' : ''}
                 </span>
-                <span className="text-xs text-gray-400 truncate">
+                <span className="text-xs text-secundario truncate">
                   último: {pallettsHoy[0].productoNombre} — {pallettsHoy[0].fechaFabricacion.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </>

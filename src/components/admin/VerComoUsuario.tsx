@@ -59,7 +59,7 @@ export default function VerComoUsuario() {
         Cada entrada queda registrada en la auditoría.
       </p>
       <label className="relative block">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-inerte" />
         <input
           value={q}
           onChange={(e: ChangeEvent<HTMLInputElement>) => setQ(e.target.value)}
@@ -68,9 +68,9 @@ export default function VerComoUsuario() {
         />
       </label>
       {q.trim().length >= 2 && (
-        <ul className="divide-y divide-gray-100 rounded-xl border border-[#D3D1C7] bg-white">
-          {usuarios === null && <li className="px-3 py-2 text-sm text-gray-400">Cargando usuarios…</li>}
-          {usuarios !== null && resultados.length === 0 && <li className="px-3 py-2 text-sm text-gray-400">Sin resultados.</li>}
+        <ul className="divide-y divide-[#E7E5DC] rounded-xl border border-[#D3D1C7] bg-white">
+          {usuarios === null && <li className="px-3 py-2 text-sm text-secundario">Cargando usuarios…</li>}
+          {usuarios !== null && resultados.length === 0 && <li className="px-3 py-2 text-sm text-secundario">Sin resultados.</li>}
           {resultados.map((u) => (
             <li key={u.uid} className="px-3 py-2 flex items-center gap-3">
               <div className="min-w-0 flex-1">

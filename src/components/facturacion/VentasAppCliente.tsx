@@ -95,8 +95,8 @@ export default function VentasAppCliente({ clienteUid }: { clienteUid: string })
       {filas !== null && filas.length > 0 && (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="text-[11px] uppercase tracking-wide text-gray-500">
-              <tr className="border-b border-gray-100">
+            <thead className="text-xs uppercase tracking-wide text-gray-500">
+              <tr className="border-b border-[#E7E5DC]">
                 <th className="text-left px-3 py-2 font-semibold">Fecha</th>
                 <th className="text-left px-2 py-2 font-semibold">Quién vendió</th>
                 <th className="text-left px-2 py-2 font-semibold">Comprobante</th>
@@ -105,7 +105,7 @@ export default function VentasAppCliente({ clienteUid }: { clienteUid: string })
                 <th className="w-36" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-[#E7E5DC]">
               {filas.map((f) => {
                 const v = f.venta
                 const estado = textoAnulacion(v.anulacion)
@@ -115,17 +115,17 @@ export default function VentasAppCliente({ clienteUid }: { clienteUid: string })
                   <tr key={`${f.coleccion}/${v.id}`} className="hover:bg-[#F8F7F2]">
                     <td className="px-3 py-2 text-gray-700 whitespace-nowrap">
                       {v.fecha.toDate().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
-                      <span className="block text-[11px] text-gray-400">{v.fecha.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</span>
+                      <span className="block text-[11px] text-secundario">{v.fecha.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</span>
                     </td>
                     <td className="px-2 py-2 text-xs text-gray-600 whitespace-nowrap">
                       {f.coleccion === 'ventasCamion' ? <>Camión · {f.venta.choferNombre}</> : <>Ventanilla · {f.venta.cajaNombre}</>}
-                      {nombreClienteVenta(v) !== v.clienteNombre && <span className="block text-[11px] text-gray-400 truncate max-w-[12rem]">{nombreClienteVenta(v)}</span>}
+                      {nombreClienteVenta(v) !== v.clienteNombre && <span className="block text-[11px] text-secundario truncate max-w-[12rem]">{nombreClienteVenta(v)}</span>}
                     </td>
-                    <td className={`px-2 py-2 whitespace-nowrap ${anulada ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+                    <td className={`px-2 py-2 whitespace-nowrap ${anulada ? 'text-secundario line-through' : 'text-gray-900'}`}>
                       {comprobanteDeVenta(v)}
-                      <span className="block text-[11px] text-gray-400 no-underline">{v.canal === 'promo' ? 'Promo' : 'Contado'} · {v.formaPago.replace(/_/g, ' ')}</span>
+                      <span className="block text-[11px] text-secundario no-underline">{v.canal === 'promo' ? 'Promo' : 'Contado'} · {v.formaPago.replace(/_/g, ' ')}</span>
                     </td>
-                    <td className={`px-2 py-2 text-right tabular-nums whitespace-nowrap ${anulada ? 'text-gray-400' : 'text-gray-900'}`}>{formatoARS(v.total)}</td>
+                    <td className={`px-2 py-2 text-right tabular-nums whitespace-nowrap ${anulada ? 'text-secundario' : 'text-gray-900'}`}>{formatoARS(v.total)}</td>
                     <td className={`px-2 py-2 text-xs ${tono}`}>{estado?.texto ?? 'Vigente'}</td>
                     <td className="pr-3 py-2 text-right whitespace-nowrap">
                       {puedeAnular && facturaAnulable(v) && (
@@ -149,7 +149,7 @@ export default function VentasAppCliente({ clienteUid }: { clienteUid: string })
         </div>
       )}
       {filas !== null && (
-        <div className="px-4 py-2 border-t border-gray-100">
+        <div className="px-4 py-2 border-t border-[#E7E5DC]">
           <button type="button" onClick={cargar} className="text-xs text-accent font-medium inline-flex items-center gap-1 hover:underline"><RefreshCw size={12} /> Actualizar</button>
         </div>
       )}

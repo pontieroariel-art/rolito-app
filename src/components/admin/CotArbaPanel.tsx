@@ -173,10 +173,10 @@ export default function CotArbaPanel() {
         <p className="text-xs text-gray-500 mb-2">Los kilos de la carga se calculan con esto. Código del nomenclador COT (NCM de 6 dígitos): hielo {CODIGO_ARBA_HIELO}, agua de mesa {CODIGO_ARBA_AGUA}.</p>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="text-[11px] uppercase tracking-wide text-gray-500">
-              <tr className="border-b border-gray-100"><th className="text-left py-1.5">Producto</th><th className="text-left py-1.5">kg por unidad</th><th className="text-left py-1.5">Código ARBA</th><th className="text-left py-1.5">Descripción (máx. 40)</th></tr>
+            <thead className="text-xs uppercase tracking-wide text-gray-500">
+              <tr className="border-b border-[#E7E5DC]"><th className="text-left py-1.5">Producto</th><th className="text-left py-1.5">kg por unidad</th><th className="text-left py-1.5">Código ARBA</th><th className="text-left py-1.5">Descripción (máx. 40)</th></tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-[#E7E5DC]">
               {filasProductos.map((f) => (
                 <tr key={f.id} className={f.cargado ? '' : 'text-gray-500'}>
                   <td className="py-1.5 pr-2">{f.nombre}{!f.cargado && <span className="ml-1 text-[11px] text-amber-600">(sugerido)</span>}</td>

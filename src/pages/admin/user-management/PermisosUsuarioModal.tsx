@@ -194,7 +194,7 @@ export function PermisosUsuarioModal({
 
         {/* Atajos de un clic. */}
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[11px] uppercase tracking-wide text-gray-400 font-semibold">Atajos</span>
+          <span className="text-xs uppercase tracking-wide text-secundario font-semibold">Atajos</span>
           <button type="button" onClick={verTodo}
             className="text-xs rounded-lg border border-[#D3D1C7] px-2.5 py-1.5 text-gray-700 hover:border-accent hover:text-accent transition-colors">
             Todo lo de su rol
@@ -230,7 +230,7 @@ export function PermisosUsuarioModal({
                     <Interruptor estado={estado} etiqueta={`Mostrar ${SISTEMA_LABELS[s]}`} onClick={() => alternarDominio(s)} />
                     <button type="button" onClick={() => setAbiertos((p) => { const n = new Set(p); if (n.has(s)) n.delete(s); else n.add(s); return n })}
                       className="flex-1 flex items-center justify-between gap-2 text-left">
-                      <span className={`text-sm font-semibold ${estado === 'nada' ? 'text-gray-400' : 'text-gray-900'}`}>{SISTEMA_LABELS[s]}</span>
+                      <span className={`text-sm font-semibold ${estado === 'nada' ? 'text-secundario' : 'text-gray-900'}`}>{SISTEMA_LABELS[s]}</span>
                       <span className="flex items-center gap-2 shrink-0">
                         <span className={`text-[11px] rounded-full px-2 py-0.5 border ${
                           estado === 'todo' ? 'bg-[#E8F5F0] text-[#0F6B4E] border-[#B3DDD3]'
@@ -239,7 +239,7 @@ export function PermisosUsuarioModal({
                         }`}>
                           {estado === 'nada' ? 'oculto' : `${visibles} de ${items.length}`}
                         </span>
-                        {abierto ? <ChevronDown size={16} className="text-gray-400" /> : <ChevronRight size={16} className="text-gray-400" />}
+                        {abierto ? <ChevronDown size={16} className="text-inerte" /> : <ChevronRight size={16} className="text-inerte" />}
                       </span>
                     </button>
                   </div>
@@ -248,7 +248,7 @@ export function PermisosUsuarioModal({
                     <div className={`px-3 pb-3 space-y-3 ${estado === 'nada' ? 'opacity-50' : ''}`}>
                       {(grupos[s] ?? []).map((g) => (
                         <div key={g.id}>
-                          <p className="text-[11px] uppercase tracking-wide text-gray-400 font-semibold mb-1">{g.label}</p>
+                          <p className="text-xs uppercase tracking-wide text-secundario font-semibold mb-1">{g.label}</p>
                           <div className="grid sm:grid-cols-2 gap-1">
                             {g.items.map((item) => {
                               const oculta = dominiosOcultos.has(s) || pestanasOcultas.has(item.to)
@@ -257,7 +257,7 @@ export function PermisosUsuarioModal({
                                   disabled={dominiosOcultos.has(s)}
                                   onClick={() => alternarPantalla(item.to)}
                                   className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors ${
-                                    oculta ? 'text-gray-400' : 'text-gray-700 hover:bg-[#F8F7F2]'
+                                    oculta ? 'text-secundario' : 'text-gray-700 hover:bg-[#F8F7F2]'
                                   } disabled:cursor-not-allowed`}
                                 >
                                   <Caja marcada={!oculta} />
@@ -278,7 +278,7 @@ export function PermisosUsuarioModal({
 
           {/* ── Vista previa ── */}
           <aside className="rounded-2xl border border-[#D3D1C7] bg-[#F8F7F2] p-3 lg:sticky lg:top-0">
-            <p className="text-[11px] uppercase tracking-wide text-gray-400 font-semibold mb-2 flex items-center gap-1.5">
+            <p className="text-xs uppercase tracking-wide text-secundario font-semibold mb-2 flex items-center gap-1.5">
               <Monitor size={13} /> Así lo va a ver
             </p>
             {dominiosVisibles.length === 0 ? (
@@ -299,10 +299,10 @@ export function PermisosUsuarioModal({
                     .filter((g) => g.items.length > 0)
                     .map((g) => (
                       <div key={g.id}>
-                        <p className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold px-1.5 mb-0.5">{g.label}</p>
+                        <p className="text-[10px] uppercase tracking-wide text-secundario font-semibold px-1.5 mb-0.5">{g.label}</p>
                         {g.items.map((i) => (
                           <p key={i.to} className="flex items-center gap-2 px-1.5 py-1 text-xs text-gray-700">
-                            <i.icon size={14} className="text-gray-400 shrink-0" /> <span className="truncate">{i.label}</span>
+                            <i.icon size={14} className="text-secundario shrink-0" /> <span className="truncate">{i.label}</span>
                           </p>
                         ))}
                       </div>
@@ -314,13 +314,13 @@ export function PermisosUsuarioModal({
         </div>
 
         {/* ── Resumen y acciones ── */}
-        <div className="border-t border-gray-100 pt-3 space-y-3">
+        <div className="border-t border-[#E7E5DC] pt-3 space-y-3">
           <p className="text-xs text-gray-600">
             <strong className="text-gray-900">{dominiosVisibles.length}</strong> {dominiosVisibles.length === 1 ? 'dominio' : 'dominios'}
             {' · '}<strong className="text-gray-900">{pantallasVisibles.length}</strong> {pantallasVisibles.length === 1 ? 'pantalla' : 'pantallas'}
             {' · entra en '}<strong className="text-gray-900">{entrada}</strong>
           </p>
-          <p className="text-[11px] text-gray-400">
+          <p className="text-[11px] text-secundario">
             ¿Querés fijar una tablet para cualquiera que se loguee ahí? Eso se marca en el aparato, desde Cobranzas.
           </p>
           <div className="flex gap-2">

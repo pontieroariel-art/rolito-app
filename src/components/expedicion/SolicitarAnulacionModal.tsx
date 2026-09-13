@@ -57,7 +57,7 @@ export default function SolicitarAnulacionModal({ objetivo, actor, origen, onCer
         <p className="text-sm text-gray-700">
           Factura <b>{nroFactura(venta)}</b> · <b>{venta.clienteNombre}</b> · {formatoARS(venta.total)}
         </p>
-        <div className="border border-[#D3D1C7] rounded-lg divide-y divide-gray-100 text-sm">
+        <div className="border border-[#D3D1C7] rounded-lg divide-y divide-[#E7E5DC] text-sm">
           {venta.items.map((i) => (
             <div key={i.productoId} className="flex justify-between px-3 py-1.5">
               <span className="text-gray-700">{i.cantidad} × {i.nombre}</span>

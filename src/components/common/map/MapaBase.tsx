@@ -51,9 +51,9 @@ export default function MapaBase({
   if (loadError) {
     return (
       <div className={`${claseHueco} ${FONDO[modo]} flex flex-col items-center justify-center gap-2 p-4 text-center`}>
-        <MapPinOff size={22} className={modo === 'oscuro' ? 'text-white/50' : 'text-gray-400'} />
+        <MapPinOff size={22} className={modo === 'oscuro' ? 'text-white/50' : 'text-inerte'} />
         <p className={`text-sm ${modo === 'oscuro' ? 'text-white/70' : 'text-gray-600'}`}>No pudimos cargar el mapa.</p>
-        <p className={`text-xs ${modo === 'oscuro' ? 'text-white/40' : 'text-gray-400'}`}>Revisá la conexión y volvé a entrar.</p>
+        <p className={`text-xs ${modo === 'oscuro' ? 'text-white/40' : 'text-secundario'}`}>Revisá la conexión y volvé a entrar.</p>
       </div>
     )
   }

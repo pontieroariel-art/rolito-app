@@ -65,7 +65,7 @@ export default function SupervisorHistorialPage() {
                 <p className="text-xs text-gray-500 flex justify-between">Cheques <span className="font-medium text-gray-900">{formatoARS(totalPeriodo.cheques)}</span></p>
                 <p className="text-xs text-gray-500 flex justify-between">Retenciones <span className="font-medium text-gray-900">{formatoARS(totalPeriodo.retenciones)}</span></p>
               </div>
-              <p className="text-xs text-gray-400 mt-1">{cobranzas.length} {cobranzas.length === 1 ? 'recibo' : 'recibos'}</p>
+              <p className="text-xs text-secundario mt-1">{cobranzas.length} {cobranzas.length === 1 ? 'recibo' : 'recibos'}</p>
             </div>
 
             {porDia.map(({ dia, items, resumen }) => (

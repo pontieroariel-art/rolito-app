@@ -216,7 +216,7 @@ export default function DominioLayout({ children }: { children?: ReactNode }) {
               </div>
             </div>
           ))}
-          <div className="border-t border-gray-100 pt-3 flex items-center justify-between gap-2">
+          <div className="border-t border-[#E7E5DC] pt-3 flex items-center justify-between gap-2">
             <div className="min-w-0">
               <p className="text-sm font-semibold text-gray-800 truncate">{user?.nombre?.split(' ')[0]}</p>
               <p className="text-xs text-gray-500 truncate">{subtitulo}</p>
@@ -239,11 +239,13 @@ export default function DominioLayout({ children }: { children?: ReactNode }) {
             {grupos.map((g) => (
               <div key={g.id}>
                 {colapsado
-                  ? <div className="border-t border-gray-100 mb-2" aria-hidden />
+                  ? <div className="border-t border-[#E7E5DC] mb-2" aria-hidden />
                   : <p className="text-xs uppercase tracking-wide text-secundario font-semibold mb-2 px-2.5">{g.label}</p>}
                 <div className="space-y-0.5">
                   {g.items.map((item) => (
-                    <NavLink key={item.to} to={item.to} end className={linkClass} title={colapsado ? `${item.label} · ${g.label}` : undefined}>
+                    // El tooltip va siempre: con el sidebar abierto, un nombre
+                    // largo como "Comprobantes de clientes" igual se corta.
+                    <NavLink key={item.to} to={item.to} end className={linkClass} title={colapsado ? `${item.label} · ${g.label}` : item.label}>
                       <item.icon size={16} className="shrink-0" />
                       {!colapsado && <span className="truncate">{item.label}</span>}
                     </NavLink>

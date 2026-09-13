@@ -163,7 +163,7 @@ export function FichaClienteModal({
               <div className="flex flex-col gap-0.5">
                 <Row label="Razón social" value={user.razonSocial || '—'} />
                 {user.codigoTango && (
-                  <span className="text-[10px] text-gray-400 pl-0.5">Dato de Tango — se edita en Tango, se sincroniza acá</span>
+                  <span className="text-[10px] text-secundario pl-0.5">Dato de Tango — se edita en Tango, se sincroniza acá</span>
                 )}
               </div>
             )}
@@ -249,7 +249,7 @@ export function FichaClienteModal({
             </h3>
             <div className="bg-[#F8F7F2] rounded-xl p-3">
               <Row label="En Tango" value={listaTangoResumen(user)} />
-              <p className="text-xs text-gray-400 mt-1.5">Se edita en Tango y se sincroniza a la app todos los días a las 5:30 (o desde Precios → Sincronizar ahora).</p>
+              <p className="text-xs text-secundario mt-1.5">Se edita en Tango y se sincroniza a la app todos los días a las 5:30 (o desde Precios → Sincronizar ahora).</p>
             </div>
           </section>
         )}
@@ -277,7 +277,7 @@ export function FichaClienteModal({
                 <div className="flex flex-col gap-0.5">
                   <Row label="Condición de venta" value={user.condicionVenta || '—'} />
                   {user.codigoTango && (
-                    <span className="text-[10px] text-gray-400 pl-0.5">Dato de Tango — se edita en Tango, se sincroniza acá</span>
+                    <span className="text-[10px] text-secundario pl-0.5">Dato de Tango — se edita en Tango, se sincroniza acá</span>
                   )}
                 </div>
               )}
@@ -309,7 +309,7 @@ export function FichaClienteModal({
                 <Row label="Código" value={user.codigoCliente ?? '—'} />
               )}
               {canAssignCode && (
-                <p className="text-xs text-gray-400 mt-1.5">Código interno de cliente (facturación / gestión comercial).</p>
+                <p className="text-xs text-secundario mt-1.5">Código interno de cliente (facturación / gestión comercial).</p>
               )}
             </div>
           </section>
@@ -377,7 +377,7 @@ export function FichaClienteModal({
 
           {localAddresses.length > 0 ? (
             domiciliosFiltrados.length === 0 ? (
-              <p className="text-xs text-gray-400 text-center py-3">Sin resultados para "{domicilioSearch}"</p>
+              <p className="text-xs text-secundario text-center py-3">Sin resultados para "{domicilioSearch}"</p>
             ) : (
             <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
               {/* addr.id no alcanza como key: dos sucursales pueden compartir

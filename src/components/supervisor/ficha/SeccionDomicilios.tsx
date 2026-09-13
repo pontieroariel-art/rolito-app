@@ -8,9 +8,9 @@ function Domicilio({ a, principal }: { a: Pick<DeliveryAddress, 'nombre' | 'addr
   const verificada = typeof a.lat === 'number' && typeof a.lng === 'number'
   const horario = a.horarioApertura || a.horarioCierre ? `${a.horarioApertura || '?'} a ${a.horarioCierre || '?'}` : ''
   return (
-    <div className="py-3 border-b border-gray-100 last:border-0">
+    <div className="py-3 border-b border-[#E7E5DC] last:border-0">
       <div className="flex items-start gap-2">
-        <MapPin size={16} className="text-gray-400 mt-0.5 shrink-0" />
+        <MapPin size={16} className="text-inerte mt-0.5 shrink-0" />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-gray-900">
             {a.nombre || 'Domicilio'}{principal && <span className="ml-1.5 text-[10px] font-semibold uppercase text-accent">principal</span>}

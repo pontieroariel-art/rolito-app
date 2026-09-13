@@ -195,7 +195,7 @@ export default function LoginClientes() {
             Crear cuenta nueva
           </Link>
 
-          <p className="text-center text-xs text-gray-400 mt-1">
+          <p className="text-center text-xs text-secundario mt-1">
             ¿Sos del equipo Rolito?{' '}
             <Link to="/empresa" className="text-gray-500 hover:text-accent transition-colors">
               Ingresá acá

@@ -78,7 +78,7 @@ export default function SeleccionSistemaPage() {
                   </h2>
                   <p className="text-gray-500 text-xs mt-0.5 leading-snug">{SISTEMA_DESCRIPCIONES[s]}</p>
                 </div>
-                <ChevronRight size={20} className="shrink-0 transition-all group-hover:translate-x-0.5 text-gray-300 group-hover:text-accent" />
+                <ChevronRight size={20} className="shrink-0 transition-all group-hover:translate-x-0.5 text-inerte group-hover:text-accent" />
               </button>
             )
           })}

@@ -252,7 +252,7 @@ export default function HistorialDespachoPage() {
         {/* Grupos por chofer */}
         {grupos.length === 0 ? (
           <div className="bg-white border border-[#D3D1C7] rounded-xl p-10 text-center">
-            <Truck className="mx-auto mb-3 text-gray-300" size={32} />
+            <Truck className="mx-auto mb-3 text-inerte" size={32} />
             <p className="text-gray-500 text-sm">Sin despachos registrados este día</p>
           </div>
         ) : (
@@ -333,12 +333,12 @@ function ChoferCard({ grupo, open, onToggle, onDownloadPdf, pdfLoading }: {
           onClick={onDownloadPdf}
           disabled={pdfLoading || total === 0}
           title="Descargar PDF de este despacho"
-          className="p-1.5 rounded-lg border border-[#D3D1C7] bg-white hover:border-accent text-gray-400 hover:text-accent transition-colors disabled:opacity-30 disabled:hover:border-[#D3D1C7] disabled:hover:text-gray-400 shrink-0"
+          className="p-1.5 rounded-lg border border-[#D3D1C7] bg-white hover:border-accent text-inerte hover:text-accent transition-colors disabled:opacity-30 disabled:hover:border-[#D3D1C7] disabled:hover:text-inerte shrink-0"
         >
           <Download size={14} />
         </button>
 
-        <button onClick={onToggle} className="shrink-0 text-gray-400">
+        <button onClick={onToggle} className="shrink-0 text-secundario">
           {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </button>
       </div>
@@ -346,7 +346,7 @@ function ChoferCard({ grupo, open, onToggle, onDownloadPdf, pdfLoading }: {
       {open && (
         <div className="border-t border-[#D3D1C7] divide-y divide-[#EDEBE3]">
           {grupo.items.length === 0 ? (
-            <p className="text-xs text-gray-400 p-4">Sin pedidos</p>
+            <p className="text-xs text-secundario p-4">Sin pedidos</p>
           ) : (
             grupo.items.map(({ order, resultado }) => (
               <div key={order.id} className="p-3 flex flex-wrap gap-2 justify-between items-start">

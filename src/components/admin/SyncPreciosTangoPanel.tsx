@@ -136,7 +136,7 @@ export default function SyncPreciosTangoPanel({ solo }: { solo?: SyncId } = {}) 
             </li>
           )}
           {altasRes?.ejemplosDescartados?.length ? (
-            <li className="text-gray-400">Sin CUIT válido (no se crean): {altasRes.ejemplosDescartados.slice(0, 8).map((d) => `${d.codigo} ${d.nombre} (${d.cuit || 'sin CUIT'})`).join(' · ')}{altasRes.ejemplosDescartados.length > 8 ? ' …' : ''}</li>
+            <li className="text-secundario">Sin CUIT válido (no se crean): {altasRes.ejemplosDescartados.slice(0, 8).map((d) => `${d.codigo} ${d.nombre} (${d.cuit || 'sin CUIT'})`).join(' · ')}{altasRes.ejemplosDescartados.length > 8 ? ' …' : ''}</li>
           ) : null}
         </ul>
       ),
@@ -187,7 +187,7 @@ export default function SyncPreciosTangoPanel({ solo }: { solo?: SyncId } = {}) 
   const visibles = solo ? filas.filter((f) => f.id === solo) : filas
 
   return (
-    <div className="bg-white border border-[#D3D1C7] rounded-xl divide-y divide-gray-100">
+    <div className="bg-white border border-[#D3D1C7] rounded-xl divide-y divide-[#E7E5DC]">
       {!solo && (
         <div className="p-4 pb-3">
           <p className="text-sm font-semibold text-gray-900">Sincronización con Tango</p>

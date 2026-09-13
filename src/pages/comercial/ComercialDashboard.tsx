@@ -153,7 +153,7 @@ export default function ComercialDashboard() {
                   <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-2">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-semibold flex items-center gap-2">
-                        <Tag size={14} className="text-gray-400" />
+                        <Tag size={14} className="text-inerte" />
                         {sinLista.length} cliente{sinLista.length !== 1 ? 's' : ''} sin lista de precios
                       </p>
                       <Link to="/usuarios" className="text-xs text-accent hover:underline">
@@ -178,7 +178,7 @@ export default function ComercialDashboard() {
                   <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-2">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-semibold flex items-center gap-2">
-                        <Clock size={14} className="text-gray-400" />
+                        <Clock size={14} className="text-inerte" />
                         {inactivos.length} cliente{inactivos.length !== 1 ? 's' : ''} sin pedir hace {INACTIVE_DAYS}+ días
                       </p>
                       <Link to="/usuarios" className="text-xs text-accent hover:underline">
@@ -253,7 +253,7 @@ export default function ComercialDashboard() {
                     <p className="text-gray-500 text-xs mt-0.5">Filtrá por cliente, día, mes o año</p>
                   </div>
                 </div>
-                <ArrowRight size={16} className="text-gray-400 group-hover:text-accent transition-colors" />
+                <ArrowRight size={16} className="text-inerte group-hover:text-accent transition-colors" />
               </Link>
               <Link
                 to="/usuarios"
@@ -266,7 +266,7 @@ export default function ComercialDashboard() {
                     <p className="text-gray-500 text-xs mt-0.5">Aprobar clientes, asignar listas y precios especiales</p>
                   </div>
                 </div>
-                <ArrowRight size={16} className="text-gray-400 group-hover:text-accent transition-colors" />
+                <ArrowRight size={16} className="text-inerte group-hover:text-accent transition-colors" />
               </Link>
               <Link
                 to="/comercial/ventas"
@@ -279,7 +279,7 @@ export default function ComercialDashboard() {
                     <p className="text-gray-500 text-xs mt-0.5">Entregas, volumen por producto y ranking de clientes</p>
                   </div>
                 </div>
-                <ArrowRight size={16} className="text-gray-400 group-hover:text-accent transition-colors" />
+                <ArrowRight size={16} className="text-inerte group-hover:text-accent transition-colors" />
               </Link>
               <Link
                 to="/admin/clima"
@@ -292,7 +292,7 @@ export default function ComercialDashboard() {
                     <p className="text-gray-500 text-xs mt-0.5">Temperatura e historial de ventas por día</p>
                   </div>
                 </div>
-                <ArrowRight size={16} className="text-gray-400 group-hover:text-accent transition-colors" />
+                <ArrowRight size={16} className="text-inerte group-hover:text-accent transition-colors" />
               </Link>
             </section>
           </>
@@ -414,9 +414,11 @@ function StatCard({
 }) {
   return (
     <div className={`bg-white border ${border} rounded-xl p-4 space-y-2`}>
-      <div className={color}>{icon}</div>
-      <p className={`text-2xl font-bold ${color}`}>{value}</p>
-      <p className="text-gray-500 text-xs">{label}</p>
+      {/* Un cero pierde el color del estado y queda en gris secundario: no
+          es noticia, pero se sigue leyendo. Ver convenciones en CLAUDE.md. */}
+      <div className={value === 0 ? 'text-secundario' : color}>{icon}</div>
+      <p className={`text-2xl font-bold tabular-nums ${value === 0 ? 'text-secundario' : color}`}>{value.toLocaleString('es-AR')}</p>
+      <p className="text-secundario text-xs">{label}</p>
     </div>
   )
 }

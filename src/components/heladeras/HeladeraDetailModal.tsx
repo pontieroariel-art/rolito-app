@@ -85,7 +85,7 @@ export default function HeladeraDetailModal({ heladera, clienteCodigo, onClose }
               </p>
             )}
             <p className="text-xs text-gray-500 mt-1">
-              Cliente asignado: <span className={heladera.clienteAsignadoNombre ? 'text-gray-900 font-medium' : 'text-gray-400'}>
+              Cliente asignado: <span className={heladera.clienteAsignadoNombre ? 'text-gray-900 font-medium' : 'text-secundario'}>
                 {heladera.clienteAsignadoNombre ?? 'sin asignar'}{heladera.clienteAsignadoNombre && clienteCodigo ? ` (${clienteCodigo})` : ''}
               </span>
             </p>
@@ -167,16 +167,16 @@ export default function HeladeraDetailModal({ heladera, clienteCodigo, onClose }
         <section className="space-y-2">
           <h3 className="text-sm font-semibold text-gray-900">Historial</h3>
           {historial.length === 0 ? (
-            <p className="text-gray-400 text-xs">Sin movimientos registrados.</p>
+            <p className="text-secundario text-xs">Sin movimientos registrados.</p>
           ) : (
             <div className="space-y-1.5 max-h-64 overflow-y-auto">
               {historial.map((a, i) => (
-                <div key={i} className="flex items-start justify-between gap-3 border-b border-gray-100 pb-1.5 last:border-0">
+                <div key={i} className="flex items-start justify-between gap-3 border-b border-[#E7E5DC] pb-1.5 last:border-0">
                   <div>
                     <p className="text-xs font-medium text-gray-900">{ACCION_LABELS[a.accion] ?? a.accion}</p>
                     <p className="text-xs text-gray-500">{a.usuarioNombre}{a.detalle ? ` · ${a.detalle}` : ''}</p>
                   </div>
-                  <span className="text-xs text-gray-400 whitespace-nowrap">{tsToDate(a.timestamp).toLocaleString('es-AR')}</span>
+                  <span className="text-xs text-secundario whitespace-nowrap">{tsToDate(a.timestamp).toLocaleString('es-AR')}</span>
                 </div>
               ))}
             </div>

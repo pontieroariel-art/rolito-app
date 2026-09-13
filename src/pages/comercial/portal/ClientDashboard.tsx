@@ -93,7 +93,7 @@ export default function ClientDashboard() {
           {multiSucursal && selectedAddress ? (
             <div className="flex items-center gap-2 mt-1">
               <p className="text-accent text-sm font-medium">📍 {selectedAddress.nombre}</p>
-              <Link to="/sucursal" className="text-xs text-gray-400 hover:text-gray-700 transition-colors">
+              <Link to="/sucursal" className="text-xs text-secundario hover:text-gray-700 transition-colors">
                 Cambiar →
               </Link>
             </div>
@@ -155,13 +155,13 @@ export default function ClientDashboard() {
               className="w-full flex items-center justify-between gap-3 bg-white border border-gray-200 hover:border-accent/50 rounded-2xl px-4 py-3 text-sm transition-colors group"
             >
               <div className="flex items-center gap-2 min-w-0">
-                <span className="text-gray-400 group-hover:text-accent transition-colors shrink-0">↩</span>
+                <span className="text-secundario group-hover:text-accent transition-colors shrink-0">↩</span>
                 <div className="text-left min-w-0">
-                  <p className="text-xs text-gray-400">Repetir último pedido</p>
+                  <p className="text-xs text-secundario">Repetir último pedido</p>
                   <p className="text-gray-900 truncate text-sm">{summarizeProducts(lastOrder.products)}</p>
                 </div>
               </div>
-              <span className="text-gray-400 text-xs shrink-0 group-hover:text-accent transition-colors">→</span>
+              <span className="text-secundario text-xs shrink-0 group-hover:text-accent transition-colors">→</span>
             </button>
           )}
         </div>
@@ -183,8 +183,8 @@ export default function ClientDashboard() {
 
           {recent.length === 0 ? (
             <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center">
-              <p className="text-gray-400 text-sm">Aún no tenés pedidos</p>
-              <p className="text-gray-300 text-xs mt-1">Hacé tu primer pedido usando el botón de arriba</p>
+              <p className="text-secundario text-sm">Aún no tenés pedidos</p>
+              <p className="text-inerte text-xs mt-1">Hacé tu primer pedido usando el botón de arriba</p>
             </div>
           ) : (
             <div className="space-y-3">

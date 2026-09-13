@@ -21,7 +21,7 @@ export default function SelectSucursal() {
 
       {/* Logo */}
       <div className="mb-8 flex flex-col items-center gap-3">
-        <div className="bg-white rounded-2xl p-2 shadow-lg border border-gray-100">
+        <div className="bg-white rounded-2xl p-2 shadow-lg border border-[#E7E5DC]">
           <img src="/isotipo-rolito.png" alt="Rolito" className="w-14 h-14 object-contain" />
         </div>
         <div className="text-center">
@@ -47,12 +47,12 @@ export default function SelectSucursal() {
                 </p>
                 <p className="text-xs text-gray-500 mt-0.5 truncate">{addr.address}</p>
                 {addr.horarioApertura && addr.horarioCierre && (
-                  <p className="text-xs text-gray-400 mt-0.5">
+                  <p className="text-xs text-secundario mt-0.5">
                     {addr.horarioApertura} – {addr.horarioCierre}
                   </p>
                 )}
               </div>
-              <span className="text-gray-400 text-xl group-hover:text-accent group-hover:translate-x-1 transition-all shrink-0">
+              <span className="text-secundario text-xl group-hover:text-accent group-hover:translate-x-1 transition-all shrink-0">
                 →
               </span>
             </div>
@@ -63,7 +63,7 @@ export default function SelectSucursal() {
       {addresses.length === 0 && (
         <div className="w-full max-w-sm text-center mt-4">
           <p className="text-gray-500 text-sm">No tenés sucursales registradas.</p>
-          <p className="text-gray-400 text-xs mt-1">Pedile al administrador que agregue tu dirección.</p>
+          <p className="text-secundario text-xs mt-1">Pedile al administrador que agregue tu dirección.</p>
         </div>
       )}
     </div>

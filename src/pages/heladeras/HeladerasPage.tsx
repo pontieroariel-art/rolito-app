@@ -27,7 +27,7 @@ function StatTile({ value, label, tone }: { value: number; label: string; tone?:
       <span className={`text-2xl font-bold tabular-nums ${
         tone === 'warn' ? 'text-amber-600' : tone === 'good' ? 'text-accent' : 'text-gray-900'
       }`}>{value}</span>
-      <span className="text-[11px] uppercase tracking-wide text-gray-500">{label}</span>
+      <span className="text-xs uppercase tracking-wide text-gray-500">{label}</span>
     </div>
   )
 }
@@ -198,12 +198,12 @@ function HeladeraCard({
       <div>
         <p className="font-bold text-sm text-gray-900">{heladera.codigoInterno}</p>
         <p className="text-gray-500 text-xs">{heladera.modelo} · serie {heladera.numeroSerie}</p>
-        <p className="text-xs text-gray-400 mt-1">
+        <p className="text-xs text-secundario mt-1">
           {heladera.motivoIngresoNombre ?? TIPO_PIPELINE_LABELS[heladera.tipoPipeline]}
           {heladera.cicloActual > 1 ? ` · ciclo ${heladera.cicloActual}` : ''}
         </p>
         {heladera.enProceso && (
-          <p className="text-xs text-gray-400">con {heladera.enProceso.nombre}</p>
+          <p className="text-xs text-secundario">con {heladera.enProceso.nombre}</p>
         )}
       </div>
       <div className="flex items-center gap-2 flex-wrap">
@@ -317,7 +317,7 @@ export default function HeladerasPage() {
               <h2 className="text-xl font-bold text-gray-900">{TIPO_PIPELINE_LABELS[tipo]}</h2>
 
               {pasosDelTipo.length === 0 ? (
-                <p className="text-gray-400 text-sm">Todavía no hay pasos configurados para este pipeline.</p>
+                <p className="text-secundario text-sm">Todavía no hay pasos configurados para este pipeline.</p>
               ) : (
                 <>
                   {/* Tablero en vivo */}
@@ -350,7 +350,7 @@ export default function HeladerasPage() {
                       <section key={paso.id} className="space-y-3">
                         <h3 className="text-lg font-semibold">Esperando {paso.nombre.toLowerCase()}</h3>
                         {cola.length === 0 ? (
-                          <p className="text-gray-400 text-sm">No hay heladeras esperando este paso.</p>
+                          <p className="text-secundario text-sm">No hay heladeras esperando este paso.</p>
                         ) : (
                           <div className="space-y-2">
                             {cola.map((h) => (

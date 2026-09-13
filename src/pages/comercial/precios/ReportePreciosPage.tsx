@@ -194,7 +194,7 @@ export default function ReportePreciosPage() {
                     return (
                       <tr
                         key={c.uid}
-                        className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${
+                        className={`border-b border-[#E7E5DC] hover:bg-gray-50 transition-colors ${
                           i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
                         }`}
                       >
@@ -206,13 +206,13 @@ export default function ReportePreciosPage() {
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-2.5 whitespace-nowrap border-r border-gray-100">
+                        <td className="px-4 py-2.5 whitespace-nowrap border-r border-[#E7E5DC]">
                           {listaNombre ? (
                             <span className="text-xs px-2 py-0.5 rounded-full bg-accent/10 text-accent border border-accent/20">
                               {listaNombre}
                             </span>
                           ) : (
-                            <span className="text-xs text-gray-300">Sin lista</span>
+                            <span className="text-xs text-inerte">Sin lista</span>
                           )}
                         </td>
                         {productosActivos.map((p) => {
@@ -235,7 +235,7 @@ export default function ReportePreciosPage() {
                     <td className="sticky left-0 z-10 bg-white px-4 py-3 font-bold text-accent whitespace-nowrap border-r border-gray-200">
                       Precio promedio
                     </td>
-                    <td className="px-4 py-3 border-r border-gray-100" />
+                    <td className="px-4 py-3 border-r border-[#E7E5DC]" />
                     {productosActivos.map((p) => (
                       <td key={p.id} className="px-4 py-3 text-right font-bold text-accent tabular-nums whitespace-nowrap">
                         {promedios[p.id] !== null ? formatPrecio(promedios[p.id]!) : '—'}

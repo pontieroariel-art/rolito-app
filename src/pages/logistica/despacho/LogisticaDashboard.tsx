@@ -129,7 +129,7 @@ function OrderQuickView({ order, choferes, codigoCliente, columns, onClose, onEd
   return (
     <Modal open onClose={onClose} title={order.clientName}>
       <div className="space-y-3">
-        {codigoCliente && <p className="text-xs text-gray-400 font-mono -mt-1">{codigoCliente}</p>}
+        {codigoCliente && <p className="text-xs text-secundario font-mono -mt-1">{codigoCliente}</p>}
         {order.clientAddress && <p className="text-sm text-gray-500">{order.clientAddress}</p>}
         <p className="text-sm text-gray-700">{summarizeProducts(order.products)}</p>
 
@@ -151,11 +151,11 @@ function OrderQuickView({ order, choferes, codigoCliente, columns, onClose, onEd
               Sin asignar
             </button>
           )}
-          {order.horaEntrega && <span className="text-xs text-gray-400">{order.horaEntrega}</span>}
+          {order.horaEntrega && <span className="text-xs text-secundario">{order.horaEntrega}</span>}
         </div>
 
         {assigning && (
-          <div className="pt-1 border-t border-gray-100 flex flex-wrap gap-1.5">
+          <div className="pt-1 border-t border-[#E7E5DC] flex flex-wrap gap-1.5">
             {choferes.map((c) => {
               const col = driverColor(c.email, choferes)
               return (
@@ -178,7 +178,7 @@ function OrderQuickView({ order, choferes, codigoCliente, columns, onClose, onEd
         )}
 
         {canEdit && (
-          <div className="pt-2 border-t border-gray-100">
+          <div className="pt-2 border-t border-[#E7E5DC]">
             <button
               onClick={() => setShowMoveTo((v) => !v)}
               className={`w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border text-sm transition-colors ${
@@ -205,7 +205,7 @@ function OrderQuickView({ order, choferes, codigoCliente, columns, onClose, onEd
         )}
 
         {canEdit && (
-          <div className="flex gap-2 pt-2 border-t border-gray-100">
+          <div className="flex gap-2 pt-2 border-t border-[#E7E5DC]">
             <button
               onClick={() => { onClose(); onEdit(order) }}
               className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
@@ -271,20 +271,20 @@ const OrderListRow = memo(function OrderListRow({ order, choferes, codigoCliente
       )}
       <p className={`text-xs font-semibold text-gray-900 truncate min-w-0 flex-1 ${order.status === 'cancelado' ? 'line-through' : ''}`}>
         {!clientLogo && empresa && (
-          <span className="text-gray-400 font-normal">{empresa} · </span>
+          <span className="text-secundario font-normal">{empresa} · </span>
         )}
         {sucursal}
       </p>
       {codigoCliente && (
-        <span className="text-[9px] text-gray-400 font-mono shrink-0">{codigoCliente}</span>
+        <span className="text-[9px] text-secundario font-mono shrink-0">{codigoCliente}</span>
       )}
       {order.numeroOC && (
-        <span className="text-[9px] text-gray-400 font-mono shrink-0">OC {order.numeroOC}</span>
+        <span className="text-[9px] text-secundario font-mono shrink-0">OC {order.numeroOC}</span>
       )}
       {order.reprogramado && (
         <span className="text-amber-500 shrink-0" title={`Reprogramado${order.motivoReprogramacion ? `: ${order.motivoReprogramacion}` : ''}`}>↻</span>
       )}
-      <span className="text-[10px] text-gray-400 font-mono tabular-nums shrink-0">{totalUnits}u</span>
+      <span className="text-[10px] text-secundario font-mono tabular-nums shrink-0">{totalUnits}u</span>
       <span title={est.label} aria-label={est.label} className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: est.color }} />
     </div>
   )
@@ -332,7 +332,7 @@ const DayListColumn = memo(function DayListColumn({ id, label, sublabel, orders,
     }`}>
       <div className="text-center py-2 border-b border-[#D3D1C7] shrink-0">
         <p className={`text-sm font-bold ${isToday ? 'text-accent' : 'text-gray-900'}`}>{label}</p>
-        {sublabel && <p className="text-[10px] text-gray-400">{sublabel}</p>}
+        {sublabel && <p className="text-[10px] text-secundario">{sublabel}</p>}
         <div className="flex items-center justify-center gap-1 mt-0.5 h-4">
           {unassigned > 0 && (
             <span className="text-[9px] bg-amber-100 text-amber-600 border border-amber-200 px-1.5 rounded-full font-semibold leading-none">
@@ -360,7 +360,7 @@ const DayListColumn = memo(function DayListColumn({ id, label, sublabel, orders,
         ))}
         {orders.length === 0 && (
           <div className="flex items-center justify-center h-full py-6">
-            <p className="text-xs text-gray-400">{isOver ? '+ Soltar acá' : 'Sin pedidos'}</p>
+            <p className="text-xs text-secundario">{isOver ? '+ Soltar acá' : 'Sin pedidos'}</p>
           </div>
         )}
       </div>
@@ -441,14 +441,14 @@ function MiniCalendar({
       <div className="flex items-center justify-between">
         <button
           onClick={() => setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
-          className="p-1 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"
+          className="p-1 rounded-lg hover:bg-gray-100 text-secundario hover:text-gray-700 transition-colors"
         >
           <ChevronLeft size={13} />
         </button>
         <p className="text-[11px] font-semibold text-gray-700 capitalize">{monthLabel}</p>
         <button
           onClick={() => setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
-          className="p-1 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"
+          className="p-1 rounded-lg hover:bg-gray-100 text-secundario hover:text-gray-700 transition-colors"
         >
           <ChevronRight size={13} />
         </button>
@@ -457,7 +457,7 @@ function MiniCalendar({
       {/* Cabecera días */}
       <div className="grid grid-cols-7 text-center">
         {['L','M','X','J','V','S','D'].map((d) => (
-          <span key={d} className="text-[9px] font-semibold text-gray-400">{d}</span>
+          <span key={d} className="text-[9px] font-semibold text-secundario">{d}</span>
         ))}
       </div>
 
@@ -491,7 +491,7 @@ function MiniCalendar({
 
       {/* Semana activa */}
       <div className="border-t border-[#D3D1C7] pt-1.5 text-center">
-        <p className="text-[10px] text-gray-400">{rangeStart} – {rangeEnd}</p>
+        <p className="text-[10px] text-secundario">{rangeStart} – {rangeEnd}</p>
       </div>
     </div>
   )
@@ -704,19 +704,19 @@ export default function LogisticaDashboard() {
             <div className="flex items-center gap-3 text-xs">
               <span className="flex items-baseline gap-1">
                 <b className="text-sm font-bold text-gray-900 tabular-nums">{kpis.total}</b>
-                <span className="text-gray-400">hoy</span>
+                <span className="text-secundario">hoy</span>
               </span>
               <span className="flex items-baseline gap-1">
                 <b className={`text-sm font-bold tabular-nums ${kpis.sinAsignar > 0 ? 'text-amber-600' : 'text-gray-900'}`}>{kpis.sinAsignar}</b>
-                <span className={kpis.sinAsignar > 0 ? 'text-amber-500' : 'text-gray-400'}>sin asignar</span>
+                <span className={kpis.sinAsignar > 0 ? 'text-amber-500' : 'text-secundario'}>sin asignar</span>
               </span>
               <span className="flex items-baseline gap-1">
                 <b className="text-sm font-bold tabular-nums text-accent">{kpis.enCamino}</b>
-                <span className="text-gray-400">en camino</span>
+                <span className="text-secundario">en camino</span>
               </span>
               <span className="flex items-baseline gap-1">
                 <b className="text-sm font-bold tabular-nums text-green-600">{kpis.entregados}</b>
-                <span className="text-gray-400">entregados</span>
+                <span className="text-secundario">entregados</span>
               </span>
             </div>
           </div>
@@ -868,7 +868,7 @@ export default function LogisticaDashboard() {
                         >
                           {col.label}
                           {count > 0 && (
-                            <span className={`ml-1 text-[10px] font-bold ${selected ? 'text-white/80' : 'text-gray-400'}`}>{count}</span>
+                            <span className={`ml-1 text-[10px] font-bold ${selected ? 'text-white/80' : 'text-secundario'}`}>{count}</span>
                           )}
                         </button>
                       )

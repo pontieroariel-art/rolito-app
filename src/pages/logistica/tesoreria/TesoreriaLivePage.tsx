@@ -107,7 +107,7 @@ export default function TesoreriaLivePage() {
               return (
                 <Fragment key={s.uid}>
                   <tr className="cursor-pointer hover:bg-gray-50" onClick={() => setSupAbierto(abierto ? null : s.uid)}>
-                    <td className={TD}><span className="inline-flex items-center gap-1.5">{abierto ? <ChevronDown size={14} className="text-gray-400" /> : <ChevronRight size={14} className="text-gray-400" />}{s.nombre}</span></td>
+                    <td className={TD}><span className="inline-flex items-center gap-1.5">{abierto ? <ChevronDown size={14} className="text-inerte" /> : <ChevronRight size={14} className="text-inerte" />}{s.nombre}</span></td>
                     <td className={`${TD} text-right tabular-nums`}>{s.cobranzas.cantidad}</td>
                     <td className={`${TD} text-right tabular-nums`}>{formatoARS(s.cobranzas.efectivo)}</td>
                     <td className={`${TD} text-right tabular-nums`}>{formatoARS(s.cobranzas.transferencia)}</td>
@@ -117,7 +117,7 @@ export default function TesoreriaLivePage() {
                   </tr>
                   {abierto && (
                     <tr>
-                      <td colSpan={7} className="bg-[#F8F7F2] px-3 py-3 border-b border-gray-100">
+                      <td colSpan={7} className="bg-[#F8F7F2] px-3 py-3 border-b border-[#E7E5DC]">
                         <p className="text-xs text-gray-500 mb-2">Recibos de {s.nombre} en el día. Cada uno se abre con su detalle y su PDF.</p>
                         <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
                           {recibos.map((c) => <CobranzaSupervisorCard key={c.id} c={c} />)}
@@ -142,7 +142,7 @@ const lineasCob = (c: PlataCobranzas): Array<[string, string]> => [['Efectivo', 
 function Tile({ color, titulo, total, lineas, to }: { color: string; titulo: string; total: number; lineas: Array<[string, string]>; to?: string }) {
   return (
     <div className="rounded-xl border border-[#D3D1C7] bg-white p-3 space-y-1.5" style={{ borderTop: `4px solid ${color}` }}>
-      <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color }}>{titulo}</p>
+      <p className="text-xs font-bold uppercase tracking-wider" style={{ color }}>{titulo}</p>
       <p className="text-xl font-bold text-gray-900 tabular-nums">{formatoARS(total)}</p>
       <div className="text-xs text-gray-600 space-y-0.5">
         {lineas.map(([k, v]) => <p key={k} className="flex justify-between gap-2"><span>{k}</span><b className="text-gray-800 tabular-nums">{v}</b></p>)}

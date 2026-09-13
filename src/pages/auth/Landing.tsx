@@ -65,7 +65,7 @@ export default function Landing() {
 
             {/* Texto */}
             <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-widest mb-0.5 text-accent transition-colors">
+              <p className="text-xs font-semibold uppercase tracking-widest mb-0.5 text-accent transition-colors">
                 Clientes
               </p>
               <h2 className="text-base font-bold text-gray-900 group-hover:text-accent transition-colors leading-tight">
@@ -83,11 +83,11 @@ export default function Landing() {
             esta pantalla es la de un cliente pidiendo hielo, no un menú de
             todos los sistemas de la empresa. */}
         <div className="flex items-center justify-center gap-3 pt-2">
-          <Link to="/choferes" className="text-xs text-gray-400 hover:text-accent transition-colors">
+          <Link to="/choferes" className="text-xs text-secundario hover:text-accent transition-colors">
             Ingreso Choferes
           </Link>
-          <span className="text-gray-300">·</span>
-          <Link to="/empresa" className="text-xs text-gray-400 hover:text-accent transition-colors">
+          <span className="text-inerte">·</span>
+          <Link to="/empresa" className="text-xs text-secundario hover:text-accent transition-colors">
             Equipo Rolito
           </Link>
         </div>

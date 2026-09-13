@@ -42,7 +42,7 @@ function ContadorPlanta({ plantaId }: { plantaId: PlantaId }) {
   return (
     <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-2">
       <p className="font-bold text-sm text-gray-900">{PLANTAS[plantaId].label}</p>
-      <p className="text-xs text-gray-400">Ingreso de operarios: /produccion-{plantaId}</p>
+      <p className="text-xs text-secundario">Ingreso de operarios: /produccion-{plantaId}</p>
       {proximo !== null ? (
         <>
           <p className="text-sm text-gray-600">
@@ -52,7 +52,7 @@ function ContadorPlanta({ plantaId }: { plantaId: PlantaId }) {
           <p className="text-sm text-gray-600">
             Números entregados a tablets: <span className="font-semibold">hasta el {proximo - 1}</span>
           </p>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-secundario">
             Las tablets reservan números en lotes de {BATCH_SIZE} para poder cargar sin wifi — el próximo
             lote arranca en el {proximo}. Es normal que este número vaya adelantado al último pallet real.
           </p>

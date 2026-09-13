@@ -30,23 +30,23 @@ export default function FichaPalletPage() {
         ) : (
           <div className="bg-white border border-[#D3D1C7] rounded-xl p-5 space-y-3">
             <div>
-              <p className="text-xs text-gray-400">Código</p>
+              <p className="text-xs text-secundario">Código</p>
               <p className="text-lg font-bold text-gray-900">{pallet.codigo}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-400">Producto</p>
+              <p className="text-xs text-secundario">Producto</p>
               <p className="text-sm text-gray-900">{pallet.productoNombre} — {pallet.unidades} unidades</p>
             </div>
             <div>
-              <p className="text-xs text-gray-400">Planta</p>
+              <p className="text-xs text-secundario">Planta</p>
               <p className="text-sm text-gray-900">{PLANTA_INFO[pallet.plantaId].localidad}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-400">Operario</p>
+              <p className="text-xs text-secundario">Operario</p>
               <p className="text-sm text-gray-900">{pallet.operador.nombre}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-400">Fabricación</p>
+              <p className="text-xs text-secundario">Fabricación</p>
               <p className="text-sm text-gray-900">
                 {pallet.fechaFabricacion.toDate().toLocaleString('es-AR')}
               </p>

@@ -35,16 +35,16 @@ function DetalleParte({ parte }: { parte: ParteMaquinas }) {
             <div key={r} className="bg-[#F8F7F2] rounded-xl p-3 space-y-1.5">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-bold text-gray-900">Rolitera N°{r}</p>
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-secundario">
                   {ciclos.length} ciclos{promedio !== null ? ` · ~${promedio} min/ciclo` : ''}
                 </p>
               </div>
               {ciclos.length === 0 ? (
-                <p className="text-xs text-gray-400">Sin actividad</p>
+                <p className="text-xs text-secundario">Sin actividad</p>
               ) : (
                 ciclos.map((c) => (
                   <div key={c.ciclo} className="flex justify-between text-xs text-gray-600 tabular-nums">
-                    <span className="text-gray-400">#{c.ciclo}</span>
+                    <span className="text-secundario">#{c.ciclo}</span>
                     <span>Sale {hora(c.sale)} · Entra {hora(c.entra)}</span>
                   </div>
                 ))
@@ -67,7 +67,7 @@ function DetalleParte({ parte }: { parte: ParteMaquinas }) {
             )
           })}
           {MAQUINARIAS.every((m) => (parte.maquinarias?.[m.id] ?? []).length === 0) && (
-            <span className="text-xs text-gray-400">Sin tildar</span>
+            <span className="text-xs text-secundario">Sin tildar</span>
           )}
         </div>
       </div>
@@ -144,7 +144,7 @@ export default function PartesMaquinasPage() {
                     {p.observaciones ? ' · con observaciones' : ''}
                   </p>
                 </div>
-                {abierto === p.id ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+                {abierto === p.id ? <ChevronUp size={16} className="text-inerte" /> : <ChevronDown size={16} className="text-inerte" />}
               </button>
               {abierto === p.id && <DetalleParte parte={p} />}
             </div>

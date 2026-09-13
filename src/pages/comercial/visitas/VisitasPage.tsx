@@ -282,7 +282,7 @@ function VisitaCard({
           </div>
           <p className="text-gray-500 text-xs mt-0.5 truncate">{clientAddress}</p>
           {clientPhone && <p className="text-xs text-accent mt-0.5">{clientPhone}</p>}
-          {notas && <p className="text-xs text-gray-400 italic mt-1">"{notas}"</p>}
+          {notas && <p className="text-xs text-secundario italic mt-1">"{notas}"</p>}
           {chofer && (
             <p className="text-xs text-gray-500 mt-1">
               Chofer: <span className="text-gray-900">{choferLabel(chofer)}</span>
@@ -293,7 +293,7 @@ function VisitaCard({
           {onSinContacto && !isVisitado && !isSinContacto && (
             <button
               onClick={onSinContacto}
-              className="text-xs text-gray-400 hover:text-amber-600 border border-[#D3D1C7] hover:border-amber-300 rounded-lg px-2 py-1 transition-colors"
+              className="text-xs text-secundario hover:text-amber-600 border border-[#D3D1C7] hover:border-amber-300 rounded-lg px-2 py-1 transition-colors"
             >
               Sin contacto
             </button>
@@ -301,7 +301,7 @@ function VisitaCard({
           {onDelete && (
             <button
               onClick={onDelete}
-              className="text-xs text-gray-400 hover:text-red-500 border border-[#D3D1C7] hover:border-red-300 rounded-lg px-2 py-1 transition-colors"
+              className="text-xs text-secundario hover:text-red-500 border border-[#D3D1C7] hover:border-red-300 rounded-lg px-2 py-1 transition-colors"
             >
               ✕
             </button>
@@ -457,7 +457,7 @@ export default function VisitasPage() {
               <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center">
                 <p className="text-4xl mb-3">📅</p>
                 <p className="text-gray-500 text-sm">Todavía no configuraste programas de visita</p>
-                <p className="text-gray-400 text-xs mt-1">
+                <p className="text-secundario text-xs mt-1">
                   Agregá un programa para que las visitas aparezcan automáticamente cada semana
                 </p>
               </div>
@@ -475,7 +475,7 @@ export default function VisitasPage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-semibold text-sm text-gray-900">{p.clientName}</p>
-                          {!p.activo && <span className="text-xs text-gray-400">(inactivo)</span>}
+                          {!p.activo && <span className="text-xs text-secundario">(inactivo)</span>}
                         </div>
                         <p className="text-gray-500 text-xs truncate mt-0.5">{p.clientAddress}</p>
 
@@ -487,7 +487,7 @@ export default function VisitasPage() {
                               className={`w-6 h-6 rounded-full text-xs flex items-center justify-center font-bold ${
                                 p.diasSemana.includes(i)
                                   ? 'bg-accent text-white'
-                                  : 'bg-gray-100 text-gray-300'
+                                  : 'bg-gray-100 text-inerte'
                               }`}
                             >
                               {label}
@@ -501,7 +501,7 @@ export default function VisitasPage() {
                           </p>
                         )}
                         {p.notas && (
-                          <p className="text-xs text-gray-400 italic mt-1">"{p.notas}"</p>
+                          <p className="text-xs text-secundario italic mt-1">"{p.notas}"</p>
                         )}
                       </div>
 
@@ -554,7 +554,7 @@ export default function VisitasPage() {
                   <div className="bg-white border border-[#D3D1C7] rounded-xl p-10 text-center">
                     <p className="text-3xl mb-3">🗺</p>
                     <p className="text-gray-500 text-sm">No hay clientes marcados como visita</p>
-                    <p className="text-gray-400 text-xs mt-1">
+                    <p className="text-secundario text-xs mt-1">
                       Marcá un cliente como visita desde Usuarios → Ficha del cliente
                     </p>
                   </div>
@@ -616,7 +616,7 @@ export default function VisitasPage() {
                                       <span
                                         key={i}
                                         className={`w-5 h-5 rounded-full text-xs flex items-center justify-center font-bold ${
-                                          prog.diasSemana.includes(i) ? 'bg-accent text-white' : 'bg-gray-100 text-gray-300'
+                                          prog.diasSemana.includes(i) ? 'bg-accent text-white' : 'bg-gray-100 text-inerte'
                                         }`}
                                       >
                                         {label}

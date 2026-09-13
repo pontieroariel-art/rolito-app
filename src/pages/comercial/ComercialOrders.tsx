@@ -157,7 +157,7 @@ export default function ComercialOrders() {
 
         {/* Header */}
         <div className="flex items-center gap-3">
-          <Link to="/comercial" className="text-gray-400 hover:text-gray-900 transition-colors">
+          <Link to="/comercial" className="text-secundario hover:text-gray-900 transition-colors">
             <ChevronLeft size={20} />
           </Link>
           <div>
@@ -229,7 +229,7 @@ export default function ComercialOrders() {
 
             {/* Búsqueda */}
             <div className="relative flex-1 min-w-[180px]">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-inerte" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}

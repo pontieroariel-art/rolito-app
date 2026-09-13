@@ -231,9 +231,9 @@ export default function ClienteCombobox({
       )}
       <ul ref={listaRef} id={idLista} role="listbox" aria-label="Clientes" className={`overflow-y-auto ${listaClassName || 'max-h-72'}`}>
         {cargando ? (
-          <li className="px-3 py-3 text-sm text-gray-400" role="presentation">Cargando clientes…</li>
+          <li className="px-3 py-3 text-sm text-secundario" role="presentation">Cargando clientes…</li>
         ) : opciones.length === 0 ? (
-          <li className="px-3 py-3 text-sm text-gray-400" role="presentation">
+          <li className="px-3 py-3 text-sm text-secundario" role="presentation">
             Ningún cliente coincide.
             {sinResultados}
           </li>
@@ -273,7 +273,7 @@ export default function ClienteCombobox({
         })}
       </ul>
       {!cargando && truncada && (
-        <p className="px-3 py-1.5 text-xs text-gray-400 border-t border-[#D3D1C7]">
+        <p className="px-3 py-1.5 text-xs text-secundario border-t border-[#D3D1C7]">
           {q ? `Primeros ${MAX_RESULTADOS}: afiná la búsqueda` : `Primeros ${MAX_RESULTADOS} de ${items.length}: escribí para filtrar`}
         </p>
       )}
@@ -285,7 +285,7 @@ export default function ClienteCombobox({
     return (
       <div ref={raiz} className={`relative ${className}`}>
         <div className="relative">
-          <Search size={compacto ? 14 : 15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <Search size={compacto ? 14 : 15} className="absolute left-3 top-1/2 -translate-y-1/2 text-inerte pointer-events-none" />
           <input
             ref={inputRef}
             {...INPUT_BUSQUEDA_PROPS}
@@ -302,11 +302,11 @@ export default function ClienteCombobox({
             onFocus={() => setOpen(true)}
             onKeyDown={onKeyDown}
             placeholder={placeholder ?? 'Buscar por nombre, código o CUIT…'}
-            className={`w-full bg-white border border-[#D3D1C7] rounded-lg pl-9 pr-8 ${alto} text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-gray-400`}
+            className={`w-full bg-white border border-[#D3D1C7] rounded-lg pl-9 pr-8 ${alto} text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-50 disabled:text-secundario`}
           />
           {query && (
             <button type="button" onClick={() => { setQuery(''); inputRef.current?.focus() }} aria-label="Borrar búsqueda"
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 p-0.5">
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-secundario hover:text-gray-700 p-0.5">
               <X size={14} />
             </button>
           )}
@@ -339,8 +339,8 @@ export default function ClienteCombobox({
       >
         {etiqueta
           ? <span className="text-gray-900 truncate">{etiqueta}</span>
-          : <span className="text-gray-400 truncate">{placeholder ?? '— Seleccioná un cliente —'}</span>}
-        <ChevronDown size={16} className="text-gray-400 shrink-0" />
+          : <span className="text-secundario truncate">{placeholder ?? '— Seleccioná un cliente —'}</span>}
+        <ChevronDown size={16} className="text-inerte shrink-0" />
       </button>
       {lista}
     </div>

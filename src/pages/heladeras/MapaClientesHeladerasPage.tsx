@@ -130,7 +130,7 @@ export default function MapaClientesHeladerasPage() {
             <div className="absolute top-3 right-3 z-20 w-72 bg-white rounded-2xl shadow-xl border border-[#D3D1C7] p-4 space-y-3">
               <div className="flex justify-between items-start">
                 <p className="font-bold text-sm text-gray-900">{clienteSel.razonSocial}</p>
-                <button onClick={() => setSeleccionado(null)} className="text-gray-400 hover:text-gray-700">✕</button>
+                <button onClick={() => setSeleccionado(null)} className="text-secundario hover:text-gray-700">✕</button>
               </div>
               {clienteSel.cuit && <p className="text-xs text-gray-500">CUIT {clienteSel.cuit}</p>}
               {getPrimaryAddress(clienteSel)?.address && <p className="text-xs text-gray-500">{getPrimaryAddress(clienteSel)?.address}</p>}

@@ -23,7 +23,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         )}
         <div className="relative">
           {leftElement && (
-            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
+            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-inerte">
               {leftElement}
             </div>
           )}
@@ -34,7 +34,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             aria-describedby={error ? `${inputId}-error` : hint ? `${inputId}-hint` : undefined}
             className={cn(
               'flex h-9 w-full rounded-lg border bg-white px-3 py-1 text-sm text-gray-900 shadow-sm transition-colors',
-              'placeholder:text-gray-400',
+              'placeholder:text-inerte',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0',
               'disabled:cursor-not-allowed disabled:opacity-50',
               error ? 'border-red-400 focus-visible:ring-red-400/30' : 'border-[#D3D1C7]',
@@ -45,7 +45,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             {...props}
           />
           {rightElement && (
-            <div className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400">
+            <div className="absolute inset-y-0 right-0 flex items-center pr-3 text-secundario">
               {rightElement}
             </div>
           )}

@@ -78,7 +78,7 @@ export default function MultiDatePicker({ selected, onChange, existingDates, min
 
       <div className="grid grid-cols-7 gap-1 mb-1">
         {DIAS_SEMANA.map((d) => (
-          <div key={d} className="text-center text-[10px] text-gray-400 font-medium py-1">{d}</div>
+          <div key={d} className="text-center text-[10px] text-secundario font-medium py-1">{d}</div>
         ))}
       </div>
 
@@ -98,7 +98,7 @@ export default function MultiDatePicker({ selected, onChange, existingDates, min
               title={hasExisting ? 'Ya hay un pedido activo ese día' : undefined}
               className={`relative aspect-square rounded-lg text-xs flex items-center justify-center transition-colors ${
                 isPast
-                  ? 'text-gray-300 cursor-not-allowed'
+                  ? 'text-inerte cursor-not-allowed'
                   : isSelected
                   ? 'bg-accent text-white font-semibold'
                   : 'bg-white border border-[#D3D1C7] text-gray-700 hover:border-accent/60'

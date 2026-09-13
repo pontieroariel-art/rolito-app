@@ -56,7 +56,7 @@ export default function Modal({ open, onClose, title, children, variant = 'dark'
             aria-label="Cerrar"
             className={`transition-colors w-11 h-11 flex items-center justify-center rounded-lg ${
               variant === 'light'
-                ? 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
+                ? 'text-secundario hover:text-gray-700 hover:bg-gray-100'
                 : 'text-gray-500 hover:text-gray-700 hover:bg-[#F8F7F2]'
             }`}
           >

@@ -334,7 +334,7 @@ function FinJornadaModal({
         </div>
 
         {accion === 'reprogramar' && (
-          <p className="text-xs text-gray-400">Los clientes recibirán un email con la nueva fecha.</p>
+          <p className="text-xs text-secundario">Los clientes recibirán un email con la nueva fecha.</p>
         )}
       </div>
 
@@ -424,7 +424,7 @@ function DriverSideCard({
           <p className="text-xs text-gray-500">{pct}% completado</p>
         )}
 
-        <p className={`text-xs mt-1 ${driver ? 'text-gray-400' : 'text-amber-500'}`}>
+        <p className={`text-xs mt-1 ${driver ? 'text-secundario' : 'text-amber-500'}`}>
           {driver ? `📍 ${gpsAge(driver.timestamp)}` : '📍 GPS no activo aún'}
         </p>
       </button>

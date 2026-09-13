@@ -399,7 +399,7 @@ export function GestionarDomiciliosModal({
                 onChange={(e) => setNewAddr((f) => ({ ...f, esPrincipal: e.target.checked }))}
                 className="w-4 h-4 accent-accent"
               />
-              <span className="text-xs text-gray-300">Dirección principal</span>
+              <span className="text-xs text-inerte">Dirección principal</span>
             </label>
 
             <div className="flex gap-2">

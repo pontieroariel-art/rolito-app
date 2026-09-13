@@ -58,7 +58,7 @@ export function ClientWeather({ address, isLoaded }: ClientWeatherProps) {
       >
         <div className="flex items-center gap-3">
           {loading ? (
-            <span className="text-gray-400 text-sm">Cargando clima...</span>
+            <span className="text-secundario text-sm">Cargando clima...</span>
           ) : today ? (
             <>
               <span className="text-2xl leading-none">{today.emoji}</span>
@@ -68,7 +68,7 @@ export function ClientWeather({ address, isLoaded }: ClientWeatherProps) {
                   <span style={{ color: tempColor(today.tempMax) }} className="font-bold">
                     {today.tempMax}°
                   </span>
-                  <span className="text-gray-400 font-normal"> / {today.tempMin}°</span>
+                  <span className="text-secundario font-normal"> / {today.tempMin}°</span>
                   {today.rain > 0 && (
                     <span className="text-blue-500 text-xs ml-2">🌧️ {today.rain}mm</span>
                   )}
@@ -78,11 +78,11 @@ export function ClientWeather({ address, isLoaded }: ClientWeatherProps) {
             </>
           ) : null}
         </div>
-        <span className="text-gray-400 text-xs shrink-0 ml-2">{open ? '▲' : '▼ Semana'}</span>
+        <span className="text-secundario text-xs shrink-0 ml-2">{open ? '▲' : '▼ Semana'}</span>
       </button>
 
       {open && days.length > 0 && (
-        <div className="border-t border-gray-100 px-4 py-3">
+        <div className="border-t border-[#E7E5DC] px-4 py-3">
           <div className="flex gap-2 overflow-x-auto pb-1">
             {days.map((d, i) => {
               const date = new Date(d.date + 'T12:00:00')
@@ -98,7 +98,7 @@ export function ClientWeather({ address, isLoaded }: ClientWeatherProps) {
                   </p>
                   <p className="text-xl leading-none">{d.emoji}</p>
                   <p className="font-bold text-sm" style={{ color: tempColor(d.tempMax) }}>{d.tempMax}°</p>
-                  <p className="text-xs text-gray-400">{d.tempMin}°</p>
+                  <p className="text-xs text-secundario">{d.tempMin}°</p>
                   {d.rain > 0 && <p className="text-xs text-blue-500">{d.rain}mm</p>}
                 </div>
               )

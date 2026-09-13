@@ -109,7 +109,7 @@ export default function FichaHeladeraPage() {
                 )}
                 <p className="text-xs text-gray-500">Alta: {tsToDate(heladera.createdAt).toLocaleDateString('es-AR')}</p>
                 <p className="text-xs text-gray-500">
-                  Cliente asignado: <span className={heladera.clienteAsignadoNombre ? 'text-gray-900 font-medium' : 'text-gray-400'}>
+                  Cliente asignado: <span className={heladera.clienteAsignadoNombre ? 'text-gray-900 font-medium' : 'text-secundario'}>
                     {heladera.clienteAsignadoNombre ?? 'sin asignar'}{heladera.clienteAsignadoNombre && clienteCodigo ? ` (${clienteCodigo})` : ''}
                   </span>
                 </p>
@@ -161,7 +161,7 @@ export default function FichaHeladeraPage() {
             <section className="space-y-2">
               <h2 className="text-sm font-semibold text-gray-900">Historial</h2>
               {historial.length === 0 ? (
-                <p className="text-gray-400 text-xs">Sin movimientos registrados.</p>
+                <p className="text-secundario text-xs">Sin movimientos registrados.</p>
               ) : (
                 <div className="space-y-1.5">
                   {historial.map((a, i) => {
@@ -177,7 +177,7 @@ export default function FichaHeladeraPage() {
                             </p>
                           )}
                         </div>
-                        <span className="text-xs text-gray-400 whitespace-nowrap">{tsToDate(a.timestamp).toLocaleString('es-AR')}</span>
+                        <span className="text-xs text-secundario whitespace-nowrap">{tsToDate(a.timestamp).toLocaleString('es-AR')}</span>
                       </div>
                     )
                   })}

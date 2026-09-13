@@ -20,12 +20,15 @@ export default function KpiCard({
           : 'border-[#D3D1C7]'
       }`}
     >
+      {/* Un cero pierde el color del estado y queda en el gris secundario: no
+          es noticia, pero se sigue leyendo. Ver convenciones en CLAUDE.md. */}
       <span className={`text-2xl font-bold tabular-nums ${
-        tone === 'warn' ? 'text-amber-600' : tone === 'good' ? 'text-accent' : 'text-gray-900'
+        value === 0 ? 'text-secundario'
+          : tone === 'warn' ? 'text-amber-600' : tone === 'good' ? 'text-accent' : 'text-gray-900'
       }`}>
         {value}
       </span>
-      <span className="text-[11px] uppercase tracking-wide text-gray-500">{label}</span>
+      <span className="text-xs uppercase tracking-wide text-secundario">{label}</span>
       {subtitle && <span className="text-[11px] text-amber-600 mt-0.5">{subtitle}</span>}
     </Link>
   )

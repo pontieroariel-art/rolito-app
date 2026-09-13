@@ -103,7 +103,7 @@ export default function OrderHistory() {
           {multiSucursal && selectedAddress ? (
             <div className="flex items-center gap-2 mt-1">
               <p className="text-accent text-sm font-medium">📍 {selectedAddress.nombre}</p>
-              <Link to="/sucursal" className="text-xs text-gray-400 hover:text-gray-700 transition-colors">
+              <Link to="/sucursal" className="text-xs text-secundario hover:text-gray-700 transition-colors">
                 Cambiar →
               </Link>
             </div>
@@ -195,7 +195,7 @@ export default function OrderHistory() {
         <div className="space-y-3">
           {filtered.length === 0 ? (
             <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center">
-              <p className="text-gray-400 text-sm">
+              <p className="text-secundario text-sm">
                 {filter === 'all'
                   ? 'No tenés pedidos todavía'
                   : `No hay pedidos con estado "${STATUS_LABELS[filter as OrderStatus]}"`}
@@ -245,7 +245,7 @@ function OrderCard({ order }: { order: Order }) {
         <div className="min-w-0">
           <p className="font-medium text-sm text-gray-900">{summarizeProducts(order.products)}</p>
           <p className="text-gray-500 text-xs mt-1">Entrega: {formatDate(order.date)}</p>
-          <p className="text-gray-400 text-xs">Pedido el: {formatShortDate(order.createdAt)}</p>
+          <p className="text-secundario text-xs">Pedido el: {formatShortDate(order.createdAt)}</p>
         </div>
         <Badge status={order.status} variant="light" />
       </div>
@@ -263,7 +263,7 @@ function OrderCard({ order }: { order: Order }) {
       )}
 
       {order.notes && (
-        <p className="text-xs text-gray-500 italic border-t border-gray-100 pt-2">"{order.notes}"</p>
+        <p className="text-xs text-gray-500 italic border-t border-[#E7E5DC] pt-2">"{order.notes}"</p>
       )}
 
       {user?.address && (

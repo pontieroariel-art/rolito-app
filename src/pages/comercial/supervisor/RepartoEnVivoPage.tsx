@@ -51,7 +51,7 @@ export default function RepartoEnVivoPage() {
         ) : camiones.length === 0 ? (
           <div className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-4 text-center">
             <p className="text-sm text-gray-600">Todavía no salió ningún camión hoy.</p>
-            <p className="text-xs text-gray-400 mt-1">Apenas caja emita un remito de carga o un chofer venda, aparece acá.</p>
+            <p className="text-xs text-secundario mt-1">Apenas caja emita un remito de carga o un chofer venda, aparece acá.</p>
           </div>
         ) : (
           <>
@@ -81,7 +81,7 @@ export default function RepartoEnVivoPage() {
                           {c.camionLabel || 'Sin camión asignado'}{c.salida ? ` · salió ${hora(c.salida)}` : ''}{c.vuelta ? ` · volvió ${hora(c.vuelta)}` : ''}
                         </p>
                       </div>
-                      {estaAbierto ? <ChevronUp size={18} className="text-gray-400 shrink-0" /> : <ChevronDown size={18} className="text-gray-400 shrink-0" />}
+                      {estaAbierto ? <ChevronUp size={18} className="text-inerte shrink-0" /> : <ChevronDown size={18} className="text-inerte shrink-0" />}
                     </div>
 
                     {/* Barra: cuánto bajó de lo que cargó */}
@@ -96,9 +96,9 @@ export default function RepartoEnVivoPage() {
                     </div>
 
                     <div className="mt-2 grid grid-cols-3 gap-2 text-center">
-                      <div><p className="text-xs text-gray-400">Vendido</p><p className="text-sm font-semibold text-gray-900">{formatoARS(c.liquidacion.importes.total)}</p></div>
-                      <div><p className="text-xs text-gray-400">Clientes</p><p className="text-sm font-semibold text-gray-900">{c.clientes}</p></div>
-                      <div><p className="text-xs text-gray-400">Última venta</p><p className="text-sm font-semibold text-gray-900">{c.ultimaVenta ? haceCuanto({ toDate: () => c.ultimaVenta! }) : '—'}</p></div>
+                      <div><p className="text-xs text-secundario">Vendido</p><p className="text-sm font-semibold text-gray-900">{formatoARS(c.liquidacion.importes.total)}</p></div>
+                      <div><p className="text-xs text-secundario">Clientes</p><p className="text-sm font-semibold text-gray-900">{c.clientes}</p></div>
+                      <div><p className="text-xs text-secundario">Última venta</p><p className="text-sm font-semibold text-gray-900">{c.ultimaVenta ? haceCuanto({ toDate: () => c.ultimaVenta! }) : '—'}</p></div>
                     </div>
                   </button>
 
@@ -109,7 +109,7 @@ export default function RepartoEnVivoPage() {
                         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Por producto</p>
                         <table className="w-full text-xs">
                           <thead>
-                            <tr className="text-gray-400">
+                            <tr className="text-secundario">
                               <th className="text-left font-normal">Producto</th>
                               <th className="text-right font-normal">Cargó</th>
                               <th className="text-right font-normal">Bajó</th>
@@ -121,7 +121,7 @@ export default function RepartoEnVivoPage() {
                               <tr key={p.productoId} className="text-gray-700">
                                 <td className="py-0.5">{p.nombre}</td>
                                 <td className="text-right">{p.carga}</td>
-                                <td className="text-right">{p.ventaContado + p.ventaPromo + p.cambios}{p.cambios > 0 ? <span className="text-gray-400"> ({p.cambios} camb.)</span> : null}</td>
+                                <td className="text-right">{p.ventaContado + p.ventaPromo + p.cambios}{p.cambios > 0 ? <span className="text-secundario"> ({p.cambios} camb.)</span> : null}</td>
                                 <td className={`text-right font-semibold ${p.devolucionTeorica < 0 ? 'text-red-500' : 'text-gray-900'}`}>{p.devolucionTeorica}</td>
                               </tr>
                             ))}

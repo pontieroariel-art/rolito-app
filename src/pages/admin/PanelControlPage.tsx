@@ -141,7 +141,7 @@ export default function PanelControlPage() {
                 label={`Ver ${Math.min(outbox.errores, 10)} errores`}
                 onAbrir={() => { if (!outboxErrores) getOutboxEnError(10).then(setOutboxErrores) }}
               >
-                {outboxErrores === null ? <p className="text-xs text-gray-400">Cargando…</p> : (
+                {outboxErrores === null ? <p className="text-xs text-secundario">Cargando…</p> : (
                   <ul className="text-xs space-y-1">
                     {outboxErrores.map((e) => (
                       <li key={e.id} className="border-l-2 border-red-300 pl-2">
@@ -183,7 +183,7 @@ export default function PanelControlPage() {
                 label={`Ver ${Math.min(arca.problemas, 10)} facturas`}
                 onAbrir={() => { if (!arcaProblemas) getFacturasArcaConProblema(10).then(setArcaProblemas) }}
               >
-                {arcaProblemas === null ? <p className="text-xs text-gray-400">Cargando…</p> : (
+                {arcaProblemas === null ? <p className="text-xs text-secundario">Cargando…</p> : (
                   <ul className="text-xs space-y-1">
                     {arcaProblemas.map((f) => (
                       <li key={f.id} className="border-l-2 border-red-300 pl-2">
@@ -234,9 +234,9 @@ export default function PanelControlPage() {
             to="/usuarios" toLabel="Ver clientes"
           />
           <div className="rounded-xl border border-[#D3D1C7] bg-white p-3 md:row-span-1" style={{ borderTop: `4px solid ${COLOR_TONO.neutro}` }}>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1">Últimas acciones</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">Últimas acciones</p>
             {loading && estado.historial.length === 0
-              ? <p className="text-xs text-gray-400">Cargando…</p>
+              ? <p className="text-xs text-secundario">Cargando…</p>
               : <AuditoriaReciente eventos={estado.historial} ahora={ahora} />}
           </div>
         </div>

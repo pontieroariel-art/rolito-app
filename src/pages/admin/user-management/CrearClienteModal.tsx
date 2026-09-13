@@ -176,7 +176,7 @@ export function CrearClienteModal({
         />
 
         {/* Dirección de entrega */}
-        <div className="space-y-2 border-t border-gray-100 pt-4">
+        <div className="space-y-2 border-t border-[#E7E5DC] pt-4">
           <p className="text-sm font-semibold text-gray-700">Dirección de entrega</p>
           <Input
             label="Nombre de la sucursal (opcional)"

@@ -149,7 +149,7 @@ export default function EnvioLoteModal({ abierto, onClose, items, cliente, email
             <span className="text-xs text-gray-500">Para</span>
             <input type="email" value={para} onChange={(e) => setPara(e.target.value)} placeholder="cliente@empresa.com" autoComplete="off" className={INPUT} />
             {email && para.trim().toLowerCase() === email.toLowerCase()
-              ? <span className="text-[11px] text-gray-400">Mail de la ficha de Tango</span>
+              ? <span className="text-[11px] text-secundario">Mail de la ficha de Tango</span>
               : !email ? <span className="text-[11px] text-amber-700">Este cliente no tiene mail en Tango: escribilo vos.</span> : null}
           </label>
           <label className="block">

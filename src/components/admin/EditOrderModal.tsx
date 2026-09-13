@@ -143,8 +143,8 @@ export default function EditOrderModal({ order, onClose, onSaved }: { order: Ord
         </div>
 
         {order.historialAcciones && order.historialAcciones.length > 0 && (
-          <div className="border-t border-gray-100 pt-3 space-y-2">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Historial de cambios</p>
+          <div className="border-t border-[#E7E5DC] pt-3 space-y-2">
+            <p className="text-xs font-semibold text-secundario uppercase tracking-wide">Historial de cambios</p>
             {[...order.historialAcciones].reverse().map((h: AccionHistorial, i: number) => {
               const ts    = tsToDate(h.timestamp)
               const fecha = ts.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })
@@ -152,7 +152,7 @@ export default function EditOrderModal({ order, onClose, onSaved }: { order: Ord
               const label = h.accion === 'cancelado' ? 'canceló el pedido' : h.accion === 'modificado' ? 'modificó el pedido' : h.accion
               return (
                 <div key={i} className="flex items-start gap-2 text-xs bg-gray-50 rounded-lg px-2.5 py-1.5">
-                  <span className="text-gray-400 shrink-0 tabular-nums">{fecha} {hora}</span>
+                  <span className="text-secundario shrink-0 tabular-nums">{fecha} {hora}</span>
                   <span className="text-accent font-semibold shrink-0">{h.usuarioNombre}</span>
                   <span className="text-gray-500">{label}{h.detalle && h.detalle !== 'null' ? ` — ${h.detalle}` : ''}</span>
                 </div>

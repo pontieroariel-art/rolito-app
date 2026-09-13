@@ -98,9 +98,9 @@ export default function DetalleReparto({ remitos, ventas, cambios, descargas, co
       {aviso && <p className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">{aviso}</p>}
 
       <Bloque estilo="recorrido" titulo="Recorrido" subtitulo="carga y descarga">
-        <div className="grid sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
+        <div className="grid sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-[#E7E5DC]">
           <div className="p-4 space-y-2">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Salida</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Salida</p>
             {remitos.length === 0 && <p className="text-sm text-gray-500">Sin remito de carga de esta planta.</p>}
             {remitos.map((r) => (
               <div key={r.id} className="space-y-1">
@@ -115,7 +115,7 @@ export default function DetalleReparto({ remitos, ventas, cambios, descargas, co
             ))}
           </div>
           <div className="p-4 space-y-2">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Vuelta</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Vuelta</p>
             {descargas.length === 0 && (
               <p className="text-sm text-amber-700">Muelle todavía no registró la descarga: la devolución se compara contra 0.</p>
             )}
@@ -167,7 +167,7 @@ export default function DetalleReparto({ remitos, ventas, cambios, descargas, co
       <Bloque estilo="cambios" titulo="Cambios" subtitulo="bolsas rotas repuestas" totalTexto={`${reparto.cambios.unidades} ${reparto.cambios.unidades === 1 ? 'bolsa' : 'bolsas'}`}
         pie={`registradas por el repartidor ${reparto.cambios.unidades} · rotas recibidas en muelle ${reparto.cambios.rotasRecibidas}${reparto.cambios.unidades === reparto.cambios.rotasRecibidas ? ' · sin diferencia' : ` · diferencia ${reparto.cambios.rotasRecibidas - reparto.cambios.unidades}`}`}>
         {reparto.cambios.lista.length === 0 ? <Vacio>Sin cambios.</Vacio> : reparto.cambios.lista.map((c) => (
-          <div key={c.ventaId} className="grid grid-cols-[52px_1fr] gap-3 px-4 py-3 border-t border-gray-100">
+          <div key={c.ventaId} className="grid grid-cols-[52px_1fr] gap-3 px-4 py-3 border-t border-[#E7E5DC]">
             <span className="text-sm text-gray-500 tabular-nums pt-0.5">{hora(c.fecha)}</span>
             <div>
               <p className="text-sm font-semibold text-gray-900">{c.clienteNombre}{c.clienteCodigoTango && <span className="ml-1.5 text-xs font-normal text-gray-500">{c.clienteCodigoTango}</span>}</p>
@@ -202,7 +202,7 @@ function Bloque({ estilo, titulo, subtitulo, total, totalTexto, pie, children }:
 }
 
 const SubHeader = ({ titulo, total }: { titulo: string; total: number }) => (
-  <div className="flex justify-between px-4 pt-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-gray-500">
+  <div className="flex justify-between px-4 pt-3 pb-1 text-xs font-bold uppercase tracking-wider text-gray-500">
     <span>{titulo}</span><span className="tabular-nums normal-case tracking-normal text-xs font-semibold text-gray-700">{formatoARS(total)}</span>
   </div>
 )
@@ -244,7 +244,7 @@ function FilaVenta({ venta: v, ocupado, compartible, atenuada, onVer, onEnviar, 
   const anul = textoAnulacion(v.anulacion)
   const anulada = v.anulacion?.estado === 'anulada'
   return (
-    <div className={`grid grid-cols-[52px_1fr_auto] gap-3 px-4 py-3 border-t border-gray-100 ${conProblema ? 'bg-[#FFF7F7]' : ''} ${atenuada ? 'opacity-40' : ''}`}>
+    <div className={`grid grid-cols-[52px_1fr_auto] gap-3 px-4 py-3 border-t border-[#E7E5DC] ${conProblema ? 'bg-[#FFF7F7]' : ''} ${atenuada ? 'opacity-40' : ''}`}>
       <span className="text-sm text-gray-500 tabular-nums pt-0.5">{hora(v.fecha)}</span>
       <div className="min-w-0">
         <p className={`text-sm font-semibold ${anulada ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
@@ -302,7 +302,7 @@ function FilaCobranza({ cobranza: c, ocupado, compartible, atenuada, onVer, onEn
   }
   const imputa = (c.imputaciones ?? []).map((i) => `${i.comprobanteTipo} ${i.comprobanteNumero}${i.importeImputado < i.saldoAlMomento ? ` (parcial, quedan ${formatoARS(i.saldoAlMomento - i.importeImputado)})` : ''}`)
   return (
-    <div className={`grid grid-cols-[52px_1fr_auto] gap-3 px-4 py-3 border-t border-gray-100 ${atenuada ? 'opacity-40' : ''}`}>
+    <div className={`grid grid-cols-[52px_1fr_auto] gap-3 px-4 py-3 border-t border-[#E7E5DC] ${atenuada ? 'opacity-40' : ''}`}>
       <span className="text-sm text-gray-500 tabular-nums pt-0.5">{hora(c.fecha)}</span>
       <div className="min-w-0">
         <p className="text-sm font-semibold text-gray-900">{c.clienteNombre}{c.codigoTango && <span className="ml-1.5 text-xs font-normal text-gray-500">{c.codigoTango}</span>}</p>

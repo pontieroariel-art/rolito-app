@@ -79,7 +79,7 @@ const SignaturePad = forwardRef<SignaturePadHandle, { className?: string }>(({ c
         onPointerLeave={handlePointerUp}
         className="w-full h-[45vw] max-h-[180px] bg-white border border-[#D3D1C7] rounded-lg touch-none cursor-crosshair"
       />
-      {empty && <p className="text-xs text-gray-400 mt-1">Firmá con el dedo o el mouse en el recuadro de arriba.</p>}
+      {empty && <p className="text-xs text-secundario mt-1">Firmá con el dedo o el mouse en el recuadro de arriba.</p>}
     </div>
   )
 })

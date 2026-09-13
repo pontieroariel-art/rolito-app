@@ -45,7 +45,7 @@ function StatCard({ label, value, sub, accent, icon: Icon }: {
     green: { bg: 'bg-emerald-50', icon: 'text-emerald-500', val: 'text-emerald-700' },
     cyan:  { bg: 'bg-cyan-50',    icon: 'text-cyan-500',    val: 'text-cyan-700'    },
     amber: { bg: 'bg-amber-50',   icon: 'text-amber-500',   val: 'text-amber-700'   },
-    gray:  { bg: 'bg-gray-100',   icon: 'text-gray-400',    val: 'text-gray-600'    },
+    gray:  { bg: 'bg-gray-100',   icon: 'text-secundario',    val: 'text-gray-600'    },
   }[accent]
 
   return (
@@ -53,9 +53,10 @@ function StatCard({ label, value, sub, accent, icon: Icon }: {
       <div className={`inline-flex p-2 rounded-lg ${colors.bg} mb-3`}>
         <Icon size={18} className={colors.icon} />
       </div>
-      <p className={`text-2xl font-bold leading-none ${colors.val}`}>{value}</p>
-      <p className="text-xs text-gray-500 mt-1">{label}</p>
-      {sub && <p className="text-[10px] text-gray-400 mt-0.5">{sub}</p>}
+      {/* Un cero pierde el color del estado y queda en gris secundario. */}
+      <p className={`text-2xl font-bold leading-none tabular-nums ${value === 0 ? 'text-secundario' : colors.val}`}>{value}</p>
+      <p className="text-xs text-secundario mt-1">{label}</p>
+      {sub && <p className="text-[10px] text-secundario mt-0.5">{sub}</p>}
     </div>
   )
 }
@@ -65,8 +66,8 @@ function StatCard({ label, value, sub, accent, icon: Icon }: {
 function MiniStat({ label, value }: { label: string; value: number }) {
   return (
     <div>
-      <p className="text-xl font-bold leading-none text-gray-900">{value.toLocaleString('es-AR')}</p>
-      <p className="text-[10px] text-gray-400 mt-1">{label}</p>
+      <p className={`text-xl font-bold leading-none tabular-nums ${value === 0 ? 'text-secundario' : 'text-gray-900'}`}>{value.toLocaleString('es-AR')}</p>
+      <p className="text-[10px] text-secundario mt-1">{label}</p>
     </div>
   )
 }
@@ -243,7 +244,7 @@ export default function GerenteDashboard() {
                       style={{ height: h }}
                     />
                   </div>
-                  <span className={`text-[10px] capitalize ${isToday ? 'text-accent font-semibold' : 'text-gray-400'}`}>
+                  <span className={`text-[10px] capitalize ${isToday ? 'text-accent font-semibold' : 'text-secundario'}`}>
                     {d.label}
                   </span>
                 </div>
@@ -269,7 +270,7 @@ export default function GerenteDashboard() {
                   <div key={c.uid} className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-sm font-medium truncate text-gray-900">{clientLabel(c)}</p>
-                      <p className="text-xs text-gray-400 truncate">{c.email}</p>
+                      <p className="text-xs text-secundario truncate">{c.email}</p>
                     </div>
                     <button
                       onClick={() => handleApprove(c.uid)}
@@ -292,15 +293,15 @@ export default function GerenteDashboard() {
             <div className="flex items-center gap-2">
               <TrendingUp size={15} className="text-accent" />
               <p className="text-sm font-semibold text-gray-900">Top clientes del mes</p>
-              <span className="ml-auto text-xs text-gray-400">unidades</span>
+              <span className="ml-auto text-xs text-secundario">unidades</span>
             </div>
             {topMes.length === 0 ? (
-              <p className="text-xs text-gray-400 py-3 text-center">Sin pedidos este mes</p>
+              <p className="text-xs text-secundario py-3 text-center">Sin pedidos este mes</p>
             ) : (
               <div className="space-y-2">
                 {topMes.map(([uid, { nombre, qty }], i) => (
                   <div key={uid} className="flex items-center gap-3">
-                    <span className="text-xs text-gray-300 w-4 text-right font-medium">{i + 1}</span>
+                    <span className="text-xs text-inerte w-4 text-right font-medium">{i + 1}</span>
                     <p className="flex-1 text-sm truncate text-gray-800">{nombre}</p>
                     <span className="text-xs font-semibold text-accent shrink-0">{qty.toLocaleString('es-AR')}</span>
                   </div>
@@ -313,9 +314,9 @@ export default function GerenteDashboard() {
           {frios.length > 0 && (
             <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-3">
               <div className="flex items-center gap-2">
-                <Clock size={15} className="text-gray-400" />
+                <Clock size={15} className="text-inerte" />
                 <p className="text-sm font-semibold text-gray-900">Sin pedido hace 30+ días</p>
-                <span className="ml-auto text-xs text-gray-400">{frios.length}</span>
+                <span className="ml-auto text-xs text-secundario">{frios.length}</span>
               </div>
               <div className="space-y-1.5 max-h-48 overflow-y-auto">
                 {frios.map((c) => (
@@ -342,9 +343,9 @@ export default function GerenteDashboard() {
                   to={l.to}
                   className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 transition-colors group"
                 >
-                  <l.icon size={16} className="text-gray-400 group-hover:text-accent transition-colors shrink-0" />
+                  <l.icon size={16} className="text-secundario group-hover:text-accent transition-colors shrink-0" />
                   <span className="text-sm text-gray-700 flex-1">{l.label}</span>
-                  <ChevronRight size={14} className="text-gray-300 group-hover:text-accent transition-colors" />
+                  <ChevronRight size={14} className="text-inerte group-hover:text-accent transition-colors" />
                 </Link>
               ))}
             </div>
@@ -364,7 +365,7 @@ export default function GerenteDashboard() {
                 <p className="text-sm font-semibold text-gray-900">Heladeras</p>
               </div>
               {loadH || !heladerasStats ? (
-                <p className="text-xs text-gray-400 py-2">Cargando…</p>
+                <p className="text-xs text-secundario py-2">Cargando…</p>
               ) : (
                 <div className="grid grid-cols-3 gap-2">
                   <MiniStat label="En taller"    value={heladerasStats.en_taller} />
@@ -384,7 +385,7 @@ export default function GerenteDashboard() {
                 <p className="text-sm font-semibold text-gray-900">Producción de hielo</p>
               </div>
               {loadP ? (
-                <p className="text-xs text-gray-400 py-2">Cargando…</p>
+                <p className="text-xs text-secundario py-2">Cargando…</p>
               ) : (
                 <>
                   <div className="grid grid-cols-2 gap-2">

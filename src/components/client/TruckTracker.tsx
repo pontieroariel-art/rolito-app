@@ -171,12 +171,12 @@ export function TruckTracker({ order, clientEmail, clientNombre, onNearby }: Tru
               </a>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-2 pt-1 border-t border-gray-100">
+          <div className="grid grid-cols-2 gap-2 pt-1 border-t border-[#E7E5DC]">
             <div className="text-center">
               <p className="text-xs text-gray-500">Tiempo estimado</p>
               <p className="text-lg font-bold text-gray-900 mt-0.5">{eta ?? '—'}</p>
             </div>
-            <div className="text-center border-l border-gray-100">
+            <div className="text-center border-l border-[#E7E5DC]">
               <p className="text-xs text-gray-500">Distancia</p>
               <p className="text-lg font-bold text-gray-900 mt-0.5">
                 {distance !== null
@@ -186,7 +186,7 @@ export function TruckTracker({ order, clientEmail, clientNombre, onNearby }: Tru
             </div>
           </div>
           {isStale && (
-            <p className="text-xs text-orange-500 text-center pt-1 border-t border-gray-100">
+            <p className="text-xs text-orange-500 text-center pt-1 border-t border-[#E7E5DC]">
               ⚠ El tiempo y la distancia son aproximados: no recibimos una ubicación reciente del camión.
             </p>
           )}
@@ -238,7 +238,7 @@ export function TruckTracker({ order, clientEmail, clientNombre, onNearby }: Tru
       </div>
 
       {!truckPos && (
-        <p className="text-gray-400 text-xs text-center">Esperando la ubicación del chofer...</p>
+        <p className="text-secundario text-xs text-center">Esperando la ubicación del chofer...</p>
       )}
     </section>
   )

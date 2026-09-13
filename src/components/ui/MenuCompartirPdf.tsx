@@ -112,7 +112,7 @@ export default function MenuCompartirPdf({ generar, titulo, texto, mail, trigger
           <div role="dialog" aria-label={titulo} className="w-full sm:max-w-sm bg-white rounded-t-2xl sm:rounded-2xl shadow-xl p-4 space-y-2">
             <div className="flex items-start justify-between gap-2">
               <p className="text-sm font-semibold text-gray-900 truncate">{titulo}</p>
-              <button type="button" onClick={cerrar} aria-label="Cerrar" className="text-gray-400 p-1 -m-1"><X size={18} /></button>
+              <button type="button" onClick={cerrar} aria-label="Cerrar" className="text-secundario p-1 -m-1"><X size={18} /></button>
             </div>
             {puedeCompartir && (
               <button type="button" onClick={() => correr('compartir')} disabled={ocupado !== null}
@@ -149,8 +149,8 @@ export default function MenuCompartirPdf({ generar, titulo, texto, mail, trigger
               <span className="text-xs text-gray-500">Para</span>
               <input type="email" value={para} onChange={(e) => setPara(e.target.value)} placeholder="cliente@empresa.com" autoComplete="off"
                 className="mt-1 w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent" />
-              {buscandoPara ? <span className="text-[11px] text-gray-400">Buscando el mail del cliente en Tango…</span>
-                : mail.para && para.trim().toLowerCase() === mail.para.toLowerCase() ? <span className="text-[11px] text-gray-400">Mail de la ficha de Tango</span> : null}
+              {buscandoPara ? <span className="text-[11px] text-secundario">Buscando el mail del cliente en Tango…</span>
+                : mail.para && para.trim().toLowerCase() === mail.para.toLowerCase() ? <span className="text-[11px] text-secundario">Mail de la ficha de Tango</span> : null}
             </label>
             <label className="block">
               <span className="text-xs text-gray-500">Asunto</span>

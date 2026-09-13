@@ -122,7 +122,7 @@ function ModeloForm({
           placeholder="SL300"
           className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
         />
-        <p className="text-xs text-gray-400 mt-1">
+        <p className="text-xs text-secundario mt-1">
           Base del código automático para heladeras de fabricación de este modelo (ej. {prefijoCodigo.trim() || 'SL300'}-0001). Si lo dejás vacío, se arma solo a partir del nombre.
         </p>
       </div>
@@ -187,7 +187,7 @@ export default function ModelosHeladeraPage() {
           <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center">
             <p className="text-4xl mb-3">🧊</p>
             <p className="text-gray-500 text-sm">Todavía no cargaste ningún modelo</p>
-            <p className="text-gray-400 text-xs mt-1">Usá el botón "Agregar" para empezar</p>
+            <p className="text-secundario text-xs mt-1">Usá el botón "Agregar" para empezar</p>
           </div>
         ) : (
           <div className="grid sm:grid-cols-2 gap-3">

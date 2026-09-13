@@ -30,7 +30,7 @@ export default function SupervisorHeader({ title, back = false }: { title?: stri
           {title ?? `Hola, ${user?.nombre?.split(' ')[0] ?? 'supervisor'}`}
         </p>
         {!back && (
-          <p className="text-xs text-gray-400 leading-tight">Supervisor de cobranzas</p>
+          <p className="text-xs text-secundario leading-tight">Supervisor de cobranzas</p>
         )}
       </div>
       {volverAOficina && (
@@ -41,7 +41,7 @@ export default function SupervisorHeader({ title, back = false }: { title?: stri
         </Link>
       )}
       <button onClick={() => logoutUser()} aria-label="Cerrar sesión"
-        className="w-10 h-10 rounded-xl flex items-center justify-center text-gray-400 hover:text-gray-700 active:scale-90 transition-transform">
+        className="w-10 h-10 rounded-xl flex items-center justify-center text-secundario hover:text-gray-700 active:scale-90 transition-transform">
         <LogOut size={20} />
       </button>
     </header>

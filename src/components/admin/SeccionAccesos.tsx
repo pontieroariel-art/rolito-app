@@ -8,7 +8,7 @@ export default function SeccionAccesos() {
   return (
     <div className="space-y-2">
       {ACCESOS.map((g) => (
-        <Plegable key={g.id} titulo={g.titulo} extra={<span className="text-xs text-gray-400">{g.accesos.length}</span>}>
+        <Plegable key={g.id} titulo={g.titulo} extra={<span className="text-xs text-secundario">{g.accesos.length}</span>}>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 pt-1">
             {g.accesos.map((a) => (
               <Link

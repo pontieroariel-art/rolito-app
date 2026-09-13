@@ -73,7 +73,7 @@ export default function SupervisorClientesPage() {
       <SupervisorHeader title="Clientes con deuda" back />
       <main className="max-w-md mx-auto p-4 space-y-3 pb-10">
         <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-inerte" />
           <input
             {...INPUT_BUSQUEDA_PROPS}
             value={busqueda}
@@ -88,7 +88,7 @@ export default function SupervisorClientesPage() {
         ) : saldos.length === 0 ? (
           <div className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-4 text-center">
             <p className="text-sm text-gray-600">No hay saldos de Tango cargados todavía.</p>
-            <p className="text-xs text-gray-400 mt-1">El cache se actualiza automáticamente desde el servidor de Tango.</p>
+            <p className="text-xs text-secundario mt-1">El cache se actualiza automáticamente desde el servidor de Tango.</p>
           </div>
         ) : (
           <>
@@ -123,7 +123,7 @@ export default function SupervisorClientesPage() {
                           {s.comprobantes.length} {s.comprobantes.length === 1 ? 'comprobante' : 'comprobantes'} · cód. {s.codigoTango}
                           {atraso > 0 && <span className="text-red-500"> · {atraso} {atraso === 1 ? 'día' : 'días'} de atraso</span>}
                         </p>
-                        <p className="text-xs text-gray-400 shrink-0">{haceCuanto(s.actualizadoEn)}</p>
+                        <p className="text-xs text-secundario shrink-0">{haceCuanto(s.actualizadoEn)}</p>
                       </div>
                       {desglose(s) && <p className="text-xs text-gray-500 mt-0.5">{desglose(s)}</p>}
                     </Link>

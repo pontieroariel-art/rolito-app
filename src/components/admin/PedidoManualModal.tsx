@@ -396,7 +396,7 @@ function StepProductos({
             onChange={(e) => setHorarioDesde(e.target.value)}
             className="flex-1 bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
           />
-          <span className="text-gray-400 text-sm shrink-0">–</span>
+          <span className="text-secundario text-sm shrink-0">–</span>
           <input
             type="time"
             value={horarioHasta}

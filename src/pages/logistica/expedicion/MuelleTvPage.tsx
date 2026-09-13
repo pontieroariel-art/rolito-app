@@ -177,7 +177,7 @@ export default function MuelleTvPage() {
     >
       {/* Header + llamado */}
       <div className="flex items-center gap-[18px] h-[84px] shrink-0">
-        <p className="text-2xl font-bold text-gray-400 shrink-0">MUELLE · {PLANTAS[plantaId].label.toUpperCase().replace('PLANTA ', '')}</p>
+        <p className="text-2xl font-bold text-secundario shrink-0">MUELLE · {PLANTAS[plantaId].label.toUpperCase().replace('PLANTA ', '')}</p>
         {llamadoReciente ? (
           <div className="flex-1 bg-green-600 rounded-2xl text-center py-2 animate-pulse" style={{ boxShadow: '0 0 40px rgba(22,163,74,0.45)' }}>
             <span className="text-[54px] font-black leading-none">TURNO {llamadoReciente.turno} → DÁRSENA {llamadoReciente.darsena}</span>
@@ -209,7 +209,7 @@ export default function MuelleTvPage() {
                 <div className="flex flex-col gap-2 mt-1.5 min-h-0 overflow-hidden">
                   {v.items.map((i) => filaProducto(i.productoId, corto(i.productoId, i.nombre), i.cantidad, 'rgba(34,197,94,0.3)'))}
                 </div>
-                <p className="mt-auto text-[26px] text-gray-400 truncate">{nombreClienteVenta(v)}</p>
+                <p className="mt-auto text-[26px] text-secundario truncate">{nombreClienteVenta(v)}</p>
               </div>
             ) : (
               <div key={n} className="rounded-[20px] p-[18px] flex flex-col border-[5px] border-gray-800 bg-[#0b1220]">
@@ -227,7 +227,7 @@ export default function MuelleTvPage() {
                 {r.items.map((i) => filaProducto(i.productoId, corto(i.productoId, i.nombre), i.cantidad, 'rgba(251,191,36,0.25)'))}
               </div>
               <div className="mt-auto flex justify-between items-baseline">
-                <span className="text-[26px] text-gray-400 truncate">{r.choferNombre}</span>
+                <span className="text-[26px] text-secundario truncate">{r.choferNombre}</span>
                 {r.palletsCarga > 0 && <span className="text-[34px] font-black text-amber-300 shrink-0">{r.palletsCarga} PAL</span>}
               </div>
             </div>
@@ -269,7 +269,7 @@ export default function MuelleTvPage() {
           <p className="text-[26px] font-bold truncate">
             {ausentes.length > 0 && <span className="text-red-400">AUSENTE: {ausentes.map((v) => `T-${v.turno}`).join(', ')}</span>}
             {ausentes.length > 0 && (camionesEnEspera.length > 0 || listosParaSalir.length > 0) && <span className="text-gray-600"> · </span>}
-            {camionesEnEspera.length > 0 && <span className="text-gray-400">ESPERA: {camionesEnEspera.map((r) => patente(r.camionLabel)).join(', ')}</span>}
+            {camionesEnEspera.length > 0 && <span className="text-secundario">ESPERA: {camionesEnEspera.map((r) => patente(r.camionLabel)).join(', ')}</span>}
             {camionesEnEspera.length > 0 && listosParaSalir.length > 0 && <span className="text-gray-600"> · </span>}
             {listosParaSalir.length > 0 && <span className="text-green-400">SALE: {listosParaSalir.map((r) => patente(r.camionLabel)).join(', ')}</span>}
           </p>
@@ -286,7 +286,7 @@ export default function MuelleTvPage() {
     <button
       onClick={sonido ? apagarSonido : activarSonido}
       className={`absolute bottom-3 right-3 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-        sonido ? 'text-gray-600 hover:text-gray-400' : 'bg-gray-800 text-gray-200 hover:bg-gray-700'
+        sonido ? 'text-gray-600 hover:text-secundario' : 'bg-gray-800 text-gray-200 hover:bg-gray-700'
       }`}
     >
       {sonido ? <Volume2 size={16} /> : <VolumeX size={16} />}

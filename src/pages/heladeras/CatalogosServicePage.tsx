@@ -79,7 +79,7 @@ function MotivosIngresoEditor({ motivos, onSaved }: { motivos: MotivoIngreso[]; 
       <div className="space-y-1.5">
         {motivos.map((m) => (
           <div key={m.id} className="flex items-center gap-3 bg-gray-50 border border-[#D3D1C7] rounded-lg px-3 py-2.5">
-            <span className={`flex-1 text-sm ${m.activo ? 'text-gray-900' : 'text-gray-400 line-through'}`}>{m.nombre}</span>
+            <span className={`flex-1 text-sm ${m.activo ? 'text-gray-900' : 'text-secundario line-through'}`}>{m.nombre}</span>
             <span className="text-xs text-gray-500 shrink-0">{TIPO_OPERACION_LABELS[m.tipoOperacion]}</span>
             <button
               onClick={() => toggle(m.id, { activo: !m.activo })}
@@ -87,12 +87,12 @@ function MotivosIngresoEditor({ motivos, onSaved }: { motivos: MotivoIngreso[]; 
             >
               {m.activo ? 'Desactivar' : 'Activar'}
             </button>
-            <button onClick={() => remove(m.id)} className="text-gray-400 hover:text-red-500 transition-colors p-1 shrink-0">
+            <button onClick={() => remove(m.id)} className="text-secundario hover:text-red-500 transition-colors p-1 shrink-0">
               <Trash2 size={14} />
             </button>
           </div>
         ))}
-        {motivos.length === 0 && <p className="text-gray-400 text-sm">Todavía no cargaste ningún motivo.</p>}
+        {motivos.length === 0 && <p className="text-secundario text-sm">Todavía no cargaste ningún motivo.</p>}
       </div>
 
       {error && <p className="text-red-500 text-xs">{error}</p>}
@@ -187,7 +187,7 @@ function MotivosEditor({ motivos, onSaved }: { motivos: MotivoReparacion[]; onSa
       <div className="space-y-1.5">
         {motivos.map((m) => (
           <div key={m.id} className="flex items-center gap-3 bg-gray-50 border border-[#D3D1C7] rounded-lg px-3 py-2.5">
-            <span className={`flex-1 text-sm ${m.activo ? 'text-gray-900' : 'text-gray-400 line-through'}`}>{m.nombre}</span>
+            <span className={`flex-1 text-sm ${m.activo ? 'text-gray-900' : 'text-secundario line-through'}`}>{m.nombre}</span>
             <label className="flex items-center gap-1.5 text-xs text-gray-500 shrink-0">
               <input type="checkbox" checked={!!m.requiereChofer} onChange={(e) => toggle(m.id, { requiereChofer: e.target.checked })} />
               Requiere chofer
@@ -202,12 +202,12 @@ function MotivosEditor({ motivos, onSaved }: { motivos: MotivoReparacion[]; onSa
             >
               {m.activo ? 'Desactivar' : 'Activar'}
             </button>
-            <button onClick={() => remove(m.id)} className="text-gray-400 hover:text-red-500 transition-colors p-1 shrink-0">
+            <button onClick={() => remove(m.id)} className="text-secundario hover:text-red-500 transition-colors p-1 shrink-0">
               <Trash2 size={14} />
             </button>
           </div>
         ))}
-        {motivos.length === 0 && <p className="text-gray-400 text-sm">Todavía no cargaste ningún motivo.</p>}
+        {motivos.length === 0 && <p className="text-secundario text-sm">Todavía no cargaste ningún motivo.</p>}
       </div>
 
       {error && <p className="text-red-500 text-xs">{error}</p>}
@@ -292,7 +292,7 @@ function TiposEditor({ tipos, onSaved }: { tipos: TipoReparacion[]; onSaved: () 
       <div className="space-y-1.5">
         {tipos.map((t) => (
           <div key={t.id} className="flex items-center gap-3 bg-gray-50 border border-[#D3D1C7] rounded-lg px-3 py-2.5">
-            <span className={`flex-1 text-sm ${t.activo ? 'text-gray-900' : 'text-gray-400 line-through'}`}>{t.nombre}</span>
+            <span className={`flex-1 text-sm ${t.activo ? 'text-gray-900' : 'text-secundario line-through'}`}>{t.nombre}</span>
             <select
               value={t.area}
               onChange={(e) => toggle(t.id, { area: e.target.value as AreaHeladera })}
@@ -306,12 +306,12 @@ function TiposEditor({ tipos, onSaved }: { tipos: TipoReparacion[]; onSaved: () 
             >
               {t.activo ? 'Desactivar' : 'Activar'}
             </button>
-            <button onClick={() => remove(t.id)} className="text-gray-400 hover:text-red-500 transition-colors p-1 shrink-0">
+            <button onClick={() => remove(t.id)} className="text-secundario hover:text-red-500 transition-colors p-1 shrink-0">
               <Trash2 size={14} />
             </button>
           </div>
         ))}
-        {tipos.length === 0 && <p className="text-gray-400 text-sm">Todavía no cargaste ningún tipo.</p>}
+        {tipos.length === 0 && <p className="text-secundario text-sm">Todavía no cargaste ningún tipo.</p>}
       </div>
 
       {error && <p className="text-red-500 text-xs">{error}</p>}
@@ -441,22 +441,22 @@ function PasosTallerEditor({ pasos, onSaved }: { pasos: Record<string, PasoTalle
         return (
           <div key={tipo} className="space-y-1.5">
             <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">{TIPO_PIPELINE_LABELS[tipo]}</h3>
-            {lista.length === 0 && <p className="text-gray-400 text-sm">Todavía no hay pasos.</p>}
+            {lista.length === 0 && <p className="text-secundario text-sm">Todavía no hay pasos.</p>}
             {lista.map((p, i) => (
               <div key={p.id} className="flex items-center gap-3 bg-gray-50 border border-[#D3D1C7] rounded-lg px-3 py-2.5">
                 <div className="flex flex-col shrink-0">
                   <button
                     disabled={i === 0}
                     onClick={() => mover(tipo, p.id, -1)}
-                    className="text-gray-400 hover:text-gray-900 disabled:opacity-30 disabled:hover:text-gray-400"
+                    className="text-secundario hover:text-gray-900 disabled:opacity-30 disabled:hover:text-secundario"
                   ><ChevronUp size={14} /></button>
                   <button
                     disabled={i === lista.length - 1}
                     onClick={() => mover(tipo, p.id, 1)}
-                    className="text-gray-400 hover:text-gray-900 disabled:opacity-30 disabled:hover:text-gray-400"
+                    className="text-secundario hover:text-gray-900 disabled:opacity-30 disabled:hover:text-secundario"
                   ><ChevronDown size={14} /></button>
                 </div>
-                <span className={`flex-1 text-sm ${p.activo ? 'text-gray-900' : 'text-gray-400 line-through'}`}>{p.nombre}</span>
+                <span className={`flex-1 text-sm ${p.activo ? 'text-gray-900' : 'text-secundario line-through'}`}>{p.nombre}</span>
                 <span className="text-xs text-gray-500 shrink-0">{AREA_HELADERA_LABELS[p.area]}</span>
                 {p.requiereAprobacion && (
                   <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 shrink-0">requiere aprobación</span>
@@ -467,7 +467,7 @@ function PasosTallerEditor({ pasos, onSaved }: { pasos: Record<string, PasoTalle
                 >
                   {p.activo ? 'Desactivar' : 'Activar'}
                 </button>
-                <button onClick={() => remove(p.id)} className="text-gray-400 hover:text-red-500 transition-colors p-1 shrink-0">
+                <button onClick={() => remove(p.id)} className="text-secundario hover:text-red-500 transition-colors p-1 shrink-0">
                   <Trash2 size={14} />
                 </button>
               </div>

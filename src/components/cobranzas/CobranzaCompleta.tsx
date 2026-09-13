@@ -300,7 +300,7 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
       <div>
         <label className="text-xs text-gray-500 mb-1 block">Cliente</label>
         <ClienteCombobox items={itemsTango} value={clienteId} onChange={setClienteId} placeholder="Buscar cliente…" />
-        {clienteId && cargandoCliente && <p className="text-xs text-gray-400 mt-1">Cargando la ficha del cliente…</p>}
+        {clienteId && cargandoCliente && <p className="text-xs text-secundario mt-1">Cargando la ficha del cliente…</p>}
       </div>
 
       {cliente && (
@@ -310,9 +310,9 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Facturas pendientes</h2>
               {refrescando ? (
-                <span className="flex items-center gap-1 text-xs text-gray-400"><RefreshCw size={12} className="animate-spin" /> Consultando Tango…</span>
+                <span className="flex items-center gap-1 text-xs text-secundario"><RefreshCw size={12} className="animate-spin" /> Consultando Tango…</span>
               ) : saldo ? (
-                <span className="text-xs text-gray-400">{esCache ? `Cache · ${haceCuanto(saldo.actualizadoEn)}` : 'Al día con Tango'}</span>
+                <span className="text-xs text-secundario">{esCache ? `Cache · ${haceCuanto(saldo.actualizadoEn)}` : 'Al día con Tango'}</span>
               ) : null}
             </div>
 
@@ -321,7 +321,7 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
             ) : comprobantes.length === 0 ? (
               <div className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-4 text-center">
                 <p className="text-sm text-gray-600">Este cliente no tiene facturas pendientes en el cache de Tango.</p>
-                <p className="text-xs text-gray-400 mt-1">Si te adelanta plata sin factura, cobrala a cuenta acá abajo.</p>
+                <p className="text-xs text-secundario mt-1">Si te adelanta plata sin factura, cobrala a cuenta acá abajo.</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -344,7 +344,7 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-semibold text-gray-900">{formatoARS(subtotal)}</p>
-                        {rama?.actualizadoEn && !frescaEmpresa && <p className="text-[10px] text-gray-400">{haceCuanto(rama.actualizadoEn)}</p>}
+                        {rama?.actualizadoEn && !frescaEmpresa && <p className="text-[10px] text-secundario">{haceCuanto(rama.actualizadoEn)}</p>}
                       </div>
                     </div>
                     {apagado && <p className="text-[11px] text-gray-500 mb-1.5 px-0.5">Se cobra en otro recibo: un recibo por empresa.</p>}
@@ -414,7 +414,7 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
                           <div className="text-right shrink-0">
                             <p className="text-sm font-semibold text-gray-900">{formatoARS(c.saldoPendiente)}</p>
                             {aCentavos(c.saldoPendiente) < aCentavos(c.importeOriginal) && (
-                              <p className="text-xs text-gray-400">de {formatoARS(c.importeOriginal)}</p>
+                              <p className="text-xs text-secundario">de {formatoARS(c.importeOriginal)}</p>
                             )}
                           </div>
                         </div>
@@ -494,7 +494,7 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
                     <div className="text-right shrink-0">
                       <p className="text-sm font-semibold text-gray-900">{formatoARS(ch.importe)}</p>
                       <button type="button" onClick={() => setCheques((prev) => prev.filter((_, j) => j !== i))}
-                        className="text-gray-400 hover:text-red-500 mt-1" aria-label="Quitar cheque">
+                        className="text-secundario hover:text-red-500 mt-1" aria-label="Quitar cheque">
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -512,7 +512,7 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
                     <div className="text-right shrink-0">
                       <p className="text-sm font-semibold text-gray-900">{formatoARS(r.importe)}</p>
                       <button type="button" onClick={() => setRetenciones((prev) => prev.filter((_, j) => j !== i))}
-                        className="text-gray-400 hover:text-red-500 mt-1" aria-label="Quitar retención">
+                        className="text-secundario hover:text-red-500 mt-1" aria-label="Quitar retención">
                         <Trash2 size={16} />
                       </button>
                     </div>

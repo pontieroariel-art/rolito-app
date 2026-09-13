@@ -102,7 +102,7 @@ export default function DepositosPanel() {
 
       {error && <p className="px-4 pb-2 text-xs text-red-500">{error}</p>}
 
-      <div className="overflow-x-auto border-t border-gray-100">
+      <div className="overflow-x-auto border-t border-[#E7E5DC]">
         {loading ? (
           <p className="p-4 text-sm text-gray-500">Cargando depósitos…</p>
         ) : depositos.length === 0 ? (
@@ -110,7 +110,7 @@ export default function DepositosPanel() {
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-[11px] uppercase tracking-wide text-gray-500">
+              <tr className="text-xs uppercase tracking-wide text-gray-500">
                 <th className="text-left px-4 py-2 font-semibold">Código</th>
                 <th className="text-left px-2 py-2 font-semibold">Nombre en Tango</th>
                 <th className="text-left px-2 py-2 font-semibold">Tipo</th>
@@ -120,7 +120,7 @@ export default function DepositosPanel() {
             </thead>
             <tbody>
               {visibles.map((d) => (
-                <tr key={d.codigo} className={`border-t border-gray-100 ${guardando === d.codigo ? 'opacity-60' : ''} ${d.inhabilitado ? 'text-gray-400' : ''}`}>
+                <tr key={d.codigo} className={`border-t border-[#E7E5DC] ${guardando === d.codigo ? 'opacity-60' : ''} ${d.inhabilitado ? 'text-inerte' : ''}`}>
                   <td className="px-4 py-1.5 font-mono font-semibold">{d.codigo}</td>
                   <td className="px-2 py-1.5">
                     {d.nombre}
@@ -146,7 +146,7 @@ export default function DepositosPanel() {
                           <option key={u.uid} value={u.uid}>{nombreDe(u)} ({u.rol})</option>
                         ))}
                       </select>
-                    ) : <span className="text-xs text-gray-400">—</span>}
+                    ) : <span className="text-xs text-secundario">—</span>}
                   </td>
                   <td className="px-2 py-1.5">
                     <input type="checkbox" checked={d.activo} onChange={(e) => guardar(d, { activo: e.target.checked })} className="accent-[#1D9E75]" />

@@ -279,7 +279,7 @@ export default function ReporteVentasPage() {
                       </thead>
                       <tbody>
                         {byProduct.map((p) => (
-                          <tr key={p.id} className="border-b border-gray-100 last:border-0">
+                          <tr key={p.id} className="border-b border-[#E7E5DC] last:border-0">
                             <td className="py-2">{p.name}</td>
                             <td className="py-2 text-right font-medium">{p.qty.toLocaleString('es-AR')}</td>
                             <td className="py-2 text-right text-gray-500">
@@ -311,7 +311,7 @@ export default function ReporteVentasPage() {
                       </thead>
                       <tbody>
                         {topClients.map((c, i) => (
-                          <tr key={i} className="border-b border-gray-100 last:border-0">
+                          <tr key={i} className="border-b border-[#E7E5DC] last:border-0">
                             <td className="py-2 text-gray-500">{i + 1}</td>
                             <td className="py-2 font-medium">{c.name}</td>
                             <td className="py-2 text-right text-gray-500">{c.orders}</td>

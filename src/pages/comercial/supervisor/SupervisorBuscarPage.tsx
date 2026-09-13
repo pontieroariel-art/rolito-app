@@ -35,7 +35,7 @@ export default function SupervisorBuscarPage() {
       <SupervisorHeader title="Buscar cliente" back />
       <main className="max-w-md mx-auto p-4 space-y-3 pb-10">
         <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-inerte" />
           <input
             {...INPUT_BUSQUEDA_PROPS}
             autoFocus
@@ -68,14 +68,14 @@ export default function SupervisorBuscarPage() {
                         <p className="text-xs text-gray-500 truncate">
                           {c.codigos.length ? `${c.codigos[0]}${c.codigos.length > 1 ? ` +${c.codigos.length - 1}` : ''}` : 'Sin código de Tango'}{c.cuit ? ` · CUIT ${c.cuit}` : ''}
                         </p>
-                        {dir?.address && <p className="text-xs text-gray-400 truncate">{dir.address}</p>}
+                        {dir?.address && <p className="text-xs text-secundario truncate">{dir.address}</p>}
                       </div>
                       {deuda > 0 && (
                         <span className="text-xs font-semibold text-red-600 bg-red-50 border border-red-200 rounded-full px-2 py-0.5 shrink-0">
                           Debe {formatoARS(deuda)}
                         </span>
                       )}
-                      <ChevronRight size={16} className="text-gray-300 shrink-0" />
+                      <ChevronRight size={16} className="text-inerte shrink-0" />
                     </div>
                   </Link>
                 )

@@ -68,7 +68,7 @@ export default function AsignacionEquiposPage() {
             </div>
 
             {heladerasDelCliente.length === 0 ? (
-              <p className="text-gray-400 text-sm">Este cliente no tiene heladeras asignadas.</p>
+              <p className="text-secundario text-sm">Este cliente no tiene heladeras asignadas.</p>
             ) : (
               <div className="space-y-2">
                 {heladerasDelCliente.map((h) => (

@@ -325,7 +325,7 @@ export default function UserManagement({ tab }: { tab: 'clientes' | 'equipo' }) 
             {(search || statusFilter !== 'all' || sectorFilter !== 'all' || rolFilter !== 'all') && (
               <button
                 onClick={() => { setSearch(''); setStatusFilter('all'); setSectorFilter('all'); setRolFilter('all'); setVisibleCount(PAGE_SIZE) }}
-                className="text-sm text-gray-400 hover:text-gray-900 px-3 py-2 shrink-0"
+                className="text-sm text-secundario hover:text-gray-900 px-3 py-2 shrink-0"
               >
                 Limpiar ✕
               </button>
@@ -361,7 +361,7 @@ export default function UserManagement({ tab }: { tab: 'clientes' | 'equipo' }) 
           {loading ? (
             <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center">
               <LoadingSpinner />
-              <p className="text-gray-400 text-sm mt-2">Cargando...</p>
+              <p className="text-secundario text-sm mt-2">Cargando...</p>
             </div>
           ) : tab === 'clientes' ? (
             filteredSucursales.length === 0 ? (

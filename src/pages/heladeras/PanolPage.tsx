@@ -154,7 +154,7 @@ function CarritoUI({ carrito, articulos }: { carrito: ReturnType<typeof useCarri
       {carrito.error && <p className="text-red-500 text-xs">{carrito.error}</p>}
 
       {carrito.items.length > 0 && (
-        <div className="border border-[#D3D1C7] rounded-lg divide-y divide-gray-100">
+        <div className="border border-[#D3D1C7] rounded-lg divide-y divide-[#E7E5DC]">
           {carrito.items.map((i) => (
             <div key={i.articuloId} className="flex items-center gap-2 px-3 py-2">
               <span className="flex-1 text-sm text-gray-900">{i.nombre}</span>
@@ -163,7 +163,7 @@ function CarritoUI({ carrito, articulos }: { carrito: ReturnType<typeof useCarri
                 onChange={(e) => carrito.setCantidad(i.articuloId, Number(e.target.value) || 1)}
                 className="w-16 bg-[#F8F7F2] border border-[#D3D1C7] rounded px-2 py-1 text-sm text-right"
               />
-              <button onClick={() => carrito.quitar(i.articuloId)} className="text-gray-400 hover:text-red-500">
+              <button onClick={() => carrito.quitar(i.articuloId)} className="text-secundario hover:text-red-500">
                 <Trash2 size={14} />
               </button>
             </div>
@@ -223,7 +223,7 @@ function EntregaModal({ articulos, actor, onClose }: { articulos: PanolArticulo[
           </select>
         </div>
         <CarritoUI carrito={carrito} articulos={articulos} />
-        <p className="text-xs text-gray-400">El técnico confirma la recepción con su firma desde su panel.</p>
+        <p className="text-xs text-secundario">El técnico confirma la recepción con su firma desde su panel.</p>
         {error && <p className="text-red-500 text-xs">{error}</p>}
         <div className="flex gap-2">
           <Button variant="outline" onClick={onClose} className="flex-1">Cancelar</Button>
@@ -318,7 +318,7 @@ export default function PanolPage() {
         </div>
 
         {articulos.length === 0 ? (
-          <p className="text-gray-400 text-sm">Todavía no cargaste ningún artículo.</p>
+          <p className="text-secundario text-sm">Todavía no cargaste ningún artículo.</p>
         ) : (
           <div className="bg-white border border-[#D3D1C7] rounded-xl overflow-hidden">
             <div className="overflow-x-auto">
@@ -335,12 +335,12 @@ export default function PanolPage() {
                   const bajo = a.stockActual < a.stockMinimo
                   const sobre = a.stockMaximo > 0 && a.stockActual > a.stockMaximo
                   return (
-                    <tr key={a.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
-                      <td className="py-2 px-4 text-gray-900">{a.nombre}<span className="text-gray-400 text-xs ml-1">({a.unidad})</span></td>
+                    <tr key={a.id} className="border-b border-[#E7E5DC] last:border-0 hover:bg-gray-50">
+                      <td className="py-2 px-4 text-gray-900">{a.nombre}<span className="text-secundario text-xs ml-1">({a.unidad})</span></td>
                       <td className={`py-2 px-4 text-right font-medium ${bajo ? 'text-amber-600' : sobre ? 'text-blue-600' : 'text-gray-700'}`}>
                         {a.stockActual}{bajo && ' ⚠'}{sobre && ' ▲'}
                       </td>
-                      <td className="py-2 px-4 text-right text-gray-400 text-xs">{a.stockMinimo} / {a.stockMaximo}</td>
+                      <td className="py-2 px-4 text-right text-secundario text-xs">{a.stockMinimo} / {a.stockMaximo}</td>
                     </tr>
                   )
                 })}
@@ -363,7 +363,7 @@ export default function PanolPage() {
                     <p className="text-xs text-gray-500">{m.articulos.map((a) => `${a.cantidad}x ${a.nombre}`).join(', ')}</p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-xs text-gray-400">{tsToDate(m.fecha).toLocaleDateString('es-AR')}</p>
+                    <p className="text-xs text-secundario">{tsToDate(m.fecha).toLocaleDateString('es-AR')}</p>
                     {m.tipo === 'entrega' && (
                       <span className={`text-xs px-1.5 py-0.5 rounded-full border ${
                         m.confirmado ? 'bg-green-100 text-green-700 border-green-200' : 'bg-amber-100 text-amber-700 border-amber-200'

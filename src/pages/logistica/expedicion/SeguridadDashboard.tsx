@@ -92,7 +92,7 @@ export default function SeguridadDashboard() {
             <Truck size={18} className="text-accent" /> Camiones por salir
           </h2>
           {camionesPorSalir.length === 0 && (
-            <p className="text-gray-400 text-sm">No hay camiones cargados esperando salir.</p>
+            <p className="text-secundario text-sm">No hay camiones cargados esperando salir.</p>
           )}
           {camionesPorSalir.map((r) => (
             <div key={r.id} className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-3 space-y-2">
@@ -150,7 +150,7 @@ export default function SeguridadDashboard() {
         <section className="space-y-2">
           <h2 className="font-semibold text-gray-800">Salidas de hoy</h2>
           {camionesSalidos.length === 0 && (
-            <p className="text-gray-400 text-sm">Todavía no salió ningún camión hoy.</p>
+            <p className="text-secundario text-sm">Todavía no salió ningún camión hoy.</p>
           )}
           {camionesSalidos.map((r) => (
             <div key={r.id} className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-3 flex items-center gap-3">

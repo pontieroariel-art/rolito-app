@@ -138,7 +138,7 @@ export default function CrearHeladeraModal({
               {modeloElegido ? codigoPreview : 'Elegí un modelo para ver el código'}
             </div>
             {modeloElegido && (
-              <p className="text-xs text-gray-400 mt-1">Se genera solo — próximo número libre para este modelo.</p>
+              <p className="text-xs text-secundario mt-1">Se genera solo — próximo número libre para este modelo.</p>
             )}
           </div>
         ) : (

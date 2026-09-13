@@ -46,7 +46,7 @@ function Fila({
           tabIndex={0}
           onClick={(e) => { e.stopPropagation(); onToggleFavorito() }}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); onToggleFavorito() } }}
-          className={`shrink-0 p-1 -m-1 ${esFavorito ? 'text-amber-500' : 'text-gray-300 hover:text-amber-400'}`}
+          className={`shrink-0 p-1 -m-1 ${esFavorito ? 'text-amber-500' : 'text-inerte hover:text-amber-400'}`}
           aria-label={esFavorito ? 'Quitar de favoritos' : 'Agregar a favoritos'}
         >
           <Star size={18} fill={esFavorito ? 'currentColor' : 'none'} />
@@ -81,14 +81,14 @@ export default function TipoReparacionChecklist({
   )
 
   if (tipos.length === 0) {
-    return <p className="text-gray-400 text-sm">Todavía no hay tipos cargados para tu sector.</p>
+    return <p className="text-secundario text-sm">Todavía no hay tipos cargados para tu sector.</p>
   }
 
   return (
     <div className="space-y-3">
       {showSearch && (
         <div className="relative">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-inerte" />
           <input
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
@@ -99,7 +99,7 @@ export default function TipoReparacionChecklist({
       )}
 
       {visibles.length === 0 ? (
-        <p className="text-gray-400 text-sm">Sin resultados para "{busqueda}".</p>
+        <p className="text-secundario text-sm">Sin resultados para "{busqueda}".</p>
       ) : (
         <>
           {favoritosVisibles.length > 0 && (

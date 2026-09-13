@@ -33,7 +33,7 @@ export default function ProduccionResumenPage() {
           <LoadingSpinner />
         ) : ultimos.length === 0 ? (
           <div className="bg-white border border-[#D3D1C7] rounded-xl p-6 text-center">
-            <p className="text-gray-400 text-sm">Todavía no hay pallets cargados.</p>
+            <p className="text-secundario text-sm">Todavía no hay pallets cargados.</p>
           </div>
         ) : (
           <div className="bg-white border border-[#D3D1C7] rounded-xl divide-y divide-[#D3D1C7]/60">
@@ -49,7 +49,7 @@ export default function ProduccionResumenPage() {
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-xs text-gray-600">{PLANTAS[p.plantaId].label}</p>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-secundario">
                     {p.fechaFabricacion.toDate().toLocaleString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>

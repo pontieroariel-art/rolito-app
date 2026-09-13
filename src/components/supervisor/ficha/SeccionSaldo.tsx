@@ -78,8 +78,8 @@ function ChipRemito({ numero, empresa, cliente, email, fecha }: { numero: string
       trigger={(abrir, ocupado) => (
         <button type="button" onClick={abrir} disabled={ocupado}
           className="inline-flex items-center gap-1 rounded-full border border-[#D3D1C7] bg-white px-2 py-0.5 text-[11px] text-gray-700 active:scale-95 disabled:opacity-50">
-          {ocupado ? <RefreshCw size={11} className="animate-spin" /> : <Truck size={11} className="text-gray-400" />}
-          {formatoRemito(numero)}{fecha ? <span className="text-gray-400"> · {fechaCorta(fecha)}</span> : null}
+          {ocupado ? <RefreshCw size={11} className="animate-spin" /> : <Truck size={11} className="text-inerte" />}
+          {formatoRemito(numero)}{fecha ? <span className="text-secundario"> · {fechaCorta(fecha)}</span> : null}
         </button>
       )}
     />
@@ -203,21 +203,21 @@ export default function SeccionSaldo({ c }: { c: UserProfile }) {
                 </div>
                 <p className="text-xs font-semibold text-gray-900">{formatoARS(b.subtotalPendiente)}</p>
               </div>
-              <div className="divide-y divide-gray-100">
+              <div className="divide-y divide-[#E7E5DC]">
                 {b.filas.map((f) => (
                   <div key={f.clave} className="px-3 py-1.5">
                     <div className="flex justify-between items-center gap-2">
                       <div className="min-w-0">
-                        <p className={`text-sm truncate ${f.estado === 'anulada' ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{f.tipo} {f.numero}</p>
+                        <p className={`text-sm truncate ${f.estado === 'anulada' ? 'text-secundario line-through' : 'text-gray-900'}`}>{f.tipo} {f.numero}</p>
                         <p className="text-[11px] text-gray-500">
                           {[fechaCorta(f.fecha) ? `Emitida ${fechaCorta(f.fecha)}` : '', fechaCorta(f.fechaVencimiento) ? `Vto. ${fechaCorta(f.fechaVencimiento)}` : ''].filter(Boolean).join(' · ')}
                           {f.diasAtraso && f.diasAtraso > 0 ? <span className="text-red-500"> · {f.diasAtraso} d de atraso</span> : null}
-                          {f.estado !== 'pendiente' && <span className={f.estado === 'pagada' ? 'text-accent' : 'text-gray-400'}> · {ESTADO_FILA[f.estado]}</span>}
+                          {f.estado !== 'pendiente' && <span className={f.estado === 'pagada' ? 'text-accent' : 'text-secundario'}> · {ESTADO_FILA[f.estado]}</span>}
                         </p>
                       </div>
                       <div className="text-right shrink-0">
                         <p className={`text-sm font-medium tabular-nums ${f.estado === 'pendiente' ? 'text-gray-900' : 'text-gray-500'}`}>{formatoARS(f.pendiente ?? f.importe)}</p>
-                        {f.pendiente !== null && f.pendiente !== f.importe && <p className="text-[11px] text-gray-400 tabular-nums">de {formatoARS(f.importe)}</p>}
+                        {f.pendiente !== null && f.pendiente !== f.importe && <p className="text-[11px] text-secundario tabular-nums">de {formatoARS(f.importe)}</p>}
                       </div>
                       <BotonFactura fila={f} cliente={c} email={email} />
                     </div>
@@ -230,7 +230,7 @@ export default function SeccionSaldo({ c }: { c: UserProfile }) {
                 ))}
                 {b.remitosSinFacturar.length > 0 && (
                   <div className="px-3 py-2">
-                    <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Remitos sin facturar</p>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Remitos sin facturar</p>
                     <div className="flex flex-wrap gap-1">
                       {b.remitosSinFacturar.map((r) => <ChipRemito key={r.numero} numero={r.numero} empresa={r.empresa} cliente={c} email={email} fecha={r.fecha} />)}
                     </div>
@@ -259,7 +259,7 @@ export default function SeccionSaldo({ c }: { c: UserProfile }) {
                 </button>
               )}
             />
-            {!email && <p className="text-[11px] text-gray-400 mt-1">Este cliente no tiene mail en Tango: para mandarlo por mail vas a tener que escribirlo.</p>}
+            {!email && <p className="text-[11px] text-secundario mt-1">Este cliente no tiene mail en Tango: para mandarlo por mail vas a tener que escribirlo.</p>}
           </div>
         </div>
       )}

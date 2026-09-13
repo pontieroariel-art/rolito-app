@@ -101,7 +101,7 @@ export default function Navbar() {
         </div>
 
         {/* Usuario desktop */}
-        <div className="hidden md:flex items-center gap-2 pl-3 border-l border-gray-100 ml-2 shrink-0">
+        <div className="hidden md:flex items-center gap-2 pl-3 border-l border-[#E7E5DC] ml-2 shrink-0">
           <div className="text-right">
             <p className="text-sm font-semibold text-gray-800 leading-tight">
               {user?.nombre?.split(' ')[0]}
@@ -154,7 +154,7 @@ export default function Navbar() {
 
       {/* Menú mobile */}
       {open && (
-        <div id="mobile-menu" className="md:hidden border-t border-gray-100 bg-white">
+        <div id="mobile-menu" className="md:hidden border-t border-[#E7E5DC] bg-white">
           <div className="grid grid-cols-4 gap-1.5 p-3">
             {links.map((l) => (
               <NavLink
@@ -178,7 +178,7 @@ export default function Navbar() {
               </NavLink>
             ))}
           </div>
-          <div className="border-t border-gray-100 px-4 py-3 flex items-center justify-between">
+          <div className="border-t border-[#E7E5DC] px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-full bg-accent flex items-center justify-center text-white text-sm font-bold">
                 {initials}

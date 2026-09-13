@@ -54,7 +54,7 @@ export default function ListasTangoPanel() {
           ))}
         </div>
         <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-inerte" />
           <input
             value={filtro}
             onChange={(e) => setFiltro(e.target.value)}
@@ -75,33 +75,36 @@ export default function ListasTangoPanel() {
           <div className="bg-white border border-[#D3D1C7] rounded-xl overflow-x-auto">
             <table className="w-full text-sm min-w-[640px]">
               <thead>
-                <tr className="border-b border-gray-100">
-                  <th className="text-left text-xs text-gray-500 font-medium px-3 py-2.5 whitespace-nowrap">Nº · Lista</th>
+                <tr className="border-b border-[#E7E5DC]">
+                  {/* La matriz es ancha por naturaleza (una columna por
+                      producto). La columna de la lista queda fija al scrollear
+                      al costado: sin eso se pierde de qué fila es cada precio. */}
+                  <th className="sticky left-0 z-10 bg-white text-left text-xs text-secundario font-medium px-3 py-2.5 whitespace-nowrap">Nº · Lista</th>
                   {productos.map((p) => (
-                    <th key={p.id} className="text-right text-xs text-gray-500 font-medium px-2 py-2.5 whitespace-nowrap">{p.nombre}</th>
+                    <th key={p.id} className="text-right text-xs text-secundario font-medium px-2 py-2.5 whitespace-nowrap">{p.nombre}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {listas.map((l) => (
-                  <tr key={l.nro} className="border-b border-gray-100 last:border-0">
-                    <td className="px-3 py-2 whitespace-nowrap">
-                      <span className="text-gray-400 tabular-nums mr-1.5">{l.nro}</span>
+                  <tr key={l.nro} className="border-b border-[#E7E5DC] last:border-0">
+                    <td className="sticky left-0 z-10 bg-white px-3 py-2 whitespace-nowrap">
+                      <span className="text-secundario tabular-nums mr-1.5">{l.nro}</span>
                       <span className="font-medium text-gray-900">{l.nombre}</span>
-                      {l.incluyeIva && <span className="ml-1.5 text-[10px] text-gray-400">IVA inc.</span>}
+                      {l.incluyeIva && <span className="ml-1.5 text-[10px] text-secundario">IVA inc.</span>}
                     </td>
                     {productos.map((p) => {
                       const precio = l.precios[p.id]
                       return (
                         <td key={p.id} className="px-2 py-2 text-right tabular-nums">
-                          {precio > 0 ? <span className="text-gray-900">{money(precio)}</span> : <span className="text-gray-300">—</span>}
+                          {precio > 0 ? <span className="text-gray-900">{money(precio)}</span> : <span className="text-inerte">—</span>}
                         </td>
                       )
                     })}
                   </tr>
                 ))}
                 {listas.length === 0 && (
-                  <tr><td colSpan={productos.length + 1} className="px-3 py-6 text-center text-gray-400">Ninguna lista coincide con la búsqueda.</td></tr>
+                  <tr><td colSpan={productos.length + 1} className="px-3 py-6 text-center text-secundario">Ninguna lista coincide con la búsqueda.</td></tr>
                 )}
               </tbody>
             </table>

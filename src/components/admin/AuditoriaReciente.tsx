@@ -22,7 +22,7 @@ const ACCION: Record<string, string> = {
 export default function AuditoriaReciente({ eventos, ahora }: { eventos: HistorialAdminEvento[]; ahora: Date }) {
   if (eventos.length === 0) return <p className="text-sm text-gray-500">Sin acciones registradas.</p>
   return (
-    <ul className="divide-y divide-gray-100">
+    <ul className="divide-y divide-[#E7E5DC]">
       {eventos.map((e) => {
         const alto = e.riesgo === 'alto'
         const fecha = e.fecha ? tsToDate(e.fecha as Timestamp) : null
@@ -35,9 +35,9 @@ export default function AuditoriaReciente({ eventos, ahora }: { eventos: Histori
               <b className="text-gray-900">{e.actor?.nombre || 'Alguien'}</b>{' '}
               {ACCION[e.accion] ?? e.accion}
               {e.detalle ? <> <span className={alto ? 'text-red-700 font-medium' : ''}>{e.detalle}</span></> : null}
-              <span className="text-gray-400"> · {e.coleccion}</span>
+              <span className="text-secundario"> · {e.coleccion}</span>
             </p>
-            <span className="text-xs text-gray-400 shrink-0 tabular-nums">{haceTexto(fecha, ahora)}</span>
+            <span className="text-xs text-secundario shrink-0 tabular-nums">{haceTexto(fecha, ahora)}</span>
           </li>
         )
       })}

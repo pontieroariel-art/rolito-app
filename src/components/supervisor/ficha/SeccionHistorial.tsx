@@ -80,7 +80,7 @@ export default function SeccionHistorial({ c }: { c: UserProfile }) {
       {error && <p className="text-sm text-red-600">{error}</p>}
       {!hist && !error && <p className="text-sm text-gray-500">Cargando historial…</p>}
       {hist && items.length === 0 && <p className="text-sm text-gray-500">Sin movimientos registrados en la app.</p>}
-      <div className="divide-y divide-gray-100">
+      <div className="divide-y divide-[#E7E5DC]">
         {items.slice(0, visibles).map((it) => {
           if (it.tipo === 'venta') return <VentaRow key={`v-${it.venta.id}`} venta={it.venta} cliente={c} caiRemito={caiRemito} />
           if (it.tipo === 'mostrador') {

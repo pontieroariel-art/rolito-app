@@ -100,7 +100,7 @@ export default function ProduccionListadoPage() {
                         to={`/produccion/ticket/${p.id}`}
                         target="_blank"
                         title="Reimprimir etiqueta"
-                        className="inline-flex text-gray-400 hover:text-accent transition-colors p-1"
+                        className="inline-flex text-secundario hover:text-accent transition-colors p-1"
                       >
                         <Printer size={16} />
                       </Link>

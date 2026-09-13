@@ -69,7 +69,7 @@ function CrearTecnicoModal({ onClose, onCreated }: { onClose: () => void; onCrea
           >
             {SECTORES_REPARACION.map((a) => <option key={a} value={a}>{AREA_HELADERA_LABELS[a]}</option>)}
           </select>
-          <p className="text-xs text-gray-400 mt-1">Define qué tipos de reparación va a poder elegir al registrar su trabajo.</p>
+          <p className="text-xs text-secundario mt-1">Define qué tipos de reparación va a poder elegir al registrar su trabajo.</p>
         </div>
         {error && <p className="text-red-500 text-xs">{error}</p>}
         <div className="flex gap-2 pt-1">
@@ -103,7 +103,7 @@ export default function TecnicosPage() {
           <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center">
             <p className="text-4xl mb-3">🔧</p>
             <p className="text-gray-500 text-sm">Todavía no cargaste ningún técnico</p>
-            <p className="text-gray-400 text-xs mt-1">Usá el botón "Nuevo técnico" para empezar</p>
+            <p className="text-secundario text-xs mt-1">Usá el botón "Nuevo técnico" para empezar</p>
           </div>
         ) : (
           <div className="space-y-2">

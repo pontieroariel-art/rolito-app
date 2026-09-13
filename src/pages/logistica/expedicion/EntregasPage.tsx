@@ -182,7 +182,7 @@ export default function EntregasPage() {
         </div>
         <div className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-4">
           <p className="text-xs text-gray-500">Diferencia</p>
-          {diferencia === null ? <p className="text-2xl font-bold text-gray-400">—</p> : <p className={`text-2xl font-bold tabular-nums ${diferencia === 0 ? 'text-[#0F6B4E]' : 'text-red-600'}`}>{formatoARS(diferencia)}{diferencia === 0 ? ' ✓' : ''}</p>}
+          {diferencia === null ? <p className="text-2xl font-bold text-secundario">—</p> : <p className={`text-2xl font-bold tabular-nums ${diferencia === 0 ? 'text-[#0F6B4E]' : 'text-red-600'}`}>{formatoARS(diferencia)}{diferencia === 0 ? ' ✓' : ''}</p>}
         </div>
       </section>
 

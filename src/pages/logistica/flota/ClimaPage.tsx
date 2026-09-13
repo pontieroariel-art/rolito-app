@@ -356,7 +356,7 @@ export default function ClimaPage() {
                   {weatherDays.map((d) => {
                     const kg = kgByDay[d.date] ?? 0
                     return (
-                      <tr key={d.date} className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
+                      <tr key={d.date} className="border-b border-[#E7E5DC] last:border-0 hover:bg-gray-50 transition-colors">
                         <td className="py-2.5 px-4 text-gray-500">{shortDay(d.date)}</td>
                         <td className="py-2.5 px-2 text-center" title={d.label}>{d.emoji}</td>
                         <td className="py-2.5 px-4 text-right font-medium" style={{ color: tempColor(d.tempMax) }}>
@@ -370,7 +370,7 @@ export default function ClimaPage() {
                           {kg > 0 ? (
                             <span className="font-medium text-accent">{kg.toLocaleString('es-AR')}</span>
                           ) : (
-                            <span className="text-gray-400">—</span>
+                            <span className="text-secundario">—</span>
                           )}
                         </td>
                       </tr>

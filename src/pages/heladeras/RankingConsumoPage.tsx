@@ -95,7 +95,7 @@ export default function RankingConsumoPage() {
         </div>
 
         {isLoading ? <LoadingSpinner /> : ranking.length === 0 ? (
-          <p className="text-gray-400 text-sm">Sin entregas de hielo en este mes.</p>
+          <p className="text-secundario text-sm">Sin entregas de hielo en este mes.</p>
         ) : (
           <div className="bg-white border border-[#D3D1C7] rounded-xl overflow-hidden">
             <div className="overflow-x-auto">
@@ -110,7 +110,7 @@ export default function RankingConsumoPage() {
               </thead>
               <tbody>
                 {ranking.map((r) => (
-                  <tr key={r.clientId} className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
+                  <tr key={r.clientId} className="border-b border-[#E7E5DC] last:border-0 hover:bg-gray-50 transition-colors">
                     <td className="py-2.5 px-4 text-gray-900">{r.nombre}</td>
                     <td className="py-2.5 px-4 text-right font-medium text-accent">{r.kg.toLocaleString('es-AR')}</td>
                     <td className="py-2.5 px-4 text-right text-gray-500">{r.pedidos}</td>

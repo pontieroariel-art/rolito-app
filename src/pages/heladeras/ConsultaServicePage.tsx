@@ -54,7 +54,7 @@ function AsignarModal({ ticket, actor, onClose }: { ticket: TicketServicio; acto
         {opciones.length === 0 ? (
           <p className="text-amber-600 text-sm">No hay {ticket.requiereChofer ? 'choferes' : 'técnicos'} disponibles.</p>
         ) : (
-          <div className="border border-[#D3D1C7] rounded-lg divide-y divide-gray-100 max-h-56 overflow-y-auto">
+          <div className="border border-[#D3D1C7] rounded-lg divide-y divide-[#E7E5DC] max-h-56 overflow-y-auto">
             {opciones.map((p) => (
               <button key={p.uid} disabled={saving} onClick={() => asignar(p)} className="w-full text-left px-3 py-2.5 hover:bg-gray-50 disabled:opacity-50">
                 {p.nombre}
@@ -227,7 +227,7 @@ export default function ConsultaServicePage() {
         </div>
 
         {filtrados.length === 0 ? (
-          <p className="text-gray-400 text-sm">No hay tickets en esta categoría.</p>
+          <p className="text-secundario text-sm">No hay tickets en esta categoría.</p>
         ) : (
           <div className="space-y-2">
             {filtrados.map((t) => (

@@ -58,7 +58,7 @@ export function EstadoTangoChip({ c }: { c: Cobranza }) {
     )
   }
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] text-gray-400">
+    <span className="inline-flex items-center gap-1 text-[11px] text-secundario">
       <Clock size={12} /> Pendiente en Tango
     </span>
   )

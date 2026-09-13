@@ -153,7 +153,7 @@ export default function NewOrder() {
             </div>
             <button
               onClick={() => setQuantities({})}
-              className="text-xs text-gray-400 hover:text-gray-700 shrink-0 transition-colors"
+              className="text-xs text-secundario hover:text-gray-700 shrink-0 transition-colors"
             >
               Limpiar
             </button>
@@ -218,7 +218,7 @@ export default function NewOrder() {
               onChange={(e: ChangeEvent<HTMLInputElement>) => setDate(e.target.value)}
               className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-accent"
             />
-            <p className="text-xs text-gray-400">Los pedidos requieren al menos 24 hs de anticipación.</p>
+            <p className="text-xs text-secundario">Los pedidos requieren al menos 24 hs de anticipación.</p>
           </div>
 
           {/* Toggle urgente */}
@@ -273,7 +273,7 @@ export default function NewOrder() {
           </div>
         )}
 
-        <div className="sticky bottom-[calc(3.5rem+env(safe-area-inset-bottom))] md:bottom-0 -mx-4 px-4 pt-3 pb-3 md:pb-[calc(0.75rem+env(safe-area-inset-bottom))] bg-white border-t border-gray-100">
+        <div className="sticky bottom-[calc(3.5rem+env(safe-area-inset-bottom))] md:bottom-0 -mx-4 px-4 pt-3 pb-3 md:pb-[calc(0.75rem+env(safe-area-inset-bottom))] bg-white border-t border-[#E7E5DC]">
           <Button
             onClick={() => setModal(true)}
             disabled={!canSubmit}
@@ -286,7 +286,7 @@ export default function NewOrder() {
         <Modal open={modal} onClose={() => setModal(false)} title={modifyOrder ? 'Confirmar modificación' : 'Confirmar pedido'}>
           <div className="space-y-4 text-sm">
             <div>
-              <p className="text-gray-400 text-xs uppercase tracking-wide mb-2">Productos</p>
+              <p className="text-secundario text-xs uppercase tracking-wide mb-2">Productos</p>
               <div className="space-y-1">
                 {selected.map((p) => (
                   <div key={p.name} className="flex justify-between text-gray-900">
@@ -297,7 +297,7 @@ export default function NewOrder() {
               </div>
             </div>
 
-            <div className="border-t border-gray-100 pt-3 space-y-2">
+            <div className="border-t border-[#E7E5DC] pt-3 space-y-2">
               {esUrgente && (
                 <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
                   <span>⚡</span>

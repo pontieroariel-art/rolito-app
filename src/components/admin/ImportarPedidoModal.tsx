@@ -266,7 +266,7 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
                     }`}
                   >
                     {s.user.codigoCliente && (
-                      <span className="text-xs text-gray-400 shrink-0 mt-0.5">[{s.user.codigoCliente}]</span>
+                      <span className="text-xs text-secundario shrink-0 mt-0.5">[{s.user.codigoCliente}]</span>
                     )}
                     <span className="flex-1 min-w-0">
                       <span className="block truncate">{s.label}</span>
@@ -279,7 +279,7 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
                 )
               })}
               {flatFiltered.length === 0 && (
-                <li className="px-3 py-4 text-sm text-gray-400 text-center">Sin resultados</li>
+                <li className="px-3 py-4 text-sm text-secundario text-center">Sin resultados</li>
               )}
             </ul>
           )}
@@ -424,7 +424,7 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
                 <label className="text-xs text-gray-500 mb-1 block">Vigencia (fecha tope)</label>
                 <div className="w-full bg-[#F1EFE8] border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-500">
                   {fechaTope || (deliveryDate ? addDaysStr(deliveryDate, 1) : '—')}
-                  {!fechaTope && deliveryDate && <span className="text-xs text-gray-400 ml-1">(calculada)</span>}
+                  {!fechaTope && deliveryDate && <span className="text-xs text-secundario ml-1">(calculada)</span>}
                 </div>
               </div>
             </div>

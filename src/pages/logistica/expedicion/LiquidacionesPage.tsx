@@ -226,7 +226,7 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
 
       {!choferId && (
         <section className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-6 text-center text-sm text-gray-500">
-          <FileText size={28} className="mx-auto mb-2 text-gray-300" />
+          <FileText size={28} className="mx-auto mb-2 text-inerte" />
           Elegí el día y el repartidor para ver su liquidación.
         </section>
       )}

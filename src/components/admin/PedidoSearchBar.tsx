@@ -109,7 +109,7 @@ export default function PedidoSearchBar({ onJumpAndHighlight, onOpenDetail, codi
         </div>
 
         <div className="relative flex-1 min-w-[180px]">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-inerte pointer-events-none" />
           {mode === 'fecha' ? (
             <input
               type="date"
@@ -129,7 +129,7 @@ export default function PedidoSearchBar({ onJumpAndHighlight, onOpenDetail, codi
             />
           )}
           {(text || date) && (
-            <button onClick={clear} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-600 transition-colors">
+            <button onClick={clear} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-inerte hover:text-gray-600 transition-colors">
               <X size={14} />
             </button>
           )}
@@ -139,11 +139,11 @@ export default function PedidoSearchBar({ onJumpAndHighlight, onOpenDetail, codi
       {open && (
         <div className="absolute z-40 mt-1.5 w-full max-w-lg bg-white border border-[#D3D1C7] rounded-xl shadow-lg overflow-hidden">
           {loading ? (
-            <p className="text-xs text-gray-400 px-3 py-3 text-center">Buscando…</p>
+            <p className="text-xs text-secundario px-3 py-3 text-center">Buscando…</p>
           ) : results.length === 0 ? (
-            <p className="text-xs text-gray-400 px-3 py-3 text-center">Sin resultados</p>
+            <p className="text-xs text-secundario px-3 py-3 text-center">Sin resultados</p>
           ) : (
-            <ul className="max-h-80 overflow-y-auto divide-y divide-gray-100">
+            <ul className="max-h-80 overflow-y-auto divide-y divide-[#E7E5DC]">
               {results.map((o) => {
                 const codigoCliente = getCodigoCliente(codigoByClientId, o.clientId, o.clientAddress)
                 return (
@@ -155,10 +155,10 @@ export default function PedidoSearchBar({ onJumpAndHighlight, onOpenDetail, codi
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm font-medium text-gray-900 truncate">{o.clientName || '—'}</p>
-                      {codigoCliente && <span className="text-[10px] text-gray-400 font-mono shrink-0">{codigoCliente}</span>}
-                      <span className="text-[10px] text-gray-400 shrink-0">{STATUS_LABELS[o.status]}</span>
+                      {codigoCliente && <span className="text-[10px] text-secundario font-mono shrink-0">{codigoCliente}</span>}
+                      <span className="text-[10px] text-secundario shrink-0">{STATUS_LABELS[o.status]}</span>
                     </div>
-                    <p className="text-xs text-gray-400 truncate">{o.clientAddress || 'Sin dirección'}</p>
+                    <p className="text-xs text-secundario truncate">{o.clientAddress || 'Sin dirección'}</p>
                     <p className="text-xs text-gray-500 truncate">
                       {formatShortDate(o.date)}
                       {o.numeroOC ? ` · OC #${o.numeroOC}` : ''}
@@ -168,7 +168,7 @@ export default function PedidoSearchBar({ onJumpAndHighlight, onOpenDetail, codi
                   <button
                     onClick={(e) => handleDetail(e, o)}
                     title="Ver detalle"
-                    className="shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-accent hover:bg-accent/10 transition-colors"
+                    className="shrink-0 p-1.5 rounded-lg text-secundario hover:text-accent hover:bg-accent/10 transition-colors"
                   >
                     <Eye size={14} />
                   </button>

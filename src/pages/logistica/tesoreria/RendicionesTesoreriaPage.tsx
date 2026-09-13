@@ -144,7 +144,7 @@ function RowRendicion({ r, abierta, onToggle, onValidar, onImprimir, td, dif }: 
             ? <span className="inline-flex items-center gap-1 text-xs text-[#0F6B4E]"><ShieldCheck size={13} /> {r.validacion.nombre} · {hora(r.validacion.fecha)}</span>
             : onValidar ? <Button onClick={onValidar} className="py-1 px-2.5 text-xs"><ShieldCheck size={14} className="mr-1" /> Validar</Button> : <span className="text-xs text-amber-700">Pendiente</span>}
         </td>
-        <td className={td}><button type="button" onClick={onImprimir} title="PDF" className="text-gray-400 hover:text-accent p-1"><Printer size={16} /></button></td>
+        <td className={td}><button type="button" onClick={onImprimir} title="PDF" className="text-secundario hover:text-accent p-1"><Printer size={16} /></button></td>
       </tr>
       {abierta && (
         <tr className="bg-accent/5">

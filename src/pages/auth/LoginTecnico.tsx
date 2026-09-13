@@ -85,7 +85,7 @@ export default function LoginTecnico() {
           Ingresar
         </Button>
 
-        <p className="text-center text-xs text-gray-400 mt-1">
+        <p className="text-center text-xs text-secundario mt-1">
           ¿Olvidaste tu PIN? Contactá al encargado de heladeras.
         </p>
 
@@ -95,7 +95,7 @@ export default function LoginTecnico() {
           <div className="flex-1 h-px bg-border" />
         </div>
 
-        <p className="text-center text-xs text-gray-400">
+        <p className="text-center text-xs text-secundario">
           ¿Sos del equipo Rolito?{' '}
           <Link to="/empresa" className="text-gray-500 hover:text-accent transition-colors">
             Ingresá acá

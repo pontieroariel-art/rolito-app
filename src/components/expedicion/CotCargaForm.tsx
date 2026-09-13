@@ -166,7 +166,7 @@ export default function CotCargaForm({ plantaId, cfg, kg, patente, respaldoAuto 
           ) : (
             <>
               <input value={numeroR} onChange={(e) => setNumeroR(e.target.value.replace(/\D/g, '').slice(0, 8))} inputMode="numeric" placeholder="Nº del talonario" className={input} />
-              {numeroR && <p className="text-[11px] text-gray-400 mt-0.5">{formatoRespaldo({ prefijo: cfg.respaldo.prefijo, numero: Number(numeroR) })}</p>}
+              {numeroR && <p className="text-[11px] text-secundario mt-0.5">{formatoRespaldo({ prefijo: cfg.respaldo.prefijo, numero: Number(numeroR) })}</p>}
             </>
           )}
         </div>
@@ -174,7 +174,7 @@ export default function CotCargaForm({ plantaId, cfg, kg, patente, respaldoAuto 
           <div>
             <label className={label}>Importe a declarar</label>
             <input value={importe} onChange={(e) => setImporte(e.target.value.replace(/[^\d]/g, ''))} inputMode="numeric" placeholder="$" className={input} />
-            {importe && <p className="text-[11px] text-gray-400 mt-0.5">{formatoARS(Number(importe))}</p>}
+            {importe && <p className="text-[11px] text-secundario mt-0.5">{formatoARS(Number(importe))}</p>}
           </div>
         )}
         <div>

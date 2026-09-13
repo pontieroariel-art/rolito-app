@@ -54,7 +54,7 @@ export function ResumenCargaPorChofer({ orders, choferes }: ResumenCargaPorChofe
         className="w-full flex justify-between items-center bg-white border border-[#D3D1C7] rounded-xl px-4 py-3 text-left hover:border-accent/50 transition-colors"
       >
         <span className="font-medium text-sm text-gray-900">Resumen de carga del día</span>
-        <span className="text-gray-400 text-xs">{open ? '▲' : '▼'}</span>
+        <span className="text-secundario text-xs">{open ? '▲' : '▼'}</span>
       </button>
 
       {open && (
@@ -66,7 +66,7 @@ export function ResumenCargaPorChofer({ orders, choferes }: ResumenCargaPorChofe
           )}
 
           {drivers.length === 0 ? (
-            <p className="text-gray-400 text-sm text-center py-2">No hay pedidos activos asignados</p>
+            <p className="text-secundario text-sm text-center py-2">No hay pedidos activos asignados</p>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
               {drivers.map(([email, { nombre, totals, paradas }]) => {
@@ -81,7 +81,7 @@ export function ResumenCargaPorChofer({ orders, choferes }: ResumenCargaPorChofe
                       </div>
                       <span className="text-accent font-bold text-lg leading-none">{totalUnidades}</span>
                     </div>
-                    <div className="space-y-1.5 pt-2 border-t border-gray-100">
+                    <div className="space-y-1.5 pt-2 border-t border-[#E7E5DC]">
                       {items.map(([nombre, qty]) => (
                         <div key={nombre} className="flex justify-between items-center text-sm">
                           <span className="text-gray-500 truncate flex-1 mr-2">{nombre}</span>

@@ -24,7 +24,7 @@ export default function ColaTallerResumen() {
       </div>
 
       {loading || loadingPasos ? (
-        <p className="text-gray-400 text-sm">Cargando…</p>
+        <p className="text-secundario text-sm">Cargando…</p>
       ) : (
         TIPOS_PIPELINE.map((tipo) => {
           const primerPaso = pasosOrdenados(catalogo, tipo)[0]
@@ -39,13 +39,13 @@ export default function ColaTallerResumen() {
                 {TIPO_PIPELINE_LABELS[tipo]} · esperando {primerPaso.nombre.toLowerCase()} ({esperando.length})
               </p>
               {esperando.length === 0 ? (
-                <p className="text-gray-400 text-xs">Nada esperando.</p>
+                <p className="text-secundario text-xs">Nada esperando.</p>
               ) : (
                 <ul className="space-y-1">
                   {esperando.slice(0, 5).map((h) => (
                     <li key={h.id} className="flex items-center justify-between text-sm text-gray-700 px-2 py-1 rounded-lg hover:bg-gray-50">
                       <span className="font-medium">{h.codigoInterno}</span>
-                      <span className="text-xs text-gray-400">{h.modelo}</span>
+                      <span className="text-xs text-secundario">{h.modelo}</span>
                     </li>
                   ))}
                 </ul>

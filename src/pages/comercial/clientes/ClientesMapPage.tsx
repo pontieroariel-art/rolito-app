@@ -149,7 +149,7 @@ function PendingCoordPanel({
     <div className="border-t border-orange-100 pt-3">
       <p className="text-xs font-semibold text-orange-600 mb-1">📍 Punto propuesto por chofer</p>
       <p className="text-xs text-gray-500 mb-1">{coord.choferNombre} · {fecha}</p>
-      <p className="text-xs text-gray-400 mb-3">{coord.lat.toFixed(6)}, {coord.lng.toFixed(6)}</p>
+      <p className="text-xs text-secundario mb-3">{coord.lat.toFixed(6)}, {coord.lng.toFixed(6)}</p>
       <div className="flex gap-2">
         <button
           onClick={() => handle('reject')}
@@ -452,7 +452,7 @@ export default function ClientesMapPage() {
             <div className="flex items-center gap-2 mb-1">
               <button
                 onClick={() => navigate('/usuarios')}
-                className="text-gray-400 hover:text-gray-700 transition-colors p-1 -ml-1 rounded-lg hover:bg-gray-100"
+                className="text-secundario hover:text-gray-700 transition-colors p-1 -ml-1 rounded-lg hover:bg-gray-100"
               >
                 <ArrowLeft size={16} />
               </button>
@@ -466,7 +466,7 @@ export default function ClientesMapPage() {
           {/* Búsqueda */}
           <div className="px-3 pt-3 pb-2">
             <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-inerte" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -474,7 +474,7 @@ export default function ClientesMapPage() {
                 className="w-full bg-gray-50 border border-[#D3D1C7] rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent text-gray-900 placeholder-gray-400"
               />
               {search && (
-                <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-secundario hover:text-gray-600">
                   <X size={14} />
                 </button>
               )}
@@ -664,14 +664,14 @@ export default function ClientesMapPage() {
                     >
                       <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: color, boxShadow: `0 0 0 2px ${color}30` }} />
                       <span className="text-sm text-gray-700 font-semibold flex-1">{v}</span>
-                      <span className="text-xs text-gray-400">{mapped}/{total}</span>
+                      <span className="text-xs text-secundario">{mapped}/{total}</span>
                     </button>
                   )
                 })}
                 <div className="flex items-center gap-2.5 px-2.5 py-1.5">
                   <span className="w-3 h-3 rounded-full shrink-0 bg-gray-400" />
                   <span className="text-sm text-gray-500 flex-1">Sin vendedor</span>
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-secundario">
                     {filtered.filter((s) => !s.user.codVendedor && geoResults.get(s.key)).length}/
                     {filtered.filter((s) => !s.user.codVendedor).length}
                   </span>
@@ -690,7 +690,7 @@ export default function ClientesMapPage() {
                   <div key={key} className="flex items-center gap-2.5 px-2.5 py-1">
                     <span className="w-3 h-3 rounded-full shrink-0 bg-gray-300" style={{ boxShadow: `0 0 0 2.5px ${color}` }} />
                     <span className="text-sm text-gray-600 flex-1">{label}</span>
-                    <span className="text-xs text-gray-400">{filtered.filter((s) => s.user.estado === key).length}</span>
+                    <span className="text-xs text-secundario">{filtered.filter((s) => s.user.estado === key).length}</span>
                   </div>
                 ))}
               </div>
@@ -744,7 +744,7 @@ export default function ClientesMapPage() {
           {withCoords.length === 0 && !geocoding && (
             <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
               <div className="bg-white/95 border border-[#D3D1C7] rounded-2xl px-8 py-6 text-center shadow-xl pointer-events-auto max-w-xs">
-                <MapPin size={36} className="text-gray-300 mx-auto mb-3" />
+                <MapPin size={36} className="text-inerte mx-auto mb-3" />
                 <p className="text-base font-semibold text-gray-900 mb-1">Sin ubicaciones</p>
                 <p className="text-sm text-gray-500 mb-4">
                   Geocodificá las sucursales para verlas en el mapa

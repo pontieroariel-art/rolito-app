@@ -273,7 +273,7 @@ export default function HistorialPage() {
 
             {/* Búsqueda */}
             <div className="relative flex-1 min-w-[180px]">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-inerte" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}

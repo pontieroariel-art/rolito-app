@@ -31,7 +31,10 @@ export default function PriceListsPage() {
 
   return (
     <div className="min-h-screen min-h-dvh bg-[#F1EFE8] text-gray-900">
-      <main className="max-w-5xl mx-auto p-4 pb-10 space-y-4">
+      {/* La matriz de listas × productos es ancha por naturaleza: usa todo el
+          ancho que le deja el shell, como el resto de las pantallas que SON
+          una tabla. Con muchas listas igual queda scroll, que para eso está. */}
+      <main className="max-w-[1600px] mx-auto p-4 pb-10 space-y-4">
         <div>
           <h1 className="text-2xl font-bold">Precios</h1>
           <p className="text-gray-500 text-sm mt-1 break-words">Listas y precios de Tango (solo lectura) y catálogo de productos de la app</p>
@@ -164,7 +167,7 @@ function CatalogoEditor({
             <button
               onClick={() => handleToggleDestacado(p)}
               title={p.destacado ? 'Frecuente (aparece arriba en la venta)' : 'Marcar como frecuente'}
-              className={`p-1.5 rounded-lg transition-colors shrink-0 ${p.destacado ? 'text-amber-500' : 'text-gray-300 hover:text-gray-500'}`}
+              className={`p-1.5 rounded-lg transition-colors shrink-0 ${p.destacado ? 'text-amber-500' : 'text-inerte hover:text-gray-500'}`}
             >
               <Star size={16} fill={p.destacado ? 'currentColor' : 'none'} />
             </button>
@@ -213,7 +216,7 @@ function CatalogoEditor({
             </div>
             <button
               onClick={() => handleRemove(p.id)}
-              className="text-gray-400 hover:text-red-500 transition-colors p-1 shrink-0"
+              className="text-secundario hover:text-red-500 transition-colors p-1 shrink-0"
             >
               <Trash2 size={14} />
             </button>

@@ -173,7 +173,7 @@ export default function TomaServicePage() {
         )}
         {!cliente && !heladera && modo === 'heladera' && (
           <div className="relative">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-inerte" />
             <input
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
@@ -181,10 +181,10 @@ export default function TomaServicePage() {
               className="w-full bg-white border border-[#D3D1C7] rounded-lg pl-9 pr-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
             />
             {loadingHeladeras && (
-              <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">Cargando heladeras…</div>
+              <div className="flex items-center gap-2 mt-2 text-xs text-secundario">Cargando heladeras…</div>
             )}
             {resultadosHeladera.length > 0 && (
-              <div className="bg-white border border-[#D3D1C7] rounded-lg mt-1.5 divide-y divide-gray-100">
+              <div className="bg-white border border-[#D3D1C7] rounded-lg mt-1.5 divide-y divide-[#E7E5DC]">
                 {resultadosHeladera.map((h) => (
                   <button
                     key={h.id}
@@ -226,14 +226,14 @@ export default function TomaServicePage() {
               ¿Qué heladera?{heladerasDelCliente.length > 0 ? ` (${heladerasDelCliente.length})` : ''}
             </label>
             {loadingHeladerasCliente ? (
-              <div className="flex items-center gap-2 text-xs text-gray-400">Cargando heladeras…</div>
+              <div className="flex items-center gap-2 text-xs text-secundario">Cargando heladeras…</div>
             ) : heladerasDelCliente.length === 0 ? (
-              <p className="text-gray-400 text-sm">Este cliente no tiene heladeras asignadas.</p>
+              <p className="text-secundario text-sm">Este cliente no tiene heladeras asignadas.</p>
             ) : (
               <div className="space-y-2">
                 {heladerasDelCliente.length > 3 && (
                   <div className="relative">
-                    <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-inerte" />
                     <input
                       value={filtroHeladera}
                       onChange={(e) => setFiltroHeladera(e.target.value)}
@@ -243,9 +243,9 @@ export default function TomaServicePage() {
                   </div>
                 )}
                 {heladerasFiltradas.length === 0 ? (
-                  <p className="text-gray-400 text-sm">Ninguna heladera coincide con la búsqueda.</p>
+                  <p className="text-secundario text-sm">Ninguna heladera coincide con la búsqueda.</p>
                 ) : (
-                  <div className="bg-white border border-[#D3D1C7] rounded-lg divide-y divide-gray-100">
+                  <div className="bg-white border border-[#D3D1C7] rounded-lg divide-y divide-[#E7E5DC]">
                     {heladerasFiltradas.map(({ h, sucursal }) => (
                       <button key={h.id} onClick={() => setHeladera(h)} className="w-full text-left px-3 py-2.5 hover:bg-gray-50">
                         <div className="flex items-baseline justify-between gap-3">
@@ -324,7 +324,7 @@ export default function TomaServicePage() {
           <section className="space-y-2 pt-2">
             <h2 className="text-sm font-semibold text-gray-900">Historial de service de este cliente</h2>
             {historialCliente.length === 0 ? (
-              <p className="text-gray-400 text-sm">Sin tickets anteriores.</p>
+              <p className="text-secundario text-sm">Sin tickets anteriores.</p>
             ) : (
               <div className="space-y-1.5">
                 {historialCliente.map((t) => (

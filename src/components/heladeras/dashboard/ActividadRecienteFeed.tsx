@@ -44,9 +44,9 @@ export default function ActividadRecienteFeed() {
       <h2 className="text-sm font-semibold text-gray-900">Actividad reciente</h2>
 
       {loading ? (
-        <p className="text-gray-400 text-sm">Cargando…</p>
+        <p className="text-secundario text-sm">Cargando…</p>
       ) : entradas.length === 0 ? (
-        <p className="text-gray-400 text-sm">Todavía no hay movimientos registrados.</p>
+        <p className="text-secundario text-sm">Todavía no hay movimientos registrados.</p>
       ) : (
         <ul className="space-y-2.5">
           {entradas.map((e, i) => (
@@ -57,9 +57,9 @@ export default function ActividadRecienteFeed() {
                     <span className="font-medium">{e.heladeraCodigo}</span> — {e.accion.replace(/_/g, ' ')}
                     {e.detalle ? ` — ${e.detalle}` : ''}
                   </p>
-                  <p className="text-xs text-gray-400">{e.usuarioNombre}</p>
+                  <p className="text-xs text-secundario">{e.usuarioNombre}</p>
                 </div>
-                <span className="text-xs text-gray-400 shrink-0">{tiempoRelativo(tsToDate(e.timestamp))}</span>
+                <span className="text-xs text-secundario shrink-0">{tiempoRelativo(tsToDate(e.timestamp))}</span>
               </Link>
             </li>
           ))}

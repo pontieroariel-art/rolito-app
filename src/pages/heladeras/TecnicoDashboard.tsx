@@ -115,7 +115,7 @@ function RegistrarTrabajoModal({ ticket, onClose }: { ticket: TicketServicio; on
           />
         </div>
         {error && <p className="text-red-500 text-xs">{error}</p>}
-        <p className="text-xs text-gray-400">El encargado revisa y cierra el ticket desde Consulta de service.</p>
+        <p className="text-xs text-secundario">El encargado revisa y cierra el ticket desde Consulta de service.</p>
         <div className="flex gap-2">
           <Button variant="outline" onClick={onClose} className="flex-1">Cancelar</Button>
           <Button onClick={handleSubmit} loading={saving} disabled={!user?.area} className="flex-1">Guardar</Button>
@@ -149,9 +149,9 @@ export default function TecnicoDashboard() {
 
         {pendientes.length === 0 ? (
           <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center">
-            <Wrench className="mx-auto text-gray-300 mb-3" size={32} />
+            <Wrench className="mx-auto text-inerte mb-3" size={32} />
             <p className="text-gray-500 text-sm">Todavía no tenés service asignados.</p>
-            <p className="text-gray-400 text-xs mt-1">Cuando el encargado te asigne uno, va a aparecer acá.</p>
+            <p className="text-secundario text-xs mt-1">Cuando el encargado te asigne uno, va a aparecer acá.</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -176,7 +176,7 @@ export default function TecnicoDashboard() {
               {materialesPendientes.map((m) => (
                 <div key={m.id} className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-2">
                   <div className="flex items-start gap-2">
-                    <Package size={16} className="text-gray-400 shrink-0 mt-0.5" />
+                    <Package size={16} className="text-inerte shrink-0 mt-0.5" />
                     <div>
                       {m.articulos.map((a) => (
                         <p key={a.articuloId} className="text-sm text-gray-900">{a.cantidad}x {a.nombre}</p>
@@ -198,7 +198,7 @@ export default function TecnicoDashboard() {
               {historial.map((t) => (
                 <div key={t.id} className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 flex items-center justify-between gap-3">
                   <p className="text-xs text-gray-700">{t.heladeraCodigo} — {t.motivoNombre}</p>
-                  <span className="text-xs text-gray-400">{t.estado === 'cerrado' ? 'Cerrado' : 'Anulado'}</span>
+                  <span className="text-xs text-secundario">{t.estado === 'cerrado' ? 'Cerrado' : 'Anulado'}</span>
                 </div>
               ))}
             </div>

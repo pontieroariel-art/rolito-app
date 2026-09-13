@@ -106,7 +106,7 @@ export default function AsignarEquipoModal({
               {heladerasDisponibles.length === 0 ? (
                 <p className="text-xs text-amber-600">No hay heladeras disponibles para asignar en este momento.</p>
               ) : (
-                <div className="border border-[#D3D1C7] rounded-lg divide-y divide-gray-100 max-h-40 overflow-y-auto">
+                <div className="border border-[#D3D1C7] rounded-lg divide-y divide-[#E7E5DC] max-h-40 overflow-y-auto">
                   {heladerasDisponibles.map((h) => (
                     <button
                       key={h.id}
@@ -169,7 +169,7 @@ export default function AsignarEquipoModal({
           !direccionElegida ? (
             <div>
               <label className="text-xs text-gray-500 mb-1 block">¿A qué sucursal va?</label>
-              <div className="border border-[#D3D1C7] rounded-lg divide-y divide-gray-100 max-h-56 overflow-y-auto">
+              <div className="border border-[#D3D1C7] rounded-lg divide-y divide-[#E7E5DC] max-h-56 overflow-y-auto">
                 {direcciones.map((a) => (
                   <button
                     key={a.id}

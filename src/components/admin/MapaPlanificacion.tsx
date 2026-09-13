@@ -649,7 +649,7 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
           <p className="text-sm font-semibold text-gray-900">Filtros y visitas</p>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+            className="p-1.5 rounded-lg text-secundario hover:text-gray-700 hover:bg-gray-100 transition-colors"
           >
             <X size={18} />
           </button>
@@ -676,7 +676,7 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
                   }`}
                 >
                   <span className="text-xs font-semibold">{label}</span>
-                  <span className={`text-[10px] mt-0.5 ${isSelected ? 'text-white/70' : 'text-gray-400'}`}>{sublabel}</span>
+                  <span className={`text-[10px] mt-0.5 ${isSelected ? 'text-white/70' : 'text-secundario'}`}>{sublabel}</span>
                   {count > 0 && (
                     <span className={`mt-0.5 text-[10px] font-bold ${isSelected ? 'text-white' : 'text-accent'}`}>{count} ped.</span>
                   )}
@@ -705,13 +705,13 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
               </span>
             )}
             {showAllClients && clientMarkers.length > 0 && (
-              <span className="flex items-center gap-1.5 text-xs text-gray-400">
+              <span className="flex items-center gap-1.5 text-xs text-secundario">
                 <span className="w-2.5 h-2.5 rounded-full bg-gray-300 shrink-0" />
                 Sin pedido ({clientMarkers.length})
               </span>
             )}
             {geocoding && (
-              <span className="text-xs text-gray-400 animate-pulse">Geocodificando…</span>
+              <span className="text-xs text-secundario animate-pulse">Geocodificando…</span>
             )}
           </div>
           <button
@@ -727,7 +727,7 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
           {ocultosMapa.size > 0 && (
             <button
               onClick={() => { if (staffUser) restoreClientesOcultosMapa(staffUser.uid) }}
-              className="w-full text-xs text-gray-400 hover:text-accent transition-colors"
+              className="w-full text-xs text-secundario hover:text-accent transition-colors"
             >
               {ocultosMapa.size} oculto{ocultosMapa.size !== 1 ? 's' : ''} por vos · Mostrar de nuevo
             </button>
@@ -747,7 +747,7 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
           </div>
 
           {zonas.length === 0 && !drawingMode && (
-            <p className="text-xs text-gray-400">Sin zonas definidas</p>
+            <p className="text-xs text-secundario">Sin zonas definidas</p>
           )}
 
           {zonas.map((z) => (
@@ -763,7 +763,7 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
               </label>
               <button
                 onClick={() => { if (window.confirm(`¿Eliminar "${z.nombre}"?`)) saveZonas(zonas.filter((x) => x.id !== z.id)) }}
-                className="text-xs text-gray-400 hover:text-red-500 shrink-0 transition-colors"
+                className="text-xs text-secundario hover:text-red-500 shrink-0 transition-colors"
               >✕</button>
             </div>
           ))}
@@ -818,7 +818,7 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
               {drawingVertices.length > 0 && (
                 <button
                   onClick={() => setDrawingVertices((v) => v.slice(0, -1))}
-                  className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                  className="text-xs text-secundario hover:text-gray-600 transition-colors"
                 >← Deshacer último punto</button>
               )}
             </div>
@@ -900,7 +900,7 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
                   {hasSavedOrder && !calculating && (
                     <button
                       onClick={() => calculateRoute(c.email, true)}
-                      className="w-full flex items-center justify-center gap-1 text-[10px] text-gray-400 hover:text-accent transition-colors"
+                      className="w-full flex items-center justify-center gap-1 text-[10px] text-secundario hover:text-accent transition-colors"
                     >
                       <RotateCcw size={10} /> Recalcular automático (descarta el orden guardado)
                     </button>
@@ -919,7 +919,7 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
                               onClick={() => moveStop(c.email, i, -1)}
                               disabled={i === 0 || !despacho}
                               title={!despacho ? 'Confirmá el despacho en la pestaña Despacho para poder reordenar acá' : 'Subir'}
-                              className="p-0.5 rounded text-gray-300 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                              className="p-0.5 rounded text-inerte hover:text-gray-700 hover:bg-gray-100 disabled:opacity-30 disabled:pointer-events-none transition-colors"
                             >
                               <ChevronUp size={12} />
                             </button>
@@ -927,7 +927,7 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
                               onClick={() => moveStop(c.email, i, 1)}
                               disabled={i === stops.length - 1 || !despacho}
                               title={!despacho ? 'Confirmá el despacho en la pestaña Despacho para poder reordenar acá' : 'Bajar'}
-                              className="p-0.5 rounded text-gray-300 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                              className="p-0.5 rounded text-inerte hover:text-gray-700 hover:bg-gray-100 disabled:opacity-30 disabled:pointer-events-none transition-colors"
                             >
                               <ChevronDown size={12} />
                             </button>
@@ -969,9 +969,9 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
                         <span className="text-[10px] text-accent font-semibold shrink-0">⏱ {routeArrivals[v.id]}</span>
                       )}
                     </div>
-                    <p className="text-[10px] text-gray-400 truncate">{v.clientAddress}</p>
+                    <p className="text-[10px] text-secundario truncate">{v.clientAddress}</p>
                     {chofer && (
-                      <p className="text-[10px] text-gray-400">
+                      <p className="text-[10px] text-secundario">
                         <span className="text-gray-600">{chofer.nombreContacto || chofer.nombre || chofer.email}</span>
                       </p>
                     )}
@@ -980,7 +980,7 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
                   </div>
                   <button
                     onClick={() => deleteVisitaPuntual(v.id)}
-                    className="text-xs text-gray-400 hover:text-red-500 border border-[#D3D1C7] hover:border-red-300 rounded-lg px-1.5 py-0.5 transition-colors shrink-0"
+                    className="text-xs text-secundario hover:text-red-500 border border-[#D3D1C7] hover:border-red-300 rounded-lg px-1.5 py-0.5 transition-colors shrink-0"
                   >✕</button>
                 </div>
               )
@@ -990,7 +990,7 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
 
         {/* Empty state */}
         {isLoaded && orderMarkers.length === 0 && visitasDelDia.length === 0 && !geocoding && (
-          <p className="text-center text-xs text-gray-400 p-4">
+          <p className="text-center text-xs text-secundario p-4">
             Sin pedidos ni visitas para este día
           </p>
         )}

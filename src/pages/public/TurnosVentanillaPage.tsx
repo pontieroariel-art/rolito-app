@@ -153,7 +153,7 @@ export default function TurnosVentanillaPage() {
             <p className="text-red-500 text-sm">No se pudo conectar. Revisá tu señal y recargá la página.</p>
           </div>
         )}
-        {!turnos && !error && <p className="text-center text-gray-400 pt-8">Cargando…</p>}
+        {!turnos && !error && <p className="text-center text-secundario pt-8">Cargando…</p>}
 
         {turnos && (
           <>
@@ -174,8 +174,8 @@ export default function TurnosVentanillaPage() {
             )}
 
             <section className="bg-white rounded-2xl border border-[#D3D1C7] p-4">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">En dársena ahora</p>
-              {enDarsena.length === 0 && <p className="text-gray-400 text-sm">—</p>}
+              <p className="text-xs font-semibold text-secundario uppercase tracking-wide mb-2">En dársena ahora</p>
+              {enDarsena.length === 0 && <p className="text-secundario text-sm">—</p>}
               <div className="flex flex-wrap gap-2">
                 {enDarsena.map((t) => (
                   <span key={t.n} className="bg-green-100 text-green-800 border border-green-300 rounded-lg px-3 py-1.5 text-sm font-bold">
@@ -183,8 +183,8 @@ export default function TurnosVentanillaPage() {
                   </span>
                 ))}
               </div>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mt-4 mb-2">Próximos</p>
-              {proximos.length === 0 && <p className="text-gray-400 text-sm">—</p>}
+              <p className="text-xs font-semibold text-secundario uppercase tracking-wide mt-4 mb-2">Próximos</p>
+              {proximos.length === 0 && <p className="text-secundario text-sm">—</p>}
               <div className="flex flex-wrap gap-2">
                 {proximos.map((t) => (
                   <span
@@ -201,7 +201,7 @@ export default function TurnosVentanillaPage() {
               </div>
             </section>
 
-            <p className="text-center text-xs text-gray-400">
+            <p className="text-center text-xs text-secundario">
               Esta página se actualiza sola. Tené el comprobante a mano.
             </p>
           </>

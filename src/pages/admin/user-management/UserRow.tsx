@@ -175,7 +175,7 @@ export function UserRow({ user, currentUser, onRoleChange, onSubrolChange, onRol
       </div>
 
       {(verComoLink || verComoError) && (
-        <div className="text-xs pt-2 border-t border-gray-100">
+        <div className="text-xs pt-2 border-t border-[#E7E5DC]">
           {verComoError
             ? <span className="text-red-600">{verComoError}</span>
             : <span className="text-gray-600">
@@ -189,7 +189,7 @@ export function UserRow({ user, currentUser, onRoleChange, onSubrolChange, onRol
 
       {/* Subrol chofer / ayudante */}
       {user.rol === 'chofer' && (
-        <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+        <div className="flex items-center gap-2 pt-2 border-t border-[#E7E5DC]">
           <span className="text-xs text-gray-500">Función:</span>
           <select
             value={user.subrol ?? 'chofer'}
@@ -209,7 +209,7 @@ export function UserRow({ user, currentUser, onRoleChange, onSubrolChange, onRol
           ventanilla (nota de crédito, 2026-09-09): cualquier rol de staff;
           solo lo da el super_admin. */}
       {currentUser?.rol === 'super_admin' && !isSelf && !['cliente', 'chofer', 'tecnico', 'produccion_hielo'].includes(user.rol) && (
-        <label className="flex items-center gap-1.5 text-xs text-gray-700 pt-2 border-t border-gray-100 cursor-pointer">
+        <label className="flex items-center gap-1.5 text-xs text-gray-700 pt-2 border-t border-[#E7E5DC] cursor-pointer">
           <input
             type="checkbox"
             checked={user.autorizaAnulaciones === true}
@@ -226,7 +226,7 @@ export function UserRow({ user, currentUser, onRoleChange, onSubrolChange, onRol
           2026-09-12 también a los de expedición (caja carga la descarga
           mientras muelle no tiene tablet), sin ofrecerles su propio rol. */}
       {canChangeRole && !isSelf && !['cliente', 'super_admin'].includes(user.rol) && (
-        <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-gray-100">
+        <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-[#E7E5DC]">
           <span className="text-xs text-gray-500">También hace:</span>
           {ROLES_EXTRA_DISPONIBLES.filter((r) => r !== user.rol).map((r) => {
             const activo = (user.rolesExtra ?? []).includes(r)
@@ -262,12 +262,12 @@ export function UserRow({ user, currentUser, onRoleChange, onSubrolChange, onRol
 
       {/* Fila de precios — solo para clientes y roles con acceso a precios */}
       {user.rol === 'cliente' && canManagePrices && (
-        <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-gray-100">
+        <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-[#E7E5DC]">
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <span className="text-xs text-gray-500 whitespace-nowrap">Lista de precios:</span>
             <div className="flex flex-col gap-0.5 min-w-0">
               <span className="text-xs text-gray-900 truncate">{listaTangoResumen(user)}</span>
-              <span className="text-[10px] text-gray-400">Dato de Tango — se edita en Tango, se sincroniza acá (todos los días 5:30 o desde Precios)</span>
+              <span className="text-[10px] text-secundario">Dato de Tango — se edita en Tango, se sincroniza acá (todos los días 5:30 o desde Precios)</span>
             </div>
           </div>
         </div>

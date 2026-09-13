@@ -19,9 +19,10 @@ const PERIODOS: { id: PeriodoResumen; label: string }[] = [
 function KpiCard({ icon, label, value, sub }: { icon: React.ReactNode; label: string; value: string | number; sub?: string }) {
   return (
     <div className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-1">
-      <p className="text-xs text-gray-500 flex items-center gap-1.5">{icon}{label}</p>
-      <p className="text-2xl font-bold text-gray-900">{value.toLocaleString('es-AR')}</p>
-      {sub && <p className="text-xs text-gray-400">{sub}</p>}
+      <p className="text-xs text-secundario flex items-center gap-1.5">{icon}{label}</p>
+      {/* Un cero pierde el color y queda en gris secundario. */}
+      <p className={`text-2xl font-bold tabular-nums ${value === 0 ? 'text-secundario' : 'text-gray-900'}`}>{value.toLocaleString('es-AR')}</p>
+      {sub && <p className="text-xs text-secundario">{sub}</p>}
     </div>
   )
 }
@@ -94,7 +95,7 @@ export function ProduccionResumen() {
         <LoadingSpinner />
       ) : pallets.length === 0 ? (
         <div className="bg-white border border-[#D3D1C7] rounded-xl p-6 text-center">
-          <p className="text-gray-400 text-sm">Sin producción cargada en este período.</p>
+          <p className="text-secundario text-sm">Sin producción cargada en este período.</p>
         </div>
       ) : (
         <>

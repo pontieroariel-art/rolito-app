@@ -26,7 +26,7 @@ function FreezerCard({ heladera, onPedirService }: { heladera: Heladera; onPedir
           Código {heladera.codigoInterno} · Serie {heladera.numeroSerie}
         </p>
         {heladera.fechaAsignacion && (
-          <p className="text-xs text-gray-400 mt-0.5">Desde el {formatShortDate(heladera.fechaAsignacion)}</p>
+          <p className="text-xs text-secundario mt-0.5">Desde el {formatShortDate(heladera.fechaAsignacion)}</p>
         )}
       </div>
       <button
@@ -52,10 +52,10 @@ function TicketCard({ ticket }: { ticket: TicketServicio }) {
         </span>
       </div>
       {ticket.trabajoRealizado && (
-        <p className="text-xs text-gray-500 pt-1 border-t border-gray-100">{ticket.trabajoRealizado}</p>
+        <p className="text-xs text-gray-500 pt-1 border-t border-[#E7E5DC]">{ticket.trabajoRealizado}</p>
       )}
       {ticket.fechaCierre && (
-        <p className="text-xs text-gray-400">Cerrado el {formatShortDate(ticket.fechaCierre)}</p>
+        <p className="text-xs text-secundario">Cerrado el {formatShortDate(ticket.fechaCierre)}</p>
       )}
     </div>
   )
@@ -69,7 +69,7 @@ function AsignacionCard({ asignacion }: { asignacion: AsignacionHeladera }) {
         <p className="font-semibold text-gray-900 text-sm">{asignacion.heladeraCodigo}</p>
         <p className="text-xs text-gray-500">{formatShortDate(asignacion.fecha)}</p>
         {esRetiro && asignacion.motivo && (
-          <p className="text-xs text-gray-400 mt-0.5">{asignacion.motivo}</p>
+          <p className="text-xs text-secundario mt-0.5">{asignacion.motivo}</p>
         )}
       </div>
       <span className={`text-xs px-2.5 py-1 rounded-full border font-medium whitespace-nowrap ${
@@ -155,7 +155,7 @@ export default function MyFreezers() {
           </h2>
           {heladeras.length === 0 ? (
             <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center">
-              <p className="text-gray-400 text-sm">No tenés heladeras asignadas por el momento.</p>
+              <p className="text-secundario text-sm">No tenés heladeras asignadas por el momento.</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -170,7 +170,7 @@ export default function MyFreezers() {
           </h2>
           {tickets.length === 0 ? (
             <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center">
-              <p className="text-gray-400 text-sm">Todavía no pediste ningún service.</p>
+              <p className="text-secundario text-sm">Todavía no pediste ningún service.</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -185,7 +185,7 @@ export default function MyFreezers() {
           </h2>
           {asignaciones.length === 0 ? (
             <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center">
-              <p className="text-gray-400 text-sm">Todavía no tuviste movimientos de equipos.</p>
+              <p className="text-secundario text-sm">Todavía no tuviste movimientos de equipos.</p>
             </div>
           ) : (
             <div className="space-y-3">

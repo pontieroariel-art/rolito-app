@@ -77,7 +77,7 @@ export default function HeladerasDashboardPage() {
           <Wrench size={15} /> Nuevo ticket de service
         </Button>
         <form onSubmit={handleBuscar} className="flex-1 min-w-[220px] relative">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-inerte" />
           <input
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}

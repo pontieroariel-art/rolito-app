@@ -13,7 +13,7 @@ import { auth } from '@/services/firebase'
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between items-start gap-3 py-2 border-b border-gray-100 last:border-0">
+    <div className="flex justify-between items-start gap-3 py-2 border-b border-[#E7E5DC] last:border-0">
       <span className="text-xs text-gray-500 shrink-0">{label}</span>
       <span className="text-sm text-gray-900 text-right">{value || '—'}</span>
     </div>
@@ -97,7 +97,7 @@ export default function ClientProfile() {
             <Row label="Email"             value={user.email} />
             {user.cuit && <Row label="CUIT" value={formatCuit(user.cuit)} />}
           </div>
-          <p className="text-xs text-gray-400 px-1">
+          <p className="text-xs text-secundario px-1">
             Para actualizar tus datos, contactá con el equipo de Rolito.
           </p>
         </section>
@@ -217,14 +217,14 @@ export default function ClientProfile() {
               ) : (
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-gray-100">
+                    <tr className="border-b border-[#E7E5DC]">
                       <th className="text-left text-xs text-gray-500 font-medium px-4 py-2.5">Producto</th>
                       <th className="text-right text-xs text-gray-500 font-medium px-4 py-2.5">Precio</th>
                     </tr>
                   </thead>
                   <tbody>
                     {catalogo.filter((p) => preciosTango[p.id] !== undefined).map((p) => (
-                      <tr key={p.id} className="border-b border-gray-100 last:border-0">
+                      <tr key={p.id} className="border-b border-[#E7E5DC] last:border-0">
                         <td className="px-4 py-3">
                           <p className="font-medium text-gray-900">{p.nombre}</p>
                           {p.unidad && <p className="text-xs text-gray-500">por {p.unidad}</p>}

@@ -40,7 +40,7 @@ export default function SeccionHeladeras({ c }: { c: UserProfile }) {
   const conAlerta = ordenadas.filter((h) => estadoComodato(h).alerta).length
 
   const chip = heladeras === null ? null : ordenadas.length === 0
-    ? <span className="text-xs text-gray-400">ninguna</span>
+    ? <span className="text-xs text-secundario">ninguna</span>
     : <span className={`text-xs font-semibold rounded-full px-2 py-0.5 border ${conAlerta ? 'text-amber-700 bg-amber-50 border-amber-200' : 'text-gray-600 bg-gray-50 border-[#D3D1C7]'}`}>{ordenadas.length}{conAlerta ? ` · ${conAlerta} a firmar` : ''}</span>
 
   return (
@@ -57,7 +57,7 @@ export default function SeccionHeladeras({ c }: { c: UserProfile }) {
             return (
               <div key={h.id} className="rounded-xl border border-[#D3D1C7] p-3 space-y-2">
                 <div className="flex items-start gap-2">
-                  <Refrigerator size={18} className="text-gray-400 mt-0.5 shrink-0" />
+                  <Refrigerator size={18} className="text-inerte mt-0.5 shrink-0" />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-gray-900">{h.codigoInterno} <span className="font-normal text-gray-500">· {h.modelo}</span></p>
                     {h.clienteAsignadoDireccion && <p className="text-xs text-gray-500 truncate">{h.clienteAsignadoDireccion}</p>}

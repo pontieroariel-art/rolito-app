@@ -17,7 +17,7 @@ export default function TicketsServicioList({ heladeraId }: { heladeraId: string
   const { tickets, loading } = useTicketsPorHeladera(heladeraId)
 
   if (loading) return null
-  if (tickets.length === 0) return <p className="text-gray-400 text-xs">Sin tickets de service para este equipo.</p>
+  if (tickets.length === 0) return <p className="text-secundario text-xs">Sin tickets de service para este equipo.</p>
 
   return (
     <div className="space-y-1.5 max-h-64 overflow-y-auto">

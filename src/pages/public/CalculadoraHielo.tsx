@@ -250,7 +250,7 @@ export default function CalculadoraHielo() {
           <p key={kgNecesarios} className="text-4xl font-extrabold mt-1 animate-rise">{kgNecesarios} kg</p>
         </div>
 
-        <p className="text-[11px] text-gray-400 text-center max-w-sm">
+        <p className="text-[11px] text-secundario text-center max-w-sm">
           Cálculo estimado a modo orientativo. Para eventos muy grandes o clima extremo, sumá un margen extra.
         </p>
       </div>

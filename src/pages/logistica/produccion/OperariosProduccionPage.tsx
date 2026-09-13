@@ -56,7 +56,7 @@ function CrearOperarioModal({ onClose, onCreated }: { onClose: () => void; onCre
           onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
           required inputMode="numeric" maxLength={4} placeholder="••••"
         />
-        <p className="text-xs text-gray-400 -mt-2">El operario ingresa a /produccion-{planta} con su legajo y este PIN. Anotá el PIN y comunicáselo; se puede cambiar después.</p>
+        <p className="text-xs text-secundario -mt-2">El operario ingresa a /produccion-{planta} con su legajo y este PIN. Anotá el PIN y comunicáselo; se puede cambiar después.</p>
         <div>
           <label className="text-xs text-gray-500 mb-1 block">Puesto</label>
           <div className="grid grid-cols-2 gap-2">
@@ -71,7 +71,7 @@ function CrearOperarioModal({ onClose, onCreated }: { onClose: () => void; onCre
                 }`}
               >
                 <p className={`text-sm font-semibold ${puesto === p.id ? 'text-accent' : 'text-gray-800'}`}>{p.label}</p>
-                <p className="text-xs text-gray-400">{p.desc}</p>
+                <p className="text-xs text-secundario">{p.desc}</p>
               </button>
             ))}
           </div>
@@ -85,7 +85,7 @@ function CrearOperarioModal({ onClose, onCreated }: { onClose: () => void; onCre
           >
             {Object.entries(PLANTAS).map(([id, p]) => <option key={id} value={id}>{p.label}</option>)}
           </select>
-          <p className="text-xs text-gray-400 mt-1">El operario solo va a poder cargar pallets de esta planta.</p>
+          <p className="text-xs text-secundario mt-1">El operario solo va a poder cargar pallets de esta planta.</p>
         </div>
         {error && <p className="text-red-500 text-xs">{error}</p>}
         <div className="flex gap-2 pt-1">
@@ -167,7 +167,7 @@ export default function OperariosProduccionPage() {
         {operarios.length === 0 ? (
           <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center">
             <p className="text-gray-500 text-sm">Todavía no cargaste ningún operario</p>
-            <p className="text-gray-400 text-xs mt-1">Usá el botón "Nuevo operario" para empezar</p>
+            <p className="text-secundario text-xs mt-1">Usá el botón "Nuevo operario" para empezar</p>
           </div>
         ) : (
           <div className="space-y-2">

@@ -375,7 +375,7 @@ export default function RemitosCargaPage() {
         <h2 className="font-semibold text-gray-800">Remitos de hoy</h2>
         {avisoCot && <p className="text-xs text-gray-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">{avisoCot}</p>}
         {remitos.length === 0 && (
-          <p className="text-gray-400 text-sm">Todavía no se emitió ningún remito hoy.</p>
+          <p className="text-secundario text-sm">Todavía no se emitió ningún remito hoy.</p>
         )}
         {remitos.map((r) => (
           <div key={r.id} className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-3 flex items-center gap-3">
@@ -406,7 +406,7 @@ export default function RemitosCargaPage() {
             <button
               onClick={() => imprimir(r)}
               title="Reimprimir remito"
-              className="text-gray-400 hover:text-accent transition-colors p-2 rounded-lg hover:bg-accent/10"
+              className="text-secundario hover:text-accent transition-colors p-2 rounded-lg hover:bg-accent/10"
             >
               <Printer size={16} />
             </button>
@@ -422,12 +422,12 @@ export default function RemitosCargaPage() {
               <p><span className="text-gray-500">Camión:</span> {camion?.patente} · {camion?.modelo}</p>
               <p><span className="text-gray-500">Repartidor:</span> {deposito ? etiquetaDeposito(deposito) : ''}</p>
             </div>
-            <div className="border border-[#D3D1C7] rounded-lg divide-y divide-gray-100">
+            <div className="border border-[#D3D1C7] rounded-lg divide-y divide-[#E7E5DC]">
               {items.map((i) => (
                 <div key={i.productoId} className="flex justify-between px-3 py-1.5 text-sm">
                   <span className="text-gray-700">
                     {i.nombre}
-                    {i.pallets ? <span className="ml-2 text-xs text-gray-400">{i.pallets} pallet{i.pallets > 1 ? 's' : ''}</span> : null}
+                    {i.pallets ? <span className="ml-2 text-xs text-secundario">{i.pallets} pallet{i.pallets > 1 ? 's' : ''}</span> : null}
                   </span>
                   <span className="font-medium text-gray-900">{i.cantidad}</span>
                 </div>

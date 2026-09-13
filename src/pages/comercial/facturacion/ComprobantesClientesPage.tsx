@@ -39,7 +39,7 @@ import type { GrupoRecibo as Grupo } from '@/utils/composicionSaldos'
 
 const INPUT = 'w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'
 const TONO: Record<ReturnType<typeof etiquetaEstado>['tono'], string> = {
-  pendiente: 'text-red-600', ok: 'text-accent', neutro: 'text-gray-500', anulado: 'text-gray-400',
+  pendiente: 'text-red-600', ok: 'text-accent', neutro: 'text-gray-500', anulado: 'text-secundario',
 }
 const claveGrupo = (g: Grupo) => `${g.empresa}|${g.codigo}`
 
@@ -194,7 +194,7 @@ function PanelCliente({ uid, onCerrar }: { uid: string; onCerrar: () => void }) 
       <div className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 bg-[#F8F7F2] border-b border-[#D3D1C7]">
           <button type="button" onClick={alternarVisibles} disabled={!visibles.length} className="flex items-center gap-2 text-sm text-gray-700 disabled:opacity-50">
-            {todosVisiblesElegidos ? <CheckSquare size={18} className="text-accent" /> : <Square size={18} className="text-gray-400" />}
+            {todosVisiblesElegidos ? <CheckSquare size={18} className="text-accent" /> : <Square size={18} className="text-inerte" />}
             {todosVisiblesElegidos ? 'Ninguno' : `Elegir ${visibles.length === items.length ? 'todos' : 'los visibles'}`}
           </button>
           <p className="text-xs text-gray-500">
@@ -210,8 +210,8 @@ function PanelCliente({ uid, onCerrar }: { uid: string; onCerrar: () => void }) 
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="text-[11px] uppercase tracking-wide text-gray-500">
-                <tr className="border-b border-gray-100">
+              <thead className="text-xs uppercase tracking-wide text-gray-500">
+                <tr className="border-b border-[#E7E5DC]">
                   <th className="w-10" />
                   <th className="text-left px-2 py-2 font-semibold">Comprobante</th>
                   <th className="text-left px-2 py-2 font-semibold">Fecha</th>
@@ -221,7 +221,7 @@ function PanelCliente({ uid, onCerrar }: { uid: string; onCerrar: () => void }) 
                   <th className="w-12" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-[#E7E5DC]">
                 {visibles.map((i) => (
                   // La clave incluye el mail: el menú de la fila lo toma al montarse
                   // (MenuCompartirPdf) y el mail de Tango puede llegar o cambiar después.
@@ -279,11 +279,11 @@ function Cabecera({ cliente, email, onCerrar }: { cliente: UserProfile; email: s
           {[cliente.cuit ? `CUIT ${cliente.cuit}` : '', cliente.codigoCliente ? `Cód. ${cliente.codigoCliente}` : ''].filter(Boolean).join(' · ')}
         </p>
         <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-          <Mail size={12} className="text-gray-400" />
-          {email ? <span>{email} <span className="text-gray-400">(ficha de Tango)</span></span> : <span className="text-amber-700">Sin mail en Tango: al enviar vas a tener que escribirlo.</span>}
+          <Mail size={12} className="text-inerte" />
+          {email ? <span>{email} <span className="text-secundario">(ficha de Tango)</span></span> : <span className="text-amber-700">Sin mail en Tango: al enviar vas a tener que escribirlo.</span>}
         </p>
       </div>
-      <button type="button" onClick={onCerrar} aria-label="Cerrar cliente" className="text-gray-400 hover:text-gray-700 p-1 -m-1 shrink-0"><X size={18} /></button>
+      <button type="button" onClick={onCerrar} aria-label="Cerrar cliente" className="text-secundario hover:text-gray-700 p-1 -m-1 shrink-0"><X size={18} /></button>
     </div>
   )
 }
@@ -321,7 +321,7 @@ function Filtros({ filtro, onChange, opciones }: { filtro: FiltroLote; onChange:
         <input type="date" value={filtro.hasta ?? ''} onChange={(e) => set({ hasta: e.target.value })} className={`${INPUT} py-1 text-xs mt-0.5`} />
       </label>
       <div className="relative flex-1 min-w-[10rem]">
-        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-inerte" />
         <input {...INPUT_BUSQUEDA_PROPS} value={filtro.texto ?? ''} onChange={(e) => set({ texto: e.target.value })} placeholder="Número…" aria-label="Buscar por número"
           className={`${INPUT} pl-8 py-1.5 text-xs`} />
       </div>
@@ -364,9 +364,9 @@ function FilaItem({ item, elegido, onAlternar, cliente, email, conCuenta }: {
       </td>
       <td className="px-2 py-2">
         <div className="flex items-center gap-2 min-w-0">
-          {item.clase === 'factura' ? <FileText size={15} className="text-gray-400 shrink-0" /> : <Truck size={15} className="text-gray-400 shrink-0" />}
+          {item.clase === 'factura' ? <FileText size={15} className="text-inerte shrink-0" /> : <Truck size={15} className="text-inerte shrink-0" />}
           <div className="min-w-0">
-            <p className={`font-medium truncate ${anulado ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{item.titulo}</p>
+            <p className={`font-medium truncate ${anulado ? 'text-secundario line-through' : 'text-gray-900'}`}>{item.titulo}</p>
             {item.clase === 'factura' && item.remitos.length > 0 && (
               <p className="text-[11px] text-gray-500 truncate">{item.remitos.length === 1 ? 'Remito' : 'Remitos'} {item.remitos.map((r) => r.replace(/^R(\d{5})(\d{8})$/, '$1-$2')).join(', ')}</p>
             )}
@@ -376,21 +376,21 @@ function FilaItem({ item, elegido, onAlternar, cliente, email, conCuenta }: {
       </td>
       <td className="px-2 py-2 text-gray-700 whitespace-nowrap">
         {fechaCorta(item.fecha)}
-        {item.clase === 'factura' && item.fechaVencimiento && <span className="block text-[11px] text-gray-400">Vto. {fechaCorta(item.fechaVencimiento)}</span>}
+        {item.clase === 'factura' && item.fechaVencimiento && <span className="block text-[11px] text-secundario">Vto. {fechaCorta(item.fechaVencimiento)}</span>}
       </td>
       {conCuenta && (
         <td className="px-2 py-2 text-xs text-gray-500 whitespace-nowrap">
           {NOMBRE_EMPRESA_CORTO[item.empresa]} · {item.codigo}
-          {nombreSucursal(cliente, grupo.empresa, grupo.codigo) && <span className="block text-[11px] text-gray-400 truncate max-w-[12rem]">{nombreSucursal(cliente, grupo.empresa, grupo.codigo)}</span>}
+          {nombreSucursal(cliente, grupo.empresa, grupo.codigo) && <span className="block text-[11px] text-secundario truncate max-w-[12rem]">{nombreSucursal(cliente, grupo.empresa, grupo.codigo)}</span>}
         </td>
       )}
       <td className="px-2 py-2 text-right tabular-nums whitespace-nowrap">
         {item.clase === 'factura' ? (
           <>
-            <span className={anulado ? 'text-gray-400' : 'text-gray-900'}>{formatoARS(item.importe)}</span>
+            <span className={anulado ? 'text-secundario' : 'text-gray-900'}>{formatoARS(item.importe)}</span>
             {item.pendiente !== null && item.pendiente !== item.importe && <span className="block text-[11px] text-red-600">debe {formatoARS(item.pendiente)}</span>}
           </>
-        ) : <span className="text-gray-400">—</span>}
+        ) : <span className="text-secundario">—</span>}
       </td>
       <td className={`px-2 py-2 text-xs ${TONO[estado.tono]}`}>{estado.texto}</td>
       <td className="pr-3 py-2 text-right" onClick={(e) => e.stopPropagation()}>

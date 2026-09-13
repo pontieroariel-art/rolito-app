@@ -123,13 +123,13 @@ export default function EntregasTesoreriaPage() {
                   <p className="text-xs text-gray-500">Efectivo contado</p>
                   <input inputMode="numeric" value={contadoStr} onChange={(ev) => setContados((prev) => ({ ...prev, [e.id]: ev.target.value }))} placeholder="$" className={`${inputClass} w-full mt-1 font-semibold tabular-nums`} disabled={!puedeConfirmar} />
                 </div>
-                <div className={`rounded-lg p-2 ${d === null ? 'bg-gray-50' : d === 0 ? 'bg-[#E6F5EF]' : 'bg-red-50'}`}><p className="text-xs text-gray-500">Diferencia</p><p className={`font-semibold tabular-nums ${d === null ? 'text-gray-400' : d === 0 ? 'text-[#0F6B4E]' : 'text-red-600'}`}>{d === null ? '—' : `${formatoARS(d)}${d === 0 ? ' ✓' : ''}`}</p></div>
+                <div className={`rounded-lg p-2 ${d === null ? 'bg-gray-50' : d === 0 ? 'bg-[#E6F5EF]' : 'bg-red-50'}`}><p className="text-xs text-gray-500">Diferencia</p><p className={`font-semibold tabular-nums ${d === null ? 'text-secundario' : d === 0 ? 'text-[#0F6B4E]' : 'text-red-600'}`}>{d === null ? '—' : `${formatoARS(d)}${d === 0 ? ' ✓' : ''}`}</p></div>
               </div>
 
               <Plegable titulo={`De dónde sale (${e.rendiciones.length} cierres · ${e.liquidaciones.length} liquidaciones)`}>
                 <ul className="text-sm text-gray-700 grid sm:grid-cols-2 gap-x-6">
-                  {e.rendiciones.map((r) => <li key={r.id} className="flex justify-between border-b border-gray-100 py-1"><span>Cierre <b>{r.codigo}</b> · {r.sujetoNombre} · {r.fecha}</span><b className="tabular-nums">{formatoARS(r.efectivoContado)}</b></li>)}
-                  {e.liquidaciones.map((l) => <li key={l.id} className="flex justify-between border-b border-gray-100 py-1"><span>Liquidación <b>{l.codigo ?? '—'}</b> · {l.choferNombre} · {l.fecha}{l.incluidaEnCierre ? <span className="text-gray-400"> · en un cierre</span> : null}</span><b className={`tabular-nums ${l.incluidaEnCierre ? 'text-gray-400 line-through' : ''}`}>{formatoARS(l.efectivoRecibido)}</b></li>)}
+                  {e.rendiciones.map((r) => <li key={r.id} className="flex justify-between border-b border-[#E7E5DC] py-1"><span>Cierre <b>{r.codigo}</b> · {r.sujetoNombre} · {r.fecha}</span><b className="tabular-nums">{formatoARS(r.efectivoContado)}</b></li>)}
+                  {e.liquidaciones.map((l) => <li key={l.id} className="flex justify-between border-b border-[#E7E5DC] py-1"><span>Liquidación <b>{l.codigo ?? '—'}</b> · {l.choferNombre} · {l.fecha}{l.incluidaEnCierre ? <span className="text-secundario"> · en un cierre</span> : null}</span><b className={`tabular-nums ${l.incluidaEnCierre ? 'text-secundario line-through' : ''}`}>{formatoARS(l.efectivoRecibido)}</b></li>)}
                 </ul>
               </Plegable>
 

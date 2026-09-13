@@ -50,10 +50,10 @@ export default function BotoneraProductos({ catalogo, precioDe, cantidades, onCh
     <div className="space-y-3">
       {destacados.length > 0 && (
         <>
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Frecuentes</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-secundario">Frecuentes</p>
           {grid(destacados)}
           {resto.length > 0 && (
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 pt-1">Más productos</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-secundario pt-1">Más productos</p>
           )}
         </>
       )}
@@ -125,13 +125,13 @@ function ProductoCard({ producto, cantidad, precio, deshabilitado = false, onCli
       </div>
       <div className="min-w-0">
         <p className="text-sm font-semibold text-gray-900 leading-tight">{producto.nombre}</p>
-        <p className="text-xs text-gray-400">{money(precio)} <span className="text-gray-300">/ {producto.unidad}</span></p>
+        <p className="text-xs text-secundario">{money(precio)} <span className="text-inerte">/ {producto.unidad}</span></p>
       </div>
       {deshabilitado
         ? <p className="text-[11px] font-semibold text-red-500">Sin precio en Tango</p>
         : activo
           ? <p className="text-xs font-bold text-accent tabular-nums">{money(precio * cantidad)} · {cantidad} u.</p>
-          : <p className="text-[11px] text-gray-300">tocá para cantidad</p>}
+          : <p className="text-[11px] text-inerte">tocá para cantidad</p>}
     </button>
   )
 }

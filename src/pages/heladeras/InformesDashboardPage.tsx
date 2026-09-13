@@ -217,7 +217,7 @@ export default function InformesDashboardPage() {
           <div className="bg-white border border-[#D3D1C7] rounded-xl p-4">
             <p className="text-xs font-medium text-gray-500 mb-2">Tiempo promedio por paso del taller (días)</p>
             {tiemposPorPaso.length === 0 ? (
-              <p className="text-gray-400 text-sm">
+              <p className="text-secundario text-sm">
                 Sin datos todavía — se completa a medida que se sueltan/aprueban pasos.
               </p>
             ) : (
@@ -252,7 +252,7 @@ export default function InformesDashboardPage() {
           <div className="bg-white border border-[#D3D1C7] rounded-xl p-4">
             <p className="text-xs font-medium text-gray-500 mb-2">Arreglos más comunes</p>
             {arreglosMasComunes.length === 0 ? (
-              <p className="text-gray-400 text-sm">
+              <p className="text-secundario text-sm">
                 Sin datos todavía — se completa cuando se registra trabajo con el checklist
                 (taller o técnico de calle).
               </p>
@@ -304,7 +304,7 @@ export default function InformesDashboardPage() {
             </div>
 
             {catAbierta.filas.length === 0 ? (
-              <p className="text-gray-400 text-sm p-4">No hay equipos en esta categoría.</p>
+              <p className="text-secundario text-sm p-4">No hay equipos en esta categoría.</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -317,7 +317,7 @@ export default function InformesDashboardPage() {
                   </thead>
                   <tbody>
                     {catAbierta.filas.map((fila, i) => (
-                      <tr key={i} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                      <tr key={i} className="border-b border-[#E7E5DC] last:border-0 hover:bg-gray-50">
                         {fila.map((celda, j) => (
                           <td key={j} className="py-2 px-4 text-gray-700 whitespace-nowrap">{celda}</td>
                         ))}

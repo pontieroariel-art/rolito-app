@@ -41,18 +41,18 @@ function CardRolitera({ parte, rolitera }: { parte: ParteMaquinas; rolitera: num
     <div className="flex flex-col min-h-0 bg-white border border-[#D3D1C7] rounded-2xl p-3 gap-2">
       <div className="flex items-center justify-between shrink-0">
         <p className="font-bold text-sm text-gray-900">Rolitera N°{rolitera}</p>
-        <span className="text-xs text-gray-400">{ciclos.length} {ciclos.length === 1 ? 'ciclo' : 'ciclos'}</span>
+        <span className="text-xs text-secundario">{ciclos.length} {ciclos.length === 1 ? 'ciclo' : 'ciclos'}</span>
       </div>
 
       {/* Últimos ciclos, el más nuevo arriba — el maquinista solo necesita
           confirmar de un vistazo que la estampa anterior quedó bien. */}
       <div className="flex-1 min-h-0 overflow-y-auto space-y-1">
         {ciclos.length === 0 ? (
-          <p className="text-xs text-gray-400">Sin ciclos todavía</p>
+          <p className="text-xs text-secundario">Sin ciclos todavía</p>
         ) : (
           [...ciclos].reverse().slice(0, 6).map((c) => (
             <div key={c.ciclo} className="flex items-center justify-between text-xs bg-[#F8F7F2] rounded-lg px-2 py-1">
-              <span className="text-gray-400">#{c.ciclo}</span>
+              <span className="text-secundario">#{c.ciclo}</span>
               <span className="text-gray-700 tabular-nums">
                 Sale {hora(c.sale)} · Entra {hora(c.entra)}
               </span>
@@ -76,7 +76,7 @@ function CardRolitera({ parte, rolitera }: { parte: ParteMaquinas; rolitera: num
       {ultimo && (
         <button
           onClick={() => deshacerUltimaEstampa(parte, rolitera)}
-          className="shrink-0 flex items-center justify-center gap-1 text-xs text-gray-400 hover:text-red-500 py-1"
+          className="shrink-0 flex items-center justify-center gap-1 text-xs text-secundario hover:text-red-500 py-1"
         >
           <Undo2 size={12} /> Deshacer última
         </button>

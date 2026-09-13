@@ -17,7 +17,7 @@ export function Plegable({ titulo, children, abiertoInicial = false, extra }: {
         <span className="font-semibold text-gray-900">{titulo}</span>
         <span className="flex items-center gap-2 shrink-0">
           {extra}
-          {abierto ? <ChevronDown size={16} className="text-gray-400" /> : <ChevronRight size={16} className="text-gray-400" />}
+          {abierto ? <ChevronDown size={16} className="text-inerte" /> : <ChevronRight size={16} className="text-inerte" />}
         </span>
       </button>
       {abierto && <div className="px-4 pb-4 overflow-x-auto">{children}</div>}

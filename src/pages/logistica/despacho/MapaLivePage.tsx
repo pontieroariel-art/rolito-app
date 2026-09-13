@@ -49,7 +49,7 @@ function DriverCard({
         </div>
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-sm truncate text-gray-900">{nombre}</p>
-          <p className={`text-xs mt-0.5 ${driver ? 'text-gray-400' : 'text-amber-500'}`}>
+          <p className={`text-xs mt-0.5 ${driver ? 'text-secundario' : 'text-amber-500'}`}>
             {driver ? `📍 ${gpsAge(driver.timestamp)}` : '📍 GPS no activo'}
           </p>
         </div>

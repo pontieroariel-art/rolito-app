@@ -161,7 +161,7 @@ export default function FlotaPage() {
             <p className="text-gray-500 text-sm">
               {camiones.filter((c) => c.activo).length} vehículos activos
               {' · '}
-              <span className="text-gray-400">La asignación diaria se gestiona en Planificación</span>
+              <span className="text-secundario">La asignación diaria se gestiona en Planificación</span>
             </p>
           </div>
         </div>
@@ -177,7 +177,7 @@ export default function FlotaPage() {
             <div className="bg-white border border-[#D3D1C7] rounded-xl p-8 text-center">
               <p className="text-4xl mb-3">🚛</p>
               <p className="text-gray-500 text-sm">Todavía no cargaste ningún vehículo</p>
-              <p className="text-gray-400 text-xs mt-1">Usá el botón "Agregar" para empezar</p>
+              <p className="text-secundario text-xs mt-1">Usá el botón "Agregar" para empezar</p>
             </div>
           ) : (
             <div className="space-y-2">

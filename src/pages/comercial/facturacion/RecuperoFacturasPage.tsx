@@ -257,7 +257,7 @@ export default function RecuperoFacturasPage() {
             arrastrando ? 'border-[#1D9E75] bg-[#F0F8F5]' : 'border-[#D3D1C7]'
           }`}
         >
-          <Upload className="h-7 w-7 text-gray-400" />
+          <Upload className="h-7 w-7 text-secundario" />
           <p className="text-sm text-gray-600">Arrastrá acá los PDF de las facturas, tal como los baja Tango</p>
           <button
             type="button"
@@ -357,7 +357,7 @@ export default function RecuperoFacturasPage() {
                   <div className="rounded-lg bg-[#F2F1EA] p-2.5 text-xs text-gray-600">
                     {f.renglones.map((r, n) => (
                       <div key={n} className="flex gap-3">
-                        <span className="w-12 shrink-0 text-right font-mono tabular-nums text-gray-400">
+                        <span className="w-12 shrink-0 text-right font-mono tabular-nums text-secundario">
                           {money(r.cantidad)}
                         </span>
                         <span className="min-w-0 flex-1 truncate">{r.descripcion}</span>
@@ -384,7 +384,7 @@ export default function RecuperoFacturasPage() {
 
                 <div className="flex flex-col gap-3 md:border-l md:border-[#E4E2D9] md:pl-5">
                   <label className="flex flex-col gap-1">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">CAE</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">CAE</span>
                     <input
                       value={item.cae}
                       onChange={(e) => editar(item.id, 'cae', e.target.value)}
@@ -394,14 +394,14 @@ export default function RecuperoFacturasPage() {
                       className="rounded-lg border border-[#D3D1C7] px-3 py-2 font-mono text-sm tracking-wide text-gray-900 focus:border-[#1D9E75] focus:outline-none focus:ring-1 focus:ring-[#1D9E75]"
                     />
                     <span className={`text-[11px] tabular-nums ${
-                      item.cae.length > 0 && item.cae.length < 14 ? 'text-red-600' : 'text-gray-400'
+                      item.cae.length > 0 && item.cae.length < 14 ? 'text-red-600' : 'text-secundario'
                     }`}>
                       {item.cae.length}/14
                     </span>
                   </label>
 
                   <label className="flex flex-col gap-1">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                       Vencimiento del CAE
                     </span>
                     <input
@@ -414,7 +414,7 @@ export default function RecuperoFacturasPage() {
 
                   <div className="grid grid-cols-[1fr_88px] gap-2">
                     <label className="flex flex-col gap-1">
-                      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Perc. IIBB CABA ($)</span>
+                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Perc. IIBB CABA ($)</span>
                       <input
                         value={item.percCaba}
                         onChange={(e) => editar(item.id, 'percCaba', e.target.value)}
@@ -424,7 +424,7 @@ export default function RecuperoFacturasPage() {
                       />
                     </label>
                     <label className="flex flex-col gap-1">
-                      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Alíc. %</span>
+                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Alíc. %</span>
                       <input
                         value={item.percCabaAlic}
                         onChange={(e) => editar(item.id, 'percCabaAlic', e.target.value)}
@@ -466,7 +466,7 @@ export default function RecuperoFacturasPage() {
         </div>
 
         {items.length === 0 && (
-          <p className="mt-8 text-center text-sm text-gray-400">
+          <p className="mt-8 text-center text-sm text-secundario">
             Todavía no cargaste ninguna factura.
           </p>
         )}

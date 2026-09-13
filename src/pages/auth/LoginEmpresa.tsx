@@ -97,11 +97,11 @@ export default function LoginEmpresa() {
           Ingresar
         </Button>
 
-        <p className="text-center text-xs text-gray-400">
+        <p className="text-center text-xs text-secundario">
           Si olvidaste tu contraseña, contactá al administrador del sistema.
         </p>
 
-        <p className="text-center text-xs text-gray-400 mt-1">
+        <p className="text-center text-xs text-secundario mt-1">
           <Link to="/" className="text-gray-500 hover:text-accent transition-colors">
             ← Volver al inicio
           </Link>

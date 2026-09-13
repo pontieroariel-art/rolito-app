@@ -5,7 +5,7 @@ import type { UserProfile } from '@/types'
 
 const btn = 'flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium active:scale-[0.98] transition-transform'
 const btnOn = `${btn} border-accent text-accent bg-white`
-const btnOff = `${btn} border-[#D3D1C7] text-gray-300 bg-gray-50 pointer-events-none`
+const btnOff = `${btn} border-[#D3D1C7] text-inerte bg-gray-50 pointer-events-none`
 
 export function BotonesTelefono({ telefono, textoWhatsApp }: { telefono: string | undefined; textoWhatsApp?: string }) {
   const llamar = urlLlamar(telefono)
@@ -39,7 +39,7 @@ export default function SeccionContacto({ c }: { c: UserProfile }) {
         </div>
       )}
       {sucursales.map((a) => (
-        <div key={a.id} className="mt-3 pt-3 border-t border-gray-100 space-y-2">
+        <div key={a.id} className="mt-3 pt-3 border-t border-[#E7E5DC] space-y-2">
           <p className="text-sm text-gray-900">{a.contactoTelefono}<span className="text-gray-500"> · {a.contactoNombre || a.nombre || 'sucursal'}</span></p>
           <BotonesTelefono telefono={a.contactoTelefono} textoWhatsApp={saludo} />
         </div>

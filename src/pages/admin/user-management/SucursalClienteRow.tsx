@@ -69,7 +69,7 @@ export function SucursalClienteRow({
               )}
             </div>
             {user.cuit && (
-              <p className="text-gray-400 text-xs mt-0.5 flex items-center gap-1">
+              <p className="text-secundario text-xs mt-0.5 flex items-center gap-1">
                 <CreditCard size={9} className="shrink-0" />
                 {user.cuit}
               </p>
@@ -81,7 +81,7 @@ export function SucursalClienteRow({
               </p>
             )}
             {address?.contactoTelefono && (
-              <p className="text-gray-400 text-xs mt-0.5 flex items-center gap-1">
+              <p className="text-secundario text-xs mt-0.5 flex items-center gap-1">
                 <Phone size={9} className="shrink-0" />
                 {address.contactoTelefono}
               </p>
@@ -112,11 +112,11 @@ export function SucursalClienteRow({
       </div>
 
       {canManagePrices && (
-        <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-gray-100">
+        <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-[#E7E5DC]">
           <span className="text-xs text-gray-500 whitespace-nowrap">Lista de precios:</span>
           <div className="flex flex-col gap-0.5 min-w-0">
             <span className="text-xs text-gray-900 truncate">{listaTangoResumen(user)}</span>
-            <span className="text-[10px] text-gray-400">Dato de Tango — se edita en Tango, se sincroniza acá</span>
+            <span className="text-[10px] text-secundario">Dato de Tango — se edita en Tango, se sincroniza acá</span>
           </div>
         </div>
       )}

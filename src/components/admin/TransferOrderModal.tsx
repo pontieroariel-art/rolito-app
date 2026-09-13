@@ -78,10 +78,10 @@ export default function TransferOrderModal({ fromDriver, fromDriverName, fromCam
                   type="checkbox" checked={selected.has(item.dndId)} onChange={() => toggle(item.dndId)}
                   className="w-4 h-4 rounded accent-[#00C2FF] shrink-0"
                 />
-                {item.kind !== 'order' ? <Eye size={13} className="text-violet-400 shrink-0" /> : <Package size={13} className="text-gray-400 shrink-0" />}
+                {item.kind !== 'order' ? <Eye size={13} className="text-violet-400 shrink-0" /> : <Package size={13} className="text-inerte shrink-0" />}
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-gray-900 truncate">{item.label}</p>
-                  <p className="text-xs text-gray-400 truncate">{item.sublabel}</p>
+                  <p className="text-xs text-secundario truncate">{item.sublabel}</p>
                 </div>
               </label>
             ))}
@@ -92,7 +92,7 @@ export default function TransferOrderModal({ fromDriver, fromDriverName, fromCam
         <div>
           <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Camión destino</label>
           {destinosFiltrados.length === 0 ? (
-            <p className="text-xs text-gray-400">No hay otros camiones con chofer asignado hoy.</p>
+            <p className="text-xs text-secundario">No hay otros camiones con chofer asignado hoy.</p>
           ) : (
             <div className="grid grid-cols-2 gap-2">
               {destinosFiltrados.map(({ camion, chofer, colorIdx }) => {
@@ -106,7 +106,7 @@ export default function TransferOrderModal({ fromDriver, fromDriverName, fromCam
                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate">{camion.patente}</p>
-                      <p className="truncate text-[11px] text-gray-400 font-normal">{nombre}</p>
+                      <p className="truncate text-[11px] text-secundario font-normal">{nombre}</p>
                     </div>
                   </button>
                 )

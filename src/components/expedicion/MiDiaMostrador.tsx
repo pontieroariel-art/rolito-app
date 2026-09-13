@@ -11,7 +11,7 @@ export function TilesMostrador({ calc, compacto = false }: { calc: MostradorCalc
   const v = calc.ventas, c = calc.cobranzas
   const Tile = ({ color, titulo, total, lineas }: { color: string; titulo: string; total: number; lineas: Array<[string, string]> }) => (
     <div className="rounded-xl border border-[#D3D1C7] bg-white p-3 space-y-1.5" style={{ borderTop: `4px solid ${color}` }}>
-      <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color }}>{titulo}</p>
+      <p className="text-xs font-bold uppercase tracking-wider" style={{ color }}>{titulo}</p>
       <p className="text-xl font-bold text-gray-900 tabular-nums">{formatoARS(total)}</p>
       {!compacto && (
         <div className="text-xs text-gray-600 space-y-0.5">
@@ -44,7 +44,7 @@ export default function MiDiaMostrador({ calc, nombre, cerrarHref }: { calc: Mos
         </div>
         <div className="flex items-center gap-4">
           <div className="text-right">
-            <p className="text-[11px] uppercase tracking-wider text-gray-500 font-semibold">Efectivo en mi caja</p>
+            <p className="text-xs uppercase tracking-wider text-gray-500 font-semibold">Efectivo en mi caja</p>
             <p className="text-2xl font-bold text-gray-900 tabular-nums">{formatoARS(calc.efectivoARendir)}</p>
           </div>
           {cerrarHref && (

@@ -44,7 +44,7 @@ export function TarjetasPlata({ reparto, calc, efectivoRecibido, onEfectivoRecib
   const promoEfectivo = reparto.promo.contado.ventas.filter((v) => v.formaPago === 'contado_efectivo').reduce((s, v) => s + v.total, 0)
   const Tile = ({ color, titulo, total, lineas }: { color: string; titulo: string; total: number; lineas: Array<[string, string]> }) => (
     <div className="rounded-xl border border-[#D3D1C7] bg-white p-3 space-y-1.5" style={{ borderTop: `4px solid ${color}` }}>
-      <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color }}>{titulo}</p>
+      <p className="text-xs font-bold uppercase tracking-wider" style={{ color }}>{titulo}</p>
       <p className="text-xl font-bold text-gray-900 tabular-nums">{formatoARS(total)}</p>
       <div className="text-xs text-gray-600 space-y-0.5">
         {lineas.map(([k, v]) => <p key={k} className="flex justify-between gap-2"><span>{k}</span><b className="text-gray-800 tabular-nums">{v}</b></p>)}
@@ -59,7 +59,7 @@ export function TarjetasPlata({ reparto, calc, efectivoRecibido, onEfectivoRecib
         <Tile color="#8A4FBF" titulo="Promo · Rolito" total={reparto.promo.total} lineas={[['Contado efectivo', formatoARS(promoEfectivo)], ['Cuenta corriente', formatoARS(reparto.promo.cuentaCorriente.total)], ['Facturas X', String(reparto.promo.contado.ventas.length + reparto.promo.cuentaCorriente.ventas.length)]]} />
         <Tile color="#0F6B4E" titulo="Cobranzas" total={reparto.cobranzas.total} lineas={[['Efectivo', formatoARS(reparto.cobranzas.efectivo)], ['Transferencia', formatoARS(reparto.cobranzas.transferencia)], [`Cheques (${reparto.cobranzas.cheques.cantidad})`, formatoARS(reparto.cobranzas.cheques.total)], ...(reparto.cobranzas.retenciones.cantidad ? [[`Retenciones (${reparto.cobranzas.retenciones.cantidad})`, formatoARS(reparto.cobranzas.retenciones.total)] as [string, string]] : [])]} />
       </div>
-      <div className="grid sm:grid-cols-[1fr_1.3fr_1fr] gap-4 items-end pt-3 border-t border-gray-100">
+      <div className="grid sm:grid-cols-[1fr_1.3fr_1fr] gap-4 items-end pt-3 border-t border-[#E7E5DC]">
         <div>
           <p className="text-xs text-gray-500">Efectivo a rendir</p>
           <p className="text-2xl font-bold text-gray-900 tabular-nums">{formatoARS(calc.efectivoARendir)}</p>
@@ -76,7 +76,7 @@ export function TarjetasPlata({ reparto, calc, efectivoRecibido, onEfectivoRecib
         </div>
         <div>
           <p className="text-xs text-gray-500">Diferencia</p>
-          {diferencia === null ? <p className="text-2xl font-bold text-gray-400">—</p> : (
+          {diferencia === null ? <p className="text-2xl font-bold text-secundario">—</p> : (
             <p className={`text-2xl font-bold tabular-nums ${diferencia === 0 ? 'text-[#0F6B4E]' : 'text-red-600'}`}>{formatoARS(diferencia)}{diferencia === 0 ? ' ✓' : ''}</p>
           )}
         </div>
