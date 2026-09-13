@@ -6,7 +6,9 @@
 // DriverCard) es genuinamente distinto — una tiene acciones operativas, la
 // otra es de solo lectura — así que no se fuerza a un único componente.
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
-import { GoogleMap, Marker, InfoWindow, Polyline } from '@react-google-maps/api'
+import { Marker, InfoWindow, Polyline } from '@react-google-maps/api'
+import MapaBase from '@/components/common/map/MapaBase'
+import { pinCircular, pinGota } from '@/components/common/map/pines'
 import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
 import { ActiveDriver } from '../../services/locationService'
 import { summarizeProducts } from '../../utils/helpers'
@@ -16,18 +18,6 @@ export const DRIVER_COLORS = ['#00C2FF', '#FF6B6B', '#4ECDC4', '#A8E6CF', '#FFE6
 
 // Cache de geocodificación a nivel de módulo — persiste entre montajes
 const GEO_CACHE = new Map<string, { lat: number; lng: number } | null>()
-
-const DARK_MAP_STYLES: google.maps.MapTypeStyle[] = [
-  { elementType: 'geometry',           stylers: [{ color: '#0A1628' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#0A1628' }] },
-  { elementType: 'labels.text.fill',   stylers: [{ color: '#74a0c8' }] },
-  { featureType: 'road',         elementType: 'geometry', stylers: [{ color: '#1E3A5F' }] },
-  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#163868' }] },
-  { featureType: 'water',        elementType: 'geometry', stylers: [{ color: '#05101e' }] },
-  { featureType: 'poi',          stylers: [{ visibility: 'off' }] },
-  { featureType: 'transit',      stylers: [{ visibility: 'off' }] },
-  { featureType: 'administrative.land_parcel', elementType: 'labels', stylers: [{ visibility: 'off' }] },
-]
 
 export function driverColor(email: string, choferes: UserProfile[]): string {
   const idx = choferes.findIndex((c) => c.email === email)
@@ -43,26 +33,6 @@ export function gpsAge(timestamp?: number): string {
   return `Hace ${Math.floor(mins / 60)}h`
 }
 
-function makeDriverPin(color: string, initials: string) {
-  const svg = encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44">` +
-    `<circle cx="22" cy="22" r="20" fill="${color}" stroke="white" stroke-width="3"/>` +
-    `<text x="22" y="27" font-size="14" font-weight="bold" text-anchor="middle" fill="white" font-family="sans-serif">${initials}</text>` +
-    `</svg>`,
-  )
-  return { url: `data:image/svg+xml;charset=UTF-8,${svg}`, scaledSize: new google.maps.Size(44, 44), anchor: new google.maps.Point(22, 22) }
-}
-
-function makeDeliveryPin(color: string, label: string) {
-  const svg = encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="36">` +
-    `<path d="M14 0C6.3 0 0 6.3 0 14c0 9.6 14 22 14 22s14-12.4 14-22C28 6.3 21.7 0 14 0z" fill="${color}"/>` +
-    `<text x="14" y="19" font-size="11" font-weight="bold" text-anchor="middle" fill="white" font-family="sans-serif">${label}</text>` +
-    `</svg>`,
-  )
-  return { url: `data:image/svg+xml;charset=UTF-8,${svg}`, scaledSize: new google.maps.Size(28, 36), anchor: new google.maps.Point(14, 36) }
-}
-
 export function LiveMap({
   activeDrivers, ordersToday, choferes, selectedDriver, onSelectDriver,
 }: {
@@ -72,6 +42,7 @@ export function LiveMap({
   selectedDriver: string | null
   onSelectDriver: (email: string) => void
 }) {
+  // El mapa lo dibuja MapaBase; esto es solo para no geocodificar antes de tiempo.
   const { isLoaded }    = useGoogleMapsLoader()
   const mapRef          = useRef<google.maps.Map | null>(null)
   const geocacheRef     = useRef<Map<string, { lat: number; lng: number } | null>>(GEO_CACHE)
@@ -84,6 +55,7 @@ export function LiveMap({
   )
 
   const geocodeAll = useCallback(() => {
+    // `new google.maps.Geocoder()` necesita la API ya cargada.
     if (!isLoaded || addresses.length === 0) return
     const pending = addresses.filter((a) => !geocacheRef.current.has(a))
     if (pending.length === 0) { setGeocoded(new Map(geocacheRef.current)); return }
@@ -136,18 +108,15 @@ export function LiveMap({
     return map
   }, [ordersToday])
 
-  if (!isLoaded) return <div className="flex-1 bg-[#F8F7F2] animate-pulse" />
-
   const visibleDriverEmails = selectedDriver ? [selectedDriver] : Object.keys(ordersByDriver)
 
   return (
-    <GoogleMap
-      mapContainerStyle={{ width: '100%', height: '100%' }}
-      center={{ lat: -34.6037, lng: -58.3816 }}
-      zoom={12}
-      options={{ disableDefaultUI: true, zoomControl: true, gestureHandling: 'greedy', styles: DARK_MAP_STYLES }}
+    <MapaBase
+      modo="oscuro"
+      claseHueco="flex-1"
       onLoad={(m) => { mapRef.current = m }}
     >
+      {() => (<>
       {/* Marcadores de entrega */}
       {visibleDriverEmails.map((email) => {
         const orders = ordersByDriver[email] ?? []
@@ -165,7 +134,7 @@ export function LiveMap({
             <Marker
               key={o.id}
               position={pt}
-              icon={makeDeliveryPin(sColor, label)}
+              icon={pinGota(sColor, label, { ancho: 28 })}
               opacity={isCanceled ? 0.35 : 1}
               zIndex={isDone ? 1 : 5}
               onClick={() => setSelectedMarker((s) => (s === o.id ? null : o.id))}
@@ -219,7 +188,7 @@ export function LiveMap({
           <Marker
             key={`gps-${driver.email}`}
             position={{ lat: driver.lat, lng: driver.lng }}
-            icon={makeDriverPin(color, initials)}
+            icon={pinCircular(color, initials)}
             opacity={dimmed ? 0.25 : 1}
             zIndex={1000}
             onClick={() => { onSelectDriver(driver.email); setSelectedMarker(`gps-${driver.email}`) }}
@@ -235,6 +204,8 @@ export function LiveMap({
           </Marker>
         )
       })}
-    </GoogleMap>
+    
+      </>)}
+    </MapaBase>
   )
 }

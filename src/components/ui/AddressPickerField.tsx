@@ -4,23 +4,11 @@
 import { useState, useEffect, useRef, useId, ChangeEvent, KeyboardEvent } from 'react'
 import { GoogleMap, Marker } from '@react-google-maps/api'
 import { MapPin } from 'lucide-react'
+import { opcionesMapa } from '@/components/common/map/config'
 
 // ── Map style ─────────────────────────────────────────────────────────────────
 
-export const DARK_MAP_OPTIONS: google.maps.MapOptions = {
-  disableDefaultUI: true,
-  zoomControl:      true,
-  gestureHandling:  'greedy',
-  styles: [
-    { elementType: 'geometry',           stylers: [{ color: '#0A1628' }] },
-    { elementType: 'labels.text.stroke', stylers: [{ color: '#0A1628' }] },
-    { elementType: 'labels.text.fill',   stylers: [{ color: '#74a0c8' }] },
-    { featureType: 'road',         elementType: 'geometry', stylers: [{ color: '#1E3A5F' }] },
-    { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#163868' }] },
-    { featureType: 'water',        elementType: 'geometry', stylers: [{ color: '#05101e' }] },
-    { featureType: 'poi',          elementType: 'geometry', stylers: [{ color: '#0e1f38' }] },
-  ],
-}
+export const DARK_MAP_OPTIONS: google.maps.MapOptions = opcionesMapa('oscuro')
 
 // ── AddressAutocomplete ───────────────────────────────────────────────────────
 // Combobox accesible: role="combobox", role="listbox", teclado (↑↓ Enter Esc)

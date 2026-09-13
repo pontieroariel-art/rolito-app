@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { GoogleMap, DirectionsRenderer, Marker } from '@react-google-maps/api'
+import { DirectionsRenderer, Marker } from '@react-google-maps/api'
 import {
   DndContext, DragEndEvent, DragOverlay, DragStartEvent,
   MouseSensor, TouchSensor, useSensor, useSensors,
@@ -18,13 +18,13 @@ import { updateDriverLocation, deactivateDriverLocation } from '@/services/locat
 import { subscribeDespachosForDriver, subscribeDespachosForAyudante, pickActiveDespacho, todayStr, ordenarPorRutaDespacho } from '@/services/despachoService'
 import { useAuth } from '@/context/AuthContext'
 import { useGoogleMapsLoader } from '@/hooks/useGoogleMapsLoader'
+import MapaBase from '@/components/common/map/MapaBase'
 import { summarizeProducts } from '@/utils/helpers'
 import { generateHojaDeRuta } from '@/utils/pdf'
 import type { Despacho, Order } from '@/types'
 import { PLANTAS } from '@/types'
 import { reportError } from '@/services/observability'
 
-const BA_CENTER = { lat: -34.6037, lng: -58.3816 }
 
 // ── SortableStop ──────────────────────────────────────────────────────────────
 
@@ -69,27 +69,6 @@ function SortableStop({ order, index }: { order: Order; index: number }) {
   )
 }
 
-const MAP_CONTAINER_STYLE: React.CSSProperties = { width: '100%', height: '100%' }
-
-const WARM_MAP_STYLE: google.maps.MapTypeStyle[] = [
-  { featureType: 'poi',     stylers: [{ visibility: 'off' }] },
-  { featureType: 'transit', stylers: [{ visibility: 'simplified' }] },
-  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#f5e9c8' }] },
-  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#e0c97a' }] },
-  { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#ffffff' }] },
-  { featureType: 'road.local', elementType: 'geometry', stylers: [{ color: '#f9f6f0' }] },
-  { featureType: 'landscape', elementType: 'geometry', stylers: [{ color: '#f5f2ec' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#c9e4f0' }] },
-  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#d8ead2' }] },
-]
-
-const MAP_OPTIONS: google.maps.MapOptions = {
-  styles:            WARM_MAP_STYLE,
-  streetViewControl: false,
-  mapTypeControl:    false,
-  fullscreenControl: true,
-  gestureHandling:   'greedy',
-}
 
 export default function ChoferMap() {
   const { user, verComo }             = useAuth()
@@ -409,11 +388,11 @@ export default function ChoferMap() {
         )}
 
         <div className="flex-1 min-h-0">
-          <GoogleMap
-            mapContainerStyle={MAP_CONTAINER_STYLE}
-            center={currentPos ?? BA_CENTER}
+          <MapaBase
+            modo="calido"
+            center={currentPos ?? undefined}
             zoom={13}
-            options={MAP_OPTIONS}
+            opciones={{ disableDefaultUI: false, fullscreenControl: true }}
           >
             {directions && (
               <>
@@ -462,7 +441,7 @@ export default function ChoferMap() {
                 ))}
               </>
             )}
-          </GoogleMap>
+          </MapaBase>
         </div>
 
         {orderedPending.length > 0 && (

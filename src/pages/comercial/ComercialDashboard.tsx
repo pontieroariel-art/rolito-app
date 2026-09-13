@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { GoogleMap, Marker, InfoWindow } from '@react-google-maps/api'
+import { Marker, InfoWindow } from '@react-google-maps/api'
+import MapaBase from '@/components/common/map/MapaBase'
+import { pinCircular, pinGota } from '@/components/common/map/pines'
 import {
   Users, UserCheck, Tag, ArrowRight,
   Package, Truck, CheckCircle, Clock, MapPin, History, BarChart2, CloudSun,
@@ -19,19 +21,10 @@ import MetricsDashboard from '@/components/admin/MetricsDashboard'
 import { ForecastStrip } from '@/pages/logistica/flota/ClimaPage'
 import { toDateStr, todayString, normalizeAddress } from '../../utils/helpers'
 
-const MAP_CONTAINER: React.CSSProperties = { width: '100%', height: '100%' }
-const BA_DEFAULT = { lat: -34.6037, lng: -58.3816 }
 const INACTIVE_DAYS = 7
 
-const DARK_MAP_STYLES: google.maps.MapTypeStyle[] = [
-  { elementType: 'geometry',           stylers: [{ color: '#0A1628' }] },
-  { elementType: 'labels.text.fill',   stylers: [{ color: '#8eabd4' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#0A1628' }] },
-  { featureType: 'road',               elementType: 'geometry', stylers: [{ color: '#1a2f4a' }] },
-  { featureType: 'water',              elementType: 'geometry', stylers: [{ color: '#061020' }] },
-  { featureType: 'poi',                stylers: [{ visibility: 'off' }] },
-  { featureType: 'transit',            stylers: [{ visibility: 'off' }] },
-]
+// Iniciales del chofer para el pin del mapa (antes era el pin azul genérico de Google).
+const inicialesChofer = (nombre: string) => nombre.split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((x) => x[0]).join('').toUpperCase()
 
 function isToday(order: Order) {
   if (!order.date) return false
@@ -312,7 +305,6 @@ export default function ComercialDashboard() {
 // ── TrackingMap ───────────────────────────────────────────────────────────────
 
 function TrackingMap({ orders, clientes }: { orders: Order[]; clientes: UserProfile[] }) {
-  const { isLoaded }                  = useGoogleMapsLoader()
   const [open, setOpen]               = useState(false)
   const [drivers, setDrivers]         = useState<ActiveDriver[]>([])
   const [selected, setSelected]       = useState<string | null>(null)
@@ -369,24 +361,17 @@ function TrackingMap({ orders, clientes }: { orders: Order[]; clientes: UserProf
 
       {open && (
         <div className="bg-white border border-[#D3D1C7] rounded-xl overflow-hidden" style={{ height: 380 }}>
-          {!isLoaded ? (
-            <div className="h-full flex items-center justify-center">
-              <LoadingSpinner />
-            </div>
-          ) : (
-            <GoogleMap
-              mapContainerStyle={MAP_CONTAINER}
-              center={BA_DEFAULT}
-              zoom={12}
-              options={{ styles: DARK_MAP_STYLES, disableDefaultUI: true, zoomControl: true }}
-              onLoad={(m) => { mapRef.current = m }}
-            >
+          <MapaBase
+            modo="oscuro"
+            onLoad={(m) => { mapRef.current = m }}
+          >
+            {() => (<>
               {/* Choferes activos */}
               {drivers.map((d) => (
                 <Marker
                   key={d.email}
                   position={{ lat: d.lat, lng: d.lng }}
-                  icon={{ url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png' }}
+                  icon={pinCircular('#00C2FF', inicialesChofer(d.nombreChofer || d.email), { tamano: 36, grosorBorde: 2 })}
                   onClick={() => setSelected((s) => s === d.email ? null : d.email)}
                 >
                   {selected === d.email && (
@@ -405,11 +390,11 @@ function TrackingMap({ orders, clientes }: { orders: Order[]; clientes: UserProf
                 <Marker
                   key={order.id}
                   position={coords}
-                  icon={{ url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png' }}
+                  icon={pinGota('#EF4444', '', { ancho: 26 })}
                 />
               ))}
-            </GoogleMap>
-          )}
+            </>)}
+          </MapaBase>
         </div>
       )}
     </section>

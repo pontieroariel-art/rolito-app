@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { GoogleMap, Marker } from '@react-google-maps/api'
+import { Marker } from '@react-google-maps/api'
+import MapaBase from '@/components/common/map/MapaBase'
+import { pinCliente } from '@/components/common/map/pines'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useAuth } from '../../context/AuthContext'
 import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
 import { useClientesActivos } from '../../hooks/useClientesActivos'
 import ClienteCombobox from '@/components/common/ClienteCombobox'
 import { subscribePreventivosDelAnio, marcarPreventivoHecho, desmarcarPreventivo } from '../../services/preventivoService'
-import { makePin } from '../../utils/mapPins'
 import { haversineKm, LatLng } from '../../utils/routeMath'
 import { puedeGestionarHeladeras } from '../../utils/heladeraLabels'
 import { UserProfile, Preventivo, getPrimaryAddress } from '../../types'
 
-const DEFAULT_CENTER: LatLng = { lat: -34.6037, lng: -58.3816 }
 const YEAR = new Date().getFullYear()
 
 function clientCoords(u: UserProfile): LatLng | null {
@@ -63,7 +63,7 @@ export default function MapaClientesHeladerasPage() {
   const getPin = useCallback((hecho: boolean, selected: boolean) => {
     const fill = hecho ? '#10B981' : '#EF4444'
     const key  = `${fill}|${selected}`
-    if (!pinCache.current.has(key)) pinCache.current.set(key, makePin(fill, selected ? '#111827' : '#ffffff', '', selected ? 46 : 32))
+    if (!pinCache.current.has(key)) pinCache.current.set(key, pinCliente(fill, selected ? '#111827' : '#ffffff', '', selected ? 46 : 32))
     return pinCache.current.get(key)!
   }, [])
 
@@ -87,7 +87,8 @@ export default function MapaClientesHeladerasPage() {
     }
   }
 
-  if (loadingClientes || loadingPrev || !isLoaded) return <LoadingSpinner fullScreen />
+  // El mapa resuelve su propia espera (MapaBase); acá solo la de los datos.
+  if (loadingClientes || loadingPrev) return <LoadingSpinner fullScreen />
 
   return (
     <div className="min-h-screen min-h-dvh bg-[#F8F7F2] text-gray-900">
@@ -158,15 +159,15 @@ export default function MapaClientesHeladerasPage() {
             </div>
           )}
 
-          <GoogleMap
-            mapContainerStyle={{ width: '100%', height: '100%' }}
-            center={centroPos ?? DEFAULT_CENTER}
+          <MapaBase
+            modo="claro"
+            center={centroPos ?? undefined}
             zoom={11}
-            options={{ disableDefaultUI: false, zoomControl: true, gestureHandling: 'greedy', fullscreenControl: false }}
+            opciones={{ disableDefaultUI: false, mapTypeControl: true, streetViewControl: true }}
             onLoad={(m) => { mapRef.current = m }}
             onClick={() => setSeleccionado(null)}
           >
-            {visibles.map((c) => (
+            {() => visibles.map((c) => (
               <Marker
                 key={c.user.uid}
                 position={c.pos}
@@ -175,7 +176,7 @@ export default function MapaClientesHeladerasPage() {
                 onClick={() => setSeleccionado(c.user.uid)}
               />
             ))}
-          </GoogleMap>
+          </MapaBase>
         </div>
       </div>
     </div>

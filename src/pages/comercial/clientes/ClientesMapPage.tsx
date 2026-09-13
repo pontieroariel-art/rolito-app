@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { coincideBusqueda } from '@/utils/busqueda'
 import { useNavigate } from 'react-router-dom'
-import { GoogleMap, Marker } from '@react-google-maps/api'
+import { Marker } from '@react-google-maps/api'
 import { ArrowLeft, Search, MapPin, Users, AlertCircle, CheckCircle, Loader2, X } from 'lucide-react'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { useGoogleMapsLoader } from '@/hooks/useGoogleMapsLoader'
 import { getAllUsers, updateUserDocument, approveCoord, rejectCoord } from '@/services/userService'
 import { UserProfile, DeliveryAddress } from '@/types'
-import { makePin } from '@/utils/mapPins'
+import MapaBase from '@/components/common/map/MapaBase'
+import { pinCliente } from '@/components/common/map/pines'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -45,16 +46,6 @@ const ESTADO_RING: Record<string, string> = {
 }
 
 // ── Map styles ────────────────────────────────────────────────────────────────
-
-const MAP_STYLES: google.maps.MapTypeStyle[] = [
-  { elementType: 'geometry', stylers: [{ color: '#f5f3ee' }] },
-  { featureType: 'water',    elementType: 'geometry', stylers: [{ color: '#c9e4f5' }] },
-  { featureType: 'road',     elementType: 'geometry', stylers: [{ color: '#ffffff' }] },
-  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#e8e4dc' }] },
-  { featureType: 'poi',      stylers: [{ visibility: 'off' }] },
-  { featureType: 'transit',  stylers: [{ visibility: 'off' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#555' }] },
-]
 
 // ── Geocoding cache en memoria ────────────────────────────────────────────────
 
@@ -179,7 +170,6 @@ function PendingCoordPanel({
   )
 }
 
-const DEFAULT_CENTER = { lat: -34.6037, lng: -58.3816 }
 
 // ── Componente mapa ───────────────────────────────────────────────────────────
 
@@ -203,7 +193,7 @@ function ClientesMap({
     const size      = selected ? 54 : 40
     const key       = `${fillColor}|${ringColor}|${label}|${size}`
     if (!pinCache.current.has(key)) {
-      pinCache.current.set(key, makePin(fillColor, ringColor, label, size))
+      pinCache.current.set(key, pinCliente(fillColor, ringColor, label, size))
     }
     return pinCache.current.get(key)!
   }, [])
@@ -238,33 +228,19 @@ function ClientesMap({
     if (m) mapRef.current.panTo({ lat: m.lat, lng: m.lng })
   }, [selectedKey])
 
-  const pendingPin = useMemo(() => {
-    if (!isLoaded) return null
-    const svg = encodeURIComponent(
-      `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="46">` +
-      `<circle cx="18" cy="18" r="16" fill="#F97316" stroke="#EA580C" stroke-width="3"/>` +
-      `<text x="18" y="23" text-anchor="middle" fill="white" font-size="14" font-weight="bold" font-family="Arial">?</text>` +
-      `<line x1="18" y1="34" x2="18" y2="45" stroke="#F97316" stroke-width="2.5"/>` +
-      `</svg>`
-    )
-    return {
-      url:        `data:image/svg+xml;charset=UTF-8,${svg}`,
-      scaledSize: new google.maps.Size(36, 46),
-      anchor:     new google.maps.Point(18, 46),
-    }
-  }, [isLoaded])
-
-  if (!isLoaded) return <div className="flex-1 bg-gray-100 animate-pulse" />
+  // Sucursal sin geocodificar todavía.
+  const pendingPin = useMemo(() => (isLoaded ? pinCliente('#F97316', '#EA580C', '?', 36) : null), [isLoaded])
 
   return (
-    <GoogleMap
-      mapContainerStyle={{ width: '100%', height: '100%' }}
-      center={DEFAULT_CENTER}
+    <MapaBase
+      modo="claro"
       zoom={11}
-      options={{ disableDefaultUI: false, zoomControl: true, gestureHandling: 'greedy', styles: MAP_STYLES, fullscreenControl: false }}
+      claseHueco="flex-1"
+      opciones={{ disableDefaultUI: false, mapTypeControl: true, streetViewControl: true }}
       onLoad={(m) => { mapRef.current = m }}
       onClick={() => onSelect(null)}
     >
+      {() => (<>
       {markers.map(({ s, lat, lng }) => {
         const isSelected = selectedKey === s.key
         return (
@@ -289,7 +265,9 @@ function ClientesMap({
             onClick={() => onSelect(s.key)}
           />
         ))}
-    </GoogleMap>
+    
+      </>)}
+    </MapaBase>
   )
 }
 

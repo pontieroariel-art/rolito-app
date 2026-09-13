@@ -1,18 +1,12 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { GoogleMap, Marker, DirectionsRenderer } from '@react-google-maps/api'
+import { Marker, DirectionsRenderer } from '@react-google-maps/api'
+import MapaBase from '@/components/common/map/MapaBase'
 import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
 import { DriverLocation } from '../../services/locationService'
 import { useNotifyCerca } from '../../hooks/useNotifications'
 import { Order } from '../../types'
 
-const MAP_CONTAINER: React.CSSProperties = { width: '100%', height: '100%' }
 
-const LIGHT_MAP_STYLES: google.maps.MapTypeStyle[] = [
-  { featureType: 'poi',     elementType: 'labels', stylers: [{ visibility: 'off' }] },
-  { featureType: 'transit', elementType: 'labels', stylers: [{ visibility: 'off' }] },
-]
-
-const BA_DEFAULT = { lat: -34.6037, lng: -58.3816 }
 const STALE_MS    = 20 * 60 * 1000
 
 type Coords = { lat: number; lng: number }
@@ -211,11 +205,11 @@ export function TruckTracker({ order, clientEmail, clientNombre, onNearby }: Tru
           {expanded ? '⊠ Reducir' : '⊞ Expandir'}
         </button>
         {isLoaded ? (
-          <GoogleMap
-            mapContainerStyle={MAP_CONTAINER}
-            center={deliveryPos ?? truckPos ?? BA_DEFAULT}
+          <MapaBase
+            modo="sobrio"
+            center={deliveryPos ?? truckPos ?? undefined}
             zoom={13}
-            options={{ disableDefaultUI: true, zoomControl: true, gestureHandling: 'cooperative', styles: LIGHT_MAP_STYLES }}
+            opciones={{ gestureHandling: 'cooperative' }}
             onLoad={(m) => { mapRef.current = m }}
           >
             {directions && (
@@ -237,7 +231,7 @@ export function TruckTracker({ order, clientEmail, clientNombre, onNearby }: Tru
                 icon={{ url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>'), scaledSize: new google.maps.Size(1, 1) }}
               />
             )}
-          </GoogleMap>
+          </MapaBase>
         ) : (
           <div className="w-full h-full bg-gray-100 animate-pulse" />
         )}

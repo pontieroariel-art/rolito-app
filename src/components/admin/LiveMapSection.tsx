@@ -1,37 +1,14 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { GoogleMap, Marker, InfoWindow } from '@react-google-maps/api'
-import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
+import { Marker, InfoWindow } from '@react-google-maps/api'
+import MapaBase from '@/components/common/map/MapaBase'
+import { pinCircular } from '@/components/common/map/pines'
 import { subscribeAllActiveDrivers, ActiveDriver } from '../../services/locationService'
 import { Order } from '../../types'
 
-const MAP_CONTAINER: React.CSSProperties = { width: '100%', height: '100%' }
-const BA_DEFAULT = { lat: -34.6037, lng: -58.3816 }
 const STALE_MS   = 20 * 60 * 1000
 
-const DARK_MAP_STYLES: google.maps.MapTypeStyle[] = [
-  { elementType: 'geometry',           stylers: [{ color: '#0A1628' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#0A1628' }] },
-  { elementType: 'labels.text.fill',   stylers: [{ color: '#74a0c8' }] },
-  { featureType: 'road',         elementType: 'geometry', stylers: [{ color: '#1E3A5F' }] },
-  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#163868' }] },
-  { featureType: 'water',        elementType: 'geometry', stylers: [{ color: '#05101e' }] },
-  { featureType: 'poi',          elementType: 'geometry', stylers: [{ color: '#0e1f38' }] },
-  { featureType: 'transit',      elementType: 'geometry', stylers: [{ color: '#1E3A5F' }] },
-]
-
 function makeDriverIcon(pending: number, isStale: boolean) {
-  const fill = isStale ? '#F97316' : '#00C2FF'
-  const svg  = encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40">` +
-    `<circle cx="20" cy="20" r="18" fill="${fill}" stroke="white" stroke-width="2"/>` +
-    `<text x="20" y="25" font-size="16" font-weight="bold" text-anchor="middle" fill="white">${pending}</text>` +
-    `</svg>`,
-  )
-  return {
-    url:        `data:image/svg+xml;charset=UTF-8,${svg}`,
-    scaledSize: new google.maps.Size(40, 40),
-    anchor:     new google.maps.Point(20, 20),
-  }
+  return pinCircular(isStale ? '#F97316' : '#00C2FF', String(pending), { tamano: 40, grosorBorde: 2 })
 }
 
 interface LiveMapSectionProps {
@@ -39,7 +16,6 @@ interface LiveMapSectionProps {
 }
 
 export function LiveMapSection({ orders }: LiveMapSectionProps) {
-  const { isLoaded }            = useGoogleMapsLoader()
   const [open, setOpen]         = useState(false)
   const [drivers, setDrivers]   = useState<ActiveDriver[]>([])
   const [selected, setSelected] = useState<string | null>(null)
@@ -124,14 +100,12 @@ export function LiveMapSection({ orders }: LiveMapSectionProps) {
           )}
 
           <div className="rounded-xl overflow-hidden border border-[#D3D1C7]" style={{ height: '320px' }}>
-            {isLoaded ? (
-              <GoogleMap
-                mapContainerStyle={MAP_CONTAINER}
-                center={BA_DEFAULT}
-                zoom={12}
-                options={{ disableDefaultUI: true, zoomControl: true, gestureHandling: 'cooperative', styles: DARK_MAP_STYLES }}
-                onLoad={(m) => { mapRef.current = m }}
-              >
+            <MapaBase
+              modo="oscuro"
+              opciones={{ gestureHandling: 'cooperative' }}
+              onLoad={(m) => { mapRef.current = m }}
+            >
+              {() => (<>
                 {drivers.map((driver) => {
                   const isStale = !!(driver.timestamp && now - driver.timestamp > STALE_MS)
                   const pending = pendingByDriver[driver.email] ?? 0
@@ -165,10 +139,9 @@ export function LiveMapSection({ orders }: LiveMapSectionProps) {
                     </Marker>
                   )
                 })}
-              </GoogleMap>
-            ) : (
-              <div className="w-full h-full bg-gray-200 animate-pulse" />
-            )}
+            
+              </>)}
+            </MapaBase>
           </div>
 
           {drivers.length === 0 ? (

@@ -3,6 +3,8 @@ import { X, SlidersHorizontal, RotateCcw, ChevronUp, ChevronDown } from 'lucide-
 import { Timestamp } from 'firebase/firestore'
 import { GoogleMap, Marker, InfoWindow, Polyline, Polygon } from '@react-google-maps/api'
 import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
+import { CENTRO_BA, ESTILOS_SOBRIOS } from '@/components/common/map/config'
+import { pinGota } from '@/components/common/map/pines'
 import { summarizeProducts, toDateStr as dateToStr, todayString, normalizeAddress } from '../../utils/helpers'
 import { addVisitaPuntual, deleteVisitaPuntual } from '../../services/visitasService'
 import { useVisitasPuntuales, visitasParaFecha } from '../../hooks/useVisitas'
@@ -20,12 +22,7 @@ import { reportError } from '@/services/observability'
 
 const DRIVER_COLORS = ['#E53935', '#F57C00', '#7B1FA2', '#1565C0', '#E91E63', '#F9A825', '#2E7D32', '#00838F']
 
-const MAP_STYLES: google.maps.MapTypeStyle[] = [
-  { featureType: 'poi',               stylers: [{ visibility: 'off' }] },
-  { featureType: 'transit',           stylers: [{ visibility: 'off' }] },
-  { featureType: 'road',              elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
-  { featureType: 'administrative',    elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
-]
+const MAP_STYLES = ESTILOS_SOBRIOS
 
 // Cache de geocodificación a nivel de módulo — persiste entre montajes
 const GEO_CACHE = new Map<string, { lat: number; lng: number } | null>()
@@ -124,18 +121,7 @@ function clientInitials(name: string): string {
 }
 
 function makeOrderPin(fill: string, label: string) {
-  const fontSize = label.length >= 3 ? 9 : 12
-  const svg = encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40">` +
-    `<path d="M16 0C7.2 0 0 7.2 0 16c0 11 16 24 16 24s16-13 16-24C32 7.2 24.8 0 16 0z" fill="${fill}"/>` +
-    `<text x="16" y="21" font-size="${fontSize}" font-weight="bold" text-anchor="middle" fill="white" font-family="sans-serif">${label}</text>` +
-    `</svg>`,
-  )
-  return {
-    url:        `data:image/svg+xml;charset=UTF-8,${svg}`,
-    scaledSize: new google.maps.Size(32, 40),
-    anchor:     new google.maps.Point(16, 40),
-  }
+  return pinGota(fill, label)
 }
 
 // driverColor: si se pasa, el pin toma ese color (visita asignada a chofer)
@@ -1028,7 +1014,7 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
         ) : (
           <GoogleMap
             mapContainerStyle={{ width: '100%', height: '100%' }}
-            center={{ lat: -34.6037, lng: -58.3816 }}
+            center={CENTRO_BA}
             zoom={12}
             options={{
               disableDefaultUI:       true,
