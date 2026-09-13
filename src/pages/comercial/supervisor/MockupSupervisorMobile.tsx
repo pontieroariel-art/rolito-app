@@ -54,6 +54,8 @@ interface ClienteMock {
   /** Debe en las dos empresas: se muestra el desglose. */
   desglose?:    { redonhielo: number; rolito: number }
   sucursales?:  number
+  /** Ya tiene una cobranza registrada HOY: no hay que volver a tocarle la puerta. */
+  cobradoHoy?:  boolean
 }
 
 const CLIENTES: ClienteMock[] = [
@@ -76,7 +78,7 @@ const CLIENTES: ClienteMock[] = [
   {
     uid: 'c4', razonSocial: '180BURGERBAR S.R.L.', codigo: 'BI.515', cuit: '30-71484577-9',
     direccion: 'Bartolomé Mitre 980', localidad: 'CAPITAL FEDERAL', telefono: '11 5263-4400',
-    saldo: 189200, comprobantes: 3, diasAtraso: 0, cacheMin: 12, nivel: 'ok',
+    saldo: 189200, comprobantes: 3, diasAtraso: 0, cacheMin: 12, nivel: 'ok', cobradoHoy: true,
   },
   {
     uid: 'c5', razonSocial: 'CLUB NAUTICO SAN FERNANDO ASOC. CIVIL', codigo: 'COM126',
@@ -86,7 +88,7 @@ const CLIENTES: ClienteMock[] = [
   {
     uid: 'c6', razonSocial: '17 DE SEPTIEMBRE S.R.L.', codigo: 'CI.06', cuit: '30-66462880-1',
     direccion: 'Ruta 8 km 42,5', localidad: 'MARCOS PAZ', telefono: '0220 477-3311',
-    saldo: 52000, comprobantes: 1, diasAtraso: 0, cacheMin: 18, nivel: 'ok',
+    saldo: 52000, comprobantes: 1, diasAtraso: 0, cacheMin: 18, nivel: 'ok', cobradoHoy: true,
   },
 ]
 
@@ -307,18 +309,27 @@ function HomeMock({ privado, irA }: { privado: boolean; irA: (p: Pantalla) => vo
       <section className="pt-1">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-secundario mb-1.5">Cobrado hoy</h2>
         <div className="bg-white border border-[#D3D1C7] rounded-xl overflow-hidden">
-          <div className="px-3.5 py-2.5 border-b border-[#E7E5DC] flex items-baseline justify-between">
-            <p className="text-xs font-medium text-secundario">Total</p>
-            <Plata n={TOTAL_HOY} privado={privado} className="text-2xl font-bold leading-none text-gray-900" />
+          {/* El efectivo va primero y aparte: es lo ÚNICO que lleva encima y lo
+              que arriesga en la calle. El resto ya está en el banco o en papel. */}
+          <div className="px-3.5 py-3 bg-[#F1F9F6] border-b border-[#E7E5DC]">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <HandCoins size={14} className="text-[#0F6E56]" />
+              <p className="text-xs font-medium text-[#0F6E56]">Llevás en efectivo</p>
+            </div>
+            <Plata n={COBRADO_HOY.efectivo} privado={privado} className="text-2xl font-bold leading-none text-[#0F6E56]" />
           </div>
-          <div className="grid grid-cols-2 divide-x divide-y divide-[#E7E5DC]">
-            {([['Efectivo', COBRADO_HOY.efectivo], ['Transferencia', COBRADO_HOY.transferencia],
-              ['Cheques', COBRADO_HOY.cheques], ['Retenciones', COBRADO_HOY.retenciones]] as const).map(([k, v]) => (
-              <div key={k} className="px-3.5 py-2">
-                <p className="text-xs text-secundario truncate">{k}</p>
-                <Plata n={v} privado={privado} className="text-base font-semibold text-gray-900" />
+          <div className="grid grid-cols-3 divide-x divide-[#E7E5DC]">
+            {([['Transferencia', COBRADO_HOY.transferencia], ['Cheques', COBRADO_HOY.cheques],
+              ['Retenciones', COBRADO_HOY.retenciones]] as const).map(([k, v]) => (
+              <div key={k} className="px-3 py-2 min-w-0">
+                <p className="text-xs text-secundario truncate" title={k}>{k}</p>
+                <Plata n={v} privado={privado} className="text-sm font-semibold text-gray-900" />
               </div>
             ))}
+          </div>
+          <div className="px-3.5 py-2 border-t border-[#E7E5DC] flex items-baseline justify-between">
+            <p className="text-xs text-secundario">Total cobrado hoy</p>
+            <Plata n={TOTAL_HOY} privado={privado} className="text-base font-bold text-gray-900" />
           </div>
         </div>
       </section>
@@ -339,10 +350,14 @@ type FiltroLista = 'deuda' | 'vencidos' | 'mora'
 
 function ClientesMock({ privado, toqueGrande, abrirFicha }: { privado: boolean; toqueGrande: boolean; abrirFicha: (uid: string) => void }) {
   const [filtro, setFiltro] = useState<FiltroLista>('deuda')
+  const [zona, setZona] = useState('')
   const [texto, setTexto] = useState('')
 
   const vencidos = CLIENTES.filter((c) => c.diasAtraso > 0).length
   const enMora = CLIENTES.filter((c) => c.nivel !== 'ok').length
+  // El supervisor recorre por zona, no por importe: ordenar solo por mora lo
+  // hace cruzar de San Fernando a Marcos Paz y volver a Devoto.
+  const zonas = [...new Set(CLIENTES.map((c) => c.localidad))].sort()
 
   // Orden por mora: nivel → días de atraso → importe. Lo urgente primero, sin
   // esconder a nadie detrás de un filtro activo por defecto.
@@ -354,10 +369,14 @@ function ClientesMock({ privado, toqueGrande, abrirFicha }: { privado: boolean; 
     // El filtro se aplica SIEMPRE, haya o no texto escrito. En producción hoy
     // hay un bug acá: con el buscador vacío, "En mora" muestra todos los vencidos.
     const q = normalizarBusqueda(texto)
-    const filtrada = q ? base.filter((c) => normalizarBusqueda(`${c.razonSocial} ${c.codigo}`).includes(q)) : base
-    return [...filtrada].sort((a, b) => PESO[a.nivel] - PESO[b.nivel] || b.diasAtraso - a.diasAtraso || b.saldo - a.saldo)
+    const porZona = zona ? base.filter((c) => c.localidad === zona) : base
+    const filtrada = q ? porZona.filter((c) => normalizarBusqueda(`${c.razonSocial} ${c.codigo}`).includes(q)) : porZona
+    // Los que ya se cobraron hoy caen al final: dejaron de ser objetivo del día.
+    return [...filtrada].sort((a, b) =>
+      Number(!!a.cobradoHoy) - Number(!!b.cobradoHoy)
+      || PESO[a.nivel] - PESO[b.nivel] || b.diasAtraso - a.diasAtraso || b.saldo - a.saldo)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- PESO es una constante literal
-  }, [filtro, texto])
+  }, [filtro, texto, zona])
 
   const total = lista.reduce((t, c) => t + c.saldo, 0)
 
@@ -390,6 +409,16 @@ function ClientesMock({ privado, toqueGrande, abrirFicha }: { privado: boolean; 
         ))}
       </div>
 
+      {/* Zona: el recorrido de la calle es geográfico. */}
+      <div className="flex gap-2 overflow-x-auto -mx-4 px-4 pb-1">
+        {['', ...zonas].map((z) => (
+          <button key={z || 'todas'} type="button" onClick={() => setZona(z)}
+            className={`h-11 shrink-0 rounded-full border px-4 text-xs font-medium ${zona === z ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-700 border-[#D3D1C7]'}`}>
+            {z || 'Todas las zonas'}
+          </button>
+        ))}
+      </div>
+
       <div className="flex items-center justify-between px-1">
         <p className="text-xs text-secundario">{lista.length} {lista.length === 1 ? 'cliente' : 'clientes'}</p>
         <p className="text-xs text-secundario">Deuda: <Plata n={total} privado={privado} className="font-semibold text-gray-900" /></p>
@@ -405,13 +434,23 @@ function ClientesMock({ privado, toqueGrande, abrirFicha }: { privado: boolean; 
                 abajo, grande, con el chip de mora al lado. */}
             <button type="button" onClick={() => abrirFicha(c.uid)} className="block flex-1 min-w-0 p-3 text-left active:bg-gray-50">
               <p className="text-sm font-medium text-gray-900 truncate" title={c.razonSocial}>{c.razonSocial}</p>
-              <div className="flex items-center gap-2 mt-1">
-                <Plata n={c.saldo} privado={privado} className="text-base font-bold text-gray-900" />
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <Plata n={c.saldo} privado={privado} className={`text-base font-bold ${c.cobradoHoy ? 'text-secundario' : 'text-gray-900'}`} />
                 <ChipMora nivel={c.nivel} />
+                {/* Ya cobrado hoy: no hay que volver a tocarle la puerta. */}
+                {c.cobradoHoy && (
+                  <span className="text-[11px] font-semibold rounded-full px-2 py-0.5 border text-accent bg-accent/10 border-accent/30">
+                    Ya le cobraste hoy
+                  </span>
+                )}
               </div>
+              {/* Orden de la línea por importancia: lo que se corta al truncar
+                  tiene que ser lo que menos importa (la cantidad de comprobantes),
+                  no los días de atraso. */}
               <p className="text-xs text-secundario truncate mt-0.5">
-                {c.comprobantes} {c.comprobantes === 1 ? 'comprobante' : 'comprobantes'} · cód. {c.codigo}
+                {c.localidad}
                 {c.diasAtraso > 0 && <span className="text-red-600"> · {c.diasAtraso} días de atraso</span>}
+                {' · '}cód. {c.codigo} · {c.comprobantes} {c.comprobantes === 1 ? 'comprobante' : 'comprobantes'}
               </p>
               {c.desglose && (
                 <p className="text-xs text-secundario truncate">
