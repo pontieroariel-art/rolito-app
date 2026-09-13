@@ -605,7 +605,9 @@ export const subscribeDriverOrders = (
 
   // Los 100 MÁS NUEVOS: con `limit(100)` un chofer con más de 100 pedidos en el
   // mes veía los viejos y no el de hoy (Brian Gallo, 106 pedidos, 2026-09-11).
-  // `limitToLast` usa el mismo índice (driverId, date asc) y devuelve el final.
+  // `limitToLast` devuelve el final, pero por dentro Firestore la corre al revés:
+  // necesita ADEMÁS el índice (driverId, date DESC) — sin él la consulta falla con
+  // FAILED_PRECONDITION y el chofer ve "No pudimos cargar tus entregas" (2026-09-12).
   const q = query(
     collection(db, ORDERS),
     where('driverId', '==', driverEmail),

@@ -4,96 +4,182 @@
       "collectionGroup": "tango-altas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "estado",        "order": "ASCENDING" },
-        { "fieldPath": "actualizadoEn", "order": "ASCENDING" }
+        {
+          "fieldPath": "estado",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "actualizadoEn",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "orders",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "driverId",  "order": "ASCENDING" },
-        { "fieldPath": "date",      "order": "ASCENDING" }
+        {
+          "fieldPath": "driverId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "date",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "orders",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "clientId",  "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "driverId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "date",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "orders",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "clientId", "order": "ASCENDING" },
-        { "fieldPath": "date",     "order": "ASCENDING" }
+        {
+          "fieldPath": "clientId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "orders",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "clientId", "order": "ASCENDING" },
-        { "fieldPath": "date",     "order": "DESCENDING" }
+        {
+          "fieldPath": "clientId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "date",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "clientId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "date",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "historialPrecios",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "clientId", "order": "ASCENDING" },
-        { "fieldPath": "fecha",    "order": "DESCENDING" }
+        {
+          "fieldPath": "clientId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "ticketsServicio",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "heladeraId", "order": "ASCENDING" },
-        { "fieldPath": "createdAt",  "order": "DESCENDING" }
+        {
+          "fieldPath": "heladeraId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "ticketsServicio",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "clientId",  "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "clientId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "ticketsServicio",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "asignadoA.uid", "order": "ASCENDING" },
-        { "fieldPath": "createdAt",     "order": "DESCENDING" }
+        {
+          "fieldPath": "asignadoA.uid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "remitosCarga",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "plantaId", "order": "ASCENDING" },
-        { "fieldPath": "fecha",    "order": "ASCENDING" }
+        {
+          "fieldPath": "plantaId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "remitosCarga",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "choferId", "order": "ASCENDING" },
-        { "fieldPath": "fecha",    "order": "ASCENDING" }
+        {
+          "fieldPath": "choferId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "ventasCamion",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "choferId", "order": "ASCENDING" },
-        { "fieldPath": "fecha",    "order": "ASCENDING" }
+        {
+          "fieldPath": "choferId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
@@ -101,8 +187,14 @@
       "collectionGroup": "produccionPallets",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "plantaId",  "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "plantaId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
@@ -110,8 +202,14 @@
       "collectionGroup": "asignacionesHeladera",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "heladeraId", "order": "ASCENDING" },
-        { "fieldPath": "fecha",      "order": "DESCENDING" }
+        {
+          "fieldPath": "heladeraId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
@@ -119,8 +217,14 @@
       "collectionGroup": "asignacionesHeladera",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "clientId", "order": "ASCENDING" },
-        { "fieldPath": "fecha",    "order": "DESCENDING" }
+        {
+          "fieldPath": "clientId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
@@ -128,8 +232,14 @@
       "collectionGroup": "panolMovimientos",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "destinatario.uid", "order": "ASCENDING" },
-        { "fieldPath": "fecha",            "order": "DESCENDING" }
+        {
+          "fieldPath": "destinatario.uid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
@@ -137,9 +247,18 @@
       "collectionGroup": "ventasCamion",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "anulacion.tipo",         "order": "ASCENDING" },
-        { "fieldPath": "anulacion.tango.estado", "order": "ASCENDING" },
-        { "fieldPath": "anulacion.anuladaEn",    "order": "DESCENDING" }
+        {
+          "fieldPath": "anulacion.tipo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "anulacion.tango.estado",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "anulacion.anuladaEn",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
@@ -147,89 +266,158 @@
       "collectionGroup": "ventasCamion",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "choferId", "order": "ASCENDING" },
-        { "fieldPath": "fecha",    "order": "DESCENDING" }
+        {
+          "fieldPath": "choferId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "ventasCamion",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "camionId", "order": "ASCENDING" },
-        { "fieldPath": "fecha",    "order": "ASCENDING" }
+        {
+          "fieldPath": "camionId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "cambiosCamion",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "choferId", "order": "ASCENDING" },
-        { "fieldPath": "fecha",    "order": "ASCENDING" }
+        {
+          "fieldPath": "choferId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "descargasCamion",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "choferId", "order": "ASCENDING" },
-        { "fieldPath": "fecha",    "order": "ASCENDING" }
+        {
+          "fieldPath": "choferId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "descargasCamion",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "plantaId", "order": "ASCENDING" },
-        { "fieldPath": "fecha",    "order": "ASCENDING" }
+        {
+          "fieldPath": "plantaId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "ventasVentanilla",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "plantaId", "order": "ASCENDING" },
-        { "fieldPath": "fecha",    "order": "ASCENDING" }
+        {
+          "fieldPath": "plantaId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "ventasVentanilla",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "cajaId", "order": "ASCENDING" },
-        { "fieldPath": "fecha",  "order": "ASCENDING" }
+        {
+          "fieldPath": "cajaId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "cobranzas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "plantaId", "order": "ASCENDING" },
-        { "fieldPath": "fecha",    "order": "ASCENDING" }
+        {
+          "fieldPath": "plantaId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "cobranzas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "registradoPor.uid", "order": "ASCENDING" },
-        { "fieldPath": "fecha",             "order": "ASCENDING" }
+        {
+          "fieldPath": "registradoPor.uid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "cobranzas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "origen", "order": "ASCENDING" },
-        { "fieldPath": "fecha",  "order": "ASCENDING" }
+        {
+          "fieldPath": "origen",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "cobranzas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "origen",    "order": "ASCENDING" },
-        { "fieldPath": "clienteId", "order": "ASCENDING" },
-        { "fieldPath": "fecha",     "order": "ASCENDING" }
+        {
+          "fieldPath": "origen",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "clienteId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
@@ -237,24 +425,42 @@
       "collectionGroup": "ventasCamion",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "clienteId", "order": "ASCENDING" },
-        { "fieldPath": "fecha",     "order": "DESCENDING" }
+        {
+          "fieldPath": "clienteId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "ventasVentanilla",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "clienteId", "order": "ASCENDING" },
-        { "fieldPath": "fecha",     "order": "DESCENDING" }
+        {
+          "fieldPath": "clienteId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "cobranzas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "clienteId", "order": "ASCENDING" },
-        { "fieldPath": "fecha",     "order": "DESCENDING" }
+        {
+          "fieldPath": "clienteId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "DESCENDING"
+        }
       ]
     }
   ],
