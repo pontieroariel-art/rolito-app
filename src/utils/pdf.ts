@@ -2,6 +2,7 @@ import { EnvasesCarga, Liquidacion, Order, OrderProduct } from '../types'
 import { toDateStr } from './helpers'
 import { describirEnvases, describirRacks, envasesDeRemito, type EnvasesNormalizados } from './envases'
 import { ROLITO_INFO, COMODATO_COMODANTE, PLANTA_INFO } from './constants'
+import { finTabla, salidaPdf, encabezadoA4 } from './pdfBase'
 
 // El logo fuente (/logo-rolito.png) es un PNG de 8334x2836px — insertado tal
 // cual con doc.addImage(), jsPDF lo reincrusta a resolución completa (el PDF
@@ -132,8 +133,7 @@ export async function generateHojaDeRuta(
   })
 
   // ── Resumen final ───────────────────────────────────────────────────────────
-  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-  const finalY: number = doc.lastAutoTable?.finalY ?? 34 + rows.length * 10
+  const finalY: number = finTabla(doc, 34 + rows.length * 10)
 
   doc.setDrawColor(200)
   doc.setLineWidth(0.3)
@@ -266,8 +266,7 @@ export async function generateHistorialDespachoPdf(
   })
 
   // ── Resumen final ───────────────────────────────────────────────────────────
-  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-  const finalY: number = doc.lastAutoTable?.finalY ?? 34 + rows.length * 8
+  const finalY: number = finTabla(doc, 34 + rows.length * 8)
 
   doc.setDrawColor(200)
   doc.setLineWidth(0.3)
@@ -320,19 +319,7 @@ export async function generateRemitoComodato(params: {
   const tipoLabel = tipo === 'asignacion' ? 'Entrega' : 'Retiro'
 
   const header = (titulo: string) => {
-    if (logo) doc.addImage(logo, 'PNG', 14, 8, 40, 13)
-    doc.setFontSize(15)
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(0)
-    doc.text(titulo, pageW - 14, 14, { align: 'right' })
-    doc.setFontSize(9)
-    doc.setFont('helvetica', 'normal')
-    doc.setTextColor(80)
-    doc.text(`N° ${numero}   ·   ${fechaStr}`, pageW - 14, 20, { align: 'right' })
-    doc.setTextColor(0)
-    doc.setDrawColor(45, 106, 79)
-    doc.setLineWidth(0.6)
-    doc.line(14, 26, pageW - 14, 26)
+    encabezadoA4({ doc, pageW, logo }, titulo, `N° ${numero}   ·   ${fechaStr}`, { tamSubtitulo: 9 })
   }
 
   const datosPartes = (startY: number) => {
@@ -348,8 +335,7 @@ export async function generateRemitoComodato(params: {
       columnStyles: { 0: { fontStyle: 'bold', cellWidth: 28 } },
       margin: { left: 14, right: 14 },
     })
-    // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-    return doc.lastAutoTable?.finalY ?? startY + 20
+    return finTabla(doc, startY + 20)
   }
 
   const tablaEquipo = (startY: number) => {
@@ -361,8 +347,7 @@ export async function generateRemitoComodato(params: {
       headStyles: { fillColor: [45, 106, 79], textColor: 255, fontStyle: 'bold', fontSize: 8 },
       margin: { left: 14, right: 14 },
     })
-    // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-    return doc.lastAutoTable?.finalY ?? startY + 20
+    return finTabla(doc, startY + 20)
   }
 
   const firmaYAclaracion = (y: number) => {
@@ -557,8 +542,7 @@ export async function generateContratoComodato(params: {
   doc.text(`Doc.: ${cliente.cuit}`, marginL, y + 35)
   doc.text(`Cargo: ${firmante.cargo}`, marginL, y + 39)
 
-  if (opts.descargar === false) return doc.output('blob')
-  doc.save(nombreArchivoComodato(numero, fecha))
+  return salidaPdf(doc, nombreArchivoComodato(numero, fecha), opts.descargar)
 }
 
 export const nombreArchivoComodato = (numero: number, fecha: Date) => `comodato-${numero}-${toDateStr(fecha)}.pdf`
@@ -605,8 +589,7 @@ export async function generateOrdenEntrega(params: {
     columnStyles: { 0: { fontStyle: 'bold', cellWidth: 28 } },
     margin: { left: 14, right: 14 },
   })
-  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-  let y = doc.lastAutoTable?.finalY ?? 60
+  let y = finTabla(doc, 60)
 
   autoTable(doc, {
     startY: y + 6,
@@ -620,8 +603,7 @@ export async function generateOrdenEntrega(params: {
     headStyles: { fillColor: [45, 106, 79], textColor: 255, fontStyle: 'bold', fontSize: 7.5 },
     margin: { left: 14, right: 14 },
   })
-  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-  y = doc.lastAutoTable?.finalY ?? y + 20
+  y = finTabla(doc, y + 20)
 
   // Mapa de ubicación — best-effort: si la Static Maps API no está habilitada
   // en la key o el fetch falla por lo que sea, se sigue sin el mapa (no
@@ -716,8 +698,7 @@ export async function generatePedidoReparacion(params: {
     columnStyles: { 0: { fontStyle: 'bold', cellWidth: 28 } },
     margin: { left: 14, right: 14 },
   })
-  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-  let y = doc.lastAutoTable?.finalY ?? 60
+  let y = finTabla(doc, 60)
 
   autoTable(doc, {
     startY: y + 6,
@@ -732,8 +713,7 @@ export async function generatePedidoReparacion(params: {
     headStyles: { fillColor: [45, 106, 79], textColor: 255, fontStyle: 'bold', fontSize: 8 },
     margin: { left: 14, right: 14 },
   })
-  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-  y = doc.lastAutoTable?.finalY ?? y + 20
+  y = finTabla(doc, y + 20)
 
   if (fotoHeladera) {
     doc.addImage(fotoHeladera, 'PNG', 14, y + 6, 60, 60)
@@ -844,8 +824,7 @@ export async function generateRemitoCarga(remito: {
     columnStyles: { 0: { fontStyle: 'bold', cellWidth: 28 } },
     margin: { left: 14, right: 14 },
   })
-  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-  let y = (doc.lastAutoTable?.finalY ?? 52) + 6
+  let y = finTabla(doc, 52) + 6
 
   autoTable(doc, {
     startY: y,
@@ -860,8 +839,7 @@ export async function generateRemitoCarga(remito: {
     columnStyles: { 1: { halign: 'right', cellWidth: 28 }, 2: { halign: 'right', cellWidth: 24 } },
     margin: { left: 14, right: 14 },
   })
-  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-  y = (doc.lastAutoTable?.finalY ?? y + 30) + 8
+  y = finTabla(doc, y + 30) + 8
 
   if (remito.envases) {
     // Envases retornables (2026-09-07): composición que dictó muelle y lo que
@@ -884,8 +862,7 @@ export async function generateRemitoCarga(remito: {
       columnStyles: { 0: { cellWidth: 58 }, 1: { halign: 'right', cellWidth: 16 }, 2: { textColor: 100 } },
       margin: { left: 14, right: 60 },
     })
-    // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-    y = (doc.lastAutoTable?.finalY ?? y + 30) + 5
+    y = finTabla(doc, y + 30) + 5
     doc.setFontSize(8.5)
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(60)
@@ -921,8 +898,7 @@ export async function generateRemitoCarga(remito: {
   doc.setTextColor(60)
   doc.text(`Emitió: ${remito.creadoPor.nombre}`, 14, y + 14)
 
-  if (opts.descargar === false) return doc.output('blob')
-  doc.save(`${remito.codigo}.pdf`)
+  return salidaPdf(doc, `${remito.codigo}.pdf`, opts.descargar)
 }
 
 // ── Liquidación de repartidores (módulo expedición) ──────────────────────────
@@ -949,19 +925,7 @@ export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiq
   const money = (n: number) => `${n.toLocaleString('es-AR')}`
   const hora = (d: Date | null | undefined) => d ? d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : '—'
 
-  if (logo) doc.addImage(logo, 'PNG', 14, 8, 40, 13)
-  doc.setFontSize(15)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(0)
-  doc.text('Liquidación de repartidores', pageW - 14, 14, { align: 'right' })
-  doc.setFontSize(10)
-  doc.setFont('helvetica', 'normal')
-  doc.setTextColor(80)
-  doc.text(`${liq.codigo ? `${liq.codigo}   ·   ` : ''}${liq.depositoTango ? `${liq.depositoTango} · ` : ''}${liq.choferNombre}   ·   ${liq.fecha}`, pageW - 14, 20, { align: 'right' })
-  doc.setTextColor(0)
-  doc.setDrawColor(45, 106, 79)
-  doc.setLineWidth(0.6)
-  doc.line(14, 26, pageW - 14, 26)
+  encabezadoA4({ doc, pageW, logo }, 'Liquidación de repartidores', `${liq.codigo ? `${liq.codigo}   ·   ` : ''}${liq.depositoTango ? `${liq.depositoTango} · ` : ''}${liq.choferNombre}   ·   ${liq.fecha}`)
 
   autoTable(doc, {
     startY: 32,
@@ -979,8 +943,7 @@ export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiq
     },
     margin: { left: 14, right: 14 },
   })
-  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-  let y = (doc.lastAutoTable?.finalY ?? 60) + 6
+  let y = finTabla(doc, 60) + 6
 
   const signo = (n: number) => (n === 0 ? '0' : n > 0 ? `+${n}` : String(n))
   if (liq.envases) {
@@ -1027,8 +990,7 @@ export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiq
       margin: { left: 14, right: 108 },
     })
   }
-  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-  const yEnvases = doc.lastAutoTable?.finalY ?? y + 40
+  const yEnvases = finTabla(doc, y + 40)
 
   autoTable(doc, {
     startY: y,
@@ -1053,8 +1015,7 @@ export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiq
     columnStyles: { 1: { halign: 'right', cellWidth: 34 } },
     margin: { left: 108, right: 14 },
   })
-  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-  y = Math.max(yEnvases, doc.lastAutoTable?.finalY ?? y + 40) + 6
+  y = Math.max(yEnvases, finTabla(doc, y + 40)) + 6
 
   if (liq.diferencia) {
     const { MOTIVOS_DIFERENCIA_LIQUIDACION } = await import('../types')
@@ -1081,8 +1042,7 @@ export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiq
       columnStyles: { 3: { halign: 'right', cellWidth: 24 }, 4: { cellWidth: 40 } },
       margin: { left: 14, right: 14 },
     })
-    // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-    y = (doc.lastAutoTable?.finalY ?? y) + 6
+    y = finTabla(doc, y) + 6
   }
 
   // ── Detalle del reparto (los mismos bloques de la pantalla) ──
@@ -1098,8 +1058,7 @@ export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiq
       columnStyles: cols,
       margin: { left: 14, right: 14 },
     })
-    // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-    y = (doc.lastAutoTable?.finalY ?? y) + 5
+    y = finTabla(doc, y) + 5
   }
   if (detalle) {
     const r = detalle.reparto
@@ -1161,8 +1120,7 @@ export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiq
   doc.text(`Firma del repartidor${liq.firmanteRepartidor ? `: ${liq.firmanteRepartidor}` : ''}`, 14, y + 4)
   doc.text(`Recibió (caja): ${liq.firmanteRecibe ?? liq.cerradaPor.nombre}`, pageW - 88, y + 4)
 
-  if (opts.descargar === false) return doc.output('blob')
-  doc.save(nombreArchivoLiquidacion(liq))
+  return salidaPdf(doc, nombreArchivoLiquidacion(liq), opts.descargar)
 }
 
 export const nombreArchivoLiquidacion = (liq: Pick<Liquidacion, 'fecha' | 'choferNombre' | 'codigo'>) =>
@@ -1191,19 +1149,7 @@ export async function generateReciboCobranza(cobranza: {
     day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
   })
 
-  if (logo) doc.addImage(logo, 'PNG', 14, 8, 40, 13)
-  doc.setFontSize(15)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(0)
-  doc.text('Recibo de Cobranza', pageW - 14, 14, { align: 'right' })
-  doc.setFontSize(9)
-  doc.setFont('helvetica', 'normal')
-  doc.setTextColor(80)
-  doc.text(fechaStr, pageW - 14, 20, { align: 'right' })
-  doc.setTextColor(0)
-  doc.setDrawColor(45, 106, 79)
-  doc.setLineWidth(0.6)
-  doc.line(14, 26, pageW - 14, 26)
+  encabezadoA4({ doc, pageW, logo }, 'Recibo de Cobranza', fechaStr, { tamSubtitulo: 9 })
 
   autoTable(doc, {
     startY: 32,
@@ -1219,8 +1165,7 @@ export async function generateReciboCobranza(cobranza: {
     columnStyles: { 0: { fontStyle: 'bold', cellWidth: 36 } },
     margin: { left: 14, right: 14 },
   })
-  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-  const y = (doc.lastAutoTable?.finalY ?? 70) + 26
+  const y = finTabla(doc, 70) + 26
 
   doc.setDrawColor(150)
   doc.setLineWidth(0.2)
@@ -1269,19 +1214,7 @@ export async function generateReciboCobranzaSupervisor(cobranza: {
     day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
   })
 
-  if (logo) doc.addImage(logo, 'PNG', 14, 8, 40, 13)
-  doc.setFontSize(15)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(0)
-  doc.text(cobranza.numeroRecibo ? `Recibo ${cobranza.numeroRecibo}` : 'Recibo de Cobranza', pageW - 14, 14, { align: 'right' })
-  doc.setFontSize(9)
-  doc.setFont('helvetica', 'normal')
-  doc.setTextColor(80)
-  doc.text(fechaStr, pageW - 14, 20, { align: 'right' })
-  doc.setTextColor(0)
-  doc.setDrawColor(45, 106, 79)
-  doc.setLineWidth(0.6)
-  doc.line(14, 26, pageW - 14, 26)
+  encabezadoA4({ doc, pageW, logo }, cobranza.numeroRecibo ? `Recibo ${cobranza.numeroRecibo}` : 'Recibo de Cobranza', fechaStr, { tamSubtitulo: 9 })
 
   autoTable(doc, {
     startY: 32,
@@ -1295,8 +1228,7 @@ export async function generateReciboCobranzaSupervisor(cobranza: {
     columnStyles: { 0: { fontStyle: 'bold', cellWidth: 36 } },
     margin: { left: 14, right: 14 },
   })
-  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-  let y = (doc.lastAutoTable?.finalY ?? 60) + 6
+  let y = finTabla(doc, 60) + 6
 
   // Facturas imputadas (+ lo que queda a cuenta del cliente, si sobraron valores)
   const aCuenta = cobranza.aCuenta ?? 0
@@ -1316,8 +1248,7 @@ export async function generateReciboCobranzaSupervisor(cobranza: {
     columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' } },
     margin: { left: 14, right: 14 },
   })
-  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-  y = (doc.lastAutoTable?.finalY ?? y) + 6
+  y = finTabla(doc, y) + 6
 
   // Valores recibidos (multi-medio)
   const filasMedios: string[][] = []
@@ -1351,8 +1282,7 @@ export async function generateReciboCobranzaSupervisor(cobranza: {
     columnStyles: { 2: { halign: 'right' } },
     margin: { left: 14, right: 14 },
   })
-  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-  y = (doc.lastAutoTable?.finalY ?? y) + 26
+  y = finTabla(doc, y) + 26
 
   doc.setDrawColor(150)
   doc.setLineWidth(0.2)
@@ -1362,8 +1292,7 @@ export async function generateReciboCobranzaSupervisor(cobranza: {
   doc.text(`Firma y aclaración — Cobró: ${cobranza.registradoPor}`, pageW - 88, y + 4)
 
   const archivo = nombreArchivoReciboSupervisor(cobranza)
-  if (opts.descargar === false) return doc.output('blob')
-  doc.save(archivo)
+  return salidaPdf(doc, archivo, opts.descargar)
 }
 
 /** Nombre del PDF del recibo de supervisor: 'recibo-RS-000123.pdf' (o por fecha si no tiene número). */

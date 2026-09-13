@@ -1,7 +1,7 @@
 import type { Rendicion } from '@/types'
 import { MOTIVOS_DIFERENCIA_LIQUIDACION, PLANTAS } from '@/types'
-import { fetchImageAsBase64 } from './pdf'
 import { formatoARS } from './money'
+import { ESTILO_CABECERA_TABLA, encabezadoA4, firmaA4, nuevoA4, pieA4, salidaPdf } from './pdfBase'
 
 // PDF del cierre de caja de ventanilla (rendición de mostrador, 2026-09-09).
 // Mismo estilo que la liquidación del repartidor (pdf.ts → generateLiquidacion),
@@ -16,21 +16,13 @@ export interface DetalleRendicionPdf {
 }
 
 export async function generateRendicionMostrador(r: Rendicion, detalle: DetalleRendicionPdf = {}, opts: { descargar?: boolean } = {}): Promise<Blob | void> {
-  const { default: jsPDF }     = await import('jspdf')
-  const { default: autoTable } = await import('jspdf-autotable')
-  const doc   = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-  const pageW = doc.internal.pageSize.getWidth()
-  const logo  = await fetchImageAsBase64('/logo-rolito.png')
+  const base  = await nuevoA4()
+  const { doc, autoTable, pageW } = base
   const hora  = (d: Date) => d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
-  const head  = { fillColor: [45, 106, 79] as [number, number, number], textColor: 255, fontStyle: 'bold' as const, fontSize: 7.5 }
+  const head  = ESTILO_CABECERA_TABLA
 
-  if (logo) doc.addImage(logo, 'PNG', 14, 8, 40, 13)
-  doc.setFontSize(15); doc.setFont('helvetica', 'bold'); doc.setTextColor(0)
-  doc.text('Cierre de caja de ventanilla', pageW - 14, 14, { align: 'right' })
-  doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.setTextColor(80)
-  doc.text(`${r.codigo}   ·   ${PLANTAS[r.plantaId].label}   ·   ${r.sujetoNombre}   ·   ${r.fecha}`, pageW - 14, 20, { align: 'right' })
-  doc.setTextColor(0); doc.setDrawColor(45, 106, 79); doc.setLineWidth(0.6)
-  doc.line(14, 26, pageW - 14, 26)
+  encabezadoA4(base, 'Cierre de caja de ventanilla',
+    `${r.codigo}   ·   ${PLANTAS[r.plantaId].label}   ·   ${r.sujetoNombre}   ·   ${r.fecha}`)
 
   // Plata: teórico por origen y cierre.
   const v = r.ventas, c = r.cobranzas
@@ -124,16 +116,9 @@ export async function generateRendicionMostrador(r: Rendicion, detalle: DetalleR
   }
 
   // Firma
-  const pageH = doc.internal.pageSize.getHeight()
-  if (y > pageH - 45) { doc.addPage(); y = 20 }
-  doc.setFontSize(9); doc.setTextColor(80)
-  doc.text('Firma de quien cierra la caja', 14, y + 4)
-  if (r.firma) { try { doc.addImage(r.firma, 'PNG', 14, y + 6, 50, 20) } catch { /* firma inválida: se omite */ } }
-  doc.setTextColor(0)
-  doc.text(r.firmante, 14, y + 30)
-  doc.setFontSize(8); doc.setTextColor(120)
-  doc.text(`Generado ${new Date().toLocaleString('es-AR')} · Rolito app`, pageW - 14, pageH - 8, { align: 'right' })
+  if (y > base.pageH - 45) { doc.addPage(); y = 20 }
+  firmaA4(base, { x: 14, y, etiqueta: 'Firma de quien cierra la caja', firma: r.firma, aclaracion: r.firmante, conRaya: false })
+  pieA4(base)
 
-  if (opts.descargar === false) return doc.output('blob')
-  doc.save(nombreArchivoRendicion(r))
+  return salidaPdf(doc, nombreArchivoRendicion(r), opts.descargar)
 }

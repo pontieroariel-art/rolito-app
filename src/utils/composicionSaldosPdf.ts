@@ -3,6 +3,7 @@ import { ROLITO_INFO } from './constants'
 import { NOMBRE_EMPRESA } from './tangoEmpresas'
 import { type BloqueComposicion, formatoRemito, totalPendiente } from './comprobantesTango'
 import { sumaCentavos } from './money'
+import { finTabla, salidaPdf, encabezadoA4 } from './pdfBase'
 
 // Composición de saldos (estado de cuenta) que el supervisor comparte con el
 // cliente desde la calle: una tabla por empresa y código de Tango con las
@@ -55,19 +56,7 @@ export async function generateComposicionSaldosPdf(d: DatosComposicionSaldos, op
   const logo  = await fetchImageAsBase64('/logo-rolito.png')
   const todas = d.modo === 'todas'
 
-  if (logo) doc.addImage(logo, 'PNG', 14, 8, 40, 13)
-  doc.setFontSize(15)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(0)
-  doc.text(todas ? 'Estado de cuenta (12 meses)' : 'Composición de saldos', pageW - 14, 14, { align: 'right' })
-  doc.setFontSize(9)
-  doc.setFont('helvetica', 'normal')
-  doc.setTextColor(80)
-  doc.text(`Emitido el ${fechaHora(d.fecha)}`, pageW - 14, 20, { align: 'right' })
-  doc.setTextColor(0)
-  doc.setDrawColor(45, 106, 79)
-  doc.setLineWidth(0.6)
-  doc.line(14, 26, pageW - 14, 26)
+  encabezadoA4({ doc, pageW, logo }, todas ? 'Estado de cuenta (12 meses)' : 'Composición de saldos', `Emitido el ${fechaHora(d.fecha)}`, { tamSubtitulo: 9 })
 
   const filasCliente: string[][] = [['Cliente', d.cliente.razonSocial]]
   if (d.cliente.cuit) filasCliente.push(['CUIT', d.cliente.cuit])
@@ -85,8 +74,7 @@ export async function generateComposicionSaldosPdf(d: DatosComposicionSaldos, op
     columnStyles: { 0: { fontStyle: 'bold', cellWidth: 30 } },
     margin: { left: 14, right: 14 },
   })
-  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-  let y = (doc.lastAutoTable?.finalY ?? 60) + 4
+  let y = finTabla(doc, 60) + 4
 
   if (d.bloques.length === 0) {
     doc.setFontSize(11)
@@ -132,8 +120,7 @@ export async function generateComposicionSaldosPdf(d: DatosComposicionSaldos, op
         columnStyles: { 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' } },
         margin: { left: 14, right: 14 },
       })
-      // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-      y = (doc.lastAutoTable?.finalY ?? y) + 4
+      y = finTabla(doc, y) + 4
     } else {
       y += 8
     }
@@ -147,8 +134,7 @@ export async function generateComposicionSaldosPdf(d: DatosComposicionSaldos, op
         columnStyles: { 2: { halign: 'right' } },
         margin: { left: 14, right: 14 },
       })
-      // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-      y = (doc.lastAutoTable?.finalY ?? y) + 4
+      y = finTabla(doc, y) + 4
     }
     y += 2
   }
@@ -174,8 +160,7 @@ export async function generateComposicionSaldosPdf(d: DatosComposicionSaldos, op
   doc.text(leyenda, 14, y)
   doc.setTextColor(0)
 
-  if (opts.descargar === false) return doc.output('blob')
-  doc.save(nombreArchivoComposicionSaldos(d))
+  return salidaPdf(doc, nombreArchivoComposicionSaldos(d), opts.descargar)
 }
 
 /** Total pendiente de una lista de bloques, en pesos (para textos de pantalla). */

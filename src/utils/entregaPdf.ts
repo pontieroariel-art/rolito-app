@@ -2,6 +2,7 @@ import type { EntregaTesoreria } from '@/types'
 import { MOTIVOS_DIFERENCIA_LIQUIDACION, PLANTAS } from '@/types'
 import { fetchImageAsBase64 } from './pdf'
 import { formatoARS } from './money'
+import { finTabla, salidaPdf } from './pdfBase'
 
 // Acta de entrega de caja a tesorería (2026-09-09): qué se entregó (de qué
 // liquidaciones y cierres sale), el efectivo teórico / entregado / contado y
@@ -41,8 +42,7 @@ export async function generateActaEntrega(e: EntregaTesoreria, opts: { descargar
     columnStyles: { 4: { halign: 'right' }, 5: { textColor: 120 } },
     margin: { left: 14, right: 14 },
   })
-  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-  let y = (doc.lastAutoTable?.finalY ?? 60) + 6
+  let y = finTabla(doc, 60) + 6
 
   autoTable(doc, {
     startY: y,
@@ -60,8 +60,7 @@ export async function generateActaEntrega(e: EntregaTesoreria, opts: { descargar
     columnStyles: { 0: { cellWidth: 50, fontStyle: 'bold' }, 1: { halign: 'right' } },
     margin: { left: 14, right: 90 },
   })
-  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-  y = (doc.lastAutoTable?.finalY ?? y) + 6
+  y = finTabla(doc, y) + 6
 
   if (e.cheques.length || e.retenciones.length) {
     const estado = (v: { recibido?: boolean; motivoNoEntregado?: string }) => !confirmada ? 'pendiente' : v.recibido === false ? `NO · ${v.motivoNoEntregado ?? ''}` : 'Sí'
@@ -75,8 +74,7 @@ export async function generateActaEntrega(e: EntregaTesoreria, opts: { descargar
       styles: { fontSize: 8, cellPadding: 1.8 }, headStyles: head, footStyles: { fillColor: [254, 226, 226], textColor: [153, 27, 27], fontStyle: 'bold' },
       columnStyles: { 3: { halign: 'right' }, 4: { cellWidth: 38 } }, margin: { left: 14, right: 14 },
     })
-    // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-    y = (doc.lastAutoTable?.finalY ?? y) + 6
+    y = finTabla(doc, y) + 6
   }
 
   // Firmas: izquierda quien entrega (caja), derecha quien recibe (tesorería).
@@ -94,6 +92,5 @@ export async function generateActaEntrega(e: EntregaTesoreria, opts: { descargar
   doc.setFontSize(8); doc.setTextColor(120)
   doc.text(`Generado ${new Date().toLocaleString('es-AR')} · Rolito app`, pageW - 14, pageH - 8, { align: 'right' })
 
-  if (opts.descargar === false) return doc.output('blob')
-  doc.save(nombreArchivoActa(e))
+  return salidaPdf(doc, nombreArchivoActa(e), opts.descargar)
 }
