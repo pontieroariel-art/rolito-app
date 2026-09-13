@@ -47,7 +47,7 @@ export default function EntregaModal({ order, onConfirm, onClose }: Props) {
       onClose={onClose}
       title={`Confirmar entrega — ${order.clientName}`}
     >
-      <p className="text-xs text-gray-500 mb-4 truncate">{order.clientAddress}</p>
+      <p className="text-xs text-secundario mb-4 truncate">{order.clientAddress}</p>
 
       <div className="space-y-2 max-h-64 overflow-y-auto">
         {order.products.map((p) => {

@@ -193,9 +193,9 @@ export default function EntregarPedidoPage() {
             <CheckCircle2 size={48} className="text-success" strokeWidth={2.2} />
           </div>
           <h2 className="text-2xl font-black">¡Entrega registrada!</h2>
-          <p className="text-gray-500 mt-1">{order.clientName}</p>
+          <p className="text-secundario mt-1">{order.clientName}</p>
           <p className="text-3xl font-black tabular-nums mt-3">{money(exito.total)}</p>
-          {exito.conIva && <p className="text-xs text-gray-500 mt-0.5">IVA incluido, como sale en la factura</p>}
+          {exito.conIva && <p className="text-xs text-secundario mt-0.5">IVA incluido, como sale en la factura</p>}
           <div className="mt-5 w-full rounded-2xl border border-[#D3D1C7] bg-white p-4 text-left text-sm space-y-2">
             <p className="flex gap-2"><span className="text-success font-bold">✓</span> Pedido entregado{exito.parcial ? ' (parcial)' : ''}</p>
             <p className="flex gap-2"><span className="text-success font-bold">✓</span> {exito.documento ? `${exito.documento}${order.numeroOC ? ` · OC ${order.numeroOC}` : ''}` : 'Factura en camino: la ves en Mis ventas'}</p>
@@ -203,7 +203,7 @@ export default function EntregarPedidoPage() {
             <p className="flex gap-2"><Clock size={16} className="text-amber-600 shrink-0 mt-0.5" /> Tango: en camino</p>
           </div>
           <Button onClick={() => navigate('/chofer/ventas')} className="mt-6 w-full h-14 text-base">Ver el comprobante</Button>
-          <Link to="/chofer" className="mt-3 text-sm text-gray-500 underline">Volver a mis entregas</Link>
+          <Link to="/chofer" className="mt-3 text-sm text-secundario underline">Volver a mis entregas</Link>
         </main>
       </div>
     )
@@ -238,7 +238,7 @@ export default function EntregarPedidoPage() {
           className="w-9 h-9 rounded-full bg-[#EEEDE6] flex items-center justify-center"><ArrowLeft size={18} /></button>
         <div className="min-w-0">
           <p className="font-bold leading-tight truncate">{order.clientName}</p>
-          <p className="text-xs text-gray-500">Paso {paso} de 3 · {subtitulo}</p>
+          <p className="text-xs text-secundario">Paso {paso} de 3 · {subtitulo}</p>
         </div>
       </header>
 
@@ -250,12 +250,12 @@ export default function EntregarPedidoPage() {
         {paso === 1 && (
           <>
             <div className="rounded-2xl border border-[#D3D1C7] bg-white p-4">
-              <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-1">¿Qué entregaste?</p>
+              <p className="text-xs font-bold uppercase tracking-wide text-secundario mb-1">¿Qué entregaste?</p>
               {renglones.map((r, i) => (
                 <div key={`${r.productoId}-${i}`} className="flex items-center justify-between gap-3 py-3 border-t first:border-t-0 border-[#EEEDE6]">
                   <div className="min-w-0">
                     <p className="font-semibold text-[15px] leading-tight">{r.nombre}</p>
-                    <p className="text-xs text-gray-400">pedido: {r.pedido}{!r.productoId ? ' · no está en el catálogo' : ''}</p>
+                    <p className="text-xs text-secundario">pedido: {r.pedido}{!r.productoId ? ' · no está en el catálogo' : ''}</p>
                   </div>
                   <div className="grid grid-cols-[44px_56px_44px] items-center shrink-0">
                     <button type="button" onClick={() => cambiar(i, -1)} aria-label="Menos" className="h-11 rounded-xl border border-[#D3D1C7] bg-white text-xl font-bold active:scale-95"><Minus size={20} className="mx-auto" /></button>
@@ -272,7 +272,7 @@ export default function EntregarPedidoPage() {
             )}
             {parcial && (
               <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-amber-700 mb-1">Entregaste menos de lo pedido</p>
+                <p className="text-xs font-bold uppercase tracking-wide text-amber-700 mb-1">Entregaste menos de lo pedido</p>
                 <input value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Motivo (ej. no le entraba en el freezer)"
                   className="w-full bg-white border border-[#D3D1C7] rounded-xl px-3.5 py-3 text-[15px] focus:outline-none focus:ring-1 focus:ring-accent" />
               </div>
@@ -299,7 +299,7 @@ export default function EntregarPedidoPage() {
 
             <SelectorSucursal cliente={cliente} empresa={empresa} value={sucursal} onChange={setSucursal} />
 
-            <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 pt-1">¿Cómo paga?</p>
+            <p className="text-xs font-bold uppercase tracking-wide text-secundario pt-1">¿Cómo paga?</p>
             <div className="space-y-2">
               {FORMAS.map((f) => {
                 const bloqueada = f.id === 'cuenta_corriente' && !ctaCte.ok
@@ -327,12 +327,12 @@ export default function EntregarPedidoPage() {
 
             <div className="rounded-2xl border border-[#D3D1C7] bg-white p-4 flex items-end justify-between gap-3">
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">{conIva ? 'Total con IVA' : 'Total'}</p>
-                <p className="text-xs text-gray-500 mt-0.5">
+                <p className="text-xs font-bold uppercase tracking-wide text-secundario">{conIva ? 'Total con IVA' : 'Total'}</p>
+                <p className="text-xs text-secundario mt-0.5">
                   {documento === 'factura_arca' ? 'Sale factura' : tipoComprobanteInterno({ canal, formaPago: formaPago ?? 'contado_efectivo', total }) ? `Sale ${ETIQUETA_COMPROBANTE[tipoComprobanteInterno({ canal, formaPago: formaPago ?? 'contado_efectivo', total })!].toLowerCase()}` : ''}
                   {order.numeroOC ? ` · OC ${order.numeroOC}` : ''}
                 </p>
-                {conIva && <p className="text-[11px] text-gray-500 tabular-nums mt-0.5">Neto {money(conIva.neto)} · IVA {money(conIva.iva)}{conIva.percepcion > 0 ? ` · Perc. IIBB ${money(conIva.percepcion)}` : ''}</p>}
+                {conIva && <p className="text-[11px] text-secundario tabular-nums mt-0.5">Neto {money(conIva.neto)} · IVA {money(conIva.iva)}{conIva.percepcion > 0 ? ` · Perc. IIBB ${money(conIva.percepcion)}` : ''}</p>}
               </div>
               <p className="text-2xl font-black tabular-nums">{money(conIva ? conIva.total : total)}</p>
             </div>
@@ -342,7 +342,7 @@ export default function EntregarPedidoPage() {
         {paso === 3 && (
           <>
             <div className="rounded-2xl border border-[#D3D1C7] bg-white p-4 text-sm space-y-1">
-              {items.map((i) => <p key={i.productoId} className="flex justify-between tabular-nums"><span>{i.cantidad} × {i.nombre}</span><span className="text-gray-500">{money(i.precioUnitario * i.cantidad)}</span></p>)}
+              {items.map((i) => <p key={i.productoId} className="flex justify-between tabular-nums"><span>{i.cantidad} × {i.nombre}</span><span className="text-secundario">{money(i.precioUnitario * i.cantidad)}</span></p>)}
               <p className="flex justify-between border-t border-dashed border-[#D3D1C7] pt-2 mt-1 font-bold">
                 <span>{documento === 'factura_arca' ? 'Factura' : 'Remito'} · {FORMAS.find((f) => f.id === formaPago)?.label.toLowerCase()}</span>
                 <span className="tabular-nums">{money(conIva ? conIva.total : total)}</span>
@@ -351,7 +351,7 @@ export default function EntregarPedidoPage() {
             <input value={firmante} onChange={(e) => setFirmante(e.target.value)} placeholder="Nombre de quien firma"
               className="w-full bg-white border border-[#D3D1C7] rounded-xl px-3.5 py-3 text-[15px] focus:outline-none focus:ring-1 focus:ring-accent" />
             <SignaturePad ref={firmaRef} />
-            <button type="button" onClick={() => firmaRef.current?.clear()} className="text-xs text-gray-400 underline">Borrar firma</button>
+            <button type="button" onClick={() => firmaRef.current?.clear()} className="text-xs text-secundario underline">Borrar firma</button>
           </>
         )}
 

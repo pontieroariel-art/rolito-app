@@ -333,7 +333,9 @@ function ChoferCard({ grupo, open, onToggle, onDownloadPdf, pdfLoading }: {
           onClick={onDownloadPdf}
           disabled={pdfLoading || total === 0}
           title="Descargar PDF de este despacho"
-          className="p-1.5 rounded-lg border border-[#D3D1C7] bg-white hover:border-accent text-inerte hover:text-accent transition-colors disabled:opacity-30 disabled:hover:border-[#D3D1C7] disabled:hover:text-inerte shrink-0"
+          // Botón de verdad: en reposo va en el gris secundario. Lo apagado lo
+          // resuelve la variante `disabled:`, no el color base.
+          className="p-1.5 rounded-lg border border-[#D3D1C7] bg-white hover:border-accent text-secundario hover:text-accent transition-colors disabled:opacity-30 disabled:hover:border-[#D3D1C7] disabled:hover:text-secundario shrink-0"
         >
           <Download size={14} />
         </button>

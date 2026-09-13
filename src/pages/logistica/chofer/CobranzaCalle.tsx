@@ -46,7 +46,7 @@ export default function CobranzaCalle() {
           {cobranzasHoy.length > 0 && (
             <>
               <div className="flex items-center justify-between pt-2">
-                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Cobrado hoy</h2>
+                <h2 className="text-sm font-semibold text-secundario uppercase tracking-wide">Cobrado hoy</h2>
                 <p className="text-sm font-semibold text-gray-900">{formatoARS(totalHoy)}</p>
               </div>
               {ordenadas.map((c) => c.medios
@@ -57,7 +57,7 @@ export default function CobranzaCalle() {
                       <p className="text-sm font-medium text-gray-900 truncate">{c.clienteNombre}</p>
                       <p className="text-sm font-semibold text-gray-900 shrink-0">{formatoARS(c.importe)}</p>
                     </div>
-                    <p className="text-xs text-gray-500">{c.formaPago === 'contado_efectivo' ? 'Efectivo' : 'Transferencia'}{c.referencia ? ` · ${c.referencia}` : ''} · cobranza simple</p>
+                    <p className="text-xs text-secundario">{c.formaPago === 'contado_efectivo' ? 'Efectivo' : 'Transferencia'}{c.referencia ? ` · ${c.referencia}` : ''} · cobranza simple</p>
                   </div>
                 ))}
             </>

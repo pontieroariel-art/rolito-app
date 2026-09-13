@@ -325,9 +325,9 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
             </div>
           </div>
           <h2 className="text-2xl font-black animate-in fade-in-0 slide-in-from-bottom-1 duration-300">¡Venta registrada!</h2>
-          <p className="text-gray-500 mt-1 animate-in fade-in-0 duration-500">{exito.cliente}</p>
+          <p className="text-secundario mt-1 animate-in fade-in-0 duration-500">{exito.cliente}</p>
           <p className="text-4xl font-black tabular-nums mt-4 animate-in zoom-in-95 duration-300">{money(exito.total)}</p>
-          {exito.conIva && <p className="text-xs text-gray-500 mt-1">IVA incluido, como sale en la factura</p>}
+          {exito.conIva && <p className="text-xs text-secundario mt-1">IVA incluido, como sale en la factura</p>}
           <div className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-500/10 border border-amber-500/30 rounded-full px-3 py-1.5">
             {exito.documento
               ? <><FileText size={13} /> {exito.documento} — entregalo desde Mis ventas</>
@@ -356,7 +356,7 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
           </div>
         </div>
         <main className="flex-1 max-w-lg mx-auto w-full p-4 flex flex-col justify-center gap-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Tipo de venta</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-secundario">Tipo de venta</p>
           {CANALES.map((c) => {
             const Icon = c.icon
             return (
@@ -367,9 +367,9 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-lg font-bold">{c.titulo}</div>
-                  <div className="text-sm text-gray-500">{c.empresa}</div>
+                  <div className="text-sm text-secundario">{c.empresa}</div>
                 </div>
-                <ChevronRight size={22} className="text-gray-300 shrink-0" />
+                <ChevronRight size={22} className="text-inerte shrink-0" />
               </button>
             )
           })}
@@ -413,11 +413,11 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
 
         {/* Cliente */}
         <section className="space-y-2">
-          <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 flex items-center gap-1.5">
+          <label className="text-xs font-semibold uppercase tracking-wide text-secundario flex items-center gap-1.5">
             <User size={13} /> Cliente
           </label>
           <ClienteCombobox value={clienteId} onChange={setClienteId} />
-          {clienteId && cargandoCliente && <p className="text-xs text-gray-400 mt-1">Cargando la ficha del cliente…</p>}
+          {clienteId && cargandoCliente && <p className="text-xs text-secundario mt-1">Cargando la ficha del cliente…</p>}
           <SelectorSucursal cliente={cliente} empresa={empresa} value={sucursal} onChange={setSucursal} />
           {reemision && (
             <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
@@ -467,7 +467,7 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
 
         {/* Productos */}
         <section className="space-y-2">
-          <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 flex items-center gap-1.5">
+          <label className="text-xs font-semibold uppercase tracking-wide text-secundario flex items-center gap-1.5">
             <ShoppingCart size={13} /> Productos
           </label>
 
@@ -475,10 +475,10 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
             // Estado vacío: sin cliente no hay precios; se guía en vez de mostrar $0.
             <div className="bg-white border border-dashed border-[#D3D1C7] rounded-2xl px-6 py-10 flex flex-col items-center text-center animate-in fade-in-0 duration-300">
               <div className="w-12 h-12 rounded-2xl bg-[#F0EEE7] flex items-center justify-center mb-3">
-                <UserPlus size={22} className="text-gray-400" />
+                <UserPlus size={22} className="text-inerte" />
               </div>
               <p className="text-sm font-medium text-gray-600">Elegí un cliente para empezar</p>
-              <p className="text-xs text-gray-400 mt-0.5">Los precios se cargan de su lista automáticamente.</p>
+              <p className="text-xs text-secundario mt-0.5">Los precios se cargan de su lista automáticamente.</p>
             </div>
           ) : (
             <BotoneraProductos
@@ -500,7 +500,7 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
               onClick={() => setCambiosAbierto((v) => !v)}
               className="w-full flex items-center gap-2 text-left"
             >
-              <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 flex items-center gap-1.5 cursor-pointer">
+              <label className="text-xs font-semibold uppercase tracking-wide text-secundario flex items-center gap-1.5 cursor-pointer">
                 <Repeat size={13} /> Cambios
               </label>
               {unidadesCambio > 0 && (
@@ -508,14 +508,14 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
                   {unidadesCambio} u.
                 </span>
               )}
-              <span className="ml-auto text-gray-300">
+              <span className="ml-auto text-inerte">
                 {cambiosAbierto ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
               </span>
             </button>
 
             {cambiosAbierto && (
               <div className="space-y-2 animate-in fade-in-0 duration-200">
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-secundario">
                   Bolsa defectuosa por una nueva, sin cargo. Se lista en el mismo comprobante
                   en $0. Acordate de guardar la rota: se entrega a muelle al volver.
                 </p>
@@ -535,7 +535,7 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
             {/* Forma de pago — solo si hay algo que cobrar */}
             {seCobra ? (
               <section className="space-y-2 animate-in fade-in-0 duration-300">
-                <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Forma de pago</label>
+                <label className="text-xs font-semibold uppercase tracking-wide text-secundario">Forma de pago</label>
                 <div className="grid grid-cols-3 gap-2">
                   {FORMAS_PAGO.map((f) => {
                     const Icon = f.icon
@@ -545,8 +545,8 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
                       <button key={f.id} onClick={() => setFormaPago(f.id)} disabled={deshabilitada}
                         className={`rounded-xl border p-3 flex flex-col items-center gap-1.5 transition-all ${
                           sel ? 'border-accent bg-accent/10 text-accent shadow-sm'
-                          : deshabilitada ? 'border-[#E5E3DA] text-gray-300 cursor-not-allowed'
-                          : 'border-[#D3D1C7] text-gray-500 hover:border-gray-300'
+                          : deshabilitada ? 'border-[#E5E3DA] text-inerte cursor-not-allowed'
+                          : 'border-[#D3D1C7] text-secundario hover:border-gray-300'
                         }`}>
                         <Icon size={20} />
                         <span className="text-xs font-semibold text-center leading-tight">{f.label}</span>
@@ -561,13 +561,13 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
             ) : cambios.length > 0 && (
               <div className="rounded-xl border border-[#D3D1C7] bg-white px-3.5 py-2.5 animate-in fade-in-0 duration-300">
                 <p className="text-sm font-semibold text-gray-700">Solo cambios — no se cobra nada</p>
-                <p className="text-xs text-gray-500 mt-0.5">Sale un remito con la mercadería que se movió.</p>
+                <p className="text-xs text-secundario mt-0.5">Sale un remito con la mercadería que se movió.</p>
               </div>
             )}
 
             {/* Orden de compra del cliente (opcional): se imprime en el remito o la factura y va a Tango. */}
             <section className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Orden de compra del cliente</label>
+              <label className="text-xs font-semibold uppercase tracking-wide text-secundario">Orden de compra del cliente</label>
               <input
                 value={ordenCompra}
                 onChange={(e) => setOrdenCompra(e.target.value)}
@@ -576,13 +576,13 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
                 className="w-full bg-white border border-[#D3D1C7] rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent placeholder-gray-400"
               />
               {pedidoDelCliente?.numeroOC && ordenCompra === pedidoDelCliente.numeroOC && (
-                <p className="text-xs text-gray-500">Tomada del pedido de hoy cargado por administración.</p>
+                <p className="text-xs text-secundario">Tomada del pedido de hoy cargado por administración.</p>
               )}
             </section>
 
             {/* Firma + aclaración */}
             <section className="space-y-2 animate-in fade-in-0 duration-300">
-              <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 flex items-center gap-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide text-secundario flex items-center gap-1.5">
                 <PenLine size={13} /> Firma del cliente
               </label>
               <input
@@ -593,7 +593,7 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
               />
               <SignaturePad ref={firmaRef} />
               <button onClick={() => firmaRef.current?.clear()}
-                className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1">
+                className="text-xs text-secundario hover:text-gray-600 flex items-center gap-1">
                 <Trash2 size={12} /> Borrar firma
               </button>
             </section>
@@ -611,12 +611,12 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
       <div className="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur border-t border-[#D3D1C7] p-3">
         <div className="max-w-lg mx-auto flex items-center gap-3">
           <div className="flex-1">
-            <p className="text-[11px] uppercase tracking-wide text-gray-400">
+            <p className="text-xs uppercase tracking-wide text-secundario">
               {conIva ? 'Total con IVA' : 'Total'}{unidades > 0 ? ` · ${unidades} u.` : ''}{unidadesCambio > 0 ? ` · ${unidadesCambio} cambio` : ''}
             </p>
             <p className="text-2xl font-black tabular-nums leading-none">{money(conIva ? conIva.total : total)}</p>
             {conIva && (
-              <p className="text-[11px] text-gray-500 mt-0.5 tabular-nums">
+              <p className="text-[11px] text-secundario mt-0.5 tabular-nums">
                 Neto {money(conIva.neto)} · IVA {money(conIva.iva)}{conIva.percepcion > 0 ? ` · Perc. IIBB ${money(conIva.percepcion)}` : ''}
               </p>
             )}
@@ -638,16 +638,16 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
             <div className="flex items-center gap-2 rounded-xl px-3 py-2" style={{ backgroundColor: `${canalActual.color}12` }}>
               <canalActual.icon size={16} style={{ color: canalActual.color }} />
               <span className="text-sm font-bold" style={{ color: canalActual.color }}>{canalActual.titulo}</span>
-              <span className="text-xs text-gray-400">· {canalActual.empresa}</span>
+              <span className="text-xs text-secundario">· {canalActual.empresa}</span>
             </div>
           )}
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[11px] uppercase tracking-wide text-gray-400">Cliente</p>
+              <p className="text-xs uppercase tracking-wide text-secundario">Cliente</p>
               <p className="font-semibold text-gray-900 truncate">{cliente?.razonSocial || cliente?.nombre}</p>
             </div>
             {cliente?.codigoCliente && (
-              <span className="text-xs bg-[#F0EEE7] text-gray-500 rounded-md px-2 py-0.5 shrink-0">{cliente.codigoCliente}</span>
+              <span className="text-xs bg-[#F0EEE7] text-secundario rounded-md px-2 py-0.5 shrink-0">{cliente.codigoCliente}</span>
             )}
           </div>
 
@@ -657,7 +657,7 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: colorDe(i.productoId) }} />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-gray-900 truncate">{i.nombre}</p>
-                  <p className="text-xs text-gray-400">{i.cantidad} × {money(i.precioUnitario)}</p>
+                  <p className="text-xs text-secundario">{i.cantidad} × {money(i.precioUnitario)}</p>
                 </div>
                 <p className="text-sm font-semibold tabular-nums shrink-0">{money(i.precioUnitario * i.cantidad)}</p>
               </div>
@@ -666,16 +666,16 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
                 el cliente en el papel. */}
             {cambios.map((i) => (
               <div key={i.productoId} className="flex items-center gap-3 px-3.5 py-2.5">
-                <Repeat size={13} className="text-gray-400 shrink-0" />
+                <Repeat size={13} className="text-inerte shrink-0" />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-gray-900 truncate">{i.nombre}</p>
-                  <p className="text-xs text-gray-400">{i.cantidad} × sin cargo</p>
+                  <p className="text-xs text-secundario">{i.cantidad} × sin cargo</p>
                 </div>
-                <p className="text-sm font-semibold tabular-nums shrink-0 text-gray-400">{money(0)}</p>
+                <p className="text-sm font-semibold tabular-nums shrink-0 text-secundario">{money(0)}</p>
               </div>
             ))}
             {conIva && (
-              <div className="px-3.5 py-2 text-xs text-gray-500 tabular-nums space-y-0.5 border-t border-[#D3D1C7]">
+              <div className="px-3.5 py-2 text-xs text-secundario tabular-nums space-y-0.5 border-t border-[#D3D1C7]">
                 <p className="flex justify-between"><span>Neto</span><span>{money(conIva.neto)}</span></p>
                 <p className="flex justify-between"><span>IVA 21 %</span><span>{money(conIva.iva)}</span></p>
                 {conIva.percepcion > 0 && <p className="flex justify-between"><span>Percepción IIBB</span><span>{money(conIva.percepcion)}</span></p>}
@@ -688,8 +688,8 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
           </div>
 
           {documento && (
-            <p className="text-xs text-gray-500 flex items-center gap-1.5">
-              <FileText size={13} className="text-gray-400 shrink-0" />
+            <p className="text-xs text-secundario flex items-center gap-1.5">
+              <FileText size={13} className="text-inerte shrink-0" />
               {documento === 'factura_arca'
                 ? 'Sale factura electrónica de Redonhielo.'
                 : documento === 'no_oficial'
@@ -700,24 +700,24 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
 
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-xl border border-[#D3D1C7] px-3.5 py-2.5">
-              <p className="text-[11px] uppercase tracking-wide text-gray-400">Pago</p>
+              <p className="text-xs uppercase tracking-wide text-secundario">Pago</p>
               {formaPagoActual ? (
                 <p className="text-sm font-semibold flex items-center gap-1.5 mt-0.5">
                   <formaPagoActual.icon size={15} className="text-accent" /> {formaPagoActual.label}
                 </p>
               ) : (
-                <p className="text-sm font-semibold text-gray-400 mt-0.5">Sin cargo</p>
+                <p className="text-sm font-semibold text-secundario mt-0.5">Sin cargo</p>
               )}
             </div>
             <div className="rounded-xl border border-[#D3D1C7] px-3.5 py-2.5 min-w-0">
-              <p className="text-[11px] uppercase tracking-wide text-gray-400">Firma</p>
+              <p className="text-xs uppercase tracking-wide text-secundario">Firma</p>
               <p className="text-sm font-semibold truncate mt-0.5">{firmante || '—'}</p>
             </div>
           </div>
 
           {firmaPreview && (
             <div>
-              <p className="text-[11px] uppercase tracking-wide text-gray-400 mb-1">Constancia firmada</p>
+              <p className="text-xs uppercase tracking-wide text-secundario mb-1">Constancia firmada</p>
               <img src={firmaPreview} alt="Firma del cliente" className="w-full h-28 object-contain bg-white border border-[#D3D1C7] rounded-xl" />
             </div>
           )}

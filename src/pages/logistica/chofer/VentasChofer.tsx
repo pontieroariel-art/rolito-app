@@ -99,7 +99,7 @@ export default function VentasChofer({ volverA = '/chofer' }: { volverA?: string
               </p>
             </div>
           ) : (
-            <p className="mt-10 text-center text-sm text-gray-400">Todavía no cargaste ninguna venta.</p>
+            <p className="mt-10 text-center text-sm text-secundario">Todavía no cargaste ninguna venta.</p>
           )
         )}
 
@@ -117,7 +117,7 @@ export default function VentasChofer({ volverA = '/chofer' }: { volverA?: string
                   </span>
                 </div>
 
-                <p className="mt-0.5 text-xs text-gray-500">
+                <p className="mt-0.5 text-xs text-secundario">
                   {v.fecha.toDate().toLocaleString('es-AR', {
                     day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
                   })}
@@ -147,7 +147,7 @@ export default function VentasChofer({ volverA = '/chofer' }: { volverA?: string
                         <AlertTriangle size={14} /> ARCA rechazó la factura. Avisá a la oficina.
                       </p>
                     ) : (
-                      <p className="flex items-center gap-1.5 text-xs text-gray-400">
+                      <p className="flex items-center gap-1.5 text-xs text-secundario">
                         <FileText size={14} /> Facturando…
                       </p>
                     )}
@@ -171,7 +171,7 @@ export default function VentasChofer({ volverA = '/chofer' }: { volverA?: string
                           <Ban size={13} /> Anular remito
                         </button>
                       ) : (
-                        <p className="mt-2 text-xs text-gray-400">Pasó más de una hora: para anular este remito pedilo a la oficina.</p>
+                        <p className="mt-2 text-xs text-secundario">Pasó más de una hora: para anular este remito pedilo a la oficina.</p>
                       )
                     )}
                   </div>
@@ -196,7 +196,7 @@ export default function VentasChofer({ volverA = '/chofer' }: { volverA?: string
 function EstadoMail({ venta }: { venta: VentaCamion }) {
   const e = venta.envioMail
   let texto = ''
-  let tono = 'text-gray-500'
+  let tono = 'text-secundario'
   if (e?.estado === 'enviado') { texto = `Mail enviado a ${e.para}`; tono = 'text-emerald-700' }
   else if (e?.estado === 'error') { texto = 'El mail no salió: mandalo desde "Enviar o descargar"'; tono = 'text-red-700' }
   else {

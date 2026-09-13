@@ -35,7 +35,7 @@ function MarcarHechoModal({ ticket, actor, onClose }: { ticket: TicketServicio; 
           className="w-full bg-[#F8F7F2] border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
         />
         {error && <p className="text-red-500 text-xs">{error}</p>}
-        <p className="text-xs text-gray-400">El encargado cierra el ticket desde Consulta de service.</p>
+        <p className="text-xs text-secundario">El encargado cierra el ticket desde Consulta de service.</p>
         <div className="flex gap-2">
           <Button variant="outline" onClick={onClose} className="flex-1">Cancelar</Button>
           <Button onClick={handleSubmit} loading={saving} className="flex-1">Guardar</Button>
@@ -55,14 +55,14 @@ export default function TicketsServicioSection({ uid, actor }: { uid: string | n
 
   return (
     <section className="space-y-3">
-      <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Traslados de heladeras</h2>
+      <h2 className="text-sm font-semibold text-secundario uppercase tracking-wide">Traslados de heladeras</h2>
       <div className="space-y-2">
         {pendientes.map((t) => (
           <div key={t.id} className="bg-white border border-[#D3D1C7] rounded-2xl p-4 space-y-2 shadow-sm">
             <div>
               <p className="font-semibold text-sm text-gray-900">{t.heladeraCodigo} — {t.clientName}</p>
               {t.direccion && <p className="text-gray-600 text-xs">{t.direccion}</p>}
-              <p className="text-gray-500 text-xs mt-0.5">{t.motivoNombre} · {tsToDate(t.fechaPedido).toLocaleDateString('es-AR')}</p>
+              <p className="text-secundario text-xs mt-0.5">{t.motivoNombre} · {tsToDate(t.fechaPedido).toLocaleDateString('es-AR')}</p>
               {t.trabajoRealizado && <p className="text-xs text-accent mt-1">Ya registraste: {t.trabajoRealizado}</p>}
             </div>
             <Button className="text-xs py-2 px-4" onClick={() => setSeleccionado(t)}>Marcar hecho</Button>

@@ -44,7 +44,7 @@ function SortableStop({ order, index }: { order: Order; index: number }) {
         className="flex items-center gap-3 cursor-grab active:cursor-grabbing touch-none shrink-0"
         style={{ touchAction: 'none' }}
       >
-        <div className="flex flex-col gap-0.5 text-gray-300 hover:text-gray-500 transition-colors px-0.5">
+        <div className="flex flex-col gap-0.5 text-inerte hover:text-secundario transition-colors px-0.5">
           <span className="block w-3.5 h-0.5 bg-current rounded-full" />
           <span className="block w-3.5 h-0.5 bg-current rounded-full" />
           <span className="block w-3.5 h-0.5 bg-current rounded-full" />
@@ -57,13 +57,13 @@ function SortableStop({ order, index }: { order: Order; index: number }) {
       {/* Info */}
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium text-gray-900 truncate">{order.clientName}</p>
-        <p className="text-xs text-gray-500 truncate">{order.clientAddress}</p>
+        <p className="text-xs text-secundario truncate">{order.clientAddress}</p>
       </div>
 
       {/* Cantidad pedida (las acciones de entrega viven en la pestaña Entregas) */}
       <div className="shrink-0 text-right max-w-[45%]">
-        <p className="text-base font-bold text-gray-900 tabular-nums leading-none">{totalUnits}<span className="text-xs font-medium text-gray-400"> u</span></p>
-        <p className="text-[11px] text-gray-400 truncate">{summarizeProducts(order.products)}</p>
+        <p className="text-base font-bold text-gray-900 tabular-nums leading-none">{totalUnits}<span className="text-xs font-medium text-secundario"> u</span></p>
+        <p className="text-[11px] text-secundario truncate">{summarizeProducts(order.products)}</p>
       </div>
     </div>
   )
@@ -469,7 +469,7 @@ export default function ChoferMap() {
                     </span>
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-gray-900 truncate">{o.clientName}</p>
-                      <p className="text-xs text-gray-500 truncate">{o.clientAddress}</p>
+                      <p className="text-xs text-secundario truncate">{o.clientAddress}</p>
                     </div>
                   </div>
                 )
@@ -488,7 +488,7 @@ export default function ChoferMap() {
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-[#D3D1C7] flex z-30 shadow-[0_-1px_8px_rgba(0,0,0,0.06)]" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <Link
           to="/chofer"
-          className="flex-1 flex flex-col items-center justify-center py-3 gap-1 text-xs font-medium text-gray-400 hover:text-gray-700 transition-colors"
+          className="flex-1 flex flex-col items-center justify-center py-3 gap-1 text-xs font-medium text-secundario hover:text-gray-700 transition-colors"
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-5 h-5">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10" />
@@ -515,7 +515,7 @@ export default function ChoferMap() {
             setPdfLoading(false)
           }}
           disabled={!pending.length || pdfLoading}
-          className="flex-1 flex flex-col items-center justify-center py-3 gap-1 text-xs font-medium text-gray-400 hover:text-gray-700 disabled:opacity-40 transition-colors"
+          className="flex-1 flex flex-col items-center justify-center py-3 gap-1 text-xs font-medium text-secundario hover:text-gray-700 disabled:opacity-40 transition-colors"
         >
           {pdfLoading ? (
             <span className="w-5 h-5 border-2 border-muted border-t-transparent rounded-full animate-spin" />

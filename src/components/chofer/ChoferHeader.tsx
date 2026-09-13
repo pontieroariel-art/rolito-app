@@ -25,11 +25,11 @@ export default function ChoferHeader({ title, back = false }: { title?: string; 
           {title ?? `Hola, ${user?.nombre?.split(' ')[0] ?? 'chofer'}`}
         </p>
         {!back && user?.camionPatente && (
-          <p className="text-xs text-gray-400 leading-tight">Camión {user.camionPatente}</p>
+          <p className="text-xs text-secundario leading-tight">Camión {user.camionPatente}</p>
         )}
       </div>
       <button onClick={() => logoutUser()} aria-label="Cerrar sesión"
-        className="w-10 h-10 rounded-xl flex items-center justify-center text-gray-400 hover:text-gray-700 active:scale-90 transition-transform">
+        className="w-10 h-10 rounded-xl flex items-center justify-center text-secundario hover:text-gray-700 active:scale-90 transition-transform">
         <LogOut size={20} />
       </button>
     </header>
