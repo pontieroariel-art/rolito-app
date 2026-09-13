@@ -118,7 +118,6 @@ const SupervisorClientesPage = lazy(() => import('@/pages/comercial/supervisor/S
 const CobranzaSupervisorPage = lazy(() => import('@/pages/comercial/supervisor/CobranzaSupervisorPage'))
 const SupervisorHistorialPage = lazy(() => import('@/pages/comercial/supervisor/SupervisorHistorialPage'))
 const RepartoEnVivoPage       = lazy(() => import('@/pages/comercial/supervisor/RepartoEnVivoPage'))
-const SupervisorBuscarPage    = lazy(() => import('@/pages/comercial/supervisor/SupervisorBuscarPage'))
 // Maqueta descartable del rediseño del supervisor (2026-09-13): se borra al aprobarlo.
 const MockupSupervisorMobile  = lazy(() => import('@/pages/comercial/supervisor/MockupSupervisorMobile'))
 const FichaClientePage        = lazy(() => import('@/pages/comercial/supervisor/FichaClientePage'))
@@ -469,9 +468,9 @@ function AppContent() {
           <Route path="/supervisor/cobrar"   element={<CobranzaSupervisorPage />} />
           <Route path="/supervisor/historial" element={<SupervisorHistorialPage />} />
           <Route path="/supervisor/reparto"   element={<RepartoEnVivoPage />} />
-          {/* Ficha del cliente en la calle: buscador + datos, contacto,
-              domicilios (ir con Maps) y saldo con composición para compartir. */}
-          <Route path="/supervisor/buscar"       element={<SupervisorBuscarPage />} />
+          {/* Alias de la pantalla de búsqueda vieja, fusionada en Clientes el
+              2026-09-13: las PWA instaladas y los links guardados siguen andando. */}
+          <Route path="/supervisor/buscar"       element={<Navigate to="/supervisor/clientes" replace />} />
           <Route path="/supervisor/cliente/:uid" element={<FichaClientePage />} />
           {/* Los supervisores también entregan (son depósitos en Tango): venden
               con las mismas pantallas del chofer, que vuelven a /supervisor. */}

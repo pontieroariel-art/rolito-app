@@ -1,145 +1,174 @@
-import { useEffect, useMemo, useState } from 'react'
-import { coincideBusqueda, normalizarBusqueda, INPUT_BUSQUEDA_PROPS } from '@/utils/busqueda'
-import { Link } from 'react-router-dom'
-import { Search, UserRound } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { HandCoins } from 'lucide-react'
 import SupervisorHeader from '@/components/supervisor/SupervisorHeader'
 import ChipMora, { BORDE_MORA } from '@/components/supervisor/ChipMora'
-import { useAlertasMora } from '@/hooks/useAlertasMora'
-import { nivelMora } from '@/utils/mora'
-import { subscribeClientesConDeuda } from '@/services/saldosTangoService'
+import ClienteCombobox from '@/components/common/ClienteCombobox'
+import { useClientesConDeuda } from '@/hooks/useClientesConDeuda'
+import { coincideBusqueda, normalizarBusqueda } from '@/utils/busqueda'
+import {
+  conteosDe, filtrarFilas, ordenarPorPrioridad, zonasDe, type FiltroDeuda, type FilaDeuda,
+} from '@/utils/listaClientesDeuda'
 import { formatoARS } from '@/utils/money'
+import { esDatoViejo, haceCuanto } from '@/utils/tiempo'
 import { NOMBRE_EMPRESA_CORTO } from '@/utils/tangoEmpresas'
-import { SaldoTango } from '@/types'
 
-// "Hace 5 min" / "hace 3 h" / "hace 2 días" — el supervisor necesita saber qué
-// tan fresco es el cache de Tango antes de confiar en un saldo.
-export function haceCuanto(ts: { toDate(): Date } | undefined): string {
-  if (!ts) return ''
-  const ms = Date.now() - ts.toDate().getTime()
-  const min = Math.floor(ms / 60000)
-  if (min < 1) return 'recién'
-  if (min < 60) return `hace ${min} min`
-  const h = Math.floor(min / 60)
-  if (h < 24) return `hace ${h} h`
-  const d = Math.floor(h / 24)
-  return `hace ${d} ${d === 1 ? 'día' : 'días'}`
-}
-
-// Lista de clientes con deuda en Tango (cache saldosTango), ordenada por saldo.
-// Tocar un cliente lleva directo a cobrarle.
+/**
+ * CLIENTES — la puerta de entrada del supervisor (2026-09-13). Fusiona las dos
+ * pantallas que había ("Buscar cliente" y "Clientes con deuda"), que eran dos
+ * buscadores distintos sobre dos universos distintos para la misma tarea mental
+ * de encontrar a alguien.
+ *
+ * Los dos universos se separan por MECANISMO, no por un chip:
+ *  - el buscador de arriba busca en TODOS los clientes (clientesIndex) — el que
+ *    sabe a quién va a ver, escribe y entra;
+ *  - la lista de abajo son los que DEBEN, ordenados por urgencia y filtrables
+ *    por zona — la agenda del día del que sale a recorrer.
+ *
+ * La fila abre la FICHA (ahí se decide, con el saldo completo a la vista) y el
+ * botón lateral va derecho a cobrar, para el que ya sabe a qué va.
+ */
 export default function SupervisorClientesPage() {
-  const [saldos, setSaldos] = useState<SaldoTango[]>([])
+  const navigate = useNavigate()
+  const { filas, cargando, sinSaldos } = useClientesConDeuda()
+  const [estado, setEstado] = useState<FiltroDeuda>('deuda')
+  const [zona, setZona] = useState('')
   const [busqueda, setBusqueda] = useState('')
-  const [filtro, setFiltro] = useState<'todos' | 'vencidos' | 'mora'>('todos')
-  const soloVencidos = filtro !== 'todos'
-  const [cargando, setCargando] = useState(true)
-  const alertas = useAlertasMora()
-  const nivelDe = (s: SaldoTango) => nivelMora(s.saldoTotal, atrasoDe(s), alertas)
 
-  useEffect(() => {
-    const unsub = subscribeClientesConDeuda((s) => {
-      setSaldos(s)
-      setCargando(false)
-    })
-    return unsub
-  }, [])
+  const conteos = useMemo(() => conteosDe(filas), [filas])
+  const zonas = useMemo(() => zonasDe(filas), [filas])
 
-  // Días de atraso de la factura más vieja de cada cliente (0 si nada venció).
-  const atrasoDe = (s: SaldoTango) => Math.max(0, ...s.comprobantes.map((c) => c.diasAtraso ?? 0))
+  const lista = useMemo(() => {
+    const q = normalizarBusqueda(busqueda)
+    return ordenarPorPrioridad(filtrarFilas(filas, {
+      estado, zona,
+      coincide: q ? (f) => coincideBusqueda(q, f.razonSocial, f.codigoTango, f.localidad) : undefined,
+    }))
+  }, [filas, estado, zona, busqueda])
 
-  // "Redonhielo $1.200 · Rolito $300" cuando debe en las dos empresas.
-  const desglose = (s: SaldoTango): string => {
-    const partes = (['redonhielo', 'rolito'] as const)
-      .map((e) => [e, s.porEmpresa?.[e]?.saldoTotal ?? 0] as const)
-      .filter(([, t]) => t > 0)
-    if (partes.length < 2) return ''
-    return partes.map(([e, t]) => `${NOMBRE_EMPRESA_CORTO[e]} ${formatoARS(t)}`).join(' · ')
-  }
-
-  const filtrados = useMemo(() => {
-    const base = soloVencidos ? saldos.filter((s) => atrasoDe(s) > 0) : saldos
-    if (!normalizarBusqueda(busqueda)) return base
-    const conMora = filtro === 'mora' ? base.filter((s) => nivelDe(s) !== 'ok') : base
-    return conMora.filter((s) => coincideBusqueda(busqueda, s.razonSocial, s.codigoTango))
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- nivelDe depende solo de `alertas`, que sí está en la lista
-  }, [saldos, busqueda, soloVencidos, filtro, alertas])
-
-  const totalDeuda = useMemo(() => filtrados.reduce((t, s) => t + s.saldoTotal, 0), [filtrados])
-  const vencidos = useMemo(() => saldos.filter((s) => atrasoDe(s) > 0).length, [saldos])
-  const enMora = useMemo(() => saldos.filter((s) => nivelMora(s.saldoTotal, atrasoDe(s), alertas) !== 'ok').length, [saldos, alertas])
+  const totalDeuda = useMemo(() => lista.reduce((t, f) => t + f.saldoTotal, 0), [lista])
 
   return (
     <div className="min-h-screen min-h-dvh bg-[#F8F7F2]">
-      <SupervisorHeader title="Clientes con deuda" back />
+      <SupervisorHeader title="Clientes" back />
       <main className="max-w-md mx-auto p-4 space-y-3 pb-10">
-        <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-inerte" />
-          <input
-            {...INPUT_BUSQUEDA_PROPS}
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar por nombre o código…"
-            className="w-full bg-white border border-[#D3D1C7] rounded-lg pl-9 pr-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
-          />
-        </div>
+        {/* TODOS los clientes, deban o no. Sin autoFocus ni listaSiempre: el
+            teclado no tiene que saltar tapando la agenda apenas se entra. */}
+        <ClienteCombobox
+          modo="busqueda"
+          value=""
+          onChange={(uid) => uid && navigate(`/supervisor/cliente/${uid}`)}
+          placeholder="Nombre, código, CUIT o dirección…"
+          listaClassName="max-h-[50vh]"
+        />
 
         {cargando ? (
           <p className="text-sm text-secundario text-center pt-8">Cargando saldos…</p>
-        ) : saldos.length === 0 ? (
+        ) : sinSaldos ? (
           <div className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-4 text-center">
             <p className="text-sm text-gray-600">No hay saldos de Tango cargados todavía.</p>
-            <p className="text-xs text-secundario mt-1">El cache se actualiza automáticamente desde el servidor de Tango.</p>
+            <p className="text-xs text-secundario mt-1">El cache se actualiza solo desde el servidor de Tango. Buscá al cliente arriba para abrir su ficha igual.</p>
           </div>
         ) : (
           <>
             <div className="flex gap-2">
-              {([['todos', `Todos (${saldos.length})`], ['vencidos', `Vencidos (${vencidos})`], ['mora', `En mora (${enMora})`]] as const).map(([id, label]) => (
-                <button key={id} type="button" onClick={() => setFiltro(id)}
-                  className={`flex-1 rounded-lg border px-2 py-1.5 text-xs font-medium ${filtro === id ? 'bg-accent text-white border-accent' : 'bg-white text-gray-700 border-[#D3D1C7]'}`}>
+              {([['deuda', `Con deuda (${conteos.deuda})`], ['vencidos', `Vencidos (${conteos.vencidos})`],
+                ['mora', `En mora (${conteos.mora})`]] as const).map(([id, label]) => (
+                <button key={id} type="button" onClick={() => setEstado(id)}
+                  className={`flex-1 h-11 rounded-lg border px-2 text-xs font-medium ${estado === id ? 'bg-accent text-white border-accent' : 'bg-white text-gray-700 border-[#D3D1C7]'}`}>
                   {label}
                 </button>
               ))}
             </div>
-            <div className="flex items-center justify-between px-1">
-              <p className="text-xs text-secundario">{filtrados.length} {filtrados.length === 1 ? 'cliente' : 'clientes'}</p>
-              <p className="text-xs text-secundario">Deuda: <span className="font-semibold text-gray-900">{formatoARS(totalDeuda)}</span></p>
-            </div>
-            {filtrados.length === 0 && (
-              <p className="text-sm text-secundario text-center py-6">Ningún cliente coincide.</p>
+
+            {/* El recorrido de la calle es geográfico: sin esto, el orden por mora
+                manda al supervisor de una punta del conurbano a la otra. */}
+            {zonas.length > 1 && (
+              <div className="flex gap-2 overflow-x-auto -mx-4 px-4 pb-1">
+                {['', ...zonas].map((z) => (
+                  <button key={z || 'todas'} type="button" onClick={() => setZona(z)}
+                    className={`h-11 shrink-0 rounded-full border px-4 text-xs font-medium ${zona === z ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-700 border-[#D3D1C7]'}`}>
+                    {z || 'Todas las zonas'}
+                  </button>
+                ))}
+              </div>
             )}
+
+            <div className="relative">
+              <input
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                placeholder="Filtrar la lista por nombre, código o zona…"
+                aria-label="Filtrar la lista de deudores"
+                className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 h-11 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </div>
+
+            <div className="flex items-center justify-between px-1">
+              <p className="text-xs text-secundario">{lista.length} {lista.length === 1 ? 'cliente' : 'clientes'}</p>
+              <p className="text-xs text-secundario">Deuda: <span className="font-semibold text-gray-900 tabular-nums">{formatoARS(totalDeuda)}</span></p>
+            </div>
+
+            {lista.length === 0 && <p className="text-sm text-secundario text-center py-6">Ningún cliente coincide.</p>}
+
             <div className="space-y-2">
-              {filtrados.map((s) => {
-                const atraso = atrasoDe(s)
-                const nivel = nivelDe(s)
-                return (
-                  <div key={s.id} className={`flex bg-white rounded-xl border shadow-sm overflow-hidden ${BORDE_MORA[nivel]}`}>
-                    <Link to={`/supervisor/cobrar?cliente=${s.id}`} className="block flex-1 min-w-0 p-3 active:bg-gray-50">
-                      <div className="flex justify-between items-center gap-2">
-                        <p className="text-sm font-medium text-gray-900 truncate flex items-center gap-1.5 min-w-0"><span className="truncate">{s.razonSocial}</span><ChipMora nivel={nivel} /></p>
-                        <p className="text-sm font-semibold text-gray-900 shrink-0">{formatoARS(s.saldoTotal)}</p>
-                      </div>
-                      <div className="flex justify-between items-center mt-0.5 gap-2">
-                        <p className="text-xs text-secundario truncate">
-                          {s.comprobantes.length} {s.comprobantes.length === 1 ? 'comprobante' : 'comprobantes'} · cód. {s.codigoTango}
-                          {atraso > 0 && <span className="text-red-500"> · {atraso} {atraso === 1 ? 'día' : 'días'} de atraso</span>}
-                        </p>
-                        <p className="text-xs text-secundario shrink-0">{haceCuanto(s.actualizadoEn)}</p>
-                      </div>
-                      {desglose(s) && <p className="text-xs text-secundario mt-0.5">{desglose(s)}</p>}
-                    </Link>
-                    {/* Ficha: contacto, cómo llegar, composición de saldos. */}
-                    <Link to={`/supervisor/cliente/${s.id}`} aria-label={`Ficha de ${s.razonSocial}`}
-                      className="flex flex-col items-center justify-center gap-0.5 px-3 border-l border-[#D3D1C7] text-accent active:bg-accent/10">
-                      <UserRound size={18} />
-                      <span className="text-[10px] font-medium">Ficha</span>
-                    </Link>
-                  </div>
-                )
-              })}
+              {lista.map((f) => <FilaCliente key={f.uid} f={f} />)}
             </div>
           </>
         )}
       </main>
+    </div>
+  )
+}
+
+// "Redonhielo $745.288,75 · Rolito $163.200,00" cuando debe en las dos empresas.
+const desglose = (f: FilaDeuda): string => {
+  const partes = (['redonhielo', 'rolito'] as const)
+    .map((e) => [e, f.porEmpresa?.[e]?.saldoTotal ?? 0] as const)
+    .filter(([, t]) => t > 0)
+  if (partes.length < 2) return ''
+  return partes.map(([e, t]) => `${NOMBRE_EMPRESA_CORTO[e]} ${formatoARS(t)}`).join(' · ')
+}
+
+function FilaCliente({ f }: { f: FilaDeuda }) {
+  const viejo = esDatoViejo(f.actualizadoEn)
+  return (
+    <div className={`flex bg-white rounded-xl border shadow-sm overflow-hidden ${BORDE_MORA[f.nivel]}`}>
+      {/* El nombre se lleva la primera línea ENTERA: las razones sociales de Tango
+          tienen 45 caracteres y, compartiendo línea con el importe, quedaban en
+          "GASTRONOMIA E…". El importe va abajo, grande, con el chip al lado. */}
+      <Link to={`/supervisor/cliente/${f.uid}`} className="block flex-1 min-w-0 p-3 active:bg-gray-50">
+        <p className="text-sm font-medium text-gray-900 truncate" title={f.razonSocial}>{f.razonSocial}</p>
+        <div className="flex items-center gap-2 mt-1 flex-wrap">
+          <span className={`text-base font-bold tabular-nums ${f.cobradoHoy ? 'text-secundario' : 'text-gray-900'}`}>
+            {formatoARS(f.saldoTotal)}
+          </span>
+          <ChipMora nivel={f.nivel} />
+          {f.cobradoHoy && (
+            <span className="text-[11px] font-semibold rounded-full px-2 py-0.5 border text-accent bg-accent/10 border-accent/30">
+              Ya le cobraste hoy
+            </span>
+          )}
+        </div>
+        {/* Orden por importancia: lo que se corta al truncar tiene que ser lo que
+            menos importa (la cantidad de comprobantes), no los días de atraso. */}
+        <p className="text-xs text-secundario truncate mt-0.5">
+          {f.localidad && `${f.localidad} · `}
+          {f.diasAtraso > 0 && <span className="text-red-600">{f.diasAtraso} {f.diasAtraso === 1 ? 'día' : 'días'} de atraso · </span>}
+          cód. {f.codigoTango} · {f.comprobantes} {f.comprobantes === 1 ? 'comprobante' : 'comprobantes'}
+        </p>
+        {desglose(f) && <p className="text-xs text-secundario truncate">{desglose(f)}</p>}
+        {/* Un saldo de hace días puede hacer que cobre de menos o reclame algo ya
+            pagado: pasado un día deja de ser un gris más. */}
+        <p className={`text-xs mt-0.5 ${viejo ? 'text-amber-700 font-medium' : 'text-secundario'}`}>
+          Saldo de Tango {haceCuanto(f.actualizadoEn)}
+        </p>
+      </Link>
+      <Link to={`/supervisor/cobrar?cliente=${f.uid}`} aria-label={`Cobrar a ${f.razonSocial}`}
+        className="flex flex-col items-center justify-center gap-0.5 px-3 min-w-[56px] border-l border-[#D3D1C7] text-accent active:bg-accent/10">
+        <HandCoins size={18} />
+        <span className="text-[10px] font-medium">Cobrar</span>
+      </Link>
     </div>
   )
 }

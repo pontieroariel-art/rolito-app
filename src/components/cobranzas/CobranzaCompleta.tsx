@@ -20,7 +20,7 @@ import {
 } from '@/services/reciboSupervisorService'
 import { puedeCompartirArchivos } from '@/utils/compartir'
 import { aCentavos, formatoARS, parseImporte, sumaCentavos } from '@/utils/money'
-import { haceCuanto } from '@/pages/comercial/supervisor/SupervisorClientesPage'
+import { haceCuanto } from '@/utils/tiempo'
 import { EMPRESAS_TANGO, NOMBRE_EMPRESA, estaVinculadoATango, tangoIdsDe } from '@/utils/tangoEmpresas'
 import { agruparPorEmpresaYCodigo, claveComp, empresaDe, grupoDe, mismoGrupo, type GrupoRecibo } from '@/utils/composicionSaldos'
 import { nombreSucursal } from '@/utils/sucursalesTango'

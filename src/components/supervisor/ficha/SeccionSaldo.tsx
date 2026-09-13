@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { FileText, HandCoins, RefreshCw, Send, Truck } from 'lucide-react'
+import { FileText, RefreshCw, Send, Truck } from 'lucide-react'
 import { obtenerFacturaPdf, obtenerRemitoPdf } from '@/services/facturaAdeudadaService'
 import { useAlertasMora } from '@/hooks/useAlertasMora'
 import { CLASE_MORA } from '@/components/supervisor/ChipMora'
@@ -9,10 +8,10 @@ import { nombreSucursal } from '@/utils/sucursalesTango'
 import { Plegable } from '@/components/ui/Plegable'
 import MenuCompartirPdf, { type DatosMail, type PdfGenerado } from '@/components/ui/MenuCompartirPdf'
 import { useAuth } from '@/context/AuthContext'
-import { useSaldoClienteEnVivo } from '@/hooks/useSaldoClienteEnVivo'
+import type { SaldoEnVivo } from '@/hooks/useSaldoClienteEnVivo'
 import { useTangoComprobantes } from '@/hooks/useTangoComprobantes'
 import { useRefrescarComprobantesTango } from '@/hooks/useRefrescarComprobantesTango'
-import { haceCuanto } from '@/pages/comercial/supervisor/SupervisorClientesPage'
+import { haceCuanto } from '@/utils/tiempo'
 import { codigosTangoResumen } from '@/pages/admin/user-management/listaTango'
 import { atrasoMaximo, type GrupoRecibo } from '@/utils/composicionSaldos'
 import {
@@ -100,10 +99,12 @@ const claveGrupo = (g: GrupoRecibo) => `${g.empresa}|${g.codigo}`
 // dato híbrido cache + consulta en vivo que usa la pantalla de cobro), con el
 // remito de cada factura, el historial de 12 meses ("Todas"), selector de
 // sucursal, Cobrar y Composición de saldos para compartir.
-export default function SeccionSaldo({ c }: { c: UserProfile }) {
+export default function SeccionSaldo({ c, saldoEnVivo }: { c: UserProfile; saldoEnVivo: SaldoEnVivo }) {
   const { user } = useAuth()
   const actor = useMemo(() => (user ? { uid: user.uid, nombre: user.nombre } : null), [user])
-  const { saldo, cargando, refrescando, esCache } = useSaldoClienteEnVivo(c, actor)
+  // El saldo llega de la página: el hook dispara una consulta a Tango por montaje
+  // y llamarlo acá otra vez duplicaría las consultas de la cola.
+  const { saldo, cargando, refrescando, esCache } = saldoEnVivo
   const { indices } = useTangoComprobantes(c)
   const { refrescando: refrescandoTango, aviso: avisoTango } = useRefrescarComprobantesTango(c, actor)
   const alertas = useAlertasMora()
@@ -240,12 +241,9 @@ export default function SeccionSaldo({ c }: { c: UserProfile }) {
             </div>
           ))}
 
-          {totalCliente > 0 && (
-            <Link to={`/supervisor/cobrar?cliente=${c.uid}`}
-              className="flex items-center justify-center gap-2 w-full rounded-lg bg-accent text-white px-3 py-2.5 text-sm font-semibold active:scale-[0.99] transition-transform">
-              <HandCoins size={16} /> Cobrar {formatoARS(totalCliente)}
-            </Link>
-          )}
+          {/* El botón "Cobrar" se fue a la barra fija de la ficha (2026-09-13):
+              acá quedaba al final de un plegable, había que abrir la sección y
+              bajar hasta el fondo para encontrarlo. */}
 
           <div>
             <p className="text-xs font-semibold text-secundario uppercase tracking-wide mb-1.5">

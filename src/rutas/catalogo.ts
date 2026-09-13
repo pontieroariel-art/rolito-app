@@ -207,7 +207,8 @@ export const CATALOGO: RutaConfig[] = [
 
   // ── Comercial: supervisor de cobranzas (calle) ────────────────────────────
   R('/supervisor',              'Inicio',            'comercial', SUPERVISOR, { icon: Home, menuGroup: 'supervisores' }),
-  R('/supervisor/clientes',     'Mis clientes',      'comercial', SUPERVISOR, { deepLink: true }),
+  R('/supervisor/clientes',     'Clientes',          'comercial', SUPERVISOR, { deepLink: true }),
+  // Alias de la pantalla vieja de búsqueda, fusionada en Clientes el 2026-09-13.
   R('/supervisor/buscar',       'Buscar cliente',    'comercial', SUPERVISOR, { deepLink: true }),
   R('/supervisor/cobrar',       'Cobrar',            'comercial', SUPERVISOR, { deepLink: true }),
   R('/supervisor/historial',    'Mis cobranzas',     'comercial', SUPERVISOR, { deepLink: true }),

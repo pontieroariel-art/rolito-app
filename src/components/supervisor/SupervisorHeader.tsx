@@ -8,7 +8,7 @@ import { homeDeSistema } from '@/utils/sistemas'
 // Header compacto del supervisor (mismo patrón que ChoferHeader): en Inicio
 // muestra el saludo + salir; en las tareas (Cobrar, Clientes) una flecha para
 // volver al Inicio. Alto fijo 56px.
-export default function SupervisorHeader({ title, back = false }: { title?: string; back?: boolean }) {
+export default function SupervisorHeader({ title, back = false, volverA = '/supervisor' }: { title?: string; back?: boolean; volverA?: string }) {
   const { user } = useAuth()
   const { sistemaActual, sistemasDisponibles } = useSistema()
   // Quien entró desde la oficina (super_admin desde Comercial › Supervisores) tiene
@@ -18,7 +18,7 @@ export default function SupervisorHeader({ title, back = false }: { title?: stri
   return (
     <header className="min-h-14 pt-[env(safe-area-inset-top)] bg-white border-b border-[#D3D1C7] flex items-center gap-3 px-3 sticky top-0 z-30">
       {back ? (
-        <Link to="/supervisor" aria-label="Volver al inicio"
+        <Link to={volverA} aria-label="Volver"
           className="w-10 h-10 rounded-xl border border-[#D3D1C7] flex items-center justify-center active:scale-90 transition-transform">
           <ArrowLeft size={20} />
         </Link>

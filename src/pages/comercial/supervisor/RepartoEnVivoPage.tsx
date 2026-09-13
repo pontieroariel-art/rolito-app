@@ -5,7 +5,7 @@ import { useFechaDelDia } from '@/hooks/useDiaActual'
 import { subscribeRepartoEnVivo, type FuentesRepartoEnVivo } from '@/services/repartoEnVivoService'
 import { agruparRepartoEnVivo, type CamionEnVivo } from '@/utils/repartoEnVivo'
 import { formatoARS } from '@/utils/money'
-import { haceCuanto } from '@/pages/comercial/supervisor/SupervisorClientesPage'
+import { haceCuanto } from '@/utils/tiempo'
 import DetalleReparto from '@/components/expedicion/liquidacion/DetalleReparto'
 
 // Reparto en vivo: la liquidación de cada repartidor calculada al momento

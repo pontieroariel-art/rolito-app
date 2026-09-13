@@ -25,7 +25,7 @@ import {
 import { formatoARS } from '@/utils/money'
 import { nombreSucursal } from '@/utils/sucursalesTango'
 import { NOMBRE_EMPRESA_CORTO, estaVinculadoATango } from '@/utils/tangoEmpresas'
-import { haceCuanto } from '@/pages/comercial/supervisor/SupervisorClientesPage'
+import { haceCuanto } from '@/utils/tiempo'
 import type { ComprobanteSaldoTango, UserProfile } from '@/types'
 import type { GrupoRecibo as Grupo } from '@/utils/composicionSaldos'
 
