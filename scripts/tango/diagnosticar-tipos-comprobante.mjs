@@ -109,16 +109,26 @@ async function empresa(nombre, database, desde) {
   for (const t of tipos) {
     const cod = String(t.T_COMP ?? '').trim()
     if (cod === 'FAC') continue
+    // COLLATE DATABASE_DEFAULT en las comparaciones de texto: las columnas de Tango tienen
+    // collation Latin1_General_BIN y los parámetros vienen con la del server (choque al comparar).
     const [e] = await intentar(`ejemplo de ${cod}`, () => consulta(p, `
-      SELECT TOP 1 f.N_COMP, f.FECHA_EMIS, f.IMPORTE, f.ESTADO, f.COD_CLIENT, c.RAZON_SOCI
-      FROM GVA12 f LEFT JOIN GVA14 c ON c.COD_GVA14 = f.COD_CLIENT
-      WHERE f.T_COMP = @t AND f.FECHA_EMIS >= @desde ORDER BY f.FECHA_EMIS DESC`, { t: cod, desde })) ?? []
+      SELECT TOP 1 * FROM GVA12 f
+      WHERE f.T_COMP COLLATE DATABASE_DEFAULT = @t AND f.FECHA_EMIS >= @desde
+      ORDER BY f.FECHA_EMIS DESC`, { t: cod, desde })) ?? []
     if (!e) continue
     const renglones = await intentar(`renglones de ${cod}`, () => consulta(p, `
       SELECT TOP 3 r.COD_ARTICU, a.DESCRIPCIO, r.CANTIDAD, r.PRECIO_NET
-      FROM GVA53 r LEFT JOIN STA11 a ON a.COD_ARTICU = r.COD_ARTICU
-      WHERE r.T_COMP = @t AND r.N_COMP = @n`, { t: cod, n: String(e.N_COMP ?? '').trim() })) ?? []
-    log(`${txt(cod, 5)} ${txt(e.N_COMP, 17)} ${fecha(e.FECHA_EMIS)}  ${nro(Number(e.IMPORTE ?? 0).toFixed(2), 14)}  estado ${txt(e.ESTADO, 4)} ${txt(e.RAZON_SOCI, 30)}`)
+      FROM GVA53 r LEFT JOIN STA11 a ON a.COD_ARTICU COLLATE DATABASE_DEFAULT = r.COD_ARTICU COLLATE DATABASE_DEFAULT
+      WHERE r.T_COMP COLLATE DATABASE_DEFAULT = @t AND r.N_COMP COLLATE DATABASE_DEFAULT = @n`,
+    { t: cod, n: String(e.N_COMP ?? '').trim() })) ?? []
+    log(`${txt(cod, 5)} ${txt(e.N_COMP, 17)} ${fecha(e.FECHA_EMIS)}  ${nro(Number(e.IMPORTE ?? 0).toFixed(2), 14)}  estado ${txt(e.ESTADO, 4)} cliente ${txt(e.COD_CLIENT, 10)}`)
+    // Las columnas que dicen QUÉ es el comprobante: el tipo de ARCA (1 = Factura A, 2 = ND A,
+    // 3 = NC A, 6/7/8 = B…), la letra, el talonario y cualquier marca de clase o signo.
+    const interesa = /AFIP|ARCA|TIPO|CLASE|LETRA|TALON|SIGNO|COMP|CAE|CAI/i
+    const campos = Object.entries(e)
+      .filter(([k, v]) => interesa.test(k) && v !== null && String(v).trim() !== '' && String(v).trim() !== '0')
+      .map(([k, v]) => `${k}=${String(v instanceof Date ? fecha(v) : v).trim().slice(0, 24)}`)
+    log(`        campos: ${campos.join('  ')}`)
     for (const r of renglones) log(`        · ${txt(r.DESCRIPCIO ?? r.COD_ARTICU, 40)} x${r.CANTIDAD}`)
     if (!renglones.length) log('        · (sin renglones: es un comprobante por importe, no por artículos)')
   }
@@ -128,22 +138,27 @@ async function empresa(nombre, database, desde) {
   //     lista entera: ahí está el nombre oficial de cada código.
   log(`\nTABLAS QUE DEFINEN TIPOS DE COMPROBANTE (nombre oficial de cada código)`)
   log('─'.repeat(110))
+  // No se pide que tenga una columna DESCRIP*: la maestra puede llamarla NOMBRE o LEYENDA.
+  // El filtro real es el TAMAÑO: una tabla de tipos tiene decenas de filas, no miles.
   const candidatas = await intentar('tablas candidatas', () => consulta(p, `
-    SELECT c1.TABLE_NAME, MIN(c2.COLUMN_NAME) AS COL_DESC
-    FROM INFORMATION_SCHEMA.COLUMNS c1
-    JOIN INFORMATION_SCHEMA.COLUMNS c2 ON c2.TABLE_NAME = c1.TABLE_NAME AND c2.COLUMN_NAME LIKE 'DESCRIP%'
-    WHERE c1.COLUMN_NAME IN ('T_COMP', 'COMPROB', 'COD_COMPROB', 'TIPO_COMP')
-    GROUP BY c1.TABLE_NAME`)) ?? []
+    SELECT t.TABLE_NAME
+    FROM INFORMATION_SCHEMA.COLUMNS t
+    WHERE t.COLUMN_NAME IN ('T_COMP', 'COMPROB', 'COD_COMPROB', 'TIPO_COMP')
+    GROUP BY t.TABLE_NAME
+    ORDER BY t.TABLE_NAME`)) ?? []
   for (const t of candidatas) {
     const tabla = t.TABLE_NAME
     const [{ N } = { N: 0 }] = await intentar(`filas de ${tabla}`, () => consulta(p, `SELECT COUNT(*) AS N FROM ${tabla}`)) ?? []
-    if (!N || N > 120) { log(`${txt(tabla, 16)} ${N} filas (muy grande: no es la tabla de tipos)`); continue }
-    const filas = await intentar(`contenido de ${tabla}`, () => consulta(p, `SELECT TOP 120 * FROM ${tabla}`)) ?? []
+    if (!N || N > 200) continue   // miles de filas = tabla de movimientos, no el maestro
+    const filas = await intentar(`contenido de ${tabla}`, () => consulta(p, `SELECT TOP 200 * FROM ${tabla}`)) ?? []
     log(`\n${tabla} (${N} filas):`)
     for (const f of filas) {
       const cod = f.T_COMP ?? f.COMPROB ?? f.COD_COMPROB ?? f.TIPO_COMP
-      const d = Object.entries(f).find(([k]) => k.startsWith('DESCRIP'))?.[1]
-      log(`   ${txt(cod, 6)} ${txt(d, 50)}`)
+      // Todo lo que sea texto y no el código: ahí está el nombre, se llame como se llame.
+      const textos = Object.entries(f)
+        .filter(([k, v]) => typeof v === 'string' && v.trim() && !['T_COMP', 'COMPROB', 'COD_COMPROB', 'TIPO_COMP'].includes(k))
+        .map(([k, v]) => `${k}=${v.trim().slice(0, 30)}`)
+      log(`   ${txt(cod, 6)} ${textos.join('  ').slice(0, 100)}`)
     }
   }
 
