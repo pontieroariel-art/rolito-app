@@ -1017,6 +1017,34 @@ export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiq
   })
   y = Math.max(yEnvases, finTabla(doc, y + 40)) + 6
 
+  // ── Desvío de MERCADERÍA observado al cerrar (2026-09-13) ──
+  // Va ANTES de la diferencia de efectivo y en el cuerpo, no al pie: el
+  // repartidor firma este papel, así que el faltante tiene que estar impreso
+  // arriba de su firma o la conformidad no cubre el desvío.
+  if (liq.desvio) {
+    const { MOTIVOS_DESVIO_DESCARGA } = await import('../types')
+    const d = liq.desvio
+    doc.setFontSize(9.5)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(180, 0, 0)
+    doc.text(`Faltan ${d.bolsasFaltantes} bolsas de mercadería (umbral ${d.umbral}) · ${MOTIVOS_DESVIO_DESCARGA[d.motivo]}`, 14, y, { maxWidth: pageW - 28 })
+    y += 5
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8.5)
+    // Guion ASCII, no el signo menos tipográfico: con U+2212 jsPDF cambia a una
+    // codificación de 16 bits y la línea sale mal con la fuente estándar.
+    // Y el alto se mide con splitTextToSize en vez de dar por hecho una línea:
+    // con varios productos y una nota larga esto ocupa dos o tres renglones, y
+    // un `y` fijo le pisaría encima la tabla siguiente.
+    const lineas = doc.splitTextToSize(
+      `${d.productos.map((p) => `${p.nombre} -${p.faltan}`).join('   ·   ')}${d.nota ? `   ·   ${d.nota}` : ''}   ·   observado por ${d.observadoPor.nombre}`,
+      pageW - 28,
+    ) as string[]
+    doc.text(lineas, 14, y)
+    doc.setTextColor(0)
+    y += lineas.length * 4 + 4
+  }
+
   if (liq.diferencia) {
     const { MOTIVOS_DIFERENCIA_LIQUIDACION } = await import('../types')
     doc.setFontSize(9)
