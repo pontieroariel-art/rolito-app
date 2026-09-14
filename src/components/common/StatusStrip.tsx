@@ -35,6 +35,10 @@ export interface SegmentoEstado {
   sufijo?:  string
   /** Con valor distinto de cero, el segmento se realza: hay que ir a mirarlo. */
   alerta?:  boolean
+  /** Cómo escribir el valor (importes: `formatoARS`). Sin esto, número entero con separador de miles. */
+  formato?: (valor: number) => string
+  /** Tooltip del segmento (quiénes son las cajas abiertas, por ejemplo). */
+  title?:   string
 }
 
 export default function StatusStrip({
@@ -60,6 +64,7 @@ export default function StatusStrip({
               <div
                 key={s.id}
                 className={`flex-1 min-w-[33.333%] sm:min-w-0 px-3.5 py-2.5 ${destacar ? t.realce : ''}`}
+                title={s.title}
               >
                 <div className="flex items-center gap-1.5 mb-0.5">
                   {s.icono && <span className={`shrink-0 ${enCero ? 'text-secundario' : t.texto}`}>{s.icono}</span>}
@@ -71,7 +76,7 @@ export default function StatusStrip({
                 <p className={`text-2xl font-bold leading-none tabular-nums ${
                   enCero ? 'text-secundario' : destacar ? t.texto : 'text-gray-900'
                 }`}>
-                  {s.valor.toLocaleString('es-AR')}
+                  {s.formato ? s.formato(s.valor) : s.valor.toLocaleString('es-AR')}
                   {s.sufijo && <span className="text-xs font-medium ml-1 text-secundario">{s.sufijo}</span>}
                 </p>
               </div>

@@ -8,14 +8,13 @@ import { subscribeCobranzasDelDia } from '@/services/cobranzaService'
 import { subscribeRemitosCargaDelDia } from '@/services/remitoCargaService'
 import { subscribeLiquidacionesEnRango } from '@/services/liquidacionService'
 import { subscribeRendicionesEnRango } from '@/services/rendicionService'
-import { subscribeEntregasEnRango } from '@/services/entregaTesoreriaService'
-import { esperadoTesoreria } from '@/utils/entregaTesoreria'
+import { custodiaTotal, useCustodiaTesoreria } from '@/hooks/useCustodiaTesoreria'
 import { addDaysStr } from '@/utils/helpers'
 import { formatoARS } from '@/utils/money'
 import { resumenLive, type FilaCalle, type FilaVentanilla, type PlataCobranzas, type PlataVentas } from '@/utils/tesoreriaLive'
 import { Plegable } from '@/components/ui/Plegable'
 import { CobranzaSupervisorCard } from '@/components/supervisor/CobranzaSupervisorCard'
-import { PLANTAS, type Cobranza, type EntregaTesoreria, type Liquidacion, type PlantaId, type RemitoCarga, type Rendicion, type VentaCamion, type VentaVentanilla } from '@/types'
+import { PLANTAS, type Cobranza, type Liquidacion, type PlantaId, type RemitoCarga, type Rendicion, type VentaCamion, type VentaVentanilla } from '@/types'
 import { TH, TD } from '@/components/common/tabla'
 
 // Tablero en vivo de tesorería (2026-09-09): lo que se está vendiendo en la
@@ -33,7 +32,6 @@ export default function TesoreriaLivePage() {
   const [remM, setRemM] = useState<RemitoCarga[]>([])
   const [liquidaciones, setLiquidaciones] = useState<Liquidacion[]>([])
   const [rendiciones, setRendiciones] = useState<Rendicion[]>([])
-  const [entregas, setEntregas] = useState<EntregaTesoreria[]>([])
   const [ultimoCambio, setUltimoCambio] = useState<Date | null>(null)
   // Supervisor expandido en el bloque de abajo: sus recibos uno por uno (2026-09-09).
   const [supAbierto, setSupAbierto] = useState<string | null>(null)
@@ -51,7 +49,6 @@ export default function TesoreriaLivePage() {
       subscribeRemitosCargaDelDia('merlo', fecha, tick(setRemM)),
       subscribeLiquidacionesEnRango(dia, manana, tick(setLiquidaciones)),
       subscribeRendicionesEnRango(dia, manana, tick(setRendiciones)),
-      subscribeEntregasEnRango(dia, manana, tick(setEntregas)),
     ]
     return () => offs.forEach((off) => off())
   }, [dia])
@@ -61,8 +58,10 @@ export default function TesoreriaLivePage() {
     [ventasCamion, vvT, vvM, cobranzas, remT, remM, liquidaciones, rendiciones],
   )
   const t = r.totales
-  // Entregas de caja a tesorería del día (2026-09-09): esperado vs pendiente / entregado / confirmado.
-  const esp = useMemo(() => esperadoTesoreria(liquidaciones, rendiciones, entregas), [liquidaciones, rendiciones, entregas])
+  // Custodia de los sobres de ventanilla (rendición de fondos, 2026-09-14):
+  // tiene que llegar / en camino / recibido / falta, las dos plantas sumadas.
+  const custodia = useCustodiaTesoreria(dia)
+  const cus = useMemo(() => custodiaTotal(custodia.porPlanta, 'todas'), [custodia.porPlanta])
   const inputClass = 'bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'
 
   return (
@@ -84,7 +83,7 @@ export default function TesoreriaLivePage() {
         <Tile color="#0F6B4E" titulo="Cobranzas calle" total={t.cobranzas.calle.total} lineas={lineasCob(t.cobranzas.calle)} />
         <Tile color="#0F6B4E" titulo="Cobranzas supervisores" total={t.cobranzas.supervisores.total} lineas={lineasCob(t.cobranzas.supervisores)} />
         <Tile color="#B4531A" titulo="Efectivo del día" total={t.efectivoDelDia} lineas={[['Ventas + cobranzas', 'todos los puntos'], ['Cobranzas mostrador', formatoARS(t.cobranzas.ventanilla.efectivo)]]} />
-        <Tile color="#6B21A8" titulo="Tiene que llegarme" total={esp.esperado.efectivo} lineas={[['Todavía en caja', formatoARS(esp.pendiente.efectivo)], ['Entregado, sin confirmar', formatoARS(esp.entregado.efectivo)], ['Confirmado', formatoARS(esp.confirmado.efectivo)], [`Cheques (${esp.esperado.cheques.cantidad}) · Ret. (${esp.esperado.retenciones.cantidad})`, formatoARS(esp.esperado.cheques.total + esp.esperado.retenciones.total)]]} to="/tesoreria/entregas" />
+        <Tile color="#6B21A8" titulo="Tiene que llegar" total={cus.totales.tieneQueLlegar} lineas={[[`En camino (${cus.enCamino.length})`, formatoARS(cus.totales.enCamino)], ['Recibido hoy', formatoARS(cus.totales.recibidoHoy)], ['Falta', formatoARS(cus.totales.falta)], ['Cajas abiertas', String(cus.cajasAbiertas.length)]]} to="/tesoreria/recepcion" linkTexto="Ver recepción" />
       </section>
 
       <Plegable titulo={`Calle · ${r.calle.length} camiones`} abiertoInicial extra={<span className="text-xs text-secundario">{r.calle.filter((f) => f.estado === 'liquidado').length} liquidados</span>}>
@@ -139,7 +138,7 @@ export default function TesoreriaLivePage() {
 
 const lineasCob = (c: PlataCobranzas): Array<[string, string]> => [['Efectivo', formatoARS(c.efectivo)], ['Transferencia', formatoARS(c.transferencia)], [`Cheques (${c.cheques.cantidad})`, formatoARS(c.cheques.total)], [`Retenciones (${c.retenciones.cantidad})`, formatoARS(c.retenciones.total)]]
 
-function Tile({ color, titulo, total, lineas, to }: { color: string; titulo: string; total: number; lineas: Array<[string, string]>; to?: string }) {
+function Tile({ color, titulo, total, lineas, to, linkTexto = 'Ver más' }: { color: string; titulo: string; total: number; lineas: Array<[string, string]>; to?: string; linkTexto?: string }) {
   return (
     <div className="rounded-xl border border-[#D3D1C7] bg-white p-3 space-y-1.5" style={{ borderTop: `4px solid ${color}` }}>
       <p className="text-xs font-bold uppercase tracking-wider" style={{ color }}>{titulo}</p>
@@ -147,7 +146,7 @@ function Tile({ color, titulo, total, lineas, to }: { color: string; titulo: str
       <div className="text-xs text-gray-600 space-y-0.5">
         {lineas.map(([k, v]) => <p key={k} className="flex justify-between gap-2"><span>{k}</span><b className="text-gray-800 tabular-nums">{v}</b></p>)}
       </div>
-      {to && <Link to={to} className="block text-xs text-accent underline underline-offset-2">Ver entregas</Link>}
+      {to && <Link to={to} className="block text-xs text-accent underline underline-offset-2">{linkTexto}</Link>}
     </div>
   )
 }
