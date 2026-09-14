@@ -36,7 +36,7 @@ function TileProductoBase({ producto: p, hoy, armado, codigoProximo, disabled, s
     if ((e.key === 'Enter' || e.key === ' ') && !disabled) { e.preventDefault(); onTap(p.id) }
   }
 
-  const base = 'relative flex flex-col items-center justify-center rounded-2xl select-none touch-manipulation active:scale-[0.98] disabled:opacity-60 disabled:pointer-events-none focus:outline-none'
+  const base = 'relative flex flex-col items-center justify-center rounded-2xl border-[4px] px-3 select-none touch-manipulation active:opacity-80 disabled:opacity-60 disabled:pointer-events-none focus:outline-none'
   return (
     <button
       type="button"
@@ -45,11 +45,13 @@ function TileProductoBase({ producto: p, hoy, armado, codigoProximo, disabled, s
       onKeyDown={teclado}
       aria-pressed={armado}
       aria-label={armado ? `${p.nombre}: confirmar e imprimir` : `${p.nombre}, ${hoy} hoy`}
-      className={`${base} ${spanDos ? 'col-span-2' : ''} ${armado ? 'gap-2 px-3 bg-white border-[8px]' : 'gap-0.5 border-[4px]'}`}
+      className={`${base} ${spanDos ? 'col-span-2' : ''} ${armado ? 'gap-2 bg-white' : 'gap-0.5'}`}
       style={{
         borderColor: p.color,
         backgroundColor: armado ? '#ffffff' : `${p.color}14`,
-        boxShadow: armado ? `0 0 0 6px ${p.color}55` : undefined,
+        // Armada: anillo del color del producto en vez de engrosar el borde (cambiar el
+        // grosor movía el contenido y en la tablet vieja se veía como una deformación).
+        boxShadow: armado ? `0 0 0 6px ${p.color}` : undefined,
       }}
     >
       {/* Conteo del día de ESTE producto, en la esquina: dato, no adorno. */}
