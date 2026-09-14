@@ -35,6 +35,10 @@ export interface FilaVentanilla {
   cobranzas: PlataCobranzas
   rendicion: Rendicion | null
   estado: 'abierta' | 'cerrada' | 'validada'
+  /** Las ventas del cajero una por una, por hora (2026-09-14): INCLUYE las anuladas (con su `anulacion`) para verlas tachadas; en las sumas no cuentan. */
+  ventas: VentaVentanilla[]
+  /** Las cobranzas de mostrador del cajero (`origen === 'caja'`), una por una, por hora. */
+  recibos: Cobranza[]
 }
 
 export interface FilaSupervisor {
@@ -124,21 +128,30 @@ export function resumenLive(d: {
   const filaV = (planta: PlantaId, id: string, nombre: string): FilaVentanilla => {
     const m = ventanilla[planta] ?? (ventanilla[planta] = new Map())
     let f = m.get(id)
-    if (!f) { f = { cajaId: id, nombre, contado: plataVacia(), promo: plataVacia(), bultos: [], cobranzas: cobVacia(), rendicion: null, estado: 'abierta' }; m.set(id, f) }
+    if (!f) { f = { cajaId: id, nombre, contado: plataVacia(), promo: plataVacia(), bultos: [], cobranzas: cobVacia(), rendicion: null, estado: 'abierta', ventas: [], recibos: [] }; m.set(id, f) }
     return f
   }
   for (const v of d.ventasVentanilla) {
     const f = filaV(v.plantaId, v.cajaId, v.cajaNombre)
+    f.ventas.push(v)
     if (v.anulacion?.estado === 'anulada') continue   // factura anulada con NC (2026-09-09): no cuenta
     sumarVenta(v.canal === 'promo' ? f.promo : f.contado, v)
     const acum = bultosPorCaja.get(`${v.plantaId}|${v.cajaId}`) ?? new Map<string, Bulto>()
     bultosDe(v.items, acum)
     bultosPorCaja.set(`${v.plantaId}|${v.cajaId}`, acum)
   }
-  for (const c of d.cobranzas) if (c.origen === 'caja' && c.plantaId) sumarCobranza(filaV(c.plantaId, c.registradoPor.uid, c.registradoPor.nombre).cobranzas, c)
+  for (const c of d.cobranzas) {
+    if (c.origen !== 'caja' || !c.plantaId) continue
+    const f = filaV(c.plantaId, c.registradoPor.uid, c.registradoPor.nombre)
+    f.recibos.push(c)
+    sumarCobranza(f.cobranzas, c)
+  }
   for (const r of d.rendiciones) if (r.tipo === 'mostrador') filaV(r.plantaId, r.sujetoId, r.sujetoNombre).rendicion = r
+  const porFecha = (a: { fecha: { toMillis(): number } }, b: { fecha: { toMillis(): number } }) => a.fecha.toMillis() - b.fecha.toMillis()
   for (const planta of Object.keys(ventanilla) as PlantaId[]) {
     for (const f of ventanilla[planta].values()) {
+      f.ventas.sort(porFecha)
+      f.recibos.sort(porFecha)
       f.bultos = [...(bultosPorCaja.get(`${planta}|${f.cajaId}`)?.values() ?? [])].sort((a, b) => b.cantidad - a.cantidad)
       f.estado = f.rendicion ? (f.rendicion.validacion ? 'validada' : 'cerrada') : 'abierta'
     }

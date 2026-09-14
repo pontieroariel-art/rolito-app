@@ -6,7 +6,6 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import ClienteCombobox from '@/components/common/ClienteCombobox'
 import SelectorSucursal from '@/components/ventas/SelectorSucursal'
 import { clienteEnSucursal, necesitaSucursal } from '@/utils/sucursalesTango'
-import { clienteImpreso } from '@/utils/clienteImpreso'
 import BotoneraProductos from '@/components/ventas/BotoneraProductos'
 import { useAuth } from '@/context/AuthContext'
 import { useClientesIndex } from '@/hooks/useClientesIndex'
@@ -27,9 +26,9 @@ import {
 import { getPreciosIncluyenIva, getTopeConsumidorFinalSinIdentificar } from '@/services/arcaConfigService'
 import { desgloseFactura, percepcionVigenteDe } from '@/utils/totalFacturado'
 import { nombreSucursalVenta } from '@/utils/sucursalesTango'
-import type { FacturaArcaData } from '@/utils/facturaArcaPdf'
-import { armarFacturaDeVenta, armarNotaCreditoDeVenta } from '@/utils/facturaDeVenta'
-import { generateTicketsVentanilla, generateTicketsVentanillaSeparados, type TurnoTicketData } from '@/utils/ventanillaTicket'
+import { armarNotaCreditoDeVenta } from '@/utils/facturaDeVenta'
+import { partesTicketDeVenta } from '@/utils/ticketDeVenta'
+import { generateTicketsVentanilla, generateTicketsVentanillaSeparados } from '@/utils/ventanillaTicket'
 import { imprimirPdf, leerModoImpresion, guardarModoImpresion, MODOS_IMPRESION, type ModoImpresion } from '@/utils/ticketTermico'
 import { usePreciosTango } from '@/hooks/usePreciosTango'
 import { useCopiasTicketVentanilla } from '@/hooks/useCopiasTicketVentanilla'
@@ -252,33 +251,16 @@ export default function VentanillaPage() {
   // (Eliprinter RP-8060P) en un solo trabajo de impresión: la factura
   // electrónica (si la hay) y el comprobante de turno, que es contra lo que
   // muelle entrega. Devuelve true si se generó todo lo pedido.
-  const imprimir = async (v: VentaVentanilla, partes: { factura: boolean; turno: boolean }): Promise<boolean> => {
-    let facturaDatos: FacturaArcaData | undefined
+  const imprimir = async (v: VentaVentanilla, pedido: { factura: boolean; turno: boolean }): Promise<boolean> => {
+    // El armado de los datos vive en utils/ticketDeVenta.ts (lo comparte Tesorería en vivo).
+    const { motivoFactura, ...partes } = partesTicketDeVenta(v, {
+      incluirFactura: pedido.factura, incluirTurno: pedido.turno, copiasTurno: copiasTicket[v.plantaId],
+      cliente: v.clienteId ? clientePorId.get(v.clienteId) : undefined,
+    })
     let facturaOk = true
-    if (partes.factura) {
-      const armado = armarFacturaDeVenta(v, v.clienteId ? clientePorId.get(v.clienteId) : undefined)
-      if (armado.ok) facturaDatos = armado.datos
-      else { setError(armado.motivo); facturaOk = false }
-    }
-    const turnoDatos: TurnoTicketData | undefined = partes.turno ? {
-      plantaId:      v.plantaId,
-      canal:         v.canal,
-      clienteNombre: v.clienteNombre,
-      clienteCuit:   v.clienteOcasional?.cuit ?? clientePorId.get(v.clienteId ?? '')?.cuit,
-      // Sucursal a la que va la carga (cuentas con varias): muelle entrega contra este papel.
-      sucursal:      v.clienteId ? clienteImpreso(v, clientePorId.get(v.clienteId)).sucursal || undefined : undefined,
-      items:         v.items,
-      total:         v.total,
-      formaPago:     v.formaPago,
-      cajaNombre:    v.cajaNombre,
-      fecha:         v.fecha.toDate(),
-      turno:         v.turno,
-      urlTurno:      `${window.location.origin}/turnos/${v.plantaId}?turno=${v.turno}`,
-      facturaNro:    v.factura?.estado === 'emitida' ? nroFactura(v) : undefined,
-    } : undefined
-    if (!facturaDatos && !turnoDatos) return false
+    if (motivoFactura) { setError(motivoFactura); facturaOk = false }
+    if (!partes.factura && !partes.turno) return false
     try {
-      const partes = { factura: facturaDatos, turno: turnoDatos, copiasTurno: copiasTicket[v.plantaId] }
       if (modoImpresion === 'rawbt') {
         // Tablet con RawBT (2026-09-12, pedido de caja): un trabajo por ticket.
         // El primero sale con este mismo toque; los demás, con un toque cada

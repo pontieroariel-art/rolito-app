@@ -23,10 +23,13 @@ export interface DescripcionComprobante {
 
 const LETRA: Record<number, string> = { 1: 'A', 6: 'B', 11: 'C' }
 
-export const nroFacturaArca = (v: VentaCamion): string =>
+/** Lo que hace falta para saber qué papel salió: lo tienen la venta del camión y la de ventanilla. */
+export type VentaConComprobante = Pick<VentaCamion, 'canal' | 'formaPago' | 'total'> & { factura?: VentaCamion['factura']; comprobanteInterno?: VentaCamion['comprobanteInterno'] }
+
+export const nroFacturaArca = (v: Pick<VentaConComprobante, 'factura'>): string =>
   v.factura ? `${String(v.factura.puntoVenta).padStart(5, '0')}-${String(v.factura.numero).padStart(8, '0')}` : ''
 
-export function describirComprobante(v: VentaCamion): DescripcionComprobante {
+export function describirComprobante(v: VentaConComprobante): DescripcionComprobante {
   const tipoInterno = tipoComprobanteInterno(v)
   if (tipoInterno) {
     const etiqueta = tipoInterno === 'facturaX' ? 'Factura X' : tipoInterno === 'remitoPromo' ? 'Remito Rolito' : 'Remito'

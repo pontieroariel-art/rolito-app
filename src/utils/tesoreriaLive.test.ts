@@ -66,5 +66,26 @@ describe('resumenLive — ventas de ventanilla anuladas', () => {
     })
     expect(r.totales.ventasVentanilla.contado.efectivo).toBe(1600)
     expect(r.ventanilla.torcuato[0].contado).toMatchObject({ cantidad: 2, efectivo: 1600 })
+    // Pero sigue en la lista una por una, con su anulación, para verla tachada.
+    expect(r.ventanilla.torcuato[0].ventas.map((v) => v.id)).toEqual(['w1', 'w2', 'w3'])
+  })
+})
+
+describe('resumenLive — detalle por cajero (ventas y recibos uno por uno)', () => {
+  const t = (ms: number) => ({ toMillis: () => ms, toDate: () => new Date(ms) } as unknown as VentaCamion['fecha'])
+  it('las ventas y las cobranzas de mostrador del cajero van ordenadas por hora', () => {
+    const r = resumenLive({
+      ventasCamion: [], remitos: [], liquidaciones: [], rendiciones: [],
+      ventasVentanilla: [vv({ id: 'tarde', fecha: t(3000) }), vv({ id: 'temprano', fecha: t(1000) }), vv({ id: 'otro', cajaId: 'u2', cajaNombre: 'Cris', fecha: t(2000) })],
+      cobranzas: [
+        cob({ id: 'r2', origen: 'caja', plantaId: 'torcuato', registradoPor: { uid: 'u1', nombre: 'Nico' }, fecha: t(5000) }),
+        cob({ id: 'r1', origen: 'caja', plantaId: 'torcuato', registradoPor: { uid: 'u1', nombre: 'Nico' }, fecha: t(4000) }),
+        cob({ id: 'sup', origen: 'supervisor', registradoPor: { uid: 'u1', nombre: 'Nico' }, fecha: t(4500) }),   // no es de mostrador
+      ],
+    })
+    const nico = r.ventanilla.torcuato.find((f) => f.cajaId === 'u1')!
+    expect(nico.ventas.map((v) => v.id)).toEqual(['temprano', 'tarde'])
+    expect(nico.recibos.map((c) => c.id)).toEqual(['r1', 'r2'])
+    expect(r.ventanilla.torcuato.find((f) => f.cajaId === 'u2')!.ventas.map((v) => v.id)).toEqual(['otro'])
   })
 })

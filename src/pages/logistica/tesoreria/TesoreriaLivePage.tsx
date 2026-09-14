@@ -14,6 +14,7 @@ import { formatoARS } from '@/utils/money'
 import { resumenLive, type FilaCalle, type FilaVentanilla, type PlataCobranzas, type PlataVentas } from '@/utils/tesoreriaLive'
 import { Plegable } from '@/components/ui/Plegable'
 import { CobranzaSupervisorCard } from '@/components/supervisor/CobranzaSupervisorCard'
+import VentasDeCajero from '@/components/tesoreria/VentasDeCajero'
 import { PLANTAS, type Cobranza, type Liquidacion, type PlantaId, type RemitoCarga, type Rendicion, type VentaCamion, type VentaVentanilla } from '@/types'
 import { TH, TD } from '@/components/common/tabla'
 
@@ -196,16 +197,22 @@ function TablaCalle({ filas, dia }: { filas: FilaCalle[]; dia: string }) {
   )
 }
 
+// Cada cajero se expande con sus ventas y cobranzas una por una (2026-09-14,
+// pedido de Ariel): qué llevó cada cliente, el ticket y el comprobante.
 function TablaVentanilla({ filas }: { filas: FilaVentanilla[] }) {
+  const [abierto, setAbierto] = useState<string | null>(null)
   return (
     <table className="w-full min-w-[860px]">
-      <thead><tr>{['Cajero', 'Contado', 'Promo', 'Bultos', 'Cobranzas', 'Efectivo', 'Cierre', 'Estado'].map((h, i) => <th key={h} className={`${TH} ${i > 0 && i < 7 ? 'text-right' : ''}`}>{h}</th>)}</tr></thead>
+      <thead><tr>{['Cajero', 'Contado', 'Promo', 'Bultos', 'Cobranzas', 'Efectivo', 'Cierre', 'Estado', ''].map((h, i) => <th key={i} className={`${TH} ${i > 0 && i < 7 ? 'text-right' : ''}`}>{h}</th>)}</tr></thead>
       <tbody>
         {filas.map((f) => {
           const efectivo = f.contado.efectivo + f.promo.efectivo + f.cobranzas.efectivo + (f.rendicion?.recibido.efectivo ?? 0)
           const e = ESTADO_CAJA[f.estado]
+          const expandido = abierto === f.cajaId
+          const movimientos = f.ventas.length + f.recibos.length
           return (
-            <tr key={f.cajaId}>
+            <Fragment key={f.cajaId}>
+            <tr>
               <td className={TD}>{f.nombre}</td>
               <td className={`${TD} text-right tabular-nums`}>{ventasTxt(f.contado)}</td>
               <td className={`${TD} text-right tabular-nums`}>{ventasTxt(f.promo)}</td>
@@ -218,10 +225,24 @@ function TablaVentanilla({ filas }: { filas: FilaVentanilla[] }) {
                   : '—'}
               </td>
               <td className={TD}><span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium whitespace-nowrap ${e.clase}`}>{f.estado === 'validada' && <ShieldCheck size={12} />}{e.texto}</span></td>
+              <td className={`${TD} text-right`}>
+                <button type="button" onClick={() => setAbierto(expandido ? null : f.cajaId)} aria-expanded={expandido}
+                  className="inline-flex items-center gap-1 min-h-[44px] px-2 -my-2 text-xs font-medium text-accent hover:bg-accent/10 rounded-lg whitespace-nowrap">
+                  {expandido ? <ChevronDown size={14} /> : <ChevronRight size={14} />} {expandido ? 'Ocultar' : `Ver ventas (${movimientos})`}
+                </button>
+              </td>
             </tr>
+            {expandido && (
+              <tr>
+                <td colSpan={9} className="bg-[#F8F7F2] px-3 py-3 border-b border-[#E7E5DC]">
+                  <VentasDeCajero fila={f} />
+                </td>
+              </tr>
+            )}
+            </Fragment>
           )
         })}
-        {filas.length === 0 && <tr><td className={`${TD} text-secundario`} colSpan={8}>Sin ventas ni cobranzas de mostrador.</td></tr>}
+        {filas.length === 0 && <tr><td className={`${TD} text-secundario`} colSpan={9}>Sin ventas ni cobranzas de mostrador.</td></tr>}
       </tbody>
     </table>
   )
