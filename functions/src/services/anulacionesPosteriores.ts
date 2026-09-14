@@ -35,6 +35,7 @@ export interface AnulacionPosterior {
 interface VentaAnulada {
   clienteNombre?: unknown
   total?: unknown
+  factura?: { importes?: { total?: number } | null } | null
   formaPago?: unknown
   fecha?: { toDate?: () => Date } | null
   choferId?: unknown
@@ -75,7 +76,8 @@ export function entradaDeAnulacion(ventaId: string, venta: VentaAnulada, solicit
   return {
     ventaId,
     clienteNombre: String(venta.clienteNombre ?? ''),
-    total: Number(venta.total ?? 0),
+    // Lo cobrado: total de la factura de ARCA si la hubo (con IVA), si no el de lista (2026-09-14).
+    total: Number(venta.factura?.importes?.total ?? venta.total ?? 0),
     formaPago: String(venta.formaPago ?? ''),
     tipo,
     comprobante,

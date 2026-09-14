@@ -34,6 +34,11 @@ describe('calcularMostrador', () => {
     // a (10) + c (60) + d (10) + e (10) bolsas; b son 2 barras
     expect(m.bultos).toEqual([{ productoId: 'bolsa_10kg', nombre: 'Bolsa 10', cantidad: 90 }, { productoId: 'barra', nombre: 'Barra', cantidad: 2 }])
   })
+  it('una venta facturada por ARCA cuenta el total de la factura, con IVA (2026-09-14)', () => {
+    const m = calcularMostrador([venta({ id: 'f', total: 108600, formaPago: 'contado_transferencia', factura: { estado: 'emitida', numero: 6, puntoVenta: 1104, cbteTipo: 1, cae: 'x', caeFchVto: null, importes: { fecha: '20260914', neto: 108600, iva: 22806, tributos: 0, total: 131406 } } })], [])
+    expect(m.ventas.contadoTransferencia).toBe(131406)
+    expect(m.ventas.total).toBe(131406)
+  })
   it('cobranzas: efectivo y transferencia por medios, cheques y retenciones aparte', () => {
     const m = calcularMostrador(ventas, cobranzas)
     expect(m.cobranzas).toEqual({ cantidad: 2, efectivo: 700, transferencia: 100, cheques: { cantidad: 1, total: 900 }, retenciones: { cantidad: 1, total: 100 }, total: 1800 })

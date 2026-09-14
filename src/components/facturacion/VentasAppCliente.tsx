@@ -10,6 +10,7 @@ import { facturaAnulable, textoAnulacion } from '@/utils/anulacionVenta'
 import { tipoComprobanteInterno } from '@/utils/comprobanteInterno'
 import { codigoComprobanteInterno } from '@/utils/numeracionInterna'
 import { formatoARS } from '@/utils/money'
+import { importeCobrado } from '@/utils/importeCobrado'
 import { nombreClienteVenta } from '@/utils/nombreClienteVenta'
 import type { VentaCamion, VentaVentanilla } from '@/types'
 
@@ -125,7 +126,7 @@ export default function VentasAppCliente({ clienteUid }: { clienteUid: string })
                       {comprobanteDeVenta(v)}
                       <span className="block text-[11px] text-secundario no-underline">{v.canal === 'promo' ? 'Promo' : 'Contado'} · {v.formaPago.replace(/_/g, ' ')}</span>
                     </td>
-                    <td className={`px-2 py-2 text-right tabular-nums whitespace-nowrap ${anulada ? 'text-secundario' : 'text-gray-900'}`}>{formatoARS(v.total)}</td>
+                    <td className={`px-2 py-2 text-right tabular-nums whitespace-nowrap ${anulada ? 'text-secundario' : 'text-gray-900'}`}>{formatoARS(importeCobrado(v))}</td>
                     <td className={`px-2 py-2 text-xs ${tono}`}>{estado?.texto ?? 'Vigente'}</td>
                     <td className="pr-3 py-2 text-right whitespace-nowrap">
                       {puedeAnular && facturaAnulable(v) && (

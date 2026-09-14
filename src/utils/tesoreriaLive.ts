@@ -1,5 +1,6 @@
 import type { Cobranza, Liquidacion, PlantaId, RemitoCarga, Rendicion, VentaCamion, VentaVentanilla } from '@/types'
 import { chequesDe, efectivoDe, retencionesDe, sumaImportes, transferenciaDe } from './medios'
+import { importeCobrado, type VentaConImporte } from './importeCobrado'
 
 // Cálculo PURO del tablero en vivo de tesorería (2026-09-09): con los docs de
 // un día (ventas del camión, ventas de ventanilla de las dos plantas,
@@ -62,12 +63,13 @@ export interface ResumenLive {
 const plataVacia = (): PlataVentas => ({ cantidad: 0, efectivo: 0, transferencia: 0, cuentaCorriente: 0, total: 0 })
 const cobVacia = (): PlataCobranzas => ({ cantidad: 0, efectivo: 0, transferencia: 0, cheques: { cantidad: 0, total: 0 }, retenciones: { cantidad: 0, total: 0 }, total: 0 })
 
-function sumarVenta(p: PlataVentas, v: { formaPago: string; total: number }): void {
+function sumarVenta(p: PlataVentas, v: VentaConImporte & { formaPago: string }): void {
+  const importe = importeCobrado(v)   // con IVA si hay factura de ARCA (2026-09-14)
   p.cantidad++
-  if (v.formaPago === 'contado_efectivo') p.efectivo += v.total
-  else if (v.formaPago === 'contado_transferencia') p.transferencia += v.total
-  else p.cuentaCorriente += v.total
-  p.total += v.total
+  if (v.formaPago === 'contado_efectivo') p.efectivo += importe
+  else if (v.formaPago === 'contado_transferencia') p.transferencia += importe
+  else p.cuentaCorriente += importe
+  p.total += importe
 }
 
 function sumarCobranza(p: PlataCobranzas, c: Cobranza): void {

@@ -16,6 +16,7 @@ import { caiRemitoOficialCacheado, getCaiRemitoOficial } from '@/services/remito
 import MenuComprobanteVenta from '@/components/ventas/MenuComprobanteVenta'
 import { VentaCamion } from '@/types'
 import { nombreClienteVenta } from '@/utils/nombreClienteVenta'
+import { importeCobrado } from '@/utils/importeCobrado'
 import { useEnvioAutomaticoVentas } from '@/hooks/useEnvioAutomaticoVentas'
 import { estadoEnvioLocal, pendienteDeEnvio } from '@/services/envioAutomaticoVentasService'
 import MenuCompartirPdf, { type PdfGenerado } from '@/components/ui/MenuCompartirPdf'
@@ -113,7 +114,7 @@ export default function VentasChofer({ volverA = '/chofer' }: { volverA?: string
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="font-semibold text-gray-800">{nombreClienteVenta(v)}</span>
                   <span className="font-mono text-sm font-semibold tabular-nums text-gray-900">
-                    ${money(v.total)}
+                    ${money(importeCobrado(v))}
                   </span>
                 </div>
 

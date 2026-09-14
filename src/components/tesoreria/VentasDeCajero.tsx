@@ -14,6 +14,7 @@ import type { CaiRemito } from '@/utils/comprobanteInterno'
 import { descargarArchivo } from '@/utils/compartir'
 import { chequesDe, efectivoDe, retencionesDe, sumaImportes, transferenciaDe } from '@/utils/medios'
 import { formatoARS } from '@/utils/money'
+import { importeCobrado } from '@/utils/importeCobrado'
 import { nombreClienteVenta } from '@/utils/nombreClienteVenta'
 import { generateReciboCobranza } from '@/utils/pdf'
 import { partesTicketDeVenta } from '@/utils/ticketDeVenta'
@@ -147,7 +148,7 @@ export default function VentasDeCajero({ fila }: { fila: FilaVentanilla }) {
                     </td>
                     <td className={`${TD} whitespace-nowrap`}><Badge tono="neutro" punto={false}>{chipPago(v)}</Badge></td>
                     <td className={`${TD} max-w-[320px]`}><span className="block truncate" title={detalle}>{detalle}</span></td>
-                    <td className={`${TD} text-right tabular-nums font-semibold whitespace-nowrap`}>{formatoARS(v.total)}</td>
+                    <td className={`${TD} text-right tabular-nums font-semibold whitespace-nowrap`}>{formatoARS(importeCobrado(v))}</td>
                     <td className={`${TD} whitespace-nowrap`}>
                       <Badge tono={b.tono} title={b.title}>{b.texto}</Badge>
                       {anul && <span className={`block mt-1 text-xs ${anul.tono === 'bad' ? 'text-red-700' : anul.tono === 'warn' ? 'text-amber-700' : 'text-secundario'}`}>{anul.texto}</span>}

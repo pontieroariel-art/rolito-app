@@ -3,6 +3,7 @@ import { toDateStr } from './helpers'
 import { describirEnvases, describirRacks, envasesDeRemito, type EnvasesNormalizados } from './envases'
 import { ROLITO_INFO, COMODATO_COMODANTE, PLANTA_INFO } from './constants'
 import { finTabla, salidaPdf, encabezadoA4 } from './pdfBase'
+import { importeCobrado } from './importeCobrado'
 
 // El logo fuente (/logo-rolito.png) es un PNG de 8334x2836px — insertado tal
 // cual con doc.addImage(), jsPDF lo reincrusta a resolución completa (el PDF
@@ -1102,7 +1103,7 @@ export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiq
         ...v.items.map((i) => `${i.cantidad} × ${i.nombre}`),
         ...(v.cambios ?? []).map((i) => `${i.cantidad} × ${nombreDelCambio(i.nombre)} (cambio)`),
       ].join('\n')
-      return [hora(v.fecha.toDate()), `${v.clienteNombre}${v.clienteCodigoTango ? ` · ${v.clienteCodigoTango}` : ''}`, arts, `${c.etiqueta} ${c.numero}${c.detalle ? ` · ${c.detalle}` : ''}`, t.estado === 'confirmado' ? t.texto.replace('Tango ✓ ', '') : t.estado === 'error' ? 'ERROR' : 'pendiente', money(v.total)]
+      return [hora(v.fecha.toDate()), `${v.clienteNombre}${v.clienteCodigoTango ? ` · ${v.clienteCodigoTango}` : ''}`, arts, `${c.etiqueta} ${c.numero}${c.detalle ? ` · ${c.detalle}` : ''}`, t.estado === 'confirmado' ? t.texto.replace('Tango ✓ ', '') : t.estado === 'error' ? 'ERROR' : 'pendiente', money(importeCobrado(v))]
     }
     const cabV = ['Hora', 'Cliente', 'Artículos', 'Comprobante', 'Tango', 'Importe']
     const colsV = { 0: { cellWidth: 12 }, 2: { cellWidth: 48 }, 5: { halign: 'right', cellWidth: 22 } }

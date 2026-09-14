@@ -9,6 +9,7 @@ import { reportError } from '@/services/observability'
 import { describirComprobante } from '@/utils/comprobanteDeVenta'
 import MenuComprobanteVenta from '@/components/ventas/MenuComprobanteVenta'
 import { formatoARS } from '@/utils/money'
+import { importeCobrado } from '@/utils/importeCobrado'
 import { STATUS_LABELS } from '@/utils/constants'
 import type { CaiRemito } from '@/utils/comprobanteInterno'
 import type { Cobranza, Order, UserProfile, VentaCamion, VentaVentanilla } from '@/types'
@@ -37,7 +38,7 @@ function VentaRow({ venta, caiRemito }: { venta: VentaCamion; cliente?: UserProf
           {comp.etiqueta}{comp.numero ? ` ${comp.numero}` : ''}{comp.detalle && comp.detalle !== 'CAE ok' ? ` · ${comp.detalle}` : ''}
         </p>
       </div>
-      <p className="text-sm font-medium text-gray-900 tabular-nums shrink-0">{formatoARS(venta.total)}</p>
+      <p className="text-sm font-medium text-gray-900 tabular-nums shrink-0">{formatoARS(importeCobrado(venta))}</p>
       <MenuComprobanteVenta venta={venta} cai={caiRemito} compacto />
     </div>
   )
@@ -91,7 +92,7 @@ export default function SeccionHistorial({ c }: { c: UserProfile }) {
                   <p className="text-sm text-gray-900">Mostrador <span className="text-secundario">· {fechaHora(it.fecha)}</span></p>
                   <p className="text-xs text-secundario truncate">{v.items.map((i) => `${i.cantidad} ${i.nombre}`).join(', ')}</p>
                 </div>
-                <p className="text-sm font-medium text-gray-900 tabular-nums shrink-0">{formatoARS(v.total)}</p>
+                <p className="text-sm font-medium text-gray-900 tabular-nums shrink-0">{formatoARS(importeCobrado(v))}</p>
               </div>
             )
           }

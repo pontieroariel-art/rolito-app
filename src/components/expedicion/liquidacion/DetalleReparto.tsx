@@ -9,6 +9,7 @@ import { clasificarReparto, type BloqueVentas, type RepartoClasificado } from '@
 import { nombreDelCambio } from '@/utils/cambios'
 import { envasesDeDescarga, envasesDeRemito, filasDeEnvases } from '@/utils/envases'
 import { formatoARS } from '@/utils/money'
+import { importeCobrado, sumaCobrada } from '@/utils/importeCobrado'
 import { puedeCompartirArchivos } from '@/utils/compartir'
 import { reportError } from '@/services/observability'
 import type { CaiRemito } from '@/utils/comprobanteInterno'
@@ -157,7 +158,7 @@ export default function DetalleReparto({ remitos, descargas, cobranzas, reparto,
       </Bloque>
 
       <Bloque estilo="rolito" titulo="Promo · Rolito" subtitulo="facturas X" total={reparto.promo.total}
-        pie={`efectivo ${formatoARS(reparto.promo.contado.ventas.filter((v) => v.formaPago === 'contado_efectivo').reduce((s, v) => s + v.total, 0))} se rinde · cta. cte. ${formatoARS(reparto.promo.cuentaCorriente.total)} a la cuenta del cliente en Rolito`}>
+        pie={`efectivo ${formatoARS(sumaCobrada(reparto.promo.contado.ventas.filter((v) => v.formaPago === 'contado_efectivo')))} se rinde · cta. cte. ${formatoARS(reparto.promo.cuentaCorriente.total)} a la cuenta del cliente en Rolito`}>
         {subBloque('Contado', reparto.promo.contado)}
         {subBloque('Cuenta corriente', reparto.promo.cuentaCorriente)}
         {reparto.promo.contado.ventas.length + reparto.promo.cuentaCorriente.ventas.length === 0 && <Vacio>Sin ventas de promo.</Vacio>}
@@ -303,7 +304,7 @@ const FilaVenta = memo(function FilaVenta({ venta: v, ocupado, compartible, aten
           )}
         </div>
       </div>
-      <p className="text-sm font-bold text-gray-900 tabular-nums text-right">{formatoARS(v.total)}</p>
+      <p className="text-sm font-bold text-gray-900 tabular-nums text-right">{formatoARS(importeCobrado(v))}</p>
     </div>
   )
 })

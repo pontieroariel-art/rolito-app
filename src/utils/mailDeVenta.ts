@@ -2,6 +2,7 @@ import type { VentaCamion } from '@/types'
 import { describirComprobante } from './comprobanteDeVenta'
 import { tipoComprobanteInterno } from './comprobanteInterno'
 import { formatoARS } from './money'
+import { importeCobrado } from './importeCobrado'
 
 // Mail del comprobante de una venta del camión (factura ARCA, remito o
 // factura X): mismo contenido para el envío manual desde Mis ventas
@@ -34,7 +35,7 @@ export function mailDeVenta(venta: VentaCamion): MailDeVenta {
       filas: [
         { label: 'Fecha', value: fecha },
         ...(venta.ordenCompra ? [{ label: 'Orden de compra', value: venta.ordenCompra }] : []),
-        ...(esFactura ? [{ label: 'Importe', value: formatoARS(venta.total) }] : []),
+        ...(esFactura ? [{ label: 'Importe', value: formatoARS(importeCobrado(venta)) }] : []),
         ...(venta.items.length ? [{ label: 'Detalle', value: venta.items.map((i) => `${i.cantidad} × ${i.nombre}`).join(', ').slice(0, 200) }] : []),
       ],
     },

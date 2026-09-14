@@ -5,6 +5,7 @@ import Modal from '@/components/ui/Modal'
 import { solicitarAnulacion, type VentaAnulable } from '@/services/anulacionService'
 import { reportError } from '@/services/observability'
 import { formatoARS } from '@/utils/money'
+import { importeCobrado } from '@/utils/importeCobrado'
 import { MOTIVOS_ANULACION, type MotivoAnulacion } from '@/types'
 
 // Factura de ARCA, o la factura X de promo (NC interna, 2026-09-11).
@@ -55,7 +56,7 @@ export default function SolicitarAnulacionModal({ objetivo, actor, origen, onCer
     <Modal open onClose={() => onCerrar(false)} title="Anular factura">
       <div className="space-y-3">
         <p className="text-sm text-gray-700">
-          Factura <b>{nroFactura(venta)}</b> · <b>{venta.clienteNombre}</b> · {formatoARS(venta.total)}
+          Factura <b>{nroFactura(venta)}</b> · <b>{venta.clienteNombre}</b> · {formatoARS(importeCobrado(venta))}
         </p>
         <div className="border border-[#D3D1C7] rounded-lg divide-y divide-[#E7E5DC] text-sm">
           {venta.items.map((i) => (

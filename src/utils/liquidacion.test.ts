@@ -307,3 +307,24 @@ describe('facturas anuladas con nota de crédito (2026-09-11)', () => {
     expect(rep.totalVendido).toBe(20000)
   })
 })
+
+describe('ventas facturadas por ARCA: se rinde el total de la factura, con IVA (2026-09-14)', () => {
+  const venta = (id: string, over: Record<string, unknown> = {}) => ({
+    id, canal: 'contado', camionId: '', choferId: 'ch', choferNombre: 'C', clienteId: 'c1', clienteNombre: 'Cliente',
+    items: [{ productoId: 'bolsa_2kg', nombre: 'Hielo bolsa 2kg', cantidad: 10, precioUnitario: 1000 }], total: 10000,
+    formaPago: 'contado_efectivo', fecha: Timestamp.fromDate(new Date(2026, 8, 14, 10, 0)), pedidoId: null, ...over,
+  }) as unknown as VentaCamion
+  const factura = { estado: 'emitida', numero: 6, puntoVenta: 1104, cbteTipo: 1, cae: 'x', caeFchVto: null, importes: { fecha: '20260914', neto: 10000, iva: 2100, tributos: 0, total: 12100 } }
+  it('calcularLiquidacion y clasificarReparto cuentan 12.100 y no 10.000; el remito de cta. cte. sigue en lista', () => {
+    const ventas = [venta('a', { factura }), venta('b'), venta('c', { formaPago: 'cuenta_corriente' })]
+    const calc = calcularLiquidacion([], ventas, [], [])
+    expect(calc.importes.contadoEfectivo).toBe(22100)
+    expect(calc.importes.cuentaCorriente).toBe(10000)
+    expect(calc.efectivoARendir).toBe(22100)
+    const rep = clasificarReparto(ventas, [])
+    expect(rep.contado.efectivo.total).toBe(22100)
+    expect(rep.efectivoARendir).toBe(22100)
+    expect(rep.clientes[0].contado).toBe(22100)
+    expect(rep.totalVendido).toBe(32100)
+  })
+})

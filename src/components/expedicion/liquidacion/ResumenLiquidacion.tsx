@@ -1,5 +1,6 @@
 import { AlertTriangle, CheckCircle2, PackageX, Truck } from 'lucide-react'
 import { formatoARS } from '@/utils/money'
+import { sumaCobrada } from '@/utils/importeCobrado'
 import { describirRacks } from '@/utils/envases'
 import type { LiquidacionCalculada, RepartoClasificado } from '@/utils/liquidacion'
 import type { DescargaCamion, Liquidacion, RemitoCarga } from '@/types'
@@ -86,7 +87,7 @@ export function TarjetasPlata({ reparto, calc, efectivoRecibido, onEfectivoRecib
   reparto: RepartoClasificado; calc: LiquidacionCalculada; efectivoRecibido: string; onEfectivoRecibido: (v: string) => void
   soloLectura: boolean; diferencia: number | null
 }) {
-  const promoEfectivo = reparto.promo.contado.ventas.filter((v) => v.formaPago === 'contado_efectivo').reduce((s, v) => s + v.total, 0)
+  const promoEfectivo = sumaCobrada(reparto.promo.contado.ventas.filter((v) => v.formaPago === 'contado_efectivo'))
   return (
     <section className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-4 space-y-4">
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">

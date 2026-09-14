@@ -18,6 +18,7 @@ import { useMiMostrador } from '@/hooks/useMiMostrador'
 import { useSesionAbierta } from '@/hooks/useCajaSesion'
 import AbrirTurnoPanel, { TurnoAbiertoChip } from '@/components/expedicion/AbrirTurnoPanel'
 import { delTurno } from '@/utils/turnoCaja'
+import { importeCobrado, sumaCobrada } from '@/utils/importeCobrado'
 import SolicitarAnulacionModal from '@/components/expedicion/SolicitarAnulacionModal'
 import { subscribeRendicion } from '@/services/rendicionService'
 import {
@@ -548,7 +549,7 @@ export default function VentanillaPage() {
 
       {/* Ventas del día */}
       <section className="space-y-2">
-        <h2 className="font-semibold text-gray-800">Ventanilla de hoy <span className="text-sm font-normal text-secundario">· {ventas.length} ventas · {money(ventas.filter((v) => v.anulacion?.estado !== 'anulada').reduce((s, v) => s + v.total, 0))}</span></h2>
+        <h2 className="font-semibold text-gray-800">Ventanilla de hoy <span className="text-sm font-normal text-secundario">· {ventas.length} ventas · {money(sumaCobrada(ventas.filter((v) => v.anulacion?.estado !== 'anulada')))}</span></h2>
         {ventas.length === 0 && <p className="text-secundario text-sm">Todavía no hubo ventas por ventanilla hoy.</p>}
         {ventas.map((v) => {
           const fac = estadoFactura(v)
@@ -563,7 +564,7 @@ export default function VentanillaPage() {
                   {v.cajaId !== user?.uid && <span className="ml-2 text-[10px] font-medium text-secundario bg-gray-100 border border-gray-200 rounded-full px-1.5 py-0.5 align-middle">{v.cajaNombre}</span>}
                 </p>
                 <p className="text-xs text-secundario">
-                  {money(v.total)} · {FORMAS_PAGO.find((f) => f.id === v.formaPago)?.label} · {v.canal === 'contado' ? 'Contado' : 'Promo'}
+                  {money(importeCobrado(v))} · {FORMAS_PAGO.find((f) => f.id === v.formaPago)?.label} · {v.canal === 'contado' ? 'Contado' : 'Promo'}
                   {fac && <span className={`ml-1 ${fac.clase}`}>· {fac.texto}</span>}
                 </p>
                 {v.anulacion && (() => { const t = textoAnulacion(v.anulacion); return <p className={`text-xs ${t.clase}`}>{t.texto}</p> })()}

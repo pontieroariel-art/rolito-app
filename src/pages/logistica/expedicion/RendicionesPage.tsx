@@ -19,6 +19,7 @@ import { cerrarTurnoYRendir, subscribeSobresDe, SobreYaExisteError } from '@/ser
 import { reportError } from '@/services/observability'
 import { addDaysStr } from '@/utils/helpers'
 import { formatoARS } from '@/utils/money'
+import { importeCobrado } from '@/utils/importeCobrado'
 import { sistemaVentanilla } from '@/utils/sobres'
 import { calcularMostrador } from '@/utils/rendicionMostrador'
 import { delTurno, horaCorta, liquidacionesPorRendir } from '@/utils/turnoCaja'
@@ -250,7 +251,7 @@ export default function RendicionesPage() {
                     <td className={td}>{v.canal === 'promo' ? 'Promo' : 'Contado'}</td>
                     <td className={td}>{FORMA[v.formaPago] ?? v.formaPago}</td>
                     <td className={`${td} text-gray-600`}>{comprobanteDe(v)}{v.anulacion?.estado === 'anulada' ? <span className="ml-1 no-underline text-red-600 font-semibold">ANULADA</span> : v.anulacion && (v.anulacion.estado === 'pendiente' || v.anulacion.estado === 'aprobada') ? <span className="ml-1 text-amber-700">anulación pendiente</span> : null}</td>
-                    <td className={`${td} text-right tabular-nums`}>{formatoARS(v.total)}</td>
+                    <td className={`${td} text-right tabular-nums`}>{formatoARS(importeCobrado(v))}</td>
                   </tr>
                 ))}
                 {ventasTurno.length === 0 && <tr><td className={`${td} text-secundario`} colSpan={7}>Sin ventas en este turno.</td></tr>}

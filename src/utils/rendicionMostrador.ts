@@ -1,5 +1,6 @@
 import type { Cobranza, Liquidacion, VentaVentanilla } from '@/types'
 import { chequesDe, efectivoDe, retencionesDe, sumaImportes, transferenciaDe } from './medios'
+import { sumaCobrada } from './importeCobrado'
 // Valores en papel viven en utils/valoresEnPapel.ts (los comparten liquidación,
 // cierre de caja y entrega a tesorería); se re-exportan por compatibilidad.
 export { valoresEnPapel, type ChequeEnPapel, type RetencionEnPapel } from './valoresEnPapel'
@@ -65,7 +66,7 @@ export function calcularMostrador(
   liquidacionesRecibidas: Liquidacion[] = [],
 ): MostradorCalculado {
   const ventas = todasLasVentas.filter((v) => !ventaAnulada(v))
-  const suma = (filtro: (v: VentaVentanilla) => boolean) => ventas.filter(filtro).reduce((s, v) => s + v.total, 0)
+  const suma = (filtro: (v: VentaVentanilla) => boolean) => sumaCobrada(ventas.filter(filtro))
   const contado = (v: VentaVentanilla) => v.canal !== 'promo'
   const promo = (v: VentaVentanilla) => v.canal === 'promo'
   const vm: VentasMostrador = {

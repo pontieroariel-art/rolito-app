@@ -8,6 +8,7 @@ import { chequesDe, efectivoDe, retencionesDe, sumaImportes, transferenciaDe } f
 import { nombreClienteVenta } from '@/utils/nombreClienteVenta'
 import { ventaAnulada, ventasVigentes } from './anulacionVenta'
 import { descargasVigentes } from './rectificacionDescarga'
+import { importeCobrado, sumaCobrada } from './importeCobrado'
 
 // Cálculo puro de la liquidación del repartidor — replica la hoja
 // "Liquidación de repartidores" del sistema viejo: por producto, carga −
@@ -87,7 +88,7 @@ export function calcularLiquidacion(
 
   // ── Plata ──
   const porPago = (fp: VentaCamion['formaPago']) =>
-    ventas.filter((v) => v.formaPago === fp).reduce((s, v) => s + v.total, 0)
+    sumaCobrada(ventas.filter((v) => v.formaPago === fp))
   const contadoEfectivo      = porPago('contado_efectivo')
   const contadoTransferencia = porPago('contado_transferencia')
   const cuentaCorriente      = porPago('cuenta_corriente')
@@ -180,7 +181,7 @@ export interface RepartoClasificado {
 }
 
 const porFecha = <T extends { fecha: { toMillis(): number } }>(a: T, b: T) => a.fecha.toMillis() - b.fecha.toMillis()
-const bloque = (ventas: VentaCamion[]): BloqueVentas => ({ ventas: ventas.slice().sort(porFecha), total: ventas.reduce((s, v) => s + v.total, 0) })
+const bloque = (ventas: VentaCamion[]): BloqueVentas => ({ ventas: ventas.slice().sort(porFecha), total: sumaCobrada(ventas) })
 
 export function clasificarReparto(
   ventas: VentaCamion[],
@@ -249,9 +250,9 @@ export function clasificarReparto(
   for (const v of ventas) {
     const c = cli(v.clienteId, nombreClienteVenta(v), v.clienteCodigoTango)
     c.ventas++
-    if (v.canal === 'promo') c.promo += v.total
-    else if (v.formaPago === 'cuenta_corriente') c.cuentaCorriente += v.total
-    else c.contado += v.total
+    if (v.canal === 'promo') c.promo += importeCobrado(v)
+    else if (v.formaPago === 'cuenta_corriente') c.cuentaCorriente += importeCobrado(v)
+    else c.contado += importeCobrado(v)
     c.cambios += (v.cambios ?? []).reduce((s, i) => s + i.cantidad, 0)
     c.problemas += problemasPorVenta.get(v.id) ?? 0
   }
@@ -266,7 +267,7 @@ export function clasificarReparto(
     problemas,
     anuladas,
     totalVendido,
-    efectivoARendir: contado.efectivo.total + promo.contado.ventas.filter((v) => v.formaPago === 'contado_efectivo').reduce((s, v) => s + v.total, 0) + cob.efectivo,
+    efectivoARendir: contado.efectivo.total + sumaCobrada(promo.contado.ventas.filter((v) => v.formaPago === 'contado_efectivo')) + cob.efectivo,
   }
 }
 
