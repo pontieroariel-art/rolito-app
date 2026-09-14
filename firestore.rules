@@ -248,6 +248,14 @@ service cloud.firestore {
     function isChofer() {
       return hasRol('chofer');
     }
+    // Rendición de fondos (2026-09-14): todo cobro de mostrador (venta de
+    // ventanilla, cobranza con origen 'caja') lleva el turno de caja en el que
+    // se hizo, y ese turno tiene que estar ABIERTO y ser del mismo cajero. Sin
+    // turno abierto la ventanilla no vende ni cobra. Un solo get por request.
+    function sesionAbiertaDelCajero(id) {
+      let s = get(/databases/$(database)/documents/cajaSesiones/$(id)).data;
+      return s.estado == 'abierta' && s.cajero.uid == request.auth.uid;
+    }
     // Identidad, no permiso: 'cliente' no puede ir como rol adicional.
     function isCliente() {
       return myRole() == 'cliente';
@@ -674,13 +682,14 @@ service cloud.firestore {
       // solo puede avanzar `next` (la transacción de crearRemitoCarga crea el
       // doc en el primer uso con next >= 2: número emitido + 1).
       // Mismo esquema para el contador de rendiciones (cierre de caja por
-      // persona, rendicionCounter_{planta}) y el de entregas a tesorería
-      // (entregaCounter_{planta}), 2026-09-09.
+      // persona, rendicionCounter_{planta}), el de entregas a tesorería
+      // (entregaCounter_{planta}), 2026-09-09, y el del sobre de ventanilla a
+      // tesorería (sobreVentanillaCounter_{planta}, código RV-DT-000012, 2026-09-14).
       allow create: if request.auth != null
-        && docId.matches('(cargaCounter|rendicionCounter|entregaCounter)_(torcuato|merlo)') && isCajaDe(docId.split('_')[1])
+        && docId.matches('(cargaCounter|rendicionCounter|entregaCounter|sobreVentanillaCounter)_(torcuato|merlo)') && isCajaDe(docId.split('_')[1])
         && request.resource.data.next is int && request.resource.data.next > 1;
       allow update: if request.auth != null
-        && docId.matches('(cargaCounter|rendicionCounter|entregaCounter)_(torcuato|merlo)') && isCajaDe(docId.split('_')[1])
+        && docId.matches('(cargaCounter|rendicionCounter|entregaCounter|sobreVentanillaCounter)_(torcuato|merlo)') && isCajaDe(docId.split('_')[1])
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next'])
         && request.resource.data.next > resource.data.next;
       // Contador del remito R de carga (remitoCargaCounter, talonario 00025,
@@ -1273,7 +1282,10 @@ service cloud.firestore {
         && request.resource.data.total is number
         && request.resource.data.estado == 'pendiente_entrega'
         && request.resource.data.turno is int && request.resource.data.turno > 0
-        && request.resource.data.turnoEstado == 'en_espera';
+        && request.resource.data.turnoEstado == 'en_espera'
+        // Turno de caja abierto del propio cajero (rendición de fondos, 2026-09-14).
+        && request.resource.data.cajaSesionId is string
+        && sesionAbiertaDelCajero(request.resource.data.cajaSesionId);
 
       // Muelle maneja la COLA de turnos (preparado / llamado a dársena /
       // ausente) mientras la venta sigue pendiente — solo esos campos, nunca
@@ -1339,7 +1351,11 @@ service cloud.firestore {
       // (origen 'caja', en su planta) y el chofer en la calle (origen 'cobrador').
       allow create: if request.auth != null
         && (((isSupervisor() || esSuperAdmin()) && request.resource.data.origen == 'supervisor')
-            || (isCajaDe(request.resource.data.plantaId) && request.resource.data.origen == 'caja')
+            // Mostrador: además, el turno de caja abierto del propio cajero
+            // (rendición de fondos, 2026-09-14).
+            || (isCajaDe(request.resource.data.plantaId) && request.resource.data.origen == 'caja'
+                && request.resource.data.cajaSesionId is string
+                && sesionAbiertaDelCajero(request.resource.data.cajaSesionId))
             || (isChofer() && request.resource.data.origen == 'cobrador'))
         && request.resource.data.registradoPor.uid == request.auth.uid
         && request.resource.data.clienteId is string
@@ -1543,40 +1559,143 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // ── Rendiciones: cierre de caja por persona y día (2026-09-09) ────────
-    // Hoy solo tipo 'mostrador' (usuario de ventanilla). Inmutable salvo:
-    // `validacion` (tesorería la revisa, una sola vez) y `entregaId` (la
-    // entrega a tesorería que la incluye, fase siguiente; solo operador).
-    match /rendiciones/{rendicionId} {
+    // ── Turnos de caja (rendición de fondos, 2026-09-14) ──────────────────
+    // cajaSesiones/{fecha}_{uid}_{n}: el turno individual de un cajero de
+    // ventanilla. Nace 'abierta' (fondo inicial 0: hoy no hay fondo fijo; si un
+    // día lo hay lo carga tesorería/operador a su nombre) y pasa a 'cerrada'
+    // en la MISMA transacción que crea el sobre de ventanilla (getAfter). Un
+    // solo turno abierto por cajero: la sesión n solo se abre si la n-1 está
+    // cerrada. Nadie borra.
+    match /cajaSesiones/{sesionId} {
+      function sesionAnterior(d) {
+        return get(/databases/$(database)/documents/cajaSesiones/$(d.fecha + '_' + d.cajero.uid + '_' + string(d.numero - 1))).data;
+      }
+      function fondoOk(d) {
+        return (d.get('fondoInicialDe', null) == null && d.fondoInicial == 0)
+          || ((isTesoreria() || isOperator()) && d.fondoInicialDe.uid == request.auth.uid);
+      }
+
       allow read: if request.auth != null
-        && (isCaja() || isOperator() || isManager() || isGerenteGeneral() || isTesoreria() || isSupervisor()
-            || (isChofer() && resource.data.sujetoId == request.auth.uid));
+        && (isCaja() || isTesoreria() || isOperator() || isManager() || isGerenteGeneral());
 
       allow create: if request.auth != null && isCajaDe(request.resource.data.plantaId)
-        && request.resource.data.tipo == 'mostrador'
-        && request.resource.data.sujetoId == request.auth.uid
-        && request.resource.data.cerradaPor.uid == request.auth.uid
+        && request.resource.data.cajero.uid == request.auth.uid
+        && request.resource.data.estado == 'abierta'
         && request.resource.data.fecha is string
-        && rendicionId == request.resource.data.fecha + '_' + request.resource.data.sujetoId
+        && request.resource.data.numero is int && request.resource.data.numero > 0
+        && sesionId == request.resource.data.fecha + '_' + request.auth.uid + '_' + string(request.resource.data.numero)
+        && request.resource.data.fondoInicial is number && request.resource.data.fondoInicial >= 0
+        && fondoOk(request.resource.data)
+        && request.resource.data.abiertaEn is timestamp
+        && !('cerradaEn' in request.resource.data)
+        && !('rendicionId' in request.resource.data)
+        && (request.resource.data.numero == 1
+            || sesionAnterior(request.resource.data).estado == 'cerrada');
+
+      // Cerrar = el propio cajero (o el operador), abierta -> cerrada, solo esos
+      // campos, y el sobre que la cierra tiene que existir en la misma
+      // transacción apuntando a este turno.
+      allow update: if request.auth != null && !esEscrituraImpersonada()
+        && (resource.data.cajero.uid == request.auth.uid || isOperator())
+        && resource.data.estado == 'abierta'
+        && request.resource.data.estado == 'cerrada'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'cerradaEn', 'rendicionId'])
+        && request.resource.data.cerradaEn is timestamp
+        && request.resource.data.rendicionId is string
+        && getAfter(/databases/$(database)/documents/rendiciones/$(request.resource.data.rendicionId)).data.cajaSesionId == sesionId;
+
+      allow delete: if false;
+    }
+
+    // ── Rendiciones: el SOBRE (rendición de fondos, 2026-09-14) ───────────
+    // Fase 1: solo tipo 'ventanilla' (caja -> tesorería). Nace cuando el cajero
+    // cierra su turno con arqueo ciego (sistema vs declarado, firma) y muere
+    // cuando tesorería lo recibe (una sola vez, con su conteo, valores tildados
+    // y firma: doble conformidad). La custodia dice quién tiene la plata ahora.
+    // Los tipos 'cobrador' y 'chofer' llegan en las fases 2 y 3.
+    // Los cierres viejos (tipo 'mostrador', 09 al 13/09) se siguen leyendo;
+    // ya no se crean ni se validan (la validación desapareció con el sobre);
+    // solo se les puede fijar entregaId para regularizar lo pendiente.
+    // anulacionesPosteriores lo escribe el server (Admin SDK).
+    match /rendiciones/{rendicionId} {
+      function sesionDespues(d) {
+        return getAfter(/databases/$(database)/documents/cajaSesiones/$(d.cajaSesionId)).data;
+      }
+      // Con diferencia declarada (efectivo o valores ausentes), motivo y nota.
+      function motivoDiferenciaOk(d) {
+        return (d.diferenciaDeclarada.efectivo == 0 && d.diferenciaDeclarada.valoresFaltantes.cantidad == 0)
+          || (d.motivoDiferencia.motivo is string
+              && d.motivoDiferencia.nota is string && d.motivoDiferencia.nota.size() > 0);
+      }
+      function recepcionOk(r, sistema) {
+        return r.recibio.uid == request.auth.uid
+          && r.en is timestamp
+          && r.efectivoContado is number
+          && r.cheques is list && r.cheques.size() == sistema.cheques.size()
+          && r.retenciones is list && r.retenciones.size() == sistema.retenciones.size()
+          && r.conformidad in ['conforme', 'con_diferencia']
+          && (r.conformidad == 'conforme'
+              || (r.diferencia.motivo is string
+                  && r.diferencia.nota is string && r.diferencia.nota.size() > 0))
+          && r.firmaRecibe is string && r.firmaRecibe.size() > 0;
+      }
+
+      allow read: if request.auth != null
+        && (isCaja() || isOperator() || isManager() || isGerenteGeneral() || isTesoreria() || isSupervisor()
+            || (isChofer() && resource.data.get('sujetoId', '') == request.auth.uid)
+            // el que rindió ve su sobre (estado de la recepción)
+            || resource.data.get('rindio', {}).get('uid', '') == request.auth.uid);
+
+      // Sobre de ventanilla: lo crea el cajero al cerrar SU turno, en la misma
+      // transacción que pasa la sesión a 'cerrada' (getAfter). Id = id de la
+      // sesión ({fecha}_{uid}_{n}). Estado inicial y custodia del que rinde.
+      allow create: if request.auth != null && isCajaDe(request.resource.data.plantaId)
+        && request.resource.data.tipo == 'ventanilla'
+        && request.resource.data.rindeA == 'tesoreria'
+        && request.resource.data.rindio.uid == request.auth.uid
+        && request.resource.data.rindio.rol == 'caja'
+        && request.resource.data.fecha is string
+        && request.resource.data.cajaSesionId is string
+        && rendicionId == request.resource.data.cajaSesionId
+        && sesionDespues(request.resource.data).rendicionId == rendicionId
+        && sesionDespues(request.resource.data).estado == 'cerrada'
+        && sesionDespues(request.resource.data).cajero.uid == request.auth.uid
+        && sesionDespues(request.resource.data).fecha == request.resource.data.fecha
+        && sesionDespues(request.resource.data).plantaId == request.resource.data.plantaId
         && request.resource.data.numero is int && request.resource.data.numero > 0
         && request.resource.data.codigo is string
-        && request.resource.data.efectivoARendir is number
-        && request.resource.data.efectivoContado is number
-        && request.resource.data.diferenciaEfectivo is number
-        && request.resource.data.firma is string && request.resource.data.firma.size() > 0
-        && request.resource.data.ventasIds is list
-        && request.resource.data.cobranzasIds is list
-        && request.resource.data.validacion == null
-        && request.resource.data.entregaId == null;
+        && request.resource.data.estado == 'pendiente_recepcion'
+        && request.resource.data.custodia.uid == request.auth.uid
+        && request.resource.data.custodia.desde is timestamp
+        && request.resource.data.sistema.efectivo is number
+        && request.resource.data.sistema.cheques is list
+        && request.resource.data.sistema.retenciones is list
+        && request.resource.data.declarado.efectivo is number
+        && request.resource.data.declarado.cheques is list
+        && request.resource.data.declarado.retenciones is list
+        && request.resource.data.diferenciaDeclarada.efectivo is number
+        && motivoDiferenciaOk(request.resource.data)
+        && request.resource.data.firmaRinde is string && request.resource.data.firmaRinde.size() > 0
+        && request.resource.data.firmanteRinde is string
+        && request.resource.data.cerradaEn is timestamp
+        && !('recepcion' in request.resource.data);
 
-      // Tesorería valida (null → map con su uid), una sola vez y nada más.
+      // Recepción de tesorería (o el operador), una sola vez: pendiente ->
+      // recibida, su uid en la recepción y en la custodia, mismos valores que
+      // el sistema tildados uno por uno, motivo y nota si hubo diferencia,
+      // firma. Nada más se toca.
       allow update: if request.auth != null && (isTesoreria() || isOperator())
-        && resource.data.validacion == null
-        && request.resource.data.validacion is map
-        && request.resource.data.validacion.uid == request.auth.uid
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['validacion']);
-      // Entrega a tesorería: caja de la planta (arma la entrega) o el operador, null → id.
+        && resource.data.get('rindeA', '') == 'tesoreria'
+        && resource.data.estado == 'pendiente_recepcion'
+        && request.resource.data.estado == 'recibida'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'custodia', 'recepcion'])
+        && request.resource.data.custodia.uid == request.auth.uid
+        && recepcionOk(request.resource.data.recepcion, resource.data.sistema);
+
+      // Cierres VIEJOS (tipo mostrador): entrega a tesorería, caja de la planta
+      // o el operador, null -> id, para regularizar lo que quedó pendiente.
       allow update: if request.auth != null && (isOperator() || isCajaDe(resource.data.plantaId))
+        && resource.data.get('tipo', '') == 'mostrador'
         && resource.data.entregaId == null
         && request.resource.data.entregaId is string
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['entregaId']);

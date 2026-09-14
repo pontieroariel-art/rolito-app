@@ -89,6 +89,7 @@ async function main() {
     { dni: '20000005', password: PASSWORD, nombre: 'Seguridad Torcuato Prueba', rol: 'seguridad', planta: 'torcuato' },
     { dni: '20000009', password: PASSWORD, nombre: 'Supervisor Prueba', rol: 'supervisor' },
     { dni: '20000010', password: PASSWORD, nombre: 'Facturación Prueba', rol: 'facturacion' },
+    { dni: '20000011', password: PASSWORD, nombre: 'Yanina Tesorería Prueba', rol: 'tesoreria' },
   ]
   for (const s of staffSeed) {
     const staffEmail = dniToStaffEmail(s.dni)
