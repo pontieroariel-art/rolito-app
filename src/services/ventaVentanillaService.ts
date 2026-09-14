@@ -43,6 +43,8 @@ export async function crearVentaVentanilla(
     ocasional?: { nombre: string; cuit?: string; dni?: string }
     items:      VentaCamionItem[]
     formaPago:  FormaPago
+    /** Turno de caja abierto del cajero (rendición de fondos, 2026-09-14): sin turno, las reglas rechazan la venta. */
+    cajaSesionId: string
   },
   actor: ActorCajaVentanilla,
 ): Promise<VentaVentanilla> {
@@ -85,6 +87,7 @@ export async function crearVentaVentanilla(
       canal:         args.canal,
       cajaId:        actor.uid,
       cajaNombre:    actor.nombre,
+      cajaSesionId:  args.cajaSesionId,
       clienteNombre: args.cliente?.nombre ?? args.ocasional?.nombre ?? '',
       items:         args.items,
       total,

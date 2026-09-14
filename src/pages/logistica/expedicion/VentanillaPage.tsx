@@ -16,7 +16,9 @@ import { useVentanillaDelDia } from '@/hooks/useExpedicionDia'
 import { useCatalogo } from '@/hooks/useCatalogo'
 import { useDiaActual, useFechaDelDia } from '@/hooks/useDiaActual'
 import { useMiMostrador } from '@/hooks/useMiMostrador'
-import MiDiaMostrador from '@/components/expedicion/MiDiaMostrador'
+import { useSesionAbierta } from '@/hooks/useCajaSesion'
+import AbrirTurnoPanel, { TurnoAbiertoChip } from '@/components/expedicion/AbrirTurnoPanel'
+import { delTurno } from '@/utils/turnoCaja'
 import SolicitarAnulacionModal from '@/components/expedicion/SolicitarAnulacionModal'
 import { subscribeRendicion } from '@/services/rendicionService'
 import {
@@ -149,6 +151,12 @@ export default function VentanillaPage() {
   // liquidaciones que cerré (el efectivo recibido entra a mi caja).
   const misVentas = useMemo(() => ventas.filter((v) => v.cajaId === user?.uid), [ventas, user?.uid])
   const mio = useMiMostrador(user?.uid, dia, misVentas)
+  // Turno de caja (rendición de fondos, 2026-09-14): sin turno abierto no se
+  // vende (las reglas rechazan la venta). El chip de la cabecera muestra solo
+  // CANTIDADES del turno, nunca el efectivo: arqueo ciego.
+  const { sesion, loading: cargandoSesion } = useSesionAbierta(user?.uid, dia)
+  const ventasTurno    = useMemo(() => (sesion ? delTurno(misVentas, sesion) : []), [misVentas, sesion])
+  const cobranzasTurno = useMemo(() => (sesion ? delTurno(mio.cobranzas, sesion) : []), [mio.cobranzas, sesion])
 
   // Ficha completa del elegido (precios, condición de venta, sucursales) y de los
   // clientes de las ventas del día (reimpresión): una lectura por id, con caché.
@@ -345,12 +353,14 @@ export default function VentanillaPage() {
 
   const confirmar = async () => {
     if (!user || !formaPago) return
+    if (!sesion) { setError('Tu turno de caja no está abierto. Abrilo para poder vender.'); setConfirmando(false); return }
     setGuardando(true)
     setError('')
     try {
       const venta = await crearVentaVentanilla(
         {
           canal,
+          cajaSesionId: sesion.id,
           cliente: tipoCliente === 'registrado' && cliente
             ? (() => { const c = clienteEnSucursal(cliente, empresaDeCanal(canal), sucursal); return { uid: c.uid, nombre: c.razonSocial || c.nombre, codigoTango: c.codigoTango, idGva14Tango: c.idGva14Tango, sucursalNombre: nombreSucursalVenta(cliente, empresaDeCanal(canal), c.codigoTango) } })()
             : undefined,
@@ -403,9 +413,10 @@ export default function VentanillaPage() {
   return (
     <main className="max-w-3xl mx-auto p-4 space-y-6 pb-10">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
+        <div className="space-y-1">
           <h1 className="text-2xl font-bold text-gray-900">Ventanilla</h1>
           <p className="text-secundario text-sm">{PLANTAS[plantaId].label}</p>
+          {sesion && <TurnoAbiertoChip sesion={sesion} ventas={ventasTurno.length} cobranzas={cobranzasTurno.length} />}
         </div>
         <label className="text-xs text-secundario flex items-center gap-2">
           <Printer size={14} /> Impresión
@@ -416,7 +427,10 @@ export default function VentanillaPage() {
         </label>
       </div>
 
-      <section className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-4 space-y-4">
+      {/* Sin turno abierto no hay formulario de venta (rendición de fondos, 2026-09-14). */}
+      {!cargandoSesion && !sesion && <AbrirTurnoPanel fecha={dia} />}
+
+      {sesion && <section className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-4 space-y-4">
         <h2 className="font-semibold text-gray-800 flex items-center gap-2">
           <ShoppingCart size={18} className="text-accent" /> Nueva venta
         </h2>
@@ -548,10 +562,7 @@ export default function VentanillaPage() {
             {vaAFacturar ? 'Cobrar y facturar' : 'Cobrar y emitir comprobante'}
           </Button>
         </div>
-      </section>
-
-      {/* Mi día: lo que vendió, cobró y recibió este usuario (2026-09-09). */}
-      {user && <MiDiaMostrador calc={mio.calc} nombre={user.nombre} cerrarHref="/caja/rendiciones" />}
+      </section>}
 
       {/* Ventas del día */}
       <section className="space-y-2">

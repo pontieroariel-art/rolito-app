@@ -2,8 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { Printer } from 'lucide-react'
 import CobranzaCompleta from '@/components/cobranzas/CobranzaCompleta'
 import { CobranzaSupervisorCard } from '@/components/supervisor/CobranzaSupervisorCard'
+import AbrirTurnoPanel, { TurnoAbiertoChip } from '@/components/expedicion/AbrirTurnoPanel'
 import { useAuth } from '@/context/AuthContext'
-import { useFechaDelDia } from '@/hooks/useDiaActual'
+import { useDiaActual, useFechaDelDia } from '@/hooks/useDiaActual'
+import { useSesionAbierta } from '@/hooks/useCajaSesion'
+import { delTurno } from '@/utils/turnoCaja'
 import { subscribeCobranzasCajaDelDia } from '@/services/cobranzaService'
 import {
   desmarcarDispositivoCobranza, esDispositivoCobranza, marcarDispositivoCobranza,
@@ -22,6 +25,10 @@ export default function CobranzasPage() {
   const { user } = useAuth()
   const plantaId = user?.planta ?? 'torcuato'
   const fecha = useFechaDelDia()
+  const dia = useDiaActual()
+  // Turno de caja (rendición de fondos, 2026-09-14): sin turno abierto no se
+  // cobra en el mostrador (las reglas lo exigen); cada cobranza lleva el turno.
+  const { sesion, loading: cargandoSesion } = useSesionAbierta(user?.uid, dia)
 
   const [cobranzas,  setCobranzas]  = useState<Cobranza[]>([])
   const [tabletFija, setTabletFija] = useState(esDispositivoCobranza())
@@ -30,6 +37,7 @@ export default function CobranzasPage() {
 
   const ordenadas = useMemo(() => cobranzas.slice().sort((a, b) => b.fecha.toMillis() - a.fecha.toMillis()), [cobranzas])
   const totalDia = cobranzas.reduce((s, c) => s + c.importe, 0)
+  const miasDelTurno = useMemo(() => (sesion && user ? delTurno(cobranzas.filter((c) => c.registradoPor.uid === user.uid), sesion).length : 0), [cobranzas, sesion, user])
 
   const imprimirSimple = (c: Cobranza) =>
     generateReciboCobranza({
@@ -45,12 +53,14 @@ export default function CobranzasPage() {
 
   return (
     <main className="max-w-3xl mx-auto pb-10">
-      <div className="p-4 pb-0">
+      <div className="p-4 pb-0 space-y-1">
         <h1 className="text-2xl font-bold text-gray-900">Cobranzas</h1>
         <p className="text-secundario text-sm">{PLANTAS[plantaId].label} · pagos de cuenta corriente en mostrador</p>
+        {sesion && <TurnoAbiertoChip sesion={sesion} ventas={-1} cobranzas={miasDelTurno} />}
       </div>
 
-      <CobranzaCompleta origen="caja" plantaId={plantaId} volverA="/caja" ancho="3xl" />
+      {!cargandoSesion && !sesion && <div className="p-4"><AbrirTurnoPanel fecha={dia} /></div>}
+      {sesion && <CobranzaCompleta origen="caja" plantaId={plantaId} cajaSesionId={sesion.id} volverA="/caja" ancho="3xl" />}
 
       <section className="px-4 space-y-2">
         <div className="flex items-center justify-between">

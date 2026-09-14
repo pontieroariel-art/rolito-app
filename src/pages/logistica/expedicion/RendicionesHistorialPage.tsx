@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { History, ShieldCheck } from 'lucide-react'
+import { History, Printer, ShieldCheck } from 'lucide-react'
 import PageHeader from '@/components/common/PageHeader'
 import Badge from '@/components/common/Badge'
 import { useAuth } from '@/context/AuthContext'
@@ -11,6 +11,11 @@ import { useDiaActual } from '@/hooks/useDiaActual'
 import { MOTIVOS_DIFERENCIA_LIQUIDACION, PLANTAS, type Rendicion } from '@/types'
 import AnuladasDespuesDeCerrar from '@/components/expedicion/AnuladasDespuesDeCerrar'
 import HistorialTable, { BarraHistorial, type ColumnaHistorial } from '@/components/common/HistorialTable'
+import { TablaSobres } from '@/components/expedicion/SobresCaja'
+import { subscribeSobresDe } from '@/services/sobreService'
+import { imprimirActaSobre } from '@/utils/sobrePdf'
+import { reportError } from '@/services/observability'
+import type { Sobre } from '@/types'
 
 // Historial de cierres de caja (2026-09-09): mes × cajero, con la diferencia
 // de cada cierre y los totales por persona, para ver quién viene con
@@ -44,13 +49,23 @@ export default function RendicionesHistorialPage({ enTesoreria }: { enTesoreria:
   const [filtro, setFiltro] = useState('')
   const [busqueda, setBusqueda] = useState('')
 
+  // Sobres nuevos del cajero (rendición de fondos, 2026-09-14): en la variante
+  // de caja van arriba de los cierres viejos (`tipo: 'mostrador'`), que quedan
+  // como estaban. Tesorería tiene su propio historial de recepción.
+  const [sobres, setSobres] = useState<Sobre[]>([])
+  const [cargandoSobres, setCargandoSobres] = useState(true)
+
   useEffect(() => {
     setCargando(true)
     const [y, m] = mes.split('-').map(Number)
     const sig = new Date(y, m, 1)
     const hasta = `${sig.getFullYear()}-${String(sig.getMonth() + 1).padStart(2, '0')}-01`
-    return subscribeRendicionesEnRango(`${mes}-01`, hasta, (r) => { setRendiciones(r); setCargando(false) })
-  }, [mes])
+    const offR = subscribeRendicionesEnRango(`${mes}-01`, hasta, (r) => { setRendiciones(r); setCargando(false) })
+    if (enTesoreria || !user) return offR
+    setCargandoSobres(true)
+    const offS = subscribeSobresDe(user.uid, `${mes}-01`, hasta, (s) => { setSobres(s); setCargandoSobres(false) })
+    return () => { offR(); offS() }
+  }, [mes, enTesoreria, user])
 
   // Caja ve su planta; tesorería y gerencia, todo.
   const visibles = useMemo(() => rendiciones.filter((r) => enTesoreria || !user?.planta || r.plantaId === user.planta), [rendiciones, enTesoreria, user?.planta])
@@ -143,7 +158,7 @@ export default function RendicionesHistorialPage({ enTesoreria }: { enTesoreria:
       <PageHeader
         titulo="Historial de cierres de caja"
         icono={<History size={22} />}
-        volver={{ to: enTesoreria ? '/tesoreria/rendiciones' : '/caja/rendiciones', etiqueta: enTesoreria ? 'Rendiciones del día' : 'Mi caja' }}
+        volver={{ to: enTesoreria ? '/tesoreria/rendiciones' : '/caja/rendiciones', etiqueta: enTesoreria ? 'Rendiciones del día' : 'Mi turno' }}
         contexto={`${alcance} · todos los cierres del mes, con su diferencia y su validación`}
         acciones={
           <BarraHistorial
@@ -159,9 +174,23 @@ export default function RendicionesHistorialPage({ enTesoreria }: { enTesoreria:
         }
       />
 
+      {!enTesoreria && (
+        <TablaSobres
+          titulo="Mis rendiciones a tesorería (sobres)"
+          sobres={sobres}
+          cargando={cargandoSobres}
+          porPagina={50}
+          exportar={`Mis rendiciones ${mes}`}
+          acciones={(s) => (
+            <button type="button" onClick={() => imprimirActaSobre(s).catch((err) => reportError(err, { origen: 'RendicionesHistorialPage', accion: 'error al generar el acta' }))}
+              title="Reimprimir acta" className="w-11 h-11 inline-flex items-center justify-center rounded-lg text-secundario hover:text-accent hover:bg-accent/10"><Printer size={16} /></button>
+          )}
+        />
+      )}
+
       <HistorialTable
         className="max-w-5xl"
-        titulo="Por cajero"
+        titulo={enTesoreria ? 'Por cajero' : 'Cierres anteriores al turno de caja · por cajero'}
         resumen={<span className="text-sm text-secundario tabular-nums">{visibles.length} cierres · diferencia del mes {dif(totalDiferencia)}</span>}
         columnas={columnasResumen}
         filas={porCajero}

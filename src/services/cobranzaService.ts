@@ -30,7 +30,7 @@ export async function crearCobranzaCompleta(
     medios:        MediosPago
   },
   actor: { uid: string; nombre: string; depositoTango?: string },
-  destino: { origen: OrigenCobranzaCompleta; plantaId?: PlantaId },
+  destino: { origen: OrigenCobranzaCompleta; plantaId?: PlantaId; cajaSesionId?: string },
 ): Promise<Cobranza> {
   const totalImputado = sumaCentavos(args.imputaciones.map((i) => i.importeImputado))
   const aplicado = sumaCentavos((args.medios.aCuentaAplicado ?? []).map((a) => a.importe))
@@ -57,11 +57,13 @@ export async function crearCobranzaCompleta(
     throw new CobranzaDescuadradaError('Hay una imputación en cero o mayor al saldo de la factura.')
   }
   if (destino.origen === 'caja' && !destino.plantaId) throw new CobranzaDescuadradaError('La cobranza de mostrador necesita la planta.')
+  // Rendición de fondos (2026-09-14): en el mostrador todo cobro queda en el turno abierto del cajero.
+  if (destino.origen === 'caja' && !destino.cajaSesionId) throw new CobranzaDescuadradaError('Abrí tu turno de caja antes de cobrar.')
 
   const ref = doc(collection(db, COBRANZAS))
   const cobranza: Omit<Cobranza, 'id'> = {
     origen:        destino.origen,
-    ...(destino.origen === 'caja' ? { plantaId: destino.plantaId } : {}),
+    ...(destino.origen === 'caja' ? { plantaId: destino.plantaId, cajaSesionId: destino.cajaSesionId } : {}),
     registradoPor: { uid: actor.uid, nombre: actor.nombre },
     ...(actor.depositoTango ? { depositoTango: actor.depositoTango } : {}),
     clienteId:     args.clienteId,

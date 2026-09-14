@@ -453,6 +453,8 @@ export interface VentaVentanilla {
   canal:                CanalVenta   // mismo ruteo que el camión: contado=Redonhielo / promo=Rolito
   cajaId:               string
   cajaNombre:           string
+  /** Turno de caja abierto en el que se vendió (rendición de fondos, 2026-09-14; las reglas lo exigen). */
+  cajaSesionId?:        string
   // Registrado (uid + datos Tango) O ocasional (solo nombre/cuit) — uno de los dos.
   clienteId?:           string
   clienteNombre:        string
@@ -661,6 +663,7 @@ export interface Cobranza {
   id:            string
   origen:        'caja' | 'cobrador' | 'supervisor'
   plantaId?:     PlantaId   // solo origen 'caja'
+  cajaSesionId?: string     // solo origen 'caja': turno abierto del cajero (rendición de fondos, 2026-09-14)
   registradoPor: { uid: string; nombre: string }
   depositoTango?: string    // depósito de Tango de quien cobra (para su liquidación)
   clienteId:     string

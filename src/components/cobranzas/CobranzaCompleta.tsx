@@ -44,6 +44,8 @@ export interface CobranzaCompletaProps {
   /** Quién cobra: supervisor en la calle, caja en el mostrador o chofer en el camión. */
   origen:     OrigenCobranzaCompleta
   plantaId?:  PlantaId          // solo caja
+  /** Solo caja: turno abierto del cajero (rendición de fondos, 2026-09-14). La pantalla no monta esto sin turno. */
+  cajaSesionId?: string
   /** Cliente preseleccionado (p. ej. desde "Clientes con deuda"). */
   clienteInicial?: string
   /** A dónde vuelve el link "Volver al inicio" de la pantalla de éxito. */
@@ -58,7 +60,7 @@ export interface CobranzaCompletaProps {
 // (total o parcial) → medios de pago (efectivo / transferencia / cheques /
 // retenciones) → recibo numerado (una sola serie RS- para toda la empresa,
 // que en Tango entra por el talonario 1106/1108) → cola tango-outbox.
-export default function CobranzaCompleta({ origen, plantaId, clienteInicial, volverA, ancho = 'md' }: CobranzaCompletaProps) {
+export default function CobranzaCompleta({ origen, plantaId, cajaSesionId, clienteInicial, volverA, ancho = 'md' }: CobranzaCompletaProps) {
   const { user } = useAuth()
   const online = useOnline()
   // Búsqueda con el índice liviano (2026-09-10); la ficha completa se baja al elegir.
@@ -247,7 +249,7 @@ export default function CobranzaCompleta({ origen, plantaId, clienteInicial, vol
           },
         },
         { uid: user.uid, nombre: user.nombre, ...(depositoUsuario ? { depositoTango: depositoUsuario.codigo } : {}) },
-        { origen, plantaId },
+        { origen, plantaId, ...(origen === 'caja' && cajaSesionId ? { cajaSesionId } : {}) },
       )
       if (numeracionActiva) precargarSiSeAcerca(user.uid, online)
       setExito(cobranza)
