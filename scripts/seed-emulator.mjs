@@ -16,9 +16,16 @@
 process.env.FIRESTORE_EMULATOR_HOST     = 'localhost:8080'
 process.env.FIREBASE_AUTH_EMULATOR_HOST = 'localhost:9099'
 
+import { createRequire } from 'module'
 import { initializeApp } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
 import { getFirestore, Timestamp, FieldValue } from 'firebase-admin/firestore'
+
+// El índice liviano de clientes (clientesIndex) lo mantiene en producción el
+// trigger onClienteIndexado, que en los emuladores NO corre: sin esto los
+// buscadores del chofer y del supervisor arrancan vacíos y "no hay clientes".
+// Se usa el MISMO armado que el trigger, compilado en functions/lib.
+const { indiceDeCliente } = createRequire(import.meta.url)('../functions/lib/services/clientesIndex.js')
 
 // Tiene que ser el MISMO project id que usa la app (VITE_FIREBASE_PROJECT_ID
 // en .env.local) — el emulador aloja los datos separados por project id, así
@@ -117,7 +124,11 @@ async function main() {
     console.log(`✓ Chofer — DNI ${dni} / PIN 1234 (${c.nombre}, camión ${c.camionId})`)
   }
 
-  // ── Lista de precios (para la venta desde el camión) ──────────────────────
+  // ── Precios de Tango (para la venta desde el camión) ──────────────────────
+  // Desde el 2026-09-03 los precios vienen de Tango, no de listas propias:
+  // preciosTango/{empresa}.listas[nro] (lo lee la venta del camión y la
+  // ventanilla) y users.preciosTango (lo leen las pantallas del cliente).
+  // Sin esto la venta dice "no se sincronizaron los precios" y no deja vender.
   const listaItems = [
     { productoId: 'bolsa_2kg',     nombre: 'Hielo bolsa 2kg',         unidad: 'bolsa',  precio: 1200, activo: true },
     { productoId: 'bolsa_3kg',     nombre: 'Hielo bolsa 3kg',         unidad: 'bolsa',  precio: 1600, activo: true },
@@ -128,8 +139,18 @@ async function main() {
     { productoId: 'anticorrosivo', nombre: 'Anticorrosivo',           unidad: 'unidad', precio: 900,  activo: true },
     { productoId: 'agua_6l',       nombre: 'Agua de mesa x 6 litros', unidad: 'bidón',  precio: 3000, activo: true },
   ]
-  await db.collection('listas-precios').doc('lista-general').set({ nombre: 'Lista General', items: listaItems }, { merge: true })
-  console.log('✓ Lista de precios "Lista General"')
+  const LISTA_TANGO = 300
+  const preciosLista = Object.fromEntries(listaItems.map((i) => [i.productoId, i.precio]))
+  for (const empresa of ['redonhielo', 'rolito']) {
+    await db.collection('preciosTango').doc(empresa).set({
+      listas: { [String(LISTA_TANGO)]: { nombre: 'Lista de prueba', incluyeIva: false, precios: preciosLista } },
+      especiales: {},
+      actualizadoEn: Timestamp.now(),
+    }, { merge: true })
+  }
+  // Lo que la sync deja en cada ficha de cliente (ver más abajo, en los clientes).
+  const preciosDelCliente = { listaTango: { redonhielo: LISTA_TANGO, rolito: LISTA_TANGO }, preciosTango: { redonhielo: preciosLista, rolito: preciosLista } }
+  console.log(`✓ Precios de Tango: lista ${LISTA_TANGO} en las dos empresas, ${listaItems.length} productos`)
 
   // ── Catálogo con unidades por pallet (para el remito de carga de caja) ───
   // Valores reales de planta (mismos que produccionCatalogo.ts); anticorrosivo
@@ -173,7 +194,7 @@ async function main() {
     addresses: [direccion, direccion2], address: direccion.address, lat: direccion.lat, lng: direccion.lng,
     codigoCliente: 'CL-0001', rol: 'cliente',
     // Lista de precios + código Tango — para probar la venta desde el camión (remito).
-    listaPreciosId: 'lista-general', codigoTango: '099001', idGva14Tango: 99001,
+    codigoTango: '099001', idGva14Tango: 99001, ...preciosDelCliente,
   }), { merge: true })
   await db.collection('cuitIndex').doc(clienteCuit).set({ email: clienteEmail })
   console.log(`✓ Cliente — CUIT ${clienteCuit} / contraseña ${PASSWORD}`)
@@ -190,11 +211,19 @@ async function main() {
     addresses: [{ ...direccion, id: 'FC.200', nombre: 'Local' }],
     address: direccion.address, lat: direccion.lat, lng: direccion.lng,
     codigoCliente: 'CL-0002', rol: 'cliente',
-    listaPreciosId: 'lista-general', codigoTango: '099002', idGva14Tango: 99002,
+    codigoTango: '099002', idGva14Tango: 99002, ...preciosDelCliente,
     categoriaIvaTango: 'RI', categoriaIvaTangoDesc: 'Responsable Inscripto',
   }), { merge: true })
   await db.collection('cuitIndex').doc(clienteFactCuit).set({ email: clienteFactEmail })
   console.log(`✓ Cliente facturable (RI) — CUIT ${clienteFactCuit} / contraseña ${PASSWORD}`)
+
+  // clientesIndex para los dos: es lo que leen los buscadores (ver arriba).
+  for (const uid of [clienteUid, clienteFactUid]) {
+    const perfil = (await db.collection('users').doc(uid).get()).data()
+    const indice = indiceDeCliente(uid, perfil)
+    if (indice) await db.collection('clientesIndex').doc(uid).set(indice)
+  }
+  console.log('✓ clientesIndex de los 2 clientes (lo que leen los buscadores)')
 
   // ── Flota (camiones activos) ────────────────────────────────────────────
   const camiones = [
