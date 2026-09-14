@@ -66,3 +66,19 @@ describe('describirFaltante', () => {
     expect(describirFaltante(calcularFaltante([dif('Escamas', 3)]))).toBe('Sin faltantes')
   })
 })
+
+describe('calcularFaltante sin descarga contada', () => {
+  it('con el camión en la calle no hay faltante ni desvío grave, aunque la devolución teórica sea enorme', () => {
+    // El caso real del 14/09: carga 1.098, vendidas 150, descarga 0 → "faltan 948".
+    const r = calcularFaltante([dif('Hielo bolsa 2kg', -770), dif('Hielo bolsa 10kg', -176)], UMBRAL_FALTANTES_DEFAULT, { hayDescarga: false })
+    expect(r).toEqual({ bolsasFaltantes: 0, bolsasSobrantes: 0, productos: [], grave: false, sinDescarga: true })
+    expect(describirFaltante(r)).toBe('Sin descarga contada todavía')
+  })
+
+  it('con descarga contada el cálculo es el de siempre', () => {
+    const r = calcularFaltante([dif('Hielo bolsa 2kg', -12)], UMBRAL_FALTANTES_DEFAULT, { hayDescarga: true })
+    expect(r.bolsasFaltantes).toBe(12)
+    expect(r.grave).toBe(true)
+    expect(r.sinDescarga).toBeUndefined()
+  })
+})

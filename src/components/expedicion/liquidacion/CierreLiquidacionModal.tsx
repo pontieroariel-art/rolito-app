@@ -51,7 +51,7 @@ export const TEXTOS_CIERRE_REPARTIDOR: TextosCierre = {
 // Cierre con control (2026-09-06): resumen de lo que se cierra, motivo y nota
 // obligatorios si el efectivo no cuadra, confirmación de que no quedan
 // movimientos sin subir, y la firma de conformidad de quien rinde.
-export default function CierreLiquidacionModal({ repartidor, resumen, resumenTexto, efectivoARendir, efectivoRecibido, guardando, error, onCancelar, onConfirmar, textos = TEXTOS_CIERRE_REPARTIDOR, motivos = MOTIVOS_LIQUIDACION_REPARTIDOR, valores, receptor, faltante }: {
+export default function CierreLiquidacionModal({ repartidor, resumen, resumenTexto, efectivoARendir, efectivoRecibido, guardando, error, onCancelar, onConfirmar, textos = TEXTOS_CIERRE_REPARTIDOR, motivos = MOTIVOS_LIQUIDACION_REPARTIDOR, valores, receptor, faltante, sinDescarga = false }: {
   repartidor: string
   resumen: { ventas: number; clientes: number; cobranzas: number }
   /** Reemplaza la línea "N ventas · N clientes · N cobranzas" (entrega a tesorería). */
@@ -74,6 +74,12 @@ export default function CierreLiquidacionModal({ repartidor, resumen, resumenTex
    * trabar el turno— pero el desvío queda escrito, con nombre y motivo.
    */
   faltante?: { bolsasFaltantes: number; umbral: number; productos: { productoId: string; nombre: string; faltan: number }[] }
+  /**
+   * Se cierra sin descarga contada del muelle (2026-09-14). No traba (un tema
+   * de stock nunca traba el turno de caja), pero avisa: el control de
+   * mercadería de este viaje queda sin hacer.
+   */
+  sinDescarga?: boolean
 }) {
   const diferencia = efectivoRecibido - efectivoARendir
   const [motivo, setMotivo] = useState<MotivoDiferenciaLiquidacion | ''>('')
@@ -137,6 +143,13 @@ export default function CierreLiquidacionModal({ repartidor, resumen, resumenTex
           <div className="rounded-lg bg-gray-50 p-2"><p className="text-xs text-secundario">{textos.recibido}</p><p className="font-semibold tabular-nums">{formatoARS(efectivoRecibido)}</p></div>
           <div className={`rounded-lg p-2 ${diferencia === 0 ? 'bg-[#E6F5EF]' : 'bg-red-50'}`}><p className="text-xs text-secundario">Diferencia</p><p className={`font-semibold tabular-nums ${diferencia === 0 ? 'text-[#0F6B4E]' : 'text-red-600'}`}>{formatoARS(diferencia)}</p></div>
         </div>
+
+        {sinDescarga && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            <p className="font-semibold">Se cierra sin la descarga contada del muelle.</p>
+            <p>El control de mercadería de este viaje queda sin hacer. Si el camión todavía está en la calle, esperá a que vuelva y muelle lo cuente.</p>
+          </div>
+        )}
 
         {faltante && (
           <div className="space-y-2 rounded-lg border border-red-300 bg-red-50 p-3">

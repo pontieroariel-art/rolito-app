@@ -201,7 +201,10 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
   // vale para cerrar, porque acá están TODAS las ventas del día; la marca que
   // dejó el servidor al momento del conteo puede haber quedado vieja.
   const umbralFaltantes = useUmbralFaltantes()
-  const faltante = useMemo(() => calcularFaltante(calc.productos, umbralFaltantes), [calc.productos, umbralFaltantes])
+  // Sin descarga contada (camión en la calle o muelle sin contar) no hay
+  // faltante que mostrar: el control se hace cuando el camión vuelve (2026-09-14).
+  const sinDescarga = descargas.length === 0
+  const faltante = useMemo(() => calcularFaltante(calc.productos, umbralFaltantes, { hayDescarga: !sinDescarga }), [calc.productos, umbralFaltantes, sinDescarga])
   // Una liquidación ya cerrada muestra el desvío que se observó al cerrarla, no
   // uno recalculado hoy (el cierre es una foto y no se reabre).
   const desvioACerrar = !cerrada && faltante.grave ? faltante : null
@@ -325,7 +328,7 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
                 faltan {cerrada?.desvio?.bolsasFaltantes ?? faltante.bolsasFaltantes} bolsas
               </span>
             )}>
-            <DetallePorProducto calc={calc} />
+            <DetallePorProducto calc={calc} sinDescarga={!cerrada && sinDescarga} />
           </Plegable>
 
           {!cerrada && puedeCerrar && (
@@ -371,6 +374,7 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
           valores={papel}
           receptor={user ? { nombre: user.nombre } : undefined}
           faltante={desvioACerrar ? { bolsasFaltantes: desvioACerrar.bolsasFaltantes, umbral: umbralFaltantes.bolsas, productos: desvioACerrar.productos } : undefined}
+          sinDescarga={sinDescarga}
         />
       )}
     </main>

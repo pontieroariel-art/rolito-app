@@ -42,6 +42,13 @@ export interface FaltanteCalculado {
   productos: FaltanteProducto[]
   /** Pasó el umbral: hay que revisarlo antes de cerrar la caja. */
   grave: boolean
+  /**
+   * Todavía no hay descarga contada (2026-09-14): el camión sigue en la calle o
+   * muelle no contó. No hay faltante que informar, porque comparar la
+   * devolución teórica contra un conteo que no existe daba "faltan 948 bolsas"
+   * mientras el chofer repartía, y caja aprendía a ignorar el cartel rojo.
+   */
+  sinDescarga?: boolean
 }
 
 /**
@@ -53,7 +60,13 @@ export interface FaltanteCalculado {
 export function calcularFaltante(
   diferencias: DiferenciaProducto[],
   umbral: UmbralFaltantes = UMBRAL_FALTANTES_DEFAULT,
+  opts: { hayDescarga?: boolean } = {},
 ): FaltanteCalculado {
+  // Sin conteo del muelle no hay control que hacer todavía: cero faltante,
+  // nada grave, y la marca para que la pantalla lo diga con esas palabras.
+  if (opts.hayDescarga === false) {
+    return { bolsasFaltantes: 0, bolsasSobrantes: 0, productos: [], grave: false, sinDescarga: true }
+  }
   const productos = diferencias
     .filter((d) => d.diferencia < 0)
     .map((d) => ({ productoId: d.productoId, nombre: d.nombre, faltan: -d.diferencia }))
@@ -81,6 +94,7 @@ export function normalizarUmbralFaltantes(raw: Partial<UmbralFaltantes> | null |
 
 /** Texto corto del desvío, para el chip de caja y la bandeja. */
 export function describirFaltante(f: FaltanteCalculado): string {
+  if (f.sinDescarga) return 'Sin descarga contada todavía'
   if (f.bolsasFaltantes === 0) return 'Sin faltantes'
   const detalle = f.productos.map((p) => `${p.faltan} ${p.nombre}`).join(', ')
   return `Faltan ${f.bolsasFaltantes} bolsas (${detalle})`

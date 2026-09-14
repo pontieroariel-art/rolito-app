@@ -129,7 +129,7 @@ export default function DetalleReparto({ remitos, descargas, cobranzas, reparto,
           <div className="p-4 space-y-2">
             <p className="text-xs font-bold uppercase tracking-wider text-secundario">Vuelta</p>
             {descargas.length === 0 && (
-              <p className="text-sm text-amber-700">Muelle todavía no registró la descarga: la devolución se compara contra 0.</p>
+              <p className="text-sm text-secundario">Muelle todavía no contó la descarga: el control de mercadería se hace cuando el camión vuelve.</p>
             )}
             {descargas.map((d) => (
               <div key={d.id} className="space-y-1">

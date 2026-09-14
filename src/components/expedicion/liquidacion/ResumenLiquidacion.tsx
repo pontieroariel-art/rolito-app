@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, PackageX } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, PackageX, Truck } from 'lucide-react'
 import { formatoARS } from '@/utils/money'
 import { describirRacks } from '@/utils/envases'
 import type { LiquidacionCalculada, RepartoClasificado } from '@/utils/liquidacion'
@@ -41,6 +41,14 @@ export function BarraEstado({ remitos, descargas, reparto, cerrada, onProblemas,
           title={`${cerrada.desvio.productos.map((p) => `${p.nombre} −${p.faltan}`).join(' · ')}${cerrada.desvio.nota ? ` · ${cerrada.desvio.nota}` : ''} · cerró ${cerrada.desvio.observadoPor.nombre}${cerrada.desvio.autorizadoPor ? ` · autorizó ${cerrada.desvio.autorizadoPor.nombre}${cerrada.desvio.notaAutorizacion ? ` (${cerrada.desvio.notaAutorizacion})` : ''}` : ' · SIN autorización'}`}>
           <PackageX size={12} />
           {cerrada.desvio.autorizadoPor ? 'Faltante autorizado' : 'Desvío observado'}: faltan {cerrada.desvio.bolsasFaltantes} bolsas · {MOTIVOS_DESVIO_DESCARGA[cerrada.desvio.motivo]}
+        </span>
+      )}
+      {/* Sin descarga contada no hay control que mostrar: el camión sigue en la
+          calle o muelle no contó. Chip neutro, no rojo (2026-09-14). */}
+      {!cerrada && faltante?.sinDescarga && (
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-700"
+          title="El control de mercadería se hace cuando muelle cuenta la descarga">
+          <Truck size={12} /> Sin conteo del muelle todavía
         </span>
       )}
       {/* En vivo, antes de cerrar. Un faltante por debajo del umbral también se
@@ -140,10 +148,24 @@ export function ResumenPorCliente({ reparto }: { reparto: RepartoClasificado }) 
   )
 }
 
-export function DetallePorProducto({ calc }: { calc: LiquidacionCalculada }) {
+export function DetallePorProducto({ calc, sinDescarga = false }: {
+  calc: LiquidacionCalculada
+  /**
+   * Todavía no hay descarga contada (2026-09-14): las columnas que dependen
+   * del conteo van con "—" en vez de un cero y una diferencia en rojo que, con
+   * el camión en la calle, no significan nada.
+   */
+  sinDescarga?: boolean
+}) {
   const dif = (n: number) => n === 0 ? <span className="text-secundario">0</span> : <span className="font-semibold text-red-600">{n > 0 ? `+${n}` : n}</span>
+  const pendiente = <span className="text-secundario">—</span>
   return (
     <div className="space-y-4">
+      {sinDescarga && (
+        <p className="text-sm text-gray-700 bg-gray-50 border border-[#E7E5DC] rounded-lg px-3 py-2">
+          Muelle todavía no contó la descarga: la diferencia por producto y los envases se completan cuando el camión vuelve.
+        </p>
+      )}
       <table className="w-full min-w-[640px]">
         <thead><tr>{['Producto', 'Carga', 'Contado', 'Promo', 'Cambios', 'Dev. teórica', 'Descarga', 'Diferencia'].map((h, i) => <th key={h} className={`${th} ${i > 0 ? 'text-right' : ''}`}>{h}</th>)}</tr></thead>
         <tbody>
@@ -155,8 +177,8 @@ export function DetallePorProducto({ calc }: { calc: LiquidacionCalculada }) {
               <td className={`${td} text-right`}>{num(p.ventaPromo)}</td>
               <td className={`${td} text-right`}>{num(p.cambios)}</td>
               <td className={`${td} text-right`}>{num(p.devolucionTeorica)}</td>
-              <td className={`${td} text-right`}>{num(p.descarga)}</td>
-              <td className={`${td} text-right`}>{dif(p.diferencia)}</td>
+              <td className={`${td} text-right`}>{sinDescarga ? pendiente : num(p.descarga)}</td>
+              <td className={`${td} text-right`}>{sinDescarga ? pendiente : dif(p.diferencia)}</td>
             </tr>
           ))}
           {calc.productos.length === 0 && <tr><td className={`${td} text-secundario`} colSpan={8}>Sin movimientos.</td></tr>}
@@ -164,8 +186,8 @@ export function DetallePorProducto({ calc }: { calc: LiquidacionCalculada }) {
       </table>
       <div className="grid sm:grid-cols-2 gap-x-8 gap-y-1 text-sm text-gray-700 max-w-xl">
         <p className="flex justify-between"><span>Cambios registrados por el repartidor</span><b>{calc.cambios.registrados}</b></p>
-        <p className="flex justify-between"><span>Rotas recibidas en muelle</span><b>{calc.cambios.rotasRecibidas}</b></p>
-        <p className="flex justify-between sm:col-start-2"><span>Diferencia de cambios</span>{dif(calc.cambios.rotasRecibidas - calc.cambios.registrados)}</p>
+        <p className="flex justify-between"><span>Rotas recibidas en muelle</span><b>{sinDescarga ? pendiente : calc.cambios.rotasRecibidas}</b></p>
+        <p className="flex justify-between sm:col-start-2"><span>Diferencia de cambios</span>{sinDescarga ? pendiente : dif(calc.cambios.rotasRecibidas - calc.cambios.registrados)}</p>
       </div>
       {/* Envases retornables: lo que salió (remitos, puntales y aros
           implícitos) contra lo que muelle contó al descargar, y los racks por
@@ -179,19 +201,19 @@ export function DetallePorProducto({ calc }: { calc: LiquidacionCalculada }) {
             <tr key={k}>
               <td className={td}>{nombre}</td>
               <td className={`${td} text-right`}>{num(calc.envases.salieron[k])}</td>
-              <td className={`${td} text-right`}>{num(calc.envases.volvieron[k])}</td>
-              <td className={`${td} text-right`}>{dif(calc.envases.diferencia[k])}</td>
+              <td className={`${td} text-right`}>{sinDescarga ? pendiente : num(calc.envases.volvieron[k])}</td>
+              <td className={`${td} text-right`}>{sinDescarga ? pendiente : dif(calc.envases.diferencia[k])}</td>
             </tr>
           ))}
           <tr>
             <td className={td}>Racks de agua</td>
             <td className={`${td} text-right`}>{num(calc.envases.salieron.racks.length)}</td>
-            <td className={`${td} text-right`}>{num(calc.envases.volvieron.racks.length)}</td>
-            <td className={`${td} text-right`}>{dif(calc.envases.volvieron.racks.length - calc.envases.salieron.racks.length)}</td>
+            <td className={`${td} text-right`}>{sinDescarga ? pendiente : num(calc.envases.volvieron.racks.length)}</td>
+            <td className={`${td} text-right`}>{sinDescarga ? pendiente : dif(calc.envases.volvieron.racks.length - calc.envases.salieron.racks.length)}</td>
           </tr>
         </tbody>
       </table>
-      {calc.envases.racksFaltantes.length > 0 && (
+      {!sinDescarga && calc.envases.racksFaltantes.length > 0 && (
         <p className="text-sm font-semibold text-red-600">Racks que no volvieron: {describirRacks(calc.envases.racksFaltantes)}</p>
       )}
       {calc.envases.racksSobrantes.length > 0 && (
