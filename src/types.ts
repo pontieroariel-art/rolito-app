@@ -1717,6 +1717,19 @@ export const MOTIVOS_INCIDENCIA = [
 ] as const
 export type MotivoIncidencia = typeof MOTIVOS_INCIDENCIA[number]
 
+// Por qué logística cancela un pedido (2026-09-13). Hasta hoy el motivo era
+// opcional y 205 de 205 cancelados del mes decían "Sin motivo": un dato que
+// se pierde en el momento no se recupera después. Con 'Otro' hay que escribir.
+export const MOTIVOS_CANCELACION = [
+  'El cliente lo canceló',
+  'El cliente no lo necesitaba',
+  'Sin stock para cubrirlo',
+  'Pedido duplicado',
+  'Error de carga',
+  'Otro',
+] as const
+export type MotivoCancelacion = typeof MOTIVOS_CANCELACION[number]
+
 
 // ── Pedidos recurrentes ───────────────────────────────────────────────────────
 
