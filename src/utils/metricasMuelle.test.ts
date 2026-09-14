@@ -128,10 +128,14 @@ describe('ventanilla', () => {
 
 describe('agrupaciones', () => {
   it('por franja horaria, ordenadas y solo las horas con datos', () => {
+    // La franja sale de `getHours()` del navegador, así que el test arma las
+    // fechas en hora LOCAL: con un ISO fijo en -03:00 pasaba acá y fallaba en
+    // CI (el runner corre en UTC y daba [10, 18]).
+    const local = (h: number, min: number) => new Date(2026, 8, 13, h, min).toISOString()
     const r = porFranjaHoraria([
-      m(10, '2026-09-13T07:10:00-03:00'),
-      m(30, '2026-09-13T07:50:00-03:00'),
-      m(5,  '2026-09-13T15:00:00-03:00'),
+      m(10, local(7, 10)),
+      m(30, local(7, 50)),
+      m(5,  local(15, 0)),
     ])
     expect(r.map((x) => x.hora)).toEqual([7, 15])
     expect(r[0].resumen.cantidad).toBe(2)
