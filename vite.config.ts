@@ -79,6 +79,9 @@ export default defineConfig({
           '**/PanolPage-*.js',
           '**/charts-*.js',
           '**/html2canvas*.js',
+          // canvg, dependencia opcional de jspdf (SVG → canvas); nadie lo usa
+          // en la app pero Rollup igual lo emite como chunk aparte.
+          '**/index.es-*.js',
           '**/BarcodeScanner-*.js',
         ],
       },

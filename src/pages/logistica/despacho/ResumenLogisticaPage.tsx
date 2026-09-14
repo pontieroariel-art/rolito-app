@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
@@ -10,12 +10,16 @@ import { useChoferes } from '@/hooks/useChoferes'
 import { useNotificationEmails } from '@/hooks/useNotificationEmails'
 import { useAuth } from '@/context/AuthContext'
 import { cleanupTestData, CleanupResult } from '@/services/cleanupService'
-import MetricsDashboard from '@/components/admin/MetricsDashboard'
 import { AvisoDatosTruncados } from '@/components/admin/AvisoDatosTruncados'
-import { ForecastStrip } from '@/pages/logistica/flota/ClimaPage'
-import { LiveMapSection }           from '@/components/admin/LiveMapSection'
+import { ForecastStrip } from '@/components/common/ForecastStrip'
 import { ResumenCargaPorChofer }    from '@/components/admin/ResumenCargaPorChofer'
 import { NotificationEmailManager } from '@/components/admin/NotificationEmailManager'
+
+// recharts (chunk `charts`, 108 KB gz) y @react-google-maps/api (`maps`) bajan
+// recién al montar el home, no con el bundle de la ruta (auditoría de bundle
+// 2026-09-14). Mientras tanto, un esqueleto del alto aproximado.
+const MetricsDashboard = lazy(() => import('@/components/admin/MetricsDashboard'))
+const LiveMapSection   = lazy(() => import('@/components/admin/LiveMapSection').then((m) => ({ default: m.LiveMapSection })))
 
 // Tablero de KPIs de logística (ex AdminDashboard.tsx) — hasta ahora vivía
 // en /admin y era exclusivo de super_admin junto con el resto de logística.
@@ -72,7 +76,9 @@ export default function ResumenLogisticaPage() {
 
         {/* KPIs y métricas */}
         {truncado && <AvisoDatosTruncados />}
-        <MetricsDashboard orders={orders} />
+        <Suspense fallback={<Skeleton className="h-[520px] rounded-xl" />}>
+          <MetricsDashboard orders={orders} />
+        </Suspense>
 
         {/* Clima */}
         <section>
@@ -84,7 +90,9 @@ export default function ResumenLogisticaPage() {
         </section>
 
         {/* Mapa en vivo */}
-        <LiveMapSection orders={orders} />
+        <Suspense fallback={<Skeleton className="h-12 rounded-xl" />}>
+          <LiveMapSection orders={orders} />
+        </Suspense>
 
         {/* Carga por chofer */}
         <ResumenCargaPorChofer orders={orders} choferes={choferes.choferes} />

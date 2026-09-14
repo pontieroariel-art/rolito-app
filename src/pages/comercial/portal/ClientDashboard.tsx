@@ -6,7 +6,6 @@ import Navbar from '@/components/layout/Navbar'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { useClientOrders } from '@/hooks/useOrders'
 import { useAuth } from '@/context/AuthContext'
-import { useGoogleMapsLoader } from '@/hooks/useGoogleMapsLoader'
 import { savePushSubscription } from '@/services/userService'
 import { Order, OrderStatus, getPrimaryAddress } from '@/types'
 import { summarizeProducts } from '@/utils/helpers'
@@ -21,7 +20,6 @@ export default function ClientDashboard() {
   const { orders, loading, timedOut }  = useClientOrders()
   const { selectedAddress }    = useBranch()
   const navigate               = useNavigate()
-  const { isLoaded }           = useGoogleMapsLoader()
 
   const multiSucursal = (user?.addresses?.length ?? 0) > 1
 
@@ -36,6 +34,13 @@ export default function ClientDashboard() {
   const enCaminoOrder = branchOrders.find((o) => o.status === 'en_camino') ?? null
   const primaryAddr   = selectedAddress ?? (user ? getPrimaryAddress(user) : null)
   const hasAddress    = !!(primaryAddr?.address || user?.address)
+  // Coordenadas para el clima: las de la sucursal elegida (o principal) y, si
+  // esa entrada no tiene, las viejas del perfil. `null` = pronóstico de la planta.
+  const coordsClima   = useMemo(() => {
+    const lat = primaryAddr?.lat ?? user?.lat ?? null
+    const lng = primaryAddr?.lng ?? user?.lng ?? null
+    return lat !== null && lng !== null ? { lat, lng } : null
+  }, [primaryAddr?.lat, primaryAddr?.lng, user?.lat, user?.lng])
 
   // branchOrders (no orders): para un cliente multi-sucursal, "repetir último
   // pedido" tiene que repetir el último pedido DE LA SUCURSAL que se está
@@ -168,10 +173,12 @@ export default function ClientDashboard() {
 
         <RecurrenteCard user={user} />
 
-        <ClientWeather
-          address={selectedAddress?.address || primaryAddr?.address || user?.address || ''}
-          isLoaded={isLoaded}
-        />
+        {/* El clima usa las coordenadas que logística ya corrigió en la
+            dirección (lat/lng de la sucursal elegida, o las viejas del perfil):
+            antes la página bajaba el script de Google Maps en cada visita nada
+            más que para geocodificar la dirección (auditoría de bundle
+            2026-09-14). Sin coordenadas cae al pronóstico de la planta. */}
+        <ClientWeather coords={coordsClima} />
 
         <section>
           <div className="flex justify-between items-center mb-3">

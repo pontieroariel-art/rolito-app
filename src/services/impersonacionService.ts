@@ -1,4 +1,3 @@
-import { getFunctions, httpsCallable } from 'firebase/functions'
 import { signInWithCustomToken, signOut } from 'firebase/auth'
 import { auth, SESION_VER_COMO } from './firebase'
 
@@ -23,6 +22,10 @@ export const esSesionVerComo = (): boolean => SESION_VER_COMO !== null
 
 /** Pide el token al server y abre la pestaña "Ver como". Lanza si el server rechaza. */
 export async function abrirVistaComo(uid: string): Promise<VistaComoAbierta> {
+  // firebase/functions por import() dinámico: este módulo entra al arranque
+  // vía AuthContext (iniciarSesionVerComo) y no tiene por qué arrastrar el SDK
+  // de callables al chunk inicial (auditoría de bundle 2026-09-14).
+  const { getFunctions, httpsCallable } = await import('firebase/functions')
   const fn = httpsCallable<{ uid: string }, RespuestaToken>(getFunctions(), 'crearTokenImpersonacion')
   let data: RespuestaToken
   try {

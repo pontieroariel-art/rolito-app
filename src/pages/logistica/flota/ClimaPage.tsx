@@ -6,7 +6,8 @@ import {
 } from 'recharts'
 import { ChevronLeft, ChevronRight, Thermometer, Droplets, CloudSun } from 'lucide-react'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
-import { getForecast, getHistoricalWeather, DayWeather } from '@/services/weatherService'
+import { getHistoricalWeather, DayWeather } from '@/services/weatherService'
+import { ForecastStrip, tempColor } from '@/components/common/ForecastStrip'
 import { getOrdersInRange } from '@/services/orderService'
 import { Order } from '@/types'
 import { tsToDate, kgHielo } from '@/utils/helpers'
@@ -23,14 +24,8 @@ const CIUDADES = [
 type CiudadId = typeof CIUDADES[number]['id']
 
 // ── helpers ───────────────────────────────────────────────────────────────────
-
-function tempColor(t: number): string {
-  if (t >= 35) return '#ef4444'
-  if (t >= 30) return '#f97316'
-  if (t >= 25) return '#eab308'
-  if (t >= 20) return '#84cc16'
-  return '#60a5fa'
-}
+// tempColor y ForecastStrip viven en components/common/ForecastStrip.tsx
+// (2026-09-14): los homes muestran la tira sin arrastrar el recharts de acá.
 
 function monthBounds(year: number, month: number) {
   const pad = (n: number) => String(n).padStart(2, '0')
@@ -72,51 +67,6 @@ function CustomTooltip({ active, payload, label }: any) {
       {temp && <p style={{ color: temp.color }}>🌡️ {temp.value}°C máx</p>}
       {rain && rain.value > 0 && <p className="text-blue-500">🌧️ {rain.value} mm</p>}
       {kg   && <p style={{ color: kg.color }}>🧊 {kg.value} kg de hielo</p>}
-    </div>
-  )
-}
-
-// ── ForecastStrip ─────────────────────────────────────────────────────────────
-
-export function ForecastStrip({ lat, lng }: { lat?: number; lng?: number } = {}) {
-  const { data: days = [], isLoading } = useQuery({
-    queryKey: ['weather-forecast', lat, lng],
-    queryFn:  () => getForecast(lat, lng),
-    staleTime: 3_600_000,
-  })
-
-  if (isLoading) return (
-    <div className="flex gap-2 overflow-x-auto pb-2 [&::-webkit-scrollbar]:h-[3px] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 hover:[&::-webkit-scrollbar-thumb]:bg-gray-400" style={{ scrollbarWidth: 'thin', scrollbarColor: '#d1d5db transparent' }}>
-      {Array.from({ length: 7 }).map((_, i) => (
-        <div key={i} className="bg-gray-100 border border-[#D3D1C7] rounded-xl p-3 min-w-[80px] h-24 animate-pulse" />
-      ))}
-    </div>
-  )
-
-  return (
-    <div className="flex gap-2 overflow-x-auto pb-2 [&::-webkit-scrollbar]:h-[3px] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 hover:[&::-webkit-scrollbar-thumb]:bg-gray-400" style={{ scrollbarWidth: 'thin', scrollbarColor: '#d1d5db transparent' }}>
-      {days.map((d, i) => {
-        const date = new Date(d.date + 'T12:00:00')
-        const isToday = i === 0
-        return (
-          <div
-            key={d.date}
-            className={`flex flex-col items-center gap-1 rounded-xl p-3 min-w-[80px] border transition-colors shrink-0 ${
-              isToday ? 'bg-accent/10 border-accent/40' : 'bg-white border-[#D3D1C7]'
-            }`}
-          >
-            <p className="text-xs text-secundario font-medium">
-              {isToday ? 'Hoy' : date.toLocaleDateString('es-AR', { weekday: 'short' })}
-            </p>
-            <p className="text-2xl leading-none">{d.emoji}</p>
-            <p className="font-bold text-sm" style={{ color: tempColor(d.tempMax) }}>{d.tempMax}°</p>
-            <p className="text-xs text-secundario">{d.tempMin}°</p>
-            {d.rain > 0 && (
-              <p className="text-xs text-blue-500">{d.rain}mm</p>
-            )}
-          </div>
-        )
-      })}
     </div>
   )
 }

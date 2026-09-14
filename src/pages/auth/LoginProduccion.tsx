@@ -6,7 +6,7 @@ import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 import { useAuth } from '../../context/AuthContext'
 import { loginProduccion, logoutUser } from '../../services/authService'
-import { marcarDispositivoProduccion } from '../../services/produccionAuthService'
+import { marcarDispositivoProduccion } from '../../services/produccionDeviceService'
 import { PLANTAS, PlantaId } from '../../types'
 
 interface Props { planta: PlantaId }

@@ -1,11 +1,9 @@
-import { useState, useMemo } from 'react'
+import { lazy, Suspense, useState, useMemo } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useBranch } from '@/context/BranchContext'
 import { useAuth } from '@/context/AuthContext'
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
-} from 'recharts'
 import Navbar from '@/components/layout/Navbar'
+import { Skeleton } from '@/components/ui/skeleton'
 import Badge from '@/components/ui/Badge'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { useClientOrders } from '@/hooks/useOrders'
@@ -13,6 +11,10 @@ import { ALL_STATUSES, STATUS_LABELS } from '@/utils/constants'
 import { formatDate, formatShortDate, summarizeProducts, isSucursalCode, todayString } from '@/utils/helpers'
 import { createOrder } from '@/services/orderService'
 import { Order, OrderStatus } from '@/types'
+
+// El gráfico de consumo es lo único con recharts en el portal del cliente:
+// baja aparte (chunk `charts`) y solo si hay consumo (auditoría de bundle 2026-09-14).
+const ConsumoChart = lazy(() => import('@/components/client/ConsumoChart'))
 
 function orderToDate(o: Order): Date {
   return o.date?.toDate ? o.date.toDate() : new Date((o.date as any)?.seconds * 1000)
@@ -144,35 +146,9 @@ export default function OrderHistory() {
               )}
             </div>
 
-            <ResponsiveContainer width="100%" height={120}>
-              <BarChart data={stats.meses} margin={{ top: 4, right: 30, left: -30, bottom: 0 }}>
-                <XAxis
-                  dataKey="label"
-                  tick={{ fill: '#9ca3af', fontSize: 11 }}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis
-                  tick={{ fill: '#9ca3af', fontSize: 11 }}
-                  tickLine={false}
-                  axisLine={false}
-                  allowDecimals={false}
-                />
-                <Tooltip
-                  contentStyle={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12 }}
-                  formatter={(v: any) => [`${v} u.`, 'Unidades']}
-                  cursor={{ fill: '#f3f4f6' }}
-                />
-                <Bar dataKey="unidades" radius={[4, 4, 0, 0]} maxBarSize={32}>
-                  {stats.meses.map((m, i) => (
-                    <Cell
-                      key={i}
-                      fill={i === 5 ? '#1D9E75' : '#D1FAE5'}
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <Suspense fallback={<Skeleton className="h-[120px] rounded-xl" />}>
+              <ConsumoChart meses={stats.meses} />
+            </Suspense>
           </div>
         ) : null}
 

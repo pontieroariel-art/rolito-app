@@ -1,5 +1,5 @@
 // Marca de dispositivo del módulo expedición — mismo patrón que
-// produccionAuthService.marcarDispositivoProduccion: la tablet del mostrador
+// produccionDeviceService.marcarDispositivoProduccion: la tablet del mostrador
 // se marca UNA vez como "puesto de cobranza" (localStorage) y desde entonces,
 // sin importar qué usuario de caja se loguee (los turnos rotan, cada persona
 // entra con SU usuario), en ese aparato solo se ve la pantalla de Cobranzas.

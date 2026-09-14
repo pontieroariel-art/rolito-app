@@ -1,6 +1,6 @@
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore'
-import { getBlob, ref, uploadBytes } from 'firebase/storage'
-import { db, storage } from './firebase'
+import { db } from './firebase'
+import { obtenerStorage } from './storage'
 import { claveFactura } from '@/utils/facturaClave'
 import type { FacturaPdfData } from '@/utils/facturaPdf'
 import type { EmpresaTango, FacturaArchivada } from '@/types'
@@ -29,6 +29,7 @@ export async function archivarFactura(
 ): Promise<string> {
   const clave = claveFactura(f.letra, f.puntoVenta, f.numero)
   const storagePath = rutaPdfFactura(empresa, clave)
+  const { storage, ref, uploadBytes } = await obtenerStorage()
   await uploadBytes(ref(storage, storagePath), pdf, { contentType: 'application/pdf' })
   const fecha = f.fechaEmision
   const ymd = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`
@@ -49,5 +50,7 @@ export async function archivarFactura(
 }
 
 /** Baja el PDF archivado (requiere CORS GET en el bucket para el origen de la app). */
-export const blobFacturaArchivada = (f: Pick<FacturaArchivada, 'storagePath'>): Promise<Blob> =>
-  getBlob(ref(storage, f.storagePath))
+export const blobFacturaArchivada = async (f: Pick<FacturaArchivada, 'storagePath'>): Promise<Blob> => {
+  const { storage, ref, getBlob } = await obtenerStorage()
+  return getBlob(ref(storage, f.storagePath))
+}

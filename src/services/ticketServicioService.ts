@@ -12,8 +12,8 @@ import {
   runTransaction,
   updateDoc,
 } from 'firebase/firestore'
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
-import { db, storage } from './firebase'
+import { db } from './firebase'
+import { obtenerStorage } from './storage'
 import { onSnapshotError } from './observability'
 import { resizeImage } from '../utils/imagen'
 import { getPushSubscription } from './userService'
@@ -90,6 +90,7 @@ export const nuevoTicketId = (): string => doc(collection(db, TICKETS)).id
 /** Sube la foto del problema (reducida en el cliente) y devuelve su URL. Se llama ANTES de crearTicket. */
 export const subirFotoTicket = async (ticketId: string, file: File): Promise<string> => {
   const blob = await resizeImage(file, 1280, 0.8)
+  const { storage, ref, uploadBytes, getDownloadURL } = await obtenerStorage()
   const fotoRef = ref(storage, `ticketsServicio/${ticketId}/foto.jpg`)
   await uploadBytes(fotoRef, blob, { contentType: 'image/jpeg' })
   return getDownloadURL(fotoRef)

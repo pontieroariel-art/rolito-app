@@ -1,6 +1,6 @@
 import { Eye, X } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
-import { ROLE_LABELS } from './Navbar'
+import { ROLE_LABELS } from '@/utils/roles'
 import { cerrarVistaComo } from '../../services/impersonacionService'
 
 // Franja fija de la sesión "Ver como usuario" (2026-09-10). Va arriba de todos

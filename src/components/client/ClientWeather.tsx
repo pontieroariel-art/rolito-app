@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { getForecast, DayWeather } from '../../services/weatherService'
 
 function tempColor(t: number): string {
@@ -10,41 +10,31 @@ function tempColor(t: number): string {
 }
 
 interface ClientWeatherProps {
-  address:  string
-  isLoaded: boolean
+  /** Coordenadas de la dirección del cliente; `null` = pronóstico de la planta. */
+  coords: { lat: number; lng: number } | null
 }
 
-export function ClientWeather({ address, isLoaded }: ClientWeatherProps) {
-  const [coords,  setCoords]  = useState<{ lat: number; lng: number } | null>(null)
+// Recibe las coordenadas hechas (las que logística corrigió en la dirección)
+// en vez de geocodificar con Google Maps: así el home del cliente no baja el
+// script de Maps solo para esto (2026-09-14).
+export function ClientWeather({ coords }: ClientWeatherProps) {
   const [days,    setDays]    = useState<DayWeather[]>([])
   const [loading, setLoading] = useState(true)
   const [open,    setOpen]    = useState(false)
-  const geocodedRef           = useRef(false)
+  const lat = coords?.lat
+  const lng = coords?.lng
 
   useEffect(() => {
-    if (geocodedRef.current) return
-    if (isLoaded && address) {
-      geocodedRef.current = true
-      new google.maps.Geocoder().geocode({ address }, (results, status) => {
-        if (status === 'OK' && results?.[0]) {
-          const loc = results[0].geometry.location
-          setCoords({ lat: loc.lat(), lng: loc.lng() })
-        } else {
-          setCoords(null)
-        }
-      })
-    } else if (!address) {
-      setCoords(null)
-    }
-  }, [isLoaded, address])
-
-  useEffect(() => {
+    // Guarda contra la carrera por cambio de sucursal: el pronóstico viejo no
+    // pisa al nuevo si llega después.
+    let vivo = true
     setLoading(true)
-    getForecast(coords?.lat, coords?.lng)
-      .then(setDays)
+    getForecast(lat, lng)
+      .then((d) => { if (vivo) setDays(d) })
       .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [coords])
+      .finally(() => { if (vivo) setLoading(false) })
+    return () => { vivo = false }
+  }, [lat, lng])
 
   const today = days[0]
 

@@ -5,7 +5,6 @@ import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager, memoryLocalCache,
   connectFirestoreEmulator,
 } from 'firebase/firestore'
-import { getStorage, connectStorageEmulator } from 'firebase/storage'
 import { marcarSesionVerComo } from './observability'
 
 const apiKey            = import.meta.env.VITE_FIREBASE_API_KEY
@@ -25,7 +24,7 @@ if (!apiKey || !authDomain || !projectId) {
 
 export const firebaseConfig = { apiKey, authDomain, projectId, storageBucket, messagingSenderId, appId }
 
-const app = initializeApp(firebaseConfig)
+export const app = initializeApp(firebaseConfig)
 
 // ── "Ver como usuario" (2026-09-10) ───────────────────────────────────────────
 // El super_admin abre, desde Usuarios, una pestaña nueva con
@@ -74,9 +73,9 @@ export const db = initializeFirestore(app, {
     ? memoryLocalCache()
     : persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
 })
-// Storage: hoy solo se usa para las fotos del catálogo de productos (botonera de
-// venta). El bucket ya está en firebaseConfig.
-export const storage = getStorage(app)
+// Storage NO se inicializa acá: va por import() dinámico en services/storage.ts
+// (obtenerStorage), que también conecta su emulador, así @firebase/storage no
+// entra al chunk inicial de todos los logins (auditoría de bundle 2026-09-14).
 
 // `npm run dev` (import.meta.env.DEV) apunta a los emuladores locales en vez
 // de a producción — así las pruebas locales (arrastrar pedidos, confirmar
@@ -86,7 +85,6 @@ export const storage = getStorage(app)
 if (import.meta.env.DEV) {
   connectFirestoreEmulator(db, 'localhost', 8080)
   connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true })
-  connectStorageEmulator(storage, 'localhost', 9199)
 }
 
 // App Check queda listo pero inactivo hasta registrar la Web app en Firebase

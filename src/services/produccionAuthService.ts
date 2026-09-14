@@ -1,29 +1,9 @@
 import { doc, setDoc, getDoc } from 'firebase/firestore'
-import { getFunctions, httpsCallable } from 'firebase/functions'
 import { db } from './firebase'
-import { PlantaId } from '../types'
 
-// Marca este dispositivo como "tablet de planta X" en localStorage (no
-// sessionStorage: tiene que sobrevivir a cerrar y reabrir la app instalada,
-// no solo a la pestaña). Landing.tsx la usa para mandar "/" derecho a
-// produccion-{planta} en vez del landing genérico — así el logout nunca
-// muestra Clientes/Choferes/Equipo Rolito. Ver Navbar.tsx para el porqué no
-// se resuelve con un navigate() en el logout (pierde la carrera contra el
-// redirect de ProtectedRoute).
-const DISPOSITIVO_PRODUCCION_KEY = 'produccionPlantaDevice'
-
-export function marcarDispositivoProduccion(planta: PlantaId): void {
-  try { localStorage.setItem(DISPOSITIVO_PRODUCCION_KEY, planta) } catch { /* localStorage puede fallar en privado/incognito, no es crítico */ }
-}
-
-export function getDispositivoProduccion(): PlantaId | null {
-  try {
-    const v = localStorage.getItem(DISPOSITIVO_PRODUCCION_KEY)
-    return v === 'torcuato' || v === 'merlo' ? v : null
-  } catch {
-    return null
-  }
-}
+// La marca de "tablet de planta" (marcarDispositivoProduccion /
+// getDispositivoProduccion) se mudó a produccionDeviceService.ts (2026-09-14):
+// Landing la necesita al arranque y no tiene por qué cargar este servicio.
 
 // Login por legajo + PIN individual (mismo patrón que los choferes, ver
 // choferAuthService.padPin). Antes se usaba una contraseña FIJA embebida en el
@@ -62,6 +42,9 @@ export async function getEmailByProduccionLegajo(legajo: string): Promise<string
 // sea un operario de producción. El PIN no se guarda en ningún lado: si se
 // pierde, se vuelve a resetear.
 export async function resetPinProduccion(operarioUid: string): Promise<string> {
+  // firebase/functions por import() dinámico: authService carga este módulo
+  // para el login por legajo y no necesita el SDK de callables para eso.
+  const { getFunctions, httpsCallable } = await import('firebase/functions')
   const call = httpsCallable<{ operarioUid: string }, { pin: string }>(
     getFunctions(),
     'resetPinProduccion',

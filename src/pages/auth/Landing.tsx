@@ -3,7 +3,7 @@ import { ShoppingBag, ChevronRight } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { ROLE_HOME } from '../../utils/sistemas'
-import { getDispositivoProduccion } from '../../services/produccionAuthService'
+import { getDispositivoProduccion } from '../../services/produccionDeviceService'
 import { esDispositivoCobranza } from '../../services/expedicionDeviceService'
 
 export default function Landing() {

@@ -1,6 +1,6 @@
 import { doc, getDoc, setDoc } from 'firebase/firestore'
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
-import { db, storage } from './firebase'
+import { db } from './firebase'
+import { obtenerStorage } from './storage'
 import { CatalogProducto } from '../types'
 import { PRODUCTS } from '../utils/constants'
 import { resizeImage } from '../utils/imagen'
@@ -32,6 +32,7 @@ export const saveCatalogo = (productos: CatalogProducto[]): Promise<void> =>
 // escribe el catálogo: el que llama arma el array y usa saveCatalogo.
 export const subirFotoProducto = async (productoId: string, file: File): Promise<string> => {
   const blob    = await resizeImage(file)
+  const { storage, ref, uploadBytes, getDownloadURL } = await obtenerStorage()
   const fotoRef = ref(storage, `catalogo/${productoId}`)
   await uploadBytes(fotoRef, blob, { contentType: 'image/jpeg' })
   return getDownloadURL(fotoRef)

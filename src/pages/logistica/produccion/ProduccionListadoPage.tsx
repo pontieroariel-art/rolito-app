@@ -1,13 +1,17 @@
-import { useMemo, useState, ChangeEvent } from 'react'
+import { lazy, Suspense, useMemo, useState, ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { Printer } from 'lucide-react'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/context/AuthContext'
 import { useProduccionPallets } from '@/hooks/useProduccionPallets'
-import { ProduccionResumen } from '@/components/produccion/ProduccionResumen'
 import { PLANTAS, PlantaId } from '@/types'
 import { PRODUCTOS_HIELO_LIST } from '@/utils/produccionCatalogo'
 import { toDateStr } from '@/utils/helpers'
+
+// El resumen trae recharts (chunk `charts`): se carga aparte, después del
+// listado, con un esqueleto mientras baja (auditoría de bundle 2026-09-14).
+const ProduccionResumen = lazy(() => import('@/components/produccion/ProduccionResumen').then((m) => ({ default: m.ProduccionResumen })))
 
 // Pantalla compartida: el encargado (y super_admin) la ven dentro del shell
 // de producción (sidebar), gerencia/logística/comercial con su Navbar de
@@ -35,7 +39,9 @@ export default function ProduccionListadoPage() {
           <p className="text-secundario text-sm">Últimos pallets cargados</p>
         </div>
 
-        <ProduccionResumen />
+        <Suspense fallback={<Skeleton className="h-72 rounded-xl" />}>
+          <ProduccionResumen />
+        </Suspense>
 
         <div className="flex flex-wrap gap-3">
           <select
