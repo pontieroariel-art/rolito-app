@@ -518,6 +518,20 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "rendiciones",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "rindio.uid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": [

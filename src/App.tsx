@@ -109,7 +109,7 @@ const EntregasTesoreriaPage = lazy(() => import('@/pages/logistica/tesoreria/Ent
 const AnulacionesPage   = lazy(() => import('./pages/admin/AnulacionesPage'))
 const RendicionesHistorialPage = lazy(() => import('@/pages/logistica/expedicion/RendicionesHistorialPage'))
 const TesoreriaLivePage        = lazy(() => import('@/pages/logistica/tesoreria/TesoreriaLivePage'))
-const RendicionesTesoreriaPage = lazy(() => import('@/pages/logistica/tesoreria/RendicionesTesoreriaPage'))
+const RecepcionPage            = lazy(() => import('@/pages/logistica/tesoreria/RecepcionPage'))
 const MuelleDashboard    = lazy(() => import('@/pages/logistica/expedicion/MuelleDashboard'))
 const TiemposMuellePage  = lazy(() => import('@/pages/logistica/expedicion/TiemposMuellePage'))
 const MuelleTvPage       = lazy(() => import('@/pages/logistica/expedicion/MuelleTvPage'))
@@ -326,7 +326,8 @@ function AppContent() {
           {/* Logística: tesorería (rol propio, 2026-09-09). Gerencia general entra en modo lectura. */}
           <Route element={<ProtectedRoute allowedRoles={rolesDe('/tesoreria')} />}>
             <Route path="/tesoreria"                       element={<TesoreriaLivePage />} />
-            <Route path="/tesoreria/rendiciones"           element={<RendicionesTesoreriaPage />} />
+            <Route path="/tesoreria/recepcion"             element={<RecepcionPage />} />
+            <Route path="/tesoreria/rendiciones"           element={<Navigate to="/tesoreria/recepcion" replace />} />
             <Route path="/tesoreria/rendiciones/historial" element={<RendicionesHistorialPage enTesoreria />} />
             {/* Entregas de caja: tesorería cuenta, tilda los valores y firma (2026-09-09). */}
             <Route path="/tesoreria/entregas"              element={<EntregasTesoreriaPage />} />

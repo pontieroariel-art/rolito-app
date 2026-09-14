@@ -137,7 +137,7 @@ export const CATALOGO: RutaConfig[] = [
   R('/caja/ventanilla',              'Ventanilla',           'tesoreria', CAJA, { icon: ShoppingCart, menuGroup: 'caja', externa: true }),
   R('/caja/cobranzas',               'Cobranzas',            'tesoreria', CAJA, { icon: HandCoins, menuGroup: 'caja' }),
   R('/caja/liquidaciones',           'Liquidaciones',        'tesoreria', CAJA, { icon: Scale, menuGroup: 'caja', externa: true }),
-  R('/caja/rendiciones',             'Mi caja',              'tesoreria', CAJA, { icon: Wallet, menuGroup: 'caja' }),
+  R('/caja/rendiciones',             'Mi turno',             'tesoreria', CAJA, { icon: Wallet, menuGroup: 'caja' }),
   R('/caja/entregas',                'Entrega a tesorería',  'tesoreria', CAJA, { icon: Landmark, menuGroup: 'caja' }),
   R('/caja/liquidaciones/historial', 'Historial',            'tesoreria', CAJA_HISTORIAL, { icon: History, menuGroup: 'caja' }),
   R('/caja/rendiciones/historial',   'Historial de cierres', 'tesoreria', CAJA_HISTORIAL, { deepLink: true }),
@@ -164,7 +164,9 @@ export const CATALOGO: RutaConfig[] = [
   // ── Logística: tesorería ──────────────────────────────────────────────────
   R('/tesoreria',                         'Tesorería en vivo',  'tesoreria', TESORERIA, { icon: Activity, menuGroup: 'tesoreria' }),
   R('/tesoreria/liquidaciones',           'Liquidaciones',      'tesoreria', TESORERIA, { icon: Scale, menuGroup: 'tesoreria' }),
-  R('/tesoreria/rendiciones',             'Rendiciones',        'tesoreria', TESORERIA, { icon: ShieldCheck, menuGroup: 'tesoreria' }),
+  R('/tesoreria/recepcion',               'Recepción',          'tesoreria', TESORERIA, { icon: ShieldCheck, menuGroup: 'tesoreria' }),
+  // Alias viejo (validación de cierres, circuito anterior): redirige a Recepción.
+  R('/tesoreria/rendiciones',             'Rendiciones',        'tesoreria', TESORERIA, { deepLink: true }),
   R('/tesoreria/entregas',                'Entregas de caja',   'tesoreria', TESORERIA, { icon: Landmark, menuGroup: 'tesoreria' }),
   R('/tesoreria/anulaciones',             'Anulaciones y faltantes', 'tesoreria', TESORERIA, { icon: Ban, menuGroup: 'tesoreria' }),
   R('/tesoreria/rendiciones/historial',   'Historial',          'tesoreria', TESORERIA, { icon: History, menuGroup: 'tesoreria' }),
@@ -263,7 +265,7 @@ export const SIDEBARS: Record<Sistema, GrupoSidebar[]> = {
   // Tesorería & Cajas: la plata y los valores, de la ventanilla al arqueo.
   tesoreria: [
     { id: 'caja',      label: 'Caja & Ventanilla', entradas: ['/caja/ventanilla', '/caja/cobranzas', '/caja/liquidaciones', '/caja/rendiciones', '/caja/entregas', '/caja/liquidaciones/historial'] },
-    { id: 'tesoreria', label: 'Tesorería',         entradas: ['/tesoreria', '/tesoreria/liquidaciones', '/tesoreria/rendiciones', '/tesoreria/entregas', '/tesoreria/anulaciones', '/tesoreria/rendiciones/historial'] },
+    { id: 'tesoreria', label: 'Tesorería',         entradas: ['/tesoreria', '/tesoreria/recepcion', '/tesoreria/liquidaciones', '/tesoreria/entregas', '/tesoreria/anulaciones', '/tesoreria/rendiciones/historial'] },
   ],
   comercial: [
     // El listado de producción es consulta de stock para gerencia, comercial y
@@ -336,7 +338,7 @@ export const PANEL: Array<{ id: string; titulo: string; entradas: EntradaMenu[] 
   { id: 'facturacion', titulo: 'Facturación',            entradas: ['/movimientos', '/admin/comprobantes', '/admin/recupero-facturas', '/anulaciones'] },
   { id: 'logistica',   titulo: 'Logística',              entradas: ['/logistica', '/admin/historial-despacho', '/admin/monitoreo', '/admin/visitas', '/admin/incidencias', '/admin/clima', '/admin/flota', '/admin/precios'] },
   { id: 'comercial',   titulo: 'Comercial',              entradas: ['/comercial', '/comercial/mapa', '/comercial/reporte-precios', '/comercial/ventas'] },
-  { id: 'expedicion',  titulo: 'Expedición y tesorería', entradas: ['/caja/remitos', '/caja/ventanilla', '/caja/liquidaciones', '/muelle', '/muelle/tv', '/logistica/tiempos-muelle', '/seguridad', '/tesoreria', '/tesoreria/rendiciones', '/tesoreria/entregas', { path: '/supervisor', label: 'Supervisor (calle)', icon: UserCheck }] },
+  { id: 'expedicion',  titulo: 'Expedición y tesorería', entradas: ['/caja/remitos', '/caja/ventanilla', '/caja/liquidaciones', '/muelle', '/muelle/tv', '/logistica/tiempos-muelle', '/seguridad', '/tesoreria', '/tesoreria/recepcion', '/tesoreria/entregas', { path: '/supervisor', label: 'Supervisor (calle)', icon: UserCheck }] },
   { id: 'heladeras',   titulo: 'Heladeras',              entradas: ['/heladeras', '/heladeras/taller', '/heladeras/asignacion', '/heladeras/ranking', '/heladeras/consulta-service', '/heladeras/toma-service', '/heladeras/informes', '/heladeras/mapa', '/heladeras/modelos', '/heladeras/catalogos', '/heladeras/tecnicos', '/heladeras/equipos', '/heladeras/panol'] },
   { id: 'produccion',  titulo: 'Producción',             entradas: ['/produccion/resumen', '/produccion/listado', '/produccion/operarios', '/produccion/plantas'] },
 ]

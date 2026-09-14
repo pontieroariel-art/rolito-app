@@ -81,8 +81,6 @@ export async function getRendicionesDeSujeto(sujetoId: string, fechas: string[])
   return snaps.filter((s) => s.exists()).map((s) => ({ id: s.id, ...s.data() }) as Rendicion)
 }
 
-/** Tesorería revisó el cierre (único campo que escribe; una sola vez). */
-export const validarRendicion = (id: string, actor: { uid: string; nombre: string }, nota?: string): Promise<void> =>
-  updateDoc(doc(db, RENDICIONES, id), {
-    validacion: { uid: actor.uid, nombre: actor.nombre, fecha: Timestamp.now(), ...(nota?.trim() ? { nota: nota.trim() } : {}) },
-  })
+// La validación de cierres por tesorería se retiró el 2026-09-14: la
+// recepción del sobre (services/sobreService.recibirSobre) es el único acto
+// de tesorería. Los cierres viejos conservan `validacion` solo en lectura.
