@@ -19,7 +19,7 @@ import { reauthenticateWithCredential, EmailAuthProvider, updatePassword } from 
 import { auth } from '@/services/firebase'
 import { padPin } from '@/services/choferAuthService'
 import { updateVisitaPuntual } from '@/services/visitasService'
-import { useProgramasVisita, useVisitasPuntuales, programasParaFecha, visitasParaFecha } from '@/hooks/useVisitas'
+import { useProgramasVisitaDeChofer, useVisitasPuntualesDeChofer, programasParaFecha, visitasParaFecha } from '@/hooks/useVisitas'
 import { useCatalogo } from '@/hooks/useCatalogo'
 import { useRemitosCargaChofer } from '@/hooks/useRemitosCargaChofer'
 import AvisarRegreso from '@/components/chofer/AvisarRegreso'
@@ -38,8 +38,6 @@ import { reportError, esperarOEncolar } from '@/services/observability'
 export default function ChoferDashboard() {
   const { user, verComo }     = useAuth()
   const { permission, request } = usePushNotification()
-  const { programas }         = useProgramasVisita()
-  const { visitas }           = useVisitasPuntuales()
   const { catalogo }          = useCatalogo()
   const { remitos: remitosCarga } = useRemitosCargaChofer()
   // Mail automático del comprobante al cliente por cada venta reciente que
@@ -99,6 +97,11 @@ export default function ChoferDashboard() {
 
   // Ayudante filtra visitas por el email del chofer asignado, no el suyo propio
   const driverEmailForVisits = isAyudante ? (pairedDespacho?.driverId ?? user?.email) : user?.email
+  // Bajan solo las visitas de ese chofer (más las sin chofer) para hoy y los
+  // seis días que siguen (2026-09-14); antes era la colección entera. Los
+  // filtros de abajo quedan como red de seguridad.
+  const { programas } = useProgramasVisitaDeChofer(driverEmailForVisits)
+  const { visitas }   = useVisitasPuntualesDeChofer(driverEmailForVisits, today, 7)
   const visitasHoy = useMemo(() => programasParaFecha(programas, today).filter((p) => !p.driverId || p.driverId === driverEmailForVisits), [programas, today, driverEmailForVisits])
   const puntualHoy = useMemo(() => visitasParaFecha(visitas, today).filter((v) => !v.driverId || v.driverId === driverEmailForVisits), [visitas, today, driverEmailForVisits])
   const entregadosHoyIds = useMemo(() => new Set(delivered.map((o) => o.clientId)), [delivered])

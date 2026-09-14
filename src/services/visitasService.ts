@@ -31,6 +31,78 @@ export const subscribeProgramas = (
     onSnapshotError(callback, 'programas-visita'),
   )
 
+// ── Lo que ve el chofer (2026-09-14) ─────────────────────────────────────────
+// El home del chofer bajaba la colección entera de programas y los 500 docs /
+// 30 días de puntuales para quedarse con los suyos de la semana. Acá bajan
+// solo los del chofer MÁS los sin chofer asignado (`driverId: null`), que el
+// home también muestra (todos los que escriben una visita guardan el null
+// explícito: Visitas y el supervisor). Son dos consultas por colección —una
+// por email y otra por null— unidas en memoria, para no depender de cómo
+// trata Firestore el null adentro de un `in`. Las dos usan el mismo índice
+// compuesto (driverId + orden).
+
+/** Une dos onSnapshot en un solo callback: avisa recién cuando llegaron los dos. */
+function unirDosConsultas<T>(
+  qA: ReturnType<typeof query>,
+  qB: ReturnType<typeof query>,
+  mapear: (d: { id: string; data: () => unknown }) => T,
+  ordenar: (a: T, b: T) => number,
+  callback: (items: T[]) => void,
+  coleccion: string,
+  alFallar?: (err: Error) => void,
+): () => void {
+  let a: T[] | null = null
+  let b: T[] | null = null
+  const emitir = () => { if (a && b) callback([...a, ...b].sort(ordenar)) }
+  const onError = onSnapshotError(callback, coleccion, alFallar)
+  const ua = onSnapshot(qA, (snap) => { a = snap.docs.map(mapear); emitir() }, onError)
+  const ub = onSnapshot(qB, (snap) => { b = snap.docs.map(mapear); emitir() }, onError)
+  return () => { ua(); ub() }
+}
+
+const porClientName = (x: ProgramaVisita, y: ProgramaVisita) =>
+  x.clientName < y.clientName ? -1 : x.clientName > y.clientName ? 1 : 0
+const porFechaDesc = (x: VisitaPuntual, y: VisitaPuntual) =>
+  (y.fecha?.toMillis?.() ?? 0) - (x.fecha?.toMillis?.() ?? 0)
+
+/** Programas del chofer (`driverId` = su email) más los sin chofer, ordenados por cliente. */
+export const subscribeProgramasDeChofer = (
+  driverEmail: string,
+  callback: (p: ProgramaVisita[]) => void,
+  alFallar?: (err: Error) => void,
+): () => void =>
+  unirDosConsultas<ProgramaVisita>(
+    query(collection(db, PROGRAMAS), where('driverId', '==', driverEmail), orderBy('clientName')),
+    query(collection(db, PROGRAMAS), where('driverId', '==', null), orderBy('clientName')),
+    (d) => ({ id: d.id, ...(d.data() as object) } as ProgramaVisita),
+    porClientName,
+    callback,
+    'programas-visita',
+    alFallar,
+  )
+
+/** Visitas puntuales del chofer (más las sin chofer) con `fecha` en [desde, hasta), más nueva primero. */
+export const subscribeVisitasPuntualesDeChofer = (
+  driverEmail: string,
+  desde: Date,
+  hasta: Date,
+  callback: (v: VisitaPuntual[]) => void,
+  alFallar?: (err: Error) => void,
+): () => void => {
+  const tDesde = Timestamp.fromDate(desde)
+  const tHasta = Timestamp.fromDate(hasta)
+  const base = [where('fecha', '>=', tDesde), where('fecha', '<', tHasta), orderBy('fecha', 'desc')]
+  return unirDosConsultas<VisitaPuntual>(
+    query(collection(db, PUNTUALES), where('driverId', '==', driverEmail), ...base),
+    query(collection(db, PUNTUALES), where('driverId', '==', null), ...base),
+    (d) => ({ id: d.id, ...(d.data() as object) } as VisitaPuntual),
+    porFechaDesc,
+    callback,
+    'visitas-puntuales',
+    alFallar,
+  )
+}
+
 export const addPrograma = (
   data: Omit<ProgramaVisita, 'id' | 'createdAt'>,
 ): Promise<void> =>

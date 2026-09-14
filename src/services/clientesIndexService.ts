@@ -9,6 +9,22 @@ import type { ClienteIndex } from '@/types'
 // bajan los clientes que cambiaron. La ficha completa (precios, condición de
 // venta, domicilios) se pide por id recién al elegir el cliente.
 
+// El índice entero, sin filtrar por estado (2026-09-14): para las pantallas de
+// escritorio que cruzan pedidos históricos con su cliente (Pedidos de
+// comercial, Historial de flota), donde un cliente dado de baja o pendiente
+// también tiene que aparecer. El backfill y el trigger indexan a TODO cliente
+// con su `estado`, así que el conjunto es el mismo que `users` con rol cliente.
+export function subscribeClientesIndexTodos(
+  cb: (clientes: ClienteIndex[]) => void,
+  onError?: (err: Error) => void,
+): () => void {
+  return onSnapshot(
+    collection(db, 'clientesIndex'),
+    (snap) => cb(snap.docs.map((d) => ({ ...(d.data() as Omit<ClienteIndex, 'uid'>), uid: d.id }))),
+    (err) => { onSnapshotError(cb, 'clientesIndex:todos')(err); onError?.(err) },
+  )
+}
+
 export function subscribeClientesIndex(
   cb: (clientes: ClienteIndex[]) => void,
   onError?: (err: Error) => void,

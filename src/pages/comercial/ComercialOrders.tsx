@@ -1,18 +1,17 @@
 import { useState, useMemo } from 'react'
 import { coincideBusqueda, normalizarBusqueda } from '@/utils/busqueda'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
 import Badge from '../../components/ui/Badge'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
-import ClienteCombobox, { toComboItems } from '@/components/common/ClienteCombobox'
+import ClienteCombobox, { indexAComboItems } from '@/components/common/ClienteCombobox'
 import { useOrdersRango } from '../../hooks/useOrders'
+import { useClientesIndexTodos } from '@/hooks/useClientesIndex'
 import { rangoCalendario } from '../../utils/rangoFechas'
-import { getAllUsers } from '../../services/userService'
 import { summarizeProducts } from '../../utils/helpers'
 import { STATUS_LABELS } from '../../utils/constants'
-import { Order, UserProfile, OrderStatus } from '../../types'
+import { Order, ClienteIndex, OrderStatus } from '../../types'
 
 type Periodo = 'dia' | 'mes' | 'anio'
 
@@ -47,13 +46,9 @@ export default function ComercialOrders() {
     [periodo, year, month, day],
   )
   const { orders, loading: ordersLoading } = useOrdersRango(desde, hasta)
-  const { data: users = [], isLoading: usersLoading } = useQuery({
-    queryKey: ['users'],
-    queryFn:  () => getAllUsers(),
-    staleTime: 300_000,
-  })
-
-  const clientes = users.filter((u) => u.rol === 'cliente')
+  // Índice liviano de TODOS los clientes (2026-09-14): acá solo hacen falta la
+  // razón social y el código; antes bajaban las 2.000+ fichas completas.
+  const { clientes, loading: usersLoading } = useClientesIndexTodos()
 
   // Clientes cuyo código coincide con la búsqueda — permite encontrar
   // pedidos por código de cliente aunque el pedido no lo guarde.
@@ -207,7 +202,7 @@ export default function ComercialOrders() {
           <div className="flex flex-wrap gap-2">
             {/* Cliente */}
             <ClienteCombobox
-              items={toComboItems(clientes)}
+              items={indexAComboItems(clientes)}
               value={clienteId}
               onChange={setClienteId}
               allLabel="Todos los clientes"
@@ -262,7 +257,7 @@ export default function ComercialOrders() {
         ) : (
           <div className="space-y-2">
             {filtered.map((o) => (
-              <OrderCard key={o.id} order={o} users={users} />
+              <OrderCard key={o.id} order={o} clientes={clientes} />
             ))}
           </div>
         )}
@@ -274,8 +269,8 @@ export default function ComercialOrders() {
 
 // ── OrderCard ─────────────────────────────────────────────────────────────────
 
-function OrderCard({ order, users }: { order: Order; users: UserProfile[] }) {
-  const client  = users.find((u) => u.uid === order.clientId)
+function OrderCard({ order, clientes }: { order: Order; clientes: ClienteIndex[] }) {
+  const client  = clientes.find((u) => u.uid === order.clientId)
   const total   = orderTotal(order)
   const date    = tsToDate(order.date)
 

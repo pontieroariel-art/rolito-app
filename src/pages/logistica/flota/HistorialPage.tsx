@@ -1,18 +1,17 @@
 import { useState, useMemo } from 'react'
 import { coincideBusqueda, normalizarBusqueda } from '@/utils/busqueda'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
 import Badge from '@/components/ui/Badge'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
-import ClienteCombobox, { toComboItems } from '@/components/common/ClienteCombobox'
+import ClienteCombobox, { indexAComboItems } from '@/components/common/ClienteCombobox'
 import { useOrdersRango } from '@/hooks/useOrders'
 import { useVisitasPuntualesRango } from '@/hooks/useVisitas'
+import { useClientesIndexTodos } from '@/hooks/useClientesIndex'
 import { rangoCalendario } from '@/utils/rangoFechas'
-import { getAllUsers } from '@/services/userService'
 import { summarizeProducts } from '@/utils/helpers'
 import { STATUS_LABELS } from '@/utils/constants'
-import { Order, VisitaPuntual, OrderStatus, UserProfile } from '@/types'
+import { Order, VisitaPuntual, OrderStatus, ClienteIndex } from '@/types'
 import { Timestamp } from 'firebase/firestore'
 
 type Periodo = 'dia' | 'mes' | 'anio'
@@ -61,13 +60,9 @@ export default function HistorialPage() {
   )
   const { orders, loading: ordersLoading }  = useOrdersRango(desde, hasta)
   const { visitas, loading: visitasLoading } = useVisitasPuntualesRango(desde, hasta)
-  const { data: users = [], isLoading: usersLoading } = useQuery({
-    queryKey:  ['users'],
-    queryFn:   () => getAllUsers(),
-    staleTime: 300_000,
-  })
-
-  const clientes = users.filter((u) => u.rol === 'cliente')
+  // Índice liviano de TODOS los clientes (2026-09-14): acá solo hacen falta la
+  // razón social y el código; antes bajaban las 2.000+ fichas completas.
+  const { clientes, loading: usersLoading } = useClientesIndexTodos()
 
   // Clientes cuyo código coincide con la búsqueda — permite encontrar
   // pedidos/visitas por código de cliente aunque el registro no lo guarde.
@@ -249,7 +244,7 @@ export default function HistorialPage() {
 
             {/* Cliente */}
             <ClienteCombobox
-              items={toComboItems(clientes)}
+              items={indexAComboItems(clientes)}
               value={clienteId}
               onChange={setClienteId}
               allLabel="Todos los clientes"
@@ -318,7 +313,7 @@ export default function HistorialPage() {
           <div className="space-y-2">
             {items.map((item) =>
               item.kind === 'pedido' ? (
-                <PedidoCard key={`p-${item.data.id}`} order={item.data} users={users} />
+                <PedidoCard key={`p-${item.data.id}`} order={item.data} clientes={clientes} />
               ) : (
                 <VisitaCard key={`v-${item.data.id}`} visita={item.data} />
               ),
@@ -333,8 +328,8 @@ export default function HistorialPage() {
 
 // ── PedidoCard ────────────────────────────────────────────────────────────────
 
-function PedidoCard({ order, users }: { order: Order; users: UserProfile[] }) {
-  const client = users.find((u) => u.uid === order.clientId)
+function PedidoCard({ order, clientes }: { order: Order; clientes: ClienteIndex[] }) {
+  const client = clientes.find((u) => u.uid === order.clientId)
   const total  = orderTotal(order)
   const date   = tsToDate(order.date)
 
