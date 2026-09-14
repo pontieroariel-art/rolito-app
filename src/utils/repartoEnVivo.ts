@@ -1,6 +1,7 @@
 import { CambioCamion, Cobranza, DescargaCamion, RemitoCarga, VentaCamion } from '../types'
 import { calcularLiquidacion, LiquidacionCalculada } from './liquidacion'
 import { ventasVigentes } from './anulacionVenta'
+import { descargasVigentes } from './rectificacionDescarga'
 
 // "Reparto en vivo" del supervisor: la liquidación del repartidor calculada al
 // momento, camión por camión, con las mismas fuentes y la misma cuenta que usa
@@ -60,7 +61,9 @@ export function agruparRepartoEnVivo(
     const rs = remitos.filter((r) => r.choferId === choferId)
     const vs = ventas.filter((v) => v.choferId === choferId).sort((a, b) => b.fecha.toMillis() - a.fecha.toMillis())
     const cs = cambios.filter((c) => c.choferId === choferId)
-    const ds = descargas.filter((d) => d.choferId === choferId)
+    // Sin los conteos rectificados (2026-09-13): la hora de vuelta y el cuadre
+    // salen de la corrección, no de la suma de las dos.
+    const ds = descargasVigentes(descargas.filter((d) => d.choferId === choferId))
     const cb = cobranzasCalle.filter((c) => c.registradoPor.uid === choferId)
     const liq = calcularLiquidacion(rs, vs, cs, ds, cb)
 

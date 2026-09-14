@@ -1213,7 +1213,29 @@ service cloud.firestore {
         // pallets completos / parciales / vacíos — LEGACY: solo para tablets
         // con la PWA anterior; sacar cuando todas hayan actualizado.
         && (envasesDescargaOk(request.resource.data.envases)
-            || (!('envases' in request.resource.data) && palletsLegacyOk(request.resource.data)));
+            || (!('envases' in request.resource.data) && palletsLegacyOk(request.resource.data)))
+        // Rectificación de un conteo mal cargado (2026-09-13): la colección
+        // sigue siendo inmutable (el conteo es la prueba del control), así que
+        // corregir es crear otra descarga que apunta a la vieja. Se exige que
+        // la original EXISTA, que sea del mismo repartidor y de la misma planta
+        // —si no, una rectificación podría "borrar" el conteo de otro— y el
+        // motivo escrito.
+        && rectificacionOk(request.resource.data);
+
+      function rectificacionOk(d) {
+        return !('rectificaA' in d)
+          || (d.rectificaA is string
+              && d.motivoRectificacion is string && d.motivoRectificacion.size() > 0
+              && existe(d.rectificaA)
+              && original(d.rectificaA).choferId == d.choferId
+              && original(d.rectificaA).plantaId == d.plantaId);
+      }
+      function existe(id) {
+        return exists(/databases/$(database)/documents/descargasCamion/$(id));
+      }
+      function original(id) {
+        return get(/databases/$(database)/documents/descargasCamion/$(id)).data;
+      }
 
       function palletsLegacyOk(d) {
         return d.palletsCompletos is int && d.palletsCompletos >= 0

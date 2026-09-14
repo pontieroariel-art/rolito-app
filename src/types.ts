@@ -924,6 +924,15 @@ export interface DescargaCamion {
   // una descarga de un depósito sin remito digital (fletero) no lo tiene.
   remitoId?:        string
   remitoCodigo?:    string
+  // Rectificación de un conteo mal cargado (2026-09-13): esta descarga
+  // REEMPLAZA a la del id que apunta. La original no se toca (la colección es
+  // inmutable a propósito: el conteo es la prueba del control), pero todo lo
+  // que lee descargas la descarta — ver utils/rectificacionDescarga.ts.
+  // El stock en Tango NO se corrige solo: la rectificación no se encola (no
+  // existe contra-movimiento para transferenciaDeposito) y la oficina lo
+  // ajusta a mano, avisada por push.
+  rectificaA?:            string
+  motivoRectificacion?:   string
   // Envases que volvieron, contados sueltos por muelle (desde 2026-09-07).
   envases?:         EnvasesDescarga
   // LEGACY (descargas anteriores al 2026-09-07): pallets completos (con hielo),

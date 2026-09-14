@@ -7,6 +7,7 @@ import { cuadrarEnvases } from './envases'
 import { chequesDe, efectivoDe, retencionesDe, sumaImportes, transferenciaDe } from './medios'
 import { nombreClienteVenta } from '@/utils/nombreClienteVenta'
 import { ventaAnulada, ventasVigentes } from './anulacionVenta'
+import { descargasVigentes } from './rectificacionDescarga'
 
 // Cálculo puro de la liquidación del repartidor — replica la hoja
 // "Liquidación de repartidores" del sistema viejo: por producto, carga −
@@ -32,6 +33,9 @@ export function calcularLiquidacion(
   // Una factura anulada con nota de crédito (2026-09-11) no cuenta: ni en
   // plata ni en productos (la NC devolvió el stock al depósito en Tango).
   ventas = ventasVigentes(ventas)
+  // Un conteo rectificado (2026-09-13) no suma dos veces: vale la corrección en
+  // lugar del original — ver utils/rectificacionDescarga.ts.
+  descargas = descargasVigentes(descargas)
   // ── Por producto ── acumular cada fuente sobre el mismo mapa, indexado por
   // productoId, para que ningún producto quede afuera aunque aparezca en una
   // sola fuente (ej. vendió algo que no figura en la carga → diferencia).

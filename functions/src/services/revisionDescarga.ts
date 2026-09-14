@@ -26,7 +26,18 @@ export interface VentaParaRevision {
   cambios?:   ItemContado[] | null
   anulacion?: { estado?: string } | null
 }
-export interface DescargaParaRevision { items: ItemContado[] }
+export interface DescargaParaRevision { id?: string; rectificaA?: string; items: ItemContado[] }
+
+/**
+ * Las descargas que valen: sin las que una corrección posterior reemplazó
+ * (2026-09-13). Gemela de utils/rectificacionDescarga.descargasVigentes; sin
+ * esto el conteo corregido sumaría con el equivocado y el faltante saldría al
+ * revés.
+ */
+export function descargasVigentes<T extends { id?: string; rectificaA?: string }>(descargas: T[]): T[] {
+  const rectificadas = new Set(descargas.map((d) => d.rectificaA).filter((id): id is string => !!id))
+  return descargas.filter((d) => !d.id || !rectificadas.has(d.id))
+}
 
 export interface UmbralFaltantes { habilitado: boolean; bolsas: number }
 export const UMBRAL_FALTANTES_DEFAULT: UmbralFaltantes = { habilitado: true, bolsas: 10 }
@@ -73,7 +84,7 @@ export function calcularRevision(
     })
   // Registro viejo de cambios (cuando el cambio era una pantalla aparte).
   cambiosViejos.forEach((c) => { fila(productoDelCambio(c.productoId), nombreDelCambio(c.nombre)).teorico -= c.cantidad })
-  descargas.forEach((d) => (d.items ?? []).forEach((i) => { fila(i.productoId, i.nombre).descarga += i.cantidad }))
+  descargasVigentes(descargas).forEach((d) => (d.items ?? []).forEach((i) => { fila(i.productoId, i.nombre).descarga += i.cantidad }))
 
   const productos: RevisionCalculada['productos'] = []
   let bolsasFaltantes = 0

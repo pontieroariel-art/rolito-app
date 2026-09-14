@@ -2692,6 +2692,36 @@ describe('expedicion: muelle / cambios / descargas / liquidaciones', () => {
     await assertSucceeds(setDoc(doc(db('caja1'), 'liquidaciones/2026-09-05_chof1'), liquidacion({ fecha: '2026-09-05' })))
   })
 
+  // ── rectificar un conteo mal cargado (2026-09-13) ──
+  test('muelle corrige un conteo creando otra descarga que apunta a la vieja, con motivo', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/mue1'), { rol: 'muelle', estado: 'activo', planta: 'torcuato' })
+      await setDoc(doc(d, 'users/mue2'), { rol: 'muelle', estado: 'activo', planta: 'merlo' })
+      await setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' })
+      await setDoc(doc(d, 'descargasCamion/d1'), descarga({ registradoPor: { uid: 'mue1', nombre: 'Muelle' } }))
+      // De otro repartidor: no se puede "corregir" el conteo ajeno.
+      await setDoc(doc(d, 'descargasCamion/otro'), descarga({ choferId: 'chof2', registradoPor: { uid: 'mue1', nombre: 'Muelle' } }))
+    })
+    const correccion = (extra = {}) => descarga({
+      registradoPor: { uid: 'mue1', nombre: 'Muelle' },
+      rectificaA: 'd1', motivoRectificacion: 'se tipeó 6 en vez de 60', ...extra,
+    })
+    // POSITIVO.
+    await assertSucceeds(setDoc(doc(db('mue1'), 'descargasCamion/r1'), correccion()))
+    // Sin motivo, o vacío.
+    const { motivoRectificacion: _m, ...sinMotivo } = correccion()
+    await assertFails(setDoc(doc(db('mue1'), 'descargasCamion/r2'), sinMotivo))
+    await assertFails(setDoc(doc(db('mue1'), 'descargasCamion/r3'), correccion({ motivoRectificacion: '' })))
+    // Apuntando a una descarga que no existe, o al conteo de OTRO repartidor.
+    await assertFails(setDoc(doc(db('mue1'), 'descargasCamion/r4'), correccion({ rectificaA: 'no-existe' })))
+    await assertFails(setDoc(doc(db('mue1'), 'descargasCamion/r5'), correccion({ rectificaA: 'otro' })))
+    // Muelle de la otra planta no corrige acá.
+    await assertFails(setDoc(doc(db('mue2'), 'descargasCamion/r6'), correccion({ registradoPor: { uid: 'mue2', nombre: 'Merlo' } })))
+    // Y la original sigue siendo inmutable: corregir NO es editar.
+    await assertFails(updateDoc(doc(db('mue1'), 'descargasCamion/d1'), { items: [] }))
+    await assertFails(deleteDoc(doc(db('mue1'), 'descargasCamion/d1')))
+  })
+
   test('caja cierra con el cuadre de envases; NO con un cuadre mal formado', async () => {
     await seed((d) => setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' }))
     await assertSucceeds(setDoc(doc(db('caja1'), 'liquidaciones/2026-08-29_chof1'), liquidacion({ cerradaPor: { uid: 'caja1', nombre: 'Caja' } })))

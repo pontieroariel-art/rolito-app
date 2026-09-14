@@ -62,7 +62,11 @@ exports.onDescargaContada = (0, firestore_1.onDocumentCreated)('descargasCamion/
         })), cambios.docs.map((d) => d.data()), 
         // Todas las del día, incluida la que se acaba de crear: la liquidación
         // compara el teórico del día contra la SUMA de las descargas.
-        descargas.docs.map((d) => ({ items: (d.data().items ?? []) })), umbral);
+        descargas.docs.map((d) => ({
+            id: d.id,
+            rectificaA: d.data().rectificaA,
+            items: (d.data().items ?? []),
+        })), umbral);
         await event.data.ref.update({ revision: { ...r, calculadoEn: firestore_2.Timestamp.now() } });
     }
     catch (err) {

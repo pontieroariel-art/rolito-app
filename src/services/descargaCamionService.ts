@@ -25,6 +25,10 @@ export async function crearDescargaCamion(
     // Remito de carga del viaje (cuando hay: un fletero vuelve sin remito).
     remitoId?:        string
     remitoCodigo?:    string
+    // Corrección de un conteo mal cargado (2026-09-13): reemplaza a esa
+    // descarga y NO va a Tango (el stock lo ajusta la oficina a mano).
+    rectificaA?:           string
+    motivoRectificacion?:  string
     items:            DescargaCamionItem[]
     bolsasRotas:      DescargaCamionItem[]
     // Envases que volvieron, contados sueltos (desde 2026-09-07 reemplaza a
@@ -34,12 +38,13 @@ export async function crearDescargaCamion(
   actor: ActorMuelle,
 ): Promise<DescargaCamion> {
   const ref = doc(collection(db, DESCARGAS))
-  const { depositoTango, depositoTangoNombre, remitoId, remitoCodigo, ...resto } = args
+  const { depositoTango, depositoTangoNombre, remitoId, remitoCodigo, rectificaA, motivoRectificacion, ...resto } = args
   const descarga: Omit<DescargaCamion, 'id'> = {
     plantaId:      actor.plantaId,
     ...resto,
     ...(depositoTango ? { depositoTango, depositoTangoNombre: depositoTangoNombre ?? '' } : {}),
     ...(remitoId ? { remitoId, remitoCodigo: remitoCodigo ?? '' } : {}),
+    ...(rectificaA ? { rectificaA, motivoRectificacion: motivoRectificacion ?? '' } : {}),
     registradoPor: { uid: actor.uid, nombre: actor.nombre },
     fecha:         Timestamp.now(),
     // Transferencia camión → planta en Tango, que encola onDescargaCamionCreada.

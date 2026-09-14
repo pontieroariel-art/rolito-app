@@ -56,6 +56,7 @@ export { onAnulacionSolicitada, onAnulacionResuelta } from './triggers/anulacion
 export { onVentaCamionAnulada, onVentaVentanillaAnulada, reconciliarRemitosAnulados } from './triggers/ventasAnuladas'
 export { onDescargaContada } from './triggers/descargaRevision'
 export { onDesvioSolicitado, onDesvioResuelto } from './triggers/desviosDescarga'
+export { onDescargaRectificada } from './triggers/descargaRectificada'
 // Aviso de vencimiento del padrón de IIBB. No declara los secrets de ARCA, así
 // que se puede desplegar suelta.
 export { avisarPadronIIBB } from './triggers/padronIIBB'

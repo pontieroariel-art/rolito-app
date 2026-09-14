@@ -332,6 +332,12 @@ export const onDescargaCamionCreada = onDocumentCreated(
   async (event) => {
     const descarga = event.data?.data()
     if (!descarga) return
+    // Rectificación de un conteo (2026-09-13): NO va a Tango. La descarga
+    // original ya encoló la transferencia camión → planta y la cola no tiene
+    // contra-movimiento para transferenciaDeposito (ni buildError ni estado
+    // cancelado), así que encolar la corrección duplicaría el stock. El ajuste
+    // lo hace la oficina a mano, avisada por onDescargaRectificada.
+    if (descarga.rectificaA) return
     await encolarOutbox(`descargasCamion_${event.params.descargaId}`, {
       entidad: 'transferenciaDeposito',
       empresa: 'redonhielo',

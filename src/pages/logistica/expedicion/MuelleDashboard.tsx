@@ -26,6 +26,7 @@ import { reportError } from '@/services/observability'
 import RacksInput from '@/components/expedicion/RacksInput'
 import { describirEnvases, describirRacks, envasesDeDescarga, envasesDeRemito } from '@/utils/envases'
 import { nombreClienteVenta } from '@/utils/nombreClienteVenta'
+import { conteoDe, fueRectificada } from '@/utils/rectificacionDescarga'
 
 const ENVASES_VACIOS: EnvasesDescarga = { tarimasMadera: 0, palletsMetal: 0, puntales: 0, aros: 0, sombreros: 0, racks: [] }
 
@@ -58,6 +59,11 @@ export default function MuelleDashboard() {
   const [envases, setEnvases] = useState<EnvasesDescarga>(ENVASES_VACIOS)
   const setEnvase = (k: keyof Omit<EnvasesDescarga, 'racks'>, v: string) =>
     setEnvases((prev) => ({ ...prev, [k]: Math.max(0, Math.min(999, parseInt(v.replace(/\D/g, ''), 10) || 0)) }))
+  // Corrección de un conteo ya cargado (2026-09-13): se precarga lo que contó
+  // muelle (su propio número, no el teórico: el conteo sigue ciego) y al
+  // confirmar nace una descarga nueva que reemplaza a la vieja.
+  const [corrigiendo, setCorrigiendo] = useState<DescargaCamion | null>(null)
+  const [motivoCorreccion, setMotivoCorreccion] = useState('')
   const [confirmando, setConfirmando] = useState(false)
   const [guardando,   setGuardando]   = useState(false)
   // Id del remito/turno que se está entregando: evita el doble toque (el
@@ -181,16 +187,23 @@ export default function MuelleDashboard() {
           items:        toItems(sanas),
           bolsasRotas:  toItems(rotas),
           envases,
+          ...(corrigiendo
+            ? { rectificaA: corrigiendo.id, motivoRectificacion: motivoCorreccion.trim() }
+            : {}),
         },
         { uid: user.uid, nombre: user.nombre, plantaId },
       )
       setConfirmando(false)
+      setCorrigiendo(null)
+      setMotivoCorreccion('')
       setRemitoDescargaId('')
       setSanas({})
       setRotas({})
       setExtras([])
       setEnvases(ENVASES_VACIOS)
-      setOkMsg(`Descarga de ${descargaSeleccionada.choferNombre} registrada.`)
+      setOkMsg(corrigiendo
+        ? `Conteo de ${descargaSeleccionada.choferNombre} corregido. Avisamos a la oficina para que ajuste el stock en Tango.`
+        : `Descarga de ${descargaSeleccionada.choferNombre} registrada.`)
     } catch (err) {
       reportError(err, { origen: 'MuelleDashboard', accion: 'error al registrar descarga' })
       setError('No se pudo registrar la descarga. Revisá la conexión e intentá de nuevo.')
@@ -401,10 +414,47 @@ export default function MuelleDashboard() {
             <PackageCheck size={18} className="text-accent" /> Registrar descarga
           </h2>
 
+          {corrigiendo && (
+            <div className="bg-amber-50 border border-amber-300 rounded-lg px-3 py-2 space-y-2">
+              <p className="text-sm font-semibold text-amber-900">
+                Estás corrigiendo el conteo de {corrigiendo.choferNombre}
+                {corrigiendo.remitoCodigo ? ` (${corrigiendo.remitoCodigo})` : ''} de las{' '}
+                {corrigiendo.fecha.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })}.
+              </p>
+              <p className="text-xs text-amber-800">
+                Están precargadas las cantidades que se habían contado: cambiá las que estén mal. El conteo anterior
+                queda guardado igual (no se borra) pero deja de contar para la liquidación.
+              </p>
+              {/* Sin esto la oficina no se entera: el movimiento de stock del
+                  conteo anterior ya se mandó a Tango y no hay vuelta atrás
+                  automática. */}
+              <p className="text-xs text-amber-900 font-medium">
+                El stock en Tango NO se corrige solo: al guardar le avisamos a la oficina para que lo ajuste a mano.
+              </p>
+              <input
+                value={motivoCorreccion}
+                onChange={(e) => setMotivoCorreccion(e.target.value)}
+                placeholder="Qué pasó (obligatorio): se tipeó 6 en vez de 60…"
+                className={selectClass}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setCorrigiendo(null); setMotivoCorreccion(''); setRemitoDescargaId('')
+                  setSanas({}); setRotas({}); setExtras([]); setEnvases(ENVASES_VACIOS)
+                }}
+                className="text-xs text-secundario underline"
+              >
+                Cancelar la corrección
+              </button>
+            </div>
+          )}
+
           <div>
             <label className="text-sm font-medium text-secundario mb-1 block">Camión que volvió</label>
             <select
               value={remitoDescargaId}
+              disabled={!!corrigiendo}
               onChange={(e) => {
                 setRemitoDescargaId(e.target.value)
                 setOkMsg('')
@@ -537,7 +587,16 @@ export default function MuelleDashboard() {
                 })()}
               </div>
 
-              <Button onClick={() => setConfirmando(true)} className="w-full">Revisar y registrar descarga</Button>
+              <Button
+                onClick={() => {
+                  if (corrigiendo && !motivoCorreccion.trim()) { setError('Escribí qué pasó con el conteo anterior.'); return }
+                  setError('')
+                  setConfirmando(true)
+                }}
+                className="w-full"
+              >
+                {corrigiendo ? 'Revisar y guardar la corrección' : 'Revisar y registrar descarga'}
+              </Button>
             </>
           )}
         </section>
@@ -548,31 +607,68 @@ export default function MuelleDashboard() {
           {descargas.length === 0 && (
             <p className="text-secundario text-sm">Todavía no se registró ninguna descarga hoy.</p>
           )}
-          {descargasRecientes.map((d) => (
-            <div key={d.id} className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-3">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold text-gray-900 truncate" title={d.choferNombre}>{d.choferNombre}</p>
-                <p className="text-xs text-secundario shrink-0 tabular-nums">
-                  {d.fecha.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })}
+          {descargasRecientes.map((d) => {
+            const reemplazada = fueRectificada(d, descargas)
+            return (
+              <div key={d.id} className={`bg-white rounded-xl border shadow-sm p-3 ${reemplazada ? 'border-[#E7E5DC]' : 'border-[#D3D1C7]'}`}>
+                <div className="flex items-center justify-between gap-3">
+                  <p className={`text-sm font-semibold truncate ${reemplazada ? 'text-secundario line-through' : 'text-gray-900'}`} title={d.choferNombre}>
+                    {d.choferNombre}
+                  </p>
+                  <p className="text-xs text-secundario shrink-0 tabular-nums">
+                    {d.fecha.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                  </p>
+                </div>
+                <p className="text-xs text-secundario mt-0.5">
+                  {d.remitoCodigo || d.depositoTangoNombre || 'sin remito'}
+                  {d.camionLabel && ` · ${d.camionLabel}`}
+                  {d.rectificaA && <span className="text-[#8A5203]"> · corrige un conteo anterior</span>}
+                  {reemplazada && <span className="text-secundario"> · corregida después</span>}
                 </p>
+                <p className="text-xs text-secundario mt-0.5 tabular-nums">
+                  {d.items.reduce((s, i) => s + i.cantidad, 0)} bolsas
+                  {describirEnvases(envasesDeDescarga(d)) && ` · ${describirEnvases(envasesDeDescarga(d))}`}
+                  {d.bolsasRotas.length > 0 && ` · ${d.bolsasRotas.reduce((s, i) => s + i.cantidad, 0)} rotas`}
+                </p>
+                {d.motivoRectificacion && <p className="text-xs text-[#8A5203] mt-0.5">{d.motivoRectificacion}</p>}
+                {/* Corregir un conteo mal cargado: se carga de nuevo y esta
+                    queda reemplazada. Solo la última vale, así que una ya
+                    corregida no se vuelve a corregir. */}
+                {!reemplazada && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const c = conteoDe(d)
+                      setCorrigiendo(d)
+                      setMotivoCorreccion('')
+                      setRemitoDescargaId(d.remitoId ? `rem:${d.remitoId}` : d.depositoTango ? `dep:${d.depositoTango}` : '')
+                      setSanas(c.sanas)
+                      setRotas(c.rotas)
+                      setExtras(Object.keys(c.sanas))
+                      setEnvases(envasesDeDescarga(d))
+                      setOkMsg('')
+                      window.scrollTo({ top: 0, behavior: 'smooth' })
+                    }}
+                    className="mt-2 h-11 px-3 rounded-lg border border-[#D3D1C7] bg-white text-sm font-medium text-gray-700 hover:border-accent hover:text-accent"
+                  >
+                    Corregir este conteo
+                  </button>
+                )}
               </div>
-              <p className="text-xs text-secundario mt-0.5">
-                {d.remitoCodigo || d.depositoTangoNombre || 'sin remito'}
-                {d.camionLabel && ` · ${d.camionLabel}`}
-              </p>
-              <p className="text-xs text-secundario mt-0.5 tabular-nums">
-                {d.items.reduce((s, i) => s + i.cantidad, 0)} bolsas
-                {describirEnvases(envasesDeDescarga(d)) && ` · ${describirEnvases(envasesDeDescarga(d))}`}
-                {d.bolsasRotas.length > 0 && ` · ${d.bolsasRotas.reduce((s, i) => s + i.cantidad, 0)} rotas`}
-              </p>
-            </div>
-          ))}
+            )
+          })}
         </section>
 
         {/* ── Confirmación de descarga ── */}
         {confirmando && descargaSeleccionada && (
-          <Modal open onClose={() => setConfirmando(false)} title="Confirmar descarga">
+          <Modal open onClose={() => setConfirmando(false)} title={corrigiendo ? 'Confirmar la corrección del conteo' : 'Confirmar descarga'}>
             <div className="space-y-3">
+              {corrigiendo && (
+                <p className="text-sm text-amber-900 bg-amber-50 border border-amber-300 rounded-lg px-3 py-2">
+                  Reemplaza el conteo de las {corrigiendo.fecha.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                  {' '}· {motivoCorreccion.trim()}. La oficina va a recibir el aviso para ajustar el stock en Tango.
+                </p>
+              )}
               <p className="text-sm text-gray-700">
                 {descargaSeleccionada.camionLabel || descargaSeleccionada.depositoTangoNombre} · <span className="font-medium">{descargaSeleccionada.choferNombre}</span>
               </p>
@@ -596,7 +692,7 @@ export default function MuelleDashboard() {
               <p className="text-xs text-secundario">La descarga es definitiva — es el conteo contra el que se liquida el día.</p>
               <div className="flex gap-2 pt-1">
                 <Button variant="outline" type="button" onClick={() => setConfirmando(false)} className="flex-1">Cancelar</Button>
-                <Button onClick={registrarDescarga} loading={guardando} className="flex-1">Registrar</Button>
+                <Button onClick={registrarDescarga} loading={guardando} className="flex-1">{corrigiendo ? 'Guardar la corrección' : 'Registrar'}</Button>
               </div>
             </div>
           </Modal>

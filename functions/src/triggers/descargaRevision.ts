@@ -70,7 +70,11 @@ export const onDescargaContada = onDocumentCreated(
         cambios.docs.map((d) => d.data() as ItemContado),
         // Todas las del día, incluida la que se acaba de crear: la liquidación
         // compara el teórico del día contra la SUMA de las descargas.
-        descargas.docs.map((d) => ({ items: (d.data().items ?? []) as ItemContado[] })),
+        descargas.docs.map((d) => ({
+          id:         d.id,
+          rectificaA: d.data().rectificaA as string | undefined,
+          items:      (d.data().items ?? []) as ItemContado[],
+        })),
         umbral,
       )
 

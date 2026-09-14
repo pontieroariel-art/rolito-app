@@ -16,8 +16,19 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UMBRAL_FALTANTES_DEFAULT = void 0;
+exports.descargasVigentes = descargasVigentes;
 exports.calcularRevision = calcularRevision;
 exports.normalizarUmbralFaltantes = normalizarUmbralFaltantes;
+/**
+ * Las descargas que valen: sin las que una corrección posterior reemplazó
+ * (2026-09-13). Gemela de utils/rectificacionDescarga.descargasVigentes; sin
+ * esto el conteo corregido sumaría con el equivocado y el faltante saldría al
+ * revés.
+ */
+function descargasVigentes(descargas) {
+    const rectificadas = new Set(descargas.map((d) => d.rectificaA).filter((id) => !!id));
+    return descargas.filter((d) => !d.id || !rectificadas.has(d.id));
+}
 exports.UMBRAL_FALTANTES_DEFAULT = { habilitado: true, bolsas: 10 };
 const PREFIJO_CAMBIO = 'cambio_';
 /** Los renglones de cambio vienen con el id prefijado; se agrupan en el producto que son. */
@@ -46,7 +57,7 @@ function calcularRevision(remitos, ventas, cambiosViejos, descargas, umbral = ex
     });
     // Registro viejo de cambios (cuando el cambio era una pantalla aparte).
     cambiosViejos.forEach((c) => { fila(productoDelCambio(c.productoId), nombreDelCambio(c.nombre)).teorico -= c.cantidad; });
-    descargas.forEach((d) => (d.items ?? []).forEach((i) => { fila(i.productoId, i.nombre).descarga += i.cantidad; }));
+    descargasVigentes(descargas).forEach((d) => (d.items ?? []).forEach((i) => { fila(i.productoId, i.nombre).descarga += i.cantidad; }));
     const productos = [];
     let bolsasFaltantes = 0;
     let bolsasSobrantes = 0;
