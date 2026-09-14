@@ -1027,7 +1027,11 @@ export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiq
     doc.setFontSize(9.5)
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(180, 0, 0)
-    doc.text(`Faltan ${d.bolsasFaltantes} bolsas de mercadería (umbral ${d.umbral}) · ${MOTIVOS_DESVIO_DESCARGA[d.motivo]}`, 14, y, { maxWidth: pageW - 28 })
+    doc.text(
+      `Faltan ${d.bolsasFaltantes} bolsas de mercadería (umbral ${d.umbral}) · ${MOTIVOS_DESVIO_DESCARGA[d.motivo]}`
+      + (d.autorizadoPor ? ` · autorizado por ${d.autorizadoPor.nombre}` : ' · SIN autorización previa'),
+      14, y, { maxWidth: pageW - 28 },
+    )
     y += 5
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(8.5)
@@ -1037,7 +1041,8 @@ export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiq
     // con varios productos y una nota larga esto ocupa dos o tres renglones, y
     // un `y` fijo le pisaría encima la tabla siguiente.
     const lineas = doc.splitTextToSize(
-      `${d.productos.map((p) => `${p.nombre} -${p.faltan}`).join('   ·   ')}${d.nota ? `   ·   ${d.nota}` : ''}   ·   observado por ${d.observadoPor.nombre}`,
+      `${d.productos.map((p) => `${p.nombre} -${p.faltan}`).join('   ·   ')}${d.nota ? `   ·   ${d.nota}` : ''}`
+      + `   ·   cerró ${d.observadoPor.nombre}${d.notaAutorizacion ? `   ·   ${d.notaAutorizacion}` : ''}`,
       pageW - 28,
     ) as string[]
     doc.text(lineas, 14, y)

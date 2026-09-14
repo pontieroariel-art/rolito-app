@@ -4301,6 +4301,94 @@ describe('entregasTesoreria (entrega de caja a tesorería)', () => {
   })
 })
 
+describe('desviosDescarga (autorizar un faltante de mercadería, 2026-09-13)', () => {
+  const ID = 'desviosDescarga/2026-09-13_chof1'
+  const seedTodos = () => seed(async (d) => {
+    await setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' })
+    await setDoc(doc(d, 'users/cajam'), { rol: 'caja', estado: 'activo', planta: 'merlo' })
+    await setDoc(doc(d, 'users/aut1'),  { rol: 'facturacion', estado: 'activo', autorizaAnulaciones: true })
+    await setDoc(doc(d, 'users/sa'),    { rol: 'super_admin', estado: 'activo' })
+    await setDoc(doc(d, 'users/log'),   { rol: 'logistica', estado: 'activo' })
+    await setDoc(doc(d, 'users/mue1'),  { rol: 'muelle', estado: 'activo', planta: 'torcuato' })
+    await setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' })
+    // Caja con el permiso: pide y NO puede aprobarse a sí misma.
+    await setDoc(doc(d, 'users/cajaAut'), { rol: 'caja', estado: 'activo', planta: 'torcuato', autorizaAnulaciones: true })
+  })
+  const pedido = (extra = {}) => ({
+    fecha: '2026-09-13', plantaId: 'torcuato', choferId: 'chof1', choferNombre: 'Chofer Uno', depositoTango: '21',
+    bolsasFaltantes: 42, productos: [{ productoId: 'b3', nombre: 'Hielo 3 kg', faltan: 42 }], umbral: 10,
+    estado: 'pendiente', motivo: 'a_investigar', nota: 'se contó dos veces',
+    solicitadoPor: { uid: 'caja1', nombre: 'Caja' }, solicitadaEn: new Date(), resueltaPor: null, ...extra,
+  })
+  const resolucion = (estado, uid, extra = {}) => ({
+    estado, resueltaPor: { uid, nombre: 'Autorizante' }, resueltaEn: new Date(),
+    notaResolucion: estado === 'rechazada' ? 'que el muelle lo recuente' : '', ...extra,
+  })
+
+  test('caja de la planta pide la autorización: id {fecha}_{chofer}, pendiente y a su nombre', async () => {
+    await seedTodos()
+    await assertSucceeds(setDoc(doc(db('caja1'), ID), pedido()))
+  })
+
+  test('el pedido mal formado no entra', async () => {
+    await seedTodos()
+    // Id que no coincide con fecha_chofer.
+    await assertFails(setDoc(doc(db('caja1'), 'desviosDescarga/otro_id'), pedido()))
+    // Nace resuelto, o aprobado de entrada.
+    await assertFails(setDoc(doc(db('caja1'), ID), pedido({ estado: 'aprobada' })))
+    await assertFails(setDoc(doc(db('caja1'), ID), pedido({ resueltaPor: { uid: 'caja1', nombre: 'Caja' } })))
+    // Sin faltante, o con un faltante que no es número.
+    await assertFails(setDoc(doc(db('caja1'), ID), pedido({ bolsasFaltantes: 0 })))
+    await assertFails(setDoc(doc(db('caja1'), ID), pedido({ bolsasFaltantes: 'muchas' })))
+    // Sin motivo.
+    await assertFails(setDoc(doc(db('caja1'), ID), pedido({ motivo: '' })))
+    // A nombre de otro.
+    await assertFails(setDoc(doc(db('caja1'), ID), pedido({ solicitadoPor: { uid: 'cajaAut', nombre: 'Otro' } })))
+    // Caja de la otra planta, muelle, el chofer y logística no piden.
+    await assertFails(setDoc(doc(db('cajam'), ID), pedido({ solicitadoPor: { uid: 'cajam', nombre: 'Caja Merlo' } })))
+    await assertFails(setDoc(doc(db('mue1'), ID), pedido({ solicitadoPor: { uid: 'mue1', nombre: 'Muelle' } })))
+    await assertFails(setDoc(doc(db('chof1'), ID), pedido({ solicitadoPor: { uid: 'chof1', nombre: 'Chofer' } })))
+    await assertFails(setDoc(doc(db('log'), ID), pedido({ solicitadoPor: { uid: 'log', nombre: 'Logistica' } })))
+  })
+
+  test('lo resuelve quien tiene el permiso, nunca el que lo pidió, y rechazar exige nota', async () => {
+    await seedTodos()
+    await seed((d) => setDoc(doc(d, ID), pedido()))
+    // El que pidió no se aprueba solo, ni teniendo el permiso.
+    await assertFails(updateDoc(doc(db('caja1'), ID), resolucion('aprobada', 'caja1')))
+    // Sin el permiso no se resuelve.
+    await assertFails(updateDoc(doc(db('log'), ID), resolucion('aprobada', 'log')))
+    await assertFails(updateDoc(doc(db('mue1'), ID), resolucion('aprobada', 'mue1')))
+    // Rechazar sin nota no dice qué hacer.
+    await assertFails(updateDoc(doc(db('aut1'), ID), resolucion('rechazada', 'aut1', { notaResolucion: '' })))
+    // No se puede tocar el faltante de paso.
+    await assertFails(updateDoc(doc(db('aut1'), ID), { ...resolucion('aprobada', 'aut1'), bolsasFaltantes: 1 }))
+    // A nombre de otro tampoco.
+    await assertFails(updateDoc(doc(db('aut1'), ID), resolucion('aprobada', 'sa')))
+    // POSITIVO, y una sola vez: ya resuelto no se vuelve a tocar.
+    await assertSucceeds(updateDoc(doc(db('aut1'), ID), resolucion('aprobada', 'aut1')))
+    await assertFails(updateDoc(doc(db('aut1'), ID), resolucion('rechazada', 'aut1')))
+  })
+
+  test('el super_admin también resuelve; el pedido no se borra nunca', async () => {
+    await seedTodos()
+    await seed((d) => setDoc(doc(d, ID), pedido()))
+    await assertSucceeds(updateDoc(doc(db('sa'), ID), resolucion('rechazada', 'sa')))
+    await assertFails(deleteDoc(doc(db('sa'), ID)))
+    await assertFails(deleteDoc(doc(db('caja1'), ID)))
+  })
+
+  test('lo leen caja, los autorizantes y gerencia; no el chofer ni el cliente', async () => {
+    await seedTodos()
+    await seed((d) => setDoc(doc(d, ID), pedido()))
+    await assertSucceeds(getDoc(doc(db('caja1'), ID)))
+    await assertSucceeds(getDoc(doc(db('aut1'), ID)))
+    await assertSucceeds(getDoc(doc(db('sa'), ID)))
+    await assertFails(getDoc(doc(db('chof1'), ID)))
+    await assertFails(getDoc(doc(db('mue1'), ID)))
+  })
+})
+
 describe('anulacionesVentanilla (anulación de factura con nota de crédito)', () => {
   const ventaFacturada = (cajaId, turno, numero, extra = {}) => ({
     plantaId: 'torcuato', canal: 'contado', cajaId, cajaNombre: 'Caja', clienteNombre: 'Cliente SA', items: [], total: 20000,

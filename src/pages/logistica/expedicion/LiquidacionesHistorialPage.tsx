@@ -127,11 +127,11 @@ export default function LiquidacionesHistorialPage({ base }: { base: '/caja' | '
     // Desvío de mercadería observado al cerrar: mismo criterio visual que las
     // anuladas después de cerrar — el cierre no se reabre, queda anotado.
     { titulo: 'Mercadería', alinear: 'der',
-      csv: (l) => l.desvio ? `faltan ${l.desvio.bolsasFaltantes} · ${MOTIVOS_DESVIO_DESCARGA[l.desvio.motivo]}${l.desvio.nota ? ` · ${l.desvio.nota}` : ''}` : '',
+      csv: (l) => l.desvio ? `faltan ${l.desvio.bolsasFaltantes} · ${MOTIVOS_DESVIO_DESCARGA[l.desvio.motivo]}${l.desvio.autorizadoPor ? ` · autorizó ${l.desvio.autorizadoPor.nombre}` : ' · SIN autorización'}${l.desvio.nota ? ` · ${l.desvio.nota}` : ''}` : '',
       celda: (l) => l.desvio
-        ? <span className="text-red-600 font-semibold whitespace-nowrap"
-            title={`${l.desvio.productos.map((p) => `${p.nombre} −${p.faltan}`).join(' · ')} · ${MOTIVOS_DESVIO_DESCARGA[l.desvio.motivo]}${l.desvio.nota ? ` · ${l.desvio.nota}` : ''} · observado por ${l.desvio.observadoPor.nombre}`}>
-            −{l.desvio.bolsasFaltantes} bolsas
+        ? <span className={`font-semibold whitespace-nowrap ${l.desvio.autorizadoPor ? 'text-amber-700' : 'text-red-600'}`}
+            title={`${l.desvio.productos.map((p) => `${p.nombre} −${p.faltan}`).join(' · ')} · ${MOTIVOS_DESVIO_DESCARGA[l.desvio.motivo]}${l.desvio.nota ? ` · ${l.desvio.nota}` : ''} · cerró ${l.desvio.observadoPor.nombre}${l.desvio.autorizadoPor ? ` · autorizó ${l.desvio.autorizadoPor.nombre}` : ' · SIN autorización'}`}>
+            −{l.desvio.bolsasFaltantes} bolsas{l.desvio.autorizadoPor ? '' : ' !'}
           </span>
         : <span className="text-secundario">—</span> },
     // Una nota larga partía la fila en varios renglones y dejaba un hueco en

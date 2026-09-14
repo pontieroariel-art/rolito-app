@@ -16,6 +16,9 @@ import ValoresEnPapel from '@/components/expedicion/ValoresEnPapel'
 import { calcularLiquidacion, referenciasDelReparto } from '@/utils/liquidacion'
 import { calcularFaltante } from '@/utils/faltantes'
 import { useUmbralFaltantes } from '@/hooks/useUmbralFaltantes'
+import { pedirAutorizacionDesvio, subscribeDesvio } from '@/services/desvioDescargaService'
+import PedirAutorizacionDesvio from '@/components/expedicion/liquidacion/PedirAutorizacionDesvio'
+import type { DesvioDescarga } from '@/types'
 import { envasesDeDescarga, envasesDeRemito } from '@/utils/envases'
 import { generateLiquidacion, nombreArchivoLiquidacion, type DetalleLiquidacionPdf } from '@/utils/pdf'
 import { compartirArchivo, puedeCompartirArchivos } from '@/utils/compartir'
@@ -165,6 +168,14 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
                 motivo:          datos.desvio.motivo,
                 nota:            datos.desvio.nota,
                 observadoPor:    { uid: user.uid, nombre: user.nombre },
+                // Autorizado antes de cerrar: el cierre no es "observado", lo
+                // miró alguien con el permiso y queda dicho quién.
+                ...(autorizado?.resueltaPor
+                  ? {
+                      autorizadoPor:     autorizado.resueltaPor,
+                      notaAutorizacion:  autorizado.notaResolucion ?? '',
+                    }
+                  : {}),
               } }
             : {}),
           firmaRepartidor: datos.firma, firmanteRepartidor: datos.firmante, confirmoSinPendientes: datos.confirmoSinPendientes,
@@ -194,6 +205,14 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
   // Una liquidación ya cerrada muestra el desvío que se observó al cerrarla, no
   // uno recalculado hoy (el cierre es una foto y no se reabre).
   const desvioACerrar = !cerrada && faltante.grave ? faltante : null
+  // Pedido de autorización del faltante (2026-09-13): el camino limpio. Si nadie
+  // contesta, el cierre sale igual con desvío observado.
+  const [desvio, setDesvio] = useState<DesvioDescarga | null>(null)
+  useEffect(() => {
+    if (!choferId) { setDesvio(null); return }
+    return subscribeDesvio(hoy, choferId, setDesvio)
+  }, [hoy, choferId])
+  const autorizado = desvio?.estado === 'aprobada' ? desvio : null
 
   const selectClass = 'w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'
   const hayMovimientos = ventas.length + cobranzas.length + remitosChofer.length + descargas.length > 0
@@ -317,23 +336,19 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
                   {anulacionesEnCurso === 1 ? 'Hay una anulación de factura esperando autorización' : `Hay ${anulacionesEnCurso} anulaciones de factura esperando autorización`}: no se puede cerrar la liquidación hasta que se resuelva.
                 </p>
               )}
-              {desvioACerrar && (
-                <div className="w-full text-sm text-red-800 bg-red-50 border border-red-300 rounded-lg px-3 py-2 space-y-1">
-                  <p className="font-semibold">
-                    Faltan {desvioACerrar.bolsasFaltantes} bolsas de mercadería (umbral: {umbralFaltantes.bolsas}).
-                  </p>
-                  <p className="tabular-nums">
-                    {desvioACerrar.productos.map((p) => `${p.nombre} −${p.faltan}`).join(' · ')}
-                    {desvioACerrar.bolsasSobrantes > 0 && ` · sobran ${desvioACerrar.bolsasSobrantes} de otros productos`}
-                  </p>
-                  <p className="text-xs">
-                    La caja no queda trabada: al cerrar hay que elegir el motivo y el cierre queda marcado en rojo
-                    para que lo revisen. Si es un error de conteo, que el muelle lo rectifique antes de cerrar.
-                  </p>
-                </div>
+              {desvioACerrar && user && (
+                <PedirAutorizacionDesvio
+                  faltante={desvioACerrar}
+                  umbral={umbralFaltantes.bolsas}
+                  desvio={desvio}
+                  onPedir={(motivo, nota) => pedirAutorizacionDesvio(
+                    { fecha: hoy, choferId, choferNombre, depositoTango: depositoElegido?.codigo, faltante: desvioACerrar, umbral: umbralFaltantes.bolsas, motivo, nota },
+                    { uid: user.uid, nombre: user.nombre, plantaId },
+                  )}
+                />
               )}
               <Button onClick={() => setConfirmando(true)} disabled={!hayMovimientos || efectivoRecibido.trim() === '' || anulacionesEnCurso > 0}>
-                <Printer size={16} className="mr-1.5" /> {desvioACerrar ? 'Cerrar con desvío observado' : 'Cerrar liquidación e imprimir'}
+                <Printer size={16} className="mr-1.5" /> {desvioACerrar ? (autorizado ? 'Cerrar con el faltante autorizado' : 'Cerrar con desvío observado') : 'Cerrar liquidación e imprimir'}
               </Button>
             </div>
           )}

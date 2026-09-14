@@ -55,6 +55,7 @@ export { onAnulacionSolicitada, onAnulacionResuelta } from './triggers/anulacion
 // facturación para anularlo en Tango y confirmación por el lector de comprobantes.
 export { onVentaCamionAnulada, onVentaVentanillaAnulada, reconciliarRemitosAnulados } from './triggers/ventasAnuladas'
 export { onDescargaContada } from './triggers/descargaRevision'
+export { onDesvioSolicitado, onDesvioResuelto } from './triggers/desviosDescarga'
 // Aviso de vencimiento del padrón de IIBB. No declara los secrets de ARCA, así
 // que se puede desplegar suelta.
 export { avisarPadronIIBB } from './triggers/padronIIBB'

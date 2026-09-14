@@ -37,9 +37,10 @@ export function BarraEstado({ remitos, descargas, reparto, cerrada, onProblemas,
       <span><b className="text-gray-900">{ventas}</b> ventas · <b className="text-gray-900">{reparto.clientes.length}</b> clientes · <b className="text-gray-900">{cobranzas}</b> cobranzas</span>
       {/* Cerrada con desvío: queda visible para siempre en el cierre. */}
       {cerrada?.desvio && (
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-red-600 px-2.5 py-0.5 text-xs font-semibold text-white"
-          title={`${cerrada.desvio.productos.map((p) => `${p.nombre} −${p.faltan}`).join(' · ')}${cerrada.desvio.nota ? ` · ${cerrada.desvio.nota}` : ''} · observado por ${cerrada.desvio.observadoPor.nombre}`}>
-          <PackageX size={12} /> Desvío observado: faltan {cerrada.desvio.bolsasFaltantes} bolsas · {MOTIVOS_DESVIO_DESCARGA[cerrada.desvio.motivo]}
+        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${cerrada.desvio.autorizadoPor ? 'bg-amber-100 text-amber-800' : 'bg-red-600 text-white'}`}
+          title={`${cerrada.desvio.productos.map((p) => `${p.nombre} −${p.faltan}`).join(' · ')}${cerrada.desvio.nota ? ` · ${cerrada.desvio.nota}` : ''} · cerró ${cerrada.desvio.observadoPor.nombre}${cerrada.desvio.autorizadoPor ? ` · autorizó ${cerrada.desvio.autorizadoPor.nombre}${cerrada.desvio.notaAutorizacion ? ` (${cerrada.desvio.notaAutorizacion})` : ''}` : ' · SIN autorización'}`}>
+          <PackageX size={12} />
+          {cerrada.desvio.autorizadoPor ? 'Faltante autorizado' : 'Desvío observado'}: faltan {cerrada.desvio.bolsasFaltantes} bolsas · {MOTIVOS_DESVIO_DESCARGA[cerrada.desvio.motivo]}
         </span>
       )}
       {/* En vivo, antes de cerrar. Un faltante por debajo del umbral también se

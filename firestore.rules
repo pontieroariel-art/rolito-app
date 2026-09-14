@@ -136,6 +136,16 @@ service cloud.firestore {
           : (perfil().get('rol', 'none') == 'super_admin' || perfil().get('autorizaAnulaciones', false) == true));
     }
 
+    // Autoriza faltantes de MERCADERÍA en la descarga (2026-09-13). Hoy es el
+    // MISMO permiso individual que autoriza anulaciones: el nivel de confianza
+    // que hace falta es el mismo (gerencia / administración) y un campo nuevo
+    // habría dejado a nadie con el permiso el día del rollout, que es justo
+    // cuando el control tiene que funcionar. Si mañana hay que separarlos,
+    // cambia SOLO esta función.
+    function puedeAutorizarDesvios() {
+      return puedeAutorizarAnulaciones();
+    }
+
     // Cualquier rol de staff (todo lo que no sea cliente). Va por myRole()
     // a propósito: ser cliente es IDENTIDAD, no un permiso que se suma.
     function isStaff() {
@@ -1668,6 +1678,49 @@ service cloud.firestore {
         && request.resource.data.resueltaPor is map
         && request.resource.data.resueltaPor.uid == request.auth.uid
         && resource.data.solicitadoPor.uid != request.auth.uid
+        && (request.resource.data.estado == 'aprobada'
+            || (request.resource.data.notaResolucion is string && request.resource.data.notaResolucion.size() > 0))
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['estado', 'resueltaPor', 'resueltaEn', 'notaResolucion']);
+
+      allow delete: if false;
+    }
+
+    // ── Expedición: faltante de mercadería a autorizar (2026-09-13) ─────────
+    // desviosDescarga/{fecha}_{choferId}: caja pide que alguien mire el faltante
+    // de la descarga antes de cerrar la liquidación; quien tiene el permiso lo
+    // aprueba o lo rechaza desde la bandeja. Si nadie contesta, caja cierra con
+    // "desvío observado" (un tema de stock no traba el turno) — así que esto es
+    // el camino limpio, no una tranca.
+    //
+    // Cuántas bolsas faltan no lo puede verificar una regla (habría que sumar
+    // remitos, ventas y descargas del día): lo calcula la pantalla en vivo y el
+    // trigger lo deja asentado en descargasCamion.revision. Lo que sí se exige
+    // acá es la forma, el id, que nazca pendiente y que nadie apruebe lo propio.
+    match /desviosDescarga/{desvioId} {
+      allow read: if request.auth != null
+        && (isCaja() || isTesoreria() || isOperator() || isManager() || isGerenteGeneral()
+            || puedeAutorizarDesvios());
+
+      allow create: if request.auth != null && isCajaDe(request.resource.data.plantaId)
+        && desvioId == request.resource.data.fecha + '_' + request.resource.data.choferId
+        && request.resource.data.fecha is string
+        && request.resource.data.choferId is string
+        && request.resource.data.bolsasFaltantes is number && request.resource.data.bolsasFaltantes > 0
+        && request.resource.data.productos is list
+        && request.resource.data.motivo is string && request.resource.data.motivo.size() > 0
+        && request.resource.data.estado == 'pendiente'
+        && request.resource.data.resueltaPor == null
+        && request.resource.data.solicitadoPor.uid == request.auth.uid;
+
+      allow update: if request.auth != null && puedeAutorizarDesvios()
+        && resource.data.estado == 'pendiente'
+        && request.resource.data.estado in ['aprobada', 'rechazada']
+        && request.resource.data.resueltaPor is map
+        && request.resource.data.resueltaPor.uid == request.auth.uid
+        // Nadie autoriza su propio pedido, ni siquiera el super_admin.
+        && resource.data.solicitadoPor.uid != request.auth.uid
+        // Rechazar exige decir qué hacer: el que pidió tiene que poder actuar.
         && (request.resource.data.estado == 'aprobada'
             || (request.resource.data.notaResolucion is string && request.resource.data.notaResolucion.size() > 0))
         && request.resource.data.diff(resource.data).affectedKeys()

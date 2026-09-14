@@ -20,6 +20,7 @@ import { generateFacturaArcaPdf } from '@/utils/facturaArcaPdf'
 import { descargarArchivo } from '@/utils/compartir'
 import { MOTIVOS_ANULACION, PLANTAS, type AnulacionVentanilla, type EstadoAnulacion } from '@/types'
 import { TH as th, TD as td } from '@/components/common/tabla'
+import DesviosPorAutorizar from '@/components/expedicion/DesviosPorAutorizar'
 
 const LETRA: Record<number, string> = { 1: 'A', 6: 'B', 11: 'C', 3: 'A', 8: 'B', 13: 'C' }
 const nro = (pv: number, n: number) => `${String(pv).padStart(5, '0')}-${String(n).padStart(8, '0')}`
@@ -102,14 +103,18 @@ export default function AnulacionesPage() {
   return (
     <main className="max-w-5xl mx-auto p-4 space-y-4 pb-10">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><Ban size={22} className="text-accent" /> Anulaciones de facturas</h1>
-        <p className="text-secundario text-sm">Lo que piden anular ventanilla, caja desde la liquidación del chofer y facturación desde Comprobantes de clientes. Con la aprobación sale la nota de crédito por el total (ARCA, o NC X interna si es promo) y la venta deja de contar.</p>
+        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><Ban size={22} className="text-accent" /> Anulaciones y faltantes</h1>
+        <p className="text-secundario text-sm">Lo que espera una autorización: anulaciones de facturas (ventanilla, la liquidación del chofer o la oficina) y faltantes de mercadería de la descarga del camión. Con la aprobación de una anulación sale la nota de crédito por el total (ARCA, o NC X interna si es promo) y la venta deja de contar.</p>
       </div>
       {!puedeAutorizar && <p className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">Estás en modo lectura: no tenés el permiso para autorizar anulaciones (lo asigna el administrador desde Usuarios).</p>}
       {aviso && <p className="text-xs text-amber-700">{aviso}</p>}
 
+      {/* Faltantes de mercadería de la descarga (2026-09-13): misma bandeja,
+          arriba, porque del otro lado hay un cajero esperando para cerrar. */}
+      <DesviosPorAutorizar puedeAutorizar={puedeAutorizar} />
+
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-secundario uppercase tracking-wide">Por autorizar ({ordenadas.length})</h2>
+        <h2 className="text-xs font-semibold text-secundario uppercase tracking-wide">Anulaciones por autorizar ({ordenadas.length})</h2>
         {ordenadas.length === 0 && <p className="text-sm text-secundario bg-white rounded-2xl border border-[#D3D1C7] shadow-sm px-4 py-3">No hay anulaciones esperando.</p>}
         {ordenadas.map((a) => {
           const propia = a.solicitadoPor.uid === user?.uid

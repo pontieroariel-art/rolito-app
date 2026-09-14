@@ -1102,6 +1102,39 @@ export const MOTIVOS_DESVIO_DESCARGA: Record<MotivoDesvioDescarga, string> = {
 export const MOTIVOS_DESVIO_LIQUIDACION: MotivoDesvioDescarga[] =
   ['error_de_conteo', 'quedo_en_el_camion', 'venta_sin_subir', 'rotura_no_declarada', 'a_investigar', 'otro']
 
+/**
+ * Pedido de autorización de un faltante de mercadería (2026-09-13, paso 7 del
+ * control de fugas). Molde de `anulacionesVentanilla`: id determinístico,
+ * estados, prohibido aprobar lo propio, nota obligatoria al rechazar y push a
+ * los autorizantes desde el server.
+ *
+ * Sirve para que el desvío tenga un camino LIMPIO: alguien con permiso lo mira
+ * y lo aprueba, y el cierre sale autorizado en vez de "observado". Si no hay
+ * nadie en el momento, caja cierra igual con desvío observado — un tema de
+ * stock nunca traba el turno.
+ */
+export type EstadoDesvio = 'pendiente' | 'aprobada' | 'rechazada'
+export interface DesvioDescarga {
+  id:              string     // {fecha}_{choferId}
+  fecha:           string     // yyyy-MM-dd del día liquidado
+  plantaId:        PlantaId
+  choferId:        string
+  choferNombre:    string
+  depositoTango?:  string
+  bolsasFaltantes: number
+  productos:       { productoId: string; nombre: string; faltan: number }[]
+  umbral:          number
+  estado:          EstadoDesvio
+  /** Lo que caja cree que pasó (el autorizante puede opinar distinto en la nota). */
+  motivo:          MotivoDesvioDescarga
+  nota:            string
+  solicitadoPor:   { uid: string; nombre: string }
+  solicitadaEn:    Timestamp
+  resueltaPor:     { uid: string; nombre: string } | null
+  resueltaEn?:     Timestamp
+  notaResolucion?: string
+}
+
 export interface DesvioLiquidacion {
   bolsasFaltantes: number
   /** Qué faltó, para leerlo sin recalcular (el cierre es una foto). */
@@ -1110,6 +1143,13 @@ export interface DesvioLiquidacion {
   motivo:          MotivoDesvioDescarga
   nota:            string
   observadoPor:    { uid: string; nombre: string }
+  /**
+   * Quién autorizó el faltante antes de cerrar (2026-09-13). Sin esto el cierre
+   * es "con desvío observado": se hizo igual, sin que nadie lo mirara, y queda
+   * para que lo revisen al día siguiente.
+   */
+  autorizadoPor?:  { uid: string; nombre: string }
+  notaAutorizacion?: string
 }
 // Cierre de caja de ventanilla (2026-09-09).
 export const MOTIVOS_CIERRE_MOSTRADOR: MotivoDiferenciaLiquidacion[] = ['faltante_caja', 'vuelto_mal_dado', 'error_de_carga', 'otro']

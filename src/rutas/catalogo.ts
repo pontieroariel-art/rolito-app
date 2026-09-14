@@ -163,7 +163,7 @@ export const CATALOGO: RutaConfig[] = [
   R('/tesoreria/liquidaciones',           'Liquidaciones',      'tesoreria', TESORERIA, { icon: Scale, menuGroup: 'tesoreria' }),
   R('/tesoreria/rendiciones',             'Rendiciones',        'tesoreria', TESORERIA, { icon: ShieldCheck, menuGroup: 'tesoreria' }),
   R('/tesoreria/entregas',                'Entregas de caja',   'tesoreria', TESORERIA, { icon: Landmark, menuGroup: 'tesoreria' }),
-  R('/tesoreria/anulaciones',             'Anulaciones',        'tesoreria', TESORERIA, { icon: Ban, menuGroup: 'tesoreria' }),
+  R('/tesoreria/anulaciones',             'Anulaciones y faltantes', 'tesoreria', TESORERIA, { icon: Ban, menuGroup: 'tesoreria' }),
   R('/tesoreria/rendiciones/historial',   'Historial',          'tesoreria', TESORERIA, { icon: History, menuGroup: 'tesoreria' }),
   R('/tesoreria/liquidaciones/historial', 'Historial de liquidaciones', 'tesoreria', TESORERIA, { deepLink: true }),
 
@@ -204,7 +204,7 @@ export const CATALOGO: RutaConfig[] = [
   R('/comercial/reporte-precios', 'Reporte de precios',       'comercial', REPORTES, { icon: DollarSign, menuGroup: 'precios' }),
   R('/admin/comprobantes',        'Comprobantes de clientes', 'comercial', ['super_admin', 'facturacion'], { icon: Files, menuGroup: 'facturacion', externa: true }),
   R('/admin/recupero-facturas',   'Recupero de facturas',     'comercial', ['super_admin', 'facturacion'], { icon: FileText, menuGroup: 'facturacion' }),
-  R('/anulaciones',               'Anulaciones',              'comercial',
+  R('/anulaciones',               'Anulaciones y faltantes',  'comercial',
     ['super_admin', 'gerente_general', 'gerente_comercial', 'logistica', 'comercial', 'facturacion', 'tesoreria', 'supervisor', 'heladeras_encargado', 'produccion_encargado'],
     { icon: Ban, menuGroup: 'facturacion', externa: true }),
 
