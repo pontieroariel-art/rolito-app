@@ -29,8 +29,8 @@ import { MOTIVOS_DIFERENCIA_LIQUIDACION, PLANTAS, type PlantaId, type Sobre } fr
 type FiltroPlanta = PlantaId | 'todas'
 const PLANTA_IDS = Object.keys(PLANTAS) as PlantaId[]
 const nombrePlanta = (p: PlantaId) => PLANTAS[p].label.replace('Planta ', '')
-const hora = (d: Date) => d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
-const fechaHora = (d: Date) => d.toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+const hora = (d: Date) => d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })
+const fechaHora = (d: Date) => d.toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })
 
 export default function RecepcionPage() {
   const { user } = useAuth()

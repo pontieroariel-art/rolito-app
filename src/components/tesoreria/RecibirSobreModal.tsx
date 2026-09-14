@@ -234,4 +234,4 @@ function Revelacion({ sobre, efectivoContado, valores }: { sobre: Sobre; efectiv
   )
 }
 
-const hora = (d: Date) => d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+const hora = (d: Date) => d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })

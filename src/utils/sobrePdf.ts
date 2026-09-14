@@ -19,7 +19,7 @@ export interface DetalleActaSobre {
   liquidaciones?: { codigo?: string; choferNombre: string; efectivoRecibido: number }[]
 }
 
-const fechaHora = (d: Date) => d.toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+const fechaHora = (d: Date) => d.toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })
 const signo = (n: number) => `${n > 0 ? '+' : ''}${formatoARS(n)}`
 
 export async function generateActaSobre(s: Sobre, detalle: DetalleActaSobre = {}, opts: { descargar?: boolean } = {}): Promise<Blob | void> {
@@ -30,7 +30,7 @@ export async function generateActaSobre(s: Sobre, detalle: DetalleActaSobre = {}
   const rec = s.recepcion
 
   encabezadoA4(base, 'Rendición de fondos a tesorería',
-    `${s.codigo}   ·   ${PLANTAS[s.plantaId].label}   ·   ${fechaHora(s.cerradaEn.toDate())}   ·   rindió ${s.rindio.nombre}   ·   ${recibida ? 'RECIBIDA por tesorería' : 'En camino a tesorería'}`,
+    `${s.codigo}  ·  ${PLANTAS[s.plantaId].label}  ·  ${fechaHora(s.cerradaEn.toDate())}  ·  ${recibida ? 'Recibida por tesorería' : 'En camino a tesorería'}`,
     { tamSubtitulo: 9 })
 
   // ── Sistema vs declarado ─────────────────────────────────────────────────

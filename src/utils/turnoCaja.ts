@@ -30,4 +30,4 @@ export function liquidacionesPorRendir(liquidaciones: Liquidacion[], uid: string
 }
 
 /** Hora corta de un Timestamp ("07:12"). */
-export const horaCorta = (t: { toDate(): Date }): string => t.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+export const horaCorta = (t: { toDate(): Date }): string => t.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })
