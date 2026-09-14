@@ -3389,6 +3389,17 @@ describe('remitosCarga: asignacion de darsena', () => {
     await assertSucceeds(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), { darsena: 5 }))
   })
 
+  // La hora de la asignación (2026-09-13) viaja con el mismo update, para poder
+  // medir cuánto estuvo ocupada la boca sin pedirle nada al muelle.
+  test('la darsena puede venir con su hora, y esa hora tiene que ser un timestamp', async () => {
+    await seed((d) => setDoc(doc(d, 'users/mue1'), { rol: 'muelle', estado: 'activo', planta: 'torcuato' }))
+    await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), remito()))
+    await assertSucceeds(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), { darsena: 3, darsenaAsignadaEn: new Date() }))
+    await assertFails(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), { darsena: 4, darsenaAsignadaEn: 'ahora' }))
+    // Y sigue sin poder colarse ningún otro campo en el mismo update.
+    await assertFails(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), { darsena: 4, darsenaAsignadaEn: new Date(), estado: 'entregado' }))
+  })
+
   test('muelle NO asigna darsena a un remito ya entregado, ni fuera de rango, ni de otra planta', async () => {
     await seed((d) => setDoc(doc(d, 'users/mue1'), { rol: 'muelle', estado: 'activo', planta: 'torcuato' }))
     await seed((d) => setDoc(doc(d, 'users/mue2'), { rol: 'muelle', estado: 'activo', planta: 'merlo' }))

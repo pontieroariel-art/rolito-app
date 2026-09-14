@@ -111,6 +111,7 @@ const RendicionesHistorialPage = lazy(() => import('@/pages/logistica/expedicion
 const TesoreriaLivePage        = lazy(() => import('@/pages/logistica/tesoreria/TesoreriaLivePage'))
 const RendicionesTesoreriaPage = lazy(() => import('@/pages/logistica/tesoreria/RendicionesTesoreriaPage'))
 const MuelleDashboard    = lazy(() => import('@/pages/logistica/expedicion/MuelleDashboard'))
+const TiemposMuellePage  = lazy(() => import('@/pages/logistica/expedicion/TiemposMuellePage'))
 const MuelleTvPage       = lazy(() => import('@/pages/logistica/expedicion/MuelleTvPage'))
 const SeguridadDashboard = lazy(() => import('@/pages/logistica/expedicion/SeguridadDashboard'))
 const CobranzaCalle      = lazy(() => import('@/pages/logistica/chofer/CobranzaCalle'))
@@ -268,6 +269,11 @@ function AppContent() {
           </Route>
           <Route element={<ProtectedRoute allowedRoles={rolesDe('/admin/monitoreo')} />}>
             <Route path="/admin/monitoreo" element={<MonitoreoPage />} />
+          </Route>
+          {/* Reporte de gestión de tiempos del muelle (2026-09-13): mismos
+              roles que Monitoreo — no lo ven los medidos. */}
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/logistica/tiempos-muelle')} />}>
+            <Route path="/logistica/tiempos-muelle" element={<TiemposMuellePage />} />
           </Route>
           <Route element={<ProtectedRoute allowedRoles={rolesDe('/comercial/mapa')} />}>
             <Route path="/comercial/mapa" element={<MapaLivePage />} />

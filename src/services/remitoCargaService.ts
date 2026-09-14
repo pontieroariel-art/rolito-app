@@ -108,7 +108,9 @@ export const asignarDarsena = (
   remito: RemitoCarga,
   darsena: number,
 ): Promise<void> =>
-  updateDoc(doc(db, REMITOS, remito.id), { darsena })
+  // La hora va sola: es el mismo toque, no un dato más que pedirle al muelle
+  // (2026-09-13, métricas de tiempos). Si se cambia de dársena, vale la última.
+  updateDoc(doc(db, REMITOS, remito.id), { darsena, darsenaAsignadaEn: Timestamp.now() })
 
 // Seguridad controla el camión cargado en el portón y libera la salida.
 // Solo la transición entregado → salido — reglas con hasOnly.

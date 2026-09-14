@@ -305,6 +305,10 @@ export interface RemitoCarga {
   // la planta — ver DARSENAS_POR_PLANTA). Sin asignar = en espera. El
   // tablero de TV del muelle agrupa por este campo.
   darsena?:     number
+  // Cuándo se asignó esa dársena (2026-09-13). Lo escribe el mismo toque de
+  // muelle que ya asignaba el número: sin esto, la ocupación de la dársena solo
+  // se podía medir desde que se entregó la mercadería, que es más tarde.
+  darsenaAsignadaEn?: Timestamp
   creadoPor:    { uid: string; nombre: string }
   fecha:        Timestamp
   entregadoPor?: { uid: string; nombre: string; hora: Timestamp }   // muelle (Fase 2)

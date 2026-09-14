@@ -1145,7 +1145,11 @@ service cloud.firestore {
         && resource.data.estado == 'emitido'
         && request.resource.data.darsena is int
         && request.resource.data.darsena >= 1 && request.resource.data.darsena <= 20
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['darsena']);
+        // La hora de la asignación (2026-09-13) la pone el mismo toque, para
+        // poder medir cuánto estuvo ocupada la boca sin pedirle nada al muelle.
+        && (!('darsenaAsignadaEn' in request.resource.data)
+            || request.resource.data.darsenaAsignadaEn is timestamp)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['darsena', 'darsenaAsignadaEn']);
 
       // Seguridad libera la salida en el portón: solo entregado → salido,
       // solo esos dos campos, solo en su planta y a su propio nombre.

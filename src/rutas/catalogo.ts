@@ -2,7 +2,7 @@ import type { LucideIcon } from 'lucide-react'
 import {
   Activity, AlertTriangle, Ban, BarChart2, CalendarDays, ClipboardList, Cloud, DollarSign, Factory, FileText, Files,
   Gauge, HandCoins, History, Home, Landmark, LayoutDashboard, Layers, Map as MapIcon, Navigation, Package, Plus, Scale, Search,
-  Settings, ShieldCheck, ShoppingCart, Snowflake, Tag, TrendingUp, Truck, Tv, UserCheck, UserCircle, UserCog,
+  Settings, ShieldCheck, ShoppingCart, Snowflake, Tag, Timer, TrendingUp, Truck, Tv, UserCheck, UserCircle, UserCog,
   Users, Wallet, Warehouse, Wrench,
 } from 'lucide-react'
 import type { Sistema, UserProfile, UserRole } from '@/types'
@@ -147,6 +147,9 @@ export const CATALOGO: RutaConfig[] = [
   // inventados, para verla en el televisor real. Se borra al aprobar el diseño.
   R('/mockup-muelle-tv',             'Maqueta del TV de muelle', 'logistica', [], { deepLink: true }),
   R('/seguridad',                    'Seguridad (salidas)',  'logistica', ['seguridad', 'super_admin'], { icon: Truck, menuGroup: 'expedicion', rolesMenu: ['seguridad'] }),
+  // Reporte de gestión (2026-09-13): mide al muelle, a los choferes y a la
+  // ventanilla, así que lo ven los mismos que Monitoreo — nunca los medidos.
+  R('/logistica/tiempos-muelle',     'Tiempos del muelle',   'logistica', ['super_admin', 'logistica', 'gerente_general', 'gerente_comercial'], { icon: Timer, menuGroup: 'expedicion' }),
 
   // ── Logística: producción de hielo ────────────────────────────────────────
   R('/produccion',                  'Cargar producción',  'produccion', ['produccion_hielo'], { icon: Package }),
@@ -248,7 +251,7 @@ export const SIDEBARS: Record<Sistema, GrupoSidebar[]> = {
     // seguridad controla la salida. Un cajero con el rol adicional muelle o
     // seguridad (2026-09-12: caja carga la descarga mientras muelle no tiene
     // tablet) llega a esos paneles desde acá.
-    { id: 'expedicion', label: 'Muelle & Expedición', entradas: ['/caja/remitos', '/muelle', '/seguridad'] },
+    { id: 'expedicion', label: 'Muelle & Expedición', entradas: ['/caja/remitos', '/muelle', '/seguridad', '/logistica/tiempos-muelle'] },
   ],
   // Producción & Stock: lo que se fabrica. Las líneas que vienen (agua,
   // plástico y bobinas) y el mantenimiento electromecánico de planta entran
@@ -333,7 +336,7 @@ export const PANEL: Array<{ id: string; titulo: string; entradas: EntradaMenu[] 
   { id: 'facturacion', titulo: 'Facturación',            entradas: ['/movimientos', '/admin/comprobantes', '/admin/recupero-facturas', '/anulaciones'] },
   { id: 'logistica',   titulo: 'Logística',              entradas: ['/logistica', '/admin/historial-despacho', '/admin/monitoreo', '/admin/visitas', '/admin/incidencias', '/admin/clima', '/admin/flota', '/admin/precios'] },
   { id: 'comercial',   titulo: 'Comercial',              entradas: ['/comercial', '/comercial/mapa', '/comercial/reporte-precios', '/comercial/ventas'] },
-  { id: 'expedicion',  titulo: 'Expedición y tesorería', entradas: ['/caja/remitos', '/caja/ventanilla', '/caja/liquidaciones', '/muelle', '/muelle/tv', '/seguridad', '/tesoreria', '/tesoreria/rendiciones', '/tesoreria/entregas', { path: '/supervisor', label: 'Supervisor (calle)', icon: UserCheck }] },
+  { id: 'expedicion',  titulo: 'Expedición y tesorería', entradas: ['/caja/remitos', '/caja/ventanilla', '/caja/liquidaciones', '/muelle', '/muelle/tv', '/logistica/tiempos-muelle', '/seguridad', '/tesoreria', '/tesoreria/rendiciones', '/tesoreria/entregas', { path: '/supervisor', label: 'Supervisor (calle)', icon: UserCheck }] },
   { id: 'heladeras',   titulo: 'Heladeras',              entradas: ['/heladeras', '/heladeras/taller', '/heladeras/asignacion', '/heladeras/ranking', '/heladeras/consulta-service', '/heladeras/toma-service', '/heladeras/informes', '/heladeras/mapa', '/heladeras/modelos', '/heladeras/catalogos', '/heladeras/tecnicos', '/heladeras/equipos', '/heladeras/panol'] },
   { id: 'produccion',  titulo: 'Producción',             entradas: ['/produccion/resumen', '/produccion/listado', '/produccion/operarios', '/produccion/plantas'] },
 ]
