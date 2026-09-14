@@ -36,3 +36,22 @@ export function documentoDeVenta(
   if (formaPago && FORMAS_QUE_FACTURAN.includes(formaPago)) return 'factura_arca'
   return null
 }
+
+/**
+ * Qué papel va a salir, en palabras del chofer (2026-09-13). La regla la
+ * sabe la app: el chofer elige CÓMO PAGA el cliente y ve la consecuencia. Es
+ * lo que los confundía al empezar (Redonhielo: contado factura / cuenta
+ * corriente remito; Rolito: siempre factura), y no tiene por qué vivir en la
+ * cabeza de nadie.
+ *
+ * 'papel' va grande; 'detalle' es la explicación corta. Sin documento (falta
+ * la forma de pago) devuelve la invitación a elegirla, no un texto vacío.
+ */
+export function avisoDocumento(documento: DocumentoDeVenta | null): { papel: string; detalle: string } {
+  switch (documento) {
+    case 'factura_arca': return { papel: 'FACTURA',   detalle: 'electrónica de Redonhielo' }
+    case 'remito':       return { papel: 'REMITO',    detalle: 'la factura la hace la oficina' }
+    case 'no_oficial':   return { papel: 'FACTURA X', detalle: 'de Rolito' }
+    default:             return { papel: '',          detalle: 'Elegí cómo paga y te digo qué sale' }
+  }
+}

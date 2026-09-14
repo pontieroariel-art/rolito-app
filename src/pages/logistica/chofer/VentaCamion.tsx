@@ -25,7 +25,7 @@ import { empresaDeCanal, motivoSinPrecioTango, precioTangoDe } from '@/utils/pre
 import { esClienteFacturable } from '@/utils/facturable'
 import { admiteCuentaCorriente } from '@/utils/condicionVenta'
 import { articulosDeCambio, itemsDeCambio } from '@/utils/cambios'
-import { documentoDeVenta } from '@/utils/circuitoDocumento'
+import { avisoDocumento, documentoDeVenta } from '@/utils/circuitoDocumento'
 import { tipoComprobanteInterno, ETIQUETA_COMPROBANTE } from '@/utils/comprobanteInterno'
 import {
   asegurarReserva, consumirNumero, precargarSiSeAcerca, codigoComprobanteInterno,
@@ -557,6 +557,32 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
                 {cliente && !ctaCte.ok && ctaCte.motivo && (
                   <p className="text-xs text-amber-700">{ctaCte.motivo}</p>
                 )}
+                {/* Qué papel va a salir, en vivo (2026-09-13): el chofer elige
+                    cómo paga y lee la consecuencia acá, no en el resumen final.
+                    Con la forma de pago sin elegir, `documento` asume contado
+                    (ver arriba) — por eso acá se mira `formaPago` y no
+                    `documento` para saber si ya se puede afirmar algo. */}
+                {(() => {
+                  const aviso = avisoDocumento(formaPago ? documento : null)
+                  return (
+                    <div
+                      key={aviso.papel}
+                      className={`rounded-xl border px-3.5 py-2.5 flex items-center gap-3 animate-in fade-in-0 zoom-in-95 duration-200 ${
+                        aviso.papel ? 'border-accent/40 bg-accent/5' : 'border-dashed border-[#D3D1C7] bg-white'
+                      }`}
+                    >
+                      <FileText size={18} className={aviso.papel ? 'text-accent shrink-0' : 'text-inerte shrink-0'} />
+                      {aviso.papel ? (
+                        <p className="text-sm text-gray-700 leading-tight">
+                          Sale <b className="text-base font-black text-gray-900">{aviso.papel}</b>
+                          <span className="text-secundario"> · {aviso.detalle}</span>
+                        </p>
+                      ) : (
+                        <p className="text-sm text-secundario">{aviso.detalle}</p>
+                      )}
+                    </div>
+                  )
+                })()}
               </section>
             ) : cambios.length > 0 && (
               <div className="rounded-xl border border-[#D3D1C7] bg-white px-3.5 py-2.5 animate-in fade-in-0 duration-300">
@@ -690,11 +716,7 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
           {documento && (
             <p className="text-xs text-secundario flex items-center gap-1.5">
               <FileText size={13} className="text-inerte shrink-0" />
-              {documento === 'factura_arca'
-                ? 'Sale factura electrónica de Redonhielo.'
-                : documento === 'no_oficial'
-                  ? 'Sale comprobante de Rolito.'
-                  : 'Sale remito — la factura la hace la oficina.'}
+              Sale {avisoDocumento(documento).papel.toLowerCase()} · {avisoDocumento(documento).detalle}.
             </p>
           )}
 
