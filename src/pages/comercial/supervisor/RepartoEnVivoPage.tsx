@@ -6,7 +6,7 @@ import { subscribeRepartoEnVivo, type FuentesRepartoEnVivo } from '@/services/re
 import { agruparRepartoEnVivo, type CamionEnVivo } from '@/utils/repartoEnVivo'
 import { formatoARS } from '@/utils/money'
 import { haceCuanto } from '@/utils/tiempo'
-import DetalleReparto from '@/components/expedicion/liquidacion/DetalleReparto'
+import DetalleReparto, { useReparto } from '@/components/expedicion/liquidacion/DetalleReparto'
 
 // Reparto en vivo: la liquidación de cada repartidor calculada al momento
 // (misma cuenta que caja al cerrar el día), para que el supervisor vea qué
@@ -141,8 +141,7 @@ export default function RepartoEnVivoPage() {
                       {/* Detalle clasificado (el mismo de la liquidación de caja):
                           ventas por tipo con su comprobante y estado en Tango,
                           cobranzas con su recibo, cambios, recorrido. */}
-                      <DetalleReparto remitos={c.detalle.remitos} ventas={c.detalle.ventas} cambios={c.detalle.cambios}
-                        descargas={c.detalle.descargas} cobranzas={c.detalle.cobranzas} />
+                      <DetalleCamion detalle={c.detalle} />
                     </div>
                   )}
                 </div>
@@ -153,4 +152,12 @@ export default function RepartoEnVivoPage() {
       </main>
     </div>
   )
+}
+
+// El reparto clasificado se memoiza acá, en un componente propio, y no en un
+// mapa sobre todos los camiones: se calcula solo para el que está abierto y
+// una vez por snapshot (2026-09-14).
+function DetalleCamion({ detalle }: { detalle: CamionEnVivo['detalle'] }) {
+  const reparto = useReparto(detalle)
+  return <DetalleReparto remitos={detalle.remitos} descargas={detalle.descargas} cobranzas={detalle.cobranzas} reparto={reparto} />
 }

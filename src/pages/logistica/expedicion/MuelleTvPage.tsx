@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Volume2, VolumeX } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useCatalogo } from '@/hooks/useCatalogo'
@@ -157,7 +157,11 @@ export default function MuelleTvPage() {
   const turnoEnDarsena  = (n: number) =>
     ventanillas.find((v) => v.estado === 'pendiente_entrega' && v.turnoEstado === 'llamado' && v.darsena === n)
 
-  const camionesEnEspera = remitos.filter((r) => r.estado === 'emitido' && !r.darsena)
+  // Derivados memoizados por fuente (2026-09-14): `ahora` cambia cada 10 s y
+  // repinta el tablero; sin memo, cada tick volvía a filtrar y ordenar todo y
+  // las zonas hijas recibían arrays y closures nuevas.
+  const camionesEnEspera = useMemo(() => remitos.filter((r) => r.estado === 'emitido' && !r.darsena), [remitos])
+  const listosParaSalir  = useMemo(() => remitos.filter((r) => r.estado === 'entregado'), [remitos])
 
   // Demora en dársena: suena UNA vez por camión al pasarse del tiempo. Repetirlo
   // cada refresco sería una alarma cada 10 segundos y terminaría en alguien
@@ -172,11 +176,10 @@ export default function MuelleTvPage() {
       avisar('demora')
     }
   }, [remitos, ahora, sonido, avisar])
-  const listosParaSalir  = remitos.filter((r) => r.estado === 'entregado')
-  const colaTurnos = ventanillas
+  const colaTurnos = useMemo(() => ventanillas
     .filter((v) => v.estado === 'pendiente_entrega' && ['en_espera', 'preparado'].includes(v.turnoEstado))
-    .sort((a, b) => a.turno - b.turno)
-  const ausentes = ventanillas.filter((v) => v.estado === 'pendiente_entrega' && v.turnoEstado === 'ausente')
+    .sort((a, b) => a.turno - b.turno), [ventanillas])
+  const ausentes = useMemo(() => ventanillas.filter((v) => v.estado === 'pendiente_entrega' && v.turnoEstado === 'ausente'), [ventanillas])
 
   // Volvieron y falta contarles la descarga. El regreso lo marca seguridad en
   // el portón o el propio chofer (`remitosCarga.regreso`, 2026-09-13); ya
@@ -202,30 +205,16 @@ export default function MuelleTvPage() {
   const llamadoReciente = ventanillas.find((v) =>
     v.turnoEstado === 'llamado' && v.llamadoAt && (ahora - v.llamadoAt.toMillis()) < 45_000)
 
-  const patente = (label: string) => label.split('·')[0].trim()
-  const minutosDesde = (t: { toMillis(): number }) => Math.max(0, Math.round((ahora - t.toMillis()) / 60_000))
-  const horaDe = (t: { toDate(): Date }) => t.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })
-
-  // Nombre corto de producto, para leerse desde el autoelevador.
-  const ETIQUETAS: Record<string, string> = {
-    bolsa_2kg: '2kg', bolsa_3kg: '3kg', bolsa_10kg: '10kg',
-    picado_10kg: 'PICADO', escamas_10kg: 'ESCAMA', barra: 'BARRA',
-    anticorrosivo: 'ANTIC.', agua_6l: 'AGUA',
-  }
-  const corto = (productoId: string, nombre: string) =>
-    ETIQUETAS[productoId] ?? (nombre.match(/\d+\s?kg/i)?.[0].replace(/\s/g, '') ?? nombre.split(' ')[0].toUpperCase().slice(0, 7))
-
   // Pallets completos + bolsas sueltas: el clarkista levanta pallets con la uña
   // y estiba a mano el resto, así que 920 bolsas de 2kg son "3 PAL + 200
   // sueltas" y no "920" (el remito ya trae `pallets`, pero es el REDONDEO HACIA
   // ARRIBA de los que ocupa — sirve para el camión, no para la uña).
-  const porPallet = (productoId: string) => catalogo.find((p) => p.id === productoId)?.unidadesPorPallet ?? 0
-  const desglose = (productoId: string, cantidad: number) => {
-    const upp = porPallet(productoId)
+  const desglose = useCallback((productoId: string, cantidad: number) => {
+    const upp = catalogo.find((p) => p.id === productoId)?.unidadesPorPallet ?? 0
     return upp > 0
       ? { pallets: Math.floor(cantidad / upp), sueltas: cantidad % upp }
       : { pallets: 0, sueltas: cantidad }
-  }
+  }, [catalogo])
 
   return (
     <div className="h-screen h-dvh w-screen overflow-hidden bg-gray-950 relative">
@@ -254,15 +243,16 @@ export default function MuelleTvPage() {
             .filter((n) => !dVentanilla.includes(n))
             .map((n) => {
               const r = camionEnDarsena(n)
-              return <DarsenaCamion key={n} n={n} r={r} corto={corto} desglose={desglose} minutos={r ? minutosDesde(r.fecha) : 0} />
+              // Boca libre: sin cronómetro, no hace falta que el tick la repinte.
+              return <DarsenaCamion key={n} n={n} r={r} desglose={desglose} ahora={r ? ahora : 0} />
             })}
         </div>
-        <Retornos retornos={retornos} patente={patente} minutosDesde={minutosDesde} horaDe={horaDe} />
+        <Retornos retornos={retornos} ahora={ahora} />
       </div>
 
       {/* Zona 2: ventanilla */}
       <div className="grid gap-4" style={{ height: 168, gridTemplateColumns: `repeat(${dVentanilla.length}, minmax(0, 1fr))` }}>
-        {dVentanilla.map((n) => <DarsenaVentanilla key={n} n={n} v={turnoEnDarsena(n)} corto={corto} />)}
+        {dVentanilla.map((n) => <DarsenaVentanilla key={n} n={n} v={turnoEnDarsena(n)} />)}
       </div>
 
       {/* Zona 4: anticipación de cámara */}
@@ -369,13 +359,30 @@ export default function MuelleTvPage() {
 // Minutos en la dársena a partir de los cuales el cronómetro pasa a rojo.
 const TOPE_DARSENA_MIN = 25
 
-function DarsenaCamion({ n, r, corto, desglose, minutos }: {
+// Helpers puros a nivel módulo: no dependen de estado, así las zonas memoizadas
+// reciben siempre las mismas referencias.
+const patente = (label: string) => label.split('·')[0].trim()
+const minutosDesde = (ahora: number, t: { toMillis(): number }) => Math.max(0, Math.round((ahora - t.toMillis()) / 60_000))
+const horaDe = (t: { toDate(): Date }) => t.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })
+
+// Nombre corto de producto, para leerse desde el autoelevador.
+const ETIQUETAS: Record<string, string> = {
+  bolsa_2kg: '2kg', bolsa_3kg: '3kg', bolsa_10kg: '10kg',
+  picado_10kg: 'PICADO', escamas_10kg: 'ESCAMA', barra: 'BARRA',
+  anticorrosivo: 'ANTIC.', agua_6l: 'AGUA',
+}
+const corto = (productoId: string, nombre: string) =>
+  ETIQUETAS[productoId] ?? (nombre.match(/\d+\s?kg/i)?.[0].replace(/\s/g, '') ?? nombre.split(' ')[0].toUpperCase().slice(0, 7))
+
+// Las tres zonas van en `memo`: el tick de 10 s solo repinta lo que tiene
+// cronómetro (`ahora` viaja como número y los minutos se calculan adentro).
+const DarsenaCamion = memo(function DarsenaCamion({ n, r, desglose, ahora }: {
   n: number
   r?: RemitoCarga
-  corto: (id: string, nombre: string) => string
   desglose: (id: string, cantidad: number) => { pallets: number; sueltas: number }
-  minutos: number
+  ahora: number
 }) {
+  const minutos = r ? minutosDesde(ahora, r.fecha) : 0
   const tag = (
     <div className="flex justify-between items-baseline">
       <span className="text-4xl font-black text-gray-500">{n}</span>
@@ -424,11 +431,9 @@ function DarsenaCamion({ n, r, corto, desglose, minutos }: {
       </div>
     </div>
   )
-}
+})
 
-function DarsenaVentanilla({ n, v, corto }: {
-  n: number; v?: VentaVentanilla; corto: (id: string, nombre: string) => string
-}) {
+const DarsenaVentanilla = memo(function DarsenaVentanilla({ n, v }: { n: number; v?: VentaVentanilla }) {
   return (
     <div className={`rounded-[20px] px-4 py-3 flex items-center gap-5 border-[5px] min-w-0 ${
       v ? 'border-green-500 bg-green-500/10' : 'border-gray-800 bg-[#0b1220]'
@@ -457,7 +462,7 @@ function DarsenaVentanilla({ n, v, corto }: {
       )}
     </div>
   )
-}
+})
 
 /**
  * Zona 3 — VOLVIERON, FALTA CONTAR (2026-09-13).
@@ -470,12 +475,7 @@ function DarsenaVentanilla({ n, v, corto }: {
  * NO muestra cantidades esperadas, a propósito: el conteo es ciego. Si el TV
  * cantara cuánto tiene que volver, el que cuenta tildaría ese número.
  */
-function Retornos({ retornos, patente, minutosDesde, horaDe }: {
-  retornos: RemitoCarga[]
-  patente: (label: string) => string
-  minutosDesde: (t: { toMillis(): number }) => number
-  horaDe: (t: { toDate(): Date }) => string
-}) {
+const Retornos = memo(function Retornos({ retornos, ahora }: { retornos: RemitoCarga[]; ahora: number }) {
   const hay = retornos.length > 0
   return (
     <div className={`w-[440px] shrink-0 rounded-[20px] border-[5px] px-5 py-4 flex flex-col ${
@@ -493,7 +493,7 @@ function Retornos({ retornos, patente, minutosDesde, horaDe }: {
       ) : (
         <div className="flex flex-col gap-2.5 flex-1 min-h-0 overflow-hidden">
           {retornos.map((r) => {
-            const espera = minutosDesde(r.regreso!.hora)
+            const espera = minutosDesde(ahora, r.regreso!.hora)
             return (
               <div key={r.id} className="rounded-2xl px-4 py-2.5 bg-black/30">
                 <div className="flex justify-between items-baseline">
@@ -515,4 +515,4 @@ function Retornos({ retornos, patente, minutosDesde, horaDe }: {
       )}
     </div>
   )
-}
+})

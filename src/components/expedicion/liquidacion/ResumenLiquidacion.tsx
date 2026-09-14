@@ -61,20 +61,24 @@ export function BarraEstado({ remitos, descargas, reparto, cerrada, onProblemas,
   )
 }
 
+// A nivel módulo, no adentro de `TarjetasPlata`: definido adentro, React lo
+// tomaba como un componente nuevo en cada render y desmontaba y volvía a montar
+// las cuatro tarjetas con cada tecla del input "Efectivo recibido" (2026-09-14).
+const Tile = ({ color, titulo, total, lineas }: { color: string; titulo: string; total: number; lineas: Array<[string, string]> }) => (
+  <div className="rounded-xl border border-[#D3D1C7] bg-white p-3 space-y-1.5" style={{ borderTop: `4px solid ${color}` }}>
+    <p className="text-xs font-bold uppercase tracking-wider" style={{ color }}>{titulo}</p>
+    <p className="text-xl font-bold text-gray-900 tabular-nums">{formatoARS(total)}</p>
+    <div className="text-xs text-gray-600 space-y-0.5">
+      {lineas.map(([k, v]) => <p key={k} className="flex justify-between gap-2"><span>{k}</span><b className="text-gray-800 tabular-nums">{v}</b></p>)}
+    </div>
+  </div>
+)
+
 export function TarjetasPlata({ reparto, calc, efectivoRecibido, onEfectivoRecibido, soloLectura, diferencia }: {
   reparto: RepartoClasificado; calc: LiquidacionCalculada; efectivoRecibido: string; onEfectivoRecibido: (v: string) => void
   soloLectura: boolean; diferencia: number | null
 }) {
   const promoEfectivo = reparto.promo.contado.ventas.filter((v) => v.formaPago === 'contado_efectivo').reduce((s, v) => s + v.total, 0)
-  const Tile = ({ color, titulo, total, lineas }: { color: string; titulo: string; total: number; lineas: Array<[string, string]> }) => (
-    <div className="rounded-xl border border-[#D3D1C7] bg-white p-3 space-y-1.5" style={{ borderTop: `4px solid ${color}` }}>
-      <p className="text-xs font-bold uppercase tracking-wider" style={{ color }}>{titulo}</p>
-      <p className="text-xl font-bold text-gray-900 tabular-nums">{formatoARS(total)}</p>
-      <div className="text-xs text-gray-600 space-y-0.5">
-        {lineas.map(([k, v]) => <p key={k} className="flex justify-between gap-2"><span>{k}</span><b className="text-gray-800 tabular-nums">{v}</b></p>)}
-      </div>
-    </div>
-  )
   return (
     <section className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-4 space-y-4">
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">

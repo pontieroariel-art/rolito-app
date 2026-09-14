@@ -309,6 +309,9 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
   // Geocodificar pedidos del día
   useEffect(() => {
     if (!isLoaded) return
+    // Flag de cancelación: una geocodificación tardía de un run anterior no
+    // puede pisar los marcadores ni el "cargando" del run nuevo (2026-09-14).
+    let vivo = true
     setGeocoding(true)
     Promise.all(
       ordersDay.map(async (o, i) => {
@@ -327,9 +330,11 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
         } as OrderMarker
       }),
     ).then((res) => {
+      if (!vivo) return
       setOrderMarkers(res.filter(Boolean) as OrderMarker[])
       setGeocoding(false)
     })
+    return () => { vivo = false }
   }, [isLoaded, ordersDay, choferes, geocode])
 
   // Visitas puntuales del día seleccionado (de Firestore en tiempo real) —
@@ -363,6 +368,7 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
       return ++sinCoords <= MAX_GEOCODE_SIN_COORDS
     })
     if (toGeocode.length === 0) { setClientMarkers([]); return }
+    let vivo = true
     Promise.all(
       toGeocode.map(async (s) => {
         let pt: { lat: number; lng: number } | null = null
@@ -381,7 +387,8 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
           phone:   s.phone,
         } as ClientMarker
       }),
-    ).then((res) => setClientMarkers(res.filter(Boolean) as ClientMarker[]))
+    ).then((res) => { if (vivo) setClientMarkers(res.filter(Boolean) as ClientMarker[]) })
+    return () => { vivo = false }
   }, [isLoaded, showAllClients, allClients.length, clientsWithoutOrder, visitasDelDia, ocultosMapa, geocode])
 
   const clearRoute = useCallback((driverEmail: string) => {

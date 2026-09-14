@@ -122,7 +122,7 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
     () => calcularLiquidacion(remitosChofer, ventas, cambios, descargas, cobranzas),
     [remitosChofer, ventas, cambios, descargas, cobranzas],
   )
-  const reparto = useReparto({ remitos: remitosChofer, ventas, cambios, descargas, cobranzas })
+  const reparto = useReparto({ ventas, cambios, descargas, cobranzas })
   // Cheques y certificados que trae el repartidor: caja los tilda al cerrar (2026-09-09).
   const papel = useMemo(() => valoresEnPapel(cobranzas), [cobranzas])
 
@@ -312,7 +312,7 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
             </Plegable>
           )}
 
-          <DetalleReparto remitos={remitosChofer} ventas={ventas} cambios={cambios} descargas={descargas} cobranzas={cobranzas} soloProblemas={soloProblemas}
+          <DetalleReparto remitos={remitosChofer} descargas={descargas} cobranzas={cobranzas} reparto={reparto} soloProblemas={soloProblemas}
             onAnular={!cerrada && puedeCerrar ? setAnulando : undefined} />
           {anulando && user && (
             <SolicitarAnulacionModal objetivo={{ coleccion: 'ventasCamion', venta: anulando, plantaId }} actor={{ uid: user.uid, nombre: user.nombre }} onCerrar={() => setAnulando(null)} />

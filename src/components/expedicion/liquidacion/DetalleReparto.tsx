@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { AlertTriangle, CheckCircle2, Clock, Download, Share2 } from 'lucide-react'
 import { RETENCION_LABELS } from '@/components/supervisor/RetencionForm'
 import { entregarReciboSupervisor, EstadoTangoChip } from '@/components/supervisor/CobranzaSupervisorCard'
@@ -26,14 +26,26 @@ import { facturaAnulable, textoAnulacion } from '@/utils/anulacionVenta'
 
 export interface DetalleRepartoProps {
   remitos:   RemitoCarga[]
+  descargas: DescargaCamion[]
+  cobranzas: Cobranza[]
+  /** El reparto ya clasificado por la pantalla (`useReparto`): no se recalcula acá (2026-09-14). */
+  reparto:   RepartoClasificado
+  /** Solo resaltar las filas con problema (chip de la barra de estado). */
+  soloProblemas?: boolean
+  /**
+   * Caja, con la liquidación abierta: pedir la anulación de una factura del
+   * camión (2026-09-11). Conviene pasarlo estable (setState o useCallback):
+   * las filas están en `memo`.
+   */
+  onAnular?: (venta: VentaCamion) => void
+}
+
+/** Fuentes que necesita `clasificarReparto`. */
+export interface FuentesReparto {
   ventas:    VentaCamion[]
   cambios:   CambioCamion[]
   descargas: DescargaCamion[]
   cobranzas: Cobranza[]
-  /** Solo resaltar las filas con problema (chip de la barra de estado). */
-  soloProblemas?: boolean
-  /** Caja, con la liquidación abierta: pedir la anulación de una factura del camión (2026-09-11). */
-  onAnular?: (venta: VentaCamion) => void
 }
 
 const hora = (ts: { toDate(): Date } | undefined) => ts ? ts.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : ''
@@ -47,12 +59,11 @@ const ESTILO = {
   recorrido:  { borde: 'border-l-gray-400',  fondo: 'bg-[#F1F0EA]' },
 } as const
 
-export function useReparto(p: Omit<DetalleRepartoProps, 'soloProblemas'>): RepartoClasificado {
+export function useReparto(p: FuentesReparto): RepartoClasificado {
   return useMemo(() => clasificarReparto(p.ventas, p.cobranzas, p.cambios, p.descargas, problemasDeVenta), [p.ventas, p.cobranzas, p.cambios, p.descargas])
 }
 
-export default function DetalleReparto({ remitos, ventas, cambios, descargas, cobranzas, soloProblemas = false, onAnular }: DetalleRepartoProps) {
-  const reparto = useReparto({ remitos, ventas, cambios, descargas, cobranzas })
+export default function DetalleReparto({ remitos, descargas, cobranzas, reparto, soloProblemas = false, onAnular }: DetalleRepartoProps) {
   const [cai, setCai] = useState<CaiRemito | null>(() => caiRemitoOficialCacheado())
   useEffect(() => { getCaiRemitoOficial().then(setCai).catch(() => undefined) }, [])
   const [aviso, setAviso] = useState('')
@@ -60,31 +71,32 @@ export default function DetalleReparto({ remitos, ventas, cambios, descargas, co
   const compartible = puedeCompartirArchivos()
   const problemas = useMemo(() => new Set(reparto.problemas.map((p) => p.venta.id)), [reparto.problemas])
 
-  const entregar = async (v: VentaCamion, modo: 'ver' | 'enviar') => {
+  // Callbacks estables: las filas están en `memo`, así que un `setOcupado` o un
+  // `setAviso` no vuelve a pintar las N filas que no cambiaron (2026-09-14).
+  const entregar = useCallback(async (v: VentaCamion, modo: 'ver' | 'enviar') => {
     setOcupado(v.id)
     setAviso('')
     try { setAviso(await entregarComprobanteVenta(v, undefined, cai, modo)) }
     finally { setOcupado(null) }
-  }
-  const entregarRecibo = async (c: Cobranza, compartir: boolean) => {
+  }, [cai])
+  const entregarRecibo = useCallback(async (c: Cobranza, compartir: boolean) => {
     setOcupado(c.id)
     setAviso('')
     try { setAviso(await entregarReciboSupervisor(c, compartir)) }
     catch (err) { reportError(err, { origen: 'DetalleReparto', cobranzaId: c.id }); setAviso('No se pudo generar el recibo.') }
     finally { setOcupado(null) }
-  }
+  }, [])
   const verRemitoCarga = (r: RemitoCarga) =>
     generateRemitoCarga({ codigo: r.codigo, plantaId: r.plantaId, camionLabel: r.camionLabel, choferNombre: r.choferNombre, items: r.items, palletsCarga: r.palletsCarga, envases: r.envases, creadoPor: r.creadoPor, fecha: r.fecha.toDate() })
       .catch((err) => reportError(err, { origen: 'DetalleReparto', accion: 'remito de carga' }))
 
   const filaVenta = (v: VentaCamion) => (
     <FilaVenta key={v.id} venta={v} ocupado={ocupado === v.id} compartible={compartible} atenuada={soloProblemas && !problemas.has(v.id)}
-      onVer={() => entregar(v, 'ver')} onEnviar={() => entregar(v, 'enviar')}
-      onAnular={onAnular && facturaAnulable(v) ? () => onAnular(v) : undefined} />
+      onVer={entregar} onAnular={onAnular} />
   )
   const filaCobranza = (c: Cobranza) => (
     <FilaCobranza key={c.id} cobranza={c} ocupado={ocupado === c.id} compartible={compartible} atenuada={soloProblemas}
-      onVer={() => entregarRecibo(c, false)} onEnviar={() => entregarRecibo(c, true)} />
+      onVer={entregarRecibo} />
   )
   const subBloque = (titulo: string, b: BloqueVentas) => b.ventas.length === 0 ? null : (
     <div key={titulo}>
@@ -237,12 +249,20 @@ function Chip({ tono, children }: { tono: 'ok' | 'warn' | 'bad' | 'neutral'; chi
   return <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap ${c}`}>{children}</span>
 }
 
-function FilaVenta({ venta: v, ocupado, compartible, atenuada, onVer, onEnviar, onAnular }: { venta: VentaCamion; ocupado: boolean; compartible: boolean; atenuada: boolean; onVer: () => void; onEnviar: () => void; onAnular?: () => void }) {
+// Filas en `memo` (2026-09-14): reciben solo valores planos y callbacks
+// estables, y calculan lo suyo (comprobante, Tango, problemas, anulación) una
+// vez por venta, no una vez por render del detalle.
+const FilaVenta = memo(function FilaVenta({ venta: v, ocupado, compartible, atenuada, onVer, onAnular }: {
+  venta: VentaCamion; ocupado: boolean; compartible: boolean; atenuada: boolean
+  onVer: (venta: VentaCamion, modo: 'ver' | 'enviar') => void
+  onAnular?: (venta: VentaCamion) => void
+}) {
   const comp = describirComprobante(v)
   const tango = estadoTangoVenta(v)
   const conProblema = problemasDeVenta(v).length > 0
   const anul = textoAnulacion(v.anulacion)
   const anulada = v.anulacion?.estado === 'anulada'
+  const anulable = !!onAnular && facturaAnulable(v)
   return (
     <div className={`grid grid-cols-[52px_1fr_auto] gap-3 px-4 py-3 border-t border-[#E7E5DC] ${conProblema ? 'bg-[#FFF7F7]' : ''} ${atenuada ? 'opacity-40' : ''}`}>
       <span className="text-sm text-secundario tabular-nums pt-0.5">{hora(v.fecha)}</span>
@@ -263,10 +283,10 @@ function FilaVenta({ venta: v, ocupado, compartible, atenuada, onVer, onEnviar, 
           {comp.estado === 'ok' && comp.detalle && <Chip tono="ok">{comp.detalle}</Chip>}
           {(comp.estado === 'rechazada' || comp.estado === 'incierta') && <Chip tono="bad"><AlertTriangle size={11} /> {comp.detalle}</Chip>}
           {(comp.estado === 'sin_numero' || comp.estado === 'sin_comprobante') && <Chip tono="warn">{comp.detalle}</Chip>}
-          <button type="button" onClick={onVer} disabled={ocupado} className={btn}><Download size={12} /> Ver</button>
-          <button type="button" onClick={onEnviar} disabled={ocupado} className={btn}><Share2 size={12} /> {compartible ? 'Enviar' : 'Enviar'}</button>
-          {onAnular && (
-            <button type="button" onClick={onAnular} disabled={ocupado} title="Pide autorización; la nota de crédito sale al aprobarse"
+          <button type="button" onClick={() => onVer(v, 'ver')} disabled={ocupado} className={btn}><Download size={12} /> Ver</button>
+          <button type="button" onClick={() => onVer(v, 'enviar')} disabled={ocupado} className={btn}><Share2 size={12} /> {compartible ? 'Enviar' : 'Enviar'}</button>
+          {anulable && (
+            <button type="button" onClick={() => onAnular?.(v)} disabled={ocupado} title="Pide autorización; la nota de crédito sale al aprobarse"
               className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50">
               Anular factura
             </button>
@@ -286,9 +306,13 @@ function FilaVenta({ venta: v, ocupado, compartible, atenuada, onVer, onEnviar, 
       <p className="text-sm font-bold text-gray-900 tabular-nums text-right">{formatoARS(v.total)}</p>
     </div>
   )
-}
+})
 
-function FilaCobranza({ cobranza: c, ocupado, compartible, atenuada, onVer, onEnviar }: { cobranza: Cobranza; ocupado: boolean; compartible: boolean; atenuada: boolean; onVer: () => void; onEnviar: () => void }) {
+const FilaCobranza = memo(function FilaCobranza({ cobranza: c, ocupado, compartible, atenuada, onVer }: {
+  cobranza: Cobranza; ocupado: boolean; compartible: boolean; atenuada: boolean
+  /** `compartir`: false = ver el recibo, true = enviarlo. */
+  onVer: (cobranza: Cobranza, compartir: boolean) => void
+}) {
   const medios: string[] = []
   if (c.medios) {
     if (c.medios.efectivo > 0) medios.push(`Efectivo ${formatoARS(c.medios.efectivo)}`)
@@ -309,12 +333,12 @@ function FilaCobranza({ cobranza: c, ocupado, compartible, atenuada, onVer, onEn
         <p className="text-sm text-gray-700">{medios.join(' · ')}{imputa.length ? ` · imputa ${imputa.join(', ')}` : ''}</p>
         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-gray-600">
           <span className="font-semibold text-gray-900">Recibo {c.numeroRecibo ?? 'sin número'}</span>
-          <button type="button" onClick={onVer} disabled={ocupado} className={btn}><Download size={12} /> Ver recibo</button>
-          <button type="button" onClick={onEnviar} disabled={ocupado} className={btn}><Share2 size={12} /> {compartible ? 'Enviar' : 'Enviar'}</button>
+          <button type="button" onClick={() => onVer(c, false)} disabled={ocupado} className={btn}><Download size={12} /> Ver recibo</button>
+          <button type="button" onClick={() => onVer(c, true)} disabled={ocupado} className={btn}><Share2 size={12} /> {compartible ? 'Enviar' : 'Enviar'}</button>
           <EstadoTangoChip c={c} />
         </div>
       </div>
       <p className="text-sm font-bold text-gray-900 tabular-nums text-right">{formatoARS(c.importe)}</p>
     </div>
   )
-}
+})
