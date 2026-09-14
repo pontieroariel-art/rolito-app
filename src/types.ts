@@ -1054,6 +1054,11 @@ export interface Liquidacion {
   clientesVisitados?: number
   // Ventas de este cierre anuladas DESPUÉS de cerrar (lo escribe el server, 2026-09-11).
   anulacionesPosteriores?: AnulacionPosterior[]
+  // Faltante de MERCADERÍA observado al cerrar (2026-09-13): el camión volvió
+  // con menos de lo que tenía que volver, por más del umbral. El cierre se hizo
+  // igual (un tema de stock no traba la caja) y queda marcado para que lo
+  // revisen. Ausente = la descarga cuadró o el control estaba apagado.
+  desvio?:               DesvioLiquidacion
   cerradaPor:    { uid: string; nombre: string }
   createdAt:     Timestamp
 }
@@ -1070,6 +1075,42 @@ export const MOTIVOS_DIFERENCIA_LIQUIDACION: Record<MotivoDiferenciaLiquidacion,
   otro:                'Otro',
 }
 export const MOTIVOS_LIQUIDACION_REPARTIDOR: MotivoDiferenciaLiquidacion[] = ['faltante_repartidor', 'vuelto_mal_dado', 'error_de_carga', 'otro']
+
+// ── Desvío de MERCADERÍA en el cierre (2026-09-13, control de fugas) ──────────
+// Cuando lo que muelle contó al volver el camión no llega a lo que tendría que
+// haber vuelto por más del umbral (config/liquidacion.faltantes), caja no puede
+// cerrar como si nada: elige un motivo y el cierre queda marcado en rojo para
+// que gerencia y administración lo revisen al día siguiente.
+//
+// Un tema de stock NUNCA traba el turno de caja (decisión de Ariel): el desvío
+// queda escrito, con nombre y motivo, pero el cierre se completa igual.
+export type MotivoDesvioDescarga =
+  | 'error_de_conteo'        // muelle contó mal; se recuenta
+  | 'quedo_en_el_camion'     // no se bajó todo
+  | 'venta_sin_subir'        // el chofer tenía ventas sin subir al contar
+  | 'rotura_no_declarada'
+  | 'a_investigar'           // no hay explicación: que lo vea gerencia
+  | 'otro'
+export const MOTIVOS_DESVIO_DESCARGA: Record<MotivoDesvioDescarga, string> = {
+  error_de_conteo:     'Error de conteo en el muelle',
+  quedo_en_el_camion:  'Quedó mercadería en el camión',
+  venta_sin_subir:     'El repartidor tenía ventas sin subir',
+  rotura_no_declarada: 'Rotura no declarada',
+  a_investigar:        'Sin explicación: a investigar',
+  otro:                'Otro',
+}
+export const MOTIVOS_DESVIO_LIQUIDACION: MotivoDesvioDescarga[] =
+  ['error_de_conteo', 'quedo_en_el_camion', 'venta_sin_subir', 'rotura_no_declarada', 'a_investigar', 'otro']
+
+export interface DesvioLiquidacion {
+  bolsasFaltantes: number
+  /** Qué faltó, para leerlo sin recalcular (el cierre es una foto). */
+  productos:       { productoId: string; nombre: string; faltan: number }[]
+  umbral:          number
+  motivo:          MotivoDesvioDescarga
+  nota:            string
+  observadoPor:    { uid: string; nombre: string }
+}
 // Cierre de caja de ventanilla (2026-09-09).
 export const MOTIVOS_CIERRE_MOSTRADOR: MotivoDiferenciaLiquidacion[] = ['faltante_caja', 'vuelto_mal_dado', 'error_de_carga', 'otro']
 // Entrega de caja a tesorería (2026-09-09): caja entrega distinto del teórico, o tesorería cuenta distinto de lo entregado.

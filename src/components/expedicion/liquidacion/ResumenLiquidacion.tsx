@@ -1,8 +1,10 @@
-import { AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, PackageX } from 'lucide-react'
 import { formatoARS } from '@/utils/money'
 import { describirRacks } from '@/utils/envases'
 import type { LiquidacionCalculada, RepartoClasificado } from '@/utils/liquidacion'
 import type { DescargaCamion, Liquidacion, RemitoCarga } from '@/types'
+import { MOTIVOS_DESVIO_DESCARGA } from '@/types'
+import type { FaltanteCalculado } from '@/utils/faltantes'
 import { TH as th, TD as td } from '@/components/common/tabla'
 
 // Barra de estado, tarjetas de plata con el cuadre, y los plegables de resumen
@@ -10,9 +12,15 @@ import { TH as th, TD as td } from '@/components/common/tabla'
 
 const hora = (ts: { toDate(): Date } | undefined) => ts ? ts.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : ''
 
-export function BarraEstado({ remitos, descargas, reparto, cerrada, onProblemas, soloProblemas }: {
+export function BarraEstado({ remitos, descargas, reparto, cerrada, onProblemas, soloProblemas, faltante }: {
   remitos: RemitoCarga[]; descargas: DescargaCamion[]; reparto: RepartoClasificado; cerrada: Liquidacion | null
   onProblemas: () => void; soloProblemas: boolean
+  /**
+   * Faltante de MERCADERÍA del día, en vivo (2026-09-13). Va acá, a la vista,
+   * porque hasta hoy el desvío vivía dentro de un plegable cerrado: un camión
+   * podía volver con 80 bolsas de menos y el cierre salía sin que nadie lo viera.
+   */
+  faltante?: FaltanteCalculado | null
 }) {
   const salida = remitos.map((r) => r.salida?.hora ?? r.entregadoPor?.hora).find(Boolean)
   const vuelta = descargas[descargas.length - 1]?.fecha
@@ -27,6 +35,21 @@ export function BarraEstado({ remitos, descargas, reparto, cerrada, onProblemas,
       )}
       <span>Salida <b className="text-gray-900">{salida ? hora(salida) : '—'}</b> · vuelta <b className="text-gray-900">{vuelta ? hora(vuelta) : '—'}</b></span>
       <span><b className="text-gray-900">{ventas}</b> ventas · <b className="text-gray-900">{reparto.clientes.length}</b> clientes · <b className="text-gray-900">{cobranzas}</b> cobranzas</span>
+      {/* Cerrada con desvío: queda visible para siempre en el cierre. */}
+      {cerrada?.desvio && (
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-red-600 px-2.5 py-0.5 text-xs font-semibold text-white"
+          title={`${cerrada.desvio.productos.map((p) => `${p.nombre} −${p.faltan}`).join(' · ')}${cerrada.desvio.nota ? ` · ${cerrada.desvio.nota}` : ''} · observado por ${cerrada.desvio.observadoPor.nombre}`}>
+          <PackageX size={12} /> Desvío observado: faltan {cerrada.desvio.bolsasFaltantes} bolsas · {MOTIVOS_DESVIO_DESCARGA[cerrada.desvio.motivo]}
+        </span>
+      )}
+      {/* En vivo, antes de cerrar. Un faltante por debajo del umbral también se
+          muestra (en ámbar): es información, no una alarma. */}
+      {!cerrada && faltante && faltante.bolsasFaltantes > 0 && (
+        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${faltante.grave ? 'bg-red-600 text-white' : 'bg-amber-100 text-amber-800'}`}
+          title={faltante.productos.map((p) => `${p.nombre} −${p.faltan}`).join(' · ')}>
+          <PackageX size={12} /> Faltan {faltante.bolsasFaltantes} bolsas
+        </span>
+      )}
       {reparto.problemas.length > 0 && (
         <button type="button" onClick={onProblemas}
           className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${soloProblemas ? 'bg-red-600 text-white' : 'bg-red-100 text-red-700'}`}>

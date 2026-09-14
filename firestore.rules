@@ -1482,7 +1482,22 @@ service cloud.firestore {
                 && request.resource.data.envases.salieron is map
                 && request.resource.data.envases.volvieron is map
                 && request.resource.data.envases.diferencia is map
-                && racksOk(request.resource.data.envases.racksFaltantes)));
+                && racksOk(request.resource.data.envases.racksFaltantes)))
+        // Desvío de MERCADERÍA observado al cerrar (2026-09-13, control de
+        // fugas): el cierre se hace igual —un tema de stock no traba la caja—
+        // pero si viene la marca tiene que tener motivo y nombre. Cuánto falta
+        // no lo puede verificar una regla (habría que recalcular carga − ventas
+        // − cambios): lo calcula la pantalla en vivo y el trigger lo deja
+        // asentado aparte en descargasCamion.revision.
+        && desvioOk(request.resource.data);
+
+      function desvioOk(d) {
+        return !('desvio' in d)
+          || (d.desvio is map
+              && d.desvio.motivo is string && d.desvio.motivo.size() > 0
+              && d.desvio.bolsasFaltantes is number
+              && d.desvio.observadoPor.uid == request.auth.uid);
+      }
 
       // Entrega a tesorería (2026-09-09): caja de la planta marca null → id, una vez.
       allow update: if request.auth != null && isCajaDe(resource.data.plantaId)

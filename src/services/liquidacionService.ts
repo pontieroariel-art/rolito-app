@@ -1,7 +1,7 @@
 import { collection, doc, getDoc, onSnapshot, query, runTransaction, where, Timestamp } from 'firebase/firestore'
 import { db } from './firebase'
 import { reportError } from './observability'
-import { ChequeRendido, Liquidacion, MotivoDiferenciaLiquidacion, PlantaId, RetencionRendida } from '../types'
+import { ChequeRendido, DesvioLiquidacion, Liquidacion, MotivoDiferenciaLiquidacion, PlantaId, RetencionRendida } from '../types'
 import { LiquidacionCalculada, codigoLiquidacion, referenciasDelReparto, serieLiquidacion } from '../utils/liquidacion'
 import { todayString } from '../utils/helpers'
 
@@ -29,6 +29,9 @@ export async function cerrarLiquidacion(
     efectivoRecibido:  number
     // Cierre con control (2026-09-06)
     diferencia?:           { motivo: MotivoDiferenciaLiquidacion; nota: string }
+    // Faltante de mercadería observado al cerrar (2026-09-13): el cierre se
+    // completa igual (un tema de stock no traba la caja) y queda marcado.
+    desvio?:               DesvioLiquidacion
     firmaRepartidor:       string
     firmanteRepartidor:    string
     // Firma de quien recibe (el cajero) y los valores en papel tildados (2026-09-09)
@@ -66,6 +69,7 @@ export async function cerrarLiquidacion(
       efectivoRecibido:   args.efectivoRecibido,
       diferenciaEfectivo: args.efectivoRecibido - args.calculo.efectivoARendir,
       ...(args.diferencia ? { diferencia: args.diferencia } : {}),
+      ...(args.desvio ? { desvio: args.desvio } : {}),
       firmaRepartidor: args.firmaRepartidor, firmanteRepartidor: args.firmanteRepartidor,
       firmaRecibe: args.firmaRecibe, firmanteRecibe: args.firmanteRecibe,
       cheques: args.cheques, retenciones: args.retenciones, valoresFaltantes: args.valoresFaltantes,

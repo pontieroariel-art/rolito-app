@@ -9,7 +9,7 @@ import { formatoARS } from '@/utils/money'
 import { coincideBusqueda } from '@/utils/busqueda'
 import { codigoDeEntregaId } from '@/utils/entregaTesoreria'
 import { useDiaActual } from '@/hooks/useDiaActual'
-import { Liquidacion, MOTIVOS_DIFERENCIA_LIQUIDACION, PLANTAS } from '@/types'
+import { Liquidacion, MOTIVOS_DESVIO_DESCARGA, MOTIVOS_DIFERENCIA_LIQUIDACION, PLANTAS } from '@/types'
 import AnuladasDespuesDeCerrar from '@/components/expedicion/AnuladasDespuesDeCerrar'
 import HistorialTable, { BarraHistorial, type ColumnaHistorial } from '@/components/common/HistorialTable'
 
@@ -21,6 +21,9 @@ import HistorialTable, { BarraHistorial, type ColumnaHistorial } from '@/compone
 interface PorRepartidor {
   id: string; nombre: string; deposito?: string; cierres: number
   aRendir: number; recibido: number; diferencia: number; conDiferencia: number; valoresFaltantes: number
+  // Cierres con faltante de MERCADERÍA observado (2026-09-13) y bolsas en total:
+  // es el número que muestra a quién se le repite el desvío.
+  conDesvio: number; bolsasFaltantes: number
 }
 
 // Una diferencia en cero no es noticia: pierde el color y queda en el gris
@@ -57,12 +60,13 @@ export default function LiquidacionesHistorialPage({ base }: { base: '/caja' | '
     const m = new Map<string, PorRepartidor>()
     for (const l of liquidaciones) {
       let r = m.get(l.choferId)
-      if (!r) { r = { id: l.choferId, nombre: l.choferNombre, deposito: l.depositoTango, cierres: 0, aRendir: 0, recibido: 0, diferencia: 0, conDiferencia: 0, valoresFaltantes: 0 }; m.set(l.choferId, r) }
+      if (!r) { r = { id: l.choferId, nombre: l.choferNombre, deposito: l.depositoTango, cierres: 0, aRendir: 0, recibido: 0, diferencia: 0, conDiferencia: 0, valoresFaltantes: 0, conDesvio: 0, bolsasFaltantes: 0 }; m.set(l.choferId, r) }
       r.cierres++
       r.aRendir += l.efectivoARendir
       r.recibido += l.efectivoRecibido
       r.diferencia += l.diferenciaEfectivo
       r.valoresFaltantes += l.valoresFaltantes?.cantidad ?? 0
+      if (l.desvio) { r.conDesvio += 1; r.bolsasFaltantes += l.desvio.bolsasFaltantes }
       if (l.diferenciaEfectivo !== 0) r.conDiferencia++
     }
     return [...m.values()].sort((a, b) => a.diferencia - b.diferencia || a.nombre.localeCompare(b.nombre, 'es'))
@@ -93,6 +97,11 @@ export default function LiquidacionesHistorialPage({ base }: { base: '/caja' | '
     { titulo: 'Valores faltantes', alinear: 'der', csv: (r) => r.valoresFaltantes, celda: (r) => (
       r.valoresFaltantes ? <span className="text-red-600 font-semibold">{r.valoresFaltantes}</span> : <span className="text-secundario">0</span>
     ) },
+    { titulo: 'Bolsas faltantes', alinear: 'der', csv: (r) => r.bolsasFaltantes, celda: (r) => (
+      r.bolsasFaltantes
+        ? <span className="text-red-600 font-semibold" title={`${r.conDesvio} cierre(s) con desvío observado`}>{r.bolsasFaltantes}</span>
+        : <span className="text-secundario">0</span>
+    ) },
   ]
 
   const columnasCierres: ColumnaHistorial<Liquidacion>[] = [
@@ -115,6 +124,16 @@ export default function LiquidacionesHistorialPage({ base }: { base: '/caja' | '
         ? <span className="text-red-600 font-semibold">{l.valoresFaltantes.cantidad} · {formatoARS(l.valoresFaltantes.total)}</span>
         : <span className="text-secundario">—</span>
     ) },
+    // Desvío de mercadería observado al cerrar: mismo criterio visual que las
+    // anuladas después de cerrar — el cierre no se reabre, queda anotado.
+    { titulo: 'Mercadería', alinear: 'der',
+      csv: (l) => l.desvio ? `faltan ${l.desvio.bolsasFaltantes} · ${MOTIVOS_DESVIO_DESCARGA[l.desvio.motivo]}${l.desvio.nota ? ` · ${l.desvio.nota}` : ''}` : '',
+      celda: (l) => l.desvio
+        ? <span className="text-red-600 font-semibold whitespace-nowrap"
+            title={`${l.desvio.productos.map((p) => `${p.nombre} −${p.faltan}`).join(' · ')} · ${MOTIVOS_DESVIO_DESCARGA[l.desvio.motivo]}${l.desvio.nota ? ` · ${l.desvio.nota}` : ''} · observado por ${l.desvio.observadoPor.nombre}`}>
+            −{l.desvio.bolsasFaltantes} bolsas
+          </span>
+        : <span className="text-secundario">—</span> },
     // Una nota larga partía la fila en varios renglones y dejaba un hueco en
     // la tabla. Ahora va en una línea, con el texto completo en el tooltip, y
     // la marca de anuladas después manda: no se achica.

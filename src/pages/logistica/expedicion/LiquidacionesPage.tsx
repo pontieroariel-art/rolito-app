@@ -14,6 +14,8 @@ import { cerrarLiquidacion, LiquidacionYaCerradaError, subscribeLiquidacion } fr
 import { valoresEnPapel } from '@/utils/valoresEnPapel'
 import ValoresEnPapel from '@/components/expedicion/ValoresEnPapel'
 import { calcularLiquidacion, referenciasDelReparto } from '@/utils/liquidacion'
+import { calcularFaltante } from '@/utils/faltantes'
+import { useUmbralFaltantes } from '@/hooks/useUmbralFaltantes'
 import { envasesDeDescarga, envasesDeRemito } from '@/utils/envases'
 import { generateLiquidacion, nombreArchivoLiquidacion, type DetalleLiquidacionPdf } from '@/utils/pdf'
 import { compartirArchivo, puedeCompartirArchivos } from '@/utils/compartir'
@@ -155,6 +157,16 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
           fecha: hoy, choferId, choferNombre, calculo: calc, efectivoRecibido: recibido,
           ...(depositoElegido ? { depositoTango: depositoElegido.codigo, depositoTangoNombre: depositoElegido.nombre } : {}),
           ...(datos.diferencia ? { diferencia: datos.diferencia } : {}),
+          ...(datos.desvio && desvioACerrar
+            ? { desvio: {
+                bolsasFaltantes: desvioACerrar.bolsasFaltantes,
+                productos:       desvioACerrar.productos,
+                umbral:          umbralFaltantes.bolsas,
+                motivo:          datos.desvio.motivo,
+                nota:            datos.desvio.nota,
+                observadoPor:    { uid: user.uid, nombre: user.nombre },
+              } }
+            : {}),
           firmaRepartidor: datos.firma, firmanteRepartidor: datos.firmante, confirmoSinPendientes: datos.confirmoSinPendientes,
           firmaRecibe: datos.firmaRecibe ?? '', firmanteRecibe: datos.firmanteRecibe ?? user.nombre,
           cheques: datos.cheques ?? [], retenciones: datos.retenciones ?? [], valoresFaltantes: datos.valoresFaltantes ?? { cantidad: 0, total: 0 },
@@ -172,6 +184,16 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
       setGuardando(false)
     }
   }
+
+  // Faltante de mercadería, recalculado en vivo (2026-09-13, control de fugas):
+  // lo que muelle contó contra lo que tendría que haber vuelto. Es el número que
+  // vale para cerrar, porque acá están TODAS las ventas del día; la marca que
+  // dejó el servidor al momento del conteo puede haber quedado vieja.
+  const umbralFaltantes = useUmbralFaltantes()
+  const faltante = useMemo(() => calcularFaltante(calc.productos, umbralFaltantes), [calc.productos, umbralFaltantes])
+  // Una liquidación ya cerrada muestra el desvío que se observó al cerrarla, no
+  // uno recalculado hoy (el cierre es una foto y no se reabre).
+  const desvioACerrar = !cerrada && faltante.grave ? faltante : null
 
   const selectClass = 'w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'
   const hayMovimientos = ventas.length + cobranzas.length + remitosChofer.length + descargas.length > 0
@@ -234,7 +256,8 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
       {choferId && (
         <>
           <BarraEstado remitos={remitosChofer} descargas={descargas} reparto={reparto} cerrada={cerrada}
-            soloProblemas={soloProblemas} onProblemas={() => setSoloProblemas((v) => !v)} />
+            soloProblemas={soloProblemas} onProblemas={() => setSoloProblemas((v) => !v)}
+            faltante={cerrada ? null : faltante} />
 
           {cerrada && (
             <section className="bg-accent/5 border border-accent/30 rounded-2xl px-4 py-3 flex flex-wrap items-center justify-between gap-3">
@@ -277,7 +300,14 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
           )}
 
           <Plegable titulo="Resumen por cliente"><ResumenPorCliente reparto={reparto} /></Plegable>
-          <Plegable titulo="Detalle por producto, envases y cambios"><DetallePorProducto calc={calc} /></Plegable>
+          <Plegable titulo="Detalle por producto, envases y cambios" abiertoInicial={faltante.bolsasFaltantes > 0}
+            extra={(cerrada?.desvio || faltante.bolsasFaltantes > 0) && (
+              <span className={`text-xs font-semibold ${(cerrada?.desvio || faltante.grave) ? 'text-red-600' : 'text-amber-700'}`}>
+                faltan {cerrada?.desvio?.bolsasFaltantes ?? faltante.bolsasFaltantes} bolsas
+              </span>
+            )}>
+            <DetallePorProducto calc={calc} />
+          </Plegable>
 
           {!cerrada && puedeCerrar && (
             <div className="flex flex-wrap justify-end gap-2">
@@ -287,8 +317,23 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
                   {anulacionesEnCurso === 1 ? 'Hay una anulación de factura esperando autorización' : `Hay ${anulacionesEnCurso} anulaciones de factura esperando autorización`}: no se puede cerrar la liquidación hasta que se resuelva.
                 </p>
               )}
+              {desvioACerrar && (
+                <div className="w-full text-sm text-red-800 bg-red-50 border border-red-300 rounded-lg px-3 py-2 space-y-1">
+                  <p className="font-semibold">
+                    Faltan {desvioACerrar.bolsasFaltantes} bolsas de mercadería (umbral: {umbralFaltantes.bolsas}).
+                  </p>
+                  <p className="tabular-nums">
+                    {desvioACerrar.productos.map((p) => `${p.nombre} −${p.faltan}`).join(' · ')}
+                    {desvioACerrar.bolsasSobrantes > 0 && ` · sobran ${desvioACerrar.bolsasSobrantes} de otros productos`}
+                  </p>
+                  <p className="text-xs">
+                    La caja no queda trabada: al cerrar hay que elegir el motivo y el cierre queda marcado en rojo
+                    para que lo revisen. Si es un error de conteo, que el muelle lo rectifique antes de cerrar.
+                  </p>
+                </div>
+              )}
               <Button onClick={() => setConfirmando(true)} disabled={!hayMovimientos || efectivoRecibido.trim() === '' || anulacionesEnCurso > 0}>
-                <Printer size={16} className="mr-1.5" /> Cerrar liquidación e imprimir
+                <Printer size={16} className="mr-1.5" /> {desvioACerrar ? 'Cerrar con desvío observado' : 'Cerrar liquidación e imprimir'}
               </Button>
             </div>
           )}
@@ -310,6 +355,7 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
           onConfirmar={cerrar}
           valores={papel}
           receptor={user ? { nombre: user.nombre } : undefined}
+          faltante={desvioACerrar ? { bolsasFaltantes: desvioACerrar.bolsasFaltantes, umbral: umbralFaltantes.bolsas, productos: desvioACerrar.productos } : undefined}
         />
       )}
     </main>

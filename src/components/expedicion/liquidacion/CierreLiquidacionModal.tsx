@@ -5,7 +5,7 @@ import SignaturePad, { type SignaturePadHandle } from '@/components/heladeras/Si
 import { formatoARS } from '@/utils/money'
 import ValoresEnPapel from '@/components/expedicion/ValoresEnPapel'
 import { aRendidos, decisionesCompletas, resumenValores, type Decisiones, type DecisionValor, type ValoresEnPapel as ValoresDePapel } from '@/utils/valoresEnPapel'
-import { MOTIVOS_DIFERENCIA_LIQUIDACION, MOTIVOS_LIQUIDACION_REPARTIDOR, type ChequeRendido, type MotivoDiferenciaLiquidacion, type RetencionRendida } from '@/types'
+import { MOTIVOS_DESVIO_DESCARGA, MOTIVOS_DESVIO_LIQUIDACION, MOTIVOS_DIFERENCIA_LIQUIDACION, MOTIVOS_LIQUIDACION_REPARTIDOR, type ChequeRendido, type MotivoDesvioDescarga, type MotivoDiferenciaLiquidacion, type RetencionRendida } from '@/types'
 
 export interface DatosCierre {
   diferencia?:            { motivo: MotivoDiferenciaLiquidacion; nota: string }
@@ -19,6 +19,8 @@ export interface DatosCierre {
   cheques?:               ChequeRendido[]
   retenciones?:           RetencionRendida[]
   valoresFaltantes?:      { cantidad: number; total: number }
+  // Faltante de mercadería observado al cerrar (2026-09-13): motivo obligatorio.
+  desvio?:                { motivo: MotivoDesvioDescarga; nota: string }
 }
 
 // Textos del cierre según quién rinde: el repartidor (liquidación) o el
@@ -49,7 +51,7 @@ export const TEXTOS_CIERRE_REPARTIDOR: TextosCierre = {
 // Cierre con control (2026-09-06): resumen de lo que se cierra, motivo y nota
 // obligatorios si el efectivo no cuadra, confirmación de que no quedan
 // movimientos sin subir, y la firma de conformidad de quien rinde.
-export default function CierreLiquidacionModal({ repartidor, resumen, resumenTexto, efectivoARendir, efectivoRecibido, guardando, error, onCancelar, onConfirmar, textos = TEXTOS_CIERRE_REPARTIDOR, motivos = MOTIVOS_LIQUIDACION_REPARTIDOR, valores, receptor }: {
+export default function CierreLiquidacionModal({ repartidor, resumen, resumenTexto, efectivoARendir, efectivoRecibido, guardando, error, onCancelar, onConfirmar, textos = TEXTOS_CIERRE_REPARTIDOR, motivos = MOTIVOS_LIQUIDACION_REPARTIDOR, valores, receptor, faltante }: {
   repartidor: string
   resumen: { ventas: number; clientes: number; cobranzas: number }
   /** Reemplaza la línea "N ventas · N clientes · N cobranzas" (entrega a tesorería). */
@@ -66,10 +68,18 @@ export default function CierreLiquidacionModal({ repartidor, resumen, resumenTex
   valores?: ValoresDePapel
   /** Quien recibe la rendición firma también (liquidación del repartidor). */
   receptor?: { nombre: string }
+  /**
+   * Faltante de MERCADERÍA que el muelle no explicó (2026-09-13). Si viene, el
+   * cierre exige un motivo: la caja cierra igual —un tema de stock no puede
+   * trabar el turno— pero el desvío queda escrito, con nombre y motivo.
+   */
+  faltante?: { bolsasFaltantes: number; umbral: number; productos: { productoId: string; nombre: string; faltan: number }[] }
 }) {
   const diferencia = efectivoRecibido - efectivoARendir
   const [motivo, setMotivo] = useState<MotivoDiferenciaLiquidacion | ''>('')
   const [nota, setNota] = useState('')
+  const [motivoDesvio, setMotivoDesvio] = useState<MotivoDesvioDescarga | ''>('')
+  const [notaDesvio, setNotaDesvio] = useState('')
   const [firmante, setFirmante] = useState(repartidor)
   const [firmanteRecibe, setFirmanteRecibe] = useState(receptor?.nombre ?? '')
   const [confirmo, setConfirmo] = useState(false)
@@ -83,6 +93,10 @@ export default function CierreLiquidacionModal({ repartidor, resumen, resumenTex
   const confirmar = () => {
     setFalta('')
     if (diferencia !== 0 && !motivo) { setFalta('Elegí el motivo de la diferencia de efectivo.'); return }
+    if (faltante && !motivoDesvio) { setFalta('Elegí el motivo del faltante de mercadería.'); return }
+    if (faltante && (motivoDesvio === 'otro' || motivoDesvio === 'a_investigar') && !notaDesvio.trim()) {
+      setFalta('Escribí qué pasó con el faltante de mercadería.'); return
+    }
     if (hayValores && valores) {
       const chk = decisionesCompletas(valores, decisiones)
       if (chk.faltanDecidir.length) { setFalta(`Falta tildar ${chk.faltanDecidir.length} cheque(s)/retención(es): marcá cada uno como recibido o no entregado.`); return }
@@ -101,6 +115,7 @@ export default function CierreLiquidacionModal({ repartidor, resumen, resumenTex
     const rendidos = valores ? aRendidos(valores, decisiones) : undefined
     onConfirmar({
       ...(diferencia !== 0 && motivo ? { diferencia: { motivo, nota: nota.trim() } } : {}),
+      ...(faltante && motivoDesvio ? { desvio: { motivo: motivoDesvio, nota: notaDesvio.trim() } } : {}),
       firma,
       firmante: firmante.trim(),
       confirmoSinPendientes: true,
@@ -122,6 +137,32 @@ export default function CierreLiquidacionModal({ repartidor, resumen, resumenTex
           <div className="rounded-lg bg-gray-50 p-2"><p className="text-xs text-secundario">{textos.recibido}</p><p className="font-semibold tabular-nums">{formatoARS(efectivoRecibido)}</p></div>
           <div className={`rounded-lg p-2 ${diferencia === 0 ? 'bg-[#E6F5EF]' : 'bg-red-50'}`}><p className="text-xs text-secundario">Diferencia</p><p className={`font-semibold tabular-nums ${diferencia === 0 ? 'text-[#0F6B4E]' : 'text-red-600'}`}>{formatoARS(diferencia)}</p></div>
         </div>
+
+        {faltante && (
+          <div className="space-y-2 rounded-lg border border-red-300 bg-red-50 p-3">
+            <p className="text-sm font-semibold text-red-700">
+              Faltan {faltante.bolsasFaltantes} bolsas de mercadería (umbral: {faltante.umbral})
+            </p>
+            <ul className="text-sm text-red-800 tabular-nums space-y-0.5">
+              {faltante.productos.map((p) => (
+                <li key={p.productoId} className="flex justify-between gap-3">
+                  <span className="truncate" title={p.nombre}>{p.nombre}</span>
+                  <b className="shrink-0">−{p.faltan}</b>
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-red-800">
+              Se cierra igual: el desvío queda registrado a tu nombre y marcado en rojo para que gerencia
+              y administración lo revisen. Si es un error de conteo, se rectifica y se avisa a la oficina.
+            </p>
+            <select value={motivoDesvio} onChange={(e) => setMotivoDesvio(e.target.value as MotivoDesvioDescarga)} className={inputClass}>
+              <option value="">Elegir motivo del faltante…</option>
+              {MOTIVOS_DESVIO_LIQUIDACION.map((m) => <option key={m} value={m}>{MOTIVOS_DESVIO_DESCARGA[m]}</option>)}
+            </select>
+            <textarea value={notaDesvio} onChange={(e) => setNotaDesvio(e.target.value)} rows={2} className={inputClass}
+              placeholder="Qué pasó, con quién se habló, qué se va a revisar…" />
+          </div>
+        )}
 
         {diferencia !== 0 && (
           <div className="space-y-2 rounded-lg border border-red-200 bg-red-50 p-3">

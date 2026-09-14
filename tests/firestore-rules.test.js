@@ -2671,6 +2671,27 @@ describe('expedicion: muelle / cambios / descargas / liquidaciones', () => {
     await assertFails(setDoc(doc(db('mue1'), 'descargasCamion/d5'), descarga({ envases: { tarimasMadera: 'uno', palletsMetal: 0, puntales: 4, aros: 1, racks: [] }, palletsCompletos: 0, palletsParciales: 1, palletsVacios: 0 })))
   })
 
+  // ── desvío de mercadería observado al cerrar (2026-09-13, control de fugas) ──
+  test('el cierre con desvío exige motivo y el nombre de quien lo observa', async () => {
+    await seedCaja()
+    const desvio = (extra = {}) => ({
+      bolsasFaltantes: 42, umbral: 10,
+      productos: [{ productoId: 'bolsa_10kg', nombre: 'Hielo 10kg', faltan: 42 }],
+      motivo: 'a_investigar', nota: 'lo ve gerencia mañana',
+      observadoPor: { uid: 'caja1', nombre: 'Caja' }, ...extra,
+    })
+    // POSITIVO: caja cierra igual con el desvío escrito a su nombre (un tema de
+    // stock no traba el turno de caja).
+    await assertSucceeds(setDoc(doc(db('caja1'), 'liquidaciones/2026-08-29_chof1'), liquidacion({ desvio: desvio() })))
+    // NEGATIVOS: sin motivo, con motivo vacío, sin el faltante, o a nombre de otro.
+    await assertFails(setDoc(doc(db('caja1'), 'liquidaciones/2026-09-01_chof1'), liquidacion({ fecha: '2026-09-01', desvio: desvio({ motivo: '' }) })))
+    await assertFails(setDoc(doc(db('caja1'), 'liquidaciones/2026-09-02_chof1'), liquidacion({ fecha: '2026-09-02', desvio: desvio({ bolsasFaltantes: 'muchas' }) })))
+    await assertFails(setDoc(doc(db('caja1'), 'liquidaciones/2026-09-03_chof1'), liquidacion({ fecha: '2026-09-03', desvio: desvio({ observadoPor: { uid: 'caja2', nombre: 'Otro' } }) })))
+    await assertFails(setDoc(doc(db('caja1'), 'liquidaciones/2026-09-04_chof1'), liquidacion({ fecha: '2026-09-04', desvio: 'falta mucho' })))
+    // Y el cierre sin desvío sigue entrando igual (la descarga cuadró).
+    await assertSucceeds(setDoc(doc(db('caja1'), 'liquidaciones/2026-09-05_chof1'), liquidacion({ fecha: '2026-09-05' })))
+  })
+
   test('caja cierra con el cuadre de envases; NO con un cuadre mal formado', async () => {
     await seed((d) => setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' }))
     await assertSucceeds(setDoc(doc(db('caja1'), 'liquidaciones/2026-08-29_chof1'), liquidacion({ cerradaPor: { uid: 'caja1', nombre: 'Caja' } })))
