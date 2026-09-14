@@ -2047,3 +2047,109 @@ export interface PanolMovimiento {
   actor:       { uid: string; nombre: string }
   fecha:       Timestamp
 }
+
+// ── Rendición de fondos a tesorería (2026-09-14) ─────────────────────────────
+// Diseño aprobado por Ariel (plan "rendición de fondos"): todos rinden a la
+// ventanilla (choferes y cobradores de calle) y la ventanilla rinde todo a
+// tesorería. Cada rendición es un SOBRE inmutable con dos firmas (quien rinde
+// y quien recibe), arqueo ciego (el que cuenta no ve el teórico hasta que
+// declara) y custodia explícita: mientras el sobre está pendiente la plata es
+// de quien rindió; al recibir pasa al receptor. Fase 1: turno de caja + sobre
+// de ventanilla + recepción de tesorería. Fases 2 y 3: cobradores y choferes.
+
+export type EstadoCajaSesion = 'abierta' | 'cerrada'
+
+/** Turno individual de un cajero de ventanilla. Id `{fecha}_{uid}_{n}`. */
+export interface CajaSesion {
+  id:             string
+  plantaId:       PlantaId
+  cajero:         { uid: string; nombre: string }
+  fecha:          string            // yyyy-MM-dd
+  numero:         number            // n dentro del día (1, 2… si reabre)
+  estado:         EstadoCajaSesion
+  abiertaEn:      Timestamp
+  fondoInicial:   number            // hoy siempre 0 (no hay fondo fijo); lo cargaría tesorería
+  fondoInicialDe: { uid: string; nombre: string } | null
+  cerradaEn?:     Timestamp
+  rendicionId?:   string            // el sobre que cerró este turno
+}
+
+export type TipoSobre   = 'ventanilla' | 'cobrador' | 'chofer'
+export type RindeA      = 'tesoreria' | 'caja'
+export type EstadoSobre = 'pendiente_recepcion' | 'recibida'
+export type Conformidad = 'conforme' | 'con_diferencia'
+
+export interface ActorSobre { uid: string; nombre: string; rol: UserRole }
+
+/** Un valor en papel tildado por quien rinde (clave = utils/valoresEnPapel.claveCheque / claveRetencion). */
+export interface ValorDeclarado { clave: string; presente: boolean }
+/** Un valor en papel tildado por quien recibe. */
+export interface ValorRecibido  { clave: string; recibido: boolean; motivoNoRecibido?: string }
+
+export interface DiferenciaSobre {
+  efectivo:        number                                  // declarado (o contado) − sistema
+  valoresFaltantes: { cantidad: number; total: number }    // tildados como ausentes
+}
+
+/** Lo que el sistema dice que tiene que haber en el sobre (foto al cerrar). */
+export interface SobreSistema {
+  efectivo:       number
+  cheques:        ChequeRendido[]
+  retenciones:    RetencionRendida[]
+  transferencias: { cantidad: number; total: number }      // reservado: hoy no se cobran
+  // Solo ventanilla: de dónde sale el efectivo.
+  detalle?: {
+    fondoInicial:            number
+    ventasEfectivo:          number
+    cobranzasEfectivo:       number
+    recibidoDeLiquidaciones: number   // choferes (Fase 1: siguen en `liquidaciones`)
+    recibidoDeSobres:        number   // cobradores (Fase 2)
+  }
+  origenIds: { ventasIds: string[]; cobranzasIds: string[]; liquidacionesIds: string[]; sobresRecibidosIds: string[] }
+}
+
+/** Lo que declaró quien rinde, ANTES de ver el sistema (arqueo ciego). */
+export interface SobreDeclarado {
+  efectivo:     number
+  cheques:      ValorDeclarado[]
+  retenciones:  ValorDeclarado[]
+  observacion?: string
+}
+
+/** Recepción (doble conformidad): la escribe el receptor una sola vez. */
+export interface SobreRecepcion {
+  recibio:         ActorSobre
+  en:              Timestamp
+  efectivoContado: number
+  cheques:         ValorRecibido[]
+  retenciones:     ValorRecibido[]
+  conformidad:     Conformidad
+  diferencia?:     DiferenciaSobre & { motivo: MotivoDiferenciaLiquidacion; nota: string }
+  firmaRecibe:     string           // dataURL PNG
+  firmanteRecibe:  string
+}
+
+export interface Sobre {
+  id:        string                 // ventanilla: {fecha}_{uid}_{n} · cobrador/chofer: {fecha}_{uid}
+  tipo:      TipoSobre
+  rindeA:    RindeA
+  plantaId:  PlantaId
+  fecha:     string
+  numero:    number
+  codigo:    string                 // RV-DT-000012 · RC-000045 · RQ-21-000015
+  rindio:    ActorSobre
+  cajaSesionId?: string             // ventanilla: su sesión; cobrador/chofer: la del cajero que recibe
+  sistema:   SobreSistema
+  declarado: SobreDeclarado
+  diferenciaDeclarada: DiferenciaSobre
+  motivoDiferencia?: { motivo: MotivoDiferenciaLiquidacion; nota: string }
+  firmaRinde:    string
+  firmanteRinde: string
+  cerradaEn:     Timestamp
+  estado:    EstadoSobre
+  custodia:  ActorSobre & { desde: Timestamp }
+  recepcion?: SobreRecepcion
+  rectificaA?: string
+  anulacionesPosteriores?: AnulacionPosterior[]
+  createdAt: Timestamp
+}
