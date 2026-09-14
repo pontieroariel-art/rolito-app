@@ -17,7 +17,7 @@ import { addDaysStr } from '@/utils/helpers'
 import { formatoARS } from '@/utils/money'
 import { tieneAlgunRol } from '@/utils/roles'
 import { antiguedadHoras } from '@/utils/sobres'
-import { imprimirActaSobre } from '@/utils/sobrePdf'
+import { imprimirActaSobreCompleta } from '@/services/actaSobreService'
 import { MOTIVOS_DIFERENCIA_LIQUIDACION, PLANTAS, type PlantaId, type Sobre } from '@/types'
 
 // Recepción de sobres en tesorería (rendición de fondos, 2026-09-14). Responde
@@ -63,7 +63,7 @@ export default function RecepcionPage() {
 
   const acta = useCallback((s: Sobre) => {
     setAviso('')
-    imprimirActaSobre(s, 'imprimir').catch((err) => {
+    imprimirActaSobreCompleta(s, 'imprimir').catch((err) => {
       reportError(err, { origen: 'RecepcionPage', accion: 'error al generar el acta' })
       setAviso('No se pudo generar el acta del sobre.')
     })

@@ -3,6 +3,7 @@ import { MOTIVOS_DIFERENCIA_LIQUIDACION, PLANTAS } from '@/types'
 import { formatoARS } from './money'
 import { ESTILO_CABECERA_TABLA, encabezadoA4, finTabla, firmaA4, nuevoA4, pieA4, salidaPdf } from './pdfBase'
 import { claveDeCheque, claveDeRetencion } from './sobres'
+import type { PersonaDelActa } from './actaSobre'
 import { compartirArchivo } from './compartir'
 
 // Acta del sobre de rendición de fondos (2026-09-14): lo que el sistema dice
@@ -14,9 +15,14 @@ import { compartirArchivo } from './compartir'
 
 export const nombreArchivoSobre = (s: Pick<Sobre, 'fecha' | 'codigo'>) => `rendicion-${s.fecha}-${s.codigo}.pdf`
 
-/** Detalle opcional que no vive en el sobre (la pantalla lo tiene al cerrar). */
+/**
+ * Detalle que no vive en el sobre: qué le rindió cada chofer o cobrador al
+ * cajero, recibo por recibo (2026-09-14). Lo trae `services/actaSobreService`
+ * desde las liquidaciones del sobre; `sinDetalle` cuando no se pudo leer.
+ */
 export interface DetalleActaSobre {
-  liquidaciones?: { codigo?: string; choferNombre: string; efectivoRecibido: number }[]
+  personas?:   PersonaDelActa[]
+  sinDetalle?: boolean
 }
 
 const fechaHora = (d: Date) => d.toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })
@@ -35,14 +41,15 @@ export async function generateActaSobre(s: Sobre, detalle: DetalleActaSobre = {}
 
   // ── Sistema vs declarado ─────────────────────────────────────────────────
   const d = s.sistema.detalle
-  const liqs = detalle.liquidaciones ?? []
+  const personas = detalle.personas ?? []
+  const nLiq = s.sistema.origenIds.liquidacionesIds.length
   const filasSistema: (string | number)[][] = d
     ? [
         ['Fondo inicial', formatoARS(d.fondoInicial)],
         ['Ventas en efectivo', formatoARS(d.ventasEfectivo)],
         ['Cobranzas de mostrador en efectivo', formatoARS(d.cobranzasEfectivo)],
-        [`Recibido de choferes (${s.sistema.origenIds.liquidacionesIds.length} liquidaciones)`, formatoARS(d.recibidoDeLiquidaciones)],
-        ...liqs.map((l) => [`      ${l.choferNombre}${l.codigo ? ` · ${l.codigo}` : ''}`, formatoARS(l.efectivoRecibido)]),
+        [`Recibido de choferes y cobradores (${nLiq} ${nLiq === 1 ? 'rendición' : 'rendiciones'}, detalle abajo)`, formatoARS(d.recibidoDeLiquidaciones)],
+        ...personas.map((p) => [`      ${p.nombre}${p.codigo ? ` · ${p.codigo}` : ''}`, formatoARS(p.efectivoRecibido)]),
         ...(d.recibidoDeSobres ? [['Recibido de cobradores', formatoARS(d.recibidoDeSobres)]] : []),
       ]
     : []
@@ -51,7 +58,7 @@ export async function generateActaSobre(s: Sobre, detalle: DetalleActaSobre = {}
     head: [['Sistema (a rendir)', '']],
     body: [...filasSistema, ['A rendir', formatoARS(s.sistema.efectivo)]],
     styles: { fontSize: 8.5, cellPadding: 2 }, headStyles: head,
-    columnStyles: { 0: { cellWidth: 70 }, 1: { halign: 'right' } },
+    columnStyles: { 0: { cellWidth: 58 }, 1: { halign: 'right' } },
     didParseCell: (data) => { if (data.section === 'body' && data.row.index === filasSistema.length) data.cell.styles.fontStyle = 'bold' },
     margin: { left: 14, right: 104 },
   })
@@ -77,6 +84,51 @@ export async function generateActaSobre(s: Sobre, detalle: DetalleActaSobre = {}
     margin: { left: 110, right: 14 },
   })
   let y = Math.max(yIzq, finTabla(doc, 32)) + 6
+
+  // ── Recibido de cada chofer / cobrador, recibo por recibo ────────────────
+  // Lo que pidió Ariel el 14/09: cuando la caja no cuadra, que el acta diga
+  // de quién era la plata y qué cobró cada uno.
+  if (nLiq && (personas.length || detalle.sinDetalle)) {
+    if (detalle.sinDetalle || !personas.length) {
+      doc.setFontSize(8.5); doc.setTextColor(153, 27, 27)
+      doc.text('No se pudo leer el detalle de las rendiciones recibidas (choferes y cobradores). Reimprimí el acta con conexión.', 14, y + 3)
+      doc.setTextColor(0, 0, 0)
+      y += 8
+    }
+    for (const p of personas) {
+      const dif = p.diferencia
+      const titulo = `${p.nombre}${p.codigo ? ` · ${p.codigo}` : ''}  ·  a rendir ${formatoARS(p.efectivoARendir)}  ·  entregó ${formatoARS(p.efectivoRecibido)}${dif ? `  ·  diferencia ${signo(dif)}` : ''}`
+      const medio = (r: PersonaDelActa['recibos'][number]) => [
+        ...r.cheques.map((ch) => `cheque ${ch.numero} ${ch.bancoNombre} ${formatoARS(ch.importe)}`),
+        ...r.retenciones.map((re) => `ret. ${re.tipo.toUpperCase()} ${re.nroCertificado} ${formatoARS(re.importe)}`),
+        ...(r.transferencia ? [`transferencia ${formatoARS(r.transferencia)}`] : []),
+      ].join(' · ') || '—'
+      const body: (string | number)[][] = p.recibos.map((r) => [r.numeroRecibo, r.clienteNombre, formatoARS(r.efectivo), medio(r)])
+      if (p.ventasEfectivo) body.unshift(['Ventas', 'Ventas de contado en efectivo del reparto', formatoARS(p.ventasEfectivo), '—'])
+      if (p.recibosSinDetalle) body.push(['', `${p.recibosSinDetalle} recibo(s) sin detalle disponible`, '', ''])
+      if (!body.length) body.push(['', 'Sin cobranzas en esta rendición', '', ''])
+      const valores = p.valores.cheques || p.valores.retenciones
+        ? `${p.valores.cheques} cheque(s) ${formatoARS(p.valores.chequesTotal)}${p.valores.retenciones ? ` · ${p.valores.retenciones} ret. ${formatoARS(p.valores.retencionesTotal)}` : ''} (valores en papel, aparte)`
+        : 'sin valores en papel'
+      body.push(['', 'Efectivo entregado a caja', formatoARS(p.efectivoRecibido), valores])
+      const filaTotal = body.length - 1
+      if (p.motivo) body.push(['', `Motivo de la diferencia: ${MOTIVOS_DIFERENCIA_LIQUIDACION[p.motivo.motivo as keyof typeof MOTIVOS_DIFERENCIA_LIQUIDACION] ?? p.motivo.motivo}${p.motivo.nota ? ` · ${p.motivo.nota}` : ''}`, '', ''])
+      autoTable(doc, {
+        startY: y,
+        head: [[{ content: titulo, colSpan: 4 }], ['Recibo', 'Cliente', 'Efectivo', 'Cheques / retenciones / transferencia']],
+        body,
+        styles: { fontSize: 8, cellPadding: 1.8 }, headStyles: head,
+        columnStyles: { 0: { cellWidth: 22 }, 1: { cellWidth: 70 }, 2: { halign: 'right', cellWidth: 26 } },
+        didParseCell: (data) => {
+          if (data.section === 'body' && data.row.index === filaTotal) data.cell.styles.fontStyle = 'bold'
+          if (data.section === 'body' && p.motivo && data.row.index === body.length - 1) data.cell.styles.textColor = [153, 27, 27]
+        },
+        margin: { left: 14, right: 14 },
+      })
+      y = finTabla(doc, y) + 4
+    }
+    y += 2
+  }
 
   // ── Valores en papel ─────────────────────────────────────────────────────
   if (s.sistema.cheques.length || s.sistema.retenciones.length) {

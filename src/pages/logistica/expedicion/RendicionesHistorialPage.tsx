@@ -13,7 +13,7 @@ import AnuladasDespuesDeCerrar from '@/components/expedicion/AnuladasDespuesDeCe
 import HistorialTable, { BarraHistorial, type ColumnaHistorial } from '@/components/common/HistorialTable'
 import { TablaSobres } from '@/components/expedicion/SobresCaja'
 import { subscribeSobresDe } from '@/services/sobreService'
-import { imprimirActaSobre } from '@/utils/sobrePdf'
+import { imprimirActaSobreCompleta } from '@/services/actaSobreService'
 import { reportError } from '@/services/observability'
 import type { Sobre } from '@/types'
 
@@ -182,7 +182,7 @@ export default function RendicionesHistorialPage({ enTesoreria }: { enTesoreria:
           porPagina={50}
           exportar={`Mis rendiciones ${mes}`}
           acciones={(s) => (
-            <button type="button" onClick={() => imprimirActaSobre(s).catch((err) => reportError(err, { origen: 'RendicionesHistorialPage', accion: 'error al generar el acta' }))}
+            <button type="button" onClick={() => imprimirActaSobreCompleta(s).catch((err) => reportError(err, { origen: 'RendicionesHistorialPage', accion: 'error al generar el acta' }))}
               title="Reimprimir acta" className="w-11 h-11 inline-flex items-center justify-center rounded-lg text-secundario hover:text-accent hover:bg-accent/10"><Printer size={16} /></button>
           )}
         />

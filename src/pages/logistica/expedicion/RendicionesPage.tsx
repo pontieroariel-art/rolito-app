@@ -23,7 +23,7 @@ import { importeCobrado } from '@/utils/importeCobrado'
 import { sistemaVentanilla } from '@/utils/sobres'
 import { calcularMostrador } from '@/utils/rendicionMostrador'
 import { delTurno, horaCorta, liquidacionesPorRendir } from '@/utils/turnoCaja'
-import { imprimirActaSobre, type DetalleActaSobre } from '@/utils/sobrePdf'
+import { imprimirActaSobreCompleta } from '@/services/actaSobreService'
 import { puedeCompartirArchivos } from '@/utils/compartir'
 import { chequesDe, efectivoDe, retencionesDe, sumaImportes, transferenciaDe } from '@/utils/medios'
 import { nombreClienteVenta } from '@/utils/nombreClienteVenta'
@@ -76,14 +76,12 @@ export default function RendicionesPage() {
   )
   const calc = useMemo(() => calcularMostrador(ventasTurno, cobranzasTurno, liquidaciones), [ventasTurno, cobranzasTurno, liquidaciones])
   const sobresHoy = useMemo(() => sobres.filter((s) => s.fecha === hoy), [sobres, hoy])
-  const detalleActa = (): DetalleActaSobre => ({ liquidaciones: liquidaciones.map((l) => ({ codigo: l.codigo, choferNombre: l.choferNombre, efectivoRecibido: l.efectivoRecibido })) })
-
-  const imprimir = (s: Sobre, detalle: DetalleActaSobre = {}) =>
-    imprimirActaSobre(s, 'imprimir', detalle).catch((err) => reportError(err, { origen: 'RendicionesPage', accion: 'error al generar el acta' }))
+  const imprimir = (s: Sobre) =>
+    imprimirActaSobreCompleta(s, 'imprimir').catch((err) => reportError(err, { origen: 'RendicionesPage', accion: 'error al generar el acta' }))
   const enviar = async (s: Sobre) => {
     setAviso('')
     try {
-      const res = await imprimirActaSobre(s, 'compartir')
+      const res = await imprimirActaSobreCompleta(s, 'compartir')
       if (res === 'descargado') setAviso('Este dispositivo no puede compartir archivos: se descargó el PDF.')
     } catch (err) {
       reportError(err, { origen: 'RendicionesPage', accion: 'error al enviar el acta' })
@@ -102,7 +100,7 @@ export default function RendicionesPage() {
         { uid: user.uid, nombre: user.nombre, rol: 'caja' },
       )
       setConfirmando(false)
-      imprimir(sobre, detalleActa())
+      imprimir(sobre)
     } catch (err) {
       if (err instanceof SobreYaExisteError) setError(err.message)
       else if (err instanceof Error && /diferencia|firma|tildar/.test(err.message)) setError(err.message)
