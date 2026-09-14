@@ -65,6 +65,30 @@ export const subscribePalletsRecientes = (
     onSnapshotError(callback, 'produccionPallets'),
   )
 
+// Solo los pallets de HOY de la planta, para la tablet de carga (2026-09-14):
+// antes bajaba los últimos 200 y filtraba por fecha en memoria; en una tablet
+// vieja eso era parsear 200 documentos dos veces por cada pallet propio.
+// Mismo índice compuesto (plantaId + createdAt desc). OJO: `createdAt` es
+// serverTimestamp, así que el pallet recién escrito en esta tablet NO entra
+// hasta que el servidor lo confirma — la pantalla lo suma aparte mientras
+// tanto (utils/cargaPallets.pendientesSinConfirmar).
+export const subscribePalletsDeHoy = (
+  plantaId: PlantaId,
+  inicioDia: Date,
+  callback: (pallets: PalletProduccion[]) => void,
+): () => void =>
+  onSnapshot(
+    query(
+      collection(db, PALLETS),
+      where('plantaId', '==', plantaId),
+      where('createdAt', '>=', Timestamp.fromDate(inicioDia)),
+      orderBy('createdAt', 'desc'),
+      limit(500),
+    ),
+    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as PalletProduccion))),
+    onSnapshotError(callback, 'produccionPallets'),
+  )
+
 // Último pallet realmente cargado de una planta (para la pantalla de Plantas:
 // el contador del servidor muestra dónde arranca el PRÓXIMO LOTE a reservar,
 // no el próximo pallet — las tablets reservan lotes de a 30 y los consumen

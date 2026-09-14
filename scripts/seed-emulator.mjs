@@ -124,6 +124,23 @@ async function main() {
     console.log(`✓ Chofer — DNI ${dni} / PIN 1234 (${c.nombre}, camión ${c.camionId})`)
   }
 
+  // ── Producción de hielo (tablet de planta) ───────────────────────────────
+  // Login por legajo + PIN (`/produccion-torcuato`): el PIN es la contraseña
+  // de Auth con sufijo `__pr` (produccionAuthService.padPinProduccion) y el
+  // índice traduce legajo → email sintético. El contador de pallets tiene
+  // que existir o la tablet no deja cargar nada.
+  const operarioLegajo = '5795'
+  const operarioEmail  = `${operarioLegajo}@produccion.rolito.internal`
+  const operarioUid    = await upsertAuthUser(operarioEmail, '1234__pr')
+  await db.collection('users').doc(operarioUid).set(baseUserFields({
+    email: operarioEmail, nombre: 'Enzo Operario Prueba', nombreContacto: 'Enzo Operario Prueba',
+    rol: 'produccion_hielo', planta: 'torcuato', legajo: operarioLegajo, username: operarioLegajo,
+  }), { merge: true })
+  await db.collection('produccionLegajoIndex').doc(operarioLegajo).set({ email: operarioEmail })
+  const counterRef = db.collection('config').doc('produccionCounter_torcuato')
+  if (!(await counterRef.get()).exists) await counterRef.set({ next: 91 })
+  console.log(`✓ Operario de producción — legajo ${operarioLegajo} / PIN 1234 (Torcuato, /produccion-torcuato)`)
+
   // ── Precios de Tango (para la venta desde el camión) ──────────────────────
   // Desde el 2026-09-03 los precios vienen de Tango, no de listas propias:
   // preciosTango/{empresa}.listas[nro] (lo lee la venta del camión y la

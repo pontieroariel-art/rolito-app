@@ -125,6 +125,18 @@ export function precargarSiSeAcerca(uid: string, plantaId: PlantaId, online: boo
 }
 
 // Para el indicador de "números disponibles" en el dashboard.
+/**
+ * El número que saldría con el próximo pallet, SIN consumirlo (2026-09-14):
+ * la tarjeta armada lo muestra ("Sale como DT-000091") antes de confirmar.
+ * `null` si no hay reserva: en ese caso la pantalla ya está bloqueada.
+ */
+export function proximoNumero(uid: string, plantaId: PlantaId): number | null {
+  const r = reservaVigente(uid, plantaId)
+  if (r.activo && r.activo.usedUpTo < r.activo.to) return r.activo.usedUpTo + 1
+  if (r.siguiente) return r.siguiente.from
+  return null
+}
+
 export function margenDisponible(uid: string, plantaId: PlantaId): number {
   const r = reservaVigente(uid, plantaId)
   return margenRestante(r) + (r.siguiente ? r.siguiente.to - r.siguiente.from + 1 : 0)
