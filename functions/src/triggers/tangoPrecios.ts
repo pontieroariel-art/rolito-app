@@ -33,14 +33,14 @@ async function correr(origen: string, uid?: string) {
 }
 
 export const syncPreciosTango = onSchedule(
-  { schedule: '30 5 * * *', timeZone: TZ, secrets: [tangoApiToken], timeoutSeconds: 540, memory: '512MiB' },
+  { schedule: '30 5 * * *', timeZone: TZ, secrets: [tangoApiToken], timeoutSeconds: 540, memory: '512MiB', cpu: 0.5 },
   async () => {
     try { await correr('programada') } catch (e) { logger.error(`[tango] sync de precios falló: ${(e as Error).message}`) }
   },
 )
 
 export const sincronizarPreciosTangoAhora = onCall(
-  { secrets: [tangoApiToken], timeoutSeconds: 540, memory: '512MiB' },
+  { secrets: [tangoApiToken], timeoutSeconds: 540, memory: '512MiB', cpu: 0.5 },
   async (request) => {
     if (!request.auth) throw new HttpsError('unauthenticated', 'No autenticado')
     assertNoImpersonado(request)

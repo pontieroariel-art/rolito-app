@@ -78,7 +78,7 @@ function decodificarPdf(pdfBase64: unknown, que: string): Buffer {
 }
 
 
-export const enviarComprobantePorMail = onCall({ secrets: [resendApiKey], memory: '512MiB' }, async (request) => {
+export const enviarComprobantePorMail = onCall({ secrets: [resendApiKey], memory: '512MiB', cpu: 0.5 }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Requiere autenticación')
 
   assertNoImpersonado(request)

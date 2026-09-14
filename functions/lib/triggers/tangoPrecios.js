@@ -31,7 +31,7 @@ async function correr(origen, uid) {
     v2_1.logger.info(`[tango] precios sincronizados (${origen}) en ${Date.now() - inicio}ms: ${JSON.stringify(resumen)}`);
     return resumen;
 }
-exports.syncPreciosTango = (0, scheduler_1.onSchedule)({ schedule: '30 5 * * *', timeZone: TZ, secrets: [tangoApiToken], timeoutSeconds: 540, memory: '512MiB' }, async () => {
+exports.syncPreciosTango = (0, scheduler_1.onSchedule)({ schedule: '30 5 * * *', timeZone: TZ, secrets: [tangoApiToken], timeoutSeconds: 540, memory: '512MiB', cpu: 0.5 }, async () => {
     try {
         await correr('programada');
     }
@@ -39,7 +39,7 @@ exports.syncPreciosTango = (0, scheduler_1.onSchedule)({ schedule: '30 5 * * *',
         v2_1.logger.error(`[tango] sync de precios falló: ${e.message}`);
     }
 });
-exports.sincronizarPreciosTangoAhora = (0, https_1.onCall)({ secrets: [tangoApiToken], timeoutSeconds: 540, memory: '512MiB' }, async (request) => {
+exports.sincronizarPreciosTangoAhora = (0, https_1.onCall)({ secrets: [tangoApiToken], timeoutSeconds: 540, memory: '512MiB', cpu: 0.5 }, async (request) => {
     if (!request.auth)
         throw new https_1.HttpsError('unauthenticated', 'No autenticado');
     (0, authz_1.assertNoImpersonado)(request);

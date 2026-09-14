@@ -484,7 +484,7 @@ async function correrSaldos(origen, uid) {
 // ── Programadas y callables ──────────────────────────────────────────────────
 // Clientes a las 5:00 (antes que precios a las 5:30, que necesita los
 // codigoTango recién vinculados). Saldos cada hora en horario de operación.
-exports.syncClientesTangoConnect = (0, scheduler_1.onSchedule)({ schedule: '0 5 * * *', timeZone: TZ, secrets: [tangoApiToken], timeoutSeconds: 540, memory: '512MiB' }, async () => {
+exports.syncClientesTangoConnect = (0, scheduler_1.onSchedule)({ schedule: '0 5 * * *', timeZone: TZ, secrets: [tangoApiToken], timeoutSeconds: 540, memory: '512MiB', cpu: 0.5 }, async () => {
     try {
         await correrClientes('programada');
     }
@@ -492,7 +492,7 @@ exports.syncClientesTangoConnect = (0, scheduler_1.onSchedule)({ schedule: '0 5 
         v2_1.logger.error(`[tango] sync de clientes falló: ${e.message}`);
     }
 });
-exports.syncSaldosTangoConnect = (0, scheduler_1.onSchedule)({ schedule: '10 6-22 * * *', timeZone: TZ, secrets: [tangoApiToken], timeoutSeconds: 540, memory: '512MiB' }, async () => {
+exports.syncSaldosTangoConnect = (0, scheduler_1.onSchedule)({ schedule: '10 6-22 * * *', timeZone: TZ, secrets: [tangoApiToken], timeoutSeconds: 540, memory: '512MiB', cpu: 0.5 }, async () => {
     try {
         await correrSaldos('programada');
     }
@@ -503,7 +503,7 @@ exports.syncSaldosTangoConnect = (0, scheduler_1.onSchedule)({ schedule: '10 6-2
 async function rolDe(uid) {
     return String((await (0, firestore_2.getFirestore)().collection('users').doc(uid).get()).data()?.rol ?? '');
 }
-exports.sincronizarClientesTangoAhora = (0, https_1.onCall)({ secrets: [tangoApiToken], timeoutSeconds: 540, memory: '512MiB' }, async (request) => {
+exports.sincronizarClientesTangoAhora = (0, https_1.onCall)({ secrets: [tangoApiToken], timeoutSeconds: 540, memory: '512MiB', cpu: 0.5 }, async (request) => {
     if (!request.auth)
         throw new https_1.HttpsError('unauthenticated', 'No autenticado');
     (0, authz_1.assertNoImpersonado)(request);
@@ -512,7 +512,7 @@ exports.sincronizarClientesTangoAhora = (0, https_1.onCall)({ secrets: [tangoApi
     await (0, rateLimit_1.assertRateLimit)(request.auth.uid, 'sincronizarClientesTango', 3, 300);
     return correrClientes('manual', request.auth.uid);
 });
-exports.sincronizarSaldosTangoAhora = (0, https_1.onCall)({ secrets: [tangoApiToken], timeoutSeconds: 540, memory: '512MiB' }, async (request) => {
+exports.sincronizarSaldosTangoAhora = (0, https_1.onCall)({ secrets: [tangoApiToken], timeoutSeconds: 540, memory: '512MiB', cpu: 0.5 }, async (request) => {
     if (!request.auth)
         throw new https_1.HttpsError('unauthenticated', 'No autenticado');
     (0, authz_1.assertNoImpersonado)(request);
@@ -526,7 +526,7 @@ exports.sincronizarSaldosTangoAhora = (0, https_1.onCall)({ secrets: [tangoApiTo
 // leen las Live de deudas de la empresa, se filtra por ID_GVA14 y se escribe
 // `resultado` en el mismo doc; onConsultaRespondida (tangoConsultas.ts) lo
 // copia después al cache saldosTango, igual que cuando respondía el bridge.
-exports.onConsultaSaldoPendiente = (0, firestore_1.onDocumentCreated)({ document: 'tango-consultas/{consultaId}', secrets: [tangoApiToken], timeoutSeconds: 120, memory: '512MiB' }, async (event) => {
+exports.onConsultaSaldoPendiente = (0, firestore_1.onDocumentCreated)({ document: 'tango-consultas/{consultaId}', secrets: [tangoApiToken], timeoutSeconds: 120, memory: '512MiB', cpu: 0.5 }, async (event) => {
     const snap = event.data;
     if (!snap)
         return;

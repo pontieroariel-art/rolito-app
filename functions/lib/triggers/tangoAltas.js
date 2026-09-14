@@ -153,7 +153,7 @@ async function correrAltas(origen, uid) {
     v2_1.logger.info(`[tango] altas (${origen}, crear=${crear}) en ${Date.now() - inicio}ms: ${JSON.stringify({ ...resumen, detalleErrores: resumen.detalleErrores.length })}`);
     return resumen;
 }
-exports.altasClientesTango = (0, scheduler_1.onSchedule)({ schedule: 'every 10 minutes', timeZone: TZ, timeoutSeconds: 540, memory: '512MiB' }, async () => {
+exports.altasClientesTango = (0, scheduler_1.onSchedule)({ schedule: 'every 10 minutes', timeZone: TZ, timeoutSeconds: 540, memory: '512MiB', cpu: 0.5 }, async () => {
     try {
         const cfg = (await (0, firestore_1.getFirestore)().doc('config/tango').get()).data() ?? {};
         if (cfg.enabled !== true || cfg.altas?.enabled !== true || cfg.altas?.crear !== true)
@@ -164,7 +164,7 @@ exports.altasClientesTango = (0, scheduler_1.onSchedule)({ schedule: 'every 10 m
         v2_1.logger.error(`[tango] altas falló: ${e.message}`);
     }
 });
-exports.procesarAltasTangoAhora = (0, https_1.onCall)({ timeoutSeconds: 540, memory: '512MiB' }, async (request) => {
+exports.procesarAltasTangoAhora = (0, https_1.onCall)({ timeoutSeconds: 540, memory: '512MiB', cpu: 0.5 }, async (request) => {
     if (!request.auth)
         throw new https_1.HttpsError('unauthenticated', 'No autenticado');
     (0, authz_1.assertNoImpersonado)(request);

@@ -3,7 +3,18 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.syncDepositosTango = exports.procesarAltasTangoAhora = exports.altasClientesTango = exports.onConsultaSaldoPendiente = exports.sincronizarSaldosTangoAhora = exports.sincronizarClientesTangoAhora = exports.syncSaldosTangoConnect = exports.syncClientesTangoConnect = exports.sincronizarPreciosTangoAhora = exports.syncPreciosTango = exports.barridoOutboxTango = exports.onOutboxPendiente = exports.onOutboxConfirmado = exports.onCobranzaCreada = exports.onDescargaCamionCreada = exports.onRemitoCargaCreado = exports.onAnulacionEmitida = exports.onVentaVentanillaFacturada = exports.onVentaVentanillaCreada = exports.onVentaCamionFacturada = exports.onVentaCamionCreada = exports.onProduccionPalletCreado = exports.onConsultaRespondida = exports.syncSaldosTango = exports.syncClientesTango = exports.enviarResumenAdminDiario = exports.onHistorialAdminAltoRiesgo = exports.backupAuthUsers = exports.onVisitaSupervisorCreada = exports.onPedidoSupervisorCreado = exports.avisarComodatosPorVencer = exports.onTicketCreado = exports.onStockBajo = exports.onTicketCerrado = exports.generarPedidosRecurrentes = exports.orsDirections = exports.mirrorDriverLocation = exports.validarPreciosPedido = exports.notifyReprogramado = exports.notifyCerca = exports.sendPush = exports.deleteAuthUsers = exports.onOrderEnCamino = exports.onOrderConfirmado = exports.onOrderCreated = exports.onClienteIndexado = exports.onUserClaims = exports.onClienteCreadoPorStaff = exports.onUserApproved = exports.onUserRegistered = void 0;
 exports.presentarCotRemito = exports.onRemitoCargaCotSolicitado = exports.enviarComprobantePorMail = exports.avisarPadronIIBB = exports.onDescargaRectificada = exports.onDesvioResuelto = exports.onDesvioSolicitado = exports.onDescargaContada = exports.reconciliarRemitosAnulados = exports.onVentaVentanillaAnulada = exports.onVentaCamionAnulada = exports.onAnulacionResuelta = exports.onAnulacionSolicitada = exports.reconciliarFacturasArca = exports.onVentaVentanillaContadoFacturar = exports.onVentaContadoFacturar = exports.crearTokenImpersonacion = exports.resetPinProduccion = exports.onOrderRollup = exports.publicarTurnosVentanilla = exports.sincronizarDepositosTangoAhora = void 0;
 const app_1 = require("firebase-admin/app");
+const v2_1 = require("firebase-functions/v2");
 (0, app_1.initializeApp)();
+// Cuota de CPU de Cloud Run (2026-09-14): la región tiene 20 vCPU en total y
+// Google no deja pedir más desde la consola. Cada function gen2 ocupaba 1 vCPU
+// entera mientras tenía una instancia viva (incluso ociosa ~15 min): con 71
+// functions, un lunes a pleno llegaba a 20 instancias y toda function fría
+// rebotaba con "quota exceeded". A 0,25 vCPU entran 80 instancias en la misma
+// cuota. Con CPU fraccionaria Cloud Run exige concurrencia 1; las doce
+// functions de 512 MiB (syncs de Tango, mail) van a 0,5 en su propia definición.
+// Va ANTES de los exports: los módulos de triggers se cargan después y toman
+// estos valores como default.
+(0, v2_1.setGlobalOptions)({ cpu: 0.25, concurrency: 1 });
 // Nota: cambio trivial para forzar un hash de fuente distinto y que
 // `firebase deploy --only functions` no salte el redeploy de las 12
 // functions que quedaron en una revisión de Cloud Run vieja tras el

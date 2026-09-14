@@ -1,5 +1,17 @@
 import { initializeApp } from 'firebase-admin/app'
+import { setGlobalOptions } from 'firebase-functions/v2'
 initializeApp()
+
+// Cuota de CPU de Cloud Run (2026-09-14): la región tiene 20 vCPU en total y
+// Google no deja pedir más desde la consola. Cada function gen2 ocupaba 1 vCPU
+// entera mientras tenía una instancia viva (incluso ociosa ~15 min): con 71
+// functions, un lunes a pleno llegaba a 20 instancias y toda function fría
+// rebotaba con "quota exceeded". A 0,25 vCPU entran 80 instancias en la misma
+// cuota. Con CPU fraccionaria Cloud Run exige concurrencia 1; las doce
+// functions de 512 MiB (syncs de Tango, mail) van a 0,5 en su propia definición.
+// Va ANTES de los exports: los módulos de triggers se cargan después y toman
+// estos valores como default.
+setGlobalOptions({ cpu: 0.25, concurrency: 1 })
 
 // Nota: cambio trivial para forzar un hash de fuente distinto y que
 // `firebase deploy --only functions` no salte el redeploy de las 12

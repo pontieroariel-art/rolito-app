@@ -531,14 +531,14 @@ async function correrSaldos(origen: string, uid?: string) {
 // Clientes a las 5:00 (antes que precios a las 5:30, que necesita los
 // codigoTango recién vinculados). Saldos cada hora en horario de operación.
 export const syncClientesTangoConnect = onSchedule(
-  { schedule: '0 5 * * *', timeZone: TZ, secrets: [tangoApiToken], timeoutSeconds: 540, memory: '512MiB' },
+  { schedule: '0 5 * * *', timeZone: TZ, secrets: [tangoApiToken], timeoutSeconds: 540, memory: '512MiB', cpu: 0.5 },
   async () => {
     try { await correrClientes('programada') } catch (e) { logger.error(`[tango] sync de clientes falló: ${(e as Error).message}`) }
   },
 )
 
 export const syncSaldosTangoConnect = onSchedule(
-  { schedule: '10 6-22 * * *', timeZone: TZ, secrets: [tangoApiToken], timeoutSeconds: 540, memory: '512MiB' },
+  { schedule: '10 6-22 * * *', timeZone: TZ, secrets: [tangoApiToken], timeoutSeconds: 540, memory: '512MiB', cpu: 0.5 },
   async () => {
     try { await correrSaldos('programada') } catch (e) { logger.error(`[tango] sync de saldos falló: ${(e as Error).message}`) }
   },
@@ -549,7 +549,7 @@ async function rolDe(uid: string): Promise<string> {
 }
 
 export const sincronizarClientesTangoAhora = onCall(
-  { secrets: [tangoApiToken], timeoutSeconds: 540, memory: '512MiB' },
+  { secrets: [tangoApiToken], timeoutSeconds: 540, memory: '512MiB', cpu: 0.5 },
   async (request) => {
     if (!request.auth) throw new HttpsError('unauthenticated', 'No autenticado')
     assertNoImpersonado(request)
@@ -560,7 +560,7 @@ export const sincronizarClientesTangoAhora = onCall(
 )
 
 export const sincronizarSaldosTangoAhora = onCall(
-  { secrets: [tangoApiToken], timeoutSeconds: 540, memory: '512MiB' },
+  { secrets: [tangoApiToken], timeoutSeconds: 540, memory: '512MiB', cpu: 0.5 },
   async (request) => {
     if (!request.auth) throw new HttpsError('unauthenticated', 'No autenticado')
     assertNoImpersonado(request)
@@ -576,7 +576,7 @@ export const sincronizarSaldosTangoAhora = onCall(
 // `resultado` en el mismo doc; onConsultaRespondida (tangoConsultas.ts) lo
 // copia después al cache saldosTango, igual que cuando respondía el bridge.
 export const onConsultaSaldoPendiente = onDocumentCreated(
-  { document: 'tango-consultas/{consultaId}', secrets: [tangoApiToken], timeoutSeconds: 120, memory: '512MiB' },
+  { document: 'tango-consultas/{consultaId}', secrets: [tangoApiToken], timeoutSeconds: 120, memory: '512MiB', cpu: 0.5 },
   async (event) => {
     const snap = event.data
     if (!snap) return

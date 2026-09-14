@@ -45,7 +45,7 @@ function decodificarPdf(pdfBase64, que) {
         throw new https_1.HttpsError('invalid-argument', `${que}: el adjunto no es un PDF`);
     return pdf;
 }
-exports.enviarComprobantePorMail = (0, https_1.onCall)({ secrets: [email_1.resendApiKey], memory: '512MiB' }, async (request) => {
+exports.enviarComprobantePorMail = (0, https_1.onCall)({ secrets: [email_1.resendApiKey], memory: '512MiB', cpu: 0.5 }, async (request) => {
     if (!request.auth)
         throw new https_1.HttpsError('unauthenticated', 'Requiere autenticación');
     (0, authz_1.assertNoImpersonado)(request);

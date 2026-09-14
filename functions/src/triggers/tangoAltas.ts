@@ -157,7 +157,7 @@ async function correrAltas(origen: string, uid?: string): Promise<ResumenAltas> 
 }
 
 export const altasClientesTango = onSchedule(
-  { schedule: 'every 10 minutes', timeZone: TZ, timeoutSeconds: 540, memory: '512MiB' },
+  { schedule: 'every 10 minutes', timeZone: TZ, timeoutSeconds: 540, memory: '512MiB', cpu: 0.5 },
   async () => {
     try {
       const cfg = (await getFirestore().doc('config/tango').get()).data() ?? {}
@@ -168,7 +168,7 @@ export const altasClientesTango = onSchedule(
 )
 
 export const procesarAltasTangoAhora = onCall(
-  { timeoutSeconds: 540, memory: '512MiB' },
+  { timeoutSeconds: 540, memory: '512MiB', cpu: 0.5 },
   async (request) => {
     if (!request.auth) throw new HttpsError('unauthenticated', 'No autenticado')
     assertNoImpersonado(request)
