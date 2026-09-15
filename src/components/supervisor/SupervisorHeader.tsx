@@ -17,9 +17,11 @@ export default function SupervisorHeader({ title, back = false, volverA = '/supe
   const { sistemaActual, sistemasDisponibles } = useSistema()
   const { privado, alternar } = usePrivacidad()
   // Quien entró desde la oficina (super_admin desde Comercial › Supervisores) tiene
-  // que poder volver: el supervisor de calle no tiene dominios y no ve el botón.
+  // que poder volver. El supervisor de calle no lo ve aunque tenga un dominio por un
+  // rol adicional (2026-09-15, pedido de Ariel): sus pantallas de oficina las abre
+  // desde las tarjetas de su inicio, dentro de su app.
   const dominio = sistemaActual && sistemasDisponibles.includes(sistemaActual) ? sistemaActual : sistemasDisponibles[0]
-  const volverAOficina = user && dominio ? homeDeSistema(dominio, user) : null
+  const volverAOficina = user && user.rol !== 'supervisor' && dominio ? homeDeSistema(dominio, user) : null
   return (
     <div className="sticky top-0 z-30">
       <header className="min-h-14 pt-[env(safe-area-inset-top)] bg-white border-b border-[#D3D1C7] flex items-center gap-2 px-3">
