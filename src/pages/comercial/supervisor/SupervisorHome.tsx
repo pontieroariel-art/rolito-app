@@ -24,6 +24,24 @@ import { resumenPorMedio } from '@/pages/comercial/supervisor/resumenCobranzas'
 //
 // El detalle de los recibos del día NO está acá: es idéntico al primer grupo de
 // "Mis cobranzas" (misma consulta, misma tarjeta) y se veía dos veces en la app.
+// Pantallas de oficina que tienen una versión dentro de la app del supervisor
+// (misma pantalla, con su cabecera y sin el shell de escritorio, 2026-09-15).
+// Las que no están acá abren la de escritorio.
+const RUTA_EN_APP: Record<string, string> = {
+  '/tesoreria/liquidaciones': '/supervisor/liquidaciones',
+}
+
+// Bajada de las pantallas de oficina que un supervisor puede tener por un rol
+// extra; las que no están acá salen con el nombre del dominio.
+const BAJADA_OFICINA: Record<string, string> = {
+  '/tesoreria/liquidaciones':        'Liquidaciones de todos los repartidores, en modo lectura',
+  '/tesoreria':                      'Calle, ventanillas y supervisores del día, en vivo',
+  '/tesoreria/recepcion':            'Sobres de caja que llegan a tesorería',
+  '/tesoreria/entregas':             'Entregas de caja a tesorería, para confirmar',
+  '/tesoreria/anulaciones':          'Anulaciones y faltantes esperando autorización',
+  '/tesoreria/rendiciones/historial': 'Cierres de caja y rendiciones anteriores',
+}
+
 export default function SupervisorHome() {
   const { user } = useAuth()
   const fecha = useFechaDelDia()
@@ -68,6 +86,17 @@ export default function SupervisorHome() {
             ? `Hoy ${formatoARS(resumen.total)} · ${recibos} ${recibos === 1 ? 'recibo' : 'recibos'} · últimos 30 días`
             : 'Últimos 30 días, por día, con reimpresión de recibos'} />
 
+        {/* Pantallas de oficina que tiene por un rol adicional (p. ej. Tesorería →
+            Liquidaciones), ya recortadas por el super_admin: mismas tarjetas que el
+            resto, en la misma lista (2026-09-15, Ariel no quiso una sección aparte). */}
+        {accesosOficina.map((a) => {
+          const Icono = a.icon
+          return (
+            <Tarjeta key={a.to} to={RUTA_EN_APP[a.to] ?? a.to} icono={<Icono size={22} className="text-accent" />}
+              titulo={a.label} bajada={BAJADA_OFICINA[a.to] ?? `${SISTEMA_LABELS[a.sistema]} · pantalla de la oficina`} />
+          )
+        })}
+
         {deposito && (
           <div className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm">
             <Link to="/supervisor/vender" className="block p-4 active:scale-[0.99] transition-transform">
@@ -88,19 +117,6 @@ export default function SupervisorHome() {
               Mis ventas — entregá el comprobante →
             </Link>
           </div>
-        )}
-
-        {accesosOficina.length > 0 && (
-          <section className="space-y-3">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-secundario">Oficina</h2>
-            {accesosOficina.map((a) => {
-              const Icono = a.icon
-              return (
-                <Tarjeta key={a.to} to={a.to} icono={<Icono size={22} className="text-accent" />}
-                  titulo={a.label} bajada={`${SISTEMA_LABELS[a.sistema]} · pantalla de escritorio`} />
-              )
-            })}
-          </section>
         )}
 
         {sinSubir > 0 && (

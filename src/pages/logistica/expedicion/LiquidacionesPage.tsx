@@ -42,7 +42,7 @@ import { tieneAlgunRol } from '@/utils/roles'
 // clasificado por tipo de operación (ver DetalleReparto). Se calcula EN VIVO
 // desde las fuentes del día; el doc inmutable se crea al cerrar y la pantalla
 // sigue mostrando todo en modo lectura. Ver src/utils/liquidacion.ts.
-export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreria' }) {
+export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreria' | '/supervisor' }) {
   const { user } = useAuth()
   // Tesorería (2026-09-09) abre la misma pantalla en modo lectura desde su
   // panel (/tesoreria/liquidaciones): sin planta fija, la elige; no cierra.

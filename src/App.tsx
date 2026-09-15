@@ -120,6 +120,7 @@ const SupervisorHome         = lazy(() => import('@/pages/comercial/supervisor/S
 const SupervisorClientesPage = lazy(() => import('@/pages/comercial/supervisor/SupervisorClientesPage'))
 const CobranzaSupervisorPage = lazy(() => import('@/pages/comercial/supervisor/CobranzaSupervisorPage'))
 const SupervisorHistorialPage = lazy(() => import('@/pages/comercial/supervisor/SupervisorHistorialPage'))
+const SupervisorOficinaPage = lazy(() => import('@/pages/comercial/supervisor/SupervisorOficinaPage'))
 const RepartoEnVivoPage       = lazy(() => import('@/pages/comercial/supervisor/RepartoEnVivoPage'))
 const FichaClientePage        = lazy(() => import('@/pages/comercial/supervisor/FichaClientePage'))
 
@@ -482,6 +483,13 @@ function AppContent() {
               con las mismas pantallas del chofer, que vuelven a /supervisor. */}
           <Route path="/supervisor/vender"    element={<VentaCamion volverA="/supervisor" />} />
           <Route path="/supervisor/ventas"    element={<VentasChofer volverA="/supervisor" />} />
+        </Route>
+        {/* Pantallas de oficina dentro de la app del supervisor (2026-09-15): un
+            supervisor con Tesorería como rol adicional abre Liquidaciones con su
+            cabecera y su ancho, sin el shell de escritorio. Exigen el rol de tesorería. */}
+        <Route element={<ProtectedRoute allowedRoles={rolesDe('/supervisor/liquidaciones')} />}>
+          <Route path="/supervisor/liquidaciones"           element={<SupervisorOficinaPage titulo="Liquidaciones"><LiquidacionesPage base="/supervisor" /></SupervisorOficinaPage>} />
+          <Route path="/supervisor/liquidaciones/historial" element={<SupervisorOficinaPage titulo="Historial de cierres" volverA="/supervisor/liquidaciones"><LiquidacionesHistorialPage base="/supervisor" /></SupervisorOficinaPage>} />
         </Route>
 
         {/* Cualquier otra ruta */}

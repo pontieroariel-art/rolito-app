@@ -39,7 +39,7 @@ const cerroDe = (l: Liquidacion) =>
 const motivoDe = (l: Liquidacion) =>
   (l.diferencia ? `${MOTIVOS_DIFERENCIA_LIQUIDACION[l.diferencia.motivo]}${l.diferencia.nota ? ` · ${l.diferencia.nota}` : ''}` : '')
 
-export default function LiquidacionesHistorialPage({ base }: { base: '/caja' | '/tesoreria' }) {
+export default function LiquidacionesHistorialPage({ base }: { base: '/caja' | '/tesoreria' | '/supervisor' }) {
   const { user } = useAuth()
   const hoy = useDiaActual()
   const [mes, setMes] = useState(hoy.slice(0, 7))

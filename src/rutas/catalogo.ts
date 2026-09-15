@@ -224,6 +224,11 @@ export const CATALOGO: RutaConfig[] = [
   R('/supervisor/cliente/:uid', 'Ficha del cliente', 'comercial', SUPERVISOR, { deepLink: true, externa: true }),
   R('/supervisor/vender',       'Vender',            'comercial', SUPERVISOR, { deepLink: true }),
   R('/supervisor/ventas',       'Mis ventas',        'comercial', SUPERVISOR, { deepLink: true }),
+  // Pantallas de oficina dentro de la app del supervisor (2026-09-15): las abre un
+  // supervisor con Tesorería como rol adicional, con su cabecera y sin el shell de
+  // escritorio. Exigen el rol de tesorería (el super_admin entra a todo).
+  R('/supervisor/liquidaciones',           'Liquidaciones',        'comercial', ['tesoreria', 'super_admin'], { deepLink: true }),
+  R('/supervisor/liquidaciones/historial', 'Historial de cierres', 'comercial', ['tesoreria', 'super_admin'], { deepLink: true }),
 
   // ── Administración y gerencia ─────────────────────────────────────────────
   R('/admin',           'Panel de control',    'administracion', ['super_admin'], { icon: LayoutDashboard, menuGroup: 'sistema' }),
