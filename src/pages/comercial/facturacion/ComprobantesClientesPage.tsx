@@ -6,6 +6,7 @@ import MenuCompartirPdf, { type DatosMail, type PdfGenerado } from '@/components
 import EnvioLoteModal from '@/components/facturacion/EnvioLoteModal'
 import VentasAppCliente from '@/components/facturacion/VentasAppCliente'
 import RemitosPendientesTango from '@/components/facturacion/RemitosPendientesTango'
+import RecibosPendientesTango from '@/components/facturacion/RecibosPendientesTango'
 import { useAuth } from '@/context/AuthContext'
 import ClienteCombobox from '@/components/common/ClienteCombobox'
 import { useClienteSeleccionado } from '@/hooks/useClienteSeleccionado'
@@ -56,6 +57,8 @@ export default function ComprobantesClientesPage() {
       </div>
       {/* Remitos anulados en la app que la oficina tiene que anular en Tango (2026-09-12). */}
       <RemitosPendientesTango />
+      {/* Recibos anulados en la app que la oficina tiene que anular en Tango (2026-09-15). */}
+      <RecibosPendientesTango />
       <div className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)] items-start">
         <BuscadorClientes seleccionado={clienteUid} onElegir={elegirCliente} />
         {clienteUid

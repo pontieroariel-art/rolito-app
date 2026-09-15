@@ -158,3 +158,18 @@ export const getCobranza = async (id: string): Promise<Cobranza | null> => {
   const snap = await getDoc(doc(db, COBRANZAS, id))
   return snap.exists() ? ({ id: snap.id, ...snap.data() } as Cobranza) : null
 }
+
+/**
+ * Recibos anulados en la app que la oficina todavía tiene que anular en Tango
+ * (2026-09-15). Sin orderBy para no pedir índice compuesto: se ordena en memoria.
+ * Desaparecen solos cuando `reconciliarRecibosAnulados` ve el recibo con ESTADO ANU.
+ */
+export const subscribeRecibosPendientesEnTango = (callback: (cobranzas: Cobranza[]) => void): () => void =>
+  onSnapshot(
+    query(collection(db, COBRANZAS), where('anulacion.tango.estado', '==', 'pendiente_oficina')),
+    (snap) => callback(
+      snap.docs.map((d) => ({ id: d.id, ...d.data() } as Cobranza))
+        .sort((a, b) => (b.anulacion?.anuladaEn?.toMillis?.() ?? 0) - (a.anulacion?.anuladaEn?.toMillis?.() ?? 0)),
+    ),
+    onSnapshotError(callback, 'cobranzas-pendientes-tango'),
+  )
