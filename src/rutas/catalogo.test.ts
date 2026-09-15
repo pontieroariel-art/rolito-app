@@ -195,3 +195,13 @@ describe('dominios por rol', () => {
     expect(sistemaDeRuta('/dashboard')).toBeNull()
   })
 })
+
+describe('homeDeSistema respeta el recorte de menú (2026-09-15)', () => {
+  it('un supervisor con Tesorería como rol extra recortada a Liquidaciones entra a Liquidaciones', () => {
+    const conTodo = { rol: 'supervisor' as UserRole, rolesExtra: ['tesoreria' as UserRole] }
+    expect(homeDeSistema('tesoreria', conTodo)).toBe('/tesoreria')
+    const ocultas = gruposDe('tesoreria').flatMap((g) => g.items.map((i) => i.to)).filter((p) => p !== '/tesoreria/liquidaciones')
+    const recortado = { ...conTodo, pestanasOcultas: ocultas }
+    expect(homeDeSistema('tesoreria', recortado)).toBe('/tesoreria/liquidaciones')
+  })
+})

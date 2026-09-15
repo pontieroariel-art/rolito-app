@@ -399,13 +399,22 @@ export function sistemaDeRuta(path: string): Sistema | null {
   return r ? DOMINIO_A_SISTEMA(r.dominio) : null
 }
 
-/** Adónde entra este usuario en un dominio (ver HOME_SISTEMA). */
-export function homeDeSistema(sistema: Sistema, user: UsuarioRoles): string {
-  const preferido = HOME_SISTEMA[sistema].find((p) => tieneAlgunRol(user, rolesDe(p)))
+/**
+ * Adónde entra este usuario en un dominio (ver HOME_SISTEMA). Respeta el recorte
+ * de menú (2026-09-15): si el super_admin le escondió el home del dominio, entra
+ * a la primera pantalla que sí tiene en el menú (un supervisor con Tesorería
+ * recortada a Liquidaciones entra a Liquidaciones, no a Tesorería en vivo).
+ */
+export function homeDeSistema(sistema: Sistema, user: UsuarioRoles & Partial<UsuarioRecorte>): string {
+  const preferido = HOME_SISTEMA[sistema].find((p) => tieneAlgunRol(user, rolesDe(p)) && pantallaVisible(user, p))
   if (preferido) return preferido
-  const primero = gruposVisibles(user, sistema)[0]?.items[0]
+  const primero = gruposVisibles(user, sistema).flatMap((g) => g.items).find((i) => pantallaVisible(user, i.to))
   return primero?.to ?? '/'
 }
+
+/** Pantallas de escritorio que este usuario tiene en el menú de un dominio (rol + recorte), planas. */
+export const pantallasVisiblesDe = (user: (UsuarioRoles & Partial<UsuarioRecorte>) | null | undefined, sistema: Sistema): ItemMenu[] =>
+  gruposVisibles(user, sistema).flatMap((g) => g.items).filter((i) => pantallaVisible(user, i.to))
 
 type UsuarioRecorte = Pick<UserProfile, 'pestanasOcultas' | 'pestanasPermitidas'>
 

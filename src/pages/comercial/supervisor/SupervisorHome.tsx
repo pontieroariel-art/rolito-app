@@ -9,6 +9,8 @@ import { useDiaActual, useFechaDelDia } from '@/hooks/useDiaActual'
 import { useDepositoDelUsuario } from '@/hooks/useDepositosReparto'
 import { subscribeCobranzasChoferEnRango } from '@/services/cobranzaService'
 import { formatoARS } from '@/utils/money'
+import { SISTEMA_LABELS, sistemasDeUsuario } from '@/utils/sistemas'
+import { pantallasVisiblesDe } from '@/rutas/catalogo'
 import { Cobranza } from '@/types'
 import { resumenPorMedio } from '@/pages/comercial/supervisor/resumenCobranzas'
 
@@ -42,6 +44,13 @@ export default function SupervisorHome() {
 
   const resumen = useMemo(() => resumenPorMedio(cobranzasHoy), [cobranzasHoy])
   const recibos = cobranzasHoy.length
+  // Pantallas de oficina que este supervisor tiene por un rol adicional (p. ej.
+  // Tesorería → Liquidaciones), ya recortadas por el super_admin (2026-09-15,
+  // pedido de Ariel: que las tenga en su app, no solo en el menú de escritorio).
+  const accesosOficina = useMemo(
+    () => (user ? sistemasDeUsuario(user).flatMap((s) => pantallasVisiblesDe(user, s).map((i) => ({ ...i, sistema: s }))) : []),
+    [user],
+  )
 
   return (
     <div className="min-h-screen min-h-dvh bg-[#F8F7F2]">
@@ -79,6 +88,19 @@ export default function SupervisorHome() {
               Mis ventas — entregá el comprobante →
             </Link>
           </div>
+        )}
+
+        {accesosOficina.length > 0 && (
+          <section className="space-y-3">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-secundario">Oficina</h2>
+            {accesosOficina.map((a) => {
+              const Icono = a.icon
+              return (
+                <Tarjeta key={a.to} to={a.to} icono={<Icono size={22} className="text-accent" />}
+                  titulo={a.label} bajada={`${SISTEMA_LABELS[a.sistema]} · pantalla de escritorio`} />
+              )
+            })}
+          </section>
         )}
 
         {sinSubir > 0 && (
