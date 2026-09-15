@@ -7,7 +7,7 @@ import { caiRemitoOficialCacheado, getCaiRemitoOficial } from './remitoOficialCo
 import { generarComprobanteVenta } from '@/utils/comprobanteDeVenta'
 import { armarFacturaDeVenta } from '@/utils/facturaDeVenta'
 import { formatoFactura, parsearClaveTango } from '@/utils/facturaClave'
-import { armarFacturaTangoPdf, armarRemitoTangoPdf, formatoRemito, parsearRemito } from '@/utils/comprobantesTango'
+import { armarFacturaRolitoTangoPdf, armarFacturaTangoPdf, armarRemitoTangoPdf, formatoRemito, parsearRemito } from '@/utils/comprobantesTango'
 import { compartirArchivo, descargarArchivo } from '@/utils/compartir'
 import type { ComprobanteSaldoTango, EmpresaTango, VentaCamion, VentaVentanilla } from '@/types'
 
@@ -99,6 +99,17 @@ export async function obtenerFacturaPdf(comp: Pick<ComprobanteSaldoTango, 'tipo'
   // (3) Detalle leído de Tango (con CAE): se regenera con el formato histórico.
   const detalle = await getFacturaTangoDetalle(empresa, tipo, comp.numero).catch(() => null)
   if (detalle) {
+    // Rolito (2026-09-15): no factura por ARCA; su papel es el interno "PROMOCIÓN"
+    // letra X, el mismo que la app imprime para sus promos. Antes esto devolvía
+    // "se imprime desde la venta de la app" y los supervisores no veían ninguna
+    // factura de Rolito cargada en Tango por la oficina.
+    if (detalle.empresa === 'rolito') {
+      const interno = armarFacturaRolitoTangoPdf(detalle)
+      if (!interno.ok) return interno
+      const { generateComprobanteInternoPdf } = await import('@/utils/comprobanteInternoPdf')
+      const blob = (await generateComprobanteInternoPdf(interno.datos, { descargar: false })) as Blob
+      return { ok: true, blob, nombre: interno.datos.archivo, titulo, fuente: 'tango' }
+    }
     const armado = armarFacturaTangoPdf(detalle)
     if (armado.ok) {
       const { generateFacturaPdf } = await import('@/utils/facturaPdf')

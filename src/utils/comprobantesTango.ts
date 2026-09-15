@@ -4,7 +4,8 @@ import type {
 } from '@/types'
 import type { FacturaPdfData } from './facturaPdf'
 import { EMISOR_REDONHIELO as EMISOR_FACTURA } from './facturaPdf'
-import type { RemitoData } from './comprobanteInterno'
+import type { ArmadoInterno, RemitoData } from './comprobanteInterno'
+import { codigoComprobanteInterno } from './numeracionInterna'
 import { EMISOR_REDONHIELO, EMISOR_ROLITO } from './emisores'
 import { empresaDe, type GrupoRecibo, mismoGrupo } from './composicionSaldos'
 import { EMPRESAS_TANGO, NOMBRE_EMPRESA_CORTO, tangoIdsDe } from './tangoEmpresas'
@@ -319,4 +320,47 @@ export function emailDelCliente(cliente: Pick<UserProfile, 'email'> | null | und
   const ordenados = grupo ? [...indices].sort((a, b) => (mismoGrupo(a, grupo) ? -1 : 0) - (mismoGrupo(b, grupo) ? -1 : 0)) : indices
   for (const i of ordenados) if (valido(i.email)) return i.email!.trim().toLowerCase()
   return valido(cliente?.email) ? cliente!.email.trim().toLowerCase() : ''
+}
+
+/**
+ * Factura (o nota de crédito) de ROLITO leída de Tango → papel interno de Rolito
+ * (2026-09-15). Hasta hoy `armarFacturaTangoPdf` rechazaba todo lo de Rolito
+ * ("se imprime desde la venta de la app") y los supervisores no podían ver ninguna
+ * factura de Rolito cargada en Tango por la oficina (Merlo, HUGO, etc.). Rolito no
+ * factura por ARCA: su papel es el interno "PROMOCIÓN" letra X, el mismo que la app
+ * imprime para sus propias promos, así que se arma con los renglones y totales que
+ * trae el detalle de Tango.
+ */
+export function armarFacturaRolitoTangoPdf(d: FacturaTangoDetalle): ArmadoInterno {
+  if (d.empresa !== 'rolito') return { ok: false, motivo: 'Este comprobante no es de Rolito.' }
+  const credito = d.familia === 'credito' || d.tipo.replace(/[^A-Z]/gi, '').toUpperCase().startsWith('NC')
+  const numero = codigoComprobanteInterno({ puntoVenta: d.puntoVenta, numero: d.nro })
+  const c = d.cliente
+  return {
+    ok: true,
+    datos: {
+      titulo:       credito ? 'NOTA DE CRÉDITO' : 'PROMOCIÓN',
+      letra:        'X',
+      empresa:      'rolito',
+      emisor:       EMISOR_ROLITO,
+      numero,
+      fechaEmision: fechaDe(d.fecha),
+      cliente: {
+        razonSocial:    c.razonSocial,
+        cuit:           c.cuit,
+        condicionIva:   c.condicionIva,
+        domicilio:      c.domicilio,
+        localidadCp:    [c.cp, c.localidad].filter(Boolean).join(', '),
+        codigoCliente:  c.codigo || d.codigo,
+        condicionVenta: c.condicionVenta,
+        vendedor:       c.vendedor,
+      },
+      renglones: d.renglones.map((r) => ({
+        descripcion: r.descripcion, cantidad: r.cantidad, precioUnitario: r.precioUnitario, total: r.importe, esCambio: false,
+      })),
+      total:   d.totales.total,
+      leyenda: `DOCUMENTO NO VÁLIDO COMO FACTURA — Comprobante interno de Rolito (promo). Registrado en Tango como ${d.tipo} ${d.letra} ${numero}. No autorizado por ARCA.`,
+      archivo: `${credito ? 'nota-credito-x' : 'factura-x'}-${d.numero}.pdf`,
+    },
+  }
 }

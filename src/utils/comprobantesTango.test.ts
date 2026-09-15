@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  armarFacturaRolitoTangoPdf,
   armarComposicion, armarFacturaTangoPdf, armarRemitoTangoPdf, filtrarPorSucursal, formatoRemito, opcionesSucursal, parsearRemito, totalPendiente,
 } from './comprobantesTango'
 import type { ComprobanteSaldoTango, FacturaTangoDetalle, RemitoTangoDetalle, TangoComprobantesDoc, UserProfile } from '@/types'
@@ -129,5 +130,34 @@ describe('armarRemitoTangoPdf', () => {
     expect(r.letra).toBe('X')
     expect(r.control).toEqual({ tipo: 'interno', codigo: '00001-00482053' })
     expect(r.leyenda.startsWith('REMITO ANULADO')).toBe(true)
+  })
+})
+
+describe('armarFacturaRolitoTangoPdf (factura de Rolito cargada en Tango → papel interno)', () => {
+  const detalle: FacturaTangoDetalle = {
+    empresa: 'rolito', tipo: 'FAC', familia: 'factura', numero: 'A0000100118440', codigo: 'HUGO', fecha: '2026-09-10',
+    letra: 'A', puntoVenta: 1, nro: 118440, cbteTipo: 1, estado: 'CAN',
+    cliente: { codigo: 'HUGO', razonSocial: 'HUGO TAIANNO', cuit: '20-11111111-1', domicilio: 'Calle 1', localidad: 'MERLO', cp: '1722', provincia: '01', condicionIva: 'Monotributo', condicionVenta: 'CONTADO', vendedor: 'MERLO' },
+    renglones: [{ codigo: 'B3', descripcion: 'HIELO EN BOLSA ROLITO 3 KG', cantidad: 40, precioUnitario: 2800, dtoPct: 0, ivaPct: 0, importe: 112000 }],
+    totales: { gravado: 0, exento: 112000, iva: 0, ivaAlic: 0, internos: 0, otros: 0, total: 112000 },
+    cae: '', caeVto: '', remitos: [],
+  }
+  it('arma la PROMOCIÓN letra X de Rolito con los renglones y el total de Tango', () => {
+    const r = armarFacturaRolitoTangoPdf(detalle)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.datos.titulo).toBe('PROMOCIÓN')
+    expect(r.datos.letra).toBe('X')
+    expect(r.datos.numero).toBe('00001-00118440')
+    expect(r.datos.cliente).toMatchObject({ razonSocial: 'HUGO TAIANNO', codigoCliente: 'HUGO', localidadCp: '1722, MERLO', vendedor: 'MERLO' })
+    expect(r.datos.renglones).toEqual([{ descripcion: 'HIELO EN BOLSA ROLITO 3 KG', cantidad: 40, precioUnitario: 2800, total: 112000, esCambio: false }])
+    expect(r.datos.total).toBe(112000)
+    expect(r.datos.leyenda).toContain('Registrado en Tango como FAC A 00001-00118440')
+    expect(r.datos.archivo).toBe('factura-x-A0000100118440.pdf')
+  })
+  it('una nota de crédito de Rolito sale como NOTA DE CRÉDITO; lo de Redonhielo no va por acá', () => {
+    const nc = armarFacturaRolitoTangoPdf({ ...detalle, tipo: 'NC', familia: 'credito', numero: 'A0000100000031', nro: 31 })
+    expect(nc.ok && nc.datos.titulo).toBe('NOTA DE CRÉDITO')
+    expect(armarFacturaRolitoTangoPdf({ ...detalle, empresa: 'redonhielo' }).ok).toBe(false)
   })
 })
