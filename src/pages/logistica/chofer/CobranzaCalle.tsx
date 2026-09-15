@@ -6,6 +6,8 @@ import { CobranzaSupervisorCard } from '@/components/supervisor/CobranzaSupervis
 import { useAuth } from '@/context/AuthContext'
 import { useFechaDelDia } from '@/hooks/useDiaActual'
 import { subscribeCobranzasChoferEnRango } from '@/services/cobranzaService'
+import { useReemitirRecibo } from '@/hooks/useReemitirRecibo'
+import { cobranzasVigentes } from '@/utils/anulacionCobranza'
 import { formatoARS } from '@/utils/money'
 import { Cobranza } from '@/types'
 
@@ -27,13 +29,15 @@ export default function CobranzaCalle() {
     return subscribeCobranzasChoferEnRango(user.uid, desde, hasta, setCobranzasHoy, setPendientes)
   }, [user, fecha])
 
+  const reemitirDe = useReemitirRecibo()
   const ordenadas = useMemo(() => cobranzasHoy.slice().sort((a, b) => b.fecha.toMillis() - a.fecha.toMillis()), [cobranzasHoy])
-  const totalHoy = cobranzasHoy.reduce((s, c) => s + c.importe, 0)
+  // Un recibo anulado con autorización (2026-09-15) no suma.
+  const totalHoy = cobranzasVigentes(cobranzasHoy).reduce((s, c) => s + c.importe, 0)
 
   return (
     <div className="min-h-screen min-h-dvh bg-[#F8F7F2]">
       <ChoferHeader title="Cobrar" back />
-      <CobranzaCompleta origen="cobrador" volverA="/chofer" />
+      <CobranzaCompleta origen="cobrador" volverA="/chofer" reemitirDe={reemitirDe} />
 
       {(pendientes > 0 || cobranzasHoy.length > 0) && (
         <section className="max-w-md mx-auto px-4 pb-10 space-y-2">

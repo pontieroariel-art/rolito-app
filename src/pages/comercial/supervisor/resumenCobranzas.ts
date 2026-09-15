@@ -1,3 +1,4 @@
+import { cobranzasVigentes } from '@/utils/anulacionCobranza'
 import { aCentavos, sumaCentavos } from '@/utils/money'
 import { Cobranza } from '@/types'
 
@@ -12,7 +13,7 @@ export interface ResumenMedios {
 /** Totales por medio de pago de un conjunto de cobranzas (en pesos, calculado en centavos). */
 export function resumenPorMedio(cobranzas: Cobranza[]): ResumenMedios {
   let efectivo = 0, transferencia = 0, cheques = 0, retenciones = 0
-  for (const c of cobranzas) {
+  for (const c of cobranzasVigentes(cobranzas)) {
     if (c.medios) {
       efectivo += aCentavos(c.medios.efectivo)
       transferencia += aCentavos(c.medios.transferencia)

@@ -91,6 +91,8 @@ function descuentosDeCobranzas(cobranzas) {
     for (const c of cobranzas) {
         if (c.tango?.estado === 'confirmado')
             continue;
+        if (c.anulacion?.estado === 'anulada')
+            continue; // recibo anulado con autorización (2026-09-15): no descuenta
         const imputaciones = Array.isArray(c.imputaciones) ? c.imputaciones : [];
         const empresa = (0, empresas_1.esEmpresa)(c.empresa) ? c.empresa : 'redonhielo';
         const aCuenta = comprobanteACuenta(c, empresa);

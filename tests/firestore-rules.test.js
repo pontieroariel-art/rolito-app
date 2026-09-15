@@ -3407,6 +3407,43 @@ describe('expedicion: seguridad (control de salidas)', () => {
     await assertFails(updateDoc(doc(db('seg9'), 'remitosCarga/r1'), regreso('seg9', 'Seguridad Merlo')))
   })
 
+  // ── Dársena del camión que volvió (2026-09-15) ──
+  // El chofer estaciona directo en una boca para descargar y la elige entre las
+  // libres; la app le muestra solo esas (muelleEstado), las reglas cuidan el dato.
+  test('el chofer marca el regreso con la dársena, o la elige después, UNA vez', async () => {
+    await seed((d) => setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), salido()))
+    // Regreso y dársena en el mismo toque.
+    await assertSucceeds(updateDoc(doc(db('chof1'), 'remitosCarga/r1'), { regreso: { uid: 'chof1', nombre: 'Chofer Uno', hora: new Date(), darsena: 5 } }))
+    // Ya elegida: no se cambia.
+    await assertFails(updateDoc(doc(db('chof1'), 'remitosCarga/r1'), { 'regreso.darsena': 3 }))
+    // Regreso marcado por seguridad en el portón, sin dársena: el chofer la elige después.
+    await seed((d) => setDoc(doc(d, 'remitosCarga/r2'), salido(regreso('seg1', 'Seguridad'))))
+    await assertSucceeds(updateDoc(doc(db('chof1'), 'remitosCarga/r2'), { 'regreso.darsena': 2 }))
+  })
+
+  test('elegir la dársena no corre la hora, no cambia el remito y no vale para otro chofer', async () => {
+    await seed((d) => setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'users/chof2'), { rol: 'chofer', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), salido(regreso('chof1', 'Chofer Uno'))))
+    await assertFails(updateDoc(doc(db('chof2'), 'remitosCarga/r1'), { 'regreso.darsena': 1 }))
+    await assertFails(updateDoc(doc(db('chof1'), 'remitosCarga/r1'), { 'regreso.darsena': 0 }))
+    await assertFails(updateDoc(doc(db('chof1'), 'remitosCarga/r1'), { 'regreso.darsena': '5' }))
+    await assertFails(updateDoc(doc(db('chof1'), 'remitosCarga/r1'), { 'regreso.darsena': 1, 'regreso.hora': new Date(0) }))
+    await assertFails(updateDoc(doc(db('chof1'), 'remitosCarga/r1'), { 'regreso.darsena': 1, estado: 'liquidado' }))
+    // Muelle y seguridad tampoco eligen la boca por él.
+    await seedSeguridad()
+    await assertFails(updateDoc(doc(db('seg1'), 'remitosCarga/r1'), { 'regreso.darsena': 1 }))
+    await assertSucceeds(updateDoc(doc(db('chof1'), 'remitosCarga/r1'), { 'regreso.darsena': 1 }))
+  })
+
+  test('muelleEstado lo lee cualquier usuario real y no lo escribe nadie', async () => {
+    await seed((d) => setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' }))
+    await seed((d) => setDoc(doc(d, 'muelleEstado/torcuato'), { plantaId: 'torcuato', fecha: '2026-09-15', ocupadas: { 5: { tipo: 'carga', etiqueta: 'AB123CD' } } }))
+    await assertSucceeds(getDoc(doc(db('chof1'), 'muelleEstado/torcuato')))
+    await assertFails(updateDoc(doc(db('chof1'), 'muelleEstado/torcuato'), { ocupadas: {} }))
+  })
+
   test('seguridad lee remitos y ventanillas pero NO crea nada', async () => {
     await seedSeguridad()
     await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), remito()))
@@ -4888,6 +4925,88 @@ describe('impersonación (Ver como) — solo lectura', () => {
     await assertFails(getDoc(doc(verComo('cli', 'c@x.com'), 'liquidaciones/2026-09-10_ch1')))
     await assertFails(getDoc(doc(verComo('cli', 'c@x.com'), 'historialAdmin/h1')))
     await assertFails(getDoc(doc(verComo('ch1', 'ch@x.com'), 'historialAdmin/h1')))
+  })
+})
+
+describe('anulacionesCobranza (anular un recibo con autorización, 2026-09-15)', () => {
+  // El que cobró pide sobre SU recibo numerado, mientras su día no esté cerrado;
+  // aprueba quien tiene autorizaAnulaciones, nunca el propio solicitante; la
+  // cobranza sigue inmutable para todos (la marca el server).
+  const recibo = (uid, extra = {}) => ({
+    origen: 'supervisor', registradoPor: { uid, nombre: 'Cobrador' }, clienteId: 'cli', clienteNombre: 'Cliente SA',
+    importe: 200000, formaPago: 'mixto', fecha: new Date(), numeroRecibo: 'RS-000168', empresa: 'redonhielo',
+    imputaciones: [], medios: { efectivo: 0, transferencia: 0, cheques: [], retenciones: [] }, ...extra,
+  })
+  const seedTodos = () => seed(async (d) => {
+    await setDoc(doc(d, 'users/sup'),   { rol: 'supervisor', estado: 'activo' })
+    await setDoc(doc(d, 'users/sup2'),  { rol: 'supervisor', estado: 'activo' })
+    await setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' })
+    await setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' })
+    await setDoc(doc(d, 'users/tes1'),  { rol: 'tesoreria', estado: 'activo' })
+    await setDoc(doc(d, 'users/aut1'),  { rol: 'facturacion', estado: 'activo', autorizaAnulaciones: true })
+    await setDoc(doc(d, 'cobranzas/c1'), recibo('sup'))
+    await setDoc(doc(d, 'cobranzas/c2'), recibo('sup', { numeroRecibo: null }))                                   // sin número: no es un recibo completo
+    await setDoc(doc(d, 'cobranzas/c3'), recibo('sup', { anulacion: { estado: 'anulada', solicitudId: 'c3' } }))  // ya anulada
+    await setDoc(doc(d, 'cobranzas/c4'), recibo('chof1', { origen: 'cobrador' }))
+    await setDoc(doc(d, 'cobranzas/c5'), recibo('caja1', { origen: 'caja', plantaId: 'torcuato' }))
+    await setDoc(doc(d, 'cobranzas/c6'), recibo('sup', { anulacion: { estado: 'rechazada', solicitudId: 'c6' } })) // rechazada: se puede volver a pedir
+  })
+  const solicitud = (cobranzaId, uid, extra = {}) => ({
+    cobranzaId, origen: 'supervisor', cobradorId: uid, cobradorNombre: 'Cobrador', clienteId: 'cli', clienteNombre: 'Cliente SA',
+    numeroRecibo: 'RS-000168', importe: 200000, resumen: { efectivo: 0, transferencia: 0, cheques: [], retenciones: 0, facturas: [], aCuenta: 0 },
+    fechaCobranza: '2026-09-15', motivo: 'cheque_equivocado', nota: '', estado: 'pendiente',
+    solicitadoPor: { uid, nombre: 'Cobrador' }, solicitadaEn: new Date(), resueltaPor: null, ...extra,
+  })
+  const resolucion = (estado, uid, extra = {}) => ({ estado, resueltaPor: { uid, nombre: 'X' }, resueltaEn: new Date(), notaResolucion: estado === 'rechazada' ? 'no corresponde' : '', ...extra })
+
+  test('el que cobró pide anular SU recibo numerado; no uno ajeno, sin número o ya anulado', async () => {
+    await seedTodos()
+    await assertSucceeds(setDoc(doc(db('sup'), 'anulacionesCobranza/c1'), solicitud('c1', 'sup')))
+    await assertSucceeds(setDoc(doc(db('sup'), 'anulacionesCobranza/c6'), solicitud('c6', 'sup')))
+    await assertFails(setDoc(doc(db('sup2'), 'anulacionesCobranza/c1'), solicitud('c1', 'sup2')))
+    await assertFails(setDoc(doc(db('sup'), 'anulacionesCobranza/c2'), solicitud('c2', 'sup')))
+    await assertFails(setDoc(doc(db('sup'), 'anulacionesCobranza/c3'), solicitud('c3', 'sup')))
+    // Forma: id = cobranza, nace pendiente, sin resolver, con motivo.
+    await assertFails(setDoc(doc(db('sup'), 'anulacionesCobranza/c1'), solicitud('c1', 'sup', { estado: 'aprobada' })))
+    await assertFails(setDoc(doc(db('sup'), 'anulacionesCobranza/otro'), solicitud('c1', 'sup')))
+    await assertFails(setDoc(doc(db('sup'), 'anulacionesCobranza/c1'), solicitud('c1', 'sup', { motivo: '' })))
+    // Chofer y cajero, sobre los suyos.
+    await assertSucceeds(setDoc(doc(db('chof1'), 'anulacionesCobranza/c4'), solicitud('c4', 'chof1', { origen: 'cobrador' })))
+    await assertSucceeds(setDoc(doc(db('caja1'), 'anulacionesCobranza/c5'), solicitud('c5', 'caja1', { origen: 'caja', plantaId: 'torcuato' })))
+  })
+
+  test('con el día ya cerrado (liquidación del cobrador o cierre de caja) no se pide más', async () => {
+    await seedTodos()
+    await seed((d) => setDoc(doc(d, 'liquidaciones/2026-09-15_sup'), { fecha: '2026-09-15', choferId: 'sup' }))
+    await seed((d) => setDoc(doc(d, 'rendiciones/2026-09-15_caja1'), { fecha: '2026-09-15', cajeroId: 'caja1' }))
+    await assertFails(setDoc(doc(db('sup'), 'anulacionesCobranza/c1'), solicitud('c1', 'sup')))
+    await assertFails(setDoc(doc(db('caja1'), 'anulacionesCobranza/c5'), solicitud('c5', 'caja1', { origen: 'caja', plantaId: 'torcuato' })))
+    // Otro día sigue abierto.
+    await assertSucceeds(setDoc(doc(db('sup'), 'anulacionesCobranza/c1'), solicitud('c1', 'sup', { fechaCobranza: '2026-09-14' })))
+  })
+
+  test('aprueba o rechaza solo quien tiene el permiso, nunca el solicitante, solo esos campos', async () => {
+    await seedTodos()
+    await seed((d) => setDoc(doc(d, 'anulacionesCobranza/c1'), solicitud('c1', 'sup')))
+    await assertFails(updateDoc(doc(db('sup'), 'anulacionesCobranza/c1'), resolucion('aprobada', 'sup')))
+    await assertFails(updateDoc(doc(db('tes1'), 'anulacionesCobranza/c1'), resolucion('aprobada', 'tes1')))
+    await assertFails(updateDoc(doc(db('aut1'), 'anulacionesCobranza/c1'), resolucion('rechazada', 'aut1', { notaResolucion: '' })))
+    await assertFails(updateDoc(doc(db('aut1'), 'anulacionesCobranza/c1'), resolucion('aprobada', 'aut1', { importe: 1 })))
+    await assertSucceeds(updateDoc(doc(db('aut1'), 'anulacionesCobranza/c1'), resolucion('aprobada', 'aut1')))
+    // Ya resuelta: no se toca más.
+    await assertFails(updateDoc(doc(db('aut1'), 'anulacionesCobranza/c1'), resolucion('rechazada', 'aut1')))
+    // Y la cobranza sigue inmutable para todos: la marca el server.
+    await assertFails(updateDoc(doc(db('aut1'), 'cobranzas/c1'), { anulacion: { estado: 'anulada', solicitudId: 'c1' } }))
+    await assertFails(updateDoc(doc(db('sup'), 'cobranzas/c1'), { anulacion: { estado: 'anulada', solicitudId: 'c1' } }))
+  })
+
+  test('la lee el que pidió, la oficina y quien autoriza; otro cobrador no', async () => {
+    await seedTodos()
+    await seed((d) => setDoc(doc(d, 'anulacionesCobranza/c1'), solicitud('c1', 'sup')))
+    await assertSucceeds(getDoc(doc(db('sup'), 'anulacionesCobranza/c1')))
+    await assertSucceeds(getDoc(doc(db('aut1'), 'anulacionesCobranza/c1')))
+    await assertSucceeds(getDoc(doc(db('tes1'), 'anulacionesCobranza/c1')))
+    await assertFails(getDoc(doc(db('sup2'), 'anulacionesCobranza/c1')))
   })
 })
 

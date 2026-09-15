@@ -1,4 +1,4 @@
-import { collection, doc, onSnapshot, query, setDoc, where, Timestamp } from 'firebase/firestore'
+import { collection, doc, getDoc, onSnapshot, query, setDoc, where, Timestamp } from 'firebase/firestore'
 import { db } from './firebase'
 import { fireAndForget, onSnapshotError, esperarOEncolar } from './observability'
 import { aCentavos, sumaCentavos } from '../utils/money'
@@ -151,4 +151,10 @@ export const subscribeCobranzasCajaDelDia = (
     ),
     onSnapshotError(callback, 'cobranzas'),
   )
+}
+
+/** Una cobranza por id (para "Hacer el recibo correcto" tras una anulación, 2026-09-15). */
+export const getCobranza = async (id: string): Promise<Cobranza | null> => {
+  const snap = await getDoc(doc(db, COBRANZAS, id))
+  return snap.exists() ? ({ id: snap.id, ...snap.data() } as Cobranza) : null
 }

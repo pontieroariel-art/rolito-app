@@ -1,3 +1,4 @@
+import { cobranzasVigentes } from '@/utils/anulacionCobranza'
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useAlertasMora } from '@/hooks/useAlertasMora'
@@ -43,7 +44,7 @@ export function useClientesConDeuda() {
     if (!uid) return
     const desde = new Date(fecha); desde.setHours(0, 0, 0, 0)
     const hasta = new Date(desde); hasta.setDate(hasta.getDate() + 1)
-    return subscribeCobranzasChoferEnRango(uid, desde, hasta, setCobranzasHoy)
+    return subscribeCobranzasChoferEnRango(uid, desde, hasta, (cs) => setCobranzasHoy(cobranzasVigentes(cs)))
   }, [uid, fecha])
 
   const filas: FilaDeuda[] = useMemo(

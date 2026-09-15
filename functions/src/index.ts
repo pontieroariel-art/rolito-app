@@ -49,6 +49,9 @@ export { syncClientesTangoConnect, syncSaldosTangoConnect, sincronizarClientesTa
 export { altasClientesTango, procesarAltasTangoAhora } from './triggers/tangoAltas'
 export { syncDepositosTango, sincronizarDepositosTangoAhora } from './triggers/tangoDepositos'
 export { publicarTurnosVentanilla } from './triggers/turnosVentanilla'
+// Estado público del muelle (2026-09-15): dársenas ocupadas, para que el chofer que
+// volvió elija entre las libres sin leer remitos ajenos ni la ventanilla.
+export { publicarMuelleEstadoRemito, publicarMuelleEstadoDescarga, publicarMuelleEstadoVentanilla } from './triggers/muelleEstado'
 export { onOrderRollup } from './triggers/rollups'
 export { resetPinProduccion } from './triggers/produccionAuth'
 // "Ver como usuario" (2026-09-10): custom token de solo lectura para el super_admin.
@@ -67,6 +70,10 @@ export { onAnulacionSolicitada, onAnulacionResuelta } from './triggers/anulacion
 // facturación para anularlo en Tango y confirmación por el lector de comprobantes.
 export { onVentaCamionAnulada, onVentaVentanillaAnulada, reconciliarRemitosAnulados } from './triggers/ventasAnuladas'
 export { onDescargaContada } from './triggers/descargaRevision'
+// Anulación de un recibo de cobranza con autorización (2026-09-15): el que cobró
+// pide, un autorizante aprueba, el server marca la cobranza y avisa; la oficina
+// lo anula en Tango y la reconciliación horaria lo confirma.
+export { onAnulacionReciboSolicitada, onAnulacionReciboResuelta, reconciliarRecibosAnulados } from './triggers/anulacionesCobranza'
 export { onDesvioSolicitado, onDesvioResuelto } from './triggers/desviosDescarga'
 export { onDescargaRectificada } from './triggers/descargaRectificada'
 // Aviso de vencimiento del padrón de IIBB. No declara los secrets de ARCA, así

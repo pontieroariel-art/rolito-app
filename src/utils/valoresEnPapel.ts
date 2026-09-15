@@ -1,3 +1,4 @@
+import { cobranzasVigentes } from './anulacionCobranza'
 import type { ChequeRendido, Cobranza, RetencionRendida } from '@/types'
 import { chequesDe, retencionesDe, sumaImportes } from './medios'
 
@@ -16,7 +17,7 @@ export interface ValoresEnPapel { cheques: ChequeEnPapel[]; retenciones: Retenci
 export function valoresEnPapel(cobranzas: Cobranza[]): ValoresEnPapel {
   const cheques: ChequeEnPapel[] = []
   const retenciones: RetencionEnPapel[] = []
-  for (const c of cobranzas) {
+  for (const c of cobranzasVigentes(cobranzas)) {   // un recibo anulado no tiene valores que rendir (2026-09-15)
     for (const ch of chequesDe(c)) cheques.push({ cobranzaId: c.id, numeroRecibo: c.numeroRecibo, clienteNombre: c.clienteNombre, numero: ch.numero, bancoNombre: ch.bancoNombre, fechaAcreditacion: ch.fechaAcreditacion, importe: ch.importe, ...(ch.esEcheq ? { esEcheq: true } : {}) })
     for (const r of retencionesDe(c)) retenciones.push({ cobranzaId: c.id, numeroRecibo: c.numeroRecibo, clienteNombre: c.clienteNombre, tipo: r.tipo, nroCertificado: r.nroCertificado, importe: r.importe })
   }

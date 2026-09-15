@@ -268,6 +268,23 @@ export function aPodar(cache, limiteIso) {
   return out
 }
 
+/**
+ * Secciones `facturas` / `remitos` del doc de índice para un `set(..., { merge: true })`:
+ * las entradas que cambiaron más las podadas marcadas con `borrar` (deleteField). Una sección
+ * SIN nada se omite del todo (2026-09-15): con merge, un mapa vacío `{}` no es "no toques
+ * nada" sino "reemplazá el mapa por vacío", y así se borraron las facturas de 179 clientes a
+ * los que solo les había cambiado un remito.
+ */
+export function seccionesIndice(cambios, poda, borrar) {
+  const out = {}
+  for (const seccion of ['facturas', 'remitos']) {
+    const entradas = { ...(cambios?.[seccion] ?? {}) }
+    for (const clave of poda?.[seccion] ?? []) entradas[clave] = borrar()
+    if (Object.keys(entradas).length) out[seccion] = entradas
+  }
+  return out
+}
+
 /** Cache nuevo = cache viejo + cambios − podados. */
 export function actualizarCache(cache, porCodigo, podados) {
   const out = JSON.parse(JSON.stringify(cache ?? {}))

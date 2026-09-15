@@ -1,12 +1,29 @@
 import { useState } from 'react'
-import { AlertTriangle, CheckCircle2, Clock, FileDown, Share2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { AlertTriangle, Ban, CheckCircle2, Clock, FileDown, RotateCcw, Share2 } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
 import { RETENCION_LABELS } from '@/components/supervisor/RetencionForm'
+import AnularReciboModal from '@/components/cobranzas/AnularReciboModal'
+import { useAuth } from '@/context/AuthContext'
 import { generateReciboCobranzaSupervisor, nombreArchivoReciboSupervisor } from '@/utils/pdf'
 import { compartirArchivo, puedeCompartirArchivos } from '@/utils/compartir'
 import { formatoARS } from '@/utils/money'
+import { cobranzaAnulada, reciboAnulable, textoAnulacionCobranza } from '@/utils/anulacionCobranza'
 import { Cobranza } from '@/types'
+
+/** A dónde va "Hacer el recibo correcto" según quién cobró (misma pantalla de cobro, precargada). */
+export const rutaReemitirRecibo = (c: Cobranza): string =>
+  `${c.origen === 'supervisor' ? '/supervisor/cobrar' : c.origen === 'cobrador' ? '/chofer/cobrar' : '/caja/cobranzas'}?reemitir=${c.id}`
+
+const TONO = { warn: 'text-amber-700', bad: 'text-red-600', neutral: 'text-secundario' } as const
+
+/** Chip del estado de la anulación del recibo (2026-09-15); nada si no hay anulación. */
+export function EstadoAnulacionReciboChip({ c }: { c: Cobranza }) {
+  const t = textoAnulacionCobranza(c.anulacion)
+  if (!t) return null
+  return <span className={`inline-flex items-center gap-1 text-[11px] font-medium ${TONO[t.tono]}`}><Ban size={12} /> {t.texto}</span>
+}
 
 // Tarjeta + detalle de una cobranza de supervisor. Se usa en Inicio (cobrado
 // hoy) y en Cobranzas anteriores. Al tocarla abre el detalle con los medios,
@@ -65,10 +82,16 @@ export function EstadoTangoChip({ c }: { c: Cobranza }) {
 }
 
 export function CobranzaSupervisorCard({ c, sinSubir = false }: { c: Cobranza; sinSubir?: boolean }) {
+  const { user } = useAuth()
   const [abierta, setAbierta] = useState(false)
+  const [anulando, setAnulando] = useState(false)
   const [aviso, setAviso] = useState('')
   const [ocupada, setOcupada] = useState(false)
   const facturas = c.imputaciones?.length ?? 0
+  const anulada = cobranzaAnulada(c)
+  // Anular (2026-09-15): solo el que cobró, sobre un recibo numerado sin anulación en curso.
+  const puedeAnular = !!user && !sinSubir && reciboAnulable(c, user.uid)
+  const propia = user?.uid === c.registradoPor.uid
 
   const entregar = async (compartir: boolean) => {
     setOcupada(true)
@@ -79,11 +102,12 @@ export function CobranzaSupervisorCard({ c, sinSubir = false }: { c: Cobranza; s
   return (
     <>
       <button type="button" onClick={() => setAbierta(true)}
-        className="w-full text-left bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-3 active:scale-[0.99] transition-transform">
+        className={`w-full text-left bg-white rounded-xl border shadow-sm p-3 active:scale-[0.99] transition-transform ${anulada ? 'border-red-200 opacity-75' : 'border-[#D3D1C7]'}`}>
         <div className="flex justify-between items-center gap-2">
-          <p className="text-sm font-medium text-gray-900 truncate">{c.clienteNombre}</p>
-          <p className="text-sm font-semibold text-gray-900 shrink-0">{formatoARS(c.importe)}</p>
+          <p className={`text-sm font-medium truncate ${anulada ? 'text-secundario line-through' : 'text-gray-900'}`}>{c.clienteNombre}</p>
+          <p className={`text-sm font-semibold shrink-0 ${anulada ? 'text-secundario line-through' : 'text-gray-900'}`}>{formatoARS(c.importe)}</p>
         </div>
+        {c.anulacion && <div className="mt-0.5"><EstadoAnulacionReciboChip c={c} /></div>}
         <div className="flex justify-between items-center gap-2 mt-0.5">
           <p className="text-xs text-secundario truncate">
             {c.numeroRecibo ?? 'Sin número'} · {facturas} {facturas === 1 ? 'factura' : 'facturas'}{c.aCuenta ? ` · a cuenta ${formatoARS(c.aCuenta)}` : ''} · {c.fecha.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
@@ -138,17 +162,41 @@ export function CobranzaSupervisorCard({ c, sinSubir = false }: { c: Cobranza; s
               </ul>
             )}
 
+            {c.anulacion && (
+              <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-800 space-y-0.5">
+                <EstadoAnulacionReciboChip c={c} />
+                {c.anulacion.nota ? <p className="text-red-700">{c.anulacion.nota}</p> : null}
+                {anulada && c.anulacion.anuladaPor ? <p className="text-red-700/80">Autorizó {c.anulacion.anuladaPor.nombre}</p> : null}
+              </div>
+            )}
+
             <div className="flex flex-col gap-2 pt-1">
+              {anulada && propia && (
+                <Link to={rutaReemitirRecibo(c)} className="w-full inline-flex items-center justify-center gap-2 h-11 rounded-xl bg-accent text-white font-semibold">
+                  <RotateCcw size={16} /> Hacer el recibo correcto
+                </Link>
+              )}
               <Button onClick={() => entregar(true)} disabled={ocupada} className="w-full">
                 <Share2 size={16} className="mr-2" /> {puedeCompartirArchivos() ? 'Enviar recibo (WhatsApp, mail…)' : 'Enviar recibo'}
               </Button>
               <Button variant="outline" onClick={() => entregar(false)} disabled={ocupada} className="w-full">
                 <FileDown size={16} className="mr-2" /> Descargar PDF
               </Button>
+              {puedeAnular && (
+                <button type="button" onClick={() => setAnulando(true)}
+                  className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-xl border border-red-300 text-red-700 text-sm font-semibold">
+                  <Ban size={16} /> Anular recibo
+                </button>
+              )}
               {aviso && <p className="text-xs text-secundario">{aviso}</p>}
             </div>
           </div>
         </Modal>
+      )}
+
+      {anulando && user && (
+        <AnularReciboModal cobranza={c} actor={{ uid: user.uid, nombre: user.nombre }}
+          onCerrar={(pedida) => { setAnulando(false); if (pedida) { setAbierta(false) } }} />
       )}
     </>
   )

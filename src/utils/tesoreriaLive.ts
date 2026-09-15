@@ -1,3 +1,4 @@
+import { cobranzasVigentes } from './anulacionCobranza'
 import type { Cobranza, Liquidacion, PlantaId, RemitoCarga, Rendicion, VentaCamion, VentaVentanilla } from '@/types'
 import { chequesDe, efectivoDe, retencionesDe, sumaImportes, transferenciaDe } from './medios'
 import { importeCobrado, type VentaConImporte } from './importeCobrado'
@@ -98,6 +99,8 @@ export function resumenLive(d: {
   liquidaciones: Liquidacion[]
   rendiciones: Rendicion[]
 }): ResumenLive {
+  // Recibos anulados con autorización (2026-09-15): fuera de calle, ventanilla y supervisores.
+  d = { ...d, cobranzas: cobranzasVigentes(d.cobranzas) }
   // ── Calle: por identidad del depósito (uid del chofer, o 'dep:<código>').
   const calle = new Map<string, FilaCalle>()
   const fila = (id: string, nombre: string, deposito?: string): FilaCalle => {

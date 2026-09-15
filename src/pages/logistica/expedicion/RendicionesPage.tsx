@@ -29,6 +29,7 @@ import { chequesDe, efectivoDe, retencionesDe, sumaImportes, transferenciaDe } f
 import { nombreClienteVenta } from '@/utils/nombreClienteVenta'
 import { MOTIVOS_DIFERENCIA_LIQUIDACION, PLANTAS, type Sobre, type VentaVentanilla } from '@/types'
 import { TH as th, TD as td } from '@/components/common/tabla'
+import { anulacionCobranzaEnCurso } from '@/utils/anulacionCobranza'
 
 const FORMA: Record<string, string> = { contado_efectivo: 'Efectivo', contado_transferencia: 'Transferencia', cuenta_corriente: 'Cuenta corriente', mixto: 'Mixto' }
 const comprobanteDe = (v: VentaVentanilla) => {
@@ -115,7 +116,9 @@ export default function RendicionesPage() {
     ? `Hay ${mio.cobranzasPendientes} cobranza(s) que todavía no subieron al servidor. Esperá a que suban antes de cerrar.`
     : calc.anulacionesPendientes > 0
       ? `Tenés ${calc.anulacionesPendientes} anulación(es) de factura esperando autorización. Hasta que se resuelvan no se puede cerrar el turno (la venta anulada deja de contar).`
-      : ''
+      : cobranzasTurno.some(anulacionCobranzaEnCurso)
+        ? 'Hay un recibo de cobranza con anulación esperando autorización. Hasta que se resuelva no se puede cerrar el turno (el recibo anulado deja de contar).'
+        : ''
   const ultimoSobre = sobresHoy[0]
 
   if (!user) return null

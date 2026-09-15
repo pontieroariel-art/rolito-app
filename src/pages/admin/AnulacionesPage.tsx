@@ -21,6 +21,7 @@ import { descargarArchivo } from '@/utils/compartir'
 import { MOTIVOS_ANULACION, PLANTAS, type AnulacionVentanilla, type EstadoAnulacion } from '@/types'
 import { TH as th, TD as td } from '@/components/common/tabla'
 import DesviosPorAutorizar from '@/components/expedicion/DesviosPorAutorizar'
+import RecibosPorAutorizar from '@/components/cobranzas/RecibosPorAutorizar'
 
 const LETRA: Record<number, string> = { 1: 'A', 6: 'B', 11: 'C', 3: 'A', 8: 'B', 13: 'C' }
 const nro = (pv: number, n: number) => `${String(pv).padStart(5, '0')}-${String(n).padStart(8, '0')}`
@@ -112,6 +113,8 @@ export default function AnulacionesPage() {
       {/* Faltantes de mercadería de la descarga (2026-09-13): misma bandeja,
           arriba, porque del otro lado hay un cajero esperando para cerrar. */}
       <DesviosPorAutorizar puedeAutorizar={puedeAutorizar} />
+      {/* Recibos de cobranza por anular (2026-09-15): mismo permiso, misma bandeja. */}
+      <RecibosPorAutorizar puedeAutorizar={puedeAutorizar} />
 
       <section className="space-y-3">
         <h2 className="text-xs font-semibold text-secundario uppercase tracking-wide">Anulaciones por autorizar ({ordenadas.length})</h2>

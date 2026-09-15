@@ -151,6 +151,18 @@ export const marcarRegresoRemito = async (
   )
 }
 
+/**
+ * El chofer que volvió dice en qué dársena estacionó (2026-09-15). Una sola vez,
+ * sobre un regreso ya marcado (por él o por seguridad) y sin dársena: las reglas
+ * rechazan cambiarla. Qué bocas están libres lo dice `muelleEstado/{planta}`.
+ */
+export const elegirDarsenaRegreso = async (remito: RemitoCarga, darsena: number): Promise<void> => {
+  await esperarOEncolar(
+    updateDoc(doc(db, REMITOS, remito.id), { 'regreso.darsena': darsena }),
+    { origen: 'elegirDarsenaRegreso', remitoId: remito.id },
+  )
+}
+
 const rangoDia = (dia: Date): [Timestamp, Timestamp] => {
   const desde = new Date(dia); desde.setHours(0, 0, 0, 0)
   const hasta = new Date(desde); hasta.setDate(hasta.getDate() + 1)

@@ -1,3 +1,4 @@
+import { cobranzasVigentes } from './anulacionCobranza'
 import type { Cobranza, Liquidacion, VentaVentanilla } from '@/types'
 import { chequesDe, efectivoDe, retencionesDe, sumaImportes, transferenciaDe } from './medios'
 import { sumaCobrada } from './importeCobrado'
@@ -66,6 +67,7 @@ export function calcularMostrador(
   liquidacionesRecibidas: Liquidacion[] = [],
 ): MostradorCalculado {
   const ventas = todasLasVentas.filter((v) => !ventaAnulada(v))
+  cobranzas = cobranzasVigentes(cobranzas)   // recibos anulados con autorización (2026-09-15): no cuentan
   const suma = (filtro: (v: VentaVentanilla) => boolean) => sumaCobrada(ventas.filter(filtro))
   const contado = (v: VentaVentanilla) => v.canal !== 'promo'
   const promo = (v: VentaVentanilla) => v.canal === 'promo'

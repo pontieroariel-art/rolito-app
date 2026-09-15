@@ -1,3 +1,4 @@
+import { cobranzasVigentes } from './anulacionCobranza'
 // Rendición de fondos a tesorería (2026-09-14): lógica PURA del sobre.
 //
 // Un sobre es lo que alguien rinde: el sistema dice cuánto tiene que haber,
@@ -93,6 +94,7 @@ export function sistemaVentanilla(f: FuentesVentanilla): SobreSistema {
 
 /** Cheques y retenciones de las cobranzas propias, con la referencia al recibo y al cliente (ChequeRendido / RetencionRendida). */
 export function valoresRendidosDe(cobranzas: Cobranza[]): { cheques: ChequeRendido[]; retenciones: RetencionRendida[] } {
+  cobranzas = cobranzasVigentes(cobranzas)   // recibos anulados (2026-09-15): sus valores no van al sobre
   const ref = (c: Cobranza) => ({ cobranzaId: c.id, numeroRecibo: c.numeroRecibo, clienteNombre: c.clienteNombre })
   return {
     cheques:     cobranzas.flatMap((c) => chequesDe(c).map((ch) => ({ ...ch, ...ref(c) }))),

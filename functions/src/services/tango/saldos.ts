@@ -113,6 +113,7 @@ export interface CobranzaParaDescuento {
   empresa?:      unknown
   imputaciones?: unknown
   tango?:        { estado?: unknown } | null
+  anulacion?:    { estado?: unknown } | null
   /** Pago a cuenta (2026-09-08): parte de los valores sin factura. Mientras Tango no lo
    *  confirme, aparece en la composición como un recibo con saldo NEGATIVO (a favor). */
   aCuenta?:      unknown
@@ -158,6 +159,7 @@ export function descuentosDeCobranzas(cobranzas: CobranzaParaDescuento[]): Map<s
   const porCliente = new Map<string, DescuentoCliente>()
   for (const c of cobranzas) {
     if (c.tango?.estado === 'confirmado') continue
+    if (c.anulacion?.estado === 'anulada') continue   // recibo anulado con autorización (2026-09-15): no descuenta
     const imputaciones = Array.isArray(c.imputaciones) ? c.imputaciones : []
     const empresa: Empresa = esEmpresa(c.empresa) ? c.empresa : 'redonhielo'
     const aCuenta = comprobanteACuenta(c, empresa)

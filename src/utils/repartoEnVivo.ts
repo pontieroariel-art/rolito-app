@@ -1,3 +1,4 @@
+import { cobranzasVigentes } from './anulacionCobranza'
 import { CambioCamion, Cobranza, DescargaCamion, RemitoCarga, VentaCamion } from '../types'
 import { calcularLiquidacion, LiquidacionCalculada } from './liquidacion'
 import { ventasVigentes } from './anulacionVenta'
@@ -47,6 +48,7 @@ export function agruparRepartoEnVivo(
   cobranzasCalle: Cobranza[],
 ): CamionEnVivo[] {
   // Facturas anuladas con nota de crédito: fuera del reparto en vivo (2026-09-11).
+  cobranzasCalle = cobranzasVigentes(cobranzasCalle)
   ventas = ventasVigentes(ventas)
   const choferes = new Map<string, { nombre: string }>()
   const nombrar = (id: string, nombre: string) => { if (id && !choferes.has(id)) choferes.set(id, { nombre }) }

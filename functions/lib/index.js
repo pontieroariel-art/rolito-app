@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.syncDepositosTango = exports.procesarAltasTangoAhora = exports.altasClientesTango = exports.onConsultaSaldoPendiente = exports.sincronizarSaldosTangoAhora = exports.sincronizarClientesTangoAhora = exports.syncSaldosTangoConnect = exports.syncClientesTangoConnect = exports.sincronizarPreciosTangoAhora = exports.syncPreciosTango = exports.barridoOutboxTango = exports.onOutboxPendiente = exports.onOutboxConfirmado = exports.onCobranzaCreada = exports.onDescargaCamionCreada = exports.onRemitoCargaCreado = exports.onAnulacionEmitida = exports.onVentaVentanillaFacturada = exports.onVentaVentanillaCreada = exports.onVentaCamionFacturada = exports.onVentaCamionCreada = exports.onProduccionPalletCreado = exports.onConsultaRespondida = exports.syncSaldosTango = exports.syncClientesTango = exports.enviarResumenAdminDiario = exports.onHistorialAdminAltoRiesgo = exports.backupAuthUsers = exports.onVisitaSupervisorCreada = exports.onPedidoSupervisorCreado = exports.avisarComodatosPorVencer = exports.onTicketCreado = exports.onStockBajo = exports.onTicketCerrado = exports.generarPedidosRecurrentes = exports.orsDirections = exports.mirrorDriverLocation = exports.validarPreciosPedido = exports.notifyReprogramado = exports.notifyCerca = exports.sendPush = exports.deleteAuthUsers = exports.onOrderEnCamino = exports.onOrderConfirmado = exports.onOrderCreated = exports.onClienteIndexado = exports.onUserClaims = exports.onClienteCreadoPorStaff = exports.onUserApproved = exports.onUserRegistered = void 0;
-exports.presentarCotRemito = exports.onRemitoCargaCotSolicitado = exports.enviarComprobantePorMail = exports.avisarPadronIIBB = exports.onDescargaRectificada = exports.onDesvioResuelto = exports.onDesvioSolicitado = exports.onDescargaContada = exports.reconciliarRemitosAnulados = exports.onVentaVentanillaAnulada = exports.onVentaCamionAnulada = exports.onAnulacionResuelta = exports.onAnulacionSolicitada = exports.reconciliarFacturasArca = exports.onVentaVentanillaContadoFacturar = exports.onVentaContadoFacturar = exports.crearTokenImpersonacion = exports.resetPinProduccion = exports.onOrderRollup = exports.publicarTurnosVentanilla = exports.sincronizarDepositosTangoAhora = void 0;
+exports.presentarCotRemito = exports.onRemitoCargaCotSolicitado = exports.enviarComprobantePorMail = exports.avisarPadronIIBB = exports.onDescargaRectificada = exports.onDesvioResuelto = exports.onDesvioSolicitado = exports.reconciliarRecibosAnulados = exports.onAnulacionReciboResuelta = exports.onAnulacionReciboSolicitada = exports.onDescargaContada = exports.reconciliarRemitosAnulados = exports.onVentaVentanillaAnulada = exports.onVentaCamionAnulada = exports.onAnulacionResuelta = exports.onAnulacionSolicitada = exports.reconciliarFacturasArca = exports.onVentaVentanillaContadoFacturar = exports.onVentaContadoFacturar = exports.crearTokenImpersonacion = exports.resetPinProduccion = exports.onOrderRollup = exports.publicarMuelleEstadoVentanilla = exports.publicarMuelleEstadoDescarga = exports.publicarMuelleEstadoRemito = exports.publicarTurnosVentanilla = exports.sincronizarDepositosTangoAhora = void 0;
 const app_1 = require("firebase-admin/app");
 const v2_1 = require("firebase-functions/v2");
 (0, app_1.initializeApp)();
@@ -102,6 +102,12 @@ Object.defineProperty(exports, "syncDepositosTango", { enumerable: true, get: fu
 Object.defineProperty(exports, "sincronizarDepositosTangoAhora", { enumerable: true, get: function () { return tangoDepositos_1.sincronizarDepositosTangoAhora; } });
 var turnosVentanilla_1 = require("./triggers/turnosVentanilla");
 Object.defineProperty(exports, "publicarTurnosVentanilla", { enumerable: true, get: function () { return turnosVentanilla_1.publicarTurnosVentanilla; } });
+// Estado público del muelle (2026-09-15): dársenas ocupadas, para que el chofer que
+// volvió elija entre las libres sin leer remitos ajenos ni la ventanilla.
+var muelleEstado_1 = require("./triggers/muelleEstado");
+Object.defineProperty(exports, "publicarMuelleEstadoRemito", { enumerable: true, get: function () { return muelleEstado_1.publicarMuelleEstadoRemito; } });
+Object.defineProperty(exports, "publicarMuelleEstadoDescarga", { enumerable: true, get: function () { return muelleEstado_1.publicarMuelleEstadoDescarga; } });
+Object.defineProperty(exports, "publicarMuelleEstadoVentanilla", { enumerable: true, get: function () { return muelleEstado_1.publicarMuelleEstadoVentanilla; } });
 var rollups_1 = require("./triggers/rollups");
 Object.defineProperty(exports, "onOrderRollup", { enumerable: true, get: function () { return rollups_1.onOrderRollup; } });
 var produccionAuth_1 = require("./triggers/produccionAuth");
@@ -131,6 +137,13 @@ Object.defineProperty(exports, "onVentaVentanillaAnulada", { enumerable: true, g
 Object.defineProperty(exports, "reconciliarRemitosAnulados", { enumerable: true, get: function () { return ventasAnuladas_1.reconciliarRemitosAnulados; } });
 var descargaRevision_1 = require("./triggers/descargaRevision");
 Object.defineProperty(exports, "onDescargaContada", { enumerable: true, get: function () { return descargaRevision_1.onDescargaContada; } });
+// Anulación de un recibo de cobranza con autorización (2026-09-15): el que cobró
+// pide, un autorizante aprueba, el server marca la cobranza y avisa; la oficina
+// lo anula en Tango y la reconciliación horaria lo confirma.
+var anulacionesCobranza_1 = require("./triggers/anulacionesCobranza");
+Object.defineProperty(exports, "onAnulacionReciboSolicitada", { enumerable: true, get: function () { return anulacionesCobranza_1.onAnulacionReciboSolicitada; } });
+Object.defineProperty(exports, "onAnulacionReciboResuelta", { enumerable: true, get: function () { return anulacionesCobranza_1.onAnulacionReciboResuelta; } });
+Object.defineProperty(exports, "reconciliarRecibosAnulados", { enumerable: true, get: function () { return anulacionesCobranza_1.reconciliarRecibosAnulados; } });
 var desviosDescarga_1 = require("./triggers/desviosDescarga");
 Object.defineProperty(exports, "onDesvioSolicitado", { enumerable: true, get: function () { return desviosDescarga_1.onDesvioSolicitado; } });
 Object.defineProperty(exports, "onDesvioResuelto", { enumerable: true, get: function () { return desviosDescarga_1.onDesvioResuelto; } });

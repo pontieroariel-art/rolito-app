@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   aPodar, actualizarCache, cbteTipoDe, claveFactura, diferencias, familiaDe, huella, mapearFacturas, mapearRemitos,
-  parsearNumeroTango, relacionDeFilas, tipoCorto,
+  parsearNumeroTango, relacionDeFilas, seccionesIndice, tipoCorto,
 } from './comprobantes-tango.mjs'
 
 const f = (y, m, d) => new Date(y, m - 1, d)
@@ -129,5 +129,22 @@ describe('diferencias, poda y cache', () => {
     const nuevo = actualizarCache(cache, { 'PA.003': { facturas: { FAC_2: { h: 'bbb', fecha: '2026-08-01', importe: 9 } }, remitos: {} } }, podados)
     expect(nuevo).toEqual({ 'PA.003': { facturas: { FAC_1: { h: 'aaa', fecha: '2026-09-02' }, FAC_2: { h: 'bbb', fecha: '2026-08-01' } }, remitos: {} } })
     expect(cache['PA.003'].facturas.FAC_0).toBeDefined()   // no muta el original
+  })
+})
+
+describe('seccionesIndice (lo que va en el set con merge)', () => {
+  const BORRAR = Symbol('deleteField')
+  const borrar = () => BORRAR
+
+  it('omite la sección que no tiene cambios ni poda: un {} con merge borraría el mapa entero', () => {
+    const soloRemito = seccionesIndice({ facturas: {}, remitos: { R1: { fecha: '2026-09-14', h: 'c' } } }, undefined, borrar)
+    expect(soloRemito).toEqual({ remitos: { R1: { fecha: '2026-09-14', h: 'c' } } })
+    expect('facturas' in soloRemito).toBe(false)
+    expect(seccionesIndice(undefined, undefined, borrar)).toEqual({})
+  })
+
+  it('las podadas van marcadas para borrar junto con los cambios', () => {
+    const r = seccionesIndice({ facturas: { FAC_2: { h: 'b' } }, remitos: {} }, { facturas: ['FAC_0'], remitos: ['R0'] }, borrar)
+    expect(r).toEqual({ facturas: { FAC_2: { h: 'b' }, FAC_0: BORRAR }, remitos: { R0: BORRAR } })
   })
 })

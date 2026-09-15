@@ -324,8 +324,14 @@ export interface RemitoCarga {
    * contamos la descarga", así que el camión que volvió y espera conteo era
    * indistinguible de uno que sigue vendiendo a 40 km. Con esto, el TV del
    * muelle puede cantar "VOLVIERON — FALTA CONTAR".
+   *
+   * `darsena` (2026-09-15, pedido de Ariel): el camión que vuelve estaciona
+   * DIRECTO en una boca para descargar, así que el chofer, después de marcar
+   * que volvió, elige en qué dársena está entre las libres que le publica el
+   * servidor (`muelleEstado/{planta}`). El TV la pinta en rojo hasta que el
+   * muelle cuente. Sin dársena = volvió y espera que se libere una.
    */
-  regreso?:      { uid: string; nombre: string; hora: Timestamp }
+  regreso?:      { uid: string; nombre: string; hora: Timestamp; darsena?: number }
   tango?:       RemitoTangoEstado
   // COT de ARBA (2026-09-10): kilos totales de la carga (según config/cot.productos),
   // lo que caja declara al emitir y lo que ARBA devolvió (solo lo escribe el server).
@@ -682,6 +688,72 @@ export interface Cobranza {
    *  del cliente en Tango (2026-09-08). `importe` = Σ imputado + aCuenta = Σ valores recibidos. */
   aCuenta?:      number
   tango?:        RemitoTangoEstado  // write-back del recibo en Tango (Fase 4)
+  /** Anulación del recibo con autorización (2026-09-15). La escribe SOLO el server. */
+  anulacion?:    AnulacionEnCobranza
+}
+
+// ── Anulación de un recibo de cobranza (2026-09-15, pedido de Ariel) ─────────
+// Mismo circuito que la factura: el que cobró pide desde su rendición (solo sus
+// recibos, mientras su día no esté cerrado), quien tiene `autorizaAnulaciones`
+// aprueba o rechaza desde /anulaciones, y el server marca la cobranza. El recibo
+// anulado deja de contar en rendición, liquidación, tesorería y saldos. En Tango
+// lo anula la oficina (aviso por push) hasta que exista el writer SQL; el server
+// lo confirma cuando el lector de comprobantes ve el recibo con ESTADO 'ANU'.
+export type MotivoAnulacionRecibo =
+  | 'cheque_equivocado' | 'importe_equivocado' | 'cliente_equivocado' | 'facturas_equivocadas' | 'medio_equivocado' | 'otro'
+export const MOTIVOS_ANULACION_RECIBO: Record<MotivoAnulacionRecibo, string> = {
+  cheque_equivocado:    'Datos del cheque equivocados (número, banco, fecha)',
+  importe_equivocado:   'Importe equivocado',
+  cliente_equivocado:   'Cliente equivocado',
+  facturas_equivocadas: 'Facturas imputadas equivocadas',
+  medio_equivocado:     'Medio de pago equivocado',
+  otro:                 'Otro',
+}
+
+export interface AnulacionEnCobranza {
+  estado:         EstadoAnulacionEnVenta
+  solicitudId:    string
+  motivo?:        MotivoAnulacionRecibo
+  nota?:          string
+  anuladaPor?:    { uid: string; nombre: string }
+  anuladaEn?:     Timestamp
+  fechaCobranza?: string   // yyyy-MM-dd
+  /** Recibo en Tango: la oficina lo anula a mano hasta que la app lo haga sola. */
+  tango?:         { estado: 'pendiente_oficina' | 'confirmado' | 'no_aplica'; en?: Timestamp }
+}
+
+export interface AnulacionCobranza {
+  id:             string          // = cobranzaId (una solicitud por recibo)
+  cobranzaId:     string
+  origen:         Cobranza['origen']
+  plantaId?:      PlantaId
+  cobradorId:     string
+  cobradorNombre: string
+  clienteId:      string
+  clienteNombre:  string
+  numeroRecibo?:  string          // 'RS-000168'
+  reciboTango?:   string          // 'X0110600000168' si ya estaba en Tango
+  empresa?:       EmpresaTango
+  codigoTango?:   string
+  importe:        number
+  /** Snapshot para la bandeja: qué había en el recibo. */
+  resumen: {
+    efectivo:      number
+    transferencia: number
+    cheques:       string[]       // "00005746 · Banco Nación · $200.000,00"
+    retenciones:   number
+    facturas:      string[]       // "FAC A0010100282609 · $126.806,20"
+    aCuenta:       number
+  }
+  fechaCobranza:  string          // yyyy-MM-dd (las reglas cotejan el cierre de ese día)
+  motivo:         MotivoAnulacionRecibo
+  nota:           string
+  estado:         EstadoAnulacion
+  solicitadoPor:  { uid: string; nombre: string }
+  solicitadaEn:   Timestamp
+  resueltaPor:    { uid: string; nombre: string } | null
+  resueltaEn?:    Timestamp
+  notaResolucion?: string
 }
 
 // ── Cobranzas de supervisor: composición de saldos de Tango ───────────────────
@@ -1527,6 +1599,21 @@ export const DARSENAS_POR_PLANTA: Record<PlantaId, number> = {
 export const DARSENAS_VENTANILLA: Record<PlantaId, number[]> = {
   torcuato: [4, 5],
   merlo:    [4, 5],
+}
+
+/**
+ * Estado PÚBLICO del muelle (`muelleEstado/{plantaId}`, 2026-09-15): qué dársenas están
+ * ocupadas ahora y por qué. Lo escribe el servidor (`publicarMuelleEstado*` en functions)
+ * cada vez que cambia un remito de carga, una descarga o un turno de ventanilla; lo lee el
+ * chofer que volvió para elegir SOLO entre las bocas libres (él no puede leer los remitos
+ * de los demás ni la ventanilla). Sanitizado a propósito: número de boca, tipo y una
+ * etiqueta corta (patente o turno), nada de cargas ni montos.
+ */
+export interface MuelleEstado {
+  plantaId:    PlantaId
+  fecha:       string   // yyyy-mm-dd del día operativo
+  ocupadas:    Record<string, { tipo: 'carga' | 'regreso' | 'ventanilla'; etiqueta: string }>
+  actualizado: Timestamp
 }
 
 // ── Producción de hielo ───────────────────────────────────────────────────────

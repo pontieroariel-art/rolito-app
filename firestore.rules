@@ -1177,18 +1177,40 @@ service cloud.firestore {
       //
       // `!('regreso' in resource.data)` hace que sea IRREPETIBLE: el segundo que
       // toque rebota, así la hora de llegada no se puede correr después.
+      function darsenaValida(regreso) {
+        return !('darsena' in regreso)
+          || (regreso.darsena is int && regreso.darsena >= 1 && regreso.darsena <= 20);
+      }
       function marcaRegreso() {
         return resource.data.estado == 'salido'
           && !('regreso' in resource.data)
           && request.resource.data.regreso.uid == request.auth.uid
+          && darsenaValida(request.resource.data.regreso)
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['regreso']);
       }
       allow update: if request.auth != null && isSeguridadDe(resource.data.plantaId) && marcaRegreso();
-      // El chofer solo en SU remito: es la única escritura que tiene en la
-      // colección, y no puede marcar el regreso del camión de otro.
-      allow update: if request.auth != null && isChofer()
+      // El chofer que volvió elige en qué dársena estacionó (2026-09-15): UNA vez, sobre
+      // un regreso ya marcado (por él o por seguridad en el portón) que todavía no tiene
+      // dársena. No toca uid/nombre/hora del regreso ni nada más del remito. Que la boca
+      // esté libre lo controla la app con `muelleEstado`; acá solo se cuida el dato.
+      function eligeDarsena() {
+        return resource.data.estado == 'salido'
+          && 'regreso' in resource.data
+          && !('darsena' in resource.data.regreso)
+          && request.resource.data.regreso.darsena is int
+          && request.resource.data.regreso.darsena >= 1 && request.resource.data.regreso.darsena <= 20
+          && request.resource.data.regreso.diff(resource.data.regreso).affectedKeys().hasOnly(['darsena'])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['regreso']);
+      }
+      // El chofer solo en SU remito: marcar el regreso o elegir la dársena son sus
+      // únicas escrituras en la colección, y no puede tocar el camión de otro. UNA
+      // sola cláusula (2026-09-15): con dos, la request del chofer sumaba las
+      // evaluaciones de todos los `allow update` de arriba y pasaba el tope de 1000
+      // expresiones. El uid va primero porque es lo barato.
+      allow update: if request.auth != null
         && resource.data.choferId == request.auth.uid
-        && marcaRegreso();
+        && isChofer()
+        && (marcaRegreso() || eligeDarsena());
 
       allow delete: if false;
     }
@@ -1324,6 +1346,16 @@ service cloud.firestore {
     // del comprobante). Ver plan del módulo expedición.
     match /turnosPublicos/{plantaId} {
       allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // ── Expedición: estado público del muelle (2026-09-15) ─────────────────
+    // Derivado sanitizado que escribe la Cloud Function publicarMuelleEstado*:
+    // qué dársenas están ocupadas (número, tipo, patente o turno). Lo lee el
+    // chofer que volvió para elegir SOLO entre las bocas libres, sin abrirle
+    // los remitos de los demás ni la ventanilla. Sin sesiones anónimas.
+    match /muelleEstado/{plantaId} {
+      allow read: if esNoAnonimo();
       allow write: if false;
     }
 
@@ -1816,6 +1848,69 @@ service cloud.firestore {
         && request.resource.data.get('origen', '') == 'facturacion'
         && request.resource.data.plantaId in ['torcuato', 'merlo']
         && ventaDeDiaCerradoAnulable();
+
+      allow update: if request.auth != null && puedeAutorizarAnulaciones()
+        && resource.data.estado in ['pendiente', 'error']
+        && request.resource.data.estado in ['aprobada', 'rechazada']
+        && request.resource.data.resueltaPor is map
+        && request.resource.data.resueltaPor.uid == request.auth.uid
+        && resource.data.solicitadoPor.uid != request.auth.uid
+        && (request.resource.data.estado == 'aprobada'
+            || (request.resource.data.notaResolucion is string && request.resource.data.notaResolucion.size() > 0))
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['estado', 'resueltaPor', 'resueltaEn', 'notaResolucion']);
+
+      allow delete: if false;
+    }
+
+    // ── Anulación de un recibo de cobranza con autorización (2026-09-15) ─────
+    // anulacionesCobranza/{cobranzaId}: el que cobró pide anular SU recibo
+    // (motivo obligatorio), quien tiene `autorizaAnulaciones` aprueba o rechaza,
+    // y el server marca `cobranzas.anulacion` (el cliente nunca toca la
+    // cobranza: sigue inmutable). Mismo molde que anulacionesVentanilla.
+    //
+    // Solo mientras el día del que cobró no esté cerrado: para el supervisor y
+    // el chofer, que no exista `liquidaciones/{fecha}_{uid}`; para el cajero,
+    // que no exista `rendiciones/{fecha}_{uid}`. Un recibo con anulación en
+    // curso o ya anulado no admite otra solicitud (salvo tras un rechazo).
+    match /anulacionesCobranza/{cobranzaId} {
+      function cobranzaDeLaSolicitud() {
+        return get(/databases/$(database)/documents/cobranzas/$(cobranzaId)).data;
+      }
+      function reciboAnulable(c) {
+        let a = c.get('anulacion', {});
+        return c.registradoPor.uid == request.auth.uid
+          && c.get('numeroRecibo', '') is string && c.get('numeroRecibo', '').size() > 0
+          && (a.get('estado', 'rechazada') in ['rechazada', 'error']);
+      }
+      function diaAbierto(c) {
+        let d = request.resource.data;
+        return d.fechaCobranza is string
+          && (c.origen == 'caja'
+              ? !exists(/databases/$(database)/documents/rendiciones/$(d.fechaCobranza + '_' + request.auth.uid))
+              : !exists(/databases/$(database)/documents/liquidaciones/$(d.fechaCobranza + '_' + request.auth.uid)));
+      }
+      function solicitudReciboBienFormada() {
+        let d = request.resource.data;
+        return d.cobranzaId == cobranzaId
+          && d.cobradorId == request.auth.uid
+          && d.solicitadoPor.uid == request.auth.uid
+          && d.estado == 'pendiente'
+          && d.resueltaPor == null
+          && d.motivo is string && d.motivo.size() > 0
+          && d.importe is number;
+      }
+
+      allow read: if request.auth != null
+        && (isCaja() || isTesoreria() || isOperator() || isManager() || isGerenteGeneral() || isFacturacion()
+            || puedeAutorizarAnulaciones()
+            || resource.data.solicitadoPor.uid == request.auth.uid);
+
+      allow create: if request.auth != null
+        && hasAlguno(['supervisor', 'chofer', 'caja', 'super_admin'])
+        && solicitudReciboBienFormada()
+        && reciboAnulable(cobranzaDeLaSolicitud())
+        && diaAbierto(cobranzaDeLaSolicitud());
 
       allow update: if request.auth != null && puedeAutorizarAnulaciones()
         && resource.data.estado in ['pendiente', 'error']

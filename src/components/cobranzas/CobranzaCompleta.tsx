@@ -52,6 +52,8 @@ export interface CobranzaCompletaProps {
   volverA:    string
   /** Ancho del contenido: el supervisor y el chofer son mobile (max-w-md); caja es una PC. */
   ancho?:     'md' | '3xl'
+  /** "Hacer el recibo correcto" (2026-09-15): recibo anulado que se precarga (cliente, facturas y medios) para corregir solo lo que estaba mal. */
+  reemitirDe?: Cobranza | null
 }
 
 // Cobranza COMPLETA de cuenta corriente — la misma para supervisor, ventanilla
@@ -60,13 +62,14 @@ export interface CobranzaCompletaProps {
 // (total o parcial) → medios de pago (efectivo / transferencia / cheques /
 // retenciones) → recibo numerado (una sola serie RS- para toda la empresa,
 // que en Tango entra por el talonario 1106/1108) → cola tango-outbox.
-export default function CobranzaCompleta({ origen, plantaId, cajaSesionId, clienteInicial, volverA, ancho = 'md' }: CobranzaCompletaProps) {
+export default function CobranzaCompleta({ origen, plantaId, cajaSesionId, clienteInicial, volverA, ancho = 'md', reemitirDe = null }: CobranzaCompletaProps) {
   const { user } = useAuth()
   const online = useOnline()
+  const [precargado, setPrecargado] = useState(false)
   // Búsqueda con el índice liviano (2026-09-10); la ficha completa se baja al elegir.
   const { clientes, loading: loadingClientes } = useClientesIndex()
 
-  const [clienteId, setClienteId] = useState(clienteInicial ?? '')
+  const [clienteId, setClienteId] = useState(clienteInicial ?? reemitirDe?.clienteId ?? '')
   const [filas, setFilas] = useState<Record<string, FilaImputacion>>({})
   const [efectivoStr, setEfectivoStr] = useState('')
   const [transferenciaStr, setTransferenciaStr] = useState('')
@@ -114,6 +117,36 @@ export default function CobranzaCompleta({ origen, plantaId, cajaSesionId, clien
   }, [clienteId])
 
   const comprobantes = useMemo(() => saldo?.comprobantes ?? [], [saldo])
+
+  // "Hacer el recibo correcto" (2026-09-15): con el saldo del cliente ya cargado,
+  // se marcan las mismas facturas con los mismos importes y se copian los medios
+  // del recibo anulado, una sola vez. Si una factura no aparece es porque la
+  // oficina todavía no anuló el recibo en Tango (sigue figurando cobrada): se
+  // avisa abajo y el cobrador la tilda a mano cuando aparezca.
+  useEffect(() => {
+    if (!reemitirDe || precargado || cargandoSaldo || !cliente || clienteId !== reemitirDe.clienteId) return
+    const m = reemitirDe.medios
+    const aStr = (n: number) => (n > 0 ? String(n).replace('.', ',') : '')
+    if (m) {
+      setEfectivoStr(aStr(m.efectivo))
+      setTransferenciaStr(aStr(m.transferencia))
+      setCheques(m.cheques.map((ch) => ({ ...ch })))
+      setRetenciones(m.retenciones.map((r) => ({ ...r })))
+    }
+    const nuevas: Record<string, FilaImputacion> = {}
+    for (const imp of reemitirDe.imputaciones ?? []) {
+      const c = comprobantes.find((x) => x.tipo === imp.comprobanteTipo && x.numero === imp.comprobanteNumero && x.saldoPendiente > 0)
+      if (c) nuevas[claveComp(c)] = { seleccionada: true, importeStr: aStr(Math.min(imp.importeImputado, c.saldoPendiente)) }
+    }
+    setFilas(nuevas)
+    setPrecargado(true)
+  }, [reemitirDe, precargado, cargandoSaldo, cliente, clienteId, comprobantes])
+  const facturasQueFaltan = useMemo(() => {
+    if (!reemitirDe || !precargado) return []
+    return (reemitirDe.imputaciones ?? [])
+      .filter((imp) => !comprobantes.some((x) => x.tipo === imp.comprobanteTipo && x.numero === imp.comprobanteNumero && x.saldoPendiente > 0))
+      .map((imp) => `${imp.comprobanteTipo} ${imp.comprobanteNumero}`)
+  }, [reemitirDe, precargado, comprobantes])
 
   // Bloques por empresa (y dentro por código si el CUIT tiene varios): cada
   // bloque es un recibo posible; al tildar una factura, los demás se apagan.
@@ -307,6 +340,14 @@ export default function CobranzaCompleta({ origen, plantaId, cajaSesionId, clien
 
   return (
     <div className={`${anchoClase} mx-auto p-4 space-y-4 pb-8`}>
+      {reemitirDe && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <p><b>Recibo correcto en lugar del {reemitirDe.numeroRecibo ?? 'anulado'}.</b> Vienen precargados el cliente, las facturas y los valores del recibo anulado: corregí solo lo que estaba mal y confirmá.</p>
+          {facturasQueFaltan.length > 0 && (
+            <p className="text-xs mt-1">No aparecen todavía: {facturasQueFaltan.join(', ')}. La oficina aún no anuló el recibo viejo en Tango, así que esas facturas siguen figurando cobradas. Cuando aparezcan, tildalas a mano.</p>
+          )}
+        </div>
+      )}
       <div>
         <label className="text-xs text-secundario mb-1 block">Cliente</label>
         <ClienteCombobox items={itemsTango} value={clienteId} onChange={setClienteId} placeholder="Buscar cliente…" />

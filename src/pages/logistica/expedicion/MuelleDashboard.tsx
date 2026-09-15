@@ -469,6 +469,7 @@ export default function MuelleDashboard() {
                     <option key={r.id} value={`rem:${r.id}`}>
                       {r.codigo} · {r.camionLabel} · {r.choferNombre}
                       {idsDeAyer.has(r.id) ? ' · salió ayer' : ''}
+                      {r.regreso?.darsena && !yaDescargados.has(r.choferId) ? ` · volvió, en dársena ${r.regreso.darsena}` : ''}
                       {yaDescargados.has(r.choferId) ? ' · ya contado' : ''}
                     </option>
                   ))}

@@ -1,3 +1,4 @@
+import { cobranzasVigentes } from './anulacionCobranza'
 import type { Cobranza, Liquidacion } from '@/types'
 import { chequesDe, efectivoDe, retencionesDe, sumaImportes, transferenciaDe } from './medios'
 
@@ -47,7 +48,7 @@ export function reciboDelActa(c: Cobranza): ReciboDelActa {
 
 /** Una fila por persona que rindió al cajero, en el orden de las liquidaciones. */
 export function personasDelActa(liquidaciones: Liquidacion[], cobranzas: Cobranza[]): PersonaDelActa[] {
-  const porId = new Map(cobranzas.map((c) => [c.id, c]))
+  const porId = new Map(cobranzasVigentes(cobranzas).map((c) => [c.id, c]))   // recibos anulados (2026-09-15) fuera del acta
   return liquidaciones.map((l) => {
     const ids = l.cobranzasIds ?? []
     const propias = ids.map((id) => porId.get(id)).filter((c): c is Cobranza => !!c)

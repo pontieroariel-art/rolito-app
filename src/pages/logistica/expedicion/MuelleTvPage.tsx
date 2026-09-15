@@ -9,6 +9,7 @@ import {
   DARSENAS_POR_PLANTA, DARSENAS_VENTANILLA, DescargaCamion, PLANTAS, RemitoCarga, VentaVentanilla,
 } from '@/types'
 import { nombreClienteVenta } from '@/utils/nombreClienteVenta'
+import { describirComprobante } from '@/utils/comprobanteDeVenta'
 import {
   EVENTOS, SONIDOS, guardarSonidos, leerSonidos, tocarSonido,
   type EventoMuelle, type SonidoMuelle, type SonidosPorEvento,
@@ -35,6 +36,9 @@ export default function MuelleTvPage() {
   const plantaId = user?.planta ?? 'torcuato'
   const totalDarsenas = DARSENAS_POR_PLANTA[plantaId]
   const dVentanilla   = DARSENAS_VENTANILLA[plantaId]
+  // De izquierda a derecha como se ven desde la tele: 5 4 3 2 1. Si en Merlo la numeración
+  // va al revés, este es el único lugar que hay que tocar.
+  const ordenFisico   = useMemo(() => Array.from({ length: totalDarsenas }, (_, i) => totalDarsenas - i), [totalDarsenas])
   const fecha = useFechaDelDia()
 
   const remitos = useRemitosCargaDelDia(plantaId, fecha)
@@ -189,18 +193,12 @@ export default function MuelleTvPage() {
     .filter((r) => r.regreso && !contados.has(r.choferId))
     .sort((a, b) => (a.regreso!.hora.toMillis() - b.regreso!.hora.toMillis())),
   [remitos, contados])
+  // El que volvió y ya está en una boca se pinta EN esa boca; el que todavía no
+  // tiene dársena (la marcó seguridad en el portón, o no había ninguna libre)
+  // queda en el bloque de abajo hasta que el chofer la elija.
+  const retornoEnDarsena   = (n: number) => retornos.find((r) => r.regreso?.darsena === n)
+  const retornosSinDarsena = useMemo(() => retornos.filter((r) => !r.regreso?.darsena), [retornos])
 
-  const paraJuntar = useMemo(() => {
-    const m = new Map<string, { productoId: string; nombre: string; cantidad: number }>()
-    colaTurnos.filter((v) => v.turnoEstado === 'en_espera').forEach((v) =>
-      v.items.forEach((i) => {
-        const f = m.get(i.productoId) ?? { productoId: i.productoId, nombre: i.nombre, cantidad: 0 }
-        f.cantidad += i.cantidad
-        m.set(i.productoId, f)
-      }),
-    )
-    return [...m.values()]
-  }, [colaTurnos])
 
   const llamadoReciente = ventanillas.find((v) =>
     v.turnoEstado === 'llamado' && v.llamadoAt && (ahora - v.llamadoAt.toMillis()) < 45_000)
@@ -235,60 +233,27 @@ export default function MuelleTvPage() {
         </p>
       </div>
 
-      {/* Zona 1 (dársenas de camión) + Zona 3 (retornos) */}
-      <div className="flex gap-4" style={{ height: 516 }}>
-        <div className="flex-1 grid gap-4 min-w-0"
-          style={{ gridTemplateColumns: `repeat(${totalDarsenas - dVentanilla.length}, minmax(0, 1fr))` }}>
-          {Array.from({ length: totalDarsenas }, (_, i) => i + 1)
-            .filter((n) => !dVentanilla.includes(n))
-            .map((n) => {
-              const r = camionEnDarsena(n)
-              // Boca libre: sin cronómetro, no hace falta que el tick la repinte.
-              return <DarsenaCamion key={n} n={n} r={r} desglose={desglose} ahora={r ? ahora : 0} />
-            })}
-        </div>
-        <Retornos retornos={retornos} ahora={ahora} />
+      {/* Zona 1: las cinco dársenas en UNA fila, en el orden físico del muelle (2026-09-15,
+          pedido de los chicos del muelle vía Ariel): visto desde donde cuelga la tele, las bocas
+          van de izquierda a derecha 5 4 3 2 1, así la pantalla es un espejo del lugar. Las de
+          ventanilla (4 y 5) son las de los clientes que compran para revender. */}
+      <div className="grid gap-4" style={{ height: 540, gridTemplateColumns: `repeat(${totalDarsenas}, minmax(0, 1fr))` }}>
+        {ordenFisico.map((n) => {
+          // Un camión que volvió y está en la boca esperando conteo pisa todo lo demás:
+          // es la alerta roja (2026-09-15, el chofer elige la dársena al volver).
+          const volvio = retornoEnDarsena(n)
+          if (volvio) return <DarsenaRetorno key={n} n={n} r={volvio} ahora={ahora} />
+          if (dVentanilla.includes(n)) return <DarsenaVentanilla key={n} n={n} v={turnoEnDarsena(n)} />
+          const r = camionEnDarsena(n)
+          // Boca libre: sin cronómetro, no hace falta que el tick la repinte.
+          return <DarsenaCamion key={n} n={n} r={r} desglose={desglose} ahora={r ? ahora : 0} />
+        })}
       </div>
 
-      {/* Zona 2: ventanilla */}
-      <div className="grid gap-4" style={{ height: 168, gridTemplateColumns: `repeat(${dVentanilla.length}, minmax(0, 1fr))` }}>
-        {dVentanilla.map((n) => <DarsenaVentanilla key={n} n={n} v={turnoEnDarsena(n)} />)}
-      </div>
-
-      {/* Zona 4: anticipación de cámara */}
+      {/* Zona 2: los que volvieron y esperan una boca (alerta roja, a la izquierda) + anticipación de cámara */}
       <div className="flex gap-4 flex-1 min-h-0">
-        <div className="flex-[3] bg-gray-900 border-[5px] border-amber-700 rounded-[20px] px-7 py-4 flex flex-col min-w-0">
-          <p className="text-[30px] font-black text-amber-400 tracking-[3px] mb-2">PARA JUNTAR → PRÓXIMO VIAJE</p>
-          <div className="flex gap-10 items-baseline flex-1 overflow-hidden">
-            {paraJuntar.length === 0 && <p className="text-[40px] font-black text-gray-700">—</p>}
-            {paraJuntar.map((p) => (
-              <div key={p.productoId} className="flex items-baseline gap-3 shrink-0">
-                <span className="text-[72px] font-black text-amber-300 leading-none tabular-nums">{p.cantidad}</span>
-                <span className="text-[38px] font-bold">{corto(p.productoId, p.nombre)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="flex-[2] bg-gray-900 border-[5px] border-sky-900 rounded-[20px] px-7 py-4 flex flex-col min-w-0">
-          <p className="text-[30px] font-black text-sky-400 tracking-[3px] mb-2">SIGUEN</p>
-          <div className="flex gap-3 items-center flex-1 overflow-hidden">
-            {colaTurnos.length === 0 && <p className="text-[40px] font-black text-gray-700">—</p>}
-            {colaTurnos.slice(0, 5).map((v) => (
-              <span key={v.id} className={`rounded-2xl px-6 py-1.5 text-[70px] font-black leading-none shrink-0 ${
-                v.turnoEstado === 'preparado' ? 'bg-green-700' : 'bg-gray-800'
-              }`}>
-                {v.turno}
-              </span>
-            ))}
-          </div>
-          <p className="text-[22px] font-bold truncate">
-            {ausentes.length > 0 && <span className="text-red-400">AUSENTE: {ausentes.map((v) => `T-${v.turno}`).join(', ')}</span>}
-            {ausentes.length > 0 && (camionesEnEspera.length > 0 || listosParaSalir.length > 0) && <span className="text-gray-600"> · </span>}
-            {camionesEnEspera.length > 0 && <span className="text-gray-400">ESPERA: {camionesEnEspera.map((r) => patente(r.camionLabel)).join(', ')}</span>}
-            {camionesEnEspera.length > 0 && listosParaSalir.length > 0 && <span className="text-gray-600"> · </span>}
-            {listosParaSalir.length > 0 && <span className="text-green-400">SALE: {listosParaSalir.map((r) => patente(r.camionLabel)).join(', ')}</span>}
-          </p>
-        </div>
+        <Retornos retornos={retornosSinDarsena} ahora={ahora} />
+        <Siguen cola={colaTurnos} ausentes={ausentes} camionesEnEspera={camionesEnEspera} listosParaSalir={listosParaSalir} />
       </div>
     </div>
 
@@ -371,12 +336,18 @@ const ETIQUETAS: Record<string, string> = {
   picado_10kg: 'PICADO', escamas_10kg: 'ESCAMA', barra: 'BARRA',
   anticorrosivo: 'ANTIC.', agua_6l: 'AGUA',
 }
-const corto = (productoId: string, nombre: string) =>
+export const corto = (productoId: string, nombre: string) =>
   ETIQUETAS[productoId] ?? (nombre.match(/\d+\s?kg/i)?.[0].replace(/\s/g, '') ?? nombre.split(' ')[0].toUpperCase().slice(0, 7))
+
+/** "Factura A 01104-00000062", "Factura X 00001-00000123", "Remito 00001-…" o "Sin número todavía". */
+export const comprobanteCorto = (v: VentaVentanilla): string => {
+  const c = describirComprobante(v)
+  return c.numero ? `${c.etiqueta} ${c.numero}` : `${c.etiqueta} · sin número todavía`
+}
 
 // Las tres zonas van en `memo`: el tick de 10 s solo repinta lo que tiene
 // cronómetro (`ahora` viaja como número y los minutos se calculan adentro).
-const DarsenaCamion = memo(function DarsenaCamion({ n, r, desglose, ahora }: {
+export const DarsenaCamion = memo(function DarsenaCamion({ n, r, desglose, ahora }: {
   n: number
   r?: RemitoCarga
   desglose: (id: string, cantidad: number) => { pallets: number; sueltas: number }
@@ -404,6 +375,8 @@ const DarsenaCamion = memo(function DarsenaCamion({ n, r, desglose, ahora }: {
       style={{ boxShadow: '0 0 32px rgba(251,191,36,0.25)' }}>
       {tag}
       <p className="text-[56px] font-black leading-none tracking-tight mt-1">{r.camionLabel.split('·')[0].trim()}</p>
+      {/* Remito de carga (2026-09-15, pedido de Ariel): el papel contra el que el muelle entrega. */}
+      <p className="text-[22px] font-bold text-amber-200/80 tabular-nums mt-1">{r.codigo}</p>
       <div className="flex flex-col gap-2 mt-3 flex-1 min-h-0 overflow-hidden">
         {r.items.map((i) => {
           const { pallets, sueltas } = desglose(i.productoId, i.cantidad)
@@ -433,33 +406,126 @@ const DarsenaCamion = memo(function DarsenaCamion({ n, r, desglose, ahora }: {
   )
 })
 
-const DarsenaVentanilla = memo(function DarsenaVentanilla({ n, v }: { n: number; v?: VentaVentanilla }) {
-  return (
-    <div className={`rounded-[20px] px-4 py-3 flex items-center gap-5 border-[5px] min-w-0 ${
-      v ? 'border-green-500 bg-green-500/10' : 'border-gray-800 bg-[#0b1220]'
-    }`} style={v ? { boxShadow: '0 0 32px rgba(34,197,94,0.3)' } : undefined}>
-      <div className="flex flex-col items-center shrink-0">
-        <span className="text-3xl font-black text-gray-500 leading-none">{n}</span>
-        <span className="text-[13px] font-bold tracking-[3px] text-sky-400 mt-1">VENTANILLA</span>
+// Misma tarjeta vertical que la de camión (2026-09-15: las cinco bocas van en una fila), con
+// la etiqueta fija de quién usa estas dos dársenas: los clientes que compran para revender.
+export const DarsenaVentanilla = memo(function DarsenaVentanilla({ n, v }: { n: number; v?: VentaVentanilla }) {
+  const tag = (
+    <div>
+      <div className="flex justify-between items-baseline">
+        <span className="text-4xl font-black text-gray-500">{n}</span>
+        <span className={`text-base font-bold tracking-[3px] ${v ? 'text-green-400' : 'text-gray-700'}`}>
+          {v ? 'ATENDIENDO' : 'LIBRE'}
+        </span>
       </div>
-      {!v ? (
-        <p className="flex-1 text-center text-[40px] font-black text-gray-700">LIBRE</p>
-      ) : (
-        <>
-          <p className="text-[76px] font-black leading-none text-green-400 shrink-0">T-{v.turno}</p>
-          <div className="flex gap-6 items-baseline flex-1 min-w-0 overflow-hidden shrink-0">
-            {v.items.map((i) => (
-              <div key={i.productoId} className="flex items-baseline gap-2 shrink-0">
-                <span className="text-[52px] font-black leading-none tabular-nums">{i.cantidad}</span>
-                <span className="text-[28px] font-bold text-gray-300">{corto(i.productoId, i.nombre)}</span>
-              </div>
-            ))}
+      <p className="text-[17px] font-bold tracking-[1px] text-sky-400 -mt-1 whitespace-nowrap">CLIENTES / REVENDEDORES</p>
+    </div>
+  )
+  if (!v) {
+    return (
+      <div className="rounded-[20px] p-4 flex flex-col border-[5px] border-gray-800 bg-[#0b1220]">
+        {tag}
+        <p className="flex-1 flex items-center justify-center text-[40px] font-black text-gray-700">LIBRE</p>
+      </div>
+    )
+  }
+  return (
+    <div className="rounded-[20px] p-4 flex flex-col border-[5px] border-green-500 bg-green-500/10 min-w-0"
+      style={{ boxShadow: '0 0 32px rgba(34,197,94,0.3)' }}>
+      {tag}
+      <p className="text-[76px] font-black leading-none text-green-400 mt-1">T-{v.turno}</p>
+      {/* Número del ticket (2026-09-15, pedido de Ariel): factura de ARCA o comprobante interno. */}
+      <p className="text-[22px] font-bold text-green-200/80 tabular-nums mt-2 truncate" title={comprobanteCorto(v)}>{comprobanteCorto(v)}</p>
+      <div className="flex flex-col gap-2 mt-3 flex-1 min-h-0 overflow-hidden">
+        {v.items.map((i) => (
+          <div key={i.productoId} className="flex justify-between items-baseline pb-1.5" style={{ borderBottom: '2px solid rgba(34,197,94,0.25)' }}>
+            <span className="text-[34px] font-bold text-gray-200 leading-none">{corto(i.productoId, i.nombre)}</span>
+            <span className="text-[52px] font-black leading-none tabular-nums">{i.cantidad}</span>
           </div>
-          <span className="text-[20px] text-gray-400 truncate max-w-[260px] shrink-0" title={nombreClienteVenta(v)}>
-            {nombreClienteVenta(v)}
-          </span>
-        </>
-      )}
+        ))}
+      </div>
+      <p className="text-[22px] text-gray-400 truncate mt-auto pt-2" title={nombreClienteVenta(v)}>{nombreClienteVenta(v)}</p>
+    </div>
+  )
+})
+
+/**
+ * Boca con un camión que VOLVIÓ y espera que le cuenten (2026-09-15): el chofer
+ * marcó en qué dársena estacionó. Rojo y con el cronómetro desde que llegó; sin
+ * cantidades, a propósito (el conteo es ciego).
+ */
+export const DarsenaRetorno = memo(function DarsenaRetorno({ n, r, ahora }: { n: number; r: RemitoCarga; ahora: number }) {
+  const espera = minutosDesde(ahora, r.regreso!.hora)
+  return (
+    <div className="rounded-[20px] p-4 flex flex-col border-[5px] border-red-500 bg-red-500/10 min-w-0"
+      style={{ boxShadow: '0 0 32px rgba(239,68,68,0.3)' }}>
+      <div className="flex justify-between items-baseline">
+        <span className="text-4xl font-black text-gray-500">{n}</span>
+        <span className="text-base font-bold tracking-[3px] text-red-400">VOLVIÓ</span>
+      </div>
+      <p className="text-[56px] font-black leading-none tracking-tight mt-1">{patente(r.camionLabel)}</p>
+      <p className="text-[22px] font-bold text-red-200/80 tabular-nums mt-1">{r.codigo}</p>
+      <p className="text-[26px] font-black tracking-[2px] text-red-400 mt-4">FALTA CONTAR</p>
+      <p className="text-[20px] font-bold tracking-wider text-gray-400 mt-1">LLEGÓ {horaDe(r.regreso!.hora)}</p>
+      <div className="flex justify-between items-baseline mt-auto pt-2">
+        <span className="text-[22px] text-gray-400 truncate min-w-0" title={r.choferNombre}>{r.choferNombre}</span>
+        <span className={`text-[30px] font-black tabular-nums shrink-0 ml-2 ${espera >= 30 ? 'text-red-400' : 'text-gray-400'}`}>
+          {espera}′
+        </span>
+      </div>
+    </div>
+  )
+})
+
+/**
+ * SIGUEN (2026-09-15, pedido de Ariel): los próximos TRES turnos de ventanilla,
+ * cada uno con su cliente y lo que se lleva, en vez de una suma de todo lo que
+ * viene ("Para juntar"). La cámara prepara pedido por pedido, no un montón.
+ * Verde = el pedido ya está preparado. Al pie, lo que antes iba en la misma
+ * línea: ausentes, camiones que esperan boca y los que salen.
+ */
+export const Siguen = memo(function Siguen({ cola, ausentes, camionesEnEspera, listosParaSalir }: {
+  cola: VentaVentanilla[]
+  ausentes: VentaVentanilla[]
+  camionesEnEspera: RemitoCarga[]
+  listosParaSalir: RemitoCarga[]
+}) {
+  const proximos = cola.slice(0, 3)
+  return (
+    <div className="flex-[5] bg-gray-900 border-[5px] border-sky-900 rounded-[20px] px-7 py-4 flex flex-col min-w-0">
+      <div className="flex items-baseline justify-between mb-2">
+        <p className="text-[30px] font-black text-sky-400 tracking-[3px]">SIGUEN</p>
+        {cola.length > 3 && <p className="text-[24px] font-bold text-gray-500">+{cola.length - 3} más en espera</p>}
+      </div>
+      <div className="grid grid-cols-3 gap-4 flex-1 min-h-0">
+        {proximos.length === 0 && <p className="text-[40px] font-black text-gray-700">—</p>}
+        {proximos.map((v) => (
+          <div key={v.id} className="rounded-2xl bg-black/30 px-5 py-3 flex flex-col min-w-0 overflow-hidden">
+            <div className="flex items-center gap-4 min-w-0">
+              <span className={`rounded-xl px-4 py-1 text-[54px] font-black leading-none shrink-0 tabular-nums ${
+                v.turnoEstado === 'preparado' ? 'bg-green-700' : 'bg-gray-800'
+              }`}>{v.turno}</span>
+              <span className="text-[24px] font-bold text-gray-300 leading-tight line-clamp-2 min-w-0" title={nombreClienteVenta(v)}>
+                {nombreClienteVenta(v)}
+              </span>
+            </div>
+            <div className="flex flex-col gap-1.5 mt-3 flex-1 min-h-0 overflow-hidden">
+              {v.items.map((i) => (
+                <div key={i.productoId} className="flex justify-between items-baseline pb-1" style={{ borderBottom: '2px solid rgba(56,189,248,0.2)' }}>
+                  <span className="text-[30px] font-bold text-gray-200 leading-none">{corto(i.productoId, i.nombre)}</span>
+                  <span className="text-[44px] font-black leading-none tabular-nums text-amber-300">{i.cantidad}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="text-[22px] font-bold truncate mt-2">
+        {ausentes.length > 0 && <span className="text-red-400">AUSENTE: {ausentes.map((v) => `T-${v.turno}`).join(', ')}</span>}
+        {ausentes.length > 0 && (camionesEnEspera.length > 0 || listosParaSalir.length > 0) && <span className="text-gray-600"> · </span>}
+        {camionesEnEspera.length > 0 && <span className="text-gray-400">ESPERA: {camionesEnEspera.map((r) => patente(r.camionLabel)).join(', ')}</span>}
+        {camionesEnEspera.length > 0 && listosParaSalir.length > 0 && <span className="text-gray-600"> · </span>}
+        {listosParaSalir.length > 0 && <span className="text-green-400">SALE: {listosParaSalir.map((r) => patente(r.camionLabel)).join(', ')}</span>}
+      </p>
     </div>
   )
 })
@@ -475,18 +541,20 @@ const DarsenaVentanilla = memo(function DarsenaVentanilla({ n, v }: { n: number;
  * NO muestra cantidades esperadas, a propósito: el conteo es ciego. Si el TV
  * cantara cuánto tiene que volver, el que cuenta tildaría ese número.
  */
-const Retornos = memo(function Retornos({ retornos, ahora }: { retornos: RemitoCarga[]; ahora: number }) {
+export const Retornos = memo(function Retornos({ retornos, ahora }: { retornos: RemitoCarga[]; ahora: number }) {
   const hay = retornos.length > 0
   return (
-    <div className={`w-[440px] shrink-0 rounded-[20px] border-[5px] px-5 py-4 flex flex-col ${
+    <div className={`flex-[2] min-w-0 rounded-[20px] border-[5px] px-5 py-4 flex flex-col ${
       hay ? 'border-red-500 bg-red-500/10' : 'border-gray-800 bg-[#0b1220]'
     }`} style={hay ? { boxShadow: '0 0 32px rgba(239,68,68,0.25)' } : undefined}>
       <div className="flex items-baseline justify-between mb-3">
         <p className={`text-[28px] font-black tracking-[2px] ${hay ? 'text-red-400' : 'text-gray-700'}`}>VOLVIERON</p>
         {hay && <span className="text-[44px] font-black leading-none text-red-400 tabular-nums">{retornos.length}</span>}
       </div>
+      {/* Desde el 2026-09-15 acá quedan solo los que todavía no tienen boca: los que ya
+          estacionaron se pintan en su dársena. */}
       <p className={`text-[19px] font-bold tracking-[2px] -mt-2 mb-3 ${hay ? 'text-red-300/70' : 'text-gray-700'}`}>
-        FALTA CONTAR
+        ESPERAN DÁRSENA · FALTA CONTAR
       </p>
       {!hay ? (
         <p className="flex-1 flex items-center justify-center text-[34px] font-black text-gray-700 text-center">NADA<br />PENDIENTE</p>

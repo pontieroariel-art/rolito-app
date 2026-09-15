@@ -1,3 +1,4 @@
+import { cobranzasVigentes } from './anulacionCobranza'
 import {
   CambioCamion, Cobranza, DescargaCamion, Liquidacion, LiquidacionResumenProducto,
   RemitoCarga, VentaCamion, VentaCamionItem,
@@ -31,6 +32,7 @@ export function calcularLiquidacion(
   // cobradores son choferes — "Detalle de cobranzas" de la hoja vieja).
   cobranzasCalle: Cobranza[] = [],
 ): LiquidacionCalculada {
+  cobranzasCalle = cobranzasVigentes(cobranzasCalle)   // recibos anulados con autorización (2026-09-15): no cuentan
   // Una factura anulada con nota de crédito (2026-09-11) no cuenta: ni en
   // plata ni en productos (la NC devolvió el stock al depósito en Tango).
   ventas = ventasVigentes(ventas)
@@ -190,6 +192,7 @@ export function clasificarReparto(
   descargas: DescargaCamion[] = [],
   problemasDe: (v: VentaCamion) => string[] = () => [],
 ): RepartoClasificado {
+  cobranzas = cobranzasVigentes(cobranzas)
   // Las anuladas se listan aparte (`anuladas`) para que caja las vea; en los
   // bloques y totales no entran.
   const anuladas = ventas.filter(ventaAnulada)
@@ -273,6 +276,7 @@ export function clasificarReparto(
 
 /** Ids y contadores que la liquidación cerrada guarda para poder reconstruir su detalle. */
 export function referenciasDelReparto(remitos: RemitoCarga[], ventas: VentaCamion[], descargas: DescargaCamion[], cobranzas: Cobranza[]) {
+  cobranzas = cobranzasVigentes(cobranzas)   // recibos anulados (2026-09-15): fuera del cierre
   return {
     remitosCargaIds: remitos.map((r) => r.id),
     ventasIds:       ventas.map((v) => v.id),

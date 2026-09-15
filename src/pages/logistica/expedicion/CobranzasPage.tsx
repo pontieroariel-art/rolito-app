@@ -8,6 +8,8 @@ import { useDiaActual, useFechaDelDia } from '@/hooks/useDiaActual'
 import { useSesionAbierta } from '@/hooks/useCajaSesion'
 import { delTurno } from '@/utils/turnoCaja'
 import { subscribeCobranzasCajaDelDia } from '@/services/cobranzaService'
+import { useReemitirRecibo } from '@/hooks/useReemitirRecibo'
+import { cobranzasVigentes } from '@/utils/anulacionCobranza'
 import {
   desmarcarDispositivoCobranza, esDispositivoCobranza, marcarDispositivoCobranza,
 } from '@/services/expedicionDeviceService'
@@ -35,8 +37,10 @@ export default function CobranzasPage() {
 
   useEffect(() => subscribeCobranzasCajaDelDia(plantaId, fecha, setCobranzas), [plantaId, fecha])
 
+  const reemitirDe = useReemitirRecibo()
   const ordenadas = useMemo(() => cobranzas.slice().sort((a, b) => b.fecha.toMillis() - a.fecha.toMillis()), [cobranzas])
-  const totalDia = cobranzas.reduce((s, c) => s + c.importe, 0)
+  // Un recibo anulado con autorización (2026-09-15) no suma.
+  const totalDia = cobranzasVigentes(cobranzas).reduce((s, c) => s + c.importe, 0)
   const miasDelTurno = useMemo(() => (sesion && user ? delTurno(cobranzas.filter((c) => c.registradoPor.uid === user.uid), sesion).length : 0), [cobranzas, sesion, user])
 
   const imprimirSimple = (c: Cobranza) =>
@@ -60,7 +64,7 @@ export default function CobranzasPage() {
       </div>
 
       {!cargandoSesion && !sesion && <div className="p-4"><AbrirTurnoPanel fecha={dia} /></div>}
-      {sesion && <CobranzaCompleta origen="caja" plantaId={plantaId} cajaSesionId={sesion.id} volverA="/caja" ancho="3xl" />}
+      {sesion && <CobranzaCompleta origen="caja" plantaId={plantaId} cajaSesionId={sesion.id} volverA="/caja" ancho="3xl" reemitirDe={reemitirDe} />}
 
       <section className="px-4 space-y-2">
         <div className="flex items-center justify-between">

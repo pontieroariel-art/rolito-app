@@ -33,7 +33,7 @@ import { createRequire } from 'module'
 import { doc, writeBatch, serverTimestamp, deleteField } from 'firebase/firestore'
 import {
   MESES_HISTORIAL, aPodar, actualizarCache, diferencias, iso, mapearFacturas, mapearRemitos, relacionDeFilas,
-  restarDias, restarMeses,
+  restarDias, restarMeses, seccionesIndice,
 } from './comprobantes-tango.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -177,12 +177,9 @@ async function escribir({ db, log }, empresa, porCodigo, podados, detalles, clie
   const ops = []   // { op, cierra?: codigo }
   for (const codigo of codigos) {
     for (const d of detallesPorCodigo.get(codigo) ?? []) ops.push({ op: (b) => b.set(doc(db, 'tangoComprobanteDetalle', d.id), { ...d.doc, actualizadoEn: serverTimestamp() }) })
-    const cambios = porCodigo[codigo] ?? { facturas: {}, remitos: {} }
-    const poda = podados[codigo] ?? { facturas: [], remitos: [] }
-    const facturas = { ...cambios.facturas }
-    const remitos = { ...cambios.remitos }
-    for (const k of poda.facturas) facturas[k] = deleteField()
-    for (const k of poda.remitos) remitos[k] = deleteField()
+    // OJO: una sección sin cambios NO se manda (ni como `{}`): con merge, el mapa vacío
+    // pisa el mapa entero del doc y borra el índice de ese cliente (bug hasta el 2026-09-15).
+    const secciones = seccionesIndice(porCodigo[codigo], podados[codigo], deleteField)
     // Mail de la ficha de Tango (2026-09-10): es el que usa la app para mandarle comprobantes al cliente.
     const email = String(clientes[codigo]?.E_MAIL ?? clientes[codigo]?.EMAIL ?? '').trim().toLowerCase()
     const datos = {
@@ -191,7 +188,7 @@ async function escribir({ db, log }, empresa, porCodigo, podados, detalles, clie
       email,
       desde: desdeIso,
       actualizadoEn: serverTimestamp(),
-      facturas, remitos,
+      ...secciones,
     }
     ops.push({ op: (b) => b.set(doc(db, 'tangoComprobantes', `${empresa}_${codigo}`), datos, { merge: true }), cierra: codigo })
   }

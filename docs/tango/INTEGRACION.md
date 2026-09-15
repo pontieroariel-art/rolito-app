@@ -1908,6 +1908,17 @@ Firebase + `rolito_bridge` de SQL, que tiene `db_datareader`). Lógica pura y te
 
 - Lee GVA12/GVA53, STA14/STA20, GVA54, GVA43, GVA01, GVA23, GVA14 (columnas probadas con
   `sys.columns`) de los últimos `diasVentana` (45) días; `--backfill` = 400 días (primera carga).
+- **El índice se borraba solo (bug del 2026-09-10 al 2026-09-15).** `escribir()` mandaba el doc
+  de índice con `set(..., { merge: true })` y las DOS secciones siempre presentes, así que a un
+  cliente al que solo le había cambiado un remito le llegaba `facturas: {}` — y para Firestore un
+  mapa vacío con merge no es "no toques nada" sino "reemplazá el mapa por vacío". Cada pasada
+  borraba lo que el cliente ya tenía: el 15/09 había 1.044 de 1.553 índices incompletos (FC.309
+  con 2 facturas de 1.063; OR.116 sin ninguna) mientras los detalles estaban intactos. Ahora una
+  sección sin cambios ni poda se omite del todo (`seccionesIndice`, testeada) y
+  `scripts/tango/reconstruir-indice-comprobantes.mjs` (Admin SDK, dry-run por defecto,
+  `--aplicar`, `--codigo`, `--empresa`) repone en cada índice lo que falta a partir de
+  `tangoComprobanteDetalle`, sin pisar ni borrar nada: corrido el 15/09, 1.043 índices y 45.537
+  entradas. El cache del lector en la VM no se toca (ya creía que estaban escritas).
 - **La CLASE la dice Tango, no el código (2026-09-13).** `GVA12.TCOMP_IN_V` clasifica cada
   comprobante — `FC` factura, `CC` crédito, `DC` débito, `RC` recibo — y el lector la publica
   como `familia` (`'factura' | 'credito' | 'debito' | 'recibo' | 'otro'`) en el índice y en el

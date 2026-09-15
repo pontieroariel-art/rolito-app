@@ -33,6 +33,7 @@ import { reportError } from '@/services/observability'
 import SolicitarAnulacionModal from '@/components/expedicion/SolicitarAnulacionModal'
 import AnuladasDespuesDeCerrar from '@/components/expedicion/AnuladasDespuesDeCerrar'
 import { anulacionEnCurso } from '@/utils/anulacionVenta'
+import { anulacionCobranzaEnCurso } from '@/utils/anulacionCobranza'
 import { tieneAlgunRol } from '@/utils/roles'
 
 // Liquidación del repartidor (pantalla de caja) — herramienta de control del
@@ -76,7 +77,7 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
   // la pide desde acá mientras la liquidación esté abierta; con una pendiente
   // no se cierra.
   const [anulando, setAnulando] = useState<VentaCamion | null>(null)
-  const anulacionesEnCurso = ventas.filter(anulacionEnCurso).length
+  const anulacionesEnCurso = ventas.filter(anulacionEnCurso).length + cobranzas.filter(anulacionCobranzaEnCurso).length
   const [guardando,   setGuardando]   = useState(false)
   const [error,       setError]       = useState('')
   const [aviso,       setAviso]       = useState('')
@@ -336,7 +337,7 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
               {error && <p className="w-full text-sm text-red-600">{error}</p>}
               {anulacionesEnCurso > 0 && (
                 <p className="w-full text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                  {anulacionesEnCurso === 1 ? 'Hay una anulación de factura esperando autorización' : `Hay ${anulacionesEnCurso} anulaciones de factura esperando autorización`}: no se puede cerrar la liquidación hasta que se resuelva.
+                  {anulacionesEnCurso === 1 ? 'Hay una anulación esperando autorización' : `Hay ${anulacionesEnCurso} anulaciones esperando autorización`}: no se puede cerrar la liquidación hasta que se resuelva.
                 </p>
               )}
               {desvioACerrar && user && (
