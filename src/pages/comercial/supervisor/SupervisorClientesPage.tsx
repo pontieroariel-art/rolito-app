@@ -1,120 +1,146 @@
-import { useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { HandCoins } from 'lucide-react'
+import { memo, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { CheckCircle2, Search, X } from 'lucide-react'
 import SupervisorHeader from '@/components/supervisor/SupervisorHeader'
-import ChipMora, { BORDE_MORA } from '@/components/supervisor/ChipMora'
-import Plata from '@/components/supervisor/Plata'
-import ClienteCombobox from '@/components/common/ClienteCombobox'
+import { indexAComboItems, type ComboItem } from '@/components/common/ClienteCombobox'
 import { useClientesConDeuda } from '@/hooks/useClientesConDeuda'
-import { coincideBusqueda, normalizarBusqueda } from '@/utils/busqueda'
-import {
-  conteosDe, filtrarFilas, ordenarPorPrioridad, zonasDe, type FiltroDeuda, type FilaDeuda,
-} from '@/utils/listaClientesDeuda'
+import { useClientesIndex } from '@/hooks/useClientesIndex'
+import { usePrivacidad } from '@/hooks/usePrivacidad'
+import { INPUT_BUSQUEDA_PROPS, normalizarBusqueda } from '@/utils/busqueda'
+import { ordenarPorPrioridad, type FilaDeuda } from '@/utils/listaClientesDeuda'
 import { formatoARS } from '@/utils/money'
-import { esDatoViejo, haceCuanto } from '@/utils/tiempo'
+import { ETIQUETA_MORA, type NivelMora } from '@/utils/mora'
+import { haceCuanto } from '@/utils/tiempo'
 import { NOMBRE_EMPRESA_CORTO } from '@/utils/tangoEmpresas'
 
 /**
- * CLIENTES — la puerta de entrada del supervisor (2026-09-13). Fusiona las dos
- * pantallas que había ("Buscar cliente" y "Clientes con deuda"), que eran dos
- * buscadores distintos sobre dos universos distintos para la misma tarea mental
- * de encontrar a alguien.
+ * CLIENTES — la puerta de entrada del supervisor (2026-09-13; rehecha el
+ * 2026-09-15 a pedido de Ariel: "el diseño me parece feo, el buscador no anda,
+ * los filtros los sacaría, usaría solo el buscador").
  *
- * Los dos universos se separan por MECANISMO, no por un chip:
- *  - el buscador de arriba busca en TODOS los clientes (clientesIndex) — el que
- *    sabe a quién va a ver, escribe y entra;
- *  - la lista de abajo son los que DEBEN, ordenados por urgencia y filtrables
- *    por zona — la agenda del día del que sale a recorrer.
+ * UN solo buscador, sobre TODOS los clientes (clientesIndex), y una sola lista:
+ *  - sin escribir nada, la agenda: los que DEBEN, ordenados por urgencia (mora,
+ *    días de atraso, importe), con los ya cobrados hoy al fondo;
+ *  - escribiendo, los clientes que coinciden (deban o no), con su deuda al lado
+ *    si la tienen. Borrar el texto vuelve a la agenda.
  *
- * La fila abre la FICHA (ahí se decide, con el saldo completo a la vista) y el
- * botón lateral va derecho a cobrar, para el que ya sabe a qué va.
+ * Cada fila abre la FICHA: ahí se cobra, se llama o se manda WhatsApp con el
+ * saldo completo a la vista. Nada más en la tarjeta.
+ *
+ * Lo que la hacía lenta antes: dos buscadores (el de arriba empujaba toda la
+ * pantalla con sus resultados en vez de flotar; el de abajo re-dibujaba las 478
+ * tarjetas en cada tecla), chips de estado y de zona, y una tarjeta con su
+ * propio estado de privacidad por fila. Ahora: el texto va diferido
+ * (`useDeferredValue`), la búsqueda usa el índice precalculado del combobox,
+ * las filas son `memo`, la privacidad se lee una vez y la agenda se pinta de a
+ * 40 a medida que se scrollea.
  */
+const TOPE_RESULTADOS = 50
+const PASO_AGENDA = 40
+
 export default function SupervisorClientesPage() {
-  const navigate = useNavigate()
   const { filas, cargando, sinSaldos } = useClientesConDeuda()
-  const [estado, setEstado] = useState<FiltroDeuda>('deuda')
-  const [zona, setZona] = useState('')
-  const [busqueda, setBusqueda] = useState('')
+  const { clientes } = useClientesIndex()
+  const { privado } = usePrivacidad()
+  const [texto, setTexto] = useState('')
+  const diferido = useDeferredValue(texto)
+  const q = normalizarBusqueda(diferido)
+  const [limite, setLimite] = useState(PASO_AGENDA)
+  const inputRef = useRef<HTMLInputElement>(null)
 
-  const conteos = useMemo(() => conteosDe(filas), [filas])
-  const zonas = useMemo(() => zonasDe(filas), [filas])
+  const agenda = useMemo(() => ordenarPorPrioridad(filas), [filas])
+  const deudaPorUid = useMemo(() => new Map(filas.map((f) => [f.uid, f])), [filas])
+  // indexAComboItems cachea por identidad de la lista y precalcula `buscar`.
+  const items = useMemo(() => indexAComboItems(clientes), [clientes])
+  const resultados = useMemo(() => {
+    if (!q) return null
+    const out: ComboItem[] = []
+    for (const i of items) {
+      if ((i.buscar ?? '').includes(q)) { out.push(i); if (out.length === TOPE_RESULTADOS) break }
+    }
+    return out
+  }, [items, q])
 
-  const lista = useMemo(() => {
-    const q = normalizarBusqueda(busqueda)
-    return ordenarPorPrioridad(filtrarFilas(filas, {
-      estado, zona,
-      coincide: q ? (f) => coincideBusqueda(q, f.razonSocial, f.codigoTango, f.localidad) : undefined,
-    }))
-  }, [filas, estado, zona, busqueda])
+  const totalDeuda = useMemo(() => agenda.reduce((t, f) => t + f.saldoTotal, 0), [agenda])
+  const actualizado = useMemo(() => {
+    let max: { toDate(): Date } | undefined
+    for (const f of filas) if (f.actualizadoEn && (!max || f.actualizadoEn.toDate() > max.toDate())) max = f.actualizadoEn
+    return max ? haceCuanto(max) : ''
+  }, [filas])
 
-  const totalDeuda = useMemo(() => lista.reduce((t, f) => t + f.saldoTotal, 0), [lista])
+  // La agenda se pinta de a 40: el sentinela del pie pide 40 más al asomar.
+  const sentinela = useRef<HTMLDivElement>(null)
+  const hayMas = !q && limite < agenda.length
+  useEffect(() => {
+    const el = sentinela.current
+    if (!el || !hayMas) return
+    const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) setLimite((l) => l + PASO_AGENDA) }, { rootMargin: '400px' })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [hayMas, limite])
+
+  const limpiar = () => { setTexto(''); setLimite(PASO_AGENDA); inputRef.current?.focus() }
 
   return (
     <div className="min-h-screen min-h-dvh bg-[#F8F7F2]">
       <SupervisorHeader title="Clientes" back />
       <main className="max-w-md mx-auto p-4 space-y-3 pb-10">
-        {/* TODOS los clientes, deban o no. Sin autoFocus ni listaSiempre: el
-            teclado no tiene que saltar tapando la agenda apenas se entra. */}
-        <ClienteCombobox
-          modo="busqueda"
-          value=""
-          onChange={(uid) => uid && navigate(`/supervisor/cliente/${uid}`)}
-          placeholder="Nombre, código, CUIT o dirección…"
-          listaClassName="max-h-[50vh]"
-        />
+        <div className="relative">
+          <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-secundario pointer-events-none" />
+          <input
+            ref={inputRef}
+            type="search"
+            value={texto}
+            onChange={(e) => setTexto(e.target.value)}
+            placeholder="Buscar cliente…"
+            aria-label="Buscar cliente por nombre, código, CUIT, sucursal o dirección"
+            enterKeyHint="search"
+            {...INPUT_BUSQUEDA_PROPS}
+            className="w-full h-12 bg-white border border-[#D3D1C7] rounded-xl pl-10 pr-11 text-base text-gray-900 placeholder:text-secundario focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent [&::-webkit-search-cancel-button]:hidden"
+          />
+          {texto && (
+            <button type="button" onClick={limpiar} aria-label="Borrar la búsqueda"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 w-9 h-9 rounded-lg flex items-center justify-center text-secundario active:bg-[#F1F0EA]">
+              <X size={18} />
+            </button>
+          )}
+        </div>
 
-        {cargando ? (
+        {resultados ? (
+          <>
+            <p className="text-xs text-secundario px-1">
+              {resultados.length === 0 ? 'Ningún cliente coincide.' : resultados.length === TOPE_RESULTADOS ? `Primeros ${TOPE_RESULTADOS} resultados: afiná la búsqueda` : `${resultados.length} ${resultados.length === 1 ? 'cliente' : 'clientes'}`}
+            </p>
+            <div className="space-y-2">
+              {resultados.map((i) => <FilaBusqueda key={i.uid} item={i} deuda={deudaPorUid.get(i.uid)} privado={privado} />)}
+            </div>
+          </>
+        ) : cargando ? (
           <p className="text-sm text-secundario text-center pt-8">Cargando saldos…</p>
         ) : sinSaldos ? (
           <div className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-4 text-center">
             <p className="text-sm text-gray-600">No hay saldos de Tango cargados todavía.</p>
-            <p className="text-xs text-secundario mt-1">El cache se actualiza solo desde el servidor de Tango. Buscá al cliente arriba para abrir su ficha igual.</p>
+            <p className="text-xs text-secundario mt-1">Buscá al cliente arriba para abrir su ficha igual.</p>
           </div>
         ) : (
           <>
-            <div className="flex gap-2">
-              {([['deuda', `Con deuda (${conteos.deuda})`], ['vencidos', `Vencidos (${conteos.vencidos})`],
-                ['mora', `En mora (${conteos.mora})`]] as const).map(([id, label]) => (
-                <button key={id} type="button" onClick={() => setEstado(id)}
-                  className={`flex-1 h-11 rounded-lg border px-2 text-xs font-medium ${estado === id ? 'bg-accent text-white border-accent' : 'bg-white text-gray-700 border-[#D3D1C7]'}`}>
-                  {label}
-                </button>
-              ))}
+            <div className="flex items-baseline justify-between px-1">
+              <p className="text-xs text-secundario">
+                <span className="font-semibold text-gray-900">{agenda.length}</span> {agenda.length === 1 ? 'cliente debe' : 'clientes deben'} · <span className="font-semibold text-gray-900 tabular-nums">{privado ? '$ •••••' : formatoARS(totalDeuda)}</span>
+              </p>
+              {actualizado && <p className="text-xs text-secundario">Tango · {actualizado}</p>}
             </div>
-
-            {/* El recorrido de la calle es geográfico: sin esto, el orden por mora
-                manda al supervisor de una punta del conurbano a la otra. */}
-            {zonas.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto -mx-4 px-4 pb-1">
-                {['', ...zonas].map((z) => (
-                  <button key={z || 'todas'} type="button" onClick={() => setZona(z)}
-                    className={`h-11 shrink-0 rounded-full border px-4 text-xs font-medium ${zona === z ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-700 border-[#D3D1C7]'}`}>
-                    {z || 'Todas las zonas'}
-                  </button>
-                ))}
+            <div className="space-y-2">
+              {agenda.slice(0, limite).map((f) => <FilaAgenda key={f.uid} f={f} privado={privado} />)}
+            </div>
+            {hayMas && (
+              <div ref={sentinela} className="pt-2">
+                <button type="button" onClick={() => setLimite((l) => l + PASO_AGENDA)}
+                  className="w-full h-11 rounded-xl border border-[#D3D1C7] bg-white text-sm font-medium text-gray-700">
+                  Mostrar {Math.min(PASO_AGENDA, agenda.length - limite)} más · quedan {agenda.length - limite}
+                </button>
               </div>
             )}
-
-            <div className="relative">
-              <input
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-                placeholder="Filtrar la lista por nombre, código o zona…"
-                aria-label="Filtrar la lista de deudores"
-                className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 h-11 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
-              />
-            </div>
-
-            <div className="flex items-center justify-between px-1">
-              <p className="text-xs text-secundario">{lista.length} {lista.length === 1 ? 'cliente' : 'clientes'}</p>
-              <p className="text-xs text-secundario">Deuda: <Plata n={totalDeuda} className="font-semibold text-gray-900" /></p>
-            </div>
-
-            {lista.length === 0 && <p className="text-sm text-secundario text-center py-6">Ningún cliente coincide.</p>}
-
-            <div className="space-y-2">
-              {lista.map((f) => <FilaCliente key={f.uid} f={f} />)}
-            </div>
           </>
         )}
       </main>
@@ -122,7 +148,9 @@ export default function SupervisorClientesPage() {
   )
 }
 
-// "Redonhielo $745.288,75 · Rolito $163.200,00" cuando debe en las dos empresas.
+const BORDE: Record<NivelMora, string> = { ok: 'border-l-[#D3D1C7]', amarillo: 'border-l-amber-400', rojo: 'border-l-red-500' }
+const ATRASO: Record<NivelMora, string> = { ok: 'text-secundario', amarillo: 'text-amber-700', rojo: 'text-red-600' }
+
 const desglose = (f: FilaDeuda): string => {
   const partes = (['redonhielo', 'rolito'] as const)
     .map((e) => [e, f.porEmpresa?.[e]?.saldoTotal ?? 0] as const)
@@ -131,43 +159,61 @@ const desglose = (f: FilaDeuda): string => {
   return partes.map(([e, t]) => `${NOMBRE_EMPRESA_CORTO[e]} ${formatoARS(t)}`).join(' · ')
 }
 
-function FilaCliente({ f }: { f: FilaDeuda }) {
-  const viejo = esDatoViejo(f.actualizadoEn)
+/** Lado derecho de la tarjeta: cuánto debe y hace cuánto. */
+function Deuda({ f, privado }: { f: FilaDeuda; privado: boolean }) {
+  const detalle = f.nivel !== 'ok'
+    ? `${ETIQUETA_MORA[f.nivel]} · ${f.diasAtraso} d`
+    : f.diasAtraso > 0 ? `${f.diasAtraso} d de atraso` : 'Al día'
   return (
-    <div className={`flex bg-white rounded-xl border shadow-sm overflow-hidden ${BORDE_MORA[f.nivel]}`}>
-      {/* El nombre se lleva la primera línea ENTERA: las razones sociales de Tango
-          tienen 45 caracteres y, compartiendo línea con el importe, quedaban en
-          "GASTRONOMIA E…". El importe va abajo, grande, con el chip al lado. */}
-      <Link to={`/supervisor/cliente/${f.uid}`} className="block flex-1 min-w-0 p-3 active:bg-gray-50">
-        <p className="text-sm font-medium text-gray-900 truncate" title={f.razonSocial}>{f.razonSocial}</p>
-        <div className="flex items-center gap-2 mt-1 flex-wrap">
-          <Plata n={f.saldoTotal} className={`text-base font-bold ${f.cobradoHoy ? 'text-secundario' : 'text-gray-900'}`} />
-          <ChipMora nivel={f.nivel} />
-          {f.cobradoHoy && (
-            <span className="text-[11px] font-semibold rounded-full px-2 py-0.5 border text-accent bg-accent/10 border-accent/30">
-              Ya le cobraste hoy
-            </span>
-          )}
-        </div>
-        {/* Orden por importancia: lo que se corta al truncar tiene que ser lo que
-            menos importa (la cantidad de comprobantes), no los días de atraso. */}
-        <p className="text-xs text-secundario truncate mt-0.5">
-          {f.localidad && `${f.localidad} · `}
-          {f.diasAtraso > 0 && <span className="text-red-600">{f.diasAtraso} {f.diasAtraso === 1 ? 'día' : 'días'} de atraso · </span>}
-          cód. {f.codigoTango} · {f.comprobantes} {f.comprobantes === 1 ? 'comprobante' : 'comprobantes'}
-        </p>
-        {desglose(f) && <p className="text-xs text-secundario truncate">{desglose(f)}</p>}
-        {/* Un saldo de hace días puede hacer que cobre de menos o reclame algo ya
-            pagado: pasado un día deja de ser un gris más. */}
-        <p className={`text-xs mt-0.5 ${viejo ? 'text-amber-700 font-medium' : 'text-secundario'}`}>
-          Saldo de Tango {haceCuanto(f.actualizadoEn)}
-        </p>
-      </Link>
-      <Link to={`/supervisor/cobrar?cliente=${f.uid}`} aria-label={`Cobrar a ${f.razonSocial}`}
-        className="flex flex-col items-center justify-center gap-0.5 px-3 min-w-[56px] border-l border-[#D3D1C7] text-accent active:bg-accent/10">
-        <HandCoins size={18} />
-        <span className="text-[10px] font-medium">Cobrar</span>
-      </Link>
+    <div className="text-right shrink-0">
+      <p className="text-base font-bold text-gray-900 tabular-nums leading-tight">{privado ? '$ •••••' : formatoARS(f.saldoTotal)}</p>
+      <p className={`text-[11px] font-medium leading-tight ${ATRASO[f.nivel]}`}>{detalle}</p>
     </div>
   )
 }
+
+/** Tarjeta: toda ella abre la ficha. Borde izquierdo con el color de la mora. */
+function Tarjeta({ uid, nivel, children }: { uid: string; nivel: NivelMora; children: React.ReactNode }) {
+  return (
+    <Link to={`/supervisor/cliente/${uid}`}
+      className={`flex items-center gap-3 bg-white rounded-xl border border-[#D3D1C7] border-l-4 ${BORDE[nivel]} shadow-sm px-3.5 py-3 active:scale-[0.99] transition-transform`}>
+      {children}
+    </Link>
+  )
+}
+
+const FilaAgenda = memo(function FilaAgenda({ f, privado }: { f: FilaDeuda; privado: boolean }) {
+  const dos = desglose(f)
+  return (
+    <Tarjeta uid={f.uid} nivel={f.nivel}>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-gray-900 truncate" title={f.razonSocial}>{f.razonSocial}</p>
+        <p className="text-xs text-secundario truncate">
+          {[f.localidad, f.codigoTango].filter(Boolean).join(' · ')}
+          {dos && !privado ? ` · ${dos}` : ''}
+        </p>
+        {f.cobradoHoy && (
+          <p className="text-[11px] font-medium text-[#0F6E56] inline-flex items-center gap-1 mt-0.5"><CheckCircle2 size={12} /> Ya le cobraste hoy</p>
+        )}
+      </div>
+      <Deuda f={f} privado={privado} />
+    </Tarjeta>
+  )
+})
+
+const FilaBusqueda = memo(function FilaBusqueda({ item, deuda, privado }: { item: ComboItem; deuda?: FilaDeuda; privado: boolean }) {
+  return (
+    <Tarjeta uid={item.uid} nivel={deuda?.nivel ?? 'ok'}>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-gray-900 truncate" title={item.label}>{item.label}</p>
+        <p className="text-xs text-secundario truncate">
+          {[item.localidad, item.codigo, item.sucursales && item.sucursales > 1 ? `${item.sucursales} sucursales` : ''].filter(Boolean).join(' · ')}
+        </p>
+        {deuda?.cobradoHoy && (
+          <p className="text-[11px] font-medium text-[#0F6E56] inline-flex items-center gap-1 mt-0.5"><CheckCircle2 size={12} /> Ya le cobraste hoy</p>
+        )}
+      </div>
+      {deuda ? <Deuda f={deuda} privado={privado} /> : <p className="text-xs text-secundario shrink-0">Sin deuda</p>}
+    </Tarjeta>
+  )
+})
