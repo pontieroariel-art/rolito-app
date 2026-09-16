@@ -11,6 +11,7 @@ import LoadingSpinner from './components/ui/LoadingSpinner'
 import { reportError, APP_RELEASE } from './services/observability'
 import { SESION_VER_COMO } from './services/firebase'
 import VerComoBanner, { VerComoTerminada } from './components/layout/VerComoBanner'
+import { VisorComprobanteProvider } from './components/ui/VisorComprobante'
 import { Component, ReactNode, ErrorInfo } from 'react'
 
 // Auth pages — carga inmediata (primera pantalla visible)
@@ -519,7 +520,11 @@ export default function App() {
           <SistemaProvider>
             <BranchProvider>
               <BrowserRouter>
-                <AppContent />
+                {/* Visor de comprobantes (2026-09-15): un solo modal para toda la app;
+                    ninguna pantalla descarga un PDF sola, lo abre acá. */}
+                <VisorComprobanteProvider>
+                  <AppContent />
+                </VisorComprobanteProvider>
               </BrowserRouter>
             </BranchProvider>
           </SistemaProvider>

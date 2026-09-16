@@ -64,6 +64,20 @@ service firebase.storage {
         && request.resource.contentType == 'application/pdf';
     }
 
+    // Comprobantes publicados para mandarlos por WhatsApp a un número
+    // (2026-09-15, visor → Enviar): compartidos/{uid}/{fecha-archivo}. wa.me
+    // no adjunta archivos a un chat elegido por número, así que el PDF se sube
+    // acá y el chat lleva el link de descarga (con su token, el cliente lo abre
+    // sin usuario). Escribe solo el staff, y solo en su propia carpeta.
+    match /compartidos/{uid}/{archivo} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && miRol() != 'cliente'
+        && request.resource.size < 5 * 1024 * 1024
+        && (request.resource.contentType == 'application/pdf' || request.resource.contentType.matches('image/.*'));
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }

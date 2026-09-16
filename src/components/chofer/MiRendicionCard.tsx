@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { CheckCircle2, ChevronDown, ChevronRight, Download, Share2 } from 'lucide-react'
+import { CheckCircle2, ChevronDown, ChevronRight, Eye, Share2 } from 'lucide-react'
+import { useVisorComprobante } from '@/components/ui/VisorComprobante'
 import { useMisLiquidaciones } from '@/hooks/useMisLiquidaciones'
 import { generateLiquidacion, nombreArchivoLiquidacion } from '@/utils/pdf'
 import { compartirArchivo, puedeCompartirArchivos } from '@/utils/compartir'
@@ -18,10 +19,14 @@ export default function MiRendicionCard({ uid, hoy }: { uid: string; hoy: string
   const [aviso, setAviso] = useState('')
   const [ocupado, setOcupado] = useState(false)
   const compartible = puedeCompartirArchivos()
+  const { abrir } = useVisorComprobante()
 
   const ver = async (l: Liquidacion) => {
     setOcupado(true); setAviso('')
-    try { await generateLiquidacion(l) } catch (err) { reportError(err, { origen: 'MiRendicionCard', accion: 'pdf' }); setAviso('No se pudo generar el PDF.') } finally { setOcupado(false) }
+    try {
+      const blob = await generateLiquidacion(l)
+      abrir({ blob, nombre: nombreArchivoLiquidacion(l), titulo: `Liquidación ${l.codigo ?? l.fecha}`, subtitulo: `Mi liquidación del ${l.fecha}` })
+    } catch (err) { reportError(err, { origen: 'MiRendicionCard', accion: 'pdf' }); setAviso('No se pudo generar el PDF.') } finally { setOcupado(false) }
   }
   const enviar = async (l: Liquidacion) => {
     setOcupado(true); setAviso('')
@@ -97,7 +102,7 @@ function Resumen({ l, ocupado, compartible, onVer, onEnviar, btn }: { l: Liquida
         </p>
       )}
       <div className="flex gap-2">
-        <button type="button" onClick={onVer} disabled={ocupado} className={btn}><Download size={12} /> Ver PDF</button>
+        <button type="button" onClick={onVer} disabled={ocupado} className={btn}><Eye size={12} /> Ver</button>
         <button type="button" onClick={onEnviar} disabled={ocupado} className={btn}><Share2 size={12} /> {compartible ? 'Enviar' : 'Descargar'}</button>
       </div>
     </div>

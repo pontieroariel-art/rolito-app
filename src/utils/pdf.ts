@@ -155,7 +155,7 @@ export async function generateHojaDeRuta(
   // ── Guardar ─────────────────────────────────────────────────────────────────
   const slug     = driverName.toLowerCase().replace(/\s+/g, '-')
   const dateSlug = toDateStr(date)
-  doc.save(`hoja-de-ruta-${slug}-${dateSlug}.pdf`)
+  return salidaPdf(doc, `hoja-de-ruta-${slug}-${dateSlug}.pdf`)
 }
 
 export interface HistorialDespachoRow {
@@ -292,7 +292,7 @@ export async function generateHistorialDespachoPdf(
 
   // ── Guardar ─────────────────────────────────────────────────────────────────
   const suffix = scope ? `-${scope.chofer.toLowerCase().replace(/\s+/g, '-')}` : ''
-  doc.save(`historial-despacho${suffix}-${fechaSlug}.pdf`)
+  return salidaPdf(doc, `historial-despacho${suffix}-${fechaSlug}.pdf`)
 }
 
 // Remito de traslado (pág. 1) + comodato (pág. 2) en un solo PDF, generados
@@ -409,7 +409,7 @@ export async function generateRemitoComodato(params: {
   firmaYAclaracion(y + 10)
 
   // ── Guardar ─────────────────────────────────────────────────────────────────
-  doc.save(`remito-comodato-${numero}-${toDateStr(fecha)}.pdf`)
+  return salidaPdf(doc, `remito-comodato-${numero}-${toDateStr(fecha)}.pdf`)
 }
 
 const MESES = [
@@ -429,7 +429,7 @@ export async function generateContratoComodato(params: {
   cliente:      { razonSocial: string; cuit: string; direccion: string }
   firmante:     { nombre: string; cargo: string }
   firmaDataUrl: string
-}, opts: { descargar?: boolean } = {}): Promise<Blob | void> {
+}, opts: { descargar?: boolean } = {}): Promise<Blob> {
   const { numero, fecha, heladera, cliente, firmante, firmaDataUrl } = params
   const { default: jsPDF } = await import('jspdf')
   const doc   = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
@@ -635,7 +635,7 @@ export async function generateOrdenEntrega(params: {
   doc.text('Firma en conformidad: x', pageW - 14, y + 10, { align: 'right' })
   doc.text('Aclaración: ______________________________', pageW - 14, y + 16, { align: 'right' })
 
-  doc.save(`orden-entrega-${numero}-${toDateStr(fecha)}.pdf`)
+  return salidaPdf(doc, `orden-entrega-${numero}-${toDateStr(fecha)}.pdf`)
 }
 
 // Hoja para entregarle al técnico/chofer con lo que necesita saber del
@@ -721,7 +721,7 @@ export async function generatePedidoReparacion(params: {
   }
 
   // ── Guardar ─────────────────────────────────────────────────────────────────
-  doc.save(`pedido-reparacion-${ticket.numero}-${toDateStr(ticket.fechaPedido)}.pdf`)
+  return salidaPdf(doc, `pedido-reparacion-${ticket.numero}-${toDateStr(ticket.fechaPedido)}.pdf`)
 }
 
 // Listado genérico imprimible (título + tabla) — usado por el dashboard de
@@ -759,7 +759,7 @@ export async function generateListadoPdf(titulo: string, head: string[], rows: (
   })
 
   const slug = titulo.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '')
-  doc.save(`${slug}-${toDateStr(new Date())}.pdf`)
+  return salidaPdf(doc, `${slug}-${toDateStr(new Date())}.pdf`)
 }
 
 // ── Remito de carga del camión (módulo expedición) ───────────────────────────
@@ -781,7 +781,7 @@ export async function generateRemitoCarga(remito: {
   cot?:         { numero: string; fechaValidez?: string } | null
   /** Kilos de la carga (para dejar constancia en el papel de que requería COT). */
   kg?:          number
-}, opts: { descargar?: boolean } = {}): Promise<Blob | void> {
+}, opts: { descargar?: boolean } = {}): Promise<Blob> {
   const { default: jsPDF }     = await import('jspdf')
   const { default: autoTable } = await import('jspdf-autotable')
   const doc   = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
@@ -915,7 +915,7 @@ export interface DetalleLiquidacionPdf {
   descargas: Array<{ fecha: Date; registradoPor: string; items: Array<{ nombre: string; cantidad: number }>; rotas: number; envases: EnvasesNormalizados }>
 }
 
-export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiquidacionPdf, opts: { descargar?: boolean } = {}): Promise<Blob | void> {
+export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiquidacionPdf, opts: { descargar?: boolean } = {}): Promise<Blob> {
   const { default: jsPDF }     = await import('jspdf')
   const { default: autoTable } = await import('jspdf-autotable')
   const { describirComprobante, estadoTangoVenta } = await import('./comprobanteDeVenta')
@@ -1208,7 +1208,7 @@ export async function generateReciboCobranza(cobranza: {
   doc.setTextColor(100)
   doc.text(`Firma y aclaración — Caja: ${cobranza.registradoPor}`, pageW - 88, y + 4)
 
-  doc.save(`recibo-cobranza-${cobranza.id.slice(0, 8)}.pdf`)
+  return salidaPdf(doc, `recibo-cobranza-${cobranza.id.slice(0, 8)}.pdf`)
 }
 
 // ── Recibo de cobranza de supervisor (multi-medio, con imputaciones) ─────────
@@ -1232,7 +1232,7 @@ export async function generateReciboCobranzaSupervisor(cobranza: {
   aCuenta?:      number
   registradoPor: string
   fecha:         Date
-}, opts: { descargar?: boolean } = {}): Promise<Blob | void> {
+}, opts: { descargar?: boolean } = {}): Promise<Blob> {
   const { default: jsPDF }     = await import('jspdf')
   const { default: autoTable } = await import('jspdf-autotable')
   const doc   = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })

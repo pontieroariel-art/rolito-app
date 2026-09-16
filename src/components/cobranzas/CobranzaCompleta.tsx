@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Banknote, CheckCircle2, FileDown, Landmark, Plus, ReceiptText, RefreshCw, Share2, Trash2 } from 'lucide-react'
+import { Banknote, CheckCircle2, Eye, Landmark, Plus, ReceiptText, RefreshCw, Share2, Trash2 } from 'lucide-react'
 import ChequeForm from '@/components/supervisor/ChequeForm'
 import RetencionForm, { RETENCION_LABELS } from '@/components/supervisor/RetencionForm'
-import { entregarReciboSupervisor } from '@/components/supervisor/CobranzaSupervisorCard'
+import { entregarReciboSupervisor, reciboSupervisorBlob } from '@/components/supervisor/CobranzaSupervisorCard'
+import { useVisorComprobante } from '@/components/ui/VisorComprobante'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
@@ -19,6 +20,7 @@ import {
   asegurarReserva, codigoRecibo, consumirNumero, precargarSiSeAcerca,
 } from '@/services/reciboSupervisorService'
 import { puedeCompartirArchivos } from '@/utils/compartir'
+import { envioDeRecibo } from '@/utils/envioComprobante'
 import { aCentavos, formatoARS, parseImporte, sumaCentavos } from '@/utils/money'
 import { haceCuanto } from '@/utils/tiempo'
 import { EMPRESAS_TANGO, NOMBRE_EMPRESA, estaVinculadoATango, tangoIdsDe } from '@/utils/tangoEmpresas'
@@ -80,6 +82,7 @@ export default function CobranzaCompleta({ origen, plantaId, cajaSesionId, clien
   const [modal, setModal] = useState<'cheque' | 'retencion' | 'confirmar' | null>(null)
   const [exito, setExito] = useState<Cobranza | null>(null)
   const [avisoRecibo, setAvisoRecibo] = useState('')
+  const { abrir } = useVisorComprobante()
   const [error, setError] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [numeracionActiva, setNumeracionActiva] = useState(false)
@@ -296,9 +299,16 @@ export default function CobranzaCompleta({ origen, plantaId, cajaSesionId, clien
     }
   }
 
-  const entregarRecibo = async (c: Cobranza, compartir: boolean) => {
+  const entregarRecibo = async (c: Cobranza) => {
     setAvisoRecibo('')
-    setAvisoRecibo(await entregarReciboSupervisor(c, compartir))
+    setAvisoRecibo(await entregarReciboSupervisor(c))
+  }
+  // Visor (2026-09-15): el recibo se ve en pantalla; imprimir, enviar o descargar es un clic adentro.
+  const verRecibo = async (c: Cobranza) => {
+    setAvisoRecibo('')
+    const r = await reciboSupervisorBlob(c)
+    if (!r) { setAvisoRecibo('Esta cobranza no tiene recibo para generar.'); return }
+    abrir({ ...r, subtitulo: `${c.clienteNombre} · ${formatoARS(c.importe)}`, envio: envioDeRecibo(c, r.titulo) })
   }
 
   const anchoClase = ancho === '3xl' ? 'max-w-3xl' : 'max-w-md'
@@ -324,11 +334,11 @@ export default function CobranzaCompleta({ origen, plantaId, cajaSesionId, clien
           <p className="text-xs text-secundario mt-2">Queda encolada para impactar en la cuenta corriente de Tango.</p>
         </div>
         <div className="flex flex-col gap-2 pt-2 max-w-md mx-auto">
-          <Button onClick={() => entregarRecibo(exito, true)} className="w-full">
+          <Button onClick={() => entregarRecibo(exito)} className="w-full">
             <Share2 size={16} className="mr-2" /> {puedeCompartirArchivos() ? 'Enviar recibo (WhatsApp, mail…)' : 'Enviar recibo'}
           </Button>
-          <Button variant="outline" onClick={() => entregarRecibo(exito, false)} className="w-full">
-            <FileDown size={16} className="mr-2" /> {origen === 'caja' ? 'Descargar / imprimir recibo' : 'Descargar recibo PDF'}
+          <Button variant="outline" onClick={() => verRecibo(exito)} className="w-full">
+            <Eye size={16} className="mr-2" /> {origen === 'caja' ? 'Ver / imprimir recibo' : 'Ver recibo'}
           </Button>
           {avisoRecibo && <p className="text-xs text-secundario">{avisoRecibo}</p>}
           <Button variant="outline" onClick={() => setExito(null)} className="w-full">Registrar otra cobranza</Button>

@@ -1,3 +1,4 @@
+import { salidaPdf } from './pdfBase'
 // PDF de la factura de promo (Rolito, letra X): el papel del talonario de
 // PROMOCIÓN que usaba la empresa (ver papelInternoPdf.ts). No es un comprobante
 // fiscal: sin QR de ARCA, sin CAE ni barras, "Código Nº: 00" y la leyenda
@@ -48,10 +49,9 @@ export function specFacturaX(d: ComprobanteInternoData): PapelInternoSpec {
 export async function generateComprobanteInternoPdf(
   d: ComprobanteInternoData,
   opts: { descargar?: boolean } = {},
-): Promise<Blob | void> {
+): Promise<Blob> {
   const { jsPDF } = await import('jspdf')
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true })
   dibujarPapelInterno(doc, specFacturaX(d))
-  if (opts.descargar === false) return doc.output('blob')
-  doc.save(d.archivo)
+  return salidaPdf(doc, d.archivo, opts.descargar)
 }

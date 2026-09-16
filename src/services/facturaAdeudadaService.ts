@@ -8,7 +8,6 @@ import { generarComprobanteVenta } from '@/utils/comprobanteDeVenta'
 import { armarFacturaDeVenta } from '@/utils/facturaDeVenta'
 import { formatoFactura, parsearClaveTango } from '@/utils/facturaClave'
 import { armarFacturaRolitoTangoPdf, armarFacturaTangoPdf, armarRemitoTangoPdf, formatoRemito, parsearRemito } from '@/utils/comprobantesTango'
-import { compartirArchivo, descargarArchivo } from '@/utils/compartir'
 import type { ComprobanteSaldoTango, EmpresaTango, VentaCamion, VentaVentanilla } from '@/types'
 
 // PDF de una factura adeudada (comprobante de la composición de saldos de
@@ -127,17 +126,6 @@ export async function obtenerFacturaPdf(comp: Pick<ComprobanteSaldoTango, 'tipo'
   return { ok: false, motivo: SIN_ARCHIVO }
 }
 
-/** Ver (descargar) o enviar (compartir). Devuelve un aviso para pantalla, o '' si salió bien. */
-export async function entregarFacturaAdeudada(comp: Pick<ComprobanteSaldoTango, 'tipo' | 'numero'>, empresa: EmpresaTango, modo: 'ver' | 'enviar', clienteNombre: string): Promise<string> {
-  let r: FacturaObtenida
-  try {
-    r = await obtenerFacturaPdf(comp, empresa)
-  } catch {
-    return 'No se pudo obtener la factura. Revisá la señal y probá de nuevo.'
-  }
-  return entregar(r, modo, clienteNombre)
-}
-
 /** PDF de un remito por su número de Tango ('R0110500000322'): el de la app si lo hizo la app, si no una copia desde Tango. */
 export async function obtenerRemitoPdf(numeroRemito: string, empresa: EmpresaTango): Promise<FacturaObtenida> {
   const p = parsearRemito(numeroRemito)
@@ -161,19 +149,3 @@ export async function obtenerRemitoPdf(numeroRemito: string, empresa: EmpresaTan
   return { ok: false, motivo: SIN_REMITO }
 }
 
-export async function entregarRemito(numeroRemito: string, empresa: EmpresaTango, modo: 'ver' | 'enviar', clienteNombre: string): Promise<string> {
-  let r: FacturaObtenida
-  try {
-    r = await obtenerRemitoPdf(numeroRemito, empresa)
-  } catch {
-    return 'No se pudo obtener el remito. Revisá la señal y probá de nuevo.'
-  }
-  return entregar(r, modo, clienteNombre)
-}
-
-async function entregar(r: FacturaObtenida, modo: 'ver' | 'enviar', clienteNombre: string): Promise<string> {
-  if (!r.ok) return r.motivo
-  if (modo === 'ver') { descargarArchivo(r.blob, r.nombre); return '' }
-  const res = await compartirArchivo(r.blob, r.nombre, { titulo: r.titulo, texto: `${r.titulo} — ${clienteNombre}` })
-  return res === 'descargado' ? 'Este dispositivo no puede compartir archivos: se descargó el PDF.' : ''
-}

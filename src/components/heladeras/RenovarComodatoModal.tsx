@@ -5,6 +5,8 @@ import SignaturePad, { SignaturePadHandle } from './SignaturePad'
 import { renovarComodato, Actor } from '../../services/asignacionHeladeraService'
 import { generateContratoComodato, nombreArchivoComodato } from '../../utils/pdf'
 import { compartirArchivo } from '../../utils/compartir'
+import { useVisorComprobante } from '@/components/ui/VisorComprobante'
+import { envioDeCliente } from '@/utils/envioComprobante'
 import { getUserDocument } from '../../services/userService'
 import { Heladera } from '../../types'
 
@@ -24,6 +26,7 @@ export default function RenovarComodatoModal({
   const [firmanteCargo,  setFirmanteCargo]  = useState('')
   const [saving,         setSaving]         = useState(false)
   const [error,          setError]          = useState('')
+  const { abrir } = useVisorComprobante()
   const padRef = useRef<SignaturePadHandle>(null)
 
   const handleSubmit = async () => {
@@ -50,13 +53,15 @@ export default function RenovarComodatoModal({
         firmaDataUrl: firma,
       }
       if (compartir) {
-        const blob = (await generateContratoComodato(params, { descargar: false })) as Blob
+        const blob = await generateContratoComodato(params)
         await compartirArchivo(blob, nombreArchivoComodato(asignacion.numero, fecha), {
           titulo: `Comodato Nº ${asignacion.numero} — ${params.cliente.razonSocial}`,
           texto:  `Contrato de comodato Nº ${asignacion.numero} de la heladera ${heladera.codigoInterno}, firmado el ${fecha.toLocaleDateString('es-AR')}.`,
         })
       } else {
-        await generateContratoComodato(params)
+        const blob = await generateContratoComodato(params)
+        abrir({ blob, nombre: nombreArchivoComodato(asignacion.numero, fecha), titulo: `Contrato de comodato Nº ${asignacion.numero}`, subtitulo: `${params.cliente.razonSocial} · ${heladera.codigoInterno}`,
+          envio: envioDeCliente(cliente, { tipo: 'COMODATO', numero: String(asignacion.numero), titulo: `Contrato de comodato Nº ${asignacion.numero}`, mensaje: 'Te enviamos el contrato de comodato renovado, firmado.', clienteNombre: params.cliente.razonSocial }) })
       }
       onClose(true)
     } catch (err) {

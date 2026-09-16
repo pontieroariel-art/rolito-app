@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, Landmark, Printer, Share2 } from 'lucide-react'
+import { CheckCircle2, Eye, Landmark, Share2 } from 'lucide-react'
+import { useVisorComprobante } from '@/components/ui/VisorComprobante'
 import Button from '@/components/ui/Button'
 import { useAuth } from '@/context/AuthContext'
 import { useDiaActual } from '@/hooks/useDiaActual'
@@ -43,6 +44,7 @@ export default function EntregasPage() {
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
   const [aviso, setAviso] = useState('')
+  const { abrir } = useVisorComprobante()
   const [ultima, setUltima] = useState<EntregaTesoreria | null>(null)
 
   useEffect(() => {
@@ -72,7 +74,14 @@ export default function EntregasPage() {
   const toggle = (id: string) => setExcluidos((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
   const misEntregas = useMemo(() => entregas.filter((e) => e.plantaId === planta).sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis()), [entregas, planta])
 
-  const imprimir = (e: EntregaTesoreria) => generateActaEntrega(e).catch((err) => reportError(err, { origen: 'EntregasPage', accion: 'error al generar el acta' }))
+  // Visor (2026-09-15): el acta se ve en pantalla; descargar o imprimir es un clic adentro.
+  const imprimir = async (e: EntregaTesoreria) => {
+    try {
+      const blob = await generateActaEntrega(e)
+      const nombre = nombreArchivoActa(e)
+      abrir({ blob, nombre, titulo: `Entrega a tesorería ${e.codigo}`, subtitulo: `${e.fecha} · ${formatoARS(e.efectivoEntregado)} en efectivo` })
+    } catch (err) { reportError(err, { origen: 'EntregasPage', accion: 'error al generar el acta' }) }
+  }
   const enviar = async (e: EntregaTesoreria) => {
     setAviso('')
     try {
@@ -121,7 +130,7 @@ export default function EntregasPage() {
         <section className="bg-accent/5 border border-accent/30 rounded-2xl px-4 py-3 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-gray-800 flex items-center gap-2"><CheckCircle2 size={18} className="text-[#1D9E75]" /> Entrega <b>{ultima.codigo}</b> registrada · {formatoARS(ultima.efectivoEntregado)} en efectivo · {ultima.cheques.length + ultima.retenciones.length} valor(es) en papel. Tesorería la ve para confirmarla.</p>
           <span className="flex gap-2">
-            <button type="button" onClick={() => imprimir(ultima)} className={btn}><Printer size={12} /> Acta</button>
+            <button type="button" onClick={() => imprimir(ultima)} className={btn}><Eye size={12} /> Ver acta</button>
             <button type="button" onClick={() => enviar(ultima)} className={btn}><Share2 size={12} /> {compartible ? 'Enviar' : 'Descargar'}</button>
           </span>
         </section>
@@ -217,7 +226,7 @@ export default function EntregasPage() {
                     ? <span className="text-[#0F6B4E]">Confirmada por {e.firmanteRecibe ?? e.recibidoPor?.nombre}{e.diferenciaEfectivo ? <span className="text-red-600"> · dif. {formatoARS(e.diferenciaEfectivo)}</span> : ''}{e.valoresFaltantes?.cantidad ? <span className="text-red-600"> · {e.valoresFaltantes.cantidad} valor(es) no recibido(s)</span> : ''}{e.diferencia ? <span className="text-secundario"> · {MOTIVOS_DIFERENCIA_LIQUIDACION[e.diferencia.motivo]}</span> : ''}</span>
                     : <span className="text-amber-700">Entregada · esperando a tesorería</span>}
                 </td>
-                <td className={td}><span className="flex gap-1"><button type="button" onClick={() => imprimir(e)} className={btn} title="Ver acta"><Printer size={12} /></button><button type="button" onClick={() => enviar(e)} className={btn} title="Enviar acta"><Share2 size={12} /></button></span></td>
+                <td className={td}><span className="flex gap-1"><button type="button" onClick={() => imprimir(e)} className={btn} title="Ver acta"><Eye size={12} /></button><button type="button" onClick={() => enviar(e)} className={btn} title="Enviar acta"><Share2 size={12} /></button></span></td>
               </tr>
             ))}
             {misEntregas.length === 0 && <tr><td className={`${td} text-secundario`} colSpan={7}>Sin entregas este mes.</td></tr>}

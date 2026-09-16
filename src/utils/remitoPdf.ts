@@ -1,3 +1,4 @@
+import { salidaPdf } from './pdfBase'
 // PDF del remito de la venta del camión, en el mismo papel que la factura de
 // promo (papelInternoPdf.ts) pero sin precios: columnas DESCRIPCIÓN / UM /
 // CANTIDAD y total en bultos.
@@ -77,10 +78,9 @@ export function specRemito(d: RemitoData, logoDataUrl?: string | null): PapelInt
 export async function generateRemitoPdf(
   d: RemitoData,
   opts: { descargar?: boolean } = {},
-): Promise<Blob | void> {
+): Promise<Blob> {
   const { jsPDF } = await import('jspdf')
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true })
   dibujarPapelInterno(doc, specRemito(d, await logoRemito()))
-  if (opts.descargar === false) return doc.output('blob')
-  doc.save(d.archivo)
+  return salidaPdf(doc, d.archivo, opts.descargar)
 }

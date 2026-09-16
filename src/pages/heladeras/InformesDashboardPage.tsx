@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { Download, Printer } from 'lucide-react'
+import { Download, Eye } from 'lucide-react'
+import { useVisorComprobante } from '@/components/ui/VisorComprobante'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
@@ -37,6 +38,7 @@ function promedio(valores: number[]): number | null {
 }
 
 export default function InformesDashboardPage() {
+  const { abrir } = useVisorComprobante()
   const { heladeras, loading: loadingHeladeras } = useHeladeras()
   const { tickets, loading: loadingTickets } = useTicketsServicio()
   const { pasos: catalogoPasos } = usePasosTaller()
@@ -149,7 +151,7 @@ export default function InformesDashboardPage() {
 
   const imprimir = (cat: Categoria) => {
     const { titulo, cols, filas } = datosDe(cat)
-    generateListadoPdf(titulo, cols, filas)
+    generateListadoPdf(titulo, cols, filas).then((blob) => abrir({ blob, nombre: `${titulo.toLowerCase().replace(/\s+/g, '-')}.pdf`, titulo, subtitulo: `${filas.length} filas` }))
   }
 
   const loading = loadingHeladeras || loadingTickets
@@ -298,7 +300,7 @@ export default function InformesDashboardPage() {
                   disabled={catAbierta.filas.length === 0}
                   className="flex items-center gap-1.5 text-xs bg-white border border-[#D3D1C7] rounded-lg px-3 py-1.5 hover:border-accent transition-colors disabled:opacity-40"
                 >
-                  <Printer size={12} /> PDF
+                  <Eye size={12} /> Ver PDF
                 </button>
               </div>
             </div>

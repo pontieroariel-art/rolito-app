@@ -3,7 +3,9 @@ import { FileText, Printer, Receipt } from 'lucide-react'
 import Badge, { type TonoBadge } from '@/components/common/Badge'
 import { TH, TD } from '@/components/common/tabla'
 import { RETENCION_LABELS } from '@/components/supervisor/RetencionForm'
-import { entregarReciboSupervisor } from '@/components/supervisor/CobranzaSupervisorCard'
+import { reciboSupervisorBlob } from '@/components/supervisor/CobranzaSupervisorCard'
+import { abrirGenerado, useVisorComprobante } from '@/components/ui/VisorComprobante'
+import { envioDeRecibo, envioDeVenta } from '@/utils/envioComprobante'
 import { usePerfilesClientes } from '@/hooks/usePerfilesClientes'
 import { useCopiasTicketVentanilla } from '@/hooks/useCopiasTicketVentanilla'
 import { caiRemitoOficialCacheado, getCaiRemitoOficial } from '@/services/remitoOficialConfigService'
@@ -11,7 +13,6 @@ import { reportError } from '@/services/observability'
 import { textoAnulacion } from '@/utils/anulacionVenta'
 import { describirComprobante, generarComprobanteVenta } from '@/utils/comprobanteDeVenta'
 import type { CaiRemito } from '@/utils/comprobanteInterno'
-import { descargarArchivo } from '@/utils/compartir'
 import { chequesDe, efectivoDe, retencionesDe, sumaImportes, transferenciaDe } from '@/utils/medios'
 import { formatoARS } from '@/utils/money'
 import { importeCobrado } from '@/utils/importeCobrado'
@@ -87,6 +88,7 @@ export default function VentasDeCajero({ fila }: { fila: FilaVentanilla }) {
   const [cai, setCai] = useState<CaiRemito | null>(() => caiRemitoOficialCacheado())
   useEffect(() => { getCaiRemitoOficial().then(setCai).catch(() => undefined) }, [])
   const [ocupado, setOcupado] = useState<string | null>(null)
+  const { abrir } = useVisorComprobante()
   const [aviso, setAviso] = useState('')
 
   const correr = useCallback(async (id: string, accion: () => Promise<string>) => {
@@ -103,20 +105,24 @@ export default function VentasDeCajero({ fila }: { fila: FilaVentanilla }) {
       incluirFactura: v.factura?.estado === 'emitida', incluirTurno: true, copiasTurno: copias[v.plantaId],
       cliente: v.clienteId ? perfiles.get(v.clienteId) : undefined,
     })
-    descargarArchivo(await generateTicketsVentanilla(partes), `ticket-${v.plantaId}-turno-${v.turno}.pdf`)
+    abrir({ blob: await generateTicketsVentanilla(partes), nombre: `ticket-${v.plantaId}-turno-${v.turno}.pdf`, titulo: `Ticket · turno ${v.turno}`, subtitulo: v.clienteNombre })
     return ''
   })
   const verComprobante = (v: VentaVentanilla) => correr(`c:${v.id}`, async () => {
-    const g = await generarComprobanteVenta(comoVentaCamion(v), v.clienteId ? perfiles.get(v.clienteId) : undefined, cai)
-    if (!g.ok) return g.motivo
-    descargarArchivo(g.blob, g.nombre)
-    return ''
+    const vc = comoVentaCamion(v)
+    return abrirGenerado(abrir, await generarComprobanteVenta(vc, v.clienteId ? perfiles.get(v.clienteId) : undefined, cai), { subtitulo: v.clienteNombre, envio: envioDeVenta(vc, { coleccion: 'ventasVentanilla', id: v.id }) })
   })
   const verRecibo = (c: Cobranza) => correr(`r:${c.id}`, async () => {
     // Cobranza completa (con medios e imputaciones): el recibo numerado del
     // supervisor. Simple (las viejas): el recibo de mostrador de la planta.
-    if (c.medios && c.imputaciones) return entregarReciboSupervisor(c, false)
-    await generateReciboCobranza({ id: c.id, plantaId: c.plantaId ?? 'torcuato', clienteNombre: c.clienteNombre, importe: c.importe, formaPago: c.formaPago, referencia: c.referencia, registradoPor: c.registradoPor.nombre, fecha: c.fecha.toDate() })
+    if (c.medios && c.imputaciones) {
+      const r = await reciboSupervisorBlob(c)
+      if (!r) return 'Esta cobranza no tiene recibo para generar.'
+      abrir({ ...r, subtitulo: c.clienteNombre, envio: envioDeRecibo(c, r.titulo) })
+      return ''
+    }
+    const blob = await generateReciboCobranza({ id: c.id, plantaId: c.plantaId ?? 'torcuato', clienteNombre: c.clienteNombre, importe: c.importe, formaPago: c.formaPago, referencia: c.referencia, registradoPor: c.registradoPor.nombre, fecha: c.fecha.toDate() })
+    abrir({ blob, nombre: `recibo-cobranza-${c.id.slice(0, 8)}.pdf`, titulo: 'Recibo de mostrador', subtitulo: c.clienteNombre, envio: envioDeRecibo(c, 'Recibo de mostrador') })
     return ''
   })
 

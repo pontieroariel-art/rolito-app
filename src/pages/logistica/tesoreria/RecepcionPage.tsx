@@ -17,7 +17,8 @@ import { addDaysStr } from '@/utils/helpers'
 import { formatoARS } from '@/utils/money'
 import { tieneAlgunRol } from '@/utils/roles'
 import { antiguedadHoras } from '@/utils/sobres'
-import { imprimirActaSobreCompleta } from '@/services/actaSobreService'
+import { actaSobreBlob } from '@/services/actaSobreService'
+import { useVisorComprobante } from '@/components/ui/VisorComprobante'
 import { MOTIVOS_DIFERENCIA_LIQUIDACION, PLANTAS, type PlantaId, type Sobre } from '@/types'
 
 // Recepción de sobres en tesorería (rendición de fondos, 2026-09-14). Responde
@@ -43,6 +44,7 @@ export default function RecepcionPage() {
   const [error, setError] = useState('')
   const [ultimoRecibido, setUltimoRecibido] = useState<Sobre | null>(null)
   const [aviso, setAviso] = useState('')
+  const { abrir } = useVisorComprobante()
 
   // gerente_general mira; tesorería (y el operador) reciben.
   const puedeRecibir = tieneAlgunRol(user, ['tesoreria', 'super_admin', 'logistica'])
@@ -61,13 +63,17 @@ export default function RecepcionPage() {
     { id: 'cajas',    etiqueta: 'Cajas abiertas', valor: custodia.cajasAbiertas.length, icono: <Wallet size={14} />, tono: 'pendiente', title: custodia.cajasAbiertas.length ? custodia.cajasAbiertas.map((x) => `${x.sesion.cajero.nombre} (${nombrePlanta(x.sesion.plantaId)}, desde ${hora(x.sesion.abiertaEn.toDate())})`).join(' · ') : 'Ninguna caja abierta' },
   ]
 
-  const acta = useCallback((s: Sobre) => {
+  // Visor (2026-09-15): el acta se ve en pantalla; imprimir o descargar es un clic adentro.
+  const acta = useCallback(async (s: Sobre) => {
     setAviso('')
-    imprimirActaSobreCompleta(s, 'imprimir').catch((err) => {
+    try {
+      const { blob, nombre } = await actaSobreBlob(s)
+      abrir({ blob, nombre, titulo: `Rendición ${s.codigo}`, subtitulo: `${s.fecha} · ${s.rindio.nombre}` })
+    } catch (err) {
       reportError(err, { origen: 'RecepcionPage', accion: 'error al generar el acta' })
       setAviso('No se pudo generar el acta del sobre.')
-    })
-  }, [])
+    }
+  }, [abrir])
 
   const recibir = async (datos: DatosRecepcion) => {
     if (!user || !recibiendo) return
@@ -114,7 +120,7 @@ export default function RecepcionPage() {
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#AFD9C6] bg-[#F1F9F5] px-4 py-3">
           <p className="text-sm text-gray-900"><ShieldCheck size={16} className="inline text-[#14865C] mr-1.5" />Sobre <b>{ultimoRecibido.codigo}</b> recibido: {ultimoRecibido.recepcion?.conformidad === 'conforme' ? 'conforme' : 'con diferencia'}.</p>
           <span className="flex gap-2">
-            <button type="button" onClick={() => acta(ultimoRecibido)} className={btn}><FileText size={12} /> Imprimir acta</button>
+            <button type="button" onClick={() => acta(ultimoRecibido)} className={btn}><FileText size={12} /> Ver acta</button>
             <button type="button" onClick={() => setUltimoRecibido(null)} className={btn}>Cerrar</button>
           </span>
         </div>

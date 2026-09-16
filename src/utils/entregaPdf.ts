@@ -12,7 +12,7 @@ import { finTabla, salidaPdf } from './pdfBase'
 
 export const nombreArchivoActa = (e: Pick<EntregaTesoreria, 'fecha' | 'codigo'>) => `entrega-tesoreria-${e.fecha}-${e.codigo}.pdf`
 
-export async function generateActaEntrega(e: EntregaTesoreria, opts: { descargar?: boolean } = {}): Promise<Blob | void> {
+export async function generateActaEntrega(e: EntregaTesoreria, opts: { descargar?: boolean } = {}): Promise<Blob> {
   const { default: jsPDF }     = await import('jspdf')
   const { default: autoTable } = await import('jspdf-autotable')
   const doc   = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })

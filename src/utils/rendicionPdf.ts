@@ -15,7 +15,7 @@ export interface DetalleRendicionPdf {
   cobranzas?: { hora: Date; cliente: string; recibo?: string; efectivo: number; transferencia: number; cheques: number; retenciones: number }[]
 }
 
-export async function generateRendicionMostrador(r: Rendicion, detalle: DetalleRendicionPdf = {}, opts: { descargar?: boolean } = {}): Promise<Blob | void> {
+export async function generateRendicionMostrador(r: Rendicion, detalle: DetalleRendicionPdf = {}, opts: { descargar?: boolean } = {}): Promise<Blob> {
   const base  = await nuevoA4()
   const { doc, autoTable, pageW } = base
   const hora  = (d: Date) => d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })

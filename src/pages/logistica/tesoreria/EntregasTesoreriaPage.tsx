@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Landmark, Printer, Share2, ShieldCheck } from 'lucide-react'
+import { Eye, Landmark, Share2, ShieldCheck } from 'lucide-react'
+import { useVisorComprobante } from '@/components/ui/VisorComprobante'
 import { Timestamp } from 'firebase/firestore'
 import Button from '@/components/ui/Button'
 import { useAuth } from '@/context/AuthContext'
@@ -39,6 +40,7 @@ export default function EntregasTesoreriaPage() {
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
   const [aviso, setAviso] = useState('')
+  const { abrir } = useVisorComprobante()
 
   useEffect(() => subscribeEntregasPorConfirmar(setPorConfirmar), [])
   useEffect(() => subscribeEntregasEnRango(`${hoy.slice(0, 7)}-01`, addDaysStr(hoy, 1), setDelMes), [hoy])
@@ -48,7 +50,14 @@ export default function EntregasTesoreriaPage() {
   const puedeConfirmar = tieneAlgunRol(user, ['tesoreria', 'super_admin', 'logistica'])
   const contadoDe = (e: EntregaTesoreria) => parseInt((contados[e.id] ?? '').replace(/\D/g, ''), 10) || 0
 
-  const imprimir = (e: EntregaTesoreria) => generateActaEntrega(e).catch((err) => reportError(err, { origen: 'EntregasTesoreriaPage', accion: 'error al generar el acta' }))
+  // Visor (2026-09-15): el acta se ve en pantalla; descargar o imprimir es un clic adentro.
+  const imprimir = async (e: EntregaTesoreria) => {
+    try {
+      const blob = await generateActaEntrega(e)
+      const nombre = nombreArchivoActa(e)
+      abrir({ blob, nombre, titulo: `Entrega a tesorería ${e.codigo}`, subtitulo: `${e.fecha} · ${formatoARS(e.efectivoEntregado)} en efectivo` })
+    } catch (err) { reportError(err, { origen: 'EntregasTesoreriaPage', accion: 'error al generar el acta' }) }
+  }
   const enviar = async (e: EntregaTesoreria) => {
     setAviso('')
     try {
@@ -110,7 +119,7 @@ export default function EntregasTesoreriaPage() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-sm text-gray-800"><b className="text-base">{e.codigo}</b> · {PLANTAS[e.plantaId].label} · {e.fecha} · entregó <b>{e.firmanteEntrega}</b> a las {e.createdAt.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</p>
                 <span className="flex gap-2">
-                  <button type="button" onClick={() => imprimir(e)} className={btn}><Printer size={12} /> Acta</button>
+                  <button type="button" onClick={() => imprimir(e)} className={btn}><Eye size={12} /> Ver acta</button>
                   <button type="button" onClick={() => enviar(e)} className={btn}><Share2 size={12} /> {compartible ? 'Enviar' : 'Descargar'}</button>
                 </span>
               </div>
@@ -167,7 +176,7 @@ export default function EntregasTesoreriaPage() {
                 <td className={`${td} text-right`}>{dif(e.diferenciaEfectivo ?? 0)}{e.diferencia ? <span className="block text-[11px] text-secundario">{MOTIVOS_DIFERENCIA_LIQUIDACION[e.diferencia.motivo]}</span> : null}</td>
                 <td className={`${td} text-right tabular-nums`}>{e.valoresFaltantes?.cantidad ? <span className="text-red-600 font-semibold">{e.valoresFaltantes.cantidad} · {formatoARS(e.valoresFaltantes.total)}</span> : '—'}</td>
                 <td className={`${td} text-xs text-[#0F6B4E]`}><span className="inline-flex items-center gap-1"><ShieldCheck size={13} /> {e.firmanteRecibe ?? e.recibidoPor?.nombre}</span>{e.confirmadaEn ? <span className="block text-secundario">{e.confirmadaEn.toDate().toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span> : null}</td>
-                <td className={td}><span className="flex gap-1"><button type="button" onClick={() => imprimir(e)} className={btn} title="Ver acta"><Printer size={12} /></button><button type="button" onClick={() => enviar(e)} className={btn} title="Enviar acta"><Share2 size={12} /></button></span></td>
+                <td className={td}><span className="flex gap-1"><button type="button" onClick={() => imprimir(e)} className={btn} title="Ver acta"><Eye size={12} /></button><button type="button" onClick={() => enviar(e)} className={btn} title="Enviar acta"><Share2 size={12} /></button></span></td>
               </tr>
             ))}
             {confirmadas.length === 0 && <tr><td className={`${td} text-secundario`} colSpan={10}>Sin entregas confirmadas este mes.</td></tr>}

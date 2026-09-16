@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { FileText, History, Printer, Share2 } from 'lucide-react'
+import { Eye, FileText, History, Printer, Share2 } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import { useAuth } from '@/context/AuthContext'
 import { useRemitosCargaDelDia } from '@/hooks/useExpedicionDia'
@@ -34,6 +34,7 @@ import SolicitarAnulacionModal from '@/components/expedicion/SolicitarAnulacionM
 import AnuladasDespuesDeCerrar from '@/components/expedicion/AnuladasDespuesDeCerrar'
 import { anulacionEnCurso } from '@/utils/anulacionVenta'
 import { anulacionCobranzaEnCurso } from '@/utils/anulacionCobranza'
+import { useVisorComprobante } from '@/components/ui/VisorComprobante'
 import { tieneAlgunRol } from '@/utils/roles'
 
 // Liquidación del repartidor (pantalla de caja) — herramienta de control del
@@ -70,6 +71,7 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
   const [cambios,   setCambios]   = useState<CambioCamion[]>([])
   const [descargas, setDescargas] = useState<DescargaCamion[]>([])
   const [cobranzas, setCobranzas] = useState<Cobranza[]>([])
+  const { abrir } = useVisorComprobante()
   const [cerrada,   setCerrada]   = useState<Liquidacion | null>(null)
   const [efectivoRecibido, setEfectivoRecibido] = useState('')
   const [confirmando, setConfirmando] = useState(false)
@@ -136,8 +138,14 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
     descargas: descargas.map((d) => ({ fecha: d.fecha.toDate(), registradoPor: d.registradoPor.nombre, items: d.items, rotas: d.bolsasRotas.reduce((s, i) => s + i.cantidad, 0), envases: envasesDeDescarga(d) })),
   })
 
-  const imprimir = (liq: Liquidacion) =>
-    generateLiquidacion(liq, detallePdf()).catch((err) => reportError(err, { origen: 'LiquidacionesPage', accion: 'error al generar el PDF' }))
+  // Visor (2026-09-15): el PDF se ve en pantalla; descargar o imprimir es un clic adentro.
+  const imprimir = async (liq: Liquidacion) => {
+    try {
+      const blob = await generateLiquidacion(liq, detallePdf())
+      const nombre = nombreArchivoLiquidacion(liq)
+      abrir({ blob, nombre, titulo: `Liquidación ${liq.codigo ?? liq.fecha}`, subtitulo: `${liq.choferNombre} · ${liq.fecha}` })
+    } catch (err) { reportError(err, { origen: 'LiquidacionesPage', accion: 'error al generar el PDF' }) }
+  }
 
   const enviar = async (liq: Liquidacion) => {
     setAviso('')
@@ -291,7 +299,7 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
                 {cerrada.diferenciaEfectivo !== 0 && <span className="text-red-600 font-medium"> · diferencia {cerrada.diferenciaEfectivo.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 })}{cerrada.diferencia ? ` (${cerrada.diferencia.nota || cerrada.diferencia.motivo})` : ''}</span>}
               </p>
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => imprimir(cerrada)}><Printer size={16} className="mr-1.5" /> Reimprimir</Button>
+                <Button variant="outline" onClick={() => imprimir(cerrada)}><Eye size={16} className="mr-1.5" /> Ver</Button>
                 <Button variant="outline" onClick={() => enviar(cerrada)}><Share2 size={16} className="mr-1.5" /> {compartible ? 'Enviar' : 'Descargar PDF'}</Button>
               </div>
               {/* Ventas anuladas después del cierre (las pide la oficina, 2026-09-11): el cierre no se reabre. */}
@@ -352,7 +360,7 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
                 />
               )}
               <Button onClick={() => setConfirmando(true)} disabled={!hayMovimientos || efectivoRecibido.trim() === '' || anulacionesEnCurso > 0}>
-                <Printer size={16} className="mr-1.5" /> {desvioACerrar ? (autorizado ? 'Cerrar con el faltante autorizado' : 'Cerrar con desvío observado') : 'Cerrar liquidación e imprimir'}
+                <Printer size={16} className="mr-1.5" /> {desvioACerrar ? (autorizado ? 'Cerrar con el faltante autorizado' : 'Cerrar con desvío observado') : 'Cerrar liquidación'}
               </Button>
             </div>
           )}

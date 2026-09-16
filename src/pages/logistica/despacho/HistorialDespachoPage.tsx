@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Truck, ChevronDown, ChevronUp, Download } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Truck, ChevronDown, ChevronUp, Eye } from 'lucide-react'
+import { useVisorComprobante } from '@/components/ui/VisorComprobante'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { useAllOrders } from '@/hooks/useOrders'
 import { AvisoDatosTruncados } from '@/components/admin/AvisoDatosTruncados'
@@ -104,6 +105,7 @@ export default function HistorialDespachoPage() {
   const [despachos, setDespachos] = useState<Despacho[]>([])
   const [openKey, setOpenKey] = useState<string | null>(null)
   const [pdfLoading, setPdfLoading] = useState(false)
+  const { abrir } = useVisorComprobante()
   const [pdfLoadingKey, setPdfLoadingKey] = useState<string | null>(null)
 
   useEffect(() => subscribeDespachosByFecha(fecha, setDespachos), [fecha])
@@ -158,7 +160,8 @@ export default function HistorialDespachoPage() {
     setPdfLoading(true)
     try {
       const rows = grupos.flatMap(buildRows)
-      await generateHistorialDespachoPdf(rows, formatDespachoFecha(fecha), fecha, stats)
+      const blob = await generateHistorialDespachoPdf(rows, formatDespachoFecha(fecha), fecha, stats)
+      abrir({ blob, nombre: `historial-despacho-${fecha}.pdf`, titulo: `Historial de despacho · ${formatDespachoFecha(fecha)}`, subtitulo: `${stats.total} entregas` })
     } finally {
       setPdfLoading(false)
     }
@@ -167,10 +170,11 @@ export default function HistorialDespachoPage() {
   const handleChoferPdf = async (g: ChoferGroup) => {
     setPdfLoadingKey(g.key)
     try {
-      await generateHistorialDespachoPdf(
+      const blob = await generateHistorialDespachoPdf(
         buildRows(g), formatDespachoFecha(fecha), fecha, groupStats(g),
         { chofer: g.nombre, camion: g.camion },
       )
+      abrir({ blob, nombre: `historial-despacho-${g.key}-${fecha}.pdf`, titulo: `Historial de despacho · ${formatDespachoFecha(fecha)}`, subtitulo: `${g.nombre} · ${g.camion}` })
     } finally {
       setPdfLoadingKey(null)
     }
@@ -192,8 +196,8 @@ export default function HistorialDespachoPage() {
             disabled={pdfLoading || grupos.length === 0}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#D3D1C7] bg-white text-xs font-semibold text-gray-600 hover:border-accent hover:text-accent transition-colors disabled:opacity-40 disabled:hover:border-[#D3D1C7] disabled:hover:text-gray-600"
           >
-            <Download size={14} />
-            {pdfLoading ? 'Generando…' : 'Descargar PDF'}
+            <Eye size={14} />
+            {pdfLoading ? 'Generando…' : 'Ver PDF'}
           </button>
         </div>
 
@@ -332,12 +336,12 @@ function ChoferCard({ grupo, open, onToggle, onDownloadPdf, pdfLoading }: {
         <button
           onClick={onDownloadPdf}
           disabled={pdfLoading || total === 0}
-          title="Descargar PDF de este despacho"
+          title="Ver el PDF de este despacho"
           // Botón de verdad: en reposo va en el gris secundario. Lo apagado lo
           // resuelve la variante `disabled:`, no el color base.
           className="p-1.5 rounded-lg border border-[#D3D1C7] bg-white hover:border-accent text-secundario hover:text-accent transition-colors disabled:opacity-30 disabled:hover:border-[#D3D1C7] disabled:hover:text-secundario shrink-0"
         >
-          <Download size={14} />
+          <Eye size={14} />
         </button>
 
         <button onClick={onToggle} className="shrink-0 text-secundario">

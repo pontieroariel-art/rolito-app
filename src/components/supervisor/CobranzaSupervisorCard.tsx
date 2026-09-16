@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, Ban, CheckCircle2, Clock, FileDown, RotateCcw, Share2 } from 'lucide-react'
+import { AlertTriangle, Ban, CheckCircle2, Clock, Eye, RotateCcw, Share2 } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
 import { RETENCION_LABELS } from '@/components/supervisor/RetencionForm'
@@ -8,6 +8,8 @@ import AnularReciboModal from '@/components/cobranzas/AnularReciboModal'
 import { useAuth } from '@/context/AuthContext'
 import { generateReciboCobranzaSupervisor, nombreArchivoReciboSupervisor } from '@/utils/pdf'
 import { compartirArchivo, puedeCompartirArchivos } from '@/utils/compartir'
+import { envioDeRecibo } from '@/utils/envioComprobante'
+import { useVisorComprobante } from '@/components/ui/VisorComprobante'
 import { formatoARS } from '@/utils/money'
 import { cobranzaAnulada, reciboAnulable, textoAnulacionCobranza } from '@/utils/anulacionCobranza'
 import { Cobranza } from '@/types'
@@ -46,12 +48,19 @@ function datosPdf(c: Cobranza) {
   }
 }
 
-/** Descarga o comparte el recibo. Devuelve un aviso para mostrar, o '' si no hace falta. */
-export async function entregarReciboSupervisor(c: Cobranza, compartir: boolean): Promise<string> {
+/** El recibo como archivo en memoria, para el visor (2026-09-15). null si la cobranza no tiene recibo. */
+export async function reciboSupervisorBlob(c: Cobranza): Promise<{ blob: Blob; nombre: string; titulo: string } | null> {
+  const datos = datosPdf(c)
+  if (!datos) return null
+  const blob = await generateReciboCobranzaSupervisor(datos)
+  return { blob, nombre: nombreArchivoReciboSupervisor(datos), titulo: `Recibo ${c.numeroRecibo ?? 'de cobranza'}` }
+}
+
+/** Comparte el recibo por el menú del sistema (WhatsApp, mail…). Para verlo: `reciboSupervisorBlob` + visor. Devuelve un aviso para mostrar, o '' si no hace falta. */
+export async function entregarReciboSupervisor(c: Cobranza): Promise<string> {
   const datos = datosPdf(c)
   if (!datos) return 'Esta cobranza no tiene recibo para generar.'
-  if (!compartir) { await generateReciboCobranzaSupervisor(datos); return '' }
-  const blob = (await generateReciboCobranzaSupervisor(datos, { descargar: false })) as Blob
+  const blob = await generateReciboCobranzaSupervisor(datos)
   const titulo = `Recibo ${c.numeroRecibo ?? 'de cobranza'}`
   const r = await compartirArchivo(blob, nombreArchivoReciboSupervisor(datos), { titulo, texto: `${titulo} — ${c.clienteNombre} — ${formatoARS(c.importe)}` })
   return r === 'descargado' ? 'Este dispositivo no puede compartir archivos: se descargó el PDF.' : ''
@@ -93,10 +102,20 @@ export function CobranzaSupervisorCard({ c, sinSubir = false }: { c: Cobranza; s
   const puedeAnular = !!user && !sinSubir && reciboAnulable(c, user.uid)
   const propia = user?.uid === c.registradoPor.uid
 
-  const entregar = async (compartir: boolean) => {
+  const { abrir } = useVisorComprobante()
+  const entregar = async () => {
     setOcupada(true)
     setAviso('')
-    try { setAviso(await entregarReciboSupervisor(c, compartir)) } finally { setOcupada(false) }
+    try { setAviso(await entregarReciboSupervisor(c)) } finally { setOcupada(false) }
+  }
+  // Visor (2026-09-15): el recibo se ve en pantalla; descargar o enviar es un clic adentro.
+  const ver = async () => {
+    setOcupada(true); setAviso('')
+    try {
+      const r = await reciboSupervisorBlob(c)
+      if (!r) { setAviso('Esta cobranza no tiene recibo para generar.'); return }
+      abrir({ ...r, subtitulo: `${c.clienteNombre} · ${formatoARS(c.importe)}`, envio: envioDeRecibo(c, r.titulo) })
+    } finally { setOcupada(false) }
   }
 
   return (
@@ -176,11 +195,11 @@ export function CobranzaSupervisorCard({ c, sinSubir = false }: { c: Cobranza; s
                   <RotateCcw size={16} /> Hacer el recibo correcto
                 </Link>
               )}
-              <Button onClick={() => entregar(true)} disabled={ocupada} className="w-full">
+              <Button onClick={() => entregar()} disabled={ocupada} className="w-full">
                 <Share2 size={16} className="mr-2" /> {puedeCompartirArchivos() ? 'Enviar recibo (WhatsApp, mail…)' : 'Enviar recibo'}
               </Button>
-              <Button variant="outline" onClick={() => entregar(false)} disabled={ocupada} className="w-full">
-                <FileDown size={16} className="mr-2" /> Descargar PDF
+              <Button variant="outline" onClick={ver} disabled={ocupada} className="w-full">
+                <Eye size={16} className="mr-2" /> Ver recibo
               </Button>
               {puedeAnular && (
                 <button type="button" onClick={() => setAnulando(true)}

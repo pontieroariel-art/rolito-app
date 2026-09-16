@@ -131,8 +131,12 @@ export function firmaA4(
   doc.text(aclaracion, x, y + (conRaya ? 31 : 30))
 }
 
-/** Devuelve el blob (para mandar por mail o WhatsApp) o baja el archivo. */
-export function salidaPdf(doc: jsPDF, archivo: string, descargar?: boolean): Blob | void {
-  if (descargar === false) return doc.output('blob')
-  doc.save(archivo)
+/**
+ * Devuelve SIEMPRE el blob (2026-09-15: ningún papel se baja solo; se abre en el
+ * visor y descargar es un clic explícito). Con `descargar === true` además lo
+ * baja: solo para las descargas en lote, que ya dicen "Descargar" en el botón.
+ */
+export function salidaPdf(doc: jsPDF, archivo: string, descargar?: boolean): Blob {
+  if (descargar === true) doc.save(archivo)
+  return doc.output('blob')
 }

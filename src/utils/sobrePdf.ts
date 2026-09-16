@@ -28,7 +28,7 @@ export interface DetalleActaSobre {
 const fechaHora = (d: Date) => d.toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })
 const signo = (n: number) => `${n > 0 ? '+' : ''}${formatoARS(n)}`
 
-export async function generateActaSobre(s: Sobre, detalle: DetalleActaSobre = {}, opts: { descargar?: boolean } = {}): Promise<Blob | void> {
+export async function generateActaSobre(s: Sobre, detalle: DetalleActaSobre = {}, opts: { descargar?: boolean } = {}): Promise<Blob> {
   const base = await nuevoA4()
   const { doc, autoTable, pageW, pageH } = base
   const head = ESTILO_CABECERA_TABLA
@@ -192,11 +192,10 @@ export async function generateActaSobre(s: Sobre, detalle: DetalleActaSobre = {}
 }
 
 /**
- * `imprimir`: baja el PDF (el diálogo de impresión del navegador). `compartir`:
- * menú del sistema (WhatsApp, mail) o descarga si el dispositivo no puede.
+ * Comparte el acta por el menú del sistema (WhatsApp, mail) o la descarga si el
+ * dispositivo no puede. Para verla en pantalla: `actaSobreBlob` + visor (2026-09-15).
  */
-export async function imprimirActaSobre(sobre: Sobre, modo: 'imprimir' | 'compartir' = 'imprimir', detalle: DetalleActaSobre = {}): Promise<'compartido' | 'descargado' | 'cancelado'> {
-  if (modo === 'imprimir') { await generateActaSobre(sobre, detalle); return 'descargado' }
-  const blob = (await generateActaSobre(sobre, detalle, { descargar: false })) as Blob
+export async function compartirActaSobre(sobre: Sobre, detalle: DetalleActaSobre = {}): Promise<'compartido' | 'descargado' | 'cancelado'> {
+  const blob = await generateActaSobre(sobre, detalle)
   return compartirArchivo(blob, nombreArchivoSobre(sobre), { titulo: `Rendición ${sobre.codigo}`, texto: `Rendición de fondos ${sobre.codigo} del ${sobre.fecha} de ${sobre.rindio.nombre}` })
 }

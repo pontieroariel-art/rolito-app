@@ -17,7 +17,8 @@ import { addDaysStr } from '@/utils/helpers'
 import { formatoARS } from '@/utils/money'
 import { armarNotaCreditoDeVenta } from '@/utils/facturaDeVenta'
 import { generateFacturaArcaPdf } from '@/utils/facturaArcaPdf'
-import { descargarArchivo } from '@/utils/compartir'
+import { useVisorComprobante } from '@/components/ui/VisorComprobante'
+import type { EnvioComprobante } from '@/utils/envioComprobante'
 import { MOTIVOS_ANULACION, PLANTAS, type AnulacionVentanilla, type EstadoAnulacion } from '@/types'
 import { TH as th, TD as td } from '@/components/common/tabla'
 import DesviosPorAutorizar from '@/components/expedicion/DesviosPorAutorizar'
@@ -48,6 +49,7 @@ export default function AnulacionesPage() {
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
   const [aviso, setAviso] = useState('')
+  const { abrir } = useVisorComprobante()
 
   useEffect(() => subscribeAnulacionesPendientes(setPendientes), [])
   useEffect(() => subscribeAnulacionesEnRango(`${hoy.slice(0, 7)}-01`, addDaysStr(hoy, 1), setDelMes), [hoy])
@@ -85,13 +87,15 @@ export default function AnulacionesPage() {
         const armadoX = armarNotaCreditoX(venta as unknown as VentaCamion, cliente)
         if (!armadoX.ok) { setAviso(armadoX.motivo); return }
         const blobX = await generateComprobanteInternoPdf(armadoX.datos, { descargar: false })
-        if (blobX instanceof Blob) descargarArchivo(blobX, armadoX.datos.archivo)
+        const tituloX = `Nota de crédito X ${armadoX.datos.numero ?? ''}`.trim()
+        abrir({ blob: blobX, nombre: armadoX.datos.archivo, titulo: tituloX, subtitulo: venta.clienteNombre, envio: envioNc(a, venta, tituloX, String(armadoX.datos.numero ?? '')) })
         return
       }
       const armado = armarNotaCreditoDeVenta(venta, cliente)
       if (!armado.ok) { setAviso(armado.motivo); return }
       const blob = (await generateFacturaArcaPdf({ ...armado.datos, descargar: false })) as Blob
-      descargarArchivo(blob, `nota-credito-${nro(armado.datos.puntoVenta, armado.datos.numero)}.pdf`)
+      const tituloNc = `Nota de crédito ${nro(armado.datos.puntoVenta, armado.datos.numero)}`
+      abrir({ blob, nombre: `nota-credito-${nro(armado.datos.puntoVenta, armado.datos.numero)}.pdf`, titulo: tituloNc, subtitulo: venta.clienteNombre, envio: envioNc(a, venta, tituloNc, nro(armado.datos.puntoVenta, armado.datos.numero)) })
     } catch (err) {
       reportError(err, { origen: 'AnulacionesPage', accion: 'error al generar la NC' })
       setAviso('No se pudo generar el PDF de la nota de crédito.')
@@ -162,7 +166,7 @@ export default function AnulacionesPage() {
                 <td className={`${td} text-xs ${ESTADO[a.estado].clase}`}>{ESTADO[a.estado].label}{a.estado === 'rechazada' && a.notaResolucion ? <span className="block text-secundario">{a.notaResolucion}</span> : null}{a.estado === 'error' && a.ultimoError ? <span className="block text-secundario">{a.ultimoError}</span> : null}</td>
                 <td className={`${td} text-xs`}>{a.notaCreditoInterna && !a.notaCredito ? <span>NC X {nro(a.notaCreditoInterna.puntoVenta, a.notaCreditoInterna.numero)}<span className="block text-secundario">interna (promo)</span>{a.tango?.estado === 'confirmado' ? <span className="block text-[#0F6B4E]">Tango ✓ {a.tango.numero}</span> : a.tango?.estado === 'error' ? <span className="block text-red-600" title={a.tango.ultimoError}>Tango: {a.tango.ultimoError ?? 'error'}</span> : a.tango?.estado === 'pendiente' ? <span className="block text-amber-700">Pendiente en Tango</span> : <span className="block text-secundario">Sin registrar en Tango</span>}</span> : a.notaCredito?.estado === 'emitida' ? <span>NC {LETRA[a.notaCredito.cbteTipo] ?? ''} {nro(a.notaCredito.puntoVenta, a.notaCredito.numero)}<span className="block text-secundario">CAE {a.notaCredito.cae}</span>{a.tango?.estado === 'confirmado' ? <span className="block text-[#0F6B4E]">Tango ✓ {a.tango.numero}</span> : a.tango?.estado === 'error' ? <span className="block text-red-600" title={a.tango.ultimoError}>Tango: {a.tango.ultimoError ?? 'error'}</span> : a.tango?.estado === 'pendiente' ? <span className="block text-amber-700">Pendiente en Tango</span> : <span className="block text-secundario">Sin registrar en Tango</span>}</span> : a.notaCredito?.estado === 'incierta' ? <span className="text-amber-700">en revisión en ARCA</span> : '—'}</td>
                 <td className={`${td} text-xs`}>{a.resueltaPor ? <span className="inline-flex items-center gap-1"><ShieldCheck size={13} className="text-[#0F6B4E]" /> {a.resueltaPor.nombre}</span> : ''}</td>
-                <td className={td}>{a.estado === 'emitida' && <button type="button" onClick={() => verNotaCredito(a)} className={btn} title="PDF de la nota de crédito"><FileText size={12} /> PDF</button>}</td>
+                <td className={td}>{a.estado === 'emitida' && <button type="button" onClick={() => verNotaCredito(a)} className={btn} title="Ver la nota de crédito"><FileText size={12} /> Ver</button>}</td>
               </tr>
             ))}
             {resueltas.length === 0 && <tr><td className={`${td} text-secundario`} colSpan={9}>Sin anulaciones resueltas este mes.</td></tr>}
@@ -193,4 +197,13 @@ export default function AnulacionesPage() {
       )}
     </main>
   )
+}
+
+// Envío de la NC al cliente desde el visor (2026-09-15): el server la anota en la venta.
+function envioNc(a: { coleccion: 'ventasVentanilla' | 'ventasCamion'; ventaId: string }, venta: { clienteId?: string; clienteNombre: string }, titulo: string, numero: string): EnvioComprobante {
+  return {
+    para: '', asunto: `${titulo} — ${venta.clienteNombre}`, mensaje: 'Te enviamos adjunta la nota de crédito que anula la factura.',
+    comprobante: { tipo: 'NC', numero }, clienteUid: venta.clienteId || undefined, clienteNombre: venta.clienteNombre,
+    presentacion: { titulo, emoji: '📄', filas: [] }, venta: { coleccion: a.coleccion, id: a.ventaId },
+  }
 }

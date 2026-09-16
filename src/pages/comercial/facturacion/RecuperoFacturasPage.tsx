@@ -14,6 +14,7 @@ import { reportError } from '@/services/observability'
 import { extractPdfItems } from '@/utils/parsePdf'
 import { parsearFacturaTango, percepcionCabaFaltante, verificarFactura } from '@/utils/facturaTango'
 import { generateFacturaPdf, FacturaPdfData } from '@/utils/facturaPdf'
+import { useVisorComprobante } from '@/components/ui/VisorComprobante'
 import { claveFactura } from '@/utils/facturaClave'
 import { NOMBRE_EMPRESA } from '@/utils/tangoEmpresas'
 import { numero } from '@/utils/importeTipeado'
@@ -87,6 +88,7 @@ export default function RecuperoFacturasPage() {
   const [items, setItems] = useState<Item[]>([])
   const [arrastrando, setArrastrando] = useState(false)
   const [generandoTodas, setGenerandoTodas] = useState(false)
+  const { abrir } = useVisorComprobante()
   const [empresa, setEmpresa] = useState<EmpresaTango>('redonhielo')
   const [archivandoTodas, setArchivandoTodas] = useState(false)
   const [avisoArchivo, setAvisoArchivo] = useState('')
@@ -112,8 +114,8 @@ export default function RecuperoFacturasPage() {
     if (!item.factura || !caeValido(item) || !user) return false
     setItems((p) => p.map((i) => (i.id === item.id ? { ...i, archivando: true } : i)))
     try {
-      const datos = { ...facturaCompleta(item), descargar: false }
-      const blob = (await generateFacturaPdf(datos)) as Blob
+      const datos = facturaCompleta(item)
+      const blob = await generateFacturaPdf(datos)
       await archivarFactura(empresa, datos, blob, { uid: user.uid, nombre: user.nombre })
       setItems((p) => p.map((i) => (i.id === item.id ? { ...i, archivada: true } : i)))
       return true
@@ -201,11 +203,14 @@ export default function RecuperoFacturasPage() {
     }))
   }
 
-  const generar = async (item: Item) => {
+  // Visor (2026-09-15): una factura se ve en pantalla; "Descargar las N" baja los archivos de una (descargar: true).
+  const generar = async (item: Item, modo: 'ver' | 'descargar' = 'ver') => {
     if (!item.factura || !caeValido(item)) return
     setItems((p) => p.map((i) => (i.id === item.id ? { ...i, generando: true } : i)))
     try {
-      await generateFacturaPdf(facturaCompleta(item))
+      const datos = facturaCompleta(item)
+      const blob = await generateFacturaPdf({ ...datos, descargar: modo === 'descargar' })
+      if (modo === 'ver') abrir({ blob, nombre: `${datos.titulo.toLowerCase()}-${String(datos.puntoVenta).padStart(5, '0')}-${String(datos.numero).padStart(8, '0')}.pdf`, titulo: `${datos.titulo} ${String(datos.puntoVenta).padStart(5, '0')}-${String(datos.numero).padStart(8, '0')}`, subtitulo: item.id })
     } finally {
       setItems((p) => p.map((i) => (i.id === item.id ? { ...i, generando: false } : i)))
     }
@@ -214,7 +219,7 @@ export default function RecuperoFacturasPage() {
   const generarTodas = async () => {
     setGenerandoTodas(true)
     try {
-      for (const item of items.filter(listo)) await generar(item)
+      for (const item of items.filter(listo)) await generar(item, 'descargar')
     } finally {
       setGenerandoTodas(false)
     }
@@ -297,7 +302,7 @@ export default function RecuperoFacturasPage() {
                 onClick={generarTodas}
                 className="rounded-lg border border-[#D3D1C7] bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:border-gray-400 disabled:opacity-40"
               >
-                {generandoTodas ? 'Generando…' : `Generar ${cantidadListas > 1 ? `las ${cantidadListas}` : 'todas'}`}
+                {generandoTodas ? 'Descargando…' : `Descargar ${cantidadListas > 1 ? `las ${cantidadListas}` : 'todas'}`}
               </button>
               <button
                 type="button"
@@ -443,7 +448,7 @@ export default function RecuperoFacturasPage() {
                   >
                     {item.generando
                       ? 'Generando…'
-                      : <><FileText className="h-4 w-4" /> Generar factura</>}
+                      : <><FileText className="h-4 w-4" /> Ver factura</>}
                   </button>
                   <button
                     type="button"

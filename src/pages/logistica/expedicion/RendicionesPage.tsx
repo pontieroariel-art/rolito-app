@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Clock, FileText, History, Landmark, Printer, Receipt, Share2, ShoppingCart, Truck, Wallet } from 'lucide-react'
+import { Clock, Eye, FileText, History, Landmark, Receipt, Share2, ShoppingCart, Truck, Wallet } from 'lucide-react'
+import { useVisorComprobante } from '@/components/ui/VisorComprobante'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/common/Badge'
 import PageHeader from '@/components/common/PageHeader'
@@ -23,7 +24,7 @@ import { importeCobrado } from '@/utils/importeCobrado'
 import { sistemaVentanilla } from '@/utils/sobres'
 import { calcularMostrador } from '@/utils/rendicionMostrador'
 import { delTurno, horaCorta, liquidacionesPorRendir } from '@/utils/turnoCaja'
-import { imprimirActaSobreCompleta } from '@/services/actaSobreService'
+import { actaSobreBlob, compartirActaSobreCompleta } from '@/services/actaSobreService'
 import { puedeCompartirArchivos } from '@/utils/compartir'
 import { chequesDe, efectivoDe, retencionesDe, sumaImportes, transferenciaDe } from '@/utils/medios'
 import { nombreClienteVenta } from '@/utils/nombreClienteVenta'
@@ -55,6 +56,7 @@ export default function RendicionesPage() {
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
   const [aviso, setAviso] = useState('')
+  const { abrir } = useVisorComprobante()
 
   useEffect(() => {
     if (!user) return
@@ -77,12 +79,18 @@ export default function RendicionesPage() {
   )
   const calc = useMemo(() => calcularMostrador(ventasTurno, cobranzasTurno, liquidaciones), [ventasTurno, cobranzasTurno, liquidaciones])
   const sobresHoy = useMemo(() => sobres.filter((s) => s.fecha === hoy), [sobres, hoy])
-  const imprimir = (s: Sobre) =>
-    imprimirActaSobreCompleta(s, 'imprimir').catch((err) => reportError(err, { origen: 'RendicionesPage', accion: 'error al generar el acta' }))
+  // Visor (2026-09-15): el acta se ve en pantalla; descargar o imprimir es un clic adentro.
+  const imprimir = async (s: Sobre) => {
+    setAviso('')
+    try {
+      const { blob, nombre } = await actaSobreBlob(s)
+      abrir({ blob, nombre, titulo: `Rendición ${s.codigo}`, subtitulo: `${s.fecha} · ${s.rindio.nombre}` })
+    } catch (err) { reportError(err, { origen: 'RendicionesPage', accion: 'error al generar el acta' }); setAviso('No se pudo generar el acta.') }
+  }
   const enviar = async (s: Sobre) => {
     setAviso('')
     try {
-      const res = await imprimirActaSobreCompleta(s, 'compartir')
+      const res = await compartirActaSobreCompleta(s)
       if (res === 'descargado') setAviso('Este dispositivo no puede compartir archivos: se descargó el PDF.')
     } catch (err) {
       reportError(err, { origen: 'RendicionesPage', accion: 'error al enviar el acta' })
@@ -211,7 +219,7 @@ export default function RendicionesPage() {
               <p className="text-sm text-secundario">Rendida a las {horaCorta(s.cerradaEn)} · firmó {s.firmanteRinde}{s.recepcion ? ` · ${textoRecepcion(s)}` : ' · la plata sigue bajo tu custodia hasta que tesorería la reciba'}</p>
             </div>
             <div className="flex gap-2 shrink-0">
-              <Button variant="outline" onClick={() => imprimir(s)}><Printer size={16} className="mr-1.5" /> Reimprimir acta</Button>
+              <Button variant="outline" onClick={() => imprimir(s)}><Eye size={16} className="mr-1.5" /> Ver acta</Button>
               <Button variant="outline" onClick={() => enviar(s)}><Share2 size={16} className="mr-1.5" /> {compartible ? 'Enviar' : 'Descargar PDF'}</Button>
             </div>
           </div>
@@ -289,7 +297,7 @@ export default function RendicionesPage() {
         exportar={`Mis rendiciones ${hoy}`}
         acciones={(s) => (
           <div className="flex justify-end gap-1">
-            <button type="button" onClick={() => imprimir(s)} title="Reimprimir acta" className="w-11 h-11 inline-flex items-center justify-center rounded-lg text-secundario hover:text-accent hover:bg-accent/10"><Printer size={16} /></button>
+            <button type="button" onClick={() => imprimir(s)} title="Ver acta" className="w-11 h-11 inline-flex items-center justify-center rounded-lg text-secundario hover:text-accent hover:bg-accent/10"><Eye size={16} /></button>
             <button type="button" onClick={() => enviar(s)} title={compartible ? 'Enviar' : 'Descargar PDF'} className="w-11 h-11 inline-flex items-center justify-center rounded-lg text-secundario hover:text-accent hover:bg-accent/10"><Share2 size={16} /></button>
           </div>
         )}

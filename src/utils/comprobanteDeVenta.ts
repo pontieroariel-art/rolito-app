@@ -2,7 +2,7 @@ import type { UserProfile, VentaCamion } from '@/types'
 import { armarFacturaDeVenta } from './facturaDeVenta'
 import { armarFacturaX, armarRemito, tipoComprobanteInterno, type CaiRemito } from './comprobanteInterno'
 import { codigoComprobanteInterno } from './numeracionInterna'
-import { compartirArchivo, descargarArchivo } from './compartir'
+import { compartirArchivo } from './compartir'
 
 // El comprobante de una venta del camión, en un solo lugar (2026-09-06; antes
 // la orquestación vivía inline en VentasChofer.tsx): qué papel le corresponde
@@ -113,11 +113,12 @@ export async function generarComprobanteVenta(venta: VentaCamion, clienteEnPanta
 }
 
 /**
- * Ver (descargar) o enviar (compartir) el comprobante de la venta.
+ * Enviar (compartir por el menú del sistema) el comprobante de la venta. Para
+ * verlo en pantalla: `generarComprobanteVenta` + `abrirGenerado` (visor, 2026-09-15).
  * Devuelve un aviso para mostrar en pantalla, o '' si salió bien.
  */
 export async function entregarComprobanteVenta(
-  venta: VentaCamion, cliente: UserProfile | undefined, caiRemito: CaiRemito | null, modo: 'ver' | 'enviar',
+  venta: VentaCamion, cliente: UserProfile | undefined, caiRemito: CaiRemito | null,
 ): Promise<string> {
   let generado: ComprobanteGenerado
   try {
@@ -126,7 +127,6 @@ export async function entregarComprobanteVenta(
     return 'No se pudo generar el comprobante. Probá de nuevo.'
   }
   if (!generado.ok) return generado.motivo
-  if (modo === 'ver') { descargarArchivo(generado.blob, generado.nombre); return '' }
   const r = await compartirArchivo(generado.blob, generado.nombre, { titulo: generado.titulo, texto: `${generado.titulo} — ${venta.clienteNombre}` })
   return r === 'descargado' ? 'Este dispositivo no puede compartir archivos: se descargó.' : ''
 }

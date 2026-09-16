@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Minus, Plus, Printer, Truck } from 'lucide-react'
+import { Eye, Minus, Plus, Truck } from 'lucide-react'
+import { useVisorComprobante } from '@/components/ui/VisorComprobante'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
 import { useAuth } from '@/context/AuthContext'
@@ -72,6 +73,7 @@ export default function RemitosCargaPage() {
   const [confirmando, setConfirmando] = useState(false)
   const [guardando,   setGuardando]   = useState(false)
   const [error,       setError]       = useState('')
+  const { abrir } = useVisorComprobante()
   const remitos = useRemitosCargaDelDia(plantaId, fecha)
   // COT de ARBA (2026-09-10): lo que caja declara cuando la carga supera el umbral.
   const { cfg: cotCfg } = useCotConfig()
@@ -140,8 +142,15 @@ export default function RemitosCargaPage() {
   const puedeConfirmar = !!camion && !!deposito && items.length > 0
 
   // Con remito R numerado por la app sale el papel oficial "PARA REPARTO"; si no, el interno.
-  const imprimir = (r: RemitoCarga) => r.remitoR
-    ? generateRemitoCargaOficial(r).catch((err) => reportError(err, { origen: 'RemitosCargaPage', accion: 'error al generar el remito R' }))
+  // Visor (2026-09-15): el remito se ve en pantalla; imprimir o descargar es un clic adentro.
+  const imprimir = async (r: RemitoCarga) => {
+    try {
+      const blob = await generarPdfRemito(r)
+      if (blob) abrir({ blob, nombre: `${r.codigo}.pdf`, titulo: r.remitoR ? `Remito R ${r.codigo}` : `Remito de carga ${r.codigo}`, subtitulo: `${r.camionLabel} · ${r.choferNombre}` })
+    } catch (err) { reportError(err, { origen: 'RemitosCargaPage', accion: 'error al generar el PDF' }) }
+  }
+  const generarPdfRemito = (r: RemitoCarga): Promise<Blob | null> => r.remitoR
+    ? generateRemitoCargaOficial(r)
     : generateRemitoCarga({
       codigo:       r.codigo,
       plantaId:     r.plantaId,
@@ -154,7 +163,7 @@ export default function RemitosCargaPage() {
       fecha:        r.fecha.toDate(),
       ...(r.cot?.estado === 'presentado' && r.cot.numero ? { cot: { numero: r.cot.numero, fechaValidez: r.cot.fechaValidez } } : {}),
       ...(r.kg ? { kg: r.kg } : {}),
-    }).catch((err) => reportError(err, { origen: 'RemitosCargaPage', accion: 'error al generar el PDF' }))
+    })
 
   // Reintento manual de la presentación a ARBA (quedó en error o se emitió con la presentación apagada).
   const reintentarCot = async (r: RemitoCarga) => {
@@ -405,10 +414,10 @@ export default function RemitosCargaPage() {
             </span>
             <button
               onClick={() => imprimir(r)}
-              title="Reimprimir remito"
+              title="Ver remito"
               className="text-secundario hover:text-accent transition-colors p-2 rounded-lg hover:bg-accent/10"
             >
-              <Printer size={16} />
+              <Eye size={16} />
             </button>
           </div>
         ))}
@@ -458,7 +467,7 @@ export default function RemitosCargaPage() {
             )}
             <div className="flex gap-2 pt-1">
               <Button variant="outline" type="button" onClick={() => setConfirmando(false)} className="flex-1">Cancelar</Button>
-              <Button onClick={confirmar} loading={guardando} className="flex-1">Emitir e imprimir</Button>
+              <Button onClick={confirmar} loading={guardando} className="flex-1">Emitir remito</Button>
             </div>
           </div>
         </Modal>

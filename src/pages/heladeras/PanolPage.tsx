@@ -17,6 +17,7 @@ import {
 } from '../../services/panolService'
 import { registrarAccionRutina } from '../../services/historialAdminService'
 import { generateListadoPdf } from '../../utils/pdf'
+import { useVisorComprobante } from '@/components/ui/VisorComprobante'
 import { PanolArticulo, PanolMovimientoArticulo } from '../../types'
 import { tsToDate } from '../../utils/helpers'
 import { reportError } from '@/services/observability'
@@ -188,6 +189,7 @@ function EntregaModal({ articulos, actor, onClose }: { articulos: PanolArticulo[
   const [tecnicoId, setTecnicoId] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const { abrir } = useVisorComprobante()
 
   const activos = useMemo(() => tecnicos.filter((t) => t.estado === 'activo'), [tecnicos])
 
@@ -199,13 +201,14 @@ function EntregaModal({ articulos, actor, onClose }: { articulos: PanolArticulo[
     setError('')
     try {
       await registrarEntrega(carrito.items, { uid: tecnico.uid, nombre: tecnico.nombre, rol: 'tecnico' }, actor)
-      await generateListadoPdf(
+      const blob = await generateListadoPdf(
         'Entrega de pañol',
         ['Artículo', 'Cantidad'],
         carrito.items.map((i) => [i.nombre, i.cantidad]),
         `${tecnico.nombre} · ${new Date().toLocaleString('es-AR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`,
       )
       onClose()
+      abrir({ blob, nombre: `entrega-panol-${new Date().toISOString().slice(0, 10)}.pdf`, titulo: 'Entrega de pañol', subtitulo: tecnico.nombre })
     } catch (err) {
       setError(err instanceof StockInsuficienteError ? err.message : 'No se pudo registrar la entrega.')
       setSaving(false)

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Printer } from 'lucide-react'
+import { Eye } from 'lucide-react'
+import { useVisorComprobante } from '@/components/ui/VisorComprobante'
+import { envioDeRecibo } from '@/utils/envioComprobante'
 import CobranzaCompleta from '@/components/cobranzas/CobranzaCompleta'
 import { CobranzaSupervisorCard } from '@/components/supervisor/CobranzaSupervisorCard'
 import AbrirTurnoPanel, { TurnoAbiertoChip } from '@/components/expedicion/AbrirTurnoPanel'
@@ -34,6 +36,7 @@ export default function CobranzasPage() {
 
   const [cobranzas,  setCobranzas]  = useState<Cobranza[]>([])
   const [tabletFija, setTabletFija] = useState(esDispositivoCobranza())
+  const { abrir } = useVisorComprobante()
 
   useEffect(() => subscribeCobranzasCajaDelDia(plantaId, fecha, setCobranzas), [plantaId, fecha])
 
@@ -43,6 +46,7 @@ export default function CobranzasPage() {
   const totalDia = cobranzasVigentes(cobranzas).reduce((s, c) => s + c.importe, 0)
   const miasDelTurno = useMemo(() => (sesion && user ? delTurno(cobranzas.filter((c) => c.registradoPor.uid === user.uid), sesion).length : 0), [cobranzas, sesion, user])
 
+  // Visor (2026-09-15): el recibo se ve en pantalla; imprimir o descargar es un clic adentro.
   const imprimirSimple = (c: Cobranza) =>
     generateReciboCobranza({
       id:            c.id,
@@ -53,7 +57,9 @@ export default function CobranzasPage() {
       referencia:    c.referencia,
       registradoPor: c.registradoPor.nombre,
       fecha:         c.fecha.toDate(),
-    }).catch((err) => reportError(err, { origen: 'CobranzasPage', accion: 'error al generar el recibo' }))
+    })
+      .then((blob) => abrir({ blob, nombre: `recibo-cobranza-${c.id.slice(0, 8)}.pdf`, titulo: 'Recibo de mostrador', subtitulo: c.clienteNombre, envio: envioDeRecibo(c, 'Recibo de mostrador') }))
+      .catch((err) => reportError(err, { origen: 'CobranzasPage', accion: 'error al generar el recibo' }))
 
   return (
     <main className="max-w-3xl mx-auto pb-10">
@@ -83,8 +89,8 @@ export default function CobranzasPage() {
                 {c.referencia ? ` · ${c.referencia}` : ''} · cobranza simple (no viaja a Tango)
               </p>
             </div>
-            <button onClick={() => imprimirSimple(c)} title="Reimprimir recibo" className="text-secundario hover:text-accent transition-colors p-2 rounded-lg hover:bg-accent/10">
-              <Printer size={16} />
+            <button onClick={() => imprimirSimple(c)} title="Ver recibo" className="text-secundario hover:text-accent transition-colors p-2 rounded-lg hover:bg-accent/10">
+              <Eye size={16} />
             </button>
           </div>
         ))}

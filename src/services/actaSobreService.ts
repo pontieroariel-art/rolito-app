@@ -2,7 +2,7 @@ import { doc, getDoc } from 'firebase/firestore'
 import type { Cobranza, Liquidacion, Sobre } from '@/types'
 import { db } from './firebase'
 import { personasDelActa } from '@/utils/actaSobre'
-import { imprimirActaSobre, type DetalleActaSobre } from '@/utils/sobrePdf'
+import { compartirActaSobre, generateActaSobre, nombreArchivoSobre, type DetalleActaSobre } from '@/utils/sobrePdf'
 
 // El acta del sobre lista, persona por persona, lo que el cajero recibió de
 // cada chofer o cobrador (2026-09-14). El sobre guarda solo los ids de las
@@ -23,9 +23,17 @@ export async function detalleDelActa(sobre: Sobre): Promise<DetalleActaSobre> {
   return { personas: personasDelActa(liquidaciones, cobranzas) }
 }
 
-/** Acta con el detalle por persona. Si el detalle no se puede leer, sale igual con la cifra total. */
-export async function imprimirActaSobreCompleta(sobre: Sobre, modo: 'imprimir' | 'compartir' = 'imprimir') {
+/** Comparte el acta con el detalle por persona. Si el detalle no se puede leer, sale igual con la cifra total. */
+export async function compartirActaSobreCompleta(sobre: Sobre) {
   let detalle: DetalleActaSobre = {}
   try { detalle = await detalleDelActa(sobre) } catch { detalle = { sinDetalle: true } }
-  return imprimirActaSobre(sobre, modo, detalle)
+  return compartirActaSobre(sobre, detalle)
+}
+
+/** El acta como archivo en memoria, para el visor (2026-09-15): no baja nada sola. */
+export async function actaSobreBlob(sobre: Sobre): Promise<{ blob: Blob; nombre: string }> {
+  let detalle: DetalleActaSobre = {}
+  try { detalle = await detalleDelActa(sobre) } catch { detalle = { sinDetalle: true } }
+  const blob = await generateActaSobre(sobre, detalle)
+  return { blob, nombre: nombreArchivoSobre(sobre) }
 }

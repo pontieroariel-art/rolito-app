@@ -1,16 +1,18 @@
 import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { AlertTriangle, CheckCircle2, Clock, Download, Share2 } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Clock, Eye, Share2 } from 'lucide-react'
+import { abrirGenerado, useVisorComprobante } from '@/components/ui/VisorComprobante'
 import { RETENCION_LABELS } from '@/components/supervisor/RetencionForm'
-import { entregarReciboSupervisor, EstadoTangoChip } from '@/components/supervisor/CobranzaSupervisorCard'
+import { entregarReciboSupervisor, EstadoTangoChip, reciboSupervisorBlob } from '@/components/supervisor/CobranzaSupervisorCard'
 import { caiRemitoOficialCacheado, getCaiRemitoOficial } from '@/services/remitoOficialConfigService'
 import { generateRemitoCarga } from '@/utils/pdf'
-import { describirComprobante, entregarComprobanteVenta, estadoTangoVenta, problemasDeVenta } from '@/utils/comprobanteDeVenta'
+import { describirComprobante, entregarComprobanteVenta, estadoTangoVenta, generarComprobanteVenta, problemasDeVenta } from '@/utils/comprobanteDeVenta'
 import { clasificarReparto, type BloqueVentas, type RepartoClasificado } from '@/utils/liquidacion'
 import { nombreDelCambio } from '@/utils/cambios'
 import { envasesDeDescarga, envasesDeRemito, filasDeEnvases } from '@/utils/envases'
 import { formatoARS } from '@/utils/money'
 import { importeCobrado, sumaCobrada } from '@/utils/importeCobrado'
 import { puedeCompartirArchivos } from '@/utils/compartir'
+import { envioDeRecibo, envioDeVenta } from '@/utils/envioComprobante'
 import { reportError } from '@/services/observability'
 import type { CaiRemito } from '@/utils/comprobanteInterno'
 import type { CambioCamion, Cobranza, DescargaCamion, RemitoCarga, VentaCamion, VentaCamionItem } from '@/types'
@@ -69,6 +71,7 @@ export default function DetalleReparto({ remitos, descargas, cobranzas, reparto,
   useEffect(() => { getCaiRemitoOficial().then(setCai).catch(() => undefined) }, [])
   const [aviso, setAviso] = useState('')
   const [ocupado, setOcupado] = useState<string | null>(null)
+  const { abrir } = useVisorComprobante()
   const compartible = puedeCompartirArchivos()
   const problemas = useMemo(() => new Set(reparto.problemas.map((p) => p.venta.id)), [reparto.problemas])
 
@@ -77,18 +80,28 @@ export default function DetalleReparto({ remitos, descargas, cobranzas, reparto,
   const entregar = useCallback(async (v: VentaCamion, modo: 'ver' | 'enviar') => {
     setOcupado(v.id)
     setAviso('')
-    try { setAviso(await entregarComprobanteVenta(v, undefined, cai, modo)) }
+    try {
+      // Ver (2026-09-15): en el visor, sin bajar nada; Enviar sigue por el menú del sistema.
+      if (modo === 'ver') setAviso(abrirGenerado(abrir, await generarComprobanteVenta(v, undefined, cai), { subtitulo: v.clienteNombre, envio: envioDeVenta(v) }))
+      else setAviso(await entregarComprobanteVenta(v, undefined, cai))
+    } catch (err) { reportError(err, { origen: 'DetalleReparto', ventaId: v.id }); setAviso('No se pudo generar el comprobante.') }
     finally { setOcupado(null) }
-  }, [cai])
+  }, [cai, abrir])
   const entregarRecibo = useCallback(async (c: Cobranza, compartir: boolean) => {
     setOcupado(c.id)
     setAviso('')
-    try { setAviso(await entregarReciboSupervisor(c, compartir)) }
+    try {
+      if (compartir) { setAviso(await entregarReciboSupervisor(c)); return }
+      const r = await reciboSupervisorBlob(c)
+      if (!r) { setAviso('Esta cobranza no tiene recibo para generar.'); return }
+      abrir({ ...r, subtitulo: `${c.clienteNombre} · ${formatoARS(c.importe)}`, envio: envioDeRecibo(c, r.titulo) })
+    }
     catch (err) { reportError(err, { origen: 'DetalleReparto', cobranzaId: c.id }); setAviso('No se pudo generar el recibo.') }
     finally { setOcupado(null) }
-  }, [])
+  }, [abrir])
   const verRemitoCarga = (r: RemitoCarga) =>
     generateRemitoCarga({ codigo: r.codigo, plantaId: r.plantaId, camionLabel: r.camionLabel, choferNombre: r.choferNombre, items: r.items, palletsCarga: r.palletsCarga, envases: r.envases, creadoPor: r.creadoPor, fecha: r.fecha.toDate() })
+      .then((blob) => abrir({ blob, nombre: `${r.codigo}.pdf`, titulo: `Remito de carga ${r.codigo}`, subtitulo: `${r.camionLabel} · ${r.choferNombre}` }))
       .catch((err) => reportError(err, { origen: 'DetalleReparto', accion: 'remito de carga' }))
 
   const filaVenta = (v: VentaCamion) => (
@@ -284,7 +297,7 @@ const FilaVenta = memo(function FilaVenta({ venta: v, ocupado, compartible, aten
           {comp.estado === 'ok' && comp.detalle && <Chip tono="ok">{comp.detalle}</Chip>}
           {(comp.estado === 'rechazada' || comp.estado === 'incierta') && <Chip tono="bad"><AlertTriangle size={11} /> {comp.detalle}</Chip>}
           {(comp.estado === 'sin_numero' || comp.estado === 'sin_comprobante') && <Chip tono="warn">{comp.detalle}</Chip>}
-          <button type="button" onClick={() => onVer(v, 'ver')} disabled={ocupado} className={btn}><Download size={12} /> Ver</button>
+          <button type="button" onClick={() => onVer(v, 'ver')} disabled={ocupado} className={btn}><Eye size={12} /> Ver</button>
           <button type="button" onClick={() => onVer(v, 'enviar')} disabled={ocupado} className={btn}><Share2 size={12} /> {compartible ? 'Enviar' : 'Enviar'}</button>
           {anulable && (
             <button type="button" onClick={() => onAnular?.(v)} disabled={ocupado} title="Pide autorización; la nota de crédito sale al aprobarse"
@@ -334,7 +347,7 @@ const FilaCobranza = memo(function FilaCobranza({ cobranza: c, ocupado, comparti
         <p className="text-sm text-gray-700">{medios.join(' · ')}{imputa.length ? ` · imputa ${imputa.join(', ')}` : ''}</p>
         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-gray-600">
           <span className="font-semibold text-gray-900">Recibo {c.numeroRecibo ?? 'sin número'}</span>
-          <button type="button" onClick={() => onVer(c, false)} disabled={ocupado} className={btn}><Download size={12} /> Ver recibo</button>
+          <button type="button" onClick={() => onVer(c, false)} disabled={ocupado} className={btn}><Eye size={12} /> Ver recibo</button>
           <button type="button" onClick={() => onVer(c, true)} disabled={ocupado} className={btn}><Share2 size={12} /> {compartible ? 'Enviar' : 'Enviar'}</button>
           <EstadoTangoChip c={c} />
         </div>

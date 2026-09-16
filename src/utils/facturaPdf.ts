@@ -1,3 +1,4 @@
+import { salidaPdf } from './pdfBase'
 // Factura en PDF — réplica del comprobante HISTÓRICO, el que emitía Bluesoft.
 //
 // ⚠️ Este es el formato de las facturas VIEJAS: el que los clientes con deuda
@@ -262,7 +263,7 @@ const X0 = 8            // margen izquierdo del marco
 const X1 = 202          // margen derecho
 const XM = 105          // divisoria del encabezado
 
-export async function generateFacturaPdf(d: FacturaPdfData): Promise<Blob | void> {
+export async function generateFacturaPdf(d: FacturaPdfData): Promise<Blob> {
   // Named import, no `default`: así el módulo también se resuelve corriendo en
   // Node (el interop CJS no expone el constructor en `default`), que es como
   // lo usa el script de recupero de facturas viejas de Tango.
@@ -555,8 +556,7 @@ export async function generateFacturaPdf(d: FacturaPdfData): Promise<Blob | void
   doc.text(cadena, BAR_X + BAR_ANCHO / 2, PIE_Y + 34, { align: 'center' })
 
   const nombre = `${d.titulo.toLowerCase()}-${String(d.puntoVenta).padStart(5, '0')}-${String(d.numero).padStart(8, '0')}.pdf`
-  if (d.descargar === false) return doc.output('blob')
-  doc.save(nombre)
+  return salidaPdf(doc, nombre, d.descargar)
 }
 
 // Carga una imagen de /public y la reescala a un ancho de impresión razonable

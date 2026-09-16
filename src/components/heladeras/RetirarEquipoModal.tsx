@@ -5,6 +5,8 @@ import SignaturePad, { SignaturePadHandle } from './SignaturePad'
 import { retirarHeladera, Actor } from '../../services/asignacionHeladeraService'
 import { getUserDocument } from '../../services/userService'
 import { generateRemitoComodato } from '../../utils/pdf'
+import { useVisorComprobante } from '@/components/ui/VisorComprobante'
+import { envioDeCliente } from '@/utils/envioComprobante'
 import { useMotivosIngreso } from '../../hooks/useMotivosIngreso'
 import { CatalogoPasos } from '../../utils/heladeraPipeline'
 import { Heladera, getPrimaryAddress } from '../../types'
@@ -22,6 +24,7 @@ export default function RetirarEquipoModal({
   const [motivoId, setMotivoId] = useState('')
   const [saving, setSaving] = useState(false)
   const [error,  setError]  = useState('')
+  const { abrir } = useVisorComprobante()
   const padRef = useRef<SignaturePadHandle>(null)
 
   const handleSubmit = async () => {
@@ -34,7 +37,7 @@ export default function RetirarEquipoModal({
     try {
       const clientePrevio = heladera.clienteAsignadoId ? await getUserDocument(heladera.clienteAsignadoId) : null
       const asignacion = await retirarHeladera(heladera.id, actor, firma, motivo, catalogo)
-      await generateRemitoComodato({
+      const blob = await generateRemitoComodato({
         numero:   asignacion.numero,
         tipo:     'retiro',
         fecha:    asignacion.fecha.toDate(),
@@ -48,6 +51,8 @@ export default function RetirarEquipoModal({
         actorNombre:  actor.nombre,
       })
       onClose()
+      abrir({ blob, nombre: `remito-comodato-${asignacion.numero}.pdf`, titulo: `Remito de retiro Nº ${asignacion.numero}`, subtitulo: `${asignacion.clientName} · ${heladera.codigoInterno}`,
+        envio: envioDeCliente(clientePrevio, { tipo: 'RETIRO', numero: String(asignacion.numero), titulo: `Remito de retiro Nº ${asignacion.numero}`, mensaje: `Te enviamos el remito del retiro de la heladera ${heladera.codigoInterno}.`, clienteNombre: asignacion.clientName }) })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo retirar. Intentá de nuevo.')
     } finally {

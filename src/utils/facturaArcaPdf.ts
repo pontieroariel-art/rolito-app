@@ -1,3 +1,4 @@
+import { salidaPdf } from './pdfBase'
 // Comprobante impreso de las facturas que emite la app con ARCA.
 //
 // Réplica del formato que Tango emite hoy (relevado de `Factura final tango.pdf`,
@@ -106,7 +107,7 @@ const cant  = (n: number) => n.toFixed(2)
 const fecha = (d: Date) =>
   `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
 
-export async function generateFacturaArcaPdf(d: FacturaArcaData): Promise<Blob | void> {
+export async function generateFacturaArcaPdf(d: FacturaArcaData): Promise<Blob> {
   const { jsPDF } = await import('jspdf')
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true })
   const emisor = d.emisor ?? EMISOR_ARCA
@@ -335,8 +336,7 @@ export async function generateFacturaArcaPdf(d: FacturaArcaData): Promise<Blob |
   doc.text('1', 105, 285, { align: 'center' })
 
   const nombre = `factura-${nro}.pdf`
-  if (d.descargar === false) return doc.output('blob')
-  doc.save(nombre)
+  return salidaPdf(doc, nombre, d.descargar)
 }
 
 // Mismo criterio que facturaPdf.ts: se reescala antes de incrustar, porque el

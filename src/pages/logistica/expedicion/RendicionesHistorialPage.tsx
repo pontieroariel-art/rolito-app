@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { History, Printer, ShieldCheck } from 'lucide-react'
+import { Eye, History, ShieldCheck } from 'lucide-react'
+import { useVisorComprobante } from '@/components/ui/VisorComprobante'
 import PageHeader from '@/components/common/PageHeader'
 import Badge from '@/components/common/Badge'
 import { useAuth } from '@/context/AuthContext'
@@ -13,7 +14,7 @@ import AnuladasDespuesDeCerrar from '@/components/expedicion/AnuladasDespuesDeCe
 import HistorialTable, { BarraHistorial, type ColumnaHistorial } from '@/components/common/HistorialTable'
 import { TablaSobres } from '@/components/expedicion/SobresCaja'
 import { subscribeSobresDe } from '@/services/sobreService'
-import { imprimirActaSobreCompleta } from '@/services/actaSobreService'
+import { actaSobreBlob } from '@/services/actaSobreService'
 import { reportError } from '@/services/observability'
 import type { Sobre } from '@/types'
 
@@ -42,6 +43,11 @@ const motivoDe = (r: Rendicion) =>
 
 export default function RendicionesHistorialPage({ enTesoreria }: { enTesoreria: boolean }) {
   const { user } = useAuth()
+  const { abrir } = useVisorComprobante()
+  // Visor (2026-09-15): el acta se ve en pantalla; imprimir o descargar es un clic adentro.
+  const verActa = (s: Sobre) => actaSobreBlob(s)
+    .then(({ blob, nombre }) => abrir({ blob, nombre, titulo: `Rendición ${s.codigo}`, subtitulo: `${s.fecha} · ${s.rindio.nombre}` }))
+    .catch((err) => reportError(err, { origen: 'RendicionesHistorialPage', accion: 'error al generar el acta' }))
   const hoy = useDiaActual()
   const [mes, setMes] = useState(hoy.slice(0, 7))
   const [rendiciones, setRendiciones] = useState<Rendicion[]>([])
@@ -182,8 +188,8 @@ export default function RendicionesHistorialPage({ enTesoreria }: { enTesoreria:
           porPagina={50}
           exportar={`Mis rendiciones ${mes}`}
           acciones={(s) => (
-            <button type="button" onClick={() => imprimirActaSobreCompleta(s).catch((err) => reportError(err, { origen: 'RendicionesHistorialPage', accion: 'error al generar el acta' }))}
-              title="Reimprimir acta" className="w-11 h-11 inline-flex items-center justify-center rounded-lg text-secundario hover:text-accent hover:bg-accent/10"><Printer size={16} /></button>
+            <button type="button" onClick={() => verActa(s)}
+              title="Ver acta" className="w-11 h-11 inline-flex items-center justify-center rounded-lg text-secundario hover:text-accent hover:bg-accent/10"><Eye size={16} /></button>
           )}
         />
       )}

@@ -26,6 +26,7 @@ import AvisarRegreso from '@/components/chofer/AvisarRegreso'
 import { useDiaActual, useFechaDelDia } from '@/hooks/useDiaActual'
 import { summarizeProducts, toDateStr, todayString } from '@/utils/helpers'
 import { generateHojaDeRuta } from '@/utils/pdf'
+import { useVisorComprobante } from '@/components/ui/VisorComprobante'
 import { Order, ProgramaVisita, VisitaPuntual, OrderProduct } from '@/types'
 import EntregaModal from '@/components/chofer/EntregaModal'
 import NoEntregadoModal from '@/components/chofer/NoEntregadoModal'
@@ -45,6 +46,7 @@ export default function ChoferDashboard() {
   // el chofer abra Mis ventas.
   useEnvioAutomaticoVentas(useVentasRecientesChofer(verComo ? null : user?.uid))
   const [pdfLoading,  setPdfLoading]  = useState(false)
+  const { abrir } = useVisorComprobante()
 
   const isAyudante = user?.subrol === 'ayudante'
   // Día actual reactivo: cambia solo al cruzar la medianoche, para que una app
@@ -569,8 +571,9 @@ export default function ChoferDashboard() {
         onPdf={async () => {
           setPdfLoading(true)
           const name = user?.nombreContacto || user?.nombre || 'Chofer'
-          await generateHojaDeRuta(pending, name)
-          setPdfLoading(false)
+          try {
+            abrir({ blob: await generateHojaDeRuta(pending, name), nombre: `hoja-de-ruta-${todayString()}.pdf`, titulo: 'Hoja de ruta', subtitulo: `${name} · ${pending.length} entregas` })
+          } finally { setPdfLoading(false) }
         }}
       />
 

@@ -21,6 +21,7 @@ import { useGoogleMapsLoader } from '@/hooks/useGoogleMapsLoader'
 import MapaBase from '@/components/common/map/MapaBase'
 import { summarizeProducts } from '@/utils/helpers'
 import { generateHojaDeRuta } from '@/utils/pdf'
+import { useVisorComprobante } from '@/components/ui/VisorComprobante'
 import type { Despacho, Order } from '@/types'
 import { PLANTAS } from '@/types'
 import { reportError } from '@/services/observability'
@@ -79,6 +80,7 @@ export default function ChoferMap() {
   const [currentPos, setCurrentPos]   = useState<google.maps.LatLngLiteral | null>(null)
   const [routeStale, setRouteStale]   = useState(false)
   const [pdfLoading, setPdfLoading]   = useState(false)
+  const { abrir } = useVisorComprobante()
   const [manualOrder, setManualOrder] = useState<string[]>([])
   const [activeId,    setActiveId]    = useState<string | null>(null)
 
@@ -511,8 +513,9 @@ export default function ChoferMap() {
             if (!pending.length) return
             setPdfLoading(true)
             const name = user?.nombreContacto || user?.nombre || 'Chofer'
-            await generateHojaDeRuta(pending, name)
-            setPdfLoading(false)
+            try {
+              abrir({ blob: await generateHojaDeRuta(pending, name), nombre: `hoja-de-ruta-${new Date().toISOString().slice(0, 10)}.pdf`, titulo: 'Hoja de ruta', subtitulo: `${name} · ${pending.length} entregas` })
+            } finally { setPdfLoading(false) }
           }}
           disabled={!pending.length || pdfLoading}
           className="flex-1 flex flex-col items-center justify-center py-3 gap-1 text-xs font-medium text-secundario hover:text-gray-700 disabled:opacity-40 transition-colors"

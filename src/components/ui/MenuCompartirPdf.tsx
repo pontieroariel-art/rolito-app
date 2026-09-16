@@ -1,11 +1,12 @@
 import { useState, type ReactNode } from 'react'
-import { FileDown, Mail, Share2, X } from 'lucide-react'
+import { Eye, FileDown, Mail, Share2, X } from 'lucide-react'
+import { useVisorComprobante } from '@/components/ui/VisorComprobante'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { compartirArchivo, descargarArchivo, puedeCompartirArchivos } from '@/utils/compartir'
 import { enviarComprobantePorMail } from '@/services/envioComprobanteService'
 import { reportError } from '@/services/observability'
-import type { EmpresaTango } from '@/types'
+import type { EnvioComprobante } from '@/utils/envioComprobante'
 
 // Menú para entregar un PDF (factura, remito, composición de saldos) de tres
 // formas (2026-09-10): WhatsApp u otra app del celular (menú del sistema con el
@@ -15,20 +16,8 @@ import type { EmpresaTango } from '@/types'
 
 export type PdfGenerado = { ok: true; blob: Blob; nombre: string } | { ok: false; motivo: string }
 
-export interface DatosMail {
-  para:          string
-  /** Si `para` viene vacío, se llama al abrir el mail para buscar el destinatario (mail de Tango del cliente). */
-  resolverPara?: () => Promise<string>
-  asunto:        string
-  mensaje?:      string
-  comprobante:   { tipo: string; numero: string; empresa?: EmpresaTango }
-  clienteUid?:   string
-  clienteNombre: string
-  /** Tarjeta del mail: título legible y filas ya formateadas (fecha, importe, remitos…). */
-  presentacion?: { titulo: string; emoji?: string; filas: { label: string; value: string }[] }
-  /** Venta de la app a la que pertenece el comprobante: el server anota el envío en el doc. */
-  venta?:        { coleccion: 'ventasCamion' | 'ventasVentanilla'; id: string }
-}
+/** Datos del envío (mail al cliente y, en el visor, WhatsApp): vive en utils/envioComprobante. */
+export type DatosMail = EnvioComprobante
 
 export default function MenuCompartirPdf({ generar, titulo, texto, mail, trigger }: {
   generar:  () => Promise<PdfGenerado>
@@ -40,15 +29,17 @@ export default function MenuCompartirPdf({ generar, titulo, texto, mail, trigger
 }) {
   const [abierto, setAbierto] = useState(false)
   const [mailAbierto, setMailAbierto] = useState(false)
-  const [ocupado, setOcupado] = useState<'compartir' | 'descargar' | 'mail' | null>(null)
+  const [ocupado, setOcupado] = useState<'ver' | 'compartir' | 'descargar' | 'mail' | null>(null)
+  const { abrir } = useVisorComprobante()
   const [aviso, setAviso] = useState('')
-  const [para, setPara] = useState(mail.para)
+  const [para, setPara] = useState(mail.para ?? '')
   const [asunto, setAsunto] = useState(mail.asunto)
   const [mensaje, setMensaje] = useState(mail.mensaje ?? '')
   const [conCopia, setConCopia] = useState(false)
   const [enviadoA, setEnviadoA] = useState('')
   const [buscandoPara, setBuscandoPara] = useState(false)
 
+  const puedeCompartir = puedeCompartirArchivos()
   const cerrar = () => { setAbierto(false); setAviso('') }
 
   const correr = async (modo: 'compartir' | 'descargar') => {
@@ -63,6 +54,23 @@ export default function MenuCompartirPdf({ generar, titulo, texto, mail, trigger
       else cerrar()
     } catch (err) {
       reportError(err, { origen: 'MenuCompartirPdf', modo, titulo })
+      setAviso('No se pudo generar el PDF. Probá de nuevo.')
+    } finally {
+      setOcupado(null)
+    }
+  }
+
+  // Visor (2026-09-15): ver en pantalla; imprimir, enviar o descargar son clics adentro.
+  const ver = async () => {
+    setOcupado('ver')
+    setAviso('')
+    try {
+      const g = await generar()
+      if (!g.ok) { setAviso(g.motivo); return }
+      cerrar()
+      abrir({ blob: g.blob, nombre: g.nombre, titulo, envio: mail })
+    } catch (err) {
+      reportError(err, { origen: 'MenuCompartirPdf', modo: 'ver', titulo })
       setAviso('No se pudo generar el PDF. Probá de nuevo.')
     } finally {
       setOcupado(null)
@@ -101,8 +109,6 @@ export default function MenuCompartirPdf({ generar, titulo, texto, mail, trigger
     }
   }
 
-  const puedeCompartir = puedeCompartirArchivos()
-
   return (
     <>
       {trigger(() => { setAbierto(true); setAviso('') }, ocupado !== null)}
@@ -114,6 +120,11 @@ export default function MenuCompartirPdf({ generar, titulo, texto, mail, trigger
               <p className="text-sm font-semibold text-gray-900 truncate">{titulo}</p>
               <button type="button" onClick={cerrar} aria-label="Cerrar" className="text-secundario p-1 -m-1"><X size={18} /></button>
             </div>
+            <button type="button" onClick={ver} disabled={ocupado !== null}
+              className="w-full flex items-center gap-3 rounded-xl border border-[#D3D1C7] px-3 py-3 text-left text-sm text-gray-900 active:bg-[#F8F7F2] disabled:opacity-50">
+              <Eye size={18} className="text-accent shrink-0" />
+              <span><span className="font-medium">Ver en pantalla</span><br /><span className="text-xs text-secundario">Se abre acá; imprimir o descargar desde el visor</span></span>
+            </button>
             {puedeCompartir && (
               <button type="button" onClick={() => correr('compartir')} disabled={ocupado !== null}
                 className="w-full flex items-center gap-3 rounded-xl border border-[#D3D1C7] px-3 py-3 text-left text-sm text-gray-900 active:bg-[#F8F7F2] disabled:opacity-50">

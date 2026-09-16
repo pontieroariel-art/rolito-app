@@ -48,7 +48,7 @@ export function nombreArchivoComposicionSaldos(d: Pick<DatosComposicionSaldos, '
   return `${d.modo === 'todas' ? 'cuenta' : 'saldos'}-${slug || 'cliente'}-${ymd}.pdf`
 }
 
-export async function generateComposicionSaldosPdf(d: DatosComposicionSaldos, opts: { descargar?: boolean } = {}): Promise<Blob | void> {
+export async function generateComposicionSaldosPdf(d: DatosComposicionSaldos, opts: { descargar?: boolean } = {}): Promise<Blob> {
   const { default: jsPDF }     = await import('jspdf')
   const { default: autoTable } = await import('jspdf-autotable')
   const doc   = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })

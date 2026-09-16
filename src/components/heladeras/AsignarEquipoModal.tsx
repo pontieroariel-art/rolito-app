@@ -5,7 +5,9 @@ import SignaturePad, { SignaturePadHandle } from './SignaturePad'
 import ClienteCombobox from '@/components/common/ClienteCombobox'
 import { getUserDocument } from '../../services/userService'
 import { asignarHeladera, Actor } from '../../services/asignacionHeladeraService'
-import { generateContratoComodato, generateOrdenEntrega } from '../../utils/pdf'
+import { generateContratoComodato, generateOrdenEntrega, nombreArchivoComodato } from '../../utils/pdf'
+import { useVisorComprobante } from '@/components/ui/VisorComprobante'
+import { envioDeCliente } from '@/utils/envioComprobante'
 import { DeliveryAddress, Heladera, UserProfile, getPrimaryAddress } from '../../types'
 import { tsToDate } from '../../utils/helpers'
 
@@ -34,6 +36,7 @@ export default function AsignarEquipoModal({
   const [compresor,        setCompresor]          = useState('')
   const [saving,            setSaving]            = useState(false)
   const [error,             setError]             = useState('')
+  const { abrir } = useVisorComprobante()
   const padRef = useRef<SignaturePadHandle>(null)
 
   // Clientes con una sola sucursal no piden elegir — se usa esa directo. Con
@@ -64,7 +67,7 @@ export default function AsignarEquipoModal({
         compresor.trim() || undefined,
       )
       const direccion = direccionResuelta?.address || getPrimaryAddress(clienteElegido)?.address || clienteElegido.address || ''
-      await generateContratoComodato({
+      const contrato = await generateContratoComodato({
         numero:   asignacion.numero,
         fecha:    asignacion.fecha.toDate(),
         heladera: { modelo: heladeraElegida.modelo, numeroSerie: heladeraElegida.numeroSerie },
@@ -72,7 +75,7 @@ export default function AsignarEquipoModal({
         firmante,
         firmaDataUrl: firma,
       })
-      await generateOrdenEntrega({
+      const orden = await generateOrdenEntrega({
         numero:   asignacion.numero,
         fecha:    asignacion.fecha.toDate(),
         heladera: {
@@ -87,6 +90,14 @@ export default function AsignarEquipoModal({
         },
       })
       onClose()
+      // Visor (2026-09-15): primero el contrato y, al cerrarlo, la orden de entrega. Nada se baja solo.
+      const subtitulo = `${clienteElegido.razonSocial} · ${heladeraElegida.codigoInterno}`
+      abrir({
+        blob: contrato, nombre: nombreArchivoComodato(asignacion.numero, asignacion.fecha.toDate()), titulo: `Contrato de comodato Nº ${asignacion.numero} (1 de 2)`, subtitulo,
+        envio: envioDeCliente(clienteElegido, { tipo: 'COMODATO', numero: String(asignacion.numero), titulo: `Contrato de comodato Nº ${asignacion.numero}`, mensaje: 'Te enviamos el contrato de comodato de la heladera, firmado.' }),
+        onCerrar: () => abrir({ blob: orden, nombre: `orden-entrega-${asignacion.numero}.pdf`, titulo: `Orden de entrega Nº ${asignacion.numero} (2 de 2)`, subtitulo,
+          envio: envioDeCliente(clienteElegido, { tipo: 'ORDEN_ENTREGA', numero: String(asignacion.numero), titulo: `Orden de entrega Nº ${asignacion.numero}`, mensaje: 'Te enviamos la orden de entrega de la heladera.' }) }),
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo asignar. Intentá de nuevo.')
     } finally {

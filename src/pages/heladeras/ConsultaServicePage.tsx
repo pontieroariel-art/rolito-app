@@ -1,5 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
-import { Printer, Plus } from 'lucide-react'
+import { Eye, Plus } from 'lucide-react'
+import { useVisorComprobante } from '@/components/ui/VisorComprobante'
+import { envioDeCliente } from '@/utils/envioComprobante'
 import { Link } from 'react-router-dom'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
@@ -162,6 +164,7 @@ export default function ConsultaServicePage() {
   const [cerrarTicketSel, setCerrarTicketSel] = useState<TicketServicio | null>(null)
   const [anularTicketSel, setAnularTicketSel] = useState<TicketServicio | null>(null)
   const [imprimiendo, setImprimiendo] = useState<string | null>(null)
+  const { abrir } = useVisorComprobante()
 
   const actor: Actor | null = user ? { uid: user.uid, nombre: user.nombre } : null
 
@@ -178,7 +181,7 @@ export default function ConsultaServicePage() {
     try {
       const [heladera, cliente] = await Promise.all([getHeladera(ticket.heladeraId), getUserDocument(ticket.clientId)])
       const modelo = heladera ? modelos.find((m) => m.id === heladera.modeloId) : undefined
-      await generatePedidoReparacion({
+      const blob = await generatePedidoReparacion({
         ticket: { numero: ticket.numero, motivoNombre: ticket.motivoNombre, fechaPedido: tsToDate(ticket.fechaPedido), estado: ticket.estado },
         heladera: {
           codigoInterno: heladera?.codigoInterno ?? ticket.heladeraCodigo,
@@ -194,6 +197,8 @@ export default function ConsultaServicePage() {
           direccion:      (cliente && (getPrimaryAddress(cliente)?.address || cliente.address)) || '',
         },
       })
+      abrir({ blob, nombre: `pedido-reparacion-${ticket.numero}.pdf`, titulo: `Pedido de reparación Nº ${ticket.numero}`, subtitulo: ticket.clientName,
+        envio: envioDeCliente(cliente, { tipo: 'SERVICE', numero: String(ticket.numero), titulo: `Pedido de reparación Nº ${ticket.numero}`, mensaje: 'Te enviamos el pedido de reparación de la heladera.', clienteNombre: ticket.clientName }) })
     } finally {
       setImprimiendo(null)
     }
@@ -243,9 +248,10 @@ export default function ConsultaServicePage() {
                     {t.origen === 'cliente' && <p className="text-xs text-secundario mt-0.5">Pedido por el cliente desde la app</p>}
                     {t.observacion && <p className="text-xs text-gray-700 mt-0.5 whitespace-pre-wrap">“{t.observacion}”</p>}
                     {t.fotoUrl && (
-                      <a href={t.fotoUrl} target="_blank" rel="noopener noreferrer" className="inline-block mt-1">
+                      <button type="button" className="inline-block mt-1" title="Ver la foto"
+                        onClick={() => abrir({ url: t.fotoUrl ?? '', tipo: 'imagen', nombre: `foto-service-${t.numero}.jpg`, titulo: `Foto del pedido Nº ${t.numero}`, subtitulo: t.clientName, fuente: 'Foto cargada al pedir el service' })}>
                         <img src={t.fotoUrl} alt="Foto del problema" className="h-20 rounded-lg border border-[#D3D1C7] object-cover" />
-                      </a>
+                      </button>
                     )}
                     {t.asignadoA && <p className="text-xs text-secundario mt-0.5">Asignado a {t.asignadoA.nombre} ({t.asignadoA.tipo})</p>}
                     {t.trabajoRealizado && <p className="text-xs text-secundario mt-0.5">Trabajo: {t.trabajoRealizado}</p>}
@@ -276,7 +282,7 @@ export default function ConsultaServicePage() {
                     <Button size="sm" variant="outline" className="text-red-500 border-red-200 hover:bg-red-50" onClick={() => setAnularTicketSel(t)}>Anular</Button>
                   )}
                   <Button size="sm" variant="outline" loading={imprimiendo === t.id} onClick={() => imprimirPedido(t)}>
-                    <Printer size={13} className="mr-1 inline" /> Imprimir
+                    <Eye size={13} className="mr-1 inline" /> Ver pedido
                   </Button>
                 </div>
               </div>

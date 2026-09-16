@@ -58,7 +58,7 @@ export function armarRemitoCargaOficial(r: RemitoCarga): RemitoData | null {
 }
 
 /** PDF del remito R de la carga (null si el remito no fue numerado por la app). */
-export async function generateRemitoCargaOficial(r: RemitoCarga, opts: { descargar?: boolean } = {}): Promise<Blob | void | null> {
+export async function generateRemitoCargaOficial(r: RemitoCarga, opts: { descargar?: boolean } = {}): Promise<Blob | null> {
   const datos = armarRemitoCargaOficial(r)
   if (!datos) return null
   return generateRemitoPdf(datos, opts)
