@@ -214,3 +214,29 @@ export const subscribeRemitosCargaChoferHoy = (
     onSnapshotError(callback, 'remitosCarga'),
   )
 }
+
+/**
+ * Espera a que el trigger del COT escriba la respuesta de ARBA en el remito
+ * (2026-09-16: caja imprimía el remito R en el mismo instante de crearlo y el
+ * papel salía sin COT aunque ARBA lo diera segundos después). Resuelve con el
+ * remito actualizado en cuanto el COT queda `presentado` o `error`, o con lo
+ * último visto al vencer el plazo; nunca rechaza.
+ */
+export function esperarCotRemito(id: string, timeoutMs = 25_000): Promise<RemitoCarga | null> {
+  return new Promise((resolve) => {
+    let ultimo: RemitoCarga | null = null
+    let listo = false
+    const terminar = (r: RemitoCarga | null) => { if (listo) return; listo = true; clearTimeout(timer); off(); resolve(r) }
+    const timer = setTimeout(() => terminar(ultimo), timeoutMs)
+    const off = onSnapshot(
+      doc(db, REMITOS, id),
+      (snap) => {
+        if (!snap.exists()) return
+        ultimo = { id: snap.id, ...snap.data() } as RemitoCarga
+        const e = ultimo.cot?.estado
+        if (e === 'presentado' || e === 'error') terminar(ultimo)
+      },
+      () => terminar(ultimo),
+    )
+  })
+}

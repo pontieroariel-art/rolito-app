@@ -9,7 +9,7 @@ import { useDepositosReparto } from '@/hooks/useDepositosReparto'
 import { etiquetaDeposito, identidadDeposito, nombreDeposito, ordenarDepositosReparto } from '@/utils/depositos'
 import { useCatalogo } from '@/hooks/useCatalogo'
 import { useFechaDelDia } from '@/hooks/useDiaActual'
-import { crearRemitoCarga, palletsInfo } from '@/services/remitoCargaService'
+import { crearRemitoCarga, esperarCotRemito, palletsInfo } from '@/services/remitoCargaService'
 import { useRemitosCargaDelDia } from '@/hooks/useExpedicionDia'
 import { generateRemitoCarga } from '@/utils/pdf'
 import { PLANTAS, RemitoCarga, RemitoCargaEstado, RemitoCargaItem } from '@/types'
@@ -214,7 +214,19 @@ export default function RemitosCargaPage() {
       setRestoEnPallet({})
       setTarimasMadera(0); setPalletsMetal(0); setMetalEditado(false); setRacks([])
       setCotSolicitud(null)
-      imprimir(remito)
+      if (remito.cotSolicitud) {
+        // El COT lo pide el servidor recién al crearse el remito: se espera la
+        // respuesta de ARBA antes de abrir el papel, así sale con el número
+        // (2026-09-16: imprimir en el acto dejaba el remito R sin COT).
+        setAvisoCot(`${remito.codigo}: presentando el COT a ARBA… el remito se abre cuando llegue el número.`)
+        const conCot = (await esperarCotRemito(remito.id)) ?? remito
+        setAvisoCot(conCot.cot?.estado === 'presentado'
+          ? `${remito.codigo}: COT ${conCot.cot.numero} obtenido.`
+          : `${remito.codigo}: ARBA todavía no devolvió el COT${conCot.cot?.error ? ` (${conCot.cot.error})` : ''}. El remito se abrió sin COT: cuando aparezca el número en la lista, reimprimilo.`)
+        imprimir(conCot)
+      } else {
+        imprimir(remito)
+      }
     } catch (err) {
       reportError(err, { origen: 'RemitosCargaPage', accion: 'error al crear' })
       setError(err instanceof TalonarioRemitoCargaNoInicializadoError ? err.message : 'No se pudo crear el remito. Revisá la conexión e intentá de nuevo.')
