@@ -1,6 +1,7 @@
-import type { UserProfile, VentaVentanilla } from '@/types'
+import type { UserProfile, VentaCamion, VentaVentanilla } from '@/types'
 import type { FacturaArcaData } from './facturaArcaPdf'
 import { armarFacturaDeVenta } from './facturaDeVenta'
+import { armarRemito, type CaiRemito, type RemitoData } from './comprobanteInterno'
 import { clienteImpreso } from './clienteImpreso'
 import { nroFacturaArca } from './comprobanteDeVenta'
 import type { TurnoTicketData } from './ventanillaTicket'
@@ -14,6 +15,10 @@ import type { TurnoTicketData } from './ventanillaTicket'
 export interface OpcionesTicketDeVenta {
   /** Armar la factura de ARCA (si la venta no la tiene, `motivoFactura` lo explica). */
   incluirFactura: boolean
+  /** Armar el remito de cuenta corriente (2026-09-16); si la venta no sale por remito, `motivoRemito` lo explica. */
+  incluirRemito?: boolean
+  /** CAI del talonario de remitos de Redonhielo: con él el remito sale R, sin él X. */
+  cai?:           CaiRemito | null
   /** Armar el comprobante de turno. */
   incluirTurno:   boolean
   /** Copias del turno (config/ventanilla de la planta). Ausente = una. */
@@ -26,11 +31,22 @@ export interface OpcionesTicketDeVenta {
 
 export interface PartesTicketDeVenta {
   factura?:     FacturaArcaData
+  remito?:      RemitoData
   turno?:       TurnoTicketData
   copiasTurno?: number
   /** Se pidió la factura y no se pudo armar (sin factura, rechazada…). */
   motivoFactura?: string
+  /** Se pidió el remito y no se pudo armar (la venta no sale por remito). */
+  motivoRemito?:  string
 }
+
+/**
+ * La venta de ventanilla con la forma de la del camión, para los armadores de
+ * comprobantes que son comunes a los dos (`armarRemito`, `armarFacturaX`…):
+ * quien vendió es el cajero y no hay camión.
+ */
+export const ventanillaComoVentaCamion = (v: VentaVentanilla): VentaCamion =>
+  ({ ...v, choferId: v.cajaId, choferNombre: v.cajaNombre, camionId: '' }) as unknown as VentaCamion
 
 export function partesTicketDeVenta(v: VentaVentanilla, opts: OpcionesTicketDeVenta): PartesTicketDeVenta {
   const out: PartesTicketDeVenta = {}
@@ -38,6 +54,11 @@ export function partesTicketDeVenta(v: VentaVentanilla, opts: OpcionesTicketDeVe
     const armado = armarFacturaDeVenta(v, opts.cliente)
     if (armado.ok) out.factura = armado.datos
     else out.motivoFactura = armado.motivo
+  }
+  if (opts.incluirRemito) {
+    const armado = armarRemito(ventanillaComoVentaCamion(v), opts.cliente, opts.cai ?? null)
+    if (armado.ok) out.remito = { ...armado.datos, entrega: { chofer: `ventanilla · ${v.cajaNombre}` } }
+    else out.motivoRemito = armado.motivo
   }
   if (opts.incluirTurno) {
     const origen = opts.origen ?? (typeof window !== 'undefined' ? window.location.origin : '')

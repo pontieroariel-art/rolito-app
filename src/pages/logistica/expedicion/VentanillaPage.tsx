@@ -38,7 +38,8 @@ import { documentoDeVenta } from '@/utils/circuitoDocumento'
 import { esClienteFacturable, esCuitValido } from '@/utils/facturable'
 import { inhabilitadoEnTango, motivoInhabilitado } from '@/utils/inhabilitadoTango'
 import { facturaAnulable } from '@/utils/anulacionVenta'
-import { armarNotaCreditoX } from '@/utils/comprobanteInterno'
+import { armarNotaCreditoX, type CaiRemito } from '@/utils/comprobanteInterno'
+import { caiRemitoOficialCacheado, getCaiRemitoOficial } from '@/services/remitoOficialConfigService'
 import { generateComprobanteInternoPdf } from '@/utils/comprobanteInternoPdf'
 import type { VentaCamion } from '@/types'
 import { admiteCuentaCorriente } from '@/utils/condicionVenta'
@@ -136,6 +137,10 @@ export default function VentanillaPage() {
   // Cómo imprime ESTE dispositivo (tablet con RawBT por Bluetooth, o el
   // diálogo/descarga de siempre). Se guarda en el aparato, no en la cuenta.
   const [modoImpresion, setModoImpresion] = useState<ModoImpresion>(() => leerModoImpresion())
+  // CAI del talonario de remitos (config/remitoOficial): el remito de cuenta
+  // corriente sale como ticket R con él (2026-09-16). Sin él, X.
+  const [caiRemito, setCaiRemito] = useState<CaiRemito | null>(() => caiRemitoOficialCacheado())
+  useEffect(() => { getCaiRemitoOficial().then(setCaiRemito).catch(() => undefined) }, [])
   const cambiarModoImpresion = (m: ModoImpresion) => { guardarModoImpresion(m); setModoImpresion(m) }
 
   const ventas = useVentanillaDelDia(plantaId, fecha)
@@ -250,17 +255,19 @@ export default function VentanillaPage() {
 
   // Los papeles del mostrador salen por la impresora térmica de 80 mm
   // (Eliprinter RP-8060P) en un solo trabajo de impresión: la factura
-  // electrónica (si la hay) y el comprobante de turno, que es contra lo que
-  // muelle entrega. Devuelve true si se generó todo lo pedido.
-  const imprimir = async (v: VentaVentanilla, pedido: { factura: boolean; turno: boolean }): Promise<boolean> => {
+  // electrónica (si la hay) o el remito de cuenta corriente (2026-09-16), y
+  // el comprobante de turno, que es contra lo que muelle entrega. Devuelve
+  // true si se generó todo lo pedido.
+  const imprimir = async (v: VentaVentanilla, pedido: { factura: boolean; turno: boolean; remito?: boolean }): Promise<boolean> => {
     // El armado de los datos vive en utils/ticketDeVenta.ts (lo comparte Tesorería en vivo).
-    const { motivoFactura, ...partes } = partesTicketDeVenta(v, {
-      incluirFactura: pedido.factura, incluirTurno: pedido.turno, copiasTurno: copiasTicket[v.plantaId],
-      cliente: v.clienteId ? clientePorId.get(v.clienteId) : undefined,
+    const { motivoFactura, motivoRemito, ...partes } = partesTicketDeVenta(v, {
+      incluirFactura: pedido.factura, incluirRemito: pedido.remito, incluirTurno: pedido.turno, copiasTurno: copiasTicket[v.plantaId],
+      cliente: v.clienteId ? clientePorId.get(v.clienteId) : undefined, cai: caiRemito,
     })
     let facturaOk = true
     if (motivoFactura) { setError(motivoFactura); facturaOk = false }
-    if (!partes.factura && !partes.turno) return false
+    if (motivoRemito) { setError(motivoRemito); facturaOk = false }
+    if (!partes.factura && !partes.remito && !partes.turno) return false
     try {
       if (modoImpresion === 'rawbt') {
         // Tablet con RawBT (2026-09-12, pedido de caja): un trabajo por ticket.
@@ -284,6 +291,9 @@ export default function VentanillaPage() {
   const imprimirTurno   = (v: VentaVentanilla) => imprimir(v, { factura: false, turno: true })
   const imprimirFactura = (v: VentaVentanilla) => imprimir(v, { factura: true, turno: false })
   const imprimirTodo    = (v: VentaVentanilla) => imprimir(v, { factura: true, turno: true })
+  /** Cuenta corriente: el remito R y el turno, juntos (2026-09-16). */
+  const imprimirRemitoYTurno = (v: VentaVentanilla) => imprimir(v, { factura: false, remito: true, turno: true })
+  const saleConRemito = (v: VentaVentanilla) => documentoDeVenta(v.canal, v.formaPago, v.total) === 'remito'
   const imprimirNotaCredito = async (v: VentaVentanilla) => {
     try {
       // Promo: nota de crédito X interna (papel A4 de Rolito, 2026-09-11).
@@ -366,6 +376,9 @@ export default function VentanillaPage() {
       if (documentoDeVenta(venta.canal, venta.formaPago, venta.total) === 'factura_arca') {
         // Nada se imprime hasta tener el CAE: se espera en el modal.
         setEsperando(venta)
+      } else if (saleConRemito(venta)) {
+        // Cuenta corriente: el remito R sale en el momento, como ticket, con el turno.
+        imprimirRemitoYTurno(venta)
       } else {
         imprimirTurno(venta)
       }
@@ -593,6 +606,11 @@ export default function VentanillaPage() {
               {puedePedirAnulacion(v) && (
                 <button onClick={() => setAnulando(v)} title="Anular factura (pide autorización)" className="text-secundario hover:text-red-600 transition-colors p-2 rounded-lg hover:bg-red-50">
                   <Ban size={16} />
+                </button>
+              )}
+              {saleConRemito(v) && (
+                <button onClick={() => imprimirRemitoYTurno(v)} title="Reimprimir remito y turno" className="text-secundario hover:text-accent transition-colors p-2 rounded-lg hover:bg-accent/10">
+                  <FileText size={16} />
                 </button>
               )}
               <button onClick={() => imprimirTurno(v)} title="Reimprimir turno" className="text-secundario hover:text-accent transition-colors p-2 rounded-lg hover:bg-accent/10">

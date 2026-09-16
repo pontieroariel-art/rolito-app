@@ -43,7 +43,7 @@ PWA de gestión de una distribuidora de hielo, organizada en seis **dominios de 
 - **produccion_encargado** — encargado (resumen, listado, operarios, plantas)
 
 **Expedición** (los camiones son depósitos móviles; circuito: remito de carga → entrega en muelle → salida por seguridad → venta en calle → descarga contada → liquidación). Roles fijos por `planta`:
-- **caja** — remitos de carga, ventanilla, cobranzas de mostrador, liquidación de repartidores
+- **caja** — remitos de carga, ventanilla, cobranzas de mostrador, liquidación de repartidores. **La venta en cuenta corriente imprime el remito R como ticket de 80 mm** junto con el turno (2026-09-16, pedido de Ariel: Quiroga se iba solo con el ticket de turno): `dibujoRemitoTicket` en `utils/ventanillaTicket.ts`, mismos datos que el A4 del camión (`armarRemito` con el CAI de `config/remitoOficial`; sin CAI sale X), sin precios; `partesTicketDeVenta({ incluirRemito, cai })`; botón de reimpresión en el listado y en Tesorería en vivo
 - **muelle** — entrega la carga contra el remito y cuenta la descarga al volver el camión
 - **seguridad** — control de salida en el portón
 - **tesoreria** (2026-09-09, rol propio, NO es facturación) — panel `/tesoreria` (grupo Tesorería del dominio Logística): tablero en vivo de calle por chofer, ventanillas por cajero y supervisores (`utils/tesoreriaLive.ts`), validación de las rendiciones y su historial, liquidaciones de repartidores en modo lectura (`/tesoreria/liquidaciones`), confirmación de las entregas de caja (`/tesoreria/entregas`) y tile "Tiene que llegarme" (`utils/entregaTesoreria.esperadoTesoreria`); en el bloque Supervisores cada fila se expande con sus recibos (`CobranzaSupervisorCard`). `gerente_general` entra en modo lectura

@@ -2,6 +2,8 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { COPIAS_TICKET_DEFAULT, copiaTicket, generateTicketsVentanilla, normalizarCopiasTicket, type TurnoTicketData } from './ventanillaTicket'
 import type { FacturaArcaData } from './facturaArcaPdf'
+import type { RemitoData } from './comprobanteInterno'
+import { EMISOR_REDONHIELO } from './emisores'
 import { ANCHO_TICKET, ZONA_CORTE } from './ticketTermico'
 
 const FACTURA: FacturaArcaData = {
@@ -44,6 +46,17 @@ const TURNO: TurnoTicketData = {
   facturaNro: '01104-00000062',
 }
 
+const REMITO: RemitoData = {
+  empresa: 'redonhielo', emisor: EMISOR_REDONHIELO, letra: 'R', numero: '01105-00000926', fechaEmision: new Date(2026, 8, 16, 12, 35),
+  cliente: { razonSocial: 'QUIROGA HUGO WALTER', cuit: '20-12345678-9', domicilio: 'Av. Siempre Viva 123', localidadCp: '1611, DON TORCUATO', condicionIva: 'Responsable Inscripto', codigoCliente: '001234', vendedor: 'Nicolas Diaz', condicionVenta: 'Cuenta corriente' },
+  entrega: { chofer: 'ventanilla · Nicolas Diaz' },
+  renglones: [{ descripcion: 'Hielo bolsa 2kg', cantidad: 1, esCambio: false }],
+  bultos: { entregados: 1, cambios: 0 },
+  control: { tipo: 'cai', cai: '12345678901234', vencimiento: new Date(2027, 2, 31) },
+  leyenda: 'Remito de entrega. La factura la emite la oficina.',
+  archivo: 'remito-01105-00000926.pdf',
+}
+
 // jsPDF escribe /MediaBox [0 0 ancho alto] en puntos por página.
 const mediaBoxes = (pdf: string) =>
   [...pdf.matchAll(/\/MediaBox \[0 0 ([\d.]+) ([\d.]+)\]/g)].map((m) => ({ w: Number(m[1]) / 72 * 25.4, h: Number(m[2]) / 72 * 25.4 }))
@@ -63,6 +76,20 @@ describe('tickets de ventanilla (80 mm)', () => {
     if (process.env.TICKETS_OUT) {
       mkdirSync(process.env.TICKETS_OUT, { recursive: true })
       writeFileSync(`${process.env.TICKETS_OUT}/tickets-ventanilla.pdf`, Buffer.from(await blob.arrayBuffer()))
+    }
+  })
+
+  it('cuenta corriente: el remito R sale como ticket antes del turno (2026-09-16)', async () => {
+    const blob = await generateTicketsVentanilla({ remito: REMITO, turno: { ...TURNO, formaPago: 'cuenta_corriente', facturaNro: undefined } })
+    const pdf = Buffer.from(await blob.arrayBuffer()).toString('latin1')
+    const cajas = mediaBoxes(pdf)
+    expect(cajas).toHaveLength(2)
+    expect(cajas[0].w).toBeCloseTo(ANCHO_TICKET, 0)
+    expect(cajas[0].h).toBeGreaterThan(80)
+    expect(cajas[0].h).toBeLessThan(200)
+    if (process.env.TICKETS_OUT) {
+      mkdirSync(process.env.TICKETS_OUT, { recursive: true })
+      writeFileSync(`${process.env.TICKETS_OUT}/ticket-ventanilla-remito.pdf`, Buffer.from(await blob.arrayBuffer()))
     }
   })
 

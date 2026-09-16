@@ -4,16 +4,22 @@
 //  - la factura electrónica de ARCA, con los mismos datos que la versión A4
 //    (`facturaArcaPdf.ts`: emisor, cliente, renglones, totales, CAE y el QR
 //    de la RG 4892) reacomodados a una columna;
+//  - el remito de cuenta corriente (2026-09-16, pedido de Ariel: Quiroga se
+//    iba con el ticket de turno y nada oficial): el mismo remito R con CAI
+//    que imprime el camión en A4 (`remitoPdf.ts`), a una columna y sin
+//    precios, como manda el talonario;
 //  - el comprobante de turno, con el número bien grande y el QR que abre
 //    /turnos/{planta}?turno=N. Es contra lo que muelle entrega.
 //
-// Cuando la venta se factura salen los dos en un mismo PDF (dos páginas, un
-// solo diálogo): primero la factura, después el turno.
+// Cuando la venta se factura o sale con remito, los papeles van en un mismo
+// PDF (una página por papel, un solo diálogo): primero la factura o el
+// remito, después el turno.
 
 import type { jsPDF } from 'jspdf'
 import { PLANTA_INFO } from './constants'
 import { EMISOR_ARCA, FacturaArcaData } from './facturaArcaPdf'
 import { EMISOR_ROLITO } from './emisores'
+import type { RemitoData } from './comprobanteInterno'
 import { urlQrArca } from './arcaQr'
 import { generateQrDataUrl } from './qr'
 import {
@@ -99,6 +105,68 @@ export function dibujoFacturaArcaTicket(d: FacturaArcaData): DibujoTicket {
       'La mora en el pago producirá un interés punitorio del 0,2% diario acumulativo. '
       + `Domicilio de pago y lugar de cumplimiento: el de ${razon}`,
       y + 2, { tam: 6, align: 'center' })
+    return y
+  }
+}
+
+// ── Remito de cuenta corriente ───────────────────────────────────────────────
+export function dibujoRemitoTicket(d: RemitoData): DibujoTicket {
+  return async (doc: jsPDF, y: number) => {
+    const e = d.emisor
+    const promo = d.empresa === 'rolito'
+    y = texto(doc, (promo ? 'FÁBRICA DE HIELO' : e.razonSocial).toUpperCase(), y + 3, { tam: 11, negrita: true, align: 'center' })
+    if (!promo) {
+      y = texto(doc, e.domicilio, y, { tam: 7, align: 'center' })
+      y = texto(doc, `Tel. ${e.telefono}`, y, { tam: 7, align: 'center' })
+      y = texto(doc, `CUIT ${e.cuit} · IIBB ${e.ingresosBrutos}`, y, { tam: 7, align: 'center' })
+      y = texto(doc, `Inicio de actividades ${e.inicioActividad}`, y, { tam: 7, align: 'center' })
+      y = texto(doc, e.condicionIva, y, { tam: 7, align: 'center' })
+    }
+    y = separador(doc, y + 1)
+
+    y = texto(doc, `${promo ? 'REMITO PROMOCIÓN' : 'REMITO'} ${d.letra}`, y + 2, { tam: 14, negrita: true, align: 'center' })
+    y = texto(doc, d.letra === 'R' ? 'Cód. 91' : 'Código Nº: 00', y - 0.5, { tam: 6.5, align: 'center' })
+    y = texto(doc, `N° ${d.numero ?? 'SIN NÚMERO'}`, y + 0.5, { tam: 10, negrita: true, align: 'center' })
+    y = texto(doc, `Fecha de emisión: ${fecha(d.fechaEmision)}`, y, { tam: 7.5, align: 'center' })
+    y = separador(doc, y + 1)
+
+    const c = d.cliente
+    y = campo(doc, 'Cliente:', c.razonSocial, y + 1)
+    if (c.sucursal) y = campo(doc, 'Sucursal:', c.sucursal, y)
+    if (c.codigoCliente) y = campo(doc, 'Código:', c.codigoCliente, y)
+    if (c.cuit) y = campo(doc, 'CUIT:', c.cuit, y)
+    if (c.condicionIva) y = campo(doc, 'IVA:', c.condicionIva, y)
+    if (c.domicilio) y = campo(doc, 'Domicilio:', `${c.domicilio}${c.localidadCp ? ` · ${c.localidadCp}` : ''}`, y)
+    y = campo(doc, 'Cond. de venta:', c.condicionVenta, y)
+    if (d.ordenCompra) y = campo(doc, 'O. compra:', d.ordenCompra, y)
+    if (c.vendedor) y = campo(doc, 'Vendedor:', c.vendedor, y)
+    y = separador(doc, y + 1)
+
+    // Sin precios: el remito documenta la entrega, la factura la emite la oficina.
+    y = fila(doc, 'Descripción', 'Cant.', y + 1, { tam: 7, negrita: true })
+    for (const r of d.renglones) {
+      y = fila(doc, r.descripcion.toUpperCase(), String(r.cantidad), y + 0.5, { tam: 8 })
+      if (r.esCambio) y = texto(doc, 'cambio sin cargo', y, { tam: 7 })
+    }
+    y = separador(doc, y + 1)
+    y = fila(doc, 'TOTAL BULTOS', String(d.bultos.entregados), y + 1, { tam: 11, negrita: true })
+    if (d.bultos.cambios) y = fila(doc, 'Cambios sin cargo', String(d.bultos.cambios), y, { tam: 8 })
+    y = separador(doc, y + 1)
+
+    if (d.control.tipo === 'cai') {
+      y = texto(doc, `CAI Nº: ${d.control.cai}`, y + 1, { tam: 8, negrita: true, align: 'center' })
+      y = texto(doc, `Fecha vto. CAI: ${fecha(d.control.vencimiento)}`, y, { tam: 8, align: 'center' })
+    } else {
+      y = texto(doc, `Nº de control interno: ${d.control.codigo}`, y + 1, { tam: 8, align: 'center' })
+    }
+    for (const linea of d.pieExtra ?? []) y = texto(doc, linea, y, { tam: 7, align: 'center' })
+    y = texto(doc, d.leyenda, y + 1, { tam: 6.5, align: 'center' })
+    y = texto(doc, `Entregado por: ${d.entrega.chofer}`, y + 0.5, { tam: 7, align: 'center' })
+    y += 10
+    doc.setDrawColor(0, 0, 0)
+    doc.setLineWidth(0.2)
+    doc.line(16, y, 64, y)
+    y = texto(doc, d.firmaEnPapel ?? 'Recibí conforme (firma y aclaración)', y + 3, { tam: 6.5, align: 'center' })
     return y
   }
 }
@@ -214,16 +282,19 @@ export function dibujoTurnoTicket(v: TurnoTicketData): DibujoTicket {
  * PDF de 80 mm con la factura (si hay, una sola vez) y el turno, en ese orden.
  * `copiasTurno` (1..3, default 1) repite el turno con la leyenda de cada copia.
  */
-export function generateTicketsVentanilla(partes: { factura?: FacturaArcaData; turno?: TurnoTicketData; copiasTurno?: number }): Promise<Blob> {
+export interface PartesTicketsVentanilla { factura?: FacturaArcaData; remito?: RemitoData; turno?: TurnoTicketData; copiasTurno?: number }
+
+export function generateTicketsVentanilla(partes: PartesTicketsVentanilla): Promise<Blob> {
   return armarPdfTickets(dibujosVentanilla(partes).map((d) => d.dibujo))
 }
 
 export interface TicketVentanilla { nombre: string; dibujo: DibujoTicket }
 
 /** Los tickets de una venta, uno por uno y con su nombre (factura, y cada copia del turno). */
-export function dibujosVentanilla(partes: { factura?: FacturaArcaData; turno?: TurnoTicketData; copiasTurno?: number }): TicketVentanilla[] {
+export function dibujosVentanilla(partes: PartesTicketsVentanilla): TicketVentanilla[] {
   const tickets: TicketVentanilla[] = []
   if (partes.factura) tickets.push({ nombre: 'Factura', dibujo: dibujoFacturaArcaTicket(partes.factura) })
+  if (partes.remito) tickets.push({ nombre: 'Remito', dibujo: dibujoRemitoTicket(partes.remito) })
   if (partes.turno) {
     const total = Math.min(Math.max(partes.copiasTurno ?? 1, 1), COPIAS_TICKET_MAX)
     for (let i = 0; i < total; i++) {
@@ -240,7 +311,7 @@ export function dibujosVentanilla(partes: { factura?: FacturaArcaData; turno?: T
  * ya terminó de salir y se corta con los dientes de la impresora antes de
  * mandar el siguiente. Sin línea de corte: cada PDF es un solo papel.
  */
-export async function generateTicketsVentanillaSeparados(partes: { factura?: FacturaArcaData; turno?: TurnoTicketData; copiasTurno?: number }): Promise<Array<{ nombre: string; blob: Blob }>> {
+export async function generateTicketsVentanillaSeparados(partes: PartesTicketsVentanilla): Promise<Array<{ nombre: string; blob: Blob }>> {
   const out: Array<{ nombre: string; blob: Blob }> = []
   for (const t of dibujosVentanilla(partes)) out.push({ nombre: t.nombre, blob: await armarPdfTickets([t.dibujo]) })
   return out

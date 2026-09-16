@@ -102,8 +102,8 @@ export default function VentasDeCajero({ fila }: { fila: FilaVentanilla }) {
   const verTicket = (v: VentaVentanilla) => correr(`t:${v.id}`, async () => {
     // La factura va solo si está emitida (con eso `motivoFactura` no aparece nunca).
     const partes = partesTicketDeVenta(v, {
-      incluirFactura: v.factura?.estado === 'emitida', incluirTurno: true, copiasTurno: copias[v.plantaId],
-      cliente: v.clienteId ? perfiles.get(v.clienteId) : undefined,
+      incluirFactura: v.factura?.estado === 'emitida', incluirRemito: !!v.comprobanteInterno && v.comprobanteInterno.tipo !== 'facturaX', incluirTurno: true, copiasTurno: copias[v.plantaId],
+      cliente: v.clienteId ? perfiles.get(v.clienteId) : undefined, cai,
     })
     abrir({ blob: await generateTicketsVentanilla(partes), nombre: `ticket-${v.plantaId}-turno-${v.turno}.pdf`, titulo: `Ticket · turno ${v.turno}`, subtitulo: v.clienteNombre })
     return ''
