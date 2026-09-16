@@ -1,0 +1,196 @@
+/**
+ * Cierre de arranque de las liquidaciones abiertas (2026-09-16, decisión de Ariel).
+ *
+ * Antes de que caja y muelle usaran el circuito completo quedaron días con remito
+ * de carga (o cobranzas de calle) y sin liquidación, y los camiones "llenos" en
+ * Tango porque nadie contó la descarga. Este script, por cada persona + día abierto
+ * hasta la fecha tope:
+ *   1. Escribe una DESCARGA TEÓRICA (carga − ventas − cambios, y todos los envases
+ *      de vuelta), fechada ese día, marcada `teorica`. El trigger de siempre la
+ *      encola a Tango como transferencia camión → planta: el depósito queda en cero.
+ *   2. Cierra la LIQUIDACIÓN del día con el mismo cálculo que caja, sin firmas,
+ *      efectivo recibido = efectivo a rendir, valores en papel como recibidos, y
+ *      marcada `cierreArranque` para que el historial lo diga.
+ *
+ * Corre con el Admin SDK (scripts/serviceAccount.json). Por defecto NO escribe.
+ *
+ *   npx esbuild scripts/cierre-arranque-liquidaciones.ts --bundle --platform=node --format=cjs \
+ *     --alias:@=./src --packages=external --log-level=warning --outfile=scripts/.build/cierre-arranque.cjs \
+ *   && node scripts/.build/cierre-arranque.cjs [--hasta 2026-09-14] [--desde 2026-08-01] [--actor <uid>] [--aplicar]
+ *
+ *   --hasta   último día que se cierra (default: ayer; hoy se deja para que caja lo cierre bien)
+ *   --desde   primer día que se mira (default: 45 días atrás)
+ *   --actor   uid que firma como "cerradaPor" (default: el super_admin llamado Ariel)
+ *   --aplicar escribe; sin esto solo muestra
+ */
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import type { CambioCamion, Cobranza, DescargaCamion, EnvasesDescarga, Liquidacion, RemitoCarga, VentaCamion } from '@/types'
+import { calcularLiquidacion, codigoLiquidacion, referenciasDelReparto, serieLiquidacion } from '@/utils/liquidacion'
+import { valoresEnPapel } from '@/utils/valoresEnPapel'
+import { descargasVigentes } from '@/utils/rectificacionDescarga'
+import { envasesDeRemito } from '@/utils/envases'
+import { gruposAbiertos, type GrupoAbierto } from '@/utils/liquidacionesAbiertas'
+import { addDaysStr, todayString } from '@/utils/helpers'
+
+// Bundle CommonJS (esbuild --format=cjs): `require` y `__dirname` existen en tiempo de ejecución.
+declare const require: (id: string) => unknown
+declare const __dirname: string
+// El bundle vive en scripts/.build: la raíz del repo está dos niveles arriba.
+const RAIZ = path.resolve(__dirname, '..', '..')
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const admin = require(path.join(RAIZ, 'functions', 'node_modules', 'firebase-admin', 'lib', 'index.js'))
+type Admin = typeof import('firebase-admin')
+const a = admin as Admin
+a.initializeApp({ credential: a.credential.cert(JSON.parse(readFileSync(path.join(RAIZ, 'scripts', 'serviceAccount.json'), 'utf8'))) })
+const db = a.firestore()
+const { Timestamp, FieldValue } = a.firestore
+
+const args = process.argv.slice(2)
+const opt = (n: string) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : undefined }
+const APLICAR = args.includes('--aplicar')
+const HOY = todayString()
+const HASTA = opt('--hasta') ?? addDaysStr(HOY, -1)
+const DESDE = opt('--desde') ?? addDaysStr(HOY, -45)
+const MOTIVO = 'Cierre de arranque del circuito de liquidaciones (días abiertos sin descarga contada)'
+if (!/^\d{4}-\d{2}-\d{2}$/.test(HASTA) || !/^\d{4}-\d{2}-\d{2}$/.test(DESDE)) throw new Error('--hasta / --desde con formato yyyy-MM-dd')
+if (HASTA >= HOY) throw new Error(`--hasta ${HASTA} no puede ser hoy ni después: el día de hoy lo cierra caja`)
+
+const docs = <T>(snap: FirebaseFirestore.QuerySnapshot): T[] => snap.docs.map((d) => ({ id: d.id, ...d.data() }) as T)
+const plata = (n: number) => n.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 })
+
+async function docsDelDia(choferId: string, fecha: string) {
+  const desde = new Date(fecha + 'T00:00:00'); const hasta = new Date(desde); hasta.setDate(hasta.getDate() + 1)
+  const q = (col: string, campo: string) => db.collection(col).where(campo, '==', choferId).where('fecha', '>=', Timestamp.fromDate(desde)).where('fecha', '<', Timestamp.fromDate(hasta)).get()
+  const [v, c, d, co] = await Promise.all([q('ventasCamion', 'choferId'), q('cambiosCamion', 'choferId'), q('descargasCamion', 'choferId'), q('cobranzas', 'registradoPor.uid')])
+  return { ventas: docs<VentaCamion>(v), cambios: docs<CambioCamion>(c), descargas: descargasVigentes(docs<DescargaCamion>(d)), cobranzas: docs<Cobranza>(co) }
+}
+
+/** Todos los envases que salieron vuelven: es lo que se asume al no haber conteo. */
+function envasesTeoricos(remitos: RemitoCarga[]): EnvasesDescarga {
+  const acum: Record<string, unknown> = {}
+  for (const r of remitos) {
+    for (const [k, v] of Object.entries(envasesDeRemito(r) as unknown as Record<string, unknown>)) {
+      if (k === 'origen') continue   // marca interna de envasesDeRemito, no es un envase
+      if (typeof v === 'number') acum[k] = ((acum[k] as number) ?? 0) + v
+      else if (Array.isArray(v)) acum[k] = [...((acum[k] as unknown[]) ?? []), ...v]
+      else if (v !== undefined) acum[k] = v
+    }
+  }
+  return acum as unknown as EnvasesDescarga
+}
+
+async function main() {
+  // Quién firma.
+  let actorUid = opt('--actor')
+  if (!actorUid) {
+    const sa = await db.collection('users').where('rol', '==', 'super_admin').get()
+    actorUid = sa.docs.find((d) => /ariel/i.test(String(d.data().nombre ?? '')))?.id
+    if (!actorUid) throw new Error('No encontré al super_admin Ariel: pasá --actor <uid>')
+  }
+  const actorDoc = await db.doc(`users/${actorUid}`).get()
+  const actor = { uid: actorUid, nombre: String(actorDoc.data()?.nombre ?? 'Administración') }
+
+  // Depósitos de Tango por identidad (para numerar la liquidación como caja).
+  const depositos = await db.collection('depositos').get()
+  const depositoDe = new Map<string, { codigo: string; nombre: string }>()
+  for (const d of depositos.docs) { const x = d.data(); const id = x.uid ? String(x.uid) : `dep:${x.codigo}`; depositoDe.set(id, { codigo: String(x.codigo), nombre: String(x.usuarioNombre?.trim() || x.nombre || '') }) }
+
+  const desdeTs = Timestamp.fromDate(new Date(DESDE + 'T00:00:00'))
+  const [rem, cob, liq] = await Promise.all([
+    db.collection('remitosCarga').where('fecha', '>=', desdeTs).get(),
+    db.collection('cobranzas').where('fecha', '>=', desdeTs).get(),
+    db.collection('liquidaciones').where('fecha', '>=', DESDE).get(),
+  ])
+  const grupos = gruposAbiertos(docs<RemitoCarga>(rem), docs<Cobranza>(cob), docs<Liquidacion>(liq)).filter((g) => g.fecha <= HASTA)
+  console.log(`${APLICAR ? 'APLICANDO' : 'EN SECO'} · abiertas del ${DESDE} al ${HASTA}: ${grupos.length} · firma: ${actor.nombre} (${actor.uid})\n`)
+
+  const porDeposito = new Map<string, Map<string, number>>()
+  let descargasNuevas = 0, cierres = 0
+  for (const g of grupos) {
+    const d = await docsDelDia(g.choferId, g.fecha)
+    const dep = depositoDe.get(g.choferId)
+    const remito0 = g.remitos[0] as RemitoCarga | undefined
+    const depositoTango = remito0?.depositoTango ?? dep?.codigo
+    const depositoTangoNombre = remito0?.depositoTangoNombre ?? dep?.nombre ?? ''
+
+    // 1. Descarga teórica (solo si hubo remito y muelle no contó).
+    const sinConteo = calcularLiquidacion(g.remitos, d.ventas, d.cambios, d.descargas, d.cobranzas)
+    let descargaTeorica: (Omit<DescargaCamion, 'id'> & { teorica: { motivo: string; en: FirebaseFirestore.Timestamp } }) | null = null
+    if (remito0 && d.descargas.length === 0) {
+      const items = sinConteo.productos.filter((p) => p.devolucionTeorica > 0).map((p) => ({ productoId: p.productoId, nombre: p.nombre, cantidad: p.devolucionTeorica }))
+      const fechaDescarga = Timestamp.fromDate(new Date(g.fecha + 'T23:50:00'))
+      descargaTeorica = {
+        plantaId: remito0.plantaId, camionId: remito0.camionId, camionLabel: remito0.camionLabel,
+        choferId: g.choferId, choferNombre: g.choferNombre,
+        ...(depositoTango ? { depositoTango, depositoTangoNombre } : {}),
+        items, bolsasRotas: [],
+        remitoId: remito0.id, remitoCodigo: remito0.codigo,
+        envases: envasesTeoricos(g.remitos),
+        fecha: fechaDescarga,
+        registradoPor: { uid: actor.uid, nombre: 'Cierre de arranque' },
+        teorica: { motivo: MOTIVO, en: Timestamp.now() },
+      } as typeof descargaTeorica
+    }
+    const descargasFinales = descargaTeorica ? [...d.descargas, { id: 'teorica', ...descargaTeorica } as unknown as DescargaCamion] : d.descargas
+
+    // 2. Liquidación con la descarga incluida (diferencia 0 por producto).
+    const calc = calcularLiquidacion(g.remitos, d.ventas, d.cambios, descargasFinales, d.cobranzas)
+    const papel = valoresEnPapel(d.cobranzas)
+    const serie = serieLiquidacion(g.choferId, depositoTango)
+    const plantaId = remito0?.plantaId ?? (d.cobranzas.find((c) => c.plantaId)?.plantaId ?? 'torcuato')
+
+    const dev = sinConteo.productos.filter((p) => p.devolucionTeorica > 0).map((p) => `${p.devolucionTeorica} ${p.nombre}`).join(', ')
+    console.log(`${g.fecha}  ${g.choferNombre.padEnd(30)} ${(depositoTango ?? '—').padStart(4)}  remitos ${g.remitos.map((r) => r.codigo).join(' ') || '—'}`)
+    console.log(`   carga ${sinConteo.productos.reduce((s, p) => s + p.carga, 0)} · vendió ${sinConteo.productos.reduce((s, p) => s + p.ventaContado + p.ventaPromo + p.cambios, 0)} · ${descargaTeorica ? `descarga teórica: ${dev || 'nada que devolver'}` : d.descargas.length ? 'ya tenía descarga contada' : 'sin remito'}`)
+    console.log(`   ventas ${calc.cantidadVentas ?? d.ventas.length} = ${plata(calc.importes.total)} · cobranzas ${calc.cobranzasCalle?.cantidad ?? 0} = ${plata(calc.cobranzasCalle?.total ?? 0)} · efectivo a rendir ${plata(calc.efectivoARendir)} · cheques ${papel.cheques.length} · retenciones ${papel.retenciones.length} → ${codigoLiquidacion(serie.prefijo, 0).replace('000000', 'nuevo')}`)
+    if (descargaTeorica && depositoTango) {
+      const m = porDeposito.get(depositoTango) ?? new Map<string, number>()
+      for (const i of descargaTeorica.items) m.set(i.nombre, (m.get(i.nombre) ?? 0) + i.cantidad)
+      porDeposito.set(depositoTango, m)
+    }
+
+    if (!APLICAR) continue
+
+    let descargaId: string | null = null
+    if (descargaTeorica) {
+      const ref = await db.collection('descargasCamion').add(descargaTeorica)
+      descargaId = ref.id; descargasNuevas++
+    }
+    const referencias = referenciasDelReparto(g.remitos, d.ventas, descargaId ? [...d.descargas, { id: descargaId } as DescargaCamion] : d.descargas, d.cobranzas)
+    const id = `${g.fecha}_${g.choferId}`
+    const ref = db.doc(`liquidaciones/${id}`)
+    const counter = db.doc(`config/liquidacionCounter_${serie.clave}`)
+    await db.runTransaction(async (tx) => {
+      const [existente, cs] = await Promise.all([tx.get(ref), tx.get(counter)])
+      if (existente.exists) throw new Error(`${id} ya estaba cerrada`)
+      const numero = cs.exists ? (cs.data()!.next as number) : 1
+      tx.set(counter, { next: numero + 1 })
+      const data = {
+        numero, codigo: codigoLiquidacion(serie.prefijo, numero), fecha: g.fecha, plantaId,
+        choferId: g.choferId, choferNombre: g.choferNombre,
+        ...(depositoTango ? { depositoTango, depositoTangoNombre } : {}),
+        ...calc,
+        efectivoRecibido: calc.efectivoARendir, diferenciaEfectivo: 0,
+        cheques: papel.cheques.map((c) => ({ ...c, recibido: true })),
+        retenciones: papel.retenciones.map((r) => ({ ...r, recibido: true })),
+        valoresFaltantes: { cantidad: 0, total: 0 },
+        confirmoSinPendientes: true,
+        ...referencias,
+        cierreArranque: { motivo: MOTIVO, en: Timestamp.now() },
+        cerradaPor: { uid: actor.uid, nombre: actor.nombre },
+        createdAt: FieldValue.serverTimestamp(),
+        entregaId: null,
+      }
+      tx.set(ref, data)
+    })
+    cierres++
+    console.log(`   ✔ cerrada${descargaId ? ` · descarga ${descargaId}` : ''}`)
+  }
+
+  console.log('\nDEVOLUCIÓN TEÓRICA POR DEPÓSITO DE CAMIÓN (lo que vuelve a la planta en Tango):')
+  for (const [dep, m] of [...porDeposito.entries()].sort()) console.log(`  ${dep}: ${[...m.entries()].map(([n, c]) => `${c} ${n}`).join(' · ')}`)
+  console.log(APLICAR ? `\nListo: ${cierres} liquidaciones cerradas, ${descargasNuevas} descargas teóricas encoladas a Tango.` : `\n(en seco: nada escrito; corré con --aplicar para cerrar ${grupos.length})`)
+}
+
+main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1) })

@@ -56,8 +56,8 @@ describe('calcularMostrador', () => {
   })
   it('valoresEnPapel lista cheques y certificados con su recibo y cliente', () => {
     const v = valoresEnPapel(cobranzas)
-    expect(v.cheques).toEqual([{ cobranzaId: 'c2', numeroRecibo: 'RS-1', clienteNombre: 'Kiosco', numero: '77', bancoNombre: 'Galicia', fechaAcreditacion: '2026-10-09', importe: 900 }])
-    expect(v.retenciones).toEqual([{ cobranzaId: 'c2', numeroRecibo: 'RS-1', clienteNombre: 'Kiosco', tipo: 'iibb_pba', nroCertificado: '5', importe: 100 }])
+    expect(v.cheques).toEqual([{ cobranzaId: 'c2', numeroRecibo: 'RS-1', clienteNombre: 'Kiosco', numero: '77', bancoNombre: 'Galicia', fechaAcreditacion: '2026-10-09', importe: 900, empresa: 'redonhielo' }])
+    expect(v.retenciones).toEqual([{ cobranzaId: 'c2', numeroRecibo: 'RS-1', clienteNombre: 'Kiosco', tipo: 'iibb_pba', nroCertificado: '5', importe: 100, empresa: 'redonhielo' }])
   })
   it('fueraDelCierre: lo posterior al cierre; sin cierre, nada', () => {
     expect(fueraDelCierre(ventas, null)).toEqual([])

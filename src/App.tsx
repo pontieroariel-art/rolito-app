@@ -102,6 +102,7 @@ const PartesMaquinasPage      = lazy(() => import('@/pages/logistica/produccion/
 const RemitosCargaPage  = lazy(() => import('@/pages/logistica/expedicion/RemitosCargaPage'))
 const LiquidacionesPage = lazy(() => import('@/pages/logistica/expedicion/LiquidacionesPage'))
 const LiquidacionesHistorialPage = lazy(() => import('@/pages/logistica/expedicion/LiquidacionesHistorialPage'))
+const LiquidacionesAbiertasPage = lazy(() => import('@/pages/logistica/expedicion/LiquidacionesAbiertasPage'))
 const VentanillaPage    = lazy(() => import('@/pages/logistica/expedicion/VentanillaPage'))
 const CobranzasPage     = lazy(() => import('@/pages/logistica/expedicion/CobranzasPage'))
 const RendicionesPage   = lazy(() => import('@/pages/logistica/expedicion/RendicionesPage'))
@@ -310,6 +311,7 @@ function AppContent() {
           {/* Historial de cierres: también gerencia (control de faltantes por repartidor). */}
           <Route element={<ProtectedRoute allowedRoles={rolesDe('/caja/liquidaciones/historial')} />}>
             <Route path="/caja/liquidaciones/historial" element={<LiquidacionesHistorialPage base="/caja" />} />
+            <Route path="/caja/liquidaciones/abiertas"  element={<LiquidacionesAbiertasPage base="/caja" />} />
             <Route path="/caja/rendiciones/historial"   element={<RendicionesHistorialPage enTesoreria={false} />} />
           </Route>
 
@@ -337,6 +339,7 @@ function AppContent() {
             {/* La liquidación del repartidor con todo el detalle, en modo lectura (a tesorería le rinden). */}
             <Route path="/tesoreria/liquidaciones"           element={<LiquidacionesPage base="/tesoreria" />} />
             <Route path="/tesoreria/liquidaciones/historial" element={<LiquidacionesHistorialPage base="/tesoreria" />} />
+            <Route path="/tesoreria/liquidaciones/abiertas"  element={<LiquidacionesAbiertasPage base="/tesoreria" />} />
           </Route>
 
           {/* Heladeras (las vistas standalone — etiqueta, ficha, técnico — van más abajo) */}

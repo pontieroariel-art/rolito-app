@@ -3,8 +3,10 @@ import { formatoARS } from '@/utils/money'
 import { sumaCobrada } from '@/utils/importeCobrado'
 import { describirRacks } from '@/utils/envases'
 import type { LiquidacionCalculada, RepartoClasificado } from '@/utils/liquidacion'
-import type { DescargaCamion, Liquidacion, RemitoCarga } from '@/types'
+import type { ConteoBilletes, DescargaCamion, Liquidacion, RemitoCarga } from '@/types'
 import { MOTIVOS_DESVIO_DESCARGA } from '@/types'
+import TablaConteoBilletes, { ChipEmpresa, COLOR_EMPRESA } from '@/components/common/TablaConteoBilletes'
+import { conteoCompleto, desgloseContado, EMPRESAS_CONTEO, totalConteo } from '@/utils/billetes'
 import type { FaltanteCalculado } from '@/utils/faltantes'
 import { TH as th, TD as td } from '@/components/common/tabla'
 
@@ -83,11 +85,24 @@ const Tile = ({ color, titulo, total, lineas }: { color: string; titulo: string;
   </div>
 )
 
-export function TarjetasPlata({ reparto, calc, efectivoRecibido, onEfectivoRecibido, soloLectura, diferencia }: {
-  reparto: RepartoClasificado; calc: LiquidacionCalculada; efectivoRecibido: string; onEfectivoRecibido: (v: string) => void
-  soloLectura: boolean; diferencia: number | null
+// Rendición por sobres, etapa 1 (2026-09-16): la plata se rinde POR EMPRESA
+// (Redonhielo = oficial, Rolito = no oficial) y caja la cuenta billete por
+// billete en la tabla de cada empresa; el "efectivo recibido" ya no se escribe.
+// Con la liquidación cerrada se muestra el conteo guardado (los cierres
+// anteriores no lo tienen: solo el total).
+export function TarjetasPlata({ reparto, calc, conteo, onConteo, soloLectura, efectivoRecibidoCerrado }: {
+  reparto: RepartoClasificado; calc: LiquidacionCalculada
+  /** El conteo en curso (o el guardado, en una cerrada). undefined en una cerrada vieja sin conteo. */
+  conteo?: ConteoBilletes
+  onConteo?: (c: ConteoBilletes) => void
+  soloLectura: boolean
+  /** En una cerrada sin conteo guardado: el total que se escribió en su momento. */
+  efectivoRecibidoCerrado?: number
 }) {
   const promoEfectivo = sumaCobrada(reparto.promo.contado.ventas.filter((v) => v.formaPago === 'contado_efectivo'))
+  const completo = conteo ? conteoCompleto(conteo) : false
+  const recibido = conteo ? (completo || soloLectura ? totalConteo(conteo) : null) : (efectivoRecibidoCerrado ?? null)
+  const diferencia = recibido === null ? null : recibido - calc.efectivoARendir
   return (
     <section className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-4 space-y-4">
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -96,20 +111,56 @@ export function TarjetasPlata({ reparto, calc, efectivoRecibido, onEfectivoRecib
         <Tile color="#8A4FBF" titulo="Promo · Rolito" total={reparto.promo.total} lineas={[['Contado efectivo', formatoARS(promoEfectivo)], ['Cuenta corriente', formatoARS(reparto.promo.cuentaCorriente.total)], ['Facturas X', String(reparto.promo.contado.ventas.length + reparto.promo.cuentaCorriente.ventas.length)]]} />
         <Tile color="#0F6B4E" titulo="Cobranzas" total={reparto.cobranzas.total} lineas={[['Efectivo', formatoARS(reparto.cobranzas.efectivo)], ['Transferencia', formatoARS(reparto.cobranzas.transferencia)], [`Cheques (${reparto.cobranzas.cheques.cantidad})`, formatoARS(reparto.cobranzas.cheques.total)], ...(reparto.cobranzas.retenciones.cantidad ? [[`Retenciones (${reparto.cobranzas.retenciones.cantidad})`, formatoARS(reparto.cobranzas.retenciones.total)] as [string, string]] : [])]} />
       </div>
-      <div className="grid sm:grid-cols-[1fr_1.3fr_1fr] gap-4 items-end pt-3 border-t border-[#E7E5DC]">
+
+      <div className="pt-3 border-t border-[#E7E5DC]">
+        <p className="text-xs font-semibold uppercase tracking-wide text-secundario mb-2">{soloLectura ? 'Rendido por empresa' : 'Contá el efectivo que te entrega, por empresa'}</p>
+        <div className="grid md:grid-cols-2 gap-3">
+          {EMPRESAS_CONTEO.map((e) => {
+            const p = calc.porEmpresa[e]
+            const d = conteo?.[e]
+            const difE = d && (completo || soloLectura) ? d.total - p.efectivo : null
+            return (
+              <div key={e} className="space-y-2">
+                <div className={`rounded-xl border ${COLOR_EMPRESA[e].borde} border-opacity-60 bg-white p-3`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <ChipEmpresa empresa={e} />
+                    <span className="text-xs text-secundario">{p.ventas.cantidad} ventas · {p.cobranzas.cantidad} cobranzas</span>
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+                    <span className="text-secundario">Efectivo a rendir</span><b className="text-right tabular-nums text-gray-900">{formatoARS(p.efectivo)}</b>
+                    <span className="text-secundario">Cheques ({p.cheques.cantidad})</span><span className="text-right tabular-nums">{p.cheques.cantidad ? formatoARS(p.cheques.total) : '—'}</span>
+                    <span className="text-secundario">Retenciones ({p.retenciones.cantidad})</span><span className="text-right tabular-nums">{p.retenciones.cantidad ? formatoARS(p.retenciones.total) : '—'}</span>
+                    <span className="text-secundario">Transferencias (no se rinden)</span><span className="text-right tabular-nums text-secundario">{p.transferencia ? formatoARS(p.transferencia) : '—'}</span>
+                  </div>
+                </div>
+                {d ? (
+                  <TablaConteoBilletes empresa={e} valor={d} soloLectura={soloLectura} onChange={onConteo ? (nuevo) => onConteo({ ...conteo!, [e]: nuevo }) : undefined} />
+                ) : (
+                  <p className="text-xs text-secundario px-1">Este cierre no tiene el conteo de billetes (es anterior al 16/09).</p>
+                )}
+                {difE !== null && (
+                  <p className={`text-sm font-semibold tabular-nums px-1 ${difE === 0 ? 'text-[#0F6B4E]' : 'text-red-600'}`}>
+                    {difE === 0 ? 'Cuadra ✓' : `Diferencia ${formatoARS(difE)}`}
+                  </p>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="grid sm:grid-cols-3 gap-4 items-end pt-3 border-t border-[#E7E5DC]">
         <div>
           <p className="text-xs text-secundario">Efectivo a rendir</p>
           <p className="text-2xl font-bold text-gray-900 tabular-nums">{formatoARS(calc.efectivoARendir)}</p>
           <p className="text-[11px] text-secundario">Contado efectivo {formatoARS(reparto.contado.efectivo.total)} + promo efectivo {formatoARS(promoEfectivo)} + cobranzas efectivo {formatoARS(reparto.cobranzas.efectivo)}</p>
         </div>
         <div>
-          <p className="text-xs text-secundario mb-1">Efectivo recibido</p>
-          {soloLectura ? (
-            <p className="text-2xl font-bold text-gray-900 tabular-nums">{formatoARS(Number(efectivoRecibido) || 0)}</p>
-          ) : (
-            <input value={efectivoRecibido} onChange={(e) => onEfectivoRecibido(e.target.value)} inputMode="numeric" placeholder="0"
-              className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-lg text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent tabular-nums" />
-          )}
+          <p className="text-xs text-secundario">{soloLectura ? 'Efectivo recibido' : 'Contado en billetes'}</p>
+          {recibido === null
+            ? <p className="text-2xl font-bold text-secundario">—</p>
+            : <p className="text-2xl font-bold text-gray-900 tabular-nums">{formatoARS(recibido)}</p>}
+          {!soloLectura && !completo && <p className="text-[11px] text-amber-700">Falta contar {conteo && !desgloseContado(conteo.redonhielo) ? 'Redonhielo' : ''}{conteo && !desgloseContado(conteo.redonhielo) && !desgloseContado(conteo.rolito) ? ' y ' : ''}{conteo && !desgloseContado(conteo.rolito) ? 'Rolito' : ''}.</p>}
         </div>
         <div>
           <p className="text-xs text-secundario">Diferencia</p>

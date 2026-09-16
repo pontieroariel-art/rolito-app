@@ -1560,6 +1560,10 @@ service cloud.firestore {
         && request.resource.data.cheques is list
         && request.resource.data.retenciones is list
         && request.resource.data.entregaId == null
+        // Rendición por sobres, etapa 1 (2026-09-16): caja cuenta billete por
+        // billete y por empresa, sin atajo de total directo. El conteo tiene
+        // que venir con las dos empresas y su suma tiene que ser lo recibido.
+        && conteoBilletesOk(request.resource.data)
         // Cuadre de envases (desde 2026-09-07); los cierres viejos traen `pallets`.
         && (!('envases' in request.resource.data)
             || (request.resource.data.envases is map
@@ -1581,6 +1585,34 @@ service cloud.firestore {
               && d.desvio.motivo is string && d.desvio.motivo.size() > 0
               && d.desvio.bolsasFaltantes is number
               && d.desvio.observadoPor.uid == request.auth.uid);
+      }
+
+      // Conteo de billetes por empresa (rendición por sobres, etapa 1,
+      // 2026-09-16). Un desglose = cinco cantidades enteras no negativas, el
+      // cambio chico como importe y el total que suma eso (o 0 si marcó "sin
+      // efectivo"). El cierre exige las dos empresas y que la suma de los dos
+      // totales sea el efectivo recibido: no hay forma de cerrar sin contar.
+      function desgloseOk(x) {
+        return x is map
+          && x.billetes is map
+          && x.billetes['20000'] is int && x.billetes['20000'] >= 0
+          && x.billetes['10000'] is int && x.billetes['10000'] >= 0
+          && x.billetes['2000'] is int && x.billetes['2000'] >= 0
+          && x.billetes['1000'] is int && x.billetes['1000'] >= 0
+          && x.billetes['500'] is int && x.billetes['500'] >= 0
+          && x.cambioChico is number && x.cambioChico >= 0
+          && x.sinEfectivo is bool
+          && x.total is number
+          && (x.sinEfectivo
+              ? x.total == 0
+              : x.total == x.billetes['20000'] * 20000 + x.billetes['10000'] * 10000 + x.billetes['2000'] * 2000
+                           + x.billetes['1000'] * 1000 + x.billetes['500'] * 500 + x.cambioChico);
+      }
+      function conteoBilletesOk(d) {
+        return d.conteoBilletes is map
+          && desgloseOk(d.conteoBilletes.redonhielo)
+          && desgloseOk(d.conteoBilletes.rolito)
+          && d.efectivoRecibido == d.conteoBilletes.redonhielo.total + d.conteoBilletes.rolito.total;
       }
 
       // Entrega a tesorería (2026-09-09): caja de la planta marca null → id, una vez.

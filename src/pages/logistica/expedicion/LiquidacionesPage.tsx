@@ -18,7 +18,8 @@ import { calcularFaltante } from '@/utils/faltantes'
 import { useUmbralFaltantes } from '@/hooks/useUmbralFaltantes'
 import { pedirAutorizacionDesvio, subscribeDesvio } from '@/services/desvioDescargaService'
 import PedirAutorizacionDesvio from '@/components/expedicion/liquidacion/PedirAutorizacionDesvio'
-import type { DesvioDescarga } from '@/types'
+import type { ConteoBilletes, DesvioDescarga } from '@/types'
+import { conteoCompleto, conteoVacio, totalConteo } from '@/utils/billetes'
 import { envasesDeDescarga, envasesDeRemito } from '@/utils/envases'
 import { generateLiquidacion, nombreArchivoLiquidacion, type DetalleLiquidacionPdf } from '@/utils/pdf'
 import { compartirArchivo, puedeCompartirArchivos } from '@/utils/compartir'
@@ -73,7 +74,9 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
   const [cobranzas, setCobranzas] = useState<Cobranza[]>([])
   const { abrir } = useVisorComprobante()
   const [cerrada,   setCerrada]   = useState<Liquidacion | null>(null)
-  const [efectivoRecibido, setEfectivoRecibido] = useState('')
+  // Rendición por sobres, etapa 1 (2026-09-16): caja cuenta billete por billete
+  // y por empresa; el efectivo recibido sale de ese conteo, no se escribe.
+  const [conteo, setConteo] = useState<ConteoBilletes>(conteoVacio)
   const [confirmando, setConfirmando] = useState(false)
   // Anulación de una factura del camión con nota de crédito (2026-09-11): caja
   // la pide desde acá mientras la liquidación esté abierta; con una pendiente
@@ -119,7 +122,7 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
     return () => unsubs.forEach((u) => u())
   }, [choferId, hoy, fecha])
 
-  useEffect(() => { setEfectivoRecibido(''); setSoloProblemas(false); setAviso(''); setError('') }, [choferId, hoy])
+  useEffect(() => { setConteo(conteoVacio()); setSoloProblemas(false); setAviso(''); setError('') }, [choferId, hoy])
 
   const calc = useMemo(
     () => calcularLiquidacion(remitosChofer, ventas, cambios, descargas, cobranzas),
@@ -129,8 +132,8 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
   // Cheques y certificados que trae el repartidor: caja los tilda al cerrar (2026-09-09).
   const papel = useMemo(() => valoresEnPapel(cobranzas), [cobranzas])
 
-  const recibido = cerrada ? cerrada.efectivoRecibido : (parseInt(efectivoRecibido.replace(/\D/g, ''), 10) || 0)
-  const diferencia = cerrada ? cerrada.diferenciaEfectivo : (efectivoRecibido.trim() === '' ? null : recibido - calc.efectivoARendir)
+  const contadoCompleto = conteoCompleto(conteo)
+  const recibido = cerrada ? cerrada.efectivoRecibido : totalConteo(conteo)
 
   const detallePdf = (): DetalleLiquidacionPdf => ({
     reparto,
@@ -167,6 +170,12 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
       const liq = await cerrarLiquidacion(
         {
           fecha: hoy, choferId, choferNombre, calculo: calc, efectivoRecibido: recibido,
+          // Conteo de billetes por empresa y la diferencia de cada una (2026-09-16).
+          conteoBilletes: conteo,
+          diferenciaPorEmpresa: {
+            redonhielo: conteo.redonhielo.total - calc.porEmpresa.redonhielo.efectivo,
+            rolito:     conteo.rolito.total - calc.porEmpresa.rolito.efectivo,
+          },
           ...(depositoElegido ? { depositoTango: depositoElegido.codigo, depositoTangoNombre: depositoElegido.nombre } : {}),
           ...(datos.diferencia ? { diferencia: datos.diferencia } : {}),
           ...(datos.desvio && desvioACerrar
@@ -312,8 +321,8 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
           {!cerrada && !puedeCerrar && (
             <p className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">Todavía no está cerrada por caja: lo de abajo es el cálculo en vivo del día.</p>
           )}
-          <TarjetasPlata reparto={reparto} calc={calc} efectivoRecibido={cerrada ? String(cerrada.efectivoRecibido) : efectivoRecibido}
-            onEfectivoRecibido={setEfectivoRecibido} soloLectura={!!cerrada || !puedeCerrar} diferencia={diferencia} />
+          <TarjetasPlata reparto={reparto} calc={calc} conteo={cerrada ? cerrada.conteoBilletes : conteo}
+            onConteo={!cerrada && puedeCerrar ? setConteo : undefined} soloLectura={!!cerrada || !puedeCerrar} efectivoRecibidoCerrado={cerrada?.efectivoRecibido} />
 
           {(cerrada ? (cerrada.cheques?.length ?? 0) + (cerrada.retenciones?.length ?? 0) : papel.cheques.length + papel.retenciones.length) > 0 && (
             <Plegable titulo={`Valores en papel (${cerrada ? (cerrada.cheques?.length ?? 0) + (cerrada.retenciones?.length ?? 0) : papel.cheques.length + papel.retenciones.length})`} abiertoInicial
@@ -359,13 +368,13 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
                   )}
                 />
               )}
-              <Button onClick={() => setConfirmando(true)} disabled={!hayMovimientos || efectivoRecibido.trim() === '' || anulacionesEnCurso > 0}>
+              <Button onClick={() => setConfirmando(true)} disabled={!hayMovimientos || !contadoCompleto || anulacionesEnCurso > 0}>
                 <Printer size={16} className="mr-1.5" /> {desvioACerrar ? (autorizado ? 'Cerrar con el faltante autorizado' : 'Cerrar con desvío observado') : 'Cerrar liquidación'}
               </Button>
             </div>
           )}
-          {!cerrada && puedeCerrar && hayMovimientos && efectivoRecibido.trim() === '' && (
-            <p className="text-right text-xs text-secundario">Cargá el efectivo recibido para poder cerrar.</p>
+          {!cerrada && puedeCerrar && hayMovimientos && !contadoCompleto && (
+            <p className="text-right text-xs text-secundario">Contá los billetes de las dos empresas (o marcá "no recibí efectivo") para poder cerrar.</p>
           )}
         </>
       )}
@@ -376,6 +385,7 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
           resumen={{ ventas: ventas.length, clientes: reparto.clientes.length, cobranzas: cobranzas.length }}
           efectivoARendir={calc.efectivoARendir}
           efectivoRecibido={recibido}
+          porEmpresa={{ aRendir: calc.porEmpresa, conteo }}
           guardando={guardando}
           error={error}
           onCancelar={() => setConfirmando(false)}

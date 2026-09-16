@@ -140,6 +140,8 @@ export const CATALOGO: RutaConfig[] = [
   R('/caja/rendiciones',             'Mi turno',             'tesoreria', CAJA, { icon: Wallet, menuGroup: 'caja' }),
   R('/caja/entregas',                'Entrega a tesorería',  'tesoreria', CAJA, { icon: Landmark, menuGroup: 'caja' }),
   R('/caja/liquidaciones/historial', 'Historial',            'tesoreria', CAJA_HISTORIAL, { icon: History, menuGroup: 'caja' }),
+  // Camiones y cobradores sin liquidar de cualquier fecha (2026-09-16, pedido de la oficina).
+  R('/caja/liquidaciones/abiertas',  'Liquidaciones abiertas', 'tesoreria', CAJA_HISTORIAL, { icon: ClipboardList, menuGroup: 'caja' }),
   R('/caja/rendiciones/historial',   'Historial de cierres', 'tesoreria', CAJA_HISTORIAL, { deepLink: true }),
   R('/muelle',                       'Muelle',               'logistica', ['muelle', 'super_admin'], { icon: Warehouse, menuGroup: 'expedicion', rolesMenu: ['muelle'] }),
   R('/muelle/tv',                    'Muelle · pantalla',    'logistica', ['muelle', 'super_admin'], { icon: Tv }),
@@ -171,6 +173,7 @@ export const CATALOGO: RutaConfig[] = [
   R('/tesoreria/anulaciones',             'Anulaciones y faltantes', 'tesoreria', TESORERIA, { icon: Ban, menuGroup: 'tesoreria' }),
   R('/tesoreria/rendiciones/historial',   'Historial',          'tesoreria', TESORERIA, { icon: History, menuGroup: 'tesoreria' }),
   R('/tesoreria/liquidaciones/historial', 'Historial de liquidaciones', 'tesoreria', TESORERIA, { deepLink: true }),
+  R('/tesoreria/liquidaciones/abiertas',  'Liquidaciones abiertas',     'tesoreria', TESORERIA, { icon: ClipboardList, menuGroup: 'tesoreria' }),
 
   // ── Chofer (calle) ────────────────────────────────────────────────────────
   R('/chofer',                   'Inicio',          'logistica', ['chofer'], { icon: Home }),
@@ -269,8 +272,8 @@ export const SIDEBARS: Record<Sistema, GrupoSidebar[]> = {
   ],
   // Tesorería & Cajas: la plata y los valores, de la ventanilla al arqueo.
   tesoreria: [
-    { id: 'caja',      label: 'Caja & Ventanilla', entradas: ['/caja/ventanilla', '/caja/cobranzas', '/caja/liquidaciones', '/caja/rendiciones', '/caja/entregas', '/caja/liquidaciones/historial'] },
-    { id: 'tesoreria', label: 'Tesorería',         entradas: ['/tesoreria', '/tesoreria/recepcion', '/tesoreria/liquidaciones', '/tesoreria/entregas', '/tesoreria/anulaciones', '/tesoreria/rendiciones/historial'] },
+    { id: 'caja',      label: 'Caja & Ventanilla', entradas: ['/caja/ventanilla', '/caja/cobranzas', '/caja/liquidaciones', '/caja/liquidaciones/abiertas', '/caja/rendiciones', '/caja/entregas', '/caja/liquidaciones/historial'] },
+    { id: 'tesoreria', label: 'Tesorería',         entradas: ['/tesoreria', '/tesoreria/recepcion', '/tesoreria/liquidaciones', '/tesoreria/liquidaciones/abiertas', '/tesoreria/entregas', '/tesoreria/anulaciones', '/tesoreria/rendiciones/historial'] },
   ],
   comercial: [
     // El listado de producción es consulta de stock para gerencia, comercial y

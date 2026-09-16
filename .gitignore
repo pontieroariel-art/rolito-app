@@ -74,3 +74,6 @@ certs/
 
 # Salida de auditorías con datos reales de clientes (CUIT, razón social)
 scripts/arca/salida/
+
+# Bundles temporales de scripts (esbuild)
+scripts/.build/

@@ -1012,6 +1012,9 @@ export interface DescargaCamion {
   // ajusta a mano, avisada por push.
   rectificaA?:            string
   motivoRectificacion?:   string
+  // Descarga TEÓRICA (2026-09-16): no la contó muelle; la escribió el script de cierre de
+  // arranque con carga − ventas − cambios para dejar el depósito del camión en cero en Tango.
+  teorica?:               { motivo: string; en: Timestamp }
   // Envases que volvieron, contados sueltos por muelle (desde 2026-09-07).
   envases?:         EnvasesDescarga
   // LEGACY (descargas anteriores al 2026-09-07): pallets completos (con hielo),
@@ -1063,6 +1066,31 @@ export interface LiquidacionResumenProducto {
   diferencia:        number   // descarga − devolucionTeorica (0 = cuadra)
 }
 
+// ── Rendición por sobres, etapa 1 (2026-09-16, decisión de Ariel) ────────────
+// Toda la plata se mira por empresa —Redonhielo (oficial) y Rolito (no
+// oficial)— porque tesorería la anota así, y todo conteo de efectivo se hace
+// billete por billete (utils/billetes.ts), sin atajo de total directo.
+/** Conteo de efectivo por denominación. `total` es derivado y se guarda para leerlo sin recalcular. */
+export interface DesgloseBilletes {
+  billetes:    { '20000': number; '10000': number; '2000': number; '1000': number; '500': number }
+  /** Todo lo menor a $500 y las monedas, como importe. */
+  cambioChico: number
+  /** Marca explícita "no recibí efectivo de esta empresa" (deja el conteo válido en cero). */
+  sinEfectivo: boolean
+  total:       number
+}
+export type ConteoBilletes = Record<EmpresaTango, DesgloseBilletes>
+/** Lo que una persona rinde de UNA empresa: efectivo a rendir y valores; transferencias solo informativas. */
+export interface PlataEmpresa {
+  efectivo:      number   // ventas en efectivo + cobranzas en efectivo
+  transferencia: number   // no se rinde
+  ventas:        { cantidad: number; total: number }
+  cobranzas:     { cantidad: number; total: number }
+  cheques:       { cantidad: number; total: number }
+  retenciones:   { cantidad: number; total: number }
+}
+export type PlataPorEmpresa = Record<EmpresaTango, PlataEmpresa>
+
 export interface Liquidacion {
   id:            string     // {yyyy-MM-dd}_{choferId}
   // Correlativo POR PERSONA (serie del depósito de Tango, 2026-09-09):
@@ -1111,9 +1139,17 @@ export interface Liquidacion {
   efectivoARendir:  number   // = ventas en efectivo + cobranzas en efectivo
   efectivoRecibido: number   // lo que caja contó al recibir la plata
   diferenciaEfectivo: number // recibido − a rendir
+  // ── Por empresa y billetes (rendición por sobres, etapa 1, 2026-09-16) ──
+  // Lo que se rinde de cada empresa, el conteo de billetes de cada una (la
+  // prueba del conteo de caja) y la diferencia por empresa. Los cierres
+  // anteriores no lo tienen.
+  porEmpresa?:           PlataPorEmpresa
+  conteoBilletes?:       ConteoBilletes
+  diferenciaPorEmpresa?: Record<EmpresaTango, number>
   // ── Cierre con control (2026-09-06) ──
   // Motivo obligatorio cuando hay diferencia de efectivo, con nota libre.
-  diferencia?:   { motivo: MotivoDiferenciaLiquidacion; nota: string }
+  // `denominacion` (2026-09-16): con "billete falso / dañado", cuál era.
+  diferencia?:   { motivo: MotivoDiferenciaLiquidacion; nota: string; denominacion?: number }
   // Conformidad del repartidor: firma en la pantalla de caja (dataURL PNG).
   firmaRepartidor?:    string
   firmanteRepartidor?: string
@@ -1147,11 +1183,15 @@ export interface Liquidacion {
   // igual (un tema de stock no traba la caja) y queda marcado para que lo
   // revisen. Ausente = la descarga cuadró o el control estaba apagado.
   desvio?:               DesvioLiquidacion
+  // Cierre de arranque (2026-09-16, decisión de Ariel): días abiertos de antes de que se
+  // usara el circuito completo, cerrados por script sin firmas, con la devolución
+  // teórica como descarga y el efectivo a rendir como recibido. Queda marcado en el historial.
+  cierreArranque?:       { motivo: string; en: Timestamp }
   cerradaPor:    { uid: string; nombre: string }
   createdAt:     Timestamp
 }
 
-export type MotivoDiferenciaLiquidacion = 'faltante_repartidor' | 'faltante_caja' | 'faltante_entrega' | 'vuelto_mal_dado' | 'error_de_carga' | 'otro'
+export type MotivoDiferenciaLiquidacion = 'faltante_repartidor' | 'faltante_caja' | 'faltante_entrega' | 'vuelto_mal_dado' | 'error_de_carga' | 'billete_falso' | 'otro'
 // Labels de todos los motivos (sirven para mostrar cualquier cierre); qué
 // motivos se OFRECEN en cada cierre lo dicen las listas de abajo.
 export const MOTIVOS_DIFERENCIA_LIQUIDACION: Record<MotivoDiferenciaLiquidacion, string> = {
@@ -1160,9 +1200,11 @@ export const MOTIVOS_DIFERENCIA_LIQUIDACION: Record<MotivoDiferenciaLiquidacion,
   faltante_entrega:    'Faltante en la entrega a tesorería',
   vuelto_mal_dado:     'Vuelto mal dado',
   error_de_carga:      'Error de carga en la app',
+  // 2026-09-16 (pedido de Ariel): pide la denominación del billete descartado.
+  billete_falso:       'Billete falso / dañado descartado',
   otro:                'Otro',
 }
-export const MOTIVOS_LIQUIDACION_REPARTIDOR: MotivoDiferenciaLiquidacion[] = ['faltante_repartidor', 'vuelto_mal_dado', 'error_de_carga', 'otro']
+export const MOTIVOS_LIQUIDACION_REPARTIDOR: MotivoDiferenciaLiquidacion[] = ['faltante_repartidor', 'vuelto_mal_dado', 'billete_falso', 'error_de_carga', 'otro']
 
 // ── Desvío de MERCADERÍA en el cierre (2026-09-13, control de fugas) ──────────
 // Cuando lo que muelle contó al volver el camión no llega a lo que tendría que
@@ -1256,8 +1298,9 @@ export type TipoRendicion = 'repartidor' | 'cobrador' | 'mostrador'
 // Valor en papel (cheque / certificado de retención) dentro de una rendición,
 // liquidación o entrega: de qué recibo salió y si quien recibe lo tildó.
 // `recibido` ausente (docs anteriores al 2026-09-09) = recibido.
-export interface ChequeRendido extends ChequeRecibido { cobranzaId: string; numeroRecibo?: string; clienteNombre: string; recibido?: boolean; motivoNoEntregado?: string }
-export interface RetencionRendida extends RetencionRecibida { cobranzaId: string; numeroRecibo?: string; clienteNombre: string; recibido?: boolean; motivoNoEntregado?: string }
+// `empresa` (2026-09-16, rendición por sobres): de qué fajo es el valor; ausente en cierres viejos = Redonhielo.
+export interface ChequeRendido extends ChequeRecibido { cobranzaId: string; numeroRecibo?: string; clienteNombre: string; recibido?: boolean; motivoNoEntregado?: string; empresa?: EmpresaTango }
+export interface RetencionRendida extends RetencionRecibida { cobranzaId: string; numeroRecibo?: string; clienteNombre: string; recibido?: boolean; motivoNoEntregado?: string; empresa?: EmpresaTango }
 
 export interface Rendicion {
   id:            string            // {yyyy-MM-dd}_{sujetoId}

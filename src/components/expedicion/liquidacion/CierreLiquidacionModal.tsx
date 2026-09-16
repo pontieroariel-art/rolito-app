@@ -5,10 +5,13 @@ import SignaturePad, { type SignaturePadHandle } from '@/components/heladeras/Si
 import { formatoARS } from '@/utils/money'
 import ValoresEnPapel from '@/components/expedicion/ValoresEnPapel'
 import { aRendidos, decisionesCompletas, resumenValores, type Decisiones, type DecisionValor, type ValoresEnPapel as ValoresDePapel } from '@/utils/valoresEnPapel'
-import { MOTIVOS_DESVIO_DESCARGA, MOTIVOS_DESVIO_LIQUIDACION, MOTIVOS_DIFERENCIA_LIQUIDACION, MOTIVOS_LIQUIDACION_REPARTIDOR, type ChequeRendido, type MotivoDesvioDescarga, type MotivoDiferenciaLiquidacion, type RetencionRendida } from '@/types'
+import { MOTIVOS_DESVIO_DESCARGA, MOTIVOS_DESVIO_LIQUIDACION, MOTIVOS_DIFERENCIA_LIQUIDACION, MOTIVOS_LIQUIDACION_REPARTIDOR, type ChequeRendido, type ConteoBilletes, type MotivoDesvioDescarga, type MotivoDiferenciaLiquidacion, type PlataPorEmpresa, type RetencionRendida } from '@/types'
+import { ChipEmpresa } from '@/components/common/TablaConteoBilletes'
+import { DENOMINACIONES, EMPRESAS_CONTEO, etiquetaDenominacion } from '@/utils/billetes'
 
 export interface DatosCierre {
-  diferencia?:            { motivo: MotivoDiferenciaLiquidacion; nota: string }
+  // `denominacion` (2026-09-16): con "billete falso / dañado", cuál era (0 = menor a $500 / monedas).
+  diferencia?:            { motivo: MotivoDiferenciaLiquidacion; nota: string; denominacion?: number }
   firma:                  string
   firmante:               string
   confirmoSinPendientes:  boolean
@@ -51,7 +54,9 @@ export const TEXTOS_CIERRE_REPARTIDOR: TextosCierre = {
 // Cierre con control (2026-09-06): resumen de lo que se cierra, motivo y nota
 // obligatorios si el efectivo no cuadra, confirmación de que no quedan
 // movimientos sin subir, y la firma de conformidad de quien rinde.
-export default function CierreLiquidacionModal({ repartidor, resumen, resumenTexto, efectivoARendir, efectivoRecibido, guardando, error, onCancelar, onConfirmar, textos = TEXTOS_CIERRE_REPARTIDOR, motivos = MOTIVOS_LIQUIDACION_REPARTIDOR, valores, receptor, faltante, sinDescarga = false }: {
+export default function CierreLiquidacionModal({ repartidor, resumen, resumenTexto, efectivoARendir, efectivoRecibido, porEmpresa, guardando, error, onCancelar, onConfirmar, textos = TEXTOS_CIERRE_REPARTIDOR, motivos = MOTIVOS_LIQUIDACION_REPARTIDOR, valores, receptor, faltante, sinDescarga = false }: {
+  /** Rendición por sobres, etapa 1 (2026-09-16): a rendir y contado por empresa, para mostrar la diferencia de cada una. */
+  porEmpresa?: { aRendir: PlataPorEmpresa; conteo: ConteoBilletes }
   repartidor: string
   resumen: { ventas: number; clientes: number; cobranzas: number }
   /** Reemplaza la línea "N ventas · N clientes · N cobranzas" (entrega a tesorería). */
@@ -84,6 +89,8 @@ export default function CierreLiquidacionModal({ repartidor, resumen, resumenTex
   const diferencia = efectivoRecibido - efectivoARendir
   const [motivo, setMotivo] = useState<MotivoDiferenciaLiquidacion | ''>('')
   const [nota, setNota] = useState('')
+  // Billete falso / dañado (2026-09-16): cuál era; 0 = menor a $500 o monedas.
+  const [denominacion, setDenominacion] = useState<number | ''>('')
   const [motivoDesvio, setMotivoDesvio] = useState<MotivoDesvioDescarga | ''>('')
   const [notaDesvio, setNotaDesvio] = useState('')
   const [firmante, setFirmante] = useState(repartidor)
@@ -99,6 +106,7 @@ export default function CierreLiquidacionModal({ repartidor, resumen, resumenTex
   const confirmar = () => {
     setFalta('')
     if (diferencia !== 0 && !motivo) { setFalta('Elegí el motivo de la diferencia de efectivo.'); return }
+    if (diferencia !== 0 && motivo === 'billete_falso' && denominacion === '') { setFalta('Elegí de qué billete era el falso o dañado.'); return }
     if (faltante && !motivoDesvio) { setFalta('Elegí el motivo del faltante de mercadería.'); return }
     if (faltante && (motivoDesvio === 'otro' || motivoDesvio === 'a_investigar') && !notaDesvio.trim()) {
       setFalta('Escribí qué pasó con el faltante de mercadería.'); return
@@ -120,7 +128,7 @@ export default function CierreLiquidacionModal({ repartidor, resumen, resumenTex
     }
     const rendidos = valores ? aRendidos(valores, decisiones) : undefined
     onConfirmar({
-      ...(diferencia !== 0 && motivo ? { diferencia: { motivo, nota: nota.trim() } } : {}),
+      ...(diferencia !== 0 && motivo ? { diferencia: { motivo, nota: nota.trim(), ...(motivo === 'billete_falso' && denominacion !== '' ? { denominacion } : {}) } } : {}),
       ...(faltante && motivoDesvio ? { desvio: { motivo: motivoDesvio, nota: notaDesvio.trim() } } : {}),
       firma,
       firmante: firmante.trim(),
@@ -143,6 +151,25 @@ export default function CierreLiquidacionModal({ repartidor, resumen, resumenTex
           <div className="rounded-lg bg-gray-50 p-2"><p className="text-xs text-secundario">{textos.recibido}</p><p className="font-semibold tabular-nums">{formatoARS(efectivoRecibido)}</p></div>
           <div className={`rounded-lg p-2 ${diferencia === 0 ? 'bg-[#E6F5EF]' : 'bg-red-50'}`}><p className="text-xs text-secundario">Diferencia</p><p className={`font-semibold tabular-nums ${diferencia === 0 ? 'text-[#0F6B4E]' : 'text-red-600'}`}>{formatoARS(diferencia)}</p></div>
         </div>
+
+        {porEmpresa && (
+          <table className="w-full text-sm">
+            <thead><tr className="text-[11px] uppercase tracking-wide text-secundario"><th className="text-left font-semibold py-1">Por empresa</th><th className="text-right font-semibold py-1">{textos.aRendir}</th><th className="text-right font-semibold py-1">{textos.recibido}</th><th className="text-right font-semibold py-1">Diferencia</th></tr></thead>
+            <tbody>
+              {EMPRESAS_CONTEO.map((e) => {
+                const d = porEmpresa.conteo[e].total - porEmpresa.aRendir[e].efectivo
+                return (
+                  <tr key={e} className="border-t border-[#E7E5DC]">
+                    <td className="py-1.5"><ChipEmpresa empresa={e} /></td>
+                    <td className="py-1.5 text-right tabular-nums">{formatoARS(porEmpresa.aRendir[e].efectivo)}</td>
+                    <td className="py-1.5 text-right tabular-nums">{formatoARS(porEmpresa.conteo[e].total)}</td>
+                    <td className={`py-1.5 text-right tabular-nums font-semibold ${d === 0 ? 'text-[#0F6B4E]' : 'text-red-600'}`}>{d === 0 ? '✓' : formatoARS(d)}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
 
         {sinDescarga && (
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
@@ -184,6 +211,13 @@ export default function CierreLiquidacionModal({ repartidor, resumen, resumenTex
               <option value="">Elegir motivo…</option>
               {motivos.map((m) => <option key={m} value={m}>{MOTIVOS_DIFERENCIA_LIQUIDACION[m]}</option>)}
             </select>
+            {motivo === 'billete_falso' && (
+              <select value={denominacion} onChange={(e) => setDenominacion(e.target.value === '' ? '' : Number(e.target.value))} className={inputClass} aria-label="Billete descartado">
+                <option value="">¿De qué billete?</option>
+                {DENOMINACIONES.map((den) => <option key={den} value={den}>{etiquetaDenominacion(den)}</option>)}
+                <option value={0}>Menor a $ 500 / monedas</option>
+              </select>
+            )}
             <textarea value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Nota (opcional): qué pasó, quién lo revisa…" rows={2} className={inputClass} />
           </div>
         )}

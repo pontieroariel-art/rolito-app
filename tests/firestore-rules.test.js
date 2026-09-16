@@ -2507,7 +2507,37 @@ describe('expedicion: muelle / cambios / descargas / liquidaciones', () => {
     firmaRepartidor: 'data:image/png;base64,AAAA', firmanteRepartidor: 'Chofer Uno',
     firmaRecibe: 'data:image/png;base64,BBBB', firmanteRecibe: 'Caja',
     cheques: [], retenciones: [], valoresFaltantes: { cantidad: 0, total: 0 }, entregaId: null,
+    // Rendición por sobres, etapa 1 (2026-09-16): conteo de billetes por empresa, suma = efectivoRecibido.
+    conteoBilletes: { redonhielo: desglose({ '1000': 1 }), rolito: desglose({}, true) },
     cerradaPor: { uid: 'caja1', nombre: 'Caja' }, createdAt: new Date(), ...extra,
+  })
+  function desglose(billetes = {}, sinEfectivo = false) {
+    const b = { '20000': 0, '10000': 0, '2000': 0, '1000': 0, '500': 0, ...billetes }
+    const total = sinEfectivo ? 0 : b['20000'] * 20000 + b['10000'] * 10000 + b['2000'] * 2000 + b['1000'] * 1000 + b['500'] * 500
+    return { billetes: b, cambioChico: 0, sinEfectivo, total }
+  }
+
+  // ── conteo de billetes por empresa (rendición por sobres, etapa 1, 2026-09-16) ──
+  test('el cierre exige el conteo de billetes de las dos empresas y que sume lo recibido', async () => {
+    await seedCaja()
+    const ref = doc(db('caja1'), 'liquidaciones/2026-08-29_chof1')
+    const { conteoBilletes: _c, ...sinConteo } = liquidacion()
+    await assertFails(setDoc(ref, sinConteo))
+    // Falta una empresa.
+    await assertFails(setDoc(ref, liquidacion({ conteoBilletes: { redonhielo: desglose({ '1000': 1 }) } })))
+    // El total no cierra con los billetes.
+    await assertFails(setDoc(ref, liquidacion({ conteoBilletes: { redonhielo: { ...desglose({ '1000': 1 }), total: 900 }, rolito: desglose({}, true) } })))
+    // La suma de los dos conteos no es lo recibido.
+    await assertFails(setDoc(ref, liquidacion({ efectivoRecibido: 1500, diferenciaEfectivo: 500 })))
+    // Cantidad negativa o con decimales.
+    await assertFails(setDoc(ref, liquidacion({ conteoBilletes: { redonhielo: { ...desglose({ '1000': 1 }), billetes: { ...desglose().billetes, '500': -1 } }, rolito: desglose({}, true) } })))
+    await assertFails(setDoc(ref, liquidacion({ conteoBilletes: { redonhielo: { ...desglose({ '1000': 1 }), billetes: { ...desglose().billetes, '1000': 1.5 } }, rolito: desglose({}, true) } })))
+    // "Sin efectivo" con total distinto de cero.
+    await assertFails(setDoc(ref, liquidacion({ conteoBilletes: { redonhielo: desglose({ '1000': 1 }), rolito: { ...desglose({}, true), total: 5 } } })))
+    // Bien: dos empresas con plata y cambio chico.
+    const rh = { ...desglose({ '500': 1 }), cambioChico: 200, total: 700 }
+    const ro = desglose({ '500': 0 }); ro.cambioChico = 300; ro.total = 300
+    await assertSucceeds(setDoc(ref, liquidacion({ conteoBilletes: { redonhielo: rh, rolito: ro }, efectivoRecibido: 1000, diferenciaEfectivo: 0 })))
   })
 
   // ── liquidación numerada por persona, doble firma, valores y entrega (2026-09-09) ──

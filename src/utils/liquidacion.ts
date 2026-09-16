@@ -1,7 +1,7 @@
 import { cobranzasVigentes } from './anulacionCobranza'
 import {
-  CambioCamion, Cobranza, DescargaCamion, Liquidacion, LiquidacionResumenProducto,
-  RemitoCarga, VentaCamion, VentaCamionItem,
+  CambioCamion, Cobranza, DescargaCamion, EmpresaTango, Liquidacion, LiquidacionResumenProducto,
+  PlataEmpresa, PlataPorEmpresa, RemitoCarga, VentaCamion, VentaCamionItem,
 } from '../types'
 import { nombreDelCambio, productoDelCambio } from './cambios'
 import { cuadrarEnvases } from './envases'
@@ -21,7 +21,40 @@ import { importeCobrado, sumaCobrada } from './importeCobrado'
 export type LiquidacionCalculada = Omit<Liquidacion,
   'id' | 'numero' | 'codigo' | 'fecha' | 'plantaId' | 'choferId' | 'choferNombre' | 'efectivoRecibido' | 'diferenciaEfectivo' | 'cerradaPor' | 'createdAt' | 'pallets'
   | 'diferencia' | 'firmaRepartidor' | 'firmanteRepartidor' | 'firmaRecibe' | 'firmanteRecibe' | 'confirmoSinPendientes' | 'cheques' | 'retenciones' | 'valoresFaltantes' | 'entregaId'
-> & { envases: NonNullable<Liquidacion['envases']> }
+  | 'conteoBilletes' | 'diferenciaPorEmpresa'
+> & { envases: NonNullable<Liquidacion['envases']>; porEmpresa: PlataPorEmpresa }
+
+/** De qué empresa es la plata de una venta del camión: contado con factura = Redonhielo, promo = Rolito. */
+export const empresaDeVenta = (v: Pick<VentaCamion, 'canal'>): EmpresaTango => (v.canal === 'promo' ? 'rolito' : 'redonhielo')
+/** De qué empresa es una cobranza: la que dice el recibo; las viejas sin empresa son de Redonhielo. */
+export const empresaDeCobranza = (c: Pick<Cobranza, 'empresa'>): EmpresaTango => c.empresa ?? 'redonhielo'
+
+/**
+ * Lo que se rinde de CADA empresa (rendición por sobres, etapa 1, 2026-09-16):
+ * efectivo de ventas y cobranzas, transferencias (informativas), cheques y
+ * retenciones. Es la base de las dos hojas impresas y del conteo por empresa.
+ */
+export function plataPorEmpresa(ventas: VentaCamion[], cobranzas: Cobranza[]): PlataPorEmpresa {
+  const vacia = (): PlataEmpresa => ({ efectivo: 0, transferencia: 0, ventas: { cantidad: 0, total: 0 }, cobranzas: { cantidad: 0, total: 0 }, cheques: { cantidad: 0, total: 0 }, retenciones: { cantidad: 0, total: 0 } })
+  const out: PlataPorEmpresa = { redonhielo: vacia(), rolito: vacia() }
+  for (const v of ventas) {
+    const e = out[empresaDeVenta(v)]
+    const importe = importeCobrado(v)
+    e.ventas.cantidad++; e.ventas.total += importe
+    if (v.formaPago === 'contado_efectivo') e.efectivo += importe
+    else if (v.formaPago === 'contado_transferencia') e.transferencia += importe
+  }
+  for (const c of cobranzas) {
+    const e = out[empresaDeCobranza(c)]
+    e.cobranzas.cantidad++; e.cobranzas.total += c.importe
+    e.efectivo += efectivoDe(c)
+    e.transferencia += transferenciaDe(c)
+    const ch = chequesDe(c), re = retencionesDe(c)
+    e.cheques.cantidad += ch.length; e.cheques.total += sumaImportes(ch)
+    e.retenciones.cantidad += re.length; e.retenciones.total += sumaImportes(re)
+  }
+  return out
+}
 
 export function calcularLiquidacion(
   remitos:   RemitoCarga[],
@@ -122,6 +155,8 @@ export function calcularLiquidacion(
       retenciones:   { cantidad: retencionesCalle.length, total: sumaImportes(retencionesCalle) },
     },
     efectivoARendir: contadoEfectivo + cobranzasEfectivo,
+    // Rendición por sobres, etapa 1 (2026-09-16): lo mismo, partido por empresa.
+    porEmpresa: plataPorEmpresa(ventas, cobranzasCalle),
   }
 }
 

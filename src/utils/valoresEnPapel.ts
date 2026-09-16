@@ -1,5 +1,5 @@
 import { cobranzasVigentes } from './anulacionCobranza'
-import type { ChequeRendido, Cobranza, RetencionRendida } from '@/types'
+import type { ChequeRendido, Cobranza, EmpresaTango, RetencionRendida } from '@/types'
 import { chequesDe, retencionesDe, sumaImportes } from './medios'
 
 // Valores en papel (cheques y certificados de retención) que salen de las
@@ -9,8 +9,10 @@ import { chequesDe, retencionesDe, sumaImportes } from './medios'
 // Todo puro; lo usan la liquidación del repartidor, el cierre de caja de
 // ventanilla y la entrega a tesorería.
 
-export interface ChequeEnPapel { cobranzaId: string; numeroRecibo?: string; clienteNombre: string; numero: string; bancoNombre: string; fechaAcreditacion: string; importe: number; esEcheq?: boolean }
-export interface RetencionEnPapel { cobranzaId: string; numeroRecibo?: string; clienteNombre: string; tipo: string; nroCertificado: string; importe: number }
+// `empresa` (2026-09-16, rendición por sobres): la del recibo, para que caja y
+// tesorería vean de qué fajo es cada valor. Las cobranzas viejas sin empresa son de Redonhielo.
+export interface ChequeEnPapel { cobranzaId: string; numeroRecibo?: string; clienteNombre: string; numero: string; bancoNombre: string; fechaAcreditacion: string; importe: number; esEcheq?: boolean; empresa?: EmpresaTango }
+export interface RetencionEnPapel { cobranzaId: string; numeroRecibo?: string; clienteNombre: string; tipo: string; nroCertificado: string; importe: number; empresa?: EmpresaTango }
 export interface ValoresEnPapel { cheques: ChequeEnPapel[]; retenciones: RetencionEnPapel[] }
 
 /** Cheques y certificados de retención de un conjunto de cobranzas. */
@@ -18,8 +20,9 @@ export function valoresEnPapel(cobranzas: Cobranza[]): ValoresEnPapel {
   const cheques: ChequeEnPapel[] = []
   const retenciones: RetencionEnPapel[] = []
   for (const c of cobranzasVigentes(cobranzas)) {   // un recibo anulado no tiene valores que rendir (2026-09-15)
-    for (const ch of chequesDe(c)) cheques.push({ cobranzaId: c.id, numeroRecibo: c.numeroRecibo, clienteNombre: c.clienteNombre, numero: ch.numero, bancoNombre: ch.bancoNombre, fechaAcreditacion: ch.fechaAcreditacion, importe: ch.importe, ...(ch.esEcheq ? { esEcheq: true } : {}) })
-    for (const r of retencionesDe(c)) retenciones.push({ cobranzaId: c.id, numeroRecibo: c.numeroRecibo, clienteNombre: c.clienteNombre, tipo: r.tipo, nroCertificado: r.nroCertificado, importe: r.importe })
+    const empresa: EmpresaTango = c.empresa ?? 'redonhielo'
+    for (const ch of chequesDe(c)) cheques.push({ cobranzaId: c.id, numeroRecibo: c.numeroRecibo, clienteNombre: c.clienteNombre, numero: ch.numero, bancoNombre: ch.bancoNombre, fechaAcreditacion: ch.fechaAcreditacion, importe: ch.importe, ...(ch.esEcheq ? { esEcheq: true } : {}), empresa })
+    for (const r of retencionesDe(c)) retenciones.push({ cobranzaId: c.id, numeroRecibo: c.numeroRecibo, clienteNombre: c.clienteNombre, tipo: r.tipo, nroCertificado: r.nroCertificado, importe: r.importe, empresa })
   }
   return { cheques, retenciones }
 }

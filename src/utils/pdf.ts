@@ -1154,6 +1154,119 @@ export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiq
   doc.text(`Firma del repartidor${liq.firmanteRepartidor ? `: ${liq.firmanteRepartidor}` : ''}`, 14, y + 4)
   doc.text(`Recibió (caja): ${liq.firmanteRecibe ?? liq.cerradaPor.nombre}`, pageW - 88, y + 4)
 
+  // ── Hojas de fajo, una por empresa (rendición por sobres, etapa 1, 2026-09-16) ──
+  // Decisión de Ariel: separación física estricta. Cada fajo de billetes se
+  // enrolla con su propia hoja antes de ir al sobre, así en tesorería la plata
+  // de Redonhielo (oficial) nunca se mezcla con la de Rolito (no oficial). Sale
+  // una hoja por empresa que tuvo plata o valores; los cierres anteriores al
+  // 16/09 no tienen `porEmpresa` y siguen saliendo como antes.
+  if (liq.porEmpresa) {
+    const { DENOMINACIONES, etiquetaDenominacion } = await import('./billetes')
+    const { NOMBRE_EMPRESA } = await import('./inhabilitadoTango')
+    const { RETENCION_LABELS } = await import('../components/supervisor/RetencionForm')
+    const ETIQUETA = { redonhielo: 'oficial', rolito: 'no oficial' } as const
+    for (const empresa of ['redonhielo', 'rolito'] as const) {
+      const p = liq.porEmpresa[empresa]
+      const conteo = liq.conteoBilletes?.[empresa]
+      const cheques = (liq.cheques ?? []).filter((c) => (c.empresa ?? 'redonhielo') === empresa)
+      const retenciones = (liq.retenciones ?? []).filter((r) => (r.empresa ?? 'redonhielo') === empresa)
+      const tienePlata = p.efectivo > 0 || cheques.length > 0 || retenciones.length > 0 || (conteo?.total ?? 0) > 0
+      if (!tienePlata) continue
+      doc.addPage()
+      encabezadoA4({ doc, pageW, logo }, `Hoja de fajo · ${NOMBRE_EMPRESA[empresa]} (${ETIQUETA[empresa]})`, `${liq.codigo ? `${liq.codigo}   ·   ` : ''}${liq.depositoTango ? `${liq.depositoTango} · ` : ''}${liq.choferNombre}   ·   ${liq.fecha}`)
+      let yy = 34
+      doc.setFontSize(9)
+      doc.setTextColor(90)
+      doc.text('Enrollar el fajo de billetes de esta empresa con esta hoja antes de meterlo en el sobre. Tesorería lo cuenta por separado.', 14, yy, { maxWidth: pageW - 28 })
+      yy += 10
+      const contado = conteo ? conteo.total : liq.efectivoRecibido
+      const dif = liq.diferenciaPorEmpresa?.[empresa] ?? (conteo ? conteo.total - p.efectivo : null)
+      doc.setTextColor(0)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(11)
+      doc.text(`Efectivo a rendir: $ ${money(p.efectivo)}`, 14, yy)
+      doc.text(`Contado por caja: $ ${money(contado)}`, 80, yy)
+      if (dif !== null) {
+        if (dif !== 0) doc.setTextColor(180, 0, 0)
+        doc.text(dif === 0 ? 'Cuadra' : `Diferencia: $ ${money(dif)}`, 150, yy)
+        doc.setTextColor(0)
+      }
+      doc.setFont('helvetica', 'normal')
+      yy += 6
+
+      autoTable(doc, {
+        startY: yy,
+        head: [['Billete', 'Cantidad', 'Subtotal']],
+        body: [
+          ...DENOMINACIONES.map((den) => [etiquetaDenominacion(den), String(conteo?.billetes[`${den}`] ?? 0), money(den * (conteo?.billetes[`${den}`] ?? 0))]),
+          ['Monedas / cambio chico', '', money(conteo?.cambioChico ?? 0)],
+          [{ content: conteo?.sinEfectivo ? 'Caja marcó: sin efectivo de esta empresa' : 'Total contado', styles: { fontStyle: 'bold' } }, '', { content: money(contado), styles: { fontStyle: 'bold' } }],
+        ],
+        styles: { fontSize: 9, cellPadding: 2.2 },
+        headStyles: { fillColor: [45, 106, 79], textColor: 255, fontStyle: 'bold', fontSize: 8 },
+        columnStyles: { 1: { halign: 'right', cellWidth: 26 }, 2: { halign: 'right', cellWidth: 34 } },
+        margin: { left: 14, right: 108 },
+      })
+      const yBilletes = finTabla(doc, yy + 40)
+
+      autoTable(doc, {
+        startY: yy,
+        head: [[`Resumen ${NOMBRE_EMPRESA[empresa]}`, '']],
+        body: [
+          [`Ventas (${p.ventas.cantidad})`, money(p.ventas.total)],
+          [`Cobranzas (${p.cobranzas.cantidad})`, money(p.cobranzas.total)],
+          ['Efectivo a rendir', money(p.efectivo)],
+          ['Transferencias (no se rinden)', money(p.transferencia)],
+          [`Cheques (${p.cheques.cantidad})`, money(p.cheques.total)],
+          [`Retenciones (${p.retenciones.cantidad})`, money(p.retenciones.total)],
+        ],
+        styles: { fontSize: 9, cellPadding: 2.2 },
+        headStyles: { fillColor: [45, 106, 79], textColor: 255, fontStyle: 'bold', fontSize: 8 },
+        columnStyles: { 1: { halign: 'right', cellWidth: 34 } },
+        margin: { left: 108, right: 14 },
+      })
+      yy = Math.max(yBilletes, finTabla(doc, yy + 40)) + 6
+
+      if (cheques.length + retenciones.length) {
+        autoTable(doc, {
+          startY: yy,
+          head: [[{ content: `Valores en papel de ${NOMBRE_EMPRESA[empresa]} — van en este fajo`, colSpan: 4, styles: { fillColor: [45, 106, 79] as [number, number, number], textColor: 255, fontStyle: 'bold' as const, fontSize: 8, halign: 'left' as const } }], ['Valor', 'Cliente', 'Importe', 'Recibido']],
+          body: [
+            ...cheques.map((ch) => [`Cheque${ch.esEcheq ? ' electrónico' : ''} ${ch.numero} · ${ch.bancoNombre} · acredita ${ch.fechaAcreditacion || '—'}`, ch.clienteNombre, money(ch.importe), ch.recibido === false ? `NO · ${ch.motivoNoEntregado ?? ''}` : 'Sí']),
+            ...retenciones.map((re) => [`Retención ${RETENCION_LABELS[re.tipo] ?? re.tipo} · cert. ${re.nroCertificado}`, re.clienteNombre, money(re.importe), re.recibido === false ? `NO · ${re.motivoNoEntregado ?? ''}` : 'Sí']),
+          ],
+          styles: { fontSize: 8.5, cellPadding: 2 },
+          headStyles: { fillColor: [45, 106, 79], textColor: 255, fontStyle: 'bold', fontSize: 8 },
+          columnStyles: { 2: { halign: 'right', cellWidth: 26 }, 3: { cellWidth: 40 } },
+          margin: { left: 14, right: 14 },
+        })
+        yy = finTabla(doc, yy) + 6
+      }
+
+      // La nota del billete descartado va solo en la hoja de la empresa donde faltó plata.
+      if (liq.diferencia?.motivo === 'billete_falso' && liq.diferencia.denominacion !== undefined && (dif ?? 0) !== 0) {
+        doc.setFontSize(9)
+        doc.setTextColor(180, 0, 0)
+        doc.text(`Billete falso / dañado descartado: ${liq.diferencia.denominacion === 0 ? 'menor a $ 500 / monedas' : `$ ${money(liq.diferencia.denominacion)}`}${liq.diferencia.nota ? ` · ${liq.diferencia.nota}` : ''}`, 14, yy, { maxWidth: pageW - 28 })
+        doc.setTextColor(0)
+        yy += 8
+      }
+
+      // Renglón para el sobre y las mismas dos firmas, chicas.
+      yy += 14
+      doc.setDrawColor(150)
+      doc.setLineWidth(0.2)
+      doc.line(14, yy, 88, yy)
+      doc.line(pageW - 88, yy, pageW - 14, yy)
+      doc.setFontSize(8)
+      doc.setTextColor(100)
+      doc.text(`Entregó: ${liq.firmanteRepartidor ?? liq.choferNombre}`, 14, yy + 4)
+      doc.text(`Contó (caja): ${liq.firmanteRecibe ?? liq.cerradaPor.nombre}`, pageW - 88, yy + 4)
+      doc.text('Sobre Nº: ______________________', 14, yy + 14)
+      doc.setTextColor(0)
+    }
+  }
+
   return salidaPdf(doc, nombreArchivoLiquidacion(liq), opts.descargar)
 }
 

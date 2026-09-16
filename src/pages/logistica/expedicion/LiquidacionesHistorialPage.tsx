@@ -108,7 +108,13 @@ export default function LiquidacionesHistorialPage({ base }: { base: '/caja' | '
     { titulo: 'Fecha', csv: (l) => l.fecha, celda: (l) => (
       <Link to={`${base}/liquidaciones?fecha=${l.fecha}&repartidor=${encodeURIComponent(l.choferId)}`} className="text-accent underline underline-offset-2 whitespace-nowrap tabular-nums">{diaMes(l.fecha)}</Link>
     ) },
-    { titulo: 'Código', csv: (l) => l.codigo ?? '', celda: (l) => <span className="text-secundario tabular-nums whitespace-nowrap">{l.codigo ?? '—'}</span> },
+    { titulo: 'Código', csv: (l) => `${l.codigo ?? ''}${l.cierreArranque ? ' (cierre de arranque)' : ''}`, celda: (l) => (
+      <span className="whitespace-nowrap">
+        <span className="text-secundario tabular-nums">{l.codigo ?? '—'}</span>
+        {/* Cerrada por script al arrancar el circuito (2026-09-16): sin firmas ni conteo real. */}
+        {l.cierreArranque && <span className="ml-1.5 text-[11px] font-semibold text-amber-700" title={l.cierreArranque.motivo}>arranque</span>}
+      </span>
+    ) },
     { titulo: 'Repartidor', truncar: true, anchoMax: 155, csv: (l) => `${l.depositoTango ? `${l.depositoTango} · ` : ''}${l.choferNombre}`, celda: (l) => (
       <>{l.depositoTango ? <span className="text-secundario mr-1.5">{l.depositoTango}</span> : null}{l.choferNombre}</>
     ) },

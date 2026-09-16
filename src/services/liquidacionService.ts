@@ -1,7 +1,7 @@
 import { collection, doc, getDoc, onSnapshot, query, runTransaction, where, Timestamp } from 'firebase/firestore'
 import { db } from './firebase'
 import { reportError } from './observability'
-import { ChequeRendido, DesvioLiquidacion, Liquidacion, MotivoDiferenciaLiquidacion, PlantaId, RetencionRendida } from '../types'
+import { ChequeRendido, ConteoBilletes, DesvioLiquidacion, EmpresaTango, Liquidacion, MotivoDiferenciaLiquidacion, PlantaId, RetencionRendida } from '../types'
 import { LiquidacionCalculada, codigoLiquidacion, referenciasDelReparto, serieLiquidacion } from '../utils/liquidacion'
 import { todayString } from '../utils/helpers'
 
@@ -27,8 +27,12 @@ export async function cerrarLiquidacion(
     depositoTangoNombre?: string
     calculo:           LiquidacionCalculada
     efectivoRecibido:  number
+    // Rendición por sobres, etapa 1 (2026-09-16): el conteo de billetes por
+    // empresa es obligatorio (las reglas exigen que sume `efectivoRecibido`).
+    conteoBilletes:        ConteoBilletes
+    diferenciaPorEmpresa?: Record<EmpresaTango, number>
     // Cierre con control (2026-09-06)
-    diferencia?:           { motivo: MotivoDiferenciaLiquidacion; nota: string }
+    diferencia?:           { motivo: MotivoDiferenciaLiquidacion; nota: string; denominacion?: number }
     // Faltante de mercadería observado al cerrar (2026-09-13): el cierre se
     // completa igual (un tema de stock no traba la caja) y queda marcado.
     desvio?:               DesvioLiquidacion
@@ -68,6 +72,8 @@ export async function cerrarLiquidacion(
       ...args.calculo,
       efectivoRecibido:   args.efectivoRecibido,
       diferenciaEfectivo: args.efectivoRecibido - args.calculo.efectivoARendir,
+      conteoBilletes:     args.conteoBilletes,
+      ...(args.diferenciaPorEmpresa ? { diferenciaPorEmpresa: args.diferenciaPorEmpresa } : {}),
       ...(args.diferencia ? { diferencia: args.diferencia } : {}),
       ...(args.desvio ? { desvio: args.desvio } : {}),
       firmaRepartidor: args.firmaRepartidor, firmanteRepartidor: args.firmanteRepartidor,
