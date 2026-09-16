@@ -199,8 +199,12 @@ function Revelacion({ sobre, efectivoContado, valores }: { sobre: Sobre; efectiv
   const td = 'py-1.5 px-2 border-b border-[#E7E5DC] text-sm'
   const difCaja = diferenciaDeclarada.efectivo
 
+  const pe = sistema.porEmpresa
   return (
     <div className="space-y-2">
+      {pe && (
+        <p className="text-xs text-secundario tabular-nums">Sistema por empresa: <span className="text-[#14538C] font-semibold">Redonhielo</span> {formatoARS(pe.redonhielo.efectivo)} · <span className="text-[#6B3F94] font-semibold">Rolito</span> {formatoARS(pe.rolito.efectivo)}</p>
+      )}
       <p className="text-sm font-semibold text-gray-900">Sistema · declaró caja · contado por tesorería</p>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[520px]">

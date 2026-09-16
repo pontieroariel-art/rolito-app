@@ -3,7 +3,7 @@ import type { DocumentData } from 'firebase/firestore'
 import { db } from './firebase'
 import { reportError } from './observability'
 import {
-  codigoSobre, conformidadDe, contadorDeSobre, diferenciaDeclarada, diferenciaRecepcion, hayDiferencia,
+  codigoSobre, conformidadDe, contadorDeSobre, diferenciaDeclarada, diferenciaRecepcion, fajosDe, hayDiferencia,
   recibidosSinMotivo, sobreId, valoresSinDecidir,
 } from '@/utils/sobres'
 import type {
@@ -89,6 +89,8 @@ export async function cerrarTurnoYRendir(datos: DatosCierreTurno, actor: ActorSo
       ...(motivoDiferencia ? { motivoDiferencia } : {}),
       firmaRinde:    datos.firmaRinde,
       firmanteRinde: datos.firmanteRinde,
+      // Reparto en dos fajos de lo contado (2026-09-16): Rolito exacto, Redonhielo el resto.
+      fajos:     fajosDe(sistema.porEmpresa, datos.declarado.efectivo),
       cerradaEn: ahora,
       estado:    'pendiente_recepcion',
       custodia:  { ...actor, desde: ahora },
@@ -281,6 +283,7 @@ const limpiarDeclarado = (d: SobreDeclarado): SobreDeclarado => {
   const observacion = d.observacion?.trim()
   return {
     efectivo:    d.efectivo,
+    ...(d.conteoBilletes ? { conteoBilletes: d.conteoBilletes } : {}),
     cheques:     d.cheques.map(limpiarValorDeclarado),
     retenciones: d.retenciones.map(limpiarValorDeclarado),
     ...(observacion ? { observacion } : {}),

@@ -2235,12 +2235,34 @@ export interface DiferenciaSobre {
   valoresFaltantes: { cantidad: number; total: number }    // tildados como ausentes
 }
 
+/**
+ * La plata del sobre partida por empresa (2026-09-16, pedido de Ariel: "el
+ * detalle de qué fue ingresando tiene que ser por empresas, pero la caja junta
+ * todo el efectivo en una sola caja"). Contado con factura = Redonhielo, promo
+ * = Rolito, cada cobranza con la suya, y lo recibido de los choferes según el
+ * conteo por empresa de su liquidación.
+ */
+export interface SobrePlataEmpresa {
+  ventasEfectivo:          number
+  cobranzasEfectivo:       number
+  recibidoDeLiquidaciones: number
+  recibidoDeSobres:        number
+  /** Suma de las cuatro de arriba: el efectivo de esta empresa que tiene que haber. */
+  efectivo:                number
+  transferencias:          number
+  cheques:                 { cantidad: number; total: number }
+  retenciones:             { cantidad: number; total: number }
+}
+export type SobrePorEmpresa = Record<EmpresaTango, SobrePlataEmpresa>
+
 /** Lo que el sistema dice que tiene que haber en el sobre (foto al cerrar). */
 export interface SobreSistema {
   efectivo:       number
   cheques:        ChequeRendido[]
   retenciones:    RetencionRendida[]
   transferencias: { cantidad: number; total: number }      // reservado: hoy no se cobran
+  /** Por empresa (2026-09-16). Los sobres anteriores no lo tienen. */
+  porEmpresa?:    SobrePorEmpresa
   // Solo ventanilla: de dónde sale el efectivo.
   detalle?: {
     fondoInicial:            number
@@ -2255,6 +2277,8 @@ export interface SobreSistema {
 /** Lo que declaró quien rinde, ANTES de ver el sistema (arqueo ciego). */
 export interface SobreDeclarado {
   efectivo:     number
+  /** Un solo conteo de TODO el efectivo de la caja, billete por billete (2026-09-16); `efectivo` es su total. */
+  conteoBilletes?: DesgloseBilletes
   cheques:      ValorDeclarado[]
   retenciones:  ValorDeclarado[]
   observacion?: string
@@ -2307,6 +2331,12 @@ export interface Sobre {
   custodia:  ActorSobre & { desde: Timestamp }
   /** Entrega en mano a tesorería (estado 'entregada'); los sobres anteriores al 16/09 no la tienen. */
   entrega?:   SobreEntrega
+  /**
+   * Cómo se reparte lo contado en dos fajos (2026-09-16): Rolito sale exacto
+   * (lo que el sistema dice de esa empresa, o todo lo contado si no alcanza) y
+   * el resto es Redonhielo, que absorbe la diferencia del cajón.
+   */
+  fajos?:     Record<EmpresaTango, number>
   recepcion?: SobreRecepcion
   rectificaA?: string
   anulacionesPosteriores?: AnulacionPosterior[]

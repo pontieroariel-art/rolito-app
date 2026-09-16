@@ -7,11 +7,14 @@ import { cobranzasVigentes } from './anulacionCobranza'
 // compartidos por las tres puntas (quien rinde, quien recibe, el tablero de
 // custodia), sin React ni Firebase, con tests.
 import type {
-  CajaSesion, ChequeRendido, Cobranza, Conformidad, DiferenciaSobre, Liquidacion, PlantaId, RetencionRendida,
-  Sobre, SobreDeclarado, SobreRecepcion, SobreSistema, TipoSobre, ValorDeclarado, ValorRecibido, VentaVentanilla,
+  CajaSesion, ChequeRendido, Cobranza, Conformidad, DiferenciaSobre, EmpresaTango, Liquidacion, PlantaId, RetencionRendida,
+  Sobre, SobreDeclarado, SobrePlataEmpresa, SobrePorEmpresa, SobreRecepcion, SobreSistema, TipoSobre, ValorDeclarado, ValorRecibido, VentaVentanilla,
 } from '@/types'
 import { PLANTA_INFO } from './constants'
-import { chequesDe, retencionesDe } from './medios'
+import { chequesDe, efectivoDe, retencionesDe, transferenciaDe } from './medios'
+import { empresaDeCobranza, empresaDeVenta } from './liquidacion'
+import { importeCobrado } from './importeCobrado'
+import { ventasVigentes } from './anulacionVenta'
 import { calcularMostrador } from './rendicionMostrador'
 import { claveCheque, claveRetencion, esRecibido } from './valoresEnPapel'
 
@@ -76,6 +79,7 @@ export function sistemaVentanilla(f: FuentesVentanilla): SobreSistema {
     cheques,
     retenciones,
     transferencias: { cantidad: 0, total: m.ventas.contadoTransferencia + m.ventas.promoTransferencia + m.cobranzas.transferencia },
+    porEmpresa: plataPorEmpresaSobre(f, cheques, retenciones),
     detalle: {
       fondoInicial:            f.fondoInicial,
       ventasEfectivo:          m.ventas.contadoEfectivo + m.ventas.promoEfectivo,
@@ -92,10 +96,62 @@ export function sistemaVentanilla(f: FuentesVentanilla): SobreSistema {
   }
 }
 
+const plataEmpresaVacia = (): SobrePlataEmpresa => ({ ventasEfectivo: 0, cobranzasEfectivo: 0, recibidoDeLiquidaciones: 0, recibidoDeSobres: 0, efectivo: 0, transferencias: 0, cheques: { cantidad: 0, total: 0 }, retenciones: { cantidad: 0, total: 0 } })
+export const EMPRESAS_SOBRE: EmpresaTango[] = ['redonhielo', 'rolito']
+
+/**
+ * La plata del sobre por empresa (2026-09-16). El fondo inicial y lo recibido
+ * de sobres de cobradores (sin desglose) van a Redonhielo. Lo recibido de un
+ * chofer es lo que caja CONTÓ de cada empresa en su liquidación
+ * (`conteoBilletes`); una liquidación vieja sin conteo va entera a Redonhielo.
+ */
+export function plataPorEmpresaSobre(f: FuentesVentanilla, cheques: ChequeRendido[], retenciones: RetencionRendida[]): SobrePorEmpresa {
+  const out: SobrePorEmpresa = { redonhielo: plataEmpresaVacia(), rolito: plataEmpresaVacia() }
+  for (const v of ventasVigentes(f.ventas)) {
+    const e = out[empresaDeVenta(v)]
+    if (v.formaPago === 'contado_efectivo') e.ventasEfectivo += importeCobrado(v)
+    else if (v.formaPago === 'contado_transferencia') e.transferencias += importeCobrado(v)
+  }
+  for (const c of cobranzasVigentes(f.cobranzas)) {
+    const e = out[empresaDeCobranza(c)]
+    e.cobranzasEfectivo += efectivoDe(c)
+    e.transferencias += transferenciaDe(c)
+  }
+  for (const l of f.liquidacionesRecibidas) {
+    if (l.conteoBilletes) { out.redonhielo.recibidoDeLiquidaciones += l.conteoBilletes.redonhielo.total; out.rolito.recibidoDeLiquidaciones += l.conteoBilletes.rolito.total }
+    else out.redonhielo.recibidoDeLiquidaciones += l.efectivoRecibido
+  }
+  for (const s of f.sobresRecibidos) out.redonhielo.recibidoDeSobres += s.recepcion?.efectivoContado ?? 0
+  out.redonhielo.recibidoDeSobres += f.fondoInicial
+  for (const ch of cheques) { const e = out[ch.empresa ?? 'redonhielo']; e.cheques.cantidad++; e.cheques.total += ch.importe }
+  for (const re of retenciones) { const e = out[re.empresa ?? 'redonhielo']; e.retenciones.cantidad++; e.retenciones.total += re.importe }
+  for (const e of EMPRESAS_SOBRE) out[e].efectivo = redondear2(out[e].ventasEfectivo + out[e].cobranzasEfectivo + out[e].recibidoDeLiquidaciones + out[e].recibidoDeSobres)
+  return out
+}
+
+/**
+ * Cómo se reparte en dos fajos lo que el cajero contó (un solo conteo de toda
+ * la caja): Rolito sale exacto y Redonhielo se lleva el resto, con la
+ * diferencia del cajón adentro. Si lo contado no llega ni a lo de Rolito,
+ * Rolito se lleva todo lo contado y Redonhielo queda en cero.
+ */
+export function fajosDe(porEmpresa: SobrePorEmpresa | undefined, efectivoContado: number): Record<EmpresaTango, number> {
+  const rolito = Math.min(Math.max(efectivoContado, 0), porEmpresa?.rolito.efectivo ?? 0)
+  return { rolito: redondear2(rolito), redonhielo: redondear2(efectivoContado - rolito) }
+}
+
+/** Diferencia de cada fajo contra el sistema de esa empresa (negativo = falta). */
+export function diferenciaPorEmpresaSobre(porEmpresa: SobrePorEmpresa, fajos: Record<EmpresaTango, number>): Record<EmpresaTango, number> {
+  return { redonhielo: redondear2(fajos.redonhielo - porEmpresa.redonhielo.efectivo), rolito: redondear2(fajos.rolito - porEmpresa.rolito.efectivo) }
+}
+
+const redondear2 = (n: number): number => Math.round(n * 100) / 100
+
 /** Cheques y retenciones de las cobranzas propias, con la referencia al recibo y al cliente (ChequeRendido / RetencionRendida). */
 export function valoresRendidosDe(cobranzas: Cobranza[]): { cheques: ChequeRendido[]; retenciones: RetencionRendida[] } {
   cobranzas = cobranzasVigentes(cobranzas)   // recibos anulados (2026-09-15): sus valores no van al sobre
-  const ref = (c: Cobranza) => ({ cobranzaId: c.id, numeroRecibo: c.numeroRecibo, clienteNombre: c.clienteNombre })
+  // `empresa` (2026-09-16): de qué fajo es el valor, para la plata por empresa del sobre.
+  const ref = (c: Cobranza) => ({ cobranzaId: c.id, numeroRecibo: c.numeroRecibo, clienteNombre: c.clienteNombre, empresa: empresaDeCobranza(c) })
   return {
     cheques:     cobranzas.flatMap((c) => chequesDe(c).map((ch) => ({ ...ch, ...ref(c) }))),
     retenciones: cobranzas.flatMap((c) => retencionesDe(c).map((r) => ({ ...r, ...ref(c) }))),

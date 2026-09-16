@@ -3,10 +3,12 @@ import { AlertTriangle, Check, CheckCircle2, X } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
 import SignaturePad, { type SignaturePadHandle } from '@/components/common/SignaturePad'
+import TablaConteoBilletes, { ChipEmpresa } from '@/components/common/TablaConteoBilletes'
 import { textoCheque, textoRetencion } from '@/components/expedicion/SobresCaja'
-import { formatoARS, parseImporte } from '@/utils/money'
+import { formatoARS } from '@/utils/money'
+import { desgloseContado, desgloseVacio } from '@/utils/billetes'
 import { claveDeCheque, claveDeRetencion, diferenciaDeclarada, hayDiferencia, valoresSinDecidir } from '@/utils/sobres'
-import { MOTIVOS_CIERRE_MOSTRADOR, MOTIVOS_DIFERENCIA_LIQUIDACION, type MotivoDiferenciaLiquidacion, type SobreDeclarado, type SobreSistema } from '@/types'
+import { MOTIVOS_CIERRE_MOSTRADOR, MOTIVOS_DIFERENCIA_LIQUIDACION, type DesgloseBilletes, type MotivoDiferenciaLiquidacion, type SobreDeclarado, type SobreSistema } from '@/types'
 
 export interface DatosCierreTurnoModal {
   declarado:         SobreDeclarado
@@ -16,12 +18,11 @@ export interface DatosCierreTurnoModal {
 }
 
 // Asistente de cierre del turno de caja con ARQUEO CIEGO (rendición de
-// fondos, 2026-09-14). Cuatro pasos: (a) el cajero cuenta su efectivo sin
-// ninguna pista; (b) tilda uno por uno los cheques y retenciones que tiene en
-// mano; (c) recién ahí se revela sistema / declarado / diferencia por medio, y
-// si hay diferencia se exige motivo y nota; (d) firma y rinde. El sistema no
-// se muestra antes del paso (c) a propósito: es lo que hace que el conteo
-// valga como control.
+// fondos, 2026-09-14). Cuatro pasos: (a) el cajero cuenta TODO el efectivo de
+// la caja billete por billete, en una sola tabla (2026-09-16, Ariel: "la caja
+// junta todo el efectivo en una caja"); (b) tilda uno por uno los cheques y
+// retenciones que tiene en mano; (c) recién ahí se revela el sistema y la
+// diferencia; (d) firma y rinde. El detalle por empresa se ve en Mi turno.
 export default function CierreTurnoModal({ cajero, sistema, resumen, guardando, error, onCancelar, onConfirmar }: {
   cajero: string
   sistema: SobreSistema
@@ -32,14 +33,14 @@ export default function CierreTurnoModal({ cajero, sistema, resumen, guardando, 
   onConfirmar: (datos: DatosCierreTurnoModal) => void
 }) {
   const valores = useMemo(() => [
-    ...sistema.cheques.map((ch) => ({ clave: claveDeCheque(ch), texto: textoCheque(ch), detalle: `acredita ${ch.fechaAcreditacion || '—'} · ${ch.clienteNombre}${ch.numeroRecibo ? ` · ${ch.numeroRecibo}` : ''}`, importe: ch.importe, tipo: 'cheque' as const })),
-    ...sistema.retenciones.map((re) => ({ clave: claveDeRetencion(re), texto: textoRetencion(re), detalle: `${re.clienteNombre}${re.numeroRecibo ? ` · ${re.numeroRecibo}` : ''}`, importe: re.importe, tipo: 'retencion' as const })),
+    ...sistema.cheques.map((ch) => ({ clave: claveDeCheque(ch), texto: textoCheque(ch), detalle: `acredita ${ch.fechaAcreditacion || '—'} · ${ch.clienteNombre}${ch.numeroRecibo ? ` · ${ch.numeroRecibo}` : ''}`, importe: ch.importe, empresa: ch.empresa, tipo: 'cheque' as const })),
+    ...sistema.retenciones.map((re) => ({ clave: claveDeRetencion(re), texto: textoRetencion(re), detalle: `${re.clienteNombre}${re.numeroRecibo ? ` · ${re.numeroRecibo}` : ''}`, importe: re.importe, empresa: re.empresa, tipo: 'retencion' as const })),
   ], [sistema])
   const hayValores = valores.length > 0
   const pasos = hayValores ? [1, 2, 3, 4] : [1, 3, 4]
 
   const [paso, setPaso] = useState<1 | 2 | 3 | 4>(1)
-  const [efectivoStr, setEfectivoStr] = useState('')
+  const [conteo, setConteo] = useState<DesgloseBilletes>(desgloseVacio)
   const [presentes, setPresentes] = useState<Record<string, boolean>>({})
   const [motivo, setMotivo] = useState<MotivoDiferenciaLiquidacion | ''>('')
   const [nota, setNota] = useState('')
@@ -48,10 +49,11 @@ export default function CierreTurnoModal({ cajero, sistema, resumen, guardando, 
   const firmaRef = useRef<SignaturePadHandle>(null)
 
   const declarado: SobreDeclarado = useMemo(() => ({
-    efectivo:    parseImporte(efectivoStr),
-    cheques:     sistema.cheques.map((ch) => ({ clave: claveDeCheque(ch), presente: presentes[claveDeCheque(ch)] === true })),
-    retenciones: sistema.retenciones.map((re) => ({ clave: claveDeRetencion(re), presente: presentes[claveDeRetencion(re)] === true })),
-  }), [efectivoStr, presentes, sistema])
+    efectivo:       conteo.total,
+    conteoBilletes: conteo,
+    cheques:        sistema.cheques.map((ch) => ({ clave: claveDeCheque(ch), presente: presentes[claveDeCheque(ch)] === true })),
+    retenciones:    sistema.retenciones.map((re) => ({ clave: claveDeRetencion(re), presente: presentes[claveDeRetencion(re)] === true })),
+  }), [conteo, presentes, sistema])
   const diferencia = useMemo(() => diferenciaDeclarada(sistema, declarado), [sistema, declarado])
   const conDiferencia = hayDiferencia(diferencia)
   const faltantes = valores.filter((v) => presentes[v.clave] === false)
@@ -59,7 +61,7 @@ export default function CierreTurnoModal({ cajero, sistema, resumen, guardando, 
   const siguiente = () => {
     setFalta('')
     if (paso === 1) {
-      if (efectivoStr.trim() === '') { setFalta('Contá el efectivo y escribí el total. Si no hay nada, poné 0.'); return }
+      if (!desgloseContado(conteo)) { setFalta('Contá el efectivo billete por billete. Si no hay nada, marcá "No hay efectivo en la caja".'); return }
       setPaso(hayValores ? 2 : 3); return
     }
     if (paso === 2) {
@@ -90,6 +92,8 @@ export default function CierreTurnoModal({ cajero, sistema, resumen, guardando, 
 
   const inputClass = 'w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'
   const indice = pasos.indexOf(paso) + 1
+  const difClase = (n: number) => (n === 0 ? 'text-[#0F6B4E]' : n < 0 ? 'text-red-600' : 'text-amber-700')
+  const signo = (n: number) => `${n > 0 ? '+' : ''}${formatoARS(n)}`
 
   return (
     <Modal open onClose={onCancelar} title="Cerrar mi turno y rendir" wide>
@@ -101,17 +105,9 @@ export default function CierreTurnoModal({ cajero, sistema, resumen, guardando, 
 
         {paso === 1 && (
           <div className="space-y-3">
-            <h3 className="text-lg font-semibold text-gray-900">Contá tu efectivo</h3>
-            <p className="text-sm text-secundario">Contá TODO el efectivo que tenés en la caja (lo tuyo y lo que recibiste de los choferes) y escribí el total. La app te dice cuánto tenía que haber recién después.</p>
-            <input
-              autoFocus
-              value={efectivoStr}
-              onChange={(e) => setEfectivoStr(e.target.value)}
-              inputMode="decimal"
-              placeholder="0,00"
-              aria-label="Efectivo contado"
-              className="w-full bg-white border-2 border-[#D3D1C7] rounded-xl px-4 h-16 text-3xl font-bold text-right tabular-nums text-gray-900 focus:outline-none focus:border-accent"
-            />
+            <h3 className="text-lg font-semibold text-gray-900">Contá todo el efectivo de la caja</h3>
+            <p className="text-sm text-secundario">Todo junto: lo tuyo y lo que recibiste de los choferes y cobradores, billete por billete. La app te dice cuánto tenía que haber recién después.</p>
+            <TablaConteoBilletes empresa={null} valor={conteo} onChange={setConteo} titulo="Toda la caja" />
           </div>
         )}
 
@@ -126,7 +122,7 @@ export default function CierreTurnoModal({ cajero, sistema, resumen, guardando, 
                   <div key={v.clave} className={`rounded-lg border px-3 py-2 ${estado === true ? 'border-[#1D9E75] bg-[#E6F5EF]/40' : estado === false ? 'border-red-200 bg-red-50' : 'border-amber-300 bg-amber-50/40'}`}>
                     <div className="flex items-start gap-3">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-900">{v.texto}</p>
+                        <p className="text-sm text-gray-900">{v.texto} {v.empresa && <ChipEmpresa empresa={v.empresa} className="ml-1" />}</p>
                         <p className="text-xs text-secundario">{v.detalle}</p>
                       </div>
                       <b className="text-sm tabular-nums text-gray-900">{formatoARS(v.importe)}</b>
@@ -154,12 +150,14 @@ export default function CierreTurnoModal({ cajero, sistema, resumen, guardando, 
             <h3 className="text-lg font-semibold text-gray-900">Sistema vs. lo que contaste</h3>
             <div className="grid grid-cols-3 gap-2 text-sm">
               <div className="rounded-lg bg-[#F8F7F2] p-3"><p className="text-xs text-secundario">A rendir (sistema)</p><p className="font-semibold tabular-nums text-lg">{formatoARS(sistema.efectivo)}</p></div>
-              <div className="rounded-lg bg-[#F8F7F2] p-3"><p className="text-xs text-secundario">Declaré</p><p className="font-semibold tabular-nums text-lg">{formatoARS(declarado.efectivo)}</p></div>
+              <div className="rounded-lg bg-[#F8F7F2] p-3"><p className="text-xs text-secundario">Contaste</p><p className="font-semibold tabular-nums text-lg">{formatoARS(declarado.efectivo)}</p></div>
               <div className={`rounded-lg p-3 ${diferencia.efectivo === 0 ? 'bg-[#E6F5EF]' : 'bg-red-50'}`}>
                 <p className="text-xs text-secundario">Diferencia de caja</p>
-                <p className={`font-semibold tabular-nums text-lg ${diferencia.efectivo === 0 ? 'text-[#0F6B4E]' : 'text-red-600'}`}>{diferencia.efectivo > 0 ? '+' : ''}{formatoARS(diferencia.efectivo)}</p>
+                <p className={`font-semibold tabular-nums text-lg ${difClase(diferencia.efectivo)}`}>{signo(diferencia.efectivo)}</p>
               </div>
             </div>
+
+
             {sistema.detalle && (
               <p className="text-xs text-secundario tabular-nums">
                 Fondo inicial {formatoARS(sistema.detalle.fondoInicial)} + ventas en efectivo {formatoARS(sistema.detalle.ventasEfectivo)} + cobranzas en efectivo {formatoARS(sistema.detalle.cobranzasEfectivo)} + recibido de choferes {formatoARS(sistema.detalle.recibidoDeLiquidaciones)}
@@ -196,8 +194,9 @@ export default function CierreTurnoModal({ cajero, sistema, resumen, guardando, 
           <div className="space-y-3">
             <h3 className="text-lg font-semibold text-gray-900">Firmar y rendir</h3>
             <p className="text-sm text-gray-700">
-              Rendís <b className="tabular-nums">{formatoARS(declarado.efectivo)}</b> en efectivo{hayValores ? <> y <b>{valores.length - faltantes.length}</b> de {valores.length} valores en papel</> : null}
-              {conDiferencia ? <span className="text-red-700"> con una diferencia declarada</span> : null}. La plata queda bajo tu custodia hasta que tesorería la reciba y firme.
+              Rendís <b className="tabular-nums">{formatoARS(declarado.efectivo)}</b> en efectivo
+              {hayValores ? <> y <b>{valores.length - faltantes.length}</b> de {valores.length} valores en papel</> : null}
+              {conDiferencia ? <span className="text-red-700"> con una diferencia declarada</span> : null}. La plata queda bajo tu custodia hasta que se la entregues en mano a tesorería.
             </p>
             <div>
               <p className="text-xs text-secundario mb-1">Firma de quien rinde</p>

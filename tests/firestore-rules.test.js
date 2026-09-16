@@ -3026,8 +3026,9 @@ describe('rendiciones: sobre de ventanilla y recepción de tesorería (2026-09-1
       detalle: { fondoInicial: 0, ventasEfectivo: 1000, cobranzasEfectivo: 0, recibidoDeLiquidaciones: 0, recibidoDeSobres: 0 },
       origenIds: { ventasIds: ['v1'], cobranzasIds: ['cob1'], liquidacionesIds: [], sobresRecibidosIds: [] },
     },
-    declarado: { efectivo: 1000, cheques: [{ clave: 'cob1|11', presente: true }, { clave: 'cob1|22', presente: true }], retenciones: [] },
+    declarado: { efectivo: 1000, conteoBilletes: { billetes: { '20000': 0, '10000': 0, '2000': 0, '1000': 1, '500': 0 }, cambioChico: 0, sinEfectivo: false, total: 1000 }, cheques: [{ clave: 'cob1|11', presente: true }, { clave: 'cob1|22', presente: true }], retenciones: [] },
     diferenciaDeclarada: { efectivo: 0, valoresFaltantes: { cantidad: 0, total: 0 } },
+    fajos: { redonhielo: 1000, rolito: 0 },
     firmaRinde: 'data:image/png;base64,AAAA', firmanteRinde: 'Nico', cerradaEn: new Date(),
     estado: 'pendiente_recepcion', custodia: { uid, nombre: 'Nico', rol: 'caja', desde: new Date() },
     createdAt: new Date(), ...extra,
@@ -3089,6 +3090,10 @@ describe('rendiciones: sobre de ventanilla y recepción de tesorería (2026-09-1
     await assertFails(cerrarTurno(c, 'caja1', { rindio: { uid: 'caja1', nombre: 'Nico', rol: 'logistica' } }))
     await assertFails(cerrarTurno(c, 'caja1', { sistema: { efectivo: 'mil', cheques: [], retenciones: [] } }))
     await assertFails(cerrarTurno(c, 'caja1', { declarado: { efectivo: 1000, cheques: 'x', retenciones: [] } }))
+    // Conteo de billetes obligatorio y su total tiene que ser el efectivo declarado (2026-09-16).
+    await assertFails(cerrarTurno(c, 'caja1', { declarado: { efectivo: 1000, cheques: [], retenciones: [] } }))
+    await assertFails(cerrarTurno(c, 'caja1', { declarado: { efectivo: 1000, conteoBilletes: { billetes: { '20000': 0, '10000': 0, '2000': 0, '1000': 2, '500': 0 }, cambioChico: 0, sinEfectivo: false, total: 2000 }, cheques: [], retenciones: [] } }))
+    await assertFails(cerrarTurno(c, 'caja1', { declarado: { efectivo: 1000, conteoBilletes: { billetes: { '20000': 0, '10000': 0, '2000': 0, '1000': 1, '500': 0 }, cambioChico: 0, sinEfectivo: false, total: 999 }, cheques: [], retenciones: [] } }))
     await assertFails(cerrarTurno(c, 'caja1', { diferenciaDeclarada: { efectivo: -500, valoresFaltantes: { cantidad: 0, total: 0 } } }))
     await assertFails(cerrarTurno(c, 'caja1', { diferenciaDeclarada: { efectivo: -500, valoresFaltantes: { cantidad: 0, total: 0 } }, motivoDiferencia: { motivo: 'faltante_caja', nota: '' } }))
     await assertFails(cerrarTurno(c, 'caja1', { diferenciaDeclarada: { efectivo: 0, valoresFaltantes: { cantidad: 1, total: 100 } } }))

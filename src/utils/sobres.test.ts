@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import type { CajaSesion, Cobranza, Liquidacion, Sobre, SobreSistema, VentaVentanilla } from '@/types'
 import {
   antiguedadHoras, codigoSobre, conformidadDe, contadorDeSobre, custodiaDePlanta, custodioDe, diferenciaDeclarada,
-  diferenciaRecepcion, hayDiferencia, recibidosSinMotivo, sistemaVentanilla, sobreId, valoresSinDecidir,
+  diferenciaPorEmpresaSobre, diferenciaRecepcion, fajosDe, hayDiferencia, recibidosSinMotivo, sistemaVentanilla, sobreId, valoresSinDecidir,
 } from './sobres'
 
 const ts = (ms: number) => ({ toMillis: () => ms, toDate: () => new Date(ms) }) as unknown as import('firebase/firestore').Timestamp
@@ -45,6 +45,24 @@ describe('sistemaVentanilla', () => {
   it('los cheques son los propios más los que el chofer SÍ entregó; el que no entregó no viaja', () => {
     const s = sistemaVentanilla({ fondoInicial: 0, ventas, cobranzas, liquidacionesRecibidas: liqs, sobresRecibidos: [] })
     expect(s.cheques.map((c) => c.numero)).toEqual(['111', '222'])
+  })
+  it('por empresa (2026-09-16): contado → Redonhielo, promo → Rolito, cada cobranza con la suya, lo del chofer según su conteo; cta. cte. y transferencias afuera del efectivo', () => {
+    const cobRolito = { ...cobranza('c2', 150), empresa: 'rolito' } as Cobranza
+    const liqConConteo = { ...liquidacion('l2', 900), conteoBilletes: { redonhielo: { total: 600 }, rolito: { total: 300 } } } as unknown as Liquidacion
+    const s = sistemaVentanilla({ fondoInicial: 0, ventas, cobranzas: [...cobranzas, cobRolito], liquidacionesRecibidas: [...liqs, liqConConteo], sobresRecibidos: [] })
+    const pe = s.porEmpresa!
+    expect(pe.redonhielo).toMatchObject({ ventasEfectivo: 1000, cobranzasEfectivo: 200, recibidoDeLiquidaciones: 700 + 600, efectivo: 2500, transferencias: 500, cheques: { cantidad: 2, total: 8000 } })
+    expect(pe.rolito).toMatchObject({ ventasEfectivo: 300, cobranzasEfectivo: 150, recibidoDeLiquidaciones: 300, efectivo: 750, transferencias: 0, cheques: { cantidad: 0, total: 0 } })
+    expect(pe.redonhielo.efectivo + pe.rolito.efectivo).toBe(s.efectivo)
+  })
+  it('fajos: Rolito exacto, Redonhielo el resto con la diferencia; si lo contado no alcanza, Rolito se lleva todo', () => {
+    const pe = { redonhielo: { efectivo: 2500 }, rolito: { efectivo: 750 } } as unknown as NonNullable<SobreSistema['porEmpresa']>
+    expect(fajosDe(pe, 3250)).toEqual({ redonhielo: 2500, rolito: 750 })
+    expect(fajosDe(pe, 3200)).toEqual({ redonhielo: 2450, rolito: 750 })
+    expect(diferenciaPorEmpresaSobre(pe, fajosDe(pe, 3200))).toEqual({ redonhielo: -50, rolito: 0 })
+    expect(fajosDe(pe, 500)).toEqual({ redonhielo: 0, rolito: 500 })
+    expect(diferenciaPorEmpresaSobre(pe, fajosDe(pe, 500))).toEqual({ redonhielo: -2500, rolito: -250 })
+    expect(fajosDe(undefined, 100)).toEqual({ redonhielo: 100, rolito: 0 })
   })
   it('el fondo inicial entra al efectivo', () => {
     const s = sistemaVentanilla({ fondoInicial: 50000, ventas: [], cobranzas: [], liquidacionesRecibidas: [], sobresRecibidos: [] })

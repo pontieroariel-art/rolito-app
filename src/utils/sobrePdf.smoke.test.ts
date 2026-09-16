@@ -22,7 +22,7 @@ describe('acta del sobre (smoke)', () => {
         detalle: { fondoInicial: 0, ventasEfectivo: 1895450, cobranzasEfectivo: 0, recibidoDeLiquidaciones: 1364200, recibidoDeSobres: 0 },
         origenIds: { ventasIds: [], cobranzasIds: [], liquidacionesIds: ['l1', 'l2'], sobresRecibidosIds: [] },
       },
-      declarado: { efectivo: 1895450, cheques: [{ clave: 'ch|b|03156837', presente: true }], retenciones: [] },
+      declarado: { efectivo: 1895450, conteoBilletes: { billetes: { '20000': 90, '10000': 9, '2000': 2, '1000': 1, '500': 0 }, cambioChico: 450, sinEfectivo: false, total: 1895450 }, cheques: [{ clave: 'ch|b|03156837', presente: true }], retenciones: [] },
       diferenciaDeclarada: { efectivo: -1364200, valoresFaltantes: { cantidad: 0, total: 0 } },
       motivoDiferencia: { motivo: 'otro', nota: 'Guardó la plata de los choferes aparte' },
       firmaRinde: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', firmanteRinde: 'Nicolas Diaz',

@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Clock, Eye, FileText, History, Landmark, Receipt, Share2, ShoppingCart, Truck, Wallet } from 'lucide-react'
+import { Clock, Eye, History, Landmark, Share2, Wallet } from 'lucide-react'
 import { useVisorComprobante } from '@/components/ui/VisorComprobante'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/common/Badge'
 import PageHeader from '@/components/common/PageHeader'
-import StatusStrip from '@/components/common/StatusStrip'
 import { Plegable } from '@/components/ui/Plegable'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import AbrirTurnoPanel from '@/components/expedicion/AbrirTurnoPanel'
@@ -19,6 +18,8 @@ import { subscribeVentasVentanillaDeUsuarioEnRango } from '@/services/ventaVenta
 import { cerrarTurnoYRendir, entregarSobre, subscribeSobresDe, SobreYaExisteError, type DatosEntregaSobre } from '@/services/sobreService'
 import { getUsuariosTesoreria } from '@/services/userService'
 import EntregarSobreModal, { type ReceptorTesoreria } from '@/components/expedicion/EntregarSobreModal'
+import { CuadroEmpresas, sumaEmpresas } from '@/components/tesoreria/live'
+import { ChipEmpresa } from '@/components/common/TablaConteoBilletes'
 import { reportError } from '@/services/observability'
 import { addDaysStr } from '@/utils/helpers'
 import { formatoARS } from '@/utils/money'
@@ -178,22 +179,37 @@ export default function RendicionesPage() {
             <h2 className="font-semibold text-gray-900">Turno {sesion.numero > 1 ? `${sesion.numero} ` : ''}abierto a las {horaCorta(sesion.abiertaEn)}</h2>
             <p className="text-sm text-secundario">Todo lo que cobraste desde entonces está en tu caja. Cuando termines, cerrá el turno: primero contás, después la app te dice cuánto tenía que haber.</p>
           </div>
-          <StatusStrip segmentos={[
-            { id: 'ventas',    etiqueta: 'Ventas',    valor: ventasTurno.length,    icono: <ShoppingCart size={14} />, tono: 'confirmado' },
-            { id: 'cobranzas', etiqueta: 'Cobranzas', valor: cobranzasTurno.length, icono: <Receipt size={14} />,      tono: 'entregado' },
-            { id: 'liqs',      etiqueta: 'Liquidaciones recibidas', valor: liquidaciones.length, icono: <Truck size={14} />, tono: 'pendiente' },
-            { id: 'cheques',   etiqueta: 'Cheques',      valor: sistema.cheques.length,     icono: <FileText size={14} /> },
-            { id: 'ret',       etiqueta: 'Retenciones',  valor: sistema.retenciones.length, icono: <FileText size={14} /> },
-          ]} />
+          {/* Lo que entró a la caja desde que abrió el turno, por empresa y con importe
+              (2026-09-16, pedido de Ariel). El efectivo es una sola caja: al cerrar se
+              cuenta todo junto y la app dice cómo armar los dos fajos. */}
+          {sistema.porEmpresa && (() => {
+            const pe = sistema.porEmpresa
+            const nVentas = (e: 'redonhielo' | 'rolito') => ventasTurno.filter((v) => (v.canal === 'promo' ? 'rolito' : 'redonhielo') === e && v.anulacion?.estado !== 'anulada').length
+            const nCob = (e: 'redonhielo' | 'rolito') => cobranzasTurno.filter((c) => (c.empresa ?? 'redonhielo') === e && c.anulacion?.estado !== 'anulada').length
+            return (
+              <CuadroEmpresas titulo="Lo que entró a tu caja en este turno" filas={[
+                { etiqueta: 'Ventas de mostrador', nota: 'en efectivo', valores: sumaEmpresas(pe.redonhielo.ventasEfectivo, pe.rolito.ventasEfectivo), cantidades: sumaEmpresas(nVentas('redonhielo'), nVentas('rolito')) },
+                { etiqueta: 'Cobranzas de mostrador', nota: 'en efectivo', valores: sumaEmpresas(pe.redonhielo.cobranzasEfectivo, pe.rolito.cobranzasEfectivo), cantidades: sumaEmpresas(nCob('redonhielo'), nCob('rolito')) },
+                { etiqueta: 'Recibido de choferes y cobradores', nota: `${liquidaciones.length} ${liquidaciones.length === 1 ? 'liquidación' : 'liquidaciones'}`, valores: sumaEmpresas(pe.redonhielo.recibidoDeLiquidaciones + pe.redonhielo.recibidoDeSobres, pe.rolito.recibidoDeLiquidaciones + pe.rolito.recibidoDeSobres) },
+                { etiqueta: 'Efectivo a rendir', destacada: true, valores: sumaEmpresas(pe.redonhielo.efectivo, pe.rolito.efectivo) },
+                { etiqueta: 'Cheques', valores: sumaEmpresas(pe.redonhielo.cheques.total, pe.rolito.cheques.total), cantidades: sumaEmpresas(pe.redonhielo.cheques.cantidad, pe.rolito.cheques.cantidad) },
+                { etiqueta: 'Retenciones', valores: sumaEmpresas(pe.redonhielo.retenciones.total, pe.rolito.retenciones.total), cantidades: sumaEmpresas(pe.redonhielo.retenciones.cantidad, pe.rolito.retenciones.cantidad) },
+                { etiqueta: 'Transferencias', nota: 'no se rinden', secundaria: true, valores: sumaEmpresas(pe.redonhielo.transferencias, pe.rolito.transferencias) },
+              ]} />
+            )
+          })()}
 
           {liquidaciones.length > 0 && (
             <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-secundario mb-1.5">Recibido de choferes (va en este sobre)</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-secundario mb-1.5">Recibido de choferes y cobradores (va en este sobre)</h3>
               <ul className="divide-y divide-[#E7E5DC] text-sm">
                 {liquidaciones.map((l) => (
                   <li key={l.id} className="flex items-center justify-between gap-3 py-1.5">
-                    <span className="truncate text-gray-900" title={l.choferNombre}>{l.choferNombre}</span>
-                    <span className="text-secundario tabular-nums whitespace-nowrap">{l.codigo ?? l.id} · {l.fecha !== hoy ? `${l.fecha.slice(8, 10)}/${l.fecha.slice(5, 7)} ` : ''}{l.createdAt ? horaCorta(l.createdAt) : ''}</span>
+                    <span className="min-w-0"><span className="text-gray-900 font-medium" title={l.choferNombre}>{l.choferNombre}</span> <span className="text-secundario tabular-nums whitespace-nowrap">· {l.codigo ?? l.id} · {l.fecha !== hoy ? `${l.fecha.slice(8, 10)}/${l.fecha.slice(5, 7)} ` : ''}{l.createdAt ? horaCorta(l.createdAt) : ''}</span></span>
+                    <span className="text-right tabular-nums whitespace-nowrap">
+                      <b className="text-gray-900">{formatoARS(l.efectivoRecibido)}</b>
+                      {l.conteoBilletes && <span className="block text-[11px] text-secundario"><span className="text-[#14538C]">{formatoARS(l.conteoBilletes.redonhielo.total)}</span> · <span className="text-[#6B3F94]">{formatoARS(l.conteoBilletes.rolito.total)}</span></span>}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -206,13 +222,13 @@ export default function RendicionesPage() {
               <ul className="divide-y divide-[#E7E5DC] text-sm">
                 {sistema.cheques.map((ch) => (
                   <li key={`c-${ch.cobranzaId}-${ch.numero}`} className="flex items-center justify-between gap-3 py-1.5">
-                    <span className="min-w-0"><span className="text-gray-900">{textoCheque(ch)}</span> <span className="text-secundario">· {ch.clienteNombre}{ch.numeroRecibo ? ` · ${ch.numeroRecibo}` : ''}</span></span>
+                    <span className="min-w-0"><span className="text-gray-900">{textoCheque(ch)}</span> <span className="text-secundario">· {ch.clienteNombre}{ch.numeroRecibo ? ` · ${ch.numeroRecibo}` : ''}</span> {ch.empresa && <ChipEmpresa empresa={ch.empresa} />}</span>
                     <b className="tabular-nums whitespace-nowrap">{formatoARS(ch.importe)}</b>
                   </li>
                 ))}
                 {sistema.retenciones.map((re) => (
                   <li key={`r-${re.cobranzaId}-${re.nroCertificado}`} className="flex items-center justify-between gap-3 py-1.5">
-                    <span className="min-w-0"><span className="text-gray-900">{textoRetencion(re)}</span> <span className="text-secundario">· {re.clienteNombre}{re.numeroRecibo ? ` · ${re.numeroRecibo}` : ''}</span></span>
+                    <span className="min-w-0"><span className="text-gray-900">{textoRetencion(re)}</span> <span className="text-secundario">· {re.clienteNombre}{re.numeroRecibo ? ` · ${re.numeroRecibo}` : ''}</span> {re.empresa && <ChipEmpresa empresa={re.empresa} />}</span>
                     <b className="tabular-nums whitespace-nowrap">{formatoARS(re.importe)}</b>
                   </li>
                 ))}

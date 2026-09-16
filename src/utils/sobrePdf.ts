@@ -3,6 +3,7 @@ import { MOTIVOS_DIFERENCIA_LIQUIDACION, PLANTAS } from '@/types'
 import { formatoARS } from './money'
 import { ESTILO_CABECERA_TABLA, encabezadoA4, finTabla, firmaA4, nuevoA4, pieA4, salidaPdf } from './pdfBase'
 import { claveDeCheque, claveDeRetencion } from './sobres'
+import { DENOMINACIONES, etiquetaDenominacion } from './billetes'
 import type { PersonaDelActa } from './actaSobre'
 import { compartirArchivo } from './compartir'
 
@@ -53,10 +54,18 @@ export async function generateActaSobre(s: Sobre, detalle: DetalleActaSobre = {}
         ...(d.recibidoDeSobres ? [['Recibido de cobradores', formatoARS(d.recibidoDeSobres)]] : []),
       ]
     : []
+  // Por empresa (2026-09-16): cuánto de cada una hay en la caja y cómo van los fajos.
+  const pe = s.sistema.porEmpresa
+  const filasEmpresa: (string | number)[][] = pe
+    ? [
+        ['Redonhielo · sistema', formatoARS(pe.redonhielo.efectivo)],
+        ['Rolito · sistema', formatoARS(pe.rolito.efectivo)],
+      ]
+    : []
   autoTable(doc, {
     startY: 32,
     head: [['Sistema (a rendir)', '']],
-    body: [...filasSistema, ['A rendir', formatoARS(s.sistema.efectivo)]],
+    body: [...filasSistema, ['A rendir', formatoARS(s.sistema.efectivo)], ...filasEmpresa],
     styles: { fontSize: 8.5, cellPadding: 2 }, headStyles: head,
     columnStyles: { 0: { cellWidth: 58 }, 1: { halign: 'right' } },
     didParseCell: (data) => { if (data.section === 'body' && data.row.index === filasSistema.length) data.cell.styles.fontStyle = 'bold' },
@@ -84,6 +93,24 @@ export async function generateActaSobre(s: Sobre, detalle: DetalleActaSobre = {}
     margin: { left: 110, right: 14 },
   })
   let y = Math.max(yIzq, finTabla(doc, 32)) + 6
+
+  // ── Composición de billetes (2026-09-16, pedido de Ariel): lo que contó caja, billete por billete ──
+  const cb = s.declarado.conteoBilletes
+  if (cb) {
+    autoTable(doc, {
+      startY: y,
+      head: [['Billetes contados por caja', 'Cantidad', 'Subtotal']],
+      body: [
+        ...DENOMINACIONES.map((den) => [etiquetaDenominacion(den), String(cb.billetes[`${den}`] ?? 0), formatoARS(den * (cb.billetes[`${den}`] ?? 0))]),
+        ['Monedas / cambio chico', '', formatoARS(cb.cambioChico ?? 0)],
+        [{ content: cb.sinEfectivo ? 'Caja marcó: sin efectivo' : 'Total contado', styles: { fontStyle: 'bold' } }, '', { content: formatoARS(cb.total), styles: { fontStyle: 'bold' } }],
+      ],
+      styles: { fontSize: 8.5, cellPadding: 2 }, headStyles: head,
+      columnStyles: { 1: { halign: 'right', cellWidth: 22 }, 2: { halign: 'right', cellWidth: 30 } },
+      margin: { left: 14, right: 110 },
+    })
+    y = finTabla(doc, y) + 6
+  }
 
   // ── Recibido de cada chofer / cobrador, recibo por recibo ────────────────
   // Lo que pidió Ariel el 14/09: cuando la caja no cuadra, que el acta diga

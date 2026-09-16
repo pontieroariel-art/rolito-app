@@ -1686,6 +1686,24 @@ service cloud.firestore {
     // solo se les puede fijar entregaId para regularizar lo pendiente.
     // anulacionesPosteriores lo escribe el server (Admin SDK).
     match /rendiciones/{rendicionId} {
+      function desgloseDeclaradoOk(d) {
+        let x = d.conteoBilletes;
+        return x is map
+          && x.billetes is map
+          && x.billetes['20000'] is int && x.billetes['20000'] >= 0
+          && x.billetes['10000'] is int && x.billetes['10000'] >= 0
+          && x.billetes['2000'] is int && x.billetes['2000'] >= 0
+          && x.billetes['1000'] is int && x.billetes['1000'] >= 0
+          && x.billetes['500'] is int && x.billetes['500'] >= 0
+          && x.cambioChico is number && x.cambioChico >= 0
+          && x.sinEfectivo is bool
+          && x.total is number
+          && (x.sinEfectivo
+              ? x.total == 0
+              : x.total == x.billetes['20000'] * 20000 + x.billetes['10000'] * 10000 + x.billetes['2000'] * 2000
+                           + x.billetes['1000'] * 1000 + x.billetes['500'] * 500 + x.cambioChico)
+          && d.efectivo == x.total;
+      }
       function sesionDespues(d) {
         return getAfter(/databases/$(database)/documents/cajaSesiones/$(d.cajaSesionId)).data;
       }
@@ -1739,6 +1757,9 @@ service cloud.firestore {
         && request.resource.data.sistema.cheques is list
         && request.resource.data.sistema.retenciones is list
         && request.resource.data.declarado.efectivo is number
+        // Un solo conteo de toda la caja, billete por billete (2026-09-16): el
+        // efectivo declarado es su total. desgloseOk() vive en /liquidaciones.
+        && desgloseDeclaradoOk(request.resource.data.declarado)
         && request.resource.data.declarado.cheques is list
         && request.resource.data.declarado.retenciones is list
         && request.resource.data.diferenciaDeclarada.efectivo is number

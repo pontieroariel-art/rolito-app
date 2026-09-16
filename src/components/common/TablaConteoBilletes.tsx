@@ -25,7 +25,8 @@ export function ChipEmpresa({ empresa, className = '' }: { empresa: EmpresaTango
 }
 
 export default function TablaConteoBilletes({ empresa, valor, onChange, soloLectura = false, referencia, etiquetaReferencia = 'contó', etiquetaPropia = 'conté', titulo }: {
-  empresa:   EmpresaTango
+  /** null = toda la caja junta (cierre de turno de ventanilla, 2026-09-16): sin chip ni color de empresa. */
+  empresa:   EmpresaTango | null
   valor:     DesgloseBilletes
   onChange?: (d: DesgloseBilletes) => void
   soloLectura?: boolean
@@ -40,7 +41,7 @@ export default function TablaConteoBilletes({ empresa, valor, onChange, soloLect
   const contado = desgloseContado(valor)
   const dif = referencia ? compararDesgloses(referencia, valor) : []
   const difDe = (fila: string) => dif.find((d) => d.fila === fila)
-  const c = COLOR_EMPRESA[empresa]
+  const c = empresa ? COLOR_EMPRESA[empresa] : { borde: 'border-[#D3D1C7]' }
   const campo = 'h-11 w-16 text-center text-base tabular-nums bg-white border border-[#D3D1C7] rounded-lg focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-[#F8F7F2] disabled:text-secundario'
   const btn = 'h-11 w-11 inline-flex items-center justify-center rounded-lg border border-[#D3D1C7] bg-white text-gray-800 active:scale-95 disabled:opacity-40'
   const enter = (i: number) => (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -50,7 +51,7 @@ export default function TablaConteoBilletes({ empresa, valor, onChange, soloLect
   return (
     <section className={`rounded-xl border-2 ${valor.sinEfectivo ? 'border-[#D3D1C7]' : c.borde} bg-white p-3 space-y-2`}>
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-2"><ChipEmpresa empresa={empresa} />{titulo && <span className="text-sm font-semibold text-gray-900">{titulo}</span>}</div>
+        <div className="flex items-center gap-2">{empresa && <ChipEmpresa empresa={empresa} />}{titulo && <span className="text-sm font-semibold text-gray-900">{titulo}</span>}</div>
         {!contado && editable && <span className="text-xs font-semibold text-amber-700">Sin contar</span>}
         {valor.sinEfectivo && <span className="text-xs font-semibold text-secundario">Sin efectivo de esta empresa</span>}
       </div>
@@ -106,7 +107,7 @@ export default function TablaConteoBilletes({ empresa, valor, onChange, soloLect
         {editable ? (
           <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer select-none">
             <input type="checkbox" checked={valor.sinEfectivo} onChange={(e) => onChange?.(sinEfectivo(e.target.checked))} className="accent-[#1D9E75] w-4 h-4" />
-            No recibí efectivo de {NOMBRE_EMPRESA[empresa]}
+            {empresa ? `No recibí efectivo de ${NOMBRE_EMPRESA[empresa]}` : 'No hay efectivo en la caja'}
           </label>
         ) : <span />}
         <div className="text-right">
