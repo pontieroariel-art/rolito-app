@@ -207,7 +207,7 @@ const TITULO: Record<string, FacturaPdfData['titulo']> = { FAC: 'FACTURA', NC: '
 
 /**
  * Factura/NC/ND de Tango → datos del PDF histórico (facturaPdf.ts), el mismo
- * formato con que se reimprimen desde Recupero de facturas. Solo si es
+ * formato de Recupero de facturas, pero como ORIGINAL. Solo si es
  * electrónica (tiene CAE): sin CAE no se puede regenerar un comprobante válido.
  */
 export function armarFacturaTangoPdf(d: FacturaTangoDetalle): { ok: true; datos: FacturaPdfData } | { ok: false; motivo: string } {
@@ -261,7 +261,10 @@ export function armarFacturaTangoPdf(d: FacturaTangoDetalle): { ok: true; datos:
       },
       cae:    d.cae,
       caeVto: fechaDe(d.caeVto),
-      leyendaCopia: 'DUPLICADO — REIMPRESIÓN',
+      // ORIGINAL (2026-09-16, pedido de facturación): es la factura que la oficina
+      // emitió en Tango por los remitos y la primera que recibe el cliente; con
+      // CAE, este PDF es su representación válida, no una reimpresión.
+      leyendaCopia: 'ORIGINAL',
       descargar: false,
     },
   }

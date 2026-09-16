@@ -95,7 +95,7 @@ describe('armarFacturaTangoPdf', () => {
     const r = armarFacturaTangoPdf(detalleFactura)
     expect(r.ok).toBe(true)
     if (!r.ok) return
-    expect(r.datos).toMatchObject({ letra: 'A', codigoTipo: '01', titulo: 'FACTURA', puntoVenta: 101, numero: 282787, cae: '86351131069060', remitosOC: '(00001-00482053)', leyendaCopia: 'DUPLICADO — REIMPRESIÓN', descargar: false })
+    expect(r.datos).toMatchObject({ letra: 'A', codigoTipo: '01', titulo: 'FACTURA', puntoVenta: 101, numero: 282787, cae: '86351131069060', remitosOC: '(00001-00482053)', leyendaCopia: 'ORIGINAL', descargar: false })
     expect(r.datos.fechaEmision).toEqual(new Date(2026, 8, 2))
     expect(r.datos.caeVto).toEqual(new Date(2026, 8, 12))
     expect(r.datos.totales).toMatchObject({ netoGravado: 69600, iva: 14616, ivaAlic: 21, total: 84216 })
