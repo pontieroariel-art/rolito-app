@@ -3123,6 +3123,38 @@ describe('rendiciones: sobre de ventanilla y recepción de tesorería (2026-09-1
     await assertFails(deleteDoc(doc(db('caja1'), SOBRE)))
   })
 
+  test('entrega en mano (2026-09-16): el cajero que rindió pasa el sobre a entregada con la firma de alguien de tesorería; otro cajero, tesorería o gerencia no; quien recibe tiene que ser de tesorería y distinto del cajero; solo estado, custodia y entrega; después tesorería lo recibe (cuenta)', async () => {
+    await seedTodos()
+    await seed(async (d) => {
+      await setDoc(doc(d, SESION), sesionCerrada())
+      await setDoc(doc(d, SOBRE), sobre())
+      await setDoc(doc(d, 'users/tes2'), { rol: 'facturacion', rolesExtra: ['tesoreria'], estado: 'activo' })
+    })
+    const entrega = (extra = {}, arriba = {}) => ({
+      estado: 'entregada', custodia: { uid: 'tes1', nombre: 'Yanina', rol: 'tesoreria', desde: new Date() },
+      entrega: { recibio: { uid: 'tes1', nombre: 'Yanina', rol: 'tesoreria' }, en: new Date(), firmaRecibe: 'data:image/png;base64,CCCC', firmanteRecibe: 'Yanina', ...extra },
+      ...arriba,
+    })
+    await assertFails(updateDoc(doc(db('caja2'), SOBRE), entrega()))                                              // otro cajero
+    await assertFails(updateDoc(doc(db('tes1'), SOBRE), entrega()))                                               // tesorería no se auto-entrega
+    await assertFails(updateDoc(doc(db('gg'), SOBRE), entrega()))
+    await assertFails(updateDoc(doc(db('caja1'), SOBRE), entrega({ recibio: { uid: 'fac1', nombre: 'F', rol: 'tesoreria' } }, { custodia: { uid: 'fac1', nombre: 'F', rol: 'tesoreria', desde: new Date() } })))   // no es de tesorería
+    await assertFails(updateDoc(doc(db('caja1'), SOBRE), entrega({ recibio: { uid: 'caja1', nombre: 'Nico', rol: 'tesoreria' } }, { custodia: { uid: 'caja1', nombre: 'Nico', rol: 'tesoreria', desde: new Date() } })))   // a sí mismo no
+    await assertFails(updateDoc(doc(db('caja1'), SOBRE), entrega({ firmaRecibe: '' })))
+    await assertFails(updateDoc(doc(db('caja1'), SOBRE), entrega({}, { custodia: { uid: 'caja1', nombre: 'Nico', rol: 'caja', desde: new Date() } })))   // la custodia pasa a quien recibe
+    await assertFails(updateDoc(doc(db('caja1'), SOBRE), entrega({}, { 'sistema.efectivo': 1 })))
+    await assertFails(updateDoc(doc(db('caja1'), SOBRE), entrega({}, { estado: 'recibida' })))
+    // Con tesorería como rol adicional también vale.
+    await assertSucceeds(updateDoc(doc(db('caja1'), SOBRE), entrega({ recibio: { uid: 'tes2', nombre: 'T2', rol: 'tesoreria' } }, { custodia: { uid: 'tes2', nombre: 'T2', rol: 'tesoreria', desde: new Date() } })))
+    await assertFails(updateDoc(doc(db('caja1'), SOBRE), entrega()))                                              // segunda entrega no
+    // Tesorería cuenta el sobre entregado; el cajero no puede volverlo atrás.
+    await assertFails(updateDoc(doc(db('caja1'), SOBRE), { estado: 'pendiente_recepcion' }))
+    await assertSucceeds(updateDoc(doc(db('tes1'), SOBRE), recepcion()))
+    // Caja lee la lista de tesorería para elegir a quién entrega, pero no al resto del personal.
+    await assertSucceeds(getDoc(doc(db('caja1'), 'users/tes1')))
+    await assertFails(getDoc(doc(db('caja1'), 'users/fac1')))
+  })
+
   test('el operador (logística / super_admin) también recibe, conforme; tipo cobrador (fase 2) no se recibe todavía por acá', async () => {
     await seedTodos()
     await seed(async (d) => {

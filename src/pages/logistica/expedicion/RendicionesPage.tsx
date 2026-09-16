@@ -16,7 +16,9 @@ import { useDiaActual } from '@/hooks/useDiaActual'
 import { useMiMostrador } from '@/hooks/useMiMostrador'
 import { useSesionAbierta } from '@/hooks/useCajaSesion'
 import { subscribeVentasVentanillaDeUsuarioEnRango } from '@/services/ventaVentanillaService'
-import { cerrarTurnoYRendir, subscribeSobresDe, SobreYaExisteError } from '@/services/sobreService'
+import { cerrarTurnoYRendir, entregarSobre, subscribeSobresDe, SobreYaExisteError, type DatosEntregaSobre } from '@/services/sobreService'
+import { getUsuariosTesoreria } from '@/services/userService'
+import EntregarSobreModal, { type ReceptorTesoreria } from '@/components/expedicion/EntregarSobreModal'
 import { reportError } from '@/services/observability'
 import { addDaysStr } from '@/utils/helpers'
 import { formatoARS } from '@/utils/money'
@@ -56,6 +58,26 @@ export default function RendicionesPage() {
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
   const [aviso, setAviso] = useState('')
+  // Entrega en mano a tesorería (2026-09-16): qué sobre se está entregando y a quiénes se le puede dar.
+  const [entregando, setEntregando] = useState<Sobre | null>(null)
+  const [receptores, setReceptores] = useState<ReceptorTesoreria[]>([])
+  const [errorEntrega, setErrorEntrega] = useState('')
+  const [entregandoGuardando, setEntregandoGuardando] = useState(false)
+  useEffect(() => {
+    getUsuariosTesoreria().then((us) => setReceptores(us.map((u) => ({ uid: u.uid, nombre: u.nombre })))).catch((err) => reportError(err, { origen: 'RendicionesPage', accion: 'usuarios de tesorería' }))
+  }, [])
+  const entregar = async (datos: DatosEntregaSobre) => {
+    if (!entregando) return
+    setEntregandoGuardando(true); setErrorEntrega('')
+    try {
+      await entregarSobre(entregando.id, datos)
+      setEntregando(null)
+      setAviso(`Sobre ${entregando.codigo} entregado a ${datos.recibio.nombre}. La custodia ya es de tesorería.`)
+    } catch (err) {
+      reportError(err, { origen: 'RendicionesPage', accion: 'entregar sobre' })
+      setErrorEntrega(err instanceof Error ? err.message : 'No se pudo registrar la entrega.')
+    } finally { setEntregandoGuardando(false) }
+  }
   const { abrir } = useVisorComprobante()
 
   useEffect(() => {
@@ -216,9 +238,10 @@ export default function RendicionesPage() {
                 <span className="tabular-nums">{s.codigo}</span>
                 <BadgeRecepcion sobre={s} detalle />
               </h2>
-              <p className="text-sm text-secundario">Rendida a las {horaCorta(s.cerradaEn)} · firmó {s.firmanteRinde}{s.recepcion ? ` · ${textoRecepcion(s)}` : ' · la plata sigue bajo tu custodia hasta que tesorería la reciba'}</p>
+              <p className="text-sm text-secundario">Rendida a las {horaCorta(s.cerradaEn)} · firmó {s.firmanteRinde}{s.recepcion ? ` · ${textoRecepcion(s)}` : s.entrega ? ` · entregado en mano a ${s.entrega.recibio.nombre} a las ${horaCorta(s.entrega.en)} (firmó)` : ' · la plata sigue bajo tu custodia hasta que se la entregues en mano a tesorería'}</p>
             </div>
             <div className="flex gap-2 shrink-0">
+              {s.estado === 'pendiente_recepcion' && <Button onClick={() => { setErrorEntrega(''); setEntregando(s) }}><Landmark size={16} className="mr-1.5" /> Entregar a tesorería</Button>}
               <Button variant="outline" onClick={() => imprimir(s)}><Eye size={16} className="mr-1.5" /> Ver acta</Button>
               <Button variant="outline" onClick={() => enviar(s)}><Share2 size={16} className="mr-1.5" /> {compartible ? 'Enviar' : 'Descargar PDF'}</Button>
             </div>
@@ -297,6 +320,7 @@ export default function RendicionesPage() {
         exportar={`Mis rendiciones ${hoy}`}
         acciones={(s) => (
           <div className="flex justify-end gap-1">
+            {s.estado === 'pendiente_recepcion' && s.rindio.uid === user?.uid && <button type="button" onClick={() => { setErrorEntrega(''); setEntregando(s) }} title="Entregar a tesorería" className="h-11 px-2 inline-flex items-center gap-1 rounded-lg text-xs font-medium text-accent hover:bg-accent/10 whitespace-nowrap"><Landmark size={16} /> Entregar</button>}
             <button type="button" onClick={() => imprimir(s)} title="Ver acta" className="w-11 h-11 inline-flex items-center justify-center rounded-lg text-secundario hover:text-accent hover:bg-accent/10"><Eye size={16} /></button>
             <button type="button" onClick={() => enviar(s)} title={compartible ? 'Enviar' : 'Descargar PDF'} className="w-11 h-11 inline-flex items-center justify-center rounded-lg text-secundario hover:text-accent hover:bg-accent/10"><Share2 size={16} /></button>
           </div>
@@ -306,6 +330,9 @@ export default function RendicionesPage() {
         <Link to="/caja/rendiciones/historial" className="inline-flex items-center gap-1 text-sm text-secundario hover:text-accent"><History size={16} /> Historial completo de cierres</Link>
       </p>
 
+      {entregando && (
+        <EntregarSobreModal sobre={entregando} receptores={receptores} guardando={entregandoGuardando} error={errorEntrega} onCancelar={() => setEntregando(null)} onEntregar={entregar} />
+      )}
       {confirmando && sesion && sistema && (
         <CierreTurnoModal
           cajero={user.nombre}

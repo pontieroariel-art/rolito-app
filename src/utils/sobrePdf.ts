@@ -36,7 +36,7 @@ export async function generateActaSobre(s: Sobre, detalle: DetalleActaSobre = {}
   const rec = s.recepcion
 
   encabezadoA4(base, 'Rendición de fondos a tesorería',
-    `${s.codigo}  ·  ${PLANTAS[s.plantaId].label}  ·  ${fechaHora(s.cerradaEn.toDate())}  ·  ${recibida ? 'Recibida por tesorería' : 'En camino a tesorería'}`,
+    `${s.codigo}  ·  ${PLANTAS[s.plantaId].label}  ·  ${fechaHora(s.cerradaEn.toDate())}  ·  ${recibida ? 'Recibida por tesorería' : s.entrega ? 'Entregada en mano a tesorería, sin contar' : 'Pendiente de entregar a tesorería'}`,
     { tamSubtitulo: 9 })
 
   // ── Sistema vs declarado ─────────────────────────────────────────────────
@@ -180,9 +180,15 @@ export async function generateActaSobre(s: Sobre, detalle: DetalleActaSobre = {}
 
   // ── Firmas: izquierda quien rinde (caja), derecha quien recibe (tesorería) ──
   if (y > pageH - 50) { doc.addPage(); y = 20 }
-  firmaA4(base, { x: 14, y, etiqueta: 'Rindió (caja)', firma: s.firmaRinde, aclaracion: `${s.firmanteRinde} · ${fechaHora(s.cerradaEn.toDate())}` })
+  firmaA4(base, { x: 14, y, etiqueta: 'Rindió (caja)', firma: s.firmaRinde, aclaracion: `${s.firmanteRinde} · ${fechaHora(s.cerradaEn.toDate())}`, ancho: 45 })
+  // Entrega en mano (2026-09-16): quien recibió el sobre cerrado firma en la tablet del cajero.
   firmaA4(base, {
-    x: pageW - 88, y, etiqueta: 'Recibió (tesorería)',
+    x: 72, y, etiqueta: 'Recibió el sobre cerrado', ancho: 45,
+    firma: s.entrega?.firmaRecibe,
+    aclaracion: s.entrega ? `${s.entrega.firmanteRecibe} · ${fechaHora(s.entrega.en.toDate())}` : 'Sin entrega en mano registrada',
+  })
+  firmaA4(base, {
+    x: pageW - 66, y, etiqueta: 'Contó (tesorería)', ancho: 45,
     firma: rec?.firmaRecibe,
     aclaracion: rec ? `${rec.firmanteRecibe} · ${fechaHora(rec.en.toDate())}` : 'Pendiente de recepción',
   })

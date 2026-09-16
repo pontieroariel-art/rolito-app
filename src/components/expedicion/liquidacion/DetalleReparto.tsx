@@ -6,7 +6,8 @@ import { entregarReciboSupervisor, EstadoTangoChip, reciboSupervisorBlob } from 
 import { caiRemitoOficialCacheado, getCaiRemitoOficial } from '@/services/remitoOficialConfigService'
 import { generateRemitoCarga } from '@/utils/pdf'
 import { describirComprobante, entregarComprobanteVenta, estadoTangoVenta, generarComprobanteVenta, problemasDeVenta } from '@/utils/comprobanteDeVenta'
-import { clasificarReparto, type BloqueVentas, type RepartoClasificado } from '@/utils/liquidacion'
+import { clasificarReparto, plataPorEmpresa, type BloqueVentas, type RepartoClasificado } from '@/utils/liquidacion'
+import { NOMBRE_EMPRESA } from '@/utils/inhabilitadoTango'
 import { nombreDelCambio } from '@/utils/cambios'
 import { envasesDeDescarga, envasesDeRemito, filasDeEnvases } from '@/utils/envases'
 import { formatoARS } from '@/utils/money'
@@ -15,7 +16,7 @@ import { puedeCompartirArchivos } from '@/utils/compartir'
 import { envioDeRecibo, envioDeVenta } from '@/utils/envioComprobante'
 import { reportError } from '@/services/observability'
 import type { CaiRemito } from '@/utils/comprobanteInterno'
-import type { CambioCamion, Cobranza, DescargaCamion, RemitoCarga, VentaCamion, VentaCamionItem } from '@/types'
+import type { CambioCamion, Cobranza, DescargaCamion, EmpresaTango, RemitoCarga, VentaCamion, VentaCamionItem } from '@/types'
 import { nombreClienteVenta } from '@/utils/nombreClienteVenta'
 import { facturaAnulable, textoAnulacion } from '@/utils/anulacionVenta'
 
@@ -118,6 +119,17 @@ export default function DetalleReparto({ remitos, descargas, cobranzas, reparto,
       {b.ventas.map(filaVenta)}
     </div>
   )
+  // Un bloque de cobranzas por empresa, con el efectivo, los cheques y las retenciones de ESA empresa.
+  const bloqueCobranzas = (e: EmpresaTango) => {
+    const lista = reparto.cobranzas[e]
+    const p = plataPorEmpresa([], lista)[e]
+    return (
+      <Bloque estilo="cobranzas" titulo={`Cobranzas · ${NOMBRE_EMPRESA[e]}`} subtitulo="recibos de cuenta corriente" total={p.cobranzas.total}
+        pie={`${lista.length} recibos · efectivo ${formatoARS(p.efectivo)} se rinde${p.cheques.cantidad ? ` · cheques (${p.cheques.cantidad}) ${formatoARS(p.cheques.total)} van a caja con el papel` : ''}${p.retenciones.cantidad ? ` · retenciones (${p.retenciones.cantidad}) ${formatoARS(p.retenciones.total)}` : ''}`}>
+        {lista.length === 0 ? <Vacio>Sin cobranzas de {NOMBRE_EMPRESA[e]}.</Vacio> : lista.map(filaCobranza)}
+      </Bloque>
+    )
+  }
 
   return (
     <div className="space-y-4">
@@ -165,23 +177,25 @@ export default function DetalleReparto({ remitos, descargas, cobranzas, reparto,
         {reparto.contado.efectivo.ventas.length + reparto.contado.transferencia.ventas.length === 0 && <Vacio>Sin ventas de contado.</Vacio>}
       </Bloque>
 
+      {/* Cobranzas por empresa (2026-09-16): misma denominación en las dos, cada recibo con la suya. */}
+      {bloqueCobranzas('redonhielo')}
+
       <Bloque estilo="redonhielo" titulo="Ventas cuenta corriente · Redonhielo" subtitulo="remitos" total={reparto.cuentaCorriente.total}
         pie={`${reparto.cuentaCorriente.ventas.length} remitos · va a la cuenta corriente del cliente, no se rinde`}>
         {reparto.cuentaCorriente.ventas.length === 0 ? <Vacio>Sin remitos de cuenta corriente.</Vacio> : reparto.cuentaCorriente.ventas.map(filaVenta)}
       </Bloque>
 
-      <Bloque estilo="rolito" titulo="Promo · Rolito" subtitulo="facturas X" total={reparto.promo.total}
-        pie={`efectivo ${formatoARS(sumaCobrada(reparto.promo.contado.ventas.filter((v) => v.formaPago === 'contado_efectivo')))} se rinde · cta. cte. ${formatoARS(reparto.promo.cuentaCorriente.total)} a la cuenta del cliente en Rolito`}>
-        {subBloque('Contado', reparto.promo.contado)}
-        {subBloque('Cuenta corriente', reparto.promo.cuentaCorriente)}
-        {reparto.promo.contado.ventas.length + reparto.promo.cuentaCorriente.ventas.length === 0 && <Vacio>Sin ventas de promo.</Vacio>}
+      <Bloque estilo="rolito" titulo="Ventas contado · Rolito" subtitulo="facturas X" total={reparto.promo.contado.total}
+        pie={`${reparto.promo.contado.ventas.length} ventas · efectivo ${formatoARS(sumaCobrada(reparto.promo.contado.ventas.filter((v) => v.formaPago === 'contado_efectivo')))} se rinde · transferencia ${formatoARS(sumaCobrada(reparto.promo.contado.ventas.filter((v) => v.formaPago === 'contado_transferencia')))}`}>
+        {reparto.promo.contado.ventas.length === 0 ? <Vacio>Sin ventas de contado en Rolito.</Vacio> : reparto.promo.contado.ventas.map(filaVenta)}
       </Bloque>
 
-      <Bloque estilo="cobranzas" titulo="Cobranzas" subtitulo="recibos de cuenta corriente" total={reparto.cobranzas.total}
-        pie={`${cobranzas.length} recibos · efectivo ${formatoARS(reparto.cobranzas.efectivo)} se rinde${reparto.cobranzas.cheques.cantidad ? ` · cheques (${reparto.cobranzas.cheques.cantidad}) ${formatoARS(reparto.cobranzas.cheques.total)} van a caja con el papel` : ''}${reparto.cobranzas.retenciones.cantidad ? ` · retenciones (${reparto.cobranzas.retenciones.cantidad}) ${formatoARS(reparto.cobranzas.retenciones.total)}` : ''}`}>
-        {reparto.cobranzas.redonhielo.length > 0 && <><SubHeader titulo="Redonhielo" total={reparto.cobranzas.redonhielo.reduce((s, c) => s + c.importe, 0)} />{reparto.cobranzas.redonhielo.map(filaCobranza)}</>}
-        {reparto.cobranzas.rolito.length > 0 && <><SubHeader titulo="Rolito" total={reparto.cobranzas.rolito.reduce((s, c) => s + c.importe, 0)} />{reparto.cobranzas.rolito.map(filaCobranza)}</>}
-        {cobranzas.length === 0 && <Vacio>Sin cobranzas.</Vacio>}
+      {bloqueCobranzas('rolito')}
+
+      {/* En Rolito no hay remito: la venta en cuenta corriente sale como factura X y entra cuando el cliente la paga con un recibo (Ariel, 16/09). */}
+      <Bloque estilo="rolito" titulo="Ventas cuenta corriente · Rolito" subtitulo="facturas X que se cobran después con recibo" total={reparto.promo.cuentaCorriente.total}
+        pie={`${reparto.promo.cuentaCorriente.ventas.length} facturas X · va a la cuenta del cliente en Rolito, no se rinde`}>
+        {reparto.promo.cuentaCorriente.ventas.length === 0 ? <Vacio>Sin ventas en cuenta corriente de Rolito.</Vacio> : reparto.promo.cuentaCorriente.ventas.map(filaVenta)}
       </Bloque>
 
       {reparto.anuladas.length > 0 && (

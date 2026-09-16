@@ -35,20 +35,24 @@ export const empresaDeCobranza = (c: Pick<Cobranza, 'empresa'>): EmpresaTango =>
  * retenciones. Es la base de las dos hojas impresas y del conteo por empresa.
  */
 export function plataPorEmpresa(ventas: VentaCamion[], cobranzas: Cobranza[]): PlataPorEmpresa {
-  const vacia = (): PlataEmpresa => ({ efectivo: 0, transferencia: 0, ventas: { cantidad: 0, total: 0 }, cobranzas: { cantidad: 0, total: 0 }, cheques: { cantidad: 0, total: 0 }, retenciones: { cantidad: 0, total: 0 } })
+  const vacia = (): PlataEmpresa => ({
+    efectivo: 0, transferencia: 0, ventas: { cantidad: 0, total: 0 }, cobranzas: { cantidad: 0, total: 0 }, cheques: { cantidad: 0, total: 0 }, retenciones: { cantidad: 0, total: 0 },
+    ventasContado: { cantidad: 0, total: 0 }, ventasEfectivo: 0, ventasTransferencia: 0, cobranzasEfectivo: 0, cobranzasTransferencia: 0,
+  })
   const out: PlataPorEmpresa = { redonhielo: vacia(), rolito: vacia() }
   for (const v of ventas) {
     const e = out[empresaDeVenta(v)]
     const importe = importeCobrado(v)
     e.ventas.cantidad++; e.ventas.total += importe
-    if (v.formaPago === 'contado_efectivo') e.efectivo += importe
-    else if (v.formaPago === 'contado_transferencia') e.transferencia += importe
+    if (v.formaPago === 'contado_efectivo') { e.efectivo += importe; e.ventasEfectivo! += importe }
+    else if (v.formaPago === 'contado_transferencia') { e.transferencia += importe; e.ventasTransferencia! += importe }
+    if (v.formaPago !== 'cuenta_corriente') { e.ventasContado!.cantidad++; e.ventasContado!.total += importe }
   }
   for (const c of cobranzas) {
     const e = out[empresaDeCobranza(c)]
     e.cobranzas.cantidad++; e.cobranzas.total += c.importe
-    e.efectivo += efectivoDe(c)
-    e.transferencia += transferenciaDe(c)
+    e.efectivo += efectivoDe(c); e.cobranzasEfectivo! += efectivoDe(c)
+    e.transferencia += transferenciaDe(c); e.cobranzasTransferencia! += transferenciaDe(c)
     const ch = chequesDe(c), re = retencionesDe(c)
     e.cheques.cantidad += ch.length; e.cheques.total += sumaImportes(ch)
     e.retenciones.cantidad += re.length; e.retenciones.total += sumaImportes(re)

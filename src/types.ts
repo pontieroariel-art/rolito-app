@@ -1088,6 +1088,16 @@ export interface PlataEmpresa {
   cobranzas:     { cantidad: number; total: number }
   cheques:       { cantidad: number; total: number }
   retenciones:   { cantidad: number; total: number }
+  // Contado y cobranzas por separado (2026-09-16, pedido de Ariel: el cuadro de
+  // la liquidación va en dos columnas por empresa con la misma denominación:
+  // "Contado · empresa" y "Cobranzas · empresa"; la cuenta corriente no entra
+  // porque no es plata de hoy). Los cierres anteriores no los tienen.
+  /** Ventas cobradas en el momento (efectivo + transferencia): las facturas / facturas X. */
+  ventasContado?:         { cantidad: number; total: number }
+  ventasEfectivo?:        number
+  ventasTransferencia?:   number
+  cobranzasEfectivo?:     number
+  cobranzasTransferencia?: number
 }
 export type PlataPorEmpresa = Record<EmpresaTango, PlataEmpresa>
 
@@ -2209,7 +2219,8 @@ export interface CajaSesion {
 
 export type TipoSobre   = 'ventanilla' | 'cobrador' | 'chofer'
 export type RindeA      = 'tesoreria' | 'caja'
-export type EstadoSobre = 'pendiente_recepcion' | 'recibida'
+/** pendiente_recepcion = cerrado, en la ventanilla · entregada = en mano a tesorería, sin contar (2026-09-16) · recibida = contada y firmada. */
+export type EstadoSobre = 'pendiente_recepcion' | 'entregada' | 'recibida'
 export type Conformidad = 'conforme' | 'con_diferencia'
 
 export interface ActorSobre { uid: string; nombre: string; rol: UserRole }
@@ -2262,6 +2273,19 @@ export interface SobreRecepcion {
   firmanteRecibe:  string
 }
 
+/**
+ * Entrega EN MANO del sobre cerrado (2026-09-16, pedido de Ariel): el cajero
+ * elige a quién de tesorería se lo da y esa persona firma en la pantalla del
+ * cajero. Dos personas presentes, una hora exacta; la custodia pasa acá.
+ * Contar es después (`recepcion`). Siempre se entrega en mano.
+ */
+export interface SobreEntrega {
+  recibio:        ActorSobre
+  en:             Timestamp
+  firmaRecibe:    string           // dataURL PNG, firmada en la tablet del cajero
+  firmanteRecibe: string
+}
+
 export interface Sobre {
   id:        string                 // ventanilla: {fecha}_{uid}_{n} · cobrador/chofer: {fecha}_{uid}
   tipo:      TipoSobre
@@ -2281,6 +2305,8 @@ export interface Sobre {
   cerradaEn:     Timestamp
   estado:    EstadoSobre
   custodia:  ActorSobre & { desde: Timestamp }
+  /** Entrega en mano a tesorería (estado 'entregada'); los sobres anteriores al 16/09 no la tienen. */
+  entrega?:   SobreEntrega
   recepcion?: SobreRecepcion
   rectificaA?: string
   anulacionesPosteriores?: AnulacionPosterior[]

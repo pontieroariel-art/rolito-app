@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Clock, FileText, Inbox, Landmark, ShieldCheck, Truck, Wallet } from 'lucide-react'
+import { Clock, FileText, Inbox, Landmark, ShieldCheck } from 'lucide-react'
 import Badge from '@/components/common/Badge'
 import HistorialTable, { type ColumnaHistorial } from '@/components/common/HistorialTable'
 import PageHeader from '@/components/common/PageHeader'
-import StatusStrip, { type SegmentoEstado } from '@/components/common/StatusStrip'
 import { CAMPO_FILTRO } from '@/components/common/tabla'
 import RecibirSobreModal from '@/components/tesoreria/RecibirSobreModal'
+import TiraSobres from '@/components/tesoreria/TiraSobres'
 import Button from '@/components/ui/Button'
 import { Plegable } from '@/components/ui/Plegable'
 import { useAuth } from '@/context/AuthContext'
@@ -53,15 +53,6 @@ export default function RecepcionPage() {
   const pendientes = useMemo(() => c.pendientes.filter((s) => planta === 'todas' || s.plantaId === planta), [c.pendientes, planta])
   const recibidos = useMemo(() => custodia.recibidosHoy.slice().sort((a, b) => (b.recepcion?.en.toMillis() ?? 0) - (a.recepcion?.en.toMillis() ?? 0)), [custodia.recibidosHoy])
   const horasAviso = c.config.horasAvisoSobre
-  const hayViejos = custodia.enCamino.some((x) => x.horas >= horasAviso)
-
-  const segmentos: SegmentoEstado[] = [
-    { id: 'llegar',   etiqueta: 'Tiene que llegar', valor: custodia.totales.tieneQueLlegar, formato: formatoARS, icono: <Landmark size={14} />, tono: 'neutro', title: 'Sistema de los sobres de ventanilla del día' },
-    { id: 'camino',   etiqueta: 'En camino', valor: custodia.totales.enCamino, formato: formatoARS, icono: <Truck size={14} />, tono: hayViejos ? 'pendiente' : 'enCamino', alerta: hayViejos, title: hayViejos ? `Hay sobres sin recibir hace más de ${horasAviso} h` : `${custodia.enCamino.length} sobre(s) sin recibir` },
-    { id: 'recibido', etiqueta: dia === hoy ? 'Recibido hoy' : 'Recibido el día', valor: custodia.totales.recibidoHoy, formato: formatoARS, icono: <ShieldCheck size={14} />, tono: 'entregado', title: 'Contado por tesorería' },
-    { id: 'falta',    etiqueta: 'Falta', valor: custodia.totales.falta, formato: formatoARS, tono: 'cancelado', alerta: custodia.totales.falta > 0, title: 'Tiene que llegar − recibido' },
-    { id: 'cajas',    etiqueta: 'Cajas abiertas', valor: custodia.cajasAbiertas.length, icono: <Wallet size={14} />, tono: 'pendiente', title: custodia.cajasAbiertas.length ? custodia.cajasAbiertas.map((x) => `${x.sesion.cajero.nombre} (${nombrePlanta(x.sesion.plantaId)}, desde ${hora(x.sesion.abiertaEn.toDate())})`).join(' · ') : 'Ninguna caja abierta' },
-  ]
 
   // Visor (2026-09-15): el acta se ve en pantalla; imprimir o descargar es un clic adentro.
   const acta = useCallback(async (s: Sobre) => {
@@ -107,13 +98,9 @@ export default function RecepcionPage() {
         </>}
       />
 
-      <StatusStrip
-        titulo={`Custodia · ${planta === 'todas' ? 'todas las plantas' : nombrePlanta(planta)} · ${dia}`}
-        segmentos={segmentos}
-        pie={c.error
-          ? <p className="text-xs text-red-700">No pudimos leer los sobres o las cajas. Revisá la conexión.</p>
-          : <p className="text-xs text-secundario">"Tiene que llegar" es el SISTEMA de los sobres de ventanilla del día, no lo que caja contó: un faltante de caja se ve como faltante. En camino se marca en aviso a partir de {horasAviso} h sin recibir.</p>}
-      />
+      {/* El camino del sobre (2026-09-16): cajas abiertas › por recibir › recibidos › diferencias. Sin importes hasta contar. */}
+      <TiraSobres custodia={custodia} horasAviso={horasAviso} error={c.error}
+        titulo={`Plata de las ventanillas · ${planta === 'todas' ? 'todas las plantas' : nombrePlanta(planta)} · ${dia === hoy ? 'hoy' : dia}`} />
 
       {aviso && <p className="text-xs text-amber-700">{aviso}</p>}
       {ultimoRecibido && (
@@ -192,6 +179,9 @@ function SobrePendienteCard({ sobre: s, hoy, ahora, horasAviso, puedeRecibir, on
         </span>
       </div>
       <p className="text-sm text-gray-800">{nombrePlanta(s.plantaId)} · rindió <b>{s.firmanteRinde}</b> a las {hora(s.cerradaEn.toDate())}</p>
+      {s.entrega
+        ? <p className="text-sm text-[#0F6E56]">Entregado en mano a <b>{s.entrega.recibio.nombre}</b> a las {hora(s.entrega.en.toDate())} (firmó). Falta contarlo.</p>
+        : <p className="text-sm text-[#8A5203]">Todavía en la ventanilla: el cajero no registró la entrega en mano.</p>}
       <p className="text-sm text-secundario tabular-nums">
         {nC + nR === 0 ? 'Sin cheques ni retenciones' : `${nC} cheque${nC === 1 ? '' : 's'} · ${nR} retenci${nR === 1 ? 'ón' : 'ones'}`}
         {s.diferenciaDeclarada.efectivo !== 0 || s.diferenciaDeclarada.valoresFaltantes.cantidad > 0 ? <span className="text-red-700"> · caja declaró diferencia</span> : null}
@@ -272,7 +262,7 @@ function HistorialSobres({ hoy, planta, onActa }: { hoy: string; planta: FiltroP
     { titulo: 'Valores', alinear: 'der', celda: (s) => { const n = s.sistema.cheques.length + s.sistema.retenciones.length; return n ? `${n} · ${formatoARS(totalValores([...s.sistema.cheques, ...s.sistema.retenciones]))}` : '—' }, csv: (s) => s.sistema.cheques.length + s.sistema.retenciones.length },
     { titulo: 'Conformidad', celda: (s) => (s.recepcion
       ? <Badge tono={s.recepcion.conformidad === 'conforme' ? 'entregado' : 'cancelado'}>{s.recepcion.conformidad === 'conforme' ? 'Conforme' : 'Con diferencia'}</Badge>
-      : <Badge tono="enCamino">En camino</Badge>), csv: (s) => (s.recepcion ? (s.recepcion.conformidad === 'conforme' ? 'Conforme' : 'Con diferencia') : 'En camino') },
+      : <Badge tono="enCamino">Por recibir</Badge>), csv: (s) => (s.recepcion ? (s.recepcion.conformidad === 'conforme' ? 'Conforme' : 'Con diferencia') : 'Por recibir') },
     { titulo: 'Recibió', celda: (s) => (s.recepcion ? <span className="text-xs">{s.recepcion.firmanteRecibe}<span className="block text-secundario">{fechaHora(s.recepcion.en.toDate())}</span></span> : '—'), csv: (s) => (s.recepcion ? `${s.recepcion.firmanteRecibe} ${fechaHora(s.recepcion.en.toDate())}` : '') },
     { titulo: 'Acta', sinCsv: true, celda: (s) => <button type="button" onClick={() => onActa(s)} title="Ver acta" className="inline-flex items-center rounded-lg border border-[#D3D1C7] bg-white p-1.5 text-gray-700 hover:border-accent hover:text-accent"><FileText size={12} /></button> },
   ]

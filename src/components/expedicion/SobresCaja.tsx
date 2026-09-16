@@ -1,5 +1,5 @@
 import { ReactNode } from 'react'
-import { Check, PackageCheck, Truck } from 'lucide-react'
+import { Check, Handshake, PackageCheck, Truck } from 'lucide-react'
 import Badge from '@/components/common/Badge'
 import HistorialTable, { type ColumnaHistorial } from '@/components/common/HistorialTable'
 import { RETENCION_LABELS } from '@/components/supervisor/RetencionForm'
@@ -12,7 +12,7 @@ import { MOTIVOS_DIFERENCIA_LIQUIDACION, type ChequeRendido, type RetencionRendi
 // estado de recepción, la tabla de sobres del historial y el texto de cada
 // valor en papel. Glosario: "A rendir" es SOLO el teórico del sistema;
 // "Declaré" lo que contó el cajero; "Contado por tesorería" lo que contó
-// tesorería; estados "En camino" y "Recibida". Nada de "validación".
+// tesorería; estados "Por recibir" y "Recibida". Nada de "validación".
 
 export const diaMes = (fecha: string) => `${fecha.slice(8, 10)}/${fecha.slice(5, 7)}`
 
@@ -30,7 +30,7 @@ export const textoRetencion = (re: RetencionRendida) => `Retención ${RETENCION_
 /** "Recibida por Yanina 18:32 · conforme" / "con diferencia −$X (motivo)". */
 export function textoRecepcion(s: Sobre): string {
   const r = s.recepcion
-  if (!r) return `En camino · ${haceCuanto(antiguedadHoras(s, Date.now()))}`
+  if (!r) return s.entrega ? `Entregado a ${s.entrega.recibio.nombre} ${horaCorta(s.entrega.en)} · sin contar` : `Por recibir · ${haceCuanto(antiguedadHoras(s, Date.now()))}`
   const base = `Recibida por ${r.recibio.nombre} ${horaCorta(r.en)}`
   if (r.conformidad === 'conforme') return `${base} · conforme`
   const d = r.diferencia
@@ -43,9 +43,12 @@ export function textoRecepcion(s: Sobre): string {
 
 export function BadgeRecepcion({ sobre, detalle = false }: { sobre: Sobre; detalle?: boolean }) {
   const r = sobre.recepcion
+  if (!r && sobre.entrega) {
+    return <Badge tono="confirmado" icono={<Handshake />} title={`Entregado en mano a ${sobre.entrega.recibio.nombre}, todavía sin contar`}>Entregado{detalle ? ` a ${sobre.entrega.recibio.nombre} ${horaCorta(sobre.entrega.en)}` : ''} · sin contar</Badge>
+  }
   if (!r) {
     const h = antiguedadHoras(sobre, Date.now())
-    return <Badge tono={h >= 12 ? 'aviso' : 'pendiente'} icono={<Truck />} title="Rendida, todavía no la recibió tesorería">En camino{detalle ? ` · ${haceCuanto(h)}` : ''}</Badge>
+    return <Badge tono={h >= 12 ? 'aviso' : 'pendiente'} icono={<Truck />} title="Rendida, todavía no la recibió tesorería">Por recibir{detalle ? ` · ${haceCuanto(h)}` : ''}</Badge>
   }
   const conforme = r.conformidad === 'conforme'
   return (

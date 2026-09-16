@@ -90,6 +90,8 @@ const PALLET: UserRole[] = ['super_admin', 'produccion_hielo', 'produccion_encar
 const CAJA: UserRole[] = ['caja', 'super_admin']
 const CAJA_HISTORIAL: UserRole[] = ['caja', 'super_admin', 'gerente_general']
 const TESORERIA: UserRole[] = ['tesoreria', 'super_admin', 'gerente_general']
+// Ventas en vivo (2026-09-16): la mercadería del día también le sirve a logística y a comercial.
+const VENTAS_LIVE: UserRole[] = ['tesoreria', 'super_admin', 'gerente_general', 'logistica', 'gerente_comercial', 'comercial']
 const SUPERVISOR: UserRole[] = ['supervisor', 'super_admin']
 
 export const CATALOGO: RutaConfig[] = [
@@ -164,6 +166,7 @@ export const CATALOGO: RutaConfig[] = [
   R('/produccion/ficha/:palletId',  'Ficha de pallet',    'produccion', PALLET, { deepLink: true, externa: true }),
 
   // ── Logística: tesorería ──────────────────────────────────────────────────
+  R('/tesoreria/ventas',                  'Ventas en vivo',     'tesoreria', VENTAS_LIVE, { icon: ShoppingCart, menuGroup: 'tesoreria' }),
   R('/tesoreria',                         'Tesorería en vivo',  'tesoreria', TESORERIA, { icon: Activity, menuGroup: 'tesoreria' }),
   R('/tesoreria/liquidaciones',           'Liquidaciones',      'tesoreria', TESORERIA, { icon: Scale, menuGroup: 'tesoreria' }),
   R('/tesoreria/recepcion',               'Recepción',          'tesoreria', TESORERIA, { icon: ShieldCheck, menuGroup: 'tesoreria' }),
@@ -255,7 +258,7 @@ export interface GrupoSidebar { id: MenuGroup; label: string; entradas: EntradaM
 export const SIDEBARS: Record<Sistema, GrupoSidebar[]> = {
   // Logística: la mercadería. Termina cuando el camión sale por el portón.
   logistica: [
-    { id: 'despacho',   label: 'Despacho & Rutas',    entradas: ['/logistica/resumen', '/logistica', '/admin/monitoreo', '/admin/historial-despacho', '/comercial/mapa'] },
+    { id: 'despacho',   label: 'Despacho & Rutas',    entradas: ['/logistica/resumen', '/logistica', '/admin/monitoreo', '/tesoreria/ventas', '/admin/historial-despacho', '/comercial/mapa'] },
     { id: 'flota',      label: 'Operaciones & Flota', entradas: ['/admin/flota', '/admin/incidencias', '/admin/clima'] },
     // La carga del camión: el remito lo emite caja, el muelle lo entrega y
     // seguridad controla la salida. Un cajero con el rol adicional muelle o
@@ -273,12 +276,12 @@ export const SIDEBARS: Record<Sistema, GrupoSidebar[]> = {
   // Tesorería & Cajas: la plata y los valores, de la ventanilla al arqueo.
   tesoreria: [
     { id: 'caja',      label: 'Caja & Ventanilla', entradas: ['/caja/ventanilla', '/caja/cobranzas', '/caja/liquidaciones', '/caja/liquidaciones/abiertas', '/caja/rendiciones', '/caja/entregas', '/caja/liquidaciones/historial'] },
-    { id: 'tesoreria', label: 'Tesorería',         entradas: ['/tesoreria', '/tesoreria/recepcion', '/tesoreria/liquidaciones', '/tesoreria/liquidaciones/abiertas', '/tesoreria/entregas', '/tesoreria/anulaciones', '/tesoreria/rendiciones/historial'] },
+    { id: 'tesoreria', label: 'Tesorería',         entradas: ['/tesoreria/ventas', '/tesoreria', '/tesoreria/recepcion', '/tesoreria/liquidaciones', '/tesoreria/liquidaciones/abiertas', '/tesoreria/entregas', '/tesoreria/anulaciones', '/tesoreria/rendiciones/historial'] },
   ],
   comercial: [
     // El listado de producción es consulta de stock para gerencia, comercial y
     // logística, que no tienen el dominio Producción.
-    { id: 'tablero',      label: 'Tablero',      entradas: ['/comercial', '/comercial/ventas', '/comercial/mapa', '/produccion/listado'] },
+    { id: 'tablero',      label: 'Tablero',      entradas: ['/comercial', '/comercial/ventas', '/tesoreria/ventas', '/comercial/mapa', '/produccion/listado'] },
     { id: 'clientes',     label: 'Clientes',     entradas: ['/usuarios', '/admin/mapa-clientes', '/admin/visitas'] },
     { id: 'precios',      label: 'Precios',      entradas: ['/admin/precios', '/comercial/reporte-precios'] },
     // /anulaciones: DominioLayout la esconde a quien no tiene el permiso individual `autorizaAnulaciones` (salvo super_admin).

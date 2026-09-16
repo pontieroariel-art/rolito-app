@@ -21,8 +21,8 @@ describe('PDF de liquidación con hojas por empresa (smoke)', () => {
       cobranzasCalle: { cantidad: 6, efectivo: 560300, transferencia: 95000, total: 655300, cheques: { cantidad: 2, total: 380000 }, retenciones: { cantidad: 1, total: 12450 } },
       efectivoARendir: 560300, efectivoRecibido: 550300, diferenciaEfectivo: -10000,
       porEmpresa: {
-        redonhielo: { efectivo: 412300, transferencia: 95000, ventas: { cantidad: 0, total: 0 }, cobranzas: { cantidad: 4, total: 899750 }, cheques: { cantidad: 2, total: 380000 }, retenciones: { cantidad: 1, total: 12450 } },
-        rolito:     { efectivo: 148000, transferencia: 0, ventas: { cantidad: 0, total: 0 }, cobranzas: { cantidad: 2, total: 148000 }, cheques: { cantidad: 0, total: 0 }, retenciones: { cantidad: 0, total: 0 } },
+        redonhielo: { efectivo: 412300, transferencia: 95000, ventas: { cantidad: 0, total: 0 }, cobranzas: { cantidad: 4, total: 899750 }, cheques: { cantidad: 2, total: 380000 }, retenciones: { cantidad: 1, total: 12450 }, ventasContado: { cantidad: 0, total: 0 }, ventasEfectivo: 0, ventasTransferencia: 0, cobranzasEfectivo: 412300, cobranzasTransferencia: 95000 },
+        rolito:     { efectivo: 148000, transferencia: 0, ventas: { cantidad: 0, total: 0 }, cobranzas: { cantidad: 2, total: 148000 }, cheques: { cantidad: 0, total: 0 }, retenciones: { cantidad: 0, total: 0 }, ventasContado: { cantidad: 0, total: 0 }, ventasEfectivo: 0, ventasTransferencia: 0, cobranzasEfectivo: 148000, cobranzasTransferencia: 0 },
       },
       conteoBilletes: {
         redonhielo: { billetes: { '20000': 15, '10000': 9, '2000': 6, '1000': 0, '500': 0 }, cambioChico: 300, sinEfectivo: false, total: 402300 },
@@ -44,8 +44,8 @@ describe('PDF de liquidación con hojas por empresa (smoke)', () => {
     const bytes = Buffer.from(await blob.arrayBuffer())
     expect(bytes.subarray(0, 4).toString()).toBe('%PDF')
     const paginas = (bytes.toString('latin1').match(/\/Type\s*\/Page[^s]/g) ?? []).length
-    expect(paginas).toBe(3)
     if (process.env.LIQ_SMOKE_OUT) writeFileSync(`${process.env.LIQ_SMOKE_OUT}/liquidacion-smoke.pdf`, bytes)
+    expect(paginas).toBe(3)
   })
 
   it('un cierre anterior al 16/09 (sin porEmpresa) sigue saliendo en una sola página', async () => {

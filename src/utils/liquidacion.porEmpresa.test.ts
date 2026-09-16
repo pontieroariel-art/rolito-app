@@ -48,11 +48,15 @@ describe('plataPorEmpresa', () => {
       efectivo: 1000 + 2000 + 10, transferencia: 500,
       ventas: { cantidad: 3, total: 10_500 }, cobranzas: { cantidad: 2, total: 4060 },
       cheques: { cantidad: 2, total: 2000 }, retenciones: { cantidad: 1, total: 50 },
+      // Contado y cobranzas por separado (cuadro de dos columnas, 2026-09-16): la cta. cte. de 9000 no entra en "contado".
+      ventasContado: { cantidad: 2, total: 1500 }, ventasEfectivo: 1000, ventasTransferencia: 500, cobranzasEfectivo: 2010, cobranzasTransferencia: 0,
     })
     expect(p.rolito).toEqual({
       efectivo: 300 + 400, transferencia: 100,
       ventas: { cantidad: 2, total: 1000 }, cobranzas: { cantidad: 1, total: 500 },
       cheques: { cantidad: 0, total: 0 }, retenciones: { cantidad: 0, total: 0 },
+      // La promo en cta. cte. (700) es factura X que se cobra después con recibo: tampoco es contado.
+      ventasContado: { cantidad: 1, total: 300 }, ventasEfectivo: 300, ventasTransferencia: 0, cobranzasEfectivo: 400, cobranzasTransferencia: 100,
     })
   })
 

@@ -171,6 +171,12 @@ export const getAllUsers = async (force = false): Promise<UserProfile[]> => {
   return _usersCache
 }
 
+/** Usuarios de tesorería activos: a quién le entrega el cajero el sobre en mano (2026-09-16). Caja puede leer solo ese rol. */
+export const getUsuariosTesoreria = async (): Promise<UserProfile[]> => {
+  const snap = await getDocs(query(collection(db, 'users'), where('rol', '==', 'tesoreria'), where('estado', '==', 'activo'), limit(50)))
+  return snap.docs.map((d) => ({ uid: d.id, ...d.data() } as UserProfile)).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+}
+
 export const getStaffUsers = async (): Promise<UserProfile[]> => {
   // Todo el staff que se administra desde Usuarios (los operarios de
   // producción tienen su propia pantalla). La lista es STAFF_ROLES

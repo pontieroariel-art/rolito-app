@@ -153,7 +153,10 @@ export function recibidosSinMotivo(valores: ValorRecibido[]): string[] {
 
 // ── Custodia y antigüedad ────────────────────────────────────────────────────
 
-export const sobrePendiente = (s: Pick<Sobre, 'estado'>): boolean => s.estado === 'pendiente_recepcion'
+/** Sin contar por tesorería: cerrado en la ventanilla o ya entregado en mano. */
+export const sobrePendiente = (s: Pick<Sobre, 'estado'>): boolean => s.estado === 'pendiente_recepcion' || s.estado === 'entregada'
+/** Entregado en mano a tesorería y todavía sin contar. */
+export const sobreEntregado = (s: Pick<Sobre, 'estado'>): boolean => s.estado === 'entregada'
 
 export function antiguedadHoras(s: Pick<Sobre, 'cerradaEn'>, ahora: number): number {
   return Math.max(0, (ahora - s.cerradaEn.toMillis()) / 3_600_000)
@@ -198,8 +201,11 @@ export function custodiaDePlanta(plantaId: PlantaId, fecha: string, sesiones: Ca
 }
 
 /** Quién tiene la plata de un sobre ahora. */
-export function custodioDe(s: Pick<Sobre, 'estado' | 'rindio' | 'recepcion'>): { uid: string; nombre: string } {
-  return s.estado === 'recibida' && s.recepcion ? s.recepcion.recibio : s.rindio
+export function custodioDe(s: Pick<Sobre, 'estado' | 'rindio' | 'recepcion' | 'entrega'>): { uid: string; nombre: string } {
+  if (s.estado === 'recibida' && s.recepcion) return s.recepcion.recibio
+  // Entregado en mano: la plata ya es de quien firmó el recibí, aunque no la haya contado.
+  if (s.estado === 'entregada' && s.entrega) return s.entrega.recibio
+  return s.rindio
 }
 
 const redondear = (n: number): number => Math.round(n * 100) / 100

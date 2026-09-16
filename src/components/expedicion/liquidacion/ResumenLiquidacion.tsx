@@ -6,6 +6,7 @@ import type { LiquidacionCalculada, RepartoClasificado } from '@/utils/liquidaci
 import type { ConteoBilletes, DescargaCamion, Liquidacion, RemitoCarga } from '@/types'
 import { MOTIVOS_DESVIO_DESCARGA } from '@/types'
 import TablaConteoBilletes, { ChipEmpresa, COLOR_EMPRESA } from '@/components/common/TablaConteoBilletes'
+import { NOMBRE_EMPRESA } from '@/utils/inhabilitadoTango'
 import { conteoCompleto, desgloseContado, EMPRESAS_CONTEO, totalConteo } from '@/utils/billetes'
 import type { FaltanteCalculado } from '@/utils/faltantes'
 import { TH as th, TD as td } from '@/components/common/tabla'
@@ -99,17 +100,38 @@ export function TarjetasPlata({ reparto, calc, conteo, onConteo, soloLectura, ef
   /** En una cerrada sin conteo guardado: el total que se escribió en su momento. */
   efectivoRecibidoCerrado?: number
 }) {
-  const promoEfectivo = sumaCobrada(reparto.promo.contado.ventas.filter((v) => v.formaPago === 'contado_efectivo'))
   const completo = conteo ? conteoCompleto(conteo) : false
   const recibido = conteo ? (completo || soloLectura ? totalConteo(conteo) : null) : (efectivoRecibidoCerrado ?? null)
   const diferencia = recibido === null ? null : recibido - calc.efectivoARendir
   return (
     <section className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-4 space-y-4">
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <Tile color="#1D6FA8" titulo="Contado · Redonhielo" total={reparto.contado.total} lineas={[['Efectivo', formatoARS(reparto.contado.efectivo.total)], ['Transferencia', formatoARS(reparto.contado.transferencia.total)], ['Facturas', String(reparto.contado.efectivo.ventas.length + reparto.contado.transferencia.ventas.length)]]} />
-        <Tile color="#1D6FA8" titulo="Cuenta corriente · Redonhielo" total={reparto.cuentaCorriente.total} lineas={[['Remitos', String(reparto.cuentaCorriente.ventas.length)], ['', 'no entra a rendición']]} />
-        <Tile color="#8A4FBF" titulo="Promo · Rolito" total={reparto.promo.total} lineas={[['Contado efectivo', formatoARS(promoEfectivo)], ['Cuenta corriente', formatoARS(reparto.promo.cuentaCorriente.total)], ['Facturas X', String(reparto.promo.contado.ventas.length + reparto.promo.cuentaCorriente.ventas.length)]]} />
-        <Tile color="#0F6B4E" titulo="Cobranzas" total={reparto.cobranzas.total} lineas={[['Efectivo', formatoARS(reparto.cobranzas.efectivo)], ['Transferencia', formatoARS(reparto.cobranzas.transferencia)], [`Cheques (${reparto.cobranzas.cheques.cantidad})`, formatoARS(reparto.cobranzas.cheques.total)], ...(reparto.cobranzas.retenciones.cantidad ? [[`Retenciones (${reparto.cobranzas.retenciones.cantidad})`, formatoARS(reparto.cobranzas.retenciones.total)] as [string, string]] : [])]} />
+      {/* Dos columnas por empresa con la misma denominación (2026-09-16, pedido
+          de Ariel): arriba el contado (lo cobrado en el momento, con factura o
+          factura X), abajo las cobranzas (recibos de cuenta corriente, con sus
+          cheques y retenciones). La cuenta corriente no tiene tarjeta: el
+          remito de Redonhielo no se factura y la factura X de Rolito en cuenta
+          corriente entra el día que el cliente la paga con un recibo. */}
+      <div className="grid md:grid-cols-2 gap-3">
+        {EMPRESAS_CONTEO.map((e) => {
+          const p = calc.porEmpresa[e]
+          const color = e === 'redonhielo' ? '#1D6FA8' : '#8A4FBF'
+          const contado = p.ventasContado ?? { cantidad: 0, total: 0 }
+          return (
+            <div key={e} className="grid sm:grid-cols-2 gap-3">
+              <Tile color={color} titulo={`Contado · ${NOMBRE_EMPRESA[e]}`} total={contado.total} lineas={[
+                ['Efectivo', formatoARS(p.ventasEfectivo ?? 0)],
+                ['Transferencia', formatoARS(p.ventasTransferencia ?? 0)],
+                [e === 'redonhielo' ? 'Facturas' : 'Facturas X', String(contado.cantidad)],
+              ]} />
+              <Tile color={color} titulo={`Cobranzas · ${NOMBRE_EMPRESA[e]}`} total={p.cobranzas.total} lineas={[
+                ['Efectivo', formatoARS(p.cobranzasEfectivo ?? 0)],
+                ['Transferencia', formatoARS(p.cobranzasTransferencia ?? 0)],
+                [`Cheques (${p.cheques.cantidad})`, p.cheques.cantidad ? formatoARS(p.cheques.total) : '—'],
+                [`Retenciones (${p.retenciones.cantidad})`, p.retenciones.cantidad ? formatoARS(p.retenciones.total) : '—'],
+              ]} />
+            </div>
+          )
+        })}
       </div>
 
       <div className="pt-3 border-t border-[#E7E5DC]">
@@ -153,7 +175,7 @@ export function TarjetasPlata({ reparto, calc, conteo, onConteo, soloLectura, ef
         <div>
           <p className="text-xs text-secundario">Efectivo a rendir</p>
           <p className="text-2xl font-bold text-gray-900 tabular-nums">{formatoARS(calc.efectivoARendir)}</p>
-          <p className="text-[11px] text-secundario">Contado efectivo {formatoARS(reparto.contado.efectivo.total)} + promo efectivo {formatoARS(promoEfectivo)} + cobranzas efectivo {formatoARS(reparto.cobranzas.efectivo)}</p>
+          <p className="text-[11px] text-secundario">Redonhielo {formatoARS(calc.porEmpresa.redonhielo.efectivo)} + Rolito {formatoARS(calc.porEmpresa.rolito.efectivo)} (contado en efectivo + cobranzas en efectivo de cada empresa)</p>
         </div>
         <div>
           <p className="text-xs text-secundario">{soloLectura ? 'Efectivo recibido' : 'Contado en billetes'}</p>

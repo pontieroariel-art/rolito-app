@@ -920,6 +920,8 @@ export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiq
   const { default: autoTable } = await import('jspdf-autotable')
   const { describirComprobante, estadoTangoVenta } = await import('./comprobanteDeVenta')
   const { nombreDelCambio } = await import('./cambios')
+  const { NOMBRE_EMPRESA } = await import('./inhabilitadoTango')
+  const { plataPorEmpresa } = await import('./liquidacion')
   const doc   = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const pageW = doc.internal.pageSize.getWidth()
   const logo  = await fetchImageAsBase64('/logo-rolito.png')
@@ -993,10 +995,37 @@ export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiq
   }
   const yEnvases = finTabla(doc, y + 40)
 
+  // Cuadro por empresa (2026-09-16, pedido de Ariel): una columna por
+  // empresa con la misma denominación —"Contado" (lo cobrado en el momento,
+  // con factura o factura X) y "Cobranzas" (recibos, con cheques y
+  // retenciones)— y el efectivo a rendir de cada una. La cuenta corriente no
+  // entra: el remito de Redonhielo no se factura y la factura X de Rolito en
+  // cuenta corriente entra el día que el cliente la paga con un recibo. Los
+  // cierres sin esos campos siguen con el cuadro viejo de una sola columna.
+  const pe = liq.porEmpresa
+  const conEmpresas = !!(pe && pe.redonhielo.ventasContado && pe.rolito.ventasContado)
+  const negrita = (t: string) => ({ content: t, styles: { fontStyle: 'bold' as const } })
+  const ancho = (t: string, span: number) => ({ content: t, colSpan: span, styles: { halign: 'right' as const } })
+  const fila = (etiqueta: string, f: (p: NonNullable<typeof pe>['redonhielo']) => string, negra = false) =>
+    [negra ? negrita(etiqueta) : etiqueta, negra ? negrita(f(pe!.redonhielo)) : f(pe!.redonhielo), negra ? negrita(f(pe!.rolito)) : f(pe!.rolito)]
   autoTable(doc, {
     startY: y,
-    head: [['Importes y rendición', '']],
-    body: [
+    head: conEmpresas ? [['Importes y rendición', 'Redonhielo', 'Rolito']] : [['Importes y rendición', '']],
+    body: conEmpresas ? [
+      fila('Contado', (p) => money(p.ventasContado?.total ?? 0), true),
+      fila('   Efectivo', (p) => money(p.ventasEfectivo ?? 0)),
+      fila('   Transferencia', (p) => money(p.ventasTransferencia ?? 0)),
+      fila('   Facturas (X en Rolito)', (p) => String(p.ventasContado?.cantidad ?? 0)),
+      fila('Cobranzas', (p) => money(p.cobranzas.total), true),
+      fila('   Efectivo', (p) => money(p.cobranzasEfectivo ?? 0)),
+      fila('   Transferencia', (p) => money(p.cobranzasTransferencia ?? 0)),
+      fila('   Cheques', (p) => p.cheques.cantidad ? `${p.cheques.cantidad} · ${money(p.cheques.total)}` : '—'),
+      fila('   Retenciones', (p) => p.retenciones.cantidad ? `${p.retenciones.cantidad} · ${money(p.retenciones.total)}` : '—'),
+      fila('Efectivo a rendir', (p) => money(p.efectivo), true),
+      [negrita('Efectivo a rendir (total)'), ancho(money(liq.efectivoARendir), 2)],
+      ['Efectivo recibido', ancho(money(liq.efectivoRecibido), 2)],
+      [negrita('Diferencia de efectivo'), ancho(money(liq.diferenciaEfectivo), 2)],
+    ] : [
       ['Contado efectivo', money(liq.importes.contadoEfectivo)],
       ['Contado transferencia', money(liq.importes.contadoTransferencia)],
       ['Cuenta corriente', money(liq.importes.cuentaCorriente)],
@@ -1011,9 +1040,9 @@ export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiq
       ['Efectivo recibido', money(liq.efectivoRecibido)],
       ['Diferencia de efectivo', money(liq.diferenciaEfectivo)],
     ],
-    styles: { fontSize: 8.5, cellPadding: 2 },
-    headStyles: { fillColor: [45, 106, 79], textColor: 255, fontStyle: 'bold', fontSize: 7.5 },
-    columnStyles: { 1: { halign: 'right', cellWidth: 34 } },
+    styles: { fontSize: conEmpresas ? 8 : 8.5, cellPadding: conEmpresas ? 1.6 : 2 },
+    headStyles: { fillColor: [45, 106, 79], textColor: 255, fontStyle: 'bold', fontSize: 7.5, halign: 'right' },
+    columnStyles: conEmpresas ? { 0: { halign: 'left', cellWidth: 36 }, 1: { halign: 'right', cellWidth: 26 }, 2: { halign: 'right', cellWidth: 26 } } : { 1: { halign: 'right', cellWidth: 34 } },
     margin: { left: 108, right: 14 },
   })
   y = Math.max(yEnvases, finTabla(doc, y + 40)) + 6
@@ -1116,8 +1145,8 @@ export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiq
     tabla(`Ventas contado · Redonhielo — ${money(r.contado.total)} (efectivo ${money(r.contado.efectivo.total)} · transferencia ${money(r.contado.transferencia.total)})`, cabV,
       [...r.contado.efectivo.ventas.map((v) => filaVenta(v)), ...r.contado.transferencia.ventas.map((v) => filaVenta(v))], colsV)
     tabla(`Ventas cuenta corriente · Redonhielo — ${money(r.cuentaCorriente.total)} (no se rinde)`, cabV, r.cuentaCorriente.ventas.map((v) => filaVenta(v)), colsV)
-    tabla(`Promo · Rolito — ${money(r.promo.total)} (contado ${money(r.promo.contado.total)} · cta. cte. ${money(r.promo.cuentaCorriente.total)})`, cabV,
-      [...r.promo.contado.ventas.map((v) => filaVenta(v)), ...r.promo.cuentaCorriente.ventas.map((v) => filaVenta(v))], colsV)
+    tabla(`Ventas contado · Rolito — ${money(r.promo.contado.total)} (facturas X)`, cabV, r.promo.contado.ventas.map((v) => filaVenta(v)), colsV)
+    tabla(`Ventas cuenta corriente · Rolito — ${money(r.promo.cuentaCorriente.total)} (facturas X que se cobran después con recibo · no se rinde)`, cabV, r.promo.cuentaCorriente.ventas.map((v) => filaVenta(v)), colsV)
     const filaCob = (c: import('../types').Cobranza) => {
       const medios = c.medios
         ? [c.medios.efectivo > 0 ? `efectivo ${money(c.medios.efectivo)}` : '', c.medios.transferencia > 0 ? `transferencia ${money(c.medios.transferencia)}` : '', ...c.medios.cheques.map((ch) => `cheque ${ch.bancoNombre} ${ch.numero} ${money(ch.importe)}`), ...c.medios.retenciones.map((rt) => `retención ${money(rt.importe)}`)].filter(Boolean).join('\n')
@@ -1125,8 +1154,12 @@ export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiq
       return [hora(c.fecha.toDate()), `${c.clienteNombre}${c.codigoTango ? ` · ${c.codigoTango}` : ''}`, medios, (c.imputaciones ?? []).map((i) => `${i.comprobanteTipo} ${i.comprobanteNumero}`).join('\n'), `${c.numeroRecibo ?? 'sin número'}${c.tango?.reciboNumero ? ` · ${c.tango.reciboNumero}` : ''}`, money(c.importe)]
     }
     const cabC = ['Hora', 'Cliente', 'Medios', 'Imputa', 'Recibo · Tango', 'Importe']
-    tabla(`Cobranzas — ${money(r.cobranzas.total)} (efectivo ${money(r.cobranzas.efectivo)} se rinde · cheques ${money(r.cobranzas.cheques.total)})`, cabC,
-      [...r.cobranzas.redonhielo.map((c) => [...filaCob(c)]), ...r.cobranzas.rolito.map((c) => { const f = filaCob(c); f[1] = `${f[1]} · Rolito`; return f })], { 0: { cellWidth: 12 }, 5: { halign: 'right', cellWidth: 22 } })
+    // Cobranzas por empresa (2026-09-16), con el efectivo y los cheques de ESA empresa.
+    for (const e of ['redonhielo', 'rolito'] as const) {
+      const pc = plataPorEmpresa([], r.cobranzas[e])[e]
+      tabla(`Cobranzas · ${NOMBRE_EMPRESA[e]} — ${money(pc.cobranzas.total)} (efectivo ${money(pc.efectivo)} se rinde · cheques ${money(pc.cheques.total)})`, cabC,
+        r.cobranzas[e].map((c) => filaCob(c)), { 0: { cellWidth: 12 }, 5: { halign: 'right', cellWidth: 22 } })
+    }
     tabla(`Cambios — ${r.cambios.unidades} bolsas (rotas recibidas en muelle: ${r.cambios.rotasRecibidas})`, ['Hora', 'Cliente', 'Bolsas repuestas'],
       r.cambios.lista.map((c) => [hora(c.fecha.toDate()), c.clienteNombre, c.items.map((i) => `${i.cantidad} × ${nombreDelCambio(i.nombre)}`).join('\n')]), { 0: { cellWidth: 12 } })
     tabla('Resumen por cliente', ['Cliente', 'Código', 'Contado', 'Cta. cte.', 'Promo', 'Cobrado', 'Cambios'],
@@ -1162,7 +1195,6 @@ export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiq
   // 16/09 no tienen `porEmpresa` y siguen saliendo como antes.
   if (liq.porEmpresa) {
     const { DENOMINACIONES, etiquetaDenominacion } = await import('./billetes')
-    const { NOMBRE_EMPRESA } = await import('./inhabilitadoTango')
     const { RETENCION_LABELS } = await import('../components/supervisor/RetencionForm')
     const ETIQUETA = { redonhielo: 'oficial', rolito: 'no oficial' } as const
     for (const empresa of ['redonhielo', 'rolito'] as const) {

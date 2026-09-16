@@ -111,6 +111,7 @@ const EntregasTesoreriaPage = lazy(() => import('@/pages/logistica/tesoreria/Ent
 const AnulacionesPage   = lazy(() => import('./pages/admin/AnulacionesPage'))
 const RendicionesHistorialPage = lazy(() => import('@/pages/logistica/expedicion/RendicionesHistorialPage'))
 const TesoreriaLivePage        = lazy(() => import('@/pages/logistica/tesoreria/TesoreriaLivePage'))
+const VentasLivePage           = lazy(() => import('@/pages/logistica/tesoreria/VentasLivePage'))
 const RecepcionPage            = lazy(() => import('@/pages/logistica/tesoreria/RecepcionPage'))
 const MuelleDashboard    = lazy(() => import('@/pages/logistica/expedicion/MuelleDashboard'))
 const TiemposMuellePage  = lazy(() => import('@/pages/logistica/expedicion/TiemposMuellePage'))
@@ -325,6 +326,11 @@ function AppContent() {
           </Route>
           <Route element={<ProtectedRoute allowedRoles={rolesDe('/produccion/listado')} />}>
             <Route path="/produccion/listado" element={<ProduccionListadoPage />} />
+          </Route>
+
+          {/* Ventas en vivo (2026-09-16): la mercadería del día, abierta también a logística y comercial. */}
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/tesoreria/ventas')} />}>
+            <Route path="/tesoreria/ventas" element={<VentasLivePage />} />
           </Route>
 
           {/* Logística: tesorería (rol propio, 2026-09-09). Gerencia general entra en modo lectura. */}

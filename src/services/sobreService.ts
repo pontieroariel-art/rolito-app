@@ -102,6 +102,40 @@ export async function cerrarTurnoYRendir(datos: DatosCierreTurno, actor: ActorSo
   return { id, ...data }
 }
 
+// ── Entrega en mano (el cajero se lo da a tesorería) ─────────────────────────
+
+export interface DatosEntregaSobre {
+  recibio:        ActorSobre
+  firmaRecibe:    string
+  firmanteRecibe: string
+}
+
+export class SobreYaEntregadoError extends Error {
+  constructor() { super('Este sobre ya fue entregado. Actualizá la pantalla.') }
+}
+
+/**
+ * El cajero entrega el sobre cerrado en mano (2026-09-16): elige a quién de
+ * tesorería y esa persona firma en su tablet. Pasa a 'entregada' y la custodia
+ * a quien recibió. Escribe solo `estado`, `custodia` y `entrega`; las reglas
+ * exigen que sea el propio cajero y que quien recibe sea de tesorería.
+ */
+export async function entregarSobre(sobreId: string, datos: DatosEntregaSobre): Promise<Sobre> {
+  if (!datos.firmaRecibe) throw new Error('Falta la firma de quien recibe el sobre.')
+  const ref = doc(db, RENDICIONES, sobreId)
+  return runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists() || !esSobre(snap.data())) throw new Error('El sobre no existe.')
+    const sobre = aSobre(snap.id, snap.data())
+    if (sobre.estado !== 'pendiente_recepcion') throw new SobreYaEntregadoError()
+    const ahora = Timestamp.now()
+    const entrega = { recibio: datos.recibio, en: ahora, firmaRecibe: datos.firmaRecibe, firmanteRecibe: datos.firmanteRecibe.trim() }
+    const custodia = { ...datos.recibio, desde: ahora }
+    tx.update(ref, { estado: 'entregada', custodia, entrega })
+    return { ...sobre, estado: 'entregada', custodia, entrega }
+  })
+}
+
 // ── Recepción (quien recibe) ─────────────────────────────────────────────────
 
 export interface DatosRecepcion {
@@ -132,7 +166,7 @@ export async function recibirSobre(sobreId: string, datos: DatosRecepcion, actor
     const snap = await tx.get(ref)
     if (!snap.exists() || !esSobre(snap.data())) throw new Error('El sobre no existe.')
     const sobre = aSobre(snap.id, snap.data())
-    if (sobre.estado !== 'pendiente_recepcion') throw new SobreYaRecibidoError()
+    if (sobre.estado === 'recibida') throw new SobreYaRecibidoError()
     const sinDecidir = valoresSinDecidir(sobre.sistema, valores)
     if (sinDecidir.length > 0) throw new Error(`Faltan tildar ${sinDecidir.length} valor(es) en papel antes de firmar.`)
 
@@ -173,7 +207,7 @@ export const subscribeSobresPendientes = (
   onSnapshot(
     query(
       collection(db, RENDICIONES),
-      where('estado', '==', 'pendiente_recepcion'),
+      where('estado', 'in', ['pendiente_recepcion', 'entregada']),
       where('rindeA', '==', rindeA),
       ...(plantaId ? [where('plantaId', '==', plantaId)] : []),
     ),

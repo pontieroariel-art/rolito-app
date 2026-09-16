@@ -435,6 +435,10 @@ service cloud.firestore {
       // esto no cambia lo que ven, solo cierra el acceso al resto de la colección.
       allow read: if request.auth != null && (isChofer() || isCaja())
         && resource.data.get('rol', 'cliente') in ['cliente', 'chofer'];
+      // Caja además necesita la lista de TESORERÍA: elige a quién le entrega el
+      // sobre en mano (2026-09-16). Solo ese rol, nada más del personal.
+      allow read: if request.auth != null && isCaja()
+        && resource.data.get('rol', '') == 'tesoreria';
       // Supervisor de cobranzas: solo necesita el padrón de CLIENTES (a quién
       // cobra); mismo criterio de acotamiento por rol del target que chofer/caja.
       allow read: if request.auth != null && isSupervisor()
@@ -1744,13 +1748,40 @@ service cloud.firestore {
         && request.resource.data.cerradaEn is timestamp
         && !('recepcion' in request.resource.data);
 
-      // Recepción de tesorería (o el operador), una sola vez: pendiente ->
-      // recibida, su uid en la recepción y en la custodia, mismos valores que
-      // el sistema tildados uno por uno, motivo y nota si hubo diferencia,
-      // firma. Nada más se toca.
+      // Entrega EN MANO (2026-09-16): el cajero que rindió le da el sobre
+      // cerrado a alguien de tesorería, que firma en la tablet del cajero.
+      // pendiente -> entregada; quien recibe tiene que ser de tesorería (se lee
+      // su perfil); la custodia pasa a esa persona. Solo estado, custodia y entrega.
+      function esTesoreria(uid) {
+        let u = get(/databases/$(database)/documents/users/$(uid)).data;
+        return u.get('rol', '') == 'tesoreria' || 'tesoreria' in u.get('rolesExtra', []);
+      }
+      function entregaOk(e) {
+        return e.recibio.uid is string && e.recibio.uid != request.auth.uid
+          && e.recibio.rol == 'tesoreria'
+          && esTesoreria(e.recibio.uid)
+          && e.en is timestamp
+          && e.firmaRecibe is string && e.firmaRecibe.size() > 0
+          && e.firmanteRecibe is string && e.firmanteRecibe.size() > 0;
+      }
+      allow update: if request.auth != null && isCaja()
+        && resource.data.get('tipo', '') == 'ventanilla'
+        && resource.data.get('rindio', {}).get('uid', '') == request.auth.uid
+        && resource.data.estado == 'pendiente_recepcion'
+        && request.resource.data.estado == 'entregada'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'custodia', 'entrega'])
+        && entregaOk(request.resource.data.entrega)
+        && request.resource.data.custodia.uid == request.resource.data.entrega.recibio.uid
+        && request.resource.data.custodia.desde is timestamp;
+
+      // Recepción de tesorería (o el operador), una sola vez: pendiente o
+      // entregada -> recibida (los sobres anteriores al 16/09 no pasan por la
+      // entrega en mano), su uid en la recepción y en la custodia, mismos
+      // valores que el sistema tildados uno por uno, motivo y nota si hubo
+      // diferencia, firma. Nada más se toca.
       allow update: if request.auth != null && (isTesoreria() || isOperator())
         && resource.data.get('rindeA', '') == 'tesoreria'
-        && resource.data.estado == 'pendiente_recepcion'
+        && resource.data.estado in ['pendiente_recepcion', 'entregada']
         && request.resource.data.estado == 'recibida'
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'custodia', 'recepcion'])
         && request.resource.data.custodia.uid == request.auth.uid
