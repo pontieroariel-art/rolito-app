@@ -131,21 +131,37 @@ async function resolverClienteOcasional(payload, ctx) {
         return { error: `Venta a consumidor final sin ficha: falta config/tango.facturador.${empresa}.clienteConsumidorFinal.codigo (COD_CLIENT de la cuenta CONSUMIDOR FINAL en Tango)` };
     let id = Number(generico?.idGva14);
     if (!Number.isInteger(id) || id <= 0) {
-        const cache = idsConsumidorFinal.get(`${empresa}|${codigo}`);
-        if (cache)
-            id = cache;
-        else {
-            const filas = await ctx.tango.getByFilter(ctx.company, client_1.PROCESOS.clientes, `WHERE COD_CLIENT = '${codigo.replace(/'/g, "''")}'`);
-            id = Number((0, pedido_1.prop)(filas[0] ?? {}, 'ID_GVA14'));
-            if (!Number.isInteger(id) || id <= 0)
-                return { error: `La cuenta CONSUMIDOR FINAL "${codigo}" no existe en Tango (Company ${ctx.company}); revisá config/tango.facturador.${empresa}.clienteConsumidorFinal.codigo` };
-            idsConsumidorFinal.set(`${empresa}|${codigo}`, id);
-            ctx.log(`consumidor final: cuenta ${codigo} → ID_GVA14 ${id}`);
+        // 1) GetByFilter con caché, como artículos/depósitos/monedas. 2) Si el
+        // filtro rebota o no encuentra, se recorre el padrón (Api/Get paginado,
+        // como la sync de clientes) y se busca el código a mano. En cualquier caso
+        // el id se guarda en config/tango para no volver a buscarlo.
+        let motivo = '';
+        try {
+            id = Number(await ctx.tango.resolverId(ctx.company, `cliente:${codigo}`, client_1.PROCESOS.clientes, client_1.FILTROS.cliente(codigo), 'ID_GVA14'));
         }
+        catch (e) {
+            motivo = e.message;
+            id = 0;
+        }
+        if (!Number.isInteger(id) || id <= 0) {
+            ctx.log(`consumidor final: GetByFilter no resolvió "${codigo}"${motivo ? ` (${motivo})` : ''}; se recorre el padrón`);
+            try {
+                const filas = await ctx.tango.getAll(ctx.company, client_1.PROCESOS.clientes, 200);
+                const fila = filas.find((f) => String((0, pedido_1.prop)(f, 'COD_GVA14') ?? '').trim() === codigo);
+                id = Number((0, pedido_1.prop)(fila ?? {}, 'ID_GVA14'));
+            }
+            catch (e) {
+                return { error: `No se pudo buscar la cuenta CONSUMIDOR FINAL "${codigo}" en Tango: ${e.message}` };
+            }
+        }
+        if (!Number.isInteger(id) || id <= 0)
+            return { error: `La cuenta CONSUMIDOR FINAL "${codigo}" no existe en Tango (Company ${ctx.company}); revisá config/tango.facturador.${empresa}.clienteConsumidorFinal.codigo` };
+        ctx.log(`consumidor final: cuenta ${codigo} → ID_GVA14 ${id}`);
+        if (ctx.guardarIdConsumidorFinal)
+            await ctx.guardarIdConsumidorFinal(empresa, id).catch((e) => ctx.log(`aviso: no se pudo guardar el id en config/tango (${e.message})`));
     }
     return { payload: { ...payload, clienteIdGva14Tango: id, clienteCodigoTango: codigo, clienteNombre: payload.clienteNombre?.trim() && payload.clienteNombre.trim() !== '.' ? payload.clienteNombre : 'CONSUMIDOR FINAL' } };
 }
-const idsConsumidorFinal = new Map();
 async function registrarEnFacturador(payloadOriginal, ctx, tipo) {
     const { tango, cfg, company, item, log } = ctx;
     const empresa = item.empresa ?? '?';

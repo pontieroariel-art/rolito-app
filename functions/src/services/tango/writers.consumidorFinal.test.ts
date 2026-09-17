@@ -11,9 +11,21 @@ const base: PayloadVenta = { clienteNombre: '.', clienteOcasional: { nombre: '.'
 const item = { entidad: 'factura', empresa: 'redonhielo', origenColeccion: 'ventasVentanilla', origenId: 'v1', payload: base } as never
 const log = () => {}
 
-function tangoFalso(filas: Record<string, unknown>[]) {
+function tangoFalso(filas: Record<string, unknown>[], opciones: { filtroRebota?: boolean; padron?: Record<string, unknown>[] } = {}) {
   const llamadas: string[] = []
-  return { llamadas, cliente: { getByFilter: async (_c: unknown, _p: unknown, f: string) => { llamadas.push(f); return filas } } as never }
+  const cache = new Map<string, unknown>()
+  // Misma semántica que TangoClient.resolverId: caché por clave; con
+  // filtroRebota simula el "multi-part identifier could not be bound".
+  const resolverId = async (_c: unknown, clave: string, _p: unknown, f: string, campo: string) => {
+    if (cache.has(clave)) return cache.get(clave)
+    llamadas.push(f)
+    if (opciones.filtroRebota) throw new Error('Tango succeeded=false en GetByFilter')
+    const id = filas[0]?.[campo] ?? null
+    if (id !== null) cache.set(clave, id)
+    return id
+  }
+  const getAll = async () => { llamadas.push('getAll'); return opciones.padron ?? [] }
+  return { llamadas, cliente: { resolverId, getAll } as never }
 }
 
 describe('resolverClienteOcasional', () => {
@@ -36,7 +48,17 @@ describe('resolverClienteOcasional', () => {
     expect('payload' in r1 && r1.payload).toMatchObject({ clienteIdGva14Tango: 7, clienteCodigoTango: 'CF.001', clienteNombre: 'CONSUMIDOR FINAL' })
     const r2 = await resolverClienteOcasional({ ...base, clienteNombre: 'Juan Pérez' }, ctx)
     expect('payload' in r2 && r2.payload.clienteNombre).toBe('Juan Pérez')
-    expect(t.llamadas).toEqual(["WHERE COD_CLIENT = 'CF.001'"])   // la segunda sale de memoria
+    expect(t.llamadas).toEqual(["WHERE COD_GVA14 = 'CF.001'"])   // la segunda sale de la caché
+  })
+
+  it('si el filtro rebota, recorre el padrón, encuentra el código y guarda el id en config', async () => {
+    const t = tangoFalso([], { filtroRebota: true, padron: [{ COD_GVA14: 'PA.003', ID_GVA14: 1 }, { COD_GVA14: 'CF.000', ID_GVA14: 200 }] })
+    const guardados: [string, number][] = []
+    const ctx = { tango: t.cliente, cfg: { facturador: { redonhielo: { clienteConsumidorFinal: { codigo: 'CF.000' } } } }, company: 1, item, log, guardarIdConsumidorFinal: async (e: string, id: number) => { guardados.push([e, id]) } }
+    const r = await resolverClienteOcasional(base, ctx)
+    expect('payload' in r && r.payload.clienteIdGva14Tango).toBe(200)
+    expect(t.llamadas).toEqual(["WHERE COD_GVA14 = 'CF.000'", 'getAll'])
+    expect(guardados).toEqual([['redonhielo', 200]])
   })
 
   it('con idGva14 en la config no consulta la API; si el código no existe en Tango, error claro', async () => {

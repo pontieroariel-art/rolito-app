@@ -29,6 +29,13 @@ export const FILTROS = {
   deposito:  (cod: string) => `WHERE STA22.COD_STA22 = '${sql(cod)}'`,
   moneda:    (cod: string) => `WHERE MONEDA.COD_MONEDA = '${sql(cod)}'`,
   pedidoRef: (ref: string) => `WHERE AXV_PEDIDO.LEYENDA_1 = '${sql(ref)}'`,
+  /**
+   * Cliente por código (proceso 2117 devuelve COD_GVA14 / ID_GVA14, ver
+   * tangoConnectSync). Sin tabla calificada: "GVA14.COD_GVA14" rebotó con
+   * "multi-part identifier could not be bound" (2026-09-17); el vendedor
+   * (INTEGRACION.md §9) también se filtra sin calificar.
+   */
+  cliente:   (cod: string) => `WHERE COD_GVA14 = '${sql(cod)}'`,
 }
 const sql = (s: string) => String(s).replace(/'/g, "''")
 

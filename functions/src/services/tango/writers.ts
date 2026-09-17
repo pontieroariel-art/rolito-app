@@ -38,6 +38,8 @@ export interface ContextoWriter {
   cfg: ConfigTango
   company: number
   item: ItemOutbox & { conCaePropio?: boolean }
+  /** Persiste el ID_GVA14 resuelto de la cuenta CONSUMIDOR FINAL en config/tango (lo da el worker de la nube). */
+  guardarIdConsumidorFinal?: (empresa: string, idGva14: number) => Promise<void>
   log: (msg: string) => void
 }
 
@@ -150,7 +152,7 @@ export const enviarNotaCredito = (payload: PayloadVenta, ctx: ContextoWriter): P
  * empresa (`clienteConsumidorFinal`). El id se resuelve por API con el código
  * la primera vez y queda en memoria. Con ficha, el payload vuelve intacto.
  */
-export async function resolverClienteOcasional(payload: PayloadVenta, ctx: Pick<ContextoWriter, 'tango' | 'cfg' | 'company' | 'item' | 'log'>): Promise<{ payload: PayloadVenta } | { error: string }> {
+export async function resolverClienteOcasional(payload: PayloadVenta, ctx: Pick<ContextoWriter, 'tango' | 'cfg' | 'company' | 'item' | 'log' | 'guardarIdConsumidorFinal'>): Promise<{ payload: PayloadVenta } | { error: string }> {
   const idGva14 = Number(payload.clienteIdGva14Tango)
   if (Number.isInteger(idGva14) && idGva14 > 0) return { payload }
   if (!payload.clienteOcasional) return { payload }
@@ -160,19 +162,33 @@ export async function resolverClienteOcasional(payload: PayloadVenta, ctx: Pick<
   if (!codigo) return { error: `Venta a consumidor final sin ficha: falta config/tango.facturador.${empresa}.clienteConsumidorFinal.codigo (COD_CLIENT de la cuenta CONSUMIDOR FINAL en Tango)` }
   let id = Number(generico?.idGva14)
   if (!Number.isInteger(id) || id <= 0) {
-    const cache = idsConsumidorFinal.get(`${empresa}|${codigo}`)
-    if (cache) id = cache
-    else {
-      const filas = await ctx.tango.getByFilter(ctx.company, PROCESOS.clientes, `WHERE COD_CLIENT = '${codigo.replace(/'/g, "''")}'`)
-      id = Number(prop(filas[0] ?? {}, 'ID_GVA14'))
-      if (!Number.isInteger(id) || id <= 0) return { error: `La cuenta CONSUMIDOR FINAL "${codigo}" no existe en Tango (Company ${ctx.company}); revisá config/tango.facturador.${empresa}.clienteConsumidorFinal.codigo` }
-      idsConsumidorFinal.set(`${empresa}|${codigo}`, id)
-      ctx.log(`consumidor final: cuenta ${codigo} → ID_GVA14 ${id}`)
+    // 1) GetByFilter con caché, como artículos/depósitos/monedas. 2) Si el
+    // filtro rebota o no encuentra, se recorre el padrón (Api/Get paginado,
+    // como la sync de clientes) y se busca el código a mano. En cualquier caso
+    // el id se guarda en config/tango para no volver a buscarlo.
+    let motivo = ''
+    try {
+      id = Number(await ctx.tango.resolverId(ctx.company, `cliente:${codigo}`, PROCESOS.clientes, FILTROS.cliente(codigo), 'ID_GVA14'))
+    } catch (e) {
+      motivo = (e as Error).message
+      id = 0
     }
+    if (!Number.isInteger(id) || id <= 0) {
+      ctx.log(`consumidor final: GetByFilter no resolvió "${codigo}"${motivo ? ` (${motivo})` : ''}; se recorre el padrón`)
+      try {
+        const filas = await ctx.tango.getAll(ctx.company, PROCESOS.clientes, 200)
+        const fila = filas.find((f) => String(prop(f, 'COD_GVA14') ?? '').trim() === codigo)
+        id = Number(prop(fila ?? {}, 'ID_GVA14'))
+      } catch (e) {
+        return { error: `No se pudo buscar la cuenta CONSUMIDOR FINAL "${codigo}" en Tango: ${(e as Error).message}` }
+      }
+    }
+    if (!Number.isInteger(id) || id <= 0) return { error: `La cuenta CONSUMIDOR FINAL "${codigo}" no existe en Tango (Company ${ctx.company}); revisá config/tango.facturador.${empresa}.clienteConsumidorFinal.codigo` }
+    ctx.log(`consumidor final: cuenta ${codigo} → ID_GVA14 ${id}`)
+    if (ctx.guardarIdConsumidorFinal) await ctx.guardarIdConsumidorFinal(empresa, id).catch((e) => ctx.log(`aviso: no se pudo guardar el id en config/tango (${(e as Error).message})`))
   }
   return { payload: { ...payload, clienteIdGva14Tango: id, clienteCodigoTango: codigo, clienteNombre: payload.clienteNombre?.trim() && payload.clienteNombre.trim() !== '.' ? payload.clienteNombre : 'CONSUMIDOR FINAL' } }
 }
-const idsConsumidorFinal = new Map<string, number>()
 
 async function registrarEnFacturador(payloadOriginal: PayloadVenta, ctx: ContextoWriter, tipo: 'factura' | 'notaCredito'): Promise<ResultadoWriter> {
   const { tango, cfg, company, item, log } = ctx

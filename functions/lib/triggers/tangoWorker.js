@@ -75,8 +75,19 @@ async function procesarItem(db, ref, cfg, tango) {
         tango, cfg, company,
         item: { origenColeccion: d.origenColeccion, origenId: d.origenId, empresa: d.empresa, conCaePropio: d.conCaePropio },
         log: (m) => v2_1.logger.info(`[tango] ${m}`),
+        // Cuenta CONSUMIDOR FINAL (2026-09-17): el id resuelto queda en config para no buscarlo más.
+        guardarIdConsumidorFinal: (empresa, idGva14) => (0, firestore_2.getFirestore)().doc('config/tango').update({ [`facturador.${empresa}.clienteConsumidorFinal.idGva14`]: idGva14 }).then(() => undefined),
     };
-    const resultado = await handler.enviar(d.payload, ctx);
+    // Un writer que LANZA (no que devuelve error) dejaba el item en 'enviado' sin
+    // ultimoError, invisible (2026-09-17: la primera B de consumidor final, un
+    // filtro mal escrito al Connect). Ahora cuenta como intento fallido.
+    let resultado;
+    try {
+        resultado = await handler.enviar(d.payload, ctx);
+    }
+    catch (e) {
+        resultado = { ok: false, error: `excepción del writer: ${e.message}` };
+    }
     if (resultado.ok) {
         await ref.update({ estado: 'confirmado', ultimoError: null, resultado: resultado.resultado, actualizadoEn: firestore_2.FieldValue.serverTimestamp() });
         return `${ref.id}: confirmado en Tango`;
