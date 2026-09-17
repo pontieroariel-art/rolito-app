@@ -319,6 +319,21 @@ exports.onDescargaCamionCreada = (0, firestore_1.onDocumentCreated)('descargasCa
     const descarga = event.data?.data();
     if (!descarga)
         return;
+    // Día del VIAJE (2026-09-17): si la tablet vieja no lo escribió, se
+    // completa acá con el día del remito (o del conteo) para que la liquidación
+    // y los tableros, que agrupan por diaReparto, no pierdan la descarga.
+    if (typeof descarga.diaReparto !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(descarga.diaReparto)) {
+        const db = (0, firestore_2.getFirestore)();
+        let base = descarga.fecha?.toDate?.() ?? new Date();
+        if (descarga.remitoId) {
+            const rem = (await db.doc(`remitosCarga/${descarga.remitoId}`).get().catch(() => null))?.data();
+            if (rem?.fecha?.toDate)
+                base = rem.fecha.toDate();
+        }
+        const ar = new Date(base.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+        const diaReparto = `${ar.getFullYear()}-${String(ar.getMonth() + 1).padStart(2, '0')}-${String(ar.getDate()).padStart(2, '0')}`;
+        await db.doc(`descargasCamion/${event.params.descargaId}`).update({ diaReparto }).catch((e) => console.warn('[descarga] no se pudo completar diaReparto', e));
+    }
     // Rectificación de un conteo (2026-09-13): NO va a Tango. La descarga
     // original ya encoló la transferencia camión → planta y la cola no tiene
     // contra-movimiento para transferenciaDeposito (ni buildError ni estado
@@ -356,7 +371,10 @@ exports.onDescargaCamionCreada = (0, firestore_1.onDocumentCreated)('descargasCa
     // muelle son la merma real y van camión → 99 en un item aparte (prefijo de
     // referencia DM, write-back en `tango.mermaNumero`). La descarga teórica del
     // cierre de arranque no cuenta rotas. Ver services/diferenciasReparto.ts.
-    if (!descarga.teorica && (0, diferenciasReparto_1.totalCantidad)(descarga.bolsasRotas) > 0) {
+    // Recién cuando el tipo `merma` esté en config/tango.sql.stock.tipos (bridge
+    // nuevo en la VM): antes de eso el bridge viejo mandaría el item a error.
+    const tipoMerma = (await (0, firestore_2.getFirestore)().doc('config/tango').get()).data()?.sql?.stock?.tipos?.merma;
+    if (!descarga.teorica && tipoMerma && (0, diferenciasReparto_1.totalCantidad)(descarga.bolsasRotas) > 0) {
         await encolarOutbox(`descargasCamion_${event.params.descargaId}_merma`, {
             entidad: 'transferenciaDeposito',
             empresa: 'redonhielo',

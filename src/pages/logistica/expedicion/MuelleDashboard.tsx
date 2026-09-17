@@ -1,3 +1,4 @@
+import { claveDia } from '@/utils/diaReparto'
 import { useEffect, useMemo, useState } from 'react'
 import { CheckCircle2, MonitorPlay, PackageCheck, Truck } from 'lucide-react'
 import Navbar from '@/components/layout/Navbar'
@@ -184,6 +185,8 @@ export default function MuelleDashboard() {
       await crearDescargaCamion(
         {
           ...descargaSeleccionada,
+          // Día del VIAJE (2026-09-17): el del remito elegido ("salió ayer" cuenta para ayer).
+          diaReparto:   claveDia(remitoDescarga?.fecha ?? new Date()),
           items:        toItems(sanas),
           bolsasRotas:  toItems(rotas),
           envases,

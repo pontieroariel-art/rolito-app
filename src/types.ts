@@ -1001,6 +1001,10 @@ export interface DescargaCamion {
   depositoTangoNombre?: string
   items:            DescargaCamionItem[]   // mercadería sana que volvió
   bolsasRotas:      DescargaCamionItem[]   // rotas recibidas (contra los cambios)
+  // Día del VIAJE que cierra ('yyyy-MM-dd', 2026-09-17): el del remito de carga
+  // aunque el conteo sea al día siguiente. Lo escribe la tablet y lo completa el
+  // server si falta; liquidación y tableros agrupan por acá (utils/diaReparto.ts).
+  diaReparto?:      string
   // Remito de carga del viaje que se contó (2026-09-13). Sin esto "Descargas de
   // hoy" no decía a qué salida corresponde cada conteo: no se distinguía la
   // segunda vuelta legítima de un conteo cargado dos veces por error. Opcional:

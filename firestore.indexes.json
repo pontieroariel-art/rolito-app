@@ -333,6 +333,34 @@
       ]
     },
     {
+      "collectionGroup": "descargasCamion",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "choferId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "diaReparto",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "descargasCamion",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "plantaId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "diaReparto",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "ventasVentanilla",
       "queryScope": "COLLECTION",
       "fields": [

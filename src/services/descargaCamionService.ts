@@ -4,6 +4,7 @@ import {
 import { db } from './firebase'
 import { onSnapshotError, esperarOEncolar } from './observability'
 import { DescargaCamion, DescargaCamionItem, EnvasesCarga, EnvasesDescarga, PlantaId, RemitoCarga } from '../types'
+import { claveDia } from '@/utils/diaReparto'
 
 const DESCARGAS = 'descargasCamion'
 
@@ -29,6 +30,9 @@ export async function crearDescargaCamion(
     // descarga y NO va a Tango (el stock lo ajusta la oficina a mano).
     rectificaA?:           string
     motivoRectificacion?:  string
+    // Día del VIAJE ('yyyy-MM-dd', 2026-09-17): el del remito elegido aunque
+    // se cuente al día siguiente. Sin remito, el día del conteo.
+    diaReparto?:      string
     items:            DescargaCamionItem[]
     bolsasRotas:      DescargaCamionItem[]
     // Envases que volvieron, contados sueltos (desde 2026-09-07 reemplaza a
@@ -38,15 +42,17 @@ export async function crearDescargaCamion(
   actor: ActorMuelle,
 ): Promise<DescargaCamion> {
   const ref = doc(collection(db, DESCARGAS))
-  const { depositoTango, depositoTangoNombre, remitoId, remitoCodigo, rectificaA, motivoRectificacion, ...resto } = args
+  const { depositoTango, depositoTangoNombre, remitoId, remitoCodigo, rectificaA, motivoRectificacion, diaReparto, ...resto } = args
+  const ahora = Timestamp.now()
   const descarga: Omit<DescargaCamion, 'id'> = {
     plantaId:      actor.plantaId,
     ...resto,
     ...(depositoTango ? { depositoTango, depositoTangoNombre: depositoTangoNombre ?? '' } : {}),
     ...(remitoId ? { remitoId, remitoCodigo: remitoCodigo ?? '' } : {}),
     ...(rectificaA ? { rectificaA, motivoRectificacion: motivoRectificacion ?? '' } : {}),
+    diaReparto:    diaReparto ?? claveDia(ahora),
     registradoPor: { uid: actor.uid, nombre: actor.nombre },
-    fecha:         Timestamp.now(),
+    fecha:         ahora,
     // Transferencia camión → planta en Tango, que encola onDescargaCamionCreada.
     tango:         { estado: 'pendiente' },
   }
@@ -109,6 +115,23 @@ export const subscribeDescargasDelDia = (
 }
 
 // Descargas de un chofer en un rango (para la liquidación).
+/**
+ * Descargas de los VIAJES de un día de una planta (por `diaReparto`, 2026-09-17):
+ * lo que miran los tableros en vivo. La tablet del muelle usa
+ * subscribeDescargasDelDia (lo contado ese día físico).
+ */
+export const subscribeDescargasDeReparto = (
+  plantaId: PlantaId,
+  dia: Date,
+  callback: (descargas: DescargaCamion[]) => void,
+): () => void =>
+  onSnapshot(
+    query(collection(db, DESCARGAS), where('plantaId', '==', plantaId), where('diaReparto', '==', claveDia(dia))),
+    (snap) => callback(porFecha(snap.docs.map((d) => ({ id: d.id, ...d.data() } as DescargaCamion)))),
+    onSnapshotError(callback, 'descargasCamion'),
+  )
+
+/** Descargas de los viajes de un chofer entre dos días (por `diaReparto`; `hasta` exclusivo). */
 export const subscribeDescargasChoferEnRango = (
   choferId: string,
   desde: Date, hasta: Date,
@@ -118,8 +141,8 @@ export const subscribeDescargasChoferEnRango = (
     query(
       collection(db, DESCARGAS),
       where('choferId', '==', choferId),
-      where('fecha', '>=', Timestamp.fromDate(desde)),
-      where('fecha', '<', Timestamp.fromDate(hasta)),
+      where('diaReparto', '>=', claveDia(desde)),
+      where('diaReparto', '<', claveDia(hasta)),
     ),
     (snap) => callback(porFecha(snap.docs.map((d) => ({ id: d.id, ...d.data() } as DescargaCamion)))),
     onSnapshotError(callback, 'descargasCamion'),

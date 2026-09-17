@@ -23,7 +23,8 @@ async function docsDelDia(choferId: string, fecha: string) {
   const [ventas, cambios, descargas, cobranzas] = await Promise.all([
     getDocs(query(collection(db, 'ventasCamion'), ...rango('choferId'))),
     getDocs(query(collection(db, 'cambiosCamion'), ...rango('choferId'))),
-    getDocs(query(collection(db, 'descargasCamion'), ...rango('choferId'))),
+    // Descargas por día de VIAJE (diaReparto, 2026-09-17): la contada al día siguiente cierra el día del remito.
+    getDocs(query(collection(db, 'descargasCamion'), where('choferId', '==', choferId), where('diaReparto', '==', fecha))),
     getDocs(query(collection(db, 'cobranzas'), ...rango('registradoPor.uid'))),
   ])
   return {

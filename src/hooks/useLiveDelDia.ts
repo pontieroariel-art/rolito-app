@@ -3,7 +3,7 @@ import { subscribeVentasCamionDelDia } from '@/services/ventaCamionService'
 import { subscribeVentanillaDelDia } from '@/services/ventaVentanillaService'
 import { subscribeCobranzasDelDia } from '@/services/cobranzaService'
 import { subscribeRemitosCargaDelDia } from '@/services/remitoCargaService'
-import { subscribeDescargasDelDia } from '@/services/descargaCamionService'
+import { subscribeDescargasDeReparto } from '@/services/descargaCamionService'
 import { subscribeLiquidacionesEnRango } from '@/services/liquidacionService'
 import { subscribeRendicionesEnRango } from '@/services/rendicionService'
 import { useSesionesDelDia } from '@/hooks/useCajaSesion'
@@ -51,8 +51,9 @@ export function useLiveDelDia(dia: string): LiveDelDia {
       subscribeCobranzasDelDia(fecha, tick(setCobranzas)),
       subscribeRemitosCargaDelDia('torcuato', fecha, tick(setRemT)),
       subscribeRemitosCargaDelDia('merlo', fecha, tick(setRemM)),
-      subscribeDescargasDelDia('torcuato', fecha, tick(setDescT)),
-      subscribeDescargasDelDia('merlo', fecha, tick(setDescM)),
+      // Por día de VIAJE (2026-09-17): la devolución de ayer contada hoy va al tablero de ayer.
+      subscribeDescargasDeReparto('torcuato', fecha, tick(setDescT)),
+      subscribeDescargasDeReparto('merlo', fecha, tick(setDescM)),
       subscribeLiquidacionesEnRango(dia, manana, tick(setLiquidaciones)),
       subscribeRendicionesEnRango(dia, manana, tick(setRendiciones)),
     ]
