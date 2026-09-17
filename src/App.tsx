@@ -342,7 +342,11 @@ function AppContent() {
             {/* Entregas de caja: tesorería cuenta, tilda los valores y firma (2026-09-09). */}
             <Route path="/tesoreria/entregas"              element={<EntregasTesoreriaPage />} />
             <Route path="/tesoreria/anulaciones"           element={<AnulacionesPage />} />
-            {/* La liquidación del repartidor con todo el detalle, en modo lectura (a tesorería le rinden). */}
+          </Route>
+
+          {/* La liquidación del repartidor con todo el detalle, en modo lectura: a tesorería le rinden y
+              gerencia comercial mira qué carga y descarga cada chofer (2026-09-17). */}
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/tesoreria/liquidaciones')} />}>
             <Route path="/tesoreria/liquidaciones"           element={<LiquidacionesPage base="/tesoreria" />} />
             <Route path="/tesoreria/liquidaciones/historial" element={<LiquidacionesHistorialPage base="/tesoreria" />} />
             <Route path="/tesoreria/liquidaciones/abiertas"  element={<LiquidacionesAbiertasPage base="/tesoreria" />} />

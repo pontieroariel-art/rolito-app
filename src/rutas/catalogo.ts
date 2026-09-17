@@ -90,6 +90,9 @@ const PALLET: UserRole[] = ['super_admin', 'produccion_hielo', 'produccion_encar
 const CAJA: UserRole[] = ['caja', 'super_admin']
 const CAJA_HISTORIAL: UserRole[] = ['caja', 'super_admin', 'gerente_general']
 const TESORERIA: UserRole[] = ['tesoreria', 'super_admin', 'gerente_general']
+// Liquidaciones en modo lectura (2026-09-17, pedido de Ariel para Walter Giorgio):
+// gerencia comercial mira qué carga y descarga cada chofer sin poder cerrar nada.
+const LIQUIDACIONES_LECTURA: UserRole[] = [...TESORERIA, 'gerente_comercial']
 // Ventas en vivo (2026-09-16): la mercadería del día también le sirve a logística y a comercial.
 const VENTAS_LIVE: UserRole[] = ['tesoreria', 'super_admin', 'gerente_general', 'logistica', 'gerente_comercial', 'comercial']
 const SUPERVISOR: UserRole[] = ['supervisor', 'super_admin']
@@ -168,15 +171,15 @@ export const CATALOGO: RutaConfig[] = [
   // ── Logística: tesorería ──────────────────────────────────────────────────
   R('/tesoreria/ventas',                  'Ventas en vivo',     'tesoreria', VENTAS_LIVE, { icon: ShoppingCart, menuGroup: 'tesoreria' }),
   R('/tesoreria',                         'Tesorería en vivo',  'tesoreria', TESORERIA, { icon: Activity, menuGroup: 'tesoreria' }),
-  R('/tesoreria/liquidaciones',           'Liquidaciones',      'tesoreria', TESORERIA, { icon: Scale, menuGroup: 'tesoreria' }),
+  R('/tesoreria/liquidaciones',           'Liquidaciones',      'tesoreria', LIQUIDACIONES_LECTURA, { icon: Scale, menuGroup: 'tesoreria' }),
   R('/tesoreria/recepcion',               'Recepción',          'tesoreria', TESORERIA, { icon: ShieldCheck, menuGroup: 'tesoreria' }),
   // Alias viejo (validación de cierres, circuito anterior): redirige a Recepción.
   R('/tesoreria/rendiciones',             'Rendiciones',        'tesoreria', TESORERIA, { deepLink: true }),
   R('/tesoreria/entregas',                'Entregas de caja',   'tesoreria', TESORERIA, { icon: Landmark, menuGroup: 'tesoreria' }),
   R('/tesoreria/anulaciones',             'Anulaciones y faltantes', 'tesoreria', TESORERIA, { icon: Ban, menuGroup: 'tesoreria' }),
   R('/tesoreria/rendiciones/historial',   'Historial',          'tesoreria', TESORERIA, { icon: History, menuGroup: 'tesoreria' }),
-  R('/tesoreria/liquidaciones/historial', 'Historial de liquidaciones', 'tesoreria', TESORERIA, { deepLink: true }),
-  R('/tesoreria/liquidaciones/abiertas',  'Liquidaciones abiertas',     'tesoreria', TESORERIA, { icon: ClipboardList, menuGroup: 'tesoreria' }),
+  R('/tesoreria/liquidaciones/historial', 'Historial de liquidaciones', 'tesoreria', LIQUIDACIONES_LECTURA, { deepLink: true }),
+  R('/tesoreria/liquidaciones/abiertas',  'Liquidaciones abiertas',     'tesoreria', LIQUIDACIONES_LECTURA, { icon: ClipboardList, menuGroup: 'tesoreria' }),
 
   // ── Chofer (calle) ────────────────────────────────────────────────────────
   R('/chofer',                   'Inicio',          'logistica', ['chofer'], { icon: Home }),
@@ -258,7 +261,7 @@ export interface GrupoSidebar { id: MenuGroup; label: string; entradas: EntradaM
 export const SIDEBARS: Record<Sistema, GrupoSidebar[]> = {
   // Logística: la mercadería. Termina cuando el camión sale por el portón.
   logistica: [
-    { id: 'despacho',   label: 'Despacho & Rutas',    entradas: ['/logistica/resumen', '/logistica', '/admin/monitoreo', '/tesoreria/ventas', '/admin/historial-despacho', '/comercial/mapa'] },
+    { id: 'despacho',   label: 'Despacho & Rutas',    entradas: ['/logistica/resumen', '/logistica', '/admin/monitoreo', '/tesoreria/ventas', '/tesoreria/liquidaciones', '/tesoreria/liquidaciones/abiertas', '/admin/historial-despacho', '/comercial/mapa'] },
     { id: 'flota',      label: 'Operaciones & Flota', entradas: ['/admin/flota', '/admin/incidencias', '/admin/clima'] },
     // La carga del camión: el remito lo emite caja, el muelle lo entrega y
     // seguridad controla la salida. Un cajero con el rol adicional muelle o
