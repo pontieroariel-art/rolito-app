@@ -33,6 +33,12 @@ export interface PayloadVenta {
   clienteNombre?: string
   clienteCodigoTango?: string
   clienteIdGva14Tango?: number
+  /**
+   * Venta de ventanilla a un consumidor final sin ficha (2026-09-17): no hay
+   * clienteId ni ids de Tango; el Facturador la registra sobre la cuenta
+   * genérica de consumidor final de la empresa (config `clienteConsumidorFinal`).
+   */
+  clienteOcasional?: { nombre?: string; cuit?: string; dni?: string } | null
   items?: ItemVenta[]
   cambios?: ItemVenta[]
   total?: number

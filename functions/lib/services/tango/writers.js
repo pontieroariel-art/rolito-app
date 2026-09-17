@@ -5,6 +5,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.enviarNotaCredito = exports.enviarFactura = void 0;
 exports.enviarRemito = enviarRemito;
+exports.resolverClienteOcasional = resolverClienteOcasional;
 const client_1 = require("./client");
 const pedido_1 = require("./pedido");
 const factura_1 = require("./factura");
@@ -111,12 +112,50 @@ exports.enviarFactura = enviarFactura;
  */
 const enviarNotaCredito = (payload, ctx) => registrarEnFacturador(payload, ctx, 'notaCredito');
 exports.enviarNotaCredito = enviarNotaCredito;
-async function registrarEnFacturador(payload, ctx, tipo) {
+/**
+ * Venta de ventanilla a un consumidor final sin ficha (2026-09-17): el
+ * Facturador exige un cliente, así que va sobre la cuenta genérica de la
+ * empresa (`clienteConsumidorFinal`). El id se resuelve por API con el código
+ * la primera vez y queda en memoria. Con ficha, el payload vuelve intacto.
+ */
+async function resolverClienteOcasional(payload, ctx) {
+    const idGva14 = Number(payload.clienteIdGva14Tango);
+    if (Number.isInteger(idGva14) && idGva14 > 0)
+        return { payload };
+    if (!payload.clienteOcasional)
+        return { payload };
+    const empresa = ctx.item.empresa ?? '?';
+    const generico = ctx.cfg.facturador?.[empresa]?.clienteConsumidorFinal;
+    const codigo = String(generico?.codigo ?? '').trim();
+    if (!codigo)
+        return { error: `Venta a consumidor final sin ficha: falta config/tango.facturador.${empresa}.clienteConsumidorFinal.codigo (COD_CLIENT de la cuenta CONSUMIDOR FINAL en Tango)` };
+    let id = Number(generico?.idGva14);
+    if (!Number.isInteger(id) || id <= 0) {
+        const cache = idsConsumidorFinal.get(`${empresa}|${codigo}`);
+        if (cache)
+            id = cache;
+        else {
+            const filas = await ctx.tango.getByFilter(ctx.company, client_1.PROCESOS.clientes, `WHERE COD_CLIENT = '${codigo.replace(/'/g, "''")}'`);
+            id = Number((0, pedido_1.prop)(filas[0] ?? {}, 'ID_GVA14'));
+            if (!Number.isInteger(id) || id <= 0)
+                return { error: `La cuenta CONSUMIDOR FINAL "${codigo}" no existe en Tango (Company ${ctx.company}); revisá config/tango.facturador.${empresa}.clienteConsumidorFinal.codigo` };
+            idsConsumidorFinal.set(`${empresa}|${codigo}`, id);
+            ctx.log(`consumidor final: cuenta ${codigo} → ID_GVA14 ${id}`);
+        }
+    }
+    return { payload: { ...payload, clienteIdGva14Tango: id, clienteCodigoTango: codigo, clienteNombre: payload.clienteNombre?.trim() && payload.clienteNombre.trim() !== '.' ? payload.clienteNombre : 'CONSUMIDOR FINAL' } };
+}
+const idsConsumidorFinal = new Map();
+async function registrarEnFacturador(payloadOriginal, ctx, tipo) {
     const { tango, cfg, company, item, log } = ctx;
     const empresa = item.empresa ?? '?';
     const cfgEmpresa = cfg.facturador?.[empresa];
     if (!cfgEmpresa)
         return { ok: false, error: `Falta config/tango.facturador.${empresa} (talonarios, condicionVenta, listaPrecio, contracuenta, vendedor, codigoTasaIva21, cuentas, codigoAlicuotaPercepcionIIBB)` };
+    const ocasional = await resolverClienteOcasional(payloadOriginal, ctx);
+    if ('error' in ocasional)
+        return { ok: false, error: ocasional.error };
+    const payload = ocasional.payload;
     const articulos = cfg.articulos ?? {};
     const codDeposito = codigoDeposito(cfg, payload) ?? (!payload.camionId ? cfgEmpresa.depositoVentanilla ?? null : null);
     // El Facturador exige el depósito aunque la factura no descargue stock

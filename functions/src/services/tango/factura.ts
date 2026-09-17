@@ -21,6 +21,14 @@ export const redondear2 = (n: number) => Math.round((Number(n) + Number.EPSILON)
 const recortar = (s: unknown, n: number) => (s == null ? '' : String(s)).slice(0, n)
 
 export interface ConfigFacturadorEmpresa {
+  /**
+   * Cuenta genérica de CONSUMIDOR FINAL de la empresa en Tango (2026-09-17):
+   * la venta de ventanilla a un cliente ocasional no tiene ficha, y el
+   * Facturador exige un cliente. `codigo` = COD_CLIENT; `idGva14` se resuelve
+   * por API la primera vez si no viene. Primera B real: 01104-00000001 del
+   * 17/09, que quedó en la cola por esto.
+   */
+  clienteConsumidorFinal?: { codigo: string; idGva14?: number }
   talonarios?: Record<string, number | string>
   /**
    * Talonarios de NOTA DE CRÉDITO por letra (A/B), para anular una factura de
