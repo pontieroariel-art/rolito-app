@@ -2062,3 +2062,22 @@ error): 1) copiar `bridge-sql.mjs` + `lib/movimientoStock.js` a la VM y reinicia
 4) `--dry-run --once --solo=<id>` sobre la primera descarga con rotas y la primera liquidación con faltante;
 5) `habilitado=true` de a uno y, con `merma`, `ventaPromo incluyeCambios=false`. Los items que se encolen
 entre 3 y 5 quedan pendientes y salen solos al prender.
+
+### 35.7 Formato de las facturas de Tango en la app según la fecha (2026-09-17)
+
+Pedido de Ariel: "los comprobantes realizados con el formato nuevo de Tango tienen que salir como en Tango".
+Del 20/08/2026 en adelante Tango emite con su formato nuevo (logo, barras verdes "Información del
+cliente / Detalle / Resumen", cuota "Importe / Vencimiento", totales a la derecha con la leyenda de la
+Ley 27.743, QR y CAE al pie), que es exactamente el que la app diseñó para su factura ARCA
+(`utils/facturaArcaPdf.ts`). Antes del 20/08 las facturas son de Bluesoft y los clientes ya tienen ese
+papel: siguen con el histórico (`utils/facturaPdf.ts`, marca de agua y código de barras).
+
+`armarFacturaTangoArcaPdf(detalle, { fechaVencimiento })` en `utils/comprobantesTango.ts` mapea el
+`tangoComprobanteDetalle` al formato nuevo (referencia: factura A 00101-00282930 de DEHEZA, en el
+Desktop): razón social con código, remitos como referencias bajo el detalle, cuota solo si la
+composición en vivo trae el vencimiento (el lector no lo publica: las pagadas salen sin cuota),
+bonificación = Σ(cantidad × precio) − Σ importe, percepciones = `otros` + `internos` con rótulo
+"Percepciones" (Tango no desglosa la jurisdicción en la cabecera). `facturaAdeudadaService` elige por
+`usaFormatoTango(detalle.fecha)` (`FORMATO_TANGO_DESDE = '2026-08-20'`). Los tres llamadores (ficha del
+supervisor, Comprobantes de clientes y el envío en bloque) pasan `fechaVencimiento`. Smoke visual:
+`FAC_SMOKE_OUT=<dir> npx vitest run src/utils/facturaArcaPdf.smoke.test.ts`.

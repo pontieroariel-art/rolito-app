@@ -51,7 +51,7 @@ function BotonFactura({ fila, cliente, email }: { fila: FilaComposicion; cliente
   }
   return (
     <MenuCompartirPdf titulo={titulo} texto={`${titulo} — ${cliente.razonSocial}`} mail={mail}
-      generar={(): Promise<PdfGenerado> => obtenerFacturaPdf({ tipo: fila.tipo, numero: fila.numero }, fila.empresa)}
+      generar={(): Promise<PdfGenerado> => obtenerFacturaPdf({ tipo: fila.tipo, numero: fila.numero, fechaVencimiento: fila.fechaVencimiento }, fila.empresa)}
       trigger={(abrir, ocupado) => (
         <button type="button" onClick={abrir} disabled={ocupado} aria-label={`Enviar ${titulo}`}
           className="w-9 h-9 shrink-0 rounded-lg border border-[#D3D1C7] flex items-center justify-center text-accent active:scale-95 disabled:opacity-50">

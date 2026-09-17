@@ -7,7 +7,7 @@ import { caiRemitoOficialCacheado, getCaiRemitoOficial } from './remitoOficialCo
 import { generarComprobanteVenta } from '@/utils/comprobanteDeVenta'
 import { armarFacturaDeVenta } from '@/utils/facturaDeVenta'
 import { formatoFactura, parsearClaveTango } from '@/utils/facturaClave'
-import { armarFacturaRolitoTangoPdf, armarFacturaTangoPdf, armarRemitoTangoPdf, formatoRemito, parsearRemito } from '@/utils/comprobantesTango'
+import { armarFacturaRolitoTangoPdf, armarFacturaTangoArcaPdf, armarFacturaTangoPdf, armarRemitoTangoPdf, formatoRemito, parsearRemito, usaFormatoTango } from '@/utils/comprobantesTango'
 import type { ComprobanteSaldoTango, EmpresaTango, VentaCamion, VentaVentanilla } from '@/types'
 
 // PDF de una factura adeudada (comprobante de la composición de saldos de
@@ -56,7 +56,8 @@ async function ventaVentanillaPor(puntoVenta: number, numero: number): Promise<V
 
 const TITULO_TIPO: Record<string, string> = { FAC: 'Factura', NC: 'Nota de crédito', ND: 'Nota de débito' }
 
-export async function obtenerFacturaPdf(comp: Pick<ComprobanteSaldoTango, 'tipo' | 'numero'>, empresa: EmpresaTango): Promise<FacturaObtenida> {
+/** `fechaVencimiento` (yyyy-MM-dd) solo lo trae la composición en vivo: con él la factura de Tango imprime su cuota. */
+export async function obtenerFacturaPdf(comp: Pick<ComprobanteSaldoTango, 'tipo' | 'numero'> & { fechaVencimiento?: string }, empresa: EmpresaTango): Promise<FacturaObtenida> {
   const clave = parsearClaveTango(comp.numero)
   if (!clave) return { ok: false, motivo: `No se reconoce el número ${comp.numero}.` }
   const tipo = comp.tipo.replace('/', '').toUpperCase()
@@ -109,11 +110,23 @@ export async function obtenerFacturaPdf(comp: Pick<ComprobanteSaldoTango, 'tipo'
       const blob = (await generateComprobanteInternoPdf(interno.datos, { descargar: false })) as Blob
       return { ok: true, blob, nombre: interno.datos.archivo, titulo, fuente: 'tango' }
     }
-    const armado = armarFacturaTangoPdf(detalle)
-    if (armado.ok) {
-      const { generateFacturaPdf } = await import('@/utils/facturaPdf')
-      const blob = (await generateFacturaPdf(armado.datos)) as Blob
-      return { ok: true, blob, nombre: `factura-${comp.numero}.pdf`, titulo, fuente: 'tango' }
+    // Desde el 20/08/2026 Tango emite con su formato nuevo, que es el de la
+    // factura ARCA de la app; lo anterior es Bluesoft y sale con el histórico.
+    // Sin CAE ninguno de los dos se arma y se sigue a la archivada (4).
+    if (usaFormatoTango(detalle.fecha)) {
+      const armado = armarFacturaTangoArcaPdf(detalle, { fechaVencimiento: comp.fechaVencimiento })
+      if (armado.ok) {
+        const { generateFacturaArcaPdf } = await import('@/utils/facturaArcaPdf')
+        const blob = await generateFacturaArcaPdf(armado.datos)
+        return { ok: true, blob, nombre: `factura-${comp.numero}.pdf`, titulo, fuente: 'tango' }
+      }
+    } else {
+      const armado = armarFacturaTangoPdf(detalle)
+      if (armado.ok) {
+        const { generateFacturaPdf } = await import('@/utils/facturaPdf')
+        const blob = (await generateFacturaPdf(armado.datos)) as Blob
+        return { ok: true, blob, nombre: `factura-${comp.numero}.pdf`, titulo, fuente: 'tango' }
+      }
     }
   }
 

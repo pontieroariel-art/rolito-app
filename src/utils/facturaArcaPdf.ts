@@ -69,6 +69,11 @@ export interface FacturaArcaData {
   }
 
   renglones: RenglonArca[]
+  /**
+   * Referencias sueltas debajo del detalle, como imprime Tango los remitos que
+   * la factura cancela ("R0000100482647"), una por línea (2026-09-17).
+   */
+  referencias?: string[]
 
   /** Cuota de pago: importe y fecha. En contado se omite. */
   vencimiento?: { importe: number; fecha: Date }
@@ -80,6 +85,12 @@ export interface FacturaArcaData {
     percIibbCaba:  number
     total:         number
   }
+  /**
+   * Rótulo de la fila de percepciones. Default 'Perc.IIBB CABA' (la app solo
+   * percibe CABA); una factura leída de Tango trae las percepciones sumadas sin
+   * desglose y las rotula 'Percepciones'.
+   */
+  percepcionesEtiqueta?: string
 
   cae:    string
   caeVto: Date
@@ -218,6 +229,16 @@ export async function generateFacturaArcaPdf(d: FacturaArcaData): Promise<Blob> 
       y += 5
     }
   }
+  // Remitos de la factura, como los imprime Tango: al margen, después del detalle.
+  if (d.referencias?.length) {
+    y += 1
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(7.5)
+    for (const ref of d.referencias) {
+      doc.text(ref, X0, y)
+      y += 5
+    }
+  }
 
   // ── Vencimiento ────────────────────────────────────────────────────────────
   // Solo en cuenta corriente: una venta de contado no tiene cuota que vencer.
@@ -278,7 +299,7 @@ export async function generateFacturaArcaPdf(d: FacturaArcaData): Promise<Blob> 
   doc.setFontSize(7.5)
   for (const [etiqueta, valor, sombra] of [
     ['IVA', money(t.iva), true],
-    ['Perc.IIBB CABA', money(t.percIibbCaba), false],
+    [d.percepcionesEtiqueta ?? 'Perc.IIBB CABA', money(t.percIibbCaba), false],
   ] as Array<[string, string, boolean]>) {
     if (sombra) {
       doc.setFillColor(238, 238, 238)

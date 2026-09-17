@@ -4,6 +4,7 @@ import type {
 } from '@/types'
 import type { FacturaPdfData } from './facturaPdf'
 import { EMISOR_REDONHIELO as EMISOR_FACTURA } from './facturaPdf'
+import { EMISOR_ARCA, type FacturaArcaData } from './facturaArcaPdf'
 import type { ArmadoInterno, RemitoData } from './comprobanteInterno'
 import { codigoComprobanteInterno } from './numeracionInterna'
 import { EMISOR_REDONHIELO, EMISOR_ROLITO } from './emisores'
@@ -265,6 +266,79 @@ export function armarFacturaTangoPdf(d: FacturaTangoDetalle): { ok: true; datos:
       // emitió en Tango por los remitos y la primera que recibe el cliente; con
       // CAE, este PDF es su representación válida, no una reimpresión.
       leyendaCopia: 'ORIGINAL',
+      descargar: false,
+    },
+  }
+}
+
+/**
+ * Corte de formato (2026-09-17, Ariel): las facturas que Tango emite desde el
+ * 20/08/2026 salen con el formato NUEVO de Tango (barras verdes, resumen a la
+ * derecha, QR al pie), que es el mismo que la app usa para sus facturas ARCA
+ * (facturaArcaPdf.ts). Las anteriores son las de Bluesoft y siguen con el
+ * formato histórico (facturaPdf.ts), que es el que esos clientes ya recibieron.
+ */
+export const FORMATO_TANGO_DESDE = '2026-08-20'
+export const usaFormatoTango = (fechaIso: string): boolean => fechaIso >= FORMATO_TANGO_DESDE
+
+const TITULO_ARCA: Record<string, string> = { FAC: 'FACTURA', NC: 'NOTA DE CRÉDITO', ND: 'NOTA DE DÉBITO' }
+const redondear2 = (n: number) => Math.round(n * 100) / 100
+
+/**
+ * Factura/NC/ND de Tango (desde el 20/08/2026) → datos del formato nuevo
+ * (facturaArcaPdf.ts). Campo por campo contra la factura A 00101-00282930 de
+ * Tango: los remitos van como referencias bajo el detalle, el vencimiento
+ * solo si se conoce (lo trae la composición en vivo para las pendientes; el
+ * lector de Tango no lo publica), las percepciones vienen sumadas ('otros')
+ * y se rotulan 'Percepciones', y la bonificación es lo que los renglones
+ * descontaron sobre cantidad × precio.
+ */
+export function armarFacturaTangoArcaPdf(
+  d: FacturaTangoDetalle,
+  opciones: { fechaVencimiento?: string } = {},
+): { ok: true; datos: FacturaArcaData } | { ok: false; motivo: string } {
+  if (!d.cae || !d.caeVto) return { ok: false, motivo: `El comprobante ${d.numero} no tiene CAE en Tango: pedilo a administración.` }
+  if (d.letra !== 'A' && d.letra !== 'B' && d.letra !== 'C') return { ok: false, motivo: `No se puede imprimir un comprobante letra ${d.letra}.` }
+  if (d.empresa !== 'redonhielo') return { ok: false, motivo: 'Las facturas de Rolito se imprimen como papel interno.' }
+  const c = d.cliente
+  const bruto = d.renglones.reduce((s, r) => s + r.cantidad * r.precioUnitario, 0)
+  const neto = d.renglones.reduce((s, r) => s + r.importe, 0)
+  const bonificaciones = redondear2(Math.max(0, bruto - neto))
+  const subtotal = redondear2(d.totales.gravado + d.totales.exento)
+  const percepciones = redondear2(d.totales.otros + d.totales.internos)
+  const vto = opciones.fechaVencimiento && /^\d{4}-\d{2}-\d{2}$/.test(opciones.fechaVencimiento) ? fechaDe(opciones.fechaVencimiento) : null
+  const localidad = [c.cp, c.localidad].filter(Boolean).join(', ')
+  return {
+    ok: true,
+    datos: {
+      letra:           d.letra,
+      tituloDocumento: TITULO_ARCA[d.tipo] ?? `COMPROBANTE ${d.tipo}`,
+      codigoTipo:      String(d.cbteTipo ?? '').padStart(2, '0'),
+      puntoVenta:      d.puntoVenta,
+      numero:          d.nro,
+      fechaEmision:    fechaDe(d.fecha),
+      emisor:          EMISOR_ARCA,
+      cliente: {
+        razonSocial:    `${c.codigo || d.codigo} - ${c.razonSocial}`.replace(/^ - /, ''),
+        cuit:           c.cuit,
+        condicionIva:   c.condicionIva,
+        domicilio:      localidad ? `${c.domicilio} (${localidad})` : c.domicilio,
+        condicionVenta: c.condicionVenta,
+        vendedor:       c.vendedor,
+      },
+      renglones: d.renglones.map((r) => ({
+        descripcion:    r.descripcion,
+        cantidad:       r.cantidad,
+        unidad:         'UNI',
+        precioUnitario: r.precioUnitario,
+        total:          r.importe,
+      })),
+      ...(d.remitos.length ? { referencias: d.remitos.map((r) => r.trim()) } : {}),
+      ...(vto ? { vencimiento: { importe: d.totales.total, fecha: vto } } : {}),
+      totales: { subtotal, bonificaciones, iva: d.totales.iva, percIibbCaba: percepciones, total: d.totales.total },
+      percepcionesEtiqueta: 'Percepciones',
+      cae:    d.cae,
+      caeVto: fechaDe(d.caeVto),
       descargar: false,
     },
   }

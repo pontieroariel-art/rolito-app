@@ -358,7 +358,7 @@ function FilaItem({ item, elegido, onAlternar, cliente, email, conCuenta }: {
       } }
   }, [item, cliente, email, estado.texto])
   const generar = (): Promise<PdfGenerado> => item.clase === 'factura'
-    ? obtenerFacturaPdf({ tipo: item.tipo, numero: item.numero }, item.empresa)
+    ? obtenerFacturaPdf({ tipo: item.tipo, numero: item.numero, fechaVencimiento: item.fechaVencimiento }, item.empresa)
     : obtenerRemitoPdf(item.numero, item.empresa)
   const anulado = estado.tono === 'anulado'
   const grupo: Grupo = { empresa: item.empresa, codigo: item.codigo }

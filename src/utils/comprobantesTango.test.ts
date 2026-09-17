@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   armarFacturaRolitoTangoPdf,
-  armarComposicion, armarFacturaTangoPdf, armarRemitoTangoPdf, filtrarPorSucursal, formatoRemito, opcionesSucursal, parsearRemito, totalPendiente,
+  armarComposicion, armarFacturaTangoArcaPdf, armarFacturaTangoPdf, armarRemitoTangoPdf, filtrarPorSucursal, formatoRemito, opcionesSucursal, parsearRemito, totalPendiente, usaFormatoTango,
 } from './comprobantesTango'
 import type { ComprobanteSaldoTango, FacturaTangoDetalle, RemitoTangoDetalle, TangoComprobantesDoc, UserProfile } from '@/types'
 
@@ -89,6 +89,64 @@ const detalleFactura: FacturaTangoDetalle = {
   totales: { gravado: 69600, exento: 0, iva: 14616, ivaAlic: 21, internos: 0, otros: 0, total: 84216 },
   cae: '86351131069060', caeVto: '2026-09-12', remitos: ['R0000100482053'],
 }
+
+// Formato nuevo de Tango (desde el 20/08/2026, pedido de Ariel 2026-09-17):
+// referencia la factura A 00101-00282930 de DEHEZA emitida en Tango.
+describe('armarFacturaTangoArcaPdf', () => {
+  const deheza: FacturaTangoDetalle = {
+    ...detalleFactura, numero: 'A0010100282930', codigo: 'DH.005', fecha: '2026-09-08', nro: 282930,
+    cliente: { codigo: 'DH.005', razonSocial: 'DEHEZA S.A.I.F. e I. ( 0031 )', cuit: '30-51618667-0', domicilio: 'Av. FIGUEROA ALCORTA 3099', localidad: '', cp: '', provincia: '00', condicionIva: 'Responsable inscripto', condicionVenta: '15 DIAS F.F.', vendedor: 'ADMINISTRACION' },
+    renglones: [{ codigo: 'AG6', descripcion: 'AGUA DESMINERALIZADA 6 LTS', cantidad: 20, precioUnitario: 2950, dtoPct: 0, ivaPct: 21, importe: 59000 }],
+    totales: { gravado: 59000, exento: 0, iva: 12390, ivaAlic: 21, internos: 0, otros: 442.5, total: 71832.5 },
+    cae: '86362087155301', caeVto: '2026-09-18', remitos: ['R0000100482647'],
+  }
+
+  it('el corte es el 20/08/2026', () => {
+    expect(usaFormatoTango('2026-08-19')).toBe(false)
+    expect(usaFormatoTango('2026-08-20')).toBe(true)
+    expect(usaFormatoTango('2026-09-08')).toBe(true)
+  })
+
+  it('arma la factura de DEHEZA campo por campo como la imprime Tango', () => {
+    const r = armarFacturaTangoArcaPdf(deheza, { fechaVencimiento: '2026-09-24' })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.datos).toMatchObject({
+      letra: 'A', tituloDocumento: 'FACTURA', codigoTipo: '01', puntoVenta: 101, numero: 282930,
+      cliente: { razonSocial: 'DH.005 - DEHEZA S.A.I.F. e I. ( 0031 )', cuit: '30-51618667-0', condicionIva: 'Responsable inscripto', domicilio: 'Av. FIGUEROA ALCORTA 3099', condicionVenta: '15 DIAS F.F.', vendedor: 'ADMINISTRACION' },
+      referencias: ['R0000100482647'],
+      vencimiento: { importe: 71832.5, fecha: new Date(2026, 8, 24) },
+      totales: { subtotal: 59000, bonificaciones: 0, iva: 12390, percIibbCaba: 442.5, total: 71832.5 },
+      percepcionesEtiqueta: 'Percepciones',
+      cae: '86362087155301', descargar: false,
+    })
+    expect(r.datos.renglones).toEqual([{ descripcion: 'AGUA DESMINERALIZADA 6 LTS', cantidad: 20, unidad: 'UNI', precioUnitario: 2950, total: 59000 }])
+    expect(r.datos.fechaEmision).toEqual(new Date(2026, 8, 8))
+    expect(r.datos.caeVto).toEqual(new Date(2026, 8, 18))
+  })
+
+  it('sin vencimiento conocido no inventa la cuota; con localidad la suma al domicilio; la bonificación sale de los renglones', () => {
+    const r = armarFacturaTangoArcaPdf({
+      ...deheza,
+      cliente: { ...deheza.cliente, cp: '1663', localidad: 'SAN MIGUEL' },
+      renglones: [{ codigo: 'AG6', descripcion: 'AGUA', cantidad: 10, precioUnitario: 1000, dtoPct: 10, ivaPct: 21, importe: 9000 }],
+      totales: { gravado: 9000, exento: 0, iva: 1890, ivaAlic: 21, internos: 0, otros: 0, total: 10890 },
+    })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.datos.vencimiento).toBeUndefined()
+    expect(r.datos.cliente.domicilio).toBe('Av. FIGUEROA ALCORTA 3099 (1663, SAN MIGUEL)')
+    expect(r.datos.totales).toMatchObject({ subtotal: 9000, bonificaciones: 1000, percIibbCaba: 0 })
+  })
+
+  it('NC lleva su título; sin CAE, letra rara o Rolito no se arma', () => {
+    const nc = armarFacturaTangoArcaPdf({ ...deheza, tipo: 'NC', cbteTipo: 3 })
+    expect(nc.ok && nc.datos.tituloDocumento).toBe('NOTA DE CRÉDITO')
+    expect(armarFacturaTangoArcaPdf({ ...deheza, cae: '' })).toMatchObject({ ok: false })
+    expect(armarFacturaTangoArcaPdf({ ...deheza, letra: 'X' })).toMatchObject({ ok: false })
+    expect(armarFacturaTangoArcaPdf({ ...deheza, empresa: 'rolito' })).toMatchObject({ ok: false })
+  })
+})
 
 describe('armarFacturaTangoPdf', () => {
   it('arma el PDF histórico con CAE, QR y la caja de remitos', () => {

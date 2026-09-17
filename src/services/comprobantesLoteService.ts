@@ -43,7 +43,7 @@ export async function generarPdfsLote(
       onProgreso?.({ hecho, total: items.length, actual: item })
       try {
         const r = item.clase === 'factura'
-          ? await obtenerFacturaPdf({ tipo: item.tipo, numero: item.numero }, item.empresa)
+          ? await obtenerFacturaPdf({ tipo: item.tipo, numero: item.numero, fechaVencimiento: item.fechaVencimiento }, item.empresa)
           : await obtenerRemitoPdf(item.numero, item.empresa)
         resultados[i] = r.ok ? { ok: true, blob: r.blob, nombre: r.nombre } : { ok: false, motivo: r.motivo }
       } catch (err) {
