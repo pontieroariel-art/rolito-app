@@ -17,7 +17,7 @@ const CUPO_SEMANAL = 25;
 // diaria. Sin índice compuesto: filtra solo por `estado` (igualdad) y
 // resuelve fecha/orden/cupo en memoria — la colección en_comodato (~1300
 // docs) es chica para un vistazo server-side semanal.
-exports.avisarComodatosPorVencer = (0, scheduler_1.onSchedule)({ schedule: '0 8 * * 1', timeZone: TZ, secrets: [email_1.resendApiKey] }, async () => {
+exports.avisarComodatosPorVencer = (0, scheduler_1.onSchedule)({ schedule: '0 8 * * 1', timeZone: TZ, secrets: email_1.MAIL_SECRETS }, async () => {
     const db = (0, firestore_1.getFirestore)();
     const now = firestore_1.Timestamp.now();
     const snap = await db.collection('heladeras')

@@ -1,7 +1,7 @@
 import { onDocumentCreated } from 'firebase-functions/v2/firestore'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
 import { getFirestore, Timestamp } from 'firebase-admin/firestore'
-import { sendEmail, APP_URL, resendApiKey } from '../email'
+import { sendEmail, APP_URL, MAIL_SECRETS } from '../email'
 import { tplAdminAccionAltoRiesgo, tplAdminResumenDiario } from '../templates'
 
 const TZ = 'America/Argentina/Buenos_Aires'
@@ -18,7 +18,7 @@ async function adminEmails(): Promise<string[]> {
 // Alerta instantánea — cambio de rol, alta/baja de personal (riesgo='alto'
 // en historialAdminService.ts). Ver plan de migración del Backoffice, Fase 4.
 export const onHistorialAdminAltoRiesgo = onDocumentCreated(
-  { document: 'historialAdmin/{eventoId}', secrets: [resendApiKey] },
+  { document: 'historialAdmin/{eventoId}', secrets: MAIL_SECRETS },
   async (event) => {
     const data = event.data?.data()
     if (!data || data.riesgo !== 'alto') return
@@ -45,7 +45,7 @@ export const onHistorialAdminAltoRiesgo = onDocumentCreated(
 // Modelos, Catálogos de service, Técnicos, Pañol). Corre después de
 // generarPedidosRecurrentes (6am ART) para no competir por cuota.
 export const enviarResumenAdminDiario = onSchedule(
-  { schedule: '0 7 * * *', timeZone: TZ, secrets: [resendApiKey] },
+  { schedule: '0 7 * * *', timeZone: TZ, secrets: MAIL_SECRETS },
   async () => {
     const db = getFirestore()
 

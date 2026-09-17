@@ -110,7 +110,7 @@ function cuerpo(aviso, estado) {
 }
 // Todos los días a las 9 de la mañana: si algo hay que hacer a mano, mejor
 // enterarse temprano y no a las 11 de la noche.
-exports.avisarPadronIIBB = (0, scheduler_1.onSchedule)({ schedule: '0 9 * * *', timeZone: TZ, secrets: [email_1.resendApiKey] }, async () => {
+exports.avisarPadronIIBB = (0, scheduler_1.onSchedule)({ schedule: '0 9 * * *', timeZone: TZ, secrets: email_1.MAIL_SECRETS }, async () => {
     const db = (0, firestore_1.getFirestore)();
     const snap = await db.doc(exports.RUTA_PADRON).get();
     const estado = snap.data();

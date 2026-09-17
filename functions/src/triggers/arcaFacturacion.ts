@@ -28,7 +28,7 @@ import { validarVentanaEmision } from '../services/arca/comprobante'
 import { arcaCert, arcaKey, comoDb, puertoArca } from '../services/arca/puertoFirebase'
 import { receptorDeVenta, type ColeccionVenta } from '../services/arca/receptorDeVenta'
 import { emitirNotaCreditoDeAnulacion, persistirNotaCredito } from '../services/arca/anulacionVentanilla'
-import { sendEmail, APP_URL, resendApiKey } from '../email'
+import { sendEmail, APP_URL, MAIL_SECRETS } from '../email'
 import { tplArcaFacturasConProblemas, type FacturaConProblema } from '../templates'
 
 const TZ = 'America/Argentina/Buenos_Aires'
@@ -218,7 +218,7 @@ export const onVentaVentanillaContadoFacturar = onDocumentCreated(
  * ARCA: pasada esa ventana la venta ya no se puede facturar con su fecha real.
  */
 export const reconciliarFacturasArca = onSchedule(
-  { schedule: '15 * * * *', timeZone: TZ, secrets: [arcaCert, arcaKey, resendApiKey] },
+  { schedule: '15 * * * *', timeZone: TZ, secrets: [arcaCert, arcaKey, ...MAIL_SECRETS] },
   async () => {
     const db = getFirestore()
     const ahora = new Date()

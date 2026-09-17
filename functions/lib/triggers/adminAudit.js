@@ -18,7 +18,7 @@ async function adminEmails() {
 }
 // Alerta instantánea — cambio de rol, alta/baja de personal (riesgo='alto'
 // en historialAdminService.ts). Ver plan de migración del Backoffice, Fase 4.
-exports.onHistorialAdminAltoRiesgo = (0, firestore_1.onDocumentCreated)({ document: 'historialAdmin/{eventoId}', secrets: [email_1.resendApiKey] }, async (event) => {
+exports.onHistorialAdminAltoRiesgo = (0, firestore_1.onDocumentCreated)({ document: 'historialAdmin/{eventoId}', secrets: email_1.MAIL_SECRETS }, async (event) => {
     const data = event.data?.data();
     if (!data || data.riesgo !== 'alto')
         return;
@@ -37,7 +37,7 @@ exports.onHistorialAdminAltoRiesgo = (0, firestore_1.onDocumentCreated)({ docume
 // Resumen diario — todo lo de riesgo='rutina' del día anterior (Flota,
 // Modelos, Catálogos de service, Técnicos, Pañol). Corre después de
 // generarPedidosRecurrentes (6am ART) para no competir por cuota.
-exports.enviarResumenAdminDiario = (0, scheduler_1.onSchedule)({ schedule: '0 7 * * *', timeZone: TZ, secrets: [email_1.resendApiKey] }, async () => {
+exports.enviarResumenAdminDiario = (0, scheduler_1.onSchedule)({ schedule: '0 7 * * *', timeZone: TZ, secrets: email_1.MAIL_SECRETS }, async () => {
     const db = (0, firestore_2.getFirestore)();
     // Rango [ayer 00:00, hoy 00:00) visto desde Argentina.
     const hoyPartes = new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date());

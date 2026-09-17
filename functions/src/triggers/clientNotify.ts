@@ -1,7 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { assertNoImpersonado } from '../authz'
 import { getFirestore } from 'firebase-admin/firestore'
-import { sendEmail, APP_URL, resendApiKey } from '../email'
+import { sendEmail, APP_URL, MAIL_SECRETS } from '../email'
 import { tplPedidoCerca, tplPedidoReprogramado } from '../templates'
 import { assertRateLimit } from '../rateLimit'
 
@@ -18,7 +18,7 @@ async function getRol(uid: string): Promise<string | undefined> {
 // El cliente avisa que el camión está cerca (distancia calculada por GPS en el
 // navegador). El destinatario y el contenido se derivan del pedido en el
 // servidor — el cliente solo pasa el orderId, nunca el email → sin relay.
-export const notifyCerca = onCall({ secrets: [resendApiKey] }, async (request) => {
+export const notifyCerca = onCall({ secrets: MAIL_SECRETS }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Requiere autenticación')
   assertNoImpersonado(request)
   await assertRateLimit(request.auth.uid, 'notifyCerca', 5, 60)
@@ -58,7 +58,7 @@ export const notifyCerca = onCall({ secrets: [resendApiKey] }, async (request) =
 
 // El staff reprograma un pedido → aviso al cliente. La fecha nueva y el motivo
 // ya quedaron persistidos en el pedido por rescheduleOrder antes de esta llamada.
-export const notifyReprogramado = onCall({ secrets: [resendApiKey] }, async (request) => {
+export const notifyReprogramado = onCall({ secrets: MAIL_SECRETS }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Requiere autenticación')
 
   assertNoImpersonado(request)

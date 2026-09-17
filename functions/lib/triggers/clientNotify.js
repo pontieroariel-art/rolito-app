@@ -18,7 +18,7 @@ async function getRol(uid) {
 // El cliente avisa que el camión está cerca (distancia calculada por GPS en el
 // navegador). El destinatario y el contenido se derivan del pedido en el
 // servidor — el cliente solo pasa el orderId, nunca el email → sin relay.
-exports.notifyCerca = (0, https_1.onCall)({ secrets: [email_1.resendApiKey] }, async (request) => {
+exports.notifyCerca = (0, https_1.onCall)({ secrets: email_1.MAIL_SECRETS }, async (request) => {
     if (!request.auth)
         throw new https_1.HttpsError('unauthenticated', 'Requiere autenticación');
     (0, authz_1.assertNoImpersonado)(request);
@@ -59,7 +59,7 @@ exports.notifyCerca = (0, https_1.onCall)({ secrets: [email_1.resendApiKey] }, a
 });
 // El staff reprograma un pedido → aviso al cliente. La fecha nueva y el motivo
 // ya quedaron persistidos en el pedido por rescheduleOrder antes de esta llamada.
-exports.notifyReprogramado = (0, https_1.onCall)({ secrets: [email_1.resendApiKey] }, async (request) => {
+exports.notifyReprogramado = (0, https_1.onCall)({ secrets: email_1.MAIL_SECRETS }, async (request) => {
     if (!request.auth)
         throw new https_1.HttpsError('unauthenticated', 'Requiere autenticación');
     (0, authz_1.assertNoImpersonado)(request);

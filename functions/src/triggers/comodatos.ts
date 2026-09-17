@@ -1,6 +1,6 @@
 import { onSchedule } from 'firebase-functions/v2/scheduler'
 import { getFirestore, Timestamp } from 'firebase-admin/firestore'
-import { sendEmail, APP_URL, resendApiKey } from '../email'
+import { sendEmail, APP_URL, MAIL_SECRETS } from '../email'
 import { tplComodatosPorVencer } from '../templates'
 
 const TZ = 'America/Argentina/Buenos_Aires'
@@ -27,7 +27,7 @@ interface HeladeraComodato {
 // resuelve fecha/orden/cupo en memoria — la colección en_comodato (~1300
 // docs) es chica para un vistazo server-side semanal.
 export const avisarComodatosPorVencer = onSchedule(
-  { schedule: '0 8 * * 1', timeZone: TZ, secrets: [resendApiKey] },
+  { schedule: '0 8 * * 1', timeZone: TZ, secrets: MAIL_SECRETS },
   async () => {
     const db  = getFirestore()
     const now = Timestamp.now()

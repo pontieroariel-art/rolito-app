@@ -70,7 +70,7 @@ exports.onTicketCreado = (0, firestore_1.onDocumentCreated)({ document: 'tickets
 // el trabajo en campo no está en condiciones de avisar (cierra el encargado
 // desde Consulta de service, a veces horas después), por eso es un trigger
 // server-side y no un push client-initiated como el resto del módulo.
-exports.onTicketCerrado = (0, firestore_1.onDocumentUpdated)({ document: 'ticketsServicio/{ticketId}', secrets: [email_1.resendApiKey] }, async (event) => {
+exports.onTicketCerrado = (0, firestore_1.onDocumentUpdated)({ document: 'ticketsServicio/{ticketId}', secrets: email_1.MAIL_SECRETS }, async (event) => {
     const before = event.data?.before.data();
     const after = event.data?.after.data();
     if (!before || !after)
@@ -91,7 +91,7 @@ exports.onTicketCerrado = (0, firestore_1.onDocumentUpdated)({ document: 'ticket
 // evita reenviar en cada movimiento mientras el stock sigue bajo, pero se
 // resetea apenas se repone por encima del mínimo para poder re-disparar en un
 // futuro cruce (a diferencia de avisoCercaEnviado, que es one-shot por pedido).
-exports.onStockBajo = (0, firestore_1.onDocumentUpdated)({ document: 'panolArticulos/{articuloId}', secrets: [email_1.resendApiKey] }, async (event) => {
+exports.onStockBajo = (0, firestore_1.onDocumentUpdated)({ document: 'panolArticulos/{articuloId}', secrets: email_1.MAIL_SECRETS }, async (event) => {
     const before = event.data?.before.data();
     const after = event.data?.after.data();
     if (!before || !after)

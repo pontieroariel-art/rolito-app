@@ -2,7 +2,7 @@ import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/fire
 import { getFirestore, FieldValue } from 'firebase-admin/firestore'
 import { defineSecret } from 'firebase-functions/params'
 import webpush from 'web-push'
-import { sendEmail, APP_URL, resendApiKey } from '../email'
+import { sendEmail, APP_URL, MAIL_SECRETS } from '../email'
 import { tplTicketCerrado, tplStockBajo } from '../templates'
 
 const vapidPublicKey  = defineSecret('VAPID_PUBLIC_KEY')
@@ -69,7 +69,7 @@ export const onTicketCreado = onDocumentCreated(
 // el trabajo en campo no está en condiciones de avisar (cierra el encargado
 // desde Consulta de service, a veces horas después), por eso es un trigger
 // server-side y no un push client-initiated como el resto del módulo.
-export const onTicketCerrado = onDocumentUpdated({ document: 'ticketsServicio/{ticketId}', secrets: [resendApiKey] }, async (event) => {
+export const onTicketCerrado = onDocumentUpdated({ document: 'ticketsServicio/{ticketId}', secrets: MAIL_SECRETS }, async (event) => {
   const before = event.data?.before.data() as Record<string, unknown> | undefined
   const after  = event.data?.after.data()  as Record<string, unknown> | undefined
   if (!before || !after) return
@@ -101,7 +101,7 @@ export const onTicketCerrado = onDocumentUpdated({ document: 'ticketsServicio/{t
 // evita reenviar en cada movimiento mientras el stock sigue bajo, pero se
 // resetea apenas se repone por encima del mínimo para poder re-disparar en un
 // futuro cruce (a diferencia de avisoCercaEnviado, que es one-shot por pedido).
-export const onStockBajo = onDocumentUpdated({ document: 'panolArticulos/{articuloId}', secrets: [resendApiKey] }, async (event) => {
+export const onStockBajo = onDocumentUpdated({ document: 'panolArticulos/{articuloId}', secrets: MAIL_SECRETS }, async (event) => {
   const before = event.data?.before.data() as Record<string, unknown> | undefined
   const after  = event.data?.after.data()  as Record<string, unknown> | undefined
   if (!before || !after) return

@@ -4,14 +4,14 @@ exports.enviarComprobantePorMail = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const authz_1 = require("../authz");
 const firestore_1 = require("firebase-admin/firestore");
-const resend_1 = require("resend");
 const email_1 = require("../email");
 const rateLimit_1 = require("../rateLimit");
 const templates_1 = require("../templates");
 // Envío por mail de un comprobante que la app generó (factura, remito,
 // composición de saldos, recibo) al cliente (2026-09-10, pedido de Ariel: "lo
 // que más usan es el mail"). Un mailto: no puede adjuntar archivos, así que el
-// PDF viaja en base64 a esta función y sale por Resend con el adjunto. Queda
+// PDF viaja en base64 a esta función y sale por mail con el adjunto (SMTP de
+// Microsoft 365 o Resend, lo resuelve email.ts). Queda
 // registrado en enviosComprobantes (quién, a quién, qué y cuándo).
 //
 // Quién puede: staff que cobra o gestiona (mismos roles que leen saldosTango).
@@ -27,7 +27,7 @@ const ROLES = new Set([
     'facturacion', 'tesoreria', 'supervisor', 'caja', 'chofer',
 ]);
 const MAX_PDF_BYTES = 4 * 1024 * 1024;
-/** Tope de un envío en bloque: cantidad de PDF y bytes en total (Resend acepta hasta 40 MB por mail). */
+/** Tope de un envío en bloque: cantidad de PDF y bytes en total (Microsoft 365 acepta 25 MB de adjuntos por mail, Resend 40). */
 const MAX_ADJUNTOS = 40;
 const MAX_TOTAL_BYTES = 20 * 1024 * 1024;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -45,7 +45,7 @@ function decodificarPdf(pdfBase64, que) {
         throw new https_1.HttpsError('invalid-argument', `${que}: el adjunto no es un PDF`);
     return pdf;
 }
-exports.enviarComprobantePorMail = (0, https_1.onCall)({ secrets: [email_1.resendApiKey], memory: '512MiB', cpu: 0.5 }, async (request) => {
+exports.enviarComprobantePorMail = (0, https_1.onCall)({ secrets: email_1.MAIL_SECRETS, memory: '512MiB', cpu: 0.5 }, async (request) => {
     if (!request.auth)
         throw new https_1.HttpsError('unauthenticated', 'Requiere autenticación');
     (0, authz_1.assertNoImpersonado)(request);
@@ -120,30 +120,17 @@ exports.enviarComprobantePorMail = (0, https_1.onCall)({ secrets: [email_1.resen
     const remitente = perfil?.nombre?.trim() || 'Rolito';
     const emailOperador = perfil?.email ?? '';
     const conCopia = d.conCopia === true && EMAIL_RE.test(emailOperador) && !emailOperador.endsWith('.internal') && !emailOperador.endsWith('@rolito.app');
-    const apiKey = email_1.resendApiKey.value();
-    if (!apiKey)
-        throw new https_1.HttpsError('failed-precondition', 'El envío de mails no está configurado');
-    const resend = new resend_1.Resend(apiKey);
-    // Modo test (configuracion/notificaciones): mismo desvío que el resto de los mails.
-    let destino = para;
-    let subject = asunto;
-    try {
-        const cfg = (await db.doc('configuracion/notificaciones').get()).data();
-        if (cfg?.modoTest === true && cfg?.testEmail) {
-            destino = cfg.testEmail;
-            subject = `[TEST → ${para}] ${asunto}`;
-        }
-    }
-    catch { /* sin config: destino real */ }
-    const { data, error } = await resend.emails.send({
-        from: email_1.FROM_EMAIL,
-        to: destino,
+    // El proveedor (SMTP / Resend) y el modo test de configuracion/notificaciones los resuelve enviarMail.
+    const { proveedor, id, error } = await (0, email_1.enviarMail)({
+        to: para,
         ...(conCopia ? { cc: emailOperador } : {}),
         ...(EMAIL_RE.test(emailOperador) && !emailOperador.endsWith('.internal') && !emailOperador.endsWith('@rolito.app') ? { replyTo: emailOperador } : {}),
-        subject,
+        subject: asunto,
         html: (0, templates_1.tplComprobanteEnviado)(clienteNombre, presentacion, mensaje, remitente),
         attachments: adjuntos,
     });
+    if (proveedor === 'ninguno')
+        throw new https_1.HttpsError('failed-precondition', 'El envío de mails no está configurado');
     const registro = {
         para, asunto, comprobante, clienteNombre, nombreArchivo, bytes: adjuntos.reduce((s, a) => s + a.content.length, 0),
         ...(adjuntos.length > 1 ? { adjuntos: adjuntos.map((a) => a.filename), cantidad: adjuntos.length } : {}),
@@ -152,21 +139,22 @@ exports.enviarComprobantePorMail = (0, https_1.onCall)({ secrets: [email_1.resen
         enviadoPor: { uid, nombre: remitente },
         enviadoEn: firestore_1.FieldValue.serverTimestamp(),
         estado: error ? 'error' : 'enviado',
-        ...(error ? { error: String(error.message ?? error) } : {}),
-        ...(data?.id ? { resendId: data.id } : {}),
+        proveedor,
+        ...(error ? { error } : {}),
+        ...(id ? { mailId: id } : {}),
     };
     await db.collection('enviosComprobantes').add(registro);
     if (ventaRef) {
         await ventaRef.set({
             envioMail: {
-                estado: error ? 'error' : 'enviado', para, automatico, enviadoEn: firestore_1.FieldValue.serverTimestamp(),
-                ...(error ? { error: String(error.message ?? error).slice(0, 200) } : {}),
-                ...(data?.id ? { resendId: data.id } : {}),
+                estado: error ? 'error' : 'enviado', para, automatico, proveedor, enviadoEn: firestore_1.FieldValue.serverTimestamp(),
+                ...(error ? { error: error.slice(0, 200) } : {}),
+                ...(id ? { mailId: id } : {}),
             },
         }, { merge: true }).catch((e) => console.warn('enviarComprobantePorMail: no se pudo anotar envioMail en la venta', e));
     }
     if (error) {
-        console.error('Resend error (comprobante):', error);
+        console.error(`Error de mail (comprobante, ${proveedor}):`, error);
         throw new https_1.HttpsError('internal', 'No se pudo enviar el mail. Probá de nuevo en un rato.');
     }
     return { ok: true, para };

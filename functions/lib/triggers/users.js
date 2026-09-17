@@ -5,7 +5,7 @@ const firestore_1 = require("firebase-functions/v2/firestore");
 const firestore_2 = require("firebase-admin/firestore");
 const email_1 = require("../email");
 const templates_1 = require("../templates");
-exports.onUserRegistered = (0, firestore_1.onDocumentCreated)({ document: 'users/{uid}', secrets: [email_1.resendApiKey] }, async (event) => {
+exports.onUserRegistered = (0, firestore_1.onDocumentCreated)({ document: 'users/{uid}', secrets: email_1.MAIL_SECRETS }, async (event) => {
     const data = event.data?.data();
     if (!data)
         return;
@@ -17,7 +17,7 @@ exports.onUserRegistered = (0, firestore_1.onDocumentCreated)({ document: 'users
         return;
     await (0, email_1.sendEmail)(email, 'Tu cuenta en Rolito está siendo verificada', (0, templates_1.tplRegistroPendiente)(nombre));
 });
-exports.onUserApproved = (0, firestore_1.onDocumentUpdated)({ document: 'users/{uid}', secrets: [email_1.resendApiKey] }, async (event) => {
+exports.onUserApproved = (0, firestore_1.onDocumentUpdated)({ document: 'users/{uid}', secrets: email_1.MAIL_SECRETS }, async (event) => {
     const before = event.data?.before.data();
     const after = event.data?.after.data();
     if (!before || !after)
@@ -36,7 +36,7 @@ exports.onUserApproved = (0, firestore_1.onDocumentUpdated)({ document: 'users/{
 // distingue del autorregistro público porque solo esos documentos traen
 // `creadoPor`. Avisa a la lista de staff (configuracion/notificaciones) quién
 // lo creó, ya que el alta rápida ya no pasa por aprobación previa.
-exports.onClienteCreadoPorStaff = (0, firestore_1.onDocumentCreated)({ document: 'users/{uid}', secrets: [email_1.resendApiKey] }, async (event) => {
+exports.onClienteCreadoPorStaff = (0, firestore_1.onDocumentCreated)({ document: 'users/{uid}', secrets: email_1.MAIL_SECRETS }, async (event) => {
     const data = event.data?.data();
     if (!data)
         return;

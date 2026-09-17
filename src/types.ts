@@ -82,6 +82,10 @@ export interface EnvioMailVenta {
   enviadoEn:   Timestamp
   automatico?: boolean
   error?:      string
+  /** Id que devolvió el proveedor (messageId de SMTP o id de Resend); antes `resendId`. */
+  mailId?:     string
+  proveedor?:  'smtp' | 'resend'
+  /** @deprecated envíos anteriores al 2026-09-17 */
   resendId?:   string
 }
 

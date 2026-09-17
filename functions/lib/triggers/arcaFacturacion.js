@@ -176,7 +176,7 @@ exports.onVentaVentanillaContadoFacturar = (0, firestore_1.onDocumentCreated)({ 
  * Corre seguido porque una factura sin resolver bloquea la ventana de 5 días de
  * ARCA: pasada esa ventana la venta ya no se puede facturar con su fecha real.
  */
-exports.reconciliarFacturasArca = (0, scheduler_1.onSchedule)({ schedule: '15 * * * *', timeZone: TZ, secrets: [puertoFirebase_1.arcaCert, puertoFirebase_1.arcaKey, email_1.resendApiKey] }, async () => {
+exports.reconciliarFacturasArca = (0, scheduler_1.onSchedule)({ schedule: '15 * * * *', timeZone: TZ, secrets: [puertoFirebase_1.arcaCert, puertoFirebase_1.arcaKey, ...email_1.MAIL_SECRETS] }, async () => {
     const db = (0, firestore_2.getFirestore)();
     const ahora = new Date();
     // Dos consultas y no una con `in`: las inciertas son las urgentes (hay un

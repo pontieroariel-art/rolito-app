@@ -212,7 +212,7 @@ export default function EnviarComprobanteSheet({ titulo, nombre, envio, blob, on
                   <input type="checkbox" checked={conCopia} onChange={(e) => setConCopia(e.target.checked)} className="accent-accent" />
                   Mandarme una copia
                 </label>
-                <p className="text-xs text-secundario">Va con el PDF adjunto desde comprobantes@rolito.com.ar.</p>
+                <p className="text-xs text-secundario">Va con el PDF adjunto desde WebMail@redonhielo.com.ar.</p>
                 {aviso && <p className="text-xs text-amber-700">{aviso}</p>}
                 <Button onClick={enviarMail} loading={ocupado === 'mail'} disabled={ocupado !== null || cargando} className="w-full">
                   <Mail size={16} className="mr-1.5" /> Enviar mail

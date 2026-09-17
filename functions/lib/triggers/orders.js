@@ -18,7 +18,7 @@ async function getClientEmail(order) {
     return undefined;
 }
 // Nuevo pedido → email al cliente + email al admin
-exports.onOrderCreated = (0, firestore_1.onDocumentCreated)({ document: 'orders/{orderId}', secrets: [email_1.resendApiKey] }, async (event) => {
+exports.onOrderCreated = (0, firestore_1.onDocumentCreated)({ document: 'orders/{orderId}', secrets: email_1.MAIL_SECRETS }, async (event) => {
     const order = event.data?.data();
     if (!order)
         return;
@@ -49,7 +49,7 @@ exports.onOrderCreated = (0, firestore_1.onDocumentCreated)({ document: 'orders/
     }
 });
 // Pedido confirmado → email al cliente
-exports.onOrderConfirmado = (0, firestore_1.onDocumentUpdated)({ document: 'orders/{orderId}', secrets: [email_1.resendApiKey] }, async (event) => {
+exports.onOrderConfirmado = (0, firestore_1.onDocumentUpdated)({ document: 'orders/{orderId}', secrets: email_1.MAIL_SECRETS }, async (event) => {
     const before = event.data?.before.data();
     const after = event.data?.after.data();
     if (!before || !after)
@@ -65,7 +65,7 @@ exports.onOrderConfirmado = (0, firestore_1.onDocumentUpdated)({ document: 'orde
     await (0, email_1.sendEmail)(emailCliente, 'Tu pedido fue confirmado ✅ - Rolito', (0, templates_1.tplPedidoConfirmado)(nombre, products, after.date));
 });
 // Pedido en camino → email al cliente
-exports.onOrderEnCamino = (0, firestore_1.onDocumentUpdated)({ document: 'orders/{orderId}', secrets: [email_1.resendApiKey] }, async (event) => {
+exports.onOrderEnCamino = (0, firestore_1.onDocumentUpdated)({ document: 'orders/{orderId}', secrets: email_1.MAIL_SECRETS }, async (event) => {
     const before = event.data?.before.data();
     const after = event.data?.after.data();
     if (!before || !after)

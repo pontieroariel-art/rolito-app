@@ -1,6 +1,6 @@
 import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore'
 import { getFirestore } from 'firebase-admin/firestore'
-import { sendEmail, APP_URL, resendApiKey } from '../email'
+import { sendEmail, APP_URL, MAIL_SECRETS } from '../email'
 import {
   tplPedidoRecibido, tplPedidoConfirmado, tplPedidoEnCamino, tplAdminNuevoPedido,
 } from '../templates'
@@ -17,7 +17,7 @@ async function getClientEmail(order: Record<string, unknown>): Promise<string | 
 }
 
 // Nuevo pedido → email al cliente + email al admin
-export const onOrderCreated = onDocumentCreated({ document: 'orders/{orderId}', secrets: [resendApiKey] }, async (event) => {
+export const onOrderCreated = onDocumentCreated({ document: 'orders/{orderId}', secrets: MAIL_SECRETS }, async (event) => {
   const order = event.data?.data() as Record<string, unknown> | undefined
   if (!order) return
 
@@ -59,7 +59,7 @@ export const onOrderCreated = onDocumentCreated({ document: 'orders/{orderId}', 
 })
 
 // Pedido confirmado → email al cliente
-export const onOrderConfirmado = onDocumentUpdated({ document: 'orders/{orderId}', secrets: [resendApiKey] }, async (event) => {
+export const onOrderConfirmado = onDocumentUpdated({ document: 'orders/{orderId}', secrets: MAIL_SECRETS }, async (event) => {
   const before = event.data?.before.data() as Record<string, unknown> | undefined
   const after  = event.data?.after.data()  as Record<string, unknown> | undefined
   if (!before || !after) return
@@ -80,7 +80,7 @@ export const onOrderConfirmado = onDocumentUpdated({ document: 'orders/{orderId}
 })
 
 // Pedido en camino → email al cliente
-export const onOrderEnCamino = onDocumentUpdated({ document: 'orders/{orderId}', secrets: [resendApiKey] }, async (event) => {
+export const onOrderEnCamino = onDocumentUpdated({ document: 'orders/{orderId}', secrets: MAIL_SECRETS }, async (event) => {
   const before = event.data?.before.data() as Record<string, unknown> | undefined
   const after  = event.data?.after.data()  as Record<string, unknown> | undefined
   if (!before || !after) return

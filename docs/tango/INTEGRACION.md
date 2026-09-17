@@ -2006,7 +2006,7 @@ El botón de cada factura, remito y de la composición abre un menú (`component
 Un `mailto:` no puede adjuntar archivos, así que el mail lo manda la Cloud Function
 `enviarComprobantePorMail` (callable, `triggers/enviarComprobante.ts`): recibe el PDF en base64
 (tope 4 MB, verifica que sea PDF), valida rol (staff que cobra/gestiona), limita a 30 por hora por
-usuario, respeta `configuracion/notificaciones.modoTest`, lo manda por Resend con adjunto
+usuario, respeta `configuracion/notificaciones.modoTest`, lo manda con adjunto por SMTP de Microsoft 365 (o Resend de respaldo, `email.ts`)
 (`replyTo` y copia opcional al operador) y lo registra en `enviosComprobantes` (solo Admin SDK;
 lo lee quien gestiona y quien lo mandó). Destinatario precargado con el **mail de la ficha de
 Tango** (`GVA14.E_MAIL`, que el lector publica en `tangoComprobantes.email`; decisión de Ariel) y,

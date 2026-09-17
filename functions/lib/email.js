@@ -33,50 +33,142 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendEmail = exports.APP_URL = exports.FROM_EMAIL = exports.resendApiKey = void 0;
+exports.sendEmail = exports.enviarMail = exports.REPLY_TO_EMAIL = exports.APP_URL = exports.FROM_EMAIL = exports.MAIL_SECRETS = exports.smtpPassword = exports.resendApiKey = void 0;
 const firestore_1 = require("firebase-admin/firestore");
 const params_1 = require("firebase-functions/params");
+// Salida de mails de la app (2026-09-17): SMTP de Microsoft 365 de Redonhielo
+// (casilla técnica WebMail@redonhielo.com.ar, 10.000 destinatarios/día, 30
+// mails/minuto; decisión de Ariel: ya tienen la licencia) como proveedor
+// principal, y Resend (100 mails/día en el plan gratuito, que se agotó el
+// 14/09) como respaldo. El proveedor se elige por `configuracion/
+// notificaciones.proveedorMail` ('smtp' | 'resend'); sin ese campo, SMTP si
+// hay contraseña cargada y si no Resend. Host, puerto, usuario y remitentes
+// van en functions/.env (no son secretos); la contraseña de la casilla es el
+// secret SMTP_PASSWORD (`firebase functions:secrets:set SMTP_PASSWORD`).
+// OJO: Microsoft apaga el SMTP con contraseña a fines de diciembre de 2026;
+// antes de eso hay que pasar `porSmtp` a OAuth (XOAUTH2 con una app de Entra).
 exports.resendApiKey = (0, params_1.defineSecret)('RESEND_API_KEY');
+exports.smtpPassword = (0, params_1.defineSecret)('SMTP_PASSWORD');
+/** Secrets que declara TODA function que manda mails (`secrets: MAIL_SECRETS`). */
+exports.MAIL_SECRETS = [exports.smtpPassword, exports.resendApiKey];
 exports.FROM_EMAIL = process.env.FROM_EMAIL ?? 'Rolito <onboarding@resend.dev>';
 exports.APP_URL = process.env.APP_URL ?? 'https://rolito-app.web.app';
-const sendEmail = async (to, subject, html) => {
-    const apiKey = exports.resendApiKey.value();
-    if (!apiKey) {
-        console.warn('RESEND_API_KEY no configurada — email omitido:', subject);
-        return;
-    }
-    // Import diferido (2026-09-12): la librería solo se carga cuando se manda un mail.
-    const { Resend } = await Promise.resolve().then(() => __importStar(require('resend')));
-    const resend = new Resend(apiKey);
-    // Modo test: redirige todos los emails a la dirección de prueba
-    let recipient = to;
+/**
+ * Adónde van las respuestas de los clientes cuando el mail no lleva un
+ * `replyTo` propio (los automáticos): la casilla técnica no la lee nadie, así
+ * que van a Facturación. Los envíos manuales ya llevan el mail del operador.
+ */
+exports.REPLY_TO_EMAIL = process.env.REPLY_TO_EMAIL || undefined;
+const SMTP_HOST = process.env.SMTP_HOST ?? 'smtp.office365.com';
+const SMTP_PORT = Number(process.env.SMTP_PORT ?? 587);
+const SMTP_USER = process.env.SMTP_USER ?? 'WebMail@redonhielo.com.ar';
+/** `.value()` de un secret no cargado revienta en el emulador: lo tratamos como vacío. */
+const valorSecreto = (s) => {
     try {
-        const db = (0, firestore_1.getFirestore)();
-        const configSnap = await db.doc('configuracion/notificaciones').get();
-        const config = configSnap.data();
-        if (config?.modoTest === true && config?.testEmail) {
-            const destinos = Array.isArray(to) ? to.join(', ') : to;
-            console.log(`[MODO TEST] Email interceptado → para: ${destinos} → redirigido a: ${config.testEmail} | Asunto: ${subject}`);
-            recipient = config.testEmail;
-            subject = `[TEST → ${destinos}] ${subject}`;
-        }
+        return s.value() ?? '';
     }
     catch {
-        // Si falla la lectura de config, enviamos al destino real
+        return '';
+    }
+};
+const leerConfig = async () => {
+    try {
+        const snap = await (0, firestore_1.getFirestore)().doc('configuracion/notificaciones').get();
+        return (snap.data() ?? {});
+    }
+    catch {
+        return {}; // sin config: destino real, proveedor por defecto
+    }
+};
+const elegirProveedor = (cfg) => {
+    const smtp = valorSecreto(exports.smtpPassword);
+    const resend = valorSecreto(exports.resendApiKey);
+    if (cfg.proveedorMail === 'resend')
+        return resend ? 'resend' : smtp ? 'smtp' : 'ninguno';
+    if (cfg.proveedorMail === 'smtp')
+        return smtp ? 'smtp' : resend ? 'resend' : 'ninguno';
+    return smtp ? 'smtp' : resend ? 'resend' : 'ninguno';
+};
+const porSmtp = async (mail) => {
+    // Import diferido (2026-09-12): la librería solo se carga cuando se manda un mail.
+    const nodemailer = await Promise.resolve().then(() => __importStar(require('nodemailer')));
+    const transporte = nodemailer.createTransport({
+        host: SMTP_HOST,
+        port: SMTP_PORT,
+        secure: SMTP_PORT === 465,
+        requireTLS: SMTP_PORT !== 465, // 587 = STARTTLS obligatorio (Microsoft 365, Hostinger)
+        auth: { user: SMTP_USER, pass: valorSecreto(exports.smtpPassword) },
+        connectionTimeout: 15000,
+        greetingTimeout: 15000,
+        socketTimeout: 60000,
+    });
+    try {
+        const info = await transporte.sendMail({
+            from: exports.FROM_EMAIL,
+            to: mail.to,
+            ...(mail.cc ? { cc: mail.cc } : {}),
+            ...(mail.replyTo ? { replyTo: mail.replyTo } : {}),
+            subject: mail.subject,
+            html: mail.html,
+            ...(mail.attachments?.length
+                ? { attachments: mail.attachments.map((a) => ({ filename: a.filename, content: a.content, contentType: 'application/pdf' })) }
+                : {}),
+        });
+        return info.messageId;
+    }
+    finally {
+        transporte.close();
+    }
+};
+const porResend = async (mail) => {
+    const { Resend } = await Promise.resolve().then(() => __importStar(require('resend')));
+    const resend = new Resend(valorSecreto(exports.resendApiKey));
+    const { data, error } = await resend.emails.send({
+        from: exports.FROM_EMAIL,
+        to: mail.to,
+        ...(mail.cc ? { cc: mail.cc } : {}),
+        ...(mail.replyTo ? { replyTo: mail.replyTo } : {}),
+        subject: mail.subject,
+        html: mail.html,
+        ...(mail.attachments?.length ? { attachments: mail.attachments } : {}),
+    });
+    if (error)
+        throw new Error(String(error.message ?? error));
+    return data?.id;
+};
+/**
+ * Manda un mail por el proveedor configurado, respetando el modo test
+ * (`configuracion/notificaciones.modoTest` + `testEmail`: todo se desvía a la
+ * casilla de prueba con el destino original en el asunto). Nunca lanza: el
+ * error vuelve en `resultado.error` para que el que llama decida.
+ */
+const enviarMail = async (mail) => {
+    const cfg = await leerConfig();
+    let envio = { ...mail, replyTo: mail.replyTo ?? exports.REPLY_TO_EMAIL };
+    if (cfg.modoTest === true && cfg.testEmail) {
+        const destinos = [mail.to].flat().join(', ');
+        console.log(`[MODO TEST] Email interceptado → para: ${destinos} → redirigido a: ${cfg.testEmail} | Asunto: ${mail.subject}`);
+        envio = { ...envio, to: cfg.testEmail, cc: undefined, subject: `[TEST → ${destinos}] ${mail.subject}` };
+    }
+    const proveedor = elegirProveedor(cfg);
+    if (proveedor === 'ninguno') {
+        console.warn('Ni SMTP_PASSWORD ni RESEND_API_KEY configurados — email omitido:', mail.subject);
+        return { proveedor, error: 'El envío de mails no está configurado' };
     }
     try {
-        const { error } = await resend.emails.send({
-            from: exports.FROM_EMAIL,
-            to: recipient,
-            subject,
-            html,
-        });
-        if (error)
-            console.error('Resend error:', error);
+        const id = proveedor === 'smtp' ? await porSmtp(envio) : await porResend(envio);
+        return { proveedor, ...(id ? { id } : {}) };
     }
     catch (err) {
-        console.error('Error enviando email:', err);
+        const error = err instanceof Error ? err.message : String(err);
+        console.error(`Error enviando email por ${proveedor}:`, error);
+        return { proveedor, error };
     }
+};
+exports.enviarMail = enviarMail;
+/** Aviso simple sin adjuntos (pedidos, usuarios, alertas): loguea el error y sigue. */
+const sendEmail = async (to, subject, html) => {
+    await (0, exports.enviarMail)({ to, subject, html });
 };
 exports.sendEmail = sendEmail;
 //# sourceMappingURL=email.js.map

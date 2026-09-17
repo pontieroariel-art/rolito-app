@@ -1,9 +1,9 @@
 import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore'
 import { getFirestore } from 'firebase-admin/firestore'
-import { sendEmail, APP_URL, resendApiKey } from '../email'
+import { sendEmail, APP_URL, MAIL_SECRETS } from '../email'
 import { tplRegistroPendiente, tplCuentaAprobada, tplAdminNuevoCliente } from '../templates'
 
-export const onUserRegistered = onDocumentCreated({ document: 'users/{uid}', secrets: [resendApiKey] }, async (event) => {
+export const onUserRegistered = onDocumentCreated({ document: 'users/{uid}', secrets: MAIL_SECRETS }, async (event) => {
   const data = event.data?.data()
   if (!data) return
   if (data.rol !== 'cliente' || data.estado !== 'pendiente') return
@@ -15,7 +15,7 @@ export const onUserRegistered = onDocumentCreated({ document: 'users/{uid}', sec
   await sendEmail(email, 'Tu cuenta en Rolito está siendo verificada', tplRegistroPendiente(nombre))
 })
 
-export const onUserApproved = onDocumentUpdated({ document: 'users/{uid}', secrets: [resendApiKey] }, async (event) => {
+export const onUserApproved = onDocumentUpdated({ document: 'users/{uid}', secrets: MAIL_SECRETS }, async (event) => {
   const before = event.data?.before.data()
   const after  = event.data?.after.data()
   if (!before || !after) return
@@ -33,7 +33,7 @@ export const onUserApproved = onDocumentUpdated({ document: 'users/{uid}', secre
 // distingue del autorregistro público porque solo esos documentos traen
 // `creadoPor`. Avisa a la lista de staff (configuracion/notificaciones) quién
 // lo creó, ya que el alta rápida ya no pasa por aprobación previa.
-export const onClienteCreadoPorStaff = onDocumentCreated({ document: 'users/{uid}', secrets: [resendApiKey] }, async (event) => {
+export const onClienteCreadoPorStaff = onDocumentCreated({ document: 'users/{uid}', secrets: MAIL_SECRETS }, async (event) => {
   const data = event.data?.data()
   if (!data) return
   if (data.rol !== 'cliente' || !data.creadoPor) return

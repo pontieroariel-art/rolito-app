@@ -16,7 +16,7 @@
  */
 import { onSchedule } from 'firebase-functions/v2/scheduler'
 import { getFirestore, FieldValue } from 'firebase-admin/firestore'
-import { sendEmail, APP_URL, resendApiKey } from '../email'
+import { sendEmail, APP_URL, MAIL_SECRETS } from '../email'
 
 const TZ = 'America/Argentina/Buenos_Aires'
 
@@ -126,7 +126,7 @@ function cuerpo(aviso: NonNullable<Aviso>, estado: EstadoPadron | undefined): { 
 // Todos los días a las 9 de la mañana: si algo hay que hacer a mano, mejor
 // enterarse temprano y no a las 11 de la noche.
 export const avisarPadronIIBB = onSchedule(
-  { schedule: '0 9 * * *', timeZone: TZ, secrets: [resendApiKey] },
+  { schedule: '0 9 * * *', timeZone: TZ, secrets: MAIL_SECRETS },
   async () => {
     const db = getFirestore()
     const snap = await db.doc(RUTA_PADRON).get()
