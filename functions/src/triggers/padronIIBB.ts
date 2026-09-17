@@ -16,7 +16,7 @@
  */
 import { onSchedule } from 'firebase-functions/v2/scheduler'
 import { getFirestore, FieldValue } from 'firebase-admin/firestore'
-import { sendEmail, APP_URL, MAIL_SECRETS } from '../email'
+import { sendEmail, destinatariosAviso, APP_URL, MAIL_SECRETS } from '../email'
 
 const TZ = 'America/Argentina/Buenos_Aires'
 
@@ -136,8 +136,8 @@ export const avisarPadronIIBB = onSchedule(
     const aviso = decidirAviso(estado, hoy)
     if (!aviso) return
 
-    const cfg = await db.doc('configuracion/notificaciones').get()
-    const emails = (cfg.data()?.emails ?? []) as string[]
+    // Lista "Padrón IIBB" de Ajustes generales (o la general si no tiene la suya).
+    const emails = await destinatariosAviso('padronIIBB')
     if (emails.length === 0) {
       console.warn('[avisarPadronIIBB] no hay destinatarios en configuracion/notificaciones')
       return

@@ -8,15 +8,18 @@ import {
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { reportError } from './observability'
+import { campoDeAviso, listaDeAviso, type TipoAviso } from '@/utils/avisosMail'
 
-// ── Emails de notificación (admin) ────────────────────────────────────────────
+// ── Emails de los avisos internos (oficina) ───────────────────────────────────
+// Sin `tipo` es la lista general (`emails`, respaldo de todo); con `tipo`, la
+// lista propia de ese aviso (`avisos.<tipo>`). Ver utils/avisosMail.ts.
 
 const notifRef = () => doc(db, 'configuracion', 'notificaciones')
 
-export const getNotificationEmails = async (): Promise<string[]> => {
+export const getNotificationEmails = async (tipo?: TipoAviso): Promise<string[]> => {
   try {
     const snap = await getDoc(notifRef())
-    if (snap.exists()) return (snap.data().emails as string[]) ?? []
+    if (snap.exists()) return listaDeAviso(snap.data(), tipo)
     await setDoc(notifRef(), { emails: [] })
     return []
   } catch (err) {
@@ -25,8 +28,8 @@ export const getNotificationEmails = async (): Promise<string[]> => {
   }
 }
 
-export const addNotificationEmail = (email: string): Promise<void> =>
-  updateDoc(notifRef(), { emails: arrayUnion(email) })
+export const addNotificationEmail = (email: string, tipo?: TipoAviso): Promise<void> =>
+  updateDoc(notifRef(), { [campoDeAviso(tipo)]: arrayUnion(email) })
 
-export const removeNotificationEmail = (email: string): Promise<void> =>
-  updateDoc(notifRef(), { emails: arrayRemove(email) })
+export const removeNotificationEmail = (email: string, tipo?: TipoAviso): Promise<void> =>
+  updateDoc(notifRef(), { [campoDeAviso(tipo)]: arrayRemove(email) })

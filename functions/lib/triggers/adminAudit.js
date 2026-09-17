@@ -7,15 +7,8 @@ const firestore_2 = require("firebase-admin/firestore");
 const email_1 = require("../email");
 const templates_1 = require("../templates");
 const TZ = 'America/Argentina/Buenos_Aires';
-async function adminEmails() {
-    try {
-        const snap = await (0, firestore_2.getFirestore)().doc('configuracion/notificaciones').get();
-        return (snap.data()?.emails ?? []);
-    }
-    catch {
-        return [];
-    }
-}
+// Lista "Backoffice" de Ajustes generales (alertas de alto riesgo y resumen diario).
+const adminEmails = () => (0, email_1.destinatariosAviso)('backoffice');
 // Alerta instantánea — cambio de rol, alta/baja de personal (riesgo='alto'
 // en historialAdminService.ts). Ver plan de migración del Backoffice, Fase 4.
 exports.onHistorialAdminAltoRiesgo = (0, firestore_1.onDocumentCreated)({ document: 'historialAdmin/{eventoId}', secrets: email_1.MAIL_SECRETS }, async (event) => {

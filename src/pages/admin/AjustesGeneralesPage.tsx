@@ -4,6 +4,7 @@ import AlertasMoraPanel from '../../components/admin/AlertasMoraPanel'
 import FaltantesLiquidacionPanel from '../../components/admin/FaltantesLiquidacionPanel'
 import VentanillaPanel from '../../components/admin/VentanillaPanel'
 import CotArbaPanel from '../../components/admin/CotArbaPanel'
+import AvisosMailPanel from '../../components/admin/AvisosMailPanel'
 
 // Home de configuración global. Por ahora: estado de las sincronizaciones con
 // Tango (clientes, precios, saldos) y sus botones de "Sincronizar ahora", y el
@@ -24,6 +25,7 @@ export default function AjustesGeneralesPage() {
         <FaltantesLiquidacionPanel />
         <VentanillaPanel />
         <CotArbaPanel />
+        <AvisosMailPanel />
       </main>
     </div>
   )

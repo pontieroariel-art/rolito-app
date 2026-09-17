@@ -1,19 +1,13 @@
 import { onDocumentCreated } from 'firebase-functions/v2/firestore'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
 import { getFirestore, Timestamp } from 'firebase-admin/firestore'
-import { sendEmail, APP_URL, MAIL_SECRETS } from '../email'
+import { sendEmail, destinatariosAviso, APP_URL, MAIL_SECRETS } from '../email'
 import { tplAdminAccionAltoRiesgo, tplAdminResumenDiario } from '../templates'
 
 const TZ = 'America/Argentina/Buenos_Aires'
 
-async function adminEmails(): Promise<string[]> {
-  try {
-    const snap = await getFirestore().doc('configuracion/notificaciones').get()
-    return (snap.data()?.emails ?? []) as string[]
-  } catch {
-    return []
-  }
-}
+// Lista "Backoffice" de Ajustes generales (alertas de alto riesgo y resumen diario).
+const adminEmails = () => destinatariosAviso('backoffice')
 
 // Alerta instantánea — cambio de rol, alta/baja de personal (riesgo='alto'
 // en historialAdminService.ts). Ver plan de migración del Backoffice, Fase 4.

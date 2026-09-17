@@ -1,6 +1,5 @@
 import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore'
-import { getFirestore } from 'firebase-admin/firestore'
-import { sendEmail, APP_URL, MAIL_SECRETS } from '../email'
+import { sendEmail, destinatariosAviso, APP_URL, MAIL_SECRETS } from '../email'
 import { tplRegistroPendiente, tplCuentaAprobada, tplAdminNuevoCliente } from '../templates'
 
 export const onUserRegistered = onDocumentCreated({ document: 'users/{uid}', secrets: MAIL_SECRETS }, async (event) => {
@@ -38,11 +37,8 @@ export const onClienteCreadoPorStaff = onDocumentCreated({ document: 'users/{uid
   if (!data) return
   if (data.rol !== 'cliente' || !data.creadoPor) return
 
-  let adminEmails: string[] = []
-  try {
-    const snap = await getFirestore().doc('configuracion/notificaciones').get()
-    adminEmails = (snap.data()?.emails ?? []) as string[]
-  } catch { /* sin config */ }
+  // Aviso interno a la oficina (lista "Nuevo cliente" de Ajustes generales).
+  const adminEmails = await destinatariosAviso('nuevoCliente')
   if (adminEmails.length === 0) return
 
   const creadoPor = data.creadoPor as { nombre?: string; rol?: string }

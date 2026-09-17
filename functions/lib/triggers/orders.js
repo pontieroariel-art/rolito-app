@@ -30,13 +30,8 @@ exports.onOrderCreated = (0, firestore_1.onDocumentCreated)({ document: 'orders/
     if (emailCliente) {
         await (0, email_1.sendEmail)(emailCliente, 'Pedido recibido - Rolito', (0, templates_1.tplPedidoRecibido)(nombre, products, order.date, order.notes));
     }
-    // Email al admin
-    let adminEmails = [];
-    try {
-        const snap = await (0, firestore_2.getFirestore)().doc('configuracion/notificaciones').get();
-        adminEmails = (snap.data()?.emails ?? []);
-    }
-    catch { /* sin config */ }
+    // Aviso interno a la oficina (lista "Nuevo pedido" de Ajustes generales).
+    const adminEmails = await (0, email_1.destinatariosAviso)('nuevoPedido');
     if (adminEmails.length > 0) {
         await (0, email_1.sendEmail)(adminEmails, `Nuevo pedido de ${clientName}`, (0, templates_1.tplAdminNuevoPedido)({
             clientName,

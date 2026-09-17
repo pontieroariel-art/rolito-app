@@ -2,7 +2,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.onClienteCreadoPorStaff = exports.onUserApproved = exports.onUserRegistered = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
-const firestore_2 = require("firebase-admin/firestore");
 const email_1 = require("../email");
 const templates_1 = require("../templates");
 exports.onUserRegistered = (0, firestore_1.onDocumentCreated)({ document: 'users/{uid}', secrets: email_1.MAIL_SECRETS }, async (event) => {
@@ -42,12 +41,8 @@ exports.onClienteCreadoPorStaff = (0, firestore_1.onDocumentCreated)({ document:
         return;
     if (data.rol !== 'cliente' || !data.creadoPor)
         return;
-    let adminEmails = [];
-    try {
-        const snap = await (0, firestore_2.getFirestore)().doc('configuracion/notificaciones').get();
-        adminEmails = (snap.data()?.emails ?? []);
-    }
-    catch { /* sin config */ }
+    // Aviso interno a la oficina (lista "Nuevo cliente" de Ajustes generales).
+    const adminEmails = await (0, email_1.destinatariosAviso)('nuevoCliente');
     if (adminEmails.length === 0)
         return;
     const creadoPor = data.creadoPor;

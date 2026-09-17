@@ -30,7 +30,7 @@ export default function ResumenLogisticaPage() {
   const { orders, loading, truncado } = useAllOrders()
   const { user }            = useAuth()
   const choferes            = useChoferes()
-  const notifEmails         = useNotificationEmails()
+  const notifEmails         = useNotificationEmails('nuevoPedido')
   const [cleanupModal,   setCleanupModal]   = useState(false)
   const [cleanupLoading, setCleanupLoading] = useState(false)
   const [cleanupResult,  setCleanupResult]  = useState<CleanupResult | null>(null)

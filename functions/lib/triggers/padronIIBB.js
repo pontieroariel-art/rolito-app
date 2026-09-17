@@ -118,8 +118,8 @@ exports.avisarPadronIIBB = (0, scheduler_1.onSchedule)({ schedule: '0 9 * * *', 
     const aviso = decidirAviso(estado, hoy);
     if (!aviso)
         return;
-    const cfg = await db.doc('configuracion/notificaciones').get();
-    const emails = (cfg.data()?.emails ?? []);
+    // Lista "Padrón IIBB" de Ajustes generales (o la general si no tiene la suya).
+    const emails = await (0, email_1.destinatariosAviso)('padronIIBB');
     if (emails.length === 0) {
         console.warn('[avisarPadronIIBB] no hay destinatarios en configuracion/notificaciones');
         return;

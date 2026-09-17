@@ -50,10 +50,20 @@ export interface ResultadoMail {
   error?:    string
 }
 
+/**
+ * Avisos internos a la oficina, cada uno con su lista de destinatarios en
+ * `configuracion/notificaciones.avisos.<tipo>` (2026-09-17, pedido de Ariel:
+ * "que se manden a donde deberían ir", no todo a su Gmail). Un tipo sin lista
+ * propia cae en la lista general `emails`. Se editan en Ajustes generales.
+ */
+export type TipoAviso = 'nuevoPedido' | 'nuevoCliente' | 'backoffice' | 'padronIIBB'
+
 interface ConfigNotificaciones {
   modoTest?:      boolean
   testEmail?:     string
   proveedorMail?: ProveedorMail
+  emails?:        string[]
+  avisos?:        Partial<Record<TipoAviso, string[]>>
 }
 
 /** `.value()` de un secret no cargado revienta en el emulador: lo tratamos como vacío. */
@@ -68,6 +78,14 @@ const leerConfig = async (): Promise<ConfigNotificaciones> => {
   } catch {
     return {} // sin config: destino real, proveedor por defecto
   }
+}
+
+/** Destinatarios de un aviso interno: su lista propia o, si no tiene, la general. */
+export const destinatariosAviso = async (tipo: TipoAviso): Promise<string[]> => {
+  const cfg = await leerConfig()
+  const propia = cfg.avisos?.[tipo]
+  const lista = Array.isArray(propia) && propia.length ? propia : cfg.emails ?? []
+  return lista.filter((e): e is string => typeof e === 'string' && e.includes('@'))
 }
 
 const elegirProveedor = (cfg: ConfigNotificaciones): ProveedorMail | 'ninguno' => {

@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendEmail = exports.enviarMail = exports.REPLY_TO_EMAIL = exports.APP_URL = exports.FROM_EMAIL = exports.MAIL_SECRETS = exports.smtpPassword = exports.resendApiKey = void 0;
+exports.sendEmail = exports.enviarMail = exports.destinatariosAviso = exports.REPLY_TO_EMAIL = exports.APP_URL = exports.FROM_EMAIL = exports.MAIL_SECRETS = exports.smtpPassword = exports.resendApiKey = void 0;
 const firestore_1 = require("firebase-admin/firestore");
 const params_1 = require("firebase-functions/params");
 // Salida de mails de la app (2026-09-17): SMTP de Microsoft 365 de Redonhielo
@@ -80,6 +80,14 @@ const leerConfig = async () => {
         return {}; // sin config: destino real, proveedor por defecto
     }
 };
+/** Destinatarios de un aviso interno: su lista propia o, si no tiene, la general. */
+const destinatariosAviso = async (tipo) => {
+    const cfg = await leerConfig();
+    const propia = cfg.avisos?.[tipo];
+    const lista = Array.isArray(propia) && propia.length ? propia : cfg.emails ?? [];
+    return lista.filter((e) => typeof e === 'string' && e.includes('@'));
+};
+exports.destinatariosAviso = destinatariosAviso;
 const elegirProveedor = (cfg) => {
     const smtp = valorSecreto(exports.smtpPassword);
     const resend = valorSecreto(exports.resendApiKey);

@@ -1,6 +1,6 @@
 import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore'
 import { getFirestore } from 'firebase-admin/firestore'
-import { sendEmail, APP_URL, MAIL_SECRETS } from '../email'
+import { sendEmail, destinatariosAviso, APP_URL, MAIL_SECRETS } from '../email'
 import {
   tplPedidoRecibido, tplPedidoConfirmado, tplPedidoEnCamino, tplAdminNuevoPedido,
 } from '../templates'
@@ -35,12 +35,8 @@ export const onOrderCreated = onDocumentCreated({ document: 'orders/{orderId}', 
     )
   }
 
-  // Email al admin
-  let adminEmails: string[] = []
-  try {
-    const snap = await getFirestore().doc('configuracion/notificaciones').get()
-    adminEmails = (snap.data()?.emails ?? []) as string[]
-  } catch { /* sin config */ }
+  // Aviso interno a la oficina (lista "Nuevo pedido" de Ajustes generales).
+  const adminEmails = await destinatariosAviso('nuevoPedido')
 
   if (adminEmails.length > 0) {
     await sendEmail(
