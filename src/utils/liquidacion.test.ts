@@ -172,6 +172,22 @@ describe('calcularLiquidacion — cambios vs bolsas rotas', () => {
     expect(r.cambios.rotasRecibidas).toBe(6)   // falta una rota → queda registrado
   })
 
+  it('deja las rotas por producto en el resumen (fase B: el faltante a Tango es carga − ventas − rotas − descarga)', () => {
+    const r = calcularLiquidacion(
+      [remito([item('hielo10', 'Hielo 10kg', 100), item('hielo3', 'Hielo 3kg', 50)])],
+      [],
+      [],
+      [
+        descarga({ items: [di('hielo10', 'Hielo 10kg', 4)], bolsasRotas: [di('hielo10', 'Hielo 10kg', 2), di('cambio_hielo10', 'Cambio Hielo 10kg', 1)] }),
+        descarga({ bolsasRotas: [di('hielo3', 'Hielo 3kg', 4)] }),
+      ],
+    )
+    const por = Object.fromEntries(r.productos.map((p) => [p.productoId, p]))
+    expect(por.hielo10.rotas).toBe(3)   // el prefijo cambio_ cae en la fila del producto
+    expect(por.hielo3.rotas).toBe(4)
+    expect(por.hielo10.diferencia).toBe(4 - 100)   // la diferencia de la app sigue siendo descarga − teórica
+  })
+
   it('cuenta los cambios que vienen adentro de la venta', () => {
     // Desde que el cambio es un renglón del comprobante, viaja en la venta.
     const v = venta('contado', 'contado_efectivo', [item('hielo10', 'Hielo 10kg', 20)], 2000)

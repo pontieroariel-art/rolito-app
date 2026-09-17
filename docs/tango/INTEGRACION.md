@@ -2011,3 +2011,54 @@ usuario, respeta `configuracion/notificaciones.modoTest`, lo manda con adjunto p
 lo lee quien gestiona y quien lo mandó). Destinatario precargado con el **mail de la ficha de
 Tango** (`GVA14.E_MAIL`, que el lector publica en `tangoComprobantes.email`; decisión de Ariel) y,
 si Tango no lo tiene, el de la app siempre que no sea el de login (`utils/comprobantesTango.emailDelCliente`).
+
+## 36. Fase B del stock: merma del muelle → 99, diferencia de la liquidación → 98, cambio de ventanilla → 99 (2026-09-17)
+
+Aprobado por Ariel el 2026-09-17 (propuesta: https://claude.ai/artifact/DRePRzM4eJG5dtJPGqfjoN). Cierra el
+modelo de §22: cada camión termina el día en cero en Tango. **carga = ventas + rotas + descarga sana +
+diferencia**. Ejemplo: sale con 100, vende 90, registra 5 cambios, el muelle cuenta 3 rotas y 4 sanas →
+3 al 99 y 3 al 98 (una bolsa que falta de verdad más dos cambios sin la rota que los respalde).
+
+**Definiciones:**
+- **La merma es lo que el muelle cuenta.** Las bolsas rotas de la descarga van camión → **99 MERMA EN
+  CAMIONES** con el artículo real. Los cambios que registra el chofer en la venta **no mueven stock**: son el
+  respaldo que la liquidación cruza con las rotas (`cambios.registrados` vs `rotasRecibidas`). Un cambio
+  sin rota es diferencia, no merma. Se descartó anotar el cambio en la venta (camión → 99 por cliente) y
+  reclasificar 99 → 98 al contar: mismo número final, dos movimientos más.
+- **Lo que falta es diferencia del chofer.** Al cerrar la liquidación, por producto,
+  `faltante = carga − ventas − rotas − descarga` va camión → **98 DIFERENCIAS DE REPARTO** con el chofer y
+  el código LQ. OJO: no es la `diferencia` de la pantalla (descarga − teórica, con los cambios descontados);
+  `functions/src/services/diferenciasReparto.ts` (`faltantesParaTango`, tests) hace la cuenta. El
+  sobrante no genera movimiento (el camión queda en negativo por esa cantidad; 98 → camión queda para después).
+- **La venta promo deja de descontar los cambios** (`ventaPromo.incluyeCambios = false` al prender esto;
+  si no, la bolsa del cambio saldría dos veces).
+- **Ventanilla:** no hay muelle; el cajero ve la rota. El cambio va planta (01/02) → 99 en la venta.
+
+**Cómo viaja:** misma entidad `transferenciaDeposito` y mismo writer (`transferenciaADepositoFijo` en
+`movimientoStock.ts`: destino = `config/tango.sql.stock.tipos.<sentido>.depositoDestino`, string), con
+`payload.sentido` = `merma` (item `descargasCamion_<id>_merma`, `onDescargaCamionCreada`; no en descargas
+teóricas), `diferencia` (item `liquidaciones_<id>_diferencia`, trigger nuevo `onLiquidacionCerrada`; no en
+cierres de arranque ni sin `descargasIds`; usa `productos[].rotas` que el front escribe desde hoy o suma
+las rotas de las descargas del cierre) y `cambioVentanilla` (item `ventasVentanilla_<id>_cambio` en
+`encolarVenta`). Referencias idempotentes con prefijo propio: `ROLITO:DM:`, `ROLITO:LQ:`, `ROLITO:CV:` (la
+DES de la misma descarga sigue en `ROLITO:DC:`). Write-back por sentido: `tango.mermaNumero`,
+`tango.diferenciaNumero` (en la liquidación), `tango.cambioNumero`. Bridge (`bridge-sql.mjs`): origen =
+camión (`depositoCamionDe`) o planta para el cambio de ventanilla; **interruptor por tipo**
+`tipos.<clave>.habilitado = false` deja el item pendiente sin contar intento (además del general
+`transferenciasSqlEnabled`); `--probar-sql` con sesión chequea que el T_COMP sea transferencia (`TI`), el
+talonario exista en STA17 y el depósito destino en STA10.
+
+**Config (con el resultado de STA13 / STA10 de SSMS):**
+```
+node scripts/tango/configurar-stock-tango.mjs --tipo merma            tipo=transferencia tComp=<CAM?> tcompInS=TI talonario=<6?>  depositoDestino=99 habilitado=false
+node scripts/tango/configurar-stock-tango.mjs --tipo diferencia       tipo=transferencia tComp=<AJU?> tcompInS=TI talonario=<5?>  depositoDestino=98 habilitado=false
+node scripts/tango/configurar-stock-tango.mjs --tipo cambioVentanilla tipo=transferencia tComp=<CAM?> tcompInS=TI talonario=<6?>  depositoDestino=99 habilitado=false
+node scripts/tango/configurar-stock-tango.mjs --tipo ventaPromo incluyeCambios=false      # al PRENDER merma
+```
+**Puesta en marcha, en este orden** (el bridge viejo no conoce los sentidos nuevos y mandaría los items a
+error): 1) copiar `bridge-sql.mjs` + `lib/movimientoStock.js` a la VM y reiniciar (`taskkill /F /IM node.exe`);
+2) cargar los tres tipos con `habilitado=false`; 3) deploy de `onDescargaCamionCreada`,
+`onLiquidacionCerrada`, `onVentaVentanillaCreada`, `onOutboxConfirmado` (y hosting: `productos[].rotas`);
+4) `--dry-run --once --solo=<id>` sobre la primera descarga con rotas y la primera liquidación con faltante;
+5) `habilitado=true` de a uno y, con `merma`, `ventaPromo incluyeCambios=false`. Los items que se encolen
+entre 3 y 5 quedan pendientes y salen solos al prender.

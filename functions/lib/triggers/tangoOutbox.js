@@ -1,11 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onOutboxConfirmado = exports.onCobranzaCreada = exports.onDescargaCamionCreada = exports.onRemitoCargaCreado = exports.onAnulacionEmitida = exports.onVentaVentanillaFacturada = exports.onVentaVentanillaCreada = exports.onVentaCamionFacturada = exports.onVentaCamionCreada = exports.onProduccionPalletCreado = void 0;
+exports.onOutboxConfirmado = exports.onCobranzaCreada = exports.onLiquidacionCerrada = exports.onDescargaCamionCreada = exports.onRemitoCargaCreado = exports.onAnulacionEmitida = exports.onVentaVentanillaFacturada = exports.onVentaVentanillaCreada = exports.onVentaCamionFacturada = exports.onVentaCamionCreada = exports.onProduccionPalletCreado = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const firestore_2 = require("firebase-admin/firestore");
 const circuito_1 = require("../services/arca/circuito");
 const empresas_1 = require("../services/tango/empresas");
 const saldos_1 = require("../services/tango/saldos");
+const diferenciasReparto_1 = require("../services/diferenciasReparto");
 // Helper: crea un item en tango-outbox con ID determinístico. Idempotente —
 // un reintento del trigger tira ALREADY_EXISTS (código 6) y se ignora, así el
 // mismo origen no se manda dos veces a Tango.
@@ -128,6 +129,29 @@ async function encolarVenta(coleccion, ventaId, venta) {
             origenColeccion: coleccion,
             origenId: ventaId,
             payload: { movimiento: stock.movimiento, venta: await payloadDeVentaEn(venta, stock.empresa) },
+        });
+    }
+    // Fase B (2026-09-17): el cambio en el MOSTRADOR va planta → 99 en la venta
+    // (el cajero ve la bolsa rota; no hay muelle que la cuente). En el camión el
+    // cambio no mueve stock: la merma la cuenta el muelle en la descarga.
+    const cambios = Array.isArray(venta.cambios) ? venta.cambios : [];
+    if (coleccion === 'ventasVentanilla' && (0, diferenciasReparto_1.totalCantidad)(cambios) > 0) {
+        const interno = venta.comprobanteInterno;
+        await encolarOutbox(`${coleccion}_${ventaId}_cambio`, {
+            entidad: 'transferenciaDeposito',
+            empresa: 'redonhielo',
+            origenColeccion: coleccion,
+            origenId: ventaId,
+            payload: {
+                sentido: 'cambioVentanilla', // planta → 99
+                codigo: interno?.numero ? `${interno.tipo ?? ''} ${interno.puntoVenta ?? ''}-${interno.numero}`.trim() : null,
+                plantaId: venta.plantaId ?? null,
+                clienteCodigoTango: venta.clienteCodigoTango ?? null,
+                clienteNombre: venta.clienteNombre ?? null,
+                items: cambios,
+                fecha: venta.fecha,
+                cajaNombre: venta.cajaNombre ?? null,
+            },
         });
     }
 }
@@ -328,6 +352,75 @@ exports.onDescargaCamionCreada = (0, firestore_1.onDocumentCreated)('descargasCa
             registradoPor: descarga.registradoPor,
         },
     });
+    // Fase B (2026-09-17, aprobada por Ariel): las bolsas rotas contadas por el
+    // muelle son la merma real y van camión → 99 en un item aparte (prefijo de
+    // referencia DM, write-back en `tango.mermaNumero`). La descarga teórica del
+    // cierre de arranque no cuenta rotas. Ver services/diferenciasReparto.ts.
+    if (!descarga.teorica && (0, diferenciasReparto_1.totalCantidad)(descarga.bolsasRotas) > 0) {
+        await encolarOutbox(`descargasCamion_${event.params.descargaId}_merma`, {
+            entidad: 'transferenciaDeposito',
+            empresa: 'redonhielo',
+            origenColeccion: 'descargasCamion',
+            origenId: event.params.descargaId,
+            payload: {
+                sentido: 'merma', // camión → 99 (config/tango.sql.stock.tipos.merma.depositoDestino)
+                codigo: descarga.codigo ?? descarga.remitoCodigo ?? null,
+                plantaId: descarga.plantaId,
+                depositoTango: descarga.depositoTango ?? null,
+                camionId: descarga.camionId,
+                camionLabel: descarga.camionLabel,
+                choferId: descarga.choferId,
+                choferNombre: descarga.choferNombre,
+                items: descarga.bolsasRotas,
+                fecha: descarga.fecha,
+                registradoPor: descarga.registradoPor,
+            },
+        });
+    }
+});
+// Liquidación cerrada → faltante por producto camión → 98 DIFERENCIAS DE REPARTO
+// (fase B, 2026-09-17). faltante = carga − ventas − rotas − descarga sana; un
+// sobrante no genera nada. No se manda si el cierre es de arranque (descarga
+// teórica) ni si no hubo conteo del muelle (la diferencia sería toda la
+// devolución teórica: la mercadería sigue arriba del camión, no falta).
+exports.onLiquidacionCerrada = (0, firestore_1.onDocumentCreated)('liquidaciones/{liquidacionId}', async (event) => {
+    const liq = event.data?.data();
+    if (!liq)
+        return;
+    if (liq.cierreArranque)
+        return;
+    const descargasIds = Array.isArray(liq.descargasIds) ? liq.descargasIds.filter(Boolean) : [];
+    if (descargasIds.length === 0)
+        return;
+    const productos = Array.isArray(liq.productos) ? liq.productos : [];
+    // Cierres del front viejo sin `rotas` por producto: se suman de las descargas del cierre.
+    let rotas = {};
+    if (productos.some((p) => typeof p?.rotas !== 'number')) {
+        const db = (0, firestore_2.getFirestore)();
+        const docs = await Promise.all(descargasIds.slice(0, 20).map((id) => db.doc(`descargasCamion/${id}`).get()));
+        rotas = (0, diferenciasReparto_1.rotasPorProductoDe)(docs.map((d) => (d.data() ?? {})));
+    }
+    const items = (0, diferenciasReparto_1.faltantesParaTango)(productos, rotas);
+    if (items.length === 0)
+        return;
+    await encolarOutbox(`liquidaciones_${event.params.liquidacionId}_diferencia`, {
+        entidad: 'transferenciaDeposito',
+        empresa: 'redonhielo',
+        origenColeccion: 'liquidaciones',
+        origenId: event.params.liquidacionId,
+        payload: {
+            sentido: 'diferencia', // camión → 98 (config/tango.sql.stock.tipos.diferencia.depositoDestino)
+            codigo: liq.codigo ?? null,
+            plantaId: liq.plantaId,
+            depositoTango: liq.depositoTango ?? null,
+            choferId: liq.choferId,
+            choferNombre: liq.choferNombre,
+            items,
+            // Fecha del día liquidado a mediodía (la liquidación guarda 'yyyy-MM-dd').
+            fecha: typeof liq.fecha === 'string' ? `${liq.fecha}T12:00:00` : liq.createdAt,
+            cerradaPor: liq.cerradaPor ?? null,
+        },
+    });
 });
 // Alta de una cobranza de supervisor → un item 'recibo' en tango-outbox (el
 // bridge genera el recibo de cobranza en Tango cuando la licencia habilite
@@ -451,12 +544,22 @@ const WRITE_BACKS = {
     },
     // Remito de carga y descarga del camión: el número que Tango le dio al
     // movimiento de stock.
+    // Fase B (2026-09-17): merma (descarga → 99), diferencia (liquidación → 98) y
+    // cambio de ventanilla (venta → 99) usan la misma entidad con otro `sentido`
+    // y un campo propio, para no pisar el número de la DES de la misma descarga.
     transferenciaDeposito: {
-        colecciones: ['remitosCarga', 'descargasCamion'],
-        buildUpdate: (resultado) => {
+        colecciones: ['remitosCarga', 'descargasCamion', 'liquidaciones', 'ventasVentanilla'],
+        buildUpdate: (resultado, item) => {
             const numero = resultado?.transferenciaNumero ?? resultado?.comprobanteNumero ?? resultado?.savedId;
             if (!numero)
                 return null;
+            const sentido = item?.payload?.sentido;
+            if (sentido === 'merma')
+                return { 'tango.mermaEstado': 'confirmado', 'tango.mermaNumero': String(numero) };
+            if (sentido === 'diferencia')
+                return { 'tango.estado': 'confirmado', 'tango.diferenciaNumero': String(numero) };
+            if (sentido === 'cambioVentanilla')
+                return { 'tango.cambioEstado': 'confirmado', 'tango.cambioNumero': String(numero) };
             return { 'tango.estado': 'confirmado', 'tango.transferenciaNumero': String(numero) };
         },
     },
@@ -507,7 +610,7 @@ exports.onOutboxConfirmado = (0, firestore_1.onDocumentUpdated)('tango-outbox/{d
         return;
     let update = null;
     if (after.estado === 'confirmado')
-        update = writeBack.buildUpdate(after.resultado ?? {});
+        update = writeBack.buildUpdate(after.resultado ?? {}, after);
     else if (after.estado === 'error' && writeBack.buildError)
         update = writeBack.buildError(String(after.ultimoError ?? 'error en el bridge de Tango').slice(0, 500));
     if (!update)

@@ -3,6 +3,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore'
 import { destinoTango, movimientoStockDeVenta } from '../services/arca/circuito'
 import { codigoTangoDe, esEmpresa, idGva14De, tangoIdsDe, type Empresa } from '../services/tango/empresas'
 import { descontarCobranza, type SaldoDoc } from '../services/tango/saldos'
+import { faltantesParaTango, rotasPorProductoDe, totalCantidad, type ProductoLiquidado } from '../services/diferenciasReparto'
 
 // Helper: crea un item en tango-outbox con ID determinístico. Idempotente —
 // un reintento del trigger tira ALREADY_EXISTS (código 6) y se ignora, así el
@@ -143,6 +144,30 @@ async function encolarVenta(coleccion: 'ventasCamion' | 'ventasVentanilla', vent
       origenColeccion: coleccion,
       origenId: ventaId,
       payload: { movimiento: stock.movimiento, venta: await payloadDeVentaEn(venta, stock.empresa) },
+    })
+  }
+
+  // Fase B (2026-09-17): el cambio en el MOSTRADOR va planta → 99 en la venta
+  // (el cajero ve la bolsa rota; no hay muelle que la cuente). En el camión el
+  // cambio no mueve stock: la merma la cuenta el muelle en la descarga.
+  const cambios = Array.isArray(venta.cambios) ? (venta.cambios as { productoId: string; nombre?: string; cantidad: number }[]) : []
+  if (coleccion === 'ventasVentanilla' && totalCantidad(cambios) > 0) {
+    const interno = venta.comprobanteInterno as { tipo?: string; puntoVenta?: number; numero?: number } | undefined
+    await encolarOutbox(`${coleccion}_${ventaId}_cambio`, {
+      entidad: 'transferenciaDeposito',
+      empresa: 'redonhielo',
+      origenColeccion: coleccion,
+      origenId: ventaId,
+      payload: {
+        sentido:            'cambioVentanilla',   // planta → 99
+        codigo:             interno?.numero ? `${interno.tipo ?? ''} ${interno.puntoVenta ?? ''}-${interno.numero}`.trim() : null,
+        plantaId:           venta.plantaId ?? null,
+        clienteCodigoTango: venta.clienteCodigoTango ?? null,
+        clienteNombre:      venta.clienteNombre ?? null,
+        items:              cambios,
+        fecha:              venta.fecha,
+        cajaNombre:         venta.cajaNombre ?? null,
+      },
     })
   }
 }
@@ -364,6 +389,75 @@ export const onDescargaCamionCreada = onDocumentCreated(
         registradoPor:    descarga.registradoPor,
       },
     })
+    // Fase B (2026-09-17, aprobada por Ariel): las bolsas rotas contadas por el
+    // muelle son la merma real y van camión → 99 en un item aparte (prefijo de
+    // referencia DM, write-back en `tango.mermaNumero`). La descarga teórica del
+    // cierre de arranque no cuenta rotas. Ver services/diferenciasReparto.ts.
+    if (!descarga.teorica && totalCantidad(descarga.bolsasRotas) > 0) {
+      await encolarOutbox(`descargasCamion_${event.params.descargaId}_merma`, {
+        entidad: 'transferenciaDeposito',
+        empresa: 'redonhielo',
+        origenColeccion: 'descargasCamion',
+        origenId: event.params.descargaId,
+        payload: {
+          sentido:       'merma',   // camión → 99 (config/tango.sql.stock.tipos.merma.depositoDestino)
+          codigo:        descarga.codigo ?? descarga.remitoCodigo ?? null,
+          plantaId:      descarga.plantaId,
+          depositoTango: descarga.depositoTango ?? null,
+          camionId:      descarga.camionId,
+          camionLabel:   descarga.camionLabel,
+          choferId:      descarga.choferId,
+          choferNombre:  descarga.choferNombre,
+          items:         descarga.bolsasRotas,
+          fecha:         descarga.fecha,
+          registradoPor: descarga.registradoPor,
+        },
+      })
+    }
+  },
+)
+
+// Liquidación cerrada → faltante por producto camión → 98 DIFERENCIAS DE REPARTO
+// (fase B, 2026-09-17). faltante = carga − ventas − rotas − descarga sana; un
+// sobrante no genera nada. No se manda si el cierre es de arranque (descarga
+// teórica) ni si no hubo conteo del muelle (la diferencia sería toda la
+// devolución teórica: la mercadería sigue arriba del camión, no falta).
+export const onLiquidacionCerrada = onDocumentCreated(
+  'liquidaciones/{liquidacionId}',
+  async (event) => {
+    const liq = event.data?.data()
+    if (!liq) return
+    if (liq.cierreArranque) return
+    const descargasIds = Array.isArray(liq.descargasIds) ? (liq.descargasIds as string[]).filter(Boolean) : []
+    if (descargasIds.length === 0) return
+    const productos = Array.isArray(liq.productos) ? (liq.productos as ProductoLiquidado[]) : []
+    // Cierres del front viejo sin `rotas` por producto: se suman de las descargas del cierre.
+    let rotas: Record<string, number> = {}
+    if (productos.some((p) => typeof p?.rotas !== 'number')) {
+      const db = getFirestore()
+      const docs = await Promise.all(descargasIds.slice(0, 20).map((id) => db.doc(`descargasCamion/${id}`).get()))
+      rotas = rotasPorProductoDe(docs.map((d) => (d.data() ?? {}) as { bolsasRotas?: { productoId?: string; cantidad?: unknown }[] }))
+    }
+    const items = faltantesParaTango(productos, rotas)
+    if (items.length === 0) return
+    await encolarOutbox(`liquidaciones_${event.params.liquidacionId}_diferencia`, {
+      entidad: 'transferenciaDeposito',
+      empresa: 'redonhielo',
+      origenColeccion: 'liquidaciones',
+      origenId: event.params.liquidacionId,
+      payload: {
+        sentido:       'diferencia',   // camión → 98 (config/tango.sql.stock.tipos.diferencia.depositoDestino)
+        codigo:        liq.codigo ?? null,
+        plantaId:      liq.plantaId,
+        depositoTango: liq.depositoTango ?? null,
+        choferId:      liq.choferId,
+        choferNombre:  liq.choferNombre,
+        items,
+        // Fecha del día liquidado a mediodía (la liquidación guarda 'yyyy-MM-dd').
+        fecha:         typeof liq.fecha === 'string' ? `${liq.fecha}T12:00:00` : liq.createdAt,
+        cerradaPor:    liq.cerradaPor ?? null,
+      },
+    })
   },
 )
 
@@ -471,7 +565,7 @@ export const onCobranzaCreada = onDocumentCreated(
 const WRITE_BACKS: Record<string, {
   /** Colecciones de origen válidas para esta entidad. */
   colecciones: string[]
-  buildUpdate: (resultado: Record<string, unknown>) => Record<string, unknown> | null
+  buildUpdate: (resultado: Record<string, unknown>, item?: Record<string, unknown>) => Record<string, unknown> | null
   /** Cuando la cola agota los reintentos (estado 'error'): qué marcar en el doc de origen
    *  para que la pantalla lo muestre (2026-09-08). Sin esto el doc queda "pendiente" para siempre. */
   buildError?: (ultimoError: string) => Record<string, unknown>
@@ -498,11 +592,18 @@ const WRITE_BACKS: Record<string, {
   },
   // Remito de carga y descarga del camión: el número que Tango le dio al
   // movimiento de stock.
+  // Fase B (2026-09-17): merma (descarga → 99), diferencia (liquidación → 98) y
+  // cambio de ventanilla (venta → 99) usan la misma entidad con otro `sentido`
+  // y un campo propio, para no pisar el número de la DES de la misma descarga.
   transferenciaDeposito: {
-    colecciones: ['remitosCarga', 'descargasCamion'],
-    buildUpdate: (resultado) => {
+    colecciones: ['remitosCarga', 'descargasCamion', 'liquidaciones', 'ventasVentanilla'],
+    buildUpdate: (resultado, item) => {
       const numero = resultado?.transferenciaNumero ?? resultado?.comprobanteNumero ?? resultado?.savedId
       if (!numero) return null
+      const sentido = (item?.payload as { sentido?: string } | undefined)?.sentido
+      if (sentido === 'merma')            return { 'tango.mermaEstado': 'confirmado', 'tango.mermaNumero': String(numero) }
+      if (sentido === 'diferencia')       return { 'tango.estado': 'confirmado', 'tango.diferenciaNumero': String(numero) }
+      if (sentido === 'cambioVentanilla') return { 'tango.cambioEstado': 'confirmado', 'tango.cambioNumero': String(numero) }
       return { 'tango.estado': 'confirmado', 'tango.transferenciaNumero': String(numero) }
     },
   },
@@ -550,7 +651,7 @@ export const onOutboxConfirmado = onDocumentUpdated(
     if (!writeBack || !writeBack.colecciones.includes(coleccion)) return
 
     let update: Record<string, unknown> | null = null
-    if (after.estado === 'confirmado') update = writeBack.buildUpdate(after.resultado ?? {})
+    if (after.estado === 'confirmado') update = writeBack.buildUpdate(after.resultado ?? {}, after)
     else if (after.estado === 'error' && writeBack.buildError) update = writeBack.buildError(String(after.ultimoError ?? 'error en el bridge de Tango').slice(0, 500))
     if (!update) return
 

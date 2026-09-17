@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  egresoDeVentaPromo, transferenciaDeCargaDescarga, sentenciasMovimiento, sentenciaExisteMovimiento,
+  egresoDeVentaPromo, transferenciaDeCargaDescarga, transferenciaADepositoFijo, sentenciasMovimiento, sentenciaExisteMovimiento,
   escribirMovimientoStock, TRAZA, type ConfigTipoMovimiento, type DatosMovimiento,
 } from './movimientoStock'
 import type { EjecutorSql, ParametroSql } from './tipos'
@@ -74,6 +74,55 @@ describe('transferenciaDeCargaDescarga', () => {
   it('descarga: camión → planta', () => {
     const m = transferenciaDeCargaDescarga({ ...carga, sentido: 'descarga' }, 'descargasCamion', 'dc1', articulos, '01', '21', { ...cfgCar, tComp: 'DES' })
     expect(m).toMatchObject({ tComp: 'DES', depositoOrigen: '21', depositoDestino: '01', referencia: 'ROLITO:DC:dc1' })
+  })
+})
+
+// Fase B (2026-09-17, aprobada por Ariel): merma del muelle → 99, diferencia de la
+// liquidación → 98, cambio de ventanilla → 99. Mismo escritor, destino fijo de config.
+describe('transferenciaADepositoFijo', () => {
+  const cfgMerma: ConfigTipoMovimiento = { tipo: 'transferencia', tComp: 'CAM', tcompInS: 'TI', talonario: 6, depositoDestino: '99' }
+  const cfgDif: ConfigTipoMovimiento = { tipo: 'transferencia', tComp: 'AJU', tcompInS: 'TI', talonario: 5, depositoDestino: '98' }
+  const rotas = [{ productoId: 'bolsa_10kg', nombre: 'Bolsa 10', cantidad: 3 }]
+
+  it('merma: rotas contadas por el muelle, camión → 99, referencia DM distinta de la DES de la misma descarga', () => {
+    const m = transferenciaADepositoFijo({ sentido: 'merma', codigo: 'DC-000012', plantaId: 'torcuato', choferNombre: 'Pedro', camionLabel: 'Camión 4', items: rotas, registradoPor: { nombre: 'Muelle Torcuato' } }, 'dc1', articulos, '21', cfgMerma)
+    expect(m).toMatchObject({ tipo: 'transferencia', tComp: 'CAM', tcompInS: 'TI', talonario: 6, depositoOrigen: '21', depositoDestino: '99', referencia: 'ROLITO:DM:dc1' })
+    expect(m.renglones).toEqual([{ codArticu: 'PTHIBOLROLI0010', cantidad: 3 }])
+    expect(m.leyendas[0]).toBe('Merma descarga app DC-000012')
+    expect(m.leyendas[1]).toBe('Chofer Pedro - Camión 4')
+    expect(m.codCliente).toBeUndefined()
+  })
+
+  it('diferencia: faltante de la liquidación, camión → 98, con el código LQ y quien cerró', () => {
+    const m = transferenciaADepositoFijo({ sentido: 'diferencia', codigo: 'LQ-21-000015', plantaId: 'torcuato', choferNombre: 'Pedro', items: rotas, cerradaPor: { nombre: 'Nicolas Diaz' } }, '2026-09-16_ch1', articulos, '21', cfgDif)
+    expect(m).toMatchObject({ tComp: 'AJU', depositoOrigen: '21', depositoDestino: '98', referencia: 'ROLITO:LQ:2026-09-16_ch1' })
+    expect(m.leyendas[0]).toBe('Diferencia reparto app LQ-21-000015')
+    expect(m.usuario).toBeTruthy()
+  })
+
+  it('cambio de ventanilla: planta → 99 con el cliente en la cabecera y los cambio_* normalizados', () => {
+    const m = transferenciaADepositoFijo({ sentido: 'cambioVentanilla', codigo: 'facturaX 3-120', plantaId: 'torcuato', clienteCodigoTango: 'FC.280', clienteNombre: 'Kiosco Juan', items: [{ productoId: 'cambio_bolsa_3kg', nombre: 'Cambio', cantidad: 2 }], cajaNombre: 'Nicolas' }, 'vv1', articulos, '01', cfgMerma)
+    expect(m).toMatchObject({ depositoOrigen: '01', depositoDestino: '99', referencia: 'ROLITO:CV:vv1', codCliente: 'FC.280' })
+    expect(m.renglones).toEqual([{ codArticu: 'PTHIBOLROLI0003', cantidad: 2 }])
+    expect(m.leyendas[1]).toBe('Cliente FC.280 Kiosco Juan')
+  })
+
+  it('errores claros: sin depósito destino, tipo que no es transferencia, origen = destino, sin renglones, sentido raro', () => {
+    const base = { sentido: 'merma' as const, items: rotas }
+    expect(() => transferenciaADepositoFijo(base, 'x', articulos, '21', { ...cfgMerma, depositoDestino: undefined })).toThrow(/depositoDestino/)
+    expect(() => transferenciaADepositoFijo(base, 'x', articulos, '21', { ...cfgMerma, tipo: 'egreso' })).toThrow(/transferencia/)
+    expect(() => transferenciaADepositoFijo(base, 'x', articulos, '99', cfgMerma)).toThrow(/destino fijo/)
+    expect(() => transferenciaADepositoFijo({ ...base, items: [] }, 'x', articulos, '21', cfgMerma)).toThrow(/renglones/)
+    expect(() => transferenciaADepositoFijo({ ...base, sentido: 'otro' as 'merma' }, 'x', articulos, '21', cfgMerma)).toThrow(/sentido/)
+  })
+
+  it('las sentencias son las de una transferencia: E en el destino fijo y S en el origen', () => {
+    const m = transferenciaADepositoFijo({ sentido: 'merma', items: rotas }, 'dc1', articulos, '21', cfgMerma)
+    const s = sentenciasMovimiento(m, { ...datos, articulos: { PTHIBOLROLI0010: { idMedidaStock: 17, idMedidaVentas: 17, stockOrigen: 50, stockDestino: 1000 } } }, usuario)
+    const renglones = s.filter((x) => x.etiqueta.startsWith('INSERT STA20'))
+    expect(renglones).toHaveLength(2)
+    const dep = (x: { params: ParametroSql[] }, n: string) => x.params.find((p) => p.nombre === n)?.valor
+    expect(renglones.map((r) => [dep(r, 'TIPO_MOV'), dep(r, 'COD_DEPOSI'), dep(r, 'DEPOSI_DDE')])).toEqual([['E', '99', '21'], ['S', '21', '99']])
   })
 })
 

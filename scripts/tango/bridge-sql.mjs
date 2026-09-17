@@ -46,7 +46,7 @@ const require = createRequire(import.meta.url)
 const sqlLib = (f) => require(path.join(__dirname, 'lib', f))
 const { escribirRemito, remitoDeVenta } = sqlLib('remito.js')
 const { escribirRecibo, reciboDeCobranza } = sqlLib('recibo.js')
-const { escribirMovimientoStock, egresoDeVentaPromo, transferenciaDeCargaDescarga } = sqlLib('movimientoStock.js')
+const { escribirMovimientoStock, egresoDeVentaPromo, transferenciaDeCargaDescarga, transferenciaADepositoFijo, esTransferenciaFija } = sqlLib('movimientoStock.js')
 const mssql = require('mssql')
 // Lector de facturas y remitos de Tango → app (2026-09-10): corre acá adentro cada
 // config/tango.comprobantes.intervaloMin minutos (default 60) y a pedido desde la app
@@ -255,6 +255,9 @@ const HANDLERS = {
     },
   },
   // Remito de carga (CAR: planta → camión) y descarga (DES: camión → planta) en REDONHIELO.
+  // Fase B (2026-09-17): con `sentido` merma (descarga: camión → 99), diferencia
+  // (liquidación: camión → 98) o cambioVentanilla (venta: planta → 99), el destino
+  // es el fijo de config/tango.sql.stock.tipos.<sentido>.depositoDestino.
   transferenciaDeposito: {
     flag: 'transferenciasSqlEnabled',
     async enviar(data, tcfg, docId) {
@@ -263,12 +266,18 @@ const HANDLERS = {
       const payload = data.payload ?? {}
       const clave = payload.sentido
       const cfgTipo = stockCfg?.tipos?.[clave]
-      if (!clave || !cfgTipo) throw new Error(`falta config/tango.sql.stock.tipos.${clave ?? '?'} {tipo:'transferencia', tComp, tcompInS, talonario}`)
+      if (!clave || !cfgTipo) throw new Error(`falta config/tango.sql.stock.tipos.${clave ?? '?'} {tipo:'transferencia', tComp, tcompInS, talonario${esTransferenciaFija(clave) ? ', depositoDestino' : ''}}`)
       const depositoPlanta = (tcfg.depositosPlanta ?? {})[payload.plantaId]
       if (!depositoPlanta) throw new Error(`sin depósito de Tango para la planta ${payload.plantaId} (config/tango.depositosPlanta)`)
-      const depositoCamion = depositoCamionDe(payload, tcfg)
-      if (depositoCamion === depositoPlanta) throw new Error(`el depósito del camión (${depositoCamion}) es el de la planta: no se transfiere`)
-      const mov = transferenciaDeCargaDescarga(payload, data.origenColeccion ?? 'remitosCarga', data.origenId ?? docId, tcfg.articulos ?? {}, depositoPlanta, depositoCamion, cfgTipo, clave)
+      let mov
+      if (esTransferenciaFija(clave)) {
+        const origen = clave === 'cambioVentanilla' ? depositoPlanta : depositoCamionDe(payload, tcfg)
+        mov = transferenciaADepositoFijo(payload, data.origenId ?? docId, tcfg.articulos ?? {}, origen, cfgTipo, clave)
+      } else {
+        const depositoCamion = depositoCamionDe(payload, tcfg)
+        if (depositoCamion === depositoPlanta) throw new Error(`el depósito del camión (${depositoCamion}) es el de la planta: no se transfiere`)
+        mov = transferenciaDeCargaDescarga(payload, data.origenColeccion ?? 'remitosCarga', data.origenId ?? docId, tcfg.articulos ?? {}, depositoPlanta, depositoCamion, cfgTipo, clave)
+      }
       const r = await enTransaccion(baseDe(empresa), (db) => escribirMovimientoStock(db, mov, {
         usuario: stockCfg.usuario ?? 'ROLITO', terminal: stockCfg.terminal ?? 'APP', sucursal: cfgTipo.sucursal,
       }, (m) => log('    ' + m)))
@@ -289,6 +298,15 @@ async function procesarItem(db, docId, data) {
     const tcfg = await configTango(db)
     if (tcfg[HANDLERS[data.entidad].flag] !== true && !DRY_RUN && !SOLO) {
       log(`  ${docId}: config/tango.${HANDLERS[data.entidad].flag} no está en true; se deja pendiente`)
+      return
+    }
+    // Interruptor por tipo de movimiento de stock (fase B, 2026-09-17): merma /
+    // diferencia / cambioVentanilla se prenden uno por uno con
+    // config/tango.sql.stock.tipos.<clave>.habilitado; en false el item queda
+    // pendiente sin contar intento, igual que con el flag general.
+    const claveTipo = data.payload?.sentido ?? data.payload?.movimiento
+    if (claveTipo && tcfg.sql?.stock?.tipos?.[claveTipo]?.habilitado === false && !DRY_RUN && !SOLO) {
+      log(`  ${docId}: config/tango.sql.stock.tipos.${claveTipo}.habilitado = false; se deja pendiente`)
       return
     }
     if (!DRY_RUN) {
@@ -326,7 +344,7 @@ async function barrido(db) {
   for (const d of res.docs) await procesarItem(db, d.id, d.data())
 }
 
-async function probarSql() {
+async function probarSql(tcfgProbar = null) {
   let fallas = 0
   for (const [empresa, database] of Object.entries(cfg.sql.bases ?? {})) {
     log(`${empresa} → base "${database}" @ ${cfg.sql.server}:${cfg.sql.port ?? 1433} como ${cfg.sql.user}`)
@@ -361,6 +379,25 @@ async function probarSql() {
       if (llevaStock) {
         log(`  transferencias: tipos CAR/DES en STA13: ${f.tipos_car_des}/2, talonario 13 en STA17: ${f.talonario_13 ? 'sí' : 'NO'}`)
         if (f.tipos_car_des < 2 || !f.talonario_13) fallas++
+        // Fase B (2026-09-17): por cada tipo fijo configurado, que el tipo de
+        // comprobante sea una transferencia, su talonario exista y el depósito
+        // destino (99 / 98) esté dado de alta en STA10.
+        const tipos = tcfgProbar?.sql?.stock?.tipos ?? {}
+        for (const clave of ['merma', 'diferencia', 'cambioVentanilla']) {
+          const t = tipos[clave]
+          if (!t) { log(`  ${clave}: sin configurar (configurar-stock-tango.mjs --tipo ${clave} …)`); continue }
+          const q = await new mssql.Request(p)
+            .input('T_COMP', mssql.VarChar(3), String(t.tComp ?? ''))
+            .input('TAL', mssql.SmallInt, Number(t.talonario ?? 0))
+            .input('DEP', mssql.VarChar(2), String(t.depositoDestino ?? ''))
+            .query(`SELECT (SELECT COUNT(*) FROM STA13 WHERE T_COMP = @T_COMP AND TCOMP_IN_S = 'TI') AS tipo_ti,
+                           (SELECT COUNT(*) FROM STA17 WHERE TALONARIO = @TAL) AS talonario,
+                           (SELECT COUNT(*) FROM STA10 WHERE COD_DEPOSI = @DEP) AS deposito`)
+          const x = q.recordset[0]
+          const ok = x.tipo_ti && x.talonario && x.deposito
+          log(`  ${clave}: tipo ${t.tComp} transferencia ${x.tipo_ti ? 'sí' : 'NO'}, talonario ${t.talonario} ${x.talonario ? 'sí' : 'NO'}, depósito ${t.depositoDestino} ${x.deposito ? 'sí' : 'NO'}${t.habilitado === false ? ' (apagado)' : ''}`)
+          if (!ok) fallas++
+        }
       }
       if (sinPermiso.length) { fallas++; log(`  FALTAN PERMISOS: ${sinPermiso.join(', ')} (correr el script 06 y, en Redonhielo, el 08 en esta base)`) }
       else log(`  permisos OK (${permisos.length} comprobados)`)
@@ -434,10 +471,16 @@ function programarComprobantes(db) {
 }
 
 async function main() {
-  if (PROBAR_SQL) return probarSql()
   const app = initializeApp(cfg.firebaseConfig)
   const auth = getAuth(app)
   const db = getFirestore(app)
+  if (PROBAR_SQL) {
+    // Con sesión, además chequea los tipos fijos de la fase B contra config/tango; sin ella, solo SQL.
+    let tcfgProbar = null
+    try { await signInWithEmailAndPassword(auth, cfg.tangoBridgeEmail, cfg.tangoBridgePassword); tcfgProbar = await configTango(db) }
+    catch (e) { log(`  (sin config/tango para chequear los tipos de la fase B: ${e.message})`) }
+    return probarSql(tcfgProbar)
+  }
   log(`Iniciando sesión como bridge (${DRY_RUN ? 'DRY-RUN: nada queda en Tango ni en la cola' : 'modo real'}${SOLO ? `, solo ${[...SOLO].join(', ')}` : ''})...`)
   await signInWithEmailAndPassword(auth, cfg.tangoBridgeEmail, cfg.tangoBridgePassword)
   log(`Sesión OK. SQL Server ${cfg.sql.server}, bases ${JSON.stringify(cfg.sql.bases)}.`)

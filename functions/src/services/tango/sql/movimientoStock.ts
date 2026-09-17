@@ -82,8 +82,10 @@ export interface ConfigTipoMovimiento {
   anchoSucursal?: number
   /** Egreso por venta: si los cambios (bolsas repuestas) salen también. true hasta la fase B(c). */
   incluyeCambios?: boolean
-  /** Transferencia con destino fijo (ej. cambios → 99 MERMAS). */
+  /** Transferencia con destino fijo: merma / cambioVentanilla → '99', diferencia → '98'. String: es un código de depósito. */
   depositoDestino?: string
+  /** `false` = el bridge deja los items de este tipo pendientes sin tocarlos (interruptor por tipo, fase B). */
+  habilitado?: boolean
 }
 
 /** config/tango.sql.stock */
@@ -242,6 +244,88 @@ export function transferenciaDeCargaDescarga(
     ],
     // Caja que emitió la carga / muelle que contó la descarga.
     usuario: usuarioCorto(payload.creadoPor?.nombre ?? payload.registradoPor?.nombre, ''),
+  }
+}
+
+/**
+ * Motivos de una transferencia a un depósito FIJO de la config (fase B, aprobada
+ * por Ariel el 2026-09-17, docs/tango/INTEGRACION.md §36):
+ *   merma            bolsas rotas contadas por el muelle: camión → 99 MERMA EN CAMIONES
+ *   diferencia       faltante al cerrar la liquidación: camión → 98 DIFERENCIAS DE REPARTO
+ *   cambioVentanilla cambio en el mostrador (el cajero ve la rota): planta → 99
+ * Los cambios de la venta del camión NO mueven stock: son el respaldo que la
+ * liquidación cruza con las rotas. La venta promo deja de descontarlos
+ * (`ventaPromo.incluyeCambios = false`) al prender esto.
+ */
+export type MotivoTransferenciaFija = 'merma' | 'diferencia' | 'cambioVentanilla'
+export const MOTIVOS_TRANSFERENCIA_FIJA: readonly MotivoTransferenciaFija[] = ['merma', 'diferencia', 'cambioVentanilla']
+export const esTransferenciaFija = (sentido: unknown): sentido is MotivoTransferenciaFija =>
+  (MOTIVOS_TRANSFERENCIA_FIJA as readonly unknown[]).includes(sentido)
+
+/** Payload del item `transferenciaDeposito` con `sentido` merma / diferencia / cambioVentanilla. */
+export interface PayloadTransferenciaFija {
+  sentido: MotivoTransferenciaFija
+  /** Código del papel de origen: descarga, liquidación (LQ-21-000015) o venta de ventanilla. */
+  codigo?: string
+  plantaId?: string
+  depositoTango?: string | null
+  camionId?: string
+  camionLabel?: string
+  choferId?: string
+  choferNombre?: string
+  clienteCodigoTango?: string
+  clienteNombre?: string
+  /** Rotas contadas / faltante por producto / cambios de la venta (los `cambio_*` se normalizan). */
+  items?: ItemVenta[]
+  fecha?: unknown
+  /** Quién contó (muelle), cerró (caja) o vendió (ventanilla): STA14.USUARIO. */
+  registradoPor?: { uid?: string; nombre?: string } | null
+  cerradaPor?: { uid?: string; nombre?: string } | null
+  cajaNombre?: string
+}
+
+const PREFIJO_FIJA: Record<MotivoTransferenciaFija, string> = { merma: 'DM', diferencia: 'LQ', cambioVentanilla: 'CV' }
+
+/**
+ * Transferencia desde el depósito de origen (camión o planta, lo resuelve el bridge)
+ * al depósito FIJO del tipo (`cfgTipo.depositoDestino`: 99 o 98). Mismo escritor,
+ * mismo talonario de transferencias y misma idempotencia que carga/descarga; la
+ * referencia lleva un prefijo por motivo para no chocar con la DES de la misma
+ * descarga ('ROLITO:DC:<id>' vs 'ROLITO:DM:<id>').
+ */
+export function transferenciaADepositoFijo(
+  payload: PayloadTransferenciaFija,
+  origenId: string,
+  articulos: Record<string, string>,
+  depositoOrigen: string,
+  cfgTipo: ConfigTipoMovimiento,
+  clave: string = payload.sentido,
+): MovimientoStockTango {
+  if (cfgTipo.tipo !== 'transferencia') throw new Error(`config/tango.sql.stock.tipos.${clave}.tipo tiene que ser 'transferencia'`)
+  if (!esTransferenciaFija(payload.sentido)) throw new Error(`sentido desconocido: ${String(payload.sentido)}`)
+  const destino = String(cfgTipo.depositoDestino ?? '').trim()
+  if (!destino) throw new Error(`config/tango.sql.stock.tipos.${clave}.depositoDestino vacío: hace falta el depósito fijo (99 merma / 98 diferencias)`)
+  if (!depositoOrigen) throw new Error('falta el depósito de origen')
+  if (depositoOrigen === destino) throw new Error(`el depósito de origen (${depositoOrigen}) es el destino fijo: no se transfiere`)
+  const renglones = renglonesDeItems([payload.items], articulos)
+  if (renglones.length === 0) throw new Error('la transferencia no tiene renglones con cantidad > 0')
+  const chofer = `Chofer ${payload.choferNombre ?? payload.choferId ?? ''} - ${payload.camionLabel ?? payload.camionId ?? ''}`.trim().replace(/ - $/, '')
+  const planta = payload.plantaId ? nombreDePlanta(payload.plantaId) : ''
+  const leyendas: Record<MotivoTransferenciaFija, string[]> = {
+    merma:            [`Merma descarga app${payload.codigo ? ` ${payload.codigo}` : ''}`, chofer, planta ? `Planta ${planta}` : ''],
+    diferencia:       [`Diferencia reparto app${payload.codigo ? ` ${payload.codigo}` : ''}`, chofer, planta ? `Planta ${planta}` : ''],
+    cambioVentanilla: [`Cambio ventanilla app${payload.codigo ? ` ${payload.codigo}` : ''}`, `Cliente ${payload.clienteCodigoTango ?? ''} ${payload.clienteNombre ?? ''}`.trim(), planta ? `Ventanilla ${planta}` : ''],
+  }
+  return {
+    ...movimientoBase(cfgTipo, clave),
+    depositoOrigen,
+    depositoDestino: destino,
+    fecha: fechaDePayload(payload.fecha),
+    renglones,
+    referencia: `ROLITO:${PREFIJO_FIJA[payload.sentido]}:${origenId}`,
+    leyendas: leyendas[payload.sentido],
+    codCliente: payload.sentido === 'cambioVentanilla' ? payload.clienteCodigoTango : undefined,
+    usuario: usuarioCorto(payload.registradoPor?.nombre ?? payload.cerradaPor?.nombre ?? payload.cajaNombre, ''),
   }
 }
 

@@ -12,6 +12,11 @@
  *   node scripts/tango/configurar-stock-tango.mjs --stock on|off        → stockSqlEnabled (el interruptor del bridge)
  *   node scripts/tango/configurar-stock-tango.mjs --tipo carga tipo=transferencia tComp=CAR tcompInS=TI talonario=13
  *   node scripts/tango/configurar-stock-tango.mjs --tipo descarga tipo=transferencia tComp=DES tcompInS=TI talonario=13
+ *   Fase B (2026-09-17, §36): destino fijo (string) e interruptor por tipo
+ *   node scripts/tango/configurar-stock-tango.mjs --tipo merma            tipo=transferencia tComp=CAM tcompInS=TI talonario=6 depositoDestino=99 habilitado=false
+ *   node scripts/tango/configurar-stock-tango.mjs --tipo diferencia       tipo=transferencia tComp=AJU tcompInS=TI talonario=5 depositoDestino=98 habilitado=false
+ *   node scripts/tango/configurar-stock-tango.mjs --tipo cambioVentanilla tipo=transferencia tComp=CAM tcompInS=TI talonario=6 depositoDestino=99 habilitado=false
+ *   node scripts/tango/configurar-stock-tango.mjs --tipo ventaPromo incluyeCambios=false   (al PRENDER merma)
  *   node scripts/tango/configurar-stock-tango.mjs --transferencias on|off → transferenciasSqlEnabled (carga CAR / descarga DES, fase B)
  *
  * Orden recomendado: --rolito-sin-stock on ANTES de deployar las functions nuevas (así la
@@ -56,7 +61,9 @@ if (iTipo >= 0) {
   for (let i = iTipo + 2; i < args.length && !args[i].startsWith('--'); i++) {
     const k = args[i].indexOf('=')
     if (k < 0) throw new Error(`Esperaba clave=valor, recibí "${args[i]}"`)
-    update[`sql.stock.tipos.${clave}.${args[i].slice(0, k)}`] = num(args[i].slice(k + 1))
+    const campo = args[i].slice(0, k)
+    // depositoDestino es un CÓDIGO de depósito ('99', '98'): queda string aunque parezca número.
+    update[`sql.stock.tipos.${clave}.${campo}`] = campo === 'depositoDestino' ? args[i].slice(k + 1) : num(args[i].slice(k + 1))
   }
 }
 

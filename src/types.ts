@@ -1068,6 +1068,10 @@ export interface LiquidacionResumenProducto {
   devolucionTeorica: number   // carga − ventas − cambios
   descarga:          number   // contado físico por muelle
   diferencia:        number   // descarga − devolucionTeorica (0 = cuadra)
+  // Bolsas rotas contadas por el muelle para este producto (2026-09-17). El faltante
+  // que va a Tango (camión → 98) es carga − ventas − rotas − descarga: los cambios
+  // no mueven stock, la merma real es la rota que el muelle contó (camión → 99).
+  rotas?:            number
 }
 
 // ── Rendición por sobres, etapa 1 (2026-09-16, decisión de Ariel) ────────────

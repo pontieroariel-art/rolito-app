@@ -83,7 +83,7 @@ export function calcularLiquidacion(
   const fila = (productoId: string, nombre: string): LiquidacionResumenProducto => {
     let f = porProducto.get(productoId)
     if (!f) {
-      f = { productoId, nombre, carga: 0, ventaContado: 0, ventaPromo: 0, cambios: 0, devolucionTeorica: 0, descarga: 0, diferencia: 0 }
+      f = { productoId, nombre, carga: 0, ventaContado: 0, ventaPromo: 0, cambios: 0, devolucionTeorica: 0, descarga: 0, diferencia: 0, rotas: 0 }
       porProducto.set(productoId, f)
     }
     return f
@@ -107,6 +107,13 @@ export function calcularLiquidacion(
   }))
   cambios.forEach((c) => { fila(c.productoId, c.nombre).cambios += c.cantidad })
   descargas.forEach((d) => d.items.forEach((i) => { fila(i.productoId, i.nombre).descarga += i.cantidad }))
+  // Rotas por producto (fase B del stock, 2026-09-17): el server las usa para el
+  // faltante que va a Tango (carga − ventas − rotas − descarga). El productoId de
+  // una rota puede venir con prefijo cambio_ en descargas viejas.
+  descargas.forEach((d) => (d.bolsasRotas ?? []).forEach((i) => {
+    const f = fila(productoDelCambio(i.productoId), nombreDelCambio(i.nombre))
+    f.rotas = (f.rotas ?? 0) + i.cantidad
+  }))
 
   const productos = [...porProducto.values()].map((f) => {
     const devolucionTeorica = f.carga - f.ventaContado - f.ventaPromo - f.cambios

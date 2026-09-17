@@ -43,9 +43,10 @@
 // Lo que sigue en TRAZA son esos valores; quedan como constantes por si otra
 // versión de Tango los cambia.
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.HIPOTESIS_TRAZA = exports.TRAZA = void 0;
+exports.esTransferenciaFija = exports.MOTIVOS_TRANSFERENCIA_FIJA = exports.HIPOTESIS_TRAZA = exports.TRAZA = void 0;
 exports.egresoDeVentaPromo = egresoDeVentaPromo;
 exports.transferenciaDeCargaDescarga = transferenciaDeCargaDescarga;
+exports.transferenciaADepositoFijo = transferenciaADepositoFijo;
 exports.sentenciaExisteMovimiento = sentenciaExisteMovimiento;
 exports.sentenciasMovimiento = sentenciasMovimiento;
 exports.leerDatosMovimiento = leerDatosMovimiento;
@@ -142,6 +143,51 @@ function transferenciaDeCargaDescarga(payload, origenColeccion, origenId, articu
         ],
         // Caja que emitió la carga / muelle que contó la descarga.
         usuario: (0, comun_1.usuarioCorto)(payload.creadoPor?.nombre ?? payload.registradoPor?.nombre, ''),
+    };
+}
+exports.MOTIVOS_TRANSFERENCIA_FIJA = ['merma', 'diferencia', 'cambioVentanilla'];
+const esTransferenciaFija = (sentido) => exports.MOTIVOS_TRANSFERENCIA_FIJA.includes(sentido);
+exports.esTransferenciaFija = esTransferenciaFija;
+const PREFIJO_FIJA = { merma: 'DM', diferencia: 'LQ', cambioVentanilla: 'CV' };
+/**
+ * Transferencia desde el depósito de origen (camión o planta, lo resuelve el bridge)
+ * al depósito FIJO del tipo (`cfgTipo.depositoDestino`: 99 o 98). Mismo escritor,
+ * mismo talonario de transferencias y misma idempotencia que carga/descarga; la
+ * referencia lleva un prefijo por motivo para no chocar con la DES de la misma
+ * descarga ('ROLITO:DC:<id>' vs 'ROLITO:DM:<id>').
+ */
+function transferenciaADepositoFijo(payload, origenId, articulos, depositoOrigen, cfgTipo, clave = payload.sentido) {
+    if (cfgTipo.tipo !== 'transferencia')
+        throw new Error(`config/tango.sql.stock.tipos.${clave}.tipo tiene que ser 'transferencia'`);
+    if (!(0, exports.esTransferenciaFija)(payload.sentido))
+        throw new Error(`sentido desconocido: ${String(payload.sentido)}`);
+    const destino = String(cfgTipo.depositoDestino ?? '').trim();
+    if (!destino)
+        throw new Error(`config/tango.sql.stock.tipos.${clave}.depositoDestino vacío: hace falta el depósito fijo (99 merma / 98 diferencias)`);
+    if (!depositoOrigen)
+        throw new Error('falta el depósito de origen');
+    if (depositoOrigen === destino)
+        throw new Error(`el depósito de origen (${depositoOrigen}) es el destino fijo: no se transfiere`);
+    const renglones = (0, comun_1.renglonesDeItems)([payload.items], articulos);
+    if (renglones.length === 0)
+        throw new Error('la transferencia no tiene renglones con cantidad > 0');
+    const chofer = `Chofer ${payload.choferNombre ?? payload.choferId ?? ''} - ${payload.camionLabel ?? payload.camionId ?? ''}`.trim().replace(/ - $/, '');
+    const planta = payload.plantaId ? (0, comun_1.nombreDePlanta)(payload.plantaId) : '';
+    const leyendas = {
+        merma: [`Merma descarga app${payload.codigo ? ` ${payload.codigo}` : ''}`, chofer, planta ? `Planta ${planta}` : ''],
+        diferencia: [`Diferencia reparto app${payload.codigo ? ` ${payload.codigo}` : ''}`, chofer, planta ? `Planta ${planta}` : ''],
+        cambioVentanilla: [`Cambio ventanilla app${payload.codigo ? ` ${payload.codigo}` : ''}`, `Cliente ${payload.clienteCodigoTango ?? ''} ${payload.clienteNombre ?? ''}`.trim(), planta ? `Ventanilla ${planta}` : ''],
+    };
+    return {
+        ...movimientoBase(cfgTipo, clave),
+        depositoOrigen,
+        depositoDestino: destino,
+        fecha: (0, comun_1.fechaDePayload)(payload.fecha),
+        renglones,
+        referencia: `ROLITO:${PREFIJO_FIJA[payload.sentido]}:${origenId}`,
+        leyendas: leyendas[payload.sentido],
+        codCliente: payload.sentido === 'cambioVentanilla' ? payload.clienteCodigoTango : undefined,
+        usuario: (0, comun_1.usuarioCorto)(payload.registradoPor?.nombre ?? payload.cerradaPor?.nombre ?? payload.cajaNombre, ''),
     };
 }
 // ── Sentencias ───────────────────────────────────────────────────────────────
