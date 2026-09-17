@@ -12,18 +12,27 @@
 // o el chofer va a ver un bloqueo que el backend ya no aplica.
 
 /** Códigos de categoría de IVA de Tango que la app sabe facturar. */
+// Espejo de CONDICION_IVA_POR_CODIGO_TANGO (servidor). Tango escribe SNC (no
+// NC) y RSS para el monotributista social: 14 clientes que hasta el 2026-09-17
+// veían "condición que no reconocemos".
 const CATEGORIAS_FACTURABLES: Record<string, { descripcion: string; clase: 'A' | 'B' }> = {
-  RI: { descripcion: 'Responsable Inscripto', clase: 'A' },
-  RS: { descripcion: 'Responsable Monotributo', clase: 'A' },
-  EX: { descripcion: 'Sujeto Exento', clase: 'A' },
-  CF: { descripcion: 'Consumidor Final', clase: 'B' },
-  NC: { descripcion: 'Sujeto No Categorizado', clase: 'B' },
-  NA: { descripcion: 'IVA No Alcanzado', clase: 'B' },
+  RI:  { descripcion: 'Responsable Inscripto', clase: 'A' },
+  RS:  { descripcion: 'Responsable Monotributo', clase: 'A' },
+  RSS: { descripcion: 'Monotributista Social', clase: 'A' },
+  EX:  { descripcion: 'Sujeto Exento', clase: 'A' },
+  CF:  { descripcion: 'Consumidor Final', clase: 'B' },
+  NC:  { descripcion: 'Sujeto No Categorizado', clase: 'B' },
+  SNC: { descripcion: 'Sujeto No Categorizado', clase: 'B' },
+  NA:  { descripcion: 'IVA No Alcanzado', clase: 'B' },
 }
 
-/** Categorías que existen en Tango pero no corresponden a una venta de calle. */
+/**
+ * Categorías que existen en Tango pero no corresponden a una venta de calle.
+ * EXE es "IVA exento operación de exportación": un cliente local exento va
+ * como EX en Tango; con EXE la ficha está mal cargada y se corrige allá.
+ */
 const CATEGORIAS_QUE_NO_APLICAN: Record<string, string> = {
-  EXE: 'está marcado como exportación',
+  EXE: 'está marcado como exportación en Tango (categoría EXE); si es exento local corresponde EX',
 }
 
 /** CUIT con dígito verificador válido (mismo algoritmo que usa ARCA). */

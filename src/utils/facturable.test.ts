@@ -50,9 +50,14 @@ describe('esClienteFacturable', () => {
       .toMatchObject({ facturable: false, motivos: ['tiene un CUIT inválido (30697668974)'] })
   })
 
-  it('frena la exportación: no es una venta de calle', () => {
+  it('acepta los códigos que Tango escribe de verdad: SNC (no categorizado) y RSS (monotributista social)', () => {
+    expect(esClienteFacturable({ ...clienteOk, categoriaIvaTango: 'SNC' })).toEqual({ facturable: true, clase: 'B' })
+    expect(esClienteFacturable({ ...clienteOk, categoriaIvaTango: 'RSS' })).toEqual({ facturable: true, clase: 'A' })
+  })
+
+  it('frena la exportación: no es una venta de calle, y dice cómo corregir la ficha', () => {
     expect(esClienteFacturable({ ...clienteOk, categoriaIvaTango: 'EXE' }))
-      .toMatchObject({ facturable: false, motivos: ['está marcado como exportación'] })
+      .toMatchObject({ facturable: false, motivos: ['está marcado como exportación en Tango (categoría EXE); si es exento local corresponde EX'] })
   })
 
   it('frena una condición desconocida en vez de adivinar', () => {

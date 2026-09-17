@@ -251,6 +251,15 @@ describe('validarReceptor', () => {
     expect(!r.facturable && r.motivos).toContain('CONDICION_IVA_NO_APLICA')
   })
 
+  it('acepta los códigos que Tango escribe de verdad (2026-09-17): SNC → 7 clase B, RSS → 13 clase A', () => {
+    const snc = validarReceptor({ ...base, categoriaIvaTango: 'SNC' })
+    expect(snc.facturable && snc.condicion.arcaId).toBe(7)
+    expect(snc.facturable && snc.claseComprobante).toBe('B')
+    const rss = validarReceptor({ ...base, categoriaIvaTango: 'RSS' })
+    expect(rss.facturable && rss.condicion.arcaId).toBe(13)
+    expect(rss.facturable && rss.claseComprobante).toBe('A')
+  })
+
   it('acumula todos los motivos, no solo el primero', () => {
     const r = validarReceptor({ razonSocial: '', cuit: '', categoriaIvaTango: '' })
     expect(!r.facturable && r.motivos).toEqual(

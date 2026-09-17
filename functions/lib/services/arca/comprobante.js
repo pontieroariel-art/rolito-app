@@ -30,18 +30,26 @@ exports.construirDetalleNotaCreditoTotal = construirDetalleNotaCreditoTotal;
  * PRODUCCIÓN el 2026-09-01 y coinciden.
  *
  * ARCA acepta además 8 (Proveedor del Exterior), 9 (Cliente del Exterior),
- * 10 (IVA Liberado – Ley 19.640), 13 (Monotributista Social) y 16 (Monotributo
- * Trabajador Independiente Promovido). No están mapeados porque no sabemos con
- * qué código los representa Tango y ninguno aparece en la base actual; si
- * apareciera, `validarReceptor` lo frena con CONDICION_IVA_DESCONOCIDA en vez
- * de adivinar, que es lo que corresponde.
+ * 10 (IVA Liberado – Ley 19.640) y 16 (Monotributo Trabajador Independiente
+ * Promovido). No están mapeados porque no sabemos con qué código los representa
+ * Tango y ninguno aparece en la base actual; si apareciera, `validarReceptor`
+ * lo frena con CONDICION_IVA_DESCONOCIDA en vez de adivinar, que es lo que
+ * corresponde.
+ *
+ * Códigos reales de Tango en la base de Redonhielo (2026-09-17, 2.225 clientes):
+ * RI, CF, RS, EX, SNC (Sujeto no categorizado, 13 clientes), RSS (Monotributista
+ * social, 1) y EXE (exento por exportación, 3: ASIMRA, LIBERTY ART y CLIENTE DE
+ * AJUSTE — mal cargados en Tango, corresponde EX). Tango escribe SNC, no NC; NC
+ * queda por si alguna instalación lo usa.
  */
 exports.CONDICION_IVA_POR_CODIGO_TANGO = {
     RI: { arcaId: 1, descripcion: 'IVA Responsable Inscripto', clase: 'A' },
     RS: { arcaId: 6, descripcion: 'Responsable Monotributo', clase: 'A' },
+    RSS: { arcaId: 13, descripcion: 'Monotributista Social', clase: 'A' },
     EX: { arcaId: 4, descripcion: 'IVA Sujeto Exento', clase: 'A' },
     CF: { arcaId: 5, descripcion: 'Consumidor Final', clase: 'B' },
     NC: { arcaId: 7, descripcion: 'Sujeto No Categorizado', clase: 'B' },
+    SNC: { arcaId: 7, descripcion: 'Sujeto No Categorizado', clase: 'B' },
     NA: { arcaId: 15, descripcion: 'IVA No Alcanzado', clase: 'B' },
 };
 /**
