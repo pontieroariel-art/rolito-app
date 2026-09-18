@@ -203,7 +203,9 @@ async function main() {
     // El COT queda APAGADO (`habilitado: false`): presentarlo de verdad pega
     // contra el web service de ARBA, que acá no existe.
     cfg('cot', {
-      habilitado: false, ambiente: 'prueba',
+      // Prendido: el COT lo simula `npm run emular:arca` (el web service de ARBA
+      // no existe en local). Y sale SIEMPRE, sin importar el peso.
+      habilitado: true, siempre: true, ambiente: 'prueba',
       cuit: '30697668973', razonSocial: 'REDONHIELO S.A.',
       umbralKg: 4500, umbralImporte: 9529691, importePorKg: 0, bloqueaSalida: false,
       respaldo: {

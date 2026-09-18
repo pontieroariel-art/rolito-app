@@ -508,6 +508,13 @@ export interface CotConfig {
   ambiente:       'produccion' | 'prueba'
   cuit:           string                      // CUIT_EMPRESA / ORIGEN_CUIT (sin guiones)
   razonSocial:    string
+  /**
+   * ARBA lo exige a partir de 4.500 kg (o del umbral de importe), pero Rolito
+   * decidió sacarlo SIEMPRE, para todo camión que sale, sin importar el peso
+   * (2026-09-18): un camión con menos carga también lleva su COT. Con esto en
+   * true los umbrales no se miran.
+   */
+  siempre?:       boolean
   umbralKg:       number
   umbralImporte:  number
   importePorKg:   number                      // sugiere el importe a declarar

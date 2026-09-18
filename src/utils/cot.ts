@@ -14,6 +14,8 @@ export const COT_DEFAULTS: CotConfig = {
   ambiente:      'produccion',
   cuit:          '30697668973',
   razonSocial:   'REDONHIELO S A',
+  // Rolito lo saca SIEMPRE, sin importar el peso (2026-09-18).
+  siempre:       true,
   umbralKg:      4500,
   umbralImporte: 9_529_691,   // RN ARBA 27/23, vigente 2026
   importePorKg:  0,
@@ -84,6 +86,9 @@ export function normalizarCotConfig(raw: Partial<CotConfig> | null | undefined):
     ambiente:      raw?.ambiente === 'prueba' ? 'prueba' : 'produccion',
     cuit:          str(raw?.cuit, d.cuit).replace(/\D/g, ''),
     razonSocial:   str(raw?.razonSocial, d.razonSocial),
+    // Sin decir nada, se saca siempre: es la decisión de Rolito y los umbrales
+    // de ARBA quedan solo para quien quiera volver a atarse a ellos.
+    siempre:       raw?.siempre !== false,
     umbralKg:      num(raw?.umbralKg, d.umbralKg),
     umbralImporte: num(raw?.umbralImporte, d.umbralImporte),
     importePorKg:  num(raw?.importePorKg, d.importePorKg),
@@ -119,9 +124,16 @@ export function kgDeItems(items: Pick<RemitoCargaItem, 'productoId' | 'cantidad'
   return { kg: Math.round(kg * 100) / 100, sinPeso }
 }
 
-/** Obligatorio si supera CUALQUIERA de los dos umbrales (RN ARBA 31/2019, medido en origen). */
-export const requiereCot = (kg: number, importe: number, cfg: Pick<CotConfig, 'umbralKg' | 'umbralImporte'>): boolean =>
-  kg >= cfg.umbralKg || importe >= cfg.umbralImporte
+/**
+ * Si la carga necesita COT.
+ *
+ * ARBA lo exige desde 4.500 kg o el umbral de importe (RN 31/2019, medido en
+ * origen), pero Rolito decidió sacarlo SIEMPRE, para todo camión que sale
+ * (2026-09-18, decisión de Ariel): un camión con menos carga lleva su COT igual.
+ * Con `siempre` en la config los umbrales no se miran.
+ */
+export const requiereCot = (kg: number, importe: number, cfg: Pick<CotConfig, 'umbralKg' | 'umbralImporte' | 'siempre'>): boolean =>
+  cfg.siempre === true || kg >= cfg.umbralKg || importe >= cfg.umbralImporte
 
 /** Patente vieja (AAA999) o Mercosur (AA999AA), sin espacios ni guiones. */
 export const patenteValida = (p: string): boolean => /^([A-Z]{3}\d{3}|[A-Z]{2}\d{3}[A-Z]{2})$/.test(p.toUpperCase().replace(/[^A-Z0-9]/gi, ''))

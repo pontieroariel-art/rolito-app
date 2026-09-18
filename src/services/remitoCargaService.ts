@@ -208,6 +208,10 @@ export async function emitirRemitoDesdeBorrador(
       // carga y el que mira seguridad; la entrega se marca después, con la
       // mercadería ya arriba del camión.
       estado:       'emitido',
+      // La boca donde está el camión viene del borrador: se eligió antes de que
+      // el remito existiera, y el camión sigue ahí cargando. Sin esto la tele
+      // lo perdía justo cuando empieza la carga de verdad.
+      ...(borrador.darsena ? { darsena: borrador.darsena, darsenaAsignadaEn: borrador.darsenaAsignadaEn ?? Timestamp.now() } : {}),
       creadoPor:    borrador.creadoPor,
       emitidoPor:   { uid: actor.uid, nombre: actor.nombre },
       borradorId:   borrador.id,

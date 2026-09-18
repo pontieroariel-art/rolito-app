@@ -96,6 +96,48 @@ async function confirmarTango(coleccion, snap) {
   console.log(`✅ ${coleccion}/${snap.id}: Tango confirmado (${numero})`)
 }
 
+
+/**
+ * COT de ARBA de mentira (2026-09-18). El trigger real (onRemitoCargaCotSolicitado)
+ * presenta el remito al web service de ARBA, que en local no existe y que además
+ * no se puede tocar de prueba. Acá se devuelve un COT inventado unos segundos
+ * después, para poder ver el circuito entero: muelle confecciona, sale el número
+ * y el chofer lo tiene en el teléfono.
+ */
+async function presentarCot(snap) {
+  const d = snap.data()
+  if (!d.cotSolicitud || d.cot) return
+  await dormir(DEMORA_MS)
+  const fresco = await snap.ref.get()
+  if (!fresco.exists || fresco.data().cot) return
+  const numero = String(Math.floor(Math.random() * 9e11) + 1e11)
+  // Vale hasta el día siguiente al de la salida declarada, como el COT real.
+  const salida = new Date(`${fresco.data().cotSolicitud.fechaSalida}T12:00:00`)
+  salida.setDate(salida.getDate() + 1)
+  const validez = salida.toISOString().slice(0, 10)
+  await snap.ref.set({
+    cot: {
+      estado: 'presentado', numero, numeroUnico: numero,
+      fechaValidez: validez, intentos: 1, origen: 'emulador',
+      presentadoEn: new Date(), actualizadoEn: new Date(),
+    },
+  }, { merge: true })
+  console.log(`✅ remitosCarga/${snap.id}: COT ${numero} (vale hasta ${validez})`)
+}
+
+function mirarRemitos() {
+  const arranque = Date.now()
+  db.collection('remitosCarga').onSnapshot((qs) => {
+    for (const ch of qs.docChanges()) {
+      if (ch.type === 'removed') continue
+      const fecha = ch.doc.data().fecha?.toMillis?.() ?? 0
+      if (fecha < arranque - 60_000) continue
+      void presentarCot(ch.doc)
+      void confirmarTango('remitosCarga', ch.doc)
+    }
+  }, (err) => console.error('✗ stream remitosCarga:', err.message))
+}
+
 function mirar(coleccion) {
   const arranque = Date.now()
   db.collection(coleccion).onSnapshot((qs) => {
@@ -116,5 +158,6 @@ console.log('Toda venta de contado que hagas en la app recibe su factura con IVA
 mirar('ventasVentanilla')
 mirar('ventasCamion')
 mirar('cobranzas')
+mirarRemitos()
 // Mantener vivo el proceso.
 setInterval(() => { void FieldValue }, 60_000)

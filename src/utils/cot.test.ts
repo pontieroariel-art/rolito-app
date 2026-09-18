@@ -35,10 +35,16 @@ describe('COT: configuración y kilos', () => {
     expect(r.sinPeso).toEqual(['Barra de hielo'])
   })
 
-  it('requiere COT si supera cualquiera de los dos umbrales', () => {
-    expect(requiereCot(4500, 0, COT_DEFAULTS)).toBe(true)
-    expect(requiereCot(4499.99, 0, COT_DEFAULTS)).toBe(false)
-    expect(requiereCot(100, 9_529_691, COT_DEFAULTS)).toBe(true)
+  it('se saca SIEMPRE, sin importar el peso: Rolito lo decidió así (2026-09-18)', () => {
+    expect(requiereCot(0, 0, COT_DEFAULTS)).toBe(true)
+    expect(requiereCot(100, 0, COT_DEFAULTS)).toBe(true)
+  })
+
+  it('con siempre apagado vuelven a valer los umbrales de ARBA', () => {
+    const porUmbral = { ...COT_DEFAULTS, siempre: false }
+    expect(requiereCot(4500, 0, porUmbral)).toBe(true)
+    expect(requiereCot(4499.99, 0, porUmbral)).toBe(false)
+    expect(requiereCot(100, 9_529_691, porUmbral)).toBe(true)
   })
 })
 
