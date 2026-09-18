@@ -21,6 +21,16 @@ export interface RemitoLite {
   regreso?:     { darsena?: number }
 }
 export interface DescargaLite { choferId: string }
+/**
+ * El camión que está CARGANDO es un borrador, no un remito (2026-09-18): el
+ * remito nace recién cuando muelle entrega el camión. Si esto no se publicara,
+ * al chofer que vuelve se le ofrecería como libre una boca con un camión adentro.
+ */
+export interface BorradorLite {
+  estado:       string
+  camionLabel?: string
+  darsena?:     number
+}
 export interface VentaLite {
   estado:       string
   turnoEstado?: string
@@ -32,7 +42,12 @@ export type Ocupacion = { tipo: 'carga' | 'regreso' | 'ventanilla'; etiqueta: st
 /** Patente sola: `camionLabel` viene como "AB123CD · Iveco" en los remitos. */
 export const patenteDe = (label?: string): string => String(label ?? '').split('·')[0].trim()
 
-export function calcularOcupadas(remitos: RemitoLite[], descargas: DescargaLite[], ventas: VentaLite[]): Record<string, Ocupacion> {
+export function calcularOcupadas(
+  remitos: RemitoLite[],
+  descargas: DescargaLite[],
+  ventas: VentaLite[],
+  borradores: BorradorLite[] = [],
+): Record<string, Ocupacion> {
   const out: Record<string, Ocupacion> = {}
   const poner = (n: number | undefined, o: Ocupacion) => {
     if (typeof n !== 'number' || n < 1 || out[String(n)]) return
@@ -43,8 +58,8 @@ export function calcularOcupadas(remitos: RemitoLite[], descargas: DescargaLite[
   for (const r of remitos) {
     if (r.regreso?.darsena && !contados.has(r.choferId)) poner(r.regreso.darsena, { tipo: 'regreso', etiqueta: patenteDe(r.camionLabel) })
   }
-  for (const r of remitos) {
-    if (r.estado === 'emitido' && r.darsena) poner(r.darsena, { tipo: 'carga', etiqueta: patenteDe(r.camionLabel) })
+  for (const b of borradores) {
+    if (b.estado === 'pendiente' && b.darsena) poner(b.darsena, { tipo: 'carga', etiqueta: patenteDe(b.camionLabel) })
   }
   for (const v of ventas) {
     if (v.estado === 'pendiente_entrega' && v.turnoEstado === 'llamado' && v.darsena) poner(v.darsena, { tipo: 'ventanilla', etiqueta: `T-${v.turno ?? '?'}` })

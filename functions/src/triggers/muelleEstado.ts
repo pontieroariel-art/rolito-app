@@ -1,6 +1,6 @@
 import { onDocumentWritten } from 'firebase-functions/v2/firestore'
 import { getFirestore, FieldValue } from 'firebase-admin/firestore'
-import { calcularOcupadas, rangoDiaArt, type DescargaLite, type RemitoLite, type VentaLite } from '../services/muelleEstado'
+import { calcularOcupadas, rangoDiaArt, type BorradorLite, type DescargaLite, type RemitoLite, type VentaLite } from '../services/muelleEstado'
 
 // Estado PÚBLICO del muelle (`muelleEstado/{plantaId}`, 2026-09-15): qué dársenas
 // están ocupadas ahora. Derivado sanitizado de remitos de carga, descargas y
@@ -13,11 +13,18 @@ async function recalcular(plantaId: string): Promise<void> {
   const db = getFirestore()
   const { ymd, desde, hasta } = rangoDiaArt()
   const dia = (col: string) => db.collection(col).where('plantaId', '==', plantaId).where('fecha', '>=', desde).where('fecha', '<', hasta).get()
-  const [remitos, descargas, ventas] = await Promise.all([dia('remitosCarga'), dia('descargasCamion'), dia('ventasVentanilla')])
+  // Los borradores se piden por `paraFecha` y no por `fecha`: el de un camión que
+  // sale a las 4 se armó la tarde anterior, así que su `fecha` es de ayer pero la
+  // boca la está ocupando hoy.
+  const [remitos, descargas, ventas, borradores] = await Promise.all([
+    dia('remitosCarga'), dia('descargasCamion'), dia('ventasVentanilla'),
+    db.collection('borradoresCarga').where('plantaId', '==', plantaId).where('estado', '==', 'pendiente').get(),
+  ])
   const ocupadas = calcularOcupadas(
     remitos.docs.map((d) => d.data() as RemitoLite),
     descargas.docs.map((d) => d.data() as DescargaLite),
     ventas.docs.map((d) => d.data() as VentaLite),
+    borradores.docs.map((d) => d.data() as BorradorLite),
   )
   await db.collection('muelleEstado').doc(plantaId).set({
     plantaId, fecha: ymd, ocupadas, actualizado: FieldValue.serverTimestamp(),
@@ -40,6 +47,13 @@ export const publicarMuelleEstadoDescarga = onDocumentWritten('descargasCamion/{
 })
 
 export const publicarMuelleEstadoVentanilla = onDocumentWritten('ventasVentanilla/{id}', async (event) => {
+  const plantaId = plantaDe(event)
+  if (plantaId) await recalcular(plantaId)
+})
+
+// El camión que está cargando ocupa la boca desde el borrador, que es lo único
+// que existe mientras carga (2026-09-18).
+export const publicarMuelleEstadoBorrador = onDocumentWritten('borradoresCarga/{id}', async (event) => {
   const plantaId = plantaDe(event)
   if (plantaId) await recalcular(plantaId)
 })

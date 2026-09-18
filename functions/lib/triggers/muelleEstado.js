@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.publicarMuelleEstadoVentanilla = exports.publicarMuelleEstadoDescarga = exports.publicarMuelleEstadoRemito = void 0;
+exports.publicarMuelleEstadoBorrador = exports.publicarMuelleEstadoVentanilla = exports.publicarMuelleEstadoDescarga = exports.publicarMuelleEstadoRemito = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const firestore_2 = require("firebase-admin/firestore");
 const muelleEstado_1 = require("../services/muelleEstado");
@@ -14,8 +14,14 @@ async function recalcular(plantaId) {
     const db = (0, firestore_2.getFirestore)();
     const { ymd, desde, hasta } = (0, muelleEstado_1.rangoDiaArt)();
     const dia = (col) => db.collection(col).where('plantaId', '==', plantaId).where('fecha', '>=', desde).where('fecha', '<', hasta).get();
-    const [remitos, descargas, ventas] = await Promise.all([dia('remitosCarga'), dia('descargasCamion'), dia('ventasVentanilla')]);
-    const ocupadas = (0, muelleEstado_1.calcularOcupadas)(remitos.docs.map((d) => d.data()), descargas.docs.map((d) => d.data()), ventas.docs.map((d) => d.data()));
+    // Los borradores se piden por `paraFecha` y no por `fecha`: el de un camión que
+    // sale a las 4 se armó la tarde anterior, así que su `fecha` es de ayer pero la
+    // boca la está ocupando hoy.
+    const [remitos, descargas, ventas, borradores] = await Promise.all([
+        dia('remitosCarga'), dia('descargasCamion'), dia('ventasVentanilla'),
+        db.collection('borradoresCarga').where('plantaId', '==', plantaId).where('estado', '==', 'pendiente').get(),
+    ]);
+    const ocupadas = (0, muelleEstado_1.calcularOcupadas)(remitos.docs.map((d) => d.data()), descargas.docs.map((d) => d.data()), ventas.docs.map((d) => d.data()), borradores.docs.map((d) => d.data()));
     await db.collection('muelleEstado').doc(plantaId).set({
         plantaId, fecha: ymd, ocupadas, actualizado: firestore_2.FieldValue.serverTimestamp(),
     });
@@ -35,6 +41,13 @@ exports.publicarMuelleEstadoDescarga = (0, firestore_1.onDocumentWritten)('desca
         await recalcular(plantaId);
 });
 exports.publicarMuelleEstadoVentanilla = (0, firestore_1.onDocumentWritten)('ventasVentanilla/{id}', async (event) => {
+    const plantaId = plantaDe(event);
+    if (plantaId)
+        await recalcular(plantaId);
+});
+// El camión que está cargando ocupa la boca desde el borrador, que es lo único
+// que existe mientras carga (2026-09-18).
+exports.publicarMuelleEstadoBorrador = (0, firestore_1.onDocumentWritten)('borradoresCarga/{id}', async (event) => {
     const plantaId = plantaDe(event);
     if (plantaId)
         await recalcular(plantaId);

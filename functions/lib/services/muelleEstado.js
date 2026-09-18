@@ -20,7 +20,7 @@ const firestore_1 = require("firebase-admin/firestore");
 /** Patente sola: `camionLabel` viene como "AB123CD · Iveco" en los remitos. */
 const patenteDe = (label) => String(label ?? '').split('·')[0].trim();
 exports.patenteDe = patenteDe;
-function calcularOcupadas(remitos, descargas, ventas) {
+function calcularOcupadas(remitos, descargas, ventas, borradores = []) {
     const out = {};
     const poner = (n, o) => {
         if (typeof n !== 'number' || n < 1 || out[String(n)])
@@ -33,9 +33,9 @@ function calcularOcupadas(remitos, descargas, ventas) {
         if (r.regreso?.darsena && !contados.has(r.choferId))
             poner(r.regreso.darsena, { tipo: 'regreso', etiqueta: (0, exports.patenteDe)(r.camionLabel) });
     }
-    for (const r of remitos) {
-        if (r.estado === 'emitido' && r.darsena)
-            poner(r.darsena, { tipo: 'carga', etiqueta: (0, exports.patenteDe)(r.camionLabel) });
+    for (const b of borradores) {
+        if (b.estado === 'pendiente' && b.darsena)
+            poner(b.darsena, { tipo: 'carga', etiqueta: (0, exports.patenteDe)(b.camionLabel) });
     }
     for (const v of ventas) {
         if (v.estado === 'pendiente_entrega' && v.turnoEstado === 'llamado' && v.darsena)

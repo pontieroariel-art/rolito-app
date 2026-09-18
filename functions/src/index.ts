@@ -58,7 +58,10 @@ export { syncDepositosTango, sincronizarDepositosTangoAhora } from './triggers/t
 export { publicarTurnosVentanilla } from './triggers/turnosVentanilla'
 // Estado público del muelle (2026-09-15): dársenas ocupadas, para que el chofer que
 // volvió elija entre las libres sin leer remitos ajenos ni la ventanilla.
-export { publicarMuelleEstadoRemito, publicarMuelleEstadoDescarga, publicarMuelleEstadoVentanilla } from './triggers/muelleEstado'
+export {
+  publicarMuelleEstadoRemito, publicarMuelleEstadoDescarga, publicarMuelleEstadoVentanilla,
+  publicarMuelleEstadoBorrador,
+} from './triggers/muelleEstado'
 export { onOrderRollup } from './triggers/rollups'
 export { resetPinProduccion } from './triggers/produccionAuth'
 // "Ver como usuario" (2026-09-10): custom token de solo lectura para el super_admin.

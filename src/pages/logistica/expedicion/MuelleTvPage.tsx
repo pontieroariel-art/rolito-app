@@ -5,8 +5,10 @@ import { useCatalogo } from '@/hooks/useCatalogo'
 import { useFechaDelDia } from '@/hooks/useDiaActual'
 import { useRemitosCargaDelDia, useVentanillaDelDia } from '@/hooks/useExpedicionDia'
 import { subscribeDescargasDelDia } from '@/services/descargaCamionService'
+import { manana, subscribeBorradoresDe } from '@/services/borradorCargaService'
+import { claveDia } from '@/utils/diaReparto'
 import {
-  DARSENAS_POR_PLANTA, DARSENAS_VENTANILLA, DescargaCamion, PLANTAS, RemitoCarga, VentaVentanilla,
+  BorradorCarga, DARSENAS_POR_PLANTA, DARSENAS_VENTANILLA, DescargaCamion, PLANTAS, RemitoCarga, VentaVentanilla,
 } from '@/types'
 import { nombreClienteVenta } from '@/utils/nombreClienteVenta'
 import { describirComprobante } from '@/utils/comprobanteDeVenta'
@@ -44,6 +46,19 @@ export default function MuelleTvPage() {
   const remitos = useRemitosCargaDelDia(plantaId, fecha)
   const ventanillas = useVentanillaDelDia(plantaId, fecha)
   const { catalogo } = useCatalogo()
+  // Los camiones que están CARGANDO son borradores, no remitos (2026-09-18): el
+  // remito nace recién cuando muelle entrega el camión. Se miran los de ayer,
+  // hoy y mañana, igual que en la tablet: el camión de las 4 de la mañana lleva
+  // el borrador que caja armó la tarde anterior.
+  const [borradores, setBorradores] = useState<BorradorCarga[]>([])
+  const fechasBorrador = useMemo(() => {
+    const ayer = new Date(fecha); ayer.setDate(ayer.getDate() - 1)
+    return [claveDia(ayer), claveDia(fecha), manana(fecha)]
+  }, [fecha])
+  useEffect(
+    () => subscribeBorradoresDe(plantaId, fechasBorrador, setBorradores),
+    [plantaId, fechasBorrador],
+  )
   // Descargas del día: para saber a qué camión que volvió YA le contaron.
   const [descargas, setDescargas] = useState<DescargaCamion[]>([])
   useEffect(() => subscribeDescargasDelDia(plantaId, fecha, setDescargas), [plantaId, fecha])
@@ -157,14 +172,19 @@ export default function MuelleTvPage() {
   }, [ventanillas, sonido, avisar])
 
   // ── Datos derivados ──
-  const camionEnDarsena = (n: number) => remitos.find((r) => r.estado === 'emitido' && r.darsena === n)
+  // El camión que está CARGANDO se ve desde el borrador, no desde el remito
+  // (2026-09-18): mientras carga el remito todavía no existe, porque nace recién
+  // cuando muelle entrega el camión. Un borrador aceptado ya tiene su remito y
+  // sale de la boca.
+  const cargando = useMemo(() => borradores.filter((b) => b.estado === 'pendiente'), [borradores])
+  const camionEnDarsena = (n: number) => cargando.find((b) => b.darsena === n)
   const turnoEnDarsena  = (n: number) =>
     ventanillas.find((v) => v.estado === 'pendiente_entrega' && v.turnoEstado === 'llamado' && v.darsena === n)
 
   // Derivados memoizados por fuente (2026-09-14): `ahora` cambia cada 10 s y
   // repinta el tablero; sin memo, cada tick volvía a filtrar y ordenar todo y
   // las zonas hijas recibían arrays y closures nuevas.
-  const camionesEnEspera = useMemo(() => remitos.filter((r) => r.estado === 'emitido' && !r.darsena), [remitos])
+  const camionesEnEspera = useMemo(() => cargando.filter((b) => !b.darsena), [cargando])
   const listosParaSalir  = useMemo(() => remitos.filter((r) => r.estado === 'entregado'), [remitos])
 
   // Demora en dársena: suena UNA vez por camión al pasarse del tiempo. Repetirlo
@@ -172,14 +192,14 @@ export default function MuelleTvPage() {
   // apagándole el sonido al televisor.
   useEffect(() => {
     if (!sonido) return
-    const pasados = remitos.filter((r) =>
-      r.estado === 'emitido' && r.darsena && (ahora - r.fecha.toMillis()) / 60_000 >= TOPE_DARSENA_MIN)
+    const pasados = cargando.filter((b) =>
+      b.darsena && (ahora - b.fecha.toMillis()) / 60_000 >= TOPE_DARSENA_MIN)
     const nuevo = pasados.find((r) => !idsVistos.current.demorados.has(r.id))
     if (nuevo) {
       idsVistos.current.demorados.add(nuevo.id)
       avisar('demora')
     }
-  }, [remitos, ahora, sonido, avisar])
+  }, [cargando, ahora, sonido, avisar])
   const colaTurnos = useMemo(() => ventanillas
     .filter((v) => v.estado === 'pendiente_entrega' && ['en_espera', 'preparado'].includes(v.turnoEstado))
     .sort((a, b) => a.turno - b.turno), [ventanillas])
@@ -347,9 +367,16 @@ export const comprobanteCorto = (v: VentaVentanilla): string => {
 
 // Las tres zonas van en `memo`: el tick de 10 s solo repinta lo que tiene
 // cronómetro (`ahora` viaja como número y los minutos se calculan adentro).
+/**
+ * Una boca de carga. Lo que se ve es el BORRADOR (2026-09-18): mientras el camión
+ * carga, el remito todavía no existe — nace cuando muelle lo entrega. Por eso no
+ * hay código de remito que mostrar hasta que sale.
+ */
+export type CargaEnBoca = Pick<BorradorCarga, 'id' | 'camionLabel' | 'choferNombre' | 'items' | 'fecha'>
+
 export const DarsenaCamion = memo(function DarsenaCamion({ n, r, desglose, ahora }: {
   n: number
-  r?: RemitoCarga
+  r?: CargaEnBoca
   desglose: (id: string, cantidad: number) => { pallets: number; sueltas: number }
   ahora: number
 }) {
@@ -375,8 +402,9 @@ export const DarsenaCamion = memo(function DarsenaCamion({ n, r, desglose, ahora
       style={{ boxShadow: '0 0 32px rgba(251,191,36,0.25)' }}>
       {tag}
       <p className="text-[56px] font-black leading-none tracking-tight mt-1">{r.camionLabel.split('·')[0].trim()}</p>
-      {/* Remito de carga (2026-09-15, pedido de Ariel): el papel contra el que el muelle entrega. */}
-      <p className="text-[22px] font-bold text-amber-200/80 tabular-nums mt-1">{r.codigo}</p>
+      {/* El chofer para el que se está armando la carga. El número de remito no
+          va acá porque todavía no existe: sale cuando muelle entrega el camión. */}
+      <p className="text-[22px] font-bold text-amber-200/80 truncate mt-1" title={r.choferNombre}>{r.choferNombre}</p>
       <div className="flex flex-col gap-2 mt-3 flex-1 min-h-0 overflow-hidden">
         {r.items.map((i) => {
           const { pallets, sueltas } = desglose(i.productoId, i.cantidad)
@@ -486,7 +514,7 @@ export const DarsenaRetorno = memo(function DarsenaRetorno({ n, r, ahora }: { n:
 export const Siguen = memo(function Siguen({ cola, ausentes, camionesEnEspera, listosParaSalir }: {
   cola: VentaVentanilla[]
   ausentes: VentaVentanilla[]
-  camionesEnEspera: RemitoCarga[]
+  camionesEnEspera: CargaEnBoca[]
   listosParaSalir: RemitoCarga[]
 }) {
   const proximos = cola.slice(0, 3)
