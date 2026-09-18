@@ -387,6 +387,21 @@ async function main() {
   })
   console.log('✓ camionesEnViaje: el camión 2 tiene descarga pendiente → no recibe carga nueva')
 
+  // ── Remito confeccionado, esperando que se cargue el camión ──────────────
+  // El segundo paso del muelle: el papel ya salió y la mercadería todavía no
+  // está arriba. Muelle lo ve en 'Cargando contra el remito'.
+  await db.collection('remitosCarga').doc('seed-rc-emitido').set({
+    numero: 7, codigo: 'RC-DT-000007', plantaId: PLANTA, choferId: CH1.uid, choferNombre: CH1.nombre,
+    camionId: 'camion-4', camionLabel: 'AE555FF · Atego 1419',
+    depositoTango: '21', depositoTangoNombre: 'CAMION 21',
+    items: [{ productoId: 'bolsa_10kg', nombre: P.bolsa_10kg.nombre, cantidad: 132, pallets: 2 }],
+    palletsCarga: 2, envases: { tarimasMadera: 1, palletsMetal: 1, racks: [] },
+    estado: 'emitido', creadoPor: CAJA, emitidoPor: MUELLE, borradorId: 'seed-borrador-1',
+    darsena: 1, darsenaAsignadaEn: hora('17:40'), fecha: hora('17:35'),
+    tango: { estado: 'pendiente' },
+  })
+  console.log('✓ Remito RC-DT-000007 confeccionado y esperando carga → muelle marca la entrega')
+
   // ── SUPERVISOR: día solo de cobranzas ─────────────────────────────────────
   const cobSup = (id, c) => db.collection('cobranzas').doc(id).set({ origen: 'supervisor', registradoPor: SUP, depositoTango: '31', tango: { estado: 'confirmado' }, ...c })
   await cobSup('seed-cob-sup1', {

@@ -46,10 +46,10 @@ export default function MuelleTvPage() {
   const remitos = useRemitosCargaDelDia(plantaId, fecha)
   const ventanillas = useVentanillaDelDia(plantaId, fecha)
   const { catalogo } = useCatalogo()
-  // Los camiones que están CARGANDO son borradores, no remitos (2026-09-18): el
-  // remito nace recién cuando muelle entrega el camión. Se miran los de ayer,
-  // hoy y mañana, igual que en la tablet: el camión de las 4 de la mañana lleva
-  // el borrador que caja armó la tarde anterior.
+  // El camión que está cargando puede ser un borrador (caja lo dejó, muelle
+  // todavía no confeccionó el remito) o un remito emitido (se está cargando
+  // contra él). Se miran los borradores de ayer, hoy y mañana, igual que en la
+  // tablet: el camión de las 4 lleva el que caja armó la tarde anterior.
   const [borradores, setBorradores] = useState<BorradorCarga[]>([])
   const fechasBorrador = useMemo(() => {
     const ayer = new Date(fecha); ayer.setDate(ayer.getDate() - 1)
@@ -176,7 +176,14 @@ export default function MuelleTvPage() {
   // (2026-09-18): mientras carga el remito todavía no existe, porque nace recién
   // cuando muelle entrega el camión. Un borrador aceptado ya tiene su remito y
   // sale de la boca.
-  const cargando = useMemo(() => borradores.filter((b) => b.estado === 'pendiente'), [borradores])
+  // Un camión ocupa la boca desde que caja deja el borrador hasta que la
+  // mercadería está arriba. Son dos documentos según el momento: el borrador
+  // mientras muelle todavía no confeccionó el remito, y el remito `emitido`
+  // mientras se carga contra él.
+  const cargando = useMemo<CargaEnBoca[]>(() => [
+    ...borradores.filter((b) => b.estado === 'pendiente'),
+    ...remitos.filter((r) => r.estado === 'emitido'),
+  ], [borradores, remitos])
   const camionEnDarsena = (n: number) => cargando.find((b) => b.darsena === n)
   const turnoEnDarsena  = (n: number) =>
     ventanillas.find((v) => v.estado === 'pendiente_entrega' && v.turnoEstado === 'llamado' && v.darsena === n)
@@ -372,7 +379,7 @@ export const comprobanteCorto = (v: VentaVentanilla): string => {
  * carga, el remito todavía no existe — nace cuando muelle lo entrega. Por eso no
  * hay código de remito que mostrar hasta que sale.
  */
-export type CargaEnBoca = Pick<BorradorCarga, 'id' | 'camionLabel' | 'choferNombre' | 'items' | 'fecha'>
+export type CargaEnBoca = Pick<BorradorCarga, 'id' | 'camionLabel' | 'choferNombre' | 'items' | 'fecha'> & { darsena?: number; codigo?: string }
 
 export const DarsenaCamion = memo(function DarsenaCamion({ n, r, desglose, ahora }: {
   n: number
@@ -402,9 +409,9 @@ export const DarsenaCamion = memo(function DarsenaCamion({ n, r, desglose, ahora
       style={{ boxShadow: '0 0 32px rgba(251,191,36,0.25)' }}>
       {tag}
       <p className="text-[56px] font-black leading-none tracking-tight mt-1">{r.camionLabel.split('·')[0].trim()}</p>
-      {/* El chofer para el que se está armando la carga. El número de remito no
-          va acá porque todavía no existe: sale cuando muelle entrega el camión. */}
-      <p className="text-[22px] font-bold text-amber-200/80 truncate mt-1" title={r.choferNombre}>{r.choferNombre}</p>
+      {/* El remito, cuando ya está confeccionado: es el papel contra el que se
+          carga. Mientras muelle no lo hizo, va el chofer — todavía no hay número. */}
+      <p className="text-[22px] font-bold text-amber-200/80 truncate mt-1" title={r.choferNombre}>{r.codigo ?? r.choferNombre}</p>
       <div className="flex flex-col gap-2 mt-3 flex-1 min-h-0 overflow-hidden">
         {r.items.map((i) => {
           const { pallets, sueltas } = desglose(i.productoId, i.cantidad)

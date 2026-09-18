@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Minus, Plus, Truck } from 'lucide-react'
+import { FileText, Minus, Plus } from 'lucide-react'
 import Badge from '@/components/common/Badge'
 import Button from '@/components/ui/Button'
 import RacksInput from '@/components/expedicion/RacksInput'
@@ -11,8 +11,9 @@ import type { BorradorCarga, EnvasesCarga, RemitoCargaItem } from '@/types'
  *
  * Lo que se ve acá es el BORRADOR que armó caja, no un remito: el remito todavía
  * no existe. Muelle corrige lo que realmente subió al camión y toca UNA sola
- * acción —"Entregar el camión"— que es la que hace nacer el remito con su número,
- * su remito R y el COT con la hora real de salida.
+ * acción —"Confeccionar el remito"— que es la que hace nacer el papel con su
+ * número, su remito R y el COT de este momento. Ese papel es contra el que se
+ * carga; la entrega se marca después, con la mercadería ya arriba del camión.
  *
  * Los renglones son editables porque el plan se arma antes (a veces la tarde
  * anterior) y lo que sube al camión es lo que hay en cámara a las 4 de la mañana.
@@ -151,12 +152,12 @@ export default function EntregarCamionCard({
         disabled={bloqueado || items.length === 0 || sinEnvases}
         className="w-full h-14 text-base"
       >
-        <Truck size={18} /> Entregar el camión
+        <FileText size={18} /> Confeccionar el remito
       </Button>
       <p className="text-sm text-secundario">
         {sinEnvases
-          ? 'Contá los envases que van arriba del camión antes de entregarlo.'
-          : 'Al tocar sale el remito con su número y, si hace falta, el COT con la hora de ahora.'}
+          ? 'Contá los envases que van a salir antes de confeccionar el remito.'
+          : 'Sale el número, el remito R y el COT de ahora. Después se carga el camión y se marca la entrega.'}
       </p>
     </div>
   )

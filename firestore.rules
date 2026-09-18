@@ -1156,10 +1156,11 @@ service cloud.firestore {
         // y lo borra al contarse la descarga. UNA sola expresión a propósito —
         // esta cláusula ya está cerca del tope de 1000 por request.
         && !exists(/databases/$(database)/documents/camionesEnViaje/$(request.resource.data.camionId))
-        // Quién emite: el muellero que entrega el camión. `creadoPor` sigue
-        // siendo quien armó el borrador (caja), así que no se ata al que escribe.
+        // Quién lo confecciona: el muellero que está armando la carga.
+        // `creadoPor` sigue siendo quien armó el borrador (caja), así que no se
+        // ata al que escribe. `entregadoPor` llega después, al marcar la entrega.
         && request.resource.data.emitidoPor.uid == request.auth.uid
-        && request.resource.data.entregadoPor.uid == request.auth.uid
+        && !('entregadoPor' in request.resource.data)
         && request.resource.data.creadoPor.uid is string
         // Sin borrador no hay remito: muelle no arma cargas desde cero.
         && request.resource.data.borradorId is string
@@ -1174,8 +1175,10 @@ service cloud.firestore {
         // que el remito nace siempre con ella y tiene que cerrar con palletsCarga.
         && envasesCargaOk(request.resource.data.envases)
         && palletsCoherentes(request.resource.data)
-        // La aceptación del borrador ES la entrega del camión (2026-09-18).
-        && request.resource.data.estado == 'entregado'
+        // El remito nace EMITIDO (2026-09-18): confeccionarlo y entregar el
+        // camión son dos actos distintos. Este papel es contra el que se carga;
+        // la entrega se marca después, con la mercadería ya arriba.
+        && request.resource.data.estado == 'emitido'
         // COT de ARBA (2026-09-10): quien emite manda los kilos y la solicitud
         // (destino, remito R, patente, recorrido); el resultado `cot` lo
         // escribe SOLO el server, nunca nace con el doc.
@@ -1194,17 +1197,21 @@ service cloud.firestore {
                 && request.resource.data.remitoR.numero is int && request.resource.data.remitoR.numero > 0
                 && request.resource.data.remitoR.cai is string));
 
-      // La rama "muelle entrega" (emitido → entregado) desapareció el
-      // 2026-09-18: el remito ya NACE entregado, porque emitirlo y entregar el
-      // camión son el mismo acto. Lo que muelle corregía acá (envases,
-      // palletsCarga) ahora lo decide al aceptar el borrador, antes de que el
-      // comprobante exista.
+      // Muelle marca la entrega cuando la mercadería ya está arriba del camión:
+      // el segundo de los dos actos. Puede corregir los envases si terminó usando
+      // otros pallets de los que declaró al confeccionar el remito.
+      allow update: if request.auth != null && isMuelleDe(resource.data.plantaId)
+        && resource.data.estado == 'emitido'
+        && request.resource.data.estado == 'entregado'
+        && request.resource.data.entregadoPor.uid == request.auth.uid
+        && (!(request.resource.data.diff(resource.data).affectedKeys().hasAny(['envases']))
+            || (envasesCargaOk(request.resource.data.envases) && palletsCoherentes(request.resource.data)))
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['estado', 'entregadoPor', 'envases', 'palletsCarga']);
 
       // Muelle asigna/cambia la dársena de CARGA (tablero de TV) mientras el
-      // remito sigue emitido — solo ese campo. Queda para los remitos anteriores
-      // al 2026-09-18: con el circuito nuevo el camión carga contra el borrador
-      // y el remito nace entregado, así que la boca de carga se asigna antes de
-      // que este documento exista.
+      // remito sigue emitido — solo ese campo. La boca se elige normalmente
+      // antes, sobre el borrador, pero el camión puede cambiarse mientras carga.
       allow update: if request.auth != null && isMuelleDe(resource.data.plantaId)
         && resource.data.estado == 'emitido'
         && request.resource.data.darsena is int

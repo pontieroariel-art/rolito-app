@@ -111,20 +111,21 @@ export interface CorreccionMuelle { productoId: string; cantidad: number }
 export class CamionConDescargaPendienteError extends Error {}
 
 /**
- * Muelle entrega el camión y ahí nace el remito (2026-09-18).
+ * Muelle confecciona el remito a partir del borrador (2026-09-18).
  *
- * Este es el acto que reemplaza a la emisión de caja. Importa que sea el mismo
- * toque que entrega el camión, y no el fin del estibado: el COT lleva la hora que
- * se declara acá, así que si muelle aceptara al terminar de cargar y el camión
- * saliera dos horas más tarde, volveríamos al problema que estamos resolviendo.
+ * Reemplaza a la emisión de caja, que salía la tarde anterior y por eso el COT
+ * llevaba una hora que no era la del traslado. Ahora el papel nace cuando el
+ * camión se va a cargar de verdad, con el COT de ese momento.
  *
- * Por eso el remito nace `entregado` y no `emitido`: no hay un paso posterior de
- * "mercadería entregada", porque ya pasó.
+ * Es el PRIMERO de dos actos (corrección de Ariel, 18/09): acá sale el papel
+ * contra el que se carga y que mira seguridad, y el remito queda `emitido`.
+ * Cuando la mercadería ya está arriba del camión, muelle marca la entrega
+ * (`confirmarEntregaRemito`) y recién ahí pasa a `entregado`.
  *
- * Muelle puede corregir las cantidades. Si lo que subió no coincide con lo que
- * caja planificó, el remito sale con lo que realmente subió y queda anotado qué
- * se corrigió: si la mayoría de los remitos sale corregida, el problema no es el
- * muelle, es que caja está planificando sobre información vieja.
+ * Muelle puede corregir las cantidades del plan. Si lo que va a cargar no
+ * coincide con lo que caja planificó, el remito sale con lo real y queda anotado
+ * qué se corrigió: si la mayoría sale corregida, el problema no es el muelle, es
+ * que caja está planificando sobre información vieja.
  */
 export async function emitirRemitoDesdeBorrador(
   borrador: BorradorCarga,
@@ -190,7 +191,6 @@ export async function emitirRemitoDesdeBorrador(
         }
       : undefined
 
-    const entrega = { uid: actor.uid, nombre: actor.nombre, hora: Timestamp.now() }
     const remito: Omit<RemitoCarga, 'id'> = {
       numero,
       codigo:       codigoRemitoCarga(actor.plantaId, numero),
@@ -203,11 +203,13 @@ export async function emitirRemitoDesdeBorrador(
       items,
       palletsCarga: envases.tarimasMadera + envases.palletsMetal,
       envases:      { tarimasMadera: envases.tarimasMadera, palletsMetal: envases.palletsMetal, racks: [...envases.racks] },
-      // Nace entregado: aceptar ES entregar el camión (ver el comentario de arriba).
-      estado:       'entregado',
+      // Nace EMITIDO: confeccionar el remito y entregar el camión son dos actos
+      // distintos (corrección de Ariel, 18/09). Este papel es contra el que se
+      // carga y el que mira seguridad; la entrega se marca después, con la
+      // mercadería ya arriba del camión.
+      estado:       'emitido',
       creadoPor:    borrador.creadoPor,
       emitidoPor:   { uid: actor.uid, nombre: actor.nombre },
-      entregadoPor: entrega,
       borradorId:   borrador.id,
       ...(correccionesMuelle.length ? { correccionesMuelle } : {}),
       fecha:        Timestamp.now(),

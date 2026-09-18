@@ -2322,9 +2322,8 @@ describe('remitosCarga', () => {
     camionId: 'cam1', camionLabel: 'AB123CD · Iveco', choferId: 'chof1', choferNombre: 'Chofer Uno',
     items: [{ productoId: 'bolsa_10kg', nombre: 'Hielo 10kg', cantidad: 100, pallets: 2 }],
     palletsCarga: 2, envases: { tarimasMadera: 1, palletsMetal: 1, racks: [12, 15] },
-    estado: 'entregado', creadoPor: { uid: 'caja1', nombre: 'Caja Uno' },
+    estado: 'emitido', creadoPor: { uid: 'caja1', nombre: 'Caja Uno' },
     emitidoPor: { uid: 'mue1', nombre: 'Muelle Uno' },
-    entregadoPor: { uid: 'mue1', nombre: 'Muelle Uno', hora: new Date() },
     fecha: new Date(), tango: { estado: 'pendiente' }, ...extra,
   })
   const seedMuelle = (uid = 'mue1', planta = 'torcuato') =>
@@ -2332,7 +2331,7 @@ describe('remitosCarga', () => {
   const seedCaja = (uid = 'caja1', planta = 'torcuato') =>
     seed((d) => setDoc(doc(d, 'users/' + uid), { rol: 'caja', estado: 'activo', planta }))
 
-  test('muelle emite el remito de su planta al aceptar el borrador (nace entregado)', async () => {
+  test('muelle confecciona el remito de su planta desde el borrador (nace emitido)', async () => {
     await seedMuelle()
     await assertSucceeds(setDoc(doc(db('mue1'), 'remitosCarga/r1'), remito()))
   })
@@ -2352,12 +2351,11 @@ describe('remitosCarga', () => {
     await assertFails(setDoc(doc(db('mue1'), 'remitosCarga/r2'), remito({ borradorId: 7 })))
   })
 
-  test('el remito nace entregado, a nombre de quien lo emite; no en otro estado ni a nombre de otro', async () => {
+  test('el remito nace emitido, a nombre de quien lo confecciona; no en otro estado ni a nombre de otro', async () => {
     await seedMuelle()
-    await assertFails(setDoc(doc(db('mue1'), 'remitosCarga/r1'), remito({ estado: 'emitido' })))
+    await assertFails(setDoc(doc(db('mue1'), 'remitosCarga/r1'), remito({ estado: 'entregado' })))
     await assertFails(setDoc(doc(db('mue1'), 'remitosCarga/r2'), remito({ estado: 'salido' })))
     await assertFails(setDoc(doc(db('mue1'), 'remitosCarga/r3'), remito({ emitidoPor: { uid: 'otro', nombre: 'Otro' } })))
-    await assertFails(setDoc(doc(db('mue1'), 'remitosCarga/r4'), remito({ entregadoPor: { uid: 'otro', nombre: 'Otro', hora: new Date() } })))
   })
 
   // ── un camión no recibe carga nueva con un viaje sin descargar (2026-09-18) ──
@@ -2423,7 +2421,7 @@ describe('remitosCarga', () => {
   test('super_admin (sin planta) puede emitir un remito y avanzar el contador de cualquier planta', async () => {
     await seed((d) => setDoc(doc(d, 'users/adm'), { rol: 'super_admin', estado: 'activo' }))
     await assertSucceeds(setDoc(doc(db('adm'), 'config/cargaCounter_torcuato'), { next: 2 }))
-    const deAdm = { emitidoPor: { uid: 'adm', nombre: 'Ariel' }, entregadoPor: { uid: 'adm', nombre: 'Ariel', hora: new Date() } }
+    const deAdm = { emitidoPor: { uid: 'adm', nombre: 'Ariel' } }
     await assertSucceeds(setDoc(doc(db('adm'), 'remitosCarga/r1'), remito(deAdm)))
     await assertSucceeds(setDoc(doc(db('adm'), 'remitosCarga/r2'), remito({ plantaId: 'merlo', camionId: 'cam2', ...deAdm })))
   })
@@ -2841,15 +2839,21 @@ describe('expedicion: muelle / cambios / descargas / liquidaciones', () => {
   // Emitir el remito y entregar el camión son el mismo acto desde que muelle
   // acepta el borrador, así que la rama emitido → entregado desapareció: un
   // remito no se toca después de nacer. Ver el describe de remitosCarga.
-  test('un remito ya no admite la transición de entrega: nace entregado y es inmutable', async () => {
+  test('muelle marca la entrega cuando la mercadería está arriba; puede corregir envases y nadie más lo hace', async () => {
     await seedMuelle()
     await seedCaja()
     await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), remito()))
     const entrega = { estado: 'entregado', entregadoPor: { uid: 'mue1', nombre: 'Muelle', hora: new Date() } }
-    await assertFails(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), entrega))
-    await assertFails(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), { ...entrega, items: [] }))
-    await assertFails(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), { ...entrega, envases: { tarimasMadera: 0, palletsMetal: 3, racks: [12] }, palletsCarga: 3 }))
+    // Caja no entrega, y nadie firma la entrega a nombre de otro.
     await assertFails(updateDoc(doc(db('caja1'), 'remitosCarga/r1'), entrega))
+    await assertFails(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), { ...entrega, entregadoPor: { uid: 'otro', nombre: 'Otro', hora: new Date() } }))
+    // Los items del remito no se tocan al entregar.
+    await assertFails(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), { ...entrega, items: [] }))
+    // Los envases sí, si terminó usando otros pallets; tienen que cerrar con palletsCarga.
+    await assertFails(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), { ...entrega, envases: { tarimasMadera: 0, palletsMetal: 3, racks: [12] } }))
+    await assertSucceeds(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), { ...entrega, envases: { tarimasMadera: 0, palletsMetal: 3, racks: [12] }, palletsCarga: 3 }))
+    // Y una vez entregado no se vuelve a entregar.
+    await assertFails(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), entrega))
   })
 
   // ── cambiosCamion (histórico: hoy el cambio es un renglón de la venta) ──

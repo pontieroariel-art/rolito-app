@@ -20,7 +20,7 @@ import { useRemitosCargaDelDia, useVentanillaDelDia } from '@/hooks/useExpedicio
 import { useCotConfig } from '@/hooks/useCotConfig'
 import { kgDeItems, requiereCot, talonarioRemitoCarga } from '@/utils/cot'
 import {
-  crearDescargaCamion, subscribeDescarga, subscribeDescargasDelDia,
+  confirmarEntregaRemito, crearDescargaCamion, subscribeDescarga, subscribeDescargasDelDia,
 } from '@/services/descargaCamionService'
 import {
   confirmarEntregaVentanilla, llamarTurno, marcarTurnoAusente, marcarTurnoPreparado,
@@ -78,6 +78,23 @@ export default function MuelleDashboard() {
     [plantaId, fechasBorrador],
   )
   const porEntregar = useMemo(() => borradores.filter((b) => b.estado === 'pendiente'), [borradores])
+  // Paso 2: el remito ya está confeccionado y el camión se está cargando contra
+  // él. La entrega se marca cuando la mercadería está arriba.
+  const conRemitoSinEntregar = useMemo(
+    () => [...remitos, ...remitosAyer].filter((r) => r.estado === 'emitido'),
+    [remitos, remitosAyer],
+  )
+  const marcarEntregado = async (r: RemitoCarga) => {
+    if (!user || procesando) return
+    setError('')
+    setProcesando(r.id)
+    try {
+      await confirmarEntregaRemito(r, { uid: user.uid, nombre: user.nombre, plantaId })
+    } catch (err) {
+      reportError(err, { origen: 'MuelleDashboard', accion: 'marcarEntregado', remitoId: r.id })
+      setError('No se pudo marcar la entrega. Revisá la conexión y tocá de nuevo.')
+    } finally { setProcesando(null) }
+  }
   // Dársena de carga: se guarda en el BORRADOR, no en el remito, porque cuando
   // el camión entra a la boca el remito todavía no existe (nace cuando muelle lo
   // entrega). El TV del muelle la lee de ahí mientras la carga está en curso.
@@ -420,6 +437,51 @@ export default function MuelleDashboard() {
             />
           ))}
         </section>
+
+        {/* ── Paso 2: el camión se carga contra el remito y se marca la entrega ──
+            Confeccionar el remito y entregar el camión son dos actos distintos
+            (corrección de Ariel, 18/09): el papel sale primero y es contra el que
+            se carga. La entrega se marca cuando la mercadería ya está arriba. */}
+        {conRemitoSinEntregar.length > 0 && (
+          <section className="space-y-2">
+            <h2 className="font-semibold text-gray-800 flex items-center gap-2">
+              <Truck size={18} className="text-accent" /> Cargando contra el remito
+            </h2>
+            {conRemitoSinEntregar.map((r) => (
+              <div key={r.id} className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-3 space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-base font-semibold text-gray-900 truncate" title={r.camionLabel}>{r.camionLabel}</p>
+                    <p className="text-base text-secundario truncate" title={r.choferNombre}>{r.choferNombre}</p>
+                  </div>
+                  <span className="shrink-0 text-base font-bold text-gray-900 tabular-nums">{r.codigo}</span>
+                </div>
+                <div className="space-y-1">
+                  {r.items.map((i) => (
+                    <div key={i.productoId} className="flex justify-between gap-2 text-base">
+                      <span className="truncate text-gray-900" title={i.nombre}>{i.nombre}</span>
+                      <span className="font-semibold tabular-nums">{i.cantidad}</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-base text-secundario">{describirEnvases(envasesDeRemito(r)) || 'Sin envases'}</p>
+                {r.cotSolicitud && (
+                  <p className={`text-sm ${r.cot?.estado === 'presentado' ? 'text-gray-700' : 'text-[#8A5203]'}`}>
+                    {r.cot?.estado === 'presentado' ? `COT ARBA ${r.cot.numero}` : 'COT pendiente: no lo dejes salir sin el número'}
+                  </p>
+                )}
+                <Button
+                  onClick={() => marcarEntregado(r)}
+                  loading={procesando === r.id}
+                  disabled={!!procesando && procesando !== r.id}
+                  className="w-full h-14 text-base"
+                >
+                  <CheckCircle2 size={18} /> Mercadería entregada
+                </Button>
+              </div>
+            ))}
+          </section>
+        )}
 
         {/* ── Cola de turnos de ventanilla ── */}
         {(colaVentanilla.length > 0 || ausentes.length > 0) && (
