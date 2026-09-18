@@ -55,6 +55,10 @@ const hoyDate = new Date()
 const HOY  = dateStr(hoyDate)
 const ayerDate = new Date(hoyDate); ayerDate.setDate(ayerDate.getDate() - 1)
 const AYER = dateStr(ayerDate)
+// El borrador del primer viaje se arma siempre el día anterior: el camión sale a
+// las 4 y caja abre a las 6.
+const mananaDate = new Date(hoyDate); mananaDate.setDate(mananaDate.getDate() + 1)
+const MANANA = dateStr(mananaDate)
 /** Timestamp de hoy (o de otro día) a una hora dada: hora('09:15') */
 const hora = (hhmm, base = hoyDate) => {
   const [h, m] = hhmm.split(':').map(Number)
@@ -122,8 +126,9 @@ async function limpiar() {
     const snap = await db.collection(col).where('fecha', '>=', AYER).where('fecha', '<=', HOY).get()
     for (const d of snap.docs) { await d.ref.delete(); borrados++ }
   }
-  // Solicitudes de anulación y desvíos que hayan quedado de una vuelta anterior.
-  for (const col of ['anulacionesVentanilla', 'anulacionesCobranza', 'desviosDescarga']) {
+  // Solicitudes de anulación, desvíos y las dos colecciones del circuito del
+  // viaje en dos partes (2026-09-18) que hayan quedado de una vuelta anterior.
+  for (const col of ['anulacionesVentanilla', 'anulacionesCobranza', 'desviosDescarga', 'borradoresCarga', 'cierresMercaderia', 'camionesEnViaje']) {
     const snap = await db.collection(col).get()
     for (const d of snap.docs) { await d.ref.delete(); borrados++ }
   }
@@ -212,7 +217,7 @@ async function main() {
     await db.collection('ventasCamion').doc(id).set(v)
     return v
   }
-  const base1 = { camionId: 'camion-1', choferId: CH1.uid, choferNombre: CH1.nombre, depositoTango: '21', depositoTangoNombre: 'CAMION 21', firmaCliente: FIRMA, tango: { estado: 'confirmado' } }
+  const base1 = { camionId: 'camion-1', remitoId: 'seed-rc-1', remitoCodigo: 'RC-DT-000001', choferId: CH1.uid, choferNombre: CH1.nombre, depositoTango: '21', depositoTangoNombre: 'CAMION 21', firmaCliente: FIRMA, tango: { estado: 'confirmado' } }
   const vc = []
   // Contado con factura A (Redonhielo) en efectivo: el cliente pagó neto + IVA.
   let items = [item('bolsa_10kg', 40)]
@@ -233,7 +238,7 @@ async function main() {
   // Cobranza de calle del chofer (origen 'cobrador'): efectivo + cheque, Redonhielo.
   const cheque1 = CHEQUE('00045712', BANCOS.nacion, 120000, 15)
   await db.collection('cobranzas').doc('seed-cob-ch1').set({
-    origen: 'cobrador', registradoPor: CH1, depositoTango: '21',
+    origen: 'cobrador', registradoPor: CH1, depositoTango: '21', remitoId: 'seed-rc-1', remitoCodigo: 'RC-DT-000001',
     clienteId: CLI.id, clienteNombre: CLI.nombre, empresa: 'redonhielo', codigoTango: CLI.codigoTango,
     numeroRecibo: 'RS-000110', importe: 155000.5, formaPago: 'mixto', fecha: hora('10:05'),
     imputaciones: [
@@ -271,12 +276,116 @@ async function main() {
     salida: { uid: 'seed-seguridad', nombre: 'Seguridad Torcuato Prueba', hora: hora('07:40') },
     tango: { estado: 'confirmado', remitoNumero: 'R000100000903' },
   })
-  const base2 = { camionId: 'camion-2', choferId: CH2.uid, choferNombre: CH2.nombre, depositoTango: '22', depositoTangoNombre: 'CAMION 22', firmaCliente: FIRMA, tango: { estado: 'confirmado' } }
+  const base2 = { camionId: 'camion-2', remitoId: 'seed-rc-3', remitoCodigo: 'RC-DT-000003', choferId: CH2.uid, choferNombre: CH2.nombre, depositoTango: '22', depositoTangoNombre: 'CAMION 22', firmaCliente: FIRMA, tango: { estado: 'confirmado' } }
   items = [item('bolsa_10kg', 50)]
   await ventaCamion('seed-vc2-1', { ...base2, canal: 'contado', clienteId: FACT.id, clienteNombre: FACT.nombre, clienteCodigoTango: FACT.codigoTango, clienteIdGva14Tango: FACT.idGva14, items, total: totalDe(items), formaPago: 'contado_efectivo', firmanteNombre: 'Ana Facturable', fecha: hora('08:40'), factura: facturaArca(items, 'A') })
   items = [item('barra', 20)]
   await ventaCamion('seed-vc2-2', { ...base2, canal: 'promo', clienteId: CLI.id, clienteNombre: CLI.nombre, clienteCodigoTango: CLI.codigoTango, clienteIdGva14Tango: CLI.idGva14, items, total: totalDe(items), formaPago: 'contado_efectivo', firmanteNombre: 'Juan Prueba', fecha: hora('10:50'), comprobanteInterno: { tipo: 'facturaX', puntoVenta: 1, numero: 45 } })
   console.log('✓ Chofer Dos (dep. 22): remito salido, 2 ventas, sin volver → "en calle" en Tesorería en vivo y en Liquidaciones abiertas')
+
+  // ── El viaje del chofer uno, con la MERCADERÍA ya cerrada ─────────────────
+  // Lo escribe el servidor al contarse la descarga; acá se siembra a mano para
+  // poder probar sin functions. Con esto la liquidación de hoy del chofer uno
+  // arranca con una mitad hecha y la otra pendiente: es el orden habitual
+  // (muelle 24 h contra caja 12 h).
+  await db.collection('cierresMercaderia').doc('seed-rc-1').set({
+    remitoId: 'seed-rc-1', remitoCodigo: 'RC-DT-000001', plantaId: PLANTA,
+    choferId: CH1.uid, choferNombre: CH1.nombre, depositoTango: '21', depositoTangoNombre: 'CAMION 21',
+    diaReparto: HOY,
+    productos: [
+      { productoId: 'bolsa_10kg', nombre: P.bolsa_10kg.nombre, carga: 264, ventaContado: 80, ventaPromo: 25, cambios: 0, devolucionTeorica: 159, descarga: 157, diferencia: -2, rotas: 0 },
+      { productoId: 'agua_6l', nombre: P.agua_6l.nombre, carga: 60, ventaContado: 20, ventaPromo: 15, cambios: 0, devolucionTeorica: 25, descarga: 25, diferencia: 0, rotas: 0 },
+    ],
+    envases: {
+      salieron:  { tarimasMadera: 2, palletsMetal: 1, puntales: 12, aros: 2, sombreros: 3, racks: [12, 15, 18] },
+      volvieron: { tarimasMadera: 2, palletsMetal: 1, puntales: 12, aros: 2, sombreros: 3, racks: [12, 15, 18] },
+      diferencia: { tarimasMadera: 0, palletsMetal: 0, puntales: 0, aros: 0, sombreros: 0 },
+      racksFaltantes: [], racksSobrantes: [],
+    },
+    faltante: { bolsasFaltantes: 2, bolsasSobrantes: 0, productos: [{ productoId: 'bolsa_10kg', nombre: P.bolsa_10kg.nombre, faltan: 2 }], grave: false, umbral: 5 },
+    descargaIds: ['seed-desc-ch1'], descargaCodigos: ['DC-DT-000001'],
+    contadaPor: MUELLE, contadaEn: hora('11:35'),
+  })
+  await db.collection('descargasCamion').doc('seed-desc-ch1').update({ numero: 1, codigo: 'DC-DT-000001' })
+  console.log('✓ Mercadería del chofer Uno CERRADA (DC-DT-000001, faltan 2 bolsas) y su plata pendiente → el orden habitual')
+
+  // ── Borrador para mañana: lo que muelle va a aceptar a las 4 ──────────────
+  await db.collection('borradoresCarga').doc('seed-borrador-1').set({
+    plantaId: PLANTA, paraFecha: MANANA,
+    camionId: 'camion-1', camionLabel: 'AF313WU · Accelo 1016',
+    choferId: CH1.uid, choferNombre: CH1.nombre, depositoTango: '21', depositoTangoNombre: 'CAMION 21',
+    items: [{ productoId: 'bolsa_10kg', nombre: P.bolsa_10kg.nombre, cantidad: 264, pallets: 3 }],
+    envases: { tarimasMadera: 2, palletsMetal: 1, racks: [] },
+    kg: 2640,
+    cotDestino: {
+      destino: { tipo: 'planta', plantaId: 'merlo' },
+      respaldo: { codigoComprobante: '091', prefijo: 25, importe: 0 },
+      patente: 'AF313WU', recorrido: 'corto',
+    },
+    estado: 'pendiente', creadoPor: CAJA, fecha: hora('17:30'),
+    venceEn: Timestamp.fromDate(new Date(`${MANANA}T23:59:59`)),
+  })
+  console.log(`✓ Borrador para mañana (${MANANA}): camión 1 con 264 bolsas → muelle lo acepta y ahí nace el remito`)
+
+  // ── Vuelta NOCTURNA de ayer: sobre en el buzón ───────────────────────────
+  // El chofer volvió a las 21, muelle contó y él dejó la plata en el buzón con
+  // el código escrito a mano. Caja lo abre a la mañana: es el caso que motivó
+  // todo el circuito.
+  await db.collection('remitosCarga').doc('seed-rc-noche').set({
+    numero: 9, codigo: 'RC-DT-000009', plantaId: PLANTA, choferId: CH2.uid, choferNombre: CH2.nombre,
+    camionId: 'camion-3', camionLabel: 'AD444EE · Atego 1725',
+    depositoTango: '22', depositoTangoNombre: 'CAMION 22',
+    items: [{ productoId: 'bolsa_10kg', nombre: P.bolsa_10kg.nombre, cantidad: 176, pallets: 2 }],
+    palletsCarga: 2, envases: { tarimasMadera: 2, palletsMetal: 0, racks: [] },
+    estado: 'salido', creadoPor: CAJA, fecha: hora('14:00', ayerDate),
+    entregadoPor: { ...MUELLE, hora: hora('14:10', ayerDate) },
+    salida: { uid: 'seed-seguridad', nombre: 'Seguridad Torcuato Prueba', hora: hora('14:20', ayerDate) },
+    regreso: { ...CH2, hora: hora('21:05', ayerDate), darsena: 3 },
+    tango: { estado: 'confirmado' },
+  })
+  items = [item('bolsa_10kg', 60)]
+  await ventaCamion('seed-vc-noche', {
+    camionId: 'camion-3', remitoId: 'seed-rc-noche', remitoCodigo: 'RC-DT-000009',
+    choferId: CH2.uid, choferNombre: CH2.nombre, depositoTango: '22', depositoTangoNombre: 'CAMION 22',
+    canal: 'contado', clienteId: FACT.id, clienteNombre: FACT.nombre, clienteCodigoTango: FACT.codigoTango, clienteIdGva14Tango: FACT.idGva14,
+    items, total: totalDe(items), formaPago: 'contado_efectivo', firmanteNombre: 'Ana Facturable', firmaCliente: FIRMA,
+    fecha: hora('18:30', ayerDate), factura: facturaArca(items, 'A'), tango: { estado: 'confirmado' },
+  })
+  await db.collection('descargasCamion').doc('seed-desc-noche').set({
+    plantaId: PLANTA, camionId: 'camion-3', camionLabel: 'AD444EE · Atego 1725',
+    choferId: CH2.uid, choferNombre: CH2.nombre, depositoTango: '22', depositoTangoNombre: 'CAMION 22',
+    remitoId: 'seed-rc-noche', remitoCodigo: 'RC-DT-000009', diaReparto: AYER,
+    numero: 2, codigo: 'DC-DT-000002',
+    items: [{ productoId: 'bolsa_10kg', nombre: P.bolsa_10kg.nombre, cantidad: 116 }],
+    bolsasRotas: [],
+    envases: { tarimasMadera: 2, palletsMetal: 0, puntales: 8, aros: 2, sombreros: 2, racks: [] },
+    registradoPor: MUELLE, fecha: hora('21:40', ayerDate), tango: { estado: 'confirmado' },
+  })
+  await db.collection('cierresMercaderia').doc('seed-rc-noche').set({
+    remitoId: 'seed-rc-noche', remitoCodigo: 'RC-DT-000009', plantaId: PLANTA,
+    choferId: CH2.uid, choferNombre: CH2.nombre, depositoTango: '22', depositoTangoNombre: 'CAMION 22',
+    diaReparto: AYER,
+    productos: [{ productoId: 'bolsa_10kg', nombre: P.bolsa_10kg.nombre, carga: 176, ventaContado: 60, ventaPromo: 0, cambios: 0, devolucionTeorica: 116, descarga: 116, diferencia: 0, rotas: 0 }],
+    envases: {
+      salieron:  { tarimasMadera: 2, palletsMetal: 0, puntales: 8, aros: 2, sombreros: 2, racks: [] },
+      volvieron: { tarimasMadera: 2, palletsMetal: 0, puntales: 8, aros: 2, sombreros: 2, racks: [] },
+      diferencia: { tarimasMadera: 0, palletsMetal: 0, puntales: 0, aros: 0, sombreros: 0 },
+      racksFaltantes: [], racksSobrantes: [],
+    },
+    faltante: { bolsasFaltantes: 0, bolsasSobrantes: 0, productos: [], grave: false, umbral: 5 },
+    descargaIds: ['seed-desc-noche'], descargaCodigos: ['DC-DT-000002'],
+    contadaPor: MUELLE, contadaEn: hora('21:40', ayerDate),
+  })
+  console.log('✓ Vuelta NOCTURNA de ayer: contada (DC-DT-000002) y sin liquidar → aparece en el Buzón esperando el sobre')
+
+  // ── Camión con descarga pendiente: la regla que frena la carga ────────────
+  // El camión 2 salió hoy y nadie contó su descarga. Mientras exista este doc,
+  // muelle no puede emitirle un remito nuevo.
+  await db.collection('camionesEnViaje').doc('camion-2').set({
+    remitoId: 'seed-rc-3', remitoCodigo: 'RC-DT-000003', plantaId: PLANTA,
+    choferNombre: CH2.nombre, desde: hora('07:10'), volvio: false,
+  })
+  console.log('✓ camionesEnViaje: el camión 2 tiene descarga pendiente → no recibe carga nueva')
 
   // ── SUPERVISOR: día solo de cobranzas ─────────────────────────────────────
   const cobSup = (id, c) => db.collection('cobranzas').doc(id).set({ origen: 'supervisor', registradoPor: SUP, depositoTango: '31', tango: { estado: 'confirmado' }, ...c })
