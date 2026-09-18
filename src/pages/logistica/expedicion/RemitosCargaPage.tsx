@@ -21,11 +21,9 @@ import { BorradorCarga, PLANTAS, RemitoCarga, RemitoCargaEstado, RemitoCargaItem
 import { reportError } from '@/services/observability'
 import RacksInput from '@/components/expedicion/RacksInput'
 import CotDestinoForm, { faltantesDestinoPlan } from '@/components/expedicion/CotDestinoForm'
-import TiraBorradoresFaltantes from '@/components/expedicion/TiraBorradoresFaltantes'
 import { useCotConfig } from '@/hooks/useCotConfig'
 import { formatoRespaldo, kgDeItems, requiereCot } from '@/utils/cot'
 import { generateRemitoCargaOficial } from '@/utils/remitoCargaOficialPdf'
-import { borradoresFaltantes, type CamionDelDia } from '@/utils/borradoresFaltantes'
 import type { CotDestinoPlan } from '@/types'
 import { AROS_POR_TARIMA_MADERA, PUNTALES_POR_PALLET, SOMBREROS_POR_PALLET, describirEnvases, envasesDeRemito } from '@/utils/envases'
 
@@ -151,15 +149,10 @@ export default function RemitosCargaPage() {
   const num = (v: string) => Math.max(0, Math.min(999, parseInt(v.replace(/\D/g, ''), 10) || 0))
   const inputEnvase = 'w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'
 
-  // Los borradores ya armados para el día que se planifica, contra los camiones
-  // que salieron hoy: la tira de arriba muestra los que FALTAN.
+  // Los borradores del día que se está planificando, y los de hoy que muelle
+  // todavía no emitió (caja los puede seguir corrigiendo).
   const borradoresDelDia = useMemo(() => borradores.filter((b) => b.paraFecha === paraFecha), [borradores, paraFecha])
   const borradoresDeHoy  = useMemo(() => borradores.filter((b) => b.paraFecha === hoyClave && b.estado === 'pendiente'), [borradores, hoyClave])
-  const { faltan, listos } = useMemo(
-    () => borradoresFaltantes(remitos, borradoresDelDia),
-    [remitos, borradoresDelDia],
-  )
-
   const setCantidad = (productoId: string, delta: number) =>
     setCantidades((prev) => {
       const next = Math.max(0, Math.min(99999, (prev[productoId] ?? 0) + delta))
@@ -184,17 +177,6 @@ export default function RemitosCargaPage() {
     setCotDestino(null); setCotInicial(null)
     setError('')
   }, [])
-
-  // Desde la tira: precargar el camión y el repartidor que salieron hoy.
-  const armarDesdeTira = (c: CamionDelDia) => {
-    limpiar()
-    const enFlota = camionesActivos.some((x) => x.id === c.camionId)
-    if (enFlota) setCamionId(c.camionId)
-    else if (c.camionId.startsWith('manual:')) { setCamionId(OTRO_CAMION); setPatenteManual(c.camionId.slice(7)) }
-    const dep = depositosReparto.find((d) => identidadDeposito(d) === c.choferId)
-    if (dep) setDepositoCod(dep.codigo)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
 
   const editar = (b: BorradorCarga) => {
     limpiar()
@@ -293,8 +275,6 @@ export default function RemitosCargaPage() {
         contexto={`${PLANTAS[plantaId].label} · caja arma la carga, muelle emite el remito al entregar el camión`}
         chips={borradoresDelDia.length > 0 ? <Badge tono="confirmado">{borradoresDelDia.length} armada{borradoresDelDia.length === 1 ? '' : 's'}</Badge> : undefined}
       />
-
-      <TiraBorradoresFaltantes faltan={faltan} listos={listos} paraFecha={paraFecha} onArmar={armarDesdeTira} />
 
       {aviso && <p className="text-xs text-gray-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">{aviso}</p>}
 
