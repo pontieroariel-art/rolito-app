@@ -234,7 +234,12 @@ export default function ClienteCombobox({
           <li className="px-3 py-3 text-sm text-secundario" role="presentation">Cargando clientes…</li>
         ) : opciones.length === 0 ? (
           <li className="px-3 py-3 text-sm text-secundario" role="presentation">
-            Ningún cliente coincide.
+            {/* Sin lista y sin búsqueda escrita no es que no haya coincidencias:
+                es que la lista no llegó. Decir 'ningún cliente coincide' manda a
+                buscar de otra forma algo que no se va a encontrar igual. */}
+            {items.length === 0
+              ? 'No se pudo cargar la lista de clientes. Revisá la conexión y volvé a abrir.'
+              : 'Ningún cliente coincide.'}
             {sinResultados}
           </li>
         ) : opciones.map((item, i) => {
