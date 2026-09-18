@@ -1,6 +1,6 @@
 import { claveDia } from '@/utils/diaReparto'
 import { useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, MonitorPlay, PackageCheck, Truck } from 'lucide-react'
+import { CheckCircle2, Eye, MonitorPlay, PackageCheck, Truck } from 'lucide-react'
 import Navbar from '@/components/layout/Navbar'
 import PageHeader from '@/components/common/PageHeader'
 import Badge from '@/components/common/Badge'
@@ -32,6 +32,9 @@ import {
 import { reportError } from '@/services/observability'
 import EntregarCamionCard from '@/components/expedicion/EntregarCamionCard'
 import NumeroGrande from '@/components/expedicion/NumeroGrande'
+import { useVisorComprobante } from '@/components/ui/VisorComprobante'
+import { generateRemitoCarga } from '@/utils/pdf'
+import { generateRemitoCargaOficial } from '@/utils/remitoCargaOficialPdf'
 import RacksInput from '@/components/expedicion/RacksInput'
 import {
   cuadrarEnvases, describirEnvases, describirRacks, envasesDeDescarga, envasesDeRemito,
@@ -68,6 +71,7 @@ export default function MuelleDashboard() {
   // caja armó la tarde anterior, y el que quedó sin salir de ayer sigue vivo un
   // día (ver vencimientoDe en borradorCargaService).
   const { cfg: cotCfg } = useCotConfig()
+  const { abrir } = useVisorComprobante()
   const [borradores, setBorradores] = useState<BorradorCarga[]>([])
   const fechasBorrador = useMemo(
     () => [claveDia(ayer), claveDia(fecha), manana(fecha)],
@@ -84,6 +88,29 @@ export default function MuelleDashboard() {
     () => [...remitos, ...remitosAyer].filter((r) => r.estado === 'emitido'),
     [remitos, remitosAyer],
   )
+  // El papel del viaje. Muelle lo emite, así que también tiene que poder verlo:
+  // es contra lo que se carga, lo que mira seguridad en el portón y, cuando lleva
+  // remito R, un comprobante fiscal. Desde el visor se imprime o se descarga.
+  const [abriendoPdf, setAbriendoPdf] = useState(false)
+  const verRemito = async (r: RemitoCarga) => {
+    setAbriendoPdf(true)
+    try {
+      const blob = await (r.remitoR
+        ? generateRemitoCargaOficial(r)
+        : generateRemitoCarga({
+          codigo: r.codigo, plantaId: r.plantaId, camionLabel: r.camionLabel, choferNombre: r.choferNombre,
+          items: r.items, palletsCarga: r.palletsCarga, envases: r.envases, creadoPor: r.creadoPor,
+          fecha: r.fecha.toDate(),
+          ...(r.cot?.estado === 'presentado' && r.cot.numero ? { cot: { numero: r.cot.numero, fechaValidez: r.cot.fechaValidez } } : {}),
+          ...(r.kg ? { kg: r.kg } : {}),
+        }))
+      if (blob) abrir({ blob, nombre: `${r.codigo}.pdf`, titulo: r.remitoR ? `Remito R ${r.codigo}` : `Remito de carga ${r.codigo}`, subtitulo: `${r.camionLabel} · ${r.choferNombre}` })
+    } catch (err) {
+      reportError(err, { origen: 'MuelleDashboard', accion: 'verRemito', remitoId: r.id })
+      setError('No se pudo abrir el remito. Probá de nuevo o pedíselo a caja.')
+    } finally { setAbriendoPdf(false) }
+  }
+
   const marcarEntregado = async (r: RemitoCarga) => {
     if (!user || procesando) return
     setError('')
@@ -382,9 +409,9 @@ export default function MuelleDashboard() {
         {/* ── El remito que acaba de nacer ── */}
         {emitido && (
           <NumeroGrande
-            titulo="Camión entregado · remito de carga"
+            titulo="Remito confeccionado"
             codigo={emitido.remito.codigo}
-            instruccion={`Decile el número a ${emitido.remito.choferNombre} antes de que salga.`}
+            instruccion={`Cargá el camión de ${emitido.remito.choferNombre} contra este remito y después marcá la entrega.`}
             detalle={
               <>
                 <p>{emitido.remito.camionLabel}</p>
@@ -401,9 +428,16 @@ export default function MuelleDashboard() {
               </>
             }
           >
-            <Button variant="outline" onClick={() => setEmitido(null)} className="w-full h-11">
-              <CheckCircle2 size={16} /> Listo, ya se lo dije
-            </Button>
+            <div className="grid grid-cols-2 gap-2">
+              {/* El papel del viaje: es contra lo que se carga, lo que mira
+                  seguridad y, con remito R, un comprobante fiscal. */}
+              <Button onClick={() => verRemito(emitido.remito)} loading={abriendoPdf} className="h-11">
+                <Eye size={16} /> Ver el remito
+              </Button>
+              <Button variant="outline" onClick={() => setEmitido(null)} className="h-11">
+                <CheckCircle2 size={16} /> Listo
+              </Button>
+            </div>
           </NumeroGrande>
         )}
 
@@ -470,14 +504,19 @@ export default function MuelleDashboard() {
                     {r.cot?.estado === 'presentado' ? `COT ARBA ${r.cot.numero}` : 'COT pendiente: no lo dejes salir sin el número'}
                   </p>
                 )}
-                <Button
-                  onClick={() => marcarEntregado(r)}
-                  loading={procesando === r.id}
-                  disabled={!!procesando && procesando !== r.id}
-                  className="w-full h-14 text-base"
-                >
-                  <CheckCircle2 size={18} /> Mercadería entregada
-                </Button>
+                <div className="grid grid-cols-3 gap-2">
+                  <Button variant="outline" onClick={() => verRemito(r)} loading={abriendoPdf} className="h-14 text-base">
+                    <Eye size={18} /> Remito
+                  </Button>
+                  <Button
+                    onClick={() => marcarEntregado(r)}
+                    loading={procesando === r.id}
+                    disabled={!!procesando && procesando !== r.id}
+                    className="col-span-2 h-14 text-base"
+                  >
+                    <CheckCircle2 size={18} /> Mercadería entregada
+                  </Button>
+                </div>
               </div>
             ))}
           </section>
