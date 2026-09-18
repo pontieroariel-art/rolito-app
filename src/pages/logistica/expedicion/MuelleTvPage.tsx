@@ -410,8 +410,11 @@ export const DarsenaCamion = memo(function DarsenaCamion({ n, r, desglose, ahora
       {tag}
       <p className="text-[56px] font-black leading-none tracking-tight mt-1">{r.camionLabel.split('·')[0].trim()}</p>
       {/* El remito, cuando ya está confeccionado: es el papel contra el que se
-          carga. Mientras muelle no lo hizo, va el chofer — todavía no hay número. */}
-      <p className="text-[22px] font-bold text-amber-200/80 truncate mt-1" title={r.choferNombre}>{r.codigo ?? r.choferNombre}</p>
+          carga. Mientras muelle no lo hizo no hay número, y se dice así — el
+          nombre del chofer ya va abajo, repetirlo acá no agrega nada. */}
+      <p className={`text-[22px] font-bold truncate mt-1 ${r.codigo ? 'text-amber-200/80 tabular-nums' : 'text-gray-500'}`}>
+        {r.codigo ?? 'SIN REMITO'}
+      </p>
       <div className="flex flex-col gap-2 mt-3 flex-1 min-h-0 overflow-hidden">
         {r.items.map((i) => {
           const { pallets, sueltas } = desglose(i.productoId, i.cantidad)
