@@ -13,7 +13,7 @@ import { useCatalogo } from '@/hooks/useCatalogo'
 import { useDiaActual, useFechaDelDia } from '@/hooks/useDiaActual'
 import { palletsInfo } from '@/services/remitoCargaService'
 import {
-  borrarBorradorCarga, crearBorradorCarga, editarBorradorCarga, manana, subscribeBorradoresDe,
+  borrarBorradorCarga, crearBorradorCarga, editarBorradorCarga, subscribeBorradoresDe,
 } from '@/services/borradorCargaService'
 import { useRemitosCargaDelDia } from '@/hooks/useExpedicionDia'
 import { generateRemitoCarga } from '@/utils/pdf'
@@ -66,7 +66,10 @@ export default function RemitosCargaPage() {
   const fecha = useFechaDelDia()
   const hoyClave = useDiaActual()
 
-  const [paraFecha,  setParaFecha]  = useState(() => manana())
+  // Arranca en HOY (2026-09-18, corrección de Ariel): durante el día se arman
+  // cargas para el mismo día — el segundo viaje sale a la tarde. La del camión
+  // de la madrugada se arma eligiendo mañana a mano.
+  const [paraFecha,  setParaFecha]  = useState(hoyClave)
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [camionId,   setCamionId]   = useState('')
   // "Otro camión": patente tipeada a mano (2026-09-06, pedido de Ariel). Como en
@@ -294,7 +297,7 @@ export default function RemitosCargaPage() {
         <div className="grid sm:grid-cols-3 gap-3">
           <div>
             <label className="text-xs text-secundario mb-1 block">¿Para qué día es la carga?</label>
-            <input type="date" value={paraFecha} onChange={(e) => setParaFecha(e.target.value || manana())} className={selectClass} />
+            <input type="date" value={paraFecha} onChange={(e) => setParaFecha(e.target.value || hoyClave)} className={selectClass} />
             <p className="text-[11px] text-secundario mt-0.5">El primer viaje se arma el día anterior.</p>
           </div>
           <div>
