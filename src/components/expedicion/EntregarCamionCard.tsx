@@ -135,7 +135,7 @@ export default function EntregarCamionCard({
           recién cuando muelle lo entrega). El TV del muelle la lee de ahí
           mientras la carga está en curso. */}
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-base text-secundario shrink-0">Dársena</span>
+        <span className={`text-base shrink-0 ${darsena ? 'text-secundario' : 'text-red-600 font-semibold'}`}>Dársena</span>
         {darsenas.map((n) => (
           <button
             key={n}
@@ -174,7 +174,7 @@ export default function EntregarCamionCard({
       <Button
         onClick={() => onEntregar(items, envases)}
         loading={entregando}
-        disabled={bloqueado || items.length === 0 || sinEnvases || !!viajeSinDescargar}
+        disabled={bloqueado || items.length === 0 || sinEnvases || !darsena || !!viajeSinDescargar}
         className="w-full h-14 text-base"
       >
         <FileText size={18} /> Confeccionar el remito
@@ -182,6 +182,8 @@ export default function EntregarCamionCard({
       <p className="text-sm text-secundario">
         {viajeSinDescargar
           ? 'Primero hay que contar la descarga del viaje anterior de este camión.'
+          : !darsena
+          ? 'Marcá en qué dársena está el camión antes de confeccionar el remito.'
           : sinEnvases
           ? 'Contá los envases que van a salir antes de confeccionar el remito.'
           : 'Sale el número, el remito R y el COT de ahora. Después se carga el camión y se marca la entrega.'}

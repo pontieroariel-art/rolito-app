@@ -556,7 +556,12 @@ export interface CotSolicitud {
  */
 export interface CotDestinoPlan {
   destino:   CotDestino
-  respaldo:  { codigoComprobante: string; prefijo: number; importe: number }
+  /**
+   *  es lo que caja declara (2026-09-18, pedido de Ariel): el COT se mide en
+   * kilos y es lo que la operación entiende. El importe viaja en 0 — el reparto
+   * no es una venta, es mercadería propia moviéndose.
+   */
+  respaldo:  { codigoComprobante: string; prefijo: number; importe: number; kg?: number }
   patente:   string
   recorrido: CotRecorrido
 }

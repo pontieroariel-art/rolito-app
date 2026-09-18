@@ -234,8 +234,8 @@ export default function RemitosCargaPage() {
         depositoTango: deposito.codigo,
         depositoTangoNombre: deposito.nombre,
         items,
-        envases,
-        kg,
+        // Los kilos que declaró caja para el COT; si no los tocó, los de la carga.
+        kg: cotDestino?.respaldo.kg || kg,
         cotDestino:   cotDestino as CotDestinoPlan,
       }
       if (editandoId) {

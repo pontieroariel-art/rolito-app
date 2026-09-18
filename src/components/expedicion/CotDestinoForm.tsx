@@ -33,7 +33,7 @@ export function faltantesDestinoPlan(plan: CotDestinoPlan | null): string[] {
   if (plan.destino.tipo === 'cliente') {
     if (!plan.destino.razonSocial) faltan.push('Falta el cliente destinatario del COT.')
     if (!plan.destino.domicilio.localidad || !plan.destino.domicilio.calle) faltan.push('Falta el domicilio de destino del COT.')
-    if (!plan.respaldo.importe) faltan.push('Falta el importe a declarar en el COT.')
+    if (!plan.respaldo.kg) faltan.push('Faltan los kilos a declarar en el COT.')
   }
   return faltan
 }
@@ -41,7 +41,7 @@ export function faltantesDestinoPlan(plan: CotDestinoPlan | null): string[] {
 export default function CotDestinoForm({ plantaId, cfg, kg, patente, valor, onChange }: {
   plantaId: PlantaId
   cfg:      CotConfig
-  /** Kilos de la carga planificada: solo para sugerir el importe y avisar si ya cruza el umbral. */
+  /** Kilos que pesa la carga planificada, según el peso por producto de Ajustes. */
   kg:       number
   patente:  string
   /** Para reabrir un borrador y corregirlo. */
@@ -55,7 +55,7 @@ export default function CotDestinoForm({ plantaId, cfg, kg, patente, valor, onCh
   const [clienteUid, setClienteUid] = useState(inicial?.tipo === 'cliente' ? inicial.clienteUid : '')
   const [codigoSucursal, setCodigoSucursal] = useState(inicial?.tipo === 'cliente' ? (inicial.codigoTango ?? '') : '')
   const [consumidorFinal, setConsumidorFinal] = useState(inicial?.tipo === 'cliente' ? inicial.consumidorFinal : false)
-  const [importe, setImporte] = useState(valor?.respaldo.importe ? String(valor.respaldo.importe) : '')
+  const [kgDeclarados, setKgDeclarados] = useState(valor?.respaldo.kg ? String(valor.respaldo.kg) : '')
   const [tipoRecorrido, setTipoRecorrido] = useState<CotTipoRecorrido>(valor?.recorrido.tipo ?? plantaCfg.recorrido.tipo)
   const [localidad, setLocalidad] = useState(valor?.recorrido.localidad ?? plantaCfg.recorrido.localidad)
   const [ruta, setRuta] = useState(valor?.recorrido.ruta ?? plantaCfg.recorrido.ruta)
@@ -77,21 +77,28 @@ export default function CotDestinoForm({ plantaId, cfg, kg, patente, valor, onCh
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uidCliente])
 
-  // Importe sugerido por los kilos (config/cot.importePorKg) mientras caja no lo toque.
+  // Los kilos de la carga, mientras caja no los corrija a mano.
   useEffect(() => {
-    if (cfg.importePorKg > 0 && importe === '') setImporte(String(Math.round(kg * cfg.importePorKg)))
+    if (kg > 0 && kgDeclarados === '') setKgDeclarados(String(Math.round(kg)))
     // solo al cambiar los kilos o la config
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kg, cfg.importePorKg])
+  }, [kg])
 
   const domicilioFicha = useMemo<CotDomicilio | null>(() => (cliente ? domicilioDeCliente(cliente, codigoSucursal || null) : null), [cliente, codigoSucursal])
   const domicilio = domicilioEditado ?? domicilioFicha
 
   useEffect(() => {
-    const respaldo = { codigoComprobante: cfg.respaldo.codigoComprobante, prefijo: cfg.respaldo.prefijo, importe: Number(importe.replace(/[^\d.]/g, '')) || 0 }
+    // El COT se declara por KILOS. El importe viaja en 0: el reparto no es una
+    // venta, es mercadería propia moviéndose, y lo que ARBA mide acá es el peso.
+    const respaldo = {
+      codigoComprobante: cfg.respaldo.codigoComprobante,
+      prefijo: cfg.respaldo.prefijo,
+      importe: 0,
+      kg: Number(kgDeclarados.replace(/[^\d.]/g, '')) || 0,
+    }
     const recorrido = { tipo: tipoRecorrido, localidad, ruta }
     if (tipo === 'planta') {
-      onChange({ destino: { tipo: 'planta', plantaId: otraPlanta(plantaId) }, respaldo: { ...respaldo, importe: 0 }, patente, recorrido })
+      onChange({ destino: { tipo: 'planta', plantaId: otraPlanta(plantaId) }, respaldo, patente, recorrido })
       return
     }
     if (!cliente || !domicilio) { onChange(null); return }
@@ -102,7 +109,7 @@ export default function CotDestinoForm({ plantaId, cfg, kg, patente, valor, onCh
       },
       respaldo, patente, recorrido,
     })
-  }, [tipo, cliente, codigoSucursal, consumidorFinal, domicilio, importe, tipoRecorrido, localidad, ruta, patente, plantaId, cfg.respaldo, onChange])
+  }, [tipo, cliente, codigoSucursal, consumidorFinal, domicilio, kgDeclarados, tipoRecorrido, localidad, ruta, patente, plantaId, cfg.respaldo, onChange])
 
   const editarDomicilio = (parte: Partial<CotDomicilio> & { calleNumero?: string }) => {
     const base = domicilio ?? { calle: '', numero: 0, cp: '', localidad: '', provincia: 'B' }
@@ -187,9 +194,15 @@ export default function CotDestinoForm({ plantaId, cfg, kg, patente, valor, onCh
       <div className="grid sm:grid-cols-4 gap-2">
         {tipo === 'cliente' && (
           <div>
-            <label className={label}>Importe a declarar</label>
-            <input value={importe} onChange={(e) => setImporte(e.target.value.replace(/[^\d]/g, ''))} inputMode="numeric" placeholder="$" className={input} />
-            {importe && <p className="text-[11px] text-secundario mt-0.5">{formatoARS(Number(importe))}</p>}
+            {/* Kilos, no importe (2026-09-18, pedido de Ariel): el COT se mide en
+                kilos y es lo que la operación entiende. Salen de la carga y del
+                peso por producto de Ajustes, y se pueden corregir a mano cuando
+                un producto todavía no tiene su peso cargado. */}
+            <label className={label}>Kilos a declarar</label>
+            <input value={kgDeclarados} onChange={(e) => setKgDeclarados(e.target.value.replace(/[^\d]/g, ''))} inputMode="numeric" placeholder="kg" className={input} />
+            <p className="text-[11px] text-secundario mt-0.5">
+              {kg > 0 ? `La carga pesa ${kg.toLocaleString('es-AR')} kg` : 'Falta el peso por producto en Ajustes'}
+            </p>
           </div>
         )}
         <div>
