@@ -380,8 +380,9 @@ async function probarSql(tcfgProbar = null) {
         log(`  transferencias: tipos CAR/DES en STA13: ${f.tipos_car_des}/2, talonario 13 en STA17: ${f.talonario_13 ? 'sí' : 'NO'}`)
         if (f.tipos_car_des < 2 || !f.talonario_13) fallas++
         // Fase B (2026-09-17): por cada tipo fijo configurado, que el tipo de
-        // comprobante sea una transferencia, su talonario exista y el depósito
-        // destino (99 / 98) esté dado de alta en STA10.
+        // comprobante sea una transferencia (STA13.T_MOVIM = 'T'; STA13 NO tiene
+        // TCOMP_IN_S), su talonario exista y el depósito destino (99 / 98) esté
+        // dado de alta y habilitado en STA22 (COD_STA22; los depósitos no son STA10).
         const tipos = tcfgProbar?.sql?.stock?.tipos ?? {}
         for (const clave of ['merma', 'diferencia', 'cambioVentanilla']) {
           const t = tipos[clave]
@@ -390,9 +391,9 @@ async function probarSql(tcfgProbar = null) {
             .input('T_COMP', mssql.VarChar(3), String(t.tComp ?? ''))
             .input('TAL', mssql.SmallInt, Number(t.talonario ?? 0))
             .input('DEP', mssql.VarChar(2), String(t.depositoDestino ?? ''))
-            .query(`SELECT (SELECT COUNT(*) FROM STA13 WHERE T_COMP = @T_COMP AND TCOMP_IN_S = 'TI') AS tipo_ti,
+            .query(`SELECT (SELECT COUNT(*) FROM STA13 WHERE T_COMP = @T_COMP AND T_MOVIM = 'T') AS tipo_ti,
                            (SELECT COUNT(*) FROM STA17 WHERE TALONARIO = @TAL) AS talonario,
-                           (SELECT COUNT(*) FROM STA10 WHERE COD_DEPOSI = @DEP) AS deposito`)
+                           (SELECT COUNT(*) FROM STA22 WHERE COD_STA22 = @DEP AND INHABILITA = 0) AS deposito`)
           const x = q.recordset[0]
           const ok = x.tipo_ti && x.talonario && x.deposito
           log(`  ${clave}: tipo ${t.tComp} transferencia ${x.tipo_ti ? 'sí' : 'NO'}, talonario ${t.talonario} ${x.talonario ? 'sí' : 'NO'}, depósito ${t.depositoDestino} ${x.deposito ? 'sí' : 'NO'}${t.habilitado === false ? ' (apagado)' : ''}`)

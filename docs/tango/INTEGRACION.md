@@ -2046,13 +2046,13 @@ DES de la misma descarga sigue en `ROLITO:DC:`). Write-back por sentido: `tango.
 camión (`depositoCamionDe`) o planta para el cambio de ventanilla; **interruptor por tipo**
 `tipos.<clave>.habilitado = false` deja el item pendiente sin contar intento (además del general
 `transferenciasSqlEnabled`); `--probar-sql` con sesión chequea que el T_COMP sea transferencia (`TI`), el
-talonario exista en STA17 y el depósito destino en STA10.
+talonario exista en STA17 (`T_MOVIM = 'T'` en STA13, que no tiene TCOMP_IN_S) y el depósito destino esté habilitado en STA22 (`COD_STA22`; los depósitos NO son STA10).
 
-**Config (con el resultado de STA13 / STA10 de SSMS):**
+**Config (cargada el 2026-09-17 a la noche con el resultado de `scripts/tango/sql/22-fase-b-stock.sql`: CAM "MERMA EN CAMIONES" talonario 6 para merma y cambio de ventanilla; DIF "DIF DE REPARTO" talonario 13, creado ese día copiando CAR, para la diferencia; AJU es ajuste `J` y no sirve como transferencia; depósitos 99 MERMAS y 98 DIFERENCIA DE REPARTO habilitados; los 17 artículos CAMBIO* ya con `STOCK = 0`):**
 ```
-node scripts/tango/configurar-stock-tango.mjs --tipo merma            tipo=transferencia tComp=<CAM?> tcompInS=TI talonario=<6?>  depositoDestino=99 habilitado=false
-node scripts/tango/configurar-stock-tango.mjs --tipo diferencia       tipo=transferencia tComp=<AJU?> tcompInS=TI talonario=<5?>  depositoDestino=98 habilitado=false
-node scripts/tango/configurar-stock-tango.mjs --tipo cambioVentanilla tipo=transferencia tComp=<CAM?> tcompInS=TI talonario=<6?>  depositoDestino=99 habilitado=false
+node scripts/tango/configurar-stock-tango.mjs --tipo merma            tipo=transferencia tComp=CAM tcompInS=TI talonario=6  depositoDestino=99 habilitado=false
+node scripts/tango/configurar-stock-tango.mjs --tipo diferencia       tipo=transferencia tComp=DIF tcompInS=TI talonario=13 depositoDestino=98 habilitado=false
+node scripts/tango/configurar-stock-tango.mjs --tipo cambioVentanilla tipo=transferencia tComp=CAM tcompInS=TI talonario=6  depositoDestino=99 habilitado=false
 node scripts/tango/configurar-stock-tango.mjs --tipo ventaPromo incluyeCambios=false      # al PRENDER merma
 ```
 **Puesta en marcha, en este orden** (el bridge viejo no conoce los sentidos nuevos y mandaría los items a
