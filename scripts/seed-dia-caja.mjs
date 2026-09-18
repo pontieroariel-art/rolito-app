@@ -197,6 +197,33 @@ async function main() {
     cfg('arca', { habilitado: false, preciosIncluyenIva: false, topeConsumidorFinalSinIdentificar: 50000 }),
     cfg('tesoreria', { horasAvisoSobre: 2 }),
     cfg('emuladorArca', { next: 600 }),
+    // El remito de carga sale como remito R OFICIAL: la app lo numera con el
+    // talonario 00025 y su CAI. Sin esto el papel sale como comprobante interno,
+    // que es lo que pasaba en el emulador y no sirve para que viaje la carga.
+    // El COT queda APAGADO (`habilitado: false`): presentarlo de verdad pega
+    // contra el web service de ARBA, que acá no existe.
+    cfg('cot', {
+      habilitado: false, ambiente: 'prueba',
+      cuit: '30697668973', razonSocial: 'REDONHIELO S.A.',
+      umbralKg: 4500, umbralImporte: 9529691, importePorKg: 0, bloqueaSalida: false,
+      respaldo: {
+        codigoComprobante: '091', prefijo: 25, numeraLaApp: true,
+        cai: '26091234567890', vencimiento: `${hoyDate.getFullYear() + 1}-12-31`,
+      },
+      transportista: { cuit: '30697668973' },
+      plantas: {
+        torcuato: { codigoPlanta: '1', puerta: '1', domicilio: { calle: 'RUTA PANAMERICANA', numero: '25700', localidad: 'DON TORCUATO', codigoPostal: '1611', provincia: 'B' }, recorrido: { tipo: 'M', localidad: 'DON TORCUATO', ruta: 'PANAMERICANA' } },
+        merlo:    { codigoPlanta: '2', puerta: '1', domicilio: { calle: 'AV. ARGENTINA', numero: '2500', localidad: 'MERLO', codigoPostal: '1722', provincia: 'B' }, recorrido: { tipo: 'M', localidad: 'MERLO', ruta: 'RUTA 200' } },
+      },
+      productos: {
+        bolsa_10kg: { pesoKg: 10, codigoArba: '220190', descripcion: 'HIELO EN BOLSA' },
+        bolsa_3kg:  { pesoKg: 3,  codigoArba: '220190', descripcion: 'HIELO EN BOLSA' },
+        barra:      { pesoKg: 25, codigoArba: '220190', descripcion: 'BARRA DE HIELO' },
+        agua_6l:    { pesoKg: 6,  codigoArba: '220110', descripcion: 'AGUA DE MESA' },
+      },
+    }),
+    // Talonario del remito R: próximo número y el último que autoriza el CAI.
+    cfg('remitoCargaCounter', { next: 58681, ultimo: 59000 }),
   ])
   console.log('✓ Contadores y config (turnos, numeración interna, sobres, liquidaciones, ARCA apagado, aviso de sobre a las 2 h)')
 

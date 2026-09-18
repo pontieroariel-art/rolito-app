@@ -128,6 +128,10 @@ export default function MuelleDashboard() {
   const marcarDarsena = (borradorId: string, n: number) =>
     asignarDarsenaBorrador(borradorId, n).catch((err) =>
       reportError(err, { origen: 'MuelleDashboard', accion: 'asignarDarsenaBorrador', borradorId }))
+  // El talonario del remito R (config/cot.respaldo con CAI vigente). Sin esto el
+  // papel sale como comprobante INTERNO, sin validez fiscal, y el camión no
+  // debería salir con eso. Antes pasaba en silencio: ahora se avisa antes.
+  const talonarioR = useMemo(() => talonarioRemitoCarga(cotCfg), [cotCfg])
   const darsenasDeCamion = useMemo(
     () => Array.from({ length: DARSENAS_POR_PLANTA[plantaId] }, (_, i) => i + 1)
       .filter((n) => !DARSENAS_VENTANILLA[plantaId].includes(n)),
@@ -467,6 +471,7 @@ export default function MuelleDashboard() {
               darsena={b.darsena}
               onDarsena={(n) => marcarDarsena(b.id, n)}
               darsenas={darsenasDeCamion}
+              sinTalonario={!talonarioR}
               onEntregar={(items, envases) => entregarCamion(b, items, envases)}
             />
           ))}

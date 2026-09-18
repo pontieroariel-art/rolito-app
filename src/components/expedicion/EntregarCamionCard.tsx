@@ -24,7 +24,7 @@ import type { BorradorCarga, EnvasesCarga, RemitoCargaItem } from '@/types'
  * racks se van a usar. Eso lo sabe quien la arma físicamente.
  */
 export default function EntregarCamionCard({
-  borrador, entregando, bloqueado, darsena, onDarsena, darsenas, onEntregar,
+  borrador, entregando, bloqueado, darsena, onDarsena, darsenas, sinTalonario, onEntregar,
 }: {
   borrador:   BorradorCarga
   entregando: boolean
@@ -33,6 +33,8 @@ export default function EntregarCamionCard({
   darsena?:   number
   onDarsena:  (n: number) => void
   darsenas:   number[]
+  /** No hay talonario de remito R con CAI vigente: el papel sale sin validez fiscal. */
+  sinTalonario?: boolean
   onEntregar: (items: RemitoCargaItem[], envases: EnvasesCarga) => void
 }) {
   // Lo corregido, por producto. Vacío = sale el plan tal cual.
@@ -145,6 +147,16 @@ export default function EntregarCamionCard({
           </button>
         ))}
       </div>
+
+      {/* El remito de carga viaja con la mercadería y tiene que ser el remito R
+          oficial. Sin talonario con CAI vigente sale un comprobante interno, que
+          no sirve para eso: mejor que el muellero lo sepa antes de emitirlo. */}
+      {sinTalonario && (
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-base text-red-700">
+          El remito va a salir SIN validez fiscal: no hay talonario con CAI vigente.
+          Avisale a caja antes de que el camión salga.
+        </p>
+      )}
 
       <Button
         onClick={() => onEntregar(items, envases)}
