@@ -4,7 +4,7 @@ import Badge from '@/components/common/Badge'
 import Button from '@/components/ui/Button'
 import RacksInput from '@/components/expedicion/RacksInput'
 import { describirEnvases, envasesDeRemito } from '@/utils/envases'
-import type { BorradorCarga, EnvasesCarga, RemitoCargaItem } from '@/types'
+import type { BorradorCarga, CamionEnViaje, EnvasesCarga, RemitoCargaItem } from '@/types'
 
 /**
  * Un camión listo para salir, visto desde la tablet del muelle (2026-09-18).
@@ -24,7 +24,7 @@ import type { BorradorCarga, EnvasesCarga, RemitoCargaItem } from '@/types'
  * racks se van a usar. Eso lo sabe quien la arma físicamente.
  */
 export default function EntregarCamionCard({
-  borrador, entregando, bloqueado, darsena, onDarsena, darsenas, sinTalonario, onEntregar,
+  borrador, entregando, bloqueado, darsena, onDarsena, darsenas, sinTalonario, viajeSinDescargar, onEntregar,
 }: {
   borrador:   BorradorCarga
   entregando: boolean
@@ -35,6 +35,8 @@ export default function EntregarCamionCard({
   darsenas:   number[]
   /** No hay talonario de remito R con CAI vigente: el papel sale sin validez fiscal. */
   sinTalonario?: boolean
+  /** El camión tiene un viaje anterior sin descargar: no recibe carga nueva. */
+  viajeSinDescargar?: CamionEnViaje | null
   onEntregar: (items: RemitoCargaItem[], envases: EnvasesCarga) => void
 }) {
   // Lo corregido, por producto. Vacío = sale el plan tal cual.
@@ -151,6 +153,17 @@ export default function EntregarCamionCard({
       {/* El remito de carga viaja con la mercadería y tiene que ser el remito R
           oficial. Sin talonario con CAI vigente sale un comprobante interno, que
           no sirve para eso: mejor que el muellero lo sepa antes de emitirlo. */}
+      {/* La regla del camión (2026-09-18): un camión no recibe carga nueva si
+          tiene un viaje sin descargar. Se dice ACÁ, con el viaje y el chofer,
+          para que el muellero sepa qué tiene que contar antes de cargarlo. */}
+      {viajeSinDescargar && (
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-base text-red-700">
+          Este camión tiene la descarga del viaje <b>{viajeSinDescargar.remitoCodigo}</b>
+          {viajeSinDescargar.choferNombre ? ` (${viajeSinDescargar.choferNombre})` : ''} sin contar.
+          Contala abajo y después volvé a cargarlo.
+        </p>
+      )}
+
       {sinTalonario && (
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-base text-red-700">
           El remito va a salir SIN validez fiscal: no hay talonario con CAI vigente.
@@ -161,13 +174,15 @@ export default function EntregarCamionCard({
       <Button
         onClick={() => onEntregar(items, envases)}
         loading={entregando}
-        disabled={bloqueado || items.length === 0 || sinEnvases}
+        disabled={bloqueado || items.length === 0 || sinEnvases || !!viajeSinDescargar}
         className="w-full h-14 text-base"
       >
         <FileText size={18} /> Confeccionar el remito
       </Button>
       <p className="text-sm text-secundario">
-        {sinEnvases
+        {viajeSinDescargar
+          ? 'Primero hay que contar la descarga del viaje anterior de este camión.'
+          : sinEnvases
           ? 'Contá los envases que van a salir antes de confeccionar el remito.'
           : 'Sale el número, el remito R y el COT de ahora. Después se carga el camión y se marca la entrega.'}
       </p>

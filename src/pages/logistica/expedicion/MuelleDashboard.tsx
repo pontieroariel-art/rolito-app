@@ -15,7 +15,7 @@ import {
   BorradorNoDisponibleError, TalonarioRemitoCargaNoInicializadoError,
   emitirRemitoDesdeBorrador, esperarCotRemito,
 } from '@/services/remitoCargaService'
-import { asignarDarsenaBorrador, manana, subscribeBorradoresDe } from '@/services/borradorCargaService'
+import { asignarDarsenaBorrador, manana, subscribeBorradoresDe, subscribeCamionesEnViaje } from '@/services/borradorCargaService'
 import { useRemitosCargaDelDia, useVentanillaDelDia } from '@/hooks/useExpedicionDia'
 import { useCotConfig } from '@/hooks/useCotConfig'
 import { kgDeItems, requiereCot, talonarioRemitoCarga } from '@/utils/cot'
@@ -27,7 +27,7 @@ import {
 } from '@/services/ventaVentanillaService'
 import {
   BorradorCarga, DARSENAS_POR_PLANTA, DARSENAS_VENTANILLA, DescargaCamion, DescargaCamionItem,
-  EnvasesCarga, EnvasesDescarga, PLANTAS, RemitoCarga, RemitoCargaItem, VentaVentanilla,
+  CamionEnViaje, EnvasesCarga, EnvasesDescarga, PLANTAS, RemitoCarga, RemitoCargaItem, VentaVentanilla,
 } from '@/types'
 import { reportError } from '@/services/observability'
 import EntregarCamionCard from '@/components/expedicion/EntregarCamionCard'
@@ -82,6 +82,11 @@ export default function MuelleDashboard() {
     [plantaId, fechasBorrador],
   )
   const porEntregar = useMemo(() => borradores.filter((b) => b.estado === 'pendiente'), [borradores])
+  // Camiones con un viaje sin descargar: no reciben carga nueva. Se lee acá para
+  // AVISARLO en la tarjeta, antes de que el muellero cuente los envases y se
+  // coma un rechazo de las reglas que no explica nada.
+  const [enViaje, setEnViaje] = useState<Map<string, CamionEnViaje>>(new Map())
+  useEffect(() => subscribeCamionesEnViaje(setEnViaje), [])
   // Paso 2: el remito ya está confeccionado y el camión se está cargando contra
   // él. La entrega se marca cuando la mercadería está arriba.
   const conRemitoSinEntregar = useMemo(
@@ -472,6 +477,7 @@ export default function MuelleDashboard() {
               onDarsena={(n) => marcarDarsena(b.id, n)}
               darsenas={darsenasDeCamion}
               sinTalonario={!talonarioR}
+              viajeSinDescargar={enViaje.get(b.camionId) ?? null}
               onEntregar={(items, envases) => entregarCamion(b, items, envases)}
             />
           ))}

@@ -155,7 +155,16 @@ export default function RemitosCargaPage() {
   // Los borradores del día que se está planificando, y los de hoy que muelle
   // todavía no emitió (caja los puede seguir corrigiendo).
   const borradoresDelDia = useMemo(() => borradores.filter((b) => b.paraFecha === paraFecha), [borradores, paraFecha])
-  const borradoresDeHoy  = useMemo(() => borradores.filter((b) => b.paraFecha === hoyClave && b.estado === 'pendiente'), [borradores, hoyClave])
+  // Los de HOY que muelle todavía no emitió: caja los sigue pudiendo corregir.
+  // Se sacan los que ya están en la lista del día que se planifica, porque
+  // cuando se planifica hoy —el caso normal— serían los mismos y la lista los
+  // mostraba dos veces.
+  const borradoresDeHoy  = useMemo(
+    () => (paraFecha === hoyClave
+      ? []
+      : borradores.filter((b) => b.paraFecha === hoyClave && b.estado === 'pendiente')),
+    [borradores, hoyClave, paraFecha],
+  )
   const setCantidad = (productoId: string, delta: number) =>
     setCantidades((prev) => {
       const next = Math.max(0, Math.min(99999, (prev[productoId] ?? 0) + delta))

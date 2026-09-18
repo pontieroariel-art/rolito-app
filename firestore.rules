@@ -667,6 +667,33 @@ service cloud.firestore {
         return docId.matches('arca.*');
       }
 
+      // ── Contadores de EXPEDICIÓN (los consume MUELLE) ──────────────────────
+      // Van PRIMERO a propósito (2026-09-18). Confeccionar un remito escribe en
+      // una sola transacción dos contadores, el remito y el borrador: cuatro
+      // documentos que comparten el presupuesto de 1000 expresiones que Firestore
+      // da por request. Con estas ramas al final de la lista, la request llegaba
+      // al tope evaluando todas las de arriba y el remito rebotaba con
+      // permission-denied, sin que el muellero pudiera saber por qué.
+      //
+      // El número lo consume quien emite, y desde el 2026-09-18 emite muelle: el
+      // remito ya no nace la tarde anterior en caja, nace cuando el camión se
+      // carga de verdad. Son el correlativo por planta (cargaCounter_{planta}) y
+      // el talonario del remito R (remitoCargaCounter, 00025).
+      // El talonario del remito R es uno solo para las dos plantas; el
+      // correlativo de carga es por planta y cada muellero toca el de la suya.
+      // Con `||` y `&&`, no con un ternario: el ternario evalúa igual la rama
+      // que no corresponde, y `'remitoCargaCounter'.split('_')[1]` no existe, así
+      // que la regla moría con un error de evaluación en vez de decidir.
+      function puedeContadorDeExpedicion() {
+        return (docId == 'remitoCargaCounter' && isMuelle())
+          || (docId.matches('cargaCounter_(torcuato|merlo)') && isMuelleDe(docId.split('_')[1]));
+      }
+      allow create: if request.auth != null && puedeContadorDeExpedicion()
+        && request.resource.data.next is int && request.resource.data.next > 1;
+      allow update: if request.auth != null && puedeContadorDeExpedicion()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next'])
+        && request.resource.data.next > resource.data.next;
+
       allow read: if esNoAnonimo()
         && (docId == 'catalogo' || docId == 'motivosReparacion' || docId == 'ticketServicioCounter' || isStaff());
       allow write: if request.auth != null && isOperator() && !esConfigArca();
@@ -708,27 +735,6 @@ service cloud.firestore {
         && request.resource.data.next is int && request.resource.data.next > 1;
       allow update: if request.auth != null
         && docId.matches('(rendicionCounter|entregaCounter|sobreVentanillaCounter)_(torcuato|merlo)') && isCajaDe(docId.split('_')[1])
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next'])
-        && request.resource.data.next > resource.data.next;
-      // Contador de remitos de carga por planta (cargaCounter_torcuato /
-      // cargaCounter_merlo): desde el 2026-09-18 lo mueve MUELLE, no caja. El
-      // remito de carga ya no lo emite caja la tarde anterior — nace cuando
-      // muelle acepta el borrador y entrega el camión, que es cuando el
-      // traslado empieza de verdad —, así que el número lo consume quien emite.
-      allow create: if request.auth != null
-        && docId.matches('cargaCounter_(torcuato|merlo)') && isMuelleDe(docId.split('_')[1])
-        && request.resource.data.next is int && request.resource.data.next > 1;
-      allow update: if request.auth != null
-        && docId.matches('cargaCounter_(torcuato|merlo)') && isMuelleDe(docId.split('_')[1])
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next'])
-        && request.resource.data.next > resource.data.next;
-      // Contador del remito R de carga (remitoCargaCounter, talonario 00025,
-      // 2026-09-10): lo inicializa el super_admin desde Ajustes (regla de
-      // operador de arriba) y lo avanza MUELLE (2026-09-18, mismo motivo que
-      // cargaCounter: el talonario lo consume quien emite el remito), solo
-      // hacia adelante.
-      allow update: if request.auth != null
-        && docId == 'remitoCargaCounter' && isMuelle()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next'])
         && request.resource.data.next > resource.data.next;
       // Contador de DESCARGAS por planta (descargaCounter_torcuato /

@@ -5,7 +5,7 @@ import {
   assertFails,
   assertSucceeds,
 } from '@firebase/rules-unit-testing'
-import { doc, getDoc, getDocs, collection, setDoc, updateDoc, deleteDoc, arrayUnion, deleteField, writeBatch } from 'firebase/firestore'
+import { doc, getDoc, getDocs, collection, setDoc, updateDoc, deleteDoc, arrayUnion, deleteField, writeBatch, runTransaction } from 'firebase/firestore'
 
 // Tests de las reglas de Firestore contra el emulador. Verifican de forma
 // automática y repetible los invariantes de seguridad que antes se validaban a
@@ -2326,6 +2326,20 @@ describe('remitosCarga', () => {
     emitidoPor: { uid: 'mue1', nombre: 'Muelle Uno' },
     fecha: new Date(), tango: { estado: 'pendiente' }, ...extra,
   })
+  // El borrador del que nace el remito: muelle lo acepta en la misma transacción.
+  const borradorDeCarga = (extra = {}) => ({
+    plantaId: 'torcuato', paraFecha: '2026-09-18',
+    camionId: 'cam1', camionLabel: 'AB123CD · Iveco', choferId: 'chof1', choferNombre: 'Chofer Uno',
+    items: [{ productoId: 'bolsa_10kg', nombre: 'Hielo 10kg', cantidad: 100, pallets: 2 }],
+    cotDestino: {
+      destino: { tipo: 'planta', plantaId: 'merlo' },
+      respaldo: { codigoComprobante: '091', prefijo: 25, importe: 0 },
+      patente: 'AB123CD', recorrido: { tipo: 'M', localidad: 'MERLO', ruta: 'RUTA 205' },
+    },
+    estado: 'pendiente', creadoPor: { uid: 'caja1', nombre: 'Caja Uno' },
+    fecha: new Date(), venceEn: new Date('2026-09-20T23:59:59-03:00'),
+    ...extra,
+  })
   const seedMuelle = (uid = 'mue1', planta = 'torcuato') =>
     seed((d) => setDoc(doc(d, 'users/' + uid), { rol: 'muelle', estado: 'activo', planta }))
   const seedCaja = (uid = 'caja1', planta = 'torcuato') =>
@@ -2334,6 +2348,40 @@ describe('remitosCarga', () => {
   test('muelle confecciona el remito de su planta desde el borrador (nace emitido)', async () => {
     await seedMuelle()
     await assertSucceeds(setDoc(doc(db('mue1'), 'remitosCarga/r1'), remito()))
+  })
+
+
+  // Confeccionar un remito escribe CUATRO documentos en una sola transacción:
+  // los dos contadores, el remito y el borrador que se acepta. Los cuatro
+  // comparten el presupuesto de 1000 expresiones que Firestore da por request,
+  // y el 18/09 eso rebotó en la cara del muellero con permission-denied. El
+  // test emite la transacción entera, como la hace la app.
+  test('la transacción completa de confeccionar el remito entra (no se pasa del tope de expresiones)', async () => {
+    await seedMuelle()
+    await seed(async (d) => {
+      await setDoc(doc(d, 'borradoresCarga/bo1'), borradorDeCarga())
+      await setDoc(doc(d, 'config/cargaCounter_torcuato'), { next: 4 })
+      await setDoc(doc(d, 'config/remitoCargaCounter'), { next: 58681, ultimo: 59000 })
+    })
+    const dbm = db('mue1')
+    await assertSucceeds(runTransaction(dbm, async (tx) => {
+      await tx.get(doc(dbm, 'borradoresCarga/bo1'))
+      await tx.get(doc(dbm, 'config/cargaCounter_torcuato'))
+      await tx.get(doc(dbm, 'config/remitoCargaCounter'))
+      tx.update(doc(dbm, 'config/remitoCargaCounter'), { next: 58682 })
+      tx.set(doc(dbm, 'config/cargaCounter_torcuato'), { next: 5 })
+      tx.set(doc(dbm, 'remitosCarga/r1'), remito({
+        numero: 4, codigo: 'RC-DT-000004', darsena: 3, darsenaAsignadaEn: new Date(), kg: 900,
+        cotSolicitud: {
+          destino: { tipo: 'planta', plantaId: 'merlo' },
+          respaldo: { codigoComprobante: '091', prefijo: 25, numero: 58681, importe: 0 },
+          patente: 'AB123CD', recorrido: { tipo: 'M', localidad: 'MERLO', ruta: 'RUTA 205' },
+          fechaSalida: '2026-09-18', horaSalida: '18:00',
+        },
+        remitoR: { puntoVenta: 25, numero: 58681, cai: '26091234567890', vencimiento: '2027-12-31' },
+      }))
+      tx.update(doc(dbm, 'borradoresCarga/bo1'), { estado: 'aceptado', remitoId: 'r1' })
+    }))
   })
 
   test('caja YA NO emite remitos: eso es de muelle desde el 2026-09-18', async () => {

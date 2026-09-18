@@ -17,7 +17,7 @@ import {
 import { db } from './firebase'
 import { onSnapshotError, esperarOEncolar } from './observability'
 import {
-  BorradorCarga, CotDestinoPlan, PlantaId, RemitoCargaItem,
+  BorradorCarga, CamionEnViaje, CotDestinoPlan, PlantaId, RemitoCargaItem,
 } from '../types'
 import { claveDia } from '../utils/diaReparto'
 
@@ -134,3 +134,20 @@ export const manana = (hoy = new Date()): string => {
   d.setDate(d.getDate() + 1)
   return claveDia(d)
 }
+
+/**
+ * Los camiones que tienen un viaje sin descargar (2026-09-18).
+ *
+ * Es el índice que mira la regla para frenar la carga nueva. La pantalla lo lee
+ * para AVISARLO ANTES: sin esto, el muellero cuenta los envases, toca el botón y
+ * se come un "no se pudo" que no explica nada. La regla es del CAMIÓN, no del
+ * chofer: el que vuelve en otro camión no queda castigado por uno varado.
+ */
+export const subscribeCamionesEnViaje = (
+  callback: (porCamion: Map<string, CamionEnViaje>) => void,
+): () => void =>
+  onSnapshot(
+    collection(db, 'camionesEnViaje'),
+    (snap) => callback(new Map(snap.docs.map((d) => [d.id, { id: d.id, ...d.data() } as CamionEnViaje]))),
+    onSnapshotError(() => callback(new Map()), 'camionesEnViaje'),
+  )
