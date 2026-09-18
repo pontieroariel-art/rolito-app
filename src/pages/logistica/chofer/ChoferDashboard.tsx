@@ -32,6 +32,7 @@ import EntregaModal from '@/components/chofer/EntregaModal'
 import NoEntregadoModal from '@/components/chofer/NoEntregadoModal'
 import MiRendicionCard from '@/components/chofer/MiRendicionCard'
 import MiCamionHoyCard from '@/components/chofer/MiCamionHoyCard'
+import MisPapelesCard from '@/components/chofer/MisPapelesCard'
 import { useEnvioAutomaticoVentas, useVentasRecientesChofer } from '@/hooks/useEnvioAutomaticoVentas'
 import TicketsServicioSection from '@/components/chofer/TicketsServicioSection'
 import { reportError, esperarOEncolar } from '@/services/observability'
@@ -439,6 +440,8 @@ export default function ChoferDashboard() {
             desaparece cuando ya está marcado. */}
         {user && <AvisarRegreso remitos={remitosCarga} actor={{ uid: user.uid, nombre: user.nombre }} />}
 
+        {/* El remito y el COT del viaje, para mostrarlos en un control de ruta. */}
+        {!isAyudante && <MisPapelesCard />}
         {user && !isAyudante && <MiCamionHoyCard uid={user.uid} hoy={diaHoy} />}
         {user && <MiRendicionCard uid={user.uid} hoy={diaHoy} />}
 
