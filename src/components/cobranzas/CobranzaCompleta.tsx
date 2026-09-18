@@ -56,6 +56,12 @@ export interface CobranzaCompletaProps {
   ancho?:     'md' | '3xl'
   /** "Hacer el recibo correcto" (2026-09-15): recibo anulado que se precarga (cliente, facturas y medios) para corregir solo lo que estaba mal. */
   reemitirDe?: Cobranza | null
+  /**
+   * Solo chofer: el viaje en curso (2026-09-18). La plata que cobra en la calle
+   * se rinde por viaje junto con sus ventas. El supervisor no tiene viaje y
+   * sigue rindiendo por día.
+   */
+  viaje?: { id: string; codigo: string } | null
 }
 
 // Cobranza COMPLETA de cuenta corriente — la misma para supervisor, ventanilla
@@ -64,7 +70,7 @@ export interface CobranzaCompletaProps {
 // (total o parcial) → medios de pago (efectivo / transferencia / cheques /
 // retenciones) → recibo numerado (una sola serie RS- para toda la empresa,
 // que en Tango entra por el talonario 1106/1108) → cola tango-outbox.
-export default function CobranzaCompleta({ origen, plantaId, cajaSesionId, clienteInicial, volverA, ancho = 'md', reemitirDe = null }: CobranzaCompletaProps) {
+export default function CobranzaCompleta({ origen, plantaId, cajaSesionId, clienteInicial, volverA, ancho = 'md', reemitirDe = null, viaje = null }: CobranzaCompletaProps) {
   const { user } = useAuth()
   const online = useOnline()
   const [precargado, setPrecargado] = useState(false)
@@ -285,7 +291,11 @@ export default function CobranzaCompleta({ origen, plantaId, cajaSesionId, clien
           },
         },
         { uid: user.uid, nombre: user.nombre, ...(depositoUsuario ? { depositoTango: depositoUsuario.codigo } : {}) },
-        { origen, plantaId, ...(origen === 'caja' && cajaSesionId ? { cajaSesionId } : {}) },
+        {
+          origen, plantaId,
+          ...(origen === 'caja' && cajaSesionId ? { cajaSesionId } : {}),
+          ...(viaje ? { remitoId: viaje.id, remitoCodigo: viaje.codigo } : {}),
+        },
       )
       if (numeracionActiva) precargarSiSeAcerca(user.uid, online)
       setExito(cobranza)

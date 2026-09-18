@@ -11,6 +11,17 @@ const VENTAS = 'ventasCamion'
 // para la liquidación, que es por repartidor.
 export interface ActorChofer {
   uid: string; nombre: string; camionId: string
+  /**
+   * El viaje en el que está el chofer (2026-09-18): sale del mismo remito de
+   * carga del que ya salía `camionId`, así que el chofer no elige nada.
+   *
+   * Para qué: la plata se rinde por viaje y un chofer puede hacer dos en un día.
+   * Dejarlo escrito al vender evita tener que deducirlo después por horarios, que
+   * se rompe con la descarga contada al día siguiente y con el chofer que vuelve
+   * en otro camión. Ausente en el acompañante, que sale sin remito propio: esa
+   * venta se ubica por camión y día (utils/viajeDeVenta.ts).
+   */
+  remitoId?: string; remitoCodigo?: string
   /** Depósito de Tango del vendedor (expedición por depósito, 2026-09-06). */
   depositoTango?: string; depositoTangoNombre?: string
 }
@@ -55,6 +66,7 @@ export function crearVentaCamion(
   const venta: Omit<VentaCamion, 'id'> = {
     canal:         args.canal,
     camionId:      actor.camionId,
+    ...(actor.remitoId ? { remitoId: actor.remitoId, remitoCodigo: actor.remitoCodigo ?? '' } : {}),
     choferId:      actor.uid,
     choferNombre:  actor.nombre,
     clienteId:     args.cliente.uid,

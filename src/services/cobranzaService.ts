@@ -30,7 +30,15 @@ export async function crearCobranzaCompleta(
     medios:        MediosPago
   },
   actor: { uid: string; nombre: string; depositoTango?: string },
-  destino: { origen: OrigenCobranzaCompleta; plantaId?: PlantaId; cajaSesionId?: string },
+  destino: {
+    origen: OrigenCobranzaCompleta; plantaId?: PlantaId; cajaSesionId?: string
+    /**
+     * El viaje en el que se cobró (2026-09-18), cuando quien cobra es un chofer
+     * con viaje abierto. La plata de la calle se rinde por viaje junto con las
+     * ventas. Los supervisores y caja no tienen viaje: su plata sigue por día.
+     */
+    remitoId?: string; remitoCodigo?: string
+  },
 ): Promise<Cobranza> {
   const totalImputado = sumaCentavos(args.imputaciones.map((i) => i.importeImputado))
   const aplicado = sumaCentavos((args.medios.aCuentaAplicado ?? []).map((a) => a.importe))
@@ -66,6 +74,7 @@ export async function crearCobranzaCompleta(
     ...(destino.origen === 'caja' ? { plantaId: destino.plantaId, cajaSesionId: destino.cajaSesionId } : {}),
     registradoPor: { uid: actor.uid, nombre: actor.nombre },
     ...(actor.depositoTango ? { depositoTango: actor.depositoTango } : {}),
+    ...(destino.remitoId ? { remitoId: destino.remitoId, remitoCodigo: destino.remitoCodigo ?? '' } : {}),
     clienteId:     args.clienteId,
     clienteNombre: args.clienteNombre,
     importe:       totalMedios / 100,

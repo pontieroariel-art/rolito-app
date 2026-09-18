@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useFechaDelDia } from '@/hooks/useDiaActual'
 import { subscribeCobranzasChoferEnRango } from '@/services/cobranzaService'
 import { useReemitirRecibo } from '@/hooks/useReemitirRecibo'
+import { useRemitosCargaChofer } from '@/hooks/useRemitosCargaChofer'
 import { cobranzasVigentes } from '@/utils/anulacionCobranza'
 import { formatoARS } from '@/utils/money'
 import { Cobranza } from '@/types'
@@ -30,6 +31,10 @@ export default function CobranzaCalle() {
   }, [user, fecha])
 
   const reemitirDe = useReemitirRecibo()
+  // El viaje en curso (2026-09-18): la plata que el chofer cobra en la calle se
+  // rinde por viaje junto con sus ventas, igual que el efectivo de la venta.
+  const { remitos: remitosCarga } = useRemitosCargaChofer()
+  const viaje = remitosCarga[0] ? { id: remitosCarga[0].id, codigo: remitosCarga[0].codigo } : null
   const ordenadas = useMemo(() => cobranzasHoy.slice().sort((a, b) => b.fecha.toMillis() - a.fecha.toMillis()), [cobranzasHoy])
   // Un recibo anulado con autorización (2026-09-15) no suma.
   const totalHoy = cobranzasVigentes(cobranzasHoy).reduce((s, c) => s + c.importe, 0)
@@ -37,7 +42,7 @@ export default function CobranzaCalle() {
   return (
     <div className="min-h-screen min-h-dvh bg-[#F8F7F2]">
       <ChoferHeader title="Cobrar" back />
-      <CobranzaCompleta origen="cobrador" volverA="/chofer" reemitirDe={reemitirDe} />
+      <CobranzaCompleta origen="cobrador" volverA="/chofer" reemitirDe={reemitirDe} viaje={viaje} />
 
       {(pendientes > 0 || cobranzasHoy.length > 0) && (
         <section className="max-w-md mx-auto px-4 pb-10 space-y-2">

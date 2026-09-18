@@ -3,8 +3,9 @@ import {
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { onSnapshotError, esperarOEncolar } from './observability'
-import { CotSolicitud, EnvasesCarga, RemitoCarga, RemitoCargaItem, PlantaId } from '../types'
+import { BorradorCarga, CotSolicitud, EnvasesCarga, RemitoCarga, RemitoCargaItem, PlantaId } from '../types'
 import { PLANTA_INFO } from '../utils/constants'
+import { claveDia } from '../utils/diaReparto'
 
 const REMITOS = 'remitosCarga'
 
@@ -100,6 +101,151 @@ export async function crearRemitoCarga(args: CrearRemitoCargaArgs, actor: ActorC
     return remito
   })
   return { id: remitoRef.id, ...data }
+}
+
+export interface ActorMuelleEmite { uid: string; nombre: string; plantaId: PlantaId }
+
+/** Lo que muelle corrigió del borrador: la cantidad que realmente subió al camión. */
+export interface CorreccionMuelle { productoId: string; cantidad: number }
+
+export class CamionConDescargaPendienteError extends Error {}
+
+/**
+ * Muelle entrega el camión y ahí nace el remito (2026-09-18).
+ *
+ * Este es el acto que reemplaza a la emisión de caja. Importa que sea el mismo
+ * toque que entrega el camión, y no el fin del estibado: el COT lleva la hora que
+ * se declara acá, así que si muelle aceptara al terminar de cargar y el camión
+ * saliera dos horas más tarde, volveríamos al problema que estamos resolviendo.
+ *
+ * Por eso el remito nace `entregado` y no `emitido`: no hay un paso posterior de
+ * "mercadería entregada", porque ya pasó.
+ *
+ * Muelle puede corregir las cantidades. Si lo que subió no coincide con lo que
+ * caja planificó, el remito sale con lo que realmente subió y queda anotado qué
+ * se corrigió: si la mayoría de los remitos sale corregida, el problema no es el
+ * muelle, es que caja está planificando sobre información vieja.
+ */
+export async function emitirRemitoDesdeBorrador(
+  borrador: BorradorCarga,
+  opciones: {
+    correcciones?: CorreccionMuelle[]
+    envases?:      EnvasesCarga
+    kg?:           number
+    /** Talonario vigente (config/cot.respaldo) si la app numera el remito R. */
+    remitoR?:      { puntoVenta: number; cai: string; vencimiento: string }
+    /** Si la carga final requiere COT, la hora real de salida es AHORA. */
+    pideCot:       boolean
+  },
+  actor: ActorMuelleEmite,
+): Promise<RemitoCarga> {
+  const items = aplicarCorrecciones(borrador.items, opciones.correcciones ?? [])
+  const correccionesMuelle = diferenciasContraElPlan(borrador.items, items)
+  const envases = opciones.envases ?? borrador.envases
+  const ahora = new Date()
+
+  const remitoRef = doc(collection(db, REMITOS))
+  const borradorRef = doc(db, 'borradoresCarga', borrador.id)
+
+  const data = await runTransaction(db, async (tx) => {
+    // El borrador se relee dentro de la transacción: si otro muellero lo aceptó
+    // mientras este miraba la pantalla, el camión no puede salir dos veces.
+    const bSnap = await tx.get(borradorRef)
+    if (!bSnap.exists()) throw new BorradorNoDisponibleError('Ese borrador ya no existe.')
+    const estado = bSnap.data().estado as BorradorCarga['estado']
+    if (estado === 'aceptado') throw new BorradorNoDisponibleError('Otro compañero ya entregó este camión.')
+
+    const counterSnap = await tx.get(COUNTER_REF(actor.plantaId))
+    const numero = counterSnap.exists() ? (counterSnap.data().next as number) : 1
+
+    let remitoR: RemitoCarga['remitoR'] | undefined
+    if (opciones.remitoR) {
+      const rSnap = await tx.get(REMITO_R_COUNTER_REF())
+      if (!rSnap.exists()) throw new TalonarioRemitoCargaNoInicializadoError('El talonario del remito R de carga no está inicializado (Ajustes → COT de ARBA → próximo número).')
+      const numeroR = Number(rSnap.data().next)
+      const ultimoR = rSnap.data().ultimo != null ? Number(rSnap.data().ultimo) : null
+      if (ultimoR !== null && numeroR > ultimoR) throw new TalonarioRemitoCargaNoInicializadoError(`El talonario del remito R de carga se agotó (último número autorizado por el CAI: ${ultimoR}). Hay que pedir un CAI nuevo y cargarlo en Ajustes → COT de ARBA.`)
+      tx.update(REMITO_R_COUNTER_REF(), { next: numeroR + 1 })
+      remitoR = { puntoVenta: opciones.remitoR.puntoVenta, numero: numeroR, cai: opciones.remitoR.cai, vencimiento: opciones.remitoR.vencimiento }
+    }
+    tx.set(COUNTER_REF(actor.plantaId), { next: numero + 1 })
+
+    // La solicitud de COT se completa acá con lo único que el borrador no podía
+    // saber: la hora real del traslado y el número del remito R que lo respalda.
+    const cotSolicitud: CotSolicitud | undefined = opciones.pideCot
+      ? {
+          ...borrador.cotDestino,
+          respaldo: {
+            ...borrador.cotDestino.respaldo,
+            prefijo: remitoR?.puntoVenta ?? borrador.cotDestino.respaldo.prefijo,
+            numero:  remitoR?.numero ?? 0,
+          },
+          fechaSalida: claveDia(ahora),
+          horaSalida:  `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`,
+        }
+      : undefined
+
+    const entrega = { uid: actor.uid, nombre: actor.nombre, hora: Timestamp.now() }
+    const remito: Omit<RemitoCarga, 'id'> = {
+      numero,
+      codigo:       codigoRemitoCarga(actor.plantaId, numero),
+      plantaId:     actor.plantaId,
+      camionId:     borrador.camionId,
+      camionLabel:  borrador.camionLabel,
+      choferId:     borrador.choferId,
+      choferNombre: borrador.choferNombre,
+      ...(borrador.depositoTango ? { depositoTango: borrador.depositoTango, depositoTangoNombre: borrador.depositoTangoNombre ?? '' } : {}),
+      items,
+      palletsCarga: envases.tarimasMadera + envases.palletsMetal,
+      envases:      { tarimasMadera: envases.tarimasMadera, palletsMetal: envases.palletsMetal, racks: [...envases.racks] },
+      // Nace entregado: aceptar ES entregar el camión (ver el comentario de arriba).
+      estado:       'entregado',
+      creadoPor:    borrador.creadoPor,
+      emitidoPor:   { uid: actor.uid, nombre: actor.nombre },
+      entregadoPor: entrega,
+      borradorId:   borrador.id,
+      ...(correccionesMuelle.length ? { correccionesMuelle } : {}),
+      fecha:        Timestamp.now(),
+      tango:        { estado: 'pendiente' },
+      ...(opciones.kg !== undefined ? { kg: opciones.kg } : {}),
+      ...(cotSolicitud ? { cotSolicitud } : {}),
+      ...(remitoR ? { remitoR } : {}),
+    }
+    tx.set(remitoRef, remito)
+    tx.update(borradorRef, { estado: 'aceptado', remitoId: remitoRef.id })
+    return remito
+  })
+  return { id: remitoRef.id, ...data }
+}
+
+export class BorradorNoDisponibleError extends Error {}
+
+/** Las cantidades del borrador con lo que muelle corrigió encima. Un 0 saca el renglón. */
+export function aplicarCorrecciones(items: RemitoCargaItem[], correcciones: CorreccionMuelle[]): RemitoCargaItem[] {
+  if (!correcciones.length) return items
+  const porId = new Map(correcciones.map((c) => [c.productoId, c.cantidad]))
+  return items
+    .map((i) => (porId.has(i.productoId) ? { ...i, cantidad: porId.get(i.productoId)! } : i))
+    .filter((i) => i.cantidad > 0)
+}
+
+/** Qué renglones difieren del plan, para poder medir después cuántos remitos salen corregidos. */
+export function diferenciasContraElPlan(
+  plan: RemitoCargaItem[],
+  real: RemitoCargaItem[],
+): NonNullable<RemitoCarga['correccionesMuelle']> {
+  const realPorId = new Map(real.map((i) => [i.productoId, i.cantidad]))
+  const out: NonNullable<RemitoCarga['correccionesMuelle']> = []
+  for (const i of plan) {
+    const cargado = realPorId.get(i.productoId) ?? 0
+    if (cargado !== i.cantidad) out.push({ productoId: i.productoId, nombre: i.nombre, planificado: i.cantidad, cargado })
+  }
+  // Un producto que muelle sumó y no estaba en el plan también es una corrección.
+  const planIds = new Set(plan.map((i) => i.productoId))
+  for (const i of real) {
+    if (!planIds.has(i.productoId)) out.push({ productoId: i.productoId, nombre: i.nombre, planificado: 0, cargado: i.cantidad })
+  }
+  return out
 }
 
 // Muelle asigna (o cambia) la dársena donde carga el camión — el tablero de

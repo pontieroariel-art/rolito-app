@@ -241,6 +241,22 @@ service cloud.firestore {
       return d.palletsCarga is int && d.palletsCarga >= 0
         && d.palletsCarga == d.envases.tarimasMadera + d.envases.palletsMetal;
     }
+    // ── La PLATA del viaje ya rendida (2026-09-18) ──
+    // Desde que la liquidación de un viaje se identifica por su remito
+    // (`liquidaciones/{remitoId}`), "el día ya está cerrado" dejó de ser una
+    // fecha: es el VIAJE. Un chofer puede hacer dos viajes en un día y cerrar
+    // el primero mientras el segundo sigue en la calle, así que preguntar por
+    // {fecha}_{uid} trababa anulaciones legítimas del viaje abierto.
+    //
+    // `d` es la venta o la cobranza que se quiere anular. Las anteriores al
+    // corte no traen `remitoId` y siguen preguntando por la clave vieja. UNA
+    // sola función para los tres gates (remito del chofer, factura del camión,
+    // recibo de cobranza): un solo `exists` por request y nada duplicado, que
+    // es lo que mantiene las reglas debajo del tope de 1000 expresiones.
+    function plataDelViajeCerrada(d, fecha, uid) {
+      let rid = d.get('remitoId', '');
+      return exists(/databases/$(database)/documents/liquidaciones/$(rid != '' ? rid : fecha + '_' + uid));
+    }
     // Planta asignada al usuario autenticado (roles 'produccion_hielo' y 'caja').
     function myPlanta() {
       return tokenConClaims() ? request.auth.token.get('planta', null) : perfil().get('planta', null);
@@ -681,28 +697,50 @@ service cloud.firestore {
         && request.resource.data.next == resource.data.next + 1
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next']);
 
-      // Contador de remitos de carga por planta (cargaCounter_torcuato /
-      // cargaCounter_merlo) — caja solo toca el de SU planta, y en updates
-      // solo puede avanzar `next` (la transacción de crearRemitoCarga crea el
-      // doc en el primer uso con next >= 2: número emitido + 1).
-      // Mismo esquema para el contador de rendiciones (cierre de caja por
-      // persona, rendicionCounter_{planta}), el de entregas a tesorería
-      // (entregaCounter_{planta}), 2026-09-09, y el del sobre de ventanilla a
-      // tesorería (sobreVentanillaCounter_{planta}, código RV-DT-000012, 2026-09-14).
+      // Contadores de caja por planta: rendiciones (cierre de caja por persona,
+      // rendicionCounter_{planta}), entregas a tesorería (entregaCounter_{planta},
+      // 2026-09-09) y sobre de ventanilla (sobreVentanillaCounter_{planta},
+      // código RV-DT-000012, 2026-09-14). Caja solo toca el de SU planta, y en
+      // updates solo puede avanzar `next` (el doc nace en el primer uso con
+      // next >= 2: número emitido + 1).
       allow create: if request.auth != null
-        && docId.matches('(cargaCounter|rendicionCounter|entregaCounter|sobreVentanillaCounter)_(torcuato|merlo)') && isCajaDe(docId.split('_')[1])
+        && docId.matches('(rendicionCounter|entregaCounter|sobreVentanillaCounter)_(torcuato|merlo)') && isCajaDe(docId.split('_')[1])
         && request.resource.data.next is int && request.resource.data.next > 1;
       allow update: if request.auth != null
-        && docId.matches('(cargaCounter|rendicionCounter|entregaCounter|sobreVentanillaCounter)_(torcuato|merlo)') && isCajaDe(docId.split('_')[1])
+        && docId.matches('(rendicionCounter|entregaCounter|sobreVentanillaCounter)_(torcuato|merlo)') && isCajaDe(docId.split('_')[1])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next'])
+        && request.resource.data.next > resource.data.next;
+      // Contador de remitos de carga por planta (cargaCounter_torcuato /
+      // cargaCounter_merlo): desde el 2026-09-18 lo mueve MUELLE, no caja. El
+      // remito de carga ya no lo emite caja la tarde anterior — nace cuando
+      // muelle acepta el borrador y entrega el camión, que es cuando el
+      // traslado empieza de verdad —, así que el número lo consume quien emite.
+      allow create: if request.auth != null
+        && docId.matches('cargaCounter_(torcuato|merlo)') && isMuelleDe(docId.split('_')[1])
+        && request.resource.data.next is int && request.resource.data.next > 1;
+      allow update: if request.auth != null
+        && docId.matches('cargaCounter_(torcuato|merlo)') && isMuelleDe(docId.split('_')[1])
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next'])
         && request.resource.data.next > resource.data.next;
       // Contador del remito R de carga (remitoCargaCounter, talonario 00025,
       // 2026-09-10): lo inicializa el super_admin desde Ajustes (regla de
-      // operador de arriba) y cualquier caja lo avanza, solo hacia adelante.
+      // operador de arriba) y lo avanza MUELLE (2026-09-18, mismo motivo que
+      // cargaCounter: el talonario lo consume quien emite el remito), solo
+      // hacia adelante.
       allow update: if request.auth != null
-        && docId == 'remitoCargaCounter' && isCaja()
+        && docId == 'remitoCargaCounter' && isMuelle()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next'])
         && request.resource.data.next > resource.data.next;
+      // Contador de DESCARGAS por planta (descargaCounter_torcuato /
+      // descargaCounter_merlo, código DC-DT-000012, 2026-09-18). Lo escribe
+      // SOLO el Admin SDK: la tablet del muelle guarda el conteo sin señal
+      // (fire-and-forget) y el número lo asigna el trigger del servidor cuando
+      // el doc llega, así que ningún cliente tiene por qué tocarlo.
+      //
+      // OJO: las reglas son permisivas por unión, así que este `false` no le
+      // saca nada a super_admin/logistica, que tienen write sobre config/* por
+      // isOperator() más arriba. Sí deja afuera a muelle, caja y al resto.
+      allow write: if false;
       // Contador de LIQUIDACIONES por persona (liquidacionCounter_{serie},
       // 2026-09-09): cualquier caja lo avanza (un repartidor puede liquidar en
       // cualquier planta), solo hacia adelante.
@@ -1086,7 +1124,7 @@ service cloud.firestore {
         && remitoCtaCteAnulable()
         && !('origen' in request.resource.data.anulacion)
         && request.time.toMillis() - resource.data.fecha.toMillis() <= 60 * 60 * 1000
-        && !exists(/databases/$(database)/documents/liquidaciones/$(request.resource.data.anulacion.fechaVenta + '_' + request.auth.uid));
+        && !plataDelViajeCerrada(resource.data, request.resource.data.anulacion.fechaVenta, request.auth.uid);
       // Días anteriores (2026-09-11): facturación (o el super_admin) anula el
       // remito de cualquier chofer aunque la liquidación ya esté cerrada; el
       // server le anota la anulación al cierre, que no se reabre.
@@ -1098,17 +1136,33 @@ service cloud.firestore {
     }
 
     // ── Expedición: remitos de carga del camión ────────────────────────────
-    // Caja (rol 'caja', fijo por planta) emite el remito con el que muelle
-    // carga el camión. Los items nunca se editan tras emitirse (comprobante
-    // impreso); las transiciones de estado (entregado/salido/liquidado) llegan
-    // en fases siguientes con reglas propias por rol — por ahora update: false.
+    // Desde el 2026-09-18 el remito lo emite MUELLE al entregar el camión, a
+    // partir del borrador que caja armó antes (borradoresCarga). Antes lo
+    // emitía caja horas antes de que el camión saliera, y el COT de ARBA salía
+    // con la hora de la tarde anterior en vez de la del traslado real.
+    //
+    // Por eso nace directamente en 'entregado': la aceptación del borrador ES
+    // la entrega del camión, no hay un paso 'emitido' intermedio. Los items
+    // nunca se editan tras emitirse (comprobante impreso); lo que sigue son las
+    // transiciones de salida, regreso y dársena, cada una con su rol.
     match /remitosCarga/{remitoId} {
       allow read: if request.auth != null
         && (isCaja() || isMuelle() || isSeguridad() || isOperator() || isManager() || isGerenteGeneral() || isSupervisor() || isTesoreria()
             || (isChofer() && resource.data.choferId == request.auth.uid));
 
-      allow create: if request.auth != null && isCajaDe(request.resource.data.plantaId)
-        && request.resource.data.creadoPor.uid == request.auth.uid
+      allow create: if request.auth != null && isMuelleDe(request.resource.data.plantaId)
+        // Un camión no recibe carga nueva si tiene un viaje sin descargar
+        // (2026-09-18): el trigger escribe camionesEnViaje/{camionId} al salir
+        // y lo borra al contarse la descarga. UNA sola expresión a propósito —
+        // esta cláusula ya está cerca del tope de 1000 por request.
+        && !exists(/databases/$(database)/documents/camionesEnViaje/$(request.resource.data.camionId))
+        // Quién emite: el muellero que entrega el camión. `creadoPor` sigue
+        // siendo quien armó el borrador (caja), así que no se ata al que escribe.
+        && request.resource.data.emitidoPor.uid == request.auth.uid
+        && request.resource.data.entregadoPor.uid == request.auth.uid
+        && request.resource.data.creadoPor.uid is string
+        // Sin borrador no hay remito: muelle no arma cargas desde cero.
+        && request.resource.data.borradorId is string
         && request.resource.data.camionId is string
         && request.resource.data.choferId is string
         && request.resource.data.numero is int && request.resource.data.numero > 0
@@ -1119,8 +1173,9 @@ service cloud.firestore {
         // la PWA anterior; cuando viene, tiene que cerrar con palletsCarga.
         && (!('envases' in request.resource.data)
             || (envasesCargaOk(request.resource.data.envases) && palletsCoherentes(request.resource.data)))
-        && request.resource.data.estado == 'emitido'
-        // COT de ARBA (2026-09-10): caja puede mandar los kilos y la solicitud
+        // La aceptación del borrador ES la entrega del camión (2026-09-18).
+        && request.resource.data.estado == 'entregado'
+        // COT de ARBA (2026-09-10): quien emite manda los kilos y la solicitud
         // (destino, remito R, patente, recorrido); el resultado `cot` lo
         // escribe SOLO el server, nunca nace con el doc.
         && !('cot' in request.resource.data)
@@ -1138,22 +1193,17 @@ service cloud.firestore {
                 && request.resource.data.remitoR.numero is int && request.resource.data.remitoR.numero > 0
                 && request.resource.data.remitoR.cai is string));
 
-      // Muelle confirma que entregó la mercadería: solo la transición
-      // emitido → entregado, solo en su planta y a su propio nombre. Puede
-      // corregir la composición de envases que le dictó a caja (envases +
-      // palletsCarga, siempre juntos y coherentes); los items del remito
-      // siguen siendo inmutables.
-      allow update: if request.auth != null && isMuelleDe(resource.data.plantaId)
-        && resource.data.estado == 'emitido'
-        && request.resource.data.estado == 'entregado'
-        && request.resource.data.entregadoPor.uid == request.auth.uid
-        && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['estado', 'entregadoPor', 'envases', 'palletsCarga'])
-        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['envases', 'palletsCarga'])
-            || (envasesCargaOk(request.resource.data.envases) && palletsCoherentes(request.resource.data)));
+      // La rama "muelle entrega" (emitido → entregado) desapareció el
+      // 2026-09-18: el remito ya NACE entregado, porque emitirlo y entregar el
+      // camión son el mismo acto. Lo que muelle corregía acá (envases,
+      // palletsCarga) ahora lo decide al aceptar el borrador, antes de que el
+      // comprobante exista.
 
-      // Muelle asigna/cambia la dársena de carga (tablero de TV) mientras el
-      // remito sigue emitido — solo ese campo.
+      // Muelle asigna/cambia la dársena de CARGA (tablero de TV) mientras el
+      // remito sigue emitido — solo ese campo. Queda para los remitos anteriores
+      // al 2026-09-18: con el circuito nuevo el camión carga contra el borrador
+      // y el remito nace entregado, así que la boca de carga se asigna antes de
+      // que este documento exista.
       allow update: if request.auth != null && isMuelleDe(resource.data.plantaId)
         && resource.data.estado == 'emitido'
         && request.resource.data.darsena is int
@@ -1219,6 +1269,98 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── Expedición: BORRADOR de carga (2026-09-18) ─────────────────────────
+    // La hoja de trabajo que caja arma antes de que el camión cargue: qué
+    // subir, a qué camión y para qué repartidor. NO es un documento fiscal —
+    // sin número, sin COT y sin remito R — así que se puede corregir y morirse
+    // solo si el camión no sale.
+    //
+    // Muelle lo acepta al entregar el camión y en ese mismo acto nace el
+    // remito. Por eso su única escritura acá es `estado` + `remitoId`: todo lo
+    // demás del borrador es de caja, y lo que muelle corrige (cantidades,
+    // envases) va al remito que emite, no a la instrucción que recibió.
+    match /borradoresCarga/{borradorId} {
+      allow read: if request.auth != null
+        && hasAlguno(['caja', 'muelle', 'seguridad', 'super_admin', 'logistica',
+                      'gerente_comercial', 'comercial', 'gerente_general']);
+
+      function borradorBienFormado(d) {
+        return d.plantaId is string
+          && d.paraFecha is string
+          && d.camionId is string
+          && d.choferId is string
+          && d.items is list && d.items.size() > 0
+          && envasesCargaOk(d.envases)
+          // Destino del COT: se pide SIEMPRE, aunque la carga planificada no
+          // llegue al umbral. Si muelle corrige hacia arriba y lo cruza, el COT
+          // tiene que poder salir sin ir a buscar al destinatario a las 4 de la
+          // mañana. Lo que no se sabe hasta la salida (fecha, hora, número del
+          // remito R) no viaja acá: lo completa muelle al aceptar.
+          && d.cotDestino is map
+          && d.cotDestino.destino is map
+          && d.cotDestino.respaldo is map
+          && d.cotDestino.patente is string
+          && d.cotDestino.recorrido is map
+          && (!('kg' in d) || d.kg is number)
+          && d.venceEn is timestamp;
+      }
+
+      allow create: if request.auth != null && isCajaDe(request.resource.data.plantaId)
+        && borradorBienFormado(request.resource.data)
+        && request.resource.data.estado == 'pendiente'
+        && request.resource.data.creadoPor.uid == request.auth.uid
+        // Nace sin remito: el remito lo pone muelle al aceptar.
+        && !('remitoId' in request.resource.data);
+
+      // Caja corrige el borrador mientras nadie lo aceptó (cambió el camión, el
+      // chofer, la carga). Aceptado o vencido queda quieto.
+      allow update: if request.auth != null && isCajaDe(resource.data.plantaId)
+        && resource.data.estado == 'pendiente'
+        && request.resource.data.estado == 'pendiente'
+        && borradorBienFormado(request.resource.data);
+
+      // Muelle lo acepta: solo esos dos campos, solo pendiente → aceptado.
+      allow update: if request.auth != null && isMuelleDe(resource.data.plantaId)
+        && resource.data.estado == 'pendiente'
+        && request.resource.data.estado == 'aceptado'
+        && request.resource.data.remitoId is string
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'remitoId']);
+
+      // Caja borra un borrador que no se usó (el camión no salió). Uno ya
+      // aceptado no se borra: es la traza del remito que nació de él.
+      allow delete: if request.auth != null && isCajaDe(resource.data.plantaId)
+        && resource.data.estado == 'pendiente';
+    }
+
+    // ── Expedición: cierre de MERCADERÍA del viaje (2026-09-18) ────────────
+    // cierresMercaderia/{remitoId}: la otra mitad de la liquidación. Nace
+    // cuando muelle cuenta la descarga, y la escribe SOLO el servidor — de ahí
+    // el `write: if false` para todos los clientes.
+    //
+    // Muelle NO puede leerlo, igual que hoy no puede leer ventasCamion: el
+    // conteo es 100 % ciego a propósito, y este doc tiene el teórico. Mostrarle
+    // lo que "tendría que" volver destruye el control.
+    match /cierresMercaderia/{remitoId} {
+      allow read: if request.auth != null
+        && (hasAlguno(['caja', 'tesoreria', 'super_admin', 'logistica',
+                       'gerente_comercial', 'comercial', 'gerente_general', 'supervisor'])
+            || (isChofer() && resource.data.choferId == request.auth.uid));
+
+      allow write: if false;
+    }
+
+    // ── Expedición: camión con un viaje sin cerrar (2026-09-18) ────────────
+    // camionesEnViaje/{camionId}: lo escriben los triggers cuando el camión
+    // sale con carga y lo borran cuando se cuenta su descarga. Es la guarda que
+    // impide emitir un remito nuevo sobre un camión que todavía tiene
+    // mercadería arriba sin rendir (ver el create de remitosCarga).
+    match /camionesEnViaje/{camionId} {
+      allow read: if request.auth != null
+        && hasAlguno(['caja', 'muelle', 'seguridad', 'super_admin', 'logistica',
+                      'gerente_comercial', 'comercial', 'gerente_general']);
+      allow write: if false;
+    }
+
     // ── Expedición: cambios de producto defectuoso — HISTÓRICO ─────────────
     // Bolsa rota del cliente por una nueva, sin venta ni plata. Hasta
     // 2026-09-02 era una operación aparte y caía acá; hoy el cambio es un
@@ -1259,7 +1401,24 @@ service cloud.firestore {
         // la original EXISTA, que sea del mismo repartidor y de la misma planta
         // —si no, una rectificación podría "borrar" el conteo de otro— y el
         // motivo escrito.
-        && rectificacionOk(request.resource.data);
+        && rectificacionOk(request.resource.data)
+        // Número correlativo (2026-09-18): NO se exige, y de hecho no debería
+        // venir — lo asigna el servidor cuando el doc llega, porque la tablet
+        // guarda el conteo sin señal y no puede leer un contador.
+        && cuadreEnvasesOk(request.resource.data);
+
+      // Cuadre de envases contra el remito del viaje (2026-09-18). Opcional:
+      // una descarga sin remito digital (fletero) no tiene contra qué cuadrar.
+      // Guardarlo abre el control de salidos vs devueltos por chofer y por
+      // viaje, que antes se calculaba en la pantalla y se tiraba.
+      function cuadreEnvasesOk(d) {
+        return !('envasesCuadre' in d)
+          || (d.envasesCuadre is map
+              && d.envasesCuadre.salieron is map
+              && d.envasesCuadre.volvieron is map
+              && d.envasesCuadre.diferencia is map
+              && racksOk(d.envasesCuadre.racksFaltantes));
+      }
 
       function rectificacionOk(d) {
         return !('rectificaA' in d)
@@ -1535,23 +1694,34 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // ── Expedición: liquidación del repartidor (cierre del día, por caja) ──
-    // ID determinístico {fecha}_{choferId} + create-only: un segundo cierre
-    // del mismo día falla en vez de pisar el snapshot.
+    // ── Expedición: liquidación del repartidor (cierre de la PLATA, por caja) ──
+    // ID determinístico + create-only: un segundo cierre del mismo viaje falla
+    // en vez de pisar el snapshot. Desde el 2026-09-18 la clave es {remitoId}
+    // para un viaje y {fecha}_{choferId} para los cobradores sin camión, y esto
+    // cierra SOLO la plata: la mercadería es cierresMercaderia/{remitoId}, que
+    // escribe el servidor. Las dos mitades son independientes y se cierran en
+    // cualquier orden (muelle trabaja 24 horas y caja 12).
     match /liquidaciones/{liquidacionId} {
       allow read: if request.auth != null
         // El chofer lee la suya por ID (el create exige id == fecha_choferId):
         // así puede suscribirse aunque todavía no esté cerrada (sin doc no hay
         // resource.data que comparar).
         && (isCaja() || isOperator() || isManager() || isGerenteGeneral() || isSupervisor() || isTesoreria()
-            || (isChofer() && liquidacionId.split('_')[1] == request.auth.uid));
+            // Con la clave por día alcanza el id para suscribirse antes de que
+            // el doc exista; con la clave por viaje ({remitoId}, 2026-09-18) el
+            // id no dice de quién es, así que se mira el doc ya cerrado.
+            || (isChofer() && (liquidacionId.split('_')[1] == request.auth.uid
+                               || (resource != null && resource.data.choferId == request.auth.uid))));
 
       allow create: if request.auth != null && isCajaDe(request.resource.data.plantaId)
         && request.resource.data.cerradaPor.uid == request.auth.uid
         && request.resource.data.choferId is string
         && request.resource.data.fecha is string
-        && liquidacionId == request.resource.data.fecha + '_' + request.resource.data.choferId
-        && request.resource.data.productos is list
+        && idLiquidacionOk(request.resource.data)
+        // `productos` dejó de ser obligatorio el 2026-09-18: la mercadería del
+        // viaje vive en cierresMercaderia/{remitoId}, que escribe el servidor
+        // al contarse la descarga. Los cierres viejos lo siguen trayendo.
+        && (!('productos' in request.resource.data) || request.resource.data.productos is list)
         && request.resource.data.efectivoARendir is number
         && request.resource.data.efectivoRecibido is number
         // Desde 2026-09-09: número por persona, firma de las DOS partes
@@ -1583,6 +1753,20 @@ service cloud.firestore {
         // asentado aparte en descargasCamion.revision.
         && desvioOk(request.resource.data);
 
+      // El id de la PLATA (2026-09-18). La liquidación de un VIAJE se
+      // identifica por su remito: la plata y la mercadería se cierran por
+      // separado y en cualquier orden, así que el par tiene que apuntar a lo
+      // mismo, y "lo mismo" es el viaje (un chofer hace dos viajes en un día).
+      // Los cobradores y supervisores, que no tienen camión, siguen con la
+      // clave por día {fecha}_{choferId}.
+      function idLiquidacionOk(d) {
+        return 'remitoId' in d
+          ? (d.remitoId is string && liquidacionId == d.remitoId)
+          : liquidacionId == d.fecha + '_' + d.choferId;
+      }
+
+      // `desvio` sigue existiendo para los cierres que todavía lo manden; el
+      // camino nuevo es desviosDescarga con estado 'observado'.
       function desvioOk(d) {
         return !('desvio' in d)
           || (d.desvio is map
@@ -1891,7 +2075,7 @@ service cloud.firestore {
         return facturaEmitidaYSinAnulacion(v)
           && d.choferId == v.choferId
           && d.fechaVenta is string
-          && !exists(/databases/$(database)/documents/liquidaciones/$(d.fechaVenta + '_' + v.choferId));
+          && !plataDelViajeCerrada(v, d.fechaVenta, v.choferId);
       }
 
       allow read: if request.auth != null
@@ -1972,7 +2156,9 @@ service cloud.firestore {
         return d.fechaCobranza is string
           && (c.origen == 'caja'
               ? !exists(/databases/$(database)/documents/rendiciones/$(d.fechaCobranza + '_' + request.auth.uid))
-              : !exists(/databases/$(database)/documents/liquidaciones/$(d.fechaCobranza + '_' + request.auth.uid)));
+              // Cobranza de calle: la plata del VIAJE (2026-09-18). Un cobrador
+              // sin camión no trae remitoId y sigue con la clave por día.
+              : !plataDelViajeCerrada(c, d.fechaCobranza, request.auth.uid));
       }
       function solicitudReciboBienFormada() {
         let d = request.resource.data;
@@ -2026,14 +2212,30 @@ service cloud.firestore {
         && (isCaja() || isTesoreria() || isOperator() || isManager() || isGerenteGeneral()
             || puedeAutorizarDesvios());
 
+      // El id es el del VIAJE desde el 2026-09-18 (`{remitoId}`): un chofer
+      // puede hacer dos viajes en un día y cada uno tiene su faltante. Los
+      // desvíos anteriores al corte, y las descargas sin remito digital
+      // (fleteros), siguen con la clave vieja {fecha}_{choferId}.
+      function idDesvioOk(d) {
+        return 'remitoId' in d
+          ? (d.remitoId is string && desvioId == d.remitoId)
+          : desvioId == d.fecha + '_' + d.choferId;
+      }
+
       allow create: if request.auth != null && isCajaDe(request.resource.data.plantaId)
-        && desvioId == request.resource.data.fecha + '_' + request.resource.data.choferId
+        && idDesvioOk(request.resource.data)
         && request.resource.data.fecha is string
         && request.resource.data.choferId is string
         && request.resource.data.bolsasFaltantes is number && request.resource.data.bolsasFaltantes > 0
         && request.resource.data.productos is list
         && request.resource.data.motivo is string && request.resource.data.motivo.size() > 0
-        && request.resource.data.estado == 'pendiente'
+        // 'observado' (2026-09-18): caja cerró haciéndose cargo del faltante sin
+        // esperar a nadie. Antes eso vivía aparte, en Liquidacion.desvio, y el
+        // mismo faltante quedaba contado en dos lugares; ahora los cuatro
+        // estados son de este doc y hay una sola verdad sobre cada desvío. No
+        // requiere autorización: un tema de stock nunca traba el turno de caja,
+        // pero queda escrito con nombre y motivo.
+        && request.resource.data.estado in ['pendiente', 'observado']
         && request.resource.data.resueltaPor == null
         && request.resource.data.solicitadoPor.uid == request.auth.uid;
 

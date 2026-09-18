@@ -560,6 +560,94 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "borradoresCarga",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "plantaId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "paraFecha",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "borradoresCarga",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "plantaId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "estado",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "paraFecha",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "ventasCamion",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "remitoId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "cobranzas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "remitoId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "descargasCamion",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "remitoId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "remitosCarga",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "camionId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "DESCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": [

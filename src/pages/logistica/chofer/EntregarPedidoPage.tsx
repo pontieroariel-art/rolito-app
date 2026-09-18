@@ -166,7 +166,11 @@ export default function EntregarPedidoPage() {
           pedidoId: order.id, ordenCompra: normalizarOrdenCompra(order.numeroOC),
           clienteSucursalNombre: nombreSucursalVenta(cliente, empresa, clienteVenta.codigoTango),
         },
-        { uid: user.uid, nombre: user.nombre, camionId: camionIdHoy, ...depositoVenta },
+        {
+          uid: user.uid, nombre: user.nombre, camionId: camionIdHoy,
+          ...(remitosCarga[0] ? { remitoId: remitosCarga[0].id, remitoCodigo: remitosCarga[0].codigo } : {}),
+          ...depositoVenta,
+        },
       )
       if (tipoInterno) precargarSiSeAcerca(tipoInterno, user.uid, online)
       const entregados = renglones.map((r) => ({ name: r.nombre, quantity: r.cantidad, ...(r.productoId ? { productoId: r.productoId } : {}) }))

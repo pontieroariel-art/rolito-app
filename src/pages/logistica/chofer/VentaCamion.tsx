@@ -94,6 +94,10 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
   // camión, pero sigue contando para la liquidación del repartidor, que es por
   // persona. Perder la venta sería mucho peor que perder la atribución.
   const camionIdHoy = remitosCarga[0]?.camionId ?? user?.camionId ?? ''
+  // El viaje en curso (2026-09-18): el mismo remito del que sale el camión. Se
+  // guarda en la venta para que la plata se rinda por viaje sin deducirlo después
+  // por horarios. El acompañante no tiene remito y su venta queda sin viaje.
+  const viajeHoy = remitosCarga[0]
 
   const [canal, setCanal] = useState<CanalVenta | null>(null)
   const [clienteId, setClienteId] = useState('')
@@ -287,7 +291,11 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
           ordenCompra: normalizarOrdenCompra(ordenCompra), pedidoId: pedidoDelCliente?.id ?? null,
           ...(reemision ? { reemiteDe: reemision.id } : {}),
         },
-        { uid: user.uid, nombre: user.nombre, camionId: camionIdHoy, ...depositoVenta },
+        {
+          uid: user.uid, nombre: user.nombre, camionId: camionIdHoy,
+          ...(viajeHoy ? { remitoId: viajeHoy.id, remitoCodigo: viajeHoy.codigo } : {}),
+          ...depositoVenta,
+        },
       )
       if (tipoInterno) precargarSiSeAcerca(tipoInterno, user.uid, online)
       setExito({
