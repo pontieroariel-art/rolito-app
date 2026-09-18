@@ -409,7 +409,13 @@ export interface BorradorCarga {
   depositoTango?:       string
   depositoTangoNombre?: string
   items:        RemitoCargaItem[]
-  envases:      EnvasesCarga
+  /**
+   * El borrador NO lleva envases (2026-09-18, corrección de Ariel): caja no sabe
+   * con qué tipo de pallet va a salir la carga ni qué racks se van a usar. Eso lo
+   * decide quien la arma físicamente, así que las tarimas de madera, los pallets
+   * de metal y los números de rack los declara MUELLE al entregar el camión, y
+   * van directo al remito.
+   */
   /** Kilos de la carga planificada (config/cot.productos). Muelle lo recalcula al aceptar. */
   kg?:          number
   /** Destino del COT, obligatorio siempre (ver CotDestinoPlan). */

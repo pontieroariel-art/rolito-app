@@ -2400,10 +2400,10 @@ describe('remitosCarga', () => {
   })
 
   // ── envases retornables (2026-09-07) ──
-  test('se puede emitir sin envases (PWA anterior) pero palletsCarga tiene que ser un entero', async () => {
+  test('el remito NO nace sin envases: los cuenta muelle al entregar el camión', async () => {
     await seedMuelle()
     const { envases: _e, ...sinEnvases } = remito()
-    await assertSucceeds(setDoc(doc(db('mue1'), 'remitosCarga/r1'), sinEnvases))
+    await assertFails(setDoc(doc(db('mue1'), 'remitosCarga/r1'), sinEnvases))
     await assertFails(setDoc(doc(db('mue1'), 'remitosCarga/r2'), { ...sinEnvases, palletsCarga: 'dos' }))
   })
 
@@ -2487,7 +2487,6 @@ describe('borradoresCarga (viaje en dos partes, 2026-09-18)', () => {
     camionId: 'cam1', camionLabel: 'AB123CD · Iveco', choferId: 'chof1', choferNombre: 'Chofer Uno',
     depositoTango: '21',
     items: [{ productoId: 'bolsa_10kg', nombre: 'Hielo 10kg', cantidad: 100, pallets: 2 }],
-    envases: { tarimasMadera: 1, palletsMetal: 1, racks: [12, 15] },
     kg: 9060,
     cotDestino: {
       destino: { tipo: 'planta', plantaId: 'merlo' },
@@ -2520,7 +2519,8 @@ describe('borradoresCarga (viaje en dos partes, 2026-09-18)', () => {
     await seedTodos()
     await assertFails(setDoc(doc(db('caja1'), 'borradoresCarga/b1'), borrador({ items: [] })))
     await assertFails(setDoc(doc(db('caja1'), 'borradoresCarga/b1'), borrador({ paraFecha: 20260919 })))
-    await assertFails(setDoc(doc(db('caja1'), 'borradoresCarga/b1'), borrador({ envases: { tarimasMadera: 1, palletsMetal: 1, racks: [12, 12] } })))
+    // Los envases NO van en el borrador: los cuenta muelle al entregar el camión.
+    await assertFails(setDoc(doc(db('caja1'), 'borradoresCarga/b1'), borrador({ envases: { tarimasMadera: 1, palletsMetal: 1, racks: [12, 15] } })))
     // El destino del COT se pide SIEMPRE, aunque la carga no llegue al umbral.
     const { cotDestino: _c, ...sinCot } = borrador()
     await assertFails(setDoc(doc(db('caja1'), 'borradoresCarga/b1'), sinCot))

@@ -17,7 +17,7 @@ import {
 import { db } from './firebase'
 import { onSnapshotError, esperarOEncolar } from './observability'
 import {
-  BorradorCarga, CotDestinoPlan, EnvasesCarga, PlantaId, RemitoCargaItem,
+  BorradorCarga, CotDestinoPlan, PlantaId, RemitoCargaItem,
 } from '../types'
 import { claveDia } from '../utils/diaReparto'
 
@@ -35,7 +35,6 @@ export interface CrearBorradorArgs {
   depositoTango?:       string
   depositoTangoNombre?: string
   items:        RemitoCargaItem[]
-  envases:      EnvasesCarga
   kg?:          number
   /**
    * Destino del COT. Se pide SIEMPRE, aunque la carga planificada no llegue al
@@ -70,7 +69,6 @@ export async function crearBorradorCarga(
     choferNombre: args.choferNombre,
     ...(args.depositoTango ? { depositoTango: args.depositoTango, depositoTangoNombre: args.depositoTangoNombre ?? '' } : {}),
     items:        args.items,
-    envases:      { tarimasMadera: args.envases.tarimasMadera, palletsMetal: args.envases.palletsMetal, racks: [...args.envases.racks] },
     ...(args.kg !== undefined ? { kg: args.kg } : {}),
     cotDestino:   args.cotDestino,
     estado:       'pendiente',
@@ -85,7 +83,7 @@ export async function crearBorradorCarga(
 /** Caja corrige un borrador que todavía nadie aceptó. */
 export const editarBorradorCarga = (
   id: string,
-  cambios: Partial<Pick<BorradorCarga, 'items' | 'envases' | 'kg' | 'cotDestino' | 'paraFecha' | 'camionId' | 'camionLabel' | 'choferId' | 'choferNombre' | 'depositoTango' | 'depositoTangoNombre'>>,
+  cambios: Partial<Pick<BorradorCarga, 'items' | 'kg' | 'cotDestino' | 'paraFecha' | 'camionId' | 'camionLabel' | 'choferId' | 'choferNombre' | 'depositoTango' | 'depositoTangoNombre'>>,
 ): Promise<unknown> =>
   esperarOEncolar(updateDoc(doc(db, BORRADORES, id), cambios), { origen: 'editarBorradorCarga', id })
 

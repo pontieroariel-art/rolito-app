@@ -206,10 +206,6 @@ export default function RemitosCargaPage() {
     if (b.depositoTango) setDepositoCod(b.depositoTango)
     setCantidades(Object.fromEntries(b.items.map((i) => [i.productoId, i.cantidad])))
     setRestoEnPallet({})
-    setTarimasMadera(b.envases.tarimasMadera)
-    setPalletsMetal(b.envases.palletsMetal)
-    setMetalEditado(true)
-    setRacks([...b.envases.racks])
     setCotInicial(b.cotDestino)
     setCotDestino(b.cotDestino)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -417,40 +413,9 @@ export default function RemitosCargaPage() {
         )}
         <CotDestinoForm plantaId={plantaId} cfg={cotCfg} kg={kg} patente={camion?.patente ?? ''} valor={cotInicial} onChange={setCotDestino} />
 
-        {/* ── Envases que salen ── muelle se lo dicta a caja al cargar. Cada
-            pallet lleva 4 puntales y 1 sombrero implícitos, y solo la tarima de
-            madera lleva aro; los racks de agua van por número. */}
-        <div className="bg-accent/5 border border-accent/20 rounded-lg px-3 py-3 space-y-3">
-          <div className="flex justify-between items-center">
-            <p className="text-sm font-medium text-gray-800">Envases que salen</p>
-            <p className="text-xs text-secundario">Sugerido por la mercadería: <b className="text-gray-700 tabular-nums">{palletsSugeridos}</b> pallet{palletsSugeridos === 1 ? '' : 's'}</p>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-secundario mb-1 block">Pallets de madera (completos)</label>
-              <input value={tarimasMadera} onChange={(e) => setTarimasMadera(num(e.target.value))} inputMode="numeric" className={`${inputEnvase} tabular-nums`} />
-            </div>
-            <div>
-              <label className="text-xs text-secundario mb-1 block">Pallets de metal</label>
-              <input value={palletsMetal} onChange={(e) => { setMetalEditado(true); setPalletsMetal(num(e.target.value)) }} inputMode="numeric" className={`${inputEnvase} tabular-nums`} />
-            </div>
-          </div>
-          <p className="text-xs text-gray-600">
-            = <b>{palletsCarga}</b> pallet{palletsCarga === 1 ? '' : 's'} · {palletsCarga * PUNTALES_POR_PALLET} puntales · {palletsCarga * SOMBREROS_POR_PALLET} sombrero{palletsCarga === 1 ? '' : 's'} · {tarimasMadera * AROS_POR_TARIMA_MADERA} aro{tarimasMadera === 1 ? '' : 's'} (solo las tarimas de madera)
-            {metalEditado && (
-              <button type="button" onClick={() => setMetalEditado(false)} className="ml-2 text-accent hover:underline">Volver al sugerido</button>
-            )}
-          </p>
-          {palletsCarga !== palletsSugeridos && (
-            <p className="text-xs text-amber-600">
-              Salen {palletsCarga} pallets y la mercadería sugiere {palletsSugeridos}. Se guarda igual; revisá con muelle.
-            </p>
-          )}
-          <div>
-            <label className="text-xs text-secundario mb-1 block">Racks de agua (números)</label>
-            <RacksInput value={racks} onChange={setRacks} />
-          </div>
-        </div>
+        {/* Los ENVASES ya no se declaran acá (corrección de Ariel, 18/09): caja
+            no sabe con qué tipo de pallet va a salir la carga ni qué racks se van
+            a usar. Los cuenta MUELLE al entregar el camión, y van al remito. */}
 
         <Button onClick={() => setConfirmando(true)} disabled={!puedeConfirmar} className="w-full">
           {editandoId ? 'Revisar y guardar la corrección' : 'Revisar y dejar la carga para el muelle'}
@@ -477,7 +442,6 @@ export default function RemitosCargaPage() {
               <p className="text-xs text-secundario truncate">
                 Para el {b.paraFecha === hoyClave ? 'día de hoy' : b.paraFecha} · <span className="tabular-nums">{b.items.reduce((s, i) => s + i.cantidad, 0)}</span> bolsas
                 {b.kg ? <> · <span className="tabular-nums">{b.kg.toLocaleString('es-AR')}</span> kg</> : null}
-                {describirEnvases(envasesDeRemito({ palletsCarga: b.envases.tarimasMadera + b.envases.palletsMetal, envases: b.envases })) && ` · ${describirEnvases(envasesDeRemito({ palletsCarga: b.envases.tarimasMadera + b.envases.palletsMetal, envases: b.envases }))}`}
                 {' · COT a '}{b.cotDestino.destino.tipo === 'planta' ? PLANTAS[b.cotDestino.destino.plantaId].label : b.cotDestino.destino.razonSocial}
               </p>
             </div>

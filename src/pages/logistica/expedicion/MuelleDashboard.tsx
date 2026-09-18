@@ -27,7 +27,7 @@ import {
 } from '@/services/ventaVentanillaService'
 import {
   BorradorCarga, DARSENAS_POR_PLANTA, DARSENAS_VENTANILLA, DescargaCamion, DescargaCamionItem,
-  EnvasesDescarga, PLANTAS, RemitoCarga, RemitoCargaItem, VentaVentanilla,
+  EnvasesCarga, EnvasesDescarga, PLANTAS, RemitoCarga, RemitoCargaItem, VentaVentanilla,
 } from '@/types'
 import { reportError } from '@/services/observability'
 import EntregarCamionCard from '@/components/expedicion/EntregarCamionCard'
@@ -205,7 +205,7 @@ export default function MuelleDashboard() {
    * COT viajaba con una hora que no era la del traslado, que es justo lo que
    * ARBA mira.
    */
-  const entregarCamion = async (b: BorradorCarga, items: RemitoCargaItem[]) => {
+  const entregarCamion = async (b: BorradorCarga, items: RemitoCargaItem[], envasesCarga: EnvasesCarga) => {
     if (!user || procesando) return
     setError('')
     setProcesando(b.id)
@@ -220,6 +220,9 @@ export default function MuelleDashboard() {
         b,
         {
           correcciones: items.map((i) => ({ productoId: i.productoId, cantidad: i.cantidad })),
+          // Los envases los cuenta muelle al armar la carga: caja no sabe con
+          // qué tipo de pallet sale ni qué racks se usan.
+          envases: envasesCarga,
           kg,
           pideCot,
           ...(remitoR ? { remitoR } : {}),
@@ -413,7 +416,7 @@ export default function MuelleDashboard() {
               darsena={b.darsena}
               onDarsena={(n) => marcarDarsena(b.id, n)}
               darsenas={darsenasDeCamion}
-              onEntregar={(items) => entregarCamion(b, items)}
+              onEntregar={(items, envases) => entregarCamion(b, items, envases)}
             />
           ))}
         </section>

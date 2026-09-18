@@ -315,7 +315,7 @@ async function main() {
     camionId: 'camion-1', camionLabel: 'AF313WU · Accelo 1016',
     choferId: CH1.uid, choferNombre: CH1.nombre, depositoTango: '21', depositoTangoNombre: 'CAMION 21',
     items: [{ productoId: 'bolsa_10kg', nombre: P.bolsa_10kg.nombre, cantidad: 264, pallets: 3 }],
-    envases: { tarimasMadera: 2, palletsMetal: 1, racks: [] },
+    // Sin envases: los cuenta muelle al entregar el camión.
     kg: 2640,
     cotDestino: {
       destino: { tipo: 'planta', plantaId: 'merlo' },

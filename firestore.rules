@@ -1169,10 +1169,11 @@ service cloud.firestore {
         && request.resource.data.codigo is string
         && request.resource.data.items is list && request.resource.data.items.size() > 0
         && request.resource.data.palletsCarga is int && request.resource.data.palletsCarga >= 0
-        // Composición de envases (2026-09-07). Opcional para las tablets con
-        // la PWA anterior; cuando viene, tiene que cerrar con palletsCarga.
-        && (!('envases' in request.resource.data)
-            || (envasesCargaOk(request.resource.data.envases) && palletsCoherentes(request.resource.data)))
+        // Composición de envases: desde el 2026-09-18 la cuenta MUELLE al
+        // entregar el camión (caja no sabe con qué pallet sale la carga), así
+        // que el remito nace siempre con ella y tiene que cerrar con palletsCarga.
+        && envasesCargaOk(request.resource.data.envases)
+        && palletsCoherentes(request.resource.data)
         // La aceptación del borrador ES la entrega del camión (2026-09-18).
         && request.resource.data.estado == 'entregado'
         // COT de ARBA (2026-09-10): quien emite manda los kilos y la solicitud
@@ -1290,7 +1291,10 @@ service cloud.firestore {
           && d.camionId is string
           && d.choferId is string
           && d.items is list && d.items.size() > 0
-          && envasesCargaOk(d.envases)
+          // Sin envases (corrección de Ariel, 18/09): caja no sabe con qué tipo
+          // de pallet va a salir la carga ni qué racks se van a usar. Los cuenta
+          // muelle al entregar el camión y van directo al remito.
+          && !('envases' in d)
           // Destino del COT: se pide SIEMPRE, aunque la carga planificada no
           // llegue al umbral. Si muelle corrige hacia arriba y lo cruza, el COT
           // tiene que poder salir sin ir a buscar al destinatario a las 4 de la

@@ -130,7 +130,12 @@ export async function emitirRemitoDesdeBorrador(
   borrador: BorradorCarga,
   opciones: {
     correcciones?: CorreccionMuelle[]
-    envases?:      EnvasesCarga
+    /**
+     * Los envases que salen los cuenta MUELLE al armar la carga (corrección de
+     * Ariel, 18/09): caja no sabe con qué tipo de pallet va a salir ni qué racks
+     * se van a usar, así que el borrador no los trae.
+     */
+    envases:       EnvasesCarga
     kg?:           number
     /** Talonario vigente (config/cot.respaldo) si la app numera el remito R. */
     remitoR?:      { puntoVenta: number; cai: string; vencimiento: string }
@@ -141,7 +146,7 @@ export async function emitirRemitoDesdeBorrador(
 ): Promise<RemitoCarga> {
   const items = aplicarCorrecciones(borrador.items, opciones.correcciones ?? [])
   const correccionesMuelle = diferenciasContraElPlan(borrador.items, items)
-  const envases = opciones.envases ?? borrador.envases
+  const envases = opciones.envases
   const ahora = new Date()
 
   const remitoRef = doc(collection(db, REMITOS))
