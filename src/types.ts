@@ -151,6 +151,19 @@ export interface VentaCamion {
   id:                   string
   canal:                CanalVenta   // promo (Rolito) / contado (Redonhielo)
   camionId:             string
+  /**
+   * El viaje en el que se hizo esta venta (2026-09-18). Lo escribe la app desde
+   * el mismo remito del que ya salía `camionId`; el chofer no elige nada.
+   *
+   * Para qué: la plata se rinde por viaje, y un chofer puede hacer dos en un día.
+   * Dejarlo escrito en la venta evita tener que deducirlo después por horarios,
+   * que se rompía con el conteo que llega al día siguiente y con el chofer que
+   * vuelve en otro camión. Ausente en las ventas anteriores y en las del
+   * acompañante que sale sin remito propio: ahí se resuelve por camión y día
+   * (utils/viajeDeVenta.ts).
+   */
+  remitoId?:            string
+  remitoCodigo?:        string
   choferId:             string
   choferNombre:         string
   depositoTango?:       string     // depósito de Tango del vendedor al momento de vender
@@ -349,6 +362,65 @@ export interface RemitoCarga {
    * comprobante que respalda el COT.
    */
   remitoR?:      { puntoVenta: number; numero: number; cai: string; vencimiento: string }
+  /**
+   * El borrador del que nació este remito (2026-09-18). Desde el circuito nuevo
+   * el remito lo emite MUELLE al entregar el camión, a partir de un borrador que
+   * caja armó antes; sin borrador no hay remito (muelle no arma cargas desde
+   * cero: el camión espera a que caja abra).
+   */
+  borradorId?:   string
+  /** Quién lo emitió: el muellero que entregó el camión (2026-09-18). */
+  emitidoPor?:   { uid: string; nombre: string }
+  /**
+   * Renglones que muelle corrigió respecto del borrador (2026-09-18). Vacío o
+   * ausente = subió exactamente lo planificado. Sirve para el número que mide si
+   * caja está planificando sobre información vieja: si la mayoría de los remitos
+   * sale corregida, el problema es la planificación, no el muelle.
+   */
+  correccionesMuelle?: { productoId: string; nombre: string; planificado: number; cargado: number }[]
+}
+
+/**
+ * Borrador de carga (2026-09-18): la hoja de trabajo que caja arma antes de que
+ * el camión cargue. NO es un documento fiscal — no tiene número, ni COT, ni
+ * remito R, y no mueve stock en Tango. Es la instrucción para el muelle: qué
+ * subir, a qué camión y para qué repartidor.
+ *
+ * Por qué existe: el camión sale a las 4 de la mañana y caja abre a las 6, así
+ * que el remito y el COT se emitían la tarde anterior y salían con una hora que
+ * no era la del traslado. Separando el borrador del remito, el papel fiscal nace
+ * cuando el camión efectivamente se va, que es lo que ARBA pide.
+ *
+ * Vive en su propia colección y no dentro de `remitosCarga` porque son dos cosas
+ * opuestas: el remito es inmutable y create-only, el borrador tiene que poder
+ * corregirlo muelle y morirse solo si el camión no sale.
+ */
+export type BorradorCargaEstado = 'pendiente' | 'aceptado' | 'vencido'
+
+export interface BorradorCarga {
+  id:           string
+  plantaId:     PlantaId
+  /** Día del viaje previsto (yyyy-MM-dd). El del primer viaje se arma el día anterior. */
+  paraFecha:    string
+  camionId:     string
+  camionLabel:  string
+  choferId:     string   // identidad del depósito, igual que en RemitoCarga
+  choferNombre: string
+  depositoTango?:       string
+  depositoTangoNombre?: string
+  items:        RemitoCargaItem[]
+  envases:      EnvasesCarga
+  /** Kilos de la carga planificada (config/cot.productos). Muelle lo recalcula al aceptar. */
+  kg?:          number
+  /** Destino del COT, obligatorio siempre (ver CotDestinoPlan). */
+  cotDestino:   CotDestinoPlan
+  estado:       BorradorCargaEstado
+  /** El remito que nació de este borrador, cuando muelle lo aceptó. */
+  remitoId?:    string
+  creadoPor:    { uid: string; nombre: string }
+  fecha:        Timestamp
+  /** Fin del día siguiente a `paraFecha`: pasado eso el barrido lo marca vencido. */
+  venceEn:      Timestamp
 }
 
 // ── COT de ARBA: Código de Operación de Traslado del remito de carga ─────────
@@ -426,6 +498,23 @@ export interface CotSolicitud {
   recorrido:   CotRecorrido
   fechaSalida: string   // yyyy-MM-dd
   horaSalida:  string   // HH:MM
+}
+
+/**
+ * Destino declarado en el BORRADOR de carga (2026-09-18). Es la `CotSolicitud`
+ * sin lo que solo se sabe al salir: la fecha y la hora reales del traslado, y el
+ * número del remito R que consume el talonario. Eso lo completa muelle al
+ * aceptar, que es el momento en que el camión efectivamente se va.
+ *
+ * Se pide SIEMPRE, aunque la carga planificada no llegue al umbral: si muelle
+ * corrige hacia arriba y lo cruza, el COT tiene que poder salir sin ir a buscar
+ * al destinatario a las 4 de la mañana. Si al aceptar no hace falta, no se usa.
+ */
+export interface CotDestinoPlan {
+  destino:   CotDestino
+  respaldo:  { codigoComprobante: string; prefijo: number; importe: number }
+  patente:   string
+  recorrido: CotRecorrido
 }
 
 export type CotEstado = 'pendiente' | 'presentado' | 'error'
@@ -676,6 +765,13 @@ export interface Cobranza {
   cajaSesionId?: string     // solo origen 'caja': turno abierto del cajero (rendición de fondos, 2026-09-14)
   registradoPor: { uid: string; nombre: string }
   depositoTango?: string    // depósito de Tango de quien cobra (para su liquidación)
+  /**
+   * El viaje en el que se cobró (2026-09-18), cuando quien cobra es un chofer
+   * con viaje abierto. Los supervisores y caja no tienen viaje y no lo llevan:
+   * su plata se sigue rindiendo por día. Ver `VentaCamion.remitoId`.
+   */
+  remitoId?:     string
+  remitoCodigo?: string
   clienteId:     string
   clienteNombre: string
   importe:       number     // total; en origen 'supervisor' admite 2 decimales
@@ -1023,8 +1119,28 @@ export interface DescargaCamion {
   // Descarga TEÓRICA (2026-09-16): no la contó muelle; la escribió el script de cierre de
   // arranque con carga − ventas − cambios para dejar el depósito del camión en cero en Tango.
   teorica?:               { motivo: string; en: Timestamp }
+  /**
+   * Número correlativo por planta (config/descargaCounter_{planta}) y su código
+   * "DC-DT-000012" (2026-09-18). Lo asigna el SERVIDOR al crearse el doc, no la
+   * tablet: así el conteo se sigue guardando sin señal (es fire-and-forget) y el
+   * número llega cuando sincroniza. Ausente = todavía no lo numeraron.
+   *
+   * Para qué: el chofer que vuelve de noche, cuando caja ya cerró, deja la plata
+   * en un sobre con este código escrito a mano. Es lo que después le permite a
+   * caja saber de qué viaje es cada sobre del buzón.
+   */
+  numero?:          number
+  codigo?:          string
   // Envases que volvieron, contados sueltos por muelle (desde 2026-09-07).
   envases?:         EnvasesDescarga
+  /**
+   * Cuadre de envases contra el remito del viaje (2026-09-18). Hasta ahora se
+   * calculaba en la pantalla del muelle, se le mostraba al operario y se tiraba.
+   * Guardarlo abre el control que no existía: salidos contra devueltos por
+   * chofer y por viaje, que es donde suele haber más plata perdida que en los
+   * faltantes de producto.
+   */
+  envasesCuadre?:   LiquidacionEnvases
   // LEGACY (descargas anteriores al 2026-09-07): pallets completos (con hielo),
   // parciales y vacíos. Solo lectura — utils/envases.ts los traduce a envases.
   palletsCompletos?: number
@@ -1114,7 +1230,16 @@ export interface PlataEmpresa {
 export type PlataPorEmpresa = Record<EmpresaTango, PlataEmpresa>
 
 export interface Liquidacion {
-  id:            string     // {yyyy-MM-dd}_{choferId}
+  /**
+   * Desde el 2026-09-18 la liquidación de un VIAJE se identifica por su remito
+   * (`{remitoId}`); los cobradores y supervisores, que no tienen camión ni
+   * viaje, siguen con la clave por día `{yyyy-MM-dd}_{choferId}`.
+   *
+   * Por qué cambió: la plata y la mercadería de un viaje se cierran por
+   * separado y en cualquier orden, así que el par tiene que apuntar a lo mismo,
+   * y "lo mismo" es el viaje. Un chofer puede hacer dos viajes en un día.
+   */
+  id:            string
   // Correlativo POR PERSONA (serie del depósito de Tango, 2026-09-09):
   // config/liquidacionCounter_{clave} → "LQ-21-000015". Los cierres anteriores no lo tienen.
   numero?:       number
@@ -1125,9 +1250,23 @@ export interface Liquidacion {
   choferNombre:  string
   depositoTango?:       string
   depositoTangoNombre?: string
-  productos:     LiquidacionResumenProducto[]
-  // Cuadre de envases por tipo (tarimas, pallets de metal, puntales, aros y
-  // racks por número) — los cierres desde el 2026-09-07 lo escriben.
+  /** El viaje que rinde esta plata (2026-09-18). Ausente en cobradores sin camión. */
+  remitoId?:     string
+  remitoCodigo?: string
+  /**
+   * Cuando el chofer volvió fuera del horario de caja y dejó el sobre en el
+   * buzón (2026-09-18). Queda quién lo abrió y cuándo: es el único tramo del
+   * circuito que si no se registra no deja rastro de nadie.
+   */
+  buzon?:        { abiertoPor: { uid: string; nombre: string }; abiertoEn: Timestamp; descargaCodigo: string }
+  /**
+   * @deprecated Desde el 2026-09-18 la mercadería del viaje vive en
+   * `cierresMercaderia/{remitoId}`, que escribe el servidor al contar la
+   * descarga. Los cierres anteriores lo siguen trayendo adentro y se leen de
+   * acá; los nuevos no lo escriben. Ver utils/estadoLiquidacion.ts.
+   */
+  productos?:    LiquidacionResumenProducto[]
+  /** @deprecated Igual que `productos`: ahora está en el cierre de mercadería. */
   envases?:      LiquidacionEnvases
   // LEGACY (cierres anteriores): salieron (Σ palletsCarga) vs volvieron.
   pallets?: {
@@ -1200,10 +1339,13 @@ export interface Liquidacion {
   clientesVisitados?: number
   // Ventas de este cierre anuladas DESPUÉS de cerrar (lo escribe el server, 2026-09-11).
   anulacionesPosteriores?: AnulacionPosterior[]
-  // Faltante de MERCADERÍA observado al cerrar (2026-09-13): el camión volvió
-  // con menos de lo que tenía que volver, por más del umbral. El cierre se hizo
-  // igual (un tema de stock no traba la caja) y queda marcado para que lo
-  // revisen. Ausente = la descarga cuadró o el control estaba apagado.
+  /**
+   * @deprecated Desde el 2026-09-18 el desvío vive entero en
+   * `desviosDescarga/{remitoId}`, con el estado `observado` para el que caja
+   * cerró sin esperar autorización. Tenerlo partido en dos lugares dejó de
+   * funcionar cuando el faltante pasó a calcularlo el servidor al contar. Los
+   * cierres anteriores lo siguen trayendo acá.
+   */
   desvio?:               DesvioLiquidacion
   // Cierre de arranque (2026-09-16, decisión de Ariel): días abiertos de antes de que se
   // usara el circuito completo, cerrados por script sin firmas, con la devolución
@@ -1211,6 +1353,56 @@ export interface Liquidacion {
   cierreArranque?:       { motivo: string; en: Timestamp }
   cerradaPor:    { uid: string; nombre: string }
   createdAt:     Timestamp
+}
+
+/**
+ * Cierre de MERCADERÍA de un viaje (2026-09-18), en `cierresMercaderia/{remitoId}`.
+ *
+ * La otra mitad de la liquidación. Nace cuando muelle cuenta la descarga de ese
+ * viaje, y la escribe el SERVIDOR: la tablet del muelle no puede escribirlo ni
+ * leerlo, porque el conteo es ciego a propósito — al operario nunca se le muestra
+ * lo que "tendría que" volver.
+ *
+ * Por qué está separado de la plata: muelle trabaja 24 horas y caja 12. El camión
+ * que vuelve a las 20 descarga sin problema pero no tiene a quién rendirle el
+ * dinero, y antes eso obligaba a cerrar las dos cosas juntas o ninguna. Ahora
+ * cada parte se cierra cuando puede, en cualquier orden, y el viaje queda cerrado
+ * cuando están las dos (utils/estadoLiquidacion.ts).
+ */
+export interface CierreMercaderia {
+  id:            string   // = remitoId
+  remitoId:      string
+  remitoCodigo:  string
+  plantaId:      PlantaId
+  choferId:      string   // identidad del depósito, igual que en el remito
+  choferNombre:  string
+  depositoTango?:       string
+  depositoTangoNombre?: string
+  /** Día del viaje (yyyy-MM-dd), no el del conteo: la descarga pertenece al viaje. */
+  diaReparto:    string
+  productos:     LiquidacionResumenProducto[]
+  envases:       LiquidacionEnvases
+  /**
+   * Lo que falta contra el umbral de config/liquidacion.faltantes al momento de
+   * contar. Misma forma que `FaltanteCalculado` (utils/faltantes.ts), escrita
+   * acá para no atar los tipos a un util, igual que `RevisionDescarga`.
+   * Un sobrante nunca compensa un faltante.
+   */
+  faltante: {
+    bolsasFaltantes: number
+    bolsasSobrantes: number
+    productos:       { productoId: string; nombre: string; faltan: number }[]
+    /** Pasó el umbral: caja lo tiene que mirar antes de cerrar. */
+    grave:           boolean
+    umbral:          number
+  }
+  /** Las descargas vigentes que lo componen (una rectificación reemplaza a la original). */
+  descargaIds:   string[]
+  descargaCodigos: string[]
+  contadaPor:    { uid: string; nombre: string }
+  contadaEn:     Timestamp
+  /** Se reescribió porque muelle rectificó un conteo (2026-09-18). */
+  rectificadoEn?: Timestamp
 }
 
 export type MotivoDiferenciaLiquidacion = 'faltante_repartidor' | 'faltante_caja' | 'faltante_entrega' | 'vuelto_mal_dado' | 'error_de_carga' | 'billete_falso' | 'otro'
@@ -1265,14 +1457,24 @@ export const MOTIVOS_DESVIO_LIQUIDACION: MotivoDesvioDescarga[] =
  * nadie en el momento, caja cierra igual con desvío observado — un tema de
  * stock nunca traba el turno.
  */
-export type EstadoDesvio = 'pendiente' | 'aprobada' | 'rechazada'
+/**
+ * `observado` (2026-09-18): caja cerró haciéndose cargo del faltante sin esperar
+ * a que nadie lo autorizara. Antes eso vivía aparte, en `Liquidacion.desvio`, y
+ * el faltante quedaba contado en dos lugares distintos; ahora los cuatro estados
+ * son del mismo doc y hay una sola verdad sobre cada desvío.
+ */
+export type EstadoDesvio = 'pendiente' | 'aprobada' | 'rechazada' | 'observado'
 export interface DesvioDescarga {
-  id:              string     // {fecha}_{choferId}
+  /** `{remitoId}` desde el 2026-09-18 (antes `{fecha}_{choferId}`): el desvío es del VIAJE. */
+  id:              string
   fecha:           string     // yyyy-MM-dd del día liquidado
   plantaId:        PlantaId
   choferId:        string
   choferNombre:    string
   depositoTango?:  string
+  /** El viaje al que pertenece el faltante (2026-09-18). */
+  remitoId?:       string
+  remitoCodigo?:   string
   bolsasFaltantes: number
   productos:       { productoId: string; nombre: string; faltan: number }[]
   umbral:          number

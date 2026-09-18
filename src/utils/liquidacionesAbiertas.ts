@@ -109,7 +109,7 @@ export function resumirAbierta(
     hayDescarga,
     bultosSinDevolver: hayDescarga ? faltan : devolucionTeorica,
     bultosSobrantes: hayDescarga ? sobran : 0,
-    ventasCantidad: calc.cantidadVentas ?? docs.ventas.length,
+    ventasCantidad: docs.ventas.length,
     ventasTotal: calc.importes.total,
     cobranzasCantidad: calc.cobranzasCalle?.cantidad ?? 0,
     cobranzasTotal: calc.cobranzasCalle?.total ?? 0,

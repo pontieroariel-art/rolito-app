@@ -18,11 +18,26 @@ import { importeCobrado, sumaCobrada } from './importeCobrado'
 // y racks, desde 2026-09-07) y de plata. Ver el plan del módulo expedición y
 // la foto de la hoja (2026-08-29).
 
-export type LiquidacionCalculada = Omit<Liquidacion,
-  'id' | 'numero' | 'codigo' | 'fecha' | 'plantaId' | 'choferId' | 'choferNombre' | 'efectivoRecibido' | 'diferenciaEfectivo' | 'cerradaPor' | 'createdAt' | 'pallets'
-  | 'diferencia' | 'firmaRepartidor' | 'firmanteRepartidor' | 'firmaRecibe' | 'firmanteRecibe' | 'confirmoSinPendientes' | 'cheques' | 'retenciones' | 'valoresFaltantes' | 'entregaId'
-  | 'conteoBilletes' | 'diferenciaPorEmpresa'
-> & { envases: NonNullable<Liquidacion['envases']>; porEmpresa: PlataPorEmpresa }
+/**
+ * El cálculo está partido en dos mitades (2026-09-18) porque las dos mitades del
+ * viaje se cierran por separado: la PLATA la liquida caja, de 6 a 18, y la
+ * MERCADERÍA la cierra muelle al contar la descarga, a cualquier hora. Antes
+ * esto devolvía todo junto y obligaba a tener las dos cosas para cerrar
+ * cualquiera de las dos.
+ *
+ * `calcularLiquidacion` sigue existiendo y devuelve las dos, para lo que
+ * necesita la foto entera del viaje (reparto en vivo, liquidaciones abiertas,
+ * el PDF).
+ */
+export interface MercaderiaCalculada {
+  productos: LiquidacionResumenProducto[]
+  envases:   NonNullable<Liquidacion['envases']>
+  cambios:   { registrados: number; rotasRecibidas: number }
+}
+
+export type PlataCalculada = Pick<Liquidacion, 'importes' | 'cobranzasCalle' | 'efectivoARendir'> & { porEmpresa: PlataPorEmpresa }
+
+export type LiquidacionCalculada = PlataCalculada & MercaderiaCalculada
 
 /** De qué empresa es la plata de una venta del camión: contado con factura = Redonhielo, promo = Rolito. */
 export const empresaDeVenta = (v: Pick<VentaCamion, 'canal'>): EmpresaTango => (v.canal === 'promo' ? 'rolito' : 'redonhielo')
@@ -60,16 +75,19 @@ export function plataPorEmpresa(ventas: VentaCamion[], cobranzas: Cobranza[]): P
   return out
 }
 
-export function calcularLiquidacion(
+/**
+ * MERCADERÍA del viaje: por producto, carga − ventas − cambios = devolución
+ * teórica, contra lo que muelle contó; más el cuadre de envases. Es lo que el
+ * servidor escribe en `cierresMercaderia/{remitoId}` al registrarse la descarga.
+ *
+ * No lleva un gramo de plata: el muelle cuenta a ciegas y nunca ve importes.
+ */
+export function mercaderiaDelViaje(
   remitos:   RemitoCarga[],
   ventas:    VentaCamion[],
   cambios:   CambioCamion[],
   descargas: DescargaCamion[],
-  // Cobranzas de cta. cte. hechas en la calle por esta persona (los
-  // cobradores son choferes — "Detalle de cobranzas" de la hoja vieja).
-  cobranzasCalle: Cobranza[] = [],
-): LiquidacionCalculada {
-  cobranzasCalle = cobranzasVigentes(cobranzasCalle)   // recibos anulados con autorización (2026-09-15): no cuentan
+): MercaderiaCalculada {
   // Una factura anulada con nota de crédito (2026-09-11) no cuenta: ni en
   // plata ni en productos (la NC devolvió el stock al depósito en Tango).
   ventas = ventasVigentes(ventas)
@@ -132,7 +150,23 @@ export function calcularLiquidacion(
     cambios.reduce((s, c) => s + c.cantidad, 0)
   const rotasRecibidas = descargas.reduce((s, d) => s + d.bolsasRotas.reduce((x, i) => x + i.cantidad, 0), 0)
 
-  // ── Plata ──
+  return { productos, envases, cambios: { registrados, rotasRecibidas } }
+}
+
+/**
+ * PLATA del viaje: lo que el repartidor tiene que rendir en caja. Es lo único
+ * que mira la pantalla de liquidación del cajero, y se puede cerrar aunque la
+ * mercadería siga en la calle.
+ */
+export function plataDelViaje(
+  ventas: VentaCamion[],
+  // Cobranzas de cta. cte. hechas en la calle por esta persona (los
+  // cobradores son choferes — "Detalle de cobranzas" de la hoja vieja).
+  cobranzasCalle: Cobranza[] = [],
+): PlataCalculada {
+  cobranzasCalle = cobranzasVigentes(cobranzasCalle)   // recibos anulados con autorización (2026-09-15): no cuentan
+  ventas = ventasVigentes(ventas)
+
   const porPago = (fp: VentaCamion['formaPago']) =>
     sumaCobrada(ventas.filter((v) => v.formaPago === fp))
   const contadoEfectivo      = porPago('contado_efectivo')
@@ -150,9 +184,6 @@ export function calcularLiquidacion(
   const retencionesCalle = cobranzasCalle.flatMap(retencionesDe)
 
   return {
-    productos,
-    envases,
-    cambios: { registrados, rotasRecibidas },
     importes: {
       contadoEfectivo, contadoTransferencia, cuentaCorriente,
       total: contadoEfectivo + contadoTransferencia + cuentaCorriente,
@@ -168,6 +199,25 @@ export function calcularLiquidacion(
     efectivoARendir: contadoEfectivo + cobranzasEfectivo,
     // Rendición por sobres, etapa 1 (2026-09-16): lo mismo, partido por empresa.
     porEmpresa: plataPorEmpresa(ventas, cobranzasCalle),
+  }
+}
+
+/**
+ * Las dos mitades juntas, para lo que necesita la foto entera del viaje: el
+ * reparto en vivo, liquidaciones abiertas y el PDF. La pantalla de caja NO usa
+ * esto: usa `plataDelViaje`, y la mercadería la lee del cierre que escribió el
+ * servidor.
+ */
+export function calcularLiquidacion(
+  remitos:   RemitoCarga[],
+  ventas:    VentaCamion[],
+  cambios:   CambioCamion[],
+  descargas: DescargaCamion[],
+  cobranzasCalle: Cobranza[] = [],
+): LiquidacionCalculada {
+  return {
+    ...mercaderiaDelViaje(remitos, ventas, cambios, descargas),
+    ...plataDelViaje(ventas, cobranzasCalle),
   }
 }
 
