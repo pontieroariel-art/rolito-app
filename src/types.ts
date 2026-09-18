@@ -415,12 +415,43 @@ export interface BorradorCarga {
   /** Destino del COT, obligatorio siempre (ver CotDestinoPlan). */
   cotDestino:   CotDestinoPlan
   estado:       BorradorCargaEstado
+  /**
+   * Dársena donde el camión está cargando. La asigna muelle sobre el borrador y
+   * no sobre el remito, porque cuando el camión entra a la boca el remito
+   * todavía no existe: nace recién cuando muelle lo entrega. El tablero del TV
+   * la lee de acá mientras la carga está en curso.
+   */
+  darsena?:     number
+  darsenaAsignadaEn?: Timestamp
   /** El remito que nació de este borrador, cuando muelle lo aceptó. */
   remitoId?:    string
   creadoPor:    { uid: string; nombre: string }
   fecha:        Timestamp
   /** Fin del día siguiente a `paraFecha`: pasado eso el barrido lo marca vencido. */
   venceEn:      Timestamp
+}
+
+/**
+ * Índice de camiones con un viaje sin descargar (2026-09-18), en
+ * `camionesEnViaje/{camionId}`. Lo escriben los triggers: nace con el remito y
+ * se borra cuando muelle cuenta la descarga de ese viaje.
+ *
+ * Existe para que la regla que frena la carga sea UNA sola expresión
+ * (`!exists(camionesEnViaje/{camionId})`) en vez de una consulta: Firestore
+ * corta a las 1000 expresiones por request y el create del remito ya venía
+ * cargado. La regla es del CAMIÓN y no del chofer: si el chofer vuelve en otro
+ * camión porque el suyo quedó en la calle, la mercadería está en el camión
+ * varado y bloquearlo a él lo castiga por algo que no puede resolver.
+ */
+export interface CamionEnViaje {
+  id:           string   // = camionId
+  remitoId:     string
+  remitoCodigo: string
+  plantaId:     PlantaId
+  choferNombre: string
+  desde:        Timestamp
+  /** El camión ya volvió y nadie contó la descarga: la pantalla lo puede avisar. */
+  volvio:       boolean
 }
 
 // ── COT de ARBA: Código de Operación de Traslado del remito de carga ─────────
@@ -1276,8 +1307,12 @@ export interface Liquidacion {
     vacios:     number
     diferencia: number   // (completos+parciales+vacios) − salidos
   }
-  // Bolsas rotas recibidas por muelle vs cambios registrados por el chofer.
-  cambios: { registrados: number; rotasRecibidas: number }
+  /**
+   * Bolsas rotas recibidas por muelle vs cambios registrados por el chofer.
+   * @deprecated Igual que `productos` y `envases`: es mercadería, y desde el
+   * 2026-09-18 vive en `cierresMercaderia/{remitoId}`.
+   */
+  cambios?: { registrados: number; rotasRecibidas: number }
   // Plata: totales por forma de pago (de ventasCamion del día).
   importes: {
     contadoEfectivo:      number

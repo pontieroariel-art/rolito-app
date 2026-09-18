@@ -11,21 +11,31 @@ import { useCatalogo } from '@/hooks/useCatalogo'
 import { useFechaDelDia } from '@/hooks/useDiaActual'
 import { useDepositosReparto } from '@/hooks/useDepositosReparto'
 import { etiquetaDeposito, identidadDeposito, nombreDeposito } from '@/utils/depositos'
-import { asignarDarsena } from '@/services/remitoCargaService'
-import { useRemitosCargaDelDia, useVentanillaDelDia } from '@/hooks/useExpedicionDia'
 import {
-  confirmarEntregaRemito, crearDescargaCamion, subscribeDescargasDelDia,
+  BorradorNoDisponibleError, TalonarioRemitoCargaNoInicializadoError,
+  emitirRemitoDesdeBorrador, esperarCotRemito,
+} from '@/services/remitoCargaService'
+import { asignarDarsenaBorrador, manana, subscribeBorradoresDe } from '@/services/borradorCargaService'
+import { useRemitosCargaDelDia, useVentanillaDelDia } from '@/hooks/useExpedicionDia'
+import { useCotConfig } from '@/hooks/useCotConfig'
+import { kgDeItems, requiereCot, talonarioRemitoCarga } from '@/utils/cot'
+import {
+  crearDescargaCamion, subscribeDescarga, subscribeDescargasDelDia,
 } from '@/services/descargaCamionService'
 import {
   confirmarEntregaVentanilla, llamarTurno, marcarTurnoAusente, marcarTurnoPreparado,
 } from '@/services/ventaVentanillaService'
 import {
-  DARSENAS_POR_PLANTA, DARSENAS_VENTANILLA, DescargaCamion, DescargaCamionItem, EnvasesDescarga,
-  PLANTAS, RemitoCarga, VentaVentanilla,
+  BorradorCarga, DARSENAS_POR_PLANTA, DARSENAS_VENTANILLA, DescargaCamion, DescargaCamionItem,
+  EnvasesDescarga, PLANTAS, RemitoCarga, RemitoCargaItem, VentaVentanilla,
 } from '@/types'
 import { reportError } from '@/services/observability'
+import EntregarCamionCard from '@/components/expedicion/EntregarCamionCard'
+import NumeroGrande from '@/components/expedicion/NumeroGrande'
 import RacksInput from '@/components/expedicion/RacksInput'
-import { describirEnvases, describirRacks, envasesDeDescarga, envasesDeRemito } from '@/utils/envases'
+import {
+  cuadrarEnvases, describirEnvases, describirRacks, envasesDeDescarga, envasesDeRemito,
+} from '@/utils/envases'
 import { nombreClienteVenta } from '@/utils/nombreClienteVenta'
 import { conteoDe, fueRectificada } from '@/utils/rectificacionDescarga'
 
@@ -53,6 +63,36 @@ export default function MuelleDashboard() {
 
   useEffect(() => subscribeDescargasDelDia(plantaId, fecha, setDescargas), [plantaId, fecha])
 
+  // ── Cargas para entregar: los BORRADORES que armó caja ──
+  // Ayer, hoy y mañana: el camión de las 4 de la mañana lleva el borrador que
+  // caja armó la tarde anterior, y el que quedó sin salir de ayer sigue vivo un
+  // día (ver vencimientoDe en borradorCargaService).
+  const { cfg: cotCfg } = useCotConfig()
+  const [borradores, setBorradores] = useState<BorradorCarga[]>([])
+  const fechasBorrador = useMemo(
+    () => [claveDia(ayer), claveDia(fecha), manana(fecha)],
+    [ayer, fecha],
+  )
+  useEffect(
+    () => subscribeBorradoresDe(plantaId, fechasBorrador, setBorradores),
+    [plantaId, fechasBorrador],
+  )
+  const porEntregar = useMemo(() => borradores.filter((b) => b.estado === 'pendiente'), [borradores])
+  // Dársena de carga: se guarda en el BORRADOR, no en el remito, porque cuando
+  // el camión entra a la boca el remito todavía no existe (nace cuando muelle lo
+  // entrega). El TV del muelle la lee de ahí mientras la carga está en curso.
+  const marcarDarsena = (borradorId: string, n: number) =>
+    asignarDarsenaBorrador(borradorId, n).catch((err) =>
+      reportError(err, { origen: 'MuelleDashboard', accion: 'asignarDarsenaBorrador', borradorId }))
+  const darsenasDeCamion = useMemo(
+    () => Array.from({ length: DARSENAS_POR_PLANTA[plantaId] }, (_, i) => i + 1)
+      .filter((n) => !DARSENAS_VENTANILLA[plantaId].includes(n)),
+    [plantaId],
+  )
+  // El remito que acaba de nacer: se le muestra al chofer para que se lleve el
+  // número. Se queda en pantalla hasta que el muellero lo cierra.
+  const [emitido, setEmitido] = useState<{ remito: RemitoCarga; cotMsg: string } | null>(null)
+
   // ── Descarga: formulario ──
   const [remitoDescargaId, setRemitoDescargaId] = useState('')
   const [sanas,  setSanas]  = useState<Record<string, number>>({})
@@ -71,9 +111,16 @@ export default function MuelleDashboard() {
   // segundo update lo rechazan las reglas y se veía como error).
   const [procesando,  setProcesando]  = useState<string | null>(null)
   const [error,       setError]       = useState('')
-  const [okMsg,       setOkMsg]       = useState('')
+  /**
+   * Descarga recién registrada: la pantalla de cierre con el código gigante
+   * (2026-09-18). Reemplaza al cartelito de "descarga registrada": el chofer que
+   * vuelve de noche escribe este código en el sobre de la plata, y es lo único
+   * que después le permite a caja saber de qué viaje es cada sobre del buzón.
+   */
+  const [cerrada, setCerrada] = useState<
+    { id: string; choferNombre: string; codigo: string; corregida: boolean } | null
+  >(null)
 
-  const porEntregar = remitos.filter((r) => r.estado === 'emitido')
   // Cola de turnos de ventanilla, en orden. Los ausentes van aparte (no
   // bloquean la cola; se re-llaman cuando aparecen).
   const colaVentanilla = ventanillas
@@ -149,15 +196,59 @@ export default function MuelleDashboard() {
 
   const num = (v: string) => Math.max(0, Math.min(99999, parseInt(v.replace(/\D/g, ''), 10) || 0))
 
-  const entregar = async (r: RemitoCarga) => {
+  /**
+   * Muelle entrega el camión y ahí NACE el remito (2026-09-18).
+   *
+   * Es un solo toque a propósito: emitir el remito, consumir el remito R del
+   * talonario y presentar el COT con la hora de ahora son el mismo acto que
+   * dejar salir el camión. Antes el remito lo emitía caja la tarde anterior y el
+   * COT viajaba con una hora que no era la del traslado, que es justo lo que
+   * ARBA mira.
+   */
+  const entregarCamion = async (b: BorradorCarga, items: RemitoCargaItem[]) => {
     if (!user || procesando) return
     setError('')
-    setProcesando(r.id)
+    setProcesando(b.id)
     try {
-      await confirmarEntregaRemito(r, { uid: user.uid, nombre: user.nombre, plantaId })
+      // Los kilos se recalculan sobre lo que REALMENTE subió: si muelle corrigió
+      // hacia arriba y cruzó el umbral, el COT tiene que salir igual (por eso el
+      // borrador trae siempre el destino, aunque el plan no lo requiriera).
+      const { kg } = kgDeItems(items, cotCfg.productos)
+      const pideCot = requiereCot(kg, b.cotDestino.respaldo.importe ?? 0, cotCfg) && cotCfg.habilitado
+      const remitoR = talonarioRemitoCarga(cotCfg)
+      const remito = await emitirRemitoDesdeBorrador(
+        b,
+        {
+          correcciones: items.map((i) => ({ productoId: i.productoId, cantidad: i.cantidad })),
+          kg,
+          pideCot,
+          ...(remitoR ? { remitoR } : {}),
+        },
+        { uid: user.uid, nombre: user.nombre, plantaId },
+      )
+      setEmitido({ remito, cotMsg: '' })
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      if (remito.cotSolicitud) {
+        // Mismo criterio que caja (2026-09-16): no se da por bueno el papel
+        // hasta que ARBA contesta, porque el COT se imprime en el remito.
+        setEmitido({ remito, cotMsg: 'Presentando el COT a ARBA… esperá el número antes de soltar el camión.' })
+        const conCot = (await esperarCotRemito(remito.id)) ?? remito
+        setEmitido({
+          remito: conCot,
+          cotMsg: conCot.cot?.estado === 'presentado'
+            ? `COT ${conCot.cot.numero} obtenido.`
+            : `ARBA todavía no devolvió el COT${conCot.cot?.error ? ` (${conCot.cot.error})` : ''}. Avisale a caja: el número aparece en el remito cuando llegue.`,
+        })
+      }
     } catch (err) {
-      reportError(err, { origen: 'MuelleDashboard', accion: 'error al confirmar entrega' })
-      setError('No se pudo confirmar la entrega. Intentá de nuevo.')
+      reportError(err, { origen: 'MuelleDashboard', accion: 'error al entregar el camión' })
+      setError(
+        err instanceof BorradorNoDisponibleError
+          ? `${err.message} Fijate el número del remito con el compañero — no lo entregues de nuevo.`
+          : err instanceof TalonarioRemitoCargaNoInicializadoError
+            ? err.message
+            : 'No se pudo entregar el camión. Revisá la conexión y tocá de nuevo; si sigue igual, avisale a caja antes de dejarlo salir.',
+      )
     } finally {
       setProcesando(null)
     }
@@ -182,7 +273,14 @@ export default function MuelleDashboard() {
     setGuardando(true)
     setError('')
     try {
-      await crearDescargaCamion(
+      // Cuadre de envases contra el remito del viaje (2026-09-18): hasta ahora
+      // se calculaba acá abajo, se mostraba y se tiraba. Guardado, es el control
+      // de salidos vs devueltos por chofer y por viaje. Sin remito no hay contra
+      // qué cuadrar y no se manda.
+      const envasesCuadre = remitoDescarga
+        ? cuadrarEnvases([remitoDescarga], [{ envases }])
+        : undefined
+      const creada = await crearDescargaCamion(
         {
           ...descargaSeleccionada,
           // Día del VIAJE (2026-09-17): el del remito elegido ("salió ayer" cuenta para ayer).
@@ -190,12 +288,16 @@ export default function MuelleDashboard() {
           items:        toItems(sanas),
           bolsasRotas:  toItems(rotas),
           envases,
+          ...(envasesCuadre ? { envasesCuadre } : {}),
           ...(corrigiendo
             ? { rectificaA: corrigiendo.id, motivoRectificacion: motivoCorreccion.trim() }
             : {}),
         },
         { uid: user.uid, nombre: user.nombre, plantaId },
       )
+      // Pantalla de cierre: el código va a un sobre escrito a mano, así que se
+      // muestra grande. El número lo pone el SERVIDOR, así que arranca vacío.
+      setCerrada({ id: creada.id, choferNombre: descargaSeleccionada.choferNombre, codigo: creada.codigo ?? '', corregida: !!corrigiendo })
       setConfirmando(false)
       setCorrigiendo(null)
       setMotivoCorreccion('')
@@ -204,9 +306,6 @@ export default function MuelleDashboard() {
       setRotas({})
       setExtras([])
       setEnvases(ENVASES_VACIOS)
-      setOkMsg(corrigiendo
-        ? `Conteo de ${descargaSeleccionada.choferNombre} corregido. Avisamos a la oficina para que ajuste el stock en Tango.`
-        : `Descarga de ${descargaSeleccionada.choferNombre} registrada.`)
     } catch (err) {
       reportError(err, { origen: 'MuelleDashboard', accion: 'error al registrar descarga' })
       setError('No se pudo registrar la descarga. Revisá la conexión e intentá de nuevo.')
@@ -214,6 +313,18 @@ export default function MuelleDashboard() {
       setGuardando(false)
     }
   }
+
+  // El número de la descarga lo asigna el servidor cuando el doc le llega, así
+  // que la pantalla de cierre se queda escuchando ese doc hasta que aparezca.
+  // Si no hay señal nunca llega, y eso se dice con todas las letras: jamás se
+  // muestra un número provisorio (con ese número se rotula el sobre).
+  const cerradaId = cerrada?.id
+  useEffect(() => {
+    if (!cerradaId) return
+    return subscribeDescarga(cerradaId, (d) => {
+      if (d?.codigo) setCerrada((prev) => (prev && prev.id === d.id ? { ...prev, codigo: d.codigo! } : prev))
+    })
+  }, [cerradaId])
 
   // 44 px de alto: la tablet del muelle se usa de parado y con guantes, y es el
   // mínimo que se acierta sin mirar. Los números en 16 px y con tabular-nums.
@@ -248,11 +359,32 @@ export default function MuelleDashboard() {
             <p className="text-red-500 text-sm">{error}</p>
           </div>
         )}
-        {okMsg && (
-          <div className="bg-accent/10 border border-accent/30 rounded-lg px-3 py-2 flex items-center gap-2">
-            <CheckCircle2 size={16} className="text-accent shrink-0" />
-            <p className="text-sm text-gray-700">{okMsg}</p>
-          </div>
+        {/* ── El remito que acaba de nacer ── */}
+        {emitido && (
+          <NumeroGrande
+            titulo="Camión entregado · remito de carga"
+            codigo={emitido.remito.codigo}
+            instruccion={`Decile el número a ${emitido.remito.choferNombre} antes de que salga.`}
+            detalle={
+              <>
+                <p>{emitido.remito.camionLabel}</p>
+                {emitido.remito.remitoR && (
+                  <p className="tabular-nums">
+                    Remito R {String(emitido.remito.remitoR.puntoVenta).padStart(4, '0')}-{String(emitido.remito.remitoR.numero).padStart(8, '0')}
+                  </p>
+                )}
+                {emitido.cotMsg && (
+                  <p className={emitido.remito.cot?.estado === 'presentado' ? 'text-accent' : 'text-[#8A5203]'}>
+                    {emitido.cotMsg}
+                  </p>
+                )}
+              </>
+            }
+          >
+            <Button variant="outline" onClick={() => setEmitido(null)} className="w-full h-11">
+              <CheckCircle2 size={16} /> Listo, ya se lo dije
+            </Button>
+          </NumeroGrande>
         )}
 
         {/* ── Cargas para entregar ── */}
@@ -261,64 +393,28 @@ export default function MuelleDashboard() {
             <Truck size={18} className="text-accent" /> Cargas para entregar
           </h2>
           {porEntregar.length === 0 && (
-            <p className="text-secundario text-sm">No hay remitos pendientes de entrega.</p>
-          )}
-          {porEntregar.map((r) => (
-            <div key={r.id} className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-3 space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-gray-900 tabular-nums truncate" title={r.codigo}>{r.codigo}</p>
-                <div className="flex items-center gap-2 shrink-0">
-                  {r.darsena
-                    ? <Badge tono="enCamino">Dársena {r.darsena}</Badge>
-                    : <Badge tono="neutro">En espera</Badge>}
-                </div>
-              </div>
-              <p className="text-xs text-secundario truncate" title={`${r.camionLabel} · ${r.choferNombre}`}>{r.camionLabel} · {r.choferNombre}</p>
-              <div className="text-sm text-gray-900 space-y-0.5">
-                {r.items.map((i) => (
-                  <div key={i.productoId} className="flex justify-between gap-3">
-                    <span className="truncate" title={i.nombre}>{i.nombre}{i.pallets ? ` · ${i.pallets} pallet${i.pallets > 1 ? 's' : ''}` : ''}</span>
-                    <span className="font-semibold tabular-nums shrink-0">{i.cantidad}</span>
-                  </div>
-                ))}
-                {r.palletsCarga > 0 && (
-                  <div className="flex justify-between gap-3 text-secundario">
-                    <span>Pallets de carga</span><span className="font-semibold tabular-nums shrink-0">{r.palletsCarga}</span>
-                  </div>
-                )}
-                {describirEnvases(envasesDeRemito(r)) && (
-                  <div className="text-xs text-secundario">Envases: {describirEnvases(envasesDeRemito(r))}</div>
-                )}
-              </div>
-              {/* Dársena: alimenta el tablero de TV — sin asignar queda "en
-                  espera". Los camiones usan SOLO sus dársenas (las de
-                  ventanilla quedan para los turnos de clientes). */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-secundario shrink-0">Dársena</span>
-                <div className="flex gap-1.5 flex-wrap">
-                  {Array.from({ length: DARSENAS_POR_PLANTA[plantaId] }, (_, i) => i + 1)
-                    .filter((n) => !DARSENAS_VENTANILLA[plantaId].includes(n))
-                    .map((n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      onClick={() => asignarDarsena(r, n).catch((err) => {
-                        reportError(err, { origen: 'MuelleDashboard', accion: 'error al asignar dársena' })
-                        setError('No se pudo asignar la dársena. Intentá de nuevo.')
-                      })}
-                      className={`w-11 h-11 rounded-lg border text-base font-bold tabular-nums transition-colors ${
-                        r.darsena === n
-                          ? 'bg-accent text-white border-accent'
-                          : 'bg-white text-gray-600 border-[#D3D1C7] hover:bg-gray-50'
-                      }`}
-                    >
-                      {n}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <Button onClick={() => entregar(r)} loading={procesando === r.id} disabled={!!procesando} className="w-full">Mercadería entregada</Button>
+            /* Muelle NO arma cargas desde cero: sin borrador de caja no hay
+               remito. Es una decisión tomada, no una pantalla a medio hacer, y
+               por eso se explica acá en vez de dejar un vacío mudo. */
+            <div className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-4 space-y-1">
+              <p className="text-base font-semibold text-gray-900">No hay ningún camión para entregar.</p>
+              <p className="text-base text-secundario">
+                Las cargas las arma caja. Desde el muelle no se puede armar una: si el camión está esperando y
+                no aparece acá, esperá a que caja abra (6 de la mañana) o llamala.
+              </p>
             </div>
+          )}
+          {porEntregar.map((b) => (
+            <EntregarCamionCard
+              key={b.id}
+              borrador={b}
+              entregando={procesando === b.id}
+              bloqueado={!!procesando && procesando !== b.id}
+              darsena={b.darsena}
+              onDarsena={(n) => marcarDarsena(b.id, n)}
+              darsenas={darsenasDeCamion}
+              onEntregar={(items) => entregarCamion(b, items)}
+            />
           ))}
         </section>
 
@@ -412,6 +508,37 @@ export default function MuelleDashboard() {
         )}
 
         {/* ── Registrar descarga ── */}
+        {/* Pantalla de cierre del conteo: mientras está, el formulario no se ve.
+            Una sola cosa a la vez, y el código del sobre es lo único que importa
+            en ese momento. */}
+        {cerrada ? (
+          <NumeroGrande
+            titulo={cerrada.corregida ? 'Conteo corregido · número de la descarga' : 'Descarga registrada · número'}
+            codigo={cerrada.codigo}
+            esperando="Guardado. Esperando el número…"
+            instruccion="Escribí este código en el sobre de la plata, arriba de todo."
+            detalle={
+              <>
+                <p>{cerrada.choferNombre}</p>
+                {!cerrada.codigo && (
+                  <p className="text-[#8A5203]">
+                    Sin señal el número se asigna cuando la tablet vuelva a conectarse. No inventes uno:
+                    avisale al chofer que después le pasás el número para el sobre.
+                  </p>
+                )}
+                {cerrada.corregida && (
+                  <p className="text-[#8A5203]">
+                    Le avisamos a la oficina para que ajuste el stock en Tango.
+                  </p>
+                )}
+              </>
+            }
+          >
+            <Button onClick={() => setCerrada(null)} className="w-full h-14 text-base">
+              Contar otro camión
+            </Button>
+          </NumeroGrande>
+        ) : (
         <section className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-4 space-y-4">
           <h2 className="font-semibold text-gray-800 flex items-center gap-2">
             <PackageCheck size={18} className="text-accent" /> Registrar descarga
@@ -460,7 +587,6 @@ export default function MuelleDashboard() {
               disabled={!!corrigiendo}
               onChange={(e) => {
                 setRemitoDescargaId(e.target.value)
-                setOkMsg('')
                 setSanas({}); setRotas({}); setExtras([]); setEnvases(ENVASES_VACIOS)
               }}
               className={selectClass}
@@ -604,6 +730,7 @@ export default function MuelleDashboard() {
             </>
           )}
         </section>
+        )}
 
         {/* ── Descargas de hoy ── */}
         <section className="space-y-2">
@@ -650,7 +777,7 @@ export default function MuelleDashboard() {
                       setRotas(c.rotas)
                       setExtras(Object.keys(c.sanas))
                       setEnvases(envasesDeDescarga(d))
-                      setOkMsg('')
+                      setCerrada(null)
                       window.scrollTo({ top: 0, behavior: 'smooth' })
                     }}
                     className="mt-2 h-11 px-3 rounded-lg border border-[#D3D1C7] bg-white text-sm font-medium text-gray-700 hover:border-accent hover:text-accent"

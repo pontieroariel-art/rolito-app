@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { CheckCircle2, ChevronDown, ChevronRight, Eye, Share2 } from 'lucide-react'
+import { CheckCircle2, ChevronDown, ChevronRight, Clock, Eye, Share2 } from 'lucide-react'
 import { useVisorComprobante } from '@/components/ui/VisorComprobante'
 import { useMisLiquidaciones } from '@/hooks/useMisLiquidaciones'
+import { useMiViajeHoy } from '@/hooks/useMiViajeHoy'
 import { generateLiquidacion, nombreArchivoLiquidacion } from '@/utils/pdf'
 import { compartirArchivo, puedeCompartirArchivos } from '@/utils/compartir'
 import { formatoARS } from '@/utils/money'
@@ -15,6 +16,13 @@ import { MOTIVOS_DIFERENCIA_LIQUIDACION, type Liquidacion } from '@/types'
 // y le deja ver/enviar el PDF (se arma solo con el doc cerrado).
 export default function MiRendicionCard({ uid, hoy }: { uid: string; hoy: string }) {
   const { hoyLiq, anteriores } = useMisLiquidaciones(uid, hoy)
+  // Las dos mitades del viaje de hoy (2026-09-18). Solo lectura: el chofer no
+  // completa nada. Lo único que gana es saber en qué está su viaje sin tener que
+  // preguntarle a nadie.
+  const { viaje, plata, mercaderia, estado } = useMiViajeHoy(uid)
+  // Con viaje manda la plata del viaje; sin viaje (supervisor, cobrador) sigue
+  // valiendo la del día.
+  const liqDeHoy = viaje ? plata : hoyLiq
   const [abrirAnteriores, setAbrirAnteriores] = useState(false)
   const [aviso, setAviso] = useState('')
   const [ocupado, setOcupado] = useState(false)
@@ -43,13 +51,25 @@ export default function MiRendicionCard({ uid, hoy }: { uid: string; hoy: string
     <section className="bg-white border border-[#D3D1C7] rounded-2xl p-4 shadow-sm space-y-3">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-secundario uppercase tracking-wide">Mi rendición de hoy</h2>
-        {hoyLiq?.codigo && <span className="text-xs font-semibold text-gray-700">{hoyLiq.codigo}</span>}
+        {liqDeHoy?.codigo && <span className="text-xs font-semibold text-gray-700">{liqDeHoy.codigo}</span>}
       </div>
 
-      {!hoyLiq ? (
+      {/* Los dos estados del viaje, de un vistazo y sin scroll: es lo único que
+          el chofer mira, cinco segundos, parado al lado del camión. */}
+      {viaje && (
+        <div className="grid grid-cols-2 gap-2">
+          <EstadoViaje titulo="Mercadería" hecha={estado.mercaderia.hecha}
+            texto={estado.mercaderia.hecha ? `Contada por ${estado.mercaderia.por?.nombre ?? 'muelle'}` : 'Falta que muelle la cuente'}
+            extra={mercaderia?.descargaCodigos[0]} />
+          <EstadoViaje titulo="Plata" hecha={estado.plata.hecha}
+            texto={estado.plata.hecha ? `Recibió ${liqDeHoy?.firmanteRecibe ?? estado.plata.por?.nombre ?? 'caja'}` : 'Falta liquidarla en caja'} />
+        </div>
+      )}
+
+      {!liqDeHoy ? (
         <p className="text-sm text-secundario">Todavía no rendiste hoy. Cuando caja cierre tu liquidación la vas a ver acá con la firma de quien te recibió.</p>
       ) : (
-        <Resumen l={hoyLiq} ocupado={ocupado} compartible={compartible} onVer={() => ver(hoyLiq)} onEnviar={() => enviar(hoyLiq)} btn={btn} />
+        <Resumen l={liqDeHoy} ocupado={ocupado} compartible={compartible} onVer={() => ver(liqDeHoy)} onEnviar={() => enviar(liqDeHoy)} btn={btn} />
       )}
       {aviso && <p className="text-xs text-amber-700">{aviso}</p>}
 
@@ -105,6 +125,23 @@ function Resumen({ l, ocupado, compartible, onVer, onEnviar, btn }: { l: Liquida
         <button type="button" onClick={onVer} disabled={ocupado} className={btn}><Eye size={12} /> Ver</button>
         <button type="button" onClick={onEnviar} disabled={ocupado} className={btn}><Share2 size={12} /> {compartible ? 'Enviar' : 'Descargar'}</button>
       </div>
+    </div>
+  )
+}
+
+/**
+ * Un estado del viaje, para el teléfono: color MÁS palabra, siempre. Esto se
+ * mira a contraluz en la calle, así que el color solo no alcanza.
+ */
+function EstadoViaje({ titulo, hecha, texto, extra }: { titulo: string; hecha: boolean; texto: string; extra?: string }) {
+  return (
+    <div className={`rounded-xl border p-2.5 ${hecha ? 'border-accent/30 bg-accent/5' : 'border-[#D3D1C7] bg-white'}`}>
+      <div className="flex items-center gap-1.5">
+        {hecha ? <CheckCircle2 size={14} className="text-accent shrink-0" /> : <Clock size={14} className="text-secundario shrink-0" />}
+        <span className="text-xs font-semibold text-gray-900">{titulo}</span>
+      </div>
+      <p className="text-xs text-secundario mt-0.5">{texto}</p>
+      {extra && <p className="text-xs font-semibold text-gray-700 tabular-nums mt-0.5">{extra}</p>}
     </div>
   )
 }

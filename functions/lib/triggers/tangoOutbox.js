@@ -1,12 +1,15 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onOutboxConfirmado = exports.onCobranzaCreada = exports.onLiquidacionCerrada = exports.onDescargaCamionCreada = exports.onRemitoCargaCreado = exports.onAnulacionEmitida = exports.onVentaVentanillaFacturada = exports.onVentaVentanillaCreada = exports.onVentaCamionFacturada = exports.onVentaCamionCreada = exports.onProduccionPalletCreado = void 0;
+exports.onOutboxConfirmado = exports.onCobranzaCreada = exports.onDescargaCamionCreada = exports.codigoDescarga = exports.onRemitoCargaRegreso = exports.onRemitoCargaCreado = exports.onAnulacionEmitida = exports.onVentaVentanillaFacturada = exports.onVentaVentanillaCreada = exports.onVentaCamionFacturada = exports.onVentaCamionCreada = exports.onProduccionPalletCreado = void 0;
+exports.numerarDescarga = numerarDescarga;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const firestore_2 = require("firebase-admin/firestore");
 const circuito_1 = require("../services/arca/circuito");
 const empresas_1 = require("../services/tango/empresas");
 const saldos_1 = require("../services/tango/saldos");
 const diferenciasReparto_1 = require("../services/diferenciasReparto");
+const cierreMercaderia_1 = require("../services/cierreMercaderia");
+const revisionDescarga_1 = require("../services/revisionDescarga");
 // Helper: crea un item en tango-outbox con ID determinístico. Idempotente —
 // un reintento del trigger tira ALREADY_EXISTS (código 6) y se ignora, así el
 // mismo origen no se manda dos veces a Tango.
@@ -290,6 +293,21 @@ exports.onRemitoCargaCreado = (0, firestore_1.onDocumentCreated)('remitosCarga/{
     const remito = event.data?.data();
     if (!remito)
         return;
+    // Índice "qué camión está en la calle" (2026-09-18). Existe para que la
+    // regla del remito no tenga que hacer consultas (no puede) y para que la
+    // pantalla pueda decir "este camión volvió y nadie contó" con UNA lectura
+    // por camión, en vez de barrer remitosCarga. Se pisa con el viaje más nuevo
+    // a propósito: un camión hace un viaje por vez.
+    if (remito.camionId) {
+        await (0, firestore_2.getFirestore)().doc(`camionesEnViaje/${remito.camionId}`).set({
+            remitoId: event.params.remitoId,
+            remitoCodigo: remito.codigo ?? '',
+            plantaId: remito.plantaId ?? '',
+            choferNombre: remito.choferNombre ?? '',
+            desde: remito.fecha ?? firestore_2.FieldValue.serverTimestamp(),
+            volvio: false,
+        }).catch((e) => console.warn('[camionesEnViaje] no se pudo indexar el viaje', e));
+    }
     await encolarOutbox(`remitosCarga_${event.params.remitoId}`, {
         entidad: 'transferenciaDeposito',
         empresa: 'redonhielo',
@@ -315,24 +333,214 @@ exports.onRemitoCargaCreado = (0, firestore_1.onDocumentCreated)('remitosCarga/{
         },
     });
 });
+/**
+ * El camión volvió (2026-09-18): lo marca seguridad en el portón o el propio
+ * chofer. Acá solo se refleja en el índice, para que la pantalla que avisa
+ * "volvió y nadie contó" lea un doc por camión en vez de barrer remitos.
+ */
+exports.onRemitoCargaRegreso = (0, firestore_1.onDocumentUpdated)('remitosCarga/{remitoId}', async (event) => {
+    const antes = event.data?.before.data();
+    const ahora = event.data?.after.data();
+    if (!ahora?.regreso || antes?.regreso)
+        return; // solo la primera vez que aparece
+    const camionId = String(ahora.camionId ?? '');
+    if (!camionId)
+        return;
+    const db = (0, firestore_2.getFirestore)();
+    const ref = db.doc(`camionesEnViaje/${camionId}`);
+    const actual = await ref.get();
+    // Si el índice ya apunta a un viaje más nuevo (el camión volvió a salir),
+    // no se toca: el que volvió es un viaje viejo y marcarlo confundiría al muelle.
+    if (!actual.exists || actual.data()?.remitoId !== event.params.remitoId)
+        return;
+    await ref.update({ volvio: true }).catch((e) => console.warn('[camionesEnViaje] no se pudo marcar el regreso', e));
+});
+// Prefijo del código por planta, igual que PLANTA_INFO en src/utils/constants.ts
+// (functions no puede importar de src/: ver functions/tsconfig.json).
+const PREFIJO_PLANTA = { torcuato: 'DT', merlo: 'ML' };
+const codigoDescarga = (plantaId, numero) => `DC-${PREFIJO_PLANTA[plantaId] ?? 'DT'}-${String(numero).padStart(6, '0')}`;
+exports.codigoDescarga = codigoDescarga;
+/**
+ * Numera la descarga (2026-09-18). Lo hace el SERVIDOR y no la tablet porque
+ * `crearDescargaCamion` es fire-and-forget: el muelle cuenta sin señal, el doc
+ * se guarda igual y el número llega cuando sincroniza. El chofer que vuelve de
+ * noche, con caja cerrada, escribe este código en el sobre de la plata: es lo
+ * único que después le permite a caja saber de qué viaje es cada sobre.
+ *
+ * Idempotente: si el doc ya tiene código, devuelve el que tiene.
+ */
+async function numerarDescarga(descargaId, plantaId) {
+    const db = (0, firestore_2.getFirestore)();
+    const ref = db.doc(`descargasCamion/${descargaId}`);
+    const counterRef = db.doc(`config/descargaCounter_${plantaId}`);
+    return db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists)
+            return null;
+        const yaTiene = snap.data()?.codigo;
+        if (typeof yaTiene === 'string' && yaTiene) {
+            return { numero: Number(snap.data()?.numero ?? 0), codigo: yaTiene };
+        }
+        const counter = await tx.get(counterRef);
+        const numero = counter.exists ? Number(counter.data()?.next ?? 1) : 1;
+        const codigo = (0, exports.codigoDescarga)(plantaId, numero);
+        // merge: el contador puede tener otros campos (se crea solo en el primer uso).
+        tx.set(counterRef, { next: numero + 1 }, { merge: true });
+        tx.update(ref, { numero, codigo });
+        return { numero, codigo };
+    });
+}
+/**
+ * Cierre de MERCADERÍA del viaje (2026-09-18): `cierresMercaderia/{remitoId}`.
+ *
+ * Lo escribe el server porque el muelle cuenta a ciegas y no puede leer ventas.
+ * Se reescribe entero en cada descarga del mismo remito (segunda vuelta,
+ * corrección): el cierre es el estado del viaje, no un acumulado de eventos.
+ *
+ * Sin `remitoId` (fletero, depósito sin remito digital) no hay viaje que
+ * cerrar: esa mercadería se sigue liquidando por día.
+ */
+async function escribirCierreMercaderia(descargaId, descarga) {
+    const remitoId = String(descarga.remitoId ?? '');
+    if (!remitoId)
+        return null;
+    const db = (0, firestore_2.getFirestore)();
+    const remitoSnap = await db.doc(`remitosCarga/${remitoId}`).get();
+    if (!remitoSnap.exists)
+        return null;
+    const remito = remitoSnap.data() ?? {};
+    const choferId = String(remito.choferId ?? '');
+    const fechaRemito = remito.fecha?.toDate?.() ?? descarga.fecha?.toDate?.() ?? new Date();
+    const dia = (0, cierreMercaderia_1.claveDiaAr)(fechaRemito);
+    const desde = firestore_2.Timestamp.fromDate(new Date(`${dia}T00:00:00-03:00`));
+    const hasta = firestore_2.Timestamp.fromDate(new Date(new Date(`${dia}T00:00:00-03:00`).getTime() + 24 * 60 * 60 * 1000));
+    const delDia = (col) => db.collection(col)
+        .where('choferId', '==', choferId)
+        .where('fecha', '>=', desde).where('fecha', '<', hasta).get();
+    const [ventasDelDia, ventasConRemito, cambios, descargas, viajesDelDia, configLiq] = await Promise.all([
+        // Las ventas sin `remitoId` (anteriores al 18/09, o del acompañante que sale
+        // sin remito propio) se ubican por camión + día, como en utils/viajeDeVenta.
+        delDia('ventasCamion'),
+        db.collection('ventasCamion').where('remitoId', '==', remitoId).get(),
+        delDia('cambiosCamion'),
+        db.collection('descargasCamion').where('remitoId', '==', remitoId).get(),
+        delDia('remitosCarga'),
+        db.doc('config/liquidacion').get(),
+    ]);
+    // Una venta puede venir por las dos consultas: se deduplica por id.
+    const ventasPorId = new Map();
+    for (const d of [...ventasDelDia.docs, ...ventasConRemito.docs])
+        ventasPorId.set(d.id, d.data());
+    const viajes = viajesDelDia.docs.map((d) => ({ id: d.id, camionId: d.data().camionId, choferId: d.data().choferId, fecha: d.data().fecha }));
+    const ventas = (0, cierreMercaderia_1.ventasDelViaje)([...ventasPorId.values()].map((v) => ({
+        remitoId: v.remitoId,
+        camionId: v.camionId,
+        choferId: v.choferId,
+        fecha: v.fecha,
+        canal: v.canal,
+        items: (v.items ?? []),
+        cambios: (v.cambios ?? []),
+        anulacion: (v.anulacion ?? null),
+    })), viajes, remitoId);
+    const cierre = (0, cierreMercaderia_1.armarCierreMercaderia)({
+        remito: {
+            id: remitoId, codigo: remito.codigo, plantaId: remito.plantaId,
+            choferId: remito.choferId, choferNombre: remito.choferNombre,
+            depositoTango: remito.depositoTango ?? null, depositoTangoNombre: remito.depositoTangoNombre ?? null,
+            items: (remito.items ?? []), palletsCarga: remito.palletsCarga, envases: remito.envases ?? null,
+        },
+        ventas,
+        cambios: cambios.docs.map((d) => d.data()),
+        descargas: descargas.docs.map((d) => ({ id: d.id, ...d.data() })),
+        umbral: (0, revisionDescarga_1.normalizarUmbralFaltantes)(configLiq.data()?.faltantes),
+        // El cierre pertenece al día del VIAJE, no al del conteo (2026-09-17).
+        diaReparto: typeof descarga.diaReparto === 'string' ? descarga.diaReparto : dia,
+        contadaPor: descarga.registradoPor ?? { uid: '', nombre: '' },
+        contadaEn: descarga.fecha ?? firestore_2.Timestamp.now(),
+    });
+    // `set` sin merge: el cierre se reemplaza entero, así un producto que
+    // desaparece de la corrección no queda colgado del cierre anterior.
+    await db.doc(`cierresMercaderia/${remitoId}`).set({
+        ...cierre,
+        ...(descarga.rectificaA ? { rectificadoEn: firestore_2.Timestamp.now() } : {}),
+    });
+    return cierre;
+}
 exports.onDescargaCamionCreada = (0, firestore_1.onDocumentCreated)('descargasCamion/{descargaId}', async (event) => {
     const descarga = event.data?.data();
     if (!descarga)
         return;
+    const db = (0, firestore_2.getFirestore)();
     // Día del VIAJE (2026-09-17): si la tablet vieja no lo escribió, se
     // completa acá con el día del remito (o del conteo) para que la liquidación
     // y los tableros, que agrupan por diaReparto, no pierdan la descarga.
     if (typeof descarga.diaReparto !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(descarga.diaReparto)) {
-        const db = (0, firestore_2.getFirestore)();
         let base = descarga.fecha?.toDate?.() ?? new Date();
         if (descarga.remitoId) {
             const rem = (await db.doc(`remitosCarga/${descarga.remitoId}`).get().catch(() => null))?.data();
             if (rem?.fecha?.toDate)
                 base = rem.fecha.toDate();
         }
-        const ar = new Date(base.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
-        const diaReparto = `${ar.getFullYear()}-${String(ar.getMonth() + 1).padStart(2, '0')}-${String(ar.getDate()).padStart(2, '0')}`;
+        const diaReparto = (0, cierreMercaderia_1.claveDiaAr)(base);
+        descarga.diaReparto = diaReparto;
         await db.doc(`descargasCamion/${event.params.descargaId}`).update({ diaReparto }).catch((e) => console.warn('[descarga] no se pudo completar diaReparto', e));
+    }
+    // Número y código de la descarga (DC-DT-000012): antes que nada, porque es
+    // lo que el chofer copia en el sobre de la plata.
+    if (!descarga.codigo) {
+        const numerada = await numerarDescarga(event.params.descargaId, String(descarga.plantaId ?? 'torcuato'))
+            .catch((e) => { console.error('[descarga] no se pudo numerar', event.params.descargaId, e); return null; });
+        if (numerada) {
+            descarga.numero = numerada.numero;
+            descarga.codigo = numerada.codigo;
+        }
+    }
+    // El camión ya no está en la calle: el viaje se contó. Solo si el índice
+    // apunta a ESTE remito — si apunta a uno más nuevo, el camión volvió a salir
+    // y borrarlo escondería el viaje en curso.
+    if (descarga.remitoId) {
+        const ref = db.doc(`camionesEnViaje/${String(descarga.camionId ?? '')}`);
+        const enViaje = descarga.camionId ? await ref.get().catch(() => null) : null;
+        if (enViaje?.exists && enViaje.data()?.remitoId === descarga.remitoId) {
+            await ref.delete().catch((e) => console.warn('[camionesEnViaje] no se pudo cerrar el viaje', e));
+        }
+    }
+    // Cierre de MERCADERÍA del viaje + la diferencia que va a Tango. Aparte del
+    // resto en un try: si el cálculo falla, la transferencia de stock se encola
+    // igual (mismo criterio que descargaRevision).
+    try {
+        const cierre = await escribirCierreMercaderia(event.params.descargaId, descarga);
+        // Fase B del stock (2026-09-17): lo que el chofer no puede justificar sale
+        // del camión al depósito 98. Se encola al cerrar la MERCADERÍA, que es
+        // cuando hay conteo, y no al cerrar la plata (2026-09-18: las dos mitades
+        // se cierran por separado y la plata puede cerrarse sin descarga).
+        // El id es por REMITO, así una segunda descarga o una corrección del mismo
+        // viaje no vuelve a encolar (create tira ALREADY_EXISTS y se ignora).
+        if (cierre && !descarga.teorica) {
+            const items = (0, diferenciasReparto_1.faltantesParaTango)(cierre.productos);
+            if (items.length > 0) {
+                await encolarOutbox(`cierresMercaderia_${cierre.remitoId}_diferencia`, {
+                    entidad: 'transferenciaDeposito',
+                    empresa: 'redonhielo',
+                    origenColeccion: 'cierresMercaderia',
+                    origenId: cierre.remitoId,
+                    payload: {
+                        sentido: 'diferencia', // camión → 98 (config/tango.sql.stock.tipos.diferencia.depositoDestino)
+                        codigo: cierre.remitoCodigo,
+                        plantaId: cierre.plantaId,
+                        depositoTango: cierre.depositoTango ?? null,
+                        choferId: cierre.choferId,
+                        choferNombre: cierre.choferNombre,
+                        items,
+                        fecha: descarga.fecha,
+                        cerradaPor: cierre.contadaPor,
+                    },
+                });
+            }
+        }
+    }
+    catch (e) {
+        console.error('[cierreMercaderia] no se pudo cerrar la mercadería del viaje', event.params.descargaId, e);
     }
     // Rectificación de un conteo (2026-09-13): NO va a Tango. La descarga
     // original ya encoló la transferencia camión → planta y la cola no tiene
@@ -395,50 +603,6 @@ exports.onDescargaCamionCreada = (0, firestore_1.onDocumentCreated)('descargasCa
             },
         });
     }
-});
-// Liquidación cerrada → faltante por producto camión → 98 DIFERENCIAS DE REPARTO
-// (fase B, 2026-09-17). faltante = carga − ventas − rotas − descarga sana; un
-// sobrante no genera nada. No se manda si el cierre es de arranque (descarga
-// teórica) ni si no hubo conteo del muelle (la diferencia sería toda la
-// devolución teórica: la mercadería sigue arriba del camión, no falta).
-exports.onLiquidacionCerrada = (0, firestore_1.onDocumentCreated)('liquidaciones/{liquidacionId}', async (event) => {
-    const liq = event.data?.data();
-    if (!liq)
-        return;
-    if (liq.cierreArranque)
-        return;
-    const descargasIds = Array.isArray(liq.descargasIds) ? liq.descargasIds.filter(Boolean) : [];
-    if (descargasIds.length === 0)
-        return;
-    const productos = Array.isArray(liq.productos) ? liq.productos : [];
-    // Cierres del front viejo sin `rotas` por producto: se suman de las descargas del cierre.
-    let rotas = {};
-    if (productos.some((p) => typeof p?.rotas !== 'number')) {
-        const db = (0, firestore_2.getFirestore)();
-        const docs = await Promise.all(descargasIds.slice(0, 20).map((id) => db.doc(`descargasCamion/${id}`).get()));
-        rotas = (0, diferenciasReparto_1.rotasPorProductoDe)(docs.map((d) => (d.data() ?? {})));
-    }
-    const items = (0, diferenciasReparto_1.faltantesParaTango)(productos, rotas);
-    if (items.length === 0)
-        return;
-    await encolarOutbox(`liquidaciones_${event.params.liquidacionId}_diferencia`, {
-        entidad: 'transferenciaDeposito',
-        empresa: 'redonhielo',
-        origenColeccion: 'liquidaciones',
-        origenId: event.params.liquidacionId,
-        payload: {
-            sentido: 'diferencia', // camión → 98 (config/tango.sql.stock.tipos.diferencia.depositoDestino)
-            codigo: liq.codigo ?? null,
-            plantaId: liq.plantaId,
-            depositoTango: liq.depositoTango ?? null,
-            choferId: liq.choferId,
-            choferNombre: liq.choferNombre,
-            items,
-            // Fecha del día liquidado a mediodía (la liquidación guarda 'yyyy-MM-dd').
-            fecha: typeof liq.fecha === 'string' ? `${liq.fecha}T12:00:00` : liq.createdAt,
-            cerradaPor: liq.cerradaPor ?? null,
-        },
-    });
 });
 // Alta de una cobranza de supervisor → un item 'recibo' en tango-outbox (el
 // bridge genera el recibo de cobranza en Tango cuando la licencia habilite

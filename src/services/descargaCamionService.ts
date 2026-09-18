@@ -3,7 +3,9 @@ import {
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { onSnapshotError, esperarOEncolar } from './observability'
-import { DescargaCamion, DescargaCamionItem, EnvasesCarga, EnvasesDescarga, PlantaId, RemitoCarga } from '../types'
+import {
+  DescargaCamion, DescargaCamionItem, EnvasesCarga, EnvasesDescarga, LiquidacionEnvases, PlantaId, RemitoCarga,
+} from '../types'
 import { claveDia } from '@/utils/diaReparto'
 
 const DESCARGAS = 'descargasCamion'
@@ -38,11 +40,22 @@ export async function crearDescargaCamion(
     // Envases que volvieron, contados sueltos (desde 2026-09-07 reemplaza a
     // pallets completos / parciales / vacíos).
     envases:          EnvasesDescarga
+    /**
+     * Cuadre de envases contra el remito del viaje (2026-09-18). Hasta ahora la
+     * tablet lo calculaba, se lo mostraba al muellero y lo tiraba: salidos
+     * contra devueltos, por chofer y por viaje, es donde suele haber más plata
+     * perdida que en los faltantes de producto. Sin remito no hay contra qué
+     * cuadrar, así que es opcional.
+     */
+    envasesCuadre?:   LiquidacionEnvases
   },
   actor: ActorMuelle,
 ): Promise<DescargaCamion> {
   const ref = doc(collection(db, DESCARGAS))
-  const { depositoTango, depositoTangoNombre, remitoId, remitoCodigo, rectificaA, motivoRectificacion, diaReparto, ...resto } = args
+  const {
+    depositoTango, depositoTangoNombre, remitoId, remitoCodigo,
+    rectificaA, motivoRectificacion, diaReparto, envasesCuadre, ...resto
+  } = args
   const ahora = Timestamp.now()
   const descarga: Omit<DescargaCamion, 'id'> = {
     plantaId:      actor.plantaId,
@@ -50,6 +63,7 @@ export async function crearDescargaCamion(
     ...(depositoTango ? { depositoTango, depositoTangoNombre: depositoTangoNombre ?? '' } : {}),
     ...(remitoId ? { remitoId, remitoCodigo: remitoCodigo ?? '' } : {}),
     ...(rectificaA ? { rectificaA, motivoRectificacion: motivoRectificacion ?? '' } : {}),
+    ...(envasesCuadre ? { envasesCuadre } : {}),
     diaReparto:    diaReparto ?? claveDia(ahora),
     registradoPor: { uid: actor.uid, nombre: actor.nombre },
     fecha:         ahora,
@@ -146,4 +160,21 @@ export const subscribeDescargasChoferEnRango = (
     ),
     (snap) => callback(porFecha(snap.docs.map((d) => ({ id: d.id, ...d.data() } as DescargaCamion)))),
     onSnapshotError(callback, 'descargasCamion'),
+  )
+
+/**
+ * Una descarga en vivo, por id (2026-09-18). La pantalla de cierre del muelle la
+ * usa para mostrar el código `DC-DT-000012` en cuanto el servidor lo asigna: la
+ * tablet guarda el conteo aunque no haya señal y no puede numerarlo ella, así
+ * que el número aparece cuando el doc sincroniza y NUNCA se inventa uno
+ * provisorio (con ese número el chofer rotula el sobre de la plata).
+ */
+export const subscribeDescarga = (
+  id: string,
+  callback: (descarga: DescargaCamion | null) => void,
+): () => void =>
+  onSnapshot(
+    doc(db, DESCARGAS, id),
+    (snap) => callback(snap.exists() ? ({ id: snap.id, ...snap.data() } as DescargaCamion) : null),
+    onSnapshotError(() => callback(null), 'descargasCamion'),
   )

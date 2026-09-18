@@ -107,6 +107,7 @@ const VentanillaPage    = lazy(() => import('@/pages/logistica/expedicion/Ventan
 const CobranzasPage     = lazy(() => import('@/pages/logistica/expedicion/CobranzasPage'))
 const RendicionesPage   = lazy(() => import('@/pages/logistica/expedicion/RendicionesPage'))
 const EntregasPage      = lazy(() => import('@/pages/logistica/expedicion/EntregasPage'))
+const BuzonPage         = lazy(() => import('@/pages/logistica/expedicion/BuzonPage'))
 const EntregasTesoreriaPage = lazy(() => import('@/pages/logistica/tesoreria/EntregasTesoreriaPage'))
 const AnulacionesPage   = lazy(() => import('./pages/admin/AnulacionesPage'))
 const RendicionesHistorialPage = lazy(() => import('@/pages/logistica/expedicion/RendicionesHistorialPage'))
@@ -306,6 +307,8 @@ function AppContent() {
             <Route path="/caja/liquidaciones"  element={<LiquidacionesPage base="/caja" />} />
             {/* Cierre de caja por persona y día (2026-09-09). */}
             <Route path="/caja/rendiciones"    element={<RendicionesPage />} />
+            {/* Buzón: los sobres que dejan los choferes cuando vuelven con caja cerrada (2026-09-18). */}
+            <Route path="/caja/buzon"          element={<BuzonPage />} />
             {/* Entrega de caja a tesorería con acta y doble firma (2026-09-09). */}
             <Route path="/caja/entregas"       element={<EntregasPage />} />
           </Route>

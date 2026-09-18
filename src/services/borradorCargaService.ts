@@ -89,6 +89,17 @@ export const editarBorradorCarga = (
 ): Promise<unknown> =>
   esperarOEncolar(updateDoc(doc(db, BORRADORES, id), cambios), { origen: 'editarBorradorCarga', id })
 
+/**
+ * Muelle marca en qué dársena está cargando el camión. Va sobre el borrador y no
+ * sobre el remito porque cuando el camión entra a la boca el remito todavía no
+ * existe: nace recién cuando muelle lo entrega.
+ */
+export const asignarDarsenaBorrador = (id: string, darsena: number): Promise<unknown> =>
+  esperarOEncolar(
+    updateDoc(doc(db, BORRADORES, id), { darsena, darsenaAsignadaEn: Timestamp.now() }),
+    { origen: 'asignarDarsenaBorrador', id, darsena },
+  )
+
 /** Caja da de baja un borrador que no va a usarse (el camión no sale, se rehace la carga). */
 export const borrarBorradorCarga = (id: string): Promise<unknown> =>
   esperarOEncolar(deleteDoc(doc(db, BORRADORES, id)), { origen: 'borrarBorradorCarga', id })

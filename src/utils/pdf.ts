@@ -1,4 +1,4 @@
-import { EnvasesCarga, Liquidacion, Order, OrderProduct } from '../types'
+import { CierreMercaderia, EnvasesCarga, Liquidacion, LiquidacionResumenProducto, Order, OrderProduct } from '../types'
 import { toDateStr } from './helpers'
 import { describirEnvases, describirRacks, envasesDeRemito, type EnvasesNormalizados } from './envases'
 import { ROLITO_INFO, COMODATO_COMODANTE, PLANTA_INFO } from './constants'
@@ -915,7 +915,26 @@ export interface DetalleLiquidacionPdf {
   descargas: Array<{ fecha: Date; registradoPor: string; items: Array<{ nombre: string; cantidad: number }>; rotas: number; envases: EnvasesNormalizados }>
 }
 
-export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiquidacionPdf, opts: { descargar?: boolean } = {}): Promise<Blob> {
+/**
+ * La hoja lleva las DOS partes del viaje (2026-09-18), cada una con su estado y
+ * quién la hizo. La mercadería puede venir de dos lados: del cierre que escribió
+ * el servidor al contarse la descarga (lo normal desde el 18/09) o de adentro del
+ * propio doc de liquidación, como en los cierres anteriores, cuando las dos
+ * mitades se firmaban juntas.
+ */
+export async function generateLiquidacion(
+  liq: Liquidacion,
+  detalle?: DetalleLiquidacionPdf,
+  opts: { descargar?: boolean; mercaderia?: CierreMercaderia | null } = {},
+): Promise<Blob> {
+  // Lo que se imprime de mercadería: el cierre del viaje si existe, si no el
+  // snapshot viejo. Un viaje sin ninguno de los dos es uno en el que caja rindió
+  // la plata y el camión todavía no volvió: la hoja lo dice en vez de mentir con
+  // una tabla vacía.
+  const productos = opts.mercaderia?.productos ?? liq.productos ?? []
+  const envasesLiq = opts.mercaderia?.envases ?? liq.envases
+  const cambiosLiq = liq.cambios ?? { registrados: 0, rotasRecibidas: 0 }
+  const mercaderiaContada = !!opts.mercaderia || !!liq.productos?.length
   const { default: jsPDF }     = await import('jspdf')
   const { default: autoTable } = await import('jspdf-autotable')
   const { describirComprobante, estadoTangoVenta } = await import('./comprobanteDeVenta')
@@ -933,7 +952,7 @@ export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiq
   autoTable(doc, {
     startY: 32,
     head: [['Producto', 'Carga', 'Venta Cdo.', 'Promoción', 'Cambios', 'Dev. teórica', 'Descarga', 'Diferencia']],
-    body: liq.productos.map((p) => [
+    body: productos.map((p: LiquidacionResumenProducto) => [
       p.nombre, String(p.carga), String(p.ventaContado), String(p.ventaPromo),
       String(p.cambios), String(p.devolucionTeorica), String(p.descarga),
       p.diferencia === 0 ? '0' : (p.diferencia > 0 ? `+${p.diferencia}` : String(p.diferencia)),
@@ -949,9 +968,9 @@ export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiq
   let y = finTabla(doc, 60) + 6
 
   const signo = (n: number) => (n === 0 ? '0' : n > 0 ? `+${n}` : String(n))
-  if (liq.envases) {
+  if (envasesLiq) {
     // Cuadre de envases por tipo (desde 2026-09-07) + cambios vs rotas.
-    const e = liq.envases
+    const e = envasesLiq
     autoTable(doc, {
       startY: y,
       head: [['Envases', 'Salieron', 'Volvieron', 'Dif.']],
@@ -963,8 +982,8 @@ export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiq
         ['Sombreros', String(e.salieron.sombreros), String(e.volvieron.sombreros), signo(e.diferencia.sombreros)],
         ['Racks de agua', String(e.salieron.racks.length), String(e.volvieron.racks.length), signo(e.volvieron.racks.length - e.salieron.racks.length)],
         [{ content: e.racksFaltantes.length ? `Racks que no volvieron: ${describirRacks(e.racksFaltantes)}` : (e.salieron.racks.length ? `Todos los racks volvieron (${describirRacks(e.salieron.racks)})` : 'Sin racks'), colSpan: 4, styles: { fontStyle: e.racksFaltantes.length ? 'bold' : 'normal' } }],
-        ['Cambios registrados por el chofer', '', '', String(liq.cambios.registrados)],
-        ['Bolsas rotas recibidas en muelle', '', '', String(liq.cambios.rotasRecibidas)],
+        ['Cambios registrados por el chofer', '', '', String(cambiosLiq.registrados)],
+        ['Bolsas rotas recibidas en muelle', '', '', String(cambiosLiq.rotasRecibidas)],
       ],
       // Misma columna izquierda que la tabla vieja (74 mm): a la derecha va
       // "Importes y rendición".
@@ -984,8 +1003,8 @@ export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiq
         ['Volvieron parciales', String(p.parciales)],
         ['Volvieron vacíos (base + 4 puntales)', String(p.vacios)],
         ['Diferencia', p.diferencia === 0 ? '0' : String(p.diferencia)],
-        ['Cambios registrados por el chofer', String(liq.cambios.registrados)],
-        ['Bolsas rotas recibidas en muelle', String(liq.cambios.rotasRecibidas)],
+        ['Cambios registrados por el chofer', String(cambiosLiq.registrados)],
+        ['Bolsas rotas recibidas en muelle', String(cambiosLiq.rotasRecibidas)],
       ],
       styles: { fontSize: 8.5, cellPadding: 2 },
       headStyles: { fillColor: [45, 106, 79], textColor: 255, fontStyle: 'bold', fontSize: 7.5 },
@@ -1046,6 +1065,32 @@ export async function generateLiquidacion(liq: Liquidacion, detalle?: DetalleLiq
     margin: { left: 108, right: 14 },
   })
   y = Math.max(yEnvases, finTabla(doc, y + 40)) + 6
+
+  // ── Las dos partes del viaje (2026-09-18) ──
+  // La hoja dice siempre en qué estado está cada mitad y quién la hizo, porque
+  // se cierran por separado: el repartidor firma la plata aunque su camión
+  // todavía no haya vuelto. Si no lo dijera, una hoja firmada con la mercadería
+  // en la calle sería indistinguible de una con todo cerrado.
+  {
+    doc.setFontSize(8.5)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Plata', 14, y)
+    doc.text('Mercadería', 78, y)
+    doc.setFont('helvetica', 'normal')
+    y += 4
+    const cuando = (t?: { toDate(): Date } | null) =>
+      t ? t.toDate().toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''
+    doc.text(`Liquidada ${cuando(liq.createdAt)} · ${liq.firmanteRecibe || liq.cerradaPor.nombre}`, 14, y, { maxWidth: 60 })
+    if (mercaderiaContada) {
+      const m = opts.mercaderia
+      doc.text(`Contada ${cuando(m?.contadaEn)} · ${m?.contadaPor.nombre ?? liq.cerradaPor.nombre}`, 78, y, { maxWidth: 60 })
+    } else {
+      doc.setTextColor(180, 0, 0)
+      doc.text('En la calle: el camión no volvió', 78, y, { maxWidth: 60 })
+      doc.setTextColor(0)
+    }
+    y += 7
+  }
 
   // ── Desvío de MERCADERÍA observado al cerrar (2026-09-13) ──
   // Va ANTES de la diferencia de efectivo y en el cuerpo, no al pie: el

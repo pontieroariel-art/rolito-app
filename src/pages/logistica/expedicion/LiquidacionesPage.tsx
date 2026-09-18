@@ -10,10 +10,13 @@ import { subscribeDescargasChoferEnRango } from '@/services/descargaCamionServic
 import { subscribeCobranzasChoferEnRango } from '@/services/cobranzaService'
 import { useDepositosReparto } from '@/hooks/useDepositosReparto'
 import { etiquetaDeposito, identidadDeposito, nombreDeposito, ordenarDepositosReparto } from '@/utils/depositos'
-import { cerrarLiquidacion, LiquidacionYaCerradaError, subscribeLiquidacion } from '@/services/liquidacionService'
+import { cerrarLiquidacion, LiquidacionYaCerradaError, subscribeLiquidacion, subscribeLiquidacionDeViaje } from '@/services/liquidacionService'
+import { subscribeCierreMercaderia } from '@/services/cierreMercaderiaService'
+import { estadoDelViaje } from '@/utils/estadoLiquidacion'
+import { ventasDelViaje } from '@/utils/viajeDeVenta'
 import { valoresEnPapel } from '@/utils/valoresEnPapel'
 import ValoresEnPapel from '@/components/expedicion/ValoresEnPapel'
-import { calcularLiquidacion, referenciasDelReparto } from '@/utils/liquidacion'
+import { calcularLiquidacion, plataDelViaje, referenciasDelReparto } from '@/utils/liquidacion'
 import { calcularFaltante } from '@/utils/faltantes'
 import { useUmbralFaltantes } from '@/hooks/useUmbralFaltantes'
 import { pedirAutorizacionDesvio, subscribeDesvio } from '@/services/desvioDescargaService'
@@ -25,10 +28,11 @@ import { generateLiquidacion, nombreArchivoLiquidacion, type DetalleLiquidacionP
 import { compartirArchivo, puedeCompartirArchivos } from '@/utils/compartir'
 import { useDiaActual } from '@/hooks/useDiaActual'
 import DetalleReparto, { useReparto } from '@/components/expedicion/liquidacion/DetalleReparto'
+import DosPartes from '@/components/expedicion/liquidacion/DosPartes'
 import { BarraEstado, DetallePorProducto, Plegable, ResumenPorCliente, TarjetasPlata } from '@/components/expedicion/liquidacion/ResumenLiquidacion'
 import CierreLiquidacionModal, { type DatosCierre } from '@/components/expedicion/liquidacion/CierreLiquidacionModal'
 import {
-  CambioCamion, Cobranza, DescargaCamion, Liquidacion, PLANTAS, RemitoCarga, VentaCamion, type PlantaId,
+  CambioCamion, CierreMercaderia, Cobranza, DescargaCamion, Liquidacion, PLANTAS, RemitoCarga, VentaCamion, type PlantaId,
 } from '@/types'
 import { reportError } from '@/services/observability'
 import SolicitarAnulacionModal from '@/components/expedicion/SolicitarAnulacionModal'
@@ -68,6 +72,15 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
   const { depositos } = useDepositosReparto()
   const remitosPlanta = useRemitosCargaDelDia(plantaId, fecha)
   const [choferId, setChoferId] = useState(() => params.get('repartidor') ?? '')
+  // Qué VIAJE se liquida (2026-09-18). La plata se rinde por viaje porque un
+  // chofer puede hacer dos en un día y el segundo no puede pisar la rendición
+  // del primero. Vacío = el repartidor no tiene remito ese día (supervisores y
+  // cobradores), y entonces se rinde por día, como siempre.
+  const [viajeId, setViajeId] = useState(() => params.get('viaje') ?? '')
+  // El buzón manda acá con el código que el chofer escribió a mano en el sobre;
+  // queda registrado en la liquidación quién lo abrió y cuándo.
+  const [desdeBuzon] = useState(() => params.get('buzon') ?? '')
+  const [mercaderia, setMercaderia] = useState<CierreMercaderia | null>(null)
   const [ventas,    setVentas]    = useState<VentaCamion[]>([])
   const [cambios,   setCambios]   = useState<CambioCamion[]>([])
   const [descargas, setDescargas] = useState<DescargaCamion[]>([])
@@ -105,6 +118,13 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
   }, [remitosPlanta, depositosReparto])
 
   const remitosChofer = useMemo(() => remitosPlanta.filter((r) => r.choferId === choferId), [remitosPlanta, choferId])
+  // Con un solo viaje se elige solo: el caso de dos viajes es de temporada y no
+  // tiene sentido hacer tocar un selector todos los días por él.
+  useEffect(() => {
+    if (!remitosChofer.length) { setViajeId(''); return }
+    setViajeId((actual) => (remitosChofer.some((r) => r.id === actual) ? actual : remitosChofer[0].id))
+  }, [remitosChofer])
+  const viaje = useMemo(() => remitosChofer.find((r) => r.id === viajeId) ?? null, [remitosChofer, viajeId])
   const depositoElegido = depositosReparto.find((d) => identidadDeposito(d) === choferId)
   const choferNombre  = depositoElegido ? nombreDeposito(depositoElegido) : (huerfanos.find((h) => h.id === choferId)?.nombre ?? '')
 
@@ -117,20 +137,41 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
       subscribeCambiosChoferEnRango(choferId, desde, hasta, setCambios),
       subscribeDescargasChoferEnRango(choferId, desde, hasta, setDescargas),
       subscribeCobranzasChoferEnRango(choferId, desde, hasta, setCobranzas),
-      subscribeLiquidacion(hoy, choferId, setCerrada),
+      // La plata de un viaje se guarda por su remito; sin viaje, por día.
+      viajeId ? subscribeLiquidacionDeViaje(viajeId, setCerrada) : subscribeLiquidacion(hoy, choferId, setCerrada),
+      // La otra mitad: la escribe el servidor cuando muelle cuenta la descarga.
+      // Se escucha en vivo para que el bloque se complete solo, sin recargar.
+      viajeId ? subscribeCierreMercaderia(viajeId, setMercaderia) : (setMercaderia(null), () => {}),
     ]
     return () => unsubs.forEach((u) => u())
-  }, [choferId, hoy, fecha])
+  }, [choferId, hoy, fecha, viajeId])
 
   useEffect(() => { setConteo(conteoVacio()); setSoloProblemas(false); setAviso(''); setError('') }, [choferId, hoy])
 
-  const calc = useMemo(
-    () => calcularLiquidacion(remitosChofer, ventas, cambios, descargas, cobranzas),
-    [remitosChofer, ventas, cambios, descargas, cobranzas],
+  // Lo que se liquida es la plata de ESTE viaje. Las ventas y las cobranzas
+  // traen su remito desde el 18/09; las anteriores se ubican por camión y día
+  // (utils/viajeDeVenta.ts). Sin viaje (supervisor, cobrador) entra todo el día.
+  const ventasDelDia = useMemo(
+    () => (viajeId ? ventasDelViaje(ventas, remitosChofer, viajeId) : ventas),
+    [ventas, remitosChofer, viajeId],
   )
-  const reparto = useReparto({ ventas, cambios, descargas, cobranzas })
+  const cobranzasDelDia = useMemo(
+    () => (viajeId ? ventasDelViaje(cobranzas, remitosChofer, viajeId) : cobranzas),
+    [cobranzas, remitosChofer, viajeId],
+  )
+  const plata = useMemo(() => plataDelViaje(ventasDelDia, cobranzasDelDia), [ventasDelDia, cobranzasDelDia])
+  // La foto entera del viaje, para el detalle y el PDF. La mercadería que manda
+  // es la del cierre del servidor; esto es el respaldo mientras no exista.
+  const calc = useMemo(
+    () => calcularLiquidacion(remitosChofer, ventasDelDia, cambios, descargas, cobranzasDelDia),
+    [remitosChofer, ventasDelDia, cambios, descargas, cobranzasDelDia],
+  )
+  // El estado del viaje sale del helper compartido, nunca deducido acá: las
+  // cinco pantallas y el PDF tienen que decir lo mismo (utils/estadoLiquidacion.ts).
+  const estado = useMemo(() => estadoDelViaje(cerrada, mercaderia), [cerrada, mercaderia])
+  const reparto = useReparto({ ventas: ventasDelDia, cambios, descargas, cobranzas: cobranzasDelDia })
   // Cheques y certificados que trae el repartidor: caja los tilda al cerrar (2026-09-09).
-  const papel = useMemo(() => valoresEnPapel(cobranzas), [cobranzas])
+  const papel = useMemo(() => valoresEnPapel(cobranzasDelDia), [cobranzasDelDia])
 
   const contadoCompleto = conteoCompleto(conteo)
   const recibido = cerrada ? cerrada.efectivoRecibido : totalConteo(conteo)
@@ -169,12 +210,18 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
     try {
       const liq = await cerrarLiquidacion(
         {
-          fecha: hoy, choferId, choferNombre, calculo: calc, efectivoRecibido: recibido,
+          fecha: hoy, choferId, choferNombre, calculo: plata, efectivoRecibido: recibido,
+          // El viaje que se rinde (2026-09-18): con viaje, la liquidación se
+          // guarda por su remito; sin viaje (cobradores) sigue la clave por día.
+          ...(viaje ? { remitoId: viaje.id, remitoCodigo: viaje.codigo } : {}),
+          // Vino del buzón: queda quién lo abrió y cuándo, que es el único tramo
+          // del circuito que si no se registra no deja rastro de nadie.
+          ...(desdeBuzon ? { buzon: { descargaCodigo: desdeBuzon } } : {}),
           // Conteo de billetes por empresa y la diferencia de cada una (2026-09-16).
           conteoBilletes: conteo,
           diferenciaPorEmpresa: {
-            redonhielo: conteo.redonhielo.total - calc.porEmpresa.redonhielo.efectivo,
-            rolito:     conteo.rolito.total - calc.porEmpresa.rolito.efectivo,
+            redonhielo: conteo.redonhielo.total - plata.porEmpresa.redonhielo.efectivo,
+            rolito:     conteo.rolito.total - plata.porEmpresa.rolito.efectivo,
           },
           ...(depositoElegido ? { depositoTango: depositoElegido.codigo, depositoTangoNombre: depositoElegido.nombre } : {}),
           ...(datos.diferencia ? { diferencia: datos.diferencia } : {}),
@@ -199,7 +246,7 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
           firmaRepartidor: datos.firma, firmanteRepartidor: datos.firmante, confirmoSinPendientes: datos.confirmoSinPendientes,
           firmaRecibe: datos.firmaRecibe ?? '', firmanteRecibe: datos.firmanteRecibe ?? user.nombre,
           cheques: datos.cheques ?? [], retenciones: datos.retenciones ?? [], valoresFaltantes: datos.valoresFaltantes ?? { cantidad: 0, total: 0 },
-          referencias: referenciasDelReparto(remitosChofer, ventas, descargas, cobranzas),
+          referencias: referenciasDelReparto(viaje ? [viaje] : remitosChofer, ventasDelDia, descargas, cobranzasDelDia),
         },
         { uid: user.uid, nombre: user.nombre, plantaId },
       )
@@ -221,8 +268,14 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
   const umbralFaltantes = useUmbralFaltantes()
   // Sin descarga contada (camión en la calle o muelle sin contar) no hay
   // faltante que mostrar: el control se hace cuando el camión vuelve (2026-09-14).
-  const sinDescarga = descargas.length === 0
-  const faltante = useMemo(() => calcularFaltante(calc.productos, umbralFaltantes, { hayDescarga: !sinDescarga }), [calc.productos, umbralFaltantes, sinDescarga])
+  const sinDescarga = !estado.mercaderia.hecha && descargas.length === 0
+  // El faltante que vale es el del cierre de mercadería que escribió el servidor
+  // al contar. Si todavía no existe (el camión no volvió), se recalcula en vivo
+  // para que caja vea el número mientras tanto.
+  const faltante = useMemo(
+    () => mercaderia?.faltante ?? calcularFaltante(calc.productos, umbralFaltantes, { hayDescarga: !sinDescarga }),
+    [mercaderia, calc.productos, umbralFaltantes, sinDescarga],
+  )
   // Una liquidación ya cerrada muestra el desvío que se observó al cerrarla, no
   // uno recalculado hoy (el cierre es una foto y no se reabre).
   const desvioACerrar = !cerrada && faltante.grave ? faltante : null
@@ -282,6 +335,18 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
                 </optgroup>
               )}
             </select>
+            {/* Con un solo viaje no se muestra nada: elegir sería un trámite de
+                todos los días por un caso de temporada. Con dos, hay que decir
+                cuál se está rindiendo, porque cada uno tiene su propia plata. */}
+            {remitosChofer.length > 1 && (
+              <select value={viajeId} onChange={(e) => setViajeId(e.target.value)} className={`${selectClass} mt-2`}>
+                {remitosChofer.map((r, i) => (
+                  <option key={r.id} value={r.id}>
+                    {i + 1}º viaje · {r.codigo} · salió {r.salida?.hora.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) ?? r.fecha.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
       </div>
@@ -316,6 +381,15 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
             </section>
           )}
 
+          {/* Las dos mitades, con la misma jerarquía y sin plegables (2026-09-18). */}
+          <DosPartes
+            estado={estado}
+            detallePlata={cerrada?.codigo ? <>Cierre {cerrada.codigo}{cerrada.buzon ? ` · del buzón (${cerrada.buzon.descargaCodigo})` : ''}</> : undefined}
+            detalleMercaderia={mercaderia
+              ? <>Conteo {mercaderia.descargaCodigos.join(' · ')}{mercaderia.faltante.bolsasFaltantes > 0 ? ` · faltan ${mercaderia.faltante.bolsasFaltantes} bolsas` : ' · cuadró'}</>
+              : undefined}
+          />
+
           {aviso && <p className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">{aviso}</p>}
 
           {!cerrada && !puedeCerrar && (
@@ -340,14 +414,24 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
           )}
 
           <Plegable titulo="Resumen por cliente"><ResumenPorCliente reparto={reparto} /></Plegable>
-          <Plegable titulo="Detalle por producto, envases y cambios" abiertoInicial={faltante.bolsasFaltantes > 0}
-            extra={(cerrada?.desvio || faltante.bolsasFaltantes > 0) && (
-              <span className={`text-xs font-semibold ${(cerrada?.desvio || faltante.grave) ? 'text-red-600' : 'text-amber-700'}`}>
-                faltan {cerrada?.desvio?.bolsasFaltantes ?? faltante.bolsasFaltantes} bolsas
-              </span>
-            )}>
-            <DetallePorProducto calc={calc} sinDescarga={!cerrada && sinDescarga} />
-          </Plegable>
+
+          {/* La mercadería NO va en un plegable: es la mitad del cierre, no un
+              anexo. Los productos salen del cierre que escribió el servidor al
+              contar; mientras no exista, del cálculo en vivo. */}
+          <section className="bg-white rounded-2xl border border-[#D3D1C7] p-4 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-xs uppercase tracking-wide text-secundario font-semibold">Mercadería · por producto, envases y cambios</h3>
+              {faltante.bolsasFaltantes > 0 && (
+                <span className={`text-xs font-semibold ${faltante.grave ? 'text-red-600' : 'text-amber-700'}`}>
+                  faltan {faltante.bolsasFaltantes} bolsas
+                </span>
+              )}
+            </div>
+            <DetallePorProducto
+              calc={mercaderia ? { ...calc, productos: mercaderia.productos, envases: mercaderia.envases } : calc}
+              sinDescarga={!estado.mercaderia.hecha && sinDescarga}
+            />
+          </section>
 
           {!cerrada && puedeCerrar && (
             <div className="flex flex-wrap justify-end gap-2">

@@ -1326,6 +1326,16 @@ service cloud.firestore {
         && request.resource.data.remitoId is string
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'remitoId']);
 
+      // Muelle asigna la dársena donde el camión está cargando. Va sobre el
+      // borrador y no sobre el remito porque cuando el camión entra a la boca el
+      // remito todavía no existe: nace recién cuando muelle lo entrega.
+      allow update: if request.auth != null && isMuelleDe(resource.data.plantaId)
+        && resource.data.estado == 'pendiente'
+        && request.resource.data.darsena is int
+        && request.resource.data.darsena >= 1 && request.resource.data.darsena <= 20
+        && request.resource.data.darsenaAsignadaEn is timestamp
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['darsena', 'darsenaAsignadaEn']);
+
       // Caja borra un borrador que no se usó (el camión no salió). Uno ya
       // aceptado no se borra: es la traza del remito que nació de él.
       allow delete: if request.auth != null && isCajaDe(resource.data.plantaId)

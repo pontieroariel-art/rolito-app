@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react'
 import {
   Activity, AlertTriangle, Ban, BarChart2, CalendarDays, ClipboardList, Cloud, DollarSign, Factory, FileText, Files,
-  Gauge, HandCoins, History, Home, Landmark, LayoutDashboard, Layers, Map as MapIcon, Navigation, Package, Plus, Scale, Search,
+  Gauge, HandCoins, History, Home, Inbox, Landmark, LayoutDashboard, Layers, Map as MapIcon, Navigation, Package, Plus, Scale, Search,
   Settings, ShieldCheck, ShoppingCart, Snowflake, Tag, Timer, TrendingUp, Truck, Tv, UserCheck, UserCircle, UserCog,
   Users, Wallet, Warehouse, Wrench,
 } from 'lucide-react'
@@ -143,6 +143,7 @@ export const CATALOGO: RutaConfig[] = [
   R('/caja/cobranzas',               'Cobranzas',            'tesoreria', CAJA, { icon: HandCoins, menuGroup: 'caja' }),
   R('/caja/liquidaciones',           'Liquidaciones',        'tesoreria', CAJA, { icon: Scale, menuGroup: 'caja', externa: true }),
   R('/caja/rendiciones',             'Mi turno',             'tesoreria', CAJA, { icon: Wallet, menuGroup: 'caja' }),
+  R('/caja/buzon',                   'Buzón de sobres',      'tesoreria', CAJA, { icon: Inbox, menuGroup: 'caja' }),
   R('/caja/entregas',                'Entrega a tesorería',  'tesoreria', CAJA, { icon: Landmark, menuGroup: 'caja' }),
   R('/caja/liquidaciones/historial', 'Historial',            'tesoreria', CAJA_HISTORIAL, { icon: History, menuGroup: 'caja' }),
   // Camiones y cobradores sin liquidar de cualquier fecha (2026-09-16, pedido de la oficina).
@@ -278,7 +279,7 @@ export const SIDEBARS: Record<Sistema, GrupoSidebar[]> = {
   ],
   // Tesorería & Cajas: la plata y los valores, de la ventanilla al arqueo.
   tesoreria: [
-    { id: 'caja',      label: 'Caja & Ventanilla', entradas: ['/caja/ventanilla', '/caja/cobranzas', '/caja/liquidaciones', '/caja/liquidaciones/abiertas', '/caja/rendiciones', '/caja/entregas', '/caja/liquidaciones/historial'] },
+    { id: 'caja',      label: 'Caja & Ventanilla', entradas: ['/caja/ventanilla', '/caja/cobranzas', '/caja/liquidaciones', '/caja/liquidaciones/abiertas', '/caja/buzon', '/caja/rendiciones', '/caja/entregas', '/caja/liquidaciones/historial'] },
     { id: 'tesoreria', label: 'Tesorería',         entradas: ['/tesoreria/ventas', '/tesoreria', '/tesoreria/recepcion', '/tesoreria/liquidaciones', '/tesoreria/liquidaciones/abiertas', '/tesoreria/entregas', '/tesoreria/anulaciones', '/tesoreria/rendiciones/historial'] },
   ],
   comercial: [

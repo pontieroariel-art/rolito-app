@@ -2312,101 +2312,144 @@ describe('produccion_encargado — pallets y contador', () => {
 })
 
 // ── remitosCarga: remito de carga del camión (módulo expedición) ──────────────
+// Reescrito el 2026-09-18 (viaje en dos partes): el remito ya NO lo emite caja
+// horas antes. Caja arma un borrador y MUELLE lo acepta al entregar el camión;
+// ahí nace el remito, ya 'entregado', con su número, su remito R y el COT con
+// la hora real de la salida.
 describe('remitosCarga', () => {
   const remito = (extra = {}) => ({
-    numero: 1, codigo: 'RC-DT-000001', plantaId: 'torcuato',
+    numero: 1, codigo: 'RC-DT-000001', plantaId: 'torcuato', borradorId: 'bo1',
     camionId: 'cam1', camionLabel: 'AB123CD · Iveco', choferId: 'chof1', choferNombre: 'Chofer Uno',
     items: [{ productoId: 'bolsa_10kg', nombre: 'Hielo 10kg', cantidad: 100, pallets: 2 }],
     palletsCarga: 2, envases: { tarimasMadera: 1, palletsMetal: 1, racks: [12, 15] },
-    estado: 'emitido', creadoPor: { uid: 'caja1', nombre: 'Caja Uno' },
+    estado: 'entregado', creadoPor: { uid: 'caja1', nombre: 'Caja Uno' },
+    emitidoPor: { uid: 'mue1', nombre: 'Muelle Uno' },
+    entregadoPor: { uid: 'mue1', nombre: 'Muelle Uno', hora: new Date() },
     fecha: new Date(), tango: { estado: 'pendiente' }, ...extra,
   })
+  const seedMuelle = (uid = 'mue1', planta = 'torcuato') =>
+    seed((d) => setDoc(doc(d, 'users/' + uid), { rol: 'muelle', estado: 'activo', planta }))
   const seedCaja = (uid = 'caja1', planta = 'torcuato') =>
-    seed((d) => setDoc(doc(d, `users/${uid}`), { rol: 'caja', estado: 'activo', planta }))
+    seed((d) => setDoc(doc(d, 'users/' + uid), { rol: 'caja', estado: 'activo', planta }))
 
-  test('caja puede emitir un remito de su planta', async () => {
+  test('muelle emite el remito de su planta al aceptar el borrador (nace entregado)', async () => {
+    await seedMuelle()
+    await assertSucceeds(setDoc(doc(db('mue1'), 'remitosCarga/r1'), remito()))
+  })
+
+  test('caja YA NO emite remitos: eso es de muelle desde el 2026-09-18', async () => {
     await seedCaja()
-    await assertSucceeds(setDoc(doc(db('caja1'), 'remitosCarga/r1'), remito()))
+    await assertFails(setDoc(doc(db('caja1'), 'remitosCarga/r1'), remito({
+      emitidoPor: { uid: 'caja1', nombre: 'Caja Uno' },
+      entregadoPor: { uid: 'caja1', nombre: 'Caja Uno', hora: new Date() },
+    })))
+  })
+
+  test('sin borrador no hay remito: muelle no arma cargas desde cero', async () => {
+    await seedMuelle()
+    const { borradorId: _b, ...sinBorrador } = remito()
+    await assertFails(setDoc(doc(db('mue1'), 'remitosCarga/r1'), sinBorrador))
+    await assertFails(setDoc(doc(db('mue1'), 'remitosCarga/r2'), remito({ borradorId: 7 })))
+  })
+
+  test('el remito nace entregado, a nombre de quien lo emite; no en otro estado ni a nombre de otro', async () => {
+    await seedMuelle()
+    await assertFails(setDoc(doc(db('mue1'), 'remitosCarga/r1'), remito({ estado: 'emitido' })))
+    await assertFails(setDoc(doc(db('mue1'), 'remitosCarga/r2'), remito({ estado: 'salido' })))
+    await assertFails(setDoc(doc(db('mue1'), 'remitosCarga/r3'), remito({ emitidoPor: { uid: 'otro', nombre: 'Otro' } })))
+    await assertFails(setDoc(doc(db('mue1'), 'remitosCarga/r4'), remito({ entregadoPor: { uid: 'otro', nombre: 'Otro', hora: new Date() } })))
+  })
+
+  // ── un camión no recibe carga nueva con un viaje sin descargar (2026-09-18) ──
+  test('un camión con una descarga pendiente NO recibe un remito nuevo; sin viaje abierto sí', async () => {
+    await seedMuelle()
+    // camionesEnViaje/{camionId} lo escribe el trigger cuando el camión sale y
+    // lo borra cuando se cuenta la descarga.
+    await seed((d) => setDoc(doc(d, 'camionesEnViaje/cam1'), {
+      camionId: 'cam1', remitoId: 'r0', choferId: 'chof1', plantaId: 'torcuato', desde: new Date(),
+    }))
+    await assertFails(setDoc(doc(db('mue1'), 'remitosCarga/r1'), remito()))
+    // Otro camión, libre: entra.
+    await assertSucceeds(setDoc(doc(db('mue1'), 'remitosCarga/r2'), remito({ camionId: 'cam2' })))
+    // Y el mismo camión, una vez contada la descarga (el trigger borró la marca).
+    await seed((d) => deleteDoc(doc(d, 'camionesEnViaje/cam1')))
+    await assertSucceeds(setDoc(doc(db('mue1'), 'remitosCarga/r3'), remito()))
   })
 
   // ── COT de ARBA (2026-09-10) ──
-  test('caja emite con kilos y solicitud de COT, pero nunca con el resultado `cot` (lo escribe el server)', async () => {
-    await seedCaja()
+  test('el remito nace con kilos y solicitud de COT, pero nunca con el resultado `cot` (lo escribe el server)', async () => {
+    await seedMuelle()
     const solicitud = { destino: { tipo: 'planta', plantaId: 'merlo' }, respaldo: { codigoComprobante: '091', prefijo: 25, numero: 58680, importe: 0 }, patente: 'AG028YN', recorrido: { tipo: 'M', localidad: 'MERLO', ruta: 'RUTA 205' }, fechaSalida: '2026-09-10', horaSalida: '07:30' }
-    await assertSucceeds(setDoc(doc(db('caja1'), 'remitosCarga/r1'), remito({ kg: 9060, cotSolicitud: solicitud })))
-    await assertFails(setDoc(doc(db('caja1'), 'remitosCarga/r2'), remito({ kg: 'mucho' })))
-    await assertFails(setDoc(doc(db('caja1'), 'remitosCarga/r3'), remito({ cotSolicitud: { patente: 'AG028YN' } })))
-    await assertFails(setDoc(doc(db('caja1'), 'remitosCarga/r4'), remito({ cot: { estado: 'presentado', numero: '3163824478' } })))
+    await assertSucceeds(setDoc(doc(db('mue1'), 'remitosCarga/r1'), remito({ kg: 9060, cotSolicitud: solicitud })))
+    await assertFails(setDoc(doc(db('mue1'), 'remitosCarga/r2'), remito({ kg: 'mucho' })))
+    await assertFails(setDoc(doc(db('mue1'), 'remitosCarga/r3'), remito({ cotSolicitud: { patente: 'AG028YN' } })))
+    await assertFails(setDoc(doc(db('mue1'), 'remitosCarga/r4'), remito({ cot: { estado: 'presentado', numero: '3163824478' } })))
   })
 
-  test('remito R oficial de la carga: nace con puntoVenta/numero/cai y caja avanza el contador global solo hacia adelante', async () => {
+  test('remito R oficial de la carga: nace con puntoVenta/numero/cai y MUELLE avanza el contador global solo hacia adelante', async () => {
+    await seedMuelle()
     await seedCaja()
-    await assertSucceeds(setDoc(doc(db('caja1'), 'remitosCarga/r1'), remito({ remitoR: { puntoVenta: 25, numero: 67891, cai: '12345678901234', vencimiento: '2026-12-31' } })))
-    await assertFails(setDoc(doc(db('caja1'), 'remitosCarga/r2'), remito({ remitoR: { puntoVenta: 25, numero: 0, cai: '12345678901234', vencimiento: '2026-12-31' } })))
+    await assertSucceeds(setDoc(doc(db('mue1'), 'remitosCarga/r1'), remito({ remitoR: { puntoVenta: 25, numero: 67891, cai: '12345678901234', vencimiento: '2026-12-31' } })))
+    await assertFails(setDoc(doc(db('mue1'), 'remitosCarga/r2'), remito({ remitoR: { puntoVenta: 25, numero: 0, cai: '12345678901234', vencimiento: '2026-12-31' } })))
     await seed((d) => setDoc(doc(d, 'config/remitoCargaCounter'), { next: 67891 }))
-    await assertSucceeds(updateDoc(doc(db('caja1'), 'config/remitoCargaCounter'), { next: 67892 }))
-    await assertFails(updateDoc(doc(db('caja1'), 'config/remitoCargaCounter'), { next: 67890 }))
-    await assertFails(updateDoc(doc(db('caja1'), 'config/remitoCargaCounter'), { next: 67893, cai: 'x' }))
+    await assertSucceeds(updateDoc(doc(db('mue1'), 'config/remitoCargaCounter'), { next: 67892 }))
+    await assertFails(updateDoc(doc(db('mue1'), 'config/remitoCargaCounter'), { next: 67891 }))
+    await assertFails(updateDoc(doc(db('mue1'), 'config/remitoCargaCounter'), { next: 67893, cai: 'x' }))
+    // Caja ya no consume el talonario: lo consume quien emite.
+    await assertFails(updateDoc(doc(db('caja1'), 'config/remitoCargaCounter'), { next: 67899 }))
   })
 
   // ── envases retornables (2026-09-07) ──
-  test('caja puede emitir sin envases (PWA anterior) pero palletsCarga tiene que ser un entero', async () => {
-    await seedCaja()
+  test('se puede emitir sin envases (PWA anterior) pero palletsCarga tiene que ser un entero', async () => {
+    await seedMuelle()
     const { envases: _e, ...sinEnvases } = remito()
-    await assertSucceeds(setDoc(doc(db('caja1'), 'remitosCarga/r1'), sinEnvases))
-    await assertFails(setDoc(doc(db('caja1'), 'remitosCarga/r2'), { ...sinEnvases, palletsCarga: 'dos' }))
+    await assertSucceeds(setDoc(doc(db('mue1'), 'remitosCarga/r1'), sinEnvases))
+    await assertFails(setDoc(doc(db('mue1'), 'remitosCarga/r2'), { ...sinEnvases, palletsCarga: 'dos' }))
   })
 
-  test('caja NO emite si palletsCarga no cierra con madera + metal', async () => {
-    await seedCaja()
-    await assertFails(setDoc(doc(db('caja1'), 'remitosCarga/r1'), remito({ palletsCarga: 3 })))
+  test('no se emite si palletsCarga no cierra con madera + metal', async () => {
+    await seedMuelle()
+    await assertFails(setDoc(doc(db('mue1'), 'remitosCarga/r1'), remito({ palletsCarga: 3 })))
   })
 
-  test('caja NO emite con envases inválidos (negativo, racks repetidos, campo extra, racks no lista)', async () => {
-    await seedCaja()
-    await assertFails(setDoc(doc(db('caja1'), 'remitosCarga/r1'), remito({ palletsCarga: 0, envases: { tarimasMadera: -1, palletsMetal: 1, racks: [] } })))
-    await assertFails(setDoc(doc(db('caja1'), 'remitosCarga/r2'), remito({ envases: { tarimasMadera: 1, palletsMetal: 1, racks: [12, 12] } })))
-    await assertFails(setDoc(doc(db('caja1'), 'remitosCarga/r3'), remito({ envases: { tarimasMadera: 1, palletsMetal: 1, racks: [], puntales: 8 } })))
-    await assertFails(setDoc(doc(db('caja1'), 'remitosCarga/r4'), remito({ envases: { tarimasMadera: 1, palletsMetal: 1, racks: '12' } })))
+  test('no se emite con envases inválidos (negativo, racks repetidos, campo extra, racks no lista)', async () => {
+    await seedMuelle()
+    await assertFails(setDoc(doc(db('mue1'), 'remitosCarga/r1'), remito({ palletsCarga: 0, envases: { tarimasMadera: -1, palletsMetal: 1, racks: [] } })))
+    await assertFails(setDoc(doc(db('mue1'), 'remitosCarga/r2'), remito({ envases: { tarimasMadera: 1, palletsMetal: 1, racks: [12, 12] } })))
+    await assertFails(setDoc(doc(db('mue1'), 'remitosCarga/r3'), remito({ envases: { tarimasMadera: 1, palletsMetal: 1, racks: [], puntales: 8 } })))
+    await assertFails(setDoc(doc(db('mue1'), 'remitosCarga/r4'), remito({ envases: { tarimasMadera: 1, palletsMetal: 1, racks: '12' } })))
   })
 
   test('super_admin (sin planta) puede emitir un remito y avanzar el contador de cualquier planta', async () => {
     await seed((d) => setDoc(doc(d, 'users/adm'), { rol: 'super_admin', estado: 'activo' }))
     await assertSucceeds(setDoc(doc(db('adm'), 'config/cargaCounter_torcuato'), { next: 2 }))
-    await assertSucceeds(setDoc(doc(db('adm'), 'remitosCarga/r1'), remito({ creadoPor: { uid: 'adm', nombre: 'Ariel' } })))
-    await assertSucceeds(setDoc(doc(db('adm'), 'remitosCarga/r2'), remito({ plantaId: 'merlo', creadoPor: { uid: 'adm', nombre: 'Ariel' } })))
+    const deAdm = { emitidoPor: { uid: 'adm', nombre: 'Ariel' }, entregadoPor: { uid: 'adm', nombre: 'Ariel', hora: new Date() } }
+    await assertSucceeds(setDoc(doc(db('adm'), 'remitosCarga/r1'), remito(deAdm)))
+    await assertSucceeds(setDoc(doc(db('adm'), 'remitosCarga/r2'), remito({ plantaId: 'merlo', camionId: 'cam2', ...deAdm })))
   })
 
-  test('caja NO puede tocar el contador de OTRA planta', async () => {
-    await seedCaja()
-    await assertSucceeds(setDoc(doc(db('caja1'), 'config/cargaCounter_torcuato'), { next: 2 }))
-    await assertFails(setDoc(doc(db('caja1'), 'config/cargaCounter_merlo'), { next: 2 }))
+  test('muelle NO puede tocar el contador de OTRA planta', async () => {
+    await seedMuelle()
+    await assertSucceeds(setDoc(doc(db('mue1'), 'config/cargaCounter_torcuato'), { next: 2 }))
+    await assertFails(setDoc(doc(db('mue1'), 'config/cargaCounter_merlo'), { next: 2 }))
   })
 
-  test('caja NO puede emitir un remito de OTRA planta', async () => {
-    await seedCaja()
-    await assertFails(setDoc(doc(db('caja1'), 'remitosCarga/r1'), remito({ plantaId: 'merlo' })))
+  test('muelle NO puede emitir un remito de OTRA planta', async () => {
+    await seedMuelle()
+    await assertFails(setDoc(doc(db('mue1'), 'remitosCarga/r1'), remito({ plantaId: 'merlo' })))
   })
 
-  test('caja NO puede emitir a nombre de otro usuario', async () => {
-    await seedCaja()
-    await assertFails(setDoc(doc(db('caja1'), 'remitosCarga/r1'), remito({ creadoPor: { uid: 'otro', nombre: 'Otro' } })))
+  test('no se emite sin items', async () => {
+    await seedMuelle()
+    await assertFails(setDoc(doc(db('mue1'), 'remitosCarga/r1'), remito({ items: [] })))
   })
 
-  test('caja NO puede emitir sin items', async () => {
-    await seedCaja()
-    await assertFails(setDoc(doc(db('caja1'), 'remitosCarga/r1'), remito({ items: [] })))
-  })
-
-  test('caja NO puede emitir en estado distinto de emitido', async () => {
-    await seedCaja()
-    await assertFails(setDoc(doc(db('caja1'), 'remitosCarga/r1'), remito({ estado: 'entregado' })))
-  })
-
-  test('un remito es inmutable tras emitirse (también para caja)', async () => {
+  test('un remito es inmutable tras emitirse (también para muelle y para caja)', async () => {
+    await seedMuelle()
     await seedCaja()
     await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), remito()))
-    await assertFails(updateDoc(doc(db('caja1'), 'remitosCarga/r1'), { estado: 'entregado' }))
+    await assertFails(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), { items: [] }))
+    await assertFails(updateDoc(doc(db('caja1'), 'remitosCarga/r1'), { estado: 'salido' }))
   })
 
   test('un chofer NO puede crear remitos de carga', async () => {
@@ -2430,38 +2473,244 @@ describe('remitosCarga', () => {
     await assertFails(getDoc(doc(db('cli', 'c@x.com'), 'remitosCarga/r1')))
   })
 
-  test('caja puede leer el doc de un chofer (para elegirlo en el remito)', async () => {
+  test('caja puede leer el doc de un chofer (para elegirlo en el borrador)', async () => {
     await seedCaja()
     await seed((d) => setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' }))
     await assertSucceeds(getDoc(doc(db('caja1'), 'users/chof1')))
   })
 })
 
+// ── borradoresCarga: la hoja de trabajo que caja arma y muelle acepta ─────────
+describe('borradoresCarga (viaje en dos partes, 2026-09-18)', () => {
+  const borrador = (extra = {}) => ({
+    plantaId: 'torcuato', paraFecha: '2026-09-19',
+    camionId: 'cam1', camionLabel: 'AB123CD · Iveco', choferId: 'chof1', choferNombre: 'Chofer Uno',
+    depositoTango: '21',
+    items: [{ productoId: 'bolsa_10kg', nombre: 'Hielo 10kg', cantidad: 100, pallets: 2 }],
+    envases: { tarimasMadera: 1, palletsMetal: 1, racks: [12, 15] },
+    kg: 9060,
+    cotDestino: {
+      destino: { tipo: 'planta', plantaId: 'merlo' },
+      respaldo: { codigoComprobante: '091', prefijo: 25, importe: 0 },
+      patente: 'AG028YN',
+      recorrido: { tipo: 'M', localidad: 'MERLO', ruta: 'RUTA 205' },
+    },
+    estado: 'pendiente', creadoPor: { uid: 'caja1', nombre: 'Caja Uno' },
+    fecha: new Date(), venceEn: new Date('2026-09-20T23:59:59-03:00'),
+    ...extra,
+  })
+  const seedTodos = () => seed(async (d) => {
+    await setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' })
+    await setDoc(doc(d, 'users/cajam'), { rol: 'caja', estado: 'activo', planta: 'merlo' })
+    await setDoc(doc(d, 'users/mue1'),  { rol: 'muelle', estado: 'activo', planta: 'torcuato' })
+    await setDoc(doc(d, 'users/mue2'),  { rol: 'muelle', estado: 'activo', planta: 'merlo' })
+    await setDoc(doc(d, 'users/seg1'),  { rol: 'seguridad', estado: 'activo', planta: 'torcuato' })
+    await setDoc(doc(d, 'users/log'),   { rol: 'logistica', estado: 'activo' })
+    await setDoc(doc(d, 'users/gg'),    { rol: 'gerente_general', estado: 'activo' })
+    await setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' })
+    await setDoc(doc(d, 'users/cli'),   cliente())
+  })
+
+  test('caja de la planta arma el borrador, pendiente, a su nombre y sin remito', async () => {
+    await seedTodos()
+    await assertSucceeds(setDoc(doc(db('caja1'), 'borradoresCarga/b1'), borrador()))
+  })
+
+  test('el borrador mal formado no entra', async () => {
+    await seedTodos()
+    await assertFails(setDoc(doc(db('caja1'), 'borradoresCarga/b1'), borrador({ items: [] })))
+    await assertFails(setDoc(doc(db('caja1'), 'borradoresCarga/b1'), borrador({ paraFecha: 20260919 })))
+    await assertFails(setDoc(doc(db('caja1'), 'borradoresCarga/b1'), borrador({ envases: { tarimasMadera: 1, palletsMetal: 1, racks: [12, 12] } })))
+    // El destino del COT se pide SIEMPRE, aunque la carga no llegue al umbral.
+    const { cotDestino: _c, ...sinCot } = borrador()
+    await assertFails(setDoc(doc(db('caja1'), 'borradoresCarga/b1'), sinCot))
+    await assertFails(setDoc(doc(db('caja1'), 'borradoresCarga/b1'), borrador({ cotDestino: { destino: {}, respaldo: {}, recorrido: {} } })))
+    // Nace pendiente, sin remito, a su nombre, y con vencimiento.
+    await assertFails(setDoc(doc(db('caja1'), 'borradoresCarga/b1'), borrador({ estado: 'aceptado' })))
+    await assertFails(setDoc(doc(db('caja1'), 'borradoresCarga/b1'), borrador({ remitoId: 'r1' })))
+    await assertFails(setDoc(doc(db('caja1'), 'borradoresCarga/b1'), borrador({ creadoPor: { uid: 'otro', nombre: 'Otro' } })))
+    await assertFails(setDoc(doc(db('caja1'), 'borradoresCarga/b1'), borrador({ venceEn: '2026-09-20' })))
+  })
+
+  test('nadie más lo arma: ni muelle, ni caja de otra planta, ni el chofer', async () => {
+    await seedTodos()
+    await assertFails(setDoc(doc(db('mue1'), 'borradoresCarga/b1'), borrador({ creadoPor: { uid: 'mue1', nombre: 'M' } })))
+    await assertFails(setDoc(doc(db('cajam'), 'borradoresCarga/b1'), borrador({ creadoPor: { uid: 'cajam', nombre: 'CM' } })))
+    await assertFails(setDoc(doc(db('chof1'), 'borradoresCarga/b1'), borrador({ creadoPor: { uid: 'chof1', nombre: 'C' } })))
+  })
+
+  test('caja corrige su borrador mientras esté pendiente, y lo borra si el camión no salió', async () => {
+    await seedTodos()
+    await seed((d) => setDoc(doc(d, 'borradoresCarga/b1'), borrador()))
+    await assertSucceeds(setDoc(doc(db('caja1'), 'borradoresCarga/b1'), borrador({ camionId: 'cam9' })))
+    await assertSucceeds(deleteDoc(doc(db('caja1'), 'borradoresCarga/b1')))
+  })
+
+  test('un borrador ya aceptado no se corrige ni se borra: es la traza del remito que nació de él', async () => {
+    await seedTodos()
+    await seed((d) => setDoc(doc(d, 'borradoresCarga/b1'), borrador({ estado: 'aceptado', remitoId: 'r1' })))
+    await assertFails(setDoc(doc(db('caja1'), 'borradoresCarga/b1'), borrador({ camionId: 'cam9' })))
+    await assertFails(deleteDoc(doc(db('caja1'), 'borradoresCarga/b1')))
+    await assertFails(deleteDoc(doc(db('mue1'), 'borradoresCarga/b1')))
+  })
+
+  test('muelle lo acepta: solo estado + remitoId, solo pendiente → aceptado', async () => {
+    await seedTodos()
+    await seed(async (d) => {
+      await setDoc(doc(d, 'borradoresCarga/b1'), borrador())
+      await setDoc(doc(d, 'borradoresCarga/b2'), borrador())
+      await setDoc(doc(d, 'borradoresCarga/b3'), borrador())
+      await setDoc(doc(d, 'borradoresCarga/ya'), borrador({ estado: 'aceptado', remitoId: 'r0' }))
+    })
+    // Sin remito, con un campo de más, o desde un borrador ya aceptado: no.
+    await assertFails(updateDoc(doc(db('mue1'), 'borradoresCarga/b1'), { estado: 'aceptado' }))
+    await assertFails(updateDoc(doc(db('mue1'), 'borradoresCarga/b2'), { estado: 'aceptado', remitoId: 'r1', items: [] }))
+    await assertFails(updateDoc(doc(db('mue1'), 'borradoresCarga/ya'), { estado: 'aceptado', remitoId: 'r2' }))
+    // Muelle de la otra planta tampoco.
+    await assertFails(updateDoc(doc(db('mue2'), 'borradoresCarga/b3'), { estado: 'aceptado', remitoId: 'r3' }))
+    // POSITIVO.
+    await assertSucceeds(updateDoc(doc(db('mue1'), 'borradoresCarga/b1'), { estado: 'aceptado', remitoId: 'r1' }))
+  })
+
+  test('caja no se auto-acepta el borrador (aceptar es entregar el camión, y eso lo hace muelle)', async () => {
+    await seedTodos()
+    await seed((d) => setDoc(doc(d, 'borradoresCarga/b1'), borrador()))
+    await assertFails(updateDoc(doc(db('caja1'), 'borradoresCarga/b1'), { estado: 'aceptado', remitoId: 'r1' }))
+  })
+
+  test('lo leen caja, muelle, seguridad y gerencia; no el chofer ni el cliente', async () => {
+    await seedTodos()
+    await seed((d) => setDoc(doc(d, 'borradoresCarga/b1'), borrador()))
+    for (const u of ['caja1', 'mue1', 'seg1', 'log', 'gg']) await assertSucceeds(getDoc(doc(db(u), 'borradoresCarga/b1')))
+    await assertFails(getDoc(doc(db('chof1'), 'borradoresCarga/b1')))
+    await assertFails(getDoc(doc(db('cli', 'c@x.com'), 'borradoresCarga/b1')))
+  })
+})
+
+// ── cierresMercaderia: la mitad de MERCADERÍA del viaje (la escribe el server) ──
+describe('cierresMercaderia (viaje en dos partes, 2026-09-18)', () => {
+  const cierre = (extra = {}) => ({
+    remitoId: 'r1', remitoCodigo: 'RC-DT-000001', plantaId: 'torcuato',
+    choferId: 'chof1', choferNombre: 'Chofer Uno', diaReparto: '2026-09-18',
+    productos: [], envases: { salieron: {}, volvieron: {}, diferencia: {}, racksFaltantes: [] },
+    faltante: { bolsasFaltantes: 0, bolsasSobrantes: 0, productos: [], grave: false, umbral: 10 },
+    descargaIds: ['d1'], descargaCodigos: ['DC-DT-000001'],
+    contadaPor: { uid: 'mue1', nombre: 'Muelle' }, contadaEn: new Date(), ...extra,
+  })
+  const seedTodos = () => seed(async (d) => {
+    await setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' })
+    await setDoc(doc(d, 'users/mue1'),  { rol: 'muelle', estado: 'activo', planta: 'torcuato' })
+    await setDoc(doc(d, 'users/tes1'),  { rol: 'tesoreria', estado: 'activo' })
+    await setDoc(doc(d, 'users/sup1'),  { rol: 'supervisor', estado: 'activo' })
+    await setDoc(doc(d, 'users/gg'),    { rol: 'gerente_general', estado: 'activo' })
+    await setDoc(doc(d, 'users/log'),   { rol: 'logistica', estado: 'activo' })
+    await setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' })
+    await setDoc(doc(d, 'users/chof2'), { rol: 'chofer', estado: 'activo' })
+    await setDoc(doc(d, 'users/cli'),   cliente())
+    await setDoc(doc(d, 'cierresMercaderia/r1'), cierre())
+  })
+
+  // El conteo del muelle es 100 % ciego: este doc tiene el teórico, así que
+  // mostrárselo destruiría el control (igual que no puede leer ventasCamion).
+  test('MUELLE no puede leer el cierre de mercadería: el conteo es ciego', async () => {
+    await seedTodos()
+    await assertFails(getDoc(doc(db('mue1'), 'cierresMercaderia/r1')))
+  })
+
+  test('lo leen caja, tesorería, supervisor y gerencia; el chofer solo el suyo; el cliente no', async () => {
+    await seedTodos()
+    for (const u of ['caja1', 'tes1', 'sup1', 'gg', 'log']) await assertSucceeds(getDoc(doc(db(u), 'cierresMercaderia/r1')))
+    await assertSucceeds(getDoc(doc(db('chof1'), 'cierresMercaderia/r1')))
+    await assertFails(getDoc(doc(db('chof2'), 'cierresMercaderia/r1')))
+    await assertFails(getDoc(doc(db('cli', 'c@x.com'), 'cierresMercaderia/r1')))
+  })
+
+  test('nadie lo escribe desde un cliente: lo escribe SOLO el servidor', async () => {
+    await seedTodos()
+    for (const u of ['caja1', 'mue1', 'tes1', 'log', 'chof1']) {
+      await assertFails(setDoc(doc(db(u), 'cierresMercaderia/r2'), cierre({ remitoId: 'r2' })))
+      await assertFails(updateDoc(doc(db(u), 'cierresMercaderia/r1'), { descargaIds: [] }))
+      await assertFails(deleteDoc(doc(db(u), 'cierresMercaderia/r1')))
+    }
+  })
+})
+
+// ── camionesEnViaje: la marca que impide cargar dos veces el mismo camión ─────
+describe('camionesEnViaje (2026-09-18)', () => {
+  const marca = { camionId: 'cam1', remitoId: 'r1', choferId: 'chof1', plantaId: 'torcuato', desde: new Date() }
+  const seedTodos = () => seed(async (d) => {
+    await setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' })
+    await setDoc(doc(d, 'users/mue1'),  { rol: 'muelle', estado: 'activo', planta: 'torcuato' })
+    await setDoc(doc(d, 'users/seg1'),  { rol: 'seguridad', estado: 'activo', planta: 'torcuato' })
+    await setDoc(doc(d, 'users/gg'),    { rol: 'gerente_general', estado: 'activo' })
+    await setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' })
+    await setDoc(doc(d, 'users/cli'),   cliente())
+    await setDoc(doc(d, 'camionesEnViaje/cam1'), marca)
+  })
+
+  test('la leen caja, muelle, seguridad y gerencia; no el chofer ni el cliente', async () => {
+    await seedTodos()
+    for (const u of ['caja1', 'mue1', 'seg1', 'gg']) await assertSucceeds(getDoc(doc(db(u), 'camionesEnViaje/cam1')))
+    await assertFails(getDoc(doc(db('chof1'), 'camionesEnViaje/cam1')))
+    await assertFails(getDoc(doc(db('cli', 'c@x.com'), 'camionesEnViaje/cam1')))
+  })
+
+  test('nadie la escribe ni la borra desde un cliente: son los triggers', async () => {
+    await seedTodos()
+    for (const u of ['caja1', 'mue1', 'seg1', 'chof1']) {
+      await assertFails(setDoc(doc(db(u), 'camionesEnViaje/cam2'), { ...marca, camionId: 'cam2' }))
+      await assertFails(deleteDoc(doc(db(u), 'camionesEnViaje/cam1')))
+    }
+  })
+})
+
 // ── config/cargaCounter_*: correlativo de remitos de carga por planta ─────────
+// Desde el 2026-09-18 lo mueve MUELLE, que es quien emite el remito.
 describe('config/cargaCounter_*', () => {
-  const seedCaja = (uid = 'caja1', planta = 'torcuato') =>
-    seed((d) => setDoc(doc(d, `users/${uid}`), { rol: 'caja', estado: 'activo', planta }))
+  const seedMuelle = (uid = 'mue1', planta = 'torcuato') =>
+    seed((d) => setDoc(doc(d, 'users/' + uid), { rol: 'muelle', estado: 'activo', planta }))
 
-  test('caja crea el contador de SU planta en el primer uso (next 2 = emitió el 1)', async () => {
-    await seedCaja()
-    await assertSucceeds(setDoc(doc(db('caja1'), 'config/cargaCounter_torcuato'), { next: 2 }))
+  test('muelle crea el contador de SU planta en el primer uso (next 2 = emitió el 1)', async () => {
+    await seedMuelle()
+    await assertSucceeds(setDoc(doc(db('mue1'), 'config/cargaCounter_torcuato'), { next: 2 }))
   })
 
-  test('caja NO puede crear el contador de otra planta', async () => {
-    await seedCaja()
-    await assertFails(setDoc(doc(db('caja1'), 'config/cargaCounter_merlo'), { next: 2 }))
+  test('muelle NO puede crear el contador de otra planta', async () => {
+    await seedMuelle()
+    await assertFails(setDoc(doc(db('mue1'), 'config/cargaCounter_merlo'), { next: 2 }))
   })
 
-  test('caja avanza el contador de su planta, nunca lo retrocede', async () => {
-    await seedCaja()
+  test('muelle avanza el contador de su planta, nunca lo retrocede', async () => {
+    await seedMuelle()
     await seed((d) => setDoc(doc(d, 'config/cargaCounter_torcuato'), { next: 10 }))
-    await assertSucceeds(setDoc(doc(db('caja1'), 'config/cargaCounter_torcuato'), { next: 11 }))
-    await assertFails(setDoc(doc(db('caja1'), 'config/cargaCounter_torcuato'), { next: 9 }))
+    await assertSucceeds(setDoc(doc(db('mue1'), 'config/cargaCounter_torcuato'), { next: 11 }))
+    await assertFails(setDoc(doc(db('mue1'), 'config/cargaCounter_torcuato'), { next: 9 }))
   })
 
-  test('un chofer NO puede tocar el contador de carga', async () => {
-    await seed((d) => setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' }))
+  test('caja y chofer YA NO tocan el contador de carga', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' })
+      await setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' })
+    })
+    await assertFails(setDoc(doc(db('caja1'), 'config/cargaCounter_torcuato'), { next: 2 }))
     await assertFails(setDoc(doc(db('chof1'), 'config/cargaCounter_torcuato'), { next: 2 }))
+  })
+})
+
+// ── config/descargaCounter_*: correlativo de descargas, lo numera el servidor ─
+describe('config/descargaCounter_* (2026-09-18)', () => {
+  test('ningún cliente lo toca: el número de la descarga lo pone el Admin SDK', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/mue1'),  { rol: 'muelle', estado: 'activo', planta: 'torcuato' })
+      await setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' })
+      await setDoc(doc(d, 'users/tes1'),  { rol: 'tesoreria', estado: 'activo' })
+      await setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' })
+      await setDoc(doc(d, 'config/descargaCounter_torcuato'), { next: 10 })
+    })
+    for (const u of ['mue1', 'caja1', 'tes1', 'chof1']) {
+      await assertFails(setDoc(doc(db(u), 'config/descargaCounter_merlo'), { next: 2 }))
+      await assertFails(updateDoc(doc(db(u), 'config/descargaCounter_torcuato'), { next: 11 }))
+    }
   })
 })
 
@@ -2588,64 +2837,19 @@ describe('expedicion: muelle / cambios / descargas / liquidaciones', () => {
     await assertFails(updateDoc(doc(db('caja1'), 'liquidaciones/2026-08-29_chof1'), { entregaId: 'ET-2' }))
   })
 
-  // ── remito: transición de entrega por muelle ──
-  test('muelle confirma la entrega de un remito emitido de su planta', async () => {
+  // ── remito: la entrega ya no es una transición (2026-09-18) ──
+  // Emitir el remito y entregar el camión son el mismo acto desde que muelle
+  // acepta el borrador, así que la rama emitido → entregado desapareció: un
+  // remito no se toca después de nacer. Ver el describe de remitosCarga.
+  test('un remito ya no admite la transición de entrega: nace entregado y es inmutable', async () => {
     await seedMuelle()
-    await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), remito()))
-    await assertSucceeds(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), {
-      estado: 'entregado', entregadoPor: { uid: 'mue1', nombre: 'Muelle', hora: new Date() },
-    }))
-  })
-
-  test('muelle NO confirma entrega en OTRA planta', async () => {
-    await seedMuelle('mue1', 'merlo')
-    await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), remito()))
-    await assertFails(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), {
-      estado: 'entregado', entregadoPor: { uid: 'mue1', nombre: 'Muelle', hora: new Date() },
-    }))
-  })
-
-  test('muelle NO puede tocar los items del remito al confirmar', async () => {
-    await seedMuelle()
-    await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), remito()))
-    await assertFails(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), {
-      estado: 'entregado', entregadoPor: { uid: 'mue1', nombre: 'Muelle', hora: new Date() },
-      items: [],
-    }))
-  })
-
-  test('muelle puede corregir la composición de envases al confirmar (envases + palletsCarga coherentes)', async () => {
-    await seedMuelle()
-    await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), remito()))
-    await assertSucceeds(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), {
-      estado: 'entregado', entregadoPor: { uid: 'mue1', nombre: 'Muelle', hora: new Date() },
-      envases: { tarimasMadera: 0, palletsMetal: 3, racks: [12] }, palletsCarga: 3,
-    }))
-  })
-
-  test('muelle NO cambia palletsCarga suelto ni envases incoherentes al confirmar', async () => {
-    await seedMuelle()
-    await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), remito()))
-    const entrega = { estado: 'entregado', entregadoPor: { uid: 'mue1', nombre: 'Muelle', hora: new Date() } }
-    await assertFails(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), { ...entrega, palletsCarga: 5 }))
-    await assertFails(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), { ...entrega, envases: { tarimasMadera: 0, palletsMetal: 3, racks: [] }, palletsCarga: 2 }))
-    await assertFails(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), { ...entrega, envases: { tarimasMadera: 0, palletsMetal: -3, racks: [] }, palletsCarga: -3 }))
-  })
-
-  test('muelle NO re-entrega un remito ya entregado', async () => {
-    await seedMuelle()
-    await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), remito({ estado: 'entregado' })))
-    await assertFails(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), {
-      estado: 'entregado', entregadoPor: { uid: 'mue1', nombre: 'Muelle', hora: new Date() },
-    }))
-  })
-
-  test('caja NO puede confirmar entregas (eso es de muelle)', async () => {
     await seedCaja()
     await seed((d) => setDoc(doc(d, 'remitosCarga/r1'), remito()))
-    await assertFails(updateDoc(doc(db('caja1'), 'remitosCarga/r1'), {
-      estado: 'entregado', entregadoPor: { uid: 'caja1', nombre: 'Caja', hora: new Date() },
-    }))
+    const entrega = { estado: 'entregado', entregadoPor: { uid: 'mue1', nombre: 'Muelle', hora: new Date() } }
+    await assertFails(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), entrega))
+    await assertFails(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), { ...entrega, items: [] }))
+    await assertFails(updateDoc(doc(db('mue1'), 'remitosCarga/r1'), { ...entrega, envases: { tarimasMadera: 0, palletsMetal: 3, racks: [12] }, palletsCarga: 3 }))
+    await assertFails(updateDoc(doc(db('caja1'), 'remitosCarga/r1'), entrega))
   })
 
   // ── cambiosCamion (histórico: hoy el cambio es un renglón de la venta) ──
@@ -5280,5 +5484,248 @@ describe('rol en el token (custom claims, 2026-09-12): las reglas no leen users/
     await seedTodos()
     const verComo = conClaims('admTok', { rol: 'super_admin', estado: 'activo', impersonadoPor: 'jefe', impersonadoPorNombre: 'Jefe' })
     await assertFails(updateDoc(doc(verComo, 'orders/o1'), { status: 'confirmado' }))
+  })
+})
+
+// ── El viaje se cierra en dos mitades independientes (2026-09-18) ─────────────
+// PLATA: liquidaciones/{remitoId} (la cierra caja). MERCADERÍA:
+// cierresMercaderia/{remitoId} (la escribe el servidor al contarse la descarga).
+// Muelle trabaja 24 horas y caja 12: el camión que vuelve a las 20 descarga sin
+// problema pero no tiene a quién rendirle el dinero, así que cada mitad se
+// cierra cuando puede y en cualquier orden.
+describe('viaje en dos partes: plata y mercadería (2026-09-18)', () => {
+  const desglose = (billetes = {}, sinEfectivo = false) => {
+    const b = { '20000': 0, '10000': 0, '2000': 0, '1000': 0, '500': 0, ...billetes }
+    const total = sinEfectivo ? 0 : b['20000'] * 20000 + b['10000'] * 10000 + b['2000'] * 2000 + b['1000'] * 1000 + b['500'] * 500
+    return { billetes: b, cambioChico: 0, sinEfectivo, total }
+  }
+  // Cierre de PLATA: sin `productos` (la mercadería vive aparte desde el corte).
+  const plata = (extra = {}) => ({
+    fecha: '2026-09-18', plantaId: 'torcuato', choferId: 'chof1', choferNombre: 'Chofer Uno',
+    remitoId: 'r1', remitoCodigo: 'RC-DT-000001',
+    cambios: { registrados: 0, rotasRecibidas: 0 },
+    importes: { contadoEfectivo: 1000, contadoTransferencia: 0, cuentaCorriente: 0, total: 1000 },
+    efectivoARendir: 1000, efectivoRecibido: 1000, diferenciaEfectivo: 0,
+    numero: 1, codigo: 'LQ-21-000001',
+    firmaRepartidor: 'data:image/png;base64,AAAA', firmanteRepartidor: 'Chofer Uno',
+    firmaRecibe: 'data:image/png;base64,BBBB', firmanteRecibe: 'Caja',
+    cheques: [], retenciones: [], valoresFaltantes: { cantidad: 0, total: 0 }, entregaId: null,
+    conteoBilletes: { redonhielo: desglose({ '1000': 1 }), rolito: desglose({}, true) },
+    cerradaPor: { uid: 'caja1', nombre: 'Caja' }, createdAt: new Date(), ...extra,
+  })
+  const mercaderia = (extra = {}) => ({
+    remitoId: 'r1', remitoCodigo: 'RC-DT-000001', plantaId: 'torcuato',
+    choferId: 'chof1', choferNombre: 'Chofer Uno', diaReparto: '2026-09-18',
+    productos: [], envases: { salieron: {}, volvieron: {}, diferencia: {}, racksFaltantes: [] },
+    faltante: { bolsasFaltantes: 0, bolsasSobrantes: 0, productos: [], grave: false, umbral: 10 },
+    descargaIds: ['d1'], descargaCodigos: ['DC-DT-000001'],
+    contadaPor: { uid: 'mue1', nombre: 'Muelle' }, contadaEn: new Date(), ...extra,
+  })
+  const seedTodos = () => seed(async (d) => {
+    await setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' })
+    await setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' })
+    await setDoc(doc(d, 'users/sup1'),  { rol: 'supervisor', estado: 'activo' })
+  })
+
+  test('la PLATA del viaje se cierra con id {remitoId}', async () => {
+    await seedTodos()
+    await assertSucceeds(setDoc(doc(db('caja1'), 'liquidaciones/r1'), plata()))
+  })
+
+  test('el id de la liquidación tiene que ser ESE remito, no otro ni la clave por día', async () => {
+    await seedTodos()
+    await assertFails(setDoc(doc(db('caja1'), 'liquidaciones/r9'), plata()))
+    await assertFails(setDoc(doc(db('caja1'), 'liquidaciones/2026-09-18_chof1'), plata()))
+    await assertFails(setDoc(doc(db('caja1'), 'liquidaciones/r1'), plata({ remitoId: 7 })))
+  })
+
+  test('el cierre de la plata ya NO exige productos (la mercadería vive aparte)', async () => {
+    await seedTodos()
+    // Sin productos entra; con productos (cierre viejo) también, mientras sea lista.
+    await assertSucceeds(setDoc(doc(db('caja1'), 'liquidaciones/r1'), plata()))
+    await assertSucceeds(setDoc(doc(db('caja1'), 'liquidaciones/r2'), plata({ remitoId: 'r2', productos: [] })))
+    await assertFails(setDoc(doc(db('caja1'), 'liquidaciones/r3'), plata({ remitoId: 'r3', productos: 'nada' })))
+  })
+
+  test('la MERCADERÍA se puede cerrar antes que la plata: el cierre del server no traba a caja', async () => {
+    await seedTodos()
+    // Muelle contó de noche y el servidor cerró la mercadería del viaje.
+    await seed((d) => setDoc(doc(d, 'cierresMercaderia/r1'), mercaderia()))
+    // A la mañana caja cierra la plata del MISMO viaje.
+    await assertSucceeds(setDoc(doc(db('caja1'), 'liquidaciones/r1'), plata()))
+  })
+
+  test('y la PLATA se puede cerrar antes que la mercadería: son independientes', async () => {
+    await seedTodos()
+    // Caja cierra la plata con el camión todavía sin contar.
+    await assertSucceeds(setDoc(doc(db('caja1'), 'liquidaciones/r1'), plata()))
+    // Y el cierre de mercadería que llega después lo escribe el servidor: ningún
+    // cliente puede, ni siquiera caja con la plata ya cerrada.
+    await assertFails(setDoc(doc(db('caja1'), 'cierresMercaderia/r1'), mercaderia()))
+  })
+
+  test('un cobrador sin camión sigue cerrando con la clave por día', async () => {
+    await seedTodos()
+    const { remitoId: _r, remitoCodigo: _rc, ...sinViaje } = plata({ choferId: 'sup1', choferNombre: 'Supervisor' })
+    await assertSucceeds(setDoc(doc(db('caja1'), 'liquidaciones/2026-09-18_sup1'), sinViaje))
+    // Con la clave del viaje, que él no tiene, no.
+    await assertFails(setDoc(doc(db('caja1'), 'liquidaciones/r1'), sinViaje))
+  })
+
+  test('el chofer lee la liquidación de SU viaje aunque el id ya no lleve su uid', async () => {
+    await seedTodos()
+    await seed(async (d) => {
+      await setDoc(doc(d, 'liquidaciones/r1'), plata())
+      await setDoc(doc(d, 'liquidaciones/r9'), plata({ remitoId: 'r9', choferId: 'otro' }))
+    })
+    await assertSucceeds(getDoc(doc(db('chof1'), 'liquidaciones/r1')))
+    await assertFails(getDoc(doc(db('chof1'), 'liquidaciones/r9')))
+  })
+
+  // ── cuadre de envases guardado con el conteo (2026-09-18) ──
+  test('la descarga puede traer el cuadre de envases del viaje; mal formado no entra; el número lo pone el server', async () => {
+    await seed((d) => setDoc(doc(d, 'users/mue1'), { rol: 'muelle', estado: 'activo', planta: 'torcuato' }))
+    const descarga = (extra = {}) => ({
+      plantaId: 'torcuato', camionId: 'cam1', camionLabel: 'AB123CD',
+      choferId: 'chof1', choferNombre: 'Chofer Uno', remitoId: 'r1', remitoCodigo: 'RC-DT-000001',
+      items: [{ productoId: 'bolsa_10kg', nombre: 'Hielo 10kg', cantidad: 20 }],
+      bolsasRotas: [], envases: { tarimasMadera: 1, palletsMetal: 0, puntales: 4, aros: 1, racks: [12] },
+      registradoPor: { uid: 'mue1', nombre: 'Muelle' }, fecha: new Date(), diaReparto: '2026-09-18', ...extra,
+    })
+    const cuadre = { salieron: { tarimasMadera: 1, palletsMetal: 1 }, volvieron: { tarimasMadera: 1, palletsMetal: 0 }, diferencia: { tarimasMadera: 0, palletsMetal: -1 }, racksFaltantes: [15] }
+    // Sin cuadre (fletero sin remito digital) y con cuadre: las dos entran.
+    await assertSucceeds(setDoc(doc(db('mue1'), 'descargasCamion/d1'), descarga()))
+    await assertSucceeds(setDoc(doc(db('mue1'), 'descargasCamion/d2'), descarga({ envasesCuadre: cuadre })))
+    // Mal formado: no.
+    await assertFails(setDoc(doc(db('mue1'), 'descargasCamion/d3'), descarga({ envasesCuadre: 'faltan 2' })))
+    await assertFails(setDoc(doc(db('mue1'), 'descargasCamion/d4'), descarga({ envasesCuadre: { ...cuadre, racksFaltantes: [15, 15] } })))
+    // El número correlativo lo asigna el servidor cuando el doc llega (la tablet
+    // guarda sin señal), así que la descarga entra SIN numero ni codigo.
+    await assertSucceeds(setDoc(doc(db('mue1'), 'descargasCamion/d5'), descarga({ envasesCuadre: cuadre })))
+  })
+})
+
+// ── desviosDescarga con la clave del viaje y el estado 'observado' (2026-09-18) ─
+describe('desviosDescarga: id por viaje y desvío observado (2026-09-18)', () => {
+  const seedTodos = () => seed(async (d) => {
+    await setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' })
+    await setDoc(doc(d, 'users/aut1'),  { rol: 'facturacion', estado: 'activo', autorizaAnulaciones: true })
+  })
+  const pedido = (extra = {}) => ({
+    fecha: '2026-09-18', plantaId: 'torcuato', choferId: 'chof1', choferNombre: 'Chofer Uno', depositoTango: '21',
+    remitoId: 'r1', remitoCodigo: 'RC-DT-000001',
+    bolsasFaltantes: 42, productos: [{ productoId: 'b3', nombre: 'Hielo 3 kg', faltan: 42 }], umbral: 10,
+    estado: 'pendiente', motivo: 'a_investigar', nota: 'se contó dos veces',
+    solicitadoPor: { uid: 'caja1', nombre: 'Caja' }, solicitadaEn: new Date(), resueltaPor: null, ...extra,
+  })
+
+  test('con remitoId el id del desvío es el del VIAJE, no {fecha}_{chofer}', async () => {
+    await seedTodos()
+    await assertSucceeds(setDoc(doc(db('caja1'), 'desviosDescarga/r1'), pedido()))
+    await assertFails(setDoc(doc(db('caja1'), 'desviosDescarga/2026-09-18_chof1'), pedido()))
+    await assertFails(setDoc(doc(db('caja1'), 'desviosDescarga/r9'), pedido()))
+  })
+
+  test('sin remitoId (fletero, o un desvío anterior al corte) sigue valiendo la clave por día', async () => {
+    await seedTodos()
+    const { remitoId: _r, remitoCodigo: _rc, ...viejo } = pedido()
+    await assertSucceeds(setDoc(doc(db('caja1'), 'desviosDescarga/2026-09-18_chof1'), viejo))
+    await assertFails(setDoc(doc(db('caja1'), 'desviosDescarga/r1'), viejo))
+  })
+
+  // 'observado' = caja cerró haciéndose cargo del faltante sin esperar a nadie.
+  // Un tema de stock nunca traba el turno de caja, pero queda escrito.
+  test("caja crea el desvío 'observado' directamente, sin autorización de nadie", async () => {
+    await seedTodos()
+    await assertSucceeds(setDoc(doc(db('caja1'), 'desviosDescarga/r1'), pedido({ estado: 'observado' })))
+    // Y sigue sin poder nacer resuelto.
+    await assertFails(setDoc(doc(db('caja1'), 'desviosDescarga/r2'), pedido({ remitoId: 'r2', estado: 'aprobada' })))
+    await assertFails(setDoc(doc(db('caja1'), 'desviosDescarga/r3'), pedido({ remitoId: 'r3', estado: 'rechazada' })))
+  })
+
+  test('un desvío observado no se resuelve después: la autorización es solo para los pendientes', async () => {
+    await seedTodos()
+    await seed((d) => setDoc(doc(d, 'desviosDescarga/r1'), pedido({ estado: 'observado' })))
+    await assertFails(updateDoc(doc(db('aut1'), 'desviosDescarga/r1'), {
+      estado: 'aprobada', resueltaPor: { uid: 'aut1', nombre: 'A' }, resueltaEn: new Date(), notaResolucion: '',
+    }))
+  })
+})
+
+// ── Los gates de anulación preguntan por la PLATA DEL VIAJE (2026-09-18) ──────
+// Un chofer puede hacer dos viajes en un día y cerrar el primero mientras el
+// segundo sigue en la calle: preguntar por {fecha}_{uid} trababa anulaciones
+// legítimas del viaje abierto.
+describe('anulaciones: el gate es el viaje, no el día (2026-09-18)', () => {
+  const ventaRemito = (over = {}) => ({
+    canal: 'contado', camionId: 'cam1', choferId: 'chof1', choferNombre: 'C', clienteId: 'cli', clienteNombre: 'Cliente',
+    items: [], total: 1000, formaPago: 'cuenta_corriente', fecha: new Date(), pedidoId: null,
+    comprobanteInterno: { tipo: 'remito', puntoVenta: 1105, numero: 700 }, ...over,
+  })
+  const ventaFacturada = (over = {}) => ({
+    canal: 'contado', camionId: 'cam1', choferId: 'chof1', choferNombre: 'C', clienteId: 'cli', clienteNombre: 'Cliente',
+    items: [], total: 20000, formaPago: 'contado_efectivo', fecha: new Date(), pedidoId: null,
+    tango: { estado: 'confirmado' },
+    factura: { estado: 'emitida', numero: 300, puntoVenta: 1104, cbteTipo: 1, cae: '75', caeFchVto: '20260920' }, ...over,
+  })
+  const cobranza = (over = {}) => ({
+    origen: 'chofer', registradoPor: { uid: 'chof1', nombre: 'C' }, clienteId: 'cli', clienteNombre: 'Cliente',
+    importe: 5000, formaPago: 'contado_efectivo', numeroRecibo: 'RS-000168', fecha: new Date(), ...over,
+  })
+  const seedTodos = () => seed(async (d) => {
+    await setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' })
+    await setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' })
+    // Viaje r1 CERRADO (la plata ya se rindió) y viaje r2 todavía abierto.
+    await setDoc(doc(d, 'liquidaciones/r1'), { fecha: '2026-09-18', remitoId: 'r1', choferId: 'chof1', plantaId: 'torcuato' })
+    // Remitos de cta. cte. de cada viaje.
+    await setDoc(doc(d, 'ventasCamion/vr1'), ventaRemito({ remitoId: 'r1' }))
+    await setDoc(doc(d, 'ventasCamion/vr2'), ventaRemito({ remitoId: 'r2' }))
+    // Facturas de cada viaje.
+    await setDoc(doc(d, 'ventasCamion/vf1'), ventaFacturada({ remitoId: 'r1' }))
+    await setDoc(doc(d, 'ventasCamion/vf2'), ventaFacturada({ remitoId: 'r2', factura: { estado: 'emitida', numero: 301, puntoVenta: 1104, cbteTipo: 1, cae: '76', caeFchVto: '20260920' } }))
+    // Recibos de cada viaje.
+    await setDoc(doc(d, 'cobranzas/rc1'), cobranza({ remitoId: 'r1' }))
+    await setDoc(doc(d, 'cobranzas/rc2'), cobranza({ remitoId: 'r2', numeroRecibo: 'RS-000169' }))
+    // Y una venta vieja, sin remitoId: sigue preguntando por la clave del día.
+    await setDoc(doc(d, 'ventasCamion/vieja'), ventaRemito())
+    await setDoc(doc(d, 'liquidaciones/2026-09-18_chof1'), { fecha: '2026-09-18', choferId: 'chof1', plantaId: 'torcuato' })
+  })
+  const anulacionRemito = (over = {}) => ({ anulacion: { estado: 'anulada', solicitudId: '', tipo: 'remito', motivo: 'cliente_equivocado', nota: '', anuladaPor: { uid: 'chof1', nombre: 'C' }, anuladaEn: new Date(), fechaVenta: '2026-09-18', ...over } })
+
+  test('el chofer NO anula el remito de un viaje ya liquidado, y SÍ el del viaje que sigue abierto', async () => {
+    await seedTodos()
+    await assertFails(updateDoc(doc(db('chof1'), 'ventasCamion/vr1'), anulacionRemito()))
+    await assertSucceeds(updateDoc(doc(db('chof1'), 'ventasCamion/vr2'), anulacionRemito()))
+  })
+
+  test('una venta sin remitoId (anterior al corte) sigue mirando la liquidación del día', async () => {
+    await seedTodos()
+    await assertFails(updateDoc(doc(db('chof1'), 'ventasCamion/vieja'), anulacionRemito()))
+  })
+
+  const solicitud = (ventaId, over = {}) => ({
+    ventaId, coleccion: 'ventasCamion', plantaId: 'torcuato', cajaId: 'caja1', cajaNombre: 'Caja',
+    choferId: 'chof1', choferNombre: 'C', clienteNombre: 'Cliente', fechaVenta: '2026-09-18',
+    facturaOriginal: { cbteTipo: 1, puntoVenta: 1104, numero: 300, cae: '75', total: 20000 },
+    motivo: 'cliente_equivocado', nota: '', estado: 'pendiente',
+    solicitadoPor: { uid: 'caja1', nombre: 'Caja' }, solicitadaEn: new Date(), resueltaPor: null, ...over,
+  })
+
+  test('caja NO pide anular la factura de un viaje ya liquidado, y SÍ la del viaje abierto', async () => {
+    await seedTodos()
+    await assertFails(setDoc(doc(db('caja1'), 'anulacionesVentanilla/vf1'), solicitud('vf1')))
+    await assertSucceeds(setDoc(doc(db('caja1'), 'anulacionesVentanilla/vf2'), solicitud('vf2')))
+  })
+
+  const solicitudRecibo = (cobranzaId, over = {}) => ({
+    cobranzaId, cobradorId: 'chof1', clienteNombre: 'Cliente', importe: 5000, fechaCobranza: '2026-09-18',
+    motivo: 'numero_de_cheque_mal', nota: '', estado: 'pendiente',
+    solicitadoPor: { uid: 'chof1', nombre: 'C' }, solicitadaEn: new Date(), resueltaPor: null, ...over,
+  })
+
+  test('el cobrador NO pide anular el recibo de un viaje ya liquidado, y SÍ el del viaje abierto', async () => {
+    await seedTodos()
+    await assertFails(setDoc(doc(db('chof1'), 'anulacionesCobranza/rc1'), solicitudRecibo('rc1')))
+    await assertSucceeds(setDoc(doc(db('chof1'), 'anulacionesCobranza/rc2'), solicitudRecibo('rc2')))
   })
 })

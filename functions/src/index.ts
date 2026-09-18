@@ -42,7 +42,14 @@ export { onHistorialAdminAltoRiesgo, enviarResumenAdminDiario } from './triggers
 export { syncClientesTango }                    from './triggers/tangoSync'
 export { syncSaldosTango }                      from './triggers/tangoSaldos'
 export { onConsultaRespondida }                 from './triggers/tangoConsultas'
-export { onProduccionPalletCreado, onVentaCamionCreada, onVentaCamionFacturada, onVentaVentanillaCreada, onVentaVentanillaFacturada, onAnulacionEmitida, onRemitoCargaCreado, onDescargaCamionCreada, onLiquidacionCerrada, onCobranzaCreada, onOutboxConfirmado } from './triggers/tangoOutbox'
+// onLiquidacionCerrada se borró el 2026-09-18: la diferencia camión → 98 ahora
+// sale al cerrar la MERCADERÍA (onDescargaCamionCreada), que es cuando hay
+// conteo, y no al cerrar la plata. OJO al deployar: hay que borrar la function
+// vieja en Cloud Run (firebase deploy avisa que sobra).
+export { onProduccionPalletCreado, onVentaCamionCreada, onVentaCamionFacturada, onVentaVentanillaCreada, onVentaVentanillaFacturada, onAnulacionEmitida, onRemitoCargaCreado, onRemitoCargaRegreso, onDescargaCamionCreada, onCobranzaCreada, onOutboxConfirmado } from './triggers/tangoOutbox'
+// Barridos del circuito de expedición (2026-09-18): borradores de carga vencidos
+// y descargas que quedaron sin número.
+export { barridoBorradoresVencidos, barridoDescargasSinNumerar } from './triggers/barridosExpedicion'
 export { onOutboxPendiente, barridoOutboxTango }  from './triggers/tangoWorker'
 export { syncPreciosTango, sincronizarPreciosTangoAhora } from './triggers/tangoPrecios'
 export { syncClientesTangoConnect, syncSaldosTangoConnect, sincronizarClientesTangoAhora, sincronizarSaldosTangoAhora, onConsultaSaldoPendiente } from './triggers/tangoConnectSync'

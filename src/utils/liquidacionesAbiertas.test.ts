@@ -17,17 +17,30 @@ const cobranza = (o: { fecha: string; uid: string; origen: Cobranza['origen']; i
 } as unknown as Cobranza)
 
 describe('gruposAbiertos', () => {
-  it('agrupa por persona y día, saca los días con liquidación y ordena del más viejo al más nuevo', () => {
+  it('agrupa por VIAJE: dos salidas del mismo chofer en un día son dos rendiciones', () => {
     const remitos = [
       remito({ fecha: '2026-09-15T10:00:00', choferId: 'ana' }),
       remito({ fecha: '2026-09-15T14:00:00', choferId: 'ana', numero: 2 }),
       remito({ fecha: '2026-09-14T09:00:00', choferId: 'beto' }),
       remito({ fecha: '2026-09-13T09:00:00', choferId: 'carla' }),
     ]
-    const g = gruposAbiertos(remitos, [], [{ id: '2026-09-13_carla' }])
-    expect(g.map((x) => x.clave)).toEqual(['2026-09-14_beto', '2026-09-15_ana'])
-    expect(g[1].remitos.map((r) => r.numero)).toEqual([1, 2])
+    // El viaje de carla ya tiene las dos mitades cerradas y no aparece.
+    const g = gruposAbiertos(remitos, [], [{ id: 'r-carla-2026-09-13T09:00:00' }], [{ remitoId: 'r-carla-2026-09-13T09:00:00' }])
+    expect(g.map((x) => x.choferNombre)).toEqual(['BETO', 'ANA', 'ANA'])
+    expect(g.every((x) => x.remitos.length === 1)).toBe(true)
     expect(g[1].plantaId).toBe('torcuato')
+  })
+
+  it('un viaje con la plata liquidada pero sin contar sigue abierto, y al revés también', () => {
+    const r = remito({ fecha: '2026-09-15T10:00:00', choferId: 'ana' })
+    const soloPlata = gruposAbiertos([r], [], [{ id: r.id }], [])
+    expect(soloPlata).toHaveLength(1)
+
+    const soloMercaderia = gruposAbiertos([r], [], [], [{ remitoId: r.id }])
+    expect(soloMercaderia).toHaveLength(1)
+
+    const lasDos = gruposAbiertos([r], [], [{ id: r.id }], [{ remitoId: r.id }])
+    expect(lasDos).toHaveLength(0)
   })
 
   it('un cobrador sin remito también queda abierto; las cobranzas de mostrador no', () => {

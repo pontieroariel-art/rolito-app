@@ -2,7 +2,7 @@ import { collection, doc, getDoc, onSnapshot, query, runTransaction, where, Time
 import { db } from './firebase'
 import { reportError } from './observability'
 import { ChequeRendido, ConteoBilletes, DesvioLiquidacion, EmpresaTango, Liquidacion, MotivoDiferenciaLiquidacion, PlantaId, RetencionRendida } from '../types'
-import { LiquidacionCalculada, codigoLiquidacion, referenciasDelReparto, serieLiquidacion } from '../utils/liquidacion'
+import { PlataCalculada, codigoLiquidacion, referenciasDelReparto, serieLiquidacion } from '../utils/liquidacion'
 import { todayString } from '../utils/helpers'
 
 export class LiquidacionYaCerradaError extends Error {
@@ -13,10 +13,18 @@ const COUNTER_REF = (clave: string) => doc(db, 'config', `liquidacionCounter_${c
 
 const LIQUIDACIONES = 'liquidaciones'
 
-// ID determinístico: una liquidación por chofer y día. Las reglas solo
-// permiten create (nunca update) → un segundo cierre del mismo día falla en
-// vez de pisar el snapshot.
+// ID determinístico. Las reglas solo permiten create (nunca update) → un
+// segundo cierre falla en vez de pisar el snapshot.
+//
+// Desde el 2026-09-18 la plata de un VIAJE se guarda por su remito, porque su
+// otra mitad (el cierre de mercadería) también es del viaje y las dos tienen que
+// apuntar a lo mismo. Un chofer puede hacer dos viajes en un día, y el segundo no
+// puede pisar la rendición del primero.
+//
+// Los cobradores y supervisores no tienen camión ni viaje: siguen con la clave
+// por día, que es como rinden.
 export const liquidacionId = (fecha: string, choferId: string) => `${fecha}_${choferId}`
+export const liquidacionIdDeViaje = (remitoId: string) => remitoId
 
 export async function cerrarLiquidacion(
   args: {
@@ -25,7 +33,20 @@ export async function cerrarLiquidacion(
     choferNombre:      string
     depositoTango?:       string
     depositoTangoNombre?: string
-    calculo:           LiquidacionCalculada
+    /**
+     * El viaje que se rinde (2026-09-18). Con viaje, la liquidación se guarda por
+     * su remito; sin viaje (cobradores, supervisores) sigue la clave por día.
+     */
+    remitoId?:         string
+    remitoCodigo?:     string
+    /**
+     * Cuando el sobre venía del buzón (2026-09-18): el chofer volvió fuera del
+     * horario de caja, dejó la plata con el código de la descarga escrito a mano
+     * y se fue. Queda quién abrió el buzón y cuándo, que es el único tramo del
+     * circuito que si no se registra no deja rastro de nadie.
+     */
+    buzon?:            { descargaCodigo: string }
+    calculo:           PlataCalculada
     efectivoRecibido:  number
     // Rendición por sobres, etapa 1 (2026-09-16): el conteo de billetes por
     // empresa es obligatorio (las reglas exigen que sume `efectivoRecibido`).
@@ -50,7 +71,7 @@ export async function cerrarLiquidacion(
   actor: { uid: string; nombre: string; plantaId: PlantaId },
 ): Promise<Liquidacion> {
   const fecha = args.fecha ?? todayString()
-  const id    = liquidacionId(fecha, args.choferId)
+  const id    = args.remitoId ? liquidacionIdDeViaje(args.remitoId) : liquidacionId(fecha, args.choferId)
   const ref   = doc(db, LIQUIDACIONES, id)
   const serie = serieLiquidacion(args.choferId, args.depositoTango)
   // Número correlativo por persona y doc en la misma transacción (patrón
@@ -69,6 +90,8 @@ export async function cerrarLiquidacion(
       choferId:     args.choferId,
       choferNombre: args.choferNombre,
       ...(args.depositoTango ? { depositoTango: args.depositoTango, depositoTangoNombre: args.depositoTangoNombre ?? '' } : {}),
+      ...(args.remitoId ? { remitoId: args.remitoId, remitoCodigo: args.remitoCodigo ?? '' } : {}),
+      ...(args.buzon ? { buzon: { abiertoPor: { uid: actor.uid, nombre: actor.nombre }, abiertoEn: Timestamp.now(), descargaCodigo: args.buzon.descargaCodigo } } : {}),
       ...args.calculo,
       efectivoRecibido:   args.efectivoRecibido,
       diferenciaEfectivo: args.efectivoRecibido - args.calculo.efectivoARendir,
@@ -134,3 +157,22 @@ export const subscribeLiquidacion = (
     // la liquidación NO está cerrada y deja cerrarla de nuevo. Se reporta.
     (err) => { reportError(err, { subscription: 'liquidaciones', fecha, choferId }); callback(null) },
   )
+
+/** La plata de un VIAJE, en vivo (2026-09-18). Mismo cuidado con el error que arriba. */
+export const subscribeLiquidacionDeViaje = (
+  remitoId: string,
+  callback: (liquidacion: Liquidacion | null) => void,
+): () => void =>
+  onSnapshot(
+    doc(db, LIQUIDACIONES, liquidacionIdDeViaje(remitoId)),
+    (snap) => callback(snap.exists() ? ({ id: snap.id, ...snap.data() } as Liquidacion) : null),
+    (err) => { reportError(err, { subscription: 'liquidaciones-viaje', remitoId }); callback(null) },
+  )
+
+/** Las liquidaciones de varios viajes, por id (buzón, liquidaciones abiertas, historial). */
+export const getLiquidacionesDeViajes = async (remitoIds: string[]): Promise<Map<string, Liquidacion>> => {
+  const snaps = await Promise.all(remitoIds.map((id) => getDoc(doc(db, LIQUIDACIONES, id))))
+  const out = new Map<string, Liquidacion>()
+  snaps.forEach((s) => { if (s.exists()) out.set(s.id, { id: s.id, ...s.data() } as Liquidacion) })
+  return out
+}

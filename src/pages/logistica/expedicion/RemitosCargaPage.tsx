@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Eye, Minus, Plus, Truck } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { ClipboardList, Eye, Minus, Pencil, Plus, Trash2, Truck } from 'lucide-react'
 import { useVisorComprobante } from '@/components/ui/VisorComprobante'
+import Badge from '@/components/common/Badge'
+import PageHeader from '@/components/common/PageHeader'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
 import { useAuth } from '@/context/AuthContext'
@@ -8,21 +10,38 @@ import { useFlota } from '@/hooks/useFlota'
 import { useDepositosReparto } from '@/hooks/useDepositosReparto'
 import { etiquetaDeposito, identidadDeposito, nombreDeposito, ordenarDepositosReparto } from '@/utils/depositos'
 import { useCatalogo } from '@/hooks/useCatalogo'
-import { useFechaDelDia } from '@/hooks/useDiaActual'
-import { crearRemitoCarga, esperarCotRemito, palletsInfo } from '@/services/remitoCargaService'
+import { useDiaActual, useFechaDelDia } from '@/hooks/useDiaActual'
+import { palletsInfo } from '@/services/remitoCargaService'
+import {
+  borrarBorradorCarga, crearBorradorCarga, editarBorradorCarga, manana, subscribeBorradoresDe,
+} from '@/services/borradorCargaService'
 import { useRemitosCargaDelDia } from '@/hooks/useExpedicionDia'
 import { generateRemitoCarga } from '@/utils/pdf'
-import { PLANTAS, RemitoCarga, RemitoCargaEstado, RemitoCargaItem } from '@/types'
+import { BorradorCarga, PLANTAS, RemitoCarga, RemitoCargaEstado, RemitoCargaItem } from '@/types'
 import { reportError } from '@/services/observability'
 import RacksInput from '@/components/expedicion/RacksInput'
-import CotCargaForm from '@/components/expedicion/CotCargaForm'
+import CotDestinoForm, { faltantesDestinoPlan } from '@/components/expedicion/CotDestinoForm'
+import TiraBorradoresFaltantes from '@/components/expedicion/TiraBorradoresFaltantes'
 import { useCotConfig } from '@/hooks/useCotConfig'
-import { presentarCotRemito } from '@/services/cotConfigService'
-import { formatoRespaldo, kgDeItems, requiereCot, talonarioRemitoCarga, validarSolicitudCot } from '@/utils/cot'
+import { formatoRespaldo, kgDeItems, requiereCot } from '@/utils/cot'
 import { generateRemitoCargaOficial } from '@/utils/remitoCargaOficialPdf'
-import { TalonarioRemitoCargaNoInicializadoError } from '@/services/remitoCargaService'
-import type { CotSolicitud } from '@/types'
+import { borradoresFaltantes, type CamionDelDia } from '@/utils/borradoresFaltantes'
+import type { CotDestinoPlan } from '@/types'
 import { AROS_POR_TARIMA_MADERA, PUNTALES_POR_PALLET, SOMBREROS_POR_PALLET, describirEnvases, envasesDeRemito } from '@/utils/envases'
+
+// Planificación de la carga (2026-09-18). Esta pantalla YA NO EMITE EL REMITO.
+//
+// Hasta ahora caja emitía a las 17 el remito del camión que salía a las 4 de la
+// mañana: el papel nacía trece horas antes del traslado y el COT viajaba con una
+// hora de salida que no era la real, que es justo lo que ARBA mira en la ruta.
+//
+// Ahora caja PLANIFICA: arma el borrador de carga (qué mercadería, qué camión,
+// qué repartidor, para qué día) y muelle emite el remito —con su número, su COT
+// y su papel— recién cuando entrega el camión y el camión se va.
+//
+// El destino del COT se pide SIEMPRE, aunque la carga planificada no llegue al
+// umbral: si muelle corrige la carga hacia arriba y lo cruza, el COT tiene que
+// poder salir sin ir a buscar al destinatario a las 4 de la mañana.
 
 const ESTADO_LABELS: Record<RemitoCargaEstado, string> = {
   emitido:   'Emitido',
@@ -30,15 +49,13 @@ const ESTADO_LABELS: Record<RemitoCargaEstado, string> = {
   salido:    'Salió',
   liquidado: 'Liquidado',
 }
-const ESTADO_COLORS: Record<RemitoCargaEstado, string> = {
-  emitido:   'bg-amber-100 text-amber-700 border-amber-200',
-  entregado: 'bg-blue-100 text-blue-700 border-blue-200',
-  salido:    'bg-green-100 text-green-700 border-green-200',
-  liquidado: 'bg-gray-100 text-gray-600 border-gray-200',
+const ESTADO_TONOS: Record<RemitoCargaEstado, 'pendiente' | 'confirmado' | 'entregado' | 'neutro'> = {
+  emitido:   'pendiente',
+  entregado: 'confirmado',
+  salido:    'entregado',
+  liquidado: 'neutro',
 }
 
-// Pantalla principal del rol caja (Fase 1 del módulo expedición): armar el
-// remito de carga del camión, imprimirlo para muelle y ver los del día.
 const OTRO_CAMION = '__otro__'
 
 export default function RemitosCargaPage() {
@@ -49,23 +66,22 @@ export default function RemitosCargaPage() {
 
   const plantaId = user?.planta ?? 'torcuato'
   const fecha = useFechaDelDia()
+  const hoyClave = useDiaActual()
 
+  const [paraFecha,  setParaFecha]  = useState(() => manana())
+  const [editandoId, setEditandoId] = useState<string | null>(null)
   const [camionId,   setCamionId]   = useState('')
   // "Otro camión": patente tipeada a mano (2026-09-06, pedido de Ariel). Como en
   // Bluesoft: tercerizados y camiones de temporada que no están en la flota.
-  // Se guarda camionId = 'manual:<PATENTE>' y camionLabel = la patente.
   const [patenteManual, setPatenteManual] = useState('')
-  // Código del depósito de Tango del repartidor (expedición por depósito,
-  // 2026-09-06): la carga se emite a un depósito, tenga o no usuario en la app.
+  // Código del depósito de Tango del repartidor (expedición por depósito, 2026-09-06).
   const [depositoCod, setDepositoCod] = useState('')
   const [cantidades, setCantidades] = useState<Record<string, number>>({})
   // Cuando la cantidad no cierra en pallets justos, caja decide si el resto
   // viaja en un pallet propio (true) o suelto arriba del camión (default).
   const [restoEnPallet, setRestoEnPallet] = useState<Record<string, boolean>>({})
   // Envases que salen (2026-09-07): muelle le dicta a caja cuántos pallets son
-  // de madera y cuántos de metal, y qué racks de agua van. El total sugerido
-  // sigue saliendo de la mercadería; mientras caja no toque "metal", el
-  // sugerido menos la madera cae en metal solo.
+  // de madera y cuántos de metal, y qué racks de agua van.
   const [tarimasMadera, setTarimasMadera] = useState(0)
   const [palletsMetal,  setPalletsMetal]  = useState(0)
   const [metalEditado,  setMetalEditado]  = useState(false)
@@ -73,13 +89,25 @@ export default function RemitosCargaPage() {
   const [confirmando, setConfirmando] = useState(false)
   const [guardando,   setGuardando]   = useState(false)
   const [error,       setError]       = useState('')
+  const [aviso,       setAviso]       = useState('')
   const { abrir } = useVisorComprobante()
   const remitos = useRemitosCargaDelDia(plantaId, fecha)
-  // COT de ARBA (2026-09-10): lo que caja declara cuando la carga supera el umbral.
   const { cfg: cotCfg } = useCotConfig()
-  const [cotSolicitud, setCotSolicitud] = useState<CotSolicitud | null>(null)
-  const [presentandoCot, setPresentandoCot] = useState<string | null>(null)
-  const [avisoCot, setAvisoCot] = useState('')
+  const [cotDestino, setCotDestino] = useState<CotDestinoPlan | null>(null)
+  // Al reabrir un borrador, el destino guardado precarga el formulario del COT.
+  const [cotInicial, setCotInicial] = useState<CotDestinoPlan | null>(null)
+
+  // Borradores del día que se planifica y de hoy (los de hoy son la carga que
+  // muelle todavía no emitió: caja los sigue pudiendo corregir).
+  const [borradores, setBorradores] = useState<BorradorCarga[]>([])
+  const fechasBorrador = useMemo(
+    () => [...new Set([hoyClave, paraFecha])],
+    [hoyClave, paraFecha],
+  )
+  useEffect(
+    () => subscribeBorradoresDe(plantaId, fechasBorrador, setBorradores),
+    [plantaId, fechasBorrador],
+  )
 
   const camionesActivos = useMemo(() => camiones.filter((c) => c.activo), [camiones])
   const camionFlota = camionesActivos.find((c) => c.id === camionId)
@@ -87,18 +115,16 @@ export default function RemitosCargaPage() {
   const camion = camionId === OTRO_CAMION
     ? (patenteLimpia.length >= 6 ? { id: `manual:${patenteLimpia}`, patente: patenteLimpia, modelo: 'sin registrar' } : undefined)
     : camionFlota
-  // Primero los depósitos que ya tienen remito hoy en esta planta.
+  // Primero los depósitos que ya tienen carga hoy en esta planta.
   const depositosReparto = useMemo(
     () => ordenarDepositosReparto(depositos, new Set(remitos.map((r) => r.choferId))),
     [depositos, remitos],
   )
   const deposito = depositosReparto.find((d) => d.codigo === depositoCod)
 
-  // Los pallets NO se cargan a mano: los pallets justos se derivan de las
-  // bolsas (floor por producto, con las unidades por pallet del catálogo) y el
-  // excedente suma un pallet más solo si caja tilda "va en pallet propio".
-  // Cada pallet = 1 base de metal + 4 puntales — en la descarga las bases
-  // vuelven completas, parciales o vacías.
+  // Los pallets NO se cargan a mano: los justos se derivan de las bolsas (floor
+  // por producto, con las unidades por pallet del catálogo) y el excedente suma
+  // un pallet más solo si caja tilda "va en pallet propio".
   const items: RemitoCargaItem[] = useMemo(
     () => catalogo
       .filter((p) => (cantidades[p.id] ?? 0) > 0)
@@ -118,15 +144,21 @@ export default function RemitosCargaPage() {
     if (!metalEditado) setPalletsMetal(Math.max(0, palletsSugeridos - tarimasMadera))
   }, [palletsSugeridos, tarimasMadera, metalEditado])
   const palletsCarga = tarimasMadera + palletsMetal
-  const envases = { tarimasMadera, palletsMetal, racks }
-  // Kilos de la carga según config/cot.productos; si supera el umbral, hace falta COT.
+  const envases = useMemo(() => ({ tarimasMadera, palletsMetal, racks }), [tarimasMadera, palletsMetal, racks])
+  // Kilos de la carga PLANIFICADA según config/cot.productos. Muelle los recalcula al aceptar.
   const { kg, sinPeso } = useMemo(() => kgDeItems(items, cotCfg.productos), [items, cotCfg.productos])
-  const requiereCotCarga = requiereCot(kg, cotSolicitud?.respaldo.importe ?? 0, cotCfg)
-  const pideCot = requiereCotCarga && cotCfg.habilitado
-  // Talonario del remito R oficial de la carga (00025 con CAI vigente): si está, la app numera e imprime el R.
-  const talonarioR = useMemo(() => talonarioRemitoCarga(cotCfg), [cotCfg])
+  const cruzaUmbral = requiereCot(kg, cotDestino?.respaldo.importe ?? 0, cotCfg)
   const num = (v: string) => Math.max(0, Math.min(999, parseInt(v.replace(/\D/g, ''), 10) || 0))
   const inputEnvase = 'w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'
+
+  // Los borradores ya armados para el día que se planifica, contra los camiones
+  // que salieron hoy: la tira de arriba muestra los que FALTAN.
+  const borradoresDelDia = useMemo(() => borradores.filter((b) => b.paraFecha === paraFecha), [borradores, paraFecha])
+  const borradoresDeHoy  = useMemo(() => borradores.filter((b) => b.paraFecha === hoyClave && b.estado === 'pendiente'), [borradores, hoyClave])
+  const { faltan, listos } = useMemo(
+    () => borradoresFaltantes(remitos, borradoresDelDia),
+    [remitos, borradoresDelDia],
+  )
 
   const setCantidad = (productoId: string, delta: number) =>
     setCantidades((prev) => {
@@ -141,42 +173,57 @@ export default function RemitosCargaPage() {
 
   const puedeConfirmar = !!camion && !!deposito && items.length > 0
 
-  // Con remito R numerado por la app sale el papel oficial "PARA REPARTO"; si no, el interno.
-  // Visor (2026-09-15): el remito se ve en pantalla; imprimir o descargar es un clic adentro.
-  const imprimir = async (r: RemitoCarga) => {
-    try {
-      const blob = await generarPdfRemito(r)
-      if (blob) abrir({ blob, nombre: `${r.codigo}.pdf`, titulo: r.remitoR ? `Remito R ${r.codigo}` : `Remito de carga ${r.codigo}`, subtitulo: `${r.camionLabel} · ${r.choferNombre}` })
-    } catch (err) { reportError(err, { origen: 'RemitosCargaPage', accion: 'error al generar el PDF' }) }
-  }
-  const generarPdfRemito = (r: RemitoCarga): Promise<Blob | null> => r.remitoR
-    ? generateRemitoCargaOficial(r)
-    : generateRemitoCarga({
-      codigo:       r.codigo,
-      plantaId:     r.plantaId,
-      camionLabel:  r.camionLabel,
-      choferNombre: r.choferNombre,
-      items:        r.items,
-      palletsCarga: r.palletsCarga,
-      envases:      r.envases,
-      creadoPor:    r.creadoPor,
-      fecha:        r.fecha.toDate(),
-      ...(r.cot?.estado === 'presentado' && r.cot.numero ? { cot: { numero: r.cot.numero, fechaValidez: r.cot.fechaValidez } } : {}),
-      ...(r.kg ? { kg: r.kg } : {}),
-    })
+  const limpiar = useCallback(() => {
+    setEditandoId(null)
+    setCamionId('')
+    setPatenteManual('')
+    setDepositoCod('')
+    setCantidades({})
+    setRestoEnPallet({})
+    setTarimasMadera(0); setPalletsMetal(0); setMetalEditado(false); setRacks([])
+    setCotDestino(null); setCotInicial(null)
+    setError('')
+  }, [])
 
-  // Reintento manual de la presentación a ARBA (quedó en error o se emitió con la presentación apagada).
-  const reintentarCot = async (r: RemitoCarga) => {
-    setPresentandoCot(r.id)
-    setAvisoCot('')
+  // Desde la tira: precargar el camión y el repartidor que salieron hoy.
+  const armarDesdeTira = (c: CamionDelDia) => {
+    limpiar()
+    const enFlota = camionesActivos.some((x) => x.id === c.camionId)
+    if (enFlota) setCamionId(c.camionId)
+    else if (c.camionId.startsWith('manual:')) { setCamionId(OTRO_CAMION); setPatenteManual(c.camionId.slice(7)) }
+    const dep = depositosReparto.find((d) => identidadDeposito(d) === c.choferId)
+    if (dep) setDepositoCod(dep.codigo)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const editar = (b: BorradorCarga) => {
+    limpiar()
+    setEditandoId(b.id)
+    setParaFecha(b.paraFecha)
+    const enFlota = camionesActivos.some((x) => x.id === b.camionId)
+    if (enFlota) setCamionId(b.camionId)
+    else { setCamionId(OTRO_CAMION); setPatenteManual(b.camionId.replace(/^manual:/, '')) }
+    if (b.depositoTango) setDepositoCod(b.depositoTango)
+    setCantidades(Object.fromEntries(b.items.map((i) => [i.productoId, i.cantidad])))
+    setRestoEnPallet({})
+    setTarimasMadera(b.envases.tarimasMadera)
+    setPalletsMetal(b.envases.palletsMetal)
+    setMetalEditado(true)
+    setRacks([...b.envases.racks])
+    setCotInicial(b.cotDestino)
+    setCotDestino(b.cotDestino)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const borrar = async (b: BorradorCarga) => {
+    if (!window.confirm(`¿Dar de baja la carga de ${b.camionLabel} para el ${b.paraFecha}? Muelle deja de verla.`)) return
     try {
-      const res = await presentarCotRemito(r.id)
-      setAvisoCot(res.ok ? `${r.codigo}: COT ${res.cot} obtenido.` : `${r.codigo}: ${res.error ?? 'ARBA no devolvió COT.'}`)
+      await borrarBorradorCarga(b.id)
+      if (editandoId === b.id) limpiar()
+      setAviso(`Se dio de baja la carga de ${b.camionLabel}.`)
     } catch (err) {
-      reportError(err, { origen: 'RemitosCargaPage', accion: 'reintentar COT' })
-      setAvisoCot(`${r.codigo}: no se pudo presentar a ARBA. Probá de nuevo.`)
-    } finally {
-      setPresentandoCot(null)
+      reportError(err, { origen: 'RemitosCargaPage', accion: 'borrar borrador' })
+      setAviso('No se pudo dar de baja la carga. Probá de nuevo.')
     }
   }
 
@@ -184,71 +231,96 @@ export default function RemitosCargaPage() {
     if (!user || !camion || !deposito) return
     setGuardando(true)
     setError('')
-    // COT: si la carga lo requiere y la presentación está habilitada, la solicitud tiene que estar completa.
-    if (pideCot) {
-      const faltas = cotSolicitud ? validarSolicitudCot(cotSolicitud, { respaldoAuto: !!talonarioR }) : ['Completá los datos del COT de ARBA (destinatario, remito R, importe).']
-      if (faltas.length) { setError(faltas.join(' ')); setGuardando(false); return }
-    }
+    // El destino del COT es obligatorio siempre (ver comentario de cabecera).
+    const faltas = faltantesDestinoPlan(cotDestino)
+    if (faltas.length) { setError(faltas.join(' ')); setGuardando(false); return }
     try {
-      const remito = await crearRemitoCarga(
-        {
-          camionId:     camion.id,
-          camionLabel:  `${camion.patente} · ${camion.modelo}`,
-          choferId:     identidadDeposito(deposito),
-          choferNombre: nombreDeposito(deposito),
-          depositoTango: deposito.codigo,
-          depositoTangoNombre: deposito.nombre,
-          items,
-          envases,
-          kg,
-          ...(pideCot && cotSolicitud ? { cotSolicitud } : {}),
-          ...(talonarioR ? { remitoR: talonarioR } : {}),
-        },
-        { uid: user.uid, nombre: user.nombre, plantaId },
-      )
-      setConfirmando(false)
-      setCamionId('')
-      setPatenteManual('')
-      setDepositoCod('')
-      setCantidades({})
-      setRestoEnPallet({})
-      setTarimasMadera(0); setPalletsMetal(0); setMetalEditado(false); setRacks([])
-      setCotSolicitud(null)
-      if (remito.cotSolicitud) {
-        // El COT lo pide el servidor recién al crearse el remito: se espera la
-        // respuesta de ARBA antes de abrir el papel, así sale con el número
-        // (2026-09-16: imprimir en el acto dejaba el remito R sin COT).
-        setAvisoCot(`${remito.codigo}: presentando el COT a ARBA… el remito se abre cuando llegue el número.`)
-        const conCot = (await esperarCotRemito(remito.id)) ?? remito
-        setAvisoCot(conCot.cot?.estado === 'presentado'
-          ? `${remito.codigo}: COT ${conCot.cot.numero} obtenido.`
-          : `${remito.codigo}: ARBA todavía no devolvió el COT${conCot.cot?.error ? ` (${conCot.cot.error})` : ''}. El remito se abrió sin COT: cuando aparezca el número en la lista, reimprimilo.`)
-        imprimir(conCot)
-      } else {
-        imprimir(remito)
+      const datos = {
+        paraFecha,
+        camionId:     camion.id,
+        camionLabel:  `${camion.patente} · ${camion.modelo}`,
+        choferId:     identidadDeposito(deposito),
+        choferNombre: nombreDeposito(deposito),
+        depositoTango: deposito.codigo,
+        depositoTangoNombre: deposito.nombre,
+        items,
+        envases,
+        kg,
+        cotDestino:   cotDestino as CotDestinoPlan,
       }
+      if (editandoId) {
+        await editarBorradorCarga(editandoId, datos)
+        setAviso(`Carga corregida: ${datos.camionLabel} para el ${paraFecha}.`)
+      } else {
+        await crearBorradorCarga(datos, { uid: user.uid, nombre: user.nombre, plantaId })
+        setAviso(`Carga armada para ${datos.choferNombre} (${datos.camionLabel}). Muelle emite el remito cuando entregue el camión.`)
+      }
+      setConfirmando(false)
+      limpiar()
     } catch (err) {
-      reportError(err, { origen: 'RemitosCargaPage', accion: 'error al crear' })
-      setError(err instanceof TalonarioRemitoCargaNoInicializadoError ? err.message : 'No se pudo crear el remito. Revisá la conexión e intentá de nuevo.')
+      reportError(err, { origen: 'RemitosCargaPage', accion: 'guardar borrador' })
+      setError('No se pudo guardar la carga. Revisá la conexión e intentá de nuevo.')
     } finally {
       setGuardando(false)
     }
   }
 
+  // Los remitos ya emitidos son de muelle: caja solo los mira.
+  const verRemito = async (r: RemitoCarga) => {
+    try {
+      const blob = await (r.remitoR
+        ? generateRemitoCargaOficial(r)
+        : generateRemitoCarga({
+          codigo:       r.codigo,
+          plantaId:     r.plantaId,
+          camionLabel:  r.camionLabel,
+          choferNombre: r.choferNombre,
+          items:        r.items,
+          palletsCarga: r.palletsCarga,
+          envases:      r.envases,
+          creadoPor:    r.creadoPor,
+          fecha:        r.fecha.toDate(),
+          ...(r.cot?.estado === 'presentado' && r.cot.numero ? { cot: { numero: r.cot.numero, fechaValidez: r.cot.fechaValidez } } : {}),
+          ...(r.kg ? { kg: r.kg } : {}),
+        }))
+      if (blob) abrir({ blob, nombre: `${r.codigo}.pdf`, titulo: r.remitoR ? `Remito R ${r.codigo}` : `Remito de carga ${r.codigo}`, subtitulo: `${r.camionLabel} · ${r.choferNombre}` })
+    } catch (err) { reportError(err, { origen: 'RemitosCargaPage', accion: 'ver remito' }) }
+  }
+
   const selectClass = 'w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'
 
   return (
-    <main className="max-w-3xl mx-auto p-4 space-y-6 pb-10">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Remitos de carga</h1>
-        <p className="text-secundario text-sm">{PLANTAS[plantaId].label}</p>
-      </div>
+    <main className="max-w-5xl mx-auto p-4 space-y-4 pb-10">
+      <PageHeader
+        titulo="Cargas de los camiones"
+        icono={<ClipboardList size={22} />}
+        contexto={`${PLANTAS[plantaId].label} · caja arma la carga, muelle emite el remito al entregar el camión`}
+        chips={borradoresDelDia.length > 0 ? <Badge tono="confirmado">{borradoresDelDia.length} armada{borradoresDelDia.length === 1 ? '' : 's'}</Badge> : undefined}
+      />
 
-      {/* ── Nuevo remito ── */}
+      <TiraBorradoresFaltantes faltan={faltan} listos={listos} paraFecha={paraFecha} onArmar={armarDesdeTira} />
+
+      {aviso && <p className="text-xs text-gray-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">{aviso}</p>}
+
+      {/* ── Nueva carga ── */}
       <section className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-4 space-y-4">
-        <h2 className="font-semibold text-gray-800 flex items-center gap-2"><Truck size={18} className="text-accent" /> Nueva carga</h2>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <h2 className="font-semibold text-gray-800 flex items-center gap-2">
+            <Truck size={18} className="text-accent" /> {editandoId ? 'Corregir la carga' : 'Armar una carga'}
+          </h2>
+          {editandoId && (
+            <button type="button" onClick={limpiar} className="text-xs text-secundario hover:text-accent underline underline-offset-2">
+              Cancelar la corrección
+            </button>
+          )}
+        </div>
 
-        <div className="grid sm:grid-cols-2 gap-3">
+        <div className="grid sm:grid-cols-3 gap-3">
+          <div>
+            <label className="text-xs text-secundario mb-1 block">¿Para qué día es la carga?</label>
+            <input type="date" value={paraFecha} onChange={(e) => setParaFecha(e.target.value || manana())} className={selectClass} />
+            <p className="text-[11px] text-secundario mt-0.5">El primer viaje se arma el día anterior.</p>
+          </div>
           <div>
             <label className="text-xs text-secundario mb-1 block">Camión</label>
             <select value={camionId} onChange={(e) => setCamionId(e.target.value)} className={selectClass}>
@@ -288,18 +360,14 @@ export default function RemitosCargaPage() {
           <div className="space-y-2">
             {catalogo.map((p) => {
               const info = palletsInfo(p, cantidades[p.id] ?? 0)
+              const pallets = info ? info.completos + (info.resto > 0 && restoEnPallet[p.id] ? 1 : 0) : 0
               return (
                 <div key={p.id}>
                   <div className="flex items-center gap-3">
                     <span className="flex-1 text-sm text-gray-800">
                       {p.nombre}
-                      {info && info.completos > 0 && (
-                        <span className="ml-2 text-xs text-accent font-medium">
-                          {info.completos + (info.resto > 0 && restoEnPallet[p.id] ? 1 : 0)} pallet{(info.completos + (info.resto > 0 && restoEnPallet[p.id] ? 1 : 0)) > 1 ? 's' : ''}
-                        </span>
-                      )}
-                      {info && info.completos === 0 && info.resto > 0 && restoEnPallet[p.id] && (
-                        <span className="ml-2 text-xs text-accent font-medium">1 pallet</span>
+                      {pallets > 0 && (
+                        <span className="ml-2 text-xs text-accent font-medium">{pallets} pallet{pallets > 1 ? 's' : ''}</span>
                       )}
                     </span>
                     <div className="flex items-center gap-1">
@@ -312,7 +380,7 @@ export default function RemitosCargaPage() {
                         value={cantidades[p.id] ?? 0}
                         onChange={(e) => setCantidadInput(p.id, e.target.value)}
                         inputMode="numeric"
-                        className="w-16 text-center bg-white border border-[#D3D1C7] rounded-lg py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+                        className="w-16 text-center bg-white border border-[#D3D1C7] rounded-lg py-1.5 text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-accent"
                       />
                       <button
                         type="button"
@@ -338,35 +406,33 @@ export default function RemitosCargaPage() {
           </div>
         </div>
 
-        {/* ── COT de ARBA ── solo cuando la carga supera el umbral (kilos / importe). */}
+        {/* ── Destino del COT ── obligatorio siempre, no solo por encima del umbral. */}
         {sinPeso.length > 0 && items.length > 0 && (
           <p className="text-xs text-amber-600">Sin peso por unidad en Ajustes → COT de ARBA: {sinPeso.join(', ')}. Los kilos de la carga no los cuentan.</p>
         )}
-        {requiereCotCarga && !cotCfg.habilitado && (
+        {cruzaUmbral && !cotCfg.habilitado && (
           <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
             La carga pesa {kg.toLocaleString('es-AR')} kg y necesita COT de ARBA, pero la presentación desde la app está apagada (Ajustes → COT de ARBA): hay que sacarlo a mano en la web de ARBA.
           </p>
         )}
-        {pideCot && (
-          <CotCargaForm plantaId={plantaId} cfg={cotCfg} kg={kg} patente={camion?.patente ?? ''} respaldoAuto={!!talonarioR} onChange={setCotSolicitud} />
-        )}
+        <CotDestinoForm plantaId={plantaId} cfg={cotCfg} kg={kg} patente={camion?.patente ?? ''} valor={cotInicial} onChange={setCotDestino} />
 
         {/* ── Envases que salen ── muelle se lo dicta a caja al cargar. Cada
-            pallet lleva 4 puntales y 1 aro implícitos; los racks de agua van
-            por número. Solo avisa si no cierra con el sugerido, no bloquea. */}
+            pallet lleva 4 puntales y 1 sombrero implícitos, y solo la tarima de
+            madera lleva aro; los racks de agua van por número. */}
         <div className="bg-accent/5 border border-accent/20 rounded-lg px-3 py-3 space-y-3">
           <div className="flex justify-between items-center">
             <p className="text-sm font-medium text-gray-800">Envases que salen</p>
-            <p className="text-xs text-secundario">Sugerido por la mercadería: <b className="text-gray-700">{palletsSugeridos}</b> pallet{palletsSugeridos === 1 ? '' : 's'}</p>
+            <p className="text-xs text-secundario">Sugerido por la mercadería: <b className="text-gray-700 tabular-nums">{palletsSugeridos}</b> pallet{palletsSugeridos === 1 ? '' : 's'}</p>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-secundario mb-1 block">Pallets de madera (completos)</label>
-              <input value={tarimasMadera} onChange={(e) => setTarimasMadera(num(e.target.value))} inputMode="numeric" className={inputEnvase} />
+              <input value={tarimasMadera} onChange={(e) => setTarimasMadera(num(e.target.value))} inputMode="numeric" className={`${inputEnvase} tabular-nums`} />
             </div>
             <div>
               <label className="text-xs text-secundario mb-1 block">Pallets de metal</label>
-              <input value={palletsMetal} onChange={(e) => { setMetalEditado(true); setPalletsMetal(num(e.target.value)) }} inputMode="numeric" className={inputEnvase} />
+              <input value={palletsMetal} onChange={(e) => { setMetalEditado(true); setPalletsMetal(num(e.target.value)) }} inputMode="numeric" className={`${inputEnvase} tabular-nums`} />
             </div>
           </div>
           <p className="text-xs text-gray-600">
@@ -377,7 +443,7 @@ export default function RemitosCargaPage() {
           </p>
           {palletsCarga !== palletsSugeridos && (
             <p className="text-xs text-amber-600">
-              Salen {palletsCarga} pallets y la mercadería sugiere {palletsSugeridos}. Se emite igual; revisá con muelle.
+              Salen {palletsCarga} pallets y la mercadería sugiere {palletsSugeridos}. Se guarda igual; revisá con muelle.
             </p>
           )}
           <div>
@@ -387,16 +453,58 @@ export default function RemitosCargaPage() {
         </div>
 
         <Button onClick={() => setConfirmando(true)} disabled={!puedeConfirmar} className="w-full">
-          Revisar y emitir remito
+          {editandoId ? 'Revisar y guardar la corrección' : 'Revisar y dejar la carga para el muelle'}
         </Button>
+        <p className="text-xs text-secundario text-center">
+          Esto es la instrucción para el muelle, no un papel: no lleva número, ni COT presentado, ni remito impreso. El remito lo emite muelle al entregar el camión.
+        </p>
       </section>
 
-      {/* ── Remitos del día ── */}
+      {/* ── Cargas armadas (borradores) ── */}
       <section className="space-y-2">
-        <h2 className="font-semibold text-gray-800">Remitos de hoy</h2>
-        {avisoCot && <p className="text-xs text-gray-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">{avisoCot}</p>}
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-secundario">
+          Cargas armadas · esperando al muelle
+        </h2>
+        {borradoresDelDia.length === 0 && borradoresDeHoy.length === 0 && (
+          <p className="text-secundario text-sm">Todavía no armaste ninguna carga.</p>
+        )}
+        {[...borradoresDelDia, ...borradoresDeHoy].map((b) => (
+          <div key={b.id} className={`bg-white rounded-xl border shadow-sm p-3 flex items-center gap-3 ${editandoId === b.id ? 'border-accent' : 'border-[#D3D1C7]'}`}>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-gray-900 truncate" title={b.camionLabel}>
+                {b.camionLabel} <span className="font-normal text-secundario">· {b.choferNombre}</span>
+              </p>
+              <p className="text-xs text-secundario truncate">
+                Para el {b.paraFecha === hoyClave ? 'día de hoy' : b.paraFecha} · <span className="tabular-nums">{b.items.reduce((s, i) => s + i.cantidad, 0)}</span> bolsas
+                {b.kg ? <> · <span className="tabular-nums">{b.kg.toLocaleString('es-AR')}</span> kg</> : null}
+                {describirEnvases(envasesDeRemito({ palletsCarga: b.envases.tarimasMadera + b.envases.palletsMetal, envases: b.envases })) && ` · ${describirEnvases(envasesDeRemito({ palletsCarga: b.envases.tarimasMadera + b.envases.palletsMetal, envases: b.envases }))}`}
+                {' · COT a '}{b.cotDestino.destino.tipo === 'planta' ? PLANTAS[b.cotDestino.destino.plantaId].label : b.cotDestino.destino.razonSocial}
+              </p>
+            </div>
+            <Badge tono={b.estado === 'pendiente' ? 'pendiente' : b.estado === 'aceptado' ? 'entregado' : 'neutro'}>
+              {b.estado === 'pendiente' ? 'Sin emitir' : b.estado === 'aceptado' ? 'Emitida por muelle' : 'Vencida'}
+            </Badge>
+            {b.estado === 'pendiente' && (
+              <>
+                <button onClick={() => editar(b)} title="Corregir la carga"
+                  className="text-secundario hover:text-accent transition-colors p-2 rounded-lg hover:bg-accent/10">
+                  <Pencil size={16} />
+                </button>
+                <button onClick={() => borrar(b)} title="Dar de baja la carga"
+                  className="text-secundario hover:text-red-600 transition-colors p-2 rounded-lg hover:bg-red-50">
+                  <Trash2 size={16} />
+                </button>
+              </>
+            )}
+          </div>
+        ))}
+      </section>
+
+      {/* ── Remitos que ya emitió muelle (solo lectura) ── */}
+      <section className="space-y-2">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-secundario">Remitos emitidos hoy por el muelle</h2>
         {remitos.length === 0 && (
-          <p className="text-secundario text-sm">Todavía no se emitió ningún remito hoy.</p>
+          <p className="text-secundario text-sm">Todavía no salió ningún camión hoy.</p>
         )}
         {remitos.map((r) => (
           <div key={r.id} className="bg-white rounded-xl border border-[#D3D1C7] shadow-sm p-3 flex items-center gap-3">
@@ -406,27 +514,21 @@ export default function RemitosCargaPage() {
                 {r.remitoR && <span className="ml-2 text-xs font-medium text-secundario">Remito R {formatoRespaldo({ prefijo: r.remitoR.puntoVenta, numero: r.remitoR.numero })}</span>}
               </p>
               <p className="text-xs text-secundario truncate">
-                {r.camionLabel} · {r.choferNombre} · {r.items.reduce((s, i) => s + i.cantidad, 0)} bolsas{r.kg ? ` · ${r.kg.toLocaleString('es-AR')} kg` : ''}
+                {r.camionLabel} · {r.choferNombre} · <span className="tabular-nums">{r.items.reduce((s, i) => s + i.cantidad, 0)}</span> bolsas{r.kg ? ` · ${r.kg.toLocaleString('es-AR')} kg` : ''}
                 {describirEnvases(envasesDeRemito(r)) && ` · ${describirEnvases(envasesDeRemito(r))}`}
               </p>
             </div>
             {r.cotSolicitud && (
               r.cot?.estado === 'presentado'
-                ? <span className="text-xs px-2.5 py-1 rounded-full border font-medium whitespace-nowrap bg-blue-100 text-blue-700 border-blue-200" title={r.cot.fechaValidez ? `Válido hasta ${r.cot.fechaValidez}` : ''}>COT {r.cot.numero}</span>
-                : (
-                  <button type="button" onClick={() => reintentarCot(r)} disabled={presentandoCot === r.id}
-                    title={r.cot?.error ?? 'Todavía no se presentó a ARBA'}
-                    className={`text-xs px-2.5 py-1 rounded-full border font-medium whitespace-nowrap ${r.cot?.estado === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200'} disabled:opacity-50`}>
-                    {presentandoCot === r.id ? 'Presentando…' : r.cot?.estado === 'error' ? 'COT con error · reintentar' : 'COT pendiente · presentar'}
-                  </button>
-                )
+                ? <Badge tono="confirmado" title={r.cot.fechaValidez ? `Válido hasta ${r.cot.fechaValidez}` : ''}>COT {r.cot.numero}</Badge>
+                : <Badge tono={r.cot?.estado === 'error' ? 'cancelado' : 'aviso'} title={r.cot?.error ?? 'Todavía no se presentó a ARBA'}>
+                    {r.cot?.estado === 'error' ? 'COT con error' : 'COT pendiente'}
+                  </Badge>
             )}
-            <span className={`text-xs px-2.5 py-1 rounded-full border font-medium whitespace-nowrap ${ESTADO_COLORS[r.estado]}`}>
-              {ESTADO_LABELS[r.estado]}
-            </span>
+            <Badge tono={ESTADO_TONOS[r.estado]}>{ESTADO_LABELS[r.estado]}</Badge>
             <button
-              onClick={() => imprimir(r)}
-              title="Ver remito"
+              onClick={() => verRemito(r)}
+              title="Ver el remito que emitió muelle"
               className="text-secundario hover:text-accent transition-colors p-2 rounded-lg hover:bg-accent/10"
             >
               <Eye size={16} />
@@ -437,9 +539,10 @@ export default function RemitosCargaPage() {
 
       {/* ── Confirmación ── */}
       {confirmando && (
-        <Modal open onClose={() => setConfirmando(false)} title="Confirmar remito de carga">
+        <Modal open onClose={() => setConfirmando(false)} title={editandoId ? 'Guardar la corrección de la carga' : 'Dejar la carga para el muelle'}>
           <div className="space-y-3">
             <div className="text-sm text-gray-700 space-y-1">
+              <p><span className="text-secundario">Para el día:</span> {paraFecha}</p>
               <p><span className="text-secundario">Camión:</span> {camion?.patente} · {camion?.modelo}</p>
               <p><span className="text-secundario">Repartidor:</span> {deposito ? etiquetaDeposito(deposito) : ''}</p>
             </div>
@@ -450,27 +553,23 @@ export default function RemitosCargaPage() {
                     {i.nombre}
                     {i.pallets ? <span className="ml-2 text-xs text-secundario">{i.pallets} pallet{i.pallets > 1 ? 's' : ''}</span> : null}
                   </span>
-                  <span className="font-medium text-gray-900">{i.cantidad}</span>
+                  <span className="font-medium text-gray-900 tabular-nums">{i.cantidad}</span>
                 </div>
               ))}
-              <div className="flex justify-between px-3 py-1.5 text-sm bg-gray-50">
+              <div className="flex justify-between px-3 py-1.5 text-sm bg-[#F8F7F2]">
                 <span className="text-gray-700">Pallets de carga</span>
-                <span className="font-medium text-gray-900">{palletsCarga}</span>
+                <span className="font-medium text-gray-900 tabular-nums">{palletsCarga}</span>
               </div>
-              <div className="px-3 py-1.5 text-xs text-gray-600 bg-gray-50">
+              <div className="px-3 py-1.5 text-xs text-gray-600 bg-[#F8F7F2]">
                 Envases: {describirEnvases(envasesDeRemito({ palletsCarga, envases })) || 'ninguno'}
               </div>
-              {kg > 0 && (
-                <div className="px-3 py-1.5 text-xs text-gray-600 bg-gray-50">
-                  Peso: {kg.toLocaleString('es-AR')} kg
-                  {pideCot && cotSolicitud
-                    ? ` · COT de ARBA: ${cotSolicitud.destino.tipo === 'planta' ? `traslado a ${PLANTAS[cotSolicitud.destino.plantaId].label}` : `a ${cotSolicitud.destino.razonSocial}`}, remito R ${cotSolicitud.respaldo.numero}`
-                    : requiereCotCarga ? ' · requiere COT' : ''}
-                </div>
-              )}
+              <div className="px-3 py-1.5 text-xs text-gray-600 bg-[#F8F7F2]">
+                Peso planificado: <span className="tabular-nums">{kg.toLocaleString('es-AR')}</span> kg{cruzaUmbral ? ' · supera el umbral del COT' : ''}
+                {cotDestino && ` · COT a ${cotDestino.destino.tipo === 'planta' ? PLANTAS[cotDestino.destino.plantaId].label : cotDestino.destino.razonSocial}`}
+              </div>
             </div>
             <p className="text-xs text-secundario">
-              Al confirmar se asigna el número correlativo y se imprime el remito para muelle.
+              Queda como instrucción para el muelle. El remito, su número y el COT salen cuando muelle entregue el camión: acá no se imprime nada.
             </p>
             {error && (
               <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
@@ -479,7 +578,7 @@ export default function RemitosCargaPage() {
             )}
             <div className="flex gap-2 pt-1">
               <Button variant="outline" type="button" onClick={() => setConfirmando(false)} className="flex-1">Cancelar</Button>
-              <Button onClick={confirmar} loading={guardando} className="flex-1">Emitir remito</Button>
+              <Button onClick={confirmar} loading={guardando} className="flex-1">{editandoId ? 'Guardar la corrección' : 'Dejar la carga'}</Button>
             </div>
           </div>
         </Modal>
