@@ -1,6 +1,6 @@
 import { claveDia } from '@/utils/diaReparto'
-import { useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, Eye, MonitorPlay, PackageCheck, Truck } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { CheckCircle2, Eye, MonitorPlay, PackageCheck, Truck, X } from 'lucide-react'
 import Navbar from '@/components/layout/Navbar'
 import PageHeader from '@/components/common/PageHeader'
 import Badge from '@/components/common/Badge'
@@ -44,6 +44,14 @@ import { conteoDe, fueRectificada } from '@/utils/rectificacionDescarga'
 
 const ENVASES_VACIOS: EnvasesDescarga = { tarimasMadera: 0, palletsMetal: 0, puntales: 0, aros: 0, sombreros: 0, racks: [] }
 
+type Solapa = 'salidas' | 'ventanilla' | 'vuelta'
+const SOLAPAS: { id: Solapa; texto: string }[] = [
+  { id: 'salidas',    texto: 'Salidas' },
+  { id: 'ventanilla', texto: 'Ventanilla' },
+  { id: 'vuelta',     texto: 'Vuelta' },
+]
+const SOLAPA_KEY = 'muelleSolapa'
+
 // Pantalla del rol muelle (tablet en planta): confirma la entrega de la
 // mercadería contra el remito de carga, y cuenta la descarga física cuando el
 // camión vuelve (mercadería sana, bolsas rotas de los cambios, y los envases
@@ -62,9 +70,14 @@ export default function MuelleDashboard() {
   const ayer = useMemo(() => { const d = new Date(fecha); d.setDate(d.getDate() - 1); return d }, [fecha])
   const remitosAyer = useRemitosCargaDelDia(plantaId, ayer)
   const [descargas,   setDescargas]   = useState<DescargaCamion[]>([])
+  // Las de ayer no se listan en pantalla: sirven para saber si un remito de
+  // ayer (los que el combo muestra por el camión que vuelve de madrugada) ya
+  // está contado, y no contarlo dos veces.
+  const [descargasAyer, setDescargasAyer] = useState<DescargaCamion[]>([])
   const ventanillas = useVentanillaDelDia(plantaId, fecha)
 
   useEffect(() => subscribeDescargasDelDia(plantaId, fecha, setDescargas), [plantaId, fecha])
+  useEffect(() => subscribeDescargasDelDia(plantaId, ayer, setDescargasAyer), [plantaId, ayer])
 
   // ── Cargas para entregar: los BORRADORES que armó caja ──
   // Ayer, hoy y mañana: el camión de las 4 de la mañana lleva el borrador que
@@ -82,6 +95,21 @@ export default function MuelleDashboard() {
     [plantaId, fechasBorrador],
   )
   const porEntregar = useMemo(() => borradores.filter((b) => b.estado === 'pendiente'), [borradores])
+  // Para cuándo es cada carga: la tablet muestra ayer, hoy y mañana juntos y
+  // a las 22 conviven el segundo viaje de hoy y el camión de la madrugada.
+  // La carga de mañana no es trabajo de ahora: caja la deja a la tarde para el
+  // camión de la madrugada. Va en su propio bloque, plegado, para que la fila
+  // de arriba sea SOLO lo que sale hoy — y no cuenta en el aviso de la solapa.
+  const mananaClave = useMemo(() => manana(fecha), [fecha])
+  const paraAhora  = useMemo(() => porEntregar.filter((b) => b.paraFecha !== mananaClave), [porEntregar, mananaClave])
+  const paraManana = useMemo(() => porEntregar.filter((b) => b.paraFecha === mananaClave), [porEntregar, mananaClave])
+  const [verManana, setVerManana] = useState(false)
+  const cuandoDe = useCallback((paraFecha: string) => {
+    if (paraFecha === claveDia(fecha)) return 'Para hoy'
+    if (paraFecha === manana(fecha)) return 'Para mañana'
+    if (paraFecha === claveDia(ayer)) return 'Quedó de ayer'
+    return `Para el ${paraFecha}`
+  }, [fecha, ayer])
   // Camiones con un viaje sin descargar: no reciben carga nueva. Se lee acá para
   // AVISARLO en la tarjeta, antes de que el muellero cuente los envases y se
   // coma un rechazo de las reglas que no explica nada.
@@ -89,8 +117,13 @@ export default function MuelleDashboard() {
   useEffect(() => subscribeCamionesEnViaje(setEnViaje), [])
   // Paso 2: el remito ya está confeccionado y el camión se está cargando contra
   // él. La entrega se marca cuando la mercadería está arriba.
+  // Ordenados por antigüedad: el que hace más rato que está en la boca va
+  // primero. Venían por número descendente (el último arriba) y los de ayer
+  // pegados al final, justo al revés de lo que el muelle tiene que atender.
   const conRemitoSinEntregar = useMemo(
-    () => [...remitos, ...remitosAyer].filter((r) => r.estado === 'emitido'),
+    () => [...remitos, ...remitosAyer]
+      .filter((r) => r.estado === 'emitido')
+      .sort((a, b) => a.fecha.toMillis() - b.fecha.toMillis()),
     [remitos, remitosAyer],
   )
   // El papel del viaje. Muelle lo emite, así que también tiene que poder verlo:
@@ -137,6 +170,12 @@ export default function MuelleDashboard() {
   // papel sale como comprobante INTERNO, sin validez fiscal, y el camión no
   // debería salir con eso. Antes pasaba en silencio: ahora se avisa antes.
   const talonarioR = useMemo(() => talonarioRemitoCarga(cotCfg), [cotCfg])
+  // Unidades por pallet del catálogo: con esto la tarjeta habla en pallets y
+  // bolsas sueltas, como la tele y como la pantalla de caja.
+  const unidadesPorPallet = useMemo(
+    () => Object.fromEntries(catalogo.map((p) => [p.id, p.unidadesPorPallet])),
+    [catalogo],
+  )
   const darsenasDeCamion = useMemo(
     () => Array.from({ length: DARSENAS_POR_PLANTA[plantaId] }, (_, i) => i + 1)
       .filter((n) => !DARSENAS_VENTANILLA[plantaId].includes(n)),
@@ -182,9 +221,55 @@ export default function MuelleDashboard() {
   const ausentes = ventanillas
     .filter((v) => v.estado === 'pendiente_entrega' && v.turnoEstado === 'ausente')
     .sort((a, b) => a.turno - b.turno)
+  // ── Las tres cosas que hace el muelle, cada una en su solapa (2026-09-19) ──
+  // Salida del camión, ventanilla y vuelta ocurren en momentos distintos y
+  // antes convivían en una pantalla de cinco bloques con scroll. Cada solapa
+  // lleva el número de pendientes, para que separar no esconda trabajo: el
+  // muellero ve que hay un turno esperando aunque esté contando una descarga.
+  const [solapa, setSolapa] = useState<Solapa>(() => {
+    try {
+      const v = localStorage.getItem(SOLAPA_KEY)
+      return v === 'ventanilla' || v === 'vuelta' ? v : 'salidas'
+    } catch { return 'salidas' }
+  })
+  useEffect(() => { try { localStorage.setItem(SOLAPA_KEY, solapa) } catch { /* sin storage */ } }, [solapa])
   const darsenasVentanilla = DARSENAS_VENTANILLA[plantaId]
   const darsenaLibre = (n: number) =>
     !colaVentanilla.some((v) => v.turnoEstado === 'llamado' && v.darsena === n)
+  // Camiones que volvieron y todavía nadie contó: es el trabajo de "Vuelta".
+  const sinContar = useMemo(() => {
+    const todas = [...descargas, ...descargasAyer]
+    const viajes = new Set(todas.map((d) => d.remitoId).filter(Boolean))
+    // Las descargas anteriores al 18/09 no traen remito: esas valen por chofer.
+    const choferes = new Set(todas.filter((d) => !d.remitoId).map((d) => d.choferId))
+    return [...remitos, ...remitosAyer]
+      .filter((r) => r.regreso && !viajes.has(r.id) && !choferes.has(r.choferId))
+  }, [remitos, remitosAyer, descargas, descargasAyer])
+  const pendientes: Record<Solapa, number> = {
+    salidas:    paraAhora.length + conRemitoSinEntregar.length,
+    ventanilla: colaVentanilla.length,
+    vuelta:     sinContar.length,
+  }
+  // Aviso de trabajo nuevo en una solapa que no se está mirando: la solapa
+  // late hasta que alguien entra. Separar las pantallas no puede esconder que
+  // llegó un camión o un turno mientras el muellero cuenta una descarga.
+  const [avisando, setAvisando] = useState<Record<Solapa, boolean>>({ salidas: false, ventanilla: false, vuelta: false })
+  const previos = useRef<Record<Solapa, number> | null>(null)
+  // Los datos llegan de a poco al abrir la pantalla, así que TODOS los
+  // contadores "suben" desde cero y sin esta gracia la tablet arranca con las
+  // tres solapas latiendo, que es justo lo contrario de avisar algo.
+  const montado = useRef(Date.now())
+  useEffect(() => {
+    const antes = previos.current
+    previos.current = pendientes
+    if (!antes || Date.now() - montado.current < 4_000) return
+    const subieron = SOLAPAS.filter(({ id }) => pendientes[id] > antes[id] && id !== solapa).map(({ id }) => id)
+    if (subieron.length) setAvisando((a) => ({ ...a, ...Object.fromEntries(subieron.map((id) => [id, true])) }))
+    // el objeto pendientes se rearma en cada render; la comparación la hace el ref
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendientes.salidas, pendientes.ventanilla, pendientes.vuelta, solapa])
+  // Entrar a la solapa apaga su aviso: ya lo viste.
+  useEffect(() => { setAvisando((a) => (a[solapa] ? { ...a, [solapa]: false } : a)) }, [solapa])
   const minutosEsperando = (v: VentaVentanilla) =>
     Math.max(0, Math.round((Date.now() - v.fecha.toMillis()) / 60_000))
   // Para descargar: cualquier remito ya entregado (el camión salió y volvió).
@@ -199,6 +284,14 @@ export default function MuelleDashboard() {
   // Los que ya tienen descarga registrada hoy: sirven para avisar "a este ya lo
   // contaste" en vez de dejar que se cuente dos veces sin que nadie lo note.
   const yaDescargados = useMemo(() => new Set(descargas.map((d) => d.choferId)), [descargas])
+  // Lo mismo pero por VIAJE, que es lo que se cuenta desde el 2026-09-18: el
+  // mismo chofer hace dos viajes en el día y el segundo se rotulaba "ya
+  // contado" sin que nadie lo hubiera contado (y encima tapaba el "volvió, en
+  // dársena N" justo del viaje que sí volvió).
+  const remitosContados = useMemo(
+    () => new Set([...descargas, ...descargasAyer].map((d) => d.remitoId).filter((id): id is string => !!id)),
+    [descargas, descargasAyer],
+  )
   // La última contada arriba: es la que se acaba de registrar y la que hay que
   // poder revisar de un vistazo.
   const descargasRecientes = useMemo(
@@ -395,9 +488,9 @@ export default function MuelleDashboard() {
         <PageHeader
           titulo="Muelle"
           contexto={PLANTAS[plantaId].label}
-          chips={porEntregar.length > 0
-            ? <Badge tono="pendiente">{porEntregar.length} para entregar</Badge>
-            : <Badge tono="entregado">Sin cargas pendientes</Badge>}
+          chips={pendientes.salidas + pendientes.ventanilla + pendientes.vuelta > 0
+            ? <Badge tono="pendiente">{pendientes.salidas + pendientes.ventanilla + pendientes.vuelta} pendientes</Badge>
+            : <Badge tono="entregado">Todo al día</Badge>}
           acciones={
             <a
               href="/muelle/tv"
@@ -410,17 +503,45 @@ export default function MuelleDashboard() {
           }
         />
 
+        {/* Botonera de 56 px: se toca con guantes y se lee de parado. */}
+        <div className="grid grid-cols-3 gap-2">
+          {SOLAPAS.map(({ id, texto }) => {
+            const n = pendientes[id]
+            const activa = solapa === id
+            const avisa = avisando[id] && !activa
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setSolapa(id)}
+                aria-current={activa ? 'page' : undefined}
+                className={`h-14 rounded-xl border text-base font-semibold flex items-center justify-center gap-2 transition-colors motion-reduce:animate-none ${
+                  activa ? 'bg-accent text-white border-accent' : 'bg-white text-gray-700 border-[#D3D1C7]'
+                } ${avisa ? 'animate-latido border-[#D97706] text-[#8A5203]' : ''}`}
+              >
+                {texto}
+                {n > 0 && (
+                  <span className={`min-w-6 h-6 px-1.5 rounded-full text-sm font-bold flex items-center justify-center tabular-nums motion-reduce:animate-none ${
+                    activa ? 'bg-white/25 text-white' : avisa ? 'bg-[#D97706] text-white animate-golpecito' : 'bg-accent/15 text-accent'
+                  }`}>{n}</span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+
         {error && (
           <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
             <p className="text-red-500 text-sm">{error}</p>
           </div>
         )}
+        {solapa === 'salidas' && (<>
         {/* ── El remito que acaba de nacer ── */}
         {emitido && (
           <NumeroGrande
             titulo="Remito confeccionado"
             codigo={emitido.remito.codigo}
-            instruccion={`Cargá el camión de ${emitido.remito.choferNombre} contra este remito y después marcá la entrega.`}
+            instruccion={`Cargá el camión de ${emitido.remito.choferNombre} contra este remito. Cuando esté arriba, marcá «Mercadería entregada» abajo, en «Cargando contra el remito».`}
             detalle={
               <>
                 <p>{emitido.remito.camionLabel}</p>
@@ -443,8 +564,12 @@ export default function MuelleDashboard() {
               <Button onClick={() => verRemito(emitido.remito)} loading={abriendoPdf} className="h-11">
                 <Eye size={16} /> Ver el remito
               </Button>
+              {/* Solo saca el cartel de la pantalla: el remito ya nació y el
+                  camión quedó abajo esperando la entrega. Decía "Listo" con un
+                  tilde y parecía el botón que cierra el paso, que es el de
+                  entregar la mercadería. */}
               <Button variant="outline" onClick={() => setEmitido(null)} className="h-11">
-                <CheckCircle2 size={16} /> Listo
+                <X size={16} /> Cerrar aviso
               </Button>
             </div>
           </NumeroGrande>
@@ -455,7 +580,7 @@ export default function MuelleDashboard() {
           <h2 className="font-semibold text-gray-800 flex items-center gap-2">
             <Truck size={18} className="text-accent" /> Cargas para entregar
           </h2>
-          {porEntregar.length === 0 && (
+          {paraAhora.length === 0 && (
             /* Muelle NO arma cargas desde cero: sin borrador de caja no hay
                remito. Es una decisión tomada, no una pantalla a medio hacer, y
                por eso se explica acá en vez de dejar un vacío mudo. */
@@ -467,7 +592,7 @@ export default function MuelleDashboard() {
               </p>
             </div>
           )}
-          {porEntregar.map((b) => (
+          {paraAhora.map((b) => (
             <EntregarCamionCard
               key={b.id}
               borrador={b}
@@ -478,9 +603,42 @@ export default function MuelleDashboard() {
               darsenas={darsenasDeCamion}
               sinTalonario={!talonarioR}
               viajeSinDescargar={enViaje.get(b.camionId) ?? null}
+              cuando={cuandoDe(b.paraFecha)}
+              unidadesPorPallet={unidadesPorPallet}
               onEntregar={(items, envases) => entregarCamion(b, items, envases)}
             />
           ))}
+
+          {paraManana.length > 0 && (
+            <div className="pt-1 space-y-2">
+              <button
+                type="button"
+                onClick={() => setVerManana((v) => !v)}
+                aria-expanded={verManana}
+                className="w-full h-14 rounded-xl border border-dashed border-[#D3D1C7] bg-white/60 px-4 flex items-center justify-between text-base font-semibold text-secundario"
+              >
+                <span>Para mañana · {paraManana.length} {paraManana.length === 1 ? 'carga' : 'cargas'}</span>
+                <span className="text-sm font-medium">{verManana ? 'Ocultar' : 'Ver'}</span>
+              </button>
+              {verManana && paraManana.map((b) => (
+                <EntregarCamionCard
+                  key={b.id}
+                  borrador={b}
+                  entregando={procesando === b.id}
+                  bloqueado={!!procesando && procesando !== b.id}
+                  darsena={b.darsena}
+                  onDarsena={(n) => marcarDarsena(b.id, n)}
+                  darsenas={darsenasDeCamion}
+                  sinTalonario={!talonarioR}
+                  viajeSinDescargar={enViaje.get(b.camionId) ?? null}
+                  cuando={cuandoDe(b.paraFecha)}
+                  unidadesPorPallet={unidadesPorPallet}
+                  mostrarEspera={false}
+                  onEntregar={(items, envases) => entregarCamion(b, items, envases)}
+                />
+              ))}
+            </div>
+          )}
         </section>
 
         {/* ── Paso 2: el camión se carga contra el remito y se marca la entrega ──
@@ -533,6 +691,9 @@ export default function MuelleDashboard() {
           </section>
         )}
 
+        </>)}
+
+        {solapa === 'ventanilla' && (<>
         {/* ── Cola de turnos de ventanilla ── */}
         {(colaVentanilla.length > 0 || ausentes.length > 0) && (
           <section className="space-y-2">
@@ -622,6 +783,9 @@ export default function MuelleDashboard() {
           </section>
         )}
 
+        </>)}
+
+        {solapa === 'vuelta' && (<>
         {/* ── Registrar descarga ── */}
         {/* Pantalla de cierre del conteo: mientras está, el formulario no se ve.
             Una sola cosa a la vez, y el código del sobre es lo único que importa
@@ -713,8 +877,8 @@ export default function MuelleDashboard() {
                     <option key={r.id} value={`rem:${r.id}`}>
                       {r.codigo} · {r.camionLabel} · {r.choferNombre}
                       {idsDeAyer.has(r.id) ? ' · salió ayer' : ''}
-                      {r.regreso?.darsena && !yaDescargados.has(r.choferId) ? ` · volvió, en dársena ${r.regreso.darsena}` : ''}
-                      {yaDescargados.has(r.choferId) ? ' · ya contado' : ''}
+                      {r.regreso?.darsena && !remitosContados.has(r.id) ? ` · volvió, en dársena ${r.regreso.darsena}` : ''}
+                      {remitosContados.has(r.id) ? ' · ya contado' : ''}
                     </option>
                   ))}
                 </optgroup>
@@ -729,15 +893,22 @@ export default function MuelleDashboard() {
 
           {descargaSeleccionada && (
             <>
-              {/* Ya se le contó una descarga hoy: puede ser la segunda vuelta
-                  (legítima) o un conteo repetido. Se avisa, no se bloquea. */}
-              {yaDescargados.has(descargaSeleccionada.choferId) && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                  <p className="text-sm text-amber-800">
-                    A {descargaSeleccionada.choferNombre} ya se le contó una descarga hoy. Si es la segunda vuelta, seguí; si no, avisá a caja antes de registrar otra.
-                  </p>
-                </div>
-              )}
+              {/* Ya se contó: este MISMO viaje (conteo repetido, casi seguro un
+                  error) o el chofer en otro viaje del día (la segunda vuelta,
+                  legítima). Se avisa distinto, y nunca se bloquea. */}
+              {(remitoDescarga && remitosContados.has(remitoDescarga.id)
+                ? <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    <p className="text-sm text-amber-800">
+                      El viaje {remitoDescarga.codigo} ya está contado. Si te equivocaste, corregí ese conteo en vez de registrar otro.
+                    </p>
+                  </div>
+                : yaDescargados.has(descargaSeleccionada.choferId)
+                  ? <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                      <p className="text-sm text-amber-800">
+                        A {descargaSeleccionada.choferNombre} ya se le contó una descarga hoy. Si es la segunda vuelta, seguí; si no, avisá a caja antes de registrar otra.
+                      </p>
+                    </div>
+                  : null)}
 
               <div>
                 <p className="text-sm font-medium text-secundario mb-2">
@@ -904,6 +1075,8 @@ export default function MuelleDashboard() {
             )
           })}
         </section>
+
+        </>)}
 
         {/* ── Confirmación de descarga ── */}
         {confirmando && descargaSeleccionada && (

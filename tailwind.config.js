@@ -70,12 +70,25 @@ export default {
           from: { opacity: '0', transform: 'translateY(8px) scale(.98)' },
           to:   { opacity: '1', transform: 'translateY(0) scale(1)' },
         },
+        // Trabajo nuevo en una solapa que no estás mirando (muelle, 2026-09-19):
+        // un latido de halo ámbar que se ve de lejos en la tablet de planta.
+        latido: {
+          '0%, 100%': { boxShadow: '0 0 0 0 rgba(217, 119, 6, 0)', borderColor: '#D3D1C7' },
+          '35%':      { boxShadow: '0 0 0 8px rgba(217, 119, 6, .18)', borderColor: '#D97706' },
+          '70%':      { boxShadow: '0 0 0 3px rgba(217, 119, 6, .08)', borderColor: '#D97706' },
+        },
+        golpecito: {
+          '0%, 100%': { transform: 'scale(1)' },
+          '40%':      { transform: 'scale(1.28)' },
+        },
       },
       animation: {
         fadeUp: 'fadeUp .5s ease both',
         drift:  'drift 7s ease-in-out infinite',
         bob:    'bob 3.4s ease-in-out infinite',
         rise:   'rise .32s cubic-bezier(.2,.8,.3,1.15)',
+        latido:     'latido 1.6s ease-in-out infinite',
+        golpecito:  'golpecito 1.6s ease-in-out infinite',
       },
     },
   },

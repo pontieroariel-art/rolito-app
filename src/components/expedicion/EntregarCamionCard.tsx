@@ -23,8 +23,15 @@ import type { BorradorCarga, CamionEnViaje, EnvasesCarga, RemitoCargaItem } from
  * Ariel, 18/09): caja no sabe con qué tipo de pallet va a salir la carga ni qué
  * racks se van a usar. Eso lo sabe quien la arma físicamente.
  */
+/** "35 min" / "2 h 10" — desde que caja dejó la carga. */
+function esperaDesde(desde: Date): string {
+  const min = Math.max(0, Math.round((Date.now() - desde.getTime()) / 60_000))
+  if (min < 60) return `${min} min`
+  return `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, '0')}`
+}
+
 export default function EntregarCamionCard({
-  borrador, entregando, bloqueado, darsena, onDarsena, darsenas, sinTalonario, viajeSinDescargar, onEntregar,
+  borrador, entregando, bloqueado, darsena, onDarsena, darsenas, sinTalonario, viajeSinDescargar, cuando, mostrarEspera = true, unidadesPorPallet, onEntregar,
 }: {
   borrador:   BorradorCarga
   entregando: boolean
@@ -37,22 +44,47 @@ export default function EntregarCamionCard({
   sinTalonario?: boolean
   /** El camión tiene un viaje anterior sin descargar: no recibe carga nueva. */
   viajeSinDescargar?: CamionEnViaje | null
+  /** Para qué día es esta carga: "Hoy", "Mañana" o la fecha. La tablet mezcla
+   *  ayer, hoy y mañana, y sin esto las tres se ven iguales a las 22. */
+  cuando: string
+  /** El cronómetro de espera solo tiene sentido en la cola de hoy: una carga
+   *  para mañana no está esperando a nadie. */
+  mostrarEspera?: boolean
+  /** Unidades por pallet de cada producto (catálogo). El muelle levanta
+   *  pallets con la uña y estiba a mano el resto, así que la carga se lee en
+   *  "3 pal + 24 sueltas" y no en un total de bolsas, igual que en la tele. */
+  unidadesPorPallet: Record<string, number | undefined>
   onEntregar: (items: RemitoCargaItem[], envases: EnvasesCarga) => void
 }) {
   // Lo corregido, por producto. Vacío = sale el plan tal cual.
   const [corregidas, setCorregidas] = useState<Record<string, number>>({})
+  // Las bolsas que sobran del pallet completo, ¿suben en un pallet propio o
+  // sueltas arriba del camión? Lo decide MUELLE (2026-09-19, Ariel), que es
+  // quien las carga; caja solo ve el desglose para planificar.
+  const [restoEnPallet, setRestoEnPallet] = useState<Record<string, boolean>>({})
   const cantidad = (i: RemitoCargaItem) => corregidas[i.productoId] ?? i.cantidad
   const set = (i: RemitoCargaItem, v: number) =>
     setCorregidas((prev) => ({ ...prev, [i.productoId]: Math.max(0, Math.min(99999, v)) }))
 
   const items = useMemo(
     () => borrador.items
-      .map((i) => ({ ...i, cantidad: corregidas[i.productoId] ?? i.cantidad }))
+      .map((i) => {
+        const cantidad = corregidas[i.productoId] ?? i.cantidad
+        const upp = unidadesPorPallet[i.productoId] ?? 0
+        if (upp <= 0) return { ...i, cantidad }
+        const pallets = Math.floor(cantidad / upp) + (cantidad % upp > 0 && restoEnPallet[i.productoId] ? 1 : 0)
+        return { ...i, cantidad, ...(pallets > 0 ? { pallets } : {}) }
+      })
       .filter((i) => i.cantidad > 0),
-    [borrador.items, corregidas],
+    [borrador.items, corregidas, restoEnPallet, unidadesPorPallet],
   )
   const hayCorrecciones = borrador.items.some((i) => cantidad(i) !== i.cantidad)
+  const esperando = esperaDesde(borrador.fecha.toDate())
   const totalBolsas = items.reduce((s, i) => s + i.cantidad, 0)
+  const totalPallets = items.reduce((s, i) => {
+    const upp = unidadesPorPallet[i.productoId] ?? 0
+    return s + (upp > 0 ? Math.floor(i.cantidad / upp) : 0)
+  }, 0)
 
   // Envases que salen: los cuenta muelle al armar la carga. Arranca en cero,
   // sin sugerir nada: el sugerido por la mercadería es un cálculo de la app y
@@ -79,6 +111,11 @@ export default function EntregarCamionCard({
             {borrador.camionLabel || 'Sin camión'}
           </p>
           <p className="text-base text-secundario truncate" title={borrador.choferNombre}>{borrador.choferNombre}</p>
+          {/* Para cuándo es y hace cuánto está esperando: con cuatro camiones
+              en la fila, el orden solo no alcanza para saber a quién atender. */}
+          <p className="text-sm text-secundario tabular-nums">
+            {cuando}{mostrarEspera && <> · esperando {esperando}</>}
+          </p>
         </div>
         <div className="shrink-0">
           {hayCorrecciones
@@ -88,10 +125,19 @@ export default function EntregarCamionCard({
       </div>
 
       <div className="space-y-1.5">
-        {borrador.items.map((i) => (
-          <div key={i.productoId} className="flex items-center gap-2">
+        {borrador.items.map((i) => {
+          const upp   = unidadesPorPallet[i.productoId] ?? 0
+          const n     = cantidad(i)
+          const pal   = upp > 0 ? Math.floor(n / upp) : 0
+          const suelt = upp > 0 ? n % upp : n
+          // + y − mueven un PALLET, como en la pantalla de caja; el campo
+          // queda para las bolsas sueltas que se suben a mano.
+          const paso  = upp > 0 ? upp : 1
+          return (
+          <div key={i.productoId} className="space-y-0.5">
+          <div className="flex items-center gap-2">
             <span className="flex-1 min-w-0 truncate text-base text-gray-900" title={i.nombre}>{i.nombre}</span>
-            <button type="button" aria-label={`Menos ${i.nombre}`} className={btn} onClick={() => set(i, cantidad(i) - 1)} disabled={entregando}>
+            <button type="button" aria-label={`Menos ${i.nombre}`} title={`−1 pallet (${paso})`} className={btn} onClick={() => set(i, cantidad(i) - paso)} disabled={entregando}>
               <Minus size={18} />
             </button>
             <input
@@ -102,17 +148,41 @@ export default function EntregarCamionCard({
               aria-label={`Cantidad de ${i.nombre}`}
               className="w-20 h-11 text-center text-lg font-semibold tabular-nums bg-white border border-[#D3D1C7] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent"
             />
-            <button type="button" aria-label={`Más ${i.nombre}`} className={btn} onClick={() => set(i, cantidad(i) + 1)} disabled={entregando}>
+            <button type="button" aria-label={`Más ${i.nombre}`} title={`+1 pallet (${paso})`} className={btn} onClick={() => set(i, cantidad(i) + paso)} disabled={entregando}>
               <Plus size={18} />
             </button>
             {cantidad(i) !== i.cantidad && (
               <span className="w-24 shrink-0 text-sm text-[#8A5203] tabular-nums">plan {i.cantidad}</span>
             )}
           </div>
-        ))}
+          {/* Lo que el clarkista tiene que levantar, en sus unidades. */}
+          {n > 0 && (
+            <p className="text-sm text-secundario tabular-nums">
+              {pal > 0 && <>{pal} pallet{pal > 1 ? 's' : ''}</>}
+              {pal > 0 && suelt > 0 && ' + '}
+              {suelt > 0 && <>{suelt} suelta{suelt > 1 ? 's' : ''}</>}
+            </p>
+          )}
+          {/* La decisión es de quien carga: el resto sube suelto salvo que
+              arme un pallet propio con él. */}
+          {suelt > 0 && (
+            <label className="flex items-center gap-2 min-h-11 text-sm text-gray-700 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={!!restoEnPallet[i.productoId]}
+                onChange={(e) => setRestoEnPallet((prev) => ({ ...prev, [i.productoId]: e.target.checked }))}
+                disabled={entregando}
+                className="w-5 h-5 accent-[#1D9E75]"
+              />
+              Las {suelt} sueltas van en pallet propio
+            </label>
+          )}
+          </div>
+          )
+        })}
       </div>
 
-      <p className="text-base text-secundario tabular-nums">{totalBolsas} bolsas</p>
+      <p className="text-base text-secundario tabular-nums">{totalBolsas} bolsas{totalPallets > 0 && <> · {totalPallets} pallet{totalPallets > 1 ? 's completos' : ' completo'}</>}</p>
 
       {/* Envases que salen. Los declara muelle, que es quien los pone arriba del
           camión: caja no sabe con qué tipo de pallet va a salir la carga ni qué
