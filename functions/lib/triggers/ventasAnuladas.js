@@ -40,6 +40,48 @@ function avisoRemitoAnulado(venta, a) {
     };
 }
 const recienAnulada = (antes, ahora) => ahora?.estado === 'anulada' && antes?.estado !== 'anulada';
+/**
+ * Encola la anulación del remito para que el bridge la ejecute en Tango
+ * (2026-09-20). Devuelve false —y el circuito sigue con la oficina a mano—
+ * cuando el interruptor está apagado o cuando no hay nada que anular allá.
+ *
+ * El interruptor vive en `config/tango.anulacionRemitoSqlEnabled`, igual que
+ * los demás writers, y arranca apagado: se prende después del dry-run contra
+ * Tango real.
+ */
+async function encolarAnulacionRemito(db, ventaId, venta) {
+    const remitoNumero = String(venta.tango?.remitoNumero ?? '').trim();
+    // Sin número, el remito nunca llegó a Tango: no hay nada que anular y la
+    // oficina tampoco tiene qué buscar.
+    if (!remitoNumero)
+        return false;
+    const cfg = (await db.doc('config/tango').get()).data() ?? {};
+    if (cfg.anulacionRemitoSqlEnabled !== true)
+        return false;
+    const outboxId = `anulacionRemito_${ventaId}`;
+    try {
+        await db.collection('tango-outbox').doc(outboxId).create({
+            entidad: 'anulacionRemito',
+            origenColeccion: 'ventasCamion',
+            origenId: ventaId,
+            empresa: 'redonhielo', // el remito R del camión es de Redonhielo
+            payload: { remitoNumero },
+            estado: 'pendiente',
+            intentos: 0,
+            ultimoError: null,
+            creadoEn: firestore_2.FieldValue.serverTimestamp(),
+            actualizadoEn: firestore_2.FieldValue.serverTimestamp(),
+        });
+        return true;
+    }
+    catch (err) {
+        // 6 = ALREADY_EXISTS: la anulación ya estaba encolada (reintento del trigger).
+        if (err?.code === 6)
+            return true;
+        console.error(`[anuladas] no se pudo encolar la anulación de ${ventaId}: ${err.message}`);
+        return false;
+    }
+}
 /** Cuántos remitos anuló ese chofer en el día de la venta (índice choferId + fecha; el tipo se filtra en memoria). */
 async function anulacionesDeRemitoHoy(db, choferId, fecha) {
     const dia = fecha?.toDate?.();
@@ -63,14 +105,25 @@ exports.onVentaCamionAnulada = (0, firestore_1.onDocumentUpdated)({ document: 'v
     const db = (0, firestore_2.getFirestore)();
     const ventaId = event.params.ventaId;
     if (a.tipo === 'remito') {
-        await event.data.after.ref.set({ anulacion: { tango: { estado: 'pendiente_oficina' } } }, { merge: true });
-        try {
-            const destinatarios = await db.collection('users').where('estado', '==', 'activo').where('rol', 'in', ['facturacion', 'super_admin']).get();
-            const { titulo, cuerpo } = avisoRemitoAnulado(ahora, a);
-            await (0, push_1.enviarPushAUsuarios)(destinatarios.docs, { titulo, cuerpo, url: '/admin/comprobantes' }, { vapidPublicKey: vapidPublicKey.value(), vapidPrivateKey: vapidPrivateKey.value() });
-        }
-        catch (e) {
-            console.error(`[anuladas] push a facturación falló: ${e.message}`);
+        // Que la app lo anule sola en Tango (2026-09-20). Hasta hoy lo hacía la
+        // oficina a mano y tardaba días: en esa ventana Tango llegaba a FACTURAR
+        // la mercadería (3 de 7 casos) y ahí el remito ya no se puede anular.
+        // Mientras el interruptor esté apagado, o si el remito nunca llegó a
+        // Tango, sigue el camino de siempre: pendiente_oficina y push.
+        const encolado = await encolarAnulacionRemito(db, ventaId, ahora);
+        await event.data.after.ref.set({ anulacion: { tango: { estado: encolado ? 'encolado' : 'pendiente_oficina' } } }, { merge: true });
+        // El pedido a facturación solo tiene sentido si lo va a hacer a mano. Con
+        // la anulación encolada, despertar a alguien para un trabajo que ya está
+        // hecho es la clase de aviso que enseña a ignorar los avisos.
+        if (!encolado) {
+            try {
+                const destinatarios = await db.collection('users').where('estado', '==', 'activo').where('rol', 'in', ['facturacion', 'super_admin']).get();
+                const { titulo, cuerpo } = avisoRemitoAnulado(ahora, a);
+                await (0, push_1.enviarPushAUsuarios)(destinatarios.docs, { titulo, cuerpo, url: '/admin/comprobantes' }, { vapidPublicKey: vapidPublicKey.value(), vapidPrivateKey: vapidPrivateKey.value() });
+            }
+            catch (e) {
+                console.error(`[anuladas] push a facturación falló: ${e.message}`);
+            }
         }
         // Señal de control (2026-09-12, decisión de Ariel): a partir de la segunda
         // anulación de remito del mismo chofer en el día, aviso al super_admin.

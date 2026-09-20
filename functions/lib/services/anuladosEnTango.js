@@ -35,9 +35,13 @@ async function estadoSuelto(db, empresa, tipo, numero) {
 }
 /** Remitos de cta. cte. anulados en la app: confirma los que Tango ya muestra con estado A. */
 async function confirmarRemitosAnulados(db = (0, firestore_1.getFirestore)()) {
+    // También los `encolado` (2026-09-20): si el bridge no los procesó —estaba
+    // caído, la VM apagada— la venta no aparece en la lista de la oficina y se
+    // volvería invisible. Acá se confirma igual apenas Tango los muestre
+    // anulados, venga de donde venga la anulación.
     const pendientes = await db.collection('ventasCamion')
         .where('anulacion.tipo', '==', 'remito')
-        .where('anulacion.tango.estado', '==', 'pendiente_oficina')
+        .where('anulacion.tango.estado', 'in', ['pendiente_oficina', 'encolado'])
         .limit(200).get();
     // Un solo getAll: un cliente puede tener varios remitos pendientes.
     const codigos = [...new Set(pendientes.docs.map((d) => String(d.data().clienteCodigoTango ?? '').trim()).filter(Boolean))];
