@@ -47,6 +47,10 @@ export default function Navbar() {
     ? user.nombre.split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase()
     : '?'
 
+  // Cada población tiene su ficha: el cliente ve sus domicilios y precios; el
+  // personal, su puesto y su contraseña (2026-09-20).
+  const perfilUrl = user?.rol === 'cliente' ? '/perfil' : '/mi-perfil'
+
   // ProtectedRoute redirige a "/" apenas la sesión se cierra (antes de que
   // cualquier navigate() propio alcance a ejecutarse — pierde la carrera
   // contra ese redirect). Por eso acá no se decide el destino: Landing.tsx
@@ -102,19 +106,23 @@ export default function Navbar() {
 
         {/* Usuario desktop */}
         <div className="hidden md:flex items-center gap-2 pl-3 border-l border-[#E7E5DC] ml-2 shrink-0">
-          <div className="text-right">
-            <p className="text-sm font-semibold text-gray-800 leading-tight">
-              {user?.nombre?.split(' ')[0]}
-            </p>
-            {user?.rol && (
-              <p className="text-xs text-secundario leading-tight">
-                {ROLE_LABELS[user.rol]}{multiSistema && sistemaActual ? ` · ${SISTEMA_LABELS[sistemaActual]}` : ''}
+          {/* Tocar el nombre lleva a la ficha de perfil: la del cliente o la
+              del personal (2026-09-20), que es donde se cambia la contraseña. */}
+          <Link to={perfilUrl} title="Mi perfil" className="flex items-center gap-2 rounded-lg hover:bg-accent/10 transition-colors p-1">
+            <div className="text-right">
+              <p className="text-sm font-semibold text-gray-800 leading-tight">
+                {user?.nombre?.split(' ')[0]}
               </p>
-            )}
-          </div>
-          <div className="w-9 h-9 rounded-full bg-accent flex items-center justify-center text-white text-sm font-bold shrink-0">
-            {initials}
-          </div>
+              {user?.rol && (
+                <p className="text-xs text-secundario leading-tight">
+                  {ROLE_LABELS[user.rol]}{multiSistema && sistemaActual ? ` · ${SISTEMA_LABELS[sistemaActual]}` : ''}
+                </p>
+              )}
+            </div>
+            <div className="w-9 h-9 rounded-full bg-accent flex items-center justify-center text-white text-sm font-bold shrink-0">
+              {initials}
+            </div>
+          </Link>
           {multiSistema && (
             <button
               onClick={handleCambiarSistema}
@@ -179,7 +187,7 @@ export default function Navbar() {
             ))}
           </div>
           <div className="border-t border-[#E7E5DC] px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
+            <Link to={perfilUrl} onClick={() => setOpen(false)} className="flex items-center gap-2.5 min-h-11">
               <div className="w-9 h-9 rounded-full bg-accent flex items-center justify-center text-white text-sm font-bold">
                 {initials}
               </div>
@@ -189,7 +197,7 @@ export default function Navbar() {
                   {user?.rol && ROLE_LABELS[user.rol]}{multiSistema && sistemaActual ? ` · ${SISTEMA_LABELS[sistemaActual]}` : ''}
                 </p>
               </div>
-            </div>
+            </Link>
             <div className="flex items-center gap-3">
               {multiSistema && (
                 <button

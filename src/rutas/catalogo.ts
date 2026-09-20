@@ -6,7 +6,7 @@ import {
   Users, Wallet, Warehouse, Wrench,
 } from 'lucide-react'
 import type { Sistema, UserProfile, UserRole } from '@/types'
-import { tieneAlgunRol } from '@/utils/roles'
+import { STAFF_ROLES, tieneAlgunRol } from '@/utils/roles'
 
 /**
  * CATÁLOGO MAESTRO DE RUTAS (fases 1 y 2 del reordenamiento, 2026-09-12).
@@ -114,6 +114,9 @@ export const CATALOGO: RutaConfig[] = [
   R('/calculadora-rolito',   'Calculadora de hielo',          'comercial', []),
   R('/turnos/:plantaId',     'Turnos de ventanilla',          'tesoreria', [], { deepLink: true, externa: true }),
   R('/sistema',              'Elegir dominio',                'administracion',     [], { requiereAuth: true, deepLink: true }),
+  // Mi perfil del personal (2026-09-20): se llega tocando el nombre en la
+  // cabecera, no por un menú. El cliente tiene la suya aparte (/perfil).
+  R('/mi-perfil',            'Mi perfil',                     'administracion',     [...STAFF_ROLES], { deepLink: true }),
 
   // ── Portal del cliente ────────────────────────────────────────────────────
   R('/sucursal',       'Elegir sucursal', 'portal', ['cliente'], { deepLink: true }),
