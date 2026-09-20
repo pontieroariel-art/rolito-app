@@ -552,7 +552,10 @@ export interface AnulacionEnVenta {
   anuladaPor?:  { uid: string; nombre: string }
   anuladaEn?:   Timestamp
   fechaVenta?:  string   // yyyy-MM-dd (las reglas cotejan que la liquidación de ese día no esté cerrada)
-  tango?:       { estado: 'pendiente_oficina' | 'confirmado'; en?: Timestamp }
+  /** Cómo va la anulación del otro lado. `encolado` (2026-09-20) = la app la va a
+   *  ejecutar sola en Tango; `pendiente_oficina` = la tiene que hacer alguien a mano
+   *  (interruptor apagado, remito facturado, o remito que nunca llegó a Tango). */
+  tango?:       { estado: 'pendiente_oficina' | 'encolado' | 'confirmado'; en?: Timestamp; resultado?: string }
   /** Remito anulado por facturación sobre un día ya cerrado (sin control de liquidación). */
   origen?:      'facturacion'
 }

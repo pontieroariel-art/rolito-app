@@ -68,3 +68,33 @@ stock, acá `'RE'` + `'00408839'`) y `N_RENGL_S`. El `ID_STA14` es 891840.
   que en Tango se vea quién anuló qué.
 - Interruptor por tipo en `config/tango`, dry-run antes de prender, y write-back del
   resultado a `ventasCamion.anulacion.tango`.
+
+## El writer (2026-09-20)
+
+- **Lógica pura y tests:** `functions/src/services/tango/sql/anulacionRemito.ts`
+  (+ `.test.ts`, con los números medidos arriba). `anularRemitoEnTango(db, nComp, cfg)`
+  devuelve `anulado` · `ya_anulado` · `facturado` · `inexistente`, sin lanzar: cada caso
+  tiene su tratamiento aguas arriba.
+- **Quién lo ejecuta:** el bridge de la VM (`scripts/tango/bridge-sql.mjs`), entidad
+  `anulacionRemito` de `tango-outbox`, dentro de una transacción como los demás writers.
+- **Quién lo encola:** `onVentaCamionAnulada`, apenas el remito queda anulado en la app.
+  Si el interruptor está apagado o el remito nunca llegó a Tango, sigue el camino viejo
+  (`pendiente_oficina` + push a facturación).
+- **Interruptor:** `config/tango.anulacionRemitoSqlEnabled`, arranca en **false**.
+- **Write-back:** `anulacion.tango.estado` → `confirmado` (anulado / ya anulado) o
+  `pendiente_oficina` (facturado / inexistente / error), con `resultado` para saber cuál fue.
+- **El que queda a medio camino no se pierde:** la reconciliación horaria mira también los
+  `encolado`, así que si el bridge estuvo caído la venta se confirma igual cuando Tango
+  muestre el remito anulado.
+
+### Encendido
+
+1. Copiar `functions/lib/services/tango/sql/anulacionRemito.js` a `C:\RolitoSync\sql\lib\`
+   junto a los otros, y reiniciar el bridge.
+2. `config/tango.anulacionRemitoSqlEnabled = false` todavía, y probar con
+   `node bridge-sql.mjs --dry-run --solo=<id del item>`: ejecuta todo y **revierte**.
+3. Comparar la salida contra esta receta (mismas tablas, mismo orden, el stock que vuelve).
+4. Recién ahí prender el interruptor.
+
+Quedan tres remitos en `F` (facturados) del 12 al 16/09: ésos no los toca el writer y
+siguen necesitando que alguien decida qué hacer con la factura.

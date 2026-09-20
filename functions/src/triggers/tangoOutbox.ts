@@ -654,6 +654,26 @@ const WRITE_BACKS: Record<string, {
     },
     buildError: (ultimoError) => ({ 'tango.estado': 'error', 'tango.ultimoError': ultimoError }),
   },
+  // Anulación del remito en Tango (2026-09-20). El bridge no falla por los casos
+  // previstos: los informa en `resultado`, y cada uno tiene su destino.
+  //   anulado / ya_anulado → listo, la fila se va de la lista de pendientes
+  //   facturado            → vuelve a la oficina: primero hay que anular la factura
+  //   inexistente          → vuelve a la oficina, que revise con qué número quedó
+  anulacionRemito: {
+    colecciones: ['ventasCamion'],
+    buildUpdate: (resultado) => {
+      const r = String(resultado?.resultado ?? '')
+      const listo = r === 'anulado' || r === 'ya_anulado'
+      return {
+        'anulacion.tango.estado': listo ? 'confirmado' : 'pendiente_oficina',
+        'anulacion.tango.resultado': r,
+        'anulacion.tango.en': FieldValue.serverTimestamp(),
+      }
+    },
+    // Un error de verdad (la base caída, el stock que se movió) deja la
+    // anulación en manos de la oficina: no se pierde, se ve en la lista.
+    buildError: (ultimoError) => ({ 'anulacion.tango.estado': 'pendiente_oficina', 'anulacion.tango.ultimoError': ultimoError }),
+  },
 }
 
 export const onOutboxConfirmado = onDocumentUpdated(
