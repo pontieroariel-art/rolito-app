@@ -1,5 +1,8 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Volume2, VolumeX } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { getClimaActual, getForecast } from '@/services/weatherService'
+import { subscribeEnVivo } from '@/services/conexion'
 import { useAuth } from '@/context/AuthContext'
 import { useCatalogo } from '@/hooks/useCatalogo'
 import { useFechaDelDia } from '@/hooks/useDiaActual'
@@ -43,31 +46,72 @@ export default function MuelleTvPage() {
   const ordenFisico   = useMemo(() => Array.from({ length: totalDarsenas }, (_, i) => totalDarsenas - i), [totalDarsenas])
   const fecha = useFechaDelDia()
 
-  const remitos = useRemitosCargaDelDia(plantaId, fecha)
+  // Hoy y AYER, igual que la tablet: el camión de las 4 de la mañana carga
+  // contra un remito que nació la noche anterior, y el que vuelve de
+  // madrugada también es de ayer. Mirando solo el día de hoy, a las 00:00 la
+  // boca se vaciaba sola con el camión todavía adentro.
+  const ayerFecha = useMemo(() => { const d = new Date(fecha); d.setDate(d.getDate() - 1); return d }, [fecha])
+  const remitosHoy  = useRemitosCargaDelDia(plantaId, fecha)
+  const remitosAyer = useRemitosCargaDelDia(plantaId, ayerFecha)
+  const remitos = useMemo(() => [...remitosHoy, ...remitosAyer], [remitosHoy, remitosAyer])
   const ventanillas = useVentanillaDelDia(plantaId, fecha)
   const { catalogo } = useCatalogo()
+  // Clima en la planta: en el muelle se trabaja a la intemperie y es de lo que
+  // más se mira. En la tele va la temperatura DE AHORA (pedido de Ariel), que
+  // se refresca sola cada 15 minutos, con la máxima y la mínima del día al
+  // lado como contexto — esas salen de la misma query y caché que la cabecera.
+  const { data: ahoraClima } = useQuery({
+    queryKey: ['weather-now', PLANTAS[plantaId].lat, PLANTAS[plantaId].lng],
+    queryFn:  () => getClimaActual(PLANTAS[plantaId].lat, PLANTAS[plantaId].lng),
+    staleTime: 900_000,
+    refetchInterval: 900_000,
+  })
+  const { data: pronostico } = useQuery({
+    queryKey: ['weather-forecast', PLANTAS[plantaId].lat, PLANTAS[plantaId].lng],
+    queryFn:  () => getForecast(PLANTAS[plantaId].lat, PLANTAS[plantaId].lng),
+    staleTime: 3_600_000,
+  })
+  const hoyClima = pronostico?.[0]
   // El camión que está cargando puede ser un borrador (caja lo dejó, muelle
   // todavía no confeccionó el remito) o un remito emitido (se está cargando
   // contra él). Se miran los borradores de ayer, hoy y mañana, igual que en la
   // tablet: el camión de las 4 lleva el que caja armó la tarde anterior.
   const [borradores, setBorradores] = useState<BorradorCarga[]>([])
-  const fechasBorrador = useMemo(() => {
-    const ayer = new Date(fecha); ayer.setDate(ayer.getDate() - 1)
-    return [claveDia(ayer), claveDia(fecha), manana(fecha)]
-  }, [fecha])
+  const fechasBorrador = useMemo(
+    () => [claveDia(ayerFecha), claveDia(fecha), manana(fecha)],
+    [ayerFecha, fecha],
+  )
   useEffect(
     () => subscribeBorradoresDe(plantaId, fechasBorrador, setBorradores),
     [plantaId, fechasBorrador],
   )
   // Descargas del día: para saber a qué camión que volvió YA le contaron.
   const [descargas, setDescargas] = useState<DescargaCamion[]>([])
+  const [descargasAyer, setDescargasAyer] = useState<DescargaCamion[]>([])
   useEffect(() => subscribeDescargasDelDia(plantaId, fecha, setDescargas), [plantaId, fecha])
+  useEffect(() => subscribeDescargasDelDia(plantaId, ayerFecha, setDescargasAyer), [plantaId, ayerFecha])
   const [ahora,  setAhora]  = useState(Date.now())
+  // El reloj va aparte y al segundo: es una cifra de 76 px, un minuto tarde
+  // se nota. Los cronómetros siguen con el tick de 10 s (`ahora`), así las
+  // zonas memoizadas no se repintan cada segundo.
+  const [reloj, setReloj] = useState(Date.now())
+  // ¿Estamos recibiendo datos, o esto es caché? Una caída deja las listas
+  // vacías y el tablero se ve igual que una planta tranquila.
+  const [enVivo, setEnVivo] = useState(true)
+  const [ultimoEnVivo, setUltimoEnVivo] = useState<number>(Date.now())
+  useEffect(() => subscribeEnVivo((v) => {
+    setEnVivo(v)
+    if (v) setUltimoEnVivo(Date.now())
+  }), [])
   const [escala, setEscala] = useState(1)
   const [sonido, setSonido] = useState(false)
 
   useEffect(() => {
     const t = setInterval(() => setAhora(Date.now()), 10_000)
+    return () => clearInterval(t)
+  }, [])
+  useEffect(() => {
+    const t = setInterval(() => setReloj(Date.now()), 1_000)
     return () => clearInterval(t)
   }, [])
 
@@ -215,9 +259,19 @@ export default function MuelleTvPage() {
   // Volvieron y falta contarles la descarga. El regreso lo marca seguridad en
   // el portón o el propio chofer (`remitosCarga.regreso`, 2026-09-13); ya
   // contado = hay una descarga de ese chofer hoy.
-  const contados = useMemo(() => new Set(descargas.map((d) => d.choferId)), [descargas])
+  // Contado = hay una descarga DE ESE VIAJE (`remitoId`). Por chofer se
+  // rompía con dos viajes en el día: el segundo nacía "ya contado" por el
+  // conteo del primero. Las descargas anteriores al 18/09 no traen remito, así
+  // que esas siguen valiendo por chofer.
+  const contados = useMemo(() => {
+    const todas = [...descargas, ...descargasAyer]
+    return {
+      viajes:   new Set(todas.map((d) => d.remitoId).filter(Boolean)),
+      choferes: new Set(todas.filter((d) => !d.remitoId).map((d) => d.choferId)),
+    }
+  }, [descargas, descargasAyer])
   const retornos = useMemo(() => remitos
-    .filter((r) => r.regreso && !contados.has(r.choferId))
+    .filter((r) => r.regreso && !contados.viajes.has(r.id) && !contados.choferes.has(r.choferId))
     .sort((a, b) => (a.regreso!.hora.toMillis() - b.regreso!.hora.toMillis())),
   [remitos, contados])
   // El que volvió y ya está en una boca se pinta EN esa boca; el que todavía no
@@ -247,24 +301,86 @@ export default function MuelleTvPage() {
       className="bg-gray-950 text-white p-6 flex flex-col gap-4 absolute left-1/2 top-1/2"
       style={{ width: 1920, height: 1080, transform: `translate(-50%, -50%) scale(${escala})` }}
     >
+      {!enVivo && (
+        <div className="shrink-0 rounded-2xl bg-red-950 border-[4px] border-red-600 px-6 py-2 flex items-baseline justify-between">
+          <span className="text-[34px] font-black tracking-wide text-red-300">SIN CONEXIÓN · LO QUE SE VE PUEDE ESTAR VIEJO</span>
+          <span className="text-[26px] font-bold text-red-200 tabular-nums">últimos datos {new Date(ultimoEnVivo).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })}</span>
+        </div>
+      )}
+
       {/* Header + llamado */}
-      <div className="flex items-center gap-4 h-[84px] shrink-0">
-        <p className="text-2xl font-bold text-gray-500 shrink-0">MUELLE · {PLANTAS[plantaId].label.toUpperCase().replace('PLANTA ', '')}</p>
+      <div className="flex items-center gap-5 h-[104px] shrink-0">
+        <div className="shrink-0">
+          <p className="text-2xl font-bold text-gray-400">MUELLE · {PLANTAS[plantaId].label.toUpperCase().replace('PLANTA ', '')}</p>
+          <div className="flex items-center gap-2 mt-1">
+            {/* Que se vea que el tablero está vivo: sin esto, "no llega nada"
+                y "no hay nada" son la misma pantalla. */}
+            {enVivo ? (
+              <span className="inline-flex items-center gap-2 text-[19px] font-bold tracking-widest text-green-400">
+                <span className="w-3 h-3 rounded-full bg-green-400 animate-pulse" /> EN VIVO
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-2 text-[19px] font-black tracking-widest text-red-300 bg-red-900/40 border border-red-700 rounded-lg px-2 py-0.5 animate-pulse">
+                SIN CONEXIÓN
+              </span>
+            )}
+            {/* El navegador apaga el audio en cada recarga y hay que tocar la
+                pantalla: si no se avisa fuerte, la tele queda muda toda la noche. */}
+            {!sonido && (
+              <button onClick={activarSonido}
+                className="inline-flex items-center gap-2 text-[19px] font-black tracking-widest text-amber-200 bg-amber-900/50 border border-amber-600 rounded-lg px-2 py-0.5">
+                <VolumeX size={16} /> SIN SONIDO · TOCÁ ACÁ
+              </button>
+            )}
+          </div>
+        </div>
+        {/* El centro es de la marca, y se lo presta al llamado de turno los
+           45 segundos que dura: es lo único que merece robarle la atención a
+           todo el tablero. */}
         {llamadoReciente ? (
           <div className="flex-1 bg-green-600 rounded-2xl text-center py-2 animate-pulse" style={{ boxShadow: '0 0 40px rgba(22,163,74,0.45)' }}>
-            <span className="text-[54px] font-black leading-none">TURNO {llamadoReciente.turno} → DÁRSENA {llamadoReciente.darsena}</span>
+            <span className="text-[54px] font-black leading-none text-white">TURNO {llamadoReciente.turno} → DÁRSENA {llamadoReciente.darsena}</span>
           </div>
-        ) : <div className="flex-1" />}
-        <p className="text-[40px] font-black tabular-nums shrink-0">
-          {new Date(ahora).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })}
-        </p>
+        ) : (
+          <div className="flex-1 flex items-center justify-center min-w-0">
+            {/* Placa blanca: el logo va a color, con su verde y su bajada. */}
+            <div className="bg-white rounded-2xl px-7 py-2.5 flex items-center">
+              <img src="/logo-rolito.png" alt="Rolito" className="h-[72px] w-auto" />
+            </div>
+          </div>
+        )}
+        {/* Reloj y fecha: lo que más se mira de toda la pantalla (pedido de
+            Ariel, 2026-09-19). La hora, enorme; la fecha abajo, porque a las 4
+            de la mañana el día del remito y el del calendario no son obvios. */}
+        {ahoraClima && (
+          <div className="shrink-0 flex items-center gap-3 px-5 h-[76px] rounded-2xl bg-gray-900 border border-gray-800">
+            <span className="text-[44px] leading-none" aria-hidden>{ahoraClima.emoji}</span>
+            <div className="leading-none">
+              <p className="text-[38px] font-black tabular-nums leading-none">{ahoraClima.temp}°</p>
+              <p className="text-[18px] font-semibold text-gray-400 tabular-nums mt-1">
+                {hoyClima
+                  ? <>máx {hoyClima.tempMax}° · mín {hoyClima.tempMin}°</>
+                  : <>sensación {ahoraClima.sensacion}°</>}
+                {hoyClima && hoyClima.rain > 0 && <span className="text-sky-400"> · {Math.round(hoyClima.rain)} mm</span>}
+              </p>
+            </div>
+          </div>
+        )}
+        <div className="shrink-0 text-right leading-none">
+          <p className="text-[76px] font-black tabular-nums leading-none">
+            {new Date(reloj).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })}
+          </p>
+          <p className="text-[24px] font-semibold uppercase tracking-wide text-gray-400 mt-1">
+            {new Date(reloj).toLocaleDateString('es-AR', { weekday: 'long', day: '2-digit', month: 'long' })}
+          </p>
+        </div>
       </div>
 
       {/* Zona 1: las cinco dársenas en UNA fila, en el orden físico del muelle (2026-09-15,
           pedido de los chicos del muelle vía Ariel): visto desde donde cuelga la tele, las bocas
           van de izquierda a derecha 5 4 3 2 1, así la pantalla es un espejo del lugar. Las de
           ventanilla (4 y 5) son las de los clientes que compran para revender. */}
-      <div className="grid gap-4" style={{ height: 540, gridTemplateColumns: `repeat(${totalDarsenas}, minmax(0, 1fr))` }}>
+      <div className="grid gap-4" style={{ height: 440, gridTemplateColumns: `repeat(${totalDarsenas}, minmax(0, 1fr))` }}>
         {ordenFisico.map((n) => {
           // Un camión que volvió y está en la boca esperando conteo pisa todo lo demás:
           // es la alerta roja (2026-09-15, el chofer elige la dársena al volver).
@@ -391,7 +507,7 @@ export const DarsenaCamion = memo(function DarsenaCamion({ n, r, desglose, ahora
   const tag = (
     <div className="flex justify-between items-baseline">
       <span className="text-4xl font-black text-gray-500">{n}</span>
-      <span className={`text-base font-bold tracking-[3px] ${r ? 'text-amber-500' : 'text-gray-700'}`}>
+      <span className={`text-base font-bold tracking-[3px] ${r ? 'text-amber-500' : 'text-gray-500'}`}>
         {r ? 'CARGANDO' : 'LIBRE'}
       </span>
     </div>
@@ -400,7 +516,7 @@ export const DarsenaCamion = memo(function DarsenaCamion({ n, r, desglose, ahora
     return (
       <div className="rounded-[20px] p-4 flex flex-col border-[5px] border-gray-800 bg-[#0b1220]">
         {tag}
-        <p className="flex-1 flex items-center justify-center text-[40px] font-black text-gray-700">LIBRE</p>
+        <p className="flex-1 flex items-center justify-center text-[40px] font-black text-gray-600">LIBRE</p>
       </div>
     )
   }
@@ -535,7 +651,7 @@ export const Siguen = memo(function Siguen({ cola, ausentes, camionesEnEspera, l
         {cola.length > 3 && <p className="text-[24px] font-bold text-gray-500">+{cola.length - 3} más en espera</p>}
       </div>
       <div className="grid grid-cols-3 gap-4 flex-1 min-h-0">
-        {proximos.length === 0 && <p className="text-[40px] font-black text-gray-700">—</p>}
+        {proximos.length === 0 && <p className="col-span-3 flex items-center justify-center text-[40px] font-black text-gray-600 text-center leading-tight">SIN TURNOS<br />EN COLA</p>}
         {proximos.map((v) => (
           <div key={v.id} className="rounded-2xl bg-black/30 px-5 py-3 flex flex-col min-w-0 overflow-hidden">
             <div className="flex items-center gap-4 min-w-0">
@@ -557,13 +673,26 @@ export const Siguen = memo(function Siguen({ cola, ausentes, camionesEnEspera, l
           </div>
         ))}
       </div>
-      <p className="text-[22px] font-bold truncate mt-2">
-        {ausentes.length > 0 && <span className="text-red-400">AUSENTE: {ausentes.map((v) => `T-${v.turno}`).join(', ')}</span>}
-        {ausentes.length > 0 && (camionesEnEspera.length > 0 || listosParaSalir.length > 0) && <span className="text-gray-600"> · </span>}
-        {camionesEnEspera.length > 0 && <span className="text-gray-400">ESPERA: {camionesEnEspera.map((r) => patente(r.camionLabel)).join(', ')}</span>}
-        {camionesEnEspera.length > 0 && listosParaSalir.length > 0 && <span className="text-gray-600"> · </span>}
-        {listosParaSalir.length > 0 && <span className="text-green-400">SALE: {listosParaSalir.map((r) => patente(r.camionLabel)).join(', ')}</span>}
-      </p>
+      {/* Tres cosas distintas que antes iban en un renglón de 22 px con
+         truncado: lo primero que se cortaba era justo el camión por salir.
+         Ahora cada una es un chip con su color, y se leen de lejos. */}
+      <div className="flex flex-wrap items-center gap-2 mt-2">
+        {ausentes.length > 0 && (
+          <span className="rounded-xl px-3 py-1 text-[24px] font-black bg-red-900/50 border-2 border-red-700 text-red-300">
+            AUSENTE {ausentes.map((v) => `T-${v.turno}`).join(' ')}
+          </span>
+        )}
+        {camionesEnEspera.length > 0 && (
+          <span className="rounded-xl px-3 py-1 text-[24px] font-black bg-gray-800 border-2 border-gray-600 text-gray-300">
+            ESPERA BOCA {camionesEnEspera.map((r) => patente(r.camionLabel)).join(' ')}
+          </span>
+        )}
+        {listosParaSalir.length > 0 && (
+          <span className="rounded-xl px-3 py-1 text-[24px] font-black bg-green-900/50 border-2 border-green-600 text-green-300">
+            SALE {listosParaSalir.map((r) => patente(r.camionLabel)).join(' ')}
+          </span>
+        )}
+      </div>
     </div>
   )
 })

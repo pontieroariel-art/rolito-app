@@ -53,6 +53,29 @@ export async function getForecast(lat = DEFAULT_LAT, lng = DEFAULT_LNG, days = F
   return parseDays(await res.json())
 }
 
+/** El tiempo de AHORA: lo que el muelle mira en la tele (2026-09-19). */
+export interface ClimaActual {
+  temp:     number   // °C
+  sensacion: number  // °C
+  code:     number
+  label:    string
+  emoji:    string
+}
+
+export async function getClimaActual(lat = DEFAULT_LAT, lng = DEFAULT_LNG): Promise<ClimaActual> {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,apparent_temperature,weather_code&timezone=${TZ}`
+  const res = await fetch(url)
+  if (!res.ok) throw new Error('Error al obtener el clima actual')
+  const data = await res.json()
+  const code = data.current?.weather_code ?? 0
+  const { emoji, label } = interpretCode(code)
+  return {
+    temp:      Math.round(data.current?.temperature_2m ?? 0),
+    sensacion: Math.round(data.current?.apparent_temperature ?? data.current?.temperature_2m ?? 0),
+    code, label, emoji,
+  }
+}
+
 export async function getHistoricalWeather(startDate: string, endDate: string, lat = DEFAULT_LAT, lng = DEFAULT_LNG): Promise<DayWeather[]> {
   const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lng}&start_date=${startDate}&end_date=${endDate}&daily=${DAILY_VARS}&timezone=${TZ}`
   const res = await fetch(url)
