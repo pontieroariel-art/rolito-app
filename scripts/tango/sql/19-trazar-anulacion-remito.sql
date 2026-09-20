@@ -6,15 +6,27 @@
 --   FOTO antes / después (bloques 1 y 3)  +  Extended Events durante la anulación (2 y 4).
 --
 -- Correr en SSMS de RHIELOTG conectado a REDONHIELO_SA (sa o login con ALTER ANY EVENT SESSION).
--- Remito a usar: R0110500000425 (Morinigo, DON SATUR, anulado en la app el 12/09).
+--
+-- REMITO A USAR (actualizado 2026-09-20): R0110500000957 — KLIVE S.A., $227.800, que el
+-- chofer Armando Mira anuló en la app el 18/09 y Tango todavía tiene en estado 'P'. Es
+-- trabajo que la oficina le debe igual al circuito: se traza mientras se hace.
+-- Sirve cualquiera de los otros tres que siguen en 'P': R0110500000668, R0110500000683,
+-- R0110500000934. NO usar los que están en 'F' (868, 666, 672): ésos ya están facturados
+-- y Tango no deja anularlos sin anular antes la factura, que es otro circuito.
 --
 -- Orden:  1) FOTO ANTES  →  2) arrancar la traza  →  anular el remito EN TANGO como siempre
 --         →  3) FOTO DESPUÉS  →  4) leer la traza y guardar como CSV  →  5) limpiar.
--- Mandar a Claude: las dos fotos (1 y 3) y el CSV de la traza (4).
+--
+-- QUÉ MANDARME (cuatro archivos):
+--   · foto-antes.csv    — las grillas del paso 1
+--   · foto-despues.csv  — las mismas del paso 3
+--   · traza.csv         — la grilla del paso 4
+--   · la HORA EXACTA en que se anuló en Tango (si otro está cargando comprobantes al
+--     mismo tiempo, sus sentencias también caen en la traza y hay que separarlas)
 
 USE REDONHIELO_SA;
 GO
-DECLARE @remito char(13) = 'R0110500000425';
+DECLARE @remito char(13) = 'R0110500000957';
 
 -- ───────────────────────── 1) FOTO ANTES ─────────────────────────
 -- (repetir estas mismas consultas en el paso 3 y comparar)
@@ -64,7 +76,7 @@ GO
 ALTER EVENT SESSION traza_anulacion_remito ON SERVER STATE = START;
 GO
 -- >>> AHORA: en Tango (Ventas → Remitos → Anulación de remitos, o como lo haga la oficina)
--- >>> anular el R 0110500000425. Después seguir con el paso 3.
+-- >>> anular el R 0110500000957 (KLIVE S.A.). ANOTAR LA HORA. Después, paso 3.
 -- (Ojo: es la base real. La traza no frena nada ni cambia nada; solo mira. Si otra
 --  persona carga comprobantes al mismo tiempo, esos también aparecen: por eso importa
 --  la hora exacta de la anulación.)
