@@ -63,8 +63,14 @@ async function remitos() {
       console.log(`  ✗ ${numero}  ${quien}\n      el índice tiene ${Object.keys(rem).length} remitos pero NO "${numero}"${cerca.length ? `\n      parecidos: ${cerca.join(', ')}` : ''}`)
       continue
     }
-    if (fila.estado === 'A') console.log(`  ✓ ${numero}  ${quien}\n      Tango dice ANULADO — se confirma en la próxima pasada`)
-    else console.log(`  ·  ${numero}  ${quien}\n      Tango lo tiene con estado "${fila.estado}" (${fila.fecha ?? 's/f'}) → TODAVÍA NO está anulado allá`)
+    // El doc POR comprobante es el que mira la pantalla y, desde el 2026-09-20,
+    // el que decide en el servidor: al anular, Tango le borra el cliente al
+    // comprobante y la entrada de la ficha del cliente queda vieja para
+    // siempre. Acá se comprueba que exista también para los que siguen vivos.
+    const suelto = await db.doc(`tangoComprobanteDetalle/redonhielo_REM_${numero.toUpperCase()}`).get()
+    const porNumero = suelto.exists ? `doc por comprobante: estado "${txt(suelto.data()?.estado)}"` : 'SIN doc por comprobante'
+    if (fila.estado === 'A') console.log(`  ✓ ${numero}  ${quien}\n      Tango dice ANULADO — se confirma en la próxima pasada · ${porNumero}`)
+    else console.log(`  ·  ${numero}  ${quien}\n      Tango lo tiene con estado "${fila.estado}" (${fila.fecha ?? 's/f'}) → TODAVÍA NO está anulado allá · ${porNumero}`)
   }
 }
 

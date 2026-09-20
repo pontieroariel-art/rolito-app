@@ -16,13 +16,18 @@ const confirmado = () => ({ anulacion: { tango: { estado: 'confirmado', en: fire
 /**
  * El estado del comprobante SUELTO, por número (2026-09-20).
  *
- * El índice del cliente alcanza para casi todo y es una lectura por cliente,
- * pero no siempre lo tiene: el recibo de FERRANTE estaba anulado en Tango
- * desde hacía cuatro días y la fila no se iba, porque Tango lo registró con el
- * código de cliente `000000` y la ficha de FC.583 no lo mostraba nunca. El
- * lector escribe además un doc POR comprobante, cuya clave es el número — y el
- * número no depende de a qué cuenta haya ido a parar. Se usa como respaldo:
- * una lectura extra solo para los que el índice no resuelve.
+ * **Cuando Tango anula un comprobante le borra el cliente** (y el usuario, y
+ * los renglones): el comprobante se muda al cajón `{empresa}_000000` y lo que
+ * queda en la ficha del cliente es la entrada vieja, con el estado de antes.
+ * Verificado sobre producción el 2026-09-20: los 254 recibos y los 3.778
+ * remitos de ese cajón están TODOS en A / ANU, ni uno vivo.
+ *
+ * Por eso preguntarle a la ficha del cliente "¿está anulado?" no podía dar que
+ * sí nunca, y ninguna de las dos listas de pendientes se iba a vaciar jamás.
+ * La respuesta la tiene el doc POR comprobante que también escribe el lector,
+ * cuya clave es el NÚMERO — y el número no depende de a qué cuenta fue a
+ * parar. El índice del cliente queda como atajo barato que solo puede
+ * confirmar; desmentir, no.
  */
 async function estadoSuelto(db, empresa, tipo, numero) {
     const snap = await db.doc(`tangoComprobanteDetalle/${empresa}_${tipo}_${numero.trim().toUpperCase()}`).get();
@@ -42,15 +47,21 @@ async function confirmarRemitosAnulados(db = (0, firestore_1.getFirestore)()) {
         const v = d.data();
         const codigo = String(v.clienteCodigoTango ?? '').trim();
         const numero = String(v.tango?.remitoNumero ?? '').trim();
-        // Sin número no hay nada que buscar; sin código todavía queda el respaldo
-        // por comprobante, que no depende de a qué cuenta fue el remito.
+        // Sin número no hay nada que buscar; sin código todavía queda el
+        // comprobante suelto, que no depende de a qué cuenta fue el remito.
         if (!numero)
             continue;
-        const enIndice = codigo
-            ? idx.get(`redonhielo_${codigo}`)?.remitos?.[numero]?.estado
-            : undefined;
-        const estado = String(enIndice ?? '').trim().toUpperCase() || await estadoSuelto(db, 'redonhielo', 'REM', numero);
-        if (estado === 'A') {
+        const enIndice = String(codigo
+            ? idx.get(`redonhielo_${codigo}`)?.remitos?.[numero]?.estado ?? ''
+            : '').trim().toUpperCase();
+        // El índice del cliente solo puede CONFIRMAR, nunca desmentir: cuando
+        // Tango anula un remito le borra el cliente, así que el remito se muda al
+        // cajón `000000` y la entrada vieja queda en la ficha del cliente con su
+        // estado desactualizado ('P' o 'F') para siempre. Mirando solo ahí, un
+        // remito anulado no se confirma NUNCA. Por eso el comprobante suelto
+        // —cuya clave es el número— decide igual aunque el índice diga otra cosa.
+        const anulado = enIndice === 'A' || await estadoSuelto(db, 'redonhielo', 'REM', numero) === 'A';
+        if (anulado) {
             await d.ref.set(confirmado(), { merge: true });
             confirmados++;
         }
@@ -73,8 +84,8 @@ async function confirmarRecibosAnulados(db = (0, firestore_1.getFirestore)()) {
             continue;
         const indice = idx.get(claveIdx(c));
         const empresa = String(c.empresa ?? 'redonhielo');
-        // El índice del cliente primero; si no lo tiene, el comprobante suelto
-        // (caso FERRANTE: anulado en Tango pero bajo el código 000000).
+        // Igual que los remitos: el índice solo confirma, el comprobante suelto
+        // decide (caso FERRANTE, anulado en Tango pero bajo el código 000000).
         const anulado = (0, anulacionCobranza_1.reciboAnuladoEnIndice)(indice, recibo)
             || await estadoSuelto(db, empresa, 'REC', recibo) === 'ANU';
         if (anulado) {

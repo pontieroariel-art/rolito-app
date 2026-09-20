@@ -95,4 +95,30 @@ for (const clave of ['rolito_000000', 'redonhielo_000000']) {
 console.log('\n  Si TODOS los recibos de acá están en ANU, la conclusión es que Tango')
 console.log('  les borra el cliente al anularlos, y no que se hayan creado mal.\n')
 
+// 5. La misma pregunta para los REMITOS (2026-09-20). Si Tango también les
+// borra el cliente al anularlos, la reconciliación de remitos tenía el mismo
+// defecto que la de recibos y tampoco iba a confirmar nunca. Si en cambio los
+// miles de remitos del cajón están en otros estados, son los movimientos de
+// stock entre depósitos que manda la app (merma al 99, diferencia al 98,
+// camión a planta), que viven en la misma tabla y no tienen cliente.
+console.log('══ Los remitos del cajón "sin cliente": ¿anulados, o movimientos de stock?\n')
+for (const clave of ['redonhielo_000000', 'rolito_000000']) {
+  const idx = await db.doc(`tangoComprobantes/${clave}`).get()
+  if (!idx.exists) continue
+  const remitos = Object.entries(idx.data()?.remitos ?? {})
+  const porEstado = {}
+  for (const [, v] of remitos) {
+    const e = txt(v?.estado).toUpperCase() || '(vacío)'
+    porEstado[e] = (porEstado[e] ?? 0) + 1
+  }
+  console.log(`  ${clave}: ${remitos.length} remitos`)
+  for (const [e, n] of Object.entries(porEstado).sort((a, b) => b[1] - a[1])) {
+    const ej = remitos.filter(([, v]) => (txt(v?.estado).toUpperCase() || '(vacío)') === e).slice(0, 3)
+    console.log(`    estado ${e.padEnd(8)} ${String(n).padStart(5)}   ej. ${ej.map(([k, v]) => `${k} (${txt(v?.fecha)})`).join(', ')}`)
+  }
+  console.log('')
+}
+console.log('  "A" = anulado. Si son casi todos A, Tango hace con los remitos lo mismo')
+console.log('  que con los recibos. Si son P/F u otros, son movimientos de stock.\n')
+
 process.exit(0)
