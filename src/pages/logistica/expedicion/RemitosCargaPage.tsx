@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ClipboardList, Eye, Minus, Pencil, Plus, Trash2, Truck } from 'lucide-react'
+import { CheckCircle2, ClipboardList, Eye, Minus, Pencil, Plus, Trash2, Truck } from 'lucide-react'
 import { useVisorComprobante } from '@/components/ui/VisorComprobante'
 import Badge from '@/components/common/Badge'
 import PageHeader from '@/components/common/PageHeader'
@@ -13,7 +13,7 @@ import { useCatalogo } from '@/hooks/useCatalogo'
 import { useDiaActual, useFechaDelDia } from '@/hooks/useDiaActual'
 import { palletsInfo } from '@/services/remitoCargaService'
 import {
-  borrarBorradorCarga, crearBorradorCarga, editarBorradorCarga, subscribeBorradoresDe,
+  borrarBorradorCarga, crearBorradorCarga, editarBorradorCarga, manana, subscribeBorradoresDe,
 } from '@/services/borradorCargaService'
 import { useRemitosCargaDelDia } from '@/hooks/useExpedicionDia'
 import { generateRemitoCarga } from '@/utils/pdf'
@@ -56,6 +56,12 @@ const ESTADO_TONOS: Record<RemitoCargaEstado, 'pendiente' | 'confirmado' | 'entr
 
 const OTRO_CAMION = '__otro__'
 
+/** "el camión, el repartidor y la mercadería" — para decirle a caja qué falta. */
+function enumerar(partes: string[]): string {
+  if (partes.length <= 1) return partes[0] ?? ''
+  return `${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]}`
+}
+
 export default function RemitosCargaPage() {
   const { user } = useAuth()
   const { camiones } = useFlota()
@@ -70,6 +76,7 @@ export default function RemitosCargaPage() {
   // cargas para el mismo día — el segundo viaje sale a la tarde. La del camión
   // de la madrugada se arma eligiendo mañana a mano.
   const [paraFecha,  setParaFecha]  = useState(hoyClave)
+  const mananaClave = useMemo(() => manana(new Date(hoyClave + 'T12:00:00')), [hoyClave])
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [camionId,   setCamionId]   = useState('')
   // "Otro camión": patente tipeada a mano (2026-09-06, pedido de Ariel). Como en
@@ -78,9 +85,6 @@ export default function RemitosCargaPage() {
   // Código del depósito de Tango del repartidor (expedición por depósito, 2026-09-06).
   const [depositoCod, setDepositoCod] = useState('')
   const [cantidades, setCantidades] = useState<Record<string, number>>({})
-  // Cuando la cantidad no cierra en pallets justos, caja decide si el resto
-  // viaja en un pallet propio (true) o suelto arriba del camión (default).
-  const [restoEnPallet, setRestoEnPallet] = useState<Record<string, boolean>>({})
   // Envases que salen (2026-09-07): muelle le dicta a caja cuántos pallets son
   // de madera y cuántos de metal, y qué racks de agua van.
   const [tarimasMadera, setTarimasMadera] = useState(0)
@@ -88,6 +92,10 @@ export default function RemitosCargaPage() {
   const [metalEditado,  setMetalEditado]  = useState(false)
   const [racks,         setRacks]         = useState<number[]>([])
   const [confirmando, setConfirmando] = useState(false)
+  // La carga ya quedó guardada: el modal se queda abierto y lo confirma ahí
+  // mismo. El botón está al pie de un formulario largo, así que un aviso arriba
+  // de la pantalla no lo ve nadie y caja se queda sin saber si guardó.
+  const [hecho, setHecho] = useState<{ titulo: string; quien: string; resumen: string } | null>(null)
   const [guardando,   setGuardando]   = useState(false)
   const [error,       setError]       = useState('')
   const [aviso,       setAviso]       = useState('')
@@ -97,6 +105,8 @@ export default function RemitosCargaPage() {
   const [cotDestino, setCotDestino] = useState<CotDestinoPlan | null>(null)
   // Al reabrir un borrador, el destino guardado precarga el formulario del COT.
   const [cotInicial, setCotInicial] = useState<CotDestinoPlan | null>(null)
+  // Cambia al limpiar o al reabrir un borrador, para remontar el bloque del COT.
+  const [formKey, setFormKey] = useState(0)
 
   // Borradores del día que se planifica y de hoy (los de hoy son la carga que
   // muelle todavía no emitió: caja los sigue pudiendo corregir).
@@ -132,12 +142,12 @@ export default function RemitosCargaPage() {
       .map((p) => {
         const cantidad = cantidades[p.id]
         const info     = palletsInfo(p, cantidad)
-        const pallets  = info
-          ? info.completos + (info.resto > 0 && restoEnPallet[p.id] ? 1 : 0)
-          : 0
+        // Los pallets del PLAN son los completos: el resto lo resuelve muelle
+        // al cargar, y el remito sale con lo que decida ahí.
+        const pallets  = info ? info.completos : 0
         return { productoId: p.id, nombre: p.nombre, cantidad, ...(pallets > 0 ? { pallets } : {}) }
       }),
-    [catalogo, cantidades, restoEnPallet],
+    [catalogo, cantidades],
   )
 
   const palletsSugeridos = items.reduce((s, i) => s + (i.pallets ?? 0), 0)
@@ -176,7 +186,15 @@ export default function RemitosCargaPage() {
     setCantidades((prev) => ({ ...prev, [productoId]: n }))
   }
 
-  const puedeConfirmar = !!camion && !!deposito && items.length > 0
+  // Lo que le falta a la carga para poder dejarse, dicho al pie del botón: el
+  // botón gris sin motivo obliga a recorrer el formulario a ojo buscando el
+  // campo vacío, y el faltante del COT recién aparecía dentro del modal.
+  const faltasCot = useMemo(() => faltantesDestinoPlan(cotDestino), [cotDestino])
+  const faltan: string[] = []
+  if (!camion) faltan.push(camionId === OTRO_CAMION ? 'la patente del camión' : 'el camión')
+  if (!deposito) faltan.push('el repartidor')
+  if (!items.length) faltan.push('la mercadería')
+  const puedeConfirmar = faltan.length === 0 && faltasCot.length === 0
 
   const limpiar = useCallback(() => {
     setEditandoId(null)
@@ -184,9 +202,9 @@ export default function RemitosCargaPage() {
     setPatenteManual('')
     setDepositoCod('')
     setCantidades({})
-    setRestoEnPallet({})
     setTarimasMadera(0); setPalletsMetal(0); setMetalEditado(false); setRacks([])
     setCotDestino(null); setCotInicial(null)
+    setFormKey((k) => k + 1)
     setError('')
   }, [])
 
@@ -199,7 +217,6 @@ export default function RemitosCargaPage() {
     else { setCamionId(OTRO_CAMION); setPatenteManual(b.camionId.replace(/^manual:/, '')) }
     if (b.depositoTango) setDepositoCod(b.depositoTango)
     setCantidades(Object.fromEntries(b.items.map((i) => [i.productoId, i.cantidad])))
-    setRestoEnPallet({})
     setCotInicial(b.cotDestino)
     setCotDestino(b.cotDestino)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -215,6 +232,13 @@ export default function RemitosCargaPage() {
       reportError(err, { origen: 'RemitosCargaPage', accion: 'borrar borrador' })
       setAviso('No se pudo dar de baja la carga. Probá de nuevo.')
     }
+  }
+
+  const cerrarConfirmacion = () => {
+    // Volver arriba al terminar: el botón está al pie y caja arma varias cargas
+    // seguidas — si no, la siguiente empieza con el formulario fuera de la vista.
+    if (hecho) window.scrollTo({ top: 0, behavior: 'smooth' })
+    setConfirmando(false); setHecho(null)
   }
 
   const confirmar = async () => {
@@ -238,14 +262,17 @@ export default function RemitosCargaPage() {
         kg: cotDestino?.respaldo.kg || kg,
         cotDestino:   cotDestino as CotDestinoPlan,
       }
+      const bolsas = items.reduce((s, i) => s + i.cantidad, 0)
+      const resumen = `${bolsas.toLocaleString('es-AR')} bolsas · ${palletsCarga} pallet${palletsCarga === 1 ? '' : 's'} · ${kg.toLocaleString('es-AR')} kg`
       if (editandoId) {
         await editarBorradorCarga(editandoId, datos)
         setAviso(`Carga corregida: ${datos.camionLabel} para el ${paraFecha}.`)
+        setHecho({ titulo: 'Corrección guardada', quien: `${datos.choferNombre} · ${datos.camionLabel}`, resumen })
       } else {
         await crearBorradorCarga(datos, { uid: user.uid, nombre: user.nombre, plantaId })
         setAviso(`Carga armada para ${datos.choferNombre} (${datos.camionLabel}). Muelle emite el remito cuando entregue el camión.`)
+        setHecho({ titulo: 'Carga dejada para el muelle', quien: `${datos.choferNombre} · ${datos.camionLabel}`, resumen })
       }
-      setConfirmando(false)
       limpiar()
     } catch (err) {
       reportError(err, { origen: 'RemitosCargaPage', accion: 'guardar borrador' })
@@ -306,7 +333,18 @@ export default function RemitosCargaPage() {
         <div className="grid sm:grid-cols-3 gap-3">
           <div>
             <label className="text-xs text-secundario mb-1 block">¿Para qué día es la carga?</label>
-            <input type="date" value={paraFecha} onChange={(e) => setParaFecha(e.target.value || hoyClave)} className={selectClass} />
+            <div className="flex gap-1.5">
+              {/* Hoy y mañana son los dos únicos días que se usan: el segundo
+                  viaje del día y el camión de la madrugada. Abrir el calendario
+                  para eso es un paso de más. */}
+              {([['Hoy', hoyClave], ['Mañana', mananaClave]] as const).map(([texto, clave]) => (
+                <button key={clave} type="button" onClick={() => setParaFecha(clave)}
+                  className={`rounded-lg border px-3 h-[38px] text-sm font-medium shrink-0 ${paraFecha === clave ? 'bg-accent text-white border-accent' : 'bg-white text-gray-700 border-[#D3D1C7] hover:bg-gray-50'}`}>
+                  {texto}
+                </button>
+              ))}
+              <input type="date" value={paraFecha} onChange={(e) => setParaFecha(e.target.value || hoyClave)} className={selectClass} />
+            </div>
             <p className="text-[11px] text-secundario mt-0.5">El primer viaje se arma el día anterior.</p>
           </div>
           <div>
@@ -348,7 +386,11 @@ export default function RemitosCargaPage() {
           <div className="space-y-2">
             {catalogo.map((p) => {
               const info = palletsInfo(p, cantidades[p.id] ?? 0)
-              const pallets = info ? info.completos + (info.resto > 0 && restoEnPallet[p.id] ? 1 : 0) : 0
+              const pallets = info ? info.completos : 0
+              // La carga se piensa en pallets, no en bolsas sueltas: + y − mueven
+              // un pallet del producto (88 de 10 kg, 315 de 3 kg…) y el campo
+              // queda para afinar a mano. De a una bolsa no servía para nada.
+              const paso = p.unidadesPorPallet && p.unidadesPorPallet > 0 ? p.unidadesPorPallet : 1
               return (
                 <div key={p.id}>
                   <div className="flex items-center gap-3">
@@ -361,32 +403,37 @@ export default function RemitosCargaPage() {
                     <div className="flex items-center gap-1">
                       <button
                         type="button"
-                        onClick={() => setCantidad(p.id, -1)}
+                        onClick={() => setCantidad(p.id, -paso)}
+                        title={`−1 pallet (${paso})`}
                         className="w-8 h-8 rounded-lg border border-[#D3D1C7] text-gray-600 flex items-center justify-center hover:bg-gray-50 active:scale-95"
                       ><Minus size={14} /></button>
                       <input
-                        value={cantidades[p.id] ?? 0}
+                        // Vacío en vez de un 0 que hay que borrar: caja tipea la
+                        // cantidad de una, y si toca el campo con algo escrito
+                        // lo reemplaza sin tener que seleccionarlo.
+                        value={cantidades[p.id] ? String(cantidades[p.id]) : ''}
                         onChange={(e) => setCantidadInput(p.id, e.target.value)}
+                        onFocus={(e) => e.currentTarget.select()}
+                        placeholder="0"
                         inputMode="numeric"
                         className="w-16 text-center bg-white border border-[#D3D1C7] rounded-lg py-1.5 text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-accent"
                       />
                       <button
                         type="button"
-                        onClick={() => setCantidad(p.id, +1)}
+                        onClick={() => setCantidad(p.id, +paso)}
+                        title={`+1 pallet (${paso})`}
                         className="w-8 h-8 rounded-lg border border-[#D3D1C7] text-gray-600 flex items-center justify-center hover:bg-gray-50 active:scale-95"
                       ><Plus size={14} /></button>
                     </div>
                   </div>
+                  {/* Solo información: si esas sueltas suben en un pallet
+                     propio o arriba del camión lo decide MUELLE, que es quien
+                     carga (2026-09-19, Ariel). Acá sirve para planificar. */}
                   {info && info.resto > 0 && (
-                    <label className="flex items-center gap-2 mt-1 ml-3 text-xs text-secundario cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={restoEnPallet[p.id] ?? false}
-                        onChange={(e) => setRestoEnPallet((prev) => ({ ...prev, [p.id]: e.target.checked }))}
-                        className="accent-[#1D9E75]"
-                      />
-                      {info.resto} suelta{info.resto > 1 ? 's' : ''} — tildá si van en pallet propio
-                    </label>
+                    <p className="mt-1 ml-3 text-xs text-secundario tabular-nums">
+                      {info.completos > 0 && <>{info.completos} pallet{info.completos > 1 ? 's' : ''} + </>}
+                      {info.resto} suelta{info.resto > 1 ? 's' : ''}
+                    </p>
                   )}
                 </div>
               )
@@ -403,18 +450,29 @@ export default function RemitosCargaPage() {
             La carga pesa {kg.toLocaleString('es-AR')} kg y necesita COT de ARBA, pero la presentación desde la app está apagada (Ajustes → COT de ARBA): hay que sacarlo a mano en la web de ARBA.
           </p>
         )}
-        <CotDestinoForm plantaId={plantaId} cfg={cotCfg} kg={kg} patente={camion?.patente ?? ''} valor={cotInicial} onChange={setCotDestino} />
+        {/* La `key` remonta el bloque del COT cuando la carga se guarda o se
+            reabre para corregir: el destino tiene su propio estado adentro
+            (cliente, domicilio, kilos) y, sin esto, el destinatario de la carga
+            anterior quedaba puesto en la siguiente. */}
+        <CotDestinoForm key={formKey} plantaId={plantaId} cfg={cotCfg} kg={kg} hayCarga={items.length > 0} patente={camion?.patente ?? ''} valor={cotInicial} onChange={setCotDestino} />
 
         {/* Los ENVASES ya no se declaran acá (corrección de Ariel, 18/09): caja
             no sabe con qué tipo de pallet va a salir la carga ni qué racks se van
             a usar. Los cuenta MUELLE al entregar el camión, y van al remito. */}
 
-        <Button onClick={() => setConfirmando(true)} disabled={!puedeConfirmar} className="w-full">
+        <Button onClick={() => { setHecho(null); setError(''); setConfirmando(true) }} disabled={!puedeConfirmar} className="w-full">
           {editandoId ? 'Revisar y guardar la corrección' : 'Revisar y dejar la carga para el muelle'}
         </Button>
-        <p className="text-xs text-secundario text-center">
-          Esto es la instrucción para el muelle, no un papel: no lleva número, ni COT presentado, ni remito impreso. El remito lo emite muelle al entregar el camión.
-        </p>
+        {puedeConfirmar ? (
+          <p className="text-xs text-secundario text-center">
+            Esto es la instrucción para el muelle, no un papel: no lleva número, ni COT presentado, ni remito impreso. El remito lo emite muelle al entregar el camión.
+          </p>
+        ) : (
+          <p className="text-xs text-secundario text-center">
+            {faltan.length > 0 && <>Falta elegir {enumerar(faltan)}. </>}
+            {faltasCot.join(' ')}
+          </p>
+        )}
       </section>
 
       {/* ── Cargas armadas (borradores) ── */}
@@ -494,8 +552,31 @@ export default function RemitosCargaPage() {
       </section>
 
       {/* ── Confirmación ── */}
-      {confirmando && (
-        <Modal open onClose={() => setConfirmando(false)} title={editandoId ? 'Guardar la corrección de la carga' : 'Dejar la carga para el muelle'}>
+      {confirmando && hecho && (
+        <Modal open onClose={cerrarConfirmacion} title={hecho.titulo}>
+          <div className="space-y-3">
+            <div className="bg-accent/10 border border-accent/30 rounded-lg px-3 py-3 flex gap-2.5">
+              <CheckCircle2 size={20} className="text-accent shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-gray-900">{hecho.quien}</p>
+                <p className="text-sm text-gray-700 tabular-nums">{hecho.resumen}</p>
+                <p className="text-xs text-secundario mt-1">
+                  Ya la ve el muelle en su tablet. El remito, su número y el COT salen cuando entregue el camión.
+                </p>
+              </div>
+            </div>
+            <p className="text-xs text-secundario">
+              La tenés abajo, en «Cargas armadas · esperando al muelle»: desde ahí se corrige o se da de baja mientras el muelle no la haya tomado.
+            </p>
+            <div className="flex justify-end pt-1">
+              <Button onClick={cerrarConfirmacion}>Listo</Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {confirmando && !hecho && (
+        <Modal open onClose={cerrarConfirmacion} title={editandoId ? 'Guardar la corrección de la carga' : 'Dejar la carga para el muelle'}>
           <div className="space-y-3">
             <div className="text-sm text-gray-700 space-y-1">
               <p><span className="text-secundario">Para el día:</span> {paraFecha}</p>
@@ -533,7 +614,7 @@ export default function RemitosCargaPage() {
               </div>
             )}
             <div className="flex gap-2 pt-1">
-              <Button variant="outline" type="button" onClick={() => setConfirmando(false)} className="flex-1">Cancelar</Button>
+              <Button variant="outline" type="button" onClick={cerrarConfirmacion} className="flex-1">Cancelar</Button>
               <Button onClick={confirmar} loading={guardando} className="flex-1">{editandoId ? 'Guardar la corrección' : 'Dejar la carga'}</Button>
             </div>
           </div>

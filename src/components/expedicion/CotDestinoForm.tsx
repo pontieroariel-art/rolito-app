@@ -38,11 +38,13 @@ export function faltantesDestinoPlan(plan: CotDestinoPlan | null): string[] {
   return faltan
 }
 
-export default function CotDestinoForm({ plantaId, cfg, kg, patente, valor, onChange }: {
+export default function CotDestinoForm({ plantaId, cfg, kg, hayCarga, patente, valor, onChange }: {
   plantaId: PlantaId
   cfg:      CotConfig
   /** Kilos que pesa la carga planificada, según el peso por producto de Ajustes. */
   kg:       number
+  /** ¿Caja ya cargó mercadería? Sin carga, 0 kg no es un problema de configuración. */
+  hayCarga: boolean
   patente:  string
   /** Para reabrir un borrador y corregirlo. */
   valor?:   CotDestinoPlan | null
@@ -56,6 +58,9 @@ export default function CotDestinoForm({ plantaId, cfg, kg, patente, valor, onCh
   const [codigoSucursal, setCodigoSucursal] = useState(inicial?.tipo === 'cliente' ? (inicial.codigoTango ?? '') : '')
   const [consumidorFinal, setConsumidorFinal] = useState(inicial?.tipo === 'cliente' ? inicial.consumidorFinal : false)
   const [kgDeclarados, setKgDeclarados] = useState(valor?.respaldo.kg ? String(valor.respaldo.kg) : '')
+  // Caja escribió los kilos a mano (un producto sin peso en Ajustes): a partir
+  // de ahí la carga deja de pisarlos.
+  const [kgTocado, setKgTocado] = useState(!!valor?.respaldo.kg)
   const [tipoRecorrido, setTipoRecorrido] = useState<CotTipoRecorrido>(valor?.recorrido.tipo ?? plantaCfg.recorrido.tipo)
   const [localidad, setLocalidad] = useState(valor?.recorrido.localidad ?? plantaCfg.recorrido.localidad)
   const [ruta, setRuta] = useState(valor?.recorrido.ruta ?? plantaCfg.recorrido.ruta)
@@ -77,12 +82,14 @@ export default function CotDestinoForm({ plantaId, cfg, kg, patente, valor, onCh
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uidCliente])
 
-  // Los kilos de la carga, mientras caja no los corrija a mano.
+  // Los kilos de la carga, mientras caja no los corrija a mano. Siguen a la
+  // carga en cada cambio: mirar solo el campo vacío dejaba el peso del primer
+  // producto cargado (200 bolsas de 10 kg = 2.000) cuando caja sumaba un
+  // renglón más, y el número que se declara quedaba corto sin que se note.
   useEffect(() => {
-    if (kg > 0 && kgDeclarados === '') setKgDeclarados(String(Math.round(kg)))
-    // solo al cambiar los kilos o la config
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kg])
+    if (kgTocado) return
+    setKgDeclarados(kg > 0 ? String(Math.round(kg)) : '')
+  }, [kg, kgTocado])
 
   const domicilioFicha = useMemo<CotDomicilio | null>(() => (cliente ? domicilioDeCliente(cliente, codigoSucursal || null) : null), [cliente, codigoSucursal])
   const domicilio = domicilioEditado ?? domicilioFicha
@@ -199,9 +206,16 @@ export default function CotDestinoForm({ plantaId, cfg, kg, patente, valor, onCh
                 peso por producto de Ajustes, y se pueden corregir a mano cuando
                 un producto todavía no tiene su peso cargado. */}
             <label className={label}>Kilos a declarar</label>
-            <input value={kgDeclarados} onChange={(e) => setKgDeclarados(e.target.value.replace(/[^\d]/g, ''))} inputMode="numeric" placeholder="kg" className={input} />
+            <input value={kgDeclarados} onChange={(e) => { setKgTocado(true); setKgDeclarados(e.target.value.replace(/[^\d]/g, '')) }} inputMode="numeric" placeholder="kg" className={input} />
+            {/* Con la carga vacía no falta nada todavía: decirle a caja que
+                falta el peso en Ajustes antes de que cargue una sola bolsa
+                manda a buscar un problema que no existe. */}
             <p className="text-[11px] text-secundario mt-0.5">
-              {kg > 0 ? `La carga pesa ${kg.toLocaleString('es-AR')} kg` : 'Falta el peso por producto en Ajustes'}
+              {kg > 0
+                ? `La carga pesa ${kg.toLocaleString('es-AR')} kg`
+                : hayCarga
+                  ? 'Falta el peso por producto en Ajustes'
+                  : 'Se completa solo con la mercadería'}
             </p>
           </div>
         )}

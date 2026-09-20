@@ -192,8 +192,14 @@ async function main() {
   const clienteUid   = await upsertAuthUser(clienteEmail, PASSWORD)
   // id = código real de sucursal (como quedaría de un import de Excel) —
   // sirve para probar que cada sucursal muestra SU código, no el del cliente.
+  // Los campos *Tango son los que escribe la sync de clientes en producción
+  // (functions/services/tango/clientes.upsertDireccionTango) y los que lee el
+  // destino del COT. Sin ellos, en local hay que tipear localidad y C.P. en cada
+  // carga y parece que faltara algo que en producción ya funciona.
   const direccion = {
     id: 'FC.100', nombre: 'Depósito', address: 'Av. Siempre Viva 123, CABA',
+    domicilioTango: 'AV. SIEMPRE VIVA 123', localidadTango: 'DON TORCUATO',
+    provinciaTango: 'BUENOS AIRES', codigoPostalTango: '1611',
     lat: -34.6037, lng: -58.3816, horarioApertura: '08:00', horarioCierre: '18:00',
     contactoNombre: 'Juan Prueba', contactoTelefono: '1122334455', esPrincipal: false,
   }
@@ -203,6 +209,8 @@ async function main() {
   // código visible en las tarjetas de Pedidos.
   const direccion2 = {
     id: 'FC.101', nombre: 'Sucursal Norte', address: 'Av. Cabildo 2450, CABA',
+    domicilioTango: 'AV. CABILDO 2450', localidadTango: 'CAPITAL FEDERAL',
+    provinciaTango: 'CAPITAL FEDERAL', codigoPostalTango: '1428',
     lat: -34.5631, lng: -58.4593, horarioApertura: '08:00', horarioCierre: '18:00',
     contactoNombre: 'María Prueba', contactoTelefono: '1122334456', esPrincipal: false,
   }
@@ -211,6 +219,8 @@ async function main() {
     cuit: clienteCuit, telefono: '1122334455', phone: '1122334455',
     addresses: [direccion, direccion2], address: direccion.address, lat: direccion.lat, lng: direccion.lng,
     codigoCliente: 'CL-0001', rol: 'cliente',
+    domicilioTango: 'AV. SIEMPRE VIVA 123', localidadTango: 'DON TORCUATO',
+    provinciaTango: 'BUENOS AIRES', codigoPostalTango: '1611',
     // Lista de precios + código Tango — para probar la venta desde el camión (remito).
     codigoTango: '099001', idGva14Tango: 99001, ...preciosDelCliente,
   }), { merge: true })
@@ -229,6 +239,8 @@ async function main() {
     addresses: [{ ...direccion, id: 'FC.200', nombre: 'Local' }],
     address: direccion.address, lat: direccion.lat, lng: direccion.lng,
     codigoCliente: 'CL-0002', rol: 'cliente',
+    domicilioTango: 'AV. SIEMPRE VIVA 123', localidadTango: 'DON TORCUATO',
+    provinciaTango: 'BUENOS AIRES', codigoPostalTango: '1611',
     codigoTango: '099002', idGva14Tango: 99002, ...preciosDelCliente,
     categoriaIvaTango: 'RI', categoriaIvaTangoDesc: 'Responsable Inscripto',
   }), { merge: true })
