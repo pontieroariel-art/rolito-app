@@ -264,6 +264,17 @@ service cloud.firestore {
     function isChofer() {
       return hasRol('chofer');
     }
+    // ¿El viaje {remitoId} es del chofer autenticado? (2026-09-18)
+    // Las dos mitades del cierre viven en `liquidaciones/{remitoId}` y
+    // `cierresMercaderia/{remitoId}`, y el chofer se suscribe a las dos ANTES
+    // de que existan (caja liquida a la mañana; el cierre de mercadería lo
+    // escribe el servidor al contarse la descarga). Sin doc no hay `resource`
+    // que mirar y el id no dice de quién es, así que la pertenencia se le
+    // pregunta al remito. Un solo par exists/get, y solo en la rama del chofer.
+    function esMiViaje(remitoId) {
+      let path = /databases/$(database)/documents/remitosCarga/$(remitoId);
+      return exists(path) && get(path).data.choferId == request.auth.uid;
+    }
     // Rendición de fondos (2026-09-14): todo cobro de mostrador (venta de
     // ventanilla, cobranza con origen 'caja') lleva el turno de caja en el que
     // se hizo, y ese turno tiene que estar ABIERTO y ser del mismo cajero. Sin
@@ -1371,7 +1382,12 @@ service cloud.firestore {
       allow read: if request.auth != null
         && (hasAlguno(['caja', 'tesoreria', 'super_admin', 'logistica',
                        'gerente_comercial', 'comercial', 'gerente_general', 'supervisor'])
-            || (isChofer() && resource.data.choferId == request.auth.uid));
+            // El chofer se suscribe por id ANTES de que el cierre exista (lo
+            // escribe el servidor recién al contarse la descarga) y sin doc
+            // `resource` es null: mirarlo de una tira "Null value error" y su
+            // pantalla no carga. Por eso la pertenencia sale del remito.
+            || (isChofer() && ((resource != null && resource.data.choferId == request.auth.uid)
+                               || esMiViaje(remitoId))));
 
       allow write: if false;
     }
@@ -1737,8 +1753,16 @@ service cloud.firestore {
             // Con la clave por día alcanza el id para suscribirse antes de que
             // el doc exista; con la clave por viaje ({remitoId}, 2026-09-18) el
             // id no dice de quién es, así que se mira el doc ya cerrado.
-            || (isChofer() && (liquidacionId.split('_')[1] == request.auth.uid
-                               || (resource != null && resource.data.choferId == request.auth.uid))));
+            // OJO: `split('_')[1]` sobre un id SIN guión bajo (el del viaje) no
+            // da vacío: tira "Index out of bound" y aborta la regla entera,
+            // aunque la rama de al lado alcanzaría. Se pregunta primero el
+            // tamaño, que `&&` sí corta. Y con la clave por viaje el doc puede
+            // no existir todavía (caja liquida a la mañana), así que la
+            // pertenencia sale del remito.
+            || (isChofer() && ((liquidacionId.split('_').size() > 1
+                                && liquidacionId.split('_')[1] == request.auth.uid)
+                               || (resource != null && resource.data.choferId == request.auth.uid)
+                               || esMiViaje(liquidacionId))));
 
       allow create: if request.auth != null && isCajaDe(request.resource.data.plantaId)
         && request.resource.data.cerradaPor.uid == request.auth.uid

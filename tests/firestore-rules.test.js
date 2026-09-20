@@ -5781,3 +5781,44 @@ describe('anulaciones: el gate es el viaje, no el día (2026-09-18)', () => {
     await assertSucceeds(setDoc(doc(db('chof1'), 'anulacionesCobranza/rc2'), solicitudRecibo('rc2')))
   })
 })
+
+// ── El chofer mira las dos mitades de SU viaje antes de que existan (2026-09-18) ──
+// `liquidaciones/{remitoId}` la escribe caja a la mañana y `cierresMercaderia/
+// {remitoId}` el servidor al contarse la descarga: el teléfono se suscribe a
+// las dos desde que el camión sale, con el doc todavía inexistente. Ahí no hay
+// `resource` que mirar y el id no dice de quién es el viaje, así que la
+// pertenencia sale del remito.
+describe('el chofer lee las dos mitades de su viaje (2026-09-18)', () => {
+  const seedViajes = () => seed(async (d) => {
+    await setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' })
+    await setDoc(doc(d, 'users/chof2'), { rol: 'chofer', estado: 'activo' })
+    await setDoc(doc(d, 'remitosCarga/r1'), {
+      numero: 1, codigo: 'RC-DT-000001', plantaId: 'torcuato', camionId: 'cam1', camionLabel: 'AAA111',
+      choferId: 'chof1', choferNombre: 'Uno', items: [{ productoId: 'bolsa_10kg', nombre: '10kg', cantidad: 10 }],
+      palletsCarga: 1, estado: 'salido', fecha: new Date(),
+    })
+    await setDoc(doc(d, 'remitosCarga/r2'), {
+      numero: 2, codigo: 'RC-DT-000002', plantaId: 'torcuato', camionId: 'cam2', camionLabel: 'BBB222',
+      choferId: 'chof2', choferNombre: 'Dos', items: [{ productoId: 'bolsa_10kg', nombre: '10kg', cantidad: 10 }],
+      palletsCarga: 1, estado: 'salido', fecha: new Date(),
+    })
+  })
+
+  test('la plata de su viaje, aunque caja todavía no la haya cerrado', async () => {
+    await seedViajes()
+    await assertSucceeds(getDoc(doc(db('chof1'), 'liquidaciones/r1')))
+    await assertFails(getDoc(doc(db('chof1'), 'liquidaciones/r2')))
+  })
+
+  test('la mercadería de su viaje, aunque el servidor todavía no la haya escrito', async () => {
+    await seedViajes()
+    await assertSucceeds(getDoc(doc(db('chof1'), 'cierresMercaderia/r1')))
+    await assertFails(getDoc(doc(db('chof1'), 'cierresMercaderia/r2')))
+  })
+
+  test('la clave vieja por día sigue andando y no se cuela la de otro', async () => {
+    await seedViajes()
+    await assertSucceeds(getDoc(doc(db('chof1'), 'liquidaciones/2026-09-18_chof1')))
+    await assertFails(getDoc(doc(db('chof1'), 'liquidaciones/2026-09-18_chof2')))
+  })
+})
