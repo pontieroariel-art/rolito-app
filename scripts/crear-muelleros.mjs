@@ -16,12 +16,14 @@
  * si esa función cambia, este script también.
  *
  * Idempotente: si el DNI ya está en `staffDniIndex`, lo saltea sin tocar nada.
- * Cada uno recibe una contraseña aleatoria que el script imprime UNA vez, para
- * comunicársela; no queda nada escrito en el repo.
+ * La contraseña de estreno es el propio DNI (decisión de Ariel, 2026-09-20).
  *
  * Uso (contra PRODUCCIÓN — pedir antes):
  *   node scripts/crear-muelleros.mjs            # dice qué haría, sin escribir
- *   node scripts/crear-muelleros.mjs --aplicar  # crea los usuarios
+ *   node scripts/crear-muelleros.mjs --aplicar  # crea los que falten
+ *   node scripts/crear-muelleros.mjs --aplicar --resetear-password
+ *                                               # además, a los que ya existen
+ *                                               # les pone la contraseña = su DNI
  */
 
 import { readFileSync } from 'fs'
@@ -40,7 +42,11 @@ admin.initializeApp({ credential: admin.credential.cert(serviceAccount) })
 const db   = admin.firestore()
 const auth = admin.auth()
 
-const APLICAR = process.argv.includes('--aplicar')
+const APLICAR  = process.argv.includes('--aplicar')
+// Le pone a los que ya existen la contraseña = su DNI. Aparte de --aplicar a
+// propósito: pisar la clave de alguien que ya la cambió no puede pasar por
+// volver a correr el script.
+const RESETEAR = process.argv.includes('--resetear-password')
 
 const PLANTA = 'torcuato'
 const ROL    = 'muelle'
@@ -57,11 +63,11 @@ const MUELLEROS = [
 
 const dniToStaffEmail = (dni) => `${dni.replace(/\D/g, '')}@staff.rolito.internal`
 
-// Contraseña de estreno: 10 caracteres sin los que se confunden al dictarla
-// por teléfono (0/O, 1/l/I). La cambian ellos después.
-const ALFABETO = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'
-const nuevaPassword = () =>
-  Array.from({ length: 10 }, () => ALFABETO[Math.floor(Math.random() * ALFABETO.length)]).join('')
+// Contraseña de estreno: el propio DNI (decisión de Ariel, 2026-09-20). No hay
+// clave que dictar ni que se pierda el primer día. OJO: el DNI es TAMBIÉN el
+// usuario, así que quien lo sepa entra como esa persona, y muelle emite remitos
+// y cuenta descargas. Es para arrancar; que cada uno la cambie después.
+const passwordDe = (dni) => dni
 
 async function crear({ nombre, dni }) {
   const normalizado = dni.replace(/\D/g, '')
@@ -76,8 +82,23 @@ async function crear({ nombre, dni }) {
   const indice = await db.collection('staffDniIndex').doc(normalizado).get()
   if (indice.exists) {
     const yaUsado = indice.data().email
-    if (yaUsado === email) console.log(`  SKIP ${nombre} (DNI ${normalizado}) — ya existe`)
-    else console.log(`  ERROR ${nombre} (DNI ${normalizado}) — ese DNI ya es de ${yaUsado}`)
+    if (yaUsado !== email) {
+      console.log(`  ERROR ${nombre} (DNI ${normalizado}) — ese DNI ya es de ${yaUsado}`)
+      return
+    }
+    // Ya existe. Solo se le toca la contraseña si se pide expresamente: un
+    // re-run del script no puede dejar afuera a alguien que ya cambió la suya.
+    if (!RESETEAR) {
+      console.log(`  SKIP ${nombre} (DNI ${normalizado}) — ya existe`)
+      return
+    }
+    if (!APLICAR) {
+      console.log(`  resetearía la contraseña de ${nombre.padEnd(30)} DNI ${normalizado}`)
+      return
+    }
+    const existente = await auth.getUserByEmail(email)
+    await auth.updateUser(existente.uid, { password: passwordDe(normalizado) })
+    console.log(`  OK ${nombre.padEnd(30)} DNI ${normalizado}  contraseña = su DNI`)
     return
   }
 
@@ -86,7 +107,7 @@ async function crear({ nombre, dni }) {
     return
   }
 
-  const password = nuevaPassword()
+  const password = passwordDe(normalizado)
   let uid
   try {
     const user = await auth.createUser({ email, password, displayName: nombre })
@@ -124,7 +145,7 @@ async function crear({ nombre, dni }) {
 
   await db.collection('staffDniIndex').doc(normalizado).set({ email })
 
-  console.log(`  OK ${nombre.padEnd(30)} DNI ${normalizado}  contraseña ${password}`)
+  console.log(`  OK ${nombre.padEnd(30)} DNI ${normalizado}  contraseña = su DNI`)
 }
 
 async function main() {
@@ -132,7 +153,7 @@ async function main() {
   for (const m of MUELLEROS) await crear(m)
   console.log(
     APLICAR
-      ? '\nListo. Anotá las contraseñas ahora: no se vuelven a mostrar.\n'
+      ? '\nListo. Cada uno entra con su DNI como usuario Y como contraseña.\n'
       : '\nVolvé a correrlo con --aplicar para crearlos.\n',
   )
 }
