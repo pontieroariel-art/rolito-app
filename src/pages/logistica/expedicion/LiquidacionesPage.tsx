@@ -160,16 +160,28 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
     [cobranzas, remitosChofer, viajeId],
   )
   const plata = useMemo(() => plataDelViaje(ventasDelDia, cobranzasDelDia), [ventasDelDia, cobranzasDelDia])
-  // La foto entera del viaje, para el detalle y el PDF. La mercadería que manda
-  // es la del cierre del servidor; esto es el respaldo mientras no exista.
+  // La mercadería también es la de ESTE viaje, igual que la plata y que el
+  // cierre que escribe el servidor (functions/triggers/tangoOutbox →
+  // escribirCierreMercaderia: un remito y las descargas de ese remito). Con la
+  // carga de los tres viajes del día contra la descarga de uno solo, la
+  // pantalla mostraba un faltante de cientos de bolsas y le ofrecía a caja
+  // cerrar con un desvío que no existe.
+  const remitosDelViaje = useMemo(() => (viaje ? [viaje] : remitosChofer), [viaje, remitosChofer])
+  const descargasDelViaje = useMemo(() => {
+    if (!viajeId) return descargas
+    // Las descargas anteriores al 18/09 no traen `remitoId`; si el chofer hizo
+    // un solo viaje ese día, son de ese viaje.
+    const unSoloViaje = remitosChofer.length <= 1
+    return descargas.filter((d) => d.remitoId === viajeId || (unSoloViaje && !d.remitoId))
+  }, [descargas, viajeId, remitosChofer])
   const calc = useMemo(
-    () => calcularLiquidacion(remitosChofer, ventasDelDia, cambios, descargas, cobranzasDelDia),
-    [remitosChofer, ventasDelDia, cambios, descargas, cobranzasDelDia],
+    () => calcularLiquidacion(remitosDelViaje, ventasDelDia, cambios, descargasDelViaje, cobranzasDelDia),
+    [remitosDelViaje, ventasDelDia, cambios, descargasDelViaje, cobranzasDelDia],
   )
   // El estado del viaje sale del helper compartido, nunca deducido acá: las
   // cinco pantallas y el PDF tienen que decir lo mismo (utils/estadoLiquidacion.ts).
   const estado = useMemo(() => estadoDelViaje(cerrada, mercaderia), [cerrada, mercaderia])
-  const reparto = useReparto({ ventas: ventasDelDia, cambios, descargas, cobranzas: cobranzasDelDia })
+  const reparto = useReparto({ ventas: ventasDelDia, cambios, descargas: descargasDelViaje, cobranzas: cobranzasDelDia })
   // Cheques y certificados que trae el repartidor: caja los tilda al cerrar (2026-09-09).
   const papel = useMemo(() => valoresEnPapel(cobranzasDelDia), [cobranzasDelDia])
 
@@ -178,8 +190,8 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
 
   const detallePdf = (): DetalleLiquidacionPdf => ({
     reparto,
-    remitos: remitosChofer.map((r) => ({ codigo: r.codigo, camionLabel: r.camionLabel, fecha: r.fecha.toDate(), salida: r.salida?.hora.toDate() ?? null, entregado: r.entregadoPor?.hora.toDate() ?? null, items: r.items, envases: envasesDeRemito(r) })),
-    descargas: descargas.map((d) => ({ fecha: d.fecha.toDate(), registradoPor: d.registradoPor.nombre, items: d.items, rotas: d.bolsasRotas.reduce((s, i) => s + i.cantidad, 0), envases: envasesDeDescarga(d) })),
+    remitos: remitosDelViaje.map((r) => ({ codigo: r.codigo, camionLabel: r.camionLabel, fecha: r.fecha.toDate(), salida: r.salida?.hora.toDate() ?? null, entregado: r.entregadoPor?.hora.toDate() ?? null, items: r.items, envases: envasesDeRemito(r) })),
+    descargas: descargasDelViaje.map((d) => ({ fecha: d.fecha.toDate(), registradoPor: d.registradoPor.nombre, items: d.items, rotas: d.bolsasRotas.reduce((s, i) => s + i.cantidad, 0), envases: envasesDeDescarga(d) })),
   })
 
   // Visor (2026-09-15): el PDF se ve en pantalla; descargar o imprimir es un clic adentro.
@@ -246,7 +258,7 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
           firmaRepartidor: datos.firma, firmanteRepartidor: datos.firmante, confirmoSinPendientes: datos.confirmoSinPendientes,
           firmaRecibe: datos.firmaRecibe ?? '', firmanteRecibe: datos.firmanteRecibe ?? user.nombre,
           cheques: datos.cheques ?? [], retenciones: datos.retenciones ?? [], valoresFaltantes: datos.valoresFaltantes ?? { cantidad: 0, total: 0 },
-          referencias: referenciasDelReparto(viaje ? [viaje] : remitosChofer, ventasDelDia, descargas, cobranzasDelDia),
+          referencias: referenciasDelReparto(remitosDelViaje, ventasDelDia, descargasDelViaje, cobranzasDelDia),
         },
         { uid: user.uid, nombre: user.nombre, plantaId },
       )
@@ -268,7 +280,7 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
   const umbralFaltantes = useUmbralFaltantes()
   // Sin descarga contada (camión en la calle o muelle sin contar) no hay
   // faltante que mostrar: el control se hace cuando el camión vuelve (2026-09-14).
-  const sinDescarga = !estado.mercaderia.hecha && descargas.length === 0
+  const sinDescarga = !estado.mercaderia.hecha && descargasDelViaje.length === 0
   // El faltante que vale es el del cierre de mercadería que escribió el servidor
   // al contar. Si todavía no existe (el camión no volvió), se recalcula en vivo
   // para que caja vea el número mientras tanto.
@@ -360,7 +372,7 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
 
       {choferId && (
         <>
-          <BarraEstado remitos={remitosChofer} descargas={descargas} reparto={reparto} cerrada={cerrada}
+          <BarraEstado remitos={remitosDelViaje} descargas={descargasDelViaje} reparto={reparto} cerrada={cerrada}
             soloProblemas={soloProblemas} onProblemas={() => setSoloProblemas((v) => !v)}
             faltante={cerrada ? null : faltante} />
 
@@ -407,7 +419,7 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
             </Plegable>
           )}
 
-          <DetalleReparto remitos={remitosChofer} descargas={descargas} cobranzas={cobranzas} reparto={reparto} soloProblemas={soloProblemas}
+          <DetalleReparto remitos={remitosDelViaje} descargas={descargasDelViaje} cobranzas={cobranzasDelDia} reparto={reparto} soloProblemas={soloProblemas}
             onAnular={!cerrada && puedeCerrar ? setAnulando : undefined} />
           {anulando && user && (
             <SolicitarAnulacionModal objetivo={{ coleccion: 'ventasCamion', venta: anulando, plantaId }} actor={{ uid: user.uid, nombre: user.nombre }} onCerrar={() => setAnulando(null)} />
