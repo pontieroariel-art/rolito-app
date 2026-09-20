@@ -67,12 +67,15 @@ export function CrearStaffModal({ onClose, onCreated }: { onClose: () => void; o
   return (
     <Modal open onClose={onClose} title="Crear usuario Rolito">
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* APELLIDO, NOMBRE y en mayúsculas (2026-09-20, Ariel): es como los
+            lista Tango y como se busca en un listado de cien personas. Se
+            normaliza al tipear para no depender de que cada uno se acuerde. */}
         <Input
-          label="Nombre completo"
+          label="Nombre completo (APELLIDO, NOMBRE)"
           value={nombre}
-          onChange={(e) => setNombre(e.target.value)}
+          onChange={(e) => setNombre(e.target.value.toUpperCase())}
           required
-          placeholder="Juan García"
+          placeholder="GARCÍA, JUAN"
         />
         <div>
           <label className="text-xs text-secundario mb-1 block">Rol</label>
