@@ -23,6 +23,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore'
 import { defineSecret } from 'firebase-functions/params'
 import { enviarPushAUsuarios } from '../services/push'
 import { anotarAnulacionPosterior } from '../services/anulacionesPosteriores'
+import { confirmarRemitosAnulados } from '../services/anuladosEnTango'
 
 const vapidPublicKey  = defineSecret('VAPID_PUBLIC_KEY')
 const vapidPrivateKey = defineSecret('VAPID_PRIVATE_KEY')
@@ -120,31 +121,7 @@ export const onVentaVentanillaAnulada = onDocumentUpdated(
 export const reconciliarRemitosAnulados = onSchedule(
   { schedule: 'every 60 minutes', timeZone: 'America/Argentina/Buenos_Aires' },
   async () => {
-    const db = getFirestore()
-    const pendientes = await db.collection('ventasCamion')
-      .where('anulacion.tipo', '==', 'remito')
-      .where('anulacion.tango.estado', '==', 'pendiente_oficina')
-      .limit(200).get()
-    let confirmados = 0
-    // Un solo getAll de los índices de Tango (un cliente puede tener varios remitos pendientes).
-    const codigos = [...new Set(pendientes.docs.map((d) => String(d.data().clienteCodigoTango ?? '').trim()).filter(Boolean))]
-    const indices = new Map<string, FirebaseFirestore.DocumentData | undefined>()
-    if (codigos.length) {
-      const snaps = await db.getAll(...codigos.map((c) => db.doc(`tangoComprobantes/redonhielo_${c}`)))
-      snaps.forEach((s, i) => indices.set(codigos[i], s.data()))
-    }
-    for (const d of pendientes.docs) {
-      const v = d.data()
-      const codigo = String(v.clienteCodigoTango ?? '').trim()
-      const numero = String((v.tango as { remitoNumero?: string } | undefined)?.remitoNumero ?? '').trim()
-      if (!codigo || !numero) continue
-      const idx = indices.get(codigo)
-      const estado = (idx?.remitos as Record<string, { estado?: string }> | undefined)?.[numero]?.estado
-      if (estado === 'A') {
-        await d.ref.set({ anulacion: { tango: { estado: 'confirmado', en: FieldValue.serverTimestamp() } } }, { merge: true })
-        confirmados++
-      }
-    }
-    console.log(`[remitos] anulados pendientes en Tango: ${pendientes.size}, confirmados ahora: ${confirmados}`)
+    const { pendientes, confirmados } = await confirmarRemitosAnulados(getFirestore())
+    console.log(`[remitos] anulados pendientes en Tango: ${pendientes}, confirmados ahora: ${confirmados}`)
   },
 )

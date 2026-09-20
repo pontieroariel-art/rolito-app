@@ -26,6 +26,7 @@ const firestore_2 = require("firebase-admin/firestore");
 const params_1 = require("firebase-functions/params");
 const push_1 = require("../services/push");
 const anulacionesPosteriores_1 = require("../services/anulacionesPosteriores");
+const anuladosEnTango_1 = require("../services/anuladosEnTango");
 const vapidPublicKey = (0, params_1.defineSecret)('VAPID_PUBLIC_KEY');
 const vapidPrivateKey = (0, params_1.defineSecret)('VAPID_PRIVATE_KEY');
 /** Texto de la push a facturación. Pura. */
@@ -115,32 +116,7 @@ exports.onVentaVentanillaAnulada = (0, firestore_1.onDocumentUpdated)('ventasVen
     }
 });
 exports.reconciliarRemitosAnulados = (0, scheduler_1.onSchedule)({ schedule: 'every 60 minutes', timeZone: 'America/Argentina/Buenos_Aires' }, async () => {
-    const db = (0, firestore_2.getFirestore)();
-    const pendientes = await db.collection('ventasCamion')
-        .where('anulacion.tipo', '==', 'remito')
-        .where('anulacion.tango.estado', '==', 'pendiente_oficina')
-        .limit(200).get();
-    let confirmados = 0;
-    // Un solo getAll de los índices de Tango (un cliente puede tener varios remitos pendientes).
-    const codigos = [...new Set(pendientes.docs.map((d) => String(d.data().clienteCodigoTango ?? '').trim()).filter(Boolean))];
-    const indices = new Map();
-    if (codigos.length) {
-        const snaps = await db.getAll(...codigos.map((c) => db.doc(`tangoComprobantes/redonhielo_${c}`)));
-        snaps.forEach((s, i) => indices.set(codigos[i], s.data()));
-    }
-    for (const d of pendientes.docs) {
-        const v = d.data();
-        const codigo = String(v.clienteCodigoTango ?? '').trim();
-        const numero = String(v.tango?.remitoNumero ?? '').trim();
-        if (!codigo || !numero)
-            continue;
-        const idx = indices.get(codigo);
-        const estado = idx?.remitos?.[numero]?.estado;
-        if (estado === 'A') {
-            await d.ref.set({ anulacion: { tango: { estado: 'confirmado', en: firestore_2.FieldValue.serverTimestamp() } } }, { merge: true });
-            confirmados++;
-        }
-    }
-    console.log(`[remitos] anulados pendientes en Tango: ${pendientes.size}, confirmados ahora: ${confirmados}`);
+    const { pendientes, confirmados } = await (0, anuladosEnTango_1.confirmarRemitosAnulados)((0, firestore_2.getFirestore)());
+    console.log(`[remitos] anulados pendientes en Tango: ${pendientes}, confirmados ahora: ${confirmados}`);
 });
 //# sourceMappingURL=ventasAnuladas.js.map

@@ -24,6 +24,7 @@ import {
   avisoAnularEnTango, avisoSolicitudRecibo, marcaAnulada, motivoLegible, reciboAnuladoEnIndice, transicionRecibo,
   urlDelCobrador, urlReemitirRecibo, type AnulacionCobranzaDoc,
 } from '../services/anulacionCobranza'
+import { confirmarRecibosAnulados } from '../services/anuladosEnTango'
 
 const vapidPublicKey  = defineSecret('VAPID_PUBLIC_KEY')
 const vapidPrivateKey = defineSecret('VAPID_PRIVATE_KEY')
@@ -114,26 +115,7 @@ export const onAnulacionReciboResuelta = onDocumentUpdated(
 export const reconciliarRecibosAnulados = onSchedule(
   { schedule: 'every 60 minutes', timeZone: 'America/Argentina/Buenos_Aires' },
   async () => {
-    const db = getFirestore()
-    const pendientes = await db.collection('cobranzas').where('anulacion.tango.estado', '==', 'pendiente_oficina').limit(200).get()
-    const claveIdx = (c: FirebaseFirestore.DocumentData) => `${String(c.empresa ?? 'redonhielo')}_${String(c.codigoTango ?? '').trim()}`
-    const claves = [...new Set(pendientes.docs.map((d) => claveIdx(d.data())).filter((k) => !k.endsWith('_')))]
-    const indices = new Map<string, FirebaseFirestore.DocumentData | undefined>()
-    if (claves.length) {
-      const snaps = await db.getAll(...claves.map((k) => db.doc(`tangoComprobantes/${k}`)))
-      snaps.forEach((s, i) => indices.set(claves[i], s.data()))
-    }
-    let confirmados = 0
-    for (const d of pendientes.docs) {
-      const c = d.data()
-      const recibo = String((c.tango as { reciboNumero?: string } | undefined)?.reciboNumero ?? '').trim()
-      if (!recibo) continue
-      if (reciboAnuladoEnIndice(indices.get(claveIdx(c)) as { facturas?: Record<string, { estado?: unknown }> } | undefined, recibo)) {
-        await d.ref.set({ anulacion: { tango: { estado: 'confirmado', en: FieldValue.serverTimestamp() } } }, { merge: true })
-        await db.doc(`anulacionesCobranza/${d.id}`).set({ tango: { estado: 'confirmado', en: FieldValue.serverTimestamp() } }, { merge: true })
-        confirmados++
-      }
-    }
-    console.log(`[recibos] anulados pendientes en Tango: ${pendientes.size}, confirmados ahora: ${confirmados}`)
+    const { pendientes, confirmados } = await confirmarRecibosAnulados(getFirestore())
+    console.log(`[recibos] anulados pendientes en Tango: ${pendientes}, confirmados ahora: ${confirmados}`)
   },
 )
