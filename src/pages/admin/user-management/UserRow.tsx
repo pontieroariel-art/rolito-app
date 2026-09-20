@@ -1,10 +1,11 @@
 import { useState, ChangeEvent } from 'react'
-import { ChevronRight, MapPin, Phone, CreditCard, Navigation, Clock, Hash, Eye } from 'lucide-react'
+import { ChevronRight, MapPin, Phone, CreditCard, Navigation, Clock, Hash, Eye, KeyRound } from 'lucide-react'
 import Button from '../../../components/ui/Button'
 import { UserProfile, UserRole, DeliveryAddress, PLANTAS, PlantaId } from '../../../types'
 import { GRUPOS_ROLES_EXTRA, pidePlanta } from '../../../utils/roles'
 import { tsToDate } from '../../../utils/helpers'
 import { abrirVistaComo } from '../../../services/impersonacionService'
+import { resetearPasswordStaff } from '@/services/staffPasswordService'
 import { ALL_ROLES, ROLE_LABELS, STATUS_STYLES, STATUS_LABELS } from './shared'
 import { FichaClienteModal } from './FichaClienteModal'
 import { PermisosUsuarioModal } from './PermisosUsuarioModal'
@@ -30,6 +31,11 @@ export function UserRow({ user, currentUser, onRoleChange, onSubrolChange, onRol
   // "Ver como" (2026-09-10): si el navegador bloqueó la pestaña nueva, queda el link a mano.
   const [verComoLink, setVerComoLink] = useState<string | null>(null)
   const [verComoError, setVerComoError] = useState<string | null>(null)
+  // Restablecer contraseña (2026-09-20): confirmación de un clic y la clave
+  // nueva a la vista para dictarla.
+  const [confirmarReset, setConfirmarReset] = useState(false)
+  const [resetHecho,  setResetHecho]  = useState<string | null>(null)
+  const [resetError,  setResetError]  = useState<string | null>(null)
   const isSelf            = user.uid === currentUser?.uid
   const canManagePrices   = ['super_admin', 'gerente_comercial'].includes(currentUser?.rol ?? '')
   const canChangeStatus   = ['super_admin', 'gerente_comercial'].includes(currentUser?.rol ?? '')
@@ -37,10 +43,36 @@ export function UserRow({ user, currentUser, onRoleChange, onSubrolChange, onRol
   // Ver la app con la sesión de esta persona, en otra pestaña y en solo
   // lectura (ver impersonacionService). Nunca a uno mismo ni a otro super_admin.
   const canVerComo        = canChangeRole && !isSelf && user.rol !== 'super_admin'
+  // Restablecer la contraseña (2026-09-20): solo del PERSONAL que entra con
+  // contraseña. El cliente la recupera por mail, el chofer y el técnico entran
+  // con PIN, y el operario de producción tiene su propio reset en Producción.
+  const SIN_PASSWORD: UserRole[] = ['cliente', 'chofer', 'tecnico', 'produccion_hielo', 'super_admin']
+  const canResetPassword  = canChangeRole && !isSelf && !SIN_PASSWORD.includes(user.rol)
 
   const run = async (fn: () => Promise<void>) => {
     setBusy(true)
     try { await fn() } finally { setBusy(false) }
+  }
+
+  // Un clic pregunta, el segundo lo hace: dejar a alguien afuera de su cuenta
+  // por errarle a la fila no puede costar un solo toque.
+  const handleReset = () => {
+    if (!confirmarReset) {
+      setConfirmarReset(true)
+      setTimeout(() => setConfirmarReset(false), 5000)
+      return
+    }
+    setConfirmarReset(false)
+    void run(async () => {
+      setResetError(null)
+      setResetHecho(null)
+      try {
+        const r = await resetearPasswordStaff(user.uid)
+        setResetHecho(r.password)
+      } catch (err) {
+        setResetError((err as { message?: string })?.message ?? 'No se pudo restablecer')
+      }
+    })
   }
 
   const handleVerComo = () => run(async () => {
@@ -159,6 +191,19 @@ export function UserRow({ user, currentUser, onRoleChange, onSubrolChange, onRol
             </Button>
           )}
 
+          {canResetPassword && (
+            <Button
+              variant="outline"
+              onClick={handleReset}
+              loading={busy}
+              disabled={busy}
+              title="Volver a poner su contraseña en el DNI (la cambia después en Mi perfil)"
+              className="text-xs py-1.5 px-3 flex items-center gap-1.5"
+            >
+              <KeyRound size={13} /> {confirmarReset ? '¿Seguro?' : 'Restablecer contraseña'}
+            </Button>
+          )}
+
           {canVerComo && (
             <Button
               variant="outline"
@@ -173,6 +218,17 @@ export function UserRow({ user, currentUser, onRoleChange, onSubrolChange, onRol
           )}
         </div>
       </div>
+
+      {(resetHecho || resetError) && (
+        <div className="text-xs pt-2 border-t border-[#E7E5DC]">
+          {resetError
+            ? <span className="text-red-600">{resetError}</span>
+            : <span className="text-gray-700">
+                Contraseña restablecida. {user.nombre || user.razonSocial} entra con{' '}
+                <strong className="tabular-nums">{resetHecho}</strong> y la cambia desde Mi perfil.
+              </span>}
+        </div>
+      )}
 
       {(verComoLink || verComoError) && (
         <div className="text-xs pt-2 border-t border-[#E7E5DC]">

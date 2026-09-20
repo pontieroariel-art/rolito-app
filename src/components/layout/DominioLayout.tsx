@@ -143,11 +143,15 @@ export default function DominioLayout({ children }: { children?: ReactNode }) {
 
   const cuenta = (
     <div className="flex items-center gap-2 min-w-0">
-      <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-white text-xs font-bold shrink-0">{initials}</div>
-      <div className="min-w-0 hidden xl:block">
-        <p className="text-sm font-semibold text-gray-800 truncate leading-tight">{user?.nombre?.split(' ')[0]}</p>
-        <p className="text-[11px] text-secundario truncate leading-tight">{subtitulo}</p>
-      </div>
+      {/* Tocar el nombre lleva a Mi perfil (2026-09-20): es donde el personal
+          cambia su contraseña, que antes no tenía dónde cambiar. */}
+      <Link to="/mi-perfil" title="Mi perfil" className="flex items-center gap-2 min-w-0 rounded-lg hover:bg-accent/10 transition-colors p-0.5">
+        <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-white text-xs font-bold shrink-0">{initials}</div>
+        <div className="min-w-0 hidden xl:block">
+          <p className="text-sm font-semibold text-gray-800 truncate leading-tight">{user?.nombre?.split(' ')[0]}</p>
+          <p className="text-[11px] text-secundario truncate leading-tight">{subtitulo}</p>
+        </div>
+      </Link>
       {user?.rol === 'super_admin' && (
         <Link to="/admin/usuarios" title="Usuarios & Roles" className="text-secundario hover:text-accent transition-colors p-1.5 rounded-lg hover:bg-accent/10 shrink-0">
           <UserCog size={16} />

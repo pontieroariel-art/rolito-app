@@ -56,6 +56,9 @@ export { onOrderRollup } from './triggers/rollups'
 export { resetPinProduccion } from './triggers/produccionAuth'
 // "Ver como usuario" (2026-09-10): custom token de solo lectura para el super_admin.
 export { crearTokenImpersonacion } from './triggers/impersonacion'
+// El mail del staff es inventado, así que el "olvidé mi contraseña" lo hace el
+// super_admin a mano (2026-09-20).
+export { resetearPasswordStaff } from './triggers/staffPassword'
 
 // ── Facturación electrónica ARCA ─────────────────────────────────────────────
 // Requieren los secrets ARCA_CERT_PEM y ARCA_KEY_PEM (creados 2026-09-01) y el

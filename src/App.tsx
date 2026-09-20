@@ -26,6 +26,7 @@ import PendingApproval from './pages/auth/PendingApproval'
 
 // Todas las demás páginas — carga bajo demanda
 const SeleccionSistemaPage = lazy(() => import('./pages/auth/SeleccionSistemaPage'))
+const PerfilStaffPage      = lazy(() => import('./pages/admin/PerfilStaffPage'))
 const ClientDashboard  = lazy(() => import('@/pages/comercial/portal/ClientDashboard'))
 const NewOrder         = lazy(() => import('@/pages/comercial/portal/NewOrder'))
 const OrderHistory     = lazy(() => import('@/pages/comercial/portal/OrderHistory'))
@@ -443,6 +444,12 @@ function AppContent() {
             Quien tiene un solo dominio es redirigido a su home por la propia página. */}
         <Route element={<ProtectedRoute />}>
           <Route path="/sistema" element={<SeleccionSistemaPage />} />
+        </Route>
+
+        {/* Mi perfil del personal (2026-09-20): Navbar propio, como /muelle —
+            la abren tanto los roles con dominio como los de planta. */}
+        <Route element={<ProtectedRoute allowedRoles={rolesDe('/mi-perfil')} />}>
+          <Route path="/mi-perfil" element={<PerfilStaffPage />} />
         </Route>
 
         {/* Heladeras: vistas standalone / print y el técnico de calle */}
