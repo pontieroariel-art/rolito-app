@@ -6,6 +6,7 @@ import MenuCompartirPdf, { type DatosMail, type PdfGenerado } from '@/components
 import EnvioLoteModal from '@/components/facturacion/EnvioLoteModal'
 import VentasAppCliente from '@/components/facturacion/VentasAppCliente'
 import ResumenCuentaPanel from '@/components/cuentacorriente/ResumenCuentaPanel'
+import { Plegable } from '@/components/ui/Plegable'
 import RemitosPendientesTango from '@/components/facturacion/RemitosPendientesTango'
 import RecibosPendientesTango from '@/components/facturacion/RecibosPendientesTango'
 import { useAuth } from '@/context/AuthContext'
@@ -198,6 +199,16 @@ function PanelCliente({ uid, onCerrar }: { uid: string; onCerrar: () => void }) 
         <Filtros filtro={filtro} onChange={setFiltro} opciones={opciones} />
       </div>
 
+      {/* Resumen de cuenta (2026-09-20): qué pasó en la cuenta entre dos fechas,
+          con el saldo corriendo. Es la otra mitad de la composición de saldos —
+          aquélla sirve para cobrar, ésta para cuando el cliente dice que algo
+          ya lo pagó. Va ACÁ ARRIBA y plegado: debajo de la tabla, con sesenta
+          comprobantes, no lo encontraba nadie. Plegado, además, no se confunden
+          sus fechas con las del filtro de comprobantes. */}
+      <Plegable titulo="Resumen de cuenta">
+        <ResumenCuentaPanel cliente={cliente} indices={indices} saldo={saldoDoc} datosAl={saldoAl?.toDate() ?? null} />
+      </Plegable>
+
       <div className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 bg-[#F8F7F2] border-b border-[#D3D1C7]">
           <button type="button" onClick={alternarVisibles} disabled={!visibles.length} className="flex items-center gap-2 text-sm text-gray-700 disabled:opacity-50">
@@ -242,21 +253,6 @@ function PanelCliente({ uid, onCerrar }: { uid: string; onCerrar: () => void }) 
       </div>
 
       {aviso && <p className="text-xs text-amber-700 px-1">{aviso}</p>}
-
-      {/* Resumen de cuenta (2026-09-20): qué pasó en la cuenta entre dos fechas,
-          con el saldo corriendo. Es la otra mitad de la composición de saldos —
-          ésta sirve para cobrar, aquélla para discutir un pago con el cliente. */}
-      {cliente && (
-        <div className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-4 space-y-3">
-          <h2 className="text-sm font-semibold text-gray-900">Resumen de cuenta</h2>
-          <ResumenCuentaPanel
-            cliente={cliente}
-            indices={indices}
-            saldo={saldoDoc}
-            datosAl={saldoAl?.toDate() ?? null}
-          />
-        </div>
-      )}
 
       {/* Ventas hechas con la app: desde acá facturación anula las de días ya cerrados (2026-09-11). */}
       <VentasAppCliente clienteUid={uid} />
