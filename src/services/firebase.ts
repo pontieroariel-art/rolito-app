@@ -84,7 +84,11 @@ export const db = initializeFirestore(app, {
   localCache: SESION_VER_COMO || ES_TELE
     ? memoryLocalCache()
     : persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
-  ...(ES_TELE ? { experimentalForceLongPolling: true } : {}),
+  // `useFetchStreams: false`: en la Samsung real (SamsungBrowser 4.0 sobre
+  // Chrome 120) el long polling solo no alcanzó ("client is offline" mientras
+  // la lectura por REST respondía en 0,6 s): el canal usa fetch con streams y
+  // ese navegador lo deja colgado. Con XHR común, sin streams, conecta.
+  ...(ES_TELE ? { experimentalForceLongPolling: true, useFetchStreams: false } : {}),
 })
 // Storage NO se inicializa acá: va por import() dinámico en services/storage.ts
 // (obtenerStorage), que también conecta su emulador, así @firebase/storage no

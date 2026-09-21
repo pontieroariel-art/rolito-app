@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { doc, getDoc } from 'firebase/firestore'
+import { getApps, initializeApp } from 'firebase/app'
+import { doc, getDoc, initializeFirestore, memoryLocalCache, type Firestore } from 'firebase/firestore'
 import { app, auth, db, ES_TELE } from '@/services/firebase'
 
 /**
@@ -17,31 +18,48 @@ const DNI_TELE = '00000000'
 
 export default function DiagnosticoTelePage() {
   const [pruebas, setPruebas] = useState<Prueba[]>([
-    { nombre: 'Base de datos por el SDK (canal en vivo)', estado: 'probando', detalle: '' },
+    { nombre: 'SDK como está configurada la app', estado: 'probando', detalle: '' },
+    { nombre: 'SDK variante B: long polling SIN fetch streams', estado: 'probando', detalle: '' },
+    { nombre: 'SDK variante C: long polling CON fetch streams', estado: 'probando', detalle: '' },
+    { nombre: 'SDK variante D: canal normal (WebChannel)', estado: 'probando', detalle: '' },
     { nombre: 'Base de datos por HTTPS directo (REST)', estado: 'probando', detalle: '' },
     { nombre: 'Login de Firebase (config del proyecto)', estado: 'probando', detalle: '' },
   ])
   const poner = (i: number, p: Partial<Prueba>) => setPruebas((prev) => prev.map((x, j) => (j === i ? { ...x, ...p } : x)))
 
   useEffect(() => {
-    const t0 = Date.now()
     const conTope = <T,>(p: Promise<T>, ms: number) =>
       Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error(`sin respuesta en ${ms / 1000} s`)), ms))])
+    const probarSdk = (i: number, base: Firestore) => {
+      const t = Date.now()
+      conTope(getDoc(doc(base, 'staffDniIndex', DNI_TELE)), 20000)
+        .then((s) => poner(i, { estado: 'ok', detalle: s.exists() ? 'leyó el documento' : 'respondió (documento vacío)', ms: Date.now() - t }))
+        .catch((e: unknown) => poner(i, { estado: 'error', detalle: describir(e), ms: Date.now() - t }))
+    }
 
-    conTope(getDoc(doc(db, 'staffDniIndex', DNI_TELE)), 15000)
-      .then((s) => poner(0, { estado: 'ok', detalle: s.exists() ? 'leyó el documento' : 'respondió (documento vacío)', ms: Date.now() - t0 }))
-      .catch((e: unknown) => poner(0, { estado: 'error', detalle: describir(e), ms: Date.now() - t0 }))
+    // Cada variante en una app de Firebase aparte: la configuración de Firestore
+    // se fija una sola vez por app. `useFetchStreams` no está en los tipos
+    // públicos pero el SDK lo lee (Object.assign({useFetchStreams: true}, settings)).
+    const variante = (nombre: string, ajustes: Record<string, unknown>): Firestore => {
+      const existente = getApps().find((a) => a.name === nombre)
+      const otra = existente ?? initializeApp(app.options, nombre)
+      return initializeFirestore(otra, { localCache: memoryLocalCache(), ...ajustes })
+    }
+    probarSdk(0, db)
+    try { probarSdk(1, variante('diag-b', { experimentalForceLongPolling: true, useFetchStreams: false })) } catch (e) { poner(1, { estado: 'error', detalle: describir(e) }) }
+    try { probarSdk(2, variante('diag-c', { experimentalForceLongPolling: true, useFetchStreams: true })) } catch (e) { poner(2, { estado: 'error', detalle: describir(e) }) }
+    try { probarSdk(3, variante('diag-d', { experimentalAutoDetectLongPolling: false, useFetchStreams: false })) } catch (e) { poner(3, { estado: 'error', detalle: describir(e) }) }
 
     const projectId = app.options.projectId
     const t1 = Date.now()
     conTope(fetch(`https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/staffDniIndex/${DNI_TELE}`), 15000)
-      .then(async (r) => poner(1, { estado: r.ok ? 'ok' : 'error', detalle: `HTTP ${r.status}${r.ok ? '' : ` · ${(await r.text()).slice(0, 160)}`}`, ms: Date.now() - t1 }))
-      .catch((e: unknown) => poner(1, { estado: 'error', detalle: describir(e), ms: Date.now() - t1 }))
+      .then(async (r) => poner(4, { estado: r.ok ? 'ok' : 'error', detalle: `HTTP ${r.status}${r.ok ? '' : ` · ${(await r.text()).slice(0, 160)}`}`, ms: Date.now() - t1 }))
+      .catch((e: unknown) => poner(4, { estado: 'error', detalle: describir(e), ms: Date.now() - t1 }))
 
     const t2 = Date.now()
     conTope(fetch(`https://www.googleapis.com/identitytoolkit/v3/relyingparty/getProjectConfig?key=${app.options.apiKey}`), 15000)
-      .then((r) => poner(2, { estado: r.ok ? 'ok' : 'error', detalle: `HTTP ${r.status}`, ms: Date.now() - t2 }))
-      .catch((e: unknown) => poner(2, { estado: 'error', detalle: describir(e), ms: Date.now() - t2 }))
+      .then((r) => poner(5, { estado: r.ok ? 'ok' : 'error', detalle: `HTTP ${r.status}`, ms: Date.now() - t2 }))
+      .catch((e: unknown) => poner(5, { estado: 'error', detalle: describir(e), ms: Date.now() - t2 }))
   }, [])
 
   const ua = typeof navigator !== 'undefined' ? navigator.userAgent : ''
