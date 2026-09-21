@@ -37,7 +37,7 @@ GO
 --    guarde las de la factura) y qué dicen para esta factura.
 DECLARE @N_COMP varchar(20) = 'A0010100283346';
 DECLARE @sql nvarchar(max) = N'';
-SELECT @sql += N'SELECT ''' + t.name + N''' AS tabla, ''' + c.name + N''' AS columna, CAST(' + QUOTENAME(c.name) + N' AS varchar(400)) AS valor FROM ' + QUOTENAME(t.name)
+SELECT @sql += N'SELECT ''' + t.name + N''' COLLATE DATABASE_DEFAULT AS tabla, ''' + c.name + N''' COLLATE DATABASE_DEFAULT AS columna, CAST(' + QUOTENAME(c.name) + N' AS varchar(400)) COLLATE DATABASE_DEFAULT AS valor FROM ' + QUOTENAME(t.name)
   + N' WHERE N_COMP = @n UNION ALL '
 FROM sys.columns c
 JOIN sys.tables t ON t.object_id = c.object_id
@@ -55,8 +55,8 @@ GO
 --    texto que contenga 'OC', por si el renglón de texto está en otro lado.
 DECLARE @N_COMP varchar(20) = 'A0010100283346';
 DECLARE @sql nvarchar(max) = N'';
-SELECT @sql += N'SELECT ''' + t.name + N''' AS tabla, ''' + c.name + N''' AS columna, CAST(' + QUOTENAME(c.name) + N' AS varchar(400)) AS valor FROM ' + QUOTENAME(t.name)
-  + N' WHERE N_COMP = @n AND CAST(' + QUOTENAME(c.name) + N' AS varchar(400)) LIKE ''%OC%'' UNION ALL '
+SELECT @sql += N'SELECT ''' + t.name + N''' COLLATE DATABASE_DEFAULT AS tabla, ''' + c.name + N''' COLLATE DATABASE_DEFAULT AS columna, CAST(' + QUOTENAME(c.name) + N' AS varchar(400)) COLLATE DATABASE_DEFAULT AS valor FROM ' + QUOTENAME(t.name)
+  + N' WHERE N_COMP = @n AND CAST(' + QUOTENAME(c.name) + N' AS varchar(400)) COLLATE DATABASE_DEFAULT LIKE ''%OC%'' UNION ALL '
 FROM sys.columns c
 JOIN sys.tables t ON t.object_id = c.object_id
 JOIN sys.types ty ON ty.user_type_id = c.user_type_id
