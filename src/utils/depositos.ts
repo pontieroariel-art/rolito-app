@@ -17,20 +17,40 @@ export const identidadDeposito = (d: Pick<DepositoTango, 'codigo' | 'uid'>): str
 
 export const esIdentidadSintetica = (id: string): boolean => id.startsWith(PREFIJO_IDENTIDAD_DEPOSITO)
 
-/** "21 · Primiterra Cristian" (usuario vinculado) o "33 · NOAIN 01" (nombre de Tango). */
+/**
+ * "21 · PRIMITERRA CRISTIAN" (usuario vinculado) o "33 · NOAIN 01" (nombre de Tango).
+ *
+ * En MAYÚSCULA desde el 2026-09-20 (pedido de Ariel): los nombres llegan de dos
+ * lados —el usuario de la app y la descripción del depósito en Tango— y cada
+ * uno con su forma, así que la lista era un mosaico de "Ivan Almiron",
+ * "CRISTIAN CURUCHET" y "Gerez Ricardo Fabián". Mayúscula pareja es
+ * presentación: no toca el dato ni lo que sale impreso.
+ *
+ * Lo que NO se puede arreglar acá es el orden apellido/nombre: del texto no se
+ * deduce cuál es cuál. Eso se corrige en el nombre del usuario (Usuarios) o en
+ * la descripción del depósito en Tango, que son las dos fuentes.
+ */
 export const etiquetaDeposito = (d: Pick<DepositoTango, 'codigo' | 'nombre' | 'usuarioNombre'>): string =>
-  `${d.codigo} · ${d.usuarioNombre?.trim() || d.nombre}`
+  `${d.codigo} · ${nombreDeposito(d).toUpperCase()}`
 
 /** Nombre "de persona" para los docs (choferNombre): el del usuario si lo hay, si no el de Tango. */
 export const nombreDeposito = (d: Pick<DepositoTango, 'nombre' | 'usuarioNombre'>): string =>
   d.usuarioNombre?.trim() || d.nombre
 
-/** Depósitos que salen a repartir, activos, ordenados: primero los `destacados` (con movimiento hoy), después por código. */
+/**
+ * Depósitos que salen a repartir, activos: primero los `destacados` (los que
+ * tienen movimiento hoy) y después el resto, cada grupo **por nombre**.
+ *
+ * Antes iban por código de depósito, que es un número que nadie recuerda: para
+ * encontrar a alguien en una lista de cuarenta había que leerla entera
+ * (2026-09-20, pedido de Ariel). Por nombre se busca como se piensa.
+ */
 export function ordenarDepositosReparto(depositos: DepositoTango[], destacados: Set<string> = new Set()): DepositoTango[] {
-  const porCodigo = (a: DepositoTango, b: DepositoTango) => a.codigo.localeCompare(b.codigo, 'es', { numeric: true })
+  const porNombre = (a: DepositoTango, b: DepositoTango) =>
+    nombreDeposito(a).localeCompare(nombreDeposito(b), 'es', { numeric: true, sensitivity: 'base' })
   const reparto = depositos.filter((d) => d.tipo === 'repartidor' && d.activo && !d.inhabilitado)
-  const con = reparto.filter((d) => destacados.has(identidadDeposito(d))).sort(porCodigo)
-  const sin = reparto.filter((d) => !destacados.has(identidadDeposito(d))).sort(porCodigo)
+  const con = reparto.filter((d) => destacados.has(identidadDeposito(d))).sort(porNombre)
+  const sin = reparto.filter((d) => !destacados.has(identidadDeposito(d))).sort(porNombre)
   return [...con, ...sin]
 }
 
