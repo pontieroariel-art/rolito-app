@@ -37,7 +37,7 @@ import { generateRemitoCarga } from '@/utils/pdf'
 import { generateRemitoCargaOficial } from '@/utils/remitoCargaOficialPdf'
 import RacksInput from '@/components/expedicion/RacksInput'
 import {
-  cuadrarEnvases, describirEnvases, describirRacks, envasesDeDescarga, envasesDeRemito,
+  cuadrarEnvases, describirEnvases, describirRacks, envasesDeDescarga, envasesDeRemito, implicitosDe,
 } from '@/utils/envases'
 import { nombreClienteVenta } from '@/utils/nombreClienteVenta'
 import { conteoDe, fueRectificada } from '@/utils/rectificacionDescarga'
@@ -190,8 +190,17 @@ export default function MuelleDashboard() {
   const [sanas,  setSanas]  = useState<Record<string, number>>({})
   const [rotas,  setRotas]  = useState<Record<string, number>>({})
   const [envases, setEnvases] = useState<EnvasesDescarga>(ENVASES_VACIOS)
+  // Como en la carga (21/09, Ariel): el muelle cuenta tarimas, pallets y racks;
+  // puntales, aros y sombreros salen solos (4 puntales y 1 sombrero por pallet,
+  // 1 aro por tarima de madera). "Corregir sueltos" abre los tres campos para
+  // cuando volvió algo sin su pallet.
+  const [sueltosManual, setSueltosManual] = useState(false)
   const setEnvase = (k: keyof Omit<EnvasesDescarga, 'racks'>, v: string) =>
-    setEnvases((prev) => ({ ...prev, [k]: Math.max(0, Math.min(999, parseInt(v.replace(/\D/g, ''), 10) || 0)) }))
+    setEnvases((prev) => {
+      const next = { ...prev, [k]: Math.max(0, Math.min(999, parseInt(v.replace(/\D/g, ''), 10) || 0)) }
+      if (!sueltosManual && (k === 'tarimasMadera' || k === 'palletsMetal')) Object.assign(next, implicitosDe(next.tarimasMadera, next.palletsMetal))
+      return next
+    })
   // Corrección de un conteo ya cargado (2026-09-13): se precarga lo que contó
   // muelle (su propio número, no el teórico: el conteo sigue ciego) y al
   // confirmar nace una descarga nueva que reemplaza a la vieja.
@@ -454,7 +463,7 @@ export default function MuelleDashboard() {
       setSanas({})
       setRotas({})
       setExtras([])
-      setEnvases(ENVASES_VACIOS)
+      setEnvases(ENVASES_VACIOS); setSueltosManual(false)
     } catch (err) {
       reportError(err, { origen: 'MuelleDashboard', accion: 'error al registrar descarga' })
       setError('No se pudo registrar la descarga. Revisá la conexión e intentá de nuevo.')
@@ -852,7 +861,7 @@ export default function MuelleDashboard() {
                 type="button"
                 onClick={() => {
                   setCorrigiendo(null); setMotivoCorreccion(''); setRemitoDescargaId('')
-                  setSanas({}); setRotas({}); setExtras([]); setEnvases(ENVASES_VACIOS)
+                  setSanas({}); setRotas({}); setExtras([]); setEnvases(ENVASES_VACIOS); setSueltosManual(false)
                 }}
                 className="text-xs text-secundario underline"
               >
@@ -868,7 +877,7 @@ export default function MuelleDashboard() {
               disabled={!!corrigiendo}
               onChange={(e) => {
                 setRemitoDescargaId(e.target.value)
-                setSanas({}); setRotas({}); setExtras([]); setEnvases(ENVASES_VACIOS)
+                setSanas({}); setRotas({}); setExtras([]); setEnvases(ENVASES_VACIOS); setSueltosManual(false)
               }}
               className={selectClass}
             >
@@ -1011,13 +1020,39 @@ export default function MuelleDashboard() {
                           : ' (sin remito de carga de hoy en esta planta: no hay contra qué cuadrar)'}
                       </p>
                       <div className="grid grid-cols-2 gap-3">
-                        {([['tarimasMadera', 'Tarimas de madera'], ['palletsMetal', 'Pallets de metal'], ['puntales', 'Puntales'], ['aros', 'Aros'], ['sombreros', 'Sombreros']] as const).map(([k, label]) => (
+                        {([['tarimasMadera', 'Tarimas de madera'], ['palletsMetal', 'Pallets de metal']] as const).map(([k, label]) => (
                           <div key={k}>
                             <label className="text-sm text-secundario mb-1 block">{label}</label>
                             <input value={envases[k]} onChange={(e) => setEnvase(k, e.target.value)} inputMode="numeric" className={inputEnvaseClass} />
                           </div>
                         ))}
                       </div>
+                      {/* Los implícitos, como en la carga; con "Corregir sueltos" se tocan a mano. */}
+                      <div className="mt-2 flex items-center justify-between gap-3 min-h-11">
+                        <p className="text-sm text-secundario tabular-nums">
+                          {sueltosManual ? 'Sueltos corregidos a mano' : `${envases.puntales} puntales · ${envases.aros} aro${envases.aros === 1 ? '' : 's'} · ${envases.sombreros ?? 0} sombrero${(envases.sombreros ?? 0) === 1 ? '' : 's'} (4 puntales y 1 sombrero por pallet, 1 aro por tarima)`}
+                        </p>
+                        <button
+                          type="button"
+                          className="h-11 px-3 rounded-lg border border-[#D3D1C7] bg-white text-sm text-gray-900 shrink-0"
+                          onClick={() => setSueltosManual((m) => {
+                            if (m) setEnvases((prev) => ({ ...prev, ...implicitosDe(prev.tarimasMadera, prev.palletsMetal) }))
+                            return !m
+                          })}
+                        >
+                          {sueltosManual ? 'Volver a calcular' : 'Corregir sueltos'}
+                        </button>
+                      </div>
+                      {sueltosManual && (
+                        <div className="grid grid-cols-3 gap-3 mt-2">
+                          {([['puntales', 'Puntales'], ['aros', 'Aros'], ['sombreros', 'Sombreros']] as const).map(([k, label]) => (
+                            <div key={k}>
+                              <label className="text-sm text-secundario mb-1 block">{label}</label>
+                              <input value={envases[k] ?? 0} onChange={(e) => setEnvase(k, e.target.value)} inputMode="numeric" className={inputEnvaseClass} />
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       <div className="mt-3">
                         <label className="text-sm text-secundario mb-1 block">Racks de agua que volvieron (números)</label>
                         <RacksInput value={envases.racks} onChange={(racks) => setEnvases((prev) => ({ ...prev, racks }))} sugeridos={salieron?.racks ?? []} />
