@@ -88,6 +88,7 @@ const CalculadoraHielo  = lazy(() => import('./pages/public/CalculadoraHielo'))
 const TurnosVentanillaPage = lazy(() => import('./pages/public/TurnosVentanillaPage'))
 // Maqueta descartable del TV del muelle (2026-09-13): se borra al aprobar el diseño.
 const MockupMuelleTv       = lazy(() => import('@/pages/logistica/expedicion/MockupMuelleTv'))
+const DiagnosticoTelePage  = lazy(() => import('@/pages/public/DiagnosticoTelePage'))
 
 const LoginProduccion         = lazy(() => import('./pages/auth/LoginProduccion'))
 const ProduccionDashboard     = lazy(() => import('@/pages/logistica/produccion/ProduccionDashboard'))
@@ -243,6 +244,9 @@ function AppContent() {
         {/* MAQUETA DESCARTABLE del TV del muelle (2026-09-13): pública y con datos
             inventados, para verla en el televisor real antes de tocar MuelleTvPage. */}
         <Route path="/mockup-muelle-tv" element={<MockupMuelleTv />} />
+        {/* Diagnóstico del televisor (2026-09-21): pública, dice en pantalla si la
+            app llega a la base de datos desde el navegador de la tele. */}
+        <Route path="/diagnostico-tele" element={<DiagnosticoTelePage />} />
 
         {/* Cliente */}
         <Route element={<ProtectedRoute allowedRoles={rolesDe('/sucursal')} />}>

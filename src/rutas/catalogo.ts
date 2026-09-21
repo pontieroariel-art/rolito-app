@@ -157,6 +157,7 @@ export const CATALOGO: RutaConfig[] = [
   // MAQUETA DESCARTABLE del TV del muelle (2026-09-13): pública, con datos
   // inventados, para verla en el televisor real. Se borra al aprobar el diseño.
   R('/mockup-muelle-tv',             'Maqueta del TV de muelle', 'logistica', [], { deepLink: true }),
+  R('/diagnostico-tele',             'Diagnóstico de la tele',   'logistica', [], { deepLink: true }),
   R('/seguridad',                    'Seguridad (salidas)',  'logistica', ['seguridad', 'super_admin'], { icon: Truck, menuGroup: 'expedicion', rolesMenu: ['seguridad'] }),
   // Reporte de gestión (2026-09-13): mide al muelle, a los choferes y a la
   // ventanilla, así que lo ven los mismos que Monitoreo — nunca los medidos.
