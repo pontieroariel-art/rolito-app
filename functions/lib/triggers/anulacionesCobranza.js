@@ -23,6 +23,7 @@ const firestore_2 = require("firebase-admin/firestore");
 const params_1 = require("firebase-functions/params");
 const push_1 = require("../services/push");
 const anulacionCobranza_1 = require("../services/anulacionCobranza");
+const anuladosEnTango_1 = require("../services/anuladosEnTango");
 const vapidPublicKey = (0, params_1.defineSecret)('VAPID_PUBLIC_KEY');
 const vapidPrivateKey = (0, params_1.defineSecret)('VAPID_PRIVATE_KEY');
 const claves = () => ({ vapidPublicKey: vapidPublicKey.value(), vapidPrivateKey: vapidPrivateKey.value() });
@@ -113,27 +114,7 @@ exports.onAnulacionReciboResuelta = (0, firestore_1.onDocumentUpdated)({ documen
  * 'ANU' en el índice del cliente (`tangoComprobantes/{empresa}_{codigo}`).
  */
 exports.reconciliarRecibosAnulados = (0, scheduler_1.onSchedule)({ schedule: 'every 60 minutes', timeZone: 'America/Argentina/Buenos_Aires' }, async () => {
-    const db = (0, firestore_2.getFirestore)();
-    const pendientes = await db.collection('cobranzas').where('anulacion.tango.estado', '==', 'pendiente_oficina').limit(200).get();
-    const claveIdx = (c) => `${String(c.empresa ?? 'redonhielo')}_${String(c.codigoTango ?? '').trim()}`;
-    const claves = [...new Set(pendientes.docs.map((d) => claveIdx(d.data())).filter((k) => !k.endsWith('_')))];
-    const indices = new Map();
-    if (claves.length) {
-        const snaps = await db.getAll(...claves.map((k) => db.doc(`tangoComprobantes/${k}`)));
-        snaps.forEach((s, i) => indices.set(claves[i], s.data()));
-    }
-    let confirmados = 0;
-    for (const d of pendientes.docs) {
-        const c = d.data();
-        const recibo = String(c.tango?.reciboNumero ?? '').trim();
-        if (!recibo)
-            continue;
-        if ((0, anulacionCobranza_1.reciboAnuladoEnIndice)(indices.get(claveIdx(c)), recibo)) {
-            await d.ref.set({ anulacion: { tango: { estado: 'confirmado', en: firestore_2.FieldValue.serverTimestamp() } } }, { merge: true });
-            await db.doc(`anulacionesCobranza/${d.id}`).set({ tango: { estado: 'confirmado', en: firestore_2.FieldValue.serverTimestamp() } }, { merge: true });
-            confirmados++;
-        }
-    }
-    console.log(`[recibos] anulados pendientes en Tango: ${pendientes.size}, confirmados ahora: ${confirmados}`);
+    const { pendientes, confirmados } = await (0, anuladosEnTango_1.confirmarRecibosAnulados)((0, firestore_2.getFirestore)());
+    console.log(`[recibos] anulados pendientes en Tango: ${pendientes}, confirmados ahora: ${confirmados}`);
 });
 //# sourceMappingURL=anulacionesCobranza.js.map

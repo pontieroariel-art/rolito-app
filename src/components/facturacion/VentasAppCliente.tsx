@@ -3,6 +3,7 @@ import { Ban, RefreshCw, Smartphone } from 'lucide-react'
 import SolicitarAnulacionModal from '@/components/expedicion/SolicitarAnulacionModal'
 import AnularRemitoModal from '@/components/ventas/AnularRemitoModal'
 import { useAuth } from '@/context/AuthContext'
+import { tieneAlgunRol } from '@/utils/roles'
 import { getVentasCliente } from '@/services/historialClienteService'
 import { reportError } from '@/services/observability'
 import type { VentaAnulable } from '@/services/anulacionService'
@@ -78,7 +79,12 @@ export default function VentasAppCliente({ clienteUid }: { clienteUid: string })
   useEffect(() => { cargar() }, [cargar])
 
   const cerrarModal = (hecho: boolean) => { setAnulando(null); if (hecho) cargar() }
-  const puedeAnular = !!actor && !verComo
+  // Hasta el 2026-09-20 el candado era la ruta: solo facturación y super_admin
+  // abrían esta pantalla. Ahora también entra comercial (a ver el resumen de
+  // cuenta), y pedir una anulación no es suyo — las reglas se lo rechazarían
+  // igual (`isFacturacion() || isOperator()`), pero un botón que falla es peor
+  // que un botón que no está.
+  const puedeAnular = !!actor && !verComo && tieneAlgunRol(user, ['facturacion', 'super_admin', 'logistica'])
 
   return (
     <div className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm overflow-hidden">

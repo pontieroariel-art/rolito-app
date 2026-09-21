@@ -121,7 +121,7 @@ exports.enviarComprobantePorMail = (0, https_1.onCall)({ secrets: email_1.MAIL_S
     const emailOperador = perfil?.email ?? '';
     const conCopia = d.conCopia === true && EMAIL_RE.test(emailOperador) && !emailOperador.endsWith('.internal') && !emailOperador.endsWith('@rolito.app');
     // El proveedor (SMTP / Resend) y el modo test de configuracion/notificaciones los resuelve enviarMail.
-    const { proveedor, id, error } = await (0, email_1.enviarMail)({
+    const { proveedor, id, error, respaldo, errorPrimero } = await (0, email_1.enviarMail)({
         to: para,
         ...(conCopia ? { cc: emailOperador } : {}),
         ...(EMAIL_RE.test(emailOperador) && !emailOperador.endsWith('.internal') && !emailOperador.endsWith('@rolito.app') ? { replyTo: emailOperador } : {}),
@@ -141,6 +141,9 @@ exports.enviarComprobantePorMail = (0, https_1.onCall)({ secrets: email_1.MAIL_S
         estado: error ? 'error' : 'enviado',
         proveedor,
         ...(error ? { error } : {}),
+        // Salió por el respaldo: el mail llegó, pero el proveedor de siempre está
+        // caído y eso tiene que quedar escrito donde se mira (2026-09-20).
+        ...(respaldo ? { respaldo, errorPrimero } : {}),
         ...(id ? { mailId: id } : {}),
     };
     await db.collection('enviosComprobantes').add(registro);

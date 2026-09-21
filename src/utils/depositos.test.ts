@@ -23,15 +23,21 @@ describe('depositos', () => {
   })
 
   it('etiqueta y nombre usan el usuario si lo hay, si no el nombre de Tango', () => {
-    expect(etiquetaDeposito(primiterra)).toBe('21 · Primiterra Cristian')
+    // La etiqueta va en MAYÚSCULA (2026-09-20): los nombres llegan del usuario
+    // de la app y de Tango, cada uno con su forma, y la lista era un mosaico.
+    expect(etiquetaDeposito(primiterra)).toBe('21 · PRIMITERRA CRISTIAN')
     expect(etiquetaDeposito(noain)).toBe('33 · NOAIN 01')
+    // El nombre "de persona" que va a los docs NO se toca: es el que se imprime.
     expect(nombreDeposito(vinjoy)).toBe('Matias Vinjoy')
     expect(nombreDeposito(noain)).toBe('NOAIN 01')
   })
 
-  it('ordenarDepositosReparto: solo repartidores activos y habilitados, destacados primero, por código numérico', () => {
-    const todos = [mermas, noain, primiterra, planta, vinjoy, inactivo, inhabilitado, dep({ codigo: '3', nombre: 'X' })]
-    expect(ordenarDepositosReparto(todos).map((d) => d.codigo)).toEqual(['3', '21', '24', '33'])
+  it('ordenarDepositosReparto: solo repartidores activos y habilitados, destacados primero, por NOMBRE', () => {
+    const todos = [mermas, noain, primiterra, planta, vinjoy, inactivo, inhabilitado, dep({ codigo: '3', nombre: 'ALSINA' })]
+    // Alfabético por nombre, no por el número de depósito que nadie recuerda:
+    // ALSINA(3) · Matias Vinjoy(24) · NOAIN 01(33) · Primiterra Cristian(21)
+    expect(ordenarDepositosReparto(todos).map((d) => d.codigo)).toEqual(['3', '24', '33', '21'])
+    // Los que salieron hoy van primero, y entre ellos también alfabético.
     expect(ordenarDepositosReparto(todos, new Set(['dep:33', 'u24'])).map((d) => d.codigo)).toEqual(['24', '33', '3', '21'])
   })
 

@@ -47,6 +47,7 @@ const sqlLib = (f) => require(path.join(__dirname, 'lib', f))
 const { escribirRemito, remitoDeVenta } = sqlLib('remito.js')
 const { escribirRecibo, reciboDeCobranza } = sqlLib('recibo.js')
 const { escribirMovimientoStock, egresoDeVentaPromo, transferenciaDeCargaDescarga, transferenciaADepositoFijo, esTransferenciaFija } = sqlLib('movimientoStock.js')
+const { anularRemitoEnTango } = sqlLib('anulacionRemito.js')
 const mssql = require('mssql')
 // Lector de facturas y remitos de Tango → app (2026-09-10): corre acá adentro cada
 // config/tango.comprobantes.intervaloMin minutos (default 60) y a pedido desde la app
@@ -282,6 +283,27 @@ const HANDLERS = {
         usuario: stockCfg.usuario ?? 'ROLITO', terminal: stockCfg.terminal ?? 'APP', sucursal: cfgTipo.sucursal,
       }, (m) => log('    ' + m)))
       return { transferenciaNumero: r.nComp, tComp: r.tComp, numero: r.numero, idSta14: r.idSta14, ncompInS: r.ncompInS, origen: mov.depositoOrigen, destino: mov.depositoDestino, yaExistia: r.yaExistia, via: 'sql' }
+    },
+  },
+  // Anular en Tango el remito que el chofer anuló en la app (2026-09-20). Antes
+  // lo hacía la oficina a mano y tardaba días: en esa ventana Tango llegaba a
+  // FACTURAR la mercadería (3 de 7 casos el 20/09) y ahí el remito ya no se
+  // puede anular. Devuelve el stock y vacía el remito; ver la receta en
+  // docs/tango/ANULACION-REMITO-receta.md.
+  anulacionRemito: {
+    flag: 'anulacionRemitoSqlEnabled',
+    async enviar(data, tcfg, docId) {
+      const empresa = data.empresa ?? 'redonhielo'
+      const sqlCfg = sqlConfigDe(tcfg, 'remito', empresa)
+      const nComp = String(data.payload?.remitoNumero ?? '').trim()
+      if (!nComp) throw new Error(`la anulación ${docId} no trae payload.remitoNumero (el número que Tango le puso al remito)`)
+      const r = await enTransaccion(baseDe(empresa), (db) => anularRemitoEnTango(db, nComp, {
+        usuario: sqlCfg.usuarioAnulacion ?? sqlCfg.usuario ?? 'ROLITO', terminal: sqlCfg.terminal ?? 'APP',
+      }, (m) => log('    ' + m)))
+      // Los tres casos previstos NO son un error de la cola: el item se cierra y
+      // el estado viaja a la app, que decide qué mostrar. Un remito FACTURADO
+      // necesita que la oficina anule antes la factura.
+      return { remitoNumero: nComp, resultado: r.estado, idSta14: r.idSta14 ?? null, via: 'sql' }
     },
   },
 }

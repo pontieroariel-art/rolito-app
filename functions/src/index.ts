@@ -88,6 +88,9 @@ export { onDescargaContada } from './triggers/descargaRevision'
 // lo anula en Tango y la reconciliación horaria lo confirma.
 export { onAnulacionReciboSolicitada, onAnulacionReciboResuelta, reconciliarRecibosAnulados } from './triggers/anulacionesCobranza'
 export { onDesvioSolicitado, onDesvioResuelto } from './triggers/desviosDescarga'
+// "Preguntar a Tango ahora" desde Comprobantes de clientes (2026-09-20): corre
+// la misma reconciliación que el barrido horario, sin esperarlo.
+export { verificarAnuladosEnTango } from './triggers/anuladosEnTango'
 export { onDescargaRectificada } from './triggers/descargaRectificada'
 // Aviso de vencimiento del padrón de IIBB. No declara los secrets de ARCA, así
 // que se puede desplegar suelta.

@@ -409,9 +409,14 @@ function AppContent() {
           <Route element={<ProtectedRoute allowedRoles={rolesDe('/admin/precios')} />}>
             <Route path="/admin/precios" element={<PriceListsPage />} />
           </Route>
-          {/* Comprobantes de clientes (2026-09-10) y recupero de facturas viejas (campaña puntual). */}
+          {/* Comprobantes de clientes (2026-09-10). Desde el 2026-09-20 la abre
+              también COMERCIAL, por el resumen de cuenta; por eso se separó del
+              recupero de facturas, que sigue siendo de facturación y el
+              super_admin (ahí se suben PDF al archivo). */}
           <Route element={<ProtectedRoute allowedRoles={rolesDe('/admin/comprobantes')} />}>
-            <Route path="/admin/comprobantes"      element={<ComprobantesClientesPage />} />
+            <Route path="/admin/comprobantes" element={<ComprobantesClientesPage />} />
+          </Route>
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/admin/recupero-facturas')} />}>
             <Route path="/admin/recupero-facturas" element={<RecuperoFacturasPage />} />
           </Route>
           {/* Anulaciones de facturas (2026-09-09): la bandeja la abre cualquier

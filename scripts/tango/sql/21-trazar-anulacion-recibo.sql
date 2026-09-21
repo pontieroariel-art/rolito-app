@@ -12,9 +12,21 @@
 -- OR.235, cheque Banco Nación 00005746 por $200.000 imputado parcial a FAC A0010100282609;
 -- hay que anularlo de verdad porque el número de cheque estaba mal).
 --
+-- VIGENTE al 2026-09-20: ese recibo SIGUE pendiente de anular en Tango (estado IMP, cinco
+-- días después de aprobada la anulación). Se traza mientras se hace el trabajo que ya se
+-- debe. El otro que sirve es X0110600000197 (RS-000197, LUZARDO HNOS., estado CTA).
+-- OJO con la empresa: el punto de venta dice la base. 01106 → REDONHIELO_SA · 01108 → Rolito
+-- (el de FERRANTE, X0110800000169, ya está anulado: ése no sirve).
+--
 -- Orden:  1) FOTO ANTES  →  2) arrancar la traza  →  anular el recibo EN TANGO como siempre
 --         →  3) FOTO DESPUÉS  →  4) leer la traza y guardar como CSV  →  5) limpiar.
--- Mandar a Claude: las grillas de 1 y 3 (guardar cada una como CSV) y el CSV de la traza (4).
+--
+-- QUÉ MANDARME (cuatro archivos):
+--   · foto-antes.csv    — las grillas del paso 1
+--   · foto-despues.csv  — las mismas del paso 3
+--   · traza.csv         — la grilla del paso 4
+--   · la HORA EXACTA en que se anuló en Tango (si otro está cargando comprobantes al
+--     mismo tiempo, sus sentencias también caen en la traza y hay que separarlas)
 
 USE REDONHIELO_SA;
 GO
