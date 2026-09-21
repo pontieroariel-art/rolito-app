@@ -8,6 +8,9 @@
 -- con el número de una factura reciente hecha por la oficina CON orden de compra.
 -- Pegar los resultados completos.
 
+USE REDONHIELO_SA;
+GO
+
 DECLARE @N_COMP varchar(20) = 'A0010100283346';   -- <- cambiar por una factura de la oficina con OC
 
 -- 1. Renglones del cuerpo (GVA53), TODAS las columnas: el renglón de texto tiene
