@@ -99,6 +99,16 @@ export async function obtenerFacturaPdf(comp: Pick<ComprobanteSaldoTango, 'tipo'
   // (3) Detalle leído de Tango (con CAE): se regenera con el formato histórico.
   const detalle = await getFacturaTangoDetalle(empresa, tipo, comp.numero).catch(() => null)
   if (detalle) {
+    // Orden de compra heredada de los remitos (2026-09-21): cuando la oficina
+    // factura en Tango un remito de la app, Tango NO copia la leyenda donde la
+    // app dejó la O/C (de 175 facturas así desde el 1/09, solo 28 la tenían, y
+    // porque la oficina la volvió a tipear). Si la factura no trae ninguna, se
+    // toma la de sus remitos y se imprime igual que si estuviera en la factura.
+    if (!detalle.ordenCompra && detalle.remitos?.length) {
+      const remitos = await Promise.all(detalle.remitos.map((n) => getRemitoTangoDetalle(empresa, n).catch(() => null)))
+      const heredadas = [...new Set(remitos.flatMap((r) => (r?.ordenCompra ? r.ordenCompra.split(',').map((x) => x.trim()) : [])).filter(Boolean))]
+      if (heredadas.length) detalle.ordenCompra = heredadas.join(', ')
+    }
     // Rolito (2026-09-15): no factura por ARCA; su papel es el interno "PROMOCIÓN"
     // letra X, el mismo que la app imprime para sus promos. Antes esto devolvía
     // "se imprime desde la venta de la app" y los supervisores no veían ninguna
