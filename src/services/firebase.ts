@@ -108,8 +108,16 @@ if (import.meta.env.DEV) {
 // Console (App Check → reCAPTCHA v3) y cargar VITE_RECAPTCHA_SITE_KEY. Sin esa
 // key no se inicializa nada — ningún cliente/build actual se ve afectado. No
 // se activa en dev/emulador (los tokens de App Check no aplican ahí).
+//
+// En una TELE no se inicializa (2026-09-21): en la Samsung real el diagnóstico
+// mostró que Firestore conecta en apps de Firebase sin App Check (long polling,
+// fetch streams, WebChannel: todas OK) y falla solo en la app principal, con
+// "client is offline" a los 10 s. El reCAPTCHA no resuelve en ese navegador y
+// Firestore se queda esperando el token de App Check que nunca llega. Está en
+// modo observación, así que sin token no se pierde nada; el día que se pase a
+// enforcement, la tele necesita un debug token o quedarse afuera.
 const recaptchaSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY
-if (recaptchaSiteKey && !import.meta.env.DEV) {
+if (recaptchaSiteKey && !import.meta.env.DEV && !ES_TELE) {
   initializeAppCheck(app, {
     provider: new ReCaptchaV3Provider(recaptchaSiteKey),
     isTokenAutoRefreshEnabled: true,
