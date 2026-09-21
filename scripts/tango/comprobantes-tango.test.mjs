@@ -85,13 +85,32 @@ describe('mapearFacturas', () => {
       const r = mapearFacturas({ empresa: 'redonhielo', facturas: [{ ...facturas[0], LEYENDA_3: l }], renglones: [], remitosPorFactura: {}, clientes: {}, condiciones: {}, vendedores: {} })
       expect(r.detalles[0].doc.ordenCompra, l).toBe('778')
     }
-    // Columna propia: manda sobre la leyenda.
+    // Columna propia: va primero, y la de la leyenda se suma (pueden ser varias).
     const conColumna = mapearFacturas({ empresa: 'redonhielo', facturas: [{ ...base, NRO_OC: ' 9001 ' }], renglones: [], remitosPorFactura: {}, clientes: {}, condiciones: {}, vendedores: {}, columnaOrdenCompra: 'NRO_OC' })
-    expect(conColumna.detalles[0].doc.ordenCompra).toBe('9001')
+    expect(conColumna.detalles[0].doc.ordenCompra).toBe('9001, 4521-B')
     // Sin nada, no se escribe el campo.
     const sinNada = mapearFacturas({ empresa: 'redonhielo', facturas: [facturas[0]], renglones: [], remitosPorFactura: {}, clientes: {}, condiciones: {}, vendedores: {} })
     expect(sinNada.detalles[0].doc.ordenCompra).toBeUndefined()
     expect(sinNada.detalles[0].doc.leyendas).toBeUndefined()
+  })
+
+  it('la oficina tipea la O/C como renglón de texto (GVA45) bajo el último artículo, a veces varias (2026-09-21)', () => {
+    // Traza real de A0010100283346: GVA53 tiene el hueco del renglón 2 sin artículo ni importe; el texto está en GVA45.
+    const hueco = { T_COMP: 'FAC', N_COMP: 'A0010100282787', N_RENGL_V: 3, COD_ARTICU: '', DESCRIPCIO: null, CANTIDAD: 0, PRECIO_NET: 0, PORC_DTO: 0, PORC_IVA: 0, IMP_NETO_P: 0 }
+    const textos = [
+      { T_COMP: 'FAC', N_COMP: 'A0010100282787', DESC: 'OC4501977102', ORDEN: 1 },
+      { T_COMP: 'FAC', N_COMP: 'A0010100282787', DESC: 'OC 4501977103, 4501977104', ORDEN: 2 },
+      { T_COMP: 'FAC', N_COMP: 'OTRA', DESC: 'OC 999', ORDEN: 1 },
+    ]
+    const { detalles } = mapearFacturas({ empresa: 'redonhielo', facturas, renglones: [...renglones, hueco], remitosPorFactura: porFactura, clientes, condiciones, vendedores, textos })
+    const d = detalles[0].doc
+    expect(d.renglones.map((x) => x.codigo)).toEqual(['PTHIBOLROLI0003', 'CAMBIOHIELO3KG'])   // el hueco no es mercadería
+    expect(d.notas).toEqual(['OC4501977102', 'OC 4501977103, 4501977104'])
+    expect(d.ordenCompra).toBe('4501977102, 4501977103, 4501977104')
+    // Observaciones de cabecera también cuentan, y no se repite una O/C ya vista.
+    const conObs = mapearFacturas({ empresa: 'redonhielo', facturas: [{ ...facturas[0], DESCRIPCION_FACTURA: 'Entrega según OC 4501977102', OBSERVAC: 'orden de compra 77' }], renglones: [], remitosPorFactura: {}, clientes: {}, condiciones: {}, vendedores: {}, textos: textos.slice(0, 1) })
+    expect(conObs.detalles[0].doc.ordenCompra).toBe('4501977102, 77')
+    expect(conObs.detalles[0].doc.observaciones).toEqual(['Entrega según OC 4501977102', 'orden de compra 77'])
   })
 
   it('sin CAE queda vacío; la diferencia entre el total y los componentes va a "otros"', () => {

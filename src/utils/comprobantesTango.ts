@@ -326,14 +326,29 @@ export function armarFacturaTangoArcaPdf(
         condicionVenta: c.condicionVenta,
         vendedor:       c.vendedor,
       },
-      renglones: d.renglones.map((r, i) => ({
-        descripcion:    r.descripcion,
-        cantidad:       r.cantidad,
-        unidad:         'UNI',
-        precioUnitario: r.precioUnitario,
-        total:          r.importe,
-        ...(i === 0 && d.ordenCompra ? { notas: [`Orden de compra: ${d.ordenCompra}`] } : {}),
-      })),
+      renglones: d.renglones.map((r, i) => {
+        // Notas bajo el renglón (2026-09-21): la observación propia del renglón,
+        // los renglones de texto de Tango tal cual los tipeó facturación ("OC4501977102")
+        // debajo del ÚLTIMO artículo, y "Orden de compra: …" bajo el primero solo
+        // cuando la O/C no está ya escrita en esos textos (la de la app viene de
+        // la leyenda 5, que no se imprime).
+        const ultimo = i === d.renglones.length - 1
+        const textos = d.notas ?? []
+        const ocYaEscrita = !!d.ordenCompra && textos.some((t) => t.replace(/\s+/g, '').toUpperCase().includes(d.ordenCompra!.split(',')[0].trim().replace(/\s+/g, '').toUpperCase()))
+        const notas = [
+          ...(r.nota ? [r.nota] : []),
+          ...(i === 0 && d.ordenCompra && !ocYaEscrita ? [`Orden de compra: ${d.ordenCompra}`] : []),
+          ...(ultimo ? textos : []),
+        ]
+        return {
+          descripcion:    r.descripcion,
+          cantidad:       r.cantidad,
+          unidad:         'UNI',
+          precioUnitario: r.precioUnitario,
+          total:          r.importe,
+          ...(notas.length ? { notas } : {}),
+        }
+      }),
       ...(d.remitos.length ? { referencias: d.remitos.map((r) => r.trim()) } : {}),
       // Orden de compra (2026-09-21): igual que la factura de la app
       // (facturaDeVenta.ts), como nota bajo el primer renglón. La lee el lector

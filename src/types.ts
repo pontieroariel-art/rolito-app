@@ -1082,14 +1082,18 @@ export interface FacturaTangoDetalle {
   estado:         string
   fechaAnulacion?: string
   cliente:        ClienteTangoImpreso
-  renglones:      { codigo: string; descripcion: string; cantidad: number; precioUnitario: number; dtoPct: number; ivaPct: number; importe: number }[]
+  renglones:      { codigo: string; descripcion: string; cantidad: number; precioUnitario: number; dtoPct: number; ivaPct: number; importe: number; /** Observación del renglón en Tango (2026-09-21). */ nota?: string }[]
   totales:        { gravado: number; exento: number; iva: number; ivaAlic: number; internos: number; otros: number; total: number }
   cae:            string          // '' si no es electrónica
   caeVto:         string          // yyyy-MM-dd
   remitos:        string[]
   /** Las leyendas de la cabecera de Tango, sin las vacías (2026-09-21). */
   leyendas?:      string[]
-  /** Orden de compra del cliente (2026-09-21): columna propia o la leyenda que la nombra. */
+  /** Renglones de texto del cuerpo (GVA45), tal cual los tipeó facturación: "OC4501977102" (2026-09-21). */
+  notas?:         string[]
+  /** Descripción de la factura y observaciones de la cabecera, sin las vacías (2026-09-21). */
+  observaciones?: string[]
+  /** Órdenes de compra del cliente (2026-09-21), separadas por coma si hay varias: columna propia, leyendas, renglones de texto u observaciones. */
   ordenCompra?:   string
   actualizadoEn?: Timestamp
 }
@@ -1110,7 +1114,9 @@ export interface RemitoTangoDetalle {
   facturas:       string[]
   /** Las leyendas del remito en Tango, sin las vacías (2026-09-21). */
   leyendas?:      string[]
-  /** Orden de compra del cliente (2026-09-21): la app la deja en la leyenda 4. */
+  /** Renglones de texto del remito (GVA45), tal cual los tipeó la oficina (2026-09-21). */
+  notas?:         string[]
+  /** Órdenes de compra del cliente (2026-09-21): la app la deja en la leyenda 4; la oficina en un renglón de texto. */
   ordenCompra?:   string
   actualizadoEn?: Timestamp
 }

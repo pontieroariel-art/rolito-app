@@ -95,9 +95,27 @@ async function leerEmpresa({ cfg, log }, empresa, database, desde, codigos) {
   // LEYENDA_5 ("O. compra: ..."); si la oficina la carga en una columna propia de
   // GVA12, se declara en config/tango.comprobantes.columnaOrdenCompra y se lee
   // solo si la columna existe (nombre validado: nada que no sea A-Z, 0-9 y _).
+  const colsGva12 = await columnasDe(p, 'GVA12')
+  const colsGva53 = await columnasDe(p, 'GVA53')
   const pedidaOc = String(cfg.comprobantes?.columnaOrdenCompra ?? '').trim().toUpperCase()
-  const columnaOc = /^[A-Z0-9_]{1,40}$/.test(pedidaOc) && (await columnasDe(p, 'GVA12')).includes(pedidaOc) ? pedidaOc : null
+  const columnaOc = /^[A-Z0-9_]{1,40}$/.test(pedidaOc) && colsGva12.has(pedidaOc) ? pedidaOc : null
   if (pedidaOc && !columnaOc) log(`  ${empresa}: config/tango.comprobantes.columnaOrdenCompra = "${pedidaOc}" no es una columna de GVA12, se ignora`)
+  // Textos libres de la factura (2026-09-21): facturación tipea la O/C como
+  // renglón de texto (GVA53.OBSERVACIONES, en un renglón sin artículo), en la
+  // descripción de la factura o en las observaciones. Las columnas `text` de
+  // SQL Server se piden con CAST para que el driver las devuelva como string.
+  // Solo se piden las que existen en esta base.
+  const textosCabecera = [
+    ['DESCRIPCION_FACTURA', 'DESCRIPCION_FACTURA'], ['LEYENDA', 'LEYENDA'],
+    ['OBSERVAC', 'CAST(OBSERVAC AS varchar(max)) AS OBSERVAC'], ['OBS_COMERC', 'CAST(OBS_COMERC AS varchar(max)) AS OBS_COMERC'],
+  ].filter(([c]) => colsGva12.has(c)).map(([, sql]) => sql)
+  const textoRenglon = colsGva53.has('OBSERVACIONES') ? ', r.OBSERVACIONES' : ''
+  // Leyendas por renglón (GVA45, columna DESC): es donde queda el renglón de texto
+  // "OC4501977102" que facturación tipea debajo del último artículo (traza del
+  // 21/09 sobre A0010100283346: GVA53 solo guarda el hueco del renglón, sin texto).
+  const colsGva45 = await columnasDe(p, 'GVA45')
+  const ordenGva45 = ['N_RENGL_V', 'N_RENGL', 'NRO_RENGL', 'RENGLON', 'ID_GVA45'].find((c) => colsGva45.has(c))
+  const selGva45 = colsGva45.has('DESC') ? `g.T_COMP, g.N_COMP, g.[DESC]${ordenGva45 ? `, g.${ordenGva45} AS ORDEN` : ''}` : null
 
   // SIN filtro por T_COMP (2026-09-13): hasta hoy pedía IN ('FAC','N/C','N/D') y las notas de
   // crédito no llegaban nunca, porque en estas empresas el tipo es 'NC' (el talonario 1109/1110
@@ -107,12 +125,15 @@ async function leerEmpresa({ cfg, log }, empresa, database, desde, codigos) {
   const facturas = await consulta(p, `
     SELECT ID_GVA12, T_COMP, TCOMP_IN_V, N_COMP, FECHA_EMIS, IMPORTE, IMPORTE_GR, IMPORTE_EX, IMPORTE_IV, IMPORTE_IN, ESTADO, COD_CLIENT,
            CAT_IVA, COND_VTA, COD_VENDED, CAICAE, CAICAE_VTO, FECHA_ANU,
-           LEYENDA_1, LEYENDA_2, LEYENDA_3, LEYENDA_4, LEYENDA_5${columnaOc ? `, ${columnaOc}` : ''}
+           LEYENDA_1, LEYENDA_2, LEYENDA_3, LEYENDA_4, LEYENDA_5${columnaOc ? `, ${columnaOc}` : ''}${textosCabecera.length ? `, ${textosCabecera.join(', ')}` : ''}
     FROM GVA12 WHERE FECHA_EMIS >= @desde${fc('COD_CLIENT').sql}`, params)
   const renglonesFac = await consulta(p, `
-    SELECT r.T_COMP, r.N_COMP, r.N_RENGL_V, r.COD_ARTICU, a.DESCRIPCIO, r.CANTIDAD, r.PRECIO_NET, r.PORC_DTO, r.PORC_IVA, r.IMP_NETO_P
+    SELECT r.T_COMP, r.N_COMP, r.N_RENGL_V, r.COD_ARTICU, a.DESCRIPCIO, r.CANTIDAD, r.PRECIO_NET, r.PORC_DTO, r.PORC_IVA, r.IMP_NETO_P${textoRenglon}
     FROM GVA53 r JOIN GVA12 f ON f.T_COMP = r.T_COMP AND f.N_COMP = r.N_COMP LEFT JOIN STA11 a ON a.COD_ARTICU = r.COD_ARTICU
     WHERE f.FECHA_EMIS >= @desde${fc('f.COD_CLIENT').sql}`, params)
+  const textosFac = selGva45 ? await consulta(p, `
+    SELECT ${selGva45} FROM GVA45 g JOIN GVA12 f ON f.T_COMP = g.T_COMP AND f.N_COMP = g.N_COMP
+    WHERE f.FECHA_EMIS >= @desde${fc('f.COD_CLIENT').sql}`, params) : []
   const remitos = await consulta(p, `
     SELECT ID_STA14, N_COMP, FECHA_MOV, ESTADO_MOV, COD_PRO_CL, TALONARIO, USUARIO, FECHA_ANU,
            LEYENDA1, LEYENDA2, LEYENDA3, LEYENDA4, LEYENDA5
@@ -121,6 +142,9 @@ async function leerEmpresa({ cfg, log }, empresa, database, desde, codigos) {
     SELECT r.ID_STA14, r.N_RENGL_S, r.COD_ARTICU, a.DESCRIPCIO, r.CANTIDAD
     FROM STA20 r JOIN STA14 s ON s.ID_STA14 = r.ID_STA14 LEFT JOIN STA11 a ON a.COD_ARTICU = r.COD_ARTICU
     WHERE s.T_COMP = 'REM' AND s.FECHA_MOV >= @desde${fc('s.COD_PRO_CL').sql}`, params)
+  const textosRem = selGva45 ? await consulta(p, `
+    SELECT ${selGva45} FROM GVA45 g JOIN STA14 s ON s.T_COMP = g.T_COMP AND s.N_COMP = g.N_COMP
+    WHERE g.T_COMP = 'REM' AND s.FECHA_MOV >= @desde${fc('s.COD_PRO_CL').sql}`, params) : []
   // Relación por las dos puntas: facturas de la ventana (con remitos de cualquier fecha) y
   // remitos de la ventana (con facturas de cualquier fecha).
   const relacion = await consulta(p, `
@@ -145,8 +169,8 @@ async function leerEmpresa({ cfg, log }, empresa, database, desde, codigos) {
   log(`  ${empresa}: ${facturas.length} comprobantes de venta [${detalleTipos}] (${renglonesFac.length} renglones), ${remitos.length} remitos (${renglonesRem.length} renglones), ${relacion.length} cruces, ${Object.keys(clientes).length} clientes — ${((Date.now() - t0) / 1000).toFixed(1)} s`)
 
   const { porFactura, porRemito } = relacionDeFilas(relacion)
-  const f = mapearFacturas({ empresa, facturas, renglones: renglonesFac, remitosPorFactura: porFactura, clientes, condiciones, vendedores, columnaOrdenCompra: columnaOc })
-  const r = mapearRemitos({ empresa, remitos, renglones: renglonesRem, facturasPorRemito: porRemito, talonarios, clientes, condiciones })
+  const f = mapearFacturas({ empresa, facturas, renglones: renglonesFac, remitosPorFactura: porFactura, clientes, condiciones, vendedores, columnaOrdenCompra: columnaOc, textos: textosFac })
+  const r = mapearRemitos({ empresa, remitos, renglones: renglonesRem, facturasPorRemito: porRemito, talonarios, clientes, condiciones, textos: textosRem })
   return { resumenFacturas: f.resumen, resumenRemitos: r.resumen, detalles: [...f.detalles, ...r.detalles], clientes, conteo: { facturas: facturas.length, remitos: remitos.length } }
 }
 

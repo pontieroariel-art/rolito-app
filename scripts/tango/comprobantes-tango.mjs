@@ -103,14 +103,60 @@ export function clienteDe(fila, catIva, condVenta, vendedor) {
  * que la nombra: la app escribe "O. compra: 4521" en la leyenda 5 y la oficina
  * suele tipear "OC 4521" / "Orden de compra 4521" en alguna de las cinco.
  */
-export function ordenCompraDe(f, columnaOrdenCompra, sep = '_') {
-  const propia = columnaOrdenCompra ? txt(f[columnaOrdenCompra]) : ''
-  if (propia) return propia
-  for (const l of leyendasDe(f, sep)) {
-    const m = /^\s*(?:o\.?\s*(?:de\s*)?compra|orden\s+de\s+compra|o\s*\/\s*c|oc)\s*[:.#-]?\s*(?:n[º°o]?\.?\s*)?(.+?)\s*$/i.exec(l)
-    if (m && m[1]) return m[1]
+export function ordenCompraDe(f, columnaOrdenCompra, sep = '_', otrosTextos = []) {
+  return ordenesCompraDe(f, columnaOrdenCompra, sep, otrosTextos).join(', ')
+}
+
+/**
+ * TODAS las órdenes de compra de un comprobante, en orden y sin repetir: la
+ * columna propia, las leyendas y los textos que se le pasen (renglones de
+ * GVA45, observaciones). Facturación a veces carga varias en una factura, en
+ * renglones distintos o en uno solo separadas por coma (Ariel, 21/09).
+ */
+export function ordenesCompraDe(f, columnaOrdenCompra, sep = '_', otrosTextos = []) {
+  const vistas = new Set()
+  const todas = []
+  const sumar = (oc) => { const k = oc.toUpperCase(); if (oc && !vistas.has(k)) { vistas.add(k); todas.push(oc) } }
+  if (columnaOrdenCompra) sumar(txt(f[columnaOrdenCompra]))
+  for (const t of [...leyendasDe(f, sep), ...otrosTextos]) for (const oc of extraerOcs(t)) sumar(oc)
+  return todas
+}
+
+const OC_PREFIJO = String.raw`(?:o\.?\s*(?:de\s*)?compra|orden(?:es)?\s+de\s+compra|o\s*\/\s*c|oc)\s*[:.#-]?\s*(?:n[º°o]?s?\.?\s*)?`
+
+/**
+ * Las órdenes de compra dentro de un texto. Si el texto ES la orden ("O. compra:
+ * 4521-B", "OC4501977102", "Orden de compra Nº 778", "OC 123, 456 y 789") se toma
+ * todo lo que sigue, partido por coma, punto y coma, barra o " y "; si la nombra
+ * en el medio de una frase, cada token que sigue a la palabra.
+ */
+export function extraerOcs(texto) {
+  const t = txt(texto)
+  if (!t) return []
+  const entero = new RegExp(String.raw`^\s*${OC_PREFIJO}(.+?)\s*$`, 'i').exec(t)
+  if (entero?.[1]) return entero[1].split(/\s*[,;/]\s*|\s+y\s+/i).map((x) => x.trim()).filter(Boolean)
+  const enFrase = new RegExp(String.raw`(?:^|[\s(,;])${OC_PREFIJO}([A-Za-z0-9][\w\-/.]*)`, 'gi')
+  return [...t.matchAll(enFrase)].map((m) => m[1]).filter(Boolean)
+}
+
+/** La primera orden de compra de un texto, o ''. */
+export const extraerOc = (texto) => extraerOcs(texto)[0] ?? ''
+
+/**
+ * Leyendas por renglón de GVA45 (T_COMP, N_COMP, DESC, ORDEN opcional) →
+ * { 'FAC_A…' | 'REM_R…': ['OC4501977102', …] } en el orden del comprobante.
+ */
+export function textosPorComprobante(filas = []) {
+  const m = new Map()
+  const ordenadas = [...filas].sort((a, b) => Number(a.ORDEN ?? 0) - Number(b.ORDEN ?? 0))
+  for (const f of ordenadas) {
+    const texto = txt(f.DESC)
+    if (!texto) continue
+    const k = `${txt(f.T_COMP)}_${txt(f.N_COMP).toUpperCase()}`
+    if (!m.has(k)) m.set(k, [])
+    m.get(k).push(texto)
   }
-  return ''
+  return m
 }
 
 /**
@@ -119,7 +165,8 @@ export function ordenCompraDe(f, columnaOrdenCompra, sep = '_') {
  */
 export const leyendasDe = (f, sep = '_') => [1, 2, 3, 4, 5].map((i) => txt(f[`LEYENDA${sep}${i}`])).filter(Boolean)
 
-export function mapearFacturas({ empresa, facturas, renglones, remitosPorFactura, clientes, condiciones, vendedores, columnaOrdenCompra = null }) {
+export function mapearFacturas({ empresa, facturas, renglones, remitosPorFactura, clientes, condiciones, vendedores, columnaOrdenCompra = null, textos = [] }) {
+  const textosPor = textosPorComprobante(textos)
   const renglonesPor = new Map()
   for (const r of renglones) {
     const k = claveFactura(r.T_COMP, r.N_COMP)
@@ -142,6 +189,9 @@ export function mapearFacturas({ empresa, facturas, renglones, remitosPorFactura
     const otros = Math.max(0, num(total - gravado - exento - iva - internos))
     const rens = (renglonesPor.get(clave) ?? [])
       .sort((a, b) => Number(a.N_RENGL_V) - Number(b.N_RENGL_V))
+      // Un renglón sin artículo ni importe es el hueco de un renglón de texto
+      // (el texto está en GVA45): no es mercadería y en el PDF salía en blanco.
+      .filter((r) => txt(r.COD_ARTICU) || num(r.IMP_NETO_P) !== 0 || num(r.CANTIDAD) !== 0)
       .map((r) => ({
         codigo:         txt(r.COD_ARTICU),
         descripcion:    txt(r.DESCRIPCIO) || txt(r.COD_ARTICU),
@@ -150,13 +200,18 @@ export function mapearFacturas({ empresa, facturas, renglones, remitosPorFactura
         dtoPct:         num(r.PORC_DTO),
         ivaPct:         num(r.PORC_IVA),
         importe:        num(r.IMP_NETO_P),
+        ...(txt(r.OBSERVACIONES) ? { nota: txt(r.OBSERVACIONES) } : {}),
       }))
     const ivaAlic = rens.find((r) => r.ivaPct > 0)?.ivaPct ?? (gravado > 0 ? num((iva / gravado) * 100) : 0)
     const cliente = clienteDe(clientes[codigo], f.CAT_IVA, condiciones[String(f.COND_VTA)], vendedores[txt(f.COD_VENDED)] ?? txt(f.COD_VENDED))
     const cae = txt(f.CAICAE)
     const familia = familiaDe(f.TCOMP_IN_V, tipo)
     const leyendas = leyendasDe(f)
-    const ordenCompra = ordenCompraDe(f, columnaOrdenCompra)
+    // Renglones de texto (GVA45) y textos de cabecera: de ahí salen las órdenes
+    // de compra de la oficina ("OC4501977102" bajo el último artículo).
+    const notas = textosPor.get(`${txt(f.T_COMP)}_${numero}`) ?? []
+    const observaciones = [f.DESCRIPCION_FACTURA, f.OBSERVAC, f.OBS_COMERC, f.LEYENDA].map(txt).filter(Boolean)
+    const ordenCompra = ordenCompraDe(f, columnaOrdenCompra, '_', [...notas, ...rens.map((r) => r.nota ?? ''), ...observaciones])
     const detalle = {
       empresa, tipo, familia, numero, codigo, fecha,
       letra:      p?.letra ?? numero.charAt(0),
@@ -172,6 +227,8 @@ export function mapearFacturas({ empresa, facturas, renglones, remitosPorFactura
       caeVto:     cae ? iso(f.CAICAE_VTO) : '',
       remitos,
       ...(leyendas.length ? { leyendas } : {}),
+      ...(notas.length ? { notas } : {}),
+      ...(observaciones.length ? { observaciones } : {}),
       ...(ordenCompra ? { ordenCompra } : {}),
     }
     const h = huella(detalle)
@@ -191,7 +248,8 @@ export function mapearFacturas({ empresa, facturas, renglones, remitosPorFactura
  * Remitos: filas de STA14, renglones de STA20 (con DESCRIPCIO) y la relación inversa
  * { 'R…': ['A…', …] } (números de factura). Talonarios: { TALONARIO: { CAI, FECHA_VTO } }.
  */
-export function mapearRemitos({ empresa, remitos, renglones, facturasPorRemito, talonarios, clientes, condiciones }) {
+export function mapearRemitos({ empresa, remitos, renglones, facturasPorRemito, talonarios, clientes, condiciones, textos = [] }) {
+  const textosPor = textosPorComprobante(textos)
   const renglonesPor = new Map()
   for (const r of renglones) {
     const k = Number(r.ID_STA14)
@@ -215,10 +273,12 @@ export function mapearRemitos({ empresa, remitos, renglones, facturasPorRemito, 
     // Orden de compra (2026-09-21): la app la escribe en LEYENDA4 del remito
     // ("O. compra: …", functions/services/tango/sql/remito.ts).
     const leyendas = leyendasDe(s, '')
-    const ordenCompra = ordenCompraDe(s, null, '')
+    const notas = textosPor.get(`REM_${numero}`) ?? []
+    const ordenCompra = ordenCompraDe(s, null, '', notas)
     const detalle = {
       empresa, tipo: 'REM', numero, codigo, fecha, estado,
       ...(leyendas.length ? { leyendas } : {}),
+      ...(notas.length ? { notas } : {}),
       ...(ordenCompra ? { ordenCompra } : {}),
       ...(fechaValida(s.FECHA_ANU) ? { fechaAnulacion: iso(s.FECHA_ANU) } : {}),
       cliente:   clienteDe(clientes[codigo], clientes[codigo]?.CAT_IVA ?? clientes[codigo]?.IVA, condiciones[String(s.COND_VTA)] ?? '', ''),
