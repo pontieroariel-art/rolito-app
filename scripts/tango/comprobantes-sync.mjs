@@ -114,7 +114,8 @@ async function leerEmpresa({ cfg, log }, empresa, database, desde, codigos) {
     FROM GVA53 r JOIN GVA12 f ON f.T_COMP = r.T_COMP AND f.N_COMP = r.N_COMP LEFT JOIN STA11 a ON a.COD_ARTICU = r.COD_ARTICU
     WHERE f.FECHA_EMIS >= @desde${fc('f.COD_CLIENT').sql}`, params)
   const remitos = await consulta(p, `
-    SELECT ID_STA14, N_COMP, FECHA_MOV, ESTADO_MOV, COD_PRO_CL, TALONARIO, USUARIO, FECHA_ANU
+    SELECT ID_STA14, N_COMP, FECHA_MOV, ESTADO_MOV, COD_PRO_CL, TALONARIO, USUARIO, FECHA_ANU,
+           LEYENDA1, LEYENDA2, LEYENDA3, LEYENDA4, LEYENDA5
     FROM STA14 WHERE T_COMP = 'REM' AND FECHA_MOV >= @desde${fc('COD_PRO_CL').sql}`, params)
   const renglonesRem = await consulta(p, `
     SELECT r.ID_STA14, r.N_RENGL_S, r.COD_ARTICU, a.DESCRIPCIO, r.CANTIDAD

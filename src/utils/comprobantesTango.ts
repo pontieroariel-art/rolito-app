@@ -377,6 +377,8 @@ export function armarRemitoTangoPdf(d: RemitoTangoDetalle, hoy: Date = new Date(
       condicionVenta: c.condicionVenta.toUpperCase(),
     },
     entrega:   { chofer: d.usuario || 'Tango' },
+    // Orden de compra (2026-09-21): recuadro "Remitos - O/C", como en el remito de la app.
+    ...(d.ordenCompra ? { ordenCompra: d.ordenCompra } : {}),
     renglones: d.renglones.map((r) => ({ descripcion: r.descripcion, cantidad: r.cantidad, esCambio: false })),
     bultos:    { entregados: d.bultos, cambios: 0 },
     control:   cai ? { tipo: 'cai', cai: cai.cai, vencimiento: cai.vencimiento } : { tipo: 'interno', codigo: numero },

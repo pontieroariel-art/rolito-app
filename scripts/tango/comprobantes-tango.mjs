@@ -103,18 +103,21 @@ export function clienteDe(fila, catIva, condVenta, vendedor) {
  * que la nombra: la app escribe "O. compra: 4521" en la leyenda 5 y la oficina
  * suele tipear "OC 4521" / "Orden de compra 4521" en alguna de las cinco.
  */
-export function ordenCompraDe(f, columnaOrdenCompra) {
+export function ordenCompraDe(f, columnaOrdenCompra, sep = '_') {
   const propia = columnaOrdenCompra ? txt(f[columnaOrdenCompra]) : ''
   if (propia) return propia
-  for (const l of leyendasDe(f)) {
+  for (const l of leyendasDe(f, sep)) {
     const m = /^\s*(?:o\.?\s*(?:de\s*)?compra|orden\s+de\s+compra|o\s*\/\s*c|oc)\s*[:.#-]?\s*(?:n[º°o]?\.?\s*)?(.+?)\s*$/i.exec(l)
     if (m && m[1]) return m[1]
   }
   return ''
 }
 
-/** Las cinco leyendas de la cabecera, sin las vacías. */
-export const leyendasDe = (f) => [1, 2, 3, 4, 5].map((i) => txt(f[`LEYENDA_${i}`])).filter(Boolean)
+/**
+ * Las cinco leyendas de la cabecera, sin las vacías. En GVA12 (facturas) las
+ * columnas son LEYENDA_1..5; en STA14 (remitos) LEYENDA1..5, sin guión.
+ */
+export const leyendasDe = (f, sep = '_') => [1, 2, 3, 4, 5].map((i) => txt(f[`LEYENDA${sep}${i}`])).filter(Boolean)
 
 export function mapearFacturas({ empresa, facturas, renglones, remitosPorFactura, clientes, condiciones, vendedores, columnaOrdenCompra = null }) {
   const renglonesPor = new Map()
@@ -209,8 +212,14 @@ export function mapearRemitos({ empresa, remitos, renglones, facturasPorRemito, 
     const facturas = facturasPorRemito[numero] ?? []
     const estado = txt(s.ESTADO_MOV)
     const fecha = iso(s.FECHA_MOV)
+    // Orden de compra (2026-09-21): la app la escribe en LEYENDA4 del remito
+    // ("O. compra: …", functions/services/tango/sql/remito.ts).
+    const leyendas = leyendasDe(s, '')
+    const ordenCompra = ordenCompraDe(s, null, '')
     const detalle = {
       empresa, tipo: 'REM', numero, codigo, fecha, estado,
+      ...(leyendas.length ? { leyendas } : {}),
+      ...(ordenCompra ? { ordenCompra } : {}),
       ...(fechaValida(s.FECHA_ANU) ? { fechaAnulacion: iso(s.FECHA_ANU) } : {}),
       cliente:   clienteDe(clientes[codigo], clientes[codigo]?.CAT_IVA ?? clientes[codigo]?.IVA, condiciones[String(s.COND_VTA)] ?? '', ''),
       renglones: rens,

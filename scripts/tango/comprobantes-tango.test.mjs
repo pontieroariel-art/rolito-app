@@ -122,6 +122,17 @@ describe('mapearRemitos', () => {
       renglones: [{ codigo: 'PTHIBOLROLI0003', descripcion: 'HIELO EN BOLSA ROLITO 3 KG', cantidad: 20 }],
     })
   })
+
+  it('la orden de compra del remito sale de la leyenda 4 que escribe la app (columnas LEYENDA1..5, sin guión) (2026-09-21)', () => {
+    const { detalles } = mapearRemitos({
+      empresa: 'redonhielo',
+      remitos: [{ ID_STA14: 1, N_COMP: 'R0110500001101', FECHA_MOV: f(2026, 9, 21), ESTADO_MOV: 'P', COD_PRO_CL: 'PA.003', TALONARIO: 15, USUARIO: 'GALLO', FECHA_ANU: f(1800, 1, 1),
+        LEYENDA1: 'ROLITO:VC:6kaksW9E91XS17bmcs3k', LEYENDA2: 'Remito app 01105-00001101 - cuenta_corriente', LEYENDA3: 'Chofer Gallo Braian Agustin - Torcuato', LEYENDA4: 'O. compra: 6736', LEYENDA5: '' }],
+      renglones: [], facturasPorRemito: {}, talonarios: {}, clientes, condiciones: {},
+    })
+    expect(detalles[0].doc.ordenCompra).toBe('6736')
+    expect(detalles[0].doc.leyendas).toHaveLength(4)
+  })
 })
 
 describe('diferencias, poda y cache', () => {

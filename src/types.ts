@@ -1108,6 +1108,10 @@ export interface RemitoTangoDetalle {
   talonario:      { numero: number; cai?: string; vencimiento?: string; descripcion?: string }
   usuario:        string          // usuario de Tango que lo cargó
   facturas:       string[]
+  /** Las leyendas del remito en Tango, sin las vacías (2026-09-21). */
+  leyendas?:      string[]
+  /** Orden de compra del cliente (2026-09-21): la app la deja en la leyenda 4. */
+  ordenCompra?:   string
   actualizadoEn?: Timestamp
 }
 
