@@ -145,6 +145,22 @@ export const subscribeDescargasDeReparto = (
     onSnapshotError(callback, 'descargasCamion'),
   )
 
+/**
+ * Descargas de los viajes de una planta desde un día en adelante (por
+ * `diaReparto`, 2026-09-21): con esto la Vuelta del muelle sabe qué remitos de
+ * la última semana ya se contaron, y lista solo los que siguen en reparto.
+ */
+export const subscribeDescargasDeRepartoDesde = (
+  plantaId: PlantaId,
+  desde: Date,
+  callback: (descargas: DescargaCamion[]) => void,
+): () => void =>
+  onSnapshot(
+    query(collection(db, DESCARGAS), where('plantaId', '==', plantaId), where('diaReparto', '>=', claveDia(desde))),
+    (snap) => callback(porFecha(snap.docs.map((d) => ({ id: d.id, ...d.data() } as DescargaCamion)))),
+    onSnapshotError(callback, 'descargasCamion'),
+  )
+
 /** Descargas de los viajes de un chofer entre dos días (por `diaReparto`; `hasta` exclusivo). */
 export const subscribeDescargasChoferEnRango = (
   choferId: string,

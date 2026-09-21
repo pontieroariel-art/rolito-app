@@ -349,6 +349,30 @@ export const subscribeRemitosCargaDelDia = (
   )
 }
 
+/**
+ * Remitos de una planta desde una fecha en adelante (2026-09-21): la Vuelta del
+ * muelle lista los camiones EN REPARTO sin descargar, y un camión puede volver
+ * varios días después de salir. Mismo índice (plantaId, fecha) que el día.
+ */
+export const subscribeRemitosCargaDesde = (
+  plantaId: PlantaId,
+  desde: Date,
+  callback: (remitos: RemitoCarga[]) => void,
+): () => void =>
+  onSnapshot(
+    query(
+      collection(db, REMITOS),
+      where('plantaId', '==', plantaId),
+      where('fecha', '>=', Timestamp.fromDate(desde)),
+    ),
+    (snap) => callback(
+      snap.docs
+        .map((d) => ({ id: d.id, ...d.data() } as RemitoCarga))
+        .sort((a, b) => b.numero - a.numero),
+    ),
+    onSnapshotError(callback, 'remitosCarga'),
+  )
+
 // Remitos de carga de HOY de un chofer ("Mi carga de hoy" en su hub; además es
 // la fuente del camión del día — users/{uid}.camionId no lo escribe ninguna UI).
 export const subscribeRemitosCargaChoferHoy = (

@@ -16,11 +16,11 @@ import {
   emitirRemitoDesdeBorrador, esperarCotRemito,
 } from '@/services/remitoCargaService'
 import { asignarDarsenaBorrador, manana, subscribeBorradoresDe, subscribeCamionesEnViaje } from '@/services/borradorCargaService'
-import { useRemitosCargaDelDia, useVentanillaDelDia } from '@/hooks/useExpedicionDia'
+import { useRemitosCargaDelDia, useRemitosCargaDesde, useVentanillaDelDia } from '@/hooks/useExpedicionDia'
 import { useCotConfig } from '@/hooks/useCotConfig'
 import { kgDeItems, requiereCot, talonarioRemitoCarga } from '@/utils/cot'
 import {
-  confirmarEntregaRemito, crearDescargaCamion, subscribeDescarga, subscribeDescargasDelDia,
+  confirmarEntregaRemito, crearDescargaCamion, subscribeDescarga, subscribeDescargasDelDia, subscribeDescargasDeRepartoDesde,
 } from '@/services/descargaCamionService'
 import {
   confirmarEntregaVentanilla, llamarTurno, marcarTurnoAusente, marcarTurnoPreparado,
@@ -78,6 +78,14 @@ export default function MuelleDashboard() {
 
   useEffect(() => subscribeDescargasDelDia(plantaId, fecha, setDescargas), [plantaId, fecha])
   useEffect(() => subscribeDescargasDelDia(plantaId, ayer, setDescargasAyer), [plantaId, ayer])
+  // La última semana entera (2026-09-21, Ariel): la Vuelta tiene que mostrar los
+  // camiones EN REPARTO, sin descargar, salgan de hoy, de ayer o de antes; y un
+  // remito contado solo importa para corregirlo. Con los remitos de la semana y
+  // sus descargas (por día de viaje) se sabe cuáles siguen en la calle.
+  const hace7 = useMemo(() => { const d = new Date(fecha); d.setDate(d.getDate() - 7); return d }, [fecha])
+  const remitosSemana = useRemitosCargaDesde(plantaId, hace7)
+  const [descargasSemana, setDescargasSemana] = useState<DescargaCamion[]>([])
+  useEffect(() => subscribeDescargasDeRepartoDesde(plantaId, hace7, setDescargasSemana), [plantaId, hace7])
 
   // ── Cargas para entregar: los BORRADORES que armó caja ──
   // Ayer, hoy y mañana: el camión de las 4 de la mañana lleva el borrador que
@@ -260,14 +268,36 @@ export default function MuelleDashboard() {
   const darsenaLibre = (n: number) =>
     !colaVentanilla.some((v) => v.turnoEstado === 'llamado' && v.darsena === n)
   // Camiones que volvieron y todavía nadie contó: es el trabajo de "Vuelta".
-  const sinContar = useMemo(() => {
-    const todas = [...descargas, ...descargasAyer]
+  // Camiones EN REPARTO: remitos entregados de la última semana sin descarga
+  // contada. Primero los que ya avisaron "llegué a planta" (con su dársena),
+  // después el resto, del más reciente al más viejo.
+  const enReparto = useMemo(() => {
+    const todas = [...descargasSemana, ...descargas, ...descargasAyer]
     const viajes = new Set(todas.map((d) => d.remitoId).filter(Boolean))
-    // Las descargas anteriores al 18/09 no traen remito: esas valen por chofer.
-    const choferes = new Set(todas.filter((d) => !d.remitoId).map((d) => d.choferId))
-    return [...remitos, ...remitosAyer]
-      .filter((r) => r.regreso && !viajes.has(r.id) && !choferes.has(r.choferId))
-  }, [remitos, remitosAyer, descargas, descargasAyer])
+    // Las descargas anteriores al 18/09 no traen remito: esas valen por chofer y día de viaje.
+    const choferDia = new Set(todas.filter((d) => !d.remitoId).map((d) => `${d.diaReparto ?? claveDia(d.fecha.toDate())}_${d.choferId}`))
+    const vistos = new Set<string>()
+    return [...remitosSemana, ...remitos, ...remitosAyer]
+      .filter((r) => {
+        if (vistos.has(r.id)) return false
+        vistos.add(r.id)
+        return r.estado !== 'emitido'
+          && !viajes.has(r.id) && !choferDia.has(`${claveDia(r.fecha.toDate())}_${r.choferId}`)
+      })
+      .sort((a, b) => {
+        if (!!a.regreso !== !!b.regreso) return a.regreso ? -1 : 1
+        if (a.regreso && b.regreso) return a.regreso.hora.toMillis() - b.regreso.hora.toMillis()
+        return b.fecha.toMillis() - a.fecha.toMillis()
+      })
+  }, [remitosSemana, remitos, remitosAyer, descargasSemana, descargas, descargasAyer])
+  const sinContar = useMemo(() => enReparto.filter((r) => r.regreso), [enReparto])
+  /** "salió ayer" / "salió 19/09": nada si es de hoy. */
+  const etiquetaSalida = (r: RemitoCarga): string => {
+    const dia = claveDia(r.fecha.toDate())
+    if (dia === claveDia(fecha)) return ''
+    if (dia === claveDia(ayer)) return ' · salió ayer'
+    return ` · salió ${r.fecha.toDate().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })}`
+  }
   const pendientes: Record<Solapa, number> = {
     salidas:    paraAhora.length + conRemitoSinEntregar.length,
     ventanilla: colaVentanilla.length,
@@ -303,7 +333,6 @@ export default function MuelleDashboard() {
     () => [...remitos, ...remitosAyer].filter((r) => r.estado !== 'emitido'),
     [remitos, remitosAyer],
   )
-  const idsDeAyer = useMemo(() => new Set(remitosAyer.map((r) => r.id)), [remitosAyer])
   // Los que ya tienen descarga registrada hoy: sirven para avisar "a este ya lo
   // contaste" en vez de dejar que se cuente dos veces sin que nadie lo note.
   const yaDescargados = useMemo(() => new Set(descargas.map((d) => d.choferId)), [descargas])
@@ -324,7 +353,10 @@ export default function MuelleDashboard() {
   // El combo mezcla remitos del día ('rem:<id>') y depósitos sueltos
   // ('dep:<código>'): un tercerizado que cargó en otra planta, o sin remito
   // digital, igual vuelve y hay que contarle la descarga.
-  const remitoDescarga = remitoDescargaId.startsWith('rem:') ? entregados.find((r) => r.id === remitoDescargaId.slice(4)) : undefined
+  const yaContados = useMemo(() => entregados.filter((r) => remitosContados.has(r.id)), [entregados, remitosContados])
+  const remitoDescarga = remitoDescargaId.startsWith('rem:')
+    ? [...enReparto, ...entregados].find((r) => r.id === remitoDescargaId.slice(4))
+    : undefined
   const depositoDescarga = remitoDescargaId.startsWith('dep:') ? depositosReparto.find((d) => d.codigo === remitoDescargaId.slice(4)) : undefined
   const descargaSeleccionada = remitoDescarga
     ? { camionId: remitoDescarga.camionId, camionLabel: remitoDescarga.camionLabel, choferId: remitoDescarga.choferId, choferNombre: remitoDescarga.choferNombre, depositoTango: remitoDescarga.depositoTango, depositoTangoNombre: remitoDescarga.depositoTangoNombre, remitoId: remitoDescarga.id, remitoCodigo: remitoDescarga.codigo }
@@ -904,14 +936,22 @@ export default function MuelleDashboard() {
               className={selectClass}
             >
               <option value="">Elegir el camión…</option>
-              {entregados.length > 0 && (
-                <optgroup label="Camiones que salieron (hoy y ayer)">
-                  {entregados.map((r) => (
+              {enReparto.length > 0 && (
+                <optgroup label={`En reparto, sin descargar (${enReparto.length})`}>
+                  {enReparto.map((r) => (
                     <option key={r.id} value={`rem:${r.id}`}>
                       {r.codigo} · {r.camionLabel} · {r.choferNombre}
-                      {idsDeAyer.has(r.id) ? ' · salió ayer' : ''}
-                      {r.regreso?.darsena && !remitosContados.has(r.id) ? ` · volvió, en dársena ${r.regreso.darsena}` : ''}
-                      {remitosContados.has(r.id) ? ' · ya contado' : ''}
+                      {r.regreso ? ` · volvió${r.regreso.darsena ? `, en dársena ${r.regreso.darsena}` : ''}` : ''}
+                      {etiquetaSalida(r)}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {yaContados.length > 0 && (
+                <optgroup label="Ya contados (hoy y ayer) — solo para corregir">
+                  {yaContados.map((r) => (
+                    <option key={r.id} value={`rem:${r.id}`}>
+                      {r.codigo} · {r.camionLabel} · {r.choferNombre}{etiquetaSalida(r)} · ya contado
                     </option>
                   ))}
                 </optgroup>

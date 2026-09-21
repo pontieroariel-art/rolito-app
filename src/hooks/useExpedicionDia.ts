@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { useSharedSubscription } from './useSharedSubscription'
-import { subscribeRemitosCargaDelDia } from '@/services/remitoCargaService'
+import { subscribeRemitosCargaDelDia, subscribeRemitosCargaDesde } from '@/services/remitoCargaService'
 import { subscribeVentanillaDelDia } from '@/services/ventaVentanillaService'
 import type { PlantaId, RemitoCarga, VentaVentanilla } from '@/types'
 
@@ -17,6 +17,13 @@ export function useRemitosCargaDelDia(plantaId: PlantaId, fecha: Date): RemitoCa
   const dia = fecha.getTime()
   const subscribe = useCallback((cb: (r: RemitoCarga[]) => void) => subscribeRemitosCargaDelDia(plantaId, new Date(dia), cb), [plantaId, dia])
   return useSharedSubscription<RemitoCarga[]>(`remitosCarga:${plantaId}:${dia}`, subscribe, VACIO_REMITOS).data
+}
+
+/** Remitos de la planta desde `desde` en adelante (la Vuelta del muelle: camiones en reparto). */
+export function useRemitosCargaDesde(plantaId: PlantaId, desde: Date): RemitoCarga[] {
+  const dia = desde.getTime()
+  const subscribe = useCallback((cb: (r: RemitoCarga[]) => void) => subscribeRemitosCargaDesde(plantaId, new Date(dia), cb), [plantaId, dia])
+  return useSharedSubscription<RemitoCarga[]>(`remitosCargaDesde:${plantaId}:${dia}`, subscribe, VACIO_REMITOS).data
 }
 
 export function useVentanillaDelDia(plantaId: PlantaId, fecha: Date): VentaVentanilla[] {
