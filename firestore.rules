@@ -219,17 +219,25 @@ service cloud.firestore {
     function racksOk(r) {
       return r is list && r.size() <= 60 && r.toSet().size() == r.size();
     }
+    // Pallets simples (2026-09-21): opcionales, parte del total de su tipo
+    // (solo la base, sin puntales); nunca más que el total.
+    function simplesOk(e) {
+      return (!('tarimasMaderaSimples' in e) || (e.tarimasMaderaSimples is int && e.tarimasMaderaSimples >= 0 && e.tarimasMaderaSimples <= e.tarimasMadera))
+        && (!('palletsMetalSimples' in e) || (e.palletsMetalSimples is int && e.palletsMetalSimples >= 0 && e.palletsMetalSimples <= e.palletsMetal));
+    }
     function envasesCargaOk(e) {
-      return e is map && e.keys().hasOnly(['tarimasMadera', 'palletsMetal', 'racks'])
+      return e is map && e.keys().hasOnly(['tarimasMadera', 'palletsMetal', 'tarimasMaderaSimples', 'palletsMetalSimples', 'racks'])
         && e.tarimasMadera is int && e.tarimasMadera >= 0
         && e.palletsMetal is int && e.palletsMetal >= 0
+        && simplesOk(e)
         && racksOk(e.racks);
     }
     function envasesDescargaOk(e) {
       // sombreros (1 por pallet, 2026-09-12) es opcional: las tablets viejas no lo mandan.
-      return e is map && e.keys().hasOnly(['tarimasMadera', 'palletsMetal', 'puntales', 'aros', 'sombreros', 'racks'])
+      return e is map && e.keys().hasOnly(['tarimasMadera', 'palletsMetal', 'tarimasMaderaSimples', 'palletsMetalSimples', 'puntales', 'aros', 'sombreros', 'racks'])
         && e.tarimasMadera is int && e.tarimasMadera >= 0
         && e.palletsMetal is int && e.palletsMetal >= 0
+        && simplesOk(e)
         && e.puntales is int && e.puntales >= 0
         && e.aros is int && e.aros >= 0
         && (!('sombreros' in e) || (e.sombreros is int && e.sombreros >= 0))

@@ -18,17 +18,33 @@ export const SOMBREROS_POR_PALLET = 1
 export const MAX_RACKS_POR_VIAJE = 60
 
 export type OrigenEnvases = 'envases' | 'legacy'
-export type EnvasesNormalizados = ConteoEnvases & { racks: number[]; origen: OrigenEnvases }
+/** Los simples (2026-09-21) viajan solo para describir: el cuadre compara bases por tipo y los sueltos aparte. */
+export type EnvasesNormalizados = ConteoEnvases & { racks: number[]; origen: OrigenEnvases; tarimasMaderaSimples?: number; palletsMetalSimples?: number }
 
 export const conteoVacio = (): ConteoEnvases => ({ tarimasMadera: 0, palletsMetal: 0, puntales: 0, aros: 0, sombreros: 0 })
 
 export const envasesCargaVacio = (): EnvasesCarga => ({ tarimasMadera: 0, palletsMetal: 0, racks: [] })
 
-/** Implícitos: 4 puntales y 1 sombrero por pallet (madera o metal), 1 aro solo por tarima de madera. */
-export const implicitosDe = (tarimasMadera: number, palletsMetal: number) => ({
-  puntales: (tarimasMadera + palletsMetal) * PUNTALES_POR_PALLET,
-  aros: tarimasMadera * AROS_POR_TARIMA_MADERA,
-  sombreros: (tarimasMadera + palletsMetal) * SOMBREROS_POR_PALLET,
+/**
+ * Implícitos: 4 puntales y 1 sombrero por pallet ARMADO (madera o metal), 1 aro
+ * solo por tarima de madera armada. Los simples (solo la base, 2026-09-21) no
+ * suman nada: `tarimasMadera`/`palletsMetal` son totales y `simples` la parte
+ * sin puntales. Un pallet vuelve como salió (los puntales no se sacan), así que
+ * la misma cuenta sirve para la carga y para la vuelta.
+ */
+export const implicitosDe = (tarimasMadera: number, palletsMetal: number, simples: { madera?: number; metal?: number } = {}) => {
+  const madera = Math.max(0, tarimasMadera - (simples.madera ?? 0))
+  const metal  = Math.max(0, palletsMetal - (simples.metal ?? 0))
+  return {
+    puntales: (madera + metal) * PUNTALES_POR_PALLET,
+    aros: madera * AROS_POR_TARIMA_MADERA,
+    sombreros: (madera + metal) * SOMBREROS_POR_PALLET,
+  }
+}
+
+const simplesDe = (e: { tarimasMaderaSimples?: number; palletsMetalSimples?: number }) => ({
+  ...(e.tarimasMaderaSimples ? { tarimasMaderaSimples: e.tarimasMaderaSimples } : {}),
+  ...(e.palletsMetalSimples ? { palletsMetalSimples: e.palletsMetalSimples } : {}),
 })
 
 /**
@@ -38,7 +54,13 @@ export const implicitosDe = (tarimasMadera: number, palletsMetal: number) => ({
  */
 export function envasesDeRemito(r: Pick<RemitoCarga, 'palletsCarga' | 'envases'>): EnvasesNormalizados {
   if (r.envases) {
-    return { tarimasMadera: r.envases.tarimasMadera, palletsMetal: r.envases.palletsMetal, ...implicitosDe(r.envases.tarimasMadera, r.envases.palletsMetal), racks: [...r.envases.racks], origen: 'envases' }
+    const e = r.envases
+    return {
+      tarimasMadera: e.tarimasMadera, palletsMetal: e.palletsMetal,
+      ...implicitosDe(e.tarimasMadera, e.palletsMetal, { madera: e.tarimasMaderaSimples, metal: e.palletsMetalSimples }),
+      ...simplesDe(e),
+      racks: [...e.racks], origen: 'envases',
+    }
   }
   const pallets = r.palletsCarga ?? 0
   return { tarimasMadera: 0, palletsMetal: pallets, ...implicitosDe(0, pallets), racks: [], origen: 'legacy' }
@@ -51,7 +73,7 @@ export function envasesDeRemito(r: Pick<RemitoCarga, 'palletsCarga' | 'envases'>
  */
 export function envasesDeDescarga(d: Pick<DescargaCamion, 'envases' | 'palletsCompletos' | 'palletsParciales' | 'palletsVacios'>): EnvasesNormalizados {
   // `sombreros` no existía antes del 2026-09-12: una descarga vieja se lee como 0 contados.
-  if (d.envases) return { tarimasMadera: d.envases.tarimasMadera, palletsMetal: d.envases.palletsMetal, puntales: d.envases.puntales, aros: d.envases.aros, sombreros: d.envases.sombreros ?? 0, racks: [...d.envases.racks], origen: 'envases' }
+  if (d.envases) return { tarimasMadera: d.envases.tarimasMadera, palletsMetal: d.envases.palletsMetal, puntales: d.envases.puntales, aros: d.envases.aros, sombreros: d.envases.sombreros ?? 0, ...simplesDe(d.envases), racks: [...d.envases.racks], origen: 'envases' }
   const pallets = (d.palletsCompletos ?? 0) + (d.palletsParciales ?? 0) + (d.palletsVacios ?? 0)
   return { tarimasMadera: 0, palletsMetal: pallets, ...implicitosDe(0, pallets), racks: [], origen: 'legacy' }
 }
@@ -99,10 +121,11 @@ export const describirRacks = (racks: number[]): string =>
   racks.length ? `Nº ${[...racks].sort((a, b) => a - b).join(', ')}` : 'sin racks'
 
 /** "3 madera · 2 metal · 20 puntales · 3 aros · 5 sombreros · racks Nº 12, 15" (omite los ceros; vacío si no hay nada). */
-export function describirEnvases(e: Omit<ConteoEnvases, 'sombreros'> & { sombreros?: number; racks?: number[] }): string {
+export function describirEnvases(e: Omit<ConteoEnvases, 'sombreros'> & { sombreros?: number; racks?: number[]; tarimasMaderaSimples?: number; palletsMetalSimples?: number }): string {
   const partes: string[] = []
-  if (e.tarimasMadera) partes.push(`${e.tarimasMadera} madera`)
-  if (e.palletsMetal) partes.push(`${e.palletsMetal} metal`)
+  const simples = (n?: number) => (n ? ` (${n} simple${n === 1 ? '' : 's'})` : '')
+  if (e.tarimasMadera) partes.push(`${e.tarimasMadera} madera${simples(e.tarimasMaderaSimples)}`)
+  if (e.palletsMetal) partes.push(`${e.palletsMetal} metal${simples(e.palletsMetalSimples)}`)
   if (e.puntales) partes.push(`${e.puntales} puntales`)
   if (e.aros) partes.push(`${e.aros} aro${e.aros === 1 ? '' : 's'}`)
   if (e.sombreros) partes.push(`${e.sombreros} sombrero${e.sombreros === 1 ? '' : 's'}`)
@@ -115,7 +138,9 @@ export function filasDeEnvases(e: EnvasesNormalizados): Array<{ nombre: string; 
   if (e.origen === 'legacy') return e.palletsMetal ? [{ nombre: 'Pallets (sin composición)', q: e.palletsMetal }] : []
   return [
     { nombre: 'Pallets de madera', q: e.tarimasMadera },
+    { nombre: '  de los cuales simples (sin puntales)', q: e.tarimasMaderaSimples ?? 0 },
     { nombre: 'Pallets de metal', q: e.palletsMetal },
+    { nombre: '  de los cuales simples (sin puntales)', q: e.palletsMetalSimples ?? 0 },
     { nombre: 'Puntales', q: e.puntales },
     { nombre: 'Aros', q: e.aros },
     { nombre: 'Sombreros', q: e.sombreros },

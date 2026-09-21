@@ -26,8 +26,9 @@ export interface ItemMercaderia { productoId: string; nombre: string; cantidad: 
 /** Lo que viene de Firestore puede estar sucio (undefined, null, NaN): vale 0. */
 const n = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
 
-export interface EnvasesCargaDoc { tarimasMadera: number; palletsMetal: number; racks: number[] }
-export interface EnvasesDescargaDoc { tarimasMadera: number; palletsMetal: number; puntales: number; aros: number; sombreros?: number; racks: number[] }
+/** `*Simples` (2026-09-21): parte del total de su tipo, solo la base, sin puntales; no suman implícitos. */
+export interface EnvasesCargaDoc { tarimasMadera: number; palletsMetal: number; tarimasMaderaSimples?: number; palletsMetalSimples?: number; racks: number[] }
+export interface EnvasesDescargaDoc { tarimasMadera: number; palletsMetal: number; tarimasMaderaSimples?: number; palletsMetalSimples?: number; puntales: number; aros: number; sombreros?: number; racks: number[] }
 
 export interface RemitoParaCierre {
   id:            string
@@ -101,11 +102,17 @@ export const SOMBREROS_POR_PALLET = 1
 
 const conteoVacio = (): ConteoEnvasesCierre => ({ tarimasMadera: 0, palletsMetal: 0, puntales: 0, aros: 0, sombreros: 0 })
 
-const implicitosDe = (tarimasMadera: number, palletsMetal: number) => ({
-  puntales:  (tarimasMadera + palletsMetal) * PUNTALES_POR_PALLET,
-  aros:      tarimasMadera * AROS_POR_TARIMA_MADERA,
-  sombreros: (tarimasMadera + palletsMetal) * SOMBREROS_POR_PALLET,
-})
+// Los simples (solo la base, 2026-09-21) son parte del total y no suman
+// implícitos: réplica de utils/envases.ts (implicitosDe).
+const implicitosDe = (tarimasMadera: number, palletsMetal: number, simplesMadera = 0, simplesMetal = 0) => {
+  const madera = Math.max(0, tarimasMadera - simplesMadera)
+  const metal  = Math.max(0, palletsMetal - simplesMetal)
+  return {
+    puntales:  (madera + metal) * PUNTALES_POR_PALLET,
+    aros:      madera * AROS_POR_TARIMA_MADERA,
+    sombreros: (madera + metal) * SOMBREROS_POR_PALLET,
+  }
+}
 
 /**
  * Lo que salió según el remito. Un remito anterior al 2026-09-07 (sin
@@ -117,7 +124,7 @@ function envasesDeRemito(r: Pick<RemitoParaCierre, 'palletsCarga' | 'envases'>):
     return {
       tarimasMadera: n(r.envases.tarimasMadera),
       palletsMetal:  n(r.envases.palletsMetal),
-      ...implicitosDe(n(r.envases.tarimasMadera), n(r.envases.palletsMetal)),
+      ...implicitosDe(n(r.envases.tarimasMadera), n(r.envases.palletsMetal), n(r.envases.tarimasMaderaSimples), n(r.envases.palletsMetalSimples)),
       racks: [...(r.envases.racks ?? [])],
     }
   }

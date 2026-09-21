@@ -2464,6 +2464,10 @@ describe('remitosCarga', () => {
     await assertFails(setDoc(doc(db('mue1'), 'remitosCarga/r2'), remito({ envases: { tarimasMadera: 1, palletsMetal: 1, racks: [12, 12] } })))
     await assertFails(setDoc(doc(db('mue1'), 'remitosCarga/r3'), remito({ envases: { tarimasMadera: 1, palletsMetal: 1, racks: [], puntales: 8 } })))
     await assertFails(setDoc(doc(db('mue1'), 'remitosCarga/r4'), remito({ envases: { tarimasMadera: 1, palletsMetal: 1, racks: '12' } })))
+    // Pallets simples (2026-09-21): parte del total, nunca más que el total.
+    await assertSucceeds(setDoc(doc(db('mue1'), 'remitosCarga/r5'), remito({ palletsCarga: 3, envases: { tarimasMadera: 2, palletsMetal: 1, tarimasMaderaSimples: 1, palletsMetalSimples: 1, racks: [] } })))
+    await assertFails(setDoc(doc(db('mue1'), 'remitosCarga/r6'), remito({ palletsCarga: 3, envases: { tarimasMadera: 2, palletsMetal: 1, tarimasMaderaSimples: 3, racks: [] } })))
+    await assertFails(setDoc(doc(db('mue1'), 'remitosCarga/r7'), remito({ palletsCarga: 3, envases: { tarimasMadera: 2, palletsMetal: 1, palletsMetalSimples: -1, racks: [] } })))
   })
 
   test('super_admin (sin planta) puede emitir un remito y avanzar el contador de cualquier planta', async () => {

@@ -98,6 +98,15 @@ describe('faltante del cierre', () => {
 })
 
 describe('cuadre de envases', () => {
+  it('los pallets simples (2026-09-21) cuentan como base pero no suman puntales, aros ni sombreros', () => {
+    const c = cuadrarEnvases(
+      [remito({ envases: { tarimasMadera: 3, palletsMetal: 2, tarimasMaderaSimples: 1, palletsMetalSimples: 2, racks: [] } })],
+      [{ id: 'd1', envases: { tarimasMadera: 3, palletsMetal: 2, tarimasMaderaSimples: 1, palletsMetalSimples: 2, puntales: 8, aros: 2, sombreros: 2, racks: [] } }],
+    )
+    expect(c.salieron).toMatchObject({ tarimasMadera: 3, palletsMetal: 2, puntales: 8, aros: 2, sombreros: 2 })
+    expect(c.diferencia).toMatchObject({ tarimasMadera: 0, palletsMetal: 0, puntales: 0, aros: 0, sombreros: 0 })
+  })
+
   it('implícitos del remito: 4 puntales por pallet, aro solo en la tarima de madera', () => {
     const c = cuadrarEnvases([remito({ envases: { tarimasMadera: 2, palletsMetal: 1, racks: [7, 9] } })], [])
     expect(c.salieron).toMatchObject({ tarimasMadera: 2, palletsMetal: 1, puntales: 12, aros: 2, sombreros: 3, racks: [7, 9] })

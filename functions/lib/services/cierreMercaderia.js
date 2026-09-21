@@ -33,11 +33,17 @@ exports.PUNTALES_POR_PALLET = 4;
 exports.AROS_POR_TARIMA_MADERA = 1;
 exports.SOMBREROS_POR_PALLET = 1;
 const conteoVacio = () => ({ tarimasMadera: 0, palletsMetal: 0, puntales: 0, aros: 0, sombreros: 0 });
-const implicitosDe = (tarimasMadera, palletsMetal) => ({
-    puntales: (tarimasMadera + palletsMetal) * exports.PUNTALES_POR_PALLET,
-    aros: tarimasMadera * exports.AROS_POR_TARIMA_MADERA,
-    sombreros: (tarimasMadera + palletsMetal) * exports.SOMBREROS_POR_PALLET,
-});
+// Los simples (solo la base, 2026-09-21) son parte del total y no suman
+// implícitos: réplica de utils/envases.ts (implicitosDe).
+const implicitosDe = (tarimasMadera, palletsMetal, simplesMadera = 0, simplesMetal = 0) => {
+    const madera = Math.max(0, tarimasMadera - simplesMadera);
+    const metal = Math.max(0, palletsMetal - simplesMetal);
+    return {
+        puntales: (madera + metal) * exports.PUNTALES_POR_PALLET,
+        aros: madera * exports.AROS_POR_TARIMA_MADERA,
+        sombreros: (madera + metal) * exports.SOMBREROS_POR_PALLET,
+    };
+};
 /**
  * Lo que salió según el remito. Un remito anterior al 2026-09-07 (sin
  * `envases`) se lee como `palletsCarga` pallets de METAL: ese era el modelo
@@ -48,7 +54,7 @@ function envasesDeRemito(r) {
         return {
             tarimasMadera: n(r.envases.tarimasMadera),
             palletsMetal: n(r.envases.palletsMetal),
-            ...implicitosDe(n(r.envases.tarimasMadera), n(r.envases.palletsMetal)),
+            ...implicitosDe(n(r.envases.tarimasMadera), n(r.envases.palletsMetal), n(r.envases.tarimasMaderaSimples), n(r.envases.palletsMetalSimples)),
             racks: [...(r.envases.racks ?? [])],
         };
     }

@@ -9,6 +9,25 @@ describe('envasesDeRemito / envasesDeDescarga', () => {
     expect(e).toEqual({ tarimasMadera: 3, palletsMetal: 2, puntales: 20, aros: 3, sombreros: 5, racks: [12, 15], origen: 'envases' })
   })
 
+  it('pallets simples (2026-09-21): parte del total, sin puntales, sombrero ni aro', () => {
+    // 3 de madera (1 simple) + 2 de metal (2 simples): implícitos solo de los 2 de madera armados.
+    const e = envasesDeRemito({ palletsCarga: 5, envases: { tarimasMadera: 3, palletsMetal: 2, tarimasMaderaSimples: 1, palletsMetalSimples: 2, racks: [] } })
+    expect(e).toEqual({ tarimasMadera: 3, palletsMetal: 2, tarimasMaderaSimples: 1, palletsMetalSimples: 2, puntales: 8, aros: 2, sombreros: 2, racks: [], origen: 'envases' })
+    expect(describirEnvases(e)).toBe('3 madera (1 simple) · 2 metal (2 simples) · 8 puntales · 2 aros · 2 sombreros')
+    // Simples de más que el total no dan negativos.
+    expect(envasesDeRemito({ palletsCarga: 1, envases: { tarimasMadera: 1, palletsMetal: 0, tarimasMaderaSimples: 5, racks: [] } }).puntales).toBe(0)
+    // La vuelta conserva los simples contados y los sueltos tal cual.
+    const v = envasesDeDescarga({ envases: { tarimasMadera: 3, palletsMetal: 2, tarimasMaderaSimples: 1, puntales: 8, aros: 2, sombreros: 2, racks: [] } })
+    expect(v).toMatchObject({ tarimasMaderaSimples: 1, puntales: 8 })
+    expect(v.palletsMetalSimples).toBeUndefined()
+    // El cuadre compara bases por tipo: un viaje con simples cuadra en cero.
+    const c = cuadrarEnvases(
+      [{ palletsCarga: 5, envases: { tarimasMadera: 3, palletsMetal: 2, tarimasMaderaSimples: 1, palletsMetalSimples: 2, racks: [] } }],
+      [{ envases: { tarimasMadera: 3, palletsMetal: 2, tarimasMaderaSimples: 1, palletsMetalSimples: 2, puntales: 8, aros: 2, sombreros: 2, racks: [] } }],
+    )
+    expect(c.diferencia).toEqual({ tarimasMadera: 0, palletsMetal: 0, puntales: 0, aros: 0, sombreros: 0 })
+  })
+
   it('remito viejo (sin envases): palletsCarga se lee como pallets de metal', () => {
     expect(envasesDeRemito({ palletsCarga: 4 })).toEqual({ tarimasMadera: 0, palletsMetal: 4, puntales: 16, aros: 0, sombreros: 4, racks: [], origen: 'legacy' })
   })

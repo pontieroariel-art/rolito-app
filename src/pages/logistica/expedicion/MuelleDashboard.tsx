@@ -42,7 +42,7 @@ import {
 import { nombreClienteVenta } from '@/utils/nombreClienteVenta'
 import { conteoDe, fueRectificada } from '@/utils/rectificacionDescarga'
 
-const ENVASES_VACIOS: EnvasesDescarga = { tarimasMadera: 0, palletsMetal: 0, puntales: 0, aros: 0, sombreros: 0, racks: [] }
+const ENVASES_VACIOS: EnvasesDescarga = { tarimasMadera: 0, palletsMetal: 0, tarimasMaderaSimples: 0, palletsMetalSimples: 0, puntales: 0, aros: 0, sombreros: 0, racks: [] }
 
 type Solapa = 'salidas' | 'ventanilla' | 'vuelta'
 const SOLAPAS: { id: Solapa; texto: string }[] = [
@@ -198,9 +198,23 @@ export default function MuelleDashboard() {
   const setEnvase = (k: keyof Omit<EnvasesDescarga, 'racks'>, v: string) =>
     setEnvases((prev) => {
       const next = { ...prev, [k]: Math.max(0, Math.min(999, parseInt(v.replace(/\D/g, ''), 10) || 0)) }
-      if (!sueltosManual && (k === 'tarimasMadera' || k === 'palletsMetal')) Object.assign(next, implicitosDe(next.tarimasMadera, next.palletsMetal))
+      if (!sueltosManual && (k === 'tarimasMadera' || k === 'palletsMetal')) Object.assign(next, implicitosDe(next.tarimasMadera, next.palletsMetal, { madera: next.tarimasMaderaSimples, metal: next.palletsMetalSimples }))
       return next
     })
+  // La vuelta se cuenta como la carga (2026-09-21): armados y simples por tipo.
+  // Se guarda el total por tipo más cuántos son simples; los implícitos salen
+  // de los armados. Un pallet vuelve como salió: los puntales no se sacan.
+  const setBase = (tipo: 'madera' | 'metal', armados: number, simples: number) =>
+    setEnvases((prev) => {
+      const a = Math.max(0, Math.min(999, armados)), s = Math.max(0, Math.min(999, simples))
+      const next: EnvasesDescarga = tipo === 'madera'
+        ? { ...prev, tarimasMadera: a + s, tarimasMaderaSimples: s }
+        : { ...prev, palletsMetal: a + s, palletsMetalSimples: s }
+      if (!sueltosManual) Object.assign(next, implicitosDe(next.tarimasMadera, next.palletsMetal, { madera: next.tarimasMaderaSimples, metal: next.palletsMetalSimples }))
+      return next
+    })
+  const maderaArmadas = envases.tarimasMadera - (envases.tarimasMaderaSimples ?? 0)
+  const metalArmados  = envases.palletsMetal - (envases.palletsMetalSimples ?? 0)
   // Corrección de un conteo ya cargado (2026-09-13): se precarga lo que contó
   // muelle (su propio número, no el teórico: el conteo sigue ciego) y al
   // confirmar nace una descarga nueva que reemplaza a la vieja.
@@ -435,8 +449,16 @@ export default function MuelleDashboard() {
       // se calculaba acá abajo, se mostraba y se tiraba. Guardado, es el control
       // de salidos vs devueltos por chofer y por viaje. Sin remito no hay contra
       // qué cuadrar y no se manda.
+      // Los simples en cero no se escriben: el doc queda como antes del 21/09 y
+      // no depende de que las reglas nuevas (que aceptan esas claves) estén publicadas.
+      const { tarimasMaderaSimples, palletsMetalSimples, ...base } = envases
+      const envasesAGuardar: EnvasesDescarga = {
+        ...base,
+        ...(tarimasMaderaSimples ? { tarimasMaderaSimples } : {}),
+        ...(palletsMetalSimples ? { palletsMetalSimples } : {}),
+      }
       const envasesCuadre = remitoDescarga
-        ? cuadrarEnvases([remitoDescarga], [{ envases }])
+        ? cuadrarEnvases([remitoDescarga], [{ envases: envasesAGuardar }])
         : undefined
       const creada = await crearDescargaCamion(
         {
@@ -445,7 +467,7 @@ export default function MuelleDashboard() {
           diaReparto:   claveDia(remitoDescarga?.fecha ?? new Date()),
           items:        toItems(sanas),
           bolsasRotas:  toItems(rotas),
-          envases,
+          envases:      envasesAGuardar,
           ...(envasesCuadre ? { envasesCuadre } : {}),
           ...(corrigiendo
             ? { rectificaA: corrigiendo.id, motivoRectificacion: motivoCorreccion.trim() }
@@ -1020,23 +1042,29 @@ export default function MuelleDashboard() {
                           : ' (sin remito de carga de hoy en esta planta: no hay contra qué cuadrar)'}
                       </p>
                       <div className="grid grid-cols-2 gap-3">
-                        {([['tarimasMadera', 'Tarimas de madera'], ['palletsMetal', 'Pallets de metal']] as const).map(([k, label]) => (
-                          <div key={k}>
+                        {([
+                          ['Madera armados', maderaArmadas, (v: number) => setBase('madera', v, envases.tarimasMaderaSimples ?? 0)],
+                          ['Madera simples', envases.tarimasMaderaSimples ?? 0, (v: number) => setBase('madera', maderaArmadas, v)],
+                          ['Metal armados', metalArmados, (v: number) => setBase('metal', v, envases.palletsMetalSimples ?? 0)],
+                          ['Metal simples', envases.palletsMetalSimples ?? 0, (v: number) => setBase('metal', metalArmados, v)],
+                        ] as Array<[string, number, (v: number) => void]>).map(([label, valor, poner]) => (
+                          <div key={label}>
                             <label className="text-sm text-secundario mb-1 block">{label}</label>
-                            <input value={envases[k]} onChange={(e) => setEnvase(k, e.target.value)} inputMode="numeric" className={inputEnvaseClass} />
+                            <input value={valor} onChange={(e) => poner(parseInt(e.target.value.replace(/\D/g, ''), 10) || 0)} inputMode="numeric" className={inputEnvaseClass} aria-label={label} />
                           </div>
                         ))}
                       </div>
+                      <p className="text-sm text-secundario mt-1">Armado: base + 4 puntales + sombrero (y aro si es de madera). Simple: la base sola.</p>
                       {/* Los implícitos, como en la carga; con "Corregir sueltos" se tocan a mano. */}
                       <div className="mt-2 flex items-center justify-between gap-3 min-h-11">
                         <p className="text-sm text-secundario tabular-nums">
-                          {sueltosManual ? 'Sueltos corregidos a mano' : `${envases.puntales} puntales · ${envases.aros} aro${envases.aros === 1 ? '' : 's'} · ${envases.sombreros ?? 0} sombrero${(envases.sombreros ?? 0) === 1 ? '' : 's'} (4 puntales y 1 sombrero por pallet, 1 aro por tarima)`}
+                          {sueltosManual ? 'Sueltos corregidos a mano' : `${envases.puntales} puntales · ${envases.aros} aro${envases.aros === 1 ? '' : 's'} · ${envases.sombreros ?? 0} sombrero${(envases.sombreros ?? 0) === 1 ? '' : 's'} (de los armados)`}
                         </p>
                         <button
                           type="button"
                           className="h-11 px-3 rounded-lg border border-[#D3D1C7] bg-white text-sm text-gray-900 shrink-0"
                           onClick={() => setSueltosManual((m) => {
-                            if (m) setEnvases((prev) => ({ ...prev, ...implicitosDe(prev.tarimasMadera, prev.palletsMetal) }))
+                            if (m) setEnvases((prev) => ({ ...prev, ...implicitosDe(prev.tarimasMadera, prev.palletsMetal, { madera: prev.tarimasMaderaSimples, metal: prev.palletsMetalSimples }) }))
                             return !m
                           })}
                         >

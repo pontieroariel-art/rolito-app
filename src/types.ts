@@ -259,13 +259,25 @@ export interface FacturaArchivada {
 // los bidones, que son un producto más del remito). Tango no los recibe por
 // ahora (viajan en el payload de la cola para mapearlos más adelante).
 export interface EnvasesCarga {
-  tarimasMadera: number     // pallets "completos": tarima + 4 puntales + 1 aro
-  palletsMetal:  number     // pallet de metal + 4 puntales + 1 sombrero (sin aro)
+  tarimasMadera: number     // TOTAL de tarimas de madera (armadas + simples)
+  palletsMetal:  number     // TOTAL de pallets de metal (armados + simples)
+  /**
+   * Pallets "simples" (2026-09-21, Ariel): solo la base, sin puntales, sombrero
+   * ni aro. Son parte del total de arriba; los implícitos (4 puntales y 1
+   * sombrero por pallet, 1 aro por tarima de madera) se calculan solo sobre
+   * los armados. Los puntales no se sacan: un pallet vuelve como salió.
+   * Ausente en los remitos anteriores = 0.
+   */
+  tarimasMaderaSimples?: number
+  palletsMetalSimples?:  number
   racks:         number[]   // números de rack de agua (únicos, enteros > 0)
 }
 export interface EnvasesDescarga {
   tarimasMadera: number
   palletsMetal:  number
+  /** Simples que volvieron (2026-09-21), parte del total; ver EnvasesCarga. */
+  tarimasMaderaSimples?: number
+  palletsMetalSimples?:  number
   puntales:      number
   aros:          number
   /** Sombreros (1 por pallet de cualquier tipo, 2026-09-12). Las descargas anteriores no lo tienen. */

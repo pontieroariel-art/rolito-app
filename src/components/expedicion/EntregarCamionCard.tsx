@@ -89,10 +89,21 @@ export default function EntregarCamionCard({
   // Envases que salen: los cuenta muelle al armar la carga. Arranca en cero,
   // sin sugerir nada: el sugerido por la mercadería es un cálculo de la app y
   // acá lo que vale es lo que el muellero está poniendo arriba del camión.
-  const [tarimasMadera, setTarimasMadera] = useState(0)
-  const [palletsMetal, setPalletsMetal] = useState(0)
+  // Armados (base + 4 puntales + sombrero, y aro si es de madera) y simples
+  // (solo la base, 2026-09-21): se cuentan aparte y se guardan como total +
+  // cuántos de esos son simples. Los implícitos salen solo de los armados.
+  const [maderaArmadas, setMaderaArmadas] = useState(0)
+  const [maderaSimples, setMaderaSimples] = useState(0)
+  const [metalArmados, setMetalArmados] = useState(0)
+  const [metalSimples, setMetalSimples] = useState(0)
   const [racks, setRacks] = useState<number[]>([])
-  const envases: EnvasesCarga = { tarimasMadera, palletsMetal, racks }
+  const tarimasMadera = maderaArmadas + maderaSimples
+  const palletsMetal  = metalArmados + metalSimples
+  const envases: EnvasesCarga = {
+    tarimasMadera, palletsMetal, racks,
+    ...(maderaSimples ? { tarimasMaderaSimples: maderaSimples } : {}),
+    ...(metalSimples ? { palletsMetalSimples: metalSimples } : {}),
+  }
   // Los puntales, aros y sombreros no se cuentan: salen implícitos de los
   // pallets y las tarimas (ver envasesDeRemito en utils/envases.ts).
   const envasesTexto = describirEnvases(envasesDeRemito({
@@ -190,9 +201,12 @@ export default function EntregarCamionCard({
       <div className="rounded-lg border border-[#E7E5DC] bg-[#FAF9F5] p-2.5 space-y-2">
         <p className="text-sm font-semibold text-gray-900">Envases que salen</p>
         <div className="grid grid-cols-2 gap-2">
-          <ContadorEnvase etiqueta="Pallets de madera" valor={tarimasMadera} onChange={setTarimasMadera} disabled={entregando} btn={btn} />
-          <ContadorEnvase etiqueta="Pallets de metal" valor={palletsMetal} onChange={setPalletsMetal} disabled={entregando} btn={btn} />
+          <ContadorEnvase etiqueta="Madera armados" valor={maderaArmadas} onChange={setMaderaArmadas} disabled={entregando} btn={btn} />
+          <ContadorEnvase etiqueta="Madera simples" valor={maderaSimples} onChange={setMaderaSimples} disabled={entregando} btn={btn} />
+          <ContadorEnvase etiqueta="Metal armados" valor={metalArmados} onChange={setMetalArmados} disabled={entregando} btn={btn} />
+          <ContadorEnvase etiqueta="Metal simples" valor={metalSimples} onChange={setMetalSimples} disabled={entregando} btn={btn} />
         </div>
+        <p className="text-sm text-secundario">Armado: base + 4 puntales + sombrero (y aro si es de madera). Simple: la base sola.</p>
         <div>
           <p className="text-sm text-secundario mb-1">Racks de agua (números)</p>
           <RacksInput value={racks} onChange={setRacks} disabled={entregando} />
