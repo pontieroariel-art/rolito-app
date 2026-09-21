@@ -481,11 +481,15 @@ const patentesUnicas = (lista: { camionLabel: string }[]): string[] => [...new S
  * quedaba tapado por la zona de abajo. Hasta cuatro, grande; cinco o seis,
  * compacto; siete o más, compacto a dos columnas. Nunca se esconde un renglón.
  */
-const tallaRenglones = (cantidad: number) => {
-  if (cantidad >= 7) return { lista: 'grid grid-cols-2 gap-x-4 gap-y-1', fila: 'pb-1', nombre: 'text-[24px]', numero: 'text-[36px]', unidad: 'text-[18px]', sueltas: 'text-[20px]' }
-  if (cantidad >= 5) return { lista: 'flex flex-col gap-1', fila: 'pb-1', nombre: 'text-[26px]', numero: 'text-[40px]', unidad: 'text-[20px]', sueltas: 'text-[22px]' }
+const tallaRenglones = (cantidad: number, umbral = { compacto: 5, dosColumnas: 7 }) => {
+  if (cantidad >= umbral.dosColumnas) return { lista: 'grid grid-cols-2 gap-x-4 gap-y-1', fila: 'pb-1', nombre: 'text-[24px]', numero: 'text-[36px]', unidad: 'text-[18px]', sueltas: 'text-[20px]' }
+  if (cantidad >= umbral.compacto) return { lista: 'flex flex-col gap-1', fila: 'pb-1', nombre: 'text-[26px]', numero: 'text-[40px]', unidad: 'text-[20px]', sueltas: 'text-[22px]' }
   return { lista: 'flex flex-col gap-2', fila: 'pb-1.5', nombre: 'text-[34px]', numero: 'text-[52px]', unidad: 'text-[26px]', sueltas: 'text-[30px]' }
 }
+// La tarjeta de ventanilla tiene menos alto libre que la del camión (turno de
+// 76 px, factura y cliente abajo): en la tele real, con tres productos el
+// tercero quedaba cortado (21/09, T-37 con 10kg, picado y escama).
+const UMBRAL_VENTANILLA = { compacto: 3, dosColumnas: 5 }
 const minutosDesde = (ahora: number, t: { toMillis(): number }) => Math.max(0, Math.round((ahora - t.toMillis()) / 60_000))
 const horaDe = (t: { toDate(): Date }) => t.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })
 
@@ -580,7 +584,7 @@ export const DarsenaCamion = memo(function DarsenaCamion({ n, r, desglose, ahora
 // Misma tarjeta vertical que la de camión (2026-09-15: las cinco bocas van en una fila), con
 // la etiqueta fija de quién usa estas dos dársenas: los clientes que compran para revender.
 export const DarsenaVentanilla = memo(function DarsenaVentanilla({ n, v }: { n: number; v?: VentaVentanilla }) {
-  const tv = tallaRenglones(v?.items.length ?? 0)
+  const tv = tallaRenglones(v?.items.length ?? 0, UMBRAL_VENTANILLA)
   const tag = (
     <div>
       <div className="flex justify-between items-baseline">

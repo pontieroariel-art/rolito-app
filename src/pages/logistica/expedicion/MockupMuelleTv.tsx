@@ -65,7 +65,7 @@ const VOLVIERON = [
   remito({ id: 'RC-DT-000227', patente: 'AA884JD', chofer: 'Álvarez Sergio Jesús', regreso: { hace: 3 }, items: [item('bolsa_10kg', '10kg', 90)] }),
 ]
 const TURNOS = [
-  turno({ turno: 12, cliente: 'GASTRONOMIA EMPRENDIMIENTOS S.A.S - (HUMBOLDT)', darsena: 4, factura: 12345, items: [item('bolsa_3kg', '3kg', 40), item('bolsa_10kg', '10kg', 6)] }),
+  turno({ turno: 12, cliente: 'GASTRONOMIA EMPRENDIMIENTOS S.A.S - (HUMBOLDT)', darsena: 4, factura: 12345, items: [item('bolsa_3kg', '3kg', 40), item('bolsa_10kg', '10kg', 6), item('picado_10kg', 'PICADO', 2), item('escamas_10kg', 'ESCAMA', 8)] }),   // cuatro productos: la tarjeta de ventanilla pasa a compacto desde tres
   turno({ turno: 13, cliente: 'DON SATUR S.R.L.', darsena: 5, factura: 431, promo: true, items: [item('bolsa_2kg', '2kg', 25)] }),
   turno({ turno: 14, cliente: 'CLUB NAUTICO SAN FERNANDO', preparado: true, items: [item('bolsa_3kg', '3kg', 30)] }),
   turno({ turno: 15, cliente: '180BURGERBAR S.R.L.', items: [item('escamas_10kg', 'ESCAMA', 12)] }),
