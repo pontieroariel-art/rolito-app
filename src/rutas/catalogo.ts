@@ -219,7 +219,7 @@ export const CATALOGO: RutaConfig[] = [
   R('/admin/visitas',             'Visitas',                  'comercial', ['super_admin', 'logistica'], { icon: ClipboardList, menuGroup: 'clientes' }),
   R('/admin/precios',             'Precios',                  'comercial', ['super_admin', 'logistica', 'comercial', 'gerente_comercial'], { icon: Tag, menuGroup: 'precios' }),
   R('/comercial/reporte-precios', 'Reporte de precios',       'comercial', REPORTES, { icon: DollarSign, menuGroup: 'precios' }),
-  R('/admin/comprobantes',        'Comprobantes de clientes', 'comercial', ['super_admin', 'facturacion'], { icon: Files, menuGroup: 'facturacion', externa: true }),
+  R('/admin/comprobantes',        'Comprobantes de clientes', 'comercial', ['super_admin', 'facturacion', 'comercial', 'gerente_comercial'], { icon: Files, menuGroup: 'facturacion', externa: true }),
   R('/admin/recupero-facturas',   'Recupero de facturas',     'comercial', ['super_admin', 'facturacion'], { icon: FileText, menuGroup: 'facturacion' }),
   R('/anulaciones',               'Anulaciones y faltantes',  'comercial',
     ['super_admin', 'gerente_general', 'gerente_comercial', 'logistica', 'comercial', 'facturacion', 'tesoreria', 'supervisor', 'heladeras_encargado', 'produccion_encargado'],
