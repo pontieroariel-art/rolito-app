@@ -55,8 +55,8 @@ function turno(x: { turno: number; cliente: string; items: ReturnType<typeof ite
 }
 
 const CARGANDO = [
-  remito({ id: 'RC-DT-000231', patente: 'AF985DC', chofer: 'González Gustavo Adrián', darsena: 1, minutos: 12, items: [item('bolsa_2kg', '2kg', 920), item('bolsa_10kg', '10kg', 40)] }),
-  remito({ id: 'RC-DT-000232', patente: 'AH954MH', chofer: 'Gallo Braian Agustin', darsena: 2, minutos: 34, items: [item('bolsa_3kg', '3kg', 540), item('escamas_10kg', 'ESCAMA', 85), item('barra', 'BARRA', 12)] }),
+  remito({ id: 'RC-DT-000231', patente: 'AF985DC', chofer: 'González Gustavo Adrián', darsena: 1, minutos: 12, items: [item('bolsa_2kg', '2kg', 920), item('bolsa_10kg', '10kg', 40), item('bolsa_3kg', '3kg', 15), item('escamas_10kg', 'ESCAMA', 3), item('barra', 'BARRA', 14), item('agua_6l', 'AGUA', 20), item('anticongelante', 'ANTIC.', 50)] }),   // siete productos: renglones compactos a dos columnas
+  remito({ id: 'RC-DT-000232', patente: 'AH954MH', chofer: 'Gallo Braian Agustin', darsena: 2, minutos: 34, items: [item('bolsa_3kg', '3kg', 540), item('escamas_10kg', 'ESCAMA', 85), item('barra', 'BARRA', 12), item('agua_6l', 'AGUA', 90), item('anticongelante', 'ANTIC.', 25)] }),   // cinco productos: renglones compactos
   remito({ id: 'RC-DT-000233', patente: 'AD772KR', chofer: 'Morinigo Raul Martin', minutos: 4, items: [item('bolsa_3kg', '3kg', 360)] }),   // en espera de boca
 ]
 const VOLVIERON = [

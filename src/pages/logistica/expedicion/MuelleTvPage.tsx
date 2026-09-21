@@ -380,7 +380,9 @@ export default function MuelleTvPage() {
           pedido de los chicos del muelle vía Ariel): visto desde donde cuelga la tele, las bocas
           van de izquierda a derecha 5 4 3 2 1, así la pantalla es un espejo del lugar. Las de
           ventanilla (4 y 5) son las de los clientes que compran para revender. */}
-      <div className="grid gap-4" style={{ height: 440, gridTemplateColumns: `repeat(${totalDarsenas}, minmax(0, 1fr))` }}>
+      {/* La fila mide 440 y NO crece: sin `gridTemplateRows` la pista se estiraba con
+          una carga de cinco productos y la zona de abajo se dibujaba encima (21/09). */}
+      <div className="grid gap-4" style={{ height: 440, gridTemplateRows: 'minmax(0, 1fr)', gridTemplateColumns: `repeat(${totalDarsenas}, minmax(0, 1fr))` }}>
         {ordenFisico.map((n) => {
           // Un camión que volvió y está en la boca esperando conteo pisa todo lo demás:
           // es la alerta roja (2026-09-15, el chofer elige la dársena al volver).
@@ -470,6 +472,20 @@ const TOPE_DARSENA_MIN = 25
 // Helpers puros a nivel módulo: no dependen de estado, así las zonas memoizadas
 // reciben siempre las mismas referencias.
 const patente = (label: string) => label.split('·')[0].trim()
+/** Un camión con dos remitos en el día es UN camión en el chip (21/09: SALE repetía la patente). */
+const patentesUnicas = (lista: { camionLabel: string }[]): string[] => [...new Set(lista.map((r) => patente(r.camionLabel)))]
+
+/**
+ * Tamaño de los renglones de una boca según cuántos productos lleva (21/09): con
+ * cinco o más, los de 34/52 px no entran en los 440 px de la fila y el último
+ * quedaba tapado por la zona de abajo. Hasta cuatro, grande; cinco o seis,
+ * compacto; siete o más, compacto a dos columnas. Nunca se esconde un renglón.
+ */
+const tallaRenglones = (cantidad: number) => {
+  if (cantidad >= 7) return { lista: 'grid grid-cols-2 gap-x-4 gap-y-1', fila: 'pb-1', nombre: 'text-[24px]', numero: 'text-[36px]', unidad: 'text-[18px]', sueltas: 'text-[20px]' }
+  if (cantidad >= 5) return { lista: 'flex flex-col gap-1', fila: 'pb-1', nombre: 'text-[26px]', numero: 'text-[40px]', unidad: 'text-[20px]', sueltas: 'text-[22px]' }
+  return { lista: 'flex flex-col gap-2', fila: 'pb-1.5', nombre: 'text-[34px]', numero: 'text-[52px]', unidad: 'text-[26px]', sueltas: 'text-[30px]' }
+}
 const minutosDesde = (ahora: number, t: { toMillis(): number }) => Math.max(0, Math.round((ahora - t.toMillis()) / 60_000))
 const horaDe = (t: { toDate(): Date }) => t.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })
 
@@ -504,6 +520,7 @@ export const DarsenaCamion = memo(function DarsenaCamion({ n, r, desglose, ahora
   ahora: number
 }) {
   const minutos = r ? minutosDesde(ahora, r.fecha) : 0
+  const t = tallaRenglones(r?.items.length ?? 0)
   const tag = (
     <div className="flex justify-between items-baseline">
       <span className="text-4xl font-black text-gray-500">{n}</span>
@@ -514,14 +531,14 @@ export const DarsenaCamion = memo(function DarsenaCamion({ n, r, desglose, ahora
   )
   if (!r) {
     return (
-      <div className="rounded-[20px] p-4 flex flex-col border-[5px] border-gray-800 bg-[#0b1220]">
+      <div className="rounded-[20px] p-4 flex flex-col min-h-0 overflow-hidden border-[5px] border-gray-800 bg-[#0b1220]">
         {tag}
         <p className="flex-1 flex items-center justify-center text-[40px] font-black text-gray-600">LIBRE</p>
       </div>
     )
   }
   return (
-    <div className="rounded-[20px] p-4 flex flex-col border-[5px] border-amber-400 bg-amber-400/10 min-w-0"
+    <div className="rounded-[20px] p-4 flex flex-col min-h-0 overflow-hidden border-[5px] border-amber-400 bg-amber-400/10 min-w-0"
       style={{ boxShadow: '0 0 32px rgba(251,191,36,0.25)' }}>
       {tag}
       <p className="text-[56px] font-black leading-none tracking-tight mt-1">{r.camionLabel.split('·')[0].trim()}</p>
@@ -531,19 +548,19 @@ export const DarsenaCamion = memo(function DarsenaCamion({ n, r, desglose, ahora
       <p className={`text-[22px] font-bold truncate mt-1 ${r.codigo ? 'text-amber-200/80 tabular-nums' : 'text-gray-500'}`}>
         {r.codigo ?? 'SIN REMITO'}
       </p>
-      <div className="flex flex-col gap-2 mt-3 flex-1 min-h-0 overflow-hidden">
+      <div className={`${t.lista} mt-3 flex-1 min-h-0 overflow-hidden`}>
         {r.items.map((i) => {
           const { pallets, sueltas } = desglose(i.productoId, i.cantidad)
           return (
-            <div key={i.productoId} className="pb-1.5" style={{ borderBottom: '2px solid rgba(251,191,36,0.25)' }}>
+            <div key={i.productoId} className={t.fila} style={{ borderBottom: '2px solid rgba(251,191,36,0.25)' }}>
               <div className="flex justify-between items-baseline">
-                <span className="text-[34px] font-bold text-gray-200 leading-none">{corto(i.productoId, i.nombre)}</span>
+                <span className={`${t.nombre} font-bold text-gray-200 leading-none`}>{corto(i.productoId, i.nombre)}</span>
                 {pallets > 0
-                  ? <span className="text-[52px] font-black leading-none tabular-nums text-amber-300">{pallets}<span className="text-[26px] ml-1">PAL</span></span>
-                  : <span className="text-[52px] font-black leading-none tabular-nums">{i.cantidad}</span>}
+                  ? <span className={`${t.numero} font-black leading-none tabular-nums text-amber-300`}>{pallets}<span className={`${t.unidad} ml-1`}>PAL</span></span>
+                  : <span className={`${t.numero} font-black leading-none tabular-nums`}>{i.cantidad}</span>}
               </div>
               {pallets > 0 && sueltas > 0 && (
-                <p className="text-[30px] font-bold text-gray-300 leading-tight tabular-nums">+ {sueltas} sueltas</p>
+                <p className={`${t.sueltas} font-bold text-gray-300 leading-tight tabular-nums`}>+ {sueltas} sueltas</p>
               )}
             </div>
           )
@@ -563,6 +580,7 @@ export const DarsenaCamion = memo(function DarsenaCamion({ n, r, desglose, ahora
 // Misma tarjeta vertical que la de camión (2026-09-15: las cinco bocas van en una fila), con
 // la etiqueta fija de quién usa estas dos dársenas: los clientes que compran para revender.
 export const DarsenaVentanilla = memo(function DarsenaVentanilla({ n, v }: { n: number; v?: VentaVentanilla }) {
+  const tv = tallaRenglones(v?.items.length ?? 0)
   const tag = (
     <div>
       <div className="flex justify-between items-baseline">
@@ -576,24 +594,24 @@ export const DarsenaVentanilla = memo(function DarsenaVentanilla({ n, v }: { n: 
   )
   if (!v) {
     return (
-      <div className="rounded-[20px] p-4 flex flex-col border-[5px] border-gray-800 bg-[#0b1220]">
+      <div className="rounded-[20px] p-4 flex flex-col min-h-0 overflow-hidden border-[5px] border-gray-800 bg-[#0b1220]">
         {tag}
         <p className="flex-1 flex items-center justify-center text-[40px] font-black text-gray-700">LIBRE</p>
       </div>
     )
   }
   return (
-    <div className="rounded-[20px] p-4 flex flex-col border-[5px] border-green-500 bg-green-500/10 min-w-0"
+    <div className="rounded-[20px] p-4 flex flex-col min-h-0 overflow-hidden border-[5px] border-green-500 bg-green-500/10 min-w-0"
       style={{ boxShadow: '0 0 32px rgba(34,197,94,0.3)' }}>
       {tag}
       <p className="text-[76px] font-black leading-none text-green-400 mt-1">T-{v.turno}</p>
       {/* Número del ticket (2026-09-15, pedido de Ariel): factura de ARCA o comprobante interno. */}
       <p className="text-[22px] font-bold text-green-200/80 tabular-nums mt-2 truncate" title={comprobanteCorto(v)}>{comprobanteCorto(v)}</p>
-      <div className="flex flex-col gap-2 mt-3 flex-1 min-h-0 overflow-hidden">
+      <div className={`${tv.lista} mt-3 flex-1 min-h-0 overflow-hidden`}>
         {v.items.map((i) => (
-          <div key={i.productoId} className="flex justify-between items-baseline pb-1.5" style={{ borderBottom: '2px solid rgba(34,197,94,0.25)' }}>
-            <span className="text-[34px] font-bold text-gray-200 leading-none">{corto(i.productoId, i.nombre)}</span>
-            <span className="text-[52px] font-black leading-none tabular-nums">{i.cantidad}</span>
+          <div key={i.productoId} className={`flex justify-between items-baseline ${tv.fila}`} style={{ borderBottom: '2px solid rgba(34,197,94,0.25)' }}>
+            <span className={`${tv.nombre} font-bold text-gray-200 leading-none`}>{corto(i.productoId, i.nombre)}</span>
+            <span className={`${tv.numero} font-black leading-none tabular-nums`}>{i.cantidad}</span>
           </div>
         ))}
       </div>
@@ -610,7 +628,7 @@ export const DarsenaVentanilla = memo(function DarsenaVentanilla({ n, v }: { n: 
 export const DarsenaRetorno = memo(function DarsenaRetorno({ n, r, ahora }: { n: number; r: RemitoCarga; ahora: number }) {
   const espera = minutosDesde(ahora, r.regreso!.hora)
   return (
-    <div className="rounded-[20px] p-4 flex flex-col border-[5px] border-red-500 bg-red-500/10 min-w-0"
+    <div className="rounded-[20px] p-4 flex flex-col min-h-0 overflow-hidden border-[5px] border-red-500 bg-red-500/10 min-w-0"
       style={{ boxShadow: '0 0 32px rgba(239,68,68,0.3)' }}>
       <div className="flex justify-between items-baseline">
         <span className="text-4xl font-black text-gray-500">{n}</span>
@@ -684,12 +702,12 @@ export const Siguen = memo(function Siguen({ cola, ausentes, camionesEnEspera, l
         )}
         {camionesEnEspera.length > 0 && (
           <span className="rounded-xl px-3 py-1 text-[24px] font-black bg-gray-800 border-2 border-gray-600 text-gray-300">
-            ESPERA BOCA {camionesEnEspera.map((r) => patente(r.camionLabel)).join(' ')}
+            ESPERA BOCA {patentesUnicas(camionesEnEspera).join(' ')}
           </span>
         )}
         {listosParaSalir.length > 0 && (
           <span className="rounded-xl px-3 py-1 text-[24px] font-black bg-green-900/50 border-2 border-green-600 text-green-300">
-            SALE {listosParaSalir.map((r) => patente(r.camionLabel)).join(' ')}
+            SALE {patentesUnicas(listosParaSalir).join(' ')}
           </span>
         )}
       </div>
