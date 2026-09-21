@@ -8,6 +8,7 @@ import { nombreSucursal } from '@/utils/sucursalesTango'
 import { Plegable } from '@/components/ui/Plegable'
 import MenuCompartirPdf, { type DatosMail, type PdfGenerado } from '@/components/ui/MenuCompartirPdf'
 import { useAuth } from '@/context/AuthContext'
+import ResumenCuentaPanel from '@/components/cuentacorriente/ResumenCuentaPanel'
 import type { SaldoEnVivo } from '@/hooks/useSaldoClienteEnVivo'
 import { useTangoComprobantes } from '@/hooks/useTangoComprobantes'
 import { useRefrescarComprobantesTango } from '@/hooks/useRefrescarComprobantesTango'
@@ -109,6 +110,7 @@ export default function SeccionSaldo({ c, saldoEnVivo }: { c: UserProfile; saldo
   const { refrescando: refrescandoTango, aviso: avisoTango } = useRefrescarComprobantesTango(c, actor)
   const alertas = useAlertasMora()
   const [modo, setModo] = useState<'pendientes' | 'todas'>('pendientes')
+  const [vista, setVista] = useState<'composicion' | 'resumen'>('composicion')
   const [sucursal, setSucursal] = useState<GrupoRecibo | null>(null)
 
   const comprobantes = useMemo(() => saldo?.comprobantes ?? [], [saldo])
@@ -173,7 +175,24 @@ export default function SeccionSaldo({ c, saldoEnVivo }: { c: UserProfile; saldo
           </p>
           {avisoTango && !refrescandoTango && avisoTango !== 'Actualizado desde Tango.' && <p className="text-[11px] text-amber-700 -mt-1">{avisoTango}</p>}
 
-          {opciones.length > 0 && (
+          {/* Dos preguntas distintas sobre la misma cuenta (2026-09-20):
+              la composición es qué debe HOY y sirve para cobrar; el resumen es
+              qué pasó entre dos fechas y sirve cuando el cliente dice que algo
+              ya lo pagó. Las dos se le comparten al cliente. */}
+          <div className="flex gap-1.5">
+            {([['composicion', 'Composición'], ['resumen', 'Resumen de cuenta']] as const).map(([v, texto]) => (
+              <button key={v} type="button" onClick={() => setVista(v)}
+                className={`flex-1 rounded-lg border px-3 min-h-9 text-xs font-semibold ${vista === v ? 'bg-accent text-white border-accent' : 'bg-white text-gray-700 border-[#D3D1C7]'}`}>
+                {texto}
+              </button>
+            ))}
+          </div>
+
+          {vista === 'resumen' && (
+            <ResumenCuentaPanel cliente={c} indices={indices} saldo={saldo} datosAl={saldo?.actualizadoEn?.toDate() ?? null} />
+          )}
+
+          {vista === 'composicion' && opciones.length > 0 && (
             <select value={sucursal ? claveGrupo(sucursal) : ''} onChange={(e) => setSucursal(opciones.find((o) => claveGrupo(o.grupo) === e.target.value)?.grupo ?? null)}
               aria-label="Sucursal"
               className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent">
@@ -182,20 +201,22 @@ export default function SeccionSaldo({ c, saldoEnVivo }: { c: UserProfile; saldo
             </select>
           )}
 
-          <div className="flex gap-1.5">
-            {(['pendientes', 'todas'] as const).map((m) => (
-              <button key={m} type="button" onClick={() => setModo(m)}
-                className={`flex-1 rounded-lg border px-3 py-1.5 text-xs font-semibold ${modo === m ? 'bg-accent text-white border-accent' : 'bg-white text-gray-700 border-[#D3D1C7]'}`}>
-                {m === 'pendientes' ? 'Pendientes' : 'Todas (12 meses)'}
-              </button>
-            ))}
-          </div>
+          {vista === 'composicion' && (
+            <div className="flex gap-1.5">
+              {(['pendientes', 'todas'] as const).map((m) => (
+                <button key={m} type="button" onClick={() => setModo(m)}
+                  className={`flex-1 rounded-lg border px-3 py-1.5 text-xs font-semibold ${modo === m ? 'bg-accent text-white border-accent' : 'bg-white text-gray-700 border-[#D3D1C7]'}`}>
+                  {m === 'pendientes' ? 'Pendientes' : 'Todas (12 meses)'}
+                </button>
+              ))}
+            </div>
+          )}
 
-          {bloques.length === 0 && (
+          {vista === 'composicion' && bloques.length === 0 && (
             <p className="text-sm text-gray-600">{modo === 'todas' ? 'No hay comprobantes en los últimos 12 meses.' : 'No tiene comprobantes pendientes.'}</p>
           )}
 
-          {bloques.map((b) => (
+          {vista === 'composicion' && bloques.map((b) => (
             <div key={claveGrupo(b.grupo)} className="rounded-xl border border-[#D3D1C7] overflow-hidden">
               <div className="flex justify-between items-center px-3 py-2 bg-[#F8F7F2]">
                 <div className="min-w-0">
@@ -245,6 +266,9 @@ export default function SeccionSaldo({ c, saldoEnVivo }: { c: UserProfile; saldo
               acá quedaba al final de un plegable, había que abrir la sección y
               bajar hasta el fondo para encontrarlo. */}
 
+          {/* El PDF del resumen lo arma su propio panel; éste es el de la
+              composición y solo tiene sentido en esa vista. */}
+          {vista === 'composicion' && (
           <div>
             <p className="text-xs font-semibold text-secundario uppercase tracking-wide mb-1.5">
               {tituloComposicion}{etiquetaSucursal ? ` · ${etiquetaSucursal}` : ''}
@@ -259,6 +283,7 @@ export default function SeccionSaldo({ c, saldoEnVivo }: { c: UserProfile; saldo
             />
             {!email && <p className="text-[11px] text-secundario mt-1">Este cliente no tiene mail en Tango: para mandarlo por mail vas a tener que escribirlo.</p>}
           </div>
+          )}
         </div>
       )}
     </Plegable>

@@ -203,7 +203,35 @@ export default function ResumenCuentaPanel({ cliente, indices, saldo, datosAl }:
         </p>
       )}
 
-      <div className="overflow-x-auto">
+      {/* En el teléfono (la ficha del supervisor, en la calle) la tabla de cinco
+          columnas no entra: los mismos movimientos van como tarjetas. */}
+      <ul className="sm:hidden divide-y divide-[#E7E5DC] border-y border-[#E7E5DC]">
+        <li className="py-2 flex justify-between text-sm">
+          <span className="text-secundario">Saldo al {fechaCorta(desde)}</span>
+          <span className="tabular-nums text-gray-900">{formatoARS(resumen.saldoInicial)}</span>
+        </li>
+        {resumen.movimientos.map((m) => (
+          <li key={`m-${m.tipo}-${m.numero}-${m.fecha}`} className="py-2">
+            <div className="flex justify-between items-baseline gap-2">
+              <span className="text-sm text-gray-900 truncate" title={`${m.tipo} ${m.numero}`}>{m.tipo} {m.numero}</span>
+              <span className={`text-sm tabular-nums shrink-0 ${m.haber ? 'text-accent' : 'text-gray-900'}`}>
+                {m.haber ? `− ${formatoARS(m.haber)}` : formatoARS(m.debe)}
+              </span>
+            </div>
+            <div className="flex justify-between items-baseline gap-2 text-xs text-secundario">
+              <span className="tabular-nums">{fechaCorta(m.fecha)}</span>
+              <span className="tabular-nums">saldo {formatoARS(m.saldo)}</span>
+            </div>
+          </li>
+        ))}
+        {resumen.movimientos.length === 0 && <li className="py-2 text-sm text-secundario">Sin movimientos en el período.</li>}
+        <li className="py-2 flex justify-between text-sm font-semibold">
+          <span>Saldo al {fechaCorta(hasta)}</span>
+          <span className="tabular-nums">{formatoARS(resumen.saldoFinal)}</span>
+        </li>
+      </ul>
+
+      <div className="overflow-x-auto hidden sm:block">
         <table className="w-full text-sm">
           <thead>
             <tr>
