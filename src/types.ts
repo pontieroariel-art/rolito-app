@@ -1087,6 +1087,10 @@ export interface FacturaTangoDetalle {
   cae:            string          // '' si no es electrónica
   caeVto:         string          // yyyy-MM-dd
   remitos:        string[]
+  /** Las leyendas de la cabecera de Tango, sin las vacías (2026-09-21). */
+  leyendas?:      string[]
+  /** Orden de compra del cliente (2026-09-21): columna propia o la leyenda que la nombra. */
+  ordenCompra?:   string
   actualizadoEn?: Timestamp
 }
 

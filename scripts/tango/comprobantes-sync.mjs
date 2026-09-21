@@ -91,6 +91,13 @@ async function leerEmpresa({ cfg, log }, empresa, database, desde, codigos) {
   const fc = (col) => filtroClientes(codigos, col)
   const params = { desde, ...fc('x').params }
   const t0 = Date.now()
+  // Orden de compra del cliente (2026-09-21): las facturas de la app la llevan en
+  // LEYENDA_5 ("O. compra: ..."); si la oficina la carga en una columna propia de
+  // GVA12, se declara en config/tango.comprobantes.columnaOrdenCompra y se lee
+  // solo si la columna existe (nombre validado: nada que no sea A-Z, 0-9 y _).
+  const pedidaOc = String(cfg.comprobantes?.columnaOrdenCompra ?? '').trim().toUpperCase()
+  const columnaOc = /^[A-Z0-9_]{1,40}$/.test(pedidaOc) && (await columnasDe(p, 'GVA12')).includes(pedidaOc) ? pedidaOc : null
+  if (pedidaOc && !columnaOc) log(`  ${empresa}: config/tango.comprobantes.columnaOrdenCompra = "${pedidaOc}" no es una columna de GVA12, se ignora`)
 
   // SIN filtro por T_COMP (2026-09-13): hasta hoy pedía IN ('FAC','N/C','N/D') y las notas de
   // crédito no llegaban nunca, porque en estas empresas el tipo es 'NC' (el talonario 1109/1110
@@ -99,7 +106,8 @@ async function leerEmpresa({ cfg, log }, empresa, database, desde, codigos) {
   // la empresa. El tipo se normaliza en tipoCorto() y la app rotula el que no conoce.
   const facturas = await consulta(p, `
     SELECT ID_GVA12, T_COMP, TCOMP_IN_V, N_COMP, FECHA_EMIS, IMPORTE, IMPORTE_GR, IMPORTE_EX, IMPORTE_IV, IMPORTE_IN, ESTADO, COD_CLIENT,
-           CAT_IVA, COND_VTA, COD_VENDED, CAICAE, CAICAE_VTO, FECHA_ANU
+           CAT_IVA, COND_VTA, COD_VENDED, CAICAE, CAICAE_VTO, FECHA_ANU,
+           LEYENDA_1, LEYENDA_2, LEYENDA_3, LEYENDA_4, LEYENDA_5${columnaOc ? `, ${columnaOc}` : ''}
     FROM GVA12 WHERE FECHA_EMIS >= @desde${fc('COD_CLIENT').sql}`, params)
   const renglonesFac = await consulta(p, `
     SELECT r.T_COMP, r.N_COMP, r.N_RENGL_V, r.COD_ARTICU, a.DESCRIPCIO, r.CANTIDAD, r.PRECIO_NET, r.PORC_DTO, r.PORC_IVA, r.IMP_NETO_P
@@ -136,7 +144,7 @@ async function leerEmpresa({ cfg, log }, empresa, database, desde, codigos) {
   log(`  ${empresa}: ${facturas.length} comprobantes de venta [${detalleTipos}] (${renglonesFac.length} renglones), ${remitos.length} remitos (${renglonesRem.length} renglones), ${relacion.length} cruces, ${Object.keys(clientes).length} clientes — ${((Date.now() - t0) / 1000).toFixed(1)} s`)
 
   const { porFactura, porRemito } = relacionDeFilas(relacion)
-  const f = mapearFacturas({ empresa, facturas, renglones: renglonesFac, remitosPorFactura: porFactura, clientes, condiciones, vendedores })
+  const f = mapearFacturas({ empresa, facturas, renglones: renglonesFac, remitosPorFactura: porFactura, clientes, condiciones, vendedores, columnaOrdenCompra: columnaOc })
   const r = mapearRemitos({ empresa, remitos, renglones: renglonesRem, facturasPorRemito: porRemito, talonarios, clientes, condiciones })
   return { resumenFacturas: f.resumen, resumenRemitos: r.resumen, detalles: [...f.detalles, ...r.detalles], clientes, conteo: { facturas: facturas.length, remitos: remitos.length } }
 }

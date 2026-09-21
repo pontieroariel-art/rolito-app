@@ -326,14 +326,19 @@ export function armarFacturaTangoArcaPdf(
         condicionVenta: c.condicionVenta,
         vendedor:       c.vendedor,
       },
-      renglones: d.renglones.map((r) => ({
+      renglones: d.renglones.map((r, i) => ({
         descripcion:    r.descripcion,
         cantidad:       r.cantidad,
         unidad:         'UNI',
         precioUnitario: r.precioUnitario,
         total:          r.importe,
+        ...(i === 0 && d.ordenCompra ? { notas: [`Orden de compra: ${d.ordenCompra}`] } : {}),
       })),
       ...(d.remitos.length ? { referencias: d.remitos.map((r) => r.trim()) } : {}),
+      // Orden de compra (2026-09-21): igual que la factura de la app
+      // (facturaDeVenta.ts), como nota bajo el primer renglón. La lee el lector
+      // de las leyendas de Tango o de la columna configurada.
+      ...(d.ordenCompra ? { ordenCompra: d.ordenCompra } : {}),
       ...(vto ? { vencimiento: { importe: d.totales.total, fecha: vto } } : {}),
       totales: { subtotal, bonificaciones, iva: d.totales.iva, percIibbCaba: percepciones, total: d.totales.total },
       percepcionesEtiqueta: 'Percepciones',

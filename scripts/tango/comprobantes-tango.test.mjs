@@ -75,6 +75,25 @@ describe('mapearFacturas', () => {
     expect(porRemito).toEqual({ R0000100482053: ['A0010100282787'] })
   })
 
+  it('la orden de compra sale de la leyenda que la nombra, o de la columna propia si la empresa la usa (2026-09-21)', () => {
+    const base = { ...facturas[0], LEYENDA_1: 'ROLITO:VC:abc', LEYENDA_2: '  ', LEYENDA_5: 'O. compra: 4521-B' }
+    const conLeyenda = mapearFacturas({ empresa: 'redonhielo', facturas: [base], renglones: [], remitosPorFactura: {}, clientes: {}, condiciones: {}, vendedores: {} })
+    expect(conLeyenda.detalles[0].doc.ordenCompra).toBe('4521-B')
+    expect(conLeyenda.detalles[0].doc.leyendas).toEqual(['ROLITO:VC:abc', 'O. compra: 4521-B'])
+    // Como la tipea la oficina.
+    for (const l of ['OC 778', 'Orden de compra Nº 778', 'O/C: 778', 'oc-778']) {
+      const r = mapearFacturas({ empresa: 'redonhielo', facturas: [{ ...facturas[0], LEYENDA_3: l }], renglones: [], remitosPorFactura: {}, clientes: {}, condiciones: {}, vendedores: {} })
+      expect(r.detalles[0].doc.ordenCompra, l).toBe('778')
+    }
+    // Columna propia: manda sobre la leyenda.
+    const conColumna = mapearFacturas({ empresa: 'redonhielo', facturas: [{ ...base, NRO_OC: ' 9001 ' }], renglones: [], remitosPorFactura: {}, clientes: {}, condiciones: {}, vendedores: {}, columnaOrdenCompra: 'NRO_OC' })
+    expect(conColumna.detalles[0].doc.ordenCompra).toBe('9001')
+    // Sin nada, no se escribe el campo.
+    const sinNada = mapearFacturas({ empresa: 'redonhielo', facturas: [facturas[0]], renglones: [], remitosPorFactura: {}, clientes: {}, condiciones: {}, vendedores: {} })
+    expect(sinNada.detalles[0].doc.ordenCompra).toBeUndefined()
+    expect(sinNada.detalles[0].doc.leyendas).toBeUndefined()
+  })
+
   it('sin CAE queda vacío; la diferencia entre el total y los componentes va a "otros"', () => {
     const { detalles } = mapearFacturas({ empresa: 'redonhielo', facturas: [{ ...facturas[0], CAICAE: null, IMPORTE: 85000 }], renglones: [], remitosPorFactura: {}, clientes: {}, condiciones: {}, vendedores: {} })
     expect(detalles[0].doc.cae).toBe(''); expect(detalles[0].doc.caeVto).toBe('')

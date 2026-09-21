@@ -97,7 +97,26 @@ export function clienteDe(fila, catIva, condVenta, vendedor) {
  * y relación GVA54 ya resuelta a { 'FAC_A…': ['R…', …] }.
  * Devuelve { resumen: { codigo: { clave: resumen } }, detalles: [ { id, doc } ] }.
  */
-export function mapearFacturas({ empresa, facturas, renglones, remitosPorFactura, clientes, condiciones, vendedores }) {
+/**
+ * Orden de compra del cliente en una factura de Tango (2026-09-21). Primero la
+ * columna propia si la empresa la usa (`columnaOrdenCompra`), si no la leyenda
+ * que la nombra: la app escribe "O. compra: 4521" en la leyenda 5 y la oficina
+ * suele tipear "OC 4521" / "Orden de compra 4521" en alguna de las cinco.
+ */
+export function ordenCompraDe(f, columnaOrdenCompra) {
+  const propia = columnaOrdenCompra ? txt(f[columnaOrdenCompra]) : ''
+  if (propia) return propia
+  for (const l of leyendasDe(f)) {
+    const m = /^\s*(?:o\.?\s*(?:de\s*)?compra|orden\s+de\s+compra|o\s*\/\s*c|oc)\s*[:.#-]?\s*(?:n[º°o]?\.?\s*)?(.+?)\s*$/i.exec(l)
+    if (m && m[1]) return m[1]
+  }
+  return ''
+}
+
+/** Las cinco leyendas de la cabecera, sin las vacías. */
+export const leyendasDe = (f) => [1, 2, 3, 4, 5].map((i) => txt(f[`LEYENDA_${i}`])).filter(Boolean)
+
+export function mapearFacturas({ empresa, facturas, renglones, remitosPorFactura, clientes, condiciones, vendedores, columnaOrdenCompra = null }) {
   const renglonesPor = new Map()
   for (const r of renglones) {
     const k = claveFactura(r.T_COMP, r.N_COMP)
@@ -133,6 +152,8 @@ export function mapearFacturas({ empresa, facturas, renglones, remitosPorFactura
     const cliente = clienteDe(clientes[codigo], f.CAT_IVA, condiciones[String(f.COND_VTA)], vendedores[txt(f.COD_VENDED)] ?? txt(f.COD_VENDED))
     const cae = txt(f.CAICAE)
     const familia = familiaDe(f.TCOMP_IN_V, tipo)
+    const leyendas = leyendasDe(f)
+    const ordenCompra = ordenCompraDe(f, columnaOrdenCompra)
     const detalle = {
       empresa, tipo, familia, numero, codigo, fecha,
       letra:      p?.letra ?? numero.charAt(0),
@@ -147,6 +168,8 @@ export function mapearFacturas({ empresa, facturas, renglones, remitosPorFactura
       cae,
       caeVto:     cae ? iso(f.CAICAE_VTO) : '',
       remitos,
+      ...(leyendas.length ? { leyendas } : {}),
+      ...(ordenCompra ? { ordenCompra } : {}),
     }
     const h = huella(detalle)
     if (!resumen[codigo]) resumen[codigo] = {}
