@@ -5,6 +5,7 @@ import Button from '@/components/ui/Button'
 import MenuCompartirPdf, { type DatosMail, type PdfGenerado } from '@/components/ui/MenuCompartirPdf'
 import EnvioLoteModal from '@/components/facturacion/EnvioLoteModal'
 import VentasAppCliente from '@/components/facturacion/VentasAppCliente'
+import ResumenCuentaPanel from '@/components/cuentacorriente/ResumenCuentaPanel'
 import RemitosPendientesTango from '@/components/facturacion/RemitosPendientesTango'
 import RecibosPendientesTango from '@/components/facturacion/RecibosPendientesTango'
 import { useAuth } from '@/context/AuthContext'
@@ -27,7 +28,7 @@ import { formatoARS } from '@/utils/money'
 import { nombreSucursal } from '@/utils/sucursalesTango'
 import { NOMBRE_EMPRESA_CORTO, estaVinculadoATango } from '@/utils/tangoEmpresas'
 import { haceCuanto } from '@/utils/tiempo'
-import type { ComprobanteSaldoTango, UserProfile } from '@/types'
+import type { ComprobanteSaldoTango, SaldoTango, UserProfile } from '@/types'
 import type { GrupoRecibo as Grupo } from '@/utils/composicionSaldos'
 
 // Comprobantes de clientes (2026-09-10, pedido de facturación): buscar un
@@ -100,11 +101,14 @@ function PanelCliente({ uid, onCerrar }: { uid: string; onCerrar: () => void }) 
   const { indices, cargando: cargandoIndices } = useTangoComprobantes(cliente)
   const { refrescar, refrescando, aviso: avisoTango } = useRefrescarComprobantesTango(cliente ?? null, actor)
   const [pendientes, setPendientes] = useState<ComprobanteSaldoTango[]>([])
+  // El doc entero del saldo: el resumen de cuenta lo necesita para calcular el
+  // saldo inicial hacia atrás desde el de hoy.
+  const [saldoDoc, setSaldoDoc] = useState<SaldoTango | null>(null)
   const [saldoAl, setSaldoAl] = useState<{ toDate(): Date } | undefined>(undefined)
 
   // Saldo en caché (saldosTango): marca cuáles facturas siguen debiendo. La
   // consulta en vivo la piden supervisor/caja; acá alcanza con la caché.
-  useEffect(() => subscribeSaldoCliente(uid, (s) => { setPendientes(s?.comprobantes ?? []); setSaldoAl(s?.actualizadoEn ?? undefined) }), [uid])
+  useEffect(() => subscribeSaldoCliente(uid, (s) => { setPendientes(s?.comprobantes ?? []); setSaldoAl(s?.actualizadoEn ?? undefined); setSaldoDoc(s) }), [uid])
 
   const bloques = useMemo(() => armarComposicion(pendientes, indices, 'todas'), [pendientes, indices])
   const items = useMemo(() => armarItemsLote(bloques, indices), [bloques, indices])
@@ -238,6 +242,21 @@ function PanelCliente({ uid, onCerrar }: { uid: string; onCerrar: () => void }) 
       </div>
 
       {aviso && <p className="text-xs text-amber-700 px-1">{aviso}</p>}
+
+      {/* Resumen de cuenta (2026-09-20): qué pasó en la cuenta entre dos fechas,
+          con el saldo corriendo. Es la otra mitad de la composición de saldos —
+          ésta sirve para cobrar, aquélla para discutir un pago con el cliente. */}
+      {cliente && (
+        <div className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-gray-900">Resumen de cuenta</h2>
+          <ResumenCuentaPanel
+            cliente={cliente}
+            indices={indices}
+            saldo={saldoDoc}
+            datosAl={saldoAl?.toDate() ?? null}
+          />
+        </div>
+      )}
 
       {/* Ventas hechas con la app: desde acá facturación anula las de días ya cerrados (2026-09-11). */}
       <VentasAppCliente clienteUid={uid} />
