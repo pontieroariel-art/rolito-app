@@ -88,15 +88,62 @@ const destinatariosAviso = async (tipo) => {
     return lista.filter((e) => typeof e === 'string' && e.includes('@'));
 };
 exports.destinatariosAviso = destinatariosAviso;
-const elegirProveedor = (cfg) => {
-    const smtp = valorSecreto(exports.smtpPassword);
-    const resend = valorSecreto(exports.resendApiKey);
-    if (cfg.proveedorMail === 'resend')
-        return resend ? 'resend' : smtp ? 'smtp' : 'ninguno';
-    if (cfg.proveedorMail === 'smtp')
-        return smtp ? 'smtp' : resend ? 'resend' : 'ninguno';
-    return smtp ? 'smtp' : resend ? 'resend' : 'ninguno';
+/**
+ * En qué orden se intenta mandar. El primero es el elegido en la config; el
+ * segundo queda de RESPALDO (2026-09-20).
+ *
+ * Hasta hoy había uno solo: si fallaba, el mail se perdía con un console.error
+ * que nadie mira. El 19/09 Microsoft restringió la casilla
+ * WebMail@redonhielo.com.ar por "patrones de envío anómalos" —cien y pico de
+ * comprobantes por día a destinatarios distintos, desde una casilla de
+ * persona, se parece a una cuenta tomada— y podríamos haber estado dos días
+ * sin entregar un solo comprobante sin enterarnos.
+ */
+const ordenProveedores = (cfg) => {
+    const disponibles = [];
+    if (valorSecreto(exports.smtpPassword))
+        disponibles.push('smtp');
+    if (valorSecreto(exports.resendApiKey))
+        disponibles.push('resend');
+    const preferido = cfg.proveedorMail;
+    if (!preferido || !disponibles.includes(preferido))
+        return disponibles;
+    return [preferido, ...disponibles.filter((p) => p !== preferido)];
 };
+/**
+ * Avisa UNA vez por día que el proveedor de siempre se cayó (2026-09-20).
+ *
+ * Va a `historialAdmin` con riesgo alto, que ya dispara mail instantáneo al
+ * super_admin y sale en el panel de control: no hay que inventar un canal
+ * nuevo. Una vez por día porque en un día de reparto esto se dispararía cien
+ * veces, y cien avisos iguales no son un aviso, son ruido que se aprende a
+ * ignorar. El `create` sobre un id con la fecha es el candado: el segundo
+ * mail del día ya encuentra el doc y no escribe nada.
+ */
+async function avisarProveedorCaido(caido, uso, motivo) {
+    const db = (0, firestore_1.getFirestore)();
+    const dia = new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 10); // día argentino
+    try {
+        await db.collection('avisosMailCaido').doc(`${caido}_${dia}`).create({ motivo, uso, en: new Date() });
+    }
+    catch {
+        return; // ya se avisó hoy
+    }
+    try {
+        await db.collection('historialAdmin').add({
+            coleccion: 'configuracion',
+            docId: 'notificaciones',
+            accion: 'mail-proveedor-caido',
+            detalle: `El envío por ${caido} está fallando; los mails salen por ${uso}. Motivo: ${motivo}`,
+            riesgo: 'alto',
+            actor: { uid: 'sistema', nombre: 'Sistema', rol: 'super_admin' },
+            fecha: new Date(),
+        });
+    }
+    catch (e) {
+        console.error('[mail] no se pudo registrar el aviso de proveedor caído:', e.message);
+    }
+}
 const porSmtp = async (mail) => {
     // Import diferido (2026-09-12): la librería solo se carga cuando se manda un mail.
     const nodemailer = await Promise.resolve().then(() => __importStar(require('nodemailer')));
@@ -158,20 +205,35 @@ const enviarMail = async (mail) => {
         console.log(`[MODO TEST] Email interceptado → para: ${destinos} → redirigido a: ${cfg.testEmail} | Asunto: ${mail.subject}`);
         envio = { ...envio, to: cfg.testEmail, cc: undefined, subject: `[TEST → ${destinos}] ${mail.subject}` };
     }
-    const proveedor = elegirProveedor(cfg);
-    if (proveedor === 'ninguno') {
+    const orden = ordenProveedores(cfg);
+    if (!orden.length) {
         console.warn('Ni SMTP_PASSWORD ni RESEND_API_KEY configurados — email omitido:', mail.subject);
-        return { proveedor, error: 'El envío de mails no está configurado' };
+        return { proveedor: 'ninguno', error: 'El envío de mails no está configurado' };
     }
-    try {
-        const id = proveedor === 'smtp' ? await porSmtp(envio) : await porResend(envio);
-        return { proveedor, ...(id ? { id } : {}) };
+    let errorPrimero = '';
+    for (const proveedor of orden) {
+        try {
+            const id = proveedor === 'smtp' ? await porSmtp(envio) : await porResend(envio);
+            if (errorPrimero) {
+                // Que se vea en los logs y en el registro del envío: el mail salió,
+                // pero el proveedor de siempre está caído y alguien tiene que mirarlo.
+                console.warn(`[mail] ${orden[0]} falló y salió por ${proveedor}. Motivo: ${errorPrimero}`);
+                await avisarProveedorCaido(orden[0], proveedor, errorPrimero);
+                return { proveedor, ...(id ? { id } : {}), respaldo: proveedor, errorPrimero };
+            }
+            return { proveedor, ...(id ? { id } : {}) };
+        }
+        catch (err) {
+            const error = err instanceof Error ? err.message : String(err);
+            console.error(`Error enviando email por ${proveedor}:`, error);
+            if (!errorPrimero)
+                errorPrimero = `${proveedor}: ${error}`;
+            else
+                return { proveedor, error: `${errorPrimero} · ${proveedor}: ${error}` };
+        }
     }
-    catch (err) {
-        const error = err instanceof Error ? err.message : String(err);
-        console.error(`Error enviando email por ${proveedor}:`, error);
-        return { proveedor, error };
-    }
+    // Un solo proveedor configurado y falló.
+    return { proveedor: orden[0], error: errorPrimero };
 };
 exports.enviarMail = enviarMail;
 /** Aviso simple sin adjuntos (pedidos, usuarios, alertas): loguea el error y sigue. */
