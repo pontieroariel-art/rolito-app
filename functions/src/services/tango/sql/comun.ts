@@ -255,8 +255,11 @@ export interface RenglonSta20 {
   tcompInS: string
   ncompInS: string
   fecha: Date
-  idMedidaStock: number
+  /** NULL en el renglón "hueco" de un renglón de texto (sin artículo). */
+  idMedidaStock: number | null
   idMedidaVentas: number | null
+  /** CAN_EQUI_V: por defecto la cantidad; Tango deja 1 en el renglón hueco. */
+  canEquiV?: number
   /** Remito: queda pendiente de facturar (= cantidad). Movimientos de stock: 0. */
   cantPendiente?: number
   /** Tango graba 1 en el remito sin precios y 0 en las transferencias (muestras). */
@@ -267,7 +270,7 @@ export interface RenglonSta20 {
 export function renglonSta20(r: RenglonSta20): SentenciaSql {
   return insert(r.etiqueta, 'STA20', [
     varchar('FILLER', '', 1),
-    numeric('CAN_EQUI_V', r.cantidad),
+    numeric('CAN_EQUI_V', r.canEquiV ?? r.cantidad),
     numeric('CANT_DEV', 0),
     numeric('CANT_OC', 0),
     numeric('CANT_PEND', r.cantPendiente ?? 0),

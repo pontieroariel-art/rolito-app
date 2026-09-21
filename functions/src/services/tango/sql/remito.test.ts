@@ -209,4 +209,33 @@ describe('orden de compra del cliente (2026-09-11)', () => {
     expect(sin.leyendas).toHaveLength(2)
     expect(param(sentenciasRemito(sin, datos, cfg, new Date(2026, 8, 11, 9, 0, 0))[0].params, 'LEYENDA4')).toBe('')
   })
+
+  it('va además como renglón de texto: hueco en STA20 + fila en GVA45, después de los artículos (2026-09-21)', () => {
+    const con = remitoDeVenta({ ...venta, ordenCompra: ' 4500-123 ' }, 'abc123', articulos, '01', 1105)
+    expect(con.renglonesTexto).toEqual(['OC 4500-123'])
+    const sentencias = sentenciasRemito(con, datos, cfg, new Date(2026, 8, 11, 9, 0, 0))
+    const n = con.renglones.length + 1
+    const hueco = sentencias.find((s) => s.etiqueta === `INSERT STA20 texto ${n}`)!
+    expect(hueco).toBeDefined()
+    expect(param(hueco.params, 'COD_ARTICU')).toBe('')
+    expect(param(hueco.params, 'CANTIDAD')).toBe(0)
+    expect(param(hueco.params, 'CAN_EQUI_V')).toBe(1)
+    expect(param(hueco.params, 'N_RENGL_S')).toBe(n)
+    expect(param(hueco.params, 'ID_MEDIDA_STOCK')).toBeNull()
+    expect(param(hueco.params, 'IMPUESTO_INTERNO_FIJO')).toBe(0)
+    const gva45 = sentencias.find((s) => s.etiqueta === `INSERT GVA45 texto ${n}`)!
+    expect(gva45.sql).toContain('INSERT INTO "GVA45"')
+    expect(param(gva45.params, 'DESC')).toBe('OC 4500-123')
+    expect(param(gva45.params, 'N_RENGLON')).toBe(n)
+    expect(param(gva45.params, 'T_COMP')).toBe('REM')
+    expect(param(gva45.params, 'TALONARIO')).toBe(cfg.talonario)
+    expect(param(gva45.params, 'N_COMP')).toBe(con.nComp)
+    // El hueco va después de los artículos y antes del stock; el stock no lo toca.
+    const iHueco = sentencias.indexOf(hueco), iStock = sentencias.findIndex((s) => /STA19/.test(s.etiqueta))
+    expect(iHueco).toBeLessThan(iStock)
+    expect(sentencias.filter((s) => /STA19/.test(s.etiqueta))).toHaveLength(con.renglones.length)
+    // Sin orden de compra no hay renglón de texto.
+    const sin = sentenciasRemito(remitoDeVenta(venta, 'abc123', articulos, '01', 1105), datos, cfg, new Date(2026, 8, 11, 9, 0, 0))
+    expect(sin.some((s) => /GVA45|texto/.test(s.etiqueta))).toBe(false)
+  })
 })

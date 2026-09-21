@@ -217,7 +217,7 @@ function cabeceraSta14(c) {
 function renglonSta20(r) {
     return (0, tipos_1.insert)(r.etiqueta, 'STA20', [
         (0, tipos_1.varchar)('FILLER', '', 1),
-        (0, tipos_1.numeric)('CAN_EQUI_V', r.cantidad),
+        (0, tipos_1.numeric)('CAN_EQUI_V', r.canEquiV ?? r.cantidad),
         (0, tipos_1.numeric)('CANT_DEV', 0),
         (0, tipos_1.numeric)('CANT_OC', 0),
         (0, tipos_1.numeric)('CANT_PEND', r.cantPendiente ?? 0),

@@ -69,6 +69,7 @@ function remitoDeVenta(payload, origenId, articulos, codDeposito, puntoVenta, or
             ...(payload.ordenCompra ? [`O. compra: ${String(payload.ordenCompra).trim()}`] : []),
         ],
         usuario: (0, comun_1.usuarioCorto)(payload.cajaNombre ?? payload.choferNombre, ''),
+        renglonesTexto: payload.ordenCompra ? [`OC ${String(payload.ordenCompra).trim()}`.slice(0, 50)] : [],
     };
 }
 /** ¿Ya existe este remito en Tango? (idempotencia: T_COMP + N_COMP). */
@@ -112,6 +113,27 @@ function sentenciasRemito(r, datos, cfg, ahora = new Date()) {
             cantPendiente: ren.cantidad,
             impuestoInternoFijo: 1, // así lo graba Tango en un remito sin precios
         }));
+    });
+    (r.renglonesTexto ?? []).filter((t) => t.trim()).forEach((texto, i) => {
+        const nRenglon = r.renglones.length + i + 1;
+        out.push((0, comun_1.renglonSta20)({
+            etiqueta: `INSERT STA20 texto ${nRenglon}`,
+            codArticu: '', cantidad: 0, canEquiV: 1, tipoMov: 'S', codDeposito: r.codDeposito,
+            nRenglon, tcompInS: 'RE', ncompInS: datos.ncompInS, fecha: r.fecha,
+            idMedidaStock: null, idMedidaVentas: null,
+            cantPendiente: 0, impuestoInternoFijo: 0,
+        }));
+        out.push((0, tipos_1.insert)(`INSERT GVA45 texto ${nRenglon}`, 'GVA45', [
+            (0, tipos_1.varchar)('FILLER', '', 1),
+            (0, tipos_1.varchar)('COD_MODELO', '', 1),
+            (0, tipos_1.varchar)('DESC', texto.trim().slice(0, 50), 50),
+            (0, tipos_1.varchar)('DESC_ADIC', '', 1),
+            (0, tipos_1.varchar)('N_COMP', r.nComp, 14),
+            (0, tipos_1.int)('N_RENGLON', nRenglon),
+            (0, tipos_1.smallint)('TALONARIO', cfg.talonario),
+            (0, tipos_1.varchar)('T_COMP', 'REM', 3),
+            (0, tipos_1.int)('ID_GVA03', null),
+        ], true));
     });
     // 3. Stock del depósito, con la misma concurrencia optimista de Tango.
     for (const ren of r.renglones) {

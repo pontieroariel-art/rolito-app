@@ -27,7 +27,7 @@
 // con el writer de movimientos de stock (movimientoStock.ts).
 
 import type { PayloadVenta } from '../pedido'
-import { type EjecutorSql, type SentenciaSql, type ParametroSql, varchar, int, numeroComprobanteTango } from './tipos'
+import { type EjecutorSql, type SentenciaSql, type ParametroSql, varchar, int, smallint, insert, numeroComprobanteTango } from './tipos'
 import {
   fechaDePayload, renglonesDeItems, siguienteNcompInS, cabeceraSta14, renglonSta20, updateSta19, insertSta19,
   leerArticulo, leerStock, referenciaVenta, numeroInternoDe, leyendaQuienVende, usuarioCorto, nombreDePlanta, type RenglonStock,
@@ -75,6 +75,15 @@ export interface RemitoTango {
   leyendas: string[]
   /** STA14.USUARIO (10): quién vendió, corto ("NDIAZ"). Sin nombre → el usuario fijo de config. */
   usuario?: string
+  /**
+   * Renglones de texto del cuerpo (2026-09-21): la orden de compra como la tipea
+   * facturación ("OC 4501977102"), debajo del último artículo. Tango los guarda
+   * como un renglón "hueco" en STA20 (sin artículo, cantidad 0) más una fila en
+   * GVA45 con el texto y el mismo número de renglón. La leyenda 4 no alcanza:
+   * al facturar el remito, Tango no la copia a la factura; con el renglón de
+   * texto se prueba si sí lo arrastra (traza 26/27 del 21/09).
+   */
+  renglonesTexto?: string[]
 }
 
 /**
@@ -115,6 +124,7 @@ export function remitoDeVenta(
       ...(payload.ordenCompra ? [`O. compra: ${String(payload.ordenCompra).trim()}`] : []),
     ],
     usuario: usuarioCorto(payload.cajaNombre ?? payload.choferNombre, ''),
+    renglonesTexto: payload.ordenCompra ? [`OC ${String(payload.ordenCompra).trim()}`.slice(0, 50)] : [],
   }
 }
 
@@ -161,6 +171,31 @@ export function sentenciasRemito(r: RemitoTango, datos: DatosRemito, cfg: Config
       cantPendiente: ren.cantidad,
       impuestoInternoFijo: 1,   // así lo graba Tango en un remito sin precios
     }))
+  })
+
+  // 2b. Renglones de texto (2026-09-21): un hueco en STA20 (igual que Tango: sin
+  // artículo, cantidad 0, sin unidades, CAN_EQUI_V 1) y el texto en GVA45 con el
+  // mismo número de renglón, a continuación de los artículos. No mueven stock.
+  ;(r.renglonesTexto ?? []).filter((t) => t.trim()).forEach((texto, i) => {
+    const nRenglon = r.renglones.length + i + 1
+    out.push(renglonSta20({
+      etiqueta: `INSERT STA20 texto ${nRenglon}`,
+      codArticu: '', cantidad: 0, canEquiV: 1, tipoMov: 'S', codDeposito: r.codDeposito,
+      nRenglon, tcompInS: 'RE', ncompInS: datos.ncompInS, fecha: r.fecha,
+      idMedidaStock: null, idMedidaVentas: null,
+      cantPendiente: 0, impuestoInternoFijo: 0,
+    }))
+    out.push(insert(`INSERT GVA45 texto ${nRenglon}`, 'GVA45', [
+      varchar('FILLER', '', 1),
+      varchar('COD_MODELO', '', 1),
+      varchar('DESC', texto.trim().slice(0, 50), 50),
+      varchar('DESC_ADIC', '', 1),
+      varchar('N_COMP', r.nComp, 14),
+      int('N_RENGLON', nRenglon),
+      smallint('TALONARIO', cfg.talonario),
+      varchar('T_COMP', 'REM', 3),
+      int('ID_GVA03', null),
+    ], true))
   })
 
   // 3. Stock del depósito, con la misma concurrencia optimista de Tango.
