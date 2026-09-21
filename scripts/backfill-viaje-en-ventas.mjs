@@ -53,8 +53,16 @@ console.log(`viajes desde ${DESDE}: ${remitosSnap.size} | ${APLICAR ? 'APLICANDO
  * anterior a todos, el primero del día: son ventas cargadas antes de salir.
  */
 const viajeDe = (mov, claveCamion, claveChofer) => {
-  const candidatos = (porDia.get(claveDia(mov.fecha.toDate())) ?? []).filter((r) =>
-    (claveCamion && r.camionId === claveCamion) || (!claveCamion && claveChofer && r.choferId === claveChofer))
+  // Igual que utils/viajeDeVenta.ts: primero los viajes del MISMO chofer en ese
+  // camión (dos choferes salen con el mismo camión el mismo día: el 21/09 Gerez y
+  // González en AF985DC, y la primera corrida le cruzó las ventas a Gerez),
+  // después el camión (acompañante sin remito propio), y sin camión, el chofer.
+  const delDia = porDia.get(claveDia(mov.fecha.toDate())) ?? []
+  const delCamion = claveCamion ? delDia.filter((r) => r.camionId === claveCamion) : []
+  const propios = claveChofer ? delCamion.filter((r) => r.choferId === claveChofer) : []
+  const candidatos = propios.length ? propios
+    : delCamion.length ? delCamion
+    : claveChofer ? delDia.filter((r) => r.choferId === claveChofer) : []
   if (!candidatos.length) return null
   const cuando = mov.fecha.toMillis()
   const anteriores = candidatos

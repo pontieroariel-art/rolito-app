@@ -50,11 +50,20 @@ export function viajeDeVenta(venta: Ubicable, viajes: ViajeCandidato[]): string 
   const dia = claveDia(venta.fecha.toDate())
 
   const delDia = viajes.filter((r) => claveDia(r.fecha.toDate()) === dia)
-  const mismos = venta.camionId
-    ? delDia.filter((r) => r.camionId === venta.camionId)
-    : venta.choferId
-      ? delDia.filter((r) => r.choferId === venta.choferId)
-      : []
+  // Primero los viajes del MISMO chofer en ese camión: dos choferes pueden salir
+  // con el mismo camión el mismo día (21/09: Gerez a las 5 y González a las 7 en
+  // AF985DC), y las ventas de uno no pueden caer en el viaje del otro. Si el
+  // chofer no tiene viaje propio en ese camión (acompañante que sale sin remito),
+  // recién ahí vale el viaje del camión; y sin camión, el del chofer.
+  const delCamion = venta.camionId ? delDia.filter((r) => r.camionId === venta.camionId) : []
+  const propios   = venta.choferId ? delCamion.filter((r) => r.choferId === venta.choferId) : []
+  const mismos = propios.length
+    ? propios
+    : delCamion.length
+      ? delCamion
+      : venta.choferId
+        ? delDia.filter((r) => r.choferId === venta.choferId)
+        : []
   if (!mismos.length) return null
 
   // El último que ya había salido cuando se hizo la venta. Si la venta es

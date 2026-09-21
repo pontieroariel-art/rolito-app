@@ -40,6 +40,20 @@ describe('viajeDeVenta', () => {
     expect(viajeDeVenta(venta('2026-09-18T10:00:00Z', { camionId: 'cam30' }), viajes)).toBe('rem-hoy')
   })
 
+  it('dos choferes con el mismo camión el mismo día: cada venta va al viaje de SU chofer', () => {
+    // 21/09 real: Gerez salió a las 5 con AF985DC y González a las 7 con el mismo
+    // camión. El backfill ubicaba por camión y las ventas de Gerez de la mañana
+    // caían en el viaje de González: caja no las veía en la liquidación.
+    const viajes = [
+      viaje('rem-gerez',    'cam12', '2026-09-21T08:08:00Z', 'dep:51'),
+      viaje('rem-gonzalez', 'cam12', '2026-09-21T10:18:00Z', 'dep:31'),
+    ]
+    expect(viajeDeVenta(venta('2026-09-21T11:44:00Z', { choferId: 'dep:51' }), viajes)).toBe('rem-gerez')
+    expect(viajeDeVenta(venta('2026-09-21T11:44:00Z', { choferId: 'dep:31' }), viajes)).toBe('rem-gonzalez')
+    // El acompañante sin remito propio sigue cayendo en el viaje del camión.
+    expect(viajeDeVenta(venta('2026-09-21T11:44:00Z', { choferId: 'dep:99' }), viajes)).toBe('rem-gonzalez')
+  })
+
   it('no cruza de día: una venta de hoy no cae en el viaje de ayer del mismo camión', () => {
     const viajes = [viaje('rem-ayer', 'cam12', '2026-09-17T04:00:00Z')]
     expect(viajeDeVenta(venta('2026-09-18T10:00:00Z'), viajes)).toBeNull()
