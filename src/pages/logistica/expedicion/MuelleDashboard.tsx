@@ -1,6 +1,6 @@
 import { claveDia } from '@/utils/diaReparto'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { CheckCircle2, Eye, MonitorPlay, PackageCheck, Truck, X } from 'lucide-react'
+import { CheckCircle2, Eye, Minus, MonitorPlay, PackageCheck, Plus, Truck, X } from 'lucide-react'
 import Navbar from '@/components/layout/Navbar'
 import PageHeader from '@/components/common/PageHeader'
 import Badge from '@/components/common/Badge'
@@ -480,6 +480,8 @@ export default function MuelleDashboard() {
   const inputClass = 'w-20 h-11 text-center text-base tabular-nums bg-white border border-[#D3D1C7] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent'
   const selectClass = 'w-full h-11 bg-white border border-[#D3D1C7] rounded-lg px-3 text-base text-gray-900 focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent'
   const inputEnvaseClass = `${selectClass} text-right tabular-nums`
+  // Botones de pallet de la vuelta: 44 px, mismos que la tarjeta de carga.
+  const btnPallet = 'w-11 h-11 shrink-0 rounded-lg border border-[#D3D1C7] bg-white text-gray-900 flex items-center justify-center active:scale-95'
 
   return (
     <div className="min-h-screen min-h-dvh bg-[#F8F7F2]">
@@ -916,17 +918,46 @@ export default function MuelleDashboard() {
                   {remitoDescarga && <span className="text-secundario font-normal"> · lo que salió en {remitoDescarga.codigo}</span>}
                 </p>
                 <div className="space-y-1.5">
-                  {productosAContar.map((p) => (
-                    <div key={p.id} className="flex items-center gap-3">
-                      <span className="flex-1 min-w-0 truncate text-base text-gray-900" title={p.nombre}>{p.nombre}</span>
-                      <input
-                        value={sanas[p.id] ?? 0}
-                        onChange={(e) => setSanas((prev) => ({ ...prev, [p.id]: num(e.target.value) }))}
-                        inputMode="numeric"
-                        className={inputClass}
-                      />
-                    </div>
-                  ))}
+                  {/* Igual que en la carga (21/09, Ariel: "en la vuelta estamos errando
+                      en los pallets"): + y − mueven un PALLET entero según el
+                      catálogo, el campo es el total y abajo se lee "3 pallets +
+                      24 sueltas". Lo que se guarda sigue siendo bolsas. */}
+                  {productosAContar.map((p) => {
+                    const upp   = unidadesPorPallet[p.id] ?? 0
+                    const n     = sanas[p.id] ?? 0
+                    const paso  = upp > 0 ? upp : 1
+                    const pal   = upp > 0 ? Math.floor(n / upp) : 0
+                    const suelt = upp > 0 ? n % upp : n
+                    const poner = (v: number) => setSanas((prev) => ({ ...prev, [p.id]: Math.max(0, Math.min(99999, v)) }))
+                    return (
+                      <div key={p.id} className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="flex-1 min-w-0 truncate text-base text-gray-900" title={p.nombre}>{p.nombre}</span>
+                          <button type="button" aria-label={`Menos ${p.nombre}`} title={`−1 pallet (${paso})`} className={btnPallet} onClick={() => poner(n - paso)}>
+                            <Minus size={18} />
+                          </button>
+                          <input
+                            value={n}
+                            onChange={(e) => poner(num(e.target.value))}
+                            inputMode="numeric"
+                            aria-label={`Cantidad de ${p.nombre}`}
+                            className={inputClass}
+                          />
+                          <button type="button" aria-label={`Más ${p.nombre}`} title={`+1 pallet (${paso})`} className={btnPallet} onClick={() => poner(n + paso)}>
+                            <Plus size={18} />
+                          </button>
+                        </div>
+                        {n > 0 && upp > 0 && (
+                          <p className="text-sm text-secundario tabular-nums text-right pr-1">
+                            {pal > 0 && <>{pal} pallet{pal > 1 ? 's' : ''}</>}
+                            {pal > 0 && suelt > 0 && ' + '}
+                            {suelt > 0 && <>{suelt} suelta{suelt > 1 ? 's' : ''}</>}
+                            {` · ${upp} por pallet`}
+                          </p>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
                 {/* Volvió algo que no salió en este remito: un cambio de otro
                     producto, o mercadería de otro viaje. */}
