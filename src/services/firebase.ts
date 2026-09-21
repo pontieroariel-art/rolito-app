@@ -68,10 +68,23 @@ if (SESION_VER_COMO) {
 export const auth = SESION_VER_COMO
   ? initializeAuth(app, { persistence: inMemoryPersistence })
   : getAuth(app)
+// Televisor (2026-09-21): el navegador de las Samsung (TizenBrowser, agente
+// "SMART-TV"/"Tizen") no sostiene el canal en vivo que usa Firestore y la app
+// quedaba en "sin conexión" / `unavailable` sin pasar del login. En una tele se
+// fuerza el canal por long polling y la caché en memoria (el almacenamiento
+// local de esos navegadores es poco confiable). `?tele=1` en la URL fuerza el
+// mismo modo desde cualquier aparato, para probarlo o para un stick raro.
+export const ES_TELE: boolean = (() => {
+  if (typeof navigator === 'undefined') return false
+  if (/[?&]tele=1/.test(window.location.search)) return true
+  return /SMART-TV|Tizen|Web0S|WebOS|BRAVIA|AFTT|AFTS|CrKey/i.test(navigator.userAgent)
+})()
+
 export const db = initializeFirestore(app, {
-  localCache: SESION_VER_COMO
+  localCache: SESION_VER_COMO || ES_TELE
     ? memoryLocalCache()
     : persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+  ...(ES_TELE ? { experimentalForceLongPolling: true } : {}),
 })
 // Storage NO se inicializa acá: va por import() dinámico en services/storage.ts
 // (obtenerStorage), que también conecta su emulador, así @firebase/storage no
