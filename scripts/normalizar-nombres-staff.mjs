@@ -116,7 +116,23 @@ for (const c of cambios) {
   hechos++
 }
 console.log(`\n  Listo: ${hechos} nombres actualizados.`)
-console.log('  Los depósitos de Tango vinculados muestran este nombre, así que la')
-console.log('  lista de Liquidación queda ordenada sola. Los que salen de la')
-console.log('  descripción del depósito en Tango hay que cambiarlos allá.\n')
+
+// Los depósitos guardan una COPIA del nombre del usuario (`usuarioNombre`, la
+// escribe la sync de depósitos). Sin refrescarla, la lista de Liquidación
+// sigue mostrando el nombre viejo hasta la próxima sync. Se recalcula acá
+// mismo, que es lo que haría la sync: nombre del usuario vinculado.
+const porUid = new Map(staff.map((u) => [u.uid, txt(u.nombre)]))
+const deps = await db.collection('depositosTango').get()
+let refrescados = 0
+for (const d of deps.docs) {
+  const uid = txt(d.data().uid)
+  if (!uid) continue
+  const nombre = porUid.get(uid)
+  if (!nombre || nombre === txt(d.data().usuarioNombre)) continue
+  await d.ref.update({ usuarioNombre: nombre })
+  refrescados++
+}
+console.log(`  Depósitos con el nombre refrescado: ${refrescados}.`)
+console.log('  Los que salen de la descripción del depósito en Tango (ALMIRON 01,')
+console.log('  CRISTIAN CURUCHET, SANTOS ALMIRON…) hay que cambiarlos allá.\n')
 process.exit(0)
