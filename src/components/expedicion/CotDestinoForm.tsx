@@ -4,7 +4,7 @@ import ClienteCombobox from '@/components/common/ClienteCombobox'
 import type { ClienteIndex } from '@/types'
 import { useClienteSeleccionado } from '@/hooks/useClienteSeleccionado'
 import { sucursalesDe, etiquetaSucursal } from '@/utils/sucursalesTango'
-import { cuitLimpio, domicilioDeCliente, otraPlanta, parsearCalleNumero } from '@/utils/cot'
+import { cuitLimpio, domicilioDeCliente, importeDeclarado, otraPlanta, parsearCalleNumero } from '@/utils/cot'
 import { formatoARS } from '@/utils/money'
 import { PLANTAS, type CotConfig, type CotDestinoPlan, type CotDomicilio, type CotTipoRecorrido, type PlantaId } from '@/types'
 
@@ -34,6 +34,9 @@ export function faltantesDestinoPlan(plan: CotDestinoPlan | null): string[] {
     if (!plan.destino.razonSocial) faltan.push('Falta el cliente destinatario del COT.')
     if (!plan.destino.domicilio.localidad || !plan.destino.domicilio.calle) faltan.push('Falta el domicilio de destino del COT.')
     if (!plan.respaldo.kg) faltan.push('Faltan los kilos a declarar en el COT.')
+    // ARBA rechaza IMPORTE 0 con destino a un cliente (error 95). Mejor frenar
+    // acá, con caja adelante, que a las 4 de la mañana en el muelle.
+    else if (!(plan.respaldo.importe > 0)) faltan.push('Falta el importe por kilo del COT (Ajustes generales → COT de ARBA): ARBA rechaza un importe en 0.')
   }
   return faltan
 }
@@ -94,14 +97,18 @@ export default function CotDestinoForm({ plantaId, cfg, kg, hayCarga, patente, v
   const domicilioFicha = useMemo<CotDomicilio | null>(() => (cliente ? domicilioDeCliente(cliente, codigoSucursal || null) : null), [cliente, codigoSucursal])
   const domicilio = domicilioEditado ?? domicilioFicha
 
+  const kgNumero = Number(kgDeclarados.replace(/[^\d.]/g, '')) || 0
+  const importe = importeDeclarado(kgNumero, cfg)
   useEffect(() => {
-    // El COT se declara por KILOS. El importe viaja en 0: el reparto no es una
-    // venta, es mercadería propia moviéndose, y lo que ARBA mide acá es el peso.
+    // El COT se declara por KILOS y caja no carga ningún importe. Pero ARBA
+    // rechaza IMPORTE 0 cuando el destino es un cliente (error 95: el 21 y el
+    // 22/09 rebotaron 11 de 11), así que va la carga valuada por kilo con
+    // config/cot.importePorKg. El server lo recalcula igual si llega en 0.
     const respaldo = {
       codigoComprobante: cfg.respaldo.codigoComprobante,
       prefijo: cfg.respaldo.prefijo,
-      importe: 0,
-      kg: Number(kgDeclarados.replace(/[^\d.]/g, '')) || 0,
+      importe,
+      kg: kgNumero,
     }
     const recorrido = { tipo: tipoRecorrido, localidad, ruta }
     if (tipo === 'planta') {
@@ -116,7 +123,7 @@ export default function CotDestinoForm({ plantaId, cfg, kg, hayCarga, patente, v
       },
       respaldo, patente, recorrido,
     })
-  }, [tipo, cliente, codigoSucursal, consumidorFinal, domicilio, kgDeclarados, tipoRecorrido, localidad, ruta, patente, plantaId, cfg.respaldo, onChange])
+  }, [tipo, cliente, codigoSucursal, consumidorFinal, domicilio, kgNumero, importe, tipoRecorrido, localidad, ruta, patente, plantaId, cfg.respaldo, onChange])
 
   const editarDomicilio = (parte: Partial<CotDomicilio> & { calleNumero?: string }) => {
     const base = domicilio ?? { calle: '', numero: 0, cp: '', localidad: '', provincia: 'B' }
@@ -212,7 +219,7 @@ export default function CotDestinoForm({ plantaId, cfg, kg, hayCarga, patente, v
                 manda a buscar un problema que no existe. */}
             <p className="text-[11px] text-secundario mt-0.5">
               {kg > 0
-                ? `La carga pesa ${kg.toLocaleString('es-AR')} kg`
+                ? `La carga pesa ${kg.toLocaleString('es-AR')} kg${importe > 0 ? ` · se declara ${formatoARS(importe)}` : ' · falta el importe por kilo en Ajustes'}`
                 : hayCarga
                   ? 'Falta el peso por producto en Ajustes'
                   : 'Se completa solo con la mercadería'}

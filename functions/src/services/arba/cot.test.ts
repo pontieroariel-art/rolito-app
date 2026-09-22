@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { armarArchivoCot, campo, centesimos, codigoUnicoComprobante, fechaValidez, nombreArchivoCot, parsearRespuestaCot, type CotConfig, type CotSolicitud } from './cot'
+import { armarArchivoCot, campo, centesimos, codigoUnicoComprobante, fechaValidez, nombreArchivoCot, parsearRespuestaCot, provinciaPorCp, type CotConfig, type CotSolicitud } from './cot'
 
 const cfg: CotConfig = {
   habilitado: true, ambiente: 'produccion', cuit: '30-69766897-3', razonSocial: 'REDONHIELO S A',
@@ -72,6 +72,34 @@ describe('archivo TXT del COT', () => {
     expect(r.slice(26, 35)).toEqual(['RUTA PANAMERICANA KM 25.700', '0', 'S/N', '', '', '', '1611', 'DON TORCUATO', 'B'])
     expect(r[r.length - 1]).toBe('0')
     expect(a.nombre).toBe('TB_30697668973_001001_20251210_000002.txt')
+  })
+
+  it('cliente con importe 0: valúa la carga por kilo (config/cot.importePorKg) y lo devuelve para escribirlo en la solicitud', () => {
+    const solCero = { ...sol, respaldo: { ...sol.respaldo, importe: 0 } }
+    const a = armarArchivoCot(remito, solCero, { ...cfg, importePorKg: 800 }, 1)
+    expect(a.importe).toBe(9060 * 800)
+    expect(a.lineas[1].split('|').at(-1)).toBe(centesimos(9060 * 800))
+    // Con importe declarado, el por kilo no lo pisa.
+    expect(armarArchivoCot(remito, sol, { ...cfg, importePorKg: 800 }, 1).importe).toBe(1_800_000)
+    // El traslado entre plantas sigue en 0 aunque haya por kilo.
+    expect(armarArchivoCot({ ...remito, plantaId: 'torcuato' }, { ...solCero, destino: { tipo: 'planta', plantaId: 'merlo' } }, { ...cfg, importePorKg: 800 }, 2).importe).toBe(0)
+  })
+
+  it('cliente con importe 0 y sin importe por kilo: falla con el nombre del ajuste, no con el error 95 de ARBA', () => {
+    const solCero = { ...sol, respaldo: { ...sol.respaldo, importe: 0 } }
+    expect(() => armarArchivoCot(remito, solCero, cfg, 1)).toThrow(/importePorKg/)
+    expect(() => armarArchivoCot(remito, solCero, { ...cfg, importePorKg: 0 }, 1)).toThrow(/importePorKg/)
+  })
+
+  it('provincia por código postal: un C.P. de Capital con provincia B sale como C (error 106 de ARBA)', () => {
+    expect(provinciaPorCp('1428', 'B')).toBe('C')
+    expect(provinciaPorCp('1000', 'B')).toBe('C')
+    expect(provinciaPorCp('1499', 'B')).toBe('C')
+    expect(provinciaPorCp('1500', 'B')).toBe('B')
+    expect(provinciaPorCp('1878', 'B')).toBe('B')
+    expect(provinciaPorCp('', '')).toBe('B')
+    const a = armarArchivoCot(remito, { ...sol, destino: { ...sol.destino, domicilio: { calle: 'SUCRE', numero: 1530, cp: '1428', localidad: 'CAPITAL FEDERAL', provincia: 'B' } } } as CotSolicitud, cfg, 1)
+    expect(a.lineas[1].split('|').slice(18, 21)).toEqual(['1428', 'CAPITAL FEDERAL', 'C'])
   })
 
   it('falla claro si falta el peso de un producto o el CUIT', () => {

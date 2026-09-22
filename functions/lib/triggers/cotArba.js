@@ -64,6 +64,8 @@ async function presentarCotDeRemito(db, remitoId, cit, origen) {
     if (!respuesta.ok || !respuesta.cot)
         return fallar(respuesta.error ?? 'ARBA no devolvió COT');
     await ref.set({
+        // El importe que se declaró, cuando el server lo valuó (la solicitud venía en 0).
+        ...(archivo.importe !== sol.respaldo.importe ? { cotSolicitud: { respaldo: { importe: archivo.importe } } } : {}),
         cot: {
             estado: 'presentado',
             numero: respuesta.cot,

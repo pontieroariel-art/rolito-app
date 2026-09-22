@@ -162,6 +162,28 @@ export function letraProvincia(nombre: string | undefined | null): string {
 }
 
 /**
+ * Letra de provincia coherente con el código postal (2026-09-22). ARBA cruza los
+ * dos campos (error 106) y las sucursales de Tango en Capital vienen con
+ * provincia "Buenos Aires": C.P. 1000 a 1499 es CABA, letra C. Mismo criterio
+ * que el server (functions/services/arba/cot.ts), que es el que manda.
+ */
+export function provinciaPorCp(cp: string, provincia: string): string {
+  const soloDigitos = (cp ?? '').replace(/\D/g, '')
+  const n = Number(soloDigitos.slice(0, 4))
+  if (soloDigitos.length === 4 && n >= 1000 && n <= 1499) return 'C'
+  return provincia || 'B'
+}
+
+/**
+ * Importe a declarar en el COT de un reparto (2026-09-22): la carga valuada por
+ * kilo con config/cot.importePorKg. ARBA rechaza IMPORTE 0 cuando el destino
+ * es un cliente (error 95; el 21 y 22/09 rebotaron 11 de 11), así que el
+ * borrador ya lo manda calculado y el server lo recalcula igual si llega en 0.
+ */
+export const importeDeclarado = (kg: number, cfg: Pick<CotConfig, 'importePorKg'>): number =>
+  kg > 0 && cfg.importePorKg > 0 ? Math.round(kg * cfg.importePorKg) : 0
+
+/**
  * Domicilio de destino de un cliente para el COT: la sucursal (addresses[] por
  * código de Tango) si se eligió una, si no la ficha principal. Prefiere los
  * campos de Tango (domicilio, localidad, C.P.) y cae a la dirección de la app.
@@ -171,8 +193,9 @@ export function domicilioDeCliente(cliente: Pick<UserProfile, 'address' | 'addre
   const domicilio = (dir?.domicilioTango || dir?.address || cliente.domicilioTango || cliente.address || '').split(',')[0]
   const localidad = dir?.localidadTango || (dir ? '' : cliente.localidadTango) || ''
   const cp = dir?.codigoPostalTango || (dir ? '' : cliente.codigoPostalTango) || ''
-  const provincia = letraProvincia(dir?.provinciaTango || (dir ? '' : cliente.provinciaTango))
-  return { ...parsearCalleNumero(domicilio.toUpperCase()), cp: cp.replace(/\D/g, '').slice(0, 8), localidad: localidad.toUpperCase(), provincia }
+  const cpLimpio = cp.replace(/\D/g, '').slice(0, 8)
+  const provincia = provinciaPorCp(cpLimpio, letraProvincia(dir?.provinciaTango || (dir ? '' : cliente.provinciaTango)))
+  return { ...parsearCalleNumero(domicilio.toUpperCase()), cp: cpLimpio, localidad: localidad.toUpperCase(), provincia }
 }
 
 const CUIT_RE = /^\d{11}$/

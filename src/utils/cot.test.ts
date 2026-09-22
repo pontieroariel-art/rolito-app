@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  COT_DEFAULTS, domicilioDeCliente, formatoRespaldo, kgDeItems, letraProvincia, normalizarCotConfig, parsearCalleNumero, patenteValida,
+  COT_DEFAULTS, domicilioDeCliente, formatoRespaldo, importeDeclarado, kgDeItems, letraProvincia, normalizarCotConfig, parsearCalleNumero, patenteValida, provinciaPorCp,
   pesoSugerido, requiereCot, salidaSugerida, talonarioRemitoCarga, validarSolicitudCot,
 } from './cot'
 import type { CotSolicitud, UserProfile } from '@/types'
@@ -63,6 +63,23 @@ describe('COT: domicilios y validación', () => {
     expect(letraProvincia('Ciudad Autónoma de Buenos Aires')).toBe('C')
     expect(letraProvincia('Córdoba')).toBe('X')
     expect(letraProvincia(undefined)).toBe('B')
+  })
+
+  it('la provincia sigue al código postal: C.P. de Capital con provincia "Buenos Aires" sale C (error 106 de ARBA)', () => {
+    expect(provinciaPorCp('1428', 'B')).toBe('C')
+    expect(provinciaPorCp('1643', 'B')).toBe('B')
+    expect(provinciaPorCp('', 'B')).toBe('B')
+    const sucursalMalCargada = {
+      addresses: [{ id: 'FC.530', nombre: 'x', address: '', lat: null, lng: null, horarioApertura: '', horarioCierre: '', contactoNombre: '', contactoTelefono: '', esPrincipal: false,
+        domicilioTango: 'MARISCAL A. JOSE DE SUCRE', localidadTango: 'CAPITAL FEDERAL', codigoPostalTango: '1428', provinciaTango: 'BUENOS AIRES' }],
+    } as unknown as UserProfile
+    expect(domicilioDeCliente(sucursalMalCargada, 'FC.530').provincia).toBe('C')
+  })
+
+  it('importe a declarar: kilos por el importe por kilo de la config; sin config queda en 0 y el borrador lo avisa', () => {
+    expect(importeDeclarado(7850, { importePorKg: 800 })).toBe(6_280_000)
+    expect(importeDeclarado(7850, { importePorKg: 0 })).toBe(0)
+    expect(importeDeclarado(0, { importePorKg: 800 })).toBe(0)
   })
 
   it('arma el domicilio de destino desde la sucursal de Tango, o desde la ficha', () => {

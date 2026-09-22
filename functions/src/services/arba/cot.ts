@@ -22,6 +22,14 @@ export interface CotConfig {
   transportista: { cuit: string }
   plantas: Record<string, CotPlantaConfig>
   productos: Record<string, CotProductoConfig>
+  /**
+   * Valor declarado por kilo (2026-09-22). ARBA rechaza IMPORTE 0 cuando el
+   * destinatario es un cliente (error 95); solo lo admite en el traslado entre
+   * depósitos propios. El borrador de carga viaja con importe 0 (el COT se
+   * declara por kilos), así que el server valúa la carga con esto: kg × valor.
+   * Se edita en Ajustes generales → COT de ARBA → "Importe sugerido por kilo".
+   */
+  importePorKg?: number
 }
 export type CotDestino =
   | { tipo: 'planta'; plantaId: string }
@@ -74,10 +82,22 @@ export const nombreArchivoCot = (cuit: string, planta: CotPlantaConfig, fecha: D
 function domicilioCampos(d: CotDomicilio): string[] {
   const numero = d.numero > 0 ? String(d.numero) : '0'
   const comple = d.numero > 0 ? campo(d.complemento ?? '', 5) : 'S/N'
-  return [campo(d.calle, 40), numero, comple, campo(d.piso, 3), campo(d.dto, 4), campo(d.barrio, 30), campo(d.cp, 8), campo(d.localidad, 50), campo(d.provincia, 1) || 'B']
+  return [campo(d.calle, 40), numero, comple, campo(d.piso, 3), campo(d.dto, 4), campo(d.barrio, 30), campo(d.cp, 8), campo(d.localidad, 50), provinciaPorCp(d.cp, campo(d.provincia, 1))]
 }
 
-export interface ArchivoCot { nombre: string; contenido: string; lineas: string[]; kg: number; productos: number }
+export interface ArchivoCot { nombre: string; contenido: string; lineas: string[]; kg: number; productos: number; importe: number }
+
+/**
+ * Letra de provincia coherente con el código postal (2026-09-22). ARBA cruza
+ * los dos campos (error 106) y las fichas de Tango traen sucursales de Capital
+ * con provincia "Buenos Aires": un C.P. de 1000 a 1499 es CABA, letra C.
+ */
+export function provinciaPorCp(cp: string, provincia: string): string {
+  const soloDigitos = digitos(cp)
+  const n = Number(soloDigitos.slice(0, 4))
+  if (soloDigitos.length === 4 && n >= 1000 && n <= 1499) return 'C'
+  return provincia || 'B'
+}
 
 /**
  * Arma el TXT de UN remito de carga. El destinatario es el cliente elegido por
@@ -110,7 +130,16 @@ export function armarArchivoCot(remito: RemitoParaCot, sol: CotSolicitud, cfg: C
   const destinoDomicilio = d.tipo === 'planta'
     ? (cfg.plantas[d.plantaId]?.domicilio ?? (() => { throw new Error(`Falta config/cot.plantas.${d.plantaId}`) })())
     : d.domicilio
-  const importe = d.tipo === 'planta' ? 0 : sol.respaldo.importe
+  // Importe: el declarado, o la carga valuada por kilo cuando viene en 0 (el
+  // borrador no lo pide). Para un cliente, 0 es rechazo seguro de ARBA (95):
+  // mejor fallar acá con el nombre del ajuste que falta.
+  const importePorKg = Number(cfg.importePorKg ?? 0)
+  const importe = d.tipo === 'planta'
+    ? 0
+    : (sol.respaldo.importe > 0 ? sol.respaldo.importe : Math.round(kgTotal * (importePorKg > 0 ? importePorKg : 0)))
+  if (d.tipo === 'cliente' && !(importe > 0)) {
+    throw new Error('Falta el importe a declarar: la solicitud viene en 0 y config/cot.importePorKg también (Ajustes generales → COT de ARBA → Importe sugerido por kilo)')
+  }
   const fechaSalida = digitos(sol.fechaSalida)
   const horaSalida = digitos(sol.horaSalida).padStart(4, '0').slice(0, 4)
   const patente = sol.patente.toUpperCase().replace(/[^A-Z0-9]/g, '')
@@ -153,6 +182,7 @@ export function armarArchivoCot(remito: RemitoParaCot, sol: CotSolicitud, cfg: C
     lineas,
     kg: Math.round(kgTotal * 100) / 100,
     productos: productos.length,
+    importe,
   }
 }
 
