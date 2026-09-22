@@ -10,8 +10,8 @@
 //   node scripts/arba/reintentar-cot.mjs --aplicar            (presenta todos los listados)
 //   node scripts/arba/reintentar-cot.mjs --aplicar RC-DT-000089 RC-DT-000093   (solo esos códigos)
 //
-// Requiere: functions compiladas (npm --prefix functions run build) y que la
-// cuenta de servicio pueda leer el secret ARBA_CIT (Secret Manager Accessor).
+// Requiere: functions compiladas (npm --prefix functions run build) y la clave
+// CIT por variable de entorno (ver abajo) o permiso de Secret Manager.
 import { readFileSync } from 'fs'
 import { createRequire } from 'module'
 import { fileURLToPath } from 'url'
@@ -52,12 +52,19 @@ if (!(Number(cfg.importePorKg) > 0)) {
   process.exit(1)
 }
 
-// Clave CIT de ARBA: el secret que usan las functions.
-const auth = new GoogleAuth({ credentials: sa, scopes: ['https://www.googleapis.com/auth/cloud-platform'] })
-const client = await auth.getClient()
-const res = await client.request({ url: `https://secretmanager.googleapis.com/v1/projects/${sa.project_id}/secrets/ARBA_CIT/versions/latest:access` })
-const cit = Buffer.from(res.data.payload.data, 'base64').toString('utf8').trim()
-if (!cit) throw new Error('no se pudo leer el secret ARBA_CIT')
+// Clave CIT de ARBA: el secret que usan las functions. La cuenta de servicio
+// de scripts/ no tiene Secret Manager Accessor (403 el 22/09), así que se pasa
+// por variable de entorno con la Firebase CLI, que sí lo lee:
+//   ARBA_CIT=$(firebase functions:secrets:access ARBA_CIT) node scripts/arba/reintentar-cot.mjs --aplicar
+let cit = (process.env.ARBA_CIT ?? '').trim()
+if (!cit) {
+  const auth = new GoogleAuth({ credentials: sa, scopes: ['https://www.googleapis.com/auth/cloud-platform'] })
+  const client = await auth.getClient()
+  const res = await client.request({ url: `https://secretmanager.googleapis.com/v1/projects/${sa.project_id}/secrets/ARBA_CIT/versions/latest:access` })
+    .catch((e) => { throw new Error(`no se pudo leer el secret ARBA_CIT (${e.response?.status ?? e.message}); pasalo con ARBA_CIT=$(firebase functions:secrets:access ARBA_CIT)`) })
+  cit = Buffer.from(res.data.payload.data, 'base64').toString('utf8').trim()
+}
+if (!cit) throw new Error('falta la clave CIT de ARBA')
 
 const { presentarCotDeRemito } = require(path.join(raiz, 'functions/lib/triggers/cotArba.js'))
 let ok = 0, fallo = 0
