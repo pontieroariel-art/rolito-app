@@ -361,6 +361,14 @@ export interface RemitoCarga {
    * muelle cuente. Sin dársena = volvió y espera que se libere una.
    */
   regreso?:      { uid: string; nombre: string; hora: Timestamp; darsena?: number }
+  /**
+   * La descarga de este viaje ya se contó (2026-09-22). Lo escribe SOLO el
+   * servidor (onDescargaMarcaRemito) y no trae cantidades: el muelle sigue
+   * contando a ciegas. Es la señal que la tablet usa para sacar el viaje de
+   * "en reparto, sin descargar", también cuando el conteo fue en la otra
+   * planta (traslado a Merlo). Con una rectificación, apunta a la corrección.
+   */
+  descarga?:     { id: string; codigo?: string | null; hora: Timestamp; plantaId: PlantaId | string; rectificaA?: string }
   tango?:       RemitoTangoEstado
   // COT de ARBA (2026-09-10): kilos totales de la carga (según config/cot.productos),
   // lo que caja declara al emitir y lo que ARBA devolvió (solo lo escribe el server).

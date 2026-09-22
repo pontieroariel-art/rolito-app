@@ -83,6 +83,8 @@ export { onAnulacionSolicitada, onAnulacionResuelta } from './triggers/anulacion
 // facturación para anularlo en Tango y confirmación por el lector de comprobantes.
 export { onVentaCamionAnulada, onVentaVentanillaAnulada, reconciliarRemitosAnulados } from './triggers/ventasAnuladas'
 export { onDescargaContada } from './triggers/descargaRevision'
+// Marca en el remito que su descarga ya se contó, aunque haya sido en la otra planta (2026-09-22).
+export { onDescargaMarcaRemito } from './triggers/descargaMarcaRemito'
 // Anulación de un recibo de cobranza con autorización (2026-09-15): el que cobró
 // pide, un autorizante aprueba, el server marca la cobranza y avisa; la oficina
 // lo anula en Tango y la reconciliación horaria lo confirma.

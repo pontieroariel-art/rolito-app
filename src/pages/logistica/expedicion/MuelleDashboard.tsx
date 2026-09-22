@@ -282,6 +282,9 @@ export default function MuelleDashboard() {
         if (vistos.has(r.id)) return false
         vistos.add(r.id)
         return r.estado !== 'emitido'
+          // El server marca en el remito la descarga contada, también si fue
+          // en la otra planta (2026-09-22): esa no está en las de esta planta.
+          && !r.descarga
           && !viajes.has(r.id) && !choferDia.has(`${claveDia(r.fecha.toDate())}_${r.choferId}`)
       })
       .sort((a, b) => {
