@@ -15,6 +15,11 @@ import { reportError } from '@/services/observability'
 class Boundary extends Component<{ ruta: string; children: ReactNode }, { error: Error | null }> {
   state = { error: null as Error | null }
   static getDerivedStateFromError(error: Error) { return { error } }
+  // Navegar a otra ruta limpia el error SIN remontar las rutas (un `key` por
+  // ruta remontaba también el layout de escritorio en cada clic del sidebar).
+  componentDidUpdate(prev: { ruta: string }) {
+    if (prev.ruta !== this.props.ruta && this.state.error) this.setState({ error: null })
+  }
   componentDidCatch(error: Error, info: ErrorInfo) {
     reportError(error, { componentStack: info.componentStack, boundary: 'pantalla', ruta: this.props.ruta })
   }
@@ -54,8 +59,8 @@ class Boundary extends Component<{ ruta: string; children: ReactNode }, { error:
   }
 }
 
-/** Envuelve las rutas: la `key` por ruta hace que navegar resetee el error. */
+/** Envuelve las rutas: navegar a otra ruta resetea el error. */
 export default function PantallaBoundary({ children }: { children: ReactNode }) {
   const { pathname } = useLocation()
-  return <Boundary key={pathname} ruta={pathname}>{children}</Boundary>
+  return <Boundary ruta={pathname}>{children}</Boundary>
 }
