@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   egresoDeVentaPromo, transferenciaDeCargaDescarga, transferenciaADepositoFijo, sentenciasMovimiento, sentenciaExisteMovimiento,
-  escribirMovimientoStock, TRAZA, type ConfigTipoMovimiento, type DatosMovimiento,
+  escribirMovimientoStock, type ConfigTipoMovimiento, type DatosMovimiento,
 } from './movimientoStock'
 import type { EjecutorSql, ParametroSql } from './tipos'
 import type { PayloadVenta } from '../pedido'

@@ -47,8 +47,6 @@ export interface PreciosTangoDoc {
   resumen: { listas: number; productos: number; especiales: number; errores: string[] }
 }
 
-const PAGE = 500
-
 /** Precios de una empresa: listas + precio por producto en cada lista + especiales por cliente. */
 export async function leerPreciosEmpresa(tango: TangoClient, company: number, articulos: Record<string, string>): Promise<PreciosTangoDoc> {
   const errores: string[] = []

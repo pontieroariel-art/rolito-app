@@ -35,7 +35,6 @@ Object.defineProperty(exports, "EMPRESAS", { enumerable: true, get: function () 
 /** Firestore no admite '.' en nombres de campo: 'FC.280' → 'FC_280'. */
 const claveCliente = (codigoTango) => String(codigoTango).replace(/\./g, '_');
 exports.claveCliente = claveCliente;
-const PAGE = 500;
 /** Precios de una empresa: listas + precio por producto en cada lista + especiales por cliente. */
 async function leerPreciosEmpresa(tango, company, articulos) {
     var _a;

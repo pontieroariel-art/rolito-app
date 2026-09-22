@@ -21,7 +21,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore'
 import { defineSecret } from 'firebase-functions/params'
 import { enviarPushAUsuarios } from '../services/push'
 import {
-  avisoAnularEnTango, avisoSolicitudRecibo, marcaAnulada, motivoLegible, reciboAnuladoEnIndice, transicionRecibo,
+  avisoAnularEnTango, avisoSolicitudRecibo, marcaAnulada, motivoLegible, transicionRecibo,
   urlDelCobrador, urlReemitirRecibo, type AnulacionCobranzaDoc,
 } from '../services/anulacionCobranza'
 import { confirmarRecibosAnulados } from '../services/anuladosEnTango'
