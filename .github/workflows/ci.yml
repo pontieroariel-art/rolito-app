@@ -31,8 +31,8 @@ jobs:
       - name: Lint (src)
         run: npm run lint
 
-      - name: Tests unitarios (vitest)
-        run: npm run test:unit
+      - name: Tests unitarios (vitest) con cobertura
+        run: npm run test:coverage
 
       - name: Typecheck (functions)
         run: npm run typecheck:functions

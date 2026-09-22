@@ -20,7 +20,8 @@
     "seed:emulator": "node scripts/seed-emulator.mjs",
     "seed:dia": "node scripts/seed-dia-caja.mjs",
     "emular:arca": "node scripts/emular-arca.mjs",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test:coverage": "vitest run --coverage"
   },
   "lint-staged": {
     "src/**/*.{ts,tsx}": "eslint --fix",
@@ -63,6 +64,7 @@
     "@types/react-dom": "^19.2.3",
     "@types/web-bluetooth": "^0.0.21",
     "@vitejs/plugin-react": "^4.3.4",
+    "@vitest/coverage-v8": "^4.1.11",
     "autoprefixer": "^10.4.20",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
