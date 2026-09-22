@@ -46,11 +46,8 @@ for (const r of enError) {
 if (!aplicar) { console.log('\n(sin --aplicar: no se presentó nada)'); process.exit(0) }
 if (enError.length === 0) process.exit(0)
 
-const cfg = (await db.doc('config/cot').get()).data() ?? {}
-if (!(Number(cfg.importePorKg) > 0)) {
-  console.error('\nconfig/cot.importePorKg está en 0: los COT a clientes van a rebotar igual. Cargalo en Ajustes generales → COT de ARBA antes de reintentar.')
-  process.exit(1)
-}
+// La carga se valúa a precio de lista (config/cot.listaPrecios en preciosTango/redonhielo);
+// si un producto no tiene precio ahí, la función lo dice por remito.
 
 // Clave CIT de ARBA: el secret que usan las functions. La cuenta de servicio
 // de scripts/ no tiene Secret Manager Accessor (403 el 22/09), así que se pasa
