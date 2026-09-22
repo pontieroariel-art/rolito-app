@@ -7,7 +7,7 @@ import ColaTallerResumen from '../../components/heladeras/dashboard/ColaTallerRe
 import ActividadRecienteFeed from '../../components/heladeras/dashboard/ActividadRecienteFeed'
 import CrearHeladeraModal, { CrearHeladeraData } from '../../components/heladeras/CrearHeladeraModal'
 import { useAuth } from '../../context/AuthContext'
-import { useHeladeras } from '../../hooks/useHeladeras'
+import { useHeladerasStats } from '../../hooks/useHeladerasStats'
 import { useTicketsServicio } from '../../hooks/useTicketsServicio'
 import { usePasosTaller } from '../../hooks/usePasosTaller'
 import { crearHeladera } from '../../services/heladeraService'
@@ -20,7 +20,9 @@ import { TipoPipelineHeladera } from '../../types'
 export default function HeladerasDashboardPage() {
   const { user }   = useAuth()
   const navigate   = useNavigate()
-  const { heladeras }             = useHeladeras()
+  // Conteos del servidor (auditoría 2026-09-22): tres números no justifican
+  // bajar las ~1.700 heladeras con su historial.
+  const { stats }                 = useHeladerasStats()
   const { tickets }               = useTicketsServicio()
   const { pasos: catalogo }       = usePasosTaller()
   const [crearModal, setCrearModal] = useState<TipoPipelineHeladera | null>(null)
@@ -29,13 +31,13 @@ export default function HeladerasDashboardPage() {
   const actor = user ? { uid: user.uid, nombre: user.nombre } : null
 
   const kpis = useMemo(() => {
-    const disponibles = heladeras.filter((h) => h.estado === 'disponible').length
-    const enTaller     = heladeras.filter((h) => h.estado === 'en_taller').length
-    const enComodato   = heladeras.filter((h) => h.estado === 'en_comodato').length
+    const disponibles = stats?.disponible ?? 0
+    const enTaller     = stats?.en_taller ?? 0
+    const enComodato   = stats?.en_comodato ?? 0
     const pendientes = tickets.filter((t) => ['abierto', 'asignado_tecnico', 'asignado_chofer'].includes(t.estado))
     const urgentes = pendientes.filter((t) => t.urgente)
     return { disponibles, enTaller, enComodato, pendientes: pendientes.length, urgentes: urgentes.length }
-  }, [heladeras, tickets])
+  }, [stats, tickets])
 
   const handleBuscar = (e: FormEvent) => {
     e.preventDefault()

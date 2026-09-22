@@ -1,6 +1,8 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { useHeladeras } from '../../../hooks/useHeladeras'
+import { useFirestoreSubscription } from '../../../hooks/useFirestoreSubscription'
+import { subscribeHeladerasRecientes } from '../../../services/heladeraService'
+import type { Heladera } from '../../../types'
 import { tsToDate } from '../../../utils/helpers'
 import { AccionHistorial } from '../../../types'
 
@@ -24,12 +26,18 @@ function tiempoRelativo(date: Date): string {
 // muestran la de UNA heladera puntual). Se arma client-side sobre
 // useHeladeras() (ya trae hasta 500 heladeras ordenadas por updatedAt desc,
 // así que tomar las primeras es un buen proxy de "las que más se tocaron").
+const VACIO: Heladera[] = []
+
 export default function ActividadRecienteFeed() {
-  const { heladeras, loading } = useHeladeras()
+  // Solo las 40 más recientes (auditoría 2026-09-22): antes bajaba las ~1.700
+  // para quedarse con estas.
+  const { data: heladeras, loading } = useFirestoreSubscription<Heladera[]>(
+    (cb, onError) => subscribeHeladerasRecientes(40, cb, onError), [], VACIO,
+  )
 
   const entradas = useMemo<Entrada[]>(() => {
     const flat: Entrada[] = []
-    for (const h of heladeras.slice(0, 40)) {
+    for (const h of heladeras) {
       for (const accion of h.historialAcciones ?? []) {
         flat.push({ ...accion, heladeraId: h.id, heladeraCodigo: h.codigoInterno })
       }

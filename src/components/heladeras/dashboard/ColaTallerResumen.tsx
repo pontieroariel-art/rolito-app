@@ -1,10 +1,45 @@
 import { Link } from 'react-router-dom'
-import { useHeladeras } from '../../../hooks/useHeladeras'
+import { useFirestoreSubscription } from '../../../hooks/useFirestoreSubscription'
 import { usePasosTaller } from '../../../hooks/usePasosTaller'
+import { subscribeHeladerasEsperandoPaso } from '../../../services/heladeraService'
 import { pasosOrdenados } from '../../../utils/heladeraPipeline'
 import { TIPO_PIPELINE_LABELS } from '../../../utils/heladeraLabels'
-import { TipoPipelineHeladera } from '../../../types'
+import { Heladera, PasoTaller, TipoPipelineHeladera } from '../../../types'
 import { tsToDate } from '../../../utils/helpers'
+
+const VACIO: Heladera[] = []
+
+// Una consulta por paso (auditoría 2026-09-22): antes el widget abría la
+// colección entera para quedarse con las que esperan el primer paso.
+function ColaDeTipo({ tipo, primerPaso }: { tipo: TipoPipelineHeladera; primerPaso: PasoTaller }) {
+  const { data, loading } = useFirestoreSubscription<Heladera[]>(
+    (cb, onError) => subscribeHeladerasEsperandoPaso(primerPaso.id, cb, onError), [primerPaso.id], VACIO,
+  )
+  const esperando = data
+    .filter((h) => h.tipoPipeline === tipo)
+    .sort((a, b) => tsToDate(a.updatedAt).getTime() - tsToDate(b.updatedAt).getTime())
+  return (
+    <div>
+      <p className="text-xs font-medium text-secundario mb-1.5">
+        {TIPO_PIPELINE_LABELS[tipo]} · esperando {primerPaso.nombre.toLowerCase()} ({esperando.length})
+      </p>
+      {loading ? (
+        <p className="text-secundario text-xs">Cargando…</p>
+      ) : esperando.length === 0 ? (
+        <p className="text-secundario text-xs">Nada esperando.</p>
+      ) : (
+        <ul className="space-y-1">
+          {esperando.slice(0, 5).map((h) => (
+            <li key={h.id} className="flex items-center justify-between text-sm text-gray-700 px-2 py-1 rounded-lg hover:bg-gray-50">
+              <span className="font-medium">{h.codigoInterno}</span>
+              <span className="text-xs text-secundario">{h.modelo}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
 
 const TIPOS_PIPELINE: TipoPipelineHeladera[] = ['fabricacion', 'reacondicionamiento']
 
@@ -13,7 +48,6 @@ const TIPOS_PIPELINE: TipoPipelineHeladera[] = ['fabricacion', 'reacondicionamie
 // Agarrar/Soltar/Baja de HeladerasPage.tsx (atadas a actor/área/modales de
 // esa página); para actuar, el link "Ver tablero" lleva ahí.
 export default function ColaTallerResumen() {
-  const { heladeras, loading }              = useHeladeras()
   const { pasos: catalogo, isLoading: loadingPasos } = usePasosTaller()
 
   return (
@@ -23,35 +57,12 @@ export default function ColaTallerResumen() {
         <Link to="/heladeras/taller" className="text-xs text-accent hover:underline">Ver tablero</Link>
       </div>
 
-      {loading || loadingPasos ? (
+      {loadingPasos ? (
         <p className="text-secundario text-sm">Cargando…</p>
       ) : (
         TIPOS_PIPELINE.map((tipo) => {
           const primerPaso = pasosOrdenados(catalogo, tipo)[0]
-          if (!primerPaso) return null
-          const esperando = heladeras
-            .filter((h) => h.tipoPipeline === tipo && h.pasoActualId === primerPaso.id && !h.enProceso)
-            .sort((a, b) => tsToDate(a.updatedAt).getTime() - tsToDate(b.updatedAt).getTime())
-
-          return (
-            <div key={tipo}>
-              <p className="text-xs font-medium text-secundario mb-1.5">
-                {TIPO_PIPELINE_LABELS[tipo]} · esperando {primerPaso.nombre.toLowerCase()} ({esperando.length})
-              </p>
-              {esperando.length === 0 ? (
-                <p className="text-secundario text-xs">Nada esperando.</p>
-              ) : (
-                <ul className="space-y-1">
-                  {esperando.slice(0, 5).map((h) => (
-                    <li key={h.id} className="flex items-center justify-between text-sm text-gray-700 px-2 py-1 rounded-lg hover:bg-gray-50">
-                      <span className="font-medium">{h.codigoInterno}</span>
-                      <span className="text-xs text-secundario">{h.modelo}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )
+          return primerPaso ? <ColaDeTipo key={tipo} tipo={tipo} primerPaso={primerPaso} /> : null
         })
       )}
     </section>

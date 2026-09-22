@@ -67,6 +67,32 @@ export const getHeladera = async (id: string): Promise<Heladera | null> => {
   return snap.exists() ? ({ id: snap.id, ...snap.data() } as Heladera) : null
 }
 
+// Las N heladeras tocadas más recientemente (feed de actividad del tablero,
+// auditoría 2026-09-22): antes ese widget abría la colección entera.
+export const subscribeHeladerasRecientes = (
+  n: number,
+  callback: (heladeras: Heladera[]) => void,
+  onError?: (err: Error) => void,
+): () => void =>
+  onSnapshot(
+    query(collection(db, HELADERAS), orderBy('updatedAt', 'desc'), limit(n)),
+    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Heladera))),
+    onError ?? onSnapshotError(callback, 'heladeras-recientes'),
+  )
+
+// Las que esperan un paso del pipeline sin nadie trabajándolas (cola de taller
+// del tablero). Dos igualdades: Firestore las resuelve con los índices simples.
+export const subscribeHeladerasEsperandoPaso = (
+  pasoId: string,
+  callback: (heladeras: Heladera[]) => void,
+  onError?: (err: Error) => void,
+): () => void =>
+  onSnapshot(
+    query(collection(db, HELADERAS), where('pasoActualId', '==', pasoId), where('enProceso', '==', false)),
+    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Heladera))),
+    onError ?? onSnapshotError(callback, 'heladeras-esperando'),
+  )
+
 export const subscribeHeladeras = (
   callback: (heladeras: Heladera[]) => void,
 ): () => void =>
