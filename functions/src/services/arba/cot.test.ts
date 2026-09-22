@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { armarArchivoCot, campo, centesimos, codigoUnicoComprobante, fechaValidez, nombreArchivoCot, parsearRespuestaCot, provinciaPorCp, type CotConfig, type CotSolicitud } from './cot'
+import { armarArchivoCot, campo, centesimos, codigoUnicoComprobante, fechaValidez, nombreArchivoCot, parsearRespuestaCot, provinciaPorCp, valorDeCarga, type CotConfig, type CotSolicitud } from './cot'
 
 const cfg: CotConfig = {
   habilitado: true, ambiente: 'produccion', cuit: '30-69766897-3', razonSocial: 'REDONHIELO S A',
@@ -74,21 +74,27 @@ describe('archivo TXT del COT', () => {
     expect(a.nombre).toBe('TB_30697668973_001001_20251210_000002.txt')
   })
 
-  it('cliente con importe 0: valúa la carga por kilo (config/cot.importePorKg) y lo devuelve para escribirlo en la solicitud', () => {
+  it('cliente con importe 0: valúa la carga a precio de lista y lo devuelve para escribirlo en la solicitud', () => {
     const solCero = { ...sol, respaldo: { ...sol.respaldo, importe: 0 } }
-    const a = armarArchivoCot(remito, solCero, { ...cfg, importePorKg: 800 }, 1)
-    expect(a.importe).toBe(9060 * 800)
-    expect(a.lineas[1].split('|').at(-1)).toBe(centesimos(9060 * 800))
-    // Con importe declarado, el por kilo no lo pisa.
-    expect(armarArchivoCot(remito, sol, { ...cfg, importePorKg: 800 }, 1).importe).toBe(1_800_000)
-    // El traslado entre plantas sigue en 0 aunque haya por kilo.
-    expect(armarArchivoCot({ ...remito, plantaId: 'torcuato' }, { ...solCero, destino: { tipo: 'planta', plantaId: 'merlo' } }, { ...cfg, importePorKg: 800 }, 2).importe).toBe(0)
+    const lista301 = { bolsa_2kg: 880, bolsa_3kg: 1800, bolsa_10kg: 2200, escamas_10kg: 2200 }
+    const esperado = 1840 * 880 + 1260 * 1800 + 140 * 2200 + 20 * 2200
+    const a = armarArchivoCot(remito, solCero, cfg, 1, lista301)
+    expect(a.importe).toBe(esperado)
+    expect(a.lineas[1].split('|').at(-1)).toBe(centesimos(esperado))
+    // Con importe declarado, la lista no lo pisa.
+    expect(armarArchivoCot(remito, sol, cfg, 1, lista301).importe).toBe(1_800_000)
+    // El traslado entre plantas sigue en 0.
+    expect(armarArchivoCot({ ...remito, plantaId: 'torcuato' }, { ...solCero, destino: { tipo: 'planta', plantaId: 'merlo' } }, cfg, 2, lista301).importe).toBe(0)
+    // Un producto sin precio en la lista cae al respaldo por kilo.
+    const sinEscamas = { bolsa_2kg: 880, bolsa_3kg: 1800, bolsa_10kg: 2200 }
+    expect(armarArchivoCot(remito, solCero, { ...cfg, importePorKg: 800 }, 1, sinEscamas).importe).toBe(1840 * 880 + 1260 * 1800 + 140 * 2200 + 20 * 10 * 800)
   })
 
-  it('cliente con importe 0 y sin importe por kilo: falla con el nombre del ajuste, no con el error 95 de ARBA', () => {
+  it('cliente con importe 0 y un producto sin precio ni respaldo: falla nombrando el producto y la lista, no con el error 95 de ARBA', () => {
     const solCero = { ...sol, respaldo: { ...sol.respaldo, importe: 0 } }
-    expect(() => armarArchivoCot(remito, solCero, cfg, 1)).toThrow(/importePorKg/)
-    expect(() => armarArchivoCot(remito, solCero, { ...cfg, importePorKg: 0 }, 1)).toThrow(/importePorKg/)
+    expect(() => armarArchivoCot(remito, solCero, cfg, 1, { bolsa_2kg: 880, bolsa_3kg: 1800, bolsa_10kg: 2200 })).toThrow(/lista 301.*Hielo en escamas 10kg/)
+    expect(() => armarArchivoCot(remito, solCero, { ...cfg, listaPrecios: '302' }, 1, null)).toThrow(/lista 302/)
+    expect(valorDeCarga(remito.items, null, cfg)).toEqual({ importe: 0, sinPrecio: remito.items.map((i) => i.nombre) })
   })
 
   it('provincia por código postal: un C.P. de Capital con provincia B sale como C (error 106 de ARBA)', () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  COT_DEFAULTS, domicilioDeCliente, formatoRespaldo, importeDeclarado, kgDeItems, letraProvincia, normalizarCotConfig, parsearCalleNumero, patenteValida, provinciaPorCp,
+  COT_DEFAULTS, domicilioDeCliente, formatoRespaldo, kgDeItems, letraProvincia, normalizarCotConfig, parsearCalleNumero, patenteValida, provinciaPorCp, valorDeCarga,
   pesoSugerido, requiereCot, salidaSugerida, talonarioRemitoCarga, validarSolicitudCot,
 } from './cot'
 import type { CotSolicitud, UserProfile } from '@/types'
@@ -15,6 +15,9 @@ describe('COT: configuración y kilos', () => {
     expect(d.plantas.torcuato.puerta).toBe('002')
     expect(d.plantas.torcuato.codigoPlanta).toBe('001')
     expect(d.productos.bolsa_10kg.pesoKg).toBe(10)
+    expect(c.listaPrecios).toBe('301')
+    expect(normalizarCotConfig({ listaPrecios: ' ' } as never).listaPrecios).toBe('301')
+    expect(normalizarCotConfig({ listaPrecios: '302' } as never).listaPrecios).toBe('302')
   })
 
   it('sugiere el peso a partir del nombre del producto', () => {
@@ -76,10 +79,22 @@ describe('COT: domicilios y validación', () => {
     expect(domicilioDeCliente(sucursalMalCargada, 'FC.530').provincia).toBe('C')
   })
 
-  it('importe a declarar: kilos por el importe por kilo de la config; sin config queda en 0 y el borrador lo avisa', () => {
-    expect(importeDeclarado(7850, { importePorKg: 800 })).toBe(6_280_000)
-    expect(importeDeclarado(7850, { importePorKg: 0 })).toBe(0)
-    expect(importeDeclarado(0, { importePorKg: 800 })).toBe(0)
+  it('valor de la carga: cada renglón a su precio de lista; sin precio cae al respaldo por kilo, y sin respaldo lo nombra', () => {
+    const items = [
+      { productoId: 'escamas_10kg', nombre: 'Hielo en escamas 10kg', cantidad: 350 },
+      { productoId: 'bolsa_3kg', nombre: 'Hielo bolsa 3kg', cantidad: 315 },
+      { productoId: 'barra', nombre: 'Barra de hielo', cantidad: 0 },
+    ]
+    const lista301 = { escamas_10kg: 2200, bolsa_3kg: 1800 }
+    const cfg = { importePorKg: 0, productos: { escamas_10kg: { pesoKg: 10, codigoArba: '220190', descripcion: '' } } }
+    expect(valorDeCarga(items, lista301, cfg)).toEqual({ importe: 350 * 2200 + 315 * 1800, sinPrecio: [] })
+    // Sin precio en la lista y sin respaldo por kilo: queda nombrado, no vale 0 en silencio.
+    expect(valorDeCarga(items, { bolsa_3kg: 1800 }, cfg)).toEqual({ importe: 315 * 1800, sinPrecio: ['Hielo en escamas 10kg'] })
+    // Con respaldo por kilo y peso en Ajustes, lo valúa igual.
+    expect(valorDeCarga(items, { bolsa_3kg: 1800 }, { ...cfg, importePorKg: 800 })).toEqual({ importe: 315 * 1800 + 350 * 10 * 800, sinPrecio: [] })
+    // Un precio en 0 de Tango no es precio.
+    expect(valorDeCarga(items, { escamas_10kg: 0, bolsa_3kg: 1800 }, cfg).sinPrecio).toEqual(['Hielo en escamas 10kg'])
+    expect(valorDeCarga([], lista301, cfg)).toEqual({ importe: 0, sinPrecio: [] })
   })
 
   it('arma el domicilio de destino desde la sucursal de Tango, o desde la ficha', () => {

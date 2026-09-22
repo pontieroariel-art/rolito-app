@@ -8,11 +8,34 @@
 // Instructivo Transporte de Bienes" de ARBA. Ver docs/arba/COT.md.
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.nombreArchivoCot = exports.codigoUnicoComprobante = exports.centesimos = exports.URL_COT = void 0;
+exports.valorDeCarga = valorDeCarga;
 exports.campo = campo;
 exports.provinciaPorCp = provinciaPorCp;
 exports.armarArchivoCot = armarArchivoCot;
 exports.parsearRespuestaCot = parsearRespuestaCot;
 exports.fechaValidez = fechaValidez;
+/**
+ * Valor de la carga: cada renglón a su precio de lista; sin precio, respaldo
+ * por kilo; sin nada, queda nombrado. Misma cuenta que src/utils/cot.ts.
+ */
+function valorDeCarga(items, precios, cfg) {
+    let importe = 0;
+    const sinPrecio = [];
+    for (const it of items) {
+        if (!(it.cantidad > 0))
+            continue;
+        const precio = precios?.[it.productoId];
+        const pesoKg = cfg.productos?.[it.productoId]?.pesoKg ?? 0;
+        const porKg = Number(cfg.importePorKg ?? 0);
+        if (typeof precio === 'number' && precio > 0)
+            importe += it.cantidad * precio;
+        else if (porKg > 0 && pesoKg > 0)
+            importe += it.cantidad * pesoKg * porKg;
+        else
+            sinPrecio.push(it.nombre);
+    }
+    return { importe: Math.round(importe), sinPrecio };
+}
 exports.URL_COT = {
     produccion: 'https://cot.arba.gov.ar/TransporteBienes/SeguridadCliente/presentarRemitos.do',
     prueba: 'https://cot.test.arba.gov.ar/TransporteBienes/SeguridadCliente/presentarRemitos.do',
@@ -61,7 +84,7 @@ function provinciaPorCp(cp, provincia) {
  * caja (reparto) o la otra planta (traslado entre depósitos propios: mismo
  * CUIT en origen y destino, importe 0 permitido).
  */
-function armarArchivoCot(remito, sol, cfg, secuencia) {
+function armarArchivoCot(remito, sol, cfg, secuencia, precios) {
     const planta = cfg.plantas[remito.plantaId];
     if (!planta)
         throw new Error(`Falta config/cot.plantas.${remito.plantaId}`);
@@ -91,15 +114,22 @@ function armarArchivoCot(remito, sol, cfg, secuencia) {
     const destinoDomicilio = d.tipo === 'planta'
         ? (cfg.plantas[d.plantaId]?.domicilio ?? (() => { throw new Error(`Falta config/cot.plantas.${d.plantaId}`); })())
         : d.domicilio;
-    // Importe: el declarado, o la carga valuada por kilo cuando viene en 0 (el
-    // borrador no lo pide). Para un cliente, 0 es rechazo seguro de ARBA (95):
-    // mejor fallar acá con el nombre del ajuste que falta.
-    const importePorKg = Number(cfg.importePorKg ?? 0);
-    const importe = d.tipo === 'planta'
-        ? 0
-        : (sol.respaldo.importe > 0 ? sol.respaldo.importe : Math.round(kgTotal * (importePorKg > 0 ? importePorKg : 0)));
-    if (d.tipo === 'cliente' && !(importe > 0)) {
-        throw new Error('Falta el importe a declarar: la solicitud viene en 0 y config/cot.importePorKg también (Ajustes generales → COT de ARBA → Importe sugerido por kilo)');
+    // Importe: el declarado, o la carga valuada a precio de lista cuando viene en
+    // 0 (el borrador no lo pide). Para un cliente, 0 es rechazo seguro de ARBA
+    // (95): mejor fallar acá diciendo qué producto no tiene precio.
+    let importe = 0;
+    if (d.tipo === 'cliente') {
+        if (sol.respaldo.importe > 0)
+            importe = sol.respaldo.importe;
+        else {
+            const valor = valorDeCarga(remito.items, precios, cfg);
+            if (valor.sinPrecio.length) {
+                throw new Error(`Sin precio para valuar el COT en la lista ${cfg.listaPrecios ?? '301'} de Tango: ${valor.sinPrecio.join(', ')} (Ajustes generales → COT de ARBA: lista de precios o respaldo por kilo)`);
+            }
+            importe = valor.importe;
+        }
+        if (!(importe > 0))
+            throw new Error('Falta el importe a declarar: la carga no tiene valor (ARBA rechaza importe 0 con destino a un cliente)');
     }
     const fechaSalida = digitos(sol.fechaSalida);
     const horaSalida = digitos(sol.horaSalida).padStart(4, '0').slice(0, 4);

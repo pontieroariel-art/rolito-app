@@ -23,13 +23,39 @@ export interface CotConfig {
   plantas: Record<string, CotPlantaConfig>
   productos: Record<string, CotProductoConfig>
   /**
-   * Valor declarado por kilo (2026-09-22). ARBA rechaza IMPORTE 0 cuando el
-   * destinatario es un cliente (error 95); solo lo admite en el traslado entre
-   * depósitos propios. El borrador de carga viaja con importe 0 (el COT se
-   * declara por kilos), así que el server valúa la carga con esto: kg × valor.
-   * Se edita en Ajustes generales → COT de ARBA → "Importe sugerido por kilo".
+   * Lista de precios de Tango (preciosTango/redonhielo.listas[n]) con la que
+   * se valúa la carga para el IMPORTE (2026-09-22, decisión de Ariel: precio de
+   * lista, no un valor inventado en caja). ARBA rechaza IMPORTE 0 con destino a
+   * un cliente (error 95); solo lo admite en el traslado entre depósitos
+   * propios. El borrador viaja con importe 0, así que acá se calcula siempre.
+   * Default 301 "Habituales". Se edita en Ajustes generales → COT de ARBA.
    */
+  listaPrecios?: string
+  /** Respaldo por kilo para un producto sin precio en esa lista (0 = sin respaldo). */
   importePorKg?: number
+}
+
+/**
+ * Valor de la carga: cada renglón a su precio de lista; sin precio, respaldo
+ * por kilo; sin nada, queda nombrado. Misma cuenta que src/utils/cot.ts.
+ */
+export function valorDeCarga(
+  items: { productoId: string; nombre: string; cantidad: number }[],
+  precios: Record<string, number> | null | undefined,
+  cfg: Pick<CotConfig, 'importePorKg' | 'productos'>,
+): { importe: number; sinPrecio: string[] } {
+  let importe = 0
+  const sinPrecio: string[] = []
+  for (const it of items) {
+    if (!(it.cantidad > 0)) continue
+    const precio = precios?.[it.productoId]
+    const pesoKg = cfg.productos?.[it.productoId]?.pesoKg ?? 0
+    const porKg = Number(cfg.importePorKg ?? 0)
+    if (typeof precio === 'number' && precio > 0) importe += it.cantidad * precio
+    else if (porKg > 0 && pesoKg > 0) importe += it.cantidad * pesoKg * porKg
+    else sinPrecio.push(it.nombre)
+  }
+  return { importe: Math.round(importe), sinPrecio }
 }
 export type CotDestino =
   | { tipo: 'planta'; plantaId: string }
@@ -104,7 +130,7 @@ export function provinciaPorCp(cp: string, provincia: string): string {
  * caja (reparto) o la otra planta (traslado entre depósitos propios: mismo
  * CUIT en origen y destino, importe 0 permitido).
  */
-export function armarArchivoCot(remito: RemitoParaCot, sol: CotSolicitud, cfg: CotConfig, secuencia: number): ArchivoCot {
+export function armarArchivoCot(remito: RemitoParaCot, sol: CotSolicitud, cfg: CotConfig, secuencia: number, precios?: Record<string, number> | null): ArchivoCot {
   const planta = cfg.plantas[remito.plantaId]
   if (!planta) throw new Error(`Falta config/cot.plantas.${remito.plantaId}`)
   const cuit = digitos(cfg.cuit)
@@ -130,15 +156,20 @@ export function armarArchivoCot(remito: RemitoParaCot, sol: CotSolicitud, cfg: C
   const destinoDomicilio = d.tipo === 'planta'
     ? (cfg.plantas[d.plantaId]?.domicilio ?? (() => { throw new Error(`Falta config/cot.plantas.${d.plantaId}`) })())
     : d.domicilio
-  // Importe: el declarado, o la carga valuada por kilo cuando viene en 0 (el
-  // borrador no lo pide). Para un cliente, 0 es rechazo seguro de ARBA (95):
-  // mejor fallar acá con el nombre del ajuste que falta.
-  const importePorKg = Number(cfg.importePorKg ?? 0)
-  const importe = d.tipo === 'planta'
-    ? 0
-    : (sol.respaldo.importe > 0 ? sol.respaldo.importe : Math.round(kgTotal * (importePorKg > 0 ? importePorKg : 0)))
-  if (d.tipo === 'cliente' && !(importe > 0)) {
-    throw new Error('Falta el importe a declarar: la solicitud viene en 0 y config/cot.importePorKg también (Ajustes generales → COT de ARBA → Importe sugerido por kilo)')
+  // Importe: el declarado, o la carga valuada a precio de lista cuando viene en
+  // 0 (el borrador no lo pide). Para un cliente, 0 es rechazo seguro de ARBA
+  // (95): mejor fallar acá diciendo qué producto no tiene precio.
+  let importe = 0
+  if (d.tipo === 'cliente') {
+    if (sol.respaldo.importe > 0) importe = sol.respaldo.importe
+    else {
+      const valor = valorDeCarga(remito.items, precios, cfg)
+      if (valor.sinPrecio.length) {
+        throw new Error(`Sin precio para valuar el COT en la lista ${cfg.listaPrecios ?? '301'} de Tango: ${valor.sinPrecio.join(', ')} (Ajustes generales → COT de ARBA: lista de precios o respaldo por kilo)`)
+      }
+      importe = valor.importe
+    }
+    if (!(importe > 0)) throw new Error('Falta el importe a declarar: la carga no tiene valor (ARBA rechaza importe 0 con destino a un cliente)')
   }
   const fechaSalida = digitos(sol.fechaSalida)
   const horaSalida = digitos(sol.horaSalida).padStart(4, '0').slice(0, 4)

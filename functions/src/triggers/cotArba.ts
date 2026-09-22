@@ -42,11 +42,21 @@ export async function presentarCotDeRemito(db: Firestore, remitoId: string, cit:
   let archivo
   try {
     const fechaEmision: Date = r.fecha instanceof Timestamp ? r.fecha.toDate() : new Date()
+    // Precio de lista de Tango para valuar la carga (solo hace falta con destino
+    // a un cliente y solicitud en 0, que es el caso del borrador).
+    let precios: Record<string, number> | null = null
+    if (sol.destino.tipo === 'cliente' && !(sol.respaldo.importe > 0)) {
+      const lista = String(cfg.listaPrecios ?? '301')
+      const pt = (await db.doc('preciosTango/redonhielo').get()).data() as { listas?: Record<string, { precios?: Record<string, number> }> } | undefined
+      precios = pt?.listas?.[lista]?.precios ?? null
+      if (!precios) throw new Error(`No está la lista ${lista} en preciosTango/redonhielo (Ajustes generales → COT de ARBA → lista de precios)`)
+    }
     archivo = armarArchivoCot(
       { plantaId: String(r.plantaId), fechaEmision, items: (r.items ?? []) as { productoId: string; nombre: string; cantidad: number }[] },
       sol,
       cfg as CotConfig,
       Number(r.numero ?? 0) || 1,
+      precios,
     )
   } catch (e) {
     return fallar((e as Error).message)

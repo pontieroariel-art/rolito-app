@@ -18,6 +18,7 @@ export const COT_DEFAULTS: CotConfig = {
   siempre:       true,
   umbralKg:      4500,
   umbralImporte: 9_529_691,   // RN ARBA 27/23, vigente 2026
+  listaPrecios:  '301',       // Habituales (Redonhielo)
   importePorKg:  0,
   bloqueaSalida: false,
   respaldo:      { codigoComprobante: '091', prefijo: 25 },   // Remito R del talonario manual 00025
@@ -91,6 +92,7 @@ export function normalizarCotConfig(raw: Partial<CotConfig> | null | undefined):
     siempre:       raw?.siempre !== false,
     umbralKg:      num(raw?.umbralKg, d.umbralKg),
     umbralImporte: num(raw?.umbralImporte, d.umbralImporte),
+    listaPrecios:  str(raw?.listaPrecios, d.listaPrecios).trim() || d.listaPrecios,
     importePorKg:  num(raw?.importePorKg, d.importePorKg),
     bloqueaSalida: raw?.bloqueaSalida === true,
     respaldo:      {
@@ -175,13 +177,31 @@ export function provinciaPorCp(cp: string, provincia: string): string {
 }
 
 /**
- * Importe a declarar en el COT de un reparto (2026-09-22): la carga valuada por
- * kilo con config/cot.importePorKg. ARBA rechaza IMPORTE 0 cuando el destino
- * es un cliente (error 95; el 21 y 22/09 rebotaron 11 de 11), así que el
- * borrador ya lo manda calculado y el server lo recalcula igual si llega en 0.
+ * Valor de la carga para el IMPORTE del COT (2026-09-22): cada renglón a su
+ * precio en la lista de Tango elegida (config/cot.listaPrecios, 301
+ * "Habituales"); un producto sin precio ahí cae al respaldo por kilo
+ * (config/cot.importePorKg × peso) y, sin respaldo, queda en `sinPrecio`.
+ * ARBA rechaza IMPORTE 0 con destino a un cliente (error 95; el 21 y 22/09
+ * rebotaron 11 de 11), así que el borrador lo manda calculado y el server lo
+ * recalcula igual si llega en 0. Misma cuenta en functions/services/arba/cot.ts.
  */
-export const importeDeclarado = (kg: number, cfg: Pick<CotConfig, 'importePorKg'>): number =>
-  kg > 0 && cfg.importePorKg > 0 ? Math.round(kg * cfg.importePorKg) : 0
+export function valorDeCarga(
+  items: Pick<RemitoCargaItem, 'productoId' | 'cantidad' | 'nombre'>[],
+  precios: Record<string, number> | null | undefined,
+  cfg: Pick<CotConfig, 'importePorKg' | 'productos'>,
+): { importe: number; sinPrecio: string[] } {
+  let importe = 0
+  const sinPrecio: string[] = []
+  for (const it of items) {
+    if (!(it.cantidad > 0)) continue
+    const precio = precios?.[it.productoId]
+    const pesoKg = cfg.productos[it.productoId]?.pesoKg ?? 0
+    if (typeof precio === 'number' && precio > 0) importe += it.cantidad * precio
+    else if (cfg.importePorKg > 0 && pesoKg > 0) importe += it.cantidad * pesoKg * cfg.importePorKg
+    else sinPrecio.push(it.nombre)
+  }
+  return { importe: Math.round(importe), sinPrecio }
+}
 
 /**
  * Domicilio de destino de un cliente para el COT: la sucursal (addresses[] por

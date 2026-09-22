@@ -529,7 +529,15 @@ export interface CotConfig {
   siempre?:       boolean
   umbralKg:       number
   umbralImporte:  number
-  importePorKg:   number                      // sugiere el importe a declarar
+  /**
+   * Lista de precios de Tango (Redonhielo) con la que se valúa la carga para el
+   * IMPORTE del COT (2026-09-22, decisión de Ariel: precio de lista, no un
+   * valor por kilo inventado en caja). Por defecto la 301 "Habituales", la
+   * única general que tiene todos los productos que salen en un camión.
+   */
+  listaPrecios:   string
+  /** Respaldo por kilo para un producto que no tiene precio en esa lista (0 = sin respaldo). */
+  importePorKg:   number
   bloqueaSalida:  boolean                     // seguridad no libera un camión que requiere COT y no lo tiene
   /**
    * Remito R que respalda la carga: código ARBA ('091'), talonario (25) y, si

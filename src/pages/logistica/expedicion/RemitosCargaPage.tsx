@@ -454,7 +454,7 @@ export default function RemitosCargaPage() {
             reabre para corregir: el destino tiene su propio estado adentro
             (cliente, domicilio, kilos) y, sin esto, el destinatario de la carga
             anterior quedaba puesto en la siguiente. */}
-        <CotDestinoForm key={formKey} plantaId={plantaId} cfg={cotCfg} kg={kg} hayCarga={items.length > 0} patente={camion?.patente ?? ''} valor={cotInicial} onChange={setCotDestino} />
+        <CotDestinoForm key={formKey} plantaId={plantaId} cfg={cotCfg} kg={kg} items={items} hayCarga={items.length > 0} patente={camion?.patente ?? ''} valor={cotInicial} onChange={setCotDestino} />
 
         {/* Los ENVASES ya no se declaran acá (corrección de Ariel, 18/09): caja
             no sabe con qué tipo de pallet va a salir la carga ni qué racks se van
