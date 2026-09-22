@@ -26,6 +26,7 @@ exports.comprobanteACuenta = comprobanteACuenta;
 exports.descuentosDeCobranzas = descuentosDeCobranzas;
 exports.aplicarDescuentos = aplicarDescuentos;
 exports.fusionarRamaEmpresa = fusionarRamaEmpresa;
+exports.mismaRama = mismaRama;
 exports.vaciarRamaEmpresa = vaciarRamaEmpresa;
 exports.descontarCobranza = descontarCobranza;
 const empresas_1 = require("./empresas");
@@ -175,6 +176,40 @@ function fusionarRamaEmpresa(actual, empresa, nuevos, meta, identidad = {}, cobr
     };
 }
 /** Vacía la rama de una empresa (el cliente ya no debe nada ahí) conservando las otras. */
+/**
+ * ¿La rama de `empresa` quedaría igual que la que ya está guardada? Compara
+ * lo que le importa al que lee (comprobantes de esa empresa, saldo, cantidad,
+ * cobranzas aplicadas e identidad) e ignora runId / actualizadoEn. Sirve para
+ * NO reescribir el doc cuando Tango no cambió (auditoría 2026-09-22: la sync
+ * horaria reescribía a todos los deudores 17 veces por día y cada supervisor
+ * volvía a bajar la lista entera). Pura.
+ */
+function mismaRama(actual, nuevo, empresa) {
+    if (!actual)
+        return false;
+    const ramaA = actual.porEmpresa?.[empresa];
+    const ramaN = nuevo.porEmpresa[empresa];
+    if (!ramaA || !ramaN)
+        return false;
+    if ((0, exports.redondear2)(ramaA.saldoTotal ?? 0) !== (0, exports.redondear2)(ramaN.saldoTotal) || (ramaA.comprobantes ?? 0) !== ramaN.comprobantes)
+        return false;
+    const clave = (c) => `${c.tipo}|${c.numero}|${c.codigoTango ?? ''}`;
+    const forma = (c) => JSON.stringify({ ...c, saldoPendiente: (0, exports.redondear2)(c.saldoPendiente ?? 0), importeOriginal: c.importeOriginal == null ? null : (0, exports.redondear2)(c.importeOriginal) });
+    const propiosA = comprobantesDe(actual).filter((c) => c.empresa === empresa).sort((a, b) => clave(a).localeCompare(clave(b)));
+    const propiosN = nuevo.comprobantes.filter((c) => c.empresa === empresa).sort((a, b) => clave(a).localeCompare(clave(b)));
+    if (propiosA.length !== propiosN.length)
+        return false;
+    for (let i = 0; i < propiosA.length; i++)
+        if (forma(propiosA[i]) !== forma(propiosN[i]))
+            return false;
+    const setA = new Set(Array.isArray(actual.cobranzasAplicadas) ? actual.cobranzasAplicadas : []);
+    const setN = new Set(nuevo.cobranzasAplicadas);
+    if (setA.size !== setN.size || [...setN].some((id) => !setA.has(id)))
+        return false;
+    return (actual.idGva14 ?? 0) === nuevo.idGva14
+        && (actual.codigoTango ?? '') === nuevo.codigoTango
+        && (actual.razonSocial ?? '') === nuevo.razonSocial;
+}
 function vaciarRamaEmpresa(actual, empresa, runId, ahora) {
     return fusionarRamaEmpresa(actual, empresa, [], { runId, origen: 'sync', ahora });
 }

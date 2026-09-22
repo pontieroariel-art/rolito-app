@@ -3,7 +3,7 @@ import { defineSecret } from 'firebase-functions/params'
 import { getFirestore, FieldValue } from 'firebase-admin/firestore'
 import { EMPRESAS, esEmpresa, tangoIdsDe, type Empresa } from '../services/tango/empresas'
 import {
-  aplicarDescuentos, descuentosDeCobranzas, fusionarRamaEmpresa, normalizarComprobante, redondear2, vaciarRamaEmpresa,
+  aplicarDescuentos, descuentosDeCobranzas, fusionarRamaEmpresa, mismaRama, normalizarComprobante, redondear2, vaciarRamaEmpresa,
   type ComprobanteSaldo, type DescuentoCliente, type SaldoDoc,
 } from '../services/tango/saldos'
 
@@ -40,6 +40,8 @@ export interface ResultadoSyncSaldos {
   reason?: string
   received?: number
   actualizados?: number
+  /** Deudores cuya rama no cambió y no se reescribieron (con `tocados`). */
+  sinCambios?: number
   skippedNoMatch?: number
   vaciados?: number
   wouldUpdate?: unknown[]
@@ -100,13 +102,24 @@ export async function descuentosPendientes(db: FirebaseFirestore.Firestore): Pro
 export async function procesarLoteSaldos(
   db: FirebaseFirestore.Firestore,
   rows: TangoSaldoRow[],
-  opts: { dryRun: boolean; runId: string | null; esUltimoLote: boolean; empresa?: Empresa; indice?: IndiceClientesTango; descuentos?: Map<string, DescuentoCliente> },
+  opts: {
+    dryRun: boolean; runId: string | null; esUltimoLote: boolean; empresa?: Empresa; indice?: IndiceClientesTango; descuentos?: Map<string, DescuentoCliente>
+    /**
+     * Uids ya vistos en ESTA corrida (compartido entre lotes, en memoria). Con
+     * esto: (a) un doc cuya rama no cambió NO se reescribe, y (b) el cierre de
+     * corrida vacía solo los deudores que no aparecieron, sin consultar la
+     * colección entera por runId (auditoría 2026-09-22). Sin `tocados` (camino
+     * legacy del bridge por HTTP) se escribe siempre y se vacía por runId.
+     */
+    tocados?: Set<string>
+  },
 ): Promise<ResultadoSyncSaldos> {
   const empresa: Empresa = opts.empresa ?? (esEmpresa(rows[0]?.empresa) ? rows[0].empresa as Empresa : 'redonhielo')
   const indice = (opts.indice ?? await indiceClientesTango(db))[empresa]
   const descuentos = opts.descuentos ?? await descuentosPendientes(db)
 
   let actualizados = 0
+  let sinCambios = 0
   let skippedNoMatch = 0
   let vaciados = 0
   const wouldUpdate: unknown[] = []
@@ -170,6 +183,8 @@ export async function procesarLoteSaldos(
       actualizados++
       continue
     }
+    opts.tocados?.add(uid)
+    if (opts.tocados && mismaRama(actual, nuevo, empresa)) { sinCambios++; continue }
     batch.set(refs[uids.indexOf(uid)], { ...nuevo, actualizadoEn: FieldValue.serverTimestamp() })
     actualizados++
     enBatch++
@@ -177,10 +192,31 @@ export async function procesarLoteSaldos(
   }
   await flush()
 
+  // Cierre de corrida con `tocados`: los deudores de esta empresa que no
+  // aparecieron en ningún lote ya no deben nada ahí → se vacía solo esa rama.
+  // Se consulta por comprobantes > 0 (solo los que tienen deuda) y se traen
+  // completos únicamente los que hay que vaciar.
+  if (opts.esUltimoLote && opts.runId && !opts.dryRun && opts.tocados) {
+    const runId = opts.runId
+    const conDeuda = await db.collection('saldosTango').where(`porEmpresa.${empresa}.comprobantes`, '>', 0).select().get()
+    const aVaciarIds = conDeuda.docs.map((d) => d.id).filter((id) => !opts.tocados!.has(id))
+    for (let i = 0; i < aVaciarIds.length; i += 300) {
+      const snaps = await db.getAll(...aVaciarIds.slice(i, i + 300).map((id) => db.collection('saldosTango').doc(id)))
+      const b = db.batch()
+      for (const s of snaps) {
+        if (!s.exists) continue
+        b.set(s.ref, { ...vaciarRamaEmpresa(s.data() as Partial<SaldoDoc>, empresa, runId, FieldValue.serverTimestamp()), actualizadoEn: FieldValue.serverTimestamp() })
+        vaciados++
+      }
+      await b.commit()
+    }
+    return { succeeded: true, dryRun: false, received: rows.length, actualizados, sinCambios, skippedNoMatch, vaciados }
+  }
+
   // Cierre de corrida: todo doc cuya rama de ESTA empresa no fue tocada por
   // este runId es un cliente que ya no debe nada ahí → se vacía solo esa rama
   // (no se borra: conserva la otra empresa, la identidad y el "actualizado hace X").
-  if (opts.esUltimoLote && opts.runId && !opts.dryRun) {
+  if (opts.esUltimoLote && opts.runId && !opts.dryRun && !opts.tocados) {
     const runId = opts.runId
     const viejos = await db.collection('saldosTango').where(`porEmpresa.${empresa}.runId`, '!=', runId).get()
     const aVaciar = new Map(viejos.docs.map((d) => [d.id, d]))
@@ -210,6 +246,7 @@ export async function procesarLoteSaldos(
     dryRun: opts.dryRun,
     received: rows.length,
     actualizados,
+    sinCambios,
     skippedNoMatch,
     vaciados,
     ...(opts.dryRun ? { wouldUpdate, sinMatch } : {}),

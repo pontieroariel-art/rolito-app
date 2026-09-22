@@ -45,7 +45,12 @@ exports.barridoDescargasSinNumerar = (0, scheduler_1.onSchedule)({ schedule: 'ev
     const corte = firestore_1.Timestamp.fromMillis(Date.now() - MINUTOS_SIN_NUMERAR * 60 * 1000);
     // Sin índice compuesto: se filtra por fecha (que ya está indexada) y se
     // descartan en memoria las que sí tienen código. Son pocas descargas por día.
+    // Acotado a las últimas 24 h (auditoría 2026-09-22: antes leía las 100
+    // últimas descargas cada media hora, ~4.800 lecturas/día, para un caso
+    // que el trigger ya resuelve casi siempre).
+    const desde = firestore_1.Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000);
     const recientes = await db.collection('descargasCamion')
+        .where('fecha', '>', desde)
         .where('fecha', '<', corte)
         .orderBy('fecha', 'desc')
         .limit(100).get();

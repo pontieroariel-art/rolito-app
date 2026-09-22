@@ -51,6 +51,7 @@ async function procesarLoteSaldos(db, rows, opts) {
     const indice = (opts.indice ?? await indiceClientesTango(db))[empresa];
     const descuentos = opts.descuentos ?? await descuentosPendientes(db);
     let actualizados = 0;
+    let sinCambios = 0;
     let skippedNoMatch = 0;
     let vaciados = 0;
     const wouldUpdate = [];
@@ -109,6 +110,11 @@ async function procesarLoteSaldos(db, rows, opts) {
             actualizados++;
             continue;
         }
+        opts.tocados?.add(uid);
+        if (opts.tocados && (0, saldos_1.mismaRama)(actual, nuevo, empresa)) {
+            sinCambios++;
+            continue;
+        }
         batch.set(refs[uids.indexOf(uid)], { ...nuevo, actualizadoEn: firestore_1.FieldValue.serverTimestamp() });
         actualizados++;
         enBatch++;
@@ -116,10 +122,31 @@ async function procesarLoteSaldos(db, rows, opts) {
             await flush();
     }
     await flush();
+    // Cierre de corrida con `tocados`: los deudores de esta empresa que no
+    // aparecieron en ningún lote ya no deben nada ahí → se vacía solo esa rama.
+    // Se consulta por comprobantes > 0 (solo los que tienen deuda) y se traen
+    // completos únicamente los que hay que vaciar.
+    if (opts.esUltimoLote && opts.runId && !opts.dryRun && opts.tocados) {
+        const runId = opts.runId;
+        const conDeuda = await db.collection('saldosTango').where(`porEmpresa.${empresa}.comprobantes`, '>', 0).select().get();
+        const aVaciarIds = conDeuda.docs.map((d) => d.id).filter((id) => !opts.tocados.has(id));
+        for (let i = 0; i < aVaciarIds.length; i += 300) {
+            const snaps = await db.getAll(...aVaciarIds.slice(i, i + 300).map((id) => db.collection('saldosTango').doc(id)));
+            const b = db.batch();
+            for (const s of snaps) {
+                if (!s.exists)
+                    continue;
+                b.set(s.ref, { ...(0, saldos_1.vaciarRamaEmpresa)(s.data(), empresa, runId, firestore_1.FieldValue.serverTimestamp()), actualizadoEn: firestore_1.FieldValue.serverTimestamp() });
+                vaciados++;
+            }
+            await b.commit();
+        }
+        return { succeeded: true, dryRun: false, received: rows.length, actualizados, sinCambios, skippedNoMatch, vaciados };
+    }
     // Cierre de corrida: todo doc cuya rama de ESTA empresa no fue tocada por
     // este runId es un cliente que ya no debe nada ahí → se vacía solo esa rama
     // (no se borra: conserva la otra empresa, la identidad y el "actualizado hace X").
-    if (opts.esUltimoLote && opts.runId && !opts.dryRun) {
+    if (opts.esUltimoLote && opts.runId && !opts.dryRun && !opts.tocados) {
         const runId = opts.runId;
         const viejos = await db.collection('saldosTango').where(`porEmpresa.${empresa}.runId`, '!=', runId).get();
         const aVaciar = new Map(viejos.docs.map((d) => [d.id, d]));
@@ -151,6 +178,7 @@ async function procesarLoteSaldos(db, rows, opts) {
         dryRun: opts.dryRun,
         received: rows.length,
         actualizados,
+        sinCambios,
         skippedNoMatch,
         vaciados,
         ...(opts.dryRun ? { wouldUpdate, sinMatch } : {}),

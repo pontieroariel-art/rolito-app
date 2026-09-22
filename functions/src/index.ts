@@ -92,6 +92,8 @@ export { onDesvioSolicitado, onDesvioResuelto } from './triggers/desviosDescarga
 // la misma reconciliación que el barrido horario, sin esperarlo.
 export { verificarAnuladosEnTango } from './triggers/anuladosEnTango'
 export { onDescargaRectificada } from './triggers/descargaRectificada'
+// Total de la venta contra sus renglones: marca y avisa si no cuadra (auditoría 2026-09-22).
+export { onVentaCamionControl, onVentaVentanillaControl } from './triggers/ventasControl'
 // Aviso de vencimiento del padrón de IIBB. No declara los secrets de ARCA, así
 // que se puede desplegar suelta.
 export { avisarPadronIIBB } from './triggers/padronIIBB'

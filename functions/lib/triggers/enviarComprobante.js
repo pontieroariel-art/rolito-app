@@ -53,7 +53,8 @@ exports.enviarComprobantePorMail = (0, https_1.onCall)({ secrets: email_1.MAIL_S
     const db = (0, firestore_1.getFirestore)();
     const perfil = (await db.doc(`users/${uid}`).get()).data();
     const rol = (perfil?.rol ?? '');
-    const rolesExtra = (perfil?.rolesExtra ?? []).map((r) => r?.rol ?? '');
+    // `rolesExtra` es string[] (auditoría 2026-09-22: se leía como {rol} y siempre daba vacío).
+    const rolesExtra = (Array.isArray(perfil?.rolesExtra) ? perfil.rolesExtra : []).map(String);
     if (perfil?.estado !== 'activo' || (!ROLES.has(rol) && !rolesExtra.some((r) => ROLES.has(r)))) {
         throw new https_1.HttpsError('permission-denied', 'No autorizado');
     }

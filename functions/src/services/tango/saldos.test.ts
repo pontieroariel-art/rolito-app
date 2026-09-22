@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   aplicarDescuentos, claveComprobante, comprobantesDe, descontarCobranza, descuentosDeCobranzas,
-  fusionarRamaEmpresa, normalizarComprobante, vaciarRamaEmpresa, type ComprobanteSaldo, type SaldoDoc,
+  fusionarRamaEmpresa, mismaRama, normalizarComprobante, vaciarRamaEmpresa, type ComprobanteSaldo, type SaldoDoc,
 } from './saldos'
 import { agregarTangoId, codigoTangoDe, idGva14De, tangoIdsDe } from './empresas'
 
@@ -22,6 +22,35 @@ describe('comprobantesDe', () => {
   it('trata los docs viejos sin empresa por fila como Redonhielo', () => {
     const viejos = comprobantesDe({ codigoTango: 'FC.280', comprobantes: [{ tipo: 'FAC', numero: '1', saldoPendiente: 5 } as ComprobanteSaldo] })
     expect(viejos[0]).toMatchObject({ empresa: 'redonhielo', codigoTango: 'FC.280', saldoPendiente: 5 })
+  })
+})
+
+describe('mismaRama: la sync no reescribe lo que no cambió (2026-09-22)', () => {
+  const meta = (runId: string) => ({ runId, origen: 'sync' as const, ahora: 'T' })
+  const identidad = { idGva14: 9, codigoTango: 'FC.280', razonSocial: 'Quiroga' }
+  const guardado = fusionarRamaEmpresa(undefined, 'redonhielo', [comp('redonhielo', '1', 100), comp('redonhielo', '2', 50.5)], meta('r1'), identidad, ['cob1'])
+
+  it('misma deuda con otro runId y otra hora: es la misma rama', () => {
+    const nuevo = fusionarRamaEmpresa(guardado, 'redonhielo', [comp('redonhielo', '2', 50.5), comp('redonhielo', '1', 100)], meta('r2'), identidad, ['cob1'])
+    expect(mismaRama(guardado, nuevo, 'redonhielo')).toBe(true)
+  })
+
+  it('cambia el saldo, un comprobante, una cobranza aplicada o la identidad: hay que escribir', () => {
+    expect(mismaRama(guardado, fusionarRamaEmpresa(guardado, 'redonhielo', [comp('redonhielo', '1', 100), comp('redonhielo', '2', 50)], meta('r2'), identidad, ['cob1']), 'redonhielo')).toBe(false)
+    expect(mismaRama(guardado, fusionarRamaEmpresa(guardado, 'redonhielo', [comp('redonhielo', '1', 100)], meta('r2'), identidad, ['cob1']), 'redonhielo')).toBe(false)
+    expect(mismaRama(guardado, fusionarRamaEmpresa(guardado, 'redonhielo', [comp('redonhielo', '1', 100), comp('redonhielo', '3', 50.5)], meta('r2'), identidad, ['cob1']), 'redonhielo')).toBe(false)
+    expect(mismaRama(guardado, fusionarRamaEmpresa(guardado, 'redonhielo', [comp('redonhielo', '1', 100), comp('redonhielo', '2', 50.5)], meta('r2'), identidad, ['cob1', 'cob2']), 'redonhielo')).toBe(false)
+    expect(mismaRama(guardado, fusionarRamaEmpresa(guardado, 'redonhielo', [comp('redonhielo', '1', 100), comp('redonhielo', '2', 50.5)], meta('r2'), { ...identidad, razonSocial: 'Otro' }, ['cob1']), 'redonhielo')).toBe(false)
+  })
+
+  it('sin doc guardado o sin la rama de esa empresa, se escribe', () => {
+    const nuevo = fusionarRamaEmpresa(undefined, 'rolito', [comp('rolito', '1', 10)], meta('x1'))
+    expect(mismaRama(undefined, nuevo, 'rolito')).toBe(false)
+    expect(mismaRama(guardado, nuevo, 'rolito')).toBe(false)
+    // La otra empresa no interfiere: misma rama de Redonhielo aunque Rolito cambie.
+    const conRolito = fusionarRamaEmpresa(guardado, 'rolito', [comp('rolito', '1', 10)], meta('x1'))
+    const otraVez = fusionarRamaEmpresa(conRolito, 'redonhielo', [comp('redonhielo', '1', 100), comp('redonhielo', '2', 50.5)], meta('r3'), identidad, ['cob1'])
+    expect(mismaRama(conRolito, otraVez, 'redonhielo')).toBe(true)
   })
 })
 

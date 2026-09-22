@@ -409,9 +409,9 @@ async function filasDeuda(tango, cfg, company, empresa = 'redonhielo') {
 async function sincronizarSaldos(db, tango, cfg) {
     const indice = await (0, tangoSaldos_1.indiceClientesTango)(db);
     const descuentos = await (0, tangoSaldos_1.descuentosPendientes)(db);
-    const resumen = { filas: 0, clientesConDeuda: 0, lotes: 0, actualizados: 0, skippedNoMatch: 0, vaciados: 0, empresas: {} };
+    const resumen = { filas: 0, clientesConDeuda: 0, lotes: 0, actualizados: 0, sinCambios: 0, skippedNoMatch: 0, vaciados: 0, empresas: {} };
     for (const empresa of empresas_1.EMPRESAS) {
-        const re = { filas: 0, clientesConDeuda: 0, lotes: 0, actualizados: 0, skippedNoMatch: 0, vaciados: 0 };
+        const re = { filas: 0, clientesConDeuda: 0, lotes: 0, actualizados: 0, sinCambios: 0, skippedNoMatch: 0, vaciados: 0 };
         resumen.empresas[empresa] = re;
         try {
             const company = companyDe(cfg, empresa);
@@ -448,9 +448,13 @@ async function sincronizarSaldos(db, tango, cfg) {
             re.clientesConDeuda = porCliente.size;
             if (lotes.length === 0)
                 lotes.push([]); // nadie debe nada: igual hay que vaciar el cache viejo
+            // Compartido entre los lotes de esta empresa: qué deudores aparecieron.
+            // Con esto la sync no reescribe lo que no cambió (auditoría 2026-09-22).
+            const tocados = new Set();
             for (const [i, lote] of lotes.entries()) {
-                const r = await (0, tangoSaldos_1.procesarLoteSaldos)(db, lote, { dryRun: false, runId, esUltimoLote: i === lotes.length - 1, empresa, indice, descuentos });
+                const r = await (0, tangoSaldos_1.procesarLoteSaldos)(db, lote, { dryRun: false, runId, esUltimoLote: i === lotes.length - 1, empresa, indice, descuentos, tocados });
                 re.lotes++;
+                re.sinCambios += r.sinCambios ?? 0;
                 re.actualizados += r.actualizados ?? 0;
                 re.skippedNoMatch += r.skippedNoMatch ?? 0;
                 re.vaciados += r.vaciados ?? 0;
@@ -464,6 +468,7 @@ async function sincronizarSaldos(db, tango, cfg) {
         resumen.clientesConDeuda += re.clientesConDeuda;
         resumen.lotes += re.lotes;
         resumen.actualizados += re.actualizados;
+        resumen.sinCambios += re.sinCambios;
         resumen.skippedNoMatch += re.skippedNoMatch;
         resumen.vaciados += re.vaciados;
     }

@@ -86,7 +86,8 @@ export const enviarComprobantePorMail = onCall({ secrets: MAIL_SECRETS, memory: 
   const db = getFirestore()
   const perfil = (await db.doc(`users/${uid}`).get()).data()
   const rol = (perfil?.rol ?? '') as string
-  const rolesExtra = ((perfil?.rolesExtra ?? []) as { rol?: string }[]).map((r) => r?.rol ?? '')
+  // `rolesExtra` es string[] (auditoría 2026-09-22: se leía como {rol} y siempre daba vacío).
+  const rolesExtra = (Array.isArray(perfil?.rolesExtra) ? perfil.rolesExtra : []).map(String)
   if (perfil?.estado !== 'activo' || (!ROLES.has(rol) && !rolesExtra.some((r) => ROLES.has(r)))) {
     throw new HttpsError('permission-denied', 'No autorizado')
   }

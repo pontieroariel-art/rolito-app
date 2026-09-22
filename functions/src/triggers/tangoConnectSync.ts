@@ -441,6 +441,8 @@ export interface ResumenSaldosEmpresa {
   clientesConDeuda: number
   lotes: number
   actualizados: number
+  /** Deudores cuya rama no cambió y no se reescribieron (2026-09-22). */
+  sinCambios: number
   skippedNoMatch: number
   vaciados: number
   /** Filas de deuda que no se pudieron atribuir a un cliente (sin ID_GVA14 y código no vinculado). */
@@ -463,9 +465,9 @@ export interface ResumenSaldos extends ResumenSaldosEmpresa {
 export async function sincronizarSaldos(db: Firestore, tango: TangoClient, cfg: ConfigSync): Promise<ResumenSaldos> {
   const indice = await indiceClientesTango(db)
   const descuentos = await descuentosPendientes(db)
-  const resumen: ResumenSaldos = { filas: 0, clientesConDeuda: 0, lotes: 0, actualizados: 0, skippedNoMatch: 0, vaciados: 0, empresas: {} }
+  const resumen: ResumenSaldos = { filas: 0, clientesConDeuda: 0, lotes: 0, actualizados: 0, sinCambios: 0, skippedNoMatch: 0, vaciados: 0, empresas: {} }
   for (const empresa of EMPRESAS) {
-    const re: ResumenSaldosEmpresa = { filas: 0, clientesConDeuda: 0, lotes: 0, actualizados: 0, skippedNoMatch: 0, vaciados: 0 }
+    const re: ResumenSaldosEmpresa = { filas: 0, clientesConDeuda: 0, lotes: 0, actualizados: 0, sinCambios: 0, skippedNoMatch: 0, vaciados: 0 }
     resumen.empresas[empresa] = re
     try {
       const company = companyDe(cfg, empresa)
@@ -497,9 +499,13 @@ export async function sincronizarSaldos(db: Firestore, tango: TangoClient, cfg: 
       re.filas = filas.length
       re.clientesConDeuda = porCliente.size
       if (lotes.length === 0) lotes.push([])   // nadie debe nada: igual hay que vaciar el cache viejo
+      // Compartido entre los lotes de esta empresa: qué deudores aparecieron.
+      // Con esto la sync no reescribe lo que no cambió (auditoría 2026-09-22).
+      const tocados = new Set<string>()
       for (const [i, lote] of lotes.entries()) {
-        const r = await procesarLoteSaldos(db, lote, { dryRun: false, runId, esUltimoLote: i === lotes.length - 1, empresa, indice, descuentos })
+        const r = await procesarLoteSaldos(db, lote, { dryRun: false, runId, esUltimoLote: i === lotes.length - 1, empresa, indice, descuentos, tocados })
         re.lotes++
+        re.sinCambios     += r.sinCambios ?? 0
         re.actualizados   += r.actualizados ?? 0
         re.skippedNoMatch += r.skippedNoMatch ?? 0
         re.vaciados       += r.vaciados ?? 0
@@ -509,7 +515,7 @@ export async function sincronizarSaldos(db: Firestore, tango: TangoClient, cfg: 
       logger.error(`[tango] sync de saldos de ${empresa} falló: ${re.error}`)
     }
     resumen.filas += re.filas; resumen.clientesConDeuda += re.clientesConDeuda; resumen.lotes += re.lotes
-    resumen.actualizados += re.actualizados; resumen.skippedNoMatch += re.skippedNoMatch; resumen.vaciados += re.vaciados
+    resumen.actualizados += re.actualizados; resumen.sinCambios += re.sinCambios; resumen.skippedNoMatch += re.skippedNoMatch; resumen.vaciados += re.vaciados
   }
   return resumen
 }

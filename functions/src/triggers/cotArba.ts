@@ -118,7 +118,8 @@ export const presentarCotRemito = onCall(
     const uid = request.auth.uid
     const db = getFirestore()
     const perfil = (await db.doc(`users/${uid}`).get()).data()
-    const rolesExtra = ((perfil?.rolesExtra ?? []) as { rol?: string }[]).map((x) => x?.rol ?? '')
+    // `rolesExtra` es string[] (auditoría 2026-09-22: se leía como {rol} y siempre daba vacío).
+    const rolesExtra = (Array.isArray(perfil?.rolesExtra) ? perfil.rolesExtra : []).map(String)
     if (perfil?.estado !== 'activo' || (!ROLES_PRESENTAN.has(String(perfil?.rol)) && !rolesExtra.some((x) => ROLES_PRESENTAN.has(x)))) {
       throw new HttpsError('permission-denied', 'No autorizado')
     }

@@ -262,6 +262,34 @@ export function fusionarRamaEmpresa(
 }
 
 /** Vacía la rama de una empresa (el cliente ya no debe nada ahí) conservando las otras. */
+/**
+ * ¿La rama de `empresa` quedaría igual que la que ya está guardada? Compara
+ * lo que le importa al que lee (comprobantes de esa empresa, saldo, cantidad,
+ * cobranzas aplicadas e identidad) e ignora runId / actualizadoEn. Sirve para
+ * NO reescribir el doc cuando Tango no cambió (auditoría 2026-09-22: la sync
+ * horaria reescribía a todos los deudores 17 veces por día y cada supervisor
+ * volvía a bajar la lista entera). Pura.
+ */
+export function mismaRama(actual: Partial<SaldoDoc> | undefined | null, nuevo: SaldoDoc, empresa: Empresa): boolean {
+  if (!actual) return false
+  const ramaA = actual.porEmpresa?.[empresa]
+  const ramaN = nuevo.porEmpresa[empresa]
+  if (!ramaA || !ramaN) return false
+  if (redondear2(ramaA.saldoTotal ?? 0) !== redondear2(ramaN.saldoTotal) || (ramaA.comprobantes ?? 0) !== ramaN.comprobantes) return false
+  const clave = (c: ComprobanteSaldo) => `${c.tipo}|${c.numero}|${c.codigoTango ?? ''}`
+  const forma = (c: ComprobanteSaldo) => JSON.stringify({ ...c, saldoPendiente: redondear2(c.saldoPendiente ?? 0), importeOriginal: c.importeOriginal == null ? null : redondear2(c.importeOriginal) })
+  const propiosA = comprobantesDe(actual).filter((c) => c.empresa === empresa).sort((a, b) => clave(a).localeCompare(clave(b)))
+  const propiosN = nuevo.comprobantes.filter((c) => c.empresa === empresa).sort((a, b) => clave(a).localeCompare(clave(b)))
+  if (propiosA.length !== propiosN.length) return false
+  for (let i = 0; i < propiosA.length; i++) if (forma(propiosA[i]) !== forma(propiosN[i])) return false
+  const setA = new Set(Array.isArray(actual.cobranzasAplicadas) ? actual.cobranzasAplicadas : [])
+  const setN = new Set(nuevo.cobranzasAplicadas)
+  if (setA.size !== setN.size || [...setN].some((id) => !setA.has(id))) return false
+  return (actual.idGva14 ?? 0) === nuevo.idGva14
+    && (actual.codigoTango ?? '') === nuevo.codigoTango
+    && (actual.razonSocial ?? '') === nuevo.razonSocial
+}
+
 export function vaciarRamaEmpresa(actual: Partial<SaldoDoc>, empresa: Empresa, runId: string, ahora?: unknown): SaldoDoc {
   return fusionarRamaEmpresa(actual, empresa, [], { runId, origen: 'sync', ahora })
 }
