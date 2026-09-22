@@ -67,7 +67,7 @@ export function useReparto(p: FuentesReparto): RepartoClasificado {
   return useMemo(() => clasificarReparto(p.ventas, p.cobranzas, p.cambios, p.descargas, problemasDeVenta), [p.ventas, p.cobranzas, p.cambios, p.descargas])
 }
 
-export default function DetalleReparto({ remitos, descargas, cobranzas, reparto, soloProblemas = false, onAnular }: DetalleRepartoProps) {
+export default function DetalleReparto({ remitos, descargas, reparto, soloProblemas = false, onAnular }: DetalleRepartoProps) {
   const [cai, setCai] = useState<CaiRemito | null>(() => caiRemitoOficialCacheado())
   useEffect(() => { getCaiRemitoOficial().then(setCai).catch(() => undefined) }, [])
   const [aviso, setAviso] = useState('')

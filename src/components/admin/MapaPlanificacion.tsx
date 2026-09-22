@@ -310,7 +310,7 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
     let vivo = true
     setGeocoding(true)
     Promise.all(
-      ordersDay.map(async (o, i) => {
+      ordersDay.map(async (o) => {
         const pt = await geocode(o.clientAddress)
         if (!pt) return null
         return {

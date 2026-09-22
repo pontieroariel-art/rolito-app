@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import { Printer } from 'lucide-react'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useAuth } from '@/context/AuthContext'
 import { useProduccionPallets } from '@/hooks/useProduccionPallets'
 import { PLANTAS, PlantaId } from '@/types'
 import { PRODUCTOS_HIELO_LIST } from '@/utils/produccionCatalogo'
@@ -19,7 +18,6 @@ const ProduccionResumen = lazy(() => import('@/components/produccion/ProduccionR
 // bajo la <Route> de ProduccionLayout sin arrastrar el sidebar a todos, por
 // eso el shell se elige acá por rol.
 export default function ProduccionListadoPage() {
-  const { user } = useAuth()
   const { pallets, loading } = useProduccionPallets(undefined)
   const [planta,   setPlanta]   = useState<PlantaId | ''>('')
   const [producto, setProducto] = useState('')

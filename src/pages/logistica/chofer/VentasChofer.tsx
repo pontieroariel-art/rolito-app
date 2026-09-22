@@ -4,7 +4,7 @@
 // electrónica y el chofer no tenía forma de dársela al cliente. Acá la ve y la
 // manda por WhatsApp o mail desde el mismo teléfono, sin esperar al mail que
 // Tango envía por su cuenta.
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, FileText, Clock, AlertTriangle, Mail, Ban } from 'lucide-react'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'

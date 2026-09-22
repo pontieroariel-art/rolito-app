@@ -44,7 +44,7 @@ export const registerUser = async ({
   const credential = await createUserWithEmailAndPassword(auth, email, password)
   try {
     await createUserDocument(credential.user.uid, { email, razonSocial, nombreContacto, cuit, phone })
-  } catch (err) {
+  } catch {
     // El índice de CUIT se lo ganó otra cuenta entre el chequeo de arriba y
     // este punto — deshacer el alta en vez de dejar una cuenta de Auth +
     // perfil "pendiente" huérfana que nunca va a poder loguearse por CUIT.

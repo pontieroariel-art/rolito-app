@@ -7,7 +7,7 @@ import { updateUserDocument } from '../../../services/userService'
 import { Sistema, UserProfile } from '../../../types'
 import { ROLE_HOME, SISTEMA_LABELS, techoSistemasDe } from '../../../utils/sistemas'
 import { ROLE_LABELS, tieneRol } from '../../../utils/roles'
-import { gruposVisibles, rutaDe, type GrupoMenu, type ItemMenu } from '@/rutas/catalogo'
+import { gruposVisibles, type GrupoMenu, type ItemMenu } from '@/rutas/catalogo'
 
 /**
  * RECORTE DEL MENÚ POR USUARIO (2026-09-12, rediseño).

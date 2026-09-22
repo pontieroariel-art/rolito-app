@@ -29,7 +29,7 @@ interface TruckTrackerProps {
   onNearby:     () => void
 }
 
-export function TruckTracker({ order, clientEmail, clientNombre, onNearby }: TruckTrackerProps) {
+export function TruckTracker({ order, clientEmail, onNearby }: TruckTrackerProps) {
   const { isLoaded }        = useGoogleMapsLoader()
   const mapRef              = useRef<google.maps.Map | null>(null)
   const hasFitted           = useRef(false)

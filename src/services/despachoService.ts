@@ -1,6 +1,6 @@
 import {
   collection, doc, setDoc, onSnapshot,
-  query, where, Timestamp, runTransaction, serverTimestamp,
+  query, where, runTransaction, serverTimestamp,
 } from 'firebase/firestore'
 
 import { db } from './firebase'

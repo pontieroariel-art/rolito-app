@@ -52,7 +52,6 @@ export function FichaClienteModal({
   const [savingInfo,          setSavingInfo]           = useState(false)
   const { isLoaded } = useGoogleMapsLoader()
 
-  const canManagePrices  = ['super_admin', 'gerente_comercial'].includes(currentUser?.rol ?? '')
   const canAssignCode    = ['super_admin', 'facturacion', 'gerente_comercial', 'comercial', 'logistica'].includes(currentUser?.rol ?? '')
   const canEditInfoBasica = ['super_admin', 'gerente_comercial', 'comercial', 'logistica'].includes(currentUser?.rol ?? '')
 

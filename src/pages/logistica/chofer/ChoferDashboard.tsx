@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, memo, ChangeEvent } from 'react'
+import { useState, useEffect, useRef, useMemo, memo } from 'react'
 import { Link } from 'react-router-dom'
 import { HandCoins, Package, FileText } from 'lucide-react'
 import ChoferHeader from '@/components/chofer/ChoferHeader'
@@ -720,7 +720,7 @@ export default function ChoferDashboard() {
 }
 
 function RegistrarEntregaModal({
-  clientName, clientAddress, clientPhone, catalogo, user, onConfirm, onClose,
+  clientName, clientAddress, clientPhone, catalogo, onConfirm, onClose,
 }: {
   clientName:    string
   clientAddress: string

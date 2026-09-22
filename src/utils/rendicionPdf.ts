@@ -17,7 +17,7 @@ export interface DetalleRendicionPdf {
 
 export async function generateRendicionMostrador(r: Rendicion, detalle: DetalleRendicionPdf = {}, opts: { descargar?: boolean } = {}): Promise<Blob> {
   const base  = await nuevoA4()
-  const { doc, autoTable, pageW } = base
+  const { doc, autoTable } = base
   const hora  = (d: Date) => d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
   const head  = ESTILO_CABECERA_TABLA
 

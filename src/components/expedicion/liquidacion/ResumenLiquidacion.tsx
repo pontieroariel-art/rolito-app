@@ -1,6 +1,5 @@
 import { AlertTriangle, CheckCircle2, PackageX, Truck } from 'lucide-react'
 import { formatoARS } from '@/utils/money'
-import { sumaCobrada } from '@/utils/importeCobrado'
 import { describirRacks } from '@/utils/envases'
 import type { LiquidacionCalculada, RepartoClasificado } from '@/utils/liquidacion'
 import type { ConteoBilletes, DescargaCamion, Liquidacion, RemitoCarga } from '@/types'
@@ -91,7 +90,7 @@ const Tile = ({ color, titulo, total, lineas }: { color: string; titulo: string;
 // billete en la tabla de cada empresa; el "efectivo recibido" ya no se escribe.
 // Con la liquidación cerrada se muestra el conteo guardado (los cierres
 // anteriores no lo tienen: solo el total).
-export function TarjetasPlata({ reparto, calc, conteo, onConteo, soloLectura, efectivoRecibidoCerrado }: {
+export function TarjetasPlata({ calc, conteo, onConteo, soloLectura, efectivoRecibidoCerrado }: {
   reparto: RepartoClasificado; calc: LiquidacionCalculada
   /** El conteo en curso (o el guardado, en una cerrada). undefined en una cerrada vieja sin conteo. */
   conteo?: ConteoBilletes

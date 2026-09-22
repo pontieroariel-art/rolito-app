@@ -32,7 +32,7 @@ import DosPartes from '@/components/expedicion/liquidacion/DosPartes'
 import { BarraEstado, DetallePorProducto, Plegable, ResumenPorCliente, TarjetasPlata } from '@/components/expedicion/liquidacion/ResumenLiquidacion'
 import CierreLiquidacionModal, { type DatosCierre } from '@/components/expedicion/liquidacion/CierreLiquidacionModal'
 import {
-  CambioCamion, CierreMercaderia, Cobranza, DescargaCamion, Liquidacion, PLANTAS, RemitoCarga, VentaCamion, type PlantaId,
+  CambioCamion, CierreMercaderia, Cobranza, DescargaCamion, Liquidacion, PLANTAS, VentaCamion, type PlantaId,
 } from '@/types'
 import { reportError } from '@/services/observability'
 import SolicitarAnulacionModal from '@/components/expedicion/SolicitarAnulacionModal'

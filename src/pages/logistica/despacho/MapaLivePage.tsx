@@ -4,7 +4,7 @@ import { LiveMap, driverColor, gpsAge } from '@/components/admin/LiveMap'
 import { useAllOrders } from '@/hooks/useOrders'
 import { useChoferes } from '@/hooks/useChoferes'
 import { subscribeAllActiveDrivers, ActiveDriver } from '@/services/locationService'
-import { summarizeProducts, toDateStr, todayString } from '@/utils/helpers'
+import { toDateStr, todayString } from '@/utils/helpers'
 import { Order, UserProfile } from '@/types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

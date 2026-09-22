@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { FileText, RefreshCw } from 'lucide-react'
 import { Plegable } from '@/components/ui/Plegable'
 import { CobranzaSupervisorCard } from '@/components/supervisor/CobranzaSupervisorCard'
 import { getHistorialCliente, type HistorialCliente } from '@/services/historialClienteService'

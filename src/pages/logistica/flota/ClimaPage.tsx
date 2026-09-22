@@ -6,7 +6,7 @@ import {
 } from 'recharts'
 import { ChevronLeft, ChevronRight, Thermometer, Droplets, CloudSun } from 'lucide-react'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
-import { getHistoricalWeather, DayWeather } from '@/services/weatherService'
+import { getHistoricalWeather } from '@/services/weatherService'
 import { ForecastStrip, tempColor } from '@/components/common/ForecastStrip'
 import { getOrdersInRange } from '@/services/orderService'
 import { Order } from '@/types'

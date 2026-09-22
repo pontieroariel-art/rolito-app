@@ -1,5 +1,5 @@
 import {
-  collection, doc, getDoc, onSnapshot, query, runTransaction, updateDoc, where, Timestamp,
+  collection, doc, getDoc, onSnapshot, query, runTransaction, where, Timestamp,
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { reportError } from './observability'

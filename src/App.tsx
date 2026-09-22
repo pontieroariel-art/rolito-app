@@ -1,7 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import PantallaBoundary from '@/components/common/PantallaBoundary'
-import { tieneAlgunRol } from '@/utils/roles'
 import { rolesDe, primerAccesoDe } from '@/rutas/catalogo'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from './context/AuthContext'

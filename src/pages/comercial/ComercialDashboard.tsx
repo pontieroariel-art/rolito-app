@@ -77,7 +77,6 @@ export default function ComercialDashboard() {
   const enCamino    = useMemo(() => todayOrders.filter((o) => o.status === 'en_camino').length,   [todayOrders])
   const confirmados = useMemo(() => todayOrders.filter((o) => o.status === 'confirmado').length,  [todayOrders])
   const pendientesP = useMemo(() => todayOrders.filter((o) => o.status === 'pendiente').length,   [todayOrders])
-  const cancelados  = useMemo(() => todayOrders.filter((o) => o.status === 'cancelado').length,   [todayOrders])
 
   const patchUser = (uid: string, patch: Partial<UserProfile>) =>
     qc.setQueryData<UserProfile[]>(['users'], (prev) =>

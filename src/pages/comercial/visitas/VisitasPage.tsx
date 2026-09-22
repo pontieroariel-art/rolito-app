@@ -10,7 +10,7 @@ import {
   addPrograma, updatePrograma, deletePrograma,
   addVisitaPuntual, updateVisitaPuntual, deleteVisitaPuntual,
 } from '@/services/visitasService'
-import { ProgramaVisita, VisitaPuntual, UserProfile, DIAS_SEMANA } from '@/types'
+import { ProgramaVisita, VisitaPuntual, UserProfile } from '@/types'
 import { Timestamp } from 'firebase/firestore'
 import { todayString, tsToDate as aFecha } from '@/utils/helpers'
 

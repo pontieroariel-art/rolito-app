@@ -20,13 +20,12 @@ import { useRemitosCargaDelDia } from '@/hooks/useExpedicionDia'
 import { generateRemitoCarga } from '@/utils/pdf'
 import { BorradorCarga, PLANTAS, RemitoCarga, RemitoCargaEstado, RemitoCargaItem } from '@/types'
 import { reportError } from '@/services/observability'
-import RacksInput from '@/components/expedicion/RacksInput'
 import CotDestinoForm, { faltantesDestinoPlan } from '@/components/expedicion/CotDestinoForm'
 import { useCotConfig } from '@/hooks/useCotConfig'
 import { formatoRespaldo, kgDeItems, requiereCot } from '@/utils/cot'
 import { generateRemitoCargaOficial } from '@/utils/remitoCargaOficialPdf'
 import type { CotDestinoPlan } from '@/types'
-import { AROS_POR_TARIMA_MADERA, PUNTALES_POR_PALLET, SOMBREROS_POR_PALLET, describirEnvases, envasesDeRemito } from '@/utils/envases'
+import { describirEnvases, envasesDeRemito } from '@/utils/envases'
 
 // Planificación de la carga (2026-09-18). Esta pantalla YA NO EMITE EL REMITO.
 //
@@ -173,8 +172,6 @@ export default function RemitosCargaPage() {
   // Kilos de la carga PLANIFICADA según config/cot.productos. Muelle los recalcula al aceptar.
   const { kg, sinPeso } = useMemo(() => kgDeItems(items, cotCfg.productos), [items, cotCfg.productos])
   const cruzaUmbral = requiereCot(kg, cotDestino?.respaldo.importe ?? 0, cotCfg)
-  const num = (v: string) => Math.max(0, Math.min(999, parseInt(v.replace(/\D/g, ''), 10) || 0))
-  const inputEnvase = 'w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'
 
   // Los borradores del día que se está planificando, y los de hoy que muelle
   // todavía no emitió (caja los puede seguir corrigiendo).

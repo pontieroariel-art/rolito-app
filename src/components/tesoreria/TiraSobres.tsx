@@ -1,5 +1,4 @@
 import { Fragment, type ReactNode } from 'react'
-import { todayString } from '@/utils/helpers'
 import { Link } from 'react-router-dom'
 import { formatoARS } from '@/utils/money'
 import type { CustodiaPlanta } from '@/utils/sobres'
@@ -89,4 +88,3 @@ export default function TiraSobres({ custodia, horasAviso, titulo = 'Plata de la
 }
 
 const redondear = (n: number): number => Math.round(n * 100) / 100
-const hoyStr = (): string => todayString()
