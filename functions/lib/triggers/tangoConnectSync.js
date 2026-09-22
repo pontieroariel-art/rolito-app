@@ -467,7 +467,10 @@ async function sincronizarSaldos(db, tango, cfg) {
         }
         catch (e) {
             re.error = e.message;
-            v2_1.logger.error(`[tango] sync de saldos de ${empresa} falló: ${re.error}`);
+            // Con la pila: el 22/09 Redonhielo terminaba cada corrida con "The
+            // operation was aborted due to timeout" después de procesar los lotes,
+            // y sin la pila no se sabe qué llamada es.
+            v2_1.logger.error(`[tango] sync de saldos de ${empresa} falló: ${re.error}`, { lotes: re.lotes, stack: e.stack });
         }
         resumen.filas += re.filas;
         resumen.clientesConDeuda += re.clientesConDeuda;

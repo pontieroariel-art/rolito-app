@@ -517,7 +517,10 @@ export async function sincronizarSaldos(db: Firestore, tango: TangoClient, cfg: 
       }
     } catch (e) {
       re.error = (e as Error).message
-      logger.error(`[tango] sync de saldos de ${empresa} falló: ${re.error}`)
+      // Con la pila: el 22/09 Redonhielo terminaba cada corrida con "The
+      // operation was aborted due to timeout" después de procesar los lotes,
+      // y sin la pila no se sabe qué llamada es.
+      logger.error(`[tango] sync de saldos de ${empresa} falló: ${re.error}`, { lotes: re.lotes, stack: (e as Error).stack })
     }
     resumen.filas += re.filas; resumen.clientesConDeuda += re.clientesConDeuda; resumen.lotes += re.lotes
     resumen.actualizados += re.actualizados; resumen.sinCambios += re.sinCambios; resumen.skippedNoMatch += re.skippedNoMatch; resumen.vaciados += re.vaciados
