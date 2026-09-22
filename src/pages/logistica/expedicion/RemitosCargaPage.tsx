@@ -6,6 +6,7 @@ import PageHeader from '@/components/common/PageHeader'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
 import { useAuth } from '@/context/AuthContext'
+import { presentarCotRemito } from '@/services/cotConfigService'
 import { useFlota } from '@/hooks/useFlota'
 import { useDepositosReparto } from '@/hooks/useDepositosReparto'
 import { etiquetaDeposito, identidadDeposito, nombreDeposito, ordenarDepositosReparto } from '@/utils/depositos'
@@ -96,6 +97,19 @@ export default function RemitosCargaPage() {
   // mismo. El botón está al pie de un formulario largo, así que un aviso arriba
   // de la pantalla no lo ve nadie y caja se queda sin saber si guardó.
   const [hecho, setHecho] = useState<{ titulo: string; quien: string; resumen: string } | null>(null)
+  const [reintentandoCot, setReintentandoCot] = useState<string | null>(null)
+  const reintentarCot = async (remitoId: string, codigo: string) => {
+    setReintentandoCot(remitoId)
+    try {
+      const r = await presentarCotRemito(remitoId)
+      if (!r.ok) alert(`ARBA rechazó el COT de ${codigo}: ${r.error ?? 'sin detalle'}`)
+    } catch (err) {
+      reportError(err, { origen: 'RemitosCargaPage', accion: 'reintentarCot', remitoId })
+      alert(`No se pudo presentar el COT de ${codigo}. Probá de nuevo en un rato.`)
+    } finally {
+      setReintentandoCot(null)
+    }
+  }
   const [guardando,   setGuardando]   = useState(false)
   const [error,       setError]       = useState('')
   const [aviso,       setAviso]       = useState('')
@@ -535,9 +549,22 @@ export default function RemitosCargaPage() {
             {r.cotSolicitud && (
               r.cot?.estado === 'presentado'
                 ? <Badge tono="confirmado" title={r.cot.fechaValidez ? `Válido hasta ${r.cot.fechaValidez}` : ''}>COT {r.cot.numero}</Badge>
-                : <Badge tono={r.cot?.estado === 'error' ? 'cancelado' : 'aviso'} title={r.cot?.error ?? 'Todavía no se presentó a ARBA'}>
-                    {r.cot?.estado === 'error' ? 'COT con error' : 'COT pendiente'}
-                  </Badge>
+                : <>
+                    <Badge tono={r.cot?.estado === 'error' ? 'cancelado' : 'aviso'} title={r.cot?.error ?? 'Todavía no se presentó a ARBA'}>
+                      {r.cot?.estado === 'error' ? 'COT con error' : 'COT pendiente'}
+                    </Badge>
+                    {/* Reintento a mano (2026-09-22): la callable existía y ningún
+                        botón la llamaba. El motivo del rechazo está en el title del badge. */}
+                    <button
+                      type="button"
+                      disabled={reintentandoCot === r.id}
+                      onClick={() => reintentarCot(r.id, r.codigo)}
+                      title={r.cot?.error ?? 'Presentar el COT a ARBA ahora'}
+                      className="h-9 px-3 rounded-lg border border-[#D3D1C7] bg-white text-xs font-semibold text-gray-900 hover:border-accent disabled:opacity-50"
+                    >
+                      {reintentandoCot === r.id ? 'Presentando…' : 'Reintentar COT'}
+                    </button>
+                  </>
             )}
             <Badge tono={ESTADO_TONOS[r.estado]}>{ESTADO_LABELS[r.estado]}</Badge>
             <button

@@ -98,6 +98,8 @@ export { onDescargaRectificada } from './triggers/descargaRectificada'
 export { onVentaCamionControl, onVentaVentanillaControl } from './triggers/ventasControl'
 // Recibo que no cuadra: se marca, se avisa y no viaja a Tango (auditoría 2026-09-22).
 export { onCobranzaControl } from './triggers/cobranzasControl'
+// COT rechazado por ARBA: push a caja, logística y super_admin (auditoría 2026-09-22).
+export { onCotError } from './triggers/cotAviso'
 // Aviso de vencimiento del padrón de IIBB. No declara los secrets de ARCA, así
 // que se puede desplegar suelta.
 export { avisarPadronIIBB } from './triggers/padronIIBB'
