@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { tieneAlgunRol } from '@/utils/roles'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { RefreshCw } from 'lucide-react'
 import Button from '../ui/Button'
@@ -31,7 +32,7 @@ export default function DepositosPanel() {
 
   const candidatos = useMemo(
     () => staff
-      .filter((u) => (u.rol === 'chofer' || u.rol === 'supervisor') && u.estado === 'activo' && u.subrol !== 'ayudante')
+      .filter((u) => tieneAlgunRol(u, ['chofer', 'supervisor']) && u.estado === 'activo' && u.subrol !== 'ayudante')
       .sort((a, b) => (a.nombre || a.nombreContacto || '').localeCompare(b.nombre || b.nombreContacto || '', 'es')),
     [staff],
   )

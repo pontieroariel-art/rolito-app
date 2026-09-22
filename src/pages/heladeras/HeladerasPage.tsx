@@ -1,4 +1,5 @@
 import { useState, useMemo, FormEvent } from 'react'
+import { tieneAlgunRol } from '@/utils/roles'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
@@ -238,7 +239,9 @@ export default function HeladerasPage() {
   // migración del Backoffice) — gerente_comercial sí, y antes se quedaba
   // sin ver ninguna de las acciones de gestión pese a poder entrar por
   // ruta (App.tsx). Bug cerrado: ahora coincide con el allowedRoles real.
-  const isEncargado = user?.rol === 'heladeras_encargado' || user?.rol === 'gerente_comercial'
+  // Por el CONJUNTO de roles (auditoría 2026-09-22): un staff con
+  // heladeras_encargado como rol adicional pasaba la ruta y acá no veía la gestión.
+  const isEncargado = tieneAlgunRol(user, ['heladeras_encargado', 'gerente_comercial'])
   const actor = user ? { uid: user.uid, nombre: user.nombre } : null
 
   const misEnProceso = useMemo(

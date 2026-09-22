@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { tieneRol } from '@/utils/roles'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Wrench } from 'lucide-react'
@@ -72,7 +73,7 @@ export default function FichaHeladeraPage() {
   const puedeReportar   = puedeGestionar
   // Supervisor en la calle (QR de la etiqueta, 2026-09-07): pide el service
   // acá mismo, con foto — no tiene Toma de service.
-  const esSupervisor = user?.rol === 'supervisor'
+  const esSupervisor = tieneRol(user, 'supervisor')
   const [pedirService, setPedirService] = useState(false)
   const [avisoService, setAvisoService] = useState('')
 

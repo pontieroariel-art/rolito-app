@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { tieneRol } from '@/utils/roles'
 import { subscribeRemitosCargaChoferHoy } from '../services/remitoCargaService'
 import { RemitoCarga } from '../types'
 import { useAuth } from '../context/AuthContext'
@@ -10,7 +11,7 @@ export function useRemitosCargaChofer() {
   const [remitos, setRemitos] = useState<RemitoCarga[]>([])
 
   useEffect(() => {
-    if (!user || user.rol !== 'chofer') return
+    if (!user || !tieneRol(user, 'chofer')) return
     return subscribeRemitosCargaChoferHoy(user.uid, setRemitos)
   }, [user])
 
