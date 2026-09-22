@@ -65,6 +65,17 @@ describe('viajeDeVenta', () => {
     expect(viajeDeVenta(sinCamion, viajes)).toBe('rem-a')
   })
 
+  it('el recibo del supervisor (sin camión ni choferId) se ubica por quien lo registró: el supervisor que sale con un camión rinde sus recibos en ese viaje', () => {
+    // Caso Vañek, 22/09: remito RC-DT-000096 con camión manual y tres recibos del día sin remitoId.
+    const viajes = [viaje('rem-v', 'manual:AF821HE', '2026-09-22T11:44:00Z', 'sup-v')]
+    const recibo = { registradoPor: { uid: 'sup-v' }, fecha: ts('2026-09-22T14:18:00Z') }
+    expect(viajeDeVenta(recibo, viajes)).toBe('rem-v')
+    // El recibo de OTRO supervisor no cae en su viaje.
+    expect(viajeDeVenta({ registradoPor: { uid: 'sup-x' }, fecha: ts('2026-09-22T14:18:00Z') }, viajes)).toBeNull()
+    // Con choferId escrito, manda choferId.
+    expect(viajeDeVenta({ choferId: 'sup-v', registradoPor: { uid: 'otro' }, fecha: ts('2026-09-22T14:18:00Z') }, viajes)).toBe('rem-v')
+  })
+
   it('sin nada con qué ubicarla devuelve null: esa plata se rinde por día', () => {
     expect(viajeDeVenta({ fecha: ts('2026-09-18T09:00:00Z') }, [viaje('rem-a', 'cam12', '2026-09-18T04:00:00Z')])).toBeNull()
     expect(viajeDeVenta(venta('2026-09-18T09:00:00Z'), [])).toBeNull()

@@ -25,6 +25,13 @@ export interface Ubicable {
   remitoId?: string
   camionId?: string
   choferId?: string
+  /**
+   * Quién lo registró. Un recibo del supervisor no trae remitoId, camionId ni
+   * choferId (cobra desde la ficha del cliente, sin camión): su identidad es
+   * esta. Sin esto, el supervisor que sale con un camión (Vañek, 22/09) pasaba
+   * a liquidar por viaje y sus recibos del día desaparecían de la liquidación.
+   */
+  registradoPor?: { uid?: string } | null
   fecha:     { toDate(): Date }
 }
 
@@ -55,14 +62,15 @@ export function viajeDeVenta(venta: Ubicable, viajes: ViajeCandidato[]): string 
   // AF985DC), y las ventas de uno no pueden caer en el viaje del otro. Si el
   // chofer no tiene viaje propio en ese camión (acompañante que sale sin remito),
   // recién ahí vale el viaje del camión; y sin camión, el del chofer.
+  const persona   = venta.choferId ?? venta.registradoPor?.uid
   const delCamion = venta.camionId ? delDia.filter((r) => r.camionId === venta.camionId) : []
-  const propios   = venta.choferId ? delCamion.filter((r) => r.choferId === venta.choferId) : []
+  const propios   = persona ? delCamion.filter((r) => r.choferId === persona) : []
   const mismos = propios.length
     ? propios
     : delCamion.length
       ? delCamion
-      : venta.choferId
-        ? delDia.filter((r) => r.choferId === venta.choferId)
+      : persona
+        ? delDia.filter((r) => r.choferId === persona)
         : []
   if (!mismos.length) return null
 
