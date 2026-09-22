@@ -27,6 +27,7 @@ import { EMPRESAS_TANGO, NOMBRE_EMPRESA, estaVinculadoATango, tangoIdsDe } from 
 import { agruparPorEmpresaYCodigo, claveComp, empresaDe, grupoDe, mismoGrupo, type GrupoRecibo } from '@/utils/composicionSaldos'
 import { nombreSucursal } from '@/utils/sucursalesTango'
 import { AplicacionACuenta, ChequeRecibido, Cobranza, ComprobanteSaldoTango, EmpresaTango, ImputacionFactura, PlantaId, RetencionRecibida } from '@/types'
+import { reportError } from '@/services/observability'
 
 const inputClass = 'w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'
 
@@ -271,7 +272,8 @@ export default function CobranzaCompleta({ origen, plantaId, cajaSesionId, clien
       // se agotó (carrera), el recibo sale sin número antes que bloquear.
       let numeroRecibo: string | undefined
       if (numeracionActiva) {
-        try { numeroRecibo = codigoRecibo(consumirNumero(user.uid)) } catch { /* sin número */ }
+        try { numeroRecibo = codigoRecibo(consumirNumero(user.uid)) }
+        catch (err) { reportError(err, { origen: 'CobranzaCompleta', accion: 'consumirNumero', uid: user.uid }) }   // sale sin número, pero se sabe
       }
       const cobranza = await crearCobranzaCompleta(
         {

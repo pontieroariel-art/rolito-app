@@ -38,6 +38,7 @@ import { getPreciosIncluyenIva } from '@/services/arcaConfigService'
 import { useDriverOrders } from '@/hooks/useOrders'
 import { normalizarOrdenCompra, pedidoParaVenta } from '@/utils/ordenCompraVenta'
 import { FormaPago, CanalVenta, VentaCamionItem, ComprobanteInternoVenta, TipoComprobanteInterno, type VentaCamion as VentaCamionDoc } from '@/types'
+import { reportError } from '@/services/observability'
 
 const CANALES: { id: CanalVenta; titulo: string; empresa: string; color: string; icon: typeof Tag }[] = [
   { id: 'contado', titulo: 'Venta Contado', empresa: 'Redonhielo', color: '#1D9E75', icon: FileText },
@@ -281,7 +282,7 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
       if (tipoInterno && numeracionActiva[tipoInterno]) {
         try {
           comprobanteInterno = { tipo: tipoInterno, ...consumirNumero(tipoInterno, user.uid) }
-        } catch { /* reserva agotada: sin número */ }
+        } catch (err) { reportError(err, { origen: 'VentaCamion', accion: 'consumirNumero', tipo: tipoInterno, uid: user.uid }) }   // sale sin número, pero se sabe
       }
       crearVentaCamion(
         {

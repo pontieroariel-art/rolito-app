@@ -156,7 +156,8 @@ export default function EntregarPedidoPage() {
       const tipoInterno = tipoComprobanteInterno({ canal, formaPago, total })
       let comprobanteInterno: ComprobanteInternoVenta | undefined
       if (tipoInterno && numeracionActiva[tipoInterno]) {
-        try { comprobanteInterno = { tipo: tipoInterno, ...consumirNumero(tipoInterno, user.uid) } } catch { /* reserva agotada: sin número */ }
+        try { comprobanteInterno = { tipo: tipoInterno, ...consumirNumero(tipoInterno, user.uid) } }
+        catch (err) { reportError(err, { origen: 'EntregarPedidoPage', accion: 'consumirNumero', tipo: tipoInterno, uid: user.uid }) }   // sale sin número, pero se sabe
       }
       // La venta (remito / factura) y el pedido entregado salen juntos; las dos
       // escrituras se encolan sin señal y suben solas.
