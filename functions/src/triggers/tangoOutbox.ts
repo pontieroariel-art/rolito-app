@@ -1,4 +1,5 @@
 import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore'
+import { controlarRecibo } from '../services/cobranzasControl'
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { destinoTango, movimientoStockDeVenta } from '../services/arca/circuito'
 import { codigoTangoDe, esEmpresa, idGva14De, tangoIdsDe, type Empresa } from '../services/tango/empresas'
@@ -671,6 +672,12 @@ export const onCobranzaCreada = onDocumentCreated(
     // mostrador/calle de antes (sin imputaciones) siguen sin encolarse.
     // Desde el 2026-09-08 también viaja la cobranza a cuenta pura (sin factura imputada).
     if (!cobranza || !Array.isArray(cobranza.imputaciones) || (cobranza.imputaciones.length === 0 && !(Number(cobranza.aCuenta) > 0))) return
+    // Un recibo que no cuadra (valores ≠ importe, imputado > recibido…) NO va a
+    // Tango ni descuenta el saldo (auditoría 2026-09-22): hasta hoy la triple
+    // igualdad se validaba solo en el navegador del que cobra. Lo marca y
+    // avisa onCobranzaControl; la oficina decide.
+    const descuadre = controlarRecibo(cobranza)
+    if (descuadre) { console.error(`[outbox] cobranzas/${event.params.cobranzaId} no cuadra, no se encola: ${descuadre.motivos.join(' ')}`); return }
 
     const db = getFirestore()
 

@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.onOutboxConfirmado = exports.onCobranzaCreada = exports.onDescargaCamionCreada = exports.codigoDescarga = exports.onRemitoCargaRegreso = exports.onRemitoCargaCreado = exports.onAnulacionEmitida = exports.onVentaVentanillaFacturada = exports.onVentaVentanillaCreada = exports.onVentaCamionFacturada = exports.onVentaCamionCreada = exports.onProduccionPalletCreado = void 0;
 exports.numerarDescarga = numerarDescarga;
 const firestore_1 = require("firebase-functions/v2/firestore");
+const cobranzasControl_1 = require("../services/cobranzasControl");
 const firestore_2 = require("firebase-admin/firestore");
 const circuito_1 = require("../services/arca/circuito");
 const empresas_1 = require("../services/tango/empresas");
@@ -618,6 +619,15 @@ exports.onCobranzaCreada = (0, firestore_1.onDocumentCreated)('cobranzas/{cobran
     // Desde el 2026-09-08 también viaja la cobranza a cuenta pura (sin factura imputada).
     if (!cobranza || !Array.isArray(cobranza.imputaciones) || (cobranza.imputaciones.length === 0 && !(Number(cobranza.aCuenta) > 0)))
         return;
+    // Un recibo que no cuadra (valores ≠ importe, imputado > recibido…) NO va a
+    // Tango ni descuenta el saldo (auditoría 2026-09-22): hasta hoy la triple
+    // igualdad se validaba solo en el navegador del que cobra. Lo marca y
+    // avisa onCobranzaControl; la oficina decide.
+    const descuadre = (0, cobranzasControl_1.controlarRecibo)(cobranza);
+    if (descuadre) {
+        console.error(`[outbox] cobranzas/${event.params.cobranzaId} no cuadra, no se encola: ${descuadre.motivos.join(' ')}`);
+        return;
+    }
     const db = (0, firestore_2.getFirestore)();
     // El bridge necesita el vínculo Tango del cliente EN LA EMPRESA del recibo
     // (un recibo = una empresa = un código de cliente, 2026-09-06). El código lo
