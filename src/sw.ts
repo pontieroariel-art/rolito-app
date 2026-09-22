@@ -23,8 +23,22 @@ registerRoute(new NavigationRoute(createHandlerBoundToURL('/index.html')))
 // (abrir Pañol, exportar a Excel, importar un PDF, ver un reporte), y de ahí
 // en adelante quedan disponibles offline sin haber competido por ancho de
 // banda durante el install del service worker.
+// Pantallas de ESCRITORIO fuera del precache (auditoría 2026-09-22; misma
+// lista que globIgnores en vite.config.ts): se cachean acá al primer uso.
+const PAGINAS_OFICINA = [
+  'AjustesGeneralesPage', 'AnulacionesPage', 'AsignacionEquiposPage', 'CatalogosServicePage', 'ClientesMapPage',
+  'ComercialDashboard', 'ComercialOrders', 'ComprobantesClientesPage', 'ConsultaServicePage', 'EntregasPage',
+  'EntregasTesoreriaPage', 'EquiposPage', 'FlotaPage', 'GerenteDashboard', 'HistorialDespachoPage', 'HistorialPage',
+  'InformesDashboardPage', 'LiquidacionesAbiertasPage', 'LiquidacionesHistorialPage', 'LogisticaDashboard',
+  'MapaClientesHeladerasPage', 'MapaLivePage', 'MetricsDashboard', 'ModelosHeladeraPage', 'MonitoreoPage',
+  'OperariosProduccionPage', 'PanelControlPage', 'PerfilStaffPage', 'PlantasProduccionPage', 'PriceListsPage',
+  'ProduccionListadoPage', 'ProduccionResumenPage', 'RankingConsumoPage', 'RecepcionPage', 'RecuperoFacturasPage',
+  'RendicionesHistorialPage', 'ReporteIncidenciasPage', 'ReportePreciosPage', 'ReporteVentasPage', 'ResumenLogisticaPage',
+  'TecnicosPage', 'TesoreriaLivePage', 'TiemposMuellePage', 'UserManagement', 'VentasLivePage', 'MockupMuelleTv', 'DiagnosticoTelePage',
+]
+const CHUNKS_RUNTIME = new RegExp(`/(xlsx|pdfjs|PanolPage|charts|html2canvas|index\\.es|BarcodeScanner|${PAGINAS_OFICINA.join('|')})[\\w.-]*\\.js$`)
 registerRoute(
-  ({ url }) => /\/(xlsx|pdfjs|PanolPage|charts|html2canvas|index\.es|BarcodeScanner)[\w.-]*\.js$/.test(url.pathname),
+  ({ url }) => CHUNKS_RUNTIME.test(url.pathname),
   new StaleWhileRevalidate({
     cacheName: 'rolito-heavy-chunks',
     plugins: [
