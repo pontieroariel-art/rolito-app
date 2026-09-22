@@ -9,7 +9,7 @@ import { useOrdersRango } from '@/hooks/useOrders'
 import { useVisitasPuntualesRango } from '@/hooks/useVisitas'
 import { useClientesIndexTodos } from '@/hooks/useClientesIndex'
 import { rangoCalendario } from '@/utils/rangoFechas'
-import { summarizeProducts } from '@/utils/helpers'
+import { summarizeProducts, tsToDate as aFecha } from '@/utils/helpers'
 import { STATUS_LABELS } from '@/utils/constants'
 import { Order, VisitaPuntual, OrderStatus, ClienteIndex } from '@/types'
 import { Timestamp } from 'firebase/firestore'
@@ -17,9 +17,9 @@ import { Timestamp } from 'firebase/firestore'
 type Periodo = 'dia' | 'mes' | 'anio'
 type TipoFiltro = 'todos' | 'pedidos' | 'visitas'
 
+// Sin fecha: el origen de los tiempos (ordena al final), no "ahora".
 function tsToDate(ts: Timestamp | null | undefined): Date {
-  if (!ts) return new Date(0)
-  return ts.toDate ? ts.toDate() : new Date((ts as any).seconds * 1000)
+  return ts ? aFecha(ts) : new Date(0)
 }
 
 function orderTotal(order: Order): number {

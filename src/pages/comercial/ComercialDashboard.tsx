@@ -14,7 +14,7 @@ import { AvisoDatosTruncados } from '../../components/admin/AvisoDatosTruncados'
 import { getAllUsers, approveUser, updateUserStatus } from '../../services/userService'
 import { Order, UserProfile } from '../../types'
 import { ForecastStrip } from '@/components/common/ForecastStrip'
-import { toDateStr, todayString } from '../../utils/helpers'
+import { toDateStr, todayString, tsToDate } from '../../utils/helpers'
 
 // recharts (chunk `charts`) y el mapa de seguimiento (`maps`) bajan recién al
 // montar el tablero, no con la ruta (auditoría de bundle 2026-09-14).
@@ -25,8 +25,7 @@ const INACTIVE_DAYS = 7
 
 function isToday(order: Order) {
   if (!order.date) return false
-  const d = order.date.toDate ? order.date.toDate() : new Date((order.date as any).seconds * 1000)
-  return toDateStr(d) === todayString()
+  return toDateStr(tsToDate(order.date)) === todayString()
 }
 
 function daysSince(ts: any): number {

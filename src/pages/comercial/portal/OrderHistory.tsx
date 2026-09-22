@@ -8,7 +8,7 @@ import Badge from '@/components/ui/Badge'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { useClientOrders } from '@/hooks/useOrders'
 import { ALL_STATUSES, STATUS_LABELS } from '@/utils/constants'
-import { formatDate, formatShortDate, summarizeProducts, isSucursalCode, todayString } from '@/utils/helpers'
+import { formatDate, formatShortDate, summarizeProducts, isSucursalCode, todayString, tsToDate } from '@/utils/helpers'
 import { createOrder } from '@/services/orderService'
 import { Order, OrderStatus } from '@/types'
 
@@ -17,7 +17,7 @@ import { Order, OrderStatus } from '@/types'
 const ConsumoChart = lazy(() => import('@/components/client/ConsumoChart'))
 
 function orderToDate(o: Order): Date {
-  return o.date?.toDate ? o.date.toDate() : new Date((o.date as any)?.seconds * 1000)
+  return tsToDate(o.date)
 }
 
 function useConsumoStats(orders: Order[]) {

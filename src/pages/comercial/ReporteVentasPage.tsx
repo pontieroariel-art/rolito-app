@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { tsToDate } from '@/utils/helpers'
 import { useQuery } from '@tanstack/react-query'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -95,8 +96,7 @@ export default function ReporteVentasPage() {
   const dailyTrend = useMemo(() => {
     const map: Record<number, number> = {}
     for (const o of delivered) {
-      const d = o.date?.toDate ? o.date.toDate() : new Date((o.date as any)?.seconds * 1000)
-      const day = d.getDate()
+      const day = tsToDate(o.date).getDate()
       map[day] = (map[day] ?? 0) + totalUnits(o.products)
     }
     const daysInMonth = new Date(year, month + 1, 0).getDate()
@@ -168,7 +168,7 @@ export default function ReporteVentasPage() {
 
     // Sheet 4: detalle pedidos
     const detailRows = delivered.map((o) => ({
-      Fecha:    (o.date?.toDate ? o.date.toDate() : new Date((o.date as any)?.seconds * 1000)).toLocaleDateString('es-AR'),
+      Fecha:    tsToDate(o.date).toLocaleDateString('es-AR'),
       Cliente:  o.clientName,
       Dirección: o.clientAddress,
       Chofer:   o.driverId ?? '',

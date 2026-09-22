@@ -5,7 +5,7 @@ import { GoogleMap, Marker, InfoWindow, Polyline, Polygon } from '@react-google-
 import { useGoogleMapsLoader } from '../../hooks/useGoogleMapsLoader'
 import { CENTRO_BA, ESTILOS_SOBRIOS } from '@/components/common/map/config'
 import { pinGota } from '@/components/common/map/pines'
-import { summarizeProducts, toDateStr as dateToStr, todayString, normalizeAddress } from '../../utils/helpers'
+import { summarizeProducts, toDateStr as dateToStr, todayString, normalizeAddress, tsToDate } from '../../utils/helpers'
 import { addVisitaPuntual, deleteVisitaPuntual } from '../../services/visitasService'
 import { useVisitasPuntuales, visitasParaFecha } from '../../hooks/useVisitas'
 import { useZonasProhibidas } from '../../hooks/useZonas'
@@ -33,12 +33,8 @@ function orderDateStr(o: Order): string {
   if (!o.date) return ''
   // String guardada directamente (legacy)
   if (typeof o.date === 'string') return (o.date as string).slice(0, 10)
-  // Timestamp normal con toDate()
-  const d = o.date as any
-  if (typeof d.toDate === 'function') return dateToStr(d.toDate())
-  // Objeto plano { seconds } (cache offline de Firestore)
-  if (typeof d.seconds === 'number') return dateToStr(new Date(d.seconds * 1000))
-  return ''
+  // Timestamp con toDate() u objeto plano { seconds } (cache offline): lo resuelve tsToDate.
+  return dateToStr(tsToDate(o.date))
 }
 
 function driverColor(email: string, choferes: UserProfile[]): string {

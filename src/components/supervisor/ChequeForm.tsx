@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { todayString } from '@/utils/helpers'
 import Button from '@/components/ui/Button'
 import { BANCOS, nombreBanco } from '@/constants/bancos'
 import { parseImporte, formatoARS } from '@/utils/money'
@@ -14,10 +15,7 @@ export function diasEntre(emision: string, acreditacion: string): number {
 }
 
 // Fecha local (no UTC: a la noche toISOString ya está en el día siguiente).
-const hoyISO = () => {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
+const hoyISO = () => todayString()
 
 // Ley de cheques (24.452): un cheque se puede presentar al cobro hasta 30 días
 // después de su fecha de pago (vencido = el banco lo rechaza), y un diferido

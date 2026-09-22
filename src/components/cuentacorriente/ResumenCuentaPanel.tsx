@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { toDateStr } from '@/utils/helpers'
 import { CalendarRange, FileText } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import { useVisorComprobante } from '@/components/ui/VisorComprobante'
@@ -32,15 +33,14 @@ import type { EmpresaTango, SaldoTango, TangoComprobantesDoc, UserProfile } from
 
 const INPUT = 'bg-white border border-[#D3D1C7] rounded-lg px-2 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent'
 
-const hoyISO = () => new Date().toISOString().slice(0, 10)
-const haceMeses = (n: number) => { const d = new Date(); d.setMonth(d.getMonth() - n); return d.toISOString().slice(0, 10) }
-const primerDiaDelMes = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10) }
+// Fechas LOCALES (auditoría 2026-09-22): con toISOString, entre las 21 y las
+// 24 de Argentina "hoy" ya era mañana y el rango del resumen arrancaba corrido.
+const hoyISO = () => toDateStr(new Date())
+const haceMeses = (n: number) => { const d = new Date(); d.setMonth(d.getMonth() - n); return toDateStr(d) }
+const primerDiaDelMes = () => { const d = new Date(); return toDateStr(new Date(d.getFullYear(), d.getMonth(), 1)) }
 const mesPasado = () => {
   const d = new Date()
-  const desde = new Date(d.getFullYear(), d.getMonth() - 1, 1)
-  const hasta = new Date(d.getFullYear(), d.getMonth(), 0)
-  const iso = (x: Date) => new Date(x.getTime() - x.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
-  return { desde: iso(desde), hasta: iso(hasta) }
+  return { desde: toDateStr(new Date(d.getFullYear(), d.getMonth() - 1, 1)), hasta: toDateStr(new Date(d.getFullYear(), d.getMonth(), 0)) }
 }
 const fechaCorta = (iso: string) => { const [y, m, d] = iso.split('-'); return y ? `${d}/${m}/${y}` : iso }
 

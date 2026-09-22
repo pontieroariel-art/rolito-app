@@ -12,7 +12,7 @@ import {
 } from '@/services/visitasService'
 import { ProgramaVisita, VisitaPuntual, UserProfile, DIAS_SEMANA } from '@/types'
 import { Timestamp } from 'firebase/firestore'
-import { todayString } from '@/utils/helpers'
+import { todayString, tsToDate as aFecha } from '@/utils/helpers'
 
 // Días de tolerancia según la frecuencia declarada del cliente — antes el
 // chequeo de "sin programar" solo miraba la semana calendario actual, así
@@ -21,8 +21,7 @@ import { todayString } from '@/utils/helpers'
 const FRECUENCIA_DIAS: Record<string, number> = { semanal: 7, quincenal: 14, mensual: 30 }
 
 function tsToDate(ts: Timestamp | null | undefined): Date {
-  if (!ts) return new Date(0)
-  return (ts as Timestamp).toDate ? (ts as Timestamp).toDate() : new Date(((ts as any).seconds) * 1000)
+  return ts ? aFecha(ts) : new Date(0)
 }
 
 const FRECUENCIA_LABELS: Record<string, string> = {

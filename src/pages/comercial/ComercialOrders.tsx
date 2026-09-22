@@ -9,15 +9,15 @@ import ClienteCombobox, { indexAComboItems } from '@/components/common/ClienteCo
 import { useOrdersRango } from '../../hooks/useOrders'
 import { useClientesIndexTodos } from '@/hooks/useClientesIndex'
 import { rangoCalendario } from '../../utils/rangoFechas'
-import { summarizeProducts } from '../../utils/helpers'
+import { summarizeProducts, tsToDate as aFecha } from '../../utils/helpers'
 import { STATUS_LABELS } from '../../utils/constants'
 import { Order, ClienteIndex, OrderStatus } from '../../types'
 
 type Periodo = 'dia' | 'mes' | 'anio'
 
-function tsToDate(ts: any): Date {
+function tsToDate(ts: Parameters<typeof aFecha>[0]): Date {
   if (!ts) return new Date(0)
-  return ts.toDate ? ts.toDate() : new Date(ts.seconds * 1000)
+  return aFecha(ts)
 }
 
 function orderTotal(order: Order): number {

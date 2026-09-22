@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode } from 'react'
+import { todayString } from '@/utils/helpers'
 import { Link } from 'react-router-dom'
 import { formatoARS } from '@/utils/money'
 import type { CustodiaPlanta } from '@/utils/sobres'
@@ -88,7 +89,4 @@ export default function TiraSobres({ custodia, horasAviso, titulo = 'Plata de la
 }
 
 const redondear = (n: number): number => Math.round(n * 100) / 100
-const hoyStr = (): string => {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
+const hoyStr = (): string => todayString()

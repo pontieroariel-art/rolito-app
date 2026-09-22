@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { toDateStr } from '@/utils/helpers'
 import { DragStartEvent, DragEndEvent, MouseSensor, TouchSensor, useSensors, useSensor } from '@dnd-kit/core'
 import { Order, OrderProduct, UserProfile, Despacho, ProgramaVisita, VisitaPuntual, Camion, getPrimaryAddress, PLANTAS, PlantaId } from '../types'
 import { useCatalogo } from './useCatalogo'
@@ -79,7 +80,9 @@ export function parseSlotKey(slot: string): { email: string; vuelta: number } {
 
 // ── Helpers de fecha (también usados por el render de DespachoBoard.tsx) ────
 
-export function dateStr(d: Date): string { return d.toISOString().split('T')[0] }
+// Local, no UTC (auditoría 2026-09-22): hoy se salvaba porque orderService fija
+// la fecha a las 12:00, pero cualquier otra hora corría el día a la noche.
+export function dateStr(d: Date): string { return toDateStr(d) }
 
 export function orderDateStr(o: Order): string {
   if (!o.date?.toDate) return ''
