@@ -62,6 +62,21 @@ service cloud.firestore {
       return misRoles().hasAny(rs);
     }
 
+    // Documentos que nacen en el cliente y que el SERVER completa después
+    // (auditoría 2026-09-22): el estado de Tango solo puede nacer 'pendiente'
+    // —lo demás lo escribe el outbox— y la fecha tiene que ser reciente:
+    // offline-first admite un doc encolado días atrás, pero no una venta
+    // fechada en un viaje ya liquidado ni en el futuro.
+    function tangoInicial(data) {
+      return !('tango' in data)
+        || (data.tango is map && data.tango.keys().hasOnly(['estado']) && data.tango.estado == 'pendiente');
+    }
+    function fechaReciente(f) {
+      return f is timestamp
+        && f <= request.time + duration.value(15, 'm')
+        && f > request.time - duration.value(7, 'd');
+    }
+
     // super_admin NO es combinable: nunca se otorga como rol adicional (lo
     // impide rolesExtraOk en /users), así que se pregunta por el rol principal.
     // Tener la pregunta en un solo lugar evita que alguien la escriba con
@@ -408,9 +423,18 @@ service cloud.firestore {
       function autorizaAnulacionesUnchanged() {
         return request.resource.data.get('autorizaAnulaciones', false) == resource.data.get('autorizaAnulaciones', false);
       }
+      // Los precios resueltos y los códigos de Tango los escribe SOLO la sync
+      // (auditoría 2026-09-22: orderPricing toma users.preciosTango como precio
+      // autoritativo del pedido, así que un cliente que los edita se fija su precio).
       function preciosUnchanged() {
         return request.resource.data.get('listaPreciosId', '') == resource.data.get('listaPreciosId', '')
-            && request.resource.data.get('preciosCustom', {}) == resource.data.get('preciosCustom', {});
+            && request.resource.data.get('preciosCustom', {}) == resource.data.get('preciosCustom', {})
+            && request.resource.data.get('preciosTango', {}) == resource.data.get('preciosTango', {})
+            && request.resource.data.get('listaTango', {}) == resource.data.get('listaTango', {})
+            && request.resource.data.get('listaTangoNombre', {}) == resource.data.get('listaTangoNombre', {})
+            && request.resource.data.get('codigoTango', '') == resource.data.get('codigoTango', '')
+            && request.resource.data.get('codigosTango', {}) == resource.data.get('codigosTango', {})
+            && request.resource.data.get('idGva14Tango', 0) == resource.data.get('idGva14Tango', 0);
       }
       // Campos de identidad / internos que el cliente NO puede alterar sobre su
       // propio documento (sí pueden hacerlo managers/logística).
@@ -490,7 +514,17 @@ service cloud.firestore {
       // Registro público: el usuario SOLO puede crearse como 'cliente'.
       // El alta de staff la escribe un super_admin (regla de arriba) y la de
       // choferes un operador (regla siguiente); nunca el propio usuario nuevo.
-      allow create: if isSelf() && request.resource.data.rol == 'cliente';
+      // Nace PENDIENTE y sin ningún campo privilegiado ni de Tango (auditoría
+      // 2026-09-22: antes bastaba rol:'cliente' y el doc podía traer
+      // rolesExtra, autorizaAnulaciones, tangoBridge o estado:'activo').
+      allow create: if isSelf() && request.resource.data.rol == 'cliente'
+        && request.resource.data.estado == 'pendiente'
+        && !request.resource.data.keys().hasAny([
+             'rolesExtra', 'autorizaAnulaciones', 'tangoBridge', 'planta', 'area', 'subrol',
+             'codigoCliente', 'codigoTango', 'codigosTango', 'idGva14Tango',
+             'preciosTango', 'listaTango', 'listaTangoNombre', 'preciosCustom', 'listaPreciosId',
+             'codVendedor', 'sector', 'creadoPor', 'claimsActualizadosEn',
+           ]);
 
       // Operadores (super_admin/logistica) pueden dar de alta choferes.
       allow create: if request.auth != null && isOperator()
@@ -528,6 +562,7 @@ service cloud.firestore {
 
       // ── facturacion: asignar código interno de facturación (solo ese campo) ──
       allow update: if request.auth != null && isFacturacion()
+        && targetEsCliente()
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['codigoCliente']);
 
@@ -1122,7 +1157,16 @@ service cloud.firestore {
         // Los cambios (renglones en $0) viajan aparte de `items` justamente
         // para que no puedan sumar al total ni a lo que se declara a ARCA.
         && (!('cambios' in request.resource.data) || request.resource.data.cambios is list)
-        && request.resource.data.total is number;
+        && request.resource.data.total is number && request.resource.data.total >= 0
+        // Lo que escribe el SERVER no nace con la venta (auditoría 2026-09-22):
+        // una venta creada ya "anulada" salteaba la autorización, y una
+        // `factura` inventada era lo que se rendía en caja (importeCobrado).
+        // Y un chofer dado de baja (estado inactivo) no vende: la baja también
+        // deshabilita la cuenta en Auth (claims.ts); esto cubre el token vivo.
+        && myEstado() == 'activo'
+        && !request.resource.data.keys().hasAny(['factura', 'anulacion', 'envioMail'])
+        && tangoInicial(request.resource.data)
+        && fechaReciente(request.resource.data.fecha);
 
       // Remito de cuenta corriente anulado por el propio chofer, sin autorización
       // (2026-09-11, decisión de Ariel): solo el campo `anulacion`, solo sobre
@@ -1185,7 +1229,7 @@ service cloud.firestore {
         // `creadoPor` sigue siendo quien armó el borrador (caja), así que no se
         // ata al que escribe. `entregadoPor` llega después, al marcar la entrega.
         && request.resource.data.emitidoPor.uid == request.auth.uid
-        && !('entregadoPor' in request.resource.data)
+        && !request.resource.data.keys().hasAny(['entregadoPor', 'regreso', 'salida'])
         && request.resource.data.creadoPor.uid is string
         // Sin borrador no hay remito: muelle no arma cargas desde cero.
         && request.resource.data.borradorId is string
@@ -1453,9 +1497,16 @@ service cloud.firestore {
         // —si no, una rectificación podría "borrar" el conteo de otro— y el
         // motivo escrito.
         && rectificacionOk(request.resource.data)
-        // Número correlativo (2026-09-18): NO se exige, y de hecho no debería
-        // venir — lo asigna el servidor cuando el doc llega, porque la tablet
-        // guarda el conteo sin señal y no puede leer un contador.
+        // Número correlativo (2026-09-18): lo asigna el servidor cuando el doc
+        // llega, porque la tablet guarda el conteo sin señal y no puede leer un
+        // contador. Desde el 2026-09-22 se EXCLUYE: numerarDescarga respeta un
+        // código que ya viene, así que la tablet podía inventar el del sobre.
+        // `revision` (el faltante) también es del server.
+        && !request.resource.data.keys().hasAny(['numero', 'codigo', 'revision'])
+        && tangoInicial(request.resource.data)
+        // El viaje al que se imputa el conteo tiene que ser del mismo repartidor.
+        && (!('remitoId' in request.resource.data)
+            || get(/databases/$(database)/documents/remitosCarga/$(request.resource.data.remitoId)).data.choferId == request.resource.data.choferId)
         && cuadreEnvasesOk(request.resource.data);
 
       // Cuadre de envases contra el remito del viaje (2026-09-18). Opcional:
@@ -1515,7 +1566,11 @@ service cloud.firestore {
         && request.resource.data.canal in ['promo', 'contado']
         && request.resource.data.formaPago in ['contado_efectivo', 'contado_transferencia', 'cuenta_corriente']
         && request.resource.data.items is list && request.resource.data.items.size() > 0
-        && request.resource.data.total is number
+        && request.resource.data.total is number && request.resource.data.total >= 0
+        && myEstado() == 'activo'
+        && !request.resource.data.keys().hasAny(['factura', 'anulacion', 'envioMail', 'salida', 'entregadoPor'])
+        && tangoInicial(request.resource.data)
+        && fechaReciente(request.resource.data.fecha)
         && request.resource.data.estado == 'pendiente_entrega'
         && request.resource.data.turno is int && request.resource.data.turno > 0
         && request.resource.data.turnoEstado == 'en_espera'
@@ -1616,7 +1671,12 @@ service cloud.firestore {
         && (request.resource.data.imputaciones.size() > 0
             || (request.resource.data.aCuenta is number && request.resource.data.aCuenta > 0))
         && (!('aCuenta' in request.resource.data) || (request.resource.data.aCuenta is number && request.resource.data.aCuenta > 0))
-        && request.resource.data.medios is map;
+        && request.resource.data.medios is map
+        // La anulación la escribe solo el server; un cobrador dado de baja no cobra (auditoría 2026-09-22).
+        && myEstado() == 'activo'
+        && !('anulacion' in request.resource.data)
+        && tangoInicial(request.resource.data)
+        && fechaReciente(request.resource.data.fecha);
 
       allow update, delete: if false;
     }
@@ -1793,6 +1853,7 @@ service cloud.firestore {
         && request.resource.data.cheques is list
         && request.resource.data.retenciones is list
         && request.resource.data.entregaId == null
+        && !request.resource.data.keys().hasAny(['anulacionesPosteriores', 'validacion'])
         // Rendición por sobres, etapa 1 (2026-09-16): caja cuenta billete por
         // billete y por empresa, sin atajo de total directo. El conteo tiene
         // que venir con las dos empresas y su suma tiene que ser lo recibido.
@@ -1981,6 +2042,7 @@ service cloud.firestore {
       allow create: if request.auth != null && isCajaDe(request.resource.data.plantaId)
         && request.resource.data.tipo == 'ventanilla'
         && request.resource.data.rindeA == 'tesoreria'
+        && !request.resource.data.keys().hasAny(['anulacionesPosteriores', 'validacion', 'recepcion', 'entrega'])
         && request.resource.data.rindio.uid == request.auth.uid
         && request.resource.data.rindio.rol == 'caja'
         && request.resource.data.fecha is string
@@ -2482,7 +2544,10 @@ service cloud.firestore {
     match /historialAdmin/{eventoId} {
       allow read:   if request.auth != null && esSuperAdmin();
       allow create: if request.auth != null && isStaff()
-        && request.resource.data.actor.uid == request.auth.uid;
+        && request.resource.data.actor.uid == request.auth.uid
+        // 'alto' dispara un mail a la oficina (adminAudit): solo el super_admin
+        // lo declara; el resto del staff registra rutina (auditoría 2026-09-22).
+        && (request.resource.data.get('riesgo', 'rutina') == 'rutina' || esSuperAdmin());
       allow update, delete: if false;
     }
 

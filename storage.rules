@@ -24,6 +24,16 @@ service firebase.storage {
       return miRol() in rs || perfil().get('rolesExtra', []).hasAny(rs);
     }
 
+    // La sesión "Ver como" (impersonación auditada) es de SOLO LECTURA también
+    // acá (auditoría 2026-09-22: Firestore lo rechazaba, Storage no).
+    function esImpersonado() {
+      return 'impersonadoPor' in request.auth.token;
+    }
+    // Sesión con usuario real, no la anónima de la página del turno (/turnos).
+    function noAnonimo() {
+      return request.auth != null && request.auth.token.get('firebase', {}).get('sign_in_provider', '') != 'anonymous';
+    }
+
     // Fotos del catálogo: catalogo/{productoId}
     // - Lectura abierta: en la práctica el downloadURL lleva su propio token y
     //   <img> lo sirve igual; igual la dejamos pública porque son fotos de
@@ -33,7 +43,7 @@ service firebase.storage {
     //   el cliente, esto es el tope de seguridad).
     match /catalogo/{productoId} {
       allow read: if true;
-      allow write: if request.auth != null
+      allow write: if request.auth != null && !esImpersonado()
         && tieneAlguno(['super_admin', 'gerente_comercial', 'comercial'])
         && request.resource.size < 2 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
@@ -45,8 +55,8 @@ service firebase.storage {
     // abre desde Consulta de service con el downloadURL). Imagen y < 3 MB
     // (se reduce en el celular antes de subir).
     match /ticketsServicio/{ticketId}/{archivo} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null
+      allow read: if noAnonimo();
+      allow write: if request.auth != null && !esImpersonado()
         && tieneAlguno(['supervisor', 'heladeras_encargado', 'super_admin', 'gerente_comercial'])
         && request.resource.size < 3 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
@@ -58,7 +68,7 @@ service firebase.storage {
     // cliente). Nunca un cliente. PDF y < 3 MB.
     match /facturas/{empresa}/{archivo} {
       allow read: if request.auth != null && miRol() != 'cliente';
-      allow write: if request.auth != null
+      allow write: if request.auth != null && !esImpersonado()
         && tieneAlguno(['super_admin', 'facturacion'])
         && request.resource.size < 3 * 1024 * 1024
         && request.resource.contentType == 'application/pdf';
@@ -70,8 +80,8 @@ service firebase.storage {
     // acá y el chat lleva el link de descarga (con su token, el cliente lo abre
     // sin usuario). Escribe solo el staff, y solo en su propia carpeta.
     match /compartidos/{uid}/{archivo} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null
+      allow read: if noAnonimo();
+      allow write: if request.auth != null && !esImpersonado()
         && request.auth.uid == uid
         && miRol() != 'cliente'
         && request.resource.size < 5 * 1024 * 1024

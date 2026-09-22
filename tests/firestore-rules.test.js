@@ -104,8 +104,44 @@ describe('users — escalada de privilegios', () => {
     await assertFails(setDoc(doc(db('atk', 'a@x.com'), 'users/atk'), cliente({ rol: 'super_admin' })))
   })
 
-  test('un usuario SÍ puede crearse como cliente', async () => {
-    await assertSucceeds(setDoc(doc(db('new', 'n@x.com'), 'users/new'), cliente()))
+  test('un usuario SÍ puede crearse como cliente PENDIENTE', async () => {
+    await assertSucceeds(setDoc(doc(db('new', 'n@x.com'), 'users/new'), cliente({ estado: 'pendiente' })))
+  })
+
+  // Auditoría 2026-09-22: el alta propia aceptaba cualquier campo. Con
+  // rolesExtra:['facturacion'] el registro entraba activo y con permisos reales.
+  test('el registro público NO puede nacer activo', async () => {
+    await assertFails(setDoc(doc(db('new', 'n@x.com'), 'users/new'), cliente()))   // la fixture trae estado 'activo'
+  })
+
+  test('el registro público NO puede traer roles adicionales ni permisos', async () => {
+    const pendiente = (extra) => cliente({ estado: 'pendiente', ...extra })
+    await assertFails(setDoc(doc(db('new', 'n@x.com'), 'users/new'), pendiente({ rolesExtra: ['facturacion'] })))
+    await assertFails(setDoc(doc(db('new', 'n@x.com'), 'users/new'), pendiente({ rolesExtra: [] })))
+    await assertFails(setDoc(doc(db('new', 'n@x.com'), 'users/new'), pendiente({ autorizaAnulaciones: true })))
+    await assertFails(setDoc(doc(db('new', 'n@x.com'), 'users/new'), pendiente({ tangoBridge: true })))
+    await assertFails(setDoc(doc(db('new', 'n@x.com'), 'users/new'), pendiente({ planta: 'torcuato' })))
+    await assertFails(setDoc(doc(db('new', 'n@x.com'), 'users/new'), pendiente({ preciosTango: { redonhielo: { bolsa_10kg: 1 } } })))
+    await assertFails(setDoc(doc(db('new', 'n@x.com'), 'users/new'), pendiente({ codigoTango: 'FC.001' })))
+    await assertFails(setDoc(doc(db('new', 'n@x.com'), 'users/new'), pendiente({ creadoPor: { uid: 'x', nombre: 'X', rol: 'comercial' } })))
+  })
+
+  test('un cliente NO puede cambiar sus precios ni sus códigos de Tango', async () => {
+    await seed((d) => setDoc(doc(d, 'users/cli'), cliente({ preciosTango: { redonhielo: { bolsa_10kg: 5000 } }, codigoTango: 'FC.001' })))
+    await assertFails(updateDoc(doc(db('cli'), 'users/cli'), { preciosTango: { redonhielo: { bolsa_10kg: 1 } } }))
+    await assertFails(updateDoc(doc(db('cli'), 'users/cli'), { listaTango: { redonhielo: 300 } }))
+    await assertFails(updateDoc(doc(db('cli'), 'users/cli'), { codigoTango: 'FC.999' }))
+    await assertFails(updateDoc(doc(db('cli'), 'users/cli'), { idGva14Tango: 12 }))
+  })
+
+  test('facturacion asigna codigoCliente a un cliente, no a otro staff', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/fac'), { rol: 'facturacion', estado: 'activo' })
+      await setDoc(doc(d, 'users/adm'), { rol: 'super_admin', estado: 'activo' })
+      await setDoc(doc(d, 'users/cli'), cliente())
+    })
+    await assertSucceeds(updateDoc(doc(db('fac'), 'users/cli'), { codigoCliente: 'C-0001' }))
+    await assertFails(updateDoc(doc(db('fac'), 'users/adm'), { codigoCliente: 'C-0002' }))
   })
 
   test('super_admin SÍ puede cambiar el rol de otro', async () => {
@@ -2142,6 +2178,38 @@ describe('ventasCamion', () => {
     await assertSucceeds(setDoc(doc(db('chof1'), 'ventasCamion/v1'), venta({ canal: 'promo' })))
   })
 
+  // Auditoría 2026-09-22: lo que escribe el server no nace con la venta.
+  test('la venta NO nace facturada, anulada, con mail enviado ni con Tango confirmado', async () => {
+    await seedChofer()
+    await assertFails(setDoc(doc(db('chof1'), 'ventasCamion/v1'), venta({ factura: { estado: 'emitida', importes: { total: 1 } } })))
+    await assertFails(setDoc(doc(db('chof1'), 'ventasCamion/v1'), venta({ anulacion: { estado: 'anulada', tipo: 'remito' } })))
+    await assertFails(setDoc(doc(db('chof1'), 'ventasCamion/v1'), venta({ envioMail: { estado: 'enviado' } })))
+    await assertFails(setDoc(doc(db('chof1'), 'ventasCamion/v1'), venta({ tango: { estado: 'confirmado', remitoNumero: 'R0001' } })))
+    await assertFails(setDoc(doc(db('chof1'), 'ventasCamion/v1'), venta({ total: -1 })))
+    // Sin `tango` también vale (docs viejos / acompañante).
+    const { tango: _t, ...sinTango } = venta()
+    await assertSucceeds(setDoc(doc(db('chof1'), 'ventasCamion/v2'), sinTango))
+  })
+
+  test('la venta NO se fecha en el futuro ni en un viaje de hace más de una semana', async () => {
+    await seedChofer()
+    const dia = 24 * 3600 * 1000
+    await assertFails(setDoc(doc(db('chof1'), 'ventasCamion/v1'), venta({ fecha: new Date(Date.now() + 2 * 3600 * 1000) })))
+    await assertFails(setDoc(doc(db('chof1'), 'ventasCamion/v1'), venta({ fecha: new Date(Date.now() - 8 * dia) })))
+    await assertFails(setDoc(doc(db('chof1'), 'ventasCamion/v1'), venta({ fecha: '2026-09-21' })))
+    // Offline-first: una venta encolada hace tres días entra igual.
+    await assertSucceeds(setDoc(doc(db('chof1'), 'ventasCamion/v2'), venta({ fecha: new Date(Date.now() - 3 * dia) })))
+  })
+
+  // La lectura la corta Auth (la baja deshabilita la cuenta y revoca el token,
+  // claims.ts); las reglas cortan la escritura de plata con el token todavía vivo.
+  test('un chofer dado de baja (estado inactivo) NO vende', async () => {
+    await seed((d) => setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'inactivo' }))
+    await assertFails(setDoc(doc(db('chof1'), 'ventasCamion/v1'), venta()))
+    await seed((d) => setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'pendiente' }))
+    await assertFails(setDoc(doc(db('chof1'), 'ventasCamion/v1'), venta()))
+  })
+
   test('una venta puede llevar renglones de cambio', async () => {
     await seedChofer()
     await assertSucceeds(setDoc(doc(db('chof1'), 'ventasCamion/v1'), venta({
@@ -2933,6 +3001,22 @@ describe('expedicion: muelle / cambios / descargas / liquidaciones', () => {
   })
 
   // ── descargasCamion ──
+  // Auditoría 2026-09-22: número, código y faltante son del server; el viaje
+  // al que se imputa el conteo tiene que ser del mismo repartidor.
+  test('la descarga NO nace numerada, con revisión, con Tango confirmado ni imputada al viaje de otro', async () => {
+    await seedMuelle()
+    await assertFails(setDoc(doc(db('mue1'), 'descargasCamion/d1'), descarga({ numero: 12, codigo: 'DC-DT-000012' })))
+    await assertFails(setDoc(doc(db('mue1'), 'descargasCamion/d1'), descarga({ revision: { requiere: false, bolsasFaltantes: 0 } })))
+    await assertFails(setDoc(doc(db('mue1'), 'descargasCamion/d1'), descarga({ tango: { estado: 'confirmado' } })))
+    await seed(async (d) => {
+      await setDoc(doc(d, 'remitosCarga/rAjeno'), remito({ choferId: 'chof2' }))
+      await setDoc(doc(d, 'remitosCarga/rPropio'), remito({ choferId: 'chof1' }))
+    })
+    await assertFails(setDoc(doc(db('mue1'), 'descargasCamion/d1'), descarga({ remitoId: 'rAjeno', remitoCodigo: 'RC-DT-000001' })))
+    await assertFails(setDoc(doc(db('mue1'), 'descargasCamion/d1'), descarga({ remitoId: 'noExiste' })))
+    await assertSucceeds(setDoc(doc(db('mue1'), 'descargasCamion/d2'), descarga({ remitoId: 'rPropio', remitoCodigo: 'RC-DT-000002', tango: { estado: 'pendiente' } })))
+  })
+
   test('muelle registra la descarga en su planta', async () => {
     await seedMuelle()
     await assertSucceeds(setDoc(doc(db('mue1'), 'descargasCamion/d1'), descarga()))
@@ -3511,6 +3595,25 @@ describe('expedicion: ventanilla y cobranzas', () => {
     formaPago: 'contado_efectivo', fecha: new Date(), ...extra,
   })
 
+  // Auditoría 2026-09-22: lo del server (factura, anulación, salida, entrega, Tango) no nace con la venta.
+  test('la venta de ventanilla NO nace facturada, anulada, entregada, salida ni con Tango confirmado', async () => {
+    await seedCaja()
+    await sembrarSesionAbierta('caja1')
+    for (const extra of [
+      { factura: { estado: 'emitida' } },
+      { anulacion: { estado: 'anulada' } },
+      { envioMail: { estado: 'enviado' } },
+      { salida: { uid: 'caja1', nombre: 'Caja', hora: new Date() } },
+      { entregadoPor: { uid: 'caja1', nombre: 'Caja', hora: new Date() } },
+      { tango: { estado: 'confirmado' } },
+      { total: -5 },
+      { fecha: new Date(Date.now() - 8 * 24 * 3600 * 1000) },
+    ]) {
+      await assertFails(setDoc(doc(db('caja1'), 'ventasVentanilla/v1'), venta(extra)))
+    }
+    await assertSucceeds(setDoc(doc(db('caja1'), 'ventasVentanilla/v1'), venta({ tango: { estado: 'pendiente' } })))
+  })
+
   test('caja crea una venta de ventanilla en su planta', async () => {
     await seedCaja()
     await sembrarSesionAbierta('caja1')
@@ -3845,6 +3948,15 @@ describe('cobranzas de supervisor', () => {
   test('el supervisor crea una cobranza mixta válida', async () => {
     await seedSupervisor()
     await assertSucceeds(setDoc(doc(db('sup'), 'cobranzas/c1'), cobranzaSup()))
+  })
+
+  // Auditoría 2026-09-22: la anulación y el estado de Tango los escribe el server.
+  test('el recibo NO nace anulado, con Tango confirmado ni fechado hace más de una semana', async () => {
+    await seedSupervisor()
+    await assertFails(setDoc(doc(db('sup'), 'cobranzas/c1'), cobranzaSup({ anulacion: { estado: 'anulada' } })))
+    await assertFails(setDoc(doc(db('sup'), 'cobranzas/c1'), cobranzaSup({ tango: { estado: 'confirmado', reciboNumero: 'X0001' } })))
+    await assertFails(setDoc(doc(db('sup'), 'cobranzas/c1'), cobranzaSup({ fecha: new Date(Date.now() - 8 * 24 * 3600 * 1000) })))
+    await assertSucceeds(setDoc(doc(db('sup'), 'cobranzas/c2'), cobranzaSup({ tango: { estado: 'pendiente' } })))
   })
 
   test('pago a cuenta (2026-09-08): sin facturas imputadas solo si aCuenta > 0; aCuenta, si viene, es un número positivo', async () => {
@@ -5640,7 +5752,11 @@ describe('viaje en dos partes: plata y mercadería (2026-09-18)', () => {
 
   // ── cuadre de envases guardado con el conteo (2026-09-18) ──
   test('la descarga puede traer el cuadre de envases del viaje; mal formado no entra; el número lo pone el server', async () => {
-    await seed((d) => setDoc(doc(d, 'users/mue1'), { rol: 'muelle', estado: 'activo', planta: 'torcuato' }))
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/mue1'), { rol: 'muelle', estado: 'activo', planta: 'torcuato' })
+      // El viaje al que se imputa tiene que existir y ser del mismo repartidor (2026-09-22).
+      await setDoc(doc(d, 'remitosCarga/r1'), { plantaId: 'torcuato', choferId: 'chof1', camionId: 'cam1', estado: 'entregado', fecha: new Date() })
+    })
     const descarga = (extra = {}) => ({
       plantaId: 'torcuato', camionId: 'cam1', camionLabel: 'AB123CD',
       choferId: 'chof1', choferNombre: 'Chofer Uno', remitoId: 'r1', remitoCodigo: 'RC-DT-000001',
