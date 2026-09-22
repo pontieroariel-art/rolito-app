@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
+import PantallaBoundary from '@/components/common/PantallaBoundary'
 import { tieneAlgunRol } from '@/utils/roles'
 import { rolesDe, primerAccesoDe } from '@/rutas/catalogo'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -213,6 +214,9 @@ function AppContent() {
     <Suspense fallback={<LoadingSpinner fullScreen />}>
       {/* Banner de "Ver como": arriba de todos los layouts (ver VerComoBanner). */}
       <VerComoBanner />
+      {/* Un error de render deja la tarjeta en el lugar de la pantalla, no
+          tira la app entera (auditoría 2026-09-22); ver PantallaBoundary. */}
+      <PantallaBoundary>
       <Routes>
         {/* Rutas públicas */}
         <Route path="/"                element={<Landing />} />
@@ -528,6 +532,7 @@ function AppContent() {
         {/* Cualquier otra ruta */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </PantallaBoundary>
     </Suspense>
   )
 }

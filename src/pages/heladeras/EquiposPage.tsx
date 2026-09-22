@@ -22,6 +22,8 @@ const ESTADO_STYLES: Record<EstadoHeladera, string> = {
   baja:        'bg-red-100 text-red-700 border-red-200',
 }
 
+const PAGINA_EQUIPOS = 60
+
 export default function EquiposPage() {
   const { user } = useAuth()
   const { heladeras, loading } = useHeladeras()
@@ -36,6 +38,10 @@ export default function EquiposPage() {
   const [searchParams] = useSearchParams()
   const [busqueda, setBusqueda] = useState(() => searchParams.get('q') ?? '')
   const [estadoFiltro, setEstadoFiltro] = useState<EstadoHeladera | 'todos' | 'por_vencer'>('todos')
+  // Se dibujan de a tandas (auditoría 2026-09-22: eran ~1.700 tarjetas de una
+  // y cada snapshot del stream re-renderizaba la lista completa). Mismo
+  // patrón "Ver más" que Usuarios; el filtro y la búsqueda vuelven al inicio.
+  const [visibles, setVisibles] = useState(PAGINA_EQUIPOS)
   const [seleccionadaId, setSeleccionadaId] = useState<string | null>(null)
   // null = cerrado. El tipo de ingreso lo decide qué botón se tocó, no se
   // vuelve a preguntar dentro del modal (ver CrearHeladeraModal).
@@ -87,14 +93,14 @@ export default function EquiposPage() {
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-inerte" />
             <input
               value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
+              onChange={(e) => { setBusqueda(e.target.value); setVisibles(PAGINA_EQUIPOS) }}
               placeholder="Buscar por código o serie de heladera, cliente o código de cliente…"
               className="w-full bg-white border border-[#D3D1C7] rounded-lg pl-9 pr-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
             />
           </div>
           <select
             value={estadoFiltro}
-            onChange={(e) => setEstadoFiltro(e.target.value as EstadoHeladera | 'todos' | 'por_vencer')}
+            onChange={(e) => { setEstadoFiltro(e.target.value as EstadoHeladera | 'todos' | 'por_vencer'); setVisibles(PAGINA_EQUIPOS) }}
             className="bg-white border border-[#D3D1C7] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-accent"
           >
             <option value="todos">Todos los estados</option>
@@ -119,7 +125,7 @@ export default function EquiposPage() {
           </div>
         ) : (
           <div className="space-y-2">
-            {filtradas.map((h) => (
+            {filtradas.slice(0, visibles).map((h) => (
               <button
                 key={h.id}
                 onClick={() => setSeleccionadaId(h.id)}
@@ -144,6 +150,15 @@ export default function EquiposPage() {
                 </div>
               </button>
             ))}
+            {filtradas.length > visibles && (
+              <button
+                type="button"
+                onClick={() => setVisibles((v) => v + PAGINA_EQUIPOS)}
+                className="w-full h-11 rounded-xl border border-[#D3D1C7] bg-white text-sm font-semibold text-gray-900 hover:border-accent"
+              >
+                Ver más ({filtradas.length - visibles} más)
+              </button>
+            )}
           </div>
         )}
       </main>

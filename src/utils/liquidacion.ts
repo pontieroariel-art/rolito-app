@@ -123,7 +123,10 @@ export function mercaderiaDelViaje(
     const productoId = productoDelCambio(i.productoId)
     fila(productoId, nombreDelCambio(i.nombre)).cambios += i.cantidad
   }))
-  cambios.forEach((c) => { fila(c.productoId, c.nombre).cambios += c.cantidad })
+  // El registro viejo también puede venir con prefijo cambio_: se normaliza
+  // igual que los renglones de la venta (paridad con el server, 2026-09-22:
+  // functions ya lo hacía y acá caía en una fila aparte).
+  cambios.forEach((c) => { fila(productoDelCambio(c.productoId), nombreDelCambio(c.nombre)).cambios += c.cantidad })
   descargas.forEach((d) => d.items.forEach((i) => { fila(i.productoId, i.nombre).descarga += i.cantidad }))
   // Rotas por producto (fase B del stock, 2026-09-17): el server las usa para el
   // faltante que va a Tango (carga − ventas − rotas − descarga). El productoId de
