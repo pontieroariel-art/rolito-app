@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { completarEmision, fechasDeFilasDetalle, podarMapa, rangoAPedir, iso } from './emisiones'
+import { completarEmision, faltantesABuscar, fechasDeFilasDetalle, marcarBuscadosSinFecha, podarMapa, rangoAPedir, iso } from './emisiones'
 
 describe('fechasDeFilasDetalle', () => {
   it('mapea ID_GVA12 → fecha; con varios renglones por comprobante gana la primera; ignora filas incompletas', () => {
@@ -45,6 +45,24 @@ describe('rangoAPedir', () => {
     const r = rangoAPedir({ fechas: {}, hastaFecha: '2026-09-07' }, hoy, [])!
     expect(iso(r.desde)).toBe('2026-09-04')
   })
+  it('un faltante buscado a lo ancho hace menos de 7 días NO vuelve a ampliar la ventana (2026-09-22)', () => {
+    const faltante = { idComprobanteTango: 555, fechaVencimiento: '2026-06-01' }
+    const mapa = { fechas: {}, hastaFecha: '2026-09-09', sinFechaDesde: { '555': '2026-09-08' } }
+    // Buscado ayer: hoy el mapa está al día y no se pide nada.
+    expect(rangoAPedir(mapa, hoy, [faltante])).toBeNull()
+    expect(faltantesABuscar(mapa, hoy, [faltante])).toEqual([])
+    // Buscado hace 8 días: se vuelve a intentar.
+    const viejo = { ...mapa, sinFechaDesde: { '555': '2026-09-01' } }
+    expect(iso(rangoAPedir(viejo, hoy, [faltante])!.desde)).toBe('2026-02-01')
+    // Uno nunca buscado amplía aunque el otro esté marcado.
+    expect(faltantesABuscar(mapa, hoy, [faltante, { idComprobanteTango: 7, fechaVencimiento: '2026-09-20' }])).toEqual([{ idComprobanteTango: 7, fechaVencimiento: '2026-09-20' }])
+  })
+
+  it('marcarBuscadosSinFecha anota hoy los buscados que siguen sin fecha y poda los que ya no están en deuda', () => {
+    const m = marcarBuscadosSinFecha({ '1': '2026-09-01', '2': '2026-09-01' }, [{ idComprobanteTango: 3 }, { idComprobanteTango: 4, fechaEmision: '2026-09-05' }], hoy, [1, 3, 4])
+    expect(m).toEqual({ '1': '2026-09-01', '3': '2026-09-09' })
+  })
+
   it('con faltantes: desde 120 días antes del vencimiento más viejo, con tope', () => {
     const r = rangoAPedir({ fechas: {}, hastaFecha: '2026-09-09' }, hoy, [{ fechaVencimiento: '2026-09-20' }, { fechaVencimiento: '2026-06-01' }])!
     expect(iso(r.desde)).toBe('2026-02-01')

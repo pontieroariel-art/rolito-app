@@ -13,10 +13,12 @@
  * la ventana una vez. El mapa se poda a los comprobantes que siguen en deuda.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deIso = exports.restarDias = exports.ddMMyyyy = exports.iso = exports.rutaEmisiones = exports.BACKFILL_MAX_DIAS = exports.SOLAPE_DIAS = exports.PROCESO_DETALLE_COMPROBANTES_DEFAULT = void 0;
+exports.deIso = exports.restarDias = exports.ddMMyyyy = exports.iso = exports.rutaEmisiones = exports.REINTENTO_SIN_FECHA_DIAS = exports.BACKFILL_MAX_DIAS = exports.SOLAPE_DIAS = exports.PROCESO_DETALLE_COMPROBANTES_DEFAULT = void 0;
 exports.fechasDeFilasDetalle = fechasDeFilasDetalle;
 exports.completarEmision = completarEmision;
 exports.podarMapa = podarMapa;
+exports.faltantesABuscar = faltantesABuscar;
+exports.marcarBuscadosSinFecha = marcarBuscadosSinFecha;
 exports.rangoAPedir = rangoAPedir;
 const pedido_1 = require("./pedido");
 exports.PROCESO_DETALLE_COMPROBANTES_DEFAULT = 17943;
@@ -24,6 +26,14 @@ exports.PROCESO_DETALLE_COMPROBANTES_DEFAULT = 17943;
 exports.SOLAPE_DIAS = 3;
 /** Ventana máxima hacia atrás para buscar comprobantes que quedaron sin fecha. */
 exports.BACKFILL_MAX_DIAS = 400;
+/**
+ * Un comprobante que ya se buscó a lo ancho y siguió sin fecha no se vuelve a
+ * buscar hasta pasados estos días (auditoría 2026-09-22): había 63 en Redonhielo
+ * y 42 en Rolito que no aparecen nunca en el detalle, y por ellos cada corrida
+ * horaria volvía a pedir un año entero (43.000 + 36.000 renglones, 17 veces por
+ * día): 6 minutos de sync y timeouts de Tango.
+ */
+exports.REINTENTO_SIN_FECHA_DIAS = 7;
 const rutaEmisiones = (empresa) => `tangoEmisiones/${empresa}`;
 exports.rutaEmisiones = rutaEmisiones;
 const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -83,8 +93,39 @@ function podarMapa(fechas, idsEnUso) {
  *  - si hay comprobantes sin fecha, desde el vencimiento más viejo de esos − 120 días
  *    (tope BACKFILL_MAX_DIAS), que es donde puede estar su emisión.
  */
+/** De los que siguen sin fecha, los que todavía vale la pena buscar a lo ancho (no se buscaron en los últimos REINTENTO_SIN_FECHA_DIAS). */
+function faltantesABuscar(mapa, hoy, faltantes) {
+    const limite = (0, exports.iso)((0, exports.restarDias)(hoy, exports.REINTENTO_SIN_FECHA_DIAS));
+    const buscados = mapa?.sinFechaDesde ?? {};
+    return faltantes.filter((c) => {
+        if (c.idComprobanteTango === undefined)
+            return true;
+        const ultima = buscados[String(c.idComprobanteTango)];
+        return !ultima || ultima <= limite;
+    });
+}
+/**
+ * Anota qué comprobantes se buscaron a lo ancho HOY y siguieron sin fecha, y
+ * poda los que ya no están en deuda (o ya tienen fecha). Pura.
+ */
+function marcarBuscadosSinFecha(previo, buscadosSinFecha, hoy, idsEnUso) {
+    const out = {};
+    const enUso = new Set();
+    for (const id of idsEnUso)
+        if (id !== undefined)
+            enUso.add(String(id));
+    for (const [k, v] of Object.entries(previo ?? {}))
+        if (enUso.has(k))
+            out[k] = v;
+    for (const c of buscadosSinFecha)
+        if (c.idComprobanteTango !== undefined && !c.fechaEmision)
+            out[String(c.idComprobanteTango)] = (0, exports.iso)(hoy);
+    return out;
+}
 function rangoAPedir(mapa, hoy, faltantes) {
     const piso = (0, exports.restarDias)(hoy, exports.BACKFILL_MAX_DIAS);
+    // Solo amplía la ventana por los que no se buscaron hace poco.
+    faltantes = faltantesABuscar(mapa, hoy, faltantes);
     if (faltantes.length) {
         const vtos = faltantes.map((c) => c.fechaVencimiento).filter((v) => !!v && /^\d{4}-\d{2}-\d{2}/.test(v)).sort();
         const base = vtos.length ? (0, exports.restarDias)((0, exports.deIso)(vtos[0]), 120) : piso;

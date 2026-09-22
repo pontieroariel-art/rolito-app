@@ -21,7 +21,7 @@ import type { ConfigTango } from '../services/tango/writers'
 import { indiceUsuariosClientes, procesarLoteClientesTango, type TangoClienteRow, type ResultadoSync } from './tangoSync'
 import { descuentosPendientes, indiceClientesTango, procesarLoteSaldos, type TangoSaldoRow, type ComprobanteSaldoRow } from './tangoSaldos'
 import { EMPRESAS, tangoIdsDe, type Empresa } from '../services/tango/empresas'
-import {
+import { faltantesABuscar, marcarBuscadosSinFecha,
   PROCESO_DETALLE_COMPROBANTES_DEFAULT, completarEmision, ddMMyyyy as ddMMyyyyEmision, fechasDeFilasDetalle, iso as isoEmision,
   podarMapa, rangoAPedir, rutaEmisiones, type MapaEmisiones,
 } from '../services/tango/emisiones'
@@ -403,6 +403,9 @@ async function completarFechasEmision(
   const fechas: Record<string, string> = { ...(mapa?.fechas ?? {}) }
   let faltantes = completarEmision(comprobantes, fechas)
   let pedidas = 0
+  // Los que se van a buscar a lo ancho en esta corrida: si siguen sin fecha,
+  // quedan anotados y no se vuelven a buscar por REINTENTO_SIN_FECHA_DIAS.
+  const buscados = faltantesABuscar(mapa, hoy, faltantes)
   const rango = rangoAPedir(mapa, hoy, faltantes)
   if (rango) {
     try {
@@ -416,8 +419,10 @@ async function completarFechasEmision(
       return { sinFecha: faltantes.length, pedidas }
     }
   }
-  const podado = podarMapa(fechas, comprobantes.map((c) => c.idComprobanteTango))
-  await ref.set({ fechas: podado, hastaFecha: isoEmision(hoy), actualizadoEn: FieldValue.serverTimestamp() }).catch(() => undefined)
+  const ids = comprobantes.map((c) => c.idComprobanteTango)
+  const podado = podarMapa(fechas, ids)
+  const sinFechaDesde = marcarBuscadosSinFecha(mapa?.sinFechaDesde, rango ? buscados : [], hoy, ids)
+  await ref.set({ fechas: podado, hastaFecha: isoEmision(hoy), sinFechaDesde, actualizadoEn: FieldValue.serverTimestamp() }).catch(() => undefined)
   return { sinFecha: faltantes.length, pedidas }
 }
 

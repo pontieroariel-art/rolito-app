@@ -369,6 +369,9 @@ async function completarFechasEmision(db, tango, cfg, company, empresa, comproba
     const fechas = { ...(mapa?.fechas ?? {}) };
     let faltantes = (0, emisiones_1.completarEmision)(comprobantes, fechas);
     let pedidas = 0;
+    // Los que se van a buscar a lo ancho en esta corrida: si siguen sin fecha,
+    // quedan anotados y no se vuelven a buscar por REINTENTO_SIN_FECHA_DIAS.
+    const buscados = (0, emisiones_1.faltantesABuscar)(mapa, hoy, faltantes);
     const rango = (0, emisiones_1.rangoAPedir)(mapa, hoy, faltantes);
     if (rango) {
         try {
@@ -383,8 +386,10 @@ async function completarFechasEmision(db, tango, cfg, company, empresa, comproba
             return { sinFecha: faltantes.length, pedidas };
         }
     }
-    const podado = (0, emisiones_1.podarMapa)(fechas, comprobantes.map((c) => c.idComprobanteTango));
-    await ref.set({ fechas: podado, hastaFecha: (0, emisiones_1.iso)(hoy), actualizadoEn: firestore_2.FieldValue.serverTimestamp() }).catch(() => undefined);
+    const ids = comprobantes.map((c) => c.idComprobanteTango);
+    const podado = (0, emisiones_1.podarMapa)(fechas, ids);
+    const sinFechaDesde = (0, emisiones_1.marcarBuscadosSinFecha)(mapa?.sinFechaDesde, rango ? buscados : [], hoy, ids);
+    await ref.set({ fechas: podado, hastaFecha: (0, emisiones_1.iso)(hoy), sinFechaDesde, actualizadoEn: firestore_2.FieldValue.serverTimestamp() }).catch(() => undefined);
     return { sinFecha: faltantes.length, pedidas };
 }
 /** Todas las filas de deuda (vencidas + a vencer) de una empresa. */
