@@ -1,46 +1,79 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import { Eye, Search } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
-import { getAllUsers } from '@/services/userService'
+import { getStaffUsers } from '@/services/userService'
+import { useClientesIndexTodos } from '@/hooks/useClientesIndex'
 import { abrirVistaComo } from '@/services/impersonacionService'
 import { reportError } from '@/services/observability'
 import { coincideBusqueda } from '@/utils/busqueda'
 import { ROLE_LABELS } from '@/utils/roles'
-import type { UserProfile } from '@/types'
+import type { UserRole } from '@/types'
 
 // Lanzador de "Ver como usuario" en el panel de control (2026-09-10): un
 // buscador de personas (staff, choferes y clientes) y un botón por resultado
 // que abre la app en otra pestaña con la sesión de esa persona, en solo
 // lectura (ver services/impersonacionService.ts). La misma acción está en
 // cada fila de Usuarios; acá está a mano sin entrar a la lista.
+//
+// Datos (2026-09-22): el staff sale de una consulta por rol (unas decenas de
+// fichas) y los clientes del índice liviano, que trae lo que la lista muestra
+// (razón social, CUIT, código, estado); antes bajaba las 2.000+ fichas con
+// precios de getAllUsers.
 
 const MAX_RESULTADOS = 8
+
+interface Persona {
+  uid:            string
+  nombre:         string
+  rol:            UserRole
+  estado:         string
+  dni?:           string
+  cuit?:          string
+  razonSocial?:   string
+  email?:         string
+  codigoCliente?: string
+}
 
 export default function VerComoUsuario() {
   const { user: yo } = useAuth()
   const [q, setQ] = useState('')
-  const [usuarios, setUsuarios] = useState<UserProfile[] | null>(null)
+  const [staff, setStaff] = useState<Persona[] | null>(null)
   const [abriendo, setAbriendo] = useState<string | null>(null)
   const [aviso, setAviso] = useState<{ uid: string; texto: string; link?: string } | null>(null)
 
-  // Se cargan recién cuando se empieza a escribir (misma caché de 5 min que Usuarios).
+  // Se cargan recién cuando se empieza a escribir.
+  const buscando = q.trim().length >= 2
+  const { clientes, loading: cargandoClientes } = useClientesIndexTodos({ enabled: buscando })
   useEffect(() => {
-    if (q.trim().length < 2 || usuarios) return
+    if (!buscando || staff) return
     let activo = true
-    getAllUsers().then((xs) => { if (activo) setUsuarios(xs) }).catch(() => { if (activo) setUsuarios([]) })
+    getStaffUsers()
+      .then((xs) => {
+        if (!activo) return
+        setStaff(xs.map((u) => ({ uid: u.uid, nombre: u.nombre, rol: u.rol, estado: u.estado, dni: u.dni, cuit: u.cuit, razonSocial: u.razonSocial, email: u.email })))
+      })
+      .catch((err) => { reportError(err, { origen: 'VerComoUsuario', accion: 'cargar staff' }); if (activo) setStaff([]) })
     return () => { activo = false }
-  }, [q, usuarios])
+  }, [buscando, staff])
+
+  const personas = useMemo<Persona[] | null>(() => {
+    if (!staff || cargandoClientes) return null
+    return [
+      ...staff,
+      ...clientes.map((c): Persona => ({ uid: c.uid, nombre: c.razonSocial, rol: 'cliente', estado: c.estado, cuit: c.cuit, razonSocial: c.razonSocial, email: c.email, codigoCliente: c.codigoCliente })),
+    ]
+  }, [staff, clientes, cargandoClientes])
 
   const resultados = useMemo(() => {
     const t = q.trim()
-    if (t.length < 2 || !usuarios) return []
-    return usuarios
+    if (t.length < 2 || !personas) return []
+    return personas
       .filter((u) => u.uid !== yo?.uid && u.rol !== 'super_admin')
       .filter((u) => coincideBusqueda(t, u.nombre, u.razonSocial, u.email, u.dni, u.cuit, u.codigoCliente))
       .slice(0, MAX_RESULTADOS)
-  }, [q, usuarios, yo?.uid])
+  }, [q, personas, yo?.uid])
 
-  const verComo = async (u: UserProfile) => {
+  const verComo = async (u: Persona) => {
     setAbriendo(u.uid)
     setAviso(null)
     try {
@@ -69,10 +102,10 @@ export default function VerComoUsuario() {
           className="w-full bg-white border border-[#D3D1C7] rounded-lg pl-9 pr-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent"
         />
       </label>
-      {q.trim().length >= 2 && (
+      {buscando && (
         <ul className="divide-y divide-[#E7E5DC] rounded-xl border border-[#D3D1C7] bg-white">
-          {usuarios === null && <li className="px-3 py-2 text-sm text-secundario">Cargando usuarios…</li>}
-          {usuarios !== null && resultados.length === 0 && <li className="px-3 py-2 text-sm text-secundario">Sin resultados.</li>}
+          {personas === null && <li className="px-3 py-2 text-sm text-secundario">Cargando usuarios…</li>}
+          {personas !== null && resultados.length === 0 && <li className="px-3 py-2 text-sm text-secundario">Sin resultados.</li>}
           {resultados.map((u) => (
             <li key={u.uid} className="px-3 py-2 flex items-center gap-3">
               <div className="min-w-0 flex-1">

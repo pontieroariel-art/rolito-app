@@ -1,4 +1,4 @@
-import { collection, onSnapshot, query, where } from 'firebase/firestore'
+import { collection, getDocs, onSnapshot, query, where } from 'firebase/firestore'
 import { db } from './firebase'
 import { onSnapshotError } from './observability'
 import type { ClienteIndex } from '@/types'
@@ -23,6 +23,22 @@ export function subscribeClientesIndexTodos(
     (snap) => cb(snap.docs.map((d) => ({ ...(d.data() as Omit<ClienteIndex, 'uid'>), uid: d.id }))),
     (err) => { onSnapshotError(cb, 'clientesIndex:todos')(err); onError?.(err) },
   )
+}
+
+// Lectura puntual del índice entero para los servicios que no viven en un
+// componente (búsqueda de pedidos por código de sucursal, 2026-09-22). Memo de
+// 5 minutos, como getAllUsers, pero con docs de menos de 1 KB en vez de la
+// ficha con precios.
+let _indiceCache: ClienteIndex[] | null = null
+let _indiceCacheTime = 0
+const INDICE_TTL = 5 * 60 * 1000
+
+export async function getClientesIndexTodos(): Promise<ClienteIndex[]> {
+  if (_indiceCache && Date.now() - _indiceCacheTime < INDICE_TTL) return _indiceCache
+  const snap = await getDocs(collection(db, 'clientesIndex'))
+  _indiceCache = snap.docs.map((d) => ({ ...(d.data() as Omit<ClienteIndex, 'uid'>), uid: d.id }))
+  _indiceCacheTime = Date.now()
+  return _indiceCache
 }
 
 export function subscribeClientesIndex(

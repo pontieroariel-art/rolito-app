@@ -17,9 +17,10 @@ import EditOrderModal from '@/components/admin/EditOrderModal'
 import CancelOrderModal from '@/components/admin/CancelOrderModal'
 import { useKanbanOrders } from '@/hooks/useOrders'
 import { useChoferes } from '@/hooks/useChoferes'
+import { useClientesIndex } from '@/hooks/useClientesIndex'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { moveOrderDate, moveOrderToBandeja, assignDriver } from '@/services/orderService'
-import { summarizeProducts, tsToDate, getCodigoCliente, buildCodigoByClientId, toDateStr as dateToStr } from '@/utils/helpers'
+import { summarizeProducts, tsToDate, getCodigoCliente, buildCodigoByClientIdIndex, toDateStr as dateToStr } from '@/utils/helpers'
 import { resolveClientDisplay } from '@/utils/constants'
 import { Order, UserProfile } from '@/types'
 import { reportError } from '@/services/observability'
@@ -581,18 +582,22 @@ export default function LogisticaDashboard() {
   const { choferes, loading: loadC, error: errorChoferes } = useChoferes()
   const loading = loadO || loadC
 
-  // Cargar clientes al abrir cualquier tab que los necesite (una sola vez):
-  // pedidos usa el código de cliente en las tarjetas, mapa/despacho el resto del perfil.
+  // La pestaña Pedidos (la de entrada) solo necesita el código de cliente de
+  // las tarjetas y del buscador: sale del índice liviano (2026-09-22). La
+  // ficha completa de los clientes activos (horarios de apertura de cada
+  // sucursal, teléfono de contacto por domicilio, que el índice no tiene) se
+  // carga recién al abrir Mapa o Despacho, una sola vez.
+  const { clientes: indiceClientes } = useClientesIndex()
   useEffect(() => {
-    if (!['pedidos', 'mapa', 'despacho'].includes(mainTab) || clientsLoadedRef.current) return
+    if (!['mapa', 'despacho'].includes(mainTab) || clientsLoadedRef.current) return
     const load = async () => {
       const { getClientesActivos } = await import('@/services/userService')
       const data = await getClientesActivos()
       setAllClients(data)
       clientsLoadedRef.current = true
     }
-    // Carga de apoyo (código de cliente en las tarjetas): si falla, el tablero
-    // sigue funcionando sin ese dato; alcanza con reportarlo.
+    // Carga de apoyo: si falla, el tablero sigue funcionando sin ese dato;
+    // alcanza con reportarlo.
     load().catch((err) => reportError(err, { origen: 'LogisticaDashboard', accion: 'cargar clientes activos' }))
   }, [mainTab])
 
@@ -603,7 +608,7 @@ export default function LogisticaDashboard() {
   // que no es un código real, así que no se usa como tal. El mapa guarda
   // ambas cosas: la clave "uid|dirección" para resolver el código exacto de
   // la sucursal del pedido, y la clave "uid" sola como fallback.
-  const codigoByClientId = useMemo(() => buildCodigoByClientId(allClients), [allClients])
+  const codigoByClientId = useMemo(() => buildCodigoByClientIdIndex(indiceClientes), [indiceClientes])
 
   const sensors = useSensors(
     useSensor(MouseSensor,  { activationConstraint: { distance: 5 } }),

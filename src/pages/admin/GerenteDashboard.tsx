@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
   TrendingUp, Users, Package, AlertCircle, CheckCircle,
@@ -9,9 +9,10 @@ import { useAllOrders } from '@/hooks/useOrders'
 import { useHeladerasStats } from '@/hooks/useHeladerasStats'
 import { useProduccionPallets } from '@/hooks/useProduccionPallets'
 import { useRollupsUltimosDias } from '@/hooks/useRollups'
-import { getAllUsers, updateUserDocument } from '@/services/userService'
+import { useClientesIndexTodos } from '@/hooks/useClientesIndex'
+import { updateUserDocument } from '@/services/userService'
 import { reportError } from '@/services/observability'
-import { UserProfile, Order, PlantaId, PLANTAS } from '@/types'
+import { Order, PlantaId, PLANTAS } from '@/types'
 import { toDateStr, todayString as todayStr } from '@/utils/helpers'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -26,10 +27,6 @@ function nDaysAgo(n: number): Date {
   d.setDate(d.getDate() - n)
   d.setHours(0, 0, 0, 0)
   return d
-}
-
-function clientLabel(u: UserProfile): string {
-  return u.razonSocial || u.nombreContacto || u.nombre || u.email
 }
 
 // ── StatCard ──────────────────────────────────────────────────────────────────
@@ -82,18 +79,19 @@ export default function GerenteDashboard() {
   // Semana y top del mes salen de los rollups diarios (agregados server-side),
   // no del stream de pedidos que se truncaba a 500 en temporada (auditoría H5).
   const { rollups }                   = useRollupsUltimosDias(31)
-  const [allUsers, setAllUsers]   = useState<UserProfile[]>([])
-  const [loadU, setLoadU]         = useState(true)
+  // Clientes desde el índice liviano (2026-09-22): razón social, mail y estado
+  // alcanzan para pendientes, activos y fríos; la ficha con precios no baja más.
+  const { clientes: indice, loading: loadU } = useClientesIndexTodos()
+  // Aprobados en esta sesión: el índice los refleja cuando corre el trigger;
+  // hasta entonces se los marca activos a mano, como hacía el estado local.
+  const [aprobados, setAprobados] = useState<ReadonlySet<string>>(() => new Set())
   const [approving, setApproving] = useState<string | null>(null)
 
-  useEffect(() => {
-    getAllUsers()
-      .then((u) => { setAllUsers(u); setLoadU(false) })
-      .catch((err) => { reportError(err, { origen: 'GerenteDashboard', accion: 'cargar usuarios' }); setLoadU(false) })
-  }, [])
-
   const today    = todayStr()
-  const clientes = useMemo(() => allUsers.filter((u) => u.rol === 'cliente'), [allUsers])
+  const clientes = useMemo(
+    () => indice.map((c) => aprobados.has(c.uid) ? { ...c, estado: 'activo' } : c),
+    [indice, aprobados],
+  )
 
   // ── Stats del día ────────────────────────────────────────────────────────
   const ordersToday = useMemo(
@@ -146,14 +144,23 @@ export default function GerenteDashboard() {
   }, [rollups])
 
   // ── Clientes fríos (activos sin pedir hace 30+ días) ────────────────────
-  // Usa users.ultimoPedidoAt (lo mantiene el trigger onOrderRollup), así el
-  // dato es exacto aunque el último pedido sea más viejo que la ventana.
+  // Sale de los rollups diarios (agregados server-side, completos): un cliente
+  // activo que no figura en ningún rollup de los últimos 30 días no pidió en la
+  // ventana, sea porque su último pedido es más viejo o porque nunca pidió.
+  // Antes se leía users.ultimoPedidoAt de la ficha completa; el índice no lo
+  // trae y los rollups ya están en pantalla.
   const frios = useMemo(() => {
-    const cutoff = nDaysAgo(30)
+    const cutoff = toDateStr(nDaysAgo(30))
+    const pidieron = new Set<string>()
+    for (const r of rollups) {
+      if (r.fecha < cutoff) continue
+      for (const cid of Object.keys(r.porCliente)) pidieron.add(cid)
+    }
     return clientes
-      .filter((c) => c.estado === 'activo' && (!c.ultimoPedidoAt || c.ultimoPedidoAt.toDate() < cutoff))
+      .filter((c) => c.estado === 'activo' && !pidieron.has(c.uid))
+      .sort((a, b) => a.razonSocial.localeCompare(b.razonSocial, 'es'))
       .slice(0, 8)
-  }, [clientes])
+  }, [clientes, rollups])
 
   // ── Producción de hielo: pallets cargados hoy / últimos 7 días ──────────
   const palletsHoy = useMemo(
@@ -178,7 +185,9 @@ export default function GerenteDashboard() {
     setApproving(uid)
     try {
       await updateUserDocument(uid, { estado: 'activo' })
-      setAllUsers((prev) => prev.map((u) => u.uid === uid ? { ...u, estado: 'activo' as const } : u))
+      setAprobados((prev) => new Set(prev).add(uid))
+    } catch (err) {
+      reportError(err, { origen: 'GerenteDashboard', accion: 'aprobar cliente', uid })
     } finally {
       setApproving(null)
     }
@@ -272,7 +281,7 @@ export default function GerenteDashboard() {
                 {pendientes.map((c) => (
                   <div key={c.uid} className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium truncate text-gray-900">{clientLabel(c)}</p>
+                      <p className="text-sm font-medium truncate text-gray-900">{c.razonSocial}</p>
                       <p className="text-xs text-secundario truncate">{c.email}</p>
                     </div>
                     <button
@@ -324,7 +333,7 @@ export default function GerenteDashboard() {
               <div className="space-y-1.5 max-h-48 overflow-y-auto">
                 {frios.map((c) => (
                   <p key={c.uid} className="text-sm text-gray-600 truncate">
-                    · {clientLabel(c)}
+                    · {c.razonSocial}
                   </p>
                 ))}
               </div>

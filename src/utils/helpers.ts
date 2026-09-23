@@ -1,5 +1,5 @@
 import { Timestamp } from 'firebase/firestore'
-import { CatalogProducto, OrderProduct, UserProfile } from '../types'
+import { CatalogProducto, ClienteIndex, OrderProduct, UserProfile } from '../types'
 
 export function tsToDate(ts: Timestamp | { seconds: number } | null | undefined): Date {
   if (!ts) return new Date()
@@ -101,6 +101,20 @@ export function buildCodigoByClientId(allClients: UserProfile[]): Map<string, st
     map.set(c.uid, c.codigoCliente)
     for (const a of c.addresses ?? []) {
       if (a.address && isSucursalCode(a.id)) map.set(`${c.uid}|${normalizeAddress(a.address)}`, a.id)
+    }
+  }
+  return map
+}
+
+// Lo mismo desde el índice liviano `clientesIndex` (2026-09-22): `domicilios[]`
+// trae el id (= código de sucursal) y la dirección de cada entrada de
+// addresses[], así la pestaña Pedidos no baja la ficha completa con precios.
+export function buildCodigoByClientIdIndex(clientes: ClienteIndex[]): Map<string, string | undefined> {
+  const map = new Map<string, string | undefined>()
+  for (const c of clientes) {
+    map.set(c.uid, c.codigoCliente)
+    for (const d of c.domicilios ?? []) {
+      if (d.direccion && isSucursalCode(d.id)) map.set(`${c.uid}|${normalizeAddress(d.direccion)}`, d.id)
     }
   }
   return map

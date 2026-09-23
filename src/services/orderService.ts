@@ -550,16 +550,16 @@ export async function searchOrdersByClientCode(term: string): Promise<Order[]> {
   // sucursales/pedidos como un grupo empresario ahoga en la lista el
   // pedido puntual que se buscaba).
   // Con miles de clientes (padrón de Tango) esto NO puede ser un getDocs por
-  // búsqueda: se usa el cache de getAllUsers (5 min) y se filtra en memoria.
+  // búsqueda: se recorre el índice liviano clientesIndex (memo de 5 min;
+  // `domicilios[].id` es el mismo addresses[].id de la ficha) en memoria.
   const addressesByClient = new Map<string, Set<string>>()
-  const { getAllUsers } = await import('./userService')
-  for (const u of (await getAllUsers()).filter((x) => x.rol === 'cliente')) {
-    const addresses = (u.addresses ?? []) as { id?: string; address?: string }[]
-    for (const a of addresses) {
-      if (a.address && (a.id || '').toLowerCase().includes(tLower)) {
-        clientIds.add(u.uid)
-        if (!addressesByClient.has(u.uid)) addressesByClient.set(u.uid, new Set())
-        addressesByClient.get(u.uid)!.add(normalizeAddress(a.address))
+  const { getClientesIndexTodos } = await import('./clientesIndexService')
+  for (const c of await getClientesIndexTodos()) {
+    for (const d of c.domicilios ?? []) {
+      if (d.direccion && d.id.toLowerCase().includes(tLower)) {
+        clientIds.add(c.uid)
+        if (!addressesByClient.has(c.uid)) addressesByClient.set(c.uid, new Set())
+        addressesByClient.get(c.uid)!.add(normalizeAddress(d.direccion))
       }
     }
   }

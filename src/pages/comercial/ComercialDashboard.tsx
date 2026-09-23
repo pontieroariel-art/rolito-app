@@ -1,5 +1,5 @@
-import { lazy, Suspense, useMemo } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { lazy, Suspense, useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import {
   Users, UserCheck, Tag, ArrowRight,
@@ -11,10 +11,13 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '../../context/AuthContext'
 import { useAllOrders } from '../../hooks/useOrders'
 import { AvisoDatosTruncados } from '../../components/admin/AvisoDatosTruncados'
-import { getAllUsers, approveUser, updateUserStatus } from '../../services/userService'
-import { Order, UserProfile } from '../../types'
+import { getClientesConHistoria, approveUser, updateUserStatus } from '../../services/userService'
+import { useClientesIndexTodos } from '@/hooks/useClientesIndex'
+import { reportError } from '@/services/observability'
+import { Order, ClienteIndex, UserStatus } from '../../types'
 import { ForecastStrip } from '@/components/common/ForecastStrip'
 import { toDateStr, todayString, tsToDate } from '../../utils/helpers'
+import type { Timestamp } from 'firebase/firestore'
 
 // recharts (chunk `charts`) y el mapa de seguimiento (`maps`) bajan recién al
 // montar el tablero, no con la ruta (auditoría de bundle 2026-09-14).
@@ -28,48 +31,62 @@ function isToday(order: Order) {
   return toDateStr(tsToDate(order.date)) === todayString()
 }
 
-function daysSince(ts: any): number {
+function daysSince(ts: Timestamp | null | undefined): number {
   if (!ts) return Infinity
-  const d = ts.toDate ? ts.toDate() : new Date(ts.seconds * 1000)
-  return Math.floor((Date.now() - d.getTime()) / 86_400_000)
+  return Math.floor((Date.now() - tsToDate(ts).getTime()) / 86_400_000)
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export default function ComercialDashboard() {
   const { user }   = useAuth()
-  const qc         = useQueryClient()
 
   const { orders, loading: ordersLoading, truncado } = useAllOrders()
-  const { data: users = [], isLoading: usersLoading } = useQuery({
-    queryKey: ['users'],
-    queryFn:  () => getAllUsers(),
+  // Índice liviano de clientes (2026-09-22): pendientes, activos y las
+  // coordenadas del mapa salen de acá, sin bajar la ficha con precios.
+  const { clientes: indice, loading: usersLoading } = useClientesIndexTodos()
+  // "Sin lista" y "sin pedir hace N días" descartan a las cuentas de Tango que
+  // nunca pidieron, y eso necesita aprobadoPor / fechaCreacion / ultimoPedidoAt,
+  // que el índice todavía no trae: se piden solo los clientes con historia
+  // (~970 de 2.226), no toda la cartera.
+  const { data: conHistoria = [], isLoading: historiaLoading } = useQuery({
+    queryKey: ['clientes', 'con-historia'],
+    queryFn:  getClientesConHistoria,
     staleTime: 300_000,
   })
+  // Estado cambiado en esta sesión (aprobar / rechazar): el índice lo refleja
+  // cuando corre el trigger; hasta entonces se pisa a mano.
+  const [estadoLocal, setEstadoLocal] = useState<Readonly<Record<string, UserStatus>>>({})
 
-  const isLoading = ordersLoading || usersLoading
+  const isLoading = ordersLoading || usersLoading || historiaLoading
 
   // ── Derived data ─────────────────────────────────────────────────────────
 
-  const clientes   = useMemo(() => users.filter((u) => u.rol === 'cliente'), [users])
+  const clientes   = useMemo(
+    () => indice.map((c) => estadoLocal[c.uid] ? { ...c, estado: estadoLocal[c.uid] } : c),
+    [indice, estadoLocal],
+  )
   const pendientes = useMemo(() => clientes.filter((u) => u.estado === 'pendiente'), [clientes])
   // Las cuentas que la sync de Tango dio de alta y todavía no pidieron nunca
   // (padrón maestro, 2026-09-06) no cuentan como "sin lista" ni "inactivos":
-  // son miles y taparían a los clientes reales de la cartera.
-  const esCuentaTangoSinUso = (u: UserProfile) => u.aprobadoPor === 'tango' && !u.ultimoPedidoAt
+  // son miles y taparían a los clientes reales de la cartera. Ya vienen
+  // descartadas de getClientesConHistoria.
   // Sin lista = Tango no le asignó lista en Redonhielo (o no está vinculado a Tango).
-  const sinLista   = useMemo(() => clientes.filter((u) => u.estado === 'activo' && !u.listaTango?.redonhielo && !esCuentaTangoSinUso(u)), [clientes])
+  const sinLista   = useMemo(
+    () => conHistoria.filter((u) => u.estado === 'activo' && !u.listaTango?.redonhielo && estadoLocal[u.uid] !== 'inactivo'),
+    [conHistoria, estadoLocal],
+  )
 
   // Clientes inactivos: usa users.ultimoPedidoAt (lo mantiene el trigger
   // onOrderRollup), así el dato es exacto y no depende del stream de 30 días que
   // se truncaba a escala (auditoría H5).
   const inactivos = useMemo(() => {
-    return clientes.filter((u) => {
-      if (u.estado !== 'activo' || daysSince(u.fechaCreacion) <= INACTIVE_DAYS || esCuentaTangoSinUso(u)) return false
+    return conHistoria.filter((u) => {
+      if (u.estado !== 'activo' || estadoLocal[u.uid] === 'inactivo' || daysSince(u.fechaCreacion) <= INACTIVE_DAYS) return false
       if (!u.ultimoPedidoAt) return true
       return Math.floor((Date.now() / 1000 - u.ultimoPedidoAt.seconds) / 86400) >= INACTIVE_DAYS
     })
-  }, [clientes])
+  }, [conHistoria, estadoLocal])
 
   const todayOrders = useMemo(() => orders.filter(isToday), [orders])
 
@@ -78,22 +95,28 @@ export default function ComercialDashboard() {
   const confirmados = useMemo(() => todayOrders.filter((o) => o.status === 'confirmado').length,  [todayOrders])
   const pendientesP = useMemo(() => todayOrders.filter((o) => o.status === 'pendiente').length,   [todayOrders])
 
-  const patchUser = (uid: string, patch: Partial<UserProfile>) =>
-    qc.setQueryData<UserProfile[]>(['users'], (prev) =>
-      prev?.map((p) => p.uid === uid ? { ...p, ...patch } : p) ?? []
-    )
+  const patchEstado = (uid: string, estado: UserStatus) =>
+    setEstadoLocal((prev) => ({ ...prev, [uid]: estado }))
 
-  const handleAprobar = async (u: UserProfile) => {
+  const handleAprobar = async (u: ClienteIndex) => {
     if (!user) return
-    await approveUser(u.uid, user.uid)
-    // El email de aprobación lo envía el trigger onUserApproved server-side.
-    patchUser(u.uid, { estado: 'activo' })
+    try {
+      await approveUser(u.uid, user.uid)
+      // El email de aprobación lo envía el trigger onUserApproved server-side.
+      patchEstado(u.uid, 'activo')
+    } catch (err) {
+      reportError(err, { origen: 'ComercialDashboard', accion: 'aprobar cliente', uid: u.uid })
+    }
   }
 
-  const handleRechazar = async (u: UserProfile) => {
-    if (!confirm(`¿Rechazar a ${u.razonSocial || u.nombre}? El cliente quedará inactivo.`)) return
-    await updateUserStatus(u.uid, 'inactivo')
-    patchUser(u.uid, { estado: 'inactivo' })
+  const handleRechazar = async (u: ClienteIndex) => {
+    if (!confirm(`¿Rechazar a ${u.razonSocial}? El cliente quedará inactivo.`)) return
+    try {
+      await updateUserStatus(u.uid, 'inactivo')
+      patchEstado(u.uid, 'inactivo')
+    } catch (err) {
+      reportError(err, { origen: 'ComercialDashboard', accion: 'rechazar cliente', uid: u.uid })
+    }
   }
 
   return (
@@ -124,17 +147,17 @@ export default function ComercialDashboard() {
                     {pendientes.map((u) => (
                       <div key={u.uid} className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="text-sm font-medium truncate">{u.razonSocial || u.nombre}</p>
+                          <p className="text-sm font-medium truncate">{u.razonSocial}</p>
                           <p className="text-xs text-secundario truncate">{u.email}</p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <button
-                            onClick={() => handleRechazar(u)}
+                            onClick={() => { void handleRechazar(u) }}
                             className="text-xs py-1.5 px-3 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition-colors"
                           >
                             Rechazar
                           </button>
-                          <Button onClick={() => handleAprobar(u)} className="text-xs py-1.5 px-3">
+                          <Button onClick={() => { void handleAprobar(u) }} className="text-xs py-1.5 px-3">
                             Aprobar
                           </Button>
                         </div>

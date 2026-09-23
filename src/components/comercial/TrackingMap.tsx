@@ -4,7 +4,7 @@ import { MapPin } from 'lucide-react'
 import MapaBase from '@/components/common/map/MapaBase'
 import { pinCircular, pinGota } from '@/components/common/map/pines'
 import { subscribeAllActiveDrivers, ActiveDriver } from '@/services/locationService'
-import { Order, UserProfile } from '@/types'
+import { Order, ClienteIndex } from '@/types'
 import { normalizeAddress } from '@/utils/helpers'
 
 // Mapa de seguimiento del Tablero comercial. Vivía adentro de
@@ -15,7 +15,9 @@ import { normalizeAddress } from '@/utils/helpers'
 // Iniciales del chofer para el pin del mapa (antes era el pin azul genérico de Google).
 const inicialesChofer = (nombre: string) => nombre.split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((x) => x[0]).join('').toUpperCase()
 
-export default function TrackingMap({ orders, clientes }: { orders: Order[]; clientes: UserProfile[] }) {
+// `clientes` es el índice liviano (2026-09-22): `domicilios[]` trae las mismas
+// coordenadas que addresses[] de la ficha, sin bajar precios ni datos de Tango.
+export default function TrackingMap({ orders, clientes }: { orders: Order[]; clientes: ClienteIndex[] }) {
   const [open, setOpen]               = useState(false)
   const [drivers, setDrivers]         = useState<ActiveDriver[]>([])
   const [selected, setSelected]       = useState<string | null>(null)
@@ -37,12 +39,11 @@ export default function TrackingMap({ orders, clientes }: { orders: Order[]; cli
   const clientCoordsByKey = useMemo(() => {
     const map = new Map<string, { lat: number; lng: number }>()
     for (const c of clientes) {
-      for (const a of c.addresses ?? []) {
-        if (a.lat != null && a.lng != null) {
-          map.set(`${c.uid}|${normalizeAddress(a.address)}`, { lat: a.lat, lng: a.lng })
+      for (const d of c.domicilios ?? []) {
+        if (d.lat != null && d.lng != null) {
+          map.set(`${c.uid}|${normalizeAddress(d.direccion)}`, { lat: d.lat, lng: d.lng })
         }
       }
-      if (c.lat != null && c.lng != null) map.set(`${c.uid}|${normalizeAddress(c.address || '')}`, { lat: c.lat, lng: c.lng })
     }
     return map
   }, [clientes])

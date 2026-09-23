@@ -2,16 +2,17 @@ import { useState, useEffect, useCallback, ChangeEvent } from 'react'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
-import ClienteCombobox, { toComboItems } from '@/components/common/ClienteCombobox'
+import ClienteCombobox, { indexAComboItems } from '@/components/common/ClienteCombobox'
 import { useProgramasVisita, useVisitasPuntuales, programasParaFecha, visitasParaFecha } from '@/hooks/useVisitas'
 import { useChoferes } from '@/hooks/useChoferes'
-import { getAllUsers } from '@/services/userService'
+import { useClientesIndex } from '@/hooks/useClientesIndex'
+import { getClientesVisita } from '@/services/userService'
 import { reportError } from '@/services/observability'
 import {
   addPrograma, updatePrograma, deletePrograma,
   addVisitaPuntual, updateVisitaPuntual, deleteVisitaPuntual,
 } from '@/services/visitasService'
-import { ProgramaVisita, VisitaPuntual, UserProfile } from '@/types'
+import { ProgramaVisita, VisitaPuntual, UserProfile, ClienteIndex } from '@/types'
 import { Timestamp } from 'firebase/firestore'
 import { todayString, tsToDate as aFecha } from '@/utils/helpers'
 
@@ -54,7 +55,7 @@ function ProgramaForm({
 }: {
   initial?:  Partial<ProgramaVisita>
   choferes:  UserProfile[]
-  clientes:  UserProfile[]
+  clientes:  ClienteIndex[]
   onSave:    (data: Omit<ProgramaVisita, 'id' | 'createdAt'>) => Promise<void>
   onCancel:  () => void
 }) {
@@ -75,9 +76,9 @@ function ProgramaForm({
     setSaving(true)
     await onSave({
       clientId,
-      clientName:    clientLabel(cliente),
-      clientAddress: cliente.address || '',
-      clientPhone:   cliente.telefono || cliente.phone || '',
+      clientName:    cliente.razonSocial,
+      clientAddress: cliente.direccion,
+      clientPhone:   cliente.telefono ?? '',
       diasSemana:    dias,
       driverId:      driverId || null,
       activo:        true,
@@ -90,7 +91,7 @@ function ProgramaForm({
     <div className="space-y-4">
       <div>
         <label className="text-xs text-secundario mb-1 block">Cliente *</label>
-        <ClienteCombobox items={toComboItems(clientes)} value={clientId} onChange={setClientId} />
+        <ClienteCombobox items={indexAComboItems(clientes)} value={clientId} onChange={setClientId} />
       </div>
 
       <div>
@@ -157,7 +158,7 @@ function VisitaPuntualForm({
   onSave,
   onCancel,
 }: {
-  clientes:    UserProfile[]
+  clientes:    ClienteIndex[]
   choferes:    UserProfile[]
   defaultDate: string
   onSave:      (data: Omit<VisitaPuntual, 'id' | 'createdAt'>) => Promise<void>
@@ -177,9 +178,9 @@ function VisitaPuntualForm({
     setSaving(true)
     await onSave({
       clientId,
-      clientName:    clientLabel(cliente),
-      clientAddress: cliente.address || '',
-      clientPhone:   cliente.telefono || cliente.phone || '',
+      clientName:    cliente.razonSocial,
+      clientAddress: cliente.direccion,
+      clientPhone:   cliente.telefono ?? '',
       fecha:         Timestamp.fromDate(new Date(fecha + 'T12:00:00')),
       driverId:      driverId || null,
       status:        'pendiente',
@@ -192,7 +193,7 @@ function VisitaPuntualForm({
     <div className="space-y-4">
       <div>
         <label className="text-xs text-secundario mb-1 block">Cliente *</label>
-        <ClienteCombobox items={toComboItems(clientes)} value={clientId} onChange={setClientId} />
+        <ClienteCombobox items={indexAComboItems(clientes)} value={clientId} onChange={setClientId} />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -326,34 +327,41 @@ export default function VisitasPage() {
   const [addProgramaModal, setAddProgramaModal] = useState(false)
   const [editPrograma,   setEditPrograma]   = useState<ProgramaVisita | null>(null)
   const [addVisitaModal, setAddVisitaModal] = useState(false)
-  const [clientes,       setClientes]       = useState<UserProfile[]>([])
-  const [loadingClients, setLoadingClients] = useState(false)
+  // Clientes para el combobox de los formularios: el índice liviano activo
+  // (2026-09-22), suscripto recién cuando se abre un modal, como antes se
+  // cargaba la ficha completa al abrirlo.
+  const [pideClientes, setPideClientes] = useState(false)
+  const { clientes, loading: loadingClients } = useClientesIndex({ enabled: pideClientes })
 
-  const [errorClientes,  setErrorClientes]  = useState('')
+  // Seguimiento: los clientes marcados como visita, con ficha completa porque
+  // muestra la frecuencia y el domicilio principal (no están en el índice).
+  // Son pocos (uno al medirlo), así que es una consulta puntual por esVisita.
+  const [visitaClientes, setVisitaClientes]   = useState<UserProfile[] | null>(null)
+  const [loadingVisita,  setLoadingVisita]    = useState(false)
+  const [errorClientes,  setErrorClientes]    = useState('')
 
-  const loadClients = useCallback(async () => {
-    if (clientes.length > 0) return
-    setLoadingClients(true)
+  const loadVisitaClientes = useCallback(async () => {
+    if (visitaClientes) return
+    setLoadingVisita(true)
     try {
-      const all = await getAllUsers()
-      setClientes(all.filter((u) => u.rol === 'cliente' && u.estado === 'activo'))
+      setVisitaClientes(await getClientesVisita())
       setErrorClientes('')
     } catch (err) {
-      // Sin esto el modal abría con la lista de clientes vacía y sin explicación.
-      reportError(err, { origen: 'VisitasPage', accion: 'cargar clientes' })
+      // Sin esto la pestaña abría vacía y sin explicación.
+      reportError(err, { origen: 'VisitasPage', accion: 'cargar clientes de visita' })
       setErrorClientes('No se pudieron cargar los clientes. Revisá la conexión e intentá de nuevo.')
     } finally {
-      setLoadingClients(false)
+      setLoadingVisita(false)
     }
-  }, [clientes.length])
+  }, [visitaClientes])
 
-  const openAddPrograma = () => { void loadClients(); setAddProgramaModal(true) }
-  const openAddVisita   = () => { void loadClients(); setAddVisitaModal(true) }
-  const openEditPrograma = (p: ProgramaVisita) => { void loadClients(); setEditPrograma(p) }
+  const openAddPrograma = () => { setPideClientes(true); setAddProgramaModal(true) }
+  const openAddVisita   = () => { setPideClientes(true); setAddVisitaModal(true) }
+  const openEditPrograma = (p: ProgramaVisita) => { setPideClientes(true); setEditPrograma(p) }
 
   useEffect(() => {
-    if (tab === 'seguimiento') void loadClients()
-  }, [tab, loadClients])
+    if (tab === 'seguimiento') void loadVisitaClientes()
+  }, [tab, loadVisitaClientes])
 
   // Agenda del día seleccionado
   const fechaAgenda     = new Date(agendaDate + 'T12:00:00')
@@ -543,11 +551,9 @@ export default function VisitasPage() {
         {tab === 'seguimiento' && (
           <div className="space-y-4">
             {errorClientes && <p role="alert" className="text-sm text-red-600">{errorClientes}</p>}
-            {loadingClients ? (
+            {loadingVisita || !visitaClientes ? (
               <LoadingSpinner />
             ) : (() => {
-              const visitaClientes = clientes.filter((c) => c.esVisita)
-
               const isUpToDate = (client: UserProfile): boolean => {
                 const clientId = client.uid
                 if (programas.some((p) => p.clientId === clientId && p.activo)) return true
@@ -664,7 +670,6 @@ export default function VisitasPage() {
 
       {/* Modales */}
       <Modal open={addProgramaModal} onClose={() => setAddProgramaModal(false)} title="Nuevo programa de visita" variant="light">
-        {errorClientes && <p role="alert" className="text-sm text-red-600 mb-3">{errorClientes}</p>}
         {loadingClients ? <LoadingSpinner /> : (
           <ProgramaForm
             choferes={choferes}

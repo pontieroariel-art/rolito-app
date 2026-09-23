@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { palletsInfo, calcPallets } from './helpers'
-import { CatalogProducto, OrderProduct } from '../types'
+import { palletsInfo, calcPallets, buildCodigoByClientId, buildCodigoByClientIdIndex, getCodigoCliente } from './helpers'
+import { CatalogProducto, ClienteIndex, OrderProduct, UserProfile } from '../types'
 
 // palletsInfo y calcPallets tocan envases; se testean
 // como funciones puras (helpers no arrastra la inicialización de Firebase).
@@ -64,5 +64,34 @@ describe('calcPallets', () => {
       [prod('hielo10', 'Hielo 10kg', 88), prod('hielo5', 'Hielo 5kg', 88)],
       catalogo,
     )).toBe(1.5)
+  })
+})
+
+describe('buildCodigoByClientId vs buildCodigoByClientIdIndex', () => {
+  const ficha = {
+    uid: 'u1', codigoCliente: 'FC.280',
+    addresses: [
+      { id: 'FC.280', nombre: 'Casa central', address: 'Av. Córdoba 123' },
+      { id: 'FC.281', nombre: 'Sucursal', address: 'Monroe  45' },
+      { id: '3f2504e0-4f89-11d3-9a0c-0305e82c3301', nombre: 'Nueva', address: 'Calle 1' },
+    ],
+  } as unknown as UserProfile
+  const indice: ClienteIndex = {
+    uid: 'u1', razonSocial: 'X', nombreContacto: '', cuit: '', codigoCliente: 'FC.280', codigos: ['FC.280', 'FC.281'],
+    sucursales: ['Sucursal'], direccion: 'Av. Córdoba 123', localidad: '', estado: 'activo', vinculadoTango: true,
+    domicilios: [
+      { id: 'FC.280', nombre: 'Casa central', direccion: 'Av. Córdoba 123', lat: null, lng: null },
+      { id: 'FC.281', nombre: 'Sucursal', direccion: 'Monroe  45', lat: null, lng: null },
+      { id: '3f2504e0-4f89-11d3-9a0c-0305e82c3301', nombre: 'Nueva', direccion: 'Calle 1', lat: null, lng: null },
+    ],
+  }
+
+  it('el índice resuelve los mismos códigos de sucursal que la ficha completa', () => {
+    const a = buildCodigoByClientId([ficha])
+    const b = buildCodigoByClientIdIndex([indice])
+    expect([...b.entries()]).toEqual([...a.entries()])
+    expect(getCodigoCliente(b, 'u1', 'monroe 45')).toBe('FC.281')
+    expect(getCodigoCliente(b, 'u1', 'calle 1')).toBe('FC.280')   // id random: cae al general
+    expect(getCodigoCliente(b, 'u1')).toBe('FC.280')
   })
 })
