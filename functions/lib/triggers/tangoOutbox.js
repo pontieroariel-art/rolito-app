@@ -739,8 +739,12 @@ const WRITE_BACKS = {
     // Fase B (2026-09-17): merma (descarga → 99), diferencia (liquidación → 98) y
     // cambio de ventanilla (venta → 99) usan la misma entidad con otro `sentido`
     // y un campo propio, para no pisar el número de la DES de la misma descarga.
+    // 'cierresMercaderia' (2026-09-22): desde el viaje en dos partes (18/09) la
+    // diferencia al 98 sale del cierre de mercadería y no de la liquidación, y
+    // al no estar acá el DIF quedaba confirmado en la cola sin escribir
+    // tango.diferenciaNumero en el cierre (lo encontró el test de la cola).
     transferenciaDeposito: {
-        colecciones: ['remitosCarga', 'descargasCamion', 'liquidaciones', 'ventasVentanilla'],
+        colecciones: ['remitosCarga', 'descargasCamion', 'liquidaciones', 'ventasVentanilla', 'cierresMercaderia'],
         buildUpdate: (resultado, item) => {
             const numero = resultado?.transferenciaNumero ?? resultado?.comprobanteNumero ?? resultado?.savedId;
             if (!numero)
